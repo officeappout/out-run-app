@@ -121,23 +121,42 @@ export default function EquipmentCard({
           {/* Fade image bottom into card body — matches GroupCard's compact tile. */}
           <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-white dark:from-slate-800/90 to-transparent pointer-events-none" />
         </div>
-        <div className="px-2.5 py-2 flex items-start gap-1.5">
+        <div className="px-2.5 py-2 flex items-center gap-1.5">
           {primaryMuscle && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={MUSCLE_ICON_PATHS[primaryMuscle] ?? MUSCLE_FALLBACK_ICON}
-              alt=""
-              className="w-6 h-6 flex-shrink-0 mt-0.5 opacity-90"
-              loading="lazy"
-              decoding="async"
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).style.display = 'none';
-              }}
-            />
+            // Fixed square box + object-contain, not a bare sized <img> —
+            // the muscle SVGs don't share consistent internal viewBox
+            // padding/aspect, so at a plain w-6 h-6 they rendered at
+            // visibly different sizes from each other. This box is always
+            // the same size; object-contain scales each SVG to fit inside
+            // it without stretching, so the icon reads consistently
+            // regardless of which muscle it is.
+            <div className="w-6 h-6 flex-shrink-0 flex items-center justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={MUSCLE_ICON_PATHS[primaryMuscle] ?? MUSCLE_FALLBACK_ICON}
+                alt=""
+                className="max-w-full max-h-full object-contain opacity-90"
+                loading="lazy"
+                decoding="async"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            </div>
           )}
-          <p className="text-[13px] font-bold text-gray-900 dark:text-white leading-tight line-clamp-2">
-            {eq.name}
-          </p>
+          {/* min-h reserves 2 lines' worth of space (13px / leading-[16px] ×
+              2) always, whether the name is 1 or 2 lines — otherwise a
+              short name's tile was shorter than a wrapped name's tile in
+              the same grid row, and centering here keeps a 1-line name
+              from sitting top-anchored with dead space below it. The row's
+              items-center then aligns the icon against this fixed block
+              instead of the icon pinning to the top of whatever height the
+              text happened to need. */}
+          <div className="flex-1 min-w-0 min-h-[32px] flex items-center">
+            <p className="text-[13px] font-bold text-gray-900 dark:text-white leading-[16px] line-clamp-2">
+              {eq.name}
+            </p>
+          </div>
         </div>
       </button>
     );

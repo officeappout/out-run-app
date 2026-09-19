@@ -88,11 +88,12 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
   // Organic rating only (ratingAvg/reviewCount) — no fallback to the legacy
   // `rating` field, see park.types.ts's doc comment on both fields. Leads
   // the info line (Google-style: rating first, "4.0 ★ (2)"), modest/inline
-  // rather than a standalone badge — empty until ratingAvg/reviewCount are
-  // populated (see scripts/backfill-park-ratings.ts, not yet run).
+  // rather than a standalone badge. Rendered separately from `infoParts`
+  // (not folded into the joined string) so the ★ glyph can carry its own
+  // amber-400 color — same token as the sheet's <Star className="text-amber-400">
+  // — instead of inheriting the info line's gray text color.
   const infoParts: string[] = [];
   const hasRating = park.ratingAvg != null && (park.reviewCount ?? 0) > 0;
-  if (hasRating) infoParts.push(`${park.ratingAvg} ★ (${park.reviewCount})`);
   if (park.city) infoParts.push(park.city);
   if (distText) infoParts.push(distText);
   // Machine count — no fetch, park.gymEquipment is already on the loaded doc.
@@ -158,6 +159,14 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
             {/* Info line: rating · city · distance · machine count — modest,
                 inline (Google-style "4.0 ★ (2)"), not a standalone badge. */}
             <div className="flex items-center gap-1 mt-0.5 text-[12px] text-gray-500 dark:text-gray-400 flex-wrap">
+              {hasRating && (
+                <>
+                  <span>{park.ratingAvg}</span>
+                  <span className="text-amber-400">★</span>
+                  <span>({park.reviewCount})</span>
+                  {infoParts.length > 0 && <span>·</span>}
+                </>
+              )}
               <span>{infoParts.join(' · ')}</span>
             </div>
 
