@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInGuest, onAuthStateChange } from '@/lib/auth.service';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, Loader2, Footprints } from 'lucide-react';
@@ -17,6 +17,7 @@ import { consumeSessionInvitation } from '@/features/arena/services/group-invita
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
+import { buildExploreMapProfileWrite } from '@/features/user/onboarding/services/gateway-explore-map.service';
 
 // ============================================================================
 // LOADING OVERLAY — Clean, branded transition
@@ -280,58 +281,43 @@ export default function GatewayPage() {
       }
       // gateway_uid persists via onboardingPrefs so the profile page can
       // resolve the uid even if Firebase auth restoration is slow after
-      // a hard close on iOS. onboarding_path is mirrored durably too, so a
-      // reopen whose Firestore doc write was lost can still be recognised as
-      // a MAP_ONLY user (consumed by the landing-router recovery branch).
+      // a hard close on iOS.
       setOnboardingPref('gateway_uid', user.uid);
-      setOnboardingPref('onboarding_path', 'MAP_ONLY');
+
+      // Wipe guard: an already-onboarded user can land on /gateway during the
+      // async auto-redirect effect's lookup window (above) and tap this card
+      // before it fires. Read the doc first so an existing profile is never
+      // re-scaffolded — see docs/research/gateway-home-strength-card-investigation.md
+      // for the incident this closes (progression.domains, core.gender/weight,
+      // running.activeProgram etc. were all being reset to blank defaults).
+      const existingDocSnap = await getDoc(doc(db, 'users', user.uid));
+      const scaffold = buildExploreMapProfileWrite(
+        user.uid,
+        existingDocSnap.exists() ? existingDocSnap.data() : undefined,
+      );
+
+      // onboarding_path is mirrored durably too, so a reopen whose Firestore doc
+      // write was lost can still be recognised as a MAP_ONLY user (consumed by
+      // the landing-router recovery branch) — only meaningful for a genuinely
+      // new user; skip it for an existing profile so it can't misclassify one.
+      if (scaffold) {
+        setOnboardingPref('onboarding_path', 'MAP_ONLY');
+      }
 
       // Fix 3 — capture the profile write so we can confirm it committed before
       // navigating. Fire-and-forget could strand a doc-less MAP_ONLY user on a
       // hard-close right after redirect (root routing then bounces them to
       // /gateway → reads as "forgot me" + re-asks location). City detection
       // still runs in parallel below and does not block the redirect.
-      const profileWrite = setDoc(doc(db, 'users', user.uid), {
-        id: user.uid,
-        onboardingPath: 'MAP_ONLY',
-        onboardingStatus: 'MAP_ONLY',
-        onboardingProgress: 0,
-        core: {
-          name: '',
-          initialFitnessTier: 1,
-          trackingMode: 'wellness',
-          mainGoal: 'healthy_lifestyle',
-          gender: 'other',
-          weight: 0,
-          accessLevel: 1,
-          affiliations: [],
-          unlockedProgramIds: [],
-          isVerified: false,
-        },
-        progression: {
-          globalLevel: 1,
-          globalXP: 0,
-          coins: 0,
-          totalCaloriesBurned: 0,
-          hasUnlockedAdvancedStats: false,
-          domains: {},
-          activePrograms: [],
-          unlockedBonusExercises: [],
-        },
-        equipment: { home: [], office: [], outdoor: [] },
-        lifestyle: { hasDog: false, commute: { method: 'walk', enableChallenges: false } },
-        health: { injuries: [], connectedWatch: 'none' },
-        running: {
-          isUnlocked: false,
-          currentGoal: 'couch_to_5k',
-          activeProgram: null,
-          paceProfile: { basePace: 0, profileType: 3, qualityWorkoutsHistory: [], qualityWorkoutCount: 0, lastSelfCorrectionDate: null },
-        },
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      }, { merge: true })
-        .then(() => true)
-        .catch((e) => { console.error('[Gateway] setDoc error (explore):', e); return false; });
+      const profileWrite = scaffold
+        ? setDoc(doc(db, 'users', user.uid), {
+            ...scaffold,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          }, { merge: true })
+            .then(() => true)
+            .catch((e) => { console.error('[Gateway] setDoc error (explore):', e); return false; })
+        : Promise.resolve(true);
 
       detectCityFromGPS().then(async (affiliation) => {
         if (affiliation) {
