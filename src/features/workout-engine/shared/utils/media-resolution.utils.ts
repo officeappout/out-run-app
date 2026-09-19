@@ -12,13 +12,22 @@
  *   3. Exercise-level media.videoUrl
  *   4. Exercise root videoUrl / media.mainVideoUrl
  *
- * Search priority (image):
- *   1. Selected method's media.imageUrl
+ * Search priority (image) — 19.09.2026 fix: restored to match this actual
+ * documented order (the code had drifted to trying a Bunny-derived
+ * thumbnail FIRST, silently overriding a perfectly good stored image
+ * whenever the exercise also had a resolvable video — see isCleanImageUrl):
+ *   1. Selected method's media.imageUrl (skipped if it looks like a video
+ *      URL — a known write-side artifact, see isCleanImageUrl below)
  *   2. Any OTHER method's media.imageUrl — park-tagged methods first, then
- *      the rest in original order (see byParkFirst)
- *   3. Exercise-level media.imageUrl
- *   4. Exercise root imageUrl / coverImage / thumbnailUrl
- *   5. Falls back to resolved video URL (video thumbnail)
+ *      the rest in original order (see byParkFirst) — same video-URL guard
+ *   3. Exercise-level media.imageUrl (same guard)
+ *   4. Exercise root imageUrl / coverImage / thumbnailUrl (same guard)
+ *   5. Bunny-derived thumbnail (bunnyThumbUrl) — true last resort before 6,
+ *      for a bunny-only exercise with no stored image anywhere
+ *   6. Falls back to the resolved video URL itself — ONLY when it does NOT
+ *      look like a raw video file/host (isCleanImageUrl again): a genuine
+ *      video URL must never reach an <img>/<Image> src, so this tier now
+ *      degrades to "no image" instead of a guaranteed-broken render.
  *
  * Search priority (fullTutorial — long-form instructional video):
  *   1. Selected method's media.fullTutorial (HE, with HE fallback)
@@ -32,6 +41,21 @@
 import { resolveTutorialForLang, resolvePreviewForLang } from '@/features/content/exercises/core/exercise.types';
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
 import { buildBunnyStreamUrl, buildBunnyThumbnailUrl, extractBunnyVideoId } from '@/lib/bunny/bunny.config';
+
+/**
+ * Shared with the admin exercise list (src/app/admin/exercises/page.tsx,
+ * where this exact pattern originated) — one canonical definition of "this
+ * URL looks like a video, never hand it to an <img>/<Image> src." A stored
+ * `media.imageUrl` field can legitimately hold a video URL (ExerciseEditorForm's
+ * own save-time fallback: media.imageUrl falls back to media.mainVideoUrl when
+ * no image was uploaded), so every "stored image" tier below must guard
+ * against it, not just trust the field name.
+ */
+export const IMAGE_URL_VIDEO_PATTERNS = /\.(mp4|mov|webm|avi|mkv)(\?|#|$)|youtube\.com|youtu\.be|vimeo\.com/i;
+
+function isCleanImageUrl(url: unknown): url is string {
+  return typeof url === 'string' && url.trim().length > 0 && !IMAGE_URL_VIDEO_PATTERNS.test(url);
+}
 
 export interface ResolvedMedia {
   videoUrl: string | undefined;
@@ -163,17 +187,18 @@ export function resolveExerciseMedia(
 
   // ── Image resolution ──
   const imageUrl: string | undefined =
-    bunnyThumbUrl ||
-    methodMedia?.imageUrl ||
+    (isCleanImageUrl(methodMedia?.imageUrl) ? methodMedia!.imageUrl : undefined) ||
     allMethodsParkFirst.reduce(
-      (found: string | undefined, m: any) => found || m?.media?.imageUrl,
+      (found: string | undefined, m: any) =>
+        found || (isCleanImageUrl(m?.media?.imageUrl) ? m.media.imageUrl : undefined),
       undefined,
     ) ||
-    exercise.media?.imageUrl ||
-    exercise.imageUrl ||
-    exercise.coverImage ||
-    exercise.thumbnailUrl ||
-    videoUrl || // last resort: video thumbnail
+    (isCleanImageUrl(exercise.media?.imageUrl) ? exercise.media.imageUrl : undefined) ||
+    (isCleanImageUrl(exercise.imageUrl) ? exercise.imageUrl : undefined) ||
+    (isCleanImageUrl(exercise.coverImage) ? exercise.coverImage : undefined) ||
+    (isCleanImageUrl(exercise.thumbnailUrl) ? exercise.thumbnailUrl : undefined) ||
+    bunnyThumbUrl || // true last resort: bunny-only exercise, no stored image anywhere
+    (isCleanImageUrl(videoUrl) ? videoUrl : undefined) || // never hand a raw video URL to an <img> src
     undefined;
 
   // ── Full tutorial resolution (deep search, mirrors video priority) ──

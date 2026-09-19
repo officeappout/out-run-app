@@ -27,6 +27,7 @@ import {
   Zap, X, Languages,
 } from 'lucide-react';
 import BulkTranslationDialog from '@/features/content/exercises/admin/components/BulkTranslationDialog';
+import { IMAGE_URL_VIDEO_PATTERNS as VIDEO_PATTERNS } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 
 // ────────────────────────────────────────────────────────────────
 // Constants
@@ -47,9 +48,6 @@ const MOVEMENT_GROUP_LABELS: Record<MovementGroup, string> = {
 // ────────────────────────────────────────────────────────────────
 // Helpers — all pure, no hooks
 // ────────────────────────────────────────────────────────────────
-
-/** Video-related URL patterns we must NEVER pass to an <img> src */
-const VIDEO_PATTERNS = /\.(mp4|mov|webm|avi|mkv)(\?|#|$)|youtube\.com|youtu\.be|vimeo\.com/i;
 
 /**
  * Return the first **image-only** URL from execution_methods.
