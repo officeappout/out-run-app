@@ -71,7 +71,7 @@ import type { GeneratedWorkout, WorkoutExercise, DifficultyLevel } from '../logi
 import type { TabataBlockSpec } from '../logic/workout-generator.types';
 import type { TabataProtocolConfig } from '../core/types/protocol.types';
 import { getGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
-import { selectBrandByName, resolveBrandVideoUrl } from '@/features/content/equipment/gym/core/gym-equipment-brand.utils';
+import { selectBrandByName, resolveBrandVideoUrl, resolveBrandImageUrl } from '@/features/content/equipment/gym/core/gym-equipment-brand.utils';
 import { generateHomeWorkoutTrio, normalizeProgramId } from './home-workout.service';
 import { calculateWorkoutStats, calculateEstimatedDuration } from '../logic/workout-budgeting.utils';
 import { MG_TO_DOMAIN } from '../shared/constants/domain-mapping.constants';
@@ -766,7 +766,14 @@ export function buildMachinePseudoExercise(
       // had nothing but a Bunny-UUID regex match against mainVideoUrl (works
       // only for Bunny-iframe URLs) before falling to the video URL itself as
       // an <img src> — which fails to render for anything else, showing "?".
-      imageUrl: brand?.imageUrl ?? undefined,
+      // 19.09.2026 (list-card missing thumbnail): was `brand?.imageUrl` only —
+      // the selected brand's own image, no cross-brand fallback, unlike
+      // mainVideoUrl above (resolveBrandVideoUrl). resolveBrandImageUrl closes
+      // that asymmetry (added later, for the detail drawer's "Ludos case" —
+      // never wired back into this composer). Confirmed against real data: at
+      // least one gym_equipment doc has a brand with no image while a sibling
+      // brand does — that's exactly the empty/gray-box thumbnail bug.
+      imageUrl: resolveBrandImageUrl(brands, brand),
     },
   } as ExecutionMethod;
 

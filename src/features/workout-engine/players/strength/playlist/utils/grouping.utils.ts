@@ -14,6 +14,8 @@ import type {
 } from '@/features/parks';
 import type { PyramidStep } from '@/features/workout-engine/logic/workout-generator.types';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
+import { resolveBlockProtocol } from '../../protocols/block-protocol';
+import { tabataMemberCosts, tabataRoundsPerMember } from '../../protocols/tabata.advance';
 import type { FlatExercise, SubGroup } from '../types';
 
 /**
@@ -118,6 +120,21 @@ export function flattenWorkoutToExercises(workout: WorkoutPlan): FlatExercise[] 
   workout.segments.forEach((seg, si) => {
     const exercises = getExercises(seg);
     if (!exercises) return;
+
+    // Tabata block (machine or general-finisher): the generator hardcodes
+    // sets:1 on every member (tabata.block.ts, compose-park-strength-
+    // workout.service.ts) — the runner's own per-interval logic relies on
+    // that literal 1 and must not change. The list card's real "rounds per
+    // member" is rounds ÷ block members, the EXACT derivation
+    // useWorkoutStateMachine.ts's header already uses
+    // (tabataRoundsPerMember) — reused here, not reinvented, so the two can
+    // never disagree. null for every non-tabata segment (byte-identical
+    // fallthrough to the pre-existing sets logic below).
+    const blockProtocol = resolveBlockProtocol(seg as any);
+    const tabataRoundsPerMemberForSegment = blockProtocol
+      ? tabataRoundsPerMember(blockProtocol.config.rounds, tabataMemberCosts(exercises))
+      : null;
+
     exercises.forEach((ex, ei) => {
       const isTime = ex.exerciseType === 'time' || ex.isTimeBased === true;
       const rest = (ex as any).restSeconds ?? seg.restBetweenExercises ?? 30;
@@ -125,7 +142,8 @@ export function flattenWorkoutToExercises(workout: WorkoutPlan): FlatExercise[] 
       const repsSequence = (ex as any).repsSequence as number[] | undefined;
 
       const baseSets = getSetsForExercise(ex);
-      const sets = pyramidSequence?.length ?? repsSequence?.length ?? baseSets;
+      const sets = tabataRoundsPerMemberForSegment ??
+        (pyramidSequence?.length ?? repsSequence?.length ?? baseSets);
 
       let repsText = ex.reps || ex.duration || '';
       if (pyramidSequence && pyramidSequence.length > 0) {

@@ -255,8 +255,27 @@ describe('buildMachinePseudoExercise', () => {
     // The selected brand (Ludos) has no video — resolveBrandVideoUrl borrows
     // Urbanics's, exactly like EquipmentDetailDrawer's effectiveVideoUrl does.
     expect(result.method.media?.mainVideoUrl).toBe('https://example.com/urbanics.mp4');
-    // imageUrl stays tied to the SELECTED brand only — no cross-brand borrow there.
+    // Ludos DOES have its own image here, so resolveBrandImageUrl (19.09.2026
+    // fix) returns it directly — the cross-brand-image case is covered by
+    // the dedicated test below, where the selected brand has NO image.
     expect(result.method.media?.imageUrl).toBe('https://example.com/ludos.jpg');
+  });
+
+  it('19.09.2026 fix (list-card missing thumbnail): cross-brand IMAGE fallback — the selected brand has no image, but a sibling brand does', () => {
+    const mixedImageBrand = machine({
+      id: 'm12',
+      movementPattern: 'horizontal_push',
+      brands: [
+        { brandName: 'Ludos', videoUrl: 'https://example.com/ludos.mp4' }, // no image
+        { brandName: 'Urbanics', videoUrl: 'https://example.com/urbanics.mp4', imageUrl: 'https://example.com/urbanics.jpg' },
+      ],
+    });
+    const result = buildMachinePseudoExercise(mixedImageBrand, config, 'Ludos');
+    // The selected brand (Ludos) has no image — resolveBrandImageUrl borrows
+    // Urbanics's, exactly mirroring resolveBrandVideoUrl's own cross-brand
+    // fallback above. Previously stayed undefined (brand?.imageUrl only),
+    // which is exactly the empty/gray-box list-card thumbnail bug.
+    expect(result.method.media?.imageUrl).toBe('https://example.com/urbanics.jpg');
   });
 
   it('diagnosis item 5 fix: no sibling brand has a video either — falls to the selected brand\'s own image, not black', () => {
