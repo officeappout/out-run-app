@@ -53,6 +53,7 @@ import StatsOverview, { type BuilderContext, type TrioSelector } from '@/feature
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
 import ProgramProgressRow from '@/features/home/components/rows/ProgramProgressRow';
 import ConsistencyWidget from '@/features/home/components/rows/ConsistencyWidget';
+import AddStrengthProgramCard from '@/features/home/components/AddStrengthProgramCard';
 import { useWeeklyProgress, useDailyActivity } from '@/features/activity';
 import type { ActivityCategory } from '@/features/activity/types/activity.types';
 import TodayActivityStrip from '@/features/home/components/TodayActivityStrip';
@@ -3222,6 +3223,9 @@ export default function HomePage() {
           return (
             <>
               {anchorBlock}
+              {!hasStrengthProgram && (
+                <AddStrengthProgramCard profile={profile} />
+              )}
               {isTodayWorkoutDone ? (
                 <>
                   {continueActivityBlock}
