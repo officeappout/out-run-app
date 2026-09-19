@@ -291,16 +291,30 @@ export async function applyInvitationToUser(
     const userDocRef = doc(db, 'users', userId);
     const userDoc = await getDoc(userDocRef);
 
+    // 19.09.2026 — role:'admin' used to be written unconditionally for every
+    // invitation type. That top-level field alone satisfies firestore.rules'
+    // isAdmin() (and its server-side mirror, resolveIdentity() in
+    // firebase-admin.ts) — a GLOBAL, non-tenant-scoped admin grant. For
+    // authority_manager/platform_member/unit_admin/tenant_owner, the real
+    // authorization already lives in the correctly-scoped fields
+    // (core.authorityId + authorities.managerIds, core.allowedSections,
+    // core.tenantId, core.isTenantOwner) — role:'admin' on top of that gave
+    // them blanket cross-tenant admin access with no scoping at all.
+    // Only super_admin / vertical_admin are meant to be global admins, so
+    // only those two keep this field.
+    const grantsGlobalAdminRoleFlag =
+      invitation.role === 'super_admin' || invitation.role === 'vertical_admin';
+
     // Check if user profile exists
     if (!userDoc.exists()) {
       // User profile doesn't exist yet - create it with invitation data
       const { auth } = await import('@/lib/firebase');
       const currentUser = auth.currentUser;
       const { serverTimestamp: st } = await import('firebase/firestore');
-      
+
       await setDoc(userDocRef, {
         id: userId,
-        role: 'admin',
+        ...(grantsGlobalAdminRoleFlag ? { role: 'admin' } : {}),
         core: {
           name: currentUser?.displayName || invitation.email.split('@')[0] || 'User',
           email: invitation.email,
@@ -347,10 +361,16 @@ export async function applyInvitationToUser(
     } else {
       // User profile exists - update it
       const updateData: any = {
-        role: 'admin',
         'core.isApproved': true,
         updatedAt: serverTimestamp(),
       };
+      // See grantsGlobalAdminRoleFlag comment above — only super_admin /
+      // vertical_admin get the global role:'admin' flag. Not clearing an
+      // existing role field here for other invitation types — that's a
+      // separate, deliberate backfill (not a byproduct of a new invite).
+      if (grantsGlobalAdminRoleFlag) {
+        updateData['role'] = 'admin';
+      }
 
       if (invitation.role === 'super_admin') {
         updateData['core.isSuperAdmin'] = true;
