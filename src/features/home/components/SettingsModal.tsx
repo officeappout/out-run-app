@@ -339,24 +339,38 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   // change could never show here — the display just kept whatever stale
   // affiliations entry happened to exist from an unrelated earlier action.
   // Now resolves authorityId directly, same live-lookup pattern as
-  // neighborhoodName below. Legacy fallbacks kept for older records that
-  // may only have the old fields populated.
+  // neighborhoodName below.
+  //
+  // 19.09.2026 fix — dropped the core.affiliations fallback entirely (was
+  // layer 3). That field is written by persistResolvedCity() in
+  // useUserCityName.ts off *live GPS reverse-geocoding* — it records
+  // whatever city the user's phone was physically in, not the city they
+  // selected. A user living in Tel Aviv whose phone briefly resolved
+  // Petah Tikva (e.g. mid-route GPS fix while traveling) would see "פתח
+  // תקווה" as "their city" here — confirmed against production data.
+  // core.authority.name (layer 2) is kept as a same-request fallback for
+  // when the live lookup below resolves to an authority doc with no
+  // `name` field — but only ever applied *after* loading finishes, never
+  // as a stand-in while cityResolving is true (see cityDisplay below).
   const [resolvedCityName, setResolvedCityName] = useState<string | null>(null);
-  const cityDisplay = resolvedCityName ?? (() => {
-    const a = (profile?.core as any)?.authority;
-    if (a && typeof a === 'object' && a.name) return String(a.name);
-    const aff = profile?.core?.affiliations?.find((x) => x.type === 'city' && x.name);
-    if (aff?.name) return aff.name;
-    return null;
-  })();
+  const [cityResolving, setCityResolving] = useState(false);
+  const cityDisplay = cityResolving
+    ? null
+    : resolvedCityName ?? (() => {
+        const a = (profile?.core as any)?.authority;
+        if (a && typeof a === 'object' && a.name) return String(a.name);
+        return null;
+      })();
 
   useEffect(() => {
     const aid = profile?.core?.authorityId;
-    if (!aid) { setResolvedCityName(null); return; }
+    if (!aid) { setResolvedCityName(null); setCityResolving(false); return; }
     let cancelled = false;
+    setCityResolving(true);
     getDoc(doc(db, 'authorities', aid))
       .then((snap) => { if (!cancelled) setResolvedCityName(snap.exists() ? ((snap.data()?.name as string) ?? null) : null); })
-      .catch(() => { if (!cancelled) setResolvedCityName(null); });
+      .catch(() => { if (!cancelled) setResolvedCityName(null); })
+      .finally(() => { if (!cancelled) setCityResolving(false); });
     return () => { cancelled = true; };
   }, [profile?.core?.authorityId]);
 
@@ -1297,7 +1311,9 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                 className="w-full flex items-center justify-between px-3 py-2 border border-gray-200 rounded-xl text-sm font-simpler text-right"
                               >
                                 <span className="text-cyan-600 font-semibold text-xs">ערוך</span>
-                                <span className="text-gray-900">{cityDisplay ?? 'לא הוגדרה'}</span>
+                                <span className="text-gray-900">
+                                  {cityResolving ? 'טוען…' : cityDisplay ?? 'לא הוגדרה'}
+                                </span>
                               </button>
                             </div>
                             {/* Neighborhood — staged like name/weight/DOB,
