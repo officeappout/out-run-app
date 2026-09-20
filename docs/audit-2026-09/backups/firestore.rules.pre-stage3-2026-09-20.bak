@@ -49,16 +49,7 @@ service cloud.firestore {
     function isAdmin() {
       return isRootAdmin() ||
         (request.auth != null && (
-          // 20.09.2026 — was getUserDoc().role == 'admin' (unguarded direct
-          // access). Threw "Property role is undefined on object" instead of
-          // evaluating to false whenever the CALLING user's own stored doc
-          // has no top-level role key at all — true for every normal user
-          // who was never invited as an admin. Still correctly denied
-          // access (the OR chain's other branches / the enclosing rule's
-          // isOwner path took over), just via a noisy evaluation-error path
-          // instead of a clean boolean. Same safe-default pattern as the
-          // next line already uses for core.role.
-          getUserDoc().get('role', '') == 'admin' ||
+          getUserDoc().role == 'admin' ||
           getUserDoc().get('core', {}).get('role', '') == 'admin' ||
           getUserDoc().get('core', {}).get('isSuperAdmin', false) == true ||
           getUserDoc().get('core', {}).get('isSystemAdmin', false) == true
@@ -218,13 +209,11 @@ service cloud.firestore {
     // lacks. validateAccessCode (Admin SDK, Cloud Function) is unaffected —
     // Admin SDK bypasses these rules entirely regardless of this change.
     // Once a non-default value is stored, a NON-admin can never change it via
-    // a client write — unchanged from before. (Admins retain the ability to
-    // set the initial value via noTenantFieldsChanged()'s own embedded
-    // isAdmin() check below — line 236 etc. — not the bottom-of-file
-    // `match /{document=**}` fallback, which was narrowed to isRootAdmin()
-    // only on 20.09.2026 and no longer covers plain isAdmin(). That
-    // narrowing does not affect this function: it calls isAdmin() directly,
-    // independent of the catch-all.)
+    // a client write — unchanged from before. (Admins retain their existing
+    // blanket override via the `match /{document=**} { allow write: if
+    // isAdmin(); }` fallback at the bottom of this file, same as every other
+    // protected field group here — that's pre-existing architecture, not
+    // something this fix touches.)
     //
     // Note: authorityId keeps its original (pre-fix) behavior — its primary
     // lock is that onboarding-sync does NOT include it in its payload; writes
@@ -2540,30 +2529,10 @@ service cloud.firestore {
     }
 
     // ============================================================
-    // ROOT ADMIN FALLBACK — david@/office@appout.co.il only.
+    // ADMIN FALLBACK — אדמין יכול לגשת לכל מסמך
     // ============================================================
-    // 20.09.2026 — was `isRootAdmin() || isAdmin()`. isAdmin() is DB-backed
-    // (role/core.role/core.isSuperAdmin/core.isSystemAdmin on the caller's
-    // own user doc) — a non-tenant-scoped grant that applied to every
-    // collection in the database with no per-collection exceptions,
-    // including collections with their own narrower rule above (Firestore
-    // ORs every matching rule block; a narrower rule never overrides this
-    // fallback, it only adds another way to pass). Confirmed empirically:
-    // authority_manager/tenant_owner/unit_admin/platform_member accounts
-    // satisfied isAdmin() and could read/write ANY document via this one
-    // line — see docs/audit-2026-09/ for the incident writeup.
-    //
-    // Narrowed to isRootAdmin() only. Every *specific* collection rule
-    // above that intentionally grants isAdmin() (content/config collections
-    // meant to be editable by any admin, not just root) is untouched — this
-    // change affects ONLY documents/collections with no more specific rule
-    // of their own. At the time of this change, 0 active production users
-    // satisfied isAdmin() without also satisfying isRootAdmin() (verified
-    // — see the same audit doc), so this narrowing was a no-op for every
-    // real account at deploy time; it closes the gap for the NEXT
-    // non-root admin, not a currently-relied-upon path.
     match /{document=**} {
-      allow read, write: if isRootAdmin();
+      allow read, write: if isRootAdmin() || isAdmin();
     }
   }
 }
