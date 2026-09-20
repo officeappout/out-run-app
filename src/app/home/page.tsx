@@ -46,7 +46,7 @@ import type { Park } from '@/features/parks/core/types/park.types';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { isAdminEmailAllowed, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED, HOME_RECOVERY_START_SHORTCUT_ENABLED, POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED, HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED, RUNNING_ONBOARDING_GATE_ENABLED } from '@/config/feature-flags';
-import { setOnboardingPref } from '@/lib/onboardingPrefs';
+import { setOnboardingPref, getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
 import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
 import { resolveCardHasScheduleAndPersona } from '@/lib/running-onboarding-gate';
 import StatsOverview, { type BuilderContext, type TrioSelector } from '@/features/home/components/StatsOverview';
@@ -2543,6 +2543,14 @@ export default function HomePage() {
     if (!_hasHydrated || profile || isCheckingFirestore) return;
     const checkFirestore = async () => {
       setIsCheckingFirestore(true);
+      // Mirrors src/app/page.tsx's own doc-lookup fallback (MAP_ONLY branches):
+      // a MAP_ONLY user whose profile hasn't hydrated into the store yet must
+      // never be bounced to /onboarding-new/profile — that re-asks identity for
+      // a user who already made a real choice at gateway.
+      const fallbackRedirect = async () => {
+        const durablePath = await getOnboardingPrefAsync('onboarding_path');
+        router.replace(durablePath === 'MAP_ONLY' ? '/explorer' : '/onboarding-new/profile');
+      };
       try {
         // Wait for Firebase auth to complete its initial async state resolution
         // from IndexedDB persistence before declaring "no user". On a cold boot
@@ -2556,7 +2564,7 @@ export default function HomePage() {
           } catch { /* not available in older SDK versions, ignore */ }
           uid = auth.currentUser?.uid;
         }
-        if (!uid) { router.replace('/onboarding-new/profile'); return; }
+        if (!uid) { await fallbackRedirect(); return; }
         const snap = await getDoc(firestoreDoc(db, 'users', uid));
         if (snap.exists()) {
           const d = snap.data();
@@ -2566,8 +2574,8 @@ export default function HomePage() {
             if (fp) { useUserStore.getState().initializeProfile(fp); setIsCheckingFirestore(false); return; }
           }
         }
-        router.replace('/onboarding-new/profile');
-      } catch { router.replace('/onboarding-new/profile'); }
+        await fallbackRedirect();
+      } catch { await fallbackRedirect(); }
       finally { setIsCheckingFirestore(false); }
     };
     checkFirestore();

@@ -12,7 +12,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import OnboardingStoryBar from '@/features/user/onboarding/components/OnboardingStoryBar';
 import { STRENGTH_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
 import { firePhaseConfetti } from '@/features/user/onboarding/utils/onboarding-confetti';
-import { getOnboardingPref } from '@/lib/onboardingPrefs';
+import { getOnboardingPref, getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
 import { resolveJoinLanding } from '@/lib/resolveJoinLanding';
 
 /**
@@ -332,25 +332,47 @@ export default function IdentityProfilePage() {
 
   const resolvedUid = isHydrated ? resolveUid(authUser) : null;
 
+  // Purely a re-render trigger (see the effect below) — getOnboardingPrefAsync
+  // re-primes localStorage on a native-storage hit, so a plain resolveUid()
+  // retry succeeds after that, but nothing re-renders just because localStorage
+  // changed. Bumping this forces resolvedUid/the effect's own guard to
+  // re-evaluate once the async recovery below succeeds.
+  const [prefRecoveryTick, setPrefRecoveryTick] = useState(0);
+
   useEffect(() => {
-    if (!isHydrated) return;
-    if (authReady && !resolveUid(authUser)) {
-      // Guard: if an express join flow is in progress, the anon auth created by
-      // handleJoinClick may not have propagated to onAuthStateChanged yet.
-      // resolveUid already checks auth.currentUser synchronously as a fallback,
-      // but if that also returns null AND we have a pending invite, wait rather
-      // than bouncing back to gateway — the auth state will arrive momentarily.
-      if (
-        isExpress &&
-        typeof window !== 'undefined' &&
-        localStorage.getItem('pending_invite_code')
-      ) {
-        return;
-      }
+    if (!isHydrated || !authReady || resolveUid(authUser)) return;
+    // Guard: if an express join flow is in progress, the anon auth created by
+    // handleJoinClick may not have propagated to onAuthStateChanged yet.
+    if (
+      isExpress &&
+      typeof window !== 'undefined' &&
+      localStorage.getItem('pending_invite_code')
+    ) {
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      // Fix 2 (gateway-reappears-after-home investigation): resolveUid's
+      // synchronous getOnboardingPref('gateway_uid') read can miss a value that
+      // only survived in @capacitor/preferences (WKWebView localStorage
+      // eviction). getOnboardingPrefAsync re-primes localStorage on a hit, so
+      // retrying resolveUid() after this resolves picks the value back up.
+      await getOnboardingPrefAsync('gateway_uid');
+      if (cancelled) return;
+      if (resolveUid(authUser)) { setPrefRecoveryTick((n) => n + 1); return; }
+      // Fix 3: still no uid anywhere — before bouncing to /gateway (which mints
+      // a brand-new anon session via resolveUser()->signInGuest(), re-asking
+      // everything), check whether this is a known MAP_ONLY user and send them
+      // to /explorer instead — mirrors src/app/page.tsx's identical MAP_ONLY
+      // recovery.
+      const durablePath = await getOnboardingPrefAsync('onboarding_path');
+      if (cancelled) return;
+      if (durablePath === 'MAP_ONLY') { router.replace('/explorer'); return; }
       console.warn('[Profile] Auth settled with no uid — redirecting to /gateway');
       router.replace('/gateway');
-    }
-  }, [authReady, isHydrated, authUser, isExpress, router]);
+    })();
+    return () => { cancelled = true; };
+  }, [authReady, isHydrated, authUser, isExpress, router, prefRecoveryTick]);
 
   if (!resolvedUid) {
     return (
