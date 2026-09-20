@@ -312,6 +312,20 @@ export async function applyInvitationToUser(
       const currentUser = auth.currentUser;
       const { serverTimestamp: st } = await import('firebase/firestore');
 
+      // 20.09.2026 (SPEC-PERMISSIONS-MODEL.md §6.2) — every one of the four
+      // role-dependent fields below used to be written as `field: undefined`
+      // whenever the invitation type didn't apply to it. The Firestore client
+      // SDK rejects a setDoc() payload containing a literal `undefined` value
+      // outright (this app's `db` does not set ignoreUndefinedProperties —
+      // see src/lib/firebase.ts — so this is real, unconditional rejection,
+      // not a testing artifact). The request never left the SDK for ANY
+      // invitation type, because at least one of these four always evaluated
+      // to undefined. Fixed by omitting the key entirely when it doesn't
+      // apply — the same "absent, not undefined" pattern the UPDATE branch
+      // just below already uses (`if (cond) updateData['core.x'] = value`,
+      // no `else` branch). See docs/SPEC-PERMISSIONS-MODEL.md §6.2 for the
+      // full narrative; this does NOT touch §6.1 (the separate, still-open
+      // acceptance-flow block in noAdminFieldsChanged()).
       await setDoc(userDocRef, {
         id: userId,
         ...(grantsGlobalAdminRoleFlag ? { role: 'admin' } : {}),
@@ -323,14 +337,32 @@ export async function applyInvitationToUser(
           mainGoal: 'healthy_lifestyle',
           gender: 'other',
           weight: 70,
-          photoURL: currentUser?.photoURL,
+          // Firebase Auth's User.photoURL is `string | null`, never
+          // `undefined` — but `currentUser` itself can be null/undefined in
+          // rare timing cases, and optional chaining then yields `undefined`
+          // (not null). Not role-dependent — a general auth-profile
+          // fallback, unrelated to invitation type. `null` matches the SDK's
+          // own type contract for this field.
+          photoURL: currentUser?.photoURL ?? null,
           isApproved: true,
           isSuperAdmin: invitation.role === 'super_admin',
           isVerticalAdmin: invitation.role === 'vertical_admin',
-          managedVertical: invitation.role === 'vertical_admin' ? invitation.managedVertical : undefined,
-          authorityId: invitation.role === 'authority_manager' ? invitation.authorityId : undefined,
-          allowedSections: invitation.role === 'platform_member' ? (invitation.allowedSections ?? []) : undefined,
-          teamRole: invitation.role === 'platform_member' ? (invitation.teamRole ?? undefined) : undefined,
+          // vertical_admin only. SPEC-PERMISSIONS-MODEL.md does not mention
+          // this role at all (its §2 table covers root + 2 levels per
+          // vertical, all scoped to one tenant/authority — vertical_admin's
+          // "manage one whole vertical across every tenant in it" doesn't
+          // fit that shape). Flagging, not resolving — out of scope for
+          // §6.2, which is about the undefined-value bug only.
+          ...(invitation.role === 'vertical_admin' && invitation.managedVertical ? { managedVertical: invitation.managedVertical } : {}),
+          // authority_manager only. Matches SPEC-PERMISSIONS-MODEL.md §2 —
+          // level-1 "מנהל בריאות רשותי", scope = one authorityId.
+          ...(invitation.role === 'authority_manager' && invitation.authorityId ? { authorityId: invitation.authorityId } : {}),
+          // platform_member only (internal team tooling access — CRM/
+          // marketing staff, not a customer-facing role). Not covered by
+          // SPEC-PERMISSIONS-MODEL.md at all — that spec is scoped to the
+          // 3 customer verticals + root. Flagging, not resolving.
+          ...(invitation.role === 'platform_member' ? { allowedSections: invitation.allowedSections ?? [] } : {}),
+          ...(invitation.role === 'platform_member' && invitation.teamRole ? { teamRole: invitation.teamRole } : {}),
         },
         progression: {
           globalLevel: 1,
