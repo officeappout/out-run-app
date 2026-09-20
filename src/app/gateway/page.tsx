@@ -5,19 +5,19 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInGuest, onAuthStateChange } from '@/lib/auth.service';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
+import { onAuthStateChange } from '@/lib/auth.service';
+import { db } from '@/lib/firebase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, Loader2, Footprints } from 'lucide-react';
-import { detectCityFromGPS, addAffiliation } from '@/features/user/identity/services/affiliation.service';
 import { captureReferralParam, getStoredReferrer, clearStoredReferrer, processReferral, establishSocialConnection } from '@/features/safecity/services/referral.service';
-import { joinGroup } from '@/features/arena/services/group.service';
-import { consumeSessionInvitation } from '@/features/arena/services/group-invitation.service';
-import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
-import { buildExploreMapProfileWrite } from '@/features/user/onboarding/services/gateway-explore-map.service';
+import {
+  runExploreMapFlow,
+  resolveUser,
+  consumePendingGroupInvite,
+  consumePendingSessionInvite,
+} from '@/features/user/onboarding/services/run-explore-map-flow';
 
 // ============================================================================
 // LOADING OVERLAY — Clean, branded transition
@@ -178,199 +178,21 @@ export default function GatewayPage() {
     return () => unsubscribe();
   }, [router]);
 
-  // ── Resolve the active user — reuse existing provider session if present ──
-  // Gateway is reachable both by brand-new visitors AND by users who just
-  // signed in with Apple/Google but haven't completed onboarding yet.
-  // Calling signInGuest() (signInAnonymously) when a provider user is already
-  // authenticated replaces their session with a new anonymous uid, permanently
-  // breaking the link between their Apple/Google account and their profile.
-  const resolveUser = async () => {
-    const current = auth.currentUser;
-    if (current && !current.isAnonymous) {
-      return { user: current, error: null };
-    }
-    return signInGuest();
-  };
-
-  // ── Consume a pending group invite (set by /join/[inviteCode]) ──
-  // Auto-joins the group right after auth resolves so an invited user lands
-  // INSIDE the league with the success drawer firing — instead of being
-  // dropped on the group drawer and having to tap "Join" manually. Returns
-  // the post-join redirect path, or null when there's no pending invite.
-  const consumePendingGroupInvite = async (
-    uid: string,
-    name: string,
-  ): Promise<string | null> => {
-    const pendingGroupId = localStorage.getItem('pending_group_id');
-    if (!pendingGroupId) return null;
-
-    const pendingInviteCode = localStorage.getItem('pending_invite_code') ?? undefined;
-    localStorage.removeItem('pending_group_id');
-    localStorage.removeItem('pending_invite_code');
-
-    try {
-      await joinGroup(
-        pendingGroupId,
-        uid,
-        name,
-        pendingInviteCode ? { providedCode: pendingInviteCode } : undefined,
-      );
-    } catch (e) {
-      console.error('[Gateway] auto-join pending group failed:', e);
-    }
-
-    // joined=true tells the community page to fire PostJoinSuccessDrawer.
-    return `/community?groupId=${pendingGroupId}&joined=true`;
-  };
-
-  // Phase G v1 — session invite token consumed post-auth.
-  // Returns the redirect URL if a pending token was found and consumed, null otherwise.
-  const consumePendingSessionInvite = async (
-    uid: string,
-    displayName: string,
-    photoURL?: string | null,
-  ): Promise<string | null> => {
-    const pendingToken = localStorage.getItem('pending_session_token');
-    if (!pendingToken) return null;
-    localStorage.removeItem('pending_session_token');
-
-    try {
-      const { groupId, attendanceId, source, activityType } = await consumeSessionInvitation(
-        pendingToken,
-        uid,
-        { name: displayName, ...(photoURL ? { photoURL } : {}) },
-      );
-      // Seed the group session context — onSnapshot fills memberIds/profiles.
-      // user_memberships is confirmed written (consumeSessionInvitation succeeded).
-      useSharedSession.getState().joinViaDeepLink(groupId, attendanceId, [], {}, '');
-      useSharedSession.getState().setMembershipReady();
-
-      if (source === 'run-invite' && activityType) {
-        // Write pending_run_invite so DiscoverLayer can restore partner context
-        // if the page reloads after navigation (Zustand reset on iOS hard-close).
-        // 🔴 KEY CLEANUP: pending_session_token already removed above; this key
-        // is consumed + deleted by DiscoverLayer on mount.
-        localStorage.setItem(
-          'pending_run_invite',
-          JSON.stringify({ groupId, attendanceId, activityType, source }),
-        );
-        return `/map?openRun=${activityType}`;
-      }
-
-      // Standard group session: open community page with group drawer.
-      return `/community?groupId=${groupId}`;
-    } catch (e) {
-      console.error('[Gateway] session invite consume failed:', e);
-      // 🔴 KEY CLEANUP: clear stale run invite if consume failed
-      localStorage.removeItem('pending_run_invite');
-      return '/map';
-    }
-  };
-
   // ── Path A: EXPLORE MAP — Quick start with GPS city detection ──
+  // Delegates to the shared runExploreMapFlow (run-explore-map-flow.ts) —
+  // the same flow the landing page's "הרשמה מהירה" quick-register button
+  // calls directly. This wrapper only owns this page's own loading UI; the
+  // flow's logic (wipe guard, prefs, GPS, referral/invite handling,
+  // navigation) lives in exactly one place.
   const handleExploreMap = async () => {
     isBusyRef.current = true;
     setShowGuestTransition(true);
-
     try {
-      const { user } = await resolveUser();
-      if (!user) {
+      const proceeded = await runExploreMapFlow(router);
+      if (!proceeded) {
         isBusyRef.current = false;
         setShowGuestTransition(false);
-        return;
       }
-      // gateway_uid persists via onboardingPrefs so the profile page can
-      // resolve the uid even if Firebase auth restoration is slow after
-      // a hard close on iOS.
-      setOnboardingPref('gateway_uid', user.uid);
-
-      // Wipe guard: an already-onboarded user can land on /gateway during the
-      // async auto-redirect effect's lookup window (above) and tap this card
-      // before it fires. Read the doc first so an existing profile is never
-      // re-scaffolded — see docs/research/gateway-home-strength-card-investigation.md
-      // for the incident this closes (progression.domains, core.gender/weight,
-      // running.activeProgram etc. were all being reset to blank defaults).
-      const existingDocSnap = await getDoc(doc(db, 'users', user.uid));
-      const scaffold = buildExploreMapProfileWrite(
-        user.uid,
-        existingDocSnap.exists() ? existingDocSnap.data() : undefined,
-      );
-
-      // onboarding_path is mirrored durably too, so a reopen whose Firestore doc
-      // write was lost can still be recognised as a MAP_ONLY user (consumed by
-      // the landing-router recovery branch) — only meaningful for a genuinely
-      // new user; skip it for an existing profile so it can't misclassify one.
-      if (scaffold) {
-        setOnboardingPref('onboarding_path', 'MAP_ONLY');
-      }
-
-      // Fix 3 — capture the profile write so we can confirm it committed before
-      // navigating. Fire-and-forget could strand a doc-less MAP_ONLY user on a
-      // hard-close right after redirect (root routing then bounces them to
-      // /gateway → reads as "forgot me" + re-asks location). City detection
-      // still runs in parallel below and does not block the redirect.
-      const profileWrite = scaffold
-        ? setDoc(doc(db, 'users', user.uid), {
-            ...scaffold,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          }, { merge: true })
-            .then(() => true)
-            .catch((e) => { console.error('[Gateway] setDoc error (explore):', e); return false; })
-        : Promise.resolve(true);
-
-      detectCityFromGPS().then(async (affiliation) => {
-        if (affiliation) {
-          await addAffiliation(affiliation);
-        }
-      }).catch(() => {});
-
-      // Process referral + auto-connect if user came via an invite link
-      const referrerUid = getStoredReferrer();
-      if (referrerUid && referrerUid !== user.uid) {
-        establishSocialConnection(referrerUid, user.uid).catch(() => {});
-        processReferral(referrerUid, user.uid, '').catch(() => {});
-        clearStoredReferrer();
-      }
-
-      // Auto-connect with group creator if user came via a group invite link
-      const groupInviterUid = localStorage.getItem('group_inviter_uid');
-      if (groupInviterUid && groupInviterUid !== user.uid) {
-        establishSocialConnection(groupInviterUid, user.uid).catch(() => {});
-        localStorage.removeItem('group_inviter_uid');
-      }
-
-      // If user came from a group invite deep link, auto-join then redirect
-      const groupRedirect = await consumePendingGroupInvite(
-        user.uid,
-        user.displayName ?? 'משתמש',
-      );
-      if (groupRedirect) {
-        setTimeout(() => { router.push(groupRedirect); }, 1200);
-        return;
-      }
-
-      // If user came from a session invite deep link, consume token then redirect to map
-      const sessionRedirect = await consumePendingSessionInvite(
-        user.uid,
-        user.displayName ?? 'משתמש',
-        user.photoURL,
-      );
-      if (sessionRedirect) {
-        setTimeout(() => { router.push(sessionRedirect); }, 1200);
-        return;
-      }
-
-      // Fix 3 — give the profile write up to 1.5s to commit BEFORE navigating,
-      // so a hard-close right after redirect can't strand a doc-less MAP_ONLY
-      // user. Offline-safe: the race cap never hangs (the write stays queued and
-      // the durable onboarding_path marker lets reopen recover). The ~1.2s
-      // transition-animation window still elapses in parallel.
-      await Promise.all([
-        Promise.race([profileWrite, new Promise((r) => setTimeout(r, 1500))]),
-        new Promise((r) => setTimeout(r, 1200)),
-      ]);
-      router.push('/explorer');
     } catch (error) {
       console.error('[Gateway] Explore map error:', error);
       isBusyRef.current = false;

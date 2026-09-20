@@ -2,12 +2,13 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithGoogle, signInWithApple, onAuthStateChange } from '@/lib/auth.service';
 import { db, auth } from '@/lib/firebase';
 import { getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
 import { resolveJoinLanding } from '@/lib/resolveJoinLanding';
+import { runExploreMapFlow } from '@/features/user/onboarding/services/run-explore-map-flow';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import BrandedSplashScreen from '@/components/BrandedSplashScreen';
@@ -299,6 +300,15 @@ export default function LandingPage() {
   // any code that touches browser-only APIs.
   const [authState, setAuthState] = useState<AuthState>('restoring');
 
+  // Set while handleQuickSignup's runExploreMapFlow call is in flight. The
+  // guest sign-in it triggers fires the SAME onAuthStateChange subscription
+  // below, which would otherwise race its own getDoc/redirect decision
+  // against runExploreMapFlow's — and since that decision depends on timing
+  // of the onboarding_path pref write, it could lose the race and bounce to
+  // /gateway, reintroducing the exact bug this session already fixed
+  // elsewhere. Mirrors gateway/page.tsx's own isBusyRef pattern.
+  const quickSignupInFlightRef = useRef(false);
+
   // ── Session hint check — client-only, post-hydration ──
   // Two-tier fallback to avoid the cold-start race condition on iOS where
   // WKWebView can evict localStorage between hard close and re-launch:
@@ -351,6 +361,10 @@ export default function LandingPage() {
   // ── Auto-redirect for already logged-in users ──
   useEffect(() => {
     const unsubscribe = onAuthStateChange(async (user) => {
+      // runExploreMapFlow (triggered by handleQuickSignup) owns navigation
+      // for this sign-in — don't race it with a second, independent redirect
+      // decision. See quickSignupInFlightRef's own comment above.
+      if (quickSignupInFlightRef.current) return;
       if (!user) {
         // Confirmed unauthenticated — paint the landing UI. Note that
         // we DO NOT clear SESSION_HINT_KEY here; only signOutUser does.
@@ -468,9 +482,22 @@ export default function LandingPage() {
     return () => unsubscribe();
   }, [router]);
 
-  // ── Primary: "הרשמה מהירה" → Gateway (handles signInGuest before Profile) ──
-  const handleQuickSignup = useCallback(() => {
-    router.push('/gateway');
+  // ── Primary: "הרשמה מהירה" → runs the same explore-map flow as gateway's
+  // "גלו את המפה" card directly, skipping the gateway choice screen. ──
+  const handleQuickSignup = useCallback(async () => {
+    quickSignupInFlightRef.current = true;
+    setAuthState('authenticated'); // reuse the branded splash while this resolves
+    try {
+      const proceeded = await runExploreMapFlow(router);
+      if (!proceeded) {
+        quickSignupInFlightRef.current = false;
+        setAuthState('guest');
+      }
+    } catch (error) {
+      console.error('[Landing] Quick signup error:', error);
+      quickSignupInFlightRef.current = false;
+      setAuthState('guest');
+    }
   }, [router]);
 
   // ── Secondary: "התחברות" → Open login drawer ──
