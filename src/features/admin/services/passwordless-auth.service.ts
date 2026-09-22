@@ -2,7 +2,7 @@
  * Passwordless Authentication Service for Admin Portal
  * Checks admin permissions before sending magic links
  */
-import { sendMagicLink } from '@/lib/auth.service';
+import { sendMagicLink, checkLoginLinkGate } from '@/lib/auth.service';
 import { getAuthoritiesByManager } from './authority.service';
 import { getUserByEmail } from './admin-management.service';
 import { checkUserRole } from './auth.service';
@@ -181,6 +181,19 @@ export async function sendAdminMagicLink(
   options?: { invitationToken?: string }
 ): Promise<{ sent: boolean; error: string | null }> {
   try {
+    // Rate-limit gate FIRST — before checkAdminEmail (Firestore reads +
+    // a check-email fetch) or any other role-check work below runs at
+    // all. A blocked caller never reaches those checks, which both
+    // protects their cost from being hammered too and guarantees the
+    // gate's own non-enumerating property holds here (see
+    // login-link-gate/route.ts): the gate's response depends only on
+    // submission frequency, never on whatever checkAdminEmail would have
+    // found out about this address.
+    const gate = await checkLoginLinkGate(email);
+    if (!gate.allowed) {
+      return { sent: false, error: gate.error };
+    }
+
     // If the caller has an invitation token AND it resolves (server-side)
     // to an unused, unexpired invitation for THIS exact email, skip the
     // full admin-email verification — the user may be brand new. The

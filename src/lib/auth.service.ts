@@ -948,6 +948,63 @@ export async function sendMagicLink(
 }
 
 /**
+ * Pre-flight rate-limit check for sending a login link — see
+ * /api/auth/login-link-gate/route.ts for the full rationale (this is a
+ * best-effort gate; sendMagicLink itself still calls Firebase directly).
+ *
+ * Fails OPEN: a network error calling the gate must never block a real
+ * user from signing in over an unrelated hiccup — same fail-open policy
+ * as the gate's own Firestore check (rateLimit.ts).
+ */
+export async function checkLoginLinkGate(email: string): Promise<{ allowed: boolean; error: string | null }> {
+  try {
+    const res = await fetch('/api/auth/login-link-gate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    if (res.status === 429) {
+      const data = await res.json().catch(() => ({}));
+      return { allowed: false, error: data?.error || 'יותר מדי ניסיונות. נסו שוב בעוד כמה דקות.' };
+    }
+    return { allowed: true, error: null };
+  } catch (error) {
+    console.warn('[checkLoginLinkGate] gate check failed — failing open:', error);
+    return { allowed: true, error: null };
+  }
+}
+
+/**
+ * Same as sendMagicLink, but checked against the rate-limit gate first.
+ * Use this at every DIRECT self-service call site (the caller IS the
+ * intended recipient — e.g. authority-portal/login's own form). Admin-
+ * initiated sends on someone else's behalf (skipLocalStorage: true sites)
+ * go through passwordless-auth.service.ts's sendAdminMagicLink instead,
+ * which gates itself before its own role-check work.
+ *
+ * Unlike sendMagicLink itself, the error string here is always a safe,
+ * already-translated Hebrew message — never the raw Firebase error — so
+ * every caller can pass it straight to the UI, matching how every existing
+ * sendMagicLink call site already replaces `result.error` with its own
+ * generic Hebrew fallback instead of surfacing it directly.
+ */
+export async function sendMagicLinkRateLimited(
+  email: string,
+  continueUrl?: string,
+  options?: { skipLocalStorage?: boolean },
+): Promise<{ error: string | null }> {
+  const gate = await checkLoginLinkGate(email);
+  if (!gate.allowed) {
+    return { error: gate.error };
+  }
+  const result = await sendMagicLink(email, continueUrl, options);
+  if (result.error) {
+    return { error: 'שגיאה בשליחת הקישור. נסה שוב.' };
+  }
+  return result;
+}
+
+/**
  * Check if the current URL is a magic link callback
  */
 export function isMagicLinkCallback(): boolean {

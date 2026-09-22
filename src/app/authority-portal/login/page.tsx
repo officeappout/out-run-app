@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
-import { sendMagicLink, mintAdminSessionCookie, signOutUser } from '@/lib/auth.service';
+import { sendMagicLinkRateLimited, mintAdminSessionCookie, signOutUser } from '@/lib/auth.service';
 import { getAuthoritiesByManager, getAuthority } from '@/features/admin/services/authority.service';
 import { decideLoopBreak, readLastLoopAttempt, recordLoopAttempt, clearLoopAttempt } from '@/features/admin/services/authority-login-loop-guard';
 import { Building2, Mail, AlertCircle, CheckCircle, Loader2, X, MailCheck, Search } from 'lucide-react';
@@ -161,10 +161,10 @@ function AuthorityPortalLoginContent() {
       // typed; the server decides what that account is entitled to only
       // AFTER a real sign-in, in /admin/auth/callback.
       const continueUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/admin/auth/callback?email=${encodeURIComponent(email)}`;
-      const result = await sendMagicLink(email, continueUrl);
+      const result = await sendMagicLinkRateLimited(email, continueUrl);
 
       if (result.error) {
-        setError('שגיאה בשליחת הקישור. נסה שוב.');
+        setError(result.error);
         setLoading(false);
         return;
       }
