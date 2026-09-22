@@ -34,7 +34,7 @@ vi.mock('@/lib/firebase-admin', () => ({
 import { GET } from '../route';
 
 function fakeRequest(url: string): NextRequest {
-  return { nextUrl: new URL(url) } as unknown as NextRequest;
+  return { nextUrl: new URL(url), headers: new Headers() } as unknown as NextRequest;
 }
 
 describe('GET /api/challenge/leaderboard', () => {

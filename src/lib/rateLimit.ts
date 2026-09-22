@@ -50,10 +50,10 @@ export async function isRateLimited(
   key: string,
   opts: { windowMs: number; maxRequests: number },
 ): Promise<boolean> {
-  const ref = db.collection(COLLECTION).doc(key);
   const now = Date.now();
 
   try {
+    const ref = db.collection(COLLECTION).doc(key);
     return await db.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
       const data = snap.exists ? snap.data() : undefined;
