@@ -267,7 +267,19 @@ export default function AuthorityTeamPage() {
       const result = await res.json();
 
       console.log('[TeamPage] Invitation created successfully:', result);
-      setSuccess(`הזמנה נשלחה ל-${inviteEmail}`);
+
+      // Send the sign-in link straight to the invitee's email — root is
+      // the one clicking "send" here, not the invitee, so this must NOT
+      // write the invitee's email into root's own localStorage (see
+      // sendMagicLink's skipLocalStorage doc in src/lib/auth.service.ts).
+      const { sendMagicLink } = await import('@/lib/auth.service');
+      const sendResult = await sendMagicLink(inviteEmail, result.callbackUrl, { skipLocalStorage: true });
+      if (sendResult.error) {
+        console.error('[TeamPage] Failed to auto-send invitation email:', sendResult.error);
+        setSuccess(`ההזמנה נוצרה, אך שליחת המייל נכשלה — השתמש בקישור להעתקה`);
+      } else {
+        setSuccess(`נשלח מייל ל-${inviteEmail}`);
+      }
       setCopiedLink(result.inviteLink);
       setInviteEmail('');
       setInviteTargetAuthority('');

@@ -878,8 +878,24 @@ export function onAuthStateChange(callback: (user: User | null) => void) {
 
 /**
  * Send passwordless sign-in link via email (Magic Link)
+ *
+ * `skipLocalStorage`: pass true when the CALLER is not the intended
+ * RECIPIENT — e.g. root sending an invitation link to someone else's
+ * email from root's own browser (admin/authority/team/page.tsx,
+ * InviteMemberModal.tsx). The default (unset/false) behavior — writing
+ * `emailForSignIn` to localStorage — is correct only when the person
+ * clicking "send" is the same person who will open the email: it lets
+ * the SAME-device callback auto-complete sign-in without re-asking for
+ * the email. When sender ≠ recipient, writing the recipient's email into
+ * the SENDER's own localStorage would silently corrupt the sender's own
+ * future magic-link sign-ins on that browser (their next
+ * `emailForSignIn` read would return someone else's address).
  */
-export async function sendMagicLink(email: string, continueUrl?: string): Promise<{ error: string | null }> {
+export async function sendMagicLink(
+  email: string,
+  continueUrl?: string,
+  options?: { skipLocalStorage?: boolean },
+): Promise<{ error: string | null }> {
   try {
     const actionCodeSettings: ActionCodeSettings = {
       url: continueUrl || `${typeof window !== 'undefined' ? window.location.origin : ''}/admin/auth/callback`,
@@ -887,12 +903,13 @@ export async function sendMagicLink(email: string, continueUrl?: string): Promis
     };
 
     await sendSignInLinkToEmail(auth, email, actionCodeSettings);
-    
-    // Store email in localStorage for later use
-    if (typeof window !== 'undefined') {
+
+    // Store email in localStorage for later use — skipped when sending on
+    // someone else's behalf (see the skipLocalStorage doc above).
+    if (typeof window !== 'undefined' && !options?.skipLocalStorage) {
       window.localStorage.setItem('emailForSignIn', email);
     }
-    
+
     return { error: null };
   } catch (error: any) {
     console.error('Error sending magic link:', error);
