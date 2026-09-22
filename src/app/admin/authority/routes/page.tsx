@@ -59,6 +59,12 @@ export default function AuthorityRoutesPage() {
     const [approvingId,   setApprovingId]   = useState<string | null>(null);
     const [error,         setError]         = useState<string | null>(null);
     const [isSuperAdmin,  setIsSuperAdmin]  = useState(false);
+    // Route mapping stays root-only per SPEC-PERMISSIONS-MODEL.md §5.2 — see
+    // the matching comment in admin/authority/locations/page.tsx for why
+    // this is isRootAdmin, not isSuperAdmin, and why it's UI-only (the real
+    // backstop is firestore.rules' isAdmin() gate on official_routes writes,
+    // unchanged here).
+    const [isRoot,        setIsRoot]        = useState(false);
 
     // ── load user authority + routes ──────────────────────────────
     useEffect(() => {
@@ -70,6 +76,7 @@ export default function AuthorityRoutesPage() {
                 let aid: string | null = null;
 
                 setIsSuperAdmin(!!role.isSuperAdmin);
+                setIsRoot(!!role.isRootAdmin);
 
                 if (role.isSuperAdmin) {
                     const allAuths = await getAllAuthorities(undefined, true);
@@ -188,11 +195,13 @@ export default function AuthorityRoutesPage() {
                         <span>רענן</span>
                     </button>
 
-                    <Link href="/admin/authority/routes/new"
-                        className="flex items-center gap-2 bg-cyan-500 hover:bg-cyan-600 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-cyan-200 transition-all text-sm">
-                        <Plus size={18} />
-                        הוסף מסלול חדש
-                    </Link>
+                    {isRoot && (
+                        <Link href="/admin/authority/routes/new"
+                            className="flex items-center gap-2 bg-cyan-500 hover:bg-cyan-600 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-cyan-200 transition-all text-sm">
+                            <Plus size={18} />
+                            הוסף מסלול חדש
+                        </Link>
+                    )}
                 </div>
             </div>
 
@@ -242,11 +251,13 @@ export default function AuthorityRoutesPage() {
                             <p className="text-lg font-black text-gray-700">אין מסלולים עדיין</p>
                             <p className="text-sm text-gray-400 mt-1">לחץ על &ldquo;הוסף מסלול חדש&rdquo; כדי לצייר את המסלול הראשון שלך</p>
                         </div>
-                        <Link href="/admin/authority/routes/new"
-                            className="flex items-center gap-2 bg-cyan-500 text-white px-6 py-3 rounded-2xl font-bold hover:bg-cyan-600 transition-all shadow-lg shadow-cyan-100 mt-2">
-                            <Plus size={18} />
-                            צור מסלול ראשון
-                        </Link>
+                        {isRoot && (
+                            <Link href="/admin/authority/routes/new"
+                                className="flex items-center gap-2 bg-cyan-500 text-white px-6 py-3 rounded-2xl font-bold hover:bg-cyan-600 transition-all shadow-lg shadow-cyan-100 mt-2">
+                                <Plus size={18} />
+                                צור מסלול ראשון
+                            </Link>
+                        )}
                     </div>
                 ) : (
                     <>
@@ -361,15 +372,17 @@ export default function AuthorityRoutesPage() {
                                             )}
                                         </div>
 
-                                        {/* Edit action */}
+                                        {/* Edit action — root only, §5.2 */}
                                         <div className="flex justify-center">
-                                            <Link
-                                                href={`/admin/authority/routes/${route.id}/edit`}
-                                                className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-blue-600 transition-colors"
-                                            >
-                                                <Pencil size={12} />
-                                                עריכה
-                                            </Link>
+                                            {isRoot && (
+                                                <Link
+                                                    href={`/admin/authority/routes/${route.id}/edit`}
+                                                    className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-blue-600 transition-colors"
+                                                >
+                                                    <Pencil size={12} />
+                                                    עריכה
+                                                </Link>
+                                            )}
                                         </div>
                                     </div>
                                 );

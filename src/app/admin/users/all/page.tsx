@@ -2906,8 +2906,18 @@ export default function AllUsersPage() {
           setIsAuthorityManagerOnly(isOnly);
           setUserAuthorityIds(roleInfo.authorityIds || []);
           
-          // Allow Super Admins, System Admins, and Authority Managers
-          if (roleInfo.isSuperAdmin || roleInfo.isSystemAdmin || isOnly) {
+          // Super Admins and System Admins only. Authority managers used to be
+          // let in here too (`|| isOnly`), but this is the cross-city, full-name
+          // "all users" view — exactly what SPEC-PERMISSIONS-MODEL.md §5 says an
+          // authority manager must never see (his own city, aggregates only, no
+          // names). The underlying query is already denied for a real-shape
+          // manager by firestore.rules regardless (confirmed in the 22.09.2026
+          // full-tour audit — this branch never actually returned data, only a
+          // raw rules error), so removing the escape hatch here closes the
+          // client-side gap without changing behavior for anyone it ever
+          // actually worked for. Authority managers have their own scoped,
+          // aggregate-only view at /admin/authority/users.
+          if (roleInfo.isSuperAdmin || roleInfo.isSystemAdmin) {
             setIsAuthorized(true);
             loadUsers(isOnly, roleInfo.authorityIds || []);
           } else {
