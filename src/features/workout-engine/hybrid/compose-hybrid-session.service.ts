@@ -36,6 +36,13 @@ import {
 } from '../core/pipeline/strength-block.service';
 import { MIN_STATION_EXERCISES } from './station-source';
 import { appendCooldownExercises } from '../services/cooldown.service';
+import { hasExplicitCoreLevel } from '../logic/workout-selection.utils';
+import { TABATA_BLOCK_SECONDS } from '../logic/protocols/tabata.constants';
+import {
+  buildStationCoreTabataBlocks,
+  chooseStationTabataBlockCount,
+  REST_BETWEEN_STATION_TABATA_BLOCKS_SEC,
+} from './station-core-tabata';
 import { DEFAULT_PACE_MAP_CONFIG } from '../core/config/pace-map-config';
 import { normalizeGearIds, satisfiesGearRequirement, ESSENTIAL_PARK_GEAR } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import type { ExecutionMethod } from '@/features/content/exercises/core/exercise.types';
@@ -379,7 +386,7 @@ function topUpWithBodyweightIfThin(
 // CONTENT DISPATCH (§4b) — activityType → generator
 // ============================================================================
 
-function dispatchStopContent(
+export function dispatchStopContent(
   candidate: HybridStopCandidate,
   focus: BlockDomainFocus,
   blockMinutes: number,
@@ -504,8 +511,60 @@ function dispatchStopContent(
       };
     }
     case 'core': {
-      // Bodyweight core/abs block (a bench / open area) — the strength generator on a
-      // FIELD (no-equipment) pool, focused on legs_core.
+      // Tabata-first (22.09.2026, David-approved — field-test docs 32/33):
+      // reuses core-block.ts's Form B COMPLETELY UNCHANGED (same builder the
+      // regular home/park generator uses for a core-tabata slot) — this
+      // sidesteps both the TIER_TABLE 1-3-reps issue (tabata members are
+      // always time-based, never go through assignVolume at all) and the
+      // home-media issue (buildTabataFromPool already resolves each
+      // member's ExecutionMethod via selectMethodForContext and carries it
+      // forward — see tabata.block.ts:228-236's own header comment, which
+      // describes and already fixes exactly this failure mode). Falls back
+      // to the pre-existing field/bodyweight generateStrengthBlock path,
+      // completely unchanged, when a tabata block can't be built (thin
+      // pool, or the station's time budget can't fit even one 4-minute
+      // block) — see chooseStationTabataBlockCount.
+      const hiitPool = input.masterExercises.filter((ex) => ex.tags?.includes('hiit_friendly'));
+      const corePool = hiitPool.filter((ex) => hasExplicitCoreLevel(ex));
+      const blockCount = chooseStationTabataBlockCount(blockMinutes);
+
+      if (blockCount > 0 && corePool.length > 0) {
+        const userCoreLevel = input.generationContext.userProgramLevels?.get('core')
+          ?? input.generationContext.userLevel;
+        const { exercises, blocks } = buildStationCoreTabataBlocks(
+          {
+            corePool,
+            userLevel: userCoreLevel,
+            location: input.filterContext.location,
+            availableEquipment: [],
+            injuryShield: input.generationContext.injuryShield,
+            blockCount,
+          },
+          blockMinutes,
+        );
+        if (blocks.length > 0) {
+          log.push(
+            `[${candidate.stopId}] core: ${blocks.length} tabata block(s) ` +
+            `(${blocks.reduce((s, b) => s + b.exerciseIds.length, 0)} exercises total, ` +
+            `requested ${blockCount}) — [${exercises.map((we) => (we.exercise.name as { he?: string })?.he ?? we.exercise.id).join(', ')}]`,
+          );
+          return {
+            exercises,
+            estimatedDurationSec: blocks.length * TABATA_BLOCK_SECONDS
+              + (blocks.length - 1) * REST_BETWEEN_STATION_TABATA_BLOCKS_SEC,
+            totalPlannedSets: 0, // tabata members are time-boxed intervals, not set-based
+            domainFocus: 'legs_core',
+            isEmpty: false,
+            log: [],
+            tabataBlocks: blocks,
+          };
+        }
+        log.push(`[${candidate.stopId}] core: tabata composition failed (pool too thin) — falling back to field pool`);
+      } else if (blockCount === 0) {
+        log.push(`[${candidate.stopId}] core: station budget (${blockMinutes}min) can't fit even one 4-minute tabata block — falling back to field pool`);
+      }
+
+      // ── Fallback: pre-existing field/bodyweight path, unchanged ──────────
       const pool = filterExercisesContextually(input.masterExercises, {
         ...input.filterContext,
         availableEquipment: [],

@@ -98,7 +98,13 @@ export interface StrengthBlockPlanOptions {
 
 /**
  * Wrap a strength block as a WorkoutPlan for StrengthRunner. Blocks force straight
- * sets (no appliedProtocol). See `fullPark` for the two plan shapes.
+ * sets (no appliedProtocol) — UNLESS `block.tabataBlocks` is present (22.09.2026,
+ * field-test docs 32/33), in which case each tabata block becomes its own
+ * 'station' segment carrying `protocol:'tabata'` + `protocolConfig` (fields
+ * WorkoutSegment already defines — the player already dispatches on them
+ * generically, per that type's own doc comment; this mapper previously just
+ * never populated them for the hybrid path). See `fullPark` for the two
+ * (pre-existing) straight-sets plan shapes.
  */
 export function strengthBlockToWorkoutPlan(
   block: StrengthBlockResult,
@@ -106,6 +112,44 @@ export function strengthBlockToWorkoutPlan(
 ): WorkoutPlan {
   const totalDuration = Math.round((block.estimatedDurationSec ?? 0) / 60) || 10;
   const name = options.name ?? 'תחנת כוח';
+
+  // ── Tabata blocks (core-station wiring, 22.09.2026) — one segment per
+  // block, each scoped to its own exerciseIds slice, in play order. Rest
+  // between blocks (station-core-tabata.ts's
+  // REST_BETWEEN_STATION_TABATA_BLOCKS_SEC) is already folded into
+  // block.estimatedDurationSec by the caller — this mapper doesn't need to
+  // know that number, only that consecutive segments ARE the blocks in
+  // order. Takes priority over `fullPark` (tabata stations are a
+  // budget-split/route-stops-only feature today per David's decision —
+  // full_park_workout never sets block.tabataBlocks, since it doesn't call
+  // dispatchStopContent's 'core' branch at all).
+  if (block.tabataBlocks && block.tabataBlocks.length > 0) {
+    const byId = new Map(block.exercises.map((we) => [we.exercise.id, we]));
+    const segments: WorkoutSegment[] = block.tabataBlocks.map((spec, i) => {
+      const members = spec.exerciseIds
+        .map((id) => byId.get(id))
+        .filter((we): we is GeneratedExercise => we != null)
+        .map((we) => toPlanExercise(we, false));
+      const multi = block.tabataBlocks!.length > 1;
+      return {
+        id: `hybrid-station-tabata-${i}`,
+        type: 'station',
+        title: multi ? `${name} — סבב ${i + 1} מתוך ${block.tabataBlocks!.length}` : name,
+        icon: '⏱️',
+        target: { type: 'time', value: spec.config.workSec * spec.config.rounds },
+        exercises: members,
+        isCompleted: false,
+        restBetweenExercises: 0, // tabata's own rest (spec.config.restSec) is the player's interval clock, not an inter-exercise pause
+        protocol: 'tabata',
+        protocolConfig: spec.config,
+      };
+    });
+    return {
+      id: options.id ?? 'hybrid-station-plan', name, segments,
+      totalDuration, difficulty: 'medium', trainingType: 'strength',
+      workoutLocation: options.location ?? 'park', isWarmupActive: false,
+    };
+  }
 
   // ── Budget-split + legacy callers: historical single-segment plan (byte-identical). ──
   if (!options.fullPark) {

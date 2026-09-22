@@ -30,6 +30,7 @@ import type {
   GeneratedWorkout,
   WorkoutExercise,
   WorkoutGenerationContext,
+  TabataBlockSpec,
 } from '../../logic/workout-generator.types';
 import { createPipelineOrchestrator } from './PipelineOrchestrator';
 
@@ -86,6 +87,15 @@ export interface StrengthBlockResult {
   isEmpty: boolean;
   /** Pipeline diagnostic log (merged: orchestrator + block post-pass). */
   log: string[];
+  /**
+   * Present when `exercises` is block-scoped (currently: one or more tabata
+   * blocks, see hybrid's dispatchStopContent 'core' branch, 22.09.2026 —
+   * field-test doc 33). One entry per block, in play order; each block's
+   * `exerciseIds` (TabataBlockSpec) selects its slice of `exercises`.
+   * Absent = legacy straight-sets shape, completely unchanged — this file's
+   * own "zero engine surgery" law is untouched for every existing caller.
+   */
+  tabataBlocks?: TabataBlockSpec[];
 }
 
 /** Rest-exemption rule (decision 5) — one implementation for all consumers. */
