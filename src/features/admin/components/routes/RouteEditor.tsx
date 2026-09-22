@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     Save,
@@ -21,7 +21,10 @@ import {
     Navigation,
     Lock,
     Clock,
+    Repeat,
+    Satellite,
 } from 'lucide-react';
+import { densifyPath, FREEHAND_DENSIFY_METERS } from './route-editor-geometry';
 import dynamicImport from 'next/dynamic';
 import { Route, ActivityType } from '@/features/parks';
 import { InventoryService, invalidateOfficialRoutesCache } from '@/features/parks';
@@ -169,6 +172,10 @@ export default function RouteEditor({
     const [segments,  setSegments]  = useState<SnappedSegment[]>([]);
     const [isDrawing, setIsDrawing] = useState(true);
     const [isFetchingSegment, setIsFetchingSegment] = useState(false);
+    // Freehand drawing (22.09.2026, field-test doc 24) — default TRUE keeps
+    // today's behavior unchanged (road-snapped via Directions API).
+    const [snapToRoads, setSnapToRoads] = useState(true);
+    const [mapStyleMode, setMapStyleMode] = useState<'streets' | 'satellite'>('streets');
 
     // Metadata
     const [routeName,    setRouteName]    = useState('');
@@ -232,6 +239,37 @@ export default function RouteEditor({
     const autoSportLabel = ROUTE_SUB_SPORT_MAPPING[`${terrain}_${environment}`]?.label || 'מסלול כללי';
     const routeColor = activity === 'cycling' ? '#8B5CF6' : activity === 'walking' ? '#10B981' : '#06B6D4';
 
+    // The path that actually gets saved. Snapped mode: byte-identical to
+    // `fullPath` (no behavior change from before 22.09.2026). Freehand mode:
+    // densified to ~10m spacing so deviation detection / entry-point snap /
+    // station ordering behave the same as on a road-snapped route. Computed
+    // once here (not just at save time) so the point-count preview shown to
+    // the admin before saving matches exactly what gets written.
+    const pathToSave = useMemo<[number, number][]>(() => {
+        const raw = fullPath.length > 0 ? fullPath : waypoints;
+        if (raw.length < 2) return raw;
+        return snapToRoads ? raw : densifyPath(raw, FREEHAND_DENSIFY_METERS);
+    }, [fullPath, waypoints, snapToRoads]);
+
+    // ── Build one segment from A to B, respecting snapToRoads ─────────
+    // Freehand (snapToRoads=false): always a straight line, no network call.
+    // Snapped (true, default — unchanged from before 22.09.2026): Directions
+    // API, falling back to a straight line only on a request failure (same
+    // silent fallback that already existed).
+    const buildSegment = useCallback(
+        async (from: [number, number], to: [number, number]): Promise<SnappedSegment> => {
+            if (!snapToRoads) {
+                return { geometry: [from, to], distanceKm: haversineKm([from, to]) };
+            }
+            try {
+                return await fetchSnappedRoute(from, to, directionsProfile);
+            } catch {
+                return { geometry: [from, to], distanceKm: haversineKm([from, to]) };
+            }
+        },
+        [snapToRoads, directionsProfile]
+    );
+
     // ── Map click ──────────────────────────────────────────────────
     const handleMapClick = useCallback(
         async (evt: any) => {
@@ -244,19 +282,14 @@ export default function RouteEditor({
                 const fromPoint = waypoints[waypoints.length - 1];
                 setIsFetchingSegment(true);
                 try {
-                    const segment = await fetchSnappedRoute(fromPoint, newPoint, directionsProfile);
+                    const segment = await buildSegment(fromPoint, newPoint);
                     setSegments(prev => [...prev, segment]);
-                } catch {
-                    setSegments(prev => [...prev, {
-                        geometry: [fromPoint, newPoint],
-                        distanceKm: haversineKm([fromPoint, newPoint]),
-                    }]);
                 } finally {
                     setIsFetchingSegment(false);
                 }
             }
         },
-        [isDrawing, isFetchingSegment, waypoints, directionsProfile]
+        [isDrawing, isFetchingSegment, waypoints, buildSegment]
     );
 
     const handleUndo = () => {
@@ -267,28 +300,51 @@ export default function RouteEditor({
 
     const handleClear = () => { setWaypoints([]); setSegments([]); setIsDrawing(true); };
 
-    // Re-snap when activity changes
+    // ── Close loop — connects the last point back to the first ────────
+    // Respects snapToRoads exactly like any other segment (buildSegment).
+    // No-op if there aren't at least 3 points, or the loop is already closed.
+    const isClosedLoop = waypoints.length >= 2 &&
+        waypoints[0][0] === waypoints[waypoints.length - 1][0] &&
+        waypoints[0][1] === waypoints[waypoints.length - 1][1];
+
+    const handleCloseLoop = useCallback(async () => {
+        if (waypoints.length < 3 || isClosedLoop || isFetchingSegment) return;
+        const first = waypoints[0];
+        const last = waypoints[waypoints.length - 1];
+        setIsFetchingSegment(true);
+        try {
+            const segment = await buildSegment(last, first);
+            setWaypoints(prev => [...prev, first]);
+            setSegments(prev => [...prev, segment]);
+        } finally {
+            setIsFetchingSegment(false);
+        }
+    }, [waypoints, isClosedLoop, isFetchingSegment, buildSegment]);
+
+    // Re-derive every segment from scratch when activity OR snap-mode changes
+    // (both feed buildSegment) — same pattern as before 22.09.2026, extended
+    // to the new snapToRoads dimension. Guarded so a plain click (which only
+    // changes `waypoints`) never re-triggers a full re-fetch.
     const prevActivityRef = useRef(activity);
+    const prevSnapRef = useRef(snapToRoads);
     useEffect(() => {
-        if (prevActivityRef.current === activity) return;
+        const activityChanged = prevActivityRef.current !== activity;
+        const snapChanged = prevSnapRef.current !== snapToRoads;
         prevActivityRef.current = activity;
+        prevSnapRef.current = snapToRoads;
+        if (!activityChanged && !snapChanged) return;
         if (waypoints.length < 2) return;
         const refetch = async () => {
             setIsFetchingSegment(true);
-            const newProfile: 'walking' | 'cycling' = activity === 'cycling' ? 'cycling' : 'walking';
             const newSegments: SnappedSegment[] = [];
             for (let i = 1; i < waypoints.length; i++) {
-                try {
-                    newSegments.push(await fetchSnappedRoute(waypoints[i - 1], waypoints[i], newProfile));
-                } catch {
-                    newSegments.push({ geometry: [waypoints[i - 1], waypoints[i]], distanceKm: haversineKm([waypoints[i - 1], waypoints[i]]) });
-                }
+                newSegments.push(await buildSegment(waypoints[i - 1], waypoints[i]));
             }
             setSegments(newSegments);
             setIsFetchingSegment(false);
         };
         refetch();
-    }, [activity, waypoints]);
+    }, [activity, snapToRoads, waypoints, buildSegment]);
 
     // ── Save ───────────────────────────────────────────────────────
     const handleSave = async () => {
@@ -319,11 +375,11 @@ export default function RouteEditor({
                 type: activity,
                 activityType: activity,
                 difficulty,
-                routeShape: classifyRouteShape(fullPath.length > 0 ? fullPath : waypoints),
+                routeShape: classifyRouteShape(pathToSave),
                 rating: routeRating,
                 calories: Math.round(totalDistanceKm * (activity === 'cycling' ? 30 : 65)),
                 adminRating: qualityScore,
-                path: fullPath.length > 0 ? fullPath : waypoints,
+                path: pathToSave,
                 segments: [],
                 features: {
                     // Boolean toggles below stay derived from environment +
@@ -404,6 +460,11 @@ export default function RouteEditor({
                         className="flex items-center gap-2 bg-white text-red-500 px-4 py-2 rounded-xl font-bold border border-red-200 hover:bg-red-50 transition-all disabled:opacity-30 text-sm">
                         <Trash2 size={16} />
                         <span>נקה הכל</span>
+                    </button>
+                    <button onClick={handleCloseLoop} disabled={waypoints.length < 3 || isClosedLoop || isFetchingSegment}
+                        className="flex items-center gap-2 bg-white text-indigo-600 px-4 py-2 rounded-xl font-bold border border-indigo-200 hover:bg-indigo-50 transition-all disabled:opacity-30 text-sm">
+                        <Repeat size={16} />
+                        <span>סגור מעגל</span>
                     </button>
                     <button onClick={handleSave} disabled={waypoints.length < 2 || !routeName.trim() || isSaving || isFetchingSegment}
                         className={`flex items-center gap-2 text-white px-6 py-2 rounded-xl font-bold shadow-lg transition-all disabled:opacity-50 disabled:shadow-none text-sm ${
@@ -553,6 +614,30 @@ export default function RouteEditor({
                         </div>
                     </div>
 
+                    {/* Snap mode — freehand vs road-snapped drawing (22.09.2026) */}
+                    <div className="space-y-3">
+                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest">מצב שרטוט</label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button onClick={() => setSnapToRoads(true)}
+                                className={`px-4 py-2.5 rounded-xl border-2 text-sm font-bold transition-all ${
+                                    snapToRoads ? 'border-cyan-500 bg-cyan-50 text-cyan-600' : 'border-gray-100 bg-gray-50 text-gray-400'
+                                }`}>
+                                הצמדה לכביש
+                            </button>
+                            <button onClick={() => setSnapToRoads(false)}
+                                className={`px-4 py-2.5 rounded-xl border-2 text-sm font-bold transition-all ${
+                                    !snapToRoads ? 'border-cyan-500 bg-cyan-50 text-cyan-600' : 'border-gray-100 bg-gray-50 text-gray-400'
+                                }`}>
+                                ציור חופשי
+                            </button>
+                        </div>
+                        {!snapToRoads && (
+                            <p className="text-[11px] text-gray-500">
+                                נקודות מתחברות בקו ישר. בשמירה יתווספו נקודות ביניים אוטומטית כל ~{FREEHAND_DENSIFY_METERS}מ&apos;.
+                            </p>
+                        )}
+                    </div>
+
                     {/* Terrain */}
                     <div className="space-y-3">
                         <label className="text-xs font-black text-gray-400 uppercase tracking-widest">סוג תוואי</label>
@@ -663,20 +748,29 @@ export default function RouteEditor({
                         <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">סיכום</h3>
                         <div className="grid grid-cols-2 gap-3">
                             <div className="bg-white rounded-xl p-3 text-center">
-                                <p className="text-2xl font-black text-gray-900">{waypoints.length}</p>
-                                <p className="text-[10px] text-gray-400 font-bold">נקודות</p>
+                                <p className="text-2xl font-black text-gray-900">{pathToSave.length}</p>
+                                <p className="text-[10px] text-gray-400 font-bold">נקודות לשמירה</p>
                             </div>
                             <div className="bg-white rounded-xl p-3 text-center">
                                 <p className="text-2xl font-black text-gray-900">
                                     {totalDistanceKm < 1 ? `${Math.round(totalDistanceKm * 1000)}m` : `${totalDistanceKm.toFixed(1)}km`}
                                 </p>
-                                <p className="text-[10px] text-gray-400 font-bold">מרחק (כביש)</p>
+                                <p className="text-[10px] text-gray-400 font-bold">מרחק{snapToRoads ? ' (כביש)' : ''}</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-2 text-[11px] text-cyan-600">
                             <Navigation size={12} />
-                            <span className="font-bold">ניתוב כבישים אמיתי</span>
+                            <span className="font-bold">{snapToRoads ? 'ניתוב כבישים אמיתי' : 'ציור חופשי — קו ישר בין נקודות'}</span>
                         </div>
+                        {pathToSave.length >= 2 && pathToSave.length % 2 !== 0 && (
+                            <div className="flex items-start gap-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+                                <span className="font-black shrink-0">⚠️</span>
+                                <span className="font-bold">
+                                    מספר נקודות אי-זוגי ({pathToSave.length}) — עלול לקרוס במסך המפה עד שתיקון הקריסה
+                                    (fix/route-odd-geometry) ימוזג. שקול להוסיף/להסיר נקודה אחת, או להשתמש ב&quot;סגור מעגל&quot;.
+                                </span>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -685,7 +779,7 @@ export default function RouteEditor({
                     <MapComponent
                         initialViewState={{ longitude: initialLng ?? 34.5955, latitude: initialLat ?? 31.525, zoom: initialZoom ?? 14 }}
                         style={{ width: '100%', height: '100%' }}
-                        mapStyle="mapbox://styles/mapbox/streets-v12"
+                        mapStyle={mapStyleMode === 'satellite' ? 'mapbox://styles/mapbox/satellite-streets-v12' : 'mapbox://styles/mapbox/streets-v12'}
                         mapboxAccessToken={MAPBOX_TOKEN}
                         onClick={handleMapClick}
                         onLoad={(e: any) => { applyHebrewLabels(e.target); e.target?.on?.('style.load', () => applyHebrewLabels(e.target)); }}
@@ -721,7 +815,7 @@ export default function RouteEditor({
                                 <MousePointerClick className="mx-auto text-cyan-500 mb-4" size={48} />
                                 <h3 className="text-lg font-black text-gray-800">לחץ על המפה להתחלה</h3>
                                 <p className="text-sm text-gray-500 mt-2">
-                                    כל לחיצה מוסיפה נקודה. המערכת תנתב אוטומטית לפי כבישים ומדרכות.
+                                    כל לחיצה מוסיפה נקודה. {snapToRoads ? 'המערכת תנתב אוטומטית לפי כבישים ומדרכות.' : 'הנקודות יתחברו בקו ישר (מצב ציור חופשי).'}
                                 </p>
                                 {lockedAuthorityId && (
                                     <p className="mt-3 text-xs font-bold text-amber-600 bg-amber-50 px-3 py-1.5 rounded-xl">
@@ -745,6 +839,18 @@ export default function RouteEditor({
                             <span>מחשב ניתוב...</span>
                         </div>
                     )}
+
+                    {/* Satellite toggle — bottom-right, away from the draw-mode/
+                        routing badges above so nothing overlaps (22.09.2026). */}
+                    <div className="absolute bottom-4 right-4 z-10">
+                        <button
+                            onClick={() => setMapStyleMode(m => (m === 'satellite' ? 'streets' : 'satellite'))}
+                            className="flex items-center gap-2 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-xl shadow-lg border border-gray-200 text-sm font-bold text-gray-700 hover:bg-white transition-all"
+                        >
+                            <Satellite size={16} className={mapStyleMode === 'satellite' ? 'text-cyan-500' : 'text-gray-400'} />
+                            <span>{mapStyleMode === 'satellite' ? 'תצוגה רגילה' : 'תצוגת לוויין'}</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
