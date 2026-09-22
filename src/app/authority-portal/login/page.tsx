@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
 import { sendMagicLink, mintAdminSessionCookie, signOutUser } from '@/lib/auth.service';
 import { getAuthoritiesByManager, getAuthority } from '@/features/admin/services/authority.service';
+import { decideLoopBreak, readLastLoopAttempt, recordLoopAttempt, clearLoopAttempt } from '@/features/admin/services/authority-login-loop-guard';
 import { Building2, Mail, AlertCircle, CheckCircle, Loader2, X, MailCheck, Search } from 'lucide-react';
 import AppLogoLoader from '@/components/AppLogoLoader';
 
@@ -40,13 +41,18 @@ function AuthorityPortalLoginContent() {
   // confirmed authority manager straight to /admin/authority-manager.
   // Before the scope-cookie fix, middleware always bounced that request
   // back to /admin/login, whose own client-side check sent them right back
-  // here — forever. Arriving via ?redirected=1 means we've already been
-  // through that exact bounce at least once THIS load; a second attempt in
-  // the same session (tracked by this ref, since React state wouldn't
-  // survive the full-page navigation a loop implies) means something is
-  // still wrong even with the fix in place. Either way: stop redirecting
-  // and show a way out instead of spinning silently.
-  const redirectAttemptedRef = useRef(false);
+  // here — forever.
+  //
+  // ?redirected=1 alone is NOT a loop signal — an already-signed-in
+  // manager who visits /admin/login directly (not looping at all) gets
+  // bounced here exactly once, legitimately, by admin/login's own
+  // isAuthorityManager check. Treating that first bounce as "stop" blocked
+  // a real manager who was never looping (caught in review before merge).
+  // Instead, a sessionStorage-backed timestamp tracks actual REPEATED
+  // attempts across the full-page navigations a real loop implies (React
+  // state wouldn't survive those) — only a second attempt within a short
+  // window counts as a genuine loop. See authority-login-loop-guard.ts for
+  // the pure decision function and its own tests.
   const [loopDetected, setLoopDetected] = useState(false);
 
   // Persist invitation token to localStorage so it survives the magic link redirect
@@ -84,20 +90,16 @@ function AuthorityPortalLoginContent() {
           const isOnly = await isOnlyAuthorityManager(user.uid);
 
           if (roleInfo.isAuthorityManager || isOnly) {
-            // Loop breaker: ?redirected=1 means /admin/login already
-            // bounced us back here once THIS navigation chain — with the
-            // proactive cookie mint below, that shouldn't happen anymore
-            // in the normal case, so a second occurrence means something
-            // is still wrong. redirectAttemptedRef catches a same-mount
-            // double-fire of onAuthStateChanged without even a full
-            // navigation. Either way: stop and offer a way out instead of
-            // silently retrying forever.
-            if (wasRedirectedFromAdminLogin || redirectAttemptedRef.current) {
+            // Loop guard: retry on the first attempt regardless of
+            // ?redirected=1 (see the comment above this effect) — only
+            // stop when a PRIOR attempt was recorded within the window.
+            const loopDecision = decideLoopBreak(readLastLoopAttempt(), Date.now());
+            if (loopDecision === 'stop') {
               setLoopDetected(true);
               setCheckingAuth(false);
               return;
             }
-            redirectAttemptedRef.current = true;
+            recordLoopAttempt();
 
             // If branding not yet loaded from URL, try from user's authority
             if (!brandName) {
@@ -184,6 +186,7 @@ function AuthorityPortalLoginContent() {
 
   const handleLoopSignOut = async () => {
     await signOutUser();
+    clearLoopAttempt();
     setLoopDetected(false);
     setCheckingAuth(false);
   };
