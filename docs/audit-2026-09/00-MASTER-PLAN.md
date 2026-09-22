@@ -877,4 +877,104 @@ cookie-לא-תקין) + `decideLoopBreak` (ניסיון ראשון רגיל/רא
 מנהל-רשות סינתטי) בכל אחד מחמשת העמודים — לא ניתן לאמת דרך Node/vitest
 בלבד.
 
+### 13.11 — שלוש תקלות מבדיקת מנהל רשות + מיפוי מלא (22.09.2026): נסגר, פרוס בפרודקשן
+
+`fix/authority-manager-dashboard-heatmap-styling` — commit `6ce61f43`, מוזג
+ל-`main` ב-`7c174b58`. Deploy קוד בלבד — אין שינוי כללים. אומת אחרי הפריסה:
+`outrun.co.il` = 200, `/api/catalog/parks` = 200 עם 1158 גינות.
+
+**פקודת revert מדויקת:**
+```
+git revert -m 1 7c174b58 --no-edit
+git push origin main
+```
+
+**(1) דשבורד BI — `AnalyticsDashboard.tsx` הציג 0 בכל הכרטיסים.** אומת
+באמולטור לפני תיקון: `users`/`workouts` חסומים למנהל רשות; `Promise.all`
+אחד ב-`loadAll()` נופל בשלמותו על כשל יחיד. תיקון: `/api/authority-manager/
+dashboard-summary` (דפוס `city-summary` מדויק) ל-DAU/MAU/מגדר/גיל; שאר
+הקריאות ב-`loadAll()` קיבלו `.catch()` פרטני. 16/16 בדיקות אמולטור, כולל
+וידוא שאין uid/מייל בתשובה.
+
+**מגבלה ידועה, לא תוקנה כרגע (הערת ביקורת):** ה-route לוקח
+`managedSnap.docs[0]` מ-`authorities.where('managerIds','array-contains',uid)`
+— מנהל המשויך לשתי רשויות יראה רק את הראשונה שחוזרת מהשאילתה (סדר לא
+מובטח). אותה מגבלה בדיוק כבר קיימת ב-`city-summary` המקורי (מתועד שם
+במפורש: "one city per level-1 manager"), לא חדשה. **פתוח.**
+
+**(2) heatmap — נפתח על שדרות במקום על עיר המנהל.** אושר בקוד ובפרודקשן
+(כן/לא בלבד, לא נכתב): לתל אביב-יפו **אין** שדה `location`. Fallback כפול
+(`heatmap/page.tsx` + `LiveHeatMap.tsx`, שניהם עם `?? 31.525`/`?? 34.595`
+בנפרד) אוחד ל-`src/lib/map-defaults.ts`'s `ISRAEL_GENERAL_MAP_CENTER`/
+`_ZOOM` (תצוגת ארץ כללית, לא עיר ספציפית), יחד עם אותו דפוס שנמצא ב-
+`RouteEditor.tsx`, `CommunityEvents.tsx`, `CommunityGroups.tsx`. heatmap
+מנסה כעת מרכוז לפי ממוצע קואורדינטות הגינות של הרשות עצמה לפני נפילה
+לתצוגה הכללית, ומציג הודעה קטנה כשהמיקום לא מוגדר. `seed-sderot-demo.ts`/
+`demo-seed-sderot.ts` לא נגעו — קואורדינטות שדרות שם לגיטימיות (נתוני seed
+אמיתיים), לא באג fallback.
+
+**(3) ניגודיות שדה מייל ב-`authority-portal/login`** — `text-gray-900`
++ `placeholder:text-gray-600`, CSS בלבד, AA.
+
+**בדיקות:** `tsc` = 447 (מול 451 baseline — אומת ב-diff מלא של רשימת
+השגיאות הממוינת: כל ההבדל הוא אותו פער טיפוסים קיים-מראש ב-`Authority.
+location` שנוגע בפחות מקומות אחרי ריפקטור heatmap, אפס שגיאות חדשות
+אמיתיות). `npm test`: אותם 2 כשלים קיימים-מראש, לא קשורים.
+
+**המיפוי המלא (~24 נתיבים ברשימת ההרשאה של מנהל רשות, סוכן חקר קריאה-בלבד,
+אומת מול `firestore.rules` בפועל):**
+
+| מסך | מצב |
+|---|---|
+| `/admin/authority-manager` | חלקית תוקן (סעיף 1 למעלה). עדיין שבור בשקט: פארקים פופולריים (`sessions`), מגמת פעילות/ריצה/פעילות-לפי-שעה (`workouts`), פילוח שכונות (`users`), צעדים (`dailyActivity`) — ברירת מחדל ריקה/0. |
+| `/admin/statistics` | שבור, **ללא scoping כלל** — ראו P1 למטה |
+| `/admin/insights` | שבור, סינון-בזיכרון-אחרי-השאילתה — ראו P1 למטה |
+| `/admin/authority/reports` | שבור, שתי הלשוניות (`maintenance_reports`, `reports`) — שקט |
+| `/admin/authority/readiness` | שבור — תלוי ב-custom claim מת — ראו P1 השני למטה |
+| `/admin/authority/units` | סטטיסטיקות-סיכום שבורות (`users`) — שקט, כרטיס תמיד 0 |
+| `/admin/authority/grades` | שבור לגמרי — אותו claim מת |
+| `/admin/authority/neighborhoods/[id]` | שבור, **גלוי** — `Promise.all` לא-מוגן, הודעת שגיאה מלאה |
+| `/admin/heatmap` | חלקית — מרכוז/פינים תקינים; נתוני החום עצמם (`active_workouts`,`users`+`workouts`) שקטים-שבורים |
+| `/admin/access-codes` | שבור למרות שער-תפקיד שמתיר במפורש מנהל רשות — `access_codes`/`tenants` עדיין חסומים |
+| `/admin/authority/team` | שבור, **גלוי** — `admin_invitations` זורק, באנר שגיאה |
+| `/admin/dashboard`,`/authority/locations`,`/routes`,`/community`,`/events`,`/parks`,`/locations` | תקינים — אוספים ציבוריים או `city-summary` |
+| `/admin/admin-directory`,`/admin/organizations` | שער תפקיד חוסם מראש (super_admin-only בכוונה) — לא נשלף כלום, גם לא מוצגת הודעה |
+| `/admin/approval-center` | ברובו תקין ומתועד נכון; שתי תת-לשוניות שקטות-ריקות (`user_contributions`, `osm_amenities` — ראו P2 השני למטה) |
+
+**ארבעה פתוחים, בדירוג:**
+
+**P1 — `statistics`/`insights` קוראים `users` ללא סינון authority בכלל, לכל
+תפקיד.** `statistics`'s `getExecutiveSummary`/`getAuthorityPerformance`/
+`getPremiumMetrics` (`cpo-analytics.service.ts`) עושים `getDocs`/שאילתה על
+`users` **ללא where authorityId בכלל**, לכל מי שמצליח לעבור את חסימת
+ה-rules (root/super/system/vertical/tenant-owner — כולם רואים את **כל**
+המשתמשים, לא רק את שלהם). `insights`'s שלוש הפונקציות ב-`strategic-
+insights.service.ts` עושות `getDocs(collection(db,'users'))` גולמי ומסננות
+לפי authorityIds **רק בזיכרון אחרי** התוצאה. **סיכון דליפה בין ערים אם
+`isAdmin()`/rules-ה `users` ירחיבו אי-פעם** (בדיוק סוג השינוי שקרה בעבר
+בכיוון ההפוך, ראו catch-all הגלובלי ב-§13.5) — מחייב שכתוב צד-שרת עם
+scoping אמיתי, לא רק "יעבוד כי אף אחד עדיין לא עובר את החסימה".
+
+**P1 — `hasTenant()` נשען על custom claim ש-`setCustomUserClaims` אינו
+נכתב בשום מקום בקוד (מאומת: grep מלא על הריפו).** כל ענף ההרשאות
+שנשען על `hasTenant()` — `readiness_configs` (צבא), `tenants/.../units`
+(units/grades, חינוך) — הוא **קוד מת מהיום שנכתב**: אף חשבון לא יכול
+לעולם לעבור את הבדיקה הזו, כי אין מנגנון שמנפיק את ה-claim. חוסם לגמרי
+את הוורטיקלים של בתי ספר וצבא עבור מנהל רשות ברמה הזו — לא "עוד מסך
+שבור", אלא כל תשתית ההרשאות של שני וורטיקלים שלמים.
+
+**P2 — מדיניות אחידה לכשלים שקטים.** רוב הטבלה למעלה נכשלת ב-`try/catch`
+שמחזיר ברירת-מחדל ריקה/0 **בלי שום הודעה למשתמש** — נראה בדיוק כמו "אין
+נתונים" תקין, לא כמו הרשאה חסומה. מסך שנחסם צריך להציג הודעה מפורשת
+("אין הרשאה לנתונים אלה"), לא סתם 0 — עקביות בין ~15 המקומות שמצאנו.
+
+**P2 — `osm_amenities` ללא match block כלל ב-`firestore.rules`, נופל
+ל-catch-all של root-בלבד.** שבור היום **לכל אדמין שאינו root** — לא רק
+מנהל רשות. תת-לשונית "אמניטיז ממתינות" ב-approval-center ריקה-שקטה
+לכולם מלבד david@/office@.
+
+**לא תוקן בסבב הזה** — כל הנ"ל דיווח/מיפוי בלבד, כמבוקש.
+
+**המשימה הבאה:** rate limiting — לא תיקוני מסכים. ממתין לפרומפט נפרד.
+
 **בסיס tsc מתוקן — 449, לא 453 (19.09.2026):** מנת תיקונים ("ניקוי דמו, תוויות, ותיקון תצוגת העיר", ממוזגת ל-`main` ב-`722b379b`) נפתחה מול בסיס שנרשם כ-453 שגיאות. באותו סבב עבודה התגלה ש-`node_modules` המשותף (בין ~75 worktrees על המכונה) היה סוטה מ-`package-lock.json` המחויב — לא חבילה חסרה בודדת (`qr-code-styling`, שחסם `next build` לגמרי), אלא אי-סנכרון רחב יותר. `npm install` (מאושר ע"י דוד, מאומת קודם שאין סשן מקביל באמצע עבודה) תיקן: 1473 חבילות נוספו, 1190 הוסרו מ-`node_modules` בפועל — **אך `package-lock.json` עצמו נשאר זהה בייט-לבייט למה שהיה כבר ב-`origin/main`** (אומת ב-diff מול `git show origin/main:package-lock.json` — אין דיפרנס בגיט, רק resync פיזי של node_modules). אחרי התיקון: `npx tsc --noEmit` = **449 שגיאות**, לא 453/454 — כלומר הבסיס הקודם היה מנופח באופן מלאכותי כתוצאה מהסטייה הזו, לא שינוי אמיתי בקוד. `next build` עבר במלואו לראשונה מזה זמן. **449 הוא הבסיס הנכון מעכשיו.** אם ספירת tsc עתידית שונה מ-449 בלי שינוי קוד מכוון — יש לחשוד תחילה בסטיית `node_modules` (השוואה: `stat -f "%Sm" node_modules` ו-`package-lock.json`, ו-diff מול `git show origin/main:package-lock.json`) לפני שמניחים רגרסיה אמיתית.
