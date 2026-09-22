@@ -1,0 +1,2569 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================
+    // HELPERS
+    // ============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // SPEC-03 Wave C — David's 09.09 policy decision: a guest may do
+    // anything that touches only themselves (browse, train, generate
+    // routes, view public content), but the moment an action becomes
+    // VISIBLE TO SOMEONE ELSE, it requires a real account. Based on the
+    // sign-in provider claim Firebase Auth already puts on every token —
+    // no new infrastructure, unlike SEC-08's tenant-claims proposal (that
+    // one needs a minting pipeline that doesn't exist yet; this one
+    // doesn't, the claim is already there on every token today).
+    function isAnonymous() {
+      return isAuthenticated() && request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Root admin — hardcoded emails, case-insensitive.
+    // Uses auth token directly (no Firestore read), so it never fails.
+    function isRootAdmin() {
+      return isAuthenticated() &&
+        request.auth.token.email.matches('(?i)^(david|office)@appout\\.co\\.il$');
+    }
+
+    // DB-backed admin — mirrors the multi-field check in resolveIdentity (firebase-admin.ts)
+    // and checkUserRole (auth.service.ts).
+    //
+    // The app stores admin flags under `users/{uid}.core.*` (NOT as a top-level `role`
+    // field). This helper reads all relevant fields so that any path that grants
+    // Super Admin or System Admin privileges on the client also satisfies Firestore rules.
+    //
+    // Firestore caches repeated get() calls to the same document within a single request
+    // evaluation, so calling getUserDoc() multiple times is equivalent to one read.
+    function getUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isRootAdmin() ||
+        (request.auth != null && (
+          // 20.09.2026 — was getUserDoc().role == 'admin' (unguarded direct
+          // access). Threw "Property role is undefined on object" instead of
+          // evaluating to false whenever the CALLING user's own stored doc
+          // has no top-level role key at all — true for every normal user
+          // who was never invited as an admin. Still correctly denied
+          // access (the OR chain's other branches / the enclosing rule's
+          // isOwner path took over), just via a noisy evaluation-error path
+          // instead of a clean boolean. Same safe-default pattern as the
+          // next line already uses for core.role.
+          getUserDoc().get('role', '') == 'admin' ||
+          getUserDoc().get('core', {}).get('role', '') == 'admin' ||
+          getUserDoc().get('core', {}).get('isSuperAdmin', false) == true ||
+          getUserDoc().get('core', {}).get('isSystemAdmin', false) == true
+        ));
+    }
+
+    // True when the authenticated user is an admin of a specific community group
+    // (role: 'admin' in community_groups/{groupId}/members/{uid}).
+    // OUT admins (isAdmin()) bypass this check.
+    function isGroupAdmin(groupId) {
+      return isAdmin() || (
+        isAuthenticated() &&
+        exists(/databases/$(database)/documents/community_groups/$(groupId)/members/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/community_groups/$(groupId)/members/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
+    // True when the authenticated user is the original creator (owner) of a group.
+    // Owners have elevated rights over admins: only they can demote admins or remove admins.
+    function isGroupOwner(groupId) {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/community_groups/$(groupId)).data.get('createdBy', '') == request.auth.uid;
+    }
+
+    // Phase 6a — reservist LEAGUE roster (the leaderboard/competition group,
+    // NOT the "צו כושר" fitness-meetup groups added 07.09.2026 — those are
+    // a different feature; their sensitive fields are protected by the
+    // community_groups_{persona} split below, and their own doc + roster
+    // are intentionally as public as any other community group).
+    //
+    // Renamed from isMilitaryGroup — that name claimed to detect "is this a
+    // military-type group" but only ever checked one hardcoded doc ID, which
+    // is exactly the gap that let this feature's initial design almost ship
+    // a leak (any OTHER doc with groupType:'military' as a mere field was
+    // fully world-readable). Deliberately compares the PATH SEGMENT
+    // (groupId), never resource.data — a resource.data-based check was
+    // proven (emulator test, military-persona research) to NOT fail closed
+    // on an unfiltered list query; a path-based check does, and this is the
+    // ONLY reserve-league group today so a fixed-id comparison is exact.
+    // Phase 6b (per-unit league groups, if built): switch to a denormalized
+    // field on the members doc itself, not a get() on the parent — see the
+    // military-persona-unified-architecture.md research doc. Do NOT extend
+    // this function to cover community_groups_{persona}-gated groups; ask
+    // before assuming their rosters need the same treatment.
+    function isReserveLeagueGroup(groupId) {
+      return groupId == 'military_reserve_general';
+    }
+    function isGroupMember(groupId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/community_groups/$(groupId)/members/$(request.auth.uid));
+    }
+
+    // SPEC-01 (docs/audit-2026-09/SPEC-01-close-guest-leaks.md) task 2: the
+    // static invite code used to live as a plain field on the (world-
+    // readable) community_groups/{groupId} doc. It now lives here instead —
+    // null-safe get(), same defensive shape as memberGroupIds()/
+    // getUserAgeGroup() above, since a brand-new group's private/invite doc
+    // may not exist yet at the instant this is evaluated.
+    function groupInviteCode(groupId) {
+      let d = get(/databases/$(database)/documents/community_groups/$(groupId)/private/invite).data;
+      return d != null ? d.get('code', '') : '';
+    }
+
+    // SPEC-02 F-04 (temporary, pending SEC-08): true when docId starts
+    // with "<the reader's own core.authorityId>_" — an exact-length
+    // prefix + underscore-boundary check, NOT docId.split('_')[0], which
+    // silently truncates at the FIRST underscore and breaks the instant
+    // authorityId itself contains one (e.g. authorityId "city_a" against
+    // docId "city_a_unit1_2026-09" — split gives "city", not "city_a").
+    function docIdHasAuthorityPrefix(docId) {
+      let authorityId = getUserDoc().get('core', {}).get('authorityId', '');
+      return authorityId != ''
+        && docId.size() > authorityId.size()
+        && docId[0:authorityId.size()] == authorityId
+        && docId[authorityId.size():authorityId.size()+1] == '_';
+    }
+
+    // 08.09.2026 — closes the gap isReserveLeagueGroup's comment above
+    // explicitly deferred: a community_groups_{persona}-gated group's
+    // SENSITIVE FIELDS were gated (AUDIENCE_SENSITIVE_FIELDS split), but
+    // membership itself was not — any authenticated user could join a
+    // public, persona-gated group via members/{uid}'s create rule (isPublic
+    // was the only check) and then read the group's chat, which carries the
+    // same location/schedule info in plain text. True when this group HAS a
+    // persona gate the requester does NOT match — used to BLOCK create, not
+    // just to hide fields. Only 'reserve' exists today (PERSONA_KEYS,
+    // community.types.ts) — add one more clause per future persona.
+    function blockedByGroupPersonaGate(groupId) {
+      return exists(/databases/$(database)/documents/community_groups_reserve/$(groupId))
+        && !(isAuthenticated() &&
+             get(/databases/$(database)/documents/military_declarations/$(request.auth.uid)).data.get('status', null) == 'reserve');
+    }
+
+    // Tenant isolation — checks Custom Claim `tenantId` on the auth token.
+    // Set via Admin SDK when assigning a user to a tenant.
+    // Root/DB admins bypass tenant checks.
+    function hasTenant(tenantId) {
+      return isRootAdmin() || isAdmin() ||
+        (isAuthenticated() && request.auth.token.tenantId == tenantId);
+    }
+
+    // ============================================================
+    // USER-DOC PROTECTED-FIELD HELPERS
+    //
+    // The application reads admin/role flags from `users/{uid}.core.*`
+    // (see src/features/admin/services/auth.service.ts → checkUserRole).
+    // Because `affectedKeys()` is shallow, any owner could previously
+    // self-promote by writing `{'core.isSuperAdmin': true}`. These helpers
+    // close that hole by comparing each protected field byte-for-byte
+    // before/after the update. Only writes that leave EVERY protected
+    // field unchanged are allowed for non-admin owners.
+    //
+    // Admins (Admin SDK in Cloud Functions, or root/DB admin via console)
+    // bypass these helpers via the separate `allow write` line below.
+    // ============================================================
+
+    // Group A — admin/role flags. These can ONLY be flipped by:
+    //   • A Cloud Function using the Admin SDK (bypasses rules), or
+    //   • A root/DB admin in the Firebase console.
+    function noAdminFieldsChanged() {
+      return request.resource.data.get('role', '')
+             == resource.data.get('role', '')
+          && request.resource.data.get('core', {}).get('role', '')
+             == resource.data.get('core', {}).get('role', '')
+          && request.resource.data.get('core', {}).get('isSuperAdmin', false)
+             == resource.data.get('core', {}).get('isSuperAdmin', false)
+          && request.resource.data.get('core', {}).get('isSystemAdmin', false)
+             == resource.data.get('core', {}).get('isSystemAdmin', false)
+          && request.resource.data.get('core', {}).get('isVerticalAdmin', false)
+             == resource.data.get('core', {}).get('isVerticalAdmin', false)
+          && request.resource.data.get('core', {}).get('isTenantOwner', false)
+             == resource.data.get('core', {}).get('isTenantOwner', false)
+          && request.resource.data.get('core', {}).get('isApproved', false)
+             == resource.data.get('core', {}).get('isApproved', false)
+          && request.resource.data.get('core', {}).get('managedVertical', '')
+             == resource.data.get('core', {}).get('managedVertical', '');
+    }
+
+    // Group B — tenant/unit assignment. Owned by `validateAccessCode`
+    // Cloud Function and admin tooling. Owners cannot self-assign.
+    //
+    // FIXED 01.09.2026 (found while building military-persona self-declared
+    // affiliation, see docs/research/military-persona-unified-architecture.md):
+    // the old "initial-write allowance" (client may write any value into
+    // tenantId/unitId/unitPath/tenantType while the field is still at its
+    // default) applied to EVERY client, not just admins — a regular user
+    // could self-assign an arbitrary tenantId/unitId with a raw client write,
+    // and functions/src/leaderboard.ts trusts core.tenantId/unitId with zero
+    // verification when bucketing real competitive leaderboards. That let
+    // anyone place themselves in any unit's leaderboard without ever
+    // redeeming a real access code.
+    //
+    // Now: the initial-write allowance for tenantId/tenantType/unitId/unitPath
+    // requires isAdmin() — this is exactly what invitation.service.ts's
+    // admin-invitation-acceptance flow already needs (client-side updateDoc,
+    // called by an admin) and exactly what a regular self-assigning user
+    // lacks. validateAccessCode (Admin SDK, Cloud Function) is unaffected —
+    // Admin SDK bypasses these rules entirely regardless of this change.
+    // Once a non-default value is stored, a NON-admin can never change it via
+    // a client write — unchanged from before. (Admins retain the ability to
+    // set the initial value via noTenantFieldsChanged()'s own embedded
+    // isAdmin() check below — line 236 etc. — not the bottom-of-file
+    // `match /{document=**}` fallback, which was narrowed to isRootAdmin()
+    // only on 20.09.2026 and no longer covers plain isAdmin(). That
+    // narrowing does not affect this function: it calls isAdmin() directly,
+    // independent of the catch-all.)
+    //
+    // Note: authorityId keeps its original (pre-fix) behavior — its primary
+    // lock is that onboarding-sync does NOT include it in its payload; writes
+    // always route through /api/user/update-authority (Admin SDK). That's a
+    // different field with a different risk profile (city self-declaration,
+    // not real-unit-leaderboard placement) — not in scope for this fix.
+    function noTenantFieldsChanged() {
+      let cur = resource.data.get('core', {});
+      let nxt = request.resource.data.get('core', {});
+      return (cur.get('tenantId', '') == nxt.get('tenantId', '')
+              || (cur.get('tenantId', '') == '' && isAdmin()))
+          && (cur.get('tenantType', '') == nxt.get('tenantType', '')
+              || (cur.get('tenantType', '') == '' && isAdmin()))
+          && (cur.get('unitId', '') == nxt.get('unitId', '')
+              || (cur.get('unitId', '') == '' && isAdmin()))
+          && (cur.get('unitPath', []) == nxt.get('unitPath', [])
+              || (cur.get('unitPath', []).size() == 0 && isAdmin()))
+          && (cur.get('authorityId', '') == ''    || cur.get('authorityId', '')    == nxt.get('authorityId', ''));
+    }
+
+    // Group C — game-integrity / progression. Locking these prevents a
+    // user from awarding themselves coins/levels via direct Firestore
+    // writes from the browser console.
+    //
+    // The ONLY authorized writer for these fields is the
+    // `awardWorkoutXP` Callable Cloud Function ("the Guardian"), which
+    // uses the Admin SDK and therefore bypasses these rules. See
+    // functions/src/awardWorkoutXP.ts for the server-side validation
+    // (auth required, per-call delta caps, server-recomputed level).
+    //
+    // INITIAL-WRITE ALLOWANCE: when the stored doc has no `progression` map
+    // at all (guest shell doc created by session-token/confirm before onboarding
+    // completes), the client may write the initial seed values. This eliminates
+    // the race between the Admin-SDK shell write and the client onboarding-sync
+    // call without loosening the lock on any already-earned value.
+    // Once `progression` exists in the stored doc, only awardWorkoutXP can
+    // change coins / globalLevel / globalXP.
+    function noGameIntegrityFieldsChanged() {
+      let stored   = resource.data.progression;
+      let incoming = request.resource.data.progression;
+      return !('progression' in resource.data)
+          || (incoming.globalLevel == stored.globalLevel
+           && incoming.globalXP   == stored.globalXP
+           && incoming.coins      == stored.coins);
+    }
+
+    // Group E — social graph membership. `social.groupIds` is the trusted
+    // source that backs the presence `group` scope (who can see you on the
+    // map when mode='group'). Because the presence read rule derives access
+    // from this field, a client that could self-write arbitrary groupIds
+    // could spoof membership in any group and read members' locations.
+    //
+    // The ONLY authorized writer for social.groupIds is the Admin SDK via
+    // the `/api/social/group-membership` Next.js route, which is called by
+    // joinGroup / leaveGroup / createGroup in group.service.ts after the
+    // community_groups/{groupId}/members/{uid} write has already succeeded.
+    // Admins (Admin SDK) bypass these rules entirely.
+    function noSocialGroupIdsChanged() {
+      return request.resource.data.get('social', {}).get('groupIds', [])
+             == resource.data.get('social', {}).get('groupIds', []);
+    }
+
+    // Group D — passive sensor fields on `dailyActivity`. Native Phase
+    // (Apr 2026): HealthKit / Health Connect samples are written ONLY
+    // by the `ingestHealthSamples` Cloud Function (Admin SDK bypasses
+    // these rules). Owners may still freely mutate manual-workout fields
+    // on the same doc (categories.strength.minutes, etc.), but the
+    // server-managed counters below are read-only from the client.
+    //
+    // We compare against the previous resource value when the doc exists,
+    // and against 0 / serverTimestamp() when it does not — so a brand new
+    // doc created by manual-workout client code can leave these fields
+    // unset (== default) without tripping the guard.
+    function noPassiveActivityFieldsChanged() {
+      return request.resource.data.get('passiveSteps', 0)
+             == resource.data.get('passiveSteps', 0)
+          && request.resource.data.get('passiveCalories', 0)
+             == resource.data.get('passiveCalories', 0)
+          && request.resource.data.get('passiveActiveMinutes', 0)
+             == resource.data.get('passiveActiveMinutes', 0)
+          && request.resource.data.get('passiveXpAwardedToday', 0)
+             == resource.data.get('passiveXpAwardedToday', 0);
+    }
+
+    // Null-safe read of user_memberships/{uid}.groupIds.
+    // get() on a non-existent path returns data == null; calling .get() on
+    // null would throw a TypeError and deny the rule.  This helper guards
+    // against that for users who have not yet been backfilled.
+    function memberGroupIds(uid) {
+      let d = get(/databases/$(database)/documents/user_memberships/$(uid)).data;
+      return d != null ? d.get('groupIds', []) : [];
+    }
+
+    // Null-safe read of userAge/{uid}.ageGroup.
+    // userAge is a ~50-byte doc written exclusively by Admin SDK via
+    // /api/user/complete-profile.  Returns 'minor' when the doc is
+    // missing — safe default; unbackfilled users are always restricted.
+    function getUserAgeGroup(userId) {
+      let d = get(/databases/$(database)/documents/userAge/$(userId)).data;
+      return d != null ? d.get('ageGroup', 'minor') : 'minor';
+    }
+
+    // core.ageGroup and core.birthDate are computed server-side.
+    // Clients must NEVER write them directly — the only authorized
+    // path is /api/user/complete-profile (Admin SDK bypass).
+    function noLockedCoreFieldsChanged() {
+      let cur = resource.data.get('core', {});
+      let nxt = request.resource.data.get('core', {});
+      return cur.get('ageGroup',  '') == nxt.get('ageGroup',  cur.get('ageGroup',  ''))
+          && cur.get('birthDate', null) == nxt.get('birthDate', cur.get('birthDate', null));
+    }
+
+    // ============================================================
+    // USERS — owner reads/writes own doc, admins read/write all.
+    //
+    // SPEC-03 Wave B (SEC-06): a third READ clause used to sit here —
+    // `(isAuthenticated() && resource.data.core.discoverable == true)` —
+    // letting any signed-in user (including an anonymous guest) read the
+    // FULL document of any discoverable profile: email, birthDate, home
+    // coordinates, tenantId, alongside the handful of fields any real
+    // caller actually needed (name, photoURL, level, ageGroup, mainGoal,
+    // authorityId, initialFitnessTier — verified via a full grep of every
+    // cross-user users/{uid} read in src/, not guessed). Same pattern as
+    // dailyActivity (Wave A) and inviteCode/healthDeclarationPdfUrl
+    // before it: the lean subset now lives in userPublic (below), and
+    // this collection is owner + admin only.
+    //
+    // SECURITY (Fortress Phase — Deep Privilege Lockdown):
+    //   The owner can NEVER mutate role/admin/tenant/progression flags.
+    //   See helpers above for the exact field list and the Cloud-Function
+    //   migration note for game-integrity fields.
+    //   Admin role assignment must be done exclusively via:
+    //     - Cloud Functions (Admin SDK bypasses these rules), or
+    //     - Manual writes by a root/DB admin.
+    // ============================================================
+    match /users/{userId} {
+      // READ — owner or admin only.
+      allow read: if isOwner(userId)
+                  || isRootAdmin() || isAdmin();
+
+      // CREATE — owner can create their own doc, but cannot self-assign
+      // any role/admin flag at creation time, and cannot set the
+      // server-computed identity fields (ageGroup, birthDate).
+      allow create: if isOwner(userId)
+                    && !('role' in request.resource.data)
+                    && !('ageGroup'  in request.resource.data.get('core', {}))
+                    && !('birthDate' in request.resource.data.get('core', {}))
+                    && request.resource.data.get('core', {}).get('isSuperAdmin', false) == false
+                    && request.resource.data.get('core', {}).get('isSystemAdmin', false) == false
+                    && request.resource.data.get('core', {}).get('isVerticalAdmin', false) == false
+                    && request.resource.data.get('core', {}).get('isTenantOwner', false) == false
+                    && request.resource.data.get('core', {}).get('isApproved', false) == false
+                    && request.resource.data.get('core', {}).get('role', '') == ''
+                    && request.resource.data.get('core', {}).get('managedVertical', '') == ''
+                    // Same fix as noTenantFieldsChanged() (Group B, below) —
+                    // the create path had NO guard on these fields at all
+                    // before this fix, not even an "initial-write allowance".
+                    && (isAdmin() || request.resource.data.get('core', {}).get('tenantId', '') == '')
+                    && (isAdmin() || request.resource.data.get('core', {}).get('tenantType', '') == '')
+                    && (isAdmin() || request.resource.data.get('core', {}).get('unitId', '') == '')
+                    && (isAdmin() || request.resource.data.get('core', {}).get('unitPath', []).size() == 0);
+
+      // UPDATE — owner may write everything EXCEPT the four protected
+      // groups (admin/role, tenant, game-integrity, social-group-ids). The
+      // Guardian Cloud Function uses the Admin SDK to award XP/coins/calories
+      // and bypasses Group C; /api/social/group-membership (Admin SDK) owns
+      // Group E. See the helper comments above for authorized write paths.
+      allow update: if isOwner(userId)
+                    && noAdminFieldsChanged()
+                    && noTenantFieldsChanged()
+                    && noGameIntegrityFieldsChanged()
+                    && noSocialGroupIdsChanged()
+                    && noLockedCoreFieldsChanged();
+
+      // DELETE — owner can delete their own doc.
+      allow delete: if isOwner(userId);
+
+      // Admins (root or DB-backed) keep full read/write on the user doc,
+      // including all protected groups — this is how admins are
+      // promoted/demoted and how tenants are assigned in tooling.
+      allow write: if isRootAdmin() || isAdmin();
+
+      // ──────────────────────────────────────────────────────────────
+      // private/legal — SPEC-02 SEC-06 (partial fix — see the spec's own
+      // priority framing: "same pattern as inviteCode in spec 1, a secret
+      // on a public doc"). healthDeclarationPdfUrl used to be a plain
+      // field on users/{userId} — a Storage download URL, readable by any
+      // signed-in guest whenever the profile is `discoverable`, bypassing
+      // storage.rules' own restrictions on that file entirely. Verified
+      // contained before moving: only 2 writers (owner, during onboarding)
+      // and 2 readers (admin panel, legalHold CF — both already bypass
+      // this rule via isAdmin()/Admin SDK regardless of location), so
+      // moving it doesn't touch any non-owner client read path.
+      //
+      // NOT done here (deferred, documented, not silently dropped): the
+      // discoverable-profile grant above still exposes email, birthDate,
+      // home coordinates, and tenantId on the SAME doc. Those don't share
+      // healthDeclarationPdfUrl's contained blast radius — tenantId alone
+      // is read throughout this rules file and app code for legitimate
+      // owner-only purposes, and untangling "the owner reading their own
+      // tenantId" from "a stranger reading it via discoverable" needs a
+      // real profile-split (denormalized public-fields mirror, kept in
+      // sync some way that doesn't depend on catching every writer) —
+      // that's a data-model change, not a rule tweak, and tenantId
+      // exposure specifically overlaps SEC-08 (tenant isolation, mandatory
+      // stop A) in ways that shouldn't be half-solved ad hoc here.
+      match /private/legal {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
+      }
+
+      // ──────────────────────────────────────────────────────────────
+      // notification_clicks — push CTR analytics sub-collection.
+      //
+      // Written by the Capacitor push listener in src/lib/native/push.ts
+      // (notificationActionPerformed → addDoc) whenever the user taps an
+      // OS-delivered notification banner. Each doc carries:
+      //   { messageId, channel, authorityId, clickedAt }
+      //
+      // Admins aggregate clicks via a collectionGroup query:
+      //   collectionGroup('notification_clicks').where('messageId', '==', id)
+      //
+      // We declare this rule EXPLICITLY (not relying on the wildcard
+      // below) so the collectionGroup query path is unambiguously
+      // authorized at the security-rules level. The wildcard at depth
+      // /{allPaths=**} also matches, but having a named rule for the
+      // exact sub-collection makes intent clear and survives any
+      // future narrowing of the wildcard.
+      //
+      // SECURITY: owners may only CREATE (no update / delete) so that
+      // clients cannot inflate or rewrite their own CTR history.
+      // ──────────────────────────────────────────────────────────────
+      match /notification_clicks/{clickId} {
+        allow create: if request.auth != null && request.auth.uid == userId;
+        allow read:   if isRootAdmin() || isAdmin();
+      }
+
+      // Recursive wildcard — covers ALL sub-collections at ANY depth under users/{userId}.
+      // This is required for nested paths like:
+      //   exerciseHistory/{exerciseId}/sessions/{sessionId}   (getExerciseTrend)
+      //   dailyStats/steps/sessions/{date}                     (future)
+      // Without this rule, queries on 3+ level sub-collections fail with
+      // "Missing or insufficient permissions".
+      //
+      // IMPORTANT: uses /{subCollection}/{subPaths=**} (NOT /{allPaths=**}).
+      // The single-segment {subCollection} prefix forces at least ONE path segment
+      // after userId, so this rule does NOT match users/{userId} itself. If written
+      // as /{allPaths=**}, the ** wildcard matches zero segments and the unconstrained
+      // `allow write` would bypass every noAdminFieldsChanged / noSocialGroupIdsChanged
+      // / noGameIntegrityFieldsChanged guard on the user doc.
+      match /{subCollection}/{subPaths=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if isRootAdmin() || isAdmin();
+      }
+    }
+
+    // ============================================================
+    // USER PUBLIC — SPEC-03 Wave B (SEC-06)
+    // Lean mirror of users/{uid}, ONLY for users with core.discoverable
+    // == true: {name, photoURL, currentLevel, mainGoal, authorityId,
+    // ageGroup, initialFitnessTier}. No email, no birthDate, no home
+    // coordinates, no tenantId — none of those have a single real
+    // cross-user reader anywhere in src/ (verified via grep, not
+    // assumed). ageGroup is here despite not being in the original
+    // spec's suggested field set — UserProfileSheet.tsx's minor-DM
+    // safety gate is the one caller that needs it, and it's arguably the
+    // most safety-critical field in this whole collection.
+    //
+    // Doc ID == uid (not a separate generated ID) — getUsersByUids'
+    // `documentId() in [...]` query (the "people you follow" list) needs
+    // this to keep working unchanged.
+    //
+    // Existence IS the discoverable signal: userPublicSync (Cloud
+    // Function) only ever writes a doc here for a user whose
+    // core.discoverable is true, and deletes it the moment that flips
+    // false or the user doc itself is deleted — no discoverable field
+    // lives on this collection, no query here ever needs to filter by
+    // it, so no composite index on it either (matches
+    // dailyActivityPublic's own "existence is the signal" precedent from
+    // Wave A on this same spec).
+    //
+    // Written exclusively by userPublicSync (Admin SDK, bypasses these
+    // rules) — a Firestore write TRIGGER, not scheduled like
+    // dailyActivityPublicSync, because profile-field edits are
+    // comparatively rare events (onboarding, occasional settings
+    // changes) unlike the passive step-sync that made a write trigger
+    // the wrong choice for dailyActivity — and the sync only actually
+    // writes when one of the MIRRORED fields changed (diffed against
+    // the previous doc), not on every users/{uid} write for an unrelated
+    // field (e.g. an XP award bumping progression fields this collection
+    // doesn't mirror).
+    // ============================================================
+    match /userPublic/{uid} {
+      // SPEC-04 Wave B/D: split from a blanket `allow read` into get/list.
+      // A `get` is always by an already-known uid resolved from an
+      // already-scoped source (a group roster entry, a leaderboard row,
+      // a profile link) — not a discovery surface, so it stays
+      // unrestricted exactly as before this spec.
+      allow get: if isAuthenticated();
+      // A `list` (searchUsersByName) IS a discovery surface: userPublicSync
+      // mirrors every discoverable user here, minors included, so this is
+      // the collection a minor's name could leak into via search. Requires
+      // the same ageGroup match as presence's verified_global read (see
+      // that rule's comment) — the caller's own where('ageGroup','==', X)
+      // is what makes this provable; user-search.service.ts always adds it.
+      allow list: if isAuthenticated() && resource.data.ageGroup == getUserAgeGroup(request.auth.uid);
+      allow write: if isRootAdmin() || isAdmin();
+    }
+
+    // ============================================================
+    // ACTIVITY — daily activity logs, streaks (owned by user)
+    // docId format: {userId}_{date}
+    //
+    // Two rule paths to cover both single-doc and collection-query access:
+    //
+    //   read  → resource.data.userId == uid
+    //           Allows collection queries (WHERE userId == uid) because
+    //           Firestore can tie this field check to the query's WHERE clause.
+    //           Also covers single-doc reads when the doc exists.
+    //
+    //   write → request.resource.data.userId == uid
+    //           Validates the incoming payload for creates and updates.
+    //
+    //   Both paths fall back to the docId prefix check (uid + '_') so that
+    //   reads on non-existent docs and legacy paths still work.
+    // ============================================================
+    match /dailyActivity/{docId} {
+      allow read, write: if isRootAdmin() || isAdmin();
+
+      // SPEC-03 Wave A (SEC-02): the blanket `allow read: if isAuthenticated()`
+      // that used to sit here let ANY signed-in user — including an
+      // anonymous guest — read EVERY user's real health data for EVERY
+      // day: steps, calories, active minutes, distance, passive sensor
+      // fields. It existed only because getStepsLeaderboard
+      // (ranking.service.ts) needed cross-user reads for the steps
+      // leaderboard, and a Firestore rule can't narrow WHICH FIELDS of a
+      // readable doc are exposed — only which docs are readable at all.
+      // Fixed the same way inviteCode (SPEC-01) and
+      // healthDeclarationPdfUrl (SPEC-02) were: the narrow public subset
+      // the leaderboard actually needs ({uid, displayName, steps,
+      // authorityId, date} — nothing else) now lives in its own
+      // dailyActivityPublic collection (see below), synced by a scheduled
+      // Cloud Function (dailyActivityPublicSync.ts) rather than a
+      // write-triggered mirror — a passive step sync writes to this doc
+      // many times a day, and mirroring on every one of those writes
+      // would roughly double this collection's write volume for a screen
+      // nobody expects to be real-time. getStepsLeaderboard now reads
+      // dailyActivityPublic instead of this collection.
+
+      // Read: field check (enables collection queries) OR docId prefix
+      allow read: if isAuthenticated() && (
+        (resource != null && resource.data.userId == request.auth.uid) ||
+        (docId.size() > request.auth.uid.size() &&
+         docId[0:request.auth.uid.size()] == request.auth.uid &&
+         docId[request.auth.uid.size():request.auth.uid.size()+1] == '_')
+      );
+
+      // CREATE — owner check + passive fields must start at zero (or
+      // be omitted). The ingestHealthSamples Cloud Function bypasses
+      // this rule via Admin SDK, so server-side creation can still
+      // populate passive counters directly.
+      allow create: if isAuthenticated()
+        && (
+          request.resource.data.userId == request.auth.uid ||
+          (docId.size() > request.auth.uid.size() &&
+           docId[0:request.auth.uid.size()] == request.auth.uid &&
+           docId[request.auth.uid.size():request.auth.uid.size()+1] == '_')
+        )
+        && request.resource.data.get('passiveSteps', 0) == 0
+        && request.resource.data.get('passiveCalories', 0) == 0
+        && request.resource.data.get('passiveActiveMinutes', 0) == 0
+        && request.resource.data.get('passiveXpAwardedToday', 0) == 0;
+
+      // UPDATE — owner check + passive sensor fields must not change.
+      // Manual-workout client code can still freely update
+      // categories.*.minutes, steps, calories, etc.
+      allow update: if isAuthenticated()
+        && (
+          request.resource.data.userId == request.auth.uid ||
+          (docId.size() > request.auth.uid.size() &&
+           docId[0:request.auth.uid.size()] == request.auth.uid &&
+           docId[request.auth.uid.size():request.auth.uid.size()+1] == '_')
+        )
+        && noPassiveActivityFieldsChanged();
+
+      // DELETE — owner only.
+      allow delete: if isAuthenticated()
+        && (
+          (resource != null && resource.data.userId == request.auth.uid) ||
+          (docId.size() > request.auth.uid.size() &&
+           docId[0:request.auth.uid.size()] == request.auth.uid &&
+           docId[request.auth.uid.size():request.auth.uid.size()+1] == '_')
+        );
+    }
+
+    // ============================================================
+    // DAILY ACTIVITY PUBLIC — SPEC-03 Wave A (SEC-02)
+    // Lean mirror of dailyActivity: ONLY {uid, displayName, steps,
+    // authorityId, date}. No calories, active minutes, distance, or
+    // passive sensor fields — those stay owner-only on dailyActivity.
+    // Written exclusively by the dailyActivityPublicSync scheduled
+    // Cloud Function (Admin SDK, bypasses these rules) — client writes
+    // are never legitimate, matching unitDirectory/unit_league_aggregates'
+    // own pattern for a low-sensitivity derived-aggregate collection.
+    //
+    // Read is open to any authenticated user — NOT narrowed to the
+    // reader's own authorityId. Two reasons, not one: (1) the fields
+    // themselves are the privacy boundary now, same reasoning as
+    // unitDirectory/unit_league_aggregates being openly readable because
+    // they hold no PII beyond what a public leaderboard is explicitly
+    // designed to show; (2) a same-authorityId restriction would have
+    // broken a REAL, live feature — verified via grep, not assumed:
+    // community/page.tsx renders <NeighborhoodLeaderboard scope="global"
+    // scopeId={null} .../> (line ~1381), and its dataMode toggle
+    // (localMode === 'steps') lets a signed-in user pick the steps metric
+    // WITHIN that global-scope view — a genuine cross-authority steps
+    // leaderboard already exists and works today. isAuthenticated() also
+    // matches SPEC-03 Wave C's explicit guest policy: viewing the
+    // leaderboard is allowed for anonymous guests too, same as the raw
+    // collection's own pre-fix behavior for reads.
+    // ============================================================
+    match /dailyActivityPublic/{docId} {
+      // SPEC-04 Wave B: was unconditional — a minor's real displayName +
+      // step count was visible to any authenticated reader, same
+      // underlying gap as presence (Wave A) and userPublic search
+      // (Wave B/D). getStepsLeaderboard (ranking.service.ts) always adds
+      // where('ageGroup','==', callerAgeGroup), which is what keeps this
+      // provable for the `list` this collection is actually read through
+      // (unlike userPublic, nothing here does a get-by-known-id — verified
+      // via grep — so one condition covers the real usage, no get/list split
+      // needed). getUserAgeGroup() defaults an anonymous guest (no
+      // userAge/{uid} doc) to 'minor' — the guest-viewing policy above
+      // still holds, but a guest now sees the minor-scoped leaderboard
+      // slice rather than the full cross-age one, the same fail-safe
+      // direction as every other use of this helper in this file.
+      allow read: if isAuthenticated() && resource.data.ageGroup == getUserAgeGroup(request.auth.uid);
+      allow write: if isRootAdmin() || isAdmin();
+    }
+
+    // dailyProgress — same docId format: {userId}_{date}
+    // Same dual-path pattern as dailyActivity above.
+    match /dailyProgress/{docId} {
+      allow read, write: if isRootAdmin() || isAdmin();
+
+      allow read: if isAuthenticated() && (
+        (resource != null && resource.data.userId == request.auth.uid) ||
+        (docId.size() > request.auth.uid.size() &&
+         docId[0:request.auth.uid.size()] == request.auth.uid &&
+         docId[request.auth.uid.size():request.auth.uid.size()+1] == '_')
+      );
+
+      allow write: if isAuthenticated() && (
+        request.resource.data.userId == request.auth.uid ||
+        (docId.size() > request.auth.uid.size() &&
+         docId[0:request.auth.uid.size()] == request.auth.uid &&
+         docId[request.auth.uid.size():request.auth.uid.size()+1] == '_')
+      );
+    }
+
+    // streaks — docId == uid
+    // Reads are open to all authenticated users so that leaderboard queries
+    // (ranking.service.ts streak mode: WHERE authorityId == scopeId) can
+    // aggregate across multiple users' streak docs without permission errors.
+    // Writes remain owner-only (isOwner checks uid == docId) plus admins.
+    match /streaks/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(docId) || isRootAdmin() || isAdmin();
+    }
+
+    // ============================================================
+    // HEALTH SAMPLES — raw HealthKit / Health Connect samples
+    // (Native Phase, Apr 2026).
+    //
+    // Path: healthSamples/{userId}/{YYYY-MM-DD}/{sampleUUID}
+    //
+    // Writes are SERVER-ONLY: only the `ingestHealthSamples` Cloud
+    // Function (Admin SDK bypasses these rules) may write here. This
+    // protects the dedupe ledger from client tampering and ensures
+    // every sample is validated + clamped before storage.
+    //
+    // Reads are owner-only (for debugging / future history views).
+    // ============================================================
+    match /healthSamples/{userId}/{date}/{sampleUUID} {
+      allow read: if isOwner(userId) || isRootAdmin() || isAdmin();
+      allow write: if isRootAdmin() || isAdmin();
+    }
+    // Parent doc holding the per-date subcollections — no client writes.
+    match /healthSamples/{userId} {
+      allow read: if isOwner(userId) || isRootAdmin() || isAdmin();
+      allow write: if isRootAdmin() || isAdmin();
+    }
+
+    // ============================================================
+    // UTS — USER SCHEDULE (Phase 1)
+    // Doc ID pattern: {userId}_{YYYY-MM-DD}
+    // Users can only read/write their own schedule documents.
+    // Admins can read/write all (for support & analytics).
+    // Uses substring check: docId must start with "uid_".
+    // ============================================================
+    match /userSchedule/{docId} {
+      allow read, write: if isRootAdmin() || isAdmin() ||
+        (isAuthenticated() &&
+         docId.size() > request.auth.uid.size() &&
+         docId[0:request.auth.uid.size()] == request.auth.uid &&
+         docId[request.auth.uid.size():request.auth.uid.size()+1] == '_');
+    }
+
+    // ============================================================
+    // WORKOUTS — owner access via userId field on document
+    // ============================================================
+    match /workouts/{docId} {
+      allow read, write: if isRootAdmin() || isAdmin();
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+      allow read, update, delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    // ============================================================
+    // SHARED WORKOUTS — public read for deep links,
+    // authenticated create for sharing
+    // ============================================================
+    match /sharedWorkouts/{docId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && request.auth.uid == resource.data.creatorId;
+      allow write: if isRootAdmin() || isAdmin();
+    }
+
+    // ============================================================
+    // ANALYTICS — משתמש מחובר כותב אירועים
+    // ============================================================
+    match /analytics_events/{docId} {
+      allow read: if isAdmin();
+      // SPEC-02 F-18: was `if isAuthenticated()` — no ownership check at
+      // all, so a caller could forge `userId` to attribute an event to
+      // any other user. AnalyticsService.ts's userId field is optional
+      // (some events are written before a real uid is known), so this
+      // only constrains the field WHEN present — never rejects the
+      // no-userId shape the real writer already uses.
+      allow create: if isAuthenticated()
+        && (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid);
+    }
+
+    // ============================================================
+    // PUSH_EVENTS — notification-engine measurement (Wave 1).
+    // Server (Admin SDK, bypasses rules) writes push_sent/post_push_outcome —
+    // NOT reachable via these rules at all. Client may create ONLY the 2
+    // event types it actually writes (push.ts), for itself only, and ONLY
+    // with the exact field set each writes — a field-level allowlist so a
+    // client can never smuggle in delivered/goalCompleted/variantId/etc.
+    // (fields real only on the server-only event types) onto its own doc.
+    // push_dismissed is intentionally NOT in the allowed set — no client
+    // code writes it yet (see push-events.service.ts header comment).
+    // ============================================================
+    match /push_events/{docId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated()
+        && request.resource.data.uid == request.auth.uid
+        && (
+          (request.resource.data.eventType == 'push_opened'
+            && request.resource.data.keys().hasOnly(['pushId', 'uid', 'eventType', 'channel', 'openedAt']))
+          ||
+          (request.resource.data.eventType == 'landing_screen'
+            && request.resource.data.keys().hasOnly(['pushId', 'uid', 'eventType', 'channel', 'landingPath', 'loggedAt']))
+        );
+    }
+
+    // ============================================================
+    // ACHIEVEMENTS — achievement definitions (public read, admin write)
+    // Seeded via scripts/seed-achievements.ts.
+    // Users read definitions to display locked/unlocked states.
+    // ============================================================
+    match /achievements/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // CONTENT — קריאה ציבורית (תרגילים, תוכניות, רמות, ציוד)
+    // ============================================================
+    match /exercises/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /programs/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /levels/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /personas/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /gear_definitions/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /gym_equipment/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /outdoorBrands/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // RUNNING ENGINE — תבניות אימוני ריצה + תוכניות + קונפיג
+    // Public read so onboarding can generate plans for anonymous users.
+    // ============================================================
+    match /runWorkoutTemplates/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /runProgramTemplates/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /config/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // ONBOARDING & QUESTIONNAIRE — קריאה ציבורית, כתיבה לאדמין
+    // ============================================================
+    match /onboarding_questions/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /onboarding_answers/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // PROGRESSION ENGINE — קריאה ציבורית, כתיבה לאדמין
+    // ============================================================
+    match /progression_rules/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // SECURITY (C2 — Public Write defense):
+    //   These collections were previously world-writable to support a
+    //   "Master Evolution Sync" job. That assumption was wrong — Cloud
+    //   Functions and Admin SDK calls bypass Firestore rules entirely, so
+    //   server-side syncs do NOT require client-facing write permissions.
+    //   Any anonymous or authenticated client could overwrite the workout
+    //   engine's level/progression configuration → app-wide content corruption.
+    //
+    //   New policy:
+    //     - read:  any authenticated user (the workout engine reads these client-side)
+    //     - write: admins only (root or DB-backed)
+    //   Server-side migration scripts continue to work via the Admin SDK.
+    match /program_level_settings/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isRootAdmin() || isAdmin();
+    }
+
+    match /programLevelSettings/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isRootAdmin() || isAdmin();
+    }
+
+    match /level_equivalence_rules/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // APP CONFIG — הגדרות גלובליות (XP multipliers וכו׳)
+    // ============================================================
+    match /app_config/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // WORKOUT METADATA — תבניות, הודעות, תיאורים + תתי-אוספים
+    // ============================================================
+    match /workoutMetadata/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+
+      match /{subCollection}/{subDocId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    // Root-level metadata collections (used by workout-metadata.service)
+    match /workoutTitles/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+
+      match /{sub}/{subDocId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    match /smartDescriptions/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+
+      match /{sub}/{subDocId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    match /motivationalPhrases/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+
+      match /{sub}/{subDocId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    // Workout content fragments & titles
+    match /workout_content_fragments/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /workout_funny_titles/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /workout_titles_creative/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /workout_time_contexts/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /workout_focus_fragments/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /time_contexts/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /focus_descriptions/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // PARKS, ROUTES, FACILITIES
+    // ============================================================
+    match /parks/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /facilities/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // ROUTE-COLLECTION AUTHORITY GUARD — Stage 2.5 (route-enrichment-
+    // pipeline plan, .claude/plans/route-enrichment-pipeline-kickoff-
+    // vast-pelican.md). STAGED 16.08.2026, NOT YET DEPLOYED — written +
+    // reviewed pending David's explicit go per that plan's Stage 2.5 gate.
+    //
+    // Client-SDK/admin-UI defense-in-depth only — cannot stop Admin-SDK
+    // script writes (those bypass rules entirely by design). Primary
+    // enforcement for scripts is src/lib/route-collections/validate.ts's
+    // buildValidatedDoc chokepoint (Stage 1B), already live in application
+    // code for the 4 migrated call sites.
+    //
+    // `is string` guards matter here: a field value of `null` is NOT equal
+    // to `''`, so a naive `!= ''` check alone would let a null-valued
+    // authorityId slip straight through. Found during the Stage 2.5
+    // write-path audit: official-route-broadcaster.ts intentionally writes
+    // `authorityId: null` on street_segments docs broadcast from a route
+    // that itself has no authorityId (confirmed live 16.08.2026: 156 of 183
+    // official_routes docs have no authorityId at all).
+    //
+    // ⚠️ WRITE-PATH AUDIT FINDING — DO NOT DEPLOY street_segments' create
+    // guard until this is resolved: applying hasResolvedAuthority() to
+    // street_segments as currently written WOULD BREAK
+    // official-route-broadcaster.ts's broadcast for any of those 156 routes
+    // (it's fire-and-forget with a swallowed .catch(), so the failure would
+    // be SILENT to the admin — exactly the "PERMISSION-DENIED silently"
+    // failure mode axioms.md §17 already warns about). Fix
+    // official-route-broadcaster.ts to resolve/require authorityId before
+    // broadcasting (or explicitly skip+warn when absent, not write null),
+    // OR backfill the 156 legacy official_routes docs' authorityId first
+    // (bulkAssignAuthority already exists for exactly this — not yet run).
+    // Audited SAFE to deploy as-is: official_routes, curated_routes
+    // (InventoryService's migrated saveRoutes/saveCuratedRoutes/updateRoute
+    // already guarantee authorityId via the Stage 1B chokepoint before any
+    // write reaches here — this rule is redundant-but-safe defense-in-depth
+    // for those two), climb_segments (only writer is an Admin-SDK script,
+    // bypasses rules; moderation.service.ts's approve/reject only updates
+    // status, never touches authorityId/city, so the grandfather clause
+    // makes it a no-op either way), route_adjacency (cityName always
+    // set by recomputeRouteAdjacencyForCity — see its own match block).
+    // route-stitching.service.ts's curated_routes writer also audited safe
+    // — authorityId is a required, always-set function parameter.
+    // ============================================================
+    function hasResolvedAuthority() {
+      return request.resource.data.get('authorityId', '') is string
+          && request.resource.data.get('authorityId', '') != ''
+          && request.resource.data.get('city', '') is string
+          && request.resource.data.get('city', '') != '';
+    }
+    function authorityFieldsLocked() {
+      let cur = resource.data;
+      let nxt = request.resource.data;
+      return (cur.get('authorityId', '') == '' || cur.get('authorityId', '') == nxt.get('authorityId', ''))
+          && (cur.get('city', '') == ''        || cur.get('city', '')        == nxt.get('city', ''));
+    }
+    function hasResolvedCityName() {
+      return request.resource.data.get('cityName', '') is string
+          && request.resource.data.get('cityName', '') != '';
+    }
+    function cityNameFieldLocked() {
+      let cur = resource.data;
+      let nxt = request.resource.data;
+      return cur.get('cityName', '') == '' || cur.get('cityName', '') == nxt.get('cityName', '');
+    }
+
+    match /official_routes/{docId} {
+      allow read: if true;
+      // AUDITED SAFE — see the guard block comment above. Not yet deployed:
+      // `allow write: if isAdmin();` stays authoritative below until David's
+      // explicit go per Stage 2.5's gate; the split create/update form is
+      // shown commented so the exact target rule is reviewable in-place.
+      // allow create: if isAdmin() && hasResolvedAuthority();
+      // allow update: if isAdmin() && authorityFieldsLocked();
+      // allow delete: if isAdmin();
+      allow write: if isAdmin();
+      // Authenticated users may update ONLY the `analytics` sub-object
+      // (e.g. usageCount, lastUsed) when completing a guided route.
+      // Any write that touches another top-level field is rejected.
+      allow update: if request.auth != null
+                    && request.resource.data.diff(resource.data)
+                         .affectedKeys()
+                         .hasOnly(['analytics']);
+    }
+
+    match /curated_routes/{docId} {
+      allow read: if true;
+      // AUDITED SAFE — see the guard block comment above. Not yet deployed.
+      // allow create: if isAdmin() && hasResolvedAuthority();
+      // allow update: if isAdmin() && authorityFieldsLocked();
+      // allow delete: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // CLIMB SEGMENTS — topography-derived climbs (DEM) + OSM
+    // structural ramps + stairs. Public read so the client route
+    // generator can query climbsNear(); admin-only write (populated
+    // via the DEM importer script; status pending→published/rejected
+    // moderated in /admin/approval-center). Mirrors official_routes.
+    // ============================================================
+    match /climb_segments/{docId} {
+      allow read: if true;
+      // AUDITED SAFE — see the guard block comment above. Not yet deployed.
+      // Note: as of 16.08.2026 NO existing climb_segments doc has
+      // authorityId set (Stage 2.4's backfill script is prepared and
+      // dry-run reviewed, NOT yet applied) — deploying this create guard
+      // has no effect on existing docs (rules gate new writes only), but
+      // any FUTURE create must resolve one; the only live writer
+      // (write-climb-segments-tlv.ts) is Admin-SDK and bypasses this rule
+      // regardless, so enforcement for it still routes through the
+      // chokepoint once that script is migrated (Stage 3).
+      // allow create: if isAdmin() && hasResolvedAuthority();
+      // allow update: if isAdmin() && authorityFieldsLocked();
+      // allow delete: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // STREET SEGMENTS — OSM-imported scored road/path segments
+    // used by the dynamic route generator (fetchScoredWaypoints).
+    // Public read so the client-side generator can query by city,
+    // admin-only write (populated via the OSM importer script /
+    // /admin/segments page).
+    // ============================================================
+    match /street_segments/{docId} {
+      allow read: if true;
+      // ⚠️ NOT AUDITED SAFE — see the guard block comment above.
+      // official-route-broadcaster.ts writes authorityId:null for routes
+      // lacking one (156 of 183 official_routes docs, live 16.08.2026).
+      // DO NOT enable the create guard below until that's fixed or the
+      // legacy routes are backfilled — it would silently break the
+      // fire-and-forget broadcast for most existing routes.
+      // allow create: if isAdmin() && hasResolvedAuthority();   // ⚠️ DO NOT ENABLE YET
+      // allow update: if isAdmin() && authorityFieldsLocked();
+      // allow delete: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // ROUTE ADJACENCY — precomputed geometric-adjacency edges between
+    // official_routes corridors (route-adjacency.service.ts /
+    // recomputeRouteAdjacencyForCity), used by the client-side
+    // corridor-chaining generator (generateDiscoveredChainRoute,
+    // generateUserAnchoredFlowRoute). Public read so the client
+    // generator can query by cityName; admin-only write (populated by
+    // InventoryService's official_routes create/delete hooks, which
+    // already require isAdmin() to reach official_routes itself).
+    // Mirrors official_routes/street_segments exactly. Added 16.08.2026
+    // — discovered missing when the first real end-to-end run of the
+    // corridor-chaining code (client SDK, not the admin-bypass Admin
+    // SDK used in prior verification scripts) hit "Missing or
+    // insufficient permissions" on this collection; both
+    // IS_ROUTE_ADJACENCY_ENABLED features were non-functional for any
+    // real user without this rule. DEPLOYED 16.08.2026, David-approved.
+    //
+    // cityName-only guard (this collection has no authorityId field —
+    // keyed by city, see recomputeRouteAdjacencyForCity). AUDITED SAFE —
+    // cityName is always set by the one writer. Not yet deployed.
+    // ============================================================
+    match /route_adjacency/{docId} {
+      allow read: if true;
+      // allow create: if isAdmin() && hasResolvedCityName();
+      // allow update: if isAdmin() && cityNameFieldLocked();
+      // allow delete: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // ROUTE DECISIONS — append-only accuracy-agent decision log (Stage 2,
+    // .claude/plans/vectorized-twirling-tiger.md). A record of every human
+    // approve/edit/drop verdict on a route, with the composition/lighting
+    // signals and what the agent would have suggested at that moment —
+    // NOT a route-like entity (unlike official_routes/curated_routes/
+    // climb_segments/street_segments/route_adjacency above), so it does
+    // NOT go through buildValidatedDoc's create/update authority-locking
+    // chokepoint (src/lib/route-collections/) — see src/lib/route-
+    // decisions/validate.ts's own header for the reasoning. Immutability
+    // enforced here, not just by convention: update/delete are hard `false`
+    // so a decision row can never be edited or removed after the fact,
+    // same pattern as audit_logs above.
+    // ============================================================
+    match /route_decisions/{docId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // ============================================================
+    // CRM / AUTHORITIES — public read for city lookups, admin write
+    // Pillar 7: pressureCount is incrementable by authenticated users
+    // ============================================================
+    match /authorities/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+      // Users can increment pressureCount only (validated client-side with 24h dedup)
+      allow update: if isAuthenticated()
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pressureCount']);
+
+      // pressure_logs sub-collection: any user can create, only admin reads
+      match /pressure_logs/{logId} {
+        allow read: if isAdmin();
+        allow create: if isAuthenticated();
+      }
+    }
+
+    // ============================================================
+    // PRESSURE MESSAGES — dynamic message templates for league
+    // ============================================================
+    match /pressure_messages/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // CATEGORY BRANDING — public read for facility icons
+    // ============================================================
+    match /category_branding/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // ADMIN — הזמנות, מדיה, עריכות, תחזוקה, ביקורת
+    // ============================================================
+    match /admin_invitations/{docId} {
+      // SPEC-01 (docs/audit-2026-09/SPEC-01-close-guest-leaks.md) task 1:
+      // this used to be `if isAuthenticated()`. Since anonymous sign-in is
+      // open, that meant any guest could `list` this collection and dump
+      // every invitation — emails, roles, and live tokens. Token/email
+      // lookups needed during the pre-admin sign-up flow now go through
+      // /api/admin/invitations/{check-email,verify-token} (Admin SDK,
+      // server-side), so the client no longer needs any access here.
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /mediaAssets/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /edit_requests/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ============================================================
+    // AUDIT LOGS — write-only via Cloud Function `logAuditAction`.
+    //
+    // Why direct client writes are blocked:
+    //   • The Ashkelon Security Appendix (Req. 4.0) requires every
+    //     audit row to record source IP. The client SDK cannot supply
+    //     a trustworthy IP — anything it sends could be forged.
+    //   • The `logAuditAction` Callable Cloud Function captures the
+    //     real edge IP from `rawRequest.headers['x-forwarded-for']`
+    //     and writes via the Admin SDK, bypassing these rules.
+    //   • Read access stays admin-only per legacy.
+    //
+    // Net effect: NO client (regular user OR admin) can `addDoc` here
+    // directly — they must call the function. Admin reads still work.
+    // ============================================================
+    match /audit_logs/{docId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /maintenance_reports/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ============================================================
+    // ACTIVE WORKOUTS — live heatmap heartbeat (45s ephemeral docs)
+    // Users write/delete their own doc (uid match). Admins read all
+    // docs for their authority via the heatmap aggregation service.
+    // ============================================================
+    match /active_workouts/{userId} {
+      allow write: if isOwner(userId);
+      allow delete: if isOwner(userId);
+      allow read: if isAdmin();
+      allow read: if isOwner(userId);
+    }
+
+    // ============================================================
+    // SAFE-CITY PRESENCE — live location heartbeat
+    //
+    // WRITE — owner only, with one constraint: if the payload includes
+    //   `audienceGroupIds`, every entry must already be in the writer's
+    //   `users/{uid}.social.groupIds` (server-managed, Group E above).
+    //   This prevents a malicious client from broadcasting to groups it
+    //   hasn't actually joined and appearing visible to their members.
+    //
+    // READ — gated by privacy mode:
+    //   verified_global → any authenticated user (statically provable)
+    //   squad           → users in the broadcaster's followers list
+    //   group           → members of any of the broadcaster's audienceGroupIds
+    //                     (checked against reader's server-managed groupIds)
+    //   ghost           → owner only (doc is typically deleted on ghost)
+    // ============================================================
+    match /presence/{userId} {
+      // Write: owner only + audienceGroupIds must be a subset of own groups
+      // + minors (getUserAgeGroup == 'minor') may only use ghost or group mode
+      // + SPEC-03 Wave C: an anonymous guest may only use ghost mode — the
+      // one mode no read rule below ever matches, so it never makes a
+      // guest visible to anyone. 'group' mode is excluded even though an
+      // anonymous caller could never populate a real audienceGroupIds
+      // entry anyway (the clause right above already forces it empty —
+      // they can't join a group per this same spec's group-join gate) —
+      // kept explicit rather than relying on that second constraint to
+      // keep this rule safe on its own.
+      // getUserAgeGroup reads userAge/{uid} (~50 bytes) — not users/{uid}.
+      allow write: if isOwner(userId)
+                   && (
+                     !('audienceGroupIds' in request.resource.data)
+                     || request.resource.data.audienceGroupIds.size() == 0
+                     || request.resource.data.audienceGroupIds.hasOnly(
+                          memberGroupIds(userId))
+                   )
+                   && (
+                     getUserAgeGroup(userId) == 'adult'
+                     || request.resource.data.get('mode', 'ghost') in ['ghost', 'group']
+                   )
+                   && (
+                     !isAnonymous()
+                     || request.resource.data.get('mode', 'ghost') == 'ghost'
+                   );
+
+      // Owner can always read their own doc
+      allow read: if isOwner(userId);
+
+      // Public: any authenticated user whose OWN age matches the broadcaster's.
+      // SPEC-04 Wave A (POLICY-01): was `if isAuthenticated() && resource.data.mode
+      // == 'verified_global'` with no age condition at all — the write-rule
+      // restriction above (minors can't broadcast anything but ghost/group)
+      // meant an adult could never actually FIND a minor this way, but a
+      // MINOR reading this collection got back every adult's live GPS +
+      // name with nothing stopping them ("קטין גם לא מקבל רשימות של
+      // מבוגרים" — POLICY-01 §3's explicit reverse-direction requirement).
+      // getUserAgeGroup(request.auth.uid) mirrors the write rule's own
+      // helper, reading userAge/{uid} — never a client-suppliable field.
+      // The matching client query (nearbyPresence.service.ts) always adds
+      // where('ageGroup','==', callerAgeGroup) so this stays provable for
+      // `list` — without that where clause, this rule alone would reject
+      // every list query with PERMISSION_DENIED, not just filter it.
+      allow read: if isAuthenticated()
+                  && resource.data.mode == 'verified_global'
+                  && resource.data.ageGroup == getUserAgeGroup(request.auth.uid);
+
+      // Friends: reader must be in broadcaster's followers list
+      // (query: where uid in [followingList])
+      allow read: if isAuthenticated()
+                  && resource.data.mode == 'squad'
+                  && request.auth.uid in
+                     get(/databases/$(database)/documents/connections/$(userId)).data.followers;
+
+      // Group: reader must share at least one group with the broadcaster.
+      // (query: where mode=='group' AND audienceGroupIds array-contains myGroupId)
+      // Security: user_memberships is Admin-SDK-only (see match below) so the
+      // reader cannot spoof membership by self-writing groupIds.
+      // NOTE: reads user_memberships/{uid} (tiny doc) NOT users/{uid} (may
+      // exceed the 1 MiB Rules get() limit on large profiles).
+      allow read: if isAuthenticated()
+                  && resource.data.mode == 'group'
+                  && memberGroupIds(request.auth.uid)
+                       .hasAny(resource.data.get('audienceGroupIds', []));
+    }
+
+    // ============================================================
+    // USER_LOCATIONS — geohash index for radius-based push targeting
+    // (Phase 3, social-activities build plan). Written opportunistically by
+    // the client (useUserLocationSync) whenever a map/home session has a GPS
+    // fix — NOT a heartbeat, NOT presence (see presence/{userId} above for
+    // that; this is a coarser, lower-frequency index purpose-built for
+    // onPlannedActivityCreated's geohashQueryBounds radius query). Owner-only
+    // read/write — the Cloud Function reads via Admin SDK, which bypasses
+    // Rules entirely, so no cross-user read grant is needed here.
+    // ============================================================
+    match /userLocations/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // ============================================================
+    // USER_MEMBERSHIPS — lean group-membership mirror for Rules evaluation.
+    //
+    // Mirrors users/{uid}.social.groupIds in a tiny dedicated document so
+    // that the presence group read/write rules can call get() without hitting
+    // the 1 MiB Firestore Rules document-size limit that silently returns null
+    // on large user profiles (running schedule + full progression data).
+    //
+    // Written exclusively by Admin SDK (group-membership API route + sync
+    // endpoint).  Client self-write is intentionally blocked — same Group E
+    // trust anchor as users.social.groupIds.
+    // ============================================================
+    match /user_memberships/{uid} {
+      allow read:  if isOwner(uid) || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // USER_AGE — tiny ageGroup mirror for Firestore Rules.
+    //
+    // Written exclusively by Admin SDK via /api/user/complete-profile.
+    // Client self-write is intentionally blocked — ageGroup is computed
+    // server-side from birthDate and must never be client-spoofable.
+    //
+    // getUserAgeGroup() reads this doc (~50 bytes) instead of users/{uid}
+    // to avoid the 1 MiB document-size limit on Firestore Rules get().
+    //
+    // Safe default: if this doc is missing, getUserAgeGroup() returns
+    // 'minor' — unbackfilled users are always treated as minors.
+    // ============================================================
+    match /userAge/{uid} {
+      allow read:  if isOwner(uid) || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // SOCIAL — connections graph + feed posts
+    // ============================================================
+    match /connections/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+
+      // SPEC-02 SEC-01 — PARTIAL, see stop-C report (not fully closed
+      // here; the remaining piece is a product decision, not implemented
+      // without one). What the old rule actually allowed: ANY
+      // authenticated user could overwrite followers/following/counts on
+      // ANY OTHER user's doc to ANYTHING, as long as they touched only
+      // these field names — arbitrary array replacement, injecting a
+      // THIRD PARTY's uid as a fake follower/followee of someone who
+      // never interacted with them, count manipulation. That part IS
+      // fully closed below: a non-owner may now only toggle their OWN uid
+      // in `followers`, verified as an exact set-equality diff, never
+      // touch `following`/`followingCount`, never touch anyone else's
+      // entry.
+      //
+      // NOT closed: self-insertion (attacker adds their OWN uid to
+      // anyone's followers) is still allowed here, unchanged, because
+      // it's how the live useSocialStore.followUser feature works today —
+      // instant, one-sided, no approval. But per the spec's own framing,
+      // THAT is the actual named exploit (self-follow -> passes
+      // presence's mode='squad' followers-list check at ~line 1094 ->
+      // live GPS + real name of anyone, with zero interaction from them).
+      // Closing it for real means either converting follow to
+      // request+approval (changes the follow feature's UX) or decoupling
+      // squad-mode presence trust from one-sided `followers` entirely
+      // (changes who can currently see whose live location) — both are
+      // product decisions, not a rule tweak, so this is reported
+      // separately rather than silently narrowed on my own judgment.
+      allow update: if isOwner(userId) &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['followers', 'following', 'followerCount', 'followingCount', 'updatedAt']);
+
+      // followerCount/followingCount deliberately excluded from what a
+      // non-owner may touch — verified via grep that useSocialStore.ts's
+      // real followUser/unfollowUser never write them at all (only the
+      // followers/following arrays), so requiring any specific count
+      // delta here would just break the real flow for a field it never
+      // sets.
+      // SPEC-03 Wave C: following someone requires a real account — the
+      // followed user (and their followers list) would otherwise show a
+      // guest.
+      allow update: if isAuthenticated() && !isAnonymous() && request.auth.uid != userId &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['followers', 'updatedAt']) &&
+        (
+          // Follow: add exactly my own uid to followers, nothing else.
+          (
+            !resource.data.get('followers', []).hasAny([request.auth.uid]) &&
+            request.resource.data.followers.hasOnly(resource.data.get('followers', []).concat([request.auth.uid])) &&
+            request.resource.data.followers.hasAll(resource.data.get('followers', []).concat([request.auth.uid]))
+          )
+          ||
+          // Unfollow: remove exactly my own uid from followers, nothing else.
+          (
+            resource.data.get('followers', []).hasAny([request.auth.uid]) &&
+            request.resource.data.followers.hasOnly(resource.data.get('followers', []).removeAll([request.auth.uid])) &&
+            request.resource.data.followers.hasAll(resource.data.get('followers', []).removeAll([request.auth.uid]))
+          )
+        );
+    }
+
+    // ============================================================
+    // BLOCKS — one-directional block edges between users.
+    //
+    // Doc ID convention: `${blockerId}_${blockedId}` (see ChatThread.tsx
+    // handleBlock). The deterministic id makes a block idempotent and lets
+    // both the blocker and the blocked party authorize on a field they own.
+    //
+    //   read   → either side of the edge may read it. The blocker lists
+    //            their own blocks via `where('blockerId','==',uid)`
+    //            (matched by `resource.data.blockerId == uid`); the blocked
+    //            party may inspect edges naming them via
+    //            `where('blockedId','==',uid)`.
+    //   create → only the blocker, and only for an edge they author
+    //            (request payload `blockerId` must equal the requester).
+    //   delete → only the blocker can lift their own block (unblock).
+    //
+    // No update path — a block edge is immutable; changing the target means
+    // delete + create. Admins retain full access via the catch-all below.
+    // ============================================================
+    match /blocks/{blockId} {
+      allow read: if isAuthenticated() && (
+        resource.data.blockerId == request.auth.uid ||
+        resource.data.blockedId == request.auth.uid
+      );
+      allow create: if isAuthenticated()
+                    && request.resource.data.blockerId == request.auth.uid;
+      allow delete: if isAuthenticated()
+                    && resource.data.blockerId == request.auth.uid;
+    }
+
+    match /feed_posts/{docId} {
+      // Public posts: any authenticated user
+      allow read: if isAuthenticated() && resource.data.audience == 'public';
+      // Partners posts: any authenticated user (client query limits by authorUid list)
+      allow read: if isAuthenticated() && resource.data.audience == 'partners';
+      // Private: author only
+      allow read: if isAuthenticated() && request.auth.uid == resource.data.authorUid;
+      // Legacy posts without audience field — allow read for backward compat
+      allow read: if isAuthenticated() && !('audience' in resource.data);
+      // Create: only for own posts. SPEC-03 Wave C: posting to the feed
+      // requires a real account — a guest's post would be visible to
+      // everyone.
+      allow create: if isAuthenticated() && !isAnonymous() && request.auth.uid == request.resource.data.authorUid;
+
+      // SECURITY (H1 — Feed Integrity):
+      //   Update is restricted to the original author. The previous rule
+      //   (`allow update: if isAuthenticated()`) let any logged-in user
+      //   rewrite or deface any other user's post, including the authorUid
+      //   field itself. The author check uses `resource.data.authorUid`
+      //   (the EXISTING doc, not the incoming payload) so an attacker cannot
+      //   spoof authorship by sending a forged `authorUid` in the request.
+      //
+      //   We additionally lock the `authorUid` field — even the rightful
+      //   author cannot change post ownership after creation.
+      allow update: if isAuthenticated()
+                    && request.auth.uid == resource.data.authorUid
+                    && request.resource.data.authorUid == resource.data.authorUid;
+
+      // Delete: only the original author can remove their own post (GDPR /
+      // Israeli Privacy Law compliance — users own their UGC and can erase
+      // it). Authorship is checked against `resource.data.authorUid` (the
+      // existing doc) so an attacker cannot spoof by sending a forged
+      // payload. Compliance Phase 3.2.
+      allow delete: if isAuthenticated()
+                    && request.auth.uid == resource.data.authorUid;
+
+      match /reactions/{reactionId} {
+        allow read: if isAuthenticated();
+        // SPEC-03 Wave C: liking a post requires a real account — the
+        // author (and everyone else who can see reaction counts) would
+        // otherwise see a guest's like.
+        allow write: if isAuthenticated() && !isAnonymous();
+      }
+    }
+
+    // ============================================================
+    // COMMUNITY & ENGAGEMENT — Pillar 1/3
+    // ============================================================
+    match /community_groups/{docId} {
+      // Unconditional read — same as every other group type. The reserve-
+      // league group's own doc carries no real names (see isReserveLeagueGroup's
+      // comment above: "their own doc... [is] intentionally as public as any
+      // other community group"); only its members/{uid} roster (below) needs
+      // the members-only gate. A gate here was tried 04.09.2026 and reverted
+      // 07.09.2026 — a docId-dependent condition on the TOP-LEVEL collection's
+      // own read rule breaks every `list` query with no docId filter (e.g.
+      // NearbyGroupsRow's isPublic+isActive query), because docId varies
+      // across every potential result document and Firestore can't bound it
+      // from the query's own where-clauses. Emulator-confirmed: "Null value
+      // error ... for 'list'" at this exact line, for every non-admin caller,
+      // regardless of which group they were actually trying to read. This is
+      // NOT the same as the members/{uid} gate directly below, where docId is
+      // fixed to one already-known group for the whole subcollection query —
+      // see tests/firestore-rules.test.ts R7 vs R8.
+      allow read: if isAuthenticated();
+      // Admins have full write access (authority-manager dashboard)
+      allow write: if isAdmin();
+
+      // Any authenticated user can create their own community group via the in-app wizard.
+      // Guards:
+      //   - request.auth.uid == createdBy  →  user can only create groups for themselves
+      //   - source == 'user'               →  cannot impersonate authority/professional groups
+      //   - isOfficial == false            →  cannot self-grant official status
+      //   - isLocked != true               →  cannot self-create an access-code-gated
+      //                                        (institutional) group; only admins/authorities
+      //                                        may lock a group (they bypass via isAdmin())
+      // Note: social groups (friends/family) intentionally omit authorityId — this
+      //       rule does not require it, so those creates are explicitly permitted.
+      allow create: if isAuthenticated()
+                    && request.auth.uid == request.resource.data.createdBy
+                    && request.resource.data.source == 'user'
+                    && request.resource.data.isOfficial == false
+                    && request.resource.data.get('isLocked', false) == false;
+
+      // Creator can update their group (name, description, schedule, rules, images, etc.)
+      // but may NOT flip the access-code lock — isLocked must stay unchanged so a
+      // user cannot create an open group and then lock it. Admins bypass via isAdmin().
+      allow update: if isAuthenticated()
+                    && request.auth.uid == resource.data.createdBy
+                    && request.resource.data.get('isLocked', false) == resource.data.get('isLocked', false);
+
+      // Group owner OR admin may patch schedule + location fields only.
+      // Scoped to exactly these keys so a group admin cannot rename the group,
+      // flip isLocked, or change any other field.
+      allow update: if (isGroupOwner(docId) || isGroupAdmin(docId))
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['scheduleSlots', 'meetingLocation', 'updatedAt']);
+
+      // Any authenticated user can update only the membership counters when joining/leaving.
+      // 'updatedAt' is included because group.service.ts writes it alongside the counters.
+      allow update: if isAuthenticated()
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['memberCount', 'currentParticipants', 'updatedAt']);
+
+      // group_members sub-collection
+      // create:  public groups open; private groups require inviteCode or creator privilege.
+      // update:  field-level guards — role changes are restricted by caller rank.
+      // delete:  self-remove always allowed; admin removes members only; owner removes anyone.
+      match /members/{uid} {
+        // Members-only (or admin) for the reservist league — real names
+        // mapped to a military-adjacent affiliation is exactly the exposure
+        // phase 3a's military_declarations lockdown was built to prevent
+        // (see docs/research/military-persona-unified-architecture.md §11).
+        // This is the actual roster (real names), the primary thing being
+        // protected — the parent group doc (above) no longer carries this
+        // gate; see its comment for why. Safe for `list` here specifically
+        // because docId is fixed to one already-known group for the whole
+        // subcollection query, never varying across potential results the
+        // way it does on the top-level community_groups collection itself.
+        allow read: if isAuthenticated() && (!isReserveLeagueGroup(docId) || isGroupMember(docId) || isAdmin());
+
+        allow update: if isAuthenticated() && (
+          // OUT app admins bypass all group-level restrictions
+          isAdmin()
+          // Self-update: profile fields only — role is immutable by the member themselves
+          || (request.auth.uid == uid
+              && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']))
+          // Any group admin can promote a member → admin (cannot act on themselves)
+          || (isGroupAdmin(docId) && request.auth.uid != uid
+              && resource.data.role == 'member'
+              && request.resource.data.role == 'admin')
+          // Only the owner can demote admin → member (cannot demote themselves)
+          || (isGroupOwner(docId) && request.auth.uid != uid
+              && resource.data.role == 'admin'
+              && request.resource.data.role == 'member')
+        );
+
+        allow delete: if isAuthenticated() && (
+          // OUT app admins bypass all group-level restrictions
+          isAdmin()
+          // Self-remove (leave group) — any member including owner
+          || request.auth.uid == uid
+          // Admin removes a regular member (role='member') — cannot remove admins or owner
+          || (isGroupAdmin(docId) && request.auth.uid != uid
+              && resource.data.role == 'member')
+          // Owner removes anyone (including admins) except themselves
+          || (isGroupOwner(docId) && request.auth.uid != uid)
+        );
+
+        // 08.09.2026 — !blockedByGroupPersonaGate(docId) added first: a
+        // matching-or-ungated join proceeds exactly as before; a
+        // non-matching persona is denied here, before ever becoming a
+        // member — closing the join-bypasses-persona gap (see that
+        // function's comment).
+        // SPEC-03 Wave C — !isAnonymous() added 09.09.2026: joining a
+        // group makes you visible in its roster to every other member —
+        // requires a real account per David's policy decision. The
+        // Admin-SDK server route (/api/social/group-membership) that
+        // handles the code-gated join path has its own equivalent check.
+        allow create: if isAuthenticated() && !isAnonymous() && request.auth.uid == uid
+          && !blockedByGroupPersonaGate(docId)
+          && (
+            get(/databases/$(database)/documents/community_groups/$(docId)).data.get('isPublic', false) == true
+            || groupInviteCode(docId) == request.resource.data.get('inviteCode', 'NONE_SUPPLIED')
+            || get(/databases/$(database)/documents/community_groups/$(docId)).data.get('createdBy', '')
+                 == request.auth.uid
+          );
+      }
+
+      // private/invite — SPEC-01 task 2. Moved off the parent doc's plain
+      // `inviteCode` field (readable by any signed-in guest, since
+      // signInAnonymously is open) into this locked-down subcollection.
+      //
+      // Read: member-or-above for an ORDINARY private group — membership
+      // there is itself proof of already knowing the code (it's what the
+      // create rule above enforces via groupInviteCode()), so a member
+      // reading it back to invite a friend hands them nothing they didn't
+      // already have. Tightening to owner/admin-only would cost the
+      // reshare feature for zero security gain (David, 08.09.2026).
+      // isLocked and the reserve league are the deliberate exception:
+      // there, membership comes through a DIFFERENT channel entirely (an
+      // access code, or a verified persona declaration) — not knowledge of
+      // THIS code — so a member reading it back would hand out access the
+      // lock/roster gate exists specifically to withhold.
+      match /private/invite {
+        allow read: if isGroupOwner(docId) || isGroupAdmin(docId) || (
+          isGroupMember(docId)
+          && get(/databases/$(database)/documents/community_groups/$(docId)).data.get('isLocked', false) == false
+          && !isReserveLeagueGroup(docId)
+        );
+        allow write: if isAdmin();
+      }
+
+      // attendance sub-collection — session booking / RSVP.
+      // Doc ID format: {YYYY-MM-DD_HH-mm}  (NOT a uid — a date/time key).
+      //
+      // Write rules are split by field category:
+      //   RSVP fields  → any authenticated user (booking.service.ts)
+      //   Phase fields → group admin only (session-phase.service.ts)
+      match /attendance/{sessionId} {
+        // SPEC-02 F-11: was `if isAuthenticated()` — any signed-in guest
+        // could read every group's session attendance. docId is fixed to
+        // one already-known group for the whole subcollection query (same
+        // shape as members/{uid} above — safe per the R7/R8 pattern, not
+        // the top-level-collection trap) — verified every real caller
+        // (booking.service.ts) always scopes to a known groupId, never a
+        // cross-group collectionGroup query.
+        allow read: if isGroupMember(docId) || isGroupAdmin(docId) || isAdmin();
+
+        // RSVP: create initial doc (booking.service.ts first RSVP)
+        allow create: if isAuthenticated()
+          && !request.resource.data.keys().hasAny([
+               'sessionPhase', 'sessionPhaseUpdatedAt', 'sessionPhaseUpdatedBy', 'lobbyExtendedUntil'
+             ]);
+
+        // RSVP: update attendance arrays / counters (booking.service.ts)
+        allow update: if isAuthenticated()
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+               'sessionPhase', 'sessionPhaseUpdatedAt', 'sessionPhaseUpdatedBy', 'lobbyExtendedUntil'
+             ]);
+
+        // Phase: group admin (or OUT admin) writes phase + lobby-extension fields only
+        allow update: if isGroupAdmin(docId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['sessionPhase', 'sessionPhaseUpdatedAt', 'sessionPhaseUpdatedBy', 'lobbyExtendedUntil']);
+
+        // member_statuses sub-collection: each member writes only her own document
+        match /member_statuses/{uid} {
+          allow read: if isAuthenticated();
+          allow write: if isAuthenticated() && request.auth.uid == uid;
+        }
+      }
+    }
+
+    match /community_events/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+      // Authenticated users can increment currentRegistrations (join/leave)
+      allow update: if isAuthenticated()
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['currentRegistrations', 'updatedAt']);
+
+      // Authenticated users may CREATE a virtual_materialized event when joining a
+      // recurring group slot. Strict shape so this path can't be used to forge
+      // admin-curated events:
+      //   - createdBy must equal the requester (no impersonation)
+      //   - source must be 'virtual_materialized' (UI distinguishes from admin events)
+      //   - groupId must reference a real community_groups doc
+      // The official-status badge (`isOfficial`) cannot be self-granted via this
+      // path; it must equal the parent group's flag (admins still bypass via
+      // the `isAdmin()` write rule above).
+      allow create: if isAuthenticated()
+                    && request.auth.uid == request.resource.data.createdBy
+                    && request.resource.data.source == 'virtual_materialized'
+                    && request.resource.data.groupId is string
+                    && request.resource.data.groupId.size() > 0
+                    && (request.resource.data.isOfficial == false
+                        || request.resource.data.isOfficial == null);
+
+      // registrations sub-collection — users can write their own registration doc
+      match /registrations/{uid} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated() && request.auth.uid == uid;
+      }
+    }
+
+    // ============================================================
+    // PLANNED SESSIONS — ephemeral "I'm heading to this route/park"
+    // declarations. Powers:
+    //   • RouteDetailSheet & ParkDetailSheet "אני מגיע ב..." buttons
+    //   • Partner-finder hub (usePartnerData)
+    //   • useParkEvents personal-arrival stream
+    // Reads are open to any authenticated user; the upstream queries
+    // are bounded by parkId / routeId / userId / status / expiresAt
+    // so this is not an unbounded firehose. Writes are scoped to the
+    // doc owner — matched against `userId` on the resource (existing
+    // doc for update/delete, request payload for create).
+    // ============================================================
+    match /planned_sessions/{sessionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+                    && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if isAuthenticated()
+                            && request.auth.uid == resource.data.userId;
+    }
+
+    // ============================================================
+    // KUDOS — high-five inbox
+    // ============================================================
+    match /kudos/{recipientUid}/inbox/{kudoId} {
+      allow read: if isOwner(recipientUid);
+      // SPEC-02 F-18: was `if isAuthenticated()` — no check that the
+      // sender is who they claim. kudos.service.ts's sendKudo() always
+      // writes fromUid as the caller's own uid (verified both call
+      // sites: KudoSheet.tsx, ActivityPanel.tsx) — a caller can no
+      // longer forge a kudo that appears to come from someone else.
+      // SPEC-03 Wave C: sending a kudo is a social gesture visible to its
+      // recipient — the same "like" category the policy names explicitly,
+      // requires a real account.
+      allow create: if isAuthenticated() && !isAnonymous() && request.resource.data.fromUid == request.auth.uid;
+      allow update: if isOwner(recipientUid);
+    }
+
+    // ============================================================
+    // ACTIVITY FEED — Pillar 5
+    // Users can read their own feed; users can write to their own
+    // feed (join events) and to city-wide feeds (city_xxx).
+    // ============================================================
+    match /activity/{scopeId}/feed/{eventId} {
+      allow read: if isAuthenticated()
+                  && (isOwner(scopeId) || scopeId.matches('city_.*'));
+      allow write: if isAdmin();
+      allow create: if isAuthenticated()
+                    && (request.auth.uid == scopeId
+                        || scopeId.matches('city_.*'));
+    }
+
+    // ============================================================
+    // DIRECT MESSAGES & GROUP CHATS — Pillar 5
+    // ============================================================
+    match /chats/{chatId} {
+      // Existing participants can read their thread (DM + group)
+      allow read: if isAuthenticated()
+                  && request.auth.uid in resource.data.participants;
+      // 08.09.2026 — REPLACES a former "any authenticated user can read a
+      // group-type chat" rule. That rule leaked lastMessage/participants/
+      // participantNames for EVERY group chat in the app to any logged-in
+      // (even freshly anonymous) user, participant or not — verified live
+      // in production against a real, uninvolved group. chatId is
+      // deterministic ("group_" + groupId, chat.service.ts's
+      // makeGroupChatId), so it never even required guessing.
+      // The actual legitimate case (getGroupChatThread, called only from
+      // the drawer's post-join "כנס לצ'אט" button, i.e. only after
+      // members/{uid} already exists) needs a real member to read the
+      // thread even before their own uid lands in participants (the join
+      // flow's chat-sync step is separately non-fatal). Routes through
+      // community_groups/{groupId}/members/{uid} — the SAME authoritative,
+      // already-persona-gated source blockedByGroupPersonaGate protects —
+      // so a persona-gated group's chat inherits that protection for free,
+      // with no separate persona check needed here.
+      // isAdmin()/isRootAdmin() still reach every chat via the global
+      // catch-all match block below — no admin-specific clause needed here
+      // (subscribeToAllChats' platform-wide inbox is unaffected).
+      allow read: if isAuthenticated()
+                  && resource.data.type == 'group'
+                  && exists(/databases/$(database)/documents/community_groups/$(resource.data.groupId)/members/$(request.auth.uid));
+
+      // Existence check on a non-existent chat doc.
+      //
+      // `getOrCreateChat` (src/features/social/services/chat.service.ts)
+      // probes `chats/{chatId}` with getDoc() before deciding whether to
+      // create a new DM. For a brand-new pair, the doc doesn't exist;
+      // both rules above dereference `resource.data` so they evaluate to
+      // false against a null resource and Firestore returns
+      // PERMISSION_DENIED instead of `snap.exists() === false`. That's
+      // the [useChatStore] openDM failure the user hit.
+      //
+      // Allowing authenticated reads on missing chat docs leaks nothing:
+      //   • No fields are returned (the doc has none).
+      //   • Chat IDs are deterministic from sorted participant UIDs, so
+      //     any caller who has both UIDs (e.g. via the partner finder
+      //     they just clicked) could already construct the same id.
+      //   • Existing-chat reads still require participant membership
+      //     (rule above), so message content stays private.
+      // Group-chat existence is already public via the type=='group'
+      // rule above, so this only changes behaviour for not-yet-created
+      // DM threads, which is exactly the path getOrCreateChat needs.
+      allow read: if isAuthenticated() && resource == null;
+
+      // DM create: requesting user in participants, exactly 2 people.
+      //
+      // SECURITY (Compliance Phase 2.2 — Minor DM Block):
+      //   Both participants must have core.ageGroup == 'adult'. Minors
+      //   (under 18) cannot initiate or be added to a DM. ageGroup is
+      //   set server-side in onboarding-sync.service.ts from the user's
+      //   birthDate (re-validated in the sync service, see Phase 2.1).
+      //
+      //   Defensive .get() calls — if the user doc or core.ageGroup field
+      //   is missing, the comparison fails ('' != 'adult') and creation is
+      //   denied. Legacy users without ageGroup must re-onboard or be
+      //   backfilled by admin tooling before they can create new DMs.
+      //
+      //   NOTE: This rule covers DM creation only. Group chats (`type ==
+      //   'group'`) are handled by a separate allow-create rule below; the
+      //   group-chat case is intentionally left open until tenant-scoped
+      //   group rules are added.
+      allow create: if isAuthenticated()
+                    && request.auth.uid in request.resource.data.participants
+                    && request.resource.data.participants.size() == 2
+                    && request.resource.data.type == 'dm'
+                    && get(/databases/$(database)/documents/users/$(request.resource.data.participants[0]))
+                         .data.get('core', {}).get('ageGroup', '') == 'adult'
+                    && get(/databases/$(database)/documents/users/$(request.resource.data.participants[1]))
+                         .data.get('core', {}).get('ageGroup', '') == 'adult';
+      // Group chat create: requesting user in participants, type == 'group'
+      allow create: if isAuthenticated()
+                    && request.auth.uid in request.resource.data.participants
+                    && request.resource.data.type == 'group';
+
+      // Existing participants can update (send message metadata, mark read, etc.)
+      allow update: if isAuthenticated()
+                    && request.auth.uid in resource.data.participants;
+      // Group chat JOIN: SPEC-02 SEC-03 (part 2) — this used to let ANY
+      // authenticated user self-add to a group chat's `participants` via
+      // arrayUnion(uid), with only `type == 'group'` checked. chatId is
+      // deterministic (`"group_" + groupId`), so an outsider who merely
+      // knew a groupId could write themselves in here, then satisfy the
+      // plain `uid in resource.data.participants` read rule above —
+      // bypassing the real-membership read gate a few lines up entirely,
+      // without ever joining community_groups/{groupId}/members.
+      // Joining a chat is not its own client action — it's derived from
+      // already being a real group member. Two legitimate ways to already
+      // be one, both checked via OR (community.service.ts's joinEvent()
+      // falls back to `chatGroupId = groupId ?? eventId` for a standalone
+      // event with no linked group, so this doc's `groupId` field can hold
+      // either a real community_groups id or a community_events id):
+      //   1. group.service.ts's joinGroup — calls addMemberToGroupChat only
+      //      in Step 4, strictly after Steps 1-2 already created the real
+      //      community_groups/{groupId}/members/{uid} doc.
+      //   2. community.service.ts's joinEvent — calls addMemberToGroupChat
+      //      in Step 4, strictly after Step 1 already created the real
+      //      community_events/{eventId}/registrations/{uid} doc.
+      // Either way, this check never blocks the legitimate flow, only an
+      // attacker who skipped both.
+      allow update: if isAuthenticated()
+                    && resource.data.type == 'group'
+                    && request.auth.uid in request.resource.data.participants
+                    && (
+                      exists(/databases/$(database)/documents/community_groups/$(resource.data.groupId)/members/$(request.auth.uid)) ||
+                      exists(/databases/$(database)/documents/community_events/$(resource.data.groupId)/registrations/$(request.auth.uid))
+                    );
+
+      match /messages/{messageId} {
+        // Read: participant of the parent chat
+        allow read: if isAuthenticated()
+                    && request.auth.uid in
+                       get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        // Create: sender must be themselves and be a participant.
+        // SPEC-03 Wave C: "write in chat" requires a real account —
+        // reading a chat you're already a participant of is unaffected.
+        allow create: if isAuthenticated()
+                      && !isAnonymous()
+                      && request.auth.uid == request.resource.data.senderUid
+                      && request.auth.uid in
+                         get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        // Update: only to add uid to readBy
+        allow update: if isAuthenticated()
+                      && request.auth.uid in
+                         get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+      }
+    }
+
+    // ============================================================
+    // REPORTS — user-submitted content reports
+    // create: any signed-in user (no helper functions — avoids get()
+    //   evaluation side-effects from the catch-all isAdmin() rule)
+    // read/manage: root admins + users whose role is admin/authority/root
+    // ============================================================
+    match /reports/{reportId} {
+      allow create: if request.auth != null;
+      allow read, update, delete: if request.auth != null && (
+        request.auth.token.email.matches('(?i)^(david|office)@appout\\.co\\.il$') ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'authority', 'root']
+      );
+    }
+
+    // ============================================================
+    // REFERRALS — tracking
+    // ============================================================
+    match /referrals/{docId} {
+      // SPEC-04 Wave E: was `if isAuthenticated()` with no ownership check —
+      // any authenticated user could read ANY referral doc, exposing
+      // inviteeName (a real name, not a display handle) for every person
+      // who has ever been invited. The F-18 fix below only closed the
+      // CREATE-side forgery; this closes the separate READ-side exposure.
+      // No UI reads this collection for referral stats (verified via grep):
+      // the referral counter shown to a referrer is users/{uid}.core.referralCount,
+      // an aggregate — never the raw referrals docs — so narrowing this read
+      // to the two people actually named in the doc has no display impact.
+      allow read: if isAuthenticated()
+        && (request.auth.uid == resource.data.referrerUid
+            || request.auth.uid == resource.data.inviteeUid);
+      // SPEC-02 F-18: was `if isAuthenticated()` — no ownership check.
+      // referral.service.ts's processReferral() is always called with
+      // the CALLER's own uid as inviteeUid (gateway/page.tsx: `user.uid`)
+      // — verified via grep, both call sites. Anyone can claim any
+      // referrerUid (that's the whole point of a referral program), but
+      // only for THEMSELVES as the invitee — a caller can no longer
+      // fabricate a referral record naming some OTHER uid as the invitee
+      // (inflating a referrer's count for people who never actually
+      // joined, or planting fake join records).
+      allow create: if isAuthenticated()
+        && request.resource.data.inviteeUid == request.auth.uid;
+    }
+
+    // ============================================================
+    // GROUP INVITATIONS — session-specific time-limited join tokens (Phase G).
+    // Created by the session host when opening the lobby.
+    // Consumed by joining users (attendance write happens client-side via the
+    // service after validation; only useCount is updated here).
+    // Tokens are cryptographic random — unguessable ID is the primary security layer.
+    // ============================================================
+    match /group_invitations/{token} {
+      // SPEC-02 F-13: was `allow read` (get+list) — any signed-in guest
+      // could `list` this collection and dump every open invitation,
+      // despite the comment right above already stating the intended
+      // model ("tokens are cryptographic random — unguessable ID is the
+      // primary security layer", i.e. get-by-known-token is meant to be
+      // the only access path). Verified every real caller (joinEngine.ts,
+      // group-invitation.service.ts, join/session-token route) only ever
+      // does .doc(token).get() — never a query — so narrowing to `get`
+      // costs nothing. Same fix shape as admin_invitations in SPEC-01.
+      allow get: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.auth.uid == request.resource.data.hostUid;
+      allow delete: if isAuthenticated()
+        && request.auth.uid == resource.data.hostUid;
+      // Only useCount may be incremented by authenticated users (token consumption).
+      allow update: if isAuthenticated()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['useCount']);
+    }
+
+    match /manager_notifications/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /push_messages/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ============================================================
+    // ACCOUNT METRICS — Social KPI snapshots (followers, saves).
+    //
+    // Manually entered via /admin/marketing-hub.
+    // source: 'manual' | 'api' — API writes will use Admin SDK and
+    // bypass these rules; client writes are always admin-only.
+    // History is append-only by convention (never delete a snapshot).
+    // ============================================================
+    match /account_metrics/{docId} {
+      allow read, write: if isRootAdmin() || isAdmin();
+    }
+
+    // ============================================================
+    // CONTENT ITEMS — Marketing Hub תור תוכן (content pipeline).
+    //
+    // All CRUD via the admin panel (/admin/marketing-hub).
+    // No public read — drafts and ideas are internal assets.
+    // Agent writes go through the Admin SDK (bypass rules) so
+    // agentGenerated items don't need an authenticated user.
+    // ============================================================
+    match /content_items/{docId} {
+      allow read, write: if isRootAdmin() || isAdmin();
+    }
+
+    // ============================================================
+    // MARKETING LINKS — UTM Registry (Growth Hub)
+    //
+    // Written and managed EXCLUSIVELY by authenticated admins via
+    // the Admin Panel at /admin/links. The anonymous click-tracking
+    // API route (`/api/links/[id]/click`) uses the Admin SDK, which
+    // bypasses these rules entirely — anonymous browser visits must
+    // NEVER reach this collection directly via the client SDK.
+    //
+    // Security rationale:
+    //   • No `allow create/update/delete: if isAuthenticated()` —
+    //     regular users have zero write access. Any leaked link ID
+    //     cannot be used to inflate clicksCount from the client.
+    //   • No public read — campaign URLs are an internal asset; a
+    //     competitor or bot should not be able to enumerate them.
+    //   • The Admin SDK route is the only path that bumps clicksCount,
+    //     ensuring counter integrity without exposing a write surface.
+    // ============================================================
+    match /marketing_links/{docId} {
+      allow read, write: if isRootAdmin() || isAdmin();
+
+      // Per-click detail records (link_id ↔ install/user matching prep).
+      // Written EXCLUSIVELY by the Admin SDK from `/api/links/[id]/click` —
+      // same rationale as the parent doc: no client write surface at all,
+      // not even for admins (there is no admin UI for this subcollection).
+      match /clicks/{clickId} {
+        allow read, write: if isRootAdmin();
+      }
+
+      // Permanent daily rollup (device/hour/day-of-week/country/city
+      // counters) — powers the read-only analytics screen at
+      // /admin/links/[id]. Written EXCLUSIVELY by the Admin SDK, batched
+      // alongside the per-click record above — but READ is open to any
+      // admin (not just root), matching the parent doc's own read policy,
+      // since this is exactly what that screen displays.
+      match /daily_stats/{dateKey} {
+        allow read: if isRootAdmin() || isAdmin();
+        allow write: if isRootAdmin();
+      }
+    }
+
+    // ============================================================
+    // PRODUCT ROADMAP & FEEDBACK
+    // ============================================================
+    match /product_roadmap/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /product_tags/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /user_feedback/{docId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+    }
+
+    // ============================================================
+    // SESSIONS — park check-ins
+    // ============================================================
+    match /sessions/{docId} {
+      // Admins retain full access (heatmap / analytics tooling).
+      allow read, write: if isRootAdmin() || isAdmin();
+
+      // SPEC-02 F-07: was `if isAuthenticated()` — every park check-in of
+      // every user, world-readable to any signed-in guest. The comment
+      // this replaced claimed the admin heatmap (route-overlay.service)
+      // needed this, but that component only mounts under /admin/heatmap
+      // (PopularParksCard/PopularRoutesCard/LiveHeatMap, all admin-only)
+      // and is already covered by the isAdmin() grant above — verified via
+      // grep, no non-admin client code queries this collection at all.
+      allow read: if isOwner(resource.data.userId);
+
+      // Writes are owner-scoped. Client check-ins are addDoc() with
+      // userId == current uid (useRunningPlayer). Server purges/seeds use
+      // the Admin SDK and bypass these rules.
+      allow create: if isAuthenticated()
+                    && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated()
+                            && resource.data.userId == request.auth.uid;
+    }
+
+    // ============================================================
+    // SCHOOLS / ORGANIZATIONS — code validation for B2E access
+    // ============================================================
+    match /schools/{docId} {
+      // Read denied to clients — school/org codes are NOT public (was
+      // `allow read: if true`, enabling unauthenticated enumeration of every
+      // code). Admins still read via the ADMIN FALLBACK catch-all at the
+      // bottom of this file (admin schools page). The only client reader,
+      // validateOrganizationCode(), is dead code; B2E code validation runs
+      // through the validateAccessCode Cloud Function on `access_codes`.
+      allow read: if false;
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // ACCESS CODES — validated exclusively by the validateAccessCode
+    // Cloud Function (Admin SDK bypasses rules). Clients must NEVER read
+    // this collection directly: doing so previously let any signed-in user
+    // enumerate every code + the PII written by the CF (lastUsedByUid,
+    // lastUsedByDisplayName). Reads are now admin-only; the admin panel
+    // reader satisfies isAdmin(), the CF uses the Admin SDK.
+    // ============================================================
+    match /access_codes/{codeId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // PE GRADES — teacher grading (docId: {uid}_{term})
+    // Teachers (admin) write; students read their own grades.
+    // ============================================================
+    match /pe_grades/{docId} {
+      allow read, write: if isRootAdmin() || isAdmin();
+      allow read: if isAuthenticated() &&
+        docId.size() > request.auth.uid.size() &&
+        docId[0:request.auth.uid.size()] == request.auth.uid &&
+        docId[request.auth.uid.size():request.auth.uid.size()+1] == '_';
+    }
+
+    // ============================================================
+    // READINESS CONFIGS — military fitness thresholds per unit
+    // Tenant-isolated: only users in the same tenant can read.
+    // ============================================================
+    match /readiness_configs/{unitId} {
+      allow read: if isAuthenticated() &&
+        hasTenant(resource.data.tenantId);
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // LEADERBOARD SHARDS — distributed counters (written by CF)
+    // Clients should not write directly; reads are tenant-scoped.
+    // ============================================================
+    match /leaderboard_shards/{shardId} {
+      // SPEC-02 F-04: the comment above already claimed "tenant-scoped" —
+      // the rule never enforced it; `if isAuthenticated()` let any
+      // signed-in guest read every tenant's {uid, tenantId, unitId} rows
+      // (a full user→authority→military-unit map). getTenantLeaderboard
+      // (ranking.service.ts) always queries with
+      // where('tenantId','==',tenantId) — this condition is provable from
+      // that filter (same shape as the R8 community_groups precedent),
+      // so `list` still works for legitimate same-tenant reads.
+      //
+      // TEMPORARY, documented per the spec: scoped against the reader's
+      // OWN core.authorityId, not a real tenant/custom-claim boundary —
+      // SEC-08 (tenant isolation via custom claims, mandatory design-only
+      // stop in this spec) is the real fix. authorityId is spoofable by
+      // any admin-panel write path today in ways a verified custom claim
+      // wouldn't be; this only stops the CURRENT unauthenticated-scope
+      // leak, not a determined same-app cross-tenant reader.
+      allow read: if isAuthenticated()
+                  && resource.data.tenantId == getUserDoc().get('core', {}).get('authorityId', '');
+      allow write: if isRootAdmin() || isAdmin();
+    }
+
+    // ============================================================
+    // LEADERBOARD SNAPSHOTS — rolled-up rankings (written by CF)
+    // Read-only for authenticated users; tenant-scoped.
+    // ============================================================
+    match /leaderboard_snapshots/{snapshotId} {
+      // SPEC-02 F-04: same issue as leaderboard_shards above, different
+      // shape — snapshotId IS `{tenantId}_{unitId}_{period}` (no tenantId
+      // FIELD exists on this doc to filter by; see functions/src/
+      // leaderboard.ts's rollup). Read is always a single getDoc() by
+      // known bucketKey (leaderboard.service.ts) — never a list — so a
+      // docId-prefix check is safe here (unlike the top-level
+      // community_groups trap: fixed docId per request, not varying
+      // across a query's potential results).
+      //
+      // TEMPORARY — same SEC-08 caveat as leaderboard_shards above.
+      // docIdHasAuthorityPrefix() does an exact-length prefix +
+      // underscore-boundary check (same shape as dailyActivity's docId
+      // scoping above) — NOT split('_')[0], which breaks the instant
+      // authorityId itself contains an underscore (caught by this rule's
+      // own test: 'city_a' truncates to 'city').
+      allow read: if isAuthenticated() && docIdHasAuthorityPrefix(snapshotId);
+      allow write: if isRootAdmin() || isAdmin();
+    }
+
+    // ============================================================
+    // TENANTS & UNITS — multi-tenant hierarchy
+    // Tenant reads gated by Custom Claim. Admins can write.
+    // ============================================================
+    match /tenants/{tenantId} {
+      allow read: if hasTenant(tenantId);
+      allow write: if isAdmin();
+
+      match /units/{unitId} {
+        allow read: if hasTenant(tenantId);
+        allow write: if isAdmin();
+      }
+    }
+
+    // ============================================================
+    // UNIT DIRECTORY — read-only public index for military-unit search
+    // (Phase 3a, military-persona self-declaration). Contains ONLY
+    // name/level/parentId/orgId/armType/statusCategory — zero people,
+    // zero membership data, ever. Always a derived copy, written
+    // exclusively by the onUnitWrite/onAuthorityWrite Cloud Functions
+    // (Admin SDK) from tenants/{orgId}/units and authorities/{id}. If
+    // in doubt, those are canonical, this is not.
+    //
+    // allow read: if true (not isAuthenticated()) is a DELIBERATE,
+    // discussed-with-David choice (02.09.2026) — unit names carry no
+    // people-data and brigade names are already semi-public, so the
+    // simplicity of an open read outweighs the friction of gating it.
+    // This is explicitly flagged as open for discussion with the
+    // reserve-duty fitness officer this feature was built for, and can
+    // be tightened to isAuthenticated() (or narrower) at any time
+    // without breaking anything else — see docs/research/
+    // military-persona-unified-architecture.md §9 risk #9.
+    // ============================================================
+    match /unitDirectory/{directoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Phase 6b — unit-vs-unit league aggregates (company/battalion/brigade).
+    // Same openness as unitDirectory, deliberately: this collection never
+    // contains a uid, a name, or any personal identifier — only
+    // {activeParticipantCount, avgSteps, updatedAt} per unit, written by
+    // unitLeagueRollup (scheduled CF, Admin SDK). See docs/research/
+    // military-persona-unified-architecture.md §12 for why this design
+    // needs no client-visible roster at all, unlike community_groups/
+    // members (which does, and is locked down accordingly).
+    match /unit_league_aggregates/{directoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // MILITARY_DECLARATIONS — self-declared, unverified military
+    // persona answers (Phase 3a). Deliberately NOT a field on
+    // users/{uid} — that doc's read rule (line ~260) is a whole-
+    // document grant gated only by core.discoverable, so any field
+    // placed there becomes readable by every discoverable-profile-
+    // reading authenticated user (confirmed live via
+    // src/features/social/services/user-search.service.ts's raw
+    // getDocs, plus 4 other existing other-user-profile read paths —
+    // see the research doc's §9 risk #10 for the full audit).
+    //
+    // Named "declarations", not "affiliations", to avoid confusion
+    // with the pre-existing, unrelated core.affiliations mechanism
+    // (city/school/company) and to keep the declared-vs-verified
+    // distinction unmissable in the schema itself. The existing
+    // VERIFIED core.tenantId/unitId/unitPath mechanism (written only
+    // by validateAccessCode CF or admin invitation) is untouched by
+    // this and must never be conflated with it.
+    //
+    // Owner-writable directly (unlike user_memberships, which is
+    // Admin-SDK-only) because nothing else in these rules trusts this
+    // document as an authorization boundary — it is self-declared by
+    // definition, with no verified/elevated state to protect. The
+    // sensitivity is entirely on the READ side. isValidMilitaryDeclaration()
+    // closes the arbitrary-payload gap a bare isOwner() write would
+    // otherwise leave open: closed key list, enum on status, type+length
+    // bounds on orgId/unitId, a size cap on unitPathIds.
+    // ============================================================
+    match /military_declarations/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create, update: if (isOwner(uid) || isAdmin())
+                             && isValidMilitaryDeclaration(request.resource.data);
+      allow delete: if isOwner(uid) || isAdmin();
+    }
+
+    function isValidMilitaryDeclaration(data) {
+      return data.keys().hasOnly(['status', 'orgId', 'unitId', 'unitPathIds', 'pendingUnitId', 'updatedAt'])
+        && (!('status' in data) || data.status in ['regular', 'career', 'reserve'])
+        && (!('orgId' in data) || (data.orgId is string && data.orgId.size() <= 100))
+        && (!('unitId' in data) || (data.unitId is string && data.unitId.size() <= 100))
+        && (!('unitPathIds' in data)
+            || (data.unitPathIds is list && data.unitPathIds.size() <= 10))
+        // 07.09.2026 — points at the user's own pending_units/{pendingUnitId}
+        // doc while their "unit isn't in the list" submission is pending or
+        // just-approved (see MilitaryPersonaAnswers.pendingUnitId's own
+        // comment, persona.types.ts). Same shape guard as orgId/unitId.
+        && (!('pendingUnitId' in data) || (data.pendingUnitId is string && data.pendingUnitId.size() <= 100))
+        && data.updatedAt is timestamp;
+    }
+
+    // ============================================================
+    // PERSONA-GATED GROUP AUDIENCE — "צו כושר" fitness-meetup groups
+    // (military-persona-unified-architecture.md, §"צו כושר", built
+    // 07.09.2026). One top-level collection PER persona — never a field on
+    // community_groups/{groupId}, never a wildcard path segment. Both were
+    // tried and proven broken against the real emulator while designing
+    // this feature: a resource.data-based condition doesn't fail closed on
+    // an unfiltered list query (same class of bug as feed_posts, above),
+    // and a nested community_groups/{groupId}/audience/{personaKey}
+    // subcollection + collectionGroup query errors for EVERY caller (not
+    // just a mismatched persona) because a wildcard segment that varies
+    // across the listed result set cannot be evaluated for `list` at all —
+    // it is not a security gap, the query itself does not function.
+    //
+    // A whole collection gated by nothing but a get() on the REQUESTER's
+    // own military_declarations doc has neither problem: the condition is
+    // constant for the entire request (request.auth.uid doesn't vary
+    // across a query's results), so it costs exactly one cached document
+    // read regardless of how many groups are in the result set, and
+    // Firestore never needs to inspect a listed document's own content to
+    // decide whether it belongs in the response.
+    //
+    // Write is admin-only (client SDK, authority-manager panel — this app
+    // has no Admin-SDK-backed API route for community groups). The ONLY
+    // writer in the codebase is community.service.ts's createGroup /
+    // updateGroup / deleteGroup, which write this collection and the
+    // public community_groups/{groupId} doc together in one atomic batch —
+    // see that file's block comment for why a batch, not a transaction or
+    // a Cloud Function relay. Enforced by scripts/safety-check.sh.
+    //
+    // Adding a new persona means adding a new match block here — this is
+    // deliberate, not an oversight: opening a group's sensitive details to
+    // a new audience must require a rules deploy, i.e. explicit sign-off,
+    // every time. See community.types.ts's PERSONA_KEYS comment.
+    // ============================================================
+    match /community_groups_reserve/{groupId} {
+      allow read: if isAdmin() || (
+        isAuthenticated() &&
+        get(/databases/$(database)/documents/military_declarations/$(request.auth.uid)).data.get('status', null) == 'reserve'
+      );
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // VISUAL ASSESSMENT SYSTEM — תוכן, חוקים, סף תוכניות
+    // ============================================================
+    match /visual_assessment_content/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /assessment_rules/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /program_thresholds/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // USER CONTRIBUTIONS — Community Intelligence reports & edits
+    // ============================================================
+    // "היחידה שלי לא ברשימה" — a user-submitted unit awaiting admin review.
+    // Exact mirror of user_contributions' owner+admin shape, deliberately —
+    // unitDirectory itself is NEVER touched by this (no status field, no
+    // flag): a resource.data-based rule on unitDirectory would fail exactly
+    // like the feed_posts finding (Phase 6a) — an unfiltered list query
+    // doesn't fail safely per-document. Keeping pending entries in their own
+    // collection means the public, unconditional unitDirectory read stays
+    // exactly as safe as it is today; a pending unit is real to nobody but
+    // its submitter (and admins) until approved.
+    match /pending_units/{docId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.submittedBy == request.auth.uid;
+
+      // A read on a document that doesn't exist yet leaks nothing (there is
+      // no data) — allowing it unconditionally for any authenticated user
+      // is safe, and is REQUIRED: submitPendingUnit()'s own idempotency
+      // check (getDoc before create, so a resubmission doesn't reset an
+      // already-approved/rejected doc back to pending) calls getDoc on a
+      // not-yet-existing doc on every first-time submission — the normal
+      // path. Found 05.09.2026: request.auth.uid == resource.data.submittedBy
+      // alone errors out (resource is null pre-existence), which Firestore
+      // treats as a hard permission-denied — the "add my unit" CTA's most
+      // common real-world case failed silently in production because of it.
+      allow read: if isAuthenticated()
+        && (!exists(/databases/$(database)/documents/pending_units/$(docId))
+            || request.auth.uid == resource.data.submittedBy);
+
+      allow read, update, delete: if isRootAdmin() || isAdmin();
+    }
+
+    match /user_contributions/{docId} {
+      // Create: only for own contributions
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+
+      // Owner reads their own contributions (reports, edits, reviews)
+      allow read: if isAuthenticated()
+        && request.auth.uid == resource.data.userId;
+
+      // Reviews are public park content — any authenticated user can read
+      allow read: if isAuthenticated()
+        && resource.data.type == 'review';
+
+      // Admin full access
+      allow read, update, delete: if isRootAdmin() || isAdmin();
+    }
+
+    // ============================================================
+    // SYSTEM CONFIG — feature flags (real-time app toggles)
+    // Public read: feature flags are not sensitive data and must load
+    // immediately for anonymous / pre-auth users without permission errors.
+    // Only Root Admins / Super Admins may write.
+    // ============================================================
+    match /system_config/{docId} {
+      allow read: if true;
+      allow write: if isRootAdmin() || isAdmin();
+    }
+
+    // ============================================================
+    // PHOTO RELEASE SUBMISSIONS — public, unauthenticated consent forms
+    //
+    // Parents open a standalone WhatsApp link (/public/forms/photo-release)
+    // and submit a signed photo/video release for their child WITHOUT
+    // logging in. Therefore:
+    //   • create → open to anyone (guest parents), but the payload shape is
+    //     validated so the collection cannot be abused as arbitrary storage.
+    //   • read / update / delete → admins only. Submissions are an immutable
+    //     legal record; nobody can read or tamper with them from the client.
+    //
+    // App Check (reCAPTCHA Enterprise on web) still attests every write, and
+    // the validation below caps the signature/string sizes to keep documents
+    // small and prevent write-bombing.
+    // ============================================================
+    function isValidPhotoRelease() {
+      return request.resource.data.formType == 'photo_release'
+          && request.resource.data.consentAccepted == true
+          && request.resource.data.studentName is string
+          && request.resource.data.studentName.size() > 0
+          && request.resource.data.studentName.size() <= 200
+          && request.resource.data.school is string
+          && request.resource.data.school.size() <= 200
+          && request.resource.data.studentClass is string
+          && request.resource.data.studentClass.size() <= 100
+          && request.resource.data.parentName is string
+          && request.resource.data.parentName.size() > 0
+          && request.resource.data.parentName.size() <= 200
+          && request.resource.data.parentId is string
+          && request.resource.data.parentId.size() <= 20
+          && request.resource.data.signatureData is string
+          && request.resource.data.signatureData.size() > 0
+          && request.resource.data.signatureData.size() < 700000;
+    }
+
+    match /photo_release_submissions/{docId} {
+      allow create: if isValidPhotoRelease();
+      allow read, update, delete: if isRootAdmin() || isAdmin();
+    }
+
+    // ============================================================
+    // LEGAL HOLD — ארכיב משפטי (שמירת 7 שנים מכוח חוק ההתיישנות)
+    // ============================================================
+    // Post-deletion archive of workouts, park sessions and health
+    // declaration references retained for the 7-year Israeli statute
+    // of limitations (Limitation Law 5718-1958). Written and purged
+    // EXCLUSIVELY by Cloud Functions via the Admin SDK (which bypasses
+    // these rules entirely).
+    //
+    // Client access policy:
+    //   • No regular user — including the data subject — may read or
+    //     write their own legal_hold record (these explicit `if false`
+    //     rules deny them).
+    //   • Admins retain read access for legal proceedings via the
+    //     ADMIN FALLBACK catch-all below (Firestore ORs all matching
+    //     rules, so the admin grant still applies). This satisfies the
+    //     "admin-only access via security rules" requirement.
+    match /legal_hold/{uid} {
+      allow read, write: if false;
+      match /{allPaths=**} {
+        allow read, write: if false;
+      }
+    }
+
+    // ============================================================
+    // ROOT ADMIN FALLBACK — david@/office@appout.co.il only.
+    // ============================================================
+    // 20.09.2026 — was `isRootAdmin() || isAdmin()`. isAdmin() is DB-backed
+    // (role/core.role/core.isSuperAdmin/core.isSystemAdmin on the caller's
+    // own user doc) — a non-tenant-scoped grant that applied to every
+    // collection in the database with no per-collection exceptions,
+    // including collections with their own narrower rule above (Firestore
+    // ORs every matching rule block; a narrower rule never overrides this
+    // fallback, it only adds another way to pass). Confirmed empirically:
+    // authority_manager/tenant_owner/unit_admin/platform_member accounts
+    // satisfied isAdmin() and could read/write ANY document via this one
+    // line — see docs/audit-2026-09/ for the incident writeup.
+    //
+    // Narrowed to isRootAdmin() only. Every *specific* collection rule
+    // above that intentionally grants isAdmin() (content/config collections
+    // meant to be editable by any admin, not just root) is untouched — this
+    // change affects ONLY documents/collections with no more specific rule
+    // of their own. At the time of this change, 0 active production users
+    // satisfied isAdmin() without also satisfying isRootAdmin() (verified
+    // — see the same audit doc), so this narrowing was a no-op for every
+    // real account at deploy time; it closes the gap for the NEXT
+    // non-root admin, not a currently-relied-upon path.
+    match /{document=**} {
+      allow read, write: if isRootAdmin();
+    }
+  }
+}
