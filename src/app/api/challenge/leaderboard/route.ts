@@ -27,6 +27,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { getRequestIp } from '@/lib/requestIp';
+import { RATE_LIMITS, isBlockedByAny } from '@/lib/rateLimitConfig';
+import { logRateLimitBlock } from '@/lib/rateLimitLog';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -61,6 +64,23 @@ export async function GET(request: NextRequest) {
     }
 
     const db = getAdminDb();
+
+    // No auth (no caller identity to scope by — see header comment).
+    // Rate-limited by IP only, sized above /booth/display's own polling
+    // cadence (every 8s, ~7.5/min) with headroom for several booths
+    // sharing one venue IP.
+    const ip = getRequestIp(request);
+    const { blocked, window } = await isBlockedByAny(db, [
+      { key: `leaderboard:ip:${ip}`, window: RATE_LIMITS.leaderboard.ip() },
+    ]);
+    if (blocked) {
+      logRateLimitBlock({ route: 'challenge-leaderboard', dimension: 'ip', ip });
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((window?.windowMs ?? 60_000) / 1000)) } },
+      );
+    }
+
     const collRef = db.collection(`community_groups/${groupId}/challenge_submissions`);
 
     let rows: LeaderboardRow[];
