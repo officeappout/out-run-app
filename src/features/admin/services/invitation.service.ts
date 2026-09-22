@@ -84,6 +84,19 @@ function toDate(timestamp: unknown): Date | undefined {
 }
 
 /**
+ * @deprecated SUPERSEDED 22.09.2026 (SPEC-PERMISSIONS-MODEL.md §7/§8) — no
+ * live caller. Invitation creation moved to POST /api/admin/invitations
+ * (Admin SDK, root-only verified server-side from the ID token) after a
+ * Part-0 audit found admin_invitations' firestore.rules write gate was
+ * `isAdmin()` (any DB-flagged super_admin/system_admin), not root-only —
+ * meaning this function's own `assertRootAdmin`-style check below was a
+ * client-side-only guard a non-root admin could bypass entirely by calling
+ * `addDoc` directly. The branch that introduced the server route also
+ * narrows the rule to `allow write: if false`, so calling this function
+ * now would fail with permission-denied regardless. Left in place
+ * (unreachable) rather than deleted — do not reintroduce a client-side
+ * invitation-creation call path; use the server route.
+ *
  * Create a new admin invitation.
  * SECURITY: Only Root Admins can call this function.
  *
@@ -245,6 +258,14 @@ export async function validateInvitation(token: string): Promise<AdminInvitation
 }
 
 /**
+ * @deprecated SUPERSEDED 22.09.2026 — no live caller. The "mark as used"
+ * write now happens inside the same Firestore transaction as the actual
+ * role grant, in POST /api/auth/accept-invitation — doing it as a separate
+ * call (as this function did) left a window where an invitation could be
+ * replayed between the grant and the mark-used write. Left in place
+ * (unreachable) rather than deleted; would fail with permission-denied
+ * under this branch's `admin_invitations` rule regardless.
+ *
  * Mark invitation as used
  */
 export async function markInvitationAsUsed(
@@ -278,6 +299,23 @@ export async function markInvitationAsUsed(
 }
 
 /**
+ * @deprecated SUPERSEDED 22.09.2026 (SPEC-PERMISSIONS-MODEL.md §7) — no
+ * live caller. admin/auth/callback/page.tsx now calls
+ * POST /api/auth/accept-invitation instead, which handles ONLY
+ * authority_manager and platform_member (the two supported types today —
+ * super_admin/tenant_owner/unit_admin/vertical_admin are rejected there,
+ * matching SPEC §10/§11: those verticals/levels aren't built). This
+ * function's client-side writes to users/{uid} were also the concrete
+ * blocker described in SPEC §6.1 — a brand-new invitee has no stored doc
+ * yet, so firestore.rules' noAdminFieldsChanged() has no existing role to
+ * read and permit elevating from; moving the write server-side (Admin SDK,
+ * which bypasses Security Rules by design) is the only way to resolve
+ * that. Left in place (unreachable) rather than deleted, since it still
+ * covers role types (tenant_owner, unit_admin, vertical_admin) the new
+ * endpoint deliberately does not — useful reference if those verticals
+ * get built later, but do not wire anything to call it as-is: it still
+ * writes client-side and would fail under this branch's rule regardless.
+ *
  * Apply invitation to user profile
  * Sets isSuperAdmin, isApproved, and authorityId based on invitation
  */
@@ -531,6 +569,12 @@ function normalizeInvitation(docSnap: any): AdminInvitation {
 }
 
 /**
+ * @deprecated SUPERSEDED 22.09.2026 — no live caller. Deletion moved to
+ * DELETE /api/admin/invitations/[id] (Admin SDK, root-only), matching
+ * creation. Left in place (unreachable) rather than deleted; would fail
+ * with permission-denied under this branch's `admin_invitations` rule
+ * regardless.
+ *
  * Delete an invitation by ID.
  * SECURITY: Only Root Admins can delete invitations.
  */

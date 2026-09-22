@@ -2,13 +2,12 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { UserPlus, Mail, Loader2, X, Copy, Check, Camera, Shield } from 'lucide-react';
-import { createInvitation } from '@/features/admin/services/invitation.service';
 import { getChildrenByParent } from '@/features/admin/services/authority.service';
 import type { InvitationRole } from '@/types/invitation.type';
 import type { TenantType } from '@/types/admin-types';
 import type { Authority } from '@/types/admin-types';
 import SearchableSelect from '@/features/admin/components/SearchableSelect';
-import { storage } from '@/lib/firebase';
+import { storage, auth } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { isRootAdmin } from '@/config/feature-flags';
 import type { AdminUser } from '@/features/admin/services/admin-management.service';
@@ -293,15 +292,28 @@ export default function InviteMemberModal({
         }
       }
 
-      const result = await createInvitation(
-        invData,
-        {
-          adminId: callerInfo.adminId,
-          adminName: callerInfo.adminName,
-          adminEmail: callerInfo.adminEmail,
-        },
-        { callerAuthorityId: callerInfo.callerAuthorityId },
-      );
+      // SPEC-PERMISSIONS-MODEL.md §7/§8 — invitation creation moved
+      // server-side (POST /api/admin/invitations), root-only, and only for
+      // authority_manager / platform_member. A caller selecting any other
+      // role here (super_admin, tenant_owner, unit_admin, vertical_admin —
+      // still offered by this modal's role list for the other verticals)
+      // gets a clean "Role not supported" rejection from the server; those
+      // verticals aren't built yet (SPEC §10/§11). Note: avatar upload
+      // (invData.photoURL) is not sent — the new endpoint only accepts the
+      // fields the spec names for these two roles.
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Not authenticated');
+      const idToken = await currentUser.getIdToken();
+      const res = await fetch('/api/admin/invitations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify(invData),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || 'שגיאה ביצירת הזמנה');
+      }
+      const result = await res.json();
 
       setResultLink(result.inviteLink);
       onSuccess?.(result);

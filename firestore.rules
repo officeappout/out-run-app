@@ -1239,8 +1239,29 @@ service cloud.firestore {
       // lookups needed during the pre-admin sign-up flow now go through
       // /api/admin/invitations/{check-email,verify-token} (Admin SDK,
       // server-side), so the client no longer needs any access here.
-      allow read: if isAdmin();
-      allow write: if isAdmin();
+      //
+      // 22.09.2026 (SPEC-PERMISSIONS-MODEL.md §7 Part-0 audit) — `allow
+      // write: if isAdmin()` was NOT root-only: any DB-flagged
+      // super_admin/system_admin (isAdmin() is broader than isRootAdmin())
+      // could write — or forge — an invitation doc directly from the
+      // browser, including a fake `createdBy` claiming root. Confirmed
+      // empirically at the emulator. The new POST /api/admin/invitations
+      // service that this document is meant to trust is root-verified
+      // server-side (Admin SDK, bypasses this rule entirely) — writes
+      // through the client are no longer a legitimate path for ANYONE,
+      // including root, so `write: if false` unconditionally. `read`
+      // narrowed from isAdmin() to isRootAdmin() to match: only root ever
+      // needs to read this collection directly (the admins-management /
+      // admin-directory screens that call getAllInvitations() client-side
+      // are root-gated at the UI layer already; a non-root super_admin
+      // visiting them will now get permission-denied on that read — see
+      // this branch's task report for the full list of affected screens).
+      //
+      // PREPARED, NOT DEPLOYED as of this commit — see the branch's task
+      // report for required deploy order (code must merge/deploy before
+      // this rule, not after).
+      allow read: if isRootAdmin();
+      allow write: if false;
     }
 
     match /mediaAssets/{docId} {

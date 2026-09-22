@@ -90,16 +90,30 @@ function AuthCallbackContent() {
 
         if (invitationToken) {
           try {
-            const { validateInvitation, applyInvitationToUser } = await import(
+            const { validateInvitation } = await import(
               '@/features/admin/services/invitation.service'
             );
             const invitation = await validateInvitation(invitationToken);
             if (invitation) {
-              await applyInvitationToUser(result.user.uid, invitation);
-              invitationApplied = true;
-              invitationRole = invitation.role;
-              invitationOrgId = invitation.authorityId || invitation.tenantId || null;
-              console.log('[AuthCallback] Invitation applied successfully for', invitation.role);
+              // SPEC-PERMISSIONS-MODEL.md §7 — acceptance moved server-side
+              // (POST /api/auth/accept-invitation). The client sends ONLY the
+              // invitation id; every written value is read from the
+              // invitation document by the server, never from here.
+              const acceptIdToken = await result.user.getIdToken();
+              const res = await fetch('/api/auth/accept-invitation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${acceptIdToken}` },
+                body: JSON.stringify({ invitationId: invitation.id }),
+              });
+              if (res.ok) {
+                invitationApplied = true;
+                invitationRole = invitation.role;
+                invitationOrgId = invitation.authorityId || invitation.tenantId || null;
+                console.log('[AuthCallback] Invitation applied successfully for', invitation.role);
+              } else {
+                const errBody = await res.json().catch(() => ({}));
+                console.error('[AuthCallback] accept-invitation failed:', res.status, errBody);
+              }
             } else {
               console.warn('[AuthCallback] Invitation token invalid or expired');
             }
