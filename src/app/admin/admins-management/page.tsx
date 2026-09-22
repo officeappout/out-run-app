@@ -19,7 +19,6 @@ import {
 } from '@/features/admin/services/admin-management.service';
 import {
   getAllInvitations,
-  deleteInvitationById,
 } from '@/features/admin/services/invitation.service';
 import type { AdminInvitation } from '@/types/invitation.type';
 import { isRootAdmin } from '@/config/feature-flags';
@@ -150,12 +149,21 @@ export default function AdminsManagementPage() {
     if (!confirm(`האם לבטל את ההזמנה ל-${inv.email}?`)) return;
     try {
       setDeletingInviteId(inv.id);
-      const adminInfo = await getCurrentAdminInfo();
-      await deleteInvitationById(inv.id, {
-        adminId: adminInfo?.adminId || '',
-        adminName: adminInfo?.adminName || '',
-        adminEmail: currentUserEmail,
+      // SPEC-PERMISSIONS-MODEL.md §7/§8 — invitation deletion moved
+      // server-side (DELETE /api/admin/invitations/[id]), root-only,
+      // matching creation. admin_invitations' write rule is now
+      // `if false` — this is the only way to delete an invitation at all.
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Not authenticated');
+      const idToken = await currentUser.getIdToken();
+      const res = await fetch(`/api/admin/invitations/${inv.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${idToken}` },
       });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || 'שגיאה בביטול ההזמנה');
+      }
       await loadInvitations();
       setSuccess('ההזמנה בוטלה');
       setTimeout(() => setSuccess(''), 3000);

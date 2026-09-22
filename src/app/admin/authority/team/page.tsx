@@ -12,7 +12,6 @@ import { getAuthority, getChildrenByParent, getAllAuthorities } from '@/features
 import { authorityTypeToTenantType, orgTypeDisplayName } from '@/features/admin/config/tenantLabels';
 import SearchableSelect from '@/features/admin/components/SearchableSelect';
 import {
-  createInvitation,
   getInvitationsByAuthority,
   removeManagerFromAuthority,
 } from '@/features/admin/services/invitation.service';
@@ -236,25 +235,36 @@ export default function AuthorityTeamPage() {
 
     try {
       console.log('[TeamPage] handleInvite START:', { inviteEmail, authorityId, inviteTargetAuthority });
-      const adminInfo = await getAdminInfo();
-      if (!adminInfo) {
-        console.error('[TeamPage] handleInvite: No admin info — user not authenticated');
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        console.error('[TeamPage] handleInvite: user not authenticated');
         throw new Error('Not authenticated');
       }
-      console.log('[TeamPage] Admin info:', { adminId: adminInfo.adminId, adminName: adminInfo.adminName, adminEmail: adminInfo.adminEmail });
 
       const targetAuth = inviteTargetAuthority || authorityId;
       console.log('[TeamPage] Sending invitation to:', inviteEmail.trim().toLowerCase(), 'for authority:', targetAuth);
 
-      const result = await createInvitation(
-        {
+      // SPEC-PERMISSIONS-MODEL.md §7/§8 — invitation creation moved
+      // server-side (POST /api/admin/invitations), root-only. An authority
+      // manager using this button gets a clean 403 from the server (the
+      // spec's own matrix has no "authority manager invites authority
+      // manager" case — only root creates level-1 roles; level-2
+      // "invite a neighborhood manager" isn't built yet either).
+      const idToken = await currentUser.getIdToken();
+      const res = await fetch('/api/admin/invitations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({
           email: inviteEmail.trim().toLowerCase(),
           role: 'authority_manager',
           authorityId: targetAuth,
-        },
-        adminInfo,
-        { callerAuthorityId: authorityId }
-      );
+        }),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || 'שגיאה ביצירת הזמנה');
+      }
+      const result = await res.json();
 
       console.log('[TeamPage] Invitation created successfully:', result);
       setSuccess(`הזמנה נשלחה ל-${inviteEmail}`);
