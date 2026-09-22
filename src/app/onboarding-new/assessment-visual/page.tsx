@@ -739,19 +739,20 @@ export default function VisualAssessmentPage() {
       // Path B (body_focus): only include the categories the user was actually
       //   assessed on; zero out the rest.
       //
-      // Path C (skills): `result.levels.push` / `.pull` may carry the CMS
-      //   parentLevelMapping value (e.g. Planche L7 → Push L16). Pass those
-      //   non-zero foundation levels through so onboarding-sync can write them.
-      //   `legs` is ALWAYS 0 for skill users — never assessed, must remain
-      //   absent so the Ghost Purge can vaporise it. `core` (D2) DOES get a
-      //   real slider for any skill selection now — pass its real value
-      //   through the same way push/pull already are, instead of hardcoding 0.
+      // Path C (skills): `result.levels.push/pull/legs/core` may each carry
+      //   either a CMS parentLevelMapping-derived value (push/pull only, e.g.
+      //   Planche L7 → Push L16) or a real literal-category slider result
+      //   (any of the 4, when a skill selection is co-selected with Health/
+      //   Body Focus and that domain wasn't suppressed by D3 — see
+      //   skill-result-levels.ts's baselineSkillMasterSubLevels for why the
+      //   two sources never collide). Pass all 4 through as-is; buildSkillResult
+      //   already resolved which source (if any) applies to each.
       //
       // Default (health/full_body): include all four base domains.
       const isSkillsPath = (pathConfig?.skillIds?.length ?? 0) > 0;
       const masterSubLevels = {
         push: isSkillsPath
-          ? (result.levels.push ?? 0)            // pass parentMapping value if set; 0 otherwise
+          ? (result.levels.push ?? 0)
           : pathConfig?.path === 'body_focus'
             ? (pathConfig.categories?.includes('push') ? (result.levels.push ?? 0) : 0)
             : (result.levels.push ?? 0),
@@ -760,16 +761,11 @@ export default function VisualAssessmentPage() {
           : pathConfig?.path === 'body_focus'
             ? (pathConfig.categories?.includes('pull') ? (result.levels.pull ?? 0) : 0)
             : (result.levels.pull ?? 0),
-        // legs is NEVER assessed for Path C — zero is intentional so the
-        // Ghost Purge in onboarding-sync.service.ts can safely remove it.
         legs: isSkillsPath
-          ? 0
+          ? (result.levels.legs ?? 0)
           : pathConfig?.path === 'body_focus'
             ? (pathConfig.categories?.includes('legs') ? (result.levels.legs ?? 0) : 0)
             : (result.levels.legs ?? 0),
-        // core (D2): pass the real assessed value through for skill users too
-        // — buildSkillResult() already reads it from the real core slider
-        // instead of hardcoding 0 (see its own comment for the full D2 note).
         core: isSkillsPath
           ? (result.levels.core ?? 0)
           : pathConfig?.path === 'body_focus'
