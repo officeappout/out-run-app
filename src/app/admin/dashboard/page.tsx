@@ -33,6 +33,31 @@ interface DashboardStats {
   activeGroups: number;
   upcomingEvents: number;
   openReports: number;
+  totalResidents: number | null;
+  approvedResidents: number | null;
+}
+
+// Aggregate-only resident counts — see /api/authority-manager/city-summary
+// for why this can't be a client-side getDocs (denied by firestore.rules for
+// a real-shape manager, and would ship per-resident docs to the browser
+// either way — SPEC-PERMISSIONS-MODEL.md §5/§5.1). Failure here is
+// non-fatal: the rest of the dashboard still renders, residents card just
+// stays hidden (null), same as the .catch(() => []) already used below for
+// getReportsByAuthority.
+async function fetchResidentCounts(): Promise<{ total: number; approved: number } | null> {
+  try {
+    const user = auth.currentUser;
+    if (!user) return null;
+    const idToken = await user.getIdToken();
+    const res = await fetch('/api/authority-manager/city-summary', {
+      headers: { Authorization: `Bearer ${idToken}` },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return { total: data.totalUsers, approved: data.approvedUsers };
+  } catch {
+    return null;
+  }
 }
 
 export default function AdminDashboardPage() {
@@ -69,11 +94,12 @@ export default function AdminDashboardPage() {
       setAuthorityName(aName);
 
       // Fetch all stats in parallel
-      const [parks, groups, events, reports] = await Promise.all([
+      const [parks, groups, events, reports, residents] = await Promise.all([
         getParksByAuthority(aId),
         getGroupsByAuthority(aId),
         getEventsByAuthority(aId),
         getReportsByAuthority(aId).catch(() => []),
+        fetchResidentCounts(),
       ]);
 
       const now = new Date();
@@ -90,6 +116,8 @@ export default function AdminDashboardPage() {
           return d >= now;
         }).length,
         openReports: reports.filter(r => r.status === 'reported' || r.status === 'in_review' || r.status === 'in_progress').length,
+        totalResidents: residents?.total ?? null,
+        approvedResidents: residents?.approved ?? null,
       });
     } catch (err) {
       console.error('[DashboardPage] authority resolution failed:', err);
@@ -141,6 +169,15 @@ export default function AdminDashboardPage() {
 
       {/* ═══ Quick Stats Grid ═══ */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {stats.totalResidents !== null && (
+          <StatCard
+            label="תושבים רשומים"
+            value={stats.totalResidents}
+            sub={stats.approvedResidents !== null ? `${stats.approvedResidents} מאושרים` : undefined}
+            icon={UsersIcon}
+            color="emerald"
+          />
+        )}
         <StatCard label="מיקומים" value={stats.totalParks} sub={`${stats.publishedParks} פורסמו`} icon={MapPin} color="cyan" />
         <StatCard label="קבוצות פעילות" value={stats.activeGroups} sub={`${stats.totalGroups} סה"כ`} icon={Dumbbell} color="violet" />
         <StatCard label="אירועים קרובים" value={stats.upcomingEvents} icon={CalendarHeart} color="blue" />

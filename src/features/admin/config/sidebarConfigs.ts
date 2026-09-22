@@ -147,7 +147,11 @@ export const SIDEBAR_CONFIGS: Record<string, PortalSidebarConfig> = {
           { href: '/admin/authority/community', icon: 'CalendarHeart', label: 'מרכז קהילה' },
           { href: '/admin/authority/reports', icon: 'Flag', label: 'תחזוקה וקהילה' },
           { href: '/admin/authority/team', icon: 'Users', label: 'ניהול צוות' },
-          { href: '/admin/authority/users', icon: 'Users', label: 'משתמשים' },
+          // "משתמשים" intentionally removed (22.09.2026 product decision):
+          // authority managers no longer get this tab at all — his own
+          // city's aggregate numbers are on the dashboard card instead.
+          // /admin/authority/users is now super_admin/system_admin-only
+          // (full cross-city roster via /api/admin/authority-roster).
         ],
       },
     ],

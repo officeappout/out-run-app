@@ -36,18 +36,37 @@ export default function AuthorityManagerDashboard() {
   };
 
   useEffect(() => {
+    let cancelled = false;
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (!currentUser) {
-        // User is not authenticated, redirect to authority login
-        if (typeof window !== 'undefined') {
-          window.location.href = '/admin/authority-login';
-        }
+      if (currentUser) {
+        setUser(currentUser);
+        loadAuthorities(currentUser.uid);
         return;
       }
-      setUser(currentUser);
-      loadAuthorities(currentUser.uid);
+      // currentUser is null here — but onAuthStateChanged's FIRST callback
+      // can fire with null before the persisted session (IndexedDB) has
+      // actually finished restoring, which used to bounce an already
+      // signed-in manager straight back to login on every hard refresh
+      // (found in the 22.09.2026 authority-manager full-tour audit).
+      // authStateReady() resolves only once Firebase has actually finished
+      // determining the real auth state, so gate the redirect on that
+      // instead of acting on this callback's first value directly. If the
+      // real state turns out to still be signed-out, onAuthStateChanged
+      // will already have fired again by then with the actual user (if
+      // any) — checking auth.currentUser after the wait reflects that.
+      auth.authStateReady().then(() => {
+        if (cancelled) return;
+        if (!auth.currentUser && typeof window !== 'undefined') {
+          window.location.href = '/admin/authority-login';
+        }
+      });
     });
-    return () => unsubscribe();
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, []);
 
   const loadAuthorities = async (userId: string) => {

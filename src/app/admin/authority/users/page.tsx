@@ -4,66 +4,49 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useMemo } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { auth } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
-import { getAuthoritiesByManager, getAllAuthorities } from '@/features/admin/services/authority.service';
+import { getAllAuthorities } from '@/features/admin/services/authority.service';
+import { Authority } from '@/types/admin-types';
 import { formatFirebaseTimestamp } from '@/lib/utils/date-formatter';
 import {
-  Search, Users, Trophy, TrendingUp, Calendar, MapPin,
+  Search, Users, Trophy, Calendar, MapPin,
   Loader2, AlertCircle, Shield, Zap, ArrowUpDown,
-  User as UserIcon, Star, Medal, Activity,
+  User as UserIcon, Medal, ChevronDown,
 } from 'lucide-react';
 
-// ── Privacy-safe user projection ──────────────────────────────────────
+// ── Page ──────────────────────────────────────────────────────────────
+//
+// super_admin / system_admin ONLY (product decision, 22.09.2026 follow-up
+// to the city-summary rollout). Authority managers no longer have this tab
+// at all — their own city's aggregate numbers live on the dashboard card
+// instead (GET /api/authority-manager/city-summary). This screen restores
+// the full cross-city roster super_admin had before, sourced from the
+// separate GET /api/admin/authority-roster?authorityId=... endpoint (full
+// per-resident data — names, age, gender, etc. — NEVER shared query code
+// with the aggregate-only city-summary endpoint).
 
-interface ScopedUser {
+interface RosterEntry {
   firstName: string;
   lastInitial: string;
-  gender: 'male' | 'female' | 'other' | undefined;
+  gender: 'male' | 'female' | 'other' | null;
   age: number | null;
-  neighborhood: string | undefined;
+  neighborhood: string | null;
   daysActive: number;
   globalXP: number;
   globalLevel: number;
-  lastActive: string;
-  lastActiveRaw: number;
-  photoURL?: string;
+  lastActiveRaw: number | null;
+  photoURL: string | null;
 }
 
-function getPrivacyName(fullName: string) {
-  const parts = (fullName || '').trim().split(/\s+/);
-  const firstName = parts[0] || 'ללא שם';
-  const lastInitial = parts.length > 1 ? parts[parts.length - 1][0] + '\u05F3' : '';
-  return { firstName, lastInitial };
-}
-
-function calculateAge(birthDate: any): number | null {
-  if (!birthDate) return null;
-  let date: Date | null = null;
-  if (birthDate instanceof Date) {
-    date = birthDate;
-  } else if (birthDate?.toDate) {
-    date = birthDate.toDate();
-  } else if (typeof birthDate?.seconds === 'number') {
-    date = new Date(birthDate.seconds * 1000);
-  }
-  if (!date || isNaN(date.getTime())) return null;
-  const today = new Date();
-  let age = today.getFullYear() - date.getFullYear();
-  const m = today.getMonth() - date.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < date.getDate())) age--;
-  return age;
-}
-
-function genderLabel(g: string | undefined) {
+function genderLabel(g: string | null) {
   if (g === 'male') return 'גבר';
   if (g === 'female') return 'אישה';
   if (g === 'other') return 'אחר';
   return '—';
 }
 
-function genderIcon(g: string | undefined) {
+function genderIcon(g: string | null) {
   if (g === 'male') return '♂';
   if (g === 'female') return '♀';
   return '⚪';
@@ -71,13 +54,17 @@ function genderIcon(g: string | undefined) {
 
 type SortKey = 'name' | 'xp' | 'level' | 'activity' | 'age';
 
-// ── Page ──────────────────────────────────────────────────────────────
+const AUTHORITY_STORAGE_KEY = 'admin_selected_authority_id';
 
 export default function AuthorityUsersPage() {
-  const [users, setUsers] = useState<ScopedUser[]>([]);
+  const [authorized, setAuthorized] = useState<boolean | null>(null); // null = still checking
+  const [authorities, setAuthorities] = useState<Authority[]>([]);
+  const [selectedAuthority, setSelectedAuthority] = useState<Authority | null>(null);
+  const [showAuthorityDropdown, setShowAuthorityDropdown] = useState(false);
+
+  const [users, setUsers] = useState<RosterEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [authorityName, setAuthorityName] = useState('');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [neighborhoodFilter, setNeighborhoodFilter] = useState<string>('all');
@@ -85,79 +72,75 @@ export default function AuthorityUsersPage() {
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortAsc, setSortAsc] = useState(true);
 
-  // ── Load users scoped to authority ──────────────────────────────────
+  const persistAndSelect = (a: Authority) => {
+    setSelectedAuthority(a);
+    try {
+      localStorage.setItem(AUTHORITY_STORAGE_KEY, a.id);
+    } catch { /* private-browsing / storage full — graceful no-op */ }
+  };
+
+  // ── Authorize, then load authorities list ───────────────────────────
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) { setError('יש להתחבר תחילה'); setLoading(false); return; }
+      if (!user) { setError('יש להתחבר תחילה'); setLoading(false); setAuthorized(false); return; }
 
       try {
         const role = await checkUserRole(user.uid);
-
-        let aId: string | null = role.authorityIds?.[0] || null;
-        let aName = '';
-
-        if (role.isSuperAdmin) {
-          const allAuths = await getAllAuthorities(undefined, true);
-          const stored = typeof window !== 'undefined'
-            ? localStorage.getItem('admin_selected_authority_id') : null;
-          const target = (stored && allAuths.find(a => a.id === stored)) ?? allAuths[0];
-          if (target) {
-            aId = target.id;
-            aName = typeof target.name === 'string' ? target.name : (target.name?.he || '');
-          }
-        } else {
-          const auths = await getAuthoritiesByManager(user.uid);
-          if (auths.length > 0) {
-            const a = auths[0];
-            aId = aId ?? a.id;
-            aName = typeof a.name === 'string' ? a.name : (a.name?.he || a.name?.en || '');
-          }
+        if (!role.isSuperAdmin && !role.isSystemAdmin) {
+          setAuthorized(false);
+          setLoading(false);
+          return;
         }
+        setAuthorized(true);
 
-        if (!aId) { setError('לא נמצאה רשות משויכת'); setLoading(false); return; }
-        setAuthorityName(aName);
-
-        const scopedQuery = query(
-          collection(db, 'users'),
-          where('core.authorityId', '==', aId),
-        );
-        const snapshot = await getDocs(scopedQuery);
-
-        const mapped: ScopedUser[] = snapshot.docs.map(docSnap => {
-          const data = docSnap.data();
-          const core = data?.core || {};
-          const progression = data?.progression || {};
-          const { firstName, lastInitial } = getPrivacyName(core.name || '');
-
-          let lastActiveTs = 0;
-          if (data?.lastActive?.seconds) lastActiveTs = data.lastActive.seconds * 1000;
-          else if (data?.lastActive instanceof Date) lastActiveTs = data.lastActive.getTime();
-
-          return {
-            firstName,
-            lastInitial,
-            gender: core.gender || undefined,
-            age: calculateAge(core.birthDate),
-            neighborhood: (data as any)?.neighborhood || undefined,
-            daysActive: progression.daysActive || 0,
-            globalXP: progression.globalXP || 0,
-            globalLevel: progression.globalLevel || 1,
-            lastActive: data?.lastActive ? formatFirebaseTimestamp(data.lastActive) : '—',
-            lastActiveRaw: lastActiveTs,
-            photoURL: core.photoURL || undefined,
-          };
-        });
-
-        setUsers(mapped);
-      } catch (err: any) {
-        console.error('Error loading authority users:', err);
-        setError(err?.message || 'שגיאה בטעינת משתמשים');
-      } finally {
+        const allAuths = await getAllAuthorities(undefined, true);
+        setAuthorities(allAuths);
+        const stored = typeof window !== 'undefined' ? localStorage.getItem(AUTHORITY_STORAGE_KEY) : null;
+        const target = (stored && allAuths.find(a => a.id === stored)) ?? allAuths[0];
+        if (target) setSelectedAuthority(target);
+        else { setLoading(false); }
+      } catch (err) {
+        console.error('[AuthorityUsersPage] authorization check failed:', err);
+        setError('שגיאה בבדיקת הרשאות');
+        setAuthorized(false);
         setLoading(false);
       }
     });
     return () => unsub();
   }, []);
+
+  // ── Load roster whenever the selected authority changes ─────────────
+  useEffect(() => {
+    if (!authorized || !selectedAuthority) return;
+
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const user = auth.currentUser;
+        if (!user) { setError('יש להתחבר תחילה'); return; }
+        const idToken = await user.getIdToken();
+        const res = await fetch(
+          `/api/admin/authority-roster?authorityId=${encodeURIComponent(selectedAuthority.id)}`,
+          { headers: { Authorization: `Bearer ${idToken}` } },
+        );
+        if (!res.ok) {
+          setError(res.status === 403 ? 'אין הרשאה לצפות ברשימה זו.' : 'שגיאה בטעינת משתמשים');
+          return;
+        }
+        const data = await res.json();
+        if (!cancelled) setUsers(data.roster || []);
+      } catch (err) {
+        console.error('[AuthorityUsersPage] failed to load roster:', err);
+        if (!cancelled) setError('שגיאה בטעינת משתמשים');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [authorized, selectedAuthority]);
 
   // ── Derived data ────────────────────────────────────────────────────
 
@@ -190,7 +173,7 @@ export default function AuthorityUsersPage() {
         case 'name': cmp = a.firstName.localeCompare(b.firstName, 'he'); break;
         case 'xp': cmp = a.globalXP - b.globalXP; break;
         case 'level': cmp = a.globalLevel - b.globalLevel; break;
-        case 'activity': cmp = a.lastActiveRaw - b.lastActiveRaw; break;
+        case 'activity': cmp = (a.lastActiveRaw || 0) - (b.lastActiveRaw || 0); break;
         case 'age': cmp = (a.age || 0) - (b.age || 0); break;
       }
       return sortAsc ? cmp : -cmp;
@@ -200,7 +183,7 @@ export default function AuthorityUsersPage() {
 
   const stats = useMemo(() => {
     const total = users.length;
-    const active7d = users.filter(u => u.lastActiveRaw > Date.now() - 7 * 86400000).length;
+    const active7d = users.filter(u => (u.lastActiveRaw || 0) > Date.now() - 7 * 86400000).length;
     const avgXP = total > 0 ? Math.round(users.reduce((s, u) => s + u.globalXP, 0) / total) : 0;
     const totalDays = users.reduce((s, u) => s + u.daysActive, 0);
     return { total, active7d, avgXP, totalDays };
@@ -212,9 +195,41 @@ export default function AuthorityUsersPage() {
     else { setSortKey(key); setSortAsc(key === 'name'); }
   };
 
+  // Authority.name is typed as `string`, but (matching the same pattern
+  // already used elsewhere in this codebase — dashboard/page.tsx,
+  // authority/locations/page.tsx) can hold a {he, en} object at runtime.
+  const authorityDisplayName = (a: Authority) => {
+    if (typeof a.name === 'string') return a.name;
+    const localized = a.name as unknown as { he?: string; en?: string } | undefined;
+    return localized?.he || localized?.en || a.id;
+  };
+
+  // ── Authorization gate ───────────────────────────────────────────────
+
+  if (authorized === null) {
+    return (
+      <div className="flex items-center justify-center h-64 gap-3" dir="rtl">
+        <Loader2 className="animate-spin text-cyan-500" size={28} />
+        <span className="text-slate-600">בודק הרשאות...</span>
+      </div>
+    );
+  }
+
+  if (authorized === false) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4" dir="rtl">
+        <Shield size={40} className="text-gray-400" />
+        <div className="text-center">
+          <h3 className="text-lg font-bold text-gray-900 mb-1">אין הרשאה</h3>
+          <p className="text-gray-500 text-sm">מסך זה זמין למנהלי מערכת בלבד.</p>
+        </div>
+      </div>
+    );
+  }
+
   // ── Loading / Error ─────────────────────────────────────────────────
 
-  if (loading) {
+  if (loading && users.length === 0) {
     return (
       <div className="flex items-center justify-center h-64 gap-3" dir="rtl">
         <Loader2 className="animate-spin text-cyan-500" size={28} />
@@ -237,36 +252,55 @@ export default function AuthorityUsersPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6" dir="rtl">
 
-      {/* ═══ Header ═══ */}
+      {/* ═══ Header + Authority Picker ═══ */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900 flex items-center gap-2">
             <Users size={24} className="text-cyan-600" />
             תושבים רשומים
           </h1>
-          {authorityName && (
-            <div className="flex items-center gap-2 mt-1">
-              <Shield size={14} className="text-cyan-500" />
-              <span className="text-sm text-slate-500 font-bold">{authorityName}</span>
-              <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold">
-                תצוגה מוגנת פרטיות
-              </span>
-            </div>
-          )}
+          <p className="text-xs text-slate-400 mt-1">תצוגת מנהל מערכת — כל הרשויות</p>
         </div>
+
+        {authorities.length > 0 && (
+          <div className="relative">
+            <button
+              onClick={() => setShowAuthorityDropdown(v => !v)}
+              className="flex items-center gap-2 bg-white border border-gray-200 px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all"
+            >
+              <Shield size={14} className="text-cyan-500" />
+              {selectedAuthority ? authorityDisplayName(selectedAuthority) : 'בחר רשות'}
+              <ChevronDown size={14} className={`transition-transform ${showAuthorityDropdown ? 'rotate-180' : ''}`} />
+            </button>
+            {showAuthorityDropdown && (
+              <div className="absolute left-0 mt-2 w-64 max-h-80 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-lg z-10">
+                {authorities.map(a => (
+                  <button
+                    key={a.id}
+                    onClick={() => { persistAndSelect(a); setShowAuthorityDropdown(false); }}
+                    className={`w-full text-right px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors ${
+                      selectedAuthority?.id === a.id ? 'bg-cyan-50 font-bold text-cyan-700' : 'text-gray-700'
+                    }`}
+                  >
+                    {authorityDisplayName(a)}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ═══ Stats Row ═══ */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard icon={Users} label="סה״כ רשומים" value={stats.total} color="cyan" />
-        <StatCard icon={Activity} label="פעילים (7 ימים)" value={stats.active7d} color="green" />
+        <StatCard icon={Zap} label="פעילים (7 ימים)" value={stats.active7d} color="green" />
         <StatCard icon={Zap} label="XP ממוצע" value={stats.avgXP.toLocaleString()} color="purple" />
         <StatCard icon={Calendar} label="ימי אימון כוללים" value={stats.totalDays.toLocaleString()} color="amber" />
       </div>
 
       {/* ═══ Toolbar: Search + Filter + Leaderboard ═══ */}
       <div className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-        {/* Search */}
         <div className="relative flex-1">
           <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -278,7 +312,6 @@ export default function AuthorityUsersPage() {
           />
         </div>
 
-        {/* Neighborhood Filter */}
         <div className="relative min-w-[180px]">
           <MapPin size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <select
@@ -291,7 +324,6 @@ export default function AuthorityUsersPage() {
           </select>
         </div>
 
-        {/* Leaderboard Toggle */}
         <button
           onClick={() => setLeaderboardMode(!leaderboardMode)}
           className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${
@@ -400,7 +432,7 @@ export default function AuthorityUsersPage() {
                         </span>
                       </td>
                       <td className="py-3 px-3 text-right text-xs text-slate-500">
-                        {user.lastActive}
+                        {user.lastActiveRaw ? formatFirebaseTimestamp(user.lastActiveRaw) : '—'}
                       </td>
                     </tr>
                   );

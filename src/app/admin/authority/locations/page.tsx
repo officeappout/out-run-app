@@ -126,6 +126,14 @@ export default function AuthorityLocationsPage() {
   const [error, setError]                 = useState<string | null>(null);
   const [approvingId, setApprovingId]     = useState<string | null>(null);
   const [isSuperAdmin, setIsSuperAdmin]   = useState(false);
+  // Parks/routes mapping stays root-only per SPEC-PERMISSIONS-MODEL.md §5.2 —
+  // deliberately isRootAdmin (email-based david@/office@), not isSuperAdmin:
+  // a DB-flagged super_admin who isn't root can still see this screen and
+  // its data, just not the create/edit affordances. The UI hiding this is
+  // defense-in-depth only (§4: "ה-UI רק מסתיר... לא מגן על כלום") — the real
+  // backstop is firestore.rules' isAdmin() gate on facilities writes,
+  // unchanged here.
+  const [isRoot, setIsRoot]               = useState(false);
 
   const [activeTab, setActiveTab]     = useState<LocationTab>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -156,6 +164,7 @@ export default function AuthorityLocationsPage() {
         let aName = '';
 
         setIsSuperAdmin(!!role.isSuperAdmin);
+        setIsRoot(!!role.isRootAdmin);
 
         if (role.isSuperAdmin) {
           const allAuths = await getAllAuthorities(undefined, true);
@@ -329,14 +338,16 @@ export default function AuthorityLocationsPage() {
             <RefreshCw size={16} />
             <span className="text-sm">רענן</span>
           </button>
-          <Link
-            href="/admin/authority/locations/new"
-            className="flex items-center gap-2 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg hover:opacity-90 transition-all"
-            style={{ backgroundColor: currentTabConfig.color }}
-          >
-            <Plus size={18} />
-            <span>הוסף מיקום</span>
-          </Link>
+          {isRoot && (
+            <Link
+              href="/admin/authority/locations/new"
+              className="flex items-center gap-2 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg hover:opacity-90 transition-all"
+              style={{ backgroundColor: currentTabConfig.color }}
+            >
+              <Plus size={18} />
+              <span>הוסף מיקום</span>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -423,7 +434,7 @@ export default function AuthorityLocationsPage() {
             <p className="text-gray-500 mt-2">
               {searchQuery ? 'נסו חיפוש אחר' : 'התחל על ידי הוספת הראשון'}
             </p>
-            {!searchQuery && (
+            {!searchQuery && isRoot && (
               <Link
                 href="/admin/authority/locations/new"
                 className="mt-4 inline-flex items-center gap-2 text-white px-6 py-3 rounded-xl font-bold transition-all"
@@ -632,13 +643,15 @@ export default function AuthorityLocationsPage() {
                               {approvingId === park.id ? 'מאשר...' : 'אשר'}
                             </button>
                           )}
-                          <Link
-                            href={`/admin/authority/locations/${park.id}/edit`}
-                            className="flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2.5 py-1.5 rounded-lg transition-colors font-bold"
-                          >
-                            <Pencil size={12} />
-                            עריכה
-                          </Link>
+                          {isRoot && (
+                            <Link
+                              href={`/admin/authority/locations/${park.id}/edit`}
+                              className="flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2.5 py-1.5 rounded-lg transition-colors font-bold"
+                            >
+                              <Pencil size={12} />
+                              עריכה
+                            </Link>
+                          )}
                         </div>
                       </td>
                     </tr>
