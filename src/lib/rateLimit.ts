@@ -35,6 +35,16 @@ function toMillis(v: unknown): number {
   return 0;
 }
 
+/**
+ * 22.09.2026 (rate-limiting rollout, phase B): wrapped in try/catch —
+ * fails OPEN. If Firestore itself is unavailable, a request that should
+ * have been checked is instead let through, with a logged warning. The
+ * alternative (propagate the error, effectively fail-closed since every
+ * caller today turns an uncaught throw into a 500) would mean a Firestore
+ * blip locks every real user — including a municipality manager — out of
+ * login entirely. One extra request slipping through during a genuine
+ * Firestore outage is a far smaller cost than that.
+ */
 export async function isRateLimited(
   db: Firestore,
   key: string,
@@ -43,28 +53,33 @@ export async function isRateLimited(
   const ref = db.collection(COLLECTION).doc(key);
   const now = Date.now();
 
-  return db.runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    const data = snap.exists ? snap.data() : undefined;
-    const windowStartMs = toMillis(data?.windowStart);
-    const withinWindow = now - windowStartMs < opts.windowMs;
-    const count = withinWindow ? ((data?.count as number | undefined) ?? 0) : 0;
+  try {
+    return await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const data = snap.exists ? snap.data() : undefined;
+      const windowStartMs = toMillis(data?.windowStart);
+      const withinWindow = now - windowStartMs < opts.windowMs;
+      const count = withinWindow ? ((data?.count as number | undefined) ?? 0) : 0;
 
-    if (count >= opts.maxRequests) {
-      return true;
-    }
+      if (count >= opts.maxRequests) {
+        return true;
+      }
 
-    tx.set(
-      ref,
-      {
-        count: count + 1,
-        windowStart: withinWindow ? (data!.windowStart) : new Date(now),
-        // Best-effort TTL cleanup, if a TTL policy is ever configured on
-        // this collection — harmless field otherwise.
-        expiresAt: new Date(now + opts.windowMs),
-      },
-      { merge: false },
-    );
+      tx.set(
+        ref,
+        {
+          count: count + 1,
+          windowStart: withinWindow ? (data!.windowStart) : new Date(now),
+          // Best-effort TTL cleanup, if a TTL policy is ever configured on
+          // this collection — harmless field otherwise.
+          expiresAt: new Date(now + opts.windowMs),
+        },
+        { merge: false },
+      );
+      return false;
+    });
+  } catch (err) {
+    console.warn(`[rateLimit] check failed for key="${key}" — failing OPEN (request allowed)`, err);
     return false;
-  });
+  }
 }
