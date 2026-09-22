@@ -49,10 +49,12 @@ export interface ComposedHybridSession {
   /** The strength station's marker on the map — absent for a bodyweight (A3) stop.
    *  @deprecated kept for back-compat only — `stations` (below) is the full per-stop list;
    *  for a single-station plan (full_park) it is `stations[0]`. */
-  station?: { lat: number; lng: number; name?: string; image?: string };
+  station?: { lat: number; lng: number; name?: string; image?: string; parkId?: string };
   /** Every stop's own map marker (Part 5) — one entry per stop, each with its own park
-   *  photo when available. `station` above stays the first/anchor stop for back-compat. */
-  stations?: { lat: number; lng: number; name?: string; image?: string }[];
+   *  photo when available. `station` above stays the first/anchor stop for back-compat.
+   *  `parkId` lets the map layer hide that park's own regular pin so only the hybrid
+   *  marker shows (22.09.2026, field-test doc 18 — dedup fix for the walking pins). */
+  stations?: { lat: number; lng: number; name?: string; image?: string; parkId?: string }[];
   /**
    * Full-park-workout only (Phase 2): the 3 difficulty options (קל/בינוני/קשה) for the
    * overview carousel, composed ONCE. `plan` mirrors `plans[selectedIndex]` (starts at
@@ -361,7 +363,7 @@ async function composeFullParkWorkout(
         fallbackHint: needsAssessment.fallbackHint,
         assessmentDomains: needsAssessment.assessmentDomains,
         station: { lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image },
-        stations: [{ lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image }],
+        stations: [{ lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image, parkId: oab.station.parkId }],
       };
     }
   }
@@ -458,7 +460,7 @@ async function composeFullParkWorkout(
       assessmentDomains: needsAssessmentLike ? built[selectedIndex].assessmentDomains : undefined,
       station: { lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image },
       // full_park has exactly one stop — stations mirrors station as a 1-element array.
-      stations: [{ lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image }],
+      stations: [{ lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image, parkId: oab.station.parkId }],
       bolts: { plans, selectedIndex, labels: ['קליל', 'מאוזן', 'עוצמתי'] },
     };
   } catch (e) {
@@ -477,7 +479,7 @@ async function composeFullParkWorkout(
       aerobicKind: intent.aerobicKind,
       fallbackHint: 'לא הצלחנו להרכיב את האימון כרגע — נסו שוב בעוד רגע.',
       station: { lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image },
-      stations: [{ lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image }],
+      stations: [{ lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image, parkId: oab.station.parkId }],
     };
   }
 }
@@ -499,8 +501,8 @@ export interface HybridRoutePreview {
   routePath: [number, number][];
   /** Straight-line round-trip distance (km) — a preview approximation of the plan total. */
   distanceKm: number;
-  station?: { lat: number; lng: number; name?: string; image?: string };
-  stations?: { lat: number; lng: number; name?: string; image?: string }[];
+  station?: { lat: number; lng: number; name?: string; image?: string; parkId?: string };
+  stations?: { lat: number; lng: number; name?: string; image?: string; parkId?: string }[];
 }
 
 export async function composeFullParkRoutePreview(
@@ -530,7 +532,7 @@ export async function composeFullParkRoutePreview(
     routePath: oab.routePath,
     distanceKm: oab.targetKm,
     station: { lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image },
-    stations: [{ lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image }],
+    stations: [{ lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image, parkId: oab.station.parkId }],
   };
 }
 
@@ -982,7 +984,7 @@ async function composeRouteStopsWorkout(
   const firstStrength = stops.find((s) => s.activityType === 'strength');
   const markerStations = stops
     .filter((s) => Number.isFinite(s.lat) && Number.isFinite(s.lng))
-    .map((s) => ({ lat: s.lat, lng: s.lng, name: s.name, image: s.image }));
+    .map((s) => ({ lat: s.lat, lng: s.lng, name: s.name, image: s.image, parkId: s.parkId }));
 
   return {
     plan: plans[selectedIndex],

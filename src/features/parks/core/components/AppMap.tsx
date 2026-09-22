@@ -194,8 +194,11 @@ interface AppMapProps {
   isActiveWorkout?: boolean;
   destinationMarker?: { lat: number; lng: number } | null;
   /** Every hybrid stop's marker (Part 5) — the real park photo-pin per stop when the park
-   *  has one, else the cyan fallback icon, at station size. One per resolved stop. */
-  hybridStations?: { lat: number; lng: number; name?: string; image?: string }[] | null;
+   *  has one, else the cyan fallback icon, at station size. One per resolved stop.
+   *  `parkId`, when present, hides that park's own regular/minor pin (see
+   *  `parkPinsFilter`/`parkMinorPinsFilter` below) so only the hybrid marker shows —
+   *  22.09.2026, field-test doc 18. */
+  hybridStations?: { lat: number; lng: number; name?: string; image?: string; parkId?: string }[] | null;
   /** Free-run leg-plan stops (ג' Phase 3, 08.08) — numbered purple pins so the
    *  user can see their composed plan on the map while building it. Deliberately
    *  a distinct color/shape from hybridStations above (not the same feature). */
@@ -873,23 +876,44 @@ export default function AppMap({
     };
   }, [selectedPark]);
 
-  // ── Memoized "skip selected park" filter for the park-pins Layer ──
-  // PARK_PINS.filter is `['all', ...clauses]`. We slice off the leading
-  // 'all' literal before spreading so the result is `['all', ...clauses,
-  // ['!=', ['get', 'id'], selectedParkId]]` — Mapbox rejects a doubled
-  // 'all'. Memoised on `selectedParkId` ONLY so the layer's filter prop
-  // keeps the same reference between unrelated re-renders (GPS ticks,
-  // zoom change, parks list refresh). Without this memo, react-map-gl's
-  // shallow diff sees a new filter array every frame and re-issues
+  // ── Memoized "skip selected/hybrid-station park" ids for park-pins + park-minor-pins ──
+  // Every hybrid stop IS a park — without this, the same coordinate shows both the park's
+  // own regular/minor vector pin AND the cyan hybrid dumbbell marker stacked on top of it
+  // (22.09.2026, field-test doc 18). `hybridStations[i].parkId` is optional (older/preview
+  // call sites may omit it) — ids without a parkId simply aren't excludable, same as before.
+  const excludedParkIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (selectedParkId) ids.add(selectedParkId);
+    for (const s of hybridStations ?? []) {
+      if (s.parkId) ids.add(s.parkId);
+    }
+    return Array.from(ids);
+  }, [selectedParkId, hybridStations]);
+
+  // PARK_PINS.filter / PARK_MINOR_PINS.filter are both `['all', ...clauses]`. We slice off
+  // the leading 'all' literal before spreading so the result is `['all', ...clauses, ['!in',
+  // ['get','id'], ['literal', excludedParkIds]]]` — Mapbox rejects a doubled 'all'. Memoised
+  // on `excludedParkIds` ONLY so the layer's filter prop keeps the same reference between
+  // unrelated re-renders (GPS ticks, zoom change, parks list refresh). Without this memo,
+  // react-map-gl's shallow diff sees a new filter array every frame and re-issues
   // `setFilter` against the GL layer — measurable buffer churn.
   const parkPinsFilter = useMemo(() => {
-    if (!selectedParkId) return PARK_PINS.filter as any;
+    if (excludedParkIds.length === 0) return PARK_PINS.filter as any;
     return [
       'all',
       ...((PARK_PINS.filter as unknown as any[]).slice(1)),
-      ['!=', ['get', 'id'], selectedParkId],
+      ['!in', ['get', 'id'], ['literal', excludedParkIds]],
     ] as any;
-  }, [selectedParkId]);
+  }, [excludedParkIds]);
+
+  const parkMinorPinsFilter = useMemo(() => {
+    if (excludedParkIds.length === 0) return PARK_MINOR_PINS.filter as any;
+    return [
+      'all',
+      ...((PARK_MINOR_PINS.filter as unknown as any[]).slice(1)),
+      ['!in', ['get', 'id'], ['literal', excludedParkIds]],
+    ] as any;
+  }, [excludedParkIds]);
 
   // ── Parks GeoJSON with clustering properties ──
   const parksGeoJSON = useMemo<GeoJSON.FeatureCollection>(() => ({
@@ -1839,7 +1863,7 @@ export default function AppMap({
             minzoom={PARK_PINS.minzoom}
             layout={PARK_PINS.layout as any}
           />
-          <Layer id="park-minor-pins" type="symbol" filter={PARK_MINOR_PINS.filter} minzoom={PARK_MINOR_PINS.minzoom} layout={PARK_MINOR_PINS.layout as any} />
+          <Layer id="park-minor-pins" type="symbol" filter={parkMinorPinsFilter} minzoom={PARK_MINOR_PINS.minzoom} layout={PARK_MINOR_PINS.layout as any} />
           <Layer id="park-cluster-count" type="symbol" filter={PARK_CLUSTER_COUNT.filter} layout={PARK_CLUSTER_COUNT.layout as any} paint={PARK_CLUSTER_COUNT.paint as any} />
         </Source>
 

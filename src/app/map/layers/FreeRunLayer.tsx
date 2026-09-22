@@ -268,6 +268,7 @@ export default function FreeRunLayer({ logic, effectivePos, onRecenter }: FreeRu
               livePath={isWorkoutActive ? logic.livePath : undefined}
               livePathZones={isWorkoutActive ? routeZones : undefined}
               focusedRoute={groupRoute ?? logic.focusedRoute}
+              hybridStations={((groupRoute ?? logic.focusedRoute) as any)?.stationMarkers ?? null}
               routes={groupRoute ? [groupRoute] : logic.focusedRoute ? [logic.focusedRoute] : []}
               userBearing={logic.userBearing ?? 0}
               isAutoFollowEnabled={isMapFollowEnabled}
