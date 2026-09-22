@@ -401,3 +401,120 @@ describe('buildTabataBlock — pool-injection method resolution', () => {
     expect(target.length).toBe(0);
   });
 });
+
+// ── Level window (David, 22.09.2026, field-test docs 34/35) ────────────────
+// Replaces the old one-sided ceiling (poolLevelOf(ex) <= userLevel) that left
+// a level-1 user with as few as 1 real eligible exercise in production — too
+// thin to ever build a block. Default window: 3 below, 2 above (asymmetric —
+// "קל יותר בסדר, קשה מדי לא").
+describe('buildTabataBlock — level window (David, 22.09.2026)', () => {
+  it('THE FIX: a level-1 user now gets a real block where the old one-sided ceiling would have failed', () => {
+    // Under the OLD rule (poolLevelOf <= userLevel), a level-2 exercise is
+    // excluded for a level-1 user — only the level-1 gem survives (1 < min 2)
+    // → undefined. Under the new window ([1,3] for userLevel=1), the level-2
+    // exercise is now IN, giving 2 eligible members — a real block builds.
+    const target: WorkoutExercise[] = [];
+    const block = buildTabataBlock('tabata', target, {
+      tabataPool: [poolEx('l1', 1), poolEx('l2', 2)],
+      userLevel: 1,
+    });
+    expect(block).toBeDefined();
+    expect(target.filter((e) => e.protocolBlock === 'tabata').map((e) => e.exercise.id).sort())
+      .toEqual(['l1', 'l2']);
+  });
+
+  it('a level-1 user with a realistic 4-exercise pool (levels 1,2,3,3) gets a real 4-member block, not a fallback', () => {
+    const target: WorkoutExercise[] = [];
+    const block = buildTabataBlock('tabata', target, {
+      tabataPool: [poolEx('a', 1), poolEx('b', 2), poolEx('c', 3), poolEx('d', 3)],
+      userLevel: 1,
+    });
+    expect(block).toBeDefined();
+    const injected = target.filter((e) => e.protocolBlock === 'tabata');
+    expect(injected.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('caps ABOVE at userLevel+2, never +3: a level-4 exercise is excluded for a level-1 user even though other candidates are thin', () => {
+    // window for userLevel=1 is [1,3] — level 4 is one step OUTSIDE it. Only
+    // 1 in-window candidate (the level-1 gem) + the out-of-window level-4 one
+    // ⇒ still just 1 eligible ⇒ undefined, exactly like the old bug — proving
+    // the over-window candidate is never reached for, even under a shortage.
+    const target: WorkoutExercise[] = [];
+    const block = buildTabataBlock('tabata', target, {
+      tabataPool: [poolEx('l1', 1), poolEx('l4-too-hard', 4)],
+      userLevel: 1,
+    });
+    expect(block).toBeUndefined();
+    expect(target.length).toBe(0);
+  });
+
+  it('never selects an exercise above userLevel+2 even when it WOULD complete a larger block', () => {
+    // 4 close candidates (levels 1-3, all in-window) + 1 out-of-window level-4
+    // candidate. A 5-member subset would need the level-4 one, but max is 4 —
+    // so the level-4 candidate should simply never appear, at any size.
+    const target: WorkoutExercise[] = [];
+    const block = buildTabataBlock('tabata', target, {
+      tabataPool: [poolEx('a', 1), poolEx('b', 2), poolEx('c', 3), poolEx('d', 3), poolEx('too-hard', 4)],
+      userLevel: 1,
+    });
+    expect(block).toBeDefined();
+    expect(block!.exerciseIds).not.toContain('too-hard');
+  });
+
+  it('welcomes easier exercises further below — up to 3 levels under, not just at-or-below-by-a-little', () => {
+    // userLevel=5 → window [2,7]. A level-2 exercise (3 below) must be
+    // reachable — it would have been fine under the OLD rule too (<=5), but
+    // this locks in the new window's lower bound doesn't accidentally
+    // tighten it.
+    const target: WorkoutExercise[] = [];
+    const block = buildTabataBlock('tabata', target, {
+      tabataPool: [poolEx('easy', 2), poolEx('mid', 5)],
+      userLevel: 5,
+    });
+    expect(block).toBeDefined();
+    expect(target.filter((e) => e.protocolBlock === 'tabata').map((e) => e.exercise.id).sort())
+      .toEqual(['easy', 'mid']);
+  });
+
+  it('excludes more than 3 levels below the window\'s floor: a level-1 exercise is out for a userLevel=5 user (floor is 2)', () => {
+    const target: WorkoutExercise[] = [];
+    const block = buildTabataBlock('tabata', target, {
+      tabataPool: [poolEx('too-easy', 1), poolEx('mid', 5)],
+      userLevel: 5,
+    });
+    // only 1 in-window candidate ('mid') ⇒ < min 2 ⇒ undefined
+    expect(block).toBeUndefined();
+  });
+
+  it('prefers exercises closest to the user\'s level when there is no shortage — edge-of-window candidates are left out', () => {
+    // userLevel=5, window [2,7]. Plenty of exact-level(5) candidates (6) to
+    // fill a 4-member block on their own (distance 0, unbeatable) — the
+    // available edge candidates (level 2 and level 7, distance 3 each) must
+    // never be picked over them.
+    const target: WorkoutExercise[] = [];
+    const exact = ['e1', 'e2', 'e3', 'e4', 'e5', 'e6'].map((id) => poolEx(id, 5));
+    const block = buildTabataBlock('tabata', target, {
+      tabataPool: [...exact, poolEx('edge-low', 2), poolEx('edge-high', 7)],
+      userLevel: 5,
+    });
+    expect(block).toBeDefined();
+    expect(block!.exerciseIds).not.toContain('edge-low');
+    expect(block!.exerciseIds).not.toContain('edge-high');
+    const exactIds = new Set(exact.map((e) => (e as unknown as { id: string }).id));
+    expect(block!.exerciseIds.every((id) => exactIds.has(id))).toBe(true);
+  });
+
+  it('reaches toward the window edges only when there IS a shortage of close candidates', () => {
+    // userLevel=5, window [2,7]. Only ONE close-to-level candidate exists —
+    // the block can only be built at all (min 2) by also pulling in an
+    // edge candidate. Proves the "expand to edges only if short" behaviour,
+    // not just that edges are theoretically reachable.
+    const target: WorkoutExercise[] = [];
+    const block = buildTabataBlock('tabata', target, {
+      tabataPool: [poolEx('close', 5), poolEx('edge', 7)],
+      userLevel: 5,
+    });
+    expect(block).toBeDefined();
+    expect(block!.exerciseIds.sort()).toEqual(['close', 'edge']);
+  });
+});

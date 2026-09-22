@@ -24,7 +24,9 @@ import {
   TABATA_CLASSIC,
   TABATA_MIN_EXERCISES,
   TABATA_MAX_EXERCISES,
+  DEFAULT_TABATA_LEVEL_WINDOW,
   tabataIntervalCost,
+  type TabataLevelWindow,
 } from './tabata.constants';
 
 /** Same predicate as ContextualEngine.passesInjuryShield (logic/
@@ -71,6 +73,9 @@ export function buildTabataBlock(
      *  The core block (form B) passes both equal to force an exact count. */
     minExercises?: number;
     maxExercises?: number;
+    /** Override DEFAULT_TABATA_LEVEL_WINDOW for this call only (David,
+     *  22.09.2026) — the pool-injection path's level-selection window. */
+    levelWindow?: TabataLevelWindow;
   },
 ): TabataBlockSpec | undefined {
   if (setType !== 'tabata') return undefined;
@@ -98,6 +103,7 @@ export function buildTabataBlock(
       context.injuryShield,
       minExercises,
       maxExercises,
+      context.levelWindow ?? DEFAULT_TABATA_LEVEL_WINDOW,
     );
   }
 
@@ -201,29 +207,54 @@ interface PoolCandidate {
 /** Largest valid subset (within [minExercises, maxExercises]) whose interval
  *  costs (unilateral=2) tile 8 exactly. When min===max (the core block,
  *  which forces an exact member count) the search only accepts that exact
- *  size — no "close enough" fallback. */
+ *  size — no "close enough" fallback.
+ *
+ *  Tie-break (David, 22.09.2026): among subsets of the SAME size (the only
+ *  case for a core block, where min===max forces one fixed size — and a
+ *  real tie-break for the general finisher's 2-4 range too), prefer the
+ *  subset whose total distance from userLevel is smallest — "closest to the
+ *  user's level first, reach to the level window's edges only when there's
+ *  a shortage." Member-count (variety) still wins first; level-closeness is
+ *  the secondary criterion, never overriding it. */
 function pickTilingSubset(
   cands: PoolCandidate[],
   minExercises: number,
   maxExercises: number,
+  userLevel: number,
 ): PoolCandidate[] | null {
   let best: PoolCandidate[] | null = null;
+  let bestDistance = Infinity;
   for (let mask = 1; mask < 1 << cands.length; mask++) {
     const subset = cands.filter((_, i) => (mask & (1 << i)) !== 0);
     if (subset.length < minExercises || subset.length > maxExercises) continue;
     const cost = subset.reduce((s, c) => s + tabataIntervalCost(c.exercise.symmetry), 0);
     if (cost > TABATA_CLASSIC.rounds || TABATA_CLASSIC.rounds % cost !== 0) continue;
-    if (!best || subset.length > best.length) best = subset; // prefer more members (variety)
+    const distance = subset.reduce((s, c) => s + Math.abs(poolLevelOf(c.exercise) - userLevel), 0);
+    if (!best || subset.length > best.length || (subset.length === best.length && distance < bestDistance)) {
+      best = subset;
+      bestDistance = distance;
+    }
   }
   return best;
 }
 
 /**
  * Pool-injection block builder (David 25.07): select 2-4 conditioning members
- * from the dedicated `hiit_friendly` pool — at-or-below the user's level
- * (level-less defaults IN, easy-biased), interval costs tiling 8 — and PUSH
+ * from the dedicated `hiit_friendly` pool — WITHIN a level window around the
+ * user's level (level-less defaults IN), interval costs tiling 8 — and PUSH
  * them into the workout as a protocolBlock finisher (added, not replacing).
  * Returns undefined (→ straight) when the pool can't yield a valid 2-4 subset.
+ *
+ * Level selection (David, 22.09.2026, field-test docs 34/35 — replaces the
+ * original one-sided "at-or-below" ceiling): `levelWindow` bounds candidates
+ * to [userLevel - levelWindow.below, userLevel + levelWindow.above] (floored
+ * at 1), asymmetric by design — easier exercises welcomed further below,
+ * harder ones admitted only a little above. A hard ceiling left real
+ * production users with as few as 1 eligible core exercise at their level —
+ * too thin to ever build a block. Candidates are sorted CLOSEST-TO-USER-LEVEL
+ * FIRST (not easiest-first) so the picked subset (see pickTilingSubset's
+ * distance tie-break) prefers exercises near the user's actual level, only
+ * reaching toward the window's edges when there's a shortage of close ones.
  *
  * Method resolution (David 29.07): the pool is raw Firestore data that never
  * passed through the ContextualEngine, so each member's ExecutionMethod is
@@ -244,11 +275,15 @@ function buildTabataFromPool(
   injuryShield: InjuryShieldArea[] | undefined,
   minExercises: number,
   maxExercises: number,
+  levelWindow: TabataLevelWindow,
 ): TabataBlockSpec | undefined {
+  const minLevel = Math.max(1, userLevel - levelWindow.below);
+  const maxLevel = userLevel + levelWindow.above;
   const atLevel = pool.filter(
     (ex) =>
       getIsometricTimeCap(ex) >= TABATA_CLASSIC.workSec &&
-      poolLevelOf(ex) <= userLevel &&
+      poolLevelOf(ex) >= minLevel &&
+      poolLevelOf(ex) <= maxLevel &&
       passesInjuryShield(ex, injuryShield),
   );
 
@@ -259,31 +294,32 @@ function buildTabataFromPool(
         .map((ex) => ({ exercise: ex, method: selectMethodForContext(ex, location, availableGear) ?? undefined }))
         .filter((c) => c.method != null)
     : atLevel.map((ex) => ({ exercise: ex, method: undefined }))
-  ).sort((a, b) => poolLevelOf(a.exercise) - poolLevelOf(b.exercise)); // easiest first
+  ).sort((a, b) => Math.abs(poolLevelOf(a.exercise) - userLevel) - Math.abs(poolLevelOf(b.exercise) - userLevel)); // closest to user level first
 
   if (location && eligible.length < atLevel.length) {
     console.log(
-      `[TabataBlock] pool: ${atLevel.length - eligible.length} of ${atLevel.length} ≤L${userLevel} ` +
+      `[TabataBlock] pool: ${atLevel.length - eligible.length} of ${atLevel.length} L[${minLevel}-${maxLevel}] ` +
       `candidate(s) dropped — no valid method at location '${location}'`,
     );
   }
 
   if (eligible.length < minExercises) {
-    console.log(`[TabataBlock] pool: only ${eligible.length} eligible ≤L${userLevel} — reverting to straight`);
+    console.log(`[TabataBlock] pool: only ${eligible.length} eligible L[${minLevel}-${maxLevel}] — reverting to straight`);
     return undefined;
   }
 
-  // Easy-biased candidate window, shuffled for cross-session variety.
-  // Widened to fit maxExercises (the general finisher's default window of 8
-  // already covers its own max of 4 with slack; the core block can ask for
-  // up to 8 members, which needs the full window available to be searchable).
+  // Closest-to-level-biased candidate window, shuffled for cross-session
+  // variety among near-ties. Widened to fit maxExercises (the general
+  // finisher's default window of 8 already covers its own max of 4 with
+  // slack; the core block can ask for up to 8 members, which needs the full
+  // window available to be searchable).
   const window = eligible.slice(0, Math.max(maxExercises * 2, Math.ceil(eligible.length * 0.5)));
   for (let i = window.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [window[i], window[j]] = [window[j], window[i]];
   }
 
-  const members = pickTilingSubset(window.slice(0, Math.max(8, maxExercises)), minExercises, maxExercises);
+  const members = pickTilingSubset(window.slice(0, Math.max(8, maxExercises)), minExercises, maxExercises, userLevel);
   if (!members) {
     console.log(`[TabataBlock] pool: no cost-tiling ${minExercises}-${maxExercises} subset — reverting to straight`);
     return undefined;

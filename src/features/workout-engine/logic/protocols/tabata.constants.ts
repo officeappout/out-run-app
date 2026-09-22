@@ -47,3 +47,23 @@ export const TABATA_CORE_MEMBER_COUNTS = [2, 4, 8] as const;
 export function tabataIntervalCost(symmetry: string | null | undefined): 1 | 2 {
   return symmetry === 'unilateral' ? 2 : 1;
 }
+
+/**
+ * Level-selection window for buildTabataFromPool's conditioning-pool filter
+ * (David, 22.09.2026, field-test docs 34/35). Replaces a hard, one-sided
+ * ceiling (poolLevelOf(ex) <= userLevel) that left an unassessed/level-1
+ * user with only 1 real eligible core exercise in production — too thin to
+ * ever build a block, silently falling back every time.
+ *
+ * Asymmetric by design, not a symmetric ±N band: easier exercises are
+ * welcomed further below (below:3 — "קל יותר, בסדר"); harder exercises are
+ * admitted only a little above (above:2, NOT 3 — "מתחיל לא צריך לקבל רמה 4").
+ * A real parameter with THIS as the default — callers may override
+ * (buildTabataBlock's context.levelWindow) rather than the bound being
+ * hardcoded inline.
+ */
+export interface TabataLevelWindow {
+  below: number;
+  above: number;
+}
+export const DEFAULT_TABATA_LEVEL_WINDOW: TabataLevelWindow = { below: 3, above: 2 };
