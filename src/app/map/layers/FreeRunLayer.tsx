@@ -20,6 +20,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamicImport from 'next/dynamic';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { normalizeStoredRoutePath } from '@/features/parks/core/utils/routePath';
 import { Play, Navigation, MapPin } from 'lucide-react';
 import { useMapMode } from '@/features/parks/core/context/MapModeContext';
 import { useMapLogic } from '@/features/parks';
@@ -103,7 +104,17 @@ export default function FreeRunLayer({ logic, effectivePos, onRecenter }: FreeRu
         if (cancelled || !snap.exists()) return;
         const data = snap.data() as {
           name?: string;
-          path?: [number, number][];
+          // Raw Firestore storage — NOT [number,number][] despite the runtime
+          // Route.path type. official_routes.path is written as {lng,lat}
+          // OBJECTS (InventoryService.saveRoutes); a manually-drawn route may
+          // store [lng,lat] tuples instead. Must go through
+          // normalizeStoredRoutePath below, exactly like every other reader
+          // of this field — a raw cast here previously fed Mapbox/
+          // buildLaneOffsetPath object-shaped points instead of tuples,
+          // crashing on any odd-length path (route-odd-geometry fix,
+          // 22.09.2026 — see docs/field-test in the sderot-walking-field-test
+          // worktree for the full incident writeup).
+          path?: unknown;
           distance?: number;
           duration?: number;
           type?: string;
@@ -111,8 +122,8 @@ export default function FreeRunLayer({ logic, effectivePos, onRecenter }: FreeRu
           rating?: number;
           calories?: number;
         };
-        const path = Array.isArray(data.path) && data.path.length >= 2 ? data.path : null;
-        if (!path) return;
+        const path = normalizeStoredRoutePath(data.path);
+        if (path.length < 2) return;
         // Minimal Route object for AppMap display — required fields filled with
         // sensible defaults so AppMap never reads undefined where it expects a value.
         const routeForMap: Route = {
