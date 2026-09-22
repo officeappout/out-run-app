@@ -130,9 +130,21 @@ export async function POST(request: NextRequest) {
       createdByEmail: email,
     });
 
+    // inviteLink — the self-service entry point (copy-link fallback):
+    // invitee lands on /admin/authority-login, types their OWN email, and
+    // /authority-portal/login sends them a fresh magic link via
+    // sendAdminMagicLink (their own device, their own localStorage — safe).
     const inviteLink = `${request.nextUrl.origin}/admin/authority-login?token=${token}${authorityId ? `&authority=${authorityId}` : ''}`;
 
-    return NextResponse.json({ invitationId: docRef.id, inviteLink });
+    // callbackUrl — the direct target for the magic link the panel sends
+    // automatically on the caller's behalf (see sendMagicLink's
+    // skipLocalStorage option). Deliberately does NOT embed `email` — an
+    // invitee opening this on a different device with no localStorage
+    // should hit the standard Firebase "confirm your email" prompt in
+    // auth/callback, not have it silently pre-filled from the URL.
+    const callbackUrl = `${request.nextUrl.origin}/admin/auth/callback?token=${token}`;
+
+    return NextResponse.json({ invitationId: docRef.id, inviteLink, callbackUrl, email: rawEmail });
   } catch (err: any) {
     console.error('[/api/admin/invitations] error:', err?.message ?? err);
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });

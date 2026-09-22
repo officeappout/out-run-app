@@ -123,6 +123,7 @@ export default function InviteMemberModal({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [resultLink, setResultLink] = useState<string | null>(null);
+  const [emailSendError, setEmailSendError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   // Platform-only: section access + avatar + team role label
@@ -315,6 +316,15 @@ export default function InviteMemberModal({
       }
       const result = await res.json();
 
+      // Send the sign-in link straight to the invitee's email — the
+      // caller here (root, or whoever opened this modal) is not the
+      // invitee, so this must NOT write the invitee's email into the
+      // caller's own localStorage (see sendMagicLink's skipLocalStorage
+      // doc in src/lib/auth.service.ts).
+      const { sendMagicLink } = await import('@/lib/auth.service');
+      const sendResult = await sendMagicLink(email.trim().toLowerCase(), result.callbackUrl, { skipLocalStorage: true });
+      setEmailSendError(sendResult.error);
+
       setResultLink(result.inviteLink);
       onSuccess?.(result);
     } catch (err: any) {
@@ -361,8 +371,13 @@ export default function InviteMemberModal({
         {resultLink ? (
           <div className="space-y-4">
             <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
-              <p className="text-green-700 font-bold mb-2">ההזמנה נוצרה בהצלחה!</p>
-              <p className="text-xs text-green-600 mb-3">שלח את הקישור למוזמן:</p>
+              <p className="text-green-700 font-bold mb-2">
+                {emailSendError ? 'ההזמנה נוצרה בהצלחה!' : `נשלח מייל ל-${email}`}
+              </p>
+              {emailSendError && (
+                <p className="text-xs text-amber-600 mb-2">שליחת המייל נכשלה — השתמש בקישור למטה כגיבוי</p>
+              )}
+              <p className="text-xs text-green-600 mb-3">או שלח את הקישור למוזמן ידנית:</p>
               <div className="flex items-center gap-2">
                 <input
                   readOnly
