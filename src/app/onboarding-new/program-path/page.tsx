@@ -16,6 +16,11 @@ import {
   getCardOrder,
   canContinueWithCards,
 } from '@/features/user/onboarding/utils/program-card-selection';
+import {
+  deriveMuscleBalanceCase,
+  recommendedMusclesForCase,
+  MUSCLE_BALANCE_MESSAGES_HE,
+} from '@/features/user/onboarding/utils/muscle-balance';
 
 /** Muscle icon paths — used inside chips */
 const MUSCLE_ICON_PATHS: Record<string, string> = {
@@ -230,7 +235,16 @@ export default function ProgramPathPage() {
     [selectedSkills]
   );
 
+  // ── Coach's note: complementary-muscle recommendation state (Card B) ──
+  // Same pattern as the Skills card's Orange Flow, kept in SEPARATE state
+  // since both cards can be selected and active simultaneously — this note
+  // must never share state with the Skills one.
+  const [showMuscleRecommendation, setShowMuscleRecommendation] = useState(false);
+  const [hasIgnoredMuscleRecommendation, setHasIgnoredMuscleRecommendation] = useState(false);
+
   const isFullBodySelected = selectedMuscles.includes(FULL_BODY_ID);
+  const muscleBalanceCase = deriveMuscleBalanceCase(selectedMuscles);
+  const recommendedMuscles = recommendedMusclesForCase(muscleBalanceCase);
 
   // ── Derived balance signal ───────────────────────────────────
   // `missingCategory` is the axis the user is currently NOT covering.
@@ -255,28 +269,50 @@ export default function ProgramPathPage() {
     }
   }, [missingCategory, showRecommendation]);
 
+  // Same auto-dismiss, for the muscle note.
+  useEffect(() => {
+    if (showMuscleRecommendation && muscleBalanceCase === null) {
+      setShowMuscleRecommendation(false);
+    }
+  }, [muscleBalanceCase, showMuscleRecommendation]);
+
   const canContinue = canContinueWithCards(selectedCards, selectedMuscles, selectedSkills);
 
   const handleContinue = () => {
     if (!canContinue) return;
 
-    // ── Orange Flow gate (skills card only) ────────────────────
-    // Master chip ('calisthenics_upper') is inherently balanced — bypass.
-    // Once the user has explicitly dismissed the tip, never re-prompt.
+    // ── Coach's-note gates — one at a time ──────────────────────
+    // Each gate below either blocks navigation (first press: show its own
+    // note, hide the other's) or resolves and falls through to the next
+    // gate in the SAME press. Never both notes visible simultaneously.
+
+    // Gate 1: Skills card. Master chip ('calisthenics_upper') is inherently
+    // balanced — bypass. Once dismissed, never re-prompt.
     const masterSelected = selectedSkills.includes(SKILL_MASTER_ID);
-    if (selectedCards.includes('skills') && !masterSelected && !hasIgnoredRecommendation) {
-      if (missingCategory !== null) {
-        if (!showRecommendation) {
-          // First press with a mismatch → surface the coach tip + glow,
-          // do NOT navigate. The CTA copy will flip to "המשך בכל זאת".
-          setShowRecommendation(true);
-          return;
-        }
-        // Second press with the tip still visible → user is consciously
-        // overriding the suggestion. Lock the override and fall through
-        // to the standard persist + navigate flow.
-        setHasIgnoredRecommendation(true);
+    if (selectedCards.includes('skills') && !masterSelected && !hasIgnoredRecommendation && missingCategory !== null) {
+      if (!showRecommendation) {
+        // First press with a mismatch → surface the coach tip + glow,
+        // do NOT navigate. The CTA copy will flip to "המשך בכל זאת".
+        setShowRecommendation(true);
+        return;
       }
+      // Second press with the tip still visible → user is consciously
+      // overriding the suggestion. Lock the override, hide this note, and
+      // fall through to check Gate 2 in this same press.
+      setHasIgnoredRecommendation(true);
+      setShowRecommendation(false);
+    }
+
+    // Gate 2: Muscle card. Full-body chip is inherently balanced — bypass
+    // (deriveMuscleBalanceCase already returns null for it, mirrored here
+    // for clarity). Once dismissed, never re-prompt.
+    if (selectedCards.includes('body_focus') && !hasIgnoredMuscleRecommendation && muscleBalanceCase !== null) {
+      if (!showMuscleRecommendation) {
+        setShowMuscleRecommendation(true);
+        return;
+      }
+      setHasIgnoredMuscleRecommendation(true);
+      setShowMuscleRecommendation(false);
     }
 
     const toPersist =
@@ -311,7 +347,7 @@ export default function ProgramPathPage() {
       onContinue={handleContinue}
       canContinue={canContinue}
       continueLabel={
-        showRecommendation
+        showRecommendation || showMuscleRecommendation
           ? (isFemale ? 'המשיכי בכל זאת' : 'המשך בכל זאת')
           : (isFemale ? 'המשכי' : 'המשך')
       }
@@ -505,6 +541,27 @@ export default function ProgramPathPage() {
                   <p className="text-[13px] text-slate-500 text-right mb-3">
                     {isFemale ? 'בחרי את האזורים שתרצי לפתח' : 'בחר את האזורים שתרצה לפתח'}
                   </p>
+
+                  {/* ── Coach's note: complementary-muscle recommendation ── */}
+                  <AnimatePresence>
+                    {showMuscleRecommendation && muscleBalanceCase && (
+                      <motion.div
+                        key="muscle-balance-tip"
+                        initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                        transition={{ duration: 0.25, ease: 'easeOut' }}
+                        className="mb-3 rounded-2xl border bg-amber-50 border-amber-300 text-amber-900 px-3.5 py-3 text-right shadow-sm"
+                        role="status"
+                        aria-live="polite"
+                      >
+                        <p className="text-[13px] font-semibold leading-relaxed">
+                          {MUSCLE_BALANCE_MESSAGES_HE[muscleBalanceCase]}
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   <div className="grid grid-cols-2 gap-3 w-full" dir="rtl">
                     {/* "כל הגוף" — full-width anchor */}
                     <motion.button
@@ -530,6 +587,12 @@ export default function ProgramPathPage() {
                       const label = MUSCLE_CHIP_LABELS[id] ?? id;
                       const isSelected = selectedMuscles.includes(id);
                       const iconSrc = MUSCLE_ICON_PATHS[id];
+                      // Coach's note: glow if this chip is the suggested
+                      // complement and the tip is currently visible.
+                      const isRecommended =
+                        showMuscleRecommendation &&
+                        !isSelected &&
+                        recommendedMuscles.has(id);
                       return (
                         <motion.button
                           key={id}
@@ -538,7 +601,9 @@ export default function ProgramPathPage() {
                           className={`flex items-center justify-between p-3.5 h-12 w-full rounded-xl border transition-all text-right cursor-pointer ${
                             isSelected
                               ? 'bg-[#00BAF7]/[0.06] border-[#00BAF7] font-semibold'
-                              : 'bg-white border-[#E0E9FF] font-medium'
+                              : isRecommended
+                                ? 'bg-orange-50/50 border-orange-400 shadow-sm animate-pulse font-medium'
+                                : 'bg-white border-[#E0E9FF] font-medium'
                           }`}
                         >
                           {/* Icon first in DOM = RIGHT edge in dir="rtl" flex */}
