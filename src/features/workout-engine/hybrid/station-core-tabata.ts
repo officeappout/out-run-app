@@ -26,19 +26,25 @@ import { TABATA_BLOCK_SECONDS } from '../logic/protocols/tabata.constants';
 export const REST_BETWEEN_STATION_TABATA_BLOCKS_SEC = 60;
 
 /**
- * How many fixed 4-minute tabata blocks fit in `blockMinutes`, leaving
- * REST_BETWEEN_STATION_TABATA_BLOCKS_SEC between each consecutive pair
- * (none after the last block). Returns 0 when even a single block doesn't
- * fit the budget — the caller falls back to the regular (non-tabata) core
- * content, unchanged.
+ * How many fixed 4-minute tabata blocks fit in `blockMinutes` — capped at 1
+ * (David, 22.09.2026, production live-testing): one core station is always
+ * a single tabata block today, regardless of how much budget the station
+ * has. Returns 0 when even that single block doesn't fit — the caller falls
+ * back to the regular (non-tabata) core content, unchanged.
+ *
+ * BACKLOG (David, 22.09.2026, explicitly deferred — not this PR): 2 blocks
+ * for a 45-minute session's stations, with a rest minute between them. The
+ * multi-block math (REST_BETWEEN_STATION_TABATA_BLOCKS_SEC, the loop shape)
+ * already existed here and is kept working underneath the cap so that
+ * follow-up is a one-line change (raise the cap), not a rebuild.
  */
 export function chooseStationTabataBlockCount(blockMinutes: number): number {
   const budgetSec = blockMinutes * 60;
   const blockSec = TABATA_BLOCK_SECONDS;
   const restSec = REST_BETWEEN_STATION_TABATA_BLOCKS_SEC;
+  const CAP = 1; // David, 22.09.2026 — one block per station until the 45-min/2-block backlog item lands
   let n = 0;
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
+  while (n < CAP) {
     const next = n + 1;
     const totalSec = next * blockSec + (next - 1) * restSec;
     if (totalSec > budgetSec) break;

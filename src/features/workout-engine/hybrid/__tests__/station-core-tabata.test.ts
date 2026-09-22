@@ -16,24 +16,15 @@ import type { Exercise } from '@/features/content/exercises/core/exercise.types'
 
 // ── chooseStationTabataBlockCount ───────────────────────────────────────────
 
-describe('chooseStationTabataBlockCount', () => {
+describe('chooseStationTabataBlockCount — capped at 1 (David, 22.09.2026)', () => {
   it('a budget shorter than one block (4 min) yields 0 — caller falls back', () => {
     expect(chooseStationTabataBlockCount(3)).toBe(0);
   });
 
-  it('exactly one block fits with no room for a second (block+rest > budget)', () => {
-    // 1 block = 240s. 2 blocks + 1 rest = 240*2 + 60 = 540s = 9min.
-    expect(chooseStationTabataBlockCount(4)).toBe(1);
-    expect(chooseStationTabataBlockCount(8)).toBe(1); // under the 9-min threshold for 2
-  });
-
-  it('two blocks fit once the budget covers block+rest+block (9 min)', () => {
-    expect(chooseStationTabataBlockCount(9)).toBe(2);
-    expect(chooseStationTabataBlockCount(10)).toBe(2);
-  });
-
-  it('three blocks fit at exactly 14 minutes (4*3 + 1*2 = 14min)', () => {
-    expect(chooseStationTabataBlockCount(14)).toBe(3);
+  it('4 minutes or more yields exactly 1 — never a second block, however large the budget', () => {
+    for (const minutes of [4, 8, 9, 10, 14, 20, 30, 45]) {
+      expect(chooseStationTabataBlockCount(minutes)).toBe(1);
+    }
   });
 
   it('formula never exceeds the actual budget when reconstructed', () => {
