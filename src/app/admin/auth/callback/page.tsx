@@ -10,6 +10,7 @@ import { onAuthStateChanged, type User } from 'firebase/auth';
 import { signInWithMagicLink, isMagicLinkCallback, signOutUser } from '@/lib/auth.service';
 import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
 import { getAuthoritiesByManager } from '@/features/admin/services/authority.service';
+import { decidePreflightAction } from '@/features/admin/services/auth-callback-preflight';
 import { CheckCircle, AlertCircle, Mail } from 'lucide-react';
 import AppLogoLoader from '@/components/AppLogoLoader';
 
@@ -235,21 +236,23 @@ function AuthCallbackContent() {
         }
 
         const currentUser = await waitForInitialAuthState();
-        if (currentUser) {
-          const isDifferentTarget = Boolean(
-            targetEmail && currentUser.email &&
-            targetEmail.toLowerCase() !== currentUser.email.toLowerCase()
-          );
-          if (isDifferentTarget) {
-            // A real, signed-in session already exists for someone ELSE —
-            // don't silently swap it out from under them (that's exactly
-            // what a bare signInWithEmailLink call would do). Ask first.
-            setSwitchFromEmail(currentUser.email || '');
-            setSwitchToEmail(targetEmail);
-            setNeedsAccountSwitchConfirm(true);
-            setLoading(false);
-            return;
-          }
+        const decision = decidePreflightAction(
+          currentUser ? { uid: currentUser.uid, email: currentUser.email, isAnonymous: currentUser.isAnonymous } : null,
+          targetEmail,
+        );
+
+        if (decision.kind === 'confirm-switch') {
+          // A real, signed-in session already exists for someone ELSE —
+          // don't silently swap it out from under them (that's exactly
+          // what a bare signInWithEmailLink call would do). Ask first.
+          setSwitchFromEmail(decision.fromEmail);
+          setSwitchToEmail(decision.toEmail);
+          setNeedsAccountSwitchConfirm(true);
+          setLoading(false);
+          return;
+        }
+
+        if (decision.kind === 'resolve' && currentUser) {
           // Same user (or an invitation link whose target we genuinely
           // couldn't resolve) already has a live session — most likely a
           // refresh of this same URL after signing in already consumed the
@@ -260,6 +263,11 @@ function AuthCallbackContent() {
           return;
         }
 
+        // decision.kind === 'proceed' — either nobody is signed in, or the
+        // only existing session is anonymous (treated identically: an
+        // anonymous uid is a disposable identity that says nothing about
+        // who's actually opening this link, so it must never block or
+        // stand in for a real sign-in — see auth-callback-preflight.ts).
         const emailToUse = targetEmail;
         if (!emailToUse) {
           setNeedsEmailConfirm(true);
