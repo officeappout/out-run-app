@@ -718,6 +718,20 @@ export interface RouteTurn {
    * up TO the vertex, not past it.
    */
   isTurnaround?: boolean;
+
+  /**
+   * 'station' marks a synthetic card representing a hybrid stop merged into
+   * the carousel (TurnCarousel, 22.09.2026 — field-test doc 18/21) — not a
+   * real turn maneuver. Absent = ordinary turn; `computeRouteTurns` (below)
+   * never sets this. When present, `instruction` holds the station's own
+   * name (not a maneuver label) and `bearingAfter`/`distanceMeters` are
+   * placeholder values (0) — stations have no "outgoing heading" and their
+   * live distance is always computed from GPS, same as any other card.
+   */
+  kind?: 'station';
+  /** Present only when kind === 'station' — the park id backing this stop,
+   *  for any consumer that wants to cross-reference the AppMap marker. */
+  parkId?: string;
 }
 
 /** Near-180° bearing changes are a reversal, not an ordinary sharp turn. */

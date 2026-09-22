@@ -606,6 +606,7 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
             }
             routePath={logic.focusedRoute.path}
             currentLocation={effectivePos}
+            stations={(logic.focusedRoute as any)?.stationMarkers ?? null}
           />
         )
       }
