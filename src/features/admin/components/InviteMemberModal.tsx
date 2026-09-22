@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { UserPlus, Mail, Loader2, X, Copy, Check, Camera, Shield } from 'lucide-react';
-import { getChildrenByParent } from '@/features/admin/services/authority.service';
+import { getChildrenByParent, getAllAuthorities } from '@/features/admin/services/authority.service';
 import type { InvitationRole } from '@/types/invitation.type';
 import type { TenantType } from '@/types/admin-types';
 import type { Authority } from '@/types/admin-types';
@@ -15,33 +15,30 @@ import type { AdminUser } from '@/features/admin/services/admin-management.servi
 interface RoleOption {
   value: InvitationRole;
   label: string;
-  requiresScope?: 'unit' | 'authority';
+  requiresScope?: 'unit' | 'authority' | 'allAuthorities';
 }
 
+// SPEC-PERMISSIONS-MODEL.md §7/§8 — POST /api/admin/invitations only
+// accepts two roles: authority_manager and platform_member. Every option
+// below MUST correspond to a role the server actually accepts — offering
+// anything else is exactly the "server rejects it, must never be shown"
+// bug this table fixes (22.09.2026 follow-up audit). tenant_owner and
+// unit_admin (military/educational/company/youth_movement, and municipal's
+// former "neighborhood coordinator" option) are NOT supported yet — those
+// verticals/levels aren't built (SPEC §10/§11 step 3 still ⬜) — removed
+// outright rather than left to fail server-side. super_admin and
+// vertical_admin are removed from `platform` for the same reason (root is
+// never granted via invitation; vertical_admin's vertical isn't built).
 const ROLE_OPTIONS_BY_CONTEXT: Record<TenantType | 'platform', RoleOption[]> = {
-  military: [
-    { value: 'tenant_owner', label: 'בעל ארגון (חטיבה מלאה)' },
-    { value: 'unit_admin', label: 'מפקד יחידה (גדוד/פלוגה)', requiresScope: 'unit' },
-  ],
+  military: [],
   municipal: [
     { value: 'authority_manager', label: 'מנהל רשות (עיר)' },
-    { value: 'unit_admin', label: 'רכז שכונתי', requiresScope: 'authority' },
   ],
-  educational: [
-    { value: 'tenant_owner', label: 'בעל ארגון (בית ספר)' },
-    { value: 'unit_admin', label: 'רכז כיתה/שכבה', requiresScope: 'unit' },
-  ],
-  company: [
-    { value: 'tenant_owner', label: 'בעל ארגון (חברה)' },
-    { value: 'unit_admin', label: 'מנהל מחלקה/צוות', requiresScope: 'unit' },
-  ],
-  youth_movement: [
-    { value: 'tenant_owner', label: 'בעל ארגון (תנועה)' },
-    { value: 'unit_admin', label: 'רכז קן/שכבה', requiresScope: 'unit' },
-  ],
+  educational: [],
+  company: [],
+  youth_movement: [],
   platform: [
-    { value: 'super_admin', label: 'מנהל-על — גישה מלאה' },
-    { value: 'vertical_admin', label: 'מנהל ורטיקלי — ורטיקל אחד' },
+    { value: 'authority_manager', label: 'מנהל רשות (עיר)', requiresScope: 'allAuthorities' },
     { value: 'platform_member', label: 'חבר צוות — גישה לפי סקשנים' },
   ],
 };
@@ -120,6 +117,11 @@ export default function InviteMemberModal({
   const [selectedScopeId, setSelectedScopeId] = useState('');
   const [childEntities, setChildEntities] = useState<Authority[]>([]);
   const [loadingChildren, setLoadingChildren] = useState(false);
+  // authority_manager in the 'platform' context (no pre-set context.authorityId
+  // to scope children from — root picks any city directly) needs the full
+  // authorities list, not getChildrenByParent's parent-scoped one.
+  const [allAuthorities, setAllAuthorities] = useState<Authority[]>([]);
+  const [loadingAllAuthorities, setLoadingAllAuthorities] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [resultLink, setResultLink] = useState<string | null>(null);
@@ -208,8 +210,30 @@ export default function InviteMemberModal({
     return () => { cancelled = true; };
   }, [currentRoleOption?.requiresScope, context.authorityId, context.tenantId]);
 
+  useEffect(() => {
+    if (currentRoleOption?.requiresScope !== 'allAuthorities') {
+      setAllAuthorities([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingAllAuthorities(true);
+    getAllAuthorities(undefined, true).then(list => {
+      if (!cancelled) {
+        setAllAuthorities(list);
+        setLoadingAllAuthorities(false);
+      }
+    }).catch(() => {
+      if (!cancelled) setLoadingAllAuthorities(false);
+    });
+    return () => { cancelled = true; };
+  }, [currentRoleOption?.requiresScope]);
+
   const handleSend = async () => {
     if (!email.trim() || !selectedRole) return;
+    if (currentRoleOption?.requiresScope === 'allAuthorities' && !selectedScopeId) {
+      setError('יש לבחור עיר עבור מנהל רשות');
+      return;
+    }
     if (selectedRole === 'vertical_admin' && !selectedVertical) {
       setError('יש לבחור ורטיקל מנוהל');
       return;
@@ -439,6 +463,15 @@ export default function InviteMemberModal({
                   {roleOptions.find(r => r.value === selectedRole)?.label || selectedRole || '—'}
                   <span className="block text-xs text-gray-400 mt-0.5">רק Root Admin יכול לשנות תפקיד</span>
                 </div>
+              ) : roleOptions.length === 0 ? (
+                // military/educational/company/youth_movement — every role
+                // they used to offer (tenant_owner, unit_admin) isn't
+                // accepted by POST /api/admin/invitations yet (SPEC §11
+                // step 3, still ⬜). No option here is better than one that
+                // fails on submit.
+                <div className="w-full px-4 py-3 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50 text-sm text-gray-500">
+                  אין תפקידים זמינים להזמנה בורטיקל הזה כרגע.
+                </div>
               ) : (
                 <SearchableSelect
                   options={roleOptions.map(opt => ({ id: opt.value, label: opt.label }))}
@@ -513,8 +546,10 @@ export default function InviteMemberModal({
               </div>
             )}
 
-            {/* Platform-only: section access */}
-            {modeKey === 'platform' && (
+            {/* Section access — platform_member only (task fix: this used to
+                show for any role in the 'platform' context, including
+                authority_manager, which has nothing to do with allowedSections). */}
+            {modeKey === 'platform' && (selectedRole === 'platform_member' || (isEditMode && editTarget?.isPlatformMember)) && (
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <Shield size={14} className="text-gray-400" />
@@ -558,8 +593,10 @@ export default function InviteMemberModal({
               </div>
             )}
 
-            {/* Scope selector (unit / authority child) */}
-            {currentRoleOption?.requiresScope && (
+            {/* Scope selector — unit/authority (child of context.authorityId,
+                "whole org" is a valid default) vs allAuthorities (root
+                picking any city directly, no default — a city is required). */}
+            {(currentRoleOption?.requiresScope === 'unit' || currentRoleOption?.requiresScope === 'authority') && (
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1.5">
                   {currentRoleOption.requiresScope === 'unit' ? 'שיוך ליחידה' : 'שיוך לשכונה / יישוב'}
@@ -585,13 +622,45 @@ export default function InviteMemberModal({
               </div>
             )}
 
+            {/* City picker for authority_manager in the platform context —
+                required, no "whole org" default (there is no org to default
+                to at this level; root must pick a specific city). */}
+            {currentRoleOption?.requiresScope === 'allAuthorities' && (
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1.5">עיר</label>
+                {loadingAllAuthorities ? (
+                  <div className="flex items-center gap-2 text-sm text-gray-400 py-2">
+                    <Loader2 size={14} className="animate-spin" /> טוען...
+                  </div>
+                ) : (
+                  <SearchableSelect
+                    options={allAuthorities.map(a => ({
+                      id: a.id,
+                      label: typeof a.name === 'string' ? a.name : (a.name as any)?.he || (a.name as any)?.en || a.id,
+                    }))}
+                    value={selectedScopeId}
+                    onChange={v => setSelectedScopeId(v)}
+                    placeholder="בחר עיר..."
+                  />
+                )}
+                {!selectedScopeId && (
+                  <p className="text-[11px] text-amber-600 mt-1.5">יש לבחור עיר כדי ליצור הזמנת מנהל רשות.</p>
+                )}
+              </div>
+            )}
+
             {error && (
               <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2">{error}</p>
             )}
 
             <button
               onClick={handleSend}
-              disabled={!email.trim() || !selectedRole || sending}
+              disabled={
+                !email.trim() ||
+                !selectedRole ||
+                sending ||
+                (currentRoleOption?.requiresScope === 'allAuthorities' && !selectedScopeId)
+              }
               className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white py-3 rounded-xl font-bold text-sm hover:from-cyan-700 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {sending ? (
