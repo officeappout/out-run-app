@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveTierLabel, stepProportion, levelProportion } from '../assessment-tier-label';
+import { resolveTierLabel, resolveSkillTierLabel, stepProportion, levelProportion } from '../assessment-tier-label';
 
 describe('resolveTierLabel', () => {
   it('boundaries: just under 1/3 is beginner, exactly 1/3 is intermediate', () => {
@@ -24,6 +24,25 @@ describe('resolveTierLabel', () => {
     expect(resolveTierLabel(-5, false)).toBe('מתחיל');
     expect(resolveTierLabel(5, false)).toBe('מתקדם');
     expect(resolveTierLabel(NaN, false)).toBe('מתחיל');
+  });
+});
+
+describe('resolveSkillTierLabel', () => {
+  it('4 equal buckets, proportional across the full range', () => {
+    expect(resolveSkillTierLabel(0)).toBe('קליסטניקס למתחילים');
+    expect(resolveSkillTierLabel(0.24)).toBe('קליסטניקס למתחילים');
+    expect(resolveSkillTierLabel(0.25)).toBe('קליסטניקס למתחילים+');
+    expect(resolveSkillTierLabel(0.49)).toBe('קליסטניקס למתחילים+');
+    expect(resolveSkillTierLabel(0.5)).toBe('קליסטניקס לבינוניים');
+    expect(resolveSkillTierLabel(0.74)).toBe('קליסטניקס לבינוניים');
+    expect(resolveSkillTierLabel(0.75)).toBe('קליסטניקס למתקדמים');
+    expect(resolveSkillTierLabel(1)).toBe('קליסטניקס למתקדמים');
+  });
+
+  it('out-of-range proportions clamp instead of throwing or misclassifying', () => {
+    expect(resolveSkillTierLabel(-5)).toBe('קליסטניקס למתחילים');
+    expect(resolveSkillTierLabel(5)).toBe('קליסטניקס למתקדמים');
+    expect(resolveSkillTierLabel(NaN)).toBe('קליסטניקס למתחילים');
   });
 });
 

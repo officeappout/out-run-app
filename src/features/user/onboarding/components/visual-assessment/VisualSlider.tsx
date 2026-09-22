@@ -16,7 +16,7 @@ import {
   getOnboardingLevelsForCategory,
   type ResolvedContent,
 } from '../../services/visual-content-resolver.service';
-import { resolveTierLabel, stepProportion, levelProportion } from '../../utils/assessment-tier-label';
+import { resolveTierLabel, resolveSkillTierLabel, stepProportion, levelProportion } from '../../utils/assessment-tier-label';
 import { hapticSelection } from '@/lib/haptics';
 
 // ── Category display metadata ──────────────────────────────────────
@@ -46,6 +46,12 @@ const FALLBACK_SIMPLE_STEPS: Record<string, number[]> = {
   legs: [1, 4, 7, 10, 13, 16, 20],
   core: [1, 4, 7, 10, 13, 16, 20],
 };
+
+// The only 4 "regular" body-part categories — the plain מתחיל/בינוני/מתקדם tier
+// pill stays here. Every other category (planche, front_lever, muscle_up,
+// handstand, hspu, etc. — the skill-keyed sliders) gets the 4-step קליסטניקס
+// ladder instead. New skill categories don't need to be added to any list here.
+const REGULAR_CATEGORIES = new Set(['push', 'pull', 'legs', 'core']);
 
 function nearestStepIndex(steps: number[], realLevel: number): number {
   let best = 0;
@@ -209,6 +215,16 @@ export default function VisualSlider({
     return () => clearTimeout(t);
   }, [category]);
 
+  // Auto-dismiss the JIT tutorial overlay after a few seconds even with zero
+  // interaction — a user's first touch on the strip is often a small drag that
+  // snaps back to the same tile (no onSelect fires, so handleSliderChange's own
+  // dismiss never runs), which otherwise left the mask stuck up indefinitely.
+  useEffect(() => {
+    if (stepIndex !== 0) return;
+    const t = setTimeout(() => setShowTutorial(false), 5000);
+    return () => clearTimeout(t);
+  }, [stepIndex]);
+
   const fetchContent = useCallback(
     async (cat: string, lvl: number) => {
       // Stamp this invocation so stale completions from rapid slider movement
@@ -305,6 +321,16 @@ export default function VisualSlider({
   const fillPct = sliderRange > 0 ? ((sliderVal - sliderMin) / sliderRange) * 100 : 0;
 
   const isFemale = demographics.gender === 'female';
+
+  // Tier pill: skill-keyed categories (planche, muscle_up, handstand, etc.) get
+  // the 4-step קליסטניקס ladder; push/pull/legs/core keep the plain 3-tier label.
+  const isSkillCategory = !REGULAR_CATEGORIES.has(category.toLowerCase());
+  const tierProportion = isSimple && steps
+    ? stepProportion(sliderVal, steps.length)
+    : levelProportion(level, minLevel, maxLevel);
+  const tierLabel = isSkillCategory
+    ? resolveSkillTierLabel(tierProportion)
+    : resolveTierLabel(tierProportion, isFemale);
 
   // Resolves CMS slash patterns like "דוחף/ת" → "דוחפת" (female) or "דוחף" (male).
   // Pattern: base/suffix — suffix appended for female, stripped for male.
@@ -406,7 +432,10 @@ export default function VisualSlider({
         the z-30 frosted mask, keeping the exercise info and slider crisp and
         interactive while the video above and the Next button below stay masked.
       */}
-      <div className={clsx(showTutorial && 'relative z-40')}>
+      <div
+        className={clsx(showTutorial && 'relative z-40')}
+        onPointerDownCapture={showTutorial ? () => setShowTutorial(false) : undefined}
+      >
 
         {/* ── Tier pill — replaces the old always-visible 3-point track labels.
             Always rendered (not gated on exerciseLabel/repsLabel) so the level
@@ -416,9 +445,7 @@ export default function VisualSlider({
             className="text-[11px] font-bold px-3 py-1 rounded-full"
             style={{ backgroundColor: 'rgba(0,186,247,0.08)', color: '#00BAF7' }}
           >
-            {isSimple && steps
-              ? resolveTierLabel(stepProportion(sliderVal, steps.length), isFemale)
-              : resolveTierLabel(levelProportion(level, minLevel, maxLevel), isFemale)}
+            {tierLabel}
           </span>
         </div>
 
@@ -521,7 +548,7 @@ export default function VisualSlider({
 
       {/* ── Confirm button — separate wrapper, stays behind z-30 overlay during tutorial ──
           Dynamic label ties the button to the currently selected exercise
-          ("{name} — זו הרמה שלי"), falling back to the plain next/finish label
+          ("{name} זו הרמה שלי"), falling back to the plain next/finish label
           on the ~12 levels with no admin-set exerciseName. CALM (muted, low
           contrast) until the user's first interaction with the slider/strip
           (reuses `userInteracted`, the same flag that already drives the
@@ -551,7 +578,7 @@ export default function VisualSlider({
           {exerciseLabel ? (
             <span className="w-full flex items-center justify-center gap-1 overflow-hidden px-2">
               <span className="truncate min-w-0">{exerciseLabel}</span>
-              <span className="flex-shrink-0 whitespace-nowrap">— זו הרמה שלי</span>
+              <span className="flex-shrink-0 whitespace-nowrap">זו הרמה שלי</span>
             </span>
           ) : stepIndex < totalSteps - 1 ? (
             <>
@@ -565,16 +592,22 @@ export default function VisualSlider({
       </div>
 
       {/* ── JIT Spotlight Tutorial Overlay ───────────────────────────
-          Shown only on the first slider (stepIndex === 0).
-          Single full-screen frosted layer:
-            • Covers the entire viewport INCLUDING the Next button
-              so the user cannot skip before interacting.
-            • `onPointerDown` fires on the very first touch/tap anywhere
-              (whether on the dark area or on the slider zone) and
-              dismisses the overlay instantly, letting the subsequent
-              pointer-move continue as a normal slider drag.
-            • `handleSliderChange` also calls `setShowTutorial(false)`
-              as a belt-and-suspenders fallback.
+          Shown only on the first slider (stepIndex === 0). Dismissed by
+          THREE independent paths, so it never gets stuck:
+            • `onPointerDown` on the mask itself (taps outside the punched-
+              through zone — header, background).
+            • `onPointerDownCapture` on the punch-through wrapper (line
+              ~412) — fires on the very first touch inside the strip/card/
+              pill zone itself, BEFORE the tap's own click handler, so it
+              also covers a drag that snaps back to the same tile (no
+              onSelect, so handleSliderChange's own dismiss never runs).
+            • `handleSliderChange` also calls `setShowTutorial(false)` —
+              belt-and-suspenders for a genuine selection change.
+            • A 5s auto-dismiss timer (above) as the final fallback if the
+              user never touches anything at all.
+          Single full-screen frosted layer covers the entire viewport
+          INCLUDING the Next button so the user cannot skip before any of
+          the above fires.
       ─────────────────────────────────────────────────────────────── */}
       <AnimatePresence>
         {showTutorial && (
@@ -604,6 +637,16 @@ export default function VisualSlider({
             >
               {/* Bubble card */}
               <div className="bg-white/95 backdrop-blur-2xl rounded-3xl p-6 border border-slate-100 shadow-xl">
+                {/* Pointing-finger indicator — swipes left-right to demonstrate
+                    the drag/swipe gesture on the strip below. */}
+                <motion.div
+                  className="flex justify-center mb-4"
+                  initial={{ x: 0, opacity: 0 }}
+                  animate={{ x: [0, -18, 0, 18, 0], opacity: [0, 1, 1, 1, 1] }}
+                  transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 0.4, ease: 'easeInOut' }}
+                >
+                  <span className="text-4xl drop-shadow-lg">👆</span>
+                </motion.div>
                 <div className="space-y-6">
                   <p className="text-lg font-medium text-slate-800 text-center leading-snug">
                     {isFemale

@@ -15,6 +15,25 @@ export function resolveTierLabel(proportion: number, isFemale: boolean): string 
   return isFemale ? 'מתקדמת' : 'מתקדם';
 }
 
+/**
+ * Skill-path tier pill (planche/front_lever/muscle_up/handstand/etc.) — a 4-step
+ * calisthenics ladder distinct from the plain 3-tier label above, which stays on
+ * push/pull/legs/core only. Gender-neutral text, so no isFemale param.
+ */
+const SKILL_TIER_LABELS = [
+  'קליסטניקס למתחילים',
+  'קליסטניקס למתחילים+',
+  'קליסטניקס לבינוניים',
+  'קליסטניקס למתקדמים',
+] as const;
+
+/** Clamps to [0, 1] then buckets proportionally into the 4 skill tiers above. */
+export function resolveSkillTierLabel(proportion: number): string {
+  const p = Number.isFinite(proportion) ? Math.max(0, Math.min(1, proportion)) : 0;
+  const idx = Math.min(SKILL_TIER_LABELS.length - 1, Math.floor(p * SKILL_TIER_LABELS.length));
+  return SKILL_TIER_LABELS[idx];
+}
+
 /** Proportion for the coverflow strip — position of the selected step within the step list. */
 export function stepProportion(stepIndex: number, totalSteps: number): number {
   if (totalSteps <= 1) return 0;
