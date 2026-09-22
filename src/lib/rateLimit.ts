@@ -17,8 +17,21 @@
  * in 15 min -> 1h block" ask, which is a different algorithm entirely.
  */
 import type { Firestore } from 'firebase-admin/firestore';
+import { createHash } from 'crypto';
 
 const COLLECTION = 'rate_limits';
+
+/**
+ * Some callers build `key` directly from a raw identifier — e.g.
+ * login-link-gate/route.ts's `login-link:email:${email}:short` — so the
+ * failure-log line below must never print `key` verbatim (would leak a
+ * raw email into Vercel logs on every Firestore blip). Hashed the same
+ * way rateLimitLog.ts hashes identifiers, so key names stay correlatable
+ * across log lines without being reversible.
+ */
+function hashKey(key: string): string {
+  return createHash('sha256').update(key).digest('hex').slice(0, 16);
+}
 
 // windowStart round-trips through Firestore as a real Timestamp
 // (.toMillis()) in production — Admin SDK auto-converts a written Date
@@ -79,7 +92,7 @@ export async function isRateLimited(
       return false;
     });
   } catch (err) {
-    console.warn(`[rateLimit] check failed for key="${key}" — failing OPEN (request allowed)`, err);
+    console.warn(`[rateLimit] check failed for keyHash=${hashKey(key)} — failing OPEN (request allowed)`, err);
     return false;
   }
 }
