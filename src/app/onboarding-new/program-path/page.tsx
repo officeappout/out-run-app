@@ -20,6 +20,7 @@ const MUSCLE_ICON_PATHS: Record<string, string> = {
   triceps: '/assets/icons/muscles/triceps.svg',
   legs: '/assets/icons/muscles/quads.svg',
   core: '/assets/icons/muscles/abs.svg',
+  glutes: '/icons/muscles/glutes.svg',
 };
 
 /** Hebrew chip labels for each muscle group ID */
@@ -338,6 +339,11 @@ export default function ProgramPathPage() {
               className="w-[88px] h-[88px] object-contain shrink-0"
             />
             <div className="flex-1 text-right">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-[11px] font-bold text-[#00BAF7] bg-[#00BAF7]/10 rounded-full px-2 py-0.5">
+                  מתחילים
+                </span>
+              </div>
               <p
                 className={`text-base font-bold ${
                   path === 'health' ? 'text-[#182236]' : 'text-slate-700'
@@ -345,15 +351,7 @@ export default function ProgramPathPage() {
               >
                 בריאות, כוח ואנרגיה
               </p>
-              <p className="text-sm text-slate-500">
-                {path === 'health' ? 'בסיס בריאותי מקיף לגוף ולנפש' : 'בניית בסיס, בריאות ואנרגיה יומית'}
-              </p>
-              <div className="flex items-center gap-2 mt-1.5">
-                <span className="text-[11px] font-bold text-[#00BAF7] bg-[#00BAF7]/10 rounded-full px-2 py-0.5">
-                  מתחילים
-                </span>
-              </div>
-              <p className="text-[12px] text-slate-400 mt-1 leading-snug">
+              <p className="text-sm text-slate-500 leading-snug">
                 מתאים ל: מי שרק מתחיל, חזר אחרי הפסקה, או רוצה בסיס בריא לכל הגוף.
               </p>
             </div>
@@ -434,6 +432,11 @@ export default function ProgramPathPage() {
               className="w-[88px] h-[88px] object-contain shrink-0"
             />
             <div className="flex-1 text-right">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-[11px] font-bold text-[#00BAF7] bg-[#00BAF7]/10 rounded-full px-2 py-0.5">
+                  לכל רמה
+                </span>
+              </div>
               <p
                 className={`text-base font-bold ${
                   path === 'body_focus' || selectedMuscles.length > 0
@@ -444,20 +447,6 @@ export default function ProgramPathPage() {
                 עיצוב ושרירים
               </p>
               <p className="text-sm text-slate-500 leading-snug">
-                {isFullBodySelected
-                  ? 'כל הגוף נבחר'
-                  : selectedMuscles.length > 0
-                    ? `${selectedMuscles.length} אזורים נבחרו`
-                    : isFemale
-                      ? 'חיטוב וחיזוק הגוף, הגברת האנרגיה ומיקוד באזורים המועדפים עלייך.'
-                      : 'בניית מסת שריר, עבודה על עומסים ומיקוד בקבוצות השרירים המועדפות עליך.'}
-              </p>
-              <div className="flex items-center gap-2 mt-1.5">
-                <span className="text-[11px] font-bold text-[#00BAF7] bg-[#00BAF7]/10 rounded-full px-2 py-0.5">
-                  לכל רמה
-                </span>
-              </div>
-              <p className="text-[12px] text-slate-400 mt-1 leading-snug">
                 מתאים ל: מי שכבר זז ורוצה למקד אזורים ולראות שינוי בגוף.
               </p>
             </div>
@@ -565,11 +554,16 @@ export default function ProgramPathPage() {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/assets/lemur/lemur-avatar.png"
+              src="/assets/lemur/king-lemur.png"
               alt=""
               className="w-[88px] h-[88px] object-contain shrink-0"
             />
             <div className="flex-1 text-right">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-[11px] font-bold text-[#00BAF7] bg-[#00BAF7]/10 rounded-full px-2 py-0.5">
+                  מתקדמים
+                </span>
+              </div>
               <p
                 className={`text-base font-bold ${
                   path === 'skills' || selectedSkills.length > 0
@@ -580,18 +574,6 @@ export default function ProgramPathPage() {
                 לומדים תרגילי קליסטניקס מתקדמים
               </p>
               <p className="text-sm text-slate-500 leading-snug">
-                {selectedSkills.length > 0
-                  ? `${selectedSkills.length} אלמנטים נבחרו (לפי עדיפות)`
-                  : isFemale
-                    ? 'פיתוח כוח יחסי מטורף, שליטה מלאה במשקל הגוף ופתיחת אלמנטים מתקדמים שמתאימים לך.'
-                    : 'פיתוח כוח יחסי מטורף, שליטה מלאה במשקל הגוף ופתיחת אלמנטים מתקדמים שתרצה להשיג.'}
-              </p>
-              <div className="flex items-center gap-2 mt-1.5">
-                <span className="text-[11px] font-bold text-[#00BAF7] bg-[#00BAF7]/10 rounded-full px-2 py-0.5">
-                  מתקדמים
-                </span>
-              </div>
-              <p className="text-[12px] text-slate-400 mt-1 leading-snug">
                 מתאים ל: מי שכבר עושה כמה מתח ומקבילים ורוצה לאתגר את עצמו לרמה הבאה.
               </p>
               <p className="text-[12px] text-slate-400 mt-1 leading-snug">
