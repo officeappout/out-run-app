@@ -150,6 +150,10 @@ function AdminLayoutInner({
     // without re-subscribing onAuthStateChanged on every navigation.
     const pathnameRef = useRef<string | null>(pathname);
     useEffect(() => { pathnameRef.current = pathname; }, [pathname]);
+    // One-shot guard for the cookie/client identity-mismatch recovery below —
+    // fires the sign-out-and-redirect at most once per mount, so a session
+    // that can't be reconciled lands cleanly on login instead of looping.
+    const mismatchHandledRef = useRef(false);
     const [authorityType, setAuthorityType] = useState<string | null>(null);
     const [managedAuthorityId, setManagedAuthorityId] = useState<string | null>(null);
     
@@ -261,6 +265,34 @@ function AdminLayoutInner({
                 setIsSystemAdminOnly(false);
                 setLoading(false);
                 return;
+            }
+
+            // Detect a stale server session cookie pointing at a DIFFERENT
+            // account than the current Firebase client session (e.g. a
+            // magic link for account B opened in a browser that still held
+            // account A's admin cookie). Left unresolved this can loop:
+            // middleware allows the request (cookie says A), this layout
+            // evaluates B's role and pushes to login, whose own
+            // onAuthStateChanged still sees B, etc. Fix: sign out of BOTH
+            // once and land cleanly on login — the mismatchHandledRef
+            // guard means this can fire at most once per mount, never loop.
+            if (!mismatchHandledRef.current) {
+                try {
+                    const sessionRes = await fetch('/api/auth/session', { credentials: 'same-origin' });
+                    const sessionBody = sessionRes.ok ? await sessionRes.json() : null;
+                    const cookieUid: string | null = sessionBody?.session?.uid ?? null;
+                    if (cookieUid && cookieUid !== user.uid) {
+                        mismatchHandledRef.current = true;
+                        console.warn('[AdminLayout] Session cookie / client identity mismatch — signing out and redirecting to login.');
+                        await signOutUser();
+                        router.push('/admin/login');
+                        setLoading(false);
+                        return;
+                    }
+                } catch {
+                    // Non-fatal — the session-check itself is a diagnostic;
+                    // if it fails, fall through to the normal role check.
+                }
             }
 
             try {

@@ -170,6 +170,13 @@ export async function POST(request: NextRequest) {
       if (userSnap.exists) {
         const update: Record<string, unknown> = {
           'core.isApproved': true,
+          // 22.09.2026 — the create branch below has always set core.email;
+          // this branch (existing account, e.g. a prior regular app user
+          // being promoted) didn't, so an admin promoted through this path
+          // has no core.email at all. getUserByEmail() (admin search,
+          // formerly also the pre-auth login check) queries core.email —
+          // silently unfindable by either. Backfill it here too.
+          'core.email': inv.email,
           updatedAt: FieldValue.serverTimestamp(),
         };
         if (inv.role === 'authority_manager') {

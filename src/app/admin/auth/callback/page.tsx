@@ -5,11 +5,27 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { signInWithMagicLink, isMagicLinkCallback } from '@/lib/auth.service';
+import { auth } from '@/lib/firebase';
+import { onAuthStateChanged, type User } from 'firebase/auth';
+import { signInWithMagicLink, isMagicLinkCallback, signOutUser } from '@/lib/auth.service';
 import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
 import { getAuthoritiesByManager } from '@/features/admin/services/authority.service';
 import { CheckCircle, AlertCircle, Mail } from 'lucide-react';
 import AppLogoLoader from '@/components/AppLogoLoader';
+
+// A raw `auth.currentUser` read can momentarily be null on a hard refresh —
+// Firebase hasn't finished restoring the persisted session from storage yet
+// — which would make an already-signed-in user look signed-out. Waiting for
+// the first onAuthStateChanged emission instead gets Firebase's settled
+// answer (a real user, or a confirmed null), not the pre-restore flicker.
+function waitForInitialAuthState(): Promise<User | null> {
+  return new Promise((resolve) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      unsubscribe();
+      resolve(user);
+    });
+  });
+}
 
 function AuthCallbackContent() {
   const router = useRouter();
@@ -30,6 +46,54 @@ function AuthCallbackContent() {
   const [confirmEmailInput, setConfirmEmailInput] = useState('');
   const [confirming, setConfirming] = useState(false);
 
+  // Set when a magic link resolves to a DIFFERENT email than whoever is
+  // currently signed in on this device/browser — e.g. root sent an
+  // invitation link that got opened in a browser still holding someone
+  // else's session. We must not silently swap sessions (that's exactly
+  // what used to happen via signInWithEmailLink, with no confirmation).
+  const [needsAccountSwitchConfirm, setNeedsAccountSwitchConfirm] = useState(false);
+  const [switchFromEmail, setSwitchFromEmail] = useState('');
+  const [switchToEmail, setSwitchToEmail] = useState('');
+  const [switching, setSwitching] = useState(false);
+
+  // The tail end of a successful sign-in: no server-side role/section check
+  // ever runs before this point (see authority-portal/login/page.tsx — the
+  // pre-auth "is this email a manager" lookup was removed entirely, exactly
+  // to avoid answering that for an unauthenticated caller). Everything here
+  // reads the CALLER'S OWN doc under their own freshly-verified session.
+  const resolveDestination = async (user: User) => {
+    const roleInfo = await checkUserRole(user.uid);
+    const isOnly = await isOnlyAuthorityManager(user.uid);
+
+    if (typeof window !== 'undefined') {
+      if (roleInfo.authorityIds.length > 0) {
+        localStorage.setItem('admin_selected_org_id', roleInfo.authorityIds[0]);
+      } else if (roleInfo.tenantId) {
+        localStorage.setItem('admin_selected_org_id', roleInfo.tenantId);
+      }
+    }
+
+    if (roleInfo.isAuthorityManager || isOnly) {
+      try {
+        const authorities = await getAuthoritiesByManager(user.uid);
+        if (authorities.length > 0 && authorities[0].type === 'neighborhood') {
+          router.replace(`/admin/authority/neighborhoods/${authorities[0].id}`);
+          return;
+        }
+      } catch { /* fall through to default */ }
+      router.replace('/admin/authority-manager');
+    } else if (roleInfo.isVerticalAdmin) {
+      router.replace('/admin/organizations');
+    } else if (roleInfo.isTenantOwner) {
+      router.replace('/admin/authority-manager');
+    } else if (roleInfo.isSuperAdmin || roleInfo.isSystemAdmin) {
+      router.replace('/admin');
+    } else {
+      setError('אין לך גישה לפורטל. פנה למנהל המערכת.');
+      setLoading(false);
+    }
+  };
+
   const completeSignIn = async (emailToUse: string) => {
     setEmail(emailToUse);
 
@@ -39,16 +103,10 @@ function AuthCallbackContent() {
     // surfaces as result.error, same as an expired/invalid link.
     const result = await signInWithMagicLink(emailToUse);
 
-    if (result.error) {
+    if (result.error || !result.user) {
       setError(result.error === 'auth/invalid-action-code'
         ? 'הקישור לא תקין, פג תוקף, או שכתובת המייל אינה תואמת את ההזמנה. נסה שוב.'
         : 'שגיאה בהתחברות. נסה שוב.');
-      setLoading(false);
-      return;
-    }
-
-    if (!result.user) {
-      setError('שגיאה בהתחברות. נסה שוב.');
       setLoading(false);
       return;
     }
@@ -140,38 +198,7 @@ function AuthCallbackContent() {
     }
 
     // No invitation — check existing role
-    const roleInfo = await checkUserRole(result.user.uid);
-    const isOnly = await isOnlyAuthorityManager(result.user.uid);
-
-    // Auto-set selectedOrgId so sidebar/context picks up the correct org
-    if (typeof window !== 'undefined') {
-      if (roleInfo.authorityIds.length > 0) {
-        localStorage.setItem('admin_selected_org_id', roleInfo.authorityIds[0]);
-      } else if (roleInfo.tenantId) {
-        localStorage.setItem('admin_selected_org_id', roleInfo.tenantId);
-      }
-    }
-
-    if (roleInfo.isAuthorityManager || isOnly) {
-      // Check if this is a neighborhood admin — redirect to their profile
-      try {
-        const authorities = await getAuthoritiesByManager(result.user.uid);
-        if (authorities.length > 0 && authorities[0].type === 'neighborhood') {
-          router.replace(`/admin/authority/neighborhoods/${authorities[0].id}`);
-          return;
-        }
-      } catch { /* fall through to default */ }
-      router.replace('/admin/authority-manager');
-    } else if (roleInfo.isVerticalAdmin) {
-      router.replace('/admin/organizations');
-    } else if (roleInfo.isTenantOwner) {
-      router.replace('/admin/authority-manager');
-    } else if (roleInfo.isSuperAdmin || roleInfo.isSystemAdmin) {
-      router.replace('/admin');
-    } else {
-      setError('אין לך הרשאות גישה לפורטל הניהול.');
-      setLoading(false);
-    }
+    await resolveDestination(result.user);
   };
 
   useEffect(() => {
@@ -191,8 +218,49 @@ function AuthCallbackContent() {
           ? window.localStorage.getItem('emailForSignIn')
           : null;
         const emailFromUrl = searchParams?.get('email') || '';
-        const emailToUse = emailFromStorage || emailFromUrl;
+        const tokenParam = searchParams?.get('token') ||
+          (typeof window !== 'undefined' ? window.localStorage.getItem('pendingInvitationToken') : null);
 
+        // Best-effort resolution of who this specific link is FOR, without
+        // consuming it yet. Invitation links carry no ?email= (deliberately
+        // — see the comment on that route) so for those we ask the
+        // (public, narrow-response) verify-token lookup instead.
+        let targetEmail = emailFromStorage || emailFromUrl || '';
+        if (!targetEmail && tokenParam) {
+          try {
+            const res = await fetch(`/api/auth/admin-invite/verify-token?token=${encodeURIComponent(tokenParam)}`);
+            const data = res.ok ? await res.json() : null;
+            targetEmail = data?.invitation?.email || '';
+          } catch { /* unresolved — handled by the fallthrough below */ }
+        }
+
+        const currentUser = await waitForInitialAuthState();
+        if (currentUser) {
+          const isDifferentTarget = Boolean(
+            targetEmail && currentUser.email &&
+            targetEmail.toLowerCase() !== currentUser.email.toLowerCase()
+          );
+          if (isDifferentTarget) {
+            // A real, signed-in session already exists for someone ELSE —
+            // don't silently swap it out from under them (that's exactly
+            // what a bare signInWithEmailLink call would do). Ask first.
+            setSwitchFromEmail(currentUser.email || '');
+            setSwitchToEmail(targetEmail);
+            setNeedsAccountSwitchConfirm(true);
+            setLoading(false);
+            return;
+          }
+          // Same user (or an invitation link whose target we genuinely
+          // couldn't resolve) already has a live session — most likely a
+          // refresh of this same URL after signing in already consumed the
+          // one-time code. Re-running signInWithEmailLink would fail on the
+          // stale code and show an error despite the user already being
+          // signed in correctly; resolve their destination directly instead.
+          await resolveDestination(currentUser);
+          return;
+        }
+
+        const emailToUse = targetEmail;
         if (!emailToUse) {
           setNeedsEmailConfirm(true);
           setLoading(false);
@@ -226,6 +294,67 @@ function AuthCallbackContent() {
       setConfirming(false);
     }
   };
+
+  const handleConfirmSwitch = async () => {
+    setSwitching(true);
+    setError('');
+    try {
+      await signOutUser();
+      setNeedsAccountSwitchConfirm(false);
+      await completeSignIn(switchToEmail);
+    } catch (err: any) {
+      console.error('Error switching accounts:', err);
+      setError('שגיאה בהתנתקות. נסה שוב.');
+      setSwitching(false);
+    }
+  };
+
+  const handleCancelSwitch = async () => {
+    // Stay signed in as whoever is currently authenticated — send them to
+    // THEIR destination rather than strand them on this screen or, worse,
+    // retry the link and re-trigger the same prompt.
+    setNeedsAccountSwitchConfirm(false);
+    setLoading(true);
+    if (auth.currentUser) {
+      await resolveDestination(auth.currentUser);
+    } else {
+      router.replace('/admin/login');
+    }
+  };
+
+  if (needsAccountSwitchConfirm) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-6" dir="rtl">
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">
+          <div className="text-center mb-6">
+            <AlertCircle className="w-16 h-16 text-amber-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">משתמש אחר מחובר</h2>
+            <p className="text-gray-600">
+              אתה מחובר כ-<strong dir="ltr">{switchFromEmail}</strong>.
+              הקישור מיועד ל-<strong dir="ltr">{switchToEmail}</strong>.
+              להתנתק ולהמשיך?
+            </p>
+          </div>
+          <div className="space-y-3">
+            <button
+              onClick={handleConfirmSwitch}
+              disabled={switching}
+              className="w-full bg-cyan-600 text-white py-3 rounded-xl font-bold hover:bg-cyan-700 transition-colors disabled:opacity-60"
+            >
+              {switching ? 'מתנתק...' : 'התנתק והמשך'}
+            </button>
+            <button
+              onClick={handleCancelSwitch}
+              disabled={switching}
+              className="w-full bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200 transition-colors disabled:opacity-60"
+            >
+              הישאר מחובר כ-{switchFromEmail}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (needsEmailConfirm) {
     return (
