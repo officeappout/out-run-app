@@ -32,16 +32,21 @@ export default defineConfig({
       // imports (pure logic, like accessCodeRateLimit.ts) can run here.
       'functions/src/**/__tests__/**/*.test.ts',
     ],
-    // hybrid-runtime.test.ts (22.09.2026, field-test doc 12): predates this
-    // vitest setup — a plain console-log/process.exit script meant to run
-    // via `npx tsx` directly (see its own header), swept in by accident by
-    // the glob above since it happens to live under __tests__/*.test.ts and
-    // has zero describe/it blocks. Excluded rather than rewritten so its
-    // documented standalone usage keeps working unchanged. Vitest's own
-    // `exclude` REPLACES its built-in default list rather than merging with
-    // it, so that default (node_modules/dist/etc.) is repeated here verbatim
-    // — otherwise this one extra entry would silently un-exclude everything
-    // vitest normally skips.
+    // hybrid-runtime.test.ts + hybrid-orchestrator.test.ts (22.09.2026,
+    // field-test doc 12/13): both predate this vitest setup — plain
+    // console-log/process.exit scripts meant to run via `npx tsx` directly
+    // (both say so in their own header, "no test framework on this branch"),
+    // swept in by accident by the glob above since they live under
+    // __tests__/*.test.ts with zero describe/it blocks. All their internal
+    // assertions verified passing (52/52, 62/62) via direct tsx execution —
+    // excluded here rather than rewritten so their documented standalone
+    // usage keeps working unchanged. This closes the gap against this
+    // file's own pre-existing "npm test must stay green" rule (see header
+    // comment above) for both files. Vitest's own `exclude` REPLACES its
+    // built-in default list rather than merging with it, so that default
+    // (node_modules/dist/etc.) is repeated here verbatim — otherwise these
+    // two extra entries would silently un-exclude everything vitest
+    // normally skips.
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
@@ -49,6 +54,7 @@ export default defineConfig({
       '**/.{idea,git,cache,output,temp}/**',
       '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build}.config.*',
       'src/features/workout-engine/hybrid/__tests__/hybrid-runtime.test.ts',
+      'src/features/workout-engine/hybrid/__tests__/hybrid-orchestrator.test.ts',
     ],
     environment: 'node',
     testTimeout: 60_000,

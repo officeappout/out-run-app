@@ -66,6 +66,8 @@ export interface HybridRunStore {
   arrive: () => void;
   /** StrengthRunner.onComplete — close the station, resume the next leg. */
   completeStation: (exerciseLog?: SegmentExerciseDetail[]) => void;
+  /** "דלג על התחנה" — close the station unrecorded, resume the next leg. */
+  skipStation: () => void;
   /** "סיים אימון משולב" — finalize, write the single doc, tear down the run. */
   finishHybrid: () => Promise<void>;
   reset: () => void;
@@ -165,6 +167,17 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
     // renamed to make the "planned, not measured" nature explicit.
     const plannedDurationSecFallback = station?.content?.estimatedDurationSec ?? 0;
     controllerRef.completeStation(sets, plannedDurationSecFallback, Date.now(), exerciseLog);
+    useSessionStore.getState().resumeSession(); // resume the run clock for the next leg
+    set({
+      phase: controllerRef.getPhase(),
+      stationPlan: null,
+      isFinalLeg: isFinalLeg(controllerRef.getState()),
+    });
+  },
+
+  skipStation: () => {
+    if (!controllerRef) return;
+    controllerRef.skipStation(Date.now());
     useSessionStore.getState().resumeSession(); // resume the run clock for the next leg
     set({
       phase: controllerRef.getPhase(),

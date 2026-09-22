@@ -7,7 +7,12 @@
  * so a normal run is byte-identical. When active:
  *   • aerobic leg  → a single floating CTA: "הגעתי לתחנה" (or "סיים" on the last leg).
  *   • station      → StrengthRunner mounted full-screen (one-card law §9 — it
- *                    covers the run overlay while the station is live).
+ *                    covers the run overlay while the station is live), plus a
+ *                    small secondary "דלג" affordance (22.09.2026, field-test
+ *                    doc 13) — top corner, ghost-styled, deliberately NOT a
+ *                    prominent pill like the aerobic-leg CTA below: the user
+ *                    must not be able to tap it by mistake reaching for
+ *                    StrengthRunner's own primary actions.
  *
  * ⚠️ z-index: the station overlay uses z-[120] (above the run overlays, below
  * RunSummary z-[200]). Register this value in the .cursorrules z-index budget
@@ -28,6 +33,7 @@ export default function HybridStationLayer() {
   const isFinalLeg = useHybridRun((s) => s.isFinalLeg);
   const arrive = useHybridRun((s) => s.arrive);
   const completeStation = useHybridRun((s) => s.completeStation);
+  const skipStation = useHybridRun((s) => s.skipStation);
   const finishHybrid = useHybridRun((s) => s.finishHybrid);
 
   if (!active) return null; // normal run → nothing rendered
@@ -46,6 +52,17 @@ export default function HybridStationLayer() {
           onComplete={(exerciseLog) => completeStation(toSegmentExerciseDetail(exerciseLog ?? []))}
           embedded
         />
+        {/* Secondary, de-emphasized — top corner, away from StrengthRunner's
+            own bottom-of-screen primary actions (set-complete / next
+            exercise), so a user can't hit it reaching for those. */}
+        <button
+          type="button"
+          onClick={() => skipStation()}
+          className="fixed left-4 z-[121] pointer-events-auto rounded-full px-3 py-1.5 text-[12px] font-bold text-gray-500 bg-white/90 border border-gray-200 shadow-sm active:scale-95 transition-transform"
+          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
+        >
+          דלג על התחנה
+        </button>
       </div>
     );
   }

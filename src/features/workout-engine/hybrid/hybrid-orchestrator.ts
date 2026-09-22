@@ -39,6 +39,14 @@ export interface HybridSegmentActual {
    */
   exerciseLog?: SegmentExerciseDetail[];
   completed: boolean;
+  /**
+   * True only when the user explicitly declined this station via the "דלג"
+   * action (22.09.2026, field-test doc 13) — distinct from a station simply
+   * never reached (no actuals entry at all for that segment). `completed`
+   * stays false either way; `skipped` is what a summary screen would read
+   * to show "דילגת" instead of nothing / "לא הגעת".
+   */
+  skipped?: boolean;
   startedAtMs?: number;
   endedAtMs?: number;
 }
@@ -66,6 +74,13 @@ export type HybridEvent =
   | { type: 'ARRIVE_STATION'; cumulativeKm: number; elapsedSec: number; atMs?: number }
   /** Strength block finished (from StrengthRunner.onComplete). */
   | { type: 'STATION_DONE'; completedSets: number; actualDurationSec: number; atMs?: number; exerciseLog?: SegmentExerciseDetail[] }
+  /**
+   * User declined the station (occupied, injury, etc.) — resume the next leg
+   * with no exercise recorded (22.09.2026, David-approved, field-test doc 13).
+   * Distinct from a station simply never reached (session ended earlier):
+   * that case has no actuals entry at all, this one has `skipped:true`.
+   */
+  | { type: 'STATION_SKIPPED'; atMs?: number }
   /** Final aerobic leg finished → session complete. */
   | { type: 'FINISH'; cumulativeKm: number; elapsedSec: number; atMs?: number };
 
@@ -225,6 +240,36 @@ export function hybridReduce(state: HybridRunState, event: HybridEvent): HybridR
       };
     }
 
+    case 'STATION_SKIPPED': {
+      if (state.phase !== 'station') return ignore(state, event);
+      const actuals = state.actuals.slice();
+      const measuredDurationSec =
+        event.atMs != null && state.currentStartMs != null
+          ? Math.round((event.atMs - state.currentStartMs) / 1000)
+          : 0;
+      actuals[state.cursor] = {
+        durationSec: Math.max(0, measuredDurationSec),
+        sets: 0,
+        completed: false,
+        skipped: true,
+        startedAtMs: state.currentStartMs,
+        endedAtMs: event.atMs,
+      };
+      const nextCursor = state.cursor + 1;
+      const next = state.plan[nextCursor];
+      if (!next) {
+        return { ...state, actuals, phase: 'done', log: [...state.log, 'STATION_SKIPPED → done (station was last)'] };
+      }
+      return {
+        ...state,
+        actuals,
+        cursor: nextCursor,
+        phase: phaseForKind(next.kind),
+        currentStartMs: event.atMs,
+        log: [...state.log, `STATION_SKIPPED → ${next.kind} (segment ${nextCursor})`],
+      };
+    }
+
     case 'FINISH': {
       if (state.phase !== 'aerobic') return ignore(state, event);
       const actuals = state.actuals.slice();
@@ -325,6 +370,7 @@ function toRecord(seg: HybridPlannedSegment, a: HybridSegmentActual | undefined,
     if (Object.keys(actual).length > 0) rec.actual = actual;
     if (a.startedAtMs != null) rec.startedAtMs = a.startedAtMs;
     if (a.endedAtMs != null) rec.endedAtMs = a.endedAtMs;
+    if (a.skipped) rec.skipped = true;
   }
   return rec;
 }

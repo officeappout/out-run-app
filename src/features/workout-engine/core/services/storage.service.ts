@@ -92,6 +92,16 @@ export interface SessionSegmentRecord {
   /** Park where a strength segment took place (station linkage). */
   parkId?: string;
   /**
+   * Strength segments only (22.09.2026, field-test doc 13): true when the
+   * user explicitly declined this station via "דלג" — distinct from a
+   * station simply never reached (this key is absent entirely then, same as
+   * `actual` being absent). Lets a summary screen show "דילגת" specifically,
+   * rather than treating every incomplete station the same way. Omitted
+   * (never `false`) when not skipped — conditional like every other
+   * optional field here (Firestore rejects `undefined` in array elements).
+   */
+  skipped?: true;
+  /**
    * Epoch millis — plain numbers by design: serverTimestamp() is invalid
    * inside Firestore array elements (CLAUDE.md Firestore rules).
    */
