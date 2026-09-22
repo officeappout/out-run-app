@@ -358,6 +358,81 @@ export default function VisualSlider({
     : null;
 
 
+  // JIT tutorial bubble — rendered inside a `relative` wrapper around the
+  // actual interactive control (CoverflowStrip or the degraded-mode range
+  // input) so it always floats directly ABOVE that control, pointing down
+  // at it via the arrow below — "where the gesture actually happens" —
+  // instead of a hardcoded viewport-relative offset that assumed a fixed
+  // header/video height above it. Only one of the two call sites below is
+  // ever mounted at a time (isSimple branches), so a single AnimatePresence
+  // instance is safe here.
+  const renderTutorialBubble = () => (
+    <AnimatePresence>
+      {showTutorial && (
+        <motion.div
+          key="tutorial-bubble"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 8 }}
+          transition={{ duration: 0.4, delay: 0.12, ease: 'easeOut' }}
+          className="absolute bottom-full left-0 right-0 mb-3 z-50 pointer-events-none"
+          dir="rtl"
+        >
+          {/* Bubble card */}
+          <div className="bg-white/95 backdrop-blur-2xl rounded-3xl p-6 border border-slate-100 shadow-xl">
+            {/* Pointing-finger indicator — swipes left-right to demonstrate
+                the drag/swipe gesture on the strip right below. */}
+            <motion.div
+              className="flex justify-center mb-4"
+              initial={{ x: 0, opacity: 0 }}
+              animate={{ x: [0, -18, 0, 18, 0], opacity: [0, 1, 1, 1, 1] }}
+              transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 0.4, ease: 'easeInOut' }}
+            >
+              <span className="text-4xl drop-shadow-lg">👆</span>
+            </motion.div>
+            <div className="space-y-6">
+              <p className="text-lg font-medium text-slate-800 text-center leading-snug">
+                {isFemale
+                  ? 'גררי כדי לשנות את הקושי והתרגיל'
+                  : 'גרור כדי לשנות את הקושי והתרגיל'
+                }
+              </p>
+              <p className="text-lg font-medium text-slate-800 text-center leading-snug">
+                {isFemale
+                  ? 'בדקי את המינימום: הזמן והחזרות יופיעו כאן'
+                  : 'בדוק את המינימום: הזמן והחזרות יופיעו כאן'
+                }
+              </p>
+            </div>
+
+            {/* Divider + anxiety-relief note */}
+            <div className="mt-5 pt-4 border-t border-slate-100">
+              <p className="text-sm font-normal text-slate-500 text-center leading-loose px-2">
+                {isFemale
+                  ? 'לא בטוחה ב-100%? לא מצליחה? תבחרי בערך, המערכת תלמד אותך ותתקן בהמשך'
+                  : 'לא בטוח ב-100%? לא מצליח? תבחר בערך, המערכת תלמד אותך ותתקן בהמשך'
+                }
+              </p>
+            </div>
+          </div>
+
+          {/* Arrow pointing down → directly at the control right below it */}
+          <div className="flex justify-center mt-3" aria-hidden>
+            <div
+              style={{
+                width: 0,
+                height: 0,
+                borderLeft: '10px solid transparent',
+                borderRight: '10px solid transparent',
+                borderTop: '12px solid rgba(255,255,255,0.95)',
+              }}
+            />
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
   if (stepsLoading) {
     return (
       <div className="flex flex-col h-full items-center justify-center">
@@ -394,16 +469,6 @@ export default function VisualSlider({
         </div>
         <div className="flex-shrink-0 w-9" aria-hidden />
       </header>
-
-      {/* ── Instruction text — compact 1-line layout ── */}
-      <div className="px-6 pt-1 pb-1 flex-shrink-0">
-        <p className="text-lg font-black text-slate-900 text-center leading-snug">
-          מה מצב הכושר שלך?
-        </p>
-        <p className="text-xs font-medium text-slate-400 text-center mt-0.5 leading-snug">
-          {isFemale ? 'הזיזי את הסליידר לרמה שהכי קרובה אלייך' : 'הזז את הסליידר לרמה שהכי קרובה אליך'}
-        </p>
-      </div>
 
       {/* ── Hero video — outer wrapper is NOT overflow-hidden so top gradient can bleed up freely ── */}
       <div className="flex-1 min-h-0 w-full relative">
@@ -494,12 +559,15 @@ export default function VisualSlider({
                 {isFemale ? 'לא בטוחה? בחרי בערך — נדייק בהמשך' : 'לא בטוח? בחר בערך — נדייק בהמשך'}
               </p>
             </div>
-            <CoverflowStrip
-              steps={steps}
-              selectedIndex={sliderVal}
-              thumbnails={thumbnails}
-              onSelect={handleSliderChange}
-            />
+            <div className="relative">
+              <CoverflowStrip
+                steps={steps}
+                selectedIndex={sliderVal}
+                thumbnails={thumbnails}
+                onSelect={handleSliderChange}
+              />
+              {renderTutorialBubble()}
+            </div>
           </div>
         ) : (
           /* ── Degraded mode: plain continuous slider (unchanged fallback) —
@@ -540,6 +608,7 @@ export default function VisualSlider({
                   </motion.div>
                 )}
               </AnimatePresence>
+              {renderTutorialBubble()}
             </div>
           </div>
         )}
@@ -591,102 +660,38 @@ export default function VisualSlider({
         </button>
       </div>
 
-      {/* ── JIT Spotlight Tutorial Overlay ───────────────────────────
-          Shown only on the first slider (stepIndex === 0). Dismissed by
-          THREE independent paths, so it never gets stuck:
-            • `onPointerDown` on the mask itself (taps outside the punched-
-              through zone — header, background).
-            • `onPointerDownCapture` on the punch-through wrapper (line
-              ~412) — fires on the very first touch inside the strip/card/
-              pill zone itself, BEFORE the tap's own click handler, so it
-              also covers a drag that snaps back to the same tile (no
-              onSelect, so handleSliderChange's own dismiss never runs).
+      {/* ── JIT Spotlight Tutorial Overlay — full-screen mask ───────────
+          Shown only on the first slider (stepIndex === 0). The bubble itself
+          (finger + copy) is rendered separately, anchored directly above the
+          actual interactive control — see `renderTutorialBubble` above, called
+          from inside the CoverflowStrip / degraded-slider branches. This mask
+          just blocks the rest of the screen (including the Next button) and
+          catches a tap anywhere outside the punched-through zone. Dismissed by
+          FOUR independent paths, so it never gets stuck:
+            • `onPointerDown` on this mask (taps outside the punched-through
+              zone — header, background).
+            • `onPointerDownCapture` on the punch-through wrapper (line ~412)
+              — fires on the very first touch inside the strip/card/pill zone
+              itself, BEFORE the tap's own click handler, so it also covers a
+              drag that snaps back to the same tile (no onSelect, so
+              handleSliderChange's own dismiss never runs).
             • `handleSliderChange` also calls `setShowTutorial(false)` —
               belt-and-suspenders for a genuine selection change.
             • A 5s auto-dismiss timer (above) as the final fallback if the
               user never touches anything at all.
-          Single full-screen frosted layer covers the entire viewport
-          INCLUDING the Next button so the user cannot skip before any of
-          the above fires.
       ─────────────────────────────────────────────────────────────── */}
       <AnimatePresence>
         {showTutorial && (
-          <>
-            {/* Full-screen light frosted mask — blocks Next button + catches first tap */}
-            <motion.div
-              key="tutorial-mask"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.4, ease: 'easeOut' }}
-              className="absolute inset-0 z-30 bg-white/50 backdrop-blur-3xl"
-              onPointerDown={() => setShowTutorial(false)}
-              aria-hidden
-            />
-
-            {/* Speech bubble — floats above the unified exercise card + slider spotlight zone */}
-            <motion.div
-              key="tutorial-bubble"
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 8 }}
-              transition={{ duration: 0.4, delay: 0.12, ease: 'easeOut' }}
-              className="absolute left-4 right-4 z-50 pointer-events-none"
-              style={{ bottom: 245 }}
-              dir="rtl"
-            >
-              {/* Bubble card */}
-              <div className="bg-white/95 backdrop-blur-2xl rounded-3xl p-6 border border-slate-100 shadow-xl">
-                {/* Pointing-finger indicator — swipes left-right to demonstrate
-                    the drag/swipe gesture on the strip below. */}
-                <motion.div
-                  className="flex justify-center mb-4"
-                  initial={{ x: 0, opacity: 0 }}
-                  animate={{ x: [0, -18, 0, 18, 0], opacity: [0, 1, 1, 1, 1] }}
-                  transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 0.4, ease: 'easeInOut' }}
-                >
-                  <span className="text-4xl drop-shadow-lg">👆</span>
-                </motion.div>
-                <div className="space-y-6">
-                  <p className="text-lg font-medium text-slate-800 text-center leading-snug">
-                    {isFemale
-                      ? 'גררי כדי לשנות את הקושי והתרגיל'
-                      : 'גרור כדי לשנות את הקושי והתרגיל'
-                    }
-                  </p>
-                  <p className="text-lg font-medium text-slate-800 text-center leading-snug">
-                    {isFemale
-                      ? 'בדקי את המינימום: הזמן והחזרות יופיעו כאן'
-                      : 'בדוק את המינימום: הזמן והחזרות יופיעו כאן'
-                    }
-                  </p>
-                </div>
-
-                {/* Divider + anxiety-relief note */}
-                <div className="mt-5 pt-4 border-t border-slate-100">
-                  <p className="text-sm font-normal text-slate-500 text-center leading-loose px-2">
-                    {isFemale
-                      ? 'לא בטוחה ב-100%? לא מצליחה? תבחרי בערך, המערכת תלמד אותך ותתקן בהמשך'
-                      : 'לא בטוח ב-100%? לא מצליח? תבחר בערך, המערכת תלמד אותך ותתקן בהמשך'
-                    }
-                  </p>
-                </div>
-              </div>
-
-              {/* Arrow pointing down → toward the top edge of the illuminated spotlight block */}
-              <div className="flex justify-center mt-3" aria-hidden>
-                <div
-                  style={{
-                    width: 0,
-                    height: 0,
-                    borderLeft: '10px solid transparent',
-                    borderRight: '10px solid transparent',
-                    borderTop: '12px solid rgba(255,255,255,0.95)',
-                  }}
-                />
-              </div>
-            </motion.div>
-          </>
+          <motion.div
+            key="tutorial-mask"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4, ease: 'easeOut' }}
+            className="absolute inset-0 z-30 bg-white/50 backdrop-blur-3xl"
+            onPointerDown={() => setShowTutorial(false)}
+            aria-hidden
+          />
         )}
       </AnimatePresence>
 
