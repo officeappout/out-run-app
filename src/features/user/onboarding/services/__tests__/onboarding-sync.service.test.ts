@@ -84,6 +84,31 @@ const pathConfigState = vi.hoisted(() => ({
   muscleFocus: [] as string[],
 }));
 
+// Real categorization (mirrors assessment-path-config.service.ts's own
+// musclesToCategories, not exported directly) — the previous unconditional
+// `() => []` stub meant `assessedDomains` was always empty in every test
+// that reached the multi-domain-expansion / category-contribution branch,
+// so that branch was never actually exercised by any test. Phase 3's combo
+// tests below need it real.
+const MUSCLE_TO_CATEGORY: Record<string, string> = {
+  chest: 'push', shoulders: 'push', triceps: 'push',
+  back: 'pull', biceps: 'pull',
+  legs: 'legs', glutes: 'legs',
+  core: 'core',
+};
+const PRIMARY_CATEGORIES_MOCK = ['push', 'pull', 'legs', 'core'];
+function fakeGetFocusDomainsForMuscleFocus(muscleIds: string[]): string[] {
+  if (muscleIds.some((m) => m.toLowerCase() === 'full_body')) return [...PRIMARY_CATEGORIES_MOCK];
+  const seen: Record<string, boolean> = {};
+  const result: string[] = [];
+  for (const m of muscleIds) {
+    const lower = m.toLowerCase();
+    const cat = PRIMARY_CATEGORIES_MOCK.includes(lower) ? lower : MUSCLE_TO_CATEGORY[lower];
+    if (cat && !seen[cat]) { seen[cat] = true; result.push(cat); }
+  }
+  return result.length > 0 ? result : [...PRIMARY_CATEGORIES_MOCK];
+}
+
 vi.mock('@/features/user/onboarding/services/assessment-path-config.service', () => ({
   getProgramPathFromStorage: () => pathConfigState.programPath,
   getProgramPathListFromStorage: () => pathConfigState.cardOrder,
@@ -92,7 +117,20 @@ vi.mock('@/features/user/onboarding/services/assessment-path-config.service', ()
   deriveActiveProgramFromMuscleFocus: () => 'push',
   deriveActiveProgramFromSkillFocus: (ids: string[]) =>
     ids.length === 1 ? ids[0] : 'calisthenics_upper',
-  getFocusDomainsForMuscleFocus: () => [],
+  getFocusDomainsForMuscleFocus: (muscleIds: string[]) => fakeGetFocusDomainsForMuscleFocus(muscleIds),
+  // SKILL_TO_FOUNDATION_DOMAIN: planche/handstand/hspu → push; front_lever/
+  // muscle_up/one_arm_pullup → pull (matches the real constants file).
+  applySkillCollisionSuppression: (categories: string[], skillIds: string[]) => {
+    const PUSH_SKILLS = new Set(['planche', 'handstand', 'hspu']);
+    const PULL_SKILLS = new Set(['front_lever', 'muscle_up', 'one_arm_pullup']);
+    const derived = new Set<string>();
+    for (const id of skillIds) {
+      if (PUSH_SKILLS.has(id)) derived.add('push');
+      if (PULL_SKILLS.has(id)) derived.add('pull');
+    }
+    if (derived.size === 0) return categories;
+    return categories.filter((c) => !derived.has(c));
+  },
 }));
 
 vi.mock('@/features/user/onboarding/services/access-code.service', () => ({
@@ -694,6 +732,7 @@ describe('syncOnboardingToFirestore — 05.09.2026: onboarding uses the shared p
 describe('syncOnboardingToFirestore — D2 (multi-select program path, Phase 1): a real skills-path core value survives the Ghost Purge', () => {
   it('single-skill selection: a real assessed core level (masterProgramSubLevels.core > 0) is written to progression.tracks.core/domains.core, NOT stripped', async () => {
     pathConfigState.programPath = 'skills';
+    pathConfigState.cardOrder = ['skills'];
     pathConfigState.skillFocus = ['planche'];
     stubBrowserStorage();
 
@@ -719,6 +758,7 @@ describe('syncOnboardingToFirestore — D2 (multi-select program path, Phase 1):
 
   it('multi-skill selection: core survives the masterProgramSubLevels rebuild (regression for the fix that used to silently replace the whole object with just skill-id→level pairs, dropping core)', async () => {
     pathConfigState.programPath = 'skills';
+    pathConfigState.cardOrder = ['skills'];
     pathConfigState.skillFocus = ['planche', 'front_lever'];
     stubBrowserStorage();
 
@@ -746,6 +786,7 @@ describe('syncOnboardingToFirestore — D2 (multi-select program path, Phase 1):
 
   it('regression guard: an unassessed core (masterProgramSubLevels.core === 0) is still purged — D2 only stops the purge for a REAL value, the purge itself is unchanged', async () => {
     pathConfigState.programPath = 'skills';
+    pathConfigState.cardOrder = ['skills'];
     pathConfigState.skillFocus = ['planche'];
     stubBrowserStorage();
 
@@ -834,5 +875,230 @@ describe('syncOnboardingToFirestore — multi-select program path (Phase 1b, pie
     expect(ok).toBe(true);
     const written = setDocMock.mock.calls[0][1] as any;
     expect(written.progression.muscleFocusIds).toBeUndefined();
+  });
+});
+
+describe('syncOnboardingToFirestore — Phase 3 (union-based program/track creation): parity — single-card selections stay byte-identical to pre-Phase-3', () => {
+  it('Health-only selection stays on the pre-Phase-3 fallthrough — a single combined entry is NOT split into per-domain entries', async () => {
+    pathConfigState.programPath = 'health';
+    pathConfigState.cardOrder = ['health'];
+    stubBrowserStorage();
+
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      assignedResults: [
+        { programId: 'full_body', levelId: 'full_body_level_5', masterProgramSubLevels: { push: 5, pull: 6, legs: 4, core: 3 } },
+      ],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+
+    expect(written.progression.activePrograms).toHaveLength(1);
+    expect(written.progression.activePrograms[0]).toMatchObject({ id: 'full_body', templateId: 'full_body' });
+    expect(written.progression.tracks.full_body.currentLevel).toBe(5);
+    // Individual domains still land in tracks via the generic (unconditional)
+    // masterProgramSubLevels loop — pre-Phase-3 behavior too, not new.
+    expect(written.progression.tracks.push.currentLevel).toBe(5);
+    expect(written.progression.tracks.pull.currentLevel).toBe(6);
+    expect(written.progression.tracks.legs.currentLevel).toBe(4);
+    expect(written.progression.tracks.core.currentLevel).toBe(3);
+    expect(written.progression.skillFocusIds).toBeUndefined();
+  });
+
+  it('no card selected (legacy fallback) stays on the pre-Phase-3 fallthrough too', async () => {
+    stubBrowserStorage();
+
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      assignedResults: [
+        { programId: 'full_body', levelId: 'full_body_level_3' },
+      ],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+    expect(written.progression.activePrograms).toHaveLength(1);
+    expect(written.progression.activePrograms[0]).toMatchObject({ id: 'full_body' });
+    expect(written.progression.tracks.full_body.currentLevel).toBe(3);
+  });
+
+  it('Body-focus-only, single assessed domain: single push entry (today\'s behavior), no skills contribution', async () => {
+    pathConfigState.programPath = 'body_focus';
+    pathConfigState.cardOrder = ['body_focus'];
+    pathConfigState.muscleFocus = ['chest'];
+    stubBrowserStorage();
+
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      assignedResults: [
+        { programId: 'push', levelId: 'push_level_7', masterProgramSubLevels: { push: 7, pull: 0, legs: 0, core: 0 } },
+      ],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+    expect(written.progression.activePrograms).toHaveLength(1);
+    expect(written.progression.activePrograms[0]).toMatchObject({ id: 'push', templateId: 'push' });
+    expect(written.progression.tracks.push.currentLevel).toBe(7);
+    expect(written.progression.skillFocusIds).toBeUndefined();
+  });
+
+  it('Body-focus-only, multi-domain: one entry per assessed domain (today\'s behavior)', async () => {
+    pathConfigState.programPath = 'body_focus';
+    pathConfigState.cardOrder = ['body_focus'];
+    pathConfigState.muscleFocus = ['chest', 'back'];
+    stubBrowserStorage();
+
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      assignedResults: [
+        { programId: 'upper_body', levelId: 'upper_body_level_1', masterProgramSubLevels: { push: 8, pull: 6, legs: 0, core: 0 } },
+      ],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+    expect(written.progression.activePrograms).toHaveLength(2);
+    expect(written.progression.activePrograms.map((p: any) => p.id).sort()).toEqual(['pull', 'push']);
+    expect(written.progression.tracks.push.currentLevel).toBe(8);
+    expect(written.progression.tracks.pull.currentLevel).toBe(6);
+  });
+});
+
+describe('syncOnboardingToFirestore — Phase 3 (union-based program/track creation): combos — the actual bug fix + Decisions 1-3', () => {
+  it('THE HEADLINE BUG FIX: body_focus primary + skills secondary (2+ skills) — both a tracked muscle program AND a tracked skill program are written, skillFocusIds present', async () => {
+    pathConfigState.programPath = 'body_focus';
+    pathConfigState.cardOrder = ['body_focus', 'skills'];
+    pathConfigState.muscleFocus = ['legs']; // → 'legs' category, no collision with the push/pull-deriving skills below
+    pathConfigState.skillFocus = ['planche', 'front_lever'];
+    stubBrowserStorage();
+
+    const shared = { push: 0, pull: 0, legs: 9, core: 0 };
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      assignedResults: [
+        { programId: 'planche', levelId: 'planche_level_10', masterProgramSubLevels: shared },
+        { programId: 'front_lever', levelId: 'front_lever_level_8', masterProgramSubLevels: shared },
+      ],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+
+    // Skill contribution: a tracked skill program (calisthenics_upper generalist).
+    expect(written.progression.skillFocusIds).toEqual(['planche', 'front_lever']);
+    expect(written.progression.activePrograms.some((p: any) => p.id === 'calisthenics_upper')).toBe(true);
+    expect(written.progression.tracks.planche.currentLevel).toBe(10);
+    expect(written.progression.tracks.front_lever.currentLevel).toBe(8);
+    // Skill contribution is built first — deterministic regardless of tap order.
+    expect(written.currentProgramId).toBe('calisthenics_upper');
+
+    // Category (muscle) contribution: the co-selected body_focus leg track —
+    // previously silently dropped because skills was the secondary card.
+    expect(written.progression.activePrograms.some((p: any) => p.id === 'legs')).toBe(true);
+    expect(written.progression.tracks.legs.currentLevel).toBe(9);
+    expect(written.progression.muscleFocusIds).toBeUndefined(); // only 1 muscle selected, below the >=2 threshold
+  });
+
+  it('order-independence: skills primary + body_focus secondary produces IDENTICAL output to the reversed tap order above', async () => {
+    pathConfigState.programPath = 'skills';
+    pathConfigState.cardOrder = ['skills', 'body_focus']; // reversed vs the headline case above
+    pathConfigState.muscleFocus = ['legs'];
+    pathConfigState.skillFocus = ['planche', 'front_lever'];
+    stubBrowserStorage();
+
+    const shared = { push: 0, pull: 0, legs: 9, core: 0 };
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      assignedResults: [
+        { programId: 'planche', levelId: 'planche_level_10', masterProgramSubLevels: shared },
+        { programId: 'front_lever', levelId: 'front_lever_level_8', masterProgramSubLevels: shared },
+      ],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+
+    expect(written.progression.skillFocusIds).toEqual(['planche', 'front_lever']);
+    expect(written.progression.activePrograms.some((p: any) => p.id === 'calisthenics_upper')).toBe(true);
+    expect(written.progression.activePrograms.some((p: any) => p.id === 'legs')).toBe(true);
+    expect(written.progression.tracks.planche.currentLevel).toBe(10);
+    expect(written.progression.tracks.front_lever.currentLevel).toBe(8);
+    expect(written.progression.tracks.legs.currentLevel).toBe(9);
+    expect(written.currentProgramId).toBe('calisthenics_upper');
+  });
+
+  it('Decision 3: a push-deriving skill suppresses the redundant same-domain category entry — the skill is the sole source of truth for that domain', async () => {
+    pathConfigState.programPath = 'body_focus';
+    pathConfigState.cardOrder = ['body_focus', 'skills'];
+    pathConfigState.muscleFocus = ['chest']; // → 'push', SAME domain as planche below
+    pathConfigState.skillFocus = ['planche']; // specialist, push-deriving
+    stubBrowserStorage();
+
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      assignedResults: [
+        { programId: 'planche', levelId: 'planche_level_12', masterProgramSubLevels: { push: 0, pull: 0, legs: 0, core: 0 } },
+      ],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+
+    // No redundant standalone 'push' program — planche is the sole source for push.
+    expect(written.progression.activePrograms.some((p: any) => p.id === 'push')).toBe(false);
+    expect(written.progression.activePrograms.some((p: any) => p.id === 'planche')).toBe(true);
+    // planche's own SKILL_TO_FOUNDATION_OFFSET derivation still populates the push track (12 + 9).
+    expect(written.progression.tracks.push.currentLevel).toBe(21);
+  });
+
+  it('Decision 1: Health co-selected with Skills (no Body Focus) still contributes its non-suppressed categories', async () => {
+    pathConfigState.programPath = 'health';
+    pathConfigState.cardOrder = ['health', 'skills'];
+    pathConfigState.skillFocus = ['planche']; // push-deriving specialist
+    stubBrowserStorage();
+
+    const shared = { push: 0, pull: 5, legs: 4, core: 3 };
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      assignedResults: [
+        { programId: 'planche', levelId: 'planche_level_10', masterProgramSubLevels: shared },
+      ],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+
+    // Skill contribution.
+    expect(written.progression.activePrograms.some((p: any) => p.id === 'planche')).toBe(true);
+    // Health's other 3 categories still assessed and expanded — push suppressed (planche owns it).
+    expect(written.progression.activePrograms.some((p: any) => p.id === 'push')).toBe(false);
+    expect(written.progression.activePrograms.some((p: any) => p.id === 'pull')).toBe(true);
+    expect(written.progression.activePrograms.some((p: any) => p.id === 'legs')).toBe(true);
+    expect(written.progression.activePrograms.some((p: any) => p.id === 'core')).toBe(true);
+    expect(written.progression.tracks.pull.currentLevel).toBe(5);
+    expect(written.progression.tracks.legs.currentLevel).toBe(4);
+    expect(written.progression.tracks.core.currentLevel).toBe(3);
+  });
+
+  it('Decision 2: a generalist SKILLS-ONLY (no other card) selection preserves a genuinely-assessed legs value from the primary result — not just core (D2\'s original narrower scope)', async () => {
+    pathConfigState.programPath = 'skills';
+    pathConfigState.cardOrder = ['skills'];
+    pathConfigState.skillFocus = ['planche', 'front_lever'];
+    stubBrowserStorage();
+
+    // legs=6 simulates a real frontend-computed baseline (Phase 2's
+    // baselineSkillMasterSubLevels generalization) — NOT reachable through
+    // category contribution here, since no body_focus/health card is selected.
+    const shared = { push: 0, pull: 0, legs: 6, core: 0 };
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      assignedResults: [
+        { programId: 'planche', levelId: 'planche_level_5', masterProgramSubLevels: shared },
+        { programId: 'front_lever', levelId: 'front_lever_level_4', masterProgramSubLevels: shared },
+      ],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+
+    expect(written.progression.tracks.legs.currentLevel).toBe(6);
+    // No category contribution fired at all — 'legs' is not a standalone activeProgram;
+    // the value only reached `tracks` via Decision 2's carry-over into calisthenics_upper's
+    // own masterProgramSubLevels rebuild.
+    expect(written.progression.activePrograms.some((p: any) => p.id === 'legs')).toBe(false);
+    expect(written.progression.activePrograms.some((p: any) => p.id === 'calisthenics_upper')).toBe(true);
   });
 });
