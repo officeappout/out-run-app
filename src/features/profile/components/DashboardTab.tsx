@@ -21,6 +21,7 @@ import FavoritesSheet from './FavoritesSheet';
 // Carousels use Firestore + auth — keep them client-only via dynamic()
 const GoalCarousel = dynamic(() => import('./widgets/GoalCarousel'), { ssr: false });
 const ProgramsSection = dynamic(() => import('./widgets/ProgramsSection'), { ssr: false });
+const PrioritiesSection = dynamic(() => import('./widgets/PrioritiesSection'), { ssr: false });
 // RecentActivityList is pure React (no window APIs) — import directly so it
 // is always in the bundle and never silently disappears on slow hydration.
 import RecentActivityList from './widgets/RecentActivityList';
@@ -299,6 +300,18 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
         transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.24 }}
       >
         <ProgramsSection />
+      </motion.div>
+
+      {/* ════════════════════════════════════════════════════════════════════
+          BLOCK 5.5 — מה בחרת, לפי עדיפות (multi-select program path priority
+          order — renders nothing when there's nothing to show)
+         ════════════════════════════════════════════════════════════════════ */}
+      <motion.div
+        initial={{ y: 16, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.27 }}
+      >
+        <PrioritiesSection />
       </motion.div>
 
       {/* ════════════════════════════════════════════════════════════════════
