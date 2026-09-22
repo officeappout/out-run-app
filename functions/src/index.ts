@@ -31,6 +31,7 @@ export { onFeedPostCreate, onWorkoutCreate, rollupLeaderboard } from './leaderbo
 // not deleted — this is meant to be temporary, re-exported when next needed.
 export { onUnitWrite } from './onUnitWrite';
 export { onAuthorityWrite } from './onAuthorityWrite';
+export { onOsmAmenityWrite } from './onOsmAmenityWrite';
 export { onMilitaryDeclarationWritten } from './militaryReserveLeague';
 export { unitLeagueRollup } from './unitLeagueRollup';
 export { dailyActivityPublicSync } from './dailyActivityPublicSync';

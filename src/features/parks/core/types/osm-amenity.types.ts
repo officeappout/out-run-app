@@ -83,4 +83,12 @@ export interface OsmAmenity {
    *  duplicated" stays auditable rather than a silent drop. null/absent
    *  for every genuinely new point. */
   suppressedDuplicateOfParkId?: string | null;
+
+  /** Set by `onOsmAmenityWrite` (functions/src) the moment a `fitness_station`
+   *  transitions to `published` — the `parks` doc it was linked to (within
+   *  PARK_LINK_RADIUS_METERS of an existing park) or the new one created for
+   *  it. Absent for every other category, and for a fitness_station not yet
+   *  processed. Doubles as the idempotency guard: the trigger no-ops on any
+   *  future write to this doc once this is set. */
+  linkedParkId?: string;
 }

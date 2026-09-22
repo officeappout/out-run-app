@@ -320,7 +320,20 @@ export interface Park {
   createdByUser?: string;
   /** Origin of the park record — 'authority_admin' = pending review, 'super_admin' = published directly */
   origin?: 'authority_admin' | 'super_admin';
-  
+
+  /** Set by `onOsmAmenityWrite` (functions/src) on a park it auto-created or
+   *  auto-linked from an approved fitness_station osm_amenity — the park is
+   *  `published` immediately (amenities-approval-to-data-roadmap.md's "no
+   *  pending_review" decision), this is the "review when you have a minute"
+   *  nudge instead: facilityType/gymEquipment weren't set by a human. Admin
+   *  clears it manually once reviewed — no code path unsets it automatically. */
+  needsFacilityDetails?: boolean;
+  /** osm_amenities doc ids (fitness_station) linked to this EXISTING park by
+   *  the same trigger, when found within PARK_LINK_RADIUS_METERS instead of
+   *  spawning a new park doc. Traceability only — does not affect gymEquipment,
+   *  which still needs a human to translate OSM presence into real gear entries. */
+  linkedOsmAmenityIds?: string[];
+
   // Route classification fields
   terrainType?: RouteTerrainType;
   environment?: RouteEnvironment;
