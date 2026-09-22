@@ -45,6 +45,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { isRootAdmin } from '@/config/feature-flags';
 import { FieldValue } from 'firebase-admin/firestore';
+import { getRequestIp } from '@/lib/requestIp';
+import { RATE_LIMITS, isBlockedByAny } from '@/lib/rateLimitConfig';
+import { logRateLimitBlock } from '@/lib/rateLimitLog';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -61,6 +64,25 @@ class HttpError extends Error {
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate-limit by IP before the (real) Firebase ID-token verify below.
+    // The invitationId itself is an unguessable Firestore doc ID, so
+    // brute force isn't the risk here — a runaway script or scripted
+    // hammering is. See .claude/plans/rate-limiting-sensitive-endpoints.md
+    // part ב (priority 2).
+    const ip = getRequestIp(request);
+    const db = getAdminDb();
+    const { blocked, window } = await isBlockedByAny(db, [
+      { key: `accept-invitation:ip:${ip}:short`, window: RATE_LIMITS.acceptInvitation.ipShort() },
+      { key: `accept-invitation:ip:${ip}:hourly`, window: RATE_LIMITS.acceptInvitation.ipHourly() },
+    ]);
+    if (blocked) {
+      logRateLimitBlock({ route: 'accept-invitation', dimension: 'ip', ip });
+      return NextResponse.json(
+        { error: 'יותר מדי ניסיונות. נסו שוב בעוד כמה דקות.' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((window?.windowMs ?? 900_000) / 1000)) } },
+      );
+    }
+
     const authHeader = request.headers.get('Authorization') ?? '';
     const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
     if (!idToken) {
@@ -98,7 +120,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'invitationId is required' }, { status: 400 });
     }
 
-    const db = getAdminDb();
     const invRef = db.collection('admin_invitations').doc(invitationId);
     const invSnap = await invRef.get();
     if (!invSnap.exists) {

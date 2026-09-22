@@ -33,6 +33,9 @@ import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { isRootAdmin } from '@/config/feature-flags';
 import { randomBytes } from 'crypto';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
+import { getRequestIp } from '@/lib/requestIp';
+import { RATE_LIMITS, isBlockedByAny } from '@/lib/rateLimitConfig';
+import { logRateLimitBlock } from '@/lib/rateLimitLog';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -46,6 +49,22 @@ function generateToken(): string {
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getRequestIp(request);
+    const db = getAdminDb();
+
+    // IP dimension first — cheap, catches gross flooding before the real
+    // ID-token verify below. This route is already root-admin-only, so
+    // the main risk is a runaway script from an already-authenticated
+    // session, not anonymous abuse — see plan doc part ב (priority 4).
+    const ipCheck = await isBlockedByAny(db, [
+      { key: `admin-invitations:ip:${ip}:short`, window: RATE_LIMITS.adminInvitations.ipShort() },
+      { key: `admin-invitations:ip:${ip}:hourly`, window: RATE_LIMITS.adminInvitations.ipHourly() },
+    ]);
+    if (ipCheck.blocked) {
+      logRateLimitBlock({ route: 'admin-invitations', dimension: 'ip', ip });
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429, headers: { 'Retry-After': String(Math.ceil((ipCheck.window?.windowMs ?? 900_000) / 1000)) } });
+    }
+
     const authHeader = request.headers.get('Authorization') ?? '';
     const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
     if (!idToken) {
@@ -67,6 +86,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Only root admins can create invitations' }, { status: 403 });
     }
 
+    // admin-identity dimension: creating an invitation also sends an
+    // email (sendAdminMagicLink-style exposure doubling) — same shared
+    // budget as DELETE below, since either verb repeated in a loop is
+    // the same "runaway script" risk regardless of which one it hits.
+    const adminCheck = await isBlockedByAny(db, [
+      { key: `admin-invitations:admin:${uid}:short`, window: RATE_LIMITS.adminInvitations.adminShort() },
+      { key: `admin-invitations:admin:${uid}:hourly`, window: RATE_LIMITS.adminInvitations.adminHourly() },
+    ]);
+    if (adminCheck.blocked) {
+      logRateLimitBlock({ route: 'admin-invitations', dimension: 'admin', ip, identifier: uid });
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429, headers: { 'Retry-After': String(Math.ceil((adminCheck.window?.windowMs ?? 900_000) / 1000)) } });
+    }
+
     let body: any;
     try {
       body = await request.json();
@@ -84,8 +116,6 @@ export async function POST(request: NextRequest) {
     if (!SUPPORTED_ROLES.has(role)) {
       return NextResponse.json({ error: 'Role not supported' }, { status: 400 });
     }
-
-    const db = getAdminDb();
 
     let authorityId: string | null = null;
     let allowedSections: string[] | null = null;
