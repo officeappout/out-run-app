@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
-import { sendAdminMagicLink } from '@/features/admin/services/passwordless-auth.service';
+import { sendMagicLink } from '@/lib/auth.service';
 import { getAuthoritiesByManager, getAuthority } from '@/features/admin/services/authority.service';
 import { Building2, Mail, AlertCircle, CheckCircle, Loader2, X, MailCheck, Search } from 'lucide-react';
 import AppLogoLoader from '@/components/AppLogoLoader';
@@ -31,6 +31,10 @@ function AuthorityPortalLoginContent() {
   const [brandName, setBrandName] = useState<string | null>(null);
   const [brandLogo, setBrandLogo] = useState<string | null>(null);
   const [brandLoading, setBrandLoading] = useState(false);
+
+  // Set when /admin/login bounced an already-signed-in authority manager
+  // here (?redirected=1) — shown once as an explanation, not an error.
+  const wasRedirectedFromAdminLogin = searchParams.get('redirected') === '1';
 
   // Persist invitation token to localStorage so it survives the magic link redirect
   useEffect(() => {
@@ -112,30 +116,26 @@ function AuthorityPortalLoginContent() {
         } catch {}
       }
 
-      const invitationToken =
-        searchParams.get('token') ||
-        (typeof window !== 'undefined' ? window.localStorage.getItem('pendingInvitationToken') : null);
-
-      const result = await sendAdminMagicLink(
-        email,
-        'authority_manager',
-        `${typeof window !== 'undefined' ? window.location.origin : ''}/admin/auth/callback?email=${encodeURIComponent(email)}`,
-        { invitationToken: invitationToken || undefined }
-      );
+      // No pre-send lookup of whether this email is a manager — that check
+      // (checkAdminEmail → getUserByEmail, a client Firestore query keyed
+      // on an arbitrary caller-supplied email) is exactly the shape of a
+      // public "is X an admin" oracle: it would let anyone enumerate the
+      // manager roster by trying addresses and reading the different error
+      // text back. The link is sent unconditionally to whatever address was
+      // typed; the server decides what that account is entitled to only
+      // AFTER a real sign-in, in /admin/auth/callback.
+      const continueUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/admin/auth/callback?email=${encodeURIComponent(email)}`;
+      const result = await sendMagicLink(email, continueUrl);
 
       if (result.error) {
-        setError(result.error);
+        setError('שגיאה בשליחת הקישור. נסה שוב.');
         setLoading(false);
         return;
       }
 
-      if (result.sent) {
-        setSentToEmail(email);
-        setShowSuccessModal(true);
-        setEmail('');
-      } else {
-        setError('שגיאה בשליחת הקישור. נסה שוב.');
-      }
+      setSentToEmail(email);
+      setShowSuccessModal(true);
+      setEmail('');
     } catch {
       setError('שגיאה בשליחת הקישור. נסה שוב.');
     } finally {
@@ -195,6 +195,14 @@ function AuthorityPortalLoginContent() {
 
         {/* Login Card */}
         <div className="bg-white rounded-3xl shadow-2xl p-8 border border-gray-100">
+          {wasRedirectedFromAdminLogin && (
+            <div className="mb-6 p-4 border border-cyan-200 bg-cyan-50 rounded-xl flex items-start gap-3">
+              <Building2 size={20} className="flex-shrink-0 mt-0.5 text-cyan-600" />
+              <p className="text-sm flex-1 text-cyan-800">
+                זוהית כמנהל רשות — הועברת לפורטל הנכון עבורך.
+              </p>
+            </div>
+          )}
           {error && (
             <div className="mb-6 p-4 border border-red-200 bg-red-50 rounded-xl flex items-start gap-3">
               <AlertCircle size={20} className="flex-shrink-0 mt-0.5 text-red-600" />
@@ -228,7 +236,7 @@ function AuthorityPortalLoginContent() {
                 />
               </div>
               <p className="mt-3 text-xs text-gray-500 text-center">
-                נשלח לך קישור התחברות ישירות למייל שלך
+                אם המייל רשום כמנהל, יישלח אליו קישור.
               </p>
             </div>
 
@@ -288,13 +296,13 @@ function AuthorityPortalLoginContent() {
 
             {/* Title */}
             <h2 className="text-2xl font-black text-gray-900 text-center mb-3">
-              המייל בדרך אליך!
+              נשלחה בקשת התחברות
             </h2>
 
             {/* Body */}
             <p className="text-gray-600 text-center leading-relaxed mb-2">
-              שלחנו לך קישור התחברות מאובטח לכתובת המייל שהזנת.
-              לחיצה על הקישור תכניס אותך ישירות לפורטל הניהול.
+              אם המייל שהזנת רשום כמנהל רשות, יישלח אליו קישור התחברות מאובטח.
+              לחיצה על הקישור תעביר אותך אוטומטית ליעד המתאים לך.
             </p>
 
             {/* Email badge */}

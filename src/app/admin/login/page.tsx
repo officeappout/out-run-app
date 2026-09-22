@@ -31,8 +31,10 @@ export default function AdminLoginPage() {
             router.replace('/admin');
             return;
           } else if (roleInfo.isAuthorityManager) {
-            // Authority manager tried to access super admin portal - redirect to their portal
-            router.replace('/authority-portal/login');
+            // Authority manager tried to access super admin portal - redirect
+            // to their portal, with a flag so it can explain why they landed
+            // there instead of showing this as an unexplained bounce.
+            router.replace('/authority-portal/login?redirected=1');
             return;
           }
         } catch (error) {
