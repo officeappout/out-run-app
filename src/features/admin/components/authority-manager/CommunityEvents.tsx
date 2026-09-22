@@ -19,6 +19,7 @@ const MUSCLE_OPTIONS = ['חזה', 'גב', 'כתפיים', 'זרועות', 'בט�
 const EQUIPMENT_OPTIONS = ['מתח', 'מקבילים', 'טבעות', 'TRX', 'גומיות', 'משקולות', 'ללא ציוד'];
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { ISRAEL_GENERAL_MAP_CENTER } from '@/lib/map-defaults';
 import dynamic from 'next/dynamic';
 
 const MiniLocationPicker = dynamic(
@@ -468,7 +469,7 @@ export default function CommunityEvents({
                       placeholder="שם המיקום (למשל: שער הכניסה הראשי)"
                     />
                     <MiniLocationPicker
-                      value={formData.location?.location || authorityCoordinates || { lat: 31.525, lng: 34.5955 }}
+                      value={formData.location?.location || authorityCoordinates || ISRAEL_GENERAL_MAP_CENTER}
                       onChange={(coords) =>
                         setFormData({
                           ...formData,

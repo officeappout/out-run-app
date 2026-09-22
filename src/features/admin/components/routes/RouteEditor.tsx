@@ -37,6 +37,7 @@ import { FeatureTagPicker } from './FeatureTagPicker';
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
 import { auth } from '@/lib/firebase';
 import type { Authority } from '@/types/admin-types';
+import { ISRAEL_GENERAL_MAP_CENTER } from '@/lib/map-defaults';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 // ── Dynamic map imports (SSR-safe) ─────────────────────────────────
@@ -777,7 +778,7 @@ export default function RouteEditor({
                 {/* Map Area */}
                 <div className="flex-1 relative h-full min-h-0 overflow-hidden">
                     <MapComponent
-                        initialViewState={{ longitude: initialLng ?? 34.5955, latitude: initialLat ?? 31.525, zoom: initialZoom ?? 14 }}
+                        initialViewState={{ longitude: initialLng ?? ISRAEL_GENERAL_MAP_CENTER.lng, latitude: initialLat ?? ISRAEL_GENERAL_MAP_CENTER.lat, zoom: initialZoom ?? 14 }}
                         style={{ width: '100%', height: '100%' }}
                         mapStyle={mapStyleMode === 'satellite' ? 'mapbox://styles/mapbox/satellite-streets-v12' : 'mapbox://styles/mapbox/streets-v12'}
                         mapboxAccessToken={MAPBOX_TOKEN}

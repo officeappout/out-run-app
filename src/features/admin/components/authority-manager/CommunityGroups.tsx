@@ -24,6 +24,7 @@ import { Park } from '@/types/admin-types';
 import { Plus, Edit2, Trash2, Users, Calendar, MapPin, ShieldCheck, Dumbbell, Target, DollarSign, Clock, CalendarPlus, ImagePlus, X, Building2, MapPinned, Search, ChevronDown, ImageOff, Route as RouteIcon, HeartPulse, Link2, Check, Crown, Power } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { ISRAEL_GENERAL_MAP_CENTER } from '@/lib/map-defaults';
 import { MediaAsset } from '@/features/admin/services/media-assets.service';
 import CommunityEvents from './CommunityEvents';
 import dynamic from 'next/dynamic';
@@ -701,7 +702,7 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
                       placeholder="שם המיקום (למשל: שער הכניסה הראשי)"
                     />
                     <MiniLocationPicker
-                      value={formData.meetingLocation?.location || authorityCoordinates || { lat: 31.525, lng: 34.5955 }}
+                      value={formData.meetingLocation?.location || authorityCoordinates || ISRAEL_GENERAL_MAP_CENTER}
                       onChange={(coords) =>
                         setFormData({
                           ...formData,

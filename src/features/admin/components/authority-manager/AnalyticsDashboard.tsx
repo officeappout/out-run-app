@@ -181,7 +181,17 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
       const currentYear  = today.getFullYear();
 
       const defaultDateRange = getDateRangeForFilter('month');
-      const initialUserIds  = await getFilteredUserIds(authorityId, DEFAULT_FILTERS);
+      // Several of the calls below still read `users`/`workouts`/`sessions`
+      // directly and are denied for a genuine authority manager
+      // (00-MASTER-PLAN.md §13.11 maps which — DAU/MAU/gender/age are
+      // fixed above via the dashboard-summary fallback; the rest are not,
+      // in this pass). Promise.all is all-or-nothing: ONE rejection here
+      // used to zero out every card, including ones with no relation to
+      // the blocked collections at all. Each call is now individually
+      // caught with the same safe default its own internal catch already
+      // uses, so a still-broken metric degrades to its empty state instead
+      // of taking the whole dashboard down with it.
+      const initialUserIds = await getFilteredUserIds(authorityId, DEFAULT_FILTERS).catch(() => [] as string[]);
 
       const [
         dailyActive, monthlyActive, gender, age,
@@ -191,25 +201,25 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
         personas, entryRoutes, running, steps,
         whoComplianceData, whoComplianceHistory,
       ] = await Promise.all([
-        getDailyActiveUsers(authorityId, today),
-        getMonthlyActiveUsers(authorityId, currentYear, currentMonth),
-        getGenderDistribution(authorityId),
-        getAgeDistribution(authorityId),
-        getPopularParks(authorityId, 5),
-        getActivityTrend(authorityId, 30),
-        getParksByAuthority(authorityId),
-        getNeighborhoodBreakdown(authorityId, { min: kpiSettings.targetAgeMin, max: kpiSettings.targetAgeMax }),
-        getWHO150Tracker(authorityId),
-        getHealthSavings(authorityId),
-        getSavingsOverTime(authorityId, 12),
-        getNeighborhoodList(authorityId),
-        getActivityByHour(initialUserIds, defaultDateRange),
-        getPersonaDistribution(authorityId),
-        getEntryRouteDistribution(authorityId),
-        getRunningStats(authorityId, initialUserIds, defaultDateRange),
-        getCityStepsTotals(authorityId, 30),
-        getWHOComplianceBreakdown(authorityId),
-        getWHOComplianceOverTime(authorityId, 8),
+        getDailyActiveUsers(authorityId, today).catch(() => 0),
+        getMonthlyActiveUsers(authorityId, currentYear, currentMonth).catch(() => 0),
+        getGenderDistribution(authorityId).catch(() => ({ male: 0, female: 0, other: 0, unknown: 0, total: 0 })),
+        getAgeDistribution(authorityId).catch(() => ({ '18-25': 0, '26-35': 0, '36-45': 0, '46-55': 0, '56+': 0, unknown: 0, total: 0 })),
+        getPopularParks(authorityId, 5).catch(() => []),
+        getActivityTrend(authorityId, 30).catch(() => []),
+        getParksByAuthority(authorityId).catch(() => []),
+        getNeighborhoodBreakdown(authorityId, { min: kpiSettings.targetAgeMin, max: kpiSettings.targetAgeMax }).catch(() => []),
+        getWHO150Tracker(authorityId).catch(() => null),
+        getHealthSavings(authorityId).catch(() => null),
+        getSavingsOverTime(authorityId, 12).catch(() => []),
+        getNeighborhoodList(authorityId).catch(() => []),
+        getActivityByHour(initialUserIds, defaultDateRange).catch(() => []),
+        getPersonaDistribution(authorityId).catch(() => []),
+        getEntryRouteDistribution(authorityId).catch(() => null),
+        getRunningStats(authorityId, initialUserIds, defaultDateRange).catch(() => null),
+        getCityStepsTotals(authorityId, 30).catch(() => null),
+        getWHOComplianceBreakdown(authorityId).catch(() => null),
+        getWHOComplianceOverTime(authorityId, 8).catch(() => []),
       ]);
 
       setDau(dailyActive);

@@ -63,6 +63,59 @@ function isIndexBuildingError(err: unknown): boolean {
   return code === 'failed-precondition' || msg.includes('index') || msg.includes('requires an index');
 }
 
+function isPermissionDeniedError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  return (err as { code?: string }).code === 'permission-denied';
+}
+
+// ── Authority-manager fallback: /api/authority-manager/dashboard-summary ──────
+//
+// getDailyActiveUsers/getMonthlyActiveUsers/getGenderDistribution/
+// getAgeDistribution below all read `users`/`workouts` directly from the
+// browser as their PRIMARY path — unchanged, still the fastest path, and
+// still the only path for roles firestore.rules actually allows this for
+// (super_admin, system_admin, etc., via isAdmin()). A genuine authority
+// manager gets permission-denied instead (managerIds-based access was
+// never wired into those two collections' rules — 00-MASTER-PLAN.md
+// §13.11) — ONLY on that specific error do these four functions fall back
+// to the server-computed aggregate, which resolves authorityId itself
+// from the caller's own managerIds and returns counts only, never a uid
+// or resident field. Deduped per authorityId so four functions falling
+// back in the same Promise.all (AnalyticsDashboard.loadAll) share one
+// server round trip instead of issuing four.
+interface DashboardSummaryFallback {
+  dau: number;
+  mau: number;
+  genderDistribution: GenderDistribution;
+  ageDistribution: AgeDistribution;
+}
+
+let _dashboardSummaryAuthorityId: string | null = null;
+let _dashboardSummaryPromise: Promise<DashboardSummaryFallback | null> | null = null;
+
+async function fetchDashboardSummaryFallback(authorityId: string): Promise<DashboardSummaryFallback | null> {
+  if (_dashboardSummaryPromise && _dashboardSummaryAuthorityId === authorityId) {
+    return _dashboardSummaryPromise;
+  }
+  _dashboardSummaryAuthorityId = authorityId;
+  _dashboardSummaryPromise = (async () => {
+    try {
+      const { auth } = await import('@/lib/firebase');
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) return null;
+      const res = await fetch('/api/authority-manager/dashboard-summary', {
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (err) {
+      console.error('[analytics.service] dashboard-summary fallback failed:', err);
+      return null;
+    }
+  })();
+  return _dashboardSummaryPromise;
+}
+
 // ── Rollup helper ─────────────────────────────────────────────────────────────
 
 /**
@@ -208,6 +261,19 @@ export async function getDailyActiveUsers(
     console.log(`[DAU] result=${activeSet.size}`);
     return activeSet.size;
   } catch (error) {
+    // Authority manager — the direct users/workouts reads above are
+    // denied by firestore.rules (00-MASTER-PLAN.md §13.11). Fall back to
+    // the server-computed aggregate rather than the 0 this would
+    // otherwise silently return.
+    if (isPermissionDeniedError(error)) {
+      const summary = await fetchDashboardSummaryFallback(authorityId);
+      if (summary) {
+        console.log(`[DAU] Served via dashboard-summary fallback=${summary.dau}`);
+        return summary.dau;
+      }
+      console.error('[DAU] Permission denied and fallback also failed.');
+      return 0;
+    }
     if (isIndexBuildingError(error)) {
       _workoutsIndexBuilding = true;
       console.warn('[DAU] Index still building — using lastActive fallback.');
@@ -262,6 +328,15 @@ export async function getMonthlyActiveUsers(
     console.log(`[MAU] result=${activeSet.size}`);
     return activeSet.size;
   } catch (error) {
+    if (isPermissionDeniedError(error)) {
+      const summary = await fetchDashboardSummaryFallback(authorityId);
+      if (summary) {
+        console.log(`[MAU] Served via dashboard-summary fallback=${summary.mau}`);
+        return summary.mau;
+      }
+      console.error('[MAU] Permission denied and fallback also failed.');
+      return 0;
+    }
     if (isIndexBuildingError(error)) {
       _workoutsIndexBuilding = true;
       console.warn('[MAU] Index still building — using lastActive fallback.');
@@ -311,6 +386,10 @@ export async function getGenderDistribution(
 
     return distribution;
   } catch (error) {
+    if (isPermissionDeniedError(error)) {
+      const summary = await fetchDashboardSummaryFallback(authorityId);
+      if (summary) return summary.genderDistribution;
+    }
     console.error('Error calculating gender distribution:', error);
     return { male: 0, female: 0, other: 0, unknown: 0, total: 0 };
   }
@@ -369,6 +448,10 @@ export async function getAgeDistribution(
 
     return distribution;
   } catch (error) {
+    if (isPermissionDeniedError(error)) {
+      const summary = await fetchDashboardSummaryFallback(authorityId);
+      if (summary) return summary.ageDistribution;
+    }
     console.error('Error calculating age distribution:', error);
     return { '18-25': 0, '26-35': 0, '36-45': 0, '46-55': 0, '56+': 0, unknown: 0, total: 0 };
   }
