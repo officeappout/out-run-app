@@ -10,6 +10,12 @@ import {
 import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLayout';
 import { STRENGTH_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
 import { getOnboardingPref } from '@/lib/onboardingPrefs';
+import {
+  type ProgramCardId,
+  toggleCard,
+  getCardOrder,
+  canContinueWithCards,
+} from '@/features/user/onboarding/utils/program-card-selection';
 
 /** Muscle icon paths — used inside chips */
 const MUSCLE_ICON_PATHS: Record<string, string> = {
@@ -77,12 +83,17 @@ const MUSCLE_FOCUS_IDS: MuscleGroup[] = [
   'glutes',
 ];
 
-type ProgramPathType = 'health' | 'body_focus' | 'skills' | null;
-
-function persistToStorage(path: ProgramPathType, muscleIds: string[], skillIds: string[]) {
+/**
+ * Persists the ordered card selection + each card's sub-selection.
+ * `onboarding_program_path` is now a JSON array (priority = array order) —
+ * assessment-path-config.service.ts's getProgramPathListFromStorage() reads
+ * this shape, with a back-compat guard for the legacy bare-string shape
+ * still written by mini-domain-assessment.ts's single-domain top-up flow.
+ */
+function persistToStorage(cardOrder: ProgramCardId[], muscleIds: string[], skillIds: string[]) {
   if (typeof window === 'undefined') return;
-  if (path) {
-    sessionStorage.setItem('onboarding_program_path', path);
+  if (cardOrder.length > 0) {
+    sessionStorage.setItem('onboarding_program_path', JSON.stringify(cardOrder));
   }
   sessionStorage.setItem('onboarding_muscle_focus', JSON.stringify(muscleIds));
   sessionStorage.setItem('onboarding_skill_focus', JSON.stringify(skillIds));
@@ -138,9 +149,26 @@ export default function ProgramPathPage() {
     }, 150);
   }, []);
 
-  const [path, setPath] = useState<ProgramPathType>(null);
+  // Co-selectable cards — priority = tap order (array order). Toggling a
+  // card off also clears its own sub-selection so re-selecting it later
+  // starts fresh; it never touches the OTHER cards' state (that mutual-
+  // exclusion clearing is what this replaces).
+  const [selectedCards, setSelectedCards] = useState<ProgramCardId[]>([]);
   const [selectedMuscles, setSelectedMuscles] = useState<string[]>([]);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+
+  const toggleProgramCard = useCallback((id: ProgramCardId, ref: React.RefObject<HTMLDivElement>) => {
+    setSelectedCards((prev) => {
+      const isSelecting = !prev.includes(id);
+      if (!isSelecting) {
+        if (id === 'body_focus') setSelectedMuscles([]);
+        if (id === 'skills') setSelectedSkills([]);
+      } else {
+        scrollCardIntoView(ref);
+      }
+      return toggleCard(prev, id);
+    });
+  }, [scrollCardIntoView]);
 
   // ── Orange Flow: complementary-skill recommendation state ──
   // showRecommendation: the inline amber tip + orange-highlighted chips are visible.
@@ -227,20 +255,16 @@ export default function ProgramPathPage() {
     }
   }, [missingCategory, showRecommendation]);
 
-  const canContinue =
-    path !== null &&
-    (path === 'health' ||
-      (path === 'body_focus' && selectedMuscles.length > 0) ||
-      (path === 'skills' && selectedSkills.length > 0));
+  const canContinue = canContinueWithCards(selectedCards, selectedMuscles, selectedSkills);
 
   const handleContinue = () => {
     if (!canContinue) return;
 
-    // ── Orange Flow gate (skills path only) ────────────────────
+    // ── Orange Flow gate (skills card only) ────────────────────
     // Master chip ('calisthenics_upper') is inherently balanced — bypass.
     // Once the user has explicitly dismissed the tip, never re-prompt.
     const masterSelected = selectedSkills.includes(SKILL_MASTER_ID);
-    if (path === 'skills' && !masterSelected && !hasIgnoredRecommendation) {
+    if (selectedCards.includes('skills') && !masterSelected && !hasIgnoredRecommendation) {
       if (missingCategory !== null) {
         if (!showRecommendation) {
           // First press with a mismatch → surface the coach tip + glow,
@@ -259,7 +283,7 @@ export default function ProgramPathPage() {
       selectedMuscles.includes(FULL_BODY_ID)
         ? ['push', 'pull', 'legs', 'core']
         : selectedMuscles;
-    persistToStorage(path!, toPersist, selectedSkills);
+    persistToStorage(selectedCards, toPersist, selectedSkills);
     router.push('/onboarding-new/assessment-visual');
   };
 
@@ -317,19 +341,13 @@ export default function ProgramPathPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0 }}
           className={`scroll-mt-24 bg-white rounded-[24px] shadow-sm transition-colors duration-300 ${
-            path === 'health'
+            selectedCards.includes('health')
               ? 'border border-[#00BAF7]'
               : 'border border-[#E0E9FF]'
           }`}
         >
           <button
-            onClick={() => {
-              const isOpening = path !== 'health';
-              setPath('health');
-              setSelectedMuscles([]);
-              setSelectedSkills([]);
-              if (isOpening) scrollCardIntoView(healthCardRef);
-            }}
+            onClick={() => toggleProgramCard('health', healthCardRef)}
             className="w-full p-5 min-h-[88px] flex items-center gap-4"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -346,7 +364,7 @@ export default function ProgramPathPage() {
               </div>
               <p
                 className={`text-base font-bold ${
-                  path === 'health' ? 'text-[#182236]' : 'text-slate-700'
+                  selectedCards.includes('health') ? 'text-[#182236]' : 'text-slate-700'
                 }`}
               >
                 בריאות, כוח ואנרגיה
@@ -355,20 +373,30 @@ export default function ProgramPathPage() {
                 מתאים ל: מי שרק מתחיל, חזר אחרי הפסקה, או רוצה בסיס בריא לכל הגוף.
               </p>
             </div>
-            {path === 'health' && (
+            {selectedCards.includes('health') && (
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                className="w-6 h-6 rounded-full bg-[#5BC2F2] flex items-center justify-center shrink-0"
+                className="flex items-center gap-1.5 shrink-0"
               >
-                <Check size={14} className="text-white" strokeWidth={3} />
+                {selectedCards.length > 1 && (
+                  <span
+                    className="w-4 h-4 rounded-full bg-[#182236] text-white flex items-center justify-center font-bold"
+                    style={{ fontSize: 9 }}
+                  >
+                    {getCardOrder(selectedCards, 'health')}
+                  </span>
+                )}
+                <div className="w-6 h-6 rounded-full bg-[#5BC2F2] flex items-center justify-center">
+                  <Check size={14} className="text-white" strokeWidth={3} />
+                </div>
               </motion.div>
             )}
           </button>
 
           {/* Expanded checklist — shown only when selected */}
           <AnimatePresence>
-            {path === 'health' && (
+            {selectedCards.includes('health') && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
@@ -411,18 +439,13 @@ export default function ProgramPathPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
           className={`scroll-mt-24 mt-4 bg-white rounded-[24px] shadow-sm transition-colors duration-300 ${
-            path === 'body_focus' || selectedMuscles.length > 0
+            selectedCards.includes('body_focus')
               ? 'border border-[#00BAF7]'
               : 'border border-[#E0E9FF]'
           }`}
         >
           <button
-            onClick={() => {
-              const isOpening = path !== 'body_focus';
-              setPath('body_focus');
-              setSelectedSkills([]);
-              if (isOpening) scrollCardIntoView(muscleCardRef);
-            }}
+            onClick={() => toggleProgramCard('body_focus', muscleCardRef)}
             className="w-full p-5 min-h-[88px] flex items-center gap-4"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -439,9 +462,7 @@ export default function ProgramPathPage() {
               </div>
               <p
                 className={`text-base font-bold ${
-                  path === 'body_focus' || selectedMuscles.length > 0
-                    ? 'text-[#182236]'
-                    : 'text-slate-700'
+                  selectedCards.includes('body_focus') ? 'text-[#182236]' : 'text-slate-700'
                 }`}
               >
                 עיצוב ושרירים
@@ -450,19 +471,29 @@ export default function ProgramPathPage() {
                 מתאים ל: מי שכבר זז ורוצה למקד אזורים ולראות שינוי בגוף.
               </p>
             </div>
-            {(path === 'body_focus' || selectedMuscles.length > 0) && (
+            {selectedCards.includes('body_focus') && (
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                className="w-6 h-6 rounded-full bg-[#5BC2F2] flex items-center justify-center shrink-0"
+                className="flex items-center gap-1.5 shrink-0"
               >
-                <Check size={14} className="text-white" strokeWidth={3} />
+                {selectedCards.length > 1 && (
+                  <span
+                    className="w-4 h-4 rounded-full bg-[#182236] text-white flex items-center justify-center font-bold"
+                    style={{ fontSize: 9 }}
+                  >
+                    {getCardOrder(selectedCards, 'body_focus')}
+                  </span>
+                )}
+                <div className="w-6 h-6 rounded-full bg-[#5BC2F2] flex items-center justify-center">
+                  <Check size={14} className="text-white" strokeWidth={3} />
+                </div>
               </motion.div>
             )}
           </button>
 
           <AnimatePresence>
-            {path === 'body_focus' && (
+            {selectedCards.includes('body_focus') && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
@@ -538,18 +569,13 @@ export default function ProgramPathPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
           className={`scroll-mt-24 mt-4 bg-white rounded-[24px] shadow-sm transition-colors duration-300 ${
-            path === 'skills' || selectedSkills.length > 0
+            selectedCards.includes('skills')
               ? 'border border-[#00BAF7]'
               : 'border border-[#E0E9FF]'
           }`}
         >
           <button
-            onClick={() => {
-              const isOpening = path !== 'skills';
-              setPath('skills');
-              setSelectedMuscles([]);
-              if (isOpening) scrollCardIntoView(skillsCardRef);
-            }}
+            onClick={() => toggleProgramCard('skills', skillsCardRef)}
             className="w-full p-5 min-h-[88px] flex items-center gap-4"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -566,9 +592,7 @@ export default function ProgramPathPage() {
               </div>
               <p
                 className={`text-base font-bold ${
-                  path === 'skills' || selectedSkills.length > 0
-                    ? 'text-[#182236]'
-                    : 'text-slate-700'
+                  selectedCards.includes('skills') ? 'text-[#182236]' : 'text-slate-700'
                 }`}
               >
                 לומדים תרגילי קליסטניקס מתקדמים
@@ -580,19 +604,29 @@ export default function ProgramPathPage() {
                 עוד לא שם? נבנה לך את הבסיס עד לשם.
               </p>
             </div>
-            {(path === 'skills' || selectedSkills.length > 0) && (
+            {selectedCards.includes('skills') && (
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                className="w-6 h-6 rounded-full bg-[#5BC2F2] flex items-center justify-center shrink-0"
+                className="flex items-center gap-1.5 shrink-0"
               >
-                <Check size={14} className="text-white" strokeWidth={3} />
+                {selectedCards.length > 1 && (
+                  <span
+                    className="w-4 h-4 rounded-full bg-[#182236] text-white flex items-center justify-center font-bold"
+                    style={{ fontSize: 9 }}
+                  >
+                    {getCardOrder(selectedCards, 'skills')}
+                  </span>
+                )}
+                <div className="w-6 h-6 rounded-full bg-[#5BC2F2] flex items-center justify-center">
+                  <Check size={14} className="text-white" strokeWidth={3} />
+                </div>
               </motion.div>
             )}
           </button>
 
           <AnimatePresence>
-            {path === 'skills' && (
+            {selectedCards.includes('skills') && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
