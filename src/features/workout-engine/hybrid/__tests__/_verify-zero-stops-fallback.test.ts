@@ -60,6 +60,13 @@ vi.mock('@/features/parks/core/services/route-generator.service', () => ({
   generateDynamicRoutes: vi.fn(async () => [{ path: SYNTHETIC_LOOP_PATH, id: 'gen-test-loop', distance: 1.2 }]),
 }));
 
+// composeRouteStopsWorkout now tries 'existing_route' first (20.09.2026 David-
+// approved change, field-test doc 10) — no published routes here, so it falls
+// through to 'generated_loop' immediately, same zero-stops scenario as before.
+vi.mock('@/features/parks/core/services/inventory.service', () => ({
+  getCachedOfficialRoutes: vi.fn(async () => []),
+}));
+
 vi.mock('@/features/workout-engine/core/store/useWeeklyVolumeStore', () => ({
   useWeeklyVolumeStore: { getState: () => ({ getRemainingBudget: () => 999 }) },
 }));

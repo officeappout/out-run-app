@@ -751,17 +751,28 @@ async function composeRouteStopsWorkout(
     parks = parks.filter((p: any) => p.facilityType !== 'open_field');
   }
 
-  // Backbone — a LOOP generated FROM the user's location (root fix), so entry = user (0m).
-  // ('existing_route' mode is kept for a future "use a close existing route" decision, not v1.)
+  // Backbone (20.09.2026 David-approved change, field-test doc 10): prefer a
+  // real PUBLISHED route within ROUTE_STOPS_MAX_START_M of the user —
+  // anchors stops to a route someone actually signed/walks regularly,
+  // instead of always a throwaway generated loop. 'existing_route' already
+  // encodes that distance cap itself (returns null beyond it) — falling
+  // back to the original generated-loop behavior on null keeps every other
+  // city byte-identical to before this change.
   // Step-gap calibration (09.08.2026): same buildStepContext(useActivityStore.getState().today)
   // call already used by build-map-user-context.ts — resolved here as plain numbers, the
   // function itself stays pure (LAW 0).
   const stepContext = buildStepContext(useActivityStore.getState().today);
   const targetKm = deriveAerobicTargetKm(intent, paceProfile.basePace, stepContext);
-  const backbone = await resolveRouteStopsBackbone('generated_loop', {
+  let backbone = await resolveRouteStopsBackbone('existing_route', {
     userPosition: ctx.userPosition, parks, targetKm,
     cityName: ctx.cityName, activity: intent.aerobicKind as ActivityType,
   });
+  if (!backbone) {
+    backbone = await resolveRouteStopsBackbone('generated_loop', {
+      userPosition: ctx.userPosition, parks, targetKm,
+      cityName: ctx.cityName, activity: intent.aerobicKind as ActivityType,
+    });
+  }
   if (!backbone) return null;
   const routePath = backbone.routePath;
   const rawStops = resolveRouteStops(routePath, parks as any);
