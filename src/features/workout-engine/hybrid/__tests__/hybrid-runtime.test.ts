@@ -102,18 +102,25 @@ console.log('\n[2] buildSandwichComposeInput');
 console.log('\n[3] controller run → 3 records');
 let finalizeResult: ReturnType<ReturnType<typeof createHybridSessionController>['finalize']>;
 {
+  // atMs values are REAL milliseconds since the 23.08.2026 fix (dbd8533c,
+  // "planned-not-actual station duration") made STATION_DONE compute its
+  // duration from (event.atMs - state.currentStartMs), not the passed-in
+  // actualDurationSec fallback. These used to be small symbolic units
+  // (seconds-as-if-ms) that predated that change — scaled ×1000 here so
+  // 1600000→2140000 really is a 540-SECOND station, matching the fixture's
+  // own intent (600s leg A / 540s station / 540s leg B), not ~0.5s.
   const c = createHybridSessionController(sandwichPlan());
   eq('idle', c.getPhase(), 'idle');
-  c.start(1000);
+  c.start(1_000_000);
   eq('→ aerobic', c.getPhase(), 'aerobic');
   const reached = c.tick(1.0, 600);
   ok('tick at toKm signals arrival', reached === true);
-  c.arrive(1.0, 600, 1600);
+  c.arrive(1.0, 600, 1_600_000);
   eq('→ station', c.getPhase(), 'station');
   ok('activeStation exposed', c.getActiveStation()?.stopId === 'stop-A');
-  c.completeStation(9, 540, 2140);
+  c.completeStation(9, 540, 2_140_000);
   eq('→ aerobic (legB)', c.getPhase(), 'aerobic');
-  c.finish(2.0, 1140, 2680);
+  c.finish(2.0, 1140, 2_680_000);
   eq('→ done', c.getPhase(), 'done');
 
   finalizeResult = c.finalize();
@@ -196,5 +203,11 @@ console.log('\n[7] parkGymEquipmentToGearIds');
 }
 
 console.log(`\n${failures === 0 ? '✅' : '❌'} ${total - failures}/${total} assertions passed`);
-if (failures > 0) { console.error(`${failures} FAILED`); process.exit(1); }
-process.exit(0);
+// No process.exit() here (22.09.2026 fix, field-test doc 12): this file is picked
+// up by vitest.config.ts's src/**/__tests__/**/*.test.ts glob even though it
+// predates vitest and was only ever meant to run via `npx tsx` directly (see
+// header) — any process.exit() call, even (0) on success, makes vitest report
+// the whole file as a hard crash instead of a normal pass/fail. Throwing on
+// failure still fails loud under plain tsx (Node's default non-zero exit on an
+// uncaught error) AND surfaces as a normal failed test file under vitest.
+if (failures > 0) throw new Error(`${failures}/${total} assertions FAILED`);
