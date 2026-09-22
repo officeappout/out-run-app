@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
     uid: identity.uid,
     email: identity.email,
     admin: identity.admin,
+    scope: identity.scope,
   });
 
   const res = NextResponse.json({
@@ -73,6 +74,7 @@ export async function POST(req: NextRequest) {
     uid: identity.uid,
     email: identity.email,
     admin: identity.admin,
+    scope: identity.scope,
   });
   res.headers.set('Set-Cookie', buildCookie(sessionToken, SESSION_TTL_SECONDS));
   return res;

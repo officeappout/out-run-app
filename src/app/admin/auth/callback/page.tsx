@@ -7,7 +7,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, type User } from 'firebase/auth';
-import { signInWithMagicLink, isMagicLinkCallback, signOutUser } from '@/lib/auth.service';
+import { signInWithMagicLink, isMagicLinkCallback, signOutUser, mintAdminSessionCookie } from '@/lib/auth.service';
 import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
 import { getAuthoritiesByManager } from '@/features/admin/services/authority.service';
 import { decidePreflightAction } from '@/features/admin/services/auth-callback-preflight';
@@ -62,7 +62,16 @@ function AuthCallbackContent() {
   // pre-auth "is this email a manager" lookup was removed entirely, exactly
   // to avoid answering that for an unauthenticated caller). Everything here
   // reads the CALLER'S OWN doc under their own freshly-verified session.
+  //
+  // Mints/refreshes the session cookie FIRST, unconditionally — every
+  // caller of this function (the normal sign-in tail, the pre-flight
+  // "already signed in, resolve directly" shortcut, and the account-switch
+  // cancel handler) is about to router.replace() to an /admin/* path that
+  // middleware.ts gates on that exact cookie. Relying on AdminSessionSync
+  // (admin/layout.tsx) alone races the navigation — see
+  // 00-MASTER-PLAN.md §13.10.
   const resolveDestination = async (user: User) => {
+    await mintAdminSessionCookie(user);
     const roleInfo = await checkUserRole(user.uid);
     const isOnly = await isOnlyAuthorityManager(user.uid);
 
@@ -116,19 +125,10 @@ function AuthCallbackContent() {
     // The middleware checks for this cookie on the very first /admin/* request.
     // If we navigate first and mint later (via AdminSessionSync), the middleware
     // intercepts the navigation while the cookie is still missing → redirect loop.
-    try {
-      const idToken = await result.user.getIdToken(/* forceRefresh */ true);
-      await fetch('/api/auth/session', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken }),
-      });
-    } catch (sessionErr) {
-      // Non-fatal: AdminSessionSync will retry. Middleware will catch the missing
-      // cookie and redirect to login, but that is safer than blocking sign-in.
-      console.warn('[AuthCallback] Session cookie pre-mint failed:', sessionErr);
-    }
+    // (resolveDestination() below mints again for its own callers — this
+    // earlier mint is still needed because the invitationApplied branch
+    // right below navigates directly, without ever calling resolveDestination.)
+    await mintAdminSessionCookie(result.user);
 
     // Check for invitation token — redeem it before role check
     const invitationToken = searchParams?.get('token') ||

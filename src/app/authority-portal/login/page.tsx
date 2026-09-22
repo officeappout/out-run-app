@@ -5,8 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
-import { sendMagicLink } from '@/lib/auth.service';
+import { sendMagicLink, mintAdminSessionCookie, signOutUser } from '@/lib/auth.service';
 import { getAuthoritiesByManager, getAuthority } from '@/features/admin/services/authority.service';
+import { decideLoopBreak, readLastLoopAttempt, recordLoopAttempt, clearLoopAttempt } from '@/features/admin/services/authority-login-loop-guard';
 import { Building2, Mail, AlertCircle, CheckCircle, Loader2, X, MailCheck, Search } from 'lucide-react';
 import AppLogoLoader from '@/components/AppLogoLoader';
 
@@ -35,6 +36,24 @@ function AuthorityPortalLoginContent() {
   // Set when /admin/login bounced an already-signed-in authority manager
   // here (?redirected=1) — shown once as an explanation, not an error.
   const wasRedirectedFromAdminLogin = searchParams.get('redirected') === '1';
+
+  // Loop breaker (00-MASTER-PLAN.md §13.10): this page redirects a
+  // confirmed authority manager straight to /admin/authority-manager.
+  // Before the scope-cookie fix, middleware always bounced that request
+  // back to /admin/login, whose own client-side check sent them right back
+  // here — forever.
+  //
+  // ?redirected=1 alone is NOT a loop signal — an already-signed-in
+  // manager who visits /admin/login directly (not looping at all) gets
+  // bounced here exactly once, legitimately, by admin/login's own
+  // isAuthorityManager check. Treating that first bounce as "stop" blocked
+  // a real manager who was never looping (caught in review before merge).
+  // Instead, a sessionStorage-backed timestamp tracks actual REPEATED
+  // attempts across the full-page navigations a real loop implies (React
+  // state wouldn't survive those) — only a second attempt within a short
+  // window counts as a genuine loop. See authority-login-loop-guard.ts for
+  // the pure decision function and its own tests.
+  const [loopDetected, setLoopDetected] = useState(false);
 
   // Persist invitation token to localStorage so it survives the magic link redirect
   useEffect(() => {
@@ -71,6 +90,17 @@ function AuthorityPortalLoginContent() {
           const isOnly = await isOnlyAuthorityManager(user.uid);
 
           if (roleInfo.isAuthorityManager || isOnly) {
+            // Loop guard: retry on the first attempt regardless of
+            // ?redirected=1 (see the comment above this effect) — only
+            // stop when a PRIOR attempt was recorded within the window.
+            const loopDecision = decideLoopBreak(readLastLoopAttempt(), Date.now());
+            if (loopDecision === 'stop') {
+              setLoopDetected(true);
+              setCheckingAuth(false);
+              return;
+            }
+            recordLoopAttempt();
+
             // If branding not yet loaded from URL, try from user's authority
             if (!brandName) {
               try {
@@ -83,6 +113,12 @@ function AuthorityPortalLoginContent() {
                 }
               } catch {}
             }
+            // Mint the session cookie BEFORE navigating — this page lives
+            // OUTSIDE admin/layout.tsx, so AdminSessionSync never runs
+            // here to do it for us. Without this, middleware.ts sees the
+            // stale/missing cookie on the very first /admin/authority-manager
+            // request and bounces to /admin/login (00-MASTER-PLAN.md §13.10).
+            await mintAdminSessionCookie(user);
             router.replace('/admin/authority-manager');
             return;
           } else if (roleInfo.isSuperAdmin || roleInfo.isSystemAdmin) {
@@ -147,6 +183,33 @@ function AuthorityPortalLoginContent() {
     setShowSuccessModal(false);
     setSentToEmail('');
   };
+
+  const handleLoopSignOut = async () => {
+    await signOutUser();
+    clearLoopAttempt();
+    setLoopDetected(false);
+    setCheckingAuth(false);
+  };
+
+  if (loopDetected) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-6" dir="rtl">
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+          <AlertCircle className="w-16 h-16 text-amber-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">יש בעיה בזיהוי ההרשאות שלך</h2>
+          <p className="text-gray-600 mb-6">
+            לא הצלחנו להעביר אותך לפורטל הנכון. נסה להתנתק ולהתחבר שוב — אם זה חוזר, פנה למנהל המערכת.
+          </p>
+          <button
+            onClick={handleLoopSignOut}
+            className="w-full bg-cyan-600 text-white py-3 rounded-xl font-bold hover:bg-cyan-700 transition-colors"
+          >
+            התנתק ונסה שוב
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (checkingAuth) {
     return <AppLogoLoader caption="בודק הרשאות..." />;

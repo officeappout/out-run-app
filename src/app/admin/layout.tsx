@@ -56,6 +56,7 @@ import { auth } from '@/lib/firebase';
 import { checkUserRole, isOnlyAuthorityManager, isSystemAdmin as checkIsSystemAdmin, UserRoleInfo } from '@/features/admin/services/auth.service';
 import { getAuthoritiesByManager, getAllAuthorities, getAuthority } from '@/features/admin/services/authority.service';
 import { signOutUser } from '@/lib/auth.service';
+import { clearLoopAttempt } from '@/features/admin/services/authority-login-loop-guard';
 import AppLogoLoader from '@/components/AppLogoLoader';
 import { authorityTypeToTenantType, getTenantLabels, orgTypeDisplayName, VERTICAL_THEMES } from '@/features/admin/config/tenantLabels';
 import type { Authority } from '@/types/admin-types';
@@ -349,6 +350,13 @@ function AdminLayoutInner({
                 }
 
                 if (isOnly || info.isAuthorityManager) {
+                    // Reaching this point means the layout's own client-side
+                    // check confirmed an authority manager AND middleware
+                    // already let this request through (it runs before any
+                    // of this JS does) — a successful arrival. Clear the
+                    // loop guard so a later, genuinely fresh login attempt
+                    // isn't blocked by a stale window from this one.
+                    clearLoopAttempt();
                     try {
                         const authorities = await getAuthoritiesByManager(user.uid);
                         if (authorities.length > 0) {
