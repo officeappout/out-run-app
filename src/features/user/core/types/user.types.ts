@@ -203,6 +203,21 @@ export interface UserProgression {
 
   /** Ordered skill IDs for multi-skill hybrid (Path C, 2+ skills). Drives P1/P2/P3 rotation in calisthenics_upper. */
   skillFocusIds?: string[];
+
+  /**
+   * Multi-select program path (Phase 1b) — the ordered program-path card
+   * selection ('health' | 'body_focus' | 'skills'), written only when 2+
+   * cards were selected (same threshold as skillFocusIds). Display only —
+   * read by PrioritiesSection (profile), never by SplitDecisionService or
+   * any scoring/volume code.
+   */
+  cardFocusOrder?: string[];
+  /**
+   * Multi-select program path (Phase 1b) — the ordered muscle-chip
+   * selection, written only when 2+ muscles were selected. Same
+   * display-only scope as cardFocusOrder/skillFocusIds.
+   */
+  muscleFocusIds?: string[];
 }
 
 // ==========================================

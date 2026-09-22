@@ -24,6 +24,7 @@ import { DEFAULT_PACE_MAP_CONFIG } from '@/features/workout-engine/core/config/p
 import type { PaceProfile } from '@/features/workout-engine/core/types/running.types';
 import {
   getProgramPathFromStorage,
+  getProgramPathListFromStorage,
   getMuscleFocusFromStorage,
   getSkillFocusFromStorage,
   deriveActiveProgramFromMuscleFocus,
@@ -1131,6 +1132,11 @@ export async function syncOnboardingToFirestore(
       const muscleIds = getMuscleFocusFromStorage();
       const isPathBBodyFocus = path === 'body_focus' && muscleIds.length > 0;
 
+      // Multi-select program path (Phase 1b, piece d): the full ordered card
+      // selection — display-only, persisted below alongside skillFocusIds.
+      // Never consumed by scoring/volume logic; captured/persisted/displayed only.
+      const cardOrder = getProgramPathListFromStorage();
+
       // Path B safety net: if the user chose a muscle focus (e.g. "Chest only" →
       // ['chest']) but the questionnaire produced no assignedResults (sessionStorage
       // was cleared between pages, or the quiz page never wrote results), we
@@ -1548,6 +1554,12 @@ export async function syncOnboardingToFirestore(
                 }]
               : [],
           ...(isPathCSkills && skillIds.length >= 2 ? { skillFocusIds: skillIds } : {}),
+          // Multi-select program path (Phase 1b, piece d) — display-only priority
+          // order, same >=2 threshold as skillFocusIds (a single selection has no
+          // meaningful "order"). Never read by SplitDecisionService or any
+          // scoring/volume code — captured/persisted/displayed only.
+          ...(cardOrder.length >= 2 ? { cardFocusOrder: cardOrder } : {}),
+          ...(muscleIds.length >= 2 ? { muscleFocusIds: muscleIds } : {}),
         };
 
         // Store assignedResults on the document for future reference
