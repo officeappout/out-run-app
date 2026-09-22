@@ -79,12 +79,14 @@ vi.mock('@/features/user/onboarding/services/branching-logic.service', () => ({
 // below, reset in beforeEach.
 const pathConfigState = vi.hoisted(() => ({
   programPath: null as string | null,
+  cardOrder: [] as string[],
   skillFocus: [] as string[],
   muscleFocus: [] as string[],
 }));
 
 vi.mock('@/features/user/onboarding/services/assessment-path-config.service', () => ({
   getProgramPathFromStorage: () => pathConfigState.programPath,
+  getProgramPathListFromStorage: () => pathConfigState.cardOrder,
   getMuscleFocusFromStorage: () => pathConfigState.muscleFocus,
   getSkillFocusFromStorage: () => pathConfigState.skillFocus,
   deriveActiveProgramFromMuscleFocus: () => 'push',
@@ -163,6 +165,7 @@ beforeEach(() => {
   state.EXISTING_DOC = null;
   setDocMock.mockClear();
   pathConfigState.programPath = null;
+  pathConfigState.cardOrder = [];
   pathConfigState.skillFocus = [];
   pathConfigState.muscleFocus = [];
   vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -761,5 +764,75 @@ describe('syncOnboardingToFirestore — D2 (multi-select program path, Phase 1):
 
     expect(written.progression.tracks.core).toBeUndefined();
     expect(written.progression.domains.core?.currentLevel ?? 0).toBe(0);
+  });
+});
+
+describe('syncOnboardingToFirestore — multi-select program path (Phase 1b, piece d): cardFocusOrder / muscleFocusIds persistence', () => {
+  it('2+ selected cards: cardFocusOrder is written, in tap order', async () => {
+    pathConfigState.programPath = 'skills';
+    pathConfigState.cardOrder = ['skills', 'body_focus'];
+    pathConfigState.skillFocus = ['planche', 'front_lever'];
+    stubBrowserStorage();
+
+    const sharedMasterSubLevels = { push: 0, pull: 0, legs: 0, core: 3 };
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      assignedResults: [
+        { programId: 'planche', levelId: 'planche_level_5', masterProgramSubLevels: sharedMasterSubLevels },
+        { programId: 'front_lever', levelId: 'front_lever_level_4', masterProgramSubLevels: sharedMasterSubLevels },
+      ],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+    expect(written.progression.cardFocusOrder).toEqual(['skills', 'body_focus']);
+  });
+
+  it('exactly 1 selected card: cardFocusOrder is NOT written (no meaningful order)', async () => {
+    pathConfigState.programPath = 'skills';
+    pathConfigState.cardOrder = ['skills'];
+    pathConfigState.skillFocus = ['planche'];
+    stubBrowserStorage();
+
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      assignedResults: [
+        { programId: 'planche', levelId: 'planche_level_5', masterProgramSubLevels: { push: 0, pull: 0, legs: 0, core: 0 } },
+      ],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+    expect(written.progression.cardFocusOrder).toBeUndefined();
+  });
+
+  it('2+ selected muscles: muscleFocusIds is written, in tap order', async () => {
+    pathConfigState.programPath = 'body_focus';
+    pathConfigState.muscleFocus = ['back', 'chest'];
+    stubBrowserStorage();
+
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      assignedResults: [
+        { programId: 'push', levelId: 'push_level_5', masterProgramSubLevels: { push: 5, pull: 6, legs: 0, core: 0 } },
+      ],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+    expect(written.progression.muscleFocusIds).toEqual(['back', 'chest']);
+  });
+
+  it('exactly 1 selected muscle: muscleFocusIds is NOT written', async () => {
+    pathConfigState.programPath = 'body_focus';
+    pathConfigState.muscleFocus = ['chest'];
+    stubBrowserStorage();
+
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      assignedResults: [
+        { programId: 'push', levelId: 'push_level_5', masterProgramSubLevels: { push: 5, pull: 0, legs: 0, core: 0 } },
+      ],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+    expect(written.progression.muscleFocusIds).toBeUndefined();
   });
 });
