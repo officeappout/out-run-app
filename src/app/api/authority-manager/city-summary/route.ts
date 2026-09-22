@@ -73,17 +73,30 @@ export async function GET(request: NextRequest) {
     const authorityName = typeof rawName === 'string' ? rawName : (rawName?.he || rawName?.en || '');
 
     const usersRef = db.collection('users').where('core.authorityId', '==', authorityId);
+    const approvedRef = usersRef.where('core.isApproved', '==', true);
 
-    const [totalSnap, approvedSnap] = await Promise.all([
+    // Demo/mock users (src/features/admin/services/demo-seed-sderot.ts tags
+    // them core.isMockData: true) must not count as real residents. The
+    // naive fix — usersRef.where('core.isMockData', '!=', true) — is wrong:
+    // Firestore's `!=` excludes any document where the field is ABSENT, not
+    // just where it's false. Almost no real resident ever sets isMockData at
+    // all, so that query would have excluded almost every real resident too,
+    // leaving mostly demo users in the count — the opposite of the intent.
+    // Fixed by counting demo users separately with a positive `== true`
+    // filter (which only ever matches documents that actually set the flag)
+    // and subtracting, rather than trying to query the exclusion directly.
+    const [totalAllSnap, totalMockSnap, approvedAllSnap, approvedMockSnap] = await Promise.all([
       usersRef.count().get(),
-      usersRef.where('core.isApproved', '==', true).count().get(),
+      usersRef.where('core.isMockData', '==', true).count().get(),
+      approvedRef.count().get(),
+      approvedRef.where('core.isMockData', '==', true).count().get(),
     ]);
 
     return NextResponse.json({
       authorityId,
       authorityName,
-      totalUsers: totalSnap.data().count,
-      approvedUsers: approvedSnap.data().count,
+      totalUsers: totalAllSnap.data().count - totalMockSnap.data().count,
+      approvedUsers: approvedAllSnap.data().count - approvedMockSnap.data().count,
     });
   } catch (err: any) {
     console.error('[/api/authority-manager/city-summary] error:', err?.message ?? err);
