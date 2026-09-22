@@ -293,7 +293,7 @@ function AuthorityPortalLoginContent() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   disabled={loading}
-                  className="w-full pr-12 pl-4 py-4 text-base border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-gray-50 focus:bg-white"
+                  className="w-full pr-12 pl-4 py-4 text-base text-gray-900 placeholder:text-gray-600 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-gray-50 focus:bg-white"
                   placeholder="your.email@municipality.co.il"
                   dir="ltr"
                 />

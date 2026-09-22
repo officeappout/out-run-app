@@ -35,6 +35,7 @@ import {
   type ParkOverlayItem,
 } from '@/features/heatmap/services/route-overlay.service';
 import { DualRangeSlider } from '@/features/partners/components/DualRangeSlider';
+import { ISRAEL_GENERAL_MAP_CENTER, ISRAEL_GENERAL_MAP_ZOOM } from '@/lib/map-defaults';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -456,9 +457,13 @@ export default function LiveHeatMap({ authorityId, center }: LiveHeatMapProps) {
         ref={mapRef}
         mapboxAccessToken={MAPBOX_TOKEN}
         initialViewState={{
-          latitude: center?.lat ?? 31.525,
-          longitude: center?.lng ?? 34.595,
-          zoom: 13,
+          // No known authority/parks center (page.tsx couldn't resolve
+          // one) → a neutral whole-of-Israel view, zoomed out — never
+          // another city's coordinates at city-level zoom (00-MASTER-PLAN
+          // §13.11). A real center still gets the normal city-level zoom.
+          latitude: center?.lat ?? ISRAEL_GENERAL_MAP_CENTER.lat,
+          longitude: center?.lng ?? ISRAEL_GENERAL_MAP_CENTER.lng,
+          zoom: center ? 13 : ISRAEL_GENERAL_MAP_ZOOM,
         }}
         style={{ width: '100%', height: '100%' }}
         mapStyle="mapbox://styles/mapbox/streets-v12"
