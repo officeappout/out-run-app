@@ -856,6 +856,18 @@ export default function VisualAssessmentPage() {
         console.warn('[Assessment] Sync returned false — data may be incomplete');
       }
 
+      // Refresh the store so a freshly-onboarded user doesn't hit a stale
+      // pre-onboarding profile snapshot on /profile — useUserStore has no
+      // live Firestore listener, only one-shot fetches + this explicit
+      // action (same fix the mini-assessment path above already applies for
+      // the same reason). Best-effort: a failure here shouldn't block
+      // navigation, the store will simply catch up on its next natural fetch.
+      try {
+        await useUserStore.getState().refreshProfile();
+      } catch (refreshErr) {
+        console.warn('[Assessment] Profile refresh after onboarding failed (non-fatal):', refreshErr);
+      }
+
       firePhaseConfetti();
       router.push('/onboarding-new/health');
     } catch (err) {
