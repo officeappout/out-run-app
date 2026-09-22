@@ -31,6 +31,7 @@ import {
   getFocusDomainsForMuscleFocus,
 } from './assessment-path-config.service';
 import { getAccessCodeResult, clearAccessCodeResult } from './access-code.service';
+import { SKILL_TO_FOUNDATION_DOMAIN } from '../constants/skill-foundation-domain.constants';
 import { getProgramByTemplateId } from '@/features/content/programs';
 import { buildAttributionPayload } from '@/lib/marketingAttribution';
 import { triggerKellyWelcomeBot } from '@/features/social/services/kelly-welcome-bot.service';
@@ -76,26 +77,8 @@ const CANONICAL_PROGRAM_SLUGS = new Set<string>([
 /** Offset added to a skill level to derive the paired foundational domain level. */
 const SKILL_TO_FOUNDATION_OFFSET = 9;
 
-/**
- * Maps a canonical skill program slug to the foundational movement domain
- * whose track level should be inferred from the assessed skill level.
- *
- * Push-family skills → 'push'
- * Pull-family skills → 'pull'
- *
- * Skills absent from this map (e.g. 'human_flag') have no direct foundational
- * pairing and leave both push and pull tracks unwritten — by design.
- */
-const SKILL_TO_FOUNDATION_DOMAIN: Readonly<Record<string, 'push' | 'pull'>> = {
-  planche:          'push',
-  handstand:        'push',
-  handstand_pushup: 'push',
-  hspu:             'push',
-  front_lever:      'pull',
-  back_lever:       'pull',
-  muscle_up:        'pull',
-  one_arm_pullup:   'pull',
-};
+// SKILL_TO_FOUNDATION_DOMAIN now lives in ../constants/skill-foundation-domain.constants.ts
+// (shared with assessment-path-config.service.ts's D3 collision suppression).
 
 /**
  * Resolve a programId against the `programs` Firestore collection BEFORE
@@ -1205,12 +1188,21 @@ export async function syncOnboardingToFirestore(
                 ...primaryResult,
                 programId: 'calisthenics_upper',
                 levelId: primaryResult.levelId,
-                masterProgramSubLevels: Object.fromEntries(
-                  skillResults.map((r) => {
-                    const m = r.levelId.match(/(\d+)/);
-                    return [r.programId, m ? Math.max(1, parseInt(m[1], 10)) : 1];
-                  })
-                ),
+                masterProgramSubLevels: {
+                  ...Object.fromEntries(
+                    skillResults.map((r) => {
+                      const m = r.levelId.match(/(\d+)/);
+                      return [r.programId, m ? Math.max(1, parseInt(m[1], 10)) : 1];
+                    })
+                  ),
+                  // D2: a real assessed core level (see assessment-visual/page.tsx's
+                  // buildSkillResult) would otherwise be silently dropped here — this
+                  // object used to be a full replacement of primaryResult's
+                  // masterProgramSubLevels, keeping only the skill-id→level pairs.
+                  ...(primaryResult.masterProgramSubLevels?.core
+                    ? { core: primaryResult.masterProgramSubLevels.core }
+                    : {}),
+                },
               },
             ];
           }
@@ -1472,9 +1464,9 @@ export async function syncOnboardingToFirestore(
         }
 
         // ── Ghost Data Purge (Path C) ─────────────────────────────────
-        // Path C users register via a single (or multi) skill selection and are
-        // never assessed on the legs / core foundational tracks.  The
-        // `initialDomains` bootstrap stamps every CMS program with
+        // Path C users register via a single (or multi) skill selection and,
+        // historically, were never assessed on the legs / core foundational
+        // tracks. The `initialDomains` bootstrap stamps every CMS program with
         // `currentLevel: 0` so the document has a complete shape, but for skill
         // users those zeros are pure ghost data — they would otherwise:
         //   • Pollute master-program averages (upper_body, full_body) with L0
@@ -1484,12 +1476,20 @@ export async function syncOnboardingToFirestore(
         //   • Break the strict spreadsheet rule that unassessed foundational
         //     domains must remain ABSENT (not zero).
         //
+        // D2 (multi-select program path, Phase 1): a skill selection now always
+        // gets a real `core` slider too (assessment-path-config.service.ts's
+        // union resolver adds it; assessment-visual/page.tsx's buildSkillResult
+        // reads the real level instead of hardcoding 0). `legs` still has no
+        // slider for a skill-only selection and stays ghost data.
+        //
         // The purge is strictly conditional:
         //   • Only fires for Path C users (`isPathCSkills`).
         //   • Only strips `legs` and `core` (push/pull may have been derived
         //     via SKILL_TO_FOUNDATION_OFFSET and must be preserved).
         //   • Only strips entries the quiz did NOT explicitly assess
-        //     (currentLevel === 0) — any legitimately assessed value stays.
+        //     (currentLevel === 0) — any legitimately assessed value (including
+        //     a real D2 core slider result) stays, `wasAssessed` below already
+        //     guards this correctly with no code change needed for D2.
         if (isPathCSkills) {
           for (const ghostDomain of ['legs', 'core'] as const) {
             const wasAssessed = (quizTracks[ghostDomain]?.currentLevel ?? 0) > 0;
