@@ -31,6 +31,7 @@ const MUSCLE_CHIP_LABELS: Record<string, string> = {
   triceps: 'יד אחורית',
   legs: 'רגליים',
   core: 'בטן וליבה',
+  glutes: 'ישבן',
 };
 
 /** Calisthenics skill programs — slug matches Firestore program IDs.
@@ -72,6 +73,7 @@ const MUSCLE_FOCUS_IDS: MuscleGroup[] = [
   'triceps',
   'legs',
   'core',
+  'glutes',
 ];
 
 type ProgramPathType = 'health' | 'body_focus' | 'skills' | null;
@@ -300,7 +302,7 @@ export default function ProgramPathPage() {
             className="text-2xl font-black mb-2"
             style={{ color: '#182236' }}
           >
-            איזה מסלול מתאים לך?
+            מה הכי בא לך להשיג?
           </h1>
           <p className="text-sm text-slate-500">
             {isFemale ? 'בחרי את הכיוון שתרצי להתמקד בו' : 'בחר את הכיוון שתרצה להתמקד בו'}
@@ -341,10 +343,18 @@ export default function ProgramPathPage() {
                   path === 'health' ? 'text-[#182236]' : 'text-slate-700'
                 }`}
               >
-                אורח חיים ובריאות
+                בריאות, כוח ואנרגיה
               </p>
               <p className="text-sm text-slate-500">
                 {path === 'health' ? 'בסיס בריאותי מקיף לגוף ולנפש' : 'בניית בסיס, בריאות ואנרגיה יומית'}
+              </p>
+              <div className="flex items-center gap-2 mt-1.5">
+                <span className="text-[11px] font-bold text-[#00BAF7] bg-[#00BAF7]/10 rounded-full px-2 py-0.5">
+                  מתחילים
+                </span>
+              </div>
+              <p className="text-[12px] text-slate-400 mt-1 leading-snug">
+                מתאים ל: מי שרק מתחיל, חזר אחרי הפסקה, או רוצה בסיס בריא לכל הגוף.
               </p>
             </div>
             {path === 'health' && (
@@ -431,7 +441,7 @@ export default function ProgramPathPage() {
                     : 'text-slate-700'
                 }`}
               >
-                מיקוד שרירים וחיטוב
+                עיצוב ושרירים
               </p>
               <p className="text-sm text-slate-500 leading-snug">
                 {isFullBodySelected
@@ -441,6 +451,14 @@ export default function ProgramPathPage() {
                     : isFemale
                       ? 'חיטוב וחיזוק הגוף, הגברת האנרגיה ומיקוד באזורים המועדפים עלייך.'
                       : 'בניית מסת שריר, עבודה על עומסים ומיקוד בקבוצות השרירים המועדפות עליך.'}
+              </p>
+              <div className="flex items-center gap-2 mt-1.5">
+                <span className="text-[11px] font-bold text-[#00BAF7] bg-[#00BAF7]/10 rounded-full px-2 py-0.5">
+                  לכל רמה
+                </span>
+              </div>
+              <p className="text-[12px] text-slate-400 mt-1 leading-snug">
+                מתאים ל: מי שכבר זז ורוצה למקד אזורים ולראות שינוי בגוף.
               </p>
             </div>
             {(path === 'body_focus' || selectedMuscles.length > 0) && (
@@ -559,7 +577,7 @@ export default function ProgramPathPage() {
                     : 'text-slate-700'
                 }`}
               >
-                קליסטניקס וסקילים
+                לומדים תרגילי קליסטניקס מתקדמים
               </p>
               <p className="text-sm text-slate-500 leading-snug">
                 {selectedSkills.length > 0
@@ -567,6 +585,17 @@ export default function ProgramPathPage() {
                   : isFemale
                     ? 'פיתוח כוח יחסי מטורף, שליטה מלאה במשקל הגוף ופתיחת אלמנטים מתקדמים שמתאימים לך.'
                     : 'פיתוח כוח יחסי מטורף, שליטה מלאה במשקל הגוף ופתיחת אלמנטים מתקדמים שתרצה להשיג.'}
+              </p>
+              <div className="flex items-center gap-2 mt-1.5">
+                <span className="text-[11px] font-bold text-[#00BAF7] bg-[#00BAF7]/10 rounded-full px-2 py-0.5">
+                  מתקדמים
+                </span>
+              </div>
+              <p className="text-[12px] text-slate-400 mt-1 leading-snug">
+                מתאים ל: מי שכבר עושה כמה מתח ומקבילים ורוצה לאתגר את עצמו לרמה הבאה.
+              </p>
+              <p className="text-[12px] text-slate-400 mt-1 leading-snug">
+                עוד לא שם? נבנה לך את הבסיס עד לשם.
               </p>
             </div>
             {(path === 'skills' || selectedSkills.length > 0) && (

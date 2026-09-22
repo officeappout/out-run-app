@@ -72,6 +72,7 @@ const MUSCLE_TO_CATEGORY: Record<string, string> = {
   biceps: 'pull',
   legs: 'legs',
   core: 'core',
+  glutes: 'legs',
 };
 
 /**
