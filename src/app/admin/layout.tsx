@@ -276,7 +276,17 @@ function AdminLayoutInner({
             // onAuthStateChanged still sees B, etc. Fix: sign out of BOTH
             // once and land cleanly on login — the mismatchHandledRef
             // guard means this can fire at most once per mount, never loop.
-            if (!mismatchHandledRef.current) {
+            //
+            // Skipped entirely when `user` is anonymous — same blind spot
+            // as auth/callback's pre-flight check (22.09.2026 regression,
+            // see auth-callback-preflight.ts): an anonymous client session
+            // is a disposable identity this app creates liberally and says
+            // nothing about who's really signed in. Comparing it against a
+            // perfectly valid cookie for a real account would sign that
+            // account out over a spurious mismatch — e.g. a brief
+            // anonymous-session race before Firebase finishes restoring
+            // the real persisted session.
+            if (!mismatchHandledRef.current && !user.isAnonymous) {
                 try {
                     const sessionRes = await fetch('/api/auth/session', { credentials: 'same-origin' });
                     const sessionBody = sessionRes.ok ? await sessionRes.json() : null;
