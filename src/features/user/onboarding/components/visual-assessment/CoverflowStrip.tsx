@@ -46,6 +46,17 @@ export default function CoverflowStrip({
   const isUserGesture = useRef(false);
   const hasPositioned = useRef(false);
   const lastEmitted = useRef<number | null>(null);
+  // Every scroll WE trigger programmatically (initial silent positioning, or
+  // the tap-driven recenter) still fires real 'scroll'/'scrollend' events —
+  // browsers don't distinguish "caused by JS" from "caused by the user" for
+  // these. Confirmed live: the initial positioning's own scrollend was
+  // re-emitting a selection change during mount, before tile offsetLeft
+  // layout had fully settled, silently overriding the correct default
+  // (steps[0]) with whatever the premature centering math computed. Any
+  // scrollend/debounced-scroll-settle that follows a programmatic scroll we
+  // initiated is consumed here and never reaches emitFromScroll — only a
+  // scrollend with NO preceding programmatic scroll (i.e. a real drag) does.
+  const suppressNextEmit = useRef(false);
   const [isVisible, setIsVisible] = useState(false);
 
   // displayIndex 0 = hardest (leftmost in forced-ltr DOM) ... last = easiest (rightmost).
@@ -63,6 +74,7 @@ export default function CoverflowStrip({
     const el = scrollRef.current;
     const tile = tileRefs.current[displayIndex];
     if (!el || !tile) return;
+    suppressNextEmit.current = true;
     const target = tile.offsetLeft + tile.offsetWidth / 2 - el.clientWidth / 2;
     if (smooth) {
       el.scrollTo({ left: target, behavior: 'smooth' });
@@ -155,18 +167,39 @@ export default function CoverflowStrip({
     if (!el) return;
     const hasNativeScrollend = 'onscrollend' in window;
 
+    const settleScroll = () => {
+      // Ignore anything before OUR OWN initial positioning has run at all —
+      // this is what catches the browser's own scroll-snap auto-correction
+      // (CSS `scroll-snap-type` snaps scrollLeft:0 to the nearest valid snap
+      // point the instant the strip lays out, on its own, before any JS of
+      // ours ever runs — confirmed live via console trace: that auto-snap's
+      // scrollend fired and emitted a selection BEFORE the initial-positioning
+      // rAF even executed, since `suppressNextEmit` is only ever armed inside
+      // scrollToDisplayIndex, called from that same not-yet-run rAF).
+      if (!hasPositioned.current) return;
+      // Consume the suppression exactly once — a scrollend that follows a
+      // programmatic scroll we ourselves triggered (initial positioning's own
+      // resulting scrollend, or a tap-recenter) never emits; the next one
+      // that isn't preceded by our own scrollToDisplayIndex call does.
+      if (suppressNextEmit.current) { suppressNextEmit.current = false; return; }
+      emitFromScroll();
+    };
     const onScroll = () => {
       applyVisuals();
       if (!hasNativeScrollend) {
         if (scrollEndTimer.current) clearTimeout(scrollEndTimer.current);
-        scrollEndTimer.current = setTimeout(emitFromScroll, 120);
+        scrollEndTimer.current = setTimeout(settleScroll, 120);
       }
     };
     const onScrollEnd = () => {
       applyVisuals();
-      emitFromScroll();
+      settleScroll();
     };
-    const onTouchStart = () => { isUserGesture.current = true; };
+    const onTouchStart = () => {
+      isUserGesture.current = true;
+      // A real grab always wins over any pending programmatic-scroll suppression.
+      suppressNextEmit.current = false;
+    };
     const onTouchEnd = () => {
       // Small delay so the trailing scroll-snap settle isn't mistaken for
       // an external update by the sync effect above.
