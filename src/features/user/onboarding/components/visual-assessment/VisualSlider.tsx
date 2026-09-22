@@ -411,7 +411,7 @@ export default function VisualSlider({
         {/* ── Tier pill — replaces the old always-visible 3-point track labels.
             Always rendered (not gated on exerciseLabel/repsLabel) so the level
             is still communicated even on the ~12 levels with no admin copy. ── */}
-        <div className="flex-shrink-0 px-6 pb-2 flex justify-center">
+        <div className="flex-shrink-0 px-6 pb-1 flex justify-center">
           <span
             className="text-[11px] font-bold px-3 py-1 rounded-full"
             style={{ backgroundColor: 'rgba(0,186,247,0.08)', color: '#00BAF7' }}
@@ -431,18 +431,18 @@ export default function VisualSlider({
               animate={{ opacity: contentFading ? 0 : 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.25 }}
-              className="flex-shrink-0 px-6 pb-3"
+              className="flex-shrink-0 px-6 pb-2"
             >
-              <div className="bg-[#00BAF7]/6 border border-[#00BAF7]/20 rounded-2xl px-4 py-3 text-center space-y-0.5">
+              <div className="bg-[#00BAF7]/6 border border-[#00BAF7]/20 rounded-2xl px-4 py-2 text-center space-y-0.5">
                 {/* 1 — Exercise name */}
                 {exerciseLabel && (
-                  <h3 className="text-2xl font-bold text-slate-950 leading-snug">
+                  <h3 className="text-xl font-bold text-slate-950 leading-snug">
                     {exerciseLabel}
                   </h3>
                 )}
                 {/* 2 — Performance benchmark (reps/seconds) */}
                 {repsLabel && (
-                  <p className="text-lg font-normal text-slate-950 leading-snug">
+                  <p className="text-base font-normal text-slate-950 leading-snug">
                     {repsLabel}
                   </p>
                 )}
@@ -454,6 +454,19 @@ export default function VisualSlider({
         {/* ── Coverflow thumbnail strip (simple mode, 2+ admin-defined steps) ── */}
         {isSimple && steps ? (
           <div className="flex-shrink-0 pb-1">
+            {/* Persistent helper line — always visible (unlike the one-time JIT
+                tutorial bubble below, which only shows on the very first slider
+                and gets dismissed after the first touch). */}
+            <div className="px-6 pb-1.5 text-center">
+              <p className="text-sm font-semibold text-slate-700 leading-snug">
+                {isFemale
+                  ? 'החלק ועצרי על התרגיל הכי קשה שאת בטוחה שתבצעי'
+                  : 'החלק ועצור על התרגיל הכי קשה שאתה בטוח שתבצע'}
+              </p>
+              <p className="text-xs font-normal text-slate-400 mt-0.5 leading-snug">
+                {isFemale ? 'לא בטוחה? בחרי בערך — נדייק בהמשך' : 'לא בטוח? בחר בערך — נדייק בהמשך'}
+              </p>
+            </div>
             <CoverflowStrip
               steps={steps}
               selectedIndex={sliderVal}
@@ -506,23 +519,41 @@ export default function VisualSlider({
 
       </div>{/* end punch-through */}
 
-      {/* ── Confirm button — separate wrapper, stays behind z-30 overlay during tutorial ── */}
+      {/* ── Confirm button — separate wrapper, stays behind z-30 overlay during tutorial ──
+          Dynamic label ties the button to the currently selected exercise
+          ("{name} — זו הרמה שלי"), falling back to the plain next/finish label
+          on the ~12 levels with no admin-set exerciseName. CALM (muted, low
+          contrast) until the user's first interaction with the slider/strip
+          (reuses `userInteracted`, the same flag that already drives the
+          drag-hint dismissal) — avoids inviting a press before anything is
+          actually chosen — then PROMOTED to the full gradient + bold near-black
+          text once touched. */}
       <div
         className="flex-shrink-0 px-6 pt-3"
         style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
       >
-        {/* Confirm button — gradient fill + AI glow */}
         <button
           onClick={handleConfirm}
-          className="w-full py-4 rounded-full font-black text-lg text-white active:scale-95 transition-all duration-200 flex items-center justify-center gap-2"
+          className={clsx(
+            'w-full py-4 rounded-full font-black text-lg active:scale-95 transition-all duration-300 flex items-center justify-center gap-2',
+            userInteracted ? 'text-slate-950' : 'text-slate-400',
+          )}
           style={{
-            backgroundImage: 'linear-gradient(98deg, #0CF2E3 0%, #00BAF7 98%)',
+            backgroundImage: userInteracted
+              ? 'linear-gradient(98deg, #0CF2E3 0%, #00BAF7 98%)'
+              : 'linear-gradient(98deg, rgba(12,242,227,0.14) 0%, rgba(0,186,247,0.14) 98%)',
             fontFamily: 'var(--font-simpler)',
-            boxShadow:
-              '0 8px 20px rgba(0,186,247,0.25), 0 0 40px rgba(112,0,255,0.10), 0 0 0 1px rgba(0,186,247,0.12)',
+            boxShadow: userInteracted
+              ? '0 8px 20px rgba(0,186,247,0.25), 0 0 40px rgba(112,0,255,0.10), 0 0 0 1px rgba(0,186,247,0.12)'
+              : 'none',
           }}
         >
-          {stepIndex < totalSteps - 1 ? (
+          {exerciseLabel ? (
+            <span className="w-full flex items-center justify-center gap-1 overflow-hidden px-2">
+              <span className="truncate min-w-0">{exerciseLabel}</span>
+              <span className="flex-shrink-0 whitespace-nowrap">— זו הרמה שלי</span>
+            </span>
+          ) : stepIndex < totalSteps - 1 ? (
             <>
               <span>הבא</span>
               <span className="text-xl">←</span>

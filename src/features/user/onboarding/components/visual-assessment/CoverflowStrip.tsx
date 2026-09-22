@@ -224,14 +224,17 @@ export default function CoverflowStrip({
 
   const handleTap = (displayIndex: number) => {
     const idx = stepIndexFor(displayIndex);
-    isUserGesture.current = false; // tap is deterministic — let the sync effect drive the scroll
+    isUserGesture.current = false;
+    // Always recenter directly — the external sync effect can't do it here:
+    // it gates on `lastEmitted.current === selectedIndex`, but lastEmitted is
+    // set to `idx` right below, BEFORE onSelect's state update ever reaches
+    // this component as a new `selectedIndex` prop, so that effect's guard is
+    // already satisfied and it silently skips the scroll every time.
+    scrollToDisplayIndex(displayIndex, true);
     if (idx !== lastEmitted.current) {
       lastEmitted.current = idx;
       hapticSelection();
       onSelect(idx);
-    } else {
-      // Same tile re-tapped — still (re)center it.
-      scrollToDisplayIndex(displayIndex, true);
     }
   };
 
