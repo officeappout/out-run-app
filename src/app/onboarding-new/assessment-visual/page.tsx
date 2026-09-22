@@ -55,6 +55,7 @@ import {
   consumeMiniAssessmentState,
 } from '@/features/user/onboarding/services/mini-domain-assessment';
 import { writeSingleDomainAssessment } from '@/features/user/onboarding/services/single-domain-assessment.service';
+import { baselineSkillMasterSubLevels } from '@/features/user/onboarding/utils/skill-result-levels';
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -395,7 +396,7 @@ export default function VisualAssessmentPage() {
       if (categoryIndex < categories.length - 1) {
         setCategoryIndex((prev) => prev + 1);
       } else {
-        if (pathConfig?.path === 'skills') {
+        if ((pathConfig?.skillIds?.length ?? 0) > 0) {
           buildSkillResult(newLevels as Record<string, number>);
         } else {
           setStep('evaluating');
@@ -414,30 +415,39 @@ export default function VisualAssessmentPage() {
   ) => {
     try {
       const programs = await getAllPrograms();
-      // ── Path C: strict zero-baseline for unassessed foundational domains ──
-      // All four foundational tracks start at 0 (NOT 5).
+      // ── Path C: zero-baseline for unassessed foundational domains ──
+      // push/pull/legs start at 0 (NOT 5).
       //
       // Rationale:
-      //   • A skill-only user (e.g. Planche) never undergoes a push/pull/legs/
-      //     core visual slider assessment. Seeding any of those tracks with a
+      //   • A skill-only user (e.g. Planche) never undergoes a push/pull/legs
+      //     visual slider assessment. Seeding any of those tracks with a
       //     non-zero default contaminates `masterProgramSubLevels` and bypasses
       //     the Ghost Purge in onboarding-sync.service.ts (which only removes
       //     entries whose `currentLevel === 0`).
-      //   • `legs` and `core` must remain 0 so the purge can vaporise them.
+      //   • `legs` must remain 0 so the purge can vaporise it.
       //   • `push` (or `pull`) may be overridden below by the CMS
       //     `parentLevelMapping` stored on the program's level settings —
       //     this is the explicit spreadsheet formula for skill→foundation
       //     mapping. If no mapping exists, the +9 offset formula in
       //     onboarding-sync.service.ts (SKILL_TO_FOUNDATION_OFFSET) provides
       //     the correct foundational level without any default here.
-      const masterSubLevels: Record<string, number> = {
-        push: 0,
-        pull: 0,
-        legs: 0,
-        core: 0,
-      };
+      //   • `core` (D2, multi-select program path Phase 1): any skill
+      //     selection now gets its own real `core` category slider — added by
+      //     assessment-path-config.service.ts's union resolver as a literal
+      //     'core' entry in `categories`, alongside the skill-ladder entries.
+      //     Read that real assessed level straight from `skillLevels['core']`
+      //     instead of hardcoding 0, so the Ghost Purge's own `wasAssessed`
+      //     check (already correct, no change needed there) sees a real value
+      //     and leaves it in place.
+      const masterSubLevels: Record<string, number> = baselineSkillMasterSubLevels(skillLevels);
 
-      for (const [skillId, level] of Object.entries(skillLevels)) {
+      // Only iterate the actual selected skill IDs — `skillLevels` may also
+      // carry a literal 'core' entry now (D2), which is not a program ID and
+      // must not be looked up as one.
+      const skillIds = pathConfig?.skillIds ?? [];
+      for (const skillId of skillIds) {
+        const level = skillLevels[skillId];
+        if (level == null) continue;
         const settings = await getProgramLevelSetting(skillId, level).catch(
           () => null,
         );
@@ -489,17 +499,16 @@ export default function VisualAssessmentPage() {
       // Error path: same zero-baseline rule — no ghost L5 defaults.
       // The onboarding-sync SKILL_TO_FOUNDATION_OFFSET formula will derive
       // the correct push/pull level from the skill level on completion.
+      // Same D2 real-value passthrough as the success path above — the
+      // slider result itself doesn't depend on the parentLevelMapping
+      // lookup that failed, so it's still available here.
+      const fallbackLevels = baselineSkillMasterSubLevels(skillLevels);
       setResult({
         programId: primaryProgramId,
         levelMode: 'manual',
         levelId: `${primaryProgramId}_level_${primaryLevel}`,
         displayName: primaryProgramId.replace(/_/g, ' '),
-        levels: {
-          push: 0,
-          pull: 0,
-          legs: 0,
-          core: 0,
-        },
+        levels: fallbackLevels,
         average: primaryLevel,
         skillLevels,
       });
@@ -733,11 +742,13 @@ export default function VisualAssessmentPage() {
       // Path C (skills): `result.levels.push` / `.pull` may carry the CMS
       //   parentLevelMapping value (e.g. Planche L7 → Push L16). Pass those
       //   non-zero foundation levels through so onboarding-sync can write them.
-      //   `legs` and `core` are ALWAYS 0 for skill users — they were never
-      //   assessed and must remain absent so the Ghost Purge can vaporise them.
+      //   `legs` is ALWAYS 0 for skill users — never assessed, must remain
+      //   absent so the Ghost Purge can vaporise it. `core` (D2) DOES get a
+      //   real slider for any skill selection now — pass its real value
+      //   through the same way push/pull already are, instead of hardcoding 0.
       //
       // Default (health/full_body): include all four base domains.
-      const isSkillsPath = pathConfig?.path === 'skills';
+      const isSkillsPath = (pathConfig?.skillIds?.length ?? 0) > 0;
       const masterSubLevels = {
         push: isSkillsPath
           ? (result.levels.push ?? 0)            // pass parentMapping value if set; 0 otherwise
@@ -749,15 +760,18 @@ export default function VisualAssessmentPage() {
           : pathConfig?.path === 'body_focus'
             ? (pathConfig.categories?.includes('pull') ? (result.levels.pull ?? 0) : 0)
             : (result.levels.pull ?? 0),
-        // legs/core are NEVER assessed for Path C — zero is intentional so the
-        // Ghost Purge in onboarding-sync.service.ts can safely remove them.
+        // legs is NEVER assessed for Path C — zero is intentional so the
+        // Ghost Purge in onboarding-sync.service.ts can safely remove it.
         legs: isSkillsPath
           ? 0
           : pathConfig?.path === 'body_focus'
             ? (pathConfig.categories?.includes('legs') ? (result.levels.legs ?? 0) : 0)
             : (result.levels.legs ?? 0),
+        // core (D2): pass the real assessed value through for skill users too
+        // — buildSkillResult() already reads it from the real core slider
+        // instead of hardcoding 0 (see its own comment for the full D2 note).
         core: isSkillsPath
-          ? 0
+          ? (result.levels.core ?? 0)
           : pathConfig?.path === 'body_focus'
             ? (pathConfig.categories?.includes('core') ? (result.levels.core ?? 0) : 0)
             : (result.levels.core ?? 0),
@@ -895,7 +909,7 @@ export default function VisualAssessmentPage() {
   const resolvedMaxLevel = pathConfig
     ? getMaxLevelForCategory(
         pathConfig,
-        pathConfig.path === 'skills' ? (result?.programId ?? '') : (categories[0] ?? 'pull'),
+        (pathConfig.skillIds?.length ?? 0) > 0 ? (result?.programId ?? '') : (categories[0] ?? 'pull'),
       )
     : 25;
 
