@@ -55,6 +55,15 @@ export const FLAG_DEFS = [
   // doc comment — this is not an oversight, don't extend this flag to the drawer without
   // re-raising it as its own decision.
   { key: 'enableRecommendedHybrid', firestoreKey: 'enable_recommended_hybrid', defaultValue: true, superAdminValue: true },
+  // David, 23.09.2026 — MockLocationPanel (dev/test city-override tool, field-test
+  // doc 37/38) opened to ALL users TEMPORARILY, for testing purposes, with an
+  // explicit off-switch here (no deploy needed to kill it). defaultValue:true is
+  // his own explicit instruction for this flag specifically ("דלוק כרגע") — not a
+  // copy of the hybrid-slot flags' historical exception above. superAdminValue:true
+  // so a super admin always sees the panel regardless of this flag's real value
+  // (MockLocationBanner + the workout-active block apply to everyone regardless of
+  // this flag either way — it only gates the panel's own visibility).
+  { key: 'enableMockLocationPanel', firestoreKey: 'enable_mock_location_panel', defaultValue: true, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

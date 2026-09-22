@@ -182,14 +182,16 @@ function MockLocationPanelInner({ devSim, isWorkoutActive }: MockLocationPanelPr
 }
 
 interface MockLocationPanelGatedProps extends MockLocationPanelProps {
-  /** David, 22.09.2026, field-test doc 37: replaces the old NODE_ENV check
-   *  — the render site (MapShell.tsx) already gates on this before even
-   *  dynamically importing the component, but the check is repeated here
-   *  as defense-in-depth for any future direct import. */
-  isSuperAdmin: boolean;
+  /** David, 22-23.09.2026, field-test docs 37-39: the RESOLVED permission —
+   *  enable_mock_location_panel (Firestore flag, temporarily open to
+   *  everyone) OR super-admin bypass, already combined by the caller via
+   *  useFeatureFlags. The render site (MapShell.tsx) already gates on this
+   *  before even dynamically importing the component; repeated here as
+   *  defense-in-depth for any future direct import. */
+  isEnabled: boolean;
 }
 
-export default function MockLocationPanel({ isSuperAdmin, ...props }: MockLocationPanelGatedProps) {
-  if (!isSuperAdmin) return null;
+export default function MockLocationPanel({ isEnabled, ...props }: MockLocationPanelGatedProps) {
+  if (!isEnabled) return null;
   return <MockLocationPanelInner {...props} />;
 }

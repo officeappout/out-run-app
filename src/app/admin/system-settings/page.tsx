@@ -10,7 +10,7 @@ import { auth, db } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import {
   Settings, Footprints, Users, Trophy, ShieldAlert, Save, CheckCircle2,
-  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, type LucideIcon,
+  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, type LucideIcon,
 } from 'lucide-react';
 import { FIRESTORE_FLAG_DEFAULTS } from '@/hooks/feature-flag-defs';
 import { resolveLoadedFlags, type LoadResult } from './resolve-loaded-flags';
@@ -27,6 +27,7 @@ interface FlagState {
   enable_full_park_workout: boolean;
   enable_route_stops: boolean;
   enable_recommended_hybrid: boolean;
+  enable_mock_location_panel: boolean;
 }
 
 // ============================================================================
@@ -105,6 +106,14 @@ const FLAG_CARDS: FlagCardConfig[] = [
     title: 'משולב מומלץ',
     description: 'הכרטיס הראשון בקרוסלה — "ריצה + כוח" / "הליכה + כוח" — כולל תג ה׳מומלץ׳ והמסלול המחושב מראש',
     parentKey: 'enable_hybrid_slots',
+  },
+  {
+    key: 'enable_mock_location_panel',
+    icon: FlaskConical,
+    iconBg: 'bg-orange-50',
+    iconColor: 'text-orange-500',
+    title: 'כלי מיקום מדומה (🧪)',
+    description: 'כרטיס/פאנל override מיקום במפה (בחירת עיר או קואורדינטות ידניות) — פתוח לבדיקות זמנית, כיבוי מיידי מכאן ללא deploy. הבאנר וחסימת ההפעלה בזמן אימון תמיד פעילים, ללא קשר לדגל זה.',
   },
 ];
 

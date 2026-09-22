@@ -66,6 +66,7 @@ import SessionControlBar from '@/features/parks/core/components/SessionControlBa
 import UserProfileSheet, { type ProfileUser } from '@/features/parks/client/components/UserProfileSheet';
 import AppHeader from '@/components/ui/AppHeader';
 import { MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
 const UnifiedLocationStep = lazy(
   () => import('@/features/user/onboarding/components/steps/UnifiedLocationStep'),
@@ -124,6 +125,12 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
   const devSim = useDevSimulation();
   const { profile, refreshProfile } = useUserStore();
   const isSuperAdmin = profile?.core?.isSuperAdmin === true;
+  // MockLocationPanel visibility (David, 23.09.2026, field-test doc 39):
+  // Firestore-flag-gated like every other map feature, NOT hardcoded — the
+  // hook's own super-admin bypass (useFeatureFlags.ts) already forces this
+  // true for a super admin regardless of the real flag value, matching
+  // "super-admin רואה תמיד, בלי קשר לדגל" without any extra logic here.
+  const { flags: devToolFlags } = useFeatureFlags(isSuperAdmin);
 
   const confirmStartWithMockLocation = useCallback((): boolean => {
     if (!devSim.isMockEnabled) return true;
@@ -740,15 +747,20 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
         runMode !== 'my_routes' && <SessionControlBar />}
 
       {/* ══════ GLOBAL OVERLAYS ══════ */}
-      {/* Super-admin-only dev tool (David, 22.09.2026, field-test doc 37).
-          Banner persists across every mode (incl. mid-workout) — the panel
-          is the interactive 🧪 corner control. isWorkoutActive blocks
-          turning the override ON (never blocks turning it off). */}
-      {isSuperAdmin && (
-        <>
-          <MockLocationBanner devSim={devSim} />
-          <MockLocationPanel devSim={devSim} isSuperAdmin={isSuperAdmin} isWorkoutActive={logic.isWorkoutActive} />
-        </>
+      {/* Mock-location dev/test tool (David, 22-23.09.2026, field-test docs
+          37-39). The PANEL (🧪 corner control) is Firestore-flag-gated
+          (enable_mock_location_panel — temporarily open to everyone for
+          testing, David's explicit call; super admins always see it
+          regardless of the flag, via useFeatureFlags' own bypass). The
+          BANNER is deliberately NOT gated by the flag or by role — it's
+          wired to devSim.isMockEnabled alone (self-hides via its own early
+          return) so it — and the workout-active block, enforced inside the
+          panel/startActiveWorkout regardless of who is looking at it —
+          stay in force for whoever is running with the override on, even
+          if the flag gets switched off later. */}
+      <MockLocationBanner devSim={devSim} />
+      {devToolFlags.enableMockLocationPanel && (
+        <MockLocationPanel devSim={devSim} isEnabled={devToolFlags.enableMockLocationPanel} isWorkoutActive={logic.isWorkoutActive} />
       )}
 
       <JITSetupModal
