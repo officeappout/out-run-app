@@ -1,42 +1,115 @@
 /**
  * Assessment Path Config Service
  *
- * Reads onboarding_program_path from sessionStorage and returns
- * path-specific config for slider ranges and categories.
+ * Reads the selected program-path card(s) from sessionStorage and returns a
+ * union-resolved config for slider categories and ranges.
  *
- * Path 1 (Health/Beginner): Levels 1-10, push/pull/legs/core
- * Path 2 (Body Focus/Intermediate): Levels 10-20, push/pull/legs/core
- * Path 3 (Skills): Skill-specific categories, dynamic max per skill
+ * Cards: Health (fixed push/pull/legs/core), Body Focus (muscle chips →
+ * categories), Skills (calisthenics elements, each with its own ladder).
+ * Cards are co-selectable (Phase 1, multi-select program path) — priority is
+ * tap order, persisted as an ordered array. `getPathConfigSync`/
+ * `loadPathConfigAsync` union every selected card's assessment set, then
+ * apply the D3 collision rule: a push/pull-deriving skill (planche/
+ * handstand/hspu → push; front_lever/muscle_up/one_arm_pullup → pull)
+ * suppresses the direct push/pull category slider for a same-domain
+ * muscle/Health selection — the muscle/Health pick is still recorded as
+ * focus, just without a redundant coarse slider. D2: any skill selection
+ * also gets a `core` category slider (auto-added), so skill users are no
+ * longer permanently unassessed on core.
  */
 
 import { getAllPrograms } from '@/features/content/programs/core/program.service';
 import { getProgramLevelSettingsByProgram } from '@/features/content/programs/core/programLevelSettings.service';
+import { SKILL_TO_FOUNDATION_DOMAIN } from '../constants/skill-foundation-domain.constants';
+
+// Mirrors mini-domain-assessment.ts's MINI_ASSESSMENT_ACTIVE_KEY. Not imported
+// from that module directly — this is a lean, dependency-free utility file,
+// and this repo's own convention for sessionStorage key names (see
+// 'onboarding_program_path' below, duplicated rather than shared) is a plain
+// literal on both the reader and writer side.
+const MINI_ASSESSMENT_ACTIVE_KEY = 'mini_assessment_active';
 
 const PRIMARY_CATEGORIES = ['push', 'pull', 'legs', 'core'] as const;
 
 export type ProgramPathType = 'health' | 'body_focus' | 'skills' | null;
 
 export interface AssessmentPathConfig {
+  /** Primary (highest-priority / first-selected) card — back-compat for
+   *  single-value consumers (ProgramResult.tsx, ScheduleStep.tsx,
+   *  scheduleSeed.service.ts, and every `pathConfig?.path === '...'` check
+   *  elsewhere in this flow that predates multi-select). */
   path: ProgramPathType;
+  /** Full ordered card selection, priority = array order. Empty for the
+   *  legacy/no-selection fallback. */
+  cardOrder: ProgramPathType[];
+  /** Union-resolved, deduped, D3-collision-suppressed assessment set —
+   *  skill program IDs (each with its own ladder) first, then literal
+   *  categories (push/pull/legs/core), 'core' auto-added last for any
+   *  skill selection (D2). */
   categories: string[];
+  /** The selected skill program IDs (empty unless the Skills card is part
+   *  of the selection) — the authoritative signal for "does this
+   *  assessment include skill ladders," since `categories` alone can no
+   *  longer be assumed to be all-skill-IDs once other cards are unioned in. */
+  skillIds: string[];
   minLevel: number;
   maxLevel: number;
-  /** For Path 3: max level per skill program ID */
+  /** Max level per skill program ID (and per literal category, where CMS
+   *  data resolves one). */
   skillMaxLevels?: Record<string, number>;
-  /** For Path 3: skip tier selection, go straight to sliders */
+  /** Skip tier selection, go straight to sliders. */
   skipTier: boolean;
-  /** For Path 1, Path 2: clamp tier initial level to range */
+  /** Clamp a tier-derived initial level to range. */
   clampTierLevel: (tierLevel: number) => number;
 }
 
-export function getProgramPathFromStorage(): ProgramPathType {
-  if (typeof window === 'undefined') return null;
-  const raw = sessionStorage.getItem('onboarding_program_path');
-  if (!raw) return null;
-  if (raw === 'health' || raw === 'beginner') return 'health';
-  if (raw === 'body_focus' || raw === 'intermediate') return 'body_focus';
-  if (raw === 'skills') return 'skills';
+function normalizeProgramPathValue(v: unknown): Exclude<ProgramPathType, null> | null {
+  if (v === 'health' || v === 'beginner') return 'health';
+  if (v === 'body_focus' || v === 'intermediate') return 'body_focus';
+  if (v === 'skills') return 'skills';
   return null;
+}
+
+/**
+ * Reads the ordered card-priority list from storage.
+ *
+ * New shape (Phase 1, multi-select program path): a JSON array of card IDs
+ * in priority order, e.g. `'["skills","body_focus"]'`.
+ *
+ * Back-compat guard: a legacy bare string (`'skills'`, `'body_focus'`,
+ * `'health'`, or the older `'beginner'`/`'intermediate'` aliases) is treated
+ * as a one-item priority list. This is not just old-data hygiene — it's the
+ * live shape `mini-domain-assessment.ts`'s `startMiniDomainAssessment` still
+ * writes today (a single-domain top-up entry point, separate from the
+ * program-path screen), so this guard must keep resolving it correctly.
+ */
+export function getProgramPathListFromStorage(): Exclude<ProgramPathType, null>[] {
+  if (typeof window === 'undefined') return [];
+  const raw = sessionStorage.getItem('onboarding_program_path');
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      const normalized = parsed
+        .map((v) => normalizeProgramPathValue(v))
+        .filter((v): v is Exclude<ProgramPathType, null> => v !== null);
+      return normalized;
+    }
+  } catch {
+    // Not JSON — fall through to legacy bare-string handling below.
+  }
+
+  const normalized = normalizeProgramPathValue(raw);
+  return normalized ? [normalized] : [];
+}
+
+/** Back-compat: the primary (first-priority) selected card, or null if none.
+ *  Unchanged return type/contract — existing read-only consumers
+ *  (ProgramResult.tsx, ScheduleStep.tsx, scheduleSeed.service.ts,
+ *  onboarding-sync.service.ts) keep working exactly as before. */
+export function getProgramPathFromStorage(): ProgramPathType {
+  return getProgramPathListFromStorage()[0] ?? null;
 }
 
 export function getSkillFocusFromStorage(): string[] {
@@ -153,111 +226,145 @@ function musclesToCategories(muscleIds: string[]): string[] {
 }
 
 /**
- * Get path config for Path 1 and Path 2 (no async needed).
+ * D3: a push/pull-deriving skill (SKILL_TO_FOUNDATION_DOMAIN) suppresses the
+ * direct push/pull category slider for a same-domain selection — applies
+ * uniformly whether that category came from a muscle chip or from Health's
+ * fixed 4-category set, since by this point both have already been
+ * flattened into the same `categories` list (the union doesn't track
+ * source). The muscle/Health selection itself is untouched elsewhere
+ * (still recorded as focus) — only the redundant slider is removed here.
+ */
+export function applySkillCollisionSuppression(
+  categories: string[],
+  skillIds: string[],
+): string[] {
+  const derivedDomains = new Set(
+    skillIds
+      .map((id) => SKILL_TO_FOUNDATION_DOMAIN[id])
+      .filter((d): d is 'push' | 'pull' => d != null),
+  );
+  if (derivedDomains.size === 0) return categories;
+  return categories.filter((cat) => !derivedDomains.has(cat as 'push' | 'pull'));
+}
+
+/** True while a single-domain "mini top-up" assessment is in progress
+ *  (mini-domain-assessment.ts). D2's auto-core addition is intentionally
+ *  skipped in this mode — that flow's contract is a single-domain
+ *  assessment (one skill, one category), and unconditionally adding a
+ *  second 'core' step would silently turn an already-onboarded user's
+ *  one-tap top-up (from ProgramsSection/StatsOverview/WorkoutBuilderSheet)
+ *  into a 2-step flow. D2 is scoped to the full onboarding entry point. */
+function isMiniAssessmentActive(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return sessionStorage.getItem(MINI_ASSESSMENT_ACTIVE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function resolveUnionCategories(
+  cardOrder: Exclude<ProgramPathType, null>[],
+  skillIds: string[],
+  muscleIds: string[],
+  addAutoCore: boolean,
+): string[] {
+  let literalCategories: string[] = [];
+  if (cardOrder.includes('health')) {
+    literalCategories.push(...PRIMARY_CATEGORIES);
+  }
+  if (muscleIds.length > 0) {
+    literalCategories.push(...musclesToCategories(muscleIds));
+  }
+  literalCategories = Array.from(new Set(literalCategories));
+  literalCategories = applySkillCollisionSuppression(literalCategories, skillIds);
+
+  const unioned = [
+    ...skillIds,
+    ...literalCategories,
+    ...(skillIds.length > 0 && addAutoCore ? ['core'] : []),
+  ];
+  const deduped = Array.from(new Set(unioned));
+  return deduped.length > 0 ? deduped : [...PRIMARY_CATEGORIES];
+}
+
+/**
+ * Get path config synchronously (no CMS fetch needed for categories/minLevel).
  */
 export function getPathConfigSync(): AssessmentPathConfig {
-  const path = getProgramPathFromStorage();
+  const cardOrder = getProgramPathListFromStorage();
+  const path = cardOrder[0] ?? null;
 
-  if (path === 'health') {
+  if (cardOrder.length === 0) {
+    // Legacy / no path: full assessment (all 4 categories)
     return {
-      path: 'health',
+      path: null,
+      cardOrder: [],
       categories: [...PRIMARY_CATEGORIES],
+      skillIds: [],
       minLevel: 1,
       maxLevel: 25,
-      skipTier: true,
-      clampTierLevel: (lvl) => Math.max(1, Math.min(25, lvl)),
-    };
-  }
-
-  if (path === 'body_focus') {
-    const muscleIds = getMuscleFocusFromStorage();
-    const categories = musclesToCategories(muscleIds);
-    return {
-      path: 'body_focus',
-      categories,
-      minLevel: 1,
-      maxLevel: 25,
-      skipTier: true,
-      clampTierLevel: (lvl) => Math.max(1, Math.min(25, lvl)),
-    };
-  }
-
-  if (path === 'skills') {
-    const skillIds = getSkillFocusFromStorage();
-    return {
-      path: 'skills',
-      categories: skillIds.length > 0 ? skillIds : [...PRIMARY_CATEGORIES],
-      minLevel: 1,
-      maxLevel: 25,
-      skipTier: true,
+      skipTier: false,
       clampTierLevel: (lvl) => lvl,
     };
   }
 
-  // Legacy / no path: full assessment (all 4 categories)
+  const skillIds = cardOrder.includes('skills') ? getSkillFocusFromStorage() : [];
+  const muscleIds = cardOrder.includes('body_focus') ? getMuscleFocusFromStorage() : [];
+  const categories = resolveUnionCategories(cardOrder, skillIds, muscleIds, !isMiniAssessmentActive());
+
   return {
-    path: null,
-    categories: [...PRIMARY_CATEGORIES],
+    path,
+    cardOrder,
+    categories,
+    skillIds,
     minLevel: 1,
     maxLevel: 25,
-    skipTier: false,
-    clampTierLevel: (lvl) => lvl,
+    skipTier: true,
+    clampTierLevel: skillIds.length > 0 ? (lvl) => lvl : (lvl) => Math.max(1, Math.min(25, lvl)),
   };
 }
 
 /**
- * Load full config — fetches maxLevels per category from the programs collection.
- * Works for all paths (skills, health, body_focus, legacy).
+ * Load full config — fetches maxLevels per category/skill from the programs
+ * collection. Works for any card combination (skills, health, body_focus,
+ * unioned, or the legacy/no-selection fallback).
  */
 export async function loadPathConfigAsync(): Promise<AssessmentPathConfig> {
   const baseConfig = getPathConfigSync();
   const programs = await getAllPrograms();
 
-  // Build a movementPattern → maxLevels map from child programs
+  // Build a movementPattern/programId → maxLevels map from child programs.
+  // This already covers BOTH literal category names (via movementPattern,
+  // e.g. 'push') AND skill program IDs (via p.id, e.g. 'planche') uniformly.
   const patternMaxMap: Record<string, number> = {};
   for (const p of programs) {
     if (!p.isMaster && p.movementPattern && p.maxLevels) {
       patternMaxMap[p.movementPattern] = p.maxLevels;
     }
-    // Also map by program ID directly
     if (p.maxLevels) {
       patternMaxMap[p.id] = p.maxLevels;
     }
   }
 
-  if (baseConfig.path === 'skills') {
-    const skillIds = getSkillFocusFromStorage();
-    const skillMaxLevels: Record<string, number> = {};
-
-    for (const skillId of skillIds.length > 0 ? skillIds : [...PRIMARY_CATEGORIES]) {
-      if (patternMaxMap[skillId] != null) {
-        skillMaxLevels[skillId] = patternMaxMap[skillId];
-      } else {
-        const settings = await getProgramLevelSettingsByProgram(skillId).catch(
-          () => [],
-        );
-        const maxFromSettings =
-          settings.length > 0
-            ? Math.max(...settings.map((s) => s.levelNumber))
-            : 15;
-        skillMaxLevels[skillId] = maxFromSettings;
-      }
-    }
-
-    return {
-      ...baseConfig,
-      categories: skillIds.length > 0 ? skillIds : [...PRIMARY_CATEGORIES],
-      skillMaxLevels,
-    };
-  }
-
-  // For primary categories — resolve maxLevels per category from program data
+  const skillIdSet = new Set(baseConfig.skillIds);
   const skillMaxLevels: Record<string, number> = {};
+
   for (const cat of baseConfig.categories) {
-    const fromPattern = patternMaxMap[cat];
-    if (fromPattern != null) {
-      skillMaxLevels[cat] = fromPattern;
+    if (patternMaxMap[cat] != null) {
+      skillMaxLevels[cat] = patternMaxMap[cat];
+      continue;
     }
+    // Skill IDs not covered by patternMaxMap fall back to the program's own
+    // level-settings docs (mirrors the old skills-only branch's fallback).
+    if (skillIdSet.has(cat)) {
+      const settings = await getProgramLevelSettingsByProgram(cat).catch(() => []);
+      const maxFromSettings =
+        settings.length > 0 ? Math.max(...settings.map((s) => s.levelNumber)) : 15;
+      skillMaxLevels[cat] = maxFromSettings;
+    }
+    // Literal categories with no CMS data are left out — getMaxLevelForCategory
+    // falls back to config.maxLevel (25) for them.
   }
 
   return {
