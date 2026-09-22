@@ -875,6 +875,117 @@
         { "fieldPath": "authorityId", "order": "ASCENDING" },
         { "fieldPath": "date", "order": "ASCENDING" }
       ]
+    },
+    // ── Synced from live production (firebase firestore:indexes), 22.09.2026 ──
+    // These 34 composite indexes existed in Firestore but were never added here — created
+    // ad-hoc (most likely via the "create index" link in a browser console error). Adding
+    // them now so `firebase deploy --only firestore:indexes` does not delete them (a deploy
+    // syncs live state to exactly match this file — anything live-but-undeclared gets
+    // dropped). 2 of these (the trailing `users` core.discoverable pair) are flagged
+    // obsolete by the SPEC-03 Wave B comment above (superseded by userPublic) — kept anyway
+    // per "an extra index doesn't hurt, a missing one breaks a query"; safe to prune later
+    // once confirmed nothing still reads them. File-only sync — no deploy run.
+    { "collectionGroup": "analytics_events", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "userId", "order": "ASCENDING" }, { "fieldPath": "timestamp", "order": "DESCENDING" } ]
+    },
+    { "collectionGroup": "assessment_rules", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "isActive", "order": "ASCENDING" }, { "fieldPath": "priority", "order": "ASCENDING" } ]
+    },
+    { "collectionGroup": "authorities", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "parentAuthorityId", "order": "ASCENDING" }, { "fieldPath": "name", "order": "ASCENDING" } ]
+    },
+    { "collectionGroup": "dailyActivity", "queryScope": "COLLECTION_GROUP",
+      "fields": [ { "fieldPath": "userId", "order": "ASCENDING" }, { "fieldPath": "date", "order": "DESCENDING" } ]
+    },
+    { "collectionGroup": "edit_requests", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "status", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" } ]
+    },
+    { "collectionGroup": "feed_posts", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "activityCategory", "order": "ASCENDING" }, { "fieldPath": "ageGroup", "order": "ASCENDING" }, { "fieldPath": "authorityId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "ASCENDING" } ]
+    },
+    { "collectionGroup": "feed_posts", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "activityCategory", "order": "ASCENDING" }, { "fieldPath": "ageGroup", "order": "ASCENDING" }, { "fieldPath": "authorityId", "order": "ASCENDING" }, { "fieldPath": "gender", "order": "ASCENDING" }, { "fieldPath": "programId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "ASCENDING" } ]
+    },
+    { "collectionGroup": "feed_posts", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "activityCategory", "order": "ASCENDING" }, { "fieldPath": "ageGroup", "order": "ASCENDING" }, { "fieldPath": "authorityId", "order": "ASCENDING" }, { "fieldPath": "programId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "ASCENDING" } ]
+    },
+    { "collectionGroup": "feed_posts", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "activityCategory", "order": "ASCENDING" }, { "fieldPath": "ageGroup", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "ASCENDING" } ]
+    },
+    { "collectionGroup": "feed_posts", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "activityCategory", "order": "ASCENDING" }, { "fieldPath": "ageGroup", "order": "ASCENDING" }, { "fieldPath": "gender", "order": "ASCENDING" }, { "fieldPath": "programId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "ASCENDING" } ]
+    },
+    { "collectionGroup": "feed_posts", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "activityCategory", "order": "ASCENDING" }, { "fieldPath": "ageGroup", "order": "ASCENDING" }, { "fieldPath": "programId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "ASCENDING" } ]
+    },
+    { "collectionGroup": "feed_posts", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "ageGroup", "order": "ASCENDING" }, { "fieldPath": "authorityId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "ASCENDING" } ]
+    },
+    { "collectionGroup": "feed_posts", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "ageGroup", "order": "ASCENDING" }, { "fieldPath": "authorityId", "order": "ASCENDING" }, { "fieldPath": "gender", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "ASCENDING" } ]
+    },
+    { "collectionGroup": "feed_posts", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "ageGroup", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "ASCENDING" } ]
+    },
+    { "collectionGroup": "feed_posts", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "ageGroup", "order": "ASCENDING" }, { "fieldPath": "gender", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "ASCENDING" } ]
+    },
+    { "collectionGroup": "feed_posts", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "authorityId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "ASCENDING" } ]
+    },
+    { "collectionGroup": "inbox", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "read", "order": "ASCENDING" }, { "fieldPath": "sentAt", "order": "DESCENDING" } ]
+    },
+    { "collectionGroup": "level_equivalence_rules", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "sourceProgramId", "order": "ASCENDING" }, { "fieldPath": "sourceLevel", "order": "ASCENDING" } ]
+    },
+    { "collectionGroup": "maintenance_reports", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "authorityId", "order": "ASCENDING" }, { "fieldPath": "reportedAt", "order": "DESCENDING" } ]
+    },
+    { "collectionGroup": "manager_notifications", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "authorityId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" } ]
+    },
+    { "collectionGroup": "mediaAssets", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "authorityId", "order": "ASCENDING" }, { "fieldPath": "scope", "order": "ASCENDING" }, { "fieldPath": "type", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" } ]
+    },
+    { "collectionGroup": "mediaAssets", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "type", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" } ]
+    },
+    { "collectionGroup": "onboarding_answers", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "questionId", "order": "ASCENDING" }, { "fieldPath": "order", "order": "ASCENDING" } ]
+    },
+    { "collectionGroup": "onboarding_questions", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "part", "order": "ASCENDING" }, { "fieldPath": "order", "order": "ASCENDING" } ]
+    },
+    { "collectionGroup": "pressure_messages", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "category", "order": "ASCENDING" }, { "fieldPath": "psychologyTag", "order": "ASCENDING" } ]
+    },
+    { "collectionGroup": "program_thresholds", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "isActive", "order": "ASCENDING" }, { "fieldPath": "priority", "order": "ASCENDING" } ]
+    },
+    { "collectionGroup": "programLevelSettings", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "programId", "order": "ASCENDING" }, { "fieldPath": "levelNumber", "order": "ASCENDING" } ]
+    },
+    { "collectionGroup": "progression_rules", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "programId", "order": "ASCENDING" }, { "fieldPath": "level", "order": "ASCENDING" } ]
+    },
+    { "collectionGroup": "smart_messages", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "type", "order": "ASCENDING" }, { "fieldPath": "priority", "order": "DESCENDING" } ]
+    },
+    { "collectionGroup": "user_feedback", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "isConverted", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" } ]
+    },
+    { "collectionGroup": "users", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "core.discoverable", "order": "ASCENDING" }, { "fieldPath": "core.authorityId", "order": "ASCENDING" }, { "fieldPath": "core.name", "order": "ASCENDING" } ]
+    },
+    { "collectionGroup": "users", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "core.discoverable", "order": "ASCENDING" }, { "fieldPath": "core.name", "order": "ASCENDING" } ]
+    },
+    { "collectionGroup": "visual_assessment_content", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "category", "order": "ASCENDING" }, { "fieldPath": "level", "order": "ASCENDING" } ]
+    },
+    { "collectionGroup": "workouts", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "userId", "order": "ASCENDING" }, { "fieldPath": "date", "order": "ASCENDING" } ]
     }
   ],
   "fieldOverrides": [
