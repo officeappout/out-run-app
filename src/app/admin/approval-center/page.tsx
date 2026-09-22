@@ -85,6 +85,8 @@ interface QueueItem {
   activityType?: string;
   location?: { lat: number; lng: number };
   suppressedDuplicateOfParkId?: string | null;
+  /** "מאושרים" sub-view only — rough approval date, when set by normal moderation. */
+  reviewedAt?: unknown;
   /** pending_unit only (07.09.2026) — every pending brigade/battalion/
    *  company was rendering with the SAME generic Building2 icon regardless
    *  of which org it's under. computedUnitId is the pending doc's own id
@@ -158,11 +160,19 @@ export default function ApprovalCenterPage() {
   // Separate lazy fetch from the main pending queue; unfiltered by
   // category/city (the ~113-item scale doesn't need it — keep this addition
   // small, matching "minimal usable moderation first, polish later").
-  const [amenitySubView, setAmenitySubView] = useState<'pending' | 'suppressed'>('pending');
+  const [amenitySubView, setAmenitySubView] = useState<'pending' | 'published' | 'suppressed'>('pending');
   const [suppressedAmenities, setSuppressedAmenities] = useState<QueueItem[]>([]);
   const [suppressedLoaded, setSuppressedLoaded] = useState(false);
   const [loadingSuppressed, setLoadingSuppressed] = useState(false);
   const [unsuppressingId, setUnsuppressingId] = useState<string | null>(null);
+  // "מאושרים" sub-view — view-only, what's already published. Lazy-loaded on
+  // first visit to the sub-view, same pattern as suppressedAmenities above.
+  // Reuses the SAME category/city filter state as the pending sub-view
+  // (amenityCategoryFilter/amenitySportFilter/amenityCityFilter) — see
+  // amenityBaseList below — rather than a second parallel filter set.
+  const [publishedAmenities, setPublishedAmenities] = useState<QueueItem[]>([]);
+  const [publishedLoaded, setPublishedLoaded] = useState(false);
+  const [loadingPublished, setLoadingPublished] = useState(false);
 
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [authorityIds, setAuthorityIds] = useState<string[]>([]);
@@ -216,6 +226,17 @@ export default function ApprovalCenterPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // "מאושרים" sub-view only — rough approval date. reviewedAt is absent on
+  // items published via a path that bypassed normal moderation (see
+  // AmenityQueueItem.reviewedAt's own comment) — those show no date, not a
+  // guessed one.
+  const formatReviewedAt = (ts: unknown): string | null => {
+    if (!ts) return null;
+    const date = typeof (ts as any)?.toDate === 'function' ? (ts as any).toDate() : null;
+    if (!date) return null;
+    return date.toLocaleDateString('he-IL', { year: 'numeric', month: '2-digit', day: '2-digit' });
   };
 
   const scoped = (docs: QueueItem[], sa: boolean, aids: string[], uid: string | null) =>
@@ -395,6 +416,32 @@ export default function ApprovalCenterPage() {
     } catch { return []; }
   };
 
+  // "מאושרים" — view-only. National total is 3,806+ (22.09.2026, growing),
+  // above fetchAmenitiesByStatus's 3000 default — pass an explicit higher cap.
+  const loadPublishedAmenities = async (sa: boolean, aids: string[], uid: string | null): Promise<QueueItem[]> => {
+    try {
+      const list = await fetchAmenitiesByStatus('published', 10000);
+      const items: QueueItem[] = list.map(a => ({
+        entityType: 'amenity' as const,
+        id: a.id,
+        title: a.name || AMENITY_CATEGORY_LABELS[a.category] || a.category,
+        subtitle: [
+          AMENITY_CATEGORY_LABELS[a.category] || a.category,
+          a.sport ? COURT_SPORT_LABELS[a.sport] || a.sport : '',
+          a.city,
+        ].filter(Boolean).join(' · '),
+        origin: 'osm_import',
+        authorityId: a.authorityId,
+        city: a.city,
+        category: a.category,
+        sport: a.sport,
+        location: a.location,
+        reviewedAt: a.reviewedAt,
+      }));
+      return scoped(items, sa, aids, uid);
+    } catch { return []; }
+  };
+
   const removeFromState = (entityType: ModerationEntityType, id: string) => {
     const setter = { park: setParks, route: setRoutes, climb: setClimbs, contribution: setUgc, amenity: setAmenities, pending_unit: setPendingUnits }[entityType];
     setter(prev => prev.filter(i => i.id !== id));
@@ -565,18 +612,24 @@ export default function ApprovalCenterPage() {
     }
   };
 
-  const handleAmenitySubViewChange = (view: 'pending' | 'suppressed') => {
+  const handleAmenitySubViewChange = (view: 'pending' | 'published' | 'suppressed') => {
     setAmenitySubView(view);
     setSelectedAmenityIds(new Set()); // selection is pending-sub-view-scoped
-    // The list/map toggle only renders in the pending sub-view — force list
-    // mode so switching to 'suppressed' can never strand map mode with no
-    // visible control to switch back.
+    // The list/map toggle only renders in the pending/published sub-views —
+    // force list mode so switching to 'suppressed' can never strand map mode
+    // with no visible control to switch back.
     setAmenityViewMode('list');
     if (view === 'suppressed' && !suppressedLoaded) {
       setLoadingSuppressed(true);
       loadSuppressedAmenities(isSuperAdmin, authorityIds, currentUserId)
         .then(items => { setSuppressedAmenities(items); setSuppressedLoaded(true); })
         .finally(() => setLoadingSuppressed(false));
+    }
+    if (view === 'published' && !publishedLoaded) {
+      setLoadingPublished(true);
+      loadPublishedAmenities(isSuperAdmin, authorityIds, currentUserId)
+        .then(items => { setPublishedAmenities(items); setPublishedLoaded(true); })
+        .finally(() => setLoadingPublished(false));
     }
   };
 
@@ -629,15 +682,19 @@ export default function ApprovalCenterPage() {
   const climbCount = (t: string) => t === 'all' ? climbs.length : climbs.filter(c => c.climbType === t).length;
 
   // Amenities sub-filters — category chips, sport sub-chips (courts only), city dropdown.
+  // Shared between the pending and published sub-views (both are a flat list of
+  // amenities with category/city columns); suppressed stays unfiltered (small
+  // scale, see loadSuppressedAmenities's own comment).
+  const amenityBaseList = amenitySubView === 'published' ? publishedAmenities : amenities;
   const AMENITY_CATEGORIES: Array<'all' | AmenityCategory> = ['all', 'court', 'bench', 'drinking_water', 'fitness_station'];
   const amenityCategoryCount = (c: 'all' | AmenityCategory) =>
-    c === 'all' ? amenities.length : amenities.filter(a => a.category === c).length;
+    c === 'all' ? amenityBaseList.length : amenityBaseList.filter(a => a.category === c).length;
   const COURT_SPORTS: Array<'all' | CourtSport> = ['all', 'basketball', 'football', 'tennis', 'padel', 'multi', 'unknown'];
   const amenitySportCount = (s: 'all' | CourtSport) => s === 'all'
-    ? amenities.filter(a => a.category === 'court').length
-    : amenities.filter(a => a.category === 'court' && a.sport === s).length;
-  const amenityCities = Array.from(new Set(amenities.map(a => a.city).filter(Boolean) as string[])).sort();
-  const filteredAmenities = amenities.filter(a =>
+    ? amenityBaseList.filter(a => a.category === 'court').length
+    : amenityBaseList.filter(a => a.category === 'court' && a.sport === s).length;
+  const amenityCities = Array.from(new Set(amenityBaseList.map(a => a.city).filter(Boolean) as string[])).sort();
+  const filteredAmenities = amenityBaseList.filter(a =>
     (amenityCategoryFilter === 'all' || a.category === amenityCategoryFilter) &&
     (amenityCategoryFilter !== 'court' || amenitySportFilter === 'all' || a.sport === amenitySportFilter) &&
     (amenityCityFilter === 'all' || a.city === amenityCityFilter),
@@ -832,6 +889,13 @@ export default function ApprovalCenterPage() {
           </button>
           <button
             type="button"
+            onClick={() => handleAmenitySubViewChange('published')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${amenitySubView === 'published' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            מאושרים{publishedLoaded && publishedAmenities.length > 0 ? ` (${publishedAmenities.length})` : ''}
+          </button>
+          <button
+            type="button"
             onClick={() => handleAmenitySubViewChange('suppressed')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${amenitySubView === 'suppressed' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
           >
@@ -848,8 +912,8 @@ export default function ApprovalCenterPage() {
         </div>
       )}
 
-      {/* Amenity category + sport sub-filter, and per-city filter — amenities tab, pending sub-view only */}
-      {activeTab === 'amenities' && amenitySubView === 'pending' && amenities.length > 0 && (
+      {/* Amenity category + sport sub-filter, and per-city filter — amenities tab, pending + published sub-views (shared, see amenityBaseList) */}
+      {activeTab === 'amenities' && (amenitySubView === 'pending' || amenitySubView === 'published') && amenityBaseList.length > 0 && (
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-1.5">
             {AMENITY_CATEGORIES.map(c => {
@@ -1050,20 +1114,24 @@ export default function ApprovalCenterPage() {
       {/* Active tab list */}
       {activeTab !== 'accuracy' && (
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-        {activeTab === 'amenities' && (amenitySubView === 'suppressed' ? loadingSuppressed : loadingAmenities) ? (
+        {activeTab === 'amenities' && (amenitySubView === 'suppressed' ? loadingSuppressed : amenitySubView === 'published' ? loadingPublished : loadingAmenities) ? (
           <div className="py-16 flex flex-col items-center gap-3 text-center">
             <Loader2 className="w-8 h-8 text-teal-500 animate-spin" />
-            <p className="text-sm text-gray-400">{amenitySubView === 'suppressed' ? 'טוען פריטים מוסתרים...' : 'טוען מתקנים...'}</p>
+            <p className="text-sm text-gray-400">{amenitySubView === 'suppressed' ? 'טוען פריטים מוסתרים...' : amenitySubView === 'published' ? 'טוען מאושרים...' : 'טוען מתקנים...'}</p>
           </div>
         ) : shownItems.length === 0 ? (
           <div className="py-16 flex flex-col items-center gap-4 text-center">
             <CheckCircle2 size={40} className="text-green-400" />
             <p className="text-lg font-black text-gray-700">
-              {activeTab === 'amenities' && amenitySubView === 'suppressed' ? 'אין פריטים מוסתרים' : `אין ${active.label} ממתינים`}
+              {activeTab === 'amenities' && amenitySubView === 'suppressed' ? 'אין פריטים מוסתרים'
+                : activeTab === 'amenities' && amenitySubView === 'published' ? 'אין פריטים מאושרים'
+                : `אין ${active.label} ממתינים`}
             </p>
             <p className="text-sm text-gray-400">
               {activeTab === 'amenities' && amenitySubView === 'suppressed'
                 ? 'שום מתקן לא הוסתר אוטומטית בייבוא הנוכחי'
+                : activeTab === 'amenities' && amenitySubView === 'published'
+                ? 'עוד לא אישרת שום מתקן בקטגוריה/עיר הזו'
                 : activeTab === 'climbs' && !isSuperAdmin ? 'עליות מנוהלות ע״י מנהל ראשי בלבד' : isSuperAdmin ? 'הכל אושר' : 'לא הגשת פריטים לאישור'}
             </p>
           </div>
@@ -1074,6 +1142,10 @@ export default function ApprovalCenterPage() {
                 .filter(i => i.category && i.location)
                 .map(i => ({ id: i.id, category: i.category!, sport: i.sport, location: i.location!, name: i.title }))}
               onSelect={id => {
+                // Same guard as the list-view row button above — published
+                // items never open ApprovalDetailModal (its approve/reject
+                // buttons have no moderation-status awareness).
+                if (amenitySubView === 'published') return;
                 const found = shownItems.find(i => i.id === id);
                 if (found) setSelectedItem({ entityType: 'amenity', id, title: found.title });
               }}
@@ -1109,8 +1181,16 @@ export default function ApprovalCenterPage() {
                 )}
                 <button
                   type="button"
-                  onClick={() => setSelectedItem({ entityType: item.entityType, id: item.id, title: item.title })}
-                  className="flex items-center gap-4 flex-1 min-w-0 text-right group"
+                  // Published amenities are view-only here — ApprovalDetailModal's
+                  // approve/reject buttons have no awareness of moderation status
+                  // (they'd happily "reject" an already-live item), so this sub-view
+                  // deliberately never opens it rather than adding that guard to a
+                  // component every other tab also shares.
+                  onClick={() => {
+                    if (activeTab === 'amenities' && amenitySubView === 'published') return;
+                    setSelectedItem({ entityType: item.entityType, id: item.id, title: item.title });
+                  }}
+                  className={`flex items-center gap-4 flex-1 min-w-0 text-right group ${activeTab === 'amenities' && amenitySubView === 'published' ? 'cursor-default' : ''}`}
                 >
                   {activeTab === 'pending_units' ? (
                     // 07.09.2026 — every pending unit used to render with the
@@ -1152,9 +1232,11 @@ export default function ApprovalCenterPage() {
                       )}
                     </div>
                   </div>
-                  <span className="flex items-center gap-1 text-[11px] text-cyan-600 font-bold flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                    פירוט <ChevronLeft size={13} />
-                  </span>
+                  {!(activeTab === 'amenities' && amenitySubView === 'published') && (
+                    <span className="flex items-center gap-1 text-[11px] text-cyan-600 font-bold flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      פירוט <ChevronLeft size={13} />
+                    </span>
+                  )}
                 </button>
                 {activeTab === 'amenities' && amenitySubView === 'suppressed' ? (
                   <div className="flex items-center gap-2 flex-shrink-0">
@@ -1171,6 +1253,12 @@ export default function ApprovalCenterPage() {
                         {unsuppressingId === item.id ? 'מעבד...' : 'החזר לבדיקה'}
                       </button>
                     )}
+                  </div>
+                ) : activeTab === 'amenities' && amenitySubView === 'published' ? (
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="flex items-center gap-1 text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full border border-green-200">
+                      <CheckCircle2 size={9} /> מאושר{formatReviewedAt(item.reviewedAt) ? ` · ${formatReviewedAt(item.reviewedAt)}` : ''}
+                    </span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 flex-shrink-0">

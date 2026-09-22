@@ -39,6 +39,11 @@ export interface AmenityQueueItem {
   city: string;
   importBatchId?: string;
   reviewedBy?: string;
+  /** Set by approveEntity/bulkApproveEntities on approval — absent for docs
+   *  published via a path that bypassed normal moderation (e.g. the lost
+   *  Haifa crossing-import run predating this field). Used by the
+   *  Approval Center's "מאושרים" sub-view to show a rough approval date. */
+  reviewedAt?: unknown;
   rejectionReason?: string;
   suppressedDuplicateOfParkId?: string | null;
 }
@@ -108,16 +113,19 @@ export async function fetchAmenitiesByCity(
 /**
  * Fetches osm_amenities docs by moderation status, for the Approval Center's
  * amenities tab — 'pending' for the normal queue, 'rejected' for the Phase-4
- * suppressed sub-view (further split client-side by suppressedDuplicateOfParkId).
+ * suppressed sub-view (further split client-side by suppressedDuplicateOfParkId),
+ * 'published' for the "מאושרים" sub-view (view-only — what's already live).
  * Single-field equality query, national in scope (not city-scoped like
  * fetchAmenitiesByCity) — the tab applies its own city/category filters
  * client-side over this result, same pattern as the climbs tab's climbType
  * filter. limitCount default (3000) comfortably covers one city's TLV-scale
- * dry-run (~1,556 pending); logs a warning if the cap is actually hit, since
- * that would silently truncate the queue.
+ * dry-run (~1,556 pending); a 'published' call should pass a higher explicit
+ * limit (3,806+ national total as of 22.09.2026, growing) — logs a warning
+ * if the cap is actually hit either way, since that would silently truncate
+ * the queue.
  */
 export async function fetchAmenitiesByStatus(
-  status: 'pending' | 'rejected',
+  status: 'pending' | 'published' | 'rejected',
   limitCount: number = 3000,
 ): Promise<AmenityQueueItem[]> {
   const snap = await getDocs(
@@ -147,6 +155,7 @@ export async function fetchAmenitiesByStatus(
       city: data.city,
       importBatchId: data.importBatchId,
       reviewedBy: data.reviewedBy,
+      reviewedAt: data.reviewedAt,
       rejectionReason: data.rejectionReason,
       suppressedDuplicateOfParkId: data.suppressedDuplicateOfParkId ?? null,
     });
