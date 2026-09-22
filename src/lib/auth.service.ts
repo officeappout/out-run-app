@@ -793,6 +793,36 @@ export async function linkPhoneNumber(phoneNumber: string) {
 }
 
 /**
+ * Mint (or refresh) the server-side admin session cookie for `user`, via
+ * POST /api/auth/session — the HttpOnly cookie middleware.ts reads for
+ * every /admin/* gating decision.
+ *
+ * MUST be awaited before navigating to any /admin/* path the caller
+ * expects this session to unlock. AdminSessionSync (mounted only inside
+ * admin/layout.tsx, via onAuthStateChanged) does this too, but
+ * asynchronously and best-effort — relying on it alone races the very
+ * first navigation right after a client-side role check confirms someone
+ * as an authority manager (00-MASTER-PLAN.md §13.10: this exact race,
+ * from a page OUTSIDE admin/layout.tsx — authority-portal/login — was
+ * part of a real redirect loop in production).
+ */
+export async function mintAdminSessionCookie(user: User): Promise<boolean> {
+  try {
+    const idToken = await user.getIdToken(/* forceRefresh */ true);
+    const res = await fetch('/api/auth/session', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken }),
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn('[auth.service] mintAdminSessionCookie failed:', err);
+    return false;
+  }
+}
+
+/**
  * Sign out current user
  */
 export async function signOutUser() {

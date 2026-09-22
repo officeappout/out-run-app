@@ -86,6 +86,91 @@ export function shouldGateAdminRequest(pathname: string, domain: string): boolea
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// Authority-manager scope gate (00-MASTER-PLAN.md §13.10)
+//
+// A plain authority_manager was never covered by `admin: true` — that flag
+// stays `admin`/`system_admin`/root-only on purpose (it also gates routes
+// that return cross-tenant PII with no per-authority scoping, e.g.
+// /api/admin/photo-release/[submissionId] — granting it broadly would open
+// every OTHER city's data too, not just the manager's own). Instead
+// resolveIdentity() (firebase-admin.ts) computes a separate, narrower
+// `scope: 'authority_manager'` claim, server-side, from
+// authorities.managerIds — and this middleware allows THAT claim through
+// for only the same path allowlist admin/layout.tsx already enforces
+// client-side for the identical role (kept in sync manually — no shared
+// import is possible from Edge middleware into a 'use client' page).
+// `/admin/authority/users` is deliberately absent (super_admin/
+// system_admin-only since 22.09.2026) — this list must never add it back
+// without also updating layout.tsx's copy.
+const AUTHORITY_MANAGER_ALLOWED_PATHS = [
+  '/admin/authority-manager',
+  '/admin/dashboard',
+  '/admin/authority/locations',
+  '/admin/authority/routes',
+  '/admin/authority/reports',
+  '/admin/authority/team',
+  '/admin/authority/community',
+  '/admin/authority/events',
+  '/admin/authority/neighborhoods',
+  '/admin/authority/readiness',
+  '/admin/authority/units',
+  '/admin/authority/grades',
+  '/admin/approval-center',
+  '/admin/parks',
+  '/admin/locations',
+  '/admin/heatmap',
+  '/admin/insights',
+  '/admin/statistics',
+  '/admin/auth/callback',
+  '/admin/authority-login',
+  '/admin/pending-approval',
+  '/admin/access-codes',
+  '/admin/admin-directory',
+  '/admin/organizations',
+];
+
+export interface GateSessionInfo {
+  admin: boolean;
+  scope?: 'authority_manager';
+}
+
+export type AdminGateAction =
+  | { action: 'allow' }
+  | { action: 'redirect'; to: string };
+
+/**
+ * Pure decision for an already-gated /admin/* request: given the decoded
+ * session (or null — missing cookie, invalid/expired cookie, and "no
+ * session" all collapse to the same null input here; verifyAdminSession
+ * itself is what distinguishes them, before this function ever runs), what
+ * should happen?
+ *
+ *   session.admin === true           → allow (root / super_admin / etc.,
+ *                                       unchanged from before this fix)
+ *   scope === 'authority_manager'
+ *     + pathname in the allowlist    → allow
+ *     + pathname NOT in the allowlist→ redirect to their own portal, NOT
+ *                                       to login — they have a perfectly
+ *                                       valid session, they just tried a
+ *                                       path outside their role
+ *   anything else (no session,
+ *   invalid session, neither claim)  → redirect to /admin/login
+ */
+export function decideAdminGateAction(
+  pathname: string,
+  session: GateSessionInfo | null,
+): AdminGateAction {
+  if (session?.admin === true) {
+    return { action: 'allow' };
+  }
+  if (session?.scope === 'authority_manager') {
+    const isAllowed = AUTHORITY_MANAGER_ALLOWED_PATHS.some((p) => pathname.startsWith(p));
+    return isAllowed ? { action: 'allow' } : { action: 'redirect', to: '/admin/authority-manager' };
+  }
+  return { action: 'redirect', to: '/admin/login' };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // Public guest-accessible routes.
 //
 // These are standalone, unauthenticated pages (e.g. the parent-facing Photo
@@ -243,14 +328,22 @@ export async function middleware(request: NextRequest) {
   if (shouldGateAdmin) {
     const cookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
     const session = cookie ? await verifyAdminSession(cookie) : null;
-    if (!session || session.admin !== true) {
-      const url = new URL('/admin/login', request.url);
-      // Preserve the requested path so the login flow can bounce
-      // the user back after successful authentication.
-      url.searchParams.set('next', pathname);
+    const decision = decideAdminGateAction(pathname, session);
+
+    if (decision.action === 'redirect') {
+      const url = new URL(decision.to, request.url);
+      if (decision.to === '/admin/login') {
+        // Preserve the requested path so the login flow can bounce
+        // the user back after successful authentication.
+        url.searchParams.set('next', pathname);
+      }
       const res = NextResponse.redirect(url);
-      // Ensure stale/invalid cookies are wiped.
-      if (cookie) {
+      // Only wipe the cookie when bouncing to login (no valid session at
+      // all, or a session with neither claim). A scope==='authority_manager'
+      // session redirected to their own portal for trying an out-of-scope
+      // path is still perfectly valid — clearing it would force a
+      // needless re-login.
+      if (cookie && decision.to === '/admin/login') {
         res.cookies.delete(SESSION_COOKIE_NAME);
       }
       return res;

@@ -15,10 +15,13 @@
  *      whether the user is an admin (custom claim / email allowlist /
  *      Firestore role).
  *   4. The route mints an HS256-signed JWT containing
- *      `{ uid, email, admin, exp }` and sets it as an HttpOnly cookie.
+ *      `{ uid, email, admin, scope, exp }` and sets it as an HttpOnly
+ *      cookie. `scope` is a narrower, separate grant (currently only
+ *      'authority_manager') — never folded into `admin`.
  *   5. On every navigation, middleware (Edge) verifies the JWT
  *      signature using `jose` — which IS Edge-compatible — and gates
- *      `/admin/*` based on the `admin` claim.
+ *      `/admin/*` based on the `admin` claim, or (for a subset of paths)
+ *      the `scope` claim — see decideAdminGateAction in middleware.ts.
  *
  * The HMAC secret never leaves the server.
  */
@@ -32,6 +35,10 @@ export interface AdminSessionPayload extends JWTPayload {
   uid: string;
   email: string | null;
   admin: boolean;
+  /** Mirrors ResolvedIdentity.scope (firebase-admin.ts) — a narrow,
+   * server-computed authority_manager grant, distinct from `admin`. See
+   * middleware.ts's decideAdminGateAction for what this alone permits. */
+  scope?: 'authority_manager';
 }
 
 /**

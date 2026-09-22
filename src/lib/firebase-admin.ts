@@ -136,6 +136,20 @@ export interface ResolvedIdentity {
   uid: string;
   email: string | null;
   admin: boolean;
+  /**
+   * Server-computed, narrow grant for authority managers
+   * (authorities.managerIds array-contains uid) — deliberately NEVER
+   * folded into `admin`. `admin` gates requireAdminApi/requireSection/
+   * resolveAdminUid across /api/admin/*, including routes that return
+   * cross-tenant PII (e.g. /api/admin/photo-release/[submissionId],
+   * minors' data by submissionId with no per-authority scoping) — an
+   * authority manager getting `admin:true` would open every other city's
+   * data, not just their own. `scope` exists solely so the session
+   * cookie can carry enough for middleware.ts's decideAdminGateAction to
+   * allow ONLY that manager's own portal paths — see 00-MASTER-PLAN.md
+   * §13.10 for the redirect-loop this replaces.
+   */
+  scope?: 'authority_manager';
 }
 
 export async function resolveIdentity(idToken: string): Promise<ResolvedIdentity> {
@@ -204,5 +218,28 @@ export async function resolveIdentity(idToken: string): Promise<ResolvedIdentity
     }
   }
 
-  return { uid: decoded.uid, email, admin };
+  // Authority-manager scope — checked only when the caller isn't already
+  // a full admin (an admin has no need for the narrower grant, and this
+  // keeps the extra query off the hot path for every root/super_admin
+  // request). Server-computed from authorities.managerIds directly —
+  // never trusts a client-supplied claim.
+  let scope: 'authority_manager' | undefined;
+  if (!admin) {
+    try {
+      const { getFirestore } = await import('firebase-admin/firestore');
+      const fs = getFirestore(ensureApp());
+      const managerSnap = await fs
+        .collection('authorities')
+        .where('managerIds', 'array-contains', decoded.uid)
+        .limit(1)
+        .get();
+      if (!managerSnap.empty) {
+        scope = 'authority_manager';
+      }
+    } catch (err) {
+      console.warn('[firebase-admin] Failed to check authority-manager scope:', err);
+    }
+  }
+
+  return { uid: decoded.uid, email, admin, scope };
 }
