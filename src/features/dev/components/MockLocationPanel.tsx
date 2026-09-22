@@ -25,17 +25,37 @@ const CITY_PRESETS: CityPreset[] = [
 
 interface MockLocationPanelProps {
   devSim: DevSimulationState;
+  /** Blocks turning the override ON while true (David, 22.09.2026, field-test
+   *  doc 37 — never mid-workout, since it would silently start driving
+   *  distance/pace from the fake position instead of real GPS). Turning OFF
+   *  an already-active override stays allowed regardless. */
+  isWorkoutActive: boolean;
 }
 
-function MockLocationPanelInner({ devSim }: MockLocationPanelProps) {
+function MockLocationPanelInner({ devSim, isWorkoutActive }: MockLocationPanelProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedId, setSelectedId] = useState<string>(CITY_PRESETS[0].id);
+  const [manualLat, setManualLat] = useState('');
+  const [manualLng, setManualLng] = useState('');
 
   const activeCity = devSim.isMockEnabled ? devSim.selectedCity : null;
 
   const handleActivate = () => {
+    if (isWorkoutActive) return;
     const city = CITY_PRESETS.find((c) => c.id === selectedId);
     if (city) devSim.setCityPreset(city);
+  };
+
+  const parsedLat = Number(manualLat);
+  const parsedLng = Number(manualLng);
+  const manualCoordsValid =
+    manualLat.trim() !== '' && manualLng.trim() !== '' &&
+    Number.isFinite(parsedLat) && Number.isFinite(parsedLng) &&
+    parsedLat >= -90 && parsedLat <= 90 && parsedLng >= -180 && parsedLng <= 180;
+
+  const handleSetManual = () => {
+    if (isWorkoutActive || !manualCoordsValid) return;
+    devSim.setMockLocation({ lat: parsedLat, lng: parsedLng });
   };
 
   if (!isExpanded) {
@@ -85,11 +105,18 @@ function MockLocationPanelInner({ devSim }: MockLocationPanelProps) {
           </div>
         )}
 
+        {isWorkoutActive && (
+          <div className="bg-red-500/20 rounded-lg px-2 py-1.5 text-[11px] font-semibold text-red-300 text-center">
+            אי אפשר להדליק מיקום מדומה בזמן אימון
+          </div>
+        )}
+
         {/* City dropdown */}
         <select
           value={selectedId}
           onChange={(e) => setSelectedId(e.target.value)}
-          className="w-full rounded-lg bg-white/10 text-white text-[12px] px-2 py-1.5 border border-white/15 focus:outline-none focus:border-orange-400"
+          disabled={isWorkoutActive}
+          className="w-full rounded-lg bg-white/10 text-white text-[12px] px-2 py-1.5 border border-white/15 focus:outline-none focus:border-orange-400 disabled:opacity-40"
           style={{ direction: 'rtl' }}
         >
           {CITY_PRESETS.map((c) => (
@@ -103,7 +130,8 @@ function MockLocationPanelInner({ devSim }: MockLocationPanelProps) {
         <div className="flex gap-2">
           <button
             onClick={handleActivate}
-            className="flex-1 rounded-lg bg-orange-500 hover:bg-orange-400 text-white text-[12px] font-bold py-1.5 transition-colors active:scale-95"
+            disabled={isWorkoutActive}
+            className="flex-1 rounded-lg bg-orange-500 hover:bg-orange-400 text-white text-[12px] font-bold py-1.5 transition-colors active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             הפעל
           </button>
@@ -115,12 +143,53 @@ function MockLocationPanelInner({ devSim }: MockLocationPanelProps) {
             כבה
           </button>
         </div>
+
+        {/* Manual lat/lng — wired to the SAME setMockLocation the map's
+            long-press handler already uses (MapShell.tsx). */}
+        <div className="border-t border-white/10 pt-2 flex flex-col gap-1.5">
+          <span className="text-[10px] font-semibold text-gray-400">קואורדינטות ידניות</span>
+          <div className="flex gap-1.5">
+            <input
+              type="number"
+              inputMode="decimal"
+              placeholder="lat"
+              value={manualLat}
+              onChange={(e) => setManualLat(e.target.value)}
+              disabled={isWorkoutActive}
+              className="w-1/2 rounded-lg bg-white/10 text-white text-[12px] px-2 py-1.5 border border-white/15 focus:outline-none focus:border-orange-400 disabled:opacity-40"
+            />
+            <input
+              type="number"
+              inputMode="decimal"
+              placeholder="lng"
+              value={manualLng}
+              onChange={(e) => setManualLng(e.target.value)}
+              disabled={isWorkoutActive}
+              className="w-1/2 rounded-lg bg-white/10 text-white text-[12px] px-2 py-1.5 border border-white/15 focus:outline-none focus:border-orange-400 disabled:opacity-40"
+            />
+          </div>
+          <button
+            onClick={handleSetManual}
+            disabled={isWorkoutActive || !manualCoordsValid}
+            className="w-full rounded-lg bg-orange-500 hover:bg-orange-400 text-white text-[12px] font-bold py-1.5 transition-colors active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            הגדר קואורדינטות
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-export default function MockLocationPanel(props: MockLocationPanelProps) {
-  if (process.env.NODE_ENV === 'production') return null;
+interface MockLocationPanelGatedProps extends MockLocationPanelProps {
+  /** David, 22.09.2026, field-test doc 37: replaces the old NODE_ENV check
+   *  — the render site (MapShell.tsx) already gates on this before even
+   *  dynamically importing the component, but the check is repeated here
+   *  as defense-in-depth for any future direct import. */
+  isSuperAdmin: boolean;
+}
+
+export default function MockLocationPanel({ isSuperAdmin, ...props }: MockLocationPanelGatedProps) {
+  if (!isSuperAdmin) return null;
   return <MockLocationPanelInner {...props} />;
 }

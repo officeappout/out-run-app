@@ -65,6 +65,16 @@ export function useWorkoutSession(
   focusedRoute: Route | null,
   workoutMode: 'free' | 'discover',
   profile: any,
+  /**
+   * David, 22.09.2026, field-test doc 37: single chokepoint for the
+   * mock-location-active pre-flight warning — startActiveWorkout has 8+
+   * call sites across DiscoverLayer/FreeRunLayer/BuilderLayer/etc., all of
+   * which funnel through here, so gating here (not at each call site)
+   * covers every one of them. Returns false to abort the start (user
+   * declined the confirmation); omitted/undefined ⇒ always proceeds,
+   * byte-identical to every caller before this change.
+   */
+  beforeStartWorkout?: () => boolean,
 ): WorkoutSessionState {
   const { triggerLap, addCoord, updateRunData } = useRunningPlayer();
   const { status, startSession, pauseSession, resumeSession, endSession, updateDistance } = useSessionStore();
@@ -259,8 +269,9 @@ export function useWorkoutSession(
    * pass `'running'` as the activity type unconditionally.
    */
   const startActiveWorkout = useCallback(() => {
+    if (beforeStartWorkout && !beforeStartWorkout()) return;
     interceptWorkoutStart(() => _doStartActiveWorkout(), 'running');
-  }, [interceptWorkoutStart, _doStartActiveWorkout]);
+  }, [interceptWorkoutStart, _doStartActiveWorkout, beforeStartWorkout]);
 
   return {
     isWorkoutActive, setIsWorkoutActive,

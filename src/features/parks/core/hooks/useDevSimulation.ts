@@ -14,6 +14,12 @@ import {
   randomTargetDistanceKm,
   randomCurrentStreak,
 } from '@/features/safecity/services/presence.service';
+import {
+  loadMockLocationState,
+  loadMockLocationStateAsync,
+  saveMockLocationState,
+  clearMockLocationState,
+} from '@/features/dev/services/mock-location-storage';
 
 const WALK_SPEED_MS = 1.667; // 6 km/h in m/s
 const TICK_MS = 100;
@@ -69,9 +75,37 @@ export interface DevSimulationState {
 }
 
 export function useDevSimulation(): DevSimulationState {
-  const [isMockEnabled, setIsMockEnabled] = useState(false);
-  const [mockLocation, setMockLocationRaw] = useState<{ lat: number; lng: number } | null>(null);
-  const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  // Persisted override (David, 22.09.2026, field-test doc 37 — super-admin
+  // only, must survive a refresh AND a hard close on native). Lazy
+  // initializer = the synchronous localStorage read, so the very first
+  // render already reflects a prior session — no flash of "off" before an
+  // effect catches up. The async effect below only covers the native
+  // cold-start case where WKWebView evicted localStorage since last launch.
+  const persisted = loadMockLocationState();
+  const [isMockEnabled, setIsMockEnabled] = useState(persisted?.isMockEnabled ?? false);
+  const [mockLocation, setMockLocationRaw] = useState<{ lat: number; lng: number } | null>(
+    persisted?.mockLocation ?? null,
+  );
+  const [selectedCity, setSelectedCity] = useState<string | null>(persisted?.selectedCity ?? null);
+
+  useEffect(() => {
+    if (persisted) return; // sync read already had it — nothing to reconcile
+    let cancelled = false;
+    loadMockLocationStateAsync().then((state) => {
+      if (cancelled || !state) return;
+      setIsMockEnabled(state.isMockEnabled);
+      setMockLocationRaw(state.mockLocation);
+      setSelectedCity(state.selectedCity);
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // NOTE on persistence: deliberately called from toggleMock/setMockLocation/
+  // setCityPreset below — NOT a useEffect watching mockLocation — because
+  // startSimulation's route-walkthrough ticks mockLocation every 100ms via
+  // the internal setMockLocationRaw (bypassing the public setMockLocation),
+  // and that transient, in-motion position must never be written to disk.
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationProgress, setSimulationProgress] = useState(0);
   const [simulatedPath, setSimulatedPath] = useState<[number, number][]>([]);
@@ -98,6 +132,7 @@ export function useDevSimulation(): DevSimulationState {
         setSimulationProgress(0);
         setSimulatedPath([]);
         simStateRef.current = null;
+        clearMockLocationState();
       }
       return !prev;
     });
@@ -106,12 +141,20 @@ export function useDevSimulation(): DevSimulationState {
   const setMockLocation = useCallback((pos: { lat: number; lng: number }) => {
     setMockLocationRaw(pos);
     if (!isMockEnabled) setIsMockEnabled(true);
-  }, [isMockEnabled]);
+    // selectedCity is intentionally left as-is (byte-identical to the
+    // pre-existing long-press behaviour) — a manual pin doesn't have a name.
+    saveMockLocationState({ isMockEnabled: true, mockLocation: pos, selectedCity });
+  }, [isMockEnabled, selectedCity]);
 
   const setCityPreset = useCallback((city: CityPreset) => {
     setMockLocationRaw({ lat: city.lat, lng: city.lng });
     setIsMockEnabled(true);
     setSelectedCity(city.name);
+    saveMockLocationState({
+      isMockEnabled: true,
+      mockLocation: { lat: city.lat, lng: city.lng },
+      selectedCity: city.name,
+    });
   }, []);
 
   const effectiveLocation = useCallback(

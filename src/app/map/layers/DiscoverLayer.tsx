@@ -63,7 +63,6 @@ import {
   type LiveActivityFilter,
 } from '@/features/partners';
 import type { DevSimulationState } from '@/features/parks/core/hooks/useDevSimulation';
-import MockLocationPanel from '@/features/dev/components/MockLocationPanel';
 import { useCommunityEnrichment } from '@/features/parks/core/hooks/useCommunityEnrichment';
 import {
   Navigation,
@@ -1988,8 +1987,6 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
           />
         )}
       </AnimatePresence>
-
-      {process.env.NODE_ENV !== 'production' && devSim && <MockLocationPanel devSim={devSim} />}
 
       <ContributionWizard
         isOpen={wizardOpen}

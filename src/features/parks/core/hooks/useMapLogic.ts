@@ -23,7 +23,13 @@ import { useWorkoutSession } from './useWorkoutSession';
 import { useMapStore } from '../store/useMapStore';
 import { getCachedOfficialRoutes } from '../services/inventory.service';
 
-export const useMapLogic = (mapMode?: string, contextActivity?: ActivityType) => {
+export const useMapLogic = (
+  mapMode?: string,
+  contextActivity?: ActivityType,
+  /** David, 22.09.2026, field-test doc 37 — see useWorkoutSession's own doc
+   *  comment on this parameter. Threaded straight through, no logic here. */
+  beforeStartWorkout?: () => boolean,
+) => {
   const { profile } = useUserStore();
   const { setSelectedPark } = useMapStore();
 
@@ -52,6 +58,7 @@ export const useMapLogic = (mapMode?: string, contextActivity?: ActivityType) =>
     routes.focusedRoute,
     workoutMode,
     profile,
+    beforeStartWorkout,
   );
 
   // Wire address/park/route select — branches on suggestion source.

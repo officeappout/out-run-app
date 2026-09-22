@@ -76,6 +76,17 @@ const AppMap = dynamicImport(() => import('@/features/parks/core/components/AppM
   ssr: false,
 });
 
+// Super-admin-only dev tool (David, 22.09.2026, field-test doc 37) — dynamic
+// import so a regular user's bundle never fetches this chunk at all; the
+// render sites below additionally gate on isSuperAdmin, so a regular user
+// never even calls these.
+const MockLocationPanel = dynamicImport(() => import('@/features/dev/components/MockLocationPanel'), {
+  ssr: false,
+});
+const MockLocationBanner = dynamicImport(() => import('@/features/dev/components/MockLocationBanner'), {
+  ssr: false,
+});
+
 // Round 7 mobile map fix (18.08.2026): how old a durably-cached last_gps_at
 // fix may be and still count as an "accurate" seed for the map center /
 // location marker. Long enough to comfortably cover a brief backgrounding
@@ -105,7 +116,25 @@ interface MapShellInnerProps {
 
 function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = false }: MapShellInnerProps) {
   const { mode, setMode, activityType: contextActivity } = useMapMode();
-  const logic = useMapLogic(mode, contextActivity);
+
+  // devSim + profile hoisted above useMapLogic (David, 22.09.2026, field-test
+  // doc 37): the mock-location pre-flight guard passed into useMapLogic
+  // needs both, so they must exist before that call. Neither depends on
+  // `logic` — purely independent state, safe to read this early.
+  const devSim = useDevSimulation();
+  const { profile, refreshProfile } = useUserStore();
+  const isSuperAdmin = profile?.core?.isSuperAdmin === true;
+
+  const confirmStartWithMockLocation = useCallback((): boolean => {
+    if (!devSim.isMockEnabled) return true;
+    const label = devSim.selectedCity
+      ?? (devSim.mockLocation ? `${devSim.mockLocation.lat.toFixed(4)}, ${devSim.mockLocation.lng.toFixed(4)}` : 'מיקום מדומה');
+    return window.confirm(
+      `מיקום מדומה פעיל (${label}) — האימון יעקוב אחרי המיקום המדומה, לא GPS אמיתי. להמשיך?`,
+    );
+  }, [devSim.isMockEnabled, devSim.selectedCity, devSim.mockLocation]);
+
+  const logic = useMapLogic(mode, contextActivity, confirmStartWithMockLocation);
 
   const routeZones = useRunningPlayer((s) => s.routeZones);
   const isMapFollowEnabled = useRunningPlayer((s) => s.isMapFollowEnabled);
@@ -133,7 +162,6 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
   // alone leaves the carousel visible on the summary / expanded-map
   // overlay.
   const sessionStatus = useSessionStore((s) => s.status);
-  const devSim = useDevSimulation();
   const effectivePos = devSim.effectiveLocation(logic.currentUserPos);
 
   // Recenter ("center on me"): bump a signal AppMap watches → it eases to the
@@ -202,7 +230,6 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
     logic.injectSimPosition(devSim.mockLocation);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [devSim.mockLocation]);
-  const { profile, refreshProfile } = useUserStore();
   const { celebrate } = useGoalCelebration();
 
   // Resolve the initial map center. Mobile map default->jump fix, round 4
@@ -713,6 +740,17 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
         runMode !== 'my_routes' && <SessionControlBar />}
 
       {/* ══════ GLOBAL OVERLAYS ══════ */}
+      {/* Super-admin-only dev tool (David, 22.09.2026, field-test doc 37).
+          Banner persists across every mode (incl. mid-workout) — the panel
+          is the interactive 🧪 corner control. isWorkoutActive blocks
+          turning the override ON (never blocks turning it off). */}
+      {isSuperAdmin && (
+        <>
+          <MockLocationBanner devSim={devSim} />
+          <MockLocationPanel devSim={devSim} isSuperAdmin={isSuperAdmin} isWorkoutActive={logic.isWorkoutActive} />
+        </>
+      )}
+
       <JITSetupModal
         isOpen={logic.jitState.isModalOpen}
         requirements={logic.jitState.requirements}
