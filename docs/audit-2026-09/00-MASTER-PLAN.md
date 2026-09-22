@@ -643,4 +643,67 @@ firebase deploy --only firestore:rules
   — שני המסכים שערים על `isSuperAdmin`, לא `isRootAdmin` — עקב צמצום כלל
   ה-read. לא בהיקף (המשימה ביקשה למצוא ולהעביר כתיבות, לא קריאות).
 
+### 13.7 — חלון ההזמנה + אודיט `platform_member` (22.09.2026): שני פערים חדשים, קריאה-בלבד, לא נסגרו
+
+`fix/invite-modal-roles-and-sections` (`bdcc3c6c`), מוזג ל-`main` ב-`7063e162`.
+תיקון UI טהור: הוסרו מ-`InviteMemberModal.tsx` כל תפקיד ש-`POST
+/api/admin/invitations` דוחה (`super_admin`/`vertical_admin`/`tenant_owner`/
+`unit_admin`), נוסף `authority_manager` בהקשר platform עם בורר עיר חובה
+(`authorityId`), ו"הרשאות גישה" (`allowedSections`) מוגבל ל-`platform_member`
+בלבד. אין שינוי כללים בענף. אומת אחרי הפריסה: `outrun.co.il` = 200,
+`/api/catalog/parks` = 200 עם 1158 גינות (אותו smoke test כמו ב-§13.6).
+
+לצד התיקון בוצע אודיט קריאה-בלבד (לא תוקן, per instructions) על מה ש-10
+ריבועי `allowedSections` פותחים בפועל, מול SPEC-PERMISSIONS-MODEL.md §2.1/§5
+("חבר צוות לא רואה נתונים אישיים של תושבים"). שני ממצאים חדשים, לא בהיקף
+התיקון עצמו:
+
+**(1) `platform_member` לא מזוהה ב-`resolveIdentity()` ולכן חסום לגמרי בשרת ובמידלוור.**
+
+`resolveIdentity()` (`src/lib/firebase-admin.ts:194-201`) בודק רק
+`isSuperAdmin`/`isSystemAdmin`/`isVerticalAdmin`/`isTenantOwner`/
+`role==='admin'`/`role==='system_admin'` — לעולם לא `core.allowedSections`.
+התוצאה: `identity.admin` הוא תמיד `false` עבור `platform_member` אמיתי, מה
+שמשפיע על **שלוש** שכבות בבת אחת, כי כולן נשענות על אותו `resolveIdentity`:
+- `requireAdminApi` — דוחה כל בקשה (401), כולל ל-routes שלא אמורים לדרוש
+  יותר מחברות בצוות.
+- `requireSection(req, sectionKey)` — דוחה **גם** כשה-uid מחזיק בדיוק את
+  ה-section המבוקש: הבדיקה `session?.admin===true`/`identity.admin` קודמת
+  ל-`allowedSections.includes(sectionKey)`, כך שהענף השלישי בפונקציה (המיועד
+  בדיוק ל-`platform_member`, לפי התיעוד העצמי שלה) הוא בפועל קוד מת. אומת
+  אמפירית באמולטור: `platform_member` סינתטי עם `allowedSections:['municipal']`
+  קיבל 401 גם מ-`requireSection(req,'municipal')`.
+- `middleware.ts` (שורה 246) — גודר `/admin/*` לפי `session.admin===true`
+  בכל דומיין אמיתי (לא localhost). `platform_member` אמיתי יקבל 302 חזרה
+  ל-`/admin/login` על כל דף, עוד לפני שה-HTML נטען — ב-production בלבד;
+  ב-local dev השער הזה מדולג וה-layout הצד-לקוח (`checkUserRole`) מזהה
+  `platform_member` נכון.
+
+זו **לא** בעיית פרטיות — הכיוון הפוך: יתר-חסימה, לא דליפה. אבל זו הסיבה
+בפועל שרוב 10 הריבועים "לא דולפים" היום — לא תכנון סקשנים תקין, אלא תקלה
+גורפת בזיהוי שחוסמת גם גישה לגיטימית. **לא לתקן לפני:** מיפוי מלא של כל
+route תחת `/api/admin/*` לפי איזה section אמור לשמור עליו (חלקם משתמשים
+ב-`requireAdminApi` הגורף, חלקם ב-`requireSection` השבור-בפועל, ואף אחד לא
+נבדק שיטתית), **וגם** בדיקה per-route אילו services שהוא קורא מחזירים
+שדות תושבים (name/email/phone/birthDate) — כדי לא לתקן את שכבת הזיהוי
+ולפתוח בטעות route שכן חושף PII למי שרק אמור לגשת ל-section אחר.
+
+**(2) שלושה מסכים בלי שום בדיקת הרשאה בקוד — מוגנים רק ע"י `firestore.rules`.**
+
+אומת ב-3 שכבות (grep מלא על הקובץ + query אמיתי באמולטור מול `firestore.rules`
+החי):
+
+| מסך | מה חסר בקוד | מה כן חוסם |
+|---|---|---|
+| `src/app/admin/authorities/[id]/page.tsx` | אין `checkUserRole`/שער הרשאה בקובץ כלל. `loadUsers()` (שורה ~209) רץ unconditionally, `orderBy('core.name')` על כל `users`, לבורר "רכזי בריאות" (`name`+`email` מוצגים, שורה 605/607) | `firestore.rules`'s `users/{userId}` read = `isOwner \|\| isRootAdmin() \|\| isAdmin()` — `isAdmin()` לא כולל `platform_member`, ו-Firestore דוחה שאילתת `list` פתוחה כזו כליל (לא ניתן להוכיח `isOwner` לכל מסמך אפשרי מראש). אומת: `getDocs` נדחה. |
+| `src/app/admin/photo-release/...PhotoReleaseManagement.tsx` | אין שום שער הרשאה — לא בקומפוננטה, לא ב-`page.tsx`. `onSnapshot` גלובלי, לא מסונן לפי רשות/בית ספר, על `photo_release_submissions`, מציג `studentName`+`parentName` (שורה ~312/315) — **נתוני קטינים** | `photo_release_submissions/{docId}`'s `allow read: if isRootAdmin() \|\| isAdmin()` (firestore.rules:2536). אומת: `onSnapshot` מחזיר `permission-denied`, לא מסמכים. |
+| `/admin/analytics`, `/admin/statistics`, `/admin/insights` | אין שער הרשאה באף אחד מהשלושה. `analytics/page.tsx` מושך עד 200 מסמכי `users` מלאים (`marketingAttribution` filter); `statistics`/`insights` קוראים `cpo-analytics.service.ts`/`strategic-insights.service.ts` שמושכים את **כל** קולקציית `users` ללא הגבלה | אותו תבנית — `orderBy(core.name)`/`where` על `users` נדחית כליל ל-`platform_member`. אומת ישירות. |
+
+**המסקנה:** נכון להיום אין דליפת PII בפועל — אך ההגנה במסכים האלה היא
+שכבה אחת בלבד (rules), לא שתיים. אם `isAdmin()` ירחיב אי-פעם לכלול
+`platform_member` (בדיוק סוג השינוי שקרה בעבר בכיוון ההפוך — ראו ה-catch-all
+הגלובלי ב-§13.5), שלושת המסכים האלה יחשפו PII תושבים, כולל קטינים, ללא
+שום שכבת הגנה שנייה בקוד. **לא תוקן** — קריאה-בלבד per instructions. שני
+הממצאים (1)+(2) פתוחים לטיפול עתידי, לא בהיקף המשימה הנוכחית.
+
 **בסיס tsc מתוקן — 449, לא 453 (19.09.2026):** מנת תיקונים ("ניקוי דמו, תוויות, ותיקון תצוגת העיר", ממוזגת ל-`main` ב-`722b379b`) נפתחה מול בסיס שנרשם כ-453 שגיאות. באותו סבב עבודה התגלה ש-`node_modules` המשותף (בין ~75 worktrees על המכונה) היה סוטה מ-`package-lock.json` המחויב — לא חבילה חסרה בודדת (`qr-code-styling`, שחסם `next build` לגמרי), אלא אי-סנכרון רחב יותר. `npm install` (מאושר ע"י דוד, מאומת קודם שאין סשן מקביל באמצע עבודה) תיקן: 1473 חבילות נוספו, 1190 הוסרו מ-`node_modules` בפועל — **אך `package-lock.json` עצמו נשאר זהה בייט-לבייט למה שהיה כבר ב-`origin/main`** (אומת ב-diff מול `git show origin/main:package-lock.json` — אין דיפרנס בגיט, רק resync פיזי של node_modules). אחרי התיקון: `npx tsc --noEmit` = **449 שגיאות**, לא 453/454 — כלומר הבסיס הקודם היה מנופח באופן מלאכותי כתוצאה מהסטייה הזו, לא שינוי אמיתי בקוד. `next build` עבר במלואו לראשונה מזה זמן. **449 הוא הבסיס הנכון מעכשיו.** אם ספירת tsc עתידית שונה מ-449 בלי שינוי קוד מכוון — יש לחשוד תחילה בסטיית `node_modules` (השוואה: `stat -f "%Sm" node_modules` ו-`package-lock.json`, ו-diff מול `git show origin/main:package-lock.json`) לפני שמניחים רגרסיה אמיתית.
