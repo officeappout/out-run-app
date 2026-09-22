@@ -450,7 +450,11 @@ function AdminLayoutInner({
                     '/admin/authority/team',
                     '/admin/authority/community',
                     '/admin/authority/events',
-                    '/admin/authority/users',
+                    // '/admin/authority/users' intentionally removed (22.09.2026):
+                    // that route is now super_admin/system_admin-only — an
+                    // authority manager hitting it directly (stale bookmark,
+                    // typed URL) is redirected to /admin/dashboard below
+                    // instead of landing on an "no access" page.
                     '/admin/authority/neighborhoods',
                     '/admin/authority/readiness',
                     '/admin/authority/units',
