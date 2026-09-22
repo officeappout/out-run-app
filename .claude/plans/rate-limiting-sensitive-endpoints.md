@@ -1,8 +1,76 @@
 # תכנון: הגבלת קצב (Rate Limiting) על נקודות כניסה רגישות
 
-**תאריך:** 22.09.2026
-**סטטוס:** שלב א' — תכנון בלבד, ללא קוד. ממתין להחלטת דוד לפני שלב ב' (מימוש).
+**תאריך:** 22.09.2026 (שלב א'), 23.09.2026 (שלב ב' — מימוש)
+**סטטוס:** שלב ב' מומש במלואו על הענף. ממתין לביקורת קוד + אישור מיזוג של דוד.
 **ענף:** `plan/rate-limiting-sensitive-endpoints`
+
+---
+
+## שלב ב' — מה שמומש בפועל (23.09.2026)
+
+דוד אישר את הכיוון (אפשרות 1 בלבד — הרחבת `rateLimit.ts`; Upstash ו-Vercel Firewall נדחו/נדחו-בינתיים) והטבלה בסעיף ב' כמו שהיא, עם שתי תוספות: (1) כל סף ניתן לשינוי דרך משתנה סביבה עם ברירת מחדל בקוד; (2) ברירת מחדל בטוחה — כשל בבדיקת ה-rate limit עצמה (Firestore לא זמין) → הבקשה עוברת + אזהרה בלוג, לא חסימה.
+
+### תשתית משותפת (חדש)
+
+| קובץ | תפקיד |
+|---|---|
+| `src/lib/rateLimit.ts` | `isRateLimited` עודכן: **fail-open** — כל הפונקציה (כולל בניית ה-doc ref) עטופה ב-try/catch; כשל → `console.warn` + `return false` (לא חסום), לעולם לא זורק. |
+| `src/lib/rateLimitConfig.ts` (חדש) | מקור אמת יחיד לכל הספים — כל אחד ניתן לדריסה דרך משתנה סביבה (טבלה למטה), עם ברירת מחדל בקוד. פונקציית עזר `isBlockedByAny` — בודקת כמה חלונות ברצף, עוצרת בפגיעה הראשונה. |
+| `src/lib/rateLimitLog.ts` (חדש) | לוג אחיד וניתן-לחיפוש: קידומת קבועה `[rate-limit-block]`, מזהה (email/uid/link-id) תמיד מגיע כ-hash מקוצר (sha256, 16 תווים) — לעולם לא גולמי. |
+| `src/lib/requestIp.ts` (חדש) | מרכז את דפוס חילוץ ה-IP (`x-forwarded-for`) שהיה משוכפל ב-3 routes קיימים. |
+
+### מיפוי endpoint ← מנגנון (סדר מימוש בפועל, לפי בקשת דוד)
+
+1. **שער שליחת קישור כניסה** — `POST /api/auth/login-link-gate` (חדש): בדיקת rate-limit **בלבד**, ללא שום בדיקת קיום-אימייל — משמר את התכונה הקיימת ב-`authority-portal/login/page.tsx` (הערה מפורשת בקוד: אין בדיקת-קיום מכוונת כדי לא להפוך ל"אורקל"). מחובר בשני מקומות: `sendMagicLinkRateLimited` (חדש, `src/lib/auth.service.ts`) עבור `authority-portal/login`; ותחילת `sendAdminMagicLink` (`passwordless-auth.service.ts`) עבור `admin/login` — הבדיקה רצה **לפני** כל קריאה ל-`checkAdminEmail`, ומכוסה בבדיקה ייעודית (ראו "בדיקות" למטה).
+2. **`api/links/[id]/click`** (הועלה בעדיפות): rate-limit לפי IP וגם לפי link-id ב-`link-click-handler.ts` (משותף גם ל-`/r/[id]`). **בשונה מכל שאר ה-endpoints — לא מחזיר 429.** כשנחצה סף, הכתיבות (3 לכל קליק) מדולגות אך ה-redirect עדיין קורה כרגיל — הקובץ הזה כבר מצהיר במפורש "analytics must never block a real user reaching the store", וזו בעיית עלות, לא זמינות. חריגה מכוונת מהתבנית האחידה, מתועדת כאן ובקוד.
+3. `POST /api/auth/accept-invitation` — IP בלבד (invitationId אינו נחוש).
+4. `POST /api/auth/session` — IP לפני אימות הטוקן, uid אחריו.
+5. `POST`/`DELETE /api/admin/invitations` — IP לפני אימות, זהות-מנהל (uid) אחריו; **תקציב משותף** ל-POST ול-DELETE (אותו key namespace).
+6. `calendar/[userId]` (90 קריאות Firestore לבקשה — יקר יותר משהוערך בשלב א', סף IP הוקשח בהתאם), `challenge/leaderboard`, `challenge/exercise` — כולם IP בלבד, ללא שינוי בממצאי נספח א'.
+
+### משתני סביבה (כולם אופציונליים — ברירת מחדל בקוד אם לא מוגדרים)
+
+| Endpoint | משתנה | ברירת מחדל |
+|---|---|---|
+| שער קישור כניסה | `RL_LOGIN_LINK_EMAIL_SHORT_{WINDOW_MS,MAX}` | 15 דק' / 3 |
+| | `RL_LOGIN_LINK_EMAIL_DAILY_{WINDOW_MS,MAX}` | 24 שעות / 5 |
+| | `RL_LOGIN_LINK_IP_HOURLY_{WINDOW_MS,MAX}` | שעה / 20 |
+| | `RL_LOGIN_LINK_IP_DAILY_{WINDOW_MS,MAX}` | 24 שעות / 100 |
+| accept-invitation | `RL_ACCEPT_INVITATION_IP_SHORT_{WINDOW_MS,MAX}` | 15 דק' / 20 |
+| | `RL_ACCEPT_INVITATION_IP_HOURLY_{WINDOW_MS,MAX}` | שעה / 60 |
+| session | `RL_SESSION_IP_SHORT_{WINDOW_MS,MAX}` | 15 דק' / 60 |
+| | `RL_SESSION_IP_HOURLY_{WINDOW_MS,MAX}` | שעה / 200 |
+| | `RL_SESSION_UID_SHORT_{WINDOW_MS,MAX}` | 15 דק' / 10 |
+| | `RL_SESSION_UID_HOURLY_{WINDOW_MS,MAX}` | שעה / 30 |
+| admin/invitations | `RL_ADMIN_INVITATIONS_IP_SHORT_{WINDOW_MS,MAX}` | 15 דק' / 10 |
+| | `RL_ADMIN_INVITATIONS_IP_HOURLY_{WINDOW_MS,MAX}` | שעה / 30 |
+| | `RL_ADMIN_INVITATIONS_ADMIN_SHORT_{WINDOW_MS,MAX}` | 15 דק' / 10 |
+| | `RL_ADMIN_INVITATIONS_ADMIN_HOURLY_{WINDOW_MS,MAX}` | שעה / 20 |
+| links/[id]/click | `RL_LINK_CLICK_IP_{WINDOW_MS,MAX}` | דקה / 30 |
+| | `RL_LINK_CLICK_LINKID_{WINDOW_MS,MAX}` | דקה / 120 |
+| calendar/[userId] | `RL_CALENDAR_IP_{WINDOW_MS,MAX}` | דקה / 10 |
+| challenge/leaderboard | `RL_LEADERBOARD_IP_{WINDOW_MS,MAX}` | דקה / 30 |
+| challenge/exercise | `RL_CHALLENGE_EXERCISE_IP_{WINDOW_MS,MAX}` | דקה / 60 |
+
+מקור אמת: `src/lib/rateLimitConfig.ts`. שינוי ערך = הוספת/עדכון משתנה סביבה ב-Vercel + redeploy, ללא שינוי קוד.
+
+### בדיקות שנוספו
+
+- `src/lib/__tests__/rateLimit.test.ts` — נוסף מקרה fail-open (טרנזקציית Firestore מדומה שזורקת → `isRateLimited` מחזיר `false`, לא זורק).
+- `src/features/admin/services/__tests__/passwordless-auth.service.test.ts` (חדש) — מוכיח את הדרישה מסעיף ג': כשהשער חוסם, `getUserByEmail`/`getAuthoritiesByManager` (תלויות `checkAdminEmail`) **לא נקראות בכלל**.
+- `scripts/verify-rate-limit.ts` (חדש, אמולטור בלבד — **בלי** מסלול `--prod`, במכוון): ספירת חלון + פקיעה + בידוד בין מימדים (email/IP) + fail-open מול Firestore לא זמין, נגד Firestore אמיתי (לא mock). הרצה: `firebase emulators:start --only firestore` ואז `npx tsx scripts/verify-rate-limit.ts`.
+- סוויטת הבדיקות המלאה (`npx vitest run`) עברה נקייה מול baseline: 227 קבצים, 2190 בדיקות, כשל אחד קיים-מראש ולא קשור (`logMultiCategoryWorkout` streak test — נכשל גם ב-`origin/main` לפני הענף הזה, אומת ב-worktree חד-פעמי).
+- `tsc --noEmit` הושווה ל-baseline (`origin/main`) בעזרת worktree חד-פעמי + `comm -13`/`comm -23` על פלט ממוין: 0 שגיאות חדשות — כל 802 השורות זהות משני הצדדים, ההבדל היחיד סדר איברי union לא-דטרמיניסטי של TypeScript (לא קשור לשינויים כאן).
+
+### הצעה להתרעה (לא מומש — לבחירת דוד)
+
+כל חסימה נרשמת כבר עכשיו בפורמט אחיד וניתן-לחיפוש: `[rate-limit-block] route=<name> dimension=<ip|email|uid|admin> ip=<ip> identifierHash=<hash?> ts=<iso>`. שלוש רמות אפשריות להיוודע שזה קורה, מהזולה לכבדה ביותר:
+
+1. **חיפוש ידני ב-Vercel Logs** — `vercel logs <deployment> | grep rate-limit-block`, או חיפוש `rate-limit-block` בלשונית Logs בדשבורד. אין צורך בהגדרה כלל — זמין כבר עכשיו עם הקוד הזה. חיסרון: משיכה (pull), לא דחיפה — דוד צריך לזכור לבדוק.
+2. **סיכום מתוזמן קיים-בתשתית (מומלץ כצעד הבא, לא כרגע):** cron קטן (Vercel Cron route, כמו endpoints מתוזמנים אחרים בפרויקט) ששואל את `rate_limits` אחת ליום על מסמכים עם `count` שהגיע לסף בחלון האחרון, ושולח סיכום למייל **דרך ה-Gmail service-account delegation הקיים כבר בפרויקט** (`GMAIL_SERVICE_ACCOUNT_KEY_PATH`, ראו CLAUDE.md) — **אין ספק חדש**, תשתית קיימת בלבד.
+3. **Vercel Log Drain לשירות חיצוני** (Slack webhook / Axiom / Better Stack וכו') — הכי מיידי (push אמיתי), אך **ספק/אינטגרציה חדשה** שדורשת אישור מפורש בנפרד, וייתכן שדורשת תוכנית Vercel בתשלום (Pro+).
+
+לא מומש דבר מהשלושה — רק מוצע. אופציה 1 זמינה מיד ללא פעולה נוספת.
 
 ---
 
@@ -173,13 +241,21 @@ Vercel הוא **serverless**: כל בקשה עלולה להגיע ל-instance/re
 
 ---
 
-## מגבלות שנשמרו במשימה הזו
+## מגבלות שנשמרו — שלב א' (תכנון)
 
-- ❌ לא נכתב קוד יישומי — המסמך הזה הוא כל התוצר.
+- ❌ לא נכתב קוד יישומי — המסמך היה כל התוצר של שלב א'.
 - ❌ לא נגעתי ב-`firestore.rules`.
-- ❌ לא נוסף ספק חיצוני/מפתח API — Upstash מוצג כאפשרות בלבד, לא הופעל. Vercel Firewall (אם ייבחר) עדיין טעון אישור נפרד + בדיקת זמינות בתוכנית הנוכחית לפני הפעלה.
-- ❌ לא נוצרו נתונים בפרודקשן — כל הבדיקה שבוצעה במשימה זו הייתה קריאת קוד (`Read`/`grep`) בלבד.
+- ❌ לא נוסף ספק חיצוני/מפתח API — Upstash הוצג כאפשרות בלבד, לא הופעל.
+- ❌ לא נוצרו נתונים בפרודקשן — כל הבדיקה שבוצעה בשלב א' הייתה קריאת קוד (`Read`/`grep`) בלבד.
+
+## מגבלות שנשמרו — שלב ב' (מימוש, 23.09.2026)
+
+- ✅ אפשרות 1 בלבד — אין קוד/תלות חדשה ל-Upstash. Vercel Firewall לא הופעל ולא נבדק (נדחה בינתיים, כפי שדוד ביקש).
+- ❌ לא נגעתי ב-`firestore.rules` — `isRateLimited` פועל דרך ה-Admin SDK בלבד, כמו קודם.
+- ❌ לא נוצרו נתונים בפרודקשן ולא נורו בקשות מכוונות נגדה — כל הבדיקה רצה באמולטור (`scripts/verify-rate-limit.ts`, ללא מסלול `--prod` בכלל) או מול Firestore מדומה ב-vitest.
+- ✅ `tsc` הושווה ל-baseline (0 שגיאות חדשות), הסוויטה המלאה עברה (כשל אחד קיים-מראש ולא קשור, מאומת).
+- לא מוזג — ממתין לביקורת קוד ואישור דוד (ראו הצעד הבא).
 
 ## הצעד הבא
 
-ממתין להחלטת דוד: אישור הכיוון הכללי (אפשרות 1 + Vercel Firewall משלים אופציונלי), אישור/דחייה של הספים המוצעים בטבלה, ואישור מפורש להתחיל שלב ב' (מימוש קוד בפועל).
+הענף `plan/rate-limiting-sensitive-endpoints` נדחף ל-origin לביקורת. ממתין לדוד: ביקורת קוד (code-reviewer, לפי חוק #2 ב-CLAUDE.md — לא בודקים את הקוד של עצמנו), ואז אישור למיזוג. הצעת ההתרעה בסעיף "שלב ב'" למעלה ממתינה לבחירה — שום דבר ממנה לא מומש.
