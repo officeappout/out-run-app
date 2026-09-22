@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight } from 'lucide-react';
 import clsx from 'clsx';
 import VideoPlayer, { type VideoTier } from './VideoPlayer';
+import CoverflowStrip from './CoverflowStrip';
 import OnboardingStoryBar from '../OnboardingStoryBar';
 import { STRENGTH_PHASES } from '../../constants/onboarding-phases';
 import type { UserDemographics } from '../../types/visual-assessment.types';
@@ -15,6 +16,7 @@ import {
   getOnboardingLevelsForCategory,
   type ResolvedContent,
 } from '../../services/visual-content-resolver.service';
+import { resolveTierLabel, stepProportion, levelProportion } from '../../utils/assessment-tier-label';
 import { hapticSelection } from '@/lib/haptics';
 
 // ── Category display metadata ──────────────────────────────────────
@@ -103,6 +105,9 @@ export default function VisualSlider({
   // Show the JIT tutorial overlay only on the very first slider (stepIndex === 0).
   // Dismissed by tapping the dark mask OR by the first drag gesture.
   const [showTutorial, setShowTutorial] = useState(stepIndex === 0);
+  // Coverflow strip: level -> thumbnailUrl (null once resolved-but-absent, so
+  // the strip can tell "still loading" apart from "confirmed no image").
+  const [thumbnails, setThumbnails] = useState<Record<number, string | null>>({});
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   // Monotonically-incrementing counter used to discard stale fetchContent completions
@@ -150,6 +155,30 @@ export default function VisualSlider({
   const isSimple = !!steps && steps.length > 1;
   const sliderMin = isSimple ? 0 : minLevel;
   const sliderMax = isSimple ? steps!.length - 1 : maxLevel;
+
+  // ── Coverflow strip: batch-resolve every step's thumbnail up front ──
+  // Cheap relative to video prefetching (static <img> vs byte-range video
+  // fetches) — reuses resolveContent's own in-memory cache, so this doesn't
+  // duplicate the per-level fetches fetchContent() below already performs
+  // when the user actually lands on a level.
+  useEffect(() => {
+    if (!isSimple || !steps) { setThumbnails({}); return; }
+    let cancelled = false;
+    setThumbnails({});
+    steps.forEach((stepLevel) => {
+      resolveContent(category, stepLevel, demographics, lang)
+        .then((content) => {
+          if (cancelled) return;
+          setThumbnails((prev) => ({ ...prev, [stepLevel]: content.thumbnailUrl }));
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setThumbnails((prev) => ({ ...prev, [stepLevel]: null }));
+        });
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category, isSimple, steps, demographics, lang]);
 
   // ── Load content on mount / category change ─────────────────
   useEffect(() => {
@@ -379,6 +408,20 @@ export default function VisualSlider({
       */}
       <div className={clsx(showTutorial && 'relative z-40')}>
 
+        {/* ── Tier pill — replaces the old always-visible 3-point track labels.
+            Always rendered (not gated on exerciseLabel/repsLabel) so the level
+            is still communicated even on the ~12 levels with no admin copy. ── */}
+        <div className="flex-shrink-0 px-6 pb-2 flex justify-center">
+          <span
+            className="text-[11px] font-bold px-3 py-1 rounded-full"
+            style={{ backgroundColor: 'rgba(0,186,247,0.08)', color: '#00BAF7' }}
+          >
+            {isSimple && steps
+              ? resolveTierLabel(stepProportion(sliderVal, steps.length), isFemale)
+              : resolveTierLabel(levelProportion(level, minLevel, maxLevel), isFemale)}
+          </span>
+        </div>
+
         {/* ── Description card — exercise name + reps only ── */}
         <AnimatePresence mode="wait">
           {(exerciseLabel || repsLabel) && (
@@ -408,83 +451,58 @@ export default function VisualSlider({
           )}
         </AnimatePresence>
 
-        {/* ── Slider track + proficiency labels ── */}
-        <div className="flex-shrink-0 px-6 pb-1">
-          {/* Range slider — px-0 so the track endpoints align exactly with dot paddingLeft/Right: 14 */}
-          <div className="relative px-0">
-            <input
-              ref={sliderRef}
-              type="range"
-              min={sliderMin}
-              max={sliderMax}
-              step={1}
-              value={sliderVal}
-              onChange={e => handleSliderChange(Number(e.target.value))}
-              className="w-full h-2 rounded-full appearance-none cursor-pointer slider-thumb relative z-10"
-              style={{
-                background: `linear-gradient(to left, #00BAF7 0%, #00BAF7 ${fillPct}%, #e2e8f0 ${fillPct}%, #e2e8f0 100%)`,
-              }}
+        {/* ── Coverflow thumbnail strip (simple mode, 2+ admin-defined steps) ── */}
+        {isSimple && steps ? (
+          <div className="flex-shrink-0 pb-1">
+            <CoverflowStrip
+              steps={steps}
+              selectedIndex={sliderVal}
+              thumbnails={thumbnails}
+              onSelect={handleSliderChange}
             />
+          </div>
+        ) : (
+          /* ── Degraded mode: plain continuous slider (unchanged fallback) —
+             covers deep/continuous mode and any simple-mode category with
+             fewer than 2 admin-defined onboarding levels (e.g. muscle_up,
+             hspu today). No dots, no strip — matches pre-redesign behaviour
+             exactly, since dots were already conditional on isSimple here. */
+          <div className="flex-shrink-0 px-6 pb-1">
+            <div className="relative px-0">
+              <input
+                ref={sliderRef}
+                type="range"
+                min={sliderMin}
+                max={sliderMax}
+                step={1}
+                value={sliderVal}
+                onChange={e => handleSliderChange(Number(e.target.value))}
+                className="w-full h-2 rounded-full appearance-none cursor-pointer slider-thumb relative z-10"
+                style={{
+                  background: `linear-gradient(to left, #00BAF7 0%, #00BAF7 ${fillPct}%, #e2e8f0 ${fillPct}%, #e2e8f0 100%)`,
+                }}
+              />
 
-            {/* Step dot markers — visible in simple mode only.
-                 left/right: 14px = thumb half-width, so right:0% lands exactly on the
-                 right-end thumb center and right:100% on the left-end thumb center. */}
-            {isSimple && steps && steps.length > 1 && (
-              <div
-                className="absolute top-1/2 -translate-y-1/2 pointer-events-none z-[5]"
-                style={{ left: 14, right: 14 }}
-              >
-                {steps.map((_, i) => {
-                  const pct = (i / (steps.length - 1)) * 100;
-                  const active = i <= sliderVal;
-                  return (
-                    <div
-                      key={i}
-                      className="absolute -translate-y-1/2 -translate-x-1/2 w-2 h-2 rounded-full border-2 transition-colors duration-150"
-                      style={{
-                        top: '50%',
-                        right: `${pct}%`,
-                        backgroundColor: active ? '#00BAF7' : 'white',
-                        borderColor: active ? '#00BAF7' : '#cbd5e1',
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Sliding hand hint — plays twice on mount, larger & slower */}
-            <AnimatePresence>
-              {showHint && !userInteracted && (
-                <motion.div
-                  className="absolute top-1/2 -translate-y-1/2 pointer-events-none z-20"
-                  initial={{ right: '15%', opacity: 0 }}
-                  animate={{
-                    right: ['15%', '75%', '15%', '75%', '40%'],
-                    opacity: [0, 0.9, 0.3, 0.9, 0],
-                  }}
-                  transition={{ duration: 5, ease: 'easeInOut' }}
-                  onAnimationComplete={() => setShowHint(false)}
-                >
-                  <span className="text-4xl drop-shadow-lg">👆</span>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* 3-point proficiency labels — gender-aware, aligned under first/mid/last dots */}
-            <div className="flex items-center mt-2 px-1">
-              <span className="text-[10px] font-medium text-slate-400 text-right" style={{ width: '33.33%' }}>
-                {isFemale ? 'מתחילה' : 'מתחיל'}
-              </span>
-              <span className="text-[10px] font-medium text-slate-400 text-center" style={{ width: '33.33%' }}>
-                בינוני
-              </span>
-              <span className="text-[10px] font-medium text-slate-400 text-left" style={{ width: '33.33%' }}>
-                {isFemale ? 'מתקדמת' : 'מתקדם'}
-              </span>
+              {/* Sliding hand hint — plays twice on mount, larger & slower */}
+              <AnimatePresence>
+                {showHint && !userInteracted && (
+                  <motion.div
+                    className="absolute top-1/2 -translate-y-1/2 pointer-events-none z-20"
+                    initial={{ right: '15%', opacity: 0 }}
+                    animate={{
+                      right: ['15%', '75%', '15%', '75%', '40%'],
+                      opacity: [0, 0.9, 0.3, 0.9, 0],
+                    }}
+                    transition={{ duration: 5, ease: 'easeInOut' }}
+                    onAnimationComplete={() => setShowHint(false)}
+                  >
+                    <span className="text-4xl drop-shadow-lg">👆</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
-        </div>
+        )}
 
       </div>{/* end punch-through */}
 
