@@ -23,7 +23,6 @@ import {
 import { DEFAULT_PACE_MAP_CONFIG } from '@/features/workout-engine/core/config/pace-map-config';
 import type { PaceProfile } from '@/features/workout-engine/core/types/running.types';
 import {
-  getProgramPathFromStorage,
   getProgramPathListFromStorage,
   getMuscleFocusFromStorage,
   getSkillFocusFromStorage,
@@ -31,6 +30,7 @@ import {
   deriveActiveProgramFromSkillFocus,
   getFocusDomainsForMuscleFocus,
 } from './assessment-path-config.service';
+import { resolveSkillContribution, resolveCategoryContribution } from './program-contribution-resolver';
 import { getAccessCodeResult, clearAccessCodeResult } from './access-code.service';
 import { SKILL_TO_FOUNDATION_DOMAIN } from '../constants/skill-foundation-domain.constants';
 import { getProgramByTemplateId } from '@/features/content/programs';
@@ -1127,15 +1127,26 @@ export async function syncOnboardingToFirestore(
         }
       }
 
-      // Path B (body_focus): Override program assignment from muscle selection
-      const path = getProgramPathFromStorage();
-      const muscleIds = getMuscleFocusFromStorage();
-      const isPathBBodyFocus = path === 'body_focus' && muscleIds.length > 0;
-
       // Multi-select program path (Phase 1b, piece d): the full ordered card
       // selection — display-only, persisted below alongside skillFocusIds.
       // Never consumed by scoring/volume logic; captured/persisted/displayed only.
       const cardOrder = getProgramPathListFromStorage();
+      const muscleIds = getMuscleFocusFromStorage();
+
+      // Phase 3 (union-based program/track creation): every co-selected card
+      // contributes its programs/tracking, not just the primary (first-tapped)
+      // one. Membership booleans (`cardOrder.includes`) replace the old
+      // `getProgramPathFromStorage() === '<card>'` primary-only gates, which
+      // silently dropped a secondary card's contribution (e.g. body_focus
+      // primary + skills secondary never wrote skillFocusIds or a tracked
+      // skill program). `hasCategoryContribution`'s Health clause is Decision 1
+      // (approved Phase 3 plan): Health co-selected with Skills (no Body Focus)
+      // must still widen to Health's own 4-category contribution, mirroring
+      // `resolveUnionCategories`'s read-side union — but a Health-ALONE
+      // selection (no other card) is deliberately excluded here so it stays on
+      // its untouched pre-Phase-3 fallthrough path (parity requirement).
+      const hasBodyFocusMuscles = cardOrder.includes('body_focus') && muscleIds.length > 0;
+      const hasHealthCard = cardOrder.includes('health');
 
       // Path B safety net: if the user chose a muscle focus (e.g. "Chest only" →
       // ['chest']) but the questionnaire produced no assignedResults (sessionStorage
@@ -1144,7 +1155,7 @@ export async function syncOnboardingToFirestore(
       // program is never silently reassigned to the GOAL_TO_PROGRAM table.
       // The synthesised level is initialLevel (derived from the fitness-tier answer);
       // this is equivalent to what the quiz would have returned had results been present.
-      if (isPathBBodyFocus && (!effectiveResults || effectiveResults.length === 0)) {
+      if (hasBodyFocusMuscles && (!effectiveResults || effectiveResults.length === 0)) {
         const syntheticProgramId = deriveActiveProgramFromMuscleFocus(muscleIds);
         const syntheticFocusDomains = getFocusDomainsForMuscleFocus(muscleIds);
         const syntheticMasterSub: Record<string, number> = {
@@ -1167,111 +1178,64 @@ export async function syncOnboardingToFirestore(
 
       // Path C (skills): Specialist (1 skill) vs Generalist (2+ skills) program linkage
       let skillIds = getSkillFocusFromStorage();
-      if (path === 'skills' && effectiveResults && effectiveResults.length > 0 && skillIds.length === 0) {
+      if (cardOrder.includes('skills') && effectiveResults && effectiveResults.length > 0 && skillIds.length === 0) {
         skillIds = effectiveResults.map((r) => r.programId);
       }
-      const isPathCSkills = path === 'skills' && skillIds.length > 0;
+      const hasSkillsContribution = cardOrder.includes('skills') && skillIds.length > 0;
+      const hasCategoryContribution =
+        hasBodyFocusMuscles || (hasHealthCard && hasSkillsContribution);
 
+      // Mini-domain invariant: mini-domain-assessment.ts's single-domain
+      // "top-up" flow (startMiniDomainAssessment) and
+      // single-domain-assessment.service.ts NEVER call
+      // syncOnboardingToFirestore — handleAcceptResult short-circuits via
+      // isMiniAssessmentActive() before this function is ever reached. The
+      // union restructure below has zero effect on that flow.
       if (effectiveResults && effectiveResults.length > 0) {
-        // Path C: Override activeProgramId and focusDomains from skill focus (Specialist vs Generalist)
-        if (isPathCSkills) {
-          const activeProgramId = deriveActiveProgramFromSkillFocus(skillIds);
-          const focusDomains = [...skillIds];
-          // Filter to selected skills only, preserve order
-          const skillResults = skillIds
-            .map((sid) => effectiveResults.find((r) => r.programId === sid))
-            .filter((r): r is NonNullable<typeof r> => r != null);
-          if (skillResults.length === 0) {
-            const fallback = effectiveResults[0];
-            skillResults.push(fallback);
-          }
-          const primaryResult = skillResults[0];
-          if (skillIds.length === 1) {
-            effectiveResults = [{ ...primaryResult, programId: skillIds[0], levelId: primaryResult.levelId }];
-          } else {
-            effectiveResults = [
-              {
-                ...primaryResult,
-                programId: 'calisthenics_upper',
-                levelId: primaryResult.levelId,
-                masterProgramSubLevels: {
-                  ...Object.fromEntries(
-                    skillResults.map((r) => {
-                      const m = r.levelId.match(/(\d+)/);
-                      return [r.programId, m ? Math.max(1, parseInt(m[1], 10)) : 1];
-                    })
-                  ),
-                  // D2: a real assessed core level (see assessment-visual/page.tsx's
-                  // buildSkillResult) would otherwise be silently dropped here — this
-                  // object used to be a full replacement of primaryResult's
-                  // masterProgramSubLevels, keeping only the skill-id→level pairs.
-                  ...(primaryResult.masterProgramSubLevels?.core
-                    ? { core: primaryResult.masterProgramSubLevels.core }
-                    : {}),
-                },
-              },
-            ];
-          }
-          console.log(
-            '[OnboardingSync] Path C: activeProgram=',
-            activeProgramId,
-            'skillFocusIds=',
-            skillIds,
-            'focusDomains=',
-            focusDomains,
-          );
-        }
-        // Path B: Multi-track expansion from muscle selection
-        //
-        // Previous behaviour: collapse push+pull → one master result ('upper_body')
-        //   activePrograms: [upper_body]  tracks: {upper_body, push, pull}
-        //
-        // New behaviour: one result PER assessed child domain
-        //   activePrograms: [push, pull]  tracks: {push, pull}
-        //
-        // Single-domain selections (chest only → push) continue to write a
-        // single entry with that domain's own slug. Multi-domain selections
-        // (chest+back → push+pull) now write one entry per slug so the home
-        // screen renders separate cards and the split engine rotates them.
-        else if (isPathBBodyFocus) {
-          const focusDomains = getFocusDomainsForMuscleFocus(muscleIds);
-          const primaryResult = effectiveResults[0];
-          const masterSub: Record<string, number> =
-            primaryResult.masterProgramSubLevels ?? { push: 0, pull: 0, legs: 0, core: 0 };
+        // Partition → transform → union: each co-selected card's contribution
+        // is resolved independently against the ORIGINAL (pre-union)
+        // effectiveResults/primaryResult, then unioned — instead of the old
+        // mutually-exclusive if/else that let only the primary card's branch
+        // run and wholesale-REPLACED effectiveResults, silently dropping
+        // whichever card wasn't primary. Skill contribution is built first so
+        // a co-selected skill's program consistently becomes effectiveResults[0]
+        // (and therefore `currentProgramId` below) regardless of tap order —
+        // this is what makes the reversed-tap-order case produce identical output.
+        if (hasSkillsContribution || hasCategoryContribution) {
+          const originalResults = effectiveResults;
+          const originalPrimaryResult = originalResults[0];
+          const activeProgramId = hasSkillsContribution
+            ? deriveActiveProgramFromSkillFocus(skillIds)
+            : undefined;
 
-          // Only expand domains that have a real assessed level (> 0).
-          const assessedDomains = focusDomains.filter(d => (masterSub[d] ?? 0) > 0);
+          const skillContribution = hasSkillsContribution
+            ? resolveSkillContribution(skillIds, originalResults)
+            : [];
+          const categoryContribution = hasCategoryContribution
+            ? resolveCategoryContribution(
+                cardOrder,
+                muscleIds,
+                hasSkillsContribution ? skillIds : [],
+                originalPrimaryResult,
+              )
+            : [];
 
-          if (assessedDomains.length > 1) {
-            // ── Multi-domain: one independent result per assessed domain ──────
-            // masterProgramSubLevels is intentionally omitted — each domain is
-            // its own leaf program, not a master with children.
-            effectiveResults = assessedDomains.map(domain => ({
-              programId: domain,
-              levelId: `${domain}_level_${masterSub[domain]}`,
-              masterProgramSubLevels: undefined,
-            }));
+          const unioned = [...skillContribution, ...categoryContribution];
+          effectiveResults = unioned.length > 0 ? unioned : originalResults;
+
+          if (hasSkillsContribution) {
             console.log(
-              '[OnboardingSync] Path B multi-track expansion: ' +
-              `muscleIds=[${muscleIds.join(', ')}] → ` +
-              assessedDomains.map(d => `${d}=L${masterSub[d]}`).join(', '),
+              '[OnboardingSync] Skills contribution: activeProgram=',
+              activeProgramId,
+              'skillFocusIds=',
+              skillIds,
             );
-          } else {
-            // ── Single-domain: keep current single-result behaviour ────────────
-            // Use the specific leaf slug (e.g. 'push') rather than a master slug
-            // so the active program card is labelled correctly.
-            const singleDomain = assessedDomains[0] ?? focusDomains[0] ?? 'push';
-            const singleLevel = (masterSub[singleDomain] ?? 0)
-              || Math.max(...Object.values(masterSub)) || 1;
-            effectiveResults = [{
-              ...primaryResult,
-              programId: singleDomain,
-              levelId: `${singleDomain}_level_${singleLevel}`,
-              masterProgramSubLevels: undefined,
-            }];
+          }
+          if (hasCategoryContribution) {
             console.log(
-              '[OnboardingSync] Path B single-domain: ' +
-              `muscleIds=[${muscleIds.join(', ')}] → ${singleDomain}=L${singleLevel}`,
+              '[OnboardingSync] Category contribution: ' +
+              `muscleIds=[${muscleIds.join(', ')}], health=${hasHealthCard} → ` +
+              categoryContribution.map(r => `${r.programId}=${r.levelId}`).join(', '),
             );
           }
         }
@@ -1327,7 +1291,7 @@ export async function syncOnboardingToFirestore(
           // Legs and core are explicitly NOT written — they are unassessed and
           // must remain absent from the progression document (no ghost data).
           // KEPT (⑨): this is inference from a GENUINELY assessed skill, not tier-fabrication.
-          if (isPathCSkills && rLevel > 0) {
+          if (hasSkillsContribution && rLevel > 0) {
             const foundationDomain = SKILL_TO_FOUNDATION_DOMAIN[result.programId];
             if (foundationDomain) {
               const maxFoundation = cmsMaxLevels[foundationDomain] ?? 25;
@@ -1362,7 +1326,7 @@ export async function syncOnboardingToFirestore(
             // the MAX derived level so the foundational track reflects the user's
             // highest applicable capability.
             // Legs and core remain unwritten (no fallback, no ghost data).
-            if (isPathCSkills) {
+            if (hasSkillsContribution) {
               const derivedFoundations: Partial<Record<'push' | 'pull', number>> = {};
               for (const [skillId, skillLvl] of Object.entries(
                 result.masterProgramSubLevels as Record<string, number>,
@@ -1418,9 +1382,9 @@ export async function syncOnboardingToFirestore(
             //   • All other paths:           [result.programId] (same as before)
             const PRIMARY_DOMAIN_SLUGS = new Set(['push', 'pull', 'legs', 'core']);
             const focusDomains =
-              isPathCSkills && result.programId === 'calisthenics_upper'
+              hasSkillsContribution && result.programId === 'calisthenics_upper'
                 ? skillIds
-                : isPathBBodyFocus && !PRIMARY_DOMAIN_SLUGS.has(result.programId)
+                : hasCategoryContribution && !PRIMARY_DOMAIN_SLUGS.has(result.programId)
                   // Fallback: Path B result is still a master slug (shouldn't happen
                   // after the multi-track expansion, but kept for safety).
                   ? getFocusDomainsForMuscleFocus(muscleIds)
@@ -1489,14 +1453,14 @@ export async function syncOnboardingToFirestore(
         // slider for a skill-only selection and stays ghost data.
         //
         // The purge is strictly conditional:
-        //   • Only fires for Path C users (`isPathCSkills`).
+        //   • Only fires when the Skills card contributes (`hasSkillsContribution`).
         //   • Only strips `legs` and `core` (push/pull may have been derived
         //     via SKILL_TO_FOUNDATION_OFFSET and must be preserved).
         //   • Only strips entries the quiz did NOT explicitly assess
         //     (currentLevel === 0) — any legitimately assessed value (including
         //     a real D2 core slider result) stays, `wasAssessed` below already
         //     guards this correctly with no code change needed for D2.
-        if (isPathCSkills) {
+        if (hasSkillsContribution) {
           for (const ghostDomain of ['legs', 'core'] as const) {
             const wasAssessed = (quizTracks[ghostDomain]?.currentLevel ?? 0) > 0;
             if (wasAssessed) continue;
@@ -1553,7 +1517,7 @@ export async function syncOnboardingToFirestore(
                   focusDomains: [primaryProgramId] as any,
                 }]
               : [],
-          ...(isPathCSkills && skillIds.length >= 2 ? { skillFocusIds: skillIds } : {}),
+          ...(hasSkillsContribution && skillIds.length >= 2 ? { skillFocusIds: skillIds } : {}),
           // Multi-select program path (Phase 1b, piece d) — display-only priority
           // order, same >=2 threshold as skillFocusIds (a single selection has no
           // meaningful "order"). Never read by SplitDecisionService or any
