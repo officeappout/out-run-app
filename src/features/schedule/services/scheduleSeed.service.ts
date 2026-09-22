@@ -110,7 +110,18 @@ export interface ScheduleSeedProfileInput {
 export interface ScheduleSeedOverrides {
   /** Already-parsed `onboarding_skill_focus` sessionStorage value (lowercase slugs). */
   skillFocusSlugs?: string[];
-  /** Already-read `onboarding_program_path` sessionStorage value ('health' | 'body_focus'). */
+  /**
+   * Already-read `onboarding_program_path` sessionStorage value.
+   * Housekeeping audit: since the multi-select JSON-array write format
+   * shipped, program-path/page.tsx (fresh onboarding) always writes
+   * `JSON.stringify(cardOrder)`, never a bare string — so this can no
+   * longer arrive here as literal `'health'` from any current writer.
+   * `'body_focus'` remains reachable, narrowly: mini-domain-assessment.ts's
+   * single-domain top-up flow still writes the bare string
+   * `onboarding_program_path: 'body_focus'`, and ScheduleStep.tsx can be
+   * re-rendered in JIT mode for an already-onboarded user later in the same
+   * tab/session, so a stale value can still reach this override.
+   */
   programPath?: string;
 }
 
@@ -127,7 +138,8 @@ export interface ScheduleSeedResult {
  *   1. `overrides.skillFocusSlugs` — set by program-path/page.tsx during
  *      FRESH onboarding. Lowercase slugs like ['planche', 'front_lever'].
  *   2. `overrides.programPath`     — fallback when no skills chosen
- *      (health → FULL_BODY, body_focus → UPPER_BODY).
+ *      (body_focus → UPPER_BODY; see ScheduleSeedOverrides.programPath's
+ *      doc comment for why 'health' is no longer a live input here).
  *   3. `profile.progression.activePrograms` — existing user re-entering.
  *   4. `DEFAULT_SEED_PROGRAMS`/`DEFAULT_SEED_SKILLS` — absolute last resort.
  */
@@ -153,9 +165,11 @@ export function resolveScheduleSeed(
   });
 
   // ── Source 2: programPath override fallback ───────────────────────────
-  if (resolved.length === 0 && overrides?.programPath) {
-    if (overrides.programPath === 'health') addId('FULL_BODY');
-    else if (overrides.programPath === 'body_focus') addId('UPPER_BODY');
+  // 'health' removed (housekeeping audit) — no current writer of
+  // onboarding_program_path ever produces that literal string; see
+  // ScheduleSeedOverrides.programPath's doc comment.
+  if (resolved.length === 0 && overrides?.programPath === 'body_focus') {
+    addId('UPPER_BODY');
   }
 
   // ── Source 3: existing user's Firestore active programs ────────────────

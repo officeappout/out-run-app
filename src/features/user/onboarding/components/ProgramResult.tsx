@@ -320,7 +320,6 @@ export default function ProgramResult({
   const [showConfetti,  setShowConfetti]  = useState(true);
   const [showSparkles,  setShowSparkles]  = useState(false);
   const [windowHeight,  setWindowHeight]  = useState(0);
-  const [programPath,   setProgramPath]   = useState<string | null>(null);
 
   const direction = language === 'he' ? 'rtl' : 'ltr';
   const sessions  = useMemo(() => getSessionsToNextLevel(levelNumber), [levelNumber]);
@@ -332,11 +331,6 @@ export default function ProgramResult({
     const t2 = setTimeout(() => setRevealPhase('gauge'),    2400);
     const t3 = setTimeout(() => setRevealPhase('insights'), 3200);
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
-  }, []);
-
-  // ── sessionStorage reads ───────────────────────────────────────
-  useEffect(() => {
-    try { setProgramPath(sessionStorage.getItem('onboarding_program_path')); } catch { /* ssr */ }
   }, []);
 
   // ── Window height ───────────────────────────────────────────────
@@ -363,9 +357,6 @@ export default function ProgramResult({
     if (isSkillsPath) {
       return language === 'he' ? 'תוכנית מיומנויות מותאמת' : 'Custom Skills Program';
     }
-
-    // health / full-body path override
-    if (programPath === 'health') return language === 'he' ? 'תוכנית גוף מלא' : 'Full Body Program';
 
     // Compute name from assessed categories when available
     if (assessedCategories?.length) {

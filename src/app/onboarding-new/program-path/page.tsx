@@ -66,9 +66,15 @@ const SKILL_PROGRAMS: { id: string; nameHe: string }[] = [
 const PUSH_SKILLS: ReadonlySet<string> = new Set(['planche', 'hspu', 'handstand']);
 const PULL_SKILLS: ReadonlySet<string> = new Set(['front_lever', 'one_arm_pullup', 'muscle_up']);
 
-/** Icon paths per skill — hidden via onError when file is absent */
+/** Icon paths per skill — hidden via onError when file is absent.
+ *  'calisthenics_upper' (the "all elements" master chip) has no dedicated
+ *  designed asset — reuses '/icons/programs/muscle.svg', the same generic
+ *  icon already used for 'upper_body'/'calisthenics' elsewhere (see
+ *  HeroWorkoutCard.tsx, WorkoutSelectionCarousel.tsx, and
+ *  MUSCLE_FALLBACK_ICON in lib/muscle-icons.const.ts) rather than a
+ *  genuinely broken path that 404s on every load (housekeeping audit). */
 const SKILL_ICON_PATHS: Record<string, string> = {
-  calisthenics_upper: '/icons/programs/calisthenics_upper.svg',
+  calisthenics_upper: '/icons/programs/muscle.svg',
   front_lever:        '/icons/programs/front_lever.svg',
   muscle_up:          '/icons/programs/muscle_up_bar.svg',
   planche:            '/icons/programs/planche.svg',

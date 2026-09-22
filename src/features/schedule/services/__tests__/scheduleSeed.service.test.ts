@@ -25,9 +25,9 @@ describe('resolveScheduleSeed', () => {
   it('source 1 present but empty array falls through to source 2', () => {
     const result = resolveScheduleSeed(undefined, {
       skillFocusSlugs: [],
-      programPath: 'health',
+      programPath: 'body_focus',
     });
-    expect(result.seedPrograms).toEqual(['FULL_BODY']);
+    expect(result.seedPrograms).toEqual(['UPPER_BODY']);
   });
 
   it('source 1 present but all-unknown slugs falls through to source 2', () => {
@@ -38,9 +38,9 @@ describe('resolveScheduleSeed', () => {
     expect(result.seedPrograms).toEqual(['UPPER_BODY']);
   });
 
-  it("source 2: programPath 'health' resolves to FULL_BODY", () => {
+  it("source 2: programPath 'health' no longer resolves specially (housekeeping audit — no current writer ever produces this literal string) — falls through like any unrecognized value", () => {
     const result = resolveScheduleSeed(undefined, { programPath: 'health' });
-    expect(result.seedPrograms).toEqual(['FULL_BODY']);
+    expect(result.seedPrograms).toEqual(['UPPER_BODY']); // DEFAULT_SEED_PROGRAMS
   });
 
   it("source 2: programPath 'body_focus' resolves to UPPER_BODY", () => {

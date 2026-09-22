@@ -118,6 +118,12 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
       return raw ? JSON.parse(raw) : undefined;
     } catch { return undefined; }
   }, []);
+  // Housekeeping audit: only the bare string 'body_focus' can genuinely
+  // reach resolveScheduleSeed's source-2 fallback through this read today
+  // (mini-domain-assessment.ts's top-up flow, possibly stale from earlier
+  // in the same tab, since this component can render again later in JIT
+  // mode) — fresh onboarding always writes a JSON array here instead. See
+  // ScheduleSeedOverrides.programPath's doc comment in scheduleSeed.service.ts.
   const programPath = useMemo<string | undefined>(() => {
     if (typeof window === 'undefined') return undefined;
     return sessionStorage.getItem('onboarding_program_path') ?? undefined;

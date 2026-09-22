@@ -156,7 +156,11 @@ const PROGRAM_MUSCLE_MAP: Record<string, MuscleGroup[]> = {
   pushing: ['chest', 'shoulders', 'triceps'],
   // full_body child domains
   push:  ['chest', 'shoulders', 'triceps'],
-  pull:  ['back', 'middle_back', 'biceps', 'rear_delt'],
+  // 'forearms'/'traps' added (housekeeping audit) — already in UPPER_BODY_MUSCLES
+  // above and in the equivalent 'pulling' list's intent, but were missing here,
+  // so a back/biceps-focus selection never surfaced the 1 forearms + 3 traps
+  // exercises actually tagged with those primary muscles.
+  pull:  ['back', 'middle_back', 'biceps', 'rear_delt', 'forearms', 'traps'],
   legs:  ['quads', 'hamstrings', 'glutes', 'calves', 'legs'],
 };
 
@@ -203,7 +207,11 @@ export function exerciseMatchesProgram(exercise: Exercise, programKey: string): 
     const mg = exercise.movementGroup;
     if (mg && ['squat', 'hinge', 'lunge'].includes(mg as string)) return true;
     const pm = exercise.primaryMuscle;
-    if (pm && ['quads', 'hamstrings', 'glutes', 'calves', 'legs'].includes(pm)) return true;
+    // 'adductors'/'hip_flexors' reconcile this list with muscle-chips.ts's
+    // own `legs` group (home/constants/muscle-chips.ts), which already
+    // includes both — the two in-repo tables previously disagreed. 0 live
+    // exercises tagged with either today; this is future-proofing only.
+    if (pm && ['quads', 'hamstrings', 'glutes', 'calves', 'legs', 'adductors', 'hip_flexors'].includes(pm)) return true;
     const nameStr = (getLocalizedText(exercise.name) ?? '').toLowerCase();
     const tagsStr = (exercise.tags ?? []).join(' ').toLowerCase();
     const combined = `${nameStr} ${tagsStr}`;
