@@ -815,4 +815,66 @@ uid אנונימי אינו מחזיק תפקיד → "אין גישה". החש�
 
 חשבון cali לא נגע. `firestore.rules` לא נגע.
 
+### 13.10 — לולאת הפניות למנהל רשות (22.09.2026): scope נפרד + loop guard, נסגר, פרוס בפרודקשן
+
+`fix/authority-manager-redirect-loop` — שני commits: `3cbe9657` (התיקון
+העיקרי) + `6376c447` (תיקון ביקורת לפני מיזוג). מוזג ל-`main` ב-`963767d4`.
+אומת אחרי הפריסה: `outrun.co.il` = 200, `/api/catalog/parks` = 200 עם
+1158 גינות. Deploy קוד בלבד — אין שינוי כללים.
+
+**פקודת revert מדויקת:**
+```
+git revert -m 1 963767d4 --no-edit
+git push origin main
+```
+
+**האבחנה (אומתה בקוד לפני תיקון, ראה גם הדיווח המלא בשיחה):** מנהל רשות
+מאומת מנותב ע"י `authority-portal/login` ל-`/admin/authority-manager`;
+`middleware.ts` דורש `session.admin===true` בכל דומיין אמיתי;
+`resolveIdentity()` מעולם לא זיכה מנהל רשות רגיל ב-`admin:true`
+(`authorities.managerIds` לא נבדק שם) — חסימה תמידית → הפניה ל-`/admin/login`
+→ הבדיקה שם מזהה מנהל רשות ומחזירה אותו ל-`/authority-portal/login` →
+לולאה מוכחת מקצה-לקצה.
+
+**התיקון:** שדה `scope: 'authority_manager'` נפרד, מחושב בשרת בלבד
+(`authorities.where('managerIds','array-contains',uid)`), **לעולם לא**
+מתמזג לתוך `admin` — כל קוראי `identity.admin`/`session.admin` נבדקו
+ונשארו ללא שינוי (`api-auth.ts`'s `isAuthorizedAdmin`/`requireSection`/
+`resolveAdminUid`, `photo-release/[submissionId]`'s שער מקומי — מגן על
+PDF עם נתוני קטין ללא scoping לפי רשות, ו-`session/route.ts` שממנו
+נכתב `admin` ל-cookie מלכתחילה). `middleware.ts`'s `decideAdminGateAction`
+מכבד `scope` רק לרשימת נתיבים זהה לזו שכבר קיימת ב-`admin/layout.tsx`
+למנהל רשות (ללא `/admin/authority/users`, ללא מיפוי ורטיקלי).
+
+**תיקון ביקורת (`6376c447`, לפני מיזוג):** הגרסה הראשונה של ה-loop guard
+עצרה כבר בהגעה הראשונה עם `?redirected=1` — false positive למנהל רשות
+מחובר שנכנס ל-`/admin/login` ישירות (הפניה חד-פעמית לגיטימית, לא לולאה).
+הוחלף במונה מבוסס `sessionStorage` עם חותמת זמן (חלון 30 שניות) — ניסיון
+ראשון תמיד ממשיך, גם עם `?redirected=1`; רק ניסיון שני בתוך החלון עוצר.
+מאופס בהגעה מוצלחת (`admin/layout.tsx`) ובהתנתקות.
+
+**בדיקות (Node/vitest, בלי דפדפן):** 26 + 8 = 34 טסטים חדשים בסה"כ בין
+שני ה-commits — `decideAdminGateAction` (root/super/מנהל-רשות-מותר/
+מנהל-רשות-אסור כולל `/admin/authority/users` במפורש/אנונימי/בלי-cookie/
+cookie-לא-תקין) + `decideLoopBreak` (ניסיון ראשון רגיל/ראשון עם
+`redirected=1`/שני בתוך החלון/שני אחרי שפג/גבולות/חותמת-זמן-עתידית).
+`tsc`: 451 בשני ה-commits — זהה ל-baseline, אפס חדשות. סוויטה מלאה:
+אותם 2 כשלים קיימים-מראש (rules-suite עם אמולטור נפרד + streak לא-קשור).
+
+**AppCheck/reCAPTCHA (נבדק, לא תוקן):** לא קשור ללולאה — `initializeAppCheck`
+נכשל בשקט לברירת-מחדל "בלי App Check" (`firebase.ts`), ואין תנאי
+`request.app` בשום מקום ב-`firestore.rules` הרלוונטי לזרימה הזו.
+
+**פתוח לסבב הבדיקה הבא — לא נבדק, לא תוקן:** `/admin/organizations`,
+`/admin/admin-directory`, `/admin/access-codes`, `/admin/statistics`,
+ו-`/admin/insights` מופיעים ברשימת הנתיבים המותרים למנהל רשות (ירושה
+ישירה מרשימת `admin/layout.tsx` הקיימת — לא נוספו כאן) — אבל אם הנתונים
+שלהם נמשכים דרך route תחת `/api/admin/*` השייך ל-`requireAdminApi`
+(שלא מזהה `scope` בכלל, רק `admin`), מנהל רשות שמגיע לעמודים האלה
+עלול לקבל 401 על ה-fetch שלו (מסך שבור/ריק — לא חמור), **או**, אם קיים
+נתיב fallback לקריאת Firestore מהדפדפן שאינו מסונן ל-`authorityId` של
+המנהל עצמו, לראות נתונים של רשות אחרת. דורש בדיקה בדפדפן אמיתי (חשבון
+מנהל-רשות סינתטי) בכל אחד מחמשת העמודים — לא ניתן לאמת דרך Node/vitest
+בלבד.
+
 **בסיס tsc מתוקן — 449, לא 453 (19.09.2026):** מנת תיקונים ("ניקוי דמו, תוויות, ותיקון תצוגת העיר", ממוזגת ל-`main` ב-`722b379b`) נפתחה מול בסיס שנרשם כ-453 שגיאות. באותו סבב עבודה התגלה ש-`node_modules` המשותף (בין ~75 worktrees על המכונה) היה סוטה מ-`package-lock.json` המחויב — לא חבילה חסרה בודדת (`qr-code-styling`, שחסם `next build` לגמרי), אלא אי-סנכרון רחב יותר. `npm install` (מאושר ע"י דוד, מאומת קודם שאין סשן מקביל באמצע עבודה) תיקן: 1473 חבילות נוספו, 1190 הוסרו מ-`node_modules` בפועל — **אך `package-lock.json` עצמו נשאר זהה בייט-לבייט למה שהיה כבר ב-`origin/main`** (אומת ב-diff מול `git show origin/main:package-lock.json` — אין דיפרנס בגיט, רק resync פיזי של node_modules). אחרי התיקון: `npx tsc --noEmit` = **449 שגיאות**, לא 453/454 — כלומר הבסיס הקודם היה מנופח באופן מלאכותי כתוצאה מהסטייה הזו, לא שינוי אמיתי בקוד. `next build` עבר במלואו לראשונה מזה זמן. **449 הוא הבסיס הנכון מעכשיו.** אם ספירת tsc עתידית שונה מ-449 בלי שינוי קוד מכוון — יש לחשוד תחילה בסטיית `node_modules` (השוואה: `stat -f "%Sm" node_modules` ו-`package-lock.json`, ו-diff מול `git show origin/main:package-lock.json`) לפני שמניחים רגרסיה אמיתית.
