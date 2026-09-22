@@ -73,12 +73,23 @@ vi.mock('@/features/user/onboarding/services/branching-logic.service', () => ({
   loadAssessmentContext: () => null,
 }));
 
+// Mutable so individual tests (Path C / Ghost Purge coverage) can override
+// what the resolver reports without needing a real sessionStorage read —
+// every OTHER existing test in this file relies on the null/[] defaults
+// below, reset in beforeEach.
+const pathConfigState = vi.hoisted(() => ({
+  programPath: null as string | null,
+  skillFocus: [] as string[],
+  muscleFocus: [] as string[],
+}));
+
 vi.mock('@/features/user/onboarding/services/assessment-path-config.service', () => ({
-  getProgramPathFromStorage: () => null,
-  getMuscleFocusFromStorage: () => [],
-  getSkillFocusFromStorage: () => [],
+  getProgramPathFromStorage: () => pathConfigState.programPath,
+  getMuscleFocusFromStorage: () => pathConfigState.muscleFocus,
+  getSkillFocusFromStorage: () => pathConfigState.skillFocus,
   deriveActiveProgramFromMuscleFocus: () => 'push',
-  deriveActiveProgramFromSkillFocus: () => 'calisthenics_upper',
+  deriveActiveProgramFromSkillFocus: (ids: string[]) =>
+    ids.length === 1 ? ids[0] : 'calisthenics_upper',
   getFocusDomainsForMuscleFocus: () => [],
 }));
 
@@ -151,6 +162,9 @@ function stubBrowserStorage(values: Record<string, string> = {}) {
 beforeEach(() => {
   state.EXISTING_DOC = null;
   setDocMock.mockClear();
+  pathConfigState.programPath = null;
+  pathConfigState.skillFocus = [];
+  pathConfigState.muscleFocus = [];
   vi.spyOn(console, 'log').mockImplementation(() => {});
 });
 
@@ -671,5 +685,81 @@ describe('syncOnboardingToFirestore — 05.09.2026: onboarding uses the shared p
       category: 'easy',
       workoutName: 'Easy Run',
     });
+  });
+});
+
+describe('syncOnboardingToFirestore — D2 (multi-select program path, Phase 1): a real skills-path core value survives the Ghost Purge', () => {
+  it('single-skill selection: a real assessed core level (masterProgramSubLevels.core > 0) is written to progression.tracks.core/domains.core, NOT stripped', async () => {
+    pathConfigState.programPath = 'skills';
+    pathConfigState.skillFocus = ['planche'];
+    stubBrowserStorage();
+
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      assignedResults: [
+        {
+          programId: 'planche',
+          levelId: 'planche_level_12',
+          masterProgramSubLevels: { push: 0, pull: 0, legs: 0, core: 4 },
+        },
+      ],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+
+    expect(written.progression.tracks.core).toEqual({ currentLevel: 4, percent: 0 });
+    expect(written.progression.domains.core.currentLevel).toBe(4);
+    // legs was never assessed (masterProgramSubLevels.legs === 0) — Ghost Purge
+    // still correctly strips it; D2 only concerns core.
+    expect(written.progression.tracks.legs).toBeUndefined();
+  });
+
+  it('multi-skill selection: core survives the masterProgramSubLevels rebuild (regression for the fix that used to silently replace the whole object with just skill-id→level pairs, dropping core)', async () => {
+    pathConfigState.programPath = 'skills';
+    pathConfigState.skillFocus = ['planche', 'front_lever'];
+    stubBrowserStorage();
+
+    const sharedMasterSubLevels = { push: 0, pull: 0, legs: 0, core: 5 };
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      assignedResults: [
+        { programId: 'planche', levelId: 'planche_level_10', masterProgramSubLevels: sharedMasterSubLevels },
+        { programId: 'front_lever', levelId: 'front_lever_level_8', masterProgramSubLevels: sharedMasterSubLevels },
+      ],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+
+    expect(written.progression.tracks.core).toEqual({ currentLevel: 5, percent: 0 });
+    expect(written.progression.domains.core.currentLevel).toBe(5);
+    // the skill sub-levels and their derived foundations still resolve correctly —
+    // the fix only ADDS core to the rebuilt object, doesn't disturb the rest.
+    expect(written.progression.tracks.planche.currentLevel).toBe(10);
+    expect(written.progression.tracks.front_lever.currentLevel).toBe(8);
+    expect(written.progression.tracks.push.currentLevel).toBe(19); // 10 + SKILL_TO_FOUNDATION_OFFSET(9)
+    expect(written.progression.tracks.pull.currentLevel).toBe(17); // 8 + 9
+    expect(written.progression.tracks.legs).toBeUndefined();
+  });
+
+  it('regression guard: an unassessed core (masterProgramSubLevels.core === 0) is still purged — D2 only stops the purge for a REAL value, the purge itself is unchanged', async () => {
+    pathConfigState.programPath = 'skills';
+    pathConfigState.skillFocus = ['planche'];
+    stubBrowserStorage();
+
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      assignedResults: [
+        {
+          programId: 'planche',
+          levelId: 'planche_level_12',
+          masterProgramSubLevels: { push: 0, pull: 0, legs: 0, core: 0 },
+        },
+      ],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+
+    expect(written.progression.tracks.core).toBeUndefined();
+    expect(written.progression.domains.core?.currentLevel ?? 0).toBe(0);
   });
 });
