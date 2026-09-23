@@ -20,6 +20,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { resolveGroupIdByInviteCode } from '@/lib/joinEngine';
 import { isRateLimited } from '@/lib/rateLimit';
+import { getRequestIp } from '@/lib/requestIp';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -52,8 +53,7 @@ type SafeField = (typeof SAFE_FIELDS)[number];
 
 export async function GET(request: NextRequest) {
   // 1. Rate limit by client IP.
-  const forwarded = request.headers.get('x-forwarded-for');
-  const ip = (forwarded ? forwarded.split(',')[0] : null)?.trim() ?? 'unknown';
+  const ip = getRequestIp(request);
   const db = getAdminDb();
   if (await isRateLimited(db, `join-preview:${ip}`, { windowMs: WINDOW_MS, maxRequests: MAX_REQUESTS_PER_WINDOW })) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });

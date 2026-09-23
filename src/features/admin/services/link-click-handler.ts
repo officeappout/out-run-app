@@ -109,8 +109,7 @@ function getRequestGeo(request: NextRequest): { country: string | null; city: st
  */
 async function recordClickEvent(input: ClickRecordInput): Promise<void> {
   const { linkRef, request, clickId, device, androidReferrerSent } = input;
-  const forwarded = request.headers.get('x-forwarded-for');
-  const ip = (forwarded ? forwarded.split(',')[0] : null)?.trim() || 'unknown';
+  const ip = getRequestIp(request);
   const userAgent = request.headers.get('user-agent');
   const referrer = request.headers.get('referer'); // HTTP Referer — where the visitor came from, NOT the Android Play referrer param
   const { country, city } = getRequestGeo(request);
