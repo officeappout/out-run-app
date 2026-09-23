@@ -256,26 +256,52 @@ export async function checkDuplicateNearby(
 // ── Authority resolution ────────────────────────────────────────────
 
 /**
- * Fetches top-level authorities only (type 'city' | 'regional_council') as
- * AuthorityBoundary for resolveAuthorityForPoint() — id/name/boundaryGeoJSON/
- * coordinates/radiusKm only, no CRM fields (contacts, documents, financials).
+ * Sub-city LEAF types — must never become park.authorityId (locked
+ * invariant, see park-neighborhood-model: authorityId is always the TOP
+ * authority, the leaf goes in neighborhoodId instead). Verified against the
+ * live `authorities` collection (23.09.2026): every type actually present is
+ * neighborhood(1377) | settlement(1066) | local_council(123) | city(83) |
+ * regional_council(55) | military_unit(48) | school(2) | no-type(1) — these
+ * two are the only leaf/sub-city types that exist.
  *
- * The `type` filter matters, not just perf: 2,443 of the 2,755 `authorities`
- * docs (89%) are neighborhood/settlement leaves, not top authorities. None of
- * them carry boundaryGeoJSON/radiusKm today (verified live, 23.09.2026), so
- * this filter is a no-op right now — but `park.authorityId` must always be
- * the TOP authority, never a neighborhood leaf (locked invariant, see
- * park-neighborhood-model). Without this filter, the day a neighborhood gets
- * boundary data before/without its parent city does, resolveAuthorityForPoint
- * could match that neighborhood's polygon and write its id into
- * park.authorityId — silently violating that invariant. Cheap to close now,
- * before city-mapping boundary data starts landing.
+ * This is a DENYLIST, not an allowlist, on purpose — an earlier version of
+ * this function used `where('type','in',['city','regional_council'])`,
+ * which silently excluded every `local_council` authority (123 of them,
+ * real top-level municipalities — Zichron Yaakov's own boundary data landed
+ * the same week, and would have been unreachable through that allowlist).
+ * That's the exact same class of bug as the createPark write-whitelist that
+ * dropped published/contentStatus/origin (23.09.2026, same audit): a value
+ * nobody enumerated in advance disappears without a trace. A denylist of the
+ * two types that must NEVER qualify, plus a loud warning (not a silent drop)
+ * for anything neither allowed nor denied, degrades safely instead.
+ */
+const SUB_CITY_AUTHORITY_TYPES = new Set(['neighborhood', 'settlement']);
+
+/** Types confirmed to be real top-level authorities — no warning for these. */
+const KNOWN_TOP_AUTHORITY_TYPES = new Set(['city', 'regional_council', 'local_council']);
+
+/**
+ * Fetches every NON-sub-city authority as an AuthorityBoundary for
+ * resolveAuthorityForPoint() — id/name/boundaryGeoJSON/coordinates/radiusKm
+ * only, no CRM fields (contacts, documents, financials). Reads the whole
+ * collection (2,755 docs) rather than a Firestore `where` filter: approvals
+ * are rare/manual, not a hot path, and a JS-side denylist is what lets an
+ * unrecognized type pass through with a warning instead of vanishing inside
+ * a query filter with no visibility at all.
  */
 async function fetchAuthorityBoundaries(): Promise<AuthorityBoundary[]> {
-  const snap = await getDocs(query(collection(db, 'authorities'), where('type', 'in', ['city', 'regional_council'])));
-  return snap.docs.map((d) => {
+  const snap = await getDocs(collection(db, 'authorities'));
+  const result: AuthorityBoundary[] = [];
+  const unrecognizedTypes = new Map<string, number>();
+
+  for (const d of snap.docs) {
     const data = d.data();
-    return {
+    const type = data.type ?? '(no type)';
+    if (SUB_CITY_AUTHORITY_TYPES.has(type)) continue;
+    if (!KNOWN_TOP_AUTHORITY_TYPES.has(type)) {
+      unrecognizedTypes.set(type, (unrecognizedTypes.get(type) ?? 0) + 1);
+    }
+    result.push({
       id: d.id,
       name: data.name ?? '',
       // Firestore rejects the nested-array shape of a raw GeoJSON Feature,
@@ -290,8 +316,17 @@ async function fetchAuthorityBoundaries(): Promise<AuthorityBoundary[]> {
       boundaryGeoJSON: parseBoundaryGeoJSON(data.boundaryGeoJSON) ?? undefined,
       coordinates: data.coordinates ?? undefined,
       radiusKm: data.radiusKm ?? undefined,
-    };
-  });
+    });
+  }
+
+  if (unrecognizedTypes.size > 0) {
+    console.warn(
+      '[Contributions] fetchAuthorityBoundaries: unrecognized authority type(s) included as resolution candidates (not silently dropped) —',
+      Object.fromEntries(unrecognizedTypes),
+    );
+  }
+
+  return result;
 }
 
 /**
