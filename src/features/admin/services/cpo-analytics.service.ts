@@ -1,132 +1,24 @@
 /**
  * CPO Strategic Dashboard Analytics Service
  * Aggregates global data across all authorities for executive insights
- *
- * @deprecated (00-MASTER-PLAN.md §13.11 P1, 23.09.2026) getExecutiveSummary,
- * getAuthorityPerformance, and getPremiumMetrics read the `users`
- * collection directly from the browser with no scoping at all — the only
- * thing stopping a non-privileged caller from pulling every resident was
- * firestore.rules. No page calls them anymore (replaced by
- * /api/admin/statistics-summary, which resolves role/scope server-side —
- * see src/lib/adminAnalyticsScope.ts). Left in place rather than deleted
- * (not otherwise asked to remove them), but do not add a new caller —
- * route through the new endpoint instead.
  */
 import {
   collection,
-  query,
-  where,
   getDocs,
-  Timestamp,
-  orderBy,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { getAllAuthorities } from './authority.service';
-import { getAllParks } from './parks.service';
 import { getAllMaintenanceReports } from './maintenance.service';
-import { getSuperAdminCount } from './admin-management.service';
-import { getAllUsers } from './users.service';
 import { MaintenanceReport } from '@/types/maintenance.types';
 
-const USERS_COLLECTION = 'users';
-const WORKOUTS_COLLECTION = 'workouts';
 const EXERCISES_COLLECTION = 'exercises';
 
 /**
- * Executive Summary Metrics
- */
-export interface ExecutiveSummary {
-  totalUsers: number;
-  activeAuthorities: number;
-  activeClients: number; // Count of authorities marked as active clients
-  weeklyGrowthPercent: number;
-  overallCompletionRate: number;
-  totalPlatformAdmins: number;
-}
-
-/**
- * Get executive summary metrics
- * Calculates stats from actual user data using getAllUsers()
- */
-export async function getExecutiveSummary(): Promise<ExecutiveSummary> {
-  try {
-    // Fetch all users using the users service
-    const users = await getAllUsers();
-    const totalUsers = users.length;
-
-    // Count platform admins (users with isSuperAdmin === true)
-    const totalPlatformAdmins = users.filter((u) => u.isSuperAdmin === true).length;
-
-    // Count users who completed onboarding
-    const completedOnboarding = users.filter((u) => u.onboardingStatus === 'COMPLETED').length;
-
-    // Calculate completion rate (avoid division by zero)
-    const overallCompletionRate = totalUsers > 0 
-      ? ((completedOnboarding / totalUsers) * 100) 
-      : 0;
-
-    // Active Authorities (authorities with at least 1 user)
-    const authorities = await getAllAuthorities();
-    const activeAuthorities = authorities.filter((a) => (a.userCount ?? 0) > 0).length;
-
-    // Active Clients (authorities marked as isActiveClient = true)
-    const activeClients = authorities.filter((a) => a.isActiveClient === true).length;
-
-    // Weekly Growth % (compare this week vs last week)
-    const now = new Date();
-    const thisWeekStart = new Date(now);
-    thisWeekStart.setDate(now.getDate() - 7);
-    const lastWeekStart = new Date(now);
-    lastWeekStart.setDate(now.getDate() - 14);
-
-    // Count users created this week — joinDate is mapped from createdAt in the
-    // users service, so users missing both fields are excluded from the window.
-    const thisWeekUsers = users.filter((u) => {
-      const d = u.joinDate ?? null;
-      return d !== null && d >= thisWeekStart;
-    }).length;
-
-    // Count users created last week
-    const lastWeekUsers = users.filter((u) => {
-      const d = u.joinDate ?? null;
-      return d !== null && d >= lastWeekStart && d < thisWeekStart;
-    }).length;
-
-    // Only report growth when both windows have enough signal (≥3 users each
-    // side, or at least one side non-zero). With tiny samples the ratio
-    // produces extreme values (-33%, +200%) that are statistically meaningless.
-    const totalSample = thisWeekUsers + lastWeekUsers;
-    const weeklyGrowthPercent = totalSample === 0
-      ? 0
-      : lastWeekUsers === 0
-        ? (thisWeekUsers > 0 ? 100 : 0)
-        : totalSample < 3
-          ? 0  // sample too small — suppress noisy percentage
-          : ((thisWeekUsers - lastWeekUsers) / lastWeekUsers) * 100;
-
-    return {
-      totalUsers,
-      activeAuthorities,
-      activeClients,
-      weeklyGrowthPercent: Math.round(weeklyGrowthPercent * 10) / 10, // Round to 1 decimal
-      overallCompletionRate: Math.round(overallCompletionRate * 10) / 10, // Round to 1 decimal
-      totalPlatformAdmins,
-    };
-  } catch (error) {
-    console.error('Error calculating executive summary:', error);
-    return {
-      totalUsers: 0,
-      activeAuthorities: 0,
-      activeClients: 0,
-      weeklyGrowthPercent: 0,
-      overallCompletionRate: 0,
-      totalPlatformAdmins: 0,
-    };
-  }
-}
-
-/**
- * Authority Performance Data
+ * Authority Performance Data — the shape getAuthorityPerformance() used to
+ * return. That function was deleted 23.09.2026 (00-MASTER-PLAN.md §13.11
+ * P1 — it read the whole `users` collection unscoped; replaced by
+ * /api/admin/statistics-summary, see src/lib/adminAnalyticsScope.ts) but
+ * the type itself is kept: AuthorityPerformanceTable.tsx still imports it
+ * to describe the new route's response shape, which is identical.
  */
 export interface AuthorityPerformance {
   authorityId: string;
@@ -134,80 +26,6 @@ export interface AuthorityPerformance {
   userCount: number;
   activeParks: number;
   engagementScore: number; // Average workouts per user
-}
-
-/**
- * Get authority performance metrics
- */
-export async function getAuthorityPerformance(): Promise<AuthorityPerformance[]> {
-  try {
-    const authorities = await getAllAuthorities();
-    const parks = await getAllParks();
-    const usersSnapshot = await getDocs(collection(db, USERS_COLLECTION));
-
-    // Group parks by authority
-    const parksByAuthority = new Map<string, number>();
-    parks.forEach((park) => {
-      if (park.authorityId) {
-        parksByAuthority.set(park.authorityId, (parksByAuthority.get(park.authorityId) || 0) + 1);
-      }
-    });
-
-    // Group users by authority and count workouts
-    const usersByAuthority = new Map<string, string[]>(); // authorityId -> userIds
-    const workoutsByUser = new Map<string, number>(); // userId -> workout count
-
-    usersSnapshot.docs.forEach((doc) => {
-      const data = doc.data();
-      const authorityId = data?.core?.authorityId;
-      if (authorityId) {
-        if (!usersByAuthority.has(authorityId)) {
-          usersByAuthority.set(authorityId, []);
-        }
-        usersByAuthority.get(authorityId)!.push(doc.id);
-      }
-    });
-
-    // Count workouts per user
-    try {
-      const workoutsSnapshot = await getDocs(collection(db, WORKOUTS_COLLECTION));
-      workoutsSnapshot.docs.forEach((doc) => {
-        const userId = doc.data()?.userId;
-        if (userId) {
-          workoutsByUser.set(userId, (workoutsByUser.get(userId) || 0) + 1);
-        }
-      });
-    } catch (error) {
-      console.warn('Workouts collection not available, using estimates');
-    }
-
-    // Calculate performance for each authority
-    const performance: AuthorityPerformance[] = authorities.map((authority) => {
-      const userIds = usersByAuthority.get(authority.id) || [];
-      const userCount = userIds.length;
-      const activeParks = parksByAuthority.get(authority.id) || 0;
-      
-      // Calculate engagement score (average workouts per user)
-      const totalWorkouts = userIds.reduce((sum, userId) => {
-        return sum + (workoutsByUser.get(userId) || 0);
-      }, 0);
-      const engagementScore = userCount > 0 ? totalWorkouts / userCount : 0;
-
-      return {
-        authorityId: authority.id,
-        authorityName: authority.name,
-        userCount,
-        activeParks,
-        engagementScore: Math.round(engagementScore * 10) / 10,
-      };
-    });
-
-    // Sort by user count descending
-    return performance.sort((a, b) => b.userCount - a.userCount);
-  } catch (error) {
-    console.error('Error calculating authority performance:', error);
-    return [];
-  }
 }
 
 /**
@@ -306,43 +124,6 @@ export async function getLocationDistribution(): Promise<LocationDistribution[]>
       { location: 'בית', count: 0, percentage: 0 },
       { location: 'משרד', count: 0, percentage: 0 },
     ];
-  }
-}
-
-/**
- * Premium Conversion Rate (Placeholder)
- */
-export interface PremiumMetrics {
-  conversionRate: number;
-  totalUsers: number;
-  premiumUsers: number;
-}
-
-/**
- * Get premium conversion metrics (placeholder for future monetization)
- */
-export async function getPremiumMetrics(): Promise<PremiumMetrics> {
-  try {
-    const usersSnapshot = await getDocs(collection(db, USERS_COLLECTION));
-    const totalUsers = usersSnapshot.size;
-
-    // TODO: When premium feature is implemented, query users with premium status
-    // For now, return placeholder data
-    const premiumUsers = 0; // Placeholder
-    const conversionRate = 0; // Placeholder
-
-    return {
-      conversionRate,
-      totalUsers,
-      premiumUsers,
-    };
-  } catch (error) {
-    console.error('Error calculating premium metrics:', error);
-    return {
-      conversionRate: 0,
-      totalUsers: 0,
-      premiumUsers: 0,
-    };
   }
 }
 
