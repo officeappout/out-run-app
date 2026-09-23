@@ -1,10 +1,16 @@
 'use client';
 
 import { Lock, TrendingUp } from 'lucide-react';
-import { PremiumMetrics } from '@/features/admin/services/cpo-analytics.service';
+
+export interface PremiumMetricsData {
+  conversionRate: number;
+  totalUsers: number;
+  premiumUsers: number;
+}
 
 interface PremiumConversionProps {
-  data: PremiumMetrics;
+  /** null when not applicable to the caller's scope — a platform-wide-only placeholder metric, no per-authority/vertical variant exists. See /api/admin/statistics-summary's own header comment for why. */
+  data: PremiumMetricsData | null;
   loading?: boolean;
 }
 
@@ -14,6 +20,22 @@ export default function PremiumConversion({ data, loading }: PremiumConversionPr
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <div className="h-6 bg-gray-200 rounded w-48 mb-4 animate-pulse"></div>
         <div className="h-32 bg-gray-100 rounded animate-pulse"></div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="bg-white rounded-xl border-2 border-dashed border-gray-300 p-6">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-gray-100 rounded-lg">
+            <Lock size={24} className="text-gray-400" />
+          </div>
+          <div>
+            <h3 className="text-lg font-black text-gray-900">שיעור המרה לפרימיום</h3>
+            <p className="text-sm text-gray-500 mt-1">לא רלוונטי לתפקיד שלך — מדד כלל-פלטפורמי, אין גרסה לפי רשות.</p>
+          </div>
+        </div>
       </div>
     );
   }

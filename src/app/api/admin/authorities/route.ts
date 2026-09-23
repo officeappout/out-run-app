@@ -3,13 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminApi } from '@/lib/api-auth';
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
 import { SESSION_COOKIE_NAME, verifyAdminSession } from '@/lib/admin-session';
-
-function tenantTypeOf(type: string): string {
-  const t = (type ?? '').toLowerCase();
-  if (t === 'military' || t === 'military_unit') return 'military';
-  if (t === 'educational' || t === 'school') return 'educational';
-  return 'municipal';
-}
+import { tenantTypeOf } from '@/lib/tenantType';
 
 export async function GET(request: NextRequest) {
   const denied = await requireAdminApi(request);

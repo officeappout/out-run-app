@@ -4,119 +4,113 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
 import {
-  getExecutiveSummary,
-  getAuthorityPerformance,
   getTopBaseMovements,
   getLocationDistribution,
-  getPremiumMetrics,
   getGlobalMaintenanceReports,
+  type AuthorityPerformance,
 } from '@/features/admin/services/cpo-analytics.service';
-import {
-  getHealthWakeUpMetric,
-  getEquipmentGapAnalysis,
-  getSleepyNeighborhoods,
-} from '@/features/admin/services/strategic-insights.service';
-import ExecutiveSummary from '@/features/admin/components/cpo-dashboard/ExecutiveSummary';
+import ExecutiveSummary, { type ExecutiveSummaryData } from '@/features/admin/components/cpo-dashboard/ExecutiveSummary';
 import AuthorityPerformanceTable from '@/features/admin/components/cpo-dashboard/AuthorityPerformanceTable';
 import ProductInsights from '@/features/admin/components/cpo-dashboard/ProductInsights';
 import MaintenanceOverview from '@/features/admin/components/cpo-dashboard/MaintenanceOverview';
-import PremiumConversion from '@/features/admin/components/cpo-dashboard/PremiumConversion';
+import PremiumConversion, { type PremiumMetricsData } from '@/features/admin/components/cpo-dashboard/PremiumConversion';
 import HealthWakeUpChart from '@/features/admin/components/strategic-insights/HealthWakeUpChart';
 import EquipmentGapAnalysis from '@/features/admin/components/strategic-insights/EquipmentGapAnalysis';
 import SleepyNeighborhoodsList from '@/features/admin/components/strategic-insights/SleepyNeighborhoodsList';
+import { AlertCircle } from 'lucide-react';
+
+/**
+ * 00-MASTER-PLAN.md §13.11 P1 — this page used to call cpo-analytics.
+ * service.ts's getExecutiveSummary()/getAuthorityPerformance() (always
+ * platform-wide, no authorityId parameter existed at all) and strategic-
+ * insights.service.ts's 3 functions with a CLIENT-resolved authorityIds
+ * array — both patterns read `users` directly from the browser with the
+ * only real gate being firestore.rules. Replaced with two server routes
+ * (/api/admin/statistics-summary, /api/admin/insights-summary) that
+ * resolve role/scope from the verified ID token server-side — see
+ * src/lib/adminAnalyticsScope.ts for the full role→scope table.
+ */
+
+interface StatisticsSummaryResponse {
+  scope: 'platform' | 'vertical';
+  vertical?: string;
+  executiveSummary: ExecutiveSummaryData;
+  authorityPerformance: AuthorityPerformance[];
+  premiumMetrics: PremiumMetricsData | null;
+  notApplicable: string[];
+  notApplicableMessage?: string;
+}
+
+interface InsightsSummaryResponse {
+  scope: 'platform' | 'vertical' | 'authority';
+  healthWakeUp: { totalInactiveUsers: number; nowActiveUsers: number; successRate: number };
+  equipmentGaps: any[];
+  sleepyNeighborhoods: any[];
+}
+
+async function authedFetch<T>(path: string): Promise<{ ok: true; data: T } | { ok: false; status: number; message: string }> {
+  const user = auth.currentUser;
+  if (!user) return { ok: false, status: 401, message: 'לא מחובר.' };
+  const idToken = await user.getIdToken();
+  const res = await fetch(path, { headers: { Authorization: `Bearer ${idToken}` } });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    return { ok: false, status: res.status, message: body?.error ?? 'שגיאה בטעינת הנתונים.' };
+  }
+  return { ok: true, data: await res.json() };
+}
 
 export default function StatisticsPage() {
-    const router = useRouter();
-    const [loading, setLoading] = useState(true);
     const [authLoading, setAuthLoading] = useState(true);
-    
-    // Statistics Data
-    const [executiveSummary, setExecutiveSummary] = useState<any>(null);
-    const [authorityPerformance, setAuthorityPerformance] = useState<any[]>([]);
-    const [topMovements, setTopMovements] = useState<any[]>([]);
-    const [locationDistribution, setLocationDistribution] = useState<any[]>([]);
-    const [premiumMetrics, setPremiumMetrics] = useState<any>(null);
-    const [maintenanceReports, setMaintenanceReports] = useState<any[]>([]);
-    const [healthWakeUp, setHealthWakeUp] = useState<any>(null);
-    const [equipmentGaps, setEquipmentGaps] = useState<any[]>([]);
-    const [sleepyNeighborhoods, setSleepyNeighborhoods] = useState<any[]>([]);
     const [dataLoading, setDataLoading] = useState(true);
 
-    const [userAuthorityIds, setUserAuthorityIds] = useState<string[]>([]);
-    const [isAuthorityManagerOnly, setIsAuthorityManagerOnly] = useState(false);
+    const [statisticsSummary, setStatisticsSummary] = useState<StatisticsSummaryResponse | null>(null);
+    const [statisticsDenied, setStatisticsDenied] = useState<string | null>(null);
+    const [insightsSummary, setInsightsSummary] = useState<InsightsSummaryResponse | null>(null);
+    const [insightsDenied, setInsightsDenied] = useState<string | null>(null);
+
+    const [topMovements, setTopMovements] = useState<any[]>([]);
+    const [locationDistribution, setLocationDistribution] = useState<any[]>([]);
+    const [maintenanceReports, setMaintenanceReports] = useState<any[]>([]);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                try {
-                    const roleInfo = await checkUserRole(user.uid);
-                    const isOnly = await isOnlyAuthorityManager(user.uid);
-                    setIsAuthorityManagerOnly(isOnly);
-                    setUserAuthorityIds(roleInfo.authorityIds || []);
-                } catch (error) {
-                    console.error('Error checking user role:', error);
-                }
-            }
-            setAuthLoading(false);
-        });
+        const unsubscribe = onAuthStateChanged(auth, () => setAuthLoading(false));
         return () => unsubscribe();
     }, []);
 
-    // Load Statistics Data
     useEffect(() => {
         if (authLoading) return;
 
         async function loadData() {
-            try {
-                setDataLoading(true);
-                const [
-                    summary,
-                    performance,
-                    movements,
-                    locations,
-                    premium,
-                    maintenance,
-                    healthWakeUpData,
-                    equipmentGapsData,
-                    sleepyNeighborhoodsData,
-                ] = await Promise.all([
-                    getExecutiveSummary(),
-                    getAuthorityPerformance(),
-                    getTopBaseMovements(5),
-                    getLocationDistribution(),
-                    getPremiumMetrics(),
-                    getGlobalMaintenanceReports(),
-                    getHealthWakeUpMetric(isAuthorityManagerOnly ? userAuthorityIds : undefined),
-                    getEquipmentGapAnalysis(isAuthorityManagerOnly ? userAuthorityIds : undefined),
-                    getSleepyNeighborhoods(isAuthorityManagerOnly ? userAuthorityIds : undefined),
-                ]);
+            setDataLoading(true);
 
-                setExecutiveSummary(summary);
-                setAuthorityPerformance(performance);
-                setTopMovements(movements);
-                setLocationDistribution(locations);
-                setPremiumMetrics(premium);
-                setMaintenanceReports(maintenance);
-                setHealthWakeUp(healthWakeUpData);
-                setEquipmentGaps(equipmentGapsData);
-                setSleepyNeighborhoods(sleepyNeighborhoodsData);
-            } catch (error) {
-                console.error('Error loading statistics data:', error);
-            } finally {
-                setDataLoading(false);
-                setLoading(false);
-            }
+            const [statsResult, insightsResult, movements, locations, maintenance] = await Promise.all([
+                authedFetch<StatisticsSummaryResponse>('/api/admin/statistics-summary'),
+                authedFetch<InsightsSummaryResponse>('/api/admin/insights-summary'),
+                getTopBaseMovements(5),
+                getLocationDistribution(),
+                getGlobalMaintenanceReports(),
+            ]);
+
+            if (statsResult.ok) { setStatisticsSummary(statsResult.data); setStatisticsDenied(null); }
+            else { setStatisticsSummary(null); setStatisticsDenied(statsResult.message); }
+
+            if (insightsResult.ok) { setInsightsSummary(insightsResult.data); setInsightsDenied(null); }
+            else { setInsightsSummary(null); setInsightsDenied(insightsResult.message); }
+
+            setTopMovements(movements);
+            setLocationDistribution(locations);
+            setMaintenanceReports(maintenance);
+            setDataLoading(false);
         }
 
         loadData();
-    }, [authLoading, isAuthorityManagerOnly, userAuthorityIds]);
+    }, [authLoading]);
 
-    if (loading || authLoading) {
+    if (authLoading) {
         return (
             <div className="flex items-center justify-center h-64">
                 <div className="text-gray-500">טוען...</div>
@@ -131,49 +125,46 @@ export default function StatisticsPage() {
                 <p className="text-gray-500 mt-2">נתונים וגרפים גולמיים - ציוד, רמות פעילות התחלתיות, התפלגויות</p>
             </div>
 
-            {/* Executive Summary */}
-            <ExecutiveSummary data={executiveSummary || {
-                totalUsers: 0,
-                activeAuthorities: 0,
-                weeklyGrowthPercent: 0,
-                overallCompletionRate: 0,
-                totalPlatformAdmins: 0,
-            }} loading={dataLoading} />
+            {statisticsDenied && !dataLoading && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+                    <AlertCircle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-amber-800">{statisticsDenied}</p>
+                </div>
+            )}
 
-            {/* Authority Performance Table */}
-            <AuthorityPerformanceTable data={authorityPerformance} loading={dataLoading} />
+            {statisticsSummary && (
+                <>
+                    <ExecutiveSummary data={statisticsSummary.executiveSummary} loading={dataLoading} notApplicable={statisticsSummary.notApplicable} />
+                    <AuthorityPerformanceTable data={statisticsSummary.authorityPerformance} loading={dataLoading} />
+                </>
+            )}
 
-            {/* Product Insights */}
-            <ProductInsights 
-                topMovements={topMovements} 
+            {/* Product Insights — unrelated to the users-collection scoping fix; unchanged */}
+            <ProductInsights
+                topMovements={topMovements}
                 locationDistribution={locationDistribution}
                 loading={dataLoading}
             />
 
-            {/* Health Wake-Up Metric */}
-            <HealthWakeUpChart 
-                data={healthWakeUp || {
-                    totalInactiveUsers: 0,
-                    nowActiveUsers: 0,
-                    successRate: 0,
-                }} 
-                loading={dataLoading} 
-            />
+            {insightsDenied && !dataLoading && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+                    <AlertCircle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-amber-800">{insightsDenied}</p>
+                </div>
+            )}
 
-            {/* Equipment Gap Analysis */}
-            <EquipmentGapAnalysis data={equipmentGaps} loading={dataLoading} topCities={3} />
-
-            {/* Sleepy Neighborhoods */}
-            <SleepyNeighborhoodsList data={sleepyNeighborhoods} loading={dataLoading} limit={5} />
+            {insightsSummary && (
+                <>
+                    <HealthWakeUpChart data={insightsSummary.healthWakeUp} loading={dataLoading} />
+                    <EquipmentGapAnalysis data={insightsSummary.equipmentGaps} loading={dataLoading} topCities={3} />
+                    <SleepyNeighborhoodsList data={insightsSummary.sleepyNeighborhoods} loading={dataLoading} limit={5} />
+                </>
+            )}
 
             {/* Maintenance Overview & Premium Conversion */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <MaintenanceOverview reports={maintenanceReports} loading={dataLoading} />
-                <PremiumConversion data={premiumMetrics || {
-                    conversionRate: 0,
-                    totalUsers: 0,
-                    premiumUsers: 0,
-                }} loading={dataLoading} />
+                <PremiumConversion data={statisticsSummary?.premiumMetrics ?? null} loading={dataLoading} />
             </div>
         </div>
     );
