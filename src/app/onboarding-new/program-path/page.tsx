@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, CheckCircle2, UserCircle } from 'lucide-react';
+import { Check, CheckCircle2, ChevronDown, UserCircle } from 'lucide-react';
 import {
   type MuscleGroup,
 } from '@/features/content/exercises/core/exercise.types';
@@ -92,6 +92,26 @@ const MUSCLE_FOCUS_IDS: MuscleGroup[] = [
   'legs',
   'core',
   'glutes',
+];
+
+type MusclePackageKey = 'pull' | 'push' | 'legs' | 'core';
+
+/**
+ * The 4 package groupings shown as collapsible sections. Source of truth is
+ * MUSCLE_TO_CATEGORY in assessment-path-config.service.ts — NOT
+ * muscle-balance.ts's PUSH_MUSCLES/PULL_MUSCLES/LOWER_MUSCLES, which merges
+ * legs+core+glutes into one "lower" bucket and would wrongly collapse the
+ * legs/core packages into one. Muscle order within each package is fixed and
+ * deterministic (never Set/Object.keys iteration) — package "select all"
+ * adds muscles in this exact order, since insertion order in selectedMuscles
+ * drives both slider display order (musclesToCategories) and intro copy
+ * (targetArea = index 0 in assessment-visual/page.tsx).
+ */
+const MUSCLE_PACKAGES: { key: MusclePackageKey; nameHe: string; muscles: MuscleGroup[] }[] = [
+  { key: 'pull', nameHe: 'משיכה', muscles: ['back', 'biceps'] },
+  { key: 'push', nameHe: 'דחיפה', muscles: ['shoulders', 'chest', 'triceps'] },
+  { key: 'legs', nameHe: 'רגליים', muscles: ['glutes', 'legs'] },
+  { key: 'core', nameHe: 'ליבה', muscles: ['core'] },
 ];
 
 /**
@@ -216,6 +236,34 @@ export default function ProgramPathPage() {
       });
     },
     []
+  );
+
+  // ── Package sections: local UI state only, never persisted ──
+  const [expandedPackages, setExpandedPackages] = useState<Set<MusclePackageKey>>(new Set());
+
+  const togglePackageExpanded = useCallback((key: MusclePackageKey) => {
+    setExpandedPackages((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  // Package-level "select all" — calls the EXISTING toggleMuscle add-branch
+  // once per not-yet-selected muscle, in the package's fixed declared order.
+  // Never writes a synthetic package label into selectedMuscles; each call
+  // goes through the same reducer branch an individual chip tap would use,
+  // so the resulting array is indistinguishable from manual tapping.
+  const selectPackage = useCallback(
+    (muscles: MuscleGroup[]) => {
+      muscles.forEach((id) => {
+        if (!selectedMuscles.includes(id)) {
+          toggleMuscle(id);
+        }
+      });
+    },
+    [selectedMuscles, toggleMuscle]
   );
 
   const toggleSkill = useCallback((id: string) => {
@@ -568,12 +616,12 @@ export default function ProgramPathPage() {
                     )}
                   </AnimatePresence>
 
-                  <div className="grid grid-cols-2 gap-3 w-full" dir="rtl">
-                    {/* "כל הגוף" — full-width anchor */}
+                  <div className="w-full space-y-3" dir="rtl">
+                    {/* "כל הגוף" — full-width anchor, unchanged */}
                     <motion.button
                       whileTap={{ scale: 0.97 }}
                       onClick={() => toggleMuscle(FULL_BODY_ID)}
-                      className={`col-span-2 flex items-center justify-between p-3.5 h-12 w-full rounded-xl border transition-all text-right cursor-pointer ${
+                      className={`flex items-center justify-between p-3.5 h-12 w-full rounded-xl border transition-all text-right cursor-pointer ${
                         isFullBodySelected
                           ? 'bg-[#00BAF7]/[0.06] border-[#00BAF7] font-semibold'
                           : 'bg-white border-[#E0E9FF] font-medium'
@@ -588,42 +636,123 @@ export default function ProgramPathPage() {
                       <span className="text-[14px] text-slate-800">כל הגוף</span>
                     </motion.button>
 
-                    {/* Individual muscle items */}
-                    {MUSCLE_FOCUS_IDS.map((id) => {
-                      const label = MUSCLE_CHIP_LABELS[id] ?? id;
-                      const isSelected = selectedMuscles.includes(id);
-                      const iconSrc = MUSCLE_ICON_PATHS[id];
-                      // Coach's note: glow if this chip is the suggested
-                      // complement and the tip is currently visible.
-                      const isRecommended =
-                        showMuscleRecommendation &&
-                        !isSelected &&
-                        recommendedMuscles.has(id);
+                    {/* 4 collapsible package sections */}
+                    {MUSCLE_PACKAGES.map((pkg) => {
+                      const fullySelected = pkg.muscles.every((m) => selectedMuscles.includes(m));
+                      const someSelected = pkg.muscles.some((m) => selectedMuscles.includes(m));
+                      const subtitle = pkg.muscles.map((m) => MUSCLE_CHIP_LABELS[m] ?? m).join(', ');
+                      // A package that contains the coach's-note recommended
+                      // muscle stays expanded regardless of manual
+                      // collapse — otherwise the existing recommendation
+                      // glow would be hidden inside a collapsed section.
+                      const hasRecommendedInside =
+                        showMuscleRecommendation && pkg.muscles.some((m) => recommendedMuscles.has(m));
+                      const isExpanded = expandedPackages.has(pkg.key) || hasRecommendedInside;
                       return (
-                        <motion.button
-                          key={id}
-                          whileTap={{ scale: 0.97 }}
-                          onClick={() => toggleMuscle(id)}
-                          className={`flex items-center justify-between p-3.5 h-12 w-full rounded-xl border transition-all text-right cursor-pointer ${
-                            isSelected
-                              ? 'bg-[#00BAF7]/[0.06] border-[#00BAF7] font-semibold'
-                              : isRecommended
-                                ? 'bg-orange-50/50 border-orange-400 shadow-sm animate-pulse font-medium'
-                                : 'bg-white border-[#E0E9FF] font-medium'
+                        <div
+                          key={pkg.key}
+                          className={`rounded-xl border bg-white transition-colors overflow-hidden ${
+                            fullySelected
+                              ? 'border-[#00BAF7]'
+                              : someSelected
+                                ? 'border-[#00BAF7]/40'
+                                : 'border-[#E0E9FF]'
                           }`}
                         >
-                          {/* Icon first in DOM = RIGHT edge in dir="rtl" flex */}
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={iconSrc}
-                            alt=""
-                            className={`w-7 h-7 object-contain shrink-0 transition-all ${
-                              isSelected ? 'opacity-100' : 'opacity-55'
-                            }`}
-                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                          />
-                          <span className="text-[14px] text-slate-800">{label}</span>
-                        </motion.button>
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => togglePackageExpanded(pkg.key)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') togglePackageExpanded(pkg.key);
+                            }}
+                            className="flex items-center justify-between p-3.5 cursor-pointer select-none"
+                          >
+                            {/* name + subtitle — RIGHT (first in DOM = RIGHT edge in dir="rtl") */}
+                            <div className="flex-1 text-right min-w-0">
+                              <p className="text-[14px] font-semibold text-slate-800">{pkg.nameHe}</p>
+                              <p className="text-[12px] text-slate-400 truncate">{subtitle}</p>
+                            </div>
+                            {/* select-all circle + chevron — LEFT */}
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  selectPackage(pkg.muscles);
+                                }}
+                                aria-label={`בחר את כל השרירים בקבוצת ${pkg.nameHe}`}
+                                className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all ${
+                                  fullySelected
+                                    ? 'bg-[#00BAF7] border-[#00BAF7]'
+                                    : someSelected
+                                      ? 'bg-[#00BAF7]/15 border-[#00BAF7]'
+                                      : 'bg-white border-[#E0E9FF]'
+                                }`}
+                              >
+                                {fullySelected && <Check size={13} className="text-white" strokeWidth={3} />}
+                              </button>
+                              <motion.div
+                                animate={{ rotate: isExpanded ? 180 : 0 }}
+                                transition={{ duration: 0.2 }}
+                              >
+                                <ChevronDown size={18} className="text-slate-400" />
+                              </motion.div>
+                            </div>
+                          </div>
+
+                          <AnimatePresence>
+                            {isExpanded && (
+                              <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                transition={{ duration: 0.22 }}
+                                style={{ overflow: 'hidden' }}
+                              >
+                                <div className="grid grid-cols-2 gap-3 w-full px-3.5 pb-3.5">
+                                  {pkg.muscles.map((id) => {
+                                    const label = MUSCLE_CHIP_LABELS[id] ?? id;
+                                    const isSelected = selectedMuscles.includes(id);
+                                    const iconSrc = MUSCLE_ICON_PATHS[id];
+                                    // Coach's note: glow if this chip is the
+                                    // suggested complement and the tip is visible.
+                                    const isRecommended =
+                                      showMuscleRecommendation &&
+                                      !isSelected &&
+                                      recommendedMuscles.has(id);
+                                    return (
+                                      <motion.button
+                                        key={id}
+                                        whileTap={{ scale: 0.97 }}
+                                        onClick={() => toggleMuscle(id)}
+                                        className={`flex items-center justify-between p-3.5 h-12 w-full rounded-xl border transition-all text-right cursor-pointer ${
+                                          isSelected
+                                            ? 'bg-[#00BAF7]/[0.06] border-[#00BAF7] font-semibold'
+                                            : isRecommended
+                                              ? 'bg-orange-50/50 border-orange-400 shadow-sm animate-pulse font-medium'
+                                              : 'bg-white border-[#E0E9FF] font-medium'
+                                        }`}
+                                      >
+                                        {/* Icon first in DOM = RIGHT edge in dir="rtl" flex */}
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                          src={iconSrc}
+                                          alt=""
+                                          className={`w-7 h-7 object-contain shrink-0 transition-all ${
+                                            isSelected ? 'opacity-100' : 'opacity-55'
+                                          }`}
+                                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                                        />
+                                        <span className="text-[14px] text-slate-800">{label}</span>
+                                      </motion.button>
+                                    );
+                                  })}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
                       );
                     })}
                   </div>
