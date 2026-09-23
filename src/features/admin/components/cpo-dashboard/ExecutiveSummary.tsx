@@ -1,14 +1,27 @@
 'use client';
 
 import { TrendingUp, TrendingDown, Users, Building2, Target, Activity, Shield, Briefcase } from 'lucide-react';
-import { ExecutiveSummary as ExecutiveSummaryData } from '@/features/admin/services/cpo-analytics.service';
+
+export interface ExecutiveSummaryData {
+  totalUsers: number;
+  weeklyGrowthPercent: number;
+  overallCompletionRate: number;
+  /** null when not applicable to the caller's scope (see notApplicable) — a cross-authority/platform-wide number, not scoped-down. */
+  activeAuthorities: number | null;
+  activeClients: number | null;
+  totalPlatformAdmins: number | null;
+}
 
 interface ExecutiveSummaryProps {
   data: ExecutiveSummaryData;
   loading?: boolean;
+  /** Field keys not applicable to the caller's scope — rendered as a message, not 0. See /api/admin/statistics-summary's own header comment for why. */
+  notApplicable?: string[];
 }
 
-export default function ExecutiveSummary({ data, loading }: ExecutiveSummaryProps) {
+const NOT_APPLICABLE_LABEL = 'לא רלוונטי';
+
+export default function ExecutiveSummary({ data, loading, notApplicable = [] }: ExecutiveSummaryProps) {
   if (loading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
@@ -22,13 +35,9 @@ export default function ExecutiveSummary({ data, loading }: ExecutiveSummaryProp
     );
   }
 
-  // Safe access with fallbacks to prevent undefined errors
-  const totalUsers = data?.totalUsers || 0;
-  const activeAuthorities = data?.activeAuthorities || 0;
-  const activeClients = data?.activeClients || 0;
-  const weeklyGrowthPercent = data?.weeklyGrowthPercent || 0;
-  const overallCompletionRate = data?.overallCompletionRate || 0;
-  const totalPlatformAdmins = data?.totalPlatformAdmins || 0;
+  const totalUsers = data?.totalUsers ?? 0;
+  const weeklyGrowthPercent = data?.weeklyGrowthPercent ?? 0;
+  const overallCompletionRate = data?.overallCompletionRate ?? 0;
 
   const metrics = [
     {
@@ -40,14 +49,14 @@ export default function ExecutiveSummary({ data, loading }: ExecutiveSummaryProp
     },
     {
       label: 'רשויות פעילות',
-      value: activeAuthorities.toString(),
+      value: notApplicable.includes('activeAuthorities') ? NOT_APPLICABLE_LABEL : (data?.activeAuthorities ?? 0).toString(),
       icon: Building2,
       color: 'text-blue-500',
       bgColor: 'bg-blue-50',
     },
     {
       label: 'לקוחות פעילים',
-      value: activeClients.toString(),
+      value: notApplicable.includes('activeClients') ? NOT_APPLICABLE_LABEL : (data?.activeClients ?? 0).toString(),
       icon: Briefcase,
       color: 'text-emerald-500',
       bgColor: 'bg-emerald-50',
@@ -68,7 +77,7 @@ export default function ExecutiveSummary({ data, loading }: ExecutiveSummaryProp
     },
     {
       label: 'מנהלי מערכת',
-      value: totalPlatformAdmins.toString(),
+      value: notApplicable.includes('totalPlatformAdmins') ? NOT_APPLICABLE_LABEL : (data?.totalPlatformAdmins ?? 0).toString(),
       icon: Shield,
       color: 'text-orange-500',
       bgColor: 'bg-orange-50',

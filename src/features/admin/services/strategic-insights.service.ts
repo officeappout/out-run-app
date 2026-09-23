@@ -1,6 +1,15 @@
 /**
  * Strategic Insights Analytics Service
  * Provides business-focused insights for municipal health impact reporting
+ *
+ * @deprecated (00-MASTER-PLAN.md §13.11 P1, 23.09.2026) all three functions
+ * below open with an unfiltered getDocs(collection(db,'users')) and filter
+ * authorityId in memory AFTER the read — the scoping was client-supplied
+ * and optional, not enforced. No page calls them anymore (replaced by
+ * /api/admin/insights-summary, which resolves role/scope server-side from
+ * the verified ID token — see src/lib/adminAnalyticsScope.ts). Left in
+ * place rather than deleted (not otherwise asked to remove them), but do
+ * not add a new caller — route through the new endpoint instead.
  */
 
 import {

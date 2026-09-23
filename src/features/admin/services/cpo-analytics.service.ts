@@ -1,6 +1,16 @@
 /**
  * CPO Strategic Dashboard Analytics Service
  * Aggregates global data across all authorities for executive insights
+ *
+ * @deprecated (00-MASTER-PLAN.md §13.11 P1, 23.09.2026) getExecutiveSummary,
+ * getAuthorityPerformance, and getPremiumMetrics read the `users`
+ * collection directly from the browser with no scoping at all — the only
+ * thing stopping a non-privileged caller from pulling every resident was
+ * firestore.rules. No page calls them anymore (replaced by
+ * /api/admin/statistics-summary, which resolves role/scope server-side —
+ * see src/lib/adminAnalyticsScope.ts). Left in place rather than deleted
+ * (not otherwise asked to remove them), but do not add a new caller —
+ * route through the new endpoint instead.
  */
 import {
   collection,
