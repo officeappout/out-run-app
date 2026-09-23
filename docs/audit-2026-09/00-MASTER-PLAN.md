@@ -1028,4 +1028,45 @@ git push origin main
 
 **המשימה הבאה:** ממתין לפרומפט נפרד מדוד.
 
+### 13.13 — זיהוי וסינון חשבונות טסט מספירות משתמשים (23.09.2026): נסגר, פרוס בפרודקשן
+
+`audit/test-account-identification`, מוזג ל-`main` ב-`--no-ff` (קונפליקט ייבוא יחיד עם `d7d84041` — שתי הוספות import לאותה נקודה, נפתר בשמירת שניהם, `tsc`+`npm test` אומתו נקיים אחרי הפתרון). Deploy קוד בלבד — אין שינוי כללים, אין משתמש שנמחק (לא Firestore, לא Auth).
+
+**פקודת revert מדויקת:**
+```
+git revert -m 1 26d8a60a33df1ec515692447608e1154dc49f916 --no-edit
+git push origin main
+```
+
+**הבעיה:** 677 מתוך 687 מסמכי `users` בפרודקשן לא היו מסומנים כלל (רק 10 = `core.isMockData`, הדמו של שדרות) — לפי דוד, רובם המכריע התקנות בדיקה שלו. דשבורד מנהל עירייה ספר אותם יחד עם תושבים אמיתיים.
+
+**שלב 1 (קריאה בלבד):** 4 קריטריונים אושרו (אימייל צוות/דומיין `*.local`; אין מייל+אפס אימונים; anonymous שלא סיים אונבורדינג; שם חשוד — 4 תתי-קטגוריה ספציפיות, לא "שם ריק" בפני עצמו). 4 חוקי הגנה מוחלטים אושרו: uid ב-`managerIds`, תפקיד אדמין כלשהו, אימון+מייל, `isMockData`.
+
+**שלב 2 (סימון):** `core.isTestData=true` + `core.testDataReason` (מערך קריטריונים, לביטול חלקי עתידי) + `core.testDataMarkedAt` על **606** מסמכים. גיבוי מלא של `users` נלקח פעמיים (לפני ההרצה + שוב אוטומטית ממש לפני הכתיבה) ל-`scripts/_backups/` (מחוץ ל-git). אימות אחרי הכתיבה (query טרי, לא הסתמכות על לוגיקת הפרה-בדיקה): 0 מסמכים מסומנים הפרו חוק הגנה כלשהו. 0 כשלונות כתיבה.
+
+**שלב 3 (סינון בספירות):** `src/lib/testAccountFilter.ts` (predicate טהור) + `testAccountFilterAdmin.ts` (עזר ל-count() ב-Admin SDK, מחסר שתי ספירות `==true` נפרדות — לא `!=`, שהיה מחריג כל מסמך בלי השדה) כמקור אמת יחיד. הוחל על city-summary, dashboard-summary, `analytics.service.ts`'s `getUserDocsForAuthority`/`getUserIdsForAuthority` (אוחדו לפונקציה אחת — מכסה ~15 מדדים במורד הזרם) + `getNeighborhoodBreakdown`, `health-economics.service.ts`'s `getAuthorityUsers` (דשבורד WHO-150), `authority.service.ts`'s `syncUserCount`/`syncAllUserCounts` (שדה `authority.userCount` המנורמל, תריסר+ קומפוננטות קוראות אותו).
+
+**לא סונן בסבב הזה (רשימה מלאה בהחלטות הפתוחות למטה).**
+
+**טבלת לפני/אחרי — תל אביב-יפו (`t9hiRkDnJtgZESlNCBp8`):**
+
+| שדה | גולמי | לפני (isMockData בלבד) | אחרי (isMockData+isTestData) |
+|---|---|---|---|
+| `totalUsers` | 164 | 154 | **35** |
+| `approvedUsers` | 3 | 3 | 3 |
+
+**בדיקות:** `npx vitest run` — 232 קבצים, 2230 בדיקות, כשל אחד קיים-מראש ולא קשור (זהה לדיווחים קודמים). `tsc` מול baseline (worktree חד-פעמי, `comm` על פלט ממוין) — 21 "חדשות" מול 21 "נעלמו", כל ה-21 אומתו ידנית כאותן שגיאות קיימות-מראש שזזו שורה בגלל העריכות (delta עקבי בכל מופע). אפס רגרסיות.
+
+**Smoke אחרי דיפלוי:** `outrun.co.il`=200, `/api/catalog/parks`=200 עם 1159 גינות (עלה ב-1 מאז §13.12, לא קשור). פורטל תל אביב-יפו — הרצתי בדיקה חיה כמנהל תל אביב-יפו אמיתי (custom token, uid קיים מתוך `managerIds`, קריאה בלבד) מול ה-endpoint הפרוס בפועל: **5 הרצות ראשונות החזירו 155 (קוד ישן עדיין רץ), ההרצה השישית (כ-90 שניות אחרי ה-push) החזירה 35** — עיכוב הפצת דיפלוי רגיל של Vercel, לא באג. אומת שהקוד החדש חי ונכון לפני שהוכרז שהמשימה הושלמה.
+
+**פתוחים, בדירוג (כפי שדוד קבע):**
+
+**P1 — `getExecutiveSummary` (`cpo-analytics.service.ts`) נקראת בלי `authorityId` גם עבור authority-manager-only** — מנהל רשות רואה כרגע מצרפים platform-wide, לא רק של עירו. באג scoping נפרד, לא קשור לטסטים/דמו. **המשימה הבאה — דוד ישלח פרומפט נפרד.**
+
+**P2 — 10 מסמכי `isMockData` מתויגים תחת `authorityId` של תל אביב-יפו, לא תחת רשות דמו ייעודית.** תקרית מתועדת מ-19.09.2026 ב-`demo-seed-sderot.ts` (הכלי הופעל בטעות מול רשות אמיתית: "10 mock users... ended up tagged under a real municipality's authorityId" — המספרים תואמים בדיוק). מסוננים מכל ספירה כבר היום (חלק מ-`isTestOrMockUser`), לא דחוף. **לא לגעת בלי הוראה מפורשת.**
+
+**P2 — אתרי שאילתה שלא סוננו** (מיפוי מלא בדוח הצ'אט, 23.09.2026): `cpo-analytics.service.ts` (3 פונקציות), `strategic-insights.service.ts` (3), `users.service.ts::getAllUsers`, `funnel-analytics.service.ts`, `account-metrics.service.ts`, `readiness.service.ts`, `grades.service.ts`, ו-10 עמודי לקוח ששולפים `users` ישירות מהדפדפן (סיכון: שינוי שאילתת client-SDK עלול לדרוש אינדקס Firestore חדש). **לא להתחיל באף אחד בלי פרומפט נפרד.**
+
+**המשימה הבאה:** ממתין לפרומפט נפרד מדוד.
+
 **בסיס tsc מתוקן — 449, לא 453 (19.09.2026):** מנת תיקונים ("ניקוי דמו, תוויות, ותיקון תצוגת העיר", ממוזגת ל-`main` ב-`722b379b`) נפתחה מול בסיס שנרשם כ-453 שגיאות. באותו סבב עבודה התגלה ש-`node_modules` המשותף (בין ~75 worktrees על המכונה) היה סוטה מ-`package-lock.json` המחויב — לא חבילה חסרה בודדת (`qr-code-styling`, שחסם `next build` לגמרי), אלא אי-סנכרון רחב יותר. `npm install` (מאושר ע"י דוד, מאומת קודם שאין סשן מקביל באמצע עבודה) תיקן: 1473 חבילות נוספו, 1190 הוסרו מ-`node_modules` בפועל — **אך `package-lock.json` עצמו נשאר זהה בייט-לבייט למה שהיה כבר ב-`origin/main`** (אומת ב-diff מול `git show origin/main:package-lock.json` — אין דיפרנס בגיט, רק resync פיזי של node_modules). אחרי התיקון: `npx tsc --noEmit` = **449 שגיאות**, לא 453/454 — כלומר הבסיס הקודם היה מנופח באופן מלאכותי כתוצאה מהסטייה הזו, לא שינוי אמיתי בקוד. `next build` עבר במלואו לראשונה מזה זמן. **449 הוא הבסיס הנכון מעכשיו.** אם ספירת tsc עתידית שונה מ-449 בלי שינוי קוד מכוון — יש לחשוד תחילה בסטיית `node_modules` (השוואה: `stat -f "%Sm" node_modules` ו-`package-lock.json`, ו-diff מול `git show origin/main:package-lock.json`) לפני שמניחים רגרסיה אמיתית.
