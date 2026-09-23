@@ -256,13 +256,21 @@ export async function checkDuplicateNearby(
 // ── Authority resolution ────────────────────────────────────────────
 
 /**
- * Sub-city LEAF types — must never become park.authorityId (locked
- * invariant, see park-neighborhood-model: authorityId is always the TOP
- * authority, the leaf goes in neighborhoodId instead). Verified against the
- * live `authorities` collection (23.09.2026): every type actually present is
+ * Types that must never become park.authorityId. Verified against the live
+ * `authorities` collection (23.09.2026): every type actually present is
  * neighborhood(1377) | settlement(1066) | local_council(123) | city(83) |
- * regional_council(55) | military_unit(48) | school(2) | no-type(1) — these
- * two are the only leaf/sub-city types that exist.
+ * regional_council(55) | military_unit(48) | school(2) | no-type(1). Two
+ * different reasons land a type here, not one:
+ *   - neighborhood, settlement — sub-city LEAVES (locked invariant, see
+ *     park-neighborhood-model: authorityId is always the TOP authority, the
+ *     leaf goes in neighborhoodId instead).
+ *   - military_unit, school — not municipal authorities at all. Israel has
+ *     exactly three kinds of real municipal authority: city (עירייה), local
+ *     council (מועצה מקומית), regional council (מועצה אזורית) — that's the
+ *     complete set (KNOWN_TOP_AUTHORITY_TYPES below). A school or military
+ *     unit polygon must never claim a park's municipal jurisdiction, even
+ *     though today (23.09.2026) neither type carries boundary/radius data —
+ *     so this is currently a no-op protecting against tomorrow, not today.
  *
  * This is a DENYLIST, not an allowlist, on purpose — an earlier version of
  * this function used `where('type','in',['city','regional_council'])`,
@@ -272,16 +280,16 @@ export async function checkDuplicateNearby(
  * That's the exact same class of bug as the createPark write-whitelist that
  * dropped published/contentStatus/origin (23.09.2026, same audit): a value
  * nobody enumerated in advance disappears without a trace. A denylist of the
- * two types that must NEVER qualify, plus a loud warning (not a silent drop)
+ * types that must NEVER qualify, plus a loud warning (not a silent drop)
  * for anything neither allowed nor denied, degrades safely instead.
  */
-const SUB_CITY_AUTHORITY_TYPES = new Set(['neighborhood', 'settlement']);
+const EXCLUDED_AUTHORITY_TYPES = new Set(['neighborhood', 'settlement', 'military_unit', 'school']);
 
 /** Types confirmed to be real top-level authorities — no warning for these. */
 const KNOWN_TOP_AUTHORITY_TYPES = new Set(['city', 'regional_council', 'local_council']);
 
 /**
- * Fetches every NON-sub-city authority as an AuthorityBoundary for
+ * Fetches every eligible authority as an AuthorityBoundary for
  * resolveAuthorityForPoint() — id/name/boundaryGeoJSON/coordinates/radiusKm
  * only, no CRM fields (contacts, documents, financials). Reads the whole
  * collection (2,755 docs) rather than a Firestore `where` filter: approvals
@@ -297,7 +305,7 @@ async function fetchAuthorityBoundaries(): Promise<AuthorityBoundary[]> {
   for (const d of snap.docs) {
     const data = d.data();
     const type = data.type ?? '(no type)';
-    if (SUB_CITY_AUTHORITY_TYPES.has(type)) continue;
+    if (EXCLUDED_AUTHORITY_TYPES.has(type)) continue;
     if (!KNOWN_TOP_AUTHORITY_TYPES.has(type)) {
       unrecognizedTypes.set(type, (unrecognizedTypes.get(type) ?? 0) + 1);
     }
