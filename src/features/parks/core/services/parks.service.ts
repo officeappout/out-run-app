@@ -494,6 +494,16 @@ export async function createPark(data: Omit<Park, 'id' | 'createdAt' | 'updatedA
       neighborhoodId: data.neighborhoodId ?? null,
       neighborhoodName: data.neighborhoodName ?? null,
       status: data.status ?? 'open',
+      // Approval-flow fields (SPEC — Sderot pilot audit, 23.09.2026): previously
+      // dropped by this whitelist even when approveNewLocation() passed them,
+      // so a contribution-approved park never satisfied /api/catalog/parks'
+      // isEffectivelyPublished() check and was silently excluded from the map
+      // forever (not a caching delay — the fields never existed on the doc at
+      // all). See docs/audit-2026-09/ for the full root-cause writeup.
+      contentStatus: data.contentStatus ?? null,
+      published: data.published ?? null,
+      origin: data.origin ?? null,
+      createdByUser: data.createdByUser ?? null,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
