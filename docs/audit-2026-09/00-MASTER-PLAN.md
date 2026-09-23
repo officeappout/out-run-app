@@ -1061,11 +1061,55 @@ git push origin main
 
 **פתוחים, בדירוג (כפי שדוד קבע):**
 
-**P1 — `getExecutiveSummary` (`cpo-analytics.service.ts`) נקראת בלי `authorityId` גם עבור authority-manager-only** — מנהל רשות רואה כרגע מצרפים platform-wide, לא רק של עירו. באג scoping נפרד, לא קשור לטסטים/דמו. **המשימה הבאה — דוד ישלח פרומפט נפרד.**
+**P1 — `getExecutiveSummary` (`cpo-analytics.service.ts`) נקראת בלי `authorityId` גם עבור authority-manager-only** — מנהל רשות רואה כרגע מצרפים platform-wide, לא רק של עירו. באג scoping נפרד, לא קשור לטסטים/דמו. **✅ נסגר — ראו §13.14.**
 
 **P2 — 10 מסמכי `isMockData` מתויגים תחת `authorityId` של תל אביב-יפו, לא תחת רשות דמו ייעודית.** תקרית מתועדת מ-19.09.2026 ב-`demo-seed-sderot.ts` (הכלי הופעל בטעות מול רשות אמיתית: "10 mock users... ended up tagged under a real municipality's authorityId" — המספרים תואמים בדיוק). מסוננים מכל ספירה כבר היום (חלק מ-`isTestOrMockUser`), לא דחוף. **לא לגעת בלי הוראה מפורשת.**
 
 **P2 — אתרי שאילתה שלא סוננו** (מיפוי מלא בדוח הצ'אט, 23.09.2026): `cpo-analytics.service.ts` (3 פונקציות), `strategic-insights.service.ts` (3), `users.service.ts::getAllUsers`, `funnel-analytics.service.ts`, `account-metrics.service.ts`, `readiness.service.ts`, `grades.service.ts`, ו-10 עמודי לקוח ששולפים `users` ישירות מהדפדפן (סיכון: שינוי שאילתת client-SDK עלול לדרוש אינדקס Firestore חדש). **לא להתחיל באף אחד בלי פרומפט נפרד.**
+
+**המשימה הבאה:** ממתין לפרומפט נפרד מדוד.
+
+### 13.14 — סטטיסטיקות/תובנות לשרת עם סקופ אמיתי (23.09.2026): §13.11 P1 נסגר, נסגר, פרוס בפרודקשן
+
+`feat/authority-manager-server-scoped-analytics`, מוזג ל-`main` ב-`--no-ff`. Deploy קוד בלבד — אין שינוי כללים, אין משתמש שנמחק.
+
+**פקודת revert מדויקת:**
+```
+git revert -m 1 3b5fd538b674f94ed660422c67d794a2beb2c37b --no-edit
+git push origin main
+```
+
+**הבעיה (אומתה בקוד לפני תיקון, בדיוק כפי שדוד תיאר):** `getHealthWakeUpMetric`/`getEquipmentGapAnalysis`/`getSleepyNeighborhoods` (`strategic-insights.service.ts`) פתחו ב-`getDocs(collection(db,'users'))` ללא `where`, סיננו `authorityId` בזיכרון **אחרי** הקריאה — סקופ אופציונלי שהלקוח סיפק, לא נאכף. `getExecutiveSummary`/`getAuthorityPerformance`/`getPremiumMetrics` (`cpo-analytics.service.ts`) — אותו דפוס, בלי סקופ בכלל אפילו כאופציה. `statistics/page.tsx` קרא להן בלי `authorityId` תמיד. השכבה היחידה שמנעה דליפה בפועל הייתה `firestore.rules`. **ממצא נוסף שלא נדרש במפורש:** `admin/page.tsx` (דף הבית `/admin`) קרא לאותן 3 פונקציות cpo-analytics באותו דפוס — תוקן גם הוא, אותה פונקציה בדיוק.
+
+**הפתרון:** `src/lib/adminAnalyticsScope.ts` — resolver יחיד: uid מהטוקן המאומת → scope, בשרת בלבד, ללא קלט מהלקוח.
+
+| תפקיד | Scope |
+|---|---|
+| root / super_admin / system_admin | `platform` |
+| platform_member עם `'product'` או `'system'` ב-allowedSections | `platform` — **פתוח לתיעוד (לא לתיקון), לפי דוד:** מקובל כרגע כי אף חבר צוות לא מופעל בפועל. לפני הפעלת חבר צוות ראשון — להחליט אם זה נשאר כך. |
+| vertical_admin | `vertical` — לפי `tenantTypeOf` (הועבר מ-`authorities/route.ts` ל-`src/lib/tenantType.ts`) |
+| authority_manager | `authority` — רק העיר שלו (עם rollup לילדים ב-insights-summary בלבד — ראו למטה) |
+| כל השאר | `denied` |
+
+שני endpoints חדשים: `GET /api/admin/statistics-summary`, `GET /api/admin/insights-summary` — דפוס זהה ל-city-summary/dashboard-summary (verifyIdToken, בלי מקום לשלוח authorityId מהלקוח). הלוגיקה של כל route מופרדת לפונקציה מיוצאת שמקבלת **רק** את ה-scope שנפתר בשרת — אין נתיב קוד שפרמטר מהלקוח יכול להגיע אליו.
+
+**החלטת עיצוב ל-statistics-summary (מתועדת כנדרש):** כל מדד שם בין-רשותי או כלל-פלטפורמי מטבעו — אין גרסה משמעותית לרשות בודדת. **authority_manager מקבל 403 עם הודעה על כל ה-endpoint**, לא נתונים מדוללים — הנתונים הרלוונטיים לעיר שלו כבר קיימים ב-city-summary/dashboard-summary. עבור vertical_admin: טבלת ביצועים מסוננת לוורטיקל (השוואה משמעותית), אבל activeAuthorities/activeClients/totalPlatformAdmins/premiumMetrics מוחזרים `null` + `notApplicable` + הודעה — יישום ראשון בפועל של מדיניות "הודעה, לא 0" (§13.13 P2).
+
+**ממצא ותיקון תוך כדי כתיבת הבדיקות:** שלושת פונקציות ה-insights מקבצות לפי שכונה, אבל `core.authorityId` של תושב הוא תמיד ברמת העיר. בלי rollup לילדי הרשות, שלושת המדדים היו תמיד ריקים למנהל רשות בודדת. תוקן — `computeInsightsSummary` מרחיב את הסקופ ל-`[authorityId, ...ילדים ישירים]`, בשונה מ-city-summary/dashboard-summary שבכוונה לא עושות זאת (הן צריכות רק ספירה שטוחה).
+
+**6 הפונקציות הישנות נמחקו** (לא רק deprecated) לפי הוראת דוד המפורשת, אחרי אימות חוזר שאף אחד לא קורא להן — 3 מ-interfaces התשובה שלהן נשארו (`AuthorityPerformance`, `HealthWakeUpMetric`/`EquipmentGap`/`SleepyNeighborhood`), עדיין מיובאים כ-types ע"י קומפוננטות התצוגה.
+
+**מה לא נבדק/נגע בסבב הזה (פתוח לתיעוד, לפי דוד):** `getTopBaseMovements`/`getLocationDistribution`/`getGlobalMaintenanceReports` — פונקציות אחרות, לא נבדקו. **לסבב הבא.**
+
+**בדיקות (אמולטור, `scripts/verify-analytics-scope.ts`, בלי `--prod`):** **32/32 עברו** — 5 התרחישים שדוד ביקש + בדיקת בידוד אמיתית עם תושבים מדומים בשתי ערים נפרדות (לא רק תיאורטית) + הוכחה מבנית ש-scope עם שדה זר מוזרק לא משפיע על התוצאה. `npx vitest run` — 232 קבצים, 2230 בדיקות, אותו כשל בודד קיים-מראש. `tsc` מול baseline — בפועל **2 שגיאות פחות** (הפונקציות שנמחקו נשאו 2 שגיאות טיפוסים קיימות-מראש משלהן), אפס רגרסיות אמיתיות.
+
+**Smoke אחרי דיפלוי:** `outrun.co.il`=200, `/api/catalog/parks`=200 עם 1159 גינות. פורטל תל אביב-יפו — בדיקה חיה כמנהל אמיתי: `city-summary` עדיין מחזיר 35 (לא נגעתי בו, אימות רגרסיה). ה-endpoint החדש `statistics-summary` דרש עיכוב הפצה ארוך יותר מהרגיל (route חדש לגמרי, לא רק עדכון קוד קיים — 404 במשך כ-2.5 דקות עד שה-route "נראה" ב-Vercel, ואז 401/403 תקינים) — לא באג, אומת ע"י polling עד לקבלת סטטוס תקין. הרצה חיה סופית כמנהל תל אביב-יפו אמיתי מול `statistics-summary`: **403 עם ההודעה העברית המדויקת שתועדה למעלה** — אומת קוד-בפועל, לא רק היגיון מקומי.
+
+**פתוח לתיעוד (לא לתיקון), לפי דוד — שני סעיפים:**
+1. platform_member עם `'product'`/`'system'` מקבל תמונה כלל-פלטפורמית — מקובל כרגע (אף חבר צוות לא מופעל). לפני הפעלת חבר צוות ראשון: להחליט אם זה נשאר כך.
+2. `getTopBaseMovements`/`getLocationDistribution`/`getGlobalMaintenanceReports` — לא נבדקו בסבב הזה. **לסבב הבא.**
+
+**נשאר פתוח מ-§13.13 (לא נגעתי):** P2 (10 מסמכי isMockData תחת תל אביב-יפו), P2 (אתרי שאילתה שלא סוננו — cpo-analytics/strategic-insights שנמחקו כבר לא רלוונטיים לרשימה הזו; users.service.ts::getAllUsers, funnel-analytics, account-metrics, readiness, grades, ו-10 עמודי לקוח עדיין פתוחים).
 
 **המשימה הבאה:** ממתין לפרומפט נפרד מדוד.
 
