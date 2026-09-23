@@ -1063,7 +1063,6 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                                     equipment={eq}
                                     brandName={brandName}
                                     layout="tile"
-                                    crossBrandFallback={false}
                                     onClick={() =>
                                       setSelectedEquipment({ id: eq.id, brand: brandName || null })
                                     }

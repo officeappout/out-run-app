@@ -5,22 +5,29 @@
  *
  * Extracted verbatim from the park-detail equipment grid so the same visual is
  * reused across three surfaces without duplication:
- *   • Park detail sheet  → layout="tile",  crossBrandFallback={false}, opens EquipmentDetailDrawer
+ *   • Park detail sheet  → layout="tile", opens EquipmentDetailDrawer
  *   • Add-location picker → layout="row" (default), rightSlot="check", toggles selection
  *   • Approval panel      → layout="row" (default), rightSlot="none", read-only preview
  *
  * Media priority (matches the drawer's fallback chain):
  *   brand product photo (bunnyImg) → equipment SVG icon → generic Dumbbell glyph.
  *
- * Brand resolution: when `brandName` is '' (the user-contribution default — the
- * user never picks a brand), the default (`crossBrandFallback=true`) falls back
- * to the FIRST brand's image, so an un-branded equipment still previews
- * correctly. The park-grid usage opts OUT of this (`crossBrandFallback={false}`)
- * — these are physically-installed machines, so showing another brand's photo
- * would misrepresent what's actually at the park; it falls to the clean
- * icon/glyph placeholder instead. Scoped via the prop so the other two reuse
- * sites (which have no "physically installed" claim to misrepresent) keep the
- * original cross-brand behavior untouched.
+ * Brand resolution: when `brandName` is '' the default (`crossBrandFallback=true`)
+ * falls back to the FIRST brand's image, so an un-branded equipment still
+ * previews with a real photo instead of a bare icon.
+ *
+ * The park-grid usage opted OUT of this (`crossBrandFallback={false}`) until
+ * 23.09.2026 — reasoning was "these are physically-installed machines, showing
+ * another brand's photo would misrepresent what's actually there." Reverted:
+ * every contribution-sourced park's equipment carries `brandName=''` by
+ * structure (the add-location wizard never asks which brand), so that
+ * protection was silently guaranteeing NO photo ever showed for contributed
+ * equipment — not protecting against a real wrong-brand risk. A resident
+ * wants to know what's usable at the park; brand accuracy is an admin
+ * concern, not a resident-facing one. Revisit if/when the wizard collects a
+ * real equipment brand (see parking-lot.md, 23.09.2026) — at that point
+ * `brandName=''` becomes a real "unknown" signal again, not a structural
+ * certainty, and this tradeoff is worth re-litigating.
  */
 import React from 'react';
 import { ChevronLeft, Dumbbell, Check } from 'lucide-react';

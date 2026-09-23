@@ -272,6 +272,10 @@ export default function ApprovalDetailModal({
   const geo = buildGeometry(item.entityType, item.id, data);
   const rows = infoRows(item.entityType, data);
   const isProcessing = processingId === item.id;
+  // Contributions carry the photo as photoUrl; parks as image/imageUrl
+  // (imageUrl is the newer, Bunny-served field — see resolveParkImage's
+  // priority order — image is the legacy Firebase-Storage field).
+  const photoUrl: string | undefined = data?.photoUrl || data?.imageUrl || data?.image || undefined;
 
   return (
     <>
@@ -337,6 +341,22 @@ export default function ApprovalDetailModal({
                 </div>
               )}
             </div>
+
+            {/* Photo — contributions carry it as photoUrl, parks as image/imageUrl.
+                Was previously fetched (data comes from a full getDoc) but never
+                rendered anywhere in this modal — the reviewer had no way to see
+                what the contributor actually attached. */}
+            {photoUrl && (
+              <div className="px-5 pt-5">
+                <img
+                  src={photoUrl}
+                  alt=""
+                  className="w-full h-40 object-cover rounded-xl border border-gray-100"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </div>
+            )}
 
             {/* Info rows */}
             <div className="p-5 space-y-3">
