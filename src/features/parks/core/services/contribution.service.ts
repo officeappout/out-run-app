@@ -24,7 +24,7 @@ import { XP_REWARDS } from '@/types/contribution.types';
 import { createPark, updatePark, getAllParks } from './parks.service';
 import type { Park } from '../types/park.types';
 import type { ParkRatingSummary } from './park-rating.utils';
-import { resolveAuthorityForPoint, type AuthorityBoundary } from '@/lib/route-collections/authority-resolution';
+import { resolveAuthorityForPoint, parseBoundaryGeoJSON, type AuthorityBoundary } from '@/lib/route-collections/authority-resolution';
 
 const COLLECTION = 'user_contributions';
 
@@ -278,7 +278,16 @@ async function fetchAuthorityBoundaries(): Promise<AuthorityBoundary[]> {
     return {
       id: d.id,
       name: data.name ?? '',
-      boundaryGeoJSON: data.boundaryGeoJSON ?? undefined,
+      // Firestore rejects the nested-array shape of a raw GeoJSON Feature,
+      // so authorities/{id}.boundaryGeoJSON is stored as a JSON string
+      // (see parseBoundaryGeoJSON's own header comment, authority-boundary
+      // pipeline step). This fetch reads the collection directly rather
+      // than through authority.service.ts's Authority mapper (the one
+      // other place that parses it), so it must parse it here too — a raw
+      // string reaching isPointInPolygon crashes or silently mis-resolves
+      // instead of just failing to match, no different than every other
+      // authority with no boundary at all.
+      boundaryGeoJSON: parseBoundaryGeoJSON(data.boundaryGeoJSON) ?? undefined,
       coordinates: data.coordinates ?? undefined,
       radiusKm: data.radiusKm ?? undefined,
     };
