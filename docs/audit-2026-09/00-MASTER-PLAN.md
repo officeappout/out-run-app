@@ -975,6 +975,57 @@ scoping אמיתי, לא רק "יעבוד כי אף אחד עדיין לא עו�
 
 **לא תוקן בסבב הזה** — כל הנ"ל דיווח/מיפוי בלבד, כמבוקש.
 
-**המשימה הבאה:** rate limiting — לא תיקוני מסכים. ממתין לפרומפט נפרד.
+### 13.12 — הגבלת קצב (rate limiting) על 8 נקודות כניסה (23.09.2026): נסגר, פרוס בפרודקשן
+
+`plan/rate-limiting-sensitive-endpoints`, 10 קומיטים, מוזג ל-`main` ב-`--no-ff`. Deploy קוד בלבד — אין שינוי כללים. תכנון מלא + לוג יישום: `.claude/plans/rate-limiting-sensitive-endpoints.md`.
+
+**פקודת revert מדויקת:**
+```
+git revert -m 1 92b5ef7ee0e9291321ac62d41617ac8cb47c49d8 --no-edit
+git push origin main
+```
+
+**מה נסגר:** שער חדש (`/api/auth/login-link-gate`) לשליחת קישור כניסה — שהיה עד כה קריאה ישירה מהדפדפן ל-Firebase, בלי שום הגנה — בדיקת rate-limit בלבד, ללא בדיקת קיום-אימייל (לא הופך לאורקל). `links/[id]/click`/`/r/[id]` (הועלה בעדיפות — 3 כתיבות Firestore לכל קליק, ציבורי לגמרי): מדלג על הכתיבות בחסימה, ה-redirect עדיין תמיד קורה. `accept-invitation`, `session`, `admin/invitations` (POST+DELETE): IP ואז זהות (uid/מנהל). `calendar/[userId]` (90 קריאות Firestore/בקשה!), `challenge/leaderboard`, `challenge/exercise`: IP בלבד — סגירת שלוש הפערים האחרונים בסקר סעיף 5 של המסמך.
+
+**מנגנון:** הרחבת `src/lib/rateLimit.ts` הקיים (SPEC-02 SEC-15, Firestore-backed) בלבד — Upstash ו-Vercel Firewall נדחו/נדחו-בינתיים. `isRateLimited` fail-open (כשל ב-Firestore → הבקשה עוברת + אזהרה בלוג, לעולם לא חוסם משתמש אמיתי). כל סף ניתן לשינוי דרך env var עם ברירת מחדל בקוד.
+
+**ביקורת קוד (code-reviewer, סוכן נפרד) — שני ממצאים, שניהם תוקנו:**
+1. הלוג של ה-fail-open הדפיס את ה-key הגולמי, שעבור מימד האימייל בשער הקישור כלל את האימייל עצמו → תוקן ל-hash.
+2. `getRequestIp` לקח את הכניסה הראשונה מ-`x-forwarded-for` ללא בדיקה — כותרת שהלקוח יכול לספק. נבדק מול תיעוד Vercel (`vercel.com/docs/headers/request-headers`, 23.09.2026): בתוכנית הזו (לא Enterprise+Trusted Proxy) Vercel דורסת את שלוש הכותרות (`x-forwarded-for`, `x-real-ip`, `x-vercel-forwarded-for`) בעצמה — אין spoofing בפועל היום, אבל `getRequestIp` עודכן להעדיף `x-vercel-forwarded-for` ואז `x-real-ip` (חסינים גם למקרה של פרוקסי-מעל-Vercel עתידי) לפני `x-forwarded-for`, כהגנת-עומק. עודכנו גם 4 המקומות הישנים שהיה להם אותו דפוס משוכפל (check-email, verify-token, join/preview, link-click-handler).
+
+**בדיקות:** `tsc` נקי מול baseline טרי (worktree חד-פעמי על `origin/main` העדכני), 0 שגיאות חדשות. `npm test`: 2204 בדיקות, כשל אחד קיים-מראש ולא קשור (`logMultiCategoryWorkout` streak test — אומת שנכשל גם ב-`origin/main` לפני הענף). בדיקת אמולטור ייעודית (`scripts/verify-rate-limit.ts`, בלי מסלול `--prod` בכלל) + בדיקת יחידה שמוכיחה ש-`sendAdminMagicLink` חוסם *לפני* `checkAdminEmail` + בדיקת יחידה ש-`x-forwarded-for` מזויף לא משנה מפתח כש-`x-real-ip` קיים.
+
+**משתני סביבה — כל אחד אופציונלי, ברירת המחדל בקוד היא הערך בתוקף כרגע (לא הוגדר אף env var ב-Vercel):**
+
+| Endpoint | משתנה | ברירת מחדל (בתוקף כעת) |
+|---|---|---|
+| שער קישור כניסה — email | `RL_LOGIN_LINK_EMAIL_SHORT_{WINDOW_MS,MAX}` | 15 דק' / 3 |
+| | `RL_LOGIN_LINK_EMAIL_DAILY_{WINDOW_MS,MAX}` | 24 שעות / 5 |
+| שער קישור כניסה — IP | `RL_LOGIN_LINK_IP_HOURLY_{WINDOW_MS,MAX}` | שעה / 20 |
+| | `RL_LOGIN_LINK_IP_DAILY_{WINDOW_MS,MAX}` | 24 שעות / 100 |
+| accept-invitation | `RL_ACCEPT_INVITATION_IP_SHORT_{WINDOW_MS,MAX}` | 15 דק' / 20 |
+| | `RL_ACCEPT_INVITATION_IP_HOURLY_{WINDOW_MS,MAX}` | שעה / 60 |
+| session — IP | `RL_SESSION_IP_SHORT_{WINDOW_MS,MAX}` | 15 דק' / 60 |
+| | `RL_SESSION_IP_HOURLY_{WINDOW_MS,MAX}` | שעה / 200 |
+| session — uid | `RL_SESSION_UID_SHORT_{WINDOW_MS,MAX}` | 15 דק' / 10 |
+| | `RL_SESSION_UID_HOURLY_{WINDOW_MS,MAX}` | שעה / 30 |
+| admin/invitations — IP | `RL_ADMIN_INVITATIONS_IP_SHORT_{WINDOW_MS,MAX}` | 15 דק' / 10 |
+| | `RL_ADMIN_INVITATIONS_IP_HOURLY_{WINDOW_MS,MAX}` | שעה / 30 |
+| admin/invitations — מנהל | `RL_ADMIN_INVITATIONS_ADMIN_SHORT_{WINDOW_MS,MAX}` | 15 דק' / 10 |
+| | `RL_ADMIN_INVITATIONS_ADMIN_HOURLY_{WINDOW_MS,MAX}` | שעה / 20 |
+| links/[id]/click — IP | `RL_LINK_CLICK_IP_{WINDOW_MS,MAX}` | דקה / 30 |
+| links/[id]/click — link-id | `RL_LINK_CLICK_LINKID_{WINDOW_MS,MAX}` | דקה / 120 |
+| calendar/[userId] | `RL_CALENDAR_IP_{WINDOW_MS,MAX}` | דקה / 10 |
+| challenge/leaderboard | `RL_LEADERBOARD_IP_{WINDOW_MS,MAX}` | דקה / 30 |
+| challenge/exercise | `RL_CHALLENGE_EXERCISE_IP_{WINDOW_MS,MAX}` | דקה / 60 |
+
+להרפיה חד-פעמית (למשל אם סף מסוים מתגלה כהדוק מדי בפועל): להוסיף את משתנה ה-`_MAX` (או `_WINDOW_MS`) הרלוונטי ב-Vercel → Environment Variables ול-redeploy. אין צורך בשינוי קוד.
+
+**פתוח, לא מומש בסבב הזה:**
+- **הצעת התרעה על חסימות** (סעיף "שלב ב'" במסמך התכנון) — כל חסימה כבר נרשמת בפורמט אחיד `[rate-limit-block] route=... dimension=... ip=... identifierHash=... ts=...`, אך אין דחיפה/סיכום אוטומטי. שלוש אפשרויות הוצעו (חיפוש ידני ב-Vercel Logs — זמין מיד; cron יומי שקורא `rate_limits` ושולח סיכום דרך ה-Gmail delegation הקיים — ללא ספק חדש; Vercel Log Drain לשירות חיצוני — ספק חדש, טעון אישור). שום דבר מהם לא מומש — ממתין להחלטת דוד.
+- **Vercel Firewall/WAF** — נדחה בשלב א' כאפשרות משלימה (ראו סעיף א' במסמך), נדחה שוב במפורש בשלב ב' ("בינתיים"). לא הופעל, לא נבדק.
+- **`osm-amenity-admin.service.ts`/"מאושרים" ב-approval-center (`f9cdf069`)** — לא קשור לרת-לימיטינג; נשאר בכוונה על ענף נפרד (`worktree-approval-center-published-tab`), יטופל בנפרד.
+
+**המשימה הבאה:** ממתין לפרומפט נפרד מדוד.
 
 **בסיס tsc מתוקן — 449, לא 453 (19.09.2026):** מנת תיקונים ("ניקוי דמו, תוויות, ותיקון תצוגת העיר", ממוזגת ל-`main` ב-`722b379b`) נפתחה מול בסיס שנרשם כ-453 שגיאות. באותו סבב עבודה התגלה ש-`node_modules` המשותף (בין ~75 worktrees על המכונה) היה סוטה מ-`package-lock.json` המחויב — לא חבילה חסרה בודדת (`qr-code-styling`, שחסם `next build` לגמרי), אלא אי-סנכרון רחב יותר. `npm install` (מאושר ע"י דוד, מאומת קודם שאין סשן מקביל באמצע עבודה) תיקן: 1473 חבילות נוספו, 1190 הוסרו מ-`node_modules` בפועל — **אך `package-lock.json` עצמו נשאר זהה בייט-לבייט למה שהיה כבר ב-`origin/main`** (אומת ב-diff מול `git show origin/main:package-lock.json` — אין דיפרנס בגיט, רק resync פיזי של node_modules). אחרי התיקון: `npx tsc --noEmit` = **449 שגיאות**, לא 453/454 — כלומר הבסיס הקודם היה מנופח באופן מלאכותי כתוצאה מהסטייה הזו, לא שינוי אמיתי בקוד. `next build` עבר במלואו לראשונה מזה זמן. **449 הוא הבסיס הנכון מעכשיו.** אם ספירת tsc עתידית שונה מ-449 בלי שינוי קוד מכוון — יש לחשוד תחילה בסטיית `node_modules` (השוואה: `stat -f "%Sm" node_modules` ו-`package-lock.json`, ו-diff מול `git show origin/main:package-lock.json`) לפני שמניחים רגרסיה אמיתית.
