@@ -3,10 +3,15 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, CheckCircle2, UserCircle } from 'lucide-react';
+import { doc, getDoc } from 'firebase/firestore';
+import { Check, CheckCircle2, UserCircle, ChevronDown, Star } from 'lucide-react';
 import {
   type MuscleGroup,
 } from '@/features/content/exercises/core/exercise.types';
+import { db } from '@/lib/firebase';
+import { getExercise } from '@/features/content/exercises/core/exercise.service';
+import { getLocalizedText } from '@/features/content/shared/localized-text.types';
+import type { ExerciseWishlistEntry } from '@/features/user/core/types/user.types';
 import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLayout';
 import { STRENGTH_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
 import { getOnboardingPref } from '@/lib/onboardingPrefs';
@@ -121,13 +126,19 @@ const MUSCLE_PACKAGES: { key: MusclePackageKey; nameHe: string; muscles: MuscleG
  * this shape, with a back-compat guard for the legacy bare-string shape
  * still written by mini-domain-assessment.ts's single-domain top-up flow.
  */
-function persistToStorage(cardOrder: ProgramCardId[], muscleIds: string[], skillIds: string[]) {
+function persistToStorage(
+  cardOrder: ProgramCardId[],
+  muscleIds: string[],
+  skillIds: string[],
+  wishlist: ExerciseWishlistEntry[],
+) {
   if (typeof window === 'undefined') return;
   if (cardOrder.length > 0) {
     sessionStorage.setItem('onboarding_program_path', JSON.stringify(cardOrder));
   }
   sessionStorage.setItem('onboarding_muscle_focus', JSON.stringify(muscleIds));
   sessionStorage.setItem('onboarding_skill_focus', JSON.stringify(skillIds));
+  sessionStorage.setItem('onboarding_exercise_wishlist', JSON.stringify(wishlist));
 }
 
 export default function ProgramPathPage() {
@@ -254,6 +265,68 @@ export default function ProgramPathPage() {
     [selectedMuscles, toggleMuscle]
   );
 
+  // ── Exercise wishlist (Slice 2b) — admin-curated foundation exercises per
+  // package, read from system_config/foundation_exercises. Save + display
+  // only: never touches scoring/volume/generation. Client-side until
+  // Continue persists it to sessionStorage.
+  const [foundationExercises, setFoundationExercises] = useState<Record<MusclePackageKey, string[]>>({
+    pull: [], push: [], legs: [], core: [],
+  });
+  const [exerciseNames, setExerciseNames] = useState<Record<string, string>>({});
+  // The ONLY place the collapse/chevron affordance returns — the muscle
+  // section above stays always-open, never reintroduce that accordion.
+  const [expandedWishlist, setExpandedWishlist] = useState<Set<MusclePackageKey>>(new Set());
+  const [wishlist, setWishlist] = useState<ExerciseWishlistEntry[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'system_config', 'foundation_exercises'));
+        if (cancelled || !snap.exists()) return;
+        const data = snap.data();
+        const next: Record<MusclePackageKey, string[]> = {
+          pull: Array.isArray(data.pull) ? data.pull : [],
+          push: Array.isArray(data.push) ? data.push : [],
+          legs: Array.isArray(data.legs) ? data.legs : [],
+          core: Array.isArray(data.core) ? data.core : [],
+        };
+        setFoundationExercises(next);
+
+        const uniqueIds = Array.from(new Set([...next.pull, ...next.push, ...next.legs, ...next.core]));
+        if (uniqueIds.length === 0) return;
+        const resolved = await Promise.all(
+          uniqueIds.map(async (id) => {
+            const ex = await getExercise(id);
+            const name = ex ? (getLocalizedText(ex.name, 'he') || getLocalizedText(ex.name, 'en') || id) : id;
+            return [id, name] as const;
+          })
+        );
+        if (!cancelled) setExerciseNames(Object.fromEntries(resolved));
+      } catch (e) {
+        console.error('[ProgramPath] Failed to load foundation exercises:', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const toggleWishlistDrawer = useCallback((pkg: MusclePackageKey) => {
+    setExpandedWishlist((prev) => {
+      const next = new Set(prev);
+      if (next.has(pkg)) next.delete(pkg);
+      else next.add(pkg);
+      return next;
+    });
+  }, []);
+
+  const toggleWishlistExercise = useCallback((pkg: MusclePackageKey, exerciseId: string) => {
+    setWishlist((prev) => {
+      const exists = prev.some((e) => e.exerciseId === exerciseId && e.packageKey === pkg);
+      if (exists) return prev.filter((e) => !(e.exerciseId === exerciseId && e.packageKey === pkg));
+      return [...prev, { exerciseId, packageKey: pkg, addedAt: new Date().toISOString(), source: 'onboarding' as const }];
+    });
+  }, []);
+
   const toggleSkill = useCallback((id: string) => {
     setSelectedSkills((prev) => {
       // Master chip — selecting it clears all individual picks and vice-versa
@@ -361,7 +434,7 @@ export default function ProgramPathPage() {
       selectedMuscles.includes(FULL_BODY_ID)
         ? ['push', 'pull', 'legs', 'core']
         : selectedMuscles;
-    persistToStorage(selectedCards, toPersist, selectedSkills);
+    persistToStorage(selectedCards, toPersist, selectedSkills, wishlist);
     router.push('/onboarding-new/assessment-visual');
   };
 
@@ -699,6 +772,68 @@ export default function ProgramPathPage() {
                               );
                             })}
                           </div>
+
+                          {/* Exercise wishlist (Slice 2b) — optional, only
+                              when this package has curated exercises.
+                              Independent of muscle-chip selection above;
+                              this is the only chevron in the muscle section. */}
+                          {foundationExercises[pkg.key].length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-[#E0E9FF]">
+                              <button
+                                type="button"
+                                onClick={() => toggleWishlistDrawer(pkg.key)}
+                                className="w-full flex items-center justify-between text-right"
+                              >
+                                <ChevronDown
+                                  size={16}
+                                  className={`text-slate-400 transition-transform shrink-0 ${
+                                    expandedWishlist.has(pkg.key) ? 'rotate-180' : ''
+                                  }`}
+                                />
+                                <span className="text-[13px] font-medium text-slate-500">
+                                  רוצה לבחור תרגילים להשתפר בהם?
+                                </span>
+                              </button>
+                              <AnimatePresence>
+                                {expandedWishlist.has(pkg.key) && (
+                                  <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    transition={{ duration: 0.22 }}
+                                    style={{ overflow: 'hidden' }}
+                                  >
+                                    <div className="flex flex-wrap gap-2 pt-3" dir="rtl">
+                                      {foundationExercises[pkg.key].map((exerciseId) => {
+                                        const isStarred = wishlist.some(
+                                          (e) => e.exerciseId === exerciseId && e.packageKey === pkg.key
+                                        );
+                                        const name = exerciseNames[exerciseId] ?? exerciseId;
+                                        return (
+                                          <button
+                                            key={exerciseId}
+                                            type="button"
+                                            onClick={() => toggleWishlistExercise(pkg.key, exerciseId)}
+                                            className={`flex items-center gap-1.5 px-3 py-2 rounded-full border text-[13px] transition-all ${
+                                              isStarred
+                                                ? 'bg-amber-50 border-amber-300 text-amber-800 font-semibold'
+                                                : 'bg-white border-[#E0E9FF] text-slate-600'
+                                            }`}
+                                          >
+                                            <Star
+                                              size={14}
+                                              className={isStarred ? 'fill-amber-400 text-amber-400' : 'text-slate-300'}
+                                            />
+                                            {name}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          )}
                         </div>
                       );
                     })}

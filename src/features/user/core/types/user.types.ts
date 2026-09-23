@@ -218,6 +218,24 @@ export interface UserProgression {
    * display-only scope as cardFocusOrder/skillFocusIds.
    */
   muscleFocusIds?: string[];
+
+  /**
+   * Foundation-exercise wishlist (Slice 2b) — exercises the user starred
+   * from the admin-curated per-package lists during onboarding. Written
+   * whenever length > 0 (existence, not order, is what matters here —
+   * unlike cardFocusOrder/muscleFocusIds/skillFocusIds above, a single
+   * starred exercise is meaningful on its own).
+   * SAVE + DISPLAY ONLY — never read by scoring/volume/workout-generation.
+   */
+  exerciseWishlist?: ExerciseWishlistEntry[];
+}
+
+/** One starred exercise in the onboarding foundation-exercise wishlist (Slice 2b). */
+export interface ExerciseWishlistEntry {
+  exerciseId: string;
+  packageKey: 'push' | 'pull' | 'legs' | 'core';
+  addedAt: string;
+  source: 'onboarding';
 }
 
 // ==========================================
