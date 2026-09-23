@@ -119,7 +119,7 @@ interface AxisProps {
    * not just full-park (design-unification, 05.08.2026: HybridOverviewScreen now
    * passes this for every card, not only `composed.bolts`-carrying ones). When set,
    * aerobic legs render Moovit-style (destination title + an activity-derived verb)
-   * instead of the legacy "רגל ריצה N — יציאה". Undefined (e.g. a bodyweight/A3
+   * instead of the legacy "רגל {action} N — יציאה". Undefined (e.g. a bodyweight/A3
    * fallback with no real station) → legacy rendering unchanged.
    */
   stationName?: string;
@@ -180,7 +180,9 @@ export default function HybridJourneyAxis({
           const action = (seg.aerobicType ?? 'walking') === 'running' ? 'ריצה' : 'הליכה';
           const legTitle = stationName
             ? (aerIdx === 1 ? `אל ${stationName}` : aerIdx === aerCount ? 'חזרה לנקודת ההתחלה' : 'המשך')
-            : `רגל ריצה ${aerIdx} — ${legLabel}`;
+            // David, 23.09.2026, bug #4: was hardcoded "רגל ריצה" even for a
+            // walking leg — `action` (above) already resolves the real activity.
+            : `רגל ${action} ${aerIdx} — ${legLabel}`;
           return (
             <div key={i} className="flex gap-3 items-stretch">
               <Node kind="aerobic" nextColor={nextColor} subtype={seg.aerobicType} />
@@ -201,7 +203,7 @@ export default function HybridJourneyAxis({
                   ) : (
                     <>
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[14px] font-black" style={{ color: '#111827' }}>רגל ריצה {aerIdx} — {legLabel}</span>
+                        <span className="text-[14px] font-black" style={{ color: '#111827' }}>רגל {action} {aerIdx} — {legLabel}</span>
                         <span className="text-[10.5px] font-extrabold rounded-full whitespace-nowrap" style={{ padding: '3px 9px', background: AER_TINT, color: AER_TEXT }}>
                           {ZONE_LABEL[String(seg.zone)] ?? 'אירובי'}
                         </span>

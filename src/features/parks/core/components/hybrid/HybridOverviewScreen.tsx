@@ -410,7 +410,14 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
                 the layout unifies. */}
             <div className="flex items-center gap-1.5 flex-wrap text-[13px]">
               <span className="text-[18px] font-black" style={{ color: '#111827' }}>
-                {composed.bolts
+                {/* route_stops ALSO carries `bolts` (a trio, like full_park) — `bolts`
+                    truthiness alone can't tell the two apart. `fullParkRun===false` is
+                    the definitive route_stops signal (composeRouteStopsWorkout sets it
+                    explicitly; full_park never does, so it falls through to the
+                    existing bolts branch). David, 23.09.2026 — bug #2. */}
+                {composed.fullParkRun === false
+                  ? 'מסלול + עצירות'
+                  : composed.bolts
                   ? (MAP_OVERVIEW_CHROME_V1 ? `אימון מלא בפארק · ${aerobicKind === 'running' ? 'ריצה' : 'הליכה'} + תחנת כוח` : 'אימון משולב')
                   : 'אימון משולב'}
               </span>

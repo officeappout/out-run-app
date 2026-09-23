@@ -33,8 +33,29 @@ describe('HybridOverviewScreen — header unified to a single row for every card
   });
 
   it('budget-split keeps its own title text ("אימון משולב"), just in the unified layout', () => {
-    const match = screenSrc.match(/\{composed\.bolts\s*\n?\s*\?\s*\(MAP_OVERVIEW_CHROME_V1[\s\S]*?\)\s*\n?\s*:\s*'אימון משולב'\}/);
+    const match = screenSrc.match(/:\s*composed\.bolts\s*\n?\s*\?\s*\(MAP_OVERVIEW_CHROME_V1[\s\S]*?\)\s*\n?\s*:\s*'אימון משולב'\}/);
     expect(match, 'title ternary not found in the expected shape').toBeTruthy();
+  });
+});
+
+// David, 23.09.2026, bug #2: composed.bolts alone can't distinguish route_stops
+// from full_park_workout — composeRouteStopsWorkout ALSO returns a bolts trio
+// (start-hybrid-session.ts's ComposedHybridSession.bolts doc comment). The
+// title must key off composed.fullParkRun===false instead (the field that
+// already, deliberately, distinguishes the two — see that same file's
+// fullParkRun doc comment), not bolts truthiness.
+describe('HybridOverviewScreen — title keys off fullParkRun, not just bolts (bug #2)', () => {
+  it('checks fullParkRun===false BEFORE the bolts branch, showing "מסלול + עצירות"', () => {
+    expect(screenSrc).toContain('composed.fullParkRun === false');
+    expect(screenSrc).toContain("? 'מסלול + עצירות'");
+    // Ordering: the fullParkRun check must come first in the ternary chain,
+    // ahead of the bolts check, so route_stops (which also has bolts) never
+    // falls into the full-park branch.
+    const fullParkRunIdx = screenSrc.indexOf('composed.fullParkRun === false');
+    const boltsCheckIdx = screenSrc.indexOf(': composed.bolts');
+    expect(fullParkRunIdx).toBeGreaterThan(-1);
+    expect(boltsCheckIdx).toBeGreaterThan(-1);
+    expect(fullParkRunIdx).toBeLessThan(boltsCheckIdx);
   });
 });
 
@@ -78,5 +99,23 @@ describe('HybridJourneyAxis — stationName doc comment reflects the unified wir
   it('no longer claims "Full-park only" / "budget-split cards" omission', () => {
     expect(axisSrc).not.toContain('Full-park only: the destination park name');
     expect(axisSrc).not.toContain('Omitted for budget-split cards → legacy rendering unchanged');
+  });
+});
+
+// David, 23.09.2026, bug #4: the no-stationName (legacy) aerobic-leg label was
+// hardcoded "רגל ריצה" even for a WALKING leg — `action` (computed right above
+// from seg.aerobicType, already used correctly in the stationName branch's Meta
+// row) was never applied to this legacy title. Fixed at both of its two spots:
+// the (unused-when-stationName-is-set, but still worth keeping consistent)
+// legTitle fallback, and the actually-rendered !stationName branch's own span.
+describe('HybridJourneyAxis — legacy aerobic-leg title uses the real activity, not hardcoded "ריצה" (bug #4)', () => {
+  it('no hardcoded "רגל ריצה" literal remains anywhere in the render', () => {
+    expect(axisSrc).not.toMatch(/רגל ריצה \{aerIdx\}/);
+    expect(axisSrc).not.toMatch(/`רגל ריצה \$\{aerIdx\}/);
+  });
+
+  it('both the legTitle fallback and the rendered !stationName span use the `action` variable', () => {
+    expect(axisSrc).toContain('`רגל ${action} ${aerIdx} — ${legLabel}`');
+    expect(axisSrc).toContain('רגל {action} {aerIdx} — {legLabel}');
   });
 });
