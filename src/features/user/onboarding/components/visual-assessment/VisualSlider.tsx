@@ -474,19 +474,6 @@ export default function VisualSlider({
         <div className="flex-shrink-0 w-9" aria-hidden />
       </header>
 
-      {/* ── Tier pill — replaces the old always-visible 3-point track labels.
-          Always rendered (not gated on exerciseLabel/repsLabel) so the level
-          is still communicated even on the ~12 levels with no admin copy.
-          Sits directly above the hero image, at the very top of the card. ── */}
-      <div className="flex-shrink-0 px-6 pb-1 flex justify-center">
-        <span
-          className="text-[11px] font-bold px-3 py-1 rounded-full"
-          style={{ backgroundColor: 'rgba(0,186,247,0.08)', color: '#00BAF7' }}
-        >
-          {tierLabel}
-        </span>
-      </div>
-
       {/* ── Hero video — outer wrapper is NOT overflow-hidden so top gradient can bleed up freely ── */}
       <div className="flex-1 min-h-0 w-full relative">
         {/* Inner clip box — keeps video pixels inside its bounds */}
@@ -565,6 +552,21 @@ export default function VisualSlider({
                 אפשר להחליק את הרצועה, או להשתמש ב־ +/−
               </p>
             </div>
+
+            {/* ── Tier pill — replaces the old always-visible 3-point track labels.
+                Always rendered (not gated on exerciseLabel/repsLabel) so the level
+                is still communicated even on the ~12 levels with no admin copy.
+                Sits directly above the coverflow strip, below the instruction
+                sub-line. ── */}
+            <div className="flex-shrink-0 px-6 pb-1.5 flex justify-center">
+              <span
+                className="text-[11px] font-bold px-3 py-1 rounded-full"
+                style={{ backgroundColor: 'rgba(0,186,247,0.08)', color: '#00BAF7' }}
+              >
+                {tierLabel}
+              </span>
+            </div>
+
             <div className="relative">
               <CoverflowStrip
                 steps={steps}
