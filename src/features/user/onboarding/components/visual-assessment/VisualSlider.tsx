@@ -474,6 +474,19 @@ export default function VisualSlider({
         <div className="flex-shrink-0 w-9" aria-hidden />
       </header>
 
+      {/* ── Tier pill — replaces the old always-visible 3-point track labels.
+          Always rendered (not gated on exerciseLabel/repsLabel) so the level
+          is still communicated even on the ~12 levels with no admin copy.
+          Sits directly above the hero image, at the very top of the card. ── */}
+      <div className="flex-shrink-0 px-6 pb-1 flex justify-center">
+        <span
+          className="text-[11px] font-bold px-3 py-1 rounded-full"
+          style={{ backgroundColor: 'rgba(0,186,247,0.08)', color: '#00BAF7' }}
+        >
+          {tierLabel}
+        </span>
+      </div>
+
       {/* ── Hero video — outer wrapper is NOT overflow-hidden so top gradient can bleed up freely ── */}
       <div className="flex-1 min-h-0 w-full relative">
         {/* Inner clip box — keeps video pixels inside its bounds */}
@@ -505,18 +518,6 @@ export default function VisualSlider({
         className={clsx(showTutorial && 'relative z-40')}
         onPointerDownCapture={showTutorial ? () => setShowTutorial(false) : undefined}
       >
-
-        {/* ── Tier pill — replaces the old always-visible 3-point track labels.
-            Always rendered (not gated on exerciseLabel/repsLabel) so the level
-            is still communicated even on the ~12 levels with no admin copy. ── */}
-        <div className="flex-shrink-0 px-6 pb-1 flex justify-center">
-          <span
-            className="text-[11px] font-bold px-3 py-1 rounded-full"
-            style={{ backgroundColor: 'rgba(0,186,247,0.08)', color: '#00BAF7' }}
-          >
-            {tierLabel}
-          </span>
-        </div>
 
         {/* ── Description card — exercise name + reps only ── */}
         <AnimatePresence mode="wait">
@@ -558,7 +559,7 @@ export default function VisualSlider({
                 input methods, instead of only describing the drag gesture. */}
             <div className="px-6 pb-1.5 text-center">
               <p className="text-base font-bold text-slate-800 leading-snug">
-                כוונו את הרמה שלכם — עצרו על התרגיל הכי קשה שאתם בטוחים שתבצעו
+                עצרו על התרגיל הכי קשה שאתם בטוחים שתבצעו
               </p>
               <p className="text-sm font-normal text-slate-400 mt-0.5 leading-snug">
                 אפשר להחליק את הרצועה, או להשתמש ב־ +/−
@@ -593,10 +594,8 @@ export default function VisualSlider({
                 aria-label="קל יותר"
                 className="flex-1 flex flex-col items-center gap-0.5 py-2.5 rounded-2xl border border-[#F76700]/25 bg-[#F76700]/[0.06] disabled:opacity-30 disabled:pointer-events-none transition-opacity active:scale-95"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/assets/icons/ui/level_down.svg" alt="" className="w-5 h-5" />
+                <span className="text-xl font-black leading-none text-[#F76700]" aria-hidden>−</span>
                 <span className="text-[13px] font-bold text-[#F76700]">קל יותר</span>
-                <span className="text-[10px] font-normal text-[#F76700]/70">פחות בכושר</span>
               </button>
 
               <div className="flex-shrink-0 flex flex-col items-center gap-0.5 px-2">
@@ -613,10 +612,8 @@ export default function VisualSlider({
                 aria-label="קשה יותר"
                 className="flex-1 flex flex-col items-center gap-0.5 py-2.5 rounded-2xl border border-[#0AC2B6]/25 bg-[#0AC2B6]/[0.06] disabled:opacity-30 disabled:pointer-events-none transition-opacity active:scale-95"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/assets/icons/ui/level_up.svg" alt="" className="w-5 h-5" />
+                <span className="text-xl font-black leading-none text-[#0AC2B6]" aria-hidden>+</span>
                 <span className="text-[13px] font-bold text-[#0AC2B6]">קשה יותר</span>
-                <span className="text-[10px] font-normal text-[#0AC2B6]/70">יותר בכושר</span>
               </button>
             </div>
           </div>
