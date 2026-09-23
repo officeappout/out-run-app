@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useRef, useCallback } from 'react';
-import { Camera, Upload, Loader2, Image as ImageIcon, Trash2 } from 'lucide-react';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { Camera as CameraIcon, Upload, Loader2, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { ref, uploadBytes, uploadString, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
+import { useToast } from '@/components/ui/Toast';
 import type { WizardData } from './index';
 
 interface Props {
@@ -17,6 +18,18 @@ interface Props {
 
 const MAX_UPLOAD_DIMENSION = 1600;
 const UPLOAD_JPEG_QUALITY = 0.85;
+// Capacitor Camera's own `quality` option is 0-100, not the 0-1 scale
+// canvas.toBlob uses — keep both resize paths at the same effective
+// compression instead of accidentally shipping a heavier native capture.
+const CAMERA_JPEG_QUALITY = 85;
+
+function isNativePlatform(): boolean {
+  if (typeof window === 'undefined') return false;
+  const cap = (window as unknown as {
+    Capacitor?: { isNativePlatform?: () => boolean };
+  }).Capacitor;
+  return Boolean(cap?.isNativePlatform?.());
+}
 
 /**
  * Client-side resize/re-encode before upload (SPEC-05 image-memory #4) — a
@@ -35,6 +48,11 @@ const UPLOAD_JPEG_QUALITY = 0.85;
  * failure (older WebView, decode error) rather than blocking the upload —
  * resize is an optimization, not a requirement for the contribution to
  * succeed.
+ *
+ * Only reached on the web fallback path now — native goes through
+ * Capacitor Camera's own `width`/`quality` options instead (resized before
+ * the oversized bitmap ever exists in JS memory, which is strictly better
+ * than resizing after the fact).
  */
 async function resizeImageForUpload(file: File): Promise<File | Blob> {
   try {
@@ -80,30 +98,89 @@ async function deleteStorageObject(path: string): Promise<void> {
 
 export default function Step3Photo({ data, updateData, onBack, onSubmit, submitting }: Props) {
   const { profile } = useUserStore();
+  const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(data.photoUrl);
 
+  const replacePreviousUpload = useCallback(async () => {
+    const previousPath = data.photoStoragePath;
+    if (previousPath) await deleteStorageObject(previousPath);
+  }, [data.photoStoragePath]);
+
+  /**
+   * Native path — Capacitor Camera plugin, CameraSource.Prompt shows the
+   * OS action sheet ("Take Photo" / "From Photos"), same pattern already
+   * proven in ProfilePhotoUploader.tsx. Replaces the plain
+   * `<input type="file" capture="environment">` this step used to render,
+   * which on a Capacitor WebView forces the camera directly and never
+   * offers the gallery — the exact bug this fixes.
+   *
+   * `width: 1600` (no `height`, no `allowEditing`) resizes proportionally
+   * without cropping — a park photo should keep its natural aspect ratio,
+   * unlike the square avatar crop ProfilePhotoUploader wants.
+   */
+  const handleCameraPick = useCallback(async () => {
+    if (!profile?.id) return;
+
+    try {
+      const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera');
+
+      const perms = await Camera.checkPermissions();
+      if (perms.camera !== 'granted' || perms.photos !== 'granted') {
+        const requested = await Camera.requestPermissions({ permissions: ['camera', 'photos'] });
+        if (requested.camera === 'denied' && requested.photos === 'denied') {
+          showToast('error', 'לא ניתן לקבל הרשאות מצלמה/גלריה.');
+          return;
+        }
+      }
+
+      const photo = await Camera.getPhoto({
+        source: CameraSource.Prompt,
+        resultType: CameraResultType.DataUrl,
+        quality: CAMERA_JPEG_QUALITY,
+        width: MAX_UPLOAD_DIMENSION,
+        correctOrientation: true,
+      });
+
+      if (!photo.dataUrl) return; // user cancelled
+
+      setPreview(photo.dataUrl);
+      setUploading(true);
+
+      await replacePreviousUpload();
+
+      const path = `contribution-photos/${profile.id}/${Date.now()}.jpg`;
+      const storageRef = ref(storage, path);
+      await uploadString(storageRef, photo.dataUrl, 'data_url');
+      const url = await getDownloadURL(storageRef);
+      updateData({ photoUrl: url, photoStoragePath: path });
+      setPreview(url);
+    } catch (err: any) {
+      const msg = String(err?.message || err || '');
+      if (/cancel/i.test(msg)) return; // Capacitor cancellation — silent, same as ProfilePhotoUploader
+      console.error('[Step3Photo] Camera capture failed:', err);
+      showToast('error', 'שגיאה בהעלאת התמונה. נסה שוב.');
+      setPreview(data.photoUrl);
+      updateData({ photoUrl: null, photoStoragePath: null });
+    } finally {
+      setUploading(false);
+    }
+  }, [profile?.id, showToast, replacePreviousUpload, updateData, data.photoUrl]);
+
+  /** Web fallback only — plain file input, no `capture` attribute so the
+   *  browser's normal picker (camera + gallery) is offered. */
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile?.id) return;
-
-    // If the user is replacing an existing photo, delete the previous
-    // upload first so we do not leak orphaned objects in Storage.
-    const previousPath = data.photoStoragePath;
 
     const localPreview = URL.createObjectURL(file);
     setPreview(localPreview);
     setUploading(true);
 
     try {
-      if (previousPath) {
-        await deleteStorageObject(previousPath);
-      }
+      await replacePreviousUpload();
 
-      // Resized copy goes to Storage; `localPreview` above (already shown)
-      // stays on the original file — no added latency for the preview
-      // itself, only for what actually gets uploaded.
       const uploadPayload = await resizeImageForUpload(file);
       const path = `contribution-photos/${profile.id}/${Date.now()}_${file.name}`;
       const storageRef = ref(storage, path);
@@ -118,7 +195,15 @@ export default function Step3Photo({ data, updateData, onBack, onSubmit, submitt
     } finally {
       setUploading(false);
     }
-  }, [profile?.id, updateData, data.photoStoragePath]);
+  }, [profile?.id, updateData, replacePreviousUpload]);
+
+  const handlePick = useCallback(() => {
+    if (isNativePlatform()) {
+      handleCameraPick();
+    } else {
+      fileInputRef.current?.click();
+    }
+  }, [handleCameraPick]);
 
   const handleRemove = useCallback(async () => {
     const pathToDelete = data.photoStoragePath;
@@ -142,7 +227,6 @@ export default function Step3Photo({ data, updateData, onBack, onSubmit, submitt
         ref={fileInputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         onChange={handleFileSelect}
         className="hidden"
       />
@@ -167,11 +251,11 @@ export default function Step3Photo({ data, updateData, onBack, onSubmit, submitt
         </div>
       ) : (
         <button
-          onClick={() => fileInputRef.current?.click()}
+          onClick={handlePick}
           className="flex flex-col items-center justify-center gap-3 h-52 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 mb-4 active:bg-slate-100 transition-colors"
         >
           <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center">
-            <Camera size={24} className="text-slate-400" />
+            <CameraIcon size={24} className="text-slate-400" />
           </div>
           <div className="text-center">
             <p className="text-slate-500 text-sm font-medium">צלמו או בחרו תמונה</p>
