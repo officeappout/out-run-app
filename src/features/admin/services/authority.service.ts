@@ -37,6 +37,7 @@ import {
   hasOverdueTasks
 } from '@/types/admin-types';
 import { logAction } from './audit.service';
+import { isTestOrMockUser } from '@/lib/testAccountFilter';
 
 /**
  * Convert Date to Firestore-safe format (ISO string for nested objects)
@@ -829,8 +830,11 @@ export async function deleteTask(
 }
 
 /**
- * Recalculate userCount for an authority by querying users with matching core.authorityId.
- * Returns the new count.
+ * Recalculate userCount for an authority by querying users with matching
+ * core.authorityId. Excludes demo (core.isMockData) and test/dev
+ * (core.isTestData) accounts — see src/lib/testAccountFilter.ts — since
+ * this denormalized field is read by a dozen+ display components across
+ * both root-admin and authority-manager screens. Returns the new count.
  */
 export async function syncUserCount(authorityId: string): Promise<number> {
   const q = query(
@@ -838,7 +842,7 @@ export async function syncUserCount(authorityId: string): Promise<number> {
     where('core.authorityId', '==', authorityId),
   );
   const snap = await getDocs(q);
-  const count = snap.size;
+  const count = snap.docs.filter(d => !isTestOrMockUser(d.data()?.core as Record<string, unknown> | undefined)).length;
 
   const docRef = doc(db, AUTHORITIES_COLLECTION, authorityId);
   await updateDoc(docRef, { userCount: count, updatedAt: serverTimestamp() });
@@ -847,12 +851,14 @@ export async function syncUserCount(authorityId: string): Promise<number> {
 
 /**
  * Bulk-sync userCount for ALL authorities. Returns a map of authorityId -> count.
+ * Same exclusion as syncUserCount above.
  */
 export async function syncAllUserCounts(): Promise<Map<string, number>> {
   const usersSnap = await getDocs(collection(db, 'users'));
   const countMap = new Map<string, number>();
 
   usersSnap.docs.forEach((d) => {
+    if (isTestOrMockUser(d.data()?.core as Record<string, unknown> | undefined)) return;
     const aid = d.data()?.core?.authorityId;
     if (aid && typeof aid === 'string') {
       countMap.set(aid, (countMap.get(aid) ?? 0) + 1);

@@ -22,8 +22,9 @@
  *   - uid not present in any authority's managerIds → 403.
  *   - Response is aggregate numbers only — no resident name, email, uid,
  *     or any other per-person field ever leaves this route.
- *   - Demo/mock residents (core.isMockData === true) are excluded from
- *     every count, same convention as city-summary.
+ *   - Demo/mock residents (core.isMockData) and test/dev accounts
+ *     (core.isTestData — see src/lib/testAccountFilter.ts) are excluded
+ *     from every count, same convention as city-summary.
  *
  * Deliberately NOT doing city-summary's mock-count-and-subtract dance —
  * this route already fetches full user docs (unavoidable: gender/age
@@ -38,6 +39,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
+import { isTestOrMockUser } from '@/lib/testAccountFilter';
 import { Timestamp } from 'firebase-admin/firestore';
 
 export const runtime = 'nodejs';
@@ -97,7 +99,7 @@ export async function GET(request: NextRequest) {
     usersSnap.docs.forEach((docSnap) => {
       const data = docSnap.data();
       const core = data?.core ?? {};
-      if (core.isMockData === true) return; // demo residents excluded, same as city-summary
+      if (isTestOrMockUser(core)) return; // demo + test residents excluded, same as city-summary
 
       residentUids.push(docSnap.id);
 
