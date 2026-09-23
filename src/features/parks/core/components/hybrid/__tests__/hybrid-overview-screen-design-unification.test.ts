@@ -47,7 +47,12 @@ describe('HybridOverviewScreen — header unified to a single row for every card
 describe('HybridOverviewScreen — title keys off fullParkRun, not just bolts (bug #2)', () => {
   it('checks fullParkRun===false BEFORE the bolts branch, showing "מסלול + עצירות"', () => {
     expect(screenSrc).toContain('composed.fullParkRun === false');
-    expect(screenSrc).toContain("? 'מסלול + עצירות'");
+    // Domain-assessment gate (David, 23-24.09.2026): the fullParkRun===false
+    // consequent is now itself a ternary (fallbackHint → plain aerobic-kind
+    // title for the "zero real stations" case, else unchanged) — so the
+    // literal ' 'מסלול + עצירות' is now preceded by `:`, not `?`. The string
+    // itself, and the ordering invariant below, are unchanged.
+    expect(screenSrc).toContain("'מסלול + עצירות'");
     // Ordering: the fullParkRun check must come first in the ternary chain,
     // ahead of the bolts check, so route_stops (which also has bolts) never
     // falls into the full-park branch.

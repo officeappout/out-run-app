@@ -31,6 +31,7 @@ import { filterExercisesContextually } from '../logic/ContextualEngine';
 import type { WorkoutGenerationContext } from '../logic/workout-generator.types';
 import {
   generateStrengthBlock,
+  FOCUS_TO_DOMAINS,
   type BlockDomainFocus,
   type StrengthBlockResult,
 } from '../core/pipeline/strength-block.service';
@@ -47,7 +48,12 @@ import { DEFAULT_PACE_MAP_CONFIG } from '../core/config/pace-map-config';
 import { normalizeGearIds, satisfiesGearRequirement, ESSENTIAL_PARK_GEAR } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import type { ExecutionMethod } from '@/features/content/exercises/core/exercise.types';
 import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
-import { resolveStationContent } from './station-content-resolver';
+import { MG_TO_DOMAIN } from '../shared/constants/domain-mapping.constants';
+import {
+  buildStationEquipmentTabataBlock,
+  type StationEquipmentTabataInput,
+} from './station-equipment-tabata';
+import type { ParkWorkoutDifficulty } from '../services/compose-park-strength-workout.service';
 
 /** Score bonus that lifts an equipment-satisfied exercise above any bodyweight
  *  movement in the same domain — a park station foregrounds its iron. */
@@ -78,6 +84,53 @@ function methodUsesStationEquipment(method: ExecutionMethod | undefined, availab
   ].filter((x): x is string => !!x);
   if (raw.length === 0) return false; // no gear → bodyweight, never iron
   return normalizeGearIds(raw).some((req) => satisfiesGearRequirement(req, availableEquipment));
+}
+
+// ============================================================================
+// DOMAIN-ASSESSMENT GATE (David, 23-24.09.2026) — see dispatchStopContent
+// ============================================================================
+
+/**
+ * Real per-domain assessment presence — `userProgramLevels.has(domain)` is the
+ * exact boolean David asked for (absent domain → not level-filtered, simply
+ * never offered). Uses the CANONICAL MG_TO_DOMAIN (movementGroup → domain),
+ * distinct from this file's own primaryMuscle-based domainOf() above (a
+ * different concern — iron-preference scoring, not assessment). An exercise
+ * whose movementGroup doesn't map to push/pull/legs/core (skills, stretches)
+ * is never gated — the gate only applies to the 4 assessed strength domains.
+ */
+function isExerciseDomainAssessed(
+  exercise: Exercise,
+  userProgramLevels: Map<string, number> | undefined,
+): boolean {
+  const domain = MG_TO_DOMAIN[exercise.movementGroup ?? ''];
+  if (!domain) return true;
+  return userProgramLevels?.has(domain) ?? true;
+}
+
+/** buildForBolt's numeric difficulty knob (1|2|3, קל/בינוני/קשוח) → the park-machine
+ *  engine's own ParkWorkoutDifficulty vocabulary — same bolt, different label set. */
+const DIFFICULTY_NUM_TO_LABEL: Record<1 | 2 | 3, ParkWorkoutDifficulty> = {
+  1: 'easy', 2: 'medium', 3: 'hard',
+};
+
+/**
+ * Per-segment locked-station stub (David, 23-24.09.2026): a station whose
+ * required domain(s) aren't assessed, and which has no equipment to fall back
+ * on (station-equipment-tabata.ts), becomes a lock card instead of vanishing.
+ * Text mirrors buildNeedsAssessmentResult's template EXACTLY
+ * (home-workout.service.ts:361-363) — duplicated, not imported: that module
+ * pulls in Firebase-touching siblings, which this file's LAW-0 purity
+ * (no Firebase) must not inherit. The SHAPE (fallbackHint + assessmentDomains)
+ * is what's reused — it's the exact shape HybridOverviewScreen/DiscoverLayer's
+ * onAssessmentLink already render (session-level today, now also per-segment).
+ */
+function buildStationLockCard(missingDomains: string[]): { fallbackHint: string; assessmentDomains: string[] } {
+  const domainList = missingDomains.filter(Boolean);
+  const fallbackHint = domainList.length > 0
+    ? `עדיין לא הערכנו את הרמה שלך ב-${domainList.join(', ')}. השלימו שאלון קצר כדי לקבל אימון מותאם אישית.`
+    : 'עדיין לא הערכנו את הרמה שלך. השלימו שאלון קצר כדי לקבל אימון מותאם אישית.';
+  return { fallbackHint, assessmentDomains: domainList };
 }
 import type { PaceZoneRule, RunZoneType, PaceProfile } from '../core/types/running.types';
 import {
@@ -118,15 +171,22 @@ export interface HybridStopCandidate {
   /** MVP: callers pass 'strength'. Future kinds flow through the dispatcher. */
   activityType?: StopActivityKind;
   /**
-   * unassessed-domain-gate content follow-up (05.08.2026): the matched HYDRAULIC
-   * gym_equipment doc(s) for this stop's park, when the caller's assessment-gate let
-   * an unassessed user through specifically because hydraulic gear was present (see
-   * findHydraulicEquipment in start-hybrid-session.ts). Undefined for every other
-   * stop (assessed users, bodyweight/core stops, real-calisthenics-equipped stops).
-   * Read by dispatchStopContent → resolveStationContent (station-content-resolver.ts)
-   * to show the machine's OWN real content instead of a generic Exercise.
+   * Domain-assessment gate (David, 23-24.09.2026, renamed/repurposed from the
+   * 05.08.2026 hydraulic-only shortcut's `hydraulicEquipment` — same
+   * find-and-attach mechanism, findHydraulicEquipment in start-hybrid-session.ts,
+   * now a general per-stop attachment rather than a Gate-A-only one). Real
+   * HYDRAULIC gym_equipment doc(s) matched at this stop's park — hydraulic-only
+   * because station-equipment-tabata.ts's isBlockAEligible only ever accepts
+   * non-functional machines (a pull-up bar can't be a self-limiting tabata
+   * station), so a broader functional-equipment match would be inert here.
+   * Populated in start-hybrid-session.ts for every EQUIPPED stop regardless of
+   * assessment status — the per-domain gate, not this field's presence, decides
+   * whether a station needs it. Undefined for bodyweight/core-only stops or
+   * stops whose park matched no hydraulic doc. Read by dispatchStopContent's
+   * 'strength'/'core' branches when the per-exercise domain gate empties the
+   * pool, to try real machine-tabata content before falling back to a locked card.
    */
-  hydraulicEquipment?: GymEquipment[];
+  parkEquipment?: GymEquipment[];
 }
 
 /** WHO-gap snapshot — produced by weekly-load.service (impure, caller side). */
@@ -163,6 +223,20 @@ export interface HybridComposeInput {
    * single-domain slice. Omitted → 'per_station', byte-identical for every existing caller.
    */
   stationDomainMode?: 'per_station' | 'multi';
+  /**
+   * Domain-assessment gate (David, 23-24.09.2026): when true AND zero real
+   * stop candidates exist at all (`stopCandidates` resolved to `[]` upstream
+   * — route-stops' "no station at all" row), skip the §10 field-fallback
+   * synthetic midpoint stop entirely instead of inventing one. Produces a
+   * PURE aerobic plan (one full-route leg, `totals.stations: 0`) so the
+   * caller can show "מלא שאלון כדי לקבל תחנות כוח" instead of a degraded/
+   * locked station — per David's explicit correction: everyone always gets
+   * the real walk, nobody is blocked pre-workout for an unfilled
+   * questionnaire. Omitted/false → byte-identical existing behaviour for
+   * every other caller (recommended/free-aerobic never pass this; assessed
+   * route_stops users keep today's field-fallback synthesis unchanged).
+   */
+  skipFieldFallbackWhenNoCandidates?: boolean;
   /** Level-filtered master exercise pool (caller fetches; composer never does I/O). */
   masterExercises: Exercise[];
   /** Base ContextualEngine context — equipment is overridden PER STOP (§4b). */
@@ -214,6 +288,12 @@ export interface HybridPlan {
      *  MIN_STATION_EXERCISES — i.e. there isn't real difficulty-equivalent bodyweight
      *  content for this user here. The caller should show a message, not a thin session. */
     insufficientHomeContent: boolean;
+    /** Domain-assessment gate (David, 23-24.09.2026): true when zero real stop
+     *  candidates existed AND `skipFieldFallbackWhenNoCandidates` suppressed the
+     *  synthetic-stop fallback that would otherwise have fired — this plan is a
+     *  pure walk/run with `totals.stations: 0` by design, not a degraded station.
+     *  The caller should show the "fill the questionnaire" nudge, not a lock card. */
+    skippedFieldFallback: boolean;
     log: string[];
   };
 }
@@ -382,6 +462,60 @@ function topUpWithBodyweightIfThin(
   return merged;
 }
 
+/**
+ * Domain-assessment gate fallback (David, 23-24.09.2026): called when a
+ * station's per-exercise domain gate emptied its bodyweight pool. Tries real
+ * machine-tabata content first (station-equipment-tabata.ts — "the machine
+ * determines the range of motion, no body assumption needed there"); only
+ * falls to a locked card when the station has no equipment to fall back on,
+ * or the equipment can't support even the 2-machine tabata floor.
+ */
+function buildDomainGateFallback(
+  candidate: HybridStopCandidate,
+  missingDomains: string[],
+  blockMinutes: number,
+  input: HybridComposeInput,
+  log: string[],
+): StrengthBlockResult {
+  const machines = candidate.parkEquipment ?? [];
+  if (machines.length > 0) {
+    const difficulty = DIFFICULTY_NUM_TO_LABEL[(input.generationContext.difficulty ?? 2) as 1 | 2 | 3];
+    const tabataInput: StationEquipmentTabataInput = { machines, difficulty, scheduledDomains: missingDomains };
+    const result = buildStationEquipmentTabataBlock(tabataInput, blockMinutes);
+    if (result.block) {
+      const estimatedDurationSec = result.block.config.rounds * (result.block.config.workSec + result.block.config.restSec);
+      log.push(
+        `[${candidate.stopId}] domain-assessment gate: unassessed [${missingDomains.join(',')}] → ` +
+        `equipment-tabata (${result.exercises.length} machine(s), covers [${result.coveredDomains.join(',')}])`,
+      );
+      return {
+        exercises: result.exercises,
+        estimatedDurationSec,
+        totalPlannedSets: 0,
+        domainFocus: undefined,
+        isEmpty: false,
+        log: [],
+        tabataBlocks: [result.block],
+        assessmentNudge: {
+          message: 'השלימו שאלון כדי לקבל גם תרגילי משקל גוף בתחנה הזו',
+          assessmentDomains: missingDomains,
+        },
+      };
+    }
+    log.push(`[${candidate.stopId}] domain-assessment gate: equipment present but can't fit tabata floor (budget=${blockMinutes}min) → locked card`);
+  }
+  log.push(`[${candidate.stopId}] domain-assessment gate: unassessed [${missingDomains.join(',')}], no equipment → locked card`);
+  return {
+    exercises: [],
+    estimatedDurationSec: 0,
+    totalPlannedSets: 0,
+    domainFocus: undefined,
+    isEmpty: false,
+    log: [],
+    needsAssessment: buildStationLockCard(missingDomains),
+  };
+}
+
 // ============================================================================
 // CONTENT DISPATCH (§4b) — activityType → generator
 // ============================================================================
@@ -393,22 +527,13 @@ export function dispatchStopContent(
   input: HybridComposeInput,
   log: string[],
 ): StrengthBlockResult | null {
-  // unassessed-domain-gate content follow-up (05.08.2026): checked BEFORE the
-  // activity-type switch, on purpose — a stop that was let through the assessment
-  // gate because of matched hydraulic equipment (start-hybrid-session.ts's
-  // findHydraulicEquipment) can still get relabeled 'strength' → 'core' downstream
-  // (the weekly-strength-budget-spent default, unrelated to equipment) BEFORE
-  // dispatch ever sees it — that relabeling must not hide the real machine content
-  // behind the generic 'core' bodyweight branch. resolveStationContent returns null
-  // (falls through to the normal activity-type dispatch below) when there's no
-  // hydraulic match or the matched doc has no real content — strictly additive,
-  // never blocks the existing path for any other stop.
-  const hydraulicContent = resolveStationContent(candidate.hydraulicEquipment, 'hydraulic-content-if-available');
-  if (hydraulicContent) {
-    log.push(...hydraulicContent.log.map((l) => `[${candidate.stopId}] ${l}`));
-    return hydraulicContent;
-  }
-
+  // NOTE (David, 23-24.09.2026): the old unconditional hydraulic-content shortcut
+  // (resolveStationContent, station-content-resolver.ts) that used to sit here has
+  // been REMOVED from this dispatch — superseded by the domain-assessment gate
+  // below (station-equipment-tabata.ts gives real machine-TABATA content, which
+  // makes more sense for equipment with no weight to set than straight sets/reps
+  // did). station-content-resolver.ts itself is NOT deleted (confirmed via grep:
+  // this was its only call site) — kept in case a future caller needs it.
   const activity = candidate.activityType ?? 'strength';
   switch (activity) {
     case 'strength': {
@@ -417,6 +542,23 @@ export function dispatchStopContent(
       // → fieldReady/no-equipment only), or a park location would exclude every
       // bodyweight exercise and the station comes out empty (Q6 — never silent).
       const isBodyweight = candidate.availableEquipment.length === 0;
+      // Domain-assessment gate (David, 23-24.09.2026) — checked BEFORE the pool is
+      // even built: when EVERY domain this station could offer is unassessed, go
+      // straight to equipment-tabata/lock-card. Building the pool first and
+      // checking block.isEmpty afterwards is NOT enough — a domain-less "skill"
+      // exercise (no push/pull/legs/core movementGroup, so isExerciseDomainAssessed
+      // never gates it) can survive the per-exercise filter and produce a thin,
+      // unrelated 1-2-exercise result instead of the intended machine-tabata
+      // content (found via real execution, 24.09.2026 verification run — an
+      // unassessed user at the real Sderot hydraulic station got 2 stray
+      // skill exercises instead of machine tabata before this check existed).
+      const effectiveDomainFocus = input.stationDomainMode === 'multi' ? undefined : (isBodyweight ? undefined : focus);
+      const userProgramLevels = input.generationContext.userProgramLevels;
+      const relevantDomains = effectiveDomainFocus ? FOCUS_TO_DOMAINS[effectiveDomainFocus] : (['push', 'pull', 'legs', 'core'] as const);
+      const missingDomains = relevantDomains.filter((d) => !(userProgramLevels?.has(d) ?? true));
+      if (missingDomains.length === relevantDomains.length) {
+        return buildDomainGateFallback(candidate, missingDomains, blockMinutes, input, log);
+      }
       const pool = filterExercisesContextually(input.masterExercises, {
         ...input.filterContext,
         availableEquipment: candidate.availableEquipment,
@@ -433,6 +575,18 @@ export function dispatchStopContent(
         if (scoredPool.length > before) {
           log.push(`[${candidate.stopId}] thin park pool (${before}) → topped up to ${scoredPool.length} w/ bodyweight`);
         }
+      }
+      // Domain-assessment gate, partial-assessment case (David, 23-24.09.2026): the
+      // ALL-domains-unassessed case already short-circuited above — this is the
+      // remaining "some but not all relevant domains assessed" case (e.g. a
+      // 'multi' mixed station where only 'push' is assessed): the unassessed
+      // domain(s) still get ZERO content, not level-filtered content — those
+      // exercises simply never enter the pool. Applied BEFORE iron-preference
+      // scoring, so an unassessed domain's "iron win" is moot either way.
+      const beforeGate = scoredPool.length;
+      scoredPool = scoredPool.filter((se) => isExerciseDomainAssessed(se.exercise, userProgramLevels));
+      if (scoredPool.length < beforeGate) {
+        log.push(`[${candidate.stopId}] domain-assessment gate: ${beforeGate - scoredPool.length}/${beforeGate} exercise(s) in an unassessed domain removed`);
       }
       // PREFER IRON (per movement domain): at an equipped park, an exercise whose
       // method is real park iron (pull→מתח, push→דיפים) must win over a bodyweight
@@ -474,11 +628,15 @@ export function dispatchStopContent(
         //   for the rest) instead of a single-domain slice.
         // • else (budget-split default) → bodyweight is MIXED (a single-domain focus is
         //   impossible with zero equipment), equipment stops keep their cycling domain.
-        domainFocus: input.stationDomainMode === 'multi' ? undefined : (isBodyweight ? undefined : focus),
+        domainFocus: effectiveDomainFocus,
         context: input.generationContext,
         rest: STATION_REST,
       });
       log.push(...block.log.map((l) => `[${candidate.stopId}] ${l}`));
+      // Note: empty here is NOT a domain-assessment case (that's handled by the
+      // early short-circuit above, before the pool was even built) — this is an
+      // unrelated empty reason (thin catalog, injury shield), unchanged existing
+      // behaviour: skip the station.
       return block.isEmpty ? null : block;
     }
     case 'stretch':
@@ -524,9 +682,20 @@ export function dispatchStopContent(
       // completely unchanged, when a tabata block can't be built (thin
       // pool, or the station's time budget can't fit even one 4-minute
       // block) — see chooseStationTabataBlockCount.
-      const hiitPool = input.masterExercises.filter((ex) => ex.tags?.includes('hiit_friendly'));
+      // Domain-assessment gate (David, 23-24.09.2026) — checked BEFORE either
+      // content attempt, same reasoning as 'strength' above: when BOTH domains
+      // this station could offer (legs_core) are unassessed, go straight to
+      // equipment-tabata/lock-card rather than letting a stray domain-less
+      // exercise slip through a later filter and produce thin, unrelated content.
+      const coreUserProgramLevels = input.generationContext.userProgramLevels;
+      const coreMissingDomains = (['legs', 'core'] as const).filter((d) => !(coreUserProgramLevels?.has(d) ?? true));
+      if (coreMissingDomains.length === 2) {
+        return buildDomainGateFallback(candidate, coreMissingDomains, blockMinutes, input, log);
+      }
+      const coreAssessed = coreUserProgramLevels?.has('core') ?? true;
+      const hiitPool = coreAssessed ? input.masterExercises.filter((ex) => ex.tags?.includes('hiit_friendly')) : [];
       const corePool = hiitPool.filter((ex) => hasExplicitCoreLevel(ex));
-      const blockCount = chooseStationTabataBlockCount(blockMinutes);
+      const blockCount = coreAssessed ? chooseStationTabataBlockCount(blockMinutes) : 0;
 
       if (blockCount > 0 && corePool.length > 0) {
         const userCoreLevel = input.generationContext.userProgramLevels?.get('core')
@@ -560,19 +729,25 @@ export function dispatchStopContent(
           };
         }
         log.push(`[${candidate.stopId}] core: tabata composition failed (pool too thin) — falling back to field pool`);
+      } else if (!coreAssessed) {
+        log.push(`[${candidate.stopId}] core: domain-assessment gate — core not assessed, ab-tabata skipped`);
       } else if (blockCount === 0) {
         log.push(`[${candidate.stopId}] core: station budget (${blockMinutes}min) can't fit even one 4-minute tabata block — falling back to field pool`);
       }
 
-      // ── Fallback: pre-existing field/bodyweight path, unchanged ──────────
+      // ── Fallback: pre-existing field/bodyweight path, now domain-gated for the
+      // partial-assessment case (e.g. legs assessed, core not — legs content
+      // still flows, core exercises are filtered out per-exercise). The
+      // both-unassessed case already short-circuited above. ───────────────────
       const pool = filterExercisesContextually(input.masterExercises, {
         ...input.filterContext,
         availableEquipment: [],
         intentMode: 'field' as const,
       });
+      const gatedFieldPool = pool.exercises.filter((se) => isExerciseDomainAssessed(se.exercise, coreUserProgramLevels));
       const block = generateStrengthBlock({
         blockMinutes,
-        scoredPool: pool.exercises,
+        scoredPool: gatedFieldPool,
         domainFocus: 'legs_core',
         context: input.generationContext,
         rest: STATION_REST,
@@ -645,6 +820,7 @@ export function composeHybridSession(input: HybridComposeInput): HybridPlan {
   let selection: ScoredSelection | null = null;
   let usedFieldFallback = false;
   let insufficientHomeContent = false;
+  let skippedFieldFallback = false;
   if (input.stopSelection === 'as_provided') {
     // ANCHOR mode (route-stops §1a): the caller placed these stops deliberately, on/near
     // the route. Honour ALL of them in path order — the ±25% spacing gate governs even
@@ -688,6 +864,13 @@ export function composeHybridSession(input: HybridComposeInput): HybridPlan {
         `fit: no even-spacing combo → using resolved equipment stop "${equipStop.candidate.stopId}"` +
         ` at ${equipStop.km.toFixed(2)}km (equip=[${equipStop.candidate.availableEquipment.join(',')}])`,
       );
+    } else if (input.skipFieldFallbackWhenNoCandidates && candidatesByKm.length === 0) {
+      // Domain-assessment gate (David, 23-24.09.2026): zero real stops resolved on this
+      // route at all — don't invent one. Pure aerobic plan; caller surfaces the
+      // "fill the questionnaire for power stations" nudge instead of degraded content.
+      selection = { chosen: [], score: 0 };
+      skippedFieldFallback = true;
+      log.push('fit: zero real stop candidates + skipFieldFallbackWhenNoCandidates → pure aerobic, no synthetic stop');
     } else {
       // §3 step 7 fallback, extended by §10 (09.08.2026, decision-tree v3, David-approved):
       // ONE stop at the route midpoint, now assuming STANDARD PUBLIC PARK gear
@@ -832,6 +1015,67 @@ export function composeHybridSession(input: HybridComposeInput): HybridPlan {
       estCalories: totalCalories,
       stations: builtStops.length,
     },
-    meta: { emphasisResolved: resolved, whoGapNote, usedFieldFallback, insufficientHomeContent, log },
+    meta: { emphasisResolved: resolved, whoGapNote, usedFieldFallback, insufficientHomeContent, skippedFieldFallback, log },
+  };
+}
+
+// ============================================================================
+// ACTIVE-RUN FILTER (David, 24.09.2026) — locked stations never reach the run
+// ============================================================================
+
+/**
+ * David's decision (24.09.2026): a locked station (domain-assessment gate)
+ * belongs to the OVERVIEW screen only. The moment the user taps "start", a
+ * locked station stops being a station — it does not enter the run sequence,
+ * does not create a stop, does not trigger any arrival/notification. The
+ * runner just walks past it. This is deliberately NOT a StrengthRunner
+ * concern: StrengthRunner is a protected boundary (axioms.md §3) and never
+ * mounts for a segment this function has already dropped — the filter runs
+ * strictly upstream, in runHybridPlan, before useHybridRun.startHybrid ever
+ * sees the segments.
+ *
+ * A locked strength segment carries zero content by construction
+ * (`estimatedDurationSec:0`, `estCalories:0` — see buildDomainGateFallback's
+ * locked-card branch above) — nothing is lost by discarding it. It sits
+ * between two already-contiguous aerobic legs (leg.toKm === nextLeg.fromKm,
+ * built above) — those two legs are summed into ONE, so the run's cursor
+ * sequence stays a clean aerobic→strength→aerobic alternation (the shape
+ * useHybridRun's isFinalLeg / hybrid-orchestrator's ARRIVE_STATION assume —
+ * a bare `.filter()` without merging would leave two adjacent aerobic
+ * segments, which breaks isFinalLeg's "any strength segment still ahead"
+ * check for the common single-station MVP shape).
+ *
+ * Pure — returns a NEW HybridPlan; never mutates the input (the overview
+ * screen keeps rendering the original, unfiltered `composed.plan`/`bolts`
+ * unchanged — this filter applies ONLY to the copy handed to the run).
+ */
+export function stripLockedStationsForRun(plan: HybridPlan): HybridPlan {
+  const merged: HybridPlannedSegment[] = [];
+  let stationsDropped = 0;
+  for (const seg of plan.segments) {
+    if (seg.kind === 'strength' && seg.content?.needsAssessment) {
+      stationsDropped += 1;
+      continue; // never pushed — the run never sees this station at all
+    }
+    const prev = merged[merged.length - 1];
+    if (seg.kind === 'aerobic' && prev?.kind === 'aerobic') {
+      // The segment right before this one was a dropped locked station —
+      // fold this leg into the previous one instead of pushing a new leg.
+      merged[merged.length - 1] = {
+        ...prev,
+        distanceKm: Number(((prev.distanceKm ?? 0) + (seg.distanceKm ?? 0)).toFixed(3)),
+        toKm: seg.toKm,
+        durationSec: (prev.durationSec ?? 0) + (seg.durationSec ?? 0),
+        estCalories: (prev.estCalories ?? 0) + (seg.estCalories ?? 0),
+      };
+    } else {
+      merged.push(seg);
+    }
+  }
+  if (stationsDropped === 0) return plan; // byte-identical for every plan with no locked station
+  return {
+    ...plan,
+    segments: merged.map((s, i) => ({ ...s, index: i })),
+    totals: { ...plan.totals, stations: Math.max(0, plan.totals.stations - stationsDropped) },
   };
 }

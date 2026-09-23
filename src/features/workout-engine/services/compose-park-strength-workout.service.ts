@@ -94,7 +94,7 @@ export type ParkWorkoutDifficulty = 'easy' | 'medium' | 'hard';
  * `rounds` can safely vary per rung without Block B's time budget needing to
  * know which difficulty is active.
  */
-const TABATA_DIFFICULTY_LADDER: Record<ParkWorkoutDifficulty, TabataProtocolConfig> = {
+export const TABATA_DIFFICULTY_LADDER: Record<ParkWorkoutDifficulty, TabataProtocolConfig> = {
   easy: { workSec: 20, restSec: 40, rounds: 8 },
   medium: { workSec: 30, restSec: 30, rounds: 8 },
   hard: { workSec: 40, restSec: 20, rounds: 8 },
@@ -154,9 +154,9 @@ export function machineShareForLevel(level: number): number {
 }
 
 /** Each Block A machine gets at least 2 consecutive rounds ("no 1-machine Tabata"). */
-const MIN_ROUNDS_PER_MACHINE = 2;
+export const MIN_ROUNDS_PER_MACHINE = 2;
 /** Machine Tabata's own floor — below this it dissolves to bodyweight-only. */
-const MIN_BLOCK_A_MACHINES = 2;
+export const MIN_BLOCK_A_MACHINES = 2;
 /**
  * Bodyweight (Block B) is the guaranteed core of the session — machines
  * never eat into this floor (Wave 2 #6: "bodyweight is never dropped").
