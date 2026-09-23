@@ -626,6 +626,20 @@ export default function VisualSlider({
              hspu today). No dots, no strip — matches pre-redesign behaviour
              exactly, since dots were already conditional on isSimple here. */
           <div className="flex-shrink-0 px-6 pb-1">
+            {/* ── Tier pill — equivalent position to the coverflow-mode pill
+                (below its instruction copy, above the interactive control):
+                this fallback slider has no instruction line of its own, so
+                the pill sits directly above the slider itself. Kept
+                unconditional (not gated on exerciseLabel/repsLabel) — same
+                reasoning as the coverflow-mode pill. ── */}
+            <div className="flex justify-center pb-1.5">
+              <span
+                className="text-[11px] font-bold px-3 py-1 rounded-full"
+                style={{ backgroundColor: 'rgba(0,186,247,0.08)', color: '#00BAF7' }}
+              >
+                {tierLabel}
+              </span>
+            </div>
             <div className="relative px-0">
               <input
                 ref={sliderRef}
