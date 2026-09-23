@@ -13,24 +13,34 @@
  * Both call sites now delegate here instead of keeping their own copy.
  */
 
-// ── Point-in-polygon (extracted from LocationPicker.tsx) ─────────────────
+import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
+import { point as turfPoint } from '@turf/helpers';
+
+// ── Point-in-polygon (extracted from LocationPicker.tsx; widened to
+// Polygon | MultiPolygon and ported onto @turf/boolean-point-in-polygon —
+// 23.09.2026, authority-boundary pipeline step). The original hand-rolled
+// ray-casting only ever read `polygon.geometry.coordinates[0]` — a single
+// ring — so a MultiPolygon boundary (regional councils are the case most
+// likely to be one: exclaves, non-contiguous jurisdiction) silently
+// resolved against only the first part, producing a WRONG answer rather
+// than an error. @turf/boolean-point-in-polygon is already a real
+// production dependency, already correctly used for exactly this in
+// scripts/lib/osm-boundary-fetch.node.ts's sibling extraction site
+// (extract-osm-amenities-tlv.ts's isInsideCityBoundary) — reused here
+// rather than hand-extending the ray-casting code. Still browser-safe:
+// turf has no Node-only APIs.
+//
+// Behavior note: the old ray-casting short-circuited a degenerate ring
+// (<3 vertices) to `true` ("inside"); turf returns `false` for degenerate/
+// invalid geometry instead. Real OSM-fetched boundaries are never
+// degenerate, so this doesn't affect any live data path — flagged here in
+// case a future caller ever constructs a boundaryGeoJSON by hand. ────────
 
 export function isPointInPolygon(
   point: { lat: number; lng: number },
-  polygon: GeoJSON.Feature<GeoJSON.Polygon>,
+  polygon: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
 ): boolean {
-  const ring = polygon.geometry.coordinates[0];
-  if (!ring || ring.length < 3) return true;
-  let inside = false;
-  const x = point.lng;
-  const y = point.lat;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const xi = ring[i][0], yi = ring[i][1];
-    const xj = ring[j][0], yj = ring[j][1];
-    const intersect = ((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / (yj - yi) + xi);
-    if (intersect) inside = !inside;
-  }
-  return inside;
+  return booleanPointInPolygon(turfPoint([point.lng, point.lat]), polygon as any);
 }
 
 function haversineKmLocal(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -45,9 +55,52 @@ function haversineKmLocal(lat1: number, lng1: number, lat2: number, lng2: number
 export interface AuthorityBoundary {
   id: string;
   name: string;
-  boundaryGeoJSON?: GeoJSON.Feature<GeoJSON.Polygon>;
+  boundaryGeoJSON?: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>;
   coordinates?: { lat: number; lng: number };
   radiusKm?: number;
+}
+
+/**
+ * Parses the RAW Firestore value of `authorities/{id}.boundaryGeoJSON` back
+ * into the in-memory `Feature<Polygon | MultiPolygon>` shape every consumer
+ * (resolveAuthorityForPoint, LocationPicker, ParkForm, ...) expects.
+ *
+ * Firestore stores this field as a JSON STRING, not a raw object — Firestore
+ * rejects nested arrays at any depth ("Property boundaryGeoJSON contains an
+ * invalid nested entity"), verified empirically 23.09.2026, and a GeoJSON
+ * Polygon/MultiPolygon's `coordinates` is inherently array-of-arrays. This
+ * mirrors geo-discovery-routes.ts's `toPath()`, which works around the same
+ * restriction for route paths — but a polygon needs the whole structure
+ * serialized, not just its leaf points restructured into {lat,lng} maps.
+ *
+ * The ONE place this must be called is the read-side mapper
+ * (authority.service.ts's Authority normalizer) — every other consumer
+ * receives an already-parsed object and must never see the raw string.
+ *
+ * Defensive by design: a malformed/corrupt string returns `null` (+ a
+ * console.warn) rather than throwing. A broken boundary must degrade to "no
+ * boundary" — which is what every authority already has today — not crash
+ * the map, the approval flow, or resolveAuthorityForPoint's caller.
+ */
+export function parseBoundaryGeoJSON(raw: unknown): GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> | null {
+  if (!raw) return null;
+  if (typeof raw !== 'string') {
+    console.warn('parseBoundaryGeoJSON: expected a JSON string, got', typeof raw, '— treating as no boundary.');
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    const geomType = parsed?.geometry?.type;
+    const coords = parsed?.geometry?.coordinates;
+    if (parsed?.type !== 'Feature' || (geomType !== 'Polygon' && geomType !== 'MultiPolygon') || !Array.isArray(coords)) {
+      console.warn('parseBoundaryGeoJSON: parsed value is not a Polygon/MultiPolygon Feature — treating as no boundary.');
+      return null;
+    }
+    return parsed as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>;
+  } catch (err) {
+    console.warn('parseBoundaryGeoJSON: JSON.parse failed — treating as no boundary.', err);
+    return null;
+  }
 }
 
 export type AuthorityResolution =

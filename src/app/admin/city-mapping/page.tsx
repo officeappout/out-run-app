@@ -46,12 +46,13 @@ interface StepRow {
 
 const STEP_DEFINITIONS: ReadonlyArray<{ id: CityMappingStepName; label: string }> = [
   { id: 'authorityPreflight', label: '1. זיהוי רשות מקומית' },
-  { id: 'routesGate', label: '2. שער מסלולים (Routes Gate)' },
-  { id: 'streetSegments', label: '3. ייבוא קטעי רחוב' },
-  { id: 'lighting', label: '4. תאורת מסלולים' },
-  { id: 'amenitiesIngest', label: '5. ייבוא מתקנים ונקודות עניין' },
-  { id: 'amenitiesTagging', label: '6. תיוג מסלולים במתקנים' },
-  { id: 'adjacencyVerify', label: '7. אימות סמיכות מסלולים (קריאה בלבד)' },
+  { id: 'authorityBoundary', label: '2. גבול רשות (OSM)' },
+  { id: 'routesGate', label: '3. שער מסלולים (Routes Gate)' },
+  { id: 'streetSegments', label: '4. ייבוא קטעי רחוב' },
+  { id: 'lighting', label: '5. תאורת מסלולים' },
+  { id: 'amenitiesIngest', label: '6. ייבוא מתקנים ונקודות עניין' },
+  { id: 'amenitiesTagging', label: '7. תיוג מסלולים במתקנים' },
+  { id: 'adjacencyVerify', label: '8. אימות סמיכות מסלולים (קריאה בלבד)' },
 ];
 
 const STEP_LABELS: Record<CityMappingStepName, string> = Object.fromEntries(

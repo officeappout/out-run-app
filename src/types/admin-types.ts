@@ -166,8 +166,11 @@ export interface Authority {
     coordinates?: { lat: number; lng: number }; // City center coordinates for map display
     /** Jurisdiction radius in km (used to generate circular safe-zone when no polygon) */
     radiusKm?: number;
-    /** GeoJSON polygon defining exact municipal boundaries (overrides radiusKm) */
-    boundaryGeoJSON?: GeoJSON.Feature<GeoJSON.Polygon>;
+    /** GeoJSON polygon/multipolygon defining exact municipal boundaries
+     *  (overrides radiusKm). In-memory shape only — stored in Firestore as a
+     *  JSON string, parsed back by authority.service.ts's normalizer via
+     *  parseBoundaryGeoJSON (see authority-resolution.ts). */
+    boundaryGeoJSON?: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>;
 
     // CRM Fields
     contacts?: AuthorityContact[];      // Multi-contact support

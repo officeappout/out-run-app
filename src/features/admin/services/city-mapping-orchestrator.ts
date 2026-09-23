@@ -13,6 +13,11 @@
  * Per-step invocation (locked in the plan doc):
  *   1. authorityPreflight — read-only, findAuthorityByCityName (NEW, Stage B
  *      addition — see below)
+ *   1.5. authorityBoundary — (NEW, 23.09.2026) thin API route wrapping
+ *      runBackfillAuthorityBoundary(); fetches the city's real OSM
+ *      admin_level=8 boundary and writes authorities/{id}.boundaryGeoJSON so
+ *      resolveAuthorityForPoint has real data to match against. Reuses the
+ *      authorityId authorityPreflight already resolved.
  *   2. routesGate — manual-gate verify-only read of official_routes count
  *      (route DISCOVERY itself stays a CLI command the operator runs by hand
  *      — LOCKED DECISION 1, refactoring geo-discovery-routes.ts into an
@@ -66,6 +71,7 @@ import { runOsmImport } from './osm-segment-importer';
 
 export type CityMappingStepName =
   | 'authorityPreflight'
+  | 'authorityBoundary'
   | 'routesGate'
   | 'streetSegments'
   | 'lighting'
@@ -171,6 +177,40 @@ export async function runCityMapping(
     const msg = (err as Error).message ?? 'Authority preflight failed.';
     progress({ step: 'authorityPreflight', status: 'error', message: msg });
     return { success: false, authorityId: null, counts, errors: [msg] };
+  }
+
+  // ── Step 1.5: authority boundary backfill (23.09.2026) — thin API route
+  // wrapping scripts/backfill-authority-boundary.ts's
+  // runBackfillAuthorityBoundary(). Fetches the city's real OSM
+  // admin_level=8 boundary and writes it to authorities/{id}.boundaryGeoJSON
+  // so resolveAuthorityForPoint has real polygon data to match against — see
+  // authority-resolution.ts's header comment. Inserted right after
+  // authorityPreflight and before routesGate — boundary data has no
+  // dependency on route discovery, and failing here fast avoids running the
+  // rest of the pipeline against a city whose boundary fetch is broken.
+  // (Re-resolves authorityId server-side via the same findAuthorityByCityName
+  // call authorityPreflight already made, same as every other step below
+  // that calls a thin API route — the client-resolved authorityId above
+  // isn't threaded through, matching the existing amenitiesIngest/
+  // amenitiesTagging pattern.) ──
+  progress({ step: 'authorityBoundary', status: 'running', message: `Fetching OSM boundary for "${CITY}"...` });
+  try {
+    const result = await callCityMappingApi<{ geometryType: 'Polygon' | 'MultiPolygon'; partCount: number; alreadyHadBoundary: boolean; writesApplied: number }>(
+      'authority-boundary',
+      { city: CITY, adminRelationId: opts.adminRelationId, apply: opts.apply },
+      opts,
+    );
+    counts.authorityBoundary = result.writesApplied;
+    progress({
+      step: 'authorityBoundary',
+      status: 'done',
+      message: `${result.geometryType} (${result.partCount} part${result.partCount === 1 ? '' : 's'})${result.alreadyHadBoundary ? ' — overwrote existing boundary' : ''}.`,
+      count: result.writesApplied,
+    });
+  } catch (err) {
+    const msg = (err as Error).message ?? 'authorityBoundary step failed.';
+    progress({ step: 'authorityBoundary', status: 'error', message: msg });
+    return { success: false, authorityId, counts, errors: [msg] };
   }
 
   // ── Step 2: routes discovery — manual gate, verify-only ──
