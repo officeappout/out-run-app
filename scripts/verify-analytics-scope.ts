@@ -215,7 +215,8 @@ async function main() {
 
     const authorityResult = await computeStatisticsSummary(db, { kind: 'authority', authorityId: cityA });
     assert('authority scope: statistics-summary denied entirely (403), not a zero-filled 200', authorityResult.status === 403);
-    assert('authority scope: denial message present, not empty', 'error' in authorityResult.body && authorityResult.body.error.length > 0);
+    const authorityErrorMessage = (authorityResult.body as { error?: string }).error ?? '';
+    assert('authority scope: denial message present, not empty', authorityErrorMessage.length > 0);
   }
 
   console.log(`\n${passed} passed, ${failed} failed.`);
