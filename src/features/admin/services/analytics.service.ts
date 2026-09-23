@@ -23,6 +23,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getChildrenByParent } from './authority.service';
+import { isTestOrMockUser } from '@/lib/testAccountFilter';
 
 
 const USERS_COLLECTION = 'users';
@@ -138,32 +139,21 @@ export async function getAuthorityWithChildrenIds(authorityId: string): Promise<
 }
 
 /**
- * Get all user IDs for an authority (city or neighborhood).
- * Cached for 5 minutes. Batches run in parallel.
+ * Get all user IDs for an authority (city or neighborhood). Delegates to
+ * getUserDocsForAuthority (single shared query + filter) and maps ids —
+ * these used to be two independent, near-duplicate query implementations;
+ * consolidated 23.09.2026 so the test/mock exclusion below only has to be
+ * applied in one place. Cached separately from getUserDocsForAuthority
+ * (different cache key), which just means each populates independently —
+ * no functional difference.
  */
 async function getUserIdsForAuthority(authorityId: string, tenantId?: string): Promise<string[]> {
   const cacheKey = tenantId ? `userIds:tenant:${tenantId}` : `userIds:${authorityId}`;
   const cached = cacheGet<string[]>(cacheKey);
   if (cached) return cached;
 
-  const userIds: string[] = [];
-
-  if (tenantId) {
-    const snap = await getDocs(query(
-      collection(db, USERS_COLLECTION),
-      where('core.tenantId', '==', tenantId)
-    ));
-    snap.docs.forEach(d => userIds.push(d.id));
-  } else {
-    const ids = await getAuthorityWithChildrenIds(authorityId);
-    await Promise.all(chunk(ids, 30).map(async (batch) => {
-      const snap = await getDocs(query(
-        collection(db, USERS_COLLECTION),
-        where('core.authorityId', 'in', batch)
-      ));
-      snap.docs.forEach(d => userIds.push(d.id));
-    }));
-  }
+  const docs = await getUserDocsForAuthority(authorityId, tenantId);
+  const userIds = docs.map(d => d.id);
 
   cacheSet(cacheKey, userIds);
   return userIds;
@@ -171,6 +161,13 @@ async function getUserIdsForAuthority(authorityId: string, tenantId?: string): P
 
 /**
  * Get user docs (with data) for an authority. Cached for 5 minutes.
+ *
+ * Excludes demo (core.isMockData) and test/dev (core.isTestData) accounts
+ * — see src/lib/testAccountFilter.ts — before caching/returning, so every
+ * one of this file's exported metrics (DAU/MAU, gender/age distribution,
+ * persona/entry-route breakdowns, running stats, WHO-150 threshold, etc.,
+ * all of which read user ids/docs through this function or its sibling
+ * above) inherits the exclusion automatically.
  */
 async function getUserDocsForAuthority(authorityId: string, tenantId?: string): Promise<{ id: string; data: Record<string, unknown> }[]> {
   const cacheKey = tenantId ? `userDocs:tenant:${tenantId}` : `userDocs:${authorityId}`;
@@ -196,8 +193,9 @@ async function getUserDocsForAuthority(authorityId: string, tenantId?: string): 
     }));
   }
 
-  cacheSet(cacheKey, docs);
-  return docs;
+  const filtered = docs.filter(d => !isTestOrMockUser(d.data.core as Record<string, unknown> | undefined));
+  cacheSet(cacheKey, filtered);
+  return filtered;
 }
 
 // ── Fallback DAU via lastActive ───────────────────────────────────────────────
@@ -736,6 +734,7 @@ export async function getNeighborhoodBreakdown(
     citySnap.docs.forEach(d => {
       const data = d.data() as Record<string, unknown>;
       const core = data.core as Record<string, unknown> | undefined;
+      if (isTestOrMockUser(core)) return; // demo + test residents excluded
       const birthDate = core?.birthDate;
       let birthYear: number | null = null;
       if (birthDate) {

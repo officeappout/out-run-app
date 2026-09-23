@@ -31,6 +31,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
+import { countExcludingTestAndMock } from '@/lib/testAccountFilterAdmin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -76,27 +77,21 @@ export async function GET(request: NextRequest) {
     const approvedRef = usersRef.where('core.isApproved', '==', true);
 
     // Demo/mock users (src/features/admin/services/demo-seed-sderot.ts tags
-    // them core.isMockData: true) must not count as real residents. The
-    // naive fix — usersRef.where('core.isMockData', '!=', true) — is wrong:
-    // Firestore's `!=` excludes any document where the field is ABSENT, not
-    // just where it's false. Almost no real resident ever sets isMockData at
-    // all, so that query would have excluded almost every real resident too,
-    // leaving mostly demo users in the count — the opposite of the intent.
-    // Fixed by counting demo users separately with a positive `== true`
-    // filter (which only ever matches documents that actually set the flag)
-    // and subtracting, rather than trying to query the exclusion directly.
-    const [totalAllSnap, totalMockSnap, approvedAllSnap, approvedMockSnap] = await Promise.all([
-      usersRef.count().get(),
-      usersRef.where('core.isMockData', '==', true).count().get(),
-      approvedRef.count().get(),
-      approvedRef.where('core.isMockData', '==', true).count().get(),
+    // them core.isMockData: true) and test/dev accounts (core.isTestData,
+    // see scripts/mark-test-accounts.ts) must not count as real residents —
+    // see src/lib/testAccountFilterAdmin.ts for why this subtracts rather
+    // than querying the exclusion directly (Firestore's `!=` would wrongly
+    // exclude every doc where the field is simply absent).
+    const [totalUsers, approvedUsers] = await Promise.all([
+      countExcludingTestAndMock(usersRef),
+      countExcludingTestAndMock(approvedRef),
     ]);
 
     return NextResponse.json({
       authorityId,
       authorityName,
-      totalUsers: totalAllSnap.data().count - totalMockSnap.data().count,
-      approvedUsers: approvedAllSnap.data().count - approvedMockSnap.data().count,
+      totalUsers,
+      approvedUsers,
     });
   } catch (err: any) {
     console.error('[/api/authority-manager/city-summary] error:', err?.message ?? err);
