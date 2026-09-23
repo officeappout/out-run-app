@@ -12,12 +12,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { isRootAdmin } from '@/config/feature-flags';
+import { getRequestIp } from '@/lib/requestIp';
+import { RATE_LIMITS, isBlockedByAny } from '@/lib/rateLimitConfig';
+import { logRateLimitBlock } from '@/lib/rateLimitLog';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
+    const ip = getRequestIp(request);
+    const db = getAdminDb();
+
+    // Same shared budget as POST /api/admin/invitations — see that
+    // route's comment.
+    const ipCheck = await isBlockedByAny(db, [
+      { key: `admin-invitations:ip:${ip}:short`, window: RATE_LIMITS.adminInvitations.ipShort() },
+      { key: `admin-invitations:ip:${ip}:hourly`, window: RATE_LIMITS.adminInvitations.ipHourly() },
+    ]);
+    if (ipCheck.blocked) {
+      logRateLimitBlock({ route: 'admin-invitations', dimension: 'ip', ip });
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429, headers: { 'Retry-After': String(Math.ceil((ipCheck.window?.windowMs ?? 900_000) / 1000)) } });
+    }
+
     const authHeader = request.headers.get('Authorization') ?? '';
     const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
     if (!idToken) {
@@ -25,9 +42,11 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     const adminAuth = getAdminAuth();
+    let uid: string;
     let email: string | null;
     try {
       const decoded = await adminAuth.verifyIdToken(idToken, true);
+      uid = decoded.uid;
       email = (decoded.email as string | undefined) ?? null;
     } catch {
       return NextResponse.json({ error: 'Invalid auth token' }, { status: 401 });
@@ -37,12 +56,20 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: 'Only root admins can delete invitations' }, { status: 403 });
     }
 
+    const adminCheck = await isBlockedByAny(db, [
+      { key: `admin-invitations:admin:${uid}:short`, window: RATE_LIMITS.adminInvitations.adminShort() },
+      { key: `admin-invitations:admin:${uid}:hourly`, window: RATE_LIMITS.adminInvitations.adminHourly() },
+    ]);
+    if (adminCheck.blocked) {
+      logRateLimitBlock({ route: 'admin-invitations', dimension: 'admin', ip, identifier: uid });
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429, headers: { 'Retry-After': String(Math.ceil((adminCheck.window?.windowMs ?? 900_000) / 1000)) } });
+    }
+
     const invitationId = params.id;
     if (!invitationId) {
       return NextResponse.json({ error: 'invitation id required' }, { status: 400 });
     }
 
-    const db = getAdminDb();
     const docRef = db.collection('admin_invitations').doc(invitationId);
     const snap = await docRef.get();
     if (!snap.exists) {

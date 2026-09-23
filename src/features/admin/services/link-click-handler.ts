@@ -35,6 +35,9 @@ import { randomUUID, createHash } from 'crypto';
 import { isbot } from 'isbot';
 import { FieldValue, Timestamp, type DocumentReference } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { getRequestIp } from '@/lib/requestIp';
+import { RATE_LIMITS, isBlockedByAny } from '@/lib/rateLimitConfig';
+import { logRateLimitBlock } from '@/lib/rateLimitLog';
 import {
   buildTrackingUrl,
   DEFAULT_LINK_DESTINATIONS,
@@ -106,8 +109,7 @@ function getRequestGeo(request: NextRequest): { country: string | null; city: st
  */
 async function recordClickEvent(input: ClickRecordInput): Promise<void> {
   const { linkRef, request, clickId, device, androidReferrerSent } = input;
-  const forwarded = request.headers.get('x-forwarded-for');
-  const ip = (forwarded ? forwarded.split(',')[0] : null)?.trim() || 'unknown';
+  const ip = getRequestIp(request);
   const userAgent = request.headers.get('user-agent');
   const referrer = request.headers.get('referer'); // HTTP Referer — where the visitor came from, NOT the Android Play referrer param
   const { country, city } = getRequestGeo(request);
@@ -160,8 +162,31 @@ export async function handleLinkClick(
 
   let row: MarketingLinkRow | undefined;
   let ref: DocumentReference | undefined;
+  let skipWrites = false;
   try {
     const db = getAdminDb();
+
+    // Rate-limit check BEFORE any write below — this route is fully
+    // public (QR codes, printed flyers), does 3 Firestore writes per
+    // real click, and has no auth at all by design. When either bucket
+    // is exhausted we skip the writes (clicksCount/daily_stats/per-click
+    // record) but still redirect normally: this file's own long-standing
+    // rule is "analytics must never block a real user reaching the
+    // store" (see the header comment above), and a flood on one printed
+    // link is a cost problem, not an availability one — a 429 here would
+    // break real people scanning a real QR code caught in the same
+    // burst. See .claude/plans/rate-limiting-sensitive-endpoints.md
+    // part ה.
+    const ip = getRequestIp(request);
+    const { blocked } = await isBlockedByAny(db, [
+      { key: `link-click:ip:${ip}`, window: RATE_LIMITS.linkClick.ip() },
+      { key: `link-click:linkid:${id}`, window: RATE_LIMITS.linkClick.linkId() },
+    ]);
+    if (blocked) {
+      logRateLimitBlock({ route: 'link-click', dimension: 'ip-or-linkid', ip, identifier: id });
+      skipWrites = true;
+    }
+
     ref = db.collection(COLLECTION).doc(id);
     const snap = await ref.get();
     if (!snap.exists) {
@@ -177,7 +202,7 @@ export async function handleLinkClick(
       // (silent) volume — but the redirect below is rejected with a
       // 410-style payload so downstream funnels don't pollute active
       // campaign metrics.
-      if (!isBotRequest) {
+      if (!isBotRequest && !skipWrites) {
         await ref.update({
           clicksCount: FieldValue.increment(1),
           lastClickAt: FieldValue.serverTimestamp(),
@@ -195,7 +220,7 @@ export async function handleLinkClick(
       );
     }
 
-    if (!isBotRequest) {
+    if (!isBotRequest && !skipWrites) {
       await ref.update({
         clicksCount: FieldValue.increment(1),
         lastClickAt: FieldValue.serverTimestamp(),
@@ -277,7 +302,7 @@ export async function handleLinkClick(
   // Write the click record AFTER target resolution so it can carry the
   // Android referrer string actually sent — still best-effort, still
   // never blocks the redirect below.
-  if (!isBotRequest && ref) {
+  if (!isBotRequest && !skipWrites && ref) {
     try {
       await recordClickEvent({ linkRef: ref, request, clickId, device, androidReferrerSent });
     } catch (clickErr) {

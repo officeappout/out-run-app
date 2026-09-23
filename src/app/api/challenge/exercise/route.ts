@@ -7,6 +7,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { getRequestIp } from '@/lib/requestIp';
+import { RATE_LIMITS, isBlockedByAny } from '@/lib/rateLimitConfig';
+import { logRateLimitBlock } from '@/lib/rateLimitLog';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,7 +21,23 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const snap = await getAdminDb().doc(`exercises/${id}`).get();
+    const db = getAdminDb();
+
+    // Cheapest of the surveyed public endpoints (single-doc read), still
+    // rate-limited by IP for consistency — see plan doc appendix a.
+    const ip = getRequestIp(request);
+    const { blocked, window } = await isBlockedByAny(db, [
+      { key: `challenge-exercise:ip:${ip}`, window: RATE_LIMITS.challengeExercise.ip() },
+    ]);
+    if (blocked) {
+      logRateLimitBlock({ route: 'challenge-exercise', dimension: 'ip', ip });
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((window?.windowMs ?? 60_000) / 1000)) } },
+      );
+    }
+
+    const snap = await db.doc(`exercises/${id}`).get();
     if (!snap.exists) {
       return NextResponse.json({ videoUrl: null, name: id });
     }

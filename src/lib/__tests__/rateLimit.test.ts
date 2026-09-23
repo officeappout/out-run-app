@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { isRateLimited } from '../rateLimit';
 
 /**
@@ -66,5 +66,32 @@ describe('isRateLimited', () => {
     await new Promise((r) => setTimeout(r, 350));
     // Window has elapsed — the counter should have reset.
     expect(await isRateLimited(db, 'k3', { windowMs: 300, maxRequests: 5 })).toBe(false);
+  });
+
+  /**
+   * 22.09.2026 (rate-limiting rollout, phase B): a Firestore outage must
+   * never lock a real user out of an endpoint the rate limiter itself is
+   * protecting — see David's explicit instruction in
+   * .claude/plans/rate-limiting-sensitive-endpoints.md. isRateLimited
+   * fails OPEN: it logs a warning and returns false (not limited) instead
+   * of throwing.
+   */
+  it('fails open (returns false, does not throw) when the Firestore transaction itself throws', async () => {
+    const db = {
+      collection: (_name: string) => ({ doc: (id: string) => ({ __id: id }) }),
+      runTransaction: async () => {
+        throw new Error('simulated Firestore outage');
+      },
+    } as any;
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await expect(
+      isRateLimited(db, 'fail-open-key', { windowMs: 60_000, maxRequests: 5 }),
+    ).resolves.toBe(false);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('failing OPEN'),
+      expect.any(Error),
+    );
+    warnSpy.mockRestore();
   });
 });

@@ -19,6 +19,9 @@
 import 'server-only';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { getRequestIp } from '@/lib/requestIp';
+import { RATE_LIMITS, isBlockedByAny } from '@/lib/rateLimitConfig';
+import { logRateLimitBlock } from '@/lib/rateLimitLog';
 
 export const runtime = 'nodejs';
 export const dynamic  = 'force-dynamic';
@@ -148,7 +151,7 @@ function buildICS(userId: string, entries: ScheduleEntry[], now: Date): string {
 // ── Route Handler ──────────────────────────────────────────────────────────
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { userId: string } },
 ) {
   const { userId } = params;
@@ -159,6 +162,23 @@ export async function GET(
 
   try {
     const db = getAdminDb();
+
+    // No auth at all by design (see the header comment — the URL itself
+    // is the credential) and 90 Firestore reads per request. Rate-limited
+    // by IP only: legitimate use is a calendar app re-polling hourly per
+    // user, so this ceiling is set well above that, not tuned to it — see
+    // .claude/plans/rate-limiting-sensitive-endpoints.md appendix a.
+    const ip = getRequestIp(req);
+    const { blocked, window } = await isBlockedByAny(db, [
+      { key: `calendar:ip:${ip}`, window: RATE_LIMITS.calendar.ip() },
+    ]);
+    if (blocked) {
+      logRateLimitBlock({ route: 'calendar', dimension: 'ip', ip });
+      return new NextResponse('Too many requests', {
+        status: 429,
+        headers: { 'Retry-After': String(Math.ceil((window?.windowMs ?? 60_000) / 1000)) },
+      });
+    }
 
     // Build a rolling 90-day window (covers any standard 4–12 week training plan).
     // Calendar apps re-poll hourly via REFRESH-INTERVAL, so new scheduled days
