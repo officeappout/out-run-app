@@ -51,6 +51,7 @@ import {
     ImageOff,
     Footprints,
     Search,
+    AlertTriangle,
 } from 'lucide-react';
 import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
@@ -2588,6 +2589,11 @@ function LocationTable({
                                         <span className="text-xs font-semibold text-gray-700">
                                             {safeRenderText(getAuthorityName(park.authorityId)) || park.authorityId}
                                         </span>
+                                    </div>
+                                ) : park.needsAuthorityTagging ? (
+                                    <div className="flex items-center gap-1.5" title="זיהוי אוטומטי מהקואורדינטות נכשל — נדרש תיוג ידני">
+                                        <AlertTriangle size={14} className="text-amber-500" />
+                                        <span className="text-xs text-amber-600 font-bold">דורש תיוג ידני</span>
                                     </div>
                                 ) : (
                                     <span className="text-xs text-red-500 font-bold">לא משויך</span>
