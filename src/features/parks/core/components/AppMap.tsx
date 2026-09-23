@@ -43,15 +43,10 @@ import {
 import {
   ROUTES_BACKGROUND, ROUTES_ACTIVE_GLOW, ROUTES_ACTIVE_OUTLINE, ROUTES_ACTIVE,
   GHOST_PATH_GLOW, GHOST_PATH_LINE, TRACE_PATH_LINE,
-  TRAIL_FADE_LINE, ROUTE_PASSED_LINE, ROUTE_DEVIATION_LINE,
+  TRAIL_FADE_LINE, ROUTE_PASSED_LINE,
   PARK_CLUSTERS_GLOW, PARK_CLUSTERS, PARK_PINS, PARK_MINOR_PINS, PARK_CLUSTER_COUNT,
 } from './mapLayersConfig';
 import { HYBRID_AER, HYBRID_STR, buildHybridRouteGradient } from './hybrid/hybrid-colors';
-// Store read for the off-route flag only — same cross-read precedent as
-// useWorkoutSession.ts. Subscribing to the boolean means AppMap re-renders
-// on off-route flips, not on every GPS sample.
-import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
-
 if (typeof window !== 'undefined') {
   // Reduce Mapbox worker threads from 2 → 1 on iOS WKWebView.
   // Each worker holds its own copy of the tile-decoding pipeline and
@@ -510,10 +505,6 @@ export default function AppMap({
   // filter the ground-arrow GeoJSON to a SINGLE feature so the icon never
   // appears on every turn at once.
   const activeTurnIdx = useMapStore((s) => s.activeTurnIdx);
-  // Off-route flag from the running player — drives the dashed deviation
-  // connector during an active guided run. Boolean selector: AppMap
-  // re-renders on off-route flips only, not on every GPS sample.
-  const isOffRoute = useRunningPlayer((s) => s.isOffRoute);
 
   // Consume TurnCarousel camera requests:
   //   • flyTo     → center the camera on a single turn vertex (peek-one-turn).
@@ -1386,26 +1377,11 @@ export default function AppMap({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActiveWorkout, hasZoneSegments, focusedRoute?.id, focusedRoute?.path, ghostPathGeoJSON]);
 
-  // ── Off-route connector: user → route split point ─────────────────────────
-  // Store flag subscribed at the top of the component (isOffRoute) — not the
-  // per-sample deviation meters — so this only exists while genuinely
-  // off-route. currentLocation as a dep is fine here: off-route episodes are
-  // rare and short-lived.
-  const deviationGeoJSON = useMemo<GeoJSON.FeatureCollection | null>(() => {
-    if (!isActiveWorkout || hasZoneSegments || !isOffRoute || !ghostPathGeoJSON || !focusedRoute?.path) return null;
-    if (!isFiniteLatLng(currentLocation)) return null;
-    const target = focusedRoute.path[ghostStartIdxRef.current];
-    if (!target || !isFiniteLngLat(target)) return null;
-    return {
-      type: 'FeatureCollection',
-      features: [{
-        type: 'Feature',
-        properties: {},
-        geometry: { type: 'LineString', coordinates: [[currentLocation!.lng, currentLocation!.lat], target] },
-      }],
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActiveWorkout, hasZoneSegments, isOffRoute, ghostPathGeoJSON, focusedRoute?.path, currentLocation]);
+  // ── Off-route connector REMOVED BY PRODUCT DECISION, NOT AN OVERSIGHT
+  // (David, 24.09.2026) — used to draw a dashed line from the user back to
+  // the route while off-route ("no dashed line from the user to the route"
+  // is an explicit decision). Removed alongside useRouteDeviationOrchestrator
+  // — see MapShell.tsx's comment at the old mount site for the full context.
 
   // ── Navigation turn arrow GeoJSON (curve-following) ──────────────────────
   // Builds a short LineString that traces the actual route geometry around
@@ -1494,7 +1470,7 @@ export default function AppMap({
       'park-clusters-glow', 'park-clusters', 'park-pins', 'park-minor-pins', 'park-cluster-count',
       'routes-background', 'routes-active-glow', 'routes-active-outline', 'routes-active',
       'live-path-trace', 'live-path-trail-fade', 'ghost-path-glow', 'ghost-path-line', 'sim-walk-trail',
-      'route-passed-line', 'route-deviation-line',
+      'route-passed-line',
       // Navigation ground visuals (curve + tip) — exempt from the Hebrew
       // label pass so it doesn't try to set text-field on a line/icon layer.
       'nav-arrow-line-glow', 'nav-arrow-line', 'nav-arrow-tip',
@@ -1747,13 +1723,6 @@ export default function AppMap({
               </Source>
             )}
 
-            {/* Off-route connector: dashed gray link from the user back to the
-                route split point — mounted only while isOffRoute. */}
-            {deviationGeoJSON && (
-              <Source id="route-deviation" type="geojson" data={deviationGeoJSON as any}>
-                <Layer id="route-deviation-line" type="line" paint={ROUTE_DEVIATION_LINE.paint as any} layout={ROUTE_DEVIATION_LINE.layout} />
-              </Source>
-            )}
           </>
         )}
 

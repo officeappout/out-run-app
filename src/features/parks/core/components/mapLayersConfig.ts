@@ -127,18 +127,10 @@ export const ROUTE_PASSED_LINE = {
   layout: ROUTE_LINE_LAYOUT,
 };
 
-// ── OFF-ROUTE CONNECTOR — dashed link from the user back to the route ──
-// Mounted only while isOffRoute: ties the live position to the route split
-// point so the map explains where the planned line continues.
-export const ROUTE_DEVIATION_LINE = {
-  paint: {
-    'line-color': '#9aa3a1',
-    'line-width': 3,
-    'line-opacity': 0.8,
-    'line-dasharray': [2, 2],
-  },
-  layout: ROUTE_LINE_LAYOUT,
-};
+// ── OFF-ROUTE CONNECTOR REMOVED BY PRODUCT DECISION, NOT AN OVERSIGHT
+// (David, 24.09.2026) — used to draw a dashed link from the user back to the
+// route while off-route. Removed alongside useRouteDeviationOrchestrator —
+// see MapShell.tsx's comment at the old mount site for the full context.
 
 // ── Legacy live-path paint kept for zone-coloured planned runs ──────
 // ⚠️ The 'live-path' source now has lineMetrics: true (for TRAIL_FADE_LINE).

@@ -51,7 +51,6 @@ import { useGroupPresenceListener } from '@/features/workout-engine/shared/hooks
 import ParticipantStrip from '@/features/workout-engine/shared/components/ParticipantStrip';
 import MilestoneFeed from '@/features/workout-engine/shared/components/MilestoneFeed';
 import SessionLobbyOverlay from '@/features/workout-engine/shared/components/SessionLobbyOverlay';
-import { useRouteDeviationOrchestrator } from '@/features/parks/core/hooks/useRouteDeviationOrchestrator';
 import DiscoverLayer from './layers/DiscoverLayer';
 import BuilderLayer from './layers/BuilderLayer';
 import NavigateLayer from './layers/NavigateLayer';
@@ -311,18 +310,18 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
     return { initialMapCenter: null, hasAccurateLocationSeed: false };
   })();
 
-  // Auto-rerouting on deviation. Subscribes to `useRunningPlayer.offRouteEventToken`
-  // and, on each new event, swaps `focusedRoute` for a freshly computed route
-  // sized to the user's remaining distance (with a direct-line fallback for
-  // sub-500m remainders). Hook has no UI of its own — see its top-of-file
-  // doc-block for the full state machine. Mounted here, alongside the other
-  // workout-lifecycle side effects, so it lives for the entire map session.
-  useRouteDeviationOrchestrator({
-    focusedRoute: logic.focusedRoute,
-    setFocusedRoute: logic.setFocusedRoute,
-    currentUserPos: effectivePos ?? null,
-    isWorkoutActive: logic.isWorkoutActive,
-  });
+  // Auto-rerouting-on-deviation REMOVED BY PRODUCT DECISION, NOT AN OVERSIGHT
+  // (David, 24.09.2026): useRouteDeviationOrchestrator used to be mounted here
+  // — on each deviation event it spoke a Hebrew TTS "recalculating route"
+  // alert and swapped `focusedRoute` for a freshly generated one. Both
+  // explicitly rejected ("no deviation alert at any distance," "no
+  // recompute-on-deviation, ever") — this was live, shipping behavior, and is
+  // very likely what read as GPS "jumps" in the field (the whole route
+  // changing mid-run, not a GPS artifact). The underlying distance-detection
+  // math it consumed (useRunningPlayer's checkRouteDeviation/isOffRoute) is
+  // kept intentionally for a future time-based station-approach alert — see
+  // that file's own comments. The hook itself (useRouteDeviationOrchestrator.ts)
+  // has been deleted, not just unmounted.
 
   // Heatmap heartbeat — strict intent: follows the user's selected activity.
   // routeId is forwarded only while a workout is active so the active_workouts
