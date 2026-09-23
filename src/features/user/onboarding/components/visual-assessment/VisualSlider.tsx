@@ -53,6 +53,11 @@ const FALLBACK_SIMPLE_STEPS: Record<string, number[]> = {
 // ladder instead. New skill categories don't need to be added to any list here.
 const REGULAR_CATEGORIES = new Set(['push', 'pull', 'legs', 'core']);
 
+/** Stepper's middle "הרמה שלי" indicator — whether to also show the numeric
+ *  level next to it. Left in but trivial to flip off; David will decide on
+ *  preview. */
+const SHOW_STEPPER_LEVEL_NUMBER = true;
+
 function nearestStepIndex(steps: number[], realLevel: number): number {
   let best = 0;
   let bestDist = Math.abs(steps[0] - realLevel);
@@ -346,16 +351,15 @@ export default function VisualSlider({
   // Exercise name for below-video label: ONLY exerciseName (no fallback)
   const exerciseLabel = resolved?.exerciseName || null;
 
-  // Gender-aware performance label (reps or seconds)
+  // Max-in-one-attempt performance label (reps or seconds) — reframed as a
+  // ceiling ("מקסימום:"), not a set prescription. Numeric value and unit
+  // detection are untouched (still resolved?.targetReps / unitType from the
+  // CMS) — only the surrounding label text changed. Seconds get the
+  // standard Hebrew abbreviation (שנ׳); reps stay unabbreviated (חזרות).
   const targetReps = resolved?.targetReps || null;
   const unitType = resolved?.unitType ?? 'reps';
-  const verb = unitType === 'seconds' ? 'להחזיק' : 'לבצע';
-  const unitWord = unitType === 'seconds' ? 'שניות' : 'חזרות';
-  const repsLabel = targetReps
-    ? isFemale
-      ? `מסוגלת ${verb} ${targetReps} ${unitWord}`
-      : `מסוגל ${verb} ${targetReps} ${unitWord}`
-    : null;
+  const unitWord = unitType === 'seconds' ? 'שנ׳' : 'חזרות';
+  const repsLabel = targetReps ? `מקסימום: ${targetReps} ${unitWord}` : null;
 
 
   // JIT tutorial bubble — rendered inside a `relative` wrapper around the
@@ -548,15 +552,16 @@ export default function VisualSlider({
           <div className="flex-shrink-0 pb-1">
             {/* Persistent helper line — always visible (unlike the one-time JIT
                 tutorial bubble below, which only shows on the very first slider
-                and gets dismissed after the first touch). */}
+                and gets dismissed after the first touch). Enlarged + reworded
+                (user-testing: people didn't realize the strip scrolls) to lead
+                with the outcome ("aim your level") and explicitly name BOTH
+                input methods, instead of only describing the drag gesture. */}
             <div className="px-6 pb-1.5 text-center">
-              <p className="text-sm font-semibold text-slate-700 leading-snug">
-                {isFemale
-                  ? 'החלק ועצרי על התרגיל הכי קשה שאת בטוחה שתבצעי'
-                  : 'החלק ועצור על התרגיל הכי קשה שאתה בטוח שתבצע'}
+              <p className="text-base font-bold text-slate-800 leading-snug">
+                כוונו את הרמה שלכם — עצרו על התרגיל הכי קשה שאתם בטוחים שתבצעו
               </p>
-              <p className="text-xs font-normal text-slate-400 mt-0.5 leading-snug">
-                {isFemale ? 'לא בטוחה? בחרי בערך — נדייק בהמשך' : 'לא בטוח? בחר בערך — נדייק בהמשך'}
+              <p className="text-sm font-normal text-slate-400 mt-0.5 leading-snug">
+                אפשר להחליק את הרצועה, או להשתמש ב־ +/−
               </p>
             </div>
             <div className="relative">
@@ -567,6 +572,52 @@ export default function VisualSlider({
                 onSelect={handleSliderChange}
               />
               {renderTutorialBubble()}
+            </div>
+
+            {/* ── +/− stepper — explicit alternative to the drag gesture above
+                (user-testing: people didn't realize the strip scrolls). Drives
+                the exact same handleSliderChange the strip's own scroll/tap
+                already call — sliderVal stays the single source of truth, so
+                the strip smooth-scrolls itself to match via its existing
+                external-sync effect; nothing here talks to CoverflowStrip
+                directly. DOM order is deliberately "−", middle, "+" so that
+                under the page's default RTL flex flow, "−" (easier) lands on
+                the RIGHT and "+" (harder) on the LEFT — the same harder-left/
+                easier-right arrangement the strip above already uses (see
+                CoverflowStrip.tsx's displaySteps reversal comment). */}
+            <div className="px-6 pt-2 flex items-center justify-between gap-2" dir="rtl">
+              <button
+                type="button"
+                onClick={() => handleSliderChange(sliderVal - 1)}
+                disabled={sliderVal <= sliderMin}
+                aria-label="קל יותר"
+                className="flex-1 flex flex-col items-center gap-0.5 py-2.5 rounded-2xl border border-[#F76700]/25 bg-[#F76700]/[0.06] disabled:opacity-30 disabled:pointer-events-none transition-opacity active:scale-95"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/assets/icons/ui/level_down.svg" alt="" className="w-5 h-5" />
+                <span className="text-[13px] font-bold text-[#F76700]">קל יותר</span>
+                <span className="text-[10px] font-normal text-[#F76700]/70">פחות בכושר</span>
+              </button>
+
+              <div className="flex-shrink-0 flex flex-col items-center gap-0.5 px-2">
+                <span className="text-[11px] font-bold text-slate-500">הרמה שלי</span>
+                {SHOW_STEPPER_LEVEL_NUMBER && (
+                  <span className="text-lg font-black text-slate-900 tabular-nums">{level}</span>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleSliderChange(sliderVal + 1)}
+                disabled={sliderVal >= sliderMax}
+                aria-label="קשה יותר"
+                className="flex-1 flex flex-col items-center gap-0.5 py-2.5 rounded-2xl border border-[#0AC2B6]/25 bg-[#0AC2B6]/[0.06] disabled:opacity-30 disabled:pointer-events-none transition-opacity active:scale-95"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/assets/icons/ui/level_up.svg" alt="" className="w-5 h-5" />
+                <span className="text-[13px] font-bold text-[#0AC2B6]">קשה יותר</span>
+                <span className="text-[10px] font-normal text-[#0AC2B6]/70">יותר בכושר</span>
+              </button>
             </div>
           </div>
         ) : (

@@ -238,12 +238,6 @@ export default function CoverflowStrip({
     }
   };
 
-  // Direction-cue reference point — the currently centered/selected tile's
-  // own level. Derived from the same `selectedIndex` prop everything else in
-  // this component already treats as the single source of truth for "what's
-  // centered" (external-sync effect, handleTap, isSelected below).
-  const selectedLevel = steps[selectedIndex];
-
   return (
     <div
       className="relative w-full overflow-hidden"
@@ -277,12 +271,6 @@ export default function CoverflowStrip({
           const stepIdx = stepIndexFor(displayIndex);
           const isSelected = stepIdx === selectedIndex;
           const thumb = thumbnails[level];
-          // Direction cue, relative to the centered tile — same LEVEL_ICONS
-          // assets ExerciseReplacementModal.tsx/MasterExerciseView.tsx use for
-          // the (unrelated, out-of-scope) exercise-swap "harder/easier" cue.
-          // null on the selected tile itself (it IS "my level", no arrow).
-          const direction: 'harder' | 'easier' | null =
-            isSelected ? null : level > selectedLevel ? 'harder' : 'easier';
           return (
             <button
               key={level}
@@ -295,7 +283,7 @@ export default function CoverflowStrip({
               style={{ width: CELL_SIZE, height: CELL_SIZE }}
             >
               <div
-                className="relative rounded-2xl overflow-hidden flex items-center justify-center bg-slate-100"
+                className="rounded-2xl overflow-hidden flex items-center justify-center bg-slate-100"
                 style={{
                   width: TILE_SIZE,
                   height: TILE_SIZE,
@@ -313,19 +301,6 @@ export default function CoverflowStrip({
                   />
                 ) : (
                   <Dumbbell size={20} className="text-slate-300" aria-hidden />
-                )}
-                {direction && (
-                  <div
-                    className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-white/90 shadow-sm flex items-center justify-center pointer-events-none"
-                    aria-hidden
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={direction === 'harder' ? '/assets/icons/ui/level_up.svg' : '/assets/icons/ui/level_down.svg'}
-                      alt=""
-                      className="w-2.5 h-2.5 object-contain"
-                    />
-                  </div>
                 )}
               </div>
             </button>
