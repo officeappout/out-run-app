@@ -24,6 +24,7 @@ import { XP_REWARDS } from '@/types/contribution.types';
 import { createPark, updatePark, getAllParks } from './parks.service';
 import type { Park } from '../types/park.types';
 import type { ParkRatingSummary } from './park-rating.utils';
+import { resolveAuthorityForPoint, type AuthorityBoundary } from '@/lib/route-collections/authority-resolution';
 
 const COLLECTION = 'user_contributions';
 
@@ -252,19 +253,67 @@ export async function checkDuplicateNearby(
   return null;
 }
 
+// ── Authority resolution ────────────────────────────────────────────
+
+/**
+ * Fetches every authority as an AuthorityBoundary for resolveAuthorityForPoint()
+ * — id/name/boundaryGeoJSON/coordinates/radiusKm only, no CRM fields (contacts,
+ * documents, financials). A full collection read on every approval; approvals
+ * are a rare, manual admin action, not a hot path, so this isn't cached.
+ */
+async function fetchAuthorityBoundaries(): Promise<AuthorityBoundary[]> {
+  const snap = await getDocs(collection(db, 'authorities'));
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      id: d.id,
+      name: data.name ?? '',
+      boundaryGeoJSON: data.boundaryGeoJSON ?? undefined,
+      coordinates: data.coordinates ?? undefined,
+      radiusKm: data.radiusKm ?? undefined,
+    };
+  });
+}
+
+/**
+ * Pure — no I/O. Resolves a contribution's authorityId from its coordinates
+ * via resolveAuthorityForPoint(), falling back to any authorityId the caller
+ * already had (no current caller sets one, but this never regresses one that
+ * does). needsAuthorityTagging is true whenever neither source produced an id
+ * — resolution failed with no fallback, or the point is ambiguous between
+ * more than one authority's boundary. Never blocks park creation.
+ */
+export function resolveContributionAuthority(
+  location: { lat: number; lng: number } | null | undefined,
+  existingAuthorityId: string | undefined,
+  authorities: AuthorityBoundary[],
+): { authorityId: string | undefined; needsAuthorityTagging: boolean } {
+  const resolution = location ? resolveAuthorityForPoint(location, authorities) : { status: 'unresolved' as const };
+  const authorityId = resolution.status === 'resolved' ? resolution.authorityId : existingAuthorityId;
+  return { authorityId, needsAuthorityTagging: !authorityId };
+}
+
 // ── Approval ─────────────────────────────────────────────────────
 
 export async function approveNewLocation(
   contribution: UserContribution,
   adminId: string,
 ): Promise<string> {
+  const authorities = await fetchAuthorityBoundaries();
+  const { authorityId, needsAuthorityTagging } = resolveContributionAuthority(
+    contribution.location,
+    contribution.authorityId,
+    authorities,
+  );
+
   const parkId = await createPark({
     name: contribution.parkName ?? 'מיקום חדש',
     location: contribution.location,
     facilityType: contribution.facilityType,
     featureTags: contribution.featureTags ?? [],
     gymEquipment: contribution.gymEquipment ?? [],
-    authorityId: contribution.authorityId,
+    authorityId,
+    needsAuthorityTagging,
     image: contribution.photoUrl,
     status: 'open',
     contentStatus: 'published',

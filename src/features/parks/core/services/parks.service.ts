@@ -76,6 +76,7 @@ function normalizePark(docId: string, data: any): Park {
     gymEquipment: Array.isArray(data?.gymEquipment) ? data.gymEquipment : undefined,
     amenities: data?.amenities ?? undefined,
     authorityId: data?.authorityId ?? undefined,
+    needsAuthorityTagging: data?.needsAuthorityTagging ?? false,
     neighborhoodId: data?.neighborhoodId ?? undefined,
     neighborhoodName: data?.neighborhoodName ?? undefined,
     isFunctional: data?.isFunctional ?? undefined,
@@ -491,6 +492,10 @@ export async function createPark(data: Omit<Park, 'id' | 'createdAt' | 'updatedA
       gymEquipment: Array.isArray(data.gymEquipment) ? data.gymEquipment : [],
       amenities: data.amenities ?? null,
       authorityId: data.authorityId ?? null,
+      // Set true when resolveAuthorityForPoint() (called by approveNewLocation)
+      // couldn't derive an authorityId from the contribution's coordinates —
+      // surfaced in /admin/locations so it never sits silently unassigned.
+      needsAuthorityTagging: data.needsAuthorityTagging ?? false,
       neighborhoodId: data.neighborhoodId ?? null,
       neighborhoodName: data.neighborhoodName ?? null,
       status: data.status ?? 'open',
