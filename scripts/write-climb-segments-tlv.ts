@@ -37,7 +37,9 @@
  * path that doesn't exist (the default for every city but TLV) SKIPS terrain
  * climbs gracefully — structure/stairs still run from OSM — rather than
  * crashing; a real generic DEM-slope-scanning pipeline is future work, not
- * built here (see CITY-ORCHESTRATOR-PLAN.md Phase 0.2).
+ * built here (originally scoped as CITY-ORCHESTRATOR-PLAN.md Phase 0.2 —
+ * that file was never committed to the repo; see
+ * docs/CITY-MAPPING-PIPELINE-ARCHITECTURE.md for the living plan).
  *
  *   npx tsx scripts/write-climb-segments-tlv.ts --dry-run                  # TLV (default)
  *   npx tsx scripts/write-climb-segments-tlv.ts

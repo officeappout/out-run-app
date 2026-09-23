@@ -1,7 +1,11 @@
 /**
  * src/features/admin/services/city-mapping-orchestrator.ts — Phase 1 Stage B
- * of the city-orchestrator plan (CITY-ORCHESTRATOR-PLAN.md, "LOCKED DESIGN"
- * section). Client-side sequential orchestrator for `runCityMapping()`,
+ * of the city-orchestrator plan (its "LOCKED DESIGN" section — the plan
+ * doc, CITY-ORCHESTRATOR-PLAN.md, was never committed to the repo; found
+ * missing 23.09.2026. Its living successor, with the current 7-step
+ * pipeline verified against this file directly, is
+ * docs/CITY-MAPPING-PIPELINE-ARCHITECTURE.md). Client-side sequential
+ * orchestrator for `runCityMapping()`,
  * mirroring `demo-seed-sderot.ts`'s `runSderotDemoSeed(progress, authorityId)`
  * shape exactly: named steps, a `ProgressUpdate{step,status,message,count}`
  * callback into React state, no server-side job/queue.

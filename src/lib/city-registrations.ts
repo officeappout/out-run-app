@@ -1,6 +1,8 @@
 /**
  * src/lib/city-registrations.ts — Phase 1 Stage A of the city-orchestrator
- * plan (CITY-ORCHESTRATOR-PLAN.md). The `city_registrations` Firestore
+ * plan. Was CITY-ORCHESTRATOR-PLAN.md — that file was never committed to
+ * the repo (found missing 23.09.2026); its living successor is
+ * docs/CITY-MAPPING-PIPELINE-ARCHITECTURE.md. The `city_registrations` Firestore
  * collection: a data-driven fallback for scripts/geo-discovery-routes.ts's
  * in-file `REGIONS` table, for any city not already hand-tuned there.
  *

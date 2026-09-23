@@ -1,5 +1,7 @@
 # Route-Data-Enrichment Pipeline — Scoping Audit (READ-ONLY)
 
+> ⚠️ **מיושן חלקית (23.09.2026) — ראה `docs/CITY-MAPPING-PIPELINE-ARCHITECTURE.md`.** §8 ("Orchestration — CONFIRMED: NONE EXISTS") נכתב לפני ש-`/admin/city-mapping` נבנה — כבר לא נכון. שאר הממצאים (elevation נכתב ולא נקרא בחזרה, באג `'moderate'`/`'medium'`, סתירות ב-stairs) עדיין תקפים — נרשמו כ-backlog מפורש במסמך החדש. לא נמחק.
+>
 > Date: 16.08.2026. Read-only investigation, nothing built or changed. Purpose: map what's REAL vs NEW before designing an orchestrated multi-agent route-enrichment pipeline (official routes, loops/laps, elevation→difficulty, tags/labels, climbs/ascents, stairs) feeding an admin panel with per-city tagging + human approval.
 
 ---

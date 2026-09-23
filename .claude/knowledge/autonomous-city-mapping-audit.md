@@ -1,5 +1,7 @@
 # Autonomous City Mapping — Infrastructure Audit + Architecture
 
+> ⚠️ **מיושן חלקית (23.09.2026) — ראה `docs/CITY-MAPPING-PIPELINE-ARCHITECTURE.md`.** ה-TL;DR למטה ("no orchestrator exists, everything is a human at a terminal") נכתב **לפני** ש-`/admin/city-mapping` נבנה — כבר לא נכון. שאר הממצאים (Part A, הרוב) עדיין תקפים. לא נמחק — עדיין רפרנס טוב למה שקיים ברמת הסקריפטים.
+>
 > Read-only audit (13.07.2026). No code was changed. Every inventory claim cites `file:line`.
 > Part A = **what exists today**. Part B = **architecture recommendation** for turning it autonomous. Gaps are marked ⚠️.
 > Compiled from 5 parallel read-only sub-agent sweeps of branch `feat/approval-center-detail-view`.

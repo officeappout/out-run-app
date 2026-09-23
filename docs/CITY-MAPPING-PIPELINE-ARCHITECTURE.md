@@ -87,6 +87,15 @@
 
 ---
 
+## Backlog — 2 באגים תקפים שנמצאו במסמכים הישנים (לא תוקנו, לא בסקופ של פריט 1)
+
+מ-`.claude/knowledge/route-enrichment-pipeline-scoping.md` §3 — עדיין נכונים נכון להיום, לא קשורים ישירות להכנסת composition/גובה כשלבים, אבל שווה שיהיו רשומים במקום אחד:
+
+1. **גובה נכתב, אף פעם לא נקרא בחזרה.** `geo-discovery-routes.ts`/`populate-route-elevation-tlv.ts` כותבים `elevationGain`/`maxGrade`, אבל שום קוד חי ב-`route-generator.service.ts`/`inventory.service.ts` לא קורא אותם בחזרה — לא משפיע על ניקוד מסלול, לא על difficulty בפועל. (הערה: `enrich-route.ts` שבנינו ל"מסלול הכלניות בדיקה" כותב לאותם שדות בדיוק — לא סוגר את הפער הזה, רק ממלא את השדות.)
+2. **`'moderate'` מול `'medium'` — אי-התאמת טיפוסים.** ה-heuristic היחיד לחישוב difficulty (`geo-discovery-routes.ts:388-389`) מפיק `'easy'|'moderate'|'hard'`, אבל `Route.difficulty` בטיפוס המרכזי הוא `'easy'|'medium'|'hard'`. כל מסלול שיובא דרך הסקריפט הזה עשוי לשאת ערך ש-`'medium'` בשאר האפליקציה לא מצפה לו.
+
+---
+
 ## נתיב אחד לתמונה המלאה
 
 **`/admin/city-mapping`** — פותחים עיר, רואים: 7 השלבים הקיימים + (אחרי מימוש) composition/גובה, כל אחד עם ה-badge סטטוס שלו (running/done/error) מריצה נוכחית, ופאנל "מצב נוכחי בעיר" עם אחוזי כיסוי לכל שכבה. זה המסמך + זה המסך — אין מקור שלישי.
