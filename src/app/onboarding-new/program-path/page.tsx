@@ -7,6 +7,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { Check, CheckCircle2, UserCircle, ChevronDown, Star } from 'lucide-react';
 import {
   type MuscleGroup,
+  resolveImageForLocation,
 } from '@/features/content/exercises/core/exercise.types';
 import { db } from '@/lib/firebase';
 import { getExercise } from '@/features/content/exercises/core/exercise.service';
@@ -273,6 +274,11 @@ export default function ProgramPathPage() {
     pull: [], push: [], legs: [], core: [],
   });
   const [exerciseNames, setExerciseNames] = useState<Record<string, string>>({});
+  // Same resolver the profile ExerciseWishlistStrip uses (getExercise +
+  // resolveImageForLocation) — resolved in the same pass as names below.
+  // Missing/unresolvable entries are simply absent here; chips fall back
+  // to name-only rendering (see the chip below), no broken <img>.
+  const [exerciseThumbnails, setExerciseThumbnails] = useState<Record<string, string>>({});
   // The ONLY place the collapse/chevron affordance returns — the muscle
   // section above stays always-open, never reintroduce that accordion.
   const [expandedWishlist, setExpandedWishlist] = useState<Set<MusclePackageKey>>(new Set());
@@ -299,10 +305,16 @@ export default function ProgramPathPage() {
           uniqueIds.map(async (id) => {
             const ex = await getExercise(id);
             const name = ex ? (getLocalizedText(ex.name, 'he') || getLocalizedText(ex.name, 'en') || id) : id;
-            return [id, name] as const;
+            const thumbnailUrl = ex ? resolveImageForLocation(ex) : '';
+            return { id, name, thumbnailUrl };
           })
         );
-        if (!cancelled) setExerciseNames(Object.fromEntries(resolved));
+        if (!cancelled) {
+          setExerciseNames(Object.fromEntries(resolved.map((r) => [r.id, r.name])));
+          setExerciseThumbnails(
+            Object.fromEntries(resolved.filter((r) => r.thumbnailUrl).map((r) => [r.id, r.thumbnailUrl]))
+          );
+        }
       } catch (e) {
         console.error('[ProgramPath] Failed to load foundation exercises:', e);
       }
@@ -809,20 +821,30 @@ export default function ProgramPathPage() {
                                           (e) => e.exerciseId === exerciseId && e.packageKey === pkg.key
                                         );
                                         const name = exerciseNames[exerciseId] ?? exerciseId;
+                                        const thumbnailUrl = exerciseThumbnails[exerciseId];
                                         return (
                                           <button
                                             key={exerciseId}
                                             type="button"
                                             onClick={() => toggleWishlistExercise(pkg.key, exerciseId)}
-                                            className={`flex items-center gap-1.5 px-3 py-2 rounded-full border text-[13px] transition-all ${
+                                            className={`flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-full border text-[13px] transition-all ${
                                               isStarred
                                                 ? 'bg-amber-50 border-amber-300 text-amber-800 font-semibold'
                                                 : 'bg-white border-[#E0E9FF] text-slate-600'
                                             }`}
                                           >
+                                            {thumbnailUrl && (
+                                              // eslint-disable-next-line @next/next/no-img-element
+                                              <img
+                                                src={thumbnailUrl}
+                                                alt=""
+                                                className="w-6 h-6 rounded-full object-cover shrink-0"
+                                                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                                              />
+                                            )}
                                             <Star
                                               size={14}
-                                              className={isStarred ? 'fill-amber-400 text-amber-400' : 'text-slate-300'}
+                                              className={isStarred ? 'fill-amber-400 text-amber-400 shrink-0' : 'text-slate-300 shrink-0'}
                                             />
                                             {name}
                                           </button>
