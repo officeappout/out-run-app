@@ -256,13 +256,23 @@ export async function checkDuplicateNearby(
 // ── Authority resolution ────────────────────────────────────────────
 
 /**
- * Fetches every authority as an AuthorityBoundary for resolveAuthorityForPoint()
- * — id/name/boundaryGeoJSON/coordinates/radiusKm only, no CRM fields (contacts,
- * documents, financials). A full collection read on every approval; approvals
- * are a rare, manual admin action, not a hot path, so this isn't cached.
+ * Fetches top-level authorities only (type 'city' | 'regional_council') as
+ * AuthorityBoundary for resolveAuthorityForPoint() — id/name/boundaryGeoJSON/
+ * coordinates/radiusKm only, no CRM fields (contacts, documents, financials).
+ *
+ * The `type` filter matters, not just perf: 2,443 of the 2,755 `authorities`
+ * docs (89%) are neighborhood/settlement leaves, not top authorities. None of
+ * them carry boundaryGeoJSON/radiusKm today (verified live, 23.09.2026), so
+ * this filter is a no-op right now — but `park.authorityId` must always be
+ * the TOP authority, never a neighborhood leaf (locked invariant, see
+ * park-neighborhood-model). Without this filter, the day a neighborhood gets
+ * boundary data before/without its parent city does, resolveAuthorityForPoint
+ * could match that neighborhood's polygon and write its id into
+ * park.authorityId — silently violating that invariant. Cheap to close now,
+ * before city-mapping boundary data starts landing.
  */
 async function fetchAuthorityBoundaries(): Promise<AuthorityBoundary[]> {
-  const snap = await getDocs(collection(db, 'authorities'));
+  const snap = await getDocs(query(collection(db, 'authorities'), where('type', 'in', ['city', 'regional_council'])));
   return snap.docs.map((d) => {
     const data = d.data();
     return {
