@@ -10,10 +10,15 @@ import { auth, db } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import {
   Settings, Footprints, Users, Trophy, ShieldAlert, Save, CheckCircle2,
-  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, type LucideIcon,
+  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, ListChecks, X,
+  type LucideIcon,
 } from 'lucide-react';
 import { FIRESTORE_FLAG_DEFAULTS } from '@/hooks/feature-flag-defs';
 import { resolveLoadedFlags, type LoadResult } from './resolve-loaded-flags';
+import ExerciseAutocomplete from '@/components/admin/ExerciseAutocomplete';
+import { getAllExercises } from '@/features/content/exercises/core/exercise.service';
+import type { Exercise } from '@/features/content/exercises/core/exercise.types';
+import { getLocalizedText } from '@/features/content/shared/localized-text.types';
 
 // ============================================================================
 // TYPES
@@ -119,6 +124,25 @@ const FLAG_CARDS: FlagCardConfig[] = [
 
 const FLAG_KEYS = FLAG_CARDS.map((c) => c.key);
 
+// ============================================================================
+// FOUNDATION EXERCISES — system_config/foundation_exercises
+// Admin-curated foundation exercise list per package. Display/save only —
+// no user-facing code reads this doc yet (see build brief "Slice 2a").
+// ============================================================================
+
+type FoundationPackageKey = 'pull' | 'push' | 'legs' | 'core';
+
+type FoundationLists = Record<FoundationPackageKey, string[]>;
+
+const EMPTY_FOUNDATION_LISTS: FoundationLists = { pull: [], push: [], legs: [], core: [] };
+
+const FOUNDATION_PACKAGES: { key: FoundationPackageKey; nameHe: string }[] = [
+  { key: 'pull', nameHe: 'משיכה' },
+  { key: 'push', nameHe: 'דחיפה' },
+  { key: 'legs', nameHe: 'רגליים' },
+  { key: 'core', nameHe: 'ליבה' },
+];
+
 /**
  * Same source as useFeatureFlags.ts's SAFE_DEFAULTS (FIRESTORE_FLAG_DEFAULTS,
  * feature-flag-defs.ts) — not a separately hardcoded copy. Used both as the initial
@@ -216,6 +240,73 @@ function FlagCard({
 }
 
 // ============================================================================
+// FOUNDATION PACKAGE LIST — add/remove exercises for one package via the
+// existing single-value ExerciseAutocomplete: the picker's own selectedId
+// always stays '' (an "add new" control), and the chosen id is appended to
+// this package's list in the parent's state instead of controlling the
+// picker itself.
+// ============================================================================
+
+function FoundationPackageList({
+  nameHe,
+  exercises,
+  selectedIds,
+  onAdd,
+  onRemove,
+  disabled,
+}: {
+  nameHe: string;
+  exercises: Exercise[];
+  selectedIds: string[];
+  onAdd: (exerciseId: string) => void;
+  onRemove: (exerciseId: string) => void;
+  disabled: boolean;
+}) {
+  const getName = (id: string) => {
+    const ex = exercises.find((e) => e.id === id);
+    if (!ex) return id;
+    return getLocalizedText(ex.name, 'he') || getLocalizedText(ex.name, 'en') || id;
+  };
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+      <h3 className="font-bold text-slate-900 text-sm mb-3">{nameHe}</h3>
+
+      {selectedIds.length === 0 ? (
+        <p className="text-xs text-slate-400 mb-3">אין תרגילים עדיין</p>
+      ) : (
+        <ul className="space-y-2 mb-3">
+          {selectedIds.map((id) => (
+            <li
+              key={id}
+              className="flex items-center justify-between gap-2 bg-slate-50 rounded-xl px-3 py-2"
+            >
+              <span className="text-sm text-slate-800 truncate">{getName(id)}</span>
+              <button
+                type="button"
+                onClick={() => onRemove(id)}
+                disabled={disabled}
+                aria-label={`הסר ${getName(id)}`}
+                className="text-red-500 hover:text-red-700 disabled:opacity-50 flex-shrink-0"
+              >
+                <X size={16} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <ExerciseAutocomplete
+        exercises={exercises}
+        selectedId=""
+        onChange={(exerciseId) => onAdd(exerciseId)}
+        placeholder="הוסף תרגיל..."
+      />
+    </div>
+  );
+}
+
+// ============================================================================
 // PAGE
 // ============================================================================
 
@@ -233,6 +324,16 @@ export default function SystemSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // ── Foundation exercises (system_config/foundation_exercises) ────────────────
+  // Independent doc, independent load/save from the flags above.
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [foundationLists, setFoundationLists] = useState<FoundationLists>(EMPTY_FOUNDATION_LISTS);
+  const [foundationLoading, setFoundationLoading] = useState(true);
+  const [foundationLoadFailed, setFoundationLoadFailed] = useState(false);
+  const [foundationSaving, setFoundationSaving] = useState(false);
+  const [foundationSavedAt, setFoundationSavedAt] = useState<Date | null>(null);
+  const [foundationError, setFoundationError] = useState<string | null>(null);
 
   // ── Auth guard ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -278,6 +379,69 @@ export default function SystemSettingsPage() {
       })
       .finally(() => setFlagsLoading(false));
   }, [isSuperAdmin]);
+
+  // ── Load foundation exercises + exercise catalog ──────────────────────────────
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    Promise.all([
+      getDoc(doc(db, 'system_config', 'foundation_exercises')),
+      getAllExercises(),
+    ])
+      .then(([snap, exercisesData]) => {
+        setExercises(exercisesData);
+        if (snap.exists()) {
+          const data = snap.data();
+          setFoundationLists({
+            pull: Array.isArray(data.pull) ? data.pull : [],
+            push: Array.isArray(data.push) ? data.push : [],
+            legs: Array.isArray(data.legs) ? data.legs : [],
+            core: Array.isArray(data.core) ? data.core : [],
+          });
+        }
+        // Doc doesn't exist yet → keep the empty-state defaults (nothing curated yet).
+      })
+      .catch((e) => {
+        console.error('[SystemSettings] Failed to load foundation exercises:', e);
+        setFoundationLoadFailed(true);
+        setFoundationError('טעינת תרגילי הבסיס נכשלה — לא ניתן לשמור עד לרענון מוצלח של הדף.');
+      })
+      .finally(() => setFoundationLoading(false));
+  }, [isSuperAdmin]);
+
+  const addFoundationExercise = (pkg: FoundationPackageKey, exerciseId: string) => {
+    if (!exerciseId) return;
+    setFoundationLists((prev) =>
+      prev[pkg].includes(exerciseId) ? prev : { ...prev, [pkg]: [...prev[pkg], exerciseId] }
+    );
+  };
+
+  const removeFoundationExercise = (pkg: FoundationPackageKey, exerciseId: string) => {
+    setFoundationLists((prev) => ({ ...prev, [pkg]: prev[pkg].filter((id) => id !== exerciseId) }));
+  };
+
+  const handleSaveFoundationExercises = async () => {
+    // foundationLoadFailed: current state came from defaults, not a real read —
+    // writing it would silently clobber whatever is actually in Firestore.
+    if (!currentUid || foundationLoadFailed) return;
+    setFoundationSaving(true);
+    setFoundationError(null);
+    try {
+      await setDoc(
+        doc(db, 'system_config', 'foundation_exercises'),
+        {
+          ...foundationLists,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+      setFoundationSavedAt(new Date());
+    } catch (e) {
+      console.error('[SystemSettings] Save foundation exercises failed:', e);
+      setFoundationError('שמירה נכשלה. נסה שוב.');
+    } finally {
+      setFoundationSaving(false);
+    }
+  };
 
   // ── Save ────────────────────────────────────────────────────────────────────
   const handleSave = async () => {
@@ -396,6 +560,75 @@ export default function SystemSettingsPage() {
           </div>
         </div>
       )}
+
+      {/* Foundation Exercises — separate system_config doc, independent load/save */}
+      <div className="mt-10">
+        <div className="mb-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-cyan-50 flex items-center justify-center flex-shrink-0">
+            <ListChecks size={18} className="text-cyan-600" />
+          </div>
+          <div>
+            <h2 className="text-lg font-black text-slate-900">תרגילי בסיס לפי חבילה</h2>
+            <p className="text-slate-500 text-xs mt-0.5">
+              רשימה קצרה ומאוצרת של תרגילי בסיס לכל חבילה. לתצוגה בלבד — אינה מוצגת למשתמשים ואינה
+              משפיעה על שום מנוע היום.
+            </p>
+          </div>
+        </div>
+
+        {foundationLoading ? (
+          <div className="flex items-center justify-center h-32">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500" />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {FOUNDATION_PACKAGES.map((pkg) => (
+              <FoundationPackageList
+                key={pkg.key}
+                nameHe={pkg.nameHe}
+                exercises={exercises}
+                selectedIds={foundationLists[pkg.key]}
+                onAdd={(exerciseId) => addFoundationExercise(pkg.key, exerciseId)}
+                onRemove={(exerciseId) => removeFoundationExercise(pkg.key, exerciseId)}
+                disabled={foundationSaving}
+              />
+            ))}
+
+            {foundationError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
+                {foundationError}
+              </div>
+            )}
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                onClick={handleSaveFoundationExercises}
+                disabled={foundationSaving || foundationLoadFailed}
+                className="flex items-center gap-2 bg-cyan-500 hover:bg-cyan-600 disabled:opacity-60 text-white font-bold px-6 py-2.5 rounded-xl transition-colors text-sm"
+              >
+                {foundationSaving ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                    שומר...
+                  </>
+                ) : (
+                  <>
+                    <Save size={16} />
+                    שמור תרגילי בסיס
+                  </>
+                )}
+              </button>
+
+              {foundationSavedAt && !foundationSaving && (
+                <div className="flex items-center gap-1.5 text-emerald-600 text-sm font-medium">
+                  <CheckCircle2 size={16} />
+                  נשמר בהצלחה
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

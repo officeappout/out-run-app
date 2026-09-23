@@ -37,6 +37,7 @@ import {
   hasOverdueTasks
 } from '@/types/admin-types';
 import { logAction } from './audit.service';
+import { parseBoundaryGeoJSON } from '@/lib/route-collections/authority-resolution';
 
 /**
  * Convert Date to Firestore-safe format (ISO string for nested objects)
@@ -275,7 +276,11 @@ function normalizeAuthority(docId: string, data: any): Authority {
       ? { lat: data.coordinates.lat, lng: data.coordinates.lng }
       : undefined,
     radiusKm: typeof data?.radiusKm === 'number' ? data.radiusKm : undefined,
-    boundaryGeoJSON: data?.boundaryGeoJSON || undefined,
+    // Stored in Firestore as a JSON string (nested-array restriction — see
+    // parseBoundaryGeoJSON's own header comment) — this is the ONE place
+    // that parses it back into an object. Every other reader of Authority
+    // must never see the raw string.
+    boundaryGeoJSON: parseBoundaryGeoJSON(data?.boundaryGeoJSON) ?? undefined,
     // CRM Fields
     contacts: Array.isArray(data?.contacts) ? data.contacts.map(normalizeContact) : [],
     pipelineStatus: data?.pipelineStatus || 'lead',

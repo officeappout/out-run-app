@@ -82,7 +82,14 @@ interface Props {
    * day) — renders the A3 banner below as a real link to the mini-questionnaire
    * (owned by DiscoverLayer, via startMiniDomainAssessment) instead of a dead end.
    */
-  onAssessmentLink?: () => void;
+  /**
+   * Domain-assessment gate (David, 23-24.09.2026): now also invoked PER SEGMENT
+   * from a locked station card (HybridJourneyAxis), passing that segment's own
+   * assessmentDomains. Called with no args (or an empty array) for the
+   * session-level banner below — the owner (DiscoverLayer) falls back to
+   * `composed.assessmentDomains` in that case, unchanged from before.
+   */
+  onAssessmentLink?: (domains?: string[]) => void;
 }
 
 export default function HybridOverviewScreen({ composed, cityName, onStart, onBack, onExerciseTap, onSwapExercise, onAssessmentLink }: Props) {
@@ -416,7 +423,14 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
                     explicitly; full_park never does, so it falls through to the
                     existing bolts branch). David, 23.09.2026 — bug #2. */}
                 {composed.fullParkRun === false
-                  ? 'מסלול + עצירות'
+                  ? (
+                    // Domain-assessment gate (David, 23-24.09.2026): zero real stations
+                    // resolved on this route + unassessed → fallbackHint is set alongside
+                    // a REAL (non-stub) plan here — "don't call it a stations workout when
+                    // there are no stations." Plain aerobic-kind title instead; the nudge
+                    // itself renders via the existing A3 fallback banner below unchanged.
+                    fallbackHint ? (aerobicKind === 'running' ? 'ריצה' : 'הליכה') : 'מסלול + עצירות'
+                  )
                   : composed.bolts
                   ? (MAP_OVERVIEW_CHROME_V1 ? `אימון מלא בפארק · ${aerobicKind === 'running' ? 'ריצה' : 'הליכה'} + תחנת כוח` : 'אימון משולב')
                   : 'אימון משולב'}
@@ -470,10 +484,10 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
                 WorkoutBuilderSheet, whose unassessed/unenrolled-domain path is a
                 hard-blocking showUnlockModal, not a passive nudge beside real
                 content — verified directly, not the same pattern. */}
-            {fallbackHint && onAssessmentLink ? (
+            {fallbackHint && onAssessmentLink && composed.assessmentDomains?.length ? (
               <button
                 type="button"
-                onClick={onAssessmentLink}
+                onClick={() => onAssessmentLink()}
                 className="w-full flex items-center gap-2 mt-3 rounded-xl text-[12px] font-bold text-start active:scale-[0.98] transition-transform"
                 style={{ background: '#FFFBEB', border: '0.5px solid #FDE68A', color: '#B45309', padding: '9px 12px' }}
               >
@@ -563,6 +577,7 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
               onToggleWarmupExpanded={toggleWarmupExpanded}
               onExerciseTap={onExerciseTap}
               onSwapExercise={onSwapExercise}
+              onSegmentAssessmentLink={onAssessmentLink}
             />
             <div style={{ height: 8 }} />
           </div>

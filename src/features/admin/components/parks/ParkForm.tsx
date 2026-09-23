@@ -271,8 +271,14 @@ export default function ParkForm({
     getAuthority(resolveId)
       .then(auth => {
         if (!auth) { setBoundaryGeoJSON(null); return; }
-        if (auth.boundaryGeoJSON) {
-          setBoundaryGeoJSON(auth.boundaryGeoJSON);
+        // LocationPicker (and this component's own local state) still only
+        // render Polygon — none of this task's 6 operational cities produce
+        // a MultiPolygon (all verified single-Polygon), so this only
+        // matters for a future regional-council authority. Falls through to
+        // the radius-circle branch below rather than silently mis-rendering
+        // a MultiPolygon as its first part only.
+        if (auth.boundaryGeoJSON?.geometry.type === 'Polygon') {
+          setBoundaryGeoJSON(auth.boundaryGeoJSON as GeoJSON.Feature<GeoJSON.Polygon>);
         } else if (auth.coordinates) {
           const radius = auth.radiusKm || DEFAULT_AUTHORITY_RADIUS_KM;
           setBoundaryGeoJSON(createCirclePolygon(auth.coordinates, radius));

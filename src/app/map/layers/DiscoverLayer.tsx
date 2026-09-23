@@ -1785,11 +1785,16 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 // fallback (`unlockDomain ?? 'push'`) — full-park's gate doesn't track
                 // a single specific domain either, so 'push' is the same, already-
                 // accepted default when nothing more specific resolves.
-                onAssessmentLink={hybridComposed?.assessmentDomains?.length ? () => {
-                  const domains = hybridComposed?.assessmentDomains ?? [];
+                // Domain-assessment gate (David, 23-24.09.2026): now also called PER
+                // SEGMENT from a locked station card (HybridJourneyAxis), passing that
+                // segment's own assessmentDomains — falls back to the session-level
+                // ones (unchanged) when called with none, so the existing session banner
+                // above (and every other pre-existing caller) stays byte-identical.
+                onAssessmentLink={(passedDomains?: string[]) => {
+                  const domains = passedDomains?.length ? passedDomains : (hybridComposed?.assessmentDomains ?? []);
                   const domain = domains.find((d) => (PRIMARY_CATEGORIES as readonly string[]).includes(d)) ?? 'push';
                   startMiniDomainAssessment(router, domain);
-                } : undefined}
+                }}
                 onStart={() => {
                   const c = hybridComposed;
                   // health-declaration-covered-by-card bug: runHybridPlan below calls
