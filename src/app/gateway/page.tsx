@@ -13,6 +13,7 @@ import { captureReferralParam, getStoredReferrer, clearStoredReferrer, processRe
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure';
+import { useToast } from '@/components/ui/Toast';
 import {
   runExploreMapFlow,
   resolveUser,
@@ -31,15 +32,37 @@ const LOADING_STATES = [
   "מכין את הדאשבורד שלך...",
 ];
 
-function GuestTransitionOverlay() {
+interface GuestTransitionOverlayProps {
+  status: 'loading' | 'error';
+  onRetry: () => void;
+  onExit: () => void;
+}
+
+/**
+ * P0-1 (24.09.2026, see docs/audit-2026-09/00-MASTER-PLAN.md §13.18/§13.22):
+ * this overlay covers the ENTIRE screen (z-50, no gap) while the guest
+ * sign-in this page triggers runs — it used to have no error state at all,
+ * so a stuck sign-in left the user staring at a progress bar that had
+ * already claimed 100% with no way out. Two behavioral changes:
+ *   - The bar below is now indeterminate (a looping segment), not a fixed
+ *     3.5s 0%→100% animation that reached "done" regardless of whether
+ *     anything had actually finished — there is no real progress signal to
+ *     drive a determinate bar honestly (GPS/profile-write/invite-consume
+ *     don't have a meaningful "% complete"), so this doesn't claim one.
+ *   - `status === 'error'` swaps the whole overlay for a dead-end-proof
+ *     failure screen: an explicit message, "try again", and an exit that
+ *     always gets the user back to a real, interactive screen.
+ */
+function GuestTransitionOverlay({ status, onRetry, onExit }: GuestTransitionOverlayProps) {
   const [statusIndex, setStatusIndex] = useState(0);
 
   useEffect(() => {
+    if (status !== 'loading') return;
     const interval = setInterval(() => {
       setStatusIndex((prev) => (prev + 1) % LOADING_STATES.length);
     }, 800);
     return () => clearInterval(interval);
-  }, []);
+  }, [status]);
 
   return (
     <motion.div
@@ -47,41 +70,71 @@ function GuestTransitionOverlay() {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 bg-[#F8FAFC] flex flex-col items-center justify-center p-6 text-center"
+      dir="rtl"
     >
       <div className="relative mb-10">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/assets/logo/Kind=logotype.svg"
           alt="OUT"
-          className="h-14 object-contain animate-pulse"
+          className={`h-14 object-contain ${status === 'loading' ? 'animate-pulse' : ''}`}
         />
       </div>
 
-      <div className="h-8 relative w-full overflow-hidden">
-        <AnimatePresence mode="wait">
-          <motion.p
-            key={statusIndex}
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -20, opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="text-[#5BC2F2] text-sm font-medium absolute w-full"
-            dir="rtl"
+      {status === 'loading' ? (
+        <>
+          <div className="h-8 relative w-full overflow-hidden">
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={statusIndex}
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -20, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="text-[#5BC2F2] text-sm font-medium absolute w-full"
+                style={{ fontFamily: 'var(--font-simpler)' }}
+              >
+                {LOADING_STATES[statusIndex]}
+              </motion.p>
+            </AnimatePresence>
+          </div>
+
+          {/* Indeterminate — a looping segment, not a fake 0%→100% claim. */}
+          <div className="w-48 h-1.5 bg-slate-200 rounded-full mt-8 overflow-hidden">
+            <motion.div
+              className="h-full w-1/3 bg-gradient-to-r from-[#5BC2F2] to-[#0CF2E2] rounded-full"
+              animate={{ x: ['-120%', '340%'] }}
+              transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
+            />
+          </div>
+        </>
+      ) : (
+        <>
+          <p
+            className="text-slate-700 text-base font-bold mb-2"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            {LOADING_STATES[statusIndex]}
-          </motion.p>
-        </AnimatePresence>
-      </div>
-
-      <div className="w-48 h-1.5 bg-slate-200 rounded-full mt-8 overflow-hidden">
-        <motion.div
-          initial={{ width: "0%" }}
-          animate={{ width: "100%" }}
-          transition={{ duration: 3.5, ease: "linear" }}
-          className="h-full bg-gradient-to-r from-[#5BC2F2] to-[#0CF2E2] rounded-full"
-        />
-      </div>
+            החיבור לא הצליח
+          </p>
+          <p className="text-slate-400 text-sm font-medium mb-8 max-w-xs">
+            משהו השתבש בהתחברות. בדקו את החיבור לאינטרנט ונסו שוב, או חזרו למסך הראשי.
+          </p>
+          <div className="w-full max-w-xs flex flex-col gap-3">
+            <button
+              onClick={onRetry}
+              className="w-full py-3.5 rounded-2xl bg-[#5BC2F2] text-white font-bold text-sm"
+            >
+              נסה שוב
+            </button>
+            <button
+              onClick={onExit}
+              className="w-full py-3.5 rounded-2xl bg-slate-100 text-slate-600 font-bold text-sm"
+            >
+              חזרה למסך הראשי
+            </button>
+          </div>
+        </>
+      )}
     </motion.div>
   );
 }
@@ -92,8 +145,10 @@ function GuestTransitionOverlay() {
 
 export default function GatewayPage() {
   const router = useRouter();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [showGuestTransition, setShowGuestTransition] = useState(false);
+  const [guestTransitionStatus, setGuestTransitionStatus] = useState<'loading' | 'error'>('loading');
   const { flags } = useFeatureFlags();
 
   // Derived: is anything in progress?
@@ -187,19 +242,33 @@ export default function GatewayPage() {
   // navigation) lives in exactly one place.
   const handleExploreMap = async () => {
     isBusyRef.current = true;
+    setGuestTransitionStatus('loading');
     setShowGuestTransition(true);
     try {
       const proceeded = await runExploreMapFlow(router);
       if (!proceeded) {
+        // resolveUser() already logged AUTH_ANONYMOUS (run-explore-map-
+        // flow.ts) — this is purely the visible side: swap the overlay to
+        // its error state instead of silently hiding it (P0-1, 24.09.2026).
         isBusyRef.current = false;
-        setShowGuestTransition(false);
+        setGuestTransitionStatus('error');
       }
     } catch (error) {
       console.error('[Gateway] Explore map error:', error);
       reportSignupFailure('GATEWAY_EXPLORE', extractErrorCode(error));
       isBusyRef.current = false;
-      setShowGuestTransition(false);
+      setGuestTransitionStatus('error');
     }
+  };
+
+  // Guaranteed way out of the full-screen guest-transition overlay — no
+  // dead-end screen. Always lands on the real landing page, not just a
+  // silent close, so a user who arrived on /gateway from anywhere still
+  // ends up somewhere interactive.
+  const handleExitGuestTransition = () => {
+    setShowGuestTransition(false);
+    setGuestTransitionStatus('loading');
+    router.push('/');
   };
 
   // ── Path B/C: GET PROGRAM — Auth only, Firestore scaffold is handled by Profile page ──
@@ -209,6 +278,11 @@ export default function GatewayPage() {
     try {
       const { user } = await resolveUser();
       if (!user) {
+        // resolveUser() already logged AUTH_ANONYMOUS — this button has no
+        // full-screen overlay to fall back into, so surface it as a toast
+        // instead (P0-1, 24.09.2026). The button is already interactive
+        // again below, which doubles as "try again."
+        showToast('error', 'החיבור לא הצליח. נסו שוב.');
         isBusyRef.current = false;
         setLoading(false);
         return;
@@ -268,6 +342,7 @@ export default function GatewayPage() {
     } catch (error) {
       console.error('[Gateway] Get program error:', error);
       reportSignupFailure('GATEWAY_GET_PROGRAM', extractErrorCode(error));
+      showToast('error', 'החיבור לא הצליח. נסו שוב.');
       isBusyRef.current = false;
       setLoading(false);
     }
@@ -280,7 +355,13 @@ export default function GatewayPage() {
       dir="rtl"
     >
       <AnimatePresence>
-        {showGuestTransition && <GuestTransitionOverlay />}
+        {showGuestTransition && (
+          <GuestTransitionOverlay
+            status={guestTransitionStatus}
+            onRetry={handleExploreMap}
+            onExit={handleExitGuestTransition}
+          />
+        )}
       </AnimatePresence>
 
       <div className="relative z-10 w-full max-w-md flex flex-col items-center gap-8">

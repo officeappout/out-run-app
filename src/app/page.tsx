@@ -13,6 +13,7 @@ import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import BrandedSplashScreen from '@/components/BrandedSplashScreen';
+import { useToast } from '@/components/ui/Toast';
 
 // localStorage key written by `auth.service.ts` on every positive auth
 // emission and cleared in `signOutUser`. Read here on first paint to
@@ -272,6 +273,7 @@ function LoginDrawer({
 
 export default function LandingPage() {
   const router = useRouter();
+  const { showToast } = useToast();
   const [loadingProvider, setLoadingProvider] = useState<'google' | 'apple' | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -491,15 +493,23 @@ export default function LandingPage() {
     try {
       const proceeded = await runExploreMapFlow(router);
       if (!proceeded) {
+        // resolveUser() already logged AUTH_ANONYMOUS (run-explore-map-
+        // flow.ts's single chokepoint) — this is the visible half (P0-1,
+        // 24.09.2026). Falling back to 'guest' already returns to the real,
+        // interactive landing UI underneath the splash — that IS the exit —
+        // the toast is what was missing: without it the button silently did
+        // nothing and the user had no idea why.
         quickSignupInFlightRef.current = false;
         setAuthState('guest');
+        showToast('error', 'החיבור לא הצליח. נסו שוב.');
       }
     } catch (error) {
       console.error('[Landing] Quick signup error:', error);
       quickSignupInFlightRef.current = false;
       setAuthState('guest');
+      showToast('error', 'החיבור לא הצליח. נסו שוב.');
     }
-  }, [router]);
+  }, [router, showToast]);
 
   // ── Secondary: "התחברות" → Open login drawer ──
   const handleLoginOpen = useCallback(() => {
