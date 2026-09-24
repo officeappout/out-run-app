@@ -41,11 +41,39 @@ function isFinalLeg(s: HybridRunState): boolean {
   return !s.plan.slice(s.cursor + 1).some((seg) => seg.kind === 'strength');
 }
 
+/**
+ * Station-approach moment (David, 25.09.2026): the upcoming station's real
+ * coordinates + the CURRENT leg's activity type (walking/running — picks
+ * which APPROACH_THRESHOLD_METERS constant applies), or null when there's
+ * no station immediately ahead (mid-final-leg, or already at/past a
+ * station). Computed once per phase transition, same pattern as
+ * isFinalLeg above — NOT a continuous subscription (tick() isn't wired
+ * into this store; that's a separate item, not bundled here). The
+ * component combines this with the live position from useRunningPlayer to
+ * derive the actual approach state at render time.
+ */
+function computeUpcomingStation(s: HybridRunState): UpcomingStationInfo | null {
+  if (s.phase !== 'aerobic') return null;
+  const next = s.plan[s.cursor + 1];
+  if (!next || next.kind !== 'strength' || next.lat == null || next.lng == null) return null;
+  const leg = s.plan[s.cursor];
+  return { lat: next.lat, lng: next.lng, aerobicType: leg?.aerobicType === 'walking' ? 'walking' : 'running' };
+}
+
+/** See computeUpcomingStation. */
+export interface UpcomingStationInfo {
+  lat: number;
+  lng: number;
+  aerobicType: 'walking' | 'running';
+}
+
 export interface HybridRunStore {
   active: boolean;
   phase: HybridPhase;
   stationPlan: WorkoutPlan | null;
   isFinalLeg: boolean;
+  /** See computeUpcomingStation. */
+  upcomingStation: UpcomingStationInfo | null;
   /**
    * Stage 3 (HYBRID_SUMMARY_ENABLED): the just-finished hybrid's finalize result
    * + calories, stashed for HybridSummary to read at render time. Set in
@@ -66,7 +94,11 @@ export interface HybridRunStore {
   arrive: () => void;
   /** StrengthRunner.onComplete — close the station, resume the next leg. */
   completeStation: (exerciseLog?: SegmentExerciseDetail[]) => void;
-  /** "דלג על התחנה" — close the station unrecorded, resume the next leg. */
+  /**
+   * "דלג על התחנה" — close the station unrecorded, resume the next leg.
+   * Also callable from the aerobic phase, during the approach window
+   * (25.09.2026) — see the implementation comment for how that's composed.
+   */
   skipStation: () => void;
   /** "סיים אימון משולב" — finalize, write the single doc, tear down the run. */
   finishHybrid: () => Promise<void>;
@@ -78,6 +110,7 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
   phase: 'idle',
   stationPlan: null,
   isFinalLeg: false,
+  upcomingStation: null,
   finishedHybrid: false,
   lastResult: null,
   lastCalories: 0,
@@ -101,6 +134,7 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
       phase: controllerRef.getPhase(),
       stationPlan: null,
       isFinalLeg: isFinalLeg(controllerRef.getState()),
+      upcomingStation: computeUpcomingStation(controllerRef.getState()),
       // Clear any stale HybridSummary stash from a prior session.
       finishedHybrid: false,
       lastResult: null,
@@ -143,7 +177,7 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
       );
       console.log('[hybrid-media-diag] plan → StrengthRunner:', JSON.stringify(rows, null, 2));
     }
-    set({ phase: controllerRef.getPhase(), stationPlan, isFinalLeg: false });
+    set({ phase: controllerRef.getPhase(), stationPlan, isFinalLeg: false, upcomingStation: null });
   },
 
   completeStation: (exerciseLog) => {
@@ -172,17 +206,41 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
       phase: controllerRef.getPhase(),
       stationPlan: null,
       isFinalLeg: isFinalLeg(controllerRef.getState()),
+      upcomingStation: computeUpcomingStation(controllerRef.getState()),
     });
   },
 
   skipStation: () => {
     if (!controllerRef) return;
+    // Station-approach moment (David, 25.09.2026): the corner "X" is now
+    // visible DURING approach too, not only once at the station — so this
+    // can fire while phase is still 'aerobic' (never arrived). Composed
+    // from the two existing, already-correct primitives rather than a new
+    // reducer path: controllerRef.arrive() closes out the CURRENT leg's
+    // actual distance/duration as of right now (exactly what "stopped
+    // here, didn't reach the station" should record — the run clock is
+    // genuinely still running up to this moment), then skipStation() marks
+    // the just-entered station skipped with ~0 duration, identical to a
+    // skip tapped at the station itself. A literal loosening of the
+    // reducer's `phase !== 'station'` guard instead would need to
+    // re-derive "how far into the run has the skipped station's leg
+    // progressed" without tick() (unwired — separate item, not bundled
+    // here per instruction), risking double-counting; this composition
+    // sidesteps that using events that already exist and are already
+    // tested. Byte-identical to before when already at the station
+    // (phase === 'station' — the `if` below is simply skipped).
+    if (controllerRef.getPhase() === 'aerobic') {
+      const s = useSessionStore.getState();
+      controllerRef.arrive(s.totalDistance || 0, s.totalDuration || 0, Date.now());
+      useSessionStore.getState().pauseSession();
+    }
     controllerRef.skipStation(Date.now());
     useSessionStore.getState().resumeSession(); // resume the run clock for the next leg
     set({
       phase: controllerRef.getPhase(),
       stationPlan: null,
       isFinalLeg: isFinalLeg(controllerRef.getState()),
+      upcomingStation: computeUpcomingStation(controllerRef.getState()),
     });
   },
 
@@ -292,7 +350,7 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
     }
 
     controllerRef = null;
-    set({ active: false, phase: 'done', stationPlan: null, isFinalLeg: false });
+    set({ active: false, phase: 'done', stationPlan: null, isFinalLeg: false, upcomingStation: null });
   },
 
   reset: () => {
@@ -303,6 +361,7 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
       phase: 'idle',
       stationPlan: null,
       isFinalLeg: false,
+      upcomingStation: null,
       finishedHybrid: false,
       lastResult: null,
       lastCalories: 0,
