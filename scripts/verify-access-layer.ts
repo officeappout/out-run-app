@@ -30,6 +30,12 @@
  *     authority_manager / a plain user with no role at all ("cali") all
  *     resolve EXACTLY as before this stage.
  *
+ * Also covers GET /api/units/member-workouts (the GPS-leak fix, David's
+ * decision #2) — added 24.09.2026 per David's explicit request for the 5
+ * items (authorization, cross-unit uid, failure shape, the .select() field
+ * list, and negative tests) before Stage 4 merges. See the dedicated
+ * section below for the full breakdown.
+ *
  * Usage:
  *   firebase emulators:start --only firestore
  *   DOTENV_CONFIG_PATH=.env.local npx tsx -r dotenv/config scripts/verify-access-layer.ts
@@ -69,6 +75,7 @@ async function main() {
   const { computeAdminScope } = await import('../src/lib/firebase-admin');
   const { decideAdminGateAction } = await import('../src/middleware');
   const { resolveUnitPermissionScope } = await import('../src/lib/unitPermissionScope');
+  const { computeMemberWorkouts } = await import('../src/app/api/units/member-workouts/route');
 
   const run = Date.now();
   const rootEmail = 'david@appout.co.il';
@@ -99,6 +106,35 @@ async function main() {
   await db.collection('authorities').doc(tenantId).set({ type: 'military_unit', managerIds: [tenantOwnerUid] });
   await db.collection('tenants').doc(tenantId).collection('units').doc(unitId)
     .set({ name: 'Unit', unitPath: ['Tenant', 'Unit'], unitType: 'battalion', memberCount: 0, managerIds: [unitAdminUid] });
+
+  // ── Seed for /api/units/member-workouts ─────────────────────────────────
+  const unitId2 = `unit2-${run}`; // a second unit under the SAME tenant, no manager
+  await db.collection('tenants').doc(tenantId).collection('units').doc(unitId2)
+    .set({ name: 'Unit 2', unitPath: ['Tenant', 'Unit 2'], unitType: 'battalion', memberCount: 0 });
+
+  const otherTenantId = `other-tenant-${run}`;
+  const otherUnitId = `other-unit-${run}`;
+  await db.collection('authorities').doc(otherTenantId).set({ type: 'military_unit', managerIds: [] });
+  await db.collection('tenants').doc(otherTenantId).collection('units').doc(otherUnitId)
+    .set({ name: 'Other Unit', unitPath: ['Other Tenant', 'Other Unit'], unitType: 'battalion', memberCount: 0 });
+
+  const memberOwnUnitUid = `member-own-unit-${run}`; // in unitId — unitAdminUid's own unit
+  const memberOtherUnitUid = `member-other-unit-${run}`; // in unitId2 — same tenant, NOT unitAdminUid's unit
+  const memberOtherTenantUid = `member-other-tenant-${run}`; // in a completely different tenant
+
+  await db.collection('users').doc(memberOwnUnitUid).set({ core: { name: 'חבר יחידה', tenantId, unitId } });
+  await db.collection('users').doc(memberOtherUnitUid).set({ core: { name: 'חבר יחידה אחרת', tenantId, unitId: unitId2 } });
+  await db.collection('users').doc(memberOtherTenantUid).set({ core: { name: 'חבר גוף אחר', tenantId: otherTenantId, unitId: otherUnitId } });
+
+  const now = admin.firestore.Timestamp.now();
+  await db.collection('workouts').add({
+    userId: memberOwnUnitUid,
+    workoutTitle: 'ריצת בוקר',
+    type: 'running',
+    completedAt: now,
+    durationMinutes: 32,
+    routePath: [{ lat: 31.5, lng: 34.7 }, { lat: 31.51, lng: 34.71 }], // must NEVER reach the response
+  });
 
   // ══════════════════════════════════════════════════════════════════════
   console.log('── computeAdminScope: regression — roles unaffected by this stage ──');
@@ -224,6 +260,82 @@ async function main() {
       middlewareSrc.indexOf('export interface GateSessionInfo'),
     );
     assert('AUTHORITY_MANAGER_ALLOWED_PATHS contains no /api path (that gate is separate, untouched)', !allowlistBlock.includes("'/api"));
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // GET /api/units/member-workouts — the GPS-leak fix (David's decision #2,
+  // and the 5 items David asked to be reported + tested before merge,
+  // 24.09.2026):
+  //   1. who's authorized to read — root (anyone), tenant_owner (member's
+  //      core.tenantId matches caller's own), unit_admin (member's
+  //      core.tenantId/unitId both match one of the caller's own units).
+  //   2. a uid from another unit (same tenant, or a different tenant
+  //      entirely) — 403, the SAME generic message as every other denial.
+  //   3. what's returned on failure — {error: DENIED_MESSAGE} + 403 for
+  //      every authorization failure (denied scope, wrong domain, unknown
+  //      uid) — never a distinguishable message, never a 200 with an empty
+  //      array standing in for "not allowed."
+  //   4. the full field list read via .select() — EXACTLY workoutTitle,
+  //      type, completedAt, durationMinutes. routePath is asserted absent
+  //      from the response below, proven by seeding a real routePath and
+  //      confirming it never appears — not just "the code doesn't render
+  //      it," the field is never fetched from Firestore at all.
+  //   5. emulator tests for the negatives — this whole section.
+  console.log('\n── GET /api/units/member-workouts: authorization + field list ─');
+  {
+    const rootScope = await resolveUnitPermissionScope(rootUid);
+    const result = await computeMemberWorkouts(db, rootScope, memberOwnUnitUid);
+    assert('root: reads any member\'s workouts: 200', result.status === 200);
+  }
+  {
+    const tenantOwnerScope = await resolveUnitPermissionScope(tenantOwnerUid);
+    const result = await computeMemberWorkouts(db, tenantOwnerScope, memberOwnUnitUid);
+    assert('tenant_owner: reads a member within their own tenant: 200', result.status === 200);
+  }
+  {
+    const unitAdminScope = await resolveUnitPermissionScope(unitAdminUid);
+    const result = await computeMemberWorkouts(db, unitAdminScope, memberOwnUnitUid);
+    assert('unit_admin: reads a member within their own unit: 200', result.status === 200);
+    if (result.status === 200) {
+      const workouts = (result.body as any).workouts;
+      assert('response includes exactly 1 seeded workout', workouts.length === 1);
+      const w = workouts[0];
+      const fields = Object.keys(w).sort();
+      assert('response fields are EXACTLY id/workoutTitle/type/completedAtMs/durationMinutes — nothing else', JSON.stringify(fields) === JSON.stringify(['completedAtMs', 'durationMinutes', 'id', 'type', 'workoutTitle'].sort()));
+      assert('routePath NEVER appears anywhere in the response, even though it was seeded on the source doc', !JSON.stringify(result.body).includes('routePath') && !JSON.stringify(result.body).includes('lat'));
+      assert('workoutTitle carries through correctly', w.workoutTitle === 'ריצת בוקר');
+      assert('durationMinutes carries through correctly', w.durationMinutes === 32);
+    }
+  }
+
+  console.log('\n── member-workouts negatives: uid from a DIFFERENT unit/tenant ─');
+  {
+    const unitAdminScope = await resolveUnitPermissionScope(unitAdminUid);
+    const sameTenantResult = await computeMemberWorkouts(db, unitAdminScope, memberOtherUnitUid);
+    assert('unit_admin reading a member of a DIFFERENT unit (same tenant): 403', sameTenantResult.status === 403);
+
+    const otherTenantResult = await computeMemberWorkouts(db, unitAdminScope, memberOtherTenantUid);
+    assert('unit_admin reading a member of a completely different tenant: 403', otherTenantResult.status === 403);
+
+    assert('both denials use the IDENTICAL message — no way to tell "wrong unit" from "wrong tenant"', JSON.stringify(sameTenantResult.body) === JSON.stringify(otherTenantResult.body));
+  }
+  {
+    const tenantOwnerScope = await resolveUnitPermissionScope(tenantOwnerUid);
+    const result = await computeMemberWorkouts(db, tenantOwnerScope, memberOtherTenantUid);
+    assert('tenant_owner reading a member of a DIFFERENT tenant: 403', result.status === 403);
+  }
+  {
+    const regularScope = await resolveUnitPermissionScope(regularUid);
+    assert('regular user resolves to denied scope', regularScope.kind === 'denied');
+    const result = await computeMemberWorkouts(db, regularScope, memberOwnUnitUid);
+    assert('a regular (denied-scope) user reading ANYONE\'s workouts: 403', result.status === 403);
+  }
+  {
+    const unitAdminScope = await resolveUnitPermissionScope(unitAdminUid);
+    const nonexistentResult = await computeMemberWorkouts(db, unitAdminScope, `no-such-user-${run}`);
+    assert('unit_admin reading a NONEXISTENT uid: 403, not a crash', nonexistentResult.status === 403);
+    const wrongUnitResult = await computeMemberWorkouts(db, unitAdminScope, memberOtherUnitUid);
+    assert('nonexistent-uid denial is IDENTICAL to a real-but-wrong-unit denial — no existence leak', JSON.stringify(nonexistentResult.body) === JSON.stringify(wrongUnitResult.body));
   }
 
   console.log(`\n${passed} passed, ${failed} failed.`);
