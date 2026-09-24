@@ -116,6 +116,19 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
         },
         onboardingStatus: 'COMPLETED',
         onboardingStep: 'COMPLETED',
+        // P0-2 (24.09.2026, see docs/audit-2026-09/00-MASTER-PLAN.md
+        // §13.23): a redundant completion signal, on top of the
+        // onboardingStatus/onboardingStep fields above. page.tsx and
+        // gateway/page.tsx's resume-router already check
+        // `onboardingStatus === 'COMPLETED' || onboardingComplete` — but
+        // this write never set onboardingComplete, so that OR-check was
+        // dead weight against exactly the race it looks like it should
+        // guard against. useOnboardingStore's debounced write no longer
+        // touches onboardingStep/onboardingStatus at all (the actual fix —
+        // see syncOnboardingToFirestore's skipProgressFields), so this
+        // isn't the primary defense; it's here so the check above is
+        // genuinely meaningful, not just for THIS race.
+        onboardingComplete: true,
         updatedAt: serverTimestamp(),
       }, { merge: true });
 

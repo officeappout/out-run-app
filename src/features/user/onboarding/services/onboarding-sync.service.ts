@@ -194,7 +194,7 @@ async function ensureAuthenticated(): Promise<User | null> {
 export async function syncOnboardingToFirestore(
   step: OnboardingStepId,
   data: Partial<OnboardingData>,
-  options?: { isJitEdit?: boolean }
+  options?: { isJitEdit?: boolean; skipProgressFields?: boolean }
 ): Promise<boolean> {
   // A JIT edit re-saves ONE already-onboarded field (equipment, weight, schedule, ...)
   // through the same 'COMPLETED' step/status this function otherwise uses for a genuine
@@ -210,6 +210,25 @@ export async function syncOnboardingToFirestore(
   // wizard — so `step` itself stays 'COMPLETED'; only the side-effect blocks below are
   // gated on `!isJitEdit`.
   const isJitEdit = options?.isJitEdit ?? false;
+  // P0-2 (24.09.2026, see docs/audit-2026-09/00-MASTER-PLAN.md §13.23):
+  // useOnboardingStore's debounced (400ms) dispatchSync calls this function on
+  // every updateData()/setStep() with whatever `step` happens to be in the
+  // store — which is 'PERSONA' for its entire lifetime in the live app,
+  // because nothing ever calls setStep() (confirmed: zero real callers).
+  // That "light" write used to unconditionally set onboardingStep/
+  // onboardingStatus below, racing the "heavy" completion write a page does
+  // after real async work (health/page.tsx's running-bridge + activeProgram
+  // generation, LifestyleWizard's handleFinalSubmit after push-notification
+  // setup) — whichever write's own Firestore round-trip resolves LAST wins,
+  // silently reverting a just-completed user back to ONBOARDING/PERSONA.
+  // skipProgressFields is the fix: the debounced light write's only real job
+  // is persisting in-progress selections (personas, schedule, equipment,
+  // ...), never a real step/status transition — so it now omits both keys
+  // entirely rather than trying to arbitrate who wins a race (a read-check-
+  // write guard would itself race the same way; omitting the keys removes
+  // the second writer from these two fields altogether — single-writer,
+  // structurally race-proof, not merely race-resistant).
+  const skipProgressFields = options?.skipProgressFields ?? false;
   try {
     // Ensure user is authenticated (anonymous if needed)
     const user = await ensureAuthenticated();
@@ -281,10 +300,18 @@ export async function syncOnboardingToFirestore(
     const updateData: any = {
       id: user.uid,
       lastActive: serverTimestamp(),
-      onboardingStep: step,
-      onboardingStatus: step === 'COMPLETED' ? 'COMPLETED' : 'ONBOARDING',
       updatedAt: serverTimestamp(),
     };
+    // P0-2: omitted entirely (not written as undefined — an absent key
+    // leaves the existing Firestore value untouched under merge:true;
+    // `undefined` would too, via this file's own sanitizeObject() below,
+    // but never writing the key in the first place is the clearer contract)
+    // when this is the debounced light write — see the option's own doc
+    // comment above for why.
+    if (!skipProgressFields) {
+      updateData.onboardingStep = step;
+      updateData.onboardingStatus = step === 'COMPLETED' ? 'COMPLETED' : 'ONBOARDING';
+    }
 
     // ── Growth Hub Phase 3 — Marketing Attribution flush ──────────────
     // Run exactly once per user at the COMPLETED write gate. We do this

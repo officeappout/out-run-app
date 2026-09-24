@@ -1145,3 +1145,78 @@ describe('syncOnboardingToFirestore — Phase 3 (union-based program/track creat
     expect(written.progression.activePrograms.some((p: any) => p.id === 'calisthenics_upper')).toBe(true);
   });
 });
+
+// P0-2 (24.09.2026, see docs/audit-2026-09/00-MASTER-PLAN.md §13.23): proves
+// the actual scenario, not just the fix's mechanism in isolation — two
+// parallel writers (useOnboardingStore's debounced "light" write, and a
+// page's real completion "heavy" write) racing on the same user doc, in
+// BOTH possible arrival orders. `skipProgressFields` (the light write's new
+// option) means the light write's payload never contains onboardingStep/
+// onboardingStatus at all — simulated here with a real shallow merge
+// (Object.assign) onto an accumulated doc, which is exactly how Firestore's
+// own `merge: true` behaves for top-level scalar fields, the only kind
+// these two fields are.
+describe('syncOnboardingToFirestore — P0-2: onboardingStatus/onboardingStep race', () => {
+  it('light write lands AFTER the heavy COMPLETED write — COMPLETED survives (the actual bug scenario)', async () => {
+    stubBrowserStorage();
+    const finalDoc: Record<string, unknown> = {};
+
+    const heavyOk = await syncOnboardingToFirestore('COMPLETED', { core: { name: 'Dana' } } as any);
+    expect(heavyOk).toBe(true);
+    Object.assign(finalDoc, setDocMock.mock.calls[0][1]);
+    expect(finalDoc.onboardingStatus).toBe('COMPLETED');
+
+    setDocMock.mockClear();
+    const lightOk = await syncOnboardingToFirestore(
+      'PERSONA',
+      { scheduleDays: ['א'] } as any,
+      { skipProgressFields: true },
+    );
+    expect(lightOk).toBe(true);
+    const lightPayload = setDocMock.mock.calls[0][1] as Record<string, unknown>;
+    expect(lightPayload).not.toHaveProperty('onboardingStep');
+    expect(lightPayload).not.toHaveProperty('onboardingStatus');
+    Object.assign(finalDoc, lightPayload);
+
+    // The light write landing last must NOT have reverted the status.
+    expect(finalDoc.onboardingStatus).toBe('COMPLETED');
+    expect(finalDoc.onboardingStep).toBe('COMPLETED');
+  });
+
+  it('light write lands BEFORE the heavy COMPLETED write — COMPLETED still lands correctly (the normal order)', async () => {
+    stubBrowserStorage();
+    const finalDoc: Record<string, unknown> = {};
+
+    const lightOk = await syncOnboardingToFirestore(
+      'PERSONA',
+      { scheduleDays: ['א'] } as any,
+      { skipProgressFields: true },
+    );
+    expect(lightOk).toBe(true);
+    Object.assign(finalDoc, setDocMock.mock.calls[0][1]);
+    // The light write alone never claims a status at all.
+    expect(finalDoc.onboardingStatus).toBeUndefined();
+    expect(finalDoc.onboardingStep).toBeUndefined();
+
+    setDocMock.mockClear();
+    const heavyOk = await syncOnboardingToFirestore('COMPLETED', { core: { name: 'Dana' } } as any);
+    expect(heavyOk).toBe(true);
+    Object.assign(finalDoc, setDocMock.mock.calls[0][1]);
+
+    expect(finalDoc.onboardingStatus).toBe('COMPLETED');
+    expect(finalDoc.onboardingStep).toBe('COMPLETED');
+  });
+
+  it('without skipProgressFields (pre-fix call shape), the light write DOES clobber a completed status — pins the bug this fix closes', async () => {
+    stubBrowserStorage();
+    const finalDoc: Record<string, unknown> = { onboardingStatus: 'COMPLETED', onboardingStep: 'COMPLETED' };
+
+    // Same call the store used to make, with no options at all.
+    await syncOnboardingToFirestore('PERSONA', { scheduleDays: ['א'] } as any);
+    const payload = setDocMock.mock.calls[0][1] as Record<string, unknown>;
+    expect(payload.onboardingStatus).toBe('ONBOARDING'); // the old, unconditional behavior
+    Object.assign(finalDoc, payload);
+
+    expect(finalDoc.onboardingStatus).toBe('ONBOARDING'); // reverted — this is the bug, pinned
+  });
+});

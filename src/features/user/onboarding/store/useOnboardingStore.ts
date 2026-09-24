@@ -68,7 +68,19 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => {
     syncDebounceTimer = null;
     const myGeneration = syncGeneration;
     const state = get();
-    return syncOnboardingToFirestore(state.currentStep, { ...state.data, onboardingCoins: state.coins })
+    // P0-2 (24.09.2026, see docs/audit-2026-09/00-MASTER-PLAN.md §13.23):
+    // skipProgressFields — this debounced write's only job is persisting
+    // in-progress selections (personas, schedule, equipment, ...); it must
+    // never also claim onboardingStep/onboardingStatus, which raced a
+    // page's real completion write (whichever write's Firestore round-trip
+    // resolved last won, silently reverting a just-completed user back to
+    // ONBOARDING/PERSONA). See syncOnboardingToFirestore's own doc comment
+    // on the option for the full mechanism.
+    return syncOnboardingToFirestore(
+      state.currentStep,
+      { ...state.data, onboardingCoins: state.coins },
+      { skipProgressFields: true },
+    )
       .then((ok) => {
         if (myGeneration !== syncGeneration) return;
         set({ syncError: ok ? null : SYNC_ERROR_MESSAGE });
