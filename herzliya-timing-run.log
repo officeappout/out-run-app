@@ -1,0 +1,188 @@
+21:31:53 ◇ injected env (28) from .env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+21:31:53 ◇ injected env (0) from .env // tip: ⌘ override existing { override: true }
+21:31:53 📍 Loaded region "herzliya" from city_registrations (not in-file REGIONS).
+21:31:53 
+21:31:53 === GEO-DISCOVERY — region: הרצליה (herzliya) ===
+21:31:55 resolved authority: הרצליה → 1O54R5EOghNYylTEhxJa
+21:31:55 loading Terrain-RGB DEM tiles …
+21:31:56   decoded 16 tiles
+21:31:56 fetching admin boundary polygon (relation/1382820, clip-filter only — not used as discovery scope) …
+21:33:01   overpass overpass.kumi.systems → HTTP 504, retry…
+21:33:52   overpass overpass.private.coffee → HTTP 504, retry…
+21:34:08   overpass overpass-api.de → HTTP 504, retry…
+21:37:14   overpass overpass.kumi.systems → HTTP 504, retry…
+21:37:28   boundary polygon loaded: 221 vertices
+21:37:28 fetching road network (sidewalk-adjacency reference) …
+21:38:10   overpass overpass.kumi.systems → HTTP 504, retry…
+21:38:54   overpass overpass.private.coffee → HTTP 504, retry…
+21:39:01   22170 road segments loaded for the parallel-to-road test.
+21:39:01 discovering marked trails (route relations) …
+21:39:12 discovering named parks/gardens (leisure=park|garden) …
+21:42:06   overpass overpass.kumi.systems → HTTP 504, retry…
+21:42:49   overpass overpass.private.coffee → HTTP 504, retry…
+21:43:07   overpass overpass-api.de → HTTP 504, retry…
+21:43:20 fetching coastline (natural=coastline) for the short-way specialness signal …
+21:43:28   park/garden rings: 109 named, 39 clear the 5000m² significance threshold: גינת וריזלנד, גן שמואל תמיר, הספורטק הישן, פארק הרצליה, גבעת הפרחים, גן ארנה, גינת יאן רוצ'נסקי, פארק מנור, פארק רבין, Gan Alof, גן הנשיאים, גן הבנים, גן די נור, גן מנחם בגין, גינת אהרון חרסינה, גן המלכים, חורשת ניסנוב, גן סחלב, גן משה דיין, גינת רועי קליין, גינת גל, גן קרית שרת, גינת יקינטון, גן החרצית, גן זרובבל, חצר בית קינן, גן עציון, הספורטק החדש, גן משה וילנסקי, גינת נצבא, פארק המקפצה, גינת חגי, גן נאות עוזי, אקופארק אפולוניה, גן לאומי אפולוניה - תל ארשף, ספורטק הרצליה, פארק גליל ים, גן הנבל, פארק רעננה
+21:43:28 discovering standalone paths / loops (footway|path|track|pedestrian|cycleway) + same-named street continuations + unnamed bridge connectors …
+21:46:19   overpass overpass.kumi.systems → HTTP 504, retry…
+21:46:33 discovering road bike lanes (cycleway=lane|track|opposite_lane|opposite_track or cycleway:left/right) …
+21:46:42 fetching walkable-way graph for 109 park perimeter(s) (footway|path|track|pedestrian|cycleway|steps|living_street|residential|service|tertiary|unclassified) …
+21:49:04   graph: 9383 ways, 45382 nodes, 45382 nodes with edges.
+21:49:04 
+21:49:04 ── park-loop rebuild ("הקפת X") — polygon perimeter vs. real walkable-graph loop ──
+21:49:04 Name                                    OldPerim  NewLength  Verdict   MaxDistFromPoly   Coverage%   LongestRun%  Reason
+21:49:04 גינת וריזלנד                                628m          —  DROPPED                 —           —             —  anchor 6/11 has no walkable way within 42m — no real perimeter path here
+21:49:04 גן שמואל תמיר                               471m       472m     KEPT               13m        100%         52.5%
+21:49:04 הספורטק הישן                                777m       918m     KEPT               65m        100%           40%
+21:49:04 פארק הרצליה                                1910m          —  DROPPED                 —           —             —  no walkable path between anchor 3 and 4 within 922m
+21:49:04 גבעת הפרחים                                 380m          —  DROPPED                 —           —             —  polygon perimeter 380m outside the [400,15000]m loop window
+21:49:04 גן איתן                                     414m       377m     KEPT                9m        100%         63.6%
+21:49:04 גן ארנה                                     334m          —  DROPPED                 —           —             —  polygon perimeter 334m outside the [400,15000]m loop window
+21:49:04 גינת יאן רוצ'נסקי                           348m          —  DROPPED                 —           —             —  polygon perimeter 348m outside the [400,15000]m loop window
+21:49:04 גינה קהילתית                                202m          —  DROPPED                 —           —             —  polygon perimeter 202m outside the [400,15000]m loop window
+21:49:04 פארק מנור                                   336m          —  DROPPED                 —           —             —  polygon perimeter 336m outside the [400,15000]m loop window
+21:49:04 פארק רבין                                  1746m      1289m     KEPT               35m        100%         25.7%
+21:49:04 Gan Alof                                    556m       245m     KEPT               16m        100%         27.3%
+21:49:04 גן אורן                                     294m          —  DROPPED                 —           —             —  polygon perimeter 294m outside the [400,15000]m loop window
+21:49:04 גן התפוז                                    191m          —  DROPPED                 —           —             —  polygon perimeter 191m outside the [400,15000]m loop window
+21:49:04 גן הנשיאים                                  759m       639m     KEPT               28m        100%         30.4%
+21:49:04 פארק הספורט                                 247m          —  DROPPED                 —           —             —  polygon perimeter 247m outside the [400,15000]m loop window
+21:49:04 גן הבנים                                    649m       469m     KEPT               13m        100%         52.9%
+21:49:04 גינת מיכל                                   177m          —  DROPPED                 —           —             —  polygon perimeter 177m outside the [400,15000]m loop window
+21:49:04 גן די נור                                   696m       774m     KEPT               22m        100%         12.8%
+21:49:04 גן מנשה                                     275m          —  DROPPED                 —           —             —  polygon perimeter 275m outside the [400,15000]m loop window
+21:49:04 גן בית ראשונים                              219m          —  DROPPED                 —           —             —  polygon perimeter 219m outside the [400,15000]m loop window
+21:49:04 גן מנחם בגין                               1827m      1324m     KEPT               11m        100%         14.7%
+21:49:04 גן עידן                                     274m          —  DROPPED                 —           —             —  polygon perimeter 274m outside the [400,15000]m loop window
+21:49:04 גן הטבק                                     169m          —  DROPPED                 —           —             —  polygon perimeter 169m outside the [400,15000]m loop window
+21:49:04 גינת אהרון חרסינה                           888m       844m     KEPT               43m        100%         21.3%
+21:49:04 גן המלכים                                   962m       805m     KEPT               36m        100%         28.1%
+21:49:04 גן אייל                                     180m          —  DROPPED                 —           —             —  polygon perimeter 180m outside the [400,15000]m loop window
+21:49:04 חורשת ניסנוב                                409m       427m     KEPT                4m        100%         88.5%
+21:49:04 גן סחלב                                     461m       158m     KEPT               14m        100%         33.3%
+21:49:04 גן משה דיין                                 414m       673m     KEPT               70m        100%         19.4%
+21:49:04 גן הכוכב                                    187m          —  DROPPED                 —           —             —  polygon perimeter 187m outside the [400,15000]m loop window
+21:49:04 גן נחום גוטמן                               365m          —  DROPPED                 —           —             —  polygon perimeter 365m outside the [400,15000]m loop window
+21:49:04 גינה ציבורית                                191m          —  DROPPED                 —           —             —  polygon perimeter 191m outside the [400,15000]m loop window
+21:49:04 גינת רועי קליין                             389m          —  DROPPED                 —           —             —  polygon perimeter 389m outside the [400,15000]m loop window
+21:49:04 גינת גל                                     713m       567m     KEPT               15m        100%         16.7%
+21:49:04 גן קרית שרת                                 685m       574m     KEPT               12m        100%         46.9%
+21:49:04 Pat Garden                                  122m          —  DROPPED                 —           —             —  polygon perimeter 122m outside the [400,15000]m loop window
+21:49:04 Sarig Garden                                273m          —  DROPPED                 —           —             —  polygon perimeter 273m outside the [400,15000]m loop window
+21:49:04 גן הראשונים                                 243m          —  DROPPED                 —           —             —  polygon perimeter 243m outside the [400,15000]m loop window
+21:49:04 גינת יוסי שוורצנברג                         286m          —  DROPPED                 —           —             —  polygon perimeter 286m outside the [400,15000]m loop window
+21:49:04 גינה ציבורית                                315m          —  DROPPED                 —           —             —  polygon perimeter 315m outside the [400,15000]m loop window
+21:49:04 גן משחקים אביבי הרצליה                       91m          —  DROPPED                 —           —             —  polygon perimeter 91m outside the [400,15000]m loop window
+21:49:04 גינת יקינטון                               1126m       925m     KEPT               27m        100%         13.1%
+21:49:04 גן החרצית                                   412m       331m     KEPT               22m        100%         44.4%
+21:49:04 גן ציבורי                                   145m          —  DROPPED                 —           —             —  polygon perimeter 145m outside the [400,15000]m loop window
+21:49:04 גן טננבאום                                  384m          —  DROPPED                 —           —             —  polygon perimeter 384m outside the [400,15000]m loop window
+21:49:04 גינת שאולי                                  175m          —  DROPPED                 —           —             —  polygon perimeter 175m outside the [400,15000]m loop window
+21:49:04 גן מעוז                                     136m          —  DROPPED                 —           —             —  polygon perimeter 136m outside the [400,15000]m loop window
+21:49:04 Avuka Garden                                240m          —  DROPPED                 —           —             —  polygon perimeter 240m outside the [400,15000]m loop window
+21:49:04 גינת אריה                                   156m          —  DROPPED                 —           —             —  polygon perimeter 156m outside the [400,15000]m loop window
+21:49:04 גן איתן                                     180m          —  DROPPED                 —           —             —  polygon perimeter 180m outside the [400,15000]m loop window
+21:49:04 גינת ישי                                    185m          —  DROPPED                 —           —             —  polygon perimeter 185m outside the [400,15000]m loop window
+21:49:04 גבעת החלומות                                149m          —  DROPPED                 —           —             —  polygon perimeter 149m outside the [400,15000]m loop window
+21:49:04 גינת עזרא הסופר                             222m          —  DROPPED                 —           —             —  polygon perimeter 222m outside the [400,15000]m loop window
+21:49:04 גן גלעד                                     128m          —  DROPPED                 —           —             —  polygon perimeter 128m outside the [400,15000]m loop window
+21:49:04 גינת הבנים                                  255m          —  DROPPED                 —           —             —  polygon perimeter 255m outside the [400,15000]m loop window
+21:49:04 גינה קהילתית בין-דורית                       67m          —  DROPPED                 —           —             —  polygon perimeter 67m outside the [400,15000]m loop window
+21:49:04 גינת גאולה                                  215m          —  DROPPED                 —           —             —  polygon perimeter 215m outside the [400,15000]m loop window
+21:49:04 גן זרובבל                                  1576m      1034m     KEPT               21m        100%         38.2%
+21:49:04 חצר בית קינן                                404m       513m     KEPT               51m        100%         22.9%
+21:49:04 גן עציון                                    457m       368m     KEPT               23m        100%         46.2%
+21:49:04 גינה קהילתית                                227m          —  DROPPED                 —           —             —  polygon perimeter 227m outside the [400,15000]m loop window
+21:49:04 גן יגאל ידין                                262m          —  DROPPED                 —           —             —  polygon perimeter 262m outside the [400,15000]m loop window
+21:49:04 הספורטק החדש                                736m       859m     KEPT               65m        100%         24.2%
+21:49:04 גן משה וילנסקי                             1930m          —  DROPPED                 —           —             —  leg 12→13 requires a 7.3x detour (329m for a 45m gap) — not a real local perimeter path
+21:49:04 גן אפשטיין                                  339m          —  DROPPED                 —           —             —  polygon perimeter 339m outside the [400,15000]m loop window
+21:49:04 גן גורדון                                   319m          —  DROPPED                 —           —             —  polygon perimeter 319m outside the [400,15000]m loop window
+21:49:04 גינת שמעון                                   90m          —  DROPPED                 —           —             —  polygon perimeter 90m outside the [400,15000]m loop window
+21:49:04 גינת נח                                     112m          —  DROPPED                 —           —             —  polygon perimeter 112m outside the [400,15000]m loop window
+21:49:04 גבעת מרדכי                                  202m          —  DROPPED                 —           —             —  polygon perimeter 202m outside the [400,15000]m loop window
+21:49:04 גינת רזיאל                                  167m          —  DROPPED                 —           —             —  polygon perimeter 167m outside the [400,15000]m loop window
+21:49:04 גן שפינוזה צפון                             467m          —  DROPPED                 —           —             —  assembled loop collapsed to a degenerate path after backtrack-trimming — essentially all out-and-back, no real forward loop
+21:49:04 Moore Garden                                169m          —  DROPPED                 —           —             —  polygon perimeter 169m outside the [400,15000]m loop window
+21:49:04 גינת הפרפרים                                 62m          —  DROPPED                 —           —             —  polygon perimeter 62m outside the [400,15000]m loop window
+21:49:04 גינת זאב                                    187m          —  DROPPED                 —           —             —  polygon perimeter 187m outside the [400,15000]m loop window
+21:49:04 הנרייטה סולד                                 97m          —  DROPPED                 —           —             —  polygon perimeter 97m outside the [400,15000]m loop window
+21:49:04 גינת ענפה                                    99m          —  DROPPED                 —           —             —  polygon perimeter 99m outside the [400,15000]m loop window
+21:49:04 יער מאכל קהילתי                             282m          —  DROPPED                 —           —             —  polygon perimeter 282m outside the [400,15000]m loop window
+21:49:04 גינת נצבא                                   470m          —  DROPPED                 —           —             —  anchor 1/5 has no walkable way within 42m — no real perimeter path here
+21:49:04 גינת עפרה חזה                               206m          —  DROPPED                 —           —             —  polygon perimeter 206m outside the [400,15000]m loop window
+21:49:04 גינת ברנזון                                 361m          —  DROPPED                 —           —             —  polygon perimeter 361m outside the [400,15000]m loop window
+21:49:04 גינה קהילתית ויצמן                          158m          —  DROPPED                 —           —             —  polygon perimeter 158m outside the [400,15000]m loop window
+21:49:04 גן ציבורי איילת חן                           93m          —  DROPPED                 —           —             —  polygon perimeter 93m outside the [400,15000]m loop window
+21:49:04 גן פרץ                                      305m          —  DROPPED                 —           —             —  polygon perimeter 305m outside the [400,15000]m loop window
+21:49:04 גן התקומה                                   212m          —  DROPPED                 —           —             —  polygon perimeter 212m outside the [400,15000]m loop window
+21:49:04 גן רום 2000                                 156m          —  DROPPED                 —           —             —  polygon perimeter 156m outside the [400,15000]m loop window
+21:49:04 פארק המקפצה                                 534m       576m     KEPT               12m        100%         37.1%
+21:49:04 גן אסירי ציון-צפוני                         137m          —  DROPPED                 —           —             —  polygon perimeter 137m outside the [400,15000]m loop window
+21:49:04 גן אסירי ציון-דרומי                         328m          —  DROPPED                 —           —             —  polygon perimeter 328m outside the [400,15000]m loop window
+21:49:04 גינת חגי                                    694m       618m     KEPT               15m        100%           19%
+21:49:04 גן נאות עוזי                               1391m          —  DROPPED                 —           —             —  anchor 4/15 has no walkable way within 42m — no real perimeter path here
+21:49:04 גן גמלא                                     148m          —  DROPPED                 —           —             —  polygon perimeter 148m outside the [400,15000]m loop window
+21:49:04 גן מעונות שרה                               242m          —  DROPPED                 —           —             —  polygon perimeter 242m outside the [400,15000]m loop window
+21:49:04 גן אלון                                     162m          —  DROPPED                 —           —             —  polygon perimeter 162m outside the [400,15000]m loop window
+21:49:04 גינת השלום                                  127m          —  DROPPED                 —           —             —  polygon perimeter 127m outside the [400,15000]m loop window
+21:49:04 גינת אשר                                    313m          —  DROPPED                 —           —             —  polygon perimeter 313m outside the [400,15000]m loop window
+21:49:04 גינת יעקב חזן                               120m          —  DROPPED                 —           —             —  polygon perimeter 120m outside the [400,15000]m loop window
+21:49:04 גן שפינוזה דרום                             280m          —  DROPPED                 —           —             —  polygon perimeter 280m outside the [400,15000]m loop window
+21:49:04 כיכר יקירי העיר הרצליה                       53m          —  DROPPED                 —           —             —  polygon perimeter 53m outside the [400,15000]m loop window
+21:49:04 כיכר לוחמות השואה                            75m          —  DROPPED                 —           —             —  polygon perimeter 75m outside the [400,15000]m loop window
+21:49:04 גבעת טנא עצי פרי                            171m          —  DROPPED                 —           —             —  polygon perimeter 171m outside the [400,15000]m loop window
+21:49:04 גן מקלט לצמחיה שרונית                       205m          —  DROPPED                 —           —             —  polygon perimeter 205m outside the [400,15000]m loop window
+21:49:04 אקופארק אפולוניה                           3985m          —  DROPPED                 —           —             —  no walkable path between anchor 4 and 5 within 850m
+21:49:04 גן לאומי אפולוניה - תל ארשף                1766m          —  DROPPED                 —           —             —  no walkable path between anchor 4 and 5 within 850m
+21:49:04 ספורטק הרצליה                              1204m      1573m     KEPT               66m        100%         12.4%
+21:49:04 פארק גליל ים                               2719m      2931m     KEPT               46m        100%          9.9%
+21:49:04 גן הנבל                                    1662m      1096m     KEPT               18m        100%         25.2%
+21:49:04 גן הנורית                                   158m          —  DROPPED                 —           —             —  polygon perimeter 158m outside the [400,15000]m loop window
+21:49:04 פארק רעננה                                 2756m          —  DROPPED                 —           —             —  leg 14→15 requires a 13.5x detour (474m for a 35m gap) — not a real local perimeter path
+21:49:04 
+21:49:04 27/109 park loops survive as genuine walkable "הקפת" candidates; 82 dropped (no polygon fallback, no synthetic geometry).
+21:49:04 fetching blocking polygons (water + buildings) for artifact filter …
+21:49:40   overpass overpass.kumi.systems → HTTP 504, retry…
+21:49:59 
+21:49:59 discovered: 2 trail-relations → 3 local lines (0 rejected-for-length, rescued named members) · 27 named park/garden loops · 1 loops · 2 named segments (from 6775 ways, 109 same-name + 5 cross-name stitches, 150 candidates dropped by the recreational-quality gate). road bike lanes: 0 named (from 5 tagged ways). blocking polygons: 15878
+21:49:59 
+21:49:59 Fetching city-wide way grid for quality-certificate composition …
+21:50:40   overpass overpass.kumi.systems → HTTP 504, retry…
+21:50:50   9203 ways fetched (4444 road-category).
+21:50:52 
+21:50:52 AFTER FILTER: 14 routes kept (11 park loops, 1 loops, 1 marked-trail lines), 0 artifacts dropped, 19 dropped as outside the boundary.
+21:50:52   by type: 1 trail · 11 park · 1 loop · 1 named segment · 0 cycling  (13 of these are stitched from >1 OSM way)
+21:50:52    ✗ outside boundary: שביל סובב רעננה — outside boundary (301/301 pts)
+21:50:52    ✗ outside boundary: שביל סובב רעננה — outside boundary (309/309 pts)
+21:50:52    ✗ outside boundary: שביל השדות — outside boundary (13/13 pts)
+21:50:52    ✗ outside boundary: הספורטק הישן — outside boundary (36/36 pts)
+21:50:52    ✗ outside boundary: Gan Alof — outside boundary (12/12 pts)
+21:50:52    ✗ outside boundary: גן הנשיאים — outside boundary (47/47 pts)
+21:50:52    ✗ outside boundary: גן הבנים — outside boundary (18/18 pts)
+21:50:52    ✗ outside boundary: גן מנחם בגין — outside boundary (69/69 pts)
+21:50:52    ✗ outside boundary: גן המלכים — outside boundary (90/90 pts)
+21:50:52    ✗ outside boundary: גן סחלב — outside boundary (25/25 pts)
+21:50:52    ✗ outside boundary: גן משה דיין — outside boundary (32/32 pts)
+21:50:52    ✗ outside boundary: גן קרית שרת — outside boundary (33/33 pts)
+21:50:52    ✗ outside boundary: גינת יקינטון — outside boundary (62/62 pts)
+21:50:52    ✗ outside boundary: גן החרצית — outside boundary (37/37 pts)
+21:50:52    ✗ outside boundary: גן עציון — outside boundary (14/14 pts)
+21:50:52 
+21:50:52 ── candidates (loops first) ──
+21:50:52   🌳 2.931m  gain 12.4m  easy     walking  הקפת פארק גליל ים  [osm:rel/16846976@herzliya] (stitched from 22 ways)
+21:50:52   🌳 1.573m  gain  7.4m  easy     walking  הקפת ספורטק הרצליה  [osm:rel/11973327@herzliya] (stitched from 23 ways)
+21:50:52   🌳 1.289m  gain    7m  easy     walking  הקפת פארק רבין  [osm:way/153085962] (stitched from 15 ways)
+21:50:52   🌳 1.034m  gain  9.4m  easy     walking  הקפת גן זרובבל  [osm:way/866987341] (stitched from 9 ways)
+21:50:52   🔁 0.981m  gain  2.9m  easy     running  לולאת מסלול ריצה 1.5 ק"מ  [osm:stitched/42773140+970220596] (stitched from 2 ways)
+21:50:52   🌳 0.844m  gain 14.3m  easy     walking  הקפת גינת אהרון חרסינה  [osm:way/304049814] (stitched from 11 ways)
+21:50:52   🌳 0.774m  gain  4.9m  easy     walking  הקפת גן די נור  [osm:way/237501789] (stitched from 14 ways)
+21:50:52   🌳 0.567m  gain  8.2m  easy     walking  הקפת גינת גל  [osm:way/490297643] (stitched from 5 ways)
+21:50:52   🌳 0.513m  gain  2.4m  easy     walking  הקפת חצר בית קינן  [osm:way/866991977] (stitched from 11 ways)
+21:50:52   🌳 0.472m  gain  2.8m  easy     walking  הקפת גן שמואל תמיר  [osm:way/28214452] (stitched from 6 ways)
+21:50:52   🌳 0.427m  gain  3.5m  easy     walking  הקפת חורשת ניסנוב  [osm:way/388524582] (stitched from 2 ways)
+21:50:52   🌳 0.377m  gain  2.3m  easy     walking  הקפת גן איתן  [osm:way/45834251] (stitched from 4 ways)
+21:50:52   🥾 8.783m  gain 90.7m  hard     walking  שביל ישראל  [osm:rel/282071@herzliya]
+21:50:52   · 0.803m  gain  2.6m  easy     running  מסלול ריצה 1.5 ק"מ  [osm:stitched/316611948+1300197204+1300204435+1300204436] (stitched from 4 ways)
+21:50:52 
+21:50:52 [dry-run] no writes. 14 pending routes would be written to official_routes (batch herzliya-registration-2026-09-04). Run with --apply to write.
