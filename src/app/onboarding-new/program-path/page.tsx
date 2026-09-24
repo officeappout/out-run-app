@@ -354,8 +354,11 @@ export default function ProgramPathPage() {
     let cancelled = false;
     (async () => {
       try {
+        // SKILL_MASTER_ID is exempt (always selectable) — no need to query its
+        // own content, it never gates.
+        const checkable = SKILL_PROGRAMS.filter((s) => s.id !== SKILL_MASTER_ID);
         const entries = await Promise.all(
-          SKILL_PROGRAMS.map(async (skill) => {
+          checkable.map(async (skill) => {
             const levels = await getOnboardingLevelsForCategory(skill.id);
             return [skill.id, levels.length >= 2] as const;
           })
@@ -1004,7 +1007,12 @@ export default function ProgramPathPage() {
                       const isSelected = selectedSkills.includes(skill.id);
                       const order = !isMaster ? getSkillOrder(skill.id) : null;
                       const iconSrc = SKILL_ICON_PATHS[skill.id];
-                      const isNotReady = readySkillIds !== null && !readySkillIds.has(skill.id);
+                      // calisthenics_upper is the master "all skills" chip — it has no
+                      // ladder of its own by design (see SKILL_TO_FOUNDATION_DOMAIN's own
+                      // comment: skills without a direct foundational pairing are absent
+                      // from that map by design, same reasoning applies here) — always
+                      // selectable regardless of its own authored-level count.
+                      const isNotReady = !isMaster && readySkillIds !== null && !readySkillIds.has(skill.id);
                       // Orange Flow: glow if this chip belongs to the missing
                       // movement pattern and the tip is currently visible.
                       const isRecommended =
@@ -1060,7 +1068,7 @@ export default function ProgramPathPage() {
                             )}
                           </div>
                           {isNotReady && (
-                            <span className="absolute top-1 left-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-500">
+                            <span className="absolute top-1 right-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-500">
                               בקרוב
                             </span>
                           )}

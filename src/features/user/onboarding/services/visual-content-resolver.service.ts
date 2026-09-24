@@ -22,6 +22,21 @@ import type { MultilingualText } from '@/types/onboarding-questionnaire';
 // so we need this mapping to translate slider categories to doc lookups.
 // ────────────────────────────────────────────────────────────────────
 
+/**
+ * Onboarding-facing category id -> real program slug, for cases where the two
+ * have drifted apart. Confirmed live (24.09.2026, skill-gate investigation):
+ * the onboarding skill picker/CANONICAL_PROGRAM_SLUGS use 'hspu', but the
+ * actual programs-collection doc for this skill has slug 'handstand_pushup'
+ * (doc id PAxprHuT7HjqrWU4wl0T) — so 'hspu' was never in loadCategoryMap()
+ * and always fell through to the `?? category` no-op branch below, silently
+ * returning 0 authored levels regardless of real content. Add further
+ * aliases here only when a NEW slug drift like this one is confirmed live —
+ * do not guess.
+ */
+const CANONICAL_SLUG_ALIASES: Record<string, string> = {
+  hspu: 'handstand_pushup',
+};
+
 let categoryProgramMap: Map<string, string> | null = null;
 
 async function loadCategoryMap(): Promise<Map<string, string>> {
@@ -57,7 +72,12 @@ async function resolveCategoryToProgramId(category: string): Promise<string> {
   const masterHash = MASTER_PROGRAM_SLUG_TO_ID[category];
   if (masterHash) return masterHash;
   const map = await loadCategoryMap();
-  return map.get(category) ?? category;
+  if (map.has(category)) return map.get(category)!;
+  // Known onboarding-id -> real-slug drift (see CANONICAL_SLUG_ALIASES doc
+  // comment) — only consulted when the direct lookup above misses.
+  const alias = CANONICAL_SLUG_ALIASES[category];
+  if (alias && map.has(alias)) return map.get(alias)!;
+  return category;
 }
 
 // ── In-memory cache with TTL ────────────────────────────────────────
