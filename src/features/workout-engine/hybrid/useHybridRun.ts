@@ -57,7 +57,18 @@ function computeUpcomingStation(s: HybridRunState): UpcomingStationInfo | null {
   const next = s.plan[s.cursor + 1];
   if (!next || next.kind !== 'strength' || next.lat == null || next.lng == null) return null;
   const leg = s.plan[s.cursor];
-  return { lat: next.lat, lng: next.lng, aerobicType: leg?.aerobicType === 'walking' ? 'walking' : 'running' };
+  return {
+    lat: next.lat,
+    lng: next.lng,
+    aerobicType: leg?.aerobicType === 'walking' ? 'walking' : 'running',
+    // Map-pin blink (25.09.2026): join key against AppMap's hybridStations
+    // markers, which come from a SEPARATE compose pipeline
+    // (start-hybrid-session.ts's ComposedHybridSession, attached to the
+    // route object as .stationMarkers) — not the same array as this
+    // HybridPlan.segments. parkId is the one field both sides already
+    // populate for the same real stop.
+    parkId: next.parkId,
+  };
 }
 
 /** See computeUpcomingStation. */
@@ -65,6 +76,7 @@ export interface UpcomingStationInfo {
   lat: number;
   lng: number;
   aerobicType: 'walking' | 'running';
+  parkId?: string;
 }
 
 export interface HybridRunStore {
