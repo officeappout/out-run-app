@@ -51,18 +51,17 @@ export default function HealthDeclarationPage() {
   // Fires the same completion sync + navigation handleContinue's own submit
   // path would, without re-rendering HealthDeclarationStep (which would
   // re-collect a signature/PDF the user already provided the first time).
-  // On failure (transient network/Firestore error), handleContinue resolves
-  // false rather than throwing — that lets us reset skipGuardRef and surface
-  // a retry affordance instead of leaving the render gate below stuck on
-  // "טוען..." forever with no way for the user to proceed. skipGuardRef
-  // (see skip-attempt-guard.ts) is the same fire-once/reset-on-failure
-  // contract as the plain boolean ref this replaced, extracted so it's
-  // unit-testable without needing component/DOM test infra this repo
-  // doesn't have yet (vitest.config.ts is node-environment, logic-only).
-  const runAutoSkip = async () => {
+  // handleContinue is now SYNCHRONOUS (see below) — it navigates immediately
+  // and only ever returns false for the one genuine, immediate failure
+  // (`!uid`). skipGuardRef (see skip-attempt-guard.ts) is the same
+  // fire-once/reset-on-failure contract as the plain boolean ref this
+  // replaced, extracted so it's unit-testable without needing
+  // component/DOM test infra this repo doesn't have yet (vitest.config.ts
+  // is node-environment, logic-only).
+  const runAutoSkip = () => {
     skipGuardRef.current.markStarted();
     setSkipFailed(false);
-    const success = await handleContinue(true);
+    const success = handleContinue(true);
     if (!success) {
       skipGuardRef.current.markFailed();
       setSkipFailed(true);
@@ -75,75 +74,96 @@ export default function HealthDeclarationPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, alreadyAccepted]);
 
-  // Returns whether the sync + navigation actually completed — the
-  // auto-skip path (runAutoSkip above) needs this signal to tell a real
-  // failure apart from success; the manual HealthDeclarationStep submit
-  // path ignores the return value (onContinue is typed to return void).
-  const handleContinue = async (_value: boolean): Promise<boolean> => {
-    try {
-      const uid = auth.currentUser?.uid;
-      if (!uid) {
-        console.error('[Health] No user authenticated');
-        return false;
-      }
-
-      // Build payload with running schedule data from the onboarding store.
-      // The sync service reads running answers from sessionStorage directly
-      // and reads program assignments from sessionStorage as well (persisted
-      // from the earlier PROCESSING call in dynamic/page.tsx).
-      const syncPayload: Record<string, any> = {};
-
-      if ((onboardingData as any).runningWeeklyFrequency !== undefined) {
-        syncPayload.runningWeeklyFrequency = (onboardingData as any).runningWeeklyFrequency;
-      }
-      if ((onboardingData as any).runningScheduleDays) {
-        syncPayload.runningScheduleDays = (onboardingData as any).runningScheduleDays;
-      }
-      if ((onboardingData as any).runningScheduleTime) {
-        syncPayload.runningScheduleTime = (onboardingData as any).runningScheduleTime;
-      }
-
-      // Firestore fallback for assignedResults — sessionStorage is tab-scoped
-      // and is wiped when the user closes the browser between the assessment and
-      // this page. Without this, onboarding-sync.service.ts finds no
-      // assignedResults in either data or sessionStorage and falls through to
-      // the generic GOAL_TO_PROGRAM mapping, overwriting the assessed program
-      // with a generic one. Reading from Firestore (where dynamic/page.tsx
-      // already persisted the results) makes this sync idempotent across
-      // tab-close / session restores.
-      const storedResults = typeof window !== 'undefined'
-        ? sessionStorage.getItem('onboarding_assigned_results')
-        : null;
-      if (!storedResults) {
-        try {
-          const userSnap = await getDoc(doc(db, 'users', uid));
-          const firestoreAssignedResults = userSnap.data()?.assignedResults;
-          if (Array.isArray(firestoreAssignedResults) && firestoreAssignedResults.length > 0) {
-            syncPayload.assignedResults = firestoreAssignedResults;
-            console.log(
-              '[Health] Restored assignedResults from Firestore (sessionStorage empty):',
-              firestoreAssignedResults.length, 'entries',
-            );
-          }
-        } catch (e) {
-          console.warn('[Health] Could not read assignedResults from Firestore fallback:', e);
-        }
-      }
-
-      console.log('[Health] Calling syncOnboardingToFirestore(COMPLETED) — full running bridge + activeProgram generation');
-
-      await syncOnboardingToFirestore('COMPLETED', syncPayload);
-
-      console.log('[Health] Sync complete. Refreshing profile before navigation...');
-
-      await refreshProfile();
-
-      router.replace('/onboarding-new/health-connect');
-      return true;
-    } catch (error) {
-      console.error('[Health] Error completing onboarding:', error);
+  // P0 FIX (David, 24.09.2026 — field-reported: users landed here with an
+  // existing health declaration and got stuck on "טוען..." forever, with no
+  // way out short of force-quitting the app). Root cause: this function used
+  // to AWAIT syncOnboardingToFirestore (and a getDoc fallback before it)
+  // before navigating — but the next screen, health-connect, needs NONE of
+  // that data (confirmed by reading HealthConnectOptInStep.tsx: it takes
+  // only an onContinue callback, no profile/progression reads at all). The
+  // await was pure dead weight, and Firestore's Web SDK does not time out a
+  // getDoc/setDoc on its own — a bad connection could leave the promise
+  // NEVER settling (not merely rejecting), which is exactly the gap the
+  // pre-existing skipFailed/retry mechanism (round-3 review) couldn't catch:
+  // it only fires on a THROWN error, never on a hang.
+  //
+  // Fix: don't wait for something the next screen doesn't need. Navigate
+  // immediately; the sync + profile refresh still run, just in the
+  // background, with their own error logging. Per David: not worth
+  // pinpointing exactly which awaited call inside the 1868-line
+  // syncOnboardingToFirestore was hanging — the fix is identical either way.
+  // Applies uniformly to BOTH callers of handleContinue (this silent
+  // auto-skip, and HealthDeclarationStep's manual first-time submit below)
+  // — neither needs to block on this data any more than the other does.
+  const handleContinue = (_value: boolean): boolean => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      console.error('[Health] No user authenticated');
       return false;
     }
+
+    // Fire-and-forget — see comment above for why this must not block navigation.
+    (async () => {
+      try {
+        // Build payload with running schedule data from the onboarding store.
+        // The sync service reads running answers from sessionStorage directly
+        // and reads program assignments from sessionStorage as well (persisted
+        // from the earlier PROCESSING call in dynamic/page.tsx).
+        const syncPayload: Record<string, any> = {};
+
+        if ((onboardingData as any).runningWeeklyFrequency !== undefined) {
+          syncPayload.runningWeeklyFrequency = (onboardingData as any).runningWeeklyFrequency;
+        }
+        if ((onboardingData as any).runningScheduleDays) {
+          syncPayload.runningScheduleDays = (onboardingData as any).runningScheduleDays;
+        }
+        if ((onboardingData as any).runningScheduleTime) {
+          syncPayload.runningScheduleTime = (onboardingData as any).runningScheduleTime;
+        }
+
+        // Firestore fallback for assignedResults — sessionStorage is tab-scoped
+        // and is wiped when the user closes the browser between the assessment and
+        // this page. Without this, onboarding-sync.service.ts finds no
+        // assignedResults in either data or sessionStorage and falls through to
+        // the generic GOAL_TO_PROGRAM mapping, overwriting the assessed program
+        // with a generic one. Reading from Firestore (where dynamic/page.tsx
+        // already persisted the results) makes this sync idempotent across
+        // tab-close / session restores.
+        const storedResults = typeof window !== 'undefined'
+          ? sessionStorage.getItem('onboarding_assigned_results')
+          : null;
+        if (!storedResults) {
+          try {
+            const userSnap = await getDoc(doc(db, 'users', uid));
+            const firestoreAssignedResults = userSnap.data()?.assignedResults;
+            if (Array.isArray(firestoreAssignedResults) && firestoreAssignedResults.length > 0) {
+              syncPayload.assignedResults = firestoreAssignedResults;
+              console.log(
+                '[Health] Restored assignedResults from Firestore (sessionStorage empty):',
+                firestoreAssignedResults.length, 'entries',
+              );
+            }
+          } catch (e) {
+            console.warn('[Health] Could not read assignedResults from Firestore fallback:', e);
+          }
+        }
+
+        console.log('[Health] Calling syncOnboardingToFirestore(COMPLETED) — full running bridge + activeProgram generation (background, non-blocking)');
+
+        await syncOnboardingToFirestore('COMPLETED', syncPayload);
+
+        console.log('[Health] Background sync complete. Refreshing profile...');
+
+        await refreshProfile();
+      } catch (error) {
+        // Non-fatal — the user already moved on. Logged so this is
+        // discoverable, never surfaced as a stuck screen.
+        console.error('[Health] Background sync failed (non-blocking, user already navigated):', error);
+      }
+    })();
+
+    router.replace('/onboarding-new/health-connect');
+    return true;
   };
 
   // alreadyAccepted also gates the render (not just the effect above) — the
