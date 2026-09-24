@@ -161,26 +161,31 @@ interface RunningPlayerState {
   suggestedRoutes: Route[];
   activeRoutePath: number[][];
 
-  // ── Route Deviation (auto-rerouting) ─────────────────────────────────────
+  // ── Route Deviation (distance detection — kept intentionally) ────────────
   // Live distance from the user's last GPS sample to the nearest point on
   // `activeRoutePath`, in metres. `null` when no comparable route is set.
+  // KEPT ON PURPOSE (David, product decision, 24.09.2026): this distance
+  // math is the planned foundation for a future TIME-based "approaching
+  // station" alert (~40s out — walking ≈50m, running ≈150m). It is not
+  // dead code left over from a removal — do not delete it in a future
+  // unused-code pass without checking with David first.
   routeDeviationMeters: number | null;
   // How many consecutive samples have been over the threshold. Resets to 0
   // the moment a sample comes back inside the threshold.
   consecutiveOffRouteSamples: number;
   // True once `consecutiveOffRouteSamples` reaches the spec'd threshold (3).
-  // Cleared by the orchestrator (useRouteDeviationOrchestrator) after it
-  // swaps in a freshly recomputed route — at which point the user is on the
-  // new path and the counter naturally restarts at 0.
+  // REMOVED BY PRODUCT DECISION, NOT AN OVERSIGHT (David, 24.09.2026): this
+  // used to be consumed by useRouteDeviationOrchestrator (deleted), which
+  // spoke a TTS "recalculating route" alert and auto-swapped in a freshly
+  // generated route on every trip — both explicitly rejected ("no deviation
+  // alert at any distance," "no recompute-on-deviation, ever"). This flag
+  // is still computed here, and still self-resets back to false via the
+  // within-tolerance branch below, but currently has zero consumers.
   isOffRoute: boolean;
-  // Monotonically incremented every time `isOffRoute` flips false→true.
-  // The orchestrator's effect depends on this token so each new deviation
-  // event triggers exactly one recalc, even if isOffRoute is cleared and
-  // re-asserted in quick succession.
+  // Monotonically incremented every time `isOffRoute` flips false→true. Was
+  // the orchestrator's trigger signal (see isOffRoute above) — currently
+  // unconsumed for the same reason, kept for the same future reuse.
   offRouteEventToken: number;
-  // True while the orchestrator's recalc is in flight. `checkRouteDeviation`
-  // skips its work while this is set so we don't pile up redundant triggers.
-  isRecalculatingRoute: boolean;
 
   // Guided Route Tracking
   // Holds the official_routes document id when the user is running a curated route.
@@ -304,14 +309,6 @@ interface RunningPlayerState {
    * positions happens upstream in `startGPSTracking` / `injectSimPosition`.
    */
   checkRouteDeviation: (pos: { lat: number; lng: number }) => void;
-  /** Orchestrator-only: bracket the recalc to prevent re-entry during swap. */
-  setRecalculatingRoute: (v: boolean) => void;
-  /**
-   * Orchestrator-only: invoked after the new route has been swapped onto
-   * the map. Resets the deviation counter & flag so detection restarts
-   * cleanly against the new `activeRoutePath`.
-   */
-  clearOffRouteState: () => void;
   setGuidedRouteId: (id: string | null) => void;
   setGuidedRouteName: (name: string | null) => void;
   setGuidedRouteDistanceKm: (km: number | null) => void;
@@ -392,7 +389,6 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   consecutiveOffRouteSamples: 0,
   isOffRoute: false,
   offRouteEventToken: 0,
-  isRecalculatingRoute: false,
   guidedRouteId: null,
   guidedRouteName: null,
   guidedRouteDistanceKm: null,
@@ -461,7 +457,6 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   checkRouteDeviation: (pos) => {
     const {
       activeRoutePath,
-      isRecalculatingRoute,
       consecutiveOffRouteSamples,
       isOffRoute,
       offRouteEventToken,
@@ -470,10 +465,6 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     // No comparable route → nothing to detect. Workout is in free-form mode
     // (no guided route) or activeRoutePath was cleared.
     if (!activeRoutePath || activeRoutePath.length < 2) return;
-
-    // A recalc is in flight — its terminal `setActiveRoutePath` will reset
-    // counters and we'd just be racing it. Skip cleanly.
-    if (isRecalculatingRoute) return;
 
     if (!pos || !Number.isFinite(pos.lat) || !Number.isFinite(pos.lng)) return;
 
@@ -489,8 +480,9 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
         routeDeviationMeters: distMeters,
         consecutiveOffRouteSamples: nextCount,
         isOffRoute: isOffRoute || justTripped,
-        // Bump token only on the false→true edge so the orchestrator's
-        // useEffect fires exactly once per deviation event.
+        // Bump token only on the false→true edge, so a future consumer
+        // (the planned time-based station-approach alert) fires exactly
+        // once per deviation event, not once per sample.
         offRouteEventToken: justTripped
           ? offRouteEventToken + 1
           : offRouteEventToken,
@@ -510,14 +502,6 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       }
     }
   },
-
-  setRecalculatingRoute: (v) => set({ isRecalculatingRoute: v }),
-
-  clearOffRouteState: () => set({
-    routeDeviationMeters: null,
-    consecutiveOffRouteSamples: 0,
-    isOffRoute: false,
-  }),
 
   setGuidedRouteId: (id) => set({ guidedRouteId: id }),
   setGuidedRouteName: (name) => set({ guidedRouteName: name }),
@@ -1384,7 +1368,6 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       routeDeviationMeters: null,
       consecutiveOffRouteSamples: 0,
       isOffRoute: false,
-      isRecalculatingRoute: false,
       lastFilterAction: null,
     });
   },
@@ -1417,11 +1400,11 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       isGroupRun: false,
       // Same reset as initializeRunningData. We DON'T reset
       // `offRouteEventToken` here — it's a monotonically-increasing event
-      // counter, and rewinding it could replay a stale orchestrator effect.
+      // counter, and rewinding it could replay a stale event for whatever
+      // future consumer reacts to it (the planned station-approach alert).
       routeDeviationMeters: null,
       consecutiveOffRouteSamples: 0,
       isOffRoute: false,
-      isRecalculatingRoute: false,
       guidedRouteId: null,
       guidedRouteName: null,
       guidedRouteDistanceKm: null,

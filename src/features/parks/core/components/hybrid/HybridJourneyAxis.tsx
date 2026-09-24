@@ -9,7 +9,7 @@
  */
 
 import { useState } from 'react';
-import { Clock, Ruler, Repeat, MapPin, ChevronDown } from 'lucide-react';
+import { Clock, Ruler, Repeat, MapPin, ChevronDown, Lock, Info, ChevronLeft } from 'lucide-react';
 import type { HybridPlannedSegment } from '@/features/workout-engine/hybrid/compose-hybrid-session.service';
 import type { WorkoutExercise as EngineWorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import ExerciseCard from '@/features/workouts/components/workout-preview-drawer/components/exercise-list/ExerciseCard';
@@ -133,6 +133,14 @@ interface AxisProps {
   onExerciseTap?: (we: EngineWorkoutExercise) => void;
   /** Swap the exercise at [segIndex][exIndex] → the real replacement modal (parent). */
   onSwapExercise?: (segIndex: number, exIndex: number, we: EngineWorkoutExercise) => void;
+  /**
+   * Domain-assessment gate (David, 23-24.09.2026): tap-through for a locked
+   * station card's CTA — reuses the EXACT same mechanism as the session-level
+   * A3 fallback banner (HybridOverviewScreen owns that one; DiscoverLayer's
+   * onAssessmentLink → startMiniDomainAssessment), just called with THIS
+   * segment's own assessmentDomains instead of falling back to the session's.
+   */
+  onSegmentAssessmentLink?: (domains?: string[]) => void;
 }
 
 export default function HybridJourneyAxis({
@@ -144,6 +152,7 @@ export default function HybridJourneyAxis({
   onToggleWarmupExpanded,
   onExerciseTap,
   onSwapExercise,
+  onSegmentAssessmentLink,
 }: AxisProps) {
   const aerCount = segments.filter((s) => s.kind === 'aerobic').length;
   let aerIdx = 0, strIdx = 0;
@@ -227,6 +236,40 @@ export default function HybridJourneyAxis({
         }
         // strength station
         strIdx += 1;
+        // Domain-assessment gate (David, 23-24.09.2026): this station's domain(s)
+        // aren't assessed and no equipment-based alternative applied — the station
+        // stays ON THE AXIS (same Node/card wrapper, doesn't disappear) but renders
+        // a lock card instead of exercise content, tapping through to the SAME
+        // mini-assessment mechanism the session-level A3 banner already uses.
+        if (seg.content?.needsAssessment) {
+          const { fallbackHint, assessmentDomains } = seg.content.needsAssessment;
+          return (
+            <div key={i} className="flex gap-3 items-stretch">
+              <Node kind="strength" nextColor={nextColor} subtype={seg.domainFocus} />
+              <div className="relative flex-1 min-w-0 bg-white rounded-2xl overflow-hidden mb-3"
+                style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>
+                <div style={{ padding: '11px 15px 12px 12px' }}>
+                  <div className="flex items-center gap-1.5">
+                    <Lock size={14} style={{ color: '#9CA3AF' }} />
+                    <span className="text-[14px] font-black" style={{ color: '#111827' }}>
+                      {stationName ? `${stationName} — כוח` : `תחנה ${strIdx} — כוח`}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onSegmentAssessmentLink?.(assessmentDomains)}
+                    className="w-full flex items-center gap-2 mt-2 rounded-xl text-[12px] font-bold text-start active:scale-[0.98] transition-transform"
+                    style={{ background: '#FFFBEB', border: '0.5px solid #FDE68A', color: '#B45309', padding: '9px 12px' }}
+                  >
+                    <Info size={15} className="flex-shrink-0" />
+                    <span className="flex-1 underline underline-offset-2">{fallbackHint}</span>
+                    <ChevronLeft size={15} className="flex-shrink-0" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        }
         const exs = seg.content?.exercises ?? [];
         // A2: "N תרגילים" is the WORK count — exclude BOTH the warmup (חימום) and
         // cooldown (מתיחות) blocks. This is the engine's canonical work predicate
@@ -261,6 +304,22 @@ export default function HybridJourneyAxis({
                   )}
                   <span className="text-[10.5px] font-extrabold rounded-full whitespace-nowrap" style={{ padding: '3px 9px', background: STR_TINT, color: STR_TEXT }}>עצור ואמן</span>
                 </div>
+                {/* Equipment-tabata nudge (domain-assessment gate, David 23-24.09.2026):
+                    real content DID render here (unlike the locked-card branch above) —
+                    a real machine covered an otherwise-unassessed domain. Additive only,
+                    never blocks the real content below it. */}
+                {seg.content?.assessmentNudge && (
+                  <button
+                    type="button"
+                    onClick={() => onSegmentAssessmentLink?.(seg.content!.assessmentNudge!.assessmentDomains)}
+                    className="w-full flex items-center gap-2 mt-2 rounded-xl text-[11.5px] font-bold text-start active:scale-[0.98] transition-transform"
+                    style={{ background: '#FFFBEB', border: '0.5px solid #FDE68A', color: '#B45309', padding: '7px 10px' }}
+                  >
+                    <Info size={13} className="flex-shrink-0" />
+                    <span className="flex-1 underline underline-offset-2">{seg.content.assessmentNudge.message}</span>
+                    <ChevronLeft size={13} className="flex-shrink-0" />
+                  </button>
+                )}
                 {stationName ? (
                   collapsedStations[i] ? (
                     /* point 20: collapsed — summary card (not an empty header) */

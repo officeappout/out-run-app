@@ -3,9 +3,12 @@
  * suite (yet). Proves by EXECUTION, not by reading, two bugs found in
  * docs/field-test/01-walking-flow-map.md:
  *
- *   1. useRunningPlayer.ts:1848,1852 sends workoutType:'running' /
+ *   1. useRunningPlayer.ts:1831,1835 sends workoutType:'running' /
  *      displayIcon:'run-fast' UNCONDITIONALLY on session finish — including
- *      for a completed WALKING session.
+ *      for a completed WALKING session. (Line numbers shifted from
+ *      1848/1852 by the 24.09.2026 deviation-mechanism removal, which
+ *      deleted ~17 unrelated lines earlier in this same file — the bug
+ *      itself is untouched, still unfixed, same literals, same behavior.)
  *   2. That literal survives, unmodified, all the way into the REAL
  *      (unmocked) markTodayAsCompleted() action's Firestore write —
  *      confirmed by running the actual production code with only the true
@@ -67,22 +70,23 @@ vi.mock('@/lib/healthBridge/init', () => ({
 const REPO_ROOT = path.resolve(__dirname, '../../../../..');
 
 describe('Source-fact check (mechanical, not eyeballed): the two literals really are unconditional', () => {
-  it('useRunningPlayer.ts:1848 and :1852 are bare string literals with zero reference to activityType', () => {
+  it('useRunningPlayer.ts:1831 and :1835 are bare string literals with zero reference to activityType', () => {
     const filePath = path.join(
       REPO_ROOT,
       'src/features/workout-engine/players/running/store/useRunningPlayer.ts',
     );
     const lines = fs.readFileSync(filePath, 'utf-8').split('\n');
-    // Lines are 1-indexed in the editor; array is 0-indexed.
-    const line1848 = lines[1847];
-    const line1852 = lines[1851];
-    expect(line1848).toContain(`workoutType: 'running'`);
-    expect(line1852).toContain(`displayIcon: 'run-fast'`);
+    // Lines are 1-indexed in the editor; array is 0-indexed. (Shifted from
+    // 1848/1852 — see file header comment; the bug itself is unchanged.)
+    const line1831 = lines[1830];
+    const line1835 = lines[1834];
+    expect(line1831).toContain(`workoutType: 'running'`);
+    expect(line1835).toContain(`displayIcon: 'run-fast'`);
     // The bug's precondition: neither line references the real activityType
     // variable that holds 'walking' — if it did, this assertion would fail
     // the moment someone "fixes" it by accident without updating this test.
-    expect(line1848).not.toContain('activityType');
-    expect(line1852).not.toContain('activityType');
+    expect(line1831).not.toContain('activityType');
+    expect(line1835).not.toContain('activityType');
   });
 
   it('FreeRunSummary.tsx:179 share text is a bare template literal with zero activity-type interpolation', () => {
@@ -118,7 +122,7 @@ describe('Execution proof: a completed WALKING session gets written to Firestore
       '@/features/workout-engine/services/completion-sync.service'
     );
 
-    // This object is copied verbatim from useRunningPlayer.ts:1846-1854 —
+    // This object is copied verbatim from useRunningPlayer.ts:1830-1837 —
     // exactly what today's code sends when a WALKING session finishes.
     await syncWorkoutCompletion({
       workoutType: 'running',

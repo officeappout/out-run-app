@@ -1028,4 +1028,147 @@ git push origin main
 
 **המשימה הבאה:** ממתין לפרומפט נפרד מדוד.
 
+### 13.13 — זיהוי וסינון חשבונות טסט מספירות משתמשים (23.09.2026): נסגר, פרוס בפרודקשן
+
+`audit/test-account-identification`, מוזג ל-`main` ב-`--no-ff` (קונפליקט ייבוא יחיד עם `d7d84041` — שתי הוספות import לאותה נקודה, נפתר בשמירת שניהם, `tsc`+`npm test` אומתו נקיים אחרי הפתרון). Deploy קוד בלבד — אין שינוי כללים, אין משתמש שנמחק (לא Firestore, לא Auth).
+
+**פקודת revert מדויקת:**
+```
+git revert -m 1 26d8a60a33df1ec515692447608e1154dc49f916 --no-edit
+git push origin main
+```
+
+**הבעיה:** 677 מתוך 687 מסמכי `users` בפרודקשן לא היו מסומנים כלל (רק 10 = `core.isMockData`, הדמו של שדרות) — לפי דוד, רובם המכריע התקנות בדיקה שלו. דשבורד מנהל עירייה ספר אותם יחד עם תושבים אמיתיים.
+
+**שלב 1 (קריאה בלבד):** 4 קריטריונים אושרו (אימייל צוות/דומיין `*.local`; אין מייל+אפס אימונים; anonymous שלא סיים אונבורדינג; שם חשוד — 4 תתי-קטגוריה ספציפיות, לא "שם ריק" בפני עצמו). 4 חוקי הגנה מוחלטים אושרו: uid ב-`managerIds`, תפקיד אדמין כלשהו, אימון+מייל, `isMockData`.
+
+**שלב 2 (סימון):** `core.isTestData=true` + `core.testDataReason` (מערך קריטריונים, לביטול חלקי עתידי) + `core.testDataMarkedAt` על **606** מסמכים. גיבוי מלא של `users` נלקח פעמיים (לפני ההרצה + שוב אוטומטית ממש לפני הכתיבה) ל-`scripts/_backups/` (מחוץ ל-git). אימות אחרי הכתיבה (query טרי, לא הסתמכות על לוגיקת הפרה-בדיקה): 0 מסמכים מסומנים הפרו חוק הגנה כלשהו. 0 כשלונות כתיבה.
+
+**שלב 3 (סינון בספירות):** `src/lib/testAccountFilter.ts` (predicate טהור) + `testAccountFilterAdmin.ts` (עזר ל-count() ב-Admin SDK, מחסר שתי ספירות `==true` נפרדות — לא `!=`, שהיה מחריג כל מסמך בלי השדה) כמקור אמת יחיד. הוחל על city-summary, dashboard-summary, `analytics.service.ts`'s `getUserDocsForAuthority`/`getUserIdsForAuthority` (אוחדו לפונקציה אחת — מכסה ~15 מדדים במורד הזרם) + `getNeighborhoodBreakdown`, `health-economics.service.ts`'s `getAuthorityUsers` (דשבורד WHO-150), `authority.service.ts`'s `syncUserCount`/`syncAllUserCounts` (שדה `authority.userCount` המנורמל, תריסר+ קומפוננטות קוראות אותו).
+
+**לא סונן בסבב הזה (רשימה מלאה בהחלטות הפתוחות למטה).**
+
+**טבלת לפני/אחרי — תל אביב-יפו (`t9hiRkDnJtgZESlNCBp8`):**
+
+| שדה | גולמי | לפני (isMockData בלבד) | אחרי (isMockData+isTestData) |
+|---|---|---|---|
+| `totalUsers` | 164 | 154 | **35** |
+| `approvedUsers` | 3 | 3 | 3 |
+
+**בדיקות:** `npx vitest run` — 232 קבצים, 2230 בדיקות, כשל אחד קיים-מראש ולא קשור (זהה לדיווחים קודמים). `tsc` מול baseline (worktree חד-פעמי, `comm` על פלט ממוין) — 21 "חדשות" מול 21 "נעלמו", כל ה-21 אומתו ידנית כאותן שגיאות קיימות-מראש שזזו שורה בגלל העריכות (delta עקבי בכל מופע). אפס רגרסיות.
+
+**Smoke אחרי דיפלוי:** `outrun.co.il`=200, `/api/catalog/parks`=200 עם 1159 גינות (עלה ב-1 מאז §13.12, לא קשור). פורטל תל אביב-יפו — הרצתי בדיקה חיה כמנהל תל אביב-יפו אמיתי (custom token, uid קיים מתוך `managerIds`, קריאה בלבד) מול ה-endpoint הפרוס בפועל: **5 הרצות ראשונות החזירו 155 (קוד ישן עדיין רץ), ההרצה השישית (כ-90 שניות אחרי ה-push) החזירה 35** — עיכוב הפצת דיפלוי רגיל של Vercel, לא באג. אומת שהקוד החדש חי ונכון לפני שהוכרז שהמשימה הושלמה.
+
+**פתוחים, בדירוג (כפי שדוד קבע):**
+
+**P1 — `getExecutiveSummary` (`cpo-analytics.service.ts`) נקראת בלי `authorityId` גם עבור authority-manager-only** — מנהל רשות רואה כרגע מצרפים platform-wide, לא רק של עירו. באג scoping נפרד, לא קשור לטסטים/דמו. **✅ נסגר — ראו §13.14.**
+
+**P2 — 10 מסמכי `isMockData` מתויגים תחת `authorityId` של תל אביב-יפו, לא תחת רשות דמו ייעודית.** תקרית מתועדת מ-19.09.2026 ב-`demo-seed-sderot.ts` (הכלי הופעל בטעות מול רשות אמיתית: "10 mock users... ended up tagged under a real municipality's authorityId" — המספרים תואמים בדיוק). מסוננים מכל ספירה כבר היום (חלק מ-`isTestOrMockUser`), לא דחוף. **לא לגעת בלי הוראה מפורשת.**
+
+**P2 — אתרי שאילתה שלא סוננו** (מיפוי מלא בדוח הצ'אט, 23.09.2026): `cpo-analytics.service.ts` (3 פונקציות), `strategic-insights.service.ts` (3), `users.service.ts::getAllUsers`, `funnel-analytics.service.ts`, `account-metrics.service.ts`, `readiness.service.ts`, `grades.service.ts`, ו-10 עמודי לקוח ששולפים `users` ישירות מהדפדפן (סיכון: שינוי שאילתת client-SDK עלול לדרוש אינדקס Firestore חדש). **לא להתחיל באף אחד בלי פרומפט נפרד.**
+
+**המשימה הבאה:** ממתין לפרומפט נפרד מדוד.
+
+### 13.14 — סטטיסטיקות/תובנות לשרת עם סקופ אמיתי (23.09.2026): §13.11 P1 נסגר, נסגר, פרוס בפרודקשן
+
+`feat/authority-manager-server-scoped-analytics`, מוזג ל-`main` ב-`--no-ff`. Deploy קוד בלבד — אין שינוי כללים, אין משתמש שנמחק.
+
+**פקודת revert מדויקת:**
+```
+git revert -m 1 3b5fd538b674f94ed660422c67d794a2beb2c37b --no-edit
+git push origin main
+```
+
+**הבעיה (אומתה בקוד לפני תיקון, בדיוק כפי שדוד תיאר):** `getHealthWakeUpMetric`/`getEquipmentGapAnalysis`/`getSleepyNeighborhoods` (`strategic-insights.service.ts`) פתחו ב-`getDocs(collection(db,'users'))` ללא `where`, סיננו `authorityId` בזיכרון **אחרי** הקריאה — סקופ אופציונלי שהלקוח סיפק, לא נאכף. `getExecutiveSummary`/`getAuthorityPerformance`/`getPremiumMetrics` (`cpo-analytics.service.ts`) — אותו דפוס, בלי סקופ בכלל אפילו כאופציה. `statistics/page.tsx` קרא להן בלי `authorityId` תמיד. השכבה היחידה שמנעה דליפה בפועל הייתה `firestore.rules`. **ממצא נוסף שלא נדרש במפורש:** `admin/page.tsx` (דף הבית `/admin`) קרא לאותן 3 פונקציות cpo-analytics באותו דפוס — תוקן גם הוא, אותה פונקציה בדיוק.
+
+**הפתרון:** `src/lib/adminAnalyticsScope.ts` — resolver יחיד: uid מהטוקן המאומת → scope, בשרת בלבד, ללא קלט מהלקוח.
+
+| תפקיד | Scope |
+|---|---|
+| root / super_admin / system_admin | `platform` |
+| platform_member עם `'product'` או `'system'` ב-allowedSections | `platform` — **פתוח לתיעוד (לא לתיקון), לפי דוד:** מקובל כרגע כי אף חבר צוות לא מופעל בפועל. לפני הפעלת חבר צוות ראשון — להחליט אם זה נשאר כך. |
+| vertical_admin | `vertical` — לפי `tenantTypeOf` (הועבר מ-`authorities/route.ts` ל-`src/lib/tenantType.ts`) |
+| authority_manager | `authority` — רק העיר שלו (עם rollup לילדים ב-insights-summary בלבד — ראו למטה) |
+| כל השאר | `denied` |
+
+שני endpoints חדשים: `GET /api/admin/statistics-summary`, `GET /api/admin/insights-summary` — דפוס זהה ל-city-summary/dashboard-summary (verifyIdToken, בלי מקום לשלוח authorityId מהלקוח). הלוגיקה של כל route מופרדת לפונקציה מיוצאת שמקבלת **רק** את ה-scope שנפתר בשרת — אין נתיב קוד שפרמטר מהלקוח יכול להגיע אליו.
+
+**החלטת עיצוב ל-statistics-summary (מתועדת כנדרש):** כל מדד שם בין-רשותי או כלל-פלטפורמי מטבעו — אין גרסה משמעותית לרשות בודדת. **authority_manager מקבל 403 עם הודעה על כל ה-endpoint**, לא נתונים מדוללים — הנתונים הרלוונטיים לעיר שלו כבר קיימים ב-city-summary/dashboard-summary. עבור vertical_admin: טבלת ביצועים מסוננת לוורטיקל (השוואה משמעותית), אבל activeAuthorities/activeClients/totalPlatformAdmins/premiumMetrics מוחזרים `null` + `notApplicable` + הודעה — יישום ראשון בפועל של מדיניות "הודעה, לא 0" (§13.13 P2).
+
+**ממצא ותיקון תוך כדי כתיבת הבדיקות:** שלושת פונקציות ה-insights מקבצות לפי שכונה, אבל `core.authorityId` של תושב הוא תמיד ברמת העיר. בלי rollup לילדי הרשות, שלושת המדדים היו תמיד ריקים למנהל רשות בודדת. תוקן — `computeInsightsSummary` מרחיב את הסקופ ל-`[authorityId, ...ילדים ישירים]`, בשונה מ-city-summary/dashboard-summary שבכוונה לא עושות זאת (הן צריכות רק ספירה שטוחה).
+
+**6 הפונקציות הישנות נמחקו** (לא רק deprecated) לפי הוראת דוד המפורשת, אחרי אימות חוזר שאף אחד לא קורא להן — 3 מ-interfaces התשובה שלהן נשארו (`AuthorityPerformance`, `HealthWakeUpMetric`/`EquipmentGap`/`SleepyNeighborhood`), עדיין מיובאים כ-types ע"י קומפוננטות התצוגה.
+
+**מה לא נבדק/נגע בסבב הזה (פתוח לתיעוד, לפי דוד):** `getTopBaseMovements`/`getLocationDistribution`/`getGlobalMaintenanceReports` — פונקציות אחרות, לא נבדקו. **לסבב הבא.**
+
+**בדיקות (אמולטור, `scripts/verify-analytics-scope.ts`, בלי `--prod`):** **32/32 עברו** — 5 התרחישים שדוד ביקש + בדיקת בידוד אמיתית עם תושבים מדומים בשתי ערים נפרדות (לא רק תיאורטית) + הוכחה מבנית ש-scope עם שדה זר מוזרק לא משפיע על התוצאה. `npx vitest run` — 232 קבצים, 2230 בדיקות, אותו כשל בודד קיים-מראש. `tsc` מול baseline — בפועל **2 שגיאות פחות** (הפונקציות שנמחקו נשאו 2 שגיאות טיפוסים קיימות-מראש משלהן), אפס רגרסיות אמיתיות.
+
+**Smoke אחרי דיפלוי:** `outrun.co.il`=200, `/api/catalog/parks`=200 עם 1159 גינות. פורטל תל אביב-יפו — בדיקה חיה כמנהל אמיתי: `city-summary` עדיין מחזיר 35 (לא נגעתי בו, אימות רגרסיה). ה-endpoint החדש `statistics-summary` דרש עיכוב הפצה ארוך יותר מהרגיל (route חדש לגמרי, לא רק עדכון קוד קיים — 404 במשך כ-2.5 דקות עד שה-route "נראה" ב-Vercel, ואז 401/403 תקינים) — לא באג, אומת ע"י polling עד לקבלת סטטוס תקין. הרצה חיה סופית כמנהל תל אביב-יפו אמיתי מול `statistics-summary`: **403 עם ההודעה העברית המדויקת שתועדה למעלה** — אומת קוד-בפועל, לא רק היגיון מקומי.
+
+**פתוח לתיעוד (לא לתיקון), לפי דוד — שני סעיפים:**
+1. platform_member עם `'product'`/`'system'` מקבל תמונה כלל-פלטפורמית — מקובל כרגע (אף חבר צוות לא מופעל). לפני הפעלת חבר צוות ראשון: להחליט אם זה נשאר כך.
+2. `getTopBaseMovements`/`getLocationDistribution`/`getGlobalMaintenanceReports` — לא נבדקו בסבב הזה. **לסבב הבא.**
+
+**נשאר פתוח מ-§13.13 (לא נגעתי):** P2 (10 מסמכי isMockData תחת תל אביב-יפו), P2 (אתרי שאילתה שלא סוננו — cpo-analytics/strategic-insights שנמחקו כבר לא רלוונטיים לרשימה הזו; users.service.ts::getAllUsers, funnel-analytics, account-metrics, readiness, grades, ו-10 עמודי לקוח עדיין פתוחים).
+
+**המשימה הבאה:** ממתין לפרומפט נפרד מדוד.
+
 **בסיס tsc מתוקן — 449, לא 453 (19.09.2026):** מנת תיקונים ("ניקוי דמו, תוויות, ותיקון תצוגת העיר", ממוזגת ל-`main` ב-`722b379b`) נפתחה מול בסיס שנרשם כ-453 שגיאות. באותו סבב עבודה התגלה ש-`node_modules` המשותף (בין ~75 worktrees על המכונה) היה סוטה מ-`package-lock.json` המחויב — לא חבילה חסרה בודדת (`qr-code-styling`, שחסם `next build` לגמרי), אלא אי-סנכרון רחב יותר. `npm install` (מאושר ע"י דוד, מאומת קודם שאין סשן מקביל באמצע עבודה) תיקן: 1473 חבילות נוספו, 1190 הוסרו מ-`node_modules` בפועל — **אך `package-lock.json` עצמו נשאר זהה בייט-לבייט למה שהיה כבר ב-`origin/main`** (אומת ב-diff מול `git show origin/main:package-lock.json` — אין דיפרנס בגיט, רק resync פיזי של node_modules). אחרי התיקון: `npx tsc --noEmit` = **449 שגיאות**, לא 453/454 — כלומר הבסיס הקודם היה מנופח באופן מלאכותי כתוצאה מהסטייה הזו, לא שינוי אמיתי בקוד. `next build` עבר במלואו לראשונה מזה זמן. **449 הוא הבסיס הנכון מעכשיו.** אם ספירת tsc עתידית שונה מ-449 בלי שינוי קוד מכוון — יש לחשוד תחילה בסטיית `node_modules` (השוואה: `stat -f "%Sm" node_modules` ו-`package-lock.json`, ו-diff מול `git show origin/main:package-lock.json`) לפני שמניחים רגרסיה אמיתית.
+
+---
+
+### 13.15 — וורטיקל צבא/בתי ספר: שלבים 0-3, כולם בפרודקשן (23-24.09.2026)
+
+`.claude/plans/tenant-military-school-vertical-model.md` — מסמך התכנון המלא (הצעת מודל נתונים, כל 5 החלטות דוד, סדר הבנייה §ח). המסמך הזה מתעד רק את מה שבאמת בוצע ונפרס; לפירוט התכנון המלא — שם.
+
+**מודל הנתונים (ללא שינוי מהמתוכנן):** `authorities/{id}` (`type: military_unit`/`school`) = התחום ברמה 1 (SPEC §2 — קצין כושר ראשי/רכז ספורט בית-ספרי). `tenants/{tenantId}/units/{unitId}` (תת-אוסף קיים מראש, `unit-doc.ts`/`unit-id.ts`) = רמה 2 (מנהל חטיבה/מורה). שדה **חדש**: `managerIds` על מסמך יחידה — לא היה קיים קודם, מקביל לשדה הזהה ברמת `authorities`.
+
+**שלב 0 (23.09.2026) — `resolveUnitPermissionScope`:** `src/lib/unitPermissionScope.ts`. פונקציה טהורה, קלט יחיד `uid`. `root` (isRootAdmin על `core.email`, אותו שער כמו `/api/admin/invitations`) / `tenantOwner` (managerIds על authorities מסוג military_unit/school) / `unitAdmin` (**חדש**: `collectionGroup('units').where('managerIds','array-contains',uid)`) / `denied`. **כשל-סגור**: כל שגיאה פנימית (אינדקס חסר, Firestore לא זמין, timeout) חוזרת `denied` — עטופה ב-try/catch יחיד סביב כל הפונקציה, ההפך המכוון מ-fail-open של `rateLimit.ts`.
+
+**אינדקס חדש, פרוס בנפרד לפני הקוד:** `firestore.indexes.json` — `fieldOverrides` על `units`/`managerIds`, `queryScope: COLLECTION_GROUP`, `arrayConfig: CONTAINS`. שאילתת collection-group לא מקבלת אינדקס אוטומטי גם לשדה בודד — בשונה משאילתה רגילה. **פקודת פריסת אינדקסים בלבד:** `firebase deploy --only firestore:indexes` — דוד הריץ בעצמו, אושרר Enabled בקונסולה לפני שהקוד עלה.
+
+**שלב 1 (23.09.2026) — הלולאה המינימלית:** `unit_join_requests/{uid}` (doc ID = ה-uid של המבקש — נותן "בקשה אחת פעילה" מבנית, לא לוגית). שלושה routes: `POST /api/units/join-requests` (יצירה/בקשה-חוזרת, rate-limited 3/24ש דרך `isRateLimited` הקיים — `RATE_LIMITS.unitJoinRequest.uidDaily`), `POST /api/units/join-requests/decide` (אישור/דחייה — היחידה נלקחת אך ורק ממסמך הבקשה, המאשר נבדק מול managerIds של אותה יחידה בשרת), `GET /api/units/join-requests/me` (0 פרמטרים, uid מהטוקן בלבד). כל route מפוצל ל-`compute*()` נבדק + handler דק. אין שינוי ל-`firestore.rules` — כל הכתיבות Admin-SDK-only.
+
+**שלב 2 (24.09.2026) — שרשרת ההזמנות, `tenant_owner`/`unit_admin`:** `src/app/api/admin/invitations/route.ts` + `src/app/api/auth/accept-invitation/route.ts`. פרוסה **פרוסה צרה** של מטריצת SPEC §3 — רק לשני השמות ש-§2.2 אומת בפועל (ראו למעלה, וב-`SPEC-PERMISSIONS-MODEL.md` §2.2/§11 המעודכנים).
+
+מי מזמין את מי (אחרי תיקון אחד באמצע — ראו למטה):
+- `root` יוצר `tenant_owner` (כל תחום, `authorities` מסוג military_unit/school).
+- `root` **גם** יוצר `unit_admin` **ישירות, לכל תחום** — ללא הגבלת תחום. הבקשה כוללת גם `tenantId` וגם `unitId` (ל-root אין "תחום משלו" לברירת מחדל). כשלים כאן הם 400 פשוטים (אין חשש דליפת-מידע ל-root).
+- `tenant_owner` יוצר `unit_admin` **רק** ליחידה תחת התחום שלו — `tenantId` **לא נקרא מה-body בכלל** לשם הזה, תמיד `resolveUnitPermissionScope(uid).tenantId` של המזמין. כל כשל (לא tenant_owner בכלל / תחום שגוי / יחידה לא קיימת) מחזיר את **אותה הודעת 403 גנרית בדיוק** — אין דליפת קיום, כמו בשלב 1.
+- `unit_admin` לא מזמין אף אחד.
+
+**התיקון:** הסבב הראשון קרא את "root מזמין tenant_owner בלבד" מילולית מדי וחסם גם את root מלהזמין unit_admin ישירות. דוד תיקן: root הוא המפתח האחרון — לפי ההחלטה הקיימת ב-§10 (עזיבת מנהל), קצין-על שעוזב לפני שממונה מחליף משאיר יחידה תקועה בלי root כדלת אחורית. תוקן בשני הקבצים (יצירה + קבלה — `isCreatorEntitledForRole` באימות-הזמנה היה צריך תיקון תואם: הזמנת unit_admin שנוצרה ע"י root נכשלה בקבלה לפני התיקון, כי הבדיקה בדקה רק "tenantOwner תואם", לא "root").
+
+**קבלת ההזמנה** (דרישה 3, "יוצר ההזמנה מורשה") הוכללה מעבר ל"root בלבד": ל-`unit_admin` היא בודקת **בזמן אמת** (`resolveUnitPermissionScope(inv.createdBy)`, לא תמונת-מצב שמורה) שהיוצר הוא root **או** עדיין tenant_owner תואם-תחום — tenant_owner שהוחלף בין יצירת ההזמנה לקבלתה פוסל הזמנות תלויות-ועומדות שלו, נבדק ואומת.
+
+**כתיבות בקבלה:** `tenant_owner` → `core.tenantId`/`isTenantOwner`/`tenantType` (מ-`tenantTypeOf`) + arrayUnion ל-`authorities/{id}.managerIds` (אותו מנגנון מדויק כמו authority_manager). `unit_admin` → `core.tenantId`/`unitId`/`unitPath`/`authorityId` + arrayUnion ל-`tenants/{t}/units/{u}.managerIds` — הפעם הראשונה שהשדה הזה מאוכלס דרך נתיב לגיטימי, לא זריעה ידנית.
+
+**שלב 3 (24.09.2026) — רשימת חברים:** `src/app/api/units/members/route.ts` (חדש), `GET`. **שמות אמיתיים** (§5 — לא כמו רשות/שכונה: מנהל צבאי/בית-ספרי מכיר את האנשים אישית). הסקופ נקבע אך ורק מ-`resolveUnitPermissionScope(uid)`. unit_admin רואה רק את היחידה/יחידות שלו; tenant_owner רואה את כל היחידות תחת התחום שלו (שאילתה אחת סרוקה בזיכרון, לא שאילתה ליחידה); root חייב `tenantId` מפורשות (400, לא דחייה — אין חשש דליפה ל-root). כל אי-התאמת תחום מחזירה 403 גנרי זהה.
+
+**דרישת דוד על אינדקסים חסרים בפרודקשן (24.09.2026):** לא נוסף אינדקס חדש לשלב 3 — שתי השאילתות החדשות (`unit_join_requests` לפי tenantId+status; `users` לפי core.tenantId) הן equality-בלבד ו-collection רגיל (לא collection-group), ש-Firestore משרת אוטומטית. נבדק נקי באמולטור. **בטיחות-כשל:** `computeUnitMembers` לא בולעת שגיאת שאילתה — כל כשל מגיע ל-handler העליון, נרשם בלוג עם prefix ייעודי וניתן-לחיפוש ("POSSIBLE MISSING FIRESTORE INDEX" כשהשגיאה נראית קשורה לאינדקס) ומחזיר 500, **לעולם לא רשימה ריקה עם 200**.
+
+**מיזוגים ל-`main` (שניים, כל אחד אחרי אישור נפרד):**
+```
+d241859346b448423c0d48d8c022980724c8ca3   שלבים 0+1 — --no-ff
+62595deaf3df6f8f1e78d9ade49267eb425793e4  שלבים 2+3 — --no-ff
+```
+
+**פקודות revert (מדויקות, לפי הסדר ההפוך אם צריך לבטל את שניהם):**
+```
+git revert -m 1 62595deaf3df6f8f1e78d9ade49267eb425793e4 --no-edit && git push origin main
+git revert -m 1 d241859346b448423c0d48d8c022980724c8ca3 --no-edit && git push origin main
+```
+
+**בדיקות:** `scripts/verify-unit-join-requests.ts` — 41/41 (שלב 0+1, כולל 5 השליליים המפורשים + fail-closed). `scripts/verify-invitation-chain-and-members.ts` — 52/52 (שלב 2+3, כולל כל השליליים + התיקון על root + regression על authority_manager/platform_member). `tsc` מול `origin/main` טרי בכל סבב (worktree חד-פעמי, `comm -13/-23`) — 0 שגיאות חדשות אמיתיות בכל אחד מארבעת הסבבים. `npx vitest run` — 2229 עברו, כשל אחד קיים-מראש (זהה ל-baseline), 26 skipped.
+
+**Smoke אחרי כל דיפלוי:** `outrun.co.il`=200, `/api/catalog/parks`=200 (1159 גינות, יציב). בדיקת פורטל תל אביב-יפו חיה (מנהל אמיתי) בוצעה ע"י דוד עצמו בדפדפן בסבב השני — לא בסקריפט (ראו הערה למטה).
+
+**פתוח, לתיעוד בלבד:**
+1. **`tests/firestore-rules.test.ts` פלייקי** — אושרר: שתי הרצות עוקבות על **אותו קוד בדיוק** נותנות סטים שונים של תרחישים נכשלים (סוויטת אינטגרציה מצטברת, תלוית-סדר/timing מול האמולטור). לא תוקן, לא נחקר — דורש חקירה נפרדת משל עצמה.
+2. **פער תיעוד `smoke-test-tenants.ts` מול המציאות** — סקריפט קיים מלפני הוורטיקל הזה בודק `tenant_sderot`, `hasTenant`/`token.tenantId` (custom claim מת), MILITARY_JOIN/SCHOOL_JOIN — מודל ישן-ולא-קשור לשלבים 0-3. לא נגעתי, לא רץ בסבב הזה.
+3. **בסיס tsc התיעודי (449, 19.09.2026) מיושן** — הבסיס האמיתי שנמדד בכל ארבעת הסבבים כאן הוא **800**, לא 449. סביר שזו צמיחה אורגנית (מספר PRs מוזגו מאז — park-authority-auto-resolve, route-deviation-mechanism-removal, loop-route-start-rotation, calorie-single-source-of-truth, ועוד) ולא סטיית `node_modules` (המתודולוגיה כאן בנתה baseline טרי מ-`origin/main` בפועל בכל סבב, עם `node_modules` מסונכרן — לא הסתמכה על המספר התיעודי הישן), אבל לא אומת במפורש. אם ה-449 חשוב לשמור מדויק — כדאי בדיקה נפרדת.
+4. **סקריפט מינטינג-טוקן לבדיקת פורטל חי נחסם ע"י ה-auto-mode classifier** בסבב הראשון (מיזוג הראשון של השלב הזה) — לא נעקף, דווח לדוד; דוד ביקש במפורש בסבב השני שלא ינוסה שוב, ובדק בעצמו בדפדפן.
+
+**מה לא בוצע — שלב 4 ו-UI, כלל לא הותחלו (לפי הוראה מפורשת):** בורר היחידות (client-facing, rate-limited, ללא שדה מספר-חברים לעולם — לא ברשימה הציבורית, לא בהיסטוריה, לא כברירת מחדל עתידית), ומסכי UI לכל הזרימה (בקשת הצטרפות, אישור/דחייה, ניהול הזמנות, רשימת חברים). אפס קוד/עיצוב לאף אחד מאלה.
+
+**המשימה הבאה:** ממתין לפרומפט נפרד מדוד.

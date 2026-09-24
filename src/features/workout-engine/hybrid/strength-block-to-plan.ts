@@ -113,6 +113,24 @@ export function strengthBlockToWorkoutPlan(
   const totalDuration = Math.round((block.estimatedDurationSec ?? 0) / 60) || 10;
   const name = options.name ?? 'תחנת כוח';
 
+  // ── Locked station (domain-assessment gate, David 23-24.09.2026) — this
+  // station's domain(s) aren't assessed and no equipment-based alternative
+  // applied. Zero exercises BY DESIGN (not the same as an empty/skipped
+  // station — the caller keeps this segment in the plan; the run screen
+  // renders a lock card off `needsAssessment` instead of exercise content).
+  if (block.needsAssessment) {
+    const segment: WorkoutSegment = {
+      id: 'hybrid-station-locked', type: 'station', title: name, icon: '🔒',
+      target: { type: 'reps', value: 0 }, exercises: [], isCompleted: false, restBetweenExercises: 0,
+      needsAssessment: block.needsAssessment,
+    };
+    return {
+      id: options.id ?? 'hybrid-station-plan', name, segments: [segment],
+      totalDuration: 0, difficulty: 'medium', trainingType: 'strength',
+      workoutLocation: options.location ?? 'park', isWarmupActive: false,
+    };
+  }
+
   // ── Tabata blocks (core-station wiring, 22.09.2026) — one segment per
   // block, each scoped to its own exerciseIds slice, in play order. Rest
   // between blocks (station-core-tabata.ts's
@@ -142,6 +160,10 @@ export function strengthBlockToWorkoutPlan(
         restBetweenExercises: 0, // tabata's own rest (spec.config.restSec) is the player's interval clock, not an inter-exercise pause
         protocol: 'tabata',
         protocolConfig: spec.config,
+        // Equipment-tabata nudge (domain-assessment gate, David 23-24.09.2026):
+        // real content from real machines, with an invite to also assess the
+        // bodyweight complement. Additive — never on the pre-existing core-tabata path.
+        ...(block.assessmentNudge ? { assessmentNudge: block.assessmentNudge } : {}),
       };
     });
     return {

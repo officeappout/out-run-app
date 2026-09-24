@@ -206,7 +206,7 @@ async function composeNoGpsFallback(intent: HybridStartIntent): Promise<Composed
       plan: {
         segments: [],
         totals: { aerobicMin: 0, strengthMin: 0, distanceKm: 0, estCalories: 0, stations: 0 },
-        meta: { emphasisResolved: intent.emphasis, whoGapNote: null, usedFieldFallback: false, insufficientHomeContent: false, log: [] },
+        meta: { emphasisResolved: intent.emphasis, whoGapNote: null, usedFieldFallback: false, insufficientHomeContent: false, skippedFieldFallback: false, log: [] },
       },
       routePath: [],
       aerobicKind: intent.aerobicKind,
@@ -291,7 +291,7 @@ async function composeFullParkWorkout(
       plan: {
         segments: [],
         totals: { aerobicMin: 0, strengthMin: 0, distanceKm: 0, estCalories: 0, stations: 0 },
-        meta: { emphasisResolved: intent.emphasis, whoGapNote: null, usedFieldFallback: false, insufficientHomeContent: false, log: [] },
+        meta: { emphasisResolved: intent.emphasis, whoGapNote: null, usedFieldFallback: false, insufficientHomeContent: false, skippedFieldFallback: false, log: [] },
       },
       routePath: [],
       aerobicKind: intent.aerobicKind,
@@ -473,7 +473,7 @@ async function composeFullParkWorkout(
       plan: {
         segments: [],
         totals: { aerobicMin: 0, strengthMin: 0, distanceKm: 0, estCalories: 0, stations: 0 },
-        meta: { emphasisResolved: intent.emphasis, whoGapNote: null, usedFieldFallback: false, insufficientHomeContent: false, log: [] },
+        meta: { emphasisResolved: intent.emphasis, whoGapNote: null, usedFieldFallback: false, insufficientHomeContent: false, skippedFieldFallback: false, log: [] },
       },
       routePath: oab.routePath,
       aerobicKind: intent.aerobicKind,
@@ -725,7 +725,7 @@ async function composeRouteStopsWorkout(
       plan: {
         segments: [],
         totals: { aerobicMin: 0, strengthMin: 0, distanceKm: 0, estCalories: 0, stations: 0 },
-        meta: { emphasisResolved: intent.emphasis, whoGapNote: null, usedFieldFallback: false, insufficientHomeContent: false, log: [] },
+        meta: { emphasisResolved: intent.emphasis, whoGapNote: null, usedFieldFallback: false, insufficientHomeContent: false, skippedFieldFallback: false, log: [] },
       },
       routePath: [],
       aerobicKind: intent.aerobicKind,
@@ -779,50 +779,27 @@ async function composeRouteStopsWorkout(
   const routePath = backbone.routePath;
   const rawStops = resolveRouteStops(routePath, parks as any);
 
-  // Part A / unassessed-domain-gate: no assessment AND no real equipped gym nearby
-  // (stairs/bench aren't a "גינת כושר") → the open_field stops that would have filled this
-  // gap are locked, and the generic bodyweight fallback would silently stand in for them.
-  // Additionally (unassessed-domain-gate, 04.08.2026 round): even a REAL equipped gym isn't
-  // safe to guess level=1 on — only a HYDRAULIC-equipped one is (self-limiting resistance;
-  // see parkHasHydraulicEquipment). Block + let the caller show the assessment message
-  // instead of a silent degrade.
-  if (!hasAssessment) {
-    const equippedStops = rawStops.filter((s) => s.activityType === 'strength' && s.availableEquipment.length > 0);
-    const equipmentCatalog = equippedStops.length > 0 ? await getAllGymEquipment() : [];
-    // unassessed-domain-gate content follow-up (05.08.2026): capture WHICH hydraulic
-    // gym_equipment doc(s) matched per stop (not just a boolean), and attach them
-    // directly onto the rawStops object — coredStops/planFromPoint both spread the
-    // stop untouched, so `hydraulicEquipment` survives to composeHybridSession's
-    // stopCandidates and reaches dispatchStopContent → resolveStationContent.
-    let hasHydraulicStop = false;
+  // Domain-assessment gate (David, 23-24.09.2026, field-test doc TBD): replaces the
+  // old session-level Gate A here (blocked the WHOLE session on !hasAssessment + no
+  // hydraulic park nearby — removed per David's explicit approval, 23-24.09.2026).
+  // Correction he gave in the same approval: EVERYONE always gets the real walk; the
+  // only thing that varies is what happens AT a station. A station whose domain(s)
+  // aren't assessed no longer blocks the session — it becomes a per-segment locked
+  // card (dispatchStopContent's domain-assessment gate) or, when the park has real
+  // equipment, real machine-tabata content (station-equipment-tabata.ts — "the
+  // machine determines the range of motion, no assumption about the body there").
+  // Equipment matching now runs for EVERY equipped stop regardless of hasAssessment:
+  // the gate that actually matters is PER-DOMAIN (userProgramLevels.has(domain),
+  // inside dispatchStopContent), not this coarse "assessed anything at all" flag — a
+  // user assessed in only ONE domain can still hit an unassessed-domain station.
+  const equippedStops = rawStops.filter((s) => s.activityType === 'strength' && s.availableEquipment.length > 0);
+  if (equippedStops.length > 0) {
+    const equipmentCatalog = await getAllGymEquipment();
     for (const s of equippedStops) {
       const stopPark = parks.find((p: any) => p.id === s.parkId);
       if (!stopPark) continue;
       const matched = findHydraulicEquipment(stopPark, equipmentCatalog);
-      if (matched.length > 0) {
-        hasHydraulicStop = true;
-        (s as any).hydraulicEquipment = matched;
-      }
-    }
-    if (!hasHydraulicStop) {
-      console.warn('[composeRouteStopsWorkout] gated: no completed assessment + no hydraulic-equipped park nearby → needs_assessment');
-      // Live-bug fix (08.08.2026), same as composeFullParkWorkout's gate above: return a
-      // real session with fallbackHint/assessmentDomains (the shape HybridOverviewScreen /
-      // DiscoverLayer's onAssessmentLink already render) instead of null, which the caller
-      // has no way to read a reason off of. This branch is dark (MAP_ROUTE_STOPS_V1=false)
-      // so today it's zero live exposure — fixed for consistency, not for an active user path.
-      const needsAssessment = await buildNeedsAssessmentFallback();
-      return {
-        plan: {
-          segments: [],
-          totals: { aerobicMin: 0, strengthMin: 0, distanceKm: 0, estCalories: 0, stations: 0 },
-          meta: { emphasisResolved: intent.emphasis, whoGapNote: null, usedFieldFallback: false, insufficientHomeContent: false, log: [] },
-        },
-        routePath,
-        aerobicKind: intent.aerobicKind,
-        fallbackHint: needsAssessment.fallbackHint,
-        assessmentDomains: needsAssessment.assessmentDomains,
-      };
+      if (matched.length > 0) (s as any).parkEquipment = matched;
     }
   }
 
@@ -939,6 +916,14 @@ async function composeRouteStopsWorkout(
       paceProfile, routePath: traversalPath, stopCandidates: stops, stopSelection: 'as_provided',
       // Bug 2a: every route stop is a full-body workout (mixed domains), not single-domain.
       stationDomainMode: 'multi',
+      // Domain-assessment gate (David, 23-24.09.2026): zero real stops resolved on
+      // this route at all (stops.length===0, see the console.warn above) + no
+      // assessment at all → skip the synthetic midpoint stop, pure walk instead
+      // (stamped below with a "fill the questionnaire" hint, not labeled a
+      // stations workout). Only takes effect when stopCandidates is truly empty —
+      // an assessed user's zero-station route keeps today's field-fallback
+      // synthesis completely unchanged (David's explicit "zero regression").
+      skipFieldFallbackWhenNoCandidates: !hasAssessment,
       masterExercises, filterContext, generationContext, weeklyGaps, userWeightKg,
     });
   };
@@ -970,7 +955,7 @@ async function composeRouteStopsWorkout(
       plan: {
         segments: [],
         totals: { aerobicMin: 0, strengthMin: 0, distanceKm: 0, estCalories: 0, stations: 0 },
-        meta: { emphasisResolved: intent.emphasis, whoGapNote: null, usedFieldFallback: false, insufficientHomeContent: true, log: [] },
+        meta: { emphasisResolved: intent.emphasis, whoGapNote: null, usedFieldFallback: false, insufficientHomeContent: true, skippedFieldFallback: false, log: [] },
       },
       routePath: traversalPath,
       aerobicKind: intent.aerobicKind,
@@ -986,6 +971,18 @@ async function composeRouteStopsWorkout(
     .filter((s) => Number.isFinite(s.lat) && Number.isFinite(s.lng))
     .map((s) => ({ lat: s.lat, lng: s.lng, name: s.name, image: s.image, parkId: s.parkId }));
 
+  // Domain-assessment gate (David, 23-24.09.2026): the SELECTED bolt is the
+  // definitive signal — skippedFieldFallback is only ever true when the
+  // "zero real stops + unassessed" bypass actually fired above, never for an
+  // unrelated empty-pool reason (injury shield, thin catalog). A real walk is
+  // ALWAYS returned either way (David's correction: nobody gets no workout at
+  // all for an unfilled questionnaire) — this only adds the nudge banner +
+  // suppresses the "stations" framing, reusing the EXACT same fallbackHint/
+  // assessmentDomains shape the stub-return gates above already use.
+  const noStationsHint = plans[selectedIndex].meta.skippedFieldFallback
+    ? await buildNeedsAssessmentFallback()
+    : null;
+
   return {
     plan: plans[selectedIndex],
     // Return the TRAVERSAL (entry-relative, rotated/clipped) — the same frame the plan geometry &
@@ -997,6 +994,7 @@ async function composeRouteStopsWorkout(
     bolts: { plans, selectedIndex, labels: ['קליל', 'מאוזן', 'עוצמתי'] },
     // Budget-split stations → proven single-segment flattening, NOT full-park warmup-split.
     fullParkRun: false,
+    ...(noStationsHint ? { fallbackHint: noStationsHint.fallbackHint, assessmentDomains: noStationsHint.assessmentDomains } : {}),
   };
 }
 
@@ -1189,7 +1187,7 @@ export async function composeHybridPlan(
       plan: {
         segments: [],
         totals: { aerobicMin: 0, strengthMin: 0, distanceKm: 0, estCalories: 0, stations: 0 },
-        meta: { emphasisResolved: intent.emphasis, whoGapNote: null, usedFieldFallback: false, insufficientHomeContent: false, log: [] },
+        meta: { emphasisResolved: intent.emphasis, whoGapNote: null, usedFieldFallback: false, insufficientHomeContent: false, skippedFieldFallback: false, log: [] },
       },
       routePath,
       aerobicKind: intent.aerobicKind,
@@ -1227,7 +1225,11 @@ export async function composeHybridPlan(
     parkId: source.parkId, locationKind: source.locationKind,
     lat: source.lat ?? midLat, lng: source.lng ?? midLng, waypointIndex: source.waypointIndex ?? midIdx,
     availableEquipment: source.availableEquipment, activityType: 'strength' as const,
-    ...(gateHydraulicEquipment ? { hydraulicEquipment: gateHydraulicEquipment } : {}),
+    // Renamed from `hydraulicEquipment` (David, 23-24.09.2026, domain-assessment gate) —
+    // this gate's own logic (above) is UNCHANGED, only the field it populates on the stop
+    // candidate: dispatchStopContent now reaches real content via station-equipment-tabata.ts
+    // (machine-tabata) instead of the removed resolveStationContent (straight sets) shortcut.
+    ...(gateHydraulicEquipment ? { parkEquipment: gateHydraulicEquipment } : {}),
   }];
 
   const masterExercises = await getAllExercises();
@@ -1259,9 +1261,10 @@ export async function composeHybridPlan(
 
 /** RUN the already-composed plan — no re-compose (stability guarantee). */
 export async function runHybridPlan(composed: ComposedHybridSession, startRun: () => void): Promise<void> {
-  const [{ useRunningPlayer }, { useHybridRun }] = await Promise.all([
+  const [{ useRunningPlayer }, { useHybridRun }, { stripLockedStationsForRun }] = await Promise.all([
     import('@/features/workout-engine/players/running/store/useRunningPlayer'),
     import('./useHybridRun'),
+    import('./compose-hybrid-session.service'),
   ]);
   const rp = useRunningPlayer.getState();
   rp.setHybridMode(true);
@@ -1270,11 +1273,18 @@ export async function runHybridPlan(composed: ComposedHybridSession, startRun: (
   // the run always tracks the overview's carousel choice even if composed.plan wasn't
   // synced. Budget-split cards have no `bolts` → their single composed.plan is used.
   const activePlan = composed.bolts ? composed.bolts.plans[composed.bolts.selectedIndex] : composed.plan;
+  // Domain-assessment gate (David, 24.09.2026): a locked station belongs to the
+  // OVERVIEW screen only — the run never sees it (station-equipment-tabata.ts's
+  // header + this file's own callers still show the lock card pre-run via the
+  // UNFILTERED `composed.plan`/`bolts`, untouched here). Applied to a COPY —
+  // `composed` itself is never mutated (this function's own "no re-compose"
+  // stability guarantee).
+  const runPlan = stripLockedStationsForRun(activePlan);
   // Run-flatten gate. Historically inferred from `!!bolts` (only full-park carried a trio).
   // route-stops ALSO carries a trio but flattens as budget-split → it sets fullParkRun:false
   // explicitly. Fallback to `!!bolts` keeps full-park + budget-split byte-identical.
   const fullPark = composed.fullParkRun ?? !!composed.bolts;
-  useHybridRun.getState().startHybrid(activePlan, composed.aerobicKind, fullPark, composed.isWarmupActive ?? true);
+  useHybridRun.getState().startHybrid(runPlan, composed.aerobicKind, fullPark, composed.isWarmupActive ?? true);
   startRun();
 }
 

@@ -217,6 +217,7 @@ export function composeParkWorkoutPlan(input: ParkWorkoutComposeInput): HybridPl
       whoGapNote: null,
       usedFieldFallback: false,
       insufficientHomeContent: false,
+      skippedFieldFallback: false,
       log: [
         `park-workout: routeKm=${routeKm.toFixed(2)} stationKm=${stationKm.toFixed(2)} legs=${gaps.length}`,
         ...block.log,
@@ -273,6 +274,7 @@ export function composeHomeOnlyPlan(
       whoGapNote: null,
       usedFieldFallback: false,
       insufficientHomeContent: false,
+      skippedFieldFallback: false,
       log: [`no-gps fallback: home-only strength plan (${segments.length} station(s), no aerobic/route)`, ...block.log],
     },
   };

@@ -306,6 +306,13 @@ export interface Park {
 
   // Admin metadata
   authorityId?: string; // Link to authority (for Authority Manager access) — always the TOP authority (city / regional_council)
+  /** Set by approveNewLocation() when resolveAuthorityForPoint() could not derive
+   *  an authorityId from the contribution's coordinates (no authority has boundary/
+   *  radius data covering that point yet, or more than one does). The park is
+   *  still created — never blocked on this — but is missing its authority link
+   *  until an admin tags it manually. Admin clears it manually once resolved; no
+   *  code path unsets it automatically (same convention as needsFacilityDetails). */
+  needsAuthorityTagging?: boolean;
   /** Leaf sub-location: the neighborhood/settlement Authority doc id this park physically sits in.
    *  `authorityId` is derived from `neighborhood.parentAuthorityId`. Optional (hybrid backfill). */
   neighborhoodId?: string;

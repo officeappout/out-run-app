@@ -21,6 +21,7 @@
 import { getAllPrograms } from '@/features/content/programs/core/program.service';
 import { getProgramLevelSettingsByProgram } from '@/features/content/programs/core/programLevelSettings.service';
 import { SKILL_TO_FOUNDATION_DOMAIN } from '../constants/skill-foundation-domain.constants';
+import type { ExerciseWishlistEntry } from '@/features/user/core/types/user.types';
 
 // Mirrors mini-domain-assessment.ts's MINI_ASSESSMENT_ACTIVE_KEY. Not imported
 // from that module directly — this is a lean, dependency-free utility file,
@@ -131,6 +132,30 @@ export function getMuscleFocusFromStorage(): string[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed.filter((s: unknown) => typeof s === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+const WISHLIST_PACKAGE_KEYS = new Set(['push', 'pull', 'legs', 'core']);
+
+/** Mirrors getMuscleFocusFromStorage()'s shape — Slice 2b exercise wishlist. */
+export function getExerciseWishlistFromStorage(): ExerciseWishlistEntry[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = sessionStorage.getItem('onboarding_exercise_wishlist');
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (e: unknown): e is ExerciseWishlistEntry =>
+        !!e &&
+        typeof e === 'object' &&
+        typeof (e as ExerciseWishlistEntry).exerciseId === 'string' &&
+        WISHLIST_PACKAGE_KEYS.has((e as ExerciseWishlistEntry).packageKey) &&
+        typeof (e as ExerciseWishlistEntry).addedAt === 'string' &&
+        (e as ExerciseWishlistEntry).source === 'onboarding'
+    );
   } catch {
     return [];
   }

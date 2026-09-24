@@ -157,6 +157,22 @@ export interface WorkoutSegment {
   protocolConfig?: SegmentProtocolConfig;
   /** Aligned to the hybrid branch's SessionSegmentKind. Absent = 'strength'. */
   kind?: SegmentKind;
+  /**
+   * Locked-station stub (domain-assessment gate, David 23-24.09.2026): this
+   * station's domain(s) aren't assessed and no equipment-based alternative
+   * applies. `exercises` stays empty; the run screen renders a lock card
+   * instead of content, linking to the relevant mini-assessment for
+   * `assessmentDomains`. Absent = normal segment, unchanged.
+   */
+  needsAssessment?: { fallbackHint: string; assessmentDomains: string[] };
+  /**
+   * Equipment-tabata nudge (domain-assessment gate, David 23-24.09.2026): this
+   * segment DOES have real content (unlike `needsAssessment` above) — a real
+   * park machine covered an otherwise-unassessed domain. `message` invites
+   * completing the questionnaire for the bodyweight complement too. Absent =
+   * no nudge, unchanged.
+   */
+  assessmentNudge?: { message: string; assessmentDomains: string[] };
 }
 
 export interface WorkoutPlan {

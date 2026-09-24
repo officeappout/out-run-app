@@ -11,30 +11,43 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
 import {
-  getExecutiveSummary,
-  getAuthorityPerformance,
   getTopBaseMovements,
   getLocationDistribution,
-  getPremiumMetrics,
   getGlobalMaintenanceReports,
+  type AuthorityPerformance,
 } from '@/features/admin/services/cpo-analytics.service';
-import ExecutiveSummary from '@/features/admin/components/cpo-dashboard/ExecutiveSummary';
+import ExecutiveSummary, { type ExecutiveSummaryData } from '@/features/admin/components/cpo-dashboard/ExecutiveSummary';
 import AuthorityPerformanceTable from '@/features/admin/components/cpo-dashboard/AuthorityPerformanceTable';
 import MaintenanceOverview from '@/features/admin/components/cpo-dashboard/MaintenanceOverview';
 import OnboardingFunnel from '@/features/admin/components/cpo-dashboard/OnboardingFunnel';
+
+/**
+ * 00-MASTER-PLAN.md §13.11 P1 — see src/lib/adminAnalyticsScope.ts. This
+ * page already redirects authority-manager-only users to /admin/dashboard
+ * before loading any of this (line below), so the only scopes it can ever
+ * see are 'platform' and 'vertical' — matching what
+ * /api/admin/statistics-summary supports.
+ */
+interface StatisticsSummaryResponse {
+    scope: 'platform' | 'vertical';
+    executiveSummary: ExecutiveSummaryData;
+    authorityPerformance: AuthorityPerformance[];
+    notApplicable: string[];
+}
 
 export default function AdminDashboardPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [authLoading, setAuthLoading] = useState(true);
     
-    // CPO Dashboard Data (not used on main dashboard, but kept for potential future use)
-    const [executiveSummary, setExecutiveSummary] = useState<any>(null);
-    const [authorityPerformance, setAuthorityPerformance] = useState<any[]>([]);
+    // CPO Dashboard Data
+    const [executiveSummary, setExecutiveSummary] = useState<ExecutiveSummaryData | null>(null);
+    const [executiveSummaryNotApplicable, setExecutiveSummaryNotApplicable] = useState<string[]>([]);
+    const [authorityPerformance, setAuthorityPerformance] = useState<AuthorityPerformance[]>([]);
     const [topMovements, setTopMovements] = useState<any[]>([]);
     const [locationDistribution, setLocationDistribution] = useState<any[]>([]);
-    const [premiumMetrics, setPremiumMetrics] = useState<any>(null);
     const [maintenanceReports, setMaintenanceReports] = useState<any[]>([]);
+    const [statsDeniedMessage, setStatsDeniedMessage] = useState<string | null>(null);
     const [dataLoading, setDataLoading] = useState(true);
 
     useEffect(() => {
@@ -63,27 +76,34 @@ export default function AdminDashboardPage() {
         async function loadData() {
             try {
                 setDataLoading(true);
-                const [
-                    summary,
-                    performance,
-                    movements,
-                    locations,
-                    premium,
-                    maintenance,
-                ] = await Promise.all([
-                    getExecutiveSummary(),
-                    getAuthorityPerformance(),
+
+                const user = auth.currentUser;
+                let statsResult: StatisticsSummaryResponse | null = null;
+                if (user) {
+                    const idToken = await user.getIdToken();
+                    const res = await fetch('/api/admin/statistics-summary', { headers: { Authorization: `Bearer ${idToken}` } });
+                    if (res.ok) {
+                        statsResult = await res.json();
+                    } else {
+                        const body = await res.json().catch(() => ({}));
+                        setStatsDeniedMessage(body?.error ?? 'שגיאה בטעינת הנתונים.');
+                    }
+                }
+
+                const [movements, locations, maintenance] = await Promise.all([
                     getTopBaseMovements(5),
                     getLocationDistribution(),
-                    getPremiumMetrics(),
                     getGlobalMaintenanceReports(),
                 ]);
 
-                setExecutiveSummary(summary);
-                setAuthorityPerformance(performance);
+                if (statsResult) {
+                    setStatsDeniedMessage(null);
+                    setExecutiveSummary(statsResult.executiveSummary);
+                    setExecutiveSummaryNotApplicable(statsResult.notApplicable);
+                    setAuthorityPerformance(statsResult.authorityPerformance);
+                }
                 setTopMovements(movements);
                 setLocationDistribution(locations);
-                setPremiumMetrics(premium);
                 setMaintenanceReports(maintenance);
             } catch (error) {
                 console.error('Error loading CPO dashboard data:', error);
@@ -189,9 +209,15 @@ export default function AdminDashboardPage() {
                 </div>
             </div>
 
+            {statsDeniedMessage && !dataLoading && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+                    {statsDeniedMessage}
+                </div>
+            )}
+
             {/* Executive Summary */}
             {executiveSummary && (
-                <ExecutiveSummary data={executiveSummary} loading={dataLoading} />
+                <ExecutiveSummary data={executiveSummary} loading={dataLoading} notApplicable={executiveSummaryNotApplicable} />
             )}
 
             {/* Authority Performance Table */}

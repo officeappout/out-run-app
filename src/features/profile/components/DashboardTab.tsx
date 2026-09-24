@@ -20,6 +20,7 @@ import FavoritesSheet from './FavoritesSheet';
 
 // Carousels use Firestore + auth — keep them client-only via dynamic()
 const GoalCarousel = dynamic(() => import('./widgets/GoalCarousel'), { ssr: false });
+const ExerciseWishlistStrip = dynamic(() => import('./widgets/ExerciseWishlistStrip'), { ssr: false });
 const ProgramsSection = dynamic(() => import('./widgets/ProgramsSection'), { ssr: false });
 const PrioritiesSection = dynamic(() => import('./widgets/PrioritiesSection'), { ssr: false });
 // RecentActivityList is pure React (no window APIs) — import directly so it
@@ -244,6 +245,18 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
         transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.06 }}
       >
         <GoalCarousel />
+      </motion.div>
+
+      {/* ════════════════════════════════════════════════════════════════════
+          BLOCK 2.5 — תרגילים שאני רוצה ללמוד (Slice 2b exercise wishlist)
+          Placement provisional — David will rearrange the profile later.
+         ════════════════════════════════════════════════════════════════════ */}
+      <motion.div
+        initial={{ y: 16, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.08 }}
+      >
+        <ExerciseWishlistStrip />
       </motion.div>
 
       {/* ════════════════════════════════════════════════════════════════════

@@ -5,7 +5,8 @@ import { useRunningPlayer } from '@/features/workout-engine/players/running/stor
 import { useSessionStore } from '@/features/workout-engine';
 import { useRequiredSetup } from '@/features/user/onboarding/hooks/useRequiredSetup';
 import { Route } from '../types/route.types';
-import { computeRouteTurns } from '../services/geoUtils';
+import { computeRouteTurns, classifyRouteShape } from '../services/geoUtils';
+import { planFromPoint } from '@/features/workout-engine/hybrid/plan-from-point';
 
 function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;
@@ -228,20 +229,61 @@ export function useWorkoutSession(
         ? focusedRoute.distance
         : null,
     );
+    // Loop-rotation-at-start (David, 24.09.2026, scoped to loops ONLY after
+    // investigation — see plan-from-point.ts's own header + this file's own
+    // reasoning below):
+    //
+    // A non-loop route's raw, unmodified path already behaves correctly when
+    // starting mid-route — crossTrackDistanceMeters (the deviation detector)
+    // measures against the WHOLE path, every segment, not just path[0]; and
+    // computeRouteTurns/TurnCarousel already track the user's LIVE position
+    // dynamically, not an assumed starting index. Verified, not touched here.
+    //
+    // A LOOP's raw array has a real, user-visible gap instead: someone
+    // starting at vertex 40 of an 88-vertex loop and walking to vertex 87
+    // (the array's end) has no built-in signal that the route continues by
+    // wrapping back to vertex 0 and closing at their own entry point (vertex
+    // 40) — they silently lose turn-by-turn instructions for the second half
+    // of their run. planFromPoint's cyclic rotation (already proven by the
+    // hybrid path) fixes exactly this: reorder the array to start at the
+    // user's nearest vertex, wrap fully around, lose nothing.
+    //
+    // classifyRouteShape (NOT plan-from-point's own detectTopology — that
+    // one only checks endpoint proximity and would misclassify a true
+    // out-and-back route as a loop) correctly excludes out-and-back and
+    // plain-linear routes from rotation — both are left completely
+    // untouched, per David's explicit decision: a regular route must never
+    // silently become shorter than what the user picked.
+    //
+    // ONE path computed here, reused for BOTH guidedRouteTurns and
+    // setActiveRoutePath below — never two parallel versions of "the route"
+    // for the same session.
+    const rawPath = focusedRoute?.path;
+    const isLoop = !!rawPath && rawPath.length >= 3 && classifyRouteShape(rawPath) === 'loop';
+    const sessionPath = isLoop && currentUserPos
+      ? planFromPoint({
+          canonical: { path: rawPath! },
+          entry: { position: currentUserPos },
+          direction: 'forward',
+          topology: 'loop',
+          stops: [],
+        }).traversal
+      : rawPath;
+
     rp.setGuidedRouteTurns(
-      focusedRoute?.path && focusedRoute.path.length >= 3
-        ? computeRouteTurns(focusedRoute.path)
+      sessionPath && sessionPath.length >= 3
+        ? computeRouteTurns(sessionPath)
         : null,
     );
     // Seed the deviation detector with the route polyline. Without this,
-    // checkRouteDeviation has nothing to compare against and the auto-reroute
-    // never fires. setActiveRoutePath also resets the deviation counter on
-    // every call, so re-mounting / re-starting always begins from a clean
-    // state. Free-form runs (no focusedRoute) get an empty path which the
-    // detector treats as "no comparable route" — same behaviour as today.
+    // checkRouteDeviation has nothing to compare against. setActiveRoutePath
+    // also resets the deviation counter on every call, so re-mounting /
+    // re-starting always begins from a clean state. Free-form runs (no
+    // focusedRoute) get an empty path which the detector treats as "no
+    // comparable route" — same behaviour as today.
     rp.setActiveRoutePath(
-      focusedRoute?.path && focusedRoute.path.length >= 2
-        ? focusedRoute.path
+      sessionPath && sessionPath.length >= 2
+        ? sessionPath
         : [],
     );
     // Single GPS watcher — only startGPSTracking runs; no second watcher here.

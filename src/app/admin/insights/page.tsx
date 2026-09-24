@@ -7,13 +7,19 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
-import { TrendingUp, Building2, Target, Award } from 'lucide-react';
-import {
-  getHealthWakeUpMetric,
-  getEquipmentGapAnalysis,
-  getSleepyNeighborhoods,
-} from '@/features/admin/services/strategic-insights.service';
+import { TrendingUp, Building2, Target, Award, AlertCircle } from 'lucide-react';
+
+/**
+ * 00-MASTER-PLAN.md §13.11 P1 — replaced strategic-insights.service.ts's
+ * client-resolved authorityIds param with a server route that resolves
+ * scope from the verified ID token — see src/lib/adminAnalyticsScope.ts.
+ */
+interface InsightsSummaryResponse {
+    scope: 'platform' | 'vertical' | 'authority';
+    healthWakeUp: { totalInactiveUsers: number; nowActiveUsers: number; successRate: number };
+    equipmentGaps: any[];
+    sleepyNeighborhoods: any[];
+}
 
 export default function StrategicInsightsPage() {
     const router = useRouter();
@@ -22,23 +28,10 @@ export default function StrategicInsightsPage() {
     const [equipmentGaps, setEquipmentGaps] = useState<any[]>([]);
     const [sleepyNeighborhoods, setSleepyNeighborhoods] = useState<any[]>([]);
     const [dataLoading, setDataLoading] = useState(true);
-    const [userAuthorityIds, setUserAuthorityIds] = useState<string[]>([]);
-    const [isAuthorityManagerOnly, setIsAuthorityManagerOnly] = useState(false);
+    const [deniedMessage, setDeniedMessage] = useState<string | null>(null);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                try {
-                    const roleInfo = await checkUserRole(user.uid);
-                    const isOnly = await isOnlyAuthorityManager(user.uid);
-                    setIsAuthorityManagerOnly(isOnly);
-                    setUserAuthorityIds(roleInfo.authorityIds || []);
-                } catch (error) {
-                    console.error('Error checking user role:', error);
-                }
-            }
-            setAuthLoading(false);
-        });
+        const unsubscribe = onAuthStateChanged(auth, () => setAuthLoading(false));
         return () => unsubscribe();
     }, []);
 
@@ -47,26 +40,32 @@ export default function StrategicInsightsPage() {
         if (authLoading) return;
 
         async function loadInsights() {
+            setDataLoading(true);
             try {
-                setDataLoading(true);
-                const [healthData, gapsData, sleepyData] = await Promise.all([
-                    getHealthWakeUpMetric(isAuthorityManagerOnly ? userAuthorityIds : undefined),
-                    getEquipmentGapAnalysis(isAuthorityManagerOnly ? userAuthorityIds : undefined),
-                    getSleepyNeighborhoods(isAuthorityManagerOnly ? userAuthorityIds : undefined),
-                ]);
-
-                setHealthWakeUp(healthData);
-                setEquipmentGaps(gapsData);
-                setSleepyNeighborhoods(sleepyData);
+                const user = auth.currentUser;
+                if (!user) { setDeniedMessage('לא מחובר.'); return; }
+                const idToken = await user.getIdToken();
+                const res = await fetch('/api/admin/insights-summary', { headers: { Authorization: `Bearer ${idToken}` } });
+                if (!res.ok) {
+                    const body = await res.json().catch(() => ({}));
+                    setDeniedMessage(body?.error ?? 'שגיאה בטעינת הנתונים.');
+                    return;
+                }
+                const data: InsightsSummaryResponse = await res.json();
+                setDeniedMessage(null);
+                setHealthWakeUp(data.healthWakeUp);
+                setEquipmentGaps(data.equipmentGaps);
+                setSleepyNeighborhoods(data.sleepyNeighborhoods);
             } catch (error) {
                 console.error('Error loading insights:', error);
+                setDeniedMessage('שגיאה בטעינת הנתונים.');
             } finally {
                 setDataLoading(false);
             }
         }
 
         loadInsights();
-    }, [authLoading, isAuthorityManagerOnly, userAuthorityIds]);
+    }, [authLoading]);
 
     if (authLoading) {
         return (
@@ -82,6 +81,13 @@ export default function StrategicInsightsPage() {
                 <h1 className="text-3xl font-black text-gray-900">תובנות אסטרטגיות</h1>
                 <p className="text-gray-500 mt-2">סיכומים ברמה גבוהה המופקים מהסטטיסטיקה - שכונות מובילות, פערים בציוד, מגמות</p>
             </div>
+
+            {deniedMessage && !dataLoading && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+                    <AlertCircle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-amber-800">{deniedMessage}</p>
+                </div>
+            )}
 
             {/* Strategic Insights Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

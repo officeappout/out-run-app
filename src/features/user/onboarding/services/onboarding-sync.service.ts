@@ -26,6 +26,7 @@ import {
   getProgramPathListFromStorage,
   getMuscleFocusFromStorage,
   getSkillFocusFromStorage,
+  getExerciseWishlistFromStorage,
   deriveActiveProgramFromMuscleFocus,
   deriveActiveProgramFromSkillFocus,
   getFocusDomainsForMuscleFocus,
@@ -1132,6 +1133,9 @@ export async function syncOnboardingToFirestore(
       // Never consumed by scoring/volume logic; captured/persisted/displayed only.
       const cardOrder = getProgramPathListFromStorage();
       const muscleIds = getMuscleFocusFromStorage();
+      // Slice 2b: foundation-exercise wishlist — re-read from sessionStorage
+      // here (not React state), same as cardOrder/muscleIds above.
+      const wishlist = getExerciseWishlistFromStorage();
 
       // Phase 3 (union-based program/track creation): every co-selected card
       // contributes its programs/tracking, not just the primary (first-tapped)
@@ -1524,6 +1528,9 @@ export async function syncOnboardingToFirestore(
           // scoring/volume code — captured/persisted/displayed only.
           ...(cardOrder.length >= 2 ? { cardFocusOrder: cardOrder } : {}),
           ...(muscleIds.length >= 2 ? { muscleFocusIds: muscleIds } : {}),
+          // Existence, not order, is what matters for the wishlist — gate on
+          // length > 0, not >=2 (unlike the three fields above).
+          ...(wishlist.length > 0 ? { exerciseWishlist: wishlist } : {}),
         };
 
         // Store assignedResults on the document for future reference

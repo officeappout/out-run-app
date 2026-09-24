@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getAuthorityWithChildrenIds } from './analytics.service';
+import { isTestOrMockUser } from '@/lib/testAccountFilter';
 
 const WORKOUTS_COLLECTION = 'workouts';
 export const AVERAGE_HEALTH_SAVINGS_PER_ACTIVE_PERSON = 500; // ₪500/active person/month
@@ -109,6 +110,9 @@ async function getBulkWorkoutMinutes(
 
 // ── Authority user IDs ────────────────────────────────────────────────────────
 
+// Excludes demo (core.isMockData) and test/dev (core.isTestData) accounts
+// — see src/lib/testAccountFilter.ts — so every WHO-150/health-savings
+// metric below (all derived from this id list) inherits the exclusion.
 async function getAuthorityUsers(authorityId: string): Promise<string[]> {
   try {
     const authorityIds = await getAuthorityWithChildrenIds(authorityId);
@@ -120,7 +124,11 @@ async function getAuthorityUsers(authorityId: string): Promise<string[]> {
         where('core.authorityId', 'in', batch)
       );
       const snap = await getDocs(q);
-      snap.docs.forEach(doc => userIds.push(doc.id));
+      snap.docs.forEach(doc => {
+        if (!isTestOrMockUser(doc.data()?.core as Record<string, unknown> | undefined)) {
+          userIds.push(doc.id);
+        }
+      });
     }));
 
     return userIds;

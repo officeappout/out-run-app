@@ -82,6 +82,7 @@ const pathConfigState = vi.hoisted(() => ({
   cardOrder: [] as string[],
   skillFocus: [] as string[],
   muscleFocus: [] as string[],
+  exerciseWishlist: [] as { exerciseId: string; packageKey: string; addedAt: string; source: string }[],
 }));
 
 // Real categorization (mirrors assessment-path-config.service.ts's own
@@ -114,6 +115,7 @@ vi.mock('@/features/user/onboarding/services/assessment-path-config.service', ()
   getProgramPathListFromStorage: () => pathConfigState.cardOrder,
   getMuscleFocusFromStorage: () => pathConfigState.muscleFocus,
   getSkillFocusFromStorage: () => pathConfigState.skillFocus,
+  getExerciseWishlistFromStorage: () => pathConfigState.exerciseWishlist,
   deriveActiveProgramFromMuscleFocus: () => 'push',
   deriveActiveProgramFromSkillFocus: (ids: string[]) =>
     ids.length === 1 ? ids[0] : 'calisthenics_upper',
@@ -206,6 +208,7 @@ beforeEach(() => {
   pathConfigState.cardOrder = [];
   pathConfigState.skillFocus = [];
   pathConfigState.muscleFocus = [];
+  pathConfigState.exerciseWishlist = [];
   vi.spyOn(console, 'log').mockImplementation(() => {});
 });
 
@@ -875,6 +878,46 @@ describe('syncOnboardingToFirestore — multi-select program path (Phase 1b, pie
     expect(ok).toBe(true);
     const written = setDocMock.mock.calls[0][1] as any;
     expect(written.progression.muscleFocusIds).toBeUndefined();
+  });
+});
+
+describe('syncOnboardingToFirestore — Slice 2b: exerciseWishlist persistence (gated on length > 0, NOT >=2 like its cardFocusOrder/muscleFocusIds siblings)', () => {
+  it('1 starred exercise: exerciseWishlist IS written (existence, not order, is what matters here)', async () => {
+    pathConfigState.programPath = 'body_focus';
+    pathConfigState.muscleFocus = ['chest'];
+    pathConfigState.exerciseWishlist = [
+      { exerciseId: 'pullup', packageKey: 'pull', addedAt: '2026-09-23T00:00:00.000Z', source: 'onboarding' },
+    ];
+    stubBrowserStorage();
+
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      assignedResults: [
+        { programId: 'push', levelId: 'push_level_5', masterProgramSubLevels: { push: 5, pull: 0, legs: 0, core: 0 } },
+      ],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+    expect(written.progression.exerciseWishlist).toEqual([
+      { exerciseId: 'pullup', packageKey: 'pull', addedAt: '2026-09-23T00:00:00.000Z', source: 'onboarding' },
+    ]);
+  });
+
+  it('no starred exercises: exerciseWishlist is NOT written', async () => {
+    pathConfigState.programPath = 'body_focus';
+    pathConfigState.muscleFocus = ['chest'];
+    pathConfigState.exerciseWishlist = [];
+    stubBrowserStorage();
+
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      assignedResults: [
+        { programId: 'push', levelId: 'push_level_5', masterProgramSubLevels: { push: 5, pull: 0, legs: 0, core: 0 } },
+      ],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+    expect(written.progression.exerciseWishlist).toBeUndefined();
   });
 });
 

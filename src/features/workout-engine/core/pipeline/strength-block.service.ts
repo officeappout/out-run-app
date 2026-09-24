@@ -37,7 +37,7 @@ import { createPipelineOrchestrator } from './PipelineOrchestrator';
 export type BlockDomainFocus = 'push' | 'pull' | 'legs_core';
 
 /** Maps the station focus to the engine's domain vocabulary. */
-const FOCUS_TO_DOMAINS: Record<BlockDomainFocus, string[]> = {
+export const FOCUS_TO_DOMAINS: Record<BlockDomainFocus, string[]> = {
   push: ['push'],
   pull: ['pull'],
   legs_core: ['legs', 'core'],
@@ -96,6 +96,30 @@ export interface StrengthBlockResult {
    * own "zero engine surgery" law is untouched for every existing caller.
    */
   tabataBlocks?: TabataBlockSpec[];
+  /**
+   * Domain-assessment gate (David, 23-24.09.2026): present when this
+   * station's required domain(s) aren't assessed and no equipment-based
+   * alternative applies (station-equipment-tabata.ts). `exercises` stays
+   * `[]`; the caller must NOT treat this as `isEmpty` (the station must
+   * stay on the route as a locked card, not disappear) — the two fields
+   * are deliberately independent. Consumed by strength-block-to-plan.ts to
+   * stamp a locked WorkoutSegment; reuses the exact fallbackHint/
+   * assessmentDomains shape ComposedHybridSession already carries at
+   * session level (start-hybrid-session.ts's buildNeedsAssessmentFallback)
+   * — same mechanism, now also usable per-segment.
+   */
+  needsAssessment?: { fallbackHint: string; assessmentDomains: string[] };
+  /**
+   * Equipment-tabata nudge (David, 23-24.09.2026): present when this station
+   * DID produce real content (unlike `needsAssessment` above) via
+   * station-equipment-tabata.ts because real machines cover the unassessed
+   * domain(s) — "the machine determines the range of motion, no body
+   * assumption needed." `message` invites completing the questionnaire for
+   * the bodyweight complement too. Consumed by strength-block-to-plan.ts to
+   * stamp a nudge badge on the WorkoutSegment — the segment still renders its
+   * real exercises, this is additive UI, never a lock.
+   */
+  assessmentNudge?: { message: string; assessmentDomains: string[] };
 }
 
 /** Rest-exemption rule (decision 5) — one implementation for all consumers. */
