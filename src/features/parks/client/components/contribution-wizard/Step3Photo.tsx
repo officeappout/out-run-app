@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Camera as CameraIcon, Upload, Loader2, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { ref, uploadBytes, uploadString, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
 import { useToast } from '@/components/ui/Toast';
+import { getGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
 import type { WizardData } from './index';
 
 interface Props {
@@ -102,6 +103,25 @@ export default function Step3Photo({ data, updateData, onBack, onSubmit, submitt
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(data.photoUrl);
+  const [equipmentNames, setEquipmentNames] = useState<string[]>([]);
+
+  // Resolve the selected gymEquipment ids to display names for the summary
+  // below — the wizard only ever stores ids, so this is the same
+  // id→name lookup ApprovalDetailModal/ParkDetailSheet already do. The
+  // summary previously said nothing about equipment at all; this is a new
+  // line, not a count-to-names conversion of an existing one.
+  useEffect(() => {
+    if (!data.gymEquipment || data.gymEquipment.length === 0) {
+      setEquipmentNames([]);
+      return;
+    }
+    let cancelled = false;
+    Promise.all(data.gymEquipment.map((g) => getGymEquipment(g.equipmentId).catch(() => null)))
+      .then((items) => {
+        if (!cancelled) setEquipmentNames(items.filter((x): x is NonNullable<typeof x> => x !== null).map((x) => x.name));
+      });
+    return () => { cancelled = true; };
+  }, [data.gymEquipment]);
 
   const replacePreviousUpload = useCallback(async () => {
     const previousPath = data.photoStoragePath;
@@ -270,6 +290,9 @@ export default function Step3Photo({ data, updateData, onBack, onSubmit, submitt
         <div className="space-y-1 text-slate-600 text-xs">
           <p>📍 {data.parkName || 'ללא שם'}</p>
           {data.facilityType && <p>🏷️ {data.facilityType}</p>}
+          {equipmentNames.length > 0 && (
+            <p>🏋️ מתקנים: {equipmentNames.join(', ')}</p>
+          )}
           {data.featureTags.length > 0 && (
             <p>✅ {data.featureTags.length} תכונות</p>
           )}
