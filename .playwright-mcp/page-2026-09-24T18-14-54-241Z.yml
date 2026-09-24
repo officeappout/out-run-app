@@ -1,0 +1,13 @@
+- generic [active] [ref=f44e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f44e2]:
+    - generic [ref=f44e214]:
+      - button "חזרה" [ref=f44e216] [cursor=pointer]
+      - generic [ref=f44e243]:
+        - heading "בוא נכיר קצת יותר." [level=2] [ref=f44e244]
+        - generic [ref=f44e248]:
+          - paragraph [ref=f44e249]: אם המטרה שלך היא להרשים בים ולפצח בדיוק את דחיפה, אנחנו חייבים לדעת מאיפה להתחיל.
+          - paragraph [ref=f44e250]: מתחילים במבדק כוח קצר של 4 תרגילים.
+          - paragraph [ref=f44e251]: תסמן בדיוק מה אתה מצליח כדי שהתוכנית תתאים לך בול.
+      - button "אני מוכן, בוא נמשיך!" [ref=f44e253] [cursor=pointer]
+  - alert [ref=f44e79]

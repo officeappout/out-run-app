@@ -1,0 +1,53 @@
+- generic [active] [ref=f183e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f183e2]:
+    - generic [ref=f183e9]:
+      - button "חזרה" [ref=f183e11] [cursor=pointer]
+      - generic [ref=f183e29]:
+        - generic [ref=f183e30]:
+          - heading "נעים להכיר! 👋" [level=2] [ref=f183e33]
+          - paragraph [ref=f183e37]:
+            - generic [ref=f183e38]: אני
+            - generic [ref=f183e39]: קלי,
+            - generic [ref=f183e40]: המאמן
+            - generic [ref=f183e41]: האישי
+            - generic [ref=f183e42]: שלך.
+            - generic [ref=f183e43]: כדי
+            - generic [ref=f183e44]: שנתפור
+            - generic [ref=f183e45]: לך
+            - generic [ref=f183e46]: תוכנית
+            - generic [ref=f183e47]: מדויקת,
+            - generic [ref=f183e48]: אני
+            - generic [ref=f183e49]: צריך
+            - generic [ref=f183e50]: רק
+            - generic [ref=f183e51]: כמה
+            - generic [ref=f183e52]: פרטים
+            - generic [ref=f183e53]: קטנים.
+        - generic [ref=f183e54]:
+          - generic [ref=f183e55]:
+            - generic [ref=f183e56]: איך היית רוצה שנפנה אלייך?
+            - paragraph [ref=f183e57]: רק כדי שנדע מתי לפרגן לך ב'כל הכבוד מלך!' ומתי ב'אלופה, שברת את המסך!' 👑 (ובשביל דיוק המדדים הפיזיולוגיים שלך, כמובן).
+            - generic [ref=f183e58]:
+              - button "🙋‍♂️ גבר" [ref=f183e59] [cursor=pointer]:
+                - generic [ref=f183e60]: 🙋‍♂️
+                - generic [ref=f183e61]: גבר
+              - button "🙋‍♀️ אישה" [ref=f183e62] [cursor=pointer]:
+                - generic [ref=f183e63]: 🙋‍♀️
+                - generic [ref=f183e64]: אישה
+              - button "✨ אחר" [ref=f183e65] [cursor=pointer]:
+                - generic [ref=f183e66]: ✨
+                - generic [ref=f183e67]: אחר
+          - generic [ref=f183e68]:
+            - generic [ref=f183e69]: מתי חוגגים לך יום הולדת? 🎂
+            - paragraph [ref=f183e70]: עוזר לנו להתאים את עצימות האימון לגילך.
+            - generic [ref=f183e71]:
+              - textbox "יום" [ref=f183e72]: "05"
+              - generic [ref=f183e73]: /
+              - textbox "חודש" [ref=f183e74]: "09"
+              - generic [ref=f183e75]: /
+              - textbox "שנה" [ref=f183e76]: "1998"
+          - generic [ref=f183e77]:
+            - generic [ref=f183e78]: איך קוראים לך?
+            - textbox "השם שלך כאן..." [ref=f183e79]: QAMaleR2
+      - button "שומר..." [disabled] [ref=f183e86]
+  - alert [ref=f183e8]

@@ -1,0 +1,45 @@
+- generic [active] [ref=f530e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f530e2]:
+    - generic [ref=f530e217]:
+      - button "חזרה" [ref=f530e219] [cursor=pointer]
+      - generic [ref=f530e250]:
+        - generic [ref=f530e252]:
+          - heading "מתח סופינציה" [level=3] [ref=f530e253]
+          - paragraph [ref=f530e254]: "מקסימום: 1-5 חזרות"
+        - generic [ref=f530e255]:
+          - generic [ref=f530e256]:
+            - paragraph [ref=f530e257]: עצרו על התרגיל הכי קשה שאתם בטוחים שתבצעו
+            - paragraph [ref=f530e258]: אפשר להחליק את הרצועה, או להשתמש ב־ +/−
+          - generic [ref=f530e259]: קליסטניקס למתחילים
+          - generic [ref=f530e261]:
+            - generic [ref=f530e263]:
+              - button "רמה 13" [ref=f530e264] [cursor=pointer]
+              - button "רמה 11" [ref=f530e266] [cursor=pointer]
+              - button "רמה 9" [ref=f530e268] [cursor=pointer]
+              - button "רמה 7" [ref=f530e270] [cursor=pointer]
+              - button "רמה 5" [ref=f530e272] [cursor=pointer]
+              - button "רמה 3" [ref=f530e274] [cursor=pointer]
+              - button "רמה 1" [pressed] [ref=f530e276] [cursor=pointer]
+            - generic: 👆
+            - generic:
+              - generic:
+                - generic:
+                  - paragraph: גרור כדי לשנות את הקושי והתרגיל
+                  - paragraph: "בדוק את המינימום: הזמן והחזרות יופיעו כאן"
+                - generic:
+                  - paragraph: לא בטוח ב-100%? לא מצליח? תבחר בערך, המערכת תלמד אותך ותתקן בהמשך
+          - paragraph [ref=f530e278]: לא בטוח? בחרו בערך — נדייק אתכם תוך כמה אימונים
+          - generic [ref=f530e279]:
+            - button "עדיין לא מצליח את התרגיל?" [ref=f530e280] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f530e281]: −
+            - generic [ref=f530e283]:
+              - generic [ref=f530e284]: הרמה שלי
+              - generic [ref=f530e285]: "1"
+            - button "תרגיל קשה יותר" [ref=f530e286] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f530e287]: +
+      - button "מתח סופינציה זו הרמה שלי" [ref=f530e290] [cursor=pointer]:
+        - generic [ref=f530e291]:
+          - generic [ref=f530e292]: מתח סופינציה
+          - generic [ref=f530e293]: זו הרמה שלי
+  - alert [ref=f530e79]

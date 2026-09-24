@@ -1,0 +1,40 @@
+- generic [active] [ref=f183e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f183e2]:
+    - generic [ref=f183e221]:
+      - button "חזרה" [ref=f183e223] [cursor=pointer]
+      - generic [ref=f183e250]:
+        - paragraph [ref=f183e251]: מה מצב הכושר שלך?
+        - paragraph [ref=f183e252]: הזז את הסליידר לרמה שהכי קרובה אליך
+      - generic [ref=f183e257]:
+        - generic [ref=f183e258]: מתחיל
+        - generic [ref=f183e261]:
+          - heading "שכיבות סמיכה ב-75°" [level=3] [ref=f183e262]
+          - paragraph [ref=f183e263]: מסוגל לבצע 12-15 חזרות
+        - generic [ref=f183e264]:
+          - generic [ref=f183e265]:
+            - paragraph [ref=f183e266]: החלק ועצור על התרגיל הכי קשה שאתה בטוח שתבצע
+            - paragraph [ref=f183e267]: לא בטוח? בחר בערך — נדייק בהמשך
+          - generic [ref=f183e269]:
+            - button "רמה 20" [ref=f183e270] [cursor=pointer]
+            - button "רמה 19" [ref=f183e278] [cursor=pointer]
+            - button "רמה 18" [ref=f183e280] [cursor=pointer]
+            - button "רמה 16" [ref=f183e282] [cursor=pointer]
+            - button "רמה 14" [ref=f183e284] [cursor=pointer]
+            - button "רמה 12" [ref=f183e286] [cursor=pointer]
+            - button "רמה 9" [ref=f183e288] [cursor=pointer]
+            - button "רמה 6" [ref=f183e290] [cursor=pointer]
+            - button "רמה 4" [ref=f183e292] [cursor=pointer]
+            - button "רמה 1" [pressed] [ref=f183e294] [cursor=pointer]
+      - button "שכיבות סמיכה ב-75° — זו הרמה שלי" [ref=f183e297] [cursor=pointer]:
+        - generic [ref=f183e298]:
+          - generic [ref=f183e299]: שכיבות סמיכה ב-75°
+          - generic [ref=f183e300]: — זו הרמה שלי
+      - generic:
+        - generic:
+          - generic:
+            - paragraph: גרור כדי לשנות את הקושי והתרגיל
+            - paragraph: "בדוק את המינימום: הזמן והחזרות יופיעו כאן"
+          - generic:
+            - paragraph: לא בטוח ב-100%? לא מצליח? תבחר בערך, המערכת תלמד אותך ותתקן בהמשך
+  - alert [ref=f183e8]

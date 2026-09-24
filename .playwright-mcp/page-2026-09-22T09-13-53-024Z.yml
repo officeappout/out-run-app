@@ -1,0 +1,13 @@
+- generic [active] [ref=f82e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f82e2]:
+    - generic [ref=f82e233]:
+      - button "חזרה" [ref=f82e235] [cursor=pointer]
+      - generic [ref=f82e262]:
+        - heading "בואי נכיר קצת יותר." [level=2] [ref=f82e263]
+        - generic [ref=f82e267]:
+          - paragraph [ref=f82e268]: אם המטרה שלך היא להחזיר את האנרגיה, להרגיש בריאה וחזקה יותר ביום יום ולשפר את הכושר הכללי, הבסיס חייב להיות חזק.
+          - paragraph [ref=f82e269]: מתחילות במבדק כוח קצר של 3 תרגילים.
+          - paragraph [ref=f82e270]: תסמני בדיוק מה את מצליחה כדי שנתפור לך תוכנית בריאה שנכנסת בקלות בלו"ז שלך.
+      - button "בואי נתקדם!" [ref=f82e272] [cursor=pointer]
+  - alert [ref=f82e27]

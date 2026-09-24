@@ -1,0 +1,24 @@
+- generic [active] [ref=f172e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f172e2]:
+    - generic [ref=f172e604]:
+      - button "חזרה" [ref=f172e606] [cursor=pointer]
+      - generic [ref=f172e633]:
+        - paragraph [ref=f172e634]: מה מצב הכושר שלך?
+        - paragraph [ref=f172e635]: הזז את הסליידר לרמה שהכי קרובה אליך
+      - generic [ref=f172e640]:
+        - generic [ref=f172e641]: מתחיל
+        - generic [ref=f172e644]:
+          - heading "סקוואט טווח חלקי (להגבהה)" [level=3] [ref=f172e645]
+          - paragraph [ref=f172e646]: מסוגל לבצע 12-15 חזרות
+        - generic [ref=f172e649]:
+          - button "רמה 12" [ref=f172e650] [cursor=pointer]
+          - button "רמה 10" [ref=f172e652] [cursor=pointer]
+          - button "רמה 8" [ref=f172e654] [cursor=pointer]
+          - button "רמה 6" [ref=f172e656] [cursor=pointer]
+          - button "רמה 3" [ref=f172e658] [cursor=pointer]
+          - button "רמה 1" [pressed] [ref=f172e660] [cursor=pointer]
+      - button "הבא ←" [ref=f172e663] [cursor=pointer]:
+        - generic [ref=f172e664]: הבא
+        - generic [ref=f172e665]: ←
+  - alert [ref=f172e27]

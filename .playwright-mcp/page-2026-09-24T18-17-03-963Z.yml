@@ -1,0 +1,13 @@
+- generic [active] [ref=f49e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f49e2]:
+    - generic [ref=f49e213]:
+      - button "חזרה" [ref=f49e215] [cursor=pointer]
+      - generic [ref=f49e242]:
+        - heading "בוא נכיר קצת יותר." [level=2] [ref=f49e243]
+        - generic [ref=f49e247]:
+          - paragraph [ref=f49e248]: לבנות שריר ולהישאר חזק בשביל עצמך ובשביל המשפחה זו מטרה מצוינת בכל גיל.
+          - paragraph [ref=f49e249]: כדי לעשות את זה בלי להעמיס על המפרקים, הבסיס חייב להיות חזק.
+          - paragraph [ref=f49e250]: מתחילים במבדק כוח קצר של 4 תרגילים — סמן בדיוק מה אתה מצליח, והמערכת תתאים לך את ההתקדמות הבטוחה ביותר.
+      - button "אני מוכן, בוא נמשיך!" [ref=f49e252] [cursor=pointer]
+  - alert [ref=f49e79]

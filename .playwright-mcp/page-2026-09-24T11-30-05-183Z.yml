@@ -1,0 +1,36 @@
+- generic [ref=f495e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f495e2]:
+    - generic [ref=f495e295]:
+      - button "חזרה" [ref=f495e297] [cursor=pointer]
+      - generic [ref=f495e328]:
+        - generic [ref=f495e378]:
+          - heading "מתח עם גומייה עבה" [level=3] [ref=f495e379]
+          - paragraph [ref=f495e380]: "מקסימום: 4-8 חזרות"
+        - generic [ref=f495e333]:
+          - generic [ref=f495e334]:
+            - paragraph [ref=f495e335]: עצרו על התרגיל הכי קשה שאתם בטוחים שתבצעו
+            - paragraph [ref=f495e336]: אפשר להחליק את הרצועה, או להשתמש ב־ +/−
+          - generic [ref=f495e337]: מתחיל
+          - generic [ref=f495e341]:
+            - button "רמה 20" [ref=f495e342] [cursor=pointer]
+            - button "רמה 19" [ref=f495e350] [cursor=pointer]
+            - button "רמה 17" [ref=f495e352] [cursor=pointer]
+            - button "רמה 14" [ref=f495e354] [cursor=pointer]
+            - button "רמה 10" [ref=f495e356] [cursor=pointer]
+            - button "רמה 6" [active] [pressed] [ref=f495e358] [cursor=pointer]
+            - button "רמה 4" [ref=f495e360] [cursor=pointer]
+            - button "רמה 1" [ref=f495e362] [cursor=pointer]
+          - generic [ref=f495e364]:
+            - button "קל יותר" [ref=f495e381] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f495e382]: −
+            - generic [ref=f495e365]:
+              - generic [ref=f495e366]: הרמה שלי
+              - generic [ref=f495e367]: "6"
+            - button "קשה יותר" [ref=f495e368] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f495e369]: +
+      - button "מתח עם גומייה עבה זו הרמה שלי" [ref=f495e384] [cursor=pointer]:
+        - generic [ref=f495e373]:
+          - generic [ref=f495e374]: מתח עם גומייה עבה
+          - generic [ref=f495e375]: זו הרמה שלי
+  - alert [ref=f495e79]

@@ -1,0 +1,22 @@
+- generic [active] [ref=f167e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f167e2]:
+    - generic [ref=f167e239]:
+      - button "חזרה" [ref=f167e241] [cursor=pointer]
+      - generic [ref=f167e268]:
+        - paragraph [ref=f167e269]: מה מצב הכושר שלך?
+        - paragraph [ref=f167e270]: הזז את הסליידר לרמה שהכי קרובה אליך
+      - generic [ref=f167e275]:
+        - generic [ref=f167e276]: מתקדם
+        - generic [ref=f167e279]:
+          - heading "דרגון סקוואט" [level=3] [ref=f167e280]
+          - paragraph [ref=f167e281]: מסוגל לבצע 1-3 חזרות
+        - generic [ref=f167e284]:
+          - button "רמה 12" [pressed] [ref=f167e285] [cursor=pointer]
+          - button "רמה 10" [ref=f167e287] [cursor=pointer]
+          - button "רמה 8" [ref=f167e289] [cursor=pointer]
+          - button "רמה 6" [ref=f167e291] [cursor=pointer]
+          - button "רמה 3" [ref=f167e293] [cursor=pointer]
+          - button "רמה 1" [ref=f167e295] [cursor=pointer]
+      - button "סיום הערכה" [ref=f167e298] [cursor=pointer]
+  - alert [ref=f167e27]

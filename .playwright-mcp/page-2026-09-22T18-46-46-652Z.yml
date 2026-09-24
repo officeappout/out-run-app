@@ -1,0 +1,33 @@
+- generic [ref=f224e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f224e2]:
+    - generic [ref=f224e214]:
+      - button "חזרה" [ref=f224e216] [cursor=pointer]
+      - generic [ref=f224e243]:
+        - paragraph [ref=f224e244]: מה מצב הכושר שלך?
+        - paragraph [ref=f224e245]: הזז את הסליידר לרמה שהכי קרובה אליך
+      - generic [ref=f224e250]:
+        - generic [ref=f224e251]: בינוני
+        - generic [ref=f224e295]:
+          - heading "ישיבת L" [level=3] [ref=f224e296]
+          - paragraph [ref=f224e297]: מסוגל להחזיק 10-15 שנ' שניות
+        - generic [ref=f224e257]:
+          - generic [ref=f224e258]:
+            - paragraph [ref=f224e259]: החלק ועצור על התרגיל הכי קשה שאתה בטוח שתבצע
+            - paragraph [ref=f224e260]: לא בטוח? בחר בערך — נדייק בהמשך
+          - generic [ref=f224e262]:
+            - button "רמה 20" [ref=f224e263] [cursor=pointer]
+            - button "רמה 19" [ref=f224e271] [cursor=pointer]
+            - button "רמה 18" [ref=f224e273] [cursor=pointer]
+            - button "רמה 16" [ref=f224e275] [cursor=pointer]
+            - button "רמה 14" [ref=f224e277] [cursor=pointer]
+            - button "רמה 12" [active] [pressed] [ref=f224e279] [cursor=pointer]
+            - button "רמה 9" [ref=f224e281] [cursor=pointer]
+            - button "רמה 6" [ref=f224e283] [cursor=pointer]
+            - button "רמה 4" [ref=f224e285] [cursor=pointer]
+            - button "רמה 1" [ref=f224e287] [cursor=pointer]
+      - button "ישיבת L זו הרמה שלי" [ref=f224e298] [cursor=pointer]:
+        - generic [ref=f224e291]:
+          - generic [ref=f224e292]: ישיבת L
+          - generic [ref=f224e293]: זו הרמה שלי
+  - alert [ref=f224e79]

@@ -1,0 +1,37 @@
+- generic [ref=f530e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f530e2]:
+    - generic [ref=f530e296]:
+      - button "חזרה" [ref=f530e298] [cursor=pointer]
+      - generic [ref=f530e329]:
+        - generic [ref=f530e380]:
+          - heading "מתח סופינציה" [level=3] [ref=f530e381]
+          - paragraph [ref=f530e382]: "מקסימום: 2-4 חזרות"
+        - generic [ref=f530e334]:
+          - generic [ref=f530e335]:
+            - paragraph [ref=f530e336]: עצרו על התרגיל הכי קשה שאתם בטוחים שתבצעו
+            - paragraph [ref=f530e337]: אפשר להחליק את הרצועה, או להשתמש ב־ +/−
+          - generic [ref=f530e338]: בינוני
+          - generic [ref=f530e342]:
+            - button "רמה 20" [ref=f530e343] [cursor=pointer]
+            - button "רמה 19" [ref=f530e351] [cursor=pointer]
+            - button "רמה 17" [ref=f530e353] [cursor=pointer]
+            - button "רמה 14" [ref=f530e355] [cursor=pointer]
+            - button "רמה 10" [active] [pressed] [ref=f530e357] [cursor=pointer]
+            - button "רמה 6" [ref=f530e359] [cursor=pointer]
+            - button "רמה 4" [ref=f530e361] [cursor=pointer]
+            - button "רמה 1" [ref=f530e363] [cursor=pointer]
+          - paragraph [ref=f530e365]: לא בטוח? בחרו בערך — נדייק אתכם תוך כמה אימונים
+          - generic [ref=f530e366]:
+            - button "תרגיל קל יותר" [ref=f530e383] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f530e384]: −
+            - generic [ref=f530e367]:
+              - generic [ref=f530e368]: הרמה שלי
+              - generic [ref=f530e369]: "10"
+            - button "תרגיל קשה יותר" [ref=f530e370] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f530e371]: +
+      - button "מתח סופינציה זו הרמה שלי" [ref=f530e386] [cursor=pointer]:
+        - generic [ref=f530e375]:
+          - generic [ref=f530e376]: מתח סופינציה
+          - generic [ref=f530e377]: זו הרמה שלי
+  - alert [ref=f530e79]

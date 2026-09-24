@@ -1,0 +1,36 @@
+[     985ms] [LOG] %c
+▲
+
+    ____                               _ __
+   / __ \________  ____ _____ ___     (_) /_
+  / / / / ___/ _ \/ __ `/ __ `__ \   / / __/
+ / /_/ / /  /  __/ /_/ / / / / / /  / / /__
+/_____/_/   \___/\__,_/_/ /_/ /_/  /_/\__( )
+   _____ __    _          _ __           |/
+  / ___// /_  (_)___     (_) /_
+  \__ \/ __ \/ / __ \   / / __/
+ ___/ / / / / / /_/ /  / / /_
+/____/_/ /_/_/ .___/  /_/\__/
+            /_/
+  
+
+Hello!
+
+- Open Source https://vercel.com/oss
+- Careers https://vercel.com/careers
+- Status https://www.vercel-status.com
+
+ font-family: "Geist Mono", monospace; white-space: pre; line-height: 1; @ https://vercel.com/_next/static/immutable/chunks/2ckcho-t1f2xk.js:78
+[    1706ms] [WARNING] [GSI_LOGGER]: Your client application uses one of the Google One Tap prompt UI status methods that may stop functioning when FedCM becomes mandatory. Refer to the migration guide to update your code accordingly and opt-in to FedCM to test your changes. Learn more: https://developers.google.com/identity/gsi/web/guides/fedcm-migration?s=dc#display_moment and https://developers.google.com/identity/gsi/web/guides/fedcm-migration?s=dc#skipped_moment @ https://accounts.google.com/gsi/client:86
+[    1707ms] [ERROR] Not signed in with the identity provider. @ https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fout-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app%252Fgateway%253Fx-vercel-protection-bypass%253D3f9a1c7d2e8b4056a1d9c3f6b280e4a7%2526x-vercel-set-bypass-cookie%253Dtrue%26nonce%3D29b19628099ed04fe0d134067b15ad75ff180ff9bf63a0a0564b512a08183188:0
+[    1721ms] [WARNING] Deprecated API for given entry type. @ https://vercel.com/_next/static/immutable/chunks/26udcfl79ixtv.js:18
+[    1973ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://vercel.com/api/jwt:0
+[    2049ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0:0
+[    5681ms] [WARNING] The resource https://vercel.com/_next/static/immutable/chunks/19zn93q-cbgf4.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fout-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app%252Fgateway%253Fx-vercel-protection-bypass%253D3f9a1c7d2e8b4056a1d9c3f6b280e4a7%2526x-vercel-set-bypass-cookie%253Dtrue%26nonce%3D29b19628099ed04fe0d134067b15ad75ff180ff9bf63a0a0564b512a08183188:0
+[    5681ms] [WARNING] The resource https://vercel.com/_next/static/immutable/chunks/1oqrys_hl1v9v.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fout-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app%252Fgateway%253Fx-vercel-protection-bypass%253D3f9a1c7d2e8b4056a1d9c3f6b280e4a7%2526x-vercel-set-bypass-cookie%253Dtrue%26nonce%3D29b19628099ed04fe0d134067b15ad75ff180ff9bf63a0a0564b512a08183188:0
+[    5681ms] [WARNING] The resource https://vercel.com/_next/static/immutable/chunks/3flhcz7cw314y.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fout-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app%252Fgateway%253Fx-vercel-protection-bypass%253D3f9a1c7d2e8b4056a1d9c3f6b280e4a7%2526x-vercel-set-bypass-cookie%253Dtrue%26nonce%3D29b19628099ed04fe0d134067b15ad75ff180ff9bf63a0a0564b512a08183188:0
+[    5833ms] [ERROR] [GSI_LOGGER]: FedCM get() rejects with NetworkError: Error retrieving a token. @ https://vercel.com/_next/static/immutable/chunks/3vwot23c9npfo.js:8
+[    5924ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0:0
+[    8978ms] [WARNING] The resource https://vercel.com/_next/static/immutable/chunks/19zn93q-cbgf4.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fout-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app%252Fgateway%253Fx-vercel-protection-bypass%253D3f9a1c7d2e8b4056a1d9c3f6b280e4a7%2526x-vercel-set-bypass-cookie%253Dtrue%26nonce%3D29b19628099ed04fe0d134067b15ad75ff180ff9bf63a0a0564b512a08183188:0
+[    8978ms] [WARNING] The resource https://vercel.com/_next/static/immutable/chunks/1oqrys_hl1v9v.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fout-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app%252Fgateway%253Fx-vercel-protection-bypass%253D3f9a1c7d2e8b4056a1d9c3f6b280e4a7%2526x-vercel-set-bypass-cookie%253Dtrue%26nonce%3D29b19628099ed04fe0d134067b15ad75ff180ff9bf63a0a0564b512a08183188:0
+[    8978ms] [WARNING] The resource https://vercel.com/_next/static/immutable/chunks/3flhcz7cw314y.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fout-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app%252Fgateway%253Fx-vercel-protection-bypass%253D3f9a1c7d2e8b4056a1d9c3f6b280e4a7%2526x-vercel-set-bypass-cookie%253Dtrue%26nonce%3D29b19628099ed04fe0d134067b15ad75ff180ff9bf63a0a0564b512a08183188:0

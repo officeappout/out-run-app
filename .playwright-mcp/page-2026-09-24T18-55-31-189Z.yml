@@ -1,0 +1,37 @@
+- generic [ref=f62e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f62e2]:
+    - generic [ref=f62e80]:
+      - button "חזרה" [ref=f62e83] [cursor=pointer]
+      - generic [ref=f62e105]:
+        - generic [ref=f62e106]:
+          - heading "מה הכי בא לך להשיג?" [level=1] [ref=f62e107]
+          - paragraph [ref=f62e108]: בחר את הכיוון שתרצה להתמקד בו
+        - generic [ref=f62e109]:
+          - 'button "מתחילים בריאות, כוח ואנרגיה מתאים ל: מי שרק מתחיל, חזר אחרי הפסקה, או רוצה בסיס בריא לכל הגוף." [active] [ref=f62e110] [cursor=pointer]':
+            - generic [ref=f62e111]:
+              - generic [ref=f62e112]: מתחילים
+              - paragraph [ref=f62e114]: בריאות, כוח ואנרגיה
+              - paragraph [ref=f62e115]: "מתאים ל: מי שרק מתחיל, חזר אחרי הפסקה, או רוצה בסיס בריא לכל הגוף."
+          - generic [ref=f62e141]:
+            - paragraph [ref=f62e142]: מסלול מקיף לשמירה על חיוניות, תנועה נכונה ואנרגיה גבוהה.
+            - list [ref=f62e143]:
+              - listitem [ref=f62e144]:
+                - generic [ref=f62e148]: אימוני כוח לכל הגוף (Full Body) לבניית בסיס איתן
+              - listitem [ref=f62e149]:
+                - generic [ref=f62e153]: שילוב מסלולי הליכה מותאמים ויעדי ספירת צעדים יומית
+              - listitem [ref=f62e154]:
+                - generic [ref=f62e158]: דגש על שיפור טווחי תנועה, גמישות ויציבה
+        - 'button "לכל רמה עיצוב ושרירים מתאים ל: מי שכבר זז ורוצה למקד אזורים ולראות שינוי בגוף." [ref=f62e117] [cursor=pointer]':
+          - generic [ref=f62e118]:
+            - generic [ref=f62e119]: לכל רמה
+            - paragraph [ref=f62e121]: עיצוב ושרירים
+            - paragraph [ref=f62e122]: "מתאים ל: מי שכבר זז ורוצה למקד אזורים ולראות שינוי בגוף."
+        - 'button "מתקדמים לומדים תרגילי קליסטניקס מתקדמים מתאים ל: מי שכבר עושה כמה מתח ומקבילים ורוצה לאתגר את עצמו לרמה הבאה. עוד לא שם? נבנה לך את הבסיס עד לשם." [ref=f62e124] [cursor=pointer]':
+          - generic [ref=f62e125]:
+            - generic [ref=f62e126]: מתקדמים
+            - paragraph [ref=f62e128]: לומדים תרגילי קליסטניקס מתקדמים
+            - paragraph [ref=f62e129]: "מתאים ל: מי שכבר עושה כמה מתח ומקבילים ורוצה לאתגר את עצמו לרמה הבאה."
+            - paragraph [ref=f62e130]: עוד לא שם? נבנה לך את הבסיס עד לשם.
+      - button "המשך" [ref=f62e132] [cursor=pointer]
+  - alert [ref=f62e79]

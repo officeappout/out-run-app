@@ -1,0 +1,13 @@
+- generic [active] [ref=f29e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f29e2]:
+    - generic [ref=f29e206]:
+      - button "חזרה" [ref=f29e208] [cursor=pointer]
+      - generic [ref=f29e235]:
+        - heading "בוא נכיר קצת יותר." [level=2] [ref=f29e236]
+        - generic [ref=f29e240]:
+          - paragraph [ref=f29e241]: לשלוט בגוף בצורה מטורפת ולהצליח לעשות פרונט לבר גם כשהלו"ז צפוף זו מטרה מעולה.
+          - paragraph [ref=f29e242]: כדי להגיע לזה בצורה חכמה ובלי לפצוע את הגוף, הבסיס חייב להיות חזק.
+          - paragraph [ref=f29e243]: מתחילים במבדק כוח קצר של 2 תרגילים, תסמן בדיוק מה אתה מצליח כדי שנתאים את שלבי ההתקדמות לקצב שלך.
+      - button "אני מוכן, בוא נמשיך!" [ref=f29e245] [cursor=pointer]
+  - alert [ref=f29e8]

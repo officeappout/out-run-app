@@ -1,0 +1,125 @@
+- generic [active] [ref=f82e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f82e2]:
+    - generic [ref=f82e405]:
+      - button "חזרה" [ref=f82e408] [cursor=pointer]
+      - generic [ref=f82e445]:
+        - generic [ref=f82e446]:
+          - generic [ref=f82e454]:
+            - heading "TestPhase2B, רגע לפני שיוצאים לדרך, חשוב לנו לוודא שאנחנו שומרות עלייך ב100%." [level=1] [ref=f82e455]:
+              - generic [ref=f82e456]: TestPhase2B,
+              - generic [ref=f82e457]: רגע
+              - generic [ref=f82e458]: לפני
+              - generic [ref=f82e459]: שיוצאים
+              - generic [ref=f82e460]: לדרך,
+              - generic [ref=f82e461]: חשוב
+              - generic [ref=f82e462]: לנו
+              - generic [ref=f82e463]: לוודא
+              - generic [ref=f82e464]: שאנחנו
+              - generic [ref=f82e465]: שומרות
+              - generic [ref=f82e466]: עלייך
+              - generic [ref=f82e467]: ב100%.
+            - paragraph [ref=f82e468]:
+              - generic [ref=f82e469]: נשאר
+              - generic [ref=f82e470]: לנו
+              - generic [ref=f82e471]: רק
+              - generic [ref=f82e472]: לעבור
+              - generic [ref=f82e473]: על
+              - generic [ref=f82e474]: שאלון
+              - generic [ref=f82e475]: הבריאות
+              - generic [ref=f82e476]: הקצר
+              - generic [ref=f82e477]: ולחתום
+              - generic [ref=f82e478]: למטה.
+          - generic [ref=f82e479]:
+            - button "מידע על פרטיות ובטיחות" [ref=f82e481] [cursor=pointer]
+            - generic [ref=f82e486]:
+              - button "אני מצהירה שכל התשובות הן \"לא\"" [ref=f82e487] [cursor=pointer]
+              - paragraph [ref=f82e494]: "שימו לב: לחיצה על כפתור זה מצהירה שאתם בריאים ולא סובלים מאף אחת מהבעיות הרפואיות המפורטות בשאלון. אם יש לכם ספק, אנא ענו על כל שאלה בנפרד."
+            - generic [ref=f82e495]:
+              - generic [ref=f82e496]:
+                - paragraph [ref=f82e497]: 1. האם הרופא שלך אמר לך שאת/ה סובל/ת ממחלות לב?
+                - generic [ref=f82e498]:
+                  - button "לא" [ref=f82e499] [cursor=pointer]
+                  - button "כן" [ref=f82e500] [cursor=pointer]
+              - generic [ref=f82e501]:
+                - paragraph [ref=f82e502]: 2. האם את/ה חש כאבים בחזה בזמן מנוחה?
+                - generic [ref=f82e503]:
+                  - button "לא" [ref=f82e504] [cursor=pointer]
+                  - button "כן" [ref=f82e505] [cursor=pointer]
+              - generic [ref=f82e506]:
+                - paragraph [ref=f82e507]: 3. האם את/ה חש כאבים בחזה במהלך פעילויות שיגרה ביום-יום?
+                - generic [ref=f82e508]:
+                  - button "לא" [ref=f82e509] [cursor=pointer]
+                  - button "כן" [ref=f82e510] [cursor=pointer]
+              - generic [ref=f82e511]:
+                - paragraph [ref=f82e512]: 4. האם את/ה חש כאבים בחזה בזמן שאת/ה מבצע פעילות גופנית?
+                - generic [ref=f82e513]:
+                  - button "לא" [ref=f82e514] [cursor=pointer]
+                  - button "כן" [ref=f82e515] [cursor=pointer]
+              - generic [ref=f82e516]:
+                - paragraph [ref=f82e517]: 5. האם במהלך השנה החולפת איבדת שיווי משקל עקב סחרחורת?
+                - generic [ref=f82e518]:
+                  - button "לא" [ref=f82e519] [cursor=pointer]
+                  - button "כן" [ref=f82e520] [cursor=pointer]
+              - generic [ref=f82e521]:
+                - paragraph [ref=f82e522]: 6. האם במהלך השנה החולפת איבדת את הכרתך?
+                - generic [ref=f82e523]:
+                  - button "לא" [ref=f82e524] [cursor=pointer]
+                  - button "כן" [ref=f82e525] [cursor=pointer]
+              - generic [ref=f82e526]:
+                - paragraph [ref=f82e527]: 7. האם רופא אבחן שאת/ה סובל/ת ממחלת האסתמה ולכן בשלושת החודשים האחרונים נזקקת לטיפול תרופתי?
+                - generic [ref=f82e528]:
+                  - button "לא" [ref=f82e529] [cursor=pointer]
+                  - button "כן" [ref=f82e530] [cursor=pointer]
+              - generic [ref=f82e531]:
+                - paragraph [ref=f82e532]: 8. האם רופא אבחן שאת/ה סובל/ת ממחלת האסתמה ולכן בשלושת החודשים האחרונים סבלת מקוצר נשימה או צפצופים?
+                - generic [ref=f82e533]:
+                  - button "לא" [ref=f82e534] [cursor=pointer]
+                  - button "כן" [ref=f82e535] [cursor=pointer]
+              - generic [ref=f82e536]:
+                - paragraph [ref=f82e537]: 9. האם אחד מבני משפחתך מדרגת קרבה ראשונה נפטר ממחלת לב?
+                - generic [ref=f82e538]:
+                  - button "לא" [ref=f82e539] [cursor=pointer]
+                  - button "כן" [ref=f82e540] [cursor=pointer]
+              - generic [ref=f82e541]:
+                - paragraph [ref=f82e542]: 10. האם אחד מבני משפחתך מדרגת קרבה ראשונה נפטר ממות פתאומי בגיל מוקדם? (לפני גיל 55 לגבר, 65 לאישה)
+                - generic [ref=f82e543]:
+                  - button "לא" [ref=f82e544] [cursor=pointer]
+                  - button "כן" [ref=f82e545] [cursor=pointer]
+              - generic [ref=f82e546]:
+                - paragraph [ref=f82e547]: 11. האם הרופא שלך אמר לך ב-5 השנים האחרונות לבצע פעילות גופנית רק תחת השגחה רפואית?
+                - generic [ref=f82e548]:
+                  - button "לא" [ref=f82e549] [cursor=pointer]
+                  - button "כן" [ref=f82e550] [cursor=pointer]
+              - generic [ref=f82e551]:
+                - paragraph [ref=f82e552]: 12. האם הינך סובל ממחלה קבועה (כרונית) שאינה נזכרת בשאלות לעיל ועשויה למנוע או להגביל אותך בביצוע פעילות גופנית?
+                - generic [ref=f82e553]:
+                  - button "לא" [ref=f82e554] [cursor=pointer]
+                  - button "כן" [ref=f82e555] [cursor=pointer]
+              - generic [ref=f82e556]:
+                - paragraph [ref=f82e557]: "13. לנשים בהריון: האם ההריון הזה או כל הריון קודם הוגדר הריון בסיכון?"
+                - generic [ref=f82e558]:
+                  - button "לא" [ref=f82e559] [cursor=pointer]
+                  - button "כן" [ref=f82e560] [cursor=pointer]
+            - generic [ref=f82e561]:
+              - generic [ref=f82e562]:
+                - heading "הצהרת בריאות ואישור תוכנית 📋" [level=3] [ref=f82e563]
+                - paragraph [ref=f82e564]: אנא קראי ואשרי את הצהרת הבריאות כדי שנוכל להנפיק את התוכנית
+              - generic [ref=f82e565]: אני מצהיר/ה כי קראתי והבנתי את כל השאלון הרפואי וכל התשובות לשאלות בטופס זה הן שליליות. אני מצהיר/ה כי מסרתי ידיעות מלאות ונכונות על מצבי הרפואי. ידוע לי כי האחריות לכל פגיעה ו/או נזק למצבי הבריאותי ככל שתהא בעת הפעילות תחול עלי בלבד.
+              - generic [ref=f82e566]:
+                - generic: חתום/י כאן עם האצבע
+                - button "ניקוי חתימה" [ref=f82e568] [cursor=pointer]
+              - generic [ref=f82e569]: יש לחתום בתיבה למעלה
+              - generic:
+                - generic:
+                  - generic:
+                    - checkbox "אני מצהירה כי כל הנתונים נכונים ומסכימה ל תנאי השימוש ול מדיניות הפרטיות" [disabled]
+                  - paragraph:
+                    - text: אני מצהירה כי כל הנתונים נכונים ומסכימה ל
+                    - button "תנאי השימוש"
+                    - text: ול
+                    - button "מדיניות הפרטיות"
+        - generic [ref=f82e571]:
+          - button "אישור והמשך" [disabled] [ref=f82e572]
+          - paragraph [ref=f82e573]: 0/13 שאלות נענו
+  - alert [ref=f82e27]

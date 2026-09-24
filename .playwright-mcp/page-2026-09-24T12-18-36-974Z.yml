@@ -1,0 +1,13 @@
+- generic [active] [ref=f520e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f520e2]:
+    - generic [ref=f520e332]:
+      - button "חזרה" [ref=f520e335] [cursor=pointer]
+      - generic [ref=f520e372]:
+        - generic [ref=f520e378]:
+          - heading "רוצה שנעקוב אחרי הצעדים שלך?" [level=1] [ref=f520e379]
+          - paragraph [ref=f520e380]: חיבור ל-Apple Health / Google Health Connect מציג לך את הצעדים והקלוריות היומיים ישירות באפליקציה. אפשר לחבר גם מאוחר יותר מהפרופיל.
+        - generic [ref=f520e381]:
+          - button "חבר את הצעדים שלי" [ref=f520e382] [cursor=pointer]
+          - button "אולי מאוחר יותר" [ref=f520e383] [cursor=pointer]
+  - alert [ref=f520e47]

@@ -1,0 +1,21 @@
+- generic [active] [ref=f133e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f133e2]:
+    - generic [ref=f133e437]:
+      - button "חזרה" [ref=f133e439] [cursor=pointer]
+      - generic [ref=f133e466]:
+        - paragraph [ref=f133e467]: מה מצב הכושר שלך?
+        - paragraph [ref=f133e468]: הזז את הסליידר לרמה שהכי קרובה אליך
+      - generic [ref=f133e473]:
+        - generic [ref=f133e475]:
+          - heading "פלאנק על הברכיים" [level=3] [ref=f133e476]
+          - paragraph [ref=f133e477]: מסוגל להחזיק 10 - 20 שניות
+        - generic [ref=f133e479]:
+          - slider [ref=f133e480] [cursor=pointer]: "0"
+          - generic: 👆
+          - generic [ref=f133e481]:
+            - generic [ref=f133e482]: מתחיל
+            - generic [ref=f133e483]: בינוני
+            - generic [ref=f133e484]: מתקדם
+      - button "סיום הערכה" [ref=f133e486] [cursor=pointer]
+  - alert [ref=f133e27]

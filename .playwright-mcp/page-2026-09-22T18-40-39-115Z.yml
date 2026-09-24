@@ -1,0 +1,40 @@
+- generic [active] [ref=f219e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f219e2]:
+    - generic [ref=f219e216]:
+      - button "חזרה" [ref=f219e218] [cursor=pointer]
+      - generic [ref=f219e245]:
+        - paragraph [ref=f219e246]: מה מצב הכושר שלך?
+        - paragraph [ref=f219e247]: הזז את הסליידר לרמה שהכי קרובה אליך
+      - generic [ref=f219e252]:
+        - generic [ref=f219e253]: קליסטניקס למתחילים
+        - generic [ref=f219e256]:
+          - heading "מקבילים" [level=3] [ref=f219e257]
+          - paragraph [ref=f219e258]: מסוגל לבצע 1-5 חזרות
+        - generic [ref=f219e259]:
+          - generic [ref=f219e260]:
+            - paragraph [ref=f219e261]: החלק ועצור על התרגיל הכי קשה שאתה בטוח שתבצע
+            - paragraph [ref=f219e262]: לא בטוח? בחר בערך — נדייק בהמשך
+          - generic [ref=f219e264]:
+            - button "רמה 15" [ref=f219e265] [cursor=pointer]
+            - button "רמה 14" [ref=f219e273] [cursor=pointer]
+            - button "רמה 13" [ref=f219e281] [cursor=pointer]
+            - button "רמה 12" [ref=f219e289] [cursor=pointer]
+            - button "רמה 10" [ref=f219e297] [cursor=pointer]
+            - button "רמה 7" [ref=f219e299] [cursor=pointer]
+            - button "רמה 5" [ref=f219e301] [cursor=pointer]
+            - button "רמה 3" [ref=f219e303] [cursor=pointer]
+            - button "רמה 1" [pressed] [ref=f219e305] [cursor=pointer]
+      - button "מקבילים זו הרמה שלי" [ref=f219e308] [cursor=pointer]:
+        - generic [ref=f219e309]:
+          - generic [ref=f219e310]: מקבילים
+          - generic [ref=f219e311]: זו הרמה שלי
+      - generic:
+        - generic:
+          - generic: 👆
+          - generic:
+            - paragraph: גרור כדי לשנות את הקושי והתרגיל
+            - paragraph: "בדוק את המינימום: הזמן והחזרות יופיעו כאן"
+          - generic:
+            - paragraph: לא בטוח ב-100%? לא מצליח? תבחר בערך, המערכת תלמד אותך ותתקן בהמשך
+  - alert [ref=f219e79]

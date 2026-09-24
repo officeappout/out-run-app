@@ -1,0 +1,21 @@
+- generic [active] [ref=f72e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f72e2]:
+    - generic [ref=f72e356]:
+      - generic [ref=f72e359]:
+        - generic "פלאנץ'" [ref=f72e360]: ⚖️
+        - generic [ref=f72e362]: פלאנץ'
+        - generic [ref=f72e363]: רמה 1
+      - generic [ref=f72e366]:
+        - generic "פרונט ליבר" [ref=f72e367]: 🏋️
+        - generic [ref=f72e369]: פרונט ליבר
+        - generic [ref=f72e370]: רמה 1
+      - generic [ref=f72e373]:
+        - generic "legs" [ref=f72e374]: ⭐
+        - generic [ref=f72e376]: legs
+        - generic [ref=f72e377]: רמה 1
+      - generic [ref=f72e380]:
+        - generic "core" [ref=f72e381]: ⭐
+        - generic [ref=f72e383]: core
+        - generic [ref=f72e384]: רמה 8
+  - alert [ref=f72e27]

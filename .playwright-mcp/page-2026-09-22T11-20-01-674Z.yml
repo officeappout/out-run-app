@@ -1,0 +1,29 @@
+- generic [active] [ref=f119e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f119e2]:
+    - generic [ref=f119e276]:
+      - button "חזרה" [ref=f119e278] [cursor=pointer]
+      - generic [ref=f119e305]:
+        - paragraph [ref=f119e306]: מה מצב הכושר שלך?
+        - paragraph [ref=f119e307]: הזז את הסליידר לרמה שהכי קרובה אליך
+      - generic [ref=f119e312]:
+        - generic [ref=f119e314]:
+          - heading "מקבילים" [level=3] [ref=f119e315]
+          - paragraph [ref=f119e316]: מסוגל לבצע 1-5 חזרות
+        - generic [ref=f119e318]:
+          - slider [ref=f119e319] [cursor=pointer]: "0"
+          - generic [ref=f119e320]:
+            - generic [ref=f119e321]: מתחיל
+            - generic [ref=f119e322]: בינוני
+            - generic [ref=f119e323]: מתקדם
+      - button "הבא ←" [ref=f119e325] [cursor=pointer]:
+        - generic [ref=f119e326]: הבא
+        - generic [ref=f119e327]: ←
+      - generic:
+        - generic:
+          - generic:
+            - paragraph: גרור כדי לשנות את הקושי והתרגיל
+            - paragraph: "בדוק את המינימום: הזמן והחזרות יופיעו כאן"
+          - generic:
+            - paragraph: לא בטוח ב-100%? לא מצליח? תבחר בערך, המערכת תלמד אותך ותתקן בהמשך
+  - alert [ref=f119e27]

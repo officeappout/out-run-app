@@ -1,0 +1,170 @@
+[     604ms] [LOG] userId: 7EU4Yejr17P9UkJ8yfz5Dh9PnjZ2 @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/app/profile/page-95861c1b48915c1d.js:0
+[     604ms] [LOG] _hasHydrated (useUserStore): true @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/app/profile/page-95861c1b48915c1d.js:0
+[     604ms] [LOG] activePrograms: [
+  {
+    "currentWeek": 1,
+    "durationWeeks": 52,
+    "startDate": "2026-09-22T11:21:06.406Z",
+    "templateId": "calisthenics_upper",
+    "name": "calisthenics upper",
+    "id": "calisthenics_upper",
+    "focusDomains": [
+      "planche",
+      "front_lever"
+    ]
+  },
+  {
+    "focusDomains": [
+      "legs"
+    ],
+    "name": "legs",
+    "startDate": "2026-09-22T11:21:06.407Z",
+    "templateId": "legs",
+    "durationWeeks": 52,
+    "id": "legs",
+    "currentWeek": 1
+  }
+] @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/app/profile/page-95861c1b48915c1d.js:0
+[     604ms] [LOG] tracks: {
+  "fTLWzjP9gH2VNpamyCZF": {
+    "currentLevel": 21,
+    "percent": 0
+  },
+  "pull": {
+    "percent": 0,
+    "currentLevel": 20
+  },
+  "push": {
+    "percent": 0,
+    "currentLevel": 21
+  },
+  "47smw26hUyG5ZbE1bhr3": {
+    "currentLevel": 21,
+    "percent": 0
+  },
+  "planche": {
+    "currentLevel": 12,
+    "percent": 0
+  },
+  "front_lever": {
+    "percent": 0,
+    "currentLevel": 11
+  },
+  "calisthenics_upper": {
+    "currentLevel": 12,
+    "percent": 0
+  },
+  "H2279XsRGDg9G370J7S9": {
+    "percent": 0,
+    "currentLevel": 15
+  },
+  "core": {
+    "currentLevel": 10,
+    "percent": 0
+  },
+  "upper_body": {
+    "currentLevel": 21,
+    "percent": 0
+  },
+  "legs": {
+    "percent": 0,
+    "currentLevel": 12
+  },
+  "muscle_up": {
+    "percent": 0,
+    "currentLevel": 21
+  },
+  "full_body": {
+    "percent": 0,
+    "currentLevel": 15
+  }
+} @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/app/profile/page-95861c1b48915c1d.js:0
+[     605ms] [LOG] domains: {
+  "H2279XsRGDg9G370J7S9": {
+    "currentLevel": 15
+  },
+  "calisthenics_upper": {
+    "currentLevel": 12,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "front_lever": {
+    "maxLevel": 15,
+    "isUnlocked": true,
+    "currentLevel": 11
+  },
+  "pull": {
+    "isUnlocked": true,
+    "currentLevel": 20,
+    "maxLevel": 25
+  },
+  "push": {
+    "currentLevel": 21,
+    "isUnlocked": true,
+    "maxLevel": 25
+  },
+  "full_body": {
+    "currentLevel": 15,
+    "maxLevel": 15,
+    "isUnlocked": true
+  },
+  "muscle_up": {
+    "currentLevel": 21,
+    "maxLevel": 10,
+    "isUnlocked": true
+  },
+  "human_flag": {
+    "currentLevel": 0,
+    "maxLevel": 10,
+    "isUnlocked": true
+  },
+  "core": {
+    "isUnlocked": true,
+    "maxLevel": 20,
+    "currentLevel": 10
+  },
+  "fTLWzjP9gH2VNpamyCZF": {
+    "currentLevel": 21
+  },
+  "handstand_pushup": {
+    "isUnlocked": true,
+    "maxLevel": 15,
+    "currentLevel": 0
+  },
+  "one_arm_pullup": {
+    "maxLevel": 15,
+    "isUnlocked": true,
+    "currentLevel": 0
+  },
+  "47smw26hUyG5ZbE1bhr3": {
+    "currentLevel": 21
+  },
+  "planche": {
+    "currentLevel": 12,
+    "maxLevel": 15,
+    "isUnlocked": true
+  },
+  "handstand": {
+    "isUnlocked": true,
+    "currentLevel": 0,
+    "maxLevel": 15
+  },
+  "legs": {
+    "isUnlocked": true,
+    "currentLevel": 12,
+    "maxLevel": 15
+  },
+  "upper_body": {
+    "currentLevel": 21,
+    "isUnlocked": true,
+    "maxLevel": 25
+  }
+} @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/app/profile/page-95861c1b48915c1d.js:0
+[     852ms] [WARNING] [2026-09-22T11:22:04.845Z]  @firebase/auth: Auth (12.6.0): Error while retrieving App Check token: FirebaseError: AppCheck: ReCAPTCHA error. (appCheck/recaptcha-error). @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[    1184ms] [ERROR] Access to manifest at 'https://vercel.com/sso-api?url=https%3A%2F%2Fout-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app%2Fmanifest.json&nonce=7b5bbd684ec43447328027650449f7232e67960b9383d49a3aec02a17e3d2ced' (redirected from 'https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/manifest.json') from origin 'https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/profile:0
+[    1186ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://vercel.com/sso-api?url=https%3A%2F%2Fout-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app%2Fmanifest.json&nonce=7b5bbd684ec43447328027650449f7232e67960b9383d49a3aec02a17e3d2ced:0
+[    1501ms] [LOG] ✅ [ProgressionStore] Hydrated: coins=0, XP=0 (L1), daysActive=0 @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/9140-1ff4a1a79b8079de.js:0
+[    1504ms] [LOG] [ActivityStore] No Firestore data, created new day @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[    1734ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[    2789ms] [LOG] [ActivityStore] No Firestore data, created new day @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[    2933ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/1381-2a035a20bf094eec.js:0

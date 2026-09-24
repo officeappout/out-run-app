@@ -1,0 +1,35 @@
+- generic [active] [ref=f101e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f101e2]:
+    - generic [ref=f101e365]:
+      - generic [ref=f101e366]:
+        - generic [ref=f101e369]:
+          - generic "דחיפה" [ref=f101e370]
+          - generic [ref=f101e377]: דחיפה
+          - generic [ref=f101e378]: רמה 1
+        - generic [ref=f101e381]:
+          - generic "משיכה" [ref=f101e382]
+          - generic [ref=f101e386]: משיכה
+          - generic [ref=f101e387]: רמה 1
+        - generic [ref=f101e390]:
+          - generic "פלג גוף תחתון" [ref=f101e391]
+          - generic [ref=f101e395]: פלג גוף תחתון
+          - generic [ref=f101e396]: רמה 1
+        - generic [ref=f101e399]:
+          - generic "ליבה" [ref=f101e400]
+          - generic [ref=f101e403]: ליבה
+          - generic [ref=f101e404]: רמה 1
+      - generic [ref=f101e406]:
+        - heading "תוכנית כל הגוף" [level=2] [ref=f101e407]
+        - generic [ref=f101e409]:
+          - generic [ref=f101e414]:
+            - generic [ref=f101e415]:
+              - generic [ref=f101e416]: "1"
+              - generic [ref=f101e417]: "%"
+            - generic [ref=f101e418]: רמה 1 מתוך 25
+          - generic [ref=f101e419]: 1% — קו ההתחלה שלך
+        - paragraph [ref=f101e421]: כ-1,280 משתמשים התחילו ב-1% בדיוק כמוך — רובם הגיעו לרמה 2 תוך כ-7 אימונים.
+      - generic [ref=f101e422]:
+        - paragraph [ref=f101e423]: המסע שלך מתחיל עכשיו! כל אימון בתוכנית יעלה אותך באחוזים, עד שתגיע לרמה הבאה. 🚀
+        - button "בוא נמשיך" [ref=f101e424] [cursor=pointer]
+  - alert [ref=f101e27]

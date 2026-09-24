@@ -1,0 +1,32 @@
+- generic [ref=f219e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f219e2]:
+    - generic [ref=f219e356]:
+      - button "חזרה" [ref=f219e358] [cursor=pointer]
+      - generic [ref=f219e385]:
+        - paragraph [ref=f219e386]: מה מצב הכושר שלך?
+        - paragraph [ref=f219e387]: הזז את הסליידר לרמה שהכי קרובה אליך
+      - generic [ref=f219e392]:
+        - generic [ref=f219e393]: קליסטניקס למתקדמים
+        - generic [ref=f219e453]:
+          - heading "פלאנץ׳ בטאק מתקדם" [level=3] [ref=f219e454]
+          - paragraph [ref=f219e455]: מסוגל להחזיק 8-12 שניות
+        - generic [ref=f219e399]:
+          - generic [ref=f219e400]:
+            - paragraph [ref=f219e401]: החלק ועצור על התרגיל הכי קשה שאתה בטוח שתבצע
+            - paragraph [ref=f219e402]: לא בטוח? בחר בערך — נדייק בהמשך
+          - generic [ref=f219e404]:
+            - button "רמה 15" [active] [pressed] [ref=f219e405] [cursor=pointer]
+            - button "רמה 14" [ref=f219e413] [cursor=pointer]
+            - button "רמה 13" [ref=f219e421] [cursor=pointer]
+            - button "רמה 12" [ref=f219e429] [cursor=pointer]
+            - button "רמה 10" [ref=f219e437] [cursor=pointer]
+            - button "רמה 7" [ref=f219e439] [cursor=pointer]
+            - button "רמה 5" [ref=f219e441] [cursor=pointer]
+            - button "רמה 3" [ref=f219e443] [cursor=pointer]
+            - button "רמה 1" [ref=f219e445] [cursor=pointer]
+      - button "פלאנץ׳ בטאק מתקדם זו הרמה שלי" [ref=f219e456] [cursor=pointer]:
+        - generic [ref=f219e449]:
+          - generic [ref=f219e450]: פלאנץ׳ בטאק מתקדם
+          - generic [ref=f219e451]: זו הרמה שלי
+  - alert [ref=f219e79]

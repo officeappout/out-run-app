@@ -1,0 +1,23 @@
+- generic [active] [ref=f133e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f133e2]:
+    - generic [ref=f133e331]:
+      - button "חזרה" [ref=f133e333] [cursor=pointer]
+      - generic [ref=f133e360]:
+        - paragraph [ref=f133e361]: מה מצב הכושר שלך?
+        - paragraph [ref=f133e362]: הזז את הסליידר לרמה שהכי קרובה אליך
+      - generic [ref=f133e367]:
+        - generic [ref=f133e369]:
+          - heading "מתח סופינציה" [level=3] [ref=f133e370]
+          - paragraph [ref=f133e371]: מסוגל לבצע 1-5 חזרות
+        - generic [ref=f133e373]:
+          - slider [ref=f133e374] [cursor=pointer]: "0"
+          - generic: 👆
+          - generic [ref=f133e375]:
+            - generic [ref=f133e376]: מתחיל
+            - generic [ref=f133e377]: בינוני
+            - generic [ref=f133e378]: מתקדם
+      - button "הבא ←" [ref=f133e380] [cursor=pointer]:
+        - generic [ref=f133e381]: הבא
+        - generic [ref=f133e382]: ←
+  - alert [ref=f133e27]

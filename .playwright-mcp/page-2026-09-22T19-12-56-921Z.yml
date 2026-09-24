@@ -1,0 +1,13 @@
+- generic [active] [ref=f249e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f249e2]:
+    - generic [ref=f249e174]:
+      - button "חזרה" [ref=f249e176] [cursor=pointer]
+      - generic [ref=f249e203]:
+        - heading "בוא נכיר קצת יותר." [level=2] [ref=f249e204]
+        - generic [ref=f249e208]:
+          - paragraph [ref=f249e209]: אם המטרה שלך היא להחזיר את האנרגיה, למנוע כאבי גב ולשפר את הכושר הכללי בתוך כל עומס החיים, הבסיס חייב להיות חזק.
+          - paragraph [ref=f249e210]: מתחילים במבדק כוח קצר של 2 תרגילים.
+          - paragraph [ref=f249e211]: תסמן בדיוק מה אתה מצליח כדי שנתאים לך אימוני תכל'ס קצרים שיגנו על הגוף שלך.
+      - button "בוא נתקדם!" [ref=f249e213] [cursor=pointer]
+  - alert [ref=f249e79]

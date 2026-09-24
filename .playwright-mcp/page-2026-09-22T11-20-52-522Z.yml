@@ -1,0 +1,35 @@
+- generic [active] [ref=f119e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f119e2]:
+    - generic [ref=f119e525]:
+      - generic [ref=f119e526]:
+        - generic [ref=f119e529]:
+          - generic "פלאנץ'" [ref=f119e530]: ⚖️
+          - generic [ref=f119e532]: פלאנץ'
+          - generic [ref=f119e533]: רמה 12
+        - generic [ref=f119e536]:
+          - generic "פרונט ליבר" [ref=f119e537]: 🏋️
+          - generic [ref=f119e539]: פרונט ליבר
+          - generic [ref=f119e540]: רמה 11
+        - generic [ref=f119e543]:
+          - generic "legs" [ref=f119e544]: ⭐
+          - generic [ref=f119e546]: legs
+          - generic [ref=f119e547]: רמה 12
+        - generic [ref=f119e550]:
+          - generic "core" [ref=f119e551]: ⭐
+          - generic [ref=f119e553]: core
+          - generic [ref=f119e554]: רמה 10
+      - generic [ref=f119e556]:
+        - heading "תוכנית מיומנויות מותאמת" [level=2] [ref=f119e557]
+        - generic [ref=f119e559]:
+          - generic [ref=f119e564]:
+            - generic [ref=f119e565]:
+              - generic [ref=f119e566]: "1"
+              - generic [ref=f119e567]: "%"
+            - generic [ref=f119e568]: רמה 11 מתוך 15
+          - generic [ref=f119e569]: 1% — קו ההתחלה שלך
+        - paragraph [ref=f119e571]: כ-1,280 משתמשים התחילו ב-1% בדיוק כמוך — רובם הגיעו לרמה 12 תוך כ-25 אימונים.
+      - generic [ref=f119e572]:
+        - paragraph [ref=f119e573]: המסע שלך מתחיל עכשיו! כל אימון בתוכנית יעלה אותך באחוזים, עד שתגיע לרמה הבאה. 🚀
+        - button "בוא נמשיך" [ref=f119e574] [cursor=pointer]
+  - alert [ref=f119e27]

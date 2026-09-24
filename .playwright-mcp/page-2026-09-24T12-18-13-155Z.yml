@@ -1,0 +1,37 @@
+- generic [ref=f520e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f520e2]:
+    - generic [ref=f520e132]:
+      - button "חזרה" [ref=f520e134] [cursor=pointer]
+      - generic [ref=f520e165]:
+        - generic [ref=f520e216]:
+          - heading "מתח עם גומייה עבה" [level=3] [ref=f520e217]
+          - paragraph [ref=f520e218]: "מקסימום: 4-8 חזרות"
+        - generic [ref=f520e170]:
+          - generic [ref=f520e171]:
+            - paragraph [ref=f520e172]: עצרו על התרגיל הכי קשה שאתם בטוחים שתבצעו
+            - paragraph [ref=f520e173]: אפשר להחליק את הרצועה, או להשתמש ב־ +/−
+          - generic [ref=f520e174]: מתחיל
+          - generic [ref=f520e178]:
+            - button "רמה 20" [ref=f520e179] [cursor=pointer]
+            - button "רמה 19" [ref=f520e187] [cursor=pointer]
+            - button "רמה 17" [ref=f520e189] [cursor=pointer]
+            - button "רמה 14" [ref=f520e191] [cursor=pointer]
+            - button "רמה 10" [ref=f520e193] [cursor=pointer]
+            - button "רמה 6" [active] [pressed] [ref=f520e195] [cursor=pointer]
+            - button "רמה 4" [ref=f520e197] [cursor=pointer]
+            - button "רמה 1" [ref=f520e199] [cursor=pointer]
+          - paragraph [ref=f520e201]: לא בטוח? בחרו בערך — נדייק אתכם תוך כמה אימונים
+          - generic [ref=f520e202]:
+            - button "תרגיל קל יותר" [ref=f520e219] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f520e220]: −
+            - generic [ref=f520e203]:
+              - generic [ref=f520e204]: הרמה שלי
+              - generic [ref=f520e205]: "6"
+            - button "תרגיל קשה יותר" [ref=f520e206] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f520e207]: +
+      - button "מתח עם גומייה עבה זו הרמה שלי" [ref=f520e222] [cursor=pointer]:
+        - generic [ref=f520e211]:
+          - generic [ref=f520e212]: מתח עם גומייה עבה
+          - generic [ref=f520e213]: זו הרמה שלי
+  - alert [ref=f520e47]

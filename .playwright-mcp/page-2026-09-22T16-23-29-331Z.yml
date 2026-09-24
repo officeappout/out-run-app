@@ -1,0 +1,34 @@
+- generic [active] [ref=f172e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f172e2]:
+    - generic [ref=f172e275]:
+      - button "חזרה" [ref=f172e277] [cursor=pointer]
+      - generic [ref=f172e304]:
+        - paragraph [ref=f172e305]: מה מצב הכושר שלך?
+        - paragraph [ref=f172e306]: הזז את הסליידר לרמה שהכי קרובה אליך
+      - generic [ref=f172e311]:
+        - generic [ref=f172e312]: מתחיל
+        - generic [ref=f172e315]:
+          - heading "מקבילים" [level=3] [ref=f172e316]
+          - paragraph [ref=f172e317]: מסוגל לבצע 1-5 חזרות
+        - generic [ref=f172e320]:
+          - button "רמה 15" [ref=f172e321] [cursor=pointer]
+          - button "רמה 14" [ref=f172e329] [cursor=pointer]
+          - button "רמה 13" [ref=f172e337] [cursor=pointer]
+          - button "רמה 12" [ref=f172e345] [cursor=pointer]
+          - button "רמה 10" [ref=f172e353] [cursor=pointer]
+          - button "רמה 7" [ref=f172e355] [cursor=pointer]
+          - button "רמה 5" [ref=f172e357] [cursor=pointer]
+          - button "רמה 3" [ref=f172e359] [cursor=pointer]
+          - button "רמה 1" [pressed] [ref=f172e361] [cursor=pointer]
+      - button "הבא ←" [ref=f172e364] [cursor=pointer]:
+        - generic [ref=f172e365]: הבא
+        - generic [ref=f172e366]: ←
+      - generic:
+        - generic:
+          - generic:
+            - paragraph: גרור כדי לשנות את הקושי והתרגיל
+            - paragraph: "בדוק את המינימום: הזמן והחזרות יופיעו כאן"
+          - generic:
+            - paragraph: לא בטוח ב-100%? לא מצליח? תבחר בערך, המערכת תלמד אותך ותתקן בהמשך
+  - alert [ref=f172e27]

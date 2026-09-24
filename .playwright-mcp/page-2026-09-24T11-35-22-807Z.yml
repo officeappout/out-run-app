@@ -1,0 +1,7 @@
+- generic [active] [ref=f505e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f505e2]:
+    - generic [ref=f505e508]:
+      - img "OUT" [ref=f505e510]
+      - paragraph [ref=f505e512]: מנתח את מספר המתחים...
+  - alert [ref=f505e79]

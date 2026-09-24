@@ -1,0 +1,179 @@
+[      59ms] [LOG] [Progression] Master "fTLWzjP9gH2VNpamyCZF" (slug: "muscle_up") recalculated → Level 21, 0.00% (from 2 children) @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/9140-1ff4a1a79b8079de.js:0
+[     109ms] [LOG] [Progression] Master "fTLWzjP9gH2VNpamyCZF" (slug: "muscle_up") recalculated → Level 21, 0.00% (from 2 children) @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/9140-1ff4a1a79b8079de.js:0
+[     944ms] [LOG] userId: wnCo7uygTrTTucxmjSEqkk8WOZg2 @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/app/profile/page-95861c1b48915c1d.js:0
+[     944ms] [LOG] _hasHydrated (useUserStore): true @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/app/profile/page-95861c1b48915c1d.js:0
+[     945ms] [LOG] activePrograms: [
+  {
+    "startDate": "2026-09-22T11:16:03.878Z",
+    "templateId": "calisthenics_upper",
+    "focusDomains": [
+      "planche",
+      "front_lever"
+    ],
+    "name": "calisthenics upper",
+    "durationWeeks": 52,
+    "id": "calisthenics_upper",
+    "currentWeek": 1
+  },
+  {
+    "startDate": "2026-09-22T11:16:03.878Z",
+    "templateId": "legs",
+    "currentWeek": 1,
+    "focusDomains": [
+      "legs"
+    ],
+    "id": "legs",
+    "durationWeeks": 52,
+    "name": "legs"
+  }
+] @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/app/profile/page-95861c1b48915c1d.js:0
+[     945ms] [LOG] tracks: {
+  "fTLWzjP9gH2VNpamyCZF": {
+    "percent": 0,
+    "currentLevel": 21
+  },
+  "upper_body": {
+    "currentLevel": 21,
+    "percent": 0
+  },
+  "push": {
+    "percent": 0,
+    "currentLevel": 21
+  },
+  "planche": {
+    "percent": 0,
+    "currentLevel": 12
+  },
+  "legs": {
+    "currentLevel": 12,
+    "percent": 0
+  },
+  "core": {
+    "percent": 0,
+    "currentLevel": 10
+  },
+  "muscle_up": {
+    "currentLevel": 21,
+    "percent": 0
+  },
+  "calisthenics_upper": {
+    "currentLevel": 12,
+    "percent": 0
+  },
+  "front_lever": {
+    "percent": 0,
+    "currentLevel": 11
+  },
+  "H2279XsRGDg9G370J7S9": {
+    "percent": 0,
+    "currentLevel": 15
+  },
+  "47smw26hUyG5ZbE1bhr3": {
+    "currentLevel": 21,
+    "percent": 0
+  },
+  "pull": {
+    "currentLevel": 20,
+    "percent": 0
+  },
+  "full_body": {
+    "currentLevel": 15,
+    "percent": 0
+  }
+} @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/app/profile/page-95861c1b48915c1d.js:0
+[     945ms] [LOG] domains: {
+  "front_lever": {
+    "isUnlocked": true,
+    "maxLevel": 15,
+    "currentLevel": 11
+  },
+  "upper_body": {
+    "maxLevel": 25,
+    "currentLevel": 21,
+    "isUnlocked": true
+  },
+  "fTLWzjP9gH2VNpamyCZF": {
+    "currentLevel": 21
+  },
+  "planche": {
+    "isUnlocked": true,
+    "currentLevel": 12,
+    "maxLevel": 15
+  },
+  "handstand": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "pull": {
+    "isUnlocked": true,
+    "currentLevel": 20,
+    "maxLevel": 25
+  },
+  "push": {
+    "currentLevel": 21,
+    "maxLevel": 25,
+    "isUnlocked": true
+  },
+  "H2279XsRGDg9G370J7S9": {
+    "currentLevel": 15
+  },
+  "calisthenics_upper": {
+    "maxLevel": 15,
+    "currentLevel": 12,
+    "isUnlocked": true
+  },
+  "handstand_pushup": {
+    "isUnlocked": true,
+    "currentLevel": 0,
+    "maxLevel": 15
+  },
+  "human_flag": {
+    "maxLevel": 10,
+    "isUnlocked": true,
+    "currentLevel": 0
+  },
+  "full_body": {
+    "currentLevel": 15,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "one_arm_pullup": {
+    "isUnlocked": true,
+    "currentLevel": 0,
+    "maxLevel": 15
+  },
+  "legs": {
+    "maxLevel": 15,
+    "isUnlocked": true,
+    "currentLevel": 12
+  },
+  "core": {
+    "maxLevel": 20,
+    "currentLevel": 10,
+    "isUnlocked": true
+  },
+  "muscle_up": {
+    "currentLevel": 21,
+    "isUnlocked": true,
+    "maxLevel": 10
+  },
+  "47smw26hUyG5ZbE1bhr3": {
+    "currentLevel": 21
+  }
+} @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/app/profile/page-95861c1b48915c1d.js:0
+[    1017ms] [WARNING] [2026-09-22T11:18:12.179Z]  @firebase/auth: Auth (12.6.0): Error while retrieving App Check token: FirebaseError: AppCheck: ReCAPTCHA error. (appCheck/recaptcha-error). @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[    1453ms] [ERROR] Access to manifest at 'https://vercel.com/sso-api?url=https%3A%2F%2Fout-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app%2Fmanifest.json&nonce=08e0b7811d4f022b0db71a2be62f8020c30d9019abcea98a9a49b4d7b7f32812' (redirected from 'https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/manifest.json') from origin 'https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/profile:0
+[    1453ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://vercel.com/sso-api?url=https%3A%2F%2Fout-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app%2Fmanifest.json&nonce=08e0b7811d4f022b0db71a2be62f8020c30d9019abcea98a9a49b4d7b7f32812:0
+[    1610ms] [LOG] ✅ [ProgressionStore] Hydrated: coins=0, XP=0 (L1), daysActive=0 @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/9140-1ff4a1a79b8079de.js:0
+[    1615ms] [LOG] [ActivityStore] No Firestore data, created new day @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[    1864ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[    2756ms] [LOG] [ActivityStore] No Firestore data, created new day @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[    2933ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[   26891ms] [ERROR] [2026-09-22T11:18:38.053Z]  @firebase/firestore: Firestore (12.6.0): Uncaught Error in snapshot listener: FirebaseError: [code=aborted]: Firestore shutting down @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2117-3c64067cbd5bff19.js:0
+[   26891ms] [ERROR] [2026-09-22T11:18:38.053Z]  @firebase/firestore: Firestore (12.6.0): Uncaught Error in snapshot listener: FirebaseError: [code=aborted]: Firestore shutting down @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2117-3c64067cbd5bff19.js:0
+[   26891ms] [ERROR] [2026-09-22T11:18:38.053Z]  @firebase/firestore: Firestore (12.6.0): Uncaught Error in snapshot listener: FirebaseError: [code=aborted]: Firestore shutting down @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2117-3c64067cbd5bff19.js:0
+[   26892ms] [WARNING] [ActivityStore] Real-time listener error (non-fatal): aborted @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[   26892ms] [WARNING] [ActivityStore] Streak listener error (non-fatal): aborted @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[   26892ms] [ERROR] [ProgressionStore] onSnapshot error: FirebaseError: Firestore shutting down @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2117-3c64067cbd5bff19.js:0
+[   26893ms] [WARNING] [ProgressionStore] Retrying onSnapshot in 4000ms (attempt 1/3) @ https://out-run-3t3hrr668-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/9140-1ff4a1a79b8079de.js:0

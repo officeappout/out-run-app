@@ -1,0 +1,75 @@
+- generic [active] [ref=f105e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f105e2]:
+    - generic [ref=f105e3]:
+      - generic [ref=f105e5]:
+        - button "פרופיל" [ref=f105e6] [cursor=pointer]:
+          - generic [ref=f105e7]: P
+        - link "OUT" [ref=f105e14] [cursor=pointer]:
+          - /url: /home
+          - img "OUT" [ref=f105e15]
+        - generic [ref=f105e16]:
+          - button "התראות" [ref=f105e17] [cursor=pointer]
+          - button "הודעות" [ref=f105e21] [cursor=pointer]
+          - link "חיפוש" [ref=f105e24] [cursor=pointer]:
+            - /url: /search
+      - generic [ref=f105e28]:
+        - generic [ref=f105e29]:
+          - generic [ref=f105e30]:
+            - generic [ref=f105e31]:
+              - button "הגדרות" [ref=f105e32] [cursor=pointer]
+              - button "אימונים שמורים" [ref=f105e36] [cursor=pointer]
+            - generic [ref=f105e39]:
+              - generic [ref=f105e40]:
+                - img "Lemur" [ref=f105e41]
+                - generic [ref=f105e42]: "0"
+              - heading "המטפס" [level=2] [ref=f105e46]
+              - generic [ref=f105e47]: שלב 1
+              - generic [ref=f105e52]:
+                - button "הצג היסטוריית אימונים" [ref=f105e53] [cursor=pointer]:
+                  - generic [ref=f105e54]: אימונים
+                  - generic [ref=f105e62]: —
+                - generic [ref=f105e63]:
+                  - generic [ref=f105e64]: ימי רצף
+                  - generic [ref=f105e68]: "0"
+          - generic [ref=f105e69]:
+            - generic [ref=f105e70]:
+              - heading "הישגים" [level=3] [ref=f105e78]
+              - button "כל ההישגים" [ref=f105e79] [cursor=pointer]
+            - button [ref=f105e80] [cursor=pointer]:
+              - paragraph [ref=f105e87]: אין הישגים עדיין — התחל לאמן!
+          - generic [ref=f105e89]:
+            - heading "כוח" [level=3] [ref=f105e90]
+            - generic [ref=f105e91]:
+              - generic [ref=f105e92]:
+                - generic [ref=f105e93]: נפח שבועי
+                - generic [ref=f105e101]: "0"
+                - generic [ref=f105e102]: סטים השבוע
+              - generic [ref=f105e104]:
+                - generic [ref=f105e105]: שיא אישי
+                - generic [ref=f105e113]: —
+                - generic [ref=f105e114]: אין נתונים עדיין
+              - generic [ref=f105e115]:
+                - generic [ref=f105e116]: זמן פעיל
+                - generic [ref=f105e121]: "0"
+                - generic [ref=f105e122]: מתוך 150 דק׳
+              - generic [ref=f105e124]:
+                - generic [ref=f105e125]: קבוצות שרירים
+                - generic [ref=f105e131]: "0"
+                - generic [ref=f105e132]: התחל אימון
+          - generic [ref=f105e134]:
+            - heading "פעילות אחרונה" [level=3] [ref=f105e135]
+            - button "הכל" [ref=f105e136] [cursor=pointer]
+        - generic [ref=f105e156]:
+          - generic [ref=f105e161]:
+            - paragraph [ref=f105e162]: שלח משוב או דווח על באג
+            - paragraph [ref=f105e163]: הפידבק שלך משפיע ישירות על הפיתוח
+          - textbox "כתוב כאן את המשוב, הבאג, או הרעיון שלך..." [ref=f105e164]
+          - button "שלח לעוזר ה-AI" [disabled] [ref=f105e165]
+  - navigation [ref=f105e169]:
+    - generic [ref=f105e170]:
+      - link "בית" [ref=f105e171] [cursor=pointer]:
+        - /url: /home
+      - link "מפה" [ref=f105e176] [cursor=pointer]:
+        - /url: /map
+  - alert [ref=f105e180]

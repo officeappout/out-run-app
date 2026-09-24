@@ -1,0 +1,117 @@
+[     246ms] [LOG] [Progression] Master "H2279XsRGDg9G370J7S9" (slug: "full_body") recalculated → Level 1, 0.00% (from 5 children) @ https://outrun.co.il/_next/static/chunks/9140-2750ff62167b2433.js:0
+[     699ms] [WARNING] [2026-09-22T10:13:49.787Z]  @firebase/auth: Auth (12.6.0): Error while retrieving App Check token: FirebaseError: AppCheck: ReCAPTCHA error. (appCheck/recaptcha-error). @ https://outrun.co.il/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[     939ms] [LOG] userId: pYZv4stmwKQsQZLmOpDlppVriwG2 @ https://outrun.co.il/_next/static/chunks/app/profile/page-ea766c7b4e72855a.js:0
+[     939ms] [LOG] _hasHydrated (useUserStore): true @ https://outrun.co.il/_next/static/chunks/app/profile/page-ea766c7b4e72855a.js:0
+[     939ms] [LOG] activePrograms: [
+  {
+    "id": "full_body",
+    "templateId": "full_body",
+    "name": "full body",
+    "startDate": "2026-09-22T10:13:39.898Z",
+    "durationWeeks": 52,
+    "currentWeek": 1,
+    "focusDomains": [
+      "full_body"
+    ]
+  }
+] @ https://outrun.co.il/_next/static/chunks/app/profile/page-ea766c7b4e72855a.js:0
+[     939ms] [LOG] tracks: {
+  "core": {
+    "currentLevel": 1,
+    "percent": 0
+  },
+  "full_body": {
+    "currentLevel": 1,
+    "percent": 0
+  },
+  "legs": {
+    "currentLevel": 1,
+    "percent": 0
+  },
+  "pull": {
+    "currentLevel": 1,
+    "percent": 0
+  },
+  "push": {
+    "currentLevel": 1,
+    "percent": 0
+  }
+} @ https://outrun.co.il/_next/static/chunks/app/profile/page-ea766c7b4e72855a.js:0
+[     939ms] [LOG] domains: {
+  "calisthenics_upper": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "core": {
+    "currentLevel": 1,
+    "isUnlocked": true,
+    "maxLevel": 20
+  },
+  "front_lever": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "full_body": {
+    "currentLevel": 1,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "handstand": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "handstand_pushup": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "human_flag": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 10
+  },
+  "legs": {
+    "currentLevel": 1,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "muscle_up": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 10
+  },
+  "one_arm_pullup": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "planche": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "pull": {
+    "currentLevel": 1,
+    "isUnlocked": true,
+    "maxLevel": 25
+  },
+  "push": {
+    "currentLevel": 1,
+    "isUnlocked": true,
+    "maxLevel": 25
+  },
+  "upper_body": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 25
+  }
+} @ https://outrun.co.il/_next/static/chunks/app/profile/page-ea766c7b4e72855a.js:0
+[    1247ms] [LOG] ✅ [ProgressionStore] Hydrated: coins=0, XP=0 (L1), daysActive=0 @ https://outrun.co.il/_next/static/chunks/9140-2750ff62167b2433.js:0
+[    1250ms] [LOG] [ActivityStore] No Firestore data, created new day @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[    1961ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[    2481ms] [LOG] [ActivityStore] No Firestore data, created new day @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[    2607ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[ 3190131ms] [WARNING] [2026-09-22T11:06:59.217Z]  @firebase/auth: Auth (12.6.0): Error while retrieving App Check token: FirebaseError: AppCheck: ReCAPTCHA error. (appCheck/recaptcha-error). @ https://outrun.co.il/_next/static/chunks/2532-16f59635ee5a761a.js:14

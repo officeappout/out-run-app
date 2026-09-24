@@ -1,0 +1,108 @@
+[    2444ms] [LOG] userId: zS9DqfmPPpW6thPqgrgzXzeDvlo2 @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/app/profile/page-95861c1b48915c1d.js:0
+[    2444ms] [LOG] _hasHydrated (useUserStore): true @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/app/profile/page-95861c1b48915c1d.js:0
+[    2444ms] [LOG] activePrograms: [
+  {
+    "id": "push",
+    "templateId": "push",
+    "name": "push",
+    "startDate": "2026-09-22T09:03:45.826Z",
+    "durationWeeks": 52,
+    "currentWeek": 1,
+    "focusDomains": [
+      "push"
+    ]
+  }
+] @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/app/profile/page-95861c1b48915c1d.js:0
+[    2445ms] [LOG] tracks: {
+  "push": {
+    "currentLevel": 8,
+    "percent": 0
+  }
+} @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/app/profile/page-95861c1b48915c1d.js:0
+[    2445ms] [LOG] domains: {
+  "calisthenics_upper": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "core": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 20
+  },
+  "front_lever": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "full_body": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "handstand": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "handstand_pushup": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "human_flag": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 10
+  },
+  "legs": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "muscle_up": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 10
+  },
+  "one_arm_pullup": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "planche": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "pull": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 25
+  },
+  "push": {
+    "currentLevel": 8,
+    "isUnlocked": true,
+    "maxLevel": 25
+  },
+  "upper_body": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 25
+  }
+} @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/app/profile/page-95861c1b48915c1d.js:0
+[    2686ms] [WARNING] [2026-09-22T09:12:00.036Z]  @firebase/auth: Auth (12.6.0): Error while retrieving App Check token: FirebaseError: AppCheck: ReCAPTCHA error. (appCheck/recaptcha-error). @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[    2876ms] [ERROR] Access to manifest at 'https://vercel.com/sso-api?url=https%3A%2F%2Fout-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app%2Fmanifest.json&nonce=c4e6f7e5ed7d7ce50b7ccc9743727cd5978ffa0312c2165e158a19a53adb95aa' (redirected from 'https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/manifest.json') from origin 'https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/profile:0
+[    2876ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://vercel.com/sso-api?url=https%3A%2F%2Fout-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app%2Fmanifest.json&nonce=c4e6f7e5ed7d7ce50b7ccc9743727cd5978ffa0312c2165e158a19a53adb95aa:0
+[    3519ms] [LOG] ✅ [ProgressionStore] Hydrated: coins=0, XP=0 (L1), daysActive=0 @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/9140-39cc07ca47c189b3.js:0
+[    3521ms] [LOG] [ActivityStore] No Firestore data, created new day @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/1381-ac1494f7b55bc691.js:0
+[    3966ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/1381-ac1494f7b55bc691.js:0
+[    4609ms] [LOG] [ActivityStore] No Firestore data, created new day @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/1381-ac1494f7b55bc691.js:0
+[    4801ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/1381-ac1494f7b55bc691.js:0
+[   19968ms] [ERROR] [2026-09-22T09:12:17.319Z]  @firebase/firestore: Firestore (12.6.0): Uncaught Error in snapshot listener: FirebaseError: [code=aborted]: Firestore shutting down @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2117-3c64067cbd5bff19.js:0
+[   19969ms] [ERROR] [2026-09-22T09:12:17.319Z]  @firebase/firestore: Firestore (12.6.0): Uncaught Error in snapshot listener: FirebaseError: [code=aborted]: Firestore shutting down @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2117-3c64067cbd5bff19.js:0
+[   19969ms] [ERROR] [2026-09-22T09:12:17.319Z]  @firebase/firestore: Firestore (12.6.0): Uncaught Error in snapshot listener: FirebaseError: [code=aborted]: Firestore shutting down @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2117-3c64067cbd5bff19.js:0
+[   19970ms] [WARNING] [ActivityStore] Real-time listener error (non-fatal): aborted @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/1381-ac1494f7b55bc691.js:0
+[   19970ms] [WARNING] [ActivityStore] Streak listener error (non-fatal): aborted @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/1381-ac1494f7b55bc691.js:0
+[   19970ms] [ERROR] [ProgressionStore] onSnapshot error: FirebaseError: Firestore shutting down @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2117-3c64067cbd5bff19.js:0
+[   19970ms] [WARNING] [ProgressionStore] Retrying onSnapshot in 4000ms (attempt 1/3) @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/9140-39cc07ca47c189b3.js:0

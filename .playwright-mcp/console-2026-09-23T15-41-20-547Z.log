@@ -1,0 +1,363 @@
+[    1617ms] [LOG] userId: XoM8TeqSRcUTTSWCniVihSJ1tnV2 @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/app/profile/page-bd0f7149afdaef90.js:0
+[    1617ms] [LOG] _hasHydrated (useUserStore): true @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/app/profile/page-bd0f7149afdaef90.js:0
+[    1617ms] [LOG] activePrograms: [
+  {
+    "focusDomains": [
+      "hspu",
+      "one_arm_pullup"
+    ],
+    "currentWeek": 1,
+    "durationWeeks": 52,
+    "name": "calisthenics upper",
+    "id": "calisthenics_upper",
+    "templateId": "calisthenics_upper",
+    "startDate": "2026-09-22T09:14:41.970Z"
+  },
+  {
+    "durationWeeks": 52,
+    "name": "pull",
+    "templateId": "pull",
+    "focusDomains": [
+      "pull"
+    ],
+    "id": "pull",
+    "currentWeek": 1,
+    "startDate": "2026-09-23T15:34:28.098Z"
+  }
+] @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/app/profile/page-bd0f7149afdaef90.js:0
+[    1617ms] [LOG] tracks: {
+  "H2279XsRGDg9G370J7S9": {
+    "currentLevel": 10,
+    "percent": 0
+  },
+  "hspu": {
+    "percent": 0,
+    "currentLevel": 1
+  },
+  "muscle_up": {
+    "percent": 0,
+    "currentLevel": 10
+  },
+  "pull": {
+    "currentLevel": 1,
+    "percent": 0
+  },
+  "47smw26hUyG5ZbE1bhr3": {
+    "percent": 0,
+    "currentLevel": 10
+  },
+  "full_body": {
+    "percent": 0,
+    "currentLevel": 10
+  },
+  "push": {
+    "percent": 0,
+    "currentLevel": 10
+  },
+  "one_arm_pullup": {
+    "percent": 0,
+    "currentLevel": 1
+  },
+  "fTLWzjP9gH2VNpamyCZF": {
+    "currentLevel": 10,
+    "percent": 0
+  },
+  "upper_body": {
+    "currentLevel": 10,
+    "percent": 0
+  },
+  "core": {
+    "percent": 0,
+    "currentLevel": 7
+  },
+  "calisthenics_upper": {
+    "currentLevel": 1,
+    "percent": 0
+  }
+} @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/app/profile/page-bd0f7149afdaef90.js:0
+[    1617ms] [LOG] domains: {
+  "calisthenics_upper": {
+    "isUnlocked": true,
+    "maxLevel": 15,
+    "currentLevel": 0
+  },
+  "push": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 25
+  },
+  "H2279XsRGDg9G370J7S9": {
+    "currentLevel": 10
+  },
+  "pull": {
+    "currentLevel": 1,
+    "isUnlocked": true,
+    "maxLevel": 25
+  },
+  "one_arm_pullup": {
+    "currentLevel": 0,
+    "maxLevel": 15,
+    "isUnlocked": true
+  },
+  "hspu": {
+    "isUnlocked": true,
+    "currentLevel": 1,
+    "maxLevel": 0
+  },
+  "legs": {
+    "maxLevel": 15,
+    "isUnlocked": true,
+    "currentLevel": 0
+  },
+  "handstand": {
+    "maxLevel": 15,
+    "isUnlocked": true,
+    "currentLevel": 0
+  },
+  "fTLWzjP9gH2VNpamyCZF": {
+    "currentLevel": 10
+  },
+  "human_flag": {
+    "isUnlocked": true,
+    "maxLevel": 10,
+    "currentLevel": 0
+  },
+  "planche": {
+    "isUnlocked": true,
+    "currentLevel": 0,
+    "maxLevel": 15
+  },
+  "front_lever": {
+    "isUnlocked": true,
+    "currentLevel": 0,
+    "maxLevel": 15
+  },
+  "full_body": {
+    "isUnlocked": true,
+    "maxLevel": 15,
+    "currentLevel": 10
+  },
+  "upper_body": {
+    "maxLevel": 25,
+    "currentLevel": 10,
+    "isUnlocked": true
+  },
+  "handstand_pushup": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "muscle_up": {
+    "maxLevel": 10,
+    "currentLevel": 10,
+    "isUnlocked": true
+  },
+  "47smw26hUyG5ZbE1bhr3": {
+    "currentLevel": 10
+  },
+  "core": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 20
+  }
+} @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/app/profile/page-bd0f7149afdaef90.js:0
+[    1632ms] [WARNING] [2026-09-23T15:41:22.178Z]  @firebase/auth: Auth (12.6.0): Error while retrieving App Check token: FirebaseError: AppCheck: ReCAPTCHA error. (appCheck/recaptcha-error). @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[    2189ms] [ERROR] Access to manifest at 'https://vercel.com/sso-api?url=https%3A%2F%2Fout-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app%2Fmanifest.json&nonce=a50f39aa76134809899e1157ce22ef58d631646543ed5d7b40d3cb2c8f5b27b1' (redirected from 'https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/manifest.json') from origin 'https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/profile:0
+[    2190ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://vercel.com/sso-api?url=https%3A%2F%2Fout-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app%2Fmanifest.json&nonce=a50f39aa76134809899e1157ce22ef58d631646543ed5d7b40d3cb2c8f5b27b1:0
+[    2479ms] [LOG] ✅ [ProgressionStore] Hydrated: coins=0, XP=0 (L1), daysActive=0 @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[    2483ms] [LOG] [ActivityStore] No Firestore data, created new day @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/1381-07d1c6e5a4aa147e.js:0
+[    3035ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/1381-07d1c6e5a4aa147e.js:0
+[    3632ms] [LOG] [ActivityStore] No Firestore data, created new day @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/1381-07d1c6e5a4aa147e.js:0
+[    3888ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/1381-07d1c6e5a4aa147e.js:0
+[  483084ms] [ERROR] Failed to load resource: net::ERR_NETWORK_IO_SUSPENDED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?gsessionid=vHxrILGg-7youGHEClBS6C7Rip3PaBcHXmufC2BAqyYLRgbCDeekXA&VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=rpc&SID=TR2W3oZMX7VjNrqDmgveEw&AID=257&CI=0&TYPE=xmlhttp&zx=xtxlb4qf7tfw&t=1:0
+[  498652ms] [ERROR] Failed to load resource: net::ERR_NETWORK_CHANGED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?gsessionid=vHxrILGg-7youGHEClBS6C7Rip3PaBcHXmufC2BAqyYLRgbCDeekXA&VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=rpc&SID=TR2W3oZMX7VjNrqDmgveEw&AID=259&CI=0&TYPE=xmlhttp&zx=qwyfosguvqc&t=1:0
+[  498945ms] [ERROR] Failed to load resource: net::ERR_NETWORK_CHANGED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?gsessionid=vHxrILGg-7youGHEClBS6C7Rip3PaBcHXmufC2BAqyYLRgbCDeekXA&VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=rpc&SID=TR2W3oZMX7VjNrqDmgveEw&AID=260&CI=0&TYPE=xmlhttp&zx=xx15661p75l6&t=1:0
+[  551715ms] [ERROR] Failed to load resource: net::ERR_NETWORK_CHANGED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?gsessionid=vHxrILGg-7youGHEClBS6C7Rip3PaBcHXmufC2BAqyYLRgbCDeekXA&VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=rpc&SID=TR2W3oZMX7VjNrqDmgveEw&AID=261&CI=0&TYPE=xmlhttp&zx=5w7eklsxyqa5&t=1:0
+[  552195ms] [ERROR] Failed to load resource: net::ERR_NETWORK_CHANGED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?gsessionid=vHxrILGg-7youGHEClBS6C7Rip3PaBcHXmufC2BAqyYLRgbCDeekXA&VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=rpc&SID=TR2W3oZMX7VjNrqDmgveEw&AID=264&CI=0&TYPE=xmlhttp&zx=47ejjponijzl&t=1:0
+[ 1242970ms] [ERROR] Failed to load resource: net::ERR_NETWORK_CHANGED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?gsessionid=vHxrILGg-7youGHEClBS6C7Rip3PaBcHXmufC2BAqyYLRgbCDeekXA&VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=rpc&SID=TR2W3oZMX7VjNrqDmgveEw&AID=265&CI=0&TYPE=xmlhttp&zx=5ldfr08ourbi&t=1:0
+[ 1243274ms] [ERROR] Failed to load resource: net::ERR_NETWORK_CHANGED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?gsessionid=vHxrILGg-7youGHEClBS6C7Rip3PaBcHXmufC2BAqyYLRgbCDeekXA&VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=rpc&SID=TR2W3oZMX7VjNrqDmgveEw&AID=268&CI=0&TYPE=xmlhttp&zx=6jewap46ocsd&t=1:0
+[ 1244034ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?gsessionid=vHxrILGg-7youGHEClBS6C7Rip3PaBcHXmufC2BAqyYLRgbCDeekXA&VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=rpc&SID=TR2W3oZMX7VjNrqDmgveEw&AID=268&CI=0&TYPE=xmlhttp&zx=xraii82lzmt0&t=2:0
+[ 1244043ms] [WARNING] [2026-09-23T16:02:04.588Z]  @firebase/firestore: Firestore (12.6.0): WebChannelConnection RPC 'Listen' stream 0x40c95d45 transport errored. Name: undefined Message: undefined @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 1309277ms] [ERROR] Failed to load resource: net::ERR_NETWORK_CHANGED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?gsessionid=ARqbKqo_PZu8lbhchJuYPwngOYQSYVRxT1yy3wkUothck_X2VJ5sMQ&VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=rpc&SID=P7MZoi_5FOgZVHLxT_mHSg&AID=0&CI=0&TYPE=xmlhttp&zx=iteob33rp2fc&t=1:0
+[ 1452468ms] [ERROR] Failed to load resource: net::ERR_QUIC_PROTOCOL_ERROR.QUIC_TOO_MANY_RTOS @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?gsessionid=ARqbKqo_PZu8lbhchJuYPwngOYQSYVRxT1yy3wkUothck_X2VJ5sMQ&VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=rpc&SID=P7MZoi_5FOgZVHLxT_mHSg&AID=34&CI=0&TYPE=xmlhttp&zx=e2vbe6cepy3e&t=1:0
+[ 1452674ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?gsessionid=ARqbKqo_PZu8lbhchJuYPwngOYQSYVRxT1yy3wkUothck_X2VJ5sMQ&VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=rpc&SID=P7MZoi_5FOgZVHLxT_mHSg&AID=36&CI=0&TYPE=xmlhttp&zx=92cdeg2rrx7l&t=1:0
+[ 1452676ms] [WARNING] [2026-09-23T16:05:33.222Z]  @firebase/firestore: Firestore (12.6.0): WebChannelConnection RPC 'Listen' stream 0x40c95d46 transport errored. Name: undefined Message: undefined @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 1611955ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&gsessionid=bXmVHciUlIfxgyYBj3ShexV6Wu-tVEd6Em5X8Z9rE3PU5rJBhgoE3Q&SID=q_Ze4UxPZSmttXNUjKsRPA&RID=46208&TYPE=terminate&zx=ndr4jfrgi64s:0
+[ 1611984ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=37401&CVER=22&X-HTTP-Session-Id=gsessionid&zx=avkesohg4lxb&t=1:0
+[ 1611986ms] [WARNING] [2026-09-23T16:08:12.532Z]  @firebase/firestore: Firestore (12.6.0): WebChannelConnection RPC 'Listen' stream 0x40c95d48 transport errored. Name: undefined Message: undefined @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 1611992ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1611993ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://www.google.com/images/cleardot.gif?zx=r08ivytjekno:0
+[ 1611993ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1612017ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=10893&CVER=22&X-HTTP-Session-Id=gsessionid&zx=cwlgvhtwjzd&t=1:0
+[ 1612017ms] [WARNING] [2026-09-23T16:08:12.564Z]  @firebase/firestore: Firestore (12.6.0): WebChannelConnection RPC 'Listen' stream 0x40c95d49 transport errored. Name: undefined Message: undefined @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 1612029ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1612036ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/images/cleardot.gif?zx=cgg8xi9p1ayh:0
+[ 1612036ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1612046ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1612055ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1612058ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1612060ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1612569ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=80911&CVER=22&X-HTTP-Session-Id=gsessionid&zx=hlo1jj8t1uoa&t=1:0
+[ 1612569ms] [WARNING] [2026-09-23T16:08:13.116Z]  @firebase/firestore: Firestore (12.6.0): WebChannelConnection RPC 'Listen' stream 0x40c95d4a transport errored. Name: undefined Message: undefined @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 1612570ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1612571ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/images/cleardot.gif?zx=2a81qqdo3k4u:0
+[ 1612571ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1612573ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1612574ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1613497ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=72012&CVER=22&X-HTTP-Session-Id=gsessionid&zx=t7hapx9qh9v1&t=1:0
+[ 1613498ms] [WARNING] [2026-09-23T16:08:14.044Z]  @firebase/firestore: Firestore (12.6.0): WebChannelConnection RPC 'Listen' stream 0x40c95d4b transport errored. Name: undefined Message: undefined @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 1613498ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1613500ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/images/cleardot.gif?zx=cflmdpbwp91:0
+[ 1613500ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1613502ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1613504ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1614860ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=31361&CVER=22&X-HTTP-Session-Id=gsessionid&zx=z5s0qcpzcsfg&t=1:0
+[ 1614861ms] [WARNING] [2026-09-23T16:08:15.408Z]  @firebase/firestore: Firestore (12.6.0): WebChannelConnection RPC 'Listen' stream 0x40c95d4c transport errored. Name: undefined Message: undefined @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 1614862ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1614865ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/images/cleardot.gif?zx=3b1jr3vccaq3:0
+[ 1614865ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1614868ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1614871ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1617071ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1617071ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=77981&CVER=22&X-HTTP-Session-Id=gsessionid&zx=wtx9chg9q9nd&t=1:0
+[ 1617072ms] [WARNING] [2026-09-23T16:08:17.618Z]  @firebase/firestore: Firestore (12.6.0): WebChannelConnection RPC 'Listen' stream 0x40c95d4d transport errored. Name: undefined Message: undefined @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 1617074ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1617075ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/images/cleardot.gif?zx=ohsiaxnkxfzc:0
+[ 1617078ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1617082ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1622101ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=55980&CVER=22&X-HTTP-Session-Id=gsessionid&zx=9ljid2udhff5&t=1:0
+[ 1622102ms] [WARNING] [2026-09-23T16:08:22.649Z]  @firebase/firestore: Firestore (12.6.0): WebChannelConnection RPC 'Listen' stream 0x40c95d4e transport errored. Name: undefined Message: undefined @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 1622104ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1622109ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1622110ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/images/cleardot.gif?zx=aq5zln7ohg8s:0
+[ 1622113ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1622115ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1627465ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=25185&CVER=22&X-HTTP-Session-Id=gsessionid&zx=jt0koamhvdh&t=1:0
+[ 1627467ms] [WARNING] [2026-09-23T16:08:28.014Z]  @firebase/firestore: Firestore (12.6.0): WebChannelConnection RPC 'Listen' stream 0x40c95d4f transport errored. Name: undefined Message: undefined @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 1627468ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1627472ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/images/cleardot.gif?zx=hwnv77wt39wf:0
+[ 1627472ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1627477ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1627480ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1635817ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=22666&CVER=22&X-HTTP-Session-Id=gsessionid&zx=3c4t01wfas4o&t=1:0
+[ 1635818ms] [WARNING] [2026-09-23T16:08:36.364Z]  @firebase/firestore: Firestore (12.6.0): WebChannelConnection RPC 'Listen' stream 0x40c95d50 transport errored. Name: undefined Message: undefined @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 1635818ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1635822ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/images/cleardot.gif?zx=mer2fnusq709:0
+[ 1635822ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1635826ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1635828ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1653937ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=17763&CVER=22&X-HTTP-Session-Id=gsessionid&zx=mcfz3kyr086h&t=1:0
+[ 1653938ms] [WARNING] [2026-09-23T16:08:54.485Z]  @firebase/firestore: Firestore (12.6.0): WebChannelConnection RPC 'Listen' stream 0x40c95d51 transport errored. Name: undefined Message: undefined @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 1653939ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1653941ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/images/cleardot.gif?zx=fe5gbl3fjo3q:0
+[ 1653941ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1653944ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1653945ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1671968ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1671969ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=74222&CVER=22&X-HTTP-Session-Id=gsessionid&zx=jouh2r144i7x&t=1:0
+[ 1671969ms] [WARNING] [2026-09-23T16:09:12.516Z]  @firebase/firestore: Firestore (12.6.0): WebChannelConnection RPC 'Listen' stream 0x40c95d52 transport errored. Name: undefined Message: undefined @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 1671971ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1671972ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/images/cleardot.gif?zx=nbatpfd2eepj:0
+[ 1671973ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1671976ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1718297ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1718297ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=2375&CVER=22&X-HTTP-Session-Id=gsessionid&zx=5tamg18s1iv&t=1:0
+[ 1718298ms] [WARNING] [2026-09-23T16:09:58.844Z]  @firebase/firestore: Firestore (12.6.0): WebChannelConnection RPC 'Listen' stream 0x40c95d53 transport errored. Name: undefined Message: undefined @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 1718301ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1718301ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/images/cleardot.gif?zx=fqgg97vx4ubf:0
+[ 1718303ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1718305ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1792690ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=41722&CVER=22&X-HTTP-Session-Id=gsessionid&zx=p60dnq2nynt5&t=1:0
+[ 1792690ms] [WARNING] [2026-09-23T16:11:13.237Z]  @firebase/firestore: Firestore (12.6.0): WebChannelConnection RPC 'Listen' stream 0x40c95d54 transport errored. Name: undefined Message: undefined @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 1792691ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1792694ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/images/cleardot.gif?zx=muq0udnt3dnj:0
+[ 1792694ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1792697ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1792700ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1817160ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1817162ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1817164ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1817167ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1877262ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=28456&CVER=22&X-HTTP-Session-Id=gsessionid&zx=7rytfmhn132b&t=1:0
+[ 1877263ms] [WARNING] [2026-09-23T16:12:37.809Z]  @firebase/firestore: Firestore (12.6.0): WebChannelConnection RPC 'Listen' stream 0x40c95d55 transport errored. Name: undefined Message: undefined @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 1877264ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1877269ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/images/cleardot.gif?zx=exzdxaihkbe8:0
+[ 1877269ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1877272ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1877278ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1921275ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=84136&CVER=22&X-HTTP-Session-Id=gsessionid&zx=k0dt4jisvxob&t=1:0
+[ 1921275ms] [WARNING] [2026-09-23T16:13:21.822Z]  @firebase/firestore: Firestore (12.6.0): WebChannelConnection RPC 'Listen' stream 0x40c95d56 transport errored. Name: undefined Message: undefined @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 1921277ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1921278ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/images/cleardot.gif?zx=quit0i4etodx:0
+[ 1921280ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1921282ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1921284ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1973362ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=48459&CVER=22&X-HTTP-Session-Id=gsessionid&zx=u4s2n7vn17qu&t=1:0
+[ 1973362ms] [WARNING] [2026-09-23T16:14:13.909Z]  @firebase/firestore: Firestore (12.6.0): WebChannelConnection RPC 'Listen' stream 0x40c95d57 transport errored. Name: undefined Message: undefined @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 1973363ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1973365ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/images/cleardot.gif?zx=9ocfn7xbzn2i:0
+[ 1973365ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1973368ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 1973370ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2040786ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=18892&CVER=22&X-HTTP-Session-Id=gsessionid&zx=lsfrmvxamxkb&t=1:0
+[ 2040787ms] [WARNING] [2026-09-23T16:15:21.333Z]  @firebase/firestore: Firestore (12.6.0): WebChannelConnection RPC 'Listen' stream 0x40c95d58 transport errored. Name: undefined Message: undefined @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 2040788ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2040790ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/images/cleardot.gif?zx=nm5u6gi4m37l:0
+[ 2040790ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2040792ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2040794ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2082239ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=46093&CVER=22&X-HTTP-Session-Id=gsessionid&zx=vswuqms8yl6g&t=1:0
+[ 2082239ms] [WARNING] [2026-09-23T16:16:02.786Z]  @firebase/firestore: Firestore (12.6.0): WebChannelConnection RPC 'Listen' stream 0x40c95d59 transport errored. Name: undefined Message: undefined @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 2082240ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2082242ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/images/cleardot.gif?zx=gxn97g859bmv:0
+[ 2082243ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2082245ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2082247ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2130659ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=32470&CVER=22&X-HTTP-Session-Id=gsessionid&zx=w6yo9977phbl&t=1:0
+[ 2130660ms] [WARNING] [2026-09-23T16:16:51.206Z]  @firebase/firestore: Firestore (12.6.0): WebChannelConnection RPC 'Listen' stream 0x40c95d5a transport errored. Name: undefined Message: undefined @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 2130661ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2130663ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/images/cleardot.gif?zx=p0zqik27s1d9:0
+[ 2130663ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2130665ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2130667ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2203988ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=21884&CVER=22&X-HTTP-Session-Id=gsessionid&zx=oursocfgp6m6&t=1:0
+[ 2203988ms] [WARNING] [2026-09-23T16:18:04.535Z]  @firebase/firestore: Firestore (12.6.0): WebChannelConnection RPC 'Listen' stream 0x40c95d5b transport errored. Name: undefined Message: undefined @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 2203990ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2203991ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/images/cleardot.gif?zx=ivmgp3by6lm8:0
+[ 2203991ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2203994ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2203997ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2239466ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=93541&CVER=22&X-HTTP-Session-Id=gsessionid&zx=9b92pc5dku1f&t=1:0
+[ 2239466ms] [WARNING] [2026-09-23T16:18:40.013Z]  @firebase/firestore: Firestore (12.6.0): WebChannelConnection RPC 'Listen' stream 0x40c95d5c transport errored. Name: undefined Message: undefined @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 2239467ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2239469ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/images/cleardot.gif?zx=2pxwlcuf4qty:0
+[ 2239469ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2239471ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2239473ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2325699ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=22288&CVER=22&X-HTTP-Session-Id=gsessionid&zx=atsvvsb1yjnn&t=1:0
+[ 2325700ms] [WARNING] [2026-09-23T16:20:06.246Z]  @firebase/firestore: Firestore (12.6.0): WebChannelConnection RPC 'Listen' stream 0x40c95d5d transport errored. Name: undefined Message: undefined @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 2325701ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2325703ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/images/cleardot.gif?zx=9u1r61vqji8b:0
+[ 2325703ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2325705ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2325707ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2387390ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2387391ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=70848&CVER=22&X-HTTP-Session-Id=gsessionid&zx=2z1gguhbqbvm&t=1:0
+[ 2387392ms] [WARNING] [2026-09-23T16:21:07.938Z]  @firebase/firestore: Firestore (12.6.0): WebChannelConnection RPC 'Listen' stream 0x40c95d5e transport errored. Name: undefined Message: undefined @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 2387393ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2387395ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/images/cleardot.gif?zx=mx5439ej2gni:0
+[ 2387395ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2387397ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2443438ms] [WARNING] [2026-09-23T16:22:03.985Z]  @firebase/auth: Auth (12.6.0): Error while retrieving App Check token: FirebaseError: AppCheck: ReCAPTCHA error. (appCheck/recaptcha-error). @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 2443446ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2443447ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://securetoken.googleapis.com/v1/token?key=AIzaSyCezG55zVQEZWCEs-lHzx_yQldg-Ej2X60:0
+[ 2443449ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2443451ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2443454ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2455459ms] [WARNING] [2026-09-23T16:22:16.005Z]  @firebase/auth: Auth (12.6.0): Error while retrieving App Check token: FirebaseError: AppCheck: ReCAPTCHA error. (appCheck/recaptcha-error). @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 2457813ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://www.google.com/recaptcha/enterprise/clr?k=6Lf3d9UsAAAAAILBqo6A909pmhyvtYmDoxaKtfMV:0
+[ 2457820ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://securetoken.googleapis.com/v1/token?key=AIzaSyCezG55zVQEZWCEs-lHzx_yQldg-Ej2X60:0
+[ 2457823ms] [ERROR] [ActivityStore] Error loading from Firestore: Failed to get document because the client is offline. @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2117-3c64067cbd5bff19.js:0
+[ 2457824ms] [ERROR] Firestore error code: unavailable @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2117-3c64067cbd5bff19.js:0
+[ 2457836ms] [WARNING] [2026-09-23T16:22:18.383Z]  @firebase/auth: Auth (12.6.0): Error while retrieving App Check token: FirebaseError: AppCheck: ReCAPTCHA error. (appCheck/recaptcha-error). @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 3021393ms] [WARNING] [2026-09-23T16:31:41.939Z]  @firebase/auth: Auth (12.6.0): Error while retrieving App Check token: FirebaseError: AppCheck: ReCAPTCHA error. (appCheck/recaptcha-error). @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14

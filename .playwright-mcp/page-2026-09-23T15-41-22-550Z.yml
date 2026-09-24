@@ -1,0 +1,132 @@
+- generic [active] [ref=f343e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f343e2]:
+    - generic [ref=f343e3]:
+      - generic [ref=f343e5]:
+        - button "פרופיל" [ref=f343e6] [cursor=pointer]:
+          - generic [ref=f343e7]: Q
+        - link "OUT" [ref=f343e14] [cursor=pointer]:
+          - /url: /home
+          - img "OUT" [ref=f343e15]
+        - generic [ref=f343e16]:
+          - button "התראות" [ref=f343e17] [cursor=pointer]
+          - button "הודעות" [ref=f343e21] [cursor=pointer]
+          - link "חיפוש" [ref=f343e24] [cursor=pointer]:
+            - /url: /search
+      - generic [ref=f343e28]:
+        - generic [ref=f343e29]:
+          - generic [ref=f343e30]:
+            - generic [ref=f343e31]:
+              - button "הגדרות" [ref=f343e32] [cursor=pointer]
+              - button "אימונים שמורים" [ref=f343e36] [cursor=pointer]
+            - generic [ref=f343e39]:
+              - generic [ref=f343e40]:
+                - img "Lemur" [ref=f343e41]
+                - generic [ref=f343e42]: "0"
+              - heading "המטפס" [level=2] [ref=f343e46]
+              - generic [ref=f343e47]: שלב 1
+              - generic [ref=f343e52]:
+                - button "הצג היסטוריית אימונים" [ref=f343e53] [cursor=pointer]:
+                  - generic [ref=f343e54]: אימונים
+                  - generic [ref=f343e62]: —
+                - generic [ref=f343e63]:
+                  - generic [ref=f343e64]: ימי רצף
+                  - generic [ref=f343e68]: "0"
+          - heading "יעדי תרגילים" [level=3] [ref=f343e71]
+          - heading "תרגילים שאני רוצה ללמוד" [level=3] [ref=f343e81]
+          - generic [ref=f343e83]:
+            - generic [ref=f343e84]:
+              - heading "הישגים" [level=3] [ref=f343e92]
+              - button "כל ההישגים" [ref=f343e93] [cursor=pointer]
+            - button [ref=f343e94] [cursor=pointer]:
+              - paragraph [ref=f343e101]: אין הישגים עדיין — התחל לאמן!
+          - generic [ref=f343e103]:
+            - heading "כוח" [level=3] [ref=f343e104]
+            - generic [ref=f343e105]:
+              - generic [ref=f343e106]:
+                - generic [ref=f343e107]: נפח שבועי
+                - generic [ref=f343e115]: "0"
+                - generic [ref=f343e116]: סטים השבוע
+              - generic [ref=f343e118]:
+                - generic [ref=f343e119]: שיא אישי
+                - generic [ref=f343e127]: —
+                - generic [ref=f343e128]: אין נתונים עדיין
+              - generic [ref=f343e129]:
+                - generic [ref=f343e130]: זמן פעיל
+                - generic [ref=f343e135]: "0"
+                - generic [ref=f343e136]: מתוך 150 דק׳
+              - generic [ref=f343e138]:
+                - generic [ref=f343e139]: קבוצות שרירים
+                - generic [ref=f343e145]: "0"
+                - generic [ref=f343e146]: התחל אימון
+          - generic [ref=f343e148]:
+            - generic [ref=f343e149]:
+              - heading "התוכניות שלי" [level=3] [ref=f343e150]
+              - button "ניהול" [ref=f343e151] [cursor=pointer]
+            - generic [ref=f343e152]:
+              - paragraph [ref=f343e153]: תוכנית פעילה
+              - button "תוכנית אימון רמה 1/15 עוד 99% לרמה 2 1%" [ref=f343e154] [cursor=pointer]:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading "תוכנית אימון" [level=3]
+                      - paragraph: רמה 1/15
+                      - generic: עוד 99% לרמה 2
+                    - generic: 1%
+            - generic [ref=f343e155]:
+              - paragraph [ref=f343e156]: תוכניות נוספות
+              - button "משיכה רמה 1/25 עוד 100% לרמה 2 0%" [ref=f343e158] [cursor=pointer]:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading "משיכה" [level=3]
+                      - paragraph: רמה 1/25
+                      - generic: עוד 100% לרמה 2
+                    - generic: 0%
+          - generic [ref=f343e160]:
+            - heading "מה בחרת, לפי עדיפות" [level=3] [ref=f343e162]
+            - generic [ref=f343e163]:
+              - paragraph [ref=f343e164]: כיוונים
+              - generic [ref=f343e165]:
+                - generic [ref=f343e166]:
+                  - generic [ref=f343e167]: "1"
+                  - generic [ref=f343e168]: קליסטניקס מתקדם
+                - generic [ref=f343e169]:
+                  - generic [ref=f343e170]: "2"
+                  - generic [ref=f343e171]: עיצוב ושרירים
+            - generic [ref=f343e172]:
+              - paragraph [ref=f343e173]: אזורי מיקוד
+              - generic [ref=f343e174]:
+                - generic [ref=f343e175]:
+                  - generic [ref=f343e176]: "1"
+                  - generic [ref=f343e177]: גב
+                - generic [ref=f343e178]:
+                  - generic [ref=f343e179]: "2"
+                  - generic [ref=f343e180]: יד קדמית
+            - generic [ref=f343e181]:
+              - paragraph [ref=f343e182]: אלמנטים
+              - generic [ref=f343e183]:
+                - generic [ref=f343e184]:
+                  - generic [ref=f343e185]: "1"
+                  - generic [ref=f343e186]: שכיבות סמיכה בעמידת ידיים
+                - generic [ref=f343e187]:
+                  - generic [ref=f343e188]: "2"
+                  - generic [ref=f343e189]: מתח יד אחת
+          - generic [ref=f343e191]:
+            - heading "פעילות אחרונה" [level=3] [ref=f343e192]
+            - button "הכל" [ref=f343e193] [cursor=pointer]
+        - generic [ref=f343e213]:
+          - generic [ref=f343e218]:
+            - paragraph [ref=f343e219]: שלח משוב או דווח על באג
+            - paragraph [ref=f343e220]: הפידבק שלך משפיע ישירות על הפיתוח
+          - textbox "כתוב כאן את המשוב, הבאג, או הרעיון שלך..." [ref=f343e221]
+          - button "שלח לעוזר ה-AI" [disabled] [ref=f343e222]
+  - navigation [ref=f343e226]:
+    - generic [ref=f343e227]:
+      - link "בית" [ref=f343e228] [cursor=pointer]:
+        - /url: /home
+      - link "מפה" [ref=f343e233] [cursor=pointer]:
+        - /url: /map
+  - alert [ref=f343e237]

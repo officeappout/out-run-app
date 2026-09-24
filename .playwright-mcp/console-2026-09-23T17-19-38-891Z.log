@@ -1,0 +1,493 @@
+[     695ms] [WARNING] [2026-09-23T17:19:39.586Z]  @firebase/auth: Auth (12.6.0): Error while retrieving App Check token: FirebaseError: AppCheck: ReCAPTCHA error. (appCheck/recaptcha-error). @ https://outrun.co.il/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[     787ms] [LOG] userId: Hv0hBzUPThOeMLrB5zpZLzQGq6G2 @ https://outrun.co.il/_next/static/chunks/app/profile/page-3d582e21954d37b4.js:0
+[     787ms] [LOG] _hasHydrated (useUserStore): true @ https://outrun.co.il/_next/static/chunks/app/profile/page-3d582e21954d37b4.js:0
+[     787ms] [LOG] activePrograms: [
+  {
+    "name": "pull",
+    "durationWeeks": 52,
+    "templateId": "pull",
+    "id": "pull",
+    "currentWeek": 1,
+    "startDate": "2026-09-23T17:18:53.039Z",
+    "focusDomains": [
+      "pull"
+    ]
+  }
+] @ https://outrun.co.il/_next/static/chunks/app/profile/page-3d582e21954d37b4.js:0
+[     788ms] [LOG] tracks: {
+  "muscle_up": {
+    "currentLevel": 1,
+    "percent": 0
+  },
+  "H2279XsRGDg9G370J7S9": {
+    "percent": 0,
+    "currentLevel": 1
+  },
+  "pull": {
+    "percent": 0,
+    "currentLevel": 1
+  },
+  "fTLWzjP9gH2VNpamyCZF": {
+    "percent": 0,
+    "currentLevel": 1
+  },
+  "full_body": {
+    "percent": 0,
+    "currentLevel": 1
+  },
+  "upper_body": {
+    "currentLevel": 1,
+    "percent": 0
+  },
+  "47smw26hUyG5ZbE1bhr3": {
+    "percent": 0,
+    "currentLevel": 1
+  }
+} @ https://outrun.co.il/_next/static/chunks/app/profile/page-3d582e21954d37b4.js:0
+[     788ms] [LOG] domains: {
+  "handstand": {
+    "maxLevel": 15,
+    "currentLevel": 0,
+    "isUnlocked": true
+  },
+  "legs": {
+    "maxLevel": 15,
+    "isUnlocked": true,
+    "currentLevel": 0
+  },
+  "planche": {
+    "maxLevel": 15,
+    "isUnlocked": true,
+    "currentLevel": 0
+  },
+  "upper_body": {
+    "isUnlocked": true,
+    "currentLevel": 1,
+    "maxLevel": 25
+  },
+  "pull": {
+    "currentLevel": 1,
+    "isUnlocked": true,
+    "maxLevel": 25
+  },
+  "calisthenics_upper": {
+    "maxLevel": 15,
+    "isUnlocked": true,
+    "currentLevel": 0
+  },
+  "push": {
+    "maxLevel": 25,
+    "isUnlocked": true,
+    "currentLevel": 0
+  },
+  "muscle_up": {
+    "maxLevel": 10,
+    "isUnlocked": true,
+    "currentLevel": 1
+  },
+  "H2279XsRGDg9G370J7S9": {
+    "currentLevel": 1
+  },
+  "fTLWzjP9gH2VNpamyCZF": {
+    "currentLevel": 1
+  },
+  "one_arm_pullup": {
+    "isUnlocked": true,
+    "currentLevel": 0,
+    "maxLevel": 15
+  },
+  "handstand_pushup": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "front_lever": {
+    "isUnlocked": true,
+    "currentLevel": 0,
+    "maxLevel": 15
+  },
+  "47smw26hUyG5ZbE1bhr3": {
+    "currentLevel": 1
+  },
+  "core": {
+    "currentLevel": 0,
+    "maxLevel": 20,
+    "isUnlocked": true
+  },
+  "full_body": {
+    "isUnlocked": true,
+    "currentLevel": 1,
+    "maxLevel": 15
+  },
+  "human_flag": {
+    "maxLevel": 10,
+    "currentLevel": 0,
+    "isUnlocked": true
+  }
+} @ https://outrun.co.il/_next/static/chunks/app/profile/page-3d582e21954d37b4.js:0
+[    1699ms] [LOG] ✅ [ProgressionStore] Hydrated: coins=0, XP=0 (L1), daysActive=0 @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[    1703ms] [LOG] [ActivityStore] No Firestore data, created new day @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[    2122ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[    2474ms] [LOG] [ActivityStore] No Firestore data, created new day @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[    2667ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[  479932ms] [ERROR] Failed to load resource: net::ERR_QUIC_PROTOCOL_ERROR.QUIC_TOO_MANY_RTOS @ https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?gsessionid=pTvCtGWlme-3baQa5ChjOwkGL0khEm1cktxe0kFOfCvZNEe5CDBg0A&VER=8&database=projects%2Fappout-1%2Fdatabases%2F(default)&RID=rpc&SID=JMH6LjxnbL4f0fFMiefwUg&AID=159&CI=1&TYPE=xmlhttp&zx=iu76w31u14r3&t=1:0
+[ 1449749ms] [LOG] [A2-SPIKE][useGPS] hook mounted {isNative: false, callSite: useMapLogic.ts} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 1449749ms] [LOG] [A2-SPIKE][useGPS] watch-effect run {simulationActive: false, gpsPaused: false, isForeground: true, workoutActive: false, sessionStatus: idle} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 1449750ms] [LOG] [PresenceHeartbeat] mount OK — heartbeat will tick now and every 2 min {userId: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, currentLocation: null, privacyMode: ghost, ageGroup: adult} @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 1449750ms] [LOG] [PresenceHeartbeat] tick SKIPPED {tickCount: 1, reason: no currentLocation (GPS pending?), currentLocation: null} @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 1449751ms] [LOG] [PresenceHeartbeat] tick SKIPPED {tickCount: 2, reason: no currentLocation (GPS pending?), currentLocation: null} @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 1449751ms] [LOG] [useGroupPresence] subscribe {currentUid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, groupSessionId: null} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 1449752ms] [LOG] [MapShell] mode= discover isWorkoutActive= false runMode= plan @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 1449804ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1450546ms] [LOG] [Map] declutter:request source=watchdog @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 1450546ms] [LOG] !!! MAP CLEANUP STARTING !!! @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 1450546ms] [LOG] [FitnessMapStyle] Hard-hide pass: 2/5 target layers hidden @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 1450547ms] [LOG] [FitnessMapStyle] Nuclear sweep: hid 14 stray label layers (kept 6 matching park/natural/water/waterway/place/road) @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 1450547ms] [LOG] [Map] Declutter complete (source=watchdog): Minor roads hidden, POIs removed. @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 1450823ms] [LOG] [Map] declutter:request source=onboarding-map-load @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 1450823ms] [LOG] !!! MAP CLEANUP STARTING !!! @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 1450823ms] [WARNING] [FitnessMapStyle] Aborted — style not loaded (source=onboarding-map-load) @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 1450872ms] [LOG] [Map] declutter:request source=idle-safety @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 1450872ms] [LOG] [Map] declutter:skip source=idle-safety (already done) @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 1451006ms] [LOG] [ActivityStore] No Firestore data, created new day @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[ 1451014ms] [LOG] [Routes] Fetched 99 published official routes from Firestore @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 1451213ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[ 1451320ms] [LOG] [ActivityStore] No Firestore data, created new day @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[ 1451499ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[ 1452060ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1455029ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1469751ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1474157ms] [LOG] [ProgressionStore] Bridged tracks/domains/activePrograms → useUserStore [tracks, domains, activePrograms] @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[ 1474438ms] [LOG] [ProgressionStore] Bridged tracks/domains/activePrograms → useUserStore [tracks, domains, activePrograms] @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[ 1475917ms] [INFO] [User Service] User Hv0hBzUPThOeMLrB5zpZLzQGq6G2 has missing or empty equipment profile. This may affect Smart Swap functionality. Please update user equipment in the admin panel. @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[ 1476016ms] [LOG] [ProgressionStore] Bridged tracks/domains/activePrograms → useUserStore [tracks, domains, activePrograms] @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[ 1476979ms] [WARNING] Expected value to be of type number, but found null instead. @ blob:https://outrun.co.il/d657311c-86bf-42f5-9458-388e456ce252:0
+[ 1484382ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1485514ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1486114ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1489753ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1489756ms] [LOG] [useCommunityEnrichment] Subscribing for route IDs: [h6AvZlnj5YWwHbTjKqSU, 3GJNC9xkSQzVdaJ2EP3l, C6kPLOyojYTx5ayFCQeR] @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 1489757ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 3, uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, mode: ghost, liveGroupId: null, ageGroup: adult} @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 1489757ms] [LOG] [PresenceHeartbeat] first-fix write triggered by GPS store @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 1489757ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 1489758ms] [LOG] [useGroupPresence] subscribe {currentUid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, groupSessionId: null} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 1489762ms] [LOG] [useSuggestionEngineStore] runSuggestionEngine took 6ms (5 candidates) @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 1490582ms] [LOG] [ProgressionStore] Bridged tracks/domains/activePrograms → useUserStore [tracks, domains, activePrograms] @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[ 1490587ms] [LOG] [ProgressionStore] Bridged tracks/domains/activePrograms → useUserStore [tracks, domains, activePrograms] @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[ 1490590ms] [LOG] [ProgressionStore] Bridged tracks/domains/activePrograms → useUserStore [tracks, domains, activePrograms] @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[ 1490757ms] [LOG] [ProgressionStore] Bridged tracks/domains/activePrograms → useUserStore [tracks, domains, activePrograms] @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[ 1490842ms] [LOG] [ProgressionStore] Bridged tracks/domains/activePrograms → useUserStore [tracks, domains, activePrograms] @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[ 1494308ms] [LOG] [compose-trigger] entry-open (passive, no compose) @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 1494621ms] [WARNING] [composeFullParkRoutePreview] no equipped park reachable → no route @ https://outrun.co.il/_next/static/chunks/5754-a84fd5a093e4007d.js:0
+[ 1497553ms] [LOG] [route-stops] backbone="הקפת Zeev Garden" id=h6AvZlnj5YWwHbTjKqSU @721m from user (published nearest of 99) @ https://outrun.co.il/_next/static/chunks/5754-a84fd5a093e4007d.js:0
+[ 1497554ms] [LOG] [route-stops] weekly strength budget spent (remaining=0 < 4) → strength stop(s) defaulted to core @ https://outrun.co.il/_next/static/chunks/5754-a84fd5a093e4007d.js:0
+[ 1497554ms] [LOG] [route-stops] route="הקפת Zeev Garden" stops=1 [core@wp3(27m)] @ https://outrun.co.il/_next/static/chunks/5754-a84fd5a093e4007d.js:0
+[ 1497682ms] [LOG] [RouteStops] Domain 'full_body' resolved to L1 (Source: Domains) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[ 1497682ms] [LOG] [RouteStops] Skipping master program "H2279XsRGDg9G370J7S9" (display-only) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[ 1497682ms] [LOG] [RouteStops] Domain 'upper_body' resolved to L1 (Source: Domains) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[ 1497682ms] [LOG] [RouteStops] Skipping master program "47smw26hUyG5ZbE1bhr3" (display-only) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[ 1497682ms] [LOG] [RouteStops] Skipping master program "fTLWzjP9gH2VNpamyCZF" (display-only) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[ 1497682ms] [LOG] [RouteStops] Domain 'pull' resolved to L1 (Source: Domains) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[ 1497682ms] [LOG] [RouteStops] Domain 'muscle_up' resolved to L1 (Source: Domains) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[ 1497682ms] [LOG] [RouteStops] Domain 'front_lever' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[ 1497682ms] [LOG] [RouteStops] Domain 'planche' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[ 1497682ms] [LOG] [RouteStops] Domain 'human_flag' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[ 1497682ms] [LOG] [RouteStops] Domain 'handstand_pushup' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[ 1497682ms] [LOG] [RouteStops] Domain 'one_arm_pullup' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[ 1497682ms] [LOG] [RouteStops] Domain 'legs' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[ 1497682ms] [LOG] [RouteStops] Domain 'calisthenics_upper' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[ 1497682ms] [LOG] [RouteStops] Domain 'core' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[ 1497682ms] [LOG] [RouteStops] Domain 'push' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[ 1497682ms] [LOG] [RouteStops] Domain 'handstand' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[ 1497682ms] [LOG] [RouteStops] [MasterDerive] "H2279XsRGDg9G370J7S9" → L1 (avg of [1] = 1, cap=15) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[ 1497682ms] [LOG] [RouteStops] [MasterDerive] "fTLWzjP9gH2VNpamyCZF" → L1 (avg of [1] = 1, cap=15) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[ 1497682ms] [LOG] [RouteStops] [MasterDerive] "47smw26hUyG5ZbE1bhr3" → L1 (avg of [1] = 1, cap=15) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[ 1497682ms] [LOG] [RouteStops] [MasterDerive] "JCac76p48XGZ5MVahLI2" → L1 (avg of [1] = 1, cap=15) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[ 1498364ms] [LOG] activeProgramId: pull @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[ 1498364ms] [LOG] progression.tracks: {full_body: Object, H2279XsRGDg9G370J7S9: Object, upper_body: Object, 47smw26hUyG5ZbE1bhr3: Object, fTLWzjP9gH2VNpamyCZF: Object} @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[ 1498364ms] [LOG] progression.domains: {pull: Object, front_lever: Object, planche: Object, human_flag: Object, H2279XsRGDg9G370J7S9: Object} @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[ 1498364ms] [LOG] progression.activePrograms: [Object] @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[ 1498364ms] [LOG] progression.skillFocusIds: (none) @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[ 1498364ms] [LOG] progression.masterProgramSubLevels: (none) @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[ 1498364ms] [LOG] Derived userLevel (base): 1 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[ 1498364ms] [LOG] scheduleDays count: 2 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[ 1498364ms] [LOG] Base User Level: 1 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[ 1498364ms] [LOG] Schedule Days (total / remaining): 2 / 2 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[ 1498364ms] [LOG] Source: Fallback Calculation (userLevel × 2) @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[ 1498364ms] [LOG] Effective Weekly Budget: 4 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[ 1498364ms] [LOG] Completed This Week (all domains): 0 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[ 1498364ms] [LOG] Remaining Sets: 4 = 4 − 0 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[ 1498364ms] [LOG] Daily Budget: ceil(4 / 2) = 2 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[ 1498364ms] [LOG] Final dailySetBudget (min 2): 2 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[ 1498364ms] [LOG] [SplitDecision] P1/P2 sort (gender=default/male): [pull] @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[ 1498364ms] [LOG] [route-stops] targetDomains=[pull] skillsP1=[pull] skillsP2=[] bodyweightPool=54 @ https://outrun.co.il/_next/static/chunks/5754-a84fd5a093e4007d.js:0
+[ 1498368ms] [ERROR] Error: layers.park-pins.filter[1][0]: expected one of [==, !=, >, >=, <, <=, in, !in, all, any, none, has, !has, within], "!" found
+    at Object.rE [as emitValidationErrors] (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:7590)
+    at tx (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:427810)
+    at tE._validate (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:456489)
+    at tE.setFilter (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:445766)
+    at Map.setFilter (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:67:1062)
+    at https://outrun.co.il/_next/static/chunks/7668-4a23706c5b8383cb.js:1:19605
+    at Q (https://outrun.co.il/_next/static/chunks/7668-4a23706c5b8383cb.js:1:19679)
+    at rE (https://outrun.co.il/_next/static/chunks/fd9d1056-da62a943a0536fec.js:1:40344)
+    at l$ (https://outrun.co.il/_next/static/chunks/fd9d1056-da62a943a0536fec.js:1:59319)
+    at iZ (https://outrun.co.il/_next/static/chunks/fd9d1056-da62a943a0536fec.js:1:117926) @ https://outrun.co.il/_next/static/chunks/2117-3c64067cbd5bff19.js:0
+[ 1498368ms] [ERROR] Error: layers.park-pins.filter[2][0]: expected one of [==, !=, >, >=, <, <=, in, !in, all, any, none, has, !has, within], "!" found
+    at Object.rE [as emitValidationErrors] (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:7590)
+    at tx (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:427810)
+    at tE._validate (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:456489)
+    at tE.setFilter (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:445766)
+    at Map.setFilter (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:67:1062)
+    at https://outrun.co.il/_next/static/chunks/7668-4a23706c5b8383cb.js:1:19605
+    at Q (https://outrun.co.il/_next/static/chunks/7668-4a23706c5b8383cb.js:1:19679)
+    at rE (https://outrun.co.il/_next/static/chunks/fd9d1056-da62a943a0536fec.js:1:40344)
+    at l$ (https://outrun.co.il/_next/static/chunks/fd9d1056-da62a943a0536fec.js:1:59319)
+    at iZ (https://outrun.co.il/_next/static/chunks/fd9d1056-da62a943a0536fec.js:1:117926) @ https://outrun.co.il/_next/static/chunks/2117-3c64067cbd5bff19.js:0
+[ 1498368ms] [ERROR] Error: layers.park-pins.filter[3][1]: string expected, array found
+    at Object.rE [as emitValidationErrors] (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:7590)
+    at tx (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:427810)
+    at tE._validate (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:456489)
+    at tE.setFilter (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:445766)
+    at Map.setFilter (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:67:1062)
+    at https://outrun.co.il/_next/static/chunks/7668-4a23706c5b8383cb.js:1:19605
+    at Q (https://outrun.co.il/_next/static/chunks/7668-4a23706c5b8383cb.js:1:19679)
+    at rE (https://outrun.co.il/_next/static/chunks/fd9d1056-da62a943a0536fec.js:1:40344)
+    at l$ (https://outrun.co.il/_next/static/chunks/fd9d1056-da62a943a0536fec.js:1:59319)
+    at iZ (https://outrun.co.il/_next/static/chunks/fd9d1056-da62a943a0536fec.js:1:117926) @ https://outrun.co.il/_next/static/chunks/2117-3c64067cbd5bff19.js:0
+[ 1498368ms] [ERROR] Error: layers.park-pins.filter[3][2]: string, number, or boolean expected, array found
+    at Object.rE [as emitValidationErrors] (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:7590)
+    at tx (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:427810)
+    at tE._validate (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:456489)
+    at tE.setFilter (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:445766)
+    at Map.setFilter (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:67:1062)
+    at https://outrun.co.il/_next/static/chunks/7668-4a23706c5b8383cb.js:1:19605
+    at Q (https://outrun.co.il/_next/static/chunks/7668-4a23706c5b8383cb.js:1:19679)
+    at rE (https://outrun.co.il/_next/static/chunks/fd9d1056-da62a943a0536fec.js:1:40344)
+    at l$ (https://outrun.co.il/_next/static/chunks/fd9d1056-da62a943a0536fec.js:1:59319)
+    at iZ (https://outrun.co.il/_next/static/chunks/fd9d1056-da62a943a0536fec.js:1:117926) @ https://outrun.co.il/_next/static/chunks/2117-3c64067cbd5bff19.js:0
+[ 1498369ms] [ERROR] Error: layers.park-minor-pins.filter[1][0]: expected one of [==, !=, >, >=, <, <=, in, !in, all, any, none, has, !has, within], "!" found
+    at Object.rE [as emitValidationErrors] (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:7590)
+    at tx (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:427810)
+    at tE._validate (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:456489)
+    at tE.setFilter (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:445766)
+    at Map.setFilter (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:67:1062)
+    at https://outrun.co.il/_next/static/chunks/7668-4a23706c5b8383cb.js:1:19605
+    at Q (https://outrun.co.il/_next/static/chunks/7668-4a23706c5b8383cb.js:1:19679)
+    at rE (https://outrun.co.il/_next/static/chunks/fd9d1056-da62a943a0536fec.js:1:40344)
+    at l$ (https://outrun.co.il/_next/static/chunks/fd9d1056-da62a943a0536fec.js:1:59319)
+    at iZ (https://outrun.co.il/_next/static/chunks/fd9d1056-da62a943a0536fec.js:1:117926) @ https://outrun.co.il/_next/static/chunks/2117-3c64067cbd5bff19.js:0
+[ 1498369ms] [ERROR] Error: layers.park-minor-pins.filter[2][0]: expected one of [==, !=, >, >=, <, <=, in, !in, all, any, none, has, !has, within], "get" found
+    at Object.rE [as emitValidationErrors] (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:7590)
+    at tx (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:427810)
+    at tE._validate (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:456489)
+    at tE.setFilter (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:445766)
+    at Map.setFilter (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:67:1062)
+    at https://outrun.co.il/_next/static/chunks/7668-4a23706c5b8383cb.js:1:19605
+    at Q (https://outrun.co.il/_next/static/chunks/7668-4a23706c5b8383cb.js:1:19679)
+    at rE (https://outrun.co.il/_next/static/chunks/fd9d1056-da62a943a0536fec.js:1:40344)
+    at l$ (https://outrun.co.il/_next/static/chunks/fd9d1056-da62a943a0536fec.js:1:59319)
+    at iZ (https://outrun.co.il/_next/static/chunks/fd9d1056-da62a943a0536fec.js:1:117926) @ https://outrun.co.il/_next/static/chunks/2117-3c64067cbd5bff19.js:0
+[ 1498369ms] [ERROR] Error: layers.park-minor-pins.filter[3][1]: string expected, array found
+    at Object.rE [as emitValidationErrors] (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:7590)
+    at tx (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:427810)
+    at tE._validate (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:456489)
+    at tE.setFilter (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:445766)
+    at Map.setFilter (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:67:1062)
+    at https://outrun.co.il/_next/static/chunks/7668-4a23706c5b8383cb.js:1:19605
+    at Q (https://outrun.co.il/_next/static/chunks/7668-4a23706c5b8383cb.js:1:19679)
+    at rE (https://outrun.co.il/_next/static/chunks/fd9d1056-da62a943a0536fec.js:1:40344)
+    at l$ (https://outrun.co.il/_next/static/chunks/fd9d1056-da62a943a0536fec.js:1:59319)
+    at iZ (https://outrun.co.il/_next/static/chunks/fd9d1056-da62a943a0536fec.js:1:117926) @ https://outrun.co.il/_next/static/chunks/2117-3c64067cbd5bff19.js:0
+[ 1498369ms] [ERROR] Error: layers.park-minor-pins.filter[3][2]: string, number, or boolean expected, array found
+    at Object.rE [as emitValidationErrors] (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:7590)
+    at tx (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:427810)
+    at tE._validate (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:456489)
+    at tE.setFilter (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:8:445766)
+    at Map.setFilter (https://outrun.co.il/_next/static/chunks/c36f3faa-5d1ac38bdf8c2f14.js:67:1062)
+    at https://outrun.co.il/_next/static/chunks/7668-4a23706c5b8383cb.js:1:19605
+    at Q (https://outrun.co.il/_next/static/chunks/7668-4a23706c5b8383cb.js:1:19679)
+    at rE (https://outrun.co.il/_next/static/chunks/fd9d1056-da62a943a0536fec.js:1:40344)
+    at l$ (https://outrun.co.il/_next/static/chunks/fd9d1056-da62a943a0536fec.js:1:59319)
+    at iZ (https://outrun.co.il/_next/static/chunks/fd9d1056-da62a943a0536fec.js:1:117926) @ https://outrun.co.il/_next/static/chunks/2117-3c64067cbd5bff19.js:0
+[ 1498883ms] [LOG] [MapboxService] Fetching path for 2 points... @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 1499040ms] [LOG] [MapboxService] ✅ Route Found! Duration: 15min, Distance: 1204m @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 1509753ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1529750ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1549750ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1569750ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1569750ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 4, uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, mode: ghost, liveGroupId: null, ageGroup: adult} @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 1569751ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 1589750ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1609750ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1629750ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1649750ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1669750ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1689749ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1689750ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 5, uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, mode: ghost, liveGroupId: null, ageGroup: adult} @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 1689751ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 1709750ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1729749ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1749749ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1769750ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1789749ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1809749ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 6, uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, mode: ghost, liveGroupId: null, ageGroup: adult} @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 1809749ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 1809750ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1829749ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1849749ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1869748ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1889748ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1909748ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1929748ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 7, uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, mode: ghost, liveGroupId: null, ageGroup: adult} @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 1929749ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 1929749ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1949748ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1969748ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 1989748ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2009748ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2029748ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2049748ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 8, uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, mode: ghost, liveGroupId: null, ageGroup: adult} @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 2049748ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 2049749ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2069747ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2089747ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2109748ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2129748ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2149748ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2169747ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 9, uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, mode: ghost, liveGroupId: null, ageGroup: adult} @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 2169748ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 2169748ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2189747ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2209747ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2229747ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2249748ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2269746ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2289747ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 10, uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, mode: ghost, liveGroupId: null, ageGroup: adult} @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 2289747ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 2289748ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2309746ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2329753ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2349757ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2369758ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2389758ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2409757ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 11, uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, mode: ghost, liveGroupId: null, ageGroup: adult} @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 2409758ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 2409758ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2429758ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2449757ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2469758ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2489758ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2509759ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2529758ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 12, uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, mode: ghost, liveGroupId: null, ageGroup: adult} @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 2529758ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 2529760ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2549756ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2569758ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2589757ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2609758ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2629759ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2649757ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 13, uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, mode: ghost, liveGroupId: null, ageGroup: adult} @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 2649758ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 2649759ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2669758ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2689758ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2709756ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2729756ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2749757ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2769756ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2769756ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 14, uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, mode: ghost, liveGroupId: null, ageGroup: adult} @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 2769757ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 2789757ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2809756ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2829756ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2849758ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2869757ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2889756ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 15, uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, mode: ghost, liveGroupId: null, ageGroup: adult} @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 2889757ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 2889759ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2909756ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2929757ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2949756ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2969756ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 2989757ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3009756ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 16, uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, mode: ghost, liveGroupId: null, ageGroup: adult} @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 3009756ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 3009756ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3029756ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3049757ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3069756ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3089755ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3109756ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3129755ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 17, uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, mode: ghost, liveGroupId: null, ageGroup: adult} @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 3129755ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 3129756ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3149757ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3169755ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3189756ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3198271ms] [WARNING] [2026-09-23T18:12:57.161Z]  @firebase/auth: Auth (12.6.0): Error while retrieving App Check token: FirebaseError: AppCheck: ReCAPTCHA error. (appCheck/recaptcha-error). @ https://outrun.co.il/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[ 3209756ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3229755ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3249754ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3249754ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 18, uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, mode: ghost, liveGroupId: null, ageGroup: adult} @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 3249755ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 3269756ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3289820ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3309820ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3329820ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3349820ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3369820ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 19, uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, mode: ghost, liveGroupId: null, ageGroup: adult} @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 3369821ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 3369822ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3389820ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3409820ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3429820ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3449821ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3469821ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3489820ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 20, uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, mode: ghost, liveGroupId: null, ageGroup: adult} @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 3489821ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 3489822ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3509821ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3529821ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3549820ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3569822ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3589822ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3609821ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 21, uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, mode: ghost, liveGroupId: null, ageGroup: adult} @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 3609821ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 3609822ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3629822ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3649822ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3669822ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3689822ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3709822ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3729823ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 22, uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, mode: ghost, liveGroupId: null, ageGroup: adult} @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 3729823ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 3729824ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3749823ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3769824ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3789824ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3809824ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3829825ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3849823ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 23, uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, mode: ghost, liveGroupId: null, ageGroup: adult} @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 3849823ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 3849824ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3869824ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3889824ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3909824ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3929823ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3949829ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3969824ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 24, uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, mode: ghost, liveGroupId: null, ageGroup: adult} @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 3969825ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 3969827ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 3989826ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 4009826ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 4029824ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 4049824ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 4069824ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 4089824ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 25, uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, mode: ghost, liveGroupId: null, ageGroup: adult} @ https://outrun.co.il/_next/static/chunks/app/map/page-cc37d1ddd28f8c63.js:0
+[ 4089825ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2} @ https://outrun.co.il/_next/static/chunks/7034-466f9e9a956875ed.js:0
+[ 4089826ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 4109825ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 4129824ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 4149824ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 4169824ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0
+[ 4189825ms] [WARNING] Geolocation permission has been blocked as the user has ignored the permission prompt several times. This can be reset in Page Info which can be accessed by clicking the tune icon next to the URL. See https://www.chromestatus.com/feature/6443143280984064 for more information. @ https://outrun.co.il/map:0

@@ -1,0 +1,38 @@
+- generic [ref=f254e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f254e2]:
+    - generic [ref=f254e80]:
+      - button "חזרה" [ref=f254e83] [cursor=pointer]
+      - generic [ref=f254e105]:
+        - generic [ref=f254e106]:
+          - heading "מה הכי בא לך להשיג?" [level=1] [ref=f254e107]
+          - paragraph [ref=f254e108]: בחר את הכיוון שתרצה להתמקד בו
+        - 'button "מתחילים בריאות, כוח ואנרגיה מתאים ל: מי שרק מתחיל, חזר אחרי הפסקה, או רוצה בסיס בריא לכל הגוף." [ref=f254e110] [cursor=pointer]':
+          - generic [ref=f254e111]:
+            - generic [ref=f254e112]: מתחילים
+            - paragraph [ref=f254e114]: בריאות, כוח ואנרגיה
+            - paragraph [ref=f254e115]: "מתאים ל: מי שרק מתחיל, חזר אחרי הפסקה, או רוצה בסיס בריא לכל הגוף."
+        - 'button "לכל רמה עיצוב ושרירים מתאים ל: מי שכבר זז ורוצה למקד אזורים ולראות שינוי בגוף." [ref=f254e117] [cursor=pointer]':
+          - generic [ref=f254e118]:
+            - generic [ref=f254e119]: לכל רמה
+            - paragraph [ref=f254e121]: עיצוב ושרירים
+            - paragraph [ref=f254e122]: "מתאים ל: מי שכבר זז ורוצה למקד אזורים ולראות שינוי בגוף."
+        - generic [ref=f254e123]:
+          - 'button "מתקדמים לומדים תרגילי קליסטניקס מתקדמים מתאים ל: מי שכבר עושה כמה מתח ומקבילים ורוצה לאתגר את עצמו לרמה הבאה. עוד לא שם? נבנה לך את הבסיס עד לשם." [active] [ref=f254e124] [cursor=pointer]':
+            - generic [ref=f254e125]:
+              - generic [ref=f254e126]: מתקדמים
+              - paragraph [ref=f254e128]: לומדים תרגילי קליסטניקס מתקדמים
+              - paragraph [ref=f254e129]: "מתאים ל: מי שכבר עושה כמה מתח ומקבילים ורוצה לאתגר את עצמו לרמה הבאה."
+              - paragraph [ref=f254e130]: עוד לא שם? נבנה לך את הבסיס עד לשם.
+          - generic [ref=f254e141]:
+            - paragraph [ref=f254e142]: בחר אלמנטים לפי סדר עדיפות (לחיצה ראשונה = עדיפות 1)
+            - generic [ref=f254e143]:
+              - button "קליסטניקס עליון (כל האלמנטים)" [ref=f254e144] [cursor=pointer]
+              - button "פרונט לבר" [ref=f254e147] [cursor=pointer]
+              - button "עליית כוח" [ref=f254e150] [cursor=pointer]
+              - button "פלאנץ׳" [ref=f254e153] [cursor=pointer]
+              - button "עמידת ידיים" [ref=f254e156] [cursor=pointer]
+              - button "שכיבות סמיכה בעמידת ידיים" [ref=f254e159] [cursor=pointer]
+              - button "מתח יד אחת" [ref=f254e162] [cursor=pointer]
+      - button "המשך" [disabled] [ref=f254e132]
+  - alert [ref=f254e79]

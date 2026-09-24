@@ -1,0 +1,56 @@
+- generic [ref=f172e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f172e2]:
+    - generic [ref=f172e105]:
+      - button "חזרה" [ref=f172e108] [cursor=pointer]
+      - generic [ref=f172e130]:
+        - generic [ref=f172e131]:
+          - heading "מה הכי בא לך להשיג?" [level=1] [ref=f172e132]
+          - paragraph [ref=f172e133]: בחר את הכיוון שתרצה להתמקד בו
+        - 'button "מתחילים בריאות, כוח ואנרגיה מתאים ל: מי שרק מתחיל, חזר אחרי הפסקה, או רוצה בסיס בריא לכל הגוף." [ref=f172e135] [cursor=pointer]':
+          - generic [ref=f172e136]:
+            - generic [ref=f172e137]: מתחילים
+            - paragraph [ref=f172e139]: בריאות, כוח ואנרגיה
+            - paragraph [ref=f172e140]: "מתאים ל: מי שרק מתחיל, חזר אחרי הפסקה, או רוצה בסיס בריא לכל הגוף."
+        - generic [ref=f172e141]:
+          - 'button "לכל רמה עיצוב ושרירים מתאים ל: מי שכבר זז ורוצה למקד אזורים ולראות שינוי בגוף. 1" [ref=f172e191] [cursor=pointer]':
+            - generic [ref=f172e143]:
+              - generic [ref=f172e144]: לכל רמה
+              - paragraph [ref=f172e146]: עיצוב ושרירים
+              - paragraph [ref=f172e147]: "מתאים ל: מי שכבר זז ורוצה למקד אזורים ולראות שינוי בגוף."
+            - generic [ref=f172e161]: "1"
+          - generic [ref=f172e166]:
+            - paragraph [ref=f172e167]: בחר את האזורים שתרצה לפתח
+            - generic [ref=f172e168]:
+              - button "כל הגוף" [ref=f172e169] [cursor=pointer]
+              - button "חזה" [ref=f172e175] [cursor=pointer]
+              - button "גב" [ref=f172e177] [cursor=pointer]
+              - button "כתפיים" [ref=f172e179] [cursor=pointer]
+              - button "יד קדמית" [ref=f172e181] [cursor=pointer]
+              - button "יד אחורית" [ref=f172e183] [cursor=pointer]
+              - button "רגליים" [ref=f172e185] [cursor=pointer]
+              - button "בטן וליבה" [ref=f172e187] [cursor=pointer]
+              - button "ישבן" [ref=f172e189] [cursor=pointer]
+        - generic [ref=f172e148]:
+          - 'button "מתקדמים לומדים תרגילי קליסטניקס מתקדמים מתאים ל: מי שכבר עושה כמה מתח ומקבילים ורוצה לאתגר את עצמו לרמה הבאה. עוד לא שם? נבנה לך את הבסיס עד לשם. 2" [ref=f172e193] [cursor=pointer]':
+            - generic [ref=f172e150]:
+              - generic [ref=f172e151]: מתקדמים
+              - paragraph [ref=f172e153]: לומדים תרגילי קליסטניקס מתקדמים
+              - paragraph [ref=f172e154]: "מתאים ל: מי שכבר עושה כמה מתח ומקבילים ורוצה לאתגר את עצמו לרמה הבאה."
+              - paragraph [ref=f172e155]: עוד לא שם? נבנה לך את הבסיס עד לשם.
+            - generic [ref=f172e194]: "2"
+          - generic [ref=f172e200]:
+            - paragraph [ref=f172e201]: בחר אלמנטים לפי סדר עדיפות (לחיצה ראשונה = עדיפות 1)
+            - generic [ref=f172e202]:
+              - button "קליסטניקס עליון (כל האלמנטים)" [ref=f172e203] [cursor=pointer]
+              - button "פרונט לבר" [ref=f172e206] [cursor=pointer]
+              - button "עליית כוח" [ref=f172e209] [cursor=pointer]
+              - button "פלאנץ׳ 1" [active] [ref=f172e224] [cursor=pointer]:
+                - generic [ref=f172e213]:
+                  - generic [ref=f172e214]: פלאנץ׳
+                  - generic [ref=f172e225]: "1"
+              - button "עמידת ידיים" [ref=f172e215] [cursor=pointer]
+              - button "שכיבות סמיכה בעמידת ידיים" [ref=f172e218] [cursor=pointer]
+              - button "מתח יד אחת" [ref=f172e221] [cursor=pointer]
+      - button "המשך" [ref=f172e157] [cursor=pointer]
+  - alert [ref=f172e27]

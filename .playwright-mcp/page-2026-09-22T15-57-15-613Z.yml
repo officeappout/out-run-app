@@ -1,0 +1,27 @@
+- generic [ref=f157e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f157e2]:
+    - generic [ref=f157e275]:
+      - button "חזרה" [ref=f157e277] [cursor=pointer]
+      - generic [ref=f157e304]:
+        - paragraph [ref=f157e305]: מה מצב הכושר שלך?
+        - paragraph [ref=f157e306]: הזז את הסליידר לרמה שהכי קרובה אליך
+      - generic [ref=f157e311]:
+        - generic [ref=f157e312]: מתחיל
+        - generic [ref=f157e386]:
+          - heading "מקבילים" [level=3] [ref=f157e387]
+          - paragraph [ref=f157e388]: מסוגל לבצע 1-5 חזרות
+        - generic [ref=f157e320]:
+          - button "רמה 15" [ref=f157e321] [cursor=pointer]
+          - button "רמה 14" [ref=f157e329] [cursor=pointer]
+          - button "רמה 13" [ref=f157e337] [cursor=pointer]
+          - button "רמה 12" [ref=f157e345] [cursor=pointer]
+          - button "רמה 10" [ref=f157e353] [cursor=pointer]
+          - button "רמה 7" [ref=f157e355] [cursor=pointer]
+          - button "רמה 5" [ref=f157e357] [cursor=pointer]
+          - button "רמה 3" [ref=f157e359] [cursor=pointer]
+          - button "רמה 1" [active] [pressed] [ref=f157e361] [cursor=pointer]
+      - button "הבא ←" [ref=f157e364] [cursor=pointer]:
+        - generic [ref=f157e365]: הבא
+        - generic [ref=f157e366]: ←
+  - alert [ref=f157e27]

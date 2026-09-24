@@ -1,0 +1,46 @@
+- generic [active] [ref=f500e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f500e2]:
+    - generic [ref=f500e293]:
+      - button "חזרה" [ref=f500e295] [cursor=pointer]
+      - generic [ref=f500e326]:
+        - generic [ref=f500e328]:
+          - heading "מקבילים" [level=3] [ref=f500e329]
+          - paragraph [ref=f500e330]: "מקסימום: 1-5 חזרות"
+        - generic [ref=f500e331]:
+          - generic [ref=f500e332]:
+            - paragraph [ref=f500e333]: עצרו על התרגיל הכי קשה שאתם בטוחים שתבצעו
+            - paragraph [ref=f500e334]: אפשר להחליק את הרצועה, או להשתמש ב־ +/−
+          - generic [ref=f500e335]: קליסטניקס למתחילים
+          - generic [ref=f500e337]:
+            - generic [ref=f500e339]:
+              - button "רמה 15" [ref=f500e340] [cursor=pointer]
+              - button "רמה 14" [ref=f500e348] [cursor=pointer]
+              - button "רמה 13" [ref=f500e356] [cursor=pointer]
+              - button "רמה 12" [ref=f500e364] [cursor=pointer]
+              - button "רמה 10" [ref=f500e372] [cursor=pointer]
+              - button "רמה 7" [ref=f500e374] [cursor=pointer]
+              - button "רמה 5" [ref=f500e376] [cursor=pointer]
+              - button "רמה 3" [ref=f500e378] [cursor=pointer]
+              - button "רמה 1" [pressed] [ref=f500e380] [cursor=pointer]
+            - generic:
+              - generic:
+                - generic: 👆
+                - generic:
+                  - paragraph: גרור כדי לשנות את הקושי והתרגיל
+                  - paragraph: "בדוק את המינימום: הזמן והחזרות יופיעו כאן"
+                - generic:
+                  - paragraph: לא בטוח ב-100%? לא מצליח? תבחר בערך, המערכת תלמד אותך ותתקן בהמשך
+          - generic [ref=f500e382]:
+            - button "קשה לי מדי — למבחן בסיס" [ref=f500e383] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f500e384]: −
+            - generic [ref=f500e386]:
+              - generic [ref=f500e387]: הרמה שלי
+              - generic [ref=f500e388]: "1"
+            - button "קשה יותר" [ref=f500e389] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f500e390]: +
+      - button "מקבילים זו הרמה שלי" [ref=f500e393] [cursor=pointer]:
+        - generic [ref=f500e394]:
+          - generic [ref=f500e395]: מקבילים
+          - generic [ref=f500e396]: זו הרמה שלי
+  - alert [ref=f500e79]

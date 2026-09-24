@@ -1,0 +1,28 @@
+- generic [active] [ref=f202e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f202e2]:
+    - generic [ref=f202e52]:
+      - button "חזרה" [ref=f202e54] [cursor=pointer]
+      - generic [ref=f202e81]:
+        - paragraph [ref=f202e82]: מה מצב הכושר שלך?
+        - paragraph [ref=f202e83]: הזז את הסליידר לרמה שהכי קרובה אליך
+      - generic [ref=f202e88]:
+        - generic [ref=f202e90]:
+          - heading "שכיבות סמיכה ב-75°" [level=3] [ref=f202e91]
+          - paragraph [ref=f202e92]: מסוגל לבצע 12-15 חזרות
+        - generic [ref=f202e94]:
+          - slider [ref=f202e95] [cursor=pointer]: "0"
+          - generic: 👆
+          - generic [ref=f202e96]:
+            - generic [ref=f202e97]: מתחיל
+            - generic [ref=f202e98]: בינוני
+            - generic [ref=f202e99]: מתקדם
+      - button "סיום הערכה" [ref=f202e101] [cursor=pointer]
+      - generic:
+        - generic:
+          - generic:
+            - paragraph: גרור כדי לשנות את הקושי והתרגיל
+            - paragraph: "בדוק את המינימום: הזמן והחזרות יופיעו כאן"
+          - generic:
+            - paragraph: לא בטוח ב-100%? לא מצליח? תבחר בערך, המערכת תלמד אותך ותתקן בהמשך
+  - alert [ref=f202e8]

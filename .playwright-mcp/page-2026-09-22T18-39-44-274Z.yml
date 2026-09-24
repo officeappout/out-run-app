@@ -1,0 +1,53 @@
+- generic [ref=f219e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f219e2]:
+    - generic [ref=f219e3]:
+      - button "חזרה" [ref=f219e5] [cursor=pointer]
+      - generic [ref=f219e23]:
+        - generic [ref=f219e24]:
+          - heading "נעים להכיר! 👋" [level=2] [ref=f219e27]
+          - paragraph [ref=f219e31]:
+            - generic [ref=f219e32]: אני
+            - generic [ref=f219e33]: קלי,
+            - generic [ref=f219e34]: המאמן
+            - generic [ref=f219e35]: האישי
+            - generic [ref=f219e36]: שלך.
+            - generic [ref=f219e37]: כדי
+            - generic [ref=f219e38]: שנתפור
+            - generic [ref=f219e39]: לך
+            - generic [ref=f219e40]: תוכנית
+            - generic [ref=f219e41]: מדויקת,
+            - generic [ref=f219e42]: אני
+            - generic [ref=f219e43]: צריך
+            - generic [ref=f219e44]: רק
+            - generic [ref=f219e45]: כמה
+            - generic [ref=f219e46]: פרטים
+            - generic [ref=f219e47]: קטנים.
+        - generic [ref=f219e48]:
+          - generic [ref=f219e49]:
+            - generic [ref=f219e50]: איך היית רוצה שנפנה אלייך?
+            - paragraph [ref=f219e51]: רק כדי שנדע מתי לפרגן לך ב'כל הכבוד מלך!' ומתי ב'אלופה, שברת את המסך!' 👑 (ובשביל דיוק המדדים הפיזיולוגיים שלך, כמובן).
+            - generic [ref=f219e52]:
+              - button "🙋‍♂️ גבר" [ref=f219e53] [cursor=pointer]:
+                - generic [ref=f219e54]: 🙋‍♂️
+                - generic [ref=f219e55]: גבר
+              - button "🙋‍♀️ אישה" [ref=f219e56] [cursor=pointer]:
+                - generic [ref=f219e57]: 🙋‍♀️
+                - generic [ref=f219e58]: אישה
+              - button "✨ אחר" [ref=f219e59] [cursor=pointer]:
+                - generic [ref=f219e60]: ✨
+                - generic [ref=f219e61]: אחר
+          - generic [ref=f219e62]:
+            - generic [ref=f219e63]: מתי חוגגים לך יום הולדת? 🎂
+            - paragraph [ref=f219e64]: עוזר לנו להתאים את עצימות האימון לגילך.
+            - generic [ref=f219e65]:
+              - textbox "יום" [active] [ref=f219e66]: "05"
+              - generic [ref=f219e67]: /
+              - textbox "חודש" [ref=f219e68]: "09"
+              - generic [ref=f219e69]: /
+              - textbox "שנה" [ref=f219e70]: "1998"
+          - generic [ref=f219e71]:
+            - generic [ref=f219e72]: איך קוראים לך?
+            - textbox "השם שלך כאן..." [ref=f219e73]: QAFemaleR2
+      - button "המשך" [ref=f219e80] [cursor=pointer]
+  - alert [ref=f219e79]

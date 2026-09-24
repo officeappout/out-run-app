@@ -1,0 +1,31 @@
+- generic [ref=f188e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f188e2]:
+    - generic [ref=f188e215]:
+      - button "חזרה" [ref=f188e217] [cursor=pointer]
+      - generic [ref=f188e244]:
+        - paragraph [ref=f188e245]: מה מצב הכושר שלך?
+        - paragraph [ref=f188e246]: הזיזי את הסליידר לרמה שהכי קרובה אלייך
+      - generic [ref=f188e251]:
+        - generic [ref=f188e252]: בינוני
+        - generic [ref=f188e287]:
+          - heading "עליות ברכיים כפופות בתלייה" [level=3] [ref=f188e288]
+          - paragraph [ref=f188e289]: מסוגלת לבצע 15-30 חזרות
+        - generic [ref=f188e258]:
+          - generic [ref=f188e259]:
+            - paragraph [ref=f188e260]: החלק ועצרי על התרגיל הכי קשה שאת בטוחה שתבצעי
+            - paragraph [ref=f188e261]: לא בטוחה? בחרי בערך — נדייק בהמשך
+          - generic [ref=f188e263]:
+            - button "רמה 14" [ref=f188e264] [cursor=pointer]
+            - button "רמה 11" [ref=f188e266] [cursor=pointer]
+            - button "רמה 10" [ref=f188e268] [cursor=pointer]
+            - button "רמה 8" [active] [pressed] [ref=f188e270] [cursor=pointer]
+            - button "רמה 7" [ref=f188e272] [cursor=pointer]
+            - button "רמה 5" [ref=f188e274] [cursor=pointer]
+            - button "רמה 3" [ref=f188e276] [cursor=pointer]
+            - button "רמה 1" [ref=f188e278] [cursor=pointer]
+      - button "עליות ברכיים כפופות בתלייה — זו הרמה שלי" [ref=f188e290] [cursor=pointer]:
+        - generic [ref=f188e282]:
+          - generic [ref=f188e283]: עליות ברכיים כפופות בתלייה
+          - generic [ref=f188e284]: — זו הרמה שלי
+  - alert [ref=f188e79]

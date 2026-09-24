@@ -1,0 +1,151 @@
+- generic [ref=f133e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f133e2]:
+    - generic [ref=f133e615]:
+      - button "חזרה" [ref=f133e618] [cursor=pointer]
+      - generic [ref=f133e655]:
+        - generic [ref=f133e656]:
+          - generic [ref=f133e664]:
+            - heading "Phase3ProdQA, רגע לפני שיוצאים לדרך, חשוב לנו לוודא שאנחנו שומרים עליך ב100%." [level=1] [ref=f133e665]:
+              - generic [ref=f133e666]: Phase3ProdQA,
+              - generic [ref=f133e667]: רגע
+              - generic [ref=f133e668]: לפני
+              - generic [ref=f133e669]: שיוצאים
+              - generic [ref=f133e670]: לדרך,
+              - generic [ref=f133e671]: חשוב
+              - generic [ref=f133e672]: לנו
+              - generic [ref=f133e673]: לוודא
+              - generic [ref=f133e674]: שאנחנו
+              - generic [ref=f133e675]: שומרים
+              - generic [ref=f133e676]: עליך
+              - generic [ref=f133e677]: ב100%.
+            - paragraph [ref=f133e678]:
+              - generic [ref=f133e679]: נשאר
+              - generic [ref=f133e680]: לנו
+              - generic [ref=f133e681]: רק
+              - generic [ref=f133e682]: לעבור
+              - generic [ref=f133e683]: על
+              - generic [ref=f133e684]: שאלון
+              - generic [ref=f133e685]: הבריאות
+              - generic [ref=f133e686]: הקצר
+              - generic [ref=f133e687]: ולחתום
+              - generic [ref=f133e688]: למטה.
+          - generic [ref=f133e689]:
+            - button "מידע על פרטיות ובטיחות" [ref=f133e691] [cursor=pointer]
+            - generic [ref=f133e696]:
+              - button "אני מצהיר שכל התשובות הן \"לא\"" [active] [ref=f133e697] [cursor=pointer]
+              - paragraph [ref=f133e704]: "שימו לב: לחיצה על כפתור זה מצהירה שאתם בריאים ולא סובלים מאף אחת מהבעיות הרפואיות המפורטות בשאלון. אם יש לכם ספק, אנא ענו על כל שאלה בנפרד."
+            - generic [ref=f133e705]:
+              - generic [ref=f133e706]:
+                - paragraph [ref=f133e707]: 1. האם הרופא שלך אמר לך שאת/ה סובל/ת ממחלות לב?
+                - generic [ref=f133e708]:
+                  - button "לא Fast-Track" [ref=f133e784] [cursor=pointer]:
+                    - text: לא
+                    - generic "Fast-Track" [ref=f133e785]
+                  - button "כן" [ref=f133e710] [cursor=pointer]
+              - generic [ref=f133e711]:
+                - paragraph [ref=f133e712]: 2. האם את/ה חש כאבים בחזה בזמן מנוחה?
+                - generic [ref=f133e713]:
+                  - button "לא Fast-Track" [ref=f133e786] [cursor=pointer]:
+                    - text: לא
+                    - generic "Fast-Track" [ref=f133e787]
+                  - button "כן" [ref=f133e715] [cursor=pointer]
+              - generic [ref=f133e716]:
+                - paragraph [ref=f133e717]: 3. האם את/ה חש כאבים בחזה במהלך פעילויות שיגרה ביום-יום?
+                - generic [ref=f133e718]:
+                  - button "לא Fast-Track" [ref=f133e788] [cursor=pointer]:
+                    - text: לא
+                    - generic "Fast-Track" [ref=f133e789]
+                  - button "כן" [ref=f133e720] [cursor=pointer]
+              - generic [ref=f133e721]:
+                - paragraph [ref=f133e722]: 4. האם את/ה חש כאבים בחזה בזמן שאת/ה מבצע פעילות גופנית?
+                - generic [ref=f133e723]:
+                  - button "לא Fast-Track" [ref=f133e790] [cursor=pointer]:
+                    - text: לא
+                    - generic "Fast-Track" [ref=f133e791]
+                  - button "כן" [ref=f133e725] [cursor=pointer]
+              - generic [ref=f133e726]:
+                - paragraph [ref=f133e727]: 5. האם במהלך השנה החולפת איבדת שיווי משקל עקב סחרחורת?
+                - generic [ref=f133e728]:
+                  - button "לא Fast-Track" [ref=f133e792] [cursor=pointer]:
+                    - text: לא
+                    - generic "Fast-Track" [ref=f133e793]
+                  - button "כן" [ref=f133e730] [cursor=pointer]
+              - generic [ref=f133e731]:
+                - paragraph [ref=f133e732]: 6. האם במהלך השנה החולפת איבדת את הכרתך?
+                - generic [ref=f133e733]:
+                  - button "לא Fast-Track" [ref=f133e794] [cursor=pointer]:
+                    - text: לא
+                    - generic "Fast-Track" [ref=f133e795]
+                  - button "כן" [ref=f133e735] [cursor=pointer]
+              - generic [ref=f133e736]:
+                - paragraph [ref=f133e737]: 7. האם רופא אבחן שאת/ה סובל/ת ממחלת האסתמה ולכן בשלושת החודשים האחרונים נזקקת לטיפול תרופתי?
+                - generic [ref=f133e738]:
+                  - button "לא Fast-Track" [ref=f133e796] [cursor=pointer]:
+                    - text: לא
+                    - generic "Fast-Track" [ref=f133e797]
+                  - button "כן" [ref=f133e740] [cursor=pointer]
+              - generic [ref=f133e741]:
+                - paragraph [ref=f133e742]: 8. האם רופא אבחן שאת/ה סובל/ת ממחלת האסתמה ולכן בשלושת החודשים האחרונים סבלת מקוצר נשימה או צפצופים?
+                - generic [ref=f133e743]:
+                  - button "לא Fast-Track" [ref=f133e798] [cursor=pointer]:
+                    - text: לא
+                    - generic "Fast-Track" [ref=f133e799]
+                  - button "כן" [ref=f133e745] [cursor=pointer]
+              - generic [ref=f133e746]:
+                - paragraph [ref=f133e747]: 9. האם אחד מבני משפחתך מדרגת קרבה ראשונה נפטר ממחלת לב?
+                - generic [ref=f133e748]:
+                  - button "לא Fast-Track" [ref=f133e800] [cursor=pointer]:
+                    - text: לא
+                    - generic "Fast-Track" [ref=f133e801]
+                  - button "כן" [ref=f133e750] [cursor=pointer]
+              - generic [ref=f133e751]:
+                - paragraph [ref=f133e752]: 10. האם אחד מבני משפחתך מדרגת קרבה ראשונה נפטר ממות פתאומי בגיל מוקדם? (לפני גיל 55 לגבר, 65 לאישה)
+                - generic [ref=f133e753]:
+                  - button "לא Fast-Track" [ref=f133e802] [cursor=pointer]:
+                    - text: לא
+                    - generic "Fast-Track" [ref=f133e803]
+                  - button "כן" [ref=f133e755] [cursor=pointer]
+              - generic [ref=f133e756]:
+                - paragraph [ref=f133e757]: 11. האם הרופא שלך אמר לך ב-5 השנים האחרונות לבצע פעילות גופנית רק תחת השגחה רפואית?
+                - generic [ref=f133e758]:
+                  - button "לא Fast-Track" [ref=f133e804] [cursor=pointer]:
+                    - text: לא
+                    - generic "Fast-Track" [ref=f133e805]
+                  - button "כן" [ref=f133e760] [cursor=pointer]
+              - generic [ref=f133e761]:
+                - paragraph [ref=f133e762]: 12. האם הינך סובל ממחלה קבועה (כרונית) שאינה נזכרת בשאלות לעיל ועשויה למנוע או להגביל אותך בביצוע פעילות גופנית?
+                - generic [ref=f133e763]:
+                  - button "לא Fast-Track" [ref=f133e806] [cursor=pointer]:
+                    - text: לא
+                    - generic "Fast-Track" [ref=f133e807]
+                  - button "כן" [ref=f133e765] [cursor=pointer]
+              - generic [ref=f133e766]:
+                - paragraph [ref=f133e767]: "13. לנשים בהריון: האם ההריון הזה או כל הריון קודם הוגדר הריון בסיכון?"
+                - generic [ref=f133e768]:
+                  - button "לא Fast-Track" [ref=f133e808] [cursor=pointer]:
+                    - text: לא
+                    - generic "Fast-Track" [ref=f133e809]
+                  - button "כן" [ref=f133e770] [cursor=pointer]
+            - generic [ref=f133e771]:
+              - generic [ref=f133e772]:
+                - heading "הצהרת בריאות ואישור תוכנית 📋" [level=3] [ref=f133e773]
+                - paragraph [ref=f133e774]: אנא קרא ואשר את הצהרת הבריאות כדי שנוכל להנפיק את התוכנית
+              - generic [ref=f133e775]: אני מצהיר/ה כי קראתי והבנתי את כל השאלון הרפואי וכל התשובות לשאלות בטופס זה הן שליליות. אני מצהיר/ה כי מסרתי ידיעות מלאות ונכונות על מצבי הרפואי. ידוע לי כי האחריות לכל פגיעה ו/או נזק למצבי הבריאותי ככל שתהא בעת הפעילות תחול עלי בלבד.
+              - generic [ref=f133e776]:
+                - generic: חתום/י כאן עם האצבע
+                - button "ניקוי חתימה" [ref=f133e778] [cursor=pointer]
+              - generic [ref=f133e779]: יש לחתום בתיבה למעלה
+              - generic:
+                - generic:
+                  - generic:
+                    - checkbox "אני מצהיר כי כל הנתונים נכונים ומסכים ל תנאי השימוש ול מדיניות הפרטיות" [disabled]
+                  - paragraph:
+                    - text: אני מצהיר כי כל הנתונים נכונים ומסכים ל
+                    - button "תנאי השימוש"
+                    - text: ול
+                    - button "מדיניות הפרטיות"
+        - generic [ref=f133e781]:
+          - button "אישור והמשך" [disabled] [ref=f133e782]
+          - paragraph [ref=f133e810]: נא לחתום בתיבת החתימה למעלה כדי להמשיך
+  - alert [ref=f133e27]

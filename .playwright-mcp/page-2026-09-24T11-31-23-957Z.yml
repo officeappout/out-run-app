@@ -1,0 +1,45 @@
+- generic [ref=f500e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f500e2]:
+    - generic [ref=f500e80]:
+      - button "חזרה" [ref=f500e83] [cursor=pointer]
+      - generic [ref=f500e101]:
+        - generic [ref=f500e102]:
+          - heading "מה הכי בא לך להשיג?" [level=1] [ref=f500e103]
+          - paragraph [ref=f500e104]: בחר את הכיוון שתרצה להתמקד בו
+        - 'button "מתחילים בריאות, כוח ואנרגיה מתאים ל: מי שרק מתחיל, חזר אחרי הפסקה, או רוצה בסיס בריא לכל הגוף." [ref=f500e106] [cursor=pointer]':
+          - generic [ref=f500e107]:
+            - generic [ref=f500e108]: מתחילים
+            - paragraph [ref=f500e110]: בריאות, כוח ואנרגיה
+            - paragraph [ref=f500e111]: "מתאים ל: מי שרק מתחיל, חזר אחרי הפסקה, או רוצה בסיס בריא לכל הגוף."
+        - 'button "לכל רמה עיצוב ושרירים מתאים ל: מי שכבר זז ורוצה למקד אזורים ולראות שינוי בגוף." [ref=f500e113] [cursor=pointer]':
+          - generic [ref=f500e114]:
+            - generic [ref=f500e115]: לכל רמה
+            - paragraph [ref=f500e117]: עיצוב ושרירים
+            - paragraph [ref=f500e118]: "מתאים ל: מי שכבר זז ורוצה למקד אזורים ולראות שינוי בגוף."
+        - generic [ref=f500e119]:
+          - 'button "מתקדמים לומדים תרגילי קליסטניקס מתקדמים מתאים ל: מי שכבר עושה כמה מתח ומקבילים ורוצה לאתגר את עצמו לרמה הבאה. עוד לא שם? נבנה לך את הבסיס עד לשם." [ref=f500e120] [cursor=pointer]':
+            - generic [ref=f500e121]:
+              - generic [ref=f500e122]: מתקדמים
+              - paragraph [ref=f500e124]: לומדים תרגילי קליסטניקס מתקדמים
+              - paragraph [ref=f500e125]: "מתאים ל: מי שכבר עושה כמה מתח ומקבילים ורוצה לאתגר את עצמו לרמה הבאה."
+              - paragraph [ref=f500e126]: עוד לא שם? נבנה לך את הבסיס עד לשם.
+          - generic [ref=f500e141]:
+            - paragraph [ref=f500e142]: בחר אלמנטים לפי סדר עדיפות (לחיצה ראשונה = עדיפות 1)
+            - generic [ref=f500e143]:
+              - button "קליסטניקס עליון (כל האלמנטים)" [ref=f500e144] [cursor=pointer]
+              - button "פרונט לבר 1" [active] [ref=f500e167] [cursor=pointer]:
+                - generic [ref=f500e148]:
+                  - generic [ref=f500e149]: פרונט לבר
+                  - generic [ref=f500e168]: "1"
+              - button "עליית כוח בקרוב" [disabled] [ref=f500e150]:
+                - generic [ref=f500e151]: עליית כוח
+                - generic [ref=f500e153]: בקרוב
+              - button "פלאנץ׳" [ref=f500e154] [cursor=pointer]
+              - button "עמידת ידיים בקרוב" [disabled] [ref=f500e157]:
+                - generic [ref=f500e158]: עמידת ידיים
+                - generic [ref=f500e160]: בקרוב
+              - button "שכיבות סמיכה בעמידת ידיים" [ref=f500e161] [cursor=pointer]
+              - button "מתח יד אחת" [ref=f500e164] [cursor=pointer]
+      - button "המשך" [ref=f500e128] [cursor=pointer]
+  - alert [ref=f500e79]

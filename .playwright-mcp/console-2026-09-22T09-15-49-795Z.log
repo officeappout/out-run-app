@@ -1,0 +1,122 @@
+[     739ms] [LOG] userId: XoM8TeqSRcUTTSWCniVihSJ1tnV2 @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/app/profile/page-95861c1b48915c1d.js:0
+[     739ms] [LOG] _hasHydrated (useUserStore): true @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/app/profile/page-95861c1b48915c1d.js:0
+[     739ms] [LOG] activePrograms: [
+  {
+    "id": "calisthenics_upper",
+    "templateId": "calisthenics_upper",
+    "name": "calisthenics upper",
+    "startDate": "2026-09-22T09:14:41.970Z",
+    "durationWeeks": 52,
+    "currentWeek": 1,
+    "focusDomains": [
+      "hspu",
+      "one_arm_pullup"
+    ]
+  }
+] @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/app/profile/page-95861c1b48915c1d.js:0
+[     739ms] [LOG] tracks: {
+  "calisthenics_upper": {
+    "currentLevel": 1,
+    "percent": 0
+  },
+  "core": {
+    "currentLevel": 7,
+    "percent": 0
+  },
+  "hspu": {
+    "currentLevel": 1,
+    "percent": 0
+  },
+  "one_arm_pullup": {
+    "currentLevel": 1,
+    "percent": 0
+  },
+  "pull": {
+    "currentLevel": 10,
+    "percent": 0
+  },
+  "push": {
+    "currentLevel": 10,
+    "percent": 0
+  }
+} @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/app/profile/page-95861c1b48915c1d.js:0
+[     740ms] [LOG] domains: {
+  "calisthenics_upper": {
+    "currentLevel": 1,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "core": {
+    "currentLevel": 7,
+    "isUnlocked": true,
+    "maxLevel": 20
+  },
+  "front_lever": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "full_body": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "handstand": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "handstand_pushup": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "hspu": {
+    "currentLevel": 1,
+    "isUnlocked": true,
+    "maxLevel": 0
+  },
+  "human_flag": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 10
+  },
+  "muscle_up": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 10
+  },
+  "one_arm_pullup": {
+    "currentLevel": 1,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "planche": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "pull": {
+    "currentLevel": 10,
+    "isUnlocked": true,
+    "maxLevel": 25
+  },
+  "push": {
+    "currentLevel": 10,
+    "isUnlocked": true,
+    "maxLevel": 25
+  },
+  "upper_body": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 25
+  }
+} @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/app/profile/page-95861c1b48915c1d.js:0
+[     959ms] [WARNING] [2026-09-22T09:15:50.754Z]  @firebase/auth: Auth (12.6.0): Error while retrieving App Check token: FirebaseError: AppCheck: ReCAPTCHA error. (appCheck/recaptcha-error). @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[    1283ms] [ERROR] Access to manifest at 'https://vercel.com/sso-api?url=https%3A%2F%2Fout-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app%2Fmanifest.json&nonce=9529bff7aedd1a12e1e0dfbfbe2d9a3adc31763eb2eb620bf70a256ce2fe1f7b' (redirected from 'https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/manifest.json') from origin 'https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/profile:0
+[    1284ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://vercel.com/sso-api?url=https%3A%2F%2Fout-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app%2Fmanifest.json&nonce=9529bff7aedd1a12e1e0dfbfbe2d9a3adc31763eb2eb620bf70a256ce2fe1f7b:0
+[    1750ms] [LOG] ✅ [ProgressionStore] Hydrated: coins=0, XP=0 (L1), daysActive=0 @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/9140-39cc07ca47c189b3.js:0
+[    1752ms] [LOG] [ActivityStore] No Firestore data, created new day @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/1381-ac1494f7b55bc691.js:0
+[    2004ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/1381-ac1494f7b55bc691.js:0
+[    3017ms] [LOG] [ActivityStore] No Firestore data, created new day @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/1381-ac1494f7b55bc691.js:0
+[    3144ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ https://out-run-app-git-worktree-streng-98e01f-davids-projects-0d6e1f97.vercel.app/_next/static/chunks/1381-ac1494f7b55bc691.js:0

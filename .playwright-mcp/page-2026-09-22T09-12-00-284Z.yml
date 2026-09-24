@@ -1,0 +1,111 @@
+- generic [active] [ref=f77e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f77e2]:
+    - generic [ref=f77e3]:
+      - generic [ref=f77e5]:
+        - button "פרופיל" [ref=f77e6] [cursor=pointer]:
+          - generic [ref=f77e7]: T
+        - link "OUT" [ref=f77e14] [cursor=pointer]:
+          - /url: /home
+          - img "OUT" [ref=f77e15]
+        - generic [ref=f77e16]:
+          - button "התראות" [ref=f77e17] [cursor=pointer]
+          - button "הודעות" [ref=f77e21] [cursor=pointer]
+          - link "חיפוש" [ref=f77e24] [cursor=pointer]:
+            - /url: /search
+      - generic [ref=f77e28]:
+        - generic [ref=f77e29]:
+          - generic [ref=f77e30]:
+            - generic [ref=f77e31]:
+              - button "הגדרות" [ref=f77e32] [cursor=pointer]
+              - button "אימונים שמורים" [ref=f77e36] [cursor=pointer]
+            - generic [ref=f77e39]:
+              - generic [ref=f77e40]:
+                - img "Lemur" [ref=f77e41]
+                - generic [ref=f77e42]: "0"
+              - heading "המטפס" [level=2] [ref=f77e46]
+              - generic [ref=f77e47]: שלב 1
+              - generic [ref=f77e52]:
+                - button "הצג היסטוריית אימונים" [ref=f77e53] [cursor=pointer]:
+                  - generic [ref=f77e54]: אימונים
+                  - generic [ref=f77e62]: —
+                - generic [ref=f77e63]:
+                  - generic [ref=f77e64]: ימי רצף
+                  - generic [ref=f77e68]: "0"
+          - heading "יעדי תרגילים" [level=3] [ref=f77e71]
+          - generic [ref=f77e76]:
+            - generic [ref=f77e77]:
+              - heading "הישגים" [level=3] [ref=f77e85]
+              - button "כל ההישגים" [ref=f77e86] [cursor=pointer]
+            - button [ref=f77e87] [cursor=pointer]:
+              - paragraph [ref=f77e94]: אין הישגים עדיין — התחל לאמן!
+          - generic [ref=f77e96]:
+            - heading "כוח" [level=3] [ref=f77e97]
+            - generic [ref=f77e98]:
+              - generic [ref=f77e99]:
+                - generic [ref=f77e100]: נפח שבועי
+                - generic [ref=f77e108]: "0"
+                - generic [ref=f77e109]: סטים השבוע
+              - generic [ref=f77e111]:
+                - generic [ref=f77e112]: שיא אישי
+                - generic [ref=f77e120]: —
+                - generic [ref=f77e121]: אין נתונים עדיין
+              - generic [ref=f77e122]:
+                - generic [ref=f77e123]: זמן פעיל
+                - generic [ref=f77e128]: "0"
+                - generic [ref=f77e129]: מתוך 150 דק׳
+              - generic [ref=f77e131]:
+                - generic [ref=f77e132]: קבוצות שרירים
+                - generic [ref=f77e138]: "0"
+                - generic [ref=f77e139]: התחל אימון
+          - generic [ref=f77e141]:
+            - generic [ref=f77e142]:
+              - heading "התוכניות שלי" [level=3] [ref=f77e143]
+              - button "ניהול" [ref=f77e144] [cursor=pointer]
+            - generic [ref=f77e145]:
+              - paragraph [ref=f77e146]: תוכנית פעילה
+              - button "דחיפה רמה 8/25 עוד 99% לרמה 9 1%" [ref=f77e147] [cursor=pointer]:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading "דחיפה" [level=3]
+                      - paragraph: רמה 8/25
+                      - generic: עוד 99% לרמה 9
+                    - generic: 1%
+          - generic [ref=f77e149]:
+            - heading "מה בחרת, לפי עדיפות" [level=3] [ref=f77e151]
+            - generic [ref=f77e152]:
+              - paragraph [ref=f77e153]: כיוונים
+              - generic [ref=f77e154]:
+                - generic [ref=f77e155]:
+                  - generic [ref=f77e156]: "1"
+                  - generic [ref=f77e157]: עיצוב ושרירים
+                - generic [ref=f77e158]:
+                  - generic [ref=f77e159]: "2"
+                  - generic [ref=f77e160]: קליסטניקס מתקדם
+            - generic [ref=f77e161]:
+              - paragraph [ref=f77e162]: אזורי מיקוד
+              - generic [ref=f77e163]:
+                - generic [ref=f77e164]:
+                  - generic [ref=f77e165]: "1"
+                  - generic [ref=f77e166]: חזה
+                - generic [ref=f77e167]:
+                  - generic [ref=f77e168]: "2"
+                  - generic [ref=f77e169]: רגליים
+          - generic [ref=f77e171]:
+            - heading "פעילות אחרונה" [level=3] [ref=f77e172]
+            - button "הכל" [ref=f77e173] [cursor=pointer]
+        - generic [ref=f77e193]:
+          - generic [ref=f77e198]:
+            - paragraph [ref=f77e199]: שלח משוב או דווח על באג
+            - paragraph [ref=f77e200]: הפידבק שלך משפיע ישירות על הפיתוח
+          - textbox "כתוב כאן את המשוב, הבאג, או הרעיון שלך..." [ref=f77e201]
+          - button "שלח לעוזר ה-AI" [disabled] [ref=f77e202]
+  - navigation [ref=f77e206]:
+    - generic [ref=f77e207]:
+      - link "בית" [ref=f77e208] [cursor=pointer]:
+        - /url: /home
+      - link "מפה" [ref=f77e213] [cursor=pointer]:
+        - /url: /map
+  - alert [ref=f77e217]

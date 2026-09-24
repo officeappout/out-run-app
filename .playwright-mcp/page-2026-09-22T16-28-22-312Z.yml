@@ -1,0 +1,24 @@
+- generic [ref=f172e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f172e2]:
+    - generic [ref=f172e534]:
+      - button "חזרה" [ref=f172e536] [cursor=pointer]
+      - generic [ref=f172e563]:
+        - paragraph [ref=f172e564]: מה מצב הכושר שלך?
+        - paragraph [ref=f172e565]: הזז את הסליידר לרמה שהכי קרובה אליך
+      - generic [ref=f172e570]:
+        - generic [ref=f172e571]: בינוני
+        - generic [ref=f172e600]:
+          - heading "עליות ברכיים כפופות בתלייה" [level=3] [ref=f172e601]
+          - paragraph [ref=f172e602]: מסוגל לבצע 15-30 חזרות
+        - generic [ref=f172e579]:
+          - button "רמה 14" [ref=f172e580] [cursor=pointer]
+          - button "רמה 11" [ref=f172e582] [cursor=pointer]
+          - button "רמה 10" [ref=f172e584] [cursor=pointer]
+          - button "רמה 8" [active] [pressed] [ref=f172e586] [cursor=pointer]
+          - button "רמה 7" [ref=f172e588] [cursor=pointer]
+          - button "רמה 5" [ref=f172e590] [cursor=pointer]
+          - button "רמה 3" [ref=f172e592] [cursor=pointer]
+          - button "רמה 1" [ref=f172e594] [cursor=pointer]
+      - button "סיום הערכה" [ref=f172e597] [cursor=pointer]
+  - alert [ref=f172e27]

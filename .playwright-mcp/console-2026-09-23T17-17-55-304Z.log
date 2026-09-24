@@ -1,0 +1,2 @@
+[    1421ms] [WARNING] [2026-09-23T17:17:56.725Z]  @firebase/auth: Auth (12.6.0): Error while retrieving App Check token: FirebaseError: AppCheck: ReCAPTCHA error. (appCheck/recaptcha-error). @ https://outrun.co.il/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[    1943ms] [WARNING] [2026-09-23T17:17:57.246Z]  @firebase/auth: Auth (12.6.0): Error while retrieving App Check token: FirebaseError: AppCheck: ReCAPTCHA error. (appCheck/recaptcha-error). @ https://outrun.co.il/_next/static/chunks/2532-16f59635ee5a761a.js:14

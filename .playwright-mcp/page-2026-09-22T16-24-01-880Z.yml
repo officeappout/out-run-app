@@ -1,0 +1,17 @@
+- generic [active] [ref=f172e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f172e2]:
+    - generic [ref=f172e373]:
+      - button "חזרה" [ref=f172e375] [cursor=pointer]
+      - generic [ref=f172e402]:
+        - paragraph [ref=f172e403]: מה מצב הכושר שלך?
+        - paragraph [ref=f172e404]: הזז את הסליידר לרמה שהכי קרובה אליך
+      - generic [ref=f172e411]:
+        - generic [ref=f172e412]: מתחיל
+        - generic [ref=f172e415]:
+          - slider [ref=f172e416] [cursor=pointer]: "1"
+          - generic: 👆
+      - button "הבא ←" [ref=f172e418] [cursor=pointer]:
+        - generic [ref=f172e419]: הבא
+        - generic [ref=f172e420]: ←
+  - alert [ref=f172e27]

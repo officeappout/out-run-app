@@ -1,0 +1,36 @@
+- generic [ref=f500e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f500e2]:
+    - generic [ref=f500e495]:
+      - button "חזרה" [ref=f500e497] [cursor=pointer]
+      - generic [ref=f500e528]:
+        - generic [ref=f500e571]:
+          - heading "פלאנק עליות ונגיעות בכתפיים" [level=3] [ref=f500e572]
+          - paragraph [ref=f500e573]: "מקסימום: 8-12 חזרות"
+        - generic [ref=f500e533]:
+          - generic [ref=f500e534]:
+            - paragraph [ref=f500e535]: עצרו על התרגיל הכי קשה שאתם בטוחים שתבצעו
+            - paragraph [ref=f500e536]: אפשר להחליק את הרצועה, או להשתמש ב־ +/−
+          - generic [ref=f500e537]: מתחיל
+          - generic [ref=f500e541]:
+            - button "רמה 14" [ref=f500e542] [cursor=pointer]
+            - button "רמה 11" [ref=f500e544] [cursor=pointer]
+            - button "רמה 10" [ref=f500e546] [cursor=pointer]
+            - button "רמה 8" [ref=f500e548] [cursor=pointer]
+            - button "רמה 7" [ref=f500e550] [cursor=pointer]
+            - button "רמה 5" [ref=f500e552] [cursor=pointer]
+            - button "רמה 3" [active] [pressed] [ref=f500e554] [cursor=pointer]
+            - button "רמה 1" [ref=f500e556] [cursor=pointer]
+          - generic [ref=f500e558]:
+            - button "קל יותר" [ref=f500e574] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f500e575]: −
+            - generic [ref=f500e559]:
+              - generic [ref=f500e560]: הרמה שלי
+              - generic [ref=f500e561]: "3"
+            - button "קשה יותר" [ref=f500e562] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f500e563]: +
+      - button "פלאנק עליות ונגיעות בכתפיים זו הרמה שלי" [ref=f500e577] [cursor=pointer]:
+        - generic [ref=f500e567]:
+          - generic [ref=f500e568]: פלאנק עליות ונגיעות בכתפיים
+          - generic [ref=f500e569]: זו הרמה שלי
+  - alert [ref=f500e79]

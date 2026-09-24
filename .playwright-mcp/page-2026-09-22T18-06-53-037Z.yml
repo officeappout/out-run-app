@@ -1,0 +1,28 @@
+- generic [ref=f183e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f183e2]:
+    - generic [ref=f183e221]:
+      - button "חזרה" [ref=f183e223] [cursor=pointer]
+      - generic [ref=f183e250]:
+        - paragraph [ref=f183e251]: מה מצב הכושר שלך?
+        - paragraph [ref=f183e252]: הזז את הסליידר לרמה שהכי קרובה אליך
+      - generic [ref=f183e257]:
+        - generic [ref=f183e258]: מתקדם
+        - paragraph [ref=f183e311]: מסוגל לבצע 1-2 חזרות
+        - generic [ref=f183e264]:
+          - generic [ref=f183e265]:
+            - paragraph [ref=f183e266]: החלק ועצור על התרגיל הכי קשה שאתה בטוח שתבצע
+            - paragraph [ref=f183e267]: לא בטוח? בחר בערך — נדייק בהמשך
+          - generic [ref=f183e269]:
+            - button "רמה 20" [active] [pressed] [ref=f183e270] [cursor=pointer]
+            - button "רמה 19" [ref=f183e278] [cursor=pointer]
+            - button "רמה 18" [ref=f183e280] [cursor=pointer]
+            - button "רמה 16" [ref=f183e282] [cursor=pointer]
+            - button "רמה 14" [ref=f183e284] [cursor=pointer]
+            - button "רמה 12" [ref=f183e286] [cursor=pointer]
+            - button "רמה 9" [ref=f183e288] [cursor=pointer]
+            - button "רמה 6" [ref=f183e290] [cursor=pointer]
+            - button "רמה 4" [ref=f183e292] [cursor=pointer]
+            - button "רמה 1" [ref=f183e294] [cursor=pointer]
+      - button "סיום הערכה" [ref=f183e312] [cursor=pointer]
+  - alert [ref=f183e8]

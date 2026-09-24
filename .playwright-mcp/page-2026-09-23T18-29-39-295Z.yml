@@ -1,0 +1,27 @@
+- generic [active] [ref=f370e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f370e2]:
+    - generic [ref=f370e3]:
+      - button "חזרה" [ref=f370e6] [cursor=pointer]
+      - generic [ref=f370e28]:
+        - generic [ref=f370e29]:
+          - heading "מה הכי בא לך להשיג?" [level=1] [ref=f370e30]
+          - paragraph [ref=f370e31]: בחר את הכיוון שתרצה להתמקד בו
+        - 'button "מתחילים בריאות, כוח ואנרגיה מתאים ל: מי שרק מתחיל, חזר אחרי הפסקה, או רוצה בסיס בריא לכל הגוף." [ref=f370e33] [cursor=pointer]':
+          - generic [ref=f370e34]:
+            - generic [ref=f370e35]: מתחילים
+            - paragraph [ref=f370e37]: בריאות, כוח ואנרגיה
+            - paragraph [ref=f370e38]: "מתאים ל: מי שרק מתחיל, חזר אחרי הפסקה, או רוצה בסיס בריא לכל הגוף."
+        - 'button "לכל רמה עיצוב ושרירים מתאים ל: מי שכבר זז ורוצה למקד אזורים ולראות שינוי בגוף." [ref=f370e40] [cursor=pointer]':
+          - generic [ref=f370e41]:
+            - generic [ref=f370e42]: לכל רמה
+            - paragraph [ref=f370e44]: עיצוב ושרירים
+            - paragraph [ref=f370e45]: "מתאים ל: מי שכבר זז ורוצה למקד אזורים ולראות שינוי בגוף."
+        - 'button "מתקדמים לומדים תרגילי קליסטניקס מתקדמים מתאים ל: מי שכבר עושה כמה מתח ומקבילים ורוצה לאתגר את עצמו לרמה הבאה. עוד לא שם? נבנה לך את הבסיס עד לשם." [ref=f370e47] [cursor=pointer]':
+          - generic [ref=f370e48]:
+            - generic [ref=f370e49]: מתקדמים
+            - paragraph [ref=f370e51]: לומדים תרגילי קליסטניקס מתקדמים
+            - paragraph [ref=f370e52]: "מתאים ל: מי שכבר עושה כמה מתח ומקבילים ורוצה לאתגר את עצמו לרמה הבאה."
+            - paragraph [ref=f370e53]: עוד לא שם? נבנה לך את הבסיס עד לשם.
+      - button "המשך" [disabled] [ref=f370e55]
+  - alert [ref=f370e59]

@@ -1,0 +1,50 @@
+- generic [ref=f57e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f57e2]:
+    - generic [ref=f57e3]:
+      - button "חזרה" [ref=f57e6] [cursor=pointer]
+      - generic [ref=f57e28]:
+        - generic [ref=f57e29]:
+          - heading "מה הכי בא לך להשיג?" [level=1] [ref=f57e30]
+          - paragraph [ref=f57e31]: בחר את הכיוון שתרצה להתמקד בו
+        - generic [ref=f57e32]:
+          - 'button "מתחילים בריאות, כוח ואנרגיה מתאים ל: מי שרק מתחיל, חזר אחרי הפסקה, או רוצה בסיס בריא לכל הגוף. 1" [ref=f57e83] [cursor=pointer]':
+            - generic [ref=f57e34]:
+              - generic [ref=f57e35]: מתחילים
+              - paragraph [ref=f57e37]: בריאות, כוח ואנרגיה
+              - paragraph [ref=f57e38]: "מתאים ל: מי שרק מתחיל, חזר אחרי הפסקה, או רוצה בסיס בריא לכל הגוף."
+            - generic [ref=f57e60]: "1"
+          - generic [ref=f57e65]:
+            - paragraph [ref=f57e66]: מסלול מקיף לשמירה על חיוניות, תנועה נכונה ואנרגיה גבוהה.
+            - list [ref=f57e67]:
+              - listitem [ref=f57e68]:
+                - generic [ref=f57e72]: אימוני כוח לכל הגוף (Full Body) לבניית בסיס איתן
+              - listitem [ref=f57e73]:
+                - generic [ref=f57e77]: שילוב מסלולי הליכה מותאמים ויעדי ספירת צעדים יומית
+              - listitem [ref=f57e78]:
+                - generic [ref=f57e82]: דגש על שיפור טווחי תנועה, גמישות ויציבה
+        - 'button "לכל רמה עיצוב ושרירים מתאים ל: מי שכבר זז ורוצה למקד אזורים ולראות שינוי בגוף." [ref=f57e40] [cursor=pointer]':
+          - generic [ref=f57e41]:
+            - generic [ref=f57e42]: לכל רמה
+            - paragraph [ref=f57e44]: עיצוב ושרירים
+            - paragraph [ref=f57e45]: "מתאים ל: מי שכבר זז ורוצה למקד אזורים ולראות שינוי בגוף."
+        - generic [ref=f57e46]:
+          - 'button "מתקדמים לומדים תרגילי קליסטניקס מתקדמים מתאים ל: מי שכבר עושה כמה מתח ומקבילים ורוצה לאתגר את עצמו לרמה הבאה. עוד לא שם? נבנה לך את הבסיס עד לשם. 2" [active] [ref=f57e85] [cursor=pointer]':
+            - generic [ref=f57e48]:
+              - generic [ref=f57e49]: מתקדמים
+              - paragraph [ref=f57e51]: לומדים תרגילי קליסטניקס מתקדמים
+              - paragraph [ref=f57e52]: "מתאים ל: מי שכבר עושה כמה מתח ומקבילים ורוצה לאתגר את עצמו לרמה הבאה."
+              - paragraph [ref=f57e53]: עוד לא שם? נבנה לך את הבסיס עד לשם.
+            - generic [ref=f57e86]: "2"
+          - generic [ref=f57e92]:
+            - paragraph [ref=f57e93]: בחר אלמנטים לפי סדר עדיפות (לחיצה ראשונה = עדיפות 1)
+            - generic [ref=f57e94]:
+              - button "קליסטניקס עליון (כל האלמנטים)" [ref=f57e95] [cursor=pointer]
+              - button "פרונט לבר" [ref=f57e98] [cursor=pointer]
+              - button "עליית כוח" [ref=f57e101] [cursor=pointer]
+              - button "פלאנץ׳" [ref=f57e104] [cursor=pointer]
+              - button "עמידת ידיים" [ref=f57e107] [cursor=pointer]
+              - button "שכיבות סמיכה בעמידת ידיים" [ref=f57e110] [cursor=pointer]
+              - button "מתח יד אחת" [ref=f57e113] [cursor=pointer]
+      - button "המשך" [disabled] [ref=f57e55]
+  - alert [ref=f57e59]

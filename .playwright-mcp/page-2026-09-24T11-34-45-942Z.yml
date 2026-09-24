@@ -1,0 +1,35 @@
+- generic [active] [ref=f505e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f505e2]:
+    - generic [ref=f505e219]:
+      - button "חזרה" [ref=f505e221] [cursor=pointer]
+      - generic [ref=f505e252]:
+        - generic [ref=f505e254]:
+          - heading "מתח סופינציה" [level=3] [ref=f505e255]
+          - paragraph [ref=f505e256]: "מקסימום: 1-5 חזרות"
+        - generic [ref=f505e257]:
+          - generic [ref=f505e258]:
+            - paragraph [ref=f505e259]: עצרו על התרגיל הכי קשה שאתם בטוחים שתבצעו
+            - paragraph [ref=f505e260]: אפשר להחליק את הרצועה, או להשתמש ב־ +/−
+          - generic [ref=f505e261]: קליסטניקס למתחילים
+          - generic [ref=f505e265]:
+            - button "רמה 13" [ref=f505e266] [cursor=pointer]
+            - button "רמה 11" [ref=f505e268] [cursor=pointer]
+            - button "רמה 9" [ref=f505e270] [cursor=pointer]
+            - button "רמה 7" [ref=f505e272] [cursor=pointer]
+            - button "רמה 5" [ref=f505e274] [cursor=pointer]
+            - button "רמה 3" [ref=f505e276] [cursor=pointer]
+            - button "רמה 1" [pressed] [ref=f505e278] [cursor=pointer]
+          - generic [ref=f505e280]:
+            - button "קשה לי מדי — למבחן בסיס" [ref=f505e281] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f505e282]: −
+            - generic [ref=f505e284]:
+              - generic [ref=f505e285]: הרמה שלי
+              - generic [ref=f505e286]: "1"
+            - button "קשה יותר" [ref=f505e287] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f505e288]: +
+      - button "מתח סופינציה זו הרמה שלי" [ref=f505e291] [cursor=pointer]:
+        - generic [ref=f505e292]:
+          - generic [ref=f505e293]: מתח סופינציה
+          - generic [ref=f505e294]: זו הרמה שלי
+  - alert [ref=f505e79]

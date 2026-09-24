@@ -1,0 +1,13 @@
+- generic [active] [ref=f34e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f34e2]:
+    - generic [ref=f34e332]:
+      - button "חזרה" [ref=f34e334] [cursor=pointer]
+      - generic [ref=f34e361]:
+        - heading "בוא נכיר קצת יותר." [level=2] [ref=f34e362]
+        - generic [ref=f34e366]:
+          - paragraph [ref=f34e367]: בתוך המרדף המטורף של הקריירה והבית, אם המטרה שלך היא להחזיר את האנרגיה ולחטב בדיוק את חזה, אנחנו חייבים לדעת מאיפה להתחיל.
+          - paragraph [ref=f34e368]: מתחילים במבדק כוח קצר של 2 תרגילים.
+          - paragraph [ref=f34e369]: תסמן בדיוק מה אתה מצליח כדי שנתאים לך אימוני תכל'ס קצרים שנכנסים בלו"ז שלך בול.
+      - button "אני מוכן, בוא נמשיך!" [ref=f34e371] [cursor=pointer]
+  - alert [ref=f34e59]

@@ -1,0 +1,17 @@
+- generic [active] [ref=f119e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f119e2]:
+    - generic [ref=f119e4]:
+      - generic [ref=f119e5]:
+        - img "OUT" [ref=f119e6]
+        - paragraph [ref=f119e7]: מה מתאים לך?
+      - generic [ref=f119e8]:
+        - button [ref=f119e9] [cursor=pointer]:
+          - generic [ref=f119e12]:
+            - heading "גלו את המפה" [level=2] [ref=f119e17]
+            - paragraph [ref=f119e18]: כניסה מהירה ללא הרשמה למציאת מסלולי ריצה, גינות כושר קרובות ומתאמנים סביבכם בלייב.
+        - button [ref=f119e19] [cursor=pointer]:
+          - generic [ref=f119e22]:
+            - heading "תוכנית כוח" [level=2] [ref=f119e25]
+            - paragraph [ref=f119e26]: אימון מותאם אישית למטרות שלך
+  - alert [ref=f119e27]

@@ -1,0 +1,43 @@
+- generic [ref=f219e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f219e2]:
+    - generic [ref=f219e81]:
+      - button "חזרה" [ref=f219e84] [cursor=pointer]
+      - generic [ref=f219e102]:
+        - generic [ref=f219e103]:
+          - heading "מה הכי בא לך להשיג?" [level=1] [ref=f219e104]
+          - paragraph [ref=f219e105]: בחר את הכיוון שתרצה להתמקד בו
+        - 'button "מתחילים בריאות, כוח ואנרגיה מתאים ל: מי שרק מתחיל, חזר אחרי הפסקה, או רוצה בסיס בריא לכל הגוף." [ref=f219e107] [cursor=pointer]':
+          - generic [ref=f219e108]:
+            - generic [ref=f219e109]: מתחילים
+            - paragraph [ref=f219e111]: בריאות, כוח ואנרגיה
+            - paragraph [ref=f219e112]: "מתאים ל: מי שרק מתחיל, חזר אחרי הפסקה, או רוצה בסיס בריא לכל הגוף."
+        - 'button "לכל רמה עיצוב ושרירים מתאים ל: מי שכבר זז ורוצה למקד אזורים ולראות שינוי בגוף." [ref=f219e114] [cursor=pointer]':
+          - generic [ref=f219e115]:
+            - generic [ref=f219e116]: לכל רמה
+            - paragraph [ref=f219e118]: עיצוב ושרירים
+            - paragraph [ref=f219e119]: "מתאים ל: מי שכבר זז ורוצה למקד אזורים ולראות שינוי בגוף."
+        - generic [ref=f219e120]:
+          - 'button "מתקדמים לומדים תרגילי קליסטניקס מתקדמים מתאים ל: מי שכבר עושה כמה מתח ומקבילים ורוצה לאתגר את עצמו לרמה הבאה. עוד לא שם? נבנה לך את הבסיס עד לשם." [ref=f219e121] [cursor=pointer]':
+            - generic [ref=f219e122]:
+              - generic [ref=f219e123]: מתקדמים
+              - paragraph [ref=f219e125]: לומדים תרגילי קליסטניקס מתקדמים
+              - paragraph [ref=f219e126]: "מתאים ל: מי שכבר עושה כמה מתח ומקבילים ורוצה לאתגר את עצמו לרמה הבאה."
+              - paragraph [ref=f219e127]: עוד לא שם? נבנה לך את הבסיס עד לשם.
+          - generic [ref=f219e142]:
+            - paragraph [ref=f219e143]: בחר אלמנטים לפי סדר עדיפות (לחיצה ראשונה = עדיפות 1)
+            - status [ref=f219e168]:
+              - paragraph [ref=f219e169]: בחרת בסקיל עוצמתי! כדי למנוע פציעות כתפיים ולפתח כוח סימטרי, קלי המאמן הווירטואלי ממליץ לך לסמן לפחות אלמנט משלים אחד מהקבוצה המודגשת בכתום (דחיפה/משיכה).
+            - generic [ref=f219e144]:
+              - button "קליסטניקס עליון (כל האלמנטים)" [ref=f219e145] [cursor=pointer]
+              - button "פרונט לבר" [ref=f219e148] [cursor=pointer]
+              - button "עליית כוח" [ref=f219e151] [cursor=pointer]
+              - button "פלאנץ׳ 1" [ref=f219e166] [cursor=pointer]:
+                - generic [ref=f219e155]:
+                  - generic [ref=f219e156]: פלאנץ׳
+                  - generic [ref=f219e167]: "1"
+              - button "עמידת ידיים" [ref=f219e157] [cursor=pointer]
+              - button "שכיבות סמיכה בעמידת ידיים" [ref=f219e160] [cursor=pointer]
+              - button "מתח יד אחת" [ref=f219e163] [cursor=pointer]
+      - button "המשך בכל זאת" [active] [ref=f219e170] [cursor=pointer]
+  - alert [ref=f219e79]

@@ -1,0 +1,53 @@
+- generic [active] [ref=f109e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f109e2]:
+    - generic [ref=f109e159]:
+      - button "חזרה" [ref=f109e161] [cursor=pointer]
+      - generic [ref=f109e179]:
+        - generic [ref=f109e180]:
+          - heading "נעים להכיר! 👋" [level=2] [ref=f109e183]
+          - paragraph [ref=f109e187]:
+            - generic [ref=f109e188]: אני
+            - generic [ref=f109e189]: קלי,
+            - generic [ref=f109e190]: המאמן
+            - generic [ref=f109e191]: האישי
+            - generic [ref=f109e192]: שלך.
+            - generic [ref=f109e193]: כדי
+            - generic [ref=f109e194]: שנתפור
+            - generic [ref=f109e195]: לך
+            - generic [ref=f109e196]: תוכנית
+            - generic [ref=f109e197]: מדויקת,
+            - generic [ref=f109e198]: אני
+            - generic [ref=f109e199]: צריך
+            - generic [ref=f109e200]: רק
+            - generic [ref=f109e201]: כמה
+            - generic [ref=f109e202]: פרטים
+            - generic [ref=f109e203]: קטנים.
+        - generic [ref=f109e204]:
+          - generic [ref=f109e205]:
+            - generic [ref=f109e206]: איך היית רוצה שנפנה אלייך?
+            - paragraph [ref=f109e207]: רק כדי שנדע מתי לפרגן לך ב'כל הכבוד מלך!' ומתי ב'אלופה, שברת את המסך!' 👑 (ובשביל דיוק המדדים הפיזיולוגיים שלך, כמובן).
+            - generic [ref=f109e208]:
+              - button "🙋‍♂️ גבר" [ref=f109e209] [cursor=pointer]:
+                - generic [ref=f109e210]: 🙋‍♂️
+                - generic [ref=f109e211]: גבר
+              - button "🙋‍♀️ אישה" [ref=f109e212] [cursor=pointer]:
+                - generic [ref=f109e213]: 🙋‍♀️
+                - generic [ref=f109e214]: אישה
+              - button "✨ אחר" [ref=f109e215] [cursor=pointer]:
+                - generic [ref=f109e216]: ✨
+                - generic [ref=f109e217]: אחר
+          - generic [ref=f109e218]:
+            - generic [ref=f109e219]: מתי חוגגים לך יום הולדת? 🎂
+            - paragraph [ref=f109e220]: עוזר לנו להתאים את עצימות האימון לגילך.
+            - generic [ref=f109e221]:
+              - textbox "יום" [ref=f109e222]
+              - generic [ref=f109e223]: /
+              - textbox "חודש" [ref=f109e224]
+              - generic [ref=f109e225]: /
+              - textbox "שנה" [ref=f109e226]
+          - generic [ref=f109e227]:
+            - generic [ref=f109e228]: איך קוראים לך?
+            - textbox "השם שלך כאן..." [ref=f109e229]
+      - button "המשך" [disabled] [ref=f109e231]
+  - alert [ref=f109e59]

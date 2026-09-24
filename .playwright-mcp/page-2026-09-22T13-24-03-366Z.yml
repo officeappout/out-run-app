@@ -1,0 +1,53 @@
+- generic [ref=f149e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f149e2]:
+    - generic [ref=f149e28]:
+      - button "חזרה" [ref=f149e30] [cursor=pointer]
+      - generic [ref=f149e48]:
+        - generic [ref=f149e49]:
+          - heading "נעים להכיר! 👋" [level=2] [ref=f149e52]
+          - paragraph [ref=f149e56]:
+            - generic [ref=f149e57]: אני
+            - generic [ref=f149e58]: קלי,
+            - generic [ref=f149e59]: המאמן
+            - generic [ref=f149e60]: האישי
+            - generic [ref=f149e61]: שלך.
+            - generic [ref=f149e62]: כדי
+            - generic [ref=f149e63]: שנתפור
+            - generic [ref=f149e64]: לך
+            - generic [ref=f149e65]: תוכנית
+            - generic [ref=f149e66]: מדויקת,
+            - generic [ref=f149e67]: אני
+            - generic [ref=f149e68]: צריך
+            - generic [ref=f149e69]: רק
+            - generic [ref=f149e70]: כמה
+            - generic [ref=f149e71]: פרטים
+            - generic [ref=f149e72]: קטנים.
+        - generic [ref=f149e73]:
+          - generic [ref=f149e74]:
+            - generic [ref=f149e75]: איך היית רוצה שנפנה אלייך?
+            - paragraph [ref=f149e76]: רק כדי שנדע מתי לפרגן לך ב'כל הכבוד מלך!' ומתי ב'אלופה, שברת את המסך!' 👑 (ובשביל דיוק המדדים הפיזיולוגיים שלך, כמובן).
+            - generic [ref=f149e77]:
+              - button "🙋‍♂️ גבר" [ref=f149e78] [cursor=pointer]:
+                - generic [ref=f149e79]: 🙋‍♂️
+                - generic [ref=f149e80]: גבר
+              - button "🙋‍♀️ אישה" [ref=f149e81] [cursor=pointer]:
+                - generic [ref=f149e82]: 🙋‍♀️
+                - generic [ref=f149e83]: אישה
+              - button "✨ אחר" [ref=f149e84] [cursor=pointer]:
+                - generic [ref=f149e85]: ✨
+                - generic [ref=f149e86]: אחר
+          - generic [ref=f149e87]:
+            - generic [ref=f149e88]: מתי חוגגים לך יום הולדת? 🎂
+            - paragraph [ref=f149e89]: עוזר לנו להתאים את עצימות האימון לגילך.
+            - generic [ref=f149e90]:
+              - textbox "יום" [active] [ref=f149e91]
+              - generic [ref=f149e92]: /
+              - textbox "חודש" [ref=f149e93]
+              - generic [ref=f149e94]: /
+              - textbox "שנה" [ref=f149e95]
+          - generic [ref=f149e96]:
+            - generic [ref=f149e97]: איך קוראים לך?
+            - textbox "השם שלך כאן..." [ref=f149e98]
+      - button "המשך" [disabled] [ref=f149e100]
+  - alert [ref=f149e27]

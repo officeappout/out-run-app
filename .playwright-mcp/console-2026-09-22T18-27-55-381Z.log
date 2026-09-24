@@ -1,0 +1,51 @@
+[     536ms] [WARNING] [2026-09-22T18:27:55.917Z]  @firebase/auth: Auth (12.6.0): Error while retrieving App Check token: FirebaseError: AppCheck: ReCAPTCHA error. (appCheck/recaptcha-error). @ https://outrun.co.il/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[   35768ms] [LOG] [DEBUG-PAGE] pathConfig.path: skills | categories passed to VisualSlider: [muscle_up, core] | skipTier: true @ https://outrun.co.il/_next/static/chunks/app/onboarding-new/assessment-visual/page-409b79241f638119.js:0
+[   35770ms] [LOG] [DEBUG-RESOLVER] Incoming Category: muscle_up Resolved Candidate IDs: [muscle_up, fTLWzjP9gH2VNpamyCZF] @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   35919ms] [LOG] [DEBUG-RESOLVER] loadCategoryMap built: {human_flag: EtY8YCol0qpF6DzgcTx1, push: J0fLpmJhG0KDN2tQouxh, core: kDMpobbKsuVTByTIKUpe, pull: UPDBtTdCvX748dtBlWYj, one_arm_pullup: cC0BOmm6KIqYAyQynEIo} @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   35919ms] [LOG] [DEBUG-RESOLVER] Incoming Category: core Resolved Candidate IDs: [core, kDMpobbKsuVTByTIKUpe] @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   35963ms] [LOG] [DEBUG-FIRESTORE] Querying IDs: [muscle_up, fTLWzjP9gH2VNpamyCZF] Snapshot size returned: 0 @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   35963ms] [LOG] [DEBUG-FIRESTORE] showInOnboarding=true levels: [] (0 total) @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   35963ms] [LOG] [DEBUG-RESOLVER] Final onboarding levels for "muscle_up": [] (0 total) @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   35963ms] [LOG] [DEBUG-RESOLVER] resolveContent("muscle_up", 1) → programId="fTLWzjP9gH2VNpamyCZF" @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36299ms] [LOG] [DEBUG-FIRESTORE] Querying IDs: [core, kDMpobbKsuVTByTIKUpe] Snapshot size returned: 20 @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36300ms] [LOG] [DEBUG-FIRESTORE] showInOnboarding=true levels: [1, 3, 5, 7, 8, 10, 11, 14] (8 total) @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36300ms] [LOG] [DEBUG-RESOLVER] Final onboarding levels for "core": [1, 3, 5, 7, 8, 10, 11, 14] (8 total) @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36300ms] [LOG] [DEBUG-RESOLVER] resolveContent("core", 1) → programId="kDMpobbKsuVTByTIKUpe" @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36300ms] [LOG] [DEBUG-RESOLVER] resolveContent("core", 3) → programId="kDMpobbKsuVTByTIKUpe" @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36300ms] [LOG] [DEBUG-RESOLVER] attempt1 getVisualContentItem("fTLWzjP9gH2VNpamyCZF", 1) → null @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36301ms] [LOG] [DEBUG-PAGE] pathConfig.path: skills | categories passed to VisualSlider: [muscle_up, core] | skipTier: true @ https://outrun.co.il/_next/static/chunks/app/onboarding-new/assessment-visual/page-409b79241f638119.js:0
+[   36301ms] [LOG] [DEBUG-RESOLVER] Incoming Category: muscle_up Resolved Candidate IDs: [muscle_up, fTLWzjP9gH2VNpamyCZF] @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36301ms] [LOG] [DEBUG-RESOLVER] Incoming Category: core Resolved Candidate IDs: [core, kDMpobbKsuVTByTIKUpe] @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36470ms] [LOG] [VisualContentService] docToContent "kDMpobbKsuVTByTIKUpe_1": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36470ms] [LOG] [DEBUG-RESOLVER] attempt1 getVisualContentItem("kDMpobbKsuVTByTIKUpe", 1) → FOUND @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36470ms] [LOG] [VisualContentService] docToContent "kDMpobbKsuVTByTIKUpe_3": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36470ms] [LOG] [DEBUG-RESOLVER] attempt1 getVisualContentItem("kDMpobbKsuVTByTIKUpe", 3) → FOUND @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36470ms] [LOG] [DEBUG-RESOLVER] attempt2 getVisualContentItem("muscle_up", 1) → null @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36509ms] [LOG] [DEBUG-FIRESTORE] Querying IDs: [muscle_up, fTLWzjP9gH2VNpamyCZF] Snapshot size returned: 0 @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36510ms] [LOG] [DEBUG-FIRESTORE] showInOnboarding=true levels: [] (0 total) @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36510ms] [LOG] [DEBUG-RESOLVER] Final onboarding levels for "muscle_up": [] (0 total) @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36510ms] [LOG] [DEBUG-RESOLVER] resolveContent("muscle_up", 1) → programId="fTLWzjP9gH2VNpamyCZF" @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36510ms] [LOG] [DEBUG-FIRESTORE] Querying IDs: [core, kDMpobbKsuVTByTIKUpe] Snapshot size returned: 20 @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36510ms] [LOG] [DEBUG-FIRESTORE] showInOnboarding=true levels: [1, 3, 5, 7, 8, 10, 11, 14] (8 total) @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36510ms] [LOG] [DEBUG-RESOLVER] Final onboarding levels for "core": [1, 3, 5, 7, 8, 10, 11, 14] (8 total) @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36510ms] [LOG] [DEBUG-RESOLVER] resolveContent("core", 1) → programId="kDMpobbKsuVTByTIKUpe" @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36510ms] [LOG] [DEBUG-RESOLVER] resolveContent("core", 3) → programId="kDMpobbKsuVTByTIKUpe" @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36641ms] [LOG] [ContentResolver] Level 1 — exercise video resolved: "פלאנק על הברכיים" → https://vz-b17872ab-7a7.b-cdn.net/3011b6ff-f251-4c7b-81f4-e2… @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36642ms] [LOG] [ContentResolver] Level 3 — exercise video resolved: "פלאנק עליות ונגיעות בכתפיים" → https://vz-b17872ab-7a7.b-cdn.net/4d5bc37c-3994-4574-ace7-12… @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36642ms] [LOG] [VisualContentService] docToContent "kDMpobbKsuVTByTIKUpe_1": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36642ms] [LOG] [DEBUG-RESOLVER] attempt1 getVisualContentItem("kDMpobbKsuVTByTIKUpe", 1) → FOUND @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36642ms] [LOG] [VisualContentService] docToContent "kDMpobbKsuVTByTIKUpe_3": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36642ms] [LOG] [DEBUG-RESOLVER] attempt1 getVisualContentItem("kDMpobbKsuVTByTIKUpe", 3) → FOUND @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36758ms] [LOG] [ContentResolver] Level 1 — exercise video resolved: "פלאנק על הברכיים" → https://vz-b17872ab-7a7.b-cdn.net/3011b6ff-f251-4c7b-81f4-e2… @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   36759ms] [LOG] [ContentResolver] Level 3 — exercise video resolved: "פלאנק עליות ונגיעות בכתפיים" → https://vz-b17872ab-7a7.b-cdn.net/4d5bc37c-3994-4574-ace7-12… @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   48074ms] [LOG] [DEBUG-RESOLVER] Incoming Category: muscle_up Resolved Candidate IDs: [muscle_up, fTLWzjP9gH2VNpamyCZF] @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   48280ms] [LOG] [DEBUG-FIRESTORE] Querying IDs: [muscle_up, fTLWzjP9gH2VNpamyCZF] Snapshot size returned: 0 @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   48280ms] [LOG] [DEBUG-FIRESTORE] showInOnboarding=true levels: [] (0 total) @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   48280ms] [LOG] [DEBUG-RESOLVER] Final onboarding levels for "muscle_up": [] (0 total) @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   48285ms] [LOG] [DEBUG-RESOLVER] resolveContent("muscle_up", 1) → programId="fTLWzjP9gH2VNpamyCZF" @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   48285ms] [LOG] [DEBUG-RESOLVER] resolveContent("muscle_up", 2) → programId="fTLWzjP9gH2VNpamyCZF" @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   48285ms] [LOG] [DEBUG-RESOLVER] resolveContent("muscle_up", 2) → programId="fTLWzjP9gH2VNpamyCZF" @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   48426ms] [LOG] [DEBUG-RESOLVER] attempt1 getVisualContentItem("fTLWzjP9gH2VNpamyCZF", 2) → null @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   48426ms] [LOG] [DEBUG-RESOLVER] attempt1 getVisualContentItem("fTLWzjP9gH2VNpamyCZF", 2) → null @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   48548ms] [LOG] [DEBUG-RESOLVER] attempt2 getVisualContentItem("muscle_up", 2) → null @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0
+[   48548ms] [LOG] [DEBUG-RESOLVER] attempt2 getVisualContentItem("muscle_up", 2) → null @ https://outrun.co.il/_next/static/chunks/5677-434fffbada2ccb6e.js:0

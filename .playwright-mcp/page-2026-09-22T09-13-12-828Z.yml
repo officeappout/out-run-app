@@ -1,0 +1,38 @@
+- generic [ref=f82e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f82e2]:
+    - generic [ref=f82e106]:
+      - button "חזרה" [ref=f82e109] [cursor=pointer]
+      - generic [ref=f82e131]:
+        - generic [ref=f82e132]:
+          - heading "מה הכי בא לך להשיג?" [level=1] [ref=f82e133]
+          - paragraph [ref=f82e134]: בחרי את הכיוון שתרצי להתמקד בו
+        - 'button "מתחילים בריאות, כוח ואנרגיה מתאים ל: מי שרק מתחיל, חזר אחרי הפסקה, או רוצה בסיס בריא לכל הגוף." [ref=f82e136] [cursor=pointer]':
+          - generic [ref=f82e137]:
+            - generic [ref=f82e138]: מתחילים
+            - paragraph [ref=f82e140]: בריאות, כוח ואנרגיה
+            - paragraph [ref=f82e141]: "מתאים ל: מי שרק מתחיל, חזר אחרי הפסקה, או רוצה בסיס בריא לכל הגוף."
+        - 'button "לכל רמה עיצוב ושרירים מתאים ל: מי שכבר זז ורוצה למקד אזורים ולראות שינוי בגוף." [ref=f82e143] [cursor=pointer]':
+          - generic [ref=f82e144]:
+            - generic [ref=f82e145]: לכל רמה
+            - paragraph [ref=f82e147]: עיצוב ושרירים
+            - paragraph [ref=f82e148]: "מתאים ל: מי שכבר זז ורוצה למקד אזורים ולראות שינוי בגוף."
+        - generic [ref=f82e149]:
+          - 'button "מתקדמים לומדים תרגילי קליסטניקס מתקדמים מתאים ל: מי שכבר עושה כמה מתח ומקבילים ורוצה לאתגר את עצמו לרמה הבאה. עוד לא שם? נבנה לך את הבסיס עד לשם." [active] [ref=f82e150] [cursor=pointer]':
+            - generic [ref=f82e151]:
+              - generic [ref=f82e152]: מתקדמים
+              - paragraph [ref=f82e154]: לומדים תרגילי קליסטניקס מתקדמים
+              - paragraph [ref=f82e155]: "מתאים ל: מי שכבר עושה כמה מתח ומקבילים ורוצה לאתגר את עצמו לרמה הבאה."
+              - paragraph [ref=f82e156]: עוד לא שם? נבנה לך את הבסיס עד לשם.
+          - generic [ref=f82e167]:
+            - paragraph [ref=f82e168]: בחרי אלמנטים לפי סדר עדיפות (לחיצה ראשונה = עדיפות 1)
+            - generic [ref=f82e169]:
+              - button "קליסטניקס עליון (כל האלמנטים)" [ref=f82e170] [cursor=pointer]
+              - button "פרונט לבר" [ref=f82e173] [cursor=pointer]
+              - button "עליית כוח" [ref=f82e176] [cursor=pointer]
+              - button "פלאנץ׳" [ref=f82e179] [cursor=pointer]
+              - button "עמידת ידיים" [ref=f82e182] [cursor=pointer]
+              - button "שכיבות סמיכה בעמידת ידיים" [ref=f82e185] [cursor=pointer]
+              - button "מתח יד אחת" [ref=f82e188] [cursor=pointer]
+      - button "המשכי" [disabled] [ref=f82e158]
+  - alert [ref=f82e27]

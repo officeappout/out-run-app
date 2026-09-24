@@ -1,0 +1,97 @@
+- generic [active] [ref=f114e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f114e2]:
+    - generic [ref=f114e3]:
+      - generic [ref=f114e5]:
+        - button "פרופיל" [ref=f114e6] [cursor=pointer]:
+          - generic [ref=f114e7]: P
+        - link "OUT" [ref=f114e14] [cursor=pointer]:
+          - /url: /home
+          - img "OUT" [ref=f114e15]
+        - generic [ref=f114e16]:
+          - button "התראות" [ref=f114e17] [cursor=pointer]
+          - button "הודעות" [ref=f114e21] [cursor=pointer]:
+            - generic [ref=f114e24]: "1"
+          - link "חיפוש" [ref=f114e25] [cursor=pointer]:
+            - /url: /search
+      - generic [ref=f114e29]:
+        - generic [ref=f114e30]:
+          - generic [ref=f114e31]:
+            - generic [ref=f114e32]:
+              - button "הגדרות" [ref=f114e33] [cursor=pointer]
+              - button "אימונים שמורים" [ref=f114e37] [cursor=pointer]
+            - generic [ref=f114e40]:
+              - generic [ref=f114e41]:
+                - img "Lemur" [ref=f114e42]
+                - generic [ref=f114e43]: "0"
+              - heading "המטפס" [level=2] [ref=f114e47]
+              - generic [ref=f114e48]: שלב 1
+              - generic [ref=f114e53]:
+                - button "הצג היסטוריית אימונים" [ref=f114e54] [cursor=pointer]:
+                  - generic [ref=f114e55]: אימונים
+                  - generic [ref=f114e63]: —
+                - generic [ref=f114e64]:
+                  - generic [ref=f114e65]: ימי רצף
+                  - generic [ref=f114e69]: "0"
+          - heading "יעדי תרגילים" [level=3] [ref=f114e72]
+          - generic [ref=f114e77]:
+            - generic [ref=f114e78]:
+              - heading "הישגים" [level=3] [ref=f114e86]
+              - button "כל ההישגים" [ref=f114e87] [cursor=pointer]
+            - button [ref=f114e88] [cursor=pointer]:
+              - paragraph [ref=f114e95]: אין הישגים עדיין — התחל לאמן!
+          - generic [ref=f114e97]:
+            - heading "כוח" [level=3] [ref=f114e98]
+            - generic [ref=f114e99]:
+              - generic [ref=f114e100]:
+                - generic [ref=f114e101]: נפח שבועי
+                - generic [ref=f114e109]: "0"
+                - generic [ref=f114e110]: סטים השבוע
+              - generic [ref=f114e112]:
+                - generic [ref=f114e113]: שיא אישי
+                - generic [ref=f114e121]: —
+                - generic [ref=f114e122]: אין נתונים עדיין
+              - generic [ref=f114e123]:
+                - generic [ref=f114e124]: זמן פעיל
+                - generic [ref=f114e129]: "0"
+                - generic [ref=f114e130]: מתוך 150 דק׳
+              - generic [ref=f114e132]:
+                - generic [ref=f114e133]: קבוצות שרירים
+                - generic [ref=f114e139]: "0"
+                - generic [ref=f114e140]: התחל אימון
+          - generic [ref=f114e142]:
+            - heading "מה בחרת, לפי עדיפות" [level=3] [ref=f114e144]
+            - generic [ref=f114e145]:
+              - paragraph [ref=f114e146]: כיוונים
+              - generic [ref=f114e147]:
+                - generic [ref=f114e148]:
+                  - generic [ref=f114e149]: "1"
+                  - generic [ref=f114e150]: עיצוב ושרירים
+                - generic [ref=f114e151]:
+                  - generic [ref=f114e152]: "2"
+                  - generic [ref=f114e153]: קליסטניקס מתקדם
+            - generic [ref=f114e154]:
+              - paragraph [ref=f114e155]: אלמנטים
+              - generic [ref=f114e156]:
+                - generic [ref=f114e157]:
+                  - generic [ref=f114e158]: "1"
+                  - generic [ref=f114e159]: פלאנץ׳
+                - generic [ref=f114e160]:
+                  - generic [ref=f114e161]: "2"
+                  - generic [ref=f114e162]: פרונט לבר
+          - generic [ref=f114e164]:
+            - heading "פעילות אחרונה" [level=3] [ref=f114e165]
+            - button "הכל" [ref=f114e166] [cursor=pointer]
+        - generic [ref=f114e186]:
+          - generic [ref=f114e191]:
+            - paragraph [ref=f114e192]: שלח משוב או דווח על באג
+            - paragraph [ref=f114e193]: הפידבק שלך משפיע ישירות על הפיתוח
+          - textbox "כתוב כאן את המשוב, הבאג, או הרעיון שלך..." [ref=f114e194]
+          - button "שלח לעוזר ה-AI" [disabled] [ref=f114e195]
+  - navigation [ref=f114e199]:
+    - generic [ref=f114e200]:
+      - link "בית" [ref=f114e201] [cursor=pointer]:
+        - /url: /home
+      - link "מפה" [ref=f114e206] [cursor=pointer]:
+        - /url: /map
+  - alert [ref=f114e210]

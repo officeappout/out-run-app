@@ -1,0 +1,101 @@
+- generic [active] [ref=f109e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f109e2]:
+    - generic [ref=f109e1001]:
+      - generic [ref=f109e1003]:
+        - button "פרופיל" [ref=f109e1004] [cursor=pointer]:
+          - generic [ref=f109e1005]: P
+        - link "OUT" [ref=f109e1012] [cursor=pointer]:
+          - /url: /home
+          - img "OUT" [ref=f109e1013]
+        - generic [ref=f109e1014]:
+          - button "התראות" [ref=f109e1015] [cursor=pointer]
+          - button "הודעות" [ref=f109e1019] [cursor=pointer]
+          - link "חיפוש" [ref=f109e1022] [cursor=pointer]:
+            - /url: /search
+      - button "38%" [ref=f109e1027] [cursor=pointer]
+      - generic [ref=f109e1034]:
+        - generic [ref=f109e1036]:
+          - heading "לו״ז אימונים" [level=2] [ref=f109e1038]
+          - generic [ref=f109e1039]:
+            - button "קבע לו״ז אימונים" [ref=f109e1041] [cursor=pointer]
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: א
+                      - button
+                    - generic:
+                      - generic: ב
+                      - button "מנוחה":
+                        - generic:
+                          - generic:
+                            - generic "מנוחה":
+                              - generic:
+                                - text: Z
+                                - superscript: z
+                    - generic:
+                      - generic: ג
+                      - button
+                    - generic:
+                      - generic: ד
+                      - button "מנוחה":
+                        - generic:
+                          - generic:
+                            - generic "מנוחה":
+                              - generic:
+                                - text: Z
+                                - superscript: z
+                    - generic:
+                      - generic: ה
+                      - button
+                    - generic:
+                      - generic: ו
+                      - button "מנוחה":
+                        - generic:
+                          - generic:
+                            - generic "מנוחה":
+                              - generic:
+                                - text: Z
+                                - superscript: z
+                    - generic:
+                      - generic: ש
+                      - button "מנוחה":
+                        - generic:
+                          - generic:
+                            - generic "מנוחה":
+                              - generic:
+                                - text: Z
+                                - superscript: z
+        - generic [ref=f109e1052]:
+          - generic [ref=f109e1053]:
+            - button "התקדמות שבועית" [ref=f109e1054] [cursor=pointer]
+            - button "מדדי בריאות" [ref=f109e1055] [cursor=pointer]
+          - generic [ref=f109e1056]:
+            - generic [ref=f109e1058]:
+              - paragraph [ref=f109e1065]: רמה 12/15
+              - generic [ref=f109e1068]: 1%
+            - generic [ref=f109e1074]:
+              - generic [ref=f109e1076]:
+                - generic [ref=f109e1077]: כוח
+                - generic [ref=f109e1081]: 0/3
+              - generic [ref=f109e1086]:
+                - generic [aria-hidden]:
+                  - generic:
+                    - generic:
+                      - generic: ריצה
+                      - generic: 0/3
+                - button "הוסף תוכנית ריצה" [ref=f109e1087] [cursor=pointer]
+        - generic [ref=f109e1091]:
+          - heading "קבוצות קרובות אליך" [level=3] [ref=f109e1092]
+          - button "הכל ›" [ref=f109e1099] [cursor=pointer]
+        - heading "גינות כושר קרובות" [level=3] [ref=f109e1123]
+      - button "הוסף" [ref=f109e1151] [cursor=pointer]
+  - navigation [ref=f109e1153]:
+    - generic [ref=f109e1154]:
+      - link "בית" [ref=f109e1155] [cursor=pointer]:
+        - /url: /home
+      - link "מפה" [ref=f109e1160] [cursor=pointer]:
+        - /url: /map
+  - alert [ref=f109e59]

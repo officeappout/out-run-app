@@ -1,0 +1,36 @@
+- generic [active] [ref=f505e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f505e2]:
+    - generic [ref=f505e394]:
+      - button "חזרה" [ref=f505e396] [cursor=pointer]
+      - generic [ref=f505e427]:
+        - generic [ref=f505e429]:
+          - heading "פלאנק על הברכיים" [level=3] [ref=f505e430]
+          - paragraph [ref=f505e431]: "מקסימום: 10 - 20 שנ׳"
+        - generic [ref=f505e432]:
+          - generic [ref=f505e433]:
+            - paragraph [ref=f505e434]: עצרו על התרגיל הכי קשה שאתם בטוחים שתבצעו
+            - paragraph [ref=f505e435]: אפשר להחליק את הרצועה, או להשתמש ב־ +/−
+          - generic [ref=f505e436]: מתחיל
+          - generic [ref=f505e440]:
+            - button "רמה 14" [ref=f505e441] [cursor=pointer]
+            - button "רמה 11" [ref=f505e443] [cursor=pointer]
+            - button "רמה 10" [ref=f505e445] [cursor=pointer]
+            - button "רמה 8" [ref=f505e447] [cursor=pointer]
+            - button "רמה 7" [ref=f505e449] [cursor=pointer]
+            - button "רמה 5" [ref=f505e451] [cursor=pointer]
+            - button "רמה 3" [ref=f505e453] [cursor=pointer]
+            - button "רמה 1" [pressed] [ref=f505e455] [cursor=pointer]
+          - generic [ref=f505e457]:
+            - button "קל יותר" [disabled]:
+              - generic [aria-hidden]: −
+            - generic [ref=f505e458]:
+              - generic [ref=f505e459]: הרמה שלי
+              - generic [ref=f505e460]: "1"
+            - button "קשה יותר" [ref=f505e461] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f505e462]: +
+      - button "פלאנק על הברכיים זו הרמה שלי" [ref=f505e465] [cursor=pointer]:
+        - generic [ref=f505e466]:
+          - generic [ref=f505e467]: פלאנק על הברכיים
+          - generic [ref=f505e468]: זו הרמה שלי
+  - alert [ref=f505e79]

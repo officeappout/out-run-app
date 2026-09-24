@@ -1,0 +1,193 @@
+[     677ms] [LOG] [findSkillSub] ✅ planche: picked "שכיבות סמיכה פלאנץ׳ בטאק מתקדם" L11 (gap=1, radius=±2, skillLevel=L12, D2) @ https://outrun.co.il/_next/static/chunks/1594-5a87e39473af2633.js:0
+[     678ms] [LOG] [SkillRepresentation] ✅ "פרונט לבר מלא" → "שכיבות סמיכה פלאנץ׳ בטאק מתקדם" (L11) [skill=planche, gap=1] @ https://outrun.co.il/_next/static/chunks/1594-5a87e39473af2633.js:0
+[     678ms] [LOG] [PresentationFormatter] 🪜 Final domain-priority sort applied (order changed, 8 exercises, מאוזן) @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[     678ms] [LOG] [WorkoutTrio] Option 2 (מאוזן): D2, 8 exercises, 18 sets, ~28min @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[     678ms] [LOG] [WorkoutTrio] Single-option path — padded 3 slots with the same workout @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[     678ms] [LOG]   Difficulty: 2 ⚡⚡ @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[     678ms] [LOG]   Title: מיקוד גוף מלא בפארק: רמה כל הרמות @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[     678ms] [LOG]   Duration: ~28 min @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[     678ms] [LOG]   Warmups: 3 | Main: 4 | Sets: 18 @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[     678ms] [LOG]   Gear: 2 ⚠️ [rsGezdRxG5hayY7x88pJ, VQoqHLfhHGhPsaz2zsQO] @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[     678ms] [LOG]   Exercises: [סקין דה קאט חצי גוף (סיבוב על הטבעות חצי גוף), הרמות פרונט לבר חצי גוף, שכיבות סמיכה שלילי בעמידת ידיים חזה לקיר , שכיבות סמיכה פלאנץ׳ בטאק מתקדם] @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[     678ms] [LOG]   Difficulty: 2 ⚡⚡ @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[     678ms] [LOG]   Title: מיקוד גוף מלא בפארק: רמה כל הרמות @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[     678ms] [LOG]   Duration: ~28 min @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[     678ms] [LOG]   Warmups: 3 | Main: 4 | Sets: 18 @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[     678ms] [LOG]   Gear: 2 ⚠️ [rsGezdRxG5hayY7x88pJ, VQoqHLfhHGhPsaz2zsQO] @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[     678ms] [LOG]   Exercises: [סקין דה קאט חצי גוף (סיבוב על הטבעות חצי גוף), הרמות פרונט לבר חצי גוף, שכיבות סמיכה שלילי בעמידת ידיים חזה לקיר , שכיבות סמיכה פלאנץ׳ בטאק מתקדם] @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[     678ms] [LOG]   Difficulty: 2 ⚡⚡ @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[     678ms] [LOG]   Title: מיקוד גוף מלא בפארק: רמה כל הרמות @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[     678ms] [LOG]   Duration: ~28 min @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[     678ms] [LOG]   Warmups: 3 | Main: 4 | Sets: 18 @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[     678ms] [LOG]   Gear: 2 ⚠️ [rsGezdRxG5hayY7x88pJ, VQoqHLfhHGhPsaz2zsQO] @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[     678ms] [LOG]   Exercises: [סקין דה קאט חצי גוף (סיבוב על הטבעות חצי גוף), הרמות פרונט לבר חצי גוף, שכיבות סמיכה שלילי בעמידת ידיים חזה לקיר , שכיבות סמיכה פלאנץ׳ בטאק מתקדם] @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[     679ms] [LOG] Overlap: 1↔2=4, 1↔3=4, 2↔3=4 @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[    1099ms] [LOG] userId: 5UkzK70jmBYoRM0pyna7nhVPZRk1 @ https://outrun.co.il/_next/static/chunks/app/profile/page-ea766c7b4e72855a.js:0
+[    1099ms] [LOG] _hasHydrated (useUserStore): true @ https://outrun.co.il/_next/static/chunks/app/profile/page-ea766c7b4e72855a.js:0
+[    1100ms] [LOG] activePrograms: [
+  {
+    "id": "calisthenics_upper",
+    "startDate": "2026-09-22T11:44:03.402Z",
+    "currentWeek": 1,
+    "templateId": "calisthenics_upper",
+    "name": "calisthenics upper",
+    "durationWeeks": 52,
+    "focusDomains": [
+      "planche",
+      "front_lever"
+    ]
+  },
+  {
+    "focusDomains": [
+      "legs"
+    ],
+    "startDate": "2026-09-22T11:44:03.402Z",
+    "durationWeeks": 52,
+    "name": "legs",
+    "id": "legs",
+    "templateId": "legs",
+    "currentWeek": 1
+  }
+] @ https://outrun.co.il/_next/static/chunks/app/profile/page-ea766c7b4e72855a.js:0
+[    1100ms] [LOG] tracks: {
+  "front_lever": {
+    "currentLevel": 11,
+    "percent": 0
+  },
+  "core": {
+    "currentLevel": 10,
+    "percent": 0
+  },
+  "upper_body": {
+    "currentLevel": 21,
+    "percent": 0
+  },
+  "push": {
+    "currentLevel": 21,
+    "percent": 0
+  },
+  "calisthenics_upper": {
+    "percent": 0,
+    "currentLevel": 12
+  },
+  "47smw26hUyG5ZbE1bhr3": {
+    "currentLevel": 21,
+    "percent": 0
+  },
+  "pull": {
+    "currentLevel": 20,
+    "percent": 0
+  },
+  "H2279XsRGDg9G370J7S9": {
+    "percent": 0,
+    "currentLevel": 15
+  },
+  "legs": {
+    "currentLevel": 12,
+    "percent": 0
+  },
+  "muscle_up": {
+    "currentLevel": 21,
+    "percent": 0
+  },
+  "planche": {
+    "currentLevel": 12,
+    "percent": 0
+  },
+  "full_body": {
+    "currentLevel": 15,
+    "percent": 0
+  },
+  "fTLWzjP9gH2VNpamyCZF": {
+    "currentLevel": 21,
+    "percent": 0
+  }
+} @ https://outrun.co.il/_next/static/chunks/app/profile/page-ea766c7b4e72855a.js:0
+[    1100ms] [LOG] domains: {
+  "H2279XsRGDg9G370J7S9": {
+    "currentLevel": 15
+  },
+  "one_arm_pullup": {
+    "currentLevel": 0,
+    "maxLevel": 15,
+    "isUnlocked": true
+  },
+  "handstand": {
+    "maxLevel": 15,
+    "currentLevel": 0,
+    "isUnlocked": true
+  },
+  "pull": {
+    "maxLevel": 25,
+    "isUnlocked": true,
+    "currentLevel": 20
+  },
+  "planche": {
+    "currentLevel": 12,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "fTLWzjP9gH2VNpamyCZF": {
+    "currentLevel": 21
+  },
+  "legs": {
+    "currentLevel": 12,
+    "maxLevel": 15,
+    "isUnlocked": true
+  },
+  "front_lever": {
+    "maxLevel": 15,
+    "currentLevel": 11,
+    "isUnlocked": true
+  },
+  "handstand_pushup": {
+    "maxLevel": 15,
+    "isUnlocked": true,
+    "currentLevel": 0
+  },
+  "human_flag": {
+    "maxLevel": 10,
+    "currentLevel": 0,
+    "isUnlocked": true
+  },
+  "calisthenics_upper": {
+    "currentLevel": 12,
+    "maxLevel": 15,
+    "isUnlocked": true
+  },
+  "47smw26hUyG5ZbE1bhr3": {
+    "currentLevel": 21
+  },
+  "push": {
+    "isUnlocked": true,
+    "maxLevel": 25,
+    "currentLevel": 21
+  },
+  "muscle_up": {
+    "isUnlocked": true,
+    "currentLevel": 0,
+    "maxLevel": 10
+  },
+  "upper_body": {
+    "currentLevel": 21,
+    "maxLevel": 25,
+    "isUnlocked": true
+  },
+  "core": {
+    "isUnlocked": true,
+    "maxLevel": 20,
+    "currentLevel": 10
+  },
+  "full_body": {
+    "isUnlocked": true,
+    "currentLevel": 15,
+    "maxLevel": 15
+  }
+} @ https://outrun.co.il/_next/static/chunks/app/profile/page-ea766c7b4e72855a.js:0
+[    1267ms] [WARNING] [2026-09-22T11:44:54.105Z]  @firebase/auth: Auth (12.6.0): Error while retrieving App Check token: FirebaseError: AppCheck: ReCAPTCHA error. (appCheck/recaptcha-error). @ https://outrun.co.il/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[    2533ms] [LOG] ✅ [ProgressionStore] Hydrated: coins=0, XP=0 (L1), daysActive=0 @ https://outrun.co.il/_next/static/chunks/9140-74b9d860149fe2f6.js:0
+[    2536ms] [LOG] [ActivityStore] No Firestore data, created new day @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[    2799ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[    2993ms] [LOG] [ActivityStore] No Firestore data, created new day @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[    3125ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ https://outrun.co.il/_next/static/chunks/1381-2a035a20bf094eec.js:0
+[ 3124378ms] [WARNING] [2026-09-22T12:36:57.215Z]  @firebase/auth: Auth (12.6.0): Error while retrieving App Check token: FirebaseError: AppCheck: ReCAPTCHA error. (appCheck/recaptcha-error). @ https://outrun.co.il/_next/static/chunks/2532-16f59635ee5a761a.js:14

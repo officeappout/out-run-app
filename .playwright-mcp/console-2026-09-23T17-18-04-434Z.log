@@ -1,0 +1,463 @@
+[    1034ms] [WARNING] [2026-09-23T17:18:05.468Z]  @firebase/auth: Auth (12.6.0): Error while retrieving App Check token: FirebaseError: AppCheck: ReCAPTCHA error. (appCheck/recaptcha-error). @ https://outrun.co.il/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[   18459ms] [LOG] [DEBUG-PAGE] pathConfig.path: body_focus | categories passed to VisualSlider: [pull] | skipTier: true @ https://outrun.co.il/_next/static/chunks/app/onboarding-new/assessment-visual/page-187e5f0441b97f63.js:0
+[   18619ms] [LOG] [DEBUG-RESOLVER] loadCategoryMap built: {human_flag: EtY8YCol0qpF6DzgcTx1, push: J0fLpmJhG0KDN2tQouxh, core: kDMpobbKsuVTByTIKUpe, pull: UPDBtTdCvX748dtBlWYj, one_arm_pullup: cC0BOmm6KIqYAyQynEIo} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   18619ms] [LOG] [DEBUG-RESOLVER] Incoming Category: pull Resolved Candidate IDs: [pull, UPDBtTdCvX748dtBlWYj] @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   18621ms] [LOG] [DEBUG-PAGE] pathConfig.path: body_focus | categories passed to VisualSlider: [pull] | skipTier: true @ https://outrun.co.il/_next/static/chunks/app/onboarding-new/assessment-visual/page-187e5f0441b97f63.js:0
+[   18621ms] [LOG] [DEBUG-RESOLVER] Incoming Category: pull Resolved Candidate IDs: [pull, UPDBtTdCvX748dtBlWYj] @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   18814ms] [LOG] [DEBUG-FIRESTORE] Querying IDs: [pull, UPDBtTdCvX748dtBlWYj] Snapshot size returned: 25 @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   18814ms] [LOG] [DEBUG-FIRESTORE] showInOnboarding=true levels: [1, 4, 6, 10, 14, 17, 19, 20] (8 total) @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   18814ms] [LOG] [DEBUG-RESOLVER] Final onboarding levels for "pull": [1, 4, 6, 10, 14, 17, 19, 20] (8 total) @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   18815ms] [LOG] [DEBUG-RESOLVER] resolveContent("pull", 1) → programId="UPDBtTdCvX748dtBlWYj" @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   18815ms] [LOG] [DEBUG-RESOLVER] resolveContent("pull", 4) → programId="UPDBtTdCvX748dtBlWYj" @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   18815ms] [LOG] [DEBUG-FIRESTORE] Querying IDs: [pull, UPDBtTdCvX748dtBlWYj] Snapshot size returned: 25 @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   18815ms] [LOG] [DEBUG-FIRESTORE] showInOnboarding=true levels: [1, 4, 6, 10, 14, 17, 19, 20] (8 total) @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   18815ms] [LOG] [DEBUG-RESOLVER] Final onboarding levels for "pull": [1, 4, 6, 10, 14, 17, 19, 20] (8 total) @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   18815ms] [LOG] [DEBUG-RESOLVER] resolveContent("pull", 1) → programId="UPDBtTdCvX748dtBlWYj" @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   18815ms] [LOG] [DEBUG-RESOLVER] resolveContent("pull", 4) → programId="UPDBtTdCvX748dtBlWYj" @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   18956ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_1": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   18956ms] [LOG] [DEBUG-RESOLVER] attempt1 getVisualContentItem("UPDBtTdCvX748dtBlWYj", 1) → FOUND @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   18956ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_1": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   18956ms] [LOG] [DEBUG-RESOLVER] attempt1 getVisualContentItem("UPDBtTdCvX748dtBlWYj", 1) → FOUND @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   18956ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_4": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   18956ms] [LOG] [DEBUG-RESOLVER] attempt1 getVisualContentItem("UPDBtTdCvX748dtBlWYj", 4) → FOUND @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   18956ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_4": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   18956ms] [LOG] [DEBUG-RESOLVER] attempt1 getVisualContentItem("UPDBtTdCvX748dtBlWYj", 4) → FOUND @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   19110ms] [LOG] [ContentResolver] Level 1 — exercise video resolved: "חתירות ב-75°" → https://vz-b17872ab-7a7.b-cdn.net/90762fc3-e7d8-4070-a312-46… @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   19111ms] [LOG] [ContentResolver] Level 1 — exercise video resolved: "חתירות ב-75°" → https://vz-b17872ab-7a7.b-cdn.net/90762fc3-e7d8-4070-a312-46… @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   19111ms] [LOG] [ContentResolver] Level 4 — exercise video resolved: "חתירות ב-15° עם ברכיים כפופות" → https://vz-b17872ab-7a7.b-cdn.net/65b8ee9b-baf7-4ed1-834a-2f… @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   19111ms] [LOG] [ContentResolver] Level 4 — exercise video resolved: "חתירות ב-15° עם ברכיים כפופות" → https://vz-b17872ab-7a7.b-cdn.net/65b8ee9b-baf7-4ed1-834a-2f… @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31369ms] [LOG] [DEBUG-RESOLVER] Incoming Category: pull Resolved Candidate IDs: [pull, UPDBtTdCvX748dtBlWYj] @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31567ms] [LOG] [DEBUG-FIRESTORE] Querying IDs: [pull, UPDBtTdCvX748dtBlWYj] Snapshot size returned: 25 @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31567ms] [LOG] [DEBUG-FIRESTORE] showInOnboarding=true levels: [1, 4, 6, 10, 14, 17, 19, 20] (8 total) @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31567ms] [LOG] [DEBUG-RESOLVER] Final onboarding levels for "pull": [1, 4, 6, 10, 14, 17, 19, 20] (8 total) @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31572ms] [LOG] [DEBUG-RESOLVER] resolveContent("pull", 1) → programId="UPDBtTdCvX748dtBlWYj" @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31572ms] [LOG] [DEBUG-RESOLVER] resolveContent("pull", 4) → programId="UPDBtTdCvX748dtBlWYj" @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31572ms] [LOG] [DEBUG-RESOLVER] resolveContent("pull", 6) → programId="UPDBtTdCvX748dtBlWYj" @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31572ms] [LOG] [DEBUG-RESOLVER] resolveContent("pull", 10) → programId="UPDBtTdCvX748dtBlWYj" @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31572ms] [LOG] [DEBUG-RESOLVER] resolveContent("pull", 14) → programId="UPDBtTdCvX748dtBlWYj" @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31572ms] [LOG] [DEBUG-RESOLVER] resolveContent("pull", 17) → programId="UPDBtTdCvX748dtBlWYj" @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31572ms] [LOG] [DEBUG-RESOLVER] resolveContent("pull", 19) → programId="UPDBtTdCvX748dtBlWYj" @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31572ms] [LOG] [DEBUG-RESOLVER] resolveContent("pull", 20) → programId="UPDBtTdCvX748dtBlWYj" @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31572ms] [LOG] [DEBUG-RESOLVER] resolveContent("pull", 1) → programId="UPDBtTdCvX748dtBlWYj" @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31573ms] [LOG] [DEBUG-RESOLVER] resolveContent("pull", 2) → programId="UPDBtTdCvX748dtBlWYj" @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31573ms] [LOG] [DEBUG-RESOLVER] resolveContent("pull", 2) → programId="UPDBtTdCvX748dtBlWYj" @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31871ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_6": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31871ms] [LOG] [DEBUG-RESOLVER] attempt1 getVisualContentItem("UPDBtTdCvX748dtBlWYj", 6) → FOUND @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31873ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_10": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31873ms] [LOG] [DEBUG-RESOLVER] attempt1 getVisualContentItem("UPDBtTdCvX748dtBlWYj", 10) → FOUND @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31873ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_14": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31874ms] [LOG] [DEBUG-RESOLVER] attempt1 getVisualContentItem("UPDBtTdCvX748dtBlWYj", 14) → FOUND @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31874ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_17": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31874ms] [LOG] [DEBUG-RESOLVER] attempt1 getVisualContentItem("UPDBtTdCvX748dtBlWYj", 17) → FOUND @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31875ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_19": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31875ms] [LOG] [DEBUG-RESOLVER] attempt1 getVisualContentItem("UPDBtTdCvX748dtBlWYj", 19) → FOUND @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31876ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_20": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31876ms] [LOG] [DEBUG-RESOLVER] attempt1 getVisualContentItem("UPDBtTdCvX748dtBlWYj", 20) → FOUND @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31876ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_2": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31876ms] [LOG] [DEBUG-RESOLVER] attempt1 getVisualContentItem("UPDBtTdCvX748dtBlWYj", 2) → FOUND @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31876ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_2": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   31876ms] [LOG] [DEBUG-RESOLVER] attempt1 getVisualContentItem("UPDBtTdCvX748dtBlWYj", 2) → FOUND @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   32038ms] [LOG] [ContentResolver] Level 6 — exercise video resolved: "מתח עם גומייה עבה" → https://vz-b17872ab-7a7.b-cdn.net/6ff58ac8-9c8f-456d-9145-12… @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   32039ms] [LOG] [ContentResolver] Level 10 — exercise video resolved: "מתח סופינציה" → https://vz-b17872ab-7a7.b-cdn.net/6f2db76f-5634-4fe6-bfa8-b1… @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   32039ms] [LOG] [ContentResolver] Level 14 — exercise video resolved: "פרונט לבר בטאק" → https://vz-b17872ab-7a7.b-cdn.net/4492d3f7-76b8-4f6c-8bdd-e1… @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   32040ms] [LOG] [ContentResolver] Level 17 — exercise video resolved: "מתח קשתים" → https://vz-b17872ab-7a7.b-cdn.net/fd8caf8e-0541-424e-a1c1-b5… @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   32069ms] [LOG] [ContentResolver] Level 19 — exercise video resolved: "החזקת מתח יד אחת ב-90°" → https://vz-b17872ab-7a7.b-cdn.net/81ce89c8-cd72-488b-9f5e-77… @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   32177ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_19": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   32177ms] [LOG] [ContentResolver] Level 2 — exercise video resolved: "תלייה פסיבית" → https://vz-b17872ab-7a7.b-cdn.net/b4956107-60a2-4f0f-9b09-46… @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   32178ms] [LOG] [ContentResolver] Level 2 — exercise video resolved: "תלייה פסיבית" → https://vz-b17872ab-7a7.b-cdn.net/b4956107-60a2-4f0f-9b09-46… @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   32305ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_18": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   32407ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_17": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   32541ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_16": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   32678ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_15": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   32861ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_14": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   32981ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_13": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   33113ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_12": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   33242ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_11": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   33346ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_10": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   33492ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_9": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   33597ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_8": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   33728ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_7": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   33835ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_6": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   33976ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_5": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   34105ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_4": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   34228ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_3": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   34376ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_2": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   34543ms] [LOG] [VisualContentService] docToContent "UPDBtTdCvX748dtBlWYj_1": {hasVideoVariantsField: true, hasVariantsField: false, rawType: array[0], parsedVariantsCount: 0, allTopLevelKeys: Array(14)} @ https://outrun.co.il/_next/static/chunks/5677-5430621fec5c75a9.js:0
+[   47548ms] [LOG] [Assessment] Persisting results: {programId: full_body, levelMode: manual, resolvedLevelId: level_1, average: 1, levels: Object} @ https://outrun.co.il/_next/static/chunks/app/onboarding-new/assessment-visual/page-187e5f0441b97f63.js:0
+[   47890ms] [LOG] [BranchingLogic] Computed context: {levels: Object, average: 1, tier: beginner, matchedRuleId: undefined, matchedRuleAction: undefined} @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   48443ms] [LOG] [OnboardingSync][DIAG] doc snapshot {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, step: COMPLETED, mode: UPDATE, hasCore: true, coreRole: (absent)} @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   48445ms] [LOG] [OnboardingSync] Persona Engine → primaryTrack: health (goal-derived) → dashboardMode: DEFAULT @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   48604ms] [LOG] [onboarding-sync] maxLevels source: CMS (14 programs) {human_flag: 10, push: 25, full_body: 15, core: 20, pull: 25} @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   48605ms] [LOG] [OnboardingSync] Category contribution: muscleIds=[back, biceps], health=false → pull=pull_level_1 @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   48605ms] [LOG] [OnboardingSync] Using assignedResults from dynamic questionnaire: [Object] @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   48605ms] [LOG] [OnboardingSync] Writing progression.tracks (Path B/C assessment levels): {pull: Object} @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   48606ms] [LOG] [OnboardingSync][DIAG] payload {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, step: COMPLETED, mode: UPDATE, topLevelKeys: Array(14), coreKeys: Array(16)} @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   48827ms] [LOG] [OnboardingSync] Kicking off background master-level recalculation for 1 tracks (non-blocking). @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   48980ms] [LOG] [OnboardingSync] Synced step "COMPLETED" to Firestore for user Hv0hBzUPThOeMLrB5zpZLzQGq6G2 @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   49113ms] [INFO] [User Service] User Hv0hBzUPThOeMLrB5zpZLzQGq6G2 has missing or empty equipment profile. This may affect Smart Swap functionality. Please update user equipment in the admin panel. @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   49163ms] [LOG] [HealthDeclaration] pdf-service preloaded in background. @ https://outrun.co.il/_next/static/chunks/7343-52f937f3d4f34f2e.js:0
+[   50104ms] [LOG] [Progression] Master "47smw26hUyG5ZbE1bhr3" (slug: "upper_body") recalculated → Level 1, 0.00% (from 2 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   50859ms] [LOG] [KellyBot] Welcome DM seeded for user: Hv0hBzUPThOeMLrB5zpZLzQGq6G2 @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   51555ms] [LOG] [Progression] Master "H2279XsRGDg9G370J7S9" (slug: "full_body") recalculated → Level 1, 0.00% (from 5 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   52946ms] [LOG] [Progression] calisthenics_upper averaging: Tier 3 (foundational exclusion only — skillFocusIds absent) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   52946ms] [WARNING] [Progression] getMasterProgramProgress: empty filter for master "calisthenics_upper" (id: "JCac76p48XGZ5MVahLI2") — 1 configured child [pull] were ALL rejected by the averaging filter. skillFocusIds: [none]. Aborting recalculation to prevent level wipeout (routingEmptySkip=true). @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   52946ms] [WARNING] [Progression] recalculateMasterLevel: ABORTED write for master "JCac76p48XGZ5MVahLI2" (slug: "calisthenics_upper") — routingEmptySkip flag set by getMasterProgramProgress. Existing level 0 preserved. Check slug map coverage for skill program hashes in subPrograms[]. @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   53959ms] [LOG] [Progression] Master "fTLWzjP9gH2VNpamyCZF" (slug: "muscle_up") recalculated → Level 1, 0.00% (from 2 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   54182ms] [LOG] ✅ [OnboardingSync] Background master program levels recalculated. @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   72008ms] [LOG] [PDF Service] Simpler Pro font embedded successfully @ https://outrun.co.il/_next/static/chunks/7121.5903f630e09599bf.js:0
+[   73939ms] [LOG] [Health] Calling syncOnboardingToFirestore(COMPLETED) — full running bridge + activeProgram generation @ https://outrun.co.il/_next/static/chunks/app/onboarding-new/health/page-4fe38bf7ad79c671.js:0
+[   74095ms] [LOG] [OnboardingSync][DIAG] doc snapshot {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, step: COMPLETED, mode: UPDATE, hasCore: true, coreRole: (absent)} @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   74095ms] [LOG] [OnboardingSync] Persona Engine skipped — no goal signal and primaryTrack already set: health . Leaving it untouched. @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   74240ms] [LOG] [onboarding-sync] maxLevels source: CMS (14 programs) {human_flag: 10, push: 25, full_body: 15, core: 20, pull: 25} @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   74240ms] [LOG] [OnboardingSync] Category contribution: muscleIds=[back, biceps], health=false → pull=pull_level_1 @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   74240ms] [LOG] [OnboardingSync] Using assignedResults from dynamic questionnaire: [Object] @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   74241ms] [LOG] [OnboardingSync] Writing progression.tracks (Path B/C assessment levels): {full_body: Object, H2279XsRGDg9G370J7S9: Object, pull: Object, upper_body: Object, 47smw26hUyG5ZbE1bhr3: Object} @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   74241ms] [LOG] [OnboardingSync][DIAG] payload {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, step: COMPLETED, mode: UPDATE, topLevelKeys: Array(14), coreKeys: Array(16)} @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   74509ms] [LOG] [OnboardingSync][DIAG] doc snapshot {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, step: PERSONA, mode: UPDATE, hasCore: true, coreRole: (absent)} @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   74510ms] [LOG] [OnboardingSync][DIAG] payload {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, step: PERSONA, mode: UPDATE, topLevelKeys: Array(12), coreKeys: Array(16)} @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   74603ms] [LOG] [OnboardingSync] Kicking off background master-level recalculation for 7 tracks (non-blocking). @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   74744ms] [LOG] [OnboardingSync] Synced step "COMPLETED" to Firestore for user Hv0hBzUPThOeMLrB5zpZLzQGq6G2 @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   74744ms] [LOG] [Health] Sync complete. Refreshing profile before navigation... @ https://outrun.co.il/_next/static/chunks/app/onboarding-new/health/page-4fe38bf7ad79c671.js:0
+[   74879ms] [INFO] [User Service] User Hv0hBzUPThOeMLrB5zpZLzQGq6G2 has missing or empty equipment profile. This may affect Smart Swap functionality. Please update user equipment in the admin panel. @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   74884ms] [LOG] [Health] Calling syncOnboardingToFirestore(COMPLETED) — full running bridge + activeProgram generation @ https://outrun.co.il/_next/static/chunks/app/onboarding-new/health/page-4fe38bf7ad79c671.js:0
+[   75032ms] [LOG] [OnboardingSync] Synced step "PERSONA" to Firestore for user Hv0hBzUPThOeMLrB5zpZLzQGq6G2 @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   75102ms] [LOG] [OnboardingSync][DIAG] doc snapshot {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, step: COMPLETED, mode: UPDATE, hasCore: true, coreRole: (absent)} @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   75103ms] [LOG] [OnboardingSync] Persona Engine skipped — no goal signal and primaryTrack already set: health . Leaving it untouched. @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   75261ms] [LOG] [onboarding-sync] maxLevels source: CMS (14 programs) {human_flag: 10, push: 25, full_body: 15, core: 20, pull: 25} @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   75261ms] [LOG] [OnboardingSync] Category contribution: muscleIds=[back, biceps], health=false → pull=pull_level_1 @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   75261ms] [LOG] [OnboardingSync] Using assignedResults from dynamic questionnaire: [Object] @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   75261ms] [LOG] [OnboardingSync] Writing progression.tracks (Path B/C assessment levels): {47smw26hUyG5ZbE1bhr3: Object, upper_body: Object, pull: Object, full_body: Object, H2279XsRGDg9G370J7S9: Object} @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   75262ms] [LOG] [OnboardingSync][DIAG] payload {uid: Hv0hBzUPThOeMLrB5zpZLzQGq6G2, step: COMPLETED, mode: UPDATE, topLevelKeys: Array(14), coreKeys: Array(16)} @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   75428ms] [LOG] [OnboardingSync] Kicking off background master-level recalculation for 7 tracks (non-blocking). @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   75587ms] [LOG] [OnboardingSync] Synced step "COMPLETED" to Firestore for user Hv0hBzUPThOeMLrB5zpZLzQGq6G2 @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   75587ms] [LOG] [Health] Sync complete. Refreshing profile before navigation... @ https://outrun.co.il/_next/static/chunks/app/onboarding-new/health/page-4fe38bf7ad79c671.js:0
+[   75590ms] [INFO] [User Service] User Hv0hBzUPThOeMLrB5zpZLzQGq6G2 has missing or empty equipment profile. This may affect Smart Swap functionality. Please update user equipment in the admin panel. @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   76401ms] [LOG] [Progression] Master "47smw26hUyG5ZbE1bhr3" (slug: "upper_body") recalculated → Level 1, 0.00% (from 2 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   76419ms] [LOG] [Progression] Master "47smw26hUyG5ZbE1bhr3" (slug: "upper_body") recalculated → Level 1, 0.00% (from 2 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   76453ms] [LOG] [Progression] Master "47smw26hUyG5ZbE1bhr3" (slug: "upper_body") recalculated → Level 1, 0.00% (from 2 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   76688ms] [LOG] [Progression] Master "47smw26hUyG5ZbE1bhr3" (slug: "upper_body") recalculated → Level 1, 0.00% (from 2 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   76777ms] [LOG] [Progression] Master "47smw26hUyG5ZbE1bhr3" (slug: "upper_body") recalculated → Level 1, 0.00% (from 2 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   76817ms] [LOG] [Progression] Master "47smw26hUyG5ZbE1bhr3" (slug: "upper_body") recalculated → Level 1, 0.00% (from 2 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   78016ms] [LOG] [Progression] Master "H2279XsRGDg9G370J7S9" (slug: "full_body") recalculated → Level 1, 0.00% (from 5 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   78077ms] [LOG] [Progression] Master "H2279XsRGDg9G370J7S9" (slug: "full_body") recalculated → Level 1, 0.00% (from 5 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   78120ms] [LOG] [Progression] Master "H2279XsRGDg9G370J7S9" (slug: "full_body") recalculated → Level 1, 0.00% (from 5 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   78289ms] [LOG] [Progression] Master "H2279XsRGDg9G370J7S9" (slug: "full_body") recalculated → Level 1, 0.00% (from 5 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   78354ms] [LOG] [Progression] Master "H2279XsRGDg9G370J7S9" (slug: "full_body") recalculated → Level 1, 0.00% (from 5 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   78388ms] [LOG] [Progression] Master "H2279XsRGDg9G370J7S9" (slug: "full_body") recalculated → Level 1, 0.00% (from 5 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   79508ms] [LOG] [Progression] calisthenics_upper averaging: Tier 3 (foundational exclusion only — skillFocusIds absent) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   79508ms] [WARNING] [Progression] getMasterProgramProgress: empty filter for master "calisthenics_upper" (id: "JCac76p48XGZ5MVahLI2") — 1 configured child [pull] were ALL rejected by the averaging filter. skillFocusIds: [none]. Aborting recalculation to prevent level wipeout (routingEmptySkip=true). @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   79508ms] [WARNING] [Progression] recalculateMasterLevel: ABORTED write for master "JCac76p48XGZ5MVahLI2" (slug: "calisthenics_upper") — routingEmptySkip flag set by getMasterProgramProgress. Existing level 0 preserved. Check slug map coverage for skill program hashes in subPrograms[]. @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   79508ms] [LOG] [Progression] calisthenics_upper averaging: Tier 3 (foundational exclusion only — skillFocusIds absent) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   79508ms] [WARNING] [Progression] getMasterProgramProgress: empty filter for master "calisthenics_upper" (id: "JCac76p48XGZ5MVahLI2") — 1 configured child [pull] were ALL rejected by the averaging filter. skillFocusIds: [none]. Aborting recalculation to prevent level wipeout (routingEmptySkip=true). @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   79508ms] [WARNING] [Progression] recalculateMasterLevel: ABORTED write for master "JCac76p48XGZ5MVahLI2" (slug: "calisthenics_upper") — routingEmptySkip flag set by getMasterProgramProgress. Existing level 0 preserved. Check slug map coverage for skill program hashes in subPrograms[]. @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   79508ms] [LOG] [Progression] calisthenics_upper averaging: Tier 3 (foundational exclusion only — skillFocusIds absent) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   79508ms] [WARNING] [Progression] getMasterProgramProgress: empty filter for master "calisthenics_upper" (id: "JCac76p48XGZ5MVahLI2") — 1 configured child [pull] were ALL rejected by the averaging filter. skillFocusIds: [none]. Aborting recalculation to prevent level wipeout (routingEmptySkip=true). @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   79508ms] [WARNING] [Progression] recalculateMasterLevel: ABORTED write for master "JCac76p48XGZ5MVahLI2" (slug: "calisthenics_upper") — routingEmptySkip flag set by getMasterProgramProgress. Existing level 0 preserved. Check slug map coverage for skill program hashes in subPrograms[]. @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   79785ms] [LOG] [Progression] calisthenics_upper averaging: Tier 3 (foundational exclusion only — skillFocusIds absent) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   79785ms] [WARNING] [Progression] getMasterProgramProgress: empty filter for master "calisthenics_upper" (id: "JCac76p48XGZ5MVahLI2") — 1 configured child [pull] were ALL rejected by the averaging filter. skillFocusIds: [none]. Aborting recalculation to prevent level wipeout (routingEmptySkip=true). @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   79786ms] [WARNING] [Progression] recalculateMasterLevel: ABORTED write for master "JCac76p48XGZ5MVahLI2" (slug: "calisthenics_upper") — routingEmptySkip flag set by getMasterProgramProgress. Existing level 0 preserved. Check slug map coverage for skill program hashes in subPrograms[]. @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   79786ms] [LOG] [Progression] calisthenics_upper averaging: Tier 3 (foundational exclusion only — skillFocusIds absent) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   79786ms] [WARNING] [Progression] getMasterProgramProgress: empty filter for master "calisthenics_upper" (id: "JCac76p48XGZ5MVahLI2") — 1 configured child [pull] were ALL rejected by the averaging filter. skillFocusIds: [none]. Aborting recalculation to prevent level wipeout (routingEmptySkip=true). @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   79786ms] [WARNING] [Progression] recalculateMasterLevel: ABORTED write for master "JCac76p48XGZ5MVahLI2" (slug: "calisthenics_upper") — routingEmptySkip flag set by getMasterProgramProgress. Existing level 0 preserved. Check slug map coverage for skill program hashes in subPrograms[]. @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   79786ms] [LOG] [Progression] calisthenics_upper averaging: Tier 3 (foundational exclusion only — skillFocusIds absent) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   79786ms] [WARNING] [Progression] getMasterProgramProgress: empty filter for master "calisthenics_upper" (id: "JCac76p48XGZ5MVahLI2") — 1 configured child [pull] were ALL rejected by the averaging filter. skillFocusIds: [none]. Aborting recalculation to prevent level wipeout (routingEmptySkip=true). @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   79786ms] [WARNING] [Progression] recalculateMasterLevel: ABORTED write for master "JCac76p48XGZ5MVahLI2" (slug: "calisthenics_upper") — routingEmptySkip flag set by getMasterProgramProgress. Existing level 0 preserved. Check slug map coverage for skill program hashes in subPrograms[]. @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   80906ms] [LOG] [Progression] Master "fTLWzjP9gH2VNpamyCZF" (slug: "muscle_up") recalculated → Level 1, 0.00% (from 2 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   80954ms] [LOG] [Progression] Master "fTLWzjP9gH2VNpamyCZF" (slug: "muscle_up") recalculated → Level 1, 0.00% (from 2 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   81004ms] [LOG] [Progression] Master "fTLWzjP9gH2VNpamyCZF" (slug: "muscle_up") recalculated → Level 1, 0.00% (from 2 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   81085ms] [LOG] [Progression] Master "fTLWzjP9gH2VNpamyCZF" (slug: "muscle_up") recalculated → Level 1, 0.00% (from 2 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   81111ms] [LOG] [Progression] Master "fTLWzjP9gH2VNpamyCZF" (slug: "muscle_up") recalculated → Level 1, 0.00% (from 2 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   81143ms] [LOG] [Progression] Master "fTLWzjP9gH2VNpamyCZF" (slug: "muscle_up") recalculated → Level 1, 0.00% (from 2 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   82289ms] [LOG] [Progression] Master "47smw26hUyG5ZbE1bhr3" (slug: "upper_body") recalculated → Level 1, 0.00% (from 2 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   82335ms] [LOG] [Progression] Master "47smw26hUyG5ZbE1bhr3" (slug: "upper_body") recalculated → Level 1, 0.00% (from 2 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   82553ms] [LOG] [Progression] Master "47smw26hUyG5ZbE1bhr3" (slug: "upper_body") recalculated → Level 1, 0.00% (from 2 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   82607ms] [LOG] [Progression] Master "47smw26hUyG5ZbE1bhr3" (slug: "upper_body") recalculated → Level 1, 0.00% (from 2 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   83789ms] [LOG] [Progression] Master "H2279XsRGDg9G370J7S9" (slug: "full_body") recalculated → Level 1, 0.00% (from 5 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   83814ms] [LOG] [Progression] Master "H2279XsRGDg9G370J7S9" (slug: "full_body") recalculated → Level 1, 0.00% (from 5 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   84048ms] [LOG] [Progression] Master "H2279XsRGDg9G370J7S9" (slug: "full_body") recalculated → Level 1, 0.00% (from 5 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   84083ms] [LOG] [Progression] Master "H2279XsRGDg9G370J7S9" (slug: "full_body") recalculated → Level 1, 0.00% (from 5 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   84670ms] [LOG] [ActivityStore] No Firestore data, created new day @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   84670ms] [LOG] [ActivityStore] No Firestore data, created new day @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   84670ms] [LOG] [ActivityStore] No Firestore data, created new day @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   84807ms] [INFO] [User Service] User Hv0hBzUPThOeMLrB5zpZLzQGq6G2 has missing or empty equipment profile. This may affect Smart Swap functionality. Please update user equipment in the admin panel. @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   84810ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   84812ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   84814ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   84826ms] [LOG] [HomeContext] Domain 'muscle_up' resolved to L1 (Source: Domains) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   84826ms] [LOG] [HomeContext] Domain 'H2279XsRGDg9G370J7S9' → slug 'full_body' dual-keyed at L1 (Source: Domains) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   84827ms] [LOG] [HomeContext] Domain 'pull' resolved to L1 (Source: Domains) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   84827ms] [LOG] [HomeContext] Domain 'fTLWzjP9gH2VNpamyCZF' resolved to L1 (Source: Domains) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   84827ms] [LOG] [HomeContext] Domain 'full_body' resolved to L1 (Source: Domains) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   84827ms] [LOG] [HomeContext] Domain 'upper_body' resolved to L1 (Source: Domains) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   84827ms] [LOG] [HomeContext] Domain '47smw26hUyG5ZbE1bhr3' resolved to L1 (Source: Domains) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   84827ms] [LOG] [HomeContext] Domain 'handstand' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   84827ms] [LOG] [HomeContext] Domain 'legs' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   84827ms] [LOG] [HomeContext] Domain 'planche' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   84827ms] [LOG] [HomeContext] Domain 'calisthenics_upper' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   84827ms] [LOG] [HomeContext] Domain 'push' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   84827ms] [LOG] [HomeContext] Domain 'one_arm_pullup' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   84827ms] [LOG] [HomeContext] Domain 'handstand_pushup' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   84827ms] [LOG] [HomeContext] Domain 'front_lever' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   84827ms] [LOG] [HomeContext] Domain 'core' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   84827ms] [LOG] [HomeContext] Domain 'human_flag' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   84827ms] [LOG] [home] scoreBreakdown "full-strength" (score=30): {goalMatch: 30, gapFilling: 0, stepDeficit: 0, preferenceMatch: 0, recoveryMatch: 0} @ https://outrun.co.il/_next/static/chunks/app/home/page-23685a53b847abc6.js:0
+[   84829ms] [LOG] [HomeWorkout] 🏞️ No location specified → "park" (PARK FORCE active) @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   84829ms] [LOG] [LOC-OVERRIDE] {"requested":null,"requestedSource":"none","resolved":"park","winner":"PARK_FORCE","path":"generateHomeWorkoutTrio"} @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   84829ms] [LOG] [HomeWorkout] scheduledProgramIds normalised: [] → [pull] @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   84829ms] [LOG] [home] scoreBreakdown "safety-net" (score=0): {goalMatch: 0, gapFilling: 0, stepDeficit: 0, preferenceMatch: 0, recoveryMatch: 0} @ https://outrun.co.il/_next/static/chunks/app/home/page-23685a53b847abc6.js:0
+[   85659ms] [LOG] [HomeWorkout:Trio] Domain 'muscle_up' resolved to L1 (Source: Domains) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85659ms] [LOG] [HomeWorkout:Trio] Skipping master program "H2279XsRGDg9G370J7S9" (display-only) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85659ms] [LOG] [HomeWorkout:Trio] Domain 'pull' resolved to L1 (Source: Domains) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85659ms] [LOG] [HomeWorkout:Trio] Skipping master program "fTLWzjP9gH2VNpamyCZF" (display-only) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85659ms] [LOG] [HomeWorkout:Trio] Domain 'full_body' resolved to L1 (Source: Domains) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85659ms] [LOG] [HomeWorkout:Trio] Domain 'upper_body' resolved to L1 (Source: Domains) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85659ms] [LOG] [HomeWorkout:Trio] Skipping master program "47smw26hUyG5ZbE1bhr3" (display-only) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85659ms] [LOG] [HomeWorkout:Trio] Domain 'handstand' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85659ms] [LOG] [HomeWorkout:Trio] Domain 'legs' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85659ms] [LOG] [HomeWorkout:Trio] Domain 'planche' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85659ms] [LOG] [HomeWorkout:Trio] Domain 'calisthenics_upper' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85659ms] [LOG] [HomeWorkout:Trio] Domain 'push' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85659ms] [LOG] [HomeWorkout:Trio] Domain 'one_arm_pullup' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85659ms] [LOG] [HomeWorkout:Trio] Domain 'handstand_pushup' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85659ms] [LOG] [HomeWorkout:Trio] Domain 'front_lever' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85659ms] [LOG] [HomeWorkout:Trio] Domain 'core' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85659ms] [LOG] [HomeWorkout:Trio] Domain 'human_flag' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85659ms] [LOG] [HomeWorkout:Trio] [MasterDerive] "H2279XsRGDg9G370J7S9" → L1 (avg of [1] = 1, cap=15) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85659ms] [LOG] [HomeWorkout:Trio] [MasterDerive] "fTLWzjP9gH2VNpamyCZF" → L1 (avg of [1] = 1, cap=15) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85659ms] [LOG] [HomeWorkout:Trio] [MasterDerive] "47smw26hUyG5ZbE1bhr3" → L1 (avg of [1] = 1, cap=15) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85659ms] [LOG] [HomeWorkout:Trio] [MasterDerive] "JCac76p48XGZ5MVahLI2" → L1 (avg of [1] = 1, cap=15) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85660ms] [LOG] [HomeWorkout] Empty equipment profile for location "park" — defaulting to bodyweight @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85660ms] [WARNING] [InputSanitizer] ⚠️ No park inventory resolved — ESSENTIAL_PARK_GEAR fallback active @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85660ms] [LOG] [DomainBudget] activeProgramId="pull" slug="pull" resolvedChildDomains=[pull] isFullBodyMaster=false isCalisthenicsUpperMaster=false isUpperBodyMaster=false @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85660ms] [LOG] activeProgramId: pull @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85660ms] [LOG] progression.tracks: {muscle_up: Object, H2279XsRGDg9G370J7S9: Object, pull: Object, fTLWzjP9gH2VNpamyCZF: Object, full_body: Object} @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85660ms] [LOG] progression.domains: {handstand: Object, legs: Object, planche: Object, upper_body: Object, pull: Object} @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85660ms] [LOG] progression.activePrograms: [Object] @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85661ms] [LOG] progression.skillFocusIds: (none) @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85661ms] [LOG] progression.masterProgramSubLevels: (none) @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85661ms] [LOG] Derived userLevel (base): 1 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85661ms] [LOG] scheduleDays count: 2 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85661ms] [LOG] Base User Level: 1 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85661ms] [LOG] Schedule Days (total / remaining): 2 / 2 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85661ms] [LOG] Source: Admin Panel (ProgramLevelSettings) @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85661ms] [LOG] Effective Weekly Budget: 10 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85661ms] [LOG] Completed This Week (all domains): 0 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85661ms] [LOG] Remaining Sets: 10 = 10 − 0 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85661ms] [LOG] Daily Budget: ceil(10 / 2) = 5 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85661ms] [LOG] Final dailySetBudget (min 2): 5 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85661ms] [LOG] [SplitDecision] P1/P2 sort (gender=default/male): [pull] @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85661ms] [LOG] [Periodization] Cycle clock: startDate=2026-09-22 daysSinceStart=0 → Week 1/5 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85661ms] [LOG]   Inputs:        cycleWeek=1, gapDays=0 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85661ms] [LOG]   Volume mult:   x1 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85661ms] [LOG]   Δ override:    none @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85661ms] [LOG]   Protocol mult: x1 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85661ms] [LOG]   SA cap:        none @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85661ms] [LOG]   Detraining:    false @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85661ms] [LOG]   Default focus: Normal(1) @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85661ms] [LOG]   Restart cycle: false @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85661ms] [LOG] [SkillPriority] wired: resolvedChildDomains=[pull] → priority={pull:1} @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85661ms] [LOG] [InputSanitizer] Skill-sibling expansion for 'pull': added [muscle_up, front_lever, back_lever, one_arm_pullup] → filters now [pull, muscle_up, front_lever, back_lever, one_arm_pullup] @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85662ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "חתירות ב-75°" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=1) activeProgramId="pull" (movementGroup=horizontal_pull, muscle=back) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85662ms] [WARNING] [ParkGating] "חתירות ב-75°" — 3 park method(s) all gated → exercise excluded Required gear not in park inventory: [Object, Object, Object] Available: [bodyweight, pullup_bar, dip_station, bench, low_bar, high_bar, step, park_bench, park_step] @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85662ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "כפיפת מרפקים במשקל גוף 45°" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=13) activeProgramId="pull" (movementGroup=isolation, muscle=biceps) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85662ms] [LOG] [ShadowLevel] TARGET PROGRAM: "נדנוד הכנה לעליית כוח" → program="fTLWzjP9gH2VNpamyCZF" (slug="muscle_up") userLevel=1 (adminTag=2) (movementGroup=vertical_pull, muscle=back) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85663ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "תלייה פסיבית בתמיכת הרגליים" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=1) activeProgramId="pull" (movementGroup=vertical_pull, muscle=shoulders) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85663ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "מתח צר" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=12) activeProgramId="pull" (movementGroup=vertical_pull, muscle=back) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85663ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "מתח באחיזה מעורבת" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=13) activeProgramId="pull" (movementGroup=vertical_pull, muscle=back) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85663ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "מתח קומנדו" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=11) activeProgramId="pull" (movementGroup=vertical_pull, muscle=back) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85663ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "מתח רחב" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=12) activeProgramId="pull" (movementGroup=vertical_pull, muscle=back) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85663ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "מתח" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=11) activeProgramId="pull" (movementGroup=vertical_pull, muscle=back) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85663ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "מתח סופינציה מתפרץ" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=12) activeProgramId="pull" (movementGroup=vertical_pull, muscle=back) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85663ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "מתח סופינציה" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=10) activeProgramId="pull" (movementGroup=vertical_pull, muscle=back) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85663ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "משיכות Y" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=10) activeProgramId="pull" (movementGroup=horizontal_pull, muscle=shoulders) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85663ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "פרפר הפוך" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=10) activeProgramId="pull" (movementGroup=horizontal_pull, muscle=shoulders) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85663ms] [LOG] [ShadowLevel] TARGET PROGRAM: "חתירות באחיזה עמוקה" → program="fTLWzjP9gH2VNpamyCZF" (slug="muscle_up") userLevel=1 (adminTag=1) (movementGroup=horizontal_pull, muscle=back) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85663ms] [WARNING] [ParkGating] "חתירות באחיזה עמוקה" — 1 park method(s) all gated → exercise excluded Required gear not in park inventory: [Object] Available: [bodyweight, pullup_bar, dip_station, bench, low_bar, high_bar, step, park_bench, park_step] @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85663ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "מתח מתפרץ עם גומייה בינונית" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=13) activeProgramId="pull" (movementGroup=vertical_pull, muscle=back) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85663ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "החזקת חתירה ב-90° מעלות במרפק" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=3) activeProgramId="pull" (movementGroup=horizontal_pull, muscle=back) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85663ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "חתירות ב-15° עם ברכיים כפופות" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=4) activeProgramId="pull" (movementGroup=horizontal_pull, muscle=back) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85663ms] [WARNING] [ParkGating] "חתירות ב-15° עם ברכיים כפופות" — 3 park method(s) all gated → exercise excluded Required gear not in park inventory: [Object, Object, Object] Available: [bodyweight, pullup_bar, dip_station, bench, low_bar, high_bar, step, park_bench, park_step] @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85663ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "מתח שכמות יד אחת עם תמיכה" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=12) activeProgramId="pull" (movementGroup=vertical_pull, muscle=traps) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85663ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "חתירות ב-30°" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=3) activeProgramId="pull" (movementGroup=horizontal_pull, muscle=back) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85663ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "חתירות קשתים ב-45°" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=12) activeProgramId="pull" (movementGroup=horizontal_pull, muscle=back) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85663ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "מתח אוסטרלי ב-60° מעלות" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=1) activeProgramId="pull" (movementGroup=horizontal_pull, muscle=back) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85663ms] [LOG] [ShadowLevel] TARGET PROGRAM: "בננה סופרמן על המתח" → program="fTLWzjP9gH2VNpamyCZF" (slug="muscle_up") userLevel=1 (adminTag=1) (movementGroup=isolation, muscle=shoulders) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85663ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "מתח שכמות קשתים" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=11) activeProgramId="pull" (movementGroup=vertical_pull, muscle=traps) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85663ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "חתירות ב-45°" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=2) activeProgramId="pull" (movementGroup=horizontal_pull, muscle=back) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85663ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "מתח אוסטרלי ב-30° מעלות" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=3) activeProgramId="pull" (movementGroup=horizontal_pull, muscle=back) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85663ms] [LOG] [ShadowLevel] TARGET PROGRAM: "תלייה באחיזה עמוקה" → program="fTLWzjP9gH2VNpamyCZF" (slug="muscle_up") userLevel=1 (adminTag=2) (movementGroup=vertical_pull, muscle=forearms) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85663ms] [WARNING] [ParkGating] "תלייה באחיזה עמוקה" — 1 park method(s) all gated → exercise excluded Required gear not in park inventory: [Object] Available: [bodyweight, pullup_bar, dip_station, bench, low_bar, high_bar, step, park_bench, park_step] @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85664ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "חתירות ב-60°" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=1) activeProgramId="pull" (movementGroup=horizontal_pull, muscle=back) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85664ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "תלייה פסיבית" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=2) activeProgramId="pull" (movementGroup=vertical_pull, muscle=shoulders) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85664ms] [LOG] [ShadowLevel] TARGET PROGRAM: "נדנוד הכנה לעליית כוח" → program="fTLWzjP9gH2VNpamyCZF" (slug="muscle_up") userLevel=1 (adminTag=2) (movementGroup=vertical_pull, muscle=back) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85664ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "תלייה פסיבית בתמיכת הרגליים" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=1) activeProgramId="pull" (movementGroup=vertical_pull, muscle=shoulders) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85664ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "החזקת חתירה ב-90° מעלות במרפק" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=3) activeProgramId="pull" (movementGroup=horizontal_pull, muscle=back) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85664ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "חתירות ב-30°" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=3) activeProgramId="pull" (movementGroup=horizontal_pull, muscle=back) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85664ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "מתח אוסטרלי ב-60° מעלות" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=1) activeProgramId="pull" (movementGroup=horizontal_pull, muscle=back) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85664ms] [LOG] [ShadowLevel] TARGET PROGRAM: "בננה סופרמן על המתח" → program="fTLWzjP9gH2VNpamyCZF" (slug="muscle_up") userLevel=1 (adminTag=1) (movementGroup=isolation, muscle=shoulders) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85664ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "חתירות ב-45°" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=2) activeProgramId="pull" (movementGroup=horizontal_pull, muscle=back) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85664ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "מתח אוסטרלי ב-30° מעלות" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=3) activeProgramId="pull" (movementGroup=horizontal_pull, muscle=back) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85664ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "חתירות ב-60°" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=1) activeProgramId="pull" (movementGroup=horizontal_pull, muscle=back) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85664ms] [LOG] [ShadowLevel] ACTIVE PROGRAM MATCH: "תלייה פסיבית" → program="UPDBtTdCvX748dtBlWYj" (slug="pull") userLevel=1 (adminTag=2) activeProgramId="pull" (movementGroup=vertical_pull, muscle=shoulders) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   85664ms] [WARNING] [PoolFactory] ⚠️ profileStale: all userProgramLevels are L≤1 — onboarding background sync (recalculateAncestorMasters) may still be in flight. Proceeding with L1 defaults; workout will regenerate on next mount. @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   85664ms] [LOG] [WorkoutTrio] Shared pipeline: 10 scored exercises (93 excluded), 370 total in DB @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85664ms] [LOG] [WorkoutTrio] Filter breakdown — program_filter: 75, level_tolerance: 14, skill_gate: 0, location: 4, injury: 0, passed: 10 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85800ms] [LOG] [WorkoutTrio] No app_config/workout_trio doc → using pre-seeded Hebrew labels @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85801ms] [LOG] [LOC-OVERRIDE] {"requested":null,"requestedSource":"none","resolved":"park","winner":"DEFAULT_LOCATION","path":"tryRestDayFastPath"} @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85801ms] [LOG] [WorkoutTrio] Rest-day fast path: 3 options from pool of 7 (targeted query, full pipeline skipped) @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   85801ms] [LOG] [home] scoreBreakdown "recovery-follow-up" (score=0): {goalMatch: 0, gapFilling: 0, stepDeficit: 0, preferenceMatch: 0, recoveryMatch: 0} @ https://outrun.co.il/_next/static/chunks/app/home/page-23685a53b847abc6.js:0
+[   86025ms] [LOG] [ActivityStore] No Firestore data, created new day @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   86025ms] [LOG] [ActivityStore] No Firestore data, created new day @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   86025ms] [LOG] [ActivityStore] No Firestore data, created new day @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   86127ms] [LOG] [HomeContext] Domain 'muscle_up' resolved to L1 (Source: Domains) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   86127ms] [LOG] [HomeContext] Domain 'H2279XsRGDg9G370J7S9' → slug 'full_body' dual-keyed at L1 (Source: Domains) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   86127ms] [LOG] [HomeContext] Domain 'pull' resolved to L1 (Source: Domains) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   86127ms] [LOG] [HomeContext] Domain 'fTLWzjP9gH2VNpamyCZF' resolved to L1 (Source: Domains) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   86127ms] [LOG] [HomeContext] Domain 'full_body' resolved to L1 (Source: Domains) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   86127ms] [LOG] [HomeContext] Domain 'upper_body' resolved to L1 (Source: Domains) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   86127ms] [LOG] [HomeContext] Domain '47smw26hUyG5ZbE1bhr3' resolved to L1 (Source: Domains) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   86127ms] [LOG] [HomeContext] Domain 'handstand' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   86127ms] [LOG] [HomeContext] Domain 'legs' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   86127ms] [LOG] [HomeContext] Domain 'planche' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   86127ms] [LOG] [HomeContext] Domain 'calisthenics_upper' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   86127ms] [LOG] [HomeContext] Domain 'push' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   86127ms] [LOG] [HomeContext] Domain 'one_arm_pullup' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   86128ms] [LOG] [HomeContext] Domain 'handstand_pushup' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   86128ms] [LOG] [HomeContext] Domain 'front_lever' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   86128ms] [LOG] [HomeContext] Domain 'core' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   86128ms] [LOG] [HomeContext] Domain 'human_flag' — no assessed level, left ABSENT (no invention) @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   86218ms] [LOG] [WorkoutTrio] Settings resolved → protocols: ⚠️  none (straight sets — check Firestore doc) | goals: none | tabata: off @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   86219ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   86221ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   86222ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   86224ms] [LOG] [Progression] calisthenics_upper averaging: Tier 3 (foundational exclusion only — skillFocusIds absent) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   86224ms] [WARNING] [Progression] getMasterProgramProgress: empty filter for master "calisthenics_upper" (id: "JCac76p48XGZ5MVahLI2") — 1 configured child [pull] were ALL rejected by the averaging filter. skillFocusIds: [none]. Aborting recalculation to prevent level wipeout (routingEmptySkip=true). @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   86224ms] [WARNING] [Progression] recalculateMasterLevel: ABORTED write for master "JCac76p48XGZ5MVahLI2" (slug: "calisthenics_upper") — routingEmptySkip flag set by getMasterProgramProgress. Existing level 0 preserved. Check slug map coverage for skill program hashes in subPrograms[]. @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   86224ms] [LOG] [Progression] calisthenics_upper averaging: Tier 3 (foundational exclusion only — skillFocusIds absent) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   86224ms] [WARNING] [Progression] getMasterProgramProgress: empty filter for master "calisthenics_upper" (id: "JCac76p48XGZ5MVahLI2") — 1 configured child [pull] were ALL rejected by the averaging filter. skillFocusIds: [none]. Aborting recalculation to prevent level wipeout (routingEmptySkip=true). @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   86224ms] [WARNING] [Progression] recalculateMasterLevel: ABORTED write for master "JCac76p48XGZ5MVahLI2" (slug: "calisthenics_upper") — routingEmptySkip flag set by getMasterProgramProgress. Existing level 0 preserved. Check slug map coverage for skill program hashes in subPrograms[]. @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   86224ms] [LOG] [Progression] calisthenics_upper averaging: Tier 3 (foundational exclusion only — skillFocusIds absent) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   86224ms] [WARNING] [Progression] getMasterProgramProgress: empty filter for master "calisthenics_upper" (id: "JCac76p48XGZ5MVahLI2") — 1 configured child [pull] were ALL rejected by the averaging filter. skillFocusIds: [none]. Aborting recalculation to prevent level wipeout (routingEmptySkip=true). @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   86224ms] [WARNING] [Progression] recalculateMasterLevel: ABORTED write for master "JCac76p48XGZ5MVahLI2" (slug: "calisthenics_upper") — routingEmptySkip flag set by getMasterProgramProgress. Existing level 0 preserved. Check slug map coverage for skill program hashes in subPrograms[]. @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   86224ms] [LOG] [Progression] calisthenics_upper averaging: Tier 3 (foundational exclusion only — skillFocusIds absent) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   86224ms] [WARNING] [Progression] getMasterProgramProgress: empty filter for master "calisthenics_upper" (id: "JCac76p48XGZ5MVahLI2") — 1 configured child [pull] were ALL rejected by the averaging filter. skillFocusIds: [none]. Aborting recalculation to prevent level wipeout (routingEmptySkip=true). @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   86224ms] [WARNING] [Progression] recalculateMasterLevel: ABORTED write for master "JCac76p48XGZ5MVahLI2" (slug: "calisthenics_upper") — routingEmptySkip flag set by getMasterProgramProgress. Existing level 0 preserved. Check slug map coverage for skill program hashes in subPrograms[]. @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   86380ms] [LOG] [ExerciseHistory] Loaded history for 0/10 exercises (1 chunked 'in' query) @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   86380ms] [LOG] [WorkoutTrio] Exercise history loaded: 0/10 exercises have prior session data (David Staircase floor active). @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   86380ms] [LOG] [WorkoutTrio] Protocol probability passed to generator: 0.00 (base=0, multiplier=1, week=1) @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   86590ms] [LOG] [WorkoutTrio] No app_config/workout_trio doc → using pre-seeded Hebrew labels @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   86590ms] [LOG] [WorkoutTrio] Labels (fallback): [מאוזן, עצים ומהיר, אימון פארק קליל] @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   86590ms] [LOG] [WorkoutTrio] Bolt2: honouring requested 30min (ceiling 45min, explicit=false) @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   86590ms] [LOG] [PipelineOrchestrator] Pool OK: 10 survivors at location=park (gear=9) → normal generation (sparse contexts degrade to bodyweight, not recovery). @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   86591ms] [LOG] [PipelineOrchestrator] 🔒 Domain-strict filter: removed 2/10 exercises that failed pull L1 ±3 check @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   86591ms] [WARNING] [PipelineOrchestrator] ⚠️ profileStale: userProgramLevels all ≤ L1 — onboarding background sync may still be in flight. Generation proceeds with L1 defaults. @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   86592ms] [LOG] [InputSanitizer:Periodization] Phase=BUILD(W1) effectiveDifficulty=2 @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   86593ms] [LOG] Foundation Buffer: 6 exercises boosted (+30) — Pull-ups/Dips/Push-ups/Rows prioritised @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86593ms] [LOG] Vertical Preference: 2 exercises boosted (diminishing: 15/8) @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86593ms] [LOG] Equipment Synergy: "dip_station" dominant → 6 exercises boosted (+8) @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86593ms] [LOG] Modality Match: "bent_arm" dominant → 6 exercises boosted (+10) @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86593ms] [LOG] [LevelSync] DifficultyFilter: globalLevel=L1, domainLevels={muscle_up:L1, pull:L1, full_body:L1, upper_body:L1} @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   86593ms] [LOG] [Bolt2Cap] L2 (activeProgram=pull): filtered out 3 above-ceiling exercise(s). Pool: 8 → 5 @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86594ms] [LOG] [WorkoutGenerator] Domain quotas: pull → 5 exercises @ https://outrun.co.il/_next/static/chunks/4861-287971d6b3653881.js:0
+[   86594ms] [LOG] [MGDiversity] Single-domain mode: slug-dedup only, all 5 exercises kept @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86595ms] [LOG] [BudgetDistributor.balancedClusterCap] D2 balanced session — culled 2 exercise(s) → 3 clustered exercises (diverse=false, domains=1, longSession=false, availableTime=30). Sets: 3/3/2 @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86595ms] [LOG] [WorkoutGenerator][selectProtocol] difficulty=2 | adminProtocols=null | adminProbability=0 | periodizationWeek=1 @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86595ms] [LOG] [WorkoutGenerator][selectProtocol] No protocols configured — straight sets @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86596ms] [LOG] [GuaranteePassRunner] ⏭️  Bypassing VerticalFoundationGuarantee — single_domain strategy (track-specialized session) @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86596ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 2m 48s     │ 22m 51s    │ 24m 39s    │  ← 22m rest = 92% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 24m 39s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86596ms] [LOG]   + Main transitions (2 × 30s): 60s @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86596ms] [LOG]   = Final Duration: 25 min @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86596ms] [TABLE] [Object, Object, Object] @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86596ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 2m 48s     │ 22m 51s    │ 24m 39s    │  ← 22m rest = 92% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 24m 39s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86596ms] [LOG]   + Main transitions (2 × 30s): 60s @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86596ms] [LOG]   = Final Duration: 25 min @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86596ms] [TABLE] [Object, Object, Object] @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86597ms] [LOG] [Engine] Pool: 103→28→10→5→5(raw)→5(diverse) | Selected: 3 | Budget: ?/5 remaining/daily | Difficulty: 2 | Sets: 8 @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86597ms] [LOG] [1] תלייה פסיבית | programLevel=2 [LevelResolution] תלייה פסיבית → L2 via pull | userDomainL=1 | Tier=hard | Sets=3 Hold=15s Rest=173s | Video=YES @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86597ms] [LOG] [2] חתירות ב-45° | programLevel=2 [LevelResolution] חתירות ב-45° → L2 via pull | userDomainL=1 | Tier=hard | Sets=2 Reps=3 Rest=180s | Video=YES @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86597ms] [LOG] [3] תלייה פסיבית בתמיכת הרגליים | programLevel=1 [LevelResolution] תלייה פסיבית בתמיכת הרגליים → L1 via pull | userDomainL=1 | Tier=match | Sets=3 Hold=15s Rest=144s | Video=YES @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86597ms] [LOG] [BudgetDistributor.reapplyCaps] reapply_daily: 8→7 (cap=5) @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86597ms] [LOG] [Warmup] Pool: 370 total | follow-along: 13 | role=warmup: 1 | mobility-tag: 0 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   86598ms] [LOG] [Warmup] Stage 1: "(none)" selected (none) @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   86598ms] [LOG] [Warmup] Level 1 ≤ 2 → General Mobility only @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   86598ms] [LOG]   ETMVVSpt0lIpeF3mkEn6 "מתיחות פלג גוף עליון לבדיקה": OK @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   86598ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 2m 33s     │ 19m 27s    │ 21m 0s     │  ← 19m rest = 93% of main block
+│  Cooldown   │ 2m 30s     │ 0m 0s      │ 2m 30s     │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 23m 30s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86598ms] [LOG]   + Main transitions (3 × 30s): 90s @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86598ms] [LOG]   = Final Duration: 24 min @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86598ms] [TABLE] [Object, Object, Object, Object] @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86599ms] [LOG] [PresentationFormatter.volumeCap] PhaseD: bumped "חתירות ב-45°" to 3 sets — still 24m < 30-3m @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   86599ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 2m 42s     │ 22m 27s    │ 24m 9s     │  ← 22m rest = 93% of main block
+│  Cooldown   │ 2m 30s     │ 0m 0s      │ 2m 30s     │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 26m 39s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86599ms] [LOG]   + Main transitions (3 × 30s): 90s @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86599ms] [LOG]   = Final Duration: 28 min @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86599ms] [TABLE] [Object, Object, Object, Object] @ https://outrun.co.il/_next/static/chunks/6357-ac31def98c822bf9.js:0
+[   86599ms] [LOG] [PresentationFormatter.volumeCap] Done after 1 step(s): 28m, 9 sets, 3 main exercises @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   87105ms] [LOG] [PresentationFormatter] 🪜 Final domain-priority sort applied (order stable, 4 exercises, מאוזן) @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   87105ms] [LOG] [WorkoutTrio] Option 2 (מאוזן): D2, 4 exercises, 9 sets, ~28min @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   87105ms] [LOG] [WorkoutTrio] Single-option path — padded 3 slots with the same workout @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   87105ms] [LOG]   Difficulty: 2 ⚡⚡ @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   87105ms] [LOG]   Title: אתגר כל הרמות_הבאה בפארק @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   87105ms] [LOG]   Duration: ~28 min @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   87105ms] [LOG]   Warmups: 0 | Main: 3 | Sets: 9 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   87105ms] [LOG]   Gear: 2 ⚠️ [rsGezdRxG5hayY7x88pJ, csqmVzvLLVADJigVEYLd] @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   87105ms] [LOG]   Exercises: [תלייה פסיבית, חתירות ב-45°, תלייה פסיבית בתמיכת הרגליים] @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   87105ms] [LOG]   Difficulty: 2 ⚡⚡ @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   87105ms] [LOG]   Title: אתגר כל הרמות_הבאה בפארק @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   87105ms] [LOG]   Duration: ~28 min @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   87105ms] [LOG]   Warmups: 0 | Main: 3 | Sets: 9 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   87105ms] [LOG]   Gear: 2 ⚠️ [rsGezdRxG5hayY7x88pJ, csqmVzvLLVADJigVEYLd] @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   87105ms] [LOG]   Exercises: [תלייה פסיבית, חתירות ב-45°, תלייה פסיבית בתמיכת הרגליים] @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   87105ms] [LOG]   Difficulty: 2 ⚡⚡ @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   87105ms] [LOG]   Title: אתגר כל הרמות_הבאה בפארק @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   87105ms] [LOG]   Duration: ~28 min @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   87105ms] [LOG]   Warmups: 0 | Main: 3 | Sets: 9 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   87105ms] [LOG]   Gear: 2 ⚠️ [rsGezdRxG5hayY7x88pJ, csqmVzvLLVADJigVEYLd] @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   87105ms] [LOG]   Exercises: [תלייה פסיבית, חתירות ב-45°, תלייה פסיבית בתמיכת הרגליים] @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   87105ms] [LOG] Overlap: 1↔2=3, 1↔3=3, 2↔3=3 @ https://outrun.co.il/_next/static/chunks/1381-512dec718f2d45e5.js:0
+[   87617ms] [LOG] [Progression] Master "fTLWzjP9gH2VNpamyCZF" (slug: "muscle_up") recalculated → Level 1, 0.00% (from 2 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   87663ms] [LOG] [Progression] Master "fTLWzjP9gH2VNpamyCZF" (slug: "muscle_up") recalculated → Level 1, 0.00% (from 2 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   87687ms] [LOG] [Progression] Master "fTLWzjP9gH2VNpamyCZF" (slug: "muscle_up") recalculated → Level 1, 0.00% (from 2 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   87711ms] [LOG] [Progression] Master "fTLWzjP9gH2VNpamyCZF" (slug: "muscle_up") recalculated → Level 1, 0.00% (from 2 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   89344ms] [LOG] [Progression] Master "H2279XsRGDg9G370J7S9" (slug: "full_body") recalculated → Level 1, 0.00% (from 5 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   89408ms] [LOG] [Progression] Master "H2279XsRGDg9G370J7S9" (slug: "full_body") recalculated → Level 1, 0.00% (from 5 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   91217ms] [LOG] [Progression] Master "H2279XsRGDg9G370J7S9" (slug: "full_body") recalculated → Level 1, 0.00% (from 5 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   91307ms] [LOG] [Progression] Master "H2279XsRGDg9G370J7S9" (slug: "full_body") recalculated → Level 1, 0.00% (from 5 children) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   92908ms] [LOG] [Progression] calisthenics_upper averaging: Tier 3 (foundational exclusion only — skillFocusIds absent) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   92908ms] [WARNING] [Progression] getMasterProgramProgress: empty filter for master "calisthenics_upper" (id: "JCac76p48XGZ5MVahLI2") — 1 configured child [pull] were ALL rejected by the averaging filter. skillFocusIds: [none]. Aborting recalculation to prevent level wipeout (routingEmptySkip=true). @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   92908ms] [WARNING] [Progression] recalculateMasterLevel: ABORTED write for master "JCac76p48XGZ5MVahLI2" (slug: "calisthenics_upper") — routingEmptySkip flag set by getMasterProgramProgress. Existing level 0 preserved. Check slug map coverage for skill program hashes in subPrograms[]. @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   92908ms] [LOG] [Progression] calisthenics_upper averaging: Tier 3 (foundational exclusion only — skillFocusIds absent) @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   92908ms] [WARNING] [Progression] getMasterProgramProgress: empty filter for master "calisthenics_upper" (id: "JCac76p48XGZ5MVahLI2") — 1 configured child [pull] were ALL rejected by the averaging filter. skillFocusIds: [none]. Aborting recalculation to prevent level wipeout (routingEmptySkip=true). @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   92908ms] [WARNING] [Progression] recalculateMasterLevel: ABORTED write for master "JCac76p48XGZ5MVahLI2" (slug: "calisthenics_upper") — routingEmptySkip flag set by getMasterProgramProgress. Existing level 0 preserved. Check slug map coverage for skill program hashes in subPrograms[]. @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   93140ms] [LOG] ✅ [OnboardingSync] Background master program levels recalculated. @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0
+[   93140ms] [LOG] ✅ [OnboardingSync] Background master program levels recalculated. @ https://outrun.co.il/_next/static/chunks/9140-fc097fbe89bf7705.js:0

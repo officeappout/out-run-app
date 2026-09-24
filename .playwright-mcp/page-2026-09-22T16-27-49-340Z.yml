@@ -1,0 +1,24 @@
+- generic [active] [ref=f172e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f172e2]:
+    - generic [ref=f172e534]:
+      - button "חזרה" [ref=f172e536] [cursor=pointer]
+      - generic [ref=f172e563]:
+        - paragraph [ref=f172e564]: מה מצב הכושר שלך?
+        - paragraph [ref=f172e565]: הזז את הסליידר לרמה שהכי קרובה אליך
+      - generic [ref=f172e570]:
+        - generic [ref=f172e571]: מתחיל
+        - generic [ref=f172e574]:
+          - heading "פלאנק על הברכיים" [level=3] [ref=f172e575]
+          - paragraph [ref=f172e576]: מסוגל להחזיק 10 - 20 שניות
+        - generic [ref=f172e579]:
+          - button "רמה 14" [ref=f172e580] [cursor=pointer]
+          - button "רמה 11" [ref=f172e582] [cursor=pointer]
+          - button "רמה 10" [ref=f172e584] [cursor=pointer]
+          - button "רמה 8" [ref=f172e586] [cursor=pointer]
+          - button "רמה 7" [ref=f172e588] [cursor=pointer]
+          - button "רמה 5" [ref=f172e590] [cursor=pointer]
+          - button "רמה 3" [ref=f172e592] [cursor=pointer]
+          - button "רמה 1" [pressed] [ref=f172e594] [cursor=pointer]
+      - button "סיום הערכה" [ref=f172e597] [cursor=pointer]
+  - alert [ref=f172e27]

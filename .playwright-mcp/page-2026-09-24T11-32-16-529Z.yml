@@ -1,0 +1,36 @@
+- generic [active] [ref=f500e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f500e2]:
+    - generic [ref=f500e405]:
+      - button "חזרה" [ref=f500e407] [cursor=pointer]
+      - generic [ref=f500e438]:
+        - generic [ref=f500e440]:
+          - heading "חתירות ב-75°" [level=3] [ref=f500e441]
+          - paragraph [ref=f500e442]: "מקסימום: 10-12 חזרות"
+        - generic [ref=f500e443]:
+          - generic [ref=f500e444]:
+            - paragraph [ref=f500e445]: עצרו על התרגיל הכי קשה שאתם בטוחים שתבצעו
+            - paragraph [ref=f500e446]: אפשר להחליק את הרצועה, או להשתמש ב־ +/−
+          - generic [ref=f500e447]: מתחיל
+          - generic [ref=f500e451]:
+            - button "רמה 20" [ref=f500e452] [cursor=pointer]
+            - button "רמה 19" [ref=f500e460] [cursor=pointer]
+            - button "רמה 17" [ref=f500e462] [cursor=pointer]
+            - button "רמה 14" [ref=f500e464] [cursor=pointer]
+            - button "רמה 10" [ref=f500e466] [cursor=pointer]
+            - button "רמה 6" [ref=f500e468] [cursor=pointer]
+            - button "רמה 4" [ref=f500e470] [cursor=pointer]
+            - button "רמה 1" [pressed] [ref=f500e472] [cursor=pointer]
+          - generic [ref=f500e474]:
+            - button "קל יותר" [disabled]:
+              - generic [aria-hidden]: −
+            - generic [ref=f500e475]:
+              - generic [ref=f500e476]: הרמה שלי
+              - generic [ref=f500e477]: "1"
+            - button "קשה יותר" [ref=f500e478] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f500e479]: +
+      - button "חתירות ב-75° זו הרמה שלי" [ref=f500e482] [cursor=pointer]:
+        - generic [ref=f500e483]:
+          - generic [ref=f500e484]: חתירות ב-75°
+          - generic [ref=f500e485]: זו הרמה שלי
+  - alert [ref=f500e79]

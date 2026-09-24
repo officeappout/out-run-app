@@ -1,0 +1,62 @@
+- generic [ref=f58e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f58e2]:
+    - generic [ref=f58e3]:
+      - button "חזרה" [ref=f58e6] [cursor=pointer]
+      - generic [ref=f58e28]:
+        - generic [ref=f58e29]:
+          - heading "מה הכי בא לך להשיג?" [level=1] [ref=f58e30]
+          - paragraph [ref=f58e31]: בחר את הכיוון שתרצה להתמקד בו
+        - 'button "מתחילים בריאות, כוח ואנרגיה מתאים ל: מי שרק מתחיל, חזר אחרי הפסקה, או רוצה בסיס בריא לכל הגוף." [ref=f58e33] [cursor=pointer]':
+          - generic [ref=f58e34]:
+            - generic [ref=f58e35]: מתחילים
+            - paragraph [ref=f58e37]: בריאות, כוח ואנרגיה
+            - paragraph [ref=f58e38]: "מתאים ל: מי שרק מתחיל, חזר אחרי הפסקה, או רוצה בסיס בריא לכל הגוף."
+        - generic [ref=f58e39]:
+          - 'button "לכל רמה עיצוב ושרירים מתאים ל: מי שכבר זז ורוצה למקד אזורים ולראות שינוי בגוף." [ref=f58e40] [cursor=pointer]':
+            - generic [ref=f58e41]:
+              - generic [ref=f58e42]: לכל רמה
+              - paragraph [ref=f58e44]: עיצוב ושרירים
+              - paragraph [ref=f58e45]: "מתאים ל: מי שכבר זז ורוצה למקד אזורים ולראות שינוי בגוף."
+          - generic [ref=f58e65]:
+            - paragraph [ref=f58e66]: בחר את האזורים שתרצה לפתח
+            - generic [ref=f58e67]:
+              - button "כל הגוף" [active] [ref=f58e68] [cursor=pointer]
+              - generic [ref=f58e74]:
+                - generic [ref=f58e75]:
+                  - paragraph [ref=f58e76]: משיכה
+                  - button "בחר את כל השרירים בקבוצת משיכה" [ref=f58e77] [cursor=pointer]
+                - generic [ref=f58e78]:
+                  - button "גב" [ref=f58e79] [cursor=pointer]
+                  - button "יד קדמית" [ref=f58e81] [cursor=pointer]
+                - button "רוצה לבחור תרגילים להשתפר בהם?" [ref=f58e84] [cursor=pointer]
+              - generic [ref=f58e88]:
+                - generic [ref=f58e89]:
+                  - paragraph [ref=f58e90]: דחיפה
+                  - button "בחר את כל השרירים בקבוצת דחיפה" [ref=f58e91] [cursor=pointer]
+                - generic [ref=f58e92]:
+                  - button "כתפיים" [ref=f58e93] [cursor=pointer]
+                  - button "חזה" [ref=f58e95] [cursor=pointer]
+                  - button "יד אחורית" [ref=f58e97] [cursor=pointer]
+                - button "רוצה לבחור תרגילים להשתפר בהם?" [ref=f58e100] [cursor=pointer]
+              - generic [ref=f58e104]:
+                - generic [ref=f58e105]:
+                  - paragraph [ref=f58e106]: רגליים
+                  - button "בחר את כל השרירים בקבוצת רגליים" [ref=f58e107] [cursor=pointer]
+                - generic [ref=f58e108]:
+                  - button "ישבן" [ref=f58e109] [cursor=pointer]
+                  - button "רגליים" [ref=f58e111] [cursor=pointer]
+              - generic [ref=f58e113]:
+                - generic [ref=f58e114]:
+                  - paragraph [ref=f58e115]: ליבה
+                  - button "בחר את כל השרירים בקבוצת ליבה" [ref=f58e116] [cursor=pointer]
+                - button "בטן וליבה" [ref=f58e118] [cursor=pointer]
+                - button "רוצה לבחור תרגילים להשתפר בהם?" [ref=f58e121] [cursor=pointer]
+        - 'button "מתקדמים לומדים תרגילי קליסטניקס מתקדמים מתאים ל: מי שכבר עושה כמה מתח ומקבילים ורוצה לאתגר את עצמו לרמה הבאה. עוד לא שם? נבנה לך את הבסיס עד לשם." [ref=f58e47] [cursor=pointer]':
+          - generic [ref=f58e48]:
+            - generic [ref=f58e49]: מתקדמים
+            - paragraph [ref=f58e51]: לומדים תרגילי קליסטניקס מתקדמים
+            - paragraph [ref=f58e52]: "מתאים ל: מי שכבר עושה כמה מתח ומקבילים ורוצה לאתגר את עצמו לרמה הבאה."
+            - paragraph [ref=f58e53]: עוד לא שם? נבנה לך את הבסיס עד לשם.
+      - button "המשך" [ref=f58e55] [cursor=pointer]
+  - alert [ref=f58e59]

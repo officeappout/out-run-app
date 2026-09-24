@@ -1,0 +1,11 @@
+- generic [active] [ref=f323e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f323e2]:
+    - generic [ref=f323e3]:
+      - complementary [ref=f323e4]:
+        - heading "OUT RUN Admin" [level=1] [ref=f323e6]
+      - main [ref=f323e11]:
+        - generic "בודק הרשאות..." [ref=f323e14]:
+          - img "OUT" [ref=f323e17]
+          - paragraph [ref=f323e18]: בודק הרשאות...
+  - alert [ref=f323e19]

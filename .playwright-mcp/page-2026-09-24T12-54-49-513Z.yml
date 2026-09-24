@@ -1,0 +1,14 @@
+- generic [active] [ref=f530e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f530e2]:
+    - generic [ref=f530e388]:
+      - generic [ref=f530e418]:
+        - generic [ref=f530e419]: 🤸
+        - generic [ref=f530e421]:
+          - paragraph [ref=f530e422]: מנתח את הביצועים שלך...
+          - paragraph [ref=f530e423]: תוכנית משיכה
+      - generic [ref=f530e428]:
+        - generic "משיכה" [ref=f530e429]
+        - generic [ref=f530e433]: משיכה
+        - generic [ref=f530e434]: רמה 10
+  - alert [ref=f530e79]
