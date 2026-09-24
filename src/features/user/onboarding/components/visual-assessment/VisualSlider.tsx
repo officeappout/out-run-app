@@ -385,7 +385,7 @@ export default function VisualSlider({
   // header/video height above it. Only one of the two call sites below is
   // ever mounted at a time (isSimple branches), so a single AnimatePresence
   // instance is safe here.
-  const renderTutorialBubble = () => (
+  const renderTutorialBubble = (hideFinger = false) => (
     <AnimatePresence>
       {showTutorial && (
         <motion.div
@@ -400,15 +400,20 @@ export default function VisualSlider({
           {/* Bubble card */}
           <div className="bg-white/95 backdrop-blur-2xl rounded-3xl p-6 border border-slate-100 shadow-xl">
             {/* Pointing-finger indicator — swipes left-right to demonstrate
-                the drag/swipe gesture on the strip right below. */}
-            <motion.div
-              className="flex justify-center mb-4"
-              initial={{ x: 0, opacity: 0 }}
-              animate={{ x: [0, -18, 0, 18, 0], opacity: [0, 1, 1, 1, 1] }}
-              transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 0.4, ease: 'easeInOut' }}
-            >
-              <span className="text-4xl drop-shadow-lg">👆</span>
-            </motion.div>
+                the drag/swipe gesture on the strip right below. Hidden in
+                coverflow mode: the finger sits directly on the tiles
+                themselves there (tile-finger-hint, next to CoverflowStrip)
+                instead of floating in this message card. */}
+            {!hideFinger && (
+              <motion.div
+                className="flex justify-center mb-4"
+                initial={{ x: 0, opacity: 0 }}
+                animate={{ x: [0, -18, 0, 18, 0], opacity: [0, 1, 1, 1, 1] }}
+                transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 0.4, ease: 'easeInOut' }}
+              >
+                <span className="text-4xl drop-shadow-lg">👆</span>
+              </motion.div>
+            )}
             <div className="space-y-6">
               <p className="text-lg font-medium text-slate-800 text-center leading-snug">
                 {isFemale
@@ -589,8 +594,40 @@ export default function VisualSlider({
                 thumbnails={thumbnails}
                 onSelect={handleSliderChange}
               />
-              {renderTutorialBubble()}
+              {/* Finger indicator ON the tiles themselves (not up in the
+                  message card above) — points directly at the gesture it's
+                  demonstrating. Same sway animation the bubble's finger used
+                  to run; only its anchor moved. */}
+              <AnimatePresence>
+                {showTutorial && (
+                  <motion.div
+                    key="tile-finger-hint"
+                    className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <motion.span
+                      className="text-4xl drop-shadow-lg"
+                      animate={{ x: [0, -18, 0, 18, 0] }}
+                      transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 0.4, ease: 'easeInOut' }}
+                    >
+                      👆
+                    </motion.span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              {renderTutorialBubble(true)}
             </div>
+
+            {/* ── Persistent reassurance line — ALWAYS visible (unlike the JIT
+                tutorial bubble above, dismissed after the first touch): tells
+                users an estimate is fine, we'll fine-tune within a few
+                workouts. Small/muted so it adds no visual weight. ── */}
+            <p className="px-6 pt-1 pb-0.5 text-center text-[11px] font-normal text-slate-400 leading-snug">
+              לא בטוח? בחרו בערך — נדייק אתכם תוך כמה אימונים
+            </p>
 
             {/* ── +/− stepper — explicit alternative to the drag gesture above
                 (user-testing: people didn't realize the strip scrolls). Drives
@@ -611,12 +648,12 @@ export default function VisualSlider({
                   if (!isAtFloor) handleSliderChange(sliderVal - 1);
                 }}
                 disabled={isAtFloor && !isEscapeable}
-                aria-label={isEscapeable ? 'קשה לי מדי — למבחן בסיס' : 'קל יותר'}
+                aria-label={isEscapeable ? 'עדיין לא מצליח את התרגיל? — למבחן בסיס' : 'תרגיל קל יותר'}
                 className="flex-1 flex flex-col items-center gap-0.5 py-2.5 rounded-2xl border border-[#F76700]/25 bg-[#F76700]/[0.06] disabled:opacity-30 disabled:pointer-events-none transition-opacity active:scale-95"
               >
                 <span className="text-xl font-black leading-none text-[#F76700]" aria-hidden>−</span>
-                <span className="text-[13px] font-bold text-[#F76700]">
-                  {isEscapeable ? 'קשה לי מדי — למבחן בסיס' : 'קל יותר'}
+                <span className="text-[13px] font-bold text-[#F76700] text-center leading-snug">
+                  {isEscapeable ? 'עדיין לא מצליח את התרגיל? — למבחן בסיס' : 'תרגיל קל יותר'}
                 </span>
               </button>
 
@@ -631,11 +668,11 @@ export default function VisualSlider({
                 type="button"
                 onClick={() => handleSliderChange(sliderVal + 1)}
                 disabled={sliderVal >= sliderMax}
-                aria-label="קשה יותר"
+                aria-label="תרגיל קשה יותר"
                 className="flex-1 flex flex-col items-center gap-0.5 py-2.5 rounded-2xl border border-[#0AC2B6]/25 bg-[#0AC2B6]/[0.06] disabled:opacity-30 disabled:pointer-events-none transition-opacity active:scale-95"
               >
                 <span className="text-xl font-black leading-none text-[#0AC2B6]" aria-hidden>+</span>
-                <span className="text-[13px] font-bold text-[#0AC2B6]">קשה יותר</span>
+                <span className="text-[13px] font-bold text-[#0AC2B6] text-center leading-snug">תרגיל קשה יותר</span>
               </button>
             </div>
           </div>
