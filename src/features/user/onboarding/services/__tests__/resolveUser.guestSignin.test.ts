@@ -103,4 +103,29 @@ describe('resolveUser — AUTH_ANONYMOUS logging chokepoint (P0-1, 24.09.2026)',
     expect(signInGuestMock).toHaveBeenCalledTimes(1);
     expect(result.user).toEqual(fakeUser);
   });
+
+  // gateway/page.tsx's "נסה שוב" button on the failed-guest-transition
+  // screen just re-invokes the exact same handler, which calls resolveUser()
+  // again from scratch — no persisted state anywhere in this call chain
+  // (auth.currentUser is read fresh, signInGuest() carries nothing between
+  // calls). This proves that data-flow guarantee directly: a failed attempt
+  // followed by a real retry that succeeds returns a clean, successful
+  // result with no leftover error state, and does NOT log a second
+  // (spurious) AUTH_ANONYMOUS failure for the attempt that actually worked.
+  it('a retry after a failed attempt succeeds cleanly — no stale state, no stuck failure', async () => {
+    signInGuestMock
+      .mockResolvedValueOnce({ user: null, error: 'guest_timeout' })
+      .mockResolvedValueOnce({ user: { uid: 'retry-succeeds', isAnonymous: true }, error: null });
+
+    const firstAttempt = await resolveUser();
+    expect(firstAttempt).toEqual({ user: null, error: 'guest_timeout' });
+    expect(reportSignupFailureMock).toHaveBeenCalledTimes(1);
+
+    // Simulates the user tapping "נסה שוב" — the exact same call.
+    const retryAttempt = await resolveUser();
+    expect(retryAttempt).toEqual({ user: { uid: 'retry-succeeds', isAnonymous: true }, error: null });
+    // Still just the one call from the first, failed attempt — the
+    // successful retry must not log a failure of its own.
+    expect(reportSignupFailureMock).toHaveBeenCalledTimes(1);
+  });
 });
