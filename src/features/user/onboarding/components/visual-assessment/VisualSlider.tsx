@@ -610,7 +610,7 @@ export default function VisualSlider({
                   >
                     <motion.span
                       className="text-4xl drop-shadow-lg"
-                      animate={{ x: [0, -18, 0, 18, 0] }}
+                      animate={{ x: [0, -50, 0, 50, 0] }}
                       transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 0.4, ease: 'easeInOut' }}
                     >
                       👆
@@ -648,12 +648,12 @@ export default function VisualSlider({
                   if (!isAtFloor) handleSliderChange(sliderVal - 1);
                 }}
                 disabled={isAtFloor && !isEscapeable}
-                aria-label={isEscapeable ? 'עדיין לא מצליח את התרגיל? — למבחן בסיס' : 'תרגיל קל יותר'}
+                aria-label={isEscapeable ? 'עדיין לא מצליח את התרגיל?' : 'תרגיל קל יותר'}
                 className="flex-1 flex flex-col items-center gap-0.5 py-2.5 rounded-2xl border border-[#F76700]/25 bg-[#F76700]/[0.06] disabled:opacity-30 disabled:pointer-events-none transition-opacity active:scale-95"
               >
                 <span className="text-xl font-black leading-none text-[#F76700]" aria-hidden>−</span>
                 <span className="text-[13px] font-bold text-[#F76700] text-center leading-snug">
-                  {isEscapeable ? 'עדיין לא מצליח את התרגיל? — למבחן בסיס' : 'תרגיל קל יותר'}
+                  {isEscapeable ? 'עדיין לא מצליח את התרגיל?' : 'תרגיל קל יותר'}
                 </span>
               </button>
 
