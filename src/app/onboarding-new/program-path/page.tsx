@@ -11,6 +11,7 @@ import {
 } from '@/features/content/exercises/core/exercise.types';
 import { db } from '@/lib/firebase';
 import { getExercise } from '@/features/content/exercises/core/exercise.service';
+import { getOnboardingLevelsForCategory } from '@/features/user/onboarding/services/visual-content-resolver.service';
 import { getLocalizedText } from '@/features/content/shared/localized-text.types';
 import type { ExerciseWishlistEntry } from '@/features/user/core/types/user.types';
 import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLayout';
@@ -337,6 +338,38 @@ export default function ProgramPathPage() {
       if (exists) return prev.filter((e) => !(e.exerciseId === exerciseId && e.packageKey === pkg));
       return [...prev, { exerciseId, packageKey: pkg, addedAt: new Date().toISOString(), source: 'onboarding' as const }];
     });
+  }, []);
+
+  // ── Skill readiness gate — "בקרוב" for skills with < 2 authored onboarding
+  // levels (the same threshold VisualSlider's own isSimple check uses; below
+  // it a skill falls into the plain degraded slider with no real ladder).
+  // null = not resolved yet (fail-open: render all chips as selectable rather
+  // than flash a wrong disabled state on a slow read). Re-derives live from
+  // the same content the assessment itself reads, so a skill un-gates itself
+  // automatically once its onboarding levels are authored — no code change
+  // needed later.
+  const [readySkillIds, setReadySkillIds] = useState<Set<string> | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const entries = await Promise.all(
+          SKILL_PROGRAMS.map(async (skill) => {
+            const levels = await getOnboardingLevelsForCategory(skill.id);
+            return [skill.id, levels.length >= 2] as const;
+          })
+        );
+        if (!cancelled) {
+          setReadySkillIds(new Set(entries.filter(([, ready]) => ready).map(([id]) => id)));
+        }
+      } catch (e) {
+        console.error('[ProgramPath] Failed to resolve skill readiness:', e);
+        // Fail open on error — never block selection because of a read failure.
+        if (!cancelled) setReadySkillIds(new Set(SKILL_PROGRAMS.map((s) => s.id)));
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   const toggleSkill = useCallback((id: string) => {
@@ -971,25 +1004,35 @@ export default function ProgramPathPage() {
                       const isSelected = selectedSkills.includes(skill.id);
                       const order = !isMaster ? getSkillOrder(skill.id) : null;
                       const iconSrc = SKILL_ICON_PATHS[skill.id];
+                      const isNotReady = readySkillIds !== null && !readySkillIds.has(skill.id);
                       // Orange Flow: glow if this chip belongs to the missing
                       // movement pattern and the tip is currently visible.
                       const isRecommended =
                         showRecommendation &&
                         !isSelected &&
                         !isMaster &&
+                        !isNotReady &&
                         ((missingCategory === 'push' && PUSH_SKILLS.has(skill.id)) ||
                           (missingCategory === 'pull' && PULL_SKILLS.has(skill.id)));
                       return (
                         <motion.button
                           key={skill.id}
-                          whileTap={{ scale: 0.97 }}
-                          onClick={() => toggleSkill(skill.id)}
-                          className={`${isMaster ? 'col-span-2' : ''} flex items-center justify-between p-3.5 h-12 w-full rounded-xl border transition-all text-right cursor-pointer ${
-                            isSelected
-                              ? 'bg-[#00BAF7]/[0.06] border-[#00BAF7] font-semibold'
-                              : isRecommended
-                                ? 'bg-orange-50/50 border-orange-400 shadow-sm animate-pulse font-medium'
-                                : 'bg-white border-[#E0E9FF] font-medium'
+                          whileTap={isNotReady ? undefined : { scale: 0.97 }}
+                          onClick={() => { if (!isNotReady) toggleSkill(skill.id); }}
+                          disabled={isNotReady}
+                          aria-disabled={isNotReady}
+                          className={`${isMaster ? 'col-span-2' : ''} relative flex items-center justify-between p-3.5 h-12 w-full rounded-xl border transition-all text-right ${
+                            isNotReady
+                              ? 'bg-slate-50 border-[#E0E9FF] cursor-not-allowed'
+                              : 'cursor-pointer'
+                          } ${
+                            isNotReady
+                              ? ''
+                              : isSelected
+                                ? 'bg-[#00BAF7]/[0.06] border-[#00BAF7] font-semibold'
+                                : isRecommended
+                                  ? 'bg-orange-50/50 border-orange-400 shadow-sm animate-pulse font-medium'
+                                  : 'bg-white border-[#E0E9FF] font-medium'
                           }`}
                         >
                           {/* Icon first in DOM = RIGHT edge in dir="rtl" flex */}
@@ -998,13 +1041,13 @@ export default function ProgramPathPage() {
                             src={iconSrc}
                             alt=""
                             className={`w-8 h-8 object-contain shrink-0 transition-all ${
-                              isSelected ? 'opacity-100' : 'opacity-55'
+                              isNotReady ? 'opacity-30 grayscale' : isSelected ? 'opacity-100' : 'opacity-55'
                             }`}
                             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                           />
                           {/* Text + optional priority badge LEFT (second in RTL) */}
                           <div className="flex items-center gap-1.5 min-w-0 flex-1 justify-end">
-                            <span className="text-[13px] text-slate-800 leading-tight truncate">
+                            <span className={`text-[13px] leading-tight truncate ${isNotReady ? 'text-slate-400' : 'text-slate-800'}`}>
                               {skill.nameHe}
                             </span>
                             {order !== null && (
@@ -1016,6 +1059,11 @@ export default function ProgramPathPage() {
                               </span>
                             )}
                           </div>
+                          {isNotReady && (
+                            <span className="absolute top-1 left-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-500">
+                              בקרוב
+                            </span>
+                          )}
                         </motion.button>
                       );
                     })}
