@@ -158,7 +158,16 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-        className="relative bg-white rounded-t-3xl shadow-2xl max-h-[92vh] flex flex-col overflow-hidden"
+        // min-h-[85vh]: field-test finding (23.09.2026) — the sheet only grows to
+        // fit its content up to the max-h cap, so a short step (Details, Photo)
+        // renders visibly low regardless of that cap. Same fix shape
+        // PersonaQuestionsDrawer already validated on-device for the same
+        // symptom (min-h-[80vh]), applied unconditionally here rather than
+        // gated on keyboard focus, since the complaint was about baseline
+        // height, not specifically the keyboard. max-h raised 92vh → 95vh —
+        // still short of full-screen so the backdrop stays visible and the
+        // sheet reads as dismissible.
+        className="relative bg-white rounded-t-3xl shadow-2xl min-h-[85vh] max-h-[95vh] flex flex-col overflow-hidden"
         dir="rtl"
       >
         {/* Header */}
