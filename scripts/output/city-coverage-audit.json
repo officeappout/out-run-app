@@ -1,0 +1,1595 @@
+{
+  "generatedAt": "2026-09-01T05:37:47.224Z",
+  "thresholds": {
+    "absurdDistanceKm": 30,
+    "minValidPathPoints": 2,
+    "metersVsKmHeuristicThreshold": 100
+  },
+  "collectionsRead": [
+    "authorities",
+    "official_routes",
+    "curated_routes",
+    "parks"
+  ],
+  "totals": {
+    "authorities": 2750,
+    "officialRoutes": 158,
+    "curatedRoutes": 18,
+    "parks": 1165,
+    "legacyRouteFacilityParksExcluded": 0
+  },
+  "routes": [
+    {
+      "cityLabel": "שדרות",
+      "authorityId": "CdiRk1QP5UrUGSbGjCkU",
+      "totalRoutes": 27,
+      "byCollection": {
+        "official": 27,
+        "curated": 0
+      },
+      "byStatus": {
+        "unknown": 26,
+        "published": 1
+      },
+      "byActivity": {
+        "running": 26,
+        "walking": 1
+      },
+      "bySource": {
+        "official_api": 26,
+        "system": 1
+      },
+      "completeness": {
+        "difficultyReal": 0,
+        "difficultyFallbackOrAbsent": 27,
+        "elevationDataPresent": 0,
+        "elevationDataAbsent": 27,
+        "imagePresent": 4,
+        "imageAbsent": 23,
+        "descriptionPresent": 27,
+        "descriptionAbsent": 0
+      },
+      "distanceSanity": {
+        "zeroOrInvalid": 0,
+        "absurdlyLarge": 0,
+        "ok": 27
+      },
+      "distanceLikelyStoredInMeters": 0,
+      "pointCountSanity": {
+        "tooFew": 0,
+        "ok": 27
+      },
+      "duplicateNameClusters": [
+        {
+          "name": "מוסיקה דרום",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "cityLabel": "זכרון יעקב",
+      "authorityId": null,
+      "totalRoutes": 27,
+      "byCollection": {
+        "official": 27,
+        "curated": 0
+      },
+      "byStatus": {
+        "published": 26,
+        "archived": 1
+      },
+      "byActivity": {
+        "walking": 26,
+        "running": 1
+      },
+      "bySource": {
+        "official_api": 27
+      },
+      "completeness": {
+        "difficultyReal": 27,
+        "difficultyFallbackOrAbsent": 0,
+        "elevationDataPresent": 27,
+        "elevationDataAbsent": 0,
+        "imagePresent": 0,
+        "imageAbsent": 27,
+        "descriptionPresent": 27,
+        "descriptionAbsent": 0
+      },
+      "distanceSanity": {
+        "zeroOrInvalid": 0,
+        "absurdlyLarge": 0,
+        "ok": 27
+      },
+      "distanceLikelyStoredInMeters": 0,
+      "pointCountSanity": {
+        "tooFew": 0,
+        "ok": 27
+      },
+      "duplicateNameClusters": [
+        {
+          "name": "שביל מסומן זכרון יעקב",
+          "count": 11
+        },
+        {
+          "name": "לולאה זכרון יעקב (לולאה)",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "cityLabel": "תל אביב-יפו",
+      "authorityId": null,
+      "totalRoutes": 27,
+      "byCollection": {
+        "official": 27,
+        "curated": 0
+      },
+      "byStatus": {
+        "published": 27
+      },
+      "byActivity": {
+        "running": 27
+      },
+      "bySource": {
+        "official_api": 27
+      },
+      "completeness": {
+        "difficultyReal": 0,
+        "difficultyFallbackOrAbsent": 27,
+        "elevationDataPresent": 0,
+        "elevationDataAbsent": 27,
+        "imagePresent": 27,
+        "imageAbsent": 0,
+        "descriptionPresent": 0,
+        "descriptionAbsent": 27
+      },
+      "distanceSanity": {
+        "zeroOrInvalid": 0,
+        "absurdlyLarge": 0,
+        "ok": 27
+      },
+      "distanceLikelyStoredInMeters": 0,
+      "pointCountSanity": {
+        "tooFew": 0,
+        "ok": 27
+      },
+      "duplicateNameClusters": []
+    },
+    {
+      "cityLabel": "חיפה",
+      "authorityId": "9ZdWFmlkP0njOyFPceEw",
+      "totalRoutes": 77,
+      "byCollection": {
+        "official": 77,
+        "curated": 0
+      },
+      "byStatus": {
+        "pending": 73,
+        "published": 3,
+        "archived": 1
+      },
+      "byActivity": {
+        "walking": 67,
+        "cycling": 4,
+        "running": 6
+      },
+      "bySource": {
+        "official_api": 77
+      },
+      "completeness": {
+        "difficultyReal": 77,
+        "difficultyFallbackOrAbsent": 0,
+        "elevationDataPresent": 77,
+        "elevationDataAbsent": 0,
+        "imagePresent": 0,
+        "imageAbsent": 77,
+        "descriptionPresent": 77,
+        "descriptionAbsent": 0
+      },
+      "distanceSanity": {
+        "zeroOrInvalid": 0,
+        "absurdlyLarge": 0,
+        "ok": 77
+      },
+      "distanceLikelyStoredInMeters": 0,
+      "pointCountSanity": {
+        "tooFew": 0,
+        "ok": 77
+      },
+      "duplicateNameClusters": [
+        {
+          "name": "שביל מסומן חיפה",
+          "count": 11
+        },
+        {
+          "name": "שביל חיפה - הדר הכרמל",
+          "count": 3
+        },
+        {
+          "name": "שביל חיפה - הדר עליון ורמת הדר",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "cityLabel": "תל אביב-יפו",
+      "authorityId": "t9hiRkDnJtgZESlNCBp8",
+      "totalRoutes": 18,
+      "byCollection": {
+        "official": 0,
+        "curated": 18
+      },
+      "byStatus": {
+        "unknown": 18
+      },
+      "byActivity": {
+        "cycling": 18
+      },
+      "bySource": {
+        "system": 18
+      },
+      "completeness": {
+        "difficultyReal": 0,
+        "difficultyFallbackOrAbsent": 18,
+        "elevationDataPresent": 0,
+        "elevationDataAbsent": 18,
+        "imagePresent": 0,
+        "imageAbsent": 18,
+        "descriptionPresent": 18,
+        "descriptionAbsent": 0
+      },
+      "distanceSanity": {
+        "zeroOrInvalid": 0,
+        "absurdlyLarge": 7,
+        "ok": 11
+      },
+      "distanceLikelyStoredInMeters": 0,
+      "pointCountSanity": {
+        "tooFew": 0,
+        "ok": 18
+      },
+      "duplicateNameClusters": [
+        {
+          "name": "סיבוב קצר – תל אביב-יפו",
+          "count": 6
+        },
+        {
+          "name": "לופ בינוני – תל אביב-יפו",
+          "count": 6
+        },
+        {
+          "name": "מסלול ארוך – תל אביב-יפו",
+          "count": 6
+        }
+      ]
+    }
+  ],
+  "locations": [
+    {
+      "cityLabel": "ראשון לציון",
+      "authorityId": "sWujgA3cuZiNJSBGQnpm",
+      "parks": {
+        "total": 96,
+        "withImage": 78,
+        "withValidCoords": 96
+      },
+      "gymEquipmentItems": 688,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "תל אביב-יפו",
+      "authorityId": "t9hiRkDnJtgZESlNCBp8",
+      "parks": {
+        "total": 158,
+        "withImage": 148,
+        "withValidCoords": 158
+      },
+      "gymEquipmentItems": 1845,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 2,
+        "withImage": 0,
+        "withValidCoords": 2
+      },
+      "otherUrbanInfra": {
+        "total": 1,
+        "withImage": 0,
+        "withValidCoords": 1
+      }
+    },
+    {
+      "cityLabel": "באר שבע",
+      "authorityId": "X505lUcEWgiih0WJ3yP7",
+      "parks": {
+        "total": 58,
+        "withImage": 41,
+        "withValidCoords": 58
+      },
+      "gymEquipmentItems": 394,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "פתח תקווה",
+      "authorityId": "gdfypEG6O9UaiXNgGX8X",
+      "parks": {
+        "total": 77,
+        "withImage": 55,
+        "withValidCoords": 77
+      },
+      "gymEquipmentItems": 449,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "חיפה",
+      "authorityId": "9ZdWFmlkP0njOyFPceEw",
+      "parks": {
+        "total": 57,
+        "withImage": 42,
+        "withValidCoords": 57
+      },
+      "gymEquipmentItems": 285,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "מועצה אזורית דרום השרון",
+      "authorityId": "YigMUPH2d3I8x7VKjfks",
+      "parks": {
+        "total": 5,
+        "withImage": 1,
+        "withValidCoords": 5
+      },
+      "gymEquipmentItems": 5,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "רחובות",
+      "authorityId": "k89XhZKXPFirYY9VN5ur",
+      "parks": {
+        "total": 81,
+        "withImage": 9,
+        "withValidCoords": 81
+      },
+      "gymEquipmentItems": 69,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "אשדוד",
+      "authorityId": "9fDuM9W7dvMpaN1OPzrF",
+      "parks": {
+        "total": 63,
+        "withImage": 34,
+        "withValidCoords": 63
+      },
+      "gymEquipmentItems": 395,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "שדרות",
+      "authorityId": "CdiRk1QP5UrUGSbGjCkU",
+      "parks": {
+        "total": 48,
+        "withImage": 5,
+        "withValidCoords": 48
+      },
+      "gymEquipmentItems": 32,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "רמת גן",
+      "authorityId": "oXy7Fccw2FFbFd6vAPY3",
+      "parks": {
+        "total": 33,
+        "withImage": 27,
+        "withValidCoords": 33
+      },
+      "gymEquipmentItems": 236,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "לוד",
+      "authorityId": "qWF0GzsDubBFAauycGzM",
+      "parks": {
+        "total": 12,
+        "withImage": 0,
+        "withValidCoords": 12
+      },
+      "gymEquipmentItems": 0,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "בית שמש",
+      "authorityId": "bIGx5m6BKsmMCHpvB6dh",
+      "parks": {
+        "total": 10,
+        "withImage": 0,
+        "withValidCoords": 10
+      },
+      "gymEquipmentItems": 0,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "חולון",
+      "authorityId": "lSaF0rbEx8D0kABe5r1L",
+      "parks": {
+        "total": 54,
+        "withImage": 40,
+        "withValidCoords": 54
+      },
+      "gymEquipmentItems": 291,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "מועצה אזורית משגב",
+      "authorityId": "GM95rkG1apJ4INX5TWXh",
+      "parks": {
+        "total": 15,
+        "withImage": 0,
+        "withValidCoords": 15
+      },
+      "gymEquipmentItems": 0,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "מועצה אזורית חבל מודיעין",
+      "authorityId": "Q2EDttRzpH5V9g19Ynlv",
+      "parks": {
+        "total": 70,
+        "withImage": 1,
+        "withValidCoords": 70
+      },
+      "gymEquipmentItems": 8,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "ללא רשות/עיר",
+      "authorityId": null,
+      "parks": {
+        "total": 31,
+        "withImage": 0,
+        "withValidCoords": 31
+      },
+      "gymEquipmentItems": 0,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "כפר סבא",
+      "authorityId": "LaNDfhqss3MiSqYy7TYz",
+      "parks": {
+        "total": 22,
+        "withImage": 0,
+        "withValidCoords": 22
+      },
+      "gymEquipmentItems": 0,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "מועצה אזורית עמק חפר",
+      "authorityId": "DMDnOxN5w3Rp6XJqcnLY",
+      "parks": {
+        "total": 31,
+        "withImage": 0,
+        "withValidCoords": 31
+      },
+      "gymEquipmentItems": 0,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "בת ים",
+      "authorityId": "rKRy8AHMIqw7TrSTfO38",
+      "parks": {
+        "total": 12,
+        "withImage": 0,
+        "withValidCoords": 12
+      },
+      "gymEquipmentItems": 0,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "אשקלון",
+      "authorityId": "dRk9LUrVnTlNc7EbOdvq",
+      "parks": {
+        "total": 33,
+        "withImage": 31,
+        "withValidCoords": 33
+      },
+      "gymEquipmentItems": 290,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "נהריה",
+      "authorityId": "k3dBx2Ml6xhiH5mIO6e1",
+      "parks": {
+        "total": 12,
+        "withImage": 10,
+        "withValidCoords": 12
+      },
+      "gymEquipmentItems": 10,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "מועצה אזורית שומרון",
+      "authorityId": "RctoNYaNiT9Q1mUXuCiQ",
+      "parks": {
+        "total": 16,
+        "withImage": 0,
+        "withValidCoords": 16
+      },
+      "gymEquipmentItems": 0,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "נתניה",
+      "authorityId": "mHF6LGPyKmsOh5PkXyhe",
+      "parks": {
+        "total": 44,
+        "withImage": 0,
+        "withValidCoords": 44
+      },
+      "gymEquipmentItems": 0,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "הרצליה",
+      "authorityId": "1O54R5EOghNYylTEhxJa",
+      "parks": {
+        "total": 5,
+        "withImage": 4,
+        "withValidCoords": 5
+      },
+      "gymEquipmentItems": 40,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "נשר",
+      "authorityId": "x2vRiGuSjCVhAA1l4KpL",
+      "parks": {
+        "total": 13,
+        "withImage": 11,
+        "withValidCoords": 13
+      },
+      "gymEquipmentItems": 11,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "אילת",
+      "authorityId": "t9OykBnyxxCAvfMdViKZ",
+      "parks": {
+        "total": 18,
+        "withImage": 13,
+        "withValidCoords": 18
+      },
+      "gymEquipmentItems": 176,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "אופקים",
+      "authorityId": "8zjZxYzxvr394PshoOvt",
+      "parks": {
+        "total": 11,
+        "withImage": 10,
+        "withValidCoords": 11
+      },
+      "gymEquipmentItems": 74,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "ירושלים",
+      "authorityId": "vxYpJ9HKm4fot5y1ahDA",
+      "parks": {
+        "total": 40,
+        "withImage": 30,
+        "withValidCoords": 40
+      },
+      "gymEquipmentItems": 295,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "עכו",
+      "authorityId": "eisEeoZnew1f74nfZfyd",
+      "parks": {
+        "total": 4,
+        "withImage": 4,
+        "withValidCoords": 4
+      },
+      "gymEquipmentItems": 32,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "חדרה",
+      "authorityId": "ZpoGRWQwTVBy1oxt5ghS",
+      "parks": {
+        "total": 3,
+        "withImage": 0,
+        "withValidCoords": 3
+      },
+      "gymEquipmentItems": 0,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "מועצה אזורית חוף השרון",
+      "authorityId": "kPMU5MgpL09kmGOu6DWT",
+      "parks": {
+        "total": 2,
+        "withImage": 0,
+        "withValidCoords": 2
+      },
+      "gymEquipmentItems": 0,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "מודיעין-מכבים-רעות",
+      "authorityId": "lPzF3aqyJEhnZl6YSYlf",
+      "parks": {
+        "total": 1,
+        "withImage": 0,
+        "withValidCoords": 1
+      },
+      "gymEquipmentItems": 0,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "מועצה אזורית מטה בנימין",
+      "authorityId": "4fzyIahk1bj8e68agAxP",
+      "parks": {
+        "total": 9,
+        "withImage": 0,
+        "withValidCoords": 9
+      },
+      "gymEquipmentItems": 0,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "מועצה אזורית עמק יזרעאל",
+      "authorityId": "lt6vK9gbVHf9TpFNiCrD",
+      "parks": {
+        "total": 5,
+        "withImage": 0,
+        "withValidCoords": 5
+      },
+      "gymEquipmentItems": 0,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "נס ציונה",
+      "authorityId": "FkpprOJE3RX7AWopI3Gh",
+      "parks": {
+        "total": 1,
+        "withImage": 0,
+        "withValidCoords": 1
+      },
+      "gymEquipmentItems": 0,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "יבנה",
+      "authorityId": "A1QWEQh6SnP1WM4DJODo",
+      "parks": {
+        "total": 2,
+        "withImage": 0,
+        "withValidCoords": 2
+      },
+      "gymEquipmentItems": 0,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "מועצה אזורית גזר",
+      "authorityId": "GnJce0aCTL3ZDPG70xgI",
+      "parks": {
+        "total": 1,
+        "withImage": 0,
+        "withValidCoords": 1
+      },
+      "gymEquipmentItems": 0,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "מועצה אזורית גוש עציון",
+      "authorityId": "dsEdaMNgEIBowceGiPW1",
+      "parks": {
+        "total": 1,
+        "withImage": 0,
+        "withValidCoords": 1
+      },
+      "gymEquipmentItems": 0,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "8MlbLQ1DEuvukC4LdnUh",
+      "authorityId": "8MlbLQ1DEuvukC4LdnUh",
+      "parks": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "gymEquipmentItems": 0,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 2,
+        "withImage": 1,
+        "withValidCoords": 2
+      }
+    },
+    {
+      "cityLabel": "גבעת שמואל",
+      "authorityId": "UVQxq9PNGwQhL2udcEX8",
+      "parks": {
+        "total": 1,
+        "withImage": 1,
+        "withValidCoords": 1
+      },
+      "gymEquipmentItems": 13,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "רעננה",
+      "authorityId": "2P5ALaQsigsGSaijvuHB",
+      "parks": {
+        "total": 2,
+        "withImage": 1,
+        "withValidCoords": 2
+      },
+      "gymEquipmentItems": 5,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "מועצה אזורית אשכול",
+      "authorityId": "Iy4Qx5sdyQGD07AYAozW",
+      "parks": {
+        "total": 1,
+        "withImage": 0,
+        "withValidCoords": 1
+      },
+      "gymEquipmentItems": 0,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "גדרה",
+      "authorityId": "BtpJYZ06vGN6C70Oo5pd",
+      "parks": {
+        "total": 1,
+        "withImage": 0,
+        "withValidCoords": 1
+      },
+      "gymEquipmentItems": 0,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    },
+    {
+      "cityLabel": "בני ברק",
+      "authorityId": "V7oo4yBkn1pjbH9ECUHI",
+      "parks": {
+        "total": 1,
+        "withImage": 0,
+        "withValidCoords": 1
+      },
+      "gymEquipmentItems": 0,
+      "courts": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "waterFountains": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "poi": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      },
+      "otherUrbanInfra": {
+        "total": 0,
+        "withImage": 0,
+        "withValidCoords": 0
+      }
+    }
+  ],
+  "gapListStatedNotComputed": [
+    "street_lighting_per_route",
+    "crosswalks_per_route",
+    "tree_canopy_shade_per_route",
+    "surface_composition_per_route"
+  ]
+}
