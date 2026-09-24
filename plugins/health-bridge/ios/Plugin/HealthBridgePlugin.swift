@@ -18,6 +18,8 @@ private let hbLog = OSLog(subsystem: "co.il.appout.outrun", category: "HealthBri
  *
  * Writes completed workouts to HealthKit:
  *   • HKWorkoutType — with activity type, duration, and active calories
+ *   • HKQuantityTypeIdentifier.distanceWalkingRunning / .distanceCycling
+ *     — when the workout carries a distance
  *
  * Background delivery is enabled per type via `enableBackgroundDelivery`,
  * which causes `HKObserverQuery` callbacks to fire even when the app is
@@ -67,7 +69,12 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     private var shareTypes: Set<HKSampleType> {
-        return [workoutType, caloriesType]
+        return [
+            workoutType,
+            caloriesType,
+            HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)!,
+            HKObjectType.quantityType(forIdentifier: .distanceCycling)!,
+        ]
     }
 
     // MARK: - isAvailable
@@ -231,8 +238,13 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
 
             group.notify(queue: .main) {
                 if let err = addError {
-                    call.reject("addSamples failed: \(err.localizedDescription)")
-                    return
+                    // One sample failing to add (e.g. distance write denied,
+                    // or a user who declined before shareTypes included it)
+                    // must not lose the whole workout — log and continue.
+                    // A session with duration and no distance beats no
+                    // record at all. Whatever DID get added via builder.add()
+                    // above stays in the in-progress builder regardless.
+                    os_log("writeWorkout: one or more samples failed to add (continuing): %{public}@", log: hbLog, type: .error, err.localizedDescription)
                 }
                 builder.endCollection(withEnd: endDate) { success, error in
                     guard success else {
