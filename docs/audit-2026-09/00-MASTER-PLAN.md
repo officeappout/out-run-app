@@ -1233,4 +1233,17 @@ git push origin main
 
 **לא נגעתי:** `firestore.rules`, שום נתון פרודקשן מלבד קריאות read-only לאימות (ספירת קודי-גישה, בדיקת מצב seed), מד כשירות, קודי-גישה (רק דיווח), `getInvitationsByAuthority`, מסמכי הדמו.
 
-**המשימה הבאה (לפי סדר שדוד קבע):** (א) ספירת תיוג isTestData/isMockData על 60 משתמשי הדמו. (ב) הגנת הרצה-כפולה ל-seed (commit נפרד). ואז — הענף הנפרד לקודי-גישה.
+**(א) ספירת תיוג 60 משתמשי הדמו (24.09.2026, ספירה בלבד, לא נגעתי באף מסמך):** 30 military-demo + 30 school-demo — **כל ה-60 מתויגים `core.isTestData=true`**. 0 לא-מתויגים, 0 עם `isMockData`. כבר מסוננים בכל מקום שמשתמש ב-`isTestOrMockUser`.
+
+**(ב) הגנת הרצה-כפולה ל-`seed-military-school-demo.ts` — מוזג ופרוס:**
+```
+bd72da85b907ad784a6d0eb9cd7b0b8fb28066f2
+```
+`--no-ff`, `a8484952..bd72da85`. **פקודת revert:**
+```
+git revert -m 1 bd72da85b907ad784a6d0eb9cd7b0b8fb28066f2 --no-edit
+git push origin main
+```
+שני תיקונים: (1) `seedMilitaryDemo()`/`seedSchoolDemo()` בודקים את ה-uid הדטרמיניסטי הראשון לפני כל כתיבה — קיים → `{success:false}`, אפס כתיבה. (2) `feed_posts` עברו ל-id דטרמיניסטי (`${uid}-post-${index}`, היה `addDoc`) — הגנה כפולה. עדכון גם לאזהרת המסך שהייתה הפכה לשקרית. **בדיקה מלאה (15/15)** על הפונקציות האמיתיות עצמן — לא רק שכפול-לוגיקה — דרך `@firebase/rules-unit-testing`'s `withSecurityRulesDisabled` + הזרקת מודול ל-`@/lib/firebase` (אין Auth emulator מוגדר לפרויקט הזה — `firebase.json` בלי בלוק `auth`). **לא הורץ בפרודקשן באף שלב.** `tsc`/`vitest` — 0 רגרסיות. **Smoke:** `outrun.co.il`=200, `/api/catalog/parks`=200 (1159, לא ריקה).
+
+**המשימה הבאה:** חקירת היררכיה (חטיבה←גדוד←פלוגה מול tenant/unit) ורמה חוצת-tenants — שלב א' בלבד, ללא קוד, לפני הענף של קודי הגישה.
