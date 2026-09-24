@@ -1334,3 +1334,15 @@ git push origin main
 **החלטת דוד:** **מוקפא לעכשיו.** גרסה חדשה עולה לחנויות בימים הקרובים ממילא, כך ששאלת ה-build הנייטיבי (למעלה) נפתרת מעצמה. **פריט פתוח לביצוע עתידי: להפעיל אחרי שהגרסה החדשה בחוץ, עם guard מפורש ל-web** (לא לקרוא ל-API כלל כש-`Capacitor.getPlatform() === 'web'`, בדיוק כמו כל שימוש אחר ב-`@capacitor-firebase/*`/`@capacitor/*` בקודבייס הזה — ⚠️ ראו axioms.md §4).
 
 לא נכתב קוד עבור Crashlytics בכלל — תיעוד-בלבד. ההצעה המקבילה שדוד כן אישר (קולקשן כשלי-הרשמה, חלק ב', §13.19) נבנתה ומוזגה בנפרד — לא הייתה תלויה בפריט הזה ולהפך.
+
+---
+
+### 13.21 — SHA-ים סופיים + פקודות revert (§13.19/§13.20, 24.09.2026)
+
+מיזוג `feat/signup-failure-telemetry` (§13.19, קולקשן כשלי-הרשמה + פאנל root-בלבד): `72eb5c41`.
+Revert: `git revert -m 1 72eb5c41`
+
+מיזוג `docs/crashlytics-frozen-open-item` (§13.20, תיעוד-בלבד): `2897d308`.
+Revert: `git revert -m 1 2897d308`
+
+שני המיזוגים `--no-ff` מ-`origin/main` @ `50df2f51` (שתי הענפים נוצרו מאותו commit, לא נדרש rebase). אימות גישה ל-`/admin/signup-failures` (root-בלבד, לא authority_manager/tenant_owner/unit_admin) בוצע לפני המיזוג — ראו §13.19.
