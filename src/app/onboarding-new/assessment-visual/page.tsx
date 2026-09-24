@@ -178,9 +178,15 @@ export default function VisualAssessmentPage() {
   const [isHydrated, setIsHydrated] = useState(false);
 
   // ── User selection state (read from sessionStorage on mount) ──
-  // Used by BlurredWhyStep for personalised intro text.
+  // Used by BlurredWhyStep for personalised intro text. The path/goal itself
+  // is NOT read here — program-path/page.tsx persists it as a multi-select
+  // JSON array now, so a raw sessionStorage.getItem would hold that array
+  // as a literal string (e.g. '["skills"]'), silently breaking every
+  // `=== 'skills'`/`=== 'body_focus'` comparison downstream. `pathConfig.path`
+  // (below, from getPathConfigSync()/loadPathConfigAsync()) is already the
+  // correctly-parsed/normalized single value and is what goal resolution
+  // uses instead.
 
-  const [programPath, setProgramPath] = useState<string | null>(null);
   const [muscleFocus, setMuscleFocus] = useState<string[]>([]);
   const [skillFocus, setSkillFocus] = useState<string[]>([]);
 
@@ -199,10 +205,7 @@ export default function VisualAssessmentPage() {
       setDemographics({ age, gender });
     }
 
-    // Program path + focus selections
-    const rawPath = sessionStorage.getItem('onboarding_program_path');
-    if (rawPath) setProgramPath(rawPath);
-
+    // Focus selections
     try {
       const rawMuscle = sessionStorage.getItem('onboarding_muscle_focus');
       if (rawMuscle) setMuscleFocus(JSON.parse(rawMuscle) as string[]);
@@ -444,9 +447,9 @@ export default function VisualAssessmentPage() {
   const ageGroup = demographics ? calcAgeGroup(demographics.age) : '26-50';
   const introGender = (demographics?.gender ?? 'male') as 'male' | 'female';
   const targetArea: string | null =
-    programPath === 'skills'
+    pathConfig?.path === 'skills'
       ? (skillFocus[0] ?? null)
-      : programPath === 'body_focus'
+      : pathConfig?.path === 'body_focus'
         ? (muscleFocus[0] ?? null)
         : null;
 
@@ -1073,7 +1076,7 @@ export default function VisualAssessmentPage() {
               <BlurredWhyStep
                 gender={introGender}
                 ageGroup={ageGroup}
-                goal={programPath}
+                goal={pathConfig?.path ?? null}
                 targetArea={targetArea}
                 exerciseCount={exerciseCount}
                 onNext={handleWhyNext}
