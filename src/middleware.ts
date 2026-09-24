@@ -86,7 +86,7 @@ export function shouldGateAdminRequest(pathname: string, domain: string): boolea
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// Authority-manager scope gate (00-MASTER-PLAN.md §13.10)
+// Authority-scoped gate (00-MASTER-PLAN.md §13.10, extended §13.16)
 //
 // A plain authority_manager was never covered by `admin: true` — that flag
 // stays `admin`/`system_admin`/root-only on purpose (it also gates routes
@@ -94,14 +94,24 @@ export function shouldGateAdminRequest(pathname: string, domain: string): boolea
 // /api/admin/photo-release/[submissionId] — granting it broadly would open
 // every OTHER city's data too, not just the manager's own). Instead
 // resolveIdentity() (firebase-admin.ts) computes a separate, narrower
-// `scope: 'authority_manager'` claim, server-side, from
-// authorities.managerIds — and this middleware allows THAT claim through
-// for only the same path allowlist admin/layout.tsx already enforces
-// client-side for the identical role (kept in sync manually — no shared
-// import is possible from Edge middleware into a 'use client' page).
+// `scope` claim, server-side, from authorities.managerIds (authority_manager)
+// or resolveUnitPermissionScope (tenant_owner/unit_admin, 24.09.2026) — and
+// this middleware allows THAT claim through for only the same path
+// allowlist admin/layout.tsx already enforces client-side for the identical
+// roles (kept in sync manually — no shared import is possible from Edge
+// middleware into a 'use client' page).
 // `/admin/authority/users` is deliberately absent (super_admin/
 // system_admin-only since 22.09.2026) — this list must never add it back
 // without also updating layout.tsx's copy.
+//
+// tenant_owner/unit_admin reuse this EXACT same list, not a narrower one —
+// Stage 4's job is only "can this scope reach the /admin/authority/* family
+// at all," not "which specific fields within a page it may see." The latter
+// is each page's own job (resolveUnitPermissionScope + per-page scoping,
+// most of which still needs Stage 5-8's rebuild — see 00-MASTER-PLAN.md
+// §13.16's investigation). Granting the same allowlist here doesn't expose
+// anything new: every one of these routes already existed and was already
+// reachable by SOME scope; this only adds two more legitimate holders.
 const AUTHORITY_MANAGER_ALLOWED_PATHS = [
   '/admin/authority-manager',
   '/admin/dashboard',
@@ -131,7 +141,7 @@ const AUTHORITY_MANAGER_ALLOWED_PATHS = [
 
 export interface GateSessionInfo {
   admin: boolean;
-  scope?: 'authority_manager';
+  scope?: 'authority_manager' | 'tenant_owner' | 'unit_admin';
 }
 
 export type AdminGateAction =
@@ -147,7 +157,8 @@ export type AdminGateAction =
  *
  *   session.admin === true           → allow (root / super_admin / etc.,
  *                                       unchanged from before this fix)
- *   scope === 'authority_manager'
+ *   scope === 'authority_manager' |
+ *   'tenant_owner' | 'unit_admin'
  *     + pathname in the allowlist    → allow
  *     + pathname NOT in the allowlist→ redirect to their own portal, NOT
  *                                       to login — they have a perfectly
@@ -163,7 +174,11 @@ export function decideAdminGateAction(
   if (session?.admin === true) {
     return { action: 'allow' };
   }
-  if (session?.scope === 'authority_manager') {
+  if (
+    session?.scope === 'authority_manager' ||
+    session?.scope === 'tenant_owner' ||
+    session?.scope === 'unit_admin'
+  ) {
     const isAllowed = AUTHORITY_MANAGER_ALLOWED_PATHS.some((p) => pathname.startsWith(p));
     return isAllowed ? { action: 'allow' } : { action: 'redirect', to: '/admin/authority-manager' };
   }

@@ -1172,3 +1172,50 @@ git revert -m 1 d241859346b448423c0d48d8c022980724c8ca3 --no-edit && git push or
 **מה לא בוצע — שלב 4 ו-UI, כלל לא הותחלו (לפי הוראה מפורשת):** בורר היחידות (client-facing, rate-limited, ללא שדה מספר-חברים לעולם — לא ברשימה הציבורית, לא בהיסטוריה, לא כברירת מחדל עתידית), ומסכי UI לכל הזרימה (בקשת הצטרפות, אישור/דחייה, ניהול הזמנות, רשימת חברים). אפס קוד/עיצוב לאף אחד מאלה.
 
 **המשימה הבאה:** ממתין לפרומפט נפרד מדוד.
+
+---
+
+### 13.16 — מסכי הקצין: חקירה (שלב א') + שלב 4 (שכבת גישה) + תיקוני-אגב (24.09.2026)
+
+**רקע:** לפני בניית מסכי קצין חדשים — חקירה מלאה (סוכן Explore, מאומתת ידנית בנקודות הקריטיות) של שלושת המסכים הקיימים שמגיעים מ"צי צבאי" בתפריט הראשי: היררכיית יחידות, ניהול צוות, מד כשירות. ההצעה המלאה (מיפוי + הצעה עצמאית למה שקצין באמת צריך + סדר בנייה 4→8) הוצגה לדוד ואושרה עם 6 החלטות. הסעיף הזה מתעד את מה שבוצע בפועל מתוך ה-6.
+
+**הממצא המרכזי שקדם לכל השאר:** שכבת הזיהוי עצמה (לא אחד משלושת המסכים) הייתה שבורה בשני כיוונים הפוכים:
+- `unit_admin` בלתי-נראה לגמרי ל-`resolveIdentity()` (`src/lib/firebase-admin.ts`) — לא נבדק שום שדה שלו (`core.unitId`/`core.authorityId`). `middleware.ts`'s `decideAdminGateAction` היה מפנה אותו ל-`/admin/login` בלי סוף.
+- `tenant_owner` קיבל `admin: true` **גורף** — `core.isTenantOwner === true` היה מקופל לתוך אותו תנאי admin כמו root/super_admin, בלי שום הגבלת תחום ב-middleware. קדם למשימה הזו (תיאורטי עד ששלב 2 אפשר ליצור tenant_owner אמיתי לראשונה).
+
+**החלטה 1 — שלב 4 מומש:**
+- `src/lib/firebase-admin.ts` — נוסף `computeAdminScope(uid, email, tokenClaimAdmin)`, פונקציה טהורה שפוצלה מתוך `resolveIdentity()` (אותו דפוס compute*() כמו בכל שלבי הוורטיקל) כדי שתהיה בדיקה ישירה באמולטור בלי טוקן אמיתי. `core.isTenantOwner` **הוסר** מבדיקת ה-admin. tenant_owner/unit_admin מזוהים דרך שימוש חוזר ב-`resolveUnitPermissionScope` (שלב 0) — לא לוגיקה חדשה.
+- **באג אמיתי שנתפס ע"י הבדיקות עצמן, לפני מיזוג:** הסדר הראשון שכתבתי בדק קודם את הבדיקה הגנרית של `authority_manager` (`authorities.managerIds`, בלי סינון `type`) ורק אח"כ tenant_owner/unit_admin. אבל tenant_owner **גם** נמצא ב-`authorities/{tenantId}.managerIds` (אותו שדה בדיוק) — אז כל tenant_owner אמיתי היה מסווג "authority_manager" רגיל, לא "tenant_owner". תוקן: הבדיקה הספציפית (`resolveUnitPermissionScope`) רצה **קודם**; רק אם היא חוזרת "denied" (למשל מנהל רשות עירונית רגיל, שנכשל בסינון military_unit/school) נופלים לבדיקה הגנרית.
+- `src/middleware.ts` — `GateSessionInfo.scope` והרשימה המותרת (`AUTHORITY_MANAGER_ALLOWED_PATHS`) הורחבו ל-`tenant_owner`/`unit_admin`, **אותה רשימה בדיוק** כמו authority_manager (שלב 4 קובע רק "מי נכנס", לא "מי רואה מה בתוך העמוד" — זה עבודת שלבים 5-8).
+- `src/lib/admin-session.ts` — טיפוס `AdminSessionPayload.scope` הורחב בהתאם (אין שינוי לוגי, רק טיפוסים — `/api/auth/session` כבר מעביר את `identity.scope` גנרית).
+- **`/api/admin/*` לא נגע** — נתיבי API נגמלים ע"י `requireAdminApi`/AGENT_API_KEY, מנגנון נפרד לגמרי שממשיך לחסום session-only caller כמו tenant_owner בדיוק כמו היום.
+
+**בדיקות — `scripts/verify-access-layer.ts`, 26/26:** unit_admin נכנס ורואה רק היחידה שלו; tenant_owner נכנס ורואה רק הגוף שלו; שניהם מנסים `/admin/users/all` (הדוגמה המפורשת של דוד) → נדחים; regression מלא ל-root/super_admin/system_admin/vertical_admin/authority_manager/"cali" (משתמש רגיל ללא תפקיד) — זהה למצב לפני השלב.
+
+**החלטה 2 — תיקון GPS/מסלול בכרטיס החייל, בוצע:**
+כרטיס-החייל (`units/[unitId]/page.tsx`) קרא ישירות מה-client SDK (`getDocs` על `workouts`), שאין לו יכולת field-projection (`.select()`) — עובדה מתועדת כבר בקוד הקיים (`city-mapping-summary.ts`). "לא לשלוף מלכתחילה" הושג רק ע"י מעבר לנתיב שרת חדש: **`GET /api/units/member-workouts?uid=`** (Admin SDK, `.select('workoutTitle','type','completedAt','durationMinutes')` — `routePath` לעולם לא נקרא מ-Firestore). הרשאה: `resolveUnitPermissionScope` של הצופה מול `core.tenantId`/`unitId` של החבר המבוקש — אותה הודעת-דחייה גנרית לכל אי-התאמה. badge ה-"GPS" הוסר מה-JSX (לא הוסתר — הנתון שהוא מציג כבר לא קיים ב-state בכלל). אין אינדקס חדש נדרש: השאילתה `workouts` לפי `userId==`+`orderBy(completedAt desc)` — **כבר קיימת** ב-`firestore.indexes.json` (זהה לשאילתה הישנה שהוחלפה).
+
+**החלטה 3 — מד כשירות, קפוא:** מתועד כאן כהחלטה מפורשת. `readiness_configs` נשאר על 0 מסמכים, `readiness.service.ts` נשאר עם הנחות התחום השבורות שתועדו (§13.16 החקירה המקורית — לא חוזר עליהן כאן). לא נגעתי בקוד, לא ב-rules. אם/כשיוחלט לבנות מחדש — פרויקט נפרד, לא הרחבה של הקיים.
+
+**החלטה 4 — קודי-גישה, נחקר בלבד, לא שונה:**
+נמצא בדיוק המנגנון החוסם: `functions/src/validateAccessCode.ts` — Cloud Function אחת, משותפת לכל סוגי ה-tenant (`municipal`/`educational`/`military`/`company`/`youth_movement`), עם רק בדיקת auth + שער-גיל (למתחת ל-14, כבר קיים). בהצלחה — **כותבת ישירות** (`tx.set`, שורה ~215) את `core.tenantId`/`unitId`/`unitPath`/`tenantType` על מסמך המשתמש, **ללא שום אישור קצין**. זה עוקף לגמרי את שלב 1 (בקשה→אישור) — קוד-גישה תקף = שיוך מיידי, לא בקשה.
+
+`firestore.rules`'s `noTenantFieldsChanged()` (שורות 234-246, כבר תוקן ב-01.09.2026 נגד וקטור התקפה **דומה אך שונה** — משתמש רגיל שכותב לעצמו ישירות מהדפדפן) **לא רלוונטי לחור הזה**: ההערה בקוד עצמו כבר אומרת "`validateAccessCode` (Admin SDK) לא מושפע — Admin SDK עוקף את הכללים האלה לגמרי" — בדיוק כמו כל Cloud Function/Admin SDK אחר בפרויקט הזה. **אין תיקון אפשרי ב-firestore.rules.** התיקון היחיד האפשרי הוא בתוך `validateAccessCode.ts` עצמו.
+
+**מה בדיוק צריך לקרות (לא בוצע, ממתין להחלטה):** להוסיף ענף לפי `codeDoc.tenantType` — עבור `'military'`/`'educational'` (וכנראה `'youth_movement'`, אותו דגם), **לא** לבצע את ה-`tx.set()` הישיר. שתי אפשרויות, לא הכרעתי ביניהן כי זו לא שלי להכריע:
+1. לדחות את הקוד לגמרי בהקשר צבאי/חינוכי ולהפנות למסלול בקשה-דרך-האפליקציה.
+2. להמיר את מימוש קוד-הגישה ליצירת `unit_join_requests/{uid}` (בדיוק אותו מנגנון ששלב 1 בנה) במקום כתיבה ישירה — הקוד עדיין "מכוון" את המשתמש ליחידה הנכונה, אבל לא מדלג על אישור הקצין.
+שני האפשרויות דורשות פריסת **Cloud Functions** (צנרת נפרדת מ-Next.js/Vercel — לא Vercel deploy, לא firestore.rules). שער-הגיל הקיים (שורות 53-61) חייב להישאר *לפני* כל ענף חדש, לא רק סביבו.
+**לא נגעתי בקובץ.** מדווח, עוצר, כמו שביקשת.
+
+**החלטה 6 — `getInvitationsByAuthority` (authorityId, לא tenantId):** נרשם רק כפריט לשלב 7 (עדיין לא התחיל), לא תוקן.
+
+**ניסוח:** "צי צבאי" → **"ניהול צבאי"** ב-`src/app/admin/layout.tsx` — עקבי עם "ניהול עירוני" הסמוך.
+
+**בדיקות:** `scripts/verify-access-layer.ts` — 26/26 (חדש). הרצה חוזרת של `verify-unit-join-requests.ts` (41/41) ו-`verify-invitation-chain-and-members.ts` (52/52) — אין רגרסיה משינויי `firebase-admin.ts`. `tsc` מול `origin/main` טרי — 800/800, 0 חדשות אמיתיות. `npx vitest run` — 2229 עברו, אותם 2 כשלים קיימים-מראש (כולל firestore-rules הפלייקי, עדיין לא נחקר).
+
+**לא נגעתי:** `firestore.rules`, שום נתון פרודקשן, מד כשירות, קודי-גישה (רק דיווח), `getInvitationsByAuthority`.
+
+**לא מוזג.** ממתין לאישור דוד.
+
+**המשימה הבאה:** ממתין לפרומפט נפרד מדוד (שלב 5 — מסך בקשות ממתינות, רק אחרי אישור).

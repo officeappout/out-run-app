@@ -132,6 +132,27 @@ export function getAdminDb(): Firestore {
  */
 const ROOT_ADMIN_EMAIL_REGEX = /^(david|office)@appout\.co\.il$/i;
 
+/**
+ * 24.09.2026 — Stage 4 of the military/school vertical build (.claude/
+ * plans/tenant-military-school-vertical-model.md §ח) added `tenant_owner`
+ * and `unit_admin` here. Two real problems found by investigating the
+ * officer-facing panel screens (before this fix, neither role could
+ * actually be used):
+ *   - `unit_admin` was invisible to this entire function — no check here
+ *     reads `core.unitId`/`core.authorityId` (the fields Stage 2's
+ *     accept-invitation writes for them). A real unit_admin would get
+ *     `admin:false, scope:undefined` and be redirected straight back to
+ *     /admin/login by middleware.ts's decideAdminGateAction, forever.
+ *   - `tenant_owner` got FULL `admin:true` (via `core.isTenantOwner===true`
+ *     folded into the admin check below) — no domain restriction
+ *     whatsoever, the same blanket grant as root/super_admin. This
+ *     predates this stage (the check existed before any invitation flow
+ *     could actually produce a working tenant_owner) but was dormant until
+ *     Stage 2 made creating one possible. Removed from the admin check;
+ *     replaced with a narrow scope, exactly like authority_manager.
+ */
+export type IdentityScope = 'authority_manager' | 'tenant_owner' | 'unit_admin';
+
 export interface ResolvedIdentity {
   uid: string;
   email: string | null;
@@ -147,9 +168,118 @@ export interface ResolvedIdentity {
    * data, not just their own. `scope` exists solely so the session
    * cookie can carry enough for middleware.ts's decideAdminGateAction to
    * allow ONLY that manager's own portal paths — see 00-MASTER-PLAN.md
-   * §13.10 for the redirect-loop this replaces.
+   * §13.10 for the redirect-loop this replaces, and §13.16 for the
+   * tenant_owner/unit_admin extension.
    */
-  scope?: 'authority_manager';
+  scope?: IdentityScope;
+}
+
+/**
+ * The pure, uid-keyed half of identity resolution — factored out of
+ * resolveIdentity() specifically so it's directly testable against the
+ * Firestore emulator without needing a real Firebase Auth ID token (same
+ * compute*()-split convention used throughout the military/school vertical
+ * build). `tokenClaimAdmin` is the ONE fact this function can't derive
+ * from uid alone — the `admin` custom claim lives on the decoded token,
+ * not in Firestore — so resolveIdentity() passes it in after verifying
+ * the token; every other check here is a Firestore read keyed by uid.
+ *
+ * tenant_owner/unit_admin detection reuses resolveUnitPermissionScope
+ * (src/lib/unitPermissionScope.ts, Stage 0) as-is — no duplicated domain
+ * logic. It runs BEFORE the generic authority_manager check (pre-existing,
+ * unchanged), not after — a real tenant_owner is ALSO present in
+ * authorities/{tenantId}.managerIds (same field, no `type` filter on the
+ * generic check), so checking that one first would mislabel every real
+ * tenant_owner as a plain 'authority_manager' — caught by this stage's own
+ * test suite. resolveUnitPermissionScope's military_unit/school `type`
+ * filter is what makes a municipal authority manager correctly fall
+ * through to the (unchanged) generic check below instead.
+ */
+export async function computeAdminScope(
+  uid: string,
+  email: string | null,
+  tokenClaimAdmin: boolean,
+): Promise<{ admin: boolean; scope?: IdentityScope }> {
+  let admin = tokenClaimAdmin;
+
+  if (!admin && email && ROOT_ADMIN_EMAIL_REGEX.test(email)) {
+    admin = true;
+  }
+
+  if (!admin) {
+    // Fall back to the Firestore-doc check used by checkUserRole().
+    try {
+      const { getFirestore } = await import('firebase-admin/firestore');
+      const fs = getFirestore(ensureApp());
+      const snap = await fs.collection('users').doc(uid).get();
+      const data = snap.data() ?? {};
+      const core = data.core ?? {};
+      admin =
+        data.role === 'admin' ||
+        core.role === 'admin' ||
+        core.role === 'system_admin' ||
+        core.isSuperAdmin === true ||
+        core.isSystemAdmin === true ||
+        core.isVerticalAdmin === true;
+      // core.isTenantOwner === true — deliberately NOT included (see this
+      // file's Stage 4 header comment). tenant_owner gets a scope below,
+      // never blanket admin.
+    } catch (err) {
+      console.warn('[firebase-admin] Failed to read user doc for admin check:', err);
+    }
+  }
+
+  // tenant_owner/unit_admin, checked BEFORE the generic authority_manager
+  // query below — deliberately, not incidentally. A tenant_owner IS also
+  // present in authorities/{tenantId}.managerIds (that's literally how
+  // resolveUnitPermissionScope finds them — same field the generic check
+  // below reads, just without a `type` filter), so the generic check would
+  // otherwise match EVERY real tenant_owner too and mislabel them
+  // 'authority_manager' — found by this stage's own test suite. Checking
+  // the more specific classification first, and only falling through to
+  // the generic one when it comes back 'denied', is what makes the two
+  // mutually exclusive in practice. resolveUnitPermissionScope's own
+  // military_unit/school type filter is what a municipal authority manager
+  // correctly fails, so they fall through to the unchanged check below.
+  let scope: IdentityScope | undefined;
+  if (!admin) {
+    try {
+      const { resolveUnitPermissionScope } = await import('@/lib/unitPermissionScope');
+      const unitScope = await resolveUnitPermissionScope(uid);
+      if (unitScope.kind === 'tenantOwner') scope = 'tenant_owner';
+      else if (unitScope.kind === 'unitAdmin') scope = 'unit_admin';
+      // unitScope.kind === 'root' can't happen here — resolveUnitPermission
+      // Scope's own root check is the same isRootAdmin(email) gate already
+      // folded into `admin` above via ROOT_ADMIN_EMAIL_REGEX. 'denied'
+      // leaves scope undefined, falling through to the check below.
+    } catch (err) {
+      console.warn('[firebase-admin] Failed to check unit permission scope:', err);
+    }
+  }
+
+  // Authority-manager scope (pre-existing, unchanged logic) — checked only
+  // when the caller isn't already a full admin AND didn't already resolve
+  // to the more specific tenant_owner/unit_admin above. Server-computed
+  // from authorities.managerIds directly — never trusts a client-supplied
+  // claim.
+  if (!admin && !scope) {
+    try {
+      const { getFirestore } = await import('firebase-admin/firestore');
+      const fs = getFirestore(ensureApp());
+      const managerSnap = await fs
+        .collection('authorities')
+        .where('managerIds', 'array-contains', uid)
+        .limit(1)
+        .get();
+      if (!managerSnap.empty) {
+        scope = 'authority_manager';
+      }
+    } catch (err) {
+      console.warn('[firebase-admin] Failed to check authority-manager scope:', err);
+    }
+  }
+
+  return { admin, scope };
 }
 
 export async function resolveIdentity(idToken: string): Promise<ResolvedIdentity> {
@@ -191,55 +321,7 @@ export async function resolveIdentity(idToken: string): Promise<ResolvedIdentity
   }
 
   const email: string | null = (decoded.email as string | undefined) ?? null;
-  let admin = decoded.admin === true;
-
-  if (!admin && email && ROOT_ADMIN_EMAIL_REGEX.test(email)) {
-    admin = true;
-  }
-
-  if (!admin) {
-    // Fall back to the Firestore-doc check used by checkUserRole().
-    try {
-      const { getFirestore } = await import('firebase-admin/firestore');
-      const fs = getFirestore(ensureApp());
-      const snap = await fs.collection('users').doc(decoded.uid).get();
-      const data = snap.data() ?? {};
-      const core = data.core ?? {};
-      admin =
-        data.role === 'admin' ||
-        core.role === 'admin' ||
-        core.role === 'system_admin' ||
-        core.isSuperAdmin === true ||
-        core.isSystemAdmin === true ||
-        core.isVerticalAdmin === true ||
-        core.isTenantOwner === true;
-    } catch (err) {
-      console.warn('[firebase-admin] Failed to read user doc for admin check:', err);
-    }
-  }
-
-  // Authority-manager scope — checked only when the caller isn't already
-  // a full admin (an admin has no need for the narrower grant, and this
-  // keeps the extra query off the hot path for every root/super_admin
-  // request). Server-computed from authorities.managerIds directly —
-  // never trusts a client-supplied claim.
-  let scope: 'authority_manager' | undefined;
-  if (!admin) {
-    try {
-      const { getFirestore } = await import('firebase-admin/firestore');
-      const fs = getFirestore(ensureApp());
-      const managerSnap = await fs
-        .collection('authorities')
-        .where('managerIds', 'array-contains', decoded.uid)
-        .limit(1)
-        .get();
-      if (!managerSnap.empty) {
-        scope = 'authority_manager';
-      }
-    } catch (err) {
-      console.warn('[firebase-admin] Failed to check authority-manager scope:', err);
-    }
-  }
+  const { admin, scope } = await computeAdminScope(decoded.uid, email, decoded.admin === true);
 
   return { uid: decoded.uid, email, admin, scope };
 }
