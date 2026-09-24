@@ -111,6 +111,21 @@ async function purgeUserData(uid: string): Promise<Record<string, number>> {
     counts.dailyActivity = 0;
   }
 
+  // 2b. healthSamples/{uid}/{date}/{sampleUUID} — Health Connect / HealthKit
+  //     dedup markers (see ingestHealthSamples.ts). Top-level collection
+  //     keyed by uid as the doc ID, with per-date subcollections
+  //     underneath — the users/{uid} recursiveDelete above does not reach
+  //     it. Not part of the legal hold: createLegalHold (legalHold.ts)
+  //     never references this collection, so nothing here needs
+  //     preserving before it's gone.
+  try {
+    await db.recursiveDelete(db.collection('healthSamples').doc(uid));
+    counts.healthSamples = 1;
+  } catch (e) {
+    logger.warn(`[purgeUserData] healthSamples/${uid} recursiveDelete failed`, e);
+    counts.healthSamples = 0;
+  }
+
   // 3. Presence, social graph, personal activity feed, kudos inbox.
   //    Each is owned exclusively by the deleted user.
   for (const top of ['presence', 'connections', 'activity', 'kudos'] as const) {
