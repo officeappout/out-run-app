@@ -1346,3 +1346,7 @@ Revert: `git revert -m 1 72eb5c41`
 Revert: `git revert -m 1 2897d308`
 
 שני המיזוגים `--no-ff` מ-`origin/main` @ `50df2f51` (שתי הענפים נוצרו מאותו commit, לא נדרש rebase). אימות גישה ל-`/admin/signup-failures` (root-בלבד, לא authority_manager/tenant_owner/unit_admin) בוצע לפני המיזוג — ראו §13.19.
+
+**push ל-`origin/main` (24.09.2026):** ה-push הראשון נדחה (non-fast-forward) — קומיט מקביל של דוד עלה ל-`main` באותו חלון זמן (`e632f167`, "fix(onboarding): correct why-step goal resolution...") ונגע ב-`assessment-visual/page.tsx`, אותו קובץ ש-§13.19 גם הוסיפה אליו את `reportSignupFailure('ASSESSMENT_SAVE', ...)`. מוזג עם `origin/main` (`a013bab5`), אומת ידנית ששני השינויים שרדו זה לצד זה (השורה שמוסיפה `reportSignupFailure` נפרדת לחלוטין מהשינוי של `pathConfig.path`) — ואז נדחף בהצלחה. `main` כרגע ב-`a013bab5`.
+
+**Smoke לאחר דיפלוי:** `outrun.co.il` → 200, `/api/catalog/parks` → 200 עם 1159 גינות (זהה למספר שתועד לאחרונה ב-§13.13, לא קשור לשינוי הזה) — עבר בניסיון הראשון.
