@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
@@ -44,6 +44,9 @@ import {
   getPathConfigSync,
   loadPathConfigAsync,
   getMaxLevelForCategory,
+  getSkillFocusFromStorage,
+  getProgramPathListFromStorage,
+  getMuscleFocusFromStorage,
   type AssessmentPathConfig,
 } from '@/features/user/onboarding/services/assessment-path-config.service';
 import { getProgramLevelSetting } from '@/features/content/programs/core/programLevelSettings.service';
@@ -53,9 +56,11 @@ import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import {
   isMiniAssessmentActive,
   consumeMiniAssessmentState,
+  MINI_ASSESSMENT_DOMAIN_KEY,
 } from '@/features/user/onboarding/services/mini-domain-assessment';
 import { writeSingleDomainAssessment } from '@/features/user/onboarding/services/single-domain-assessment.service';
 import { baselineSkillMasterSubLevels } from '@/features/user/onboarding/utils/skill-result-levels';
+import { SKILL_TO_FOUNDATION_DOMAIN } from '@/features/user/onboarding/constants/skill-foundation-domain.constants';
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -93,6 +98,58 @@ function resolveUid(authUser: User | null): string | null {
   } catch {
     return null;
   }
+}
+
+// ── Slice B: minus-as-escape on skill sliders ───────────────────────
+//
+// Run synchronously, before any pathConfig swap or the next
+// getPathConfigSync() call — order matters. Mirrors the existing
+// body_focus single-domain mechanism (the same one mini-domain-assessment.ts
+// already uses for top-ups) rather than inventing a new key.
+//
+// THE load-bearing step is #1 (onboarding_skill_focus) — it alone is what
+// stops onboarding-sync.service.ts's SKILL_TO_FOUNDATION_OFFSET (+9)
+// derivation from firing for the escaped id (that derivation re-reads
+// getSkillFocusFromStorage() fresh at COMPLETED time, never React state).
+//
+// Returns the resolved foundation domain ('push'|'pull'), or null if the
+// escaped id has no mapping (defensive — every skill the picker lets a user
+// select and reach a coverflow floor on has a real SKILL_TO_FOUNDATION_DOMAIN
+// entry; calisthenics_upper, the one roster id without one, has no ladder of
+// its own and can never be "on" a skill slider to escape from).
+function runSkillEscapeCleanup(escapedId: string): 'push' | 'pull' | null {
+  const foundationDomain = SKILL_TO_FOUNDATION_DOMAIN[escapedId];
+  if (!foundationDomain) return null;
+
+  // 1. THE load-bearing mutation.
+  const skillIds = getSkillFocusFromStorage();
+  const remaining = skillIds.filter((id) => id !== escapedId);
+  sessionStorage.setItem('onboarding_skill_focus', JSON.stringify(remaining));
+
+  // 2 + 3. cardOrder: drop 'skills' only once no skill remains; always
+  // ensure 'body_focus' is present so the union resolver surfaces a
+  // muscle-derived category slider.
+  let cardOrder = getProgramPathListFromStorage() as string[];
+  if (remaining.length === 0) {
+    cardOrder = cardOrder.filter((c) => c !== 'skills');
+  }
+  if (!cardOrder.includes('body_focus')) {
+    cardOrder = [...cardOrder, 'body_focus'];
+  }
+  sessionStorage.setItem('onboarding_program_path', JSON.stringify(cardOrder));
+
+  const muscleIds = getMuscleFocusFromStorage();
+  if (!muscleIds.includes(foundationDomain)) {
+    sessionStorage.setItem('onboarding_muscle_focus', JSON.stringify([...muscleIds, foundationDomain]));
+  }
+
+  // 4. Mini top-up path only — otherwise the same phantom-result bug fires
+  // a second, independent time via writeSingleDomainAssessment.
+  if (isMiniAssessmentActive()) {
+    sessionStorage.setItem(MINI_ASSESSMENT_DOMAIN_KEY, foundationDomain);
+  }
+
+  return foundationDomain;
 }
 
 // ── Page component ─────────────────────────────────────────────────
@@ -164,6 +221,20 @@ export default function VisualAssessmentPage() {
   const [pathConfig, setPathConfig] = useState<AssessmentPathConfig | null>(
     null,
   );
+
+  // Slice B (minus-as-escape): pathConfig can now also be updated by the
+  // escape handlers below, well after the initial loading→why transition —
+  // not just by the one-time mount effect further down. This ref lets the
+  // init effect distinguish that normal mount-time sync→async pathConfig
+  // upgrade (unchanged: still resets step/categoryIndex/levels) from an
+  // escape-triggered swap while already deep in the sliders step (must NOT
+  // reset any of that — it would wipe the user's progress and kick them
+  // back to the why screen).
+  const isEscapeConfigUpdate = useRef(false);
+  const applyEscapePathConfig = useCallback((config: AssessmentPathConfig) => {
+    isEscapeConfigUpdate.current = true;
+    setPathConfig(config);
+  }, []);
 
   // ── Flow state ───────────────────────────────────────────────
 
@@ -265,6 +336,13 @@ export default function VisualAssessmentPage() {
       return;
     }
     if (!pathConfig) return;
+    // Slice B: an escape-triggered pathConfig swap must NOT re-run this
+    // effect's why/tier-skip initialisation — see isEscapeConfigUpdate's
+    // doc comment above. Consume the flag once and bail.
+    if (isEscapeConfigUpdate.current) {
+      isEscapeConfigUpdate.current = false;
+      return;
+    }
 
     if (pathConfig.skipTier && pathConfig.categories.length > 0) {
       // Path 3: skip tier — pre-compute starting levels now, but show 'why' first
@@ -407,6 +485,35 @@ export default function VisualAssessmentPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [categoryIndex, levels, pathConfig, categories, toFullAssessmentLevels],
   );
+
+  // ── Slice B: escape a skill slider at its floor to the plain foundation
+  // assessment for that skill's domain, IN PLACE (same categoryIndex). The
+  // escaped skill is dropped entirely — never saved.
+  //
+  // categoryIndex is deliberately left unchanged: the escaped id is always
+  // removed from exactly the position currently being viewed, so whatever
+  // the freshly re-derived categories array now has at that same index is
+  // correctly the next pending item — a same-domain sibling skill shifting
+  // into this slot, a newly-unsuppressed foundation slider, or (if nothing
+  // else remains at all) nothing, the array falls back to PRIMARY_CATEGORIES
+  // per resolveUnionCategories' own empty-union guard.
+  //
+  // Re-derives the FULL union fresh (getPathConfigSync/loadPathConfigAsync)
+  // rather than hand-splicing categories[categoryIndex] — this is what makes
+  // the same-domain-sibling case self-heal for free: if another same-domain
+  // skill is still selected, applySkillCollisionSuppression keeps the plain
+  // slider correctly suppressed; if not, it appears. No new merge logic.
+  const handleSliderEscape = useCallback(() => {
+    const escapedId = categories[categoryIndex];
+    const foundationDomain = runSkillEscapeCleanup(escapedId);
+    if (!foundationDomain) return; // defensive no-op — no mapping, nothing to escape to
+
+    // Same two-step pattern the mount effect above already uses: instant
+    // sync swap so the UI transitions immediately, then a silent upgrade to
+    // CMS-precise maxLevels shortly after.
+    applyEscapePathConfig(getPathConfigSync());
+    loadPathConfigAsync().then(applyEscapePathConfig).catch(() => {});
+  }, [categories, categoryIndex, applyEscapePathConfig]);
 
   // ── Path 3: Build result from skill levels ────────────────────
 
@@ -581,6 +688,25 @@ export default function VisualAssessmentPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [followUpIndex, followUpCategories, levels, categories, toFullAssessmentLevels],
   );
+
+  // ── Slice B: escape wiring for the follow-up mount, for symmetry with the
+  // primary slider. In practice this is defensively unreachable today —
+  // followUpCategories only ever comes from the rule engine
+  // (runRuleEngine → evaluateRules), which handleSliderConfirm only calls
+  // when pathConfig.skillIds is empty, so a skill id can never appear here.
+  // followUpCategories is a plain ad-hoc list (not pathConfig-derived), so
+  // there is no union to re-resolve — an in-place splice is the correct,
+  // proportionate mechanism for this simpler structure.
+  const handleFollowUpEscape = useCallback(() => {
+    const escapedId = followUpCategories[followUpIndex];
+    const foundationDomain = runSkillEscapeCleanup(escapedId);
+    if (!foundationDomain) return;
+    setFollowUpCategories((prev) => {
+      const next = [...prev];
+      next[followUpIndex] = foundationDomain;
+      return next;
+    });
+  }, [followUpCategories, followUpIndex]);
 
   // ── Result builders ──────────────────────────────────────────
   // assessedCategories: the categories genuinely walked through by the user
@@ -993,6 +1119,7 @@ export default function VisualAssessmentPage() {
                 }
                 demographics={demographics}
                 onLevelConfirm={handleSliderConfirm}
+                onEscape={handleSliderEscape}
                 onBack={() => { handleStepBack(); }}
                 stepIndex={categoryIndex}
                 totalSteps={categories.length}
@@ -1066,6 +1193,7 @@ export default function VisualAssessmentPage() {
                 }
                 demographics={demographics}
                 onLevelConfirm={handleFollowUpConfirm}
+                onEscape={handleFollowUpEscape}
                 onBack={() => { handleStepBack(); }}
                 stepIndex={followUpIndex}
                 totalSteps={followUpCategories.length}
