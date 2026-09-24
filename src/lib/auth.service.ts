@@ -456,14 +456,42 @@ export async function signInWithApple(): Promise<{ user: User | null; error: str
 }
 
 /**
- * Sign in as Guest (Anonymous)
+ * Sign in as Guest (Anonymous).
+ *
+ * A timeout guards against a hang the same way Google/Apple sign-in are
+ * already guarded above — but this is the FIRST tap most new users make
+ * (P0-1, 24.09.2026 — see docs/audit-2026-09/00-MASTER-PLAN.md §13.18),
+ * and previously had no timeout at all while both providers did. Shorter
+ * than Apple's 30s: unlike Google/Apple, there's no native account-picker
+ * or Face ID step waiting on the user here — a hang means the network/
+ * Firebase Auth request itself is stuck, so 20s is generous room for a
+ * slow connection without leaving the user staring at a dead screen.
  */
+const GUEST_SIGNIN_TIMEOUT_MS = 20_000;
+
+function withGuestTimeout<T>(promise: Promise<T>): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(
+        () => reject(new Error('GUEST_SIGNIN_TIMEOUT')),
+        GUEST_SIGNIN_TIMEOUT_MS,
+      ),
+    ),
+  ]);
+}
+
 export async function signInGuest() {
   try {
-    const result = await signInAnonymously(auth);
+    const result = await withGuestTimeout(signInAnonymously(auth));
     return { user: result.user, error: null };
   } catch (error: any) {
-    return { user: null, error: error.message };
+    const msg: string = error?.message ?? String(error);
+    if (msg === 'GUEST_SIGNIN_TIMEOUT') {
+      console.error('[Auth Service] Guest (anonymous) sign-in timed out');
+      return { user: null, error: 'guest_timeout' };
+    }
+    return { user: null, error: msg };
   }
 }
 

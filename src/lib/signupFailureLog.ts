@@ -27,6 +27,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 export type SignupFailureStage =
   | 'AUTH_GOOGLE'
   | 'AUTH_APPLE'
+  | 'AUTH_ANONYMOUS'
   | 'GATEWAY_EXPLORE'
   | 'GATEWAY_GET_PROGRAM'
   | 'EXPLORE_MAP_PROFILE_WRITE'
@@ -38,11 +39,12 @@ export type SignupFailureStage =
 
 /** The closed list — every real catch site this stage covers, matched
  *  1:1 to the actual call sites wired up (see docs/audit-2026-09/00-
- *  MASTER-PLAN.md §13.19 for the file:line list). Not aspirational —
+ *  MASTER-PLAN.md §13.19/§13.22 for the file:line list). Not aspirational —
  *  every value here has exactly one caller. */
 export const SIGNUP_FAILURE_STAGES: readonly SignupFailureStage[] = [
   'AUTH_GOOGLE',
   'AUTH_APPLE',
+  'AUTH_ANONYMOUS',
   'GATEWAY_EXPLORE',
   'GATEWAY_GET_PROGRAM',
   'EXPLORE_MAP_PROFILE_WRITE',

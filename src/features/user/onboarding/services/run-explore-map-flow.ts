@@ -48,13 +48,23 @@ export interface ExploreMapRouter {
  * signInGuest() (signInAnonymously) when a provider user is already
  * authenticated replaces their session with a new anonymous uid, permanently
  * breaking the link between their Apple/Google account and their profile.
+ *
+ * The sole chokepoint for AUTH_ANONYMOUS logging (P0-1, 24.09.2026 — see
+ * docs/audit-2026-09/00-MASTER-PLAN.md §13.18/§13.22): both callers of this
+ * function (runExploreMapFlow below, and gateway/page.tsx's
+ * handleGetProgram, which calls resolveUser() directly) get a guest-sign-in
+ * failure logged exactly once, here — not duplicated at each call site.
  */
 export async function resolveUser() {
   const current = auth.currentUser;
   if (current && !current.isAnonymous) {
     return { user: current, error: null };
   }
-  return signInGuest();
+  const result = await signInGuest();
+  if (!result.user) {
+    reportSignupFailure('AUTH_ANONYMOUS', result.error ?? 'unknown');
+  }
+  return result;
 }
 
 /**
