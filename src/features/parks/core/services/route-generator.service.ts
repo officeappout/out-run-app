@@ -1506,6 +1506,15 @@ async function generateCorridorRoute(options: RouteGenerationOptions): Promise<R
     return [];
   }
 
+  // No orphan-route quality gate here (05.09.2026 decision, after live
+  // measurement) — official_routes is human-approved/curated; the approval
+  // itself is the quality gate. Measured live: applying the orphan gate here
+  // dropped 59-94% of real official_routes per city, almost entirely
+  // legitimate short admin-named park loops ("הקפת גן ...") on the length
+  // floor alone — over-filtering the exact good pattern (short closed loops)
+  // this product wants to keep. See orphanRouteGateReason's doc comment —
+  // it's used ONLY by generateDiscoveredChainRoute now, a genuinely
+  // ungated/unvetted output.
   const route = buildCorridorRoute(corridor, followOfficialRouteId, activity, routeGenerationIndex);
   console.log(`[RouteGenerator] generateCorridorRoute: following ${followOfficialRouteId} — ${corridor.path.length} pts, ${route.distance}km`);
   return [route];
@@ -1598,7 +1607,7 @@ export interface ChainDiscoveryDiagnostics {
   chainRouteIds: string[];
   attempts: ChainDiscoveryAttempt[];
   finalDistanceKm: number;
-  stopReason: 'target_reached' | 'no_more_edges' | 'max_corridors' | 'no_starting_corridor' | 'flag_disabled';
+  stopReason: 'target_reached' | 'no_more_edges' | 'max_corridors' | 'no_starting_corridor' | 'flag_disabled' | 'quality_gate_rejected';
   timestamp: number;
 }
 
@@ -1908,6 +1917,18 @@ async function generateDiscoveredChainRoute(options: RouteGenerationOptions): Pr
   if (chainIds.length < 2) return finish(chainIds, totalDistanceKm, 'no_more_edges', edgesAvailable, []);
 
   const splicedPath = spliceCorridorChain(orientedPaths, connectors);
+
+  // Orphan-route quality gate (05.09.2026) — see orphanRouteGateReason's doc
+  // comment. Checked before the DEM lookup below so a rejected chain doesn't
+  // pay for work that gets thrown away (same rationale as
+  // generateUserAnchoredFlowRoute's own Quality gates block, which this
+  // mirrors).
+  const gateReason = orphanRouteGateReason(splicedPath, totalDistanceKm);
+  if (gateReason) {
+    console.warn(`[RouteGenerator] generateDiscoveredChainRoute: chain [${chainIds.join(' -> ')}] REJECTED by quality gate — ${gateReason}`);
+    return finish(chainIds, totalDistanceKm, 'quality_gate_rejected', edgesAvailable, []);
+  }
+
   const speedKmh = activity === 'cycling' ? SPEED_KMH.cycling : activity === 'running' ? SPEED_KMH.running : SPEED_KMH.walking;
   const durationMinutes = Math.round((totalDistanceKm / speedKmh) * 60);
   const calories = Math.round(totalDistanceKm * kcalPerKmFor(activity));
@@ -2083,6 +2104,86 @@ async function selectProximityAwareCorridor(
  * revisit once real corridor-flow rejections are observed on-device.
  */
 const MAX_TURNS_PER_KM_CORRIDOR_FLOW = 15;
+
+/**
+ * Absolute floor for generateDiscoveredChainRoute's spliced output — a
+ * genuinely degenerate-stub catch only (a bug producing a near-zero-length
+ * splice), NOT a "is this route long enough to be worthwhile" quality
+ * opinion. Deliberately tiny: real chained output is at minimum one whole
+ * corridor's own length (corridors this short do exist, e.g. a 160m curated
+ * garden loop — see the note below on why that data doesn't disqualify a
+ * value this low), so 150m only ever fires on something structurally
+ * broken, never a legitimate short chain.
+ */
+const MIN_CHAIN_LENGTH_KM = 0.15;
+
+/**
+ * Turns-per-km ceiling for generateDiscoveredChainRoute's spliced output —
+ * deliberately its OWN, higher constant, not a reuse of
+ * MAX_TURNS_PER_KM_CORRIDOR_FLOW (15, calibrated for generateUserAnchoredFlowRoute's
+ * flat urban connector-flow context). Live measurement (05.09.2026, against
+ * real official_routes across 4 cities) showed 15 would flag legitimate
+ * named hiking/nature trails on real terrain (e.g. Carmel mountain trails)
+ * at 16-39 turns/km — winding is expected and desirable there, not a defect;
+ * this product's core value includes real nature trails, not just flat
+ * urban loops. The one clear, unambiguous outlier observed was 74.2 turns/km
+ * (a route named "המעונות"). 45 sits with real margin above every observed
+ * plausibly-legitimate trail value (39.3 max) and real margin below the one
+ * clear outlier (74.2) — separating "real winding trail" from "egregious
+ * zigzag" without needing to guess exactly where the line falls between them.
+ * That data is from generateCorridorRoute's (human-curated) output, used
+ * here only as the best available proxy for realistic terrain-driven
+ * turn density — generateDiscoveredChainRoute's OWN spliced-chain
+ * distribution hasn't been measurable yet (see this file's git history /
+ * the 05.09.2026 investigation: local NEXT_PUBLIC_MAPBOX_TOKEN was rejected
+ * by Mapbox, blocking every connector-leg fetch chain-discovery needs).
+ * Revisit this constant once a real chain-level measurement is possible.
+ */
+const MAX_TURNS_PER_KM_DISCOVERED_CHAIN = 45;
+
+/**
+ * Orphan-route quality gate (05.09.2026, bad-pattern #2 from the Herzliya
+ * review) — generateDiscoveredChainRoute (Phase 2 chain-discovery) ONLY.
+ * generateCorridorRoute (follow-a-specific-official-route mode) does NOT
+ * use this: official_routes is human-approved/curated, and live measurement
+ * showed applying this gate there drops 59-94% of real routes per city,
+ * almost entirely legitimate short admin-named park loops ("הקפת גן ...")
+ * on a length floor alone — over-filtering exactly the good pattern (a
+ * clean short closed loop) this product wants to keep. Human approval IS
+ * the quality gate for that path.
+ *
+ * generateDiscoveredChainRoute's spliced chain has no other coherence check
+ * at all (see the prior read-only investigation into route-generator
+ * quality patterns) — nothing upstream enforces that a freshly-spliced,
+ * never-reviewed chain of corridors + Mapbox connector legs is coherent.
+ *
+ * Modeled on generateUserAnchoredFlowRoute's own "Quality gates" block just
+ * above (self-intersection + turns-per-km), reusing the exact same
+ * primitives — but with this function's OWN, separately-calibrated
+ * constants (MIN_CHAIN_LENGTH_KM, MAX_TURNS_PER_KM_DISCOVERED_CHAIN), not
+ * generateUserAnchoredFlowRoute's, since a freshly-discovered chain and a
+ * flat urban connector-flow route warrant different tolerances (see each
+ * constant's own doc comment).
+ *
+ * Deliberately narrow, matching exactly what was asked: too short,
+ * self-intersecting, or too twisty per km. This is NOT a "is this a real
+ * loop or meaningful point-to-point" coherence check — a short, straight,
+ * non-crossing fragment can still pass. That broader problem is a separate,
+ * unsolved gap (see the investigation) — out of scope here.
+ */
+export function orphanRouteGateReason(path: [number, number][], totalDistanceKm: number): string | null {
+  if (totalDistanceKm < MIN_CHAIN_LENGTH_KM) {
+    return `too short (${totalDistanceKm.toFixed(2)}km < ${MIN_CHAIN_LENGTH_KM}km floor)`;
+  }
+  if (pathSelfIntersects(path)) {
+    return 'self-intersects';
+  }
+  const turnsPerKm = computeRouteTurns(path).length / totalDistanceKm;
+  if (turnsPerKm > MAX_TURNS_PER_KM_DISCOVERED_CHAIN) {
+    return `too twisty (${turnsPerKm.toFixed(1)} turns/km > ${MAX_TURNS_PER_KM_DISCOVERED_CHAIN})`;
+  }
+  return null;
+}
 
 /**
  * Stage A+B of the user-anchored corridor-flow build. Starts the route AT
