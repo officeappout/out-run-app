@@ -95,9 +95,15 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
     // about consistency and headroom for future content, not an observed
     // bug in this specific step.
     <div className="flex flex-col h-full px-4 pb-6">
-      <div className="flex-1 overflow-y-auto">
-        {/* Map */}
-        <div className="relative rounded-2xl overflow-hidden h-[240px] mb-4 border border-slate-200">
+      {/* min-h-0 is required for the map's flex-1 below to actually shrink/
+          grow inside a scrolling flex column instead of overflowing based
+          on its own content size (a well-known flexbox gotcha). */}
+      <div className="flex-1 overflow-y-auto flex flex-col min-h-0">
+        {/* Map — grows to fill whatever space the sheet's new height (see
+            index.tsx) leaves after the fixed-size sections below it, instead
+            of sitting at a fixed 240px with dead space underneath (David,
+            24.09.2026: "the map is what's actually used at this step"). */}
+        <div className="relative rounded-2xl overflow-hidden flex-1 min-h-[200px] mb-4 border border-slate-200">
           <Map
             ref={mapRef}
             initialViewState={{ latitude: center.lat, longitude: center.lng, zoom: 15 }}
