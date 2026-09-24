@@ -266,6 +266,18 @@ export interface HybridPlannedSegment {
   domainFocus?: BlockDomainFocus;
   content?: StrengthBlockResult;
   estCalories: number;
+  /**
+   * Station-approach moment (David, 25.09.2026): the real GPS coordinates of
+   * this stop, carried straight through from HybridStopCandidate.lat/lng
+   * (already resolved at selection time, see selection.chosen below) —
+   * transferring an existing field, not a new computation. Lets the runtime
+   * measure REAL distance-to-station instead of cumulative route-km, which
+   * accumulates GPS noise over a session and, per the deviation-mechanism
+   * removal decision, keeps growing for a user who's off-route without them
+   * actually approaching the station at all.
+   */
+  lat?: number;
+  lng?: number;
 }
 
 export interface HybridPlan {
@@ -995,6 +1007,8 @@ export function composeHybridSession(input: HybridComposeInput): HybridPlan {
         parkId: stop.candidate.parkId,
         locationKind: stop.candidate.locationKind,
         activityType: stop.candidate.activityType ?? 'strength',
+        lat: stop.candidate.lat,
+        lng: stop.candidate.lng,
         // 'multi' (Bug 2a): the station is full-body → no single-domain label/icon (UI
         // falls back to the generic "כוח" glyph). Else keep the cycling domain.
         domainFocus: input.stationDomainMode === 'multi' ? undefined : stop.focus,

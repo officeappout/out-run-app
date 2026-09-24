@@ -19,6 +19,7 @@
 
 import type { HybridPlannedSegment } from './compose-hybrid-session.service';
 import type { SessionSegmentRecord, SegmentMetrics, SegmentExerciseDetail } from '../core/services/storage.service';
+import { haversineMeters } from '@/features/parks/core/services/geoUtils';
 
 // ============================================================================
 // STATE + EVENTS
@@ -124,6 +125,48 @@ export function shouldArriveAtStation(state: HybridRunState, cumulativeKm: numbe
   const stationKm = leg?.toKm;
   if (stationKm == null) return false;
   return cumulativeKm >= stationKm;
+}
+
+/**
+ * Approach-window distance thresholds (David, 25.09.2026) — derived from
+ * ~40 seconds at each activity type's TYPICAL speed, not the runner's live
+ * pace: walking ≈ 1.4 m/s × 40s ≈ 56m, running ≈ 3 m/s × 40s ≈ 120m. One
+ * constant per activity type, not a distance table. Deliberately not the
+ * user's actual live speed — that value lives in a different store
+ * (useRunningPlayer) than the hybrid controller's distance/duration
+ * (useSessionStore), and bridging them is real plumbing this "get ready"
+ * cue doesn't need: the gap between a personal pace and a typical one is
+ * imperceptible here. Revisit only if field testing shows it's not enough.
+ */
+const APPROACH_THRESHOLD_METERS: Record<'walking' | 'running', number> = {
+  walking: 56,
+  running: 120,
+};
+
+/**
+ * True when the runner is within the ~40-second approach window of the
+ * upcoming station, measured as REAL GPS distance to the station's actual
+ * coordinates — NOT cumulative route-km (David, 25.09.2026, explicit
+ * decision over shouldArriveAtStation's model): route-km accumulates GPS
+ * noise over a session, so the gap between it and true position grows the
+ * longer the run goes. It's also blind to the accepted-as-normal deviation
+ * case (checkRouteDeviation/isOffRoute — the line-stays-behind-the-avatar
+ * decision): a user who's off-route keeps accumulating route-km without
+ * actually approaching the station at all.
+ *
+ * A NEW predicate, not a parameterised shouldArriveAtStation — that one
+ * tests threshold-crossing (arrival), this one tests proximity (approach);
+ * their shapes don't overlap. shouldArriveAtStation is left untouched.
+ */
+export function isApproachingStation(
+  userLat: number,
+  userLng: number,
+  stationLat: number,
+  stationLng: number,
+  aerobicType: 'walking' | 'running',
+): boolean {
+  const distanceMeters = haversineMeters(userLat, userLng, stationLat, stationLng);
+  return distanceMeters <= APPROACH_THRESHOLD_METERS[aerobicType];
 }
 
 // ============================================================================
