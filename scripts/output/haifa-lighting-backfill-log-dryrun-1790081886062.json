@@ -1,0 +1,357 @@
+{
+  "generatedAt": "2026-09-22T12:58:06.062Z",
+  "applied": false,
+  "entries": [
+    {
+      "id": "0L4RnJqaLiDgvQuEFdJ9",
+      "name": "תוספת א שכונת בן גוריון",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 2657,
+      "samplePointCount": 17,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "6sH8WkN08SWozKgWwND7",
+      "name": "שדרות בפארק קלאסי",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 1892,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "94imunyvWvneFhbg3Ays",
+      "name": "מסלול לב העיר - קלאסי",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 1957,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "DEiLNdEpkGR9Mxwy5m7b",
+      "name": "פארק המוסיקה",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 972,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "I529AZhyAjU1D0O8SWgY",
+      "name": "תוספת א יצחק רבין",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 1603,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "Iwb7exNOldO21xHYnDam",
+      "name": "מוסיקה דרום",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 777,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "LEr6UrEftKa5G4xefpHi",
+      "name": "כלניות",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 3625,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "Mw3VcLoD7EEElTcRzXfI",
+      "name": "מקטע 21",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 2031,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "PHw8hoWZJhqh816FggSO",
+      "name": "המוסיקה מרכז",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 1062,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "SVfVSdVN1affT1uSU3KY",
+      "name": "שכונת בן גוריון קלאסי",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 2309,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "WcGgOTraWppgZsaMYF2o",
+      "name": "תוספת א שכונת הנביאים ",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 1911,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "YVx4pgJjOOXR8j497pPF",
+      "name": "מסלול קלאסי שכונת הכרמים בדיקה",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 4277,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "cv83WDdZ69zXIIwNuD4M",
+      "name": "הפרד במסלל שכונת נאות הדקל ונאות אשכול",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 904,
+      "samplePointCount": 8,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "dhFOpFbTGvGHFu3gpleU",
+      "name": "מקטע 24",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 1588,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "e7DWkWd8wTb7Z4eaQIMJ",
+      "name": "מקטע 2",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 904,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "gKcwVgNou316bHmekrOJ",
+      "name": "המוסיקה צפון",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 926,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "i69ojCNZTxZtbAOzcg1p",
+      "name": "אחוזה קלאסי",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 635,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "m3UvHFTLsNO5ctLbnIJm",
+      "name": "פארק נאות השקמה",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 2574,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "oUpdrIUyROf3qFGHyxvV",
+      "name": "תוספת ב' שכונת נאות הנביאים",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 1239,
+      "samplePointCount": 9,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "oiAlEI0pjyxLcsthMfpA",
+      "name": "תוספת א' שכונת הכרמים ",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 3680,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "pBNOGfSoKFBuCME1imxO",
+      "name": "שכונת נאות שקמה עוקף",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 2550,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "pBjFYgXWvUe5pGLhNkKn",
+      "name": "תוספת ב שכונת הכרמים",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 776,
+      "samplePointCount": 4,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "sStyBZaaqtnoR4iezLhE",
+      "name": "שכונת הכרמים קלאסי",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 3765,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "uR7wY8yhtYwQCpYytNax",
+      "name": "טיילת הכרמים",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 3400,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "wjepFNV6P6muwO2C954T",
+      "name": "שכונת נאות הדקל ונאות נביאים",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 2049,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "xOXyHVWwFJoQpt6GRxaa",
+      "name": "נאות הנביאים קלאסי",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 2031,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "zV2yhxhCN7BeMFEecKvv",
+      "name": "מוסיקה דרום",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 714,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    }
+  ]
+}
