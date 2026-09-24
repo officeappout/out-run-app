@@ -87,6 +87,15 @@ export const RATE_LIMITS = {
   unitJoinRequest: {
     uidDaily: () => envWindow('RL_UNIT_JOIN_REQUEST_UID_DAILY', DAY, 3),
   },
+  // POST /api/telemetry/signup-failure (24.09.2026) — David's launch-day
+  // visibility request. IP-only (this endpoint is deliberately reachable
+  // pre-auth, since many of the failures it exists to catch happen before
+  // any session exists at all). Generous cap — a user genuinely stuck in
+  // a bad signup session may legitimately retry several times in a row;
+  // this is abuse-flooding protection, not a tight security gate.
+  signupFailureTelemetry: {
+    ip: () => envWindow('RL_SIGNUP_FAILURE_TELEMETRY_IP', 15 * MIN, 30),
+  },
 } as const;
 
 /**

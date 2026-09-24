@@ -30,11 +30,19 @@ import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { computeAgeGroup } from '@/lib/age';
 import { hasKnownIdentity } from '@/lib/identity';
+import { logSignupFailure } from '@/lib/signupFailureLog';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
+  // Hoisted above the try block (24.09.2026, signup-failure telemetry) so
+  // the outer catch below can attribute a failure to a real uid whenever
+  // one was successfully resolved — the pre-existing `let uid: string`
+  // further down is scoped inside the try and was never visible to that
+  // catch at all. This is purely additive; nothing about the existing
+  // control flow changes.
+  let reportUid: string | null = null;
   try {
     // ── Auth ──────────────────────────────────────────────────────────────
     const authHeader = request.headers.get('Authorization') ?? '';
@@ -47,6 +55,7 @@ export async function POST(request: NextRequest) {
     try {
       const decoded = await getAdminAuth().verifyIdToken(idToken, true);
       uid = decoded.uid;
+      reportUid = uid;
     } catch {
       return NextResponse.json({ error: 'Invalid auth token' }, { status: 401 });
     }
@@ -173,6 +182,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, ageGroup });
   } catch (err) {
     console.error('[complete-profile] error:', err);
+    const reason = err instanceof Error && err.name ? err.name : 'unknown';
+    await logSignupFailure(getAdminDb(), { uid: reportUid, stage: 'COMPLETE_PROFILE_SERVER', reason });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

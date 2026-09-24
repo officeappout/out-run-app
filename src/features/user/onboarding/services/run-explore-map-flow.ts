@@ -20,6 +20,7 @@ import { signInGuest } from '@/lib/auth.service';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import { buildExploreMapProfileWrite } from './gateway-explore-map.service';
+import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure';
 import { detectCityFromGPS, addAffiliation } from '@/features/user/identity/services/affiliation.service';
 import {
   getStoredReferrer,
@@ -184,7 +185,11 @@ export async function runExploreMapFlow(router: ExploreMapRouter): Promise<boole
         updatedAt: serverTimestamp(),
       }, { merge: true })
         .then(() => true)
-        .catch((e) => { console.error('[ExploreMapFlow] setDoc error:', e); return false; })
+        .catch((e) => {
+          console.error('[ExploreMapFlow] setDoc error:', e);
+          reportSignupFailure('EXPLORE_MAP_PROFILE_WRITE', extractErrorCode(e));
+          return false;
+        })
     : Promise.resolve(true);
 
   detectCityFromGPS().then(async (affiliation) => {

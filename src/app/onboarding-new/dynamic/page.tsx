@@ -23,6 +23,7 @@ import { auth } from '@/lib/firebase';
 import { syncOnboardingToFirestore } from '@/features/user/onboarding/services/onboarding-sync.service';
 import { firePhaseConfetti } from '@/features/user/onboarding/utils/onboarding-confetti';
 import { generateFirstWorkout } from '@/features/workout-engine/services/first-workout.service';
+import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure';
 
 /**
  * Dynamic Onboarding Page
@@ -501,6 +502,7 @@ export default function DynamicOnboardingPage() {
         }
       } catch (syncErr) {
         console.warn('[Onboarding] Firestore sync failed (non-blocking):', syncErr);
+        reportSignupFailure('RUNNING_DYNAMIC_SYNC', extractErrorCode(syncErr));
       }
 
       // Note: Master-level aggregation is now handled automatically in onboarding-sync.service.ts

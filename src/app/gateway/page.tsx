@@ -12,6 +12,7 @@ import { MapPin, Loader2, Footprints } from 'lucide-react';
 import { captureReferralParam, getStoredReferrer, clearStoredReferrer, processReferral, establishSocialConnection } from '@/features/safecity/services/referral.service';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
+import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure';
 import {
   runExploreMapFlow,
   resolveUser,
@@ -195,6 +196,7 @@ export default function GatewayPage() {
       }
     } catch (error) {
       console.error('[Gateway] Explore map error:', error);
+      reportSignupFailure('GATEWAY_EXPLORE', extractErrorCode(error));
       isBusyRef.current = false;
       setShowGuestTransition(false);
     }
@@ -265,6 +267,7 @@ export default function GatewayPage() {
       router.push('/onboarding-new/profile');
     } catch (error) {
       console.error('[Gateway] Get program error:', error);
+      reportSignupFailure('GATEWAY_GET_PROGRAM', extractErrorCode(error));
       isBusyRef.current = false;
       setLoading(false);
     }
