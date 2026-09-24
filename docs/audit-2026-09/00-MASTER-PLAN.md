@@ -1287,4 +1287,32 @@ git push origin main
 
 **ממצאים נוספים מהחקירה, ללא סדר-עדיפות מפורש (רשומים לתיעוד):** אין קשר בין תשלום/מנוי-בתשלום להרשמה בכלל — אומת ביסודיות, אפס קוד תשלום קיים, `isActiveClient` לא נבדק בהרשמה בשום מקום (רק שולט על מסך-ליגה, אחרי ההרשמה) — הערות `TODO(billing)` מפורשות בקוד. אין שום מנגנון גילוי-תקיעה (Crashlytics מותקן כ-dependency, **אף פעם לא נקרא בקוד בפועל**; אין Sentry; `onboardingDropoffDispatcher.ts` הקיים לא יכול לתפוס את נקודות-התקיעה החמורות ביותר כי הן קודמות לכתיבת `onboardingStatus`). אפס כיסוי בדיקות e2e/אינטגרציה (unit-tests בלבד, אין jsdom מוגדר) — MILITARY_JOIN/SCHOOL_JOIN ומירוץ ה-status (P0-3 המקורי) חסרי כיסוי לגמרי, בדיוק למה לא נתפסו. משתמש קיים שמנסה להירשם שוב מוגן היטב ברובו (wipe-guard קיים, `complete-profile` idempotent) — נקודת תורפה אחת: race אפשרי ב-gateway ל-"קבל תוכנית" (לא ברשימת ה-P0).
 
-**לא בוצע:** שום תיקון קוד עדיין. הבא בתור: הצעת Crashlytics + לוג-כשלי-הרשמה (למטה), ואז P0-3→P0-2→P0-4 לפי הסדר החדש.
+**לא בוצע (במועד כתיבת §13.18):** שום תיקון קוד עדיין. הבא בתור: הצעת Crashlytics + לוג-כשלי-הרשמה (למטה), ואז P0-3→P0-2→P0-4 לפי הסדר החדש. **המשך ב-§13.19.**
+
+---
+
+### 13.19 — P0-3 (עיניים ליום ההשקה): קולקשן כשלי-הרשמה נבנה, ענף נפרד, ממתין לאישור מיזוג (24.09.2026)
+
+**המשך ישיר ל-§13.18.** דוד צמצם את P0-3 לשתי הצעות קונקרטיות וביקש להציע את שתיהן ולעצור לפני מימוש:
+
+**(א) Crashlytics** — נחקר לעומק לפני שהוצע. `@capacitor-firebase/crashlytics@6.3.1` מותקן, ה-Gradle/Podfile הנייטיבים כבר מחווטים (`google-services.json` קיים לוקאלית/ב-CI, `.gitignore`; `GoogleService-Info.plist` ל-iOS committed). **ממצא קריטי שהתגלה בקריאת הקוד המקומפל בפועל, לא בהנחה:** ה-web stub (`FirebaseCrashlyticsWeb`) לא no-op — כל מתודה, כולל `recordException`, **זורקת** `unimplemented('Not implemented on web.')`. כלומר Crashlytics נותן **אפס כיסוי** למשתמשי web (לא-native), מעצם התכנון — לא תחליף ללוג-כשלים, לכל היותר תוספת ל-native בלבד. **החלטת דוד: מוקפא לעכשיו** — גרסה חדשה עולה לחנויות בימים הקרובים ממילא, כך ששאלת ה-build הנייטיבי נפתרת מעצמה. **פריט פתוח לביצוע עתידי: להפעיל אחרי שהגרסה החדשה בחוץ, עם guard מפורש ל-web** (לא לקרוא ל-API כלל כש-`Capacitor.getPlatform() === 'web'`). לא נכתב קוד עבור (א) בכלל.
+
+**(ב) קולקשן כשלי-הרשמה — מאושר, נבנה במלואו.** דוד אישר את המבנה שהוצע במלואו, עם שתי דרישות נוספות שהוטמעו כקשיחות, לא כהמלצות:
+1. **מסך הפאנל root-בלבד** — `isRootAdmin(email)` (אותו gate ש-`POST /api/admin/invitations` כבר משתמש בו), **לא** ה-bucket הרחב יותר `admin:true`/`isAdmin()` (שכולל גם super_admin/system_admin/vertical_admin), ומעולם לא אחד משלושת התפקידים המתוחמים (authority_manager/tenant_owner/unit_admin). דוד, במפורש: "זה לא מידע שצריך להיות נגיש לאף אחד מלבדי".
+2. **כתיבה fail-safe** — אם רישום הכשל עצמו נכשל (לדוגמה outage ב-Firestore), הפונקציה בולעת את השגיאה בשקט ולעולם לא זורקת החוצה. משתמש שכבר נתקע לא מקבל שגיאה שנייה בגלל שהאבחון עצמו נשבר.
+
+**מה נבנה (ענף `feat/signup-failure-telemetry`, מ-`origin/main` @ `50df2f51`):**
+- `src/lib/signupFailureLog.ts` — `logSignupFailure(db, {uid, stage, reason})`. `stage` רשימה סגורה של 10 ערכים (אחד לכל נקודת-קריאה אמיתית, לא שאיפתי). `reason` נחתך ל-100 תווים, מיועד לקוד-שגיאה קצר (למשל `error.code` של Firebase) — לעולם לא `error.message` חופשי. `uid: string | null` — רוב הכשלים הקריטיים ביותר קודמים לכל session. הכתיבה כולה עטופה ב-try/catch יחיד שבולע (§13.19 (ב).2 למעלה) — ההפך המכוון מ-`isRateLimited` שנכשל-פתוח (`rateLimit.ts`): שם עלות חסימת-יתר גבוהה, כאן עלות פספוס-רישום זולה ועלות שגיאה-כפולה גבוהה. שני הכיוונים מתועדים כעת בכותרות שני הקבצים.
+- `src/lib/reportSignupFailure.ts` — צד לקוח, fire-and-forget, לעולם לא ממתין לתשובה, לעולם לא זורק. `extractErrorCode()` שולף `.code`/`.name`/`'unknown'` — לעולם לא `.message` הגולמי.
+- `POST /api/telemetry/signup-failure` — **לא דורש אימות** (רוב הכשלים קודמים ל-session), rate-limit לפי IP (bucket חדש `signupFailureTelemetry` ב-`rateLimitConfig.ts`, אותו מנגנון `isRateLimited`/`RATE_LIMITS` בדיוק כמו בכל שאר נקודות הכניסה מ-§13.12 — לא הומצא אלגוריתם חדש). מאמת `stage` מול הרשימה הסגורה, `reason` לא ריק. `uid` נגזר best-effort מ-Bearer token אופציונלי — token חסר/לא-תקין לעולם לא דוחה את הבקשה, רק משאיר `uid: null`.
+- `GET /api/admin/signup-failures` — root-בלבד (למעלה), 100 השורות האחרונות, `timestamp desc`. `computeSignupFailuresList()` מיוצא בנפרד לבדיקת אמולטור ישירה (דפוס compute*() שחזר לאורך כל הסשן).
+- `/admin/signup-failures` — מסך פאנל פשוט (טבלה: זמן/שלב/סיבה/uid), guard לקוחי (`checkUserRole(uid).isRootAdmin`) כנוחות UX בלבד — הגבול האמיתי הוא ה-API עצמו, "UI מסתיר, שרת מגן" (אותו עיקרון SPEC §4 שכבר נקבע לאורך הסשן).
+- **10 נקודות-קריאה חוברו**, אחת לכל שלב ברשימה הסגורה: `AUTH_GOOGLE`/`AUTH_APPLE` (`src/app/page.tsx`), `GATEWAY_EXPLORE`/`GATEWAY_GET_PROGRAM` (`gateway/page.tsx`), `EXPLORE_MAP_PROFILE_WRITE` (`run-explore-map-flow.ts`), `IDENTITY_SUBMIT` (`onboarding-new/profile/page.tsx` — כולל שני ה-early-return guards וה-catch הראשי), `COMPLETE_PROFILE_SERVER` (`complete-profile/route.ts` — תוקן אגב באג קיים-מראש: `uid` היה מוגדר *בתוך* ה-try, בלתי-נגיש ל-catch החיצוני; נוסף `reportUid` נפרד ומורם מעל ה-try, תוספת בלבד, לא שינוי-מבנה לקוד הקיים), `ASSESSMENT_SAVE` (`assessment-visual/page.tsx`), `RUNNING_DYNAMIC_SYNC` (`dynamic/page.tsx`), `HEALTH_SYNC` (`health/page.tsx`).
+
+**בדיקות (`scripts/verify-signup-failure-telemetry.ts`, אמולטור בלבד): 20/20 עברו**, כולל שלוש השליליות שדוד דרש במפורש: כתיבה עם `uid: null` מצליחה ונשמרת כ-null; rate-limit חוסם בדיוק את הניסיון ה-(maxRequests+1); כשל מדומה בתוך `logSignupFailure` עצמה (patch לפרוטוטייפ `db.collection` שזורק) נבלע לגמרי — הפונקציה לעולם לא זורקת החוצה, ואחרי שחזור ה-patch קריאה רגילה חוזרת לעבוד. פלוס: שלב לא-מוכר לא נכתב, סדר/limit של הקריאה נכונים, `isRootAdmin` מבחין נכון root מלא-root.
+
+**tsc מול baseline טרי מ-`origin/main`** (worktree חד-פעמי, `comm -13`/`comm -23`): 800/800 משני הצדדים, כל שורת diff אומתה ידנית כרעש קיים-מראש (הזזת שורות/סידור-מחדש union) בקבצים שהשינוי הזה לא נגע בהם — **אפס רגרסיות אמיתיות**. `npx vitest run`: 2237 עברו, אותם 2 כשלים קיימים-מראש (`firestore-rules.test.ts` הפלייקי המתועד, `logMultiCategoryWorkout.smoke.test.ts`), 26 דולגו.
+
+**לא נגעתי ב-`firestore.rules`** — כל כתיבה עוברת Admin SDK. אפס נתוני פרודקשן נגעו.
+
+**סטטוס: קומיט אחד על `feat/signup-failure-telemetry` (`503c0cd6`), לא ממוזג.** לפי הוראת דוד המפורשת ("לא למזג בלי אישורי") — עוצר כאן, ממתין לאישור מיזוג.

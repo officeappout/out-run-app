@@ -13,6 +13,7 @@ import { STRENGTH_PHASES, RUNNING_PHASES } from '@/features/user/onboarding/cons
 import { getOnboardingPref } from '@/lib/onboardingPrefs';
 import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
 import { createSkipAttemptGuard } from '@/features/user/onboarding/utils/skip-attempt-guard';
+import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure';
 
 export default function HealthDeclarationPage() {
   const router = useRouter();
@@ -192,6 +193,7 @@ export default function HealthDeclarationPage() {
         // Non-fatal — the user already moved on. Logged so this is
         // discoverable, never surfaced as a stuck screen.
         console.error('[Health] Background sync failed (non-blocking, user already navigated):', error);
+        reportSignupFailure('HEALTH_SYNC', extractErrorCode(error));
       }
     })();
 

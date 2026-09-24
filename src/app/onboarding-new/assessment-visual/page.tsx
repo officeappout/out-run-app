@@ -30,6 +30,7 @@ import {
   prefetchCategoryVideos,
 } from '@/features/user/onboarding/services/visual-content-resolver.service';
 import { syncOnboardingToFirestore } from '@/features/user/onboarding/services/onboarding-sync.service';
+import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure';
 import {
   computeAssessmentContext,
   saveAssessmentContext,
@@ -994,6 +995,7 @@ export default function VisualAssessmentPage() {
       router.push('/onboarding-new/health');
     } catch (err) {
       console.error('[Assessment] Save error:', err);
+      reportSignupFailure('ASSESSMENT_SAVE', extractErrorCode(err));
       setSaveAttempts((prev) => prev + 1);
       setSaveError(describeSaveError(err));
       setStep('result');

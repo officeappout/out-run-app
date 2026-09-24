@@ -9,6 +9,7 @@ import { db, auth } from '@/lib/firebase';
 import { getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
 import { resolveJoinLanding } from '@/lib/resolveJoinLanding';
 import { runExploreMapFlow } from '@/features/user/onboarding/services/run-explore-map-flow';
+import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import BrandedSplashScreen from '@/components/BrandedSplashScreen';
@@ -559,6 +560,7 @@ export default function LandingPage() {
       await redirectAfterAuth(user.uid);
     } catch (error) {
       console.error('[Landing] Google login error:', error);
+      reportSignupFailure('AUTH_GOOGLE', extractErrorCode(error));
     }
     setLoadingProvider(null);
     setDrawerOpen(false);
@@ -575,6 +577,7 @@ export default function LandingPage() {
       await redirectAfterAuth(user.uid);
     } catch (err) {
       console.error('[Landing] Apple login error:', err);
+      reportSignupFailure('AUTH_APPLE', extractErrorCode(err));
     }
     setLoadingProvider(null);
     setDrawerOpen(false);

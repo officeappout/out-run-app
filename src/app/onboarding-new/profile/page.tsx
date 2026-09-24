@@ -14,6 +14,7 @@ import { STRENGTH_PHASES } from '@/features/user/onboarding/constants/onboarding
 import { firePhaseConfetti } from '@/features/user/onboarding/utils/onboarding-confetti';
 import { getOnboardingPref, getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
 import { resolveJoinLanding } from '@/lib/resolveJoinLanding';
+import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure';
 
 /**
  * Resolve uid from multiple sources (in priority order):
@@ -203,6 +204,7 @@ export default function IdentityProfilePage() {
       const uid = resolveUid(authUser);
       if (!uid) {
         console.error('[Profile] No uid from any source — waiting for auth');
+        reportSignupFailure('IDENTITY_SUBMIT', 'no_uid');
         alert('לא נמצא משתמש מחובר. נסה לרענן את הדף.');
         setLoading(false);
         return;
@@ -211,6 +213,7 @@ export default function IdentityProfilePage() {
       // ID token for the server route — ageGroup is computed server-side only.
       const idToken = await auth.currentUser?.getIdToken();
       if (!idToken) {
+        reportSignupFailure('IDENTITY_SUBMIT', 'no_id_token');
         alert('שגיאה באימות המשתמש. נסה לרענן את הדף.');
         setLoading(false);
         return;
@@ -325,6 +328,7 @@ export default function IdentityProfilePage() {
       }
     } catch (error) {
       console.error('[Identity] Error saving profile:', error);
+      reportSignupFailure('IDENTITY_SUBMIT', extractErrorCode(error));
       alert('שגיאה בשמירת הפרופיל');
       setLoading(false);
     }
