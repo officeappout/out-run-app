@@ -1350,3 +1350,22 @@ Revert: `git revert -m 1 2897d308`
 **push ל-`origin/main` (24.09.2026):** ה-push הראשון נדחה (non-fast-forward) — קומיט מקביל של דוד עלה ל-`main` באותו חלון זמן (`e632f167`, "fix(onboarding): correct why-step goal resolution...") ונגע ב-`assessment-visual/page.tsx`, אותו קובץ ש-§13.19 גם הוסיפה אליו את `reportSignupFailure('ASSESSMENT_SAVE', ...)`. מוזג עם `origin/main` (`a013bab5`), אומת ידנית ששני השינויים שרדו זה לצד זה (השורה שמוסיפה `reportSignupFailure` נפרדת לחלוטין מהשינוי של `pathConfig.path`) — ואז נדחף בהצלחה. `main` כרגע ב-`a013bab5`.
 
 **Smoke לאחר דיפלוי:** `outrun.co.il` → 200, `/api/catalog/parks` → 200 עם 1159 גינות (זהה למספר שתועד לאחרונה ב-§13.13, לא קשור לשינוי הזה) — עבר בניסיון הראשון.
+
+---
+
+### 13.22 — P0-1: התחברות אנונימית שנתקעת — timeout + מסך-כשל בלי מוצא, ענף נפרד, ממתין לאישור מיזוג (24.09.2026)
+
+**המשך ישיר ל-§13.18.** דוד: "P0-1 (התחברות אנונימית ללא timeout) - נשאר ראשון." זו הלחיצה הראשונה של כמעט כל משתמש חדש — `signInAnonymously` היה ללא שום timeout בכלל, בניגוד ל-Google (60 שנ') ו-Apple (30 שנ') באותו קובץ. כשל שקט אחד גם השאיר את `GuestTransitionOverlay` תקוע עם פס התקדמות שכבר הגיע ל-100% טענתי, בלי הודעה, בלי retry, בלי דרך יציאה.
+
+**מה נבנה (ענף `fix/p0-1-guest-signin-timeout`, מ-`origin/main` @ `bcfcfc44`):**
+- `src/lib/auth.service.ts` — `signInGuest()` עטוף באותה תבנית `Promise.race` בדיוק כמו Google/Apple (`withGoogleTimeout`/`withAppleTimeout` — שוחזרה, לא הומצאה מחדש). 20 שניות, קצר מ-30 של Apple כי אין כאן שלב native account-picker/Face-ID שממתין למשתמש — תקיעה כאן פירושה שהבקשה לרשת/Firebase Auth עצמה נתקעה. מחזיר `{user: null, error: 'guest_timeout'}` בטיימאאוט, תואם למוסכמת `'google_timeout'`/`'apple_timeout'`; שגיאת Firebase אמיתית עדיין עוברת כמות שהיא.
+- `src/features/user/onboarding/services/run-explore-map-flow.ts` — `resolveUser()` הפך לנקודת-המחסום היחידה שרושמת כשל התחברות-אורח ל-`signup_failures` (`stage: AUTH_ANONYMOUS`, ערך חדש ברשימה הסגורה). שני הקוראים ל-`resolveUser()` (הזרימה הפנימית של הקובץ הזה, וגם `handleGetProgram` ב-`gateway/page.tsx` שקורא לה ישירות) מקבלים רישום פעם אחת בלבד, כאן — לא כפול בכל נקודת-קריאה.
+- `src/lib/signupFailureLog.ts` — נוסף `'AUTH_ANONYMOUS'` לרשימה הסגורה.
+- `src/app/gateway/page.tsx` (`GuestTransitionOverlay`) — פס ההתקדמות כבר לא טוען 0%→100% על טיימר קבוע של 3.5 שניות בלי קשר למה שקרה בפועל — עכשיו סגמנט לופי בלתי-קובע (אין אות "% התקדמות" אמיתי להניע פס קובע — ל-GPS/כתיבת-פרופיל/קליטת-הזמנה אין "% הושלם" משמעותי בכלל). בכשל, ה-overlay מתחלף למסך שגיאה מפורש בעברית — הודעה, "נסה שוב" (מפעיל מחדש את אותו handler), "חזרה למסך הראשי" (תמיד מנווט ל-`/`, דרך-יציאה מובטחת — לא עוד מסך-ללא-מוצא). כשל התחברות-אורח ב-`handleGetProgram` (אין overlay ליפול אליו) מציג עכשיו toast במקום לאפס את הכפתור בשקט.
+- `src/app/page.tsx` (`handleQuickSignup`) — אותו דפוס כשל-שקט, אותה זרימה (חולקת את `resolveUser()`, כך שרישום ה-`AUTH_ANONYMOUS` כבר מכוסה) — רק החלק הנראה-לעין חסר. נוסף toast; ה-fallback הקיים למסך הנחיתה האינטראקטיבי כבר משמש כיציאה, לא נדרשה מכונת-מצבים חדשה כאן.
+
+**בדיקות: 2 קבצים חדשים, 9 assertions** — timeout של `signInGuest` (תקיעה נצחית → `guest_timeout` בתוך החלון; פתרון סמוך לדדליין → הצלחה; שגיאת Firebase אמיתית עדיין עוברת כשונה מה-sentinel; המקרה התקין/מהיר לא נשבר) ורישום `AUTH_ANONYMOUS` ב-`resolveUser` (נרשם בטיימאאוט ובכשל-לא-טיימאאוט, לא נרשם ב-session קיים או בהתחברות-אורח מוצלחת, עדיין נופל נכון להתחברות-אורח עבור משתמש שכבר אנונימי).
+
+**tsc מול baseline טרי מ-`origin/main`** (worktree חד-פעמי, `comm -13`/`comm -23`): 800/800 משני הצדדים, כל שורת diff רעש קיים-מראש (סידור-מחדש union) בקבצים שהשינוי הזה לא נגע בהם — **אפס רגרסיות**. `npx vitest run`: 2246 עברו (2237 + 9 החדשים), אותם 2 כשלים קיימים-מראש, 26 דולגו.
+
+**לא נגעתי ב-`firestore.rules`.** אפס נתוני פרודקשן נגעו. **ענף נפרד, לא ממוזג** — לפי הוראת דוד ("ענף נפרד, לא למזג בלי אישורי") — עוצר כאן, ממתין לאישור מיזוג.
