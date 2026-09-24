@@ -84,98 +84,117 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
   const center = data.location ?? userLocation ?? { lat: 32.08, lng: 34.78 };
 
   return (
+    // Same three-region shape as StepEquipment (23.09.2026 field-test pass):
+    // a scrollable middle + a footer that's pinned by real structure
+    // (flex-shrink-0 on a non-scrolling sibling), not by `mt-auto` alone in
+    // a column that might grow taller than its content (this step's own
+    // content is short and fixed today, but the sheet itself just grew
+    // significantly taller — see index.tsx — so relying on content height
+    // alone to keep the button in a sensible place is more fragile than it
+    // was before). Nothing here currently overflows on its own; this is
+    // about consistency and headroom for future content, not an observed
+    // bug in this specific step.
     <div className="flex flex-col h-full px-4 pb-6">
-      {/* Map */}
-      <div className="relative rounded-2xl overflow-hidden h-[240px] mb-4 border border-slate-200">
-        <Map
-          ref={mapRef}
-          initialViewState={{ latitude: center.lat, longitude: center.lng, zoom: 15 }}
-          style={{ width: '100%', height: '100%' }}
-          mapStyle="mapbox://styles/mapbox/streets-v12"
-          mapboxAccessToken={MAPBOX_TOKEN}
-          onClick={handleMapClick}
-          attributionControl={false}
-        >
-          {data.location && (
-            <Marker latitude={data.location.lat} longitude={data.location.lng} anchor="bottom">
-              <div className="animate-bounce">
-                <MapPin size={32} className="text-[#00E5FF] drop-shadow-lg" fill="#00E5FF" />
-              </div>
-            </Marker>
+      {/* min-h-0 is required for the map's flex-1 below to actually shrink/
+          grow inside a scrolling flex column instead of overflowing based
+          on its own content size (a well-known flexbox gotcha). */}
+      <div className="flex-1 overflow-y-auto flex flex-col min-h-0">
+        {/* Map — grows to fill whatever space the sheet's new height (see
+            index.tsx) leaves after the fixed-size sections below it, instead
+            of sitting at a fixed 240px with dead space underneath (David,
+            24.09.2026: "the map is what's actually used at this step"). */}
+        <div className="relative rounded-2xl overflow-hidden flex-1 min-h-[200px] mb-4 border border-slate-200">
+          <Map
+            ref={mapRef}
+            initialViewState={{ latitude: center.lat, longitude: center.lng, zoom: 15 }}
+            style={{ width: '100%', height: '100%' }}
+            mapStyle="mapbox://styles/mapbox/streets-v12"
+            mapboxAccessToken={MAPBOX_TOKEN}
+            onClick={handleMapClick}
+            attributionControl={false}
+          >
+            {data.location && (
+              <Marker latitude={data.location.lat} longitude={data.location.lng} anchor="bottom">
+                <div className="animate-bounce">
+                  <MapPin size={32} className="text-[#00E5FF] drop-shadow-lg" fill="#00E5FF" />
+                </div>
+              </Marker>
+            )}
+          </Map>
+          {!data.location && (
+            <div className="absolute inset-0 flex items-center justify-center bg-white/60 pointer-events-none">
+              <p className="text-slate-500 text-sm font-medium">לחצו על המפה לבחירת מיקום</p>
+            </div>
           )}
-        </Map>
-        {!data.location && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/60 pointer-events-none">
-            <p className="text-slate-500 text-sm font-medium">לחצו על המפה לבחירת מיקום</p>
+        </div>
+
+        {/* Duplicate warning */}
+        {duplicate && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-3 flex items-start gap-3">
+            <AlertTriangle size={18} className="text-amber-500 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-amber-700 text-xs font-bold">מיקום קרוב כבר קיים</p>
+              <p className="text-amber-600 text-[11px] mt-0.5">
+                &quot;{duplicate.name}&quot; נמצא פחות מ-50 מטר. נסו מיקום אחר.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Category Selection */}
+        <div className="mb-4">
+          <p className="text-slate-500 text-xs font-bold mb-2">סוג המיקום</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleCategoryChange('full_park')}
+              className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all border ${
+                category === 'full_park'
+                  ? 'bg-[#00E5FF] text-white border-[#00E5FF] shadow-md shadow-cyan-500/20'
+                  : 'bg-slate-50 text-slate-500 border-slate-200'
+              }`}
+            >
+              🏋️ פארק / גינת כושר
+            </button>
+            <button
+              onClick={() => handleCategoryChange('poi')}
+              className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all border ${
+                category === 'poi'
+                  ? 'bg-[#00E5FF] text-white border-[#00E5FF] shadow-md shadow-cyan-500/20'
+                  : 'bg-slate-50 text-slate-500 border-slate-200'
+              }`}
+            >
+              📍 נקודת עניין
+            </button>
+          </div>
+        </div>
+
+        {/* POI Sub-options */}
+        {category === 'poi' && (
+          <div className="flex gap-2 mb-4">
+            {POI_OPTIONS.map((poi) => (
+              <button
+                key={poi.id}
+                onClick={() => handlePoiSelect(poi.id)}
+                className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex flex-col items-center gap-1 border ${
+                  selectedPoi === poi.id
+                    ? 'bg-emerald-50 text-emerald-600 border-emerald-300'
+                    : 'bg-slate-50 text-slate-500 border-slate-200'
+                }`}
+              >
+                <span className="text-lg">{poi.icon}</span>
+                <span>{poi.label}</span>
+              </button>
+            ))}
           </div>
         )}
       </div>
 
-      {/* Duplicate warning */}
-      {duplicate && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-3 flex items-start gap-3">
-          <AlertTriangle size={18} className="text-amber-500 mt-0.5 shrink-0" />
-          <div>
-            <p className="text-amber-700 text-xs font-bold">מיקום קרוב כבר קיים</p>
-            <p className="text-amber-600 text-[11px] mt-0.5">
-              &quot;{duplicate.name}&quot; נמצא פחות מ-50 מטר. נסו מיקום אחר.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Category Selection */}
-      <div className="mb-4">
-        <p className="text-slate-500 text-xs font-bold mb-2">סוג המיקום</p>
-        <div className="flex gap-2">
-          <button
-            onClick={() => handleCategoryChange('full_park')}
-            className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all border ${
-              category === 'full_park'
-                ? 'bg-[#00E5FF] text-white border-[#00E5FF] shadow-md shadow-cyan-500/20'
-                : 'bg-slate-50 text-slate-500 border-slate-200'
-            }`}
-          >
-            🏋️ פארק / גינת כושר
-          </button>
-          <button
-            onClick={() => handleCategoryChange('poi')}
-            className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all border ${
-              category === 'poi'
-                ? 'bg-[#00E5FF] text-white border-[#00E5FF] shadow-md shadow-cyan-500/20'
-                : 'bg-slate-50 text-slate-500 border-slate-200'
-            }`}
-          >
-            📍 נקודת עניין
-          </button>
-        </div>
-      </div>
-
-      {/* POI Sub-options */}
-      {category === 'poi' && (
-        <div className="flex gap-2 mb-4">
-          {POI_OPTIONS.map((poi) => (
-            <button
-              key={poi.id}
-              onClick={() => handlePoiSelect(poi.id)}
-              className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex flex-col items-center gap-1 border ${
-                selectedPoi === poi.id
-                  ? 'bg-emerald-50 text-emerald-600 border-emerald-300'
-                  : 'bg-slate-50 text-slate-500 border-slate-200'
-              }`}
-            >
-              <span className="text-lg">{poi.icon}</span>
-              <span>{poi.label}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* CTA */}
+      {/* CTA — fixed footer, pinned by flex-shrink-0 on this non-scrolling
+          sibling rather than mt-auto inside the scrolling column above. */}
       <button
         onClick={onNext}
         disabled={!canProceed}
-        className={`w-full py-3.5 rounded-2xl text-sm font-bold transition-all mt-auto ${
+        className={`w-full py-3.5 rounded-2xl text-sm font-bold transition-all flex-shrink-0 mt-4 ${
           canProceed
             ? 'bg-[#00E5FF] text-slate-900 active:scale-[0.97] shadow-lg shadow-cyan-500/25'
             : 'bg-slate-100 text-slate-300 cursor-not-allowed'
