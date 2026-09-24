@@ -1114,3 +1114,61 @@ git push origin main
 **המשימה הבאה:** ממתין לפרומפט נפרד מדוד.
 
 **בסיס tsc מתוקן — 449, לא 453 (19.09.2026):** מנת תיקונים ("ניקוי דמו, תוויות, ותיקון תצוגת העיר", ממוזגת ל-`main` ב-`722b379b`) נפתחה מול בסיס שנרשם כ-453 שגיאות. באותו סבב עבודה התגלה ש-`node_modules` המשותף (בין ~75 worktrees על המכונה) היה סוטה מ-`package-lock.json` המחויב — לא חבילה חסרה בודדת (`qr-code-styling`, שחסם `next build` לגמרי), אלא אי-סנכרון רחב יותר. `npm install` (מאושר ע"י דוד, מאומת קודם שאין סשן מקביל באמצע עבודה) תיקן: 1473 חבילות נוספו, 1190 הוסרו מ-`node_modules` בפועל — **אך `package-lock.json` עצמו נשאר זהה בייט-לבייט למה שהיה כבר ב-`origin/main`** (אומת ב-diff מול `git show origin/main:package-lock.json` — אין דיפרנס בגיט, רק resync פיזי של node_modules). אחרי התיקון: `npx tsc --noEmit` = **449 שגיאות**, לא 453/454 — כלומר הבסיס הקודם היה מנופח באופן מלאכותי כתוצאה מהסטייה הזו, לא שינוי אמיתי בקוד. `next build` עבר במלואו לראשונה מזה זמן. **449 הוא הבסיס הנכון מעכשיו.** אם ספירת tsc עתידית שונה מ-449 בלי שינוי קוד מכוון — יש לחשוד תחילה בסטיית `node_modules` (השוואה: `stat -f "%Sm" node_modules` ו-`package-lock.json`, ו-diff מול `git show origin/main:package-lock.json`) לפני שמניחים רגרסיה אמיתית.
+
+---
+
+### 13.15 — וורטיקל צבא/בתי ספר: שלבים 0-3, כולם בפרודקשן (23-24.09.2026)
+
+`.claude/plans/tenant-military-school-vertical-model.md` — מסמך התכנון המלא (הצעת מודל נתונים, כל 5 החלטות דוד, סדר הבנייה §ח). המסמך הזה מתעד רק את מה שבאמת בוצע ונפרס; לפירוט התכנון המלא — שם.
+
+**מודל הנתונים (ללא שינוי מהמתוכנן):** `authorities/{id}` (`type: military_unit`/`school`) = התחום ברמה 1 (SPEC §2 — קצין כושר ראשי/רכז ספורט בית-ספרי). `tenants/{tenantId}/units/{unitId}` (תת-אוסף קיים מראש, `unit-doc.ts`/`unit-id.ts`) = רמה 2 (מנהל חטיבה/מורה). שדה **חדש**: `managerIds` על מסמך יחידה — לא היה קיים קודם, מקביל לשדה הזהה ברמת `authorities`.
+
+**שלב 0 (23.09.2026) — `resolveUnitPermissionScope`:** `src/lib/unitPermissionScope.ts`. פונקציה טהורה, קלט יחיד `uid`. `root` (isRootAdmin על `core.email`, אותו שער כמו `/api/admin/invitations`) / `tenantOwner` (managerIds על authorities מסוג military_unit/school) / `unitAdmin` (**חדש**: `collectionGroup('units').where('managerIds','array-contains',uid)`) / `denied`. **כשל-סגור**: כל שגיאה פנימית (אינדקס חסר, Firestore לא זמין, timeout) חוזרת `denied` — עטופה ב-try/catch יחיד סביב כל הפונקציה, ההפך המכוון מ-fail-open של `rateLimit.ts`.
+
+**אינדקס חדש, פרוס בנפרד לפני הקוד:** `firestore.indexes.json` — `fieldOverrides` על `units`/`managerIds`, `queryScope: COLLECTION_GROUP`, `arrayConfig: CONTAINS`. שאילתת collection-group לא מקבלת אינדקס אוטומטי גם לשדה בודד — בשונה משאילתה רגילה. **פקודת פריסת אינדקסים בלבד:** `firebase deploy --only firestore:indexes` — דוד הריץ בעצמו, אושרר Enabled בקונסולה לפני שהקוד עלה.
+
+**שלב 1 (23.09.2026) — הלולאה המינימלית:** `unit_join_requests/{uid}` (doc ID = ה-uid של המבקש — נותן "בקשה אחת פעילה" מבנית, לא לוגית). שלושה routes: `POST /api/units/join-requests` (יצירה/בקשה-חוזרת, rate-limited 3/24ש דרך `isRateLimited` הקיים — `RATE_LIMITS.unitJoinRequest.uidDaily`), `POST /api/units/join-requests/decide` (אישור/דחייה — היחידה נלקחת אך ורק ממסמך הבקשה, המאשר נבדק מול managerIds של אותה יחידה בשרת), `GET /api/units/join-requests/me` (0 פרמטרים, uid מהטוקן בלבד). כל route מפוצל ל-`compute*()` נבדק + handler דק. אין שינוי ל-`firestore.rules` — כל הכתיבות Admin-SDK-only.
+
+**שלב 2 (24.09.2026) — שרשרת ההזמנות, `tenant_owner`/`unit_admin`:** `src/app/api/admin/invitations/route.ts` + `src/app/api/auth/accept-invitation/route.ts`. פרוסה **פרוסה צרה** של מטריצת SPEC §3 — רק לשני השמות ש-§2.2 אומת בפועל (ראו למעלה, וב-`SPEC-PERMISSIONS-MODEL.md` §2.2/§11 המעודכנים).
+
+מי מזמין את מי (אחרי תיקון אחד באמצע — ראו למטה):
+- `root` יוצר `tenant_owner` (כל תחום, `authorities` מסוג military_unit/school).
+- `root` **גם** יוצר `unit_admin` **ישירות, לכל תחום** — ללא הגבלת תחום. הבקשה כוללת גם `tenantId` וגם `unitId` (ל-root אין "תחום משלו" לברירת מחדל). כשלים כאן הם 400 פשוטים (אין חשש דליפת-מידע ל-root).
+- `tenant_owner` יוצר `unit_admin` **רק** ליחידה תחת התחום שלו — `tenantId` **לא נקרא מה-body בכלל** לשם הזה, תמיד `resolveUnitPermissionScope(uid).tenantId` של המזמין. כל כשל (לא tenant_owner בכלל / תחום שגוי / יחידה לא קיימת) מחזיר את **אותה הודעת 403 גנרית בדיוק** — אין דליפת קיום, כמו בשלב 1.
+- `unit_admin` לא מזמין אף אחד.
+
+**התיקון:** הסבב הראשון קרא את "root מזמין tenant_owner בלבד" מילולית מדי וחסם גם את root מלהזמין unit_admin ישירות. דוד תיקן: root הוא המפתח האחרון — לפי ההחלטה הקיימת ב-§10 (עזיבת מנהל), קצין-על שעוזב לפני שממונה מחליף משאיר יחידה תקועה בלי root כדלת אחורית. תוקן בשני הקבצים (יצירה + קבלה — `isCreatorEntitledForRole` באימות-הזמנה היה צריך תיקון תואם: הזמנת unit_admin שנוצרה ע"י root נכשלה בקבלה לפני התיקון, כי הבדיקה בדקה רק "tenantOwner תואם", לא "root").
+
+**קבלת ההזמנה** (דרישה 3, "יוצר ההזמנה מורשה") הוכללה מעבר ל"root בלבד": ל-`unit_admin` היא בודקת **בזמן אמת** (`resolveUnitPermissionScope(inv.createdBy)`, לא תמונת-מצב שמורה) שהיוצר הוא root **או** עדיין tenant_owner תואם-תחום — tenant_owner שהוחלף בין יצירת ההזמנה לקבלתה פוסל הזמנות תלויות-ועומדות שלו, נבדק ואומת.
+
+**כתיבות בקבלה:** `tenant_owner` → `core.tenantId`/`isTenantOwner`/`tenantType` (מ-`tenantTypeOf`) + arrayUnion ל-`authorities/{id}.managerIds` (אותו מנגנון מדויק כמו authority_manager). `unit_admin` → `core.tenantId`/`unitId`/`unitPath`/`authorityId` + arrayUnion ל-`tenants/{t}/units/{u}.managerIds` — הפעם הראשונה שהשדה הזה מאוכלס דרך נתיב לגיטימי, לא זריעה ידנית.
+
+**שלב 3 (24.09.2026) — רשימת חברים:** `src/app/api/units/members/route.ts` (חדש), `GET`. **שמות אמיתיים** (§5 — לא כמו רשות/שכונה: מנהל צבאי/בית-ספרי מכיר את האנשים אישית). הסקופ נקבע אך ורק מ-`resolveUnitPermissionScope(uid)`. unit_admin רואה רק את היחידה/יחידות שלו; tenant_owner רואה את כל היחידות תחת התחום שלו (שאילתה אחת סרוקה בזיכרון, לא שאילתה ליחידה); root חייב `tenantId` מפורשות (400, לא דחייה — אין חשש דליפה ל-root). כל אי-התאמת תחום מחזירה 403 גנרי זהה.
+
+**דרישת דוד על אינדקסים חסרים בפרודקשן (24.09.2026):** לא נוסף אינדקס חדש לשלב 3 — שתי השאילתות החדשות (`unit_join_requests` לפי tenantId+status; `users` לפי core.tenantId) הן equality-בלבד ו-collection רגיל (לא collection-group), ש-Firestore משרת אוטומטית. נבדק נקי באמולטור. **בטיחות-כשל:** `computeUnitMembers` לא בולעת שגיאת שאילתה — כל כשל מגיע ל-handler העליון, נרשם בלוג עם prefix ייעודי וניתן-לחיפוש ("POSSIBLE MISSING FIRESTORE INDEX" כשהשגיאה נראית קשורה לאינדקס) ומחזיר 500, **לעולם לא רשימה ריקה עם 200**.
+
+**מיזוגים ל-`main` (שניים, כל אחד אחרי אישור נפרד):**
+```
+d241859346b448423c0d48d8c022980724c8ca3   שלבים 0+1 — --no-ff
+62595deaf3df6f8f1e78d9ade49267eb425793e4  שלבים 2+3 — --no-ff
+```
+
+**פקודות revert (מדויקות, לפי הסדר ההפוך אם צריך לבטל את שניהם):**
+```
+git revert -m 1 62595deaf3df6f8f1e78d9ade49267eb425793e4 --no-edit && git push origin main
+git revert -m 1 d241859346b448423c0d48d8c022980724c8ca3 --no-edit && git push origin main
+```
+
+**בדיקות:** `scripts/verify-unit-join-requests.ts` — 41/41 (שלב 0+1, כולל 5 השליליים המפורשים + fail-closed). `scripts/verify-invitation-chain-and-members.ts` — 52/52 (שלב 2+3, כולל כל השליליים + התיקון על root + regression על authority_manager/platform_member). `tsc` מול `origin/main` טרי בכל סבב (worktree חד-פעמי, `comm -13/-23`) — 0 שגיאות חדשות אמיתיות בכל אחד מארבעת הסבבים. `npx vitest run` — 2229 עברו, כשל אחד קיים-מראש (זהה ל-baseline), 26 skipped.
+
+**Smoke אחרי כל דיפלוי:** `outrun.co.il`=200, `/api/catalog/parks`=200 (1159 גינות, יציב). בדיקת פורטל תל אביב-יפו חיה (מנהל אמיתי) בוצעה ע"י דוד עצמו בדפדפן בסבב השני — לא בסקריפט (ראו הערה למטה).
+
+**פתוח, לתיעוד בלבד:**
+1. **`tests/firestore-rules.test.ts` פלייקי** — אושרר: שתי הרצות עוקבות על **אותו קוד בדיוק** נותנות סטים שונים של תרחישים נכשלים (סוויטת אינטגרציה מצטברת, תלוית-סדר/timing מול האמולטור). לא תוקן, לא נחקר — דורש חקירה נפרדת משל עצמה.
+2. **פער תיעוד `smoke-test-tenants.ts` מול המציאות** — סקריפט קיים מלפני הוורטיקל הזה בודק `tenant_sderot`, `hasTenant`/`token.tenantId` (custom claim מת), MILITARY_JOIN/SCHOOL_JOIN — מודל ישן-ולא-קשור לשלבים 0-3. לא נגעתי, לא רץ בסבב הזה.
+3. **בסיס tsc התיעודי (449, 19.09.2026) מיושן** — הבסיס האמיתי שנמדד בכל ארבעת הסבבים כאן הוא **800**, לא 449. סביר שזו צמיחה אורגנית (מספר PRs מוזגו מאז — park-authority-auto-resolve, route-deviation-mechanism-removal, loop-route-start-rotation, calorie-single-source-of-truth, ועוד) ולא סטיית `node_modules` (המתודולוגיה כאן בנתה baseline טרי מ-`origin/main` בפועל בכל סבב, עם `node_modules` מסונכרן — לא הסתמכה על המספר התיעודי הישן), אבל לא אומת במפורש. אם ה-449 חשוב לשמור מדויק — כדאי בדיקה נפרדת.
+4. **סקריפט מינטינג-טוקן לבדיקת פורטל חי נחסם ע"י ה-auto-mode classifier** בסבב הראשון (מיזוג הראשון של השלב הזה) — לא נעקף, דווח לדוד; דוד ביקש במפורש בסבב השני שלא ינוסה שוב, ובדק בעצמו בדפדפן.
+
+**מה לא בוצע — שלב 4 ו-UI, כלל לא הותחלו (לפי הוראה מפורשת):** בורר היחידות (client-facing, rate-limited, ללא שדה מספר-חברים לעולם — לא ברשימה הציבורית, לא בהיסטוריה, לא כברירת מחדל עתידית), ומסכי UI לכל הזרימה (בקשת הצטרפות, אישור/דחייה, ניהול הזמנות, רשימת חברים). אפס קוד/עיצוב לאף אחד מאלה.
+
+**המשימה הבאה:** ממתין לפרומפט נפרד מדוד.
