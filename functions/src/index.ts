@@ -35,3 +35,5 @@ export { pushOutcomeSweeper } from './pushOutcomeSweeper';
 // exported here so it's ready to ship once David re-authenticates the
 // Firebase CLI (same blocker as logAuditAction).
 export { onPlannedActivityCreated } from './onPlannedActivityCreated';
+// ── Background discovery worker (city-mapping one-click panel button prep) ────
+export { onCityMappingDiscoveryRunCreated, onCityMappingDiscoveryDispatch } from './geoDiscoveryWorker';

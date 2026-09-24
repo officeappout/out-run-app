@@ -490,3 +490,20 @@ The `excludeCategories` mechanism is complete and correct, but `hasInjuries` sta
 החלטת מוצר פתוחה: האם צמצום ימים אמור לפצות בנפח. היום — לא. `reduceTo` של הכוח מדווח על כך במפורש.
 
 א-סימטריה מול ריצה: בריצה פיצוי אסור מלכתחילה, כי הארכת ריצה שנשארה מפעילה את RUN-08.
+
+---
+
+## firestore.rules global ADMIN FALLBACK makes per-collection create/update/delete restrictions inert
+**Opened:** 06.09.2026 · **Source:** discovered during geo-discovery Stage 2 (background discovery worker) build, confirmed with David; deliberately not fixed now.
+
+`firestore.rules` ends with a global catch-all:
+```
+match /{document=**} { allow read, write: if isRootAdmin() || isAdmin(); }
+```
+Firestore rules are additive across matching blocks — access is granted if ANY matching block allows it, not "most specific wins." This means **no collection-specific rule can ever be narrower than `isAdmin()`**, no matter how it's written — the catch-all always re-grants full read/write to any `isAdmin()` user (including a plain `core.role=='admin'`, not just `core.isSuperAdmin`/`isSystemAdmin`) regardless of what a more specific `match` block says.
+
+Proven empirically, not theoretically: added a new `isSuperAdminOnly()` helper + a `city_mapping_discovery_runs` rule (`allow create: if isSuperAdminOnly(); allow update, delete: if false;`) intended to restrict create to real superAdmins and lock update/delete to the Cloud Function only. Extended `tests/firestore-rules.test.ts` (9 new cases) — 3 failed exactly where the catch-all interferes: a plain admin could still `create`, and even a superAdmin could `update`/`delete` despite `allow update, delete: if false`.
+
+**Fix, not done now (explicitly deferred, David's call):** a deliberate, separately-scoped rules refactor — either narrow the catch-all itself (high blast radius: it's the safety net for probably dozens of collections that have no explicit rule of their own; touching it risks breaking legitimate plain-admin access across the whole panel) or give every collection that genuinely needs narrower-than-`isAdmin()` semantics its own explicit deny path ahead of the fallback. Not scoped for any single feature build — needs its own audit of every collection currently relying on the fallback.
+
+**Established workaround for now (matches the prior `street_segments`/`/admin/city-mapping` decision):** don't fight the rules layer — enforce the narrower bar at the trusted layer instead (a Cloud Function's own Admin-SDK-side check, or a client-side guard on a panel page). `functions/src/geoDiscoveryWorker.ts`'s `isAuthorizedForApply()` is the concrete instance of this for the discovery worker — real, bypass-proof enforcement of "only a superAdmin may run an `apply:true` job," living inside the trusted worker rather than relying on the (currently inert) rules-layer restriction.

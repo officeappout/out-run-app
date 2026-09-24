@@ -190,6 +190,17 @@ async function setup() {
     await setDoc(doc(db, 'users', 'tenant_admin_user'), {
       core: { name: 'AdminOps', discoverable: true, isSuperAdmin: true },
     });
+
+    // city_mapping_discovery_runs fixtures (06.09.2026) — a PLAIN admin
+    // (core.role=='admin', no isSuperAdmin/isSystemAdmin) deliberately
+    // distinct from tenant_admin_user above: isAdmin() must accept this
+    // user, isSuperAdminOnly() must reject them. That distinction is the
+    // entire point of the new helper — without this fixture, a bug that
+    // silently widened isSuperAdminOnly() back to isAdmin()'s bar would
+    // pass every other test in this file.
+    await setDoc(doc(db, 'users', 'plain_admin_user'), {
+      core: { name: 'PlainAdmin', discoverable: true, role: 'admin' },
+    });
   });
 }
 
@@ -841,6 +852,92 @@ async function testPendingUnits() {
   });
 }
 
+async function testCityMappingDiscoveryRuns() {
+  console.log('\ncity-mapping-discovery-runs (Stage 2, 06.09.2026)');
+
+  const validDoc = {
+    regionKey: 'herzliya',
+    apply: false,
+    requestedByUid: 'tenant_admin_user',
+    status: 'pending',
+    createdAt: new Date(),
+  };
+
+  // CMD1 — unauthenticated create → DENY
+  await it('CMD1 — unauthenticated create → DENY', async () => {
+    const ctx = env.unauthenticatedContext();
+    await assertFails(setDoc(doc(ctx.firestore(), 'city_mapping_discovery_runs', 'cmd1'), validDoc));
+  });
+
+  // CMD2 — a regular user (no admin flags at all) create → DENY
+  await it('CMD2 — regular user (no admin flags) create → DENY', async () => {
+    const ctx = env.authenticatedContext('regular_member');
+    await assertFails(setDoc(doc(ctx.firestore(), 'city_mapping_discovery_runs', 'cmd2'), validDoc));
+  });
+
+  // CMD3 — the critical case: a PLAIN admin (core.role=='admin', passes
+  // isAdmin(), but NOT core.isSuperAdmin/isSystemAdmin) create → DENY. This
+  // is the entire reason isSuperAdminOnly() exists as a helper distinct
+  // from isAdmin() — without it, this test alone would fail.
+  await it("CMD3 — plain admin (core.role=='admin', not super) create → DENY", async () => {
+    const ctx = env.authenticatedContext('plain_admin_user');
+    await assertFails(setDoc(doc(ctx.firestore(), 'city_mapping_discovery_runs', 'cmd3'), validDoc));
+  });
+
+  // CMD4 — a superAdmin (core.isSuperAdmin==true) create → ALLOW
+  await it('CMD4 — superAdmin (core.isSuperAdmin==true) create → ALLOW', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'city_mapping_discovery_runs', 'cmd4'), validDoc));
+  });
+
+  // CMD5 — even a superAdmin cannot update an existing run doc directly —
+  // only the Cloud Function (Admin SDK, bypasses rules) writes status back.
+  await it('CMD5 — superAdmin update on an existing run doc → DENY (client-locked; worker-only via Admin SDK)', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'city_mapping_discovery_runs', 'cmd5'), validDoc);
+    });
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertFails(updateDoc(doc(ctx.firestore(), 'city_mapping_discovery_runs', 'cmd5'), { status: 'succeeded' }));
+  });
+
+  // CMD6 — superAdmin can read a run doc (status/progress visibility)
+  await it('CMD6 — superAdmin read → ALLOW', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'city_mapping_discovery_runs', 'cmd6'), validDoc);
+    });
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'city_mapping_discovery_runs', 'cmd6')));
+  });
+
+  // CMD7 — a plain admin CAN read (isAdmin() gates reads; only create is
+  // held to the narrower isSuperAdminOnly() bar)
+  await it("CMD7 — plain admin (core.role=='admin') read → ALLOW (isAdmin() is enough for reads)", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'city_mapping_discovery_runs', 'cmd7'), validDoc);
+    });
+    const ctx = env.authenticatedContext('plain_admin_user');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'city_mapping_discovery_runs', 'cmd7')));
+  });
+
+  // CMD8 — a regular user cannot read
+  await it('CMD8 — regular user read → DENY', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'city_mapping_discovery_runs', 'cmd8'), validDoc);
+    });
+    const ctx = env.authenticatedContext('regular_member');
+    await assertFails(getDoc(doc(ctx.firestore(), 'city_mapping_discovery_runs', 'cmd8')));
+  });
+
+  // CMD9 — even a superAdmin cannot delete a run doc directly
+  await it('CMD9 — superAdmin delete on an existing run doc → DENY (client-locked)', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'city_mapping_discovery_runs', 'cmd9'), validDoc);
+    });
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertFails(deleteDoc(doc(ctx.firestore(), 'city_mapping_discovery_runs', 'cmd9')));
+  });
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -859,6 +956,7 @@ async function main() {
   await testReserveLeagueLockdown();
   await testNoUsersDocLeak();
   await testPendingUnits();
+  await testCityMappingDiscoveryRuns();
 
   console.log(`\n${'─'.repeat(50)}`);
   console.log(`Results: ${pass} passed, ${fail} failed`);

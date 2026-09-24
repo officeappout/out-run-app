@@ -44,6 +44,23 @@ service cloud.firestore {
         ));
     }
 
+    // Narrower than isAdmin(): excludes a plain core.role=='admin' user —
+    // only core.isSuperAdmin / core.isSystemAdmin (or root admin) pass. First
+    // use of this narrower bar at the rules layer (06.09.2026,
+    // city_mapping_discovery_runs) — every existing "superAdmin-gated" panel
+    // page before this (e.g. /admin/city-mapping) enforced the same bar only
+    // client-side via checkUserRole(), because no rules-layer primitive for
+    // it existed yet. Mirrors that same client-side bar exactly, so a
+    // collection whose only guard IS this rule (no server API route in
+    // front of it) is held to the standard the panel already claims to use.
+    function isSuperAdminOnly() {
+      return isRootAdmin() ||
+        (request.auth != null && (
+          getUserDoc().get('core', {}).get('isSuperAdmin', false) == true ||
+          getUserDoc().get('core', {}).get('isSystemAdmin', false) == true
+        ));
+    }
+
     // True when the authenticated user is an admin of a specific community group
     // (role: 'admin' in community_groups/{groupId}/members/{uid}).
     // OUT admins (isAdmin()) bypass this check.
@@ -1581,6 +1598,23 @@ service cloud.firestore {
 
     match /push_messages/{docId} {
       allow read, write: if isAdmin();
+    }
+
+    // city_mapping_discovery_runs — job-queue request docs for the
+    // background route-discovery worker (Stage 2, 06.09.2026; see
+    // functions/src/geoDiscoveryWorker.ts). Mirrors push_messages' shape
+    // (client creates, worker writes status/result back), but create is
+    // gated to isSuperAdminOnly() specifically, not the broader isAdmin() —
+    // an explicit build requirement (only a superAdmin may kick off a
+    // discovery run), not this project's usual default. update/delete are
+    // client-locked entirely: only the Cloud Function (Admin SDK, bypasses
+    // rules) may write status/keptCount/droppedCount/summary/errorMessage/
+    // finishedAt back — a client, even a superAdmin, can never fake a
+    // status transition directly.
+    match /city_mapping_discovery_runs/{runId} {
+      allow read: if isAdmin();
+      allow create: if isSuperAdminOnly();
+      allow update, delete: if false;
     }
 
     // ============================================================

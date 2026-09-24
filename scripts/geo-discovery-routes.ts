@@ -1882,7 +1882,23 @@ function initFb() { const c = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KE
 // process) supplies the Firestore handle. No process.exit() in here — an
 // unhandled failure throws, same as any other async function, so importing
 // this file never has a side effect of killing the caller's process.
-export async function runGeoDiscovery(opts: GeoDiscoveryOptions, db: admin.firestore.Firestore): Promise<void> {
+// Additive return value (Stage 2, background-worker prep, 05.09.2026) — the
+// CLI entry block below still ignores it (byte-identical CLI behavior), but a
+// non-CLI caller (the job-queue worker) needs structured counts/summary
+// instead of scraping console.log output. Covers both operating modes this
+// function has (DELETE and discover); a caller that only ever passes
+// opts.delete=false (the job queue does) always gets mode:'discover' back.
+export interface GeoDiscoveryResult {
+  mode: 'discover' | 'delete';
+  keptCount: number;
+  droppedCount: number; // artifacts + boundary drops combined
+  createdCount?: number; // set only when mode==='discover' && apply
+  updatedCount?: number; // set only when mode==='discover' && apply
+  deletedCount?: number; // set only when mode==='delete'
+  summary: string;
+}
+
+export async function runGeoDiscovery(opts: GeoDiscoveryOptions, db: admin.firestore.Firestore): Promise<GeoDiscoveryResult> {
   const APPLY = opts.apply;
   const DELETE = opts.delete;
   const ROUNDTRIPS = opts.roundtrips;
@@ -1894,13 +1910,16 @@ export async function runGeoDiscovery(opts: GeoDiscoveryOptions, db: admin.fires
   if (DELETE) {
     const snap = await col.where('importBatchId', '==', REGION.batchId).get();
     if (!APPLY) {
-      console.log(`[dry-run] --delete would remove ${snap.size} route(s) from batch ${REGION.batchId}. Run with --delete --apply to actually delete.`);
+      const summary = `[dry-run] --delete would remove ${snap.size} route(s) from batch ${REGION.batchId}. Run with --delete --apply to actually delete.`;
+      console.log(summary);
       for (const d of snap.docs) console.log(`  would delete [${d.id}] "${d.data().name}"`);
-      return;
+      return { mode: 'delete', keptCount: 0, droppedCount: 0, deletedCount: 0, summary };
     }
     console.log(`deleting ${snap.size} routes from batch ${REGION.batchId} …`);
     let b = db.batch(), n = 0; for (const d of snap.docs) { b.delete(d.ref); if (++n % 450 === 0) { await b.commit(); b = db.batch(); } } await b.commit();
-    console.log('✅ deleted'); return;
+    const summary = `✅ deleted ${snap.size} routes from batch ${REGION.batchId}.`;
+    console.log(summary);
+    return { mode: 'delete', keptCount: 0, droppedCount: 0, deletedCount: snap.size, summary };
   }
 
   // Stage 1B — this script never set authorityId before (confirmed absent
@@ -2053,7 +2072,11 @@ export async function runGeoDiscovery(opts: GeoDiscoveryOptions, db: admin.fires
     console.log(`  ${icon} ${String(d.distance).padStart(5)}m  gain ${String(d.elevationGain).padStart(4)}m  ${d.difficulty.padEnd(8)} ${d.activityType.padEnd(8)} ${d.name}  [${k.c.externalId}]${stitchNote}`);
   }
 
-  if (!APPLY) { console.log(`\n[dry-run] no writes. ${kept.length} pending routes would be written to official_routes (batch ${REGION.batchId}). Run with --apply to write.`); return; }
+  if (!APPLY) {
+    const summary = `[dry-run] no writes. ${kept.length} pending routes would be written to official_routes (batch ${REGION.batchId}). Run with --apply to write.`;
+    console.log(`\n${summary}`);
+    return { mode: 'discover', keptCount: kept.length, droppedCount: dropped.length + boundaryDropped.length, summary };
+  }
 
   // idempotent upsert by source.externalId; preserve moderation state on re-run.
   let created = 0, updated = 0;
@@ -2072,6 +2095,14 @@ export async function runGeoDiscovery(opts: GeoDiscoveryOptions, db: admin.fires
     }
   }
   console.log(`\n✅ official_routes: ${created} created, ${updated} updated — all status:'pending', published:false (batch ${REGION.batchId}). NO street_segments broadcast, NO merge.`);
+  return {
+    mode: 'discover',
+    keptCount: kept.length,
+    droppedCount: dropped.length + boundaryDropped.length,
+    createdCount: created,
+    updatedCount: updated,
+    summary: `${created} created, ${updated} updated (batch ${REGION.batchId}).`,
+  };
 }
 
 // ─────────────────────────────── CLI entry ───────────────────────────────
