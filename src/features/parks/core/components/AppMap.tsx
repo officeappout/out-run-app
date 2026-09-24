@@ -194,6 +194,10 @@ interface AppMapProps {
    *  `parkPinsFilter`/`parkMinorPinsFilter` below) so only the hybrid marker shows —
    *  22.09.2026, field-test doc 18. */
   hybridStations?: { lat: number; lng: number; name?: string; image?: string; parkId?: string }[] | null;
+  /** Station-approach moment (David, 25.09.2026): parkId of the hybridStations
+   *  entry currently in the ~40s approach window, or null/undefined otherwise —
+   *  gates the pulse on that one marker instead of it always pulsing. */
+  approachingStationId?: string | null;
   /** Free-run leg-plan stops (ג' Phase 3, 08.08) — numbered purple pins so the
    *  user can see their composed plan on the map while building it. Deliberately
    *  a distinct color/shape from hybridStations above (not the same feature). */
@@ -336,6 +340,7 @@ export default function AppMap({
   isActiveWorkout,
   destinationMarker,
   hybridStations,
+  approachingStationId,
   legPlanStops,
   recenterSignal,
   isNavigationMode = false,
@@ -2039,10 +2044,18 @@ export default function AppMap({
             map's own park representation: the real ParkPhotoMarker (that stop's OWN image)
             at station size when that specific park has one, else the cyan park-pin identity
             (matching pin-default) — the fallback is per-stop, not all-or-nothing. */}
-        {(hybridStations ?? []).filter((s) => isFiniteLatLng(s)).map((stop, i) => (
+        {(hybridStations ?? []).filter((s) => isFiniteLatLng(s)).map((stop, i) => {
+          // Station-approach moment (David, 25.09.2026): pulse only the one
+          // marker currently in the approach window — was unconditional
+          // before (no-photo variant) / absent entirely (photo variant).
+          const isApproaching = stop.parkId != null && stop.parkId === approachingStationId;
+          return (
           <Marker key={`hybrid-stop-${i}-${stop.lat}-${stop.lng}`} longitude={stop.lng} latitude={stop.lat} anchor="bottom">
             {stop.image ? (
-              <div className="pointer-events-none">
+              <div className="relative flex items-center justify-center pointer-events-none">
+                {isApproaching && (
+                  <div className="absolute rounded-full animate-ping" style={{ width: 74, height: 74, background: 'rgba(0,186,247,0.25)' }} />
+                )}
                 <ParkPhotoMarker name={stop.name ?? 'תחנת כוח'} photoUrl={stop.image} size={64} isSelected />
               </div>
             ) : (
@@ -2054,7 +2067,9 @@ export default function AppMap({
                   </div>
                 )}
                 <div className="relative flex items-center justify-center">
-                  <div className="absolute rounded-full animate-ping" style={{ width: 50, height: 50, background: 'rgba(0,186,247,0.25)' }} />
+                  {isApproaching && (
+                    <div className="absolute rounded-full animate-ping" style={{ width: 50, height: 50, background: 'rgba(0,186,247,0.25)' }} />
+                  )}
                   <div className="relative p-2.5 rounded-full border-[3px] border-white" style={{ background: '#00BAF7', boxShadow: '0 6px 16px rgba(0,186,247,0.55)' }}>
                     <Dumbbell size={22} color="white" />
                   </div>
@@ -2063,7 +2078,8 @@ export default function AppMap({
               </div>
             )}
           </Marker>
-        ))}
+          );
+        })}
 
         {/* ── Leg-plan stop markers (ג' Phase 3, 08.08) ──
             Numbered so the composed order is visible on the map at a glance —

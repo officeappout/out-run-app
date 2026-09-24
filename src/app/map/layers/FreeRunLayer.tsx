@@ -28,6 +28,8 @@ import type { Route } from '@/features/parks';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import HybridStationLayer from '@/features/workout-engine/hybrid/HybridStationLayer';
+import { useHybridRun } from '@/features/workout-engine/hybrid/useHybridRun';
+import { isApproachingStation } from '@/features/workout-engine/hybrid/hybrid-orchestrator';
 import GpsDebugHud from '@/features/workout-engine/players/running/components/FreeRun/GpsDebugHud';
 import LiveSessionShell from '@/features/workout-engine/shared/components/LiveSessionShell';
 import FreeRunOverlay, { RunMiniDockContent } from '@/features/workout-engine/players/running/components/FreeRun/FreeRunOverlay';
@@ -78,6 +80,24 @@ export default function FreeRunLayer({ logic, effectivePos, onRecenter }: FreeRu
   const setGuidedRouteName = useRunningPlayer((s) => s.setGuidedRouteName);
   const setGuidedRouteDistanceKm = useRunningPlayer((s) => s.setGuidedRouteDistanceKm);
   const setActiveRoutePath = useRunningPlayer((s) => s.setActiveRoutePath);
+
+  // Station-approach moment, map-pin blink (David, 25.09.2026): same
+  // approach computation as HybridStationLayer's CTA gate, threaded here as
+  // a plain id because AppMap has no store access of its own — it only
+  // takes props. null whenever there's no active hybrid session or no
+  // station currently in the approach window (the common case).
+  const hybridPhase = useHybridRun((s) => s.phase);
+  const hybridUpcomingStation = useHybridRun((s) => s.upcomingStation);
+  const hybridLastPosition = useRunningPlayer((s) => s.lastPosition);
+  const approachingStationId =
+    hybridPhase === 'aerobic' && hybridUpcomingStation != null && hybridLastPosition != null &&
+    isApproachingStation(
+      hybridLastPosition.lat, hybridLastPosition.lng,
+      hybridUpcomingStation.lat, hybridUpcomingStation.lng,
+      hybridUpcomingStation.aerobicType,
+    )
+      ? hybridUpcomingStation.parkId ?? null
+      : null;
 
   const { groupId, routeId: sessionRouteId } = useSharedSession();
 
@@ -269,6 +289,7 @@ export default function FreeRunLayer({ logic, effectivePos, onRecenter }: FreeRu
               livePathZones={isWorkoutActive ? routeZones : undefined}
               focusedRoute={groupRoute ?? logic.focusedRoute}
               hybridStations={((groupRoute ?? logic.focusedRoute) as any)?.stationMarkers ?? null}
+              approachingStationId={approachingStationId}
               routes={groupRoute ? [groupRoute] : logic.focusedRoute ? [logic.focusedRoute] : []}
               userBearing={logic.userBearing ?? 0}
               isAutoFollowEnabled={isMapFollowEnabled}
