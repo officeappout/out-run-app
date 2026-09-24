@@ -77,6 +77,13 @@ interface VisualSliderProps {
   lang?: string;
   onLevelConfirm: (level: number) => void;
   onBack?: () => void;
+  /** Slice B: called when "−" is pressed on a SKILL slider already at its
+   *  floor, instead of the button staying disabled. This component has no
+   *  knowledge of what happens next (foundation domain, sessionStorage
+   *  cleanup, pathConfig) — the parent (assessment-visual/page.tsx) owns
+   *  all of that context. Category sliders (push/pull/legs/core) never call
+   *  this — their "−" stays disabled at the floor exactly as before. */
+  onEscape?: () => void;
   stepIndex: number;
   totalSteps: number;
   minLevel?: number;
@@ -93,6 +100,7 @@ export default function VisualSlider({
   lang = 'he',
   onLevelConfirm,
   onBack,
+  onEscape,
   stepIndex,
   totalSteps,
   minLevel = 1,
@@ -330,6 +338,13 @@ export default function VisualSlider({
   // Tier pill: skill-keyed categories (planche, muscle_up, handstand, etc.) get
   // the 4-step קליסטניקס ladder; push/pull/legs/core keep the plain 3-tier label.
   const isSkillCategory = !REGULAR_CATEGORIES.has(category.toLowerCase());
+
+  // Slice B: on a SKILL slider already at its easiest tile, "−" becomes an
+  // escape action instead of a dead disabled button. Category sliders
+  // (push/pull/legs/core) never escape — their "−" stays disabled at the
+  // floor exactly as before, regardless of whether onEscape was passed.
+  const isAtFloor = sliderVal <= sliderMin;
+  const isEscapeable = isSkillCategory && isAtFloor && !!onEscape;
   const tierProportion = isSimple && steps
     ? stepProportion(sliderVal, steps.length)
     : levelProportion(level, minLevel, maxLevel);
@@ -591,13 +606,18 @@ export default function VisualSlider({
             <div className="px-6 pt-2 flex items-center justify-between gap-2" dir="rtl">
               <button
                 type="button"
-                onClick={() => handleSliderChange(sliderVal - 1)}
-                disabled={sliderVal <= sliderMin}
-                aria-label="קל יותר"
+                onClick={() => {
+                  if (isEscapeable) { onEscape!(); return; }
+                  if (!isAtFloor) handleSliderChange(sliderVal - 1);
+                }}
+                disabled={isAtFloor && !isEscapeable}
+                aria-label={isEscapeable ? 'קשה לי מדי — למבחן בסיס' : 'קל יותר'}
                 className="flex-1 flex flex-col items-center gap-0.5 py-2.5 rounded-2xl border border-[#F76700]/25 bg-[#F76700]/[0.06] disabled:opacity-30 disabled:pointer-events-none transition-opacity active:scale-95"
               >
                 <span className="text-xl font-black leading-none text-[#F76700]" aria-hidden>−</span>
-                <span className="text-[13px] font-bold text-[#F76700]">קל יותר</span>
+                <span className="text-[13px] font-bold text-[#F76700]">
+                  {isEscapeable ? 'קשה לי מדי — למבחן בסיס' : 'קל יותר'}
+                </span>
               </button>
 
               <div className="flex-shrink-0 flex flex-col items-center gap-0.5 px-2">
