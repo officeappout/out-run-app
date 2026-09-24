@@ -470,9 +470,15 @@ function StrengthCard({
     ? buildHybridCardGradient(entry.aerobicShare ?? 0.55)
     : null;
   const completedBackground = hybridGradient ?? barColor;
+  // A completed-hybrid entry has programIds:[] (there's no single "program"
+  // for a combined session) — resolveStrengthTitle's empty-programIds
+  // fallback is literally "אימון כוח" (strength), which is wrong for hybrid.
+  // Bug 1, workout-completion-badge-audit device test, 22.08.2026.
   const title = isCommunity
     ? getCommunityTitle(entry)
-    : resolveStrengthTitle(entry.programIds);
+    : isHybridEntry
+      ? 'אימון משולב'
+      : resolveStrengthTitle(entry.programIds);
   const CommunityIcon: React.FC<{ className?: string }> | undefined = isCommunity
     ? COMMUNITY_CARD_ICON[entry.scheduledCategories?.[0] as string ?? '']
     : undefined;
