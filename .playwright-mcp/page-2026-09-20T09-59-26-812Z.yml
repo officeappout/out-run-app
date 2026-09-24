@@ -1,0 +1,260 @@
+- generic [ref=f15e1]:
+  - generic:
+    - generic:
+      - progressbar [aria-hidden]
+      - generic: מתבצעת טעינה של Google Play Console
+  - generic [ref=f15e3]:
+    - banner [ref=f15e4]:
+      - generic [ref=f15e6]:
+        - link [ref=f15e7] [cursor=pointer]:
+          - /url: /console/u/0/developers/8059207473401124382/app-list
+          - button "הלוגו של Google Play Console" [ref=f15e8]
+        - generic [ref=f15e9]:
+          - button "התראות שלא נקראו פתיחת מרכז ההתראות" [ref=f15e15]:
+            - img [aria-hidden] [ref=f15e19]: notifications_unread
+            - generic [ref=f15e20]: התראות שלא נקראו
+          - generic [ref=f15e22]:
+            - button "OUT" [ref=f15e364] [cursor=pointer]
+            - button [ref=f15e26] [cursor=pointer]:
+              - img "החלפת חשבון פיתוח" [ref=f15e28]
+    - navigation [ref=f15e34]:
+      - link "כל האפליקציות" [ref=f15e376] [cursor=pointer]:
+        - /url: /console/u/0/developers/8059207473401124382/app-list
+        - img [aria-hidden] [ref=f15e378]: keyboard_backspace
+      - list [ref=f15e35]:
+        - listitem "מרכז שליטה" [ref=f15e382]:
+          - button "מרכז שליטה" [ref=f15e383] [cursor=pointer]:
+            - img [aria-hidden] [ref=f15e386]: dashboard
+        - listitem "סטטיסטיקה" [ref=f15e390]:
+          - button "סטטיסטיקה" [ref=f15e391] [cursor=pointer]:
+            - img [aria-hidden] [ref=f15e394]: bar_chart
+        - listitem "סיכום השינויים לפרסום" [ref=f15e398]:
+          - button "סיכום השינויים לפרסום" [ref=f15e399] [cursor=pointer]:
+            - img [aria-hidden] [ref=f15e402]: overview
+        - listitem "מוגן על ידי Play" [ref=f15e406]:
+          - button "מוגן על ידי Play" [ref=f15e407] [cursor=pointer]:
+            - img [aria-hidden] [ref=f15e410]: shield
+        - listitem "בדיקה ופרסום" [ref=f15e414]:
+          - button "בדיקה ופרסום" [active] [ref=f15e415] [cursor=pointer]:
+            - img [aria-hidden] [ref=f15e418]: rocket_launch
+          - list [ref=f15e694]:
+            - generic [ref=f15e696]:
+              - listitem "הגרסאות והחבילות החדשות ביותר" [ref=f15e698]:
+                - button "הגרסאות והחבילות החדשות ביותר" [ref=f15e699] [cursor=pointer]
+              - listitem "ייצור" [ref=f15e702]:
+                - button "ייצור" [ref=f15e703] [cursor=pointer]
+              - listitem "בדיקה" [ref=f15e706]:
+                - button "בדיקה" [ref=f15e707] [cursor=pointer]:
+                  - img [aria-hidden] [ref=f15e710]: expand_more
+              - listitem "הרשמה מראש" [ref=f15e712]:
+                - button "הרשמה מראש" [ref=f15e713] [cursor=pointer]
+              - listitem "שלמות האפליקציה" [ref=f15e716]:
+                - button "שלמות האפליקציה" [ref=f15e717] [cursor=pointer]
+              - listitem "הגדרות מתקדמות" [ref=f15e720]:
+                - button "הגדרות מתקדמות" [ref=f15e721] [cursor=pointer]
+        - listitem "מעקב ושיפור" [ref=f15e422]:
+          - button "מעקב ושיפור" [ref=f15e423] [cursor=pointer]:
+            - img [aria-hidden] [ref=f15e426]: vital_signs
+        - listitem "הגדלת מספר המשתמשים" [ref=f15e430]:
+          - button "הגדלת מספר המשתמשים" [ref=f15e431] [cursor=pointer]:
+            - img [aria-hidden] [ref=f15e434]: finance_mode
+        - listitem "ייצור הכנסות עם Play" [ref=f15e438]:
+          - button "ייצור הכנסות עם Play" [ref=f15e439] [cursor=pointer]:
+            - img [aria-hidden] [ref=f15e442]: sell
+    - generic [ref=f15e119]:
+      - generic [ref=f15e725]:
+        - generic [ref=f15e733]:
+          - heading "בדיקה ופרסום" [level=1] [ref=f15e738]
+          - button "בחירת גורמי צורה. טלפונים, טאבלטים, Chrome OS, Android XR" [ref=f15e747] [cursor=pointer]:
+            - generic [ref=f15e748]:
+              - img [aria-hidden] [ref=f15e752]: phonelink
+              - generic [ref=f15e753]: טלפונים, טאבלטים, Chrome OS, Android XR
+            - img [aria-hidden] [ref=f15e755]: arrow_drop_down
+        - generic [ref=f15e762]:
+          - generic [ref=f15e763]:
+            - img [aria-hidden] [ref=f15e766]: overview
+            - generic [ref=f15e767]: סיכום השינויים לפרסום
+          - generic [ref=f15e768]: יש לך שינויים שאפשר לשלוח לבדיקה
+          - link "צפייה בשינויים לפרסום" [ref=f15e771] [cursor=pointer]:
+            - /url: /console/u/0/developers/8059207473401124382/app/4976101829083808135/publishing
+            - generic [ref=f15e774]: אל השינויים
+            - img [aria-hidden] [ref=f15e776]: arrow_right_alt
+        - generic [ref=f15e784]:
+          - generic [ref=f15e787]:
+            - generic [ref=f15e794]:
+              - img [aria-hidden] [ref=f15e798]: slow_motion_video
+              - heading "בדיקות פתוחות" [level=2] [ref=f15e800]
+            - list [ref=f15e802]:
+              - listitem [ref=f15e803]:
+                - generic [ref=f15e804]:
+                  - img [aria-hidden] [ref=f15e807]: draft
+                  - 'generic "שם הגרסה: 21 (1.21)" [ref=f15e808]': 21 (1.21)
+                - text: •
+              - listitem [ref=f15e809]:
+                - generic [ref=f15e810]:
+                  - img [aria-hidden] [ref=f15e813]: schedule
+                  - generic [ref=f15e814]: 8 ביולי 7:27
+            - link "כניסה לדף בדיקות פתוחות" [ref=f15e816] [cursor=pointer]:
+              - /url: /console/u/0/developers/8059207473401124382/app/4976101829083808135/tracks/open-testing?releaseType=defaultReleases
+              - img [aria-hidden] [ref=f15e819]: arrow_right_alt
+          - generic [ref=f15e821]:
+            - generic [ref=f15e824]:
+              - generic [ref=f15e825]: אחוז ההשקה
+              - generic [ref=f15e826]: 100%
+            - generic [ref=f15e831]:
+              - button "סה\"כ התקנות של הגרסה" [ref=f15e835]
+              - generic [ref=f15e836]: "12"
+            - generic [ref=f15e841]:
+              - button "בסיס ההתקנות" [ref=f15e845]
+              - generic [ref=f15e846]: 100.0%
+            - generic [ref=f15e851]:
+              - button "התקנות של האפליקציה" [ref=f15e855]
+              - generic [ref=f15e856]: "12"
+          - generic [ref=f15e859]:
+            - generic [ref=f15e863]:
+              - generic [ref=f15e864]: שיעור הקריסות של הגרסה
+              - generic [ref=f15e876]:
+                - 'button "רמת הפירוט: יומי" [ref=f15e880] [cursor=pointer]':
+                  - generic [ref=f15e883]: יומי
+                  - img [aria-hidden] [ref=f15e885]: arrow_drop_down
+                - link "מעבר אל 'תפקוד האפליקציה'" [ref=f15e886] [cursor=pointer]:
+                  - /url: /console/u/0/developers/8059207473401124382/app/4976101829083808135/vitals/metrics/details?versionCode=21&aggregationPeriod=AGGREGATION_PERIOD_28D&days=28&metric=USER_PERCEIVED_CRASHES&granularity=DAILY_GRANULARITY
+                  - img [aria-hidden] [ref=f15e889]: arrow_right_alt
+            - generic [ref=f15e904]:
+              - generic [ref=f15e905]: שיעור מקרי ה-ANR בגרסה
+              - generic [ref=f15e917]:
+                - 'button "רמת הפירוט: יומי" [ref=f15e921] [cursor=pointer]':
+                  - generic [ref=f15e924]: יומי
+                  - img [aria-hidden] [ref=f15e926]: arrow_drop_down
+                - link "מעבר אל 'תפקוד האפליקציה'" [ref=f15e927] [cursor=pointer]:
+                  - /url: /console/u/0/developers/8059207473401124382/app/4976101829083808135/vitals/metrics/details?versionCode=21&aggregationPeriod=AGGREGATION_PERIOD_28D&days=28&metric=USER_PERCEIVED_ANRS&granularity=DAILY_GRANULARITY
+                  - img [aria-hidden] [ref=f15e930]: arrow_right_alt
+        - generic [ref=f15e945]:
+          - generic [ref=f15e948]:
+            - generic [ref=f15e951]:
+              - generic [ref=f15e958]:
+                - img [aria-hidden] [ref=f15e962]: sound_sampler
+                - heading "בדיקות בקבוצות מוגדרות" [level=2] [ref=f15e964]
+              - link "הצגת כל הטראקים (1)" [ref=f15e966] [cursor=pointer]:
+                - /url: /console/u/0/developers/8059207473401124382/app/4976101829083808135/closed-testing?releaseType=defaultReleases
+                - img [aria-hidden] [ref=f15e971]: arrow_right_alt
+            - generic [ref=f15e972]:
+              - generic [ref=f15e974]:
+                - heading "alpha" [level=3] [ref=f15e983]
+                - link "מעבר אל alpha" [ref=f15e985] [cursor=pointer]:
+                  - /url: /console/u/0/developers/8059207473401124382/app/4976101829083808135/tracks/4698630106084273075
+                  - img [aria-hidden] [ref=f15e988]: arrow_right_alt
+              - generic [ref=f15e989]:
+                - generic [ref=f15e990]:
+                  - img [aria-hidden] [ref=f15e993]: draft
+                  - 'generic "שם הגרסה: 2 (1.0)" [ref=f15e994]': 2 (1.0)
+                - generic [ref=f15e995]:
+                  - img [aria-hidden] [ref=f15e998]: calendar_month
+                  - 'generic "זמן ההצגה: 13 במאי 9:10" [ref=f15e999]': 13 במאי 9:10
+          - generic [ref=f15e1000]:
+            - generic [ref=f15e1002]:
+              - generic [ref=f15e1005]:
+                - generic [ref=f15e1012]:
+                  - img [aria-hidden] [ref=f15e1016]: motion_play
+                  - heading "בדיקה פנימית" [level=2] [ref=f15e1018]
+                - link "כניסה לדף בדיקה פנימית" [ref=f15e1020] [cursor=pointer]:
+                  - /url: /console/u/0/developers/8059207473401124382/app/4976101829083808135/tracks/internal-testing?releaseType=defaultReleases
+                  - img [aria-hidden] [ref=f15e1023]: arrow_right_alt
+              - generic [ref=f15e1025]:
+                - generic [ref=f15e1026]:
+                  - img [aria-hidden] [ref=f15e1029]: draft
+                  - 'generic "שם הגרסה: 20 (1.3.0)" [ref=f15e1030]': 20 (1.3.0)
+                - generic [ref=f15e1031]:
+                  - img [aria-hidden] [ref=f15e1034]: calendar_month
+                  - 'generic "זמן ההצגה: 30 ביוני 11:09" [ref=f15e1035]': 30 ביוני 11:09
+            - generic [ref=f15e1037]:
+              - generic [ref=f15e1040]:
+                - generic [ref=f15e1047]:
+                  - img [aria-hidden] [ref=f15e1051]: send_to_mobile
+                  - heading "שיתוף פנימי של אפליקציות" [level=2] [ref=f15e1053]
+                - link "תחילת השימוש בשיתוף פנימי של אפליקציות" [ref=f15e1055] [cursor=pointer]:
+                  - /url: /console/u/0/developers/8059207473401124382/app/4976101829083808135/releases/internal-app-sharing
+                  - generic [ref=f15e1058]: ליצירת קמפיין
+                  - img [aria-hidden] [ref=f15e1060]: arrow_right_alt
+              - generic [ref=f15e1061]: אפשר לשתף בקלות את הצוות הפנימי בקובצי App Bundle באמצעות קישור, כדי לבדוק שוב גרסאות מוקדמות של האפליקציה
+        - generic [ref=f15e1066]:
+          - generic [ref=f15e1074]:
+            - img [aria-hidden] [ref=f15e1078]: playlist_add_check
+            - heading "לגרסה הבאה" [level=2] [ref=f15e1080]
+          - generic [ref=f15e1084]:
+            - generic [ref=f15e1085]:
+              - heading "יכול להיות שהתצוגה מקצה לקצה לא תהיה זמינה לכל המשתמשים" [level=3] [ref=f15e1094]
+              - generic [ref=f15e1098]:
+                - paragraph [ref=f15e1101]: מ-Android 15 ומעלה, אפליקציות שמטרגטות ל-SDK 35 יוצגו מקצה לקצה כברירת מחדל. כדי לוודא שהאפליקציה תוצג בצורה תקינה ב-Android 15 ומעלה, מפתחים של אפליקציות שמטרגטות ל-SDK 35 צריכים לטפל באזורי inset. צריך לחקור את הבעיה הזו, ולהקדיש זמן כדי לבדוק את התצוגה מקצה לקצה ולעדכן את מה שצריך. לחלופין, אפשר להפעיל את enableEdgeToEdge() ב-Kotlin או את EdgeToEdge.enable() ב-Java לצורך תאימות לאחור.
+                - generic [ref=f15e1102]:
+                  - generic [ref=f15e1103]:
+                    - generic [ref=f15e1104]: חוויית משתמש
+                    - generic [ref=f15e1109]: "שם הגרסה: 21 (1.21)"
+                  - generic:
+                    - generic:
+                      - generic: המידע הזה הועיל לך?
+                      - button "כפתור לייק לדיווח על המידע כמועיל":
+                        - generic:
+                          - img [aria-hidden]: thumb_up
+                      - button "כפתור דיסלייק לדיווח על המידע כלא מועיל":
+                        - generic:
+                          - img [aria-hidden]: thumb_down
+            - link "מידע נוסף על הבעיה הזו (נפתח בכרטיסייה חדשה)" [ref=f15e1117] [cursor=pointer]:
+              - /url: https://developer.android.com/about/versions/15/behavior-changes-15#edge-to-edge
+              - generic [ref=f15e1120]: למידע נוסף
+              - img [aria-hidden] [ref=f15e1122]: open_in_new
+          - generic [ref=f15e1126]:
+            - generic [ref=f15e1127]:
+              - heading "האפליקציה שלך משתמשת בממשקי API או בפרמטרים של תצוגה מקצה לקצה שהוצאו משימוש" [level=3] [ref=f15e1136]
+              - generic [ref=f15e1140]:
+                - paragraph [ref=f15e1143]: אחד או יותר מממשקי ה-API או מהפרמטרים שהגדרת לתצוגה מקצה לקצה ולתצוגת חלון הוצאו משימוש ב-Android 15. כדי לפתור את הבעיה, צריך להפסיק להשתמש בממשקי ה-API או בפרמטרים האלה.
+                - generic [ref=f15e1144]:
+                  - generic [ref=f15e1145]:
+                    - generic [ref=f15e1146]: חוויית משתמש
+                    - generic [ref=f15e1151]: "שם הגרסה: 21 (1.21)"
+                  - generic:
+                    - generic:
+                      - generic: המידע הזה הועיל לך?
+                      - button "כפתור לייק לדיווח על המידע כמועיל":
+                        - generic:
+                          - img [aria-hidden]: thumb_up
+                      - button "כפתור דיסלייק לדיווח על המידע כלא מועיל":
+                        - generic:
+                          - img [aria-hidden]: thumb_down
+            - button "למידע נוסף" [ref=f15e1159]:
+              - img [aria-hidden] [ref=f15e1164]: read_more
+          - generic [ref=f15e1168]:
+            - generic [ref=f15e1169]:
+              - heading "כדי להימנע מבעיות שקשורות למדיניות או מבעיות אחרות, צריך להשהות את המסלול הישן לבדיקה בקבוצה מוגדרת" [level=3] [ref=f15e1178]
+              - generic [ref=f15e1182]:
+                - paragraph [ref=f15e1185]: הגרסאות במסלול לבדיקה בקבוצה המוגדרת "alpha" הוחלפו בגרסה במסלול לסביבת הייצור לפני יותר מ-90 ימים. אם המסלול הזה כבר לא בשימוש, מומלץ להשהות אותו כדי שהוא לא יהיה זמין יותר למשתמשים וכדי להימנע מבעיות פוטנציאליות, כולל בעיות שקשורות למדיניות.
+                - generic [ref=f15e1186]:
+                  - generic [ref=f15e1187]: בדיקות בקבוצות מוגדרות - Alpha
+                  - generic:
+                    - generic:
+                      - generic: המידע הזה הועיל לך?
+                      - button "כפתור לייק לדיווח על המידע כמועיל":
+                        - generic:
+                          - img [aria-hidden]: thumb_up
+                      - button "כפתור דיסלייק לדיווח על המידע כלא מועיל":
+                        - generic:
+                          - img [aria-hidden]: thumb_down
+            - link "השהיית מסלול" [ref=f15e1196] [cursor=pointer]:
+              - /url: /console/u/0/developers/8059207473401124382/app/4976101829083808135/tracks/4698630106084273075?releaseType=defaultReleases&pause=true
+              - img [aria-hidden] [ref=f15e1201]: arrow_right_alt
+      - generic [ref=f15e347]:
+        - generic [ref=f15e1202]:
+          - link "עדכוני מוצרים" [ref=f15e1203] [cursor=pointer]:
+            - /url: https://play.google.com/console/about/whats-new/
+          - link "לוח הבקרה של סטטוס שירותי Play" [ref=f15e1204] [cursor=pointer]:
+            - /url: https://status.play.google.com/
+          - link "עזרה" [ref=f15e1205] [cursor=pointer]:
+            - /url: /console/u/0/developers/8059207473401124382/help-and-support?app=4976101829083808135
+        - generic [ref=f15e1206]:
+          - generic [ref=f15e1207]: ‎© 2026 Google
+          - link "פרטיות" [ref=f15e1208] [cursor=pointer]:
+            - /url: https://www.google.com/policies/privacy/
+          - link "הסכם הפצה למפתחים" [ref=f15e1209] [cursor=pointer]:
+            - /url: https://play.google.com/about/developer-distribution-agreement.html
+          - link "תנאים והגבלות" [ref=f15e1210] [cursor=pointer]:
+            - /url: https://play.google.com/about/console/terms-of-service/

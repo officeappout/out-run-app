@@ -1,0 +1,91 @@
+- generic [active] [ref=f15e1]:
+  - generic:
+    - generic:
+      - progressbar [aria-hidden]
+      - generic: מתבצעת טעינה של Google Play Console
+  - generic [ref=f15e3]:
+    - banner [ref=f15e4]:
+      - generic [ref=f15e6]:
+        - link [ref=f15e7] [cursor=pointer]:
+          - /url: /console/u/0/developers/8059207473401124382/app-list
+          - button "הלוגו של Google Play Console" [ref=f15e8]
+        - generic [ref=f15e9]:
+          - button "התראות שלא נקראו פתיחת מרכז ההתראות" [ref=f15e15]:
+            - img [aria-hidden] [ref=f15e19]: notifications_unread
+            - generic [ref=f15e20]: התראות שלא נקראו
+          - generic [ref=f15e22]:
+            - button "OUT" [ref=f15e364] [cursor=pointer]
+            - button [ref=f15e26] [cursor=pointer]:
+              - img "החלפת חשבון פיתוח" [ref=f15e28]
+    - navigation [ref=f15e34]:
+      - link "כל האפליקציות" [ref=f15e376] [cursor=pointer]:
+        - /url: /console/u/0/developers/8059207473401124382/app-list
+        - img [aria-hidden] [ref=f15e378]: keyboard_backspace
+      - list [ref=f15e35]:
+        - listitem "מרכז שליטה" [ref=f15e382]:
+          - button "מרכז שליטה" [ref=f15e383] [cursor=pointer]:
+            - img [aria-hidden] [ref=f15e386]: dashboard
+        - listitem "סטטיסטיקה" [ref=f15e390]:
+          - button "סטטיסטיקה" [ref=f15e391] [cursor=pointer]:
+            - img [aria-hidden] [ref=f15e394]: bar_chart
+        - listitem "סיכום השינויים לפרסום" [ref=f15e398]:
+          - button "סיכום השינויים לפרסום" [ref=f15e399] [cursor=pointer]:
+            - img [aria-hidden] [ref=f15e402]: overview
+        - listitem "מוגן על ידי Play" [ref=f15e406]:
+          - button "מוגן על ידי Play" [ref=f15e407] [cursor=pointer]:
+            - img [aria-hidden] [ref=f15e410]: shield
+        - listitem "בדיקה ופרסום" [ref=f15e414]:
+          - button "בדיקה ופרסום" [ref=f15e415] [cursor=pointer]:
+            - img [aria-hidden] [ref=f15e418]: rocket_launch
+          - generic [ref=f15e696]:
+            - listitem "הגרסאות והחבילות החדשות ביותר" [ref=f15e698]:
+              - button "הגרסאות והחבילות החדשות ביותר" [ref=f15e699] [cursor=pointer]
+            - listitem "ייצור" [ref=f15e702]:
+              - button "ייצור" [ref=f15e703] [cursor=pointer]
+            - listitem "בדיקה" [ref=f15e706]:
+              - button "בדיקה" [ref=f15e707] [cursor=pointer]:
+                - img [aria-hidden] [ref=f15e710]: expand_more
+              - generic [ref=f15e1243]:
+                - listitem "בדיקות פתוחות" [ref=f15e1245]:
+                  - button "בדיקות פתוחות" [ref=f15e1246] [cursor=pointer]
+                - listitem "בדיקות בקבוצות מוגדרות" [ref=f15e1249]:
+                  - button "בדיקות בקבוצות מוגדרות" [ref=f15e1250] [cursor=pointer]
+                - listitem "בדיקה פנימית" [ref=f15e1253]:
+                  - button "בדיקה פנימית" [ref=f15e1254] [cursor=pointer]
+                - listitem "דוח טרום-הפעלה" [ref=f15e1257]:
+                  - button "דוח טרום-הפעלה" [ref=f15e1258] [cursor=pointer]:
+                    - img [aria-hidden] [ref=f15e1261]: expand_more
+                - listitem "שיתוף פנימי של אפליקציות" [ref=f15e1263]:
+                  - button "שיתוף פנימי של אפליקציות" [ref=f15e1264] [cursor=pointer]
+            - listitem "הרשמה מראש" [ref=f15e712]:
+              - button "הרשמה מראש" [ref=f15e713] [cursor=pointer]
+            - listitem "שלמות האפליקציה" [ref=f15e716]:
+              - button "שלמות האפליקציה" [ref=f15e717] [cursor=pointer]
+            - listitem "הגדרות מתקדמות" [ref=f15e720]:
+              - button "הגדרות מתקדמות" [ref=f15e721] [cursor=pointer]
+        - listitem "מעקב ושיפור" [ref=f15e422]:
+          - button "מעקב ושיפור" [ref=f15e423] [cursor=pointer]:
+            - img [aria-hidden] [ref=f15e426]: vital_signs
+        - listitem "הגדלת מספר המשתמשים" [ref=f15e430]:
+          - button "הגדלת מספר המשתמשים" [ref=f15e431] [cursor=pointer]:
+            - img [aria-hidden] [ref=f15e434]: finance_mode
+        - listitem "ייצור הכנסות עם Play" [ref=f15e438]:
+          - button "ייצור הכנסות עם Play" [ref=f15e439] [cursor=pointer]:
+            - img [aria-hidden] [ref=f15e442]: sell
+    - generic [ref=f15e347]:
+      - generic [ref=f15e1931]:
+        - link "עדכוני מוצרים" [ref=f15e1932] [cursor=pointer]:
+          - /url: https://play.google.com/console/about/whats-new/
+        - link "לוח הבקרה של סטטוס שירותי Play" [ref=f15e1933] [cursor=pointer]:
+          - /url: https://status.play.google.com/
+        - link "עזרה" [ref=f15e1934] [cursor=pointer]:
+          - /url: /console/u/0/developers/8059207473401124382/help-and-support?app=4976101829083808135
+      - generic [ref=f15e1935]:
+        - generic [ref=f15e1936]: ‎© 2026 Google
+        - link "פרטיות" [ref=f15e1937] [cursor=pointer]:
+          - /url: https://www.google.com/policies/privacy/
+        - link "הסכם הפצה למפתחים" [ref=f15e1938] [cursor=pointer]:
+          - /url: https://play.google.com/about/developer-distribution-agreement.html
+        - link "תנאים והגבלות" [ref=f15e1939] [cursor=pointer]:
+          - /url: https://play.google.com/about/console/terms-of-service/
+  - status [ref=f15e1903]

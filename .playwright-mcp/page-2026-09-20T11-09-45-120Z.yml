@@ -1,0 +1,136 @@
+- generic [ref=f21e1]:
+  - generic:
+    - generic:
+      - progressbar [aria-hidden]
+      - generic: מתבצעת טעינה של Google Play Console
+  - generic [ref=f21e3]:
+    - banner [ref=f21e4]:
+      - generic [ref=f21e6]:
+        - link [ref=f21e7] [cursor=pointer]:
+          - /url: /console/u/0/developers/8059207473401124382/app-list
+          - button "הלוגו של Google Play Console" [ref=f21e8]
+        - generic [ref=f21e9]:
+          - button "התראות שלא נקראו פתיחת מרכז ההתראות" [ref=f21e45]:
+            - img [aria-hidden] [ref=f21e49]: notifications_unread
+            - generic [ref=f21e50]: התראות שלא נקראו
+          - generic [ref=f21e10]:
+            - button "OUT" [ref=f21e59] [cursor=pointer]
+            - button [ref=f21e14] [cursor=pointer]:
+              - img "החלפת חשבון פיתוח" [ref=f21e16]
+    - navigation [ref=f21e72]:
+      - link "כל האפליקציות" [ref=f21e73] [cursor=pointer]:
+        - /url: /console/u/0/developers/8059207473401124382/app-list
+        - img [aria-hidden] [ref=f21e75]: keyboard_backspace
+      - list [ref=f21e77]:
+        - listitem "מרכז שליטה" [ref=f21e80]:
+          - button "מרכז שליטה" [ref=f21e81] [cursor=pointer]:
+            - img [aria-hidden] [ref=f21e84]: dashboard
+        - listitem "סטטיסטיקה" [ref=f21e88]:
+          - button "סטטיסטיקה" [ref=f21e89] [cursor=pointer]:
+            - img [aria-hidden] [ref=f21e92]: bar_chart
+        - listitem "סיכום השינויים לפרסום" [ref=f21e96]:
+          - button "סיכום השינויים לפרסום" [ref=f21e97] [cursor=pointer]:
+            - img [aria-hidden] [ref=f21e100]: overview
+        - listitem "מוגן על ידי Play" [ref=f21e104]:
+          - button "מוגן על ידי Play" [ref=f21e105] [cursor=pointer]:
+            - img [aria-hidden] [ref=f21e108]: shield
+        - listitem "בדיקה ופרסום" [ref=f21e112]:
+          - button "בדיקה ופרסום" [ref=f21e113] [cursor=pointer]:
+            - img [aria-hidden] [ref=f21e116]: rocket_launch
+          - list [ref=f21e118]:
+            - generic [ref=f21e120]:
+              - listitem "הגרסאות והחבילות החדשות ביותר" [ref=f21e122]:
+                - button "הגרסאות והחבילות החדשות ביותר" [ref=f21e123] [cursor=pointer]
+              - listitem "ייצור" [ref=f21e126]:
+                - button "ייצור" [ref=f21e127] [cursor=pointer]
+              - listitem "בדיקה" [ref=f21e130]:
+                - button "בדיקה" [ref=f21e131] [cursor=pointer]:
+                  - img [aria-hidden] [ref=f21e134]: expand_more
+              - listitem "הרשמה מראש" [ref=f21e136]:
+                - button "הרשמה מראש" [ref=f21e137] [cursor=pointer]
+              - listitem "שלמות האפליקציה" [ref=f21e140]:
+                - button "שלמות האפליקציה" [ref=f21e141] [cursor=pointer]
+              - listitem "הגדרות מתקדמות" [ref=f21e144]:
+                - button "הגדרות מתקדמות" [ref=f21e145] [cursor=pointer]
+        - listitem "מעקב ושיפור" [ref=f21e149]:
+          - button "מעקב ושיפור" [ref=f21e150] [cursor=pointer]:
+            - img [aria-hidden] [ref=f21e153]: vital_signs
+        - listitem "הגדלת מספר המשתמשים" [ref=f21e157]:
+          - button "הגדלת מספר המשתמשים" [ref=f21e158] [cursor=pointer]:
+            - img [aria-hidden] [ref=f21e161]: finance_mode
+        - listitem "ייצור הכנסות עם Play" [ref=f21e165]:
+          - button "ייצור הכנסות עם Play" [ref=f21e166] [cursor=pointer]:
+            - img [aria-hidden] [ref=f21e169]: sell
+    - generic [ref=f21e22]:
+      - generic [ref=f21e174]:
+        - generic [ref=f21e182]:
+          - generic [ref=f21e183]:
+            - heading "ייצור" [level=1] [ref=f21e188]
+            - generic [ref=f21e192]:
+              - button "בחירת גורמי צורה. טלפונים, טאבלטים, Chrome OS, Android XR" [ref=f21e197] [cursor=pointer]:
+                - generic [ref=f21e198]:
+                  - img [aria-hidden] [ref=f21e202]: phonelink
+                  - generic [ref=f21e203]: טלפונים, טאבלטים, Chrome OS, Android XR
+                - img [aria-hidden] [ref=f21e205]: arrow_drop_down
+              - button "יצירת גרסה חדשה" [disabled] [ref=f21e206]
+          - generic [ref=f21e216]:
+            - text: יצירה וניהול של גרסאות ייצור לצורך הענקת גישה לאפליקציה לכל המשתמשים במדינות הנבחרות.
+            - link "מידע נוסף על ייצור (נפתח בכרטיסייה חדשה)" [ref=f21e218] [cursor=pointer]:
+              - /url: https://play.google.com/console/about/publicreleases
+              - text: למידע נוסף
+        - generic [ref=f21e226]:
+          - heading "סיכום למסלול (טלפונים, טאבלטים, Chrome OS, Android XR)" [level=4] [ref=f21e232]
+          - list [ref=f21e235]:
+            - listitem [ref=f21e236]: לא פעיל
+            - listitem [ref=f21e237]: גרסת טיוטה
+            - listitem [ref=f21e238]: מדינה אחת/אזור אחד
+            - listitem [ref=f21e239]: 13 התקנות
+        - tablist [ref=f21e246]:
+          - tab "מרכז בקרת הגרסאות" [ref=f21e247] [cursor=pointer]
+          - tab "גרסאות" [ref=f21e250] [cursor=pointer]
+          - tab "מדינות או אזורים" [active] [selected] [ref=f21e253] [cursor=pointer]
+        - generic [ref=f21e302]:
+          - generic [ref=f21e307]:
+            - heading "מדינות או אזורים" [level=2] [ref=f21e311]
+            - button "מידע נוסף על \"מדינות או אזורים\"" [ref=f21e314] [cursor=pointer]:
+              - img [aria-hidden] [ref=f21e315]: help
+          - generic [ref=f21e316]:
+            - generic [ref=f21e317]:
+              - generic [ref=f21e321]:
+                - button "הוגדר טירגוט (1)" [ref=f21e325] [cursor=pointer]:
+                  - img [aria-hidden] [ref=f21e330]: arrow_drop_down
+                - generic [ref=f21e331]:
+                  - search "חיפוש":
+                    - generic [ref=f21e333]:
+                      - generic:
+                        - img [aria-hidden]: search
+                      - generic: חיפוש
+                      - textbox "חיפוש" [ref=f21e334]
+              - button "עריכת המדינות או האזורים" [ref=f21e341]
+            - grid "מדינות או אזורים" [ref=f21e354]:
+              - row [ref=f21e355]:
+                - columnheader "מדינה או אזור" [ref=f21e356] [cursor=pointer]
+                - columnheader "סטטוס" [ref=f21e357] [cursor=pointer]
+              - row [ref=f21e358]:
+                - gridcell [ref=f21e359]:
+                  - generic "ישראל" [ref=f21e362]
+                - gridcell "הוגדר טירגוט" [ref=f21e365]:
+                  - generic [ref=f21e368]:
+                    - img [aria-hidden] [ref=f21e372]: check_circle
+                    - generic [ref=f21e373]: הוגדר טירגוט
+      - generic [ref=f21e30]:
+        - generic [ref=f21e374]:
+          - link "עדכוני מוצרים" [ref=f21e375] [cursor=pointer]:
+            - /url: https://play.google.com/console/about/whats-new/
+          - link "לוח הבקרה של סטטוס שירותי Play" [ref=f21e376] [cursor=pointer]:
+            - /url: https://status.play.google.com/
+          - link "עזרה" [ref=f21e377] [cursor=pointer]:
+            - /url: /console/u/0/developers/8059207473401124382/help-and-support?app=4976101829083808135
+        - generic [ref=f21e378]:
+          - generic [ref=f21e379]: ‎© 2026 Google
+          - link "פרטיות" [ref=f21e380] [cursor=pointer]:
+            - /url: https://www.google.com/policies/privacy/
+          - link "הסכם הפצה למפתחים" [ref=f21e381] [cursor=pointer]:
+            - /url: https://play.google.com/about/developer-distribution-agreement.html
+          - link "תנאים והגבלות" [ref=f21e382] [cursor=pointer]:
+            - /url: https://play.google.com/about/console/terms-of-service/

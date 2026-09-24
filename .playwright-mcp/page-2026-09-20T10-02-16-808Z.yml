@@ -1,0 +1,229 @@
+- generic [active] [ref=f15e1]:
+  - generic:
+    - generic:
+      - progressbar [aria-hidden]
+      - generic: מתבצעת טעינה של Google Play Console
+  - generic [ref=f15e3]:
+    - banner [ref=f15e4]:
+      - generic [ref=f15e6]:
+        - link [ref=f15e7] [cursor=pointer]:
+          - /url: /console/u/0/developers/8059207473401124382/app-list
+          - button "הלוגו של Google Play Console" [ref=f15e8]
+        - generic [ref=f15e9]:
+          - button "התראות שלא נקראו פתיחת מרכז ההתראות" [ref=f15e15]:
+            - img [aria-hidden] [ref=f15e19]: notifications_unread
+            - generic [ref=f15e20]: התראות שלא נקראו
+          - generic [ref=f15e22]:
+            - button "OUT" [ref=f15e364] [cursor=pointer]
+            - button [ref=f15e26] [cursor=pointer]:
+              - img "החלפת חשבון פיתוח" [ref=f15e28]
+    - navigation [ref=f15e34]:
+      - link "כל האפליקציות" [ref=f15e376] [cursor=pointer]:
+        - /url: /console/u/0/developers/8059207473401124382/app-list
+        - img [aria-hidden] [ref=f15e378]: keyboard_backspace
+      - list [ref=f15e35]:
+        - listitem "מרכז שליטה" [ref=f15e382]:
+          - button "מרכז שליטה" [ref=f15e383] [cursor=pointer]:
+            - img [aria-hidden] [ref=f15e386]: dashboard
+        - listitem "סטטיסטיקה" [ref=f15e390]:
+          - button "סטטיסטיקה" [ref=f15e391] [cursor=pointer]:
+            - img [aria-hidden] [ref=f15e394]: bar_chart
+        - listitem "סיכום השינויים לפרסום" [ref=f15e398]:
+          - button "סיכום השינויים לפרסום" [ref=f15e399] [cursor=pointer]:
+            - img [aria-hidden] [ref=f15e402]: overview
+        - listitem "מוגן על ידי Play" [ref=f15e406]:
+          - button "מוגן על ידי Play" [ref=f15e407] [cursor=pointer]:
+            - img [aria-hidden] [ref=f15e410]: shield
+        - listitem "בדיקה ופרסום" [ref=f15e414]:
+          - button "בדיקה ופרסום" [ref=f15e415] [cursor=pointer]:
+            - img [aria-hidden] [ref=f15e418]: rocket_launch
+          - list [ref=f15e694]:
+            - generic [ref=f15e696]:
+              - listitem "הגרסאות והחבילות החדשות ביותר" [ref=f15e698]:
+                - button "הגרסאות והחבילות החדשות ביותר" [ref=f15e699] [cursor=pointer]
+              - listitem "ייצור" [ref=f15e702]:
+                - button "ייצור" [ref=f15e703] [cursor=pointer]
+              - listitem "בדיקה" [ref=f15e706]:
+                - button "בדיקה" [ref=f15e707] [cursor=pointer]:
+                  - img [aria-hidden] [ref=f15e710]: expand_less
+                - list [ref=f15e1241]:
+                  - generic [ref=f15e1243]:
+                    - listitem "בדיקות פתוחות" [ref=f15e1245]:
+                      - button "בדיקות פתוחות" [ref=f15e1246] [cursor=pointer]
+                    - listitem "בדיקות בקבוצות מוגדרות" [ref=f15e1249]:
+                      - button "בדיקות בקבוצות מוגדרות" [ref=f15e1250] [cursor=pointer]
+                    - listitem "בדיקה פנימית" [ref=f15e1253]:
+                      - button "בדיקה פנימית" [ref=f15e1254] [cursor=pointer]
+                    - listitem "דוח טרום-הפעלה" [ref=f15e1257]:
+                      - button "דוח טרום-הפעלה" [ref=f15e1258] [cursor=pointer]:
+                        - img [aria-hidden] [ref=f15e1261]: expand_more
+                    - listitem "שיתוף פנימי של אפליקציות" [ref=f15e1263]:
+                      - button "שיתוף פנימי של אפליקציות" [ref=f15e1264] [cursor=pointer]
+              - listitem "הרשמה מראש" [ref=f15e712]:
+                - button "הרשמה מראש" [ref=f15e713] [cursor=pointer]
+              - listitem "שלמות האפליקציה" [ref=f15e716]:
+                - button "שלמות האפליקציה" [ref=f15e717] [cursor=pointer]
+              - listitem "הגדרות מתקדמות" [ref=f15e720]:
+                - button "הגדרות מתקדמות" [ref=f15e721] [cursor=pointer]
+        - listitem "מעקב ושיפור" [ref=f15e422]:
+          - button "מעקב ושיפור" [ref=f15e423] [cursor=pointer]:
+            - img [aria-hidden] [ref=f15e426]: vital_signs
+        - listitem "הגדלת מספר המשתמשים" [ref=f15e430]:
+          - button "הגדלת מספר המשתמשים" [ref=f15e431] [cursor=pointer]:
+            - img [aria-hidden] [ref=f15e434]: finance_mode
+        - listitem "ייצור הכנסות עם Play" [ref=f15e438]:
+          - button "ייצור הכנסות עם Play" [ref=f15e439] [cursor=pointer]:
+            - img [aria-hidden] [ref=f15e442]: sell
+    - generic [ref=f15e119]:
+      - generic [ref=f15e1456]:
+        - generic [ref=f15e1478]:
+          - heading "יצירת גרסה לבדיקות פנימיות" [level=1] [ref=f15e1484]
+          - generic [ref=f15e1485]: גרסאות בדיקה פנימית זמינות ל-100 משתמשים שייבחרו על ידך לכל היותר
+        - generic [ref=f15e1490]:
+          - generic [ref=f15e1494]:
+            - tablist [ref=f15e1495]:
+              - tab "שלב 1 מתוך 2, יצירת גרסה" [selected] [ref=f15e1496]:
+                - generic [ref=f15e1497]: "1"
+                - generic [ref=f15e1500]: יצירת גרסה
+              - tab "שלב 2 מתוך 2, תצוגה מקדימה ואישור" [disabled] [ref=f15e1503]:
+                - generic [ref=f15e1504]: "2"
+                - generic [ref=f15e1507]: תצוגה מקדימה ואישור
+            - generic:
+              - tabpanel
+          - button "מחיקת גרסת טיוטה" [ref=f15e1513]
+        - heading "קובצי App Bundle" [level=2] [ref=f15e1528]
+        - generic [ref=f15e1531]:
+          - generic [ref=f15e1538]:
+            - generic [ref=f15e1541]:
+              - img [aria-hidden] [ref=f15e1545]: check_circle
+              - heading "‫2 מתוך 2 שיפורים פעילים" [level=3] [ref=f15e1547]
+            - 'button "הצגת התוכן: ‫2 מתוך 2 שיפורים פעילים" [ref=f15e1550] [cursor=pointer]':
+              - img [aria-hidden] [ref=f15e1553]: expand_more
+          - generic [ref=f15e1556]:
+            - heading "העלאת קובצי AAB" [level=3] [ref=f15e1565]
+            - generic [ref=f15e1568]:
+              - generic [ref=f15e1818]:
+                - img [aria-hidden] [ref=f15e1823]: apk_document
+                - generic [ref=f15e1824]: כדי להעלות, משחררים קובצי App Bundle כאן
+                - generic [ref=f15e1826]:
+                  - button "העלאה" [ref=f15e1827] [cursor=pointer]:
+                    - img [aria-hidden] [ref=f15e1831]: upload
+                  - button "הוספה מהספרייה" [ref=f15e1833]:
+                    - img [aria-hidden] [ref=f15e1837]: add_to_photos
+              - generic [ref=f15e1841]:
+                - generic [ref=f15e1842]: app-release.aab
+                - button "הסרה של app-release.aab" [ref=f15e1843] [cursor=pointer]:
+                  - img [aria-hidden] [ref=f15e1846]: delete
+          - grid "ממצא" [ref=f15e1856]:
+            - row [ref=f15e1857]:
+              - columnheader "סוג הקובץ" [ref=f15e1858] [cursor=pointer]
+              - columnheader "גרסה" [ref=f15e1859] [cursor=pointer]
+              - columnheader "רמות ממשק API" [ref=f15e1860] [cursor=pointer]
+              - columnheader "גרסת יעד של SDK" [ref=f15e1861] [cursor=pointer]
+              - columnheader "פריסות מסך" [ref=f15e1862] [cursor=pointer]
+              - columnheader "ממשקי ABI" [ref=f15e1863] [cursor=pointer]
+              - columnheader "תכונות נדרשות" [ref=f15e1864] [cursor=pointer]
+              - cell [ref=f15e1865]
+              - cell [ref=f15e1866]
+            - row [ref=f15e1867]:
+              - gridcell [ref=f15e1868]:
+                - generic "תא בטבלה הכולל פריט קופץ" [ref=f15e1871]:
+                  - generic [ref=f15e1872]:
+                    - generic [ref=f15e1873]: App bundle
+                    - 'img "הקובץ הבא מצורף ל-app bundle: קובץ מיפוי ReTrace" [ref=f15e1877]': attachment
+              - gridcell "22 (1.22)" [ref=f15e1878]
+              - gridcell "26+" [ref=f15e1880]
+              - gridcell "36" [ref=f15e1882]
+              - gridcell "4" [ref=f15e1884]
+              - gridcell "הכל" [ref=f15e1886]
+              - gridcell "3" [ref=f15e1888]
+              - gridcell [ref=f15e1890]:
+                - button "ניהול פריט מידע שנוצר בתהליך פיתוח (Artifact)" [ref=f15e1894] [cursor=pointer]:
+                  - img [aria-hidden] [ref=f15e1896]: more_vert
+              - gridcell [ref=f15e1897]:
+                - 'button "הצגת הפרטים של App Bundle: 22 (1.22)" [ref=f15e1899] [cursor=pointer]':
+                  - img [aria-hidden] [ref=f15e1902]: arrow_right_alt
+        - generic [ref=f15e1591]:
+          - generic [ref=f15e1594]:
+            - heading "גרסה קודמת" [level=3] [ref=f15e1600]
+            - generic [ref=f15e1601]: אפשר לכלול גרסאות אפליקציה מהגרסה הקודמת להפצה
+          - generic [ref=f15e1604]:
+            - heading "כלול" [level=4] [ref=f15e1616]
+            - generic [ref=f15e1623]:
+              - img [aria-hidden] [ref=f15e1627]: slow_motion_video
+              - paragraph [ref=f15e1629]: הגרסה הזו לא תכלול קובצי App Bundle מהגרסה הקודמת
+            - generic [ref=f15e1635]:
+              - heading "לא ייכללו" [level=4] [ref=f15e1641]
+              - generic [ref=f15e1642]: הגרסאות האלה מהגרסה הקודמת להפצה לא ייכללו בגרסה הזו להפצה
+            - grid "ממצא" [ref=f15e1653]:
+              - row [ref=f15e1654]:
+                - columnheader "סוג הקובץ" [ref=f15e1655] [cursor=pointer]
+                - columnheader "גרסה" [ref=f15e1656] [cursor=pointer]
+                - columnheader "רמות ממשק API" [ref=f15e1657] [cursor=pointer]
+                - columnheader "גרסת יעד של SDK" [ref=f15e1658] [cursor=pointer]
+                - columnheader "פריסות מסך" [ref=f15e1659] [cursor=pointer]
+                - columnheader "ממשקי ABI" [ref=f15e1660] [cursor=pointer]
+                - columnheader "תכונות נדרשות" [ref=f15e1661] [cursor=pointer]
+                - cell [ref=f15e1662]
+                - cell [ref=f15e1663]
+              - row [ref=f15e1664]:
+                - gridcell [ref=f15e1665]:
+                  - generic "תא בטבלה הכולל פריט קופץ" [ref=f15e1668]:
+                    - generic [ref=f15e1669]:
+                      - generic [ref=f15e1670]: App bundle
+                      - 'img "הקובץ הבא מצורף ל-app bundle: קובץ מיפוי ReTrace" [ref=f15e1674]': attachment
+                - gridcell "20 (1.3.0)" [ref=f15e1675]
+                - gridcell "26+" [ref=f15e1677]
+                - gridcell "35" [ref=f15e1679]
+                - gridcell "4" [ref=f15e1681]
+                - gridcell "הכל" [ref=f15e1683]
+                - gridcell "3" [ref=f15e1685]
+                - gridcell [ref=f15e1687]:
+                  - button "כלול" [ref=f15e1690]
+                - gridcell [ref=f15e1694]:
+                  - 'button "הצגת הפרטים של App Bundle: 20 (1.3.0)" [ref=f15e1696] [cursor=pointer]':
+                    - img [aria-hidden] [ref=f15e1699]: arrow_right_alt
+        - generic [ref=f15e1701]:
+          - heading "פרטי הגרסה" [level=2] [ref=f15e1710]
+          - generic [ref=f15e1714]:
+            - generic [ref=f15e1715]:
+              - group "שם גרסה" [ref=f15e1717]:
+                - generic [ref=f15e1718]: שם גרסה *
+                - generic [ref=f15e1722]:
+                  - generic [ref=f15e1723]:
+                    - textbox "שם גרסה" [ref=f15e1725]: 22 (1.22)
+                    - generic [ref=f15e1726]:
+                      - paragraph [aria-hidden] [ref=f15e1727]
+                      - generic [ref=f15e1728]:
+                        - generic [aria-hidden] [ref=f15e1729]: 9 / 50
+                        - generic [ref=f15e1730]: הטקסט באורך 9 תווים מתוך 50
+                  - generic [ref=f15e1731]: נתון זה נדרש לזיהוי גרסה זו, ואינו מוצג למשתמשים ב-Google Play. הצענו שם שמבוסס על חבילת ה-App Bundle או ה-APK הראשונה בגרסה זו, אבל אפשר לערוך אותו.
+              - group "נתוני גרסה" [ref=f15e1733]:
+                - generic [ref=f15e1738]:
+                  - button "העתקה מגרסה קודמת" [ref=f15e1742]
+                  - generic [ref=f15e1746]:
+                    - textbox "נתוני גרסה" [ref=f15e1749]: <iw-IL> יש להזין או להדביק כאן את נתוני הגרסה לשפה iw-IL </iw-IL>
+                    - paragraph [aria-hidden] [ref=f15e1751]
+                  - generic [ref=f15e1752]: נתוני הגרסה הוזנו לשפה אחת (0)
+                  - generic [ref=f15e1753]: כדאי לספר למשתמשים מה כלול בגרסה. ניתן להזין נתוני גרסה בכל שפה בתוך תגי השפה.
+            - generic [ref=f15e1761]:
+              - button "מחיקת השינויים" [ref=f15e1763]
+              - button "שמור כטיוטה" [ref=f15e1768]
+              - button "הבא" [ref=f15e1773]
+      - generic [ref=f15e347]:
+        - generic [ref=f15e1463]:
+          - link "עדכוני מוצרים" [ref=f15e1464] [cursor=pointer]:
+            - /url: https://play.google.com/console/about/whats-new/
+          - link "לוח הבקרה של סטטוס שירותי Play" [ref=f15e1465] [cursor=pointer]:
+            - /url: https://status.play.google.com/
+          - link "עזרה" [ref=f15e1466] [cursor=pointer]:
+            - /url: /console/u/0/developers/8059207473401124382/help-and-support?app=4976101829083808135
+        - generic [ref=f15e1467]:
+          - generic [ref=f15e1468]: ‎© 2026 Google
+          - link "פרטיות" [ref=f15e1469] [cursor=pointer]:
+            - /url: https://www.google.com/policies/privacy/
+          - link "הסכם הפצה למפתחים" [ref=f15e1470] [cursor=pointer]:
+            - /url: https://play.google.com/about/developer-distribution-agreement.html
+          - link "תנאים והגבלות" [ref=f15e1471] [cursor=pointer]:
+            - /url: https://play.google.com/about/console/terms-of-service/
+  - status [ref=f15e1903]

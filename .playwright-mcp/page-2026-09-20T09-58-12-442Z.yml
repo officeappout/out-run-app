@@ -1,0 +1,11 @@
+- generic [ref=f14e9]:
+  - img "הלוגו של Google Play Console" [ref=f14e11]
+  - generic [ref=f14e12]:
+    - button [ref=f14e14] [cursor=pointer]:
+      - generic [ref=f14e16]:
+        - text: office@appout.co.il
+        - img [aria-hidden] [ref=f14e18]: keyboard_arrow_down
+    - heading "יש לבחור חשבון מפתח" [level=2] [ref=f14e27]
+    - listbox [ref=f14e28]:
+      - option "calisthenics" [ref=f14e29] [cursor=pointer]
+      - option "Oversight" [ref=f14e32] [cursor=pointer]

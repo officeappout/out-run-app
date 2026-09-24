@@ -1,0 +1,33 @@
+- generic [active] [ref=f18e1]:
+  - generic:
+    - generic:
+      - progressbar [aria-hidden]
+      - generic: מתבצעת טעינה של Google Play Console
+  - generic [ref=f18e3]:
+    - banner [ref=f18e4]:
+      - generic [ref=f18e6]:
+        - link [ref=f18e7] [cursor=pointer]:
+          - /url: /console/u/0/developers/8059207473401124382/app-list
+          - button "הלוגו של Google Play Console" [ref=f18e8]
+        - button [ref=f18e14] [cursor=pointer]:
+          - img "החלפת חשבון פיתוח" [ref=f18e16]
+    - generic [ref=f18e20]:
+      - generic:
+        - navigation:
+          - list
+    - generic [ref=f18e30]:
+      - generic [ref=f18e31]:
+        - link "עדכוני מוצרים" [ref=f18e32] [cursor=pointer]:
+          - /url: https://play.google.com/console/about/whats-new/
+        - link "לוח הבקרה של סטטוס שירותי Play" [ref=f18e33] [cursor=pointer]:
+          - /url: https://status.play.google.com/
+        - link "עזרה" [ref=f18e34] [cursor=pointer]:
+          - /url: /console/u/0/developers/8059207473401124382/help-and-support
+      - generic [ref=f18e35]:
+        - generic [ref=f18e36]: ‎© 2026 Google
+        - link "פרטיות" [ref=f18e37] [cursor=pointer]:
+          - /url: https://www.google.com/policies/privacy/
+        - link "הסכם הפצה למפתחים" [ref=f18e38] [cursor=pointer]:
+          - /url: https://play.google.com/about/developer-distribution-agreement.html
+        - link "תנאים והגבלות" [ref=f18e39] [cursor=pointer]:
+          - /url: https://play.google.com/about/console/terms-of-service/
