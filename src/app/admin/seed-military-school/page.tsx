@@ -97,8 +97,9 @@ export default function SeedMilitarySchoolPage() {
 
       {/* Warning */}
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-        <strong>שים לב:</strong> הסקריפט יוסיף נתונים חדשים בכל ריצה. הרץ פעם
-        אחת בלבד. לאיפוס — מחק ב-Firestore את הדוקומנטים עם
+        <strong>שים לב:</strong> הרצה חוזרת לא תיצור נתונים כפולים — הסקריפט
+        בודק אם הדמו כבר קיים ולא כותב כלום אם כן (24.09.2026). לאיפוס אמיתי
+        — מחק ב-Firestore את הדוקומנטים עם
         {' '}<code className="font-mono bg-amber-100 px-1 rounded">military-demo-*</code> /
         {' '}<code className="font-mono bg-amber-100 px-1 rounded">school-demo-*</code> ואז הרץ שוב.
       </div>

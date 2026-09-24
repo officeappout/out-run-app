@@ -26,12 +26,25 @@
  *   feed_posts: tenantId + createdAt DESC
  *   feed_posts: tenantId + unitId + createdAt DESC
  *   feed_posts: schoolId + classId + createdAt DESC
+ *
+ * IDEMPOTENCY (24.09.2026): this used to add NEW data on every run with no
+ * way to tell it had already happened — the page's own warning said "run
+ * once only," a text-only safeguard, not a real one. Two independent fixes,
+ * checked at the emulator, never run against production as part of this
+ * fix: (1) both seedMilitaryDemo()/seedSchoolDemo() check for the FIRST
+ * deterministic uid they'd ever create before writing anything at all — if
+ * it already exists, the function returns immediately with a clear
+ * {success:false, message} and writes nothing. (2) feed_posts docs now use
+ * a deterministic id (`${uid}-post-${index}`, was addDoc/auto-id) — a
+ * re-run upserts the SAME docs instead of adding more, defense-in-depth
+ * for any path that reaches the feed_posts writer without going through
+ * the guard above.
  */
 
 import {
   collection,
   doc,
-  addDoc,
+  getDoc,
   setDoc,
   updateDoc,
   arrayUnion,
@@ -93,6 +106,12 @@ const MILITARY_UNITS = [
   { unitId: 'company-b', label: 'פלוגה ב׳' },
   { unitId: 'company-c', label: 'פלוגה ג׳' },
 ];
+
+// The first uid this seed ever creates (unit[0], index 0) — checked before
+// any write, in both seedMilitaryDemo() and this file's shared idempotency
+// guard. Deterministic by construction (see seedMilitaryUsers's uid
+// pattern below), so this is a real, cheap "has this already run" probe.
+const MILITARY_FIRST_SEED_UID = `military-demo-${MILITARY_UNITS[0].unitId}-00`;
 
 /** Upsert a placeholder authority doc for the battalion. */
 async function upsertBattalionAuthority(adminUid?: string): Promise<string> {
@@ -226,7 +245,10 @@ async function seedMilitaryFeedPosts(users: SeedUserRecord[]): Promise<void> {
     const parts = uid.split('-');
     const unitId = parts.slice(2, parts.length - 1).join('-');
 
-    // Each soldier gets 4-8 posts in the last 30 days
+    // Each soldier gets 4-8 posts in the last 30 days. Deterministic doc id
+    // (uid + post index) — a re-run upserts the SAME `postCount`-many docs
+    // instead of adding new ones every time (24.09.2026, idempotency fix —
+    // see this file's header comment).
     const postCount = randInt(4, 8);
     for (let p = 0; p < postCount; p++) {
       const category = randItem(ACTIVITY_CATEGORIES);
@@ -234,7 +256,7 @@ async function seedMilitaryFeedPosts(users: SeedUserRecord[]): Promise<void> {
       const activityCredit = durationMinutes * CREDIT_MULTIPLIER[category];
       const postDate = randDate(30, 0);
 
-      await addDoc(collection(db, 'feed_posts'), {
+      await setDoc(doc(db, 'feed_posts', `${uid}-post-${p}`), {
         authorUid: uid,
         authorName: `חייל ${uid.split('-').pop()}`,
         type: 'workout',
@@ -274,6 +296,9 @@ const SCHOOL_CLASSES = [
   { classId: 'class-10b', label: 'י׳ ב׳' },
   { classId: 'class-11a', label: 'י״א א׳' },
 ];
+
+// Same idempotency-guard pattern as MILITARY_FIRST_SEED_UID above.
+const SCHOOL_FIRST_SEED_UID = `school-demo-${SCHOOL_CLASSES[0].classId}-00`;
 
 async function upsertSchoolAuthority(adminUid?: string): Promise<string> {
   const q = query(
@@ -402,7 +427,8 @@ async function seedSchoolFeedPosts(users: SeedUserRecord[]): Promise<void> {
     const parts = uid.split('-');
     const classId = parts.slice(2, parts.length - 1).join('-');
 
-    // Each student gets 3-6 posts in the last 30 days
+    // Each student gets 3-6 posts in the last 30 days. Deterministic doc id
+    // (uid + post index) — same idempotency fix as seedMilitaryFeedPosts.
     const postCount = randInt(3, 6);
     for (let p = 0; p < postCount; p++) {
       const category = randItem(ACTIVITY_CATEGORIES);
@@ -417,7 +443,7 @@ async function seedSchoolFeedPosts(users: SeedUserRecord[]): Promise<void> {
         ? `${randItem(FEMALE_NAMES)} ${randItem(LAST_NAMES)}`
         : `${randItem(MALE_NAMES)} ${randItem(LAST_NAMES)}`;
 
-      await addDoc(collection(db, 'feed_posts'), {
+      await setDoc(doc(db, 'feed_posts', `${uid}-post-${p}`), {
         authorUid: uid,
         authorName,
         type: 'workout',
@@ -477,6 +503,19 @@ async function seedStreaks(users: SeedUserRecord[], label: string): Promise<void
 
 export async function seedMilitaryDemo(): Promise<{ success: boolean; message: string }> {
   try {
+    // Idempotency guard (24.09.2026) — this seed used to add NEW data on
+    // every run with no way to tell it had already happened (the page's
+    // own on-screen warning said as much: "run once only"). Checked before
+    // ANY write, against the first deterministic uid this seed ever
+    // creates — if it's already there, exit without writing anything at
+    // all, rather than relying solely on feed_posts' own deterministic ids
+    // (below) to make a second run merely redundant instead of duplicative.
+    const alreadySeeded = await getDoc(doc(db, 'users', MILITARY_FIRST_SEED_UID));
+    if (alreadySeeded.exists()) {
+      console.log('[MilitarySeed] Already seeded — skipping (uid:', MILITARY_FIRST_SEED_UID, 'exists). Delete military-demo-* users first to reseed.');
+      return { success: false, message: 'כבר קיים נתוני דמו צבאיים — לא נכתב דבר. כדי לזרוע מחדש, יש למחוק תחילה את המשתמשים military-demo-* ידנית.' };
+    }
+
     console.log('[MilitarySeed] Starting military demo seed…');
     const adminUid = auth.currentUser?.uid;
     await upsertBattalionAuthority(adminUid);
@@ -495,6 +534,13 @@ export async function seedMilitaryDemo(): Promise<{ success: boolean; message: s
 
 export async function seedSchoolDemo(): Promise<{ success: boolean; message: string }> {
   try {
+    // Idempotency guard — same pattern as seedMilitaryDemo() above.
+    const alreadySeeded = await getDoc(doc(db, 'users', SCHOOL_FIRST_SEED_UID));
+    if (alreadySeeded.exists()) {
+      console.log('[SchoolSeed] Already seeded — skipping (uid:', SCHOOL_FIRST_SEED_UID, 'exists). Delete school-demo-* users first to reseed.');
+      return { success: false, message: 'כבר קיים נתוני דמו בית-ספריים — לא נכתב דבר. כדי לזרוע מחדש, יש למחוק תחילה את המשתמשים school-demo-* ידנית.' };
+    }
+
     console.log('[SchoolSeed] Starting school demo seed…');
     const adminUid = auth.currentUser?.uid;
     await upsertSchoolAuthority(adminUid);
