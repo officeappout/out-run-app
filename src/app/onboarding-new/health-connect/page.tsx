@@ -6,6 +6,7 @@ import HealthConnectOptInStep from '@/features/user/onboarding/components/Health
 import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLayout';
 import { STRENGTH_PHASES, RUNNING_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
 import { getOnboardingPref, removeOnboardingPref } from '@/lib/onboardingPrefs';
+import { MAP_RETURN_TARGET_PREF_KEY } from '@/features/user/onboarding/services/mini-domain-assessment';
 
 export default function HealthConnectOptInPage() {
   const router = useRouter();
@@ -24,6 +25,24 @@ export default function HealthConnectOptInPage() {
     // stale 'RUNNING' value can't silently bypass dynamic/page.tsx's re-entry
     // guard on a later, unrelated visit (e.g. browser "back").
     removeOnboardingPref('gateway_track');
+
+    // Return-point fix (David, 24.09.2026): this used to be a hardcoded
+    // router.replace('/home') for every entry point, no exceptions — a user
+    // who arrived here via a map mini-domain-assessment detour (e.g. the
+    // route-stops drawer's "fill the questionnaire" link) lost their way
+    // back to the map entirely. If startMiniDomainAssessment stored a
+    // durable return target (MAP_RETURN_TARGET_PREF_KEY — see its own doc
+    // comment for why this can't be sessionStorage-only), go there instead;
+    // every other entry point (StrengthSummaryPage, profile widgets, home's
+    // own unlock CTA) never sets this key, so they keep landing on /home
+    // exactly as before — byte-identical for them.
+    const mapReturnTarget = getOnboardingPref(MAP_RETURN_TARGET_PREF_KEY);
+    if (mapReturnTarget) {
+      removeOnboardingPref(MAP_RETURN_TARGET_PREF_KEY);
+      router.replace(mapReturnTarget);
+      return;
+    }
+
     router.replace('/home');
   };
 

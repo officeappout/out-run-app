@@ -939,7 +939,11 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     if (slot.kind === 'assessment_prompt') {
       resetHybridFlow();
       setMapMode('idle');
-      startMiniDomainAssessment(router, 'push');
+      // Return-point fix (David, 24.09.2026): explicit returnTo instead of
+      // the default window.location.pathname fallback — no specific route
+      // is in play here (resetHybridFlow already cleared it), so plain
+      // '/map' (matching the idle mode we just set) is the correct target.
+      startMiniDomainAssessment(router, 'push', '/map');
       return;
     }
     if (slot.kind === 'hybrid') {
@@ -1793,7 +1797,25 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 onAssessmentLink={(passedDomains?: string[]) => {
                   const domains = passedDomains?.length ? passedDomains : (hybridComposed?.assessmentDomains ?? []);
                   const domain = domains.find((d) => (PRIMARY_CATEGORIES as readonly string[]).includes(d)) ?? 'push';
-                  startMiniDomainAssessment(router, domain);
+                  // Return-point fix (David, 24.09.2026): explicit returnTo carrying
+                  // the focused route's id, instead of the default
+                  // window.location.pathname fallback — this is the exact
+                  // route-stops-drawer case the field report was about. Cheap
+                  // version, per instruction: does NOT reconstruct hybridComposed
+                  // (the composed workout) — just enough for the map to know
+                  // which route to re-show. FLAGGED, not yet built: for a hybrid
+                  // session specifically, logic.focusedRoute.id is the synthetic
+                  // 'hybrid-route' placeholder (confirmed via this file's own
+                  // AppMap wiring), not a re-fetchable official_routes doc id —
+                  // landing on /map?focusRouteId=hybrid-route does not by itself
+                  // re-focus anything yet; no existing mount-time "fetch+focus a
+                  // route from a URL id" mechanism exists in this file today
+                  // (every setFocusedRoute call site already holds the full Route
+                  // object in hand). Confirmed with David before writing that
+                  // piece — see PR description.
+                  const routeId = logic.focusedRoute?.id;
+                  const mapReturnTo = routeId ? `/map?focusRouteId=${encodeURIComponent(routeId)}` : '/map';
+                  startMiniDomainAssessment(router, domain, mapReturnTo);
                 }}
                 onStart={() => {
                   const c = hybridComposed;

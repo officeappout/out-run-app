@@ -40,11 +40,27 @@
  */
 
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import { setOnboardingPref, getOnboardingPref, removeOnboardingPref } from '@/lib/onboardingPrefs';
 import type { PrimaryCategory } from './single-domain-assessment.service';
 
 export const MINI_ASSESSMENT_ACTIVE_KEY = 'mini_assessment_active';
 export const MINI_ASSESSMENT_DOMAIN_KEY = 'mini_assessment_domain';
 export const MINI_ASSESSMENT_RETURN_TO_KEY = 'mini_assessment_return_to';
+
+/**
+ * Durable (onboardingPrefs.ts) counterpart to MINI_ASSESSMENT_RETURN_TO_KEY
+ * (David, 24.09.2026). The sessionStorage key above is read+cleared ONLY by
+ * assessment-visual/page.tsx's CLEAN mini-branch — but a real user can get
+ * detoured through the FULL general onboarding wizard instead (demographics
+ * gate → program-path → dynamic → health → health-connect), which can
+ * silently drop or overwrite a sessionStorage hint along the way, and can
+ * span an app backgrounding (native HealthKit permission dialogs do this).
+ * This durable copy is the one health-connect/page.tsx reads at the very
+ * end of that longer chain, per axioms.md rule 19's own convention: this
+ * value must outlive more than a same-tab round trip, so it doesn't belong
+ * in plain sessionStorage.
+ */
+export const MAP_RETURN_TARGET_PREF_KEY = 'pending_onboarding_map_return';
 
 const ASSESSMENT_VISUAL_ROUTE = '/onboarding-new/assessment-visual';
 
@@ -100,6 +116,12 @@ export function startMiniDomainAssessment(
     sessionStorage.setItem(MINI_ASSESSMENT_ACTIVE_KEY, '1');
     sessionStorage.setItem(MINI_ASSESSMENT_DOMAIN_KEY, domain);
     sessionStorage.setItem(MINI_ASSESSMENT_RETURN_TO_KEY, resolvedReturnTo);
+
+    // Durable copy (David, 24.09.2026) — see MAP_RETURN_TARGET_PREF_KEY's own
+    // doc comment for why this can't be sessionStorage-only. Read by
+    // health-connect/page.tsx if the user gets detoured through the full
+    // general onboarding chain instead of the clean mini-branch above.
+    setOnboardingPref(MAP_RETURN_TARGET_PREF_KEY, resolvedReturnTo);
 
     // Demographics fallback — the page redirects to /onboarding-new/profile
     // when `onboarding_personal_dob` / `onboarding_personal_gender` are
@@ -168,6 +190,9 @@ export function consumeMiniAssessmentState(): { domain: string | null; returnTo:
     sessionStorage.removeItem(MINI_ASSESSMENT_ACTIVE_KEY);
     sessionStorage.removeItem(MINI_ASSESSMENT_DOMAIN_KEY);
     sessionStorage.removeItem(MINI_ASSESSMENT_RETURN_TO_KEY);
+    // Consumed via the clean mini-branch — the durable copy is no longer
+    // needed (health-connect's own read is only for the detoured case).
+    removeOnboardingPref(MAP_RETURN_TARGET_PREF_KEY);
   } catch (e) {
     console.warn('[MiniDomainAssessment] sessionStorage cleanup failed (non-fatal):', e);
   }
