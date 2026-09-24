@@ -386,6 +386,30 @@ export default function ProgramResult({
   /** True when the user is on a calisthenics skills path with real skill levels. */
   const isSkillsPath = skillLevels != null && Object.keys(skillLevels).length > 0;
 
+  // Filter to only ids the user is CURRENTLY actually assessed on — same
+  // reasoning as visibleCategoryDisplay just below, extended to skillLevels.
+  // Without this, an escaped skill (Slice B: minus-as-escape) still shows a
+  // phantom card here: buildSkillResult's `skillLevels` param is built by
+  // spreading the whole running `levels` accumulator forward
+  // (`{...levels, [cat]: confirmedLevel}`), and `levels` itself was
+  // pre-seeded at mount with a default entry for EVERY category in the
+  // ORIGINAL (pre-escape) pathConfig.categories — including the since-
+  // escaped skill, whose stale default (e.g. ceil(maxLevel/2)) is never
+  // cleared once that category leaves the union. `assessedCategories`
+  // (fed by the CURRENT, post-escape pathConfig.categories) is exactly the
+  // live source of truth for "what's still actually in the flow" needed to
+  // suppress it — display only: `skillLevels` itself, and therefore
+  // assignedResults (built from it in assessment-visual/page.tsx, upstream
+  // of this component), are completely untouched by this filter.
+  const visibleSkillLevels: Record<string, number> | undefined =
+    isSkillsPath && skillLevels
+      ? (assessedCategories?.length
+          ? Object.fromEntries(
+              Object.entries(skillLevels).filter(([id]) => assessedCategories.includes(id)),
+            )
+          : skillLevels)
+      : skillLevels;
+
   // Filter to only categories the user actually slid through.
   // If assessedCategories is provided (body_focus / skills paths), suppress any
   // category absent from the list — prevents toFullAssessmentLevels' minLevel=1
@@ -537,8 +561,9 @@ export default function ProgramResult({
               transition={{ duration: 0.2 }}
             >
               {isSkillsPath
-                // Skills path: one card per selected skill
-                ? Object.entries(skillLevels!).map(([skillId, lvl], i) => {
+                // Skills path: one card per CURRENTLY assessed skill/category
+                // (visibleSkillLevels — post-escape, see its doc comment above)
+                ? Object.entries(visibleSkillLevels!).map(([skillId, lvl], i) => {
                     const meta = SKILL_META[skillId] ?? {
                       he: skillId.replace(/_/g, ' '),
                       emoji: '⭐',
