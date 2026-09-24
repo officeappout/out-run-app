@@ -938,3 +938,37 @@ muscle_up.subPrograms = ['push', 'pull']                   // מאסטר → ש�
 **לפני מיזוג, בוצעה בדיקת-בטיחות ייעודית** (ביקש דוד, דגש על `[COOLDOWN-NUKE]` — הוא יורה בדיוק כשדברים חסרים): נבדקו שלוש נקודות-הלוג מול טיפוסי-TypeScript האמיתיים (`Exercise.id: string` — לא-אופציונלי, `ExecutionMethod.location: ExecutionLocation` — לא-אופציונלי, לא `location?:`). כל שדה שהלוג נוגע בו הוא: (א) שדה-טיפוס לא-אופציונלי, (ב) פרמטר-פונקציה נדרש, או (ג) ערך שכבר נבדק-truthy/הוקצה-מחדש-ל-non-null שורה-לפני, באותו scope. לא נמצאה גישה ל-undefined/null באף אחת מהשלוש. אין wrapping נוסף.
 
 **אל תסיר בקומיט עתידי.** אם מישהו מציע קומיט-הסרה ל-3 התגיות האלה — לעצור ולשאול את דוד במפורש; "נגמר הזמן שלהם" אינה הכרעה תקינה כברירת-מחדל כאן.
+
+---
+
+## שלושה ממצאים מקונסול תקרית 16.09.2026 (V7aVC8sIVUNRnlQdT61C) — לתעד בלבד, לא לטפל כאן
+
+**Opened:** 16.09.2026 · **Source:** דוד, מקונסול הדפדפן בזמן תקרית הציוד-הריק בפארק "גן כושר החשמל - תל אביב" · נאסף אגב חקירת רגרסיית SPEC-07, לא קשור אליה
+
+1. **App Check נכשל:** `@firebase/auth: AppCheck: ReCAPTCHA error (appCheck/recaptcha-error)`. מנגנון אבטחה — שווה בדיקה נפרדת, לא נבדק כאן.
+2. **אינדקס Firestore חסר לביקורות פארקים:** `[Contributions] Index not ready for park reviews, returning empty` — ביקורות (reviews) על פארקים לא נטענות בפרודקשן עד שהאינדקס נבנה/נוצר.
+3. **יחס עבודה/מנוחה חריג באימון:** 3 דקות עבודה מול 23 דקות מנוחה (90% מהבלוק) על אימון אמיתי מהתקרית. שייך לצ'אט מנוע-האימונים (protocol/rest calibration), לא לצ'אט הקטלוג — רק תועד כאן כדי שלא יאבד.
+
+**לא טופל. לא נבדק לעומק. ממתין לצ'אט/משימה ייעודית לכל אחד.**
+
+**תיקון (16.09.2026, אני טעיתי, דוד תיקן):** `[HomeWorkout] Empty equipment profile for location "park"` (`user-profile.utils.ts:118-151`, `resolveEquipment()`) **אינו קשור לציוד הפארק**. זה על `userProfile.equipment.outdoor` — ציוד נייד שהמשתמש הצהיר עליו בפרופיל, שדה נפרד לגמרי מ-`gymEquipment` של הפארק. יורה תמיד כשפרופיל-הציוד-האישי ריק, בלי קשר לבאג הפארק. הראיה הרלוונטית לחקירה היא רק `[InputSanitizer] ⚠️ No park inventory resolved`.
+
+---
+
+## SPEC-07 equipment-regression diagnosis — state saved mid-investigation, 16.09.2026 (RESUME HERE)
+
+**Opened:** 16.09.2026 · **Status:** PAUSED — production revert takes priority. Resume only after outrun.co.il is confirmed healthy again.
+
+**Repro environment (left running, do not kill):**
+- Worktree: `/Users/calisthenicsltd/Development/appout-1/.claude/worktrees/spec01-close-guest-leaks`, branch `fix/parks-catalog`, commit `9d450c7a` (HEAD at time of diagnosis, before any revert work).
+- Local dev server: `npm run dev` in that worktree, started in background, log at `/tmp/dev-server-spec07.log`, serving `http://localhost:3000`. Uses REAL production Firestore (no emulator env vars set).
+- Uncommitted TEMP-DIAG instrumentation added to `src/features/workout-engine/services/park-equipment-resolver.ts` (console.log lines tagged `[TEMP-DIAG]` at `resolveParkEquipmentIds` entry, inside the GPS-scan branch around `fetchRealParks()`/`equippedParksWithin()`, and inside `extractParkEquipment()`). **Not committed, not pushed.** Existing permanent logs untouched.
+- Scratch repro script: `scripts/_repro-park-equipment-V7aVC8sIVUNRnlQdT61C.ts` (untracked) — calls `resolveParkEquipmentIds` directly via `npx tsx`, real network calls.
+
+**What's been found so far (NOT yet browser-verified — this is the open question):**
+- Confirmed via direct Firestore read + live production catalog: park `V7aVC8sIVUNRnlQdT61C` ("גן כושר החשמל - תל אביב") has 17 real `gymEquipment` items, `hasUsableEquipment: true` in the live catalog. Real regression, not a data gap.
+- Static code read of `park-equipment-resolver.ts` (`extractParkEquipment`, `getPark`, `equippedParksWithin`) shows correct point-fetch logic — no obvious bug found by reading. David's specific hypothesis (catalog object bypassing point-fetch) NOT confirmed as stated.
+- Running the Node repro script hit a Node-only artifact: `fetchRealParks()`'s `fetch(CATALOG_ENDPOINT)` uses a **relative URL** (`/api/catalog/parks`, `parks.service.ts:366`) — fails in Node (`Failed to parse URL`) because there's no `window.location` to resolve against. This is almost certainly NOT the real browser bug (browsers always have a base to resolve relative URLs against) — but it did prove something important: **when `fetch(CATALOG_ENDPOINT)` throws for ANY reason and there's no IndexedDB cache, `fetchAndCacheCatalog` silently returns `[]` parks** (`parks.service.ts:355-374`, the catch block) — no error surfaced beyond a console.error. This exact failure shape (0 parks → 0 equipped candidates → ESSENTIAL_PARK_GEAR fallback) matches all observed symptoms perfectly, IF something analogous can fail in a real browser (network blip, ad-blocker, CORS, Vercel edge issue — untested).
+- **New candidate hypothesis, not yet checked:** one of David's 3 side-findings was a live `AppCheck: ReCAPTCHA error` in the same console session. `getPark()` (used by `extractParkEquipment` for the real point-fetch) goes through the Firestore **client SDK** directly (`getDoc`), which — unlike the public `/api/catalog/parks` route (Admin SDK, confirmed reachable anonymously via curl) — could plausibly be blocked by Firebase App Check enforcement on Firestore if the client's App Check token failed to mint. This would make `getPark()` throw, caught by `extractParkEquipment`'s try/catch → `[]` → same symptom, **and would be completely unrelated to today's SPEC-07 merge** (App Check is a separate, pre-existing subsystem). **Not verified — did not get to test this before diagnosis was paused.** Check: does `firestore.rules` reference `request.app` / App Check on the `parks` collection? Is App Check enforcement mode "enforced" or "monitor-only" in the Firebase console for Firestore?
+
+**Next steps when resumed:** get real browser console output (via Playwright against the live local server, or ask David for the FULL console log around the incident, not just the 4 lines already seen) to see whether `[TEMP-DIAG]` lines and/or an App-Check-related Firestore error actually appear. Strip the TEMP-DIAG lines before any commit either way.
