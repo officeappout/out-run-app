@@ -36,9 +36,11 @@ export interface AdminSessionPayload extends JWTPayload {
   email: string | null;
   admin: boolean;
   /** Mirrors ResolvedIdentity.scope (firebase-admin.ts) — a narrow,
-   * server-computed authority_manager grant, distinct from `admin`. See
-   * middleware.ts's decideAdminGateAction for what this alone permits. */
-  scope?: 'authority_manager';
+   * server-computed grant distinct from `admin`: 'authority_manager',
+   * plus (24.09.2026, Stage 4 of the military/school vertical build)
+   * 'tenant_owner'/'unit_admin'. See middleware.ts's decideAdminGateAction
+   * for what each alone permits. */
+  scope?: 'authority_manager' | 'tenant_owner' | 'unit_admin';
 }
 
 /**

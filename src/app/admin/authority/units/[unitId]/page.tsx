@@ -19,7 +19,7 @@ import UnitIconBadge from '@/components/ui/UnitIconBadge';
 import {
   Loader2, ArrowRight, Users, Dumbbell,
   Building2, ChevronLeft, Search,
-  ChevronDown, MapPin, Clock, User,
+  ChevronDown, Clock, User,
   KeyRound, Copy, Check, Plus, X, Download, Package,
   Shield, GraduationCap, Upload,
 } from 'lucide-react';
@@ -341,17 +341,28 @@ export default function UnitDrilldownPage() {
     return list;
   }, [members, searchTerm, showAllMembers]);
 
+  // 24.09.2026 — routed through a server endpoint (GET /api/units/member-
+  // workouts) instead of a direct client-SDK Firestore read. The old query
+  // pulled the FULL workout document — including `routePath`, a raw GPS
+  // coordinate array — into the browser for a named individual, and the
+  // render below showed a per-workout "GPS" badge. That's the exact
+  // individual-level geographic detail forbidden for this screen. The
+  // server route never reads `routePath` at all (Admin-SDK `.select()`
+  // field projection — the client SDK this page used has no equivalent),
+  // so this isn't a display-layer hide, the data never crosses the wire.
   const loadMemberWorkouts = async (member: UnitMember) => {
     setSelectedMember(member);
     setLoadingWorkouts(true);
     try {
-      const wSnap = await getDocs(query(
-        collection(db, 'workouts'),
-        where('userId', '==', member.uid),
-        orderBy('completedAt', 'desc'),
-        limit(20),
-      ));
-      setMemberWorkouts(wSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Not authenticated');
+      const idToken = await currentUser.getIdToken();
+      const res = await fetch(`/api/units/member-workouts?uid=${encodeURIComponent(member.uid)}`, {
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      if (!res.ok) throw new Error('Failed to load workouts');
+      const { workouts } = await res.json();
+      setMemberWorkouts(workouts ?? []);
     } catch {
       setMemberWorkouts([]);
     } finally {
@@ -929,7 +940,7 @@ export default function UnitDrilldownPage() {
           ) : (
             <div className="space-y-2 max-h-[400px] overflow-y-auto scrollbar-thin">
               {memberWorkouts.map((w: any) => {
-                const completedAt = w.completedAt?.toDate?.() ?? (w.completedAt ? new Date(w.completedAt) : null);
+                const completedAt = typeof w.completedAtMs === 'number' ? new Date(w.completedAtMs) : null;
                 const dateStr = completedAt
                   ? completedAt.toLocaleDateString('he-IL', { day: 'numeric', month: 'short', year: 'numeric' })
                   : '—';
@@ -950,12 +961,6 @@ export default function UnitDrilldownPage() {
                         </span>
                         {w.durationMinutes && (
                           <span>{Math.round(w.durationMinutes)} דק׳</span>
-                        )}
-                        {w.routePath && w.routePath.length > 0 && (
-                          <span className="flex items-center gap-0.5 text-green-600">
-                            <MapPin size={10} />
-                            GPS
-                          </span>
                         )}
                       </div>
                     </div>

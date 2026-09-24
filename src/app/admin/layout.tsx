@@ -818,10 +818,14 @@ function AdminLayoutInner({
                                 </>
                             )}
 
-                            {/* ── Vertical 2: צי צבאי ────────────────────────── */}
+                            {/* ── Vertical 2: ניהול צבאי ─────────────────────── */}
+                            {/* 24.09.2026 — was "צי צבאי" ("military fleet" —
+                                "צי" means a fleet of ships/aircraft, not a
+                                fit for army units). Renamed to match the
+                                sibling labels' pattern ("ניהול עירוני"). */}
                             {hasSec('military') && !isSystemAdminOnly && (!isVerticalAdminOnly || verticalAdminVertical === 'military') && (
                                 <>
-                                    <SectionHeader sectionId="military" icon={ShieldCheck} label="צי צבאי" colorClass={VERTICAL_THEMES.military.sidebarIcon} />
+                                    <SectionHeader sectionId="military" icon={ShieldCheck} label="ניהול צבאי" colorClass={VERTICAL_THEMES.military.sidebarIcon} />
                                     {expandedSections.has('military') && (
                                         <div className="pr-2 space-y-0.5 pb-2 border-r-2 border-lime-700/40 mr-2">
                                             <SidebarLink
