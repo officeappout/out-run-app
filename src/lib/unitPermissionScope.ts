@@ -41,15 +41,26 @@
  *     managing units across more than one tenant is not an expected shape,
  *     but if it ever happens, only the first tenant's units are returned —
  *     scope is always single-tenant, by construction).
- *     ⚠️ Infra note (not a firestore.rules change — David's Stage-0/1
- *     instruction was explicitly rules-out-of-scope this round, but this is
- *     the equivalent flag for indexes): a `collectionGroup('units')` query
- *     filtered on `managerIds` needs a collection-group index on
- *     `units.managerIds` in firestore.indexes.json before this works in
- *     PRODUCTION. The Firestore emulator does not enforce collection-group
- *     index requirements, so Stage 1's emulator tests pass without it. This
- *     index must be added before Stage 1 is ever pointed at production.
+ *     Requires a collection-group index on `units.managerIds`
+ *     (firestore.indexes.json, fieldOverrides, added 24.09.2026 — deploy
+ *     via `firebase deploy --only firestore:indexes` BEFORE this code is
+ *     ever pointed at production; the emulator does not enforce
+ *     collection-group index requirements, so Stage 1's emulator tests
+ *     pass with or without it).
  *   - anyone else: denied.
+ *
+ * Fail-closed, deliberately the OPPOSITE of src/lib/rateLimit.ts's
+ * fail-open (David, 24.09.2026): "אם שאילתת ה-collectionGroup נכשלת מכל
+ * סיבה (אינדקס חסר, Firestore לא זמין, timeout) — התוצאה היא denied, לא
+ * ברירת מחדל מתירנית ולא חריגה שנבלעת במעלה הדרך והופכת להרשאה." Every
+ * Firestore read in this function is wrapped in ONE try/catch that returns
+ * `denied` on ANY failure — a missing index, a transient outage, a
+ * timeout, or a bug — rather than letting the exception propagate to a
+ * caller that might (now or later) treat a thrown error as anything other
+ * than "no access." rateLimit.ts fails open because letting one extra
+ * request through during an outage is cheap; this function fails closed
+ * because the cost of the equivalent mistake here is a stranger approving
+ * or reading someone else's unit membership.
  */
 import { getAdminDb } from '@/lib/firebase-admin';
 import { isRootAdmin } from '@/config/feature-flags';
@@ -63,36 +74,41 @@ export type UnitPermissionScope =
   | { kind: 'denied' };
 
 export async function resolveUnitPermissionScope(uid: string): Promise<UnitPermissionScope> {
-  const db = getAdminDb();
+  try {
+    const db = getAdminDb();
 
-  const userSnap = await db.collection('users').doc(uid).get();
-  const core = (userSnap.data()?.core ?? {}) as Record<string, unknown>;
-  const email = typeof core.email === 'string' ? core.email : null;
+    const userSnap = await db.collection('users').doc(uid).get();
+    const core = (userSnap.data()?.core ?? {}) as Record<string, unknown>;
+    const email = typeof core.email === 'string' ? core.email : null;
 
-  if (isRootAdmin(email)) {
-    return { kind: 'root' };
-  }
-
-  const ownedTenantSnap = await db
-    .collection('authorities')
-    .where('managerIds', 'array-contains', uid)
-    .where('type', 'in', TENANT_AUTHORITY_TYPES)
-    .limit(1)
-    .get();
-  if (!ownedTenantSnap.empty) {
-    return { kind: 'tenantOwner', tenantId: ownedTenantSnap.docs[0].id };
-  }
-
-  const managedUnitsSnap = await db.collectionGroup('units').where('managerIds', 'array-contains', uid).get();
-  if (!managedUnitsSnap.empty) {
-    const tenantId = managedUnitsSnap.docs[0].ref.parent.parent?.id;
-    if (tenantId) {
-      const unitIds = managedUnitsSnap.docs
-        .filter((d) => d.ref.parent.parent?.id === tenantId)
-        .map((d) => d.id);
-      return { kind: 'unitAdmin', tenantId, unitIds };
+    if (isRootAdmin(email)) {
+      return { kind: 'root' };
     }
-  }
 
-  return { kind: 'denied' };
+    const ownedTenantSnap = await db
+      .collection('authorities')
+      .where('managerIds', 'array-contains', uid)
+      .where('type', 'in', TENANT_AUTHORITY_TYPES)
+      .limit(1)
+      .get();
+    if (!ownedTenantSnap.empty) {
+      return { kind: 'tenantOwner', tenantId: ownedTenantSnap.docs[0].id };
+    }
+
+    const managedUnitsSnap = await db.collectionGroup('units').where('managerIds', 'array-contains', uid).get();
+    if (!managedUnitsSnap.empty) {
+      const tenantId = managedUnitsSnap.docs[0].ref.parent.parent?.id;
+      if (tenantId) {
+        const unitIds = managedUnitsSnap.docs
+          .filter((d) => d.ref.parent.parent?.id === tenantId)
+          .map((d) => d.id);
+        return { kind: 'unitAdmin', tenantId, unitIds };
+      }
+    }
+
+    return { kind: 'denied' };
+  } catch (err) {
+    console.error(`[unitPermissionScope] resolution failed for uid=${uid} — failing CLOSED (denied)`, err);
+    return { kind: 'denied' };
+  }
 }

@@ -24,6 +24,10 @@
  *     existence-leak).
  *   Negative 5 — two concurrent create calls from the same user → exactly
  *     one request doc exists afterward.
+ *   Fail-closed (24.09.2026) — if the collectionGroup('units') query itself
+ *     throws (simulated: missing index / Firestore outage / timeout in
+ *     production), resolveUnitPermissionScope resolves to 'denied', not a
+ *     permissive default and not an uncaught exception.
  *   Plus: rate-limit cap (ד.5, 3 attempts / rolling 24h) actually trips.
  *
  * Usage:
@@ -132,6 +136,37 @@ async function main() {
   {
     const scope = await resolveUnitPermissionScope(regularUid);
     assert('a user with no role at all resolves to denied', scope.kind === 'denied');
+  }
+
+  console.log('\n── Stage 0 fail-closed: collectionGroup query throws ─────────');
+  {
+    // Simulates exactly what happens in production before the required
+    // units.managerIds collection-group index (firestore.indexes.json) is
+    // deployed — or any other reason the query itself throws (outage,
+    // timeout). Patched at the shared prototype level (not on this
+    // script's own `db` instance) so it also intercepts the SEPARATE
+    // Firestore instance resolveUnitPermissionScope obtains internally via
+    // getAdminDb() — the two are backed by the same emulator project, but
+    // are not guaranteed to be the literal same JS object.
+    const proto = Object.getPrototypeOf(db);
+    const originalCollectionGroup = proto.collectionGroup;
+    proto.collectionGroup = function simulateIndexFailure() {
+      throw new Error('simulated: FAILED_PRECONDITION — the query requires an index (units.managerIds)');
+    };
+    try {
+      // unitAdminAUid would resolve to 'unitAdmin' under normal conditions
+      // (asserted above) — this proves the failure produces 'denied', not
+      // a silent fallback to some OTHER scope and not an uncaught throw
+      // that escapes this function.
+      const scope = await resolveUnitPermissionScope(unitAdminAUid);
+      assert('collectionGroup query throwing resolves to denied, not a permissive default', scope.kind === 'denied');
+    } finally {
+      proto.collectionGroup = originalCollectionGroup;
+    }
+
+    // Restored correctly — the same uid resolves back to unitAdmin.
+    const scopeAfterRestore = await resolveUnitPermissionScope(unitAdminAUid);
+    assert('after restoring the query: unit A1 manager resolves to unitAdmin again (patch cleanly reverted)', scopeAfterRestore.kind === 'unitAdmin');
   }
 
   // ══════════════════════════════════════════════════════════════════════
