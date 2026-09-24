@@ -150,7 +150,40 @@ export default function HealthDeclarationPage() {
 
         console.log('[Health] Calling syncOnboardingToFirestore(COMPLETED) — full running bridge + activeProgram generation (background, non-blocking)');
 
-        await syncOnboardingToFirestore('COMPLETED', syncPayload);
+        // Bounded retry (David, 24.09.2026): unlike the navigation this no
+        // longer blocks, THIS write has a real downstream dependency —
+        // home/page.tsx:2572's cold-start fallback reads onboardingStatus/
+        // onboardingComplete and re-enters onboarding if neither is set. For
+        // a user who already completed onboarding once before (this bug's
+        // reported population), that field is already durably 'COMPLETED'
+        // from their earlier session — a failed/hung write here is a no-op
+        // redundant retry, Firestore never rolls back an existing value on a
+        // write that doesn't complete. But for a genuinely first-time user,
+        // this IS the write that sets it, so a single transient blip
+        // shouldn't cost them a false "back to onboarding" on next launch.
+        // Each attempt races a 10s timeout so a HANG (not just a rejection)
+        // can't block the retry either — same class of problem the
+        // navigation fix above solves, applied here to the one piece that
+        // actually has a real dependency.
+        const SYNC_TIMEOUT_MS = 10_000;
+        const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T> =>
+          Promise.race([
+            p,
+            new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`timed out after ${ms}ms`)), ms)),
+          ]);
+        let syncError: unknown = null;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            await withTimeout(syncOnboardingToFirestore('COMPLETED', syncPayload), SYNC_TIMEOUT_MS);
+            syncError = null;
+            break;
+          } catch (e) {
+            syncError = e;
+            console.warn(`[Health] Background sync attempt ${attempt}/2 failed:`, e);
+            if (attempt === 1) await new Promise((resolve) => setTimeout(resolve, 2000));
+          }
+        }
+        if (syncError) throw syncError;
 
         console.log('[Health] Background sync complete. Refreshing profile...');
 

@@ -57,7 +57,16 @@ describe('DiscoverLayer — wires onAssessmentLink to startMiniDomainAssessment'
     expect(body).toContain('hybridComposed?.assessmentDomains');
     expect(body).toContain('PRIMARY_CATEGORIES');
     expect(body).toContain("?? 'push'");
-    expect(body).toContain('startMiniDomainAssessment(router, domain)');
+    expect(body).toContain('startMiniDomainAssessment(router, domain, mapReturnTo)');
+  });
+
+  it('passes an explicit returnTo carrying the focused route id (return-point fix, David, 24.09.2026) — so a map-detour mini-assessment can send the user back to the SAME route, not just /home', () => {
+    const match = discoverLayerSrc.match(/onAssessmentLink=\{\(passedDomains\?: string\[\]\) => \{([\s\S]*?)\}\}/);
+    expect(match, 'onAssessmentLink callback body not found').toBeTruthy();
+    const body = match![1];
+    expect(body).toContain('logic.focusedRoute?.id');
+    expect(body).toContain('/map?focusRouteId=');
+    expect(body).toContain(": '/map'");
   });
 
   it('imports startMiniDomainAssessment and PRIMARY_CATEGORIES from the canonical onboarding services', () => {
