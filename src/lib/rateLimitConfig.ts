@@ -76,6 +76,17 @@ export const RATE_LIMITS = {
   challengeExercise: {
     ip: () => envWindow('RL_CHALLENGE_EXERCISE_IP', MIN, 60),
   },
+  // Task 4 Stage 1 — POST /api/units/join-requests (create + re-request
+  // after rejection). David's ד.5 decision (23.09.2026): "בקשה חוזרת אחת
+  // ל-24 שעות, מקסימום 3 ניסיונות" — the closest direct fit using this
+  // module's existing sliding-window primitive (no separate "min spacing"
+  // algorithm exists here) is "at most 3 attempts in any rolling 24h
+  // window," applied uniformly to every create call for a given uid
+  // (first request included, not just re-requests — simpler to reason
+  // about and still well within a generous cap for a legitimate user).
+  unitJoinRequest: {
+    uidDaily: () => envWindow('RL_UNIT_JOIN_REQUEST_UID_DAILY', DAY, 3),
+  },
 } as const;
 
 /**
