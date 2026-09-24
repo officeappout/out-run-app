@@ -1,0 +1,11 @@
+- generic [active] [ref=f7e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f7e2]:
+    - generic "טוען" [ref=f7e4]:
+      - paragraph [ref=f7e6]: טוען
+    - generic [ref=f7e15]:
+      - img "OUT" [ref=f7e17]
+      - paragraph [ref=f7e18]: עכשיו אפשר להתאמן בכל מקום, מתי שנוח לכם
+      - button "הרשמה מהירה" [ref=f7e19] [cursor=pointer]
+      - button "התחברות" [ref=f7e20] [cursor=pointer]
+  - alert [ref=f7e21]

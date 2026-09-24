@@ -1,0 +1,23 @@
+- generic [active] [ref=f31e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f31e2]:
+    - generic [ref=f31e121]:
+      - button "חזרה" [ref=f31e124] [cursor=pointer]
+      - generic [ref=f31e146]:
+        - generic [ref=f31e147]:
+          - heading "איזה מסלול מתאים לך?" [level=1] [ref=f31e148]
+          - paragraph [ref=f31e149]: בחר את הכיוון שתרצה להתמקד בו
+        - button [ref=f31e151] [cursor=pointer]:
+          - generic [ref=f31e152]:
+            - paragraph [ref=f31e153]: אורח חיים ובריאות
+            - paragraph [ref=f31e154]: בניית בסיס, בריאות ואנרגיה יומית
+        - button [ref=f31e156] [cursor=pointer]:
+          - generic [ref=f31e157]:
+            - paragraph [ref=f31e158]: מיקוד שרירים וחיטוב
+            - paragraph [ref=f31e159]: בניית מסת שריר, עבודה על עומסים ומיקוד בקבוצות השרירים המועדפות עליך.
+        - button [ref=f31e161] [cursor=pointer]:
+          - generic [ref=f31e162]:
+            - paragraph [ref=f31e163]: קליסטניקס וסקילים
+            - paragraph [ref=f31e164]: פיתוח כוח יחסי מטורף, שליטה מלאה במשקל הגוף ופתיחת אלמנטים מתקדמים שתרצה להשיג.
+      - button "המשך" [disabled] [ref=f31e166]
+  - alert [ref=f31e37]

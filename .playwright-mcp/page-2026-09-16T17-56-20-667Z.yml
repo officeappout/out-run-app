@@ -1,0 +1,104 @@
+- generic [active] [ref=f17e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f17e2]:
+    - generic [ref=f17e3]:
+      - generic [ref=f17e5]:
+        - button "פרופיל" [ref=f17e6] [cursor=pointer]:
+          - generic [ref=f17e7]: Q
+        - link "OUT" [ref=f17e14] [cursor=pointer]:
+          - /url: /home
+          - img "OUT" [ref=f17e15]
+        - generic [ref=f17e16]:
+          - button "התראות" [ref=f17e17] [cursor=pointer]
+          - button "הודעות" [ref=f17e21] [cursor=pointer]
+          - link "חיפוש" [ref=f17e24] [cursor=pointer]:
+            - /url: /search
+      - button "46%" [ref=f17e29] [cursor=pointer]
+      - generic [ref=f17e36]:
+        - generic [ref=f17e38]:
+          - heading "לו״ז אימונים" [level=2] [ref=f17e40]
+          - generic [ref=f17e41]:
+            - button "קבע לו״ז אימונים" [ref=f17e43] [cursor=pointer]
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: א
+                      - button
+                    - generic:
+                      - generic: ב
+                      - button "מנוחה":
+                        - generic:
+                          - generic:
+                            - generic "מנוחה":
+                              - generic:
+                                - text: Z
+                                - superscript: z
+                    - generic:
+                      - generic: ג
+                      - button
+                    - generic:
+                      - generic: ד
+                      - button "מנוחה":
+                        - generic:
+                          - generic:
+                            - generic "מנוחה":
+                              - generic:
+                                - text: Z
+                                - superscript: z
+                    - generic:
+                      - generic: ה
+                      - button
+                    - generic:
+                      - generic: ו
+                      - button "מנוחה":
+                        - generic:
+                          - generic:
+                            - generic "מנוחה":
+                              - generic:
+                                - text: Z
+                                - superscript: z
+                    - generic:
+                      - generic: ש
+                      - button "מנוחה":
+                        - generic:
+                          - generic:
+                            - generic "מנוחה":
+                              - generic:
+                                - text: Z
+                                - superscript: z
+        - generic [ref=f17e54]:
+          - generic [ref=f17e55]:
+            - button "התקדמות שבועית" [ref=f17e56] [cursor=pointer]
+            - button "מדדי בריאות" [ref=f17e57] [cursor=pointer]
+          - generic [ref=f17e58]:
+            - generic [ref=f17e60]:
+              - generic [ref=f17e61]:
+                - heading "כל הגוף" [level=3] [ref=f17e68]
+                - paragraph [ref=f17e69]: רמה 1/15
+                - generic [ref=f17e70]: עוד 99% לרמה 2
+              - generic [ref=f17e74]: 1%
+            - generic [ref=f17e80]:
+              - generic [ref=f17e82]:
+                - generic [ref=f17e83]: כוח
+                - generic [ref=f17e87]: 0/3
+              - generic [ref=f17e92]:
+                - generic [aria-hidden]:
+                  - generic:
+                    - generic:
+                      - generic: ריצה
+                      - generic: 0/3
+                - button "הוסף תוכנית ריצה" [ref=f17e93] [cursor=pointer]
+        - generic [ref=f17e97]:
+          - heading "קבוצות קרובות אליך" [level=3] [ref=f17e98]
+          - button "הכל ›" [ref=f17e105] [cursor=pointer]
+        - heading "גינות כושר קרובות" [level=3] [ref=f17e129]
+      - button "הוסף" [ref=f17e157] [cursor=pointer]
+  - navigation [ref=f17e159]:
+    - generic [ref=f17e160]:
+      - link "בית" [ref=f17e161] [cursor=pointer]:
+        - /url: /home
+      - link "מפה" [ref=f17e166] [cursor=pointer]:
+        - /url: /map
+  - alert [ref=f17e170]

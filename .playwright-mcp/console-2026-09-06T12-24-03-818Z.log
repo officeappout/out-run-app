@@ -1,0 +1,3 @@
+[      60ms] Unexpected token '<'
+[   78650ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:5183/@vite/client:992
+[   79199ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5183/@fs/Users/calisthenicsltd/Development/appout-1/.claude/worktrees/qr-crash-hotfix/node_modules/.vite/deps/react-dom_client.js?v=5ed8c0df:17230

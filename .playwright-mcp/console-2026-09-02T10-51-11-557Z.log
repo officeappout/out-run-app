@@ -1,0 +1,7 @@
+[    1880ms] [LOG] ripple[DAHUCi9XOQU:Nt2Yv1u2vxvWX5JXA(0-0,0)]: subscribing to channel @ https://static.canva.com/web/f153749557653733.sentry_browser.js:0
+[    1949ms] [INFO] ripple[DAHUCi9XOQU:Nt2Yv1u2vxvWX5JXA(0-0,0)]: unsubscribing from channel @ https://static.canva.com/web/f153749557653733.sentry_browser.js:0
+[    1952ms] [INFO] websocket_client: 1788346273508 connecting... @ https://static.canva.com/web/f153749557653733.sentry_browser.js:0
+[    2703ms] [INFO] websocket_client: connected @ https://static.canva.com/web/f153749557653733.sentry_browser.js:0
+[    2703ms] [LOG] ripple[DAHUCi9XOQU:Nt2Yv1u2vxvWX5JXA(0-0,0)]: subscribing to channel @ https://static.canva.com/web/f153749557653733.sentry_browser.js:0
+[    2703ms] [INFO] websocket_client: status CONNECTED @ https://static.canva.com/web/f153749557653733.sentry_browser.js:0
+[    2908ms] [INFO] websocket_client: request id a34bf5527d858e44 @ https://static.canva.com/web/f153749557653733.sentry_browser.js:0

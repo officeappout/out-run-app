@@ -1,0 +1,40 @@
+- generic [active] [ref=f32e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f32e2]:
+    - generic [ref=f32e3]:
+      - generic [ref=f32e5]:
+        - button "פרופיל" [ref=f32e6] [cursor=pointer]:
+          - generic [ref=f32e7]: Q
+        - link "OUT" [ref=f32e14] [cursor=pointer]:
+          - /url: /home
+          - img "OUT" [ref=f32e15]
+        - generic [ref=f32e16]:
+          - button "התראות" [ref=f32e17] [cursor=pointer]
+          - button "הודעות" [ref=f32e21] [cursor=pointer]
+          - link "חיפוש" [ref=f32e24] [cursor=pointer]:
+            - /url: /search
+      - button "33%" [ref=f32e29] [cursor=pointer]
+      - generic [ref=f32e36]:
+        - generic [ref=f32e47]:
+          - button "מדדי בריאות" [ref=f32e49] [cursor=pointer]
+          - generic [ref=f32e50]:
+            - generic [ref=f32e52]:
+              - paragraph [ref=f32e53]: פעילות שבועית
+              - paragraph [ref=f32e54]: 0 דק׳
+              - paragraph [ref=f32e55]: מתוך 150 דק׳
+            - 'button "פתח ניתוח צעדים: 0 מתוך 8,000" [ref=f32e57] [cursor=pointer]':
+              - generic [ref=f32e63]:
+                - generic [ref=f32e64]: "0"
+                - generic [ref=f32e65]: מתוך 8,000
+        - generic [ref=f32e67]:
+          - heading "קבוצות קרובות אליך" [level=3] [ref=f32e68]
+          - button "הכל ›" [ref=f32e75] [cursor=pointer]
+        - heading "גינות כושר קרובות" [level=3] [ref=f32e99]
+      - button "הוסף" [ref=f32e127] [cursor=pointer]
+  - navigation [ref=f32e129]:
+    - generic [ref=f32e130]:
+      - link "בית" [ref=f32e131] [cursor=pointer]:
+        - /url: /home
+      - link "מפה" [ref=f32e136] [cursor=pointer]:
+        - /url: /map
+  - alert [ref=f32e140]

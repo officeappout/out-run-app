@@ -1,0 +1,8 @@
+[     734ms] [WARNING] [2026-09-01T19:54:22.483Z]  @firebase/auth: Auth (12.6.0): Error while retrieving App Check token: FirebaseError: AppCheck: ReCAPTCHA error. (appCheck/recaptcha-error). @ https://outrun.co.il/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[     983ms] [WARNING] [2026-09-01T19:54:22.732Z]  @firebase/auth: Auth (12.6.0): Error while retrieving App Check token: FirebaseError: AppCheck: ReCAPTCHA error. (appCheck/recaptcha-error). @ https://outrun.co.il/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[     984ms] [WARNING] [2026-09-01T19:54:22.732Z]  @firebase/auth: Auth (12.6.0): Error while retrieving App Check token: FirebaseError: AppCheck: ReCAPTCHA error. (appCheck/recaptcha-error). @ https://outrun.co.il/_next/static/chunks/2532-16f59635ee5a761a.js:14
+[    1786ms] [LOG] [getAuthoritiesByManager] Super Admin — returning all 79 top-level authorities @ https://outrun.co.il/_next/static/chunks/7034-dcf27cf9b9fea1db.js:0
+[    2385ms] [LOG] [getAuthoritiesByManager] Super Admin — returning all 79 top-level authorities @ https://outrun.co.il/_next/static/chunks/7034-dcf27cf9b9fea1db.js:0
+[    2762ms] [LOG] [getAuthoritiesByManager] Super Admin — returning all 79 top-level authorities @ https://outrun.co.il/_next/static/chunks/7034-dcf27cf9b9fea1db.js:0
+[    4492ms] [LOG] [getAuthoritiesByManager] Super Admin — returning all 79 top-level authorities @ https://outrun.co.il/_next/static/chunks/7034-dcf27cf9b9fea1db.js:0
+[    4598ms] [LOG] [getAuthoritiesByManager] Super Admin — returning all 79 top-level authorities @ https://outrun.co.il/_next/static/chunks/7034-dcf27cf9b9fea1db.js:0

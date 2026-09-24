@@ -1,0 +1,16 @@
+- generic [ref=f8e3]:
+  - generic [ref=f8e4]:
+    - paragraph [ref=f8e5]: "Case A — one mailbox truncated, boundary date known (real scan shape):"
+    - generic [ref=f8e6]:
+      - generic [ref=f8e7]: הסריקה נחתכה — לא כל הטווח כוסה
+      - generic [ref=f8e10]: "david@appout.co.il: נסרקו 500 שרשורים · כוסה עד 2026-03-14 — מיילים ישנים יותר בתיבה זו לא נסרקו"
+      - generic [ref=f8e11]: צמצם את הטווח והרץ שוב כדי לכסות את התקופה שנותרה.
+  - generic [ref=f8e12]:
+    - paragraph [ref=f8e13]: "Case B — boundary date undeterminable:"
+    - generic [ref=f8e14]:
+      - generic [ref=f8e15]: הסריקה נחתכה — לא כל הטווח כוסה
+      - generic [ref=f8e18]: "david@appout.co.il: נסרקו 500 שרשורים · טווח הכיסוי בפועל לא ידוע"
+      - generic [ref=f8e19]: צמצם את הטווח והרץ שוב כדי לכסות את התקופה שנותרה.
+  - generic [ref=f8e20]:
+    - paragraph [ref=f8e21]: "Case C — nothing truncated (should render NOTHING below this line):"
+    - paragraph [ref=f8e22]: (end of Case C — if you see this with nothing red above, correct)

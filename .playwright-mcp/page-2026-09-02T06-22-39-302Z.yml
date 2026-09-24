@@ -1,0 +1,85 @@
+- generic [active] [ref=f27e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f27e2]:
+    - generic [ref=f27e660]:
+      - generic [ref=f27e663]:
+        - heading "רשימת התרגילים" [level=2] [ref=f27e664]
+        - paragraph [ref=f27e665]: "8 תרגילים · אימון כללי עצים: פונקציונלי בפארק"
+        - generic [ref=f27e666]:
+          - generic [ref=f27e667]:
+            - generic [ref=f27e668]:
+              - generic [ref=f27e669]: 🔥
+              - generic [ref=f27e670]: חימום
+              - generic [ref=f27e671]: · 3 תרגילים
+            - generic [ref=f27e673]:
+              - button "חימום 3 תרגילים" [ref=f27e674] [cursor=pointer]:
+                - generic [ref=f27e675]: חימום
+                - generic [ref=f27e676]: 3 תרגילים
+              - generic [ref=f27e683]:
+                - generic [ref=f27e687]:
+                  - paragraph [ref=f27e688]: טבטה +
+                  - paragraph [ref=f27e689]: 4 דקות
+                  - button "סמן כבוצע" [ref=f27e690] [cursor=pointer]
+                - generic [ref=f27e696]:
+                  - paragraph [ref=f27e697]: מתח קשתים
+                  - paragraph [ref=f27e698]: 3-5 חזרות
+                - generic [ref=f27e702]:
+                  - paragraph [ref=f27e703]: גוד מורנינג בישיבה
+                  - paragraph [ref=f27e704]: 3-5 חזרות
+          - generic [ref=f27e705]:
+            - generic [ref=f27e706]:
+              - generic [ref=f27e707]: 💪
+              - generic [ref=f27e708]: "אימון כללי עצים: פונקציונלי בפארק"
+              - generic [ref=f27e709]: · 4 תרגילים
+            - generic [ref=f27e710]:
+              - generic [ref=f27e712]:
+                - generic [ref=f27e713]:
+                  - generic [ref=f27e714]: סופר סט (2 תרגילים)
+                  - generic [ref=f27e715]: 2 תרגילים
+                - generic [ref=f27e716]:
+                  - button "פשיטת מרפקים למתקדמים 0/3" [ref=f27e719] [cursor=pointer]:
+                    - generic [ref=f27e720]: פשיטת מרפקים למתקדמים
+                    - generic [ref=f27e722]: 0/3
+                  - button "החזקת מתח יד אחת ב-90° 0/3" [ref=f27e729] [cursor=pointer]:
+                    - generic [ref=f27e730]: החזקת מתח יד אחת ב-90°
+                    - generic [ref=f27e732]: 0/3
+              - button "מקבילים 0/2" [ref=f27e739] [cursor=pointer]:
+                - generic [ref=f27e740]: מקבילים
+                - generic [ref=f27e742]: 0/2
+              - button "היפ טראסט 0/3" [ref=f27e749] [cursor=pointer]:
+                - generic [ref=f27e750]: היפ טראסט
+                - generic [ref=f27e752]: 0/3
+          - generic [ref=f27e757]:
+            - generic [ref=f27e758]:
+              - generic [ref=f27e759]: 🧘
+              - generic [ref=f27e760]: מתיחות
+              - generic [ref=f27e761]: · 1 תרגיל
+            - button "מתיחות פלג גוף עליון לבדיקה 0/1" [ref=f27e765] [cursor=pointer]:
+              - generic [ref=f27e766]: מתיחות פלג גוף עליון לבדיקה
+              - generic [ref=f27e768]: 0/1
+      - generic [ref=f27e774]:
+        - generic [ref=f27e775]:
+          - generic [ref=f27e776]:
+            - button "מסך מלא" [ref=f27e779] [cursor=pointer]
+            - generic [aria-hidden]:
+              - generic: סובב לצפייה מלאה
+          - generic [ref=f27e787]:
+            - paragraph [ref=f27e790]: טבטה +
+            - button "סיימתי" [ref=f27e792] [cursor=pointer]
+            - button "Swap החלפת תרגיל" [ref=f27e798] [cursor=pointer]:
+              - img "Swap" [ref=f27e799]
+              - generic [ref=f27e800]: החלפת תרגיל
+            - generic [ref=f27e804]:
+              - generic [ref=f27e805]:
+                - heading "שריר ראשי" [level=3] [ref=f27e806]
+                - generic [ref=f27e807]: בטן
+              - generic [ref=f27e810]:
+                - heading "שרירים משניים" [level=3] [ref=f27e811]
+                - generic [ref=f27e812]: אלכסונים
+        - generic [ref=f27e834]:
+          - button [ref=f27e835] [cursor=pointer]:
+            - img "List" [ref=f27e836]
+          - generic [ref=f27e837]: 00:15
+          - button [ref=f27e848] [cursor=pointer]:
+            - img "Pause" [ref=f27e849]
+  - alert [ref=f27e211]

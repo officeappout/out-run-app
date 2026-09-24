@@ -1,0 +1,92 @@
+- generic [active] [ref=f1e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f1e2]:
+    - main [ref=f1e3]:
+      - generic [ref=f1e5]:
+        - button "פרופיל" [ref=f1e6] [cursor=pointer]
+        - link "OUT" [ref=f1e19] [cursor=pointer]:
+          - /url: /home
+          - img "OUT" [ref=f1e20]
+        - generic [ref=f1e21]:
+          - button "התראות" [ref=f1e22] [cursor=pointer]
+          - button "הודעות" [ref=f1e26] [cursor=pointer]
+          - link "חיפוש" [ref=f1e29] [cursor=pointer]:
+            - /url: /search
+      - generic [ref=f1e35]:
+        - generic:
+          - region "Map" [ref=f1e36]
+          - generic "Map marker" [ref=f1e71]:
+            - img "User Location" [ref=f1e77]
+          - generic "Map marker" [ref=f1e78]:
+            - button "גינת כושר הר ציון - תל אביב" [ref=f1e79] [cursor=pointer]:
+              - img "גינת כושר הר ציון - תל אביב" [ref=f1e81]
+        - generic:
+          - link "Mapbox logo" [ref=f1e38] [cursor=pointer]:
+            - /url: https://www.mapbox.com/
+          - list [ref=f1e84]:
+            - link "Mapbox" [ref=f1e85] [cursor=pointer]:
+              - /url: https://www.mapbox.com/about/maps
+              - text: © Mapbox
+            - link "OpenStreetMap" [ref=f1e86] [cursor=pointer]:
+              - /url: https://www.openstreetmap.org/copyright/
+              - text: © OpenStreetMap
+            - link "Map feedback" [ref=f1e87] [cursor=pointer]:
+              - /url: https://apps.mapbox.com/feedback/?owner=mapbox&id=streets-v12&access_token=pk.eyJ1IjoiZGF2aWQtb3V0IiwiYSI6ImNtanZpZmJ0djM5MTEzZXF5YXNmcm9zNGwifQ.8MD8s4TZOr0WYYgEpFfpzw#/34.77573/32.05577/15
+              - text: Improve this map
+      - generic:
+        - generic:
+          - textbox "לאן הולכים?" [ref=f1e92]
+          - generic [ref=f1e94]:
+            - button "גלה מסלולים" [ref=f1e95] [cursor=pointer]
+            - button "אירובי חופשי" [ref=f1e98] [cursor=pointer]
+            - button "שותפים לאימון" [ref=f1e101] [cursor=pointer]
+      - generic [ref=f1e108] [cursor=pointer]:
+        - generic [ref=f1e109]:
+          - img "גינת כושר הר ציון - תל אביב" [ref=f1e110]
+          - button "close" [ref=f1e111]
+        - generic [ref=f1e113]:
+          - heading "גינת כושר הר ציון - תל אביב" [level=3] [ref=f1e114]
+          - generic [ref=f1e115]: 50 מטר ממך
+        - button "נווט לפארק" [ref=f1e118]
+      - generic [ref=f1e122]:
+        - generic:
+          - generic:
+            - button
+            - heading "גינת כושר הר ציון - תל אביב" [level=1]
+        - generic [ref=f1e125]:
+          - generic [ref=f1e126]:
+            - img "גינת כושר הר ציון - תל אביב" [ref=f1e127]
+            - button [ref=f1e129] [cursor=pointer]
+          - generic [ref=f1e133]:
+            - generic [ref=f1e134]: גינת כושר
+            - heading "גינת כושר הר ציון - תל אביב" [level=1] [ref=f1e135]
+          - generic [ref=f1e136]:
+            - generic [ref=f1e137]: 50 מטר ממך
+            - generic [ref=f1e141]:
+              - generic [ref=f1e142]:
+                - heading "מתאמנים" [level=3] [ref=f1e143]
+                - generic [ref=f1e147]:
+                  - button "היום" [ref=f1e148] [cursor=pointer]
+                  - button "מחר" [ref=f1e149] [cursor=pointer]
+                  - button "השבוע" [ref=f1e150] [cursor=pointer]
+              - generic [ref=f1e152]:
+                - generic [ref=f1e158]: אף אחד עוד לא פרסם שהוא מגיע...
+                - button "אני מגיע ב..." [ref=f1e159] [cursor=pointer]
+            - generic [ref=f1e160]:
+              - heading "פירוט על הפארק" [level=3] [ref=f1e161]
+              - paragraph [ref=f1e163]: לא צוינו תכונות
+            - button "דרג את המקום" [ref=f1e165] [cursor=pointer]
+        - generic [ref=f1e169]:
+          - button "התחל אימון" [ref=f1e170] [cursor=pointer]
+          - button "עדכן פרטים" [ref=f1e174] [cursor=pointer]
+          - button "ניווט" [ref=f1e178] [cursor=pointer]
+      - button "🧪 מיקום" [ref=f1e57] [cursor=pointer]:
+        - generic [ref=f1e58]: 🧪
+        - text: מיקום
+  - navigation [ref=f1e59]:
+    - generic [ref=f1e60]:
+      - link "בית" [ref=f1e61] [cursor=pointer]:
+        - /url: /home
+      - link "מפה" [ref=f1e66] [cursor=pointer]:
+        - /url: /map
+  - alert [ref=f1e70]

@@ -1,0 +1,52 @@
+- generic [ref=f5e3]:
+  - generic [ref=f5e4]: מחולל QRhttps://outrun.co.il/r/qa-harness-test
+  - generic [ref=f5e5]:
+    - generic [ref=f5e6]:
+      - generic [ref=f5e9]: 🟢אמינות גבוהה — מתאים לדפוס גדול ולמרחק
+      - generic [ref=f5e10]:
+        - generic [ref=f5e11]:
+          - text: מרחק סריקה צפוי (מ׳)
+          - spinbutton "מרחק סריקה צפוי (מ׳)" [ref=f5e12]: "1"
+        - paragraph [ref=f5e13]:
+          - text: "רוחב הדפסה מינימלי מומלץ:"
+          - strong [ref=f5e14]: 10 ס״מ
+          - text: "(כלל אצבע: מרחק ≈ פי 10 מהרוחב)"
+    - generic [ref=f5e15]:
+      - generic [ref=f5e16]:
+        - generic [ref=f5e17]:
+          - text: צבע כהה (מודולים)
+          - textbox "צבע כהה (מודולים)" [ref=f5e18]: "#0f172a"
+        - generic [ref=f5e19]:
+          - text: צבע בהיר (רקע)
+          - textbox "צבע בהיר (רקע)" [ref=f5e20]: "#ffffff"
+      - generic [ref=f5e21]:
+        - checkbox "גרדיאנט לצבע הכהה" [ref=f5e22]
+        - text: גרדיאנט לצבע הכהה
+      - generic [ref=f5e23]:
+        - generic [ref=f5e24]:
+          - text: סגנון נקודות
+          - combobox "סגנון נקודות" [ref=f5e25]:
+            - option "ריבועי" [selected]
+            - option "מעוגל"
+            - option "נקודות"
+            - option "Classy"
+        - generic [ref=f5e26]:
+          - text: סגנון פינות
+          - combobox "סגנון פינות" [ref=f5e27]:
+            - option "מרובע" [selected]
+            - option "מעוגל"
+            - option "נקודה"
+      - generic [ref=f5e28]:
+        - generic [ref=f5e29]:
+          - text: גודל לוגו
+          - generic [ref=f5e30]: 18%
+        - slider [ref=f5e31]: "0.18"
+      - generic [ref=f5e32]:
+        - checkbox "ריפוד לבן מסביב ללוגו (משפר סריקה משמעותית)" [checked] [ref=f5e33]
+        - text: ריפוד לבן מסביב ללוגו (משפר סריקה משמעותית)
+      - generic [ref=f5e34]:
+        - text: הורדה
+        - generic [ref=f5e35]:
+          - button "PNG (2000px)" [ref=f5e36]
+          - button "SVG" [ref=f5e40]
+      - generic [ref=f5e44]: סרוק בדיקה לפני שליחה לדפוס.

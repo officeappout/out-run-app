@@ -1,0 +1,30 @@
+- generic [active] [ref=e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - complementary [ref=e4]:
+        - heading "OUT RUN Admin" [level=1] [ref=e6]
+        - navigation [ref=e7]:
+          - button "התנתק" [ref=e9] [cursor=pointer]
+      - main [ref=e14]:
+        - generic [ref=e18]:
+          - generic [ref=e19]:
+            - heading "OUT RUN" [level=1] [ref=e23]
+            - heading "פורטל ניהול מערכת" [level=2] [ref=e24]
+            - paragraph [ref=e25]: התחבר כמנהל מערכת (Super Admin / System Admin)
+          - generic [ref=e27]:
+            - generic [ref=e28]:
+              - generic [ref=e29]: כתובת אימייל
+              - textbox "כתובת אימייל" [ref=e34]:
+                - /placeholder: your.email@example.com
+              - paragraph [ref=e35]: נשלח לך קישור התחברות ישירות למייל שלך
+            - button "שלח קישור התחברות" [ref=e36] [cursor=pointer]
+          - paragraph [ref=e42]:
+            - text: על ידי התחברות, אתה מסכים ל
+            - link "תנאי השימוש" [ref=e43] [cursor=pointer]:
+              - /url: "#"
+            - text: ו-
+            - link "מדיניות הפרטיות" [ref=e44] [cursor=pointer]:
+              - /url: "#"
+            - text: של הפורטל.
+  - alert [ref=e45]

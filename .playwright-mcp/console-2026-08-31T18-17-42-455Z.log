@@ -1,0 +1,3 @@
+[     154ms] [INFO] [O11Y] [DatadogRUM] Initialized {service: claude-ai, env: production, version: f46f012fcd} @ https://assets-proxy.anthropic.com/claude-ai/v2/assets/v1/vendor-datadog-Wu91PdDV.js:4
+[     419ms] [LOG] recaptchacompat disabled @ https://assets-proxy.anthropic.com/claude-ai/v2/assets/v1/vendor-datadog-Wu91PdDV.js:4
+[   12245ms] [INFO] [O11Y] [DatadogRUM] Initialized {service: claude-ai, env: production, version: f46f012fcd} @ https://assets-proxy.anthropic.com/claude-ai/v2/assets/v1/vendor-datadog-Wu91PdDV.js:4

@@ -1,0 +1,16 @@
+[    3854ms] [ERROR] Failed to load resource: net::ERR_FAILED @ chrome-extension://invalid/:0
+[    5852ms] [WARNING] An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing. @ https://drive.google.com/auth_warmup:0
+[    9765ms] [ERROR] Failed to load resource: net::ERR_FAILED @ chrome-extension://invalid/:0
+[    9777ms] [ERROR] Failed to load resource: net::ERR_FAILED @ chrome-extension://invalid/:0
+[    9781ms] [ERROR] Failed to load resource: net::ERR_FAILED @ chrome-extension://invalid/:0
+[    9783ms] [ERROR] Failed to load resource: net::ERR_FAILED @ chrome-extension://invalid/:0
+[   15575ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://drive.google.com/u/0/drive-usercontent/1BUHSbp6ctE4VyaycGAzkEl1c61sk-Dn_=w400-h380-p-k-rw-v1-nu-iv0?auditContext=thumbnail:0
+[   15611ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://drive.google.com/u/0/drive-usercontent/1I7RNWcgHcle4s0AmOk51atECllUsx22f=w400-h380-p-k-rw-v1-nu-iv0?auditContext=thumbnail:0
+[   70340ms] [ERROR] Framing 'https://docs.google.com/' violates the following report-only Content Security Policy directive: "frame-ancestors 'self'". The violation has been logged, but no further action has been taken.
+ @ :0
+[   70342ms] [ERROR] Framing 'https://docs.google.com/' violates the following report-only Content Security Policy directive: "frame-ancestors 'self'". The violation has been logged, but no further action has been taken.
+ @ :0
+[  122912ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://feedback-pa.clients6.google.com/v1/survey/trigger?key=AIzaSyD_InbmSFufIEps5UAt2NmB_3LvBH3Sz_8:0
+[  159961ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://feedback-pa.clients6.google.com/v1/survey/trigger?key=AIzaSyD_InbmSFufIEps5UAt2NmB_3LvBH3Sz_8:0
+[  185095ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://feedback-pa.clients6.google.com/v1/survey/trigger?key=AIzaSyD_InbmSFufIEps5UAt2NmB_3LvBH3Sz_8:0
+[  221985ms] [WARNING] An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing. @ https://drive.google.com/drivesharing/clientmodel?id=1bbZhkfH6L6m1zwaiPngpJWyk9a-8oGxU&foreignService=explorer&authuser=0&origin=https%3A%2F%2Fdrive.google.com:0

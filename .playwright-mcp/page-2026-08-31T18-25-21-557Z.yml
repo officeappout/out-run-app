@@ -1,0 +1,79 @@
+- generic [active] [ref=f80e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f80e2]:
+    - generic [ref=f80e3]:
+      - generic [ref=f80e5]:
+        - button "פרופיל" [ref=f80e6] [cursor=pointer]:
+          - generic [ref=f80e7]: Q
+          - generic [ref=f80e9]: "1"
+        - link "OUT" [ref=f80e17] [cursor=pointer]:
+          - /url: /home
+          - img "OUT" [ref=f80e18]
+        - generic [ref=f80e19]:
+          - button "התראות" [ref=f80e20] [cursor=pointer]
+          - button "הודעות" [ref=f80e24] [cursor=pointer]
+          - link "חיפוש" [ref=f80e27] [cursor=pointer]:
+            - /url: /search
+      - button "54%" [ref=f80e32] [cursor=pointer]
+      - generic [ref=f80e39]:
+        - generic [ref=f80e41]:
+          - heading "לו״ז אימונים" [level=2] [ref=f80e43]
+          - generic [ref=f80e44]:
+            - button "סנכרון ליומן" [ref=f80e45] [cursor=pointer]
+            - button "שינוי לוז" [ref=f80e47] [cursor=pointer]
+          - generic [ref=f80e53]:
+            - generic [ref=f80e54]:
+              - generic [ref=f80e55]: א
+              - button [ref=f80e56] [cursor=pointer]
+            - generic [ref=f80e58]:
+              - generic [ref=f80e59]: ב
+              - button [ref=f80e60] [cursor=pointer]
+            - generic [ref=f80e62]:
+              - generic [ref=f80e63]: ג
+              - button [ref=f80e64] [cursor=pointer]
+            - generic [ref=f80e66]:
+              - generic [ref=f80e67]: ד
+              - button [ref=f80e68] [cursor=pointer]
+            - generic [ref=f80e70]:
+              - generic [ref=f80e71]: ה
+              - button [ref=f80e72] [cursor=pointer]
+            - generic [ref=f80e74]:
+              - generic [ref=f80e75]: ו
+              - button [ref=f80e76] [cursor=pointer]
+            - generic [ref=f80e78]:
+              - generic [ref=f80e79]: ש
+              - button [ref=f80e80] [cursor=pointer]
+        - generic [ref=f80e92]:
+          - generic [ref=f80e93]:
+            - button "התקדמות שבועית" [ref=f80e94] [cursor=pointer]
+            - button "מדדי בריאות" [ref=f80e95] [cursor=pointer]
+          - generic [ref=f80e96]:
+            - generic [ref=f80e98]:
+              - generic [ref=f80e99]:
+                - heading "ליבה" [level=3] [ref=f80e105]
+                - paragraph [ref=f80e106]: רמה 3/25
+                - generic [ref=f80e107]: עוד 99% לרמה 4
+              - generic [ref=f80e111]: 1%
+            - generic [ref=f80e117]:
+              - generic [ref=f80e119]:
+                - generic [ref=f80e120]: כוח
+                - generic [ref=f80e124]: 0/3
+              - generic [ref=f80e129]:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: ריצה
+                      - generic: 0/3
+                - button "הוסף תוכנית ריצה" [ref=f80e130] [cursor=pointer]
+        - generic [ref=f80e134]:
+          - heading "קבוצות קרובות אליך" [level=3] [ref=f80e135]
+          - button "הכל ›" [ref=f80e142] [cursor=pointer]
+        - heading "גינות כושר קרובות" [level=3] [ref=f80e166]
+      - button "הוסף" [ref=f80e194] [cursor=pointer]
+  - navigation [ref=f80e196]:
+    - generic [ref=f80e197]:
+      - link "בית" [ref=f80e198] [cursor=pointer]:
+        - /url: /home
+      - link "מפה" [ref=f80e203] [cursor=pointer]:
+        - /url: /map
+  - alert [ref=f80e207]

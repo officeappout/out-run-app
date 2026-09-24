@@ -1,0 +1,202 @@
+[     385ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:38559
+[     460ms] [INFO] [firebase] App Check bypass: hostname="localhost" treated as local development. initializeAppCheck() will NOT be invoked — this prevents reCAPTCHA Enterprise 403s from crashing the Firestore snapshot listener. Set NEXT_PUBLIC_APP_CHECK_DEBUG_TOKEN to a token registered in the Firebase console (App Check → Apps → Manage debug tokens) if you need a real App Check handshake. @ webpack-internal:///(app-pages-browser)/./src/lib/firebase.ts:125
+[    1439ms] [WARNING] [bunny] NEXT_PUBLIC_BUNNY_CDN_HOSTNAME is not set — falling back to hardcoded hostname. Set this variable in your Vercel project environment settings to silence this warning. @ webpack-internal:///(app-pages-browser)/./src/lib/bunny/bunny.config.ts:38
+[    6540ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[    8800ms] [LOG] [Fast Refresh] done in 2260ms @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   24092ms] [WARNING] [AffiliationService] GPS detection failed: Error: No GPS fix available
+    at detectCityFromGPS (webpack-internal:///(app-pages-browser)/./src/features/user/identity/services/affiliation.service.ts:36:19)
+    at handleExploreMap (webpack-internal:///(app-pages-browser)/./src/app/gateway/page.tsx:416:116) @ webpack-internal:///(app-pages-browser)/./src/features/user/identity/services/affiliation.service.ts:67
+[   25365ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   26452ms] [LOG] [Fast Refresh] done in 1087ms @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   27521ms] [WARNING] Skipping auto-scroll behavior due to `position: sticky` or `position: fixed` on element: JSHandle@node @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/components/layout-router.js:109
+[   27522ms] [WARNING] Skipping auto-scroll behavior due to `position: sticky` or `position: fixed` on element: JSHandle@node @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/components/layout-router.js:109
+[   27522ms] [WARNING] Skipping auto-scroll behavior due to `position: sticky` or `position: fixed` on element: JSHandle@node @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/components/layout-router.js:109
+[   27522ms] [WARNING] Skipping auto-scroll behavior due to `position: sticky` or `position: fixed` on element: JSHandle@node @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/components/layout-router.js:109
+[   27895ms] [ERROR] Error: An API access token is required to use Mapbox GL. See https://docs.mapbox.com/api/overview/#access-tokens-and-token-scopes
+    at t.RequestManager._makeAPIURL (webpack-internal:///(app-pages-browser)/../../../node_modules/mapbox-gl/dist/mapbox-gl.js:32:157562)
+    at t.RequestManager.normalizeStyleURL (webpack-internal:///(app-pages-browser)/../../../node_modules/mapbox-gl/dist/mapbox-gl.js:32:155384)
+    at Kt.loadURL (webpack-internal:///(app-pages-browser)/../../../node_modules/mapbox-gl/dist/mapbox-gl.js:36:100964)
+    at Map._updateStyle (webpack-internal:///(app-pages-browser)/../../../node_modules/mapbox-gl/dist/mapbox-gl.js:36:462337)
+    at Map.setStyle (webpack-internal:///(app-pages-browser)/../../../node_modules/mapbox-gl/dist/mapbox-gl.js:36:461985)
+    at new Map (webpack-internal:///(app-pages-browser)/../../../node_modules/mapbox-gl/dist/mapbox-gl.js:36:452505)
+    at Mapbox._initialize (webpack-internal:///(app-pages-browser)/../../../node_modules/react-map-gl/dist/esm/mapbox/mapbox.js:242:21)
+    at new Mapbox (webpack-internal:///(app-pages-browser)/../../../node_modules/react-map-gl/dist/esm/mapbox/mapbox.js:135:14)
+    at eval (webpack-internal:///(app-pages-browser)/../../../node_modules/react-map-gl/dist/esm/components/map.js:50:30) @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/app-index.js:32
+[   31168ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://api.mapbox.com/geocoding/v5/mapbox.places/34.882447234487564,32.093859555177815.json?access_token=&language=he&types=place,locality,neighborhood:0
+[   34400ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   39601ms] [LOG] [Fast Refresh] done in 5202ms @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   40919ms] [LOG] [A2-SPIKE][useGPS] hook mounted {isNative: false, callSite: useMapLogic.ts} @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGPS.ts:156
+[   40920ms] [LOG] [A2-SPIKE][useGPS] watch-effect run {simulationActive: false, gpsPaused: false, isForeground: true, workoutActive: false, sessionStatus: idle} @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGPS.ts:240
+[   40920ms] [LOG] [A2-SPIKE][MapShell] MapShellInner mode changed {mode: discover} @ webpack-internal:///(app-pages-browser)/./src/app/map/MapShell.tsx:159
+[   40921ms] [LOG] [A2-SPIKE][MapShell] useIsForeground() changed {isForegroundSpike: true} @ webpack-internal:///(app-pages-browser)/./src/app/map/MapShell.tsx:179
+[   40921ms] [LOG] [PresenceHeartbeat] mount SKIPPED {reason: no userId, userId: null, hasProfile: false, coreName: null} @ webpack-internal:///(app-pages-browser)/./src/features/safecity/hooks/usePresenceLayer.ts:213
+[   40921ms] [LOG] [useGroupPresence] subscribe {currentUid: qQbrtT8POUVJcGXjS7mKAwvc6N93, groupSessionId: null} @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGroupPresence.ts:186
+[   40922ms] [LOG] [MapShell] mode= discover isWorkoutActive= false runMode= plan @ webpack-internal:///(app-pages-browser)/./src/app/map/MapShell.tsx:404
+[   40922ms] [LOG] [A2-SPIKE][MapShell] outer MapShell MOUNTED @ webpack-internal:///(app-pages-browser)/./src/app/map/MapShell.tsx:1052
+[   40924ms] [LOG] [A2-SPIKE][useGPS] hook UNMOUNTED @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGPS.ts:161
+[   40924ms] [LOG] [A2-SPIKE][MapShell] outer MapShell UNMOUNTED @ webpack-internal:///(app-pages-browser)/./src/app/map/MapShell.tsx:1054
+[   40925ms] [LOG] [A2-SPIKE][useGPS] hook mounted {isNative: false, callSite: useMapLogic.ts} @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGPS.ts:156
+[   40925ms] [LOG] [A2-SPIKE][useGPS] watch-effect run {simulationActive: false, gpsPaused: false, isForeground: true, workoutActive: false, sessionStatus: idle} @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGPS.ts:240
+[   40925ms] [LOG] [A2-SPIKE][MapShell] MapShellInner mode changed {mode: discover} @ webpack-internal:///(app-pages-browser)/./src/app/map/MapShell.tsx:159
+[   40925ms] [LOG] [A2-SPIKE][MapShell] useIsForeground() changed {isForegroundSpike: true} @ webpack-internal:///(app-pages-browser)/./src/app/map/MapShell.tsx:179
+[   40925ms] [LOG] [PresenceHeartbeat] mount SKIPPED {reason: no userId, userId: null, hasProfile: false, coreName: null} @ webpack-internal:///(app-pages-browser)/./src/features/safecity/hooks/usePresenceLayer.ts:213
+[   40925ms] [LOG] [useGroupPresence] subscribe {currentUid: qQbrtT8POUVJcGXjS7mKAwvc6N93, groupSessionId: null} @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGroupPresence.ts:186
+[   40925ms] [LOG] [MapShell] mode= discover isWorkoutActive= false runMode= plan @ webpack-internal:///(app-pages-browser)/./src/app/map/MapShell.tsx:404
+[   40925ms] [LOG] [A2-SPIKE][MapShell] outer MapShell MOUNTED @ webpack-internal:///(app-pages-browser)/./src/app/map/MapShell.tsx:1052
+[   40959ms] [LOG] [A2-SPIKE][useGPS] fix accepted {lat: 32.0939752351246, lng: 34.882541376841786, ts: 1788454040464} @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGPS.ts:219
+[   40964ms] [LOG] [Cam] wazePadding: card=TOP, H=835px, top=418px, bottom=0 → user dot at ~25% from bottom (default Waze framing) @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCameraController.ts:482
+[   40964ms] [LOG] [Cam] wazePadding: card=TOP, H=835px, top=418px, bottom=0 → user dot at ~25% from bottom (default Waze framing) @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCameraController.ts:482
+[   41006ms] [ERROR] Error: An API access token is required to use Mapbox GL. See https://docs.mapbox.com/api/overview/#access-tokens-and-token-scopes
+    at t.RequestManager._makeAPIURL (webpack-internal:///(app-pages-browser)/../../../node_modules/mapbox-gl/dist/mapbox-gl.js:32:157562)
+    at t.RequestManager.normalizeStyleURL (webpack-internal:///(app-pages-browser)/../../../node_modules/mapbox-gl/dist/mapbox-gl.js:32:155384)
+    at Kt.loadURL (webpack-internal:///(app-pages-browser)/../../../node_modules/mapbox-gl/dist/mapbox-gl.js:36:100964)
+    at Map._updateStyle (webpack-internal:///(app-pages-browser)/../../../node_modules/mapbox-gl/dist/mapbox-gl.js:36:462337)
+    at Map.setStyle (webpack-internal:///(app-pages-browser)/../../../node_modules/mapbox-gl/dist/mapbox-gl.js:36:461985)
+    at new Map (webpack-internal:///(app-pages-browser)/../../../node_modules/mapbox-gl/dist/mapbox-gl.js:36:452505)
+    at Mapbox._initialize (webpack-internal:///(app-pages-browser)/../../../node_modules/react-map-gl/dist/esm/mapbox/mapbox.js:242:21)
+    at new Mapbox (webpack-internal:///(app-pages-browser)/../../../node_modules/react-map-gl/dist/esm/mapbox/mapbox.js:135:14)
+    at eval (webpack-internal:///(app-pages-browser)/../../../node_modules/react-map-gl/dist/esm/components/map.js:50:30) @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/app-index.js:32
+[   41143ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://api.mapbox.com/geocoding/v5/mapbox.places/34.882541376841786,32.0939752351246.json?access_token=&language=he&types=place,locality,neighborhood:0
+[   42707ms] [LOG] [Routes] Fetched 86 published official routes from Firestore @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useRouteGeneration.ts:59
+[   42708ms] [LOG] [presenceStore] snapshot: 3 docs (cap=200) @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/store/usePresenceStore.ts:65
+[   42767ms] [LOG] [useCommunityEnrichment] Subscribing for route IDs: [exeo20trVhbR9WQpVJnK, r4br9OpdABLTrpp1nrp5, gB1eSwk4iV5rfIANplMQ] @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:300
+[   42768ms] [LOG] [PresenceHeartbeat] mount SKIPPED {reason: no profile.core.name, userId: qQbrtT8POUVJcGXjS7mKAwvc6N93, hasProfile: true, coreName: } @ webpack-internal:///(app-pages-browser)/./src/features/safecity/hooks/usePresenceLayer.ts:213
+[   42772ms] [LOG] [useSuggestionEngineStore] runSuggestionEngine took 10ms (5 candidates) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/store/useSuggestionEngineStore.ts:85
+[   42920ms] [LOG] [ActivityStore] No Firestore data, created new day @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:672
+[   43409ms] [LOG] [useCommunityEnrichment] Events resolved: 0 routes with real events @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:318
+[   43409ms] [LOG] [useCommunityEnrichment] Broad groups query returned: 54 groups @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:355
+[   43410ms] [LOG] [groupDocToEnrichments] Group has no slots: 2itoy043w50eWgckTWq1 ריצה עם דוד מובשוביץ @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43410ms] [LOG] [groupDocToEnrichments] Group has no slots: 4C7x6ALCdqIGMvvhP75j הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43410ms] [LOG] [groupDocToEnrichments] Group has no slots: 4Ds9XlRPel93FRelfIN6 ריצה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43410ms] [LOG] [groupDocToEnrichments] Group has no slots: 5wJ66moZcncaLwpB2eh3 הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43410ms] [LOG] [groupDocToEnrichments] Group has no slots: 7lNIrMQ3nYVNKOIZtPji הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43410ms] [LOG] [groupDocToEnrichments] Group has no slots: 80qRbtwFsH9MS040viXI הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43410ms] [LOG] [groupDocToEnrichments] Group has no slots: 91OJbugQf5ELVx3XIr43 Joseph family steps @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43410ms] [LOG] [groupDocToEnrichments] Group has no slots: 936xJAUtYgnIeIfcNUA0 הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43410ms] [LOG] [groupDocToEnrichments] Group has no slots: 9SnLoWtfAG0LHr5VDe6x הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43411ms] [LOG] [groupDocToEnrichments] Group has no slots: A4unlXH75xtJ3yQsLg42 קובצת הליכה ניר עוז @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43411ms] [LOG] [groupDocToEnrichments] Group has no slots: BPv2kYF7ti02cQAwCeRz הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43411ms] [LOG] [groupDocToEnrichments] Group has no slots: Begyd76BDorr7B2IqkKn הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43411ms] [LOG] [groupDocToEnrichments] Group has no slots: DAz20GMBiQwA1IcZtdjM ריצה עם דוד מובשוביץ @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43411ms] [LOG] [groupDocToEnrichments] Group has no slots: HWRpHP7rnHh8VryMTIsR ריצה בשכונה @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43411ms] [LOG] [groupDocToEnrichments] Group has no slots: J7SwVukdWK0fzG3Sq8cx ריצה עם דוד מובשוביץ @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43411ms] [LOG] [groupDocToEnrichments] Group has no slots: MnFpg5rgGbL99YjlQQ4B הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43411ms] [LOG] [groupDocToEnrichments] Group has no slots: NoQ2IZh9WVbWIrV4kwLX ריצה עם דוד מובשוביץ @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43411ms] [LOG] [groupDocToEnrichments] Group has no slots: OFREV3syAGJxwGSYpBWK ריצה עם דוד מובשוביץ @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43411ms] [LOG] [groupDocToEnrichments] Group has no slots: ShJgL88m8jAOfgDz5k5U הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43411ms] [LOG] [groupDocToEnrichments] Group has no slots: TOZENoGer01MsVqJVXm0 ריצה עם דוד מובשוביץ @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43411ms] [LOG] [groupDocToEnrichments] Group has no slots: VGiFH1zm6lELgtXqCR9g ריצה עם דוד מובשוביץ @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43411ms] [LOG] [groupDocToEnrichments] Group has no slots: VmA0wjX5PZufEFLjhWsV ריצה עם דוד מובשוביץ @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43411ms] [LOG] [groupDocToEnrichments] Group has no slots: Vq4d1uxUcwtMKXWhvB7H הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43411ms] [LOG] [groupDocToEnrichments] Group has no slots: WlrV1YO6VfEdeHi1nin1 הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43411ms] [LOG] [groupDocToEnrichments] Group has no slots: aUXeEjbXNmrAoQHA34Ln ריצה עם דוד מובשוביץ @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43411ms] [LOG] [groupDocToEnrichments] Group has no slots: cLklTOHgUcmFjYhfBTlj הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43411ms] [LOG] [groupDocToEnrichments] Group has no slots: ec2ljEvhsynkRi7ciA5Q ריצה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43411ms] [LOG] [groupDocToEnrichments] Group has no slots: f6QqFEGsnQkCin0w2Bar הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43411ms] [LOG] [groupDocToEnrichments] Group has no slots: kaw1s24cfcWX2cNoHBT9 ריצה עם דוד מובשוביץ @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43411ms] [LOG] [groupDocToEnrichments] Group has no slots: l38ZB5AjrcdHTraZoJCX ריצה עם דוד מובשוביץ @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43411ms] [LOG] [groupDocToEnrichments] Group has no slots: lgbCgV6LPh5PLOqwVmJ2 קק @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43411ms] [LOG] [groupDocToEnrichments] Group has no slots: maccabiah_lsit_2026 אתגר ה-L-Sit · מכביה 2026 @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43411ms] [LOG] [groupDocToEnrichments] Group has no slots: nyEA7AnvJ1xeD7GY7nef ריצה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43411ms] [LOG] [groupDocToEnrichments] Group has no slots: pGZIF2qmEMdzfHvjegqf הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43412ms] [LOG] [groupDocToEnrichments] Group has no slots: pUQgscmxX8Oo10osvPpI הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43412ms] [LOG] [groupDocToEnrichments] Group has no slots: ph27i0bLZWkwHYPzkb9e ריצה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   43412ms] [LOG] [useCommunityEnrichment] Groups resolved: 0 routes with recurring sessions @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:359
+[   43412ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:805
+[   44283ms] [LOG] [ActivityStore] No Firestore data, created new day @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:672
+[   44375ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:805
+[   74100ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:38559
+[   75612ms] [INFO] [firebase] App Check bypass: hostname="localhost" treated as local development. initializeAppCheck() will NOT be invoked — this prevents reCAPTCHA Enterprise 403s from crashing the Firestore snapshot listener. Set NEXT_PUBLIC_APP_CHECK_DEBUG_TOKEN to a token registered in the Firebase console (App Check → Apps → Manage debug tokens) if you need a real App Check handshake. @ webpack-internal:///(app-pages-browser)/./src/lib/firebase.ts:125
+[   75624ms] [WARNING] [bunny] NEXT_PUBLIC_BUNNY_CDN_HOSTNAME is not set — falling back to hardcoded hostname. Set this variable in your Vercel project environment settings to silence this warning. @ webpack-internal:///(app-pages-browser)/./src/lib/bunny/bunny.config.ts:38
+[   76146ms] [LOG] [A2-SPIKE][useGPS] hook mounted {isNative: false, callSite: useMapLogic.ts} @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGPS.ts:156
+[   76147ms] [LOG] [A2-SPIKE][useGPS] watch-effect run {simulationActive: false, gpsPaused: false, isForeground: true, workoutActive: false, sessionStatus: idle} @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGPS.ts:240
+[   76148ms] [LOG] [A2-SPIKE][MapShell] MapShellInner mode changed {mode: discover} @ webpack-internal:///(app-pages-browser)/./src/app/map/MapShell.tsx:159
+[   76148ms] [LOG] [A2-SPIKE][MapShell] useIsForeground() changed {isForegroundSpike: true} @ webpack-internal:///(app-pages-browser)/./src/app/map/MapShell.tsx:179
+[   76149ms] [LOG] [PresenceHeartbeat] mount SKIPPED {reason: no profile.core.name, userId: qQbrtT8POUVJcGXjS7mKAwvc6N93, hasProfile: true, coreName: } @ webpack-internal:///(app-pages-browser)/./src/features/safecity/hooks/usePresenceLayer.ts:213
+[   76149ms] [LOG] [useGroupPresence] subscribe {currentUid: null, groupSessionId: null} @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGroupPresence.ts:186
+[   76150ms] [LOG] [MapShell] mode= discover isWorkoutActive= false runMode= plan @ webpack-internal:///(app-pages-browser)/./src/app/map/MapShell.tsx:404
+[   76150ms] [LOG] [A2-SPIKE][MapShell] outer MapShell MOUNTED @ webpack-internal:///(app-pages-browser)/./src/app/map/MapShell.tsx:1052
+[   76151ms] [LOG] [A2-SPIKE][useGPS] hook UNMOUNTED @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGPS.ts:161
+[   76151ms] [LOG] [A2-SPIKE][MapShell] outer MapShell UNMOUNTED @ webpack-internal:///(app-pages-browser)/./src/app/map/MapShell.tsx:1054
+[   76153ms] [LOG] [A2-SPIKE][useGPS] hook mounted {isNative: false, callSite: useMapLogic.ts} @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGPS.ts:156
+[   76153ms] [LOG] [A2-SPIKE][useGPS] watch-effect run {simulationActive: false, gpsPaused: false, isForeground: true, workoutActive: false, sessionStatus: idle} @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGPS.ts:240
+[   76153ms] [LOG] [A2-SPIKE][MapShell] MapShellInner mode changed {mode: discover} @ webpack-internal:///(app-pages-browser)/./src/app/map/MapShell.tsx:159
+[   76153ms] [LOG] [A2-SPIKE][MapShell] useIsForeground() changed {isForegroundSpike: true} @ webpack-internal:///(app-pages-browser)/./src/app/map/MapShell.tsx:179
+[   76153ms] [LOG] [PresenceHeartbeat] mount SKIPPED {reason: no profile.core.name, userId: qQbrtT8POUVJcGXjS7mKAwvc6N93, hasProfile: true, coreName: } @ webpack-internal:///(app-pages-browser)/./src/features/safecity/hooks/usePresenceLayer.ts:213
+[   76153ms] [LOG] [useGroupPresence] subscribe {currentUid: null, groupSessionId: null} @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGroupPresence.ts:186
+[   76153ms] [LOG] [MapShell] mode= discover isWorkoutActive= false runMode= plan @ webpack-internal:///(app-pages-browser)/./src/app/map/MapShell.tsx:404
+[   76154ms] [LOG] [A2-SPIKE][MapShell] outer MapShell MOUNTED @ webpack-internal:///(app-pages-browser)/./src/app/map/MapShell.tsx:1052
+[   76184ms] [LOG] [Cam] wazePadding: card=TOP, H=835px, top=418px, bottom=0 → user dot at ~25% from bottom (default Waze framing) @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCameraController.ts:482
+[   76184ms] [LOG] [Cam] wazePadding: card=TOP, H=835px, top=418px, bottom=0 → user dot at ~25% from bottom (default Waze framing) @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCameraController.ts:482
+[   76189ms] [LOG] [Cam] wazePadding: card=TOP, H=835px, top=418px, bottom=0 → user dot at ~25% from bottom (default Waze framing) @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCameraController.ts:482
+[   76189ms] [LOG] [Cam] wazePadding: card=TOP, H=835px, top=418px, bottom=0 → user dot at ~25% from bottom (default Waze framing) @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCameraController.ts:482
+[   76196ms] [LOG] [Cam] wazePadding: card=TOP, H=835px, top=418px, bottom=0 → user dot at ~25% from bottom (default Waze framing) @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCameraController.ts:482
+[   76196ms] [LOG] [Cam] wazePadding: card=TOP, H=835px, top=418px, bottom=0 → user dot at ~25% from bottom (default Waze framing) @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCameraController.ts:482
+[   76200ms] [LOG] [A2-SPIKE][useGPS] fix accepted {lat: 32.093975256274675, lng: 34.88254139409224, ts: 1788454075705} @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGPS.ts:219
+[   76209ms] [LOG] [Cam] wazePadding: card=TOP, H=835px, top=418px, bottom=0 → user dot at ~25% from bottom (default Waze framing) @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCameraController.ts:482
+[   76209ms] [LOG] [Cam] wazePadding: card=TOP, H=835px, top=418px, bottom=0 → user dot at ~25% from bottom (default Waze framing) @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCameraController.ts:482
+[   76265ms] [ERROR] Error: An API access token is required to use Mapbox GL. See https://docs.mapbox.com/api/overview/#access-tokens-and-token-scopes
+    at t.RequestManager._makeAPIURL (webpack-internal:///(app-pages-browser)/../../../node_modules/mapbox-gl/dist/mapbox-gl.js:32:157562)
+    at t.RequestManager.normalizeStyleURL (webpack-internal:///(app-pages-browser)/../../../node_modules/mapbox-gl/dist/mapbox-gl.js:32:155384)
+    at Kt.loadURL (webpack-internal:///(app-pages-browser)/../../../node_modules/mapbox-gl/dist/mapbox-gl.js:36:100964)
+    at Map._updateStyle (webpack-internal:///(app-pages-browser)/../../../node_modules/mapbox-gl/dist/mapbox-gl.js:36:462337)
+    at Map.setStyle (webpack-internal:///(app-pages-browser)/../../../node_modules/mapbox-gl/dist/mapbox-gl.js:36:461985)
+    at new Map (webpack-internal:///(app-pages-browser)/../../../node_modules/mapbox-gl/dist/mapbox-gl.js:36:452505)
+    at Mapbox._initialize (webpack-internal:///(app-pages-browser)/../../../node_modules/react-map-gl/dist/esm/mapbox/mapbox.js:242:21)
+    at new Mapbox (webpack-internal:///(app-pages-browser)/../../../node_modules/react-map-gl/dist/esm/mapbox/mapbox.js:135:14)
+    at eval (webpack-internal:///(app-pages-browser)/../../../node_modules/react-map-gl/dist/esm/components/map.js:50:30) @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/app-index.js:32
+[   76269ms] [LOG] [useSuggestionEngineStore] runSuggestionEngine took 39ms (5 candidates) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/store/useSuggestionEngineStore.ts:85
+[   76390ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://api.mapbox.com/geocoding/v5/mapbox.places/34.88254139409224,32.093975256274675.json?access_token=&language=he&types=place,locality,neighborhood:0
+[   76603ms] [LOG] [presenceStore] snapshot: 3 docs (cap=200) @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/store/usePresenceStore.ts:65
+[   77292ms] [LOG] [Routes] Fetched 86 published official routes from Firestore @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useRouteGeneration.ts:59
+[   77297ms] [LOG] [useCommunityEnrichment] Subscribing for route IDs: [exeo20trVhbR9WQpVJnK, r4br9OpdABLTrpp1nrp5, gB1eSwk4iV5rfIANplMQ] @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:300
+[   77342ms] [LOG] [ActivityStore] No Firestore data, created new day @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:672
+[   77388ms] [LOG] [useCommunityEnrichment] Events resolved: 0 routes with real events @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:318
+[   77394ms] [LOG] [useCommunityEnrichment] Broad groups query returned: 54 groups @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:355
+[   77394ms] [LOG] [groupDocToEnrichments] Group has no slots: 2itoy043w50eWgckTWq1 ריצה עם דוד מובשוביץ @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77395ms] [LOG] [groupDocToEnrichments] Group has no slots: 4C7x6ALCdqIGMvvhP75j הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77395ms] [LOG] [groupDocToEnrichments] Group has no slots: 4Ds9XlRPel93FRelfIN6 ריצה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77395ms] [LOG] [groupDocToEnrichments] Group has no slots: 5wJ66moZcncaLwpB2eh3 הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77395ms] [LOG] [groupDocToEnrichments] Group has no slots: 7lNIrMQ3nYVNKOIZtPji הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77395ms] [LOG] [groupDocToEnrichments] Group has no slots: 80qRbtwFsH9MS040viXI הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77395ms] [LOG] [groupDocToEnrichments] Group has no slots: 91OJbugQf5ELVx3XIr43 Joseph family steps @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77395ms] [LOG] [groupDocToEnrichments] Group has no slots: 936xJAUtYgnIeIfcNUA0 הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77395ms] [LOG] [groupDocToEnrichments] Group has no slots: 9SnLoWtfAG0LHr5VDe6x הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77395ms] [LOG] [groupDocToEnrichments] Group has no slots: A4unlXH75xtJ3yQsLg42 קובצת הליכה ניר עוז @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77395ms] [LOG] [groupDocToEnrichments] Group has no slots: BPv2kYF7ti02cQAwCeRz הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77395ms] [LOG] [groupDocToEnrichments] Group has no slots: Begyd76BDorr7B2IqkKn הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77395ms] [LOG] [groupDocToEnrichments] Group has no slots: DAz20GMBiQwA1IcZtdjM ריצה עם דוד מובשוביץ @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77395ms] [LOG] [groupDocToEnrichments] Group has no slots: HWRpHP7rnHh8VryMTIsR ריצה בשכונה @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77395ms] [LOG] [groupDocToEnrichments] Group has no slots: J7SwVukdWK0fzG3Sq8cx ריצה עם דוד מובשוביץ @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77395ms] [LOG] [groupDocToEnrichments] Group has no slots: MnFpg5rgGbL99YjlQQ4B הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77395ms] [LOG] [groupDocToEnrichments] Group has no slots: NoQ2IZh9WVbWIrV4kwLX ריצה עם דוד מובשוביץ @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77395ms] [LOG] [groupDocToEnrichments] Group has no slots: OFREV3syAGJxwGSYpBWK ריצה עם דוד מובשוביץ @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77395ms] [LOG] [groupDocToEnrichments] Group has no slots: ShJgL88m8jAOfgDz5k5U הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77395ms] [LOG] [groupDocToEnrichments] Group has no slots: TOZENoGer01MsVqJVXm0 ריצה עם דוד מובשוביץ @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77395ms] [LOG] [groupDocToEnrichments] Group has no slots: VGiFH1zm6lELgtXqCR9g ריצה עם דוד מובשוביץ @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77395ms] [LOG] [groupDocToEnrichments] Group has no slots: VmA0wjX5PZufEFLjhWsV ריצה עם דוד מובשוביץ @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77395ms] [LOG] [groupDocToEnrichments] Group has no slots: Vq4d1uxUcwtMKXWhvB7H הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77395ms] [LOG] [groupDocToEnrichments] Group has no slots: WlrV1YO6VfEdeHi1nin1 הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77396ms] [LOG] [groupDocToEnrichments] Group has no slots: aUXeEjbXNmrAoQHA34Ln ריצה עם דוד מובשוביץ @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77396ms] [LOG] [groupDocToEnrichments] Group has no slots: cLklTOHgUcmFjYhfBTlj הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77396ms] [LOG] [groupDocToEnrichments] Group has no slots: ec2ljEvhsynkRi7ciA5Q ריצה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77396ms] [LOG] [groupDocToEnrichments] Group has no slots: f6QqFEGsnQkCin0w2Bar הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77396ms] [LOG] [groupDocToEnrichments] Group has no slots: kaw1s24cfcWX2cNoHBT9 ריצה עם דוד מובשוביץ @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77396ms] [LOG] [groupDocToEnrichments] Group has no slots: l38ZB5AjrcdHTraZoJCX ריצה עם דוד מובשוביץ @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77396ms] [LOG] [groupDocToEnrichments] Group has no slots: lgbCgV6LPh5PLOqwVmJ2 קק @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77396ms] [LOG] [groupDocToEnrichments] Group has no slots: maccabiah_lsit_2026 אתגר ה-L-Sit · מכביה 2026 @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77396ms] [LOG] [groupDocToEnrichments] Group has no slots: nyEA7AnvJ1xeD7GY7nef ריצה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77396ms] [LOG] [groupDocToEnrichments] Group has no slots: pGZIF2qmEMdzfHvjegqf הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77396ms] [LOG] [groupDocToEnrichments] Group has no slots: pUQgscmxX8Oo10osvPpI הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77396ms] [LOG] [groupDocToEnrichments] Group has no slots: ph27i0bLZWkwHYPzkb9e ריצה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:175
+[   77396ms] [LOG] [useCommunityEnrichment] Groups resolved: 0 routes with recurring sessions @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:359
+[   77584ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:805
+[   78026ms] [LOG] [ActivityStore] No Firestore data, created new day @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:672
+[   78183ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:805
+[   91553ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[  116209ms] [LOG] [A2-SPIKE][useGPS] fix accepted {lat: 32.09391482127041, lng: 34.88247707751944, ts: 1788454115713} @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGPS.ts:219
+[  116287ms] [LOG] [useSuggestionEngineStore] runSuggestionEngine took 25ms (5 candidates) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/store/useSuggestionEngineStore.ts:85
+[  128140ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[  128418ms] [LOG] [Fast Refresh] done in 278ms @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[  133020ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[  144604ms] [LOG] [A2-SPIKE][useGPS] watch-effect run {simulationActive: false, gpsPaused: true, isForeground: false, workoutActive: false, sessionStatus: idle} @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGPS.ts:240

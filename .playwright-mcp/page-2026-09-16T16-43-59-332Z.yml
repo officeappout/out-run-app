@@ -1,0 +1,88 @@
+- generic [active] [ref=e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=e2]:
+    - main [ref=e865]:
+      - generic [ref=e867]:
+        - button "פרופיל" [ref=e868] [cursor=pointer]
+        - link "OUT" [ref=e881] [cursor=pointer]:
+          - /url: /home
+          - img "OUT" [ref=e882]
+        - generic [ref=e883]:
+          - button "התראות" [ref=e884] [cursor=pointer]
+          - button "הודעות" [ref=e888] [cursor=pointer]
+          - link "חיפוש" [ref=e891] [cursor=pointer]:
+            - /url: /search
+      - generic [ref=e897]:
+        - generic:
+          - region "Map" [ref=e898]
+          - generic "Map marker" [ref=e954]:
+            - img "User Location" [ref=e960]
+          - generic "Map marker" [ref=e1085]:
+            - button "גן כושר החשמל - תל אביב" [ref=e1086] [cursor=pointer]:
+              - img "גן כושר החשמל - תל אביב" [ref=e1088]
+        - generic:
+          - link "Mapbox logo" [ref=e900] [cursor=pointer]:
+            - /url: https://www.mapbox.com/
+          - list [ref=e902]:
+            - link "Mapbox" [ref=e903] [cursor=pointer]:
+              - /url: https://www.mapbox.com/about/maps
+              - text: © Mapbox
+            - link "OpenStreetMap" [ref=e904] [cursor=pointer]:
+              - /url: https://www.openstreetmap.org/copyright/
+              - text: © OpenStreetMap
+            - link "Map feedback" [ref=e905] [cursor=pointer]:
+              - /url: https://apps.mapbox.com/feedback/?owner=mapbox&id=streets-v12&access_token=pk.eyJ1IjoiZGF2aWQtb3V0IiwiYSI6ImNtanZpZmJ0djM5MTEzZXF5YXNmcm9zNGwifQ.8MD8s4TZOr0WYYgEpFfpzw#/34.77573/32.05577/15
+              - text: Improve this map
+      - generic:
+        - generic:
+          - textbox "לאן הולכים?" [ref=e1094]
+          - generic [ref=e1096]:
+            - button "גלה מסלולים" [ref=e1097] [cursor=pointer]
+            - button "אירובי חופשי" [ref=e1100] [cursor=pointer]
+            - button "שותפים לאימון" [ref=e1103] [cursor=pointer]
+          - button "חפש באזור זה" [ref=e1110] [cursor=pointer]
+      - generic [ref=e1112] [cursor=pointer]:
+        - generic [ref=e1113]:
+          - img "גן כושר החשמל - תל אביב" [ref=e1114]
+          - button "close" [ref=e1115]
+        - generic [ref=e1117]:
+          - heading "גן כושר החשמל - תל אביב" [level=3] [ref=e1118]
+          - generic [ref=e1119]: תל אביב-יפו · 650 מטר ממך
+          - generic [ref=e1121]:
+            - generic [ref=e1122]: הצללה
+            - generic [ref=e1130]: ספסלים
+        - button "נווט לפארק" [ref=e1133]
+      - generic [ref=e966]:
+        - button "סגור 🧪 מיקום פיתוח" [ref=e967] [cursor=pointer]:
+          - generic [ref=e968]: סגור
+          - generic [ref=e969]: 🧪 מיקום פיתוח
+        - generic [ref=e970]:
+          - generic [ref=e1011]: תל אביב
+          - combobox [ref=e971]:
+            - option "תל אביב" [selected]
+            - option "ירושלים"
+            - option "חיפה"
+            - option "ראשון לציון"
+            - option "אשדוד"
+            - option "אשקלון"
+            - option "באר שבע"
+            - option "נתניה"
+            - option "פתח תקווה"
+            - option "רחובות"
+            - option "הרצליה"
+            - option "שדרות"
+            - option "אופקים"
+            - option "נתיבות"
+            - option "בית שמש"
+            - option "כפר סבא"
+            - option "רמת גן"
+          - generic [ref=e972]:
+            - button "הפעל" [ref=e973] [cursor=pointer]
+            - button "כבה" [ref=e974] [cursor=pointer]
+  - navigation [ref=e943]:
+    - generic [ref=e944]:
+      - link "בית" [ref=e945] [cursor=pointer]:
+        - /url: /home
+      - link "מפה" [ref=e950] [cursor=pointer]:
+        - /url: /map
+  - alert [ref=e21]

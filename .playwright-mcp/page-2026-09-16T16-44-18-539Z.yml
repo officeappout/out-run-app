@@ -1,0 +1,214 @@
+- generic [active] [ref=e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=e2]:
+    - main [ref=e865]:
+      - generic [ref=e867]:
+        - button "פרופיל" [ref=e868] [cursor=pointer]
+        - link "OUT" [ref=e881] [cursor=pointer]:
+          - /url: /home
+          - img "OUT" [ref=e882]
+        - generic [ref=e883]:
+          - button "התראות" [ref=e884] [cursor=pointer]
+          - button "הודעות" [ref=e888] [cursor=pointer]
+          - link "חיפוש" [ref=e891] [cursor=pointer]:
+            - /url: /search
+      - generic [ref=e897]:
+        - generic:
+          - region "Map" [ref=e898]
+          - generic "Map marker" [ref=e954]:
+            - img "User Location" [ref=e960]
+          - generic "Map marker" [ref=e1085]:
+            - button "גן כושר החשמל - תל אביב" [ref=e1086] [cursor=pointer]:
+              - img "גן כושר החשמל - תל אביב" [ref=e1088]
+        - generic:
+          - link "Mapbox logo" [ref=e900] [cursor=pointer]:
+            - /url: https://www.mapbox.com/
+          - list [ref=e902]:
+            - link "Mapbox" [ref=e903] [cursor=pointer]:
+              - /url: https://www.mapbox.com/about/maps
+              - text: © Mapbox
+            - link "OpenStreetMap" [ref=e904] [cursor=pointer]:
+              - /url: https://www.openstreetmap.org/copyright/
+              - text: © OpenStreetMap
+            - link "Map feedback" [ref=e905] [cursor=pointer]:
+              - /url: https://apps.mapbox.com/feedback/?owner=mapbox&id=streets-v12&access_token=pk.eyJ1IjoiZGF2aWQtb3V0IiwiYSI6ImNtanZpZmJ0djM5MTEzZXF5YXNmcm9zNGwifQ.8MD8s4TZOr0WYYgEpFfpzw#/34.77573/32.05577/15
+              - text: Improve this map
+      - generic:
+        - generic:
+          - textbox "לאן הולכים?" [ref=e1094]
+          - generic [ref=e1096]:
+            - button "גלה מסלולים" [ref=e1097] [cursor=pointer]
+            - button "אירובי חופשי" [ref=e1100] [cursor=pointer]
+            - button "שותפים לאימון" [ref=e1103] [cursor=pointer]
+          - button "חפש באזור זה" [ref=e1110] [cursor=pointer]
+      - generic [ref=e1112] [cursor=pointer]:
+        - generic [ref=e1113]:
+          - img "גן כושר החשמל - תל אביב" [ref=e1114]
+          - button "close" [ref=e1115]
+        - generic [ref=e1117]:
+          - heading "גן כושר החשמל - תל אביב" [level=3] [ref=e1118]
+          - generic [ref=e1119]: תל אביב-יפו · 650 מטר ממך
+          - generic [ref=e1121]:
+            - generic [ref=e1122]: הצללה
+            - generic [ref=e1130]: ספסלים
+        - button "נווט לפארק" [ref=e1133]
+      - generic [ref=e1137]:
+        - generic:
+          - generic:
+            - button
+            - heading "גן כושר החשמל - תל אביב" [level=1]
+        - generic [ref=e1140]:
+          - generic [ref=e1141]:
+            - img "גן כושר החשמל - תל אביב" [ref=e1142]
+            - button [ref=e1144] [cursor=pointer]
+          - generic [ref=e1148]:
+            - generic [ref=e1149]: גינת כושר
+            - heading "גן כושר החשמל - תל אביב" [level=1] [ref=e1150]
+          - generic [ref=e1151]:
+            - generic [ref=e1152]:
+              - generic [ref=e1153]: 650 מטר ממך
+              - generic [ref=e1156]: תל אביב-יפו
+            - generic [ref=e1160]:
+              - generic [ref=e1161]:
+                - heading "מתאמנים" [level=3] [ref=e1162]
+                - generic [ref=e1166]:
+                  - button "היום" [ref=e1167] [cursor=pointer]
+                  - button "מחר" [ref=e1168] [cursor=pointer]
+                  - button "השבוע" [ref=e1169] [cursor=pointer]
+              - generic [ref=e1171]:
+                - generic [ref=e1177]: אף אחד עוד לא פרסם שהוא מגיע...
+                - button "אני מגיע ב..." [ref=e1178] [cursor=pointer]
+            - generic [ref=e1179]:
+              - heading "פירוט על הפארק" [level=3] [ref=e1180]
+              - generic [ref=e1181]:
+                - generic [ref=e1182]: הצללה
+                - generic [ref=e1190]: ספסלים
+                - generic [ref=e1192]: ברזיית מים
+            - paragraph [ref=e1196]: בגינה הציבורית מתקני כושר מגוונים, פינת ישיבה מוצלת, ברזייה לרענון, וספסלים לנוחות המתאמנים והמבקרים.
+            - generic [ref=e1197]:
+              - heading "מתקנים" [level=3] [ref=e1198]
+              - generic [ref=e1199]:
+                - button "מיטת עליית בטן (Urbanics)" [ref=e1200] [cursor=pointer]:
+                  - generic [ref=e1202]:
+                    - paragraph [ref=e1203]: מיטת עליית בטן
+                    - paragraph [ref=e1204]: Urbanics
+                    - generic [ref=e1205]: סרטון זמין
+                - button "הרקולס דחיפה/משיכה (Urbanics)" [ref=e1208] [cursor=pointer]:
+                  - generic [ref=e1210]:
+                    - paragraph [ref=e1211]: הרקולס דחיפה/משיכה
+                    - paragraph [ref=e1212]: Urbanics
+                    - generic [ref=e1213]: סרטון זמין
+                - button "פשיטת ברך בישיבה (Urbanics)" [ref=e1216] [cursor=pointer]:
+                  - generic [ref=e1218]:
+                    - paragraph [ref=e1219]: פשיטת ברך בישיבה
+                    - paragraph [ref=e1220]: Urbanics
+                    - generic [ref=e1221]: סרטון זמין
+                - button "פרפר במכונה (Urbanics)" [ref=e1224] [cursor=pointer]:
+                  - generic [ref=e1226]:
+                    - paragraph [ref=e1227]: פרפר במכונה
+                    - paragraph [ref=e1228]: Urbanics
+                    - generic [ref=e1229]: סרטון זמין
+                - button "סטפר (Urbanics)" [ref=e1232] [cursor=pointer]:
+                  - generic [ref=e1234]:
+                    - paragraph [ref=e1235]: סטפר
+                    - paragraph [ref=e1236]: Urbanics
+                    - generic [ref=e1237]: סרטון זמין
+                - button "מקבילים כנף (Urbanics)" [ref=e1240] [cursor=pointer]:
+                  - generic [ref=e1242]:
+                    - paragraph [ref=e1243]: מקבילים כנף
+                    - paragraph [ref=e1244]: Urbanics
+                    - generic [ref=e1245]: סרטון זמין
+                - button "מקבילים ארוכים (Urbanics)" [ref=e1248] [cursor=pointer]:
+                  - generic [ref=e1250]:
+                    - paragraph [ref=e1251]: מקבילים ארוכים
+                    - paragraph [ref=e1252]: Urbanics
+                    - generic [ref=e1253]: סרטון זמין
+                - button "מתח גריפ (Urbanics)" [ref=e1256] [cursor=pointer]:
+                  - generic [ref=e1258]:
+                    - paragraph [ref=e1259]: מתח גריפ
+                    - paragraph [ref=e1260]: Urbanics
+                    - generic [ref=e1261]: סרטון זמין
+                - button "מתח מדורג (Urbanics)" [ref=e1264] [cursor=pointer]:
+                  - generic [ref=e1266]:
+                    - paragraph [ref=e1267]: מתח מדורג
+                    - paragraph [ref=e1268]: Urbanics
+                    - generic [ref=e1269]: סרטון זמין
+                - button "סולם שוודי (Urbanics)" [ref=e1272] [cursor=pointer]:
+                  - generic [ref=e1274]:
+                    - paragraph [ref=e1275]: סולם שוודי
+                    - paragraph [ref=e1276]: Urbanics
+                    - generic [ref=e1277]: סרטון זמין
+                - button "מתח (Urbanics)" [ref=e1280] [cursor=pointer]:
+                  - generic [ref=e1282]:
+                    - paragraph [ref=e1283]: מתח
+                    - paragraph [ref=e1284]: Urbanics
+                    - generic [ref=e1285]: סרטון זמין
+                - button "רצועות חתירה TRX (Ludos)" [ref=e1288] [cursor=pointer]:
+                  - generic [ref=e1290]:
+                    - paragraph [ref=e1291]: רצועות חתירה TRX
+                    - paragraph [ref=e1292]: Ludos
+                    - generic [ref=e1293]: סרטון זמין
+                - button "רצועות חתירה מתכווננות (Urbanics)" [ref=e1296] [cursor=pointer]:
+                  - generic [ref=e1298]:
+                    - paragraph [ref=e1299]: רצועות חתירה מתכווננות
+                    - paragraph [ref=e1300]: Urbanics
+                    - generic [ref=e1301]: סרטון זמין
+                - button "חבל טיפוס (Urbanics)" [ref=e1304] [cursor=pointer]:
+                  - generic [ref=e1306]:
+                    - paragraph [ref=e1307]: חבל טיפוס
+                    - paragraph [ref=e1308]: Urbanics
+                    - generic [ref=e1309]: סרטון זמין
+                - button "מתח גל מרובע (Urbanics)" [ref=e1312] [cursor=pointer]:
+                  - generic [ref=e1314]:
+                    - paragraph [ref=e1315]: מתח גל מרובע
+                    - paragraph [ref=e1316]: Urbanics
+                    - generic [ref=e1317]: סרטון זמין
+                - button "מתח מסתובב (Urbanics)" [ref=e1320] [cursor=pointer]:
+                  - generic [ref=e1322]:
+                    - paragraph [ref=e1323]: מתח מסתובב
+                    - paragraph [ref=e1324]: Urbanics
+                    - generic [ref=e1325]: סרטון זמין
+                - button "מתח רחב (Urbanics)" [ref=e1328] [cursor=pointer]:
+                  - generic [ref=e1330]:
+                    - paragraph [ref=e1331]: מתח רחב
+                    - paragraph [ref=e1332]: Urbanics
+                    - generic [ref=e1333]: סרטון זמין
+            - button "דרג את המקום" [ref=e1337] [cursor=pointer]
+        - generic [ref=e1341]:
+          - button "התחל אימון" [ref=e1342] [cursor=pointer]
+          - button "עדכן פרטים" [ref=e1346] [cursor=pointer]
+          - button "ניווט" [ref=e1350] [cursor=pointer]
+      - generic [ref=e966]:
+        - button "סגור 🧪 מיקום פיתוח" [ref=e967] [cursor=pointer]:
+          - generic [ref=e968]: סגור
+          - generic [ref=e969]: 🧪 מיקום פיתוח
+        - generic [ref=e970]:
+          - generic [ref=e1011]: תל אביב
+          - combobox [ref=e971]:
+            - option "תל אביב" [selected]
+            - option "ירושלים"
+            - option "חיפה"
+            - option "ראשון לציון"
+            - option "אשדוד"
+            - option "אשקלון"
+            - option "באר שבע"
+            - option "נתניה"
+            - option "פתח תקווה"
+            - option "רחובות"
+            - option "הרצליה"
+            - option "שדרות"
+            - option "אופקים"
+            - option "נתיבות"
+            - option "בית שמש"
+            - option "כפר סבא"
+            - option "רמת גן"
+          - generic [ref=e972]:
+            - button "הפעל" [ref=e973] [cursor=pointer]
+            - button "כבה" [ref=e974] [cursor=pointer]
+  - navigation [ref=e943]:
+    - generic [ref=e944]:
+      - link "בית" [ref=e945] [cursor=pointer]:
+        - /url: /home
+      - link "מפה" [ref=e950] [cursor=pointer]:
+        - /url: /map
+  - alert [ref=e21]

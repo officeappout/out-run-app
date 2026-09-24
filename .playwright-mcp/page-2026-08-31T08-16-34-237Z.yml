@@ -1,0 +1,2158 @@
+- generic [ref=f62e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f62e2]:
+    - generic [ref=f62e3]:
+      - generic [ref=f62e5]:
+        - button "פרופיל" [ref=f62e6] [cursor=pointer]:
+          - generic [ref=f62e7]: Q
+          - generic [ref=f62e9]: "1"
+        - link "OUT" [ref=f62e17] [cursor=pointer]:
+          - /url: /home
+          - img "OUT" [ref=f62e18]
+        - generic [ref=f62e19]:
+          - button "התראות" [ref=f62e20] [cursor=pointer]
+          - button "הודעות" [ref=f62e24] [cursor=pointer]
+          - link "חיפוש" [ref=f62e27] [cursor=pointer]:
+            - /url: /search
+      - button "54%" [ref=f62e32] [cursor=pointer]
+      - generic [ref=f62e39]:
+        - generic [ref=f62e41]:
+          - heading "לו״ז אימונים" [level=2] [ref=f62e43]
+          - generic [ref=f62e44]:
+            - button "סנכרון ליומן" [ref=f62e45] [cursor=pointer]
+            - button "שינוי לוז" [active] [ref=f62e47] [cursor=pointer]
+          - generic [ref=f62e53]:
+            - generic [ref=f62e54]:
+              - generic [ref=f62e55]: א
+              - button [ref=f62e56] [cursor=pointer]:
+                - generic "מנוחה" [ref=f62e59]:
+                  - generic [ref=f62e60]:
+                    - text: Z
+                    - superscript [ref=f62e61]: z
+            - generic [ref=f62e62]:
+              - generic [ref=f62e63]: ב
+              - button [ref=f62e236] [cursor=pointer]
+            - generic [ref=f62e70]:
+              - generic [ref=f62e71]: ג
+              - button [ref=f62e72] [cursor=pointer]
+            - generic [ref=f62e78]:
+              - generic [ref=f62e79]: ד
+              - button [ref=f62e244] [cursor=pointer]
+            - generic [ref=f62e86]:
+              - generic [ref=f62e87]: ה
+              - button [ref=f62e88] [cursor=pointer]
+            - generic [ref=f62e94]:
+              - generic [ref=f62e95]: ו
+              - button [ref=f62e96] [cursor=pointer]:
+                - generic "מנוחה" [ref=f62e99]:
+                  - generic [ref=f62e100]:
+                    - text: Z
+                    - superscript [ref=f62e101]: z
+            - generic [ref=f62e102]:
+              - generic [ref=f62e103]: ש
+              - button [ref=f62e104] [cursor=pointer]:
+                - generic "מנוחה" [ref=f62e107]:
+                  - generic [ref=f62e108]:
+                    - text: Z
+                    - superscript [ref=f62e109]: z
+        - generic [ref=f62e112]:
+          - generic [ref=f62e113]:
+            - generic [ref=f62e114]:
+              - heading "האימון היומי שלך" [level=3] [ref=f62e252]
+              - 'button "מיקום האימון: בבית" [ref=f62e254] [cursor=pointer]':
+                - generic [ref=f62e258]: בבית
+            - paragraph [ref=f62e261]: אימון כללי ממוקד בפארק המבוסס על גוף מלא_פיזיולוגי. התוכנית כוללת 25 דקות של עבודה עצבית גבוהה.
+          - generic [ref=f62e262]:
+            - generic [ref=f62e264]:
+              - generic [ref=f62e268] [cursor=pointer]:
+                - img "Workout" [ref=f62e270]
+                - generic [ref=f62e273]:
+                  - generic "מקבילים" [ref=f62e274]:
+                    - img "מקבילים" [ref=f62e275]
+                  - generic "מדרגה" [ref=f62e276]:
+                    - img "מדרגה" [ref=f62e277]
+                - generic [ref=f62e278]:
+                  - generic [ref=f62e280]:
+                    - generic [ref=f62e281]: בינוני
+                    - generic [ref=f62e283]: "|"
+                    - generic [ref=f62e284]: 25 דקות
+                  - 'heading "פרוטוקול כוח בפארק: שלב השלב הנוכחי" [level=4] [ref=f62e286]'
+                  - generic: מוכן לגלות את האתגר?
+              - generic [ref=f62e290] [cursor=pointer]:
+                - img "Workout" [ref=f62e292]
+                - generic "ללא ציוד – משקל גוף" [ref=f62e296]
+                - generic [ref=f62e301]:
+                  - generic [ref=f62e303]:
+                    - generic [ref=f62e304]: 🧘 התאוששות פעילה
+                    - generic [ref=f62e305]: "|"
+                    - generic [ref=f62e306]: 14 דקות
+                  - 'heading "סשן התאוששות #3" [level=4] [ref=f62e308]'
+                  - generic: מוכן לגלות את האתגר?
+              - generic [ref=f62e311]:
+                - generic [ref=f62e312]:
+                  - heading "הליכה קלה" [level=3] [ref=f62e313]
+                  - paragraph [ref=f62e314]: בלי ציוד, בלי שאלון — תמיד אפשרות
+                  - generic [ref=f62e315]: קל
+                  - paragraph [ref=f62e319]: 30 דקות
+                - button "התחל" [ref=f62e320] [cursor=pointer]
+            - generic [ref=f62e321]:
+              - button "הצעה 1" [ref=f62e322] [cursor=pointer]
+              - button "הצעה 2" [ref=f62e323] [cursor=pointer]
+              - button "הצעה 3" [ref=f62e324] [cursor=pointer]
+          - generic [ref=f62e118]: תבנה אימון שמתאים למה שיש לך היום ✦
+        - generic [ref=f62e120]:
+          - generic [ref=f62e121]:
+            - button "התקדמות שבועית" [ref=f62e122] [cursor=pointer]
+            - button "מדדי בריאות" [ref=f62e123] [cursor=pointer]
+          - generic [ref=f62e124]:
+            - generic [ref=f62e126]:
+              - generic [ref=f62e127]:
+                - heading "ליבה" [level=3] [ref=f62e133]
+                - paragraph [ref=f62e134]: רמה 3/20
+                - generic [ref=f62e135]: עוד 99% לרמה 4
+              - generic [ref=f62e139]: 1%
+            - generic [ref=f62e145]:
+              - generic [ref=f62e147]:
+                - generic [ref=f62e148]: כוח
+                - generic [ref=f62e152]: 1/3
+              - generic [ref=f62e157]:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: ריצה
+                      - generic: 0/3
+                - button "הוסף תוכנית ריצה" [ref=f62e158] [cursor=pointer]
+        - generic [ref=f62e333]:
+          - heading "גינות כושר קרובות" [level=3] [ref=f62e334]
+          - button [ref=f62e341] [cursor=pointer]:
+            - generic [ref=f62e346]:
+              - paragraph [ref=f62e347]: הפעל גישת מיקום
+              - paragraph [ref=f62e348]: כדי למצוא גינות כושר קרובות, נדרשת גישה למיקומך
+      - generic [ref=f62e351]:
+        - generic [ref=f62e353]:
+          - heading "תכנון אימונים" [level=2] [ref=f62e357]
+          - button "סגור" [ref=f62e359] [cursor=pointer]
+        - generic [ref=f62e363]:
+          - generic [ref=f62e365]:
+            - generic [ref=f62e366]: 30 אוגוסט — 5 ספטמבר
+            - generic [ref=f62e368]:
+              - generic [ref=f62e369]:
+                - generic [ref=f62e370]: א
+                - generic [ref=f62e372]: ב
+                - generic [ref=f62e374]: ג
+                - generic [ref=f62e376]: ד
+                - generic [ref=f62e378]: ה
+                - generic [ref=f62e380]: ו
+                - generic [ref=f62e382]: ש
+              - generic [ref=f62e385]:
+                - button "26"
+                - button "27"
+                - button "28"
+                - button "29"
+                - button "30"
+                - button "31"
+                - button "1 מנוחה" [ref=f62e386] [cursor=pointer]:
+                  - generic [ref=f62e387]: "1"
+                  - generic "מנוחה" [ref=f62e392]:
+                    - generic [ref=f62e393]:
+                      - text: Z
+                      - superscript [ref=f62e394]: z
+          - button "הרחב לוח שנה" [ref=f62e395] [cursor=pointer]
+          - generic [ref=f62e401]:
+            - generic [ref=f62e402]: 26 יולי — 1 אוגוסט
+            - generic [ref=f62e406]:
+              - button "ש׳ 1 🛌 מנוחה" [ref=f62e407] [cursor=pointer]:
+                - generic [ref=f62e408]:
+                  - generic [ref=f62e409]: ש׳
+                  - generic [ref=f62e410]: "1"
+                - generic [ref=f62e414]: 🛌 מנוחה
+              - generic [ref=f62e416]:
+                - generic [ref=f62e419]:
+                  - heading "מחיקת אימון?" [level=2] [ref=f62e420]
+                  - paragraph [ref=f62e421]: האימון יוסר מהלוח השבועי
+                - generic [ref=f62e422]:
+                  - button "מחק" [ref=f62e423] [cursor=pointer]
+                  - button "ביטול" [ref=f62e424] [cursor=pointer]
+            - generic [ref=f62e425]: 2–8 אוגוסט
+            - generic [ref=f62e427]:
+              - generic [ref=f62e429]:
+                - button "א׳ 2 🛌 מנוחה" [ref=f62e430] [cursor=pointer]:
+                  - generic [ref=f62e431]:
+                    - generic [ref=f62e432]: א׳
+                    - generic [ref=f62e433]: "2"
+                  - generic [ref=f62e437]: 🛌 מנוחה
+                - generic [ref=f62e439]:
+                  - generic [ref=f62e442]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e443]
+                    - paragraph [ref=f62e444]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e445]:
+                    - button "מחק" [ref=f62e446] [cursor=pointer]
+                    - button "ביטול" [ref=f62e447] [cursor=pointer]
+              - generic [ref=f62e450]:
+                - button "ב׳ 3 🛌 מנוחה" [ref=f62e451] [cursor=pointer]:
+                  - generic [ref=f62e452]:
+                    - generic [ref=f62e453]: ב׳
+                    - generic [ref=f62e454]: "3"
+                  - generic [ref=f62e458]: 🛌 מנוחה
+                - generic [ref=f62e460]:
+                  - generic [ref=f62e463]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e464]
+                    - paragraph [ref=f62e465]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e466]:
+                    - button "מחק" [ref=f62e467] [cursor=pointer]
+                    - button "ביטול" [ref=f62e468] [cursor=pointer]
+              - generic [ref=f62e471]:
+                - button "ג׳ 4 🛌 מנוחה" [ref=f62e472] [cursor=pointer]:
+                  - generic [ref=f62e473]:
+                    - generic [ref=f62e474]: ג׳
+                    - generic [ref=f62e475]: "4"
+                  - generic [ref=f62e479]: 🛌 מנוחה
+                - generic [ref=f62e481]:
+                  - generic [ref=f62e484]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e485]
+                    - paragraph [ref=f62e486]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e487]:
+                    - button "מחק" [ref=f62e488] [cursor=pointer]
+                    - button "ביטול" [ref=f62e489] [cursor=pointer]
+              - generic [ref=f62e492]:
+                - button "ד׳ 5 🛌 מנוחה" [ref=f62e493] [cursor=pointer]:
+                  - generic [ref=f62e494]:
+                    - generic [ref=f62e495]: ד׳
+                    - generic [ref=f62e496]: "5"
+                  - generic [ref=f62e500]: 🛌 מנוחה
+                - generic [ref=f62e502]:
+                  - generic [ref=f62e505]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e506]
+                    - paragraph [ref=f62e507]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e508]:
+                    - button "מחק" [ref=f62e509] [cursor=pointer]
+                    - button "ביטול" [ref=f62e510] [cursor=pointer]
+              - generic [ref=f62e513]:
+                - button "ה׳ 6 🛌 מנוחה" [ref=f62e514] [cursor=pointer]:
+                  - generic [ref=f62e515]:
+                    - generic [ref=f62e516]: ה׳
+                    - generic [ref=f62e517]: "6"
+                  - generic [ref=f62e521]: 🛌 מנוחה
+                - generic [ref=f62e523]:
+                  - generic [ref=f62e526]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e527]
+                    - paragraph [ref=f62e528]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e529]:
+                    - button "מחק" [ref=f62e530] [cursor=pointer]
+                    - button "ביטול" [ref=f62e531] [cursor=pointer]
+              - generic [ref=f62e534]:
+                - button "ו׳ 7 🛌 מנוחה" [ref=f62e535] [cursor=pointer]:
+                  - generic [ref=f62e536]:
+                    - generic [ref=f62e537]: ו׳
+                    - generic [ref=f62e538]: "7"
+                  - generic [ref=f62e542]: 🛌 מנוחה
+                - generic [ref=f62e544]:
+                  - generic [ref=f62e547]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e548]
+                    - paragraph [ref=f62e549]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e550]:
+                    - button "מחק" [ref=f62e551] [cursor=pointer]
+                    - button "ביטול" [ref=f62e552] [cursor=pointer]
+              - generic [ref=f62e555]:
+                - button "ש׳ 8 🛌 מנוחה" [ref=f62e556] [cursor=pointer]:
+                  - generic [ref=f62e557]:
+                    - generic [ref=f62e558]: ש׳
+                    - generic [ref=f62e559]: "8"
+                  - generic [ref=f62e563]: 🛌 מנוחה
+                - generic [ref=f62e565]:
+                  - generic [ref=f62e568]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e569]
+                    - paragraph [ref=f62e570]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e571]:
+                    - button "מחק" [ref=f62e572] [cursor=pointer]
+                    - button "ביטול" [ref=f62e573] [cursor=pointer]
+            - generic [ref=f62e574]: 9–15 אוגוסט
+            - generic [ref=f62e576]:
+              - generic [ref=f62e578]:
+                - button "א׳ 9 🛌 מנוחה" [ref=f62e579] [cursor=pointer]:
+                  - generic [ref=f62e580]:
+                    - generic [ref=f62e581]: א׳
+                    - generic [ref=f62e582]: "9"
+                  - generic [ref=f62e586]: 🛌 מנוחה
+                - generic [ref=f62e588]:
+                  - generic [ref=f62e591]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e592]
+                    - paragraph [ref=f62e593]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e594]:
+                    - button "מחק" [ref=f62e595] [cursor=pointer]
+                    - button "ביטול" [ref=f62e596] [cursor=pointer]
+              - generic [ref=f62e599]:
+                - button "ב׳ 10 🛌 מנוחה" [ref=f62e600] [cursor=pointer]:
+                  - generic [ref=f62e601]:
+                    - generic [ref=f62e602]: ב׳
+                    - generic [ref=f62e603]: "10"
+                  - generic [ref=f62e607]: 🛌 מנוחה
+                - generic [ref=f62e609]:
+                  - generic [ref=f62e612]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e613]
+                    - paragraph [ref=f62e614]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e615]:
+                    - button "מחק" [ref=f62e616] [cursor=pointer]
+                    - button "ביטול" [ref=f62e617] [cursor=pointer]
+              - generic [ref=f62e620]:
+                - button "ג׳ 11 🛌 מנוחה" [ref=f62e621] [cursor=pointer]:
+                  - generic [ref=f62e622]:
+                    - generic [ref=f62e623]: ג׳
+                    - generic [ref=f62e624]: "11"
+                  - generic [ref=f62e628]: 🛌 מנוחה
+                - generic [ref=f62e630]:
+                  - generic [ref=f62e633]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e634]
+                    - paragraph [ref=f62e635]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e636]:
+                    - button "מחק" [ref=f62e637] [cursor=pointer]
+                    - button "ביטול" [ref=f62e638] [cursor=pointer]
+              - generic [ref=f62e641]:
+                - button "ד׳ 12 🛌 מנוחה" [ref=f62e642] [cursor=pointer]:
+                  - generic [ref=f62e643]:
+                    - generic [ref=f62e644]: ד׳
+                    - generic [ref=f62e645]: "12"
+                  - generic [ref=f62e649]: 🛌 מנוחה
+                - generic [ref=f62e651]:
+                  - generic [ref=f62e654]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e655]
+                    - paragraph [ref=f62e656]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e657]:
+                    - button "מחק" [ref=f62e658] [cursor=pointer]
+                    - button "ביטול" [ref=f62e659] [cursor=pointer]
+              - generic [ref=f62e662]:
+                - button "ה׳ 13 🛌 מנוחה" [ref=f62e663] [cursor=pointer]:
+                  - generic [ref=f62e664]:
+                    - generic [ref=f62e665]: ה׳
+                    - generic [ref=f62e666]: "13"
+                  - generic [ref=f62e670]: 🛌 מנוחה
+                - generic [ref=f62e672]:
+                  - generic [ref=f62e675]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e676]
+                    - paragraph [ref=f62e677]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e678]:
+                    - button "מחק" [ref=f62e679] [cursor=pointer]
+                    - button "ביטול" [ref=f62e680] [cursor=pointer]
+              - generic [ref=f62e683]:
+                - button "ו׳ 14 🛌 מנוחה" [ref=f62e684] [cursor=pointer]:
+                  - generic [ref=f62e685]:
+                    - generic [ref=f62e686]: ו׳
+                    - generic [ref=f62e687]: "14"
+                  - generic [ref=f62e691]: 🛌 מנוחה
+                - generic [ref=f62e693]:
+                  - generic [ref=f62e696]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e697]
+                    - paragraph [ref=f62e698]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e699]:
+                    - button "מחק" [ref=f62e700] [cursor=pointer]
+                    - button "ביטול" [ref=f62e701] [cursor=pointer]
+              - generic [ref=f62e704]:
+                - button "ש׳ 15 🛌 מנוחה" [ref=f62e705] [cursor=pointer]:
+                  - generic [ref=f62e706]:
+                    - generic [ref=f62e707]: ש׳
+                    - generic [ref=f62e708]: "15"
+                  - generic [ref=f62e712]: 🛌 מנוחה
+                - generic [ref=f62e714]:
+                  - generic [ref=f62e717]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e718]
+                    - paragraph [ref=f62e719]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e720]:
+                    - button "מחק" [ref=f62e721] [cursor=pointer]
+                    - button "ביטול" [ref=f62e722] [cursor=pointer]
+            - generic [ref=f62e723]: 16–22 אוגוסט
+            - generic [ref=f62e725]:
+              - generic [ref=f62e727]:
+                - button "א׳ 16 🛌 מנוחה" [ref=f62e728] [cursor=pointer]:
+                  - generic [ref=f62e729]:
+                    - generic [ref=f62e730]: א׳
+                    - generic [ref=f62e731]: "16"
+                  - generic [ref=f62e735]: 🛌 מנוחה
+                - generic [ref=f62e737]:
+                  - generic [ref=f62e740]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e741]
+                    - paragraph [ref=f62e742]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e743]:
+                    - button "מחק" [ref=f62e744] [cursor=pointer]
+                    - button "ביטול" [ref=f62e745] [cursor=pointer]
+              - generic [ref=f62e748]:
+                - button "ב׳ 17 🛌 מנוחה" [ref=f62e749] [cursor=pointer]:
+                  - generic [ref=f62e750]:
+                    - generic [ref=f62e751]: ב׳
+                    - generic [ref=f62e752]: "17"
+                  - generic [ref=f62e756]: 🛌 מנוחה
+                - generic [ref=f62e758]:
+                  - generic [ref=f62e761]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e762]
+                    - paragraph [ref=f62e763]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e764]:
+                    - button "מחק" [ref=f62e765] [cursor=pointer]
+                    - button "ביטול" [ref=f62e766] [cursor=pointer]
+              - generic [ref=f62e769]:
+                - button "ג׳ 18 🛌 מנוחה" [ref=f62e770] [cursor=pointer]:
+                  - generic [ref=f62e771]:
+                    - generic [ref=f62e772]: ג׳
+                    - generic [ref=f62e773]: "18"
+                  - generic [ref=f62e777]: 🛌 מנוחה
+                - generic [ref=f62e779]:
+                  - generic [ref=f62e782]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e783]
+                    - paragraph [ref=f62e784]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e785]:
+                    - button "מחק" [ref=f62e786] [cursor=pointer]
+                    - button "ביטול" [ref=f62e787] [cursor=pointer]
+              - generic [ref=f62e790]:
+                - button "ד׳ 19 🛌 מנוחה" [ref=f62e791] [cursor=pointer]:
+                  - generic [ref=f62e792]:
+                    - generic [ref=f62e793]: ד׳
+                    - generic [ref=f62e794]: "19"
+                  - generic [ref=f62e798]: 🛌 מנוחה
+                - generic [ref=f62e800]:
+                  - generic [ref=f62e803]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e804]
+                    - paragraph [ref=f62e805]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e806]:
+                    - button "מחק" [ref=f62e807] [cursor=pointer]
+                    - button "ביטול" [ref=f62e808] [cursor=pointer]
+              - generic [ref=f62e811]:
+                - button "ה׳ 20 🛌 מנוחה" [ref=f62e812] [cursor=pointer]:
+                  - generic [ref=f62e813]:
+                    - generic [ref=f62e814]: ה׳
+                    - generic [ref=f62e815]: "20"
+                  - generic [ref=f62e819]: 🛌 מנוחה
+                - generic [ref=f62e821]:
+                  - generic [ref=f62e824]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e825]
+                    - paragraph [ref=f62e826]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e827]:
+                    - button "מחק" [ref=f62e828] [cursor=pointer]
+                    - button "ביטול" [ref=f62e829] [cursor=pointer]
+              - generic [ref=f62e832]:
+                - button "ו׳ 21 🛌 מנוחה" [ref=f62e833] [cursor=pointer]:
+                  - generic [ref=f62e834]:
+                    - generic [ref=f62e835]: ו׳
+                    - generic [ref=f62e836]: "21"
+                  - generic [ref=f62e840]: 🛌 מנוחה
+                - generic [ref=f62e842]:
+                  - generic [ref=f62e845]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e846]
+                    - paragraph [ref=f62e847]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e848]:
+                    - button "מחק" [ref=f62e849] [cursor=pointer]
+                    - button "ביטול" [ref=f62e850] [cursor=pointer]
+              - generic [ref=f62e853]:
+                - button "ש׳ 22 🛌 מנוחה" [ref=f62e854] [cursor=pointer]:
+                  - generic [ref=f62e855]:
+                    - generic [ref=f62e856]: ש׳
+                    - generic [ref=f62e857]: "22"
+                  - generic [ref=f62e861]: 🛌 מנוחה
+                - generic [ref=f62e863]:
+                  - generic [ref=f62e866]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e867]
+                    - paragraph [ref=f62e868]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e869]:
+                    - button "מחק" [ref=f62e870] [cursor=pointer]
+                    - button "ביטול" [ref=f62e871] [cursor=pointer]
+            - generic [ref=f62e872]: 23–29 אוגוסט
+            - generic [ref=f62e874]:
+              - generic [ref=f62e876]:
+                - button "א׳ 23 🛌 מנוחה" [ref=f62e877] [cursor=pointer]:
+                  - generic [ref=f62e878]:
+                    - generic [ref=f62e879]: א׳
+                    - generic [ref=f62e880]: "23"
+                  - generic [ref=f62e884]: 🛌 מנוחה
+                - generic [ref=f62e886]:
+                  - generic [ref=f62e889]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e890]
+                    - paragraph [ref=f62e891]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e892]:
+                    - button "מחק" [ref=f62e893] [cursor=pointer]
+                    - button "ביטול" [ref=f62e894] [cursor=pointer]
+              - generic [ref=f62e897]:
+                - button "ב׳ 24 🛌 מנוחה" [ref=f62e898] [cursor=pointer]:
+                  - generic [ref=f62e899]:
+                    - generic [ref=f62e900]: ב׳
+                    - generic [ref=f62e901]: "24"
+                  - generic [ref=f62e905]: 🛌 מנוחה
+                - generic [ref=f62e907]:
+                  - generic [ref=f62e910]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e911]
+                    - paragraph [ref=f62e912]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e913]:
+                    - button "מחק" [ref=f62e914] [cursor=pointer]
+                    - button "ביטול" [ref=f62e915] [cursor=pointer]
+              - generic [ref=f62e918]:
+                - button "ג׳ 25 🛌 מנוחה" [ref=f62e919] [cursor=pointer]:
+                  - generic [ref=f62e920]:
+                    - generic [ref=f62e921]: ג׳
+                    - generic [ref=f62e922]: "25"
+                  - generic [ref=f62e926]: 🛌 מנוחה
+                - generic [ref=f62e928]:
+                  - generic [ref=f62e931]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e932]
+                    - paragraph [ref=f62e933]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e934]:
+                    - button "מחק" [ref=f62e935] [cursor=pointer]
+                    - button "ביטול" [ref=f62e936] [cursor=pointer]
+              - generic [ref=f62e939]:
+                - button "ד׳ 26 🛌 מנוחה" [ref=f62e940] [cursor=pointer]:
+                  - generic [ref=f62e941]:
+                    - generic [ref=f62e942]: ד׳
+                    - generic [ref=f62e943]: "26"
+                  - generic [ref=f62e947]: 🛌 מנוחה
+                - generic [ref=f62e949]:
+                  - generic [ref=f62e952]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e953]
+                    - paragraph [ref=f62e954]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e955]:
+                    - button "מחק" [ref=f62e956] [cursor=pointer]
+                    - button "ביטול" [ref=f62e957] [cursor=pointer]
+              - generic [ref=f62e960]:
+                - button "ה׳ 27 🛌 מנוחה" [ref=f62e961] [cursor=pointer]:
+                  - generic [ref=f62e962]:
+                    - generic [ref=f62e963]: ה׳
+                    - generic [ref=f62e964]: "27"
+                  - generic [ref=f62e968]: 🛌 מנוחה
+                - generic [ref=f62e970]:
+                  - generic [ref=f62e973]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e974]
+                    - paragraph [ref=f62e975]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e976]:
+                    - button "מחק" [ref=f62e977] [cursor=pointer]
+                    - button "ביטול" [ref=f62e978] [cursor=pointer]
+              - generic [ref=f62e981]:
+                - button "ו׳ 28 🛌 מנוחה" [ref=f62e982] [cursor=pointer]:
+                  - generic [ref=f62e983]:
+                    - generic [ref=f62e984]: ו׳
+                    - generic [ref=f62e985]: "28"
+                  - generic [ref=f62e989]: 🛌 מנוחה
+                - generic [ref=f62e991]:
+                  - generic [ref=f62e994]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e995]
+                    - paragraph [ref=f62e996]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e997]:
+                    - button "מחק" [ref=f62e998] [cursor=pointer]
+                    - button "ביטול" [ref=f62e999] [cursor=pointer]
+              - generic [ref=f62e1002]:
+                - button "ש׳ 29 🛌 מנוחה" [ref=f62e1003] [cursor=pointer]:
+                  - generic [ref=f62e1004]:
+                    - generic [ref=f62e1005]: ש׳
+                    - generic [ref=f62e1006]: "29"
+                  - generic [ref=f62e1010]: 🛌 מנוחה
+                - generic [ref=f62e1012]:
+                  - generic [ref=f62e1015]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1016]
+                    - paragraph [ref=f62e1017]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1018]:
+                    - button "מחק" [ref=f62e1019] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1020] [cursor=pointer]
+            - generic [ref=f62e1021]: 30 אוגוסט — 5 ספטמבר
+            - generic [ref=f62e1023]:
+              - generic [ref=f62e1025]:
+                - button "א׳ 30 🛌 מנוחה" [ref=f62e1026] [cursor=pointer]:
+                  - generic [ref=f62e1027]:
+                    - generic [ref=f62e1028]: א׳
+                    - generic [ref=f62e1029]: "30"
+                  - generic [ref=f62e1033]: 🛌 מנוחה
+                - generic [ref=f62e1035]:
+                  - generic [ref=f62e1038]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1039]
+                    - paragraph [ref=f62e1040]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1041]:
+                    - button "מחק" [ref=f62e1042] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1043] [cursor=pointer]
+              - generic [ref=f62e1046]:
+                - button "ב׳ 31 הוסף אימון ליום זה" [ref=f62e1047] [cursor=pointer]:
+                  - generic [ref=f62e1048]:
+                    - generic [ref=f62e1049]: ב׳
+                    - generic [ref=f62e1050]: "31"
+                  - button "הוסף אימון ליום זה" [ref=f62e1055]:
+                    - generic [ref=f62e1057]: הוסף אימון
+                - generic [ref=f62e1058]:
+                  - generic [ref=f62e1061]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1062]
+                    - paragraph [ref=f62e1063]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1064]:
+                    - button "מחק" [ref=f62e1065] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1066] [cursor=pointer]
+              - generic [ref=f62e1069]:
+                - button "ג׳ 1 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e1070] [cursor=pointer]:
+                  - generic [ref=f62e1071]:
+                    - generic [ref=f62e1072]: ג׳
+                    - generic [ref=f62e1073]: "1"
+                  - generic [ref=f62e1078]:
+                    - generic [ref=f62e1080]:
+                      - generic [ref=f62e1081]:
+                        - button "ערוך אימון" [ref=f62e1083]:
+                          - generic [ref=f62e1087]: ערוך
+                        - button "מחק אימון" [ref=f62e1089]:
+                          - generic [ref=f62e1093]: מחק
+                      - button [ref=f62e1095]:
+                        - generic [ref=f62e1097]:
+                          - img "כל הגוף" [ref=f62e1098]
+                          - paragraph [ref=f62e1099]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e1108]
+                - generic [ref=f62e1110]:
+                  - generic [ref=f62e1113]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1114]
+                    - paragraph [ref=f62e1115]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1116]:
+                    - button "מחק" [ref=f62e1117] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1118] [cursor=pointer]
+              - generic [ref=f62e1121]:
+                - button "ד׳ 2 ערוך אימון מחק אימון אימון כוח הוסף אימון ליום זה" [ref=f62e1122] [cursor=pointer]:
+                  - generic [ref=f62e1123]:
+                    - generic [ref=f62e1124]: ד׳
+                    - generic [ref=f62e1125]: "2"
+                  - generic [ref=f62e1130]:
+                    - generic [ref=f62e1132]:
+                      - generic [ref=f62e1133]:
+                        - button "ערוך אימון" [ref=f62e1135]:
+                          - generic [ref=f62e1139]: ערוך
+                        - button "מחק אימון" [ref=f62e1141]:
+                          - generic [ref=f62e1145]: מחק
+                      - button [ref=f62e1147]:
+                        - paragraph [ref=f62e1152]: אימון כוח
+                    - button "הוסף אימון ליום זה" [ref=f62e1161]
+                - generic [ref=f62e1163]:
+                  - generic [ref=f62e1166]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1167]
+                    - paragraph [ref=f62e1168]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1169]:
+                    - button "מחק" [ref=f62e1170] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1171] [cursor=pointer]
+              - generic [ref=f62e1174]:
+                - button "ה׳ 3 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e1175] [cursor=pointer]:
+                  - generic [ref=f62e1176]:
+                    - generic [ref=f62e1177]: ה׳
+                    - generic [ref=f62e1178]: "3"
+                  - generic [ref=f62e1183]:
+                    - generic [ref=f62e1185]:
+                      - generic [ref=f62e1186]:
+                        - button "ערוך אימון" [ref=f62e1188]:
+                          - generic [ref=f62e1192]: ערוך
+                        - button "מחק אימון" [ref=f62e1194]:
+                          - generic [ref=f62e1198]: מחק
+                      - button [ref=f62e1200]:
+                        - generic [ref=f62e1202]:
+                          - img "כל הגוף" [ref=f62e1203]
+                          - paragraph [ref=f62e1204]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e1213]
+                - generic [ref=f62e1215]:
+                  - generic [ref=f62e1218]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1219]
+                    - paragraph [ref=f62e1220]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1221]:
+                    - button "מחק" [ref=f62e1222] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1223] [cursor=pointer]
+              - generic [ref=f62e1226]:
+                - button "ו׳ 4 הוסף אימון ליום זה" [ref=f62e1227] [cursor=pointer]:
+                  - generic [ref=f62e1228]:
+                    - generic [ref=f62e1229]: ו׳
+                    - generic [ref=f62e1230]: "4"
+                  - button "הוסף אימון ליום זה" [ref=f62e1235]:
+                    - generic [ref=f62e1237]: הוסף אימון
+                - generic [ref=f62e1238]:
+                  - generic [ref=f62e1241]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1242]
+                    - paragraph [ref=f62e1243]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1244]:
+                    - button "מחק" [ref=f62e1245] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1246] [cursor=pointer]
+              - generic [ref=f62e1249]:
+                - button "ש׳ 5 הוסף אימון ליום זה" [ref=f62e1250] [cursor=pointer]:
+                  - generic [ref=f62e1251]:
+                    - generic [ref=f62e1252]: ש׳
+                    - generic [ref=f62e1253]: "5"
+                  - button "הוסף אימון ליום זה" [ref=f62e1258]:
+                    - generic [ref=f62e1260]: הוסף אימון
+                - generic [ref=f62e1261]:
+                  - generic [ref=f62e1264]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1265]
+                    - paragraph [ref=f62e1266]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1267]:
+                    - button "מחק" [ref=f62e1268] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1269] [cursor=pointer]
+            - generic [ref=f62e1270]: 6–12 ספטמבר
+            - generic [ref=f62e1272]:
+              - generic [ref=f62e1274]:
+                - button "א׳ 6 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e1275] [cursor=pointer]:
+                  - generic [ref=f62e1276]:
+                    - generic [ref=f62e1277]: א׳
+                    - generic [ref=f62e1278]: "6"
+                  - generic [ref=f62e1283]:
+                    - generic [ref=f62e1285]:
+                      - generic [ref=f62e1286]:
+                        - button "ערוך אימון" [ref=f62e1288]:
+                          - generic [ref=f62e1292]: ערוך
+                        - button "מחק אימון" [ref=f62e1294]:
+                          - generic [ref=f62e1298]: מחק
+                      - button [ref=f62e1300]:
+                        - generic [ref=f62e1302]:
+                          - img "כל הגוף" [ref=f62e1303]
+                          - paragraph [ref=f62e1304]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e1313]
+                - generic [ref=f62e1315]:
+                  - generic [ref=f62e1318]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1319]
+                    - paragraph [ref=f62e1320]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1321]:
+                    - button "מחק" [ref=f62e1322] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1323] [cursor=pointer]
+              - generic [ref=f62e1326]:
+                - button "ב׳ 7 הוסף אימון ליום זה" [ref=f62e1327] [cursor=pointer]:
+                  - generic [ref=f62e1328]:
+                    - generic [ref=f62e1329]: ב׳
+                    - generic [ref=f62e1330]: "7"
+                  - button "הוסף אימון ליום זה" [ref=f62e1335]:
+                    - generic [ref=f62e1337]: הוסף אימון
+                - generic [ref=f62e1338]:
+                  - generic [ref=f62e1341]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1342]
+                    - paragraph [ref=f62e1343]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1344]:
+                    - button "מחק" [ref=f62e1345] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1346] [cursor=pointer]
+              - generic [ref=f62e1349]:
+                - button "ג׳ 8 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e1350] [cursor=pointer]:
+                  - generic [ref=f62e1351]:
+                    - generic [ref=f62e1352]: ג׳
+                    - generic [ref=f62e1353]: "8"
+                  - generic [ref=f62e1358]:
+                    - generic [ref=f62e1360]:
+                      - generic [ref=f62e1361]:
+                        - button "ערוך אימון" [ref=f62e1363]:
+                          - generic [ref=f62e1367]: ערוך
+                        - button "מחק אימון" [ref=f62e1369]:
+                          - generic [ref=f62e1373]: מחק
+                      - button [ref=f62e1375]:
+                        - generic [ref=f62e1377]:
+                          - img "כל הגוף" [ref=f62e1378]
+                          - paragraph [ref=f62e1379]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e1388]
+                - generic [ref=f62e1390]:
+                  - generic [ref=f62e1393]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1394]
+                    - paragraph [ref=f62e1395]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1396]:
+                    - button "מחק" [ref=f62e1397] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1398] [cursor=pointer]
+              - generic [ref=f62e1401]:
+                - button "ד׳ 9 הוסף אימון ליום זה" [ref=f62e1402] [cursor=pointer]:
+                  - generic [ref=f62e1403]:
+                    - generic [ref=f62e1404]: ד׳
+                    - generic [ref=f62e1405]: "9"
+                  - button "הוסף אימון ליום זה" [ref=f62e1410]:
+                    - generic [ref=f62e1412]: הוסף אימון
+                - generic [ref=f62e1413]:
+                  - generic [ref=f62e1416]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1417]
+                    - paragraph [ref=f62e1418]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1419]:
+                    - button "מחק" [ref=f62e1420] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1421] [cursor=pointer]
+              - generic [ref=f62e1424]:
+                - button "ה׳ 10 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e1425] [cursor=pointer]:
+                  - generic [ref=f62e1426]:
+                    - generic [ref=f62e1427]: ה׳
+                    - generic [ref=f62e1428]: "10"
+                  - generic [ref=f62e1433]:
+                    - generic [ref=f62e1435]:
+                      - generic [ref=f62e1436]:
+                        - button "ערוך אימון" [ref=f62e1438]:
+                          - generic [ref=f62e1442]: ערוך
+                        - button "מחק אימון" [ref=f62e1444]:
+                          - generic [ref=f62e1448]: מחק
+                      - button [ref=f62e1450]:
+                        - generic [ref=f62e1452]:
+                          - img "כל הגוף" [ref=f62e1453]
+                          - paragraph [ref=f62e1454]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e1463]
+                - generic [ref=f62e1465]:
+                  - generic [ref=f62e1468]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1469]
+                    - paragraph [ref=f62e1470]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1471]:
+                    - button "מחק" [ref=f62e1472] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1473] [cursor=pointer]
+              - generic [ref=f62e1476]:
+                - button "ו׳ 11 הוסף אימון ליום זה" [ref=f62e1477] [cursor=pointer]:
+                  - generic [ref=f62e1478]:
+                    - generic [ref=f62e1479]: ו׳
+                    - generic [ref=f62e1480]: "11"
+                  - button "הוסף אימון ליום זה" [ref=f62e1485]:
+                    - generic [ref=f62e1487]: הוסף אימון
+                - generic [ref=f62e1488]:
+                  - generic [ref=f62e1491]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1492]
+                    - paragraph [ref=f62e1493]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1494]:
+                    - button "מחק" [ref=f62e1495] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1496] [cursor=pointer]
+              - generic [ref=f62e1499]:
+                - button "ש׳ 12 הוסף אימון ליום זה" [ref=f62e1500] [cursor=pointer]:
+                  - generic [ref=f62e1501]:
+                    - generic [ref=f62e1502]: ש׳
+                    - generic [ref=f62e1503]: "12"
+                  - button "הוסף אימון ליום זה" [ref=f62e1508]:
+                    - generic [ref=f62e1510]: הוסף אימון
+                - generic [ref=f62e1511]:
+                  - generic [ref=f62e1514]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1515]
+                    - paragraph [ref=f62e1516]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1517]:
+                    - button "מחק" [ref=f62e1518] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1519] [cursor=pointer]
+            - generic [ref=f62e1520]: 13–19 ספטמבר
+            - generic [ref=f62e1522]:
+              - generic [ref=f62e1524]:
+                - button "א׳ 13 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e1525] [cursor=pointer]:
+                  - generic [ref=f62e1526]:
+                    - generic [ref=f62e1527]: א׳
+                    - generic [ref=f62e1528]: "13"
+                  - generic [ref=f62e1533]:
+                    - generic [ref=f62e1535]:
+                      - generic [ref=f62e1536]:
+                        - button "ערוך אימון" [ref=f62e1538]:
+                          - generic [ref=f62e1542]: ערוך
+                        - button "מחק אימון" [ref=f62e1544]:
+                          - generic [ref=f62e1548]: מחק
+                      - button [ref=f62e1550]:
+                        - generic [ref=f62e1552]:
+                          - img "כל הגוף" [ref=f62e1553]
+                          - paragraph [ref=f62e1554]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e1563]
+                - generic [ref=f62e1565]:
+                  - generic [ref=f62e1568]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1569]
+                    - paragraph [ref=f62e1570]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1571]:
+                    - button "מחק" [ref=f62e1572] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1573] [cursor=pointer]
+              - generic [ref=f62e1576]:
+                - button "ב׳ 14 הוסף אימון ליום זה" [ref=f62e1577] [cursor=pointer]:
+                  - generic [ref=f62e1578]:
+                    - generic [ref=f62e1579]: ב׳
+                    - generic [ref=f62e1580]: "14"
+                  - button "הוסף אימון ליום זה" [ref=f62e1585]:
+                    - generic [ref=f62e1587]: הוסף אימון
+                - generic [ref=f62e1588]:
+                  - generic [ref=f62e1591]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1592]
+                    - paragraph [ref=f62e1593]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1594]:
+                    - button "מחק" [ref=f62e1595] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1596] [cursor=pointer]
+              - generic [ref=f62e1599]:
+                - button "ג׳ 15 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e1600] [cursor=pointer]:
+                  - generic [ref=f62e1601]:
+                    - generic [ref=f62e1602]: ג׳
+                    - generic [ref=f62e1603]: "15"
+                  - generic [ref=f62e1608]:
+                    - generic [ref=f62e1610]:
+                      - generic [ref=f62e1611]:
+                        - button "ערוך אימון" [ref=f62e1613]:
+                          - generic [ref=f62e1617]: ערוך
+                        - button "מחק אימון" [ref=f62e1619]:
+                          - generic [ref=f62e1623]: מחק
+                      - button [ref=f62e1625]:
+                        - generic [ref=f62e1627]:
+                          - img "כל הגוף" [ref=f62e1628]
+                          - paragraph [ref=f62e1629]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e1638]
+                - generic [ref=f62e1640]:
+                  - generic [ref=f62e1643]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1644]
+                    - paragraph [ref=f62e1645]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1646]:
+                    - button "מחק" [ref=f62e1647] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1648] [cursor=pointer]
+              - generic [ref=f62e1651]:
+                - button "ד׳ 16 הוסף אימון ליום זה" [ref=f62e1652] [cursor=pointer]:
+                  - generic [ref=f62e1653]:
+                    - generic [ref=f62e1654]: ד׳
+                    - generic [ref=f62e1655]: "16"
+                  - button "הוסף אימון ליום זה" [ref=f62e1660]:
+                    - generic [ref=f62e1662]: הוסף אימון
+                - generic [ref=f62e1663]:
+                  - generic [ref=f62e1666]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1667]
+                    - paragraph [ref=f62e1668]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1669]:
+                    - button "מחק" [ref=f62e1670] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1671] [cursor=pointer]
+              - generic [ref=f62e1674]:
+                - button "ה׳ 17 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e1675] [cursor=pointer]:
+                  - generic [ref=f62e1676]:
+                    - generic [ref=f62e1677]: ה׳
+                    - generic [ref=f62e1678]: "17"
+                  - generic [ref=f62e1683]:
+                    - generic [ref=f62e1685]:
+                      - generic [ref=f62e1686]:
+                        - button "ערוך אימון" [ref=f62e1688]:
+                          - generic [ref=f62e1692]: ערוך
+                        - button "מחק אימון" [ref=f62e1694]:
+                          - generic [ref=f62e1698]: מחק
+                      - button [ref=f62e1700]:
+                        - generic [ref=f62e1702]:
+                          - img "כל הגוף" [ref=f62e1703]
+                          - paragraph [ref=f62e1704]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e1713]
+                - generic [ref=f62e1715]:
+                  - generic [ref=f62e1718]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1719]
+                    - paragraph [ref=f62e1720]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1721]:
+                    - button "מחק" [ref=f62e1722] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1723] [cursor=pointer]
+              - generic [ref=f62e1726]:
+                - button "ו׳ 18 הוסף אימון ליום זה" [ref=f62e1727] [cursor=pointer]:
+                  - generic [ref=f62e1728]:
+                    - generic [ref=f62e1729]: ו׳
+                    - generic [ref=f62e1730]: "18"
+                  - button "הוסף אימון ליום זה" [ref=f62e1735]:
+                    - generic [ref=f62e1737]: הוסף אימון
+                - generic [ref=f62e1738]:
+                  - generic [ref=f62e1741]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1742]
+                    - paragraph [ref=f62e1743]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1744]:
+                    - button "מחק" [ref=f62e1745] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1746] [cursor=pointer]
+              - generic [ref=f62e1749]:
+                - button "ש׳ 19 הוסף אימון ליום זה" [ref=f62e1750] [cursor=pointer]:
+                  - generic [ref=f62e1751]:
+                    - generic [ref=f62e1752]: ש׳
+                    - generic [ref=f62e1753]: "19"
+                  - button "הוסף אימון ליום זה" [ref=f62e1758]:
+                    - generic [ref=f62e1760]: הוסף אימון
+                - generic [ref=f62e1761]:
+                  - generic [ref=f62e1764]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1765]
+                    - paragraph [ref=f62e1766]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1767]:
+                    - button "מחק" [ref=f62e1768] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1769] [cursor=pointer]
+            - generic [ref=f62e1770]: 20–26 ספטמבר
+            - generic [ref=f62e1772]:
+              - generic [ref=f62e1774]:
+                - button "א׳ 20 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e1775] [cursor=pointer]:
+                  - generic [ref=f62e1776]:
+                    - generic [ref=f62e1777]: א׳
+                    - generic [ref=f62e1778]: "20"
+                  - generic [ref=f62e1783]:
+                    - generic [ref=f62e1785]:
+                      - generic [ref=f62e1786]:
+                        - button "ערוך אימון" [ref=f62e1788]:
+                          - generic [ref=f62e1792]: ערוך
+                        - button "מחק אימון" [ref=f62e1794]:
+                          - generic [ref=f62e1798]: מחק
+                      - button [ref=f62e1800]:
+                        - generic [ref=f62e1802]:
+                          - img "כל הגוף" [ref=f62e1803]
+                          - paragraph [ref=f62e1804]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e1813]
+                - generic [ref=f62e1815]:
+                  - generic [ref=f62e1818]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1819]
+                    - paragraph [ref=f62e1820]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1821]:
+                    - button "מחק" [ref=f62e1822] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1823] [cursor=pointer]
+              - generic [ref=f62e1826]:
+                - button "ב׳ 21 הוסף אימון ליום זה" [ref=f62e1827] [cursor=pointer]:
+                  - generic [ref=f62e1828]:
+                    - generic [ref=f62e1829]: ב׳
+                    - generic [ref=f62e1830]: "21"
+                  - button "הוסף אימון ליום זה" [ref=f62e1835]:
+                    - generic [ref=f62e1837]: הוסף אימון
+                - generic [ref=f62e1838]:
+                  - generic [ref=f62e1841]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1842]
+                    - paragraph [ref=f62e1843]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1844]:
+                    - button "מחק" [ref=f62e1845] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1846] [cursor=pointer]
+              - generic [ref=f62e1849]:
+                - button "ג׳ 22 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e1850] [cursor=pointer]:
+                  - generic [ref=f62e1851]:
+                    - generic [ref=f62e1852]: ג׳
+                    - generic [ref=f62e1853]: "22"
+                  - generic [ref=f62e1858]:
+                    - generic [ref=f62e1860]:
+                      - generic [ref=f62e1861]:
+                        - button "ערוך אימון" [ref=f62e1863]:
+                          - generic [ref=f62e1867]: ערוך
+                        - button "מחק אימון" [ref=f62e1869]:
+                          - generic [ref=f62e1873]: מחק
+                      - button [ref=f62e1875]:
+                        - generic [ref=f62e1877]:
+                          - img "כל הגוף" [ref=f62e1878]
+                          - paragraph [ref=f62e1879]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e1888]
+                - generic [ref=f62e1890]:
+                  - generic [ref=f62e1893]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1894]
+                    - paragraph [ref=f62e1895]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1896]:
+                    - button "מחק" [ref=f62e1897] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1898] [cursor=pointer]
+              - generic [ref=f62e1901]:
+                - button "ד׳ 23 הוסף אימון ליום זה" [ref=f62e1902] [cursor=pointer]:
+                  - generic [ref=f62e1903]:
+                    - generic [ref=f62e1904]: ד׳
+                    - generic [ref=f62e1905]: "23"
+                  - button "הוסף אימון ליום זה" [ref=f62e1910]:
+                    - generic [ref=f62e1912]: הוסף אימון
+                - generic [ref=f62e1913]:
+                  - generic [ref=f62e1916]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1917]
+                    - paragraph [ref=f62e1918]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1919]:
+                    - button "מחק" [ref=f62e1920] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1921] [cursor=pointer]
+              - generic [ref=f62e1924]:
+                - button "ה׳ 24 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e1925] [cursor=pointer]:
+                  - generic [ref=f62e1926]:
+                    - generic [ref=f62e1927]: ה׳
+                    - generic [ref=f62e1928]: "24"
+                  - generic [ref=f62e1933]:
+                    - generic [ref=f62e1935]:
+                      - generic [ref=f62e1936]:
+                        - button "ערוך אימון" [ref=f62e1938]:
+                          - generic [ref=f62e1942]: ערוך
+                        - button "מחק אימון" [ref=f62e1944]:
+                          - generic [ref=f62e1948]: מחק
+                      - button [ref=f62e1950]:
+                        - generic [ref=f62e1952]:
+                          - img "כל הגוף" [ref=f62e1953]
+                          - paragraph [ref=f62e1954]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e1963]
+                - generic [ref=f62e1965]:
+                  - generic [ref=f62e1968]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1969]
+                    - paragraph [ref=f62e1970]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1971]:
+                    - button "מחק" [ref=f62e1972] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1973] [cursor=pointer]
+              - generic [ref=f62e1976]:
+                - button "ו׳ 25 הוסף אימון ליום זה" [ref=f62e1977] [cursor=pointer]:
+                  - generic [ref=f62e1978]:
+                    - generic [ref=f62e1979]: ו׳
+                    - generic [ref=f62e1980]: "25"
+                  - button "הוסף אימון ליום זה" [ref=f62e1985]:
+                    - generic [ref=f62e1987]: הוסף אימון
+                - generic [ref=f62e1988]:
+                  - generic [ref=f62e1991]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e1992]
+                    - paragraph [ref=f62e1993]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e1994]:
+                    - button "מחק" [ref=f62e1995] [cursor=pointer]
+                    - button "ביטול" [ref=f62e1996] [cursor=pointer]
+              - generic [ref=f62e1999]:
+                - button "ש׳ 26 הוסף אימון ליום זה" [ref=f62e2000] [cursor=pointer]:
+                  - generic [ref=f62e2001]:
+                    - generic [ref=f62e2002]: ש׳
+                    - generic [ref=f62e2003]: "26"
+                  - button "הוסף אימון ליום זה" [ref=f62e2008]:
+                    - generic [ref=f62e2010]: הוסף אימון
+                - generic [ref=f62e2011]:
+                  - generic [ref=f62e2014]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2015]
+                    - paragraph [ref=f62e2016]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2017]:
+                    - button "מחק" [ref=f62e2018] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2019] [cursor=pointer]
+            - generic [ref=f62e2020]: 27 ספטמבר — 3 אוקטובר
+            - generic [ref=f62e2022]:
+              - generic [ref=f62e2024]:
+                - button "א׳ 27 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e2025] [cursor=pointer]:
+                  - generic [ref=f62e2026]:
+                    - generic [ref=f62e2027]: א׳
+                    - generic [ref=f62e2028]: "27"
+                  - generic [ref=f62e2033]:
+                    - generic [ref=f62e2035]:
+                      - generic [ref=f62e2036]:
+                        - button "ערוך אימון" [ref=f62e2038]:
+                          - generic [ref=f62e2042]: ערוך
+                        - button "מחק אימון" [ref=f62e2044]:
+                          - generic [ref=f62e2048]: מחק
+                      - button [ref=f62e2050]:
+                        - generic [ref=f62e2052]:
+                          - img "כל הגוף" [ref=f62e2053]
+                          - paragraph [ref=f62e2054]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e2063]
+                - generic [ref=f62e2065]:
+                  - generic [ref=f62e2068]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2069]
+                    - paragraph [ref=f62e2070]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2071]:
+                    - button "מחק" [ref=f62e2072] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2073] [cursor=pointer]
+              - generic [ref=f62e2076]:
+                - button "ב׳ 28 הוסף אימון ליום זה" [ref=f62e2077] [cursor=pointer]:
+                  - generic [ref=f62e2078]:
+                    - generic [ref=f62e2079]: ב׳
+                    - generic [ref=f62e2080]: "28"
+                  - button "הוסף אימון ליום זה" [ref=f62e2085]:
+                    - generic [ref=f62e2087]: הוסף אימון
+                - generic [ref=f62e2088]:
+                  - generic [ref=f62e2091]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2092]
+                    - paragraph [ref=f62e2093]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2094]:
+                    - button "מחק" [ref=f62e2095] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2096] [cursor=pointer]
+              - generic [ref=f62e2099]:
+                - button "ג׳ 29 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e2100] [cursor=pointer]:
+                  - generic [ref=f62e2101]:
+                    - generic [ref=f62e2102]: ג׳
+                    - generic [ref=f62e2103]: "29"
+                  - generic [ref=f62e2108]:
+                    - generic [ref=f62e2110]:
+                      - generic [ref=f62e2111]:
+                        - button "ערוך אימון" [ref=f62e2113]:
+                          - generic [ref=f62e2117]: ערוך
+                        - button "מחק אימון" [ref=f62e2119]:
+                          - generic [ref=f62e2123]: מחק
+                      - button [ref=f62e2125]:
+                        - generic [ref=f62e2127]:
+                          - img "כל הגוף" [ref=f62e2128]
+                          - paragraph [ref=f62e2129]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e2138]
+                - generic [ref=f62e2140]:
+                  - generic [ref=f62e2143]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2144]
+                    - paragraph [ref=f62e2145]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2146]:
+                    - button "מחק" [ref=f62e2147] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2148] [cursor=pointer]
+              - generic [ref=f62e2151]:
+                - button "ד׳ 30 הוסף אימון ליום זה" [ref=f62e2152] [cursor=pointer]:
+                  - generic [ref=f62e2153]:
+                    - generic [ref=f62e2154]: ד׳
+                    - generic [ref=f62e2155]: "30"
+                  - button "הוסף אימון ליום זה" [ref=f62e2160]:
+                    - generic [ref=f62e2162]: הוסף אימון
+                - generic [ref=f62e2163]:
+                  - generic [ref=f62e2166]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2167]
+                    - paragraph [ref=f62e2168]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2169]:
+                    - button "מחק" [ref=f62e2170] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2171] [cursor=pointer]
+              - generic [ref=f62e2174]:
+                - button "ה׳ 1 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e2175] [cursor=pointer]:
+                  - generic [ref=f62e2176]:
+                    - generic [ref=f62e2177]: ה׳
+                    - generic [ref=f62e2178]: "1"
+                  - generic [ref=f62e2183]:
+                    - generic [ref=f62e2185]:
+                      - generic [ref=f62e2186]:
+                        - button "ערוך אימון" [ref=f62e2188]:
+                          - generic [ref=f62e2192]: ערוך
+                        - button "מחק אימון" [ref=f62e2194]:
+                          - generic [ref=f62e2198]: מחק
+                      - button [ref=f62e2200]:
+                        - generic [ref=f62e2202]:
+                          - img "כל הגוף" [ref=f62e2203]
+                          - paragraph [ref=f62e2204]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e2213]
+                - generic [ref=f62e2215]:
+                  - generic [ref=f62e2218]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2219]
+                    - paragraph [ref=f62e2220]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2221]:
+                    - button "מחק" [ref=f62e2222] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2223] [cursor=pointer]
+              - generic [ref=f62e2226]:
+                - button "ו׳ 2 הוסף אימון ליום זה" [ref=f62e2227] [cursor=pointer]:
+                  - generic [ref=f62e2228]:
+                    - generic [ref=f62e2229]: ו׳
+                    - generic [ref=f62e2230]: "2"
+                  - button "הוסף אימון ליום זה" [ref=f62e2235]:
+                    - generic [ref=f62e2237]: הוסף אימון
+                - generic [ref=f62e2238]:
+                  - generic [ref=f62e2241]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2242]
+                    - paragraph [ref=f62e2243]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2244]:
+                    - button "מחק" [ref=f62e2245] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2246] [cursor=pointer]
+              - generic [ref=f62e2249]:
+                - button "ש׳ 3 הוסף אימון ליום זה" [ref=f62e2250] [cursor=pointer]:
+                  - generic [ref=f62e2251]:
+                    - generic [ref=f62e2252]: ש׳
+                    - generic [ref=f62e2253]: "3"
+                  - button "הוסף אימון ליום זה" [ref=f62e2258]:
+                    - generic [ref=f62e2260]: הוסף אימון
+                - generic [ref=f62e2261]:
+                  - generic [ref=f62e2264]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2265]
+                    - paragraph [ref=f62e2266]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2267]:
+                    - button "מחק" [ref=f62e2268] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2269] [cursor=pointer]
+            - generic [ref=f62e2270]: 4–10 אוקטובר
+            - generic [ref=f62e2272]:
+              - generic [ref=f62e2274]:
+                - button "א׳ 4 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e2275] [cursor=pointer]:
+                  - generic [ref=f62e2276]:
+                    - generic [ref=f62e2277]: א׳
+                    - generic [ref=f62e2278]: "4"
+                  - generic [ref=f62e2283]:
+                    - generic [ref=f62e2285]:
+                      - generic [ref=f62e2286]:
+                        - button "ערוך אימון" [ref=f62e2288]:
+                          - generic [ref=f62e2292]: ערוך
+                        - button "מחק אימון" [ref=f62e2294]:
+                          - generic [ref=f62e2298]: מחק
+                      - button [ref=f62e2300]:
+                        - generic [ref=f62e2302]:
+                          - img "כל הגוף" [ref=f62e2303]
+                          - paragraph [ref=f62e2304]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e2313]
+                - generic [ref=f62e2315]:
+                  - generic [ref=f62e2318]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2319]
+                    - paragraph [ref=f62e2320]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2321]:
+                    - button "מחק" [ref=f62e2322] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2323] [cursor=pointer]
+              - generic [ref=f62e2326]:
+                - button "ב׳ 5 הוסף אימון ליום זה" [ref=f62e2327] [cursor=pointer]:
+                  - generic [ref=f62e2328]:
+                    - generic [ref=f62e2329]: ב׳
+                    - generic [ref=f62e2330]: "5"
+                  - button "הוסף אימון ליום זה" [ref=f62e2335]:
+                    - generic [ref=f62e2337]: הוסף אימון
+                - generic [ref=f62e2338]:
+                  - generic [ref=f62e2341]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2342]
+                    - paragraph [ref=f62e2343]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2344]:
+                    - button "מחק" [ref=f62e2345] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2346] [cursor=pointer]
+              - generic [ref=f62e2349]:
+                - button "ג׳ 6 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e2350] [cursor=pointer]:
+                  - generic [ref=f62e2351]:
+                    - generic [ref=f62e2352]: ג׳
+                    - generic [ref=f62e2353]: "6"
+                  - generic [ref=f62e2358]:
+                    - generic [ref=f62e2360]:
+                      - generic [ref=f62e2361]:
+                        - button "ערוך אימון" [ref=f62e2363]:
+                          - generic [ref=f62e2367]: ערוך
+                        - button "מחק אימון" [ref=f62e2369]:
+                          - generic [ref=f62e2373]: מחק
+                      - button [ref=f62e2375]:
+                        - generic [ref=f62e2377]:
+                          - img "כל הגוף" [ref=f62e2378]
+                          - paragraph [ref=f62e2379]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e2388]
+                - generic [ref=f62e2390]:
+                  - generic [ref=f62e2393]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2394]
+                    - paragraph [ref=f62e2395]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2396]:
+                    - button "מחק" [ref=f62e2397] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2398] [cursor=pointer]
+              - generic [ref=f62e2401]:
+                - button "ד׳ 7 הוסף אימון ליום זה" [ref=f62e2402] [cursor=pointer]:
+                  - generic [ref=f62e2403]:
+                    - generic [ref=f62e2404]: ד׳
+                    - generic [ref=f62e2405]: "7"
+                  - button "הוסף אימון ליום זה" [ref=f62e2410]:
+                    - generic [ref=f62e2412]: הוסף אימון
+                - generic [ref=f62e2413]:
+                  - generic [ref=f62e2416]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2417]
+                    - paragraph [ref=f62e2418]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2419]:
+                    - button "מחק" [ref=f62e2420] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2421] [cursor=pointer]
+              - generic [ref=f62e2424]:
+                - button "ה׳ 8 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e2425] [cursor=pointer]:
+                  - generic [ref=f62e2426]:
+                    - generic [ref=f62e2427]: ה׳
+                    - generic [ref=f62e2428]: "8"
+                  - generic [ref=f62e2433]:
+                    - generic [ref=f62e2435]:
+                      - generic [ref=f62e2436]:
+                        - button "ערוך אימון" [ref=f62e2438]:
+                          - generic [ref=f62e2442]: ערוך
+                        - button "מחק אימון" [ref=f62e2444]:
+                          - generic [ref=f62e2448]: מחק
+                      - button [ref=f62e2450]:
+                        - generic [ref=f62e2452]:
+                          - img "כל הגוף" [ref=f62e2453]
+                          - paragraph [ref=f62e2454]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e2463]
+                - generic [ref=f62e2465]:
+                  - generic [ref=f62e2468]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2469]
+                    - paragraph [ref=f62e2470]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2471]:
+                    - button "מחק" [ref=f62e2472] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2473] [cursor=pointer]
+              - generic [ref=f62e2476]:
+                - button "ו׳ 9 הוסף אימון ליום זה" [ref=f62e2477] [cursor=pointer]:
+                  - generic [ref=f62e2478]:
+                    - generic [ref=f62e2479]: ו׳
+                    - generic [ref=f62e2480]: "9"
+                  - button "הוסף אימון ליום זה" [ref=f62e2485]:
+                    - generic [ref=f62e2487]: הוסף אימון
+                - generic [ref=f62e2488]:
+                  - generic [ref=f62e2491]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2492]
+                    - paragraph [ref=f62e2493]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2494]:
+                    - button "מחק" [ref=f62e2495] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2496] [cursor=pointer]
+              - generic [ref=f62e2499]:
+                - button "ש׳ 10 הוסף אימון ליום זה" [ref=f62e2500] [cursor=pointer]:
+                  - generic [ref=f62e2501]:
+                    - generic [ref=f62e2502]: ש׳
+                    - generic [ref=f62e2503]: "10"
+                  - button "הוסף אימון ליום זה" [ref=f62e2508]:
+                    - generic [ref=f62e2510]: הוסף אימון
+                - generic [ref=f62e2511]:
+                  - generic [ref=f62e2514]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2515]
+                    - paragraph [ref=f62e2516]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2517]:
+                    - button "מחק" [ref=f62e2518] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2519] [cursor=pointer]
+            - generic [ref=f62e2520]: 11–17 אוקטובר
+            - generic [ref=f62e2522]:
+              - generic [ref=f62e2524]:
+                - button "א׳ 11 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e2525] [cursor=pointer]:
+                  - generic [ref=f62e2526]:
+                    - generic [ref=f62e2527]: א׳
+                    - generic [ref=f62e2528]: "11"
+                  - generic [ref=f62e2533]:
+                    - generic [ref=f62e2535]:
+                      - generic [ref=f62e2536]:
+                        - button "ערוך אימון" [ref=f62e2538]:
+                          - generic [ref=f62e2542]: ערוך
+                        - button "מחק אימון" [ref=f62e2544]:
+                          - generic [ref=f62e2548]: מחק
+                      - button [ref=f62e2550]:
+                        - generic [ref=f62e2552]:
+                          - img "כל הגוף" [ref=f62e2553]
+                          - paragraph [ref=f62e2554]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e2563]
+                - generic [ref=f62e2565]:
+                  - generic [ref=f62e2568]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2569]
+                    - paragraph [ref=f62e2570]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2571]:
+                    - button "מחק" [ref=f62e2572] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2573] [cursor=pointer]
+              - generic [ref=f62e2576]:
+                - button "ב׳ 12 הוסף אימון ליום זה" [ref=f62e2577] [cursor=pointer]:
+                  - generic [ref=f62e2578]:
+                    - generic [ref=f62e2579]: ב׳
+                    - generic [ref=f62e2580]: "12"
+                  - button "הוסף אימון ליום זה" [ref=f62e2585]:
+                    - generic [ref=f62e2587]: הוסף אימון
+                - generic [ref=f62e2588]:
+                  - generic [ref=f62e2591]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2592]
+                    - paragraph [ref=f62e2593]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2594]:
+                    - button "מחק" [ref=f62e2595] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2596] [cursor=pointer]
+              - generic [ref=f62e2599]:
+                - button "ג׳ 13 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e2600] [cursor=pointer]:
+                  - generic [ref=f62e2601]:
+                    - generic [ref=f62e2602]: ג׳
+                    - generic [ref=f62e2603]: "13"
+                  - generic [ref=f62e2608]:
+                    - generic [ref=f62e2610]:
+                      - generic [ref=f62e2611]:
+                        - button "ערוך אימון" [ref=f62e2613]:
+                          - generic [ref=f62e2617]: ערוך
+                        - button "מחק אימון" [ref=f62e2619]:
+                          - generic [ref=f62e2623]: מחק
+                      - button [ref=f62e2625]:
+                        - generic [ref=f62e2627]:
+                          - img "כל הגוף" [ref=f62e2628]
+                          - paragraph [ref=f62e2629]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e2638]
+                - generic [ref=f62e2640]:
+                  - generic [ref=f62e2643]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2644]
+                    - paragraph [ref=f62e2645]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2646]:
+                    - button "מחק" [ref=f62e2647] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2648] [cursor=pointer]
+              - generic [ref=f62e2651]:
+                - button "ד׳ 14 הוסף אימון ליום זה" [ref=f62e2652] [cursor=pointer]:
+                  - generic [ref=f62e2653]:
+                    - generic [ref=f62e2654]: ד׳
+                    - generic [ref=f62e2655]: "14"
+                  - button "הוסף אימון ליום זה" [ref=f62e2660]:
+                    - generic [ref=f62e2662]: הוסף אימון
+                - generic [ref=f62e2663]:
+                  - generic [ref=f62e2666]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2667]
+                    - paragraph [ref=f62e2668]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2669]:
+                    - button "מחק" [ref=f62e2670] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2671] [cursor=pointer]
+              - generic [ref=f62e2674]:
+                - button "ה׳ 15 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e2675] [cursor=pointer]:
+                  - generic [ref=f62e2676]:
+                    - generic [ref=f62e2677]: ה׳
+                    - generic [ref=f62e2678]: "15"
+                  - generic [ref=f62e2683]:
+                    - generic [ref=f62e2685]:
+                      - generic [ref=f62e2686]:
+                        - button "ערוך אימון" [ref=f62e2688]:
+                          - generic [ref=f62e2692]: ערוך
+                        - button "מחק אימון" [ref=f62e2694]:
+                          - generic [ref=f62e2698]: מחק
+                      - button [ref=f62e2700]:
+                        - generic [ref=f62e2702]:
+                          - img "כל הגוף" [ref=f62e2703]
+                          - paragraph [ref=f62e2704]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e2713]
+                - generic [ref=f62e2715]:
+                  - generic [ref=f62e2718]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2719]
+                    - paragraph [ref=f62e2720]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2721]:
+                    - button "מחק" [ref=f62e2722] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2723] [cursor=pointer]
+              - generic [ref=f62e2726]:
+                - button "ו׳ 16 הוסף אימון ליום זה" [ref=f62e2727] [cursor=pointer]:
+                  - generic [ref=f62e2728]:
+                    - generic [ref=f62e2729]: ו׳
+                    - generic [ref=f62e2730]: "16"
+                  - button "הוסף אימון ליום זה" [ref=f62e2735]:
+                    - generic [ref=f62e2737]: הוסף אימון
+                - generic [ref=f62e2738]:
+                  - generic [ref=f62e2741]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2742]
+                    - paragraph [ref=f62e2743]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2744]:
+                    - button "מחק" [ref=f62e2745] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2746] [cursor=pointer]
+              - generic [ref=f62e2749]:
+                - button "ש׳ 17 הוסף אימון ליום זה" [ref=f62e2750] [cursor=pointer]:
+                  - generic [ref=f62e2751]:
+                    - generic [ref=f62e2752]: ש׳
+                    - generic [ref=f62e2753]: "17"
+                  - button "הוסף אימון ליום זה" [ref=f62e2758]:
+                    - generic [ref=f62e2760]: הוסף אימון
+                - generic [ref=f62e2761]:
+                  - generic [ref=f62e2764]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2765]
+                    - paragraph [ref=f62e2766]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2767]:
+                    - button "מחק" [ref=f62e2768] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2769] [cursor=pointer]
+            - generic [ref=f62e2770]: 18–24 אוקטובר
+            - generic [ref=f62e2772]:
+              - generic [ref=f62e2774]:
+                - button "א׳ 18 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e2775] [cursor=pointer]:
+                  - generic [ref=f62e2776]:
+                    - generic [ref=f62e2777]: א׳
+                    - generic [ref=f62e2778]: "18"
+                  - generic [ref=f62e2783]:
+                    - generic [ref=f62e2785]:
+                      - generic [ref=f62e2786]:
+                        - button "ערוך אימון" [ref=f62e2788]:
+                          - generic [ref=f62e2792]: ערוך
+                        - button "מחק אימון" [ref=f62e2794]:
+                          - generic [ref=f62e2798]: מחק
+                      - button [ref=f62e2800]:
+                        - generic [ref=f62e2802]:
+                          - img "כל הגוף" [ref=f62e2803]
+                          - paragraph [ref=f62e2804]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e2813]
+                - generic [ref=f62e2815]:
+                  - generic [ref=f62e2818]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2819]
+                    - paragraph [ref=f62e2820]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2821]:
+                    - button "מחק" [ref=f62e2822] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2823] [cursor=pointer]
+              - generic [ref=f62e2826]:
+                - button "ב׳ 19 הוסף אימון ליום זה" [ref=f62e2827] [cursor=pointer]:
+                  - generic [ref=f62e2828]:
+                    - generic [ref=f62e2829]: ב׳
+                    - generic [ref=f62e2830]: "19"
+                  - button "הוסף אימון ליום זה" [ref=f62e2835]:
+                    - generic [ref=f62e2837]: הוסף אימון
+                - generic [ref=f62e2838]:
+                  - generic [ref=f62e2841]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2842]
+                    - paragraph [ref=f62e2843]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2844]:
+                    - button "מחק" [ref=f62e2845] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2846] [cursor=pointer]
+              - generic [ref=f62e2849]:
+                - button "ג׳ 20 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e2850] [cursor=pointer]:
+                  - generic [ref=f62e2851]:
+                    - generic [ref=f62e2852]: ג׳
+                    - generic [ref=f62e2853]: "20"
+                  - generic [ref=f62e2858]:
+                    - generic [ref=f62e2860]:
+                      - generic [ref=f62e2861]:
+                        - button "ערוך אימון" [ref=f62e2863]:
+                          - generic [ref=f62e2867]: ערוך
+                        - button "מחק אימון" [ref=f62e2869]:
+                          - generic [ref=f62e2873]: מחק
+                      - button [ref=f62e2875]:
+                        - generic [ref=f62e2877]:
+                          - img "כל הגוף" [ref=f62e2878]
+                          - paragraph [ref=f62e2879]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e2888]
+                - generic [ref=f62e2890]:
+                  - generic [ref=f62e2893]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2894]
+                    - paragraph [ref=f62e2895]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2896]:
+                    - button "מחק" [ref=f62e2897] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2898] [cursor=pointer]
+              - generic [ref=f62e2901]:
+                - button "ד׳ 21 הוסף אימון ליום זה" [ref=f62e2902] [cursor=pointer]:
+                  - generic [ref=f62e2903]:
+                    - generic [ref=f62e2904]: ד׳
+                    - generic [ref=f62e2905]: "21"
+                  - button "הוסף אימון ליום זה" [ref=f62e2910]:
+                    - generic [ref=f62e2912]: הוסף אימון
+                - generic [ref=f62e2913]:
+                  - generic [ref=f62e2916]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2917]
+                    - paragraph [ref=f62e2918]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2919]:
+                    - button "מחק" [ref=f62e2920] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2921] [cursor=pointer]
+              - generic [ref=f62e2924]:
+                - button "ה׳ 22 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e2925] [cursor=pointer]:
+                  - generic [ref=f62e2926]:
+                    - generic [ref=f62e2927]: ה׳
+                    - generic [ref=f62e2928]: "22"
+                  - generic [ref=f62e2933]:
+                    - generic [ref=f62e2935]:
+                      - generic [ref=f62e2936]:
+                        - button "ערוך אימון" [ref=f62e2938]:
+                          - generic [ref=f62e2942]: ערוך
+                        - button "מחק אימון" [ref=f62e2944]:
+                          - generic [ref=f62e2948]: מחק
+                      - button [ref=f62e2950]:
+                        - generic [ref=f62e2952]:
+                          - img "כל הגוף" [ref=f62e2953]
+                          - paragraph [ref=f62e2954]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e2963]
+                - generic [ref=f62e2965]:
+                  - generic [ref=f62e2968]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2969]
+                    - paragraph [ref=f62e2970]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2971]:
+                    - button "מחק" [ref=f62e2972] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2973] [cursor=pointer]
+              - generic [ref=f62e2976]:
+                - button "ו׳ 23 הוסף אימון ליום זה" [ref=f62e2977] [cursor=pointer]:
+                  - generic [ref=f62e2978]:
+                    - generic [ref=f62e2979]: ו׳
+                    - generic [ref=f62e2980]: "23"
+                  - button "הוסף אימון ליום זה" [ref=f62e2985]:
+                    - generic [ref=f62e2987]: הוסף אימון
+                - generic [ref=f62e2988]:
+                  - generic [ref=f62e2991]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e2992]
+                    - paragraph [ref=f62e2993]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e2994]:
+                    - button "מחק" [ref=f62e2995] [cursor=pointer]
+                    - button "ביטול" [ref=f62e2996] [cursor=pointer]
+              - generic [ref=f62e2999]:
+                - button "ש׳ 24 הוסף אימון ליום זה" [ref=f62e3000] [cursor=pointer]:
+                  - generic [ref=f62e3001]:
+                    - generic [ref=f62e3002]: ש׳
+                    - generic [ref=f62e3003]: "24"
+                  - button "הוסף אימון ליום זה" [ref=f62e3008]:
+                    - generic [ref=f62e3010]: הוסף אימון
+                - generic [ref=f62e3011]:
+                  - generic [ref=f62e3014]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3015]
+                    - paragraph [ref=f62e3016]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3017]:
+                    - button "מחק" [ref=f62e3018] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3019] [cursor=pointer]
+            - generic [ref=f62e3020]: 25–31 אוקטובר
+            - generic [ref=f62e3022]:
+              - generic [ref=f62e3024]:
+                - button "א׳ 25 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e3025] [cursor=pointer]:
+                  - generic [ref=f62e3026]:
+                    - generic [ref=f62e3027]: א׳
+                    - generic [ref=f62e3028]: "25"
+                  - generic [ref=f62e3033]:
+                    - generic [ref=f62e3035]:
+                      - generic [ref=f62e3036]:
+                        - button "ערוך אימון" [ref=f62e3038]:
+                          - generic [ref=f62e3042]: ערוך
+                        - button "מחק אימון" [ref=f62e3044]:
+                          - generic [ref=f62e3048]: מחק
+                      - button [ref=f62e3050]:
+                        - generic [ref=f62e3052]:
+                          - img "כל הגוף" [ref=f62e3053]
+                          - paragraph [ref=f62e3054]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e3063]
+                - generic [ref=f62e3065]:
+                  - generic [ref=f62e3068]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3069]
+                    - paragraph [ref=f62e3070]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3071]:
+                    - button "מחק" [ref=f62e3072] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3073] [cursor=pointer]
+              - generic [ref=f62e3076]:
+                - button "ב׳ 26 הוסף אימון ליום זה" [ref=f62e3077] [cursor=pointer]:
+                  - generic [ref=f62e3078]:
+                    - generic [ref=f62e3079]: ב׳
+                    - generic [ref=f62e3080]: "26"
+                  - button "הוסף אימון ליום זה" [ref=f62e3085]:
+                    - generic [ref=f62e3087]: הוסף אימון
+                - generic [ref=f62e3088]:
+                  - generic [ref=f62e3091]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3092]
+                    - paragraph [ref=f62e3093]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3094]:
+                    - button "מחק" [ref=f62e3095] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3096] [cursor=pointer]
+              - generic [ref=f62e3099]:
+                - button "ג׳ 27 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e3100] [cursor=pointer]:
+                  - generic [ref=f62e3101]:
+                    - generic [ref=f62e3102]: ג׳
+                    - generic [ref=f62e3103]: "27"
+                  - generic [ref=f62e3108]:
+                    - generic [ref=f62e3110]:
+                      - generic [ref=f62e3111]:
+                        - button "ערוך אימון" [ref=f62e3113]:
+                          - generic [ref=f62e3117]: ערוך
+                        - button "מחק אימון" [ref=f62e3119]:
+                          - generic [ref=f62e3123]: מחק
+                      - button [ref=f62e3125]:
+                        - generic [ref=f62e3127]:
+                          - img "כל הגוף" [ref=f62e3128]
+                          - paragraph [ref=f62e3129]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e3138]
+                - generic [ref=f62e3140]:
+                  - generic [ref=f62e3143]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3144]
+                    - paragraph [ref=f62e3145]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3146]:
+                    - button "מחק" [ref=f62e3147] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3148] [cursor=pointer]
+              - generic [ref=f62e3151]:
+                - button "ד׳ 28 הוסף אימון ליום זה" [ref=f62e3152] [cursor=pointer]:
+                  - generic [ref=f62e3153]:
+                    - generic [ref=f62e3154]: ד׳
+                    - generic [ref=f62e3155]: "28"
+                  - button "הוסף אימון ליום זה" [ref=f62e3160]:
+                    - generic [ref=f62e3162]: הוסף אימון
+                - generic [ref=f62e3163]:
+                  - generic [ref=f62e3166]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3167]
+                    - paragraph [ref=f62e3168]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3169]:
+                    - button "מחק" [ref=f62e3170] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3171] [cursor=pointer]
+              - generic [ref=f62e3174]:
+                - button "ה׳ 29 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e3175] [cursor=pointer]:
+                  - generic [ref=f62e3176]:
+                    - generic [ref=f62e3177]: ה׳
+                    - generic [ref=f62e3178]: "29"
+                  - generic [ref=f62e3183]:
+                    - generic [ref=f62e3185]:
+                      - generic [ref=f62e3186]:
+                        - button "ערוך אימון" [ref=f62e3188]:
+                          - generic [ref=f62e3192]: ערוך
+                        - button "מחק אימון" [ref=f62e3194]:
+                          - generic [ref=f62e3198]: מחק
+                      - button [ref=f62e3200]:
+                        - generic [ref=f62e3202]:
+                          - img "כל הגוף" [ref=f62e3203]
+                          - paragraph [ref=f62e3204]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e3213]
+                - generic [ref=f62e3215]:
+                  - generic [ref=f62e3218]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3219]
+                    - paragraph [ref=f62e3220]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3221]:
+                    - button "מחק" [ref=f62e3222] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3223] [cursor=pointer]
+              - generic [ref=f62e3226]:
+                - button "ו׳ 30 הוסף אימון ליום זה" [ref=f62e3227] [cursor=pointer]:
+                  - generic [ref=f62e3228]:
+                    - generic [ref=f62e3229]: ו׳
+                    - generic [ref=f62e3230]: "30"
+                  - button "הוסף אימון ליום זה" [ref=f62e3235]:
+                    - generic [ref=f62e3237]: הוסף אימון
+                - generic [ref=f62e3238]:
+                  - generic [ref=f62e3241]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3242]
+                    - paragraph [ref=f62e3243]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3244]:
+                    - button "מחק" [ref=f62e3245] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3246] [cursor=pointer]
+              - generic [ref=f62e3249]:
+                - button "ש׳ 31 הוסף אימון ליום זה" [ref=f62e3250] [cursor=pointer]:
+                  - generic [ref=f62e3251]:
+                    - generic [ref=f62e3252]: ש׳
+                    - generic [ref=f62e3253]: "31"
+                  - button "הוסף אימון ליום זה" [ref=f62e3258]:
+                    - generic [ref=f62e3260]: הוסף אימון
+                - generic [ref=f62e3261]:
+                  - generic [ref=f62e3264]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3265]
+                    - paragraph [ref=f62e3266]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3267]:
+                    - button "מחק" [ref=f62e3268] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3269] [cursor=pointer]
+            - generic [ref=f62e3270]: 1–7 נובמבר
+            - generic [ref=f62e3272]:
+              - generic [ref=f62e3274]:
+                - button "א׳ 1 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e3275] [cursor=pointer]:
+                  - generic [ref=f62e3276]:
+                    - generic [ref=f62e3277]: א׳
+                    - generic [ref=f62e3278]: "1"
+                  - generic [ref=f62e3283]:
+                    - generic [ref=f62e3285]:
+                      - generic [ref=f62e3286]:
+                        - button "ערוך אימון" [ref=f62e3288]:
+                          - generic [ref=f62e3292]: ערוך
+                        - button "מחק אימון" [ref=f62e3294]:
+                          - generic [ref=f62e3298]: מחק
+                      - button [ref=f62e3300]:
+                        - generic [ref=f62e3302]:
+                          - img "כל הגוף" [ref=f62e3303]
+                          - paragraph [ref=f62e3304]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e3313]
+                - generic [ref=f62e3315]:
+                  - generic [ref=f62e3318]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3319]
+                    - paragraph [ref=f62e3320]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3321]:
+                    - button "מחק" [ref=f62e3322] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3323] [cursor=pointer]
+              - generic [ref=f62e3326]:
+                - button "ב׳ 2 הוסף אימון ליום זה" [ref=f62e3327] [cursor=pointer]:
+                  - generic [ref=f62e3328]:
+                    - generic [ref=f62e3329]: ב׳
+                    - generic [ref=f62e3330]: "2"
+                  - button "הוסף אימון ליום זה" [ref=f62e3335]:
+                    - generic [ref=f62e3337]: הוסף אימון
+                - generic [ref=f62e3338]:
+                  - generic [ref=f62e3341]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3342]
+                    - paragraph [ref=f62e3343]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3344]:
+                    - button "מחק" [ref=f62e3345] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3346] [cursor=pointer]
+              - generic [ref=f62e3349]:
+                - button "ג׳ 3 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e3350] [cursor=pointer]:
+                  - generic [ref=f62e3351]:
+                    - generic [ref=f62e3352]: ג׳
+                    - generic [ref=f62e3353]: "3"
+                  - generic [ref=f62e3358]:
+                    - generic [ref=f62e3360]:
+                      - generic [ref=f62e3361]:
+                        - button "ערוך אימון" [ref=f62e3363]:
+                          - generic [ref=f62e3367]: ערוך
+                        - button "מחק אימון" [ref=f62e3369]:
+                          - generic [ref=f62e3373]: מחק
+                      - button [ref=f62e3375]:
+                        - generic [ref=f62e3377]:
+                          - img "כל הגוף" [ref=f62e3378]
+                          - paragraph [ref=f62e3379]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e3388]
+                - generic [ref=f62e3390]:
+                  - generic [ref=f62e3393]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3394]
+                    - paragraph [ref=f62e3395]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3396]:
+                    - button "מחק" [ref=f62e3397] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3398] [cursor=pointer]
+              - generic [ref=f62e3401]:
+                - button "ד׳ 4 הוסף אימון ליום זה" [ref=f62e3402] [cursor=pointer]:
+                  - generic [ref=f62e3403]:
+                    - generic [ref=f62e3404]: ד׳
+                    - generic [ref=f62e3405]: "4"
+                  - button "הוסף אימון ליום זה" [ref=f62e3410]:
+                    - generic [ref=f62e3412]: הוסף אימון
+                - generic [ref=f62e3413]:
+                  - generic [ref=f62e3416]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3417]
+                    - paragraph [ref=f62e3418]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3419]:
+                    - button "מחק" [ref=f62e3420] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3421] [cursor=pointer]
+              - generic [ref=f62e3424]:
+                - button "ה׳ 5 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e3425] [cursor=pointer]:
+                  - generic [ref=f62e3426]:
+                    - generic [ref=f62e3427]: ה׳
+                    - generic [ref=f62e3428]: "5"
+                  - generic [ref=f62e3433]:
+                    - generic [ref=f62e3435]:
+                      - generic [ref=f62e3436]:
+                        - button "ערוך אימון" [ref=f62e3438]:
+                          - generic [ref=f62e3442]: ערוך
+                        - button "מחק אימון" [ref=f62e3444]:
+                          - generic [ref=f62e3448]: מחק
+                      - button [ref=f62e3450]:
+                        - generic [ref=f62e3452]:
+                          - img "כל הגוף" [ref=f62e3453]
+                          - paragraph [ref=f62e3454]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e3463]
+                - generic [ref=f62e3465]:
+                  - generic [ref=f62e3468]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3469]
+                    - paragraph [ref=f62e3470]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3471]:
+                    - button "מחק" [ref=f62e3472] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3473] [cursor=pointer]
+              - generic [ref=f62e3476]:
+                - button "ו׳ 6 הוסף אימון ליום זה" [ref=f62e3477] [cursor=pointer]:
+                  - generic [ref=f62e3478]:
+                    - generic [ref=f62e3479]: ו׳
+                    - generic [ref=f62e3480]: "6"
+                  - button "הוסף אימון ליום זה" [ref=f62e3485]:
+                    - generic [ref=f62e3487]: הוסף אימון
+                - generic [ref=f62e3488]:
+                  - generic [ref=f62e3491]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3492]
+                    - paragraph [ref=f62e3493]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3494]:
+                    - button "מחק" [ref=f62e3495] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3496] [cursor=pointer]
+              - generic [ref=f62e3499]:
+                - button "ש׳ 7 הוסף אימון ליום זה" [ref=f62e3500] [cursor=pointer]:
+                  - generic [ref=f62e3501]:
+                    - generic [ref=f62e3502]: ש׳
+                    - generic [ref=f62e3503]: "7"
+                  - button "הוסף אימון ליום זה" [ref=f62e3508]:
+                    - generic [ref=f62e3510]: הוסף אימון
+                - generic [ref=f62e3511]:
+                  - generic [ref=f62e3514]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3515]
+                    - paragraph [ref=f62e3516]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3517]:
+                    - button "מחק" [ref=f62e3518] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3519] [cursor=pointer]
+            - generic [ref=f62e3520]: 8–14 נובמבר
+            - generic [ref=f62e3522]:
+              - generic [ref=f62e3524]:
+                - button "א׳ 8 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e3525] [cursor=pointer]:
+                  - generic [ref=f62e3526]:
+                    - generic [ref=f62e3527]: א׳
+                    - generic [ref=f62e3528]: "8"
+                  - generic [ref=f62e3533]:
+                    - generic [ref=f62e3535]:
+                      - generic [ref=f62e3536]:
+                        - button "ערוך אימון" [ref=f62e3538]:
+                          - generic [ref=f62e3542]: ערוך
+                        - button "מחק אימון" [ref=f62e3544]:
+                          - generic [ref=f62e3548]: מחק
+                      - button [ref=f62e3550]:
+                        - generic [ref=f62e3552]:
+                          - img "כל הגוף" [ref=f62e3553]
+                          - paragraph [ref=f62e3554]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e3563]
+                - generic [ref=f62e3565]:
+                  - generic [ref=f62e3568]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3569]
+                    - paragraph [ref=f62e3570]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3571]:
+                    - button "מחק" [ref=f62e3572] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3573] [cursor=pointer]
+              - generic [ref=f62e3576]:
+                - button "ב׳ 9 הוסף אימון ליום זה" [ref=f62e3577] [cursor=pointer]:
+                  - generic [ref=f62e3578]:
+                    - generic [ref=f62e3579]: ב׳
+                    - generic [ref=f62e3580]: "9"
+                  - button "הוסף אימון ליום זה" [ref=f62e3585]:
+                    - generic [ref=f62e3587]: הוסף אימון
+                - generic [ref=f62e3588]:
+                  - generic [ref=f62e3591]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3592]
+                    - paragraph [ref=f62e3593]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3594]:
+                    - button "מחק" [ref=f62e3595] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3596] [cursor=pointer]
+              - generic [ref=f62e3599]:
+                - button "ג׳ 10 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e3600] [cursor=pointer]:
+                  - generic [ref=f62e3601]:
+                    - generic [ref=f62e3602]: ג׳
+                    - generic [ref=f62e3603]: "10"
+                  - generic [ref=f62e3608]:
+                    - generic [ref=f62e3610]:
+                      - generic [ref=f62e3611]:
+                        - button "ערוך אימון" [ref=f62e3613]:
+                          - generic [ref=f62e3617]: ערוך
+                        - button "מחק אימון" [ref=f62e3619]:
+                          - generic [ref=f62e3623]: מחק
+                      - button [ref=f62e3625]:
+                        - generic [ref=f62e3627]:
+                          - img "כל הגוף" [ref=f62e3628]
+                          - paragraph [ref=f62e3629]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e3638]
+                - generic [ref=f62e3640]:
+                  - generic [ref=f62e3643]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3644]
+                    - paragraph [ref=f62e3645]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3646]:
+                    - button "מחק" [ref=f62e3647] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3648] [cursor=pointer]
+              - generic [ref=f62e3651]:
+                - button "ד׳ 11 הוסף אימון ליום זה" [ref=f62e3652] [cursor=pointer]:
+                  - generic [ref=f62e3653]:
+                    - generic [ref=f62e3654]: ד׳
+                    - generic [ref=f62e3655]: "11"
+                  - button "הוסף אימון ליום זה" [ref=f62e3660]:
+                    - generic [ref=f62e3662]: הוסף אימון
+                - generic [ref=f62e3663]:
+                  - generic [ref=f62e3666]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3667]
+                    - paragraph [ref=f62e3668]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3669]:
+                    - button "מחק" [ref=f62e3670] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3671] [cursor=pointer]
+              - generic [ref=f62e3674]:
+                - button "ה׳ 12 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e3675] [cursor=pointer]:
+                  - generic [ref=f62e3676]:
+                    - generic [ref=f62e3677]: ה׳
+                    - generic [ref=f62e3678]: "12"
+                  - generic [ref=f62e3683]:
+                    - generic [ref=f62e3685]:
+                      - generic [ref=f62e3686]:
+                        - button "ערוך אימון" [ref=f62e3688]:
+                          - generic [ref=f62e3692]: ערוך
+                        - button "מחק אימון" [ref=f62e3694]:
+                          - generic [ref=f62e3698]: מחק
+                      - button [ref=f62e3700]:
+                        - generic [ref=f62e3702]:
+                          - img "כל הגוף" [ref=f62e3703]
+                          - paragraph [ref=f62e3704]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e3713]
+                - generic [ref=f62e3715]:
+                  - generic [ref=f62e3718]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3719]
+                    - paragraph [ref=f62e3720]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3721]:
+                    - button "מחק" [ref=f62e3722] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3723] [cursor=pointer]
+              - generic [ref=f62e3726]:
+                - button "ו׳ 13 הוסף אימון ליום זה" [ref=f62e3727] [cursor=pointer]:
+                  - generic [ref=f62e3728]:
+                    - generic [ref=f62e3729]: ו׳
+                    - generic [ref=f62e3730]: "13"
+                  - button "הוסף אימון ליום זה" [ref=f62e3735]:
+                    - generic [ref=f62e3737]: הוסף אימון
+                - generic [ref=f62e3738]:
+                  - generic [ref=f62e3741]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3742]
+                    - paragraph [ref=f62e3743]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3744]:
+                    - button "מחק" [ref=f62e3745] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3746] [cursor=pointer]
+              - generic [ref=f62e3749]:
+                - button "ש׳ 14 הוסף אימון ליום זה" [ref=f62e3750] [cursor=pointer]:
+                  - generic [ref=f62e3751]:
+                    - generic [ref=f62e3752]: ש׳
+                    - generic [ref=f62e3753]: "14"
+                  - button "הוסף אימון ליום זה" [ref=f62e3758]:
+                    - generic [ref=f62e3760]: הוסף אימון
+                - generic [ref=f62e3761]:
+                  - generic [ref=f62e3764]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3765]
+                    - paragraph [ref=f62e3766]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3767]:
+                    - button "מחק" [ref=f62e3768] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3769] [cursor=pointer]
+            - generic [ref=f62e3770]: 15–21 נובמבר
+            - generic [ref=f62e3772]:
+              - generic [ref=f62e3774]:
+                - button "א׳ 15 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e3775] [cursor=pointer]:
+                  - generic [ref=f62e3776]:
+                    - generic [ref=f62e3777]: א׳
+                    - generic [ref=f62e3778]: "15"
+                  - generic [ref=f62e3783]:
+                    - generic [ref=f62e3785]:
+                      - generic [ref=f62e3786]:
+                        - button "ערוך אימון" [ref=f62e3788]:
+                          - generic [ref=f62e3792]: ערוך
+                        - button "מחק אימון" [ref=f62e3794]:
+                          - generic [ref=f62e3798]: מחק
+                      - button [ref=f62e3800]:
+                        - generic [ref=f62e3802]:
+                          - img "כל הגוף" [ref=f62e3803]
+                          - paragraph [ref=f62e3804]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e3813]
+                - generic [ref=f62e3815]:
+                  - generic [ref=f62e3818]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3819]
+                    - paragraph [ref=f62e3820]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3821]:
+                    - button "מחק" [ref=f62e3822] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3823] [cursor=pointer]
+              - generic [ref=f62e3826]:
+                - button "ב׳ 16 הוסף אימון ליום זה" [ref=f62e3827] [cursor=pointer]:
+                  - generic [ref=f62e3828]:
+                    - generic [ref=f62e3829]: ב׳
+                    - generic [ref=f62e3830]: "16"
+                  - button "הוסף אימון ליום זה" [ref=f62e3835]:
+                    - generic [ref=f62e3837]: הוסף אימון
+                - generic [ref=f62e3838]:
+                  - generic [ref=f62e3841]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3842]
+                    - paragraph [ref=f62e3843]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3844]:
+                    - button "מחק" [ref=f62e3845] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3846] [cursor=pointer]
+              - generic [ref=f62e3849]:
+                - button "ג׳ 17 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e3850] [cursor=pointer]:
+                  - generic [ref=f62e3851]:
+                    - generic [ref=f62e3852]: ג׳
+                    - generic [ref=f62e3853]: "17"
+                  - generic [ref=f62e3858]:
+                    - generic [ref=f62e3860]:
+                      - generic [ref=f62e3861]:
+                        - button "ערוך אימון" [ref=f62e3863]:
+                          - generic [ref=f62e3867]: ערוך
+                        - button "מחק אימון" [ref=f62e3869]:
+                          - generic [ref=f62e3873]: מחק
+                      - button [ref=f62e3875]:
+                        - generic [ref=f62e3877]:
+                          - img "כל הגוף" [ref=f62e3878]
+                          - paragraph [ref=f62e3879]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e3888]
+                - generic [ref=f62e3890]:
+                  - generic [ref=f62e3893]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3894]
+                    - paragraph [ref=f62e3895]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3896]:
+                    - button "מחק" [ref=f62e3897] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3898] [cursor=pointer]
+              - generic [ref=f62e3901]:
+                - button "ד׳ 18 הוסף אימון ליום זה" [ref=f62e3902] [cursor=pointer]:
+                  - generic [ref=f62e3903]:
+                    - generic [ref=f62e3904]: ד׳
+                    - generic [ref=f62e3905]: "18"
+                  - button "הוסף אימון ליום זה" [ref=f62e3910]:
+                    - generic [ref=f62e3912]: הוסף אימון
+                - generic [ref=f62e3913]:
+                  - generic [ref=f62e3916]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3917]
+                    - paragraph [ref=f62e3918]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3919]:
+                    - button "מחק" [ref=f62e3920] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3921] [cursor=pointer]
+              - generic [ref=f62e3924]:
+                - button "ה׳ 19 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e3925] [cursor=pointer]:
+                  - generic [ref=f62e3926]:
+                    - generic [ref=f62e3927]: ה׳
+                    - generic [ref=f62e3928]: "19"
+                  - generic [ref=f62e3933]:
+                    - generic [ref=f62e3935]:
+                      - generic [ref=f62e3936]:
+                        - button "ערוך אימון" [ref=f62e3938]:
+                          - generic [ref=f62e3942]: ערוך
+                        - button "מחק אימון" [ref=f62e3944]:
+                          - generic [ref=f62e3948]: מחק
+                      - button [ref=f62e3950]:
+                        - generic [ref=f62e3952]:
+                          - img "כל הגוף" [ref=f62e3953]
+                          - paragraph [ref=f62e3954]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e3963]
+                - generic [ref=f62e3965]:
+                  - generic [ref=f62e3968]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3969]
+                    - paragraph [ref=f62e3970]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3971]:
+                    - button "מחק" [ref=f62e3972] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3973] [cursor=pointer]
+              - generic [ref=f62e3976]:
+                - button "ו׳ 20 הוסף אימון ליום זה" [ref=f62e3977] [cursor=pointer]:
+                  - generic [ref=f62e3978]:
+                    - generic [ref=f62e3979]: ו׳
+                    - generic [ref=f62e3980]: "20"
+                  - button "הוסף אימון ליום זה" [ref=f62e3985]:
+                    - generic [ref=f62e3987]: הוסף אימון
+                - generic [ref=f62e3988]:
+                  - generic [ref=f62e3991]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e3992]
+                    - paragraph [ref=f62e3993]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e3994]:
+                    - button "מחק" [ref=f62e3995] [cursor=pointer]
+                    - button "ביטול" [ref=f62e3996] [cursor=pointer]
+              - generic [ref=f62e3999]:
+                - button "ש׳ 21 הוסף אימון ליום זה" [ref=f62e4000] [cursor=pointer]:
+                  - generic [ref=f62e4001]:
+                    - generic [ref=f62e4002]: ש׳
+                    - generic [ref=f62e4003]: "21"
+                  - button "הוסף אימון ליום זה" [ref=f62e4008]:
+                    - generic [ref=f62e4010]: הוסף אימון
+                - generic [ref=f62e4011]:
+                  - generic [ref=f62e4014]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e4015]
+                    - paragraph [ref=f62e4016]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e4017]:
+                    - button "מחק" [ref=f62e4018] [cursor=pointer]
+                    - button "ביטול" [ref=f62e4019] [cursor=pointer]
+            - generic [ref=f62e4020]: 22–28 נובמבר
+            - generic [ref=f62e4022]:
+              - generic [ref=f62e4024]:
+                - button "א׳ 22 ערוך אימון מחק אימון כל הגוף אימון כל הגוף הוסף אימון ליום זה" [ref=f62e4025] [cursor=pointer]:
+                  - generic [ref=f62e4026]:
+                    - generic [ref=f62e4027]: א׳
+                    - generic [ref=f62e4028]: "22"
+                  - generic [ref=f62e4033]:
+                    - generic [ref=f62e4035]:
+                      - generic [ref=f62e4036]:
+                        - button "ערוך אימון" [ref=f62e4038]:
+                          - generic [ref=f62e4042]: ערוך
+                        - button "מחק אימון" [ref=f62e4044]:
+                          - generic [ref=f62e4048]: מחק
+                      - button [ref=f62e4050]:
+                        - generic [ref=f62e4052]:
+                          - img "כל הגוף" [ref=f62e4053]
+                          - paragraph [ref=f62e4054]: אימון כל הגוף
+                    - button "הוסף אימון ליום זה" [ref=f62e4063]
+                - generic [ref=f62e4065]:
+                  - generic [ref=f62e4068]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e4069]
+                    - paragraph [ref=f62e4070]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e4071]:
+                    - button "מחק" [ref=f62e4072] [cursor=pointer]
+                    - button "ביטול" [ref=f62e4073] [cursor=pointer]
+              - generic [ref=f62e4076]:
+                - button "ב׳ 23 הוסף אימון ליום זה" [ref=f62e4077] [cursor=pointer]:
+                  - generic [ref=f62e4078]:
+                    - generic [ref=f62e4079]: ב׳
+                    - generic [ref=f62e4080]: "23"
+                  - button "הוסף אימון ליום זה" [ref=f62e4085]:
+                    - generic [ref=f62e4087]: הוסף אימון
+                - generic [ref=f62e4088]:
+                  - generic [ref=f62e4091]:
+                    - heading "מחיקת אימון?" [level=2] [ref=f62e4092]
+                    - paragraph [ref=f62e4093]: האימון יוסר מהלוח השבועי
+                  - generic [ref=f62e4094]:
+                    - button "מחק" [ref=f62e4095] [cursor=pointer]
+                    - button "ביטול" [ref=f62e4096] [cursor=pointer]
+  - navigation [ref=f62e224]:
+    - generic [ref=f62e225]:
+      - link "בית" [ref=f62e226] [cursor=pointer]:
+        - /url: /home
+      - link "מפה" [ref=f62e231] [cursor=pointer]:
+        - /url: /map
+  - alert [ref=f62e235]
+  - generic [ref=f62e4097]:
+    - generic [ref=f62e4100]:
+      - heading [level=2]
+    - generic [ref=f62e4101]:
+      - button "שנה רק את האימון הזה" [ref=f62e4102] [cursor=pointer]
+      - button "שנה את כל הלוז קדימה" [ref=f62e4103] [cursor=pointer]
+      - button "ביטול" [ref=f62e4104] [cursor=pointer]

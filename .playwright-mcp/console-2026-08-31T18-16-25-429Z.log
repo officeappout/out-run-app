@@ -1,0 +1,5 @@
+[     191ms] [LOG] %c%s color: red; background: yellow; font-size: 24px; אזהרה! @ https://www.gstatic.com/_/mss/boq-chrome-webstore/_/js/k=boq-chrome-webstore.ChromeWebStoreConsumerFeUi.iw.2br3GkrFUos.2018.O/am=AAIBAAAAQCY/d=1/excm=_b,_tp,itemdetailview/ed=1/dg=0/wt=2/ujg=1/rs=AEP720L8rpK5Ywzxd1Bj1DFc37kCxj2jsw/dti=1/m=_b,_tp:408
+[     191ms] [LOG] %c%s font-size: 18px; ‏שימוש במסוף זה עלול לאפשר לתוקפים להתחזות אליך ולגנוב את המידע שלך באמצעות מתקפה שנקראת Self-XSS.
+אין להזין או להדביק קוד שאינו מובן לך. @ https://www.gstatic.com/_/mss/boq-chrome-webstore/_/js/k=boq-chrome-webstore.ChromeWebStoreConsumerFeUi.iw.2br3GkrFUos.2018.O/am=AAIBAAAAQCY/d=1/excm=_b,_tp,itemdetailview/ed=1/dg=0/wt=2/ujg=1/rs=AEP720L8rpK5Ywzxd1Bj1DFc37kCxj2jsw/dti=1/m=_b,_tp:408
+[    1421ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://feedback-pa.clients6.google.com/v1/survey/trigger?key=AIzaSyA0vwca3tL87eYFZub4l3oBUxBL9Em8QVQ:0
+[    1421ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://feedback-pa.clients6.google.com/v1/survey/trigger?key=AIzaSyA0vwca3tL87eYFZub4l3oBUxBL9Em8QVQ:0

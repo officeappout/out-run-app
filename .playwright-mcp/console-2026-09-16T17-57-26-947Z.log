@@ -1,0 +1,1138 @@
+[    1474ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:38559
+[    2143ms] [INFO] [firebase] App Check bypass: hostname="localhost" treated as local development. initializeAppCheck() will NOT be invoked — this prevents reCAPTCHA Enterprise 403s from crashing the Firestore snapshot listener. Set NEXT_PUBLIC_APP_CHECK_DEBUG_TOKEN to a token registered in the Firebase console (App Check → Apps → Manage debug tokens) if you need a real App Check handshake. @ webpack-internal:///(app-pages-browser)/./src/lib/firebase.ts:135
+[    2283ms] [LOG] [A2-SPIKE][useGPS] hook mounted {isNative: false, callSite: useMapLogic.ts} @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGPS.ts:156
+[    2284ms] [LOG] [A2-SPIKE][useGPS] watch-effect run {simulationActive: false, gpsPaused: false, isForeground: true, workoutActive: false, sessionStatus: idle} @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGPS.ts:240
+[    2284ms] [LOG] [PresenceHeartbeat] mount OK — heartbeat will tick now and every 2 min {userId: jny2lmdOcfXOE0yVKUVIf63fZKD2, currentLocation: null, privacyMode: ghost, ageGroup: adult} @ webpack-internal:///(app-pages-browser)/./src/features/safecity/hooks/usePresenceLayer.ts:228
+[    2284ms] [LOG] [PresenceHeartbeat] dev fallback location active (Tel Aviv) — tick 1 @ webpack-internal:///(app-pages-browser)/./src/features/safecity/hooks/usePresenceLayer.ts:258
+[    2284ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 1, uid: jny2lmdOcfXOE0yVKUVIf63fZKD2, mode: ghost, liveGroupId: null, ageGroup: adult} @ webpack-internal:///(app-pages-browser)/./src/features/safecity/hooks/usePresenceLayer.ts:315
+[    2285ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: jny2lmdOcfXOE0yVKUVIf63fZKD2} @ webpack-internal:///(app-pages-browser)/./src/features/safecity/services/presence.service.ts:91
+[    2285ms] [LOG] [PresenceHeartbeat] dev fallback location active (Tel Aviv) — tick 2 @ webpack-internal:///(app-pages-browser)/./src/features/safecity/hooks/usePresenceLayer.ts:258
+[    2285ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 2, uid: jny2lmdOcfXOE0yVKUVIf63fZKD2, mode: ghost, liveGroupId: null, ageGroup: adult} @ webpack-internal:///(app-pages-browser)/./src/features/safecity/hooks/usePresenceLayer.ts:315
+[    2285ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: jny2lmdOcfXOE0yVKUVIf63fZKD2} @ webpack-internal:///(app-pages-browser)/./src/features/safecity/services/presence.service.ts:91
+[    2285ms] [LOG] [useGroupPresence] subscribe {currentUid: null, groupSessionId: null} @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGroupPresence.ts:207
+[    2286ms] [LOG] [MapShell] mode= discover isWorkoutActive= false runMode= plan @ webpack-internal:///(app-pages-browser)/./src/app/map/MapShell.tsx:357
+[    2286ms] [LOG] [A2-SPIKE][useGPS] hook UNMOUNTED @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGPS.ts:161
+[    2286ms] [LOG] [PresenceHeartbeat] unmount — stopping heartbeat + clearing presence {userId: jny2lmdOcfXOE0yVKUVIf63fZKD2} @ webpack-internal:///(app-pages-browser)/./src/features/safecity/hooks/usePresenceLayer.ts:346
+[    2286ms] [LOG] [A2-SPIKE][useGPS] hook mounted {isNative: false, callSite: useMapLogic.ts} @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGPS.ts:156
+[    2286ms] [LOG] [A2-SPIKE][useGPS] watch-effect run {simulationActive: false, gpsPaused: false, isForeground: true, workoutActive: false, sessionStatus: idle} @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGPS.ts:240
+[    2286ms] [LOG] [PresenceHeartbeat] mount OK — heartbeat will tick now and every 2 min {userId: jny2lmdOcfXOE0yVKUVIf63fZKD2, currentLocation: null, privacyMode: ghost, ageGroup: adult} @ webpack-internal:///(app-pages-browser)/./src/features/safecity/hooks/usePresenceLayer.ts:228
+[    2286ms] [LOG] [PresenceHeartbeat] dev fallback location active (Tel Aviv) — tick 1 @ webpack-internal:///(app-pages-browser)/./src/features/safecity/hooks/usePresenceLayer.ts:258
+[    2286ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 1, uid: jny2lmdOcfXOE0yVKUVIf63fZKD2, mode: ghost, liveGroupId: null, ageGroup: adult} @ webpack-internal:///(app-pages-browser)/./src/features/safecity/hooks/usePresenceLayer.ts:315
+[    2286ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: jny2lmdOcfXOE0yVKUVIf63fZKD2} @ webpack-internal:///(app-pages-browser)/./src/features/safecity/services/presence.service.ts:91
+[    2287ms] [LOG] [PresenceHeartbeat] dev fallback location active (Tel Aviv) — tick 2 @ webpack-internal:///(app-pages-browser)/./src/features/safecity/hooks/usePresenceLayer.ts:258
+[    2287ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 2, uid: jny2lmdOcfXOE0yVKUVIf63fZKD2, mode: ghost, liveGroupId: null, ageGroup: adult} @ webpack-internal:///(app-pages-browser)/./src/features/safecity/hooks/usePresenceLayer.ts:315
+[    2287ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: jny2lmdOcfXOE0yVKUVIf63fZKD2} @ webpack-internal:///(app-pages-browser)/./src/features/safecity/services/presence.service.ts:91
+[    2287ms] [LOG] [useGroupPresence] subscribe {currentUid: null, groupSessionId: null} @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGroupPresence.ts:207
+[    2287ms] [LOG] [MapShell] mode= discover isWorkoutActive= false runMode= plan @ webpack-internal:///(app-pages-browser)/./src/app/map/MapShell.tsx:357
+[    2301ms] [LOG] [Cam] wazePadding: card=TOP, H=727px, top=364px, bottom=0 → user dot at ~25% from bottom (default Waze framing) @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCameraController.ts:482
+[    2301ms] [LOG] [Cam] wazePadding: card=TOP, H=727px, top=364px, bottom=0 → user dot at ~25% from bottom (default Waze framing) @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCameraController.ts:482
+[    2311ms] [LOG] [Cam] wazePadding: card=TOP, H=727px, top=364px, bottom=0 → user dot at ~25% from bottom (default Waze framing) @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCameraController.ts:482
+[    2312ms] [LOG] [Cam] wazePadding: card=TOP, H=727px, top=364px, bottom=0 → user dot at ~25% from bottom (default Waze framing) @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCameraController.ts:482
+[    2314ms] [LOG] [Cam] wazePadding: card=TOP, H=727px, top=364px, bottom=0 → user dot at ~25% from bottom (default Waze framing) @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCameraController.ts:482
+[    2314ms] [LOG] [Cam] wazePadding: card=TOP, H=727px, top=364px, bottom=0 → user dot at ~25% from bottom (default Waze framing) @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCameraController.ts:482
+[    2351ms] [LOG] [A2-SPIKE][useGPS] fix accepted {lat: 32.05581778914182, lng: 34.77556204268581, ts: 1789581449298} @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGPS.ts:219
+[    2352ms] [LOG] [Cam] wazePadding: card=TOP, H=727px, top=364px, bottom=0 → user dot at ~25% from bottom (default Waze framing) @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCameraController.ts:482
+[    2352ms] [LOG] [Cam] wazePadding: card=TOP, H=727px, top=364px, bottom=0 → user dot at ~25% from bottom (default Waze framing) @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCameraController.ts:482
+[    2355ms] [LOG] [PresenceHeartbeat] tick WRITING presence {tickCount: 3, uid: jny2lmdOcfXOE0yVKUVIf63fZKD2, mode: ghost, liveGroupId: null, ageGroup: adult} @ webpack-internal:///(app-pages-browser)/./src/features/safecity/hooks/usePresenceLayer.ts:315
+[    2356ms] [LOG] [PresenceHeartbeat] first-fix write triggered by GPS store @ webpack-internal:///(app-pages-browser)/./src/features/safecity/hooks/usePresenceLayer.ts:341
+[    2356ms] [LOG] [Presence.updatePresence] mode=ghost → clearPresence (deleting doc) {uid: jny2lmdOcfXOE0yVKUVIf63fZKD2} @ webpack-internal:///(app-pages-browser)/./src/features/safecity/services/presence.service.ts:91
+[    2356ms] [LOG] [useGroupPresence] subscribe {currentUid: null, groupSessionId: null} @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGroupPresence.ts:207
+[    2480ms] [LOG] [useSuggestionEngineStore] runSuggestionEngine took 125ms (6 candidates) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/store/useSuggestionEngineStore.ts:85
+[    2882ms] [LOG] [Cam] listeners wired @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCameraController.ts:1128
+[    2890ms] [LOG] [Cam] initial dive — real GPS fix @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCameraController.ts:910
+[    3149ms] [LOG] [Map] declutter:request source=watchdog @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/components/mapStyleConfig.ts:135
+[    3149ms] [LOG] !!! MAP CLEANUP STARTING !!! @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/components/mapStyleConfig.ts:145
+[    3150ms] [LOG] [FitnessMapStyle] Hard-hide pass: 2/5 target layers hidden @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/components/mapStyleConfig.ts:176
+[    3150ms] [LOG] [FitnessMapStyle] Nuclear sweep: hid 14 stray label layers (kept 6 matching park/natural/water/waterway/place/road) @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/components/mapStyleConfig.ts:203
+[    3151ms] [LOG] [Map] Declutter complete (source=watchdog): Minor roads hidden, POIs removed. @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/components/mapStyleConfig.ts:338
+[    4527ms] [LOG] [Routes] Fetched 98 published official routes from Firestore @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useRouteGeneration.ts:59
+[    4529ms] [LOG] [useCommunityEnrichment] Subscribing for route IDs: [CCQLHULB0xNa5pI5Zxa6, CY5KMrNMD90UAyuU3wom, TUtGCtmxwjGnoR0KH4B9] @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:308
+[    4530ms] [LOG] [ActivityStore] No Firestore data, created new day @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:675
+[    4530ms] [LOG] [ActivityStore] No Firestore data, created new day @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:675
+[    4547ms] [LOG] [useCommunityEnrichment] Broad groups query returned: 21 groups @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:405
+[    4547ms] [LOG] [groupDocToEnrichments] Group has no slots: 2VHJfwOe0D6Tgwz2gh0U הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:176
+[    4547ms] [LOG] [groupDocToEnrichments] Group has no slots: 5wJ66moZcncaLwpB2eh3 הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:176
+[    4547ms] [LOG] [groupDocToEnrichments] Group has no slots: 91OJbugQf5ELVx3XIr43 Joseph family steps @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:176
+[    4547ms] [LOG] [groupDocToEnrichments] Group has no slots: A4unlXH75xtJ3yQsLg42 קובצת הליכה ניר עוז @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:176
+[    4547ms] [LOG] [groupDocToEnrichments] Group has no slots: HZBAz5d3UKEcs20R6EIC צו הכושר תלאביב בית הלוחם @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:176
+[    4547ms] [LOG] [groupDocToEnrichments] Group has no slots: URny7sxvFrMLD2ojYizb צו כושר — תל אביב (פרישמן) @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:176
+[    4547ms] [LOG] [groupDocToEnrichments] Group has no slots: WlrV1YO6VfEdeHi1nin1 הליכה מתוזמנת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:176
+[    4547ms] [LOG] [groupDocToEnrichments] Group has no slots: YkgYRwbzfr9mhWP2Ygy9 צו כושר — חבל יבנה @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:176
+[    4547ms] [LOG] [groupDocToEnrichments] Group has no slots: YuVmdYGrty8jhkwaQfrS צו כושר — מודיעין @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:176
+[    4547ms] [LOG] [groupDocToEnrichments] Group has no slots: ZvxBost3Fls1sZJzNgpe צו כושר — באר שבע @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:176
+[    4547ms] [LOG] [groupDocToEnrichments] Group has no slots: gUuTsQXfrZjVyVDsATb5 צו כושר פרדס חנה @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:176
+[    4547ms] [LOG] [groupDocToEnrichments] Group has no slots: maccabiah_lsit_2026 אתגר ה-L-Sit · מכביה 2026 @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:176
+[    4547ms] [LOG] [groupDocToEnrichments] Group has no slots: qwaFSYaEJpt5ocOVWyvS צו כושר — קרית גת @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:176
+[    4547ms] [LOG] [groupDocToEnrichments] Group has no slots: uzkKafajk1BXQxgV5dcj צו כושר — חיפה @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:176
+[    4547ms] [LOG] [groupDocToEnrichments] Group has no slots: vmnhuDF6URJ4ayz3siBF צו כושר — הרצליה @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:176
+[    4547ms] [LOG] [groupDocToEnrichments] Group has no slots: wbVnvDagAqiZmMiqYsLZ צו כושר — קיבוץ עלומים @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:176
+[    4547ms] [LOG] [groupDocToEnrichments] Group has no slots: xTJueGB3t94K7cFZUCCT צו כושר — רחובות @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:176
+[    4547ms] [LOG] [useCommunityEnrichment] Groups resolved: 0 routes with recurring sessions @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:409
+[    4812ms] [WARNING] [useCommunityEnrichment] arrivals error: FirebaseError: The query requires an index. You can create it here: https://console.firebase.google.com/v1/r/project/appout-1/firestore/indexes?create_composite=ClFwcm9qZWN0cy9hcHBvdXQtMS9kYXRhYmFzZXMvKGRlZmF1bHQpL2NvbGxlY3Rpb25Hcm91cHMvcGxhbm5lZF9zZXNzaW9ucy9pbmRleGVzL18QARoLCgdyb3V0ZUlkEAEaDQoJZXhwaXJlc0F0EAEaDAoIX19uYW1lX18QAQ @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:350
+[    4921ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:808
+[    4922ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:808
+[    4992ms] [LOG] [Map] declutter:request source=idle-safety @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/components/mapStyleConfig.ts:135
+[    4992ms] [LOG] [Map] declutter:skip source=idle-safety (already done) @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/components/mapStyleConfig.ts:142
+[   22317ms] [LOG] [A2-SPIKE][useGPS] fix accepted {lat: 32.05569036315005, lng: 34.77576236912584, ts: 1789581469263} @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGPS.ts:219
+[   53020ms] [WARNING] [ParkDetailSheet] TRIPWIRE: fallback render with incomplete park data — missing [description, featureTags, city, gymEquipment], park pLJAZD5wdxUb7ftbXH13, point-fetch not yet resolved or failed @ webpack-internal:///(app-pages-browser)/./src/features/parks/client/components/park-detail/ParkDetailSheet.tsx:388
+[   53021ms] [LOG] [ParkDetail] Park: pLJAZD5wdxUb7ftbXH13 גינת כושר הר ציון - תל אביב | Events found: 0 [] @ webpack-internal:///(app-pages-browser)/./src/features/parks/client/components/park-detail/ParkDetailSheet.tsx:444
+[   53034ms] [LOG] [ParkDetail] Park: pLJAZD5wdxUb7ftbXH13 גינת כושר הר ציון - תל אביב | Events found: 0 [] @ webpack-internal:///(app-pages-browser)/./src/features/parks/client/components/park-detail/ParkDetailSheet.tsx:444
+[   53036ms] [LOG] [useParkEvents] Groups resolved: 0 recurring sessions for park pLJAZD5wdxUb7ftbXH13 @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:616
+[   53037ms] [LOG] [ParkDetail] Park: pLJAZD5wdxUb7ftbXH13 גינת כושר הר ציון - תל אביב | Events found: 0 [] @ webpack-internal:///(app-pages-browser)/./src/features/parks/client/components/park-detail/ParkDetailSheet.tsx:444
+[   53296ms] [WARNING] [Contributions] Index not ready for park reviews, returning empty. @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/services/contribution.service.ts:128
+[   53315ms] [LOG] [useParkEvents] Arrivals resolved: 0 personal arrivals for park pLJAZD5wdxUb7ftbXH13 @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useCommunityEnrichment.ts:689
+[   53316ms] [LOG] [ParkDetail] Park: pLJAZD5wdxUb7ftbXH13 גינת כושר הר ציון - תל אביב | Events found: 0 [] @ webpack-internal:///(app-pages-browser)/./src/features/parks/client/components/park-detail/ParkDetailSheet.tsx:444
+[   75463ms] [LOG] [A2-SPIKE][useGPS] hook UNMOUNTED @ webpack-internal:///(app-pages-browser)/./src/features/parks/core/hooks/useGPS.ts:161
+[   75463ms] [LOG] [PresenceHeartbeat] unmount — stopping heartbeat + clearing presence {userId: jny2lmdOcfXOE0yVKUVIf63fZKD2} @ webpack-internal:///(app-pages-browser)/./src/features/safecity/hooks/usePresenceLayer.ts:346
+[   75481ms] [LOG] [buildIdToSlugMap] Built 14 entries: [EtY8YCol…→human_flag, J0fLpmJh…→push, H2279XsR…→full_body, kDMpobbK…→core, UPDBtTdC…→pull, cC0BOmm6…→one_arm_pullup, fTLWzjP9…→muscle_up, IOfBZFeo…→handstand, pCI5NHXp…→planche, 47smw26h…→upper_body, OrAmOH3F…→legs, mFcuYlNg…→front_lever, JCac76p4…→calisthenics_upper, PAxprHuT…→handstand_pushup] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/program-hierarchy.utils.ts:121
+[   75481ms] [LOG] [buildIdToSlugMap] Built 14 entries: [EtY8YCol…→human_flag, J0fLpmJh…→push, H2279XsR…→full_body, kDMpobbK…→core, UPDBtTdC…→pull, cC0BOmm6…→one_arm_pullup, fTLWzjP9…→muscle_up, IOfBZFeo…→handstand, pCI5NHXp…→planche, 47smw26h…→upper_body, OrAmOH3F…→legs, mFcuYlNg…→front_lever, JCac76p4…→calisthenics_upper, PAxprHuT…→handstand_pushup] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/program-hierarchy.utils.ts:121
+[   75735ms] [LOG] [ActivityStore] No Firestore data, created new day @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:675
+[   75735ms] [LOG] [ActivityStore] No Firestore data, created new day @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:675
+[   75735ms] [LOG] [ActivityStore] No Firestore data, created new day @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:675
+[   75735ms] [LOG] [ActivityStore] No Firestore data, created new day @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:675
+[   75735ms] [LOG] [ActivityStore] No Firestore data, created new day @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:675
+[   75735ms] [LOG] [ActivityStore] No Firestore data, created new day @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:675
+[   75780ms] [INFO] [User Service] User jny2lmdOcfXOE0yVKUVIf63fZKD2 has missing or empty equipment profile. This may affect Smart Swap functionality. Please update user equipment in the admin panel. @ webpack-internal:///(app-pages-browser)/./src/lib/firestore.service.ts:71
+[   75785ms] [INFO] [User Service] User jny2lmdOcfXOE0yVKUVIf63fZKD2 has missing or empty equipment profile. This may affect Smart Swap functionality. Please update user equipment in the admin panel. @ webpack-internal:///(app-pages-browser)/./src/lib/firestore.service.ts:71
+[   75986ms] [LOG] [HomeContext] Domain 'full_body' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   75986ms] [LOG] [HomeContext] Domain '47smw26hUyG5ZbE1bhr3' → slug 'upper_body' dual-keyed at L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:118
+[   75986ms] [LOG] [HomeContext] Domain 'upper_body' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   75986ms] [LOG] [HomeContext] Domain 'pull' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   75986ms] [LOG] [HomeContext] Domain 'H2279XsRGDg9G370J7S9' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   75986ms] [LOG] [HomeContext] Domain 'core' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   75987ms] [LOG] [HomeContext] Domain 'muscle_up' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   75987ms] [LOG] [HomeContext] Domain 'fTLWzjP9gH2VNpamyCZF' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   75987ms] [LOG] [HomeContext] Domain 'legs' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   75987ms] [LOG] [HomeContext] Domain 'push' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   75987ms] [LOG] [HomeContext] Domain 'calisthenics_upper' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   75987ms] [LOG] [HomeContext] Domain 'planche' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   75987ms] [LOG] [HomeContext] Domain 'human_flag' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   75987ms] [LOG] [HomeContext] Domain 'front_lever' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   75987ms] [LOG] [HomeContext] Domain 'handstand_pushup' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   75987ms] [LOG] [HomeContext] Domain 'handstand' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   75987ms] [LOG] [HomeContext] Domain 'one_arm_pullup' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   75987ms] [LOG] [home] scoreBreakdown "full-strength" (score=30): {goalMatch: 30, gapFilling: 0, stepDeficit: 0, preferenceMatch: 0, recoveryMatch: 0} @ webpack-internal:///(app-pages-browser)/./src/app/home/page.tsx:1437
+[   75987ms] [LOG] [HomeWorkout] 🏞️ No location specified → "park" (PARK FORCE active) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:1473
+[   75987ms] [LOG] [HomeWorkout] scheduledProgramIds normalised: [] → [full_body] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:1486
+[   75987ms] [LOG] [home] scoreBreakdown "safety-net" (score=0): {goalMatch: 0, gapFilling: 0, stepDeficit: 0, preferenceMatch: 0, recoveryMatch: 0} @ webpack-internal:///(app-pages-browser)/./src/app/home/page.tsx:1437
+[   76082ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:808
+[   76089ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:808
+[   76096ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:808
+[   76101ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:808
+[   76108ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:808
+[   76114ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:808
+[   76270ms] [LOG] [buildIdToSlugMap] Built 14 entries: [EtY8YCol…→human_flag, J0fLpmJh…→push, H2279XsR…→full_body, kDMpobbK…→core, UPDBtTdC…→pull, cC0BOmm6…→one_arm_pullup, fTLWzjP9…→muscle_up, IOfBZFeo…→handstand, pCI5NHXp…→planche, 47smw26h…→upper_body, OrAmOH3F…→legs, mFcuYlNg…→front_lever, JCac76p4…→calisthenics_upper, PAxprHuT…→handstand_pushup] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/program-hierarchy.utils.ts:121
+[   76270ms] [LOG] [HomeWorkout:Trio] Domain 'full_body' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   76270ms] [LOG] [HomeWorkout:Trio] Skipping master program "47smw26hUyG5ZbE1bhr3" (display-only) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:99
+[   76270ms] [LOG] [HomeWorkout:Trio] Domain 'upper_body' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   76270ms] [LOG] [HomeWorkout:Trio] Domain 'pull' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   76270ms] [LOG] [HomeWorkout:Trio] Skipping master program "H2279XsRGDg9G370J7S9" (display-only) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:99
+[   76270ms] [LOG] [HomeWorkout:Trio] Domain 'core' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   76270ms] [LOG] [HomeWorkout:Trio] Domain 'muscle_up' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   76270ms] [LOG] [HomeWorkout:Trio] Skipping master program "fTLWzjP9gH2VNpamyCZF" (display-only) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:99
+[   76270ms] [LOG] [HomeWorkout:Trio] Domain 'legs' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   76270ms] [LOG] [HomeWorkout:Trio] Domain 'push' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   76270ms] [LOG] [HomeWorkout:Trio] Domain 'calisthenics_upper' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   76270ms] [LOG] [HomeWorkout:Trio] Domain 'planche' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   76270ms] [LOG] [HomeWorkout:Trio] Domain 'human_flag' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   76270ms] [LOG] [HomeWorkout:Trio] Domain 'front_lever' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   76270ms] [LOG] [HomeWorkout:Trio] Domain 'handstand_pushup' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   76270ms] [LOG] [HomeWorkout:Trio] Domain 'handstand' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   76270ms] [LOG] [HomeWorkout:Trio] Domain 'one_arm_pullup' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   76270ms] [LOG] [HomeWorkout:Trio] [MasterDerive] "H2279XsRGDg9G370J7S9" → L1 (avg of [1,1,1] = 1, cap=15) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:205
+[   76270ms] [LOG] [HomeWorkout:Trio] [MasterDerive] "fTLWzjP9gH2VNpamyCZF" → L1 (avg of [1,1,1] = 1, cap=15) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:205
+[   76270ms] [LOG] [HomeWorkout:Trio] [MasterDerive] "47smw26hUyG5ZbE1bhr3" → L1 (avg of [1,1,1] = 1, cap=15) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:205
+[   76270ms] [LOG] [HomeWorkout:Trio] [MasterDerive] "JCac76p48XGZ5MVahLI2" → L1 (avg of [1,1,1] = 1, cap=15) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:205
+[   76271ms] [LOG] [HomeWorkout] Empty equipment profile for location "park" — defaulting to bodyweight @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/user-profile.utils.ts:130
+[   76271ms] [WARNING] [InputSanitizer] ⚠️ No park inventory resolved — ESSENTIAL_PARK_GEAR fallback active @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/middleware/InputSanitizerMiddleware.ts:111
+[   76271ms] [LOG] [buildIdToSlugMap] Built 14 entries: [EtY8YCol…→human_flag, J0fLpmJh…→push, H2279XsR…→full_body, kDMpobbK…→core, UPDBtTdC…→pull, cC0BOmm6…→one_arm_pullup, fTLWzjP9…→muscle_up, IOfBZFeo…→handstand, pCI5NHXp…→planche, 47smw26h…→upper_body, OrAmOH3F…→legs, mFcuYlNg…→front_lever, JCac76p4…→calisthenics_upper, PAxprHuT…→handstand_pushup] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/program-hierarchy.utils.ts:121
+[   76271ms] [LOG] [buildIdToSlugMap] Built 14 entries: [EtY8YCol…→human_flag, J0fLpmJh…→push, H2279XsR…→full_body, kDMpobbK…→core, UPDBtTdC…→pull, cC0BOmm6…→one_arm_pullup, fTLWzjP9…→muscle_up, IOfBZFeo…→handstand, pCI5NHXp…→planche, 47smw26h…→upper_body, OrAmOH3F…→legs, mFcuYlNg…→front_lever, JCac76p4…→calisthenics_upper, PAxprHuT…→handstand_pushup] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/program-hierarchy.utils.ts:121
+[   76271ms] [LOG] [buildIdToSlugMap] Built 14 entries: [EtY8YCol…→human_flag, J0fLpmJh…→push, H2279XsR…→full_body, kDMpobbK…→core, UPDBtTdC…→pull, cC0BOmm6…→one_arm_pullup, fTLWzjP9…→muscle_up, IOfBZFeo…→handstand, pCI5NHXp…→planche, 47smw26h…→upper_body, OrAmOH3F…→legs, mFcuYlNg…→front_lever, JCac76p4…→calisthenics_upper, PAxprHuT…→handstand_pushup] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/program-hierarchy.utils.ts:121
+[   76271ms] [LOG] [buildIdToSlugMap] Built 14 entries: [EtY8YCol…→human_flag, J0fLpmJh…→push, H2279XsR…→full_body, kDMpobbK…→core, UPDBtTdC…→pull, cC0BOmm6…→one_arm_pullup, fTLWzjP9…→muscle_up, IOfBZFeo…→handstand, pCI5NHXp…→planche, 47smw26h…→upper_body, OrAmOH3F…→legs, mFcuYlNg…→front_lever, JCac76p4…→calisthenics_upper, PAxprHuT…→handstand_pushup] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/program-hierarchy.utils.ts:121
+[   76271ms] [LOG] [buildIdToSlugMap] Built 14 entries: [EtY8YCol…→human_flag, J0fLpmJh…→push, H2279XsR…→full_body, kDMpobbK…→core, UPDBtTdC…→pull, cC0BOmm6…→one_arm_pullup, fTLWzjP9…→muscle_up, IOfBZFeo…→handstand, pCI5NHXp…→planche, 47smw26h…→upper_body, OrAmOH3F…→legs, mFcuYlNg…→front_lever, JCac76p4…→calisthenics_upper, PAxprHuT…→handstand_pushup] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/program-hierarchy.utils.ts:121
+[   76271ms] [LOG] [DomainBudget] activeProgramId="full_body" slug="full_body" resolvedChildDomains=[push, pull, legs, core] isFullBodyMaster=true isCalisthenicsUpperMaster=false isUpperBodyMaster=false @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:1670
+[   76271ms] [LOG] [LeadProgram] push: resolved L1 via pattern(push) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/lead-program.service.ts:264
+[   76385ms] [LOG] [ParkEquipmentResolver] Selected park "pLJAZD5wdxUb7ftbXH13": [inkr0xuxevblg370watm, dip_station, pullup_bar, pullup_bar, trx, Climbing rope, pullup_bar] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/park-equipment-resolver.ts:67
+[   76386ms] [LOG] [HomeWorkout] 📍 location honored: using "park" (Park Force disabled) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:1471
+[   76386ms] [LOG] [HomeWorkout] scheduledProgramIds normalised: [] → [full_body] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:1486
+[   76481ms] [LOG] [WorkoutTrio] No app_config/workout_trio doc → using pre-seeded Hebrew labels @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-labels.service.ts:53
+[   76481ms] [LOG] [WorkoutTrio] Rest-day fast path: 3 options from pool of 7 (targeted query, full pipeline skipped) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:469
+[   76481ms] [LOG] [home] scoreBreakdown "recovery-follow-up" (score=0): {goalMatch: 0, gapFilling: 0, stepDeficit: 0, preferenceMatch: 0, recoveryMatch: 0} @ webpack-internal:///(app-pages-browser)/./src/app/home/page.tsx:1437
+[   76481ms] [LOG] [LeadProgram] pull: resolved L1 via pattern(pull) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/lead-program.service.ts:264
+[   76793ms] [LOG] [HomeContext] Domain 'full_body' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   76793ms] [LOG] [HomeContext] Domain '47smw26hUyG5ZbE1bhr3' → slug 'upper_body' dual-keyed at L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:118
+[   76793ms] [LOG] [HomeContext] Domain 'upper_body' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   76793ms] [LOG] [HomeContext] Domain 'pull' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   76793ms] [LOG] [HomeContext] Domain 'H2279XsRGDg9G370J7S9' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   76793ms] [LOG] [HomeContext] Domain 'core' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   76793ms] [LOG] [HomeContext] Domain 'muscle_up' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   76793ms] [LOG] [HomeContext] Domain 'fTLWzjP9gH2VNpamyCZF' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   76793ms] [LOG] [HomeContext] Domain 'legs' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   76793ms] [LOG] [HomeContext] Domain 'push' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   76793ms] [LOG] [HomeContext] Domain 'calisthenics_upper' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   76793ms] [LOG] [HomeContext] Domain 'planche' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   76793ms] [LOG] [HomeContext] Domain 'human_flag' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   76793ms] [LOG] [HomeContext] Domain 'front_lever' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   76793ms] [LOG] [HomeContext] Domain 'handstand_pushup' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   76793ms] [LOG] [HomeContext] Domain 'handstand' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   76793ms] [LOG] [HomeContext] Domain 'one_arm_pullup' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   76831ms] [LOG] [buildIdToSlugMap] Built 14 entries: [EtY8YCol…→human_flag, J0fLpmJh…→push, H2279XsR…→full_body, kDMpobbK…→core, UPDBtTdC…→pull, cC0BOmm6…→one_arm_pullup, fTLWzjP9…→muscle_up, IOfBZFeo…→handstand, pCI5NHXp…→planche, 47smw26h…→upper_body, OrAmOH3F…→legs, mFcuYlNg…→front_lever, JCac76p4…→calisthenics_upper, PAxprHuT…→handstand_pushup] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/program-hierarchy.utils.ts:121
+[   76831ms] [LOG] [HomeWorkout:Trio] Domain 'full_body' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   76831ms] [LOG] [HomeWorkout:Trio] Skipping master program "47smw26hUyG5ZbE1bhr3" (display-only) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:99
+[   76831ms] [LOG] [HomeWorkout:Trio] Domain 'upper_body' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   76831ms] [LOG] [HomeWorkout:Trio] Domain 'pull' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   76831ms] [LOG] [HomeWorkout:Trio] Skipping master program "H2279XsRGDg9G370J7S9" (display-only) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:99
+[   76831ms] [LOG] [HomeWorkout:Trio] Domain 'core' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   76831ms] [LOG] [HomeWorkout:Trio] Domain 'muscle_up' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   76831ms] [LOG] [HomeWorkout:Trio] Skipping master program "fTLWzjP9gH2VNpamyCZF" (display-only) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:99
+[   76831ms] [LOG] [HomeWorkout:Trio] Domain 'legs' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   76831ms] [LOG] [HomeWorkout:Trio] Domain 'push' resolved to L1 (Source: Domains) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:120
+[   76831ms] [LOG] [HomeWorkout:Trio] Domain 'calisthenics_upper' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   76831ms] [LOG] [HomeWorkout:Trio] Domain 'planche' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   76831ms] [LOG] [HomeWorkout:Trio] Domain 'human_flag' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   76831ms] [LOG] [HomeWorkout:Trio] Domain 'front_lever' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   76831ms] [LOG] [HomeWorkout:Trio] Domain 'handstand_pushup' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   76831ms] [LOG] [HomeWorkout:Trio] Domain 'handstand' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   76831ms] [LOG] [HomeWorkout:Trio] Domain 'one_arm_pullup' — no assessed level, left ABSENT (no invention) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:107
+[   76831ms] [LOG] [HomeWorkout:Trio] [MasterDerive] "H2279XsRGDg9G370J7S9" → L1 (avg of [1,1,1] = 1, cap=15) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:205
+[   76831ms] [LOG] [HomeWorkout:Trio] [MasterDerive] "fTLWzjP9gH2VNpamyCZF" → L1 (avg of [1,1,1] = 1, cap=15) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:205
+[   76831ms] [LOG] [HomeWorkout:Trio] [MasterDerive] "47smw26hUyG5ZbE1bhr3" → L1 (avg of [1,1,1] = 1, cap=15) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:205
+[   76831ms] [LOG] [HomeWorkout:Trio] [MasterDerive] "JCac76p48XGZ5MVahLI2" → L1 (avg of [1,1,1] = 1, cap=15) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/level-resolution.utils.ts:205
+[   76832ms] [LOG] [HomeWorkout] Empty equipment profile for location "park" — defaulting to bodyweight @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/user-profile.utils.ts:130
+[   76832ms] [LOG] [InputSanitizer] 🏞️ Park inventory (real): [inkr0xuxevblg370watm, dip_station, pullup_bar, pullup_bar, trx, Climbing rope, pullup_bar] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/middleware/InputSanitizerMiddleware.ts:101
+[   76832ms] [LOG] [buildIdToSlugMap] Built 14 entries: [EtY8YCol…→human_flag, J0fLpmJh…→push, H2279XsR…→full_body, kDMpobbK…→core, UPDBtTdC…→pull, cC0BOmm6…→one_arm_pullup, fTLWzjP9…→muscle_up, IOfBZFeo…→handstand, pCI5NHXp…→planche, 47smw26h…→upper_body, OrAmOH3F…→legs, mFcuYlNg…→front_lever, JCac76p4…→calisthenics_upper, PAxprHuT…→handstand_pushup] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/program-hierarchy.utils.ts:121
+[   76832ms] [LOG] [buildIdToSlugMap] Built 14 entries: [EtY8YCol…→human_flag, J0fLpmJh…→push, H2279XsR…→full_body, kDMpobbK…→core, UPDBtTdC…→pull, cC0BOmm6…→one_arm_pullup, fTLWzjP9…→muscle_up, IOfBZFeo…→handstand, pCI5NHXp…→planche, 47smw26h…→upper_body, OrAmOH3F…→legs, mFcuYlNg…→front_lever, JCac76p4…→calisthenics_upper, PAxprHuT…→handstand_pushup] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/program-hierarchy.utils.ts:121
+[   76832ms] [LOG] [buildIdToSlugMap] Built 14 entries: [EtY8YCol…→human_flag, J0fLpmJh…→push, H2279XsR…→full_body, kDMpobbK…→core, UPDBtTdC…→pull, cC0BOmm6…→one_arm_pullup, fTLWzjP9…→muscle_up, IOfBZFeo…→handstand, pCI5NHXp…→planche, 47smw26h…→upper_body, OrAmOH3F…→legs, mFcuYlNg…→front_lever, JCac76p4…→calisthenics_upper, PAxprHuT…→handstand_pushup] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/program-hierarchy.utils.ts:121
+[   76832ms] [LOG] [buildIdToSlugMap] Built 14 entries: [EtY8YCol…→human_flag, J0fLpmJh…→push, H2279XsR…→full_body, kDMpobbK…→core, UPDBtTdC…→pull, cC0BOmm6…→one_arm_pullup, fTLWzjP9…→muscle_up, IOfBZFeo…→handstand, pCI5NHXp…→planche, 47smw26h…→upper_body, OrAmOH3F…→legs, mFcuYlNg…→front_lever, JCac76p4…→calisthenics_upper, PAxprHuT…→handstand_pushup] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/program-hierarchy.utils.ts:121
+[   76832ms] [LOG] [buildIdToSlugMap] Built 14 entries: [EtY8YCol…→human_flag, J0fLpmJh…→push, H2279XsR…→full_body, kDMpobbK…→core, UPDBtTdC…→pull, cC0BOmm6…→one_arm_pullup, fTLWzjP9…→muscle_up, IOfBZFeo…→handstand, pCI5NHXp…→planche, 47smw26h…→upper_body, OrAmOH3F…→legs, mFcuYlNg…→front_lever, JCac76p4…→calisthenics_upper, PAxprHuT…→handstand_pushup] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/program-hierarchy.utils.ts:121
+[   76832ms] [LOG] [DomainBudget] activeProgramId="full_body" slug="full_body" resolvedChildDomains=[push, pull, legs, core] isFullBodyMaster=true isCalisthenicsUpperMaster=false isUpperBodyMaster=false @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:1670
+[   76832ms] [LOG] [LeadProgram] push: resolved L1 via pattern(push) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/lead-program.service.ts:264
+[   76832ms] [LOG] [LeadProgram] pull: resolved L1 via pattern(pull) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/lead-program.service.ts:264
+[   76832ms] [LOG] [LeadProgram] legs: resolved L1 via pattern(legs) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/lead-program.service.ts:264
+[   76856ms] [LOG] [LeadProgram] legs: resolved L1 via pattern(legs) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/lead-program.service.ts:264
+[   76990ms] [LOG] [ActivityStore] No Firestore data, created new day @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:675
+[   76991ms] [LOG] [ActivityStore] No Firestore data, created new day @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:675
+[   76991ms] [LOG] [ActivityStore] No Firestore data, created new day @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:675
+[   77120ms] [LOG] [LeadProgram] core: resolved L1 via pattern(core) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/lead-program.service.ts:264
+[   77120ms] [LOG] [LeadProgram] core: resolved L1 via pattern(core) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/lead-program.service.ts:264
+[   77258ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:808
+[   77263ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:808
+[   77266ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:808
+[   77349ms] [LOG] [DomainBudget] resolvedDomainBudgets set: [push=L1, pull=L1, legs=L1, core=L1] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:1678
+[   77349ms] [LOG] activeProgramId: full_body @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:407
+[   77349ms] [LOG] progression.tracks: {full_body: Object, 47smw26hUyG5ZbE1bhr3: Object, upper_body: Object, pull: Object, H2279XsRGDg9G370J7S9: Object} @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:409
+[   77349ms] [LOG] progression.domains: {upper_body: Object, 47smw26hUyG5ZbE1bhr3: Object, muscle_up: Object, push: Object, calisthenics_upper: Object} @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:411
+[   77349ms] [LOG] progression.activePrograms: [Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:413
+[   77349ms] [LOG] progression.skillFocusIds: (none) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:415
+[   77349ms] [LOG] progression.masterProgramSubLevels: (none) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:417
+[   77349ms] [LOG] Derived userLevel (base): 1 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:418
+[   77349ms] [LOG] scheduleDays count: 2 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:419
+[   77349ms] [LOG] Source: Admin Panel (ProgramLevelSettings) per domain @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:444
+[   77349ms] [LOG] Schedule Days: 2 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:445
+[   77349ms] [LOG]   push (L1): 10/2=4 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:447
+[   77349ms] [LOG]   pull (L1): 10/2=4 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:447
+[   77349ms] [LOG]   legs (L1): 10/2=4 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:447
+[   77349ms] [LOG]   core (L1): 8/2=3 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:447
+[   77349ms] [LOG] Total Daily Budget = 15 sets @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:449
+[   77349ms] [LOG] [SplitDecision] P1/P2 sort (gender=default/male): [pull, push, legs, core] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:296
+[   77349ms] [LOG] [Periodization] Cycle clock: startDate=2026-09-15 daysSinceStart=0 → Week 1/5 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/periodization.service.ts:86
+[   77350ms] [LOG]   Inputs:        cycleWeek=1, gapDays=0 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/periodization.service.ts:225
+[   77350ms] [LOG]   Volume mult:   x1 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/periodization.service.ts:226
+[   77350ms] [LOG]   Δ override:    none @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/periodization.service.ts:228
+[   77350ms] [LOG]   Protocol mult: x1 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/periodization.service.ts:229
+[   77350ms] [LOG]   SA cap:        none @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/periodization.service.ts:231
+[   77350ms] [LOG]   Detraining:    false @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/periodization.service.ts:232
+[   77350ms] [LOG]   Default focus: Normal(1) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/periodization.service.ts:233
+[   77350ms] [LOG]   Restart cycle: false @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/periodization.service.ts:238
+[   77350ms] [LOG] [SkillPriority] wired: resolvedChildDomains=[push, pull, legs, core] → priority={push:1, pull:2, legs:3, core:4} @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:1938
+[   77350ms] [WARNING] [ShadowLevel] UNMAPPED targetPrograms for "דגל פלאנק צידי": [EtY8YCol0qpF6DzgcTx1→human_flag]. Falling through to movementGroup resolution (Step 5). @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/shadow-level.utils.ts:423
+[   77350ms] [LOG] [ShadowLevel] DOMAIN (default): "דגל פלאנק צידי" → level=1 (movementGroup=undefined, muscle=shoulders) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/shadow-level.utils.ts:428
+[   77350ms] [WARNING] [ParkGating] "חתירות ב-75°" — 3 park method(s) all gated → exercise excluded Required gear not in park inventory: [Object, Object, Object] Available: [bodyweight, pullup_bar, dip_station, bench, low_bar, high_bar, step, park_bench, park_step] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/shared/utils/method-selection.utils.ts:136
+[   77351ms] [WARNING] [ParkGating] "כפיפת ברך כנגד גומייה" — 1 park method(s) all gated → exercise excluded Required gear not in park inventory: [Object] Available: [bodyweight, pullup_bar, dip_station, bench, low_bar, high_bar, step, park_bench, park_step] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/shared/utils/method-selection.utils.ts:136
+[   77351ms] [WARNING] [ParkGating] "חתירות באחיזה עמוקה" — 1 park method(s) all gated → exercise excluded Required gear not in park inventory: [Object] Available: [bodyweight, pullup_bar, dip_station, bench, low_bar, high_bar, step, park_bench, park_step] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/shared/utils/method-selection.utils.ts:136
+[   77351ms] [WARNING] [ParkGating] "חתירות ב-15° עם ברכיים כפופות" — 3 park method(s) all gated → exercise excluded Required gear not in park inventory: [Object, Object, Object] Available: [bodyweight, pullup_bar, dip_station, bench, low_bar, high_bar, step, park_bench, park_step] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/shared/utils/method-selection.utils.ts:136
+[   77351ms] [WARNING] [ParkGating] "סקוואט כנגד גומייה" — 1 park method(s) all gated → exercise excluded Required gear not in park inventory: [Object] Available: [bodyweight, pullup_bar, dip_station, bench, low_bar, high_bar, step, park_bench, park_step] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/shared/utils/method-selection.utils.ts:136
+[   77351ms] [LOG] [ShadowLevel] TARGET PROGRAM: "בננה סופרמן על המתח" → program="fTLWzjP9gH2VNpamyCZF" (slug="muscle_up") userLevel=1 (adminTag=1) (movementGroup=isolation, muscle=shoulders) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/shadow-level.utils.ts:414
+[   77351ms] [WARNING] [ParkGating] "דדליפט רומני בהתנגדות גומייה" — 1 park method(s) all gated → exercise excluded Required gear not in park inventory: [Object] Available: [bodyweight, pullup_bar, dip_station, bench, low_bar, high_bar, step, park_bench, park_step] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/shared/utils/method-selection.utils.ts:136
+[   77351ms] [WARNING] [ParkGating] "דדליפט רומני על הגבהה" — 2 park method(s) all gated → exercise excluded Required gear not in park inventory: [Object, Object] Available: [bodyweight, pullup_bar, dip_station, bench, low_bar, high_bar, step, park_bench, park_step] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/shared/utils/method-selection.utils.ts:136
+[   77352ms] [WARNING] [ShadowLevel] UNMAPPED targetPrograms for "דגל נמוך": [EtY8YCol0qpF6DzgcTx1→human_flag]. Falling through to movementGroup resolution (Step 5). @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/shadow-level.utils.ts:423
+[   77352ms] [LOG] [ShadowLevel] DOMAIN (default): "דגל נמוך" → level=1 (movementGroup=undefined, muscle=shoulders) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/shadow-level.utils.ts:428
+[   77352ms] [WARNING] [ParkGating] "תלייה באחיזה עמוקה" — 1 park method(s) all gated → exercise excluded Required gear not in park inventory: [Object] Available: [bodyweight, pullup_bar, dip_station, bench, low_bar, high_bar, step, park_bench, park_step] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/shared/utils/method-selection.utils.ts:136
+[   77352ms] [WARNING] [ShadowLevel] UNMAPPED targetPrograms for "דגל ב-45°": [EtY8YCol0qpF6DzgcTx1→human_flag]. Falling through to movementGroup resolution (Step 5). @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/shadow-level.utils.ts:423
+[   77352ms] [LOG] [ShadowLevel] DOMAIN (default): "דגל ב-45°" → level=1 (movementGroup=undefined, muscle=shoulders) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/shadow-level.utils.ts:428
+[   77352ms] [WARNING] [ParkGating] "דגל ב-45°" — 1 park method(s) all gated → exercise excluded Required gear not in park inventory: [Object] Available: [bodyweight, pullup_bar, dip_station, bench, low_bar, high_bar, step, park_bench, park_step] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/shared/utils/method-selection.utils.ts:136
+[   77352ms] [WARNING] [ParkGating] "סקוואט בעזרת רצועות" — 1 park method(s) all gated → exercise excluded Required gear not in park inventory: [Object] Available: [bodyweight, pullup_bar, dip_station, bench, low_bar, high_bar, step, park_bench, park_step] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/shared/utils/method-selection.utils.ts:136
+[   77352ms] [WARNING] [ParkGating] "עליית מדרגה גובה קרסול" — 1 park method(s) all gated → exercise excluded Required gear not in park inventory: [Object] Available: [bodyweight, pullup_bar, dip_station, bench, low_bar, high_bar, step, park_bench, park_step] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/shared/utils/method-selection.utils.ts:136
+[   77352ms] [WARNING] [ShadowLevel] UNMAPPED targetPrograms for "דגל פלאנק צידי": [EtY8YCol0qpF6DzgcTx1→human_flag]. Falling through to movementGroup resolution (Step 5). @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/shadow-level.utils.ts:423
+[   77352ms] [LOG] [ShadowLevel] DOMAIN (default): "דגל פלאנק צידי" → level=1 (movementGroup=undefined, muscle=shoulders) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/shadow-level.utils.ts:428
+[   77352ms] [LOG] [ShadowLevel] TARGET PROGRAM: "בננה סופרמן על המתח" → program="fTLWzjP9gH2VNpamyCZF" (slug="muscle_up") userLevel=1 (adminTag=1) (movementGroup=isolation, muscle=shoulders) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/shadow-level.utils.ts:414
+[   77352ms] [WARNING] [ShadowLevel] UNMAPPED targetPrograms for "דגל נמוך": [EtY8YCol0qpF6DzgcTx1→human_flag]. Falling through to movementGroup resolution (Step 5). @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/shadow-level.utils.ts:423
+[   77352ms] [LOG] [ShadowLevel] DOMAIN (default): "דגל נמוך" → level=1 (movementGroup=undefined, muscle=shoulders) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/shadow-level.utils.ts:428
+[   77353ms] [WARNING] [PoolFactory] ⚠️ profileStale: all userProgramLevels are L≤1 — onboarding background sync (recalculateAncestorMasters) may still be in flight. Proceeding with L1 defaults; workout will regenerate on next mount. @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/PoolFactory.ts:88
+[   77353ms] [LOG] [WorkoutTrio] Shared pipeline: 64 scored exercises (39 excluded), 370 total in DB @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:2130
+[   77353ms] [LOG] [WorkoutTrio] Filter breakdown — program_filter: 2, level_tolerance: 26, skill_gate: 0, location: 11, injury: 0, passed: 64 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:2133
+[   77353ms] [LOG] [DomainBudget] resolvedDomainBudgets set: [push=L1, pull=L1, legs=L1, core=L1] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:1678
+[   77353ms] [LOG] activeProgramId: full_body @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:407
+[   77353ms] [LOG] progression.tracks: {full_body: Object, 47smw26hUyG5ZbE1bhr3: Object, upper_body: Object, pull: Object, H2279XsRGDg9G370J7S9: Object} @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:409
+[   77353ms] [LOG] progression.domains: {upper_body: Object, 47smw26hUyG5ZbE1bhr3: Object, muscle_up: Object, push: Object, calisthenics_upper: Object} @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:411
+[   77353ms] [LOG] progression.activePrograms: [Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:413
+[   77353ms] [LOG] progression.skillFocusIds: (none) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:415
+[   77353ms] [LOG] progression.masterProgramSubLevels: (none) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:417
+[   77353ms] [LOG] Derived userLevel (base): 1 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:418
+[   77353ms] [LOG] scheduleDays count: 2 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:419
+[   77353ms] [LOG] Source: Admin Panel (ProgramLevelSettings) per domain @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:444
+[   77353ms] [LOG] Schedule Days: 2 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:445
+[   77353ms] [LOG]   push (L1): 10/2=4 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:447
+[   77353ms] [LOG]   pull (L1): 10/2=4 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:447
+[   77353ms] [LOG]   legs (L1): 10/2=4 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:447
+[   77353ms] [LOG]   core (L1): 8/2=3 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:447
+[   77353ms] [LOG] Total Daily Budget = 15 sets @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:449
+[   77353ms] [LOG] [SplitDecision] P1/P2 sort (gender=default/male): [pull, push, legs, core] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/split-decision/SplitDecisionService.ts:296
+[   77353ms] [LOG] [Periodization] Cycle clock: startDate=2026-09-15 daysSinceStart=0 → Week 1/5 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/periodization.service.ts:86
+[   77353ms] [LOG]   Inputs:        cycleWeek=1, gapDays=0 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/periodization.service.ts:225
+[   77353ms] [LOG]   Volume mult:   x1 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/periodization.service.ts:226
+[   77353ms] [LOG]   Δ override:    none @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/periodization.service.ts:228
+[   77353ms] [LOG]   Protocol mult: x1 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/periodization.service.ts:229
+[   77353ms] [LOG]   SA cap:        none @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/periodization.service.ts:231
+[   77353ms] [LOG]   Detraining:    false @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/periodization.service.ts:232
+[   77353ms] [LOG]   Default focus: Normal(1) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/periodization.service.ts:233
+[   77353ms] [LOG]   Restart cycle: false @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/periodization.service.ts:238
+[   77353ms] [LOG] [SkillPriority] wired: resolvedChildDomains=[push, pull, legs, core] → priority={push:1, pull:2, legs:3, core:4} @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:1938
+[   77354ms] [WARNING] [ShadowLevel] UNMAPPED targetPrograms for "דגל פלאנק צידי": [EtY8YCol0qpF6DzgcTx1→human_flag]. Falling through to movementGroup resolution (Step 5). @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/shadow-level.utils.ts:423
+[   77354ms] [LOG] [ShadowLevel] DOMAIN (default): "דגל פלאנק צידי" → level=1 (movementGroup=undefined, muscle=shoulders) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/shadow-level.utils.ts:428
+[   77354ms] [WARNING] [ParkGating] "חתירות ב-75°" — 3 park method(s) all gated → exercise excluded Required gear not in park inventory: [Object, Object, Object] Available: [bodyweight, inkr0xuxevblg370watm, dip_station, pullup_bar, trx, Climbing rope, park_bench, park_step] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/shared/utils/method-selection.utils.ts:136
+[   77354ms] [WARNING] [ParkGating] "כפיפת ברך כנגד גומייה" — 1 park method(s) all gated → exercise excluded Required gear not in park inventory: [Object] Available: [bodyweight, inkr0xuxevblg370watm, dip_station, pullup_bar, trx, Climbing rope, park_bench, park_step] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/shared/utils/method-selection.utils.ts:136
+[   77354ms] [WARNING] [ParkGating] "חתירות באחיזה עמוקה" — 1 park method(s) all gated → exercise excluded Required gear not in park inventory: [Object] Available: [bodyweight, inkr0xuxevblg370watm, dip_station, pullup_bar, trx, Climbing rope, park_bench, park_step] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/shared/utils/method-selection.utils.ts:136
+[   77354ms] [WARNING] [ParkGating] "סקוואט כנגד גומייה" — 1 park method(s) all gated → exercise excluded Required gear not in park inventory: [Object] Available: [bodyweight, inkr0xuxevblg370watm, dip_station, pullup_bar, trx, Climbing rope, park_bench, park_step] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/shared/utils/method-selection.utils.ts:136
+[   77354ms] [LOG] [ShadowLevel] TARGET PROGRAM: "בננה סופרמן על המתח" → program="fTLWzjP9gH2VNpamyCZF" (slug="muscle_up") userLevel=1 (adminTag=1) (movementGroup=isolation, muscle=shoulders) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/shadow-level.utils.ts:414
+[   77354ms] [WARNING] [ParkGating] "דדליפט רומני בהתנגדות גומייה" — 1 park method(s) all gated → exercise excluded Required gear not in park inventory: [Object] Available: [bodyweight, inkr0xuxevblg370watm, dip_station, pullup_bar, trx, Climbing rope, park_bench, park_step] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/shared/utils/method-selection.utils.ts:136
+[   77355ms] [WARNING] [ParkGating] "דדליפט רומני על הגבהה" — 2 park method(s) all gated → exercise excluded Required gear not in park inventory: [Object, Object] Available: [bodyweight, inkr0xuxevblg370watm, dip_station, pullup_bar, trx, Climbing rope, park_bench, park_step] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/shared/utils/method-selection.utils.ts:136
+[   77355ms] [WARNING] [ShadowLevel] UNMAPPED targetPrograms for "דגל נמוך": [EtY8YCol0qpF6DzgcTx1→human_flag]. Falling through to movementGroup resolution (Step 5). @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/shadow-level.utils.ts:423
+[   77355ms] [LOG] [ShadowLevel] DOMAIN (default): "דגל נמוך" → level=1 (movementGroup=undefined, muscle=shoulders) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/shadow-level.utils.ts:428
+[   77355ms] [WARNING] [ParkGating] "תלייה באחיזה עמוקה" — 1 park method(s) all gated → exercise excluded Required gear not in park inventory: [Object] Available: [bodyweight, inkr0xuxevblg370watm, dip_station, pullup_bar, trx, Climbing rope, park_bench, park_step] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/shared/utils/method-selection.utils.ts:136
+[   77355ms] [WARNING] [ShadowLevel] UNMAPPED targetPrograms for "דגל ב-45°": [EtY8YCol0qpF6DzgcTx1→human_flag]. Falling through to movementGroup resolution (Step 5). @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/shadow-level.utils.ts:423
+[   77355ms] [LOG] [ShadowLevel] DOMAIN (default): "דגל ב-45°" → level=1 (movementGroup=undefined, muscle=shoulders) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/shadow-level.utils.ts:428
+[   77355ms] [WARNING] [ParkGating] "דגל ב-45°" — 1 park method(s) all gated → exercise excluded Required gear not in park inventory: [Object] Available: [bodyweight, inkr0xuxevblg370watm, dip_station, pullup_bar, trx, Climbing rope, park_bench, park_step] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/shared/utils/method-selection.utils.ts:136
+[   77355ms] [WARNING] [ParkGating] "עליית מדרגה גובה קרסול" — 1 park method(s) all gated → exercise excluded Required gear not in park inventory: [Object] Available: [bodyweight, inkr0xuxevblg370watm, dip_station, pullup_bar, trx, Climbing rope, park_bench, park_step] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/shared/utils/method-selection.utils.ts:136
+[   77355ms] [WARNING] [ShadowLevel] UNMAPPED targetPrograms for "דגל פלאנק צידי": [EtY8YCol0qpF6DzgcTx1→human_flag]. Falling through to movementGroup resolution (Step 5). @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/shadow-level.utils.ts:423
+[   77355ms] [LOG] [ShadowLevel] DOMAIN (default): "דגל פלאנק צידי" → level=1 (movementGroup=undefined, muscle=shoulders) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/shadow-level.utils.ts:428
+[   77355ms] [LOG] [ShadowLevel] TARGET PROGRAM: "בננה סופרמן על המתח" → program="fTLWzjP9gH2VNpamyCZF" (slug="muscle_up") userLevel=1 (adminTag=1) (movementGroup=isolation, muscle=shoulders) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/shadow-level.utils.ts:414
+[   77356ms] [WARNING] [ShadowLevel] UNMAPPED targetPrograms for "דגל נמוך": [EtY8YCol0qpF6DzgcTx1→human_flag]. Falling through to movementGroup resolution (Step 5). @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/shadow-level.utils.ts:423
+[   77356ms] [LOG] [ShadowLevel] DOMAIN (default): "דגל נמוך" → level=1 (movementGroup=undefined, muscle=shoulders) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/shadow-level.utils.ts:428
+[   77356ms] [WARNING] [PoolFactory] ⚠️ profileStale: all userProgramLevels are L≤1 — onboarding background sync (recalculateAncestorMasters) may still be in flight. Proceeding with L1 defaults; workout will regenerate on next mount. @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/PoolFactory.ts:88
+[   77356ms] [LOG] [WorkoutTrio] Shared pipeline: 66 scored exercises (37 excluded), 370 total in DB @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:2130
+[   77356ms] [LOG] [WorkoutTrio] Filter breakdown — program_filter: 2, level_tolerance: 26, skill_gate: 0, location: 9, injury: 0, passed: 66 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:2133
+[   77982ms] [LOG] [WorkoutTrio] Settings resolved → protocols: ⚠️  none (straight sets — check Firestore doc) | goals: 1 exercises from push@L1 | tabata: off @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:2285
+[   77983ms] [LOG] [WorkoutTrio] Settings resolved → protocols: ⚠️  none (straight sets — check Firestore doc) | goals: 1 exercises from push@L1 | tabata: off @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:2285
+[   78288ms] [LOG] [ExerciseHistory] Loaded history for 0/64 exercises (3 chunked 'in' queries) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/exercise-history.service.ts:150
+[   78288ms] [LOG] [WorkoutTrio] Exercise history loaded: 0/64 exercises have prior session data (David Staircase floor active). @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:2309
+[   78288ms] [LOG] [WorkoutTrio] Protocol probability passed to generator: 0.00 (base=0, multiplier=1, week=1) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:2351
+[   78288ms] [LOG] [ExerciseHistory] Loaded history for 0/66 exercises (3 chunked 'in' queries) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/exercise-history.service.ts:150
+[   78288ms] [LOG] [WorkoutTrio] Exercise history loaded: 0/66 exercises have prior session data (David Staircase floor active). @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:2309
+[   78288ms] [LOG] [WorkoutTrio] Protocol probability passed to generator: 0.00 (base=0, multiplier=1, week=1) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:2351
+[   78288ms] [LOG] [WorkoutTrio] Budget Floor bypassed — first-week user (program started 1h ago). Stale remainingBudget=4 ignored; proceeding with normal workout generation. @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:945
+[   78439ms] [LOG] [WorkoutTrio] No app_config/workout_trio doc → using pre-seeded Hebrew labels @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-labels.service.ts:53
+[   78439ms] [LOG] [WorkoutTrio] Labels (fallback): [מאוזן, עצים ומהיר, אימון פארק קליל] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:970
+[   78440ms] [LOG] [WorkoutTrio] Bolt2: honouring requested 30min (ceiling 45min, explicit=false) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:1048
+[   78440ms] [LOG] [PipelineOrchestrator] Pool OK: 64 survivors at location=park (gear=9) → normal generation (sparse contexts degrade to bodyweight, not recovery). @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/PipelineOrchestrator.ts:130
+[   78440ms] [LOG] [PipelineOrchestrator] 🔓 Master-program bypass (full_body): skipping single-domain tolerance gate — ContextualEngine shared pass already scoped pool to all child domains. Pool size preserved: 64 exercises. @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/PipelineOrchestrator.ts:233
+[   78440ms] [WARNING] [PipelineOrchestrator] ⚠️ profileStale: userProgramLevels all ≤ L1 — onboarding background sync may still be in flight. Generation proceeds with L1 defaults. @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/PipelineOrchestrator.ts:239
+[   78440ms] [LOG] [InputSanitizer:Periodization] Phase=BUILD(W1) effectiveDifficulty=2 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/middleware/InputSanitizerMiddleware.ts:543
+[   78440ms] [LOG]   push L1: 4 sets/day (10/week) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:456
+[   78440ms] [LOG]   pull L1: 4 sets/day (10/week) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:456
+[   78440ms] [LOG]   legs L1: 4 sets/day (10/week) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:456
+[   78440ms] [LOG]   core L1: 3 sets/day (8/week) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:456
+[   78441ms] [LOG] Foundation Buffer: 22 exercises boosted (+30) — Pull-ups/Dips/Push-ups/Rows prioritised @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1521
+[   78441ms] [LOG] Vertical Preference: 2 exercises boosted (diminishing: 15/8) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1523
+[   78441ms] [LOG] Naked Strength: 33 bodyweight exercises boosted (+8) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1524
+[   78441ms] [LOG] Equipment Synergy: "pullup_bar" dominant → 9 exercises boosted (+8) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1526
+[   78441ms] [LOG] Modality Match: "none" dominant → 39 exercises boosted (+10) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1527
+[   78441ms] [LOG] [LevelSync] DifficultyFilter: globalLevel=L1, domainLevels={push:L1, pull:L1, legs:L1, core:L1, full_body:L1, upper_body:L1, muscle_up:L1} @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-selection.utils.ts:545
+[   78442ms] [WARNING] [LevelSync] applyDifficultyFilter: 2 exercise-level resolution(s) had no assessed domain level — used explicit L1 floor, NOT globalLevel(L1) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-selection.utils.ts:670
+[   78442ms] [LOG] [Bolt2Cap] per-domain [push→L2, pull→L2, legs→L2, core→L2] (activeProgram=full_body): filtered out 35 above-ceiling exercise(s). Pool: 64 → 29 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:561
+[   78442ms] [LOG] [WorkoutGenerator] Domain quotas: push, pull, legs, core → 6 exercises @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-selection.utils.ts:1203
+[   78442ms] [LOG] [MGDiversity] Displaced 1 same-group duplicates → backfilled 1 (pool had 29 candidates) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:744
+[   78442ms] [LOG] [assignVolume] Budget guard: pull budget=4 ÷ 2 exercises (budgetCap=1) → consolidated to 1 receiver(s) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:756
+[   78442ms] [LOG] [assignVolume] Budget guard: legs budget=4 ÷ 2 exercises (budgetCap=1) → consolidated to 1 receiver(s) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:756
+[   78442ms] [LOG]   push L1: 4 sets ÷ 1 exercises = 4 sets/each @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:769
+[   78442ms] [LOG]   pull L1: 4 sets ÷ 1 exercises = 4 sets/each @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:769
+[   78442ms] [LOG]   legs L1: 4 sets ÷ 1 exercises = 4 sets/each @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:769
+[   78442ms] [LOG]   core L1: 3 sets ÷ 1 exercises = 3 sets/each @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:769
+[   78443ms] [LOG] [BudgetDistributor.balancedClusterCap] D2 balanced session — culled 2 exercise(s) → 4 clustered exercises (diverse=true, domains=4, longSession=false, availableTime=30). Sets: 3/4/4/4 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/BudgetDistributor.ts:638
+[   78443ms] [LOG] [WorkoutGenerator][selectProtocol] difficulty=2 | adminProtocols=null | adminProbability=0 | periodizationWeek=1 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1580
+[   78443ms] [LOG] [WorkoutGenerator][selectProtocol] No protocols configured — straight sets @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1594
+[   78443ms] [LOG] [findLevelSub] ✅ horizontal_pull: picked "מתח אוסטרלי ב-60° מעלות" L1 (gap=0, radius=±2, domain=pull L1, D2) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/PoolFactory.ts:243
+[   78443ms] [LOG] [HorizontalGuarantee] ✅ ADDED "מתח אוסטרלי ב-60° מעלות"(L1) replacing accessory "גוד מורנינג בישיבה"(hinge) — preserved vertical_pull [domain=pull L1, budget=4 sets] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/GuaranteePassRunner.ts:276
+[   78443ms] [WARNING] [resolveInjectedLevel] No pull-domain match for "נדנוד הכנה לעליית כוח" — falling back to closest tp (programId=fTLWzjP9gH2VNpamyCZF, L2) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:311
+[   78443ms] [LOG] [VerticalFoundation] ✅ "תלייה פסיבית בתמיכת הרגליים"(compound) → "נדנוד הכנה לעליית כוח"(foundation, L2) [vertical_pull, domain=pull L1] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/GuaranteePassRunner.ts:435
+[   78443ms] [WARNING] [VerticalFoundation] ⚠️ No foundation candidate for vertical_push within ±6 of L1 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/GuaranteePassRunner.ts:395
+[   78443ms] [LOG] [findLevelSub] ✅ core: picked "פלאנק על הברכיים" L1 (gap=0, radius=±2, domain=core L1, D2) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/PoolFactory.ts:243
+[   78443ms] [WARNING] [FullBodyGuarantee] ⚠️ Could not guarantee core domain — no candidate within ±6 of L1 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/GuaranteePassRunner.ts:536
+[   78443ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 3m 12s     │ 39m 5s     │ 42m 17s    │  ← 39m rest = 92% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 42m 17s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78444ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78444ms] [LOG]   = Final Duration: 44 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78444ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78444ms] [LOG] [WorkoutGenerator] Smart set cap: 14 sets (cap 14) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1214
+[   78444ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 3m 6s      │ 36m 17s    │ 39m 23s    │  ← 36m rest = 92% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 39m 23s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78444ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78444ms] [LOG]   = Final Duration: 41 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78444ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78444ms] [LOG] [WorkoutGenerator] Smart set cap: 13 sets (cap 13) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1214
+[   78444ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 3m 48s     │ 34m 47s    │ 37m 35s    │  ← 34m rest = 92% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 37m 35s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78444ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78444ms] [LOG]   = Final Duration: 39 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78444ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78445ms] [LOG] [WorkoutGenerator] Smart set cap: 12 sets (cap 12) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1214
+[   78445ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 3m 33s     │ 31m 9s     │ 34m 42s    │  ← 31m rest = 92% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 34m 42s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78445ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78445ms] [LOG]   = Final Duration: 36 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78445ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78445ms] [LOG] [WorkoutGenerator] Smart set cap: 11 sets (cap 11) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1214
+[   78445ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 2m 27s     │ 28m 21s    │ 31m 48s    │  ← 28m rest = 92% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 31m 48s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78445ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78445ms] [LOG]   = Final Duration: 33 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78445ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78445ms] [LOG] [TimeVolumeFeedback] 4 compression pass(es): 44 min → 33 min (ceiling=30 min, tolerance=3 min) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1233
+[   78445ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 2m 27s     │ 28m 21s    │ 31m 48s    │  ← 28m rest = 92% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 31m 48s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78445ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78445ms] [LOG]   = Final Duration: 33 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78446ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78446ms] [LOG] [Engine] Pool: 103→101→64→29→6(raw)→6(diverse) | Selected: 4 | Budget: ?/15 remaining/daily | Difficulty: 2 | Sets: 11 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1264
+[   78446ms] [LOG] [1] נדנוד הכנה לעליית כוח | programLevel=2 [LevelResolution] תלייה פסיבית בתמיכת הרגליים → L1 via pull | userDomainL=1 | Tier=hard | Sets=2 Reps=2 Rest=168s | Video=YES @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1275
+[   78446ms] [LOG] [2] פשיטת מרפקים על הרצפה | programLevel=1 [LevelResolution] פשיטת מרפקים על הרצפה → L1 via push | userDomainL=1 | Tier=match | Sets=3 Reps=4 Rest=147s | Video=YES @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1275
+[   78446ms] [LOG] [3] מתח אוסטרלי ב-60° מעלות | programLevel=1 [LevelResolution] גוד מורנינג בישיבה → L1 via legs | userDomainL=1 | Tier=match | Sets=3 Reps=6 Rest=150s | Video=YES @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1275
+[   78446ms] [LOG] [4] סקוואט סטטי כנגד קיר | programLevel=2 [LevelResolution] סקוואט סטטי כנגד קיר → L2 via legs | userDomainL=1 | Tier=hard | Sets=3 Hold=15s Rest=158s | Video=YES @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1275
+[   78446ms] [LOG] [Warmup] Pool: 370 total | follow-along: 13 | role=warmup: 1 | mobility-tag: 0 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/warmup.service.ts:559
+[   78446ms] [LOG] [Warmup] Stage 1: "(none)" selected (none) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/warmup.service.ts:631
+[   78446ms] [LOG] [Warmup] Level 1 ≤ 2 → General Mobility only @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/warmup.service.ts:637
+[   78446ms] [LOG]   ETMVVSpt0lIpeF3mkEn6 "מתיחות פלג גוף עליון לבדיקה": OK @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/cooldown.service.ts:80
+[   78447ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 2m 27s     │ 28m 21s    │ 31m 48s    │  ← 28m rest = 92% of main block
+│  Cooldown   │ 2m 30s     │ 0m 0s      │ 2m 30s     │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 32m 18s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78447ms] [LOG]   + Main transitions (4 × 30s): 120s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78447ms] [LOG]   = Final Duration: 35 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78447ms] [TABLE] [Object, Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78447ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 2m 15s     │ 26m 54s    │ 28m 9s     │  ← 26m rest = 92% of main block
+│  Cooldown   │ 2m 30s     │ 0m 0s      │ 2m 30s     │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 30m 39s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78447ms] [LOG]   + Main transitions (4 × 30s): 120s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78447ms] [LOG]   = Final Duration: 32 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78447ms] [TABLE] [Object, Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78447ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 2m 57s     │ 23m 24s    │ 25m 21s    │  ← 23m rest = 92% of main block
+│  Cooldown   │ 2m 30s     │ 0m 0s      │ 2m 30s     │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 27m 51s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78447ms] [LOG]   + Main transitions (4 × 30s): 120s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78447ms] [LOG]   = Final Duration: 29 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78447ms] [TABLE] [Object, Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78448ms] [LOG] [PresentationFormatter.volumeCap] Done after 2 step(s): 29m, 10 sets, 4 main exercises @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/presentation/PresentationFormatter.ts:616
+[   78448ms] [LOG] [WorkoutTrio] No app_config/workout_trio doc → using pre-seeded Hebrew labels @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-labels.service.ts:53
+[   78448ms] [LOG] [WorkoutTrio] Labels (fallback): [מאוזן, עצים ומהיר, אימון פארק קליל] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:970
+[   78448ms] [LOG] [WorkoutTrio] Bolt1: honouring requested 20min (ceiling 30min, explicit=false) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:1048
+[   78448ms] [LOG] [PipelineOrchestrator] Pool OK: 66 survivors at location=park (gear=8) → normal generation (sparse contexts degrade to bodyweight, not recovery). @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/PipelineOrchestrator.ts:130
+[   78448ms] [LOG] [PipelineOrchestrator] 🔓 Master-program bypass (full_body): skipping single-domain tolerance gate — ContextualEngine shared pass already scoped pool to all child domains. Pool size preserved: 66 exercises. @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/PipelineOrchestrator.ts:233
+[   78448ms] [WARNING] [PipelineOrchestrator] ⚠️ profileStale: userProgramLevels all ≤ L1 — onboarding background sync may still be in flight. Generation proceeds with L1 defaults. @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/PipelineOrchestrator.ts:239
+[   78448ms] [LOG] [InputSanitizer:Periodization] Phase=BUILD(W1) effectiveDifficulty=1 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/middleware/InputSanitizerMiddleware.ts:543
+[   78448ms] [LOG]   push L1: 4 sets/day (10/week) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:456
+[   78448ms] [LOG]   pull L1: 4 sets/day (10/week) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:456
+[   78448ms] [LOG]   legs L1: 4 sets/day (10/week) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:456
+[   78448ms] [LOG]   core L1: 3 sets/day (8/week) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:456
+[   78448ms] [LOG] Foundation Buffer: 23 exercises boosted (+30) — Pull-ups/Dips/Push-ups/Rows prioritised @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1521
+[   78448ms] [LOG] Vertical Preference: 2 exercises boosted (diminishing: 15/8) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1523
+[   78448ms] [LOG] Naked Strength: 33 bodyweight exercises boosted (+8) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1524
+[   78448ms] [LOG] Equipment Synergy: "trx" dominant → 6 exercises boosted (+8) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1526
+[   78449ms] [LOG] Modality Match: "bent_arm" dominant → 20 exercises boosted (+10) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1527
+[   78449ms] [LOG] Regression Bias (1-bolt): target=L1 — 49 boosted(+20), 17 penalized(-15) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1530
+[   78449ms] [LOG] [LevelSync] DifficultyFilter: globalLevel=L1, domainLevels={push:L1, pull:L1, legs:L1, core:L1, full_body:L1, upper_body:L1, muscle_up:L1} @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-selection.utils.ts:545
+[   78449ms] [WARNING] [LevelSync] applyDifficultyFilter: 2 exercise-level resolution(s) had no assessed domain level — used explicit L1 floor, NOT globalLevel(L1) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-selection.utils.ts:670
+[   78449ms] [LOG] [DomainRescue] push: bolt pool empty, relaxed to ±3 → found 23 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-selection.utils.ts:912
+[   78449ms] [LOG] [DomainRescue] pull: bolt pool empty, relaxed to ±3 → found 10 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-selection.utils.ts:912
+[   78449ms] [LOG] [DomainRescue] legs: bolt pool empty, relaxed to ±3 → found 25 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-selection.utils.ts:912
+[   78449ms] [LOG] [DomainRescue] core: bolt pool empty, relaxed to ±3 → found 15 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-selection.utils.ts:912
+[   78449ms] [LOG] [WorkoutGenerator] Domain quotas: push, pull, legs, core → 4 exercises @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-selection.utils.ts:1203
+[   78449ms] [LOG]   push L1: 4 sets ÷ 1 exercises = 4 sets/each @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:769
+[   78449ms] [LOG]   pull L1: 4 sets ÷ 1 exercises = 4 sets/each @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:769
+[   78449ms] [LOG]   legs L1: 4 sets ÷ 1 exercises = 4 sets/each @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:769
+[   78449ms] [LOG]   core L1: 3 sets ÷ 1 exercises = 3 sets/each @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:769
+[   78449ms] [LOG] [WorkoutGenerator][selectProtocol] difficulty=1 | adminProtocols=null | adminProbability=0 | periodizationWeek=1 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1580
+[   78449ms] [LOG] [WorkoutGenerator][selectProtocol] Bolt 1 → always straight sets @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1582
+[   78450ms] [LOG] [VerticalFoundation] ⚠️ Could not guarantee vertical_pull foundation — no safe victim @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/GuaranteePassRunner.ts:413
+[   78450ms] [WARNING] [VerticalFoundation] ⚠️ No foundation candidate for vertical_push within ±6 of L1 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/GuaranteePassRunner.ts:395
+[   78450ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 4m 3s      │ 38m 44s    │ 42m 47s    │  ← 38m rest = 90% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 42m 47s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78450ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78450ms] [LOG]   = Final Duration: 44 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78450ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78450ms] [LOG] [CoreBlock] form=single @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1168
+[   78450ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 4m 3s      │ 38m 44s    │ 42m 47s    │  ← 38m rest = 90% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 42m 47s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78450ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78450ms] [LOG]   = Final Duration: 44 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78450ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78450ms] [LOG] [WorkoutGenerator] Smart set cap: 12 sets (cap 12) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1214
+[   78450ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 4m 57s     │ 34m 13s    │ 38m 10s    │  ← 34m rest = 90% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 38m 10s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78450ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78450ms] [LOG]   = Final Duration: 40 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78451ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78451ms] [LOG] [WorkoutGenerator] Smart set cap: 11 sets (cap 11) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1214
+[   78451ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 3m 21s     │ 32m 50s    │ 35m 11s    │  ← 32m rest = 90% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 35m 11s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78451ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78451ms] [LOG]   = Final Duration: 37 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78451ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78451ms] [LOG] [WorkoutGenerator] Smart set cap: 10 sets (cap 10) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1214
+[   78451ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 3m 45s     │ 29m 27s    │ 32m 12s    │  ← 29m rest = 91% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 32m 12s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78451ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78451ms] [LOG]   = Final Duration: 34 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78451ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78451ms] [LOG] [WorkoutGenerator] Smart set cap: 9 sets (cap 9) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1214
+[   78451ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 3m 30s     │ 26m 38s    │ 28m 8s     │  ← 26m rest = 91% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 28m 8s     │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78451ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78451ms] [LOG]   = Final Duration: 30 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78451ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78452ms] [LOG] [WorkoutGenerator] Smart set cap: 8 sets (cap 8) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1214
+[   78452ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 2m 18s     │ 24m 34s    │ 26m 52s    │  ← 24m rest = 91% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 26m 52s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78452ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78452ms] [LOG]   = Final Duration: 28 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78452ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78452ms] [LOG] [TimeVolumeFeedback] 5 compression pass(es): 44 min → 28 min (ceiling=20 min, tolerance=3 min) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1233
+[   78452ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 2m 18s     │ 24m 34s    │ 26m 52s    │  ← 24m rest = 91% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 26m 52s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78452ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78452ms] [LOG]   = Final Duration: 28 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78452ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78452ms] [LOG] [Engine] Pool: 103→101→66→66→4(raw)→4(diverse) | Selected: 4 | Budget: 4/15 remaining/daily | Difficulty: 1 | Sets: 8 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1264
+[   78452ms] [LOG] [1] החזקת חתירה ב-90° מעלות במרפק | programLevel=3 [LevelResolution] החזקת חתירה ב-90° מעלות במרפק → L3 via pull | userDomainL=1 | Tier=elite | Sets=2 Hold=15s Rest=229s | Video=YES @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1275
+[   78452ms] [LOG] [2] פשיטת מרפקים על הרצפה | programLevel=1 [LevelResolution] פשיטת מרפקים על הרצפה → L1 via push | userDomainL=1 | Tier=match | Sets=2 Reps=4 Rest=124s | Video=YES @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1275
+[   78452ms] [LOG] [3] לאנג׳ אחורי | programLevel=1 [LevelResolution] לאנג׳ אחורי → L1 via legs | userDomainL=1 | Tier=match | Sets=2 Reps=6 Rest=143s | Video=YES @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1275
+[   78452ms] [LOG] [4] כפיפות בטן אלכוסונים | programLevel=3 [LevelResolution] כפיפות בטן אלכוסונים → L3 via core | userDomainL=1 | Tier=elite | Sets=2 Reps=2 Rest=211s | Video=YES @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1275
+[   78452ms] [LOG] [BudgetDistributor.reapplyCaps] reapply_weekly: 8→8 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/BudgetDistributor.ts:706
+[   78453ms] [LOG] [Warmup] Pool: 370 total | follow-along: 13 | role=warmup: 1 | mobility-tag: 0 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/warmup.service.ts:559
+[   78453ms] [LOG] [Warmup] Stage 1: "(none)" selected (none) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/warmup.service.ts:631
+[   78453ms] [LOG] [Warmup] Level 1 ≤ 2 → General Mobility only @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/warmup.service.ts:637
+[   78453ms] [LOG]   ETMVVSpt0lIpeF3mkEn6 "מתיחות פלג גוף עליון לבדיקה": OK @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/cooldown.service.ts:80
+[   78453ms] [LOG] [WorkoutTrio] Flow: swapped 1/4 exercises (regression -1/-2/-3, floor=L1, reps unchanged) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:536
+[   78453ms] [LOG] [WorkoutTrio] Naked filter SKIPPED for location="park" — essential park fixtures (pull-up bar, dip bar) are always available. @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:581
+[   78453ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 2m 24s     │ 22m 28s    │ 25m 52s    │  ← 22m rest = 90% of main block
+│  Cooldown   │ 2m 30s     │ 0m 0s      │ 2m 30s     │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 26m 22s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78453ms] [LOG]   + Main transitions (4 × 30s): 120s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78453ms] [LOG]   = Final Duration: 29 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78453ms] [TABLE] [Object, Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78454ms] [LOG] [PresentationFormatter.volumeCap] PhaseC: dropped "לאנג׳ אחורי" (score=72) — still 29m > 20+3m @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/presentation/PresentationFormatter.ts:558
+[   78454ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 1m 12s     │ 18m 42s    │ 19m 54s    │  ← 18m rest = 94% of main block
+│  Cooldown   │ 2m 30s     │ 0m 0s      │ 2m 30s     │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 20m 24s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78454ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78454ms] [LOG]   = Final Duration: 22 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78454ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78454ms] [LOG] [PresentationFormatter.volumeCap] Done after 1 step(s): 22m, 7 sets, 3 main exercises @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/presentation/PresentationFormatter.ts:616
+[   78833ms] [LOG] [findLevelSub] ✅ core: picked "פלאנק על הברכיים" L1 (gap=0, radius=±2, domain=core L1, D2) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/PoolFactory.ts:243
+[   78833ms] [WARNING] [PromiseValidation] ⚠️ core still missing post-cut, found a candidate but no safe exercise to replace @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/GuaranteePassRunner.ts:666
+[   78833ms] [LOG] [PresentationFormatter] 🪜 Final domain-priority sort applied (order changed, 5 exercises, מאוזן) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/presentation/PresentationFormatter.ts:330
+[   78833ms] [LOG] [WorkoutTrio] Option 2 (מאוזן): D2, 5 exercises, 10 sets, ~29min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:1327
+[   78833ms] [LOG] [WorkoutTrio] Single-option path — padded 3 slots with the same workout @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:1336
+[   78833ms] [LOG]   Difficulty: 2 ⚡⚡ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:823
+[   78833ms] [LOG]   Title: אתגר כל הרמות_הבאה בפארק @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:824
+[   78833ms] [LOG]   Duration: ~29 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:825
+[   78833ms] [LOG]   Warmups: 0 | Main: 4 | Sets: 10 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:826
+[   78833ms] [LOG]   Gear: 2 ⚠️ [rsGezdRxG5hayY7x88pJ, VQoqHLfhHGhPsaz2zsQO] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:827
+[   78833ms] [LOG]   Exercises: [נדנוד הכנה לעליית כוח, מתח אוסטרלי ב-60° מעלות, פשיטת מרפקים על הרצפה, סקוואט סטטי כנגד קיר] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:828
+[   78833ms] [LOG]   Difficulty: 2 ⚡⚡ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:823
+[   78834ms] [LOG]   Title: אתגר כל הרמות_הבאה בפארק @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:824
+[   78834ms] [LOG]   Duration: ~29 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:825
+[   78834ms] [LOG]   Warmups: 0 | Main: 4 | Sets: 10 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:826
+[   78834ms] [LOG]   Gear: 2 ⚠️ [rsGezdRxG5hayY7x88pJ, VQoqHLfhHGhPsaz2zsQO] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:827
+[   78834ms] [LOG]   Exercises: [נדנוד הכנה לעליית כוח, מתח אוסטרלי ב-60° מעלות, פשיטת מרפקים על הרצפה, סקוואט סטטי כנגד קיר] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:828
+[   78834ms] [LOG]   Difficulty: 2 ⚡⚡ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:823
+[   78834ms] [LOG]   Title: אתגר כל הרמות_הבאה בפארק @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:824
+[   78834ms] [LOG]   Duration: ~29 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:825
+[   78834ms] [LOG]   Warmups: 0 | Main: 4 | Sets: 10 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:826
+[   78834ms] [LOG]   Gear: 2 ⚠️ [rsGezdRxG5hayY7x88pJ, VQoqHLfhHGhPsaz2zsQO] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:827
+[   78834ms] [LOG]   Exercises: [נדנוד הכנה לעליית כוח, מתח אוסטרלי ב-60° מעלות, פשיטת מרפקים על הרצפה, סקוואט סטטי כנגד קיר] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:828
+[   78834ms] [LOG] Overlap: 1↔2=4, 1↔3=4, 2↔3=4 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:833
+[   78835ms] [LOG] [PresentationFormatter] 🪜 Final domain-priority sort applied (order stable, 4 exercises, אימון פארק קליל) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/presentation/PresentationFormatter.ts:330
+[   78835ms] [LOG] [WorkoutTrio] Option 1 (אימון פארק קליל): D1, 4 exercises, 7 sets, ~22min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:1327
+[   78835ms] [LOG] [WorkoutTrio] Bolt2: honouring requested 20min (ceiling 45min, explicit=false) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:1048
+[   78835ms] [LOG] [PipelineOrchestrator] Pool OK: 66 survivors at location=park (gear=8) → normal generation (sparse contexts degrade to bodyweight, not recovery). @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/PipelineOrchestrator.ts:130
+[   78835ms] [LOG] [PipelineOrchestrator] 🔓 Master-program bypass (full_body): skipping single-domain tolerance gate — ContextualEngine shared pass already scoped pool to all child domains. Pool size preserved: 66 exercises. @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/PipelineOrchestrator.ts:233
+[   78835ms] [WARNING] [PipelineOrchestrator] ⚠️ profileStale: userProgramLevels all ≤ L1 — onboarding background sync may still be in flight. Generation proceeds with L1 defaults. @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/PipelineOrchestrator.ts:239
+[   78835ms] [LOG] [InputSanitizer:Periodization] Phase=BUILD(W1) effectiveDifficulty=2 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/middleware/InputSanitizerMiddleware.ts:543
+[   78835ms] [LOG]   push L1: 4 sets/day (10/week) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:456
+[   78835ms] [LOG]   pull L1: 4 sets/day (10/week) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:456
+[   78835ms] [LOG]   legs L1: 4 sets/day (10/week) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:456
+[   78835ms] [LOG]   core L1: 3 sets/day (8/week) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:456
+[   78836ms] [LOG] Foundation Buffer: 23 exercises boosted (+30) — Pull-ups/Dips/Push-ups/Rows prioritised @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1521
+[   78836ms] [LOG] Vertical Preference: 2 exercises boosted (diminishing: 15/8) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1523
+[   78836ms] [LOG] Naked Strength: 33 bodyweight exercises boosted (+8) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1524
+[   78836ms] [LOG] Variety Guard: 3 exercises penalized (-40) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1525
+[   78836ms] [LOG] Equipment Synergy: "trx" dominant → 6 exercises boosted (+8) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1526
+[   78836ms] [LOG] Modality Match: "none" dominant → 40 exercises boosted (+10) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1527
+[   78836ms] [LOG] [LevelSync] DifficultyFilter: globalLevel=L1, domainLevels={push:L1, pull:L1, legs:L1, core:L1, full_body:L1, upper_body:L1, muscle_up:L1} @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-selection.utils.ts:545
+[   78836ms] [WARNING] [LevelSync] applyDifficultyFilter: 2 exercise-level resolution(s) had no assessed domain level — used explicit L1 floor, NOT globalLevel(L1) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-selection.utils.ts:670
+[   78836ms] [LOG] [Bolt2Cap] per-domain [push→L2, pull→L2, legs→L2, core→L2] (activeProgram=full_body): filtered out 36 above-ceiling exercise(s). Pool: 66 → 30 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:561
+[   78836ms] [LOG] [WorkoutGenerator] Domain quotas: push, pull, legs, core → 5 exercises @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-selection.utils.ts:1203
+[   78837ms] [LOG] [assignVolume] Budget guard: legs budget=4 ÷ 2 exercises (budgetCap=1) → consolidated to 1 receiver(s) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:756
+[   78837ms] [LOG]   push L1: 4 sets ÷ 1 exercises = 4 sets/each @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:769
+[   78837ms] [LOG]   pull L1: 4 sets ÷ 1 exercises = 4 sets/each @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:769
+[   78837ms] [LOG]   legs L1: 4 sets ÷ 1 exercises = 4 sets/each @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:769
+[   78837ms] [LOG]   core L1: 3 sets ÷ 1 exercises = 3 sets/each @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:769
+[   78837ms] [LOG] [BudgetDistributor.balancedClusterCap] D2 balanced session — culled 1 exercise(s) → 4 clustered exercises (diverse=true, domains=5, longSession=false, availableTime=20). Sets: 4/4/3/4 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/BudgetDistributor.ts:638
+[   78837ms] [LOG] [WorkoutGenerator][selectProtocol] difficulty=2 | adminProtocols=null | adminProbability=0 | periodizationWeek=1 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1580
+[   78837ms] [LOG] [WorkoutGenerator][selectProtocol] No protocols configured — straight sets @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1594
+[   78837ms] [WARNING] [resolveInjectedLevel] No pull-domain match for "נדנוד הכנה לעליית כוח" — falling back to closest tp (programId=fTLWzjP9gH2VNpamyCZF, L2) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:311
+[   78837ms] [LOG] [VerticalFoundation] ✅ "עליות תאומים"(accessory) → "נדנוד הכנה לעליית כוח"(foundation, L2) [vertical_pull, domain=pull L1] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/GuaranteePassRunner.ts:435
+[   78837ms] [WARNING] [VerticalFoundation] ⚠️ No foundation candidate for vertical_push within ±6 of L1 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/GuaranteePassRunner.ts:395
+[   78837ms] [LOG] [findLevelSub] ✅ core: picked "פלאנק על הברכיים" L1 (gap=0, radius=±2, domain=core L1, D2) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/PoolFactory.ts:243
+[   78837ms] [WARNING] [FullBodyGuarantee] ⚠️ Could not guarantee core domain — no candidate within ±6 of L1 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/GuaranteePassRunner.ts:536
+[   78837ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 3m 45s     │ 33m 11s    │ 36m 56s    │  ← 33m rest = 92% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 36m 56s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78838ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78838ms] [LOG]   = Final Duration: 38 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78838ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78838ms] [LOG] [WorkoutGenerator] Smart set cap: 14 sets (cap 14) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1214
+[   78838ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 3m 42s     │ 31m 38s    │ 33m 20s    │  ← 31m rest = 92% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 33m 20s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78838ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78838ms] [LOG]   = Final Duration: 35 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78838ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78838ms] [LOG] [WorkoutGenerator] Smart set cap: 13 sets (cap 13) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1214
+[   78838ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 3m 33s     │ 29m 37s    │ 31m 10s    │  ← 29m rest = 92% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 31m 10s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78838ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78838ms] [LOG]   = Final Duration: 33 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78838ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78839ms] [LOG] [WorkoutGenerator] Smart set cap: 12 sets (cap 12) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1214
+[   78839ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 2m 21s     │ 27m 32s    │ 29m 53s    │  ← 27m rest = 92% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 29m 53s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78839ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78839ms] [LOG]   = Final Duration: 31 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78839ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78839ms] [LOG] [WorkoutGenerator] Smart set cap: 11 sets (cap 11) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1214
+[   78839ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 2m 12s     │ 25m 31s    │ 27m 43s    │  ← 25m rest = 92% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 27m 43s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78839ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78839ms] [LOG]   = Final Duration: 29 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78839ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78839ms] [LOG] [WorkoutGenerator] Smart set cap: 10 sets (cap 10) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1214
+[   78840ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 2m 0s      │ 22m 26s    │ 24m 26s    │  ← 22m rest = 92% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 24m 26s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78840ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78840ms] [LOG]   = Final Duration: 26 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78840ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78840ms] [LOG] [WorkoutGenerator] Smart set cap: 9 sets (cap 9) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1214
+[   78840ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 2m 42s     │ 20m 9s     │ 22m 51s    │  ← 20m rest = 92% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 22m 51s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78840ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78840ms] [LOG]   = Final Duration: 24 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78840ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78840ms] [LOG] [WorkoutGenerator] Smart set cap: 8 sets (cap 8) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1214
+[   78840ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 1m 24s     │ 18m 52s    │ 19m 16s    │  ← 18m rest = 93% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 19m 16s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78840ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78840ms] [LOG]   = Final Duration: 21 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78840ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78841ms] [LOG] [TimeVolumeFeedback] 7 compression pass(es): 38 min → 21 min (ceiling=20 min, tolerance=3 min) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1233
+[   78841ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 1m 24s     │ 18m 52s    │ 19m 16s    │  ← 18m rest = 93% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 19m 16s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78841ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78841ms] [LOG]   = Final Duration: 21 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78841ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78841ms] [LOG] [Engine] Pool: 103→101→66→30→5(raw)→5(diverse) | Selected: 4 | Budget: 4/15 remaining/daily | Difficulty: 2 | Sets: 8 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1264
+[   78841ms] [LOG] [1] נדנוד הכנה לעליית כוח | programLevel=2 [LevelResolution] עליות תאומים → L1 via legs | userDomainL=1 | Tier=hard | Sets=2 Reps=1 Rest=153s | Video=YES @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1275
+[   78841ms] [LOG] [2] חתירות ב-60° | programLevel=1 [LevelResolution] חתירות ב-60° → L1 via pull | userDomainL=1 | Tier=match | Sets=2 Reps=4 Rest=125s | Video=YES @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1275
+[   78841ms] [LOG] [3] שכיבות סמיכה ב-60° | programLevel=1 [LevelResolution] שכיבות סמיכה ב-60° → L1 via push | userDomainL=1 | Tier=match | Sets=2 Reps=6 Rest=137s | Video=YES @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1275
+[   78841ms] [LOG] [4] סקוואט בעזרת רצועות | programLevel=1 [LevelResolution] סקוואט בעזרת רצועות → L1 via legs | userDomainL=1 | Tier=match | Sets=2 Reps=3 Rest=121s | Video=YES @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1275
+[   78841ms] [LOG] [BudgetDistributor.reapplyCaps] reapply_weekly: 8→8 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/BudgetDistributor.ts:706
+[   78841ms] [LOG] [Warmup] Pool: 370 total | follow-along: 13 | role=warmup: 1 | mobility-tag: 0 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/warmup.service.ts:559
+[   78841ms] [LOG] [Warmup] Stage 1: "(none)" selected (none) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/warmup.service.ts:631
+[   78841ms] [LOG] [Warmup] Level 1 ≤ 2 → General Mobility only @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/warmup.service.ts:637
+[   78841ms] [LOG]   ETMVVSpt0lIpeF3mkEn6 "מתיחות פלג גוף עליון לבדיקה": OK @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/cooldown.service.ts:80
+[   78842ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 1m 24s     │ 18m 52s    │ 19m 16s    │  ← 18m rest = 93% of main block
+│  Cooldown   │ 2m 30s     │ 0m 0s      │ 2m 30s     │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 21m 46s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78842ms] [LOG]   + Main transitions (4 × 30s): 120s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78842ms] [LOG]   = Final Duration: 23 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78842ms] [TABLE] [Object, Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78842ms] [LOG] [PresentationFormatter.volumeCap] PhaseA: removed "נדנוד הכנה לעליית כוח" (mg=vertical_pull, score=70) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/presentation/PresentationFormatter.ts:507
+[   78842ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 1m 18s     │ 13m 46s    │ 14m 4s     │  ← 13m rest = 91% of main block
+│  Cooldown   │ 2m 30s     │ 0m 0s      │ 2m 30s     │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 16m 34s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   78842ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   78842ms] [LOG]   = Final Duration: 18 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   78842ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   78842ms] [LOG] [PresentationFormatter.volumeCap] Done after 1 step(s): 18m, 7 sets, 3 main exercises @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/presentation/PresentationFormatter.ts:616
+[   79368ms] [LOG] [findLevelSub] ✅ core: picked "פלאנק על הברכיים" L1 (gap=0, radius=±2, domain=core L1, D2) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/PoolFactory.ts:243
+[   79368ms] [WARNING] [PromiseValidation] ⚠️ core still missing post-cut, found a candidate but no safe exercise to replace @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/GuaranteePassRunner.ts:666
+[   79368ms] [LOG] [PresentationFormatter] 🪜 Final domain-priority sort applied (order stable, 4 exercises, מאוזן) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/presentation/PresentationFormatter.ts:330
+[   79368ms] [LOG] [WorkoutTrio] Option 2 (מאוזן): D2, 4 exercises, 7 sets, ~18min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:1327
+[   79368ms] [LOG] [WorkoutTrio] Bolt3: honouring requested 20min (ceiling 60min, explicit=false) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:1048
+[   79369ms] [LOG] [WorkoutTrio] Option 3 (Bolt3 — intense): pyramid protocol forced (p=1.0) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:1078
+[   79369ms] [LOG] [PipelineOrchestrator] Pool OK: 66 survivors at location=park (gear=8) → normal generation (sparse contexts degrade to bodyweight, not recovery). @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/PipelineOrchestrator.ts:130
+[   79369ms] [LOG] [PipelineOrchestrator] 🔓 Master-program bypass (full_body): skipping single-domain tolerance gate — ContextualEngine shared pass already scoped pool to all child domains. Pool size preserved: 66 exercises. @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/PipelineOrchestrator.ts:233
+[   79369ms] [WARNING] [PipelineOrchestrator] ⚠️ profileStale: userProgramLevels all ≤ L1 — onboarding background sync may still be in flight. Generation proceeds with L1 defaults. @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/PipelineOrchestrator.ts:239
+[   79369ms] [LOG] [InputSanitizer:Periodization] Phase=BUILD(W1) effectiveDifficulty=3 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/middleware/InputSanitizerMiddleware.ts:543
+[   79369ms] [LOG]   push L1: 4 sets/day (10/week) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:456
+[   79369ms] [LOG]   pull L1: 4 sets/day (10/week) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:456
+[   79369ms] [LOG]   legs L1: 4 sets/day (10/week) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:456
+[   79369ms] [LOG]   core L1: 3 sets/day (8/week) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:456
+[   79369ms] [LOG] Foundation Buffer: 23 exercises boosted (+30) — Pull-ups/Dips/Push-ups/Rows prioritised @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1521
+[   79369ms] [LOG] Vertical Preference: 2 exercises boosted (diminishing: 15/8) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1523
+[   79369ms] [LOG] Naked Strength: 33 bodyweight exercises boosted (+8) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1524
+[   79370ms] [LOG] Variety Guard: 6 exercises penalized (-40) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1525
+[   79370ms] [LOG] Modality Match: "none" dominant → 40 exercises boosted (+10) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1527
+[   79370ms] [LOG] [LevelSync] DifficultyFilter: globalLevel=L1, domainLevels={push:L1, pull:L1, legs:L1, core:L1, full_body:L1, upper_body:L1, muscle_up:L1} @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-selection.utils.ts:545
+[   79370ms] [WARNING] [LevelSync] applyDifficultyFilter: 2 exercise-level resolution(s) had no assessed domain level — used explicit L1 floor, NOT globalLevel(L1) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-selection.utils.ts:670
+[   79370ms] [LOG] [WorkoutGenerator] Domain quotas: push, pull, legs, core → 6 exercises @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-selection.utils.ts:1203
+[   79370ms] [LOG] [assignVolume] Budget guard: legs budget=4 ÷ 2 exercises (budgetCap=1) → consolidated to 1 receiver(s) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:756
+[   79370ms] [LOG] [assignVolume] Budget guard: core budget=3 ÷ 2 exercises (budgetCap=1) → consolidated to 1 receiver(s) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:756
+[   79370ms] [LOG]   push L1: 4 sets ÷ 1 exercises = 4 sets/each @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:769
+[   79370ms] [LOG]   pull L1: 4 sets ÷ 1 exercises = 4 sets/each @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:769
+[   79370ms] [LOG]   legs L1: 4 sets ÷ 1 exercises = 4 sets/each @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:769
+[   79370ms] [LOG]   core L1: 3 sets ÷ 1 exercises = 3 sets/each @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:769
+[   79370ms] [LOG] [BudgetDistributor.skillClusterCap] D3 skill/strength session — culled 2 exercise(s) → 4 clustered exercises. Sets: 5/4/3/3 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/BudgetDistributor.ts:512
+[   79371ms] [LOG] [WorkoutGenerator][selectProtocol] difficulty=3 | adminProtocols=["pyramid"] | adminProbability=1 | periodizationWeek=1 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1580
+[   79371ms] [LOG] [WorkoutGenerator][selectProtocol] ✅ Protocol injected: "pyramid" (roll=0.523 ≤ p=1, options=[pyramid]) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1618
+[   79371ms] [LOG] [WorkoutGenerator] Pyramid applied to 1/4 main exercise(s): נדנוד הכנה לעליית כוח @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:988
+[   79371ms] [LOG] [PyramidProcessor] D3 — mechanical=0 (short=0, long=0), skipped=1 (shallow groups reverted to straight sets) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/protocols/pyramid.processor.ts:657
+[   79371ms] [LOG] [findLevelSub] ✅ horizontal_push: picked "פשיטת מרפקים על הרצפה" L1 (gap=0, radius=±2, domain=push L1, D3) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/PoolFactory.ts:243
+[   79372ms] [LOG] [HorizontalGuarantee] ✅ "גוד מורנינג בישיבה"(hinge) → "פשיטת מרפקים על הרצפה" (L1, domain=push L1, gap=0) [horizontal_push] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/GuaranteePassRunner.ts:321
+[   79372ms] [LOG] [findLevelSub] ✅ horizontal_pull: picked "מתח אוסטרלי ב-60° מעלות" L1 (gap=0, radius=±2, domain=pull L1, D3) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/PoolFactory.ts:243
+[   79372ms] [LOG] [HorizontalGuarantee] ✅ "נדנוד הכנה לעליית כוח"(vertical_pull) → "מתח אוסטרלי ב-60° מעלות" (L1, domain=pull L1, gap=0) [horizontal_pull] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/GuaranteePassRunner.ts:321
+[   79372ms] [LOG] [VerticalFoundation] ⚠️ Could not guarantee vertical_pull foundation — no safe victim @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/GuaranteePassRunner.ts:413
+[   79372ms] [WARNING] [VerticalFoundation] ⚠️ No foundation candidate for vertical_push within ±6 of L1 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/GuaranteePassRunner.ts:395
+[   79372ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 3m 48s     │ 36m 17s    │ 39m 5s     │  ← 36m rest = 93% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 39m 5s     │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   79372ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   79372ms] [LOG]   = Final Duration: 41 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   79372ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   79372ms] [LOG] [CoreBlock] form=single @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1168
+[   79373ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 3m 48s     │ 36m 17s    │ 39m 5s     │  ← 36m rest = 93% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 39m 5s     │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   79373ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   79373ms] [LOG]   = Final Duration: 41 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   79373ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   79373ms] [LOG] [WorkoutGenerator] Smart set cap: 14 sets (cap 14) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1214
+[   79373ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 3m 42s     │ 33m 19s    │ 36m 1s     │  ← 33m rest = 93% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 36m 1s     │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   79373ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   79373ms] [LOG]   = Final Duration: 38 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   79373ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   79373ms] [LOG] [WorkoutGenerator] Smart set cap: 13 sets (cap 13) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1214
+[   79373ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 3m 36s     │ 30m 21s    │ 33m 57s    │  ← 30m rest = 92% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 33m 57s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   79373ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   79373ms] [LOG]   = Final Duration: 35 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   79373ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   79374ms] [LOG] [WorkoutGenerator] Smart set cap: 12 sets (cap 12) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1214
+[   79374ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 2m 24s     │ 28m 19s    │ 31m 43s    │  ← 28m rest = 92% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 31m 43s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   79374ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   79374ms] [LOG]   = Final Duration: 33 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   79374ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   79374ms] [LOG] [WorkoutGenerator] Smart set cap: 11 sets (cap 11) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1214
+[   79374ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 2m 9s      │ 26m 19s    │ 28m 28s    │  ← 26m rest = 92% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 28m 28s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   79374ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   79374ms] [LOG]   = Final Duration: 30 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   79374ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   79374ms] [LOG] [WorkoutGenerator] Smart set cap: 10 sets (cap 10) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1214
+[   79374ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 2m 56s     │ 24m 34s    │ 26m 30s    │  ← 24m rest = 92% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 26m 30s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   79375ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   79375ms] [LOG]   = Final Duration: 27 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   79375ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   79375ms] [LOG] [WorkoutGenerator] Smart set cap: 9 sets (cap 9) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1214
+[   79375ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 2m 44s     │ 22m 32s    │ 23m 16s    │  ← 22m rest = 93% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 23m 16s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   79375ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   79375ms] [LOG]   = Final Duration: 25 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   79375ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   79375ms] [LOG] [WorkoutGenerator] Smart set cap: 8 sets (cap 8) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1214
+[   79375ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 2m 32s     │ 20m 30s    │ 21m 2s     │  ← 20m rest = 93% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 21m 2s     │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   79375ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   79375ms] [LOG]   = Final Duration: 23 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   79375ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   79376ms] [LOG] [TimeVolumeFeedback] 7 compression pass(es): 41 min → 23 min (ceiling=20 min, tolerance=3 min) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1233
+[   79376ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 2m 32s     │ 20m 30s    │ 21m 2s     │  ← 20m rest = 93% of main block
+│  Cooldown   │ 0m 0s      │ 0m 0s      │ 0m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 21m 2s     │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   79376ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   79376ms] [LOG]   = Final Duration: 23 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   79376ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   79376ms] [LOG] [Engine] Pool: 103→101→66→66→6(raw)→6(diverse) | Selected: 4 | Budget: 4/15 remaining/daily | Difficulty: 3 | Sets: 8 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1264
+[   79376ms] [LOG] [1] מתח אוסטרלי ב-60° מעלות | programLevel=1 [LevelResolution] נדנוד הכנה לעליית כוח → L2 via fallback | userDomainL=1 | Tier=match | Sets=2 Reps=4 Rest=122s | Video=YES @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1275
+[   79376ms] [LOG] [2] פשיטת מרפקים על הרצפה | programLevel=1 [LevelResolution] גוד מורנינג בישיבה → L1 via legs | userDomainL=1 | Tier=match | Sets=2 Reps=5 Rest=120s | Video=YES @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1275
+[   79376ms] [LOG] [3] עליות תאומים על מדרגה | programLevel=2 [LevelResolution] עליות תאומים על מדרגה → L2 via legs | userDomainL=1 | Tier=hard | Sets=2 Reps=2 Rest=178s | Video=YES @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1275
+[   79376ms] [LOG] [4] פלאנק | programLevel=2 [LevelResolution] פלאנק → L2 via core | userDomainL=1 | Tier=hard | Sets=2 Hold=13s Rest=165s | Video=YES @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/WorkoutGenerator.ts:1275
+[   79376ms] [LOG] [BudgetDistributor.reapplyCaps] reapply_weekly: 8→8 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/pipeline/BudgetDistributor.ts:706
+[   79376ms] [LOG] [Warmup] Pool: 370 total | follow-along: 13 | role=warmup: 1 | mobility-tag: 0 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/warmup.service.ts:559
+[   79376ms] [LOG] [Warmup] Stage 1: "(none)" selected (none) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/warmup.service.ts:631
+[   79376ms] [LOG] [Warmup] Level 1 ≤ 2 → General Mobility only @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/warmup.service.ts:637
+[   79376ms] [LOG]   ETMVVSpt0lIpeF3mkEn6 "מתיחות פלג גוף עליון לבדיקה": OK @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/cooldown.service.ts:80
+[   79377ms] [LOG] [WorkoutTrio] Intense: only 3/5 slots filled (maxLevel=1) — keeping quality roster, global fallback suppressed @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:292
+[   79377ms] [LOG] [WorkoutTrio] Intense selection: 3/5 slots filled, domains: [push, pull, legs] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:300
+[   79377ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 2m 32s     │ 20m 30s    │ 21m 2s     │  ← 20m rest = 93% of main block
+│  Cooldown   │ 2m 30s     │ 2m 30s     │ 3m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 24m 2s     │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   79377ms] [LOG]   + Main transitions (4 × 30s): 120s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   79377ms] [LOG]   = Final Duration: 27 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   79377ms] [TABLE] [Object, Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   79377ms] [LOG] [WorkoutTrio] Intense: 0 general + 0 pattern warmups (floor), 3 main(domains:push/pull/legs) + 1 core, dropped 0 non-floor warmups, rest≥90s, David Rule: natural → ~27 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:416
+[   79377ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 2m 32s     │ 20m 30s    │ 21m 2s     │  ← 20m rest = 93% of main block
+│  Cooldown   │ 2m 30s     │ 2m 30s     │ 3m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 24m 2s     │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   79377ms] [LOG]   + Main transitions (4 × 30s): 120s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   79377ms] [LOG]   = Final Duration: 27 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   79377ms] [TABLE] [Object, Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   79377ms] [LOG] [PresentationFormatter.volumeCap] PhaseA: removed "עליות תאומים על מדרגה" (mg=squat, score=64) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/presentation/PresentationFormatter.ts:507
+[   79377ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 1m 20s     │ 14m 34s    │ 15m 54s    │  ← 14m rest = 91% of main block
+│  Cooldown   │ 2m 30s     │ 2m 30s     │ 3m 0s      │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 18m 54s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   79378ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   79378ms] [LOG]   = Final Duration: 20 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   79378ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   79378ms] [LOG] [PresentationFormatter.volumeCap] Done after 1 step(s): 20m, 7 sets, 3 main exercises @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/presentation/PresentationFormatter.ts:616
+[   79843ms] [LOG] [PresentationFormatter] 🪜 Final domain-priority sort applied (order stable, 4 exercises, עצים ומהיר) @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/core/presentation/PresentationFormatter.ts:330
+[   79843ms] [LOG] [WorkoutTrio] Option 3 (עצים ומהיר): D3, 4 exercises, 7 sets, ~20min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/home-workout.service.ts:1327
+[   79844ms] [LOG]   Difficulty: 1 ⚡ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:823
+[   79844ms] [LOG]   Title: מיקוד השלב הנוכחי: עוצמה בפארק @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:824
+[   79844ms] [LOG]   Duration: ~22 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:825
+[   79844ms] [LOG]   Warmups: 0 | Main: 3 | Sets: 7 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:826
+[   79844ms] [LOG]   Gear: 1 ⚠️ [BlaaMRjaztS9ljty9h1L] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:827
+[   79844ms] [LOG]   Exercises: [החזקת חתירה ב-90° מעלות במרפק, פשיטת מרפקים על הרצפה, כפיפות בטן] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:828
+[   79844ms] [LOG]   Difficulty: 2 ⚡⚡ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:823
+[   79844ms] [LOG]   Title: סבב 18 דק' בפארק: Full Body Integration @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:824
+[   79844ms] [LOG]   Duration: ~18 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:825
+[   79844ms] [LOG]   Warmups: 0 | Main: 3 | Sets: 7 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:826
+[   79844ms] [LOG]   Gear: 2 ⚠️ [BlaaMRjaztS9ljty9h1L, xQ617v3yzLpVQv4ChfRJ] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:827
+[   79844ms] [LOG]   Exercises: [חתירות ב-60°, שכיבות סמיכה ב-60°, סקוואט בעזרת רצועות] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:828
+[   79844ms] [LOG]   Difficulty: 3 ⚡⚡⚡ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:823
+[   79844ms] [LOG]   Title: אתגר כל הרמות_הבאה בפארק @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:824
+[   79844ms] [LOG]   Duration: ~20 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:825
+[   79844ms] [LOG]   Warmups: 0 | Main: 3 | Sets: 7 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:826
+[   79844ms] [LOG]   Gear: 2 ⚠️ [VQoqHLfhHGhPsaz2zsQO, PXmX6xgAAVq53gLceIcC] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:827
+[   79844ms] [LOG]   Exercises: [פשיטת מרפקים על הרצפה, מתח אוסטרלי ב-60° מעלות, פלאנק] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:828
+[   79844ms] [LOG] Overlap: 1↔2=0, 1↔3=1, 2↔3=0 @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/services/trio-modifiers.service.ts:833
+[   79845ms] [LOG] ┌─────────────┬────────────┬────────────┬────────────┐
+│  Section    │  Work      │  Rest      │  Subtotal  │
+├─────────────┼────────────┼────────────┼────────────┤
+│  Warmup     │ 0m 0s      │ 0m 0s      │ 0m 0s      │  ← 0s rest, 5s transitions, cap=6m
+│  Main       │ 1m 18s     │ 13m 30s    │ 14m 48s    │  ← 13m rest = 91% of main block
+│  Cooldown   │ 2m 30s     │ 0m 0s      │ 2m 30s     │
+├─────────────┼────────────┼────────────┼────────────┤
+│  TOTAL(raw) │             │             │ 15m 18s    │
+└─────────────┴────────────┴────────────┴────────────┘ @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1338
+[   79845ms] [LOG]   + Main transitions (3 × 30s): 90s @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1339
+[   79845ms] [LOG]   = Final Duration: 17 min @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1340
+[   79845ms] [TABLE] [Object, Object, Object, Object] @ webpack-internal:///(app-pages-browser)/./src/features/workout-engine/logic/workout-budgeting.utils.ts:1343
+[   79852ms] [LOG] [UI][groupSections] exercise="חתירות ב-60°" role=main pairedWith=NONE @ webpack-internal:///(app-pages-browser)/./src/features/workouts/components/workout-preview-drawer/utils/section-grouping.utils.ts:48
+[   79852ms] [LOG] [UI][groupSections] exercise="שכיבות סמיכה ב-60°" role=main pairedWith=NONE @ webpack-internal:///(app-pages-browser)/./src/features/workouts/components/workout-preview-drawer/utils/section-grouping.utils.ts:48
+[   79852ms] [LOG] [UI][groupSections] exercise="סקוואט בעזרת רצועות" role=main pairedWith=NONE @ webpack-internal:///(app-pages-browser)/./src/features/workouts/components/workout-preview-drawer/utils/section-grouping.utils.ts:48
+[   79852ms] [LOG] [UI][groupSections] exercise="מתיחות פלג גוף עליון לבדיקה" role=cooldown pairedWith=NONE @ webpack-internal:///(app-pages-browser)/./src/features/workouts/components/workout-preview-drawer/utils/section-grouping.utils.ts:48
+[   79852ms] [LOG] [UI][groupSections] result — warmup:0 pairs:0 pyramids:0 straight:3 cooldown:1 @ webpack-internal:///(app-pages-browser)/./src/features/workouts/components/workout-preview-drawer/utils/section-grouping.utils.ts:171
+[   79852ms] [LOG] [UI][groupSections] exercise="חתירות ב-60°" role=main pairedWith=NONE @ webpack-internal:///(app-pages-browser)/./src/features/workouts/components/workout-preview-drawer/utils/section-grouping.utils.ts:48
+[   79852ms] [LOG] [UI][groupSections] exercise="שכיבות סמיכה ב-60°" role=main pairedWith=NONE @ webpack-internal:///(app-pages-browser)/./src/features/workouts/components/workout-preview-drawer/utils/section-grouping.utils.ts:48
+[   79853ms] [LOG] [UI][groupSections] exercise="סקוואט בעזרת רצועות" role=main pairedWith=NONE @ webpack-internal:///(app-pages-browser)/./src/features/workouts/components/workout-preview-drawer/utils/section-grouping.utils.ts:48
+[   79853ms] [LOG] [UI][groupSections] exercise="מתיחות פלג גוף עליון לבדיקה" role=cooldown pairedWith=NONE @ webpack-internal:///(app-pages-browser)/./src/features/workouts/components/workout-preview-drawer/utils/section-grouping.utils.ts:48
+[   79853ms] [LOG] [UI][groupSections] result — warmup:0 pairs:0 pyramids:0 straight:3 cooldown:1 @ webpack-internal:///(app-pages-browser)/./src/features/workouts/components/workout-preview-drawer/utils/section-grouping.utils.ts:171

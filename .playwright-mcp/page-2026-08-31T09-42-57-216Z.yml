@@ -1,0 +1,179 @@
+- generic [active] [ref=f74e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f74e2]:
+    - generic [ref=f74e3]:
+      - generic [ref=f74e5]:
+        - button "פרופיל" [ref=f74e6] [cursor=pointer]:
+          - generic [ref=f74e7]: Q
+          - generic [ref=f74e9]: "1"
+        - link "OUT" [ref=f74e17] [cursor=pointer]:
+          - /url: /home
+          - img "OUT" [ref=f74e18]
+        - generic [ref=f74e19]:
+          - button "התראות" [ref=f74e20] [cursor=pointer]
+          - button "הודעות" [ref=f74e24] [cursor=pointer]
+          - link "חיפוש" [ref=f74e27] [cursor=pointer]:
+            - /url: /search
+      - button "54%" [ref=f74e32] [cursor=pointer]
+      - generic [ref=f74e39]:
+        - generic [ref=f74e41]:
+          - heading "לו״ז אימונים" [level=2] [ref=f74e43]
+          - generic [ref=f74e44]:
+            - button "סנכרון ליומן" [ref=f74e45] [cursor=pointer]
+            - button "שינוי לוז" [ref=f74e47] [cursor=pointer]
+          - generic [ref=f74e53]:
+            - generic [ref=f74e54]:
+              - generic [ref=f74e55]: א
+              - button [ref=f74e56] [cursor=pointer]:
+                - generic "מנוחה" [ref=f74e59]:
+                  - generic [ref=f74e60]:
+                    - text: Z
+                    - superscript [ref=f74e61]: z
+            - generic [ref=f74e62]:
+              - generic [ref=f74e63]: ב
+              - button [ref=f74e236] [cursor=pointer]
+            - generic [ref=f74e70]:
+              - generic [ref=f74e71]: ג
+              - button [ref=f74e72] [cursor=pointer]
+            - generic [ref=f74e78]:
+              - generic [ref=f74e79]: ד
+              - button [ref=f74e244] [cursor=pointer]
+            - generic [ref=f74e86]:
+              - generic [ref=f74e87]: ה
+              - button [ref=f74e88] [cursor=pointer]
+            - generic [ref=f74e94]:
+              - generic [ref=f74e95]: ו
+              - button [ref=f74e96] [cursor=pointer]:
+                - generic "מנוחה" [ref=f74e99]:
+                  - generic [ref=f74e100]:
+                    - text: Z
+                    - superscript [ref=f74e101]: z
+            - generic [ref=f74e102]:
+              - generic [ref=f74e103]: ש
+              - button [ref=f74e104] [cursor=pointer]:
+                - generic "מנוחה" [ref=f74e107]:
+                  - generic [ref=f74e108]:
+                    - text: Z
+                    - superscript [ref=f74e109]: z
+        - generic [ref=f74e418]:
+          - heading "המשך הפעילות של היום" [level=3] [ref=f74e419]
+          - generic [ref=f74e420]:
+            - generic [ref=f74e422]:
+              - generic [ref=f74e425]:
+                - generic [ref=f74e426]:
+                  - heading "הליכה" [level=3] [ref=f74e427]
+                  - generic [ref=f74e428]: בינוני
+                  - paragraph [ref=f74e432]: 30 דקות
+                - button "התחל" [ref=f74e433] [cursor=pointer]
+              - generic [ref=f74e437] [cursor=pointer]:
+                - img "Workout" [ref=f74e439]
+                - generic "ללא ציוד – משקל גוף" [ref=f74e443]
+                - generic [ref=f74e448]:
+                  - generic [ref=f74e450]:
+                    - generic [ref=f74e451]: 🧘 התאוששות פעילה
+                    - generic [ref=f74e452]: "|"
+                    - generic [ref=f74e453]: 8 דקות
+                  - 'heading "סשן התאוששות #4" [level=4] [ref=f74e455]'
+                  - generic: גלה מה מצפה לך היום...
+              - generic [ref=f74e458]:
+                - generic [ref=f74e459]:
+                  - heading "הליכה קלה" [level=3] [ref=f74e460]
+                  - paragraph [ref=f74e461]: בלי ציוד, בלי שאלון — תמיד אפשרות
+                  - generic [ref=f74e462]: קל
+                  - paragraph [ref=f74e466]: 30 דקות
+                - button "התחל" [ref=f74e467] [cursor=pointer]
+            - generic [ref=f74e468]:
+              - button "הצעה 1" [ref=f74e469] [cursor=pointer]
+              - button "הצעה 2" [ref=f74e470] [cursor=pointer]
+              - button "הצעה 3" [ref=f74e471] [cursor=pointer]
+        - generic [ref=f74e472]:
+          - generic [ref=f74e473]:
+            - button "התקדמות שבועית" [ref=f74e474] [cursor=pointer]
+            - button "מדדי בריאות" [ref=f74e475] [cursor=pointer]
+          - generic [ref=f74e476]:
+            - generic [ref=f74e478]:
+              - generic [ref=f74e479]:
+                - heading "ליבה" [level=3] [ref=f74e485]
+                - paragraph [ref=f74e486]: רמה 3/20
+                - generic [ref=f74e487]: עוד 99% לרמה 4
+              - generic [ref=f74e491]: 1%
+            - generic [ref=f74e497]:
+              - generic [ref=f74e499]:
+                - generic [ref=f74e500]: כוח
+                - generic [ref=f74e504]: 1/3
+              - generic [ref=f74e510]:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: ריצה
+                      - generic: 0/3
+                - button "הוסף תוכנית ריצה" [ref=f74e511] [cursor=pointer]
+        - generic [ref=f74e349]:
+          - generic [ref=f74e350]:
+            - heading "גינות כושר קרובות" [level=3] [ref=f74e351]
+            - button "הכל" [ref=f74e358] [cursor=pointer]
+          - generic [ref=f74e361]:
+            - button "גרם מדרגות 0 מ' גרם מדרגות מתקן" [ref=f74e362] [cursor=pointer]:
+              - generic [ref=f74e363]:
+                - img "גרם מדרגות" [ref=f74e364]
+                - generic [ref=f74e365]: 0 מ'
+              - generic [ref=f74e366]:
+                - paragraph [ref=f74e367]: גרם מדרגות
+                - paragraph [ref=f74e368]: מתקן
+            - button "גינת כושר זיסו - תל אביב 236 מ' גינת כושר זיסו - תל אביב גינת כושר" [ref=f74e369] [cursor=pointer]:
+              - generic [ref=f74e370]:
+                - img "גינת כושר זיסו - תל אביב" [ref=f74e371]
+                - generic [ref=f74e372]: 236 מ'
+              - generic [ref=f74e373]:
+                - paragraph [ref=f74e374]: גינת כושר זיסו - תל אביב
+                - paragraph [ref=f74e375]: גינת כושר
+            - button "בדיקה תלאביב דוד 350 מ' בדיקה תלאביב דוד מתקן" [ref=f74e376] [cursor=pointer]:
+              - generic [ref=f74e377]:
+                - img "בדיקה תלאביב דוד" [ref=f74e378]
+                - generic [ref=f74e379]: 350 מ'
+              - generic [ref=f74e380]:
+                - paragraph [ref=f74e381]: בדיקה תלאביב דוד
+                - paragraph [ref=f74e382]: מתקן
+            - button "מתקני כושר גן העיר - תל אביב 424 מ' מתקני כושר גן העיר - תל אביב גינת כושר" [ref=f74e383] [cursor=pointer]:
+              - generic [ref=f74e384]:
+                - img "מתקני כושר גן העיר - תל אביב" [ref=f74e385]
+                - generic [ref=f74e386]: 424 מ'
+              - generic [ref=f74e387]:
+                - paragraph [ref=f74e388]: מתקני כושר גן העיר - תל אביב
+                - paragraph [ref=f74e389]: גינת כושר
+            - button "גינת כושר גרמניס - תל אביב 530 מ' גינת כושר גרמניס - תל אביב גינת כושר" [ref=f74e390] [cursor=pointer]:
+              - generic [ref=f74e391]:
+                - img "גינת כושר גרמניס - תל אביב" [ref=f74e392]
+                - generic [ref=f74e393]: 530 מ'
+              - generic [ref=f74e394]:
+                - paragraph [ref=f74e395]: גינת כושר גרמניס - תל אביב
+                - paragraph [ref=f74e396]: גינת כושר
+            - button "גינת כושר זאב - תל אביב 669 מ' גינת כושר זאב - תל אביב גינת כושר" [ref=f74e397] [cursor=pointer]:
+              - generic [ref=f74e398]:
+                - img "גינת כושר זאב - תל אביב" [ref=f74e399]
+                - generic [ref=f74e400]: 669 מ'
+              - generic [ref=f74e401]:
+                - paragraph [ref=f74e402]: גינת כושר זאב - תל אביב
+                - paragraph [ref=f74e403]: גינת כושר
+            - button "גינת כושר אריסון - תל אביב 694 מ' גינת כושר אריסון - תל אביב גינת כושר" [ref=f74e404] [cursor=pointer]:
+              - generic [ref=f74e405]:
+                - img "גינת כושר אריסון - תל אביב" [ref=f74e406]
+                - generic [ref=f74e407]: 694 מ'
+              - generic [ref=f74e408]:
+                - paragraph [ref=f74e409]: גינת כושר אריסון - תל אביב
+                - paragraph [ref=f74e410]: גינת כושר
+            - button "גינת כושר לואי מרשל - תל אביב 786 מ' גינת כושר לואי מרשל - תל אביב גינת כושר" [ref=f74e411] [cursor=pointer]:
+              - generic [ref=f74e412]:
+                - img "גינת כושר לואי מרשל - תל אביב" [ref=f74e413]
+                - generic [ref=f74e414]: 786 מ'
+              - generic [ref=f74e415]:
+                - paragraph [ref=f74e416]: גינת כושר לואי מרשל - תל אביב
+                - paragraph [ref=f74e417]: גינת כושר
+      - button "הוסף" [ref=f74e222] [cursor=pointer]
+  - navigation [ref=f74e224]:
+    - generic [ref=f74e225]:
+      - link "בית" [ref=f74e226] [cursor=pointer]:
+        - /url: /home
+      - link "מפה" [ref=f74e231] [cursor=pointer]:
+        - /url: /map
+  - alert [ref=f74e235]

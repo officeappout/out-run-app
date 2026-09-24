@@ -1,0 +1,165 @@
+- generic [active] [ref=f11e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f11e2]:
+    - generic [ref=f11e3]:
+      - generic [ref=f11e5]:
+        - button "פרופיל" [ref=f11e6] [cursor=pointer]:
+          - generic [ref=f11e7]: Q
+        - link "OUT" [ref=f11e14] [cursor=pointer]:
+          - /url: /home
+          - img "OUT" [ref=f11e15]
+        - generic [ref=f11e16]:
+          - button "התראות" [ref=f11e17] [cursor=pointer]
+          - button "הודעות" [ref=f11e21] [cursor=pointer]:
+            - generic [ref=f11e24]: "1"
+          - link "חיפוש" [ref=f11e25] [cursor=pointer]:
+            - /url: /search
+      - button "38%" [ref=f11e30] [cursor=pointer]
+      - generic [ref=f11e37]:
+        - generic [ref=f11e39]:
+          - heading "לו״ז אימונים" [level=2] [ref=f11e41]
+          - generic [ref=f11e42]:
+            - button "קבע לו״ז אימונים" [ref=f11e44] [cursor=pointer]
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: א
+                      - button
+                    - generic:
+                      - generic: ב
+                      - button "מנוחה":
+                        - generic:
+                          - generic:
+                            - generic "מנוחה":
+                              - generic:
+                                - text: Z
+                                - superscript: z
+                    - generic:
+                      - generic: ג
+                      - button
+                    - generic:
+                      - generic: ד
+                      - button "מנוחה":
+                        - generic:
+                          - generic:
+                            - generic "מנוחה":
+                              - generic:
+                                - text: Z
+                                - superscript: z
+                    - generic:
+                      - generic: ה
+                      - button
+                    - generic:
+                      - generic: ו
+                      - button "מנוחה":
+                        - generic:
+                          - generic:
+                            - generic "מנוחה":
+                              - generic:
+                                - text: Z
+                                - superscript: z
+                    - generic:
+                      - generic: ש
+                      - button "מנוחה":
+                        - generic:
+                          - generic:
+                            - generic "מנוחה":
+                              - generic:
+                                - text: Z
+                                - superscript: z
+        - generic [ref=f11e55]:
+          - generic [ref=f11e56]:
+            - button "התקדמות שבועית" [ref=f11e57] [cursor=pointer]
+            - button "מדדי בריאות" [ref=f11e58] [cursor=pointer]
+          - generic [ref=f11e59]:
+            - generic [ref=f11e61]:
+              - generic [ref=f11e62]:
+                - heading "כל הגוף" [level=3] [ref=f11e69]
+                - paragraph [ref=f11e70]: רמה 1/15
+                - generic [ref=f11e71]: עוד 99% לרמה 2
+              - generic [ref=f11e75]: 1%
+            - generic [ref=f11e81]:
+              - generic [ref=f11e83]:
+                - generic [ref=f11e84]: כוח
+                - generic [ref=f11e88]: 0/3
+              - generic [ref=f11e93]:
+                - generic [aria-hidden]:
+                  - generic:
+                    - generic:
+                      - generic: ריצה
+                      - generic: 0/3
+                - button "הוסף תוכנית ריצה" [ref=f11e94] [cursor=pointer]
+        - generic [ref=f11e98]:
+          - heading "קבוצות קרובות אליך" [level=3] [ref=f11e99]
+          - button "הכל ›" [ref=f11e106] [cursor=pointer]
+        - generic [ref=f11e128]:
+          - generic [ref=f11e129]:
+            - heading "גינות כושר קרובות" [level=3] [ref=f11e130]
+            - button "הכל" [ref=f11e137] [cursor=pointer]
+          - generic [ref=f11e140]:
+            - button "גינת כושר הר ציון - תל אביב 72 מ' גינת כושר הר ציון - תל אביב גינת כושר" [ref=f11e141] [cursor=pointer]:
+              - generic [ref=f11e142]:
+                - img "גינת כושר הר ציון - תל אביב" [ref=f11e143]
+                - generic [ref=f11e144]: 72 מ'
+              - generic [ref=f11e145]:
+                - paragraph [ref=f11e146]: גינת כושר הר ציון - תל אביב
+                - paragraph [ref=f11e147]: גינת כושר
+            - button "גינת כושר בעל העקדה - תל אביב 477 מ' גינת כושר בעל העקדה - תל אביב גינת כושר" [ref=f11e148] [cursor=pointer]:
+              - generic [ref=f11e149]:
+                - img "גינת כושר בעל העקדה - תל אביב" [ref=f11e150]
+                - generic [ref=f11e151]: 477 מ'
+              - generic [ref=f11e152]:
+                - paragraph [ref=f11e153]: גינת כושר בעל העקדה - תל אביב
+                - paragraph [ref=f11e154]: גינת כושר
+            - button "גן כושר החשמל - תל אביב 634 מ' גן כושר החשמל - תל אביב גינת כושר" [ref=f11e155] [cursor=pointer]:
+              - generic [ref=f11e156]:
+                - img "גן כושר החשמל - תל אביב" [ref=f11e157]
+                - generic [ref=f11e158]: 634 מ'
+              - generic [ref=f11e159]:
+                - paragraph [ref=f11e160]: גן כושר החשמל - תל אביב
+                - paragraph [ref=f11e161]: גינת כושר
+            - button "גינת כושר חכמי ישראל - תל אביב 704 מ' גינת כושר חכמי ישראל - תל אביב גינת כושר" [ref=f11e162] [cursor=pointer]:
+              - generic [ref=f11e163]:
+                - img "גינת כושר חכמי ישראל - תל אביב" [ref=f11e164]
+                - generic [ref=f11e165]: 704 מ'
+              - generic [ref=f11e166]:
+                - paragraph [ref=f11e167]: גינת כושר חכמי ישראל - תל אביב
+                - paragraph [ref=f11e168]: גינת כושר
+            - button "פארק המסילה - תל אביב 813 מ' פארק המסילה - תל אביב גינת כושר" [ref=f11e169] [cursor=pointer]:
+              - generic [ref=f11e170]:
+                - img "פארק המסילה - תל אביב" [ref=f11e171]
+                - generic [ref=f11e172]: 813 מ'
+              - generic [ref=f11e173]:
+                - paragraph [ref=f11e174]: פארק המסילה - תל אביב
+                - paragraph [ref=f11e175]: גינת כושר
+            - button "מיתקני ספורט בגנים ובחופים 909 מ' מיתקני ספורט בגנים ובחופים גינת כושר" [ref=f11e176] [cursor=pointer]:
+              - generic [ref=f11e177]:
+                - img "מיתקני ספורט בגנים ובחופים" [ref=f11e178]
+                - generic [ref=f11e179]: 909 מ'
+              - generic [ref=f11e180]:
+                - paragraph [ref=f11e181]: מיתקני ספורט בגנים ובחופים
+                - paragraph [ref=f11e182]: גינת כושר
+            - button "גינת כושר חיל השריון - תל אביב 1.0 ק\"מ גינת כושר חיל השריון - תל אביב גינת כושר" [ref=f11e183] [cursor=pointer]:
+              - generic [ref=f11e184]:
+                - img "גינת כושר חיל השריון - תל אביב" [ref=f11e185]
+                - generic [ref=f11e186]: 1.0 ק"מ
+              - generic [ref=f11e187]:
+                - paragraph [ref=f11e188]: גינת כושר חיל השריון - תל אביב
+                - paragraph [ref=f11e189]: גינת כושר
+            - button "פארק החורושות - תל אביב 1.2 ק\"מ פארק החורושות - תל אביב גינת כושר" [ref=f11e190] [cursor=pointer]:
+              - generic [ref=f11e191]:
+                - img "פארק החורושות - תל אביב" [ref=f11e192]
+                - generic [ref=f11e193]: 1.2 ק"מ
+              - generic [ref=f11e194]:
+                - paragraph [ref=f11e195]: פארק החורושות - תל אביב
+                - paragraph [ref=f11e196]: גינת כושר
+      - button "הוסף" [ref=f11e197] [cursor=pointer]
+  - navigation [ref=f11e199]:
+    - generic [ref=f11e200]:
+      - link "בית" [ref=f11e201] [cursor=pointer]:
+        - /url: /home
+      - link "מפה" [ref=f11e206] [cursor=pointer]:
+        - /url: /map
+  - alert [ref=f11e210]

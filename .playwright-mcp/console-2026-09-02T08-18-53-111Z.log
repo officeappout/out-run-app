@@ -1,0 +1,19 @@
+[   28649ms] [WARNING] A speculation rule set was inserted into the document but will be ignored. This might happen, for example, if it was previously inserted into another document, or if it was created using the innerHTML setter. @ https://www.google.com/search?q=admin%2Fappout.co.il&oq=admin%2Fappout.co.il&gs_lcrp=EgZjaHJvbWUyBggAEEUYOTIGCAEQRRg60gEJMTUwMzdqMGo3qAIIsAIB8QVeiPlovQjujw&sourceid=chrome&source=chrome.ob&ie=UTF-8:33
+[   71236ms] [LOG] JQMIGRATE: Migrate is installed, version 3.4.1 @ https://appout.co.il/wp-includes/js/jquery/jquery-migrate.min.js?ver=3.4.1:1
+[  256952ms] [WARNING] A speculation rule set was inserted into the document but will be ignored. This might happen, for example, if it was previously inserted into another document, or if it was created using the innerHTML setter. @ https://www.google.com/search?q=admin%2Fappout.co.il&oq=a&gs_lcrp=EgZjaHJvbWUqBggBEEUYOzIGCAAQRRg5MgYIARBFGDsyBggCEEUYPDIGCAMQRRg8MgYIBBBFGDwyBggFEEUYPDIGCAYQRRg8MgYIBxAFGEDSAQkyMzE5NmowajSoAgCwAgA&sourceid=chrome&source=chrome.ob&ie=UTF-8:33
+[  257014ms] [INFO] Autofocus processing was blocked because a document already has a focused element. @ https://www.google.com/search?q=admin%2Fappout.co.il&oq=a&gs_lcrp=EgZjaHJvbWUqBggBEEUYOzIGCAAQRRg5MgYIARBFGDsyBggCEEUYPDIGCAMQRRg8MgYIBBBFGDwyBggFEEUYPDIGCAYQRRg8MgYIBxAFGEDSAQkyMzE5NmowajSoAgCwAgA&sourceid=chrome&source=chrome.ob&ie=UTF-8:0
+[  263408ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://api.appout.co.il/admins/sessions:0
+[  264423ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ https://admin.appout.co.il/login/:0
+[  426992ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://api.appout.co.il/admins/sessions:0
+[  427003ms] [ERROR] F @ https://admin.appout.co.il/_next/static/chunks/pages/login-ba7ab115cbd4809a.js:0
+[  550510ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://api.appout.co.il/admins/sessions:0
+[  550519ms] [ERROR] F @ https://admin.appout.co.il/_next/static/chunks/pages/login-ba7ab115cbd4809a.js:0
+[  558324ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ https://admin.appout.co.il/login/:0
+[ 8527398ms] [LOG] {agreements: null} @ https://admin.appout.co.il/_next/static/chunks/pages/agreements-fa702fcd0da8fc03.js:0
+[ 8528274ms] [LOG] {agreements: Array(17)} @ https://admin.appout.co.il/_next/static/chunks/pages/agreements-fa702fcd0da8fc03.js:0
+[ 8559891ms] [LOG] {plans: Array(1)} @ https://admin.appout.co.il/_next/static/chunks/4164-e1b8319c74773cc3.js:0
+[ 8573557ms] [LOG] {agreements: null} @ https://admin.appout.co.il/_next/static/chunks/pages/agreements-fa702fcd0da8fc03.js:0
+[ 8574048ms] [LOG] {agreements: Array(17)} @ https://admin.appout.co.il/_next/static/chunks/pages/agreements-fa702fcd0da8fc03.js:0
+[ 8624792ms] [LOG] {data: Object} @ https://admin.appout.co.il/_next/static/chunks/4164-e1b8319c74773cc3.js:0
+[ 8626196ms] [LOG] {agreements: Array(17)} @ https://admin.appout.co.il/_next/static/chunks/pages/agreements-fa702fcd0da8fc03.js:0
+[ 8626421ms] [LOG] {agreements: Array(18)} @ https://admin.appout.co.il/_next/static/chunks/pages/agreements-fa702fcd0da8fc03.js:0

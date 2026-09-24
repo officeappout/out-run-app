@@ -1,0 +1,83 @@
+- generic [ref=e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=e2]:
+    - generic [ref=e58]:
+      - generic [ref=e62]:
+        - region "Map" [ref=e63]
+        - generic:
+          - link "Mapbox logo" [ref=e65] [cursor=pointer]:
+            - /url: https://www.mapbox.com/
+          - list [ref=e79]:
+            - link "Mapbox" [ref=e80] [cursor=pointer]:
+              - /url: https://www.mapbox.com/about/maps
+              - text: © Mapbox
+            - link "OpenStreetMap" [ref=e81] [cursor=pointer]:
+              - /url: https://www.openstreetmap.org/copyright/
+              - text: © OpenStreetMap
+            - link "Map feedback" [ref=e82] [cursor=pointer]:
+              - /url: https://apps.mapbox.com/feedback/?owner=mapbox&id=streets-v12&access_token=pk.eyJ1IjoiZGF2aWQtb3V0IiwiYSI6ImNtanZpZmJ0djM5MTEzZXF5YXNmcm9zNGwifQ.8MD8s4TZOr0WYYgEpFfpzw#/34.782/32.085/7
+              - text: Improve this map
+      - generic [ref=e83]:
+        - generic [ref=e86]:
+          - button [ref=e87] [cursor=pointer]
+          - textbox "חפשו עיר או שכונה" [active] [ref=e91]
+        - generic [ref=e94]:
+          - button [ref=e95] [cursor=pointer]:
+            - paragraph [ref=e100]: ירושלים
+          - button [ref=e101] [cursor=pointer]:
+            - generic [ref=e105]:
+              - paragraph [ref=e106]: רמות
+              - paragraph [ref=e107]: ירושלים
+          - button [ref=e108] [cursor=pointer]:
+            - generic [ref=e112]:
+              - paragraph [ref=e113]: פסגת זאב
+              - paragraph [ref=e114]: ירושלים
+          - button [ref=e115] [cursor=pointer]:
+            - generic [ref=e119]:
+              - paragraph [ref=e120]: גילה
+              - paragraph [ref=e121]: ירושלים
+          - button [ref=e122] [cursor=pointer]:
+            - generic [ref=e126]:
+              - paragraph [ref=e127]: הר חומה
+              - paragraph [ref=e128]: ירושלים
+          - button [ref=e129] [cursor=pointer]:
+            - generic [ref=e133]:
+              - paragraph [ref=e134]: תלפיות / ארנונה
+              - paragraph [ref=e135]: ירושלים
+          - button [ref=e136] [cursor=pointer]:
+            - generic [ref=e140]:
+              - paragraph [ref=e141]: גוננים (קטמונים)
+              - paragraph [ref=e142]: ירושלים
+          - button [ref=e143] [cursor=pointer]:
+            - generic [ref=e147]:
+              - paragraph [ref=e148]: בית הכרם
+              - paragraph [ref=e149]: ירושלים
+          - button [ref=e150] [cursor=pointer]:
+            - generic [ref=e154]:
+              - paragraph [ref=e155]: קרית יובל
+              - paragraph [ref=e156]: ירושלים
+          - button [ref=e157] [cursor=pointer]:
+            - generic [ref=e161]:
+              - paragraph [ref=e162]: מלחה
+              - paragraph [ref=e163]: ירושלים
+          - button [ref=e164] [cursor=pointer]:
+            - generic [ref=e168]:
+              - paragraph [ref=e169]: רחביה
+              - paragraph [ref=e170]: ירושלים
+          - button [ref=e171] [cursor=pointer]:
+            - generic [ref=e175]:
+              - paragraph [ref=e176]: נחלאות
+              - paragraph [ref=e177]: ירושלים
+          - button [ref=e178] [cursor=pointer]:
+            - generic [ref=e182]:
+              - paragraph [ref=e183]: מרכז העיר
+              - paragraph [ref=e184]: ירושלים
+          - button [ref=e185] [cursor=pointer]:
+            - generic [ref=e189]:
+              - paragraph [ref=e190]: נווה יעקב
+              - paragraph [ref=e191]: ירושלים
+          - button [ref=e192] [cursor=pointer]:
+            - generic [ref=e196]:
+              - paragraph [ref=e197]: העיר העתיקה
+              - paragraph [ref=e198]: ירושלים
+  - alert [ref=e21]

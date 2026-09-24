@@ -1,0 +1,49 @@
+{
+  "mode": "enable",
+  "project": "appout-1",
+  "count": 7,
+  "results": [
+    {
+      "guid": "cec2f81e-6e9b-4192-9831-79b193856b1b",
+      "docId": "rec_cec2f81e-6e9b-4192-9831-79b193856b1b",
+      "action": "ENABLE",
+      "title": "סשן התאוששות #1"
+    },
+    {
+      "guid": "a8a535cb-d141-48a9-8993-f31d65c97fa0",
+      "docId": "rec_a8a535cb-d141-48a9-8993-f31d65c97fa0",
+      "action": "ENABLE",
+      "title": "סשן התאוששות #2"
+    },
+    {
+      "guid": "00695c88-f3cb-4dfd-897d-fbb59c062099",
+      "docId": "rec_00695c88-f3cb-4dfd-897d-fbb59c062099",
+      "action": "ENABLE",
+      "title": "סשן התאוששות #3"
+    },
+    {
+      "guid": "b86593dc-ed19-4141-b916-097319437968",
+      "docId": "rec_b86593dc-ed19-4141-b916-097319437968",
+      "action": "ENABLE",
+      "title": "סשן התאוששות #4"
+    },
+    {
+      "guid": "feb437c9-b6db-4f1f-9545-09ae43ee5c3a",
+      "docId": "rec_feb437c9-b6db-4f1f-9545-09ae43ee5c3a",
+      "action": "ENABLE",
+      "title": "סשן התאוששות #5"
+    },
+    {
+      "guid": "8e2b416a-ea9c-4a0a-8256-988309ab64f9",
+      "docId": "rec_8e2b416a-ea9c-4a0a-8256-988309ab64f9",
+      "action": "ENABLE",
+      "title": "סשן התאוששות #6"
+    },
+    {
+      "guid": "9545bbeb-1af7-4903-97a4-5b5b12465111",
+      "docId": "rec_9545bbeb-1af7-4903-97a4-5b5b12465111",
+      "action": "ENABLE",
+      "title": "סשן התאוששות #7"
+    }
+  ]
+}

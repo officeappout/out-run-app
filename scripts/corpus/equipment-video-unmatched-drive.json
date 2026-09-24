@@ -1,0 +1,204 @@
+{
+  "dupeFilenames": [
+    "\"מתח מתפרץ בתפיסה הפוכה.mp4\" → skipped 1mBqJRTPNLKIwwX6h0O0aNuO8ElxO2WpF (kept 1XBaOmvbqHe936wV87kvb6BbCP5BzcN0L)",
+    "\"מתח עם עצירות.mp4\" → skipped 1jeXzv17j0GVnqlsrNzHSOXX67F6YFeJB (kept 1HCEB4Yy52m5LiflbjOm4orsuSftgulyG)",
+    "\"UBX-CR חבל טיפוס.mp4\" → skipped 11VNCiKExXwPWp43BmCozjeLi8ci25Fwe (kept 1DS4FpVr1LTes9pIPLBXNgwB5wo3kWF2Q)",
+    "\"UBX-CR.mp4\" → skipped 1YJwdJGUfWVFRhA8109XqQq4ZcRJ-OK67 (kept 1U9X_pgQE2FmcVZLagVG1KNV0Jh934-9R)",
+    "\"LA-14104 מתקן פרפר.mp4\" → skipped 1mZCgw_JmKCd-F10SHT_zE9NVEbQrOpoT (kept 1faq7nxfILz1KDJrlOKY_b6h4QgShIWgT)"
+  ],
+  "unmatchedDrive": [
+    {
+      "filename": "UBX-17.mp4",
+      "fileId": "1RbWytFY8FWawo8yf3f4FLcur7UQCD5sm",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-14a.mp4",
+      "fileId": "1njZUMyJcWSKM3mbf8h29ieT47gPryEog",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-16.mp4",
+      "fileId": "1FH8WjPX0nKdqwc7mXjroIZfRDrVdKu-o",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-108.mp4",
+      "fileId": "1GHZCLHheXmZah3F5z8kSaOchUPgYnMTb",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-298.mp4",
+      "fileId": "1Gg92HF7qQqolNzVD8Q-yJuqUqv_XuAz4",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-22a.mp4",
+      "fileId": "1a5vicb3DJpPhXGMBPW_BAfi-YiBkSiqt",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-287.mp4",
+      "fileId": "1qUTNBuw5FwMBpd7hCHHhN1xyTh-cZpLv",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-258.mp4",
+      "fileId": "15xoOt1I1DCT7yH0RElXrOa2qMkvXny3W",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-246.mp4",
+      "fileId": "1cuHpSdiXY1t33G1ibDUiAVpuPO00U8UV",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-244.mp4",
+      "fileId": "1KNhZBDifRWUax0eDE0v5OIRD7U6XDJ13",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-232.mp4",
+      "fileId": "1ZPsxYdkpmngDKhJFGGlisz98d1kGDRm_",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-227.mp4",
+      "fileId": "1tz6VOJOv8DjiWEIUB5kZ-fA5abmXQmun",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-217.mp4",
+      "fileId": "1BUVOdrn4S5G-_fQ_PFMMNjIl8608YtUO",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-215.mp4",
+      "fileId": "1LNH9GS-I-3jk27av2iRAcLFGKy7u21_Q",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-208.mp4",
+      "fileId": "1nyg-RHURlqjd31aHiKt1jGFZAArGL0ma",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-98.mp4",
+      "fileId": "1cCvnuHOQ6PYBGvkiHuiXl-6RVGFRTI8X",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-91.mp4",
+      "fileId": "10zM3Q2H_pYDw9Yq29e2f-L38LiSdTIwP",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-90.mp4",
+      "fileId": "1PWKLOMSwrckfe-MimqoYSvR8U-4En0ju",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-48C.mp4",
+      "fileId": "1o22LGCWCsjd6lNWlrwtCcpM3MlqEa1hN",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-48A.mp4",
+      "fileId": "1z8Xd-Q3YIWqus_FzyEF8hpVSVVcxW2sK",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-48.mp4",
+      "fileId": "15kLi-3idHjR7lLzFaw8o8iakDq42SSKx",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-47.mp4",
+      "fileId": "12w0etSaOn1vcVXOohmbfqwl7g8N8hVbx",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-23.mp4",
+      "fileId": "1zXR1avlDFwO-138ZMVTdsKp8kMZqE1oS",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-22-a.mp4",
+      "fileId": "1Q8w-bVZK3PwYlwjtkiEbqQMfRtvRgQXR",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-19.mp4",
+      "fileId": "1gmD2Es40YwnrQhZZqmvDUiKO24uNshTs",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-09.mp4",
+      "fileId": "10bpdLRRhKQhgx1pix1BMd6cggQKQey5e",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-360.mp4",
+      "fileId": "1QsXmMQlw9CpvZWA1-zf3H2cKo-x_wmuO",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-293.mp4",
+      "fileId": "1sfkMXFHBb8XyvRFJu7XeVa9ll-e99xv8",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-291.mp4",
+      "fileId": "1SyvZqpqyedIgciA3KOONVAjG507Bog0t",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-290.mp4",
+      "fileId": "1zCJEPLbKuv3i11az_RvzX-ZPbASW_hiH",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-289.mp4",
+      "fileId": "1tGRtcc2PAchWF-p002OhSO0R5Ljo_eJS",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    },
+    {
+      "filename": "UBX-288.mp4",
+      "fileId": "1JJlNWZxgWfaozHiOZSTmYdseOn6Wzj0k",
+      "bestMatch": "אגן והאלכסונים",
+      "score": 0
+    }
+  ],
+  "reviewNeeded": []
+}

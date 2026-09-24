@@ -1,0 +1,25 @@
+- generic [active] [ref=f18e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f18e2]:
+    - main [ref=f18e3]:
+      - generic [ref=f18e5]:
+        - button "פרופיל" [ref=f18e6] [cursor=pointer]:
+          - generic [ref=f18e7]: Q
+        - link "OUT" [ref=f18e14] [cursor=pointer]:
+          - /url: /home
+          - img "OUT" [ref=f18e15]
+        - generic [ref=f18e16]:
+          - button "התראות" [ref=f18e17] [cursor=pointer]
+          - button "הודעות" [ref=f18e21] [cursor=pointer]
+          - link "חיפוש" [ref=f18e24] [cursor=pointer]:
+            - /url: /search
+      - button "🧪 מיקום" [ref=f18e30] [cursor=pointer]:
+        - generic [ref=f18e31]: 🧪
+        - text: מיקום
+  - navigation [ref=f18e32]:
+    - generic [ref=f18e33]:
+      - link "בית" [ref=f18e34] [cursor=pointer]:
+        - /url: /home
+      - link "מפה" [ref=f18e39] [cursor=pointer]:
+        - /url: /map
+  - alert [ref=f18e43]

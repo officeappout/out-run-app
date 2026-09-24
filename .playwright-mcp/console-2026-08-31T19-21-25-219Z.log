@@ -1,0 +1,121 @@
+[     113ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://appout-1.firebaseapp.com/__/firebase/init.json:0
+[    2510ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:38559
+[    3253ms] [INFO] [firebase] App Check bypass: hostname="localhost" treated as local development. initializeAppCheck() will NOT be invoked — this prevents reCAPTCHA Enterprise 403s from crashing the Firestore snapshot listener. Set NEXT_PUBLIC_APP_CHECK_DEBUG_TOKEN to a token registered in the Firebase console (App Check → Apps → Manage debug tokens) if you need a real App Check handshake. @ webpack-internal:///(app-pages-browser)/./src/lib/firebase.ts:125
+[    6008ms] [LOG] [getAuthoritiesByManager] Super Admin — returning all 79 top-level authorities @ webpack-internal:///(app-pages-browser)/./src/features/admin/services/authority.service.ts:811
+[    6370ms] [LOG] [getAuthoritiesByManager] Super Admin — returning all 79 top-level authorities @ webpack-internal:///(app-pages-browser)/./src/features/admin/services/authority.service.ts:811
+[    6370ms] [LOG] [getAuthoritiesByManager] Super Admin — returning all 79 top-level authorities @ webpack-internal:///(app-pages-browser)/./src/features/admin/services/authority.service.ts:811
+[    6626ms] [LOG] [getAuthoritiesByManager] Super Admin — returning all 79 top-level authorities @ webpack-internal:///(app-pages-browser)/./src/features/admin/services/authority.service.ts:811
+[    6704ms] [LOG] [getAuthoritiesByManager] Super Admin — returning all 79 top-level authorities @ webpack-internal:///(app-pages-browser)/./src/features/admin/services/authority.service.ts:811
+[    6959ms] [LOG] [getAuthoritiesByManager] Super Admin — returning all 79 top-level authorities @ webpack-internal:///(app-pages-browser)/./src/features/admin/services/authority.service.ts:811
+[    6959ms] [LOG] [getAuthoritiesByManager] Super Admin — returning all 79 top-level authorities @ webpack-internal:///(app-pages-browser)/./src/features/admin/services/authority.service.ts:811
+[    7675ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[    8739ms] [LOG] [Fast Refresh] done in 1063ms @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[    8953ms] [LOG] [getAuthoritiesByManager] Super Admin — returning all 79 top-level authorities @ webpack-internal:///(app-pages-browser)/./src/features/admin/services/authority.service.ts:811
+[    8957ms] [LOG] [getAuthoritiesByManager] Super Admin — returning all 79 top-level authorities @ webpack-internal:///(app-pages-browser)/./src/features/admin/services/authority.service.ts:811
+[    8958ms] [LOG] [getAuthoritiesByManager] Super Admin — returning all 79 top-level authorities @ webpack-internal:///(app-pages-browser)/./src/features/admin/services/authority.service.ts:811
+[    9146ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   12806ms] [LOG] [Fast Refresh] done in 3660ms @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   14660ms] [LOG] [getAuthoritiesByManager] Super Admin — returning all 79 top-level authorities @ webpack-internal:///(app-pages-browser)/./src/features/admin/services/authority.service.ts:811
+[   15083ms] [LOG] [Authority Manager] Super Admin - Selected authority: אופקים (default first) @ webpack-internal:///(app-pages-browser)/./src/app/admin/authority-manager/page.tsx:84
+[   15092ms] [WARNING] Timer 'DashboardLoad' already exists @ webpack-internal:///(app-pages-browser)/./src/features/admin/components/authority-manager/AnalyticsDashboard.tsx:165
+[   17616ms] [LOG] [DAU] authority=8zjZxYzxvr394PshoOvt | userCount=0 | date=2026-08-31 @ webpack-internal:///(app-pages-browser)/./src/features/admin/services/analytics.service.ts:174
+[   17616ms] [WARNING] [DAU] No users for authority 8zjZxYzxvr394PshoOvt. Returning 0. @ webpack-internal:///(app-pages-browser)/./src/features/admin/services/analytics.service.ts:176
+[   17616ms] [LOG] [MAU] authority=8zjZxYzxvr394PshoOvt | userCount=0 | month=2026-08 @ webpack-internal:///(app-pages-browser)/./src/features/admin/services/analytics.service.ts:217
+[   17616ms] [WARNING] [MAU] No users for authority 8zjZxYzxvr394PshoOvt. Returning 0. @ webpack-internal:///(app-pages-browser)/./src/features/admin/services/analytics.service.ts:219
+[   17648ms] [LOG] [Trend] authority=8zjZxYzxvr394PshoOvt | userCount=0 | days=30 @ webpack-internal:///(app-pages-browser)/./src/features/admin/services/analytics.service.ts:403
+[   17650ms] [LOG] [DAU] authority=8zjZxYzxvr394PshoOvt | userCount=0 | date=2026-08-31 @ webpack-internal:///(app-pages-browser)/./src/features/admin/services/analytics.service.ts:174
+[   17650ms] [WARNING] [DAU] No users for authority 8zjZxYzxvr394PshoOvt. Returning 0. @ webpack-internal:///(app-pages-browser)/./src/features/admin/services/analytics.service.ts:176
+[   17650ms] [LOG] [MAU] authority=8zjZxYzxvr394PshoOvt | userCount=0 | month=2026-08 @ webpack-internal:///(app-pages-browser)/./src/features/admin/services/analytics.service.ts:217
+[   17650ms] [WARNING] [MAU] No users for authority 8zjZxYzxvr394PshoOvt. Returning 0. @ webpack-internal:///(app-pages-browser)/./src/features/admin/services/analytics.service.ts:219
+[   17650ms] [LOG] [Trend] authority=8zjZxYzxvr394PshoOvt | userCount=0 | days=30 @ webpack-internal:///(app-pages-browser)/./src/features/admin/services/analytics.service.ts:403
+[   18567ms] [LOG] [Neighborhood] 14 neighborhoods | 0 total city users | 0 unassigned (no neighborhoodId — pre-fix accounts or city-only picks) @ webpack-internal:///(app-pages-browser)/./src/features/admin/services/analytics.service.ts:573
+[   18567ms] [TIMEEND] DashboardLoad: 3477.623046875 ms @ webpack-internal:///(app-pages-browser)/./src/features/admin/components/authority-manager/AnalyticsDashboard.tsx:222
+[   18567ms] [LOG] [Neighborhood] 14 neighborhoods | 0 total city users | 0 unassigned (no neighborhoodId — pre-fix accounts or city-only picks) @ webpack-internal:///(app-pages-browser)/./src/features/admin/services/analytics.service.ts:573
+[   18567ms] [WARNING] Timer 'DashboardLoad' does not exist @ webpack-internal:///(app-pages-browser)/./src/features/admin/components/authority-manager/AnalyticsDashboard.tsx:222
+[   18825ms] [LOG] [getAuthoritiesByManager] Super Admin — returning all 79 top-level authorities @ webpack-internal:///(app-pages-browser)/./src/features/admin/services/authority.service.ts:811
+[   60403ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   61589ms] [LOG] [Fast Refresh] done in 1187ms @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[  385424ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[  390536ms] [LOG] [Fast Refresh] done in 5111ms @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 1365104ms] [ERROR] ./plugins/health-bridge/src/index.ts
+Error: Failed to read source code from /Users/calisthenicsltd/Development/appout-1/.claude/worktrees/accuracy-queue-ui-plan/plugins/health-bridge/src/index.ts
+
+Caused by:
+    No such file or directory (os error 2)
+
+Import trace for requested module:
+./plugins/health-bridge/src/index.ts
+./src/lib/healthBridge/init.ts
+./src/lib/native/init.ts
+./src/components/system/NativeBootstrap.tsx @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/app-index.js:32
+[ 1368661ms] [ERROR] ./src/app/globals.css
+Module not found: Can't resolve '/Users/calisthenicsltd/Development/appout-1/.claude/worktrees/accuracy-queue-ui-plan/src/app/globals.css'
+
+https://nextjs.org/docs/messages/module-not-found @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/app-index.js:32
+[ 1368661ms] [ERROR] ./src/app/globals.css
+Module not found: Module not found: Error: Can't resolve '/Users/calisthenicsltd/Development/appout-1/.claude/worktrees/accuracy-queue-ui-plan/src/app/globals.css'
+
+https://nextjs.org/docs/messages/module-not-found @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/app-index.js:32
+[ 1368661ms] [ERROR] ./plugins/health-bridge/src/index.ts
+Error: Failed to read source code from /Users/calisthenicsltd/Development/appout-1/.claude/worktrees/accuracy-queue-ui-plan/plugins/health-bridge/src/index.ts
+
+Caused by:
+    No such file or directory (os error 2)
+
+Import trace for requested module:
+./plugins/health-bridge/src/index.ts
+./src/lib/healthBridge/init.ts
+./src/lib/native/init.ts
+./src/components/system/NativeBootstrap.tsx @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/app-index.js:32
+[ 1369655ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 1369675ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/admin/approval-center?_rsc=1tdu6:0
+[ 1369687ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/admin/approval-center?_rsc=1tdu6:0
+[ 1369690ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/admin/approval-center?_rsc=1tdu6:0
+[ 1369696ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/admin/approval-center?_rsc=1tdu6:0
+[ 1369700ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/admin/approval-center?_rsc=1tdu6:0
+[ 1369704ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/admin/approval-center?_rsc=1tdu6:0
+[ 1369706ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/admin/approval-center?_rsc=1tdu6:0
+[ 1369711ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/admin/approval-center?_rsc=1tdu6:0
+[ 1369717ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/admin/approval-center?_rsc=1tdu6:0
+[ 1369727ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/admin/approval-center?_rsc=1tdu6:0
+[ 1369738ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/admin/approval-center?_rsc=1tdu6:0
+[ 1369755ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/admin/approval-center?_rsc=1tdu6:0
+[ 1369760ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/admin/approval-center?_rsc=1tdu6:0
+[ 1369769ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/admin/approval-center?_rsc=1tdu6:0
+[ 1369773ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/admin/approval-center?_rsc=1tdu6:0
+[ 1369775ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/admin/approval-center?_rsc=1tdu6:0
+[ 1369777ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/admin/approval-center?_rsc=1tdu6:0
+[ 1369779ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/admin/approval-center?_rsc=1tdu6:0
+[ 1369799ms] [ERROR] ../../../node_modules/next/dist/client/app-next-dev.js
+Error: failed to process called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" } @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/app-index.js:32
+[ 1369799ms] [ERROR] ../../../node_modules/next/dist/client/components/app-router.js
+Error: failed to process called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+Import trace for requested module:
+../../../node_modules/next/dist/client/components/app-router.js @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/app-index.js:32
+[ 1369799ms] [ERROR] ../../../node_modules/next/dist/client/components/client-page.js
+Error: failed to process called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+Import trace for requested module:
+../../../node_modules/next/dist/client/components/client-page.js @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/app-index.js:32
+[ 1369799ms] [ERROR] ../../../node_modules/next/dist/client/components/error-boundary.js
+Error: failed to process called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+Import trace for requested module:
+../../../node_modules/next/dist/client/components/error-boundary.js @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/app-index.js:32
+[ 1369799ms] [ERROR] ../../../node_modules/next/dist/client/components/layout-router.js
+Error: failed to process called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+Import trace for requested module:
+../../../node_modules/next/dist/client/components/layout-router.js @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/app-index.js:32
+[ 1369799ms] [ERROR] ../../../node_modules/next/dist/client/components/not-found-boundary.js
+Error: failed to process called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+Import trace for requested module:
+../../../node_modules/next/dist/client/components/not-found-boundary.js @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/app-index.js:32
+[ 1369799ms] [ERROR] ../../../node_modules/next/dist/client/components/render-from-template-context.js
+Error: failed to process called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+Import trace for requested module:
+../../../node_modules/next/dist/client/components/render-from-template-context.js @ webpack-internal:///(app-pages-browser)/../../../node_modules/next/dist/client/app-index.js:32
+[ 1370796ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/admin/approval-center:0

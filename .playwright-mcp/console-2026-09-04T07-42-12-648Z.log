@@ -1,0 +1,36 @@
+[    2153ms] [WARNING] Allow attribute will take precedence over 'allowfullscreen'. @ https://www.tzavcosher.com/:2865
+[    4073ms] [LOG] Page Ready @ https://www.tzavcosher.com/_partials/wix-thunderbolt/dist/clientWorker.2d84d53d.bundle.min.js:1
+[    4078ms] [LOG] viewer props {isAccountSynchronized: true, onClickAction: 0, accountId: c632202a-3174-461d-9711-2c558560b87b, preset: Grid 2X3 load more, mobilePreset: Mobile Grid 2X2 load more} false 1 @ https://www.tzavcosher.com/_partials/wix-thunderbolt/dist/clientWorker.2d84d53d.bundle.min.js:1
+[    4615ms] [WARNING] `srcdoc` attribute is not allowed to be set. @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[    4615ms] [WARNING] `srcdoc` attribute is not allowed to be set. @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[    4615ms] [WARNING] `srcdoc` attribute is not allowed to be set. @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[    4616ms] [WARNING] `srcdoc` attribute is not allowed to be set. @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[    4616ms] [WARNING] `srcdoc` attribute is not allowed to be set. @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[    4616ms] [WARNING] `srcdoc` attribute is not allowed to be set. @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[    4670ms] [WARNING] `srcdoc` attribute is not allowed to be set. @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[    4670ms] [WARNING] `srcdoc` attribute is not allowed to be set. @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[    4671ms] [WARNING] `srcdoc` attribute is not allowed to be set. @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[    4671ms] [WARNING] `srcdoc` attribute is not allowed to be set. @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[    4671ms] [WARNING] `srcdoc` attribute is not allowed to be set. @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[    4671ms] [WARNING] `srcdoc` attribute is not allowed to be set. @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[   27964ms] [WARNING] loadable: `loadableReady()` requires state, please use `getScriptTags` or `getScriptElements` server-side @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[   27964ms] [WARNING] loadable: `loadableReady()` requires state, please use `getScriptTags` or `getScriptElements` server-side @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[   28152ms] [LOG] Page Ready @ https://www.tzavcosher.com/_partials/wix-thunderbolt/dist/clientWorker.2d84d53d.bundle.min.js:1
+[   28156ms] [LOG] viewer props {isAccountSynchronized: true, onClickAction: 0, accountId: c632202a-3174-461d-9711-2c558560b87b, preset: Grid 2X3 load more, mobilePreset: Mobile Grid 2X2 load more} false 1 @ https://www.tzavcosher.com/_partials/wix-thunderbolt/dist/clientWorker.2d84d53d.bundle.min.js:1
+[   28512ms] [WARNING] Allow attribute will take precedence over 'allowfullscreen'. @ https://www.tzavcosher.com/copy-of-%D7%A2%D7%9E%D7%95%D7%93-%D7%94%D7%91%D7%99%D7%AA:93
+[   28512ms] [WARNING] `srcdoc` attribute is not allowed to be set. @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[   28512ms] [WARNING] `srcdoc` attribute is not allowed to be set. @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[   28513ms] [WARNING] `srcdoc` attribute is not allowed to be set. @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[   28513ms] [WARNING] `srcdoc` attribute is not allowed to be set. @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[   28513ms] [WARNING] `srcdoc` attribute is not allowed to be set. @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[   28513ms] [WARNING] `srcdoc` attribute is not allowed to be set. @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[   28657ms] [WARNING] [Meta Pixel] - Duplicate Pixel ID: 1309744714557545. @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[   28676ms] [WARNING] `srcdoc` attribute is not allowed to be set. @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[   28676ms] [WARNING] `srcdoc` attribute is not allowed to be set. @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[   28677ms] [WARNING] `srcdoc` attribute is not allowed to be set. @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[   28677ms] [WARNING] `srcdoc` attribute is not allowed to be set. @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[   28677ms] [WARNING] `srcdoc` attribute is not allowed to be set. @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[   28677ms] [WARNING] `srcdoc` attribute is not allowed to be set. @ https://browser.sentry-cdn.com/7.120.3/bundle.tracing.es5.min.js:1
+[   28959ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube.com') does not match the recipient window's origin ('https://www.tzavcosher.com'). @ https://www.youtube.com/s/player/f572e43c/www-widgetapi.vflset/www-widgetapi.js:162
+[   29208ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube.com') does not match the recipient window's origin ('https://www.tzavcosher.com'). @ https://www.youtube.com/s/player/f572e43c/www-widgetapi.vflset/www-widgetapi.js:162
+[   29459ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube.com') does not match the recipient window's origin ('https://www.tzavcosher.com'). @ https://www.youtube.com/s/player/f572e43c/www-widgetapi.vflset/www-widgetapi.js:162

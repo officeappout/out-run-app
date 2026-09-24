@@ -1,0 +1,33 @@
+- generic [ref=f31e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f31e2]:
+    - generic [ref=f31e121]:
+      - button "חזרה" [ref=f31e124] [cursor=pointer]
+      - generic [ref=f31e146]:
+        - generic [ref=f31e147]:
+          - heading "איזה מסלול מתאים לך?" [level=1] [ref=f31e148]
+          - paragraph [ref=f31e149]: בחר את הכיוון שתרצה להתמקד בו
+        - generic [ref=f31e150]:
+          - button [active] [ref=f31e170] [cursor=pointer]:
+            - generic [ref=f31e152]:
+              - paragraph [ref=f31e153]: אורח חיים ובריאות
+              - paragraph [ref=f31e154]: בסיס בריאותי מקיף לגוף ולנפש
+          - generic [ref=f31e175]:
+            - paragraph [ref=f31e176]: מסלול מקיף לשמירה על חיוניות, תנועה נכונה ואנרגיה גבוהה.
+            - list [ref=f31e177]:
+              - listitem [ref=f31e178]:
+                - generic [ref=f31e182]: אימוני כוח לכל הגוף (Full Body) לבניית בסיס איתן
+              - listitem [ref=f31e183]:
+                - generic [ref=f31e187]: שילוב מסלולי הליכה מותאמים ויעדי ספירת צעדים יומית
+              - listitem [ref=f31e188]:
+                - generic [ref=f31e192]: דגש על שיפור טווחי תנועה, גמישות ויציבה
+        - button [ref=f31e156] [cursor=pointer]:
+          - generic [ref=f31e157]:
+            - paragraph [ref=f31e158]: מיקוד שרירים וחיטוב
+            - paragraph [ref=f31e159]: בניית מסת שריר, עבודה על עומסים ומיקוד בקבוצות השרירים המועדפות עליך.
+        - button [ref=f31e161] [cursor=pointer]:
+          - generic [ref=f31e162]:
+            - paragraph [ref=f31e163]: קליסטניקס וסקילים
+            - paragraph [ref=f31e164]: פיתוח כוח יחסי מטורף, שליטה מלאה במשקל הגוף ופתיחת אלמנטים מתקדמים שתרצה להשיג.
+      - button "המשך" [ref=f31e166] [cursor=pointer]
+  - alert [ref=f31e37]

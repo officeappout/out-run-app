@@ -1,0 +1,138 @@
+- generic [active] [ref=f64e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f64e2]:
+    - generic [ref=f64e3]:
+      - generic [ref=f64e6]:
+        - button "פרופיל" [ref=f64e7] [cursor=pointer]:
+          - generic [ref=f64e8]: Q
+          - generic [ref=f64e10]: "1"
+        - link "OUT" [ref=f64e18] [cursor=pointer]:
+          - /url: /home
+          - img "OUT" [ref=f64e19]
+        - generic [ref=f64e20]:
+          - button "התראות" [ref=f64e21] [cursor=pointer]
+          - button "הודעות" [ref=f64e25] [cursor=pointer]
+          - link "חיפוש" [ref=f64e28] [cursor=pointer]:
+            - /url: /search
+      - button "54%" [ref=f64e33] [cursor=pointer]
+      - generic [ref=f64e40]:
+        - generic [ref=f64e42]:
+          - heading "לו״ז אימונים" [level=2] [ref=f64e44]
+          - generic [ref=f64e45]:
+            - button "סנכרון ליומן" [ref=f64e46] [cursor=pointer]
+            - button "שינוי לוז" [ref=f64e48] [cursor=pointer]
+          - generic [ref=f64e54]:
+            - generic [ref=f64e55]:
+              - generic [ref=f64e56]: א
+              - button [ref=f64e57] [cursor=pointer]:
+                - generic "מנוחה" [ref=f64e60]:
+                  - generic [ref=f64e61]:
+                    - text: Z
+                    - superscript [ref=f64e62]: z
+            - generic [ref=f64e63]:
+              - generic [ref=f64e64]: ב
+              - button [ref=f64e65] [cursor=pointer]
+            - generic [ref=f64e71]:
+              - generic [ref=f64e72]: ג
+              - button [ref=f64e73] [cursor=pointer]
+            - generic [ref=f64e81]:
+              - generic [ref=f64e82]: ד
+              - button [ref=f64e83] [cursor=pointer]
+            - generic [ref=f64e89]:
+              - generic [ref=f64e90]: ה
+              - button [ref=f64e91] [cursor=pointer]
+            - generic [ref=f64e99]:
+              - generic [ref=f64e100]: ו
+              - button [ref=f64e101] [cursor=pointer]:
+                - generic "מנוחה" [ref=f64e104]:
+                  - generic [ref=f64e105]:
+                    - text: Z
+                    - superscript [ref=f64e106]: z
+            - generic [ref=f64e107]:
+              - generic [ref=f64e108]: ש
+              - button [ref=f64e109] [cursor=pointer]:
+                - generic "מנוחה" [ref=f64e112]:
+                  - generic [ref=f64e113]:
+                    - text: Z
+                    - superscript [ref=f64e114]: z
+        - generic [ref=f64e117]:
+          - generic [ref=f64e118]:
+            - generic [ref=f64e119]:
+              - heading "האימון היומי שלך" [level=3] [ref=f64e120]
+              - 'button "מיקום האימון: בבית" [ref=f64e122] [cursor=pointer]':
+                - generic [ref=f64e126]: בבית
+            - paragraph [ref=f64e129]: אימון 28 דקות בפארק המתמקד בטווח תנועה מלא. אידיאלי לשלב השלב הנוכחי ושיפור שליטה בהשרירים.
+          - generic [ref=f64e130]:
+            - generic [ref=f64e132]:
+              - generic [ref=f64e136] [cursor=pointer]:
+                - img "Workout" [ref=f64e138]
+                - generic [ref=f64e141]:
+                  - generic "מתח" [ref=f64e142]:
+                    - img "מתח" [ref=f64e143]
+                  - generic "מקבילים" [ref=f64e144]:
+                    - img "מקבילים" [ref=f64e145]
+                - generic [ref=f64e146]:
+                  - generic [ref=f64e148]:
+                    - generic [ref=f64e149]: בינוני
+                    - generic [ref=f64e151]: "|"
+                    - generic [ref=f64e152]: 28 דקות
+                  - 'heading "בונה יסודות בפארק: טכניקה וגוף מלא" [level=4] [ref=f64e154]'
+                  - generic: סקרן לדעת מה באימון?
+              - generic [ref=f64e158] [cursor=pointer]:
+                - img "Workout" [ref=f64e160]
+                - generic "ללא ציוד – משקל גוף" [ref=f64e164]
+                - generic [ref=f64e169]:
+                  - generic [ref=f64e171]:
+                    - generic [ref=f64e172]: 🧘 התאוששות פעילה
+                    - generic [ref=f64e173]: "|"
+                    - generic [ref=f64e174]: 14 דקות
+                  - 'heading "סשן התאוששות #1" [level=4] [ref=f64e176]'
+                  - generic: סקרן לדעת מה באימון?
+              - generic [ref=f64e179]:
+                - generic [ref=f64e180]:
+                  - heading "הליכה קלה" [level=3] [ref=f64e181]
+                  - paragraph [ref=f64e182]: בלי ציוד, בלי שאלון — תמיד אפשרות
+                  - generic [ref=f64e183]: קל
+                  - paragraph [ref=f64e187]: 30 דקות
+                - button "התחל" [ref=f64e188] [cursor=pointer]
+            - generic [ref=f64e189]:
+              - button "הצעה 1" [ref=f64e190] [cursor=pointer]
+              - button "הצעה 2" [ref=f64e191] [cursor=pointer]
+              - button "הצעה 3" [ref=f64e192] [cursor=pointer]
+          - generic [ref=f64e193]: אז מה ה-OUT שלך היום? ✦
+        - generic [ref=f64e201]:
+          - generic [ref=f64e202]:
+            - button "התקדמות שבועית" [ref=f64e203] [cursor=pointer]
+            - button "מדדי בריאות" [ref=f64e204] [cursor=pointer]
+          - generic [ref=f64e205]:
+            - generic [ref=f64e207]:
+              - generic [ref=f64e208]:
+                - heading "ליבה" [level=3] [ref=f64e214]
+                - paragraph [ref=f64e215]: רמה 3/20
+                - generic [ref=f64e216]: עוד 99% לרמה 4
+              - generic [ref=f64e220]: 1%
+            - generic [ref=f64e226]:
+              - generic [ref=f64e228]:
+                - generic [ref=f64e229]: כוח
+                - generic [ref=f64e233]: 1/3
+              - generic [ref=f64e239]:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: ריצה
+                      - generic: 0/3
+                - button "הוסף תוכנית ריצה" [ref=f64e240] [cursor=pointer]
+        - generic [ref=f64e243]:
+          - heading "גינות כושר קרובות" [level=3] [ref=f64e244]
+          - button [ref=f64e251] [cursor=pointer]:
+            - generic [ref=f64e256]:
+              - paragraph [ref=f64e257]: הפעל גישת מיקום
+              - paragraph [ref=f64e258]: כדי למצוא גינות כושר קרובות, נדרשת גישה למיקומך
+      - button "הוסף" [ref=f64e261] [cursor=pointer]
+  - navigation [ref=f64e263]:
+    - generic [ref=f64e264]:
+      - link "בית" [ref=f64e265] [cursor=pointer]:
+        - /url: /home
+      - link "מפה" [ref=f64e270] [cursor=pointer]:
+        - /url: /map
+  - alert [ref=f64e274]

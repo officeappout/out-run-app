@@ -1,0 +1,9 @@
+- generic [ref=e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=e2]:
+    - generic [ref=e15]:
+      - img "OUT" [ref=e17]
+      - paragraph [ref=e23]: עכשיו אפשר להתאמן בכל מקום, מתי שנוח לכם
+      - button "הרשמה מהירה" [active] [ref=e19] [cursor=pointer]
+      - button "התחברות" [ref=e20] [cursor=pointer]
+  - alert [ref=e21]

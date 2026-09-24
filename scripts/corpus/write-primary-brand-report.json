@@ -1,0 +1,273 @@
+{
+  "generatedAt": "2026-07-04T13:12:20.328Z",
+  "mode": "write",
+  "summary": {
+    "manifestUrbanics": 1114,
+    "manifestLudos": 39,
+    "fallback": 3,
+    "skipped": 15,
+    "total": 1156
+  },
+  "fallbackParks": [
+    {
+      "docId": "1lEIGxReLzJkRuaDeYXF",
+      "parkName": "פארק כושר הכרמים - שדרות",
+      "city": "",
+      "externalSourceId": null,
+      "source": "fallback-majority",
+      "primaryBrand": "Ludos"
+    },
+    {
+      "docId": "lyK5Qw10Br3viUsROTZS",
+      "parkName": "בדיקה תלאביב דוד",
+      "city": "תל אביב - יפו",
+      "externalSourceId": null,
+      "source": "fallback-majority",
+      "primaryBrand": "אורבניקס"
+    },
+    {
+      "docId": "wLoqnYzQx5jApVLbVLJZ",
+      "parkName": "גן הספורט - נאות הנביאים",
+      "city": "שדרות",
+      "externalSourceId": null,
+      "source": "fallback-majority",
+      "primaryBrand": "אורבניקס"
+    }
+  ],
+  "ludosParks": [
+    {
+      "extId": "625",
+      "docId": "2HrsECrg6MgUx7gt5NGu",
+      "name": "גינת כושר חצב - אשקלון",
+      "city": "אשקלון"
+    },
+    {
+      "extId": "595",
+      "docId": "2wfS97emQx5j3Vvz7sH4",
+      "name": "גינת כושר התורן - חיפה",
+      "city": "חיפה"
+    },
+    {
+      "extId": "605",
+      "docId": "3Gj0ZWJp1EtHtUprhV6K",
+      "name": "גינת כושר חלמיש - חיפה",
+      "city": "חיפה"
+    },
+    {
+      "extId": "990",
+      "docId": "7IcPK7RbOpYpyiKcGdvH",
+      "name": "גינת כושר ז׳בוטינסקי - פתח תקווה",
+      "city": "פתח תקווה"
+    },
+    {
+      "extId": "690",
+      "docId": "AEQKPSynxLrG56wI6jy6",
+      "name": "גן כושר דניאל מוריץ - תל אביב",
+      "city": "תל אביב-יפו"
+    },
+    {
+      "extId": "645",
+      "docId": "GGCTFsrw6bjoL5MwIyBD",
+      "name": "גן כושר רפאל איתן/טיילת - אשקלון",
+      "city": "אשקלון"
+    },
+    {
+      "extId": "1112",
+      "docId": "HVVnNaPx1Qriam2DVy7G",
+      "name": "גינת כושר אלי כהן - רמת גן",
+      "city": "רמת גן"
+    },
+    {
+      "extId": "683",
+      "docId": "KN3Qqp6IERdZaOtJGik8",
+      "name": "גינת כושר חוף מציצים - תל אביב",
+      "city": "תל אביב-יפו"
+    },
+    {
+      "extId": "883",
+      "docId": "KU4T7H2C40cMhtiXojG0",
+      "name": "גינת כושר קרית יובל - ירושלים",
+      "city": "ירושלים"
+    },
+    {
+      "extId": "1114",
+      "docId": "M7TNs44IKZsGgsZJK9Na",
+      "name": "גינת כושר לזרוס - רמת גן",
+      "city": "רמת גן"
+    },
+    {
+      "extId": "958",
+      "docId": "MWxGfvPkAOlyA0Z8ay9I",
+      "name": "גינת יגאל מוסינזון - פתח תקווה",
+      "city": "פתח תקווה"
+    },
+    {
+      "extId": "1333",
+      "docId": "N0ZwpGc31jJwUZVBkTA4",
+      "name": "גינת כושר בר כוכבא - אשקלון",
+      "city": "אשקלון"
+    },
+    {
+      "extId": "1025",
+      "docId": "QqLhSZLEAh69pgUQqxmA",
+      "name": "גינת כושר אהרון - ראשון לציון",
+      "city": "ראשון לציון"
+    },
+    {
+      "extId": "269",
+      "docId": "RwHHVcJ4n3bsXxYhk1xU",
+      "name": "חוף דדו דרום - חיפה",
+      "city": "חיפה"
+    },
+    {
+      "extId": "1254",
+      "docId": "Ta9oOMcYTM9haACGHdDi",
+      "name": "גינת כושר רפפורט - תל אביב",
+      "city": "תל אביב-יפו"
+    },
+    {
+      "extId": "707",
+      "docId": "UmsaIW9hAuaSzzp02TrF",
+      "name": "גן כושר ברנדר - תל אביב",
+      "city": "תל אביב-יפו"
+    },
+    {
+      "extId": "1315",
+      "docId": "V5ljNTc1AGKuKUqpnf1B",
+      "name": "גינת כושר דגניה - קריית חיים",
+      "city": "דניה"
+    },
+    {
+      "extId": "632",
+      "docId": "XIiKNNKNFSXLoOqdfdaO",
+      "name": "גן כושר גל שפירא - אשקלון",
+      "city": "אשקלון"
+    },
+    {
+      "extId": "1197",
+      "docId": "XcUG0RUuW8yJrbqlY00M",
+      "name": "מתחם כושר נגיש - חיפה",
+      "city": "חיפה"
+    },
+    {
+      "extId": "622",
+      "docId": "bJysaIkSIawKZ3PAcxdl",
+      "name": "גינת כושר דפנה - אשקלון",
+      "city": "אשקלון"
+    },
+    {
+      "extId": "626",
+      "docId": "cmiXNdi9t9X9QkDkMlnf",
+      "name": "גינת כושר גמלא - אשקלון",
+      "city": "אשקלון"
+    },
+    {
+      "extId": "1217",
+      "docId": "d3mtPkxHuu6zYZTqBsPm",
+      "name": "גינת יגאל אלון 2 - ראשון לציון",
+      "city": "ראשון לציון"
+    },
+    {
+      "extId": "1115",
+      "docId": "fYpXJdNDs1W9VWUWdxak",
+      "name": "גינת כושר לב הזהב - רמת גן",
+      "city": "רמת גן"
+    },
+    {
+      "extId": "1120",
+      "docId": "gFv7jmtsyAWrCq0LUWtQ",
+      "name": "גינת כושר בר אילן - רמת גן",
+      "city": "רמת גן"
+    },
+    {
+      "extId": "677",
+      "docId": "hyjAbgwXW36M0RXwObx4",
+      "name": "בן צבי דיור מוגן - תל אביב",
+      "city": "תל אביב-יפו"
+    },
+    {
+      "extId": "95",
+      "docId": "iSaxi6x5I1qWAXhFvfnF",
+      "name": "גינת כושר וינגייט - באר שבע",
+      "city": "באר שבע"
+    },
+    {
+      "extId": "1069",
+      "docId": "imFgHk5PlV5PvjSmeSLp",
+      "name": "גן מורדי הגטאות - ראשון לציון",
+      "city": "ראשון לציון"
+    },
+    {
+      "extId": "628",
+      "docId": "jPcpEmTidjSTlh9vNi1n",
+      "name": "גינת כושר כצנלסון - אשקלון",
+      "city": "אשקלון"
+    },
+    {
+      "extId": "635",
+      "docId": "jY77JAkqHhRQfMLrVvTq",
+      "name": "גינת כושר מצפה ברנע - אשקלון",
+      "city": "אשקלון"
+    },
+    {
+      "extId": "1311",
+      "docId": "lVHvhjnVkT84rWnL9vYd",
+      "name": "גינת כושר תבור - קריית ים",
+      "city": "דניה"
+    },
+    {
+      "extId": "671",
+      "docId": "miQXiUM27WYFPl8EBKJy",
+      "name": "גינת כושר חיל השריון - תל אביב",
+      "city": "תל אביב-יפו"
+    },
+    {
+      "extId": "688",
+      "docId": "nAooOOdJz33eRj8boTJY",
+      "name": "גינת כושר ברודצקי - תל אביב",
+      "city": "תל אביב-יפו"
+    },
+    {
+      "extId": "708",
+      "docId": "opHRqpbslGPw3XXFquof",
+      "name": "גן כושר יוסף בן פנחס - תל אביב",
+      "city": "תל אביב-יפו"
+    },
+    {
+      "extId": "1012",
+      "docId": "p2rGk4ehxrzeslOfXJU1",
+      "name": "גינת כושר מרדכי - באר שבע",
+      "city": "באר שבע"
+    },
+    {
+      "extId": "130",
+      "docId": "ugTy1pm5nlR6r4f9c23H",
+      "name": "גינת כושר דובדבן - באר שבע",
+      "city": "באר שבע"
+    },
+    {
+      "extId": "658",
+      "docId": "wtN4ecqDR3EFjfzpa0GH",
+      "name": "גינת כושר העצמאות - תל אביב",
+      "city": "תל אביב-יפו"
+    },
+    {
+      "extId": "1261",
+      "docId": "yFRU5G6ULPD4rogzgP7e",
+      "name": "גינת כושר אפלטון - תל אביב",
+      "city": "תל אביב-יפו"
+    },
+    {
+      "extId": "698",
+      "docId": "zRVmDb62AYtZAH3Yp4xy",
+      "name": "גינת כושר נופי ים - תל אביב",
+      "city": "תל אביב-יפו"
+    },
+    {
+      "extId": "636",
+      "docId": "zmdaxB4nCLZSEbUM9fjP",
+      "name": "גינת כושר הגן העתידני - אשקלון",
+      "city": "אשקלון"
+    }
+  ]
+}

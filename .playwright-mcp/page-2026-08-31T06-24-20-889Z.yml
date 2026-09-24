@@ -1,0 +1,11 @@
+- generic [active] [ref=f29e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f29e2]:
+    - paragraph [ref=f29e4]: בודק פרופיל...
+  - navigation [ref=f29e5]:
+    - generic [ref=f29e6]:
+      - link "בית" [ref=f29e7] [cursor=pointer]:
+        - /url: /home
+      - link "מפה" [ref=f29e12] [cursor=pointer]:
+        - /url: /map
+  - alert [ref=f29e16]

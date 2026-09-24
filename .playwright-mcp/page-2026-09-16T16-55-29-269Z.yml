@@ -1,0 +1,300 @@
+- generic [ref=f12e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f12e2]:
+    - generic [ref=f12e3]:
+      - generic [ref=f12e5]:
+        - button "פרופיל" [ref=f12e6] [cursor=pointer]:
+          - generic [ref=f12e7]: Q
+        - link "OUT" [ref=f12e14] [cursor=pointer]:
+          - /url: /home
+          - img "OUT" [ref=f12e15]
+        - generic [ref=f12e16]:
+          - button "התראות" [ref=f12e17] [cursor=pointer]
+          - button "הודעות" [ref=f12e21] [cursor=pointer]:
+            - generic [ref=f12e181]: "1"
+          - link "חיפוש" [ref=f12e24] [cursor=pointer]:
+            - /url: /search
+      - generic [ref=f12e28]:
+        - generic [ref=f12e29]:
+          - generic [ref=f12e30]:
+            - generic [ref=f12e31]:
+              - button "הגדרות" [active] [ref=f12e32] [cursor=pointer]
+              - button "אימונים שמורים" [ref=f12e36] [cursor=pointer]
+            - generic [ref=f12e39]:
+              - generic [ref=f12e40]:
+                - img "Lemur" [ref=f12e41]
+                - generic [ref=f12e42]: "0"
+              - heading "המטפס" [level=2] [ref=f12e46]
+              - generic [ref=f12e47]: שלב 1
+              - generic [ref=f12e182]:
+                - generic [ref=f12e183]: 0 / 500 XP
+                - generic [ref=f12e184]: שלב 2 →
+              - generic [ref=f12e52]:
+                - button "הצג היסטוריית אימונים" [ref=f12e53] [cursor=pointer]:
+                  - generic [ref=f12e54]: אימונים
+                  - generic [ref=f12e62]: "0"
+                - generic [ref=f12e63]:
+                  - generic [ref=f12e64]: ימי רצף
+                  - generic [ref=f12e68]: "0"
+          - generic [ref=f12e186]:
+            - heading "יעדי תרגילים" [level=3] [ref=f12e187]
+            - button "שכיבות סמיכה ב-60° 0 / 10 התחל אימון לראות גרף +150 XP בהשלמה" [ref=f12e189] [cursor=pointer]:
+              - paragraph [ref=f12e191]: שכיבות סמיכה ב-60°
+              - generic [ref=f12e194]:
+                - generic [ref=f12e195]: "0"
+                - generic [ref=f12e196]: / 10
+              - generic [ref=f12e198]: התחל אימוןלראות גרף
+              - paragraph [ref=f12e200]: +150 XP בהשלמה
+          - generic [ref=f12e69]:
+            - generic [ref=f12e70]:
+              - heading "הישגים" [level=3] [ref=f12e78]
+              - button "כל ההישגים" [ref=f12e79] [cursor=pointer]
+            - button [ref=f12e80] [cursor=pointer]:
+              - paragraph [ref=f12e87]: אין הישגים עדיין — התחל לאמן!
+          - generic [ref=f12e89]:
+            - heading "כוח" [level=3] [ref=f12e90]
+            - generic [ref=f12e91]:
+              - generic [ref=f12e92]:
+                - generic [ref=f12e93]: נפח שבועי
+                - generic [ref=f12e101]: "0"
+                - generic [ref=f12e102]: סטים השבוע
+              - generic [ref=f12e104]:
+                - generic [ref=f12e105]: שיא אישי
+                - generic [ref=f12e113]: —
+                - generic [ref=f12e114]: אין נתונים עדיין
+              - generic [ref=f12e115]:
+                - generic [ref=f12e116]: זמן פעיל
+                - generic [ref=f12e121]: "0"
+                - generic [ref=f12e122]: מתוך 150 דק׳
+              - generic [ref=f12e124]:
+                - generic [ref=f12e125]: קבוצות שרירים
+                - generic [ref=f12e131]: "0"
+                - generic [ref=f12e132]: התחל אימון
+          - generic [ref=f12e202]:
+            - generic [ref=f12e203]:
+              - heading "התוכניות שלי" [level=3] [ref=f12e204]
+              - button "ניהול" [ref=f12e205] [cursor=pointer]
+            - generic [ref=f12e206]:
+              - paragraph [ref=f12e207]: תוכנית פעילה
+              - button "כל הגוף רמה 1/15 עוד 99% לרמה 2 1%" [ref=f12e208] [cursor=pointer]:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading "כל הגוף" [level=3]
+                      - paragraph: רמה 1/15
+                      - generic: עוד 99% לרמה 2
+                    - generic: 1%
+            - generic [ref=f12e209]:
+              - paragraph [ref=f12e210]: תוכניות בנות
+              - generic [ref=f12e211]:
+                - button "דחיפה רמה 1/25 עוד 100% לרמה 2 0%" [ref=f12e212] [cursor=pointer]:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - heading "דחיפה" [level=3]
+                        - paragraph: רמה 1/25
+                        - generic: עוד 100% לרמה 2
+                      - generic: 0%
+                - button "משיכה רמה 1/25 עוד 100% לרמה 2 0%" [ref=f12e213] [cursor=pointer]:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - heading "משיכה" [level=3]
+                        - paragraph: רמה 1/25
+                        - generic: עוד 100% לרמה 2
+                      - generic: 0%
+                - button "פלג גוף תחתון רמה 1/15 עוד 100% לרמה 2 0%" [ref=f12e214] [cursor=pointer]:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - heading "פלג גוף תחתון" [level=3]
+                        - paragraph: רמה 1/15
+                        - generic: עוד 100% לרמה 2
+                      - generic: 0%
+          - generic [ref=f12e133]:
+            - generic [ref=f12e134]:
+              - heading "פעילות אחרונה" [level=3] [ref=f12e135]
+              - button "הכל" [ref=f12e136] [cursor=pointer]
+            - generic [ref=f12e137]:
+              - generic [ref=f12e215]: 🏃
+              - paragraph [ref=f12e216]: עוד אין פעילויות.תתחיל לזוז!
+        - generic [ref=f12e156]:
+          - generic [ref=f12e161]:
+            - paragraph [ref=f12e162]: שלח משוב או דווח על באג
+            - paragraph [ref=f12e163]: הפידבק שלך משפיע ישירות על הפיתוח
+          - textbox "כתוב כאן את המשוב, הבאג, או הרעיון שלך..." [ref=f12e164]
+          - button "שלח לעוזר ה-AI" [disabled] [ref=f12e165]
+      - generic [ref=f12e218]:
+        - generic [ref=f12e221]:
+          - heading "הגדרות" [level=2] [ref=f12e222]
+          - button [ref=f12e223] [cursor=pointer]
+        - generic [ref=f12e227]:
+          - generic [ref=f12e230]:
+            - button "עדכון תמונת פרופיל" [ref=f12e237] [cursor=pointer]
+            - generic [ref=f12e241]:
+              - paragraph [ref=f12e242]: QA Spec07
+              - paragraph
+            - button "עריכה" [ref=f12e243] [cursor=pointer]
+          - generic [ref=f12e247]:
+            - paragraph [ref=f12e248]: חשבון
+            - generic [ref=f12e249]:
+              - button [ref=f12e250] [cursor=pointer]:
+                - generic [ref=f12e255]:
+                  - paragraph [ref=f12e256]: פרטים אישיים
+                  - paragraph [ref=f12e257]: שם, תאריך לידה, משקל
+              - generic [ref=f12e260]:
+                - paragraph [ref=f12e261]: הפרסונות שלי
+                - paragraph [ref=f12e262]: הפרטים כאן פרטיים ולא מופיעים בפרופיל הציבורי שלך.
+                - button "הוסף פרסונה" [ref=f12e264] [cursor=pointer]
+              - button [disabled] [ref=f12e267]:
+                - generic [ref=f12e272]:
+                  - paragraph [ref=f12e273]: סיסמה ואבטחה
+                  - paragraph [ref=f12e274]: מחובר דרך גוגל / אפל — לא נדרשת סיסמה
+          - generic [ref=f12e277]:
+            - paragraph [ref=f12e278]: מנוי
+            - generic [ref=f12e279]:
+              - generic [ref=f12e280]:
+                - generic [ref=f12e284]:
+                  - paragraph [ref=f12e285]: City Pass
+                  - paragraph [ref=f12e286]: לא פעיל — הצטרף לעיר שלך
+                - generic [ref=f12e287]: לא פעיל
+              - generic [ref=f12e288]:
+                - paragraph [ref=f12e295]: הזנת קוד קופון
+                - generic [ref=f12e296]:
+                  - textbox "UNIT-X79" [ref=f12e297]
+                  - button "אמת קוד" [disabled] [ref=f12e298]
+          - generic [ref=f12e299]:
+            - paragraph [ref=f12e300]: התראות
+            - generic [ref=f12e301]:
+              - generic [ref=f12e302]:
+                - generic [ref=f12e307]:
+                  - paragraph [ref=f12e308]: התראות פוש
+                  - paragraph [ref=f12e309]: ניהול מרכזי של כל ההתראות
+                - switch [checked] [ref=f12e310] [cursor=pointer]
+              - generic [ref=f12e312]:
+                - generic [ref=f12e316]:
+                  - paragraph [ref=f12e317]: התראות צ׳אט
+                  - paragraph [ref=f12e318]: קבל הודעה כשמישהו כותב לך
+                - switch [checked] [ref=f12e319] [cursor=pointer]
+              - generic [ref=f12e321]:
+                - generic [ref=f12e329]:
+                  - paragraph [ref=f12e330]: התקדמות
+                  - paragraph [ref=f12e331]: עלייה ברמה, שיאים אישיים
+                - switch [checked] [ref=f12e332] [cursor=pointer]
+              - generic [ref=f12e334]:
+                - generic [ref=f12e341]:
+                  - paragraph [ref=f12e342]: חברתי
+                  - paragraph [ref=f12e343]: הצטרפות לקבוצה, קאדוז
+                - switch [checked] [ref=f12e344] [cursor=pointer]
+              - generic [ref=f12e346]:
+                - generic [ref=f12e350]:
+                  - paragraph [ref=f12e351]: תזכורות אימון
+                  - paragraph [ref=f12e352]: בוקר לפני אימון מתוזמן
+                - switch [checked] [ref=f12e353] [cursor=pointer]
+              - generic [ref=f12e355]:
+                - generic [ref=f12e360]:
+                  - paragraph [ref=f12e361]: עידוד ומוטיבציה
+                  - paragraph [ref=f12e362]: הודעות מהעירייה שלך
+                - switch [checked] [ref=f12e363] [cursor=pointer]
+              - generic [ref=f12e365]:
+                - generic [ref=f12e369]:
+                  - paragraph [ref=f12e370]: חזרה לשגרה
+                  - paragraph [ref=f12e371]: תזכורת כשלא התאמנת כמה ימים
+                - switch [checked] [ref=f12e372] [cursor=pointer]
+              - generic [ref=f12e374]:
+                - paragraph [ref=f12e376]: כמה תזכורות?
+                - generic [ref=f12e377]:
+                  - button "מינימלי רק החשוב ביותר. עד תזכורת אחת ביום." [ref=f12e378] [cursor=pointer]:
+                    - generic [ref=f12e380]:
+                      - generic [ref=f12e381]: מינימלי
+                      - paragraph [ref=f12e383]: רק החשוב ביותר. עד תזכורת אחת ביום.
+                  - button "מאוזן מומלץ כמה תזכורות ביום שיעזרו לך להתמיד." [ref=f12e384] [cursor=pointer]:
+                    - generic [ref=f12e388]:
+                      - generic [ref=f12e389]:
+                        - generic [ref=f12e390]: מאוזן
+                        - generic [ref=f12e391]: מומלץ
+                      - paragraph [ref=f12e392]: כמה תזכורות ביום שיעזרו לך להתמיד.
+                  - button "גבוה דחוף אותי — כמה שיותר תזכורות שיזיזו אותי." [ref=f12e393] [cursor=pointer]:
+                    - generic [ref=f12e395]:
+                      - generic [ref=f12e396]: גבוה
+                      - paragraph [ref=f12e398]: דחוף אותי — כמה שיותר תזכורות שיזיזו אותי.
+          - generic [ref=f12e399]:
+            - paragraph [ref=f12e400]: פרטיות ומיקום
+            - generic [ref=f12e401]:
+              - generic [ref=f12e402]:
+                - paragraph [ref=f12e407]: נראות במפה
+                - generic [ref=f12e408]:
+                  - button [ref=f12e409] [cursor=pointer]:
+                    - paragraph [ref=f12e415]: רוח
+                    - paragraph [ref=f12e416]: לא נראה לאף אחד
+                  - button [ref=f12e417] [cursor=pointer]:
+                    - paragraph [ref=f12e423]: חברים
+                    - paragraph [ref=f12e424]: רק מי שאני עוקב אחריו
+                  - button [ref=f12e425] [cursor=pointer]:
+                    - paragraph [ref=f12e429]: גלובלי
+                    - paragraph [ref=f12e430]: כל המאומתים בקבוצת הגיל שלי
+              - generic [ref=f12e431]:
+                - generic [ref=f12e438]:
+                  - paragraph [ref=f12e439]: נגישות פרופיל בחיפוש
+                  - paragraph [ref=f12e440]: אפשר למשתמשים אחרים למצוא אותך לפי שם
+                - switch [ref=f12e441] [cursor=pointer]
+              - generic [ref=f12e443]:
+                - generic [ref=f12e447]:
+                  - paragraph [ref=f12e448]: שיתוף אנליטיקס
+                  - paragraph [ref=f12e449]: שיתוף נתוני שימוש אנונימיים לשיפור האפליקציה
+                - switch [checked] [ref=f12e450] [cursor=pointer]
+          - generic [ref=f12e452]:
+            - paragraph [ref=f12e453]: כלים
+            - generic [ref=f12e454]:
+              - button "HealthKit / Health Connect זמין באפליקציה הנייטיב בלבד נייטיב" [ref=f12e455] [cursor=pointer]:
+                - generic [ref=f12e459]:
+                  - paragraph [ref=f12e460]: HealthKit / Health Connect
+                  - paragraph [ref=f12e461]: זמין באפליקציה הנייטיב בלבד
+                - generic [ref=f12e462]: נייטיב
+              - generic [ref=f12e463]:
+                - paragraph [ref=f12e471]: יחידות מידה
+                - generic [ref=f12e472]:
+                  - button "קילומטרים" [ref=f12e473] [cursor=pointer]
+                  - button "מיילים" [ref=f12e474] [cursor=pointer]
+              - button [ref=f12e475] [cursor=pointer]:
+                - generic [ref=f12e483]:
+                  - paragraph [ref=f12e484]: הציוד שלי
+                  - paragraph [ref=f12e485]: עדכן את הציוד הזמין לך
+              - button "גישה למצלמה וגלריה זמין באפליקציה הנייטיב בלבד נייטיב" [ref=f12e488] [cursor=pointer]:
+                - generic [ref=f12e493]:
+                  - paragraph [ref=f12e494]: גישה למצלמה וגלריה
+                  - paragraph [ref=f12e495]: זמין באפליקציה הנייטיב בלבד
+                - generic [ref=f12e496]: נייטיב
+              - button "גישה למיקום זמין באפליקציה הנייטיב בלבד נייטיב" [ref=f12e497] [cursor=pointer]:
+                - generic [ref=f12e502]:
+                  - paragraph [ref=f12e503]: גישה למיקום
+                  - paragraph [ref=f12e504]: זמין באפליקציה הנייטיב בלבד
+                - generic [ref=f12e505]: נייטיב
+          - generic [ref=f12e506]:
+            - paragraph [ref=f12e507]: כללי
+            - generic [ref=f12e508]:
+              - button [ref=f12e509] [cursor=pointer]:
+                - paragraph [ref=f12e515]: תנאי שימוש ופרטיות
+              - button [ref=f12e518] [cursor=pointer]:
+                - paragraph [ref=f12e523]: מדיניות פרטיות
+              - button [ref=f12e526] [cursor=pointer]:
+                - generic [ref=f12e531]:
+                  - paragraph [ref=f12e532]: יצירת קשר
+                  - paragraph [ref=f12e533]: office@appout.co.il
+          - button "התנתק" [ref=f12e537] [cursor=pointer]
+          - generic [ref=f12e544]:
+            - heading "אזור מסוכן" [level=3] [ref=f12e548]
+            - paragraph [ref=f12e549]: פעולות בלתי הפיכות שימחקו את כל הנתונים שלך.
+            - button "מחק חשבון" [ref=f12e550] [cursor=pointer]
+          - paragraph [ref=f12e555]: גרסה 1.0.0
+  - navigation [ref=f12e169]:
+    - generic [ref=f12e170]:
+      - link "בית" [ref=f12e171] [cursor=pointer]:
+        - /url: /home
+      - link "מפה" [ref=f12e176] [cursor=pointer]:
+        - /url: /map
+  - alert [ref=f12e180]

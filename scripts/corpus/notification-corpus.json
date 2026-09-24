@@ -1,0 +1,5027 @@
+[
+  {
+    "id": "0VbRGumCQAWcTegj8Uls",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "5 ק\"מ ראשונים בפתח. @שם, בוא/י לעשות היסטוריה אישית.",
+    "variables": "@שם",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "prog_5k_first",
+    "createdAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    },
+    "updatedAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    }
+  },
+  {
+    "id": "0e4281d9",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "ה@מיקום מחכה לדיוק שלך. @זמן_אימון דקות של @קטגוריה טכנית.",
+    "variables": "@מיקום,@זמן_אימון,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "createdAt": {
+      "_seconds": 1774008762,
+      "_nanoseconds": 255000000
+    },
+    "calendarIntegration": false,
+    "bundleId": "gen_park_pro_04",
+    "updatedAt": {
+      "_seconds": 1774008762,
+      "_nanoseconds": 255000000
+    }
+  },
+  {
+    "id": "11205921",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "אימון @קטגוריה ב@מיקום מתחיל עכשיו. @מוכן/ה להעלות את ה@סקייל_נוכחי?",
+    "variables": "@קטגוריה,@מיקום,@מוכן,@סקייל_נוכחי",
+    "clickCount": "",
+    "completionRate": "",
+    "createdAt": {
+      "_seconds": 1774008762,
+      "_nanoseconds": 255000000
+    },
+    "calendarIntegration": false,
+    "bundleId": "gen_park_pro_03",
+    "updatedAt": {
+      "_seconds": 1774008762,
+      "_nanoseconds": 255000000
+    }
+  },
+  {
+    "id": "11cbb7a1",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "היום מתמקדים ב@שריר. צא/י ל@מיקום ל-@זמן_אימון דקות של @קטגוריה.",
+    "variables": "@שריר,@מיקום,@זמן_אימון,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "createdAt": {
+      "_seconds": 1774008762,
+      "_nanoseconds": 255000000
+    },
+    "calendarIntegration": false,
+    "bundleId": "gen_park_pro_08",
+    "updatedAt": {
+      "_seconds": 1774008762,
+      "_nanoseconds": 255000000
+    }
+  },
+  {
+    "id": "3548ePGGvnSPsamrUl1U",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "לוחם/ת, 3 ק\"מ לתוצאה מושלמת. בוא/י לתת עבודה.",
+    "variables": "",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "prog_3k_army",
+    "createdAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    },
+    "updatedAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    }
+  },
+  {
+    "id": "58e16b9e",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "אין זמן? יש @מיקום. @זמן_אימון דקות של @קטגוריה ממוקדת.",
+    "variables": "@מיקום,@זמן_אימון,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "createdAt": {
+      "_seconds": 1774008762,
+      "_nanoseconds": 255000000
+    },
+    "calendarIntegration": false,
+    "bundleId": "gen_park_pro_07",
+    "updatedAt": {
+      "_seconds": 1774008762,
+      "_nanoseconds": 255000000
+    }
+  },
+  {
+    "id": "8jRnXTDIml7FGedw3eDr",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "סגרת חודש בתוכנית! @שם, בוא/י לראות כמה התקדמת בשבוע @weekNumber.",
+    "variables": "@שם,@weekNumber",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "week_04_progress",
+    "createdAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    },
+    "updatedAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    }
+  },
+  {
+    "id": "8juWMNlwr0wCbf3ZVjNE",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "עוד שלב בדרך ליעד. שבוע @weekNumber מחכה שתכבוש/י אותו.",
+    "variables": "@weekNumber",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "week_gen_consistency",
+    "createdAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    },
+    "updatedAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    }
+  },
+  {
+    "id": "98cb9f60",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "@שם, היום ב@מיקום מתקרבים ל@תרגיל_יעד. @זמן_אימון דקות של פוקוס.",
+    "variables": "@שם,@מיקום,@תרגיל_יעד,@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "createdAt": {
+      "_seconds": 1774008762,
+      "_nanoseconds": 255000000
+    },
+    "calendarIntegration": false,
+    "bundleId": "gen_park_pro_10",
+    "updatedAt": {
+      "_seconds": 1774008762,
+      "_nanoseconds": 255000000
+    }
+  },
+  {
+    "id": "B7Jkv5CUelKzFIx5YxUp",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "מרגיש/ה כבדות? @שם, בוא/י לאימון שחרור קליל שיחזיר לך את האנרגיה.",
+    "variables": "@שם",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "week_gen_stuck",
+    "createdAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    },
+    "updatedAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    }
+  },
+  {
+    "id": "DZYiknuAbwQcYa7BVOlR",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "שבוע Peak כאן! זה הזמן לתת את הכל לפני המרוץ.",
+    "variables": "",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "run_peak_boss",
+    "createdAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    },
+    "updatedAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    }
+  },
+  {
+    "id": "Dv1S1gKbAT62WOQjvjXR",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "שלב ה-Build בשיאו. בוא/י לחזק את הרגליים והסיבולת בשבוע @weekNumber.",
+    "variables": "@weekNumber",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "week_08_build",
+    "createdAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    },
+    "updatedAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    }
+  },
+  {
+    "id": "DwrKv1uuXk8MsQwDb10P",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "הקצב שלך עולה! בוא/י לאימון כוח ועליות בשבוע @weekNumber.",
+    "variables": "@weekNumber",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "week_gen_power",
+    "createdAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    },
+    "updatedAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    }
+  },
+  {
+    "id": "IOU5S6ac7Ylpar6GIUyZ",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "הסוד הוא עקביות. בוא/י לשמור על קצב @basePace חזק.",
+    "variables": "@basePace",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "prog_pace_consistency",
+    "createdAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    },
+    "updatedAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    }
+  },
+  {
+    "id": "MENmNMwqS77Lt0XIPbIb",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "יום הריצה הארוכה! בוא/י נבנה היום את הבסיס האירובי שלך.",
+    "variables": "",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "run_long_gen",
+    "createdAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    },
+    "updatedAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    }
+  },
+  {
+    "id": "OSNyo5y0ybT0xHeJSYcJ",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "משחקים עם הקצב היום! בוא/י לאימון פארטלק משחרר ב@מיקום.",
+    "variables": "@מיקום",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "run_fart_play",
+    "createdAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    },
+    "updatedAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    }
+  },
+  {
+    "id": "ObBedxox2X1vdFZ6m6Pa",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "הרגליים כבדות מהטיסה? בוא/י לשחרור קצר שיחזיר לך את האנרגיה.",
+    "variables": "",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "run_airport_legs",
+    "createdAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    },
+    "updatedAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    }
+  },
+  {
+    "id": "TI4uZdYyGkag0tMY6m0R",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "זמן להתאושש. בוא/י לאימון בנייה מחדש כדי להמשיך חזק יותר.",
+    "variables": "",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "week_gen_recovery",
+    "createdAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    },
+    "updatedAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    }
+  },
+  {
+    "id": "TXT3SSrOmVOdAvZhZIVo",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "הקצב שלך השתפר, @שם! בוא/י לבוסט ל-@basePace.",
+    "variables": "@שם,@basePace",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "prog_pace_boost",
+    "createdAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    },
+    "updatedAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    }
+  },
+  {
+    "id": "VK6dWPq9Zhg2XiGcIapM",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "ריצת 5 ק\"מ ב-Flow. בוא/י לראות כמה ה-@basePace נהיה קל.",
+    "variables": "@basePace",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "prog_5k_flow",
+    "createdAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    },
+    "updatedAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    }
+  },
+  {
+    "id": "Xrh5JYSCrSRZENun7E6n",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "כובשים את העלייה! בוא/י לבנות רגליים שלא נשברות בריצה.",
+    "variables": "",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "run_hill_long_warrior",
+    "createdAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    },
+    "updatedAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    }
+  },
+  {
+    "id": "YvnsvFqSkHrc2uCIKwK4",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "חזקים ב-10 ק\"מ. בוא/י לאימון שיבנה לך חוסן מנטלי.",
+    "variables": "",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "prog_10k_endure",
+    "createdAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    },
+    "updatedAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    }
+  },
+  {
+    "id": "aTzHrIdOZqaLQlfBJ1VC",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "זה היום שלך! כל העבודה הקשה מתנקזת לריצה של היום. בהצלחה!",
+    "variables": "",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "week_race_day",
+    "createdAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    },
+    "updatedAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    }
+  },
+  {
+    "id": "abb956b4",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "@שם, ה@מיקום מוכן. @זמן_אימון דקות של @קטגוריה ברמה גבוהה מחכות לך.",
+    "variables": "@שם,@מיקום,@זמן_אימון,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "createdAt": {
+      "_seconds": 1774008762,
+      "_nanoseconds": 255000000
+    },
+    "calendarIntegration": false,
+    "bundleId": "gen_park_pro_01",
+    "updatedAt": {
+      "_seconds": 1774008762,
+      "_nanoseconds": 255000000
+    }
+  },
+  {
+    "id": "b3GaBunOt0DqWt28APth",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "מוכן/ה לדו-ספרתי? 10 ק\"מ של סיפוק מחכים לך.",
+    "variables": "",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "prog_10k_first",
+    "createdAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    },
+    "updatedAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    }
+  },
+  {
+    "id": "bLIdg9kBIlLgZsKzi5nj",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "זמן לחתוך זמנים ב-10 ק\"מ. בוא/י נשפר את הקצב היום.",
+    "variables": "",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "prog_10k_improve",
+    "createdAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    },
+    "updatedAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    }
+  },
+  {
+    "id": "bWi2twoRuUJ4DQexGcV4",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "שלום מחו\"ל! בוא/י להכיר את העיר דרך הרגליים בריצה קלה.",
+    "variables": "",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "run_abroad_easy",
+    "createdAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    },
+    "updatedAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    }
+  },
+  {
+    "id": "bf038986",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "זמן ל@קטגוריה. צא/י ל@מיקום ל-@זמן_אימון דקות של עבודה נקייה.",
+    "variables": "@קטגוריה,@מיקום,@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "createdAt": {
+      "_seconds": 1774008762,
+      "_nanoseconds": 255000000
+    },
+    "calendarIntegration": false,
+    "bundleId": "gen_park_pro_02",
+    "updatedAt": {
+      "_seconds": 1774008762,
+      "_nanoseconds": 255000000
+    }
+  },
+  {
+    "id": "c3857564",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "אימון מלא ב@מיקום. @בוא/י נסגור את ה@סטטוס_נפח השבועי ב-@זמן_אימון דקות.",
+    "variables": "@מיקום,@בוא,@סטטוס_נפח,@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "createdAt": {
+      "_seconds": 1774008762,
+      "_nanoseconds": 255000000
+    },
+    "calendarIntegration": false,
+    "bundleId": "gen_park_pro_05",
+    "updatedAt": {
+      "_seconds": 1774008762,
+      "_nanoseconds": 255000000
+    }
+  },
+  {
+    "id": "c5cdb22c",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "@שם, מוכנ/ה לביצוע שיא? @זמן_אימון דקות של @קטגוריה ב@מיקום.",
+    "variables": "@שם,@זמן_אימון,@קטגוריה,@מיקום",
+    "clickCount": "",
+    "completionRate": "",
+    "createdAt": {
+      "_seconds": 1774008762,
+      "_nanoseconds": 255000000
+    },
+    "calendarIntegration": false,
+    "bundleId": "gen_park_pro_06",
+    "updatedAt": {
+      "_seconds": 1774008762,
+      "_nanoseconds": 255000000
+    }
+  },
+  {
+    "id": "dnaok7SPsze5O33fj9sN",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "סומכים על התהליך. שבוע Taper – נחים חזק לקראת היעד.",
+    "variables": "",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "week_12_taper",
+    "createdAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    },
+    "updatedAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    }
+  },
+  {
+    "id": "e6X2i6zIAPD43GiLkt2I",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "שבוע השיא כאן. @שם, בוא/י להראות מאיזה חומר את/ה קורצ/ה.",
+    "variables": "@שם",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "week_10_peak",
+    "createdAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    },
+    "updatedAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    }
+  },
+  {
+    "id": "egAoV5ufLsI3gsOaRFG4",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "מבחן של אלופים. בוא/י לראות איך החוסן המנטלי שלך בשבוע @weekNumber.",
+    "variables": "@weekNumber",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "week_gen_mental",
+    "createdAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    },
+    "updatedAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    }
+  },
+  {
+    "id": "f3fce028",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "ה@מיקום פנוי עכשיו. בוא/י לסגור את המכסה היומית ב-@זמן_אימון דקות.",
+    "variables": "@מיקום,@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "createdAt": {
+      "_seconds": 1774008762,
+      "_nanoseconds": 255000000
+    },
+    "calendarIntegration": false,
+    "bundleId": "gen_park_pro_09",
+    "updatedAt": {
+      "_seconds": 1774008762,
+      "_nanoseconds": 255000000
+    }
+  },
+  {
+    "id": "fsCxQgN0zbRi3KbIOb4H",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "ה-@basePace שלך השתפר! בוא/י לשבור שיא ב-5 ק\"מ.",
+    "variables": "@basePace",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "prog_5k_improve",
+    "createdAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    },
+    "updatedAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    }
+  },
+  {
+    "id": "gOTSX0d9beTJ0VATo2kL",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "שבוע Taper התחיל. פחות ריצה, יותר מנוחה. סומכים על התהליך.",
+    "variables": "",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "run_taper_rest",
+    "createdAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    },
+    "updatedAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    }
+  },
+  {
+    "id": "gQnvu60ThSnUGrlP1N5y",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "שבוע שני בתוכנית. בוא/י לשמור על המומנטום שבנית שבוע שעבר.",
+    "variables": "",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "week_02_routine",
+    "createdAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    },
+    "updatedAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    }
+  },
+  {
+    "id": "gdGtyKJSHgexFwb7K6RV",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "בדרך לקצב בסיס חדש! @שם, בוא/י לשבור שיא אישי.",
+    "variables": "@שם",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "prog_pace_new_record",
+    "createdAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    },
+    "updatedAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    }
+  },
+  {
+    "id": "h6GIzEjF02I0cBuaOywW",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "כבר רואים את הסוף! בוא/י לסגור אימון חזק בשבוע @weekNumber.",
+    "variables": "@weekNumber",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "week_gen_finish",
+    "createdAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    },
+    "updatedAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    }
+  },
+  {
+    "id": "j4ngWTSw9TmeLACQtsa8",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "שומרים על רמה @רמה ב-5 ק\"מ. בוא/י לאימון זורם.",
+    "variables": "@רמה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "prog_5k_fit",
+    "createdAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    },
+    "updatedAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    }
+  },
+  {
+    "id": "jj6NUXOteTf6AyD3xe8G",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "מוכן/ה לשבור שיא? בוא/י לאינטרוולים ארוכים לשיפור הסיבולת.",
+    "variables": "",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "run_int_long_pro",
+    "createdAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    },
+    "updatedAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    }
+  },
+  {
+    "id": "kA6NR8Qq5ycwiM5ZF0kF",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "3 ק\"מ של עוצמה. בוא/י לשפר את המהירות המקסימלית.",
+    "variables": "",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "prog_3k_sprint",
+    "createdAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    },
+    "updatedAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    }
+  },
+  {
+    "id": "kRG098yVHAG4geCE3wVm",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "תראי/ה כמה התקדמת! שבוע @weekNumber ואת/ה בגרסה הרבה יותר חזקה.",
+    "variables": "@weekNumber",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "week_gen_celebrate",
+    "createdAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    },
+    "updatedAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    }
+  },
+  {
+    "id": "lyCSZ8UcOOP1WBdhkr3V",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "היעד: 100 בבראור. @זמן_אימון דקות של פוקוס ואת/ה שם.",
+    "variables": "@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "prog_3k_baror",
+    "createdAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    },
+    "updatedAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    }
+  },
+  {
+    "id": "paJN7rCLPOWluUvc3dfo",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "חצי דרך מאחוריך! שבוע @weekNumber בתוכנית ה-@targetDistanceLabel.",
+    "variables": "@weekNumber,@targetDistanceLabel",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "week_06_halfway",
+    "createdAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    },
+    "updatedAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    }
+  },
+  {
+    "id": "rDCpA9A4Q3FeLGhl0Q2z",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "רוצה לרוץ 3 ק\"מ מהר יותר? בוא/י לשפר את ה-@basePace.",
+    "variables": "@basePace",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "prog_3k_improve",
+    "createdAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    },
+    "updatedAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    }
+  },
+  {
+    "id": "reuuLrfMeRp4VykzKpI7",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "בדרך למרוץ 10 ק\"מ? בוא/י לאימון הכנה מדויק.",
+    "variables": "",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "prog_10k_pro",
+    "createdAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    },
+    "updatedAt": {
+      "_seconds": 1773836089,
+      "_nanoseconds": 845000000
+    }
+  },
+  {
+    "id": "rjxlRBfFlZctJpEtmFcY",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "בונים כושר ב@מיקום. בוא/י לאימון שלב ה-Build לשיפור הקצב.",
+    "variables": "@מיקום",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "run_build_grind",
+    "createdAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    },
+    "updatedAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    }
+  },
+  {
+    "id": "s30h0b6yLNqOMcZDR8vV",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "יוצאים לדרך! שבוע ראשון בתוכנית הריצה מתחיל עכשיו. בוא/י נתניע.",
+    "variables": "",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "week_01_start",
+    "createdAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    },
+    "updatedAt": {
+      "_seconds": 1773837406,
+      "_nanoseconds": 103000000
+    }
+  },
+  {
+    "id": "EKiXtlu1O5OBmcLIJZ6V",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "army_combat",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "לוחם, העליות מחכות. בוא נבנה את הכוח המתפרץ שתצטרך בשטח.",
+    "variables": "",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "run_hills_combat",
+    "createdAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    },
+    "updatedAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    }
+  },
+  {
+    "id": "YsqrppD48ijKTALFS5OG",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "army_combat",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "לוחם/ת, יש לך רגע? @בוא/י ל-@זמן_אימון דקות של Beast Mode.",
+    "variables": "@בוא,@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "sadir_combat_01",
+    "createdAt": {
+      "_seconds": 1773831830,
+      "_nanoseconds": 508000000
+    },
+    "updatedAt": {
+      "_seconds": 1773831830,
+      "_nanoseconds": 508000000
+    }
+  },
+  {
+    "id": "uvXu1OvchT4sKbebARLV",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "army_combat",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "לוחם/ת, בדרך הביתה? @בוא/י לאימון כוח קצר ב@מיקום.",
+    "variables": "@בוא,@מיקום",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "sadir_combat_02",
+    "createdAt": {
+      "_seconds": 1773831830,
+      "_nanoseconds": 508000000
+    },
+    "updatedAt": {
+      "_seconds": 1773831830,
+      "_nanoseconds": 508000000
+    }
+  },
+  {
+    "id": "AQkdGyDyQBRItje1x5ZP",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "army_job",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "בבסיס ואין כוח? @בוא/י ל-@זמן_אימון דקות של מרץ בחדר.",
+    "variables": "@בוא,@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "sadir_job_02",
+    "createdAt": {
+      "_seconds": 1773831830,
+      "_nanoseconds": 508000000
+    },
+    "updatedAt": {
+      "_seconds": 1773831830,
+      "_nanoseconds": 508000000
+    }
+  },
+  {
+    "id": "iWQB8OmhUoip6n4KQkhw",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "army_job",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "ג'ובניק/ית, הגב נתפס? @בוא/י ל-@זמן_אימון דקות של שחרור בבסיס.",
+    "variables": "@בוא,@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "sadir_job_01",
+    "createdAt": {
+      "_seconds": 1773831830,
+      "_nanoseconds": 508000000
+    },
+    "updatedAt": {
+      "_seconds": 1773831830,
+      "_nanoseconds": 508000000
+    }
+  },
+  {
+    "id": "9j7XEDm4g7hEAPDaVc5p",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "generic",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "קיץ בפתח! בוא/י לעבוד על הגזרה ב@זמן_אימון דקות ממוקדות.",
+    "variables": "@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "gen_summer_01",
+    "createdAt": {
+      "_seconds": 1773832233,
+      "_nanoseconds": 186000000
+    },
+    "updatedAt": {
+      "_seconds": 1773832233,
+      "_nanoseconds": 186000000
+    }
+  },
+  {
+    "id": "BTTxrxBhYCg7tAUkrgZQ",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "generic",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "תקוע/ה בשדה התעופה? @זמן_אימון דקות של שחרור והטיסה תעבור בקלות.",
+    "variables": "@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "gen_airport_01",
+    "createdAt": {
+      "_seconds": 1773832233,
+      "_nanoseconds": 186000000
+    },
+    "updatedAt": {
+      "_seconds": 1773832233,
+      "_nanoseconds": 186000000
+    }
+  },
+  {
+    "id": "DjxZlWpOFXjZRWR9byWQ",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "generic",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "נחיתה רכה @שם! בוא/י לשחרר את הגב מהטיסה ב@מיקום.",
+    "variables": "@שם,@מיקום",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "gen_airport_02",
+    "createdAt": {
+      "_seconds": 1773832233,
+      "_nanoseconds": 186000000
+    },
+    "updatedAt": {
+      "_seconds": 1773832233,
+      "_nanoseconds": 186000000
+    }
+  },
+  {
+    "id": "GUme4lrkwxVJNG5Wtbq5",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "generic",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "הגשם בחוץ, האימון בפנים. אל תתנ/י למזג האוויר לעצור אותך.",
+    "variables": "",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "gen_winter_02",
+    "createdAt": {
+      "_seconds": 1773832233,
+      "_nanoseconds": 186000000
+    },
+    "updatedAt": {
+      "_seconds": 1773832233,
+      "_nanoseconds": 186000000
+    }
+  },
+  {
+    "id": "I4aqfnyK7QkKDIRZrkjN",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "generic",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "בחופשה? @זמן_אימון דקות של @קטגוריה והמשך יום מהנה.",
+    "variables": "@זמן_אימון,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "gen_vacation_01",
+    "createdAt": {
+      "_seconds": 1773831830,
+      "_nanoseconds": 508000000
+    },
+    "updatedAt": {
+      "_seconds": 1773831830,
+      "_nanoseconds": 508000000
+    }
+  },
+  {
+    "id": "OMTCfYaNNSAQ2vFQ7Rnc",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "generic",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "מתחת לשמיכה? @בוא/י ל-@זמן_אימון דקות של חורף חם בסלון.",
+    "variables": "@בוא,@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "gen_winter_01",
+    "createdAt": {
+      "_seconds": 1773832233,
+      "_nanoseconds": 186000000
+    },
+    "updatedAt": {
+      "_seconds": 1773832233,
+      "_nanoseconds": 186000000
+    }
+  },
+  {
+    "id": "YQWzPero5SVrVBeBb0b4",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "generic",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "בדרך לים? @זמן_אימון דקות של @קטגוריה ו@את/ה בשיא שלך.",
+    "variables": "@זמן_אימון,@קטגוריה,@את",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "gen_summer_03",
+    "createdAt": {
+      "_seconds": 1773832233,
+      "_nanoseconds": 186000000
+    },
+    "updatedAt": {
+      "_seconds": 1773832233,
+      "_nanoseconds": 186000000
+    }
+  },
+  {
+    "id": "bywrV4oQtuVORZk1sJDg",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "generic",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "חמישי שמח @שם! סוגרים שבוע באימון peak ב@מיקום.",
+    "variables": "@שם,@מיקום",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "gen_thursday_01",
+    "createdAt": {
+      "_seconds": 1773831830,
+      "_nanoseconds": 508000000
+    },
+    "updatedAt": {
+      "_seconds": 1773831830,
+      "_nanoseconds": 508000000
+    }
+  },
+  {
+    "id": "i487OWPfMfimcda51Mbq",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "generic",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "שבוע חדש, אנרגיה חדשה. @בוא/י לאימון התנעה ב@מיקום.",
+    "variables": "@בוא,@מיקום",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "gen_sunday_01",
+    "createdAt": {
+      "_seconds": 1773831830,
+      "_nanoseconds": 508000000
+    },
+    "updatedAt": {
+      "_seconds": 1773831830,
+      "_nanoseconds": 508000000
+    }
+  },
+  {
+    "id": "kbcOu7pgxCd5HoFUSzv6",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "generic",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "חייל/ת, רמה @רמה נראית עליך מעולה. בוא/י להתקדם.",
+    "variables": "@רמה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "sadir_gen_level",
+    "createdAt": {
+      "_seconds": 1773831830,
+      "_nanoseconds": 508000000
+    },
+    "updatedAt": {
+      "_seconds": 1773831830,
+      "_nanoseconds": 508000000
+    }
+  },
+  {
+    "id": "oNy8xvBVCZeRShXad9Re",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "generic",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "גשום בחוץ? הכי כיף להתאמן בבית. @בוא/י ל-@זמן_אימון דקות.",
+    "variables": "@בוא,@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "gen_rain_01",
+    "createdAt": {
+      "_seconds": 1773831830,
+      "_nanoseconds": 508000000
+    },
+    "updatedAt": {
+      "_seconds": 1773831830,
+      "_nanoseconds": 508000000
+    }
+  },
+  {
+    "id": "uC0kBtZJPEnaOtqITsYO",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "generic",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "יום שמש מושלם! @בוא/י לאימון קצר בחוץ ב@מיקום.",
+    "variables": "@בוא,@מיקום",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "gen_summer_02",
+    "createdAt": {
+      "_seconds": 1773832233,
+      "_nanoseconds": 186000000
+    },
+    "updatedAt": {
+      "_seconds": 1773832233,
+      "_nanoseconds": 186000000
+    }
+  },
+  {
+    "id": "vPnGjdijmKT4tf2UJAiO",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "generic",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "לוהט בחוץ! @בוא/י לאימון ממוזג ב@מיקום.",
+    "variables": "@בוא,@מיקום",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "gen_heat_01",
+    "createdAt": {
+      "_seconds": 1773831830,
+      "_nanoseconds": 508000000
+    },
+    "updatedAt": {
+      "_seconds": 1773831830,
+      "_nanoseconds": 508000000
+    }
+  },
+  {
+    "id": "0mpOkAdXjTEX2myhv1L8",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "high_tech",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "מחשבון קלוריות בפעולה. @סטטוס_נפח מצוין השבוע!",
+    "variables": "@סטטוס_נפח",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "tech_burn_01",
+    "createdAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    }
+  },
+  {
+    "id": "2P8mCre0kEo6XlaM1hzd",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "high_tech",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "מהמקלדת לאימון. @זמן_אימון דקות של @קטגוריה מחכות לך.",
+    "variables": "@זמן_אימון,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "tech_home_01",
+    "createdAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    }
+  },
+  {
+    "id": "9mmo4gDfaK3AgLTl4Q8h",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "high_tech",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "זמן לעדכון גרסה לגוף. @את/ה ב-@אחוז_התקדמות_רמה ל@רמה_הבאה.",
+    "variables": "@את,@אחוז_התקדמות_רמה,@רמה_הבאה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "tech_weekend_01",
+    "createdAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    }
+  },
+  {
+    "id": "HY3BlVNjgRuYt7hLnjA5",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "high_tech",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "@שם, רמה @רמה כבר קטנה עליך. @בוא/י לטפס ל@רמה_הבאה.",
+    "variables": "@שם,@רמה,@בוא,@רמה_הבאה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "tech_achieve_01",
+    "createdAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    }
+  },
+  {
+    "id": "I5dENqYIFHN5rENKgSQf",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "high_tech",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "שורשי כף היד כואבים? @בוא/י ל-@זמן_אימון דקות של שחרור ב@מיקום.",
+    "variables": "@בוא,@זמן_אימון,@מיקום",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "tech_wrist_01",
+    "createdAt": {
+      "_seconds": 1773819921,
+      "_nanoseconds": 866000000
+    },
+    "updatedAt": {
+      "_seconds": 1773819921,
+      "_nanoseconds": 866000000
+    }
+  },
+  {
+    "id": "Kcxm9nlZhCmSOerVF6jX",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "high_tech",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "אזל ה-Battery? @בוא/י לבוסט אנרגיה קצר ב@מיקום.",
+    "variables": "@בוא,@מיקום",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "tech_focus_01",
+    "createdAt": {
+      "_seconds": 1773819921,
+      "_nanoseconds": 866000000
+    },
+    "updatedAt": {
+      "_seconds": 1773819921,
+      "_nanoseconds": 866000000
+    }
+  },
+  {
+    "id": "NFN7TCZ1loaRo7YnUYMi",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "high_tech",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "מספיק מסכים להיום. @בוא/י לראות קצת @מיקום באימון @קטגוריה.",
+    "variables": "@בוא,@מיקום,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "tech_eyes_01",
+    "createdAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    }
+  },
+  {
+    "id": "PUMMcpWPxIlFDulohwLz",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "high_tech",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "רוצה לנקות את הראש מהמשרד? ריצת טמפו היא הריסטרט המושלם עבורך.",
+    "variables": "",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "run_tempo_tech",
+    "createdAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    },
+    "updatedAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    }
+  },
+  {
+    "id": "RLyEfdl1nV1r04qztbWc",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "high_tech",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "אופטימיזציה ל@מיקוד. @את/ה קרוב/ה ל@תרגיל_יעד.",
+    "variables": "@מיקוד,@את,@תרגיל_יעד",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "tech_pro_01",
+    "createdAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    }
+  },
+  {
+    "id": "cFohoP0WAy4DogXSBkNa",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "high_tech",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "עוצר/ת לצהריים? קחי @זמן_אימון דקות למתיחה במשרד, הגב שלך יודה לך.",
+    "variables": "@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "tech_lunch_01",
+    "createdAt": {
+      "_seconds": 1773819921,
+      "_nanoseconds": 866000000
+    },
+    "updatedAt": {
+      "_seconds": 1773819921,
+      "_nanoseconds": 866000000
+    }
+  },
+  {
+    "id": "d3Kia5QEUJYeXBHG6qUY",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "high_tech",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "ברוך השב. @ימי_אי_פעילות ימים של חופש נגמרו, חוזרים למסלול.",
+    "variables": "@ימי_אי_פעילות",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "tech_return_01",
+    "createdAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    }
+  },
+  {
+    "id": "di9PlCcfyz8AUS6sGTda",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "high_tech",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "אופציה לאימון קרוב! @מרחק מפריד בינך לבין אימון @קטגוריה.",
+    "variables": "@מרחק,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "tech_office_01",
+    "createdAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    }
+  },
+  {
+    "id": "eylg0Ubs0WfeHtPFtuhL",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "high_tech",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "ספרינט מהיר בין משימות. @זמן_אימון דקות וסיימת.",
+    "variables": "@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "tech_quick_01",
+    "createdAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    }
+  },
+  {
+    "id": "j6DfUCqojeoelc7MnFju",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "high_tech",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "פגישה הסתיימה? זה זמן לבוסט של @קטגוריה.",
+    "variables": "@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "tech_meeting_01",
+    "createdAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    }
+  },
+  {
+    "id": "kPSooxa4ueqlvikdN6PK",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "high_tech",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "עמוד השדרה שלך צריך אוויר. @בוא/י ל-@זמן_אימון דקות של @קטגוריה.",
+    "variables": "@בוא,@זמן_אימון,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "tech_spine_01",
+    "createdAt": {
+      "_seconds": 1773819921,
+      "_nanoseconds": 866000000
+    },
+    "updatedAt": {
+      "_seconds": 1773819921,
+      "_nanoseconds": 866000000
+    }
+  },
+  {
+    "id": "lXSZWVpFKrTpjRPx7EBL",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "high_tech",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "יום ארוך? @בוא/י לסגור אותו עם @מיקוד שמרענן את המערכת.",
+    "variables": "@בוא,@מיקוד",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "tech_night_01",
+    "createdAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    }
+  },
+  {
+    "id": "qz1OpaPrQKFGpCLj1NdL",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "high_tech",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "יש באג בלו\"ז: חסר לנו @פער_שבועי. @בוא/י לסגור את זה.",
+    "variables": "@פער_שבועי,@בוא",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "tech_gap_01",
+    "createdAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    }
+  },
+  {
+    "id": "r3IaIVhADqRAeIdbJQhX",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "high_tech",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "הגב תפוס מהמשרד? @זמן_אימון דקות של מתיחות בכיסא והכל משתנה.",
+    "variables": "@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "tech_chair_01",
+    "createdAt": {
+      "_seconds": 1773819921,
+      "_nanoseconds": 866000000
+    },
+    "updatedAt": {
+      "_seconds": 1773819921,
+      "_nanoseconds": 866000000
+    }
+  },
+  {
+    "id": "sNBAr31aNPTKCUAQeQeV",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "high_tech",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "@שם, בוא/י נבצע Deploy לפוקוס שלך. @זמן_אימון דקות של @קטגוריה.",
+    "variables": "@שם,@זמן_אימון,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "tech_morning_01",
+    "createdAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    }
+  },
+  {
+    "id": "uYOs2ruxJxfU6J0hrzZa",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "high_tech",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "עייפות מצטברת? @בוא/י לאימון @עצימות קצר לשמירה על הרצף.",
+    "variables": "@בוא,@עצימות",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "tech_release_01",
+    "createdAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    }
+  },
+  {
+    "id": "yoKcFQVAmuVidsO8fQLa",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "high_tech",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "הגב צועק 404? @בוא/י ל@זמן_אימון דקות של שחרור.",
+    "variables": "@בוא,@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "tech_back_01",
+    "createdAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817005,
+      "_nanoseconds": 564000000
+    }
+  },
+  {
+    "id": "0IRM5zxRrcn2RktKDPdf",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "@שם, אבא עקבי = תוצאות. @זמן_אימון דקות של @קטגוריה מחכות לך.",
+    "variables": "@שם,@זמן_אימון,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "dad_consistency_10",
+    "createdAt": {
+      "_seconds": 1773815805,
+      "_nanoseconds": 927000000
+    },
+    "updatedAt": {
+      "_seconds": 1773815805,
+      "_nanoseconds": 927000000
+    }
+  },
+  {
+    "id": "2M6xYhsLSCs7FVvnbWiF",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "בגינה? @בוא/י ל-@זמן_אימון דקות של @קטגוריה בזמן שהם נהנים.",
+    "variables": "@בוא,@זמן_אימון,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "mom_park_01",
+    "createdAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    }
+  },
+  {
+    "id": "5cdPteYMSlLzpP8ZlO5m",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "אחרי הפיזורים: @זמן_אימון דקות של ריצה לניקוי ראש.",
+    "variables": "@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "young_mom_morning_run",
+    "createdAt": {
+      "_seconds": 1773818944,
+      "_nanoseconds": 65000000
+    },
+    "updatedAt": {
+      "_seconds": 1773818944,
+      "_nanoseconds": 65000000
+    }
+  },
+  {
+    "id": "79AV1cAtrhqAPHszKwWO",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "אמא, הליבה שלך צריכה פוקוס. @בוא/י לאימון בטן ממוקד.",
+    "variables": "@בוא",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "young_mom_abs_focus",
+    "createdAt": {
+      "_seconds": 1773818944,
+      "_nanoseconds": 65000000
+    },
+    "updatedAt": {
+      "_seconds": 1773818944,
+      "_nanoseconds": 65000000
+    }
+  },
+  {
+    "id": "8QGXYLnzJa5jUN5pm3rN",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "@שם, רמה @רמה כבר קטנה עלייך. בואי נתקדם ל@רמה_הבאה.",
+    "variables": "@שם,@רמה,@רמה_הבאה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "mom_power_01",
+    "createdAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    }
+  },
+  {
+    "id": "8qWPKU27lmeL3CXA9HC8",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "סוגרת פערים בסופ\"ש? @פער_שבועי מחכה שתחסלי אותו.",
+    "variables": "@פער_שבועי",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "mom_weekend_01",
+    "createdAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    }
+  },
+  {
+    "id": "DB29gzNiF0PCWCbvvte9",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "מרחק נגיעה! @אחוז_התקדמות_רמה ואת ברמה @רמה_הבאה.",
+    "variables": "@אחוז_התקדמות_רמה,@רמה_הבאה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "mom_achieve_01",
+    "createdAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    }
+  },
+  {
+    "id": "Foff5VthaAIYRDgCE01q",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "בפארק? נצלי @זמן_אימון דקות לחיטוב @מיקוד.",
+    "variables": "@זמן_אימון,@מיקוד",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "young_mom_playground_01",
+    "createdAt": {
+      "_seconds": 1773818944,
+      "_nanoseconds": 65000000
+    },
+    "updatedAt": {
+      "_seconds": 1773818944,
+      "_nanoseconds": 65000000
+    }
+  },
+  {
+    "id": "IYBZljQe34zJBeTSEFNn",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "לפני שנכנסים ללופ של העבודה: @זמן_אימון דקות אמא חזקה.",
+    "variables": "@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "young_mom_work_prep_01",
+    "createdAt": {
+      "_seconds": 1773818944,
+      "_nanoseconds": 65000000
+    },
+    "updatedAt": {
+      "_seconds": 1773818944,
+      "_nanoseconds": 65000000
+    }
+  },
+  {
+    "id": "IuiqKJ0z0mbscmCc3Kzn",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "16:00 בגינה. @בוא/י ל@זמן_אימון דקות של @קטגוריה בזמן שהם בנדנדות.",
+    "variables": "@בוא,@זמן_אימון,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "young_mom_park_1600",
+    "createdAt": {
+      "_seconds": 1773818944,
+      "_nanoseconds": 65000000
+    },
+    "updatedAt": {
+      "_seconds": 1773818944,
+      "_nanoseconds": 65000000
+    }
+  },
+  {
+    "id": "Lf3mJmLo00bOAUoRZZgO",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "אמא עקבית = תוצאות. @סטטוס_נפח שלך מרשים השבוע.",
+    "variables": "@סטטוס_נפח",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "mom_consistency_01",
+    "createdAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    }
+  },
+  {
+    "id": "NthfT8BTr0UoQOtiEHGP",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "מטיילת בחוץ? הפכי את זה לאימון @קטגוריה ב@מיקום.",
+    "variables": "@קטגוריה,@מיקום",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "young_mom_stroller_01",
+    "createdAt": {
+      "_seconds": 1773818944,
+      "_nanoseconds": 65000000
+    },
+    "updatedAt": {
+      "_seconds": 1773818944,
+      "_nanoseconds": 65000000
+    }
+  },
+  {
+    "id": "OAIGGek0DjfOaXa8ohKG",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "אבא, המודל לחיקוי שלהם צריך לחזק @מיקוד היום.",
+    "variables": "@מיקוד",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "dad_identity_01",
+    "createdAt": {
+      "_seconds": 1773816823,
+      "_nanoseconds": 714000000
+    },
+    "updatedAt": {
+      "_seconds": 1773816823,
+      "_nanoseconds": 714000000
+    }
+  },
+  {
+    "id": "OiEst7JycIpMmqWL1CgR",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "בפארק? @בוא/י ננצל את זה לאימון @קטגוריה קצר.",
+    "variables": "@בוא,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "dad_park_02",
+    "createdAt": {
+      "_seconds": 1773815805,
+      "_nanoseconds": 927000000
+    },
+    "updatedAt": {
+      "_seconds": 1773815805,
+      "_nanoseconds": 927000000
+    }
+  },
+  {
+    "id": "PjoYXRlg4S4NVEw7iVIm",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "@שם, @את/ה במרחק נגיעה מ@רמה_הבאה. בואי נתקדם.",
+    "variables": "@שם,@את,@רמה_הבאה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "young_mom_35_glow",
+    "createdAt": {
+      "_seconds": 1773818944,
+      "_nanoseconds": 65000000
+    },
+    "updatedAt": {
+      "_seconds": 1773818944,
+      "_nanoseconds": 65000000
+    }
+  },
+  {
+    "id": "RLbw90MFii20Mqa1FkQ4",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "יש לנו @פער_שבועי ב@מיקוד. @בוא/י לסגור אותו עכשיו.",
+    "variables": "@פער_שבועי,@מיקוד,@בוא",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "mom_gap_01",
+    "createdAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    }
+  },
+  {
+    "id": "TSe2ayh0PJvzVxTXefri",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "הגב תפוס? @בוא/י ל-@זמן_אימון דקות של פתיחת שכמות ב@מיקום.",
+    "variables": "@בוא,@זמן_אימון,@מיקום",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "mom_posture_01",
+    "createdAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    }
+  },
+  {
+    "id": "TzBDyGNcIY1IqeooxgY4",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "אבא, הגב צועק? @בוא/י ל@זמן_אימון דקות של תחזוקת גוף.",
+    "variables": "@בוא,@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "dad_posture_06",
+    "createdAt": {
+      "_seconds": 1773815805,
+      "_nanoseconds": 927000000
+    },
+    "updatedAt": {
+      "_seconds": 1773815805,
+      "_nanoseconds": 927000000
+    }
+  },
+  {
+    "id": "U444l2BQFlIT7V6sOOpL",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "@שם, קחי @זמן_אימון דקות לעצמך לפני שהבית מתעורר. @קטגוריה מחכה.",
+    "variables": "@שם,@זמן_אימון,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "mom_morning_01",
+    "createdAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    }
+  },
+  {
+    "id": "XpqV4YuzGI1CVbzabDt2",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "אבא, הפארק קרוב! @זמן_הגעה דקות של אימון @קטגוריה ו@את/ה אחרי זה.",
+    "variables": "@זמן_הגעה,@קטגוריה,@את",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "dad_proximity_01",
+    "createdAt": {
+      "_seconds": 1773816823,
+      "_nanoseconds": 714000000
+    },
+    "updatedAt": {
+      "_seconds": 1773816823,
+      "_nanoseconds": 714000000
+    }
+  },
+  {
+    "id": "Y0bj977DyTfUAFVa2Q1n",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "עובדים על @סקייל_נוכחי. @את/ה קרובה ל@תרגיל_יעד.",
+    "variables": "@סקייל_נוכחי,@את,@תרגיל_יעד",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "mom_skill_01",
+    "createdAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    }
+  },
+  {
+    "id": "Y1OHNr4BhtdiXqQD8Blu",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "אמא, יש לך @זמן_אימון דקות? זה כל מה שצריך ל@מיקוד חזק.",
+    "variables": "@זמן_אימון,@מיקוד",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "mom_quick_01",
+    "createdAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    }
+  },
+  {
+    "id": "aEqFVOZb2EFeAol6M68M",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "@שם, המודל לחיקוי שלהם צריך לחזק @מיקוד היום.",
+    "variables": "@שם,@מיקוד",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "dad_strong_03",
+    "createdAt": {
+      "_seconds": 1773815805,
+      "_nanoseconds": 927000000
+    },
+    "updatedAt": {
+      "_seconds": 1773815805,
+      "_nanoseconds": 927000000
+    }
+  },
+  {
+    "id": "aZ566MooSZTboPoftgwz",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "רק עוד קצת! @אחוז_התקדמות_רמה ואבא עובר ל-@רמה_הבאה.",
+    "variables": "@אחוז_התקדמות_רמה,@רמה_הבאה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "dad_achievement_01",
+    "createdAt": {
+      "_seconds": 1773816823,
+      "_nanoseconds": 714000000
+    },
+    "updatedAt": {
+      "_seconds": 1773816823,
+      "_nanoseconds": 714000000
+    }
+  },
+  {
+    "id": "bRLtLP9Au02VnnLGzGDF",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "הילדים נרדמו? @זמן_אימון דקות של @קטגוריה יסדרו לך את הראש.",
+    "variables": "@זמן_אימון,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "dad_evening_05",
+    "createdAt": {
+      "_seconds": 1773815805,
+      "_nanoseconds": 927000000
+    },
+    "updatedAt": {
+      "_seconds": 1773815805,
+      "_nanoseconds": 927000000
+    }
+  },
+  {
+    "id": "fihdHBYm4TgC5l5neK2r",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "אימון @קטגוריה בסלון. @זמן_אימון דקות ואת אחרי זה.",
+    "variables": "@קטגוריה,@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "mom_home_01",
+    "createdAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    }
+  },
+  {
+    "id": "kCOIx3zUA1MVOoXlvmWT",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "@שם, חזקי את ה@מיקוד היום. אמא חזקה זה אמא בריאה.",
+    "variables": "@שם,@מיקוד",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "mom_strong_01",
+    "createdAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    }
+  },
+  {
+    "id": "kSAdZSgd7FYYNJC9omjt",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "@שם, @את/ה ב-@אחוז_התקדמות_רמה מהרמה הבאה. @בוא/י נתקדם.",
+    "variables": "@שם,@את,@אחוז_התקדמות_רמה,@בוא",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "dad_skill_09",
+    "createdAt": {
+      "_seconds": 1773815805,
+      "_nanoseconds": 927000000
+    },
+    "updatedAt": {
+      "_seconds": 1773815805,
+      "_nanoseconds": 927000000
+    }
+  },
+  {
+    "id": "kpfoF8sNb3EuCEtDIpDO",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "הם שקועים במשחק? @בוא/י ל@זמן_אימון דקות של @קטגוריה.",
+    "variables": "@בוא,@זמן_אימון,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "dad_quick_01",
+    "createdAt": {
+      "_seconds": 1773815805,
+      "_nanoseconds": 927000000
+    },
+    "updatedAt": {
+      "_seconds": 1773815805,
+      "_nanoseconds": 927000000
+    }
+  },
+  {
+    "id": "l5CJQEiI2uaRUEBjj1X8",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "@שם, סופש בפתח. @בוא/י לסגור @פער_שבועי.",
+    "variables": "@שם,@בוא,@פער_שבועי",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "dad_weekend_07",
+    "createdAt": {
+      "_seconds": 1773815805,
+      "_nanoseconds": 927000000
+    },
+    "updatedAt": {
+      "_seconds": 1773815805,
+      "_nanoseconds": 927000000
+    }
+  },
+  {
+    "id": "lRORnw35fAT9QxPFiQ9J",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "לילה לבן? @בוא/י לאימון @עצימות קצר רק כדי להזרים דם.",
+    "variables": "@בוא,@עצימות",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "mom_no_sleep_01",
+    "createdAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    }
+  },
+  {
+    "id": "likQFeWsXynmcOkOrvYO",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "זקוקה לריסטרט? @זמן_אימון דקות של @קטגוריה והכל נראה אחרת.",
+    "variables": "@זמן_אימון,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "mom_reset_01",
+    "createdAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    }
+  },
+  {
+    "id": "pdiJTQFdyZCyeD21TdTr",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "@שם, הגן סגור? זה הזמן שלך. @זמן_אימון דקות של @קטגוריה.",
+    "variables": "@שם,@זמן_אימון,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "young_mom_dropoff_01",
+    "createdAt": {
+      "_seconds": 1773818944,
+      "_nanoseconds": 65000000
+    },
+    "updatedAt": {
+      "_seconds": 1773818944,
+      "_nanoseconds": 65000000
+    }
+  },
+  {
+    "id": "pdms0Dmxb4Yok5BzSDSS",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "השקט הגיע. @זמן_אימון דקות של @קטגוריה והיום הזה מושלם.",
+    "variables": "@זמן_אימון,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "young_mom_recharge_01",
+    "createdAt": {
+      "_seconds": 1773818944,
+      "_nanoseconds": 65000000
+    },
+    "updatedAt": {
+      "_seconds": 1773818944,
+      "_nanoseconds": 65000000
+    }
+  },
+  {
+    "id": "qDJ62mPbcsw09aWkn4wM",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "התגעגענו. @ימי_אי_פעילות ימים חלפו, בוא/י ל@זמן_אימון דקות של שחרור.",
+    "variables": "@ימי_אי_פעילות,@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "dad_anti_guilt_01",
+    "createdAt": {
+      "_seconds": 1773816823,
+      "_nanoseconds": 714000000
+    },
+    "updatedAt": {
+      "_seconds": 1773816823,
+      "_nanoseconds": 714000000
+    }
+  },
+  {
+    "id": "rDnsUnYsH1AQYyWRcGST",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "הזדמנות אחרונה לשקט. @בוא/י נפתח את היום ב@מיקום.",
+    "variables": "@בוא,@מיקום",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "dad_morning_04",
+    "createdAt": {
+      "_seconds": 1773815805,
+      "_nanoseconds": 927000000
+    },
+    "updatedAt": {
+      "_seconds": 1773815805,
+      "_nanoseconds": 927000000
+    }
+  },
+  {
+    "id": "sfF2qL50gU9fXB3wRJqB",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "@שם, נשאר רק @פער_שבועי לסיום היעד השבועי. בוא/י נסגור את זה.",
+    "variables": "@שם,@פער_שבועי",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "dad_micro_goal_01",
+    "createdAt": {
+      "_seconds": 1773816823,
+      "_nanoseconds": 714000000
+    },
+    "updatedAt": {
+      "_seconds": 1773816823,
+      "_nanoseconds": 714000000
+    }
+  },
+  {
+    "id": "tgV6ZeFns1Kc1TND5R0f",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "השקט הגיע? @זמן_אימון דקות של @קטגוריה והיום הזה סגור בטוב.",
+    "variables": "@זמן_אימון,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "mom_evening_01",
+    "createdAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817481,
+      "_nanoseconds": 198000000
+    }
+  },
+  {
+    "id": "tvQxlReG0WhEFkGstZco",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "לילה לבן? @בוא/י לאימון @עצימות קצר כדי לשמור על הרצף.",
+    "variables": "@בוא,@עצימות",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "dad_no_sleep_08",
+    "createdAt": {
+      "_seconds": 1773815805,
+      "_nanoseconds": 927000000
+    },
+    "updatedAt": {
+      "_seconds": 1773815805,
+      "_nanoseconds": 927000000
+    }
+  },
+  {
+    "id": "uVETrlyVYQrtl5zQIVPj",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "אמא, נשאר לך @פער_שבועי קטן. @בוא/י לסגור אותו עכשיו.",
+    "variables": "@פער_שבועי,@בוא",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "young_mom_quick_fix",
+    "createdAt": {
+      "_seconds": 1773818944,
+      "_nanoseconds": 65000000
+    },
+    "updatedAt": {
+      "_seconds": 1773818944,
+      "_nanoseconds": 65000000
+    }
+  },
+  {
+    "id": "wqu2dcAcxgUunD1txRYD",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "parent",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "זמן לשקט שלך @שם. בוא/י לריצה קלה ב@מיקום, רק את/ה והאוויר.",
+    "variables": "@שם,@מיקום",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "run_easy_parent",
+    "createdAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    },
+    "updatedAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    }
+  },
+  {
+    "id": "0ZMorKsVfY0GOmDFULC5",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "reservist",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "@שם, הורדת ווסט? @בוא/י ל@זמן_אימון דקות של פריקת מתח מהגב.",
+    "variables": "@שם,@בוא,@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "res_vest_01",
+    "createdAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    }
+  },
+  {
+    "id": "1AuoCD8uR5SxFnQE0ctR",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "reservist",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "חזרת מהשטח? @בוא/י לאימון @עצימות קצר כדי לחזור למסלול.",
+    "variables": "@בוא,@עצימות",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "res_return_01",
+    "createdAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    }
+  },
+  {
+    "id": "7Koyo2raQMN6gQyp3EDn",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "reservist",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "סוף שמירה? @בוא/י לשחרר את המתח ב@מיקוד לפני השינה.",
+    "variables": "@בוא,@מיקוד",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "res_night_01",
+    "createdAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    }
+  },
+  {
+    "id": "9Ty5dunpTQ7yKdn57MYi",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "reservist",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "סוגרים פערים בבאקלוג. @פער_שבועי מחכה שתחסל/י אותו.",
+    "variables": "@פער_שבועי",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "res_gap_01",
+    "createdAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    }
+  },
+  {
+    "id": "EgjiGJYkzF1Jyhu9h6lZ",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "reservist",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "חלון זמן להסתערות. @זמן_אימון דקות של @קטגוריה — צא/י לדרך.",
+    "variables": "@זמן_אימון,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "res_quick_01",
+    "createdAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    }
+  },
+  {
+    "id": "FnKN2RF3d0bxXCML0FHM",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "reservist",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "ב@מיקום? תנאי שטח זה הזמן שלך לזרוח. @בוא/י לאימון.",
+    "variables": "@מיקום,@בוא",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "res_field_01",
+    "createdAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    }
+  },
+  {
+    "id": "HBnoRozHF4rtyI65xpHs",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "reservist",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "המטרה בטווח פגיעה: @אחוז_התקדמות_רמה ל@רמה_הבאה. @בוא/י.",
+    "variables": "@אחוז_התקדמות_רמה,@רמה_הבאה,@בוא",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "res_achieve_01",
+    "createdAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    }
+  },
+  {
+    "id": "JKOqcQ2dWnfbA92GryVB",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "reservist",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "עקביות היא כוח. @את/ה ב-@אחוז_התקדמות, אל תעצור/תעצרי.",
+    "variables": "@את,@אחוז_התקדמות",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "res_steady_01",
+    "createdAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    }
+  },
+  {
+    "id": "NxjH8wGXDG1JhzFy91Bh",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "reservist",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "הגב תפוס מהשמירה? @זמן_אימון דקות של @קטגוריה ו@את/ה חדש/ה.",
+    "variables": "@זמן_אימון,@קטגוריה,@את",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "res_guard_01",
+    "createdAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    }
+  },
+  {
+    "id": "UnNUHOgfWV0texvUqPye",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "reservist",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "רמה @רמה קטנה עליך. @בוא/י להסתער על @רמה_הבאה.",
+    "variables": "@רמה,@בוא,@רמה_הבאה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "res_strength_01",
+    "createdAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    }
+  },
+  {
+    "id": "X7WTecOhqFBZLQeylTuo",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "reservist",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "@שם, בבית? @בוא/י לסגור @פער_שבועי לפני שהסופ\"ש נגמר.",
+    "variables": "@שם,@בוא,@פער_שבועי",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "res_weekend_01",
+    "createdAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    }
+  },
+  {
+    "id": "f9x5IBZaBRybqnyqQODy",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "reservist",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "בוקר טוב לוחם. @זמן_אימון דקות @קטגוריה לכוננות שיא.",
+    "variables": "@זמן_אימון,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "res_morning_01",
+    "createdAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    }
+  },
+  {
+    "id": "ge48uqDFtGWk9sXAYmDf",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "reservist",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "לוחם, שמור על כשירות. @זמן_אימון דקות של @קטגוריה ו@את/ה מוכן/ה.",
+    "variables": "@זמן_אימון,@קטגוריה,@את",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "res_readiness_01",
+    "createdAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    }
+  },
+  {
+    "id": "t4JchZ0ikAFHHT4g95L1",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "reservist",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "נקה רעשים, @שם. @זמן_אימון דקות של @מיקוד ופוקוס.",
+    "variables": "@שם,@זמן_אימון,@מיקוד",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "res_mental_01",
+    "createdAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    }
+  },
+  {
+    "id": "wWuHMxB3RJ6RvFMtLfuj",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "reservist",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "צריך/ה ריסטרט? @זמן_אימון דקות של @קטגוריה והמערכת מאופסת.",
+    "variables": "@זמן_אימון,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "res_reset_01",
+    "createdAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    },
+    "updatedAt": {
+      "_seconds": 1773817097,
+      "_nanoseconds": 828000000
+    }
+  },
+  {
+    "id": "48cWmNM38tkqo9t7pju5",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "גב חזק ליציבה זקופה. @בוא/י לאימון ממוקד ב@מיקום.",
+    "variables": "@בוא,@מיקום",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_back_01",
+    "createdAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    },
+    "updatedAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    }
+  },
+  {
+    "id": "744jpHVpdJp2jjpQJsYr",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "סוגרים יום בנחת. @זמן_אימון דקות של שחרור ורוגע ב@מיקום.",
+    "variables": "@זמן_אימון,@מיקום",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_evening_01",
+    "createdAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    },
+    "updatedAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    }
+  },
+  {
+    "id": "8Ajzjnj8DUejbmZe9YBp",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "שומרים על היכולת! רמה @רמה כבר כאן, בוא/י לשמר אותה.",
+    "variables": "@רמה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_level_01",
+    "createdAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    },
+    "updatedAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    }
+  },
+  {
+    "id": "9lIeJcJUC3kYlLx2jvhp",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "זמן לגמישות. @זמן_אימון דקות של תנועה חופשית ונינוחה.",
+    "variables": "@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_flex_01",
+    "createdAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    },
+    "updatedAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    }
+  },
+  {
+    "id": "9z7eSws76YeIl9ix5cSU",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "זמן לגמישות. @זמן_אימון דקות של תנועה חופשית ונינוחה.",
+    "variables": "@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_flex_01",
+    "createdAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    },
+    "updatedAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    }
+  },
+  {
+    "id": "CWGjqEv2dLXwGjii1Vcu",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "אל תתני/יתן לנוקשות לנצח. @בוא/י ל-@זמן_אימון דקות של תנועה משחררת.",
+    "variables": "@בוא,@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_stiffness_01",
+    "createdAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    },
+    "updatedAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    }
+  },
+  {
+    "id": "CWK6R7HiPuEcCvZQfzEh",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "בוקר של בריאות @שם. בוא/י לריצה קלה לשמירה על המפרקים.",
+    "variables": "@שם",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "run_rec_senior",
+    "createdAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    },
+    "updatedAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    }
+  },
+  {
+    "id": "HzUePDYtf3pcpTuIX5uA",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "סוגרים יום בנחת. @זמן_אימון דקות של שחרור ב@מיקום.",
+    "variables": "@זמן_אימון,@מיקום",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_evening_01",
+    "createdAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    },
+    "updatedAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    }
+  },
+  {
+    "id": "I0Mu1aQlKiq1rLHoW0UK",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "התקדמות מרשימה! @אחוז_התקדמות_רמה ואנחנו ברמה הבאה.",
+    "variables": "@אחוז_התקדמות_רמה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_achieve_01",
+    "createdAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    },
+    "updatedAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    }
+  },
+  {
+    "id": "Iz5xgD47eK5Wofqxm2Zt",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "צריכ/ה זריקת מרץ? @זמן_אימון דקות של @קטגוריה ו@את/ה חדש/ה.",
+    "variables": "@זמן_אימון,@קטגוריה,@את",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_quick_01",
+    "createdAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    },
+    "updatedAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    }
+  },
+  {
+    "id": "NJtSPKOz383FSMzAWw7X",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "עצמאות מתחילה בחוזק. @בוא/י לתרגול @קטגוריה שישמור עליך חזק/ה.",
+    "variables": "@בוא,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_independence_01",
+    "createdAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    },
+    "updatedAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    }
+  },
+  {
+    "id": "SiFqLiyCxM6EiU97kCGb",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "הגיע הזמן לתחזק את המפרקים. @זמן_אימון דקות של תנועה ובריאות.",
+    "variables": "@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_joints_01",
+    "createdAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    },
+    "updatedAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    }
+  },
+  {
+    "id": "SoEkAAk9MmSlMCDGt0GV",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "צריכ/ה זריקת מרץ? @זמן_אימון דקות של @קטגוריה ו@את/ה חדש/ה.",
+    "variables": "@זמן_אימון,@קטגוריה,@את",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_quick_01",
+    "createdAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    },
+    "updatedAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    }
+  },
+  {
+    "id": "Ssb52oMIFSAIfGEjL1Vc",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "גב חזק ליציבה זקופה. @בוא/י לאימון ממוקד ב@מיקום.",
+    "variables": "@בוא,@מיקום",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_back_01",
+    "createdAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    },
+    "updatedAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    }
+  },
+  {
+    "id": "TEihCmnmgSPmHCxbqZc8",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "שומרים על היכולת! רמה @רמה כבר כאן, בוא/י לשמר אותה.",
+    "variables": "@רמה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_level_01",
+    "createdAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    },
+    "updatedAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    }
+  },
+  {
+    "id": "TrqbXAZrSeCnQxQ9lfTA",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "חזרת מהליכה? @בוא/י למתיחות קצרות לשמירה על הגמישות.",
+    "variables": "@בוא",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_walking_01",
+    "createdAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    },
+    "updatedAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    }
+  },
+  {
+    "id": "UpEdafPJ2erOG4Iwx1Rw",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "התקדמות מרשימה! @אחוז_התקדמות_רמה ואנחנו ברמה הבאה.",
+    "variables": "@אחוז_התקדמות_רמה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_achieve_01",
+    "createdAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    },
+    "updatedAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    }
+  },
+  {
+    "id": "WggNWLmZGkxLKP9DAvdI",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "הנכדים מחכים! @בוא/י לצבור כוח למשחקים משותפים בגינה.",
+    "variables": "@בוא",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_grand_01",
+    "createdAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    },
+    "updatedAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    }
+  },
+  {
+    "id": "bKqSxqQ7270RXe1HCKWv",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "דואגים ללב. @זמן_אימון דקות של פעילות מתונה להרגשה טובה.",
+    "variables": "@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_heart_01",
+    "createdAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    },
+    "updatedAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    }
+  },
+  {
+    "id": "e3R0Le2py5NIlJxMoEZf",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "עצמאות מתחילה בחוזק. @בוא/י לתרגול @קטגוריה שישמור עליך חזק/ה.",
+    "variables": "@בוא,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_independence_01",
+    "createdAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    },
+    "updatedAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    }
+  },
+  {
+    "id": "eU0rc4nEXifO8tlldaVm",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "בוקר של בריאות @שם. @בוא/י ל-@זמן_אימון דקות של הנעת מפרקים.",
+    "variables": "@שם,@בוא,@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_morning_01",
+    "createdAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    },
+    "updatedAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    }
+  },
+  {
+    "id": "fMYOmHChjV51VMS642RA",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "בוקר טוב @שם. @בוא/י להניע את המפרקים ולהתחיל יום רענן.",
+    "variables": "@שם,@בוא",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_morning_01",
+    "createdAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    },
+    "updatedAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    }
+  },
+  {
+    "id": "haWknw2DWlbHTG1j8CX2",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "הכוח אצלך בידיים. @בוא/י לאימון חיזוק שישפר לך את היום.",
+    "variables": "@בוא",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_power_01",
+    "createdAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    },
+    "updatedAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    }
+  },
+  {
+    "id": "iYem1ECuy4P7FMACa1tH",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "שומרים על יציבות! תרגול ביטחון בתנועה מחכה לך ב@מיקום.",
+    "variables": "@מיקום",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_balance_01",
+    "createdAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    },
+    "updatedAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    }
+  },
+  {
+    "id": "lrjQt6JhuRw43SGDjni6",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "הגיע הזמן לתחזק את המפרקים. @זמן_אימון דקות של תנועה ובריאות.",
+    "variables": "@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_joints_01",
+    "createdAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    },
+    "updatedAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    }
+  },
+  {
+    "id": "n7BweQXOwiwC6tEdbekq",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "אל תתני/יתן לנוקשות לנצח. @בוא/י ל-@זמן_אימון דקות של תנועה.",
+    "variables": "@בוא,@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_stiffness_01",
+    "createdAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    },
+    "updatedAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    }
+  },
+  {
+    "id": "n9f22R0CISOcDhkpiLdu",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "דואגים ללב. @זמן_אימון דקות של פעילות מתונה להרגשה טובה.",
+    "variables": "@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_heart_01",
+    "createdAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    },
+    "updatedAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    }
+  },
+  {
+    "id": "raCZ65lR6kIiedtCeAy2",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "כוח למשחקים עם הנכדים? @זמן_אימון דקות של חיזוק והכל נהיה קל יותר.",
+    "variables": "@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_grandkids_01",
+    "createdAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    },
+    "updatedAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    }
+  },
+  {
+    "id": "uOKxEmqrIMmuzt5qjHu4",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "שומרים על שיווי המשקל! תרגול יציבות קצר מחכה לך ב@מיקום.",
+    "variables": "@מיקום",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_balance_01",
+    "createdAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    },
+    "updatedAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    }
+  },
+  {
+    "id": "utiJBrBJCAw1cVMXNEth",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "חזרת מהליכה? @בוא/י למתיחות קצרות לשמירה על הגמישות.",
+    "variables": "@בוא",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_walking_01",
+    "createdAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    },
+    "updatedAt": {
+      "_seconds": 1773830603,
+      "_nanoseconds": 535000000
+    }
+  },
+  {
+    "id": "yM8j6vmOl7jNaST0hkgE",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "senior",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "הכוח אצלך בידיים. @בוא/י לאימון חיזוק שישפר לך את היום.",
+    "variables": "@בוא",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "snr_power_01",
+    "createdAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    },
+    "updatedAt": {
+      "_seconds": 1773821624,
+      "_nanoseconds": 445000000
+    }
+  },
+  {
+    "id": "1F3N3sKS9kb9VnUqqaqQ",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "student",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "@את/ה ב-@אחוז_התקדמות_רמה ל@רמה_הבאה. בוא/י לסיים חזק.",
+    "variables": "@את,@אחוז_התקדמות_רמה,@רמה_הבאה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "stu_achieve_01",
+    "createdAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    },
+    "updatedAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    }
+  },
+  {
+    "id": "1p2rAMDjlxCFqdQEMSSu",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "student",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "רוצה להרגיש בשיא שלך? @זמן_אימון דקות של פוקוס וביטחון.",
+    "variables": "@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "st_girl_conf_01",
+    "createdAt": {
+      "_seconds": 1773829856,
+      "_nanoseconds": 230000000
+    },
+    "updatedAt": {
+      "_seconds": 1773829856,
+      "_nanoseconds": 230000000
+    }
+  },
+  {
+    "id": "2KcxtPHmj0DSHzZrn0JP",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "student",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "רוצה להצליח @תרגיל_יעד? בוא/י לעבוד על זה עכשיו.",
+    "variables": "@תרגיל_יעד",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "st_gen_skill_01",
+    "createdAt": {
+      "_seconds": 1773829856,
+      "_nanoseconds": 230000000
+    },
+    "updatedAt": {
+      "_seconds": 1773829856,
+      "_nanoseconds": 230000000
+    }
+  },
+  {
+    "id": "4wkY8w0ZcWLtxvvRBNm3",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "student",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "@שם, רמה @רמה כבר קטנה עליך. בוא/י לטפס ל@רמה_הבאה.",
+    "variables": "@שם,@רמה,@רמה_הבאה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "st_gen_level_01",
+    "createdAt": {
+      "_seconds": 1773829856,
+      "_nanoseconds": 230000000
+    },
+    "updatedAt": {
+      "_seconds": 1773829856,
+      "_nanoseconds": 230000000
+    }
+  },
+  {
+    "id": "8T5mtcQexLwTGFYjo4jo",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "student",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "בלחץ של דדליין? אימון @עצימות קצר יסדר לך את הפוקוס.",
+    "variables": "@עצימות",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "stu_deadline_01",
+    "createdAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    },
+    "updatedAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    }
+  },
+  {
+    "id": "BDXADHcZzcKO5LtypP48",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "student",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "רוצה להיראות חזק/ה וקליל/ה? בוא/י לסטריידים מהירים בסיום הריצה.",
+    "variables": "",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "run_strides_aesthetic",
+    "createdAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    },
+    "updatedAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    }
+  },
+  {
+    "id": "BncIv48gGTbAHwwo2OWi",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "student",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "מספיק מסכים להיום. @בוא/י ל-@זמן_אימון דקות של ריסטרט לגוף.",
+    "variables": "@בוא,@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "stu_eyes_01",
+    "createdAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    },
+    "updatedAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    }
+  },
+  {
+    "id": "DlCAJhyWpsaYAYpjb98v",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "student",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "סטודנט, הגב ננעל? @בוא/י למתיחות שקטות על הכיסא בספרייה.",
+    "variables": "@בוא",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "stu_desk_01",
+    "createdAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    },
+    "updatedAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    }
+  },
+  {
+    "id": "HLBQTas6Z13oYT0Fl4Eo",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "student",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "לפני הלימודים: @זמן_אימון דקות של אנרגיה מטורפת.",
+    "variables": "@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "st_gen_morning_01",
+    "createdAt": {
+      "_seconds": 1773829856,
+      "_nanoseconds": 230000000
+    },
+    "updatedAt": {
+      "_seconds": 1773829856,
+      "_nanoseconds": 230000000
+    }
+  },
+  {
+    "id": "HYt8AjRQwQRXk1SZZH16",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "student",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "צריכ/ה בוסט למוח? @זמן_אימון דקות של @קטגוריה ו@את/ה חד/ה למבחן.",
+    "variables": "@זמן_אימון,@קטגוריה,@את",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "stu_exam_01",
+    "createdAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    },
+    "updatedAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    }
+  },
+  {
+    "id": "HwvnAd8IoZHBl9rSI6tG",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "student",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "מרגיש/ה תקיעות? @זמן_אימון דקות של @קטגוריה והכל נראה אחרת.",
+    "variables": "@זמן_אימון,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "stu_flow_01",
+    "createdAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    },
+    "updatedAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    }
+  },
+  {
+    "id": "YsxxwNdss9dfSBM6CbHq",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "student",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "סופ\"ש הגיע. זמן לטעון מצברים לקראת שבוע המבחנים.",
+    "variables": "",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "stu_weekend_01",
+    "createdAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    },
+    "updatedAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    }
+  },
+  {
+    "id": "bVPkGtfF236TF4Kt2UqN",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "student",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "סוגרים פער שבועי ב@מיקוד. @בוא/י לסגור את הבאקלוג.",
+    "variables": "@מיקוד,@בוא",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "stu_gap_01",
+    "createdAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    },
+    "updatedAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    }
+  },
+  {
+    "id": "brGfyKk3FiCvr1j4Ukjf",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "student",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "@שם, רמה @רמה כבר קטנה עליך. @בוא/י לטפס ל@רמה_הבאה.",
+    "variables": "@שם,@רמה,@בוא,@רמה_הבאה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "stu_level_01",
+    "createdAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    },
+    "updatedAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    }
+  },
+  {
+    "id": "c0GsEbOxAWaTCgCF8KYs",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "student",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "לפני ההרצאה הראשונה: @זמן_אימון דקות @קטגוריה לכוננות שיא.",
+    "variables": "@זמן_אימון,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "stu_morning_01",
+    "createdAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    },
+    "updatedAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    }
+  },
+  {
+    "id": "cNsk9zGD6yoOE7Nkg3yc",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "student",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "הצוואר תפוס מהספרים? @בוא/י ל-@זמן_אימון דקות שחרור ב@מיקום.",
+    "variables": "@בוא,@זמן_אימון,@מיקום",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "stu_neck_01",
+    "createdAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    },
+    "updatedAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    }
+  },
+  {
+    "id": "cX1olINc7IprgHtSLeFc",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "student",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "סטודנט, שמור על הגב. @זמן_אימון דקות תחזוקה ב@מיקום.",
+    "variables": "@זמן_אימון,@מיקום",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "stu_back_01",
+    "createdAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    },
+    "updatedAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    }
+  },
+  {
+    "id": "fXQc8TzkgdDL8imt7TjV",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "student",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "סיימת עם המטלות? עכשיו תורך. @זמן_אימון דקות שחרור.",
+    "variables": "@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "stu_night_01",
+    "createdAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    },
+    "updatedAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    }
+  },
+  {
+    "id": "h9QzxTA6sSPWUBVHadWW",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "student",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "תהיה הכי חזק בחבר'ה. @זמן_אימון דקות כוח מחכות לך.",
+    "variables": "@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "st_boy_strong_01",
+    "createdAt": {
+      "_seconds": 1773829856,
+      "_nanoseconds": 230000000
+    },
+    "updatedAt": {
+      "_seconds": 1773829856,
+      "_nanoseconds": 230000000
+    }
+  },
+  {
+    "id": "lZFz5QWFHeE9L0Rd9Hau",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "student",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "לוחם, הצבא מתקרב. בוא נבנה את הכשירות שלך.",
+    "variables": "",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "st_boy_army_01",
+    "createdAt": {
+      "_seconds": 1773829856,
+      "_nanoseconds": 230000000
+    },
+    "updatedAt": {
+      "_seconds": 1773829856,
+      "_nanoseconds": 230000000
+    }
+  },
+  {
+    "id": "mbQhgxqqWyIp61oSsuzN",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "student",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "תעמדי זקוף, @שם. אימון יציבה קצר שיגרום לך להרגיש מלכה.",
+    "variables": "@שם",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "st_girl_posture_01",
+    "createdAt": {
+      "_seconds": 1773829856,
+      "_nanoseconds": 230000000
+    },
+    "updatedAt": {
+      "_seconds": 1773829856,
+      "_nanoseconds": 230000000
+    }
+  },
+  {
+    "id": "pUkc5n35yvMh5SPx8Q53",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "student",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "המוח תקוע? בוא/י לאינטרוולים קצרים שיעיפו לך את הריכוז למעלה.",
+    "variables": "",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "run_int_student",
+    "createdAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    },
+    "updatedAt": {
+      "_seconds": 1773835363,
+      "_nanoseconds": 654000000
+    }
+  },
+  {
+    "id": "qGqLF2IBFdvuPbVFqg8U",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "student",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "הים מחכה. @בוא לסגור אימון שישפר לך את המראה.",
+    "variables": "@בוא",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "st_boy_beach_01",
+    "createdAt": {
+      "_seconds": 1773829856,
+      "_nanoseconds": 230000000
+    },
+    "updatedAt": {
+      "_seconds": 1773829856,
+      "_nanoseconds": 230000000
+    }
+  },
+  {
+    "id": "u2N1h70mwfYgZkXC3jw1",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "student",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "המוח תקוע? @זמן_אימון דקות @קטגוריה ותחזור/תחזרי ללמוד בשיא.",
+    "variables": "@זמן_אימון,@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "st_gen_exam_01",
+    "createdAt": {
+      "_seconds": 1773829856,
+      "_nanoseconds": 230000000
+    },
+    "updatedAt": {
+      "_seconds": 1773829856,
+      "_nanoseconds": 230000000
+    }
+  },
+  {
+    "id": "vRJdQVKgylZb9UmdFt4t",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "student",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "אין זמן ללמוד? תמיד יש @זמן_אימון דקות לאימון ספרינט.",
+    "variables": "@זמן_אימון",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "stu_quick_01",
+    "createdAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    },
+    "updatedAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    }
+  },
+  {
+    "id": "yiI6mIZsLzutdKIP3xVS",
+    "channel": "retention",
+    "triggerType": "Inactivity",
+    "persona": "student",
+    "gender": "both",
+    "psychologicalTrigger": "FOMO",
+    "daysInactive": 1,
+    "title": "",
+    "body": "",
+    "text": "יצאת מהספרייה? בוא/י לאימון @קטגוריה מהיר בחוץ.",
+    "variables": "@קטגוריה",
+    "clickCount": "",
+    "completionRate": "",
+    "calendarIntegration": false,
+    "bundleId": "stu_park_01",
+    "createdAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    },
+    "updatedAt": {
+      "_seconds": 1773819880,
+      "_nanoseconds": 823000000
+    }
+  }
+]

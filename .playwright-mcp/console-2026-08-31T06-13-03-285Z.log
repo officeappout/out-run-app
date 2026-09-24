@@ -1,0 +1,3 @@
+[     199ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://claude.ai/api/frame/bb4a80c0-3d6a-4d76-b95f-31280e34885e?org=32e4c48b-5975-40f1-8331-16fcf914e4d9&via=user_open&bk=initial:0
+[    1599ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://claude.ai/api/account:0
+[    3539ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://claude.ai/api/frame/bb4a80c0-3d6a-4d76-b95f-31280e34885e?org=32e4c48b-5975-40f1-8331-16fcf914e4d9&via=user_open&bk=initial:0

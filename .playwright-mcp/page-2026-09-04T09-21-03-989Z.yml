@@ -1,0 +1,39 @@
+- generic [active] [ref=e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e5]:
+        - button "פרופיל" [ref=e6] [cursor=pointer]
+        - link "OUT" [ref=e19] [cursor=pointer]:
+          - /url: /home
+          - img "OUT" [ref=e20]
+        - generic [ref=e21]:
+          - button "התראות" [ref=e22] [cursor=pointer]
+          - button "הודעות" [ref=e26] [cursor=pointer]
+          - link "חיפוש" [ref=e29] [cursor=pointer]:
+            - /url: /search
+      - button "0%" [ref=e34] [cursor=pointer]
+      - generic [ref=e40]:
+        - generic [ref=e51]:
+          - button "מדדי בריאות" [ref=e53] [cursor=pointer]
+          - generic [ref=e54]:
+            - generic [ref=e56]:
+              - paragraph [ref=e57]: פעילות שבועית
+              - paragraph [ref=e58]: 0 דק׳
+              - paragraph [ref=e59]: מתוך 150 דק׳
+            - 'button "פתח ניתוח צעדים: 0 מתוך 8,000" [ref=e61] [cursor=pointer]':
+              - generic [ref=e67]:
+                - generic [ref=e68]: "0"
+                - generic [ref=e69]: מתוך 8,000
+        - generic [ref=e71]:
+          - heading "קבוצות קרובות אליך" [level=3] [ref=e72]
+          - button "הכל ›" [ref=e79] [cursor=pointer]
+        - heading "גינות כושר קרובות" [level=3] [ref=e103]
+      - button "הוסף" [ref=e131] [cursor=pointer]
+  - navigation [ref=e133]:
+    - generic [ref=e134]:
+      - link "בית" [ref=e135] [cursor=pointer]:
+        - /url: /home
+      - link "מפה" [ref=e140] [cursor=pointer]:
+        - /url: /map
+  - alert [ref=e144]

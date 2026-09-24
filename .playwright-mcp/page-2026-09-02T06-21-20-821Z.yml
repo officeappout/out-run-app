@@ -1,0 +1,365 @@
+- generic [ref=f27e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f27e2]:
+    - generic [ref=f27e3]:
+      - generic [ref=f27e5]:
+        - button "פרופיל" [ref=f27e6] [cursor=pointer]:
+          - img "דוד שחר מובשוביץ" [ref=f27e8]
+        - link "OUT" [ref=f27e213] [cursor=pointer]:
+          - /url: /home
+          - img "OUT" [ref=f27e214]
+        - generic [ref=f27e13]:
+          - button "התראות" [ref=f27e14] [cursor=pointer]:
+            - generic [ref=f27e215]: "1"
+          - button "הודעות" [ref=f27e18] [cursor=pointer]:
+            - generic [ref=f27e216]: "2"
+          - link "חיפוש" [ref=f27e21] [cursor=pointer]:
+            - /url: /search
+      - button "92%" [ref=f27e217] [cursor=pointer]
+      - generic [ref=f27e32]:
+        - generic [ref=f27e34]:
+          - heading "לו״ז אימונים" [level=2] [ref=f27e36]
+          - generic [ref=f27e37]:
+            - button "סנכרון ליומן" [ref=f27e38] [cursor=pointer]
+            - button "שינוי לוז" [ref=f27e40] [cursor=pointer]
+          - generic [ref=f27e46]:
+            - generic [ref=f27e47]:
+              - generic [ref=f27e48]: א
+              - button [ref=f27e219] [cursor=pointer]:
+                - generic "מנוחה" [ref=f27e222]:
+                  - generic [ref=f27e223]:
+                    - text: Z
+                    - superscript [ref=f27e224]: z
+            - generic [ref=f27e51]:
+              - generic [ref=f27e52]: ב
+              - button [ref=f27e225] [cursor=pointer]:
+                - generic "מנוחה" [ref=f27e228]:
+                  - generic [ref=f27e229]:
+                    - text: Z
+                    - superscript [ref=f27e230]: z
+            - generic [ref=f27e55]:
+              - generic [ref=f27e56]: ג
+              - button [ref=f27e231] [cursor=pointer]:
+                - generic "מנוחה" [ref=f27e234]:
+                  - generic [ref=f27e235]:
+                    - text: Z
+                    - superscript [ref=f27e236]: z
+            - generic [ref=f27e59]:
+              - generic [ref=f27e60]: ד
+              - button [ref=f27e237] [cursor=pointer]:
+                - generic "מנוחה" [ref=f27e240]:
+                  - generic [ref=f27e241]:
+                    - text: Z
+                    - superscript [ref=f27e242]: z
+            - generic [ref=f27e63]:
+              - generic [ref=f27e64]: ה
+              - button [ref=f27e243] [cursor=pointer]:
+                - generic "מנוחה" [ref=f27e246]:
+                  - generic [ref=f27e247]:
+                    - text: Z
+                    - superscript [ref=f27e248]: z
+            - generic [ref=f27e67]:
+              - generic [ref=f27e68]: ו
+              - button [ref=f27e249] [cursor=pointer]:
+                - generic "מנוחה" [ref=f27e252]:
+                  - generic [ref=f27e253]:
+                    - text: Z
+                    - superscript [ref=f27e254]: z
+            - generic [ref=f27e71]:
+              - generic [ref=f27e72]: ש
+              - button [ref=f27e255] [cursor=pointer]:
+                - generic "מנוחה" [ref=f27e258]:
+                  - generic [ref=f27e259]:
+                    - text: Z
+                    - superscript [ref=f27e260]: z
+        - generic [ref=f27e77]:
+          - generic [ref=f27e78]:
+            - generic [ref=f27e79]:
+              - heading "האימון היומי שלך" [level=3] [ref=f27e261]
+              - 'button "מיקום האימון: בבית" [ref=f27e263] [cursor=pointer]':
+                - generic [ref=f27e267]: בבית
+            - paragraph [ref=f27e270]: סשן 29 דקות בפארק המיועד לשיפור גוף מלא_פיזיולוגי. דגש על גיוס יחידות מוטוריות תחת עומס בהשלב הנוכחי.
+          - generic [ref=f27e271]:
+            - generic [ref=f27e273]:
+              - generic [ref=f27e277] [cursor=pointer]:
+                - img "Workout" [ref=f27e279]
+                - generic "ללא ציוד – משקל גוף" [ref=f27e283]
+                - generic [ref=f27e288]:
+                  - generic [ref=f27e290]:
+                    - generic [ref=f27e291]: 🧘 התאוששות פעילה
+                    - generic [ref=f27e292]: "|"
+                    - generic [ref=f27e293]: 13 דקות
+                  - 'heading "סשן התאוששות #5" [level=4] [ref=f27e295]'
+                  - generic: מוכן לגלות את האתגר?
+              - generic [ref=f27e298]:
+                - generic [ref=f27e299]:
+                  - heading "הליכה קלה" [level=3] [ref=f27e300]
+                  - paragraph [ref=f27e301]: בלי ציוד, בלי שאלון — תמיד אפשרות
+                  - generic [ref=f27e302]: קל
+                  - paragraph [ref=f27e306]: 30 דקות
+                - button "התחל" [ref=f27e307] [cursor=pointer]
+              - generic [ref=f27e311] [cursor=pointer]:
+                - img "Workout" [ref=f27e313]
+                - generic [ref=f27e315]:
+                  - generic "מתח" [ref=f27e316]:
+                    - img "מתח" [ref=f27e317]
+                  - generic "מקבילים" [ref=f27e318]:
+                    - img "מקבילים" [ref=f27e319]
+                  - generic "מזרון יוגה" [ref=f27e320]:
+                    - img "מזרון יוגה" [ref=f27e321]
+                  - generic "מדרגה" [ref=f27e322]:
+                    - img "מדרגה" [ref=f27e323]
+                - generic [ref=f27e324]:
+                  - generic [ref=f27e326]:
+                    - generic [ref=f27e327]: בינוני
+                    - generic [ref=f27e329]: "|"
+                    - generic [ref=f27e330]: 29 דקות
+                  - 'heading "אימון כללי עצים: פונקציונלי בפארק" [level=4] [ref=f27e332]'
+                  - generic: בוא נראה מה מחכה לנו!
+            - generic [ref=f27e333]:
+              - button "הצעה 1" [ref=f27e334] [cursor=pointer]
+              - button "הצעה 2" [ref=f27e335] [cursor=pointer]
+              - button "הצעה 3" [ref=f27e336] [cursor=pointer]
+          - generic [ref=f27e83]: אז מה ה-OUT שלך היום? ✦
+        - generic [ref=f27e85]:
+          - generic [ref=f27e86]:
+            - button "התקדמות שבועית" [ref=f27e87] [cursor=pointer]
+            - button "מדדי בריאות" [ref=f27e88] [cursor=pointer]
+          - generic [ref=f27e89]:
+            - generic [ref=f27e91]:
+              - generic [ref=f27e92]:
+                - heading "כל הגוף" [level=3] [ref=f27e99]
+                - paragraph [ref=f27e100]: רמה 12/15
+                - generic [ref=f27e101]: עוד 76% לרמה 13
+              - generic [ref=f27e105]: 24%
+            - generic [ref=f27e111]:
+              - generic [ref=f27e113]:
+                - generic [ref=f27e114]: כוח
+                - generic [ref=f27e118]: 0/3
+              - generic [ref=f27e123]:
+                - generic [aria-hidden]:
+                  - generic:
+                    - generic:
+                      - generic: ריצה
+                      - generic: 0/3
+                - button "הוסף תוכנית ריצה" [ref=f27e124] [cursor=pointer]
+        - generic [ref=f27e127]:
+          - generic [ref=f27e128]:
+            - heading "קבוצות קרובות אליך (7)" [level=3] [ref=f27e344]:
+              - text: קבוצות קרובות אליך
+              - generic [ref=f27e345]: (7)
+            - generic [ref=f27e135]:
+              - button "סנן קבוצות" [ref=f27e346] [cursor=pointer]
+              - button "הכל ›" [ref=f27e136] [cursor=pointer]
+          - generic [ref=f27e137]:
+            - generic [ref=f27e348] [cursor=pointer]:
+              - generic [ref=f27e349]:
+                - img "בדיקה 10" [ref=f27e350]
+                - generic [ref=f27e352]:
+                  - generic [ref=f27e353]: 🏃
+                  - generic [ref=f27e354]: ריצה
+                - generic [ref=f27e355]: קהילתי
+              - generic [ref=f27e356]:
+                - paragraph [ref=f27e357]: בדיקה 10
+                - paragraph [ref=f27e358]: יום ו׳ 19:00
+                - paragraph [ref=f27e359]: ~1 דק׳ הליכה
+            - generic [ref=f27e360] [cursor=pointer]:
+              - generic [ref=f27e361]:
+                - generic [ref=f27e362]: 🚶
+                - generic [ref=f27e365]:
+                  - generic [ref=f27e366]: 🚶
+                  - generic [ref=f27e367]: הליכה
+              - generic [ref=f27e368]:
+                - paragraph [ref=f27e369]: הליכה מתוזמנת
+                - paragraph [ref=f27e370]: ~25998 דק׳ נסיעה
+            - generic [ref=f27e371] [cursor=pointer]:
+              - generic [ref=f27e372]:
+                - generic [ref=f27e373]: 🏃
+                - generic [ref=f27e376]:
+                  - generic [ref=f27e377]: 🏃
+                  - generic [ref=f27e378]: ריצה
+              - generic [ref=f27e379]:
+                - paragraph [ref=f27e380]: ריצה מתוזמנת
+                - paragraph [ref=f27e381]: ~25998 דק׳ נסיעה
+            - generic [ref=f27e382] [cursor=pointer]:
+              - generic [ref=f27e383]:
+                - generic [ref=f27e384]: 🚶
+                - generic [ref=f27e387]:
+                  - generic [ref=f27e388]: 🚶
+                  - generic [ref=f27e389]: הליכה
+              - generic [ref=f27e390]:
+                - paragraph [ref=f27e391]: הליכה מתוזמנת
+                - paragraph [ref=f27e392]: ~25998 דק׳ נסיעה
+            - generic [ref=f27e393] [cursor=pointer]:
+              - generic [ref=f27e394]:
+                - generic [ref=f27e395]: 🚶
+                - generic [ref=f27e398]:
+                  - generic [ref=f27e399]: 🚶
+                  - generic [ref=f27e400]: הליכה
+              - generic [ref=f27e401]:
+                - paragraph [ref=f27e402]: הליכה מתוזמנת
+                - paragraph [ref=f27e403]: ~25998 דק׳ נסיעה
+            - generic [ref=f27e404] [cursor=pointer]:
+              - generic [ref=f27e405]:
+                - img "הליכה בת״א" [ref=f27e406]
+                - generic [ref=f27e408]:
+                  - generic [ref=f27e409]: 🚶
+                  - generic [ref=f27e410]: הליכה
+              - generic [ref=f27e411]:
+                - paragraph [ref=f27e412]: הליכה בת״א
+                - paragraph [ref=f27e413]: יום ו׳ 14:20
+                - paragraph [ref=f27e414]: ~13 דק׳ הליכה
+            - generic [ref=f27e415] [cursor=pointer]:
+              - generic [ref=f27e416]:
+                - img "ככככ" [ref=f27e417]
+                - generic [ref=f27e419]:
+                  - generic [ref=f27e420]: 🏃
+                  - generic [ref=f27e421]: ריצה
+                - generic [ref=f27e422]: קהילתי
+              - generic [ref=f27e423]:
+                - paragraph [ref=f27e424]: ככככ
+                - paragraph [ref=f27e425]: יום ב׳ 18:10 · יום ב׳ 10:34
+                - paragraph [ref=f27e426]: ~4 דק׳ נסיעה
+        - generic [ref=f27e427]:
+          - heading "גינות כושר קרובות" [level=3] [ref=f27e428]
+          - button [ref=f27e435] [cursor=pointer]:
+            - generic [ref=f27e440]:
+              - paragraph [ref=f27e441]: הפעל גישת מיקום
+              - paragraph [ref=f27e442]: כדי למצוא גינות כושר קרובות, נדרשת גישה למיקומך
+      - generic [ref=f27e446]:
+        - generic:
+          - generic:
+            - button "סגור"
+            - 'heading "אימון כללי עצים: פונקציונלי בפארק" [level=1]'
+        - generic [ref=f27e449]:
+          - generic [ref=f27e450]:
+            - 'img "אימון כללי עצים: פונקציונלי בפארק" [ref=f27e454]'
+            - button "סגור" [ref=f27e457] [cursor=pointer]
+          - 'heading "אימון כללי עצים: פונקציונלי בפארק" [level=1] [ref=f27e463]'
+          - group "בחירת עצימות" [ref=f27e465]:
+            - button "קלה · 30׳" [ref=f27e466] [cursor=pointer]
+            - button "מאוזנת · 45׳" [pressed] [ref=f27e470] [cursor=pointer]
+            - button "אינטנסיבית · 60׳" [ref=f27e474] [cursor=pointer]
+          - generic [ref=f27e478]:
+            - generic [ref=f27e479]:
+              - generic [ref=f27e480]: איפה מתאמנים?
+              - button "פארק" [ref=f27e482] [cursor=pointer]
+            - generic [ref=f27e489]:
+              - generic [ref=f27e490]:
+                - generic [ref=f27e491]:
+                  - generic [ref=f27e492]: בינוני
+                  - generic [ref=f27e496]: 29 דק'
+                - generic [ref=f27e501]:
+                  - button "שתף" [ref=f27e502] [cursor=pointer]
+                  - button "מועדפים" [ref=f27e509] [cursor=pointer]
+                  - button "הורדה לאופליין" [ref=f27e512] [cursor=pointer]
+              - paragraph [ref=f27e516]: איזון בין דחיפה למשיכה. שים/י לב שהכתפיים נשארות רחוקות מהאוזניים.
+              - generic [ref=f27e517]:
+                - heading "ציוד" [level=3] [ref=f27e518]
+                - generic [ref=f27e519]:
+                  - generic [ref=f27e520]:
+                    - img "מתח" [ref=f27e521]
+                    - generic [ref=f27e522]: מתח
+                  - generic [ref=f27e523]:
+                    - img "מדרגה" [ref=f27e524]
+                    - generic [ref=f27e525]: מדרגה
+                  - generic [ref=f27e526]:
+                    - img "מקבילים" [ref=f27e527]
+                    - generic [ref=f27e528]: מקבילים
+                  - generic [ref=f27e529]:
+                    - img "מזרון יוגה" [ref=f27e530]
+                    - generic [ref=f27e531]: מזרון יוגה
+              - generic [ref=f27e533]:
+                - heading "שרירים" [level=3] [ref=f27e534]
+                - generic [ref=f27e535]:
+                  - generic [ref=f27e536]:
+                    - img "שלוש ראשי" [ref=f27e537]
+                    - generic [ref=f27e538]: שלוש ראשי
+                  - generic [ref=f27e539]:
+                    - img "גב" [ref=f27e540]
+                    - generic [ref=f27e541]: גב
+                  - generic [ref=f27e542]:
+                    - img "חזה" [ref=f27e543]
+                    - generic [ref=f27e544]: חזה
+                  - generic [ref=f27e545]:
+                    - img "ישבן" [ref=f27e546]
+                    - generic [ref=f27e547]: ישבן
+              - generic [ref=f27e549]:
+                - button "הרחב חימום" [ref=f27e550] [cursor=pointer]:
+                  - heading "חימום" [level=3] [ref=f27e551]
+                  - generic [ref=f27e552]: (3 תרגילים)
+                - button "פעיל" [pressed] [ref=f27e556] [cursor=pointer]
+              - generic [ref=f27e557]:
+                - generic [ref=f27e558]:
+                  - heading "סופר סט" [level=3] [ref=f27e563]
+                  - generic [ref=f27e564]: 3x סבבים
+                - generic [ref=f27e565]:
+                  - button "פשיטת מרפקים למתקדמים פשיטת מרפקים למתקדמים 5 חזרות החלף תרגיל" [ref=f27e566] [cursor=pointer]:
+                    - generic [ref=f27e567]:
+                      - img "פשיטת מרפקים למתקדמים" [ref=f27e569]
+                      - generic [ref=f27e570]:
+                        - generic [ref=f27e571]: פשיטת מרפקים למתקדמים
+                        - generic [ref=f27e573]: 5 חזרות
+                      - button "החלף תרגיל" [ref=f27e575]
+                  - button "החזקת מתח יד אחת ב-90° החזקת מתח יד אחת ב-90° 10-15 שניות החלף תרגיל" [ref=f27e576] [cursor=pointer]:
+                    - generic [ref=f27e577]:
+                      - img "החזקת מתח יד אחת ב-90°" [ref=f27e579]
+                      - generic [ref=f27e580]:
+                        - generic [ref=f27e581]: החזקת מתח יד אחת ב-90°
+                        - generic [ref=f27e583]: 10-15 שניות
+                      - button "החלף תרגיל" [ref=f27e585]
+              - generic [ref=f27e586]:
+                - generic [ref=f27e587]:
+                  - heading "סט רגיל" [level=3] [ref=f27e589]
+                  - generic [ref=f27e590]: 2x סבבים
+                - button "מקבילים מקבילים 6-8 חזרות החלף תרגיל" [ref=f27e592] [cursor=pointer]:
+                  - generic [ref=f27e593]:
+                    - img "מקבילים" [ref=f27e595]
+                    - generic [ref=f27e596]:
+                      - generic [ref=f27e597]: מקבילים
+                      - generic [ref=f27e599]: 6-8 חזרות
+                    - button "החלף תרגיל" [ref=f27e601]
+              - generic [ref=f27e602]:
+                - generic [ref=f27e603]:
+                  - heading "סט רגיל" [level=3] [ref=f27e605]
+                  - generic [ref=f27e606]: 3x סבבים
+                - button "היפ טראסט היפ טראסט 2-4 חזרות החלף תרגיל" [ref=f27e608] [cursor=pointer]:
+                  - generic [ref=f27e609]:
+                    - img "היפ טראסט" [ref=f27e611]
+                    - generic [ref=f27e612]:
+                      - generic [ref=f27e613]: היפ טראסט
+                      - generic [ref=f27e615]: 2-4 חזרות
+                    - button "החלף תרגיל" [ref=f27e617]
+              - generic [ref=f27e618]:
+                - generic [ref=f27e619]:
+                  - heading "מתיחות" [level=3] [ref=f27e621]
+                  - generic [ref=f27e622]: 1x סבבים
+                - button "מתיחות פלג גוף עליון לבדיקה מתיחות פלג גוף עליון לבדיקה 30 שניות החלף תרגיל" [ref=f27e624] [cursor=pointer]:
+                  - generic [ref=f27e625]:
+                    - img "מתיחות פלג גוף עליון לבדיקה" [ref=f27e627]
+                    - generic [ref=f27e628]:
+                      - generic [ref=f27e629]: מתיחות פלג גוף עליון לבדיקה
+                      - generic [ref=f27e631]: 30 שניות
+                    - button "החלף תרגיל" [ref=f27e633]
+              - generic [ref=f27e634]:
+                - paragraph [ref=f27e635]: 🦥 מצב מופחת
+                - paragraph [ref=f27e636]: "Sets: 5 → 3 (-50%)"
+        - generic [ref=f27e637]:
+          - generic [ref=f27e638]:
+            - generic [ref=f27e644]:
+              - generic [ref=f27e645]: שתף שאני יוצא לאימון
+              - generic [ref=f27e646]: תופיע לאחרים שמחפשים שותף
+            - button [ref=f27e647] [cursor=pointer]
+          - generic [ref=f27e649]:
+            - button "התחלת אימון" [active] [ref=f27e650] [cursor=pointer]
+            - button "הפעל שמע" [ref=f27e654] [cursor=pointer]
+      - button [ref=f27e190] [cursor=pointer]
+  - navigation [ref=f27e193]:
+    - generic [ref=f27e194]:
+      - link "בית" [ref=f27e195] [cursor=pointer]:
+        - /url: /home
+      - link "מפה" [ref=f27e200] [cursor=pointer]:
+        - /url: /map
+      - link "חברתי" [ref=f27e204] [cursor=pointer]:
+        - /url: /community
+  - alert [ref=f27e211]

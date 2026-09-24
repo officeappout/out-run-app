@@ -1,0 +1,4 @@
+[ 1538017ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://waa-pa.clients6.google.com/$rpc/google.internal.waa.v1.Waa/Ping:0
+[ 1538017ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://play.google.com/log?hasfast=true&auth=SAPISIDHASH+ae398c4acd31af5be7e6a85e9ffaa17ac6a196be+SAPISID1PHASH+ae398c4acd31af5be7e6a85e9ffaa17ac6a196be+SAPISID3PHASH+ae398c4acd31af5be7e6a85e9ffaa17ac6a196be&authuser=0&format=json:0
+[ 1538018ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://play.google.com/log?format=json&hasfast=true&authuser=0:0
+[ 1539024ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://waa-pa.googleapis.com/$rpc/google.internal.waa.v1.Waa/Ping:0

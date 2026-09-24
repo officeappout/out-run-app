@@ -1,0 +1,843 @@
+<title>התאמת מיקומים — לוח בקרה</title>
+<style>
+:root {
+  --bg: #f6f8f7;
+  --surface: #ffffff;
+  --surface-2: #eef2f0;
+  --ink: #16211f;
+  --ink-dim: #55716b;
+  --ink-faint: #85a49d;
+  --line: #d9e3df;
+  --accent: #1f6f68;
+  --accent-ink: #ffffff;
+  --ok-bg: #e4f3e8;
+  --ok-ink: #1f7a44;
+  --warn-bg: #fbf0dd;
+  --warn-ink: #9c6a13;
+  --bad-bg: #fbe7e4;
+  --bad-ink: #a53a2c;
+  --font-body: "Segoe UI", "Assistant", "Arial Hebrew", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Consolas, "Courier New", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101615;
+    --surface: #172020;
+    --surface-2: #1d2827;
+    --ink: #e7efec;
+    --ink-dim: #9bb5af;
+    --ink-faint: #5c7a73;
+    --line: #293634;
+    --accent: #4fada3;
+    --accent-ink: #08201d;
+    --ok-bg: #16301f;
+    --ok-ink: #78d69a;
+    --warn-bg: #362a11;
+    --warn-ink: #e3b45c;
+    --bad-bg: #3a1d18;
+    --bad-ink: #ee8d7c;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101615; --surface: #172020; --surface-2: #1d2827; --ink: #e7efec; --ink-dim: #9bb5af; --ink-faint: #5c7a73;
+  --line: #293634; --accent: #4fada3; --accent-ink: #08201d;
+  --ok-bg: #16301f; --ok-ink: #78d69a; --warn-bg: #362a11; --warn-ink: #e3b45c; --bad-bg: #3a1d18; --bad-ink: #ee8d7c;
+}
+:root[data-theme="light"] {
+  --bg: #f6f8f7; --surface: #ffffff; --surface-2: #eef2f0; --ink: #16211f; --ink-dim: #55716b; --ink-faint: #85a49d;
+  --line: #d9e3df; --accent: #1f6f68; --accent-ink: #ffffff;
+  --ok-bg: #e4f3e8; --ok-ink: #1f7a44; --warn-bg: #fbf0dd; --warn-ink: #9c6a13; --bad-bg: #fbe7e4; --bad-ink: #a53a2c;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  direction: rtl;
+  line-height: 1.6;
+  font-size: 16px;
+}
+::selection { background: var(--accent); color: var(--accent-ink); }
+
+.wrap {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 48px 24px 96px;
+}
+
+header.report-head {
+  border-bottom: 2px solid var(--line);
+  padding-bottom: 28px;
+  margin-bottom: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.eyebrow {
+  font-size: 12.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 700;
+  font-family: var(--font-mono);
+  direction: ltr;
+  text-align: right;
+  unicode-bidi: plaintext;
+}
+h1 {
+  font-size: clamp(28px, 4vw, 38px);
+  margin: 0;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+.report-head p { margin: 0; color: var(--ink-dim); font-size: 15px; max-width: 68ch; }
+.meta-row {
+  display: flex; flex-wrap: wrap; gap: 8px 20px;
+  font-size: 13px; color: var(--ink-faint); font-family: var(--font-mono); direction: ltr; justify-content: flex-end;
+}
+
+section { margin-bottom: 56px; }
+h2 {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0 0 6px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+h2 .bucket-num {
+  font-family: var(--font-mono);
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 700;
+}
+.section-intro { color: var(--ink-dim); font-size: 14.5px; max-width: 72ch; margin: 0 0 20px; }
+
+/* Stat cards */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px 18px;
+}
+.stat-card .num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink);
+}
+.stat-card .label { font-size: 12.5px; color: var(--ink-dim); margin-top: 6px; }
+.stat-card.ok .num { color: var(--ok-ink); }
+.stat-card.warn .num { color: var(--warn-ink); }
+.stat-card.bad .num { color: var(--bad-ink); }
+
+.summary-block {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 22px 24px;
+  margin-bottom: 18px;
+}
+.summary-block h3 { margin: 0 0 12px; font-size: 15px; font-weight: 700; color: var(--ink-dim); text-transform: uppercase; letter-spacing: .03em; }
+.summary-line { display: flex; justify-content: space-between; gap: 16px; padding: 7px 0; border-bottom: 1px dashed var(--line); font-size: 14.5px; }
+.summary-line:last-child { border-bottom: none; }
+.summary-line .n { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 700; }
+
+.pill {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 100px;
+}
+.pill-ok { background: var(--ok-bg); color: var(--ok-ink); }
+.pill-warn { background: var(--warn-bg); color: var(--warn-ink); }
+.pill-bad { background: var(--bad-bg); color: var(--bad-ink); }
+
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+table.data-table { width: 100%; border-collapse: collapse; font-size: 14px; background: var(--surface); }
+table.data-table th {
+  text-align: right;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--ink-dim);
+  background: var(--surface-2);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  position: sticky; top: 0;
+}
+table.data-table td { padding: 9px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.data-table tr:last-child td { border-bottom: none; }
+table.data-table td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+table.data-table tr.status-bad td:first-child { border-inline-start: 3px solid var(--bad-ink); }
+table.data-table tr.status-warn td:first-child { border-inline-start: 3px solid var(--warn-ink); }
+table.data-table tr.status-ok td:first-child { border-inline-start: 3px solid var(--ok-ink); }
+code { font-family: var(--font-mono); direction: ltr; unicode-bidi: plaintext; font-size: 12.5px; color: var(--ink-dim); background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+.tag { font-size: 11px; font-family: var(--font-mono); color: var(--ink-faint); }
+
+details.council-block, details.nc-block {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+details.council-block summary, details.nc-block summary {
+  padding: 13px 18px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  list-style: none;
+  gap: 12px;
+}
+details.council-block summary::-webkit-details-marker, details.nc-block summary::-webkit-details-marker { display: none; }
+details.council-block summary::before, details.nc-block summary::before {
+  content: "›";
+  display: inline-block;
+  margin-left: 8px;
+  transition: transform .15s ease;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 18px;
+}
+details[open].council-block summary::before, details[open].nc-block summary::before { transform: rotate(90deg); }
+.council-name { font-weight: 700; }
+.council-meta { font-size: 12.5px; color: var(--ink-dim); font-family: var(--font-mono); margin-inline-end: auto; }
+.council-note { margin: 0 18px 10px; font-size: 13px; color: var(--warn-ink); background: var(--warn-bg); padding: 8px 12px; border-radius: 8px; }
+.chips { padding: 4px 16px 16px; display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { background: var(--surface-2); border: 1px solid var(--line); border-radius: 7px; padding: 4px 10px; font-size: 13px; }
+
+.finding-box {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 20px 22px;
+  background: var(--surface);
+}
+.finding-box.callout-ok { border-color: var(--ok-ink); background: var(--ok-bg); }
+.finding-box.callout-ok .headline { color: var(--ok-ink); }
+.headline { font-weight: 800; font-size: 17px; margin: 0 0 6px; }
+
+footer.methodology {
+  border-top: 2px solid var(--line);
+  padding-top: 24px;
+  margin-top: 64px;
+  font-size: 13.5px;
+  color: var(--ink-dim);
+}
+footer.methodology h3 { font-size: 14px; color: var(--ink); margin: 20px 0 8px; }
+footer.methodology ul { margin: 0; padding-inline-start: 20px; }
+footer.methodology li { margin-bottom: 5px; }
+footer.methodology a { color: var(--accent); }
+
+@media (max-width: 640px) {
+  .wrap { padding: 32px 16px 64px; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+
+<div class="wrap">
+
+<header class="report-head">
+  <div class="eyebrow">location-coverage-reconciliation · read-only · 2026-08-10</div>
+  <h1>התאמת מיקומים — עיריות, מקומיות, אזוריות</h1>
+  <p>השוואה תלת-כיוונית: המציאות הרשמית (ויקיפדיה + אתרי מועצות) ↔ ה-picker (israel-locations.ts) ↔ Firestore (authorities). דו"ח קריאה בלבד — לא בוצע אף כתיבה.</p>
+  <div class="meta-row">
+    <span>picker: 236 top-level · 476 sub-locations</span>
+    <span>firestore: 793 docs</span>
+    <span>official RCs: 54</span>
+  </div>
+</header>
+
+<section id="topline">
+  <h2>תקציר מנהלים</h2>
+  <p class="section-intro">שתי קבוצות נפרדות — מועצות אזוריות (שיש להן רשימת יישובים רשמית) מול ערים/מועצות מקומיות (יחידה בודדת ללא "יישובים").</p>
+
+  <div class="summary-block">
+    <h3>מועצות אזוריות — 54 רשמיות</h3>
+    <div class="summary-line"><span>(a) מכוסות במלואן — יש התאמה בין picker ↔ Firestore ברמת היישובים</span><span class="n">32</span></div>
+    <div class="summary-line"><span>(b) קיימות כ"מועצה" בשתי המערכות אך <b>0 יישובים</b> בשתיהן</span><span class="n">22</span></div>
+    <div class="summary-line"><span>(c) נעדרות לגמרי מה-picker (אך קיימות ב-Firestore כרשומת-על)</span><span class="n">20 מתוך ה-22</span></div>
+  </div>
+
+  <div class="summary-block">
+    <h3>ערים ומועצות מקומיות — ~257–259 רשמיות (ראו מתודולוגיה)</h3>
+    <div class="summary-line"><span>קיימות ב-Firestore</span><span class="n">216</span></div>
+    <div class="summary-line"><span>קיימות ב-picker</span><span class="n">202</span></div>
+    <div class="summary-line"><span>ב-Firestore אך חסרות מה-picker</span><span class="n">13 אמיתיות (+ רשומת בדיקה אחת)</span></div>
+    <div class="summary-line"><span>כפילויות פנימיות ב-picker (אותו מקום, שני ID שונים)</span><span class="n">10</span></div>
+  </div>
+
+  <div class="stat-grid" style="margin-top:20px;">
+    <div class="stat-card ok"><div class="num">0</div><div class="label">ביישובים: picker בלי Firestore (עדיפות עליונה)</div></div>
+    <div class="stat-card ok"><div class="num">0</div><div class="label">ביישובים: Firestore בלי picker</div></div>
+    <div class="stat-card ok"><div class="num">0</div><div class="label">אי-התאמות שיוך-הורה (bucket 6)</div></div>
+    <div class="stat-card bad"><div class="num">242</div><div class="label">רשומות picker בלי קואורדינטה</div></div>
+  </div>
+
+  <details class="nc-block" style="margin-top:20px;">
+    <summary><span class="council-name">טבלה מלאה — כל 54 המועצות האזוריות</span><span class="council-meta">Firestore מול picker, מספר יישובים</span></summary>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>מועצה (שם רשמי)</th><th>יישובים ב-Firestore</th><th>יישובים ב-picker</th><th>סטטוס</th></tr></thead>
+        <tbody><tr class="status-ok">
+      <td>אל קסום</td>
+      <td class="num">7</td>
+      <td class="num">7</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>אל-בטוף</td>
+      <td class="num">4</td>
+      <td class="num">4</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>אלונה</td>
+      <td class="num">3</td>
+      <td class="num">3</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>אשכול</td>
+      <td class="num">4</td>
+      <td class="num">4</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-bad">
+      <td>באר טוביה</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td><span class="pill pill-bad">חסר לגמרי</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>בוסתאן אל-מרג&#x27;</td>
+      <td class="num">4</td>
+      <td class="num">4</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>בני שמעון</td>
+      <td class="num">13</td>
+      <td class="num">13</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-bad">
+      <td>ברנר</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td><span class="pill pill-bad">חסר לגמרי</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>גדרות</td>
+      <td class="num">7</td>
+      <td class="num">7</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>גולן</td>
+      <td class="num">3</td>
+      <td class="num">3</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>גוש עציון</td>
+      <td class="num">4</td>
+      <td class="num">4</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>גזר</td>
+      <td class="num">3</td>
+      <td class="num">3</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>גן רווה</td>
+      <td class="num">9</td>
+      <td class="num">9</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>דרום השרון</td>
+      <td class="num">5</td>
+      <td class="num">5</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-bad">
+      <td>הגלבוע</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td><span class="pill pill-bad">חסר לגמרי</span></td>
+    </tr>
+<tr class="status-bad">
+      <td>הגליל העליון</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td><span class="pill pill-bad">חסר לגמרי</span></td>
+    </tr>
+<tr class="status-bad">
+      <td>הגליל התחתון</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td><span class="pill pill-bad">חסר לגמרי</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>הערבה התיכונה</td>
+      <td class="num">9</td>
+      <td class="num">9</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-bad">
+      <td>הר חברון</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td><span class="pill pill-bad">חסר לגמרי</span></td>
+    </tr>
+<tr class="status-bad">
+      <td>זבולון</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td><span class="pill pill-bad">חסר לגמרי</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>חבל אילות</td>
+      <td class="num">15</td>
+      <td class="num">15</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>חבל יבנה</td>
+      <td class="num">6</td>
+      <td class="num">6</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>חבל מודיעין</td>
+      <td class="num">4</td>
+      <td class="num">4</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>חוף אשקלון</td>
+      <td class="num">20</td>
+      <td class="num">20</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-bad">
+      <td>חוף הכרמל</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td><span class="pill pill-bad">חסר לגמרי</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>חוף השרון</td>
+      <td class="num">6</td>
+      <td class="num">6</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-bad">
+      <td>יואב</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td><span class="pill pill-bad">חסר לגמרי</span></td>
+    </tr>
+<tr class="status-bad">
+      <td>לב השרון</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td><span class="pill pill-bad">חסר לגמרי</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>לכיש</td>
+      <td class="num">22</td>
+      <td class="num">22</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-bad">
+      <td>מבואות החרמון</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td><span class="pill pill-bad">חסר לגמרי</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>מגידו</td>
+      <td class="num">14</td>
+      <td class="num">14</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-bad">
+      <td>מגילות ים המלח</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td><span class="pill pill-bad">חסר לגמרי</span></td>
+    </tr>
+<tr class="status-bad">
+      <td>מטה אשר</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td><span class="pill pill-bad">חסר לגמרי</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>מטה בנימין</td>
+      <td class="num">4</td>
+      <td class="num">4</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>מטה יהודה</td>
+      <td class="num">6</td>
+      <td class="num">6</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-bad">
+      <td>מנשה</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td><span class="pill pill-bad">חסר לגמרי</span></td>
+    </tr>
+<tr class="status-bad">
+      <td>מעלה יוסף</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td><span class="pill pill-bad">חסר לגמרי</span></td>
+    </tr>
+<tr class="status-bad">
+      <td>מרום הגליל</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td><span class="pill pill-bad">חסר לגמרי</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>מרחבים</td>
+      <td class="num">19</td>
+      <td class="num">19</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>משגב</td>
+      <td class="num">4</td>
+      <td class="num">4</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-bad">
+      <td>נווה מדבר</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td><span class="pill pill-bad">חסר לגמרי</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>נחל שורק</td>
+      <td class="num">7</td>
+      <td class="num">7</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-bad">
+      <td>עמק הירדן</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td><span class="pill pill-bad">חסר לגמרי</span></td>
+    </tr>
+<tr class="status-bad">
+      <td>עמק המעיינות</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td><span class="pill pill-bad">חסר לגמרי</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>עמק חפר</td>
+      <td class="num">7</td>
+      <td class="num">7</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>עמק יזרעאל</td>
+      <td class="num">5</td>
+      <td class="num">5</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-bad">
+      <td>ערבות הירדן</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td><span class="pill pill-bad">חסר לגמרי</span></td>
+    </tr>
+<tr class="status-bad">
+      <td>רמת הנגב</td>
+      <td class="num">0 <span class='tag'>FUZZY(1): רמת נגב</span></td>
+      <td class="num">0</td>
+      <td><span class="pill pill-bad">חסר לגמרי</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>שדות דן</td>
+      <td class="num">9</td>
+      <td class="num">9</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>שדות נגב</td>
+      <td class="num">18</td>
+      <td class="num">18</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>שומרון</td>
+      <td class="num">4</td>
+      <td class="num">4</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>שער הנגב</td>
+      <td class="num">13</td>
+      <td class="num">13</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-ok">
+      <td>שפיר</td>
+      <td class="num">14</td>
+      <td class="num">14</td>
+      <td><span class="pill pill-ok">מכוסה</span></td>
+    </tr>
+<tr class="status-bad">
+      <td>תמר</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td><span class="pill pill-bad">חסר לגמרי</span></td>
+    </tr></tbody>
+      </table>
+    </div>
+  </details>
+</section>
+
+<section id="bucket2">
+  <h2><span class="bucket-num">01</span> בכל השלוש — מכוסה במלואו</h2>
+  <p class="section-intro">272 יישובים (בתוך 32 מועצות) + 204 שכונות (בתוך כל הערים עם שכונות ב-picker) — תואמים 1:1 בין picker ל-Firestore, שם מול שם, הורה מול הורה. זה תוצר ישיר של סבב Phase B שרץ הערב.</p>
+  <div class="finding-box callout-ok">
+    <p class="headline">אין עדות לפערי-סנכרון בתוך המועצות/הערים המכוסות</p>
+    <p style="margin:0; color:var(--ink-dim); font-size:14px;">חשוב להבהיר את הגבול: הבדיקה הזו מוודאת ש-picker ⇄ Firestore תואמים זה לזה בתוך המועצות שכבר מכוסות — היא <b>לא</b> מוודאת שרשימת ה-32 המועצות האלה שלמה מול המציאות הרשמית (זה sample-checked בסבב הקודם ל-2 מועצות, לא ל-32).</p>
+  </div>
+</section>
+
+<section id="bucket2-high">
+  <h2><span class="bucket-num">02</span> ב-picker אך חסר מ-Firestore <span class="pill pill-bad">עדיפות עליונה</span></h2>
+  <p class="section-intro">זה באג-הסנכרון שהכי חששתם ממנו — משתמש יכול לבחור יישוב, אבל אין רשומת authority כדי שה-analytics/breakdown יעבדו עליו.</p>
+  <div class="finding-box callout-ok">
+    <p class="headline">נמצאו 0 מקרים</p>
+    <p style="margin:0; color:var(--ink-dim); font-size:14px;">כל 272 היישובים וכל 204 השכונות שקיימים ב-picker קיימים גם ב-Firestore, עם parentAuthorityId תואם. תוצאה ישירה מהמתודולוגיה של Phase B (כתיבה כפולה בו-זמנית לשתי המערכות).</p>
+  </div>
+</section>
+
+<section id="bucket3">
+  <h2><span class="bucket-num">03</span> ב-Firestore אך חסר מה-picker</h2>
+  <p class="section-intro">רשומת authority קיימת, אבל המשתמש לא יכול לבחור אותה ב-onboarding. ברמת יישוב/שכונה בתוך מועצות מכוסות: <b>0</b>. ברמת עיר/מועצה מקומית מלאה (טופ-לבל): <b>13</b> (+ רשומת "wix" שנראית כמו נתוני בדיקה, לא מקום אמיתי — לא נספרת).</p>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>שם</th><th>סוג</th><th>Firestore ID</th></tr></thead>
+      <tbody><tr><td>אורנית</td><td>local_council</td><td><code>bs9nQTUwD9ME9eYRek67</code></td></tr>
+<tr><td>בועיינה-נוג&#x27;ידאת</td><td>local_council</td><td><code>cUWM00vVsZKByuZO3Jsl</code></td></tr>
+<tr><td>בית אריה-עופרים</td><td>local_council</td><td><code>emk5immqkk8wWjBgvsKB</code></td></tr>
+<tr><td>ג&#x27;ולס</td><td>local_council</td><td><code>jCer1yYMEsTSoPQo3xXT</code></td></tr>
+<tr><td>דבורייה</td><td>local_council</td><td><code>T0tkXdNtKtrSLMJI5kee</code></td></tr>
+<tr><td>דייר אל-אסד</td><td>local_council</td><td><code>3mJuUfM3l4CI1GLo7TKt</code></td></tr>
+<tr><td>כסרא-סמיע</td><td>local_council</td><td><code>kax8PoJHMdIIN6R7tEpA</code></td></tr>
+<tr><td>עיילבון</td><td>local_council</td><td><code>nNC6txQLItZwqXQmNmJN</code></td></tr>
+<tr><td>עמנואל</td><td>local_council</td><td><code>XvXVlvwOratbhqFchgnv</code></td></tr>
+<tr><td>צור הדסה</td><td>local_council</td><td><code>0tT6cdIp6n9HGRPure6O</code></td></tr>
+<tr><td>קדומים</td><td>local_council</td><td><code>SjPvnb6HM0Jrk4WMnApa</code></td></tr>
+<tr><td>קריית ארבע</td><td>local_council</td><td><code>PzpTlHdSx2iYzT1CXcLf</code></td></tr>
+<tr><td>קריית יערים</td><td>local_council</td><td><code>w2kWJA6yOaNmqyqwIgwq</code></td></tr></tbody>
+    </table>
+  </div>
+  <p style="font-size:13px; color:var(--ink-faint); margin-top:10px;">שימו לב ל<b>צור הדסה</b> — קיימת ב-Firestore כ-local_council עצמאי, אבל ב-picker היא מיוצגת רק כיישוב מקונן תחת מטה יהודה (my-tzur-hadassah). זה קונפליקט מודעSode מסבב Phase A קודם (יש הערה בקוד), לא תגלית חדשה — אבל טרם נפתר.</p>
+</section>
+
+<section id="bucket4">
+  <h2><span class="bucket-num">04</span> חסר משתיהן — הפער האמיתי</h2>
+  <p class="section-intro">22 מועצות אזוריות רשמיות שקיימות כ"קונטיינר" בשתי המערכות אך עם <b>0 יישובים</b> בשתיהן. לכל מועצה: הרשימה הרשמית המלאה (ויקיפדיה + אתר המועצה, עם ציטוט מקור), ורמת הביטחון במקור. <b>3 מועצות</b> (הר חברון, חוף הכרמל, מנשה, מרום הגליל, ערבות הירדן, רמת הנגב) יש אי-התאמה בין ויקיפדיה לאתר הרשמי עצמו על המספר המדויק — מסומן.</p>
+  <p style="font-size:13px; color:var(--warn-ink); background:var(--warn-bg); padding:10px 14px; border-radius:8px;">⚠️ תגלית אגבית: Firestore מאחסן את השם <code>רמת נגב</code> — אך שני המקורות הרשמיים (ויקיפדיה + rng.org.il) מסכימים שהשם הנכון הוא <b>רמת הנגב</b> (עם ה'). זו שגיאת כתיב קיימת, לא קשורה לעבודת הערב.</p>
+  <details class="council-block">
+      <summary><span class="council-name">באר טוביה</span><span class="council-meta">23 יישובים · ביטחון: high</span></summary>
+      <p class='council-note'>picker+Firestore both show 0; council entry itself exists in both</p>
+      <div class="chips"><span class='chip'>אביגדור</span><span class='chip'>אורות</span><span class='chip'>אחווה</span><span class='chip'>אמונים</span><span class='chip'>באר טוביה</span><span class='chip'>ביצרון</span><span class='chip'>בית עזרא</span><span class='chip'>גבעתי</span><span class='chip'>חצב</span><span class='chip'>חצור אשדוד</span><span class='chip'>ינון</span><span class='chip'>כנות</span><span class='chip'>כפר אחים</span><span class='chip'>כפר ורבורג</span><span class='chip'>נווה מבטח</span><span class='chip'>ניר בנים</span><span class='chip'>עזר</span><span class='chip'>עזריקם</span><span class='chip'>ערוגות</span><span class='chip'>שדה עוזיהו</span><span class='chip'>שתולים</span><span class='chip'>תימורים</span><span class='chip'>תלמי יחיאל</span></div>
+    </details>
+<details class="council-block">
+      <summary><span class="council-name">ברנר</span><span class="council-meta">7 יישובים · ביטחון: high</span></summary>
+      <p class='council-note'>last entry is a military base family-housing, not civilian - same judgment call as גן רווה&#x27;s excluded בסיס הילה</p>
+      <div class="chips"><span class='chip'>גבעת ברנר</span><span class='chip'>קבוצת שילר</span><span class='chip'>קדרון</span><span class='chip'>בית אלעזרי</span><span class='chip'>בניה</span><span class='chip'>גיבתון</span><span class='chip'>בסיס תל נוף</span></div>
+    </details>
+<details class="council-block">
+      <summary><span class="council-name">הגלבוע</span><span class="council-meta">33 יישובים · ביטחון: high (Wikipedia=official site exact match)</span></summary>
+      
+      <div class="chips"><span class='chip'>בית אלפא</span><span class='chip'>בית השיטה</span><span class='chip'>גבע</span><span class='chip'>חפציבה</span><span class='chip'>יזרעאל</span><span class='chip'>עין חרוד איחוד</span><span class='chip'>עין חרוד מאוחד</span><span class='chip'>תל יוסף</span><span class='chip'>אביטל</span><span class='chip'>אדירים</span><span class='chip'>ברק</span><span class='chip'>גדיש</span><span class='chip'>דבורה</span><span class='chip'>כפר יחזקאל</span><span class='chip'>מגן שאול</span><span class='chip'>מולדת</span><span class='chip'>מיטב</span><span class='chip'>מלאה</span><span class='chip'>ניר יפה</span><span class='chip'>פרזון</span><span class='chip'>רם און</span><span class='chip'>רמת צבי</span><span class='chip'>גדעונה</span><span class='chip'>גן נר</span><span class='chip'>מרכז אומן</span><span class='chip'>מרכז חבר</span><span class='chip'>מרכז יעל</span><span class='chip'>נורית</span><span class='chip'>טייבה</span><span class='chip'>טמרה</span><span class='chip'>מוקייבלה</span><span class='chip'>נאעורה</span><span class='chip'>סנדלה</span></div>
+    </details>
+<details class="council-block">
+      <summary><span class="council-name">הגליל העליון</span><span class="council-meta">29 יישובים · ביטחון: highest (verbatim match)</span></summary>
+      
+      <div class="chips"><span class='chip'>איילת השחר</span><span class='chip'>ברעם</span><span class='chip'>גדות</span><span class='chip'>גונן</span><span class='chip'>דן</span><span class='chip'>דפנה</span><span class='chip'>הגושרים</span><span class='chip'>חולתה</span><span class='chip'>יפתח</span><span class='chip'>יראון</span><span class='chip'>כפר בלום</span><span class='chip'>כפר גלעדי</span><span class='chip'>כפר הנשיא</span><span class='chip'>כפר סאלד</span><span class='chip'>להבות הבשן</span><span class='chip'>מחניים</span><span class='chip'>מלכיה</span><span class='chip'>מנרה</span><span class='chip'>מעיין ברוך</span><span class='chip'>משגב עם</span><span class='chip'>נאות מרדכי</span><span class='chip'>סאסא</span><span class='chip'>עמיעד</span><span class='chip'>עמיר</span><span class='chip'>צבעון</span><span class='chip'>קדרים</span><span class='chip'>שדה נחמיה</span><span class='chip'>שמיר</span><span class='chip'>שניר</span></div>
+    </details>
+<details class="council-block">
+      <summary><span class="council-name">הגליל התחתון</span><span class="council-meta">18 יישובים · ביטחון: medium</span></summary>
+      
+      <div class="chips"><span class='chip'>אילניה</span><span class='chip'>ארבל</span><span class='chip'>בית קשת</span><span class='chip'>בית רימון</span><span class='chip'>גבעת אבני</span><span class='chip'>הודיות</span><span class='chip'>הזורעים</span><span class='chip'>כפר זיתים</span><span class='chip'>כפר חיטים</span><span class='chip'>כפר קיש</span><span class='chip'>לביא</span><span class='chip'>מסד</span><span class='chip'>מצפה</span><span class='chip'>מצפה נטופה</span><span class='chip'>שדה אילן</span><span class='chip'>שדמות דבורה</span><span class='chip'>שיבולים</span><span class='chip'>שרונה</span></div>
+    </details>
+<details class="council-block">
+      <summary><span class="council-name">הר חברון</span><span class="council-meta">22 or 23 (unresolved) יישובים · ביטחון: medium - Wikipedia intro/table disagree</span></summary>
+      
+      <div class="chips"><span class='chip'>אביגיל</span><span class='chip'>אדוריים</span><span class='chip'>אדורה</span><span class='chip'>אפקה</span><span class='chip'>אשכולות</span><span class='chip'>בית חגי</span><span class='chip'>בית יתיר</span><span class='chip'>טנא עומרים</span><span class='chip'>יונדב</span><span class='chip'>כרמל</span><span class='chip'>מעון</span><span class='chip'>מעלה חבר</span><span class='chip'>מצפה אשתמוע</span><span class='chip'>מצפה זיף</span><span class='chip'>מצפה יאיר</span><span class='chip'>נגוהות</span><span class='chip'>סוסיא</span><span class='chip'>סנסנה</span><span class='chip'>עשהאל</span><span class='chip'>עתניאל</span><span class='chip'>שמעה</span><span class='chip'>שני ליבנה</span><span class='chip'>תלם</span></div>
+    </details>
+<details class="council-block">
+      <summary><span class="council-name">זבולון</span><span class="council-meta">14 יישובים · ביטחון: high (Wikipedia=official exact)</span></summary>
+      
+      <div class="chips"><span class='chip'>אורנים</span><span class='chip'>אושה</span><span class='chip'>איבטין</span><span class='chip'>ח&#x27;וואלד</span><span class='chip'>יגור</span><span class='chip'>כפר ביאליק</span><span class='chip'>כפר המכבי</span><span class='chip'>כפר הנוער הדתי</span><span class='chip'>כפר חסידים א&#x27;</span><span class='chip'>כפר חסידים ב&#x27;</span><span class='chip'>נופית</span><span class='chip'>ראס עלי</span><span class='chip'>רמת יוחנן</span><span class='chip'>שער העמקים</span></div>
+    </details>
+<details class="council-block">
+      <summary><span class="council-name">חוף הכרמל</span><span class="council-meta">25 or 27 (unresolved) יישובים · ביטחון: low-medium - Wikipedia vs official site disagree</span></summary>
+      <p class='council-note'>official site adds ימין אורד + כפר צבי סיטרין (institutions, unclear if &#x27;member settlements&#x27;)</p>
+      <div class="chips"><span class='chip'>בית אורן</span><span class='chip'>בית חנניה</span><span class='chip'>בת שלמה</span><span class='chip'>גבע כרמל</span><span class='chip'>דור</span><span class='chip'>הבונים</span><span class='chip'>החותרים</span><span class='chip'>כפר גלים</span><span class='chip'>כרם מהר&quot;ל</span><span class='chip'>מאיר שפיה</span><span class='chip'>מגדים</span><span class='chip'>מעגן מיכאל</span><span class='chip'>מעין צבי</span><span class='chip'>נווה ים</span><span class='chip'>נחשולים</span><span class='chip'>ניר עציון</span><span class='chip'>עופר</span><span class='chip'>עין איילה</span><span class='chip'>עין הוד</span><span class='chip'>עין חוד</span><span class='chip'>עין כרמל</span><span class='chip'>עתלית</span><span class='chip'>צרופה</span><span class='chip'>קיסריה</span><span class='chip'>שדות ים</span></div>
+    </details>
+<details class="council-block">
+      <summary><span class="council-name">יואב</span><span class="council-meta">14 יישובים · ביטחון: high (Wikipedia=official exact)</span></summary>
+      
+      <div class="chips"><span class='chip'>אל עזי</span><span class='chip'>בית גוברין</span><span class='chip'>בית ניר</span><span class='chip'>גלאון</span><span class='chip'>גת</span><span class='chip'>ורדון</span><span class='chip'>כפר הרי&quot;ף</span><span class='chip'>כפר מנחם</span><span class='chip'>נגבה</span><span class='chip'>נחלה</span><span class='chip'>סגולה</span><span class='chip'>קדמה</span><span class='chip'>רבדים</span><span class='chip'>שדה יואב</span></div>
+    </details>
+<details class="council-block">
+      <summary><span class="council-name">לב השרון</span><span class="council-meta">18 יישובים · ביטחון: medium (Wikipedia only, not cross-checked)</span></summary>
+      
+      <div class="chips"><span class='chip'>בני דרור</span><span class='chip'>גאולים</span><span class='chip'>גנות הדר</span><span class='chip'>חרות</span><span class='chip'>ינוב</span><span class='chip'>יעף</span><span class='chip'>כפר הס</span><span class='chip'>כפר יעבץ</span><span class='chip'>משמרת</span><span class='chip'>נורדיה</span><span class='chip'>ניצני עוז</span><span class='chip'>עזריאל</span><span class='chip'>עין ורד</span><span class='chip'>עין שריד</span><span class='chip'>פורת</span><span class='chip'>צור משה</span><span class='chip'>שער אפרים</span><span class='chip'>תנובות</span></div>
+    </details>
+<details class="council-block">
+      <summary><span class="council-name">מבואות החרמון</span><span class="council-meta">13 יישובים · ביטחון: high</span></summary>
+      
+      <div class="chips"><span class='chip'>אליפלט</span><span class='chip'>אמנון</span><span class='chip'>בית הלל</span><span class='chip'>דישון</span><span class='chip'>יובל</span><span class='chip'>כורזים</span><span class='chip'>כחל</span><span class='chip'>כרכום</span><span class='chip'>מרגליות</span><span class='chip'>משמר הירדן</span><span class='chip'>רמות נפתלי</span><span class='chip'>שאר ישוב</span><span class='chip'>שדה אליעזר</span></div>
+    </details>
+<details class="council-block">
+      <summary><span class="council-name">מגילות ים המלח</span><span class="council-meta">8 יישובים · ביטחון: highest (exact match 2 sources)</span></summary>
+      
+      <div class="chips"><span class='chip'>אבנת</span><span class='chip'>אלמוג</span><span class='chip'>בית הערבה</span><span class='chip'>בית חגלה</span><span class='chip'>ורד יריחו</span><span class='chip'>מצפה שלם</span><span class='chip'>קדם ערבה</span><span class='chip'>קליה</span></div>
+    </details>
+<details class="council-block">
+      <summary><span class="council-name">מטה אשר</span><span class="council-meta">32 יישובים · ביטחון: high</span></summary>
+      
+      <div class="chips"><span class='chip'>אדמית</span><span class='chip'>אחיהוד</span><span class='chip'>אילון</span><span class='chip'>אפק</span><span class='chip'>אשרת</span><span class='chip'>בוסתן הגליל</span><span class='chip'>בית העמק</span><span class='chip'>בן עמי</span><span class='chip'>בצת</span><span class='chip'>געתון</span><span class='chip'>גשר הזיו</span><span class='chip'>חניתה</span><span class='chip'>יחיעם</span><span class='chip'>יסעור</span><span class='chip'>כברי</span><span class='chip'>כליל</span><span class='chip'>כפר מסריק</span><span class='chip'>לוחמי הגטאות</span><span class='chip'>לימן</span><span class='chip'>מצובה</span><span class='chip'>נס עמים</span><span class='chip'>נתיב השיירה</span><span class='chip'>סער</span><span class='chip'>עברון</span><span class='chip'>עין המפרץ</span><span class='chip'>עמקה</span><span class='chip'>ערב אל-עראמשה</span><span class='chip'>ראש הנקרה</span><span class='chip'>רגבה</span><span class='chip'>שבי ציון</span><span class='chip'>שיח&#x27; דנון</span><span class='chip'>שמרת</span></div>
+    </details>
+<details class="council-block">
+      <summary><span class="council-name">מנשה</span><span class="council-meta">24 or 25 (unresolved) יישובים · ביטחון: medium - Wikipedia vs official site disagree on 1 entry</span></summary>
+      <p class='council-note'>plus disputed: גבעת חביבה (Wikipedia) and/or שער מנשה (official site)</p>
+      <div class="chips"><span class='chip'>אום אל-קוטוף</span><span class='chip'>אל-עריאן</span><span class='chip'>אלוני יצחק</span><span class='chip'>ברקאי</span><span class='chip'>גן השומרון</span><span class='chip'>גן שמואל</span><span class='chip'>כפר גליקסון</span><span class='chip'>כפר פינס</span><span class='chip'>להבות חביבה</span><span class='chip'>מאור</span><span class='chip'>מגל</span><span class='chip'>מי עמי</span><span class='chip'>מייסר</span><span class='chip'>מענית</span><span class='chip'>מצפה אילן</span><span class='chip'>מצר</span><span class='chip'>משמרות</span><span class='chip'>עין עירון</span><span class='chip'>עין שמר</span><span class='chip'>קציר</span><span class='chip'>רגבים</span><span class='chip'>שדה יצחק</span><span class='chip'>תלמי אלעזר</span></div>
+    </details>
+<details class="council-block">
+      <summary><span class="council-name">מעלה יוסף</span><span class="council-meta">22 יישובים · ביטחון: high (matches council&#x27;s own stated figure)</span></summary>
+      
+      <div class="chips"><span class='chip'>אבירים</span><span class='chip'>אבן מנחם</span><span class='chip'>אלקוש</span><span class='chip'>גורן</span><span class='chip'>גורנות הגליל</span><span class='chip'>גיתה</span><span class='chip'>זרעית</span><span class='chip'>חוסן</span><span class='chip'>יערה</span><span class='chip'>לפידות</span><span class='chip'>מנות</span><span class='chip'>מעונה</span><span class='chip'>מצפה הילה</span><span class='chip'>מתת</span><span class='chip'>נווה זיו</span><span class='chip'>נטועה</span><span class='chip'>עבדון</span><span class='chip'>עין יעקב</span><span class='chip'>פקיעין החדשה</span><span class='chip'>צוריאל</span><span class='chip'>שומרה</span><span class='chip'>שתולה</span></div>
+    </details>
+<details class="council-block">
+      <summary><span class="council-name">מרום הגליל</span><span class="council-meta">24 or 25 (unresolved) יישובים · ביטחון: medium</span></summary>
+      
+      <div class="chips"><span class='chip'>אביבים</span><span class='chip'>אור הגנוז</span><span class='chip'>אמירים</span><span class='chip'>ביריה</span><span class='chip'>בר יוחאי</span><span class='chip'>דוב&quot;ב</span><span class='chip'>דלתון</span><span class='chip'>חזון</span><span class='chip'>טפחות</span><span class='chip'>קדיתא</span><span class='chip'>כלנית</span><span class='chip'>כפר חושן</span><span class='chip'>כפר חנניה</span><span class='chip'>כפר שמאי</span><span class='chip'>כרם בן זמרה</span><span class='chip'>ליבנים</span><span class='chip'>מירון</span><span class='chip'>עין אל-אסד</span><span class='chip'>עלמה</span><span class='chip'>עמוקה</span><span class='chip'>ענבר</span><span class='chip'>פרוד</span><span class='chip'>ריחאניה</span><span class='chip'>שזור</span><span class='chip'>שפר</span></div>
+    </details>
+<details class="council-block">
+      <summary><span class="council-name">נווה מדבר</span><span class="council-meta">4 יישובים · ביטחון: highest (exact match 2 sources)</span></summary>
+      
+      <div class="chips"><span class='chip'>אבו קרינאת</span><span class='chip'>אבו תלול</span><span class='chip'>ביר הדאג&#x27;</span><span class='chip'>קסר א-סיר</span></div>
+    </details>
+<details class="council-block">
+      <summary><span class="council-name">עמק הירדן</span><span class="council-meta">22 יישובים · ביטחון: high (no discrepancy)</span></summary>
+      
+      <div class="chips"><span class='chip'>אלומות</span><span class='chip'>אלמגור</span><span class='chip'>אפיקים</span><span class='chip'>אשדות יעקב איחוד</span><span class='chip'>אשדות יעקב מאוחד</span><span class='chip'>בית זרע</span><span class='chip'>גינוסר</span><span class='chip'>דגניה א&#x27;</span><span class='chip'>דגניה ב&#x27;</span><span class='chip'>האון</span><span class='chip'>חוקוק</span><span class='chip'>כנרת</span><span class='chip'>מסדה</span><span class='chip'>מעגן</span><span class='chip'>עין גב</span><span class='chip'>פוריה - כפר עבודה</span><span class='chip'>פוריה - נווה עובד</span><span class='chip'>פוריה עילית</span><span class='chip'>קבוצת כנרת</span><span class='chip'>רביד</span><span class='chip'>שער הגולן</span><span class='chip'>תל קציר</span></div>
+    </details>
+<details class="council-block">
+      <summary><span class="council-name">עמק המעיינות</span><span class="council-meta">25 יישובים · ביטחון: high (no discrepancy)</span></summary>
+      
+      <div class="chips"><span class='chip'>בית יוסף</span><span class='chip'>גשר</span><span class='chip'>חמדיה</span><span class='chip'>טירת צבי</span><span class='chip'>ירדנה</span><span class='chip'>כפר רופין</span><span class='chip'>מיטל</span><span class='chip'>מירב</span><span class='chip'>מנחמיה</span><span class='chip'>מסילות</span><span class='chip'>מעוז חיים</span><span class='chip'>מעלה גלבוע</span><span class='chip'>נווה אור</span><span class='chip'>נווה איתן</span><span class='chip'>ניר דוד</span><span class='chip'>עין הנצי&quot;ב</span><span class='chip'>רוויה</span><span class='chip'>רחוב</span><span class='chip'>רשפים</span><span class='chip'>שדה אליהו</span><span class='chip'>שדה נחום</span><span class='chip'>שדי תרומות</span><span class='chip'>שלוחות</span><span class='chip'>שלפים</span><span class='chip'>תל תאומים</span></div>
+    </details>
+<details class="council-block">
+      <summary><span class="council-name">ערבות הירדן</span><span class="council-meta">21-25 (unresolved) יישובים · ביטחון: medium</span></summary>
+      <p class='council-note'>official site (21) vs Wikipedia (+4 more: בתרון, גבעת סלעית, נווה גדיד, תמרה) - possibly outposts</p>
+      <div class="chips"><span class='chip'>רועי</span><span class='chip'>פצאל</span><span class='chip'>גלגל</span><span class='chip'>גיתית</span><span class='chip'>בקעות</span><span class='chip'>ארגמן</span><span class='chip'>מבואות יריחו</span><span class='chip'>יפית</span><span class='chip'>ייטב</span><span class='chip'>חמרה</span><span class='chip'>חמדת</span><span class='chip'>נעמה</span><span class='chip'>משכיות</span><span class='chip'>משואה</span><span class='chip'>מכורה</span><span class='chip'>מחולה</span><span class='chip'>תומר</span><span class='chip'>שדמות מחולה</span><span class='chip'>רותם</span><span class='chip'>נתיב הגדוד</span><span class='chip'>נערן</span></div>
+    </details>
+<details class="council-block">
+      <summary><span class="council-name">רמת הנגב</span><span class="council-meta">15-17 (unresolved) יישובים · ביטחון: medium</span></summary>
+      <p class='council-note'>SPELLING FIX NEEDED: official name is רמת הנגב (with ה), Firestore has רמת נגב (missing ה)</p>
+      <div class="chips"><span class='chip'>אשלים</span><span class='chip'>באר מילכה</span><span class='chip'>טללים</span><span class='chip'>כמהין</span><span class='chip'>כפר רתמים</span><span class='chip'>מדרשת בן גוריון</span><span class='chip'>מחנה טלי</span><span class='chip'>מרחב עם</span><span class='chip'>משאבי שדה</span><span class='chip'>ניצנה</span><span class='chip'>עזוז</span><span class='chip'>קדש ברנע</span><span class='chip'>שדה בוקר</span><span class='chip'>שיזף</span><span class='chip'>רביבים</span></div>
+    </details>
+<details class="council-block">
+      <summary><span class="council-name">תמר</span><span class="council-meta">7 יישובים · ביטחון: highest (exact match 2 sources)</span></summary>
+      
+      <div class="chips"><span class='chip'>עין גדי</span><span class='chip'>נאות הכיכר</span><span class='chip'>עין חצבה</span><span class='chip'>עין תמר</span><span class='chip'>נווה זוהר</span><span class='chip'>הר עמשא</span><span class='chip'>דרור (חירן)</span></div>
+    </details>
+</section>
+
+<section id="bucket5">
+  <h2><span class="bucket-num">05</span> ב-picker בלי קואורדינטה ב-location-constants.ts</h2>
+  <p class="section-intro">המפה תיפול-חזרה למרכז ההורה או לתל אביב. 242 רשומות בסך הכל — רובן הגדול (171) הן ערים/מועצות מקומיות/שכונות מהסבב ה"שטוח" הראשון של הפרויקט (לפני שנקבעה קונבנציית ה-DEFAULT_COORDINATES).</p>
+  <details class="nc-block">
+      <summary><span class="council-name">ערים</span><span class="council-meta">32 ללא קואורדינטה</span></summary>
+      <div class="table-wrap"><table class="data-table"><thead><tr><th>הורה</th><th>שם</th><th>ID</th></tr></thead><tbody><tr><td>—</td><td>רהט</td><td><code>rahat</code></td></tr><tr><td>—</td><td>אום אל-פחם</td><td><code>umm-al-fahm</code></td></tr><tr><td>—</td><td>נצרת</td><td><code>nazareth</code></td></tr><tr><td>—</td><td>עכו</td><td><code>akko</code></td></tr><tr><td>—</td><td>אלעד</td><td><code>elad</code></td></tr><tr><td>—</td><td>רמת השרון</td><td><code>ramat-hasharon</code></td></tr><tr><td>—</td><td>כרמיאל</td><td><code>karmiel</code></td></tr><tr><td>—</td><td>קרית מוצקין</td><td><code>kiryat-motzkin</code></td></tr><tr><td>—</td><td>טייבה</td><td><code>tayibe</code></td></tr><tr><td>—</td><td>קרית ביאליק</td><td><code>kiryat-bialik</code></td></tr><tr><td>—</td><td>קרית אונו</td><td><code>kiryat-ono</code></td></tr><tr><td>—</td><td>קרית ים</td><td><code>kiryat-yam</code></td></tr><tr><td>—</td><td>אור יהודה</td><td><code>or-yehuda</code></td></tr><tr><td>—</td><td>מעלה אדומים</td><td><code>maale-adumim</code></td></tr><tr><td>—</td><td>דימונה</td><td><code>dimona</code></td></tr><tr><td>—</td><td>אופקים</td><td><code>ofakim</code></td></tr><tr><td>—</td><td>נתיבות</td><td><code>netivot</code></td></tr><tr><td>—</td><td>גבעת שמואל</td><td><code>givat-shmuel</code></td></tr><tr><td>—</td><td>טבריה</td><td><code>tiberias</code></td></tr><tr><td>—</td><td>צפת</td><td><code>safed</code></td></tr><tr><td>—</td><td>אריאל</td><td><code>ariel</code></td></tr><tr><td>—</td><td>ביתר עילית</td><td><code>beitar-illit</code></td></tr><tr><td>—</td><td>יקנעם עילית</td><td><code>yokneam-illit</code></td></tr><tr><td>—</td><td>ערד</td><td><code>arad</code></td></tr><tr><td>—</td><td>מגדל העמק</td><td><code>migdal-haemek</code></td></tr><tr><td>—</td><td>נשר</td><td><code>nesher</code></td></tr><tr><td>—</td><td>קרית שמונה</td><td><code>kiryat-shmona</code></td></tr><tr><td>—</td><td>טירה</td><td><code>tirah</code></td></tr><tr><td>—</td><td>טמרה</td><td><code>tamra</code></td></tr><tr><td>—</td><td>סח׳נין</td><td><code>sakhnin</code></td></tr><tr><td>—</td><td>באקה אל-גרבייה</td><td><code>baqa-al-gharbiyye</code></td></tr><tr><td>—</td><td>כפר יונה</td><td><code>kfar-yona</code></td></tr></tbody></table></div>
+    </details>
+<details class="nc-block">
+      <summary><span class="council-name">מועצות מקומיות</span><span class="council-meta">7 ללא קואורדינטה</span></summary>
+      <div class="table-wrap"><table class="data-table"><thead><tr><th>הורה</th><th>שם</th><th>ID</th></tr></thead><tbody><tr><td>—</td><td>שוהם</td><td><code>shoham</code></td></tr><tr><td>—</td><td>מבשרת ציון</td><td><code>mevaseret-zion</code></td></tr><tr><td>—</td><td>גדרה</td><td><code>gedera</code></td></tr><tr><td>—</td><td>גן יבנה</td><td><code>gan-yavne</code></td></tr><tr><td>—</td><td>זכרון יעקב</td><td><code>zichron-yaakov</code></td></tr><tr><td>—</td><td>פרדס חנה-כרכור</td><td><code>pardes-hanna</code></td></tr><tr><td>—</td><td>קדימה-צורן</td><td><code>kadima-zoran</code></td></tr></tbody></table></div>
+    </details>
+<details class="nc-block">
+      <summary><span class="council-name">מועצות אזוריות (רמת-על)</span><span class="council-meta">13 ללא קואורדינטה</span></summary>
+      <div class="table-wrap"><table class="data-table"><thead><tr><th>הורה</th><th>שם</th><th>ID</th></tr></thead><tbody><tr><td>—</td><td>מועצה אזורית עמק חפר</td><td><code>emek-hefer</code></td></tr><tr><td>—</td><td>מועצה אזורית מטה יהודה</td><td><code>mateh-yehuda</code></td></tr><tr><td>—</td><td>מועצה אזורית דרום השרון</td><td><code>drom-hasharon</code></td></tr><tr><td>—</td><td>מועצה אזורית חוף השרון</td><td><code>hof-hasharon</code></td></tr><tr><td>—</td><td>מועצה אזורית עמק יזרעאל</td><td><code>emek-yizrael</code></td></tr><tr><td>—</td><td>מועצה אזורית משגב</td><td><code>misgav</code></td></tr><tr><td>—</td><td>מועצה אזורית אשכול</td><td><code>eshkol</code></td></tr><tr><td>—</td><td>מועצה אזורית שומרון</td><td><code>shomron</code></td></tr><tr><td>—</td><td>מועצה אזורית מטה בנימין</td><td><code>binyamin</code></td></tr><tr><td>—</td><td>מועצה אזורית גוש עציון</td><td><code>gush-etzion</code></td></tr><tr><td>—</td><td>מועצה אזורית חבל מודיעין</td><td><code>hevel-modiin</code></td></tr><tr><td>—</td><td>מועצה אזורית גזר</td><td><code>gezer</code></td></tr><tr><td>—</td><td>מועצה אזורית גולן</td><td><code>golan</code></td></tr></tbody></table></div>
+    </details>
+<details class="nc-block">
+      <summary><span class="council-name">יישובים (בתוך מועצות)</span><span class="council-meta">59 ללא קואורדינטה</span></summary>
+      <div class="table-wrap"><table class="data-table"><thead><tr><th>הורה</th><th>שם</th><th>ID</th></tr></thead><tbody><tr><td>מועצה אזורית עמק חפר</td><td>בת חפר</td><td><code>eh-bat-hefer</code></td></tr><tr><td>מועצה אזורית עמק חפר</td><td>כפר ויתקין</td><td><code>eh-vitkin</code></td></tr><tr><td>מועצה אזורית עמק חפר</td><td>מכמורת</td><td><code>eh-michmoret</code></td></tr><tr><td>מועצה אזורית עמק חפר</td><td>אביחיל</td><td><code>eh-avihayil</code></td></tr><tr><td>מועצה אזורית עמק חפר</td><td>קיבוץ מעברות</td><td><code>eh-maabarot</code></td></tr><tr><td>מועצה אזורית עמק חפר</td><td>קיבוץ משמר השרון</td><td><code>eh-mishmar-hasharon</code></td></tr><tr><td>מועצה אזורית עמק חפר</td><td>קיבוץ עין החורש</td><td><code>eh-ein-hahoresh</code></td></tr><tr><td>מועצה אזורית מטה יהודה</td><td>צור הדסה</td><td><code>my-tzur-hadassah</code></td></tr><tr><td>מועצה אזורית מטה יהודה</td><td>קיבוץ צרעה</td><td><code>my-tzora</code></td></tr><tr><td>מועצה אזורית מטה יהודה</td><td>מושב אשתאול</td><td><code>my-eshtaol</code></td></tr><tr><td>מועצה אזורית מטה יהודה</td><td>מושב שורש</td><td><code>my-shoresh</code></td></tr><tr><td>מועצה אזורית מטה יהודה</td><td>נס הרים</td><td><code>my-nes-harim</code></td></tr><tr><td>מועצה אזורית מטה יהודה</td><td>נחושה</td><td><code>my-nehusha</code></td></tr><tr><td>מועצה אזורית דרום השרון</td><td>קיבוץ ניר אליהו</td><td><code>dh-nir-eliyahu</code></td></tr><tr><td>מועצה אזורית דרום השרון</td><td>קיבוץ אייל</td><td><code>dh-eyal</code></td></tr><tr><td>מועצה אזורית דרום השרון</td><td>מושב חגור</td><td><code>dh-hagor</code></td></tr><tr><td>מועצה אזורית דרום השרון</td><td>מתן</td><td><code>dh-matan</code></td></tr><tr><td>מועצה אזורית דרום השרון</td><td>צור נתן</td><td><code>dh-zur-natan</code></td></tr><tr><td>מועצה אזורית חוף השרון</td><td>קיבוץ שפיים</td><td><code>hhs-shefayim</code></td></tr><tr><td>מועצה אזורית חוף השרון</td><td>קיבוץ געש</td><td><code>hhs-gaash</code></td></tr><tr><td>מועצה אזורית חוף השרון</td><td>קיבוץ יקום</td><td><code>hhs-yakum</code></td></tr><tr><td>מועצה אזורית חוף השרון</td><td>מושב רשפון</td><td><code>hhs-rishpon</code></td></tr><tr><td>מועצה אזורית חוף השרון</td><td>מושב אודים</td><td><code>hhs-udim</code></td></tr><tr><td>מועצה אזורית חוף השרון</td><td>קיבוץ תל יצחק</td><td><code>hhs-tel-yitzhak</code></td></tr><tr><td>מועצה אזורית עמק יזרעאל</td><td>מושב נהלל</td><td><code>ey-nahalal</code></td></tr><tr><td>מועצה אזורית עמק יזרעאל</td><td>קיבוץ משמר העמק</td><td><code>ey-mishmar-haemek</code></td></tr><tr><td>מועצה אזורית עמק יזרעאל</td><td>קיבוץ יפעת</td><td><code>ey-ifat</code></td></tr><tr><td>מועצה אזורית עמק יזרעאל</td><td>קיבוץ גניגר</td><td><code>ey-genigar</code></td></tr><tr><td>מועצה אזורית עמק יזרעאל</td><td>בלפוריה</td><td><code>ey-balfouria</code></td></tr><tr><td>מועצה אזורית משגב</td><td>עצמון (שגב)</td><td><code>mg-atzmon</code></td></tr><tr><td>מועצה אזורית משגב</td><td>יודפת</td><td><code>mg-yodfat</code></td></tr><tr><td>מועצה אזורית משגב</td><td>מנוף</td><td><code>mg-manof</code></td></tr><tr><td>מועצה אזורית משגב</td><td>שורשים</td><td><code>mg-shorashim</code></td></tr><tr><td>מועצה אזורית אשכול</td><td>קיבוץ בארי</td><td><code>es-beeri</code></td></tr><tr><td>מועצה אזורית אשכול</td><td>קיבוץ מגן</td><td><code>es-magen</code></td></tr><tr><td>מועצה אזורית אשכול</td><td>קיבוץ ניר עוז</td><td><code>es-nir-oz</code></td></tr><tr><td>מועצה אזורית אשכול</td><td>עין השלושה</td><td><code>es-ein-hashlosha</code></td></tr><tr><td>מועצה אזורית שומרון</td><td>ברקן</td><td><code>sh-barkan</code></td></tr><tr><td>מועצה אזורית שומרון</td><td>רבבה</td><td><code>sh-revava</code></td></tr><tr><td>מועצה אזורית שומרון</td><td>אבני חפץ</td><td><code>sh-avnei-hefetz</code></td></tr><tr><td>מועצה אזורית שומרון</td><td>איתמר</td><td><code>sh-itamar</code></td></tr><tr><td>מועצה אזורית מטה בנימין</td><td>כוכב יעקב</td><td><code>bn-kochav-yaakov</code></td></tr><tr><td>מועצה אזורית מטה בנימין</td><td>גבע בנימין (אדם)</td><td><code>bn-adam</code></td></tr><tr><td>מועצה אזורית מטה בנימין</td><td>עופרה</td><td><code>bn-ofra</code></td></tr><tr><td>מועצה אזורית מטה בנימין</td><td>שילה</td><td><code>bn-shilo</code></td></tr><tr><td>מועצה אזורית גוש עציון</td><td>אלון שבות</td><td><code>ge-alon-shvut</code></td></tr><tr><td>מועצה אזורית גוש עציון</td><td>תקוע</td><td><code>ge-tekos</code></td></tr><tr><td>מועצה אזורית גוש עציון</td><td>כפר עציון</td><td><code>ge-kfar-etzion</code></td></tr><tr><td>מועצה אזורית גוש עציון</td><td>נווה דניאל</td><td><code>ge-neve-daniel</code></td></tr><tr><td>מועצה אזורית חבל מודיעין</td><td>שוהם (מועצה נפרדת)</td><td><code>hm-shoham</code></td></tr><tr><td>מועצה אזורית חבל מודיעין</td><td>לפיד</td><td><code>hm-lapid</code></td></tr><tr><td>מועצה אזורית חבל מודיעין</td><td>כפר דניאל</td><td><code>hm-kfar-daniel</code></td></tr><tr><td>מועצה אזורית חבל מודיעין</td><td>מושב בן שמן</td><td><code>hm-ben-shemen</code></td></tr><tr><td>מועצה אזורית גזר</td><td>כרמי יוסף</td><td><code>gz-karmei-yosef</code></td></tr><tr><td>מועצה אזורית גזר</td><td>קיבוץ נען</td><td><code>gz-naan</code></td></tr><tr><td>מועצה אזורית גזר</td><td>משמר דוד</td><td><code>gz-mishmar-david</code></td></tr><tr><td>מועצה אזורית גולן</td><td>חיספין</td><td><code>go-hispin</code></td></tr><tr><td>מועצה אזורית גולן</td><td>בני יהודה</td><td><code>go-bene-yehuda</code></td></tr><tr><td>מועצה אזורית גולן</td><td>מושב רמות</td><td><code>go-ramot</code></td></tr></tbody></table></div>
+    </details>
+<details class="nc-block">
+      <summary><span class="council-name">שכונות</span><span class="council-meta">131 ללא קואורדינטה</span></summary>
+      <div class="table-wrap"><table class="data-table"><thead><tr><th>הורה</th><th>שם</th><th>ID</th></tr></thead><tbody><tr><td>ירושלים</td><td>הר חומה</td><td><code>jr-har-homa</code></td></tr><tr><td>ירושלים</td><td>תלפיות / ארנונה</td><td><code>jr-talpiot</code></td></tr><tr><td>ירושלים</td><td>בית הכרם</td><td><code>jr-beit-hakerem</code></td></tr><tr><td>ירושלים</td><td>קרית יובל</td><td><code>jr-kiryat-yovel</code></td></tr><tr><td>ירושלים</td><td>מלחה</td><td><code>jr-malcha</code></td></tr><tr><td>ירושלים</td><td>נחלאות</td><td><code>jr-nachlaot</code></td></tr><tr><td>ירושלים</td><td>מרכז העיר</td><td><code>jr-city-center</code></td></tr><tr><td>ירושלים</td><td>נווה יעקב</td><td><code>jr-neve-yaakov</code></td></tr><tr><td>ירושלים</td><td>העיר העתיקה</td><td><code>jr-old-city</code></td></tr><tr><td>תל אביב-יפו</td><td>הצפון הישן</td><td><code>ta-north-old</code></td></tr><tr><td>תל אביב-יפו</td><td>הצפון החדש</td><td><code>ta-north-new</code></td></tr><tr><td>תל אביב-יפו</td><td>צהלה / המשתלה</td><td><code>ta-tzahala</code></td></tr><tr><td>תל אביב-יפו</td><td>לב העיר</td><td><code>ta-lev-hair</code></td></tr><tr><td>תל אביב-יפו</td><td>פלורנטין</td><td><code>ta-florentin</code></td></tr><tr><td>תל אביב-יפו</td><td>יד אליהו</td><td><code>ta-yad-elyahu</code></td></tr><tr><td>תל אביב-יפו</td><td>שכונת התקווה</td><td><code>ta-hatikva</code></td></tr><tr><td>חיפה</td><td>מרכז הכרמל</td><td><code>hf-carmel</code></td></tr><tr><td>חיפה</td><td>אחוזה</td><td><code>hf-ahuza</code></td></tr><tr><td>חיפה</td><td>דניה</td><td><code>hf-denya</code></td></tr><tr><td>חיפה</td><td>הדר</td><td><code>hf-hadar</code></td></tr><tr><td>חיפה</td><td>נווה שאנן</td><td><code>hf-neve-shaanan</code></td></tr><tr><td>חיפה</td><td>בת גלים</td><td><code>hf-bat-galim</code></td></tr><tr><td>חיפה</td><td>קרית חיים</td><td><code>hf-kiryat-haim</code></td></tr><tr><td>חיפה</td><td>קרית אליעזר</td><td><code>hf-kiryat-eliezer</code></td></tr><tr><td>ראשון לציון</td><td>מערב ראשון</td><td><code>rl-west</code></td></tr><tr><td>ראשון לציון</td><td>כרמים</td><td><code>rl-cramim</code></td></tr><tr><td>ראשון לציון</td><td>מזרח ראשון</td><td><code>rl-east</code></td></tr><tr><td>פתח תקווה</td><td>אם המושבות</td><td><code>pt-em-hamoshavot</code></td></tr><tr><td>פתח תקווה</td><td>כפר גנים</td><td><code>pt-kfar-ganim</code></td></tr><tr><td>פתח תקווה</td><td>הדר גנים</td><td><code>pt-hadar-ganim</code></td></tr><tr><td>פתח תקווה</td><td>נווה גן</td><td><code>pt-neve-gan</code></td></tr><tr><td>פתח תקווה</td><td>עין גנים</td><td><code>pt-ein-ganim</code></td></tr><tr><td>פתח תקווה</td><td>שעריה</td><td><code>pt-shaaria</code></td></tr><tr><td>אשדוד</td><td>הסיטי</td><td><code>ad-city</code></td></tr><tr><td>אשדוד</td><td>המרינה</td><td><code>ad-marina</code></td></tr><tr><td>אשדוד</td><td>רובע א׳</td><td><code>ad-a</code></td></tr><tr><td>אשדוד</td><td>רובע ד׳</td><td><code>ad-d</code></td></tr><tr><td>אשדוד</td><td>רובע י״א / י״ב</td><td><code>ad-yud-nun</code></td></tr><tr><td>אשדוד</td><td>רובע ט״ו</td><td><code>ad-tu</code></td></tr><tr><td>נתניה</td><td>רמת פולג</td><td><code>nt-poleg</code></td></tr><tr><td>נתניה</td><td>אגמים</td><td><code>nt-agami</code></td></tr><tr><td>נתניה</td><td>רמת ידין (דורה)</td><td><code>nt-dora</code></td></tr><tr><td>באר שבע</td><td>נווה זאב</td><td><code>bs-neve-zeev</code></td></tr><tr><td>באר שבע</td><td>נחל עשן</td><td><code>bs-nahal-ashan</code></td></tr><tr><td>באר שבע</td><td>שכונה ד׳</td><td><code>bs-d</code></td></tr><tr><td>באר שבע</td><td>שכונה ב׳</td><td><code>bs-b</code></td></tr><tr><td>באר שבע</td><td>העיר העתיקה</td><td><code>bs-old-city</code></td></tr><tr><td>חולון</td><td>קרית שרת</td><td><code>ho-kiryat-sharett</code></td></tr><tr><td>חולון</td><td>אגרובנק</td><td><code>ho-agrobank</code></td></tr><tr><td>חולון</td><td>נאות רחל</td><td><code>ho-neot-rachel</code></td></tr><tr><td>חולון</td><td>תל גיבורים</td><td><code>ho-tel-giborim</code></td></tr><tr><td>חולון</td><td>קרית בן גוריון</td><td><code>ho-kiryat-bin-gurion</code></td></tr><tr><td>בני ברק</td><td>פרדס כץ</td><td><code>bb-pardes-katz</code></td></tr><tr><td>בני ברק</td><td>מרכז העיר</td><td><code>bb-merkaz</code></td></tr><tr><td>בני ברק</td><td>שיכון ויז׳ניץ</td><td><code>bb-vizhnitz</code></td></tr><tr><td>רמת גן</td><td>מרום נווה</td><td><code>rg-marom-nave</code></td></tr><tr><td>רמת גן</td><td>רמת חן</td><td><code>rg-ramat-hen</code></td></tr><tr><td>רמת גן</td><td>מתחם הבורסה</td><td><code>rg-bursa</code></td></tr><tr><td>רמת גן</td><td>קריניצי</td><td><code>rg-krinitsi</code></td></tr><tr><td>אשקלון</td><td>ברנע</td><td><code>as-barnea</code></td></tr><tr><td>אשקלון</td><td>אפרידר</td><td><code>as-afridar</code></td></tr><tr><td>אשקלון</td><td>המרינה</td><td><code>as-marina</code></td></tr><tr><td>אשקלון</td><td>אגמים</td><td><code>as-agamim</code></td></tr><tr><td>אשקלון</td><td>הסיטי</td><td><code>as-city</code></td></tr><tr><td>רחובות</td><td>פארק המדע</td><td><code>rv-science</code></td></tr><tr><td>רחובות</td><td>רחובות החדשה</td><td><code>rv-new</code></td></tr><tr><td>רחובות</td><td>רחובות ההולנדית</td><td><code>rv-dutch</code></td></tr><tr><td>רחובות</td><td>מרכז העיר</td><td><code>rv-center</code></td></tr><tr><td>רחובות</td><td>שעריים</td><td><code>rv-shaarayim</code></td></tr><tr><td>בת ים</td><td>טיילת הים</td><td><code>by-sea</code></td></tr><tr><td>בת ים</td><td>רמת יוסף</td><td><code>by-ramat-yosef</code></td></tr><tr><td>בת ים</td><td>רמת הנשיא</td><td><code>by-ramat-hanasi</code></td></tr><tr><td>בית שמש</td><td>רמת בית שמש א׳</td><td><code>bsh-rama-a</code></td></tr><tr><td>בית שמש</td><td>רמת בית שמש ב׳</td><td><code>bsh-rama-b</code></td></tr><tr><td>בית שמש</td><td>רמת בית שמש ג׳</td><td><code>bsh-rama-c</code></td></tr><tr><td>בית שמש</td><td>רמת בית שמש ד׳</td><td><code>bsh-rama-d</code></td></tr><tr><td>בית שמש</td><td>העיר הוותיקה</td><td><code>bsh-vatika</code></td></tr><tr><td>כפר סבא</td><td>השכונה הירוקה</td><td><code>ks-green</code></td></tr><tr><td>כפר סבא</td><td>שכונת הדרים</td><td><code>ks-hadarim</code></td></tr><tr><td>כפר סבא</td><td>שכונת עלייה</td><td><code>ks-aliyah</code></td></tr><tr><td>הרצליה</td><td>הרצליה פיתוח</td><td><code>hz-pituach</code></td></tr><tr><td>הרצליה</td><td>הרצליה הירוקה</td><td><code>hz-green</code></td></tr><tr><td>הרצליה</td><td>גן רש״ל</td><td><code>hz-gan-rashel</code></td></tr><tr><td>הרצליה</td><td>גליל ים</td><td><code>hz-glil-yam</code></td></tr><tr><td>חדרה</td><td>עין הים</td><td><code>hd-ein-hayam</code></td></tr><tr><td>חדרה</td><td>גבעת אולגה</td><td><code>hd-givat-olga</code></td></tr><tr><td>חדרה</td><td>בית אליעזר</td><td><code>hd-beit-eliezer</code></td></tr><tr><td>חדרה</td><td>מרכז העיר</td><td><code>hd-center</code></td></tr><tr><td>חדרה</td><td>שכונת ויצמן</td><td><code>hd-weizmann</code></td></tr><tr><td>מודיעין-מכבים-רעות</td><td>מוריה (בוכמן)</td><td><code>md-buchman</code></td></tr><tr><td>מודיעין-מכבים-רעות</td><td>המגינים (שמשוני)</td><td><code>md-shimshoni</code></td></tr><tr><td>מודיעין-מכבים-רעות</td><td>אבני חן (קייזר)</td><td><code>md-avnei-chen</code></td></tr><tr><td>מודיעין-מכבים-רעות</td><td>נופים</td><td><code>md-nofim</code></td></tr><tr><td>מודיעין-מכבים-רעות</td><td>רעות</td><td><code>md-reut</code></td></tr><tr><td>מודיעין-מכבים-רעות</td><td>מכבים</td><td><code>md-maccabim</code></td></tr><tr><td>לוד</td><td>גני יער</td><td><code>ld-ganei-yaar</code></td></tr><tr><td>לוד</td><td>גני אביב</td><td><code>ld-ganei-aviv</code></td></tr><tr><td>לוד</td><td>נווה זית</td><td><code>ld-neve-zait</code></td></tr><tr><td>לוד</td><td>מרכז העיר</td><td><code>ld-center</code></td></tr><tr><td>רעננה</td><td>נווה זמר</td><td><code>rn-neve-zemer</code></td></tr><tr><td>רעננה</td><td>שכונת 2005</td><td><code>rn-2005</code></td></tr><tr><td>רעננה</td><td>לב הפארק</td><td><code>rn-lev-hapark</code></td></tr><tr><td>רמלה</td><td>קרית האומנים</td><td><code>rm-kiryat-haomanim</code></td></tr><tr><td>רמלה</td><td>נאות שמיר</td><td><code>rm-neot-shamir</code></td></tr><tr><td>רמלה</td><td>מרכז העיר</td><td><code>rm-center</code></td></tr><tr><td>ראש העין</td><td>פסגות אפק</td><td><code>rh-psagot</code></td></tr><tr><td>ראש העין</td><td>נווה אפק</td><td><code>rh-neve-afek</code></td></tr><tr><td>ראש העין</td><td>גבעת טל</td><td><code>rh-givat-tal</code></td></tr><tr><td>ראש העין</td><td>העיר הוותיקה</td><td><code>rh-vatika</code></td></tr><tr><td>הוד השרון</td><td>מתחם 1200</td><td><code>hh-1200</code></td></tr><tr><td>הוד השרון</td><td>מגדיאל</td><td><code>hh-magdiel</code></td></tr><tr><td>הוד השרון</td><td>רמתיים</td><td><code>hh-ramatayim</code></td></tr><tr><td>הוד השרון</td><td>הפארק הירוק</td><td><code>hh-green</code></td></tr><tr><td>קרית גת</td><td>כרמי גת</td><td><code>kg-carmei-gat</code></td></tr><tr><td>נהריה</td><td>עין שרה</td><td><code>nh-ein-sara</code></td></tr><tr><td>נהריה</td><td>נהריה הירוקה</td><td><code>nh-nahar-yarok</code></td></tr><tr><td>נהריה</td><td>מרכז העיר</td><td><code>nh-center</code></td></tr><tr><td>עפולה</td><td>רובע יזרעאל</td><td><code>af-rova-yizrael</code></td></tr><tr><td>עפולה</td><td>עפולה עילית</td><td><code>af-illit</code></td></tr><tr><td>עפולה</td><td>גבעת המורה</td><td><code>af-givat-hamoreh</code></td></tr><tr><td>עפולה</td><td>מרכז העיר</td><td><code>af-center</code></td></tr><tr><td>קרית אתא</td><td>גבעת רם</td><td><code>ka-givat-ram</code></td></tr><tr><td>קרית אתא</td><td>גבעת טל</td><td><code>ka-givat-tal</code></td></tr><tr><td>יבנה</td><td>נאות שמיר</td><td><code>yv-neot-shamir</code></td></tr><tr><td>יבנה</td><td>השכונה הירוקה (נאות רבין)</td><td><code>yv-green</code></td></tr><tr><td>אילת</td><td>שחמון</td><td><code>ei-shaham</code></td></tr><tr><td>אילת</td><td>ערבה</td><td><code>ei-arava</code></td></tr><tr><td>אילת</td><td>גנים</td><td><code>ei-ganim</code></td></tr><tr><td>נס ציונה</td><td>ארגמן</td><td><code>nz-argaman</code></td></tr><tr><td>נס ציונה</td><td>שמורת מליבו</td><td><code>nz-mali</code></td></tr><tr><td>נס ציונה</td><td>לב המושבה</td><td><code>nz-lev</code></td></tr></tbody></table></div>
+    </details>
+</section>
+
+<section id="bucket6">
+  <h2><span class="bucket-num">06</span> אי-התאמות שיוך-הורה</h2>
+  <div class="finding-box callout-ok">
+    <p class="headline">נמצאו 0 מקרים</p>
+    <p style="margin:0; color:var(--ink-dim); font-size:14px;">לא נמצא אף יישוב/שכונה שבו ה-parentAuthorityId ב-Firestore מצביע על מועצה/עיר שונה מזו שתחתיה הוא מקונן ב-picker. הסנכרון של הסבב האחרון עקבי מבחינת שיוך-הורה.</p>
+  </div>
+</section>
+
+<section id="bonus">
+  <h2>ממצא נלווה — כפילויות פנימיות ב-picker</h2>
+  <p class="section-intro">לא התבקש במפורש, אבל רלוונטי ישירות ל"באגי סנכרון": 10 מקומות אמיתיים מיוצגים פעמיים ב-picker עם שני ID שונים — גרסת-איות ישנה (שורה שטוחה, בלי קואורדינטה) וגרסת Phase A חדשה (עם קואורדינטה). משתמש שבוחר בגרסה הישנה מקבל fallback לתל אביב; שתי הרשומות עלולות לספור כפול באנליטיקס.</p>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>גרסה ישנה (ללא קואורדינטה)</th><th>ID ישן</th><th>גרסת Phase A (עם קואורדינטה)</th><th>ID חדש</th></tr></thead>
+      <tbody><tr><td>הרצליה</td><td><code>herzliya</code></td><td>הרצלייה</td><td><code>hrtzlyyh</code></td></tr><tr><td>קרית גת</td><td><code>kiryat-gat</code></td><td>קריית גת</td><td><code>kryyt-gt</code></td></tr><tr><td>נהריה</td><td><code>nahariya</code></td><td>נהרייה</td><td><code>nhryyh</code></td></tr><tr><td>קרית אתא</td><td><code>kiryat-ata</code></td><td>קריית אתא</td><td><code>kryyt-t</code></td></tr><tr><td>קרית מוצקין</td><td><code>kiryat-motzkin</code></td><td>קריית מוצקין</td><td><code>kryyt-mvtzkyn</code></td></tr><tr><td>קרית ביאליק</td><td><code>kiryat-bialik</code></td><td>קריית ביאליק</td><td><code>kryyt-bylyk</code></td></tr><tr><td>קרית ים</td><td><code>kiryat-yam</code></td><td>קריית ים</td><td><code>kryyt-ym</code></td></tr><tr><td>קרית שמונה</td><td><code>kiryat-shmona</code></td><td>קריית שמונה</td><td><code>kryyt-shmvnh</code></td></tr><tr><td>סח׳נין</td><td><code>sakhnin</code></td><td>סח&#x27;נין</td><td><code>sch-nyn</code></td></tr><tr><td>באקה אל-גרבייה</td><td><code>baqa-al-gharbiyye</code></td><td>באקה אל-גרביה</td><td><code>bkh-l-grbyh</code></td></tr></tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="methodology">
+  <h3>מתודולוגיה ומקורות</h3>
+  <ul>
+    <li><b>מציאות רשמית — מועצות אזוריות:</b> קטגוריית ויקיפדיה "ישראל: מועצות אזוריות" (54 שמות), + לכל אחת מ-22 המועצות החסרות: דף ויקיפדיה ייעודי + חיפוש-צולב מול אתר המועצה הרשמי (בוצע ע"י 5 סוכני מחקר מקבילים).</li>
+    <li><b>מציאות רשמית — ערים/מועצות מקומיות:</b> נבדק רק ברמת ה-count הכולל (2 מקורות מסכימים על ~257–259 רשויות; 77–82 עיריות, 121–124 מועצות מקומיות — יש שונות קלה בין המקורות). <b>לא בוצעה</b> השוואת שם-מול-שם מלאה של 216 הרשומות מול רישום CBS רשמי — Firestore שימש כפרוקסי סביר לאחר שנמצא תואם כמעט-מושלם ל-picker.</li>
+    <li><b>Picker:</b> נפרס ישירות מ-src/lib/data/israel-locations.ts + location-constants.ts (parsing מבוסס-regex, לא ריצת קוד).</li>
+    <li><b>Firestore:</b> query מלא read-only על אוסף authorities (793 מסמכים).</li>
+    <li><b>התאמת שמות:</b> נורמליזציה (הסרת גרשיים/מקפים/רווחים, "מועצה אזורית" prefix) + fuzzy-match יחסי-לאורך למועצות אזוריות בלבד. יישובים/שכונות הותאמו exact-normalized בתוך אותה מועצה/עיר שכבר הותאמה.</li>
+  </ul>
+  <h3>מה לא כוסה בסבב הזה</h3>
+  <ul>
+    <li>שלמות מלאה של 32 המועצות ה"מכוסות" מול הרשימה הרשמית שלהן (רק 2 מהן — לכיש/אל קסום וכו' — עברו cross-check בסבבים קודמים).</li>
+    <li>6 מועצות ב-bucket 4 עם מחלוקת מספר בין ויקיפדיה לאתר הרשמי: הר חברון (22/23), חוף הכרמל (25/27), מנשה (24/25), מרום הגליל (24/25), ערבות הירדן (21/25), רמת הנגב (15/17) — מומלץ אימות ידני נוסף לפני כתיבה.</li>
+    <li>השוואת שם-מול-שם מלאה של כל 216 הערים/מועצות המקומיות מול רישום CBS.</li>
+  </ul>
+</footer>
+
+</div>

@@ -1,0 +1,89 @@
+[
+  {
+    "checkpoint_key": "eiaTxyrI7HouRN2UNwyu:MfLM9AKpHz2p7YYQIAoH",
+    "equipment_id": "eiaTxyrI7HouRN2UNwyu",
+    "equipment_name": "סקוואט כנגד מכונה",
+    "brand": "Ludos",
+    "status": "skipped",
+    "ts": "2026-07-04T08:20:42.811Z",
+    "error": "dry-run"
+  },
+  {
+    "checkpoint_key": "eiaTxyrI7HouRN2UNwyu:MfLM9AKpHz2p7YYQIAoH",
+    "equipment_id": "eiaTxyrI7HouRN2UNwyu",
+    "equipment_name": "סקוואט כנגד מכונה",
+    "brand": "Ludos",
+    "status": "success",
+    "ts": "2026-07-04T08:20:53.751Z",
+    "videoUrl": "https://iframe.bunnycdn.com/embed/640043/e5dd5ded-264b-4c3c-a5aa-bff3aca710aa",
+    "imageUrl": "https://appoutimages.b-cdn.net/equipment/eiaTxyrI7HouRN2UNwyu/MfLM9AKpHz2p7YYQIAoH.jpg"
+  },
+  {
+    "checkpoint_key": "cmCFwJwELvRZuoeoJdEy:MfLM9AKpHz2p7YYQIAoH",
+    "equipment_id": "cmCFwJwELvRZuoeoJdEy",
+    "equipment_name": "סקי רחיפה",
+    "brand": "Ludos",
+    "status": "success",
+    "ts": "2026-07-04T08:21:45.623Z",
+    "videoUrl": "https://iframe.bunnycdn.com/embed/640043/82c46eb8-b023-4424-b4cc-ea910860233c",
+    "imageUrl": "https://appoutimages.b-cdn.net/equipment/cmCFwJwELvRZuoeoJdEy/MfLM9AKpHz2p7YYQIAoH.jpg"
+  },
+  {
+    "checkpoint_key": "2Kt12YhP8fdaRqNnsPiX:MfLM9AKpHz2p7YYQIAoH",
+    "equipment_id": "2Kt12YhP8fdaRqNnsPiX",
+    "equipment_name": "מאמן שרירי בטן ואגן",
+    "brand": "Ludos",
+    "status": "success",
+    "ts": "2026-07-04T08:22:35.509Z",
+    "videoUrl": "https://iframe.bunnycdn.com/embed/640043/66e737e0-2f0a-488d-9fa8-7d1036394604"
+  },
+  {
+    "checkpoint_key": "pKh30gGIGOKFcgLET2Fn:MfLM9AKpHz2p7YYQIAoH",
+    "equipment_id": "pKh30gGIGOKFcgLET2Fn",
+    "equipment_name": "מדרגות אימון",
+    "brand": "Ludos",
+    "status": "success",
+    "ts": "2026-07-04T08:23:33.634Z",
+    "videoUrl": "https://iframe.bunnycdn.com/embed/640043/bd1a63ff-3592-485b-8a45-781c848c645f",
+    "imageUrl": "https://appoutimages.b-cdn.net/equipment/pKh30gGIGOKFcgLET2Fn/MfLM9AKpHz2p7YYQIAoH.jpg"
+  },
+  {
+    "checkpoint_key": "FqFlaNZ02dlAQcXmhjOP:MfLM9AKpHz2p7YYQIAoH",
+    "equipment_id": "FqFlaNZ02dlAQcXmhjOP",
+    "equipment_name": "אגן והאלכסונים",
+    "brand": "Ludos",
+    "status": "success",
+    "ts": "2026-07-04T08:24:22.899Z",
+    "videoUrl": "https://iframe.bunnycdn.com/embed/640043/a41f7bdf-67ee-4c3b-a438-dac28bea69dc",
+    "imageUrl": "https://appoutimages.b-cdn.net/equipment/FqFlaNZ02dlAQcXmhjOP/MfLM9AKpHz2p7YYQIAoH.jpg"
+  },
+  {
+    "checkpoint_key": "InKr0xUxeVBlg370WaTm:MfLM9AKpHz2p7YYQIAoH",
+    "equipment_id": "InKr0xUxeVBlg370WaTm",
+    "equipment_name": "מיטת עליית בטן",
+    "brand": "Ludos",
+    "status": "success",
+    "ts": "2026-07-04T08:25:12.174Z",
+    "videoUrl": "https://iframe.bunnycdn.com/embed/640043/7a7fbf00-ae79-46ee-b4ff-6182b3bf16f1",
+    "imageUrl": "https://appoutimages.b-cdn.net/equipment/InKr0xUxeVBlg370WaTm/MfLM9AKpHz2p7YYQIAoH.jpg"
+  },
+  {
+    "checkpoint_key": "BZQqMXv2V6GuTRVu5Af5:MfLM9AKpHz2p7YYQIAoH",
+    "equipment_id": "BZQqMXv2V6GuTRVu5Af5",
+    "equipment_name": "אופניים בישיבה במכונה",
+    "brand": "Ludos",
+    "status": "success",
+    "ts": "2026-07-04T08:26:02.912Z",
+    "videoUrl": "https://iframe.bunnycdn.com/embed/640043/9935d23d-76dc-43ec-9699-db2dedc3ed9f"
+  },
+  {
+    "checkpoint_key": "vfUYnolmjtv7JLlI70rb:LfKL3h2NBrZXp4E8w56G",
+    "equipment_id": "vfUYnolmjtv7JLlI70rb",
+    "equipment_name": "אופני ספינינג",
+    "brand": "Urbanics",
+    "status": "success",
+    "ts": "2026-07-04T08:26:45.937Z",
+    "videoUrl": "https://iframe.bunnycdn.com/embed/640043/a3491254-07e6-4312-8989-809f5e32efa9",
+    "imageUrl": "https://appoutimages.b-cdn.net/equipment/vfUYnolmjtv7JLlI70rb/LfKL3h2NBrZXp4E8w56G.jpg"
+  }
+]

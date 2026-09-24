@@ -1,0 +1,11 @@
+[    2183ms] [LOG] auto @ https://www.jerusalem.muni.il/sb/main-js-bundle.js.v28c23399046d96a3934b414b768a9b7d68ecf222:4423
+[    5421ms] [LOG] https://functions.glassix.com/api/widget/getoptions_v2?departmentId=9dacf4aa-017e-445b-abf1-55676698ccc2&snippetId=wUKggh2XC2UJlRiubSaR&culture= @ https://cdn.glassix.com/clients/widget.1.2.min.js:32
+[    6725ms] [ERROR] Connecting to 'https://vc.hotjar.io/sessions/3886492?s=0.25&r=0.06967351261641497' violates the following Content Security Policy directive: "default-src 'self' www.youtube.com www.google.com c.go-mpulse.net *.akstat.io *.akamaihd.net player.vimeo.com *.vimeocdn.com our.umbraco.com www.gstatic.com www.googletagmanager.com www.google-analytics.com apis.google.com translate.googleapis.com maps.googleapis.com wss://webchat.eladsoftware.com https://translate.googleapis.com fonts.gstatic.com translate-pa.googleapis.com cdn.glassix.com functions.glassix.com butterfly-button.web.app us-central1-butterfly-button.cloudfunctions.net identitytoolkit.googleapis.com securetoken.googleapis.com firestore.googleapis.com tickchak.co.il". Note that 'connect-src' was not explicitly set, so 'default-src' is used as a fallback. The action has been blocked. @ https://script.hotjar.com/modules.e762be2b6b709245aabb.js:1
+[    8901ms] [LOG] 0px @ https://www.jerusalem.muni.il/sb/main-js-bundle.js.v28c23399046d96a3934b414b768a9b7d68ecf222:4423
+[    9780ms] [LOG] 0px @ https://www.jerusalem.muni.il/sb/main-js-bundle.js.v28c23399046d96a3934b414b768a9b7d68ecf222:4423
+[   12007ms] [LOG] 0px @ https://www.jerusalem.muni.il/sb/main-js-bundle.js.v28c23399046d96a3934b414b768a9b7d68ecf222:4423
+[   12516ms] [LOG] allowDBStorage true @ https://cdn.glassix.com/dist/widget.entry.min.js?v=1.0.0.00109202617516:48
+[   13201ms] [LOG] 0px @ https://www.jerusalem.muni.il/sb/main-js-bundle.js.v28c23399046d96a3934b414b768a9b7d68ecf222:4423
+[   14185ms] [LOG] Starting... @ https://cdn.glassix.com/dist/widget.entry.min.js?v=1.0.0.00109202617516:276
+[   14533ms] [LOG] 0px @ https://www.jerusalem.muni.il/sb/main-js-bundle.js.v28c23399046d96a3934b414b768a9b7d68ecf222:4423
+[   18182ms] [LOG] 0px @ https://www.jerusalem.muni.il/sb/main-js-bundle.js.v28c23399046d96a3934b414b768a9b7d68ecf222:4423

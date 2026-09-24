@@ -1,0 +1,104 @@
+- generic [active] [ref=f70e1]:
+  - generic "התראות פוש בזמן אמת"
+  - main [ref=f70e2]:
+    - generic [ref=f70e3]:
+      - generic [ref=f70e5]:
+        - button "פרופיל" [ref=f70e6] [cursor=pointer]:
+          - generic [ref=f70e7]: Q
+          - generic [ref=f70e9]: "1"
+        - link "OUT" [ref=f70e17] [cursor=pointer]:
+          - /url: /home
+          - img "OUT" [ref=f70e18]
+        - generic [ref=f70e19]:
+          - button "התראות" [ref=f70e20] [cursor=pointer]
+          - button "הודעות" [ref=f70e24] [cursor=pointer]
+          - link "חיפוש" [ref=f70e27] [cursor=pointer]:
+            - /url: /search
+      - button "54%" [ref=f70e32] [cursor=pointer]
+      - generic [ref=f70e39]:
+        - generic [ref=f70e41]:
+          - heading "לו״ז אימונים" [level=2] [ref=f70e43]
+          - generic [ref=f70e44]:
+            - button "סנכרון ליומן" [ref=f70e45] [cursor=pointer]
+            - button "שינוי לוז" [ref=f70e47] [cursor=pointer]
+          - generic [ref=f70e53]:
+            - generic [ref=f70e54]:
+              - generic [ref=f70e55]: א
+              - button [ref=f70e56] [cursor=pointer]:
+                - generic "מנוחה" [ref=f70e59]:
+                  - generic [ref=f70e60]:
+                    - text: Z
+                    - superscript [ref=f70e61]: z
+            - generic [ref=f70e62]:
+              - generic [ref=f70e63]: ב
+              - button [ref=f70e64] [cursor=pointer]:
+                - generic "מנוחה" [ref=f70e67]:
+                  - generic [ref=f70e68]:
+                    - text: Z
+                    - superscript [ref=f70e69]: z
+            - generic [ref=f70e70]:
+              - generic [ref=f70e71]: ג
+              - button [ref=f70e72] [cursor=pointer]
+            - generic [ref=f70e78]:
+              - generic [ref=f70e79]: ד
+              - button [ref=f70e80] [cursor=pointer]:
+                - generic "מנוחה" [ref=f70e83]:
+                  - generic [ref=f70e84]:
+                    - text: Z
+                    - superscript [ref=f70e85]: z
+            - generic [ref=f70e86]:
+              - generic [ref=f70e87]: ה
+              - button [ref=f70e88] [cursor=pointer]
+            - generic [ref=f70e94]:
+              - generic [ref=f70e95]: ו
+              - button [ref=f70e96] [cursor=pointer]:
+                - generic "מנוחה" [ref=f70e99]:
+                  - generic [ref=f70e100]:
+                    - text: Z
+                    - superscript [ref=f70e101]: z
+            - generic [ref=f70e102]:
+              - generic [ref=f70e103]: ש
+              - button [ref=f70e104] [cursor=pointer]:
+                - generic "מנוחה" [ref=f70e107]:
+                  - generic [ref=f70e108]:
+                    - text: Z
+                    - superscript [ref=f70e109]: z
+        - generic [ref=f70e120]:
+          - generic [ref=f70e121]:
+            - button "התקדמות שבועית" [ref=f70e122] [cursor=pointer]
+            - button "מדדי בריאות" [ref=f70e123] [cursor=pointer]
+          - generic [ref=f70e124]:
+            - generic [ref=f70e126]:
+              - generic [ref=f70e127]:
+                - heading "ליבה" [level=3] [ref=f70e133]
+                - paragraph [ref=f70e134]: רמה 3/25
+                - generic [ref=f70e135]: עוד 99% לרמה 4
+              - generic [ref=f70e139]: 1%
+            - generic [ref=f70e145]:
+              - generic [ref=f70e147]:
+                - generic [ref=f70e148]: כוח
+                - generic [ref=f70e152]: 0/3
+              - generic [ref=f70e157]:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: ריצה
+                      - generic: 0/3
+                - button "הוסף תוכנית ריצה" [ref=f70e158] [cursor=pointer]
+        - generic [ref=f70e162]:
+          - heading "קבוצות קרובות אליך" [level=3] [ref=f70e163]
+          - button "הכל ›" [ref=f70e170] [cursor=pointer]
+        - generic [ref=f70e192]:
+          - heading "גינות כושר קרובות" [level=3] [ref=f70e193]
+          - button [ref=f70e200] [cursor=pointer]:
+            - generic [ref=f70e205]:
+              - paragraph [ref=f70e206]: הפעל גישת מיקום
+              - paragraph [ref=f70e207]: כדי למצוא גינות כושר קרובות, נדרשת גישה למיקומך
+      - button "הוסף" [ref=f70e210] [cursor=pointer]
+  - navigation [ref=f70e212]:
+    - generic [ref=f70e213]:
+      - link "בית" [ref=f70e214] [cursor=pointer]:
+        - /url: /home
+      - link "מפה" [ref=f70e219] [cursor=pointer]:
+        - /url: /map
+  - alert [ref=f70e223]

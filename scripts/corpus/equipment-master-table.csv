@@ -1,0 +1,56 @@
+equipment_id,equipment_name,current_brand,ludos_video_id,ludos_video_name,ludos_img_id,ludos_img_name,urbanics_video_id,urbanics_video_name,urbanics_img_id,urbanics_img_name,has_existing_video,match_method,match_confidence
+FqFlaNZ02dlAQcXmhjOP,אגן והאלכסונים,Ludos,,,,,,,,,,,
+dg5FQa5e1ni7e1EOjTml,אגרוף תאילנדי,Ludos,,,,,,,,,,,
+fh7IyTfVIx0FBXebplTO,אופני ידיים,Urbanics,12LRBoisHiErkwihUGa8LR14y44h9MNez,אופני יד.mp4,1vALcrFcXm922nZKz182xsMMi6cMAPkER,אופני יד.jpg,,,,,,name-match,0.850
+vfUYnolmjtv7JLlI70rb,אופני ספינינג,Ludos,,,,,,,,,,,
+BZQqMXv2V6GuTRVu5Af5,אופניים בישיבה במכונה,Ludos,,,,,,,,,,,
+ypzXlhaMkjK8Bs4H6Db5,בוסו,Ludos,,,,,,,,,,,
+i3hw9DdqhVVfc4CJXV1c,דחיקת רגליים,Urbanics,1w5O0UD_8XZgqJVO_GqaCrR5PUGYIyeeS,דחיקת רגליים במכונה.mp4,1m8XtWkYAKeXVigd14TXzEI8J2mo85mDc,דחיקת רגליים במכונה.jpg,,,,,yes,name-match,0.850
+VYnPUis2nEeYzv8hvKat,הרקולס דחיפה/משיכה,Ludos,,,,,,,,,yes,,
+DkoNvkAHEstnLKtUMq21,חבל טיפוס,Ludos,,,,,1DS4FpVr1LTes9pIPLBXNgwB5wo3kWF2Q,UBX-CR חבל טיפוס.mp4,1iI_ZTN-foZrCoCTM4ivLue6X0-bTebNE,UBX-CR חבל טיפוס 2.jpg,yes,name-match,0.850
+pUoSX0V6R7OHYZXhaYJy,חתירה במכונה בישיבה,Ludos,,,,,,,,,,,
+deKAUMtImaLX3Q740Ylh,חתירה במכונה בשכיבה,Ludos,,,,,,,,,,,
+tR6YXbYe63luRlqatnKb,חתירות ויד אחורית,Ludos,,,,,,,,,yes,,
+xL1I7KTda4blmdg1azGu,טבעות אולימפיות,Ludos,,,,,1GawyTvW1ln5PRLk0AdpVeKaE5f6l9hke,UBX-O-RING.mp4,1gKf3c7s3egRS2qc20PMrY9T2ml3Ma5tA,ubx-o-ring.jpg,,dict:UBX-O-RING,0.750
+Q3Vekl2Na735FCpqxwHD,טבעות אימון,Ludos,,,,,1dgHo-p2IQWcGR4Gqoi1E1WwW_8NcjOHu,UBX-RING.mp4,1Al5GK04eeE70E3xgT_8kUVJKwynqWwIU,ubx-ring.jpg,,dict:UBX-RING,0.750
+kvJCQu6OJ78Pm4ZM5AfN,כפיפת מרפקים - במכונה,Ludos,,,,,1Vht2FeceWGoDTMEGnoCPVxdVMwYSB0hS,כפיפת מרפקים.mp4,1KXFA804vrR0igWwPpCR-H-Yk8Dxt39vM,כפיפת מרפקים.jpg,yes,name-match,0.850
+JwyjEU5LgXNWzpC9FsrM,לחיצת חזה בישיבה,Ludos,1_nhOO--3O8x9ar-HXweKI7dchWOOWjfx,לחיצת חזה בישיבה.mp4,1YQWF2BYcLOXpcnNzuVeIMz3NGRM-0gxG,לחיצת חזה בישיבה.jpg,,,,,yes,name-match,1.000
+Xn5lQ1Metoc9sHom3lMt,לחיצת חזה בישיבה - במכונה,Ludos,,,,,,,,,yes,,
+akymudSouJLlTiTUM0fm,לחיצת חזה בשכיבה - במכונה,Ludos,,,,,,,,,yes,,
+qf1WT03F8xmPC9OqZ0Ns,לחיצת כתפיים,Urbanics,1QtSo3kB5iuIYwY2o0O960RYjNW3w6njI,LA-14415 לחיצת כתפיים במכונה.mp4,1jmTubJiSGnHW2USYprCMGaeHXKyb2wFk,LA-14415 לחיצת כתפיים.jpg,1JN8O2cu3s2h53iMun71XFb9h4lHy6ZO5,לחיצת כתפיים במכונה.mp4,1pcsTKcUJjhjwMKFPjwOBd5bZrNkpeYuX,לחיצת כתפיים במכונה.jpg,yes,name-match,0.850
+RS0EmdR6yRxlHLnnHyF9,לחיצת כתפיים בישיבה - במכונה,Urbanics,,,,,,,,,,,
+BBqp7QrAzTbvzQOKxAx1,לחיצת רגליים במכונה,Ludos,,,,,,,,,yes,,
+2Kt12YhP8fdaRqNnsPiX,מאמן שרירי בטן ואגן,Urbanics,,,,,,,,,yes,,
+pKh30gGIGOKFcgLET2Fn,מדרגות אימון,Urbanics,,,,,,,,,,,
+InKr0xUxeVBlg370WaTm,מיטת עליית בטן,Urbanics,,,,,,,,,yes,,
+VQoqHLfhHGhPsaz2zsQO,מקבילים ארוכים,Ludos,,,,,1Azx9Khb7qrz-GDrMZK1TZQotRwC4YqrL,UBX-DIP.mp4,1DXRHSoNeBflNu0TVVfJa0HiDJXFDAgWj,ubx-dip.jpg,yes,dict:UBX-DIP,0.750
+csqmVzvLLVADJigVEYLd,מקבילים כנף,Ludos,,,,,,,177qx2kp7WpRY_psc9WKb2hoXrcFBb463,מקבילים כנף.jpg,yes,name-match,1.000
+YzzcZF3mPNvZhfghBnfO,מקבילים נמוכים,Ludos,,,,,,,,,yes,,
+rsGezdRxG5hayY7x88pJ,מתח,Ludos,,,,,1LHLr5kCMRAjh1v7Xy7b9wc7Kk40rl7wF,UBX-RPB.mp4,1ha3E4PK1WA2DgggZuTJPwna0lLTOdHeu,ubx-rpb.jpg,,dict:UBX-RPB,0.750
+aRpOcvccPTIQy745ju37,מתח גל מרובע,Ludos,,,,,,,,,,,
+YrBvbzeC3HiGhFMJwuzK,מתח גריפ,Ludos,,,,,,,1wgaDZSyyLaRDdKzpcGNnTJxeCivC_MOw,מתח גריפ.jpg,,name-match,1.000
+UbssQiwmyKnAcm1QGsVO,מתח מדורג,Ludos,,,,,,,1DZvos037DxkYQSQHTJyVJZxwYR255M80,מתח מדורג.jpg,,name-match,1.000
+cb2LOAzQFISkI1FUXohQ,מתח מסתובב,Ludos,,,,,,,,,,,
+Tv07mF8EnVzc0LdXohgu,מתח רחב,Ludos,,,,,,,,,,,
+B48WteY6Slvx3nbU88Ix,מתקן לחיצת חזה בשכיבה - משקולות,Ludos,,,,,,,,,yes,,
+WvfYhZ3KqMAtPC5vsmtQ,מתקן משיכה עילי - משקולות,Ludos,,,,,,,,,,,
+cnAUXDv5rUn2gAMlzmK8,סולם הליכות ידיים,Ludos,,,,,,,,,,,
+xQ617v3yzLpVQv4ChfRJ,סולם שוודי,Ludos,,,,,1KLhbvZOprYaey-7723RK9WBAR1c4eMr3,סולם שוודי.mp4,1VyCtMt3ECNNU1uM04HaAW9l1PvCgwX-6,סולם שוודי.jpg,,name-match,1.000
+hCdyBtvwSXa3rmd4vIIT,סטפר,Urbanics,,,,,,,,,,,
+PG2OQBhTOQKnaLEINBrk,סיבוב אגן במכונה,Ludos,,,,,,,,,,,
+ca6lgibauPDiks0aUqdQ,סיבובי ידיים במכונה,Ludos,,,,,,,,,,,
+eiaTxyrI7HouRN2UNwyu,סקוואט כנגד מכונה,Ludos,,,1a8Hi9IuugltWe3hPKn00b6b4pybiCWlA,סקוואט.jpg,,,,,yes,name-match,0.850
+cmCFwJwELvRZuoeoJdEy,סקי רחיפה,Ludos,,,,,,,,,yes,,
+maws21t1A3Zetfpem8rT,פולי עליון,Urbanics,1DOilFqlJTQdpG4P9BJ8_w7vmPEWLHbP9,פולי עליון.mp4,1Wi4ytaePQQlVI4MgIJ5UI0PCoo3PB64z,פולי עליון.jpg,1bumL9Fy8FpX20tFsmVWWNrDxh-yOxb3T,UBX-LAT.mp4,1SktsYMfWQa4V8i10cPb87ehVAcBn_P_x,ubx-lat.jpg,,name-match,1.000
+oRsBMGjuv72W0cGqLdot,פרפר,Urbanics,1faq7nxfILz1KDJrlOKY_b6h4QgShIWgT,LA-14104 מתקן פרפר.mp4,12zlEnL5kZ9TjQrEb5THluY4MHb2atuvS,מתקן פרפר.jpg,,,,,,name-match,1.000
+sxUlOhGek02nDHJh7Emx,פרפר במכונה,Ludos,,,,,,,,,,,
+P55rA05ucveYiulz1uG5,פרפר פשיטה,Ludos,,,,,,,,,,,
+mQaZtn31SwsKgh2xjKV5,פשיטת ברך בישיבה,Ludos,,,,,,,,,,,
+xam0akawTZCCXTBKqaIm,פשיטת ברך במכונה,Ludos,,,,,,,,,,,
+qFp3IfowWpsoov6Blpgf,פשיטת מרפקים בישיבה - במכונה,Ludos,,,,,,,,,,,
+nTGwwNtSZc9x3pxuUhTj,צעידה באוויר,Urbanics,1TjoH4HK-qXBPrk7VvHCX396HWp8vacuJ,צעידה באוויר.mp4,1EYQb0N9QqGfnra2VS28BFgso9v3ZqHil,צעידה באוויר.jpg,,,,,yes,name-match,1.000
+CwSf7uYJL6Qwj6ADgLSR,קטלבל,Ludos,,,,,1qTAm_3wQDftYhdDKcUOkS2wxsUmLFlQ6,UBX-KTB-2.mp4,1wTOAzF3eFIwIHH2Y9cBkvgu3_yLlZZSz,UBX-KTB-2 קטלבל.jpg,,name-match,1.000
+Q0KO4neYQPmuIig7DEVF,קיק בוקס,Ludos,,,,,,,,,,,
+HMcsyeiYN4CvTqTXzvJT,קירוב ברכיים לחזה,Ludos,,,,,,,,,,,
+s8goMzF59VCNbKhf0BhE,רצועות חתירה TRX,Ludos,,,,,,,,,,,
+BlaaMRjaztS9ljty9h1L,רצועות חתירה מתכווננות,Ludos,,,,,,,,,,,

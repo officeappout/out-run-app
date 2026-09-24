@@ -1,0 +1,187 @@
+{
+  "generatedAt": "2026-07-04T12:02:26.224Z",
+  "mode": "write",
+  "note": "gym_equipment excluded — media slots correct and manually curated",
+  "summary": {
+    "gymEquipmentTouched": 0,
+    "skippedAlreadyFixed": 0,
+    "parksToChange": 583,
+    "parksUnchanged": 2,
+    "manualTagParksNotSwapped": 2
+  },
+  "manualTagParks": [
+    {
+      "parkId": "lyK5Qw10Br3viUsROTZS",
+      "parkName": "בדיקה תלאביב דוד",
+      "brandName": "אורבניקס"
+    },
+    {
+      "parkId": "wLoqnYzQx5jApVLbVLJZ",
+      "parkName": "גן הספורט - נאות הנביאים",
+      "brandName": "אורבניקס"
+    }
+  ],
+  "parkChangesSample": [
+    {
+      "parkId": "08rg5dBeYwUhYZQ9a22W",
+      "name": "פארק כושר יעלים - באר שבע",
+      "city": "באר שבע",
+      "uniqueBrandsBefore": "Urbanics, Ludos",
+      "uniqueBrandsAfter": "Ludos, Urbanics",
+      "equipmentCount": 7
+    },
+    {
+      "parkId": "0Ax6B8fFUGobfLZEO8Dp",
+      "name": "גינת כושר החיל - פתח תקווה",
+      "city": "פתח תקווה",
+      "uniqueBrandsBefore": "Urbanics, Ludos",
+      "uniqueBrandsAfter": "Ludos, Urbanics",
+      "equipmentCount": 9
+    },
+    {
+      "parkId": "0DmM59OBqwDVgrURMxJM",
+      "name": "גינת כושר אלמותנבי - חיפה",
+      "city": "חיפה",
+      "uniqueBrandsBefore": "Ludos, Urbanics",
+      "uniqueBrandsAfter": "Urbanics, Ludos",
+      "equipmentCount": 3
+    },
+    {
+      "parkId": "0EJbqBGrIGynoT0Pjmzg",
+      "name": "גן כושר מגדל המים - ראשון לציון",
+      "city": "ראשון לציון",
+      "uniqueBrandsBefore": "Urbanics, Ludos",
+      "uniqueBrandsAfter": "Ludos, Urbanics",
+      "equipmentCount": 5
+    },
+    {
+      "parkId": "0FtpSgwX5pGPAzeU6oGN",
+      "name": "חוף דדו צפון - חיפה",
+      "city": "חיפה",
+      "uniqueBrandsBefore": "Ludos, Urbanics",
+      "uniqueBrandsAfter": "Urbanics, Ludos",
+      "equipmentCount": 4
+    },
+    {
+      "parkId": "0OEkUXbjDjomoLqqHJLJ",
+      "name": "גינת כושר ילין - תל אביב",
+      "city": "תל אביב-יפו",
+      "uniqueBrandsBefore": "Urbanics, Ludos",
+      "uniqueBrandsAfter": "Ludos, Urbanics",
+      "equipmentCount": 12
+    },
+    {
+      "parkId": "0VADHJDW6RfSfNJVfq1c",
+      "name": "גן כושר פייבל - תל אביב",
+      "city": "תל אביב-יפו",
+      "uniqueBrandsBefore": "Urbanics, Ludos",
+      "uniqueBrandsAfter": "Ludos, Urbanics",
+      "equipmentCount": 19
+    },
+    {
+      "parkId": "0pX6MVonOVDSTcLzD75P",
+      "name": "גן כושר לוי אשכול - חולון",
+      "city": "חולון",
+      "uniqueBrandsBefore": "Urbanics, Ludos",
+      "uniqueBrandsAfter": "Ludos, Urbanics",
+      "equipmentCount": 18
+    },
+    {
+      "parkId": "15IpSa9jyzjg4Fr7ALmY",
+      "name": "גינת כושר תמר - פתח תקווה",
+      "city": "פתח תקווה",
+      "uniqueBrandsBefore": "Urbanics, Ludos",
+      "uniqueBrandsAfter": "Ludos, Urbanics",
+      "equipmentCount": 8
+    },
+    {
+      "parkId": "1I7IEeYECNiPtysExjhW",
+      "name": "גינת כושר גלי ים - קריית ים",
+      "city": "דניה",
+      "uniqueBrandsBefore": "Ludos, Urbanics",
+      "uniqueBrandsAfter": "Urbanics, Ludos",
+      "equipmentCount": 10
+    },
+    {
+      "parkId": "1JgO0Yp1St6M5PTBYL4B",
+      "name": "גן כושר אמיצים - חולון",
+      "city": "חולון",
+      "uniqueBrandsBefore": "Urbanics, Ludos",
+      "uniqueBrandsAfter": "Ludos, Urbanics",
+      "equipmentCount": 9
+    },
+    {
+      "parkId": "1M5hGcAIiZ9AFCXD0mAk",
+      "name": "גינת כושר משמר הירדן - תל אביב",
+      "city": "תל אביב-יפו",
+      "uniqueBrandsBefore": "Urbanics, Ludos",
+      "uniqueBrandsAfter": "Ludos, Urbanics",
+      "equipmentCount": 22
+    },
+    {
+      "parkId": "1MFqDWI8022ezereUkuI",
+      "name": "גינת כושר גיבתון - ברנר",
+      "city": "רחובות",
+      "uniqueBrandsBefore": "Ludos, Urbanics",
+      "uniqueBrandsAfter": "Urbanics, Ludos",
+      "equipmentCount": 10
+    },
+    {
+      "parkId": "1TUPrn81VY4uTjvdqiQ7",
+      "name": "גן כושר גיסין בחורשה - פתח תקווה",
+      "city": "פתח תקווה",
+      "uniqueBrandsBefore": "Ludos, Urbanics",
+      "uniqueBrandsAfter": "Urbanics, Ludos",
+      "equipmentCount": 10
+    },
+    {
+      "parkId": "1VTwxS07PB5odo4Gocq6",
+      "name": "גן כושר שער למזרח - ראשון לציון",
+      "city": "ראשון לציון",
+      "uniqueBrandsBefore": "Urbanics, Ludos",
+      "uniqueBrandsAfter": "Ludos, Urbanics",
+      "equipmentCount": 6
+    },
+    {
+      "parkId": "1WP2yYFAQDPIbLx2wPQo",
+      "name": "גינת כושר פרישמן - פתח תקווה",
+      "city": "פתח תקווה",
+      "uniqueBrandsBefore": "Ludos, Urbanics",
+      "uniqueBrandsAfter": "Urbanics, Ludos",
+      "equipmentCount": 8
+    },
+    {
+      "parkId": "1Z6VylZaS9MgiZgiO5LG",
+      "name": "גן כושר נווה דקלים - ראשון לציון",
+      "city": "ראשון לציון",
+      "uniqueBrandsBefore": "Urbanics, Ludos",
+      "uniqueBrandsAfter": "Ludos, Urbanics",
+      "equipmentCount": 10
+    },
+    {
+      "parkId": "1bFY7mF3CxUF27WbyTD9",
+      "name": "גן כושר דבורה הנביאה - תל אביב",
+      "city": "תל אביב-יפו",
+      "uniqueBrandsBefore": "Ludos, Urbanics",
+      "uniqueBrandsAfter": "Urbanics, Ludos",
+      "equipmentCount": 10
+    },
+    {
+      "parkId": "1clZcoWOT7QqzwOMHI4X",
+      "name": "גינת כושר אוסקר שינדלר - תל אביב",
+      "city": "תל אביב-יפו",
+      "uniqueBrandsBefore": "Urbanics, Ludos",
+      "uniqueBrandsAfter": "Ludos, Urbanics",
+      "equipmentCount": 15
+    },
+    {
+      "parkId": "1dpDyNg34asZWNlGzKon",
+      "name": "גן כושר משה דיין 1 - ראשון לציון",
+      "city": "ראשון לציון",
+      "uniqueBrandsBefore": "Urbanics, Ludos",
+      "uniqueBrandsAfter": "Ludos, Urbanics",
+      "equipmentCount": 23
+    }
+  ],
+  "parkChangesTotal": 583
+}

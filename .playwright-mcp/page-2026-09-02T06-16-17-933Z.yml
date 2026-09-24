@@ -1,0 +1,34 @@
+- dialog [ref=f21e7]:
+  - generic [ref=f21e8]:
+    - generic [ref=f21e9]:
+      - generic [ref=f21e10]:
+        - navigation [ref=f21e11]:
+          - button "previous" [disabled] [ref=f21e12]:
+            - img "previous" [ref=f21e13]
+          - button "next" [disabled] [ref=f21e15]:
+            - img "next" [ref=f21e16]
+          - generic [ref=f21e18]: 1 of 1 error
+          - generic [ref=f21e19]:
+            - text: Next.js (14.2.35) is outdated
+            - link "(learn more)" [ref=f21e21] [cursor=pointer]:
+              - /url: https://nextjs.org/docs/messages/version-staleness
+        - button "Close" [ref=f21e22] [cursor=pointer]
+      - heading "Unhandled Runtime Error" [level=1] [ref=f21e27]
+      - paragraph [ref=f21e28]: "ChunkLoadError: Loading chunk app/layout failed. (timeout: http://localhost:3001/_next/static/chunks/app/layout.js)"
+    - generic [ref=f21e29]:
+      - heading "Call Stack" [level=2] [ref=f21e30]
+      - group [ref=f21e31]:
+        - generic "Next.js" [ref=f21e32] [cursor=pointer]
+      - generic [ref=f21e40]:
+        - heading "<unknown>" [level=3] [ref=f21e41]
+        - generic [ref=f21e42]: file:///Users/calisthenicsltd/Development/appout-1/.claude/worktrees/main-smoke-test/.next/static/chunks/webpack.js (155:40)
+      - generic [ref=f21e44]:
+        - heading "Array.reduce" [level=3] [ref=f21e45]
+        - generic [ref=f21e46]: <anonymous>
+      - group [ref=f21e48]:
+        - generic "Next.js" [ref=f21e49] [cursor=pointer]
+      - generic [ref=f21e57]:
+        - heading "fn.e" [level=3] [ref=f21e58]
+        - generic [ref=f21e59]: file:///Users/calisthenicsltd/Development/appout-1/.claude/worktrees/main-smoke-test/.next/static/chunks/webpack.js (391:50)
+      - group [ref=f21e61]:
+        - generic "React" [ref=f21e62] [cursor=pointer]

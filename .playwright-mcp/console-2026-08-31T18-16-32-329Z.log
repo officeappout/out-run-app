@@ -1,0 +1,12 @@
+[     776ms] [INFO] [O11Y] [DatadogRUM] Initialized {service: claude-ai, env: production, version: f46f012fcd} @ https://assets-proxy.anthropic.com/claude-ai/v2/assets/v1/vendor-datadog-Wu91PdDV.js:4
+[    1371ms] [LOG] recaptchacompat disabled @ https://assets-proxy.anthropic.com/claude-ai/v2/assets/v1/vendor-datadog-Wu91PdDV.js:4
+[    3417ms] [ERROR] Cross-Origin-Opener-Policy policy would block the window.closed call. @ https://accounts.google.com/gsi/client:137
+[    3417ms] [ERROR] Cross-Origin-Opener-Policy policy would block the window.closed call. @ https://accounts.google.com/gsi/client:137
+[    6424ms] [ERROR] Cross-Origin-Opener-Policy policy would block the window.closed call. @ https://accounts.google.com/gsi/client:137
+[    6424ms] [ERROR] Cross-Origin-Opener-Policy policy would block the window.closed call. @ https://accounts.google.com/gsi/client:137
+[    7927ms] [ERROR] Cross-Origin-Opener-Policy policy would block the window.closed call. @ https://accounts.google.com/gsi/client:137
+[    7928ms] [ERROR] Cross-Origin-Opener-Policy policy would block the window.closed call. @ https://accounts.google.com/gsi/client:137
+[   48409ms] [ERROR] The request has been aborted. @ https://claude.ai/oauth/authorize?client_id=dae2cad8-15c5-43d2-9046-fcaecc135fa4&response_type=code&scope=user%3Aprofile+user%3Ainference+user%3Achat&redirect_uri=chrome-extension%3A%2F%2Ffcoeoabgfenejglbffodgkkbkcdhcgfn%2Foauth_callback.html&state=_95ntxpyCUpgI6TxEizGcxrmOidFTvwpcZoapQvDiKU&code_challenge=k1KLePFRv6QmpuE0m2JjNZDqjq_LYMIPT2VTlFIXn14&code_challenge_method=S256:0
+[   48409ms] [ERROR] [GSI_LOGGER]: FedCM get() rejects with AbortError: signal is aborted without reason @ https://assets-proxy.anthropic.com/claude-ai/v2/assets/v1/vendor-datadog-Wu91PdDV.js:4
+[   50839ms] [INFO] [O11Y] [DatadogRUM] Initialized {service: claude-ai, env: production, version: f46f012fcd} @ https://assets-proxy.anthropic.com/claude-ai/v2/assets/v1/vendor-datadog-Wu91PdDV.js:4
+[   51023ms] [WARNING] Deprecated API for given entry type. @ https://assets-proxy.anthropic.com/claude-ai/v2/assets/v1/shared-7-DiO2n_mp.js:7

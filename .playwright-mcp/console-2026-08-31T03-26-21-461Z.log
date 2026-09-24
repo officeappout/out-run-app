@@ -1,0 +1,307 @@
+[   18618ms] [WARNING] [GSI_LOGGER]: Your client application uses one of the Google One Tap prompt UI status methods that may stop functioning when FedCM becomes mandatory. Refer to the migration guide to update your code accordingly and opt-in to FedCM to test your changes. Learn more: https://developers.google.com/identity/gsi/web/guides/fedcm-migration?s=dc#display_moment and https://developers.google.com/identity/gsi/web/guides/fedcm-migration?s=dc#skipped_moment @ https://static.canva.com/web/489d4989d560df4f.sentry_browser.js:0
+[   25985ms] [INFO] websocket_client: 1788146807445 connecting... @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[   26538ms] [INFO] websocket_client: connected @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[   26538ms] [INFO] websocket_client: status CONNECTED @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[   26716ms] [INFO] websocket_client: request id a338ef8baf2e2187 @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[ 9302472ms] [INFO] websocket_client: status ERROR, reconnecting in 2587ms Error: RSocketWebSocketClient: Socket closed unexpectedly.
+    at WebSocket.<anonymous> (https://chunk-composing.canva.com/chunk-batch/877a88ab8b19a83c.vendor.js+8bb5bbcbd8281f1e.vendor.js+343b767bfbe009e0.vendor.js+0bf4bb2624066750.vendor.js+5b892a8ed94beac9.vendor.js+7f3a370848dc508d.vendor.js+e04e64b695ce4be4.vendor.js+7b718ffcb931ca0f.js+841823b210d93d9a.js+cdaeabcb49554c95.js+e1d05f220d9da382.js+4723fcfb612414a4.js+8713a07738857270.js+2cea89f65ff5880a.js+bcf9d4acdc001ecc.js+a4fbc479f0e6f59f.js+18b498c65d9d37b8.js+3da33d9db18f3e28.js+bf4cfb9dbfaadf48.js+e65101721e4a0d44.js+5dc4ddf3c0b0f273.js+846d9b5e9eb7db2f.js+fcc65d53c85b2e27.vendor.js+7502fc71ece58952.js+3058386671c8a7da.js+f6e929bea1afc9f8.js+e2577366dabc82b2.js+99e2392217205272.js+905dfe214a6ce934.vendor.js+4756536aec35d3ae.js+6960bd9a338da5c1.js+832cc9806ed34b53.js+dc51f0f98b3981c3.js+b2aab65ce0509451.js+100a4cb4bf78f078.js+de2f2a7aab18ce94.js+2b9d9d0b9658d6dc.js+690101bf296bb206.js+958422555e6e9e32.js+3388b76a22f0250f.js:6:44448)
+    at WebSocket.n (https://static.canva.com/web/8106ee633973e981.sentry_browser.js:1:76074) @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[ 9305059ms] [INFO] websocket_client: 1788156086519 connecting... @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[ 9305704ms] [INFO] websocket_client: connected @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[ 9305713ms] [INFO] websocket_client: status CONNECTED @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[ 9305895ms] [INFO] websocket_client: request id a339d215df398e4b @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[10461162ms] [INFO] websocket_client: status ERROR, reconnecting in 2235ms Error: RSocketWebSocketClient: Socket closed unexpectedly.
+    at WebSocket.<anonymous> (https://chunk-composing.canva.com/chunk-batch/877a88ab8b19a83c.vendor.js+8bb5bbcbd8281f1e.vendor.js+343b767bfbe009e0.vendor.js+0bf4bb2624066750.vendor.js+5b892a8ed94beac9.vendor.js+7f3a370848dc508d.vendor.js+e04e64b695ce4be4.vendor.js+7b718ffcb931ca0f.js+841823b210d93d9a.js+cdaeabcb49554c95.js+e1d05f220d9da382.js+4723fcfb612414a4.js+8713a07738857270.js+2cea89f65ff5880a.js+bcf9d4acdc001ecc.js+a4fbc479f0e6f59f.js+18b498c65d9d37b8.js+3da33d9db18f3e28.js+bf4cfb9dbfaadf48.js+e65101721e4a0d44.js+5dc4ddf3c0b0f273.js+846d9b5e9eb7db2f.js+fcc65d53c85b2e27.vendor.js+7502fc71ece58952.js+3058386671c8a7da.js+f6e929bea1afc9f8.js+e2577366dabc82b2.js+99e2392217205272.js+905dfe214a6ce934.vendor.js+4756536aec35d3ae.js+6960bd9a338da5c1.js+832cc9806ed34b53.js+dc51f0f98b3981c3.js+b2aab65ce0509451.js+100a4cb4bf78f078.js+de2f2a7aab18ce94.js+2b9d9d0b9658d6dc.js+690101bf296bb206.js+958422555e6e9e32.js+3388b76a22f0250f.js:6:44448)
+    at WebSocket.n (https://static.canva.com/web/8106ee633973e981.sentry_browser.js:1:76074) @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[10463398ms] [INFO] websocket_client: 1788157244858 connecting... @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[10464009ms] [INFO] websocket_client: connected @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[10464014ms] [INFO] websocket_client: status CONNECTED @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[10464244ms] [INFO] websocket_client: request id a339ee5d88e364ec @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[11275565ms] [INFO] websocket_client: status ERROR, reconnecting in 2520ms Error: RSocketWebSocketClient: Socket closed unexpectedly.
+    at WebSocket.<anonymous> (https://chunk-composing.canva.com/chunk-batch/877a88ab8b19a83c.vendor.js+8bb5bbcbd8281f1e.vendor.js+343b767bfbe009e0.vendor.js+0bf4bb2624066750.vendor.js+5b892a8ed94beac9.vendor.js+7f3a370848dc508d.vendor.js+e04e64b695ce4be4.vendor.js+7b718ffcb931ca0f.js+841823b210d93d9a.js+cdaeabcb49554c95.js+e1d05f220d9da382.js+4723fcfb612414a4.js+8713a07738857270.js+2cea89f65ff5880a.js+bcf9d4acdc001ecc.js+a4fbc479f0e6f59f.js+18b498c65d9d37b8.js+3da33d9db18f3e28.js+bf4cfb9dbfaadf48.js+e65101721e4a0d44.js+5dc4ddf3c0b0f273.js+846d9b5e9eb7db2f.js+fcc65d53c85b2e27.vendor.js+7502fc71ece58952.js+3058386671c8a7da.js+f6e929bea1afc9f8.js+e2577366dabc82b2.js+99e2392217205272.js+905dfe214a6ce934.vendor.js+4756536aec35d3ae.js+6960bd9a338da5c1.js+832cc9806ed34b53.js+dc51f0f98b3981c3.js+b2aab65ce0509451.js+100a4cb4bf78f078.js+de2f2a7aab18ce94.js+2b9d9d0b9658d6dc.js+690101bf296bb206.js+958422555e6e9e32.js+3388b76a22f0250f.js:6:44448)
+    at WebSocket.n (https://static.canva.com/web/8106ee633973e981.sentry_browser.js:1:76074) @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[11278086ms] [INFO] websocket_client: 1788158059546 connecting... @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[11278760ms] [INFO] websocket_client: connected @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[11278763ms] [INFO] websocket_client: status CONNECTED @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[11279186ms] [INFO] websocket_client: request id a33a0241e8de8e4a @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[12745641ms] [INFO] websocket_client: status ERROR, reconnecting in 2558ms Error: RSocketWebSocketClient: Socket closed unexpectedly.
+    at WebSocket.<anonymous> (https://chunk-composing.canva.com/chunk-batch/877a88ab8b19a83c.vendor.js+8bb5bbcbd8281f1e.vendor.js+343b767bfbe009e0.vendor.js+0bf4bb2624066750.vendor.js+5b892a8ed94beac9.vendor.js+7f3a370848dc508d.vendor.js+e04e64b695ce4be4.vendor.js+7b718ffcb931ca0f.js+841823b210d93d9a.js+cdaeabcb49554c95.js+e1d05f220d9da382.js+4723fcfb612414a4.js+8713a07738857270.js+2cea89f65ff5880a.js+bcf9d4acdc001ecc.js+a4fbc479f0e6f59f.js+18b498c65d9d37b8.js+3da33d9db18f3e28.js+bf4cfb9dbfaadf48.js+e65101721e4a0d44.js+5dc4ddf3c0b0f273.js+846d9b5e9eb7db2f.js+fcc65d53c85b2e27.vendor.js+7502fc71ece58952.js+3058386671c8a7da.js+f6e929bea1afc9f8.js+e2577366dabc82b2.js+99e2392217205272.js+905dfe214a6ce934.vendor.js+4756536aec35d3ae.js+6960bd9a338da5c1.js+832cc9806ed34b53.js+dc51f0f98b3981c3.js+b2aab65ce0509451.js+100a4cb4bf78f078.js+de2f2a7aab18ce94.js+2b9d9d0b9658d6dc.js+690101bf296bb206.js+958422555e6e9e32.js+3388b76a22f0250f.js:6:44448)
+    at WebSocket.n (https://static.canva.com/web/8106ee633973e981.sentry_browser.js:1:76074) @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[12748200ms] [INFO] websocket_client: 1788159529660 connecting... @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[12748867ms] [INFO] websocket_client: connected @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[12748871ms] [INFO] websocket_client: status CONNECTED @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[12749046ms] [INFO] websocket_client: request id a33a2625e9818e4a @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[14143968ms] [ERROR] Failed to load resource: the server responded with a status of 520 () @ https://telemetry.canva.com/v1/traces:0
+[14256483ms] [INFO] websocket_client: status ERROR, reconnecting in 1298ms Error: RSocketWebSocketClient: Socket closed unexpectedly.
+    at WebSocket.<anonymous> (https://chunk-composing.canva.com/chunk-batch/877a88ab8b19a83c.vendor.js+8bb5bbcbd8281f1e.vendor.js+343b767bfbe009e0.vendor.js+0bf4bb2624066750.vendor.js+5b892a8ed94beac9.vendor.js+7f3a370848dc508d.vendor.js+e04e64b695ce4be4.vendor.js+7b718ffcb931ca0f.js+841823b210d93d9a.js+cdaeabcb49554c95.js+e1d05f220d9da382.js+4723fcfb612414a4.js+8713a07738857270.js+2cea89f65ff5880a.js+bcf9d4acdc001ecc.js+a4fbc479f0e6f59f.js+18b498c65d9d37b8.js+3da33d9db18f3e28.js+bf4cfb9dbfaadf48.js+e65101721e4a0d44.js+5dc4ddf3c0b0f273.js+846d9b5e9eb7db2f.js+fcc65d53c85b2e27.vendor.js+7502fc71ece58952.js+3058386671c8a7da.js+f6e929bea1afc9f8.js+e2577366dabc82b2.js+99e2392217205272.js+905dfe214a6ce934.vendor.js+4756536aec35d3ae.js+6960bd9a338da5c1.js+832cc9806ed34b53.js+dc51f0f98b3981c3.js+b2aab65ce0509451.js+100a4cb4bf78f078.js+de2f2a7aab18ce94.js+2b9d9d0b9658d6dc.js+690101bf296bb206.js+958422555e6e9e32.js+3388b76a22f0250f.js:6:44448)
+    at WebSocket.n (https://static.canva.com/web/8106ee633973e981.sentry_browser.js:1:76074) @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[14257783ms] [INFO] websocket_client: 1788161039243 connecting... @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[14258357ms] [INFO] websocket_client: connected @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[14258361ms] [INFO] websocket_client: status CONNECTED @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[14258526ms] [INFO] websocket_client: request id a33a4b004b822674 @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[25974202ms] [INFO] websocket_client: status ERROR, reconnecting in 2084ms Error: RSocketWebSocketClient: Socket closed unexpectedly.
+    at WebSocket.<anonymous> (https://chunk-composing.canva.com/chunk-batch/877a88ab8b19a83c.vendor.js+8bb5bbcbd8281f1e.vendor.js+343b767bfbe009e0.vendor.js+0bf4bb2624066750.vendor.js+5b892a8ed94beac9.vendor.js+7f3a370848dc508d.vendor.js+e04e64b695ce4be4.vendor.js+7b718ffcb931ca0f.js+841823b210d93d9a.js+cdaeabcb49554c95.js+e1d05f220d9da382.js+4723fcfb612414a4.js+8713a07738857270.js+2cea89f65ff5880a.js+bcf9d4acdc001ecc.js+a4fbc479f0e6f59f.js+18b498c65d9d37b8.js+3da33d9db18f3e28.js+bf4cfb9dbfaadf48.js+e65101721e4a0d44.js+5dc4ddf3c0b0f273.js+846d9b5e9eb7db2f.js+fcc65d53c85b2e27.vendor.js+7502fc71ece58952.js+3058386671c8a7da.js+f6e929bea1afc9f8.js+e2577366dabc82b2.js+99e2392217205272.js+905dfe214a6ce934.vendor.js+4756536aec35d3ae.js+6960bd9a338da5c1.js+832cc9806ed34b53.js+dc51f0f98b3981c3.js+b2aab65ce0509451.js+100a4cb4bf78f078.js+de2f2a7aab18ce94.js+2b9d9d0b9658d6dc.js+690101bf296bb206.js+958422555e6e9e32.js+3388b76a22f0250f.js:6:44448)
+    at WebSocket.n (https://static.canva.com/web/8106ee633973e981.sentry_browser.js:1:76074) @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[25976278ms] [INFO] websocket_client: 1788172757738 connecting... @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[25976902ms] [INFO] websocket_client: connected @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[25976907ms] [INFO] websocket_client: status CONNECTED @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[25977070ms] [INFO] websocket_client: request id a33b6919bec1659f @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[26919097ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788173700222:0
+[26919396ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_ajax/searchui/browseHome?clientSearchId=915838d5-3bde-4ac4-b48a-52484fb604f2&surface=B:0
+[26919400ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://static.canva.com/web/347dc8492cace998.js:0
+[26920295ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://telemetry.canva.com/v1/traces:0
+[26920386ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788173701843:0
+[26920422ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://static.canva.com/web/347dc8492cace998.js:0
+[26921430ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://static.canva.com/web/347dc8492cace998.js:0
+[26922060ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788173703516:0
+[26922441ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://static.canva.com/web/347dc8492cace998.js:0
+[26923449ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://static.canva.com/web/347dc8492cace998.js:0
+[26924089ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788173705545:0
+[26924498ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://static.canva.com/web/347dc8492cace998.js:0
+[26926564ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788173708018:0
+[26931276ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788173712676:0
+[26958962ms] [INFO] websocket_client: status ERROR, reconnecting in 2121ms Error: RSocketWebSocketClient: Socket closed unexpectedly.
+    at WebSocket.<anonymous> (https://chunk-composing.canva.com/chunk-batch/877a88ab8b19a83c.vendor.js+8bb5bbcbd8281f1e.vendor.js+343b767bfbe009e0.vendor.js+0bf4bb2624066750.vendor.js+5b892a8ed94beac9.vendor.js+7f3a370848dc508d.vendor.js+e04e64b695ce4be4.vendor.js+7b718ffcb931ca0f.js+841823b210d93d9a.js+cdaeabcb49554c95.js+e1d05f220d9da382.js+4723fcfb612414a4.js+8713a07738857270.js+2cea89f65ff5880a.js+bcf9d4acdc001ecc.js+a4fbc479f0e6f59f.js+18b498c65d9d37b8.js+3da33d9db18f3e28.js+bf4cfb9dbfaadf48.js+e65101721e4a0d44.js+5dc4ddf3c0b0f273.js+846d9b5e9eb7db2f.js+fcc65d53c85b2e27.vendor.js+7502fc71ece58952.js+3058386671c8a7da.js+f6e929bea1afc9f8.js+e2577366dabc82b2.js+99e2392217205272.js+905dfe214a6ce934.vendor.js+4756536aec35d3ae.js+6960bd9a338da5c1.js+832cc9806ed34b53.js+dc51f0f98b3981c3.js+b2aab65ce0509451.js+100a4cb4bf78f078.js+de2f2a7aab18ce94.js+2b9d9d0b9658d6dc.js+690101bf296bb206.js+958422555e6e9e32.js+3388b76a22f0250f.js:6:44448)
+    at WebSocket.n (https://static.canva.com/web/8106ee633973e981.sentry_browser.js:1:76074) @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[26961084ms] [INFO] websocket_client: 1788173742544 connecting... @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[26961657ms] [INFO] websocket_client: connected @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[26961666ms] [INFO] websocket_client: status CONNECTED @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[26961830ms] [INFO] websocket_client: request id a33b812438a1e8b9 @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[28255483ms] [INFO] websocket_client: status ERROR, reconnecting in 2438ms Error: RSocketWebSocketClient: Socket closed unexpectedly.
+    at WebSocket.<anonymous> (https://chunk-composing.canva.com/chunk-batch/877a88ab8b19a83c.vendor.js+8bb5bbcbd8281f1e.vendor.js+343b767bfbe009e0.vendor.js+0bf4bb2624066750.vendor.js+5b892a8ed94beac9.vendor.js+7f3a370848dc508d.vendor.js+e04e64b695ce4be4.vendor.js+7b718ffcb931ca0f.js+841823b210d93d9a.js+cdaeabcb49554c95.js+e1d05f220d9da382.js+4723fcfb612414a4.js+8713a07738857270.js+2cea89f65ff5880a.js+bcf9d4acdc001ecc.js+a4fbc479f0e6f59f.js+18b498c65d9d37b8.js+3da33d9db18f3e28.js+bf4cfb9dbfaadf48.js+e65101721e4a0d44.js+5dc4ddf3c0b0f273.js+846d9b5e9eb7db2f.js+fcc65d53c85b2e27.vendor.js+7502fc71ece58952.js+3058386671c8a7da.js+f6e929bea1afc9f8.js+e2577366dabc82b2.js+99e2392217205272.js+905dfe214a6ce934.vendor.js+4756536aec35d3ae.js+6960bd9a338da5c1.js+832cc9806ed34b53.js+dc51f0f98b3981c3.js+b2aab65ce0509451.js+100a4cb4bf78f078.js+de2f2a7aab18ce94.js+2b9d9d0b9658d6dc.js+690101bf296bb206.js+958422555e6e9e32.js+3388b76a22f0250f.js:6:44448)
+    at WebSocket.n (https://static.canva.com/web/8106ee633973e981.sentry_browser.js:1:76074) @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[28257924ms] [INFO] websocket_client: 1788175039384 connecting... @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[28259026ms] [INFO] websocket_client: connected @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[28259034ms] [INFO] websocket_client: status CONNECTED @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[28259224ms] [INFO] websocket_client: request id a33ba0d0bad62187 @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[28471994ms] [INFO] websocket_client: status CLOSED, reconnecting in 2581ms undefined @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[28474577ms] [INFO] websocket_client: 1788175256037 connecting... @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[28475141ms] [INFO] websocket_client: connected @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[28475144ms] [INFO] websocket_client: status CONNECTED @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[28475316ms] [INFO] websocket_client: request id a33ba617494f2674 @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[28712201ms] [INFO] websocket_client: status ERROR, reconnecting in 2420ms Error: RSocketWebSocketClient: Socket closed unexpectedly.
+    at WebSocket.<anonymous> (https://chunk-composing.canva.com/chunk-batch/877a88ab8b19a83c.vendor.js+8bb5bbcbd8281f1e.vendor.js+343b767bfbe009e0.vendor.js+0bf4bb2624066750.vendor.js+5b892a8ed94beac9.vendor.js+7f3a370848dc508d.vendor.js+e04e64b695ce4be4.vendor.js+7b718ffcb931ca0f.js+841823b210d93d9a.js+cdaeabcb49554c95.js+e1d05f220d9da382.js+4723fcfb612414a4.js+8713a07738857270.js+2cea89f65ff5880a.js+bcf9d4acdc001ecc.js+a4fbc479f0e6f59f.js+18b498c65d9d37b8.js+3da33d9db18f3e28.js+bf4cfb9dbfaadf48.js+e65101721e4a0d44.js+5dc4ddf3c0b0f273.js+846d9b5e9eb7db2f.js+fcc65d53c85b2e27.vendor.js+7502fc71ece58952.js+3058386671c8a7da.js+f6e929bea1afc9f8.js+e2577366dabc82b2.js+99e2392217205272.js+905dfe214a6ce934.vendor.js+4756536aec35d3ae.js+6960bd9a338da5c1.js+832cc9806ed34b53.js+dc51f0f98b3981c3.js+b2aab65ce0509451.js+100a4cb4bf78f078.js+de2f2a7aab18ce94.js+2b9d9d0b9658d6dc.js+690101bf296bb206.js+958422555e6e9e32.js+3388b76a22f0250f.js:6:44448)
+    at WebSocket.n (https://static.canva.com/web/8106ee633973e981.sentry_browser.js:1:76074) @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[28714623ms] [INFO] websocket_client: 1788175496083 connecting... @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[28715199ms] [INFO] websocket_client: connected @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[28715203ms] [INFO] websocket_client: status CONNECTED @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[28715370ms] [INFO] websocket_client: request id a33babf38b472674 @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[28848793ms] [ERROR] Failed to load resource: net::ERR_NETWORK_CHANGED @ https://www.canva.com/_ajax/ae/time:0
+[28860103ms] [INFO] websocket_client: status ERROR, reconnecting in 1680ms Error: RSocketWebSocketClient: Socket closed unexpectedly.
+    at WebSocket.<anonymous> (https://chunk-composing.canva.com/chunk-batch/877a88ab8b19a83c.vendor.js+8bb5bbcbd8281f1e.vendor.js+343b767bfbe009e0.vendor.js+0bf4bb2624066750.vendor.js+5b892a8ed94beac9.vendor.js+7f3a370848dc508d.vendor.js+e04e64b695ce4be4.vendor.js+7b718ffcb931ca0f.js+841823b210d93d9a.js+cdaeabcb49554c95.js+e1d05f220d9da382.js+4723fcfb612414a4.js+8713a07738857270.js+2cea89f65ff5880a.js+bcf9d4acdc001ecc.js+a4fbc479f0e6f59f.js+18b498c65d9d37b8.js+3da33d9db18f3e28.js+bf4cfb9dbfaadf48.js+e65101721e4a0d44.js+5dc4ddf3c0b0f273.js+846d9b5e9eb7db2f.js+fcc65d53c85b2e27.vendor.js+7502fc71ece58952.js+3058386671c8a7da.js+f6e929bea1afc9f8.js+e2577366dabc82b2.js+99e2392217205272.js+905dfe214a6ce934.vendor.js+4756536aec35d3ae.js+6960bd9a338da5c1.js+832cc9806ed34b53.js+dc51f0f98b3981c3.js+b2aab65ce0509451.js+100a4cb4bf78f078.js+de2f2a7aab18ce94.js+2b9d9d0b9658d6dc.js+690101bf296bb206.js+958422555e6e9e32.js+3388b76a22f0250f.js:6:44448)
+    at WebSocket.n (https://static.canva.com/web/8106ee633973e981.sentry_browser.js:1:76074) @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[28861784ms] [INFO] websocket_client: 1788175643244 connecting... @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[28862578ms] [INFO] websocket_client: connected @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[28862581ms] [INFO] websocket_client: status CONNECTED @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[28862754ms] [INFO] websocket_client: request id a33baf8c6902b2ed @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[29002436ms] [ERROR] Failed to load resource: net::ERR_NETWORK_CHANGED @ https://www.canva.com/_ajax/ae/time:0
+[29014212ms] [INFO] websocket_client: status ERROR, reconnecting in 2262ms Error: RSocketWebSocketClient: Socket closed unexpectedly.
+    at WebSocket.<anonymous> (https://chunk-composing.canva.com/chunk-batch/877a88ab8b19a83c.vendor.js+8bb5bbcbd8281f1e.vendor.js+343b767bfbe009e0.vendor.js+0bf4bb2624066750.vendor.js+5b892a8ed94beac9.vendor.js+7f3a370848dc508d.vendor.js+e04e64b695ce4be4.vendor.js+7b718ffcb931ca0f.js+841823b210d93d9a.js+cdaeabcb49554c95.js+e1d05f220d9da382.js+4723fcfb612414a4.js+8713a07738857270.js+2cea89f65ff5880a.js+bcf9d4acdc001ecc.js+a4fbc479f0e6f59f.js+18b498c65d9d37b8.js+3da33d9db18f3e28.js+bf4cfb9dbfaadf48.js+e65101721e4a0d44.js+5dc4ddf3c0b0f273.js+846d9b5e9eb7db2f.js+fcc65d53c85b2e27.vendor.js+7502fc71ece58952.js+3058386671c8a7da.js+f6e929bea1afc9f8.js+e2577366dabc82b2.js+99e2392217205272.js+905dfe214a6ce934.vendor.js+4756536aec35d3ae.js+6960bd9a338da5c1.js+832cc9806ed34b53.js+dc51f0f98b3981c3.js+b2aab65ce0509451.js+100a4cb4bf78f078.js+de2f2a7aab18ce94.js+2b9d9d0b9658d6dc.js+690101bf296bb206.js+958422555e6e9e32.js+3388b76a22f0250f.js:6:44448)
+    at WebSocket.n (https://static.canva.com/web/8106ee633973e981.sentry_browser.js:1:76074) @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[29016475ms] [INFO] websocket_client: 1788175797936 connecting... @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[29017120ms] [INFO] websocket_client: connected @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[29017124ms] [INFO] websocket_client: status CONNECTED @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[29017300ms] [INFO] websocket_client: request id a33bb3524f10659f @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[29149861ms] [ERROR] Failed to load resource: net::ERR_NETWORK_CHANGED @ https://www.canva.com/_ajax/ae/time:0
+[29162570ms] [INFO] websocket_client: status ERROR, reconnecting in 1171ms Error: RSocketWebSocketClient: Socket closed unexpectedly.
+    at WebSocket.<anonymous> (https://chunk-composing.canva.com/chunk-batch/877a88ab8b19a83c.vendor.js+8bb5bbcbd8281f1e.vendor.js+343b767bfbe009e0.vendor.js+0bf4bb2624066750.vendor.js+5b892a8ed94beac9.vendor.js+7f3a370848dc508d.vendor.js+e04e64b695ce4be4.vendor.js+7b718ffcb931ca0f.js+841823b210d93d9a.js+cdaeabcb49554c95.js+e1d05f220d9da382.js+4723fcfb612414a4.js+8713a07738857270.js+2cea89f65ff5880a.js+bcf9d4acdc001ecc.js+a4fbc479f0e6f59f.js+18b498c65d9d37b8.js+3da33d9db18f3e28.js+bf4cfb9dbfaadf48.js+e65101721e4a0d44.js+5dc4ddf3c0b0f273.js+846d9b5e9eb7db2f.js+fcc65d53c85b2e27.vendor.js+7502fc71ece58952.js+3058386671c8a7da.js+f6e929bea1afc9f8.js+e2577366dabc82b2.js+99e2392217205272.js+905dfe214a6ce934.vendor.js+4756536aec35d3ae.js+6960bd9a338da5c1.js+832cc9806ed34b53.js+dc51f0f98b3981c3.js+b2aab65ce0509451.js+100a4cb4bf78f078.js+de2f2a7aab18ce94.js+2b9d9d0b9658d6dc.js+690101bf296bb206.js+958422555e6e9e32.js+3388b76a22f0250f.js:6:44448)
+    at WebSocket.n (https://static.canva.com/web/8106ee633973e981.sentry_browser.js:1:76074) @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[29163743ms] [INFO] websocket_client: 1788175945203 connecting... @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[29164349ms] [INFO] websocket_client: connected @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[29164351ms] [INFO] websocket_client: status CONNECTED @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[29164537ms] [INFO] websocket_client: request id a33bb6eaccf3e8b9 @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[29297259ms] [ERROR] Failed to load resource: net::ERR_NETWORK_CHANGED @ https://www.canva.com/_ajax/ae/time:0
+[29309775ms] [INFO] websocket_client: status ERROR, reconnecting in 2170ms Error: RSocketWebSocketClient: Socket closed unexpectedly.
+    at WebSocket.<anonymous> (https://chunk-composing.canva.com/chunk-batch/877a88ab8b19a83c.vendor.js+8bb5bbcbd8281f1e.vendor.js+343b767bfbe009e0.vendor.js+0bf4bb2624066750.vendor.js+5b892a8ed94beac9.vendor.js+7f3a370848dc508d.vendor.js+e04e64b695ce4be4.vendor.js+7b718ffcb931ca0f.js+841823b210d93d9a.js+cdaeabcb49554c95.js+e1d05f220d9da382.js+4723fcfb612414a4.js+8713a07738857270.js+2cea89f65ff5880a.js+bcf9d4acdc001ecc.js+a4fbc479f0e6f59f.js+18b498c65d9d37b8.js+3da33d9db18f3e28.js+bf4cfb9dbfaadf48.js+e65101721e4a0d44.js+5dc4ddf3c0b0f273.js+846d9b5e9eb7db2f.js+fcc65d53c85b2e27.vendor.js+7502fc71ece58952.js+3058386671c8a7da.js+f6e929bea1afc9f8.js+e2577366dabc82b2.js+99e2392217205272.js+905dfe214a6ce934.vendor.js+4756536aec35d3ae.js+6960bd9a338da5c1.js+832cc9806ed34b53.js+dc51f0f98b3981c3.js+b2aab65ce0509451.js+100a4cb4bf78f078.js+de2f2a7aab18ce94.js+2b9d9d0b9658d6dc.js+690101bf296bb206.js+958422555e6e9e32.js+3388b76a22f0250f.js:6:44448)
+    at WebSocket.n (https://static.canva.com/web/8106ee633973e981.sentry_browser.js:1:76074) @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[29311947ms] [INFO] websocket_client: 1788176093407 connecting... @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[29312738ms] [INFO] websocket_client: connected @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[29312741ms] [INFO] websocket_client: status CONNECTED @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[29312927ms] [INFO] websocket_client: request id a33bba8a88102212 @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[29425135ms] [ERROR] Failed to load resource: net::ERR_NETWORK_CHANGED @ https://www.canva.com/_ajax/ae/time:0
+[29425241ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788176206671:0
+[29425424ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_ajax/searchui/browseHome?clientSearchId=8e37f3b7-a182-41b5-8422-da8c2f2ba2a9&surface=B:0
+[29425450ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://static.canva.com/web/347dc8492cace998.js:0
+[29426308ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788176207764:0
+[29426463ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://static.canva.com/web/347dc8492cace998.js:0
+[29427467ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://static.canva.com/web/347dc8492cace998.js:0
+[29427878ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788176209335:0
+[29428475ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://static.canva.com/web/347dc8492cace998.js:0
+[29429487ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://static.canva.com/web/347dc8492cace998.js:0
+[29429693ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788176211149:0
+[29430497ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://static.canva.com/web/347dc8492cace998.js:0
+[29431933ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788176213388:0
+[29435387ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788176216844:0
+[29439636ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788176221094:0
+[29445484ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788176226940:0
+[29451545ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788176233001:0
+[29453518ms] [INFO] websocket_client: status CLOSED, reconnecting in 2182ms undefined @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[29455702ms] [INFO] websocket_client: offline, waiting for online... @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[29457672ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788176239129:0
+[29463915ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788176245373:0
+[29469784ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788176251241:0
+[30394219ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788177175672:0
+[32432116ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179213575:0
+[32486931ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179268388:0
+[32492768ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179274225:0
+[32498261ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179279718:0
+[32503857ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179285313:0
+[32509370ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179290824:0
+[32515733ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179297187:0
+[32520837ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179302292:0
+[32526741ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179308198:0
+[32532727ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179314184:0
+[32539032ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179320488:0
+[32544106ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179325563:0
+[32550422ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179331879:0
+[32556461ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179337916:0
+[32562071ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179343526:0
+[32568443ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179349898:0
+[32574349ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179355804:0
+[32579569ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179361025:0
+[32584855ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179366312:0
+[32590772ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179372230:0
+[32594849ms] [ERROR] Failed to load resource: net::ERR_NETWORK_CHANGED @ https://www.canva.com/_online?1788179373858:0
+[32598497ms] [INFO] websocket_client: back online at 1788179379958 @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[32598497ms] [INFO] websocket_client: 1788179379958 connecting... @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[32599867ms] [INFO] websocket_client: connected @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[32599870ms] [INFO] websocket_client: status CONNECTED @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[32600307ms] [INFO] websocket_client: request id a33c0aca1e2bb2ed @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[32755643ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179537019:0
+[32756652ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179538107:0
+[32758026ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179539483:0
+[32759845ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179541302:0
+[32762257ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179543715:0
+[32765822ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179547278:0
+[32770309ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179551765:0
+[32775578ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179557034:0
+[32781423ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179562877:0
+[32787382ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179568839:0
+[32792905ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179574362:0
+[32795538ms] [INFO] websocket_client: status CLOSED, reconnecting in 1795ms undefined @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[32797333ms] [INFO] websocket_client: offline, waiting for online... @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[32798826ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179580282:0
+[32804256ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179585711:0
+[32809745ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179591201:0
+[32815837ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179597286:0
+[32821109ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179602567:0
+[32826637ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788179608092:0
+[32829599ms] [INFO] websocket_client: back online at 1788179611059 @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[32829599ms] [INFO] websocket_client: 1788179611059 connecting... @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[32831407ms] [INFO] websocket_client: connected @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[32831408ms] [INFO] websocket_client: status CONNECTED @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[32831798ms] [INFO] websocket_client: request id a33c10722fb18e4a @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[33607199ms] [INFO] websocket_client: status ERROR, reconnecting in 1105ms Error: RSocketWebSocketClient: Socket closed unexpectedly.
+    at WebSocket.<anonymous> (https://chunk-composing.canva.com/chunk-batch/877a88ab8b19a83c.vendor.js+8bb5bbcbd8281f1e.vendor.js+343b767bfbe009e0.vendor.js+0bf4bb2624066750.vendor.js+5b892a8ed94beac9.vendor.js+7f3a370848dc508d.vendor.js+e04e64b695ce4be4.vendor.js+7b718ffcb931ca0f.js+841823b210d93d9a.js+cdaeabcb49554c95.js+e1d05f220d9da382.js+4723fcfb612414a4.js+8713a07738857270.js+2cea89f65ff5880a.js+bcf9d4acdc001ecc.js+a4fbc479f0e6f59f.js+18b498c65d9d37b8.js+3da33d9db18f3e28.js+bf4cfb9dbfaadf48.js+e65101721e4a0d44.js+5dc4ddf3c0b0f273.js+846d9b5e9eb7db2f.js+fcc65d53c85b2e27.vendor.js+7502fc71ece58952.js+3058386671c8a7da.js+f6e929bea1afc9f8.js+e2577366dabc82b2.js+99e2392217205272.js+905dfe214a6ce934.vendor.js+4756536aec35d3ae.js+6960bd9a338da5c1.js+832cc9806ed34b53.js+dc51f0f98b3981c3.js+b2aab65ce0509451.js+100a4cb4bf78f078.js+de2f2a7aab18ce94.js+2b9d9d0b9658d6dc.js+690101bf296bb206.js+958422555e6e9e32.js+3388b76a22f0250f.js:6:44448)
+    at WebSocket.n (https://static.canva.com/web/8106ee633973e981.sentry_browser.js:1:76074) @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[33608230ms] [INFO] websocket_client: 1788180389690 connecting... @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[33608911ms] [INFO] websocket_client: connected @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[33608916ms] [INFO] websocket_client: status CONNECTED @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[33609103ms] [INFO] websocket_client: request id a33c236e0b30e8b9 @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[34597877ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788181379236:0
+[34597960ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_ajax/searchui/browseHome?clientSearchId=2d1c900a-44a2-4290-a36b-c8456a829fc6&surface=B:0
+[34599145ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788181380602:0
+[34600726ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788181382183:0
+[35580325ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788182361773:0
+[35582741ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788182364197:0
+[36536536ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788183317992:0
+[36540387ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788183321841:0
+[37562573ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788184344025:0
+[38599411ms] [INFO] websocket_client: status ERROR, reconnecting in 1533ms Error: RSocketWebSocketClient: Socket closed unexpectedly.
+    at WebSocket.<anonymous> (https://chunk-composing.canva.com/chunk-batch/877a88ab8b19a83c.vendor.js+8bb5bbcbd8281f1e.vendor.js+343b767bfbe009e0.vendor.js+0bf4bb2624066750.vendor.js+5b892a8ed94beac9.vendor.js+7f3a370848dc508d.vendor.js+e04e64b695ce4be4.vendor.js+7b718ffcb931ca0f.js+841823b210d93d9a.js+cdaeabcb49554c95.js+e1d05f220d9da382.js+4723fcfb612414a4.js+8713a07738857270.js+2cea89f65ff5880a.js+bcf9d4acdc001ecc.js+a4fbc479f0e6f59f.js+18b498c65d9d37b8.js+3da33d9db18f3e28.js+bf4cfb9dbfaadf48.js+e65101721e4a0d44.js+5dc4ddf3c0b0f273.js+846d9b5e9eb7db2f.js+fcc65d53c85b2e27.vendor.js+7502fc71ece58952.js+3058386671c8a7da.js+f6e929bea1afc9f8.js+e2577366dabc82b2.js+99e2392217205272.js+905dfe214a6ce934.vendor.js+4756536aec35d3ae.js+6960bd9a338da5c1.js+832cc9806ed34b53.js+dc51f0f98b3981c3.js+b2aab65ce0509451.js+100a4cb4bf78f078.js+de2f2a7aab18ce94.js+2b9d9d0b9658d6dc.js+690101bf296bb206.js+958422555e6e9e32.js+3388b76a22f0250f.js:6:44448)
+    at WebSocket.n (https://static.canva.com/web/8106ee633973e981.sentry_browser.js:1:76074) @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[38600946ms] [INFO] websocket_client: offline, waiting for online... @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[38603259ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788185384707:0
+[40524618ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788187306075:0
+[40868862ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788187650316:0
+[40874202ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788187655659:0
+[40879240ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788187660697:0
+[40885537ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788187666994:0
+[40891196ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788187672654:0
+[40897359ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788187678816:0
+[40903351ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788187684808:0
+[40909222ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788187690677:0
+[41975749ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788188757204:0
+[43007560ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788189789012:0
+[44014158ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788190795614:0
+[44529188ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788191310644:0
+[44535271ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788191316727:0
+[44540514ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788191321972:0
+[44546253ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788191327710:0
+[44551502ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788191332958:0
+[44557740ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788191339197:0
+[44563988ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788191345442:0
+[44569890ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788191351347:0
+[45592115ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788192373572:0
+[46563223ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788193344676:0
+[47628005ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788194409460:0
+[48190312ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788194971769:0
+[48195734ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788194977191:0
+[48201513ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788194982902:0
+[48207079ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788194988535:0
+[48211539ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://telemetry.canva.com/v1/traces:0
+[48213282ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788194994739:0
+[48219122ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788195000577:0
+[48225299ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788195006755:0
+[48231060ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788195012514:0
+[49183057ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788195964513:0
+[50175843ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788196957299:0
+[50189001ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788196970455:0
+[50195219ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788196976674:0
+[50200530ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788196981984:0
+[50206713ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788196988168:0
+[50211783ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788196993235:0
+[50217017ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788196998471:0
+[50222860ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788197004316:0
+[50228355ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788197009813:0
+[51178187ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788197959641:0
+[51191098ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788197972554:0
+[51197505ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788197978959:0
+[51203612ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788197985068:0
+[51209953ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788197991410:0
+[51216444ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788197997899:0
+[51221716ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198003171:0
+[51226996ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198008452:0
+[51232709ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198014164:0
+[51245395ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198026849:0
+[51251788ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198033243:0
+[51257638ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198039094:0
+[51263848ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198045304:0
+[51269375ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198050831:0
+[51275124ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198056580:0
+[51281190ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198062647:0
+[51286693ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198068147:0
+[51299283ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198080739:0
+[51304816ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198086269:0
+[51310854ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198092311:0
+[51317004ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198098460:0
+[51322504ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198103961:0
+[51328463ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198109919:0
+[51334507ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198115963:0
+[51340131ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198121586:0
+[51352317ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198133774:0
+[51357631ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198139085:0
+[51364097ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198145555:0
+[51369715ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198151172:0
+[51375801ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198157257:0
+[51381711ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198163167:0
+[51387106ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198168562:0
+[51392636ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198174092:0
+[51848004ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198629460:0
+[51854268ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198635721:0
+[51860451ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198641906:0
+[51865781ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198647237:0
+[51872175ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198653632:0
+[51878241ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198659696:0
+[51883558ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198665015:0
+[51889104ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198670561:0
+[52170259ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198951717:0
+[52176642ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198958097:0
+[52181728ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://www.canva.com/_online?1788198963183:0
+[52187064ms] [INFO] websocket_client: back online at 1788198968524 @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[52187064ms] [INFO] websocket_client: 1788198968525 connecting... @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[52187521ms] [ERROR] Failed to load resource: net::ERR_NETWORK_CHANGED @ https://www.canva.com/_ajax/searchui/browseHome?clientSearchId=d6dc1082-5d33-4939-b852-4f26f3c5c602&surface=B:0
+[52187522ms] [ERROR] Failed to load resource: net::ERR_NETWORK_CHANGED @ https://www.canva.com/_ajax/ae/v2/createBatch:0
+[52188180ms] [INFO] websocket_client: connected @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[52188182ms] [INFO] websocket_client: status CONNECTED @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0
+[52188357ms] [INFO] websocket_client: request id a33de9069f758e48 @ https://static.canva.com/web/8106ee633973e981.sentry_browser.js:0

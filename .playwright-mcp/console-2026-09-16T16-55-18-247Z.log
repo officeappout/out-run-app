@@ -1,0 +1,283 @@
+[     985ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:38559
+[    1595ms] [INFO] [firebase] App Check bypass: hostname="localhost" treated as local development. initializeAppCheck() will NOT be invoked — this prevents reCAPTCHA Enterprise 403s from crashing the Firestore snapshot listener. Set NEXT_PUBLIC_APP_CHECK_DEBUG_TOKEN to a token registered in the Firebase console (App Check → Apps → Manage debug tokens) if you need a real App Check handshake. @ webpack-internal:///(app-pages-browser)/./src/lib/firebase.ts:135
+[    1747ms] [LOG] userId: jny2lmdOcfXOE0yVKUVIf63fZKD2 @ webpack-internal:///(app-pages-browser)/./src/features/profile/components/DashboardTab.tsx:85
+[    1747ms] [LOG] _hasHydrated (useUserStore): true @ webpack-internal:///(app-pages-browser)/./src/features/profile/components/DashboardTab.tsx:86
+[    1748ms] [LOG] activePrograms: [
+  {
+    "startDate": "2026-09-16T16:53:25.319Z",
+    "templateId": "full_body",
+    "focusDomains": [
+      "full_body"
+    ],
+    "name": "full body",
+    "id": "full_body",
+    "durationWeeks": 52,
+    "currentWeek": 1
+  }
+] @ webpack-internal:///(app-pages-browser)/./src/features/profile/components/DashboardTab.tsx:88
+[    1748ms] [LOG] tracks: {
+  "push": {
+    "currentLevel": 1,
+    "percent": 0
+  },
+  "fTLWzjP9gH2VNpamyCZF": {
+    "percent": 0,
+    "currentLevel": 1
+  },
+  "H2279XsRGDg9G370J7S9": {
+    "currentLevel": 1,
+    "percent": 0
+  },
+  "core": {
+    "currentLevel": 1,
+    "percent": 0
+  },
+  "full_body": {
+    "currentLevel": 1,
+    "percent": 0
+  },
+  "47smw26hUyG5ZbE1bhr3": {
+    "percent": 0,
+    "currentLevel": 1
+  },
+  "muscle_up": {
+    "currentLevel": 1,
+    "percent": 0
+  },
+  "pull": {
+    "percent": 0,
+    "currentLevel": 1
+  },
+  "upper_body": {
+    "percent": 0,
+    "currentLevel": 1
+  },
+  "legs": {
+    "percent": 0,
+    "currentLevel": 1
+  }
+} @ webpack-internal:///(app-pages-browser)/./src/features/profile/components/DashboardTab.tsx:90
+[    1748ms] [LOG] domains: {
+  "pull": {
+    "currentLevel": 1,
+    "isUnlocked": true,
+    "maxLevel": 25
+  },
+  "muscle_up": {
+    "isUnlocked": true,
+    "maxLevel": 10,
+    "currentLevel": 1
+  },
+  "fTLWzjP9gH2VNpamyCZF": {
+    "currentLevel": 1
+  },
+  "front_lever": {
+    "isUnlocked": true,
+    "maxLevel": 15,
+    "currentLevel": 0
+  },
+  "calisthenics_upper": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "47smw26hUyG5ZbE1bhr3": {
+    "currentLevel": 1
+  },
+  "one_arm_pullup": {
+    "currentLevel": 0,
+    "maxLevel": 15,
+    "isUnlocked": true
+  },
+  "core": {
+    "currentLevel": 1,
+    "maxLevel": 20,
+    "isUnlocked": true
+  },
+  "H2279XsRGDg9G370J7S9": {
+    "currentLevel": 1
+  },
+  "handstand_pushup": {
+    "maxLevel": 15,
+    "currentLevel": 0,
+    "isUnlocked": true
+  },
+  "handstand": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "legs": {
+    "currentLevel": 1,
+    "maxLevel": 15,
+    "isUnlocked": true
+  },
+  "human_flag": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 10
+  },
+  "push": {
+    "isUnlocked": true,
+    "currentLevel": 1,
+    "maxLevel": 25
+  },
+  "planche": {
+    "currentLevel": 0,
+    "maxLevel": 15,
+    "isUnlocked": true
+  },
+  "full_body": {
+    "currentLevel": 1,
+    "maxLevel": 15,
+    "isUnlocked": true
+  },
+  "upper_body": {
+    "currentLevel": 1,
+    "isUnlocked": true,
+    "maxLevel": 25
+  }
+} @ webpack-internal:///(app-pages-browser)/./src/features/profile/components/DashboardTab.tsx:92
+[    1749ms] [LOG] userId: jny2lmdOcfXOE0yVKUVIf63fZKD2 @ webpack-internal:///(app-pages-browser)/./src/features/profile/components/DashboardTab.tsx:85
+[    1749ms] [LOG] _hasHydrated (useUserStore): true @ webpack-internal:///(app-pages-browser)/./src/features/profile/components/DashboardTab.tsx:86
+[    1749ms] [LOG] activePrograms: [
+  {
+    "startDate": "2026-09-16T16:53:25.319Z",
+    "templateId": "full_body",
+    "focusDomains": [
+      "full_body"
+    ],
+    "name": "full body",
+    "id": "full_body",
+    "durationWeeks": 52,
+    "currentWeek": 1
+  }
+] @ webpack-internal:///(app-pages-browser)/./src/features/profile/components/DashboardTab.tsx:88
+[    1749ms] [LOG] tracks: {
+  "push": {
+    "currentLevel": 1,
+    "percent": 0
+  },
+  "fTLWzjP9gH2VNpamyCZF": {
+    "percent": 0,
+    "currentLevel": 1
+  },
+  "H2279XsRGDg9G370J7S9": {
+    "currentLevel": 1,
+    "percent": 0
+  },
+  "core": {
+    "currentLevel": 1,
+    "percent": 0
+  },
+  "full_body": {
+    "currentLevel": 1,
+    "percent": 0
+  },
+  "47smw26hUyG5ZbE1bhr3": {
+    "percent": 0,
+    "currentLevel": 1
+  },
+  "muscle_up": {
+    "currentLevel": 1,
+    "percent": 0
+  },
+  "pull": {
+    "percent": 0,
+    "currentLevel": 1
+  },
+  "upper_body": {
+    "percent": 0,
+    "currentLevel": 1
+  },
+  "legs": {
+    "percent": 0,
+    "currentLevel": 1
+  }
+} @ webpack-internal:///(app-pages-browser)/./src/features/profile/components/DashboardTab.tsx:90
+[    1749ms] [LOG] domains: {
+  "pull": {
+    "currentLevel": 1,
+    "isUnlocked": true,
+    "maxLevel": 25
+  },
+  "muscle_up": {
+    "isUnlocked": true,
+    "maxLevel": 10,
+    "currentLevel": 1
+  },
+  "fTLWzjP9gH2VNpamyCZF": {
+    "currentLevel": 1
+  },
+  "front_lever": {
+    "isUnlocked": true,
+    "maxLevel": 15,
+    "currentLevel": 0
+  },
+  "calisthenics_upper": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "47smw26hUyG5ZbE1bhr3": {
+    "currentLevel": 1
+  },
+  "one_arm_pullup": {
+    "currentLevel": 0,
+    "maxLevel": 15,
+    "isUnlocked": true
+  },
+  "core": {
+    "currentLevel": 1,
+    "maxLevel": 20,
+    "isUnlocked": true
+  },
+  "H2279XsRGDg9G370J7S9": {
+    "currentLevel": 1
+  },
+  "handstand_pushup": {
+    "maxLevel": 15,
+    "currentLevel": 0,
+    "isUnlocked": true
+  },
+  "handstand": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 15
+  },
+  "legs": {
+    "currentLevel": 1,
+    "maxLevel": 15,
+    "isUnlocked": true
+  },
+  "human_flag": {
+    "currentLevel": 0,
+    "isUnlocked": true,
+    "maxLevel": 10
+  },
+  "push": {
+    "isUnlocked": true,
+    "currentLevel": 1,
+    "maxLevel": 25
+  },
+  "planche": {
+    "currentLevel": 0,
+    "maxLevel": 15,
+    "isUnlocked": true
+  },
+  "full_body": {
+    "currentLevel": 1,
+    "maxLevel": 15,
+    "isUnlocked": true
+  },
+  "upper_body": {
+    "currentLevel": 1,
+    "isUnlocked": true,
+    "maxLevel": 25
+  }
+} @ webpack-internal:///(app-pages-browser)/./src/features/profile/components/DashboardTab.tsx:92
+[    2443ms] [LOG] ✅ [ProgressionStore] Hydrated: coins=0, XP=0 (L1), daysActive=0 @ webpack-internal:///(app-pages-browser)/./src/features/user/progression/store/useProgressionStore.ts:183
+[    2448ms] [LOG] [ActivityStore] No Firestore data, created new day @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:675
+[    2871ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:808
+[    3555ms] [LOG] [ActivityStore] No Firestore data, created new day @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:675
+[    3665ms] [LOG] [ActivityStore] Loaded from Firestore - Streak: 0 @ webpack-internal:///(app-pages-browser)/./src/features/activity/store/useActivityStore.ts:808
