@@ -195,7 +195,26 @@ export async function GET(request: NextRequest) {
     const result = await computeUnitMembers(db, scope, query);
     return NextResponse.json(result.body, { status: result.status });
   } catch (err: any) {
-    console.error('[/api/units/members] error:', err?.message ?? err);
+    // computeUnitMembers deliberately does NOT catch its own Firestore
+    // query failures — a missing/failed index must surface here as an
+    // uncaught error, never get silently absorbed into an empty `units`
+    // array. An empty-but-200 response is indistinguishable from "this
+    // manager's unit genuinely has no members" to both the caller and
+    // whoever reads the logs later — see David's explicit 24.09.2026
+    // requirement (this route's two new query shapes — unit_join_requests
+    // by tenantId+status, users by core.tenantId — were verified
+    // index-free at the emulator, but the emulator doesn't always match
+    // production; this is the safety net if that assumption is wrong).
+    // FAILED_PRECONDITION (gRPC code 9) is Firestore's missing-index
+    // error; its own message already embeds a direct console link to
+    // create the index — flagged with a distinct, greppable prefix so it
+    // doesn't get lost among ordinary 500s in log aggregation.
+    const looksLikeMissingIndex = err?.code === 9 || /requires an index/i.test(String(err?.message ?? ''));
+    if (looksLikeMissingIndex) {
+      console.error('[/api/units/members] POSSIBLE MISSING FIRESTORE INDEX:', err?.message ?? err);
+    } else {
+      console.error('[/api/units/members] error:', err?.message ?? err);
+    }
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

@@ -34,28 +34,45 @@
  *     invitation), vertical_admin — is rejected: not built (SPEC §10).
  *   - 7-day expiry, matching the previous client-side createInvitation().
  *
- * New requirements for this stage (David, 24.09.2026, verbatim constraints):
- *   - `tenant_owner`: root creates it ONLY. Deliberately narrower than SPEC
- *     §3's general "root creates any role at any level" row — root's
- *     invitation power for THIS vertical, THIS stage, stops at tenant_owner.
- *     Creating a unit_admin directly (bypassing the tenant_owner) is
- *     rejected, even for root. tenantId is client-supplied (root has
- *     platform-wide domain, same as authority_manager's authorityId today)
- *     but verified server-side to be a real military_unit/school authority.
- *   - `unit_admin`: ONLY a tenant_owner can create one, and only for a unit
- *     under their OWN tenant — "היחידה נבדקת בשרת מול השיוך שלו, לא ממה
- *     שנשלח בבקשה." The request body for this role carries `unitId` ONLY;
- *     there is no tenantId field to even read from it — the tenant is
- *     always the caller's own resolveUnitPermissionScope(uid).tenantId, a
- *     server-side fact, never a client claim. Every failure in this branch
- *     (not a tenant owner at all / unit belongs to a different tenant /
- *     unit doesn't exist) returns the exact same generic 403, so a caller
- *     can never distinguish "you're not authorized" from "that unit isn't
- *     real" — mirrors Stage 1's join-requests/decide discipline.
- *   - `unit_admin` invites nobody (enforced implicitly: SUPPORTED_ROLES'
- *     branch for unit_admin-as-CREATOR doesn't exist — resolveUnitPermission
- *     Scope(uid).kind === 'unitAdmin' never satisfies any branch below,
- *     always falls through to "not entitled").
+ * New requirements for this stage (David, 24.09.2026, revised 24.09.2026
+ * after the first pass rejected root from inviting unit_admin directly —
+ * corrected per SPEC §10's manager-departure decision: root is the final
+ * key. If a tenant_owner leaves and no replacement has been invited yet,
+ * root re-appointing a unit_admin directly is the only way that specific
+ * unit isn't permanently stuck with no path back to being managed):
+ *   - `tenant_owner`: root creates it ONLY. tenantId is client-supplied
+ *     (root has platform-wide domain, same as authority_manager's
+ *     authorityId today) but verified server-side to be a real
+ *     military_unit/school authority.
+ *   - `unit_admin`: TWO entitled creators, not one —
+ *       (a) root, for ANY unit under ANY tenant — no domain restriction,
+ *           matching SPEC §3's general "root creates any role at any
+ *           level" row. Both tenantId AND unitId are read from the request
+ *           body in this branch (root has no "own" tenant to default to),
+ *           verified server-side to be a real
+ *           tenants/{tenantId}/units/{unitId} doc. Failures here are plain
+ *           400s with clear messages — root has no existence-leak concern,
+ *           same as the tenant_owner branch above.
+ *       (b) a tenant_owner, ONLY for a unit under their OWN tenant —
+ *           "היחידה נבדקת בשרת מול השיוך שלו, לא ממה שנשלח בבקשה." The
+ *           request body carries `unitId` ONLY for this path; there is no
+ *           tenantId field read from it at all — the tenant is always the
+ *           caller's own resolveUnitPermissionScope(uid).tenantId, a
+ *           server-side fact, never a client claim. Every failure in this
+ *           sub-branch (not a tenant owner at all / unit belongs to a
+ *           different tenant / unit doesn't exist) returns the exact same
+ *           generic 403, so a caller can never distinguish "you're not
+ *           authorized" from "that unit isn't real" — mirrors Stage 1's
+ *           join-requests/decide discipline. Anyone who is neither root nor
+ *           a tenant_owner (including a unit_admin themselves) falls into
+ *           this same generic-403 path.
+ *   - `unit_admin` invites nobody — never reaches either sub-branch above,
+ *     since resolveUnitPermissionScope(unitAdminUid).kind is 'unitAdmin',
+ *     which satisfies neither "isRootAdmin" nor "=== 'tenantOwner'".
+ *
+ * accept-invitation's second-layer entitlement check
+ * (isCreatorEntitledForRole) mirrors this same two-path rule for
+ * unit_admin — see that file.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import type { Firestore } from 'firebase-admin/firestore';
@@ -154,24 +171,42 @@ export async function computeCreateInvitation(db: Firestore, caller: Caller, bod
     }
     tenantId = requestedTenantId;
   } else if (role === 'unit_admin') {
-    // The domain check runs entirely off the CALLER's own server-resolved
-    // scope — resolveUnitPermissionScope takes only caller.uid. The request
-    // body is read for `unitId` alone; there is no tenantId field read from
-    // it anywhere in this branch.
-    const scope = await resolveUnitPermissionScope(caller.uid);
-    if (scope.kind !== 'tenantOwner') {
-      return { status: 403 as const, body: { error: UNIT_ADMIN_INVITE_DENIED_MESSAGE } };
+    if (isRootAdmin(caller.email)) {
+      // root is the final key (SPEC §10's manager-departure decision) — no
+      // domain restriction, but no "own" tenant to default to either, so
+      // BOTH tenantId and unitId are read from the request body here (the
+      // only role/creator combination in this file where tenantId comes
+      // from the client for a unit_admin invitation).
+      const requestedTenantId = typeof b.tenantId === 'string' ? b.tenantId : '';
+      const requestedUnitId = typeof b.unitId === 'string' ? b.unitId : '';
+      if (!requestedTenantId || !requestedUnitId) {
+        return { status: 400 as const, body: { error: 'tenantId and unitId are required for root to invite a unit_admin' } };
+      }
+      const unitSnap = await db.collection('tenants').doc(requestedTenantId).collection('units').doc(requestedUnitId).get();
+      if (!unitSnap.exists) {
+        return { status: 400 as const, body: { error: 'unit does not exist' } };
+      }
+      tenantId = requestedTenantId;
+      unitId = requestedUnitId;
+    } else {
+      // Not root — the domain check runs entirely off the CALLER's own
+      // server-resolved scope. The request body is read for `unitId`
+      // alone; there is no tenantId field read from it in this sub-branch.
+      const scope = await resolveUnitPermissionScope(caller.uid);
+      if (scope.kind !== 'tenantOwner') {
+        return { status: 403 as const, body: { error: UNIT_ADMIN_INVITE_DENIED_MESSAGE } };
+      }
+      const requestedUnitId = typeof b.unitId === 'string' ? b.unitId : '';
+      if (!requestedUnitId) {
+        return { status: 403 as const, body: { error: UNIT_ADMIN_INVITE_DENIED_MESSAGE } };
+      }
+      const unitSnap = await db.collection('tenants').doc(scope.tenantId).collection('units').doc(requestedUnitId).get();
+      if (!unitSnap.exists) {
+        return { status: 403 as const, body: { error: UNIT_ADMIN_INVITE_DENIED_MESSAGE } };
+      }
+      tenantId = scope.tenantId;
+      unitId = requestedUnitId;
     }
-    const requestedUnitId = typeof b.unitId === 'string' ? b.unitId : '';
-    if (!requestedUnitId) {
-      return { status: 403 as const, body: { error: UNIT_ADMIN_INVITE_DENIED_MESSAGE } };
-    }
-    const unitSnap = await db.collection('tenants').doc(scope.tenantId).collection('units').doc(requestedUnitId).get();
-    if (!unitSnap.exists) {
-      return { status: 403 as const, body: { error: UNIT_ADMIN_INVITE_DENIED_MESSAGE } };
-    }
-    tenantId = scope.tenantId;
-    unitId = requestedUnitId;
   }
 
   const token = generateToken();

@@ -25,10 +25,11 @@
  *      `allow read: if isRootAdmin()`: the invitation's creator must have
  *      been ENTITLED to create that specific role (see
  *      isCreatorEntitledForRole below — root for every pre-existing role
- *      plus the new tenant_owner; a valid, matching-tenant tenant_owner for
- *      unit_admin, re-checked LIVE at accept-time, not from a stored
- *      snapshot — so a tenant_owner replaced between invite and accept
- *      correctly invalidates their still-pending invitations too).
+ *      plus the new tenant_owner; for unit_admin, EITHER root OR a valid,
+ *      matching-tenant tenant_owner, the tenant_owner case re-checked LIVE
+ *      at accept-time, not from a stored snapshot — so a tenant_owner
+ *      replaced between invite and accept correctly invalidates their
+ *      still-pending invitations too).
  *   4. Validity + expiry checked before role/email/createdBy — cheapest,
  *      most fundamental gate, checked first by design.
  *   5. Every written field is read from the invitation doc, never from
@@ -81,13 +82,17 @@ interface Caller {
  * Requirement 3's entitlement check, generalized beyond "creator is root."
  * authority_manager / platform_member / tenant_owner: unchanged — the
  * creator must be root (these are all level-1-or-platform roles, and SPEC
- * §3 has only root creating those). unit_admin: the creator must be a
- * CURRENT tenant_owner of that SAME tenantId — re-resolved live via
+ * §3 has only root creating those). unit_admin: TWO entitled creators,
+ * mirroring the create-route's two-path rule (24.09.2026, SPEC §10's
+ * manager-departure decision — root is the final key) — either root
+ * (checked by createdByEmail, same as every other role), or a CURRENT
+ * tenant_owner of that SAME tenantId, re-resolved LIVE via
  * resolveUnitPermissionScope(inv.createdBy), never trusted from a value
  * stored at invitation-creation time.
  */
 async function isCreatorEntitledForRole(db: Firestore, inv: FirebaseFirestore.DocumentData): Promise<boolean> {
   if (inv.role === 'unit_admin') {
+    if (isRootAdmin(inv.createdByEmail ?? null)) return true;
     if (typeof inv.createdBy !== 'string' || !inv.createdBy) return false;
     const scope = await resolveUnitPermissionScope(inv.createdBy);
     return scope.kind === 'tenantOwner' && scope.tenantId === inv.tenantId;

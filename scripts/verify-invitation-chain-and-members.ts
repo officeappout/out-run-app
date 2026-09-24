@@ -16,11 +16,15 @@
  *   Stage 2 negative 1 — tenant_owner invites unit_admin to a DIFFERENT
  *     tenant's unit → denied.
  *   Stage 2 negative 2 — unit_admin tries to invite anyone → denied.
- *   Stage 2 extra negatives — tenant_owner inviting another tenant_owner
- *     (root-only); root inviting unit_admin directly (tenant_owner-only,
- *     David's literal "root מזמין tenant_owner בלבד"); pre-existing
- *     authority_manager/platform_member root-only paths still work
- *     unchanged.
+ *   Stage 2 extra negative — tenant_owner inviting another tenant_owner
+ *     (root-only). Pre-existing authority_manager/platform_member
+ *     root-only paths still work unchanged.
+ *   Stage 2 (revised 24.09.2026) — root invites unit_admin DIRECTLY, for
+ *     ANY tenant, no domain restriction (SPEC §10's manager-departure
+ *     decision: root is the final key, so a tenant with no current
+ *     tenant_owner isn't permanently stuck). tenant_owner remains confined
+ *     to their own tenant even after this change — the two creators are
+ *     NOT symmetric.
  *   Stage 2 defense-in-depth — a unit_admin invitation whose creating
  *     tenant_owner has since been revoked fails at ACCEPT time (live
  *     re-check, not a stored snapshot).
@@ -190,10 +194,50 @@ async function main() {
     assert('tenant_owner inviting ANOTHER tenant_owner: rejected (only root can)', result.status === 403);
   }
 
-  console.log('\n── Stage 2 extra negative: root invites unit_admin DIRECTLY ──');
+  console.log('\n── Stage 2 (revised 24.09.2026): root invites unit_admin DIRECTLY, any tenant ──');
   {
-    const result = await computeCreateInvitation(db, rootCaller, { email: 'shortcut@example.com', role: 'unit_admin', unitId: unitA1 });
-    assert('root inviting unit_admin directly (bypassing tenant_owner): rejected — David: "root מזמין tenant_owner בלבד"', result.status === 403);
+    // David, 24.09.2026: root is the final key (SPEC §10's manager-
+    // departure decision) — root must be able to invite a unit_admin
+    // directly, for ANY unit, with no domain restriction. Proven here by
+    // targeting unit B1, under tenant B — a tenant root has no
+    // tenantOwner-scope relationship with at all, unlike tenant_owner A.
+    const createResult = await computeCreateInvitation(db, rootCaller, { email: 'root-appointed@example.com', role: 'unit_admin', tenantId: tenantB, unitId: unitB1 });
+    assert('root creates a unit_admin invitation directly, for ANY tenant: 200', createResult.status === 200);
+    const invitationId = (createResult.body as any).invitationId as string;
+
+    const rootAppointedUid = `root-appointed-${run}`;
+    const acceptResult = await computeAcceptInvitation(
+      db,
+      { uid: rootAppointedUid, email: 'root-appointed@example.com', emailVerified: true, name: 'Root Appointed' },
+      invitationId,
+    );
+    assert('root-created unit_admin invitation accepts: 200 (isCreatorEntitledForRole recognizes root, not just a matching tenant_owner)', acceptResult.status === 200);
+
+    const userSnap = await db.collection('users').doc(rootAppointedUid).get();
+    const core = userSnap.data()?.core ?? {};
+    assert('root-appointed unit_admin: core.tenantId is tenant B', core.tenantId === tenantB);
+    assert('root-appointed unit_admin: core.unitId is unit B1', core.unitId === unitB1);
+
+    const unitSnap = await db.collection('tenants').doc(tenantB).collection('units').doc(unitB1).get();
+    assert('unit B1 doc managerIds includes the root-appointed unit_admin', (unitSnap.data()?.managerIds ?? []).includes(rootAppointedUid));
+
+    const scope = await resolveUnitPermissionScope(rootAppointedUid);
+    assert('resolveUnitPermissionScope resolves the root-appointed user to unitAdmin of tenant B', scope.kind === 'unitAdmin' && scope.tenantId === tenantB);
+  }
+
+  console.log('\n── Stage 2: root omitting tenantId/unitId for unit_admin → 400 ──');
+  {
+    const result = await computeCreateInvitation(db, rootCaller, { email: 'incomplete@example.com', role: 'unit_admin' });
+    assert('root inviting unit_admin with no tenantId/unitId at all: 400 (input validation, not a leak concern for root)', result.status === 400);
+  }
+
+  console.log('\n── Stage 2: the rule that DID NOT change — tenant_owner still tenant-scoped ──');
+  {
+    // Re-confirms negative 1 above still holds after the root-path change:
+    // tenant_owner A still cannot reach into tenant B, even though root now
+    // can reach anywhere. The two creators are NOT symmetric.
+    const result = await computeCreateInvitation(db, tenantOwnerACaller, { email: 'still-sneaky@example.com', role: 'unit_admin', unitId: unitB1 });
+    assert('tenant_owner A is STILL confined to their own tenant after the root fix', result.status === 403);
   }
 
   console.log('\n── Stage 2 regression: root still creates authority_manager/platform_member ──');
