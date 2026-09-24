@@ -6,7 +6,6 @@ import { useRunningPlayer } from '@/features/workout-engine/players/running/stor
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useProgressionStore } from '@/features/user/progression/store/useProgressionStore';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
-import { calculateCalories } from '@/lib/calories.utils';
 import { updateUserProgression } from '@/lib/firestore.service';
 import { auth } from '@/lib/firebase';
 import SummaryOrchestrator, {
@@ -34,15 +33,19 @@ export default function WorkoutSummaryPage({
   const { currentStreak } = useProgressionStore();
   const [mounted, setMounted] = useState(false);
 
-  // Calculate calories and coins
-  const userWeight = profile?.core?.weight || 70;
-  const calories = calculateCalories(
-    activityType,
-    Math.floor(totalDuration / 60),
-    userWeight
-  );
+  // Single source of truth for calories: the engine-computed value
+  // finishWorkout already wrote onto savedWorkoutSnapshot (useRunningPlayer.ts's
+  // own safeCalories, always a real finite number once a snapshot exists).
+  // REMOVED (David, 24.09.2026): this file used to independently recompute
+  // calories via calculateCalories() — a SECOND, different formula from the
+  // one the summary screens actually display (snap.calories) — and used
+  // THAT recomputed number to award coins and update
+  // profile.progression.totalCaloriesBurned, silently diverging from what
+  // the user was shown. Fixed by deleting the recompute entirely, not by
+  // aligning the two formulas.
+  const engineCalories = savedWorkoutSnapshot?.calories ?? 0;
   // COIN_SYSTEM_PAUSED: Re-enable in April
-  const earnedCoins = IS_COIN_SYSTEM_ENABLED ? Math.floor(calories) : 0;
+  const earnedCoins = IS_COIN_SYSTEM_ENABLED ? Math.floor(engineCalories) : 0;
 
   // Guest Logic detection
   const isGuest = profile?.id && !profile.core?.email;
@@ -83,13 +86,13 @@ export default function WorkoutSummaryPage({
         );
         await useProgressionStore.getState().awardWorkoutRewards(
           currentUser.uid,
-          calories
+          engineCalories
         );
 
         console.log(
-          IS_COIN_SYSTEM_ENABLED 
+          IS_COIN_SYSTEM_ENABLED
             ? `✅ [WorkoutSummary] Awarded ${earnedCoins} coins and recorded activity`
-            : `[WorkoutSummary] COIN_SYSTEM_PAUSED - Recorded activity only (${calories} calories)`
+            : `[WorkoutSummary] COIN_SYSTEM_PAUSED - Recorded activity only (${engineCalories} calories)`
         );
 
         // Legacy: Also update local profile for immediate UI update
@@ -100,7 +103,7 @@ export default function WorkoutSummaryPage({
             ...profile.progression,
             // COIN_SYSTEM_PAUSED: Don't increment coins when system is disabled
             coins: IS_COIN_SYSTEM_ENABLED ? currentCoins + earnedCoins : currentCoins,
-            totalCaloriesBurned: currentCalories + calories,
+            totalCaloriesBurned: currentCalories + engineCalories,
           },
         });
       } catch (error) {
@@ -117,7 +120,7 @@ export default function WorkoutSummaryPage({
         try {
           const currentCoins = profile.progression?.coins || 0;
           const newCoins = IS_COIN_SYSTEM_ENABLED ? currentCoins + earnedCoins : currentCoins;
-          const newTotalCalories = (profile.progression?.totalCaloriesBurned || 0) + calories;
+          const newTotalCalories = (profile.progression?.totalCaloriesBurned || 0) + engineCalories;
 
           await updateUserProgression(currentUser.uid, {
             coins: newCoins,
@@ -147,7 +150,7 @@ export default function WorkoutSummaryPage({
     const queryParams = new URLSearchParams({
       claim: 'true',
       coins: '20',
-      calories: calories.toString(),
+      calories: engineCalories.toString(),
     }).toString();
 
     router.push(`/onboarding?${queryParams}`);
@@ -238,7 +241,7 @@ export default function WorkoutSummaryPage({
   const workoutData: WorkoutData = {
     time: snap?.duration ?? totalDuration,
     distance: snap?.distance ?? totalDistance,
-    calories: snap?.calories ?? calories,
+    calories: engineCalories,
     pace: snap?.pace ?? currentPace ?? 0,
     elevationGain: snap?.elevationGain ?? (elevationGain > 0 ? Math.round(elevationGain) : undefined),
     routeCoords: routeCoords,
