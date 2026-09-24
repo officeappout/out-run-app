@@ -60,13 +60,12 @@ export function resolveBrandVideoUrl(
  * image on the same equipment doc. `undefined` only when no brand on the
  * doc has an image at all.
  *
- * Same fallback shape as resolveBrandVideoUrl above, deliberately — this is
- * the generic/detail-drawer surface, where showing *a* real photo of the
- * machine beats a placeholder regardless of which brand it's tagged to.
- * This is the OPPOSITE policy from the park-grid tile (EquipmentCard's
- * `crossBrandFallback={false}`), which intentionally does NOT cross-brand
- * fallback — those tiles claim to show the specific physically-installed
- * unit, this drawer doesn't.
+ * Same fallback shape as resolveBrandVideoUrl above, deliberately — showing
+ * *a* real photo of the machine beats a placeholder regardless of which
+ * brand it's tagged to. Until 23.09.2026 the park-grid tile (EquipmentCard's
+ * `crossBrandFallback={false}`) opted out of this same fallback for its own
+ * different reason (see EquipmentCard.tsx's header comment) — that's been
+ * reverted, so the tile and this drawer now agree on the same policy.
  */
 export function resolveBrandImageUrl(
   brands: EquipmentBrand[],
