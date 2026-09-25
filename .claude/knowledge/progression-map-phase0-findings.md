@@ -9,6 +9,40 @@ included (`scripts/audit-progression-map-phase0.ts`) — run with
 
 See `.claude/plans/happy-mixing-sky.md` for the full work plan these checks feed into.
 
+## ⚠️ MODEL RESET (2026-09-25, supersedes check #1's original framing below)
+
+David reset the ladder model after this doc's first version. The corrected model —
+**already reflected in the current version of `scripts/audit-progression-map-phase0.ts`,
+not in the "Checks #1+#2" section text further down, which still describes the old
+approach and is kept only for history**:
+
+- A Tree = one **LEAF program's** (`Program.isMaster === false`) exercises, ordered by
+  level, using only `Exercise.targetPrograms: [{programId, level}]`. This crosses
+  movement families on purpose (e.g. מתח program: חתירה → banded pull-up → full pull-up
+  — `row` and `pull_up` are different `base_movement_id` values, same leaf program).
+- A leaf program tops out at its own destination exercise; a harder skill (e.g. מאסל אפ)
+  is a **separate** leaf program, not a continuation.
+- A **composite/domain** program (`isMaster === true`, e.g. משיכה, פלג עליון) is a HUB
+  listing its leaf programs via `Program.subPrograms` — not itself a ladder.
+- **Confirmed** (grep against `origin/main`, this is the answer to "which field groups
+  the ladder, and is base_movement_id swap-only"): the ladder groups by
+  `Exercise.targetPrograms[].{programId,level}` + `Program.isMaster`/`subPrograms` —
+  nothing else. `base_movement_id` appears in exactly one ladder-adjacent role in the
+  whole codebase: `exercise-replacement.service.ts`'s `getExerciseVariations()` (±level
+  radius) and `getAlternativeExercises()` (by `movementGroup`), both feeding the
+  "החלפת תרגיל" swap drawer only — confirmed via `git grep -ln base_movement_id
+  origin/main` across every `.ts`/`.tsx` file (17 files total; the rest are admin
+  editing/storage, unrelated audit/seed scripts, or `useExerciseMasterData.ts`'s OLD
+  3-node prev/current/next chain, which is the superseded model this script no longer
+  follows). No per-exercise prerequisite field exists anywhere, and none is needed —
+  program+level is the sequencing mechanism.
+
+This directly resolves a gap the pre-reset plan flagged (see `.claude/plans/happy-mixing-sky.md`
+§1, "the spec's own headline example spans two families"): it spans families **because
+the ladder was never supposed to be family-scoped** — it's program-scoped. Checks #3
+and #4 below (level-description ownership, goals-system alignment) are unaffected by
+this reset — they're about admin-UI/data-ownership, not the ladder-grouping mechanism.
+
 ---
 
 ## Check #3 — Level description: does `ProgramLevelSettings` already have one?
@@ -77,38 +111,43 @@ rep-completion-criteria system, unrelated to map destinations — as David said.
   classification tag (is this exercise skill-type vs. compound/isolation/etc.), not a
   per-program "leads here" marker.
 
-**Conclusion: there is no existing concept of "map destination" to reuse. Hub's "היעדים
-שלך" has no data source today other than deriving it.** The original (pre-correction)
-idea — every distinct `base_movement_id` among exercises whose `targetPrograms` includes
-the Hub's programId becomes one goal-card — is therefore the only viable option that
-doesn't require new admin-curated content, which is consistent with David's "no new
-content to author" constraint. This is now the plan's actual direction for Phase 2, not
-a fallback.
+**Conclusion: there is no existing concept of "map destination" to reuse — but per the
+model reset above, none is needed.** Hub's "היעדים שלך" is simply the composite
+program's `subPrograms` resolved to their `Program` docs — each child **leaf** program
+*is* one goal-card, linking to that leaf program's own ladder/Tree. Zero derivation
+logic, zero new admin content: `Program.subPrograms` already exists and is already the
+parent→child link (see `.claude/plans/happy-mixing-sky.md` §1). The earlier
+`base_movement_id`-derivation idea (kept below for history) is now moot — superseded by
+the simpler, already-existing `subPrograms` relationship.
 
-**One more thing check #4 turned up, worth flagging even though it doesn't block
-anything:** the spec's own headline example — "חתירה → מתח שלילי → … → מתח" — spans
-`row` and `pull_up`, which are two *separate* `base_movement_id` values (verified against
-the real `BASE_MOVEMENT_LABELS` list, see the audit script). A single-family ladder (the
-architecture David chose) can't reproduce that exact chain — it can only ladder within
-`pull_up` itself. This was already implied by David's decision to scope the Tree down to
-one family, so it's not a new problem, just made concrete here for the record.
+**One more thing check #4 turned up — RESOLVED by the model reset above, kept for
+history:** the spec's own headline example — "חתירה → מתח שלילי → … → מתח" — spans `row`
+and `pull_up`, two *separate* `base_movement_id` values. At the time this was written,
+the plan grouped ladders by single `base_movement_id` family, which genuinely couldn't
+reproduce that chain. That's no longer the model: ladders now group by leaf **program**
+(e.g. the מתח program), which spans families by design — this is exactly how that chain
+gets reproduced. Not a residual gap.
 
 ---
 
 ## Checks #1+#2 — still need live data (script ready, not run)
 
-`scripts/audit-progression-map-phase0.ts` (committed alongside this doc) computes,
-read-only, against the real `exercises` and `users` collections:
+`scripts/audit-progression-map-phase0.ts` (committed alongside this doc; rewritten
+2026-09-25 to match the model reset — see the box at the top of this doc) computes,
+read-only, against the real `programs`, `exercises`, and `users` collections:
 
-- **#1**: per (base_movement_id, programId) — how many distinct levels (ladder rungs)?
-  How many families collapse to a single rung (degenerate/no-ladder case)? How many
-  `base_movement_id` values fall outside the curated 20-value list? How many exercises
-  have a family but zero `targetPrograms` (level unresolvable)? How many
-  (family, programId, level) buckets have more than one candidate exercise, and how many
-  of those are still ambiguous after the role+execution_methods tie-break from the plan
-  (§4, Phase 1 risks)?
-- **#2**: sampling real `users/{uid}` docs, does `progression.tracks[domain]` carry
-  `.level`, `.currentLevel`, or both? (`useProgressionStore.ts` assumes `.level`;
+- **#1 (redesigned)**: for every LEAF program (`isMaster === false`), the ordered ladder
+  built from `Exercise.targetPrograms` — exercise names per level, ascending. Reports,
+  per program: gaps (levels with zero exercises within the program's observed range),
+  multi-node levels (2+ exercises sharing a program+level), single-exercise programs (no
+  real ladder), exercises with an unresolvable/invalid level, `targetPrograms` entries
+  pointing at an unknown programId, and — a reset-driven sanity check — any exercise
+  tagged directly to a *composite* program (shouldn't happen under this model). Totals:
+  how many leaf programs exist, and how many form a clean ascending ladder (no gaps, no
+  multi-node levels, 2+ rungs). Also prints every composite program's `subPrograms`
+  (the Hub-listing data Phase 2 needs).
+- **#2 (unchanged)**: sampling real `users/{uid}` docs, does `progression.tracks[domain]`
+  carry `.level`, `.currentLevel`, or both? (`useProgressionStore.ts` assumes `.level`;
   `useGoalsForProgram.ts`'s `TracksMap` type assumes `.currentLevel` — this has to be
   resolved before any "current level in program X" logic is written for Hub/Tree, or
   "פתוח עכשיו" and the Level Drawer's lock state will silently break.)
