@@ -303,11 +303,18 @@ export default function AerobicSummaryShell({
                           : [null, null];
                       if (collection && entityId) {
                         try {
-                          const { doc, updateDoc, increment } = await import('firebase/firestore');
+                          const { doc, updateDoc, increment, serverTimestamp } = await import('firebase/firestore');
                           const { db } = await import('@/lib/firebase');
+                          // updatedAt (SPEC-06 parks-sync audit, 16.09.2026): this is a
+                          // live, frequently-hit write on parks/{parkId} — missing it here
+                          // would silently freeze a park's OTHER fields out of the map's
+                          // delta-sync forever for any client that already synced, since
+                          // rating submissions are likely the most common touch a park doc
+                          // gets after initial creation.
                           await updateDoc(doc(db, collection, entityId), {
                             ratingSum: increment(routeQuality),
                             ratingCount: increment(1),
+                            updatedAt: serverTimestamp(),
                           });
                         } catch (ratingErr) {
                           // Non-fatal — contribution already saved

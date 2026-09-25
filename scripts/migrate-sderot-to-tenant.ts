@@ -296,7 +296,13 @@ async function migrateCollection(
     if (!neighborhoodIds.has(docAuthorityId)) continue;
     if (data.tenantId === TENANT_ID) continue;
 
-    await writer.update(doc.ref, { tenantId: TENANT_ID });
+    // updatedAt (SPEC-06 audit, 16.09.2026): this generic migrator touches
+    // 10 collections including parks — without this, a park (or any other
+    // doc) whose only change was this tenant migration would never bump
+    // updatedAt, silently freezing it out of the map's delta-sync forever.
+    // Harmless/expected for every other collection here too — updatedAt is
+    // the standing convention on every Firestore doc in this codebase.
+    await writer.update(doc.ref, { tenantId: TENANT_ID, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
     count++;
   }
 
