@@ -96,6 +96,14 @@ export const RATE_LIMITS = {
   signupFailureTelemetry: {
     ip: () => envWindow('RL_SIGNUP_FAILURE_TELEMETRY_IP', 15 * MIN, 30),
   },
+  // POST /api/units/declare (25.09.2026) — persona-flow self-declaration of
+  // a military/educational unit. uid-keyed (authenticated route, matches
+  // unitJoinRequest's own precedent above) — generous, since this is
+  // abuse-flooding protection for a low-frequency legitimate action
+  // (declare once, maybe switch units a handful of times), not a tight gate.
+  unitDeclaration: {
+    uidHourly: () => envWindow('RL_UNIT_DECLARATION_UID_HOURLY', HOUR, 10),
+  },
 } as const;
 
 /**
