@@ -9,7 +9,10 @@
  * Covers every scenario David required:
  *   - unit_admin gets their own unit AND everything under it (including a
  *     GRANDCHILD they don't directly manage — the downward-inheritance fix,
- *     closing §13.17's decision #1, scoped to this endpoint only)
+ *     closing §13.17's decision #1). Sourced from resolveUnitPermissionScope
+ *     itself (see scripts/verify-access-layer.ts for dedicated tests of
+ *     THAT resolver's own nested-hierarchy correctness) — this script only
+ *     confirms the endpoint correctly consumes the already-expanded scope.
  *   - tenant_owner gets their whole tenant
  *   - unit_admin A is rejected from unit B (both a genuinely unrelated
  *     unit in another tenant, AND a sibling unit in their OWN tenant that
@@ -103,7 +106,19 @@ async function main() {
   });
 
   const unitAdminScope = await resolveUnitPermissionScope(unitAdminUid);
-  assert('seed: unit_admin resolves correctly, scoped to battalionA1 only', unitAdminScope.kind === 'unitAdmin' && unitAdminScope.unitIds.includes(battalionA1) && !unitAdminScope.unitIds.includes(companyA1a));
+  // 25.09.2026, §13.28 — downward inheritance now lives IN
+  // resolveUnitPermissionScope itself (moved out of this endpoint's own
+  // local isUnitAuthorized helper, per David's explicit correction), so
+  // the scope's own unitIds already includes every descendant — not just
+  // the directly-managed battalion.
+  assert(
+    'seed: unit_admin resolves correctly, scoped to battalionA1 + its descendants (not the sibling)',
+    unitAdminScope.kind === 'unitAdmin'
+      && unitAdminScope.unitIds.includes(battalionA1)
+      && unitAdminScope.unitIds.includes(companyA1a)
+      && unitAdminScope.unitIds.includes(platoonA1a1)
+      && !unitAdminScope.unitIds.includes(battalionA2),
+  );
   const tenantOwnerScope = await resolveUnitPermissionScope(tenantOwnerUid);
   assert('seed: tenant_owner resolves correctly', tenantOwnerScope.kind === 'tenantOwner' && tenantOwnerScope.tenantId === tenantA);
   const rootScope = await resolveUnitPermissionScope(rootUid);

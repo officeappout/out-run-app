@@ -37,10 +37,15 @@
  *     convention. `tenants/{tenantId}/units` is a subcollection, so this
  *     requires a `collectionGroup('units')` query. tenantId is derived from
  *     the matched doc's own path (`ref.parent.parent.id`), never guessed;
- *     unitIds is every unit under that SAME tenantId the uid manages (a uid
- *     managing units across more than one tenant is not an expected shape,
- *     but if it ever happens, only the first tenant's units are returned —
- *     scope is always single-tenant, by construction).
+ *     the directly-managed set (a uid managing units across more than one
+ *     tenant is not an expected shape, but if it ever happens, only the
+ *     first tenant's units are returned — scope is always single-tenant, by
+ *     construction) is then expanded DOWNWARD via `expandUnitIdsDownward`
+ *     (25.09.2026, §13.28 — David's explicit decision: "מפקד של יחידה רואה
+ *     את כל מה שתחתיה," one place, not a per-endpoint special case) — the
+ *     returned `unitIds` is every unit the uid directly manages PLUS every
+ *     descendant of those units, never an ancestor or a sibling. See that
+ *     function's own doc comment for the walk itself.
  *     Requires a collection-group index on `units.managerIds`
  *     (firestore.indexes.json, fieldOverrides, added 24.09.2026 — deploy
  *     via `firebase deploy --only firestore:indexes` BEFORE this code is
@@ -62,10 +67,66 @@
  * because the cost of the equivalent mistake here is a stranger approving
  * or reading someone else's unit membership.
  */
+import type { Firestore } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { isRootAdmin } from '@/config/feature-flags';
 
 const TENANT_AUTHORITY_TYPES = ['military_unit', 'school'];
+
+// Real hierarchies are 2-3 levels deep (§13.17) — this is a defensive cap
+// against a cyclic/malformed parentUnitId chain, not a real-world limit.
+const MAX_DOWNWARD_DEPTH = 10;
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+/**
+ * Downward closure of a directly-managed unit set — every descendant unit,
+ * walked via parentUnitId (25.09.2026, §13.28 — David's explicit decision:
+ * "מפקד של יחידה רואה את כל מה שתחתיה... מקום אחד, לא שניים." Previously
+ * implemented as a local per-endpoint helper in /api/units/structure only,
+ * which created a real, reported inconsistency — a unit_admin could see a
+ * descendant unit exists via /structure but still get 403 on /members for
+ * the SAME unit. Moved here so every consumer of this scope inherits the
+ * same authorization surface automatically, with no per-endpoint special
+ * casing. parentUnitId is the SAME single-level pointer unitPath's own
+ * construction (unit-doc.ts) and every other hierarchy traversal in this
+ * codebase already walk — not a new mechanism, not a new field.
+ *
+ * BFS level-by-level (one chunked query per LEVEL, not per unit) so a
+ * fan-out battalion with many companies costs O(depth) queries, not
+ * O(units). Strictly downward — a unit's own parentUnitId is never
+ * consulted here, so this can only ADD descendants, never a sibling or an
+ * ancestor. Any query failure (chunk().map(...).get()) throws out of this
+ * function; the caller (resolveUnitPermissionScope's own try/catch, below)
+ * catches it and returns 'denied' — a partial expansion is never returned
+ * as if it were complete. Same fail-closed contract as before this change,
+ * unchanged.
+ */
+async function expandUnitIdsDownward(db: Firestore, tenantId: string, directUnitIds: string[]): Promise<string[]> {
+  const unitsCollection = db.collection('tenants').doc(tenantId).collection('units');
+  const allIds = new Set(directUnitIds);
+  let frontier = directUnitIds;
+  for (let depth = 0; depth < MAX_DOWNWARD_DEPTH && frontier.length > 0; depth++) {
+    const childSnaps = await Promise.all(
+      chunk(frontier, 30).map((ids) => unitsCollection.where('parentUnitId', 'in', ids).get()),
+    );
+    const nextFrontier: string[] = [];
+    for (const snap of childSnaps) {
+      for (const d of snap.docs) {
+        if (!allIds.has(d.id)) {
+          allIds.add(d.id);
+          nextFrontier.push(d.id);
+        }
+      }
+    }
+    frontier = nextFrontier;
+  }
+  return Array.from(allIds);
+}
 
 export type UnitPermissionScope =
   | { kind: 'root' }
@@ -99,9 +160,10 @@ export async function resolveUnitPermissionScope(uid: string): Promise<UnitPermi
     if (!managedUnitsSnap.empty) {
       const tenantId = managedUnitsSnap.docs[0].ref.parent.parent?.id;
       if (tenantId) {
-        const unitIds = managedUnitsSnap.docs
+        const directUnitIds = managedUnitsSnap.docs
           .filter((d) => d.ref.parent.parent?.id === tenantId)
           .map((d) => d.id);
+        const unitIds = await expandUnitIdsDownward(db, tenantId, directUnitIds);
         return { kind: 'unitAdmin', tenantId, unitIds };
       }
     }

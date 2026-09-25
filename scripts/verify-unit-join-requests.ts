@@ -11,6 +11,15 @@
  *
  * Covers every scenario David explicitly required, positive AND negative:
  *   Stage 0 — root / tenantOwner / unitAdmin / denied resolution.
+ *   Stage 0, §13.28 (25.09.2026) — downward inheritance via parentUnitId,
+ *     moved into resolveUnitPermissionScope itself (one place, not a
+ *     per-endpoint special case): a battalion commander sees their
+ *     companies AND the platoons under them (3 levels); a company
+ *     commander sees only their own company + descendants, never the
+ *     battalion above (strictly downward); battalion-A never sees
+ *     battalion-B; a failure DURING the downward-expansion query itself
+ *     (distinct from the pre-existing collectionGroup failure below)
+ *     resolves to denied, not a partial unitIds set.
  *   Stage 1 positive — create → approve → "me" reflects it + core fields
  *     written; create → reject → "me" reflects it, re-request allowed.
  *   Negative 1 — unit A's manager tries to approve unit B's request →
@@ -167,6 +176,99 @@ async function main() {
     // Restored correctly — the same uid resolves back to unitAdmin.
     const scopeAfterRestore = await resolveUnitPermissionScope(unitAdminAUid);
     assert('after restoring the query: unit A1 manager resolves to unitAdmin again (patch cleanly reverted)', scopeAfterRestore.kind === 'unitAdmin');
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  console.log('\n── Stage 0, §13.28: downward inheritance via parentUnitId — real 3-level nested hierarchy ──');
+  // David's explicit decision (25.09.2026): downward inheritance moved OUT
+  // of the local per-endpoint helper it started in (/api/units/structure)
+  // and INTO resolveUnitPermissionScope itself — "מקום אחד, לא שניים" — so
+  // every consumer (members, decide, member-workouts, structure) inherits
+  // it automatically. Tested here, at the SOURCE, with the exact 4
+  // scenarios David required: a battalion commander sees their companies
+  // AND the platoons under them (three levels, not just two); a COMPANY
+  // commander sees only their own company + its descendants, never the
+  // battalion above them (strictly downward — never upward); battalion-A's
+  // commander never sees battalion-B (sibling exclusion, still intact).
+  let battalionCommanderUid = '';
+  {
+    const battalionId = `battalion-${run}`;
+    const companyId = `company-${run}`;
+    const platoonId = `platoon-${run}`;
+    const siblingBattalionId = `battalion-sibling-${run}`;
+    battalionCommanderUid = `battalion-cmd-${run}`;
+    const companyCommanderUid = `company-cmd-${run}`;
+
+    await db.collection('users').doc(battalionCommanderUid).set({ core: {} });
+    await db.collection('users').doc(companyCommanderUid).set({ core: {} });
+
+    await db.collection('tenants').doc(tenantA).collection('units').doc(battalionId)
+      .set({ name: 'Battalion', parentUnitId: null, unitPath: ['Battalion'], managerIds: [battalionCommanderUid] });
+    await db.collection('tenants').doc(tenantA).collection('units').doc(companyId)
+      .set({ name: 'Company', parentUnitId: battalionId, unitPath: ['Battalion', 'Company'], managerIds: [companyCommanderUid] });
+    await db.collection('tenants').doc(tenantA).collection('units').doc(platoonId)
+      .set({ name: 'Platoon', parentUnitId: companyId, unitPath: ['Battalion', 'Company', 'Platoon'], managerIds: [] });
+    await db.collection('tenants').doc(tenantA).collection('units').doc(siblingBattalionId)
+      .set({ name: 'Sibling Battalion', parentUnitId: null, unitPath: ['Sibling Battalion'], managerIds: [] });
+
+    const battalionScope = await resolveUnitPermissionScope(battalionCommanderUid);
+    assert('battalion commander: resolves to unitAdmin', battalionScope.kind === 'unitAdmin');
+    assert('battalion commander: sees the battalion itself', battalionScope.kind === 'unitAdmin' && battalionScope.unitIds.includes(battalionId));
+    assert('battalion commander: sees the company (direct child)', battalionScope.kind === 'unitAdmin' && battalionScope.unitIds.includes(companyId));
+    assert('battalion commander: THREE LEVELS — sees the platoon (grandchild), not just the company', battalionScope.kind === 'unitAdmin' && battalionScope.unitIds.includes(platoonId));
+    assert('battalion commander: does NOT see the unrelated sibling battalion', battalionScope.kind === 'unitAdmin' && !battalionScope.unitIds.includes(siblingBattalionId));
+    assert('battalion commander (tenant A): does NOT see tenant B\'s unit', battalionScope.kind === 'unitAdmin' && !battalionScope.unitIds.includes(unitB1));
+
+    const companyScope = await resolveUnitPermissionScope(companyCommanderUid);
+    assert('company commander: resolves to unitAdmin', companyScope.kind === 'unitAdmin');
+    assert('company commander: sees their own company', companyScope.kind === 'unitAdmin' && companyScope.unitIds.includes(companyId));
+    assert('company commander: sees the platoon under them', companyScope.kind === 'unitAdmin' && companyScope.unitIds.includes(platoonId));
+    assert('company commander: does NOT see the battalion above them — strictly downward, never upward', companyScope.kind === 'unitAdmin' && !companyScope.unitIds.includes(battalionId));
+    assert('company commander: does NOT see the sibling battalion', companyScope.kind === 'unitAdmin' && !companyScope.unitIds.includes(siblingBattalionId));
+  }
+
+  console.log('\n── Stage 0 fail-closed, §13.28: the DOWNWARD-EXPANSION query itself throws ──');
+  {
+    // Distinct from the collectionGroup failure tested above (that's the
+    // query that finds DIRECTLY-managed units) — this simulates the
+    // SEPARATE parentUnitId 'in' query failing during expansion, proving
+    // the new code path inherits the identical fail-closed contract, not
+    // just the pre-existing one. Patched on CollectionReference.prototype
+    // (NOT the shared Query.prototype, and NOT Firestore.prototype like
+    // the collectionGroup patch above) — confirmed empirically that
+    // CollectionReference and CollectionGroup are sibling classes with
+    // `.where` inherited from a common Query.prototype, so shadowing it
+    // here affects ONLY regular .collection()-chain queries (which is what
+    // expandUnitIdsDownward's unitsCollection.where(...) is), not the
+    // collectionGroup('units') query used earlier in the same resolution.
+    // The field-name filter below is a second, independent safety net —
+    // without it, this patch would also break the authorities.where(...)
+    // tenantOwner check, since that's ALSO a CollectionReference.
+    const unitsCollectionRef = db.collection('tenants').doc(tenantA).collection('units');
+    const proto = Object.getPrototypeOf(unitsCollectionRef);
+    const originalWhere = proto.where;
+    let simulatedFailureFired = 0;
+    proto.where = function simulateExpansionFailure(this: unknown, field: string, ...rest: unknown[]) {
+      if (field === 'parentUnitId') {
+        simulatedFailureFired++;
+        throw new Error('simulated: downward-expansion query failure (parentUnitId in-query)');
+      }
+      return originalWhere.call(this, field, ...rest);
+    };
+    try {
+      // battalionCommanderUid would resolve to 'unitAdmin' with an
+      // expanded unitIds set under normal conditions (proven above) —
+      // this proves a failure DURING that expansion produces 'denied' as
+      // a whole, never a partial unitIds set silently missing descendants.
+      const scope = await resolveUnitPermissionScope(battalionCommanderUid);
+      assert('expansion-query failure resolves to denied (whole scope, not a truncated unitIds set)', scope.kind === 'denied');
+      assert('the simulated failure actually fired at least once', simulatedFailureFired > 0);
+    } finally {
+      proto.where = originalWhere;
+    }
+
+    const scopeAfterRestore = await resolveUnitPermissionScope(battalionCommanderUid);
+    assert('after restoring the query: battalion commander resolves to unitAdmin again (patch cleanly reverted)', scopeAfterRestore.kind === 'unitAdmin');
   }
 
   // ══════════════════════════════════════════════════════════════════════

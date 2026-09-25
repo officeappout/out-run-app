@@ -17,20 +17,18 @@
  * route in this build — fail-closed, uid-only, never client input.
  *
  * Downward inheritance (closes docs/audit-2026-09/00-MASTER-PLAN.md
- * §13.17's decision #1 — "not implemented," recorded 24.09.2026, now
- * implemented HERE specifically): a unit_admin directly manages a
- * BATTALION but not its companies (companies don't carry the officer's
- * uid in their own managerIds) — without this, the officer would see a
- * company listed as a child of their battalion (this endpoint's own
- * response) but get 403 navigating INTO it, a worse dead-end than before
- * this slice. isUnitAuthorized() below walks a requested unit's own
- * parentUnitId chain and accepts it if ANY ancestor is in the caller's
- * directly-managed scope.unitIds. Scoped to THIS endpoint only —
- * resolveUnitPermissionScope() itself is UNCHANGED, and
- * /api/units/members (Slice C) does NOT yet have this inheritance: a
- * unit_admin can see a descendant unit exists here but still cannot see
- * ITS members via /api/units/members. Flagged, not fixed — see this
- * slice's own report.
+ * §13.17's decision #1): a unit_admin directly manages a BATTALION but not
+ * its companies (companies don't carry the officer's uid in their own
+ * managerIds) — without this, the officer would see a company listed as a
+ * child of their battalion (this endpoint's own response) but get 403
+ * navigating INTO it. Originally implemented locally in this file only
+ * (a per-request ancestor-walk); moved into resolveUnitPermissionScope
+ * itself (25.09.2026, §13.28, David's explicit correction — "מקום אחד, לא
+ * שניים") after that created a real, reported inconsistency: a unit_admin
+ * could see a descendant unit exists here but still get 403 on
+ * /api/units/members for the SAME unit. scope.unitIds now already
+ * includes every descendant, for every consumer of this scope uniformly —
+ * this file just checks flat membership, same as /api/units/members does.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import type { Firestore, QueryDocumentSnapshot } from 'firebase-admin/firestore';
@@ -81,36 +79,6 @@ function toEntry(tenantId: string, d: QueryDocumentSnapshot): UnitStructureEntry
   };
 }
 
-/**
- * Bounded walk up a candidate unit's own parentUnitId chain — accepts it
- * if the unit itself, or ANY ancestor, is in the caller's directly-managed
- * unitIds. Real hierarchy depth is confirmed shallow (2-3 levels, §13.17)
- * — the 10-hop cap is defensive against malformed/cyclic data, not a
- * real-world limit.
- */
-async function isUnitAuthorized(
-  db: Firestore,
-  tenantId: string,
-  unitId: string,
-  scopeUnitIds: string[],
-): Promise<boolean> {
-  if (scopeUnitIds.includes(unitId)) return true;
-  let currentId: string | null = unitId;
-  const seen = new Set<string>();
-  const unitsCollection = db.collection('tenants').doc(tenantId).collection('units');
-  for (let i = 0; i < 10 && currentId; i++) {
-    if (seen.has(currentId)) return false;
-    seen.add(currentId);
-    const snap: FirebaseFirestore.DocumentSnapshot = await unitsCollection.doc(currentId).get();
-    if (!snap.exists) return false;
-    const parentUnitId: unknown = snap.data()?.parentUnitId;
-    if (typeof parentUnitId !== 'string') return false;
-    if (scopeUnitIds.includes(parentUnitId)) return true;
-    currentId = parentUnitId;
-  }
-  return false;
-}
-
 export type UnitStructureResult =
   | { status: 200; body: { units: UnitStructureEntry[] } }
   | { status: 400 | 403; body: { error: string } };
@@ -134,8 +102,10 @@ export async function computeUnitStructure(
   if (scope.kind === 'unitAdmin') {
     targetTenantId = scope.tenantId;
     if (query.unitId) {
-      const authorized = await isUnitAuthorized(db, targetTenantId, query.unitId, scope.unitIds);
-      if (!authorized) {
+      // scope.unitIds already includes every descendant of the caller's
+      // directly-managed units (resolveUnitPermissionScope, §13.28) — a
+      // flat membership check is enough, no local ancestor-walk needed.
+      if (!scope.unitIds.includes(query.unitId)) {
         return { status: 403, body: { error: DENIED_MESSAGE } };
       }
       targetUnitIds = [query.unitId];
