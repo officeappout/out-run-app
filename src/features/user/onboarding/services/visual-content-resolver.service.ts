@@ -307,12 +307,16 @@ export async function resolveContent(
       const exercise = await getExercise(content.exerciseId);
       if (exercise) {
         exerciseName = getLocalizedText(exercise.name, lang as 'he' | 'en') || null;
-        const vid = resolveVideoForLocation(exercise);
+        // OUTRUN is outdoor/park fitness — the assessment must only ever show
+        // the park/street execution variant. Without this, findMethodForLocation
+        // falls through to "first method with any media" (commonly authored
+        // home-first), silently leaking a home variant into the assessment.
+        const vid = resolveVideoForLocation(exercise, 'park');
         if (vid) {
           exerciseVideoUrl = vid;
           console.log(`[ContentResolver] Level ${level} — exercise video resolved: "${exerciseName}" → ${vid.substring(0, 60)}…`);
         }
-        const img = resolveImageForLocation(exercise);
+        const img = resolveImageForLocation(exercise, 'park');
         if (img) {
           exerciseThumbnailUrl = img;
         }
