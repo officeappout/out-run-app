@@ -294,9 +294,17 @@ export const ingestHealthSamples = onCall<IngestPayload, Promise<IngestResult>>(
 
       // Persist each new sample doc.
       for (const s of newSamples) {
+        // Dedup marker only — sampleUUID (the doc ID) is the identifier the
+        // existence check above needs; it is not health data. The sample's
+        // actual measurement (value) and its precise activity timestamps
+        // (startDate/endDate) are deliberately NOT stored here: nothing
+        // reads this collection back except this file's own dedup check
+        // (see the class doc comment), so persisting them served no
+        // purpose beyond making a per-user, per-timestamp movement record
+        // sit on our servers — exactly what the privacy policy says we
+        // don't do. ingestedAt is server processing time, not activity
+        // time, and doubles as a future TTL anchor.
         txn.set(samplesCol.doc(s.sampleUUID), {
-          ...s,
-          uid,
           ingestedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
       }
