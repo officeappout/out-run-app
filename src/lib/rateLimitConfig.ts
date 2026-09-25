@@ -104,6 +104,13 @@ export const RATE_LIMITS = {
   unitDeclaration: {
     uidHourly: () => envWindow('RL_UNIT_DECLARATION_UID_HOURLY', HOUR, 10),
   },
+  // GET /api/units/structure (25.09.2026, Slice D — §13.28) — the officer
+  // panel's own read of a unit's name/path/icon + its children. A normal
+  // page load fires this once or twice; generous headroom for repeated
+  // navigation between units in the same session.
+  unitStructure: {
+    uidHourly: () => envWindow('RL_UNIT_STRUCTURE_UID_HOURLY', HOUR, 60),
+  },
 } as const;
 
 /**
