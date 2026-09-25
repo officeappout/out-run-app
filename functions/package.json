@@ -18,7 +18,8 @@
     "geofire-common": "^6.0.0"
   },
   "devDependencies": {
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "vitest": "4.1.10"
   },
   "private": true
 }
