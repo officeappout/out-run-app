@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, collection, query, where, getDocs, orderBy, limit, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL, getStorage } from 'firebase/storage';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import { getAuthoritiesByManager, getAuthority } from '@/features/admin/services/authority.service';
@@ -33,8 +33,6 @@ interface UnitMember {
   uid: string;
   name: string;
   unitPath: string[];
-  lastWorkoutDate: string | null;
-  workoutCount: number;
   globalXP: number;
   /** Slice C (25.09.2026, §13.27) — from /api/units/members' MemberEntry.
    *  null for military-declaration-free rows (non-military tenants) or
@@ -93,6 +91,12 @@ export default function UnitDrilldownPage() {
   const [selectedMember, setSelectedMember] = useState<UnitMember | null>(null);
   const [memberWorkouts, setMemberWorkouts] = useState<any[]>([]);
   const [loadingWorkouts, setLoadingWorkouts] = useState(false);
+  // Slice E (25.09.2026, §13.29) — a failed /api/units/member-workouts
+  // fetch is shown here, never swallowed into "אין היסטוריית אימונים"
+  // (David, explicit: a fetch failure must never impersonate a genuine
+  // empty history). Distinct from loadingWorkouts/memberWorkouts — see
+  // loadMemberWorkouts' own comment and the render below.
+  const [workoutsLoadError, setWorkoutsLoadError] = useState<string | null>(null);
   const [tenantId, setTenantId] = useState<string>('');
   const [showCodePanel, setShowCodePanel] = useState(false);
   const [codeMaxUses, setCodeMaxUses] = useState(50);
@@ -292,6 +296,12 @@ export default function UnitDrilldownPage() {
           // by the military_declarations fix (this read was never the
           // broken one for THIS purpose). Guarded anyway: a failure here
           // must degrade this one row, not abort the whole roster.
+          // KNOWN, SEPARATE gap (Slice E, 25.09.2026, §13.29 — flagged, not
+          // fixed, out of this slice's literal scope): users/{uid}'s own
+          // rule (isOwner(uid)||isRootAdmin()||isAdmin(), no tenant_owner/
+          // unit_admin branch) independently rejects this read for a real
+          // officer too — same class of bug as the workouts read this
+          // slice DOES fix below, different collection.
           let memberUnitPath: string[] = [];
           let globalXP = 0;
           try {
@@ -305,40 +315,28 @@ export default function UnitDrilldownPage() {
             console.warn('[UnitDrilldown] per-member users/{uid} read failed, showing partial row:', uid, userErr);
           }
 
-          // Workout history: KNOWN, SEPARATE gap (not fixed in this
-          // slice, reported — see §13.27) — firestore.rules' workouts/
-          // {docId} rule has no unit_admin/tenant_owner branch at all
-          // (isRootAdmin()/isAdmin()/self-only), so this read is ALSO
-          // independently rejected for a real officer, unrelated to
-          // military_declarations. Guarded so that failure degrades this
-          // one row's stats to empty/zero instead of aborting the whole
-          // roster — David's requirement #2 (a real officer must see
-          // SOMETHING) depends on this not being a hard failure.
-          let lastDate: string | null = null;
-          let workoutCount = 0;
-          try {
-            const wSnap = await getDocs(query(
-              collection(db, 'workouts'),
-              where('userId', '==', uid),
-              orderBy('completedAt', 'desc'),
-              limit(5),
-            ));
-            if (wSnap.docs.length > 0) {
-              const first = wSnap.docs[0].data();
-              const ts = first.completedAt?.toDate?.() ?? (first.completedAt ? new Date(first.completedAt) : null);
-              if (ts) lastDate = ts.toISOString().split('T')[0];
-            }
-            workoutCount = wSnap.size;
-          } catch (workoutErr) {
-            console.warn('[UnitDrilldown] per-member workout history read failed (known gap, §13.27):', uid, workoutErr);
-          }
-
+          // Slice E (25.09.2026, §13.29) — this row used to also carry
+          // workoutCount/lastWorkoutDate, eagerly computed here via a
+          // direct client-SDK read of the `workouts` collection (limit 5,
+          // per uid, for EVERY member in the roster). That was the LAST
+          // client-SDK read of `workouts` anywhere on this page, and it
+          // was independently broken for a real officer (workouts/{docId}'s
+          // rule has no unit_admin/tenant_owner branch at all — root/admin/
+          // owner-only). Removed entirely rather than routed through
+          // GET /api/units/member-workouts, because that endpoint is a
+          // single-uid lookup by design (Task 4 Stage 4's own GPS-leak
+          // fix) — calling it once per roster row here would mean N
+          // network calls on every page load for a unit with N members.
+          // Per-member workout stats now live ONLY in the "Soldier Detail
+          // Sheet" below (loadMemberWorkouts, already wired to this same
+          // endpoint since 24.09.2026), fetched once, on demand, when an
+          // officer clicks into a specific member — not eagerly for the
+          // whole roster. This is a visible change: the member table no
+          // longer shows an "אימונים"/"פעילות אחרונה" column at a glance.
           membersList.push({
             uid,
             name,
             unitPath: memberUnitPath,
-            lastWorkoutDate: lastDate,
-            workoutCount,
             globalXP,
             unitMembershipSource,
           });
@@ -471,21 +469,40 @@ export default function UnitDrilldownPage() {
   // server route never reads `routePath` at all (Admin-SDK `.select()`
   // field projection — the client SDK this page used has no equivalent),
   // so this isn't a display-layer hide, the data never crosses the wire.
+  // Slice E (25.09.2026, §13.29) — this call itself was already correct;
+  // what this slice added is (a) a visible workoutsLoadError instead of a
+  // silent empty-array fallback on failure, and (b) this is now the ONLY
+  // place on the page workout stats come from at all — the roster's own
+  // eager per-row workouts query (a separate, direct client-SDK read) was
+  // removed entirely, closing the last client-SDK `workouts` read on this
+  // screen. See membersList.push's own comment for the removal.
   const loadMemberWorkouts = async (member: UnitMember) => {
     setSelectedMember(member);
     setLoadingWorkouts(true);
+    // Slice E (25.09.2026, §13.29) — a failure here must be visible, not
+    // silently swallowed into an empty memberWorkouts[] that renders
+    // identically to "this soldier genuinely has no workouts" (David,
+    // explicit requirement). Cleared on every new attempt so a retry
+    // (re-clicking the same member) can recover.
+    setWorkoutsLoadError(null);
     try {
       const currentUser = auth.currentUser;
-      if (!currentUser) throw new Error('Not authenticated');
+      if (!currentUser) throw new Error('משתמש לא מחובר. רענן את הדף ונסה שוב.');
       const idToken = await currentUser.getIdToken();
       const res = await fetch(`/api/units/member-workouts?uid=${encodeURIComponent(member.uid)}`, {
         headers: { Authorization: `Bearer ${idToken}` },
       });
-      if (!res.ok) throw new Error('Failed to load workouts');
-      const { workouts } = await res.json();
-      setMemberWorkouts(workouts ?? []);
-    } catch {
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(typeof body.error === 'string' ? body.error : `שגיאה בטעינת היסטוריית האימונים (${res.status})`);
+      }
+      setMemberWorkouts(Array.isArray(body.workouts) ? body.workouts : []);
+    } catch (fetchErr) {
+      console.error('[UnitDrilldown] /api/units/member-workouts failed:', fetchErr);
       setMemberWorkouts([]);
+      setWorkoutsLoadError(
+        fetchErr instanceof Error ? fetchErr.message : 'שגיאה בטעינת היסטוריית האימונים. נסה שוב.',
+      );
     } finally {
       setLoadingWorkouts(false);
     }
@@ -495,6 +512,17 @@ export default function UnitDrilldownPage() {
 
   const currentDepth = unitPath.length;
   const nextHierarchyLabel = labels.hierarchyLabels[currentDepth + 1] ?? labels.subUnitSingular;
+
+  // Slice E (25.09.2026, §13.29) — the Soldier Detail Sheet's header stats
+  // (count + most recent date) are derived from memberWorkouts itself
+  // (already fetched via /api/units/member-workouts) rather than from a
+  // separate eager per-row field. GET /api/units/member-workouts caps at
+  // 20 (its own design, unrelated to this slice) — "20+" is honest about
+  // that cap rather than implying it's a lifetime total.
+  const mostRecentWorkoutDateStr = typeof memberWorkouts[0]?.completedAtMs === 'number'
+    ? new Date(memberWorkouts[0].completedAtMs).toLocaleDateString('he-IL', { day: 'numeric', month: 'short', year: 'numeric' })
+    : null;
+  const workoutCountLabel = memberWorkouts.length >= 20 ? '20+' : String(memberWorkouts.length);
 
   const handleCreateSubUnit = async () => {
     if (!newSubUnitName.trim() || !tenantId) return;
@@ -1021,8 +1049,13 @@ export default function UnitDrilldownPage() {
                     <th className="text-right py-2 px-3 w-8">#</th>
                     <th className="text-right py-2 px-3">שם</th>
                     {isSchoolContext && <th className="text-right py-2 px-3">XP</th>}
-                    <th className="text-right py-2 px-3">אימונים</th>
-                    <th className="text-right py-2 px-3">פעילות אחרונה</th>
+                    {/* Slice E (25.09.2026, §13.29) — no longer "אימונים"/
+                        "פעילות אחרונה" columns computed for every row up
+                        front (that was the roster's own direct client-SDK
+                        workouts query, removed — see membersList.push's own
+                        comment above). Workout stats now live only in the
+                        per-member card below, fetched on click. */}
+                    <th className="text-right py-2 px-3"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1057,10 +1090,10 @@ export default function UnitDrilldownPage() {
                         </td>
                       )}
                       <td className="py-2.5 px-3">
-                        <span className="text-xs font-bold text-cyan-600">{m.workoutCount}</span>
-                      </td>
-                      <td className="py-2.5 px-3 text-[11px] text-slate-500">
-                        {m.lastWorkoutDate ?? '—'}
+                        <span className="text-[11px] font-bold text-cyan-600 flex items-center gap-1">
+                          לפרטים
+                          <ChevronLeft size={11} />
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -1091,7 +1124,13 @@ export default function UnitDrilldownPage() {
               <div>
                 <h2 className="text-lg font-black text-gray-900">{selectedMember.name}</h2>
                 <p className="text-xs text-slate-500">
-                  {selectedMember.workoutCount} אימונים · פעילות אחרונה: {selectedMember.lastWorkoutDate ?? '—'}
+                  {loadingWorkouts ? (
+                    'טוען נתוני אימונים...'
+                  ) : workoutsLoadError ? (
+                    <span className="text-red-600 font-bold">שגיאה בטעינת נתוני אימונים</span>
+                  ) : (
+                    <>{workoutCountLabel} אימונים אחרונים · פעילות אחרונה: {mostRecentWorkoutDateStr ?? '—'}</>
+                  )}
                   {isSchoolContext && ` · ${selectedMember.globalXP.toLocaleString()} XP`}
                 </p>
               </div>
@@ -1107,6 +1146,20 @@ export default function UnitDrilldownPage() {
           {loadingWorkouts ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+            </div>
+          ) : workoutsLoadError ? (
+            // Slice E (25.09.2026, §13.29) — a fetch failure is shown here,
+            // never falling through to the "אין היסטוריית אימונים" branch
+            // below (David, explicit: failure must never impersonate a
+            // genuine empty history).
+            <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 flex items-center justify-between gap-3">
+              <p className="text-sm text-red-700 font-semibold">{workoutsLoadError}</p>
+              <button
+                onClick={() => loadMemberWorkouts(selectedMember)}
+                className="text-xs font-bold text-red-700 bg-white border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-100 transition-colors flex-shrink-0"
+              >
+                נסה שוב
+              </button>
             </div>
           ) : memberWorkouts.length === 0 ? (
             <p className="text-sm text-slate-400 text-center py-6">אין היסטוריית אימונים</p>
