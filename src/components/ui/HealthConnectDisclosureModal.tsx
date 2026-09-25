@@ -26,7 +26,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, Footprints, Flame, Timer, X, ExternalLink } from 'lucide-react';
+import { ShieldCheck, Footprints, Timer, X, ExternalLink } from 'lucide-react';
 import LegalDocModal from '@/features/legal/components/LegalDocModal';
 
 interface HealthConnectDisclosureModalProps {
@@ -44,12 +44,6 @@ const DATA_ITEMS = [
     icon: <Footprints size={18} className="text-[#5BC2F2]" aria-hidden="true" />,
     label: 'צעדים יומיים',
     purpose: 'מעקב אחר יעד הצעדים היומי שלך',
-    access: 'קריאה',
-  },
-  {
-    icon: <Flame size={18} className="text-orange-400" aria-hidden="true" />,
-    label: 'קלוריות פעילות',
-    purpose: 'הצגת קלוריות שנשרפו בפעילות גופנית',
     access: 'קריאה',
   },
   {

@@ -5,7 +5,6 @@
          in the host app's AndroidManifest.xml (see plugins/health-bridge/
          README.md → "Native Manifest Templates"). -->
     <uses-permission android:name="android.permission.health.READ_STEPS" />
-    <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />
 
     <!-- Health Connect write permissions for workout recording. -->

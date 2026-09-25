@@ -103,7 +103,6 @@
          grant screen launched by HealthBridgePlugin → requestPermissions()
          → PermissionController.createRequestPermissionResultContract(). -->
     <uses-permission android:name="android.permission.health.READ_STEPS" />
-    <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />
 
     <!-- Health Connect write permissions for workout recording. Mirrored
