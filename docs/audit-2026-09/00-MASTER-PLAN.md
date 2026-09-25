@@ -1435,3 +1435,39 @@ Revert: `git revert -m 1 2897d308`
 ## סיכום P0 — כל 4 הפריטים דחופים לפני ההשקה: סגורים (25.09.2026)
 
 P0-1 (§13.22), P0-2 (§13.23), P0-4 (§13.24) — כולם מאושרים, ממוזגים, פרוסים ו-smoke-מאומתים. P0-3 (§13.19, קולקשן כשלי-הרשמה) נבנה ומוזג קודם באותה סדרה. שני פריטים נותרו מתועדים כפתוחים במפורש, לא נשכחו: Crashlytics (§13.20, מוקפא בכוונה עד גרסה נייטיבית חדשה) ותיקון ה-checkpoints החסרים ב-resume-router ל-ASSESSMENT/VISUAL_ASSESSMENT_COMPLETE/HEALTH (דווח ב-§13.23, לא בוצע בכוונה — David: "לדווח... לא לתקן עדיין").
+
+---
+
+### 13.25 — איחוד שיוך-יחידה: הצהרת פרסונה ↔ core.tenantId/unitId (25.09.2026)
+
+**תיקון כיוון מ-David (25.09.2026):** השיוך ליחידה לא קורה דרך קוד גישה (מסלול משני) — הוא קורה בשלב הפרסונה בהרשמה: המשתמש בוחר "צה"ל" → `PersonaQuestionsDrawer` שואל סטטוס (סדיר/קבע/מילואים) ואז חטיבה/גדוד/פלוגה (`HierarchySearchStep`, קידוח ב-`unitDirectory`).
+
+**חקירה (ללא קוד):**
+- **הכתיבה:** רק `military_declarations/{uid}` (`status`,`orgId`,`unitId`,`unitPathIds`) — `core.tenantId`/`core.unitId` **אף פעם לא נכתבים** בנתיב הזה. `personas[].answers` נשאר `{}` במכוון (military ב-`PERSONA_SENSITIVE_STORAGE`).
+- **הרשימה:** `unitDirectory` — קולקשן **נגזר**, מסונכרן אוטומטית ע"י `onUnitWrite.ts`/`onAuthorityWrite.ts` (Cloud Functions) מ-`authorities`/`tenants/{t}/units` האמיתיים. לא `tenants/{t}/units` ישירות (דורש `hasTenant()` שלמצהיר-עצמי אין), לא רשימה קשיחה. קריאה ציבורית (`allow read: if true`). "לא ברשימה" → `pending_units` + אישור ב-approval-center — לא dead-end.
+- **השאלה המרכזית — נשבר בשתי נקודות:** (1) `/api/units/members` (Stage 3, Task 4) שואל `core.tenantId`/`core.unitId` — ריק תמיד לצבא. (2) `admin/authority/units/[unitId]/page.tsx` כן קורא `military_declarations` נכון (`military-declared.service.ts`, תוקן כבר 05.09.2026) — אבל client-side, ו-`firestore.rules`' `military_declarations`: `allow read: if isOwner(uid) || isAdmin()` — **לא** tenant_owner/unit_admin. מנהל יחידה אמיתי מקבל PERMISSION_DENIED שקוע ב-try/catch. **בפועל: אף מנהל יחידה אמיתי לא רואה אף חייל שהצהיר, משום נתיב** — רק root/super_admin (עוקף את שתי הבעיות) ראה תמונה תקינה בבדיקות.
+- **נגיש למשתמש קיים:** כן — Settings ← "הפרסונות שלי" (`MyPersonasSection.tsx`) פותח מחדש את אותו `PersonaQuestionsDrawer`.
+- **אימות:** צורה בלבד (`isValidMilitaryDeclaration` ב-rules: status מ-3 ערכים, מחרוזות ≤100, מפתחות סגורים) + חובה לבחור מ-`unitDirectory` אמיתי או "לא ברשימה"→pending. אפס אימות זהות/שייכות — תואם את ההחלטה הנעולה "הצהרה עצמית מספיקה".
+
+**החלטות נעולות מול קוד:** "נספר מיד" — הלוגיקה נכונה, לא נגישה למנהל אמיתי (הפער למעלה). "הקצין רואה 'לא אושר' — תצוגה בלבד" — חלקית, אותה בעיית-גישה. **"הקצין יכול להסיר, ההסרה נרשמת" / "אחרי הסרה אי-אפשר לחזור בהצהרה עצמית"** — **לא קיים בכלל**, חיפוש מלא בקוד = אפס תוצאות. "לא חושף שמות/מספרים" — תואם, החריג היחיד (ליגת-מילואים) מגולה מראש בטקסט השאלה עצמה.
+
+**החלטת דוד (אופציה ג):** מאחדים את המודלים — הצהרת הפרסונה תכתוב גם `core.tenantId`/`core.unitId`, כך ש-`/api/units/members` וכל מה שנבנה בשלבים 0-4 יתחיל לעבוד. הכתיבה עוברת דרך השרת (Admin SDK) — `core.tenantId`/`core.unitId` נעולים לכתיבת-לקוח ישירה (`noTenantFieldsChanged()`), וזה נשאר כך.
+
+**תיקון ל-tenantType קשיח (David, 25.09.2026):** `unitDirectory` **לא** נושא שדה `tenantType` בכלל — אומת בקריאה מלאה של `onUnitWrite.ts`/`onAuthorityWrite.ts`. הפתרון: חיפוש שני ב-`authorities/{orgId}` + `authorityTypeToTenantType()` (הפונקציה הקנונית, `src/features/admin/config/tenantLabels.ts:178-186`).
+
+**החלטת שיתוף-מודול (David ביקש לבדוק לפני שכפול):** נבדק — אין תבנית קיימת בפרויקט לשיתוף מודול בין `functions/src` ל-`src/` (tsconfig.json של functions כולל רק `["src"]` משלו, CommonJS, חבילת-תלויות נפרדת; `onAuthorityWrite.ts` עצמו כבר מתעד את המגבלה הזו ומכפיל את אותה לוגיקה בדיוק, עם הערה מפורשת שמצביעה חזרה ל-`tenantLabels.ts:178-186`). **ה-endpoint החדש חי ב-`src/app/api/`, באותו פרויקט TS כמו `tenantLabels.ts`** — לכן הוא **מייבא ישירות**, אפס שכפול. השכפול הקיים ב-`onAuthorityWrite.ts` (Cloud Function, לא נגעתי) נשאר כפי שהוא — כבר מתועד משני הצדדים.
+
+**Backfill — נסגר, לא מבוצע:** מתוך 7 מסמכי `military_declarations` בפרודקשן: 6 מתויגים `core.isTestData:true` (שמות: "ימ","ח","ץהננ","נהת","המ" — בבירור טסטים). השביעי לא מתויג פורמלית אך גם שמו ("w") לא נראה כמשתמש אמיתי. **החלטת דוד: לא לבצע backfill — הפריט נסגר**, לא פתוח לביצוע עתידי.
+
+**מה נבנה — פרוסה א' (ענף `feat/unit-declaration-endpoint`, מ-`origin/main` @ `ddf42229`):**
+- **`POST /api/units/declare`** (`src/app/api/units/declare/route.ts`) — Bearer token, uid מהטוקן בלבד. מקבל `{orgId, unitId}` בלבד — **לא מקבל `unitPathIds` מהלקוח בכלל** (השדה לא קיים בטיפוס הקלט) — שרשרת-האבות נבנית ומאומתת בשרת, הליכה למעלה דרך `parentId` ב-`unitDirectory` מהיחידה שנבחרה עד לחטיבה (`parentId===null`). ולידציה: `unitDirectory/{orgId}__{unitId}` (או `{orgId}` לחטיבה) חייב להתקיים + `orgId` תואם; `authorities/{orgId}` נבדק ל-tenantType, נדחה אם לא military/educational (הרשימה הנתמכת, לא military בלבד).
+- **`core.blockedUnitIds`** — נבנה **עכשיו**, לא נדחה: מפתח לפי directoryId (לא unitId גולמי — ייחודי רק בתוך tenant אחד, אותה סיבה בדיוק שכבר קיימת ב-`onUnitWrite.ts`'s directoryId scheme). השדה לא קיים היום באף מסמך — הבדיקה עוברת תמיד, בכוונה, מוכנה למנגנון-הסרה עתידי.
+- **בעלות-שדות, לא כפילות:** ה-endpoint הוא הכותב היחיד של `orgId/unitId/unitPathIds` (military_declarations) **וגם** `core.tenantId/unitId/unitPath/tenantType/unitMembershipSource/unitApprovedByOfficer/unitDeclaredAt` (users) — batch אטומי אחד. `savePersonaAnswers()` ממשיך לכתוב **רק** `status` ל-military — אפס התנגשות שדות, אותו עיקרון כותב-יחיד מ-P0-2.
+- **Rate limit:** `RATE_LIMITS.unitDeclaration.uidHourly()` (10/שעה, לפי uid — כמו `unitJoinRequest`).
+- **מחוץ להיקף במפורש:** הצהרה ברמת-חטיבה-בלבד (בלי unitId) נדחית — `/api/units/members` מאורגן סביב `tenants/{t}/units/{u}` אמיתי, אין לאן להצביע. `pending_units` ("לא ברשימה") לא נגעתי — אין עדיין orgId/unitId אמיתיים לאמת. הסרת-קצין עצמה **לא** נבנתה — רק בדיקת הקריאה מוכנה לקראתה.
+
+**בדיקות (`scripts/verify-unit-declaration.ts`, אמולטור בלבד): 39/39 עברו**, כולל כל השליליות שנדרשו: יחידה לא-קיימת נדחית; `unitPathIds` מזויף מתעלם ממנו לגמרי (השרת בונה את שלו, מוכח בהשוואת התוצאה); שרשרת-אבות מאומתת נגד היררכיה תלת-רמתית אמיתית (גם ברמת-ביניים, לא רק עלה); משתמש חסום נדחה עם אפס כתיבות (וגם: חסימה לא "דולפת" בין ארגונים שונים עם אותו unitId גולמי); ארגון עירוני (municipal) נדחה גם אם יש לו רשומת unitDirectory אמיתית; חטיבה-בלבד נדחית; כשל-batch מדומה (`commit()` נכשל) לא משאיר כתיבה חלקית באף אחד משני המסמכים, ואחרי שחזור ה-patch קריאה רגילה חוזרת לעבוד; rate-limit חוסם בדיוק את הניסיון ה-11; ארגון חינוכי מתקבל (מוכיח שלא קשיח ל-military).
+
+**tsc מול baseline טרי מ-`origin/main`:** 802/802, כל שורת diff רעש-קיים-מראש — **אפס רגרסיות**. `npx vitest run`: 2265 עברו (ללא שינוי — הסקריפט הוא tsx אמולטור, לא vitest), אותם 2 כשלים קיימים-מראש, 26 דולגו.
+
+**לא נגעתי ב-`firestore.rules`.** אפס נתוני פרודקשן נגעו. **ענף נפרד, לא ממוזג** — לפי הוראת דוד — עוצר כאן, ממתין לאישור. UI (פרוסה ב') ומסך היחידה בפאנל (פרוסה ג') לא בוצעו — בכוונה.
