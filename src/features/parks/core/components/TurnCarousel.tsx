@@ -25,13 +25,7 @@
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
-  ArrowUp,
-  ArrowUpRight,
-  ArrowUpLeft,
-  CornerUpRight,
-  CornerUpLeft,
   Navigation,
-  Flag,
   ChevronDown,
   ChevronUp,
   Minimize2,
@@ -41,6 +35,12 @@ import { haversineMeters } from '../services/geoUtils';
 import { useMapStore } from '../store/useMapStore';
 import { isFiniteLatLng, isFiniteNum, isFiniteLngLat, isFiniteBounds, safeNumber } from '@/utils/geoValidation';
 import { reverseGeocodeStreet } from '@/features/user/onboarding/components/steps/UnifiedLocation/location-utils';
+import {
+  DEST_INSTRUCTION,
+  getIconForInstruction,
+  buildAllTurns,
+  computeCurrentGpsIdx,
+} from './turn-carousel-logic';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -50,9 +50,16 @@ interface TurnCarouselProps {
   turns: RouteTurn[];
   routePath: [number, number][];
   currentLocation: { lat: number; lng: number };
+  /** Hybrid stop markers along this route (22.09.2026) — merged into the
+   *  carousel as 'station' cards in true route order, alongside turns.
+   *  Same shape AppMap's `hybridStations` prop takes. */
+  stations?: { lat: number; lng: number; name?: string; parkId?: string }[] | null;
 }
 
-const DEST_INSTRUCTION = 'הגעת ליעד';
+/** Small-print label for a station card's GPS-active pill — parallels the
+ *  'תפנייה הבאה' ("next turn") / 'כמעט שם!' pair below but for a stop. */
+const STATION_NEXT_LABEL = 'התחנה הבאה';
+
 const STRAIGHT_INSTRUCTION = 'ישר';
 /** Headline shown when the maneuver has no street name AND is "go straight". */
 const FALLBACK_HEADLINE = 'המשך ישר';
@@ -86,43 +93,8 @@ const ACTIVE_SHADOW = '0 8px 28px rgba(0, 173, 239, 0.18), 0 2px 8px rgba(0, 0, 
 // Pure helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Pick a lucide icon for a Hebrew maneuver label.
- *
- * IMPORTANT: this function returns the GEOMETRICALLY CORRECT icon for
- * each direction (ימינה → right-pointing, שמאלה → left-pointing).
- *
- * The previous mapping had every left/right pair SWAPPED — apparently
- * an attempt to compensate for an RTL flip that never actually happens
- * (lucide-react SVGs ignore CSS `direction`, they only mirror if you
- * deliberately apply a `transform: scaleX(-1)`). The defence below
- * (`dir="ltr"` on the icon wrapper) makes sure no future RTL ancestor
- * ever introduces such a flip, so this mapping can stay literal.
- */
-function getIconForInstruction(instruction: string): React.ElementType {
-  switch (instruction) {
-    case 'ימינה קל':   return ArrowUpRight;   // slight right
-    case 'שמאלה קל':  return ArrowUpLeft;    // slight left
-    case 'פנה ימינה': return CornerUpRight;  // sharp right
-    case 'פנה שמאלה': return CornerUpLeft;   // sharp left
-    case DEST_INSTRUCTION: return Flag;
-    default:          return ArrowUp;
-  }
-}
-
-/** Manhattan-distance nearest-vertex search — fast enough for 10k-point paths. */
-function findNearestPathIdx(
-  path: [number, number][],
-  pos: { lat: number; lng: number },
-): number {
-  let minD = Infinity;
-  let idx = 0;
-  for (let i = 0; i < path.length; i++) {
-    const d = Math.abs(path[i][1] - pos.lat) + Math.abs(path[i][0] - pos.lng);
-    if (d < minD) { minD = d; idx = i; }
-  }
-  return idx;
-}
+// getIconForInstruction, findNearestPathIdx, buildAllTurns, computeCurrentGpsIdx
+// all live in ./turn-carousel-logic (plain .ts, unit tested there) — imported above.
 
 function formatDistance(meters: number): string {
   if (meters < 100) return `${Math.round(meters)} מ׳`;
@@ -243,6 +215,9 @@ function useStreetNamesForTurns(
         if (cancelled) return;
         const t = turns[i];
         if (!t || !isFiniteNum(t.lat) || !isFiniteNum(t.lng)) continue;
+        // Station cards show their own given name, never a geocoded street —
+        // skip the (rate-limited) Mapbox call entirely for them.
+        if (t.kind === 'station') continue;
 
         const key = streetCacheKey(t.lat, t.lng);
         if (cacheRef.current.has(key)) continue;
@@ -275,6 +250,7 @@ function useStreetNamesForTurns(
     for (let i = 0; i < turns.length; i++) {
       const t = turns[i];
       if (!t || !isFiniteNum(t.lat) || !isFiniteNum(t.lng)) continue;
+      if (t.kind === 'station') continue;
       const key = streetCacheKey(t.lat, t.lng);
       if (cacheRef.current.has(key)) {
         out.set(i, cacheRef.current.get(key) ?? null);
@@ -295,26 +271,18 @@ export default function TurnCarousel({
   turns,
   routePath,
   currentLocation,
+  stations,
 }: TurnCarouselProps) {
-  // Append a synthetic destination card so the user can swipe all the way
-  // to the finish and see the endpoint highlighted on the map.
-  // Memoised so identity is stable across renders — otherwise effects below
-  // that depend on `allTurns` would re-fire every parent render.
-  const allTurns = useMemo<RouteTurn[]>(() => {
-    if (!routePath || routePath.length === 0) return turns;
-    const last = routePath[routePath.length - 1];
-    return [
-      ...turns,
-      {
-        instruction: DEST_INSTRUCTION,
-        distanceMeters: 0,
-        lat: last[1],
-        lng: last[0],
-        bearingAfter: 0,
-        pathIndex: routePath.length - 1,
-      },
-    ];
-  }, [turns, routePath]);
+  // Merge station cards into the turn list + append the synthetic
+  // destination card — pure logic lives in `buildAllTurns` above (unit
+  // tested there; this component can't be rendered under this repo's
+  // vitest config). Memoised so identity is stable across renders —
+  // otherwise effects below that depend on `allTurns` would re-fire every
+  // parent render.
+  const allTurns = useMemo<RouteTurn[]>(
+    () => buildAllTurns(turns, routePath, stations),
+    [turns, routePath, stations],
+  );
 
   const setTurnFlyToTarget = useMapStore((s) => s.setTurnFlyToTarget);
   const setNavCardHeight = useMapStore((s) => s.setNavCardHeight);
@@ -369,13 +337,11 @@ export default function TurnCarousel({
   const prevSelectedIdxRef = useRef(-1);
 
   // ── Derived: GPS current turn ─────────────────────────────────────────────
-  const currentGpsTurnIdx = useMemo(() => {
-    if (!routePath || routePath.length === 0) return 0;
-    const nearestPathIdx = findNearestPathIdx(routePath, currentLocation);
-    // First turn that hasn't been passed yet
-    const idx = turns.findIndex((t) => t.pathIndex >= nearestPathIdx);
-    return idx === -1 ? Math.max(0, allTurns.length - 1) : idx;
-  }, [routePath, currentLocation, turns, allTurns.length]);
+  // Pure logic lives in `computeCurrentGpsIdx` above (unit tested there).
+  const currentGpsTurnIdx = useMemo(
+    () => computeCurrentGpsIdx(allTurns, routePath, currentLocation),
+    [allTurns, routePath, currentLocation],
+  );
 
   // ── Proximity hysteresis ref (lives here; mutations happen below during render) ──
   const proximityExpandRef = useRef(false);
@@ -748,7 +714,7 @@ export default function TurnCarousel({
   if (carouselState === 'thin') {
     const turn = allTurns[currentGpsTurnIdx];
     if (!turn) return null;
-    const IconComp = getIconForInstruction(turn.instruction);
+    const IconComp = getIconForInstruction(turn);
     const resolvedStreet = streetNames.get(currentGpsTurnIdx);
     const isDestination = turn.instruction === DEST_INSTRUCTION;
     const accent = isDestination ? DEST_GREEN_LIGHT : PRIMARY;
@@ -856,7 +822,8 @@ export default function TurnCarousel({
           const isCurrent = i === selectedIdx;
           const isGpsActive = i === currentGpsTurnIdx;
           const isDestination = turn.instruction === DEST_INSTRUCTION;
-          const IconComp = getIconForInstruction(turn.instruction);
+          const isStation = turn.kind === 'station';
+          const IconComp = getIconForInstruction(turn);
 
           const isFirstCard = i === 0;
           const isLastCard = i === allTurns.length - 1;
@@ -991,7 +958,7 @@ export default function TurnCarousel({
                                 className="text-[10px] font-bold leading-tight"
                                 style={{ color: accentDark }}
                               >
-                                {isDestination ? 'כמעט שם!' : 'תפנייה הבאה'}
+                                {isDestination ? 'כמעט שם!' : isStation ? STATION_NEXT_LABEL : 'תפנייה הבאה'}
                               </p>
                             )}
                           </div>
@@ -1020,7 +987,7 @@ export default function TurnCarousel({
                             className="text-[10px] font-bold mt-0.5"
                             style={{ color: accentDark }}
                           >
-                            {isDestination ? 'כמעט שם!' : 'תפנייה הבאה'}
+                            {isDestination ? 'כמעט שם!' : isStation ? STATION_NEXT_LABEL : 'תפנייה הבאה'}
                           </p>
                         )}
                       </>
