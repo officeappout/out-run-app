@@ -13,7 +13,6 @@ import androidx.activity.result.ActivityResult
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
-import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.StepsRecord
@@ -49,10 +48,12 @@ private const val TAG = "HealthBridge"
 /**
  * HealthBridge — Android / Health Connect implementation.
  *
- * Reads three record types:
+ * Reads two record types:
  *   • StepsRecord                  → steps
- *   • ActiveCaloriesBurnedRecord   → active kcal
  *   • ExerciseSessionRecord        → active minutes (duration of session)
+ * (ActiveCaloriesBurnedRecord read removed — declared but had no live
+ * display surface; see dailyActivity.passiveCalories's own doc comment
+ * in ingestHealthSamples.ts. Re-add only alongside a real UI for it.)
  *
  * Background sync is implemented via WorkManager: a unique periodic
  * worker (`HealthBridgeWorker`) runs every ~30 minutes and emits a
@@ -63,8 +64,8 @@ private const val TAG = "HealthBridge"
  * Permissions
  * ───────────
  * Health Connect uses fine-grained per-record permissions. The plugin
- * advertises READ_STEPS, READ_ACTIVE_CALORIES_BURNED, READ_EXERCISE in
- * its AndroidManifest; the host app must replicate these declarations
+ * advertises READ_STEPS, READ_EXERCISE in its AndroidManifest; the host
+ * app must replicate these declarations
  * (see plugins/health-bridge/README.md).
  *
  * requestPermissions() launches the real Health Connect grant screen via
@@ -83,7 +84,6 @@ class HealthBridgePlugin : Plugin() {
 
     private val readPermissions = setOf(
         HealthPermission.getReadPermission(StepsRecord::class),
-        HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
         HealthPermission.getReadPermission(ExerciseSessionRecord::class),
     )
 
@@ -318,25 +318,6 @@ class HealthBridgePlugin : Plugin() {
                         endInstant = r.endTime,
                         steps = r.count.toInt(),
                         calories = 0,
-                        activeMinutes = 0,
-                        source = r.metadata.dataOrigin.packageName,
-                    ))
-                }
-
-                // Active calories
-                val cals = client.readRecords(
-                    ReadRecordsRequest(
-                        recordType = ActiveCaloriesBurnedRecord::class,
-                        timeRangeFilter = TimeRangeFilter.between(start, end),
-                    )
-                )
-                for (r in cals.records) {
-                    samples.add(buildSample(
-                        uuid = r.metadata.id,
-                        startInstant = r.startTime,
-                        endInstant = r.endTime,
-                        steps = 0,
-                        calories = r.energy.inKilocalories.toInt(),
                         activeMinutes = 0,
                         source = r.metadata.dataOrigin.packageName,
                     ))

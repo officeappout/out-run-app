@@ -11,10 +11,12 @@ private let hbLog = OSLog(subsystem: "co.il.appout.outrun", category: "HealthBri
 /**
  * HealthBridge — iOS / HealthKit implementation.
  *
- * Reads three sample types from HealthKit:
+ * Reads two sample types from HealthKit:
  *   • HKQuantityTypeIdentifier.stepCount
- *   • HKQuantityTypeIdentifier.activeEnergyBurned
  *   • HKQuantityTypeIdentifier.appleExerciseTime
+ * (activeEnergyBurned read removed — declared but had no live display
+ * surface; see dailyActivity.passiveCalories's own doc comment in
+ * ingestHealthSamples.ts. Still written below for completed workouts.)
  *
  * Writes completed workouts to HealthKit:
  *   • HKWorkoutType — with activity type, duration, and active calories
@@ -64,8 +66,12 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
     private var exerciseType: HKQuantityType { HKObjectType.quantityType(forIdentifier: .appleExerciseTime)! }
     private var workoutType: HKWorkoutType { HKObjectType.workoutType() }
 
+    // activeEnergyBurned removed from reads — declared but had no live
+    // display surface; see dailyActivity.passiveCalories's own doc comment
+    // in ingestHealthSamples.ts. caloriesType stays defined above and in
+    // shareTypes below — still written for completed workouts.
     private var readTypes: Set<HKObjectType> {
-        return [stepType, caloriesType, exerciseType]
+        return [stepType, exerciseType]
     }
 
     private var shareTypes: Set<HKSampleType> {
@@ -296,21 +302,21 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         let group = DispatchGroup()
         var samplesByUUID: [String: [String: Any]] = [:]
         var firstError: Error?
-        // Tracks the latest sample startDate actually returned, across all
-        // three types combined — used to advance the cursor below instead of
+        // Tracks the latest sample startDate actually returned, across both
+        // types combined — used to advance the cursor below instead of
         // always jumping to `endBound` ("now"). A single combined max (not a
         // per-type max) so a lagging type can't orphan a gap: if steps only
-        // reaches day 40 of a 90-day backfill but calories reaches day 90,
+        // reaches day 40 of a 90-day backfill but exercise reaches day 90,
         // advancing by the per-type max would silently skip days 40-90 for
-        // calories on the next call.
+        // exercise on the next call.
         var latestSampleDate: Date?
         let latestSampleDateLock = NSLock()
 
-        for type in [stepType, caloriesType, exerciseType] {
+        for type in [stepType, exerciseType] {
             group.enter()
             let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endBound, options: .strictStartDate)
             let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
-            // No limit: a 90-day backfill of small step/calorie/exercise samples
+            // No limit: a 90-day backfill of small step/exercise samples
             // is still a bounded, cheap query — HKSampleQuery's previous
             // `limit: 1000` silently truncated to the oldest 1000 samples
             // (ascending sort) once a dense window exceeded that count,
@@ -337,9 +343,6 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
                     if type == self.stepType {
                         let n = Int(value.doubleValue(for: HKUnit.count()).rounded())
                         entry["steps"] = n
-                    } else if type == self.caloriesType {
-                        let kcal = Int(value.doubleValue(for: HKUnit.kilocalorie()).rounded())
-                        entry["calories"] = kcal
                     } else if type == self.exerciseType {
                         let mins = Int(value.doubleValue(for: HKUnit.minute()).rounded())
                         entry["activeMinutes"] = mins

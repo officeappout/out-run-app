@@ -317,7 +317,15 @@ export const ingestHealthSamples = onCall<IngestPayload, Promise<IngestResult>>(
         userId: uid,
         date,
         passiveSteps: curPassiveSteps + addSteps,
-        passiveCalories: curPassiveCalories + addCalories,
+        // passiveCalories intentionally not written — no reader anywhere in
+        // the client (grepped, confirmed zero consumers of this exact field
+        // beyond this function's own next-run baseline read below). The
+        // upstream read that fed it (READ_ACTIVE_CALORIES_BURNED / HealthKit
+        // activeEnergyBurned) was removed for the same reason — declared but
+        // never actually surfaced to the user. curPassiveCalories/addCalories
+        // below are computed but now go unused for the write; left in place
+        // rather than ripped out, since re-adding a real calories display is
+        // the plan, not deleting the feature outright.
         passiveActiveMinutes: curPassiveActiveMin + addActiveMin,
         passiveXpAwardedToday,
         lastPassiveSyncAt: admin.firestore.FieldValue.serverTimestamp(),
