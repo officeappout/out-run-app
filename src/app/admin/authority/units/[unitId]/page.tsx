@@ -73,6 +73,16 @@ export default function UnitDrilldownPage() {
   // a bare console.error would hide entirely (David, explicit: no silent
   // blank screen). Retryable — see the error-state render below.
   const [membersLoadError, setMembersLoadError] = useState<string | null>(null);
+  // Slice D (25.09.2026, §13.28) — the unit's own name/path/icon + its
+  // sub-units now go through /api/units/structure (replaces the direct
+  // client-SDK tenants/{t}/units/{u} doc read + parentUnitId query, both
+  // gated by firestore.rules' hasTenant() — a custom-claim check never
+  // actually set for any real user, so this read silently failed for
+  // every real officer before this slice). David's explicit requirement:
+  // a failure here must never look like "this unit has no sub-units" —
+  // see the render below, and note subUnits.length===0 alone no longer
+  // gates the Sub-Units section's visibility.
+  const [structureLoadError, setStructureLoadError] = useState<string | null>(null);
   const [unitName, setUnitName] = useState<string>('');
   const [unitPath, setUnitPath] = useState<string[]>([]);
   const [subUnits, setSubUnits] = useState<SubUnit[]>([]);
@@ -158,15 +168,47 @@ export default function UnitDrilldownPage() {
         let resolvedUnitName = decodeURIComponent(rawUnitId);
         let resolvedUnitPath: string[] = [];
 
+        // GET /api/units/structure (Slice D, §13.28) — one authenticated
+        // call returns the unit itself PLUS its direct children, replacing
+        // both the single-doc read above and the parentUnitId query below.
+        // A fetch failure is shown via structureLoadError, never swallowed
+        // into a name/path/icon that silently stays at its fallback and a
+        // sub-units list that silently stays empty.
+        setStructureLoadError(null);
+        let structureUnits: Array<{
+          unitId: string;
+          name: string;
+          unitPath: string[];
+          parentUnitId: string | null;
+          iconUrl: string | null;
+          memberCount: number;
+        }> = [];
         if (activeTenantId) {
-          const unitDocRef = doc(db, 'tenants', activeTenantId, 'units', unitId);
-          const unitSnap = await getDoc(unitDocRef);
-          if (unitSnap.exists()) {
-            const unitData = unitSnap.data();
-            resolvedUnitName = unitData.name ?? decodeURIComponent(rawUnitId);
-            resolvedUnitPath = unitData.unitPath ?? [];
-            setIconUrl((unitData.iconUrl as string | null) ?? null);
+          try {
+            const token = await auth.currentUser?.getIdToken();
+            if (!token) throw new Error('משתמש לא מחובר. רענן את הדף ונסה שוב.');
+            const res = await fetch(
+              `/api/units/structure?tenantId=${encodeURIComponent(activeTenantId)}&unitId=${encodeURIComponent(unitId)}`,
+              { headers: { Authorization: `Bearer ${token}` } },
+            );
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              throw new Error(typeof body.error === 'string' ? body.error : `שגיאה בטעינת פרטי היחידה (${res.status})`);
+            }
+            structureUnits = Array.isArray(body.units) ? body.units : [];
+          } catch (fetchErr) {
+            console.error('[UnitDrilldown] /api/units/structure failed:', fetchErr);
+            setStructureLoadError(
+              fetchErr instanceof Error ? fetchErr.message : 'שגיאה בטעינת פרטי היחידה. נסה שוב.',
+            );
           }
+        }
+
+        const ownEntry = structureUnits.find((u) => u.unitId === unitId);
+        if (ownEntry) {
+          resolvedUnitName = ownEntry.name;
+          resolvedUnitPath = ownEntry.unitPath;
+          setIconUrl(ownEntry.iconUrl);
         }
 
         setUnitName(resolvedUnitName);
@@ -211,22 +253,20 @@ export default function UnitDrilldownPage() {
         const declaredCountsByUnit: Record<string, number> = {};
         apiUnitsBlocks.forEach((u) => { declaredCountsByUnit[u.unitId] = u.approvedMembers.length; });
 
-        if (activeTenantId) {
-          const subSnap = await getDocs(query(
-            collection(db, 'tenants', activeTenantId, 'units'),
-            where('parentUnitId', '==', unitId),
-          ));
-          setSubUnits(subSnap.docs.map(d => {
-            const data = d.data();
-            return {
-              id: d.id,
-              name: data.name ?? d.id,
-              memberCount: resolvedTenantType === 'military' ? (declaredCountsByUnit[d.id] ?? 0) : (data.memberCount ?? 0),
-              unitPath: data.unitPath ?? [],
-              iconUrl: (data.iconUrl as string | null) ?? null,
-            };
-          }));
-        }
+        // Sub-units = every /api/units/structure result other than the
+        // unit itself (its direct children — see that endpoint's own
+        // doc comment). Military keeps sourcing memberCount from
+        // declaredCountsByUnit (self-declared/approved roster counts,
+        // unaffected by this slice); other tenant types fall back to the
+        // structure endpoint's own memberCount passthrough field.
+        const childEntries = structureUnits.filter((u) => u.unitId !== unitId);
+        setSubUnits(childEntries.map((u) => ({
+          id: u.unitId,
+          name: u.name,
+          memberCount: resolvedTenantType === 'military' ? (declaredCountsByUnit[u.unitId] ?? 0) : (u.memberCount ?? 0),
+          unitPath: u.unitPath,
+          iconUrl: u.iconUrl,
+        })));
 
         // Member list: military sources uid/name/unitMembershipSource from
         // the API response above (already scoped+authorized — no separate
@@ -593,6 +633,24 @@ export default function UnitDrilldownPage() {
         )}
       </nav>
 
+      {/* Slice D (25.09.2026, §13.28) — a failed /api/units/structure
+          fetch is shown here, never swallowed into a header that just
+          keeps its fallback name and a Sub-Units section that looks
+          identical to "this unit genuinely has none" (David, explicit
+          requirement — a real 0 and a failure-0 must never look the
+          same). */}
+      {structureLoadError && (
+        <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 flex items-center justify-between gap-3">
+          <p className="text-sm text-red-700 font-semibold">{structureLoadError}</p>
+          <button
+            onClick={() => setRetrySeq((s) => s + 1)}
+            className="text-xs font-bold text-red-700 bg-white border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-100 transition-colors flex-shrink-0"
+          >
+            נסה שוב
+          </button>
+        </div>
+      )}
+
       {/* ═══ Header ═══ */}
       <div className={`flex items-center justify-between bg-white rounded-2xl shadow-sm border-l-4 border border-gray-100 p-6 ${theme.headerBorder}`}>
         <div className="flex items-center gap-4">
@@ -865,6 +923,12 @@ export default function UnitDrilldownPage() {
       )}
 
       {/* ═══ Sub-Units ═══ */}
+      {/* Slice D (25.09.2026, §13.28) — a genuinely-empty list (no error)
+          still renders nothing here, same as before. A structure-fetch
+          failure is NOT re-signaled by this section at all — it's
+          already shown unconditionally by the banner right below the
+          breadcrumbs above (covers both this list and the unit's own
+          name/path/icon, one failure, one message, not two). */}
       {subUnits.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-base font-black text-gray-900 px-1">{labels.subUnitsTitle}</h2>

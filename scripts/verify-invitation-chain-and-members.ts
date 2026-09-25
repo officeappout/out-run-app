@@ -38,6 +38,13 @@
  *   Stage 3 negative 5 — a pending request never appears in the approved-
  *     members array.
  *   Stage 3 root-without-tenantId — 400, not a security denial.
+ *   §13.28 (25.09.2026) — downward inheritance (now resolved inside
+ *     resolveUnitPermissionScope itself, see scripts/verify-unit-join-
+ *     requests.ts for that resolver's own dedicated nested-hierarchy
+ *     tests): a battalion commander's own-domain /api/units/members call
+ *     now includes a company they don't directly manage AND the soldiers
+ *     in it — closing the exact inconsistency §13.27 reported, with zero
+ *     code change to this endpoint itself.
  *
  * Usage:
  *   firebase emulators:start --only firestore
@@ -371,6 +378,49 @@ async function main() {
     assert('regular user resolves to denied scope', scope.kind === 'denied');
     const result = await computeUnitMembers(db, scope, {});
     assert('regular user requesting the members list: rejected (403)', result.status === 403);
+  }
+
+  console.log('\n── §13.28: downward inheritance now closes the exact inconsistency §13.27 reported ──');
+  // §13.27 found this: a unit_admin could see a descendant unit EXISTS
+  // (via /api/units/structure's own local ancestor-walk) but still got 403
+  // trying to view ITS members via /api/units/members, because that
+  // endpoint's unitIds check never had the same expansion. David's fix
+  // (25.09.2026): move the expansion into resolveUnitPermissionScope
+  // itself, so /api/units/members inherits it automatically — NO code
+  // change to this file's computeUnitMembers call was needed for this to
+  // start working. Proven here with a real battalion → company chain
+  // under tenantA, a soldier seeded directly at the company level.
+  {
+    const battalionId = `battalion-mem-${run}`;
+    const companyId = `company-mem-${run}`;
+    const battalionCommanderUid = `battalion-cmd-mem-${run}`;
+    const companySoldierUid = `company-soldier-mem-${run}`;
+
+    await db.collection('users').doc(battalionCommanderUid).set({ core: {} });
+    await db.collection('users').doc(companySoldierUid).set({ core: { name: 'חייל בפלוגה', tenantId: tenantA, unitId: companyId } });
+    await db.collection('tenants').doc(tenantA).collection('units').doc(battalionId)
+      .set({ name: 'גדוד', parentUnitId: null, unitPath: ['גדוד'], managerIds: [battalionCommanderUid] });
+    await db.collection('tenants').doc(tenantA).collection('units').doc(companyId)
+      .set({ name: 'פלוגה', parentUnitId: battalionId, unitPath: ['גדוד', 'פלוגה'], managerIds: [] });
+
+    const scope = await resolveUnitPermissionScope(battalionCommanderUid);
+    assert('battalion commander scope includes the company (descendant, not directly managed)', scope.kind === 'unitAdmin' && scope.unitIds.includes(companyId));
+
+    const ownDomainResult = await computeUnitMembers(db, scope, {});
+    assert('battalion commander\'s own-domain members list: 200', ownDomainResult.status === 200);
+    if (ownDomainResult.status === 200) {
+      const units = (ownDomainResult.body as any).units;
+      const companyBlock = units.find((u: any) => u.unitId === companyId);
+      assert('battalion commander sees the company block at all (was invisible before §13.28)', companyBlock !== undefined);
+      assert(
+        'battalion commander sees the SOLDIER inside that company — the exact scenario David required ("רואה את הפלוגות שלו ואת החיילים שבהן")',
+        companyBlock?.approvedMembers.some((m: any) => m.uid === companySoldierUid),
+      );
+    }
+
+    // Before §13.28 this was 403 — the §13.27-reported inconsistency.
+    const explicitCompanyResult = await computeUnitMembers(db, scope, { unitId: companyId });
+    assert('battalion commander explicitly requesting the company by unitId: now 200 (was 403 before §13.28)', explicitCompanyResult.status === 200);
   }
 
   console.log(`\n${passed} passed, ${failed} failed.`);

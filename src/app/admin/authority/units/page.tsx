@@ -14,16 +14,23 @@ import { authorityTypeToTenantType, getTenantLabels, orgTypeDisplayName, VERTICA
 import type { Authority, TenantType } from '@/types/admin-types';
 import { Loader2, Users, ChevronLeft, Building2, Globe, Plus, X, Shield, GraduationCap, Upload, AlertTriangle, CheckCircle, Trash2, ArrowRight } from 'lucide-react';
 import { importHierarchyFromJSON, type HierarchyImportResult } from '@/features/admin/services/unit-import.service';
-import { getDeclaredCounts } from '@/features/admin/services/military-declared.service';
 import { syncTenantUnitCount } from '@/features/admin/services/unit-count-sync.service';
 import AdminBreadcrumb from '@/features/admin/components/AdminBreadcrumb';
 import SearchableSelect from '@/features/admin/components/SearchableSelect';
 import UnitIconBadge from '@/components/ui/UnitIconBadge';
 
+/**
+ * Slice D (25.09.2026, §13.28) — a fetch that genuinely fails is 'error',
+ * never silently coerced to 0. A real zero and a failure must render
+ * differently (David, explicit requirement) — see the render below, which
+ * shows an em-dash + red styling for 'error' instead of a bare "0".
+ */
+type CountOrError = number | 'error';
+
 interface UnitRow {
   id: string;
   name: string;
-  memberCount: number;
+  memberCount: CountOrError;
   unitPath: string[];
   parentUnitId: string | null;
   /** Military units only (tenants/{orgId}/units/{id}.iconUrl) — municipal
@@ -60,8 +67,24 @@ export default function UnitsListPage() {
   const [authoritySubType, setAuthoritySubType] = useState<string>('');
 
   // Summary stats
-  const [totalUsers, setTotalUsers] = useState(0);
-  const [activeUsersLast7d, setActiveUsersLast7d] = useState(0);
+  const [totalUsers, setTotalUsers] = useState<CountOrError>(0);
+  const [activeUsersLast7d, setActiveUsersLast7d] = useState<CountOrError>(0);
+  // Slice D (25.09.2026, §13.28) — the unit list itself (names/paths/icons)
+  // now goes through /api/units/structure instead of a direct client-SDK
+  // read of tenants/{orgId}/units, which firestore.rules gates behind
+  // hasTenant() — a custom-claim check never actually set for any real
+  // user (see [unitId]/page.tsx's own §13.28 comment for the full
+  // citation). Municipal is UNAFFECTED — its children are authorities
+  // (world-readable), never tenants/units, so this only applies to the
+  // military/educational branch below.
+  const [structureLoadError, setStructureLoadError] = useState<string | null>(null);
+  // Member counts (per-row + totalUsers) now go through /api/units/members
+  // (Slice C's endpoint, unchanged) instead of a direct military_declarations
+  // query (military) or a users-where-core.tenantId query (non-military) —
+  // both independently rejected for a real (non-admin) tenant_owner by
+  // their own firestore.rules, unrelated to hasTenant(). See this slice's
+  // own report for the exact rule citations.
+  const [membersLoadError, setMembersLoadError] = useState<string | null>(null);
   // Sync-gap check (§8 recommendation B, 06.09.2026 — the cheapest check
   // that would have caught the invisible-battalion incident in minutes
   // instead of requiring a deliberate end-to-end production test): real
@@ -87,11 +110,17 @@ export default function UnitsListPage() {
     }
 
     let rows: UnitRow[] = [];
+    setStructureLoadError(null);
+    setMembersLoadError(null);
 
     if (derived === 'municipal') {
       // Municipal: children are stored as child authorities (neighborhoods / settlements)
       // Unaffected by the military declared-vs-verified split below — real
       // access codes ARE issued here, so core.tenantId genuinely means something.
+      // NOT migrated to /api/units/structure — resolveUnitPermissionScope
+      // only recognizes military_unit/school tenants (unitPermissionScope.ts's
+      // TENANT_AUTHORITY_TYPES); a municipal authority manager would be
+      // denied outright by that endpoint. Out of scope for this slice.
       try {
         const children = await getChildrenByParent(authId);
         rows = children.map(child => ({
@@ -104,22 +133,48 @@ export default function UnitsListPage() {
         }));
       } catch { /* ignore */ }
     } else {
-      // Military / Educational: units stored in tenants/{orgId}/units subcollection
-      const unitsSnap = await getDocs(collection(db, 'tenants', authId, 'units'));
-      rows = unitsSnap.docs.map(d => {
-        const data = d.data();
-        return {
-          id: d.id,
-          name: data.name ?? d.id,
-          memberCount: data.memberCount ?? 0,
-          unitPath: data.unitPath ?? [],
-          parentUnitId: (data.parentUnitId as string | null) ?? null,
-          iconUrl: (data.iconUrl as string | null) ?? null,
-        };
-      });
+      // Military / Educational: GET /api/units/structure (Slice D, §13.28)
+      // replaces the direct tenants/{orgId}/units read. A fetch failure is
+      // shown via structureLoadError — never a silently-empty rows[] that
+      // reads identically to "this tenant genuinely has zero units."
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) throw new Error('משתמש לא מחובר. רענן את הדף ונסה שוב.');
+        const res = await fetch(`/api/units/structure?tenantId=${encodeURIComponent(authId)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(typeof body.error === 'string' ? body.error : `שגיאה בטעינת רשימת היחידות (${res.status})`);
+        }
+        const structureUnits: Array<{
+          unitId: string; name: string; unitPath: string[];
+          parentUnitId: string | null; iconUrl: string | null; memberCount: number;
+        }> = Array.isArray(body.units) ? body.units : [];
+        rows = structureUnits.map((u) => ({
+          id: u.unitId,
+          name: u.name,
+          // Doc-level counter (unit-count-sync.service.ts), same field
+          // this page always read for non-military units — unaffected by
+          // the military-specific /api/units/members overwrite below.
+          memberCount: u.memberCount,
+          unitPath: u.unitPath,
+          parentUnitId: u.parentUnitId,
+          iconUrl: u.iconUrl,
+        }));
+      } catch (fetchErr) {
+        console.error('[Units] /api/units/structure failed:', fetchErr);
+        setStructureLoadError(
+          fetchErr instanceof Error ? fetchErr.message : 'שגיאה בטעינת רשימת היחידות. נסה שוב.',
+        );
+      }
     }
 
-    // Fallback: if nothing found, check for direct users
+    // Fallback: if nothing found, check for direct users. Untouched by
+    // this slice — still a direct client-SDK query, still independently
+    // silent on failure (users/{uid}'s own rule, unrelated to hasTenant()).
+    // A rare edge case (a tenant with zero tenants/{t}/units docs but users
+    // directly on core.unitId==authId), out of scope to migrate here.
     if (rows.length === 0 && a) {
       try {
         const usersSnap = await getDocs(query(
@@ -154,21 +209,63 @@ export default function UnitsListPage() {
       setSyncedUnitCount(null);
     }
 
-    // Military: memberCount per row + the summary stats below are computed
-    // from military_declarations (self-declared, "מוצהרים" — David,
-    // 05.09.2026), not core.unitId/tenantId (verified — requires a real
-    // access code, which nothing issues today, so that query always reads
-    // zero here). See military-declared.service.ts's own doc comment.
-    if (derived === 'military') {
+    // GET /api/units/members (Slice C, unchanged — see docs/audit-2026-09/
+    // 00-MASTER-PLAN.md §13.27) for member counts, both tenant types. Its
+    // own implementation isn't military-specific; only this page's PRIOR
+    // client-SDK reads were split by tenant type, and BOTH halves were
+    // independently broken for a real, non-admin tenant_owner:
+    //   - military_declarations/{uid}'s rule is isOwner(uid)||isAdmin() —
+    //     no tenant_owner/unit_admin branch at all.
+    //   - users/{uid}'s rule is isOwner(uid)||isRootAdmin()||isAdmin() —
+    //     same gap, different collection.
+    // Neither is a hasTenant() dependency (Slice D's requirement #4 is
+    // scoped to hasTenant() specifically) — flagged separately in the
+    // report as the same class of "silently reads as 0" bug for a
+    // different reason. A fetch failure here sets membersLoadError and
+    // marks every count 'error' rather than defaulting to 0.
+    let membersBlocks: Array<{ unitId: string; approvedMembers: Array<{ uid: string }> }> = [];
+    let membersFetchFailed = false;
+    if (derived !== 'municipal') {
       try {
-        const { brigadeTotal, byUnitId } = await getDeclaredCounts(authId);
-        rows = rows.map(r => ({ ...r, memberCount: byUnitId[r.id] ?? 0 }));
-        setUnits(rows);
-        setTotalUsers(brigadeTotal);
-        // No activity-tracking field exists on a declaration — but updatedAt
-        // on a NEW declaration IS its registration moment, so this is
-        // honestly "registered or updated this week" (David, 05.09.2026),
-        // not a real-usage proxy. Labeled that way in the render below.
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) throw new Error('משתמש לא מחובר. רענן את הדף ונסה שוב.');
+        const res = await fetch(`/api/units/members?tenantId=${encodeURIComponent(authId)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(typeof body.error === 'string' ? body.error : `שגיאה בטעינת מספר החברים (${res.status})`);
+        }
+        membersBlocks = Array.isArray(body.units) ? body.units : [];
+      } catch (fetchErr) {
+        console.error('[Units] /api/units/members failed:', fetchErr);
+        setMembersLoadError(fetchErr instanceof Error ? fetchErr.message : 'שגיאה בטעינת מספר החברים. נסה שוב.');
+        membersFetchFailed = true;
+      }
+    }
+
+    if (derived === 'military') {
+      // Military rows never carried a real doc-level memberCount — self-
+      // declared members were only ever tracked via military_declarations,
+      // never a synced counter field — so this is the ONLY source, 'error'
+      // (not 0) when the fetch above failed.
+      if (membersFetchFailed) {
+        rows = rows.map((r) => ({ ...r, memberCount: 'error' as const }));
+        setTotalUsers('error');
+      } else {
+        const countByUnit = new Map(membersBlocks.map((b) => [b.unitId, b.approvedMembers.length]));
+        rows = rows.map((r) => ({ ...r, memberCount: countByUnit.get(r.id) ?? 0 }));
+        setTotalUsers(membersBlocks.reduce((sum, b) => sum + b.approvedMembers.length, 0));
+      }
+      setUnits(rows);
+
+      // "נרשמו או עדכנו השבוע" (David, 05.09.2026) — registration/update
+      // recency, not real activity. STILL the old direct
+      // military_declarations query — KNOWN GAP, not fixed by this slice
+      // (flagged in the report, same rule cited above). 'error' replaces
+      // the old silent 0; still works fine for the admin users who
+      // already use this page today.
+      try {
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         const declSnap = await getDocs(query(collection(db, 'military_declarations'), where('orgId', '==', authId)));
@@ -179,23 +276,55 @@ export default function UnitsListPage() {
         });
         setActiveUsersLast7d(recentlyUpdated);
       } catch {
-        setUnits(rows);
-        setTotalUsers(0);
-        setActiveUsersLast7d(0);
+        setActiveUsersLast7d('error');
       }
       return;
     }
 
     setUnits(rows);
 
-    // Load summary stats: total registered users + 7-day active users
+    // totalUsers now sourced from /api/units/members above (per-row
+    // memberCount stays sourced from /api/units/structure's own doc-
+    // passthrough field, set earlier — unaffected). Replaces the old
+    // direct users-where-core.tenantId query, independently broken for a
+    // real, non-admin tenant_owner (cited above).
+    if (derived === 'municipal') {
+      // Municipal never ran the members-fetch above (resolveUnitPermissionScope
+      // denies municipal tenants outright) — untouched legacy path, same
+      // known gap as noted at the top of this function.
+      try {
+        const usersSnap = await getDocs(query(collection(db, 'users'), where('core.tenantId', '==', authId)));
+        setTotalUsers(usersSnap.size);
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        let activeCount = 0;
+        usersSnap.forEach(d => {
+          const lastLogin = d.data()?.core?.lastLoginAt?.toDate?.();
+          if (lastLogin && lastLogin >= sevenDaysAgo) activeCount++;
+        });
+        setActiveUsersLast7d(activeCount);
+      } catch {
+        setTotalUsers('error');
+        setActiveUsersLast7d('error');
+      }
+      return;
+    }
+
+    if (membersFetchFailed) {
+      setTotalUsers('error');
+    } else {
+      setTotalUsers(membersBlocks.reduce((sum, b) => sum + b.approvedMembers.length, 0));
+    }
+
+    // 7-day real-activity stat (core.lastLoginAt) — KNOWN GAP, not fixed by
+    // this slice (same users/{uid} rule cited above independently blocks
+    // this for a real, non-admin tenant_owner). 'error' replaces the old
+    // silent 0.
     try {
       const usersSnap = await getDocs(query(
         collection(db, 'users'),
         where('core.tenantId', '==', authId),
       ));
-      setTotalUsers(usersSnap.size);
-
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       let activeCount = 0;
@@ -205,8 +334,7 @@ export default function UnitsListPage() {
       });
       setActiveUsersLast7d(activeCount);
     } catch {
-      setTotalUsers(0);
-      setActiveUsersLast7d(0);
+      setActiveUsersLast7d('error');
     }
   };
 
@@ -532,6 +660,23 @@ export default function UnitsListPage() {
         )}
       </div>
 
+      {/* Slice D (25.09.2026, §13.28) — a failed /api/units/structure or
+          /api/units/members fetch is shown here, never swallowed into a
+          unit list / stats that silently read as "0 members" (David,
+          explicit requirement — a real 0 and a failure-0 must never look
+          the same). Retry re-runs the whole load. */}
+      {(structureLoadError || membersLoadError) && (
+        <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 flex items-center justify-between gap-3">
+          <p className="text-sm text-red-700 font-semibold">{structureLoadError || membersLoadError}</p>
+          <button
+            onClick={async () => { if (selectedOrgId) { setLoading(true); await loadUnitsForAuthority(selectedOrgId); setLoading(false); } }}
+            className="text-xs font-bold text-red-700 bg-white border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-100 transition-colors flex-shrink-0"
+          >
+            נסה שוב
+          </button>
+        </div>
+      )}
+
       {/* Summary Stats */}
       {selectedOrgId && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -539,7 +684,11 @@ export default function UnitsListPage() {
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">
               {tenantType === 'military' ? 'רשומים (הצהרה עצמית)' : 'משתמשים רשומים'}
             </p>
-            <p className="text-3xl font-black text-slate-800">{totalUsers}</p>
+            {totalUsers === 'error' ? (
+              <p className="text-3xl font-black text-red-400" title="שגיאה בטעינה">—</p>
+            ) : (
+              <p className="text-3xl font-black text-slate-800">{totalUsers}</p>
+            )}
           </div>
           <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-5 ${theme.headerBorder} border-r-4`}>
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">{isMunicipal ? 'שכונות / יישובים' : labels.subUnitsTitle}</p>
@@ -555,8 +704,12 @@ export default function UnitsListPage() {
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">
               {tenantType === 'military' ? 'נרשמו או עדכנו השבוע' : 'פעילים ב-7 ימים'}
             </p>
-            <p className="text-3xl font-black text-slate-800">{activeUsersLast7d}</p>
-            {totalUsers > 0 && (
+            {activeUsersLast7d === 'error' ? (
+              <p className="text-3xl font-black text-red-400" title="שגיאה בטעינה">—</p>
+            ) : (
+              <p className="text-3xl font-black text-slate-800">{activeUsersLast7d}</p>
+            )}
+            {typeof totalUsers === 'number' && typeof activeUsersLast7d === 'number' && totalUsers > 0 && (
               <p className="text-[10px] text-slate-400 mt-0.5">{Math.round((activeUsersLast7d / totalUsers) * 100)}% מהרשומים</p>
             )}
           </div>
@@ -777,13 +930,19 @@ export default function UnitsListPage() {
       )}
 
       {units.length === 0 ? (
-        <div className="text-center py-16 text-slate-400">
-          {tenantType === 'military'
-            ? <Shield className="w-10 h-10 mx-auto mb-3 text-slate-200" />
-            : <Building2 className="w-10 h-10 mx-auto mb-3 text-slate-200" />
-          }
-          <p className="text-sm font-bold">אין {labels.subUnitsTitle} להצגה</p>
-        </div>
+        // Slice D (25.09.2026, §13.28) — a structure-fetch failure is
+        // already shown by the banner above; this empty state (a REAL
+        // zero) is suppressed while that error is up, so the two never
+        // contradict each other on screen at once.
+        !structureLoadError && (
+          <div className="text-center py-16 text-slate-400">
+            {tenantType === 'military'
+              ? <Shield className="w-10 h-10 mx-auto mb-3 text-slate-200" />
+              : <Building2 className="w-10 h-10 mx-auto mb-3 text-slate-200" />
+            }
+            <p className="text-sm font-bold">אין {labels.subUnitsTitle} להצגה</p>
+          </div>
+        )
       ) : (
         <div className="space-y-3">
           {orderedUnits.map(unit => (
@@ -826,9 +985,15 @@ export default function UnitsListPage() {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-sm font-bold text-cyan-600">
-                  {unit.memberCount} {tenantType === 'military' ? 'מוצהרים' : labels.membersTitle}
-                </span>
+                {unit.memberCount === 'error' ? (
+                  <span className="text-sm font-bold text-red-400" title="שגיאה בטעינת מספר החברים">
+                    — {tenantType === 'military' ? 'מוצהרים' : labels.membersTitle}
+                  </span>
+                ) : (
+                  <span className="text-sm font-bold text-cyan-600">
+                    {unit.memberCount} {tenantType === 'military' ? 'מוצהרים' : labels.membersTitle}
+                  </span>
+                )}
                 <ChevronLeft size={16} className="text-slate-300" />
               </div>
             </Link>
