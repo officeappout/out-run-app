@@ -19,6 +19,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useExerciseLibraryStore } from '../store/useExerciseLibraryStore';
 import MasterExerciseView from './MasterExerciseView';
+import { resolveTreeProgramId } from '@/lib/progression-map-config';
 
 export default function ExerciseDetailSheet() {
   const router = useRouter();
@@ -62,6 +63,17 @@ export default function ExerciseDetailSheet() {
   };
 
   const handleNavigateToRoadmap = (baseMovementId: string) => {
+    // Phase 1 (Progression Map): the 6 allow-listed skill programs get the
+    // real Skill Tree. Every other exercise's "מפה מלאה" keeps today's exact
+    // behavior (the pre-existing base_movement_id route, still unbuilt) —
+    // untouched on purpose. Only exercise (closed over from the store read
+    // above) is needed to resolve this; no prop threading through
+    // MasterExerciseView/ProgressionChainRow required.
+    const treeProgramId = exercise ? resolveTreeProgramId(exercise) : null;
+    if (treeProgramId) {
+      router.push(`/progression-map/${treeProgramId}`);
+      return;
+    }
     router.push(`/exercises/roadmap/${encodeURIComponent(baseMovementId)}`);
   };
 
