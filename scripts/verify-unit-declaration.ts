@@ -299,6 +299,38 @@ async function main() {
   }
 
   // ══════════════════════════════════════════════════════════════════════
+  console.log('\n── Slice B requirement: switching units correctly overwrites the old one ──');
+  await clearAll();
+  {
+    const orgA = await seedMilitaryHierarchy(`org-${run}-switch-a`);
+    const orgB = await seedMilitaryHierarchy(`org-${run}-switch-b`);
+    const uid = `switcher-${run}`;
+    await db.collection('users').doc(uid).set({ core: {} });
+
+    const first = await computeUnitDeclaration(db, uid, { orgId: orgA.orgId, unitId: orgA.companyUnitId });
+    assert('first declaration (org A): 200', first.status === 200);
+
+    // Same user, DIFFERENT org+unit — this is a genuine switch, not a retry.
+    const second = await computeUnitDeclaration(db, uid, { orgId: orgB.orgId, unitId: orgB.battalionUnitId });
+    assert('second declaration (org B, different unit): 200', second.status === 200);
+
+    const userCore = (await db.collection('users').doc(uid).get()).data()?.core ?? {};
+    assert('users/{uid}.core.tenantId now points at org B, not org A', userCore.tenantId === orgB.orgId);
+    assert('users/{uid}.core.unitId now points at org B\'s battalion, not org A\'s company', userCore.unitId === orgB.battalionUnitId);
+
+    const decl = (await db.collection('military_declarations').doc(uid).get()).data() ?? {};
+    assert('military_declarations.orgId overwritten to org B', decl.orgId === orgB.orgId);
+    assert('military_declarations.unitId overwritten to org B\'s battalion', decl.unitId === orgB.battalionUnitId);
+    assert('military_declarations.unitPathIds overwritten (org A\'s chain is gone)', JSON.stringify(decl.unitPathIds) === JSON.stringify([orgB.battalionUnitId]));
+
+    // Both member-listing mechanisms (getDeclaredCounts-style query and
+    // /api/units/members-style query) are LIVE queries over current state,
+    // not a stored membership list — the org-A count query below proves
+    // the switch is "free" cleanup, no explicit removal step needed.
+    const orgASnap = await db.collection('military_declarations').where('orgId', '==', orgA.orgId).get();
+    assert('org A\'s own query no longer finds this user at all', orgASnap.empty);
+  }
+
   console.log('\n── Rate limit: uid-based, reusing isRateLimited as-is ────────');
   {
     const uid = `rate-limited-${run}`;

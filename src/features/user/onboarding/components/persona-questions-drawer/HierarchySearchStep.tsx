@@ -9,6 +9,7 @@ import type { HierarchySearchQuestionConfig } from '@/types/persona-question.typ
 import { effectiveServiceType, effectiveUserStatus } from './service-type-rank';
 import { normalizeOrgName } from '@/lib/org-name';
 import { submitPendingUnit } from '@/features/user/onboarding/services/pending-unit.service';
+import { declareUnit } from '@/features/user/onboarding/services/unit-declaration.service';
 import type { UnitLevel as PendingUnitLevel } from '@/lib/unit-id';
 
 interface DirectoryEntry {
@@ -47,7 +48,15 @@ interface HierarchySearchStepProps {
   /** Fires when the user explicitly wants to finish here — either they've
    *  made at least one selection and are done drilling, or the current
    *  level has nothing more to offer. Advances/finishes the outer drawer;
-   *  never clears `value`. */
+   *  never clears `value`.
+   *
+   *  Slice B (25.09.2026, §13.25): this component calls onDone() itself
+   *  ONLY after POST /api/units/declare has actually succeeded (when
+   *  value.orgId/unitId are set — a real selection, not a pending-only
+   *  "not in the list" submission, which has nothing to declare and
+   *  advances immediately as before). A rejected/failed declare call
+   *  shows an inline Hebrew error + retry INSTEAD of calling onDone —
+   *  the outer drawer never advances on a failure it doesn't know about. */
   onDone: () => void;
   /** Fires true on focusing EITHER text input here (search box, add-unit
    *  name box), false on blur — lets the outer drawer force itself taller
@@ -179,6 +188,34 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
   // never renders at all (the exact dead-end submitAsNew's own comment
   // above describes).
   const hasSelection = !!value.orgId || !!value.pendingUnitId;
+
+  // ── Slice B (25.09.2026, §13.25) — the "סיום" button below now calls
+  // POST /api/units/declare (declareUnit) before ever calling onDone(). ──
+  const [declareState, setDeclareState] = useState<'idle' | 'saving' | 'error'>('idle');
+  const [declareErrorMessage, setDeclareErrorMessage] = useState<string | null>(null);
+
+  const handleFinish = useCallback(async () => {
+    // pending_units ("not in the list") is untouched by Slice B — a
+    // pending-only selection has no real orgId/unitId to declare against
+    // core.tenantId/unitId (submitPendingUnit already saved the
+    // submission itself). Advance exactly as before.
+    if (!value.orgId || !value.unitId) {
+      onDone();
+      return;
+    }
+    setDeclareState('saving');
+    setDeclareErrorMessage(null);
+    const result = await declareUnit(value.orgId, value.unitId);
+    if (!result.ok) {
+      // Never silent, never advances — the outer drawer must not treat
+      // this as "done" when it isn't (David, explicit).
+      setDeclareState('error');
+      setDeclareErrorMessage(result.error ?? 'שמירת ההצהרה נכשלה. נסה שוב.');
+      return;
+    }
+    setDeclareState('idle');
+    onDone();
+  }, [value.orgId, value.unitId, onDone]);
 
   // ── "היחידה שלי לא ברשימה — הוסף" (04.09.2026, משימה 2) ──────────────
   // Saved under the parent already selected/reached, never floating — the
@@ -420,12 +457,16 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
           whether this level has (or ever had) children. */}
       {hasSelection && (
         <div className="pt-3 flex-shrink-0">
+          {declareState === 'error' && declareErrorMessage && (
+            <p className="text-xs text-red-600 text-center mb-2" dir="rtl">{declareErrorMessage}</p>
+          )}
           <button
             type="button"
-            onClick={onDone}
-            className="w-full py-3 rounded-2xl bg-slate-900 text-white font-bold text-sm"
+            onClick={handleFinish}
+            disabled={declareState === 'saving'}
+            className="w-full py-3 rounded-2xl bg-slate-900 text-white font-bold text-sm disabled:opacity-50"
           >
-            סיום
+            {declareState === 'saving' ? 'שומר...' : declareState === 'error' ? 'נסה שוב' : 'סיום'}
           </button>
         </div>
       )}

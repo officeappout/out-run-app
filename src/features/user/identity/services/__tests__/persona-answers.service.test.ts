@@ -71,18 +71,45 @@ beforeEach(() => {
 });
 
 describe('savePersonaAnswers — military routes to military_declarations, never personas[].answers', () => {
-  it('military: military_declarations gets real content, personas[] entry stays answers:{}', async () => {
-    await savePersonaAnswers('uid1', 'military', { status: 'reserve', orgId: 'brigade_1' });
+  it('military: military_declarations gets status only — orgId is endpoint-owned (Slice B, §13.25), never written here', async () => {
+    // Simulates PersonaQuestionsDrawer's real call shape: `answers` is the
+    // drawer's accumulated state across BOTH questions (status + the
+    // hierarchy_search question), even though orgId at this point was
+    // already saved by POST /api/units/declare, not by this function.
+    await savePersonaAnswers('uid1', 'military', { status: 'reserve', orgId: 'brigade_1' } as never);
 
     expect(militarySetMock).toHaveBeenCalledTimes(1);
     const [, militaryData] = militarySetMock.mock.calls[0];
-    expect(militaryData).toMatchObject({ status: 'reserve', orgId: 'brigade_1' });
+    expect(militaryData).toMatchObject({ status: 'reserve' });
+    expect(militaryData).not.toHaveProperty('orgId');
 
     expect(userUpdateMock).toHaveBeenCalledTimes(1);
     const [, userData] = userUpdateMock.mock.calls[0] as [unknown, { personas: Array<{ id: string; answers: unknown }> }];
     expect(userData.personas).toHaveLength(1);
     expect(userData.personas[0].id).toBe('military');
     expect(userData.personas[0].answers).toEqual({});
+  });
+
+  it('field-ownership split (Slice B, §13.25): orgId/unitId/unitPathIds are NEVER written, even when present in the input — proves no field is written twice by two different writers', async () => {
+    await savePersonaAnswers('uid1', 'military', {
+      status: 'career',
+      orgId: 'brigade_should_never_land',
+      unitId: 'unit_should_never_land',
+      unitPathIds: ['a', 'b'],
+    } as never);
+
+    const [, militaryData] = militarySetMock.mock.calls[0] as [unknown, Record<string, unknown>];
+    expect(militaryData).not.toHaveProperty('orgId');
+    expect(militaryData).not.toHaveProperty('unitId');
+    expect(militaryData).not.toHaveProperty('unitPathIds');
+    expect(Object.keys(militaryData).sort()).toEqual(['status', 'updatedAt']);
+  });
+
+  it('status-only input (no unit answered yet) still writes cleanly — no present-with-undefined orgId/unitId', async () => {
+    await savePersonaAnswers('uid1', 'military', { status: 'regular' } as never);
+    const [, militaryData] = militarySetMock.mock.calls[0] as [unknown, Record<string, unknown>];
+    expect(Object.prototype.hasOwnProperty.call(militaryData, 'orgId')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(militaryData, 'unitId')).toBe(false);
   });
 
   it('non-military (e.g. a hypothetical persona with real answers): personas[].answers gets the real content, no military_declarations write', async () => {
