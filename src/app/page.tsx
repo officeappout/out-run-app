@@ -4,12 +4,21 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithGoogle, signInWithApple, onAuthStateChange } from '@/lib/auth.service';
+import {
+  signInWithGoogle,
+  signInWithApple,
+  linkWithGoogleAccount,
+  linkWithAppleAccount,
+  signInWithGoogleDirect,
+  signInWithAppleDirect,
+  onAuthStateChange,
+} from '@/lib/auth.service';
 import { db, auth } from '@/lib/firebase';
 import { getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
 import { resolveJoinLanding } from '@/lib/resolveJoinLanding';
 import { runExploreMapFlow } from '@/features/user/onboarding/services/run-explore-map-flow';
 import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure';
+import { resolveAuthLinkOutcome } from '@/lib/resolveAuthLinkOutcome';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import BrandedSplashScreen from '@/components/BrandedSplashScreen';
@@ -268,6 +277,76 @@ function LoginDrawer({
 }
 
 // ════════════════════════════════════════════════════════════════════
+// EXISTING-ACCOUNT MODAL
+// ════════════════════════════════════════════════════════════════════
+//
+// P0-4 (25.09.2026, see docs/audit-2026-09/00-MASTER-PLAN.md §13.24):
+// shown when an anonymous guest's link attempt fails with
+// 'google_account_exists'/'apple_account_exists' — that Google/Apple
+// identity is already a real account under a DIFFERENT uid. David,
+// explicit product decision: offer to sign into the existing account,
+// never block. Nothing about the current guest session changes until
+// the user explicitly confirms — cancel is a true no-op, same state as
+// before the button was ever pressed. z-[101] — this page's own branded
+// splash is already z-[100] (line ~820 below), and OfflineBanner is
+// globally mounted at z-[100] too (ClientLayout, can appear at any time
+// on connectivity change) — z-[101] is the existing documented tier for
+// exactly this ("clear OfflineBanner", .cursorrules Z-Index Budget),
+// not a new value.
+function ExistingAccountModal({
+  provider,
+  loading,
+  onConfirm,
+  onCancel,
+}: {
+  provider: 'google' | 'apple';
+  loading: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const providerLabel = provider === 'google' ? 'Google' : 'Apple';
+  return (
+    <div
+      className="fixed inset-0 z-[101] bg-black/50 flex items-center justify-center p-4"
+      dir="rtl"
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl"
+      >
+        <h3
+          className="text-lg font-bold text-slate-900 mb-2"
+          style={{ fontFamily: 'var(--font-simpler)' }}
+        >
+          החשבון הזה כבר רשום אצלנו
+        </h3>
+        <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+          אפשר להיכנס לחשבון ה-{providerLabel} הקיים, אבל מה שעשית עכשיו
+          כאורח לא יעבור לשם.
+        </p>
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="w-full bg-[#00C9F2] text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-[#00B4D8] active:scale-[0.98] transition-all disabled:opacity-50"
+          >
+            {loading ? 'מתחבר...' : `כניסה לחשבון ה-${providerLabel} הקיים`}
+          </button>
+          <button
+            onClick={onCancel}
+            disabled={loading}
+            className="w-full bg-slate-100 text-slate-600 py-3.5 rounded-2xl font-bold text-sm hover:bg-slate-200 active:scale-[0.98] transition-all disabled:opacity-50"
+          >
+            ביטול
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════
 // MAIN LANDING PAGE
 // ════════════════════════════════════════════════════════════════════
 
@@ -276,6 +355,11 @@ export default function LandingPage() {
   const { showToast } = useToast();
   const [loadingProvider, setLoadingProvider] = useState<'google' | 'apple' | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // P0-4 (25.09.2026): set when a guest's link attempt hits an existing
+  // account (google_account_exists/apple_account_exists). Drives
+  // ExistingAccountModal — everything else (drawer, guest session) is
+  // untouched while this is up; cancel just clears it back to null.
+  const [existingAccountProvider, setExistingAccountProvider] = useState<'google' | 'apple' | null>(null);
 
   // ── Unified carousel index — drives both background AND tagline ──
   // Owned here so a single timer keeps both in perfect sync.
@@ -562,36 +646,151 @@ export default function LandingPage() {
   }, [router]);
 
   // ── Google Login inside drawer ──
+  //
+  // P0-4 (25.09.2026, see docs/audit-2026-09/00-MASTER-PLAN.md §13.24):
+  // an anonymous guest tapping this used to call signInWithGoogle()
+  // unconditionally — a real sign-in that REPLACES the current session
+  // with a different uid (new or pre-existing), silently orphaning
+  // whatever the guest had just done. Now: if the current session is
+  // anonymous, use linkWithGoogleAccount() instead — same uid, same
+  // data, the account just becomes permanently identified. Only when
+  // there's no anonymous session to protect (fresh visitor, or already
+  // a real signed-in user) does this fall back to the original
+  // unconditional sign-in.
+  //
+  // The actual branching (what each result means, what to do about it)
+  // lives in resolveAuthLinkOutcome — a pure function, unit-tested
+  // directly (this component's logic otherwise isn't reachable by this
+  // repo's node-only, no-jsdom test setup). This handler is just the
+  // thin glue: call the auth function, resolve the outcome, apply it.
   const handleGoogleLogin = useCallback(async () => {
     setLoadingProvider('google');
+    const wasAnonymous = auth.currentUser?.isAnonymous ?? false;
+
     try {
-      const { user } = await signInWithGoogle();
-      if (!user) { setLoadingProvider(null); return; }
-      await redirectAfterAuth(user.uid);
-    } catch (error) {
-      console.error('[Landing] Google login error:', error);
-      reportSignupFailure('AUTH_GOOGLE', extractErrorCode(error));
+      const result = wasAnonymous ? await linkWithGoogleAccount() : await signInWithGoogle();
+      const outcome = resolveAuthLinkOutcome('google', result, auth.currentUser?.uid ?? null);
+
+      switch (outcome.kind) {
+        case 'silent':
+          setLoadingProvider(null);
+          return;
+        case 'account_exists':
+          // David's explicit product decision: offer to sign into the
+          // existing account, never block. Guest session + drawer are
+          // untouched until the user explicitly confirms in the modal.
+          reportSignupFailure('AUTH_GOOGLE', outcome.reportReason);
+          setLoadingProvider(null);
+          setExistingAccountProvider(outcome.provider);
+          return;
+        case 'error':
+          reportSignupFailure('AUTH_GOOGLE', outcome.reportReason);
+          showToast('error', outcome.toastMessage);
+          setLoadingProvider(null);
+          return;
+        case 'proceed':
+          await redirectAfterAuth(outcome.uid);
+      }
+    } catch (err) {
+      // Neither signInWithGoogle nor linkWithGoogleAccount actually
+      // throw (both catch internally and return {error}) — this only
+      // catches a failure in redirectAfterAuth itself.
+      console.error('[Landing] Google login error:', err);
+      reportSignupFailure('AUTH_GOOGLE', extractErrorCode(err));
+      showToast('error', 'החיבור ל-Google לא הצליח. נסו שוב.');
     }
     setLoadingProvider(null);
     setDrawerOpen(false);
-  }, [router, redirectAfterAuth]);
+  }, [router, redirectAfterAuth, showToast]);
 
-  // ── Apple Login inside drawer ──
+  // ── Apple Login inside drawer ── (same shape as Google above)
   const handleAppleLogin = useCallback(async () => {
     setLoadingProvider('apple');
+    const wasAnonymous = auth.currentUser?.isAnonymous ?? false;
+
     try {
-      const { user, error } = await signInWithApple();
-      // User dismissed the native sheet — silent no-op
-      if (error === 'apple_canceled') { setLoadingProvider(null); return; }
-      if (!user) { setLoadingProvider(null); return; }
-      await redirectAfterAuth(user.uid);
+      const result = wasAnonymous ? await linkWithAppleAccount() : await signInWithApple();
+      const outcome = resolveAuthLinkOutcome('apple', result, auth.currentUser?.uid ?? null);
+
+      switch (outcome.kind) {
+        case 'silent':
+          setLoadingProvider(null);
+          return;
+        case 'account_exists':
+          reportSignupFailure('AUTH_APPLE', outcome.reportReason);
+          setLoadingProvider(null);
+          setExistingAccountProvider(outcome.provider);
+          return;
+        case 'error':
+          reportSignupFailure('AUTH_APPLE', outcome.reportReason);
+          showToast('error', outcome.toastMessage);
+          setLoadingProvider(null);
+          return;
+        case 'proceed':
+          await redirectAfterAuth(outcome.uid);
+      }
     } catch (err) {
       console.error('[Landing] Apple login error:', err);
       reportSignupFailure('AUTH_APPLE', extractErrorCode(err));
+      showToast('error', 'החיבור ל-Apple לא הצליח. נסו שוב.');
     }
     setLoadingProvider(null);
     setDrawerOpen(false);
-  }, [router, redirectAfterAuth]);
+  }, [router, redirectAfterAuth, showToast]);
+
+  // ── Existing-account modal: explicit confirm/cancel only ──
+  //
+  // Confirm signs into the REAL, pre-existing account via
+  // signInWithGoogleDirect/signInWithAppleDirect (built for exactly this
+  // — see auth.service.ts's own doc comment on those functions). This
+  // does NOT touch the guest's Firestore doc in any way — it's simply
+  // never referenced again once auth.currentUser points elsewhere; the
+  // guest doc stays exactly where it is, unmerged.
+  const handleConfirmExistingAccount = useCallback(async () => {
+    if (!existingAccountProvider) return;
+    const provider = existingAccountProvider;
+    const stage = provider === 'google' ? 'AUTH_GOOGLE' : 'AUTH_APPLE';
+    setLoadingProvider(provider);
+
+    try {
+      const result = provider === 'google'
+        ? await signInWithGoogleDirect()
+        : await signInWithAppleDirect();
+      // 'account_exists' can't recur here — signIn*Direct signs in for
+      // real, it never links, so the outcome is only ever silent/error/proceed.
+      const outcome = resolveAuthLinkOutcome(provider, result, null);
+
+      switch (outcome.kind) {
+        case 'silent':
+          // Cancel here means "try again or go back" — stay on the
+          // confirmation screen, don't unwind the whole flow.
+          setLoadingProvider(null);
+          return;
+        case 'account_exists':
+        case 'error':
+          reportSignupFailure(stage, outcome.reportReason);
+          showToast('error', 'החיבור לא הצליח. נסו שוב.');
+          setLoadingProvider(null);
+          return;
+        case 'proceed':
+          setExistingAccountProvider(null);
+          setLoadingProvider(null);
+          setDrawerOpen(false);
+          await redirectAfterAuth(outcome.uid);
+      }
+    } catch (err) {
+      console.error('[Landing] Existing-account sign-in error:', err);
+      reportSignupFailure(stage, extractErrorCode(err));
+      showToast('error', 'החיבור לא הצליח. נסו שוב.');
+      setLoadingProvider(null);
+    }
+  }, [existingAccountProvider, redirectAfterAuth, showToast]);
+
+  // True no-op — the guest session, drawer state, and everything else
+  // are exactly as they were before "המשך עם Google/Apple" was pressed.
+  const handleCancelExistingAccount = useCallback(() => {
+    setExistingAccountProvider(null);
+  }, []);
 
   return (
     <>
@@ -689,14 +888,27 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* ── Login Drawer ── */}
+      {/* ── Login Drawer ──
+          Hidden (not just covered) while the existing-account modal is
+          up — reappears exactly as it was on cancel, since drawerOpen
+          itself is never touched by that flow. */}
       <LoginDrawer
-        open={drawerOpen}
+        open={drawerOpen && !existingAccountProvider}
         onClose={() => setDrawerOpen(false)}
         onGoogleLogin={handleGoogleLogin}
         onAppleLogin={handleAppleLogin}
         loadingProvider={loadingProvider}
       />
+
+      {/* ── Existing-account modal (P0-4) ── */}
+      {existingAccountProvider && (
+        <ExistingAccountModal
+          provider={existingAccountProvider}
+          loading={loadingProvider === existingAccountProvider}
+          onConfirm={handleConfirmExistingAccount}
+          onCancel={handleCancelExistingAccount}
+        />
+      )}
     </div>
     </>
   );
