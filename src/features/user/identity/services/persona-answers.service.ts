@@ -25,6 +25,30 @@ import { db } from '@/lib/firebase';
 import type { PersonaId, PersonaAnswersMap, AnyPersonaEntry } from '@/types/persona.types';
 import { PERSONA_SENSITIVE_STORAGE } from '@/types/persona-question.types';
 
+/**
+ * Answer keys this function must NEVER write, per persona — because a
+ * server endpoint owns them instead (Slice B, 25.09.2026, see
+ * docs/audit-2026-09/00-MASTER-PLAN.md §13.25). military's orgId/unitId/
+ * unitPathIds are owned exclusively by POST /api/units/declare
+ * (HierarchySearchStep.tsx calls it directly on its own "סיום" action,
+ * atomically alongside users/{uid}.core.tenantId/unitId) — this function
+ * must not write them again even though the caller's accumulated answers
+ * object (PersonaQuestionsDrawer's local state, built up across every
+ * question in the sequence) still contains them; only `status`
+ * (ChoiceStep's own, separate question) is still owned here. Same
+ * single-writer-per-field principle P0-2 was built on, applied to a
+ * second collection — two independent writers on the same field is
+ * exactly the class of race that fix closed, not something to
+ * reintroduce here.
+ *
+ * Config, not a hardcoded special-case sprinkled through the function
+ * body — the one place to extend if a future persona needs the same
+ * split.
+ */
+const ENDPOINT_OWNED_ANSWER_KEYS: Partial<Record<PersonaId, readonly string[]>> = {
+  military: ['orgId', 'unitId', 'unitPathIds'],
+};
+
 export async function savePersonaAnswers<P extends PersonaId>(
   uid: string,
   personaId: P,
@@ -36,6 +60,20 @@ export async function savePersonaAnswers<P extends PersonaId>(
   // needs its own protected document is a config-map edit, not a change
   // to this function.
   const sensitiveCollection = PERSONA_SENSITIVE_STORAGE[personaId];
+
+  // Object.fromEntries/entries naturally preserves "absent key stays
+  // absent" — a question the user skipped never had its key set in the
+  // first place (goToNextOrFinish only ever adds a key when a question is
+  // actually answered), so filtering never turns an absent key into a
+  // present-with-undefined one (would crash the client SDK write —
+  // axioms.md §24's exact lesson, avoided here by construction rather
+  // than by remembering to guard it).
+  const excludedKeys: readonly string[] = ENDPOINT_OWNED_ANSWER_KEYS[personaId] ?? [];
+  const answersToPersist = (excludedKeys.length === 0
+    ? answers
+    : Object.fromEntries(
+        Object.entries(answers as Record<string, unknown>).filter(([key]) => !excludedKeys.includes(key)),
+      )) as PersonaAnswersMap[P];
 
   const userRef = doc(db, 'users', uid);
 
@@ -54,7 +92,7 @@ export async function savePersonaAnswers<P extends PersonaId>(
       // to any authenticated user for any core.discoverable profile (see
       // firestore.rules' military_declarations comment). Real content
       // lives ONLY in the sensitive-storage collection below.
-      answers: sensitiveCollection ? {} : answers,
+      answers: sensitiveCollection ? {} : answersToPersist,
       updatedAt: Timestamp.now(),
     } as AnyPersonaEntry;
 
@@ -66,7 +104,7 @@ export async function savePersonaAnswers<P extends PersonaId>(
 
     if (sensitiveCollection) {
       tx.set(doc(db, sensitiveCollection, uid), {
-        ...answers,
+        ...answersToPersist,
         updatedAt: Timestamp.now(),
       }, { merge: true });
     }
