@@ -14,7 +14,6 @@ import { getAuthoritiesByManager, getAuthority } from '@/features/admin/services
 import { authorityTypeToTenantType, getTenantLabels, VERTICAL_THEMES } from '@/features/admin/config/tenantLabels';
 import { syncTenantUnitCount } from '@/features/admin/services/unit-count-sync.service';
 import { createAccessCode, createBatchAccessCodes, getAccessCodesByTenant, type AccessCode as AccessCodeType } from '@/features/admin/services/access-code-admin.service';
-import { getDeclaredCounts, getDeclaredMemberUids } from '@/features/admin/services/military-declared.service';
 import UnitIconBadge from '@/components/ui/UnitIconBadge';
 import {
   Loader2, ArrowRight, Users, Dumbbell,
@@ -37,6 +36,11 @@ interface UnitMember {
   lastWorkoutDate: string | null;
   workoutCount: number;
   globalXP: number;
+  /** Slice C (25.09.2026, §13.27) — from /api/units/members' MemberEntry.
+   *  null for military-declaration-free rows (non-military tenants) or
+   *  anyone who predates the field. Drives the "מוצהרים" vs "חיילים"
+   *  label below — see membersLabel's own comment. */
+  unitMembershipSource: string | null;
 }
 
 interface SubUnit {
@@ -63,6 +67,12 @@ export default function UnitDrilldownPage() {
   const urlOrgId = searchParams?.get('org') as string | null;
 
   const [loading, setLoading] = useState(true);
+  // Slice C (25.09.2026, §13.27) — the military-members fetch now goes
+  // through /api/units/members (an authenticated HTTP call, unlike the
+  // rest of this page's still-client-SDK reads), which can fail in ways
+  // a bare console.error would hide entirely (David, explicit: no silent
+  // blank screen). Retryable — see the error-state render below.
+  const [membersLoadError, setMembersLoadError] = useState<string | null>(null);
   const [unitName, setUnitName] = useState<string>('');
   const [unitPath, setUnitPath] = useState<string[]>([]);
   const [subUnits, setSubUnits] = useState<SubUnit[]>([]);
@@ -84,6 +94,11 @@ export default function UnitDrilldownPage() {
   const [adminUid, setAdminUid] = useState<string>('');
   const [batchCount, setBatchCount] = useState(10);
   const [generatingBatch, setGeneratingBatch] = useState(false);
+  // Slice C (25.09.2026, §13.27) — bumped by the error banner's "נסה שוב"
+  // button to re-run the whole load effect below (matches how this page
+  // already reloads everything on unitId change — no separate partial-
+  // reload code path needed).
+  const [retrySeq, setRetrySeq] = useState(0);
   const [showAddSubUnit, setShowAddSubUnit] = useState(false);
   const [newSubUnitName, setNewSubUnitName] = useState('');
   const [creatingSubUnit, setCreatingSubUnit] = useState(false);
@@ -158,13 +173,43 @@ export default function UnitDrilldownPage() {
         setUnitPath(resolvedUnitPath);
 
         // Military: sub-unit memberCount + the member roster below are
-        // driven by military_declarations (self-declared, "מוצהרים"), not
-        // core.unitId (verified — requires a real access code nothing issues
-        // today, same root cause as the units list page's #18 fix,
-        // 05.09.2026). Municipal/educational are unaffected — untouched.
-        const declaredCountsByUnit = resolvedTenantType === 'military' && activeTenantId
-          ? (await getDeclaredCounts(activeTenantId)).byUnitId
-          : {};
+        // driven by POST /api/units/members (Slice C, 25.09.2026, §13.27)
+        // — an authenticated, Admin-SDK-backed endpoint using
+        // resolveUnitPermissionScope, replacing the prior direct client-SDK
+        // read of military_declarations. That collection's firestore.rules
+        // (`allow read: if isOwner(uid) || isAdmin()`) never recognized
+        // tenant_owner/unit_admin at all — only root/super_admin's
+        // isAdmin() bypass ever saw real data; a genuine unit officer's
+        // read was silently rejected. Municipal/educational are
+        // unaffected — untouched, still their own core.unitId-based path
+        // below. A fetch failure here is shown, never swallowed (David,
+        // explicit) — see membersLoadError's render below.
+        setMembersLoadError(null);
+        let apiUnitsBlocks: Array<{
+          unitId: string;
+          approvedMembers: Array<{ uid: string; name: string; unitMembershipSource: string | null }>;
+        }> = [];
+        if (resolvedTenantType === 'military' && activeTenantId) {
+          try {
+            const token = await auth.currentUser?.getIdToken();
+            if (!token) throw new Error('משתמש לא מחובר. רענן את הדף ונסה שוב.');
+            const res = await fetch(`/api/units/members?tenantId=${encodeURIComponent(activeTenantId)}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              throw new Error(typeof body.error === 'string' ? body.error : `שגיאה בטעינת חברי היחידה (${res.status})`);
+            }
+            apiUnitsBlocks = Array.isArray(body.units) ? body.units : [];
+          } catch (fetchErr) {
+            console.error('[UnitDrilldown] /api/units/members failed:', fetchErr);
+            setMembersLoadError(
+              fetchErr instanceof Error ? fetchErr.message : 'שגיאה בטעינת חברי היחידה. נסה שוב.',
+            );
+          }
+        }
+        const declaredCountsByUnit: Record<string, number> = {};
+        apiUnitsBlocks.forEach((u) => { declaredCountsByUnit[u.unitId] = u.approvedMembers.length; });
 
         if (activeTenantId) {
           const subSnap = await getDocs(query(
@@ -183,43 +228,79 @@ export default function UnitDrilldownPage() {
           }));
         }
 
-        // Load members in this unit — military_declarations/{uid}'s own doc
-        // id IS the uid (getDeclaredMemberUids), not a query over users by
-        // core.unitId. Workout history/XP below still reads real users/
-        // workouts docs per resolved uid — that part was never broken, only
-        // discovering WHICH uids belong here was.
-        const memberUids = resolvedTenantType === 'military'
-          ? await getDeclaredMemberUids(unitId)
-          : (await getDocs(query(collection(db, 'users'), where('core.unitId', '==', unitId)))).docs.map(d => d.id);
+        // Member list: military sources uid/name/unitMembershipSource from
+        // the API response above (already scoped+authorized — no separate
+        // per-uid discovery query needed). Non-military tenants keep their
+        // existing core.unitId query, untouched.
+        const thisUnitBlock = apiUnitsBlocks.find((u) => u.unitId === unitId);
+        const memberSources: Array<{ uid: string; name: string; unitMembershipSource: string | null }> =
+          resolvedTenantType === 'military'
+            ? (thisUnitBlock?.approvedMembers ?? []).map((m) => ({
+                uid: m.uid,
+                name: m.name,
+                unitMembershipSource: m.unitMembershipSource,
+              }))
+            : (await getDocs(query(collection(db, 'users'), where('core.unitId', '==', unitId)))).docs.map((d) => ({
+                uid: d.id,
+                name: (d.data()?.core?.name as string | undefined) ?? 'ללא שם',
+                unitMembershipSource: null,
+              }));
 
         const membersList: UnitMember[] = [];
-        for (const uid of memberUids) {
-          const userSnap = await getDoc(doc(db, 'users', uid));
-          const userData = userSnap.data() ?? {};
-          const core = (userData.core ?? {}) as Record<string, any>;
-          const progression = (userData.progression ?? {}) as Record<string, any>;
+        for (const { uid, name, unitMembershipSource } of memberSources) {
+          // unitPath/globalXP still need the user's own doc — unaffected
+          // by the military_declarations fix (this read was never the
+          // broken one for THIS purpose). Guarded anyway: a failure here
+          // must degrade this one row, not abort the whole roster.
+          let memberUnitPath: string[] = [];
+          let globalXP = 0;
+          try {
+            const userSnap = await getDoc(doc(db, 'users', uid));
+            const userData = userSnap.data() ?? {};
+            const core = (userData.core ?? {}) as Record<string, any>;
+            const progression = (userData.progression ?? {}) as Record<string, any>;
+            memberUnitPath = core.unitPath ?? [];
+            globalXP = typeof progression.globalXP === 'number' ? progression.globalXP : 0;
+          } catch (userErr) {
+            console.warn('[UnitDrilldown] per-member users/{uid} read failed, showing partial row:', uid, userErr);
+          }
 
-          const wSnap = await getDocs(query(
-            collection(db, 'workouts'),
-            where('userId', '==', uid),
-            orderBy('completedAt', 'desc'),
-            limit(5),
-          ));
-
+          // Workout history: KNOWN, SEPARATE gap (not fixed in this
+          // slice, reported — see §13.27) — firestore.rules' workouts/
+          // {docId} rule has no unit_admin/tenant_owner branch at all
+          // (isRootAdmin()/isAdmin()/self-only), so this read is ALSO
+          // independently rejected for a real officer, unrelated to
+          // military_declarations. Guarded so that failure degrades this
+          // one row's stats to empty/zero instead of aborting the whole
+          // roster — David's requirement #2 (a real officer must see
+          // SOMETHING) depends on this not being a hard failure.
           let lastDate: string | null = null;
-          if (wSnap.docs.length > 0) {
-            const first = wSnap.docs[0].data();
-            const ts = first.completedAt?.toDate?.() ?? (first.completedAt ? new Date(first.completedAt) : null);
-            if (ts) lastDate = ts.toISOString().split('T')[0];
+          let workoutCount = 0;
+          try {
+            const wSnap = await getDocs(query(
+              collection(db, 'workouts'),
+              where('userId', '==', uid),
+              orderBy('completedAt', 'desc'),
+              limit(5),
+            ));
+            if (wSnap.docs.length > 0) {
+              const first = wSnap.docs[0].data();
+              const ts = first.completedAt?.toDate?.() ?? (first.completedAt ? new Date(first.completedAt) : null);
+              if (ts) lastDate = ts.toISOString().split('T')[0];
+            }
+            workoutCount = wSnap.size;
+          } catch (workoutErr) {
+            console.warn('[UnitDrilldown] per-member workout history read failed (known gap, §13.27):', uid, workoutErr);
           }
 
           membersList.push({
             uid,
-            name: core.name ?? 'ללא שם',
-            unitPath: core.unitPath ?? [],
+            name,
+            unitPath: memberUnitPath,
             lastWorkoutDate: lastDate,
-            workoutCount: wSnap.size,
-            globalXP: typeof progression.globalXP === 'number' ? progression.globalXP : 0,
+            workoutCount,
+            globalXP,
+            unitMembershipSource,
           });
         }
 
@@ -239,7 +320,7 @@ export default function UnitDrilldownPage() {
       }
     });
     return () => unsub();
-  }, [unitId]);
+  }, [unitId, retrySeq]);
 
   const labels = getTenantLabels(tenantType as any);
   const isSchoolContext = tenantType === 'educational';
@@ -835,6 +916,22 @@ export default function UnitDrilldownPage() {
           </div>
         </div>
 
+        {/* Slice C (25.09.2026, §13.27) — a failed /api/units/members
+            fetch is shown here, never swallowed into a silently-empty
+            list (David, explicit requirement). An empty list WITH this
+            banner reads very differently than an empty list alone. */}
+        {membersLoadError && (
+          <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 flex items-center justify-between gap-3">
+            <p className="text-sm text-red-700 font-semibold">{membersLoadError}</p>
+            <button
+              onClick={() => setRetrySeq((s) => s + 1)}
+              className="text-xs font-bold text-red-700 bg-white border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-100 transition-colors flex-shrink-0"
+            >
+              נסה שוב
+            </button>
+          </div>
+        )}
+
         <div className="relative mb-3">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
           <input
@@ -876,6 +973,18 @@ export default function UnitDrilldownPage() {
                         <span className="font-bold text-slate-800 flex items-center gap-1.5">
                           <User size={12} className="text-slate-400" />
                           {m.name}
+                          {/* Slice C (25.09.2026, §13.27) — per-row now
+                              that the source is per-member, not just a
+                              section-wide approximation: a unit can mix
+                              self-declared and code-verified members
+                              (both write the same core.tenantId/unitId
+                              pair) once self-declaration also populates
+                              those fields. */}
+                          {m.unitMembershipSource === 'self_declared' && (
+                            <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">
+                              מוצהר
+                            </span>
+                          )}
                         </span>
                       </td>
                       {isSchoolContext && (

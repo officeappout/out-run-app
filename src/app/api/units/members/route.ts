@@ -47,6 +47,23 @@ const DENIED_MESSAGE = 'אין לך הרשאה לצפות ברשימה זו.';
 interface MemberEntry {
   uid: string;
   name: string;
+  /**
+   * Slice C (25.09.2026, see docs/audit-2026-09/00-MASTER-PLAN.md §13.27)
+   * — set by POST /api/units/declare on self-declaration; absent (null)
+   * for every member who joined some other way (access code, admin
+   * invitation) since those paths never wrote this field. The panel's
+   * "מוצהרים" (self-declared) vs "חיילים" (verified) distinction — which
+   * used to be driven by "which collection did I read this from" —
+   * now reads this field instead: 'self_declared' → מוצהרים; anything
+   * else (including null/absent) → חיילים, matching the page's own
+   * pre-existing binary framing exactly.
+   */
+  unitMembershipSource: string | null;
+  /** Mirrors core.unitApprovedByOfficer — null for anyone who predates
+   *  this field (same reasoning as unitMembershipSource above). An
+   *  officer-approval ACTION doesn't exist yet (see §13.25's Gap B) —
+   *  this is purely the display signal it's ready for. */
+  unitApprovedByOfficer: boolean | null;
 }
 interface PendingEntry {
   uid: string;
@@ -143,7 +160,12 @@ export async function computeUnitMembers(
     const unitId = core.unitId;
     if (typeof unitId !== 'string') return;
     if (!membersByUnit.has(unitId)) membersByUnit.set(unitId, []);
-    membersByUnit.get(unitId)!.push({ uid: d.id, name: typeof core.name === 'string' ? core.name : '' });
+    membersByUnit.get(unitId)!.push({
+      uid: d.id,
+      name: typeof core.name === 'string' ? core.name : '',
+      unitMembershipSource: typeof core.unitMembershipSource === 'string' ? core.unitMembershipSource : null,
+      unitApprovedByOfficer: typeof core.unitApprovedByOfficer === 'boolean' ? core.unitApprovedByOfficer : null,
+    });
   });
 
   const pendingByUnit = new Map<string, PendingEntry[]>();

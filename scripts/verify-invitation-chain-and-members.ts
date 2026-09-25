@@ -276,8 +276,21 @@ async function main() {
   console.log('\n── Stage 3 setup: an approved member + a pending request ─────');
   const approvedMemberUid = `member-a1-${run}`;
   const pendingRequesterUid = `pending-a1-${run}`;
+  // Slice C (25.09.2026, §13.27) — a second approved member simulating a
+  // self-declared soldier (POST /api/units/declare's own write shape),
+  // alongside the pre-existing access-code-style member above (no
+  // unitMembershipSource at all) — proves the new fields pass through
+  // correctly AND that a legacy/access-code member correctly defaults to
+  // null, not some guessed value.
+  const declaredMemberUid = `declared-a1-${run}`;
   {
     await db.collection('users').doc(approvedMemberUid).set({ core: { name: 'חייל מאושר', tenantId: tenantA, unitId: unitA1 } });
+    await db.collection('users').doc(declaredMemberUid).set({
+      core: {
+        name: 'מוצהר עצמי', tenantId: tenantA, unitId: unitA1,
+        unitMembershipSource: 'self_declared', unitApprovedByOfficer: false,
+      },
+    });
     await db.collection('users').doc(pendingRequesterUid).set({ core: { name: 'ממתין לאישור' } });
     const createResult = await computeCreateJoinRequest(db, pendingRequesterUid, { tenantId: tenantA, unitId: unitA1 });
     assert('seed: pending join-request created', createResult.status === 200);
@@ -299,6 +312,14 @@ async function main() {
       assert('pending requester appears in pendingRequests with their real name', block.pendingRequests.some((p: any) => p.uid === pendingRequesterUid && p.name === 'ממתין לאישור'));
       assert('pending requester does NOT appear in approvedMembers', !approvedUids.includes(pendingRequesterUid));
       assert('approved member does NOT appear in pendingRequests', !pendingUids.includes(approvedMemberUid));
+
+      // Slice C (§13.27): the marker fields.
+      const legacyEntry = block.approvedMembers.find((m: any) => m.uid === approvedMemberUid);
+      const declaredEntry = block.approvedMembers.find((m: any) => m.uid === declaredMemberUid);
+      assert('legacy/access-code member: unitMembershipSource defaults to null (not guessed)', legacyEntry?.unitMembershipSource === null);
+      assert('legacy/access-code member: unitApprovedByOfficer defaults to null', legacyEntry?.unitApprovedByOfficer === null);
+      assert('self-declared member: unitMembershipSource passed through as self_declared', declaredEntry?.unitMembershipSource === 'self_declared');
+      assert('self-declared member: unitApprovedByOfficer passed through as false', declaredEntry?.unitApprovedByOfficer === false);
     }
   }
 
