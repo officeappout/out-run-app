@@ -1398,3 +1398,26 @@ Revert: `git revert -m 1 2897d308`
 **tsc מול baseline טרי מ-`origin/main`:** 800/800, כל שורת diff רעש-קיים-מראש (כולל שתי שגיאות קיימות-מראש שהוזזו שורה בגלל התוספות שלי ב-`LifestyleWizard.tsx`/`onboarding-sync.service.ts` — טקסט זהה, מספר שורה בלבד השתנה) — **אפס רגרסיות**. `npx vitest run`: 2253 עברו, אותם 2 כשלים קיימים-מראש, 26 דולגו.
 
 **לא נגעתי ב-`firestore.rules`.** אפס נתוני פרודקשן נגעו. **ענף נפרד, לא ממוזג** — לפי הוראת דוד ("ענף נפרד, לא למזג בלי אישורי") — עוצר כאן, ממתין לאישור מיזוג.
+
+---
+
+### 13.24 — P0-4: אורח שמתחבר עם Google/Apple נוטש את הנתונים בשקט — ענף נפרד, ממתין לאישור מיזוג (25.09.2026)
+
+**המשך ישיר ל-§13.18/§13.23. האחרון לפני ההשקה.** דוד: "משתמש מקבל חשבון אורח אוטומטי... אם הוא לוחץ 'המשך עם Google/Apple' - הקוד קורא ל-signInWithCredential/signInWithPopup הרגיל - שמחליף את הסשן במקום לחבר... כל מה שצבר כאורח ננטש בשקט."
+
+**שלב 1 — חקירה, דווחה לפני קוד (כנדרש):** האתר המדויק: `src/app/page.tsx`'s `handleGoogleLogin`/`handleAppleLogin` (מסך הנחיתה, drawer "התחברות") — הקוראים היחידים החיים ל-`signInWithGoogle`/`signInWithApple` הבלתי-מותנים (`AuthModal.tsx` מאשר קורא גם הוא, אבל מאומת ללא מפעיל אמיתי בכל האפליקציה). ההבדל: `linkWithGoogleAccount`/`linkWithAppleAccount` (הגרסה הקיימת אך הלא-מחוברת) בודקות `isAnonymous` קודם ומשתמשות ב-`linkWithCredential`/`linkWithPopup` (אותו uid, אותם נתונים) במקום `signInWithCredential`/`signInWithPopup` (uid אחר לגמרי). שני מימושי-ייחוס חיים נמצאו: `AccountSecureStep.tsx` (טיפול-שגיאות טוב, אך על 'account_exists' רק חוסם עם הודעה) ו-**`challenge/[inviteCode]/done/page.tsx`** (השלם ביותר — על 'account_exists' מציע במפורש "כניסה לחשבון הקיים" דרך `signInWithGoogleDirect`/`signInWithAppleDirect`, פונקציות שנבנו בדיוק לשם כך). ממצא נוסף שעלה: `reportSignupFailure('AUTH_GOOGLE'/'AUTH_APPLE', ...)` שחובר ב-P0-1 כמעט אף פעם לא יורה בפועל — `signInWithGoogle`/`signInWithApple` אף פעם לא זורקות (תמיד תופסות פנימית ומחזירות `{error}`), כך ש-`try/catch` החיצוני כמעט תמיד ריק.
+
+**החלטת דוד:** "מציעים להיכנס לחשבון הקיים, לא חוסמים... התבנית של challenge/[inviteCode]/done היא הנכונה."
+
+**מה נבנה (ענף `fix/p0-4-guest-link-account-exists`, מ-`origin/main` @ `f59e7f2b`):**
+
+- **`src/lib/resolveAuthLinkOutcome.ts` (חדש)** — לוגיקת ההחלטה כולה מופרדת לפונקציה טהורה (אותו עיקרון בדיוק כמו `resolveUser` ב-P0-1 — קוד בתוך קומפוננטת React לא נגיש לבדיקות בריפו הזה, vitest node-only בלי jsdom). מקבלת `{user, error}` הגולמי ומחזירה בדיוק אחת מ-4 תוצאות: `'silent'` (ביטול — `google_canceled`/`popup_closed`/`apple_canceled`, בלי שינוי, בלי לוג, בדיוק כמו היום), `'account_exists'` (לא משנה כלום בעצמה — לא uid, לא redirect, רק דגל להצגת המודל), `'proceed'` (הצלחה, או המקרה ההגנתי `not_anonymous`), `'error'` (כל כשל אמיתי — timeout/רשת/אחר — תמיד עם הודעה, לעולם לא שקט).
+- **`src/app/page.tsx`** — `handleGoogleLogin`/`handleAppleLogin`: אם `auth.currentUser?.isAnonymous` → קוראים ל-`linkWithGoogleAccount`/`linkWithAppleAccount` (במקום הבלתי-מותנה); אחרת (אין session אנונימי להגן עליו) → נופל לאחור ל-`signInWithGoogle`/`signInWithApple` המקוריות, ללא שינוי. תוצאת `account_exists` פותחת **מודל חדש `ExistingAccountModal`**: הודעה מפורשת בעברית ("החשבון הזה כבר רשום אצלנו... מה שעשית עכשיו כאורח לא יעבור לשם") + כפתור "כניסה לחשבון הקיים" (קורא ל-`signInWithGoogleDirect`/`signInWithAppleDirect` **רק** בלחיצה מפורשת) + כפתור "ביטול" שמאפס state בלבד — `drawerOpen` עצמו אף פעם לא נוגע, כך שה-drawer חוזר בדיוק כפי שהיה. כשל רשת/timeout מציג `showToast('error', ...)` — לא שקט. כל תוצאת `account_exists`/`error` נרשמת ל-`signup_failures` (stage `AUTH_GOOGLE`/`AUTH_APPLE`, reason = קוד השגיאה המדויק — כולל `'google_account_exists'`/`'apple_account_exists'` כסיבה נפרדת, כמבוקש).
+- **לא נמחק מסמך האורח** — לא נדרש קוד: `linkWithGoogleAccount`/`linkWithAppleAccount`/`signInWithGoogleDirect`/`signInWithAppleDirect` הן כולן פעולות Firebase Auth טהורות, אף אחת מהן לא נוגעת ב-`firebase/firestore` בכלל (אומת בקריאת קוד מלאה של שתיהן) — המסמך פשוט מפסיק להיות מוצג, נשאר בדיוק במקומו.
+- **`.cursorrules` (Z-Index Budget)** — `ExistingAccountModal` נרשם כצרכן חדש של z-[101] (לא z-100 חדש — z-100 כבר תפוס פעמיים באותו דף: ה-splash הממותג של `page.tsx` עצמו, וגם `OfflineBanner` הגלובלי שיכול לצוץ בכל רגע; z-101 היא הרמה המתועדת בדיוק לניקוי `OfflineBanner`, לא ערך חדש).
+
+**בדיקות (`resolveAuthLinkOutcome.test.ts`, חדש, 12):** הצלחה שומרת בדיוק את אותו uid (Google+Apple); `account_exists` לא מחזירה uid/redirect בכלל — רק דגל; ביטול (`google_canceled`/`popup_closed`/`apple_canceled`) הוא `'silent'` נטו; כשל רשת/timeout הם `'error'` עם הודעה לא-ריקה + סיבת-דיווח; `not_anonymous` עם משתמש נוכחי ממשיך נכון; מקרי-קצה הגנתיים (`not_anonymous` בלי משתמש, אין-user-ואין-error) נופלים ל-`'error'` גלוי, לעולם לא שקט. שימור-ה-uid בהצלחה מובטח על ידי חוזה `linkWithCredential`/`linkWithPopup` של Firebase עצמו (זה מה ש"linking" אומר, לא משהו שהקוד הזה מחשב) — לא ניתן לבדיקה אמיתית בלי Auth emulator (לא קיים בפרויקט הזה, כבר תועד).
+
+**tsc מול baseline טרי מ-`origin/main`:** 800/800, כל שורת diff רעש-קיים-מראש שכבר תועד. **אפס רגרסיות.** `npx vitest run`: 2265 עברו (2253 + 12 החדשים), אותם 2 כשלים קיימים-מראש, 26 דולגו.
+
+**לא נגעתי ב-`firestore.rules`.** אפס נתוני פרודקשן נגעו. **ענף נפרד, לא ממוזג** — לפי הוראת דוד ("ענף נפרד, לא למזג בלי אישורי") — עוצר כאן, ממתין לאישור מיזוג.
