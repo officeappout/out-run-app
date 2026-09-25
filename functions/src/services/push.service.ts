@@ -229,11 +229,15 @@ export type PushChannel =
   | 'progression'      // level-up, streak, PR
   | 'community'        // people nearby, new group
   | 'retention'        // re-engagement after inactivity
-  | 'onboarding_dropoff'; // stale-signup nudge — deliberately distinct from
+  | 'onboarding_dropoff' // stale-signup nudge — deliberately distinct from
                           // 'training_reminder' so it does NOT share that
                           // channel's independent rate-cap clock on
                           // push_rate/{uid}.training_reminder_lastSentAt
                           // (see onboardingDropoffDispatcher.ts)
+  | 'contribution_status'; // a user's own submitted contribution was approved
+                           // (onContributionApproved.ts) — validation of the
+                           // user's own action, not an engagement nudge; see
+                           // that file's header for the full reasoning.
 
 /**
  * Opt-in measurement (Wave 1 notification engine). When provided, sendPush()

@@ -52,6 +52,7 @@ export { onboardingDropoffDispatcher } from './onboardingDropoffDispatcher';
 export { chatMessageNotification } from './chatMessageNotification';
 // ── Push Notification Triggers (Social Engagement Engine — phase 2) ───────────
 export { onLevelUp } from './onLevelUp';
+export { onContributionApproved } from './onContributionApproved';
 export { retentionScheduler } from './retentionScheduler';
 export { trainingReminderScheduler } from './trainingReminderScheduler';
 // ── Push Notification Triggers (Social Engagement Engine — phase 3: social) ───

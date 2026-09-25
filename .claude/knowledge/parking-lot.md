@@ -1009,3 +1009,15 @@ muscle_up.subPrograms = ['push', 'pull']                   // מאסטר → ש�
 **4. `previewVideo.en = 0` בכל הקטלוג, בכל מיקום, בכל רמה.** אין תוכן אנגלי מובנה (Phase-5) בשום מקום. לא נבדק אם יש תוכן-אנגלי דרך מסלול legacy אחר.
 
 **5. אין ולידציה שהשדה-הקצר מכיל קליפ קצר.** `[ETMVVSpt0lIpeF3mkEn6]` "מתיחות פלג גוף עליון **לבדיקה**" (השם עצמו — חשוד כדאטת-בדיקה שנשארה) — שיטת-פארק עם `media.mainVideoUrl` שאורכו (`videoDurationSeconds`) **210 שניות**, לא לופ-קצר. מקרה בודד מתוך כל הקטלוג שנבדק (כל צירוף mainVideoUrl+videoDurationSeconds). לא תוקן, לא נמחק — רק תועד.
+
+---
+
+## נתיב העדפות התראות שבור — UI מוסתר כותב לנתיב שאף אחד לא קורא — 24.09.2026
+
+**Opened:** 24.09.2026 · **Source:** מיפוי push-על-אישור-תרומה (item 1, Sderot pilot audit). נרשם לפי בקשת דוד — לא לתקן עכשיו, רק כשנבנה toggle אמיתי.
+
+שלושה toggles ב-`SettingsModal.tsx` (מעקב אי-פעילות / הישגים / טיפים) כתבו ל-`settings.notifications.{inactivity,achievements,tips}` — נתיב Firestore ש**אף צרכן שרת לא קורא בכלל** (הפונקציה היחידה שקוראת העדפות-push, ב-`push.service.ts`/`sendPushFromQueue.ts`, בודקת רק `settings.notificationPrefs.{channel}` — שם שדה שונה לגמרי). כלומר: משתמש שכיבה "מעקב אי-פעילות" בהגדרות — לא קרה כלום, ההתראות המשיכו להגיע כאילו הכפתור אף פעם לא נלחץ. ה-UI הזה הוסתר (לא נמחק) בניקוי App Store קודם (D3/D4/D5), עם הערה בקוד שמתעדת את זה במפורש.
+
+**זו בדיוק צורת-הבאג שהצ'אט הזה מנקה כל השבוע** — קוד שנראה כאילו הוא עובד (יש toggle, יש state, יש שמירה) ולא עושה כלום בפועל, כי הוא כותב למקום שאף אחד לא קורא ממנו — מאותה משפחה בדיוק כמו ה-whitelist שהפיל published/contentStatus/origin (23.09.2026) וה-allowlist שהחריג local_council (23-24.09.2026).
+
+**לא לתקן עכשיו.** כשייבנה toggle-per-channel אמיתי (למשל בשביל `contribution_status` שנוסף היום) — זה הרגע לתקן גם את הנתיב הישן: לגרום ל-UI (חדש או מוחזר) לכתוב ל-`settings.notificationPrefs.{channel}` בפועל, לא ל-`settings.notifications.{name}`.
