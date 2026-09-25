@@ -1475,3 +1475,27 @@ P0-1 (§13.22), P0-2 (§13.23), P0-4 (§13.24) — כולם מאושרים, ממ
 **סטטוס פרוסה א': מאושר ע"י דוד, ממוזג ל-`main` (25.09.2026).** מיזוג `feat/unit-declaration-endpoint`: `d6ed7582` (מ-`origin/main` @ `8d293cc2`, ללא race). Revert: `git revert -m 1 d6ed7582`. tsc על העץ הממוזג: 802/802, אותו רעש קיים-מראש — אפס רגרסיות נוספות. Smoke: `outrun.co.il` → 200, `/api/catalog/parks` → 200 עם 1159 גינות, עבר בניסיון הראשון.
 
 UI (פרוסה ב') ומסך היחידה בפאנל (פרוסה ג') לא בוצעו עדיין — בכוונה, בהמשך.
+
+---
+
+### 13.26 — פרוסה ב': חיווט HierarchySearchStep ל-`/api/units/declare` (25.09.2026)
+
+**המשך ישיר ל-§13.25.** ענף `feat/unit-declaration-ui-wiring`, מ-`origin/main` @ `0a142b9e`.
+
+**דרישה 1 — רכיב אחד, לא שני מסלולים:** הקריאה חוברה **בתוך** `HierarchySearchStep.tsx` עצמו (לא ב-`PersonaStep`/`OnboardingWizard`/`LifestyleWizard`, שהם ה-hosts). מכיוון שזה בדיוק הרכיב המשותף שהרשמה ראשונה ו-Settings ← "הפרסונות שלי" (`MyPersonasSection` → אותו `PersonaQuestionsDrawer`) כבר חולקות — מסלול אחד אוטומטית, אפס קוד ספציפי-למארח.
+
+**דרישה 2 — חלוקת בעלות מדויקת:** `savePersonaAnswers()` (`persona-answers.service.ts`) קיבלה מפת קונפיג חדשה `ENDPOINT_OWNED_ANSWER_KEYS` (`military: ['orgId','unitId','unitPathIds']`) — הפונקציה מסננת את השדות האלה מה-payload לפני כתיבה ל-`military_declarations`, **גם אם** אובייקט ה-`answers` שהיא מקבלת (מצטבר ב-`PersonaQuestionsDrawer`, כולל שתי השאלות יחד) עדיין מכיל אותם. `status` בלבד נשאר בבעלותה. סינון עם `Object.entries`/`fromEntries` — לא `{status: answers.status}` — כדי לשמר "מפתח נעדר נשאר נעדר" (לא הופך ל-present-with-undefined, axioms.md §24) כשהמשתמש דילג על שאלת הסטטוס.
+
+**דרישה 3+4 — כשל גלוי, לא מתקדם:** `src/features/user/onboarding/services/unit-declaration.service.ts` (חדש) — `declareUnit(orgId, unitId)`, הקורא היחיד ל-endpoint. מבחין בין הודעת-שרת אמיתית (400/429, כבר בעברית מה-endpoint) לכשל-רשת (fetch עצמו נכשל — הודעה עברית שונה, "בעיית תקשורת"). `HierarchySearchStep`'s כפתור "סיום" הפך ל-async: `saving`→קורא ל-`declareUnit`→בכשל: `error` state, הודעה עברית מוצגת inline, הכפתור הופך ל"נסה שוב" (אותו handler, ניתן ללחיצה חוזרת) — **`onDone()` (שמקדם את הדרואר) נקרא רק בהצלחה מפורשת**, לא בברירת מחדל.
+
+**דרישה 5 — pending_units:** לא נגעתי. `handleFinish` בודק `value.orgId && value.unitId` — הצהרה ברמת-pending-בלבד (אין עדיין orgId/unitId אמיתיים) מדלגת על קריאת ה-endpoint ומתקדמת ישירות, בדיוק כמו היום.
+
+**בדיקות:**
+- **`unit-declaration.service.test.ts` (חדש, 7):** הצלחה מעבירה tenantType/unitPath; הודעת-שרת (יחידה-לא-נמצאה / rate-limit) עוברת כמות שהיא, לא נבלעת; כשל-רשת (fetch זורק) מחזיר הודעה עברית לא-ריקה, לעולם לא זורק unhandled; JSON פגום בתגובה עדיין נופל בצורה נקייה; אין-משתמש-מחובר נכשל בלי לקרוא ל-fetch בכלל; **ניסיון חוזר** — כשל ואז קריאה שנייה מצליחה, מוכיח שהפונקציה חסרת-מצב ואינה "מזוהמת" מכשל קודם.
+- **`persona-answers.service.test.ts` (עודכן + 2 חדשים):** התיקון הישן (`militaryData` מכיל `orgId`) עודכן לשקף את ההתנהגות החדשה; בדיקה ייעודית מוכיחה ש-orgId/unitId/unitPathIds **לעולם** לא נכתבים ע"י `savePersonaAnswers`, גם כשהם נוכחים בקלט — זו הבדיקה ש"אין שדה שכתוב פעמיים" שדוד ביקש; בדיקה נוספת מוודאת שקלט status-בלבד (דילוג על שאלת-היחידה) לא יוצר `orgId`/`unitId` present-with-undefined.
+- **`scripts/verify-unit-declaration.ts` (הורחב, +8):** "שינוי יחידה דורס נכון את הישנה" — שתי קריאות רצופות ל-`computeUnitDeclaration` עם ארגון/יחידה שונים לגמרי, מאמת ש-`core.tenantId`/`unitId` **וגם** `military_declarations` מצביעים על היעד החדש בלבד, ושאילתת הארגון הישן כבר לא מוצאת את המשתמש (ניקוי-חינם, מבנה מבוסס-שאילתה, ללא צעד הסרה נפרד).
+- **"ביטול באמצע לא כותב כלום":** אומת בבדיקת-קוד, לא בדיקה נפרדת — `declareUnit` נקרא **אך ורק** מתוך `handleFinish`, המחובר בלעדית ללחיצת "סיום"; שום אינטראקציה אחרת (בחירה/קידוח/סגירת-דרואר-X) קוראת לו. כיסוי מלא ברמת-רינדור לא נגיש (vitest node-only, בלי jsdom — אותה מגבלה שתועדה לאורך כל הסשן).
+
+**tsc:** נמצאה שגיאת TS אמיתית אחת (`excludedKeys` הוסק כ-`never[]` מה-fallback `?? []` הבלתי-מוטפס) — תוקנה עם annotation מפורש (`readonly string[]`). מול baseline טרי: 802/802, כל שאר ה-diff רעש קיים-מראש — **אפס רגרסיות** אחרי התיקון. `npx vitest run`: 2274 עברו (2265 + 9 חדשים), אותם 2 כשלים קיימים-מראש, 26 דולגו.
+
+**לא נגעתי ב-`firestore.rules`.** אפס נתוני פרודקשן נגעו. **ענף נפרד, לא ממוזג** — עוצר כאן, ממתין לאישור.
