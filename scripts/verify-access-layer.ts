@@ -126,14 +126,31 @@ async function main() {
   await db.collection('users').doc(memberOtherUnitUid).set({ core: { name: 'חבר יחידה אחרת', tenantId, unitId: unitId2 } });
   await db.collection('users').doc(memberOtherTenantUid).set({ core: { name: 'חבר גוף אחר', tenantId: otherTenantId, unitId: otherUnitId } });
 
+  // §13.30 (26.09.2026) — this seed originally used workoutTitle/type/
+  // completedAt/durationMinutes, none of which exist on any real
+  // workouts/{docId} document (0/734, confirmed against production,
+  // read-only, no content printed). That let this exact bug ship and
+  // pass 42/42 tests — the seed matched what the CODE expected, not what
+  // reality actually looks like. Corrected to the real shape (`date`,
+  // `duration` in SECONDS, `workoutType`), the canonical fields on
+  // WorkoutHistoryEntry (storage.service.ts) — plus a handful of the
+  // OTHER real, location-identifying fields real docs actually carry
+  // (parkId/parkName/segments), proving the .select() allowlist excludes
+  // ALL of them, not just routePath. New-query rule (David, 26.09.2026,
+  // MASTER-PLAN §13.30): a self-seeded test can never catch a field-name
+  // mismatch — verify against a real document before merge, every time.
   const now = admin.firestore.Timestamp.now();
   await db.collection('workouts').add({
     userId: memberOwnUnitUid,
-    workoutTitle: 'ריצת בוקר',
-    type: 'running',
-    completedAt: now,
-    durationMinutes: 32,
+    date: now,
+    duration: 1920, // seconds — 32 minutes, matches the previous test's intent
+    workoutType: 'running',
+    activityType: 'running',
+    category: 'cardio',
     routePath: [{ lat: 31.5, lng: 34.7 }, { lat: 31.51, lng: 34.71 }], // must NEVER reach the response
+    parkId: 'park-throwaway-id', // also must NEVER reach the response
+    parkName: 'גן משחקים לדוגמה',
+    segments: [{ kind: 'aerobic', distanceKm: 3 }],
   });
 
   // ══════════════════════════════════════════════════════════════════════
@@ -275,11 +292,13 @@ async function main() {
   //      every authorization failure (denied scope, wrong domain, unknown
   //      uid) — never a distinguishable message, never a 200 with an empty
   //      array standing in for "not allowed."
-  //   4. the full field list read via .select() — EXACTLY workoutTitle,
-  //      type, completedAt, durationMinutes. routePath is asserted absent
-  //      from the response below, proven by seeding a real routePath and
-  //      confirming it never appears — not just "the code doesn't render
-  //      it," the field is never fetched from Firestore at all.
+  //   4. the full field list read via .select() — EXACTLY workoutType,
+  //      completedAtMs, durationMinutes (corrected 26.09.2026, §13.30 —
+  //      see the seed's own comment above). routePath/parkId/parkName/
+  //      segments are asserted absent from the response below, proven by
+  //      seeding all of them for real and confirming NONE ever appear —
+  //      not just "the code doesn't render it," the fields are never
+  //      fetched from Firestore at all.
   //   5. emulator tests for the negatives — this whole section.
   console.log('\n── GET /api/units/member-workouts: authorization + field list ─');
   {
@@ -301,10 +320,14 @@ async function main() {
       assert('response includes exactly 1 seeded workout', workouts.length === 1);
       const w = workouts[0];
       const fields = Object.keys(w).sort();
-      assert('response fields are EXACTLY id/workoutTitle/type/completedAtMs/durationMinutes — nothing else', JSON.stringify(fields) === JSON.stringify(['completedAtMs', 'durationMinutes', 'id', 'type', 'workoutTitle'].sort()));
-      assert('routePath NEVER appears anywhere in the response, even though it was seeded on the source doc', !JSON.stringify(result.body).includes('routePath') && !JSON.stringify(result.body).includes('lat'));
-      assert('workoutTitle carries through correctly', w.workoutTitle === 'ריצת בוקר');
-      assert('durationMinutes carries through correctly', w.durationMinutes === 32);
+      assert('response fields are EXACTLY id/workoutType/completedAtMs/durationMinutes — nothing else', JSON.stringify(fields) === JSON.stringify(['completedAtMs', 'durationMinutes', 'id', 'workoutType'].sort()));
+      const bodyStr = JSON.stringify(result.body);
+      assert('routePath NEVER appears anywhere in the response, even though it was seeded on the source doc', !bodyStr.includes('routePath') && !bodyStr.includes('lat'));
+      assert('parkId NEVER appears in the response, even though it was seeded on the source doc', !bodyStr.includes('parkId') && !bodyStr.includes('park-throwaway-id'));
+      assert('parkName NEVER appears in the response, even though it was seeded on the source doc', !bodyStr.includes('parkName') && !bodyStr.includes('גן משחקים'));
+      assert('segments NEVER appears in the response, even though it was seeded on the source doc', !bodyStr.includes('segments') && !bodyStr.includes('aerobic'));
+      assert('workoutType carries through correctly (the real field — this is what the bug fix was about)', w.workoutType === 'running');
+      assert('durationMinutes carries through correctly, converted from the real `duration` field (seconds → minutes)', w.durationMinutes === 32);
     }
   }
 

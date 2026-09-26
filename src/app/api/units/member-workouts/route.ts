@@ -19,8 +19,34 @@
  * field-projection equivalent, so "don't fetch it in the first place" was
  * only achievable by moving the read server-side).
  *
- * Response fields are aggregate-safe by construction — title/type, date,
+ * Response fields are aggregate-safe by construction — type, date,
  * duration only. No routePath, no coordinates, no park/location name.
+ *
+ * 26.09.2026 — CORRECTED (docs/audit-2026-09/00-MASTER-PLAN.md §13.30):
+ * this route originally queried/selected workoutTitle/type/completedAt/
+ * durationMinutes — NONE of which exist on any real workouts/{docId}
+ * document (confirmed against all 734 real docs in production, read-only,
+ * no writes — no field values were ever printed, only field names and
+ * presence counts). It had silently returned an empty workouts[] for
+ * every real user since it was built; the emulator tests passed because
+ * they seeded synthetic docs matching the CODE's assumed field names,
+ * never checked against a real document. The canonical field shape for
+ * this collection is `WorkoutHistoryEntry` (src/features/workout-engine/
+ * core/services/storage.service.ts) — imported below as the single
+ * source of truth, not re-guessed here. Real fields used: `date`
+ * (Timestamp, not `completedAt`), `duration` (number of SECONDS, not
+ * minutes — see that interface's own comment — divided by 60 below),
+ * `workoutType` (not `type`; enum 'running'|'walking'|'cycling'|
+ * 'strength'|'hybrid'|'recovery'). No real equivalent to `workoutTitle`
+ * exists on any real doc — dropped from the response entirely, not
+ * defaulted to null.
+ *
+ * New-query-on-existing-collection rule (David, 26.09.2026, applies from
+ * here on — see MASTER-PLAN §13.30): any new query against an EXISTING
+ * collection must be verified against a real production document before
+ * merge, not just against a self-seeded emulator test. A test that seeds
+ * its own data can never catch a field-name mismatch between the code and
+ * reality — which is exactly how this bug shipped and passed 42/42 tests.
  *
  * Domain check (David's standing rule, same as every other route in this
  * build): resolved ENTIRELY from the caller's own token via
@@ -35,6 +61,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import type { Firestore } from 'firebase-admin/firestore';
+import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { resolveUnitPermissionScope, type UnitPermissionScope } from '@/lib/unitPermissionScope';
 
@@ -43,10 +70,20 @@ export const dynamic = 'force-dynamic';
 
 const DENIED_MESSAGE = 'אין לך הרשאה לצפות בנתוני המשתמש הזה.';
 
+/**
+ * Only the fields this screen actually needs, from the canonical
+ * WorkoutHistoryEntry shape (imported above, not re-typed here) —
+ * workoutType/date/duration. Aggregate-safe by construction:
+ * routePath/parkId/parkName/segments/laps/commuteDestination/
+ * commuteLabel (all real fields on WorkoutHistoryEntry, all location-
+ * identifying in some way — confirmed via the same production field
+ * inventory) are simply never named in the .select() allowlist below, so
+ * they never cross the wire at all — not filtered client-side, never
+ * fetched from Firestore in the first place.
+ */
 interface WorkoutSummaryEntry {
   id: string;
-  workoutTitle: string | null;
-  type: string | null;
+  workoutType: WorkoutHistoryEntry['workoutType'] | null;
   completedAtMs: number | null;
   durationMinutes: number | null;
 }
@@ -82,26 +119,32 @@ export async function computeMemberWorkouts(db: Firestore, scope: UnitPermission
     return { status: 403 as const, body: { error: DENIED_MESSAGE } };
   }
 
-  // .select() — Admin-SDK-only field projection. routePath is never read
-  // off the wire at all, not merely dropped from the response after the
-  // fact.
+  // .select() — Admin-SDK-only field projection. routePath (and every
+  // other location-identifying field on WorkoutHistoryEntry — parkId/
+  // parkName/segments/laps/commuteDestination/commuteLabel) is never
+  // read off the wire at all, not merely dropped from the response after
+  // the fact — this is an allowlist of exactly what's needed, not a
+  // denylist of what to exclude.
   const workoutsSnap = await db
     .collection('workouts')
     .where('userId', '==', targetUid)
-    .orderBy('completedAt', 'desc')
+    .orderBy('date', 'desc')
     .limit(20)
-    .select('workoutTitle', 'type', 'completedAt', 'durationMinutes')
+    .select('workoutType', 'date', 'duration')
     .get();
 
   const workouts: WorkoutSummaryEntry[] = workoutsSnap.docs.map((d) => {
     const data = d.data();
-    const completedAt = data.completedAt;
+    const date = data.date;
     return {
       id: d.id,
-      workoutTitle: typeof data.workoutTitle === 'string' ? data.workoutTitle : null,
-      type: typeof data.type === 'string' ? data.type : null,
-      completedAtMs: typeof completedAt?.toMillis === 'function' ? completedAt.toMillis() : null,
-      durationMinutes: typeof data.durationMinutes === 'number' ? data.durationMinutes : null,
+      workoutType: typeof data.workoutType === 'string' ? (data.workoutType as WorkoutHistoryEntry['workoutType']) : null,
+      completedAtMs: typeof date?.toMillis === 'function' ? date.toMillis() : null,
+      // real field is `duration` in SECONDS (WorkoutHistoryEntry's own
+      // comment) — converted here, same /60 the pre-existing activity-
+      // history list already applies at storage.service.ts's own
+      // read site (matching precedent, not inventing a new convention).
+      durationMinutes: typeof data.duration === 'number' ? Math.round(data.duration / 60) : null,
     };
   });
 
