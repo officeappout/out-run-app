@@ -3,34 +3,35 @@
 /**
  * SkillTreeScreen — Phase 1's top-level screen for one leaf program's Skill Tree.
  *
- * Two separate taps, two separate existing surfaces (per the founder's
- * correction — split from an earlier version of this screen that opened the
- * program-grain drawer from a node tap):
+ * Two separate taps, two separate existing surfaces:
  *   - Node tap → the existing per-EXERCISE ExerciseDetailSheet (same one the
- *     library uses), for that node's representative exercise specifically.
+ *     library uses), for that node's representative exercise. Locked nodes
+ *     are NOT blocked — tapping one opens the same sheet with a small
+ *     "above your level" notice instead of being disabled.
  *     ExerciseDetailSheet is only ever mounted inside ExerciseLibraryPage
- *     today — not globally — so this screen mounts its own instance,
- *     matching that same pattern, and drives it via the same
- *     useExerciseLibraryStore.openDetail() action.
+ *     today — not globally — so this screen mounts its own instance and
+ *     drives it via useExerciseLibraryStore.
  *   - Header tap (skill name / level-summary block) → the existing
- *     per-PROGRAM ProgramDrawer (src/features/profile/components/widgets/
- *     ProgramDrawer.tsx, unmodified — icon/name/description + רמה נוכחית /
- *     התקדמות / סה״כ אימונים + עדכן רמה / סגור), reached today from the
- *     profile page's program tiles. Program-grain, so it belongs on the
- *     program-level header, not repeated identically on every node.
+ *     per-PROGRAM ProgramDrawer, unmodified.
  *
- * No "התחל אימון" CTA anywhere — dropped per the founder's decision (it was
- * never a real requirement). No level-description banner — dropped for v1
- * (ProgramLevelSettings.levelDescription's read path was never verified this
- * pass, and there's no admin input for it yet either).
+ * The swap sheet's "החלף לתרגיל זה" action updates a session-local override
+ * (which exercise displays as a given level's representative) — not
+ * persisted to Firestore, resets on reload. No new data model, consistent
+ * with the feature's whole scope.
  *
- * Cross-domain imports (workout-engine/services, profile/components/widgets,
- * content/exercises) are accepted as-is per the founder — noted as tech debt
- * for a later relocation to src/lib/, not refactored mid-feature.
+ * Back-navigation: the exercise-detail sheet is global UI state
+ * (useExerciseLibraryStore), so leaving this screen by ANY means (browser
+ * back, in-app nav, this screen's own back button) must reset it — otherwise
+ * a later mount of ExerciseDetailSheet elsewhere (e.g. the library) could
+ * reopen showing a stale exercise from this screen's last tap. A popstate
+ * listener also makes the hardware/gesture back button close the open sheet
+ * first (one extra history entry pushed only while it's open) instead of
+ * leaving the whole route.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronRight } from 'lucide-react';
+import type { Exercise } from '@/features/content/exercises';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { getProgramByTemplateId } from '@/features/content/programs/core/program.service';
 import type { Program } from '@/features/content/programs/core/program.types';
@@ -44,6 +45,9 @@ import { useSkillTree } from '../hooks/useSkillTree';
 import { TreePath } from './TreePath';
 import { ProgramLevelSwapSheet } from './ProgramLevelSwapSheet';
 import type { SkillTreeRung } from '../core/types';
+import type { TreeNodeState } from './TreeNode';
+
+const LOCKED_NOTICE = '🔒 שים לב — זה עוד לא תרגיל ברמה שלך';
 
 export interface SkillTreeScreenProps {
   programId: string;
@@ -53,10 +57,13 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
   const router = useRouter();
   const profile = useUserStore((s) => s.profile);
   const openExerciseDetail = useExerciseLibraryStore((s) => s.openDetail);
+  const isDetailOpen = useExerciseLibraryStore((s) => s.isDetailOpen);
+  const closeExerciseDetail = useExerciseLibraryStore((s) => s.closeDetail);
   const { tree, currentLevel, isLoading } = useSkillTree(programId);
   const [programMeta, setProgramMeta] = useState<Program | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [swapRung, setSwapRung] = useState<SkillTreeRung | null>(null);
+  const [representativeOverrides, setRepresentativeOverrides] = useState<Record<number, Exercise>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -68,10 +75,47 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
     };
   }, [programId]);
 
+  // Reset session-local overrides when switching to a different program (the
+  // 6 Phase-1 screens will share this component once wired — an override for
+  // "front lever level 4" must not leak into "planche level 4").
+  useEffect(() => {
+    setRepresentativeOverrides({});
+  }, [programId]);
+
+  // The global exercise-detail sheet must not outlive this screen — reset it
+  // on unmount regardless of how the user left (back button, in-app nav).
+  useEffect(() => {
+    return () => {
+      closeExerciseDetail();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // While the sheet is open, one hardware/gesture "back" closes it (via the
+  // history entry we push here) instead of leaving the Tree route entirely.
+  useEffect(() => {
+    if (!isDetailOpen) return;
+    window.history.pushState({ progressionMapDetailSheet: true }, '');
+    const onPopState = () => closeExerciseDetail();
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [isDetailOpen, closeExerciseDetail]);
+
+  const displayTree = useMemo(() => {
+    if (!tree) return null;
+    if (Object.keys(representativeOverrides).length === 0) return tree;
+    return {
+      ...tree,
+      rungs: tree.rungs.map((rung) => {
+        const override = representativeOverrides[rung.level];
+        return override && !rung.isGap ? { ...rung, representative: override } : rung;
+      }),
+    };
+  }, [tree, representativeOverrides]);
+
   const skillName = programMeta?.name ?? '';
-  const targetName = tree?.rungs.find((r) => r.level === tree.maxLevel)?.representative
-    ? getLocalizedText(tree.rungs.find((r) => r.level === tree.maxLevel)!.representative!.name, 'he')
-    : '';
+  const targetRung = displayTree?.rungs.find((r) => r.level === displayTree.maxLevel);
+  const targetName = targetRung?.representative ? getLocalizedText(targetRung.representative.name, 'he') : '';
 
   const tracks = (profile?.progression?.tracks ?? {}) as Record<
     string,
@@ -96,15 +140,13 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
 
   // NOTE (flagged, not silently assumed): location is not carried through from
   // anywhere yet — this screen has no concept of "the user's current location
-  // context" today (unlike the workout-preview drawer, which inherits it from
-  // an active session). Defaulting to 'park' per the founder's own
-  // "park-everywhere" framing when discussing the swap query's gear filter —
-  // worth confirming this default explicitly, not assumed correct long-term.
+  // context" today. Defaulting to 'park' per the founder's confirmed
+  // "park-everywhere" direction.
   const location = 'park' as const;
 
   return (
-    <div className="min-h-screen bg-white" dir="rtl">
-      <header className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b border-gray-100 px-4 py-3">
+    <div className="min-h-screen" style={{ background: 'linear-gradient(180deg, #F3FCFB 0%, #EEF7FF 100%)' }} dir="rtl">
+      <header className="sticky top-0 z-10 bg-white/90 backdrop-blur-sm border-b border-gray-100 px-4 py-3">
         <button
           type="button"
           onClick={() => router.back()}
@@ -142,7 +184,7 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
         </button>
       </header>
 
-      <main className="px-4 pb-16">
+      <main className="px-4 py-6 pb-16">
         {isLoading && (
           <div className="flex flex-col items-center gap-3 py-20">
             {[1, 2, 3].map((i) => (
@@ -151,19 +193,20 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
           </div>
         )}
 
-        {!isLoading && !tree && (
+        {!isLoading && !displayTree && (
           <p className="text-sm text-gray-400 text-center py-20">
             לא נמצאו תרגילים למסלול הזה כרגע.
           </p>
         )}
 
-        {!isLoading && tree && (
+        {!isLoading && displayTree && (
           <TreePath
-            tree={tree}
+            tree={displayTree}
             currentLevel={currentLevel}
             location={location}
-            onNodeTap={(rung) => {
-              if (rung.representative) openExerciseDetail(rung.representative);
+            onNodeTap={(rung: SkillTreeRung, state: TreeNodeState) => {
+              if (!rung.representative) return;
+              openExerciseDetail(rung.representative, state === 'locked' ? LOCKED_NOTICE : null);
             }}
             onSwapTap={(rung) => setSwapRung(rung)}
           />
@@ -186,6 +229,9 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
           location={location}
           park={null}
           userProfile={profile}
+          onReplace={(exercise) => {
+            setRepresentativeOverrides((prev) => ({ ...prev, [swapRung.level]: exercise }));
+          }}
         />
       )}
     </div>
