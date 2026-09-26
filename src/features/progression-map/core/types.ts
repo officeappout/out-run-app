@@ -24,3 +24,12 @@ export interface SkillTreeData {
   /** Total distinct exercises tagged to this program (across all levels). */
   exerciseCount: number;
 }
+
+/**
+ * A display-ready segment of the tree path: either one real node, or a
+ * compact pill spanning a run of consecutive empty levels (rendered as
+ * "רמות X–Y · אין תרגיל ייעודי", not one blank segment per empty level).
+ */
+export type DisplaySegment =
+  | { type: 'node'; rung: SkillTreeRung }
+  | { type: 'gap'; fromLevel: number; toLevel: number };

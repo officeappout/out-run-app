@@ -109,6 +109,13 @@ export interface MasterExerciseViewProps {
   /** Tapping "מפה מלאה ←" routes to the full roadmap for this movement family. */
   onNavigateToRoadmap?: (baseMovementId: string) => void;
   /**
+   * Optional short notice banner shown at the very top of the sheet — e.g.
+   * "above your current level" when opened from a locked Progression Map
+   * tree node. Absent for every ordinary caller (undefined/null → nothing
+   * rendered, byte-identical to before this prop existed).
+   */
+  notice?: string | null;
+  /**
    * OPTIONAL method-writer. Only the workout-preview context passes it (gated by
    * SWAP_ALL_ENABLED); when present, picking a method also persists that choice to the
    * live workout exercise so a single per-exercise location swap reaches the runner.
@@ -366,6 +373,7 @@ export default function MasterExerciseView({
   onNavigateToAnalytics,
   onNavigateToRoadmap,
   onMethodChange,
+  notice,
 }: MasterExerciseViewProps) {
   // Equipment caches power the gear/equipment labels + icons.
   useEffect(() => {
@@ -638,6 +646,12 @@ export default function MasterExerciseView({
 
   return (
     <div dir="rtl">
+      {notice && (
+        <div className="px-4 py-2.5 bg-slate-100 text-slate-500 text-[13px] font-semibold text-center">
+          {notice}
+        </div>
+      )}
+
       {/* ── Section 1: Hero video ──────────────────────────────────────────── */}
       <div
         className={`relative w-full overflow-hidden ${tutorialAsHero ? 'bg-[#F8FAFC]' : 'bg-slate-900'}`}
