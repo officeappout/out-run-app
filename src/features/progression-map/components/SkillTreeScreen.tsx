@@ -3,20 +3,30 @@
 /**
  * SkillTreeScreen — Phase 1's top-level screen for one leaf program's Skill Tree.
  *
- * Node tap reuses the EXISTING ProgramDrawer (src/features/profile/components/
- * widgets/ProgramDrawer.tsx) — per the founder's explicit correction: this is
- * the real "level precision" surface (icon/name/description + רמה נוכחית /
- * התקדמות / סה״כ אימונים stat pills + עדכן רמה / סגור), reached today by
- * tapping a program tile on the profile page. Every node in one Tree shares
- * the same program, so the drawer's content is the same regardless of which
- * rung was tapped — this is a cross-domain import (progression-map →
- * profile), same category of open question as the workout-engine
- * level-resolution utilities import in useUserProgramLevel.ts.
+ * Two separate taps, two separate existing surfaces (per the founder's
+ * correction — split from an earlier version of this screen that opened the
+ * program-grain drawer from a node tap):
+ *   - Node tap → the existing per-EXERCISE ExerciseDetailSheet (same one the
+ *     library uses), for that node's representative exercise specifically.
+ *     ExerciseDetailSheet is only ever mounted inside ExerciseLibraryPage
+ *     today — not globally — so this screen mounts its own instance,
+ *     matching that same pattern, and drives it via the same
+ *     useExerciseLibraryStore.openDetail() action.
+ *   - Header tap (skill name / level-summary block) → the existing
+ *     per-PROGRAM ProgramDrawer (src/features/profile/components/widgets/
+ *     ProgramDrawer.tsx, unmodified — icon/name/description + רמה נוכחית /
+ *     התקדמות / סה״כ אימונים + עדכן רמה / סגור), reached today from the
+ *     profile page's program tiles. Program-grain, so it belongs on the
+ *     program-level header, not repeated identically on every node.
  *
  * No "התחל אימון" CTA anywhere — dropped per the founder's decision (it was
  * never a real requirement). No level-description banner — dropped for v1
  * (ProgramLevelSettings.levelDescription's read path was never verified this
  * pass, and there's no admin input for it yet either).
+ *
+ * Cross-domain imports (workout-engine/services, profile/components/widgets,
+ * content/exercises) are accepted as-is per the founder — noted as tech debt
+ * for a later relocation to src/lib/, not refactored mid-feature.
  */
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -25,6 +35,8 @@ import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { getProgramByTemplateId } from '@/features/content/programs/core/program.service';
 import type { Program } from '@/features/content/programs/core/program.types';
 import { getLocalizedText } from '@/features/content/exercises';
+import { useExerciseLibraryStore } from '@/features/content/exercises/client/store/useExerciseLibraryStore';
+import ExerciseDetailSheet from '@/features/content/exercises/client/components/ExerciseDetailSheet';
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { domainTypeForSlug } from '@/features/profile/components/widgets/program-groups.utils';
 import ProgramDrawer, { type ProgramDrawerData } from '@/features/profile/components/widgets/ProgramDrawer';
@@ -40,6 +52,7 @@ export interface SkillTreeScreenProps {
 export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
   const router = useRouter();
   const profile = useUserStore((s) => s.profile);
+  const openExerciseDetail = useExerciseLibraryStore((s) => s.openDetail);
   const { tree, currentLevel, isLoading } = useSkillTree(programId);
   const [programMeta, setProgramMeta] = useState<Program | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -100,24 +113,33 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
           <ChevronRight size={14} />
           חזרה
         </button>
-        <h1 className="text-lg font-black text-gray-900">{skillName}</h1>
-        {tree && (
-          <>
-            <p className="text-xs font-bold text-gray-500 mt-1">
-              רמה {currentLevel ?? tree.minLevel} מתוך {tree.maxLevel}
-              {targetName ? ` · היעד: ${targetName}` : ''}
-            </p>
-            <div className="w-full h-1.5 bg-gray-100 rounded-full mt-2 overflow-hidden">
-              <div
-                className="h-full rounded-full"
-                style={{
-                  width: `${Math.min(100, Math.round((((currentLevel ?? tree.minLevel) - tree.minLevel) / Math.max(1, tree.maxLevel - tree.minLevel)) * 100))}%`,
-                  background: 'linear-gradient(90deg, #2CE0C0 0%, #20C6D6 50%, #2AA3E8 100%)',
-                }}
-              />
-            </div>
-          </>
-        )}
+        {/* Tappable skill name / level-summary block — opens the program-grain
+            ProgramDrawer (רמה נוכחית / התקדמות / סה״כ אימונים + עדכן רמה). */}
+        <button
+          type="button"
+          onClick={() => setDrawerOpen(true)}
+          disabled={!drawerData}
+          className="w-full text-right active:opacity-80 transition-opacity"
+        >
+          <h1 className="text-lg font-black text-gray-900">{skillName}</h1>
+          {tree && (
+            <>
+              <p className="text-xs font-bold text-gray-500 mt-1">
+                רמה {currentLevel ?? tree.minLevel} מתוך {tree.maxLevel}
+                {targetName ? ` · היעד: ${targetName}` : ''}
+              </p>
+              <div className="w-full h-1.5 bg-gray-100 rounded-full mt-2 overflow-hidden">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${Math.min(100, Math.round((((currentLevel ?? tree.minLevel) - tree.minLevel) / Math.max(1, tree.maxLevel - tree.minLevel)) * 100))}%`,
+                    background: 'linear-gradient(90deg, #2CE0C0 0%, #20C6D6 50%, #2AA3E8 100%)',
+                  }}
+                />
+              </div>
+            </>
+          )}
+        </button>
       </header>
 
       <main className="px-4 pb-16">
@@ -140,11 +162,17 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
             tree={tree}
             currentLevel={currentLevel}
             location={location}
-            onNodeTap={() => setDrawerOpen(true)}
+            onNodeTap={(rung) => {
+              if (rung.representative) openExerciseDetail(rung.representative);
+            }}
             onSwapTap={(rung) => setSwapRung(rung)}
           />
         )}
       </main>
+
+      {/* Reused verbatim, mounted here since it otherwise only exists inside
+          ExerciseLibraryPage — driven entirely by useExerciseLibraryStore. */}
+      <ExerciseDetailSheet />
 
       {drawerData && <ProgramDrawer program={drawerOpen ? drawerData : null} onClose={() => setDrawerOpen(false)} />}
 
