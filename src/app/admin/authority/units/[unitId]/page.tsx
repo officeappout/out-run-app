@@ -1178,7 +1178,13 @@ export default function UnitDrilldownPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-slate-800 truncate">
-                        {w.workoutTitle ?? w.type ?? 'אימון'}
+                        {/* §13.30 (26.09.2026) — workoutTitle/type never
+                            existed on any real workout doc; the endpoint's
+                            corrected response carries workoutType only
+                            (the real field, verified against production).
+                            Same fallback shape as before, corrected field
+                            name — not a new translation layer. */}
+                        {w.workoutType ?? 'אימון'}
                       </p>
                       <div className="flex items-center gap-3 mt-0.5 text-[11px] text-slate-500">
                         <span className="flex items-center gap-0.5">
