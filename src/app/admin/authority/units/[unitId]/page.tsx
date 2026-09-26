@@ -85,6 +85,15 @@ export default function UnitDrilldownPage() {
   const [unitPath, setUnitPath] = useState<string[]>([]);
   const [subUnits, setSubUnits] = useState<SubUnit[]>([]);
   const [members, setMembers] = useState<UnitMember[]>([]);
+  // Slice F (26.09.2026, §13.31) — per-member 7-day workout aggregate,
+  // via GET /api/units/roster-workout-summary (keyed by uid). Replaces
+  // the "לפרטים" placeholder Slice E left in the table after removing
+  // the roster's own broken client-SDK workouts query. A fetch failure
+  // is shown via rosterSummaryLoadError, never silently rendered as
+  // "0 אימונים" for every row (David, explicit requirement) — see the
+  // render below and rosterSummaryByUid's own lookup.
+  const [rosterSummaryByUid, setRosterSummaryByUid] = useState<Record<string, { workoutsLast7Days: number; lastWorkoutDateThisWeek: string | null }>>({});
+  const [rosterSummaryLoadError, setRosterSummaryLoadError] = useState<string | null>(null);
   const [tenantType, setTenantType] = useState<string>('municipal');
   const [searchTerm, setSearchTerm] = useState('');
   const [showAllMembers, setShowAllMembers] = useState(false);
@@ -343,6 +352,40 @@ export default function UnitDrilldownPage() {
         }
 
         setMembers(membersList);
+
+        // Slice F (26.09.2026, §13.31) — restores the roster table's
+        // "אימונים"/"פעילות אחרונה" columns via the new aggregate
+        // endpoint, replacing the "לפרטים" placeholder Slice E left when
+        // it removed the roster's own broken per-member client-SDK
+        // workouts query. Applies to every tenant type reaching this
+        // page (not just military), same as [unitId]/page.tsx's other
+        // server-routed reads.
+        setRosterSummaryLoadError(null);
+        if (activeTenantId) {
+          try {
+            const token = await auth.currentUser?.getIdToken();
+            if (!token) throw new Error('משתמש לא מחובר. רענן את הדף ונסה שוב.');
+            const res = await fetch(
+              `/api/units/roster-workout-summary?tenantId=${encodeURIComponent(activeTenantId)}&unitId=${encodeURIComponent(unitId)}`,
+              { headers: { Authorization: `Bearer ${token}` } },
+            );
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              throw new Error(typeof body.error === 'string' ? body.error : `שגיאה בטעינת נתוני האימונים (${res.status})`);
+            }
+            const summaries: Array<{ uid: string; workoutsLast7Days: number; lastWorkoutDateThisWeek: string | null }> =
+              Array.isArray(body.summaries) ? body.summaries : [];
+            const byUid: Record<string, { workoutsLast7Days: number; lastWorkoutDateThisWeek: string | null }> = {};
+            summaries.forEach((s) => { byUid[s.uid] = { workoutsLast7Days: s.workoutsLast7Days, lastWorkoutDateThisWeek: s.lastWorkoutDateThisWeek }; });
+            setRosterSummaryByUid(byUid);
+          } catch (fetchErr) {
+            console.error('[UnitDrilldown] /api/units/roster-workout-summary failed:', fetchErr);
+            setRosterSummaryByUid({});
+            setRosterSummaryLoadError(
+              fetchErr instanceof Error ? fetchErr.message : 'שגיאה בטעינת נתוני האימונים. נסה שוב.',
+            );
+          }
+        }
 
         if (activeTenantId) {
           try {
@@ -1049,17 +1092,46 @@ export default function UnitDrilldownPage() {
                     <th className="text-right py-2 px-3 w-8">#</th>
                     <th className="text-right py-2 px-3">שם</th>
                     {isSchoolContext && <th className="text-right py-2 px-3">XP</th>}
-                    {/* Slice E (25.09.2026, §13.29) — no longer "אימונים"/
-                        "פעילות אחרונה" columns computed for every row up
-                        front (that was the roster's own direct client-SDK
-                        workouts query, removed — see membersList.push's own
-                        comment above). Workout stats now live only in the
-                        per-member card below, fetched on click. */}
-                    <th className="text-right py-2 px-3"></th>
+                    {/* Slice F (26.09.2026, §13.31) — restored via
+                        /api/units/roster-workout-summary, replacing the
+                        "לפרטים" placeholder Slice E left after removing
+                        the roster's own broken per-member client-SDK
+                        workouts query. "7 ימים" in the header is load-
+                        bearing, not decoration — this is a rolling weekly
+                        count, never a lifetime total (see this endpoint's
+                        own header comment for why streaks/lastActivityDate
+                        was tried and rejected as a "last ever" source). */}
+                    <th className="text-right py-2 px-3">אימונים (7 ימים)</th>
+                    <th className="text-right py-2 px-3">פעילות אחרונה</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredMembers.map((m, i) => (
+                  {/* Slice F (26.09.2026, §13.31) — a roster-summary fetch
+                      failure is shown here, once, above the table, never
+                      silently rendered as "0 אימונים" on every row (David,
+                      explicit requirement — see rosterSummaryLoadError's
+                      own state comment). */}
+                  {rosterSummaryLoadError && (
+                    <tr>
+                      <td colSpan={isSchoolContext ? 5 : 4} className="px-3 py-2">
+                        <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 flex items-center justify-between gap-3">
+                          <p className="text-sm text-red-700 font-semibold">{rosterSummaryLoadError}</p>
+                          <button
+                            onClick={() => setRetrySeq((s) => s + 1)}
+                            className="text-xs font-bold text-red-700 bg-white border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-100 transition-colors flex-shrink-0"
+                          >
+                            נסה שוב
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  {filteredMembers.map((m, i) => {
+                    const summary = rosterSummaryByUid[m.uid];
+                    const lastActiveStr = summary?.lastWorkoutDateThisWeek
+                      ? new Date(summary.lastWorkoutDateThisWeek).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })
+                      : null;
+                    return (
                     <tr
                       key={m.uid}
                       onClick={() => loadMemberWorkouts(m)}
@@ -1090,13 +1162,22 @@ export default function UnitDrilldownPage() {
                         </td>
                       )}
                       <td className="py-2.5 px-3">
-                        <span className="text-[11px] font-bold text-cyan-600 flex items-center gap-1">
-                          לפרטים
-                          <ChevronLeft size={11} />
-                        </span>
+                        {rosterSummaryLoadError ? (
+                          <span className="text-xs font-bold text-red-400">—</span>
+                        ) : (
+                          <span className="text-xs font-bold text-cyan-600">{summary?.workoutsLast7Days ?? 0}</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-[11px] text-slate-500">
+                        {rosterSummaryLoadError ? (
+                          <span className="text-red-400">—</span>
+                        ) : (
+                          lastActiveStr ?? '—'
+                        )}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

@@ -111,6 +111,13 @@ export const RATE_LIMITS = {
   unitStructure: {
     uidHourly: () => envWindow('RL_UNIT_STRUCTURE_UID_HOURLY', HOUR, 60),
   },
+  // GET /api/units/roster-workout-summary (26.09.2026, Slice F — §13.31)
+  // — aggregate workout stats (7-day count + last-this-week date) for a
+  // unit's roster. Same "fires once or twice per page load" shape as
+  // unitStructure above — same generous cap.
+  rosterWorkoutSummary: {
+    uidHourly: () => envWindow('RL_ROSTER_WORKOUT_SUMMARY_UID_HOURLY', HOUR, 60),
+  },
 } as const;
 
 /**
