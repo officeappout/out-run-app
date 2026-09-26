@@ -92,6 +92,21 @@ export default function ClientLayout({
                 : shouldShowBottomNav
                   ? 'calc(3rem + env(safe-area-inset-bottom, 0px))'
                   : 'env(safe-area-inset-bottom, 0px)',
+              // Same reasoning as paddingBottom above, mirrored for the top
+              // inset — no screen had a global guarantee against rendering
+              // under the status bar/notch; each had to remember its own
+              // env(safe-area-inset-top) padding, and some didn't. Map route
+              // keeps the same exception as bottom — map layers manage their
+              // own top chrome (search bar, mode pills) over the full-bleed
+              // canvas.
+              //
+              // KNOWN FOLLOW-UP: a handful of existing screens already apply
+              // their own env(safe-area-inset-top) on a normal-flow/sticky
+              // header (or, in one case, an absolutely positioned child of a
+              // normal-flow ancestor) — those will double up with this
+              // padding until fixed separately. See PR description for the
+              // exact list; deliberately not touched in this change.
+              paddingTop: isMapRoute ? undefined : 'env(safe-area-inset-top, 0px)',
             }}
           >
             {children}
