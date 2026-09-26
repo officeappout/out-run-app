@@ -29,6 +29,7 @@ export default function ExerciseDetailSheet() {
   const exercise       = useExerciseLibraryStore((s) => s.selectedExercise);
   const close          = useExerciseLibraryStore((s) => s.closeDetail);
   const filterLocation = useExerciseLibraryStore((s) => s.filters.location);
+  const notice         = useExerciseLibraryStore((s) => s.detailNotice);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
@@ -131,6 +132,7 @@ export default function ExerciseDetailSheet() {
                 filterLocation={filterLocation}
                 onNavigateToAnalytics={handleNavigateToAnalytics}
                 onNavigateToRoadmap={handleNavigateToRoadmap}
+                notice={notice}
               />
             </div>
           </motion.div>

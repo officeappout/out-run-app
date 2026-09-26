@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildSkillTree, resolveLevelInProgram } from '../build-skill-tree.service';
+import { buildSkillTree, resolveLevelInProgram, groupRungsForDisplay } from '../build-skill-tree.service';
 import type { Exercise } from '@/features/content/exercises';
 
 const PROGRAM_A = 'programA';
@@ -115,5 +115,45 @@ describe('buildSkillTree', () => {
     const treeB = buildSkillTree([shared], PROGRAM_B)!;
     expect(treeA.rungs[0].level).toBe(1);
     expect(treeB.rungs[0].level).toBe(9);
+  });
+});
+
+describe('groupRungsForDisplay', () => {
+  it('passes through consecutive real nodes unchanged', () => {
+    const exercises = [ex('e1', [{ programId: PROGRAM_A, level: 1 }]), ex('e2', [{ programId: PROGRAM_A, level: 2 }])];
+    const tree = buildSkillTree(exercises, PROGRAM_A)!;
+    const segments = groupRungsForDisplay(tree.rungs);
+    expect(segments).toEqual([
+      { type: 'node', rung: tree.rungs[0] },
+      { type: 'node', rung: tree.rungs[1] },
+    ]);
+  });
+
+  it('collapses a run of consecutive gaps into one segment spanning the range', () => {
+    const exercises = [ex('e1', [{ programId: PROGRAM_A, level: 1 }]), ex('e5', [{ programId: PROGRAM_A, level: 5 }])];
+    const tree = buildSkillTree(exercises, PROGRAM_A)!;
+    const segments = groupRungsForDisplay(tree.rungs);
+    expect(segments).toEqual([
+      { type: 'node', rung: tree.rungs[0] },
+      { type: 'gap', fromLevel: 2, toLevel: 4 },
+      { type: 'node', rung: tree.rungs[4] },
+    ]);
+  });
+
+  it('a single-level gap still produces a gap segment with fromLevel === toLevel', () => {
+    const exercises = [ex('e1', [{ programId: PROGRAM_A, level: 1 }]), ex('e3', [{ programId: PROGRAM_A, level: 3 }])];
+    const tree = buildSkillTree(exercises, PROGRAM_A)!;
+    const segments = groupRungsForDisplay(tree.rungs);
+    expect(segments[1]).toEqual({ type: 'gap', fromLevel: 2, toLevel: 2 });
+  });
+
+  it('does not merge two gap runs separated by a real node', () => {
+    const exercises = [ex('e1', [{ programId: PROGRAM_A, level: 1 }]), ex('e4', [{ programId: PROGRAM_A, level: 4 }]), ex('e6', [{ programId: PROGRAM_A, level: 6 }])];
+    const tree = buildSkillTree(exercises, PROGRAM_A)!;
+    const segments = groupRungsForDisplay(tree.rungs);
+    const gapSegments = segments.filter((s) => s.type === 'gap');
+    expect(gapSegments).toHaveLength(2);
+    expect(gapSegments[0]).toEqual({ type: 'gap', fromLevel: 2, toLevel: 3 });
+    expect(gapSegments[1]).toEqual({ type: 'gap', fromLevel: 5, toLevel: 5 });
   });
 });

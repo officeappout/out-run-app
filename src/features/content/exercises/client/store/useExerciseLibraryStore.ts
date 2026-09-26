@@ -61,6 +61,13 @@ interface ExerciseLibraryState {
   // Detail sheet
   selectedExercise: Exercise | null;
   isDetailOpen: boolean;
+  /**
+   * Optional short banner text shown at the top of the detail sheet — e.g.
+   * "above your current level" when opened from a locked Progression Map
+   * tree node. `null` for every ordinary open (the vast majority of call
+   * sites) — purely additive, existing callers are unaffected.
+   */
+  detailNotice: string | null;
 
   // Actions
   setAllExercises: (exercises: Exercise[]) => void;
@@ -78,7 +85,7 @@ interface ExerciseLibraryState {
   /** Persist the location context derived from the active preset. */
   setFilterLocation: (location: 'home' | 'park' | 'gym' | null) => void;
   resetFilters: () => void;
-  openDetail: (exercise: Exercise) => void;
+  openDetail: (exercise: Exercise, notice?: string | null) => void;
   closeDetail: () => void;
 }
 
@@ -100,6 +107,7 @@ export const useExerciseLibraryStore = create<ExerciseLibraryState>((set) => ({
 
   selectedExercise: null,
   isDetailOpen: false,
+  detailNotice: null,
 
   setAllExercises: (exercises) => set({ allExercises: exercises }),
   setLoading: (loading) => set({ isLoading: loading }),
@@ -138,6 +146,6 @@ export const useExerciseLibraryStore = create<ExerciseLibraryState>((set) => ({
 
   resetFilters: () => set({ filters: { ...INITIAL_FILTERS } }),
 
-  openDetail: (exercise) => set({ selectedExercise: exercise, isDetailOpen: true }),
-  closeDetail: () => set({ isDetailOpen: false }),
+  openDetail: (exercise, notice) => set({ selectedExercise: exercise, isDetailOpen: true, detailNotice: notice ?? null }),
+  closeDetail: () => set({ isDetailOpen: false, detailNotice: null }),
 }));

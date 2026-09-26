@@ -14,7 +14,7 @@
  * pure functions like this are exactly what's testable here).
  */
 import type { Exercise } from '@/features/content/exercises';
-import type { SkillTreeData, SkillTreeRung } from '../core/types';
+import type { DisplaySegment, SkillTreeData, SkillTreeRung } from '../core/types';
 
 /**
  * Resolve an exercise's level FOR A SPECIFIC PROGRAM — never targetPrograms[0]
@@ -85,4 +85,29 @@ export function buildSkillTree(exercises: Exercise[], programId: string): SkillT
   }
 
   return { programId, rungs, minLevel, maxLevel, exerciseCount };
+}
+
+/**
+ * Collapse consecutive gap rungs into one compact display segment (e.g.
+ * "רמות 2–4") instead of rendering one blank segment per empty level — the
+ * founder's explicit visual-polish ask: a large empty void reads as broken,
+ * a single labeled pill reads as "nothing here on purpose."
+ */
+export function groupRungsForDisplay(rungs: SkillTreeRung[]): DisplaySegment[] {
+  const segments: DisplaySegment[] = [];
+
+  for (const rung of rungs) {
+    if (!rung.isGap) {
+      segments.push({ type: 'node', rung });
+      continue;
+    }
+    const last = segments[segments.length - 1];
+    if (last?.type === 'gap' && last.toLevel === rung.level - 1) {
+      last.toLevel = rung.level;
+    } else {
+      segments.push({ type: 'gap', fromLevel: rung.level, toLevel: rung.level });
+    }
+  }
+
+  return segments;
 }
