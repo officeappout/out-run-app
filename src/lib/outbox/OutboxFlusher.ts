@@ -18,6 +18,16 @@
  * attempts ≥ MAX_ATTEMPTS are kept (never silently dropped) but
  * skipped from auto-flush; a future "retry stuck items" UI can
  * surface them.
+ *
+ * App Check failures are different: they're transient infrastructure,
+ * not a data problem, so they never bump `attempts` and keep retrying
+ * forever (see isAppCheckError() below). Left unchecked this can hold
+ * the "syncing" banner up indefinitely with no user-visible signal —
+ * bumpHealthSampleSoftFailure() records the record's first such failure
+ * instead, and countHealthSamples() (outbox-db.ts) stops counting a
+ * record once that's over an hour old. Purely a display cutoff: it
+ * never touches the `eligible` filter below, so the record keeps being
+ * retried exactly as before.
  */
 
 import { auth } from '@/lib/firebase';
@@ -29,7 +39,9 @@ import {
   deleteHealthSamples,
   deleteWorkout,
   bumpHealthSampleAttempts,
+  bumpHealthSampleSoftFailure,
   bumpWorkoutAttempts,
+  MAX_ATTEMPTS,
   type OutboxHealthSample,
 } from './outbox-db';
 import {
@@ -40,7 +52,6 @@ import { awardWorkoutXP } from '@/lib/awardWorkoutXP';
 import { recordFlushed, recordFlushError } from '@/lib/healthBridge/debugState';
 
 const MAX_HEALTH_BATCH = 200;
-const MAX_ATTEMPTS = 8;
 
 /**
  * Returns true when the thrown error looks like an App Check token failure.
@@ -244,6 +255,7 @@ class FlusherImpl {
             // in debug / TestFlight builds.
             if (isAppCheckError(err)) {
               console.warn('[OutboxFlusher] App Check error — skipping attempt bump, will retry on next flush');
+              await bumpHealthSampleSoftFailure(chunk.map((c) => c.sampleUUID));
               allOk = false;
               passOk = false;
               recordFlushError(err);

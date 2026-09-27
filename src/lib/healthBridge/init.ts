@@ -333,6 +333,7 @@ function buildOutboxSample(
     deviceModel: s.source,
     enqueuedAt,
     attempts: 0,
+    firstSoftFailureAt: null,
   };
 }
 
