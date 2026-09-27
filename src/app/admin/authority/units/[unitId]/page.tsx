@@ -196,6 +196,11 @@ export default function UnitDrilldownPage() {
           return;
         }
 
+        // §13.40 — this page never renders for municipal (the redirect
+        // above always fires first), so every string past this point is
+        // free to vary by vertical with no "zero change" constraint.
+        const resolvedLabels = getTenantLabels(resolvedTenantType as any);
+
         let resolvedUnitName = decodeURIComponent(rawUnitId);
         let resolvedUnitPath: string[] = [];
 
@@ -224,13 +229,13 @@ export default function UnitDrilldownPage() {
             );
             const body = await res.json().catch(() => ({}));
             if (!res.ok) {
-              throw new Error(typeof body.error === 'string' ? body.error : `שגיאה בטעינת פרטי היחידה (${res.status})`);
+              throw new Error(typeof body.error === 'string' ? body.error : `שגיאה בטעינת פרטי ה${resolvedLabels.subUnitSingular} (${res.status})`);
             }
             structureUnits = Array.isArray(body.units) ? body.units : [];
           } catch (fetchErr) {
             console.error('[UnitDrilldown] /api/units/structure failed:', fetchErr);
             setStructureLoadError(
-              fetchErr instanceof Error ? fetchErr.message : 'שגיאה בטעינת פרטי היחידה. נסה שוב.',
+              fetchErr instanceof Error ? fetchErr.message : `שגיאה בטעינת פרטי ה${resolvedLabels.subUnitSingular}. נסה שוב.`,
             );
           }
         }
@@ -271,13 +276,13 @@ export default function UnitDrilldownPage() {
             });
             const body = await res.json().catch(() => ({}));
             if (!res.ok) {
-              throw new Error(typeof body.error === 'string' ? body.error : `שגיאה בטעינת חברי היחידה (${res.status})`);
+              throw new Error(typeof body.error === 'string' ? body.error : `שגיאה בטעינת ${resolvedLabels.membersTitle} ה${resolvedLabels.subUnitSingular} (${res.status})`);
             }
             apiUnitsBlocks = Array.isArray(body.units) ? body.units : [];
           } catch (fetchErr) {
             console.error('[UnitDrilldown] /api/units/members failed:', fetchErr);
             setMembersLoadError(
-              fetchErr instanceof Error ? fetchErr.message : 'שגיאה בטעינת חברי היחידה. נסה שוב.',
+              fetchErr instanceof Error ? fetchErr.message : `שגיאה בטעינת ${resolvedLabels.membersTitle} ה${resolvedLabels.subUnitSingular}. נסה שוב.`,
             );
           }
         }
@@ -591,12 +596,12 @@ export default function UnitDrilldownPage() {
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(typeof body.error === 'string' ? body.error : `שגיאה באישור החבר (${res.status})`);
+        throw new Error(typeof body.error === 'string' ? body.error : `שגיאה באישור ה${labels.memberSingular} (${res.status})`);
       }
       setRetrySeq((s) => s + 1);
     } catch (err) {
       console.error('[UnitDrilldown] /api/units/members/approve failed:', err);
-      setMemberActionError(err instanceof Error ? err.message : 'שגיאה באישור החבר. נסה שוב.');
+      setMemberActionError(err instanceof Error ? err.message : `שגיאה באישור ה${labels.memberSingular}. נסה שוב.`);
     } finally {
       setApprovingUid(null);
     }
@@ -620,13 +625,13 @@ export default function UnitDrilldownPage() {
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(typeof body.error === 'string' ? body.error : `שגיאה בהסרת החבר (${res.status})`);
+        throw new Error(typeof body.error === 'string' ? body.error : `שגיאה בהסרת ה${labels.memberSingular} (${res.status})`);
       }
       setRemoveConfirmMember(null);
       setRetrySeq((s) => s + 1);
     } catch (err) {
       console.error('[UnitDrilldown] /api/units/members/remove failed:', err);
-      setMemberActionError(err instanceof Error ? err.message : 'שגיאה בהסרת החבר. נסה שוב.');
+      setMemberActionError(err instanceof Error ? err.message : `שגיאה בהסרת ה${labels.memberSingular}. נסה שוב.`);
     } finally {
       setRemovingUid(null);
     }
@@ -940,7 +945,7 @@ export default function UnitDrilldownPage() {
               </div>
               <div>
                 <h2 className="text-base font-black text-gray-900">קודי גישה — {unitName}</h2>
-                <p className="text-xs text-slate-500">קודים עבור {labels.membersTitle} להצטרפות ישירה ליחידה זו</p>
+                <p className="text-xs text-slate-500">קודים עבור {labels.membersTitle} להצטרפות ישירה ל{labels.subUnitSingular} זו</p>
               </div>
             </div>
             {generatedCodes.length > 0 && (
@@ -1440,8 +1445,8 @@ export default function UnitDrilldownPage() {
                 <X size={22} className="text-red-500" />
               </div>
               <div>
-                <h2 className="text-lg font-black text-gray-900">הסרת {removeConfirmMember.name} מהיחידה</h2>
-                <p className="text-sm text-slate-500">הפעולה תנתק את השיוך שלו/שלה ליחידה זו.</p>
+                <h2 className="text-lg font-black text-gray-900">הסרת {removeConfirmMember.name} מה{labels.subUnitSingular}</h2>
+                <p className="text-sm text-slate-500">הפעולה תנתק את השיוך שלו/שלה ל{labels.subUnitSingular} זו.</p>
               </div>
             </div>
             {/* Slice G (26.09.2026, §13.32) — David, explicit: the officer
@@ -1454,7 +1459,7 @@ export default function UnitDrilldownPage() {
                 לא ניתן לבטל את הפעולה הזו מהפאנל.
               </p>
               <p className="text-sm text-red-700">
-                {removeConfirmMember.name} לא יוכל/תוכל להצטרף שוב לאותה יחידה, גם אם תשנה את דעתך.
+                {removeConfirmMember.name} לא יוכל/תוכל להצטרף שוב לאותה {labels.subUnitSingular}, גם אם תשנה את דעתך.
               </p>
             </div>
             <div className="flex items-center justify-end gap-3">
@@ -1471,7 +1476,7 @@ export default function UnitDrilldownPage() {
                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold transition-all disabled:opacity-50"
               >
                 {removingUid === removeConfirmMember.uid ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
-                {removingUid === removeConfirmMember.uid ? 'מסיר...' : 'הסר מהיחידה'}
+                {removingUid === removeConfirmMember.uid ? 'מסיר...' : `הסר מה${labels.subUnitSingular}`}
               </button>
             </div>
           </div>

@@ -45,8 +45,11 @@ interface UnitRow {
 // real live user, so the DOCUMENT is deliberately left untouched; this only
 // changes what's rendered). Only applies to a direct-under-brigade unit
 // (unitPath.length === 1) whose name is purely digits.
-function displayUnitName(unit: Pick<UnitRow, 'name' | 'unitPath'>): string {
-  if (unit.unitPath.length === 1 && /^\d+$/.test(unit.name.trim())) {
+// §13.40 — this "גדוד" prefix is a MILITARY-only naming convention
+// (see the comment above). Gated on tenantType: without this, an
+// educational unit named e.g. "7" (a numeric grade) rendered as "גדוד 7".
+function displayUnitName(unit: Pick<UnitRow, 'name' | 'unitPath'>, tenantType: string): string {
+  if (tenantType === 'military' && unit.unitPath.length === 1 && /^\d+$/.test(unit.name.trim())) {
     return `גדוד ${unit.name.trim()}`;
   }
   return unit.name;
@@ -112,6 +115,10 @@ export default function UnitsListPage() {
     let rows: UnitRow[] = [];
     setStructureLoadError(null);
     setMembersLoadError(null);
+    // §13.40 — the vertical just resolved above, not the outer `labels`/
+    // `tenantType` state (still stale mid-load). Used by every error
+    // message inside this function.
+    const derivedLabels = getTenantLabels(derived as any);
 
     if (derived === 'municipal') {
       // Municipal: children are stored as child authorities (neighborhoods / settlements)
@@ -145,7 +152,7 @@ export default function UnitsListPage() {
         });
         const body = await res.json().catch(() => ({}));
         if (!res.ok) {
-          throw new Error(typeof body.error === 'string' ? body.error : `שגיאה בטעינת רשימת היחידות (${res.status})`);
+          throw new Error(typeof body.error === 'string' ? body.error : `שגיאה בטעינת רשימת ${derivedLabels.subUnitsTitle} (${res.status})`);
         }
         const structureUnits: Array<{
           unitId: string; name: string; unitPath: string[];
@@ -165,7 +172,7 @@ export default function UnitsListPage() {
       } catch (fetchErr) {
         console.error('[Units] /api/units/structure failed:', fetchErr);
         setStructureLoadError(
-          fetchErr instanceof Error ? fetchErr.message : 'שגיאה בטעינת רשימת היחידות. נסה שוב.',
+          fetchErr instanceof Error ? fetchErr.message : `שגיאה בטעינת רשימת ${derivedLabels.subUnitsTitle}. נסה שוב.`,
         );
       }
     }
@@ -234,12 +241,12 @@ export default function UnitsListPage() {
         });
         const body = await res.json().catch(() => ({}));
         if (!res.ok) {
-          throw new Error(typeof body.error === 'string' ? body.error : `שגיאה בטעינת מספר החברים (${res.status})`);
+          throw new Error(typeof body.error === 'string' ? body.error : `שגיאה בטעינת מספר ${derivedLabels.membersTitle} (${res.status})`);
         }
         membersBlocks = Array.isArray(body.units) ? body.units : [];
       } catch (fetchErr) {
         console.error('[Units] /api/units/members failed:', fetchErr);
-        setMembersLoadError(fetchErr instanceof Error ? fetchErr.message : 'שגיאה בטעינת מספר החברים. נסה שוב.');
+        setMembersLoadError(fetchErr instanceof Error ? fetchErr.message : `שגיאה בטעינת מספר ${derivedLabels.membersTitle}. נסה שוב.`);
         membersFetchFailed = true;
       }
     }
@@ -409,6 +416,16 @@ export default function UnitsListPage() {
   }, [units]);
 
   const labels = getTenantLabels(tenantType as any);
+  // §13.40 — before an org is picked, `tenantType` state is still its
+  // 'municipal' default (only loadUnitsForAuthority sets the real value),
+  // so the org-picker/overview block (rendered pre-selection) needs its
+  // own label set derived from the URL's ?type= instead.
+  const pickerLabels = getTenantLabels(typeFilter || undefined);
+  // Guards the picker/overview block specifically — municipal must render
+  // BYTE-IDENTICAL to before this slice (David's explicit, mandatory
+  // requirement); never assume a registry value happens to match a
+  // pre-existing hardcoded municipal string.
+  const isMunicipalPicker = !typeFilter || typeFilter === 'municipal';
   const theme = VERTICAL_THEMES[tenantType as TenantType] ?? VERTICAL_THEMES.municipal;
   const isMunicipal = tenantType === 'municipal';
   const childLabel = isMunicipal
@@ -504,7 +521,7 @@ export default function UnitsListPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4">
           <Globe size={20} className="text-cyan-600 flex-shrink-0" />
           <div className="flex-1" style={{ position: 'relative', zIndex: 20 }}>
-            <label className="text-xs font-bold text-slate-500 block mb-1">בחר ארגון</label>
+            <label className="text-xs font-bold text-slate-500 block mb-1">בחר {isMunicipalPicker ? 'ארגון' : pickerLabels.orgSingular}</label>
             <SearchableSelect
               options={allOrgs.map(org => {
                 const name = typeof org.name === 'string' ? org.name : (org.name as any)?.he || org.id;
@@ -518,7 +535,7 @@ export default function UnitsListPage() {
                 await loadUnitsForAuthority(id);
                 setLoading(false);
               }}
-              placeholder="בחר ארגון..."
+              placeholder={isMunicipalPicker ? 'בחר ארגון...' : `בחר ${pickerLabels.orgSingular}...`}
             />
           </div>
         </div>
@@ -533,9 +550,11 @@ export default function UnitsListPage() {
             </div>
             <div>
               <h1 className="text-2xl font-black text-gray-900">
-                {typeFilter === 'military' ? 'סקירת חטיבות' : typeFilter === 'educational' ? 'סקירת בתי ספר' : 'סקירת רשויות'}
+                סקירת {pickerLabels.orgPlural}
               </h1>
-              <p className="text-sm text-slate-400">{allOrgs.length} ארגונים — בחר ארגון לצפייה בהיררכיה</p>
+              <p className="text-sm text-slate-400">
+                {allOrgs.length} {isMunicipalPicker ? 'ארגונים' : pickerLabels.orgPlural} — בחר {isMunicipalPicker ? 'ארגון' : pickerLabels.orgSingular} לצפייה בהיררכיה
+              </p>
             </div>
           </div>
 
@@ -573,7 +592,7 @@ export default function UnitsListPage() {
                       )}
                       <div>
                         <p className="font-black text-gray-900 group-hover:text-cyan-700 transition-colors">{name}</p>
-                        <p className="text-xs text-slate-400">{count} יחידות</p>
+                        <p className="text-xs text-slate-400">{count} {orgVertical === 'municipal' ? 'יחידות' : getTenantLabels(orgVertical).subUnitsTitle}</p>
                       </div>
                     </div>
                     <ChevronLeft size={18} className="text-slate-300 group-hover:text-cyan-500 transition-colors" />
@@ -588,7 +607,7 @@ export default function UnitsListPage() {
       {(selectedOrgId || !isSuperAdmin) && (
       <>
       <AdminBreadcrumb items={[
-        { label: 'ארגונים', href: '/admin/organizations' },
+        { label: isMunicipal ? 'ארגונים' : labels.orgPlural, href: '/admin/organizations' },
         ...(orgDisplayName ? [{ label: orgDisplayName }] : []),
         { label: labels.subUnitsTitle },
       ]} />
@@ -682,7 +701,7 @@ export default function UnitsListPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-5 ${theme.headerBorder} border-r-4`}>
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">
-              {tenantType === 'military' ? 'רשומים (הצהרה עצמית)' : 'משתמשים רשומים'}
+              {tenantType === 'military' ? 'רשומים (הצהרה עצמית)' : tenantType === 'educational' ? `${labels.membersTitle} רשומים` : 'משתמשים רשומים'}
             </p>
             {totalUsers === 'error' ? (
               <p className="text-3xl font-black text-red-400" title="שגיאה בטעינה">—</p>
@@ -729,12 +748,12 @@ export default function UnitsListPage() {
                 <Trash2 size={24} className="text-red-500" />
               </div>
               <div>
-                <h2 className="text-lg font-black text-gray-900">מחיקת כל היחידות</h2>
-                <p className="text-sm text-slate-500">האם למחוק את כל {units.length} היחידות ב-{orgDisplayName}?</p>
+                <h2 className="text-lg font-black text-gray-900">מחיקת כל {labels.subUnitsTitle}</h2>
+                <p className="text-sm text-slate-500">האם למחוק את כל {units.length} {labels.subUnitsTitle} ב-{orgDisplayName}?</p>
               </div>
             </div>
             <div className="bg-red-50 border border-red-200 rounded-xl p-3">
-              <p className="text-sm text-red-700 font-bold">פעולה זו בלתי הפיכה! כל היחידות ותתי-היחידות יימחקו.</p>
+              <p className="text-sm text-red-700 font-bold">פעולה זו בלתי הפיכה! כל {labels.subUnitsTitle} ותתי-ה{labels.subUnitSingular} יימחקו.</p>
             </div>
             <div className="flex items-center justify-end gap-3">
               <button
@@ -770,7 +789,7 @@ export default function UnitsListPage() {
               : <CheckCircle size={16} className="text-green-500 flex-shrink-0" />
             }
             <span className="text-sm font-bold">
-              {importResult.created > 0 && `${importResult.created} יחידות נוצרו בהצלחה.`}
+              {importResult.created > 0 && `${importResult.created} ${labels.subUnitsTitle} נוצרו בהצלחה.`}
               {importResult.errors.length > 0 && ` ${importResult.errors.length} שגיאות: ${importResult.errors[0]}`}
             </span>
           </div>
@@ -796,7 +815,7 @@ export default function UnitsListPage() {
                 </div>
                 <div>
                   <h2 className="text-lg font-black text-gray-900">ייבוא היררכיה מ-JSON</h2>
-                  <p className="text-xs text-slate-500">הדבק את מבנה היחידות בפורמט JSON</p>
+                  <p className="text-xs text-slate-500">הדבק את מבנה {labels.subUnitsTitle} בפורמט JSON</p>
                 </div>
               </div>
               <button
@@ -813,8 +832,8 @@ export default function UnitsListPage() {
               <div className="bg-slate-50 rounded-xl p-3 text-xs text-slate-500 font-mono leading-relaxed" dir="ltr">
                 <span className="text-slate-400">{'{'}</span>{'\n'}
                 {'  '}<span className="text-violet-600">"units"</span>: [{'\n'}
-                {'    '}{'{'} <span className="text-violet-600">"name"</span>: <span className="text-green-600">"גדוד 101"</span>, <span className="text-violet-600">"type"</span>: <span className="text-green-600">"battalion"</span>,{'\n'}
-                {'      '}<span className="text-violet-600">"subUnits"</span>: [{'{'} <span className="text-violet-600">"name"</span>: <span className="text-green-600">"פלוגה א'"</span> {'}'}] {'}'}{'\n'}
+                {'    '}{'{'} <span className="text-violet-600">"name"</span>: <span className="text-green-600">"{labels.hierarchyLabels[1] ?? labels.subUnitSingular} 101"</span>, <span className="text-violet-600">"type"</span>: <span className="text-green-600">"battalion"</span>,{'\n'}
+                {'      '}<span className="text-violet-600">"subUnits"</span>: [{'{'} <span className="text-violet-600">"name"</span>: <span className="text-green-600">"{labels.hierarchyLabels[2] ?? labels.subUnitSingular} א'"</span> {'}'}] {'}'}{'\n'}
                 {'  '}]{'\n'}
                 <span className="text-slate-400">{'}'}</span>
               </div>
@@ -865,7 +884,7 @@ export default function UnitsListPage() {
                   }
 
                   if (!parsed?.units || !Array.isArray(parsed.units) || parsed.units.length === 0) {
-                    setImportParseError('ה-JSON חייב להכיל מערך "units" עם לפחות יחידה אחת.');
+                    setImportParseError(`ה-JSON חייב להכיל מערך "units" עם לפחות ${labels.subUnitSingular} אחת.`);
                     return;
                   }
 
@@ -964,7 +983,7 @@ export default function UnitsListPage() {
                   // second one). Upload/edit lives on the unit's own detail
                   // page, not here — this row is wrapped in a Link, so an
                   // interactive upload control can't live inside it.
-                  <UnitIconBadge unitId={unit.id} iconUrl={unit.iconUrl} name={displayUnitName(unit)} size={40} />
+                  <UnitIconBadge unitId={unit.id} iconUrl={unit.iconUrl} name={displayUnitName(unit, tenantType)} size={40} />
                 ) : (
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
                     tenantType === 'educational' ? 'bg-orange-50' : 'bg-slate-100'
@@ -976,7 +995,7 @@ export default function UnitsListPage() {
                   </div>
                 )}
                 <div>
-                  <p className="font-bold text-slate-800">{displayUnitName(unit)}</p>
+                  <p className="font-bold text-slate-800">{displayUnitName(unit, tenantType)}</p>
                   {unit.unitPath.length > 0 && (
                     <p className="text-[11px] text-slate-400 mt-0.5">
                       {unit.unitPath.join(' › ')}
@@ -986,7 +1005,7 @@ export default function UnitsListPage() {
               </div>
               <div className="flex items-center gap-3">
                 {unit.memberCount === 'error' ? (
-                  <span className="text-sm font-bold text-red-400" title="שגיאה בטעינת מספר החברים">
+                  <span className="text-sm font-bold text-red-400" title={`שגיאה בטעינת מספר ${labels.membersTitle}`}>
                     — {tenantType === 'military' ? 'מוצהרים' : labels.membersTitle}
                   </span>
                 ) : (

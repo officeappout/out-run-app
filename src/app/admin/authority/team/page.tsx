@@ -9,7 +9,7 @@ import { auth, db } from '@/lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
 import { getAuthority, getChildrenByParent, getAllAuthorities } from '@/features/admin/services/authority.service';
-import { authorityTypeToTenantType, orgTypeDisplayName } from '@/features/admin/config/tenantLabels';
+import { authorityTypeToTenantType, orgTypeDisplayName, getTenantLabels } from '@/features/admin/config/tenantLabels';
 import { shouldAutoLoadAuthority } from '@/features/admin/services/authorityUrlContextGuard';
 import SearchableSelect from '@/features/admin/components/SearchableSelect';
 import {
@@ -276,7 +276,7 @@ export default function AuthorityTeamPage() {
   };
 
   const handleRemoveMember = async (uid: string) => {
-    if (!authorityId || !window.confirm('האם להסיר את המשתמש מהצוות?')) return;
+    if (!authorityId || !window.confirm(isMunicipal ? 'האם להסיר את המשתמש מהצוות?' : `האם להסיר את ה${labels.managerSingular}?`)) return;
     setRemovingUid(uid);
     setError('');
 
@@ -294,11 +294,11 @@ export default function AuthorityTeamPage() {
         }
       }
 
-      setSuccess('המשתמש הוסר מהצוות');
+      setSuccess(isMunicipal ? 'המשתמש הוסר מהצוות' : `ה${labels.managerSingular} הוסר/ה`);
       await loadTeamData(authorityId);
     } catch (err: any) {
       console.error('[TeamPage] Remove error:', err);
-      setError(err.message || 'שגיאה בהסרת המשתמש');
+      setError(err.message || (isMunicipal ? 'שגיאה בהסרת המשתמש' : `שגיאה בהסרת ה${labels.managerSingular}`));
     } finally {
       setRemovingUid(null);
     }
@@ -332,6 +332,20 @@ export default function AuthorityTeamPage() {
     );
   }
 
+  // §13.40 — a single vertical-aware label set, derived from the loaded
+  // authority once available, falling back to the URL's ?type= before
+  // that (the empty-state below renders with no authority loaded yet).
+  // No urlType at all → municipal (getTenantLabels' own default), same as
+  // every other vertical-aware screen in this codebase.
+  const derivedTenantType = authority ? authorityTypeToTenantType(authority) : (urlType || 'municipal');
+  const labels = getTenantLabels(derivedTenantType);
+  // Every string below is gated on this: municipal must render BYTE-
+  // IDENTICAL to before this slice (David's explicit, mandatory
+  // requirement) — never assume a registry value happens to match the
+  // pre-existing hardcoded municipal string.
+  const isMunicipal = derivedTenantType === 'municipal';
+  const orgPickerLabel = isMunicipal ? 'ארגון' : labels.orgSingular;
+
   if (!authority) {
     return (
       <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-8" dir="rtl">
@@ -339,7 +353,7 @@ export default function AuthorityTeamPage() {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4">
             <Globe size={20} className="text-cyan-600 flex-shrink-0" />
             <div className="flex-1" style={{ position: 'relative', zIndex: 20 }}>
-              <label className="text-xs font-bold text-slate-500 block mb-1">בחר ארגון</label>
+              <label className="text-xs font-bold text-slate-500 block mb-1">בחר {orgPickerLabel}</label>
               <SearchableSelect
                 options={(() => {
                   const filteredOrgs = urlType
@@ -359,15 +373,19 @@ export default function AuthorityTeamPage() {
                     setLoading(false);
                   }
                 }}
-                placeholder="בחר ארגון..."
+                placeholder={`בחר ${orgPickerLabel}...`}
               />
             </div>
           </div>
         )}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
           <Users size={48} className="mx-auto mb-4 text-slate-200" />
-          <h2 className="text-lg font-black text-slate-700 mb-2">בחר ארגון להצגה</h2>
-          <p className="text-sm text-slate-400">בחר ארגון מהרשימה למעלה כדי לצפות בצוות הניהולי שלו.</p>
+          <h2 className="text-lg font-black text-slate-700 mb-2">בחר {orgPickerLabel} להצגה</h2>
+          <p className="text-sm text-slate-400">
+            {isMunicipal
+              ? 'בחר ארגון מהרשימה למעלה כדי לצפות בצוות הניהולי שלו.'
+              : `בחר ${labels.orgSingular} מהרשימה למעלה כדי לצפות ב${labels.managerTitle}.`}
+          </p>
         </div>
       </div>
     );
@@ -391,7 +409,7 @@ export default function AuthorityTeamPage() {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4">
             <Globe size={20} className="text-cyan-600 flex-shrink-0" />
             <div className="flex-1" style={{ position: 'relative', zIndex: 20 }}>
-              <label className="text-xs font-bold text-slate-500 block mb-1">בחר ארגון</label>
+              <label className="text-xs font-bold text-slate-500 block mb-1">בחר {orgPickerLabel}</label>
               <SearchableSelect
                 options={filteredOrgs.map(org => {
                   const name = typeof org.name === 'string' ? org.name : (org.name as any)?.he || org.id;
@@ -406,7 +424,7 @@ export default function AuthorityTeamPage() {
                     setLoading(false);
                   }
                 }}
-                placeholder="בחר ארגון..."
+                placeholder={`בחר ${orgPickerLabel}...`}
               />
             </div>
           </div>
@@ -414,9 +432,9 @@ export default function AuthorityTeamPage() {
       })()}
 
       <AdminBreadcrumb items={[
-        { label: 'ארגונים', href: '/admin/organizations' },
-        { label: authorityDisplayName || 'ארגון' },
-        { label: 'ניהול צוות' },
+        { label: isMunicipal ? 'ארגונים' : labels.orgPlural, href: '/admin/organizations' },
+        { label: authorityDisplayName || orgPickerLabel },
+        { label: isMunicipal ? 'ניהול צוות' : labels.teamTitle },
       ]} />
 
       {/* Header */}
@@ -424,10 +442,10 @@ export default function AuthorityTeamPage() {
         <div>
           <h1 className="text-2xl md:text-3xl font-black text-gray-900 flex items-center gap-3">
             <Users className="text-cyan-600" size={28} />
-            ניהול צוות
+            {isMunicipal ? 'ניהול צוות' : labels.teamTitle}
           </h1>
           <p className="text-gray-500 mt-1 text-sm">
-            ניהול רכזים ומנהלים עבור <span className="font-bold text-gray-700">{authorityDisplayName}</span>
+            {isMunicipal ? 'ניהול רכזים ומנהלים עבור' : `ניהול ${labels.managerTitle} עבור`} <span className="font-bold text-gray-700">{authorityDisplayName}</span>
           </p>
         </div>
         <button
@@ -435,18 +453,18 @@ export default function AuthorityTeamPage() {
           className="flex items-center gap-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:from-cyan-700 hover:to-blue-700 transition-all shadow-lg shadow-cyan-200/50"
         >
           <UserPlus size={18} />
-          הזמן רכז חדש
+          {isMunicipal ? 'הזמן רכז חדש' : `הזמן ${labels.managerSingular} חדש/ה`}
         </button>
       </div>
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 border-r-4 border-r-cyan-500 p-5">
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">משתמשים רשומים</p>
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">{isMunicipal ? 'משתמשים רשומים' : `${labels.membersTitle} רשומים`}</p>
           <p className="text-3xl font-black text-slate-800">{totalUsers}</p>
         </div>
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 border-r-4 border-r-cyan-500 p-5">
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">יחידות / שכונות</p>
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">{isMunicipal ? 'יחידות / שכונות' : labels.subUnitsTitle}</p>
           <p className="text-3xl font-black text-slate-800">{totalSubUnits}</p>
         </div>
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 border-r-4 border-r-cyan-500 p-5">
@@ -499,14 +517,18 @@ export default function AuthorityTeamPage() {
         <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
           <h2 className="font-bold text-gray-800 flex items-center gap-2">
             <Shield size={18} className="text-cyan-600" />
-            חברי צוות פעילים ({teamMembers.length})
+            {isMunicipal ? 'חברי צוות' : labels.managerTitle} פעילים ({teamMembers.length})
           </h2>
         </div>
 
         {teamMembers.length === 0 ? (
           <div className="p-8 text-center text-gray-400">
             <Users size={40} className="mx-auto mb-3 text-gray-300" />
-            <p>אין חברי צוות עדיין. הזמן רכזים כדי להתחיל.</p>
+            <p>
+              {isMunicipal
+                ? 'אין חברי צוות עדיין. הזמן רכזים כדי להתחיל.'
+                : `אין ${labels.managerTitle} עדיין. הזמן ${labels.managerSingular} כדי להתחיל.`}
+            </p>
           </div>
         ) : (
           <div className="divide-y divide-gray-50">
@@ -552,7 +574,7 @@ export default function AuthorityTeamPage() {
                       onClick={() => handleRemoveMember(member.uid)}
                       disabled={removingUid === member.uid}
                       className="text-red-400 hover:text-red-600 transition-colors p-1.5 rounded-lg hover:bg-red-50 disabled:opacity-50"
-                      title="הסר מהצוות"
+                      title={isMunicipal ? 'הסר מהצוות' : `הסר ${labels.managerSingular}`}
                     >
                       {removingUid === member.uid ? (
                         <Loader2 size={16} className="animate-spin" />

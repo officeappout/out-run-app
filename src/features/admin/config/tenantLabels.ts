@@ -14,6 +14,22 @@ export interface TenantLabelSet {
   readinessTitle: string;
   dashboardTitle: string;
   hierarchyLabels: string[];
+  /**
+   * §13.40 (27.09.2026) — the people who MANAGE this org in the admin
+   * panel (team/page.tsx's "team members"), NOT the general population.
+   * A distinct axis from membersTitle/memberSingular (חיילים/תלמידים/
+   * תושבים = the org's members) — e.g. military managerTitle='קצינים' vs
+   * membersTitle='חיילים'. Every prior use of "רכזים"/"רכז" on
+   * team/page.tsx meant THIS axis, always municipal-worded regardless of
+   * vertical — that's the bug this field exists to fix.
+   */
+  managerTitle: string;
+  managerSingular: string;
+  /** team/page.tsx's own page title — must match the sidebar's per-vertical link label (admin/layout.tsx) */
+  teamTitle: string;
+  /** The org itself — for org-picker labels/placeholders and breadcrumb roots (municipal: רשות, military: חטיבה, educational: בית ספר) */
+  orgSingular: string;
+  orgPlural: string;
 }
 
 /** Visual theme color tokens per vertical */
@@ -87,6 +103,11 @@ export const TENANT_LABELS: Record<TenantType, TenantLabelSet> = {
     readinessTitle: 'מדד בריאות',
     dashboardTitle: 'דשבורד עירוני',
     hierarchyLabels: ['עיר', 'שכונה'],
+    managerTitle: 'רכזים',
+    managerSingular: 'רכז',
+    teamTitle: 'ניהול צוות רשותי',
+    orgSingular: 'רשות',
+    orgPlural: 'רשויות',
   },
   military: {
     orgTypeLabel: 'צבאי',
@@ -99,6 +120,11 @@ export const TENANT_LABELS: Record<TenantType, TenantLabelSet> = {
     readinessTitle: 'כשירות',
     dashboardTitle: 'דשבורד כשירות',
     hierarchyLabels: ['חטיבה', 'גדוד', 'פלוגה', 'מחלקה'],
+    managerTitle: 'קצינים',
+    managerSingular: 'קצין',
+    teamTitle: 'ניהול צוות צבאי',
+    orgSingular: 'חטיבה',
+    orgPlural: 'חטיבות',
   },
   educational: {
     orgTypeLabel: 'חינוכי',
@@ -111,6 +137,15 @@ export const TENANT_LABELS: Record<TenantType, TenantLabelSet> = {
     readinessTitle: 'ציוני חנ"ג',
     dashboardTitle: 'דשבורד בית ספר',
     hierarchyLabels: ['בית ספר', 'שכבה', 'כיתה'],
+    // §13.40 — proposed by pattern-match with the existing portalTitle
+    // ('מורה לחנ"ג'), not from an explicit instruction — flagged for
+    // confirmation in the completion report, same as the officer-title
+    // equivalents in §13.40's item 1.
+    managerTitle: 'רכזי חנ"ג',
+    managerSingular: 'רכז חנ"ג',
+    teamTitle: 'ניהול צוות בית ספר',
+    orgSingular: 'בית ספר',
+    orgPlural: 'בתי ספר',
   },
   company: {
     orgTypeLabel: 'ארגון',
@@ -123,6 +158,11 @@ export const TENANT_LABELS: Record<TenantType, TenantLabelSet> = {
     readinessTitle: 'מדד בריאות',
     dashboardTitle: 'דשבורד ארגוני',
     hierarchyLabels: ['חברה', 'מחלקה', 'צוות'],
+    managerTitle: 'מנהלים',
+    managerSingular: 'מנהל',
+    teamTitle: 'ניהול צוות ארגוני',
+    orgSingular: 'חברה',
+    orgPlural: 'חברות',
   },
   youth_movement: {
     orgTypeLabel: 'תנועת נוער',
@@ -135,6 +175,11 @@ export const TENANT_LABELS: Record<TenantType, TenantLabelSet> = {
     readinessTitle: 'מדד פעילות',
     dashboardTitle: 'דשבורד תנועה',
     hierarchyLabels: ['תנועה', 'מחוז', 'קן', 'שכבה'],
+    managerTitle: 'רכזים',
+    managerSingular: 'רכז',
+    teamTitle: 'ניהול צוות תנועה',
+    orgSingular: 'תנועה',
+    orgPlural: 'תנועות',
   },
 };
 
