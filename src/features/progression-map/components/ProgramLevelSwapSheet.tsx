@@ -23,7 +23,7 @@
  */
 import { useEffect, useState } from 'react';
 import { X, Dumbbell } from 'lucide-react';
-import { getLocalizedText, resolveImageForLocation, ExecutionLocation, type Exercise } from '@/features/content/exercises';
+import { getLocalizedText, ExecutionLocation, type Exercise } from '@/features/content/exercises';
 import { UserFullProfile } from '@/types/user-profile';
 import { Park } from '@/types/admin-types';
 import { useExerciseLibraryStore } from '@/features/content/exercises/client/store/useExerciseLibraryStore';
@@ -32,6 +32,7 @@ import {
   getSameProgramLevelExercises,
   type SameLevelExerciseOption,
 } from '../services/program-level-swap-query';
+import { resolveTreeNodeImage } from '../services/resolve-tree-node-image';
 
 const IMAGE_PLACEHOLDER = '/images/park-placeholder.svg';
 
@@ -57,13 +58,13 @@ function SwapCard({
   onTap: () => void;
 }) {
   const name = getLocalizedText(option.exercise.name, 'he');
-  // Same resolver + fallback policy as TreeNode: park first, home if this
-  // exercise genuinely has no park variant — never a blank card.
+  // Same resolver + fallback policy as TreeNode: park image, else a
+  // park-video-thumbnail derivation, else home — never a blank card.
   const [imgFailed, setImgFailed] = useState(false);
   useEffect(() => {
     setImgFailed(false);
   }, [option.exercise.id]);
-  const resolvedUrl = resolveImageForLocation(option.exercise, 'park');
+  const resolvedUrl = resolveTreeNodeImage(option.exercise);
   const imageUrl = imgFailed || !resolvedUrl ? IMAGE_PLACEHOLDER : resolvedUrl;
   const method = option.selectedExecutionMethod;
   const rawGearIds: string[] = [

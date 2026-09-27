@@ -25,13 +25,20 @@
  * plain caption below it.
  *
  * Round 4 (image resolution, reverted from round 3's stricter version):
- * back to resolveImageForLocation(exercise, 'park') — the founder's explicit
- * call: try park first, but if an exercise genuinely has no park variant,
- * a home photo beats a blank/placeholder card. Round 3's resolveParkNodeImage
- * (exact-park-only, placeholder if none) solved a different problem —
- * avoiding a MISLEADING wrong-location photo — that turned out to matter
- * less than "always show something real." Removed that resolver rather than
- * keep unused code around.
+ * park-first-but-fall-back-to-home — the founder's explicit call: if an
+ * exercise genuinely has no park variant, a home photo beats a blank/
+ * placeholder card. Round 3's resolveParkNodeImage (exact-park-only,
+ * placeholder if none) solved a different problem — avoiding a MISLEADING
+ * wrong-location photo — that turned out to matter less than "always show
+ * something real." Removed that resolver rather than keep unused code around.
+ *
+ * Round 5: the canonical resolveImageForLocation only derives a park image
+ * from a park method's previewVideo or imageUrl — never from mainVideoUrl —
+ * so an exercise with a park VIDEO but no park image variant fell straight
+ * through to the home fallback. resolveTreeNodeImage (resolve-tree-node-
+ * image.ts) adds one more tier before giving up on park: derive a Bunny
+ * thumbnail from the park method's mainVideoUrl. Falls through to the same
+ * canonical park-then-home waterfall when that's not derivable either.
  *
  * The image-load failure is tracked in React state (imgFailed), not a raw
  * `e.target.src = ...` DOM patch — a plain DOM mutation on error can get
@@ -44,7 +51,8 @@
  */
 import { useEffect, useState } from 'react';
 import { Check, Lock, Crown } from 'lucide-react';
-import { Exercise, getLocalizedText, resolveImageForLocation } from '@/features/content/exercises';
+import { Exercise, getLocalizedText } from '@/features/content/exercises';
+import { resolveTreeNodeImage } from '../services/resolve-tree-node-image';
 import { SwapPill } from './SwapPill';
 
 export type TreeNodeState = 'done' | 'current' | 'locked' | 'target';
@@ -89,7 +97,7 @@ export function TreeNode({
     setImgFailed(false);
   }, [exercise.id]);
 
-  const resolvedUrl = resolveImageForLocation(exercise, 'park');
+  const resolvedUrl = resolveTreeNodeImage(exercise);
   const imageUrl = imgFailed || !resolvedUrl ? IMAGE_PLACEHOLDER : resolvedUrl;
 
   return (
