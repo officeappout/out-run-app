@@ -177,7 +177,14 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
   const location = 'park' as const;
 
   return (
-    <div className="relative min-h-screen" dir="rtl">
+    // isolate is load-bearing, not decorative: `relative` alone does NOT
+    // create a new stacking context (only position + a z-index does), so
+    // SkillTreeBackground's -z-10 layer was escaping past this component
+    // entirely and painting behind <body>'s own opaque background
+    // (globals.css: #F8FAFC) instead of just behind header/main below —
+    // confirmed the actual bug (that pale gray IS what was showing through
+    // as "the plain tint"), not a missing/404'd asset or an opacity issue.
+    <div className="relative isolate min-h-screen" dir="rtl">
       <SkillTreeBackground />
 
       <header className="sticky top-0 z-10 bg-white/90 backdrop-blur-sm border-b border-gray-100 px-4 py-3">
