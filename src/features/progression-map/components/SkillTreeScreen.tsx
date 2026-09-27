@@ -40,6 +40,23 @@
  * Intercepting Routes for this modal — a real architecture change, out of
  * scope for this pass — so that specific path still can't be certified
  * from static code alone. Needs a real-device check.
+ *
+ * Round 3 — the sheet also close/reopened in a loop. Traced (not guessed)
+ * to a concrete, evidenced cause: MasterExerciseView has its own internal
+ * "seed"/"re-seed" method-selection effect, keyed on its filterLocation
+ * prop, that console.logs every time it fires — a log line that matches
+ * exactly what was described as "re-seed churn" showing up in the console.
+ * The park-forcing effect below WAS mutating useExerciseLibraryStore's
+ * GLOBAL filters.location on mount and restoring it on unmount — a shared
+ * value every mounted consumer of that store reads, MasterExerciseView's
+ * re-seed effect included. That global mutate/restore effect is removed
+ * entirely (not patched): ExerciseDetailSheet now takes a local
+ * `locationOverride` prop instead, so this screen's forced 'park' never
+ * touches shared state and can't fight with — or get fought over by —
+ * anything else reading that same global filter. closeDetail also now
+ * clears selectedExercise, not just isDetailOpen, as a second, independent
+ * hardening against any "selection implies open" pattern resurrecting a
+ * closed sheet.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -73,7 +90,6 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
   const openExerciseDetail = useExerciseLibraryStore((s) => s.openDetail);
   const isDetailOpen = useExerciseLibraryStore((s) => s.isDetailOpen);
   const closeExerciseDetail = useExerciseLibraryStore((s) => s.closeDetail);
-  const setFilterLocation = useExerciseLibraryStore((s) => s.setFilterLocation);
   const { tree, currentLevel, isLoading } = useSkillTree(programId);
   const [programMeta, setProgramMeta] = useState<Program | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -103,22 +119,6 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
   useEffect(() => {
     return () => {
       closeExerciseDetail();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Force the park execution-method for every node image AND for the
-  // exercise-detail sheet's video/image when it opens from this screen —
-  // ExerciseDetailSheet reads useExerciseLibraryStore's GLOBAL
-  // filters.location, which this screen doesn't otherwise touch, so without
-  // this it would silently inherit whatever the user last set in the actual
-  // library (e.g. 'home'), showing the wrong variant. Restore whatever it
-  // was on unmount so a real library visit later isn't left stuck on 'park'.
-  useEffect(() => {
-    const previous = useExerciseLibraryStore.getState().filters.location;
-    setFilterLocation('park');
-    return () => {
-      setFilterLocation(previous);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -171,9 +171,11 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
       }
     : null;
 
-  // Confirmed (not just defaulted): every node image AND the exercise-detail
-  // sheet's video/image must resolve the PARK execution-method, never home —
-  // see the filters.location effect above for the detail-sheet half of this.
+  // Confirmed: every node image resolves via resolveParkNodeImage (park-only,
+  // never falls back to a wrong-location legacy photo — see TreeNode.tsx),
+  // and the exercise-detail sheet gets 'park' via its own locationOverride
+  // prop above — this local constant is only still needed for the swap
+  // sheet's gear/method-selection query below.
   const location = 'park' as const;
 
   return (
@@ -244,7 +246,6 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
           <TreePath
             tree={displayTree}
             currentLevel={currentLevel}
-            location={location}
             onNodeTap={(rung: SkillTreeRung, state: TreeNodeState) => {
               if (!rung.representative) return;
               openExerciseDetail(rung.representative, state === 'locked' ? LOCKED_NOTICE : null);
@@ -254,9 +255,12 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
         )}
       </main>
 
-      {/* Reused verbatim, mounted here since it otherwise only exists inside
-          ExerciseLibraryPage — driven entirely by useExerciseLibraryStore. */}
-      <ExerciseDetailSheet />
+      {/* Mounted here since it otherwise only exists inside ExerciseLibraryPage
+          — driven by useExerciseLibraryStore. locationOverride="park" is a
+          LOCAL prop, not a write to the shared global filter (round 3 —
+          see the header comment for why the global-mutation version was
+          removed rather than patched). */}
+      <ExerciseDetailSheet locationOverride="park" />
 
       {drawerData && <ProgramDrawer program={drawerOpen ? drawerData : null} onClose={() => setDrawerOpen(false)} />}
 
