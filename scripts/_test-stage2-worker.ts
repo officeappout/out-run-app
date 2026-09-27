@@ -32,6 +32,7 @@ async function main() {
   const col = db.collection(CITY_MAPPING_DISCOVERY_RUNS_COLLECTION);
 
   const ref = await col.add({
+    jobType: 'city-discovery',
     regionKey: 'herzliya',
     apply: false,
     requestedByUid: 'stage2-direct-invocation-test',
@@ -75,6 +76,7 @@ async function main() {
   const routesBefore = (await db.collection('official_routes').where('city', '==', 'הרצליה').count().get()).data().count;
 
   const unauthorizedRef = await col.add({
+    jobType: 'city-discovery',
     regionKey: 'herzliya',
     apply: true,
     requestedByUid: 'stage2-test-non-superadmin-uid', // deliberately a nonexistent uid — fails both the Admin Auth email lookup and the Firestore users/{uid}.core check, exactly like a real non-superAdmin would

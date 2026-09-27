@@ -1,9 +1,10 @@
 // Stage 2 PROD smoke test — creates a real city_mapping_discovery_runs doc
-// and waits for the REAL deployed Cloud Functions (onCityMappingDiscoveryRunCreated
-// -> Cloud Tasks -> onCityMappingDiscoveryDispatch) to process it end to end.
-// Unlike the earlier local tests, this script never imports/calls
+// and waits for the REAL deployed cityMappingDiscoveryPoller (scheduled,
+// every 5 min — not a trigger, see geoDiscoveryWorker.ts's header for why
+// this moved off Cloud Tasks on 27.09.2026) to pick it up and process it end
+// to end. Unlike the earlier local tests, this script never imports/calls
 // processDiscoveryRun itself — it only reads/writes Firestore and watches,
-// so every transition observed here is the real production trigger chain.
+// so every transition observed here is the real production poller.
 import * as dotenv from 'dotenv'; dotenv.config({ path: '.env.local' }); dotenv.config();
 import * as admin from 'firebase-admin';
 
@@ -22,6 +23,7 @@ async function main() {
   const col = db.collection('city_mapping_discovery_runs');
   const createT0 = Date.now();
   const ref = await col.add({
+    jobType: 'city-discovery',
     regionKey: 'herzliya',
     apply: false,
     requestedByUid: 'stage2-prod-smoke-test',
@@ -29,13 +31,13 @@ async function main() {
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   });
   console.log(`created PROD smoke-test run doc: ${ref.id}`);
-  console.log('waiting for the REAL deployed onCityMappingDiscoveryRunCreated trigger to fire...\n');
+  console.log('waiting for the REAL deployed cityMappingDiscoveryPoller to pick it up (up to ~5min) and finish (up to ~30min)...\n');
 
   const seenStatuses: string[] = [];
   const timestamps: Record<string, number> = {};
 
   await new Promise<void>((resolve, reject) => {
-    const timeoutMs = 35 * 60 * 1000; // 35min hard ceiling: 1800s dispatch budget + trigger/queue latency slack
+    const timeoutMs = 35 * 60 * 1000; // 35min hard ceiling: up to 5min poller cadence + 1800s (30min) run budget
     const timeout = setTimeout(() => {
       unsubscribe();
       reject(new Error(`TIMEOUT after ${((Date.now() - createT0) / 1000).toFixed(1)}s — run never resolved to succeeded/failed. Seen statuses: ${seenStatuses.join(' -> ')}`));
