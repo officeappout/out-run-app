@@ -16,16 +16,18 @@ import {
   AlertCircle,
   Eye,
   RefreshCw,
-  Copy,
-  Check,
+  Compass,
   ExternalLink,
   Plus,
 } from 'lucide-react';
 import {
   runCityMapping,
+  triggerRouteDiscovery,
+  subscribeToDiscoveryRun,
   type CityMappingProgressUpdate,
   type CityMappingStepName,
   type CityMappingResult,
+  type CityMappingDiscoveryRunDoc,
 } from '@/features/admin/services/city-mapping-orchestrator';
 import {
   loadDistinctRouteCities,
@@ -72,14 +74,6 @@ const AMENITY_CATEGORY_LABELS: Record<AmenityCategory, string> = {
   dog_park: 'גני כלבים',
 };
 
-/** Pulls the actual `npx tsx ...` command out of routesGate's 0-routes
- *  message (see city-mapping-orchestrator.ts's exact string) — stops at the
- *  first comma, which is exactly where the command ends in that message. */
-function extractCliCommand(message: string): string | null {
-  const match = message.match(/npx tsx [^,]+/);
-  return match ? match[0] : null;
-}
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function CityMappingPage() {
@@ -90,6 +84,7 @@ export default function CityMappingPage() {
   // auth finding: this page must not rely on page-reachability alone. ──
   const [authChecked, setAuthChecked] = useState(false);
   const [authorized, setAuthorized] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -98,6 +93,7 @@ export default function CityMappingPage() {
         const roleInfo = await checkUserRole(user.uid);
         const isSA = !!roleInfo.isSuperAdmin || !!roleInfo.isSystemAdmin;
         if (!isSA) { router.push('/admin'); return; }
+        setCurrentUserId(user.uid);
         setAuthorized(true);
       } catch (error) {
         console.error('Error checking authorization:', error);
@@ -207,7 +203,18 @@ export default function CityMappingPage() {
   const [running, setRunning] = useState(false);
   const [runResult, setRunResult] = useState<CityMappingResult | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+
+  // ── Discovery trigger (routesGate blocked panel) ──
+  const [discoveryTriggering, setDiscoveryTriggering] = useState(false);
+  const [discoveryTriggerError, setDiscoveryTriggerError] = useState<string | null>(null);
+  const [discoveryRunId, setDiscoveryRunId] = useState<string | null>(null);
+  const [discoveryRun, setDiscoveryRun] = useState<CityMappingDiscoveryRunDoc | null>(null);
+
+  useEffect(() => {
+    if (!discoveryRunId) return;
+    const unsubscribe = subscribeToDiscoveryRun(discoveryRunId, setDiscoveryRun);
+    return unsubscribe;
+  }, [discoveryRunId]);
 
   const onProgress = useCallback((update: CityMappingProgressUpdate) => {
     setSteps((prev) =>
@@ -239,19 +246,36 @@ export default function CityMappingPage() {
     }
   }
 
-  async function handleCopyCommand(cmd: string) {
+  async function handleTriggerDiscovery() {
+    if (!summary?.registeredCity || !currentUserId || discoveryTriggering) return;
+    const apply = !dryRun; // same toggle that already governs the rest of this page's pipeline — no new UI
+    if (apply) {
+      // Real production write (creates status:'pending', published:false
+      // official_routes docs — never auto-published, but a real write all
+      // the same) — shown for confirmation with the record name, matching
+      // this app's convention for any production write.
+      const confirmed = window.confirm(
+        `הרצת גילוי אמיתית (לא dry-run) על "${city.trim()}" (city_registrations/${summary.registeredCity.key}).\n\n` +
+        `מסלולים שיימצאו ייכתבו ל-official_routes כ-status:'pending', published:false — לא יפורסמו אוטומטית, אבל זו כתיבה אמיתית לפרודקשן.\n\n` +
+        `להמשיך?`
+      );
+      if (!confirmed) return;
+    }
+    setDiscoveryTriggering(true);
+    setDiscoveryTriggerError(null);
     try {
-      await navigator.clipboard.writeText(cmd);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // clipboard unavailable — the command text is still visible/selectable
+      const runId = await triggerRouteDiscovery(summary.registeredCity.key, apply, currentUserId);
+      setDiscoveryRun(null); // clear any previous run's leftover state before the new subscription attaches
+      setDiscoveryRunId(runId);
+    } catch (err) {
+      setDiscoveryTriggerError((err as Error).message ?? 'שגיאה בהפעלת הגילוי');
+    } finally {
+      setDiscoveryTriggering(false);
     }
   }
 
   const routesGateStep = steps.find((s) => s.id === 'routesGate');
   const routesGateBlocked = routesGateStep?.status === 'error';
-  const routesGateCliCommand = routesGateStep?.message ? extractCliCommand(routesGateStep.message) : null;
 
   if (!authChecked || !authorized) {
     return (
@@ -526,24 +550,59 @@ export default function CityMappingPage() {
             <AlertCircle size={18} />
             שער המסלולים חסם את הריצה
           </div>
-          <p className="text-sm text-amber-900">{routesGateStep.message}</p>
-          {routesGateCliCommand && (
+          <p className="text-sm text-amber-900">אין עדיין מסלולים לעיר זו — צריך להריץ גילוי מסלולים (OSM) לפני שהעשרת השכבות יכולה להתחיל.</p>
+
+          {!summary?.registeredCity && (
+            <p className="text-xs text-amber-800">
+              לא נמצאה רשומת עיר תואמת (city_registrations) — הגילוי צריך אותה כדי לדעת את גבול החיפוש. יש לרשום את העיר קודם דרך{' '}
+              <Link href="/admin/city-mapping/add" className="font-black underline">הוסף עיר חדשה</Link>.
+            </p>
+          )}
+
+          {summary?.registeredCity && (
             <div className="space-y-2">
-              <div className="bg-gray-950 rounded-xl p-3 font-mono text-xs text-green-400 overflow-x-auto" dir="ltr">
-                {routesGateCliCommand}
-              </div>
               <button
-                onClick={() => handleCopyCommand(routesGateCliCommand)}
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 hover:text-amber-950"
+                onClick={handleTriggerDiscovery}
+                disabled={discoveryTriggering || !currentUserId || (discoveryRun?.status === 'pending' || discoveryRun?.status === 'running')}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-black transition-colors"
               >
-                {copied ? <Check size={13} /> : <Copy size={13} />}
-                {copied ? 'הועתק' : 'העתק פקודה'}
+                {discoveryTriggering ? <Loader2 size={16} className="animate-spin" /> : <Compass size={16} />}
+                {discoveryTriggering ? 'שולח...' : 'הרץ גילוי'}
               </button>
+              <p className="text-xs text-amber-800">
+                {dryRun
+                  ? <>Dry Run מסומן למעלה — בודק מה היה נמצא באזור {summary.registeredCity.key} בלי לכתוב כלום. כבו את Dry Run כדי לכתוב מסלולים בפועל.</>
+                  : <>Dry Run כבוי — כותב מסלולים אמיתיים ל-official_routes (status:&apos;pending&apos;, לא מפורסמים) על אזור {summary.registeredCity.key}. תוצג בקשת אישור.</>}
+                {' '}נאסף אוטומטית תוך כ-5 דקות, ולוקח עד כ-19 דקות להסתיים.
+              </p>
+              {discoveryTriggerError && (
+                <p className="text-xs text-red-700 flex items-center gap-1.5"><AlertCircle size={13} />{discoveryTriggerError}</p>
+              )}
+
+              {discoveryRunId && discoveryRun && (
+                <div className="bg-white border border-amber-200 rounded-xl p-3 space-y-1.5">
+                  <div className="flex items-center gap-2 text-xs font-black">
+                    {discoveryRun.status === 'pending' && <><Loader2 size={13} className="animate-spin text-amber-500" /> <span className="text-amber-700">ממתין לאיסוף על ידי ה-poller...</span></>}
+                    {discoveryRun.status === 'running' && <><Loader2 size={13} className="animate-spin text-teal-500" /> <span className="text-teal-700">רץ עכשיו (עד כ-19 דקות)...</span></>}
+                    {discoveryRun.status === 'succeeded' && <><CheckCircle2 size={13} className="text-green-600" /> <span className="text-green-700">הושלם</span></>}
+                    {discoveryRun.status === 'failed' && <><AlertCircle size={13} className="text-red-600" /> <span className="text-red-700">נכשל</span></>}
+                  </div>
+                  {discoveryRun.status === 'succeeded' && (
+                    <p className="text-xs text-gray-600">
+                      {discoveryRun.apply
+                        ? <>{discoveryRun.keptCount} מסלול/ים נכתבו כ-pending ל-official_routes</>
+                        : <>{discoveryRun.keptCount} מסלול/ים היו נכתבים (Dry Run — לא נכתב כלום בפועל)</>}
+                      , {discoveryRun.droppedCount} נדחו. {discoveryRun.summary}
+                      {discoveryRun.apply && <> — לחצו &quot;הרץ&quot; למעלה כדי להמשיך את הצינור.</>}
+                    </p>
+                  )}
+                  {discoveryRun.status === 'failed' && (
+                    <p className="text-xs text-red-700">{discoveryRun.errorMessage}</p>
+                  )}
+                </div>
+              )}
             </div>
           )}
-          <p className="text-xs text-amber-800">
-            יש להריץ פקודה זו בטרמינל של הפרויקט, ולאחר סיומה ללחוץ שוב על &quot;הרץ&quot; למעלה עם אותו שם עיר בדיוק.
-          </p>
         </div>
       )}
 
