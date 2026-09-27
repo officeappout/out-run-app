@@ -1919,3 +1919,31 @@ educational: [
 **חינוכי מושפע באופן זהה** — אין שום שער-הגנה ספציפי-לעירוני שמגן על חינוכי מהבאג הזה; אותו קוד, אותה בעיה.
 
 **סטטוס: דיווח בלבד. לא נבנה. ממתין להחלטת דוד** — האם לאשר בנייה, ואם כן: האם לאשר את השינוי הסמנטי ל"פעילים ב-7 ימים" (התאמנו במקום התחברו), או להשאיר "0" מוצג כ-`'error'` (כמו בשאר המסכים) עד שיבנה endpoint נפרד ל-login-recency.
+
+**הערה על §13.43/§13.44:** נכתבו במקור על ענף `fix/layout-unit-admin-auth-gate` (P0-1) ומתועדים שם; הענף הזה (P0-2, `fix/user-doc-self-heal-panel-scope`) נחתך מ-`origin/main` **לפני** ש-P0-1 מוזג, ולכן §13.43/§13.44 עדיין לא מופיעים כאן — יופיעו כשהענפים יתמזגו. §13.45 להלן הוא תיעוד P0-2 בלבד.
+
+### 13.45 — P0-2: הדפדפן מפסיק ליצור מסמכי-משתמש בפאנל; פיצול-לוגים; הערת-הגנה (27.09.2026)
+
+**ענף `fix/user-doc-self-heal-panel-scope`, מ-`origin/main` @ (יעודכן במיזוג). בנייה בלבד — טרם ממוזג, ממתין לאישור דוד. תלוי-הקשר ב-§13.43 (החקירה) — ראו את הענף המקביל, `fix/layout-unit-admin-auth-gate`, לרקע המלא.**
+
+**חלק א' — בדיקה-לפני-מחיקה, כפי שדוד דרש במפורש:** `getUserFromFirestore` (`src/lib/firestore.service.ts`) **אינו** פונקציה ייעודית-לפאנל — נמצאו **26 קריאה** לה ברחבי הקוד, מתוכן **8 מחוץ לפאנל** (`src/app/home/page.tsx`, `src/app/profile/page.tsx`, `src/features/user/identity/store/useUserStore.ts`, `src/features/user/onboarding/components/OnboardingWizard.tsx` ועוד) — **זרימת-onboarding אמיתית של אפליקציית-המובייל**, מתועדת בקומנט הפונקציה עצמה: "creates a new default user document and restarts their onboarding (instead of logging them out)". **מחיקה גורפת הייתה שוברת אונבורדינג אמיתי.** הפתרון: לא מחיקה — פרמטר-אופציונלי חדש `{ allowSelfHeal?: boolean }`, ברירת-מחדל `true` (**אפס שינוי** לכל קורא קיים, כולל מובייל). **19 קריאות פאנל אמיתיות** (מתחת ל-`src/app/admin/` ו-`src/features/admin/` בלבד — חלוקה נקייה, אימתתי) עודכנו במפורש ל-`{ allowSelfHeal: false }`. קריאה 20-ית, ב-`invitation.service.ts:520`, **לא נגעה בכוונה** — מתויגת `@deprecated SUPERSEDED 22.09.2026 — no live caller` בקוד עצמו, מאומת עם grep שאין קורא.
+
+**חלק ב' — פיצול-לוגים (getUserFromFirestore):** `catch` אחד שכיסה `getDoc` ו-`setDoc` גם יחד פוצל לשלושה: קריאה נכשלת → `Error READING user from Firestore`; עיבוד-הנתונים נכשל (נדיר, לא I/O) → `Error processing user data from Firestore`; יצירת-הסטאב נכשלת → `Error CREATING (self-heal) user document in Firestore`. כשל-כתיבה כשל-self-heal מושבת (`allowSelfHeal:false`) כבר לא מנסה כתיבה בכלל — מדפיס הודעה מפורשת ("self-heal disabled for this caller") ומחזיר `null` בלי לגעת ב-Firestore.
+
+**חלק ג' — הערת-הגנה ב-`firestore.rules`:** נוספה הערה בלבד (לא נגעתי בלוגיקת-החוק עצמה — אומת ב-`git diff`, ואומת שה-rules עדיין נטענות תקין באמולטור) ליד חוק ה-`create` על `users/{userId}`, מסבירה שהתנאי `core.role==''` הוא **הגנה מכוונת**, לא פער-לתיקון: מתעד את התקרית האמיתית (מרוץ בין קריאת-layout לטרנזקציית-accept), ומזהיר במפורש לא להחליש את החוק — התיקון בצד-הקורא, לא בצד-החוק.
+
+**מגבלת-בדיקות מוצהרת:** `getUserFromFirestore` הוא client-SDK (Firebase Auth + Firestore client), לא ניתן ל-unit-test ישירות מאותה סיבה מבנית שכל עמודי-הפאנל לא ניתנים (נבדק בעבר השבוע לגבי `getInvitationsByAuthority` — אותה מגבלה). לא נבנה טסט ייעודי לשינוי הזה; ההוכחה היא tsc+vitest מלא (regression, לא coverage חדש) + הבדיקה החיה של דוד שתבוא.
+
+**tsc מלא מול baseline מדויק:** 804/804, שינויי-סדר-איחוד קיימים-מראש בלבד, אפס קובץ חדש עם שגיאות. vitest מלא (אמולטור טרי): `5 failed | 2340 passed (2345)` — זהה ל-baseline P0-1, אפס רגרסיה (לא נוספו טסטים חדשים לחלק הזה, כמתועד למעלה).
+
+**חלק ד' — הצעה בלבד, לא בוצעה, ממתינה לאישור דוד:** מנגנון-רענון להרשאה-שנתקעת, בלי לגעת ב-`useEffect` עם ה-deps הריקים ב-`admin/layout.tsx` (מכוון, כפי שדוד ציין).
+
+**ההצעה:** אות-רענון קליל, מודול חדש (למשל `src/features/admin/services/roleRefreshSignal.ts`) — `requestRoleRefresh()` (dispatch) ו-`onRoleRefreshRequested(callback)` (subscribe), בלי תלות חדשה. שני שינויים בלבד:
+1. `admin/auth/callback/page.tsx` — מיד אחרי ש-`POST /api/auth/accept-invitation` מצליח, **לפני** ה-`router.replace(...)` לניתוב-היעד — קורא `requestRoleRefresh()`.
+2. `admin/layout.tsx` — **effect שני, חדש ונפרד** (לא נוגע בקיים) שנרשם ל-`onRoleRefreshRequested` ומריץ מחדש בדיוק את אותה לוגיקת-בדיקה (`checkUserRole`/`isOnlyAuthorityManager`/`isSystemAdmin`) ומעדכן את ה-state. ה-effect הקיים, ה-empty-deps, לא זז שורה.
+
+**למה זה עובד בלי לשבור את הכוונה המקורית:** הניווט מ-`/admin/auth/callback` ליעד (למשל `/admin/authority/units/{unitId}`) הוא client-side (`router.replace`), אז **אותו instance של admin/layout.tsx נשאר mounted** לאורך המעבר — האות מגיע לאותו קומפוננט שכבר בחיים, לא צריך remount.
+
+**חלופה שנשקלה ונדחתה:** הסתמכות על ה-`focus`-listener הקיים של `AdminSessionSync` (במקום אות ייעודי) — נדחתה כי היא לא-דטרמיניסטית (תלויה שהמשתמש יחליף טאב/יתמקד בחלון), לא מתריגרת בוודאות מיד אחרי ה-accept.
+
+**ממתין לאישור דוד לבנייה.**
