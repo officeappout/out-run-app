@@ -10,6 +10,7 @@ import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firesto
 import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
 import { getAuthority, getChildrenByParent, getAllAuthorities } from '@/features/admin/services/authority.service';
 import { authorityTypeToTenantType, orgTypeDisplayName } from '@/features/admin/config/tenantLabels';
+import { shouldAutoLoadAuthority } from '@/features/admin/services/authorityUrlContextGuard';
 import SearchableSelect from '@/features/admin/components/SearchableSelect';
 import {
   getInvitationsByAuthority,
@@ -76,6 +77,17 @@ export default function AuthorityTeamPage() {
 
   // Org selector for Super Admins
   const [allOrgs, setAllOrgs] = useState<Authority[]>([]);
+
+  const resetLoadedTeamState = useCallback(() => {
+    setAuthority(null);
+    setAuthorityId(null);
+    setChildAuthorities([]);
+    setTeamMembers([]);
+    setInvitations([]);
+    setTotalSubUnits(0);
+    setTotalUsers(0);
+    setActiveUsersLast7d(0);
+  }, []);
 
   const loadTeamData = useCallback(async (authId: string) => {
     try {
@@ -167,14 +179,34 @@ export default function AuthorityTeamPage() {
           } catch { /* non-critical */ }
         }
 
-        // Determine authority — only auto-load if there's explicit context
+        // Determine authority — only auto-load if there's explicit context.
+        //
+        // §13.38 (27.09.2026): a candidate id (from localStorage or the
+        // user's own role) must match the URL's ?type= BEFORE loading. The
+        // old code loaded it unconditionally — a stale localStorage org
+        // from a different vertical would render as if it belonged to the
+        // current URL's context (David's exact real observation: 14 units
+        // of a municipal org appearing under a military URL). Checked here
+        // via a plain getAuthority() lookup, deliberately BEFORE
+        // setAuthority()/loadTeamData() run — loadTeamData's OWN first line
+        // calls setAuthority() immediately, so validating only after
+        // loadTeamData started would let the wrong org flash on screen for
+        // a render or more, which is exactly what David ruled out ("אסור
+        // שיוצג מסך שנראה תקין עם נתונים של ארגון אחר").
+        const authorityMatchesUrlContext = async (candidateId: string): Promise<boolean> => {
+          const candidate = await getAuthority(candidateId);
+          return shouldAutoLoadAuthority(candidate, urlType);
+        };
+
         if (roleInfo.isSuperAdmin) {
           const storedOrgId = typeof window !== 'undefined' ? window.localStorage.getItem('admin_selected_org_id') : null;
-          if (storedOrgId && storedOrgId !== 'all') {
+          if (storedOrgId && storedOrgId !== 'all' && await authorityMatchesUrlContext(storedOrgId)) {
             setAuthorityId(storedOrgId);
             await loadTeamData(storedOrgId);
           }
-          // Otherwise: leave authorityId null → show "select org" empty state
+          // Otherwise (missing, or mismatched against ?type=): leave
+          // authorityId null → the empty "select org" state renders, its
+          // selector already filtered to the URL's context.
         } else {
           // Non-super-admin: resolve from their assigned authority
           const storedAuthId = typeof window !== 'undefined' ? window.localStorage.getItem('admin_selected_authority_id') : null;
@@ -190,7 +222,7 @@ export default function AuthorityTeamPage() {
             }
           }
 
-          if (resolvedAuthId) {
+          if (resolvedAuthId && await authorityMatchesUrlContext(resolvedAuthId)) {
             setAuthorityId(resolvedAuthId);
             await loadTeamData(resolvedAuthId);
           }
@@ -204,6 +236,25 @@ export default function AuthorityTeamPage() {
     });
     return () => unsubscribe();
   }, [loadTeamData]);
+
+  // §13.38 — the sidebar has two Links to this SAME route with different
+  // ?type= (municipal/military team-management), and Next.js client-side
+  // navigation between them does not remount this component — only
+  // useSearchParams()'s value changes, so the mount effect above (which
+  // only re-runs if loadTeamData's identity changes, never) does NOT catch
+  // a context switch that happens after the initial load. Without this,
+  // clicking "military team" while a municipal org is already loaded would
+  // keep showing that municipal org's data under the military URL —
+  // exactly the "screen that looks valid with another org's data" David
+  // ruled out. Confirmed reachable: src/app/admin/layout.tsx's sidebar
+  // links to /admin/authority/team?type=municipal and ?type=military.
+  useEffect(() => {
+    if (!authority || !urlType) return;
+    if (!shouldAutoLoadAuthority(authority, urlType)) {
+      resetLoadedTeamState();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlType]);
 
   const getAdminInfo = async () => {
     const user = auth.currentUser;
