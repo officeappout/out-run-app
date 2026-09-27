@@ -20,6 +20,7 @@ import { X } from 'lucide-react';
 import { useExerciseLibraryStore } from '../store/useExerciseLibraryStore';
 import MasterExerciseView from './MasterExerciseView';
 import { resolveTreeProgramId } from '@/lib/progression-map-config';
+import type { Exercise } from '../../core/exercise.types';
 
 export interface ExerciseDetailSheetProps {
   /**
@@ -37,18 +38,46 @@ export interface ExerciseDetailSheetProps {
    * caller — falls through to the global filter, byte-identical to before.
    */
   locationOverride?: 'home' | 'park' | 'gym';
+  /**
+   * Round 6 (Progression Map, sheet round 6): when set, this instance is
+   * driven ENTIRELY by these local props instead of the global
+   * useExerciseLibraryStore open/close state. Added because the global
+   * store is an app-wide portal that survives a screen unmount and
+   * re-renders on whatever screen loads next — five rounds of patching the
+   * close path (popstate, pushState, pathname-change effects, unmount
+   * cleanup) all failed to fully close that gap, because the real fix was
+   * never "close it better," it was "don't share app-wide open/close state
+   * with a screen-scoped sheet." A caller in controlled mode owns its own
+   * `exercise` state; when the screen that renders this sheet unmounts
+   * (bottom nav, back, any navigation), the sheet unmounts with it — there
+   * is no shared state left for anything else to read as "still open."
+   * Omitted (undefined) for every other caller (ExerciseLibraryPage) —
+   * falls through to the global store, byte-identical to before.
+   */
+  controlled?: {
+    exercise: Exercise | null;
+    notice?: string | null;
+    onClose: () => void;
+  };
 }
 
-export default function ExerciseDetailSheet({ locationOverride }: ExerciseDetailSheetProps = {}) {
+export default function ExerciseDetailSheet({ locationOverride, controlled }: ExerciseDetailSheetProps = {}) {
   const router = useRouter();
 
-  // ── Store reads ──────────────────────────────────────────────────────────
-  const isOpen           = useExerciseLibraryStore((s) => s.isDetailOpen);
-  const exercise         = useExerciseLibraryStore((s) => s.selectedExercise);
-  const close            = useExerciseLibraryStore((s) => s.closeDetail);
+  // ── Store reads (unconditional — hooks can't be conditional; the
+  // controlled/global choice below is a plain value computation, not a
+  // hook-call difference) ─────────────────────────────────────────────────
+  const globalIsOpen     = useExerciseLibraryStore((s) => s.isDetailOpen);
+  const globalExercise   = useExerciseLibraryStore((s) => s.selectedExercise);
+  const globalClose      = useExerciseLibraryStore((s) => s.closeDetail);
+  const globalNotice     = useExerciseLibraryStore((s) => s.detailNotice);
   const globalFilterLocation = useExerciseLibraryStore((s) => s.filters.location);
-  const filterLocation   = locationOverride ?? globalFilterLocation;
-  const notice           = useExerciseLibraryStore((s) => s.detailNotice);
+
+  const exercise       = controlled ? controlled.exercise : globalExercise;
+  const isOpen         = controlled ? controlled.exercise !== null : globalIsOpen;
+  const close          = controlled ? controlled.onClose : globalClose;
+  const notice         = controlled ? controlled.notice ?? null : globalNotice;
+  const filterLocation = locationOverride ?? globalFilterLocation;
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);

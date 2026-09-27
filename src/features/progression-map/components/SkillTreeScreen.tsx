@@ -8,9 +8,6 @@
  *     library uses), for that node's representative exercise. Locked nodes
  *     are NOT blocked — tapping one opens the same sheet with a small
  *     "above your level" notice instead of being disabled.
- *     ExerciseDetailSheet is only ever mounted inside ExerciseLibraryPage
- *     today — not globally — so this screen mounts its own instance and
- *     drives it via useExerciseLibraryStore.
  *   - Header tap (skill name / level-summary block) → the existing
  *     per-PROGRAM ProgramDrawer, unmodified.
  *
@@ -19,42 +16,40 @@
  * persisted to Firestore, resets on reload. No new data model, consistent
  * with the feature's whole scope.
  *
- * Sheet-close, definitive fix (rounds 1-4 tried: popstate+pushState, a
- * button-only isDetailOpen check, removing a global-store mutation that
- * caused unrelated churn, then a repaired popstate+orphaned-entry-cleanup
- * version — none of it fully closed the loop). Round 4's trace logging
- * gave the actual answer: every observed close went through the sheet's
- * OWN internal dismissal (drag/X/backdrop) — never through the pushed-
- * history/popstate path. The real exit routes are this screen's own חזרה
- * link and the app's bottom nav (מפה / בית), and NEITHER of those triggers
- * closeDetail() at all — they just navigate, leaving the globally-portalled
- * sheet rendered on top of whatever loads next.
+ * Sheet-close, round 6 — the actual root cause (rounds 1-5 all patched
+ * symptoms of this without naming it): ExerciseDetailSheet's open/closed
+ * state lived in useExerciseLibraryStore, an APP-WIDE Zustand store. That
+ * store — and the sheet reading it — doesn't belong to this screen; it
+ * survives this screen unmounting and re-renders on whatever screen loads
+ * next. Round 5's trace proved it directly: closeDetail() fired with no
+ * subsequent open call, yet the sheet reappeared on the map — because the
+ * bottom-nav navigation unmounts SkillTreeScreen (and its pathname-change
+ * effect never gets to run) before anything closes the still-open global
+ * sheet, which then re-renders wherever ExerciseLibraryPage or this global
+ * portal next mounts. No amount of "close it faster" (popstate, pushState,
+ * pathname effects, unmount cleanup) can fix a sheet that belongs to a
+ * different lifecycle than the screen that opens it.
  *
- * Fix: usePathname() from next/navigation is reactive to EVERY navigation
- * method (Link clicks, router.push, router.back, browser back/forward —
- * unlike popstate, which only fires for true back/forward). One effect
- * keyed on [pathname] calls closeDetail() whenever the path changes away
- * from what it was when the sheet's owner last rendered — covering חזרה,
- * bottom-nav, and browser back uniformly, with no History API of its own.
- * The old push-history/pop-orphaned-entry mechanism is removed entirely as
- * redundant (browser back/forward changes the pathname too, so the new
- * effect already covers it). The plain unmount-cleanup stays as a second,
- * independent safety net for the ordinary case where this screen fully
- * unmounts. Trace logging (temporary, unconditional — a Vercel preview
- * build sets NODE_ENV=production, which would silently suppress a
- * dev-gated log) stays at the store's open/close actions plus this
- * effect, so the next test either confirms the fix or shows precisely
- * what's still missing.
+ * Fix: ExerciseDetailSheet now supports a `controlled` prop (see that
+ * file) — driven by LOCAL state here (`detailExercise`/`detailNotice`)
+ * instead of the global store. Node tap sets local state; close clears it.
+ * Because the sheet is a child of this component in the controlled path,
+ * any way of leaving this screen — bottom nav, חזרה, browser back —
+ * unmounts the sheet along with the screen automatically, the same way
+ * any other local child state would disappear. There is no shared state
+ * left for anything else to read as "still open," so every previous
+ * mechanism (usePathname effect, pushState/popstate, unmount-cleanup) is
+ * now redundant and removed rather than kept as unnecessary belt-and-
+ * braces on top of a fix that no longer needs one.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ChevronRight } from 'lucide-react';
 import type { Exercise } from '@/features/content/exercises';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { getProgramByTemplateId } from '@/features/content/programs/core/program.service';
 import type { Program } from '@/features/content/programs/core/program.types';
 import { getLocalizedText } from '@/features/content/exercises';
-import { useExerciseLibraryStore } from '@/features/content/exercises/client/store/useExerciseLibraryStore';
 import ExerciseDetailSheet from '@/features/content/exercises/client/components/ExerciseDetailSheet';
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { domainTypeForSlug } from '@/features/profile/components/widgets/program-groups.utils';
@@ -74,16 +69,22 @@ export interface SkillTreeScreenProps {
 
 export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
   const router = useRouter();
-  const pathname = usePathname();
   const profile = useUserStore((s) => s.profile);
-  const openExerciseDetail = useExerciseLibraryStore((s) => s.openDetail);
-  const isDetailOpen = useExerciseLibraryStore((s) => s.isDetailOpen);
-  const closeExerciseDetail = useExerciseLibraryStore((s) => s.closeDetail);
   const { tree, currentLevel, isLoading } = useSkillTree(programId);
   const [programMeta, setProgramMeta] = useState<Program | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [swapRung, setSwapRung] = useState<SkillTreeRung | null>(null);
   const [representativeOverrides, setRepresentativeOverrides] = useState<Record<number, Exercise>>({});
+
+  // Round 6: the exercise-detail sheet's open/closed state, LOCAL to this
+  // screen — see the header comment for why this replaces the global
+  // useExerciseLibraryStore-driven version. null = closed.
+  const [detailExercise, setDetailExercise] = useState<Exercise | null>(null);
+  const [detailNotice, setDetailNotice] = useState<string | null>(null);
+  const closeDetail = () => {
+    setDetailExercise(null);
+    setDetailNotice(null);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -102,40 +103,14 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
     setRepresentativeOverrides({});
   }, [programId]);
 
-  // The global exercise-detail sheet must not outlive this screen — reset it
-  // on unmount regardless of how the user left (safety net; the primary,
-  // provable fix is handleBack below, not this).
-  useEffect(() => {
-    return () => {
-      closeExerciseDetail();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // THE fix (round 5, confirmed by trace): every real exit from this screen
-  // — חזרה, bottom nav (מפה/בית), or browser back — is a pathname change.
-  // usePathname() is reactive to all of them uniformly (unlike popstate,
-  // which only fires for true back/forward, never for a Link/router.push
-  // navigating forward to a new route — the bottom-nav case). Skip the
-  // very first render (nothing to close yet, and closing an
-  // already-closed sheet is harmless anyway, but this keeps the log clean).
-  const initialPathname = useRef(pathname);
-  useEffect(() => {
-    if (pathname === initialPathname.current) return;
-    // eslint-disable-next-line no-console
-    console.log('[SkillTreeScreen] pathname changed', { from: initialPathname.current, to: pathname, closingSheet: true });
-    closeExerciseDetail();
-  }, [pathname, closeExerciseDetail]);
-
   // This screen's own חזרה link: close the sheet first if open, so a tap
-  // just dismisses it without an unnecessary route change; the pathname
-  // effect above is what actually GUARANTEES the sheet closes on any exit,
-  // this is just the nicer behavior for the one exit this component owns.
+  // just dismisses it without an unnecessary route change. Every other
+  // exit (bottom nav, browser back) closes the sheet implicitly, simply by
+  // unmounting this screen and the locally-controlled sheet along with it
+  // — see the header comment.
   const handleBack = () => {
-    // eslint-disable-next-line no-console
-    console.log('[SkillTreeScreen] handleBack tapped, isDetailOpen=', isDetailOpen);
-    if (isDetailOpen) {
-      closeExerciseDetail();
+    if (detailExercise) {
+      closeDetail();
       return;
     }
     router.back();
@@ -255,19 +230,23 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
             currentLevel={currentLevel}
             onNodeTap={(rung: SkillTreeRung, state: TreeNodeState) => {
               if (!rung.representative) return;
-              openExerciseDetail(rung.representative, state === 'locked' ? LOCKED_NOTICE : null);
+              setDetailExercise(rung.representative);
+              setDetailNotice(state === 'locked' ? LOCKED_NOTICE : null);
             }}
             onSwapTap={(rung) => setSwapRung(rung)}
           />
         )}
       </main>
 
-      {/* Mounted here since it otherwise only exists inside ExerciseLibraryPage
-          — driven by useExerciseLibraryStore. locationOverride="park" is a
-          LOCAL prop, not a write to the shared global filter (round 3 —
-          see the header comment for why the global-mutation version was
-          removed rather than patched). */}
-      <ExerciseDetailSheet locationOverride="park" />
+      {/* Mounted here since it otherwise only exists inside ExerciseLibraryPage.
+          `controlled` drives it from this screen's own local state (round 6
+          — see the header comment); locationOverride="park" is unrelated,
+          a LOCAL prop forcing park media resolution regardless of the
+          (unused, in controlled mode) global library filter. */}
+      <ExerciseDetailSheet
+        locationOverride="park"
+        controlled={{ exercise: detailExercise, notice: detailNotice, onClose: closeDetail }}
+      />
 
       {drawerData && <ProgramDrawer program={drawerOpen ? drawerData : null} onClose={() => setDrawerOpen(false)} />}
 
