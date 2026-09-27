@@ -54,6 +54,7 @@ import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { checkUserRole, isOnlyAuthorityManager, isSystemAdmin as checkIsSystemAdmin, UserRoleInfo } from '@/features/admin/services/auth.service';
+import { hasAnyAdminAccess } from '@/features/admin/services/adminAccessGate';
 import { getAuthoritiesByManager, getAllAuthorities, getAuthority } from '@/features/admin/services/authority.service';
 import { signOutUser } from '@/lib/auth.service';
 import { clearLoopAttempt } from '@/features/admin/services/authority-login-loop-guard';
@@ -318,8 +319,11 @@ function AdminLayoutInner({
                 const info = await checkUserRole(user.uid, user.email);
                 setRoleInfo(info);
                 
-                // Check if user has NO admin access at all
-                if (!info.isSuperAdmin && !info.isSystemAdmin && !info.isAuthorityManager && !info.isTenantOwner && !info.isVerticalAdmin && info.role !== 'platform_member' && !isPublicPath) {
+                // Check if user has NO admin access at all — §13.44 (P0-1):
+                // see adminAccessGate.ts for why isUnitAdmin matters here.
+                // The live end-to-end test only missed this because
+                // /admin/auth/callback is a public path.
+                if (!hasAnyAdminAccess(info) && !isPublicPath) {
                     console.warn('Access denied: User is not an authorized admin');
                     router.push('/admin/login');
                     setLoading(false);
