@@ -28,12 +28,6 @@ yarn-error.log*
 # local env files
 .env*.local
 .env
-# Exception: functions/.env is Firebase Functions v2's own committed runtime
-# config file (not a "local secrets" file like the root .env.local above) —
-# loaded automatically by the Cloud Functions runtime at deploy time. Only
-# contains already-public NEXT_PUBLIC_* values, safe to commit; see its own
-# header comment.
-!functions/.env
 
 # vercel
 .vercel
