@@ -244,6 +244,13 @@ export async function validateInvitation(token: string): Promise<AdminInvitation
       email: invitation.email ?? '',
       role: invitation.role ?? 'authority_manager',
       authorityId: invitation.authorityId ?? undefined,
+      // §13.39 — verify-token's own response already includes these (see
+      // that route's tenantId/unitId lines); this mapping just didn't copy
+      // them over. Without this, a tenant_owner/unit_admin invitation's
+      // post-accept redirect (admin/auth/callback/page.tsx) had no way to
+      // know which tenant/unit to send the caller to.
+      tenantId: invitation.tenantId ?? undefined,
+      unitId: invitation.unitId ?? undefined,
       token: invitation.token ?? '',
       isUsed: invitation.isUsed ?? false,
       expiresAt: toDate(invitation.expiresAt) ?? new Date(),
