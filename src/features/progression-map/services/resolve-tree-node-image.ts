@@ -28,6 +28,13 @@
  * barrel — that barrel re-exports ExerciseEditorForm.tsx (JSX), which this
  * repo's vitest config (plain node env, no JSX transform) cannot parse.
  * Same pitfall + same fix already documented at program-groups.utils.ts.
+ *
+ * Round 6: Bug 1 is still reported open on the live front-lever tree — the
+ * video-thumbnail tier above isn't producing a park image for "Y משיכות"
+ * level 1. Rather than guess at which tier is silently failing (no exact
+ * park method found at all? a mainVideoUrl that doesn't match the Bunny
+ * UUID regex? something else?), this function now logs every intermediate
+ * value once per call — see the temporary console.log at the bottom.
  */
 import {
   Exercise,
@@ -47,26 +54,64 @@ function findExactParkMethod(exercise: Exercise): ExecutionMethod | null {
 export function resolveTreeNodeImage(exercise: Exercise): string {
   const parkMethod = findExactParkMethod(exercise);
 
-  if (parkMethod) {
-    // Tier 1: same preview-thumbnail derivation the canonical function uses.
-    const preview = resolvePreviewForLang(parkMethod.media as Parameters<typeof resolvePreviewForLang>[0]);
-    const previewThumb =
-      preview?.thumbnailUrl ?? (preview?.videoId ? buildBunnyThumbnailUrl(preview.videoId) : undefined);
-    if (previewThumb) return previewThumb;
+  // Tier 1: same preview-thumbnail derivation the canonical function uses.
+  const preview = parkMethod
+    ? resolvePreviewForLang(parkMethod.media as Parameters<typeof resolvePreviewForLang>[0])
+    : undefined;
+  const previewThumb =
+    preview?.thumbnailUrl ?? (preview?.videoId ? buildBunnyThumbnailUrl(preview.videoId) : undefined);
 
-    // Tier 2: explicit image on the park method itself.
-    if (parkMethod.media?.imageUrl) return parkMethod.media.imageUrl;
+  // Tier 2: explicit image on the park method itself.
+  const methodImageUrl = parkMethod?.media?.imageUrl ?? null;
 
-    // Tier 3 (the round-5 fix): no park image variant, but a park VIDEO
-    // exists — derive a thumbnail from it instead of giving up on park.
-    const videoId = parkMethod.media?.mainVideoUrl
-      ? extractBunnyVideoId(parkMethod.media.mainVideoUrl)
-      : null;
-    if (videoId) return buildBunnyThumbnailUrl(videoId);
+  // Tier 3 (the round-5 fix): no park image variant, but a park VIDEO
+  // exists — derive a thumbnail from it instead of giving up on park.
+  const mainVideoUrl = parkMethod?.media?.mainVideoUrl ?? null;
+  const extractedVideoId = mainVideoUrl ? extractBunnyVideoId(mainVideoUrl) : null;
+  const videoThumb = extractedVideoId ? buildBunnyThumbnailUrl(extractedVideoId) : null;
+
+  let tier: 'preview' | 'method-image' | 'video-thumbnail' | 'canonical-waterfall';
+  let url: string;
+
+  if (previewThumb) {
+    tier = 'preview';
+    url = previewThumb;
+  } else if (methodImageUrl) {
+    tier = 'method-image';
+    url = methodImageUrl;
+  } else if (videoThumb) {
+    tier = 'video-thumbnail';
+    url = videoThumb;
+  } else {
+    // Tier 4: no exact park method, or the one found had nothing derivable
+    // at all (e.g. a non-Bunny video URL) — fall through to the canonical
+    // full waterfall, which can still legitimately end in a home photo.
+    tier = 'canonical-waterfall';
+    url = resolveImageForLocation(exercise, 'park');
   }
 
-  // Tier 4: no exact park method, or the one found had nothing derivable at
-  // all (e.g. a non-Bunny video URL) — fall through to the canonical
-  // full waterfall, which can still legitimately end in a home photo.
-  return resolveImageForLocation(exercise, 'park');
+  // TEMPORARY diagnostic (round 6 — Bug 1 still open: "Y משיכות" front-lever
+  // level 1 still shows a home image despite this round-5 tier existing).
+  // Unconditional (a Vercel preview sets NODE_ENV=production, which would
+  // silently suppress a dev-gated log) so the founder can see, per node,
+  // exactly which tier fired and why the video-thumbnail tier didn't
+  // produce a park image — instead of guessing at the failing tier.
+  // Remove once Bug 1 is confirmed fixed for real.
+  // eslint-disable-next-line no-console
+  console.log('[resolveTreeNodeImage]', {
+    exerciseId: exercise.id,
+    exerciseName: exercise.name,
+    foundParkMethod: !!parkMethod,
+    parkMethodLocation: parkMethod?.location ?? null,
+    parkMethodLocationMapping: parkMethod?.locationMapping ?? null,
+    hasPreviewVideo: !!preview,
+    hasMethodImageUrl: !!methodImageUrl,
+    mainVideoUrl,
+    extractedVideoId,
+    videoThumbnailTierFired: tier === 'video-thumbnail',
+    tier,
+    finalUrl: url,
+  });
+
+  return url;
 }
