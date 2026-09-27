@@ -270,7 +270,7 @@ export function useAuthorities(verticalTypes?: AuthorityType[] | null) {
     if (!user) return null;
     
     try {
-      const profile = await getUserFromFirestore(user.uid);
+      const profile = await getUserFromFirestore(user.uid, { allowSelfHeal: false });
       return {
         adminId: user.uid,
         adminName: profile?.core?.name || user.displayName || 'System Admin',

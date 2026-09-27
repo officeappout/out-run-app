@@ -187,7 +187,7 @@ export default function ApprovalCenterPage() {
         setIsSuperAdmin(isSA);
         setCurrentUserId(user.uid);
         if (!isSA && !roleInfo.isAuthorityManager) { router.push('/admin'); return; }
-        const userProfile = await getUserFromFirestore(user.uid);
+        const userProfile = await getUserFromFirestore(user.uid, { allowSelfHeal: false });
         setAdminName(userProfile?.core?.name || user.email || '');
         const authIds = (!isSA && roleInfo.authorityIds?.length) ? roleInfo.authorityIds : [];
         setAuthorityIds(authIds);

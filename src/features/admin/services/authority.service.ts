@@ -913,7 +913,7 @@ export async function getAuthoritiesByManager(managerId: string): Promise<Author
     let isSuperAdmin = false;
     try {
       const { getUserFromFirestore } = await import('@/lib/firestore.service');
-      const userProfile = await getUserFromFirestore(managerId);
+      const userProfile = await getUserFromFirestore(managerId, { allowSelfHeal: false });
       if (userProfile?.core) {
         isSuperAdmin = (userProfile.core as any)?.isSuperAdmin === true;
       }

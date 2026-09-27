@@ -3112,7 +3112,7 @@ export default function AllUsersPage() {
       const currentUser = auth.currentUser;
       if (currentUser) {
         const { getUserFromFirestore } = await import('@/lib/firestore.service');
-        const profile = await getUserFromFirestore(currentUser.uid);
+        const profile = await getUserFromFirestore(currentUser.uid, { allowSelfHeal: false });
         const adminInfo = {
           adminId: currentUser.uid,
           adminName: profile?.core?.name || 'System Admin',
@@ -3148,7 +3148,7 @@ export default function AllUsersPage() {
     if (!currentUser) return null;
     try {
       const { getUserFromFirestore } = await import('@/lib/firestore.service');
-      const profile = await getUserFromFirestore(currentUser.uid);
+      const profile = await getUserFromFirestore(currentUser.uid, { allowSelfHeal: false });
       return {
         adminId: currentUser.uid,
         adminName: profile?.core?.name || 'System Admin',

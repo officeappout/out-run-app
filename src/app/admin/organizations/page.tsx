@@ -116,7 +116,7 @@ export default function OrganizationsPage() {
           const profiles = await Promise.all(
             managerIds.map(async ({ mid }) => {
               try {
-                return await getUserFromFirestore(mid!);
+                return await getUserFromFirestore(mid!, { allowSelfHeal: false });
               } catch { return null; }
             })
           );

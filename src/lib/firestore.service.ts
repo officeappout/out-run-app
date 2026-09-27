@@ -54,13 +54,35 @@ function normalizeEquipmentProfile(data: any): EquipmentProfile {
 /**
  * Get user document from Firestore
  * If document is missing but user is authenticated, creates a new default user document
- * and restarts their onboarding (instead of logging them out)
+ * and restarts their onboarding (instead of logging them out) — UNLESS
+ * `allowSelfHeal: false` is passed.
+ *
+ * §13.45 (P0-2, 27.09.2026) — the admin panel passes `allowSelfHeal:
+ * false`: the panel never legitimately needs a fresh onboarding-status
+ * stub, and a stub self-heal firing mid-sign-in — before
+ * POST /api/auth/accept-invitation's own transaction has created the
+ * real doc — was being denied anyway by firestore.rules' create rule
+ * (`request.resource.data.core.role == ''`, line ~397), but the denial
+ * itself left checkUserRole() with a null profile for that pass,
+ * degrading role resolution. Default stays `true` (unchanged behavior)
+ * for every other caller — the mobile app's own onboarding-recovery flow
+ * still needs it exactly as before.
  */
-export async function getUserFromFirestore(userId: string): Promise<UserFullProfile | null> {
+export async function getUserFromFirestore(
+  userId: string,
+  options?: { allowSelfHeal?: boolean }
+): Promise<UserFullProfile | null> {
+  const allowSelfHeal = options?.allowSelfHeal !== false;
+  const userDocRef = doc(db, 'users', userId);
+  let userDoc;
   try {
-    const userDocRef = doc(db, 'users', userId);
-    const userDoc = await getDoc(userDocRef);
+    userDoc = await getDoc(userDocRef);
+  } catch (error) {
+    console.error('[User Service] Error READING user from Firestore:', error);
+    return null;
+  }
 
+  try {
     if (userDoc.exists()) {
       const data = userDoc.data();
       
@@ -133,98 +155,113 @@ export async function getUserFromFirestore(userId: string): Promise<UserFullProf
 
     // Document doesn't exist - check if user is authenticated
     const currentUser = auth.currentUser;
-    if (currentUser && currentUser.uid === userId) {
-      console.log(`[User Service] User document missing for authenticated user ${userId}. Re-initializing user...`);
-      
-      // Create a new default user document with onboarding status
-      const newUserData: any = {
-        id: userId,
-        core: {
-          name: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
-          email: currentUser.email || undefined,
-          photoURL: currentUser.photoURL || undefined,
-          initialFitnessTier: 1,
-          trackingMode: 'wellness',
-          mainGoal: 'healthy_lifestyle',
-          gender: 'other',
-          weight: 70,
-          isApproved: false,
-          isSuperAdmin: false,
-          role: 'USER',
-          // Access Control defaults
-          accessLevel: 1,
-          affiliations: [],
-          unlockedProgramIds: [],
-          isVerified: false,
-        },
-        onboardingProgress: 0,
-        onboardingPath: null,
-        progression: {
-          globalLevel: 1,
-          globalXP: 0,
-          avatarId: 'default',
-          unlockedBadges: [],
-          coins: 0,
-          totalCaloriesBurned: 0,
-          hasUnlockedAdvancedStats: false,
-          domains: {},
-          activePrograms: [],
-          unlockedBonusExercises: [],
-        },
-        equipment: {
-          home: [],
-          office: [],
-          outdoor: [],
-        },
-        lifestyle: {
-          hasDog: false,
-          commute: {
-            method: 'walk',
-            enableChallenges: false,
-          },
-        },
-        health: {
-          injuries: [],
-          connectedWatch: 'none',
-        },
-        running: {
-          isUnlocked: false,
-          currentGoal: 'couch_to_5k',
-          activeProgram: null,
-          paceProfile: {
-            basePace: 0,
-            profileType: 3,
-            qualityWorkoutsHistory: [],
-            qualityWorkoutCount: 0,
-            lastSelfCorrectionDate: null,
-          },
-        },
-        onboardingStatus: 'ONBOARDING',
-        onboardingStep: 'LOCATION',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        lastActive: serverTimestamp(),
-      };
-
-      // Save the new user document
-      await setDoc(userDocRef, newUserData);
-      
-      console.log(`[User Service] Created new user document for ${userId} with onboarding status. User will be redirected to onboarding.`);
-      
-      // Return the new user profile (with normalized equipment)
-      return {
-        ...newUserData,
-        equipment: normalizeEquipmentProfile(newUserData),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        lastActive: new Date(),
-      } as UserFullProfile;
+    if (!currentUser || currentUser.uid !== userId) {
+      // Document doesn't exist and user is not authenticated - return null
+      return null;
     }
 
-    // Document doesn't exist and user is not authenticated - return null
-    return null;
+    if (!allowSelfHeal) {
+      // §13.45 — caller explicitly opted out (the admin panel). Missing
+      // doc for an authenticated user is a real, if usually transient,
+      // condition (e.g. mid-sign-in, before a server-side accept
+      // transaction has created it) — surfaced, not silently swallowed,
+      // but no write is attempted.
+      console.log(`[User Service] User document missing for authenticated user ${userId}; self-heal disabled for this caller.`);
+      return null;
+    }
+
+    console.log(`[User Service] User document missing for authenticated user ${userId}. Re-initializing user...`);
+
+    // Create a new default user document with onboarding status
+    const newUserData: any = {
+      id: userId,
+      core: {
+        name: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
+        email: currentUser.email || undefined,
+        photoURL: currentUser.photoURL || undefined,
+        initialFitnessTier: 1,
+        trackingMode: 'wellness',
+        mainGoal: 'healthy_lifestyle',
+        gender: 'other',
+        weight: 70,
+        isApproved: false,
+        isSuperAdmin: false,
+        role: 'USER',
+        // Access Control defaults
+        accessLevel: 1,
+        affiliations: [],
+        unlockedProgramIds: [],
+        isVerified: false,
+      },
+      onboardingProgress: 0,
+      onboardingPath: null,
+      progression: {
+        globalLevel: 1,
+        globalXP: 0,
+        avatarId: 'default',
+        unlockedBadges: [],
+        coins: 0,
+        totalCaloriesBurned: 0,
+        hasUnlockedAdvancedStats: false,
+        domains: {},
+        activePrograms: [],
+        unlockedBonusExercises: [],
+      },
+      equipment: {
+        home: [],
+        office: [],
+        outdoor: [],
+      },
+      lifestyle: {
+        hasDog: false,
+        commute: {
+          method: 'walk',
+          enableChallenges: false,
+        },
+      },
+      health: {
+        injuries: [],
+        connectedWatch: 'none',
+      },
+      running: {
+        isUnlocked: false,
+        currentGoal: 'couch_to_5k',
+        activeProgram: null,
+        paceProfile: {
+          basePace: 0,
+          profileType: 3,
+          qualityWorkoutsHistory: [],
+          qualityWorkoutCount: 0,
+          lastSelfCorrectionDate: null,
+        },
+      },
+      onboardingStatus: 'ONBOARDING',
+      onboardingStep: 'LOCATION',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      lastActive: serverTimestamp(),
+    };
+
+    try {
+      // Save the new user document
+      await setDoc(userDocRef, newUserData);
+    } catch (error) {
+      console.error('[User Service] Error CREATING (self-heal) user document in Firestore:', error);
+      return null;
+    }
+
+    console.log(`[User Service] Created new user document for ${userId} with onboarding status. User will be redirected to onboarding.`);
+
+    // Return the new user profile (with normalized equipment)
+    return {
+      ...newUserData,
+      equipment: normalizeEquipmentProfile(newUserData),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastActive: new Date(),
+    } as UserFullProfile;
   } catch (error) {
-    console.error('Error getting user from Firestore:', error);
+    console.error('[User Service] Error processing user data from Firestore:', error);
     return null;
   }
 }

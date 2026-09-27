@@ -37,7 +37,7 @@ export default function FinanceApprovalsPage() {
       try {
         const role = await checkUserRole(user.uid);
         if (!role.isSuperAdmin && !role.isSystemAdmin) { router.push('/admin'); return; }
-        const profile = await getUserFromFirestore(user.uid);
+        const profile = await getUserFromFirestore(user.uid, { allowSelfHeal: false });
         setAdminName((profile as any)?.core?.name || user.email || '');
         setAuthorized(true);
         void load();

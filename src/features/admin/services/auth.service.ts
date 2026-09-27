@@ -71,7 +71,9 @@ export async function checkUserRole(userId: string, userEmail?: string | null): 
 
     try {
       const { getUserFromFirestore } = await import('@/lib/firestore.service');
-      const userProfile = await getUserFromFirestore(userId);
+      // §13.45 (P0-2) — the panel never creates user documents; the server
+      // (accept-invitation, etc.) is the sole writer.
+      const userProfile = await getUserFromFirestore(userId, { allowSelfHeal: false });
       if (userProfile && userProfile.core) {
         const core = userProfile.core as any;
         isSuperAdmin = core?.isSuperAdmin === true;

@@ -41,7 +41,7 @@ export default function FinanceExpensesPage() {
       try {
         const role = await checkUserRole(user.uid);
         if (!role.isSuperAdmin && !role.isSystemAdmin) { router.push('/admin'); return; }
-        await getUserFromFirestore(user.uid);
+        await getUserFromFirestore(user.uid, { allowSelfHeal: false });
         setAuthorized(true);
         void load();
       } catch { router.push('/admin'); } finally { setCheckingAuth(false); }

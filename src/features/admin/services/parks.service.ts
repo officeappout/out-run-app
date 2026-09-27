@@ -110,7 +110,7 @@ export async function createPark(
       let userEmail: string | undefined;
       try {
         const { getUserFromFirestore } = await import('@/lib/firestore.service');
-        const profile = await getUserFromFirestore(adminInfo.adminId);
+        const profile = await getUserFromFirestore(adminInfo.adminId, { allowSelfHeal: false });
         userName = profile?.core?.name || adminInfo.adminName;
         userEmail = profile?.core?.email;
       } catch { /* non-fatal */ }
@@ -158,7 +158,7 @@ export async function updatePark(
         let userEmail: string | undefined;
         try {
           const { getUserFromFirestore } = await import('@/lib/firestore.service');
-          const userProfile = await getUserFromFirestore(adminInfo.adminId);
+          const userProfile = await getUserFromFirestore(adminInfo.adminId, { allowSelfHeal: false });
           userName = userProfile?.core?.name || adminInfo.adminName;
           userEmail = userProfile?.core?.email;
         } catch { /* non-fatal */ }

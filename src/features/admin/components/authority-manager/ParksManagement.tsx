@@ -85,7 +85,7 @@ export default function ParksManagement({ authorityId }: ParksManagementProps) {
 
       // Get user profile for admin info
       const { getUserFromFirestore } = await import('@/lib/firestore.service');
-      const userProfile = await getUserFromFirestore(user.uid);
+      const userProfile = await getUserFromFirestore(user.uid, { allowSelfHeal: false });
       const adminName = userProfile?.core?.name || user.email || 'Unknown';
 
       await updatePark(
