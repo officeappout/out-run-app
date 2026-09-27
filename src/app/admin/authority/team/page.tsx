@@ -110,7 +110,7 @@ export default function AuthorityTeamPage() {
       const members: TeamMember[] = [];
       for (const uid of allManagerIds) {
         try {
-          const profile = await getUserFromFirestore(uid);
+          const profile = await getUserFromFirestore(uid, { allowSelfHeal: false });
           members.push({
             uid,
             name: profile?.core?.name || uid.slice(0, 8) + '…',
@@ -260,7 +260,7 @@ export default function AuthorityTeamPage() {
     const user = auth.currentUser;
     if (!user) return undefined;
     try {
-      const profile = await getUserFromFirestore(user.uid);
+      const profile = await getUserFromFirestore(user.uid, { allowSelfHeal: false });
       return {
         adminId: user.uid,
         adminName: profile?.core?.name || user.displayName || 'Admin',

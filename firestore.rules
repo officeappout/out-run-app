@@ -385,6 +385,25 @@ service cloud.firestore {
       // CREATE — owner can create their own doc, but cannot self-assign
       // any role/admin flag at creation time, and cannot set the
       // server-computed identity fields (ageGroup, birthDate).
+      //
+      // §13.45 (P0-2, 27.09.2026) — the `core.role == ''` clause below is a
+      // DELIBERATE PROTECTION, confirmed and preserved after a real
+      // incident, not a gap to close. A client-side "self-heal" in
+      // firestore.service.ts's getUserFromFirestore() used to write a
+      // stub doc (core.role: 'USER', among other defaults) whenever it
+      // read a missing users/{uid} for the currently-signed-in user — this
+      // clause correctly denies that stub the instant `role` is non-empty.
+      // Observed case: a fresh officer accepting an invitation raced
+      // admin/layout.tsx's read against POST /api/auth/accept-invitation's
+      // own server-side transaction; had this clause allowed the stub
+      // through, it would have raced/clobbered the real
+      // core.tenantId/unitId/unitPath the accept transaction was about to
+      // write. Do NOT loosen or remove this check to silence that error —
+      // the fix is on the CALLER'S side (the admin panel now passes
+      // `allowSelfHeal: false` and never attempts this write at all; see
+      // getUserFromFirestore's own doc comment). This clause stays exactly
+      // as strict for every other caller, including the mobile app's
+      // legitimate onboarding-recovery self-heal, which still needs it.
       allow create: if isOwner(userId)
                     && !('role' in request.resource.data)
                     && !('ageGroup'  in request.resource.data.get('core', {}))

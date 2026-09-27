@@ -22,7 +22,7 @@ export default function PendingApprovalPage() {
       // Check if user is approved
       try {
         const { getUserFromFirestore } = await import('@/lib/firestore.service');
-        const profile = await getUserFromFirestore(user.uid);
+        const profile = await getUserFromFirestore(user.uid, { allowSelfHeal: false });
         
         // If user is approved, redirect to appropriate dashboard
         if (profile?.core?.isApproved === true) {

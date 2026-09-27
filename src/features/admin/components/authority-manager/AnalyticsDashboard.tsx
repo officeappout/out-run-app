@@ -395,7 +395,7 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
     setSendingPush(true);
     try {
       const { getUserFromFirestore } = await import('@/lib/firestore.service');
-      const userProfile = await getUserFromFirestore(currentUserId);
+      const userProfile = await getUserFromFirestore(currentUserId, { allowSelfHeal: false });
       const adminName = userProfile?.core?.name || 'מנהל רשות';
 
       await sendEncouragementPush(authorityId, {

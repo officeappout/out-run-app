@@ -122,7 +122,7 @@ export async function checkAdminEmail(email: string): Promise<AdminCheckResult> 
     // Check if user is system_admin (via getUserFromFirestore)
     try {
       const { getUserFromFirestore } = await import('@/lib/firestore.service');
-      const userProfile = await getUserFromFirestore(userDoc.id);
+      const userProfile = await getUserFromFirestore(userDoc.id, { allowSelfHeal: false });
       const isSystemAdmin = (userProfile?.core as any)?.isSystemAdmin === true || 
                             (userProfile?.core as any)?.role === 'system_admin';
       

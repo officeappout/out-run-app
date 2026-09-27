@@ -115,7 +115,7 @@ export default function UsersManagementPage() {
     if (!currentUserId) return null;
     try {
       const { getUserFromFirestore } = await import('@/lib/firestore.service');
-      const profile = await getUserFromFirestore(currentUserId);
+      const profile = await getUserFromFirestore(currentUserId, { allowSelfHeal: false });
       return {
         adminId: currentUserId,
         adminName: profile?.core?.name || 'System Admin',

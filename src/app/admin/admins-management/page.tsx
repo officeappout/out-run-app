@@ -181,7 +181,7 @@ export default function AdminsManagementPage() {
     
     try {
       const { getUserFromFirestore } = await import('@/lib/firestore.service');
-      const profile = await getUserFromFirestore(user.uid);
+      const profile = await getUserFromFirestore(user.uid, { allowSelfHeal: false });
       return {
         adminId: user.uid,
         adminName: profile?.core?.name || user.displayName || 'Unknown Admin',
