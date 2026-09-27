@@ -64,13 +64,28 @@ export function resolveTreeProgramId(exercise: Pick<Exercise, 'targetPrograms'>)
 }
 
 /**
- * Scenic background assets (round-2 visual polish). Config constants only —
- * swap the art by replacing these two PNGs under public/images/progression-map/,
- * no logic change needed anywhere that imports them.
+ * Scenic background assets. Config constants only — swap the art by
+ * replacing these PNGs under public/images/progression-map/, no logic
+ * change needed anywhere that imports them. See SkillTreeBackground.tsx.
  *
- * sky.png: pinned at the top of the tree (clouds).
- * pathTile.png: the park/garden body, tiled vertically (CSS background-repeat)
- * to cover trees taller than one tile — see SkillTreeBackground.tsx.
+ * Three zones, composited top to bottom (round 3 — replaced the round-2
+ * single-repeating-tile version, which repeated path-tile.png's OWN sky
+ * strip mid-scroll, producing visible turquoise bands cutting across the
+ * map):
+ *   sky.png      — pinned at the very top only, never repeated.
+ *   pathMid.png  — seamless-ish green (grass + side trees, no sky),
+ *                  repeated vertically to cover any tree length. Each
+ *                  repeat alternates a vertical mirror flip (see
+ *                  SkillTreeBackground's MidBand) so the seam is pixel-
+ *                  identical regardless of how seamless the source art
+ *                  actually is.
+ *   pathTile.png — the full park/garden scene (equipment, benches),
+ *                  anchored at the BOTTOM only, never repeated — the
+ *                  target node's destination.
+ *
+ * All three images share the same 1536×2752 native aspect ratio.
  */
 export const PROGRESSION_MAP_SKY_IMAGE = '/images/progression-map/sky.png';
+export const PROGRESSION_MAP_PATH_MID_IMAGE = '/images/progression-map/path-mid.png';
 export const PROGRESSION_MAP_PATH_TILE_IMAGE = '/images/progression-map/path-tile.png';
+export const PROGRESSION_MAP_BG_NATIVE_ASPECT = 1536 / 2752;

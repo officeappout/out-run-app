@@ -115,12 +115,11 @@ function BranchAndNode({
 export interface TreePathProps {
   tree: SkillTreeData;
   currentLevel: number | null;
-  location: string | null;
   onNodeTap: (rung: SkillTreeRung, state: TreeNodeState) => void;
   onSwapTap: (rung: SkillTreeRung) => void;
 }
 
-export function TreePath({ tree, currentLevel, location, onNodeTap, onSwapTap }: TreePathProps) {
+export function TreePath({ tree, currentLevel, onNodeTap, onSwapTap }: TreePathProps) {
   const segments = groupRungsForDisplay(tree.rungs);
 
   return (
@@ -148,7 +147,6 @@ export function TreePath({ tree, currentLevel, location, onNodeTap, onSwapTap }:
                       exercise={rung.representative!}
                       level={rung.level}
                       state={state}
-                      location={location}
                       siblingCount={rung.siblingCount}
                       align="end"
                       onTap={() => onNodeTap(rung, state)}
@@ -164,7 +162,6 @@ export function TreePath({ tree, currentLevel, location, onNodeTap, onSwapTap }:
                       exercise={rung.representative!}
                       level={rung.level}
                       state={state}
-                      location={location}
                       siblingCount={rung.siblingCount}
                       align="start"
                       onTap={() => onNodeTap(rung, state)}

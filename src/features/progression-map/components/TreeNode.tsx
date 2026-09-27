@@ -23,9 +23,17 @@
  * park scenery background) and "אתה כאן" is a label bubble ABOVE the current
  * node (visual-only, no tap target, no start-workout action) rather than a
  * plain caption below it.
+ *
+ * Round 3: the image is resolveParkNodeImage(exercise), not
+ * resolveImageForLocation(exercise, location) — the shared function's last
+ * fallback step can silently surface a wrong-location (home) photo; see
+ * resolve-park-node-image.ts. No `location` prop anymore — every node image
+ * is park, unconditionally, with an honest placeholder (not a wrong photo)
+ * when an exercise genuinely has no park image yet.
  */
 import { Check, Lock, Crown } from 'lucide-react';
-import { Exercise, getLocalizedText, resolveImageForLocation } from '@/features/content/exercises';
+import { Exercise, getLocalizedText } from '@/features/content/exercises';
+import { resolveParkNodeImage } from '../services/resolve-park-node-image';
 import { SwapPill } from './SwapPill';
 
 export type TreeNodeState = 'done' | 'current' | 'locked' | 'target';
@@ -43,7 +51,6 @@ export interface TreeNodeProps {
   exercise: Exercise;
   level: number;
   state: TreeNodeState;
-  location: string | null;
   siblingCount: number;
   onTap: () => void;
   onSwapTap?: () => void;
@@ -55,7 +62,6 @@ export function TreeNode({
   exercise,
   level,
   state,
-  location,
   siblingCount,
   onTap,
   onSwapTap,
@@ -65,7 +71,7 @@ export function TreeNode({
   const isTarget = state === 'target';
   const isCurrent = state === 'current';
   const isDone = state === 'done';
-  const imageUrl = resolveImageForLocation(exercise, location) || IMAGE_PLACEHOLDER;
+  const imageUrl = resolveParkNodeImage(exercise) || IMAGE_PLACEHOLDER;
   const name = getLocalizedText(exercise.name, 'he');
   const photoSize = isCurrent || isTarget ? 92 : 78;
 

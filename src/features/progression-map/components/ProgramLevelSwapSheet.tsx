@@ -23,7 +23,7 @@
  */
 import { useEffect, useState } from 'react';
 import { X, Dumbbell } from 'lucide-react';
-import { getLocalizedText, resolveImageForLocation, ExecutionLocation, type Exercise } from '@/features/content/exercises';
+import { getLocalizedText, ExecutionLocation, type Exercise } from '@/features/content/exercises';
 import { UserFullProfile } from '@/types/user-profile';
 import { Park } from '@/types/admin-types';
 import { useExerciseLibraryStore } from '@/features/content/exercises/client/store/useExerciseLibraryStore';
@@ -32,6 +32,9 @@ import {
   getSameProgramLevelExercises,
   type SameLevelExerciseOption,
 } from '../services/program-level-swap-query';
+import { resolveParkNodeImage } from '../services/resolve-park-node-image';
+
+const IMAGE_PLACEHOLDER = '/images/park-placeholder.svg';
 
 function GearBadge({ label }: { label: string }) {
   return (
@@ -47,17 +50,17 @@ function GearBadge({ label }: { label: string }) {
 
 function SwapCard({
   option,
-  location,
   selected,
   onTap,
 }: {
   option: SameLevelExerciseOption;
-  location: string | null;
   selected: boolean;
   onTap: () => void;
 }) {
   const name = getLocalizedText(option.exercise.name, 'he');
-  const imageUrl = resolveImageForLocation(option.exercise, location) || '/images/park-placeholder.svg';
+  // Same park-only resolver as TreeNode — never falls back to a
+  // location-agnostic legacy field that could show a home photo.
+  const imageUrl = resolveParkNodeImage(option.exercise) || IMAGE_PLACEHOLDER;
   const method = option.selectedExecutionMethod;
   const rawGearIds: string[] = [
     ...(method.gearIds ?? []),
@@ -184,7 +187,6 @@ export function ProgramLevelSwapSheet({
             <SwapCard
               key={option.exercise.id}
               option={option}
-              location={location}
               selected={option.exercise.id === selectedId}
               onTap={() => setSelectedId(option.exercise.id)}
             />

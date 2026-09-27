@@ -21,15 +21,34 @@ import { useExerciseLibraryStore } from '../store/useExerciseLibraryStore';
 import MasterExerciseView from './MasterExerciseView';
 import { resolveTreeProgramId } from '@/lib/progression-map-config';
 
-export default function ExerciseDetailSheet() {
+export interface ExerciseDetailSheetProps {
+  /**
+   * When set, overrides the GLOBAL useExerciseLibraryStore filters.location
+   * for this instance only — added for the Progression Map screen, which
+   * needs every open here to resolve the park execution-method regardless
+   * of whatever the user last set in the real library filter (which this
+   * sheet would otherwise silently inherit). Deliberately a local prop, not
+   * another write to the shared store: an earlier version forced the
+   * global filter on mount/restored it on unmount, which turned out to
+   * cause real churn (MasterExerciseView's own method-reseed effect is
+   * keyed off filterLocation, so mutating a value shared across every
+   * mounted consumer of that store was exactly the kind of cross-component
+   * side effect worth avoiding). Omitted (undefined) for every existing
+   * caller — falls through to the global filter, byte-identical to before.
+   */
+  locationOverride?: 'home' | 'park' | 'gym';
+}
+
+export default function ExerciseDetailSheet({ locationOverride }: ExerciseDetailSheetProps = {}) {
   const router = useRouter();
 
   // ── Store reads ──────────────────────────────────────────────────────────
-  const isOpen         = useExerciseLibraryStore((s) => s.isDetailOpen);
-  const exercise       = useExerciseLibraryStore((s) => s.selectedExercise);
-  const close          = useExerciseLibraryStore((s) => s.closeDetail);
-  const filterLocation = useExerciseLibraryStore((s) => s.filters.location);
-  const notice         = useExerciseLibraryStore((s) => s.detailNotice);
+  const isOpen           = useExerciseLibraryStore((s) => s.isDetailOpen);
+  const exercise         = useExerciseLibraryStore((s) => s.selectedExercise);
+  const close            = useExerciseLibraryStore((s) => s.closeDetail);
+  const globalFilterLocation = useExerciseLibraryStore((s) => s.filters.location);
+  const filterLocation   = locationOverride ?? globalFilterLocation;
+  const notice           = useExerciseLibraryStore((s) => s.detailNotice);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
