@@ -62,3 +62,15 @@ export function resolveTreeProgramId(exercise: Pick<Exercise, 'targetPrograms'>)
   const match = exercise.targetPrograms?.find((tp) => PROGRESSION_MAP_LEAF_PROGRAM_IDS.has(tp.programId));
   return match?.programId ?? null;
 }
+
+/**
+ * Scenic background assets (round-2 visual polish). Config constants only —
+ * swap the art by replacing these two PNGs under public/images/progression-map/,
+ * no logic change needed anywhere that imports them.
+ *
+ * sky.png: pinned at the top of the tree (clouds).
+ * pathTile.png: the park/garden body, tiled vertically (CSS background-repeat)
+ * to cover trees taller than one tile — see SkillTreeBackground.tsx.
+ */
+export const PROGRESSION_MAP_SKY_IMAGE = '/images/progression-map/sky.png';
+export const PROGRESSION_MAP_PATH_TILE_IMAGE = '/images/progression-map/path-tile.png';
