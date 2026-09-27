@@ -62,6 +62,36 @@ function GapPill({ fromLevel, toLevel }: { fromLevel: number; toLevel: number })
   );
 }
 
+const BRANCH_HEIGHT = 18; // px — the curve's vertical dip, kept small so it can't overlap neighboring rows
+
+/**
+ * Gentle curved connector instead of a straight line — a soft "winding path"
+ * feel without touching any of the positioning math (same BRANCH_WIDTH
+ * bounding box, same flex slot, same start/end x-coordinates as the straight
+ * line it replaces — only the line itself is now a curve, drawn as an SVG so
+ * the existing grid-cols-2 alignment is untouched).
+ */
+function BranchCurve({ color, dimmed }: { color: string; dimmed: boolean }) {
+  return (
+    <svg
+      width={BRANCH_WIDTH}
+      height={BRANCH_HEIGHT}
+      viewBox={`0 0 ${BRANCH_WIDTH} ${BRANCH_HEIGHT}`}
+      className="flex-shrink-0"
+      style={{ opacity: dimmed ? 0.6 : 1 }}
+    >
+      <path
+        d={`M0,${BRANCH_HEIGHT / 2} Q${BRANCH_WIDTH / 2},${BRANCH_HEIGHT} ${BRANCH_WIDTH},${BRANCH_HEIGHT / 2}`}
+        fill="none"
+        stroke={color}
+        strokeWidth={2}
+        strokeDasharray="4 4"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 /** Branch connector + node, packed against the grid-column edge that touches the center spine. */
 function BranchAndNode({
   onRight,
@@ -76,10 +106,7 @@ function BranchAndNode({
 }) {
   return (
     <div className="flex items-center" style={{ flexDirection: onRight ? 'row' : 'row-reverse' }}>
-      <div
-        className="border-t-2 border-dashed flex-shrink-0"
-        style={{ width: BRANCH_WIDTH, borderColor: color, opacity: dimmed ? 0.6 : 1 }}
-      />
+      <BranchCurve color={color} dimmed={dimmed} />
       {children}
     </div>
   );
