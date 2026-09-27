@@ -27,6 +27,7 @@ import { AdminInvitation, InvitationData } from '@/types/invitation.type';
 import { logAction } from './audit.service';
 import { updateAuthority, getAuthority, getChildrenByParent } from './authority.service';
 import { isRootAdmin } from '@/config/feature-flags';
+import { mergeAndSortInvitations } from './mergeInvitations';
 
 const INVITATIONS_COLLECTION = 'admin_invitations';
 
@@ -652,17 +653,42 @@ export async function removeManagerFromAuthority(
 
 /**
  * Get invitations filtered by authorityId (for team management pages).
+ *
+ * A `tenant_owner`/`unit_admin` invitation (military/educational, added
+ * 27.09.2026 — §13.34/§13.37) never sets `authorityId` — it only sets
+ * `tenantId`, which for these org types is the SAME id as the org's
+ * `authorities/{id}` document (confirmed: /api/admin/invitations verifies
+ * `tenantId` against a real `authorities` doc of type military_unit/school,
+ * and team/page.tsx already queries `users` by `core.tenantId == authorityId`
+ * for the same org). Without this second query, such an invitation would
+ * never show as "pending" here. Municipal `authority_manager` invitations
+ * never set `tenantId`, so the second query is always empty for them —
+ * existing municipal behavior is unchanged.
+ *
+ * The `tenantId` branch has NO `orderBy` — a composite index
+ * (tenantId, createdAt) does not exist and was confirmed (empirically,
+ * against production — see scripts/_check-invitations-tenantid-query-index.ts)
+ * to be REQUIRED if orderBy were added to that query. Sorting after
+ * merging avoids needing a new index at all.
  */
 export async function getInvitationsByAuthority(authorityId: string): Promise<AdminInvitation[]> {
   try {
-    const q = query(
-      collection(db, INVITATIONS_COLLECTION),
-      where('authorityId', '==', authorityId),
-      orderBy('createdAt', 'desc')
-    );
-    const snapshot = await getDocs(q);
+    const [byAuthority, byTenant] = await Promise.all([
+      getDocs(query(
+        collection(db, INVITATIONS_COLLECTION),
+        where('authorityId', '==', authorityId),
+        orderBy('createdAt', 'desc')
+      )),
+      getDocs(query(
+        collection(db, INVITATIONS_COLLECTION),
+        where('tenantId', '==', authorityId)
+      )),
+    ]);
 
-    return snapshot.docs.map((docSnap) => normalizeInvitation(docSnap));
+    return mergeAndSortInvitations(
+      byAuthority.docs.map((docSnap) => normalizeInvitation(docSnap)),
+      byTenant.docs.map((docSnap) => normalizeInvitation(docSnap))
+    );
   } catch (error) {
     console.error('Error fetching invitations by authority:', error);
     return [];
