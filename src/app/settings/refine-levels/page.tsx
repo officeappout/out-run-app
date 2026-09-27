@@ -122,7 +122,6 @@ export default function RefineLevelsPage() {
     <div
       className="min-h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col"
       dir="rtl"
-      style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       {/* Header */}
       <div className="flex items-center gap-3 px-5 pt-4 pb-2">

@@ -35,6 +35,26 @@ function MidnightClock() {
 // render as clean web documents without any mobile app chrome.
 const HIDDEN_NAV_ROUTES = ['/explorer', '/library', '/onboarding-new', '/gateway', '/privacy', '/terms', '/public', '/join', '/challenge', '/booth'];
 
+// Routes whose own header is already correctly edge-to-edge: the header's
+// background stretches to the true top of the screen and only its content
+// is pushed down via the header's own env(safe-area-inset-top) padding.
+// <main>'s global top padding (below) must NOT also apply here — it would
+// push the whole header down, leaving an empty gap above it.
+//
+//   /arena/create, /onboarding-new/profile, /progress, /debug/health-sync
+//     — exact routes, no nested pages underneath.
+//   /community/[id] — every community detail page; bare /community (the
+//     list/tabs page) is unaffected and does NOT need the exemption.
+//   /profile/[userId] — every user-profile page EXCEPT /profile/exercise/*,
+//     which is a different, unrelated route nested under /profile/.
+const TOP_PADDING_EXEMPT_EXACT_ROUTES = ['/arena/create', '/onboarding-new/profile', '/progress', '/debug/health-sync'];
+function isTopPaddingExemptRoute(pathname: string): boolean {
+  if (TOP_PADDING_EXEMPT_EXACT_ROUTES.includes(pathname)) return true;
+  if (pathname.startsWith('/community/')) return true;
+  if (pathname.startsWith('/profile/') && !pathname.startsWith('/profile/exercise/')) return true;
+  return false;
+}
+
 export default function ClientLayout({
   children,
 }: {
@@ -69,6 +89,7 @@ export default function ClientLayout({
   const isLandingPage = mounted && pathname === '/';
   const shouldShowBottomNav = mounted && status !== 'finished' && !isHiddenRoute && !isLandingPage;
   const isMapRoute = mounted && pathname.startsWith('/map');
+  const isTopPaddingExempt = mounted && isTopPaddingExemptRoute(pathname);
 
   return (
     <LanguageProvider>
@@ -100,13 +121,16 @@ export default function ClientLayout({
               // own top chrome (search bar, mode pills) over the full-bleed
               // canvas.
               //
-              // KNOWN FOLLOW-UP: a handful of existing screens already apply
-              // their own env(safe-area-inset-top) on a normal-flow/sticky
-              // header (or, in one case, an absolutely positioned child of a
-              // normal-flow ancestor) — those will double up with this
-              // padding until fixed separately. See PR description for the
-              // exact list; deliberately not touched in this change.
-              paddingTop: isMapRoute ? undefined : 'env(safe-area-inset-top, 0px)',
+              // isTopPaddingExempt covers the OTHER kind of exception: a
+              // handful of screens whose own header is deliberately
+              // edge-to-edge — its background reaches the true top of the
+              // screen, and ONLY its inner content is pushed down via the
+              // header's own env(safe-area-inset-top) padding. Giving those
+              // routes this padding too would push the whole header down,
+              // leaving an empty gap above it that never reaches the true
+              // edge — see isTopPaddingExemptRoute() below for the exact
+              // list and why each one is there.
+              paddingTop: isMapRoute || isTopPaddingExempt ? undefined : 'env(safe-area-inset-top, 0px)',
             }}
           >
             {children}

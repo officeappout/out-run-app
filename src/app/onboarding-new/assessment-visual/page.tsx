@@ -1056,10 +1056,6 @@ export default function VisualAssessmentPage() {
     <div
       className="h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col overflow-hidden"
       dir="rtl"
-      style={{
-        paddingTop: 'env(safe-area-inset-top)',
-        paddingBottom: 'env(safe-area-inset-bottom)',
-      }}
     >
       {/* Flow content — fills all available space */}
       <div className="flex-1 flex flex-col w-full max-w-md mx-auto overflow-hidden min-h-0">
