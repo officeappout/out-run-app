@@ -18,23 +18,46 @@ interface RoleOption {
   requiresScope?: 'unit' | 'authority' | 'allAuthorities';
 }
 
-// SPEC-PERMISSIONS-MODEL.md §7/§8 — POST /api/admin/invitations only
-// accepts two roles: authority_manager and platform_member. Every option
-// below MUST correspond to a role the server actually accepts — offering
-// anything else is exactly the "server rejects it, must never be shown"
-// bug this table fixes (22.09.2026 follow-up audit). tenant_owner and
-// unit_admin (military/educational/company/youth_movement, and municipal's
-// former "neighborhood coordinator" option) are NOT supported yet — those
-// verticals/levels aren't built (SPEC §10/§11 step 3 still ⬜) — removed
-// outright rather than left to fail server-side. super_admin and
-// vertical_admin are removed from `platform` for the same reason (root is
-// never granted via invitation; vertical_admin's vertical isn't built).
+// SPEC-PERMISSIONS-MODEL.md §7/§8 — every option below MUST correspond to
+// a role the server actually accepts — offering anything else is exactly
+// the "server rejects it, must never be shown" bug this table originally
+// fixed (22.09.2026 follow-up audit, commit bdcc3c6c). At THAT time,
+// POST /api/admin/invitations only accepted authority_manager and
+// platform_member, so tenant_owner/unit_admin were removed outright for
+// military/educational rather than left to fail server-side.
+//
+// THIS IS NO LONGER TRUE as of 25.09.2026 (commits 35943ecb, 571cb895 —
+// both land AFTER bdcc3c6c, confirmed via `git merge-base --is-ancestor`):
+// the server gained real tenant_owner/unit_admin support (the
+// military/school persona-unit-unification build, resolveUnitPermissionScope
+// et al. — docs/audit-2026-09/00-MASTER-PLAN.md §13.25 onward) and this
+// table was simply never updated to match — a genuine regression-by-
+// omission, not a deliberate scoping decision, confirmed via a 26.09.2026
+// investigation (docs/audit-2026-09/00-MASTER-PLAN.md §13.34) that found
+// zero real tenant_owner/unit_admin invitations ever created through this
+// UI in production. Restored here (§13.35): tenant_owner needs no scope
+// picker (the invitee manages the WHOLE tenant, matching context.tenantId
+// — see the `invData.tenantId` assignment below). unit_admin's own scope
+// picker is now sourced from GET /api/units/structure (Slice D, already
+// built/tested/live) instead of getChildrenByParent's authorities-based
+// query, which returns the WRONG collection entirely for these verticals
+// (real units live in tenants/{t}/units, never as authorities docs with
+// parentAuthorityId — confirmed empirically: 0 of 48 real military_unit
+// authorities in production have any authorities-children at all).
+// company/youth_movement stay empty — no persona-drawer unit-hierarchy
+// question exists for those verticals (unchanged from the original audit).
 const ROLE_OPTIONS_BY_CONTEXT: Record<TenantType | 'platform', RoleOption[]> = {
-  military: [],
+  military: [
+    { value: 'tenant_owner', label: 'בעל הגוף (מפקד ראשי)' },
+    { value: 'unit_admin', label: 'מנהל יחידה (מפקד)', requiresScope: 'unit' },
+  ],
   municipal: [
     { value: 'authority_manager', label: 'מנהל רשות (עיר)' },
   ],
-  educational: [],
+  educational: [
+    { value: 'tenant_owner', label: 'בעל הגוף (מנהל בית ספר)' },
+    { value: 'unit_admin', label: 'מנהל יחידה', requiresScope: 'unit' },
+  ],
   company: [],
   youth_movement: [],
   platform: [
@@ -115,8 +138,25 @@ export default function InviteMemberModal({
   const [selectedRole, setSelectedRole] = useState<InvitationRole | ''>('');
   const [selectedVertical, setSelectedVertical] = useState<'military' | 'municipal' | 'educational' | ''>('');
   const [selectedScopeId, setSelectedScopeId] = useState('');
+  // requiresScope: 'authority' — currently unused by any real option in
+  // ROLE_OPTIONS_BY_CONTEXT (kept as-is, untouched, in case a future
+  // option needs it) — sourced from getChildrenByParent (authorities-
+  // based children), correct for THAT use case.
   const [childEntities, setChildEntities] = useState<Authority[]>([]);
   const [loadingChildren, setLoadingChildren] = useState(false);
+  // requiresScope: 'unit' — unit_admin's own scope picker (§13.35,
+  // 26.09.2026). Sourced from GET /api/units/structure (Slice D, already
+  // built/tested/live), NOT getChildrenByParent — the units this picker
+  // needs to list live in tenants/{tenantId}/units, never as authorities
+  // docs with parentAuthorityId (confirmed empirically: 0 of 48 real
+  // military_unit authorities in production have any authorities-
+  // children at all — see docs/audit-2026-09/00-MASTER-PLAN.md §13.34).
+  // A fetch failure is surfaced via structureUnitsError, never silently
+  // shown as "this tenant has no units" (same discipline as every other
+  // /api/units/structure consumer this month).
+  const [structureUnits, setStructureUnits] = useState<{ id: string; name: string }[]>([]);
+  const [loadingStructureUnits, setLoadingStructureUnits] = useState(false);
+  const [structureUnitsError, setStructureUnitsError] = useState<string | null>(null);
   // authority_manager in the 'platform' context (no pre-set context.authorityId
   // to scope children from — root picks any city directly) needs the full
   // authorities list, not getChildrenByParent's parent-scoped one.
@@ -190,7 +230,7 @@ export default function InviteMemberModal({
   const currentRoleOption = roleOptions.find(r => r.value === selectedRole);
 
   useEffect(() => {
-    if (!currentRoleOption?.requiresScope) {
+    if (currentRoleOption?.requiresScope !== 'authority') {
       setChildEntities([]);
       return;
     }
@@ -209,6 +249,47 @@ export default function InviteMemberModal({
     });
     return () => { cancelled = true; };
   }, [currentRoleOption?.requiresScope, context.authorityId, context.tenantId]);
+
+  useEffect(() => {
+    if (currentRoleOption?.requiresScope !== 'unit') {
+      setStructureUnits([]);
+      setStructureUnitsError(null);
+      return;
+    }
+    const tenantId = context.tenantId || context.authorityId;
+    if (!tenantId) return;
+
+    let cancelled = false;
+    setLoadingStructureUnits(true);
+    setStructureUnitsError(null);
+    (async () => {
+      try {
+        const currentUser = auth.currentUser;
+        if (!currentUser) throw new Error('משתמש לא מחובר. רענן את הדף ונסה שוב.');
+        const idToken = await currentUser.getIdToken();
+        const res = await fetch(`/api/units/structure?tenantId=${encodeURIComponent(tenantId)}`, {
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(typeof body.error === 'string' ? body.error : `שגיאה בטעינת יחידות (${res.status})`);
+        }
+        if (!cancelled) {
+          const units: Array<{ unitId: string; name: string }> = Array.isArray(body.units) ? body.units : [];
+          setStructureUnits(units.map(u => ({ id: u.unitId, name: u.name })));
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('[InviteMemberModal] /api/units/structure failed:', err);
+          setStructureUnits([]);
+          setStructureUnitsError(err instanceof Error ? err.message : 'שגיאה בטעינת רשימת היחידות. נסה שוב.');
+        }
+      } finally {
+        if (!cancelled) setLoadingStructureUnits(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [currentRoleOption?.requiresScope, context.tenantId, context.authorityId]);
 
   useEffect(() => {
     if (currentRoleOption?.requiresScope !== 'allAuthorities') {
@@ -232,6 +313,13 @@ export default function InviteMemberModal({
     if (!email.trim() || !selectedRole) return;
     if (currentRoleOption?.requiresScope === 'allAuthorities' && !selectedScopeId) {
       setError('יש לבחור עיר עבור מנהל רשות');
+      return;
+    }
+    // unit_admin's unitId is REQUIRED server-side (admin/invitations/
+    // route.ts rejects with 400 if missing) — matches that here instead
+    // of silently sending an incomplete request.
+    if (selectedRole === 'unit_admin' && !selectedScopeId) {
+      setError('יש לבחור יחידה עבור מנהל יחידה');
       return;
     }
     if (selectedRole === 'vertical_admin' && !selectedVertical) {
@@ -593,14 +681,43 @@ export default function InviteMemberModal({
               </div>
             )}
 
-            {/* Scope selector — unit/authority (child of context.authorityId,
-                "whole org" is a valid default) vs allAuthorities (root
-                picking any city directly, no default — a city is required). */}
-            {(currentRoleOption?.requiresScope === 'unit' || currentRoleOption?.requiresScope === 'authority') && (
+            {/* unit_admin's scope picker (§13.35, 26.09.2026) — a specific
+                unit is REQUIRED, no "whole org" default (that's what
+                tenant_owner is for). Sourced from GET /api/units/structure,
+                not getChildrenByParent — see this file's own header
+                comment on ROLE_OPTIONS_BY_CONTEXT for why. A fetch failure
+                is shown here, never silently rendered as "this tenant has
+                no units". */}
+            {currentRoleOption?.requiresScope === 'unit' && (
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5">
-                  {currentRoleOption.requiresScope === 'unit' ? 'שיוך ליחידה' : 'שיוך לשכונה / יישוב'}
-                </label>
+                <label className="block text-sm font-bold text-gray-700 mb-1.5">שיוך ליחידה</label>
+                {loadingStructureUnits ? (
+                  <div className="flex items-center gap-2 text-sm text-gray-400 py-2">
+                    <Loader2 size={14} className="animate-spin" /> טוען...
+                  </div>
+                ) : structureUnitsError ? (
+                  <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2">{structureUnitsError}</p>
+                ) : (
+                  <SearchableSelect
+                    options={structureUnits.map(u => ({ id: u.id, label: u.name }))}
+                    value={selectedScopeId}
+                    onChange={v => setSelectedScopeId(v)}
+                    placeholder="בחר יחידה..."
+                  />
+                )}
+                {!selectedScopeId && !loadingStructureUnits && !structureUnitsError && (
+                  <p className="text-[11px] text-amber-600 mt-1.5">יש לבחור יחידה כדי ליצור הזמנת מנהל יחידה.</p>
+                )}
+              </div>
+            )}
+
+            {/* Scope selector — authority (child of context.authorityId,
+                "whole org" is a valid default). Currently unused by any
+                real role option (kept for a future one) — unchanged from
+                before §13.35. */}
+            {currentRoleOption?.requiresScope === 'authority' && (
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1.5">שיוך לשכונה / יישוב</label>
                 {loadingChildren ? (
                   <div className="flex items-center gap-2 text-sm text-gray-400 py-2">
                     <Loader2 size={14} className="animate-spin" /> טוען...
@@ -659,7 +776,8 @@ export default function InviteMemberModal({
                 !email.trim() ||
                 !selectedRole ||
                 sending ||
-                (currentRoleOption?.requiresScope === 'allAuthorities' && !selectedScopeId)
+                (currentRoleOption?.requiresScope === 'allAuthorities' && !selectedScopeId) ||
+                (selectedRole === 'unit_admin' && !selectedScopeId)
               }
               className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white py-3 rounded-xl font-bold text-sm hover:from-cyan-700 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >

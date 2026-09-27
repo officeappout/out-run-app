@@ -63,9 +63,6 @@ export default function AuthorityTeamPage() {
   const [invitations, setInvitations] = useState<AdminInvitation[]>([]);
 
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteTargetAuthority, setInviteTargetAuthority] = useState('');
-  const [inviting, setInviting] = useState(false);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
   const [removingUid, setRemovingUid] = useState<string | null>(null);
 
@@ -227,73 +224,6 @@ export default function AuthorityTeamPage() {
     }
   };
 
-  const handleInvite = async () => {
-    if (!inviteEmail.trim() || !authorityId) return;
-    setInviting(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      console.log('[TeamPage] handleInvite START:', { inviteEmail, authorityId, inviteTargetAuthority });
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        console.error('[TeamPage] handleInvite: user not authenticated');
-        throw new Error('Not authenticated');
-      }
-
-      const targetAuth = inviteTargetAuthority || authorityId;
-      console.log('[TeamPage] Sending invitation to:', inviteEmail.trim().toLowerCase(), 'for authority:', targetAuth);
-
-      // SPEC-PERMISSIONS-MODEL.md §7/§8 — invitation creation moved
-      // server-side (POST /api/admin/invitations), root-only. An authority
-      // manager using this button gets a clean 403 from the server (the
-      // spec's own matrix has no "authority manager invites authority
-      // manager" case — only root creates level-1 roles; level-2
-      // "invite a neighborhood manager" isn't built yet either).
-      const idToken = await currentUser.getIdToken();
-      const res = await fetch('/api/admin/invitations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-        body: JSON.stringify({
-          email: inviteEmail.trim().toLowerCase(),
-          role: 'authority_manager',
-          authorityId: targetAuth,
-        }),
-      });
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({}));
-        throw new Error(errBody.error || 'שגיאה ביצירת הזמנה');
-      }
-      const result = await res.json();
-
-      console.log('[TeamPage] Invitation created successfully:', result);
-
-      // Send the sign-in link straight to the invitee's email — root is
-      // the one clicking "send" here, not the invitee, so this must NOT
-      // write the invitee's email into root's own localStorage (see
-      // sendMagicLink's skipLocalStorage doc in src/lib/auth.service.ts).
-      const { sendMagicLink } = await import('@/lib/auth.service');
-      const sendResult = await sendMagicLink(inviteEmail, result.callbackUrl, { skipLocalStorage: true });
-      if (sendResult.error) {
-        console.error('[TeamPage] Failed to auto-send invitation email:', sendResult.error);
-        setSuccess(`ההזמנה נוצרה, אך שליחת המייל נכשלה — השתמש בקישור להעתקה`);
-      } else {
-        setSuccess(`נשלח מייל ל-${inviteEmail}`);
-      }
-      setCopiedLink(result.inviteLink);
-      setInviteEmail('');
-      setInviteTargetAuthority('');
-      setShowInviteModal(false);
-
-      await loadTeamData(authorityId);
-    } catch (err: any) {
-      console.error('[TeamPage] Invite FAILED:', err, '| message:', err?.message, '| code:', err?.code, '| stack:', err?.stack);
-      setError(err.message || 'שגיאה ביצירת הזמנה');
-    } finally {
-      setInviting(false);
-    }
-  };
-
   const handleRemoveMember = async (uid: string) => {
     if (!authorityId || !window.confirm('האם להסיר את המשתמש מהצוות?')) return;
     setRemovingUid(uid);
@@ -450,10 +380,7 @@ export default function AuthorityTeamPage() {
           </p>
         </div>
         <button
-          onClick={() => {
-            setInviteTargetAuthority(authorityId || '');
-            setShowInviteModal(true);
-          }}
+          onClick={() => setShowInviteModal(true)}
           className="flex items-center gap-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:from-cyan-700 hover:to-blue-700 transition-all shadow-lg shadow-cyan-200/50"
         >
           <UserPlus size={18} />
