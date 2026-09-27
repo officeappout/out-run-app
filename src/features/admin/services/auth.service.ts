@@ -24,6 +24,9 @@ export interface UserRoleInfo {
   isTenantOwner: boolean;
   tenantId?: string;
   tenantType?: string;
+  /** Unit Admin manages a single unit under a tenant — mutually exclusive with isTenantOwner (§13.39) */
+  isUnitAdmin: boolean;
+  unitId?: string;
   authorityIds: string[];
   isApproved: boolean;
   email?: string;
@@ -59,6 +62,8 @@ export async function checkUserRole(userId: string, userEmail?: string | null): 
     let isTenantOwner = false;
     let tenantId: string | undefined;
     let tenantType: string | undefined;
+    let isUnitAdmin = false;
+    let unitId: string | undefined;
     let isApproved = false;
     let emailFromProfile: string | null = null;
     let allowedSections: string[] = [];
@@ -76,6 +81,11 @@ export async function checkUserRole(userId: string, userEmail?: string | null): 
         isTenantOwner = core?.isTenantOwner === true;
         tenantId = core?.tenantId || undefined;
         tenantType = core?.tenantType || undefined;
+        // unit_admin (accept-invitation/route.ts) writes core.tenantId +
+        // core.unitId but never core.isTenantOwner — the two roles are
+        // mutually exclusive by construction, never both true.
+        unitId = core?.unitId || undefined;
+        isUnitAdmin = !isTenantOwner && !!unitId;
         isApproved = core?.isApproved === true;
         emailFromProfile = core?.email || null;
         await logAdminLogin(userId);
@@ -112,6 +122,7 @@ export async function checkUserRole(userId: string, userEmail?: string | null): 
       !isVerticalAdmin &&
       !isAuthorityManager &&
       !isTenantOwner &&
+      !isUnitAdmin &&
       allowedSections.length > 0;
 
     const role: UserRole = isSuperAdmin
@@ -137,6 +148,8 @@ export async function checkUserRole(userId: string, userEmail?: string | null): 
       isTenantOwner,
       tenantId,
       tenantType,
+      isUnitAdmin,
+      unitId,
       authorityIds: authorities.map((a) => a.id),
       isApproved,
       email: emailToCheck || undefined,
@@ -145,7 +158,7 @@ export async function checkUserRole(userId: string, userEmail?: string | null): 
     };
   } catch (error) {
     console.error('Error in checkUserRole:', error);
-    return { role: 'none', isSuperAdmin: false, isSystemAdmin: false, isVerticalAdmin: false, isAuthorityManager: false, isRootAdmin: false, isTenantOwner: false, authorityIds: [], isApproved: false, allowedSections: [] };
+    return { role: 'none', isSuperAdmin: false, isSystemAdmin: false, isVerticalAdmin: false, isAuthorityManager: false, isRootAdmin: false, isTenantOwner: false, isUnitAdmin: false, authorityIds: [], isApproved: false, allowedSections: [] };
   }
 }
 
@@ -216,6 +229,7 @@ export function useUserRole() {
           isAuthorityManager: false,
           isRootAdmin: false,
           isTenantOwner: false,
+          isUnitAdmin: false,
           authorityIds: [],
           isApproved: false,
           allowedSections: [],

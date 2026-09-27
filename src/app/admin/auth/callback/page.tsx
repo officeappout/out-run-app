@@ -9,8 +9,10 @@ import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { signInWithMagicLink, isMagicLinkCallback, signOutUser, mintAdminSessionCookie } from '@/lib/auth.service';
 import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
-import { getAuthoritiesByManager } from '@/features/admin/services/authority.service';
+import { getAuthoritiesByManager, getAuthority } from '@/features/admin/services/authority.service';
+import { authorityTypeToTenantType } from '@/features/admin/config/tenantLabels';
 import { decidePreflightAction } from '@/features/admin/services/auth-callback-preflight';
+import { decideInvitationRoleRedirect, decideResolveDestinationBranch } from '@/features/admin/services/postAcceptRedirect';
 import { CheckCircle, AlertCircle, Mail } from 'lucide-react';
 import AppLogoLoader from '@/components/AppLogoLoader';
 
@@ -26,6 +28,22 @@ function waitForInitialAuthState(): Promise<User | null> {
       resolve(user);
     });
   });
+}
+
+// §13.39 — resolves an org's ACTUAL current vertical fresh, every time,
+// rather than trusting a possibly-stale/absent stored field. tenant_owner
+// gets core.tenantType written at accept-time; unit_admin does NOT
+// (checked against accept-invitation/route.ts — no such write in that
+// branch) — resolving both the same way here avoids that asymmetry
+// mattering to either caller below. Returns null on any failure (missing
+// doc, network error) — callers treat that as "cannot determine."
+async function resolveTenantType(tenantId: string): Promise<string | null> {
+  try {
+    const org = await getAuthority(tenantId);
+    return org ? authorityTypeToTenantType(org) : null;
+  } catch {
+    return null;
+  }
 }
 
 function AuthCallbackContent() {
@@ -83,7 +101,40 @@ function AuthCallbackContent() {
       }
     }
 
-    if (roleInfo.isAuthorityManager || isOnly) {
+    // §13.39 — decideResolveDestinationBranch checks isTenantOwner/
+    // isUnitAdmin BEFORE isAuthorityManager: a tenant_owner is ALSO,
+    // mechanically, an authority_manager (accept-invitation/route.ts
+    // arrayUnions them into authorities/{tenantId}.managerIds too — the two
+    // roles' registration is deliberately identical at that level).
+    // Checking isAuthorityManager first would catch every real tenant_owner
+    // before ever reaching the tenant_owner branch, sending them to
+    // /admin/authority-manager regardless — exactly the bug being fixed.
+    // David's requirement 1: if tenantType (or unitId, for unit_admin)
+    // can't be resolved, show a clear message — never guess a fallback
+    // path, never leave the screen stuck on the loader.
+    const tenantType = roleInfo.tenantId ? await resolveTenantType(roleInfo.tenantId) : null;
+    const decision = decideResolveDestinationBranch({
+      isTenantOwner: roleInfo.isTenantOwner,
+      isUnitAdmin: roleInfo.isUnitAdmin,
+      isAuthorityManager: roleInfo.isAuthorityManager,
+      isOnlyAuthorityManager: isOnly,
+      isVerticalAdmin: roleInfo.isVerticalAdmin,
+      isSuperAdmin: roleInfo.isSuperAdmin,
+      isSystemAdmin: roleInfo.isSystemAdmin,
+      tenantId: roleInfo.tenantId,
+      unitId: roleInfo.unitId,
+      tenantType,
+    });
+
+    if (decision.kind === 'redirect') {
+      router.replace(decision.path);
+    } else if (decision.kind === 'cannot-determine') {
+      setError(decision.message);
+      setLoading(false);
+    } else {
+      // 'legacy-authority-manager' — UNCHANGED existing behavior: a real
+      // authority_manager (municipal or otherwise) must keep landing
+      // exactly where they do today.
       try {
         const authorities = await getAuthoritiesByManager(user.uid);
         if (authorities.length > 0 && authorities[0].type === 'neighborhood') {
@@ -92,15 +143,6 @@ function AuthCallbackContent() {
         }
       } catch { /* fall through to default */ }
       router.replace('/admin/authority-manager');
-    } else if (roleInfo.isVerticalAdmin) {
-      router.replace('/admin/organizations');
-    } else if (roleInfo.isTenantOwner) {
-      router.replace('/admin/authority-manager');
-    } else if (roleInfo.isSuperAdmin || roleInfo.isSystemAdmin) {
-      router.replace('/admin');
-    } else {
-      setError('אין לך גישה לפורטל. פנה למנהל המערכת.');
-      setLoading(false);
     }
   };
 
@@ -137,6 +179,7 @@ function AuthCallbackContent() {
     let invitationApplied = false;
     let invitationRole: string | null = null;
     let invitationOrgId: string | null = null;
+    let invitationUnitId: string | null = null;
 
     if (invitationToken) {
       try {
@@ -165,6 +208,7 @@ function AuthCallbackContent() {
             invitationApplied = true;
             invitationRole = invitation.role;
             invitationOrgId = invitation.authorityId || invitation.tenantId || null;
+            invitationUnitId = invitation.unitId || null;
             console.log('[AuthCallback] Invitation applied successfully for', invitation.role);
           } else {
             const errBody = await res.json().catch(() => ({}));
@@ -193,7 +237,27 @@ function AuthCallbackContent() {
       } else if (invitationRole === 'vertical_admin') {
         router.replace('/admin/organizations');
       } else {
-        router.replace('/admin/authority-manager');
+        // §13.39 — invitationOrgId is already the invitation's tenantId for
+        // tenant_owner/unit_admin (authorityId is never set on either kind
+        // of invitation — see InviteMemberModal.tsx/§13.35). Only the org's
+        // CURRENT vertical needs a fresh lookup, and only for those two
+        // roles — decideInvitationRoleRedirect returns 'legacy' for every
+        // other role (authority_manager, platform_member), which keeps
+        // its EXISTING, unchanged destination below.
+        const tenantType = invitationOrgId ? await resolveTenantType(invitationOrgId) : null;
+        const decision = decideInvitationRoleRedirect(invitationRole, {
+          tenantId: invitationOrgId,
+          unitId: invitationUnitId,
+          tenantType,
+        });
+        if (decision.kind === 'redirect') {
+          router.replace(decision.path);
+        } else if (decision.kind === 'cannot-determine') {
+          setError(decision.message);
+          setLoading(false);
+        } else {
+          router.replace('/admin/authority-manager');
+        }
       }
       return;
     }
