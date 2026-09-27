@@ -16,9 +16,45 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const { builtinModules } = require('node:module');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const VENDOR_DIR = path.resolve(__dirname, '..', 'src', '_vendor');
+
+// 27.09.2026 — the exact bug this guard exists to catch, hit twice in one
+// day: a vendored file imports a real npm package (e.g.
+// @turf/boolean-point-in-polygon) that happens to already be installed at
+// the REPO ROOT (a direct dependency of the Next.js app) but was never
+// added to functions/package.json. `tsc` in this worktree passes cleanly —
+// Node's module resolution walks up past functions/ and finds it in the
+// root node_modules — so nothing local ever catches it. The deployed
+// function has no root node_modules at all; it only ever sees
+// functions/node_modules, built from functions/package.json alone. First
+// production symptom: "Cannot find module '@turf/boolean-point-in-polygon'"
+// at RUNTIME, inside a poller invocation, hours after a clean local build.
+// This check closes that gap at build time instead: every bare (non-
+// relative, non-@/, non-Node-builtin) import actually used by a copied
+// file must be a real key in functions/package.json's dependencies or
+// devDependencies, or the build fails right here, loudly, before deploy.
+const BUILTIN_MODULES = new Set(builtinModules);
+
+function isNodeBuiltin(spec) {
+  const bare = spec.startsWith('node:') ? spec.slice(5) : spec;
+  return BUILTIN_MODULES.has(bare);
+}
+
+/** '@turf/boolean-point-in-polygon' -> '@turf/boolean-point-in-polygon' (scoped: first 2 segments).
+ *  'firebase-admin/functions' -> 'firebase-admin' (unscoped: first segment only) — that's the
+ *  key functions/package.json actually declares, regardless of which subpath is imported. */
+function packageNameFromSpecifier(spec) {
+  const parts = spec.split('/');
+  return spec.startsWith('@') ? parts.slice(0, 2).join('/') : parts[0];
+}
+
+function loadDeclaredPackageNames() {
+  const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', 'package.json'), 'utf8'));
+  return new Set([...Object.keys(pkg.dependencies || {}), ...Object.keys(pkg.devDependencies || {})]);
+}
 
 const ROOTS = ['scripts/geo-discovery-routes.ts', 'src/lib/route-collections/index.ts'];
 
@@ -132,6 +168,9 @@ function tryResolveFile(relPathNoExt) {
   return null;
 }
 
+const declaredPackages = loadDeclaredPackageNames();
+const missingPackages = new Map(); // packageName -> Set of importing relPaths (for a useful error message)
+
 const visited = new Set();
 const queue = [...ROOTS];
 let hadError = false;
@@ -169,7 +208,21 @@ while (queue.length) {
   while ((m = IMPORT_RE.exec(content))) {
     const spec = m[1] || m[2] || m[3];
     const relPathNoExt = resolveSpecifierToRelPathNoExt(spec, fromDir);
-    if (!relPathNoExt) continue;
+    if (!relPathNoExt) {
+      // Bare specifier — a real npm package or a Node builtin, never
+      // vendored. Builtins need nothing; a real package MUST be declared in
+      // functions/package.json, or the deployed function can't resolve it
+      // even though this worktree's tsc happily does (see this file's own
+      // header comment for why).
+      if (!isNodeBuiltin(spec)) {
+        const packageName = packageNameFromSpecifier(spec);
+        if (!declaredPackages.has(packageName)) {
+          if (!missingPackages.has(packageName)) missingPackages.set(packageName, new Set());
+          missingPackages.get(packageName).add(relPath);
+        }
+      }
+      continue;
+    }
     const resolved = tryResolveFile(relPathNoExt);
     if (!resolved) {
       console.error(`[vendor-copy] Could not resolve import "${spec}" from ${relPath} (tried ${relPathNoExt}.ts / .tsx / index.ts)`);
@@ -178,6 +231,15 @@ while (queue.length) {
     }
     if (!visited.has(resolved)) queue.push(resolved);
   }
+}
+
+if (missingPackages.size > 0) {
+  console.error(`[vendor-copy] FAILED — ${missingPackages.size} package(s) imported by vendored files are not in functions/package.json (dependencies or devDependencies):`);
+  for (const [pkg, importedBy] of missingPackages) {
+    console.error(`  ${pkg}  (imported by: ${[...importedBy].join(', ')})`);
+  }
+  console.error(`These resolve locally via the repo root's node_modules, so tsc in this worktree passes — but the deployed function only ever has functions/node_modules, built from functions/package.json alone. Add each one there before this build can pass.`);
+  hadError = true;
 }
 
 if (hadError) {
