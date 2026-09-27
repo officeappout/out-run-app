@@ -35,6 +35,35 @@ function MidnightClock() {
 // render as clean web documents without any mobile app chrome.
 const HIDDEN_NAV_ROUTES = ['/explorer', '/library', '/onboarding-new', '/gateway', '/privacy', '/terms', '/public', '/join', '/challenge', '/booth'];
 
+// THE RULE: a route belongs on this list if some element of its own screen
+// (a header bar, a hero image) is deliberately edge-to-edge — its own
+// background/photo already reaches the TRUE top of the screen, with only
+// its inner content/controls pushed down via that element's own
+// env(safe-area-inset-top) padding. <main>'s global top padding (below)
+// must NOT also apply to such a route — it would push the whole
+// header/image down, leaving an empty gap above it that never reaches the
+// true edge, which looks worse than having no padding at all. A route
+// belongs here because of what ITS OWN top-most visual element does, not
+// because of anything about the route's purpose or nesting.
+//
+//   /arena/create, /onboarding-new/profile, /progress, /debug/health-sync
+//     — exact routes, no nested pages underneath.
+//   /community/[id] — every community detail page; bare /community (the
+//     list/tabs page) is unaffected and does NOT need the exemption.
+//   /profile/[userId] — every user-profile page EXCEPT /profile/exercise/*,
+//     which is a different, unrelated route nested under /profile/.
+//   /workouts/[id]/overview — full-bleed hero photo, not a header bar; the
+//     other 3 routes nested under /workouts/[id]/ (bare, /history, /active)
+//     are NOT edge-to-edge and must stay off this list.
+const TOP_PADDING_EXEMPT_EXACT_ROUTES = ['/arena/create', '/onboarding-new/profile', '/progress', '/debug/health-sync'];
+function isTopPaddingExemptRoute(pathname: string): boolean {
+  if (TOP_PADDING_EXEMPT_EXACT_ROUTES.includes(pathname)) return true;
+  if (pathname.startsWith('/community/')) return true;
+  if (pathname.startsWith('/profile/') && !pathname.startsWith('/profile/exercise/')) return true;
+  if (pathname.startsWith('/workouts/') && pathname.endsWith('/overview')) return true;
+  return false;
+}
+
 export default function ClientLayout({
   children,
 }: {
@@ -69,6 +98,7 @@ export default function ClientLayout({
   const isLandingPage = mounted && pathname === '/';
   const shouldShowBottomNav = mounted && status !== 'finished' && !isHiddenRoute && !isLandingPage;
   const isMapRoute = mounted && pathname.startsWith('/map');
+  const isTopPaddingExempt = mounted && isTopPaddingExemptRoute(pathname);
 
   return (
     <LanguageProvider>
@@ -92,6 +122,24 @@ export default function ClientLayout({
                 : shouldShowBottomNav
                   ? 'calc(3rem + env(safe-area-inset-bottom, 0px))'
                   : 'env(safe-area-inset-bottom, 0px)',
+              // Same reasoning as paddingBottom above, mirrored for the top
+              // inset — no screen had a global guarantee against rendering
+              // under the status bar/notch; each had to remember its own
+              // env(safe-area-inset-top) padding, and some didn't. Map route
+              // keeps the same exception as bottom — map layers manage their
+              // own top chrome (search bar, mode pills) over the full-bleed
+              // canvas.
+              //
+              // isTopPaddingExempt covers the OTHER kind of exception: a
+              // handful of screens whose own header is deliberately
+              // edge-to-edge — its background reaches the true top of the
+              // screen, and ONLY its inner content is pushed down via the
+              // header's own env(safe-area-inset-top) padding. Giving those
+              // routes this padding too would push the whole header down,
+              // leaving an empty gap above it that never reaches the true
+              // edge — see isTopPaddingExemptRoute() below for the exact
+              // list and why each one is there.
+              paddingTop: isMapRoute || isTopPaddingExempt ? undefined : 'env(safe-area-inset-top, 0px)',
             }}
           >
             {children}
