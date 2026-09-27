@@ -134,6 +134,36 @@ export type UnitPermissionScope =
   | { kind: 'unitAdmin'; tenantId: string; unitIds: string[] }
   | { kind: 'denied' };
 
+/**
+ * Is a SPECIFIC member (identified by their own core.tenantId/unitId,
+ * read from their user doc — never client-supplied) within an
+ * already-resolved caller scope? root — anyone. tenantOwner — same
+ * tenantId. unitAdmin — same tenantId AND unitId in scope.unitIds
+ * (already includes every descendant unit, §13.28's downward
+ * inheritance — "the unit's own admin, OR a commander above it in the
+ * hierarchy" falls out of this for free, no separate check needed).
+ *
+ * Extracted 26.09.2026 (§13.32) from GET /api/units/member-workouts's own
+ * local isAuthorizedForMember, which is now this function under a new
+ * name — POST /api/units/members/approve and .../remove need the
+ * identical check and this avoids a 3rd independent copy of the same
+ * authorization rule (a real consistency risk: a future fix to this rule
+ * landing in only 1-2 of 3 copies). member-workouts/route.ts was updated
+ * to import this instead of keeping its own copy.
+ */
+export function isMemberWithinScope(
+  scope: UnitPermissionScope,
+  memberTenantId: unknown,
+  memberUnitId: unknown,
+): boolean {
+  if (scope.kind === 'root') return true;
+  if (scope.kind === 'tenantOwner') return memberTenantId === scope.tenantId;
+  if (scope.kind === 'unitAdmin') {
+    return memberTenantId === scope.tenantId && typeof memberUnitId === 'string' && scope.unitIds.includes(memberUnitId);
+  }
+  return false;
+}
+
 export async function resolveUnitPermissionScope(uid: string): Promise<UnitPermissionScope> {
   try {
     const db = getAdminDb();

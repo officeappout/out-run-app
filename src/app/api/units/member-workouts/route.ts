@@ -63,7 +63,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { Firestore } from 'firebase-admin/firestore';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
-import { resolveUnitPermissionScope, type UnitPermissionScope } from '@/lib/unitPermissionScope';
+import { resolveUnitPermissionScope, isMemberWithinScope, type UnitPermissionScope } from '@/lib/unitPermissionScope';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -88,15 +88,6 @@ interface WorkoutSummaryEntry {
   durationMinutes: number | null;
 }
 
-function isAuthorizedForMember(scope: UnitPermissionScope, memberTenantId: unknown, memberUnitId: unknown): boolean {
-  if (scope.kind === 'root') return true;
-  if (scope.kind === 'tenantOwner') return memberTenantId === scope.tenantId;
-  if (scope.kind === 'unitAdmin') {
-    return memberTenantId === scope.tenantId && typeof memberUnitId === 'string' && scope.unitIds.includes(memberUnitId);
-  }
-  return false;
-}
-
 /**
  * Core computation, factored out of the HTTP handler for direct emulator
  * testability — matches the compute*() split used throughout this build.
@@ -115,7 +106,7 @@ export async function computeMemberWorkouts(db: Firestore, scope: UnitPermission
   }
   const targetCore = targetSnap.data()?.core ?? {};
 
-  if (!isAuthorizedForMember(scope, targetCore.tenantId, targetCore.unitId)) {
+  if (!isMemberWithinScope(scope, targetCore.tenantId, targetCore.unitId)) {
     return { status: 403 as const, body: { error: DENIED_MESSAGE } };
   }
 

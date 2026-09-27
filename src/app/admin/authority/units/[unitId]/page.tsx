@@ -39,6 +39,12 @@ interface UnitMember {
    *  anyone who predates the field. Drives the "מוצהרים" vs "חיילים"
    *  label below — see membersLabel's own comment. */
   unitMembershipSource: string | null;
+  /** Slice G (26.09.2026, §13.32) — also from MemberEntry, alongside
+   *  unitMembershipSource above. Drives the "מוצהר" per-row badge (only
+   *  shown while this is false/null) and whether the "אישור" button
+   *  renders at all — an already-approved or non-self-declared member
+   *  has nothing to approve. */
+  unitApprovedByOfficer: boolean | null;
 }
 
 interface SubUnit {
@@ -94,6 +100,18 @@ export default function UnitDrilldownPage() {
   // render below and rosterSummaryByUid's own lookup.
   const [rosterSummaryByUid, setRosterSummaryByUid] = useState<Record<string, { workoutsLast7Days: number; lastWorkoutDateThisWeek: string | null }>>({});
   const [rosterSummaryLoadError, setRosterSummaryLoadError] = useState<string | null>(null);
+  // Slice G (26.09.2026, §13.32) — the two per-member officer actions.
+  // approvingUid/removingUid guard against double-submission (disable the
+  // button mid-request); memberActionError surfaces a failed approve/
+  // remove call (fail-closed on the server — this is just the UI-side
+  // visibility for that denial/error, never silently ignored).
+  // removeConfirmMember holds the member awaiting the explicit
+  // confirmation dialog David required ("לא מסירים אדם בלחיצה אחת") —
+  // null means no dialog is open.
+  const [approvingUid, setApprovingUid] = useState<string | null>(null);
+  const [removingUid, setRemovingUid] = useState<string | null>(null);
+  const [memberActionError, setMemberActionError] = useState<string | null>(null);
+  const [removeConfirmMember, setRemoveConfirmMember] = useState<UnitMember | null>(null);
   const [tenantType, setTenantType] = useState<string>('municipal');
   const [searchTerm, setSearchTerm] = useState('');
   const [showAllMembers, setShowAllMembers] = useState(false);
@@ -242,7 +260,7 @@ export default function UnitDrilldownPage() {
         setMembersLoadError(null);
         let apiUnitsBlocks: Array<{
           unitId: string;
-          approvedMembers: Array<{ uid: string; name: string; unitMembershipSource: string | null }>;
+          approvedMembers: Array<{ uid: string; name: string; unitMembershipSource: string | null; unitApprovedByOfficer: boolean | null }>;
         }> = [];
         if (resolvedTenantType === 'military' && activeTenantId) {
           try {
@@ -286,21 +304,23 @@ export default function UnitDrilldownPage() {
         // per-uid discovery query needed). Non-military tenants keep their
         // existing core.unitId query, untouched.
         const thisUnitBlock = apiUnitsBlocks.find((u) => u.unitId === unitId);
-        const memberSources: Array<{ uid: string; name: string; unitMembershipSource: string | null }> =
+        const memberSources: Array<{ uid: string; name: string; unitMembershipSource: string | null; unitApprovedByOfficer: boolean | null }> =
           resolvedTenantType === 'military'
             ? (thisUnitBlock?.approvedMembers ?? []).map((m) => ({
                 uid: m.uid,
                 name: m.name,
                 unitMembershipSource: m.unitMembershipSource,
+                unitApprovedByOfficer: m.unitApprovedByOfficer,
               }))
             : (await getDocs(query(collection(db, 'users'), where('core.unitId', '==', unitId)))).docs.map((d) => ({
                 uid: d.id,
                 name: (d.data()?.core?.name as string | undefined) ?? 'ללא שם',
                 unitMembershipSource: null,
+                unitApprovedByOfficer: null,
               }));
 
         const membersList: UnitMember[] = [];
-        for (const { uid, name, unitMembershipSource } of memberSources) {
+        for (const { uid, name, unitMembershipSource, unitApprovedByOfficer } of memberSources) {
           // unitPath/globalXP still need the user's own doc — unaffected
           // by the military_declarations fix (this read was never the
           // broken one for THIS purpose). Guarded anyway: a failure here
@@ -348,6 +368,7 @@ export default function UnitDrilldownPage() {
             unitPath: memberUnitPath,
             globalXP,
             unitMembershipSource,
+            unitApprovedByOfficer,
           });
         }
 
@@ -548,6 +569,66 @@ export default function UnitDrilldownPage() {
       );
     } finally {
       setLoadingWorkouts(false);
+    }
+  };
+
+  // Slice G (26.09.2026, §13.32) — "אישור": flips core.unitApprovedByOfficer
+  // to true server-side. Does NOT change assignment — matches David's
+  // exact framing ("לא משנה שיוך, רק מאשר"). Reloads the whole roster on
+  // success (same retrySeq mechanism every other action on this page
+  // already uses) rather than a local optimistic update — simpler, and
+  // this is a low-frequency action, not a fast interactive loop.
+  const handleApproveMember = async (member: UnitMember) => {
+    setApprovingUid(member.uid);
+    setMemberActionError(null);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error('משתמש לא מחובר. רענן את הדף ונסה שוב.');
+      const res = await fetch('/api/units/members/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ uid: member.uid }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(typeof body.error === 'string' ? body.error : `שגיאה באישור החבר (${res.status})`);
+      }
+      setRetrySeq((s) => s + 1);
+    } catch (err) {
+      console.error('[UnitDrilldown] /api/units/members/approve failed:', err);
+      setMemberActionError(err instanceof Error ? err.message : 'שגיאה באישור החבר. נסה שוב.');
+    } finally {
+      setApprovingUid(null);
+    }
+  };
+
+  // "הסרה מהיחידה" — the actual network call, invoked only after the
+  // explicit confirmation dialog (removeConfirmMember, rendered below).
+  // David: "לא מסירים אדם בלחיצה אחת" — this function is never wired
+  // directly to a row's button onClick, only to the dialog's own confirm
+  // button.
+  const handleRemoveMember = async (member: UnitMember) => {
+    setRemovingUid(member.uid);
+    setMemberActionError(null);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error('משתמש לא מחובר. רענן את הדף ונסה שוב.');
+      const res = await fetch('/api/units/members/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ uid: member.uid }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(typeof body.error === 'string' ? body.error : `שגיאה בהסרת החבר (${res.status})`);
+      }
+      setRemoveConfirmMember(null);
+      setRetrySeq((s) => s + 1);
+    } catch (err) {
+      console.error('[UnitDrilldown] /api/units/members/remove failed:', err);
+      setMemberActionError(err instanceof Error ? err.message : 'שגיאה בהסרת החבר. נסה שוב.');
+    } finally {
+      setRemovingUid(null);
     }
   };
 
@@ -1103,6 +1184,11 @@ export default function UnitDrilldownPage() {
                         was tried and rejected as a "last ever" source). */}
                     <th className="text-right py-2 px-3">אימונים (7 ימים)</th>
                     <th className="text-right py-2 px-3">פעילות אחרונה</th>
+                    {/* Slice G (26.09.2026, §13.32) — "אישור"/"הסרה", the
+                        first two actions an officer can actually take on
+                        this screen instead of only observing the "מוצהר"
+                        tag. */}
+                    <th className="text-right py-2 px-3">פעולות</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1113,7 +1199,7 @@ export default function UnitDrilldownPage() {
                       own state comment). */}
                   {rosterSummaryLoadError && (
                     <tr>
-                      <td colSpan={isSchoolContext ? 5 : 4} className="px-3 py-2">
+                      <td colSpan={isSchoolContext ? 6 : 5} className="px-3 py-2">
                         <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 flex items-center justify-between gap-3">
                           <p className="text-sm text-red-700 font-semibold">{rosterSummaryLoadError}</p>
                           <button
@@ -1121,6 +1207,26 @@ export default function UnitDrilldownPage() {
                             className="text-xs font-bold text-red-700 bg-white border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-100 transition-colors flex-shrink-0"
                           >
                             נסה שוב
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  {/* Slice G (26.09.2026, §13.32) — an approve/remove
+                      network failure. Fail-closed on the server (403/500
+                      already handled there) — this banner is only the
+                      UI-side visibility for that outcome, never silently
+                      swallowed. */}
+                  {memberActionError && (
+                    <tr>
+                      <td colSpan={isSchoolContext ? 6 : 5} className="px-3 py-2">
+                        <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 flex items-center justify-between gap-3">
+                          <p className="text-sm text-red-700 font-semibold">{memberActionError}</p>
+                          <button
+                            onClick={() => setMemberActionError(null)}
+                            className="text-xs font-bold text-red-700 bg-white border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-100 transition-colors flex-shrink-0"
+                          >
+                            סגור
                           </button>
                         </div>
                       </td>
@@ -1148,8 +1254,15 @@ export default function UnitDrilldownPage() {
                               self-declared and code-verified members
                               (both write the same core.tenantId/unitId
                               pair) once self-declaration also populates
-                              those fields. */}
-                          {m.unitMembershipSource === 'self_declared' && (
+                              those fields.
+                              Slice G (26.09.2026, §13.32) — also checks
+                              !unitApprovedByOfficer now: this is the tag
+                              the "אישור" button below exists to clear.
+                              Once a real officer approves, the tag drops
+                              even though unitMembershipSource itself never
+                              changes (approval doesn't alter assignment —
+                              David, explicit: "לא משנה שיוך, רק מאשר"). */}
+                          {m.unitMembershipSource === 'self_declared' && !m.unitApprovedByOfficer && (
                             <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">
                               מוצהר
                             </span>
@@ -1174,6 +1287,30 @@ export default function UnitDrilldownPage() {
                         ) : (
                           lastActiveStr ?? '—'
                         )}
+                      </td>
+                      {/* Slice G (26.09.2026, §13.32) — stopPropagation on
+                          both buttons: the row itself is wrapped in an
+                          onClick that opens the Soldier Detail Sheet
+                          (loadMemberWorkouts) — without this, clicking
+                          "אישור"/"הסרה" would ALSO open that sheet. */}
+                      <td className="py-2.5 px-3">
+                        <div className="flex items-center gap-1.5">
+                          {m.unitMembershipSource === 'self_declared' && !m.unitApprovedByOfficer && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleApproveMember(m); }}
+                              disabled={approvingUid === m.uid}
+                              className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                            >
+                              {approvingUid === m.uid ? '...' : 'אישור'}
+                            </button>
+                          )}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setRemoveConfirmMember(m); }}
+                            className="text-[11px] font-bold text-red-600 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1 hover:bg-red-100 transition-colors"
+                          >
+                            הסרה
+                          </button>
+                        </div>
                       </td>
                     </tr>
                     );
@@ -1282,6 +1419,62 @@ export default function UnitDrilldownPage() {
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Slice G (26.09.2026, §13.32) — David: "לא מסירים אדם בלחיצה אחת."
+          z-[100], same value units/page.tsx's own delete-confirm dialog
+          already uses — not a new z-index (see .cursorrules' budget). */}
+      {removeConfirmMember && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+          onClick={() => { if (removingUid !== removeConfirmMember.uid) setRemoveConfirmMember(null); }}
+        >
+          <div
+            dir="rtl"
+            className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center">
+                <X size={22} className="text-red-500" />
+              </div>
+              <div>
+                <h2 className="text-lg font-black text-gray-900">הסרת {removeConfirmMember.name} מהיחידה</h2>
+                <p className="text-sm text-slate-500">הפעולה תנתק את השיוך שלו/שלה ליחידה זו.</p>
+              </div>
+            </div>
+            {/* Slice G (26.09.2026, §13.32) — David, explicit: the officer
+                must know he's clicking something he can't fix by himself
+                from this panel. Plain fact, not a scary warning — see
+                this slice's own report for the exact wording he asked
+                for ("נוסח בעברית פשוטה, לא אזהרה מפחידה - רק אמת"). */}
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3 space-y-1">
+              <p className="text-sm text-red-700 font-bold">
+                לא ניתן לבטל את הפעולה הזו מהפאנל.
+              </p>
+              <p className="text-sm text-red-700">
+                {removeConfirmMember.name} לא יוכל/תוכל להצטרף שוב לאותה יחידה, גם אם תשנה את דעתך.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => setRemoveConfirmMember(null)}
+                disabled={removingUid === removeConfirmMember.uid}
+                className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold transition-all disabled:opacity-50"
+              >
+                ביטול
+              </button>
+              <button
+                onClick={() => handleRemoveMember(removeConfirmMember)}
+                disabled={removingUid === removeConfirmMember.uid}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold transition-all disabled:opacity-50"
+              >
+                {removingUid === removeConfirmMember.uid ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
+                {removingUid === removeConfirmMember.uid ? 'מסיר...' : 'הסר מהיחידה'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

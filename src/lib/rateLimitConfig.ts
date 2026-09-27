@@ -118,6 +118,18 @@ export const RATE_LIMITS = {
   rosterWorkoutSummary: {
     uidHourly: () => envWindow('RL_ROSTER_WORKOUT_SUMMARY_UID_HOURLY', HOUR, 60),
   },
+  // POST /api/units/members/approve + .../remove (26.09.2026, Slice G —
+  // §13.32) — officer-initiated actions on individual members, not a
+  // per-page-load read. Generous enough for a commander clearing a
+  // backlog of pending declarations in one sitting (e.g. rolling this
+  // feature out to an existing unit with many self-declared soldiers),
+  // still bounded well below anything a scripted abuse pattern would need.
+  unitMemberApprove: {
+    uidHourly: () => envWindow('RL_UNIT_MEMBER_APPROVE_UID_HOURLY', HOUR, 100),
+  },
+  unitMemberRemove: {
+    uidHourly: () => envWindow('RL_UNIT_MEMBER_REMOVE_UID_HOURLY', HOUR, 100),
+  },
 } as const;
 
 /**
