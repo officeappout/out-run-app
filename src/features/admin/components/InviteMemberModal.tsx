@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { UserPlus, Mail, Loader2, X, Copy, Check, Camera, Shield } from 'lucide-react';
 import { getChildrenByParent, getAllAuthorities } from '@/features/admin/services/authority.service';
+import { getTenantLabels } from '@/features/admin/config/tenantLabels';
 import type { InvitationRole } from '@/types/invitation.type';
 import type { TenantType } from '@/types/admin-types';
 import type { Authority } from '@/types/admin-types';
@@ -177,6 +178,10 @@ export default function InviteMemberModal({
 
   const modeKey: TenantType | 'platform' = context.tenantType ?? 'platform';
   const roleOptions = ROLE_OPTIONS_BY_CONTEXT[modeKey];
+  // §13.40 — every string derived from this is reachable ONLY when
+  // requiresScope==='unit' (military/educational unit_admin), never for
+  // municipal (municipal has no such scope) — safe to vary freely.
+  const labels = getTenantLabels(context.tenantType);
 
   useEffect(() => {
     if (!isOpen) {
@@ -272,7 +277,7 @@ export default function InviteMemberModal({
         });
         const body = await res.json().catch(() => ({}));
         if (!res.ok) {
-          throw new Error(typeof body.error === 'string' ? body.error : `שגיאה בטעינת יחידות (${res.status})`);
+          throw new Error(typeof body.error === 'string' ? body.error : `שגיאה בטעינת ${labels.subUnitsTitle} (${res.status})`);
         }
         if (!cancelled) {
           const units: Array<{ unitId: string; name: string }> = Array.isArray(body.units) ? body.units : [];
@@ -282,7 +287,7 @@ export default function InviteMemberModal({
         if (!cancelled) {
           console.error('[InviteMemberModal] /api/units/structure failed:', err);
           setStructureUnits([]);
-          setStructureUnitsError(err instanceof Error ? err.message : 'שגיאה בטעינת רשימת היחידות. נסה שוב.');
+          setStructureUnitsError(err instanceof Error ? err.message : `שגיאה בטעינת רשימת ${labels.subUnitsTitle}. נסה שוב.`);
         }
       } finally {
         if (!cancelled) setLoadingStructureUnits(false);
@@ -319,7 +324,12 @@ export default function InviteMemberModal({
     // route.ts rejects with 400 if missing) — matches that here instead
     // of silently sending an incomplete request.
     if (selectedRole === 'unit_admin' && !selectedScopeId) {
-      setError('יש לבחור יחידה עבור מנהל יחידה');
+      // §13.40 — "מנהל יחידה" here is the ROLE NAME (this session's item 1,
+      // level-derived officer titles, is deferred/not yet approved — see
+      // docs/audit-2026-09/00-MASTER-PLAN.md §13.41) — left as-is to match
+      // the still-unchanged role-option label above. Only "what to pick"
+      // varies by vertical.
+      setError(`יש לבחור ${labels.subUnitSingular} עבור מנהל יחידה`);
       return;
     }
     if (selectedRole === 'vertical_admin' && !selectedVertical) {
@@ -471,7 +481,17 @@ export default function InviteMemberModal({
 
         <h3 className="text-xl font-black text-gray-900 mb-1 flex items-center gap-2">
           <UserPlus size={22} className="text-cyan-600" />
-          {isEditMode ? `עריכת מנהל — ${editTarget?.name}` : 'הזמנת מנהל חדש'}
+          {/* §13.40 — municipal/company/youth_movement/platform keep the
+              exact original "מנהל" (David's requirement: zero change
+              outside military/educational). Only those two verticals get
+              the vertical-aware word, matching team/page.tsx's own invite
+              button ("הזמן {managerSingular} חדש/ה"). */}
+          {(() => {
+            const modalManagerWord = (modeKey === 'military' || modeKey === 'educational') ? labels.managerSingular : 'מנהל';
+            return isEditMode
+              ? `עריכת ${modalManagerWord} — ${editTarget?.name}`
+              : `הזמנת ${modalManagerWord} חדש${modeKey === 'military' ? '/ה' : ''}`;
+          })()}
         </h3>
 
         {context.organizationName && (
@@ -690,7 +710,7 @@ export default function InviteMemberModal({
                 no units". */}
             {currentRoleOption?.requiresScope === 'unit' && (
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5">שיוך ליחידה</label>
+                <label className="block text-sm font-bold text-gray-700 mb-1.5">שיוך ל{labels.subUnitSingular}</label>
                 {loadingStructureUnits ? (
                   <div className="flex items-center gap-2 text-sm text-gray-400 py-2">
                     <Loader2 size={14} className="animate-spin" /> טוען...
@@ -702,11 +722,11 @@ export default function InviteMemberModal({
                     options={structureUnits.map(u => ({ id: u.id, label: u.name }))}
                     value={selectedScopeId}
                     onChange={v => setSelectedScopeId(v)}
-                    placeholder="בחר יחידה..."
+                    placeholder={`בחר ${labels.subUnitSingular}...`}
                   />
                 )}
                 {!selectedScopeId && !loadingStructureUnits && !structureUnitsError && (
-                  <p className="text-[11px] text-amber-600 mt-1.5">יש לבחור יחידה כדי ליצור הזמנת מנהל יחידה.</p>
+                  <p className="text-[11px] text-amber-600 mt-1.5">יש לבחור {labels.subUnitSingular} כדי ליצור הזמנת מנהל יחידה.</p>
                 )}
               </div>
             )}
@@ -733,7 +753,7 @@ export default function InviteMemberModal({
                     ]}
                     value={selectedScopeId}
                     onChange={v => setSelectedScopeId(v)}
-                    placeholder="בחר יחידה..."
+                    placeholder="בחר שכונה..."
                   />
                 )}
               </div>
