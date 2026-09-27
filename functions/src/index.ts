@@ -73,3 +73,5 @@ export { onPlannedActivityCreated } from './onPlannedActivityCreated';
 // onPlannedActivityCreated above). Verify locally via the Functions emulator
 // (`firebase emulators:start --only functions,firestore`) before deploying.
 export { previewNotificationContent } from './previewNotificationContent';
+// ── Background discovery worker (city-mapping one-click panel button prep) ────
+export { onCityMappingDiscoveryRunCreated, onCityMappingDiscoveryDispatch } from './geoDiscoveryWorker';
