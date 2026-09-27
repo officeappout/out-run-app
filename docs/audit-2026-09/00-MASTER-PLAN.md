@@ -1825,3 +1825,37 @@ educational: [
 **לא נגעתי ב-`firestore.rules`.** אפס נתוני פרודקשן נגעו.
 
 **סטטוס: מאושר ע"י דוד, ממוזג ל-`main` (27.09.2026).** מיזוג `feat/team-org-type-validation`: `fd99e350` (מ-`origin/main` @ `533ffbcf`, ללא race, מיזוג נקי ללא קונפליקטים). Revert: `git revert -m 1 fd99e350`. tsc על העץ הממוזג מול ה-baseline המדויק (`533ffbcf`): 804/804, שתי השורות היחידות שהשתנו הן שתי השגיאות הקיימות-מראש שהוזזו. vitest מלא (אמולטור טרי): `5 failed | 2308 passed (2313)` — זהה, אפס רגרסיה. Smoke: `outrun.co.il` → 200, `/api/catalog/parks` → 200 עם 1159 גינות.
+
+### 13.39 — פרוסה ד' (מתוך §13.34), האחרונה בסדרה: הפניה אחרי אישור הזמנה (27.09.2026)
+
+**ענף `feat/post-invite-accept-redirect`, מ-`origin/main` @ `fd99e350`. בנייה בלבד — טרם ממוזג, ממתין לאישור דוד.**
+
+**החלטת דוד:** unit_admin → ישירות לעמוד היחידה שלו. tenant_owner → לרשימת היחידות של הגוף שלו. לא ל-`/admin/authority-manager`.
+
+**ממצא-שורש, לפני כתיבת קוד (בדיקת-היתכנות שדוד דרש במפורש):** שני מקומות נפרדים מפנים אחרי-אישור — (1) `completeSignIn`'s `invitationApplied` (מיד אחרי אישור טרי, לפי `invitationRole`), (2) `resolveDestination` (חתימה-חוזרת/רענון, לפי `checkUserRole`). **שניהם היו שבורים, בדרכים שונות:**
+- **`validateInvitation()` לא החזירה `tenantId`/`unitId` בכלל** — אף ש-`verify-token`'s תשובת-השרת כן כוללת אותם. `invitationOrgId` (הנגזר מ-`invitation.authorityId || invitation.tenantId`) היה תמיד `null` עבור tenant_owner/unit_admin. תוקן — שתי שורות בלבד.
+- **`checkUserRole()`/`UserRoleInfo` לא הכירו unit_admin בכלל** — אין `isUnitAdmin`, אין `unitId`. unit_admin נופל ל-`role:'none'`, ומגיע ל-branch הסופי הקיים ("אין לך גישה לפורטל") — **הודעה שגויה למשתמש עם גישה אמיתית**. תוקן — נוסף `isUnitAdmin`/`unitId`, נגזרים מ-`core.unitId` (קיים, נכתב ב-accept-invitation, פשוט לא נקרא).
+- **ממצא קריטי יותר, שהיה משמעותי לעיצוב:** tenant_owner הוא **גם** authority_manager מכנית (`accept-invitation/route.ts` עושה arrayUnion לתפקיד הזה גם ל-`authorities/{tenantId}.managerIds`, בכוונה — "מכנית זהה" לפי הקומנט בקוד עצמו). ב-`resolveDestination` הישן, ה-branch של `isAuthorityManager` נבדק **לפני** ה-branch של `isTenantOwner` — כך שכל tenant_owner אמיתי נתפס ע"י ה-branch הראשון ומעולם לא הגיע ל-branch השני (קוד מת!). זה ההסבר המדויק לתלונת דוד: `/admin/authority-manager` "לא מתאים לאף אחד מהם" — כי זה בדיוק מה שקרה בפועל. **הפתרון: היפוך סדר-הבדיקה**, לא רק "הוספת branch".
+- **`core.tenantType` לא נכתב ל-unit_admin בכלל** (רק ל-tenant_owner) — אי-סימטריה שהייתה שוברת הסתמכות על שדה מאוחסן. **פתרון אחיד לשני התפקידים:** `resolveTenantType(tenantId)` — שליפה טרייה של `getAuthority` + `authorityTypeToTenantType` בכל פעם, לשני התפקידים, בלי הבדל.
+- **בדיקת-היתכנות ל-URL של unit_admin:** `[unitId]/page.tsx` דורש `?org=` בפועל — בלעדיו, `activeTenantId` נשאר `undefined` עבור unit_admin (שאינו ב-`managerIds` של אף authority), `resolvedTenantType` נשאר `'municipal'` כברירת-מחדל, והדף **מפנה בעצמו** ל-`/admin/authority/neighborhoods/{unitId}` — מסך שגוי לחלוטין. **לכן `?org=` הוא הכרחי, לא קוסמטי**, ב-URL הסופי. tenant_owner, לעומת זאת, כבר עובד ללא שינוי דרך `getAuthoritiesByManager` (אותה רישום-מנהלים מכנית), אז `units/page.tsx` לא נגעה.
+
+**היעדים המדויקים:** unit_admin → `/admin/authority/units/{unitId}?type={tenantType}&org={tenantId}`. tenant_owner → `/admin/authority/units?type={tenantType}`.
+
+**דרישה 1 (דוד): לא להפנות למסך שגוי, לא להשאיר תקוע:** `decideTenantOwnerRedirect`/`decideUnitAdminRedirect` (`src/features/admin/services/postAcceptRedirect.ts`, טהור, בלי Firebase) — **fail-closed**: כל שדה חסר/לא-נפתר (`tenantId`/`unitId`/`tenantType`) מחזיר `cannot-determine` עם הודעה מדויקת וממוקדת ("לא ניתן היה לקבוע לאיזו יחידה. פנה למפקד..."), לעולם לא ניחוש-נתיב. שני קוראים (`resolveDestination`, `completeSignIn`) מציגים את ההודעה במסך-השגיאה **הקיים** (שכולל כבר שני כפתורי-המשך: "חזור למסך ההתחברות" / "התחבר כנציג רשות") — לא נבנה UI חדש, לא הושאר על מסך-הטעינה.
+
+**דרישה 2 (דוד): לא לשבור את authority_manager העירוני:** ההיפוך-סדר לא נוגע ב-authority_manager אמיתי (אין לו `isTenantOwner`/`isUnitAdmin`) — ה-branch שלו (כולל ה-special-case הקיים של שכונות) **לא שונה שורת-קוד אחת**, רק "עטוף" ב-`decideResolveDestinationBranch` שמחזיר `'legacy-authority-manager'` ומשאיר לקוד הקיים לבצע את הבדיקה האסינכרונית מול Firestore בדיוק כמו קודם.
+
+**בדיקות — `src/features/admin/services/__tests__/postAcceptRedirect.test.ts` (חדש), 20/20 עברו, לשלושת המסלולים כנדרש (דרישה 3):**
+- **unit_admin** — הפניה נכונה (שני מוקדי-קריאה) + שלילה: `unitId` חסר → `cannot-determine`.
+- **tenant_owner** — הפניה נכונה (שני מוקדי-קריאה) + שלילה: `tenantType` לא-נפתר → `cannot-determine`. **הטסט הקריטי ביותר:** tenant_owner עם `isAuthorityManager:true` (הצורה האמיתית המדויקת) **עדיין** מגיע ל-`/admin/authority/units`, לא נתפס ע"י ה-branch הישן — מוכיח את התיקון של הבאג המרכזי, לא רק את הקוד-החדש.
+- **authority_manager** — `isAuthorityManager:true` בלבד (בלי `isTenantOwner`/`isUnitAdmin`) → `'legacy-authority-manager'`, **בדיוק כהיום**. גם `isOnlyAuthorityManager` בלבד, בנפרד.
+- שלילות נוספות: `unitId`/`tenantType` חסרים בכל אחד מהמוקדים; `role:'none'`-שווה-ערך (כל הדגלים false) → הודעת "אין גישה" הקיימת, ללא שינוי; vertical_admin/super_admin — ללא שינוי.
+- הרצה חוזרת של `scripts/verify-invitation-chain-and-members.ts` (הסקריפט הקיים על שרשרת ההזמנות) על אמולטור טרי — **61/61 עברו**, מאששת שאף שינוי בקובץ הזה לא נגע בזרימת האישור/ה-scope עצמה.
+
+**tsc מלא מול baseline מדויק (`origin/main` @ `fd99e350`):** 804/804 בשני הצדדים; שני קבצים נוספים נדרשו לתיקון-טיפוסים לא-קשור לעבודה עצמה — `useUserRole()` (`auth.service.ts`) ו-`admin/layout.tsx` (שני מקומות) יצרו אובייקטים תואמים ל-`UserRoleInfo` שלא כללו את השדה החדש `isUnitAdmin` — תוקנו (שדה בודד שנוסף, אפס שינוי לוגי). ההבדלים היחידים מול ה-baseline: שינויי-סדר-איחוד קיימים-מראש + הזזת-שורה טהורה של שגיאות קיימות (מהוספת שורות).
+
+**vitest מלא, אמולטור-טרי:** `5 failed | 2328 passed (2333)` — בדיוק חמשת הכשלים הקיימים-מראש + 20 הטסטים החדשים, אפס רגרסיה.
+
+**לא נגעתי ב-`firestore.rules`.** אפס נתוני פרודקשן נגעו.
+
+**סטטוס: בנייה הושלמה, ממתין לאישור דוד למיזוג.** זו הפרוסה האחרונה בסדרה (§13.34: א'+ב'+ג'+ד'). אחריה — הבדיקה החיה של דוד (הזמנת קצין אמיתי מהפאנל).
