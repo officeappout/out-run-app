@@ -19,74 +19,35 @@
  * persisted to Firestore, resets on reload. No new data model, consistent
  * with the feature's whole scope.
  *
- * Back-navigation (round 2 — the round-1 fix genuinely did not work; this
- * is a real re-design, not a re-added listener): the previous approach
- * pushed a raw window.history entry and listened for popstate, layered on
- * top of Next.js App Router's OWN client-side navigation/history handling
- * (next/navigation's router keeps its own internal route-history state and
- * a client-side segment cache — mixing in a hand-rolled History API entry
- * it doesn't know about is exactly the kind of thing that can silently not
- * fire, or fire in a way the router then overrides). That mechanism is
- * removed entirely, not patched. In its place: the one concrete, always-
- * visible "back" affordance on this screen (the חזרה button) now checks
- * app state directly and closes the sheet FIRST, with no History API
- * involved at all — deterministic, provable by reading the code, not
- * dependent on how Next.js's router happens to handle a given navigation.
- * The unmount-cleanup (closeDetail on unmount) stays as a second-layer
- * safety net for any other way of leaving this screen. What this does NOT
- * fully guarantee, flagged honestly rather than re-promised: a pure OS/
- * browser gesture-swipe back (not via this screen's own button) has no
- * in-app hook to intercept at all without adopting Next.js's Parallel/
- * Intercepting Routes for this modal — a real architecture change, out of
- * scope for this pass — so that specific path still can't be certified
- * from static code alone. Needs a real-device check.
+ * Sheet-close, definitive fix (rounds 1-4 tried: popstate+pushState, a
+ * button-only isDetailOpen check, removing a global-store mutation that
+ * caused unrelated churn, then a repaired popstate+orphaned-entry-cleanup
+ * version — none of it fully closed the loop). Round 4's trace logging
+ * gave the actual answer: every observed close went through the sheet's
+ * OWN internal dismissal (drag/X/backdrop) — never through the pushed-
+ * history/popstate path. The real exit routes are this screen's own חזרה
+ * link and the app's bottom nav (מפה / בית), and NEITHER of those triggers
+ * closeDetail() at all — they just navigate, leaving the globally-portalled
+ * sheet rendered on top of whatever loads next.
  *
- * Round 3 — the sheet also close/reopened in a loop. Traced (not guessed)
- * to a concrete, evidenced cause: MasterExerciseView has its own internal
- * "seed"/"re-seed" method-selection effect, keyed on its filterLocation
- * prop, that console.logs every time it fires — a log line that matches
- * exactly what was described as "re-seed churn" showing up in the console.
- * The park-forcing effect below WAS mutating useExerciseLibraryStore's
- * GLOBAL filters.location on mount and restoring it on unmount — a shared
- * value every mounted consumer of that store reads, MasterExerciseView's
- * re-seed effect included. That global mutate/restore effect is removed
- * entirely (not patched): ExerciseDetailSheet now takes a local
- * `locationOverride` prop instead, so this screen's forced 'park' never
- * touches shared state and can't fight with — or get fought over by —
- * anything else reading that same global filter. closeDetail also now
- * clears selectedExercise, not just isDetailOpen, as a second, independent
- * hardening against any "selection implies open" pattern resurrecting a
- * closed sheet.
- *
- * Round 4 — round 3's fix addressed real churn, but the sheet STILL didn't
- * close on "return to the map." Re-read MasterExerciseView's re-seed effect
- * fully this round (not just the log line): it's keyed on
- * [exercise.id, normalizedFilterLocation, isMilitaryPersona] and only ever
- * changes WHICH EXECUTION METHOD is displayed — it has no path that could
- * call openDetail/closeDetail, so it cannot be the direct cause of a
- * close/reopen loop (round 3's fix for the churn it logs was still correct
- * and stays). The actual gap: round 2's "handleBack checks isDetailOpen and
- * closes first" only ever covered THIS SCREEN'S OWN חזרה button. Nothing in
- * any round so far has handled the hardware/browser back button or gesture
- * — round 1's popstate attempt was removed in round 2 on THEORY (suspected
- * conflict with Next's router internals), never actually disproven. Re-
- * examining that removed code: it pushed one history entry per sheet-open
- * but only ever popped it via the popstate handler firing — if the sheet
- * was closed any OTHER way (the sheet's own X/backdrop/drag), that entry
- * was orphaned, silently absorbing the NEXT real back-press with no visible
- * effect (same URL, nothing happens) — needing a SECOND press to actually
- * leave. That matches "back doesn't close it, have to drag it down" far
- * better than a router conflict does. Re-added below with that gap closed:
- * the cleanup now checks whether OUR pushed entry is still on top
- * (history.state still carries our marker) when the sheet closes some
- * other way, and pops it itself — so a real back-press is never absorbed
- * into a stale entry. Temporary console.log tracing added at every
- * open/close/back call site (store actions + here) per the founder's
- * explicit request, to be removed once this is confirmed fixed for real —
- * this session cannot run a browser to verify the fix directly.
+ * Fix: usePathname() from next/navigation is reactive to EVERY navigation
+ * method (Link clicks, router.push, router.back, browser back/forward —
+ * unlike popstate, which only fires for true back/forward). One effect
+ * keyed on [pathname] calls closeDetail() whenever the path changes away
+ * from what it was when the sheet's owner last rendered — covering חזרה,
+ * bottom-nav, and browser back uniformly, with no History API of its own.
+ * The old push-history/pop-orphaned-entry mechanism is removed entirely as
+ * redundant (browser back/forward changes the pathname too, so the new
+ * effect already covers it). The plain unmount-cleanup stays as a second,
+ * independent safety net for the ordinary case where this screen fully
+ * unmounts. Trace logging (temporary, unconditional — a Vercel preview
+ * build sets NODE_ENV=production, which would silently suppress a
+ * dev-gated log) stays at the store's open/close actions plus this
+ * effect, so the next test either confirms the fix or shows precisely
+ * what's still missing.
  */
-import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { ChevronRight } from 'lucide-react';
 import type { Exercise } from '@/features/content/exercises';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
@@ -113,6 +74,7 @@ export interface SkillTreeScreenProps {
 
 export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const profile = useUserStore((s) => s.profile);
   const openExerciseDetail = useExerciseLibraryStore((s) => s.openDetail);
   const isDetailOpen = useExerciseLibraryStore((s) => s.isDetailOpen);
@@ -150,47 +112,25 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Hardware/browser back button or swipe-back gesture: close the sheet
-  // instead of leaving the route, via one extra history entry pushed only
-  // while the sheet is open. The part round 1 got wrong: it only ever
-  // popped that entry via the popstate handler firing — if the sheet closed
-  // any OTHER way (X/backdrop/drag), the entry was orphaned and silently
-  // absorbed the NEXT real back-press. This version's cleanup checks
-  // whether OUR marker is still the current history.state when the sheet
-  // closes some other way, and pops the entry itself in that case, so a
-  // real back-press is never swallowed by a stale entry.
+  // THE fix (round 5, confirmed by trace): every real exit from this screen
+  // — חזרה, bottom nav (מפה/בית), or browser back — is a pathname change.
+  // usePathname() is reactive to all of them uniformly (unlike popstate,
+  // which only fires for true back/forward, never for a Link/router.push
+  // navigating forward to a new route — the bottom-nav case). Skip the
+  // very first render (nothing to close yet, and closing an
+  // already-closed sheet is harmless anyway, but this keeps the log clean).
+  const initialPathname = useRef(pathname);
   useEffect(() => {
-    if (!isDetailOpen) return;
-
-    window.history.pushState({ progressionMapDetailSheet: true }, '');
+    if (pathname === initialPathname.current) return;
     // eslint-disable-next-line no-console
-    console.log('[SkillTreeScreen] pushed history entry for open sheet');
+    console.log('[SkillTreeScreen] pathname changed', { from: initialPathname.current, to: pathname, closingSheet: true });
+    closeExerciseDetail();
+  }, [pathname, closeExerciseDetail]);
 
-    const onPopState = () => {
-      // eslint-disable-next-line no-console
-      console.log('[SkillTreeScreen] popstate — closing sheet');
-      closeExerciseDetail();
-    };
-    window.addEventListener('popstate', onPopState);
-
-    return () => {
-      window.removeEventListener('popstate', onPopState);
-      // If our marker is STILL on top, nobody has navigated since we
-      // pushed it — the sheet must have closed some other way (X, backdrop,
-      // drag, or this screen's own handleBack). Pop the now-orphaned entry
-      // ourselves. If our marker is gone, a real back-press already
-      // consumed it (that's what triggered this cleanup) — nothing to do.
-      if (window.history.state?.progressionMapDetailSheet) {
-        // eslint-disable-next-line no-console
-        console.log('[SkillTreeScreen] sheet closed some other way — popping orphaned history entry');
-        window.history.back();
-      }
-    };
-  }, [isDetailOpen, closeExerciseDetail]);
-
-  // The only concrete IN-APP "back" affordance on this screen: close the
-  // sheet first if it's open, only actually navigate once it's already
-  // closed. The popstate effect above handles hardware/gesture back.
+  // This screen's own חזרה link: close the sheet first if open, so a tap
+  // just dismisses it without an unnecessary route change; the pathname
+  // effect above is what actually GUARANTEES the sheet closes on any exit,
+  // this is just the nicer behavior for the one exit this component owns.
   const handleBack = () => {
     // eslint-disable-next-line no-console
     console.log('[SkillTreeScreen] handleBack tapped, isDetailOpen=', isDetailOpen);
@@ -238,11 +178,11 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
       }
     : null;
 
-  // Confirmed: every node image resolves via resolveParkNodeImage (park-only,
-  // never falls back to a wrong-location legacy photo — see TreeNode.tsx),
-  // and the exercise-detail sheet gets 'park' via its own locationOverride
-  // prop above — this local constant is only still needed for the swap
-  // sheet's gear/method-selection query below.
+  // Node images resolve via resolveTreeNodeImage (park photo, else a
+  // park-video-thumbnail derivation, else home — see TreeNode.tsx), and the
+  // exercise-detail sheet gets 'park' via its own locationOverride prop
+  // above — this local constant is only still needed for the swap sheet's
+  // gear/method-selection query below.
   const location = 'park' as const;
 
   return (
