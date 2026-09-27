@@ -1,27 +1,37 @@
 /**
- * geoDiscoveryWorker — background job-queue worker for route discovery
- * (Stage 2, city-mapping one-click panel button prep, 06.09.2026).
+ * geoDiscoveryWorker — background poller for route discovery (Stage 2,
+ * city-mapping one-click panel button prep, 06.09.2026; moved off Cloud
+ * Tasks to a scheduled poller on 27.09.2026).
  *
- * Mirrors the proven push_messages job-queue pattern (functions/src/sendPushFromQueue.ts):
- * a client writes a request doc → a Firestore trigger processes it → the
- * worker writes the result back. One structural difference, forced by a real
- * GCP limit: Firestore-triggered event functions (onDocumentCreated) cap at
- * timeoutSeconds=540 regardless of config (confirmed against the installed
- * firebase-functions package's own types, node_modules/firebase-functions/lib/v2/providers/tasks.d.ts —
- * "Event handling functions have a maximum timeout of 540s"). A full
- * discovery run has been observed taking up to ~19 minutes under Overpass
- * congestion (audit/discovery-timing investigation, 05.09.2026) — well past
- * 540s — so a single onDocumentCreated handler cannot safely run this job;
- * doing so would recreate the exact 504-timeout failure mode this project
- * has already hit once (the "lighting-504" incident). So this is split in
- * two, the standard GCP pattern for a long job triggered by a Firestore write:
+ * A client writes a request doc to CITY_MAPPING_DISCOVERY_RUNS_COLLECTION
+ * (status:'pending') → a scheduled poller (every 5 min) picks it up and
+ * calls processDiscoveryRun → the worker writes the result back onto the
+ * same doc. No trigger, no queue, no extra IAM grant beyond the function's
+ * own default service account.
  *
- *   1. onCityMappingDiscoveryRunCreated — thin, fast (<10s) Firestore trigger.
- *      Only enqueues a Cloud Task; never calls runGeoDiscovery itself.
- *   2. onCityMappingDiscoveryDispatch — the actual worker, a task-queue
- *      function. timeoutSeconds up to 1800 (30 min) — the real GCP ceiling
- *      for THIS trigger type (same source), 3.3x the 540s a Firestore
- *      trigger allows.
+ * WHY NOT the original Cloud-Tasks design (onDocumentCreated enqueues,
+ * onTaskDispatched runs the job): that architecture is correct on paper —
+ * Firestore-triggered functions cap at timeoutSeconds=540 (confirmed
+ * against firebase-functions' own types), a full discovery run has been
+ * observed taking up to ~19 minutes, so the work has to happen in a
+ * longer-lived function than the one the Firestore write can trigger
+ * directly. Cloud Tasks is GCP's standard answer to exactly that split. But
+ * in practice (27.09.2026) it cost a full day of diagnosis against three
+ * REAL, independent infra failures on this project — Cloud Tasks API
+ * disabled, the queue itself never created (its creation needs that API
+ * enabled at deploy time), and the default compute service account missing
+ * `cloudtasks.tasks.create` (this project runs least-privilege IAM, no
+ * broad Editor role) — and after fixing all three, it *still* didn't work
+ * on the first retry (IAM propagation or scope; never fully root-caused,
+ * see docs/audit-2026-09/00-MASTER-PLAN.md for the full diagnostic trail).
+ * Every future long-running job built on this pattern would inherit that
+ * same fragility. A poller has no equivalent moving part: no queue to not
+ * exist, no separate IAM grant, no enqueue call that can fail invisibly —
+ * only Cloud Scheduler (already enabled) and a Firestore query.
+ * Trade-off, accepted deliberately: up to ~5 minutes of latency before a
+ * pending run is picked up, vs. Cloud Tasks' near-instant dispatch. Fine
+ * for this job — city mapping happens a handful of times a year, not a
+ * user-facing hot path.
  *
  * runGeoDiscovery itself is scripts/geo-discovery-routes.ts's Stage 1 export
  * (feat/geo-discovery-importable, merged 05.09.2026) — imported here from
@@ -34,11 +44,9 @@
  * functions/src/_vendor/.
  */
 
-import { onDocumentCreated } from 'firebase-functions/v2/firestore';
-import { onTaskDispatched } from 'firebase-functions/v2/tasks';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
-import { getFunctions } from 'firebase-admin/functions';
 import { runGeoDiscovery, type GeoDiscoveryOptions, type GeoDiscoveryResult } from './_vendor/scripts/geo-discovery-routes';
 
 if (!admin.apps.length) {
@@ -46,16 +54,37 @@ if (!admin.apps.length) {
 }
 
 export const CITY_MAPPING_DISCOVERY_RUNS_COLLECTION = 'city_mapping_discovery_runs';
-const DISPATCH_FUNCTION_NAME = 'onCityMappingDiscoveryDispatch';
+
+// 30-min real function timeout (see cityMappingDiscoveryPoller's own options
+// below) + 5-min poller cadence as slack for clock skew / a claim that lands
+// right before a tick — a doc genuinely still running at 30min+5min is
+// presumed crashed (function killed by its own timeout, or the whole
+// process died), never legitimately still in flight.
+const STALE_RUNNING_THRESHOLD_MS = 35 * 60 * 1000;
+
+// Once a job type exists, the pipeline can run "run job X on scope Y" —
+// city-discovery, future shade-enrichment/annual-report/quality-check jobs,
+// etc. — through the same doc shape and the same poller, instead of each
+// being its own pipeline. Only one job type exists today; this poller does
+// not yet filter its query by jobType (that's Firestore composite-index
+// work, deferred until a second job type actually needs it — see
+// cityMappingDiscoveryPoller below) but every new run doc must carry it so
+// that future work doesn't have to backfill it onto old data.
+export type CityMappingDiscoveryJobType = 'city-discovery';
 
 export type CityMappingDiscoveryRunStatus = 'pending' | 'running' | 'succeeded' | 'failed';
 
 export interface CityMappingDiscoveryRunDoc {
+  jobType: CityMappingDiscoveryJobType;
   regionKey: string;
   apply: boolean;
   requestedByUid: string;
   status: CityMappingDiscoveryRunStatus;
   createdAt: FirebaseFirestore.Timestamp;
+  /** Set by the transaction that flips pending->running. Drives stale-run reclaim (see reclaimStaleRuns). */
+  claimedAt?: FirebaseFirestore.Timestamp;
+  /** How many times this doc has been reclaimed after going stale. 0/undefined on a fresh doc; capped at 2 — see reclaimStaleRuns. */
+  attemptCount?: number;
   keptCount?: number;
   droppedCount?: number;
   summary?: string;
@@ -99,14 +128,14 @@ async function isAuthorizedForApply(requestedByUid: string, db: admin.firestore.
 }
 
 /**
- * The actual worker logic, factored out of both Cloud Function entry points
- * so it's directly testable (call it with a runId + a Firestore handle, no
- * Cloud Tasks queue or trigger involved) — same "extract the testable core"
- * pattern Stage 1 used for runGeoDiscovery itself. onCityMappingDiscoveryDispatch
- * below is a thin wrapper around this; Stage 2's own local test calls this
+ * The actual worker logic, factored out of the Cloud Function entry point so
+ * it's directly testable (call it with a runId + a Firestore handle, no
+ * scheduler invocation involved) — same "extract the testable core" pattern
+ * Stage 1 used for runGeoDiscovery itself. cityMappingDiscoveryPoller below
+ * is a thin wrapper around this; Stage 2's own local test calls this
  * function directly, since there is no working Functions-emulator setup in
- * this repo to exercise the real trigger chain (confirmed: firebase.json has
- * no functions emulator entry, and the one precedent for local Cloud
+ * this repo to exercise a real scheduled invocation (confirmed: firebase.json
+ * has no functions emulator entry, and the one precedent for local Cloud
  * Function testing in this repo, scripts/verify-push-pipeline.ts, itself
  * bypasses the Functions emulator via a require-intercept and calls service
  * logic in-process — same shape as what this function enables here).
@@ -117,13 +146,15 @@ export async function processDiscoveryRun(runId: string, db: admin.firestore.Fir
   // Transactional compare-and-set idempotency guard — same shape as
   // sendPushFromQueue's push_messages guard (sendPushFromQueue.ts:99-104):
   // claim the doc by flipping status pending->running INSIDE a transaction,
-  // so an at-least-once trigger redelivery (Firestore triggers and Cloud
-  // Tasks are both at-least-once) can never process the same run twice.
+  // so two poller ticks racing on the same doc (a run still in flight when
+  // the next 5-minute tick fires, or Cloud Scheduler itself redelivering)
+  // can never both process the same run — see cityMappingDiscoveryPoller's
+  // own header for why the transaction alone is sufficient here.
   const claimed = await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     const data = snap.data() as Partial<CityMappingDiscoveryRunDoc> | undefined;
     if (!data || data.status !== 'pending') return false;
-    tx.update(ref, { status: 'running' });
+    tx.update(ref, { status: 'running', claimedAt: admin.firestore.FieldValue.serverTimestamp() });
     return true;
   });
   if (!claimed) {
@@ -161,6 +192,24 @@ export async function processDiscoveryRun(runId: string, db: admin.firestore.Fir
       skipOsm: false,
     };
     const result: GeoDiscoveryResult = await runGeoDiscovery(opts, db);
+    // NOT VERIFIED (27.09.2026) — a real 19-min run against herzliya via
+    // scripts/_test-stage2-worker.ts crashed on exactly this write:
+    // "Couldn't serialize object of type ServerTimestampTransform... custom
+    // prototypes". Working theory, from reading code, not from a passing
+    // deployed run: that script dynamically imports this module from a
+    // script living at the repo root, so `admin` here resolves through
+    // functions/node_modules while the script's own `db`/`ref` resolve
+    // through the ROOT node_modules — two separate installed copies of
+    // @google-cloud/firestore, so a FieldValue sentinel built by one isn't
+    // recognized by the other's serializer. Should NOT reproduce in the
+    // real deployed function (single functions/node_modules, no root
+    // package involved at all) — but that's inference, not a measured,
+    // successful deployed run ending in 'succeeded'. If this theory is
+    // wrong, the symptom will be: the real poller runs ~19min, completes
+    // discovery, and crashes on this exact write — doc stuck on 'running'
+    // (reclaimStaleRuns below will eventually catch it, not silently lose
+    // it, but it's worth recognizing immediately rather than re-diagnosing
+    // from scratch).
     await ref.update({
       status: 'succeeded',
       keptCount: result.keptCount,
@@ -178,36 +227,105 @@ export async function processDiscoveryRun(runId: string, db: admin.firestore.Fir
   }
 }
 
-export const onCityMappingDiscoveryRunCreated = onDocumentCreated(
-  { document: `${CITY_MAPPING_DISCOVERY_RUNS_COLLECTION}/{runId}`, timeoutSeconds: 60, memory: '256MiB' },
-  async (event) => {
-    const runId = event.params.runId;
-    const data = event.data?.data() as CityMappingDiscoveryRunDoc | undefined;
-    if (!data || data.status !== 'pending') return; // idempotency guard, mirrors sendPushFromQueue
-    const queue = getFunctions().taskQueue(DISPATCH_FUNCTION_NAME);
-    // dispatchDeadlineSeconds must be <= the dispatch function's own
-    // timeoutSeconds (1800) — set equal to it so a slow-but-legitimate run
-    // is never cut off early by Cloud Tasks itself before the function's own
-    // timeout would apply.
-    await queue.enqueue({ runId }, { dispatchDeadlineSeconds: 1800 });
-  }
-);
+/**
+ * Reclaims run docs stuck on 'running' past STALE_RUNNING_THRESHOLD_MS —
+ * the crash-recovery path a bare Cloud-Tasks retry never covered (this
+ * project deliberately runs retryConfig-equivalent at maxAttempts:1, see
+ * processDiscoveryRun's own history: unbounded auto-retry risks piling onto
+ * Overpass congestion, exactly the failure mode that's already been hit
+ * once). First time a doc is found stale: attemptCount 0->1, revert to
+ * 'pending' so the poller's normal scan picks it up again next tick — one
+ * free retry, covering a transient crash (OOM, a bad deploy mid-run,
+ * Overpass hanging the whole 30min). Second time the SAME doc goes stale
+ * (attemptCount already >=1): permanently 'failed', never reverted again —
+ * a job that reliably crashes twice is presumed non-transient, and this is
+ * what stops that from becoming an infinite reclaim loop once this runs
+ * across dozens of cities instead of one at a time.
+ *
+ * Each doc is reclaimed inside its own transaction (not a single batch)
+ * because the re-read-and-check (status still 'running'?) has to happen
+ * atomically per doc — a batch write has no equivalent conditional-check,
+ * and a doc could legitimately finish (succeeded/failed) between this
+ * function's query and its write without the transaction, silently
+ * clobbering a real result back to 'pending'.
+ */
+async function reclaimStaleRuns(db: admin.firestore.Firestore): Promise<void> {
+  const cutoff = admin.firestore.Timestamp.fromMillis(Date.now() - STALE_RUNNING_THRESHOLD_MS);
+  const staleSnap = await db
+    .collection(CITY_MAPPING_DISCOVERY_RUNS_COLLECTION)
+    .where('status', '==', 'running')
+    .where('claimedAt', '<', cutoff)
+    .get();
 
-// The real GCP ceiling for a task-queue function (1800s / 30 min — confirmed
-// against the installed firebase-functions types, same source cited above).
-// Memory generous: a full discovery run holds a city-wide OSM way grid
-// (Map<wayId, WayInfo>), decoded DEM tiles, and per-candidate geometry arrays
-// concurrently in memory (see runGeoDiscovery's fetchCityWayGrid/loadTiles) —
-// 1GiB is a deliberate step up from sendPushFromQueue's 512MiB, not copied
-// from it. retryConfig.maxAttempts:1 — a genuine failure (bad regionKey,
-// Overpass down) should surface as status:'failed' immediately, not
-// silently retry against Overpass up to 3x and potentially add to exactly
-// the congestion this job is already sensitive to; the idempotency guard
-// above makes any retry safe either way, this is a cost/clarity choice, not
-// a correctness requirement.
-export const onCityMappingDiscoveryDispatch = onTaskDispatched<{ runId: string }>(
-  { timeoutSeconds: 1800, memory: '1GiB', retryConfig: { maxAttempts: 1 } },
-  async (request) => {
-    await processDiscoveryRun(request.data.runId, admin.firestore());
+  for (const doc of staleSnap.docs) {
+    await db.runTransaction(async (tx) => {
+      const fresh = await tx.get(doc.ref);
+      const data = fresh.data() as Partial<CityMappingDiscoveryRunDoc> | undefined;
+      if (!data || data.status !== 'running') return; // resolved (or reclaimed) since the query ran
+      const attemptCount = (data.attemptCount ?? 0) + 1;
+      if (attemptCount >= 2) {
+        logger.error(`[geoDiscoveryWorker] run ${doc.id} reclaimed a 2nd time — presumed non-transient, marking failed`);
+        tx.update(doc.ref, {
+          status: 'failed',
+          attemptCount,
+          errorMessage: 'reclaimed twice after going stale on \'running\' — presumed non-transient, stopped auto-retry',
+          finishedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } else {
+        logger.info(`[geoDiscoveryWorker] run ${doc.id} stale on 'running' since ${data.claimedAt?.toDate?.().toISOString()} — reverting to pending (attempt ${attemptCount})`);
+        tx.update(doc.ref, { status: 'pending', attemptCount });
+      }
+    });
+  }
+}
+
+// The real GCP ceiling for a scheduled function (1800s / 30 min — confirmed
+// directly against Firebase's own docs, firebase.google.com/docs/functions/
+// quotas: "1800 seconds for scheduled/Task queue functions" — NOT the 3600s
+// HTTPS ceiling the type hierarchy alone would suggest, since ScheduleFunction
+// technically extends HttpsFunction; checked rather than assumed after that
+// exact wrong inference almost shipped here). Memory generous for the same
+// reason the old dispatch function was: a full discovery run holds a
+// city-wide OSM way grid, decoded DEM tiles, and per-candidate geometry
+// arrays concurrently in memory (runGeoDiscovery's fetchCityWayGrid/
+// loadTiles). retryCount:0 — explicit, not relying on Cloud Scheduler's
+// default — a genuine failure should surface as status:'failed' via
+// reclaimStaleRuns, not retry the whole 30min job again automatically; same
+// congestion-avoidance reasoning as processDiscoveryRun's own auth-gate.
+//
+// Picks up at most ONE pending run per tick, oldest first, deliberately —
+// looping through multiple pending docs in one invocation risks exceeding
+// the 30min function budget the moment a second ~19min job is queued behind
+// the first. One-per-tick means the 5-minute schedule just works through a
+// backlog naturally, never risking a mid-run kill on the second item.
+// Known, accepted limitation: fetches a small batch (10) ordered by
+// createdAt and picks the first entry whose jobType is 'city-discovery' —
+// not a query-level filter (that needs a composite index this collection
+// doesn't have yet), so if a different job type's doc is older than a
+// pending city-discovery one, this tick skips past it correctly, but an
+// unrelated future job type sitting among the oldest 10 could still get
+// looked at and skipped repeatedly instead of a real match further back.
+// Immaterial today (city-discovery is the only job type in existence); revisit
+// with a real composite index once a second job type actually ships.
+export const cityMappingDiscoveryPoller = onSchedule(
+  { schedule: 'every 5 minutes', timeoutSeconds: 1800, memory: '1GiB', retryCount: 0 },
+  async () => {
+    const db = admin.firestore();
+    await reclaimStaleRuns(db);
+
+    const candidatesSnap = await db
+      .collection(CITY_MAPPING_DISCOVERY_RUNS_COLLECTION)
+      .where('status', '==', 'pending')
+      .orderBy('createdAt', 'asc')
+      .limit(10)
+      .get();
+
+    const next = candidatesSnap.docs.find((d) => {
+      const jobType = (d.data() as Partial<CityMappingDiscoveryRunDoc>).jobType;
+      return !jobType || jobType === 'city-discovery'; // missing jobType tolerated (pre-27.09.2026 callers), treated as city-discovery
+    });
+    if (!next) return;
+
+    await processDiscoveryRun(next.id, db);
   }
 );

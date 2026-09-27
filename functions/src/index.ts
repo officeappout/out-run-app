@@ -74,4 +74,5 @@ export { onPlannedActivityCreated } from './onPlannedActivityCreated';
 // (`firebase emulators:start --only functions,firestore`) before deploying.
 export { previewNotificationContent } from './previewNotificationContent';
 // ── Background discovery worker (city-mapping one-click panel button prep) ────
-export { onCityMappingDiscoveryRunCreated, onCityMappingDiscoveryDispatch } from './geoDiscoveryWorker';
+// Poller, not a trigger+queue — see geoDiscoveryWorker.ts's own header for why.
+export { cityMappingDiscoveryPoller } from './geoDiscoveryWorker';

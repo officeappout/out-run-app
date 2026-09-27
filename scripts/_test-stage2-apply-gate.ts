@@ -20,6 +20,7 @@ async function main() {
   const routesBefore = (await db.collection('official_routes').where('city', '==', 'הרצליה').count().get()).data().count;
 
   const ref = await col.add({
+    jobType: 'city-discovery',
     regionKey: 'herzliya',
     apply: true,
     requestedByUid: 'stage2-test-non-superadmin-uid',
