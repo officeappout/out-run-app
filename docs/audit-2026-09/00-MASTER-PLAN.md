@@ -1919,3 +1919,31 @@ educational: [
 **חינוכי מושפע באופן זהה** — אין שום שער-הגנה ספציפי-לעירוני שמגן על חינוכי מהבאג הזה; אותו קוד, אותה בעיה.
 
 **סטטוס: דיווח בלבד. לא נבנה. ממתין להחלטת דוד** — האם לאשר בנייה, ואם כן: האם לאשר את השינוי הסמנטי ל"פעילים ב-7 ימים" (התאמנו במקום התחברו), או להשאיר "0" מוצג כ-`'error'` (כמו בשאר המסכים) עד שיבנה endpoint נפרד ל-login-recency.
+
+### 13.43 — הבדיקה החיה שסוגרת את סדרת ההזמנות: 4 חקירות, 4 תקלות אמיתיות (27.09.2026)
+
+**דיווח בלבד, לפי בקשת דוד — לא בוצע קוד בשלב הזה.** דוד ביצע את הבדיקה החיה שנקבעה בסוף §13.39: הזמין unit_admin אמיתי מהפאנל. ה-invitation נקלטה בהצלחה (`invitation applied for unit_admin`) והניתוב הוביל נכון ל-`/admin/authority/units/9307_nhcj` — §13.39 עובד. אבל נחשף חסם חדש: `[AdminSessionSync] Session mint failed — HTTP 429`, פלוס שגיאת-הרשאות בלוג, פלוס שאלה על שני מסכי-כניסה. שלוש חקירות Explore-agent מקבילות, read-only:
+
+**1. הגבלת-הקצב (`POST /api/auth/session`):** מפתח **כפול** — גם IP (`session:ip:{ip}:short/hourly`) וגם uid (`session:uid:{uid}:short/hourly`), נבדקים בסדר הזה (ה-IP-counter מתעדכן גם כשה-uid חוסם). אחסון **מתמיד ב-Firestore** (`rate_limits/{key}`), לא in-memory — לא מתאפס בדיפלוי/cold-start. ספים בפועל (קוד, ללא override ב-env): **uid: 10/15דק, 30/שעה**; IP: 60/15דק, 200/שעה (סלחני בכוונה — לא זה שתפס). **הסיבה האמיתית, לא שיתוף-IP:** כניסה **אחת** מפעילה 3-4 POST-ים מ-4 קוראים בלתי-מתואמים (`mintAdminSessionCookie` פעמיים ב-callback, `AdminSessionSync` על כל mount, `useSessionRefresh`, `adminFetch`) — שלוש נסיונות רצופים תוך 15 דקות מספיקים למצות את ה-uid-bucket, בלי שום שיתוף-רשת. אין retry-loop אוטומטי ב-`AdminSessionSync` עצמו, אבל כל focus-event על החלון יורה POST נוסף בשקט. **המשתמש לא רואה כלום, באף שכבה** — לא ב-`mintAdminSessionCookie` (מדפיס רק על שגיאת-רשת, לא על סטטוס-לא-תקין), לא ב-middleware (מפנה עם `?next=` בלבד), ולא ב-`/admin/login` (לא קורא `searchParams` בכלל).
+
+**2. "Missing or insufficient permissions":** זה מסמך-המשתמש **של עצמו** — אבל לא הקריאה, אלא כתיבת **self-heal** (`setDoc` בלי merge, ב-`firestore.service.ts:210`) שרצה מתוך אותו catch כמו הקריאה. `admin/layout.tsx` מאזין ל-auth state ורץ **לפני** ש-`POST /api/auth/accept-invitation` הספיק ליצור את מסמך המשתמש בשרת. `getUserFromFirestore` לא מוצא מסמך, מנסה ליצור סטאב (`role:'USER'`), וחוק ה-create ב-`firestore.rules` (שורה 397, בודק `role==''`) דוחה את זה **בצדק** — דוד אישר את זה במפורש כהגנה תקינה, לא לגעת. **התוצאה האמיתית:** `checkUserRole` שרץ בסבב הזה חוזר מנופח-חלקית (`role:'none'`, `isUnitAdmin:false`), וה-effect ב-`admin/layout.tsx` רץ **פעם אחת בלבד** (deps ריקים, בכוונה) — כך שאם הוא הפסיד בתחרות-התזמון, ה-SPA כולו נשאר עם ההרשאה המנופחת עד רענון-עמוד קשיח, גם כשהניתוב עצמו כבר תקין.
+
+**3. שני מסכי-הכניסה:** **לא "אחד שריד" — חלוקה לפי דומיין**, אוכפת ע"י middleware (`admin.outrun.co.il`→`/admin/login`, `portal.outrun.co.il`→`/authority-portal/login`), בלתי-נגישים זה לזה. שניהם נכנסו לריפו באותו commit-מסה ועודכנו לאחרונה באותו יום (22.09.2026) — אין "אחד קודם לשני". **מה כן שבור:** המייל האוטומטי (עבד היום) הולך ישר ל-`/admin/auth/callback?token=...`, עוקף את שניהם. כפתור "העתק קישור"/מייל-ידני מפנים ל-`/admin/authority-login` — **מתויג "Legacy" בקוד עצמו**, לא נגעו בו 4 חודשים — שמעביר ל-`/authority-portal/login`; אם נוצר/נפתח מדומיין ה-admin, ה-middleware מפנה את זה בחזרה ל-`/admin/login` **וזורק את ה-token**. הלוגיקה-הפנימית של `/authority-portal/login` (למשתמש-שכבר-מחובר) **לא עודכנה** כש-§13.39 תיקן בדיוק את אותו באג ב-`/admin/auth/callback` **היום** — tenant_owner עדיין מנותב שם ל-`/admin/authority-manager`, unit_admin נתקע, וה-token של מוזמן-שכבר-מחובר נזרק בלי מימוש.
+
+**החלטות דוד וסדר-הבנייה (27.09.2026):** אסור לגעת ב-`firestore.rules` (חוק ה-create הוא הגנה, לא ניקוי) — נדרשת הערה בקוד ליד החוק שמסבירה למה. ארבע תקלות, ענף נפרד לכל אחת, בסדר: **P0-1** (§13.44, isUnitAdmin ב-admin/layout.tsx — החסם האמיתי), **P0-2** (מרוץ-הכתיבה: מחיקת ה-`setDoc` הלקוחי מהפאנל + הצעה-בלבד למנגנון-רענון-הרשאה + פיצול-לוגים), **P1-3** (429: איחוד-קוראים ל-endpoint אחד, לא העלאת-סף; 429 גלוי למשתמש; `/admin/login` מכבד `?next=`), **P1-4** (כפתור-העתק/מייל-ידני מפיקים את אותו URL כמו המייל האוטומטי; `/admin/authority-login` הופך למת — דיווח, לא מחיקה, עד אישור), **P2** (`/authority-portal/login` הישן — נוגע לאופקים, ענף נפרד אחרי הראשונים). **פארק, לא לגעת:** איחוד שני הפורטלים — פרויקט בפני עצמו, מתועד להמשך. עצירה חובה אחרי P0-1+P0-2 לבדיקה חיה נוספת.
+
+### 13.44 — P0-1: `isUnitAdmin` חסר מרשימת-ההרשאה ב-`admin/layout.tsx` (27.09.2026)
+
+**ענף `fix/layout-unit-admin-auth-gate`, מ-`origin/main` @ `5f026c5e`. בנייה בלבד — טרם ממוזג, ממתין לאישור דוד.**
+
+**החסם האמיתי:** `admin/layout.tsx` בדק גישת-אדמין לפי רשימת-דגלים מפורשת שלא כללה `isUnitAdmin` בכלל. unit_admin אמיתי, עם כל שאר הדגלים false ו-`role!=='platform_member'` (accept-invitation מעולם לא שם אותו ב-`authorities.managerIds`, רק ב-`tenants/{t}/units/{u}.managerIds`) — **נחסם בכל mount**, גם עם session cookie תקין לגמרי. הבדיקה החיה החמיקה מזה רק כי `/admin/auth/callback` הוא public path.
+
+**התיקון:** לוגיקת-ההחלטה חולצה לפונקציה טהורה חדשה, `hasAnyAdminAccess` (`src/features/admin/services/adminAccessGate.ts`, בלי ייבוא Firebase — כדי להישאר בדיק ב-vitest, כמו כל שאר עמודי-הפאנל שנבדקו השבוע). `admin/layout.tsx` קורא לה במקום התנאי-הישן; נוסף `isUnitAdmin` לרשימה.
+
+**בדיקות — `src/features/admin/services/__tests__/adminAccessGate.test.ts` (חדש), 8/8 עברו, כולל מחזור red-green מלא כפי שדוד ביקש:** הרצתי את הטסט **קודם** נגד הלוגיקה הישנה (הסרתי זמנית את `isUnitAdmin` מהתנאי) — **נכשל** בדיוק על ה-unit_admin-scenario, מוכיח את הבאג. שחזרתי את התיקון, הרצתי שוב — **עבר**, 8/8. שאר 7 הטסטים: tenant_owner/authority_manager/vertical_admin/super_admin/system_admin/platform_member — כולם ממשיכים לעבוד (לא נגעתי בהם); ו"אפס גישה אמיתי" (כל הדגלים false) — עדיין נדחה, מוכיח שהתיקון לא פתח את השער לרווחה.
+
+**tsc מלא מול baseline מדויק:** 804/804, שינויי-סדר-איחוד קיימים-מראש + הזזת-שורה טהורה (+1, מהוספת שורת-import). vitest מלא (אמולטור טרי): `5 failed | 2340 passed (2345)` — בדיוק חמשת הכשלים הקיימים-מראש + 8 הטסטים החדשים, אפס רגרסיה.
+
+**לא נגעתי ב-`firestore.rules`.** אפס נתוני פרודקשן נגעו.
+
+**סטטוס: בנייה הושלמה, ממתין לאישור דוד למיזוג.**
