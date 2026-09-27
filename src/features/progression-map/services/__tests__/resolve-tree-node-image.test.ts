@@ -92,4 +92,50 @@ describe('resolveTreeNodeImage', () => {
     const e = ex([method({ media: {} })]);
     expect(resolveTreeNodeImage(e)).toBe('');
   });
+
+  // Round 7: the real root cause of Bug 1 — an exercise can have MULTIPLE
+  // park-tagged execution methods (e.g. "rings" and "built-in straps" for
+  // front-lever level 1), and rounds 5/6 only ever inspected the FIRST one
+  // found, giving up on park entirely the moment that one had nothing
+  // derivable — never checking a later park method that did have media.
+
+  it('round 7: scans ALL park methods — first has no media, second has an imageUrl (any host) → returns the second', () => {
+    const e = ex([
+      method({ media: {} }), // e.g. "built-in straps" — no image/video at all
+      method({
+        media: { imageUrl: 'https://firebasestorage.googleapis.com/v0/b/out/o/rings.jpg?alt=media' },
+      }), // e.g. "rings"
+    ]);
+    expect(resolveTreeNodeImage(e)).toBe(
+      'https://firebasestorage.googleapis.com/v0/b/out/o/rings.jpg?alt=media',
+    );
+  });
+
+  it('round 7: scans ALL park methods — first has no media, second has only a Bunny video → derives from the second', () => {
+    const e = ex([
+      method({ media: {} }),
+      method({
+        media: { mainVideoUrl: `https://vz-b17872ab-7a7.b-cdn.net/${BUNNY_VIDEO_ID}/play_360p.mp4` },
+      }),
+    ]);
+    const result = resolveTreeNodeImage(e);
+    expect(result).toContain(BUNNY_VIDEO_ID);
+    expect(result).toContain('thumbnail.jpg');
+  });
+
+  it('round 7: a home method listed BEFORE the real park method is never picked — only methods tagged park are scanned', () => {
+    const e = ex([
+      method({ location: 'home', media: { imageUrl: 'https://cdn/home-should-not-be-picked.jpg' } }),
+      method({ location: 'park', media: { imageUrl: 'https://cdn/park-photo.jpg' } }),
+    ]);
+    expect(resolveTreeNodeImage(e)).toBe('https://cdn/park-photo.jpg');
+  });
+
+  it('round 7: still returns home when NO park method (of several) has anything derivable', () => {
+    const e = ex(
+      [method({ media: {} }), method({ location: 'park', locationMapping: ['park'], media: {} })],
+      'https://cdn/home-legacy-2.jpg',
+    );
+    expect(resolveTreeNodeImage(e)).toBe('https://cdn/home-legacy-2.jpg');
+  });
 });
