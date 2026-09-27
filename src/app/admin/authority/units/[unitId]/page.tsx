@@ -1441,12 +1441,20 @@ export default function UnitDrilldownPage() {
               </div>
               <div>
                 <h2 className="text-lg font-black text-gray-900">הסרת {removeConfirmMember.name} מהיחידה</h2>
-                <p className="text-sm text-slate-500">הפעולה תנותק את השיוך שלו/שלה ליחידה זו.</p>
+                <p className="text-sm text-slate-500">הפעולה תנתק את השיוך שלו/שלה ליחידה זו.</p>
               </div>
             </div>
-            <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+            {/* Slice G (26.09.2026, §13.32) — David, explicit: the officer
+                must know he's clicking something he can't fix by himself
+                from this panel. Plain fact, not a scary warning — see
+                this slice's own report for the exact wording he asked
+                for ("נוסח בעברית פשוטה, לא אזהרה מפחידה - רק אמת"). */}
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3 space-y-1">
               <p className="text-sm text-red-700 font-bold">
-                {removeConfirmMember.name} לא יוכל/תוכל להצהיר מחדש על יחידה זו אלא באישור מפורש שלך.
+                לא ניתן לבטל את הפעולה הזו מהפאנל.
+              </p>
+              <p className="text-sm text-red-700">
+                {removeConfirmMember.name} לא יוכל/תוכל להצטרף שוב לאותה יחידה, גם אם תשנה את דעתך.
               </p>
             </div>
             <div className="flex items-center justify-end gap-3">
