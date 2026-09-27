@@ -146,11 +146,24 @@ export const useExerciseLibraryStore = create<ExerciseLibraryState>((set) => ({
 
   resetFilters: () => set({ filters: { ...INITIAL_FILTERS } }),
 
-  openDetail: (exercise, notice) => set({ selectedExercise: exercise, isDetailOpen: true, detailNotice: notice ?? null }),
+  openDetail: (exercise, notice) => {
+    // TEMPORARY trace (round 4, Progression Map close/reopen investigation)
+    // — logs unconditionally (a Vercel preview build sets NODE_ENV=production,
+    // which would silently suppress a dev-only console.log) so every actual
+    // call site is visible, not just the ones already suspected. Remove once
+    // the bug is confirmed fixed.
+    // eslint-disable-next-line no-console
+    console.log('[ExerciseLibraryStore] openDetail()', { exerciseId: exercise.id, notice });
+    set({ selectedExercise: exercise, isDetailOpen: true, detailNotice: notice ?? null });
+  },
   // Clears selectedExercise too, not just isDetailOpen — defensive: nothing
   // in this store depends on selectedExercise surviving a close today, and
   // a full reset here means no future "if selectedExercise, treat as open"
   // pattern (in this store or a consumer) could ever resurrect a closed
   // sheet from stale selection state.
-  closeDetail: () => set({ isDetailOpen: false, detailNotice: null, selectedExercise: null }),
+  closeDetail: () => {
+    // eslint-disable-next-line no-console
+    console.log('[ExerciseLibraryStore] closeDetail()');
+    set({ isDetailOpen: false, detailNotice: null, selectedExercise: null });
+  },
 }));

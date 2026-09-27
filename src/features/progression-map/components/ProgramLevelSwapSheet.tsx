@@ -23,7 +23,7 @@
  */
 import { useEffect, useState } from 'react';
 import { X, Dumbbell } from 'lucide-react';
-import { getLocalizedText, ExecutionLocation, type Exercise } from '@/features/content/exercises';
+import { getLocalizedText, resolveImageForLocation, ExecutionLocation, type Exercise } from '@/features/content/exercises';
 import { UserFullProfile } from '@/types/user-profile';
 import { Park } from '@/types/admin-types';
 import { useExerciseLibraryStore } from '@/features/content/exercises/client/store/useExerciseLibraryStore';
@@ -32,7 +32,6 @@ import {
   getSameProgramLevelExercises,
   type SameLevelExerciseOption,
 } from '../services/program-level-swap-query';
-import { resolveParkNodeImage } from '../services/resolve-park-node-image';
 
 const IMAGE_PLACEHOLDER = '/images/park-placeholder.svg';
 
@@ -58,9 +57,14 @@ function SwapCard({
   onTap: () => void;
 }) {
   const name = getLocalizedText(option.exercise.name, 'he');
-  // Same park-only resolver as TreeNode — never falls back to a
-  // location-agnostic legacy field that could show a home photo.
-  const imageUrl = resolveParkNodeImage(option.exercise) || IMAGE_PLACEHOLDER;
+  // Same resolver + fallback policy as TreeNode: park first, home if this
+  // exercise genuinely has no park variant — never a blank card.
+  const [imgFailed, setImgFailed] = useState(false);
+  useEffect(() => {
+    setImgFailed(false);
+  }, [option.exercise.id]);
+  const resolvedUrl = resolveImageForLocation(option.exercise, 'park');
+  const imageUrl = imgFailed || !resolvedUrl ? IMAGE_PLACEHOLDER : resolvedUrl;
   const method = option.selectedExecutionMethod;
   const rawGearIds: string[] = [
     ...(method.gearIds ?? []),
@@ -79,7 +83,14 @@ function SwapCard({
     >
       <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-200 flex-shrink-0">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={imageUrl} alt={name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
+        <img
+          src={imageUrl}
+          alt={name}
+          className="w-full h-full object-cover"
+          loading="lazy"
+          decoding="async"
+          onError={() => setImgFailed(true)}
+        />
       </div>
       <div className="flex-1 flex flex-col gap-1.5 items-start">
         <h3 className="font-bold text-base text-slate-900 w-full">{name}</h3>

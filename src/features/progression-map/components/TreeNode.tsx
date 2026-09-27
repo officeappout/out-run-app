@@ -24,16 +24,27 @@
  * node (visual-only, no tap target, no start-workout action) rather than a
  * plain caption below it.
  *
- * Round 3: the image is resolveParkNodeImage(exercise), not
- * resolveImageForLocation(exercise, location) — the shared function's last
- * fallback step can silently surface a wrong-location (home) photo; see
- * resolve-park-node-image.ts. No `location` prop anymore — every node image
- * is park, unconditionally, with an honest placeholder (not a wrong photo)
- * when an exercise genuinely has no park image yet.
+ * Round 4 (image resolution, reverted from round 3's stricter version):
+ * back to resolveImageForLocation(exercise, 'park') — the founder's explicit
+ * call: try park first, but if an exercise genuinely has no park variant,
+ * a home photo beats a blank/placeholder card. Round 3's resolveParkNodeImage
+ * (exact-park-only, placeholder if none) solved a different problem —
+ * avoiding a MISLEADING wrong-location photo — that turned out to matter
+ * less than "always show something real." Removed that resolver rather than
+ * keep unused code around.
+ *
+ * The image-load failure is tracked in React state (imgFailed), not a raw
+ * `e.target.src = ...` DOM patch — a plain DOM mutation on error can get
+ * silently overwritten the next time this component re-renders for an
+ * unrelated reason (React reconciles the <img> src back to the computed
+ * value), which was a plausible contributor to "some nodes render blank."
+ * State-driven fallback survives re-renders because the computed `imageUrl`
+ * itself accounts for it. Resets on exercise.id change so a swapped-in
+ * representative isn't stuck showing a previous exercise's failure state.
  */
+import { useEffect, useState } from 'react';
 import { Check, Lock, Crown } from 'lucide-react';
-import { Exercise, getLocalizedText } from '@/features/content/exercises';
-import { resolveParkNodeImage } from '../services/resolve-park-node-image';
+import { Exercise, getLocalizedText, resolveImageForLocation } from '@/features/content/exercises';
 import { SwapPill } from './SwapPill';
 
 export type TreeNodeState = 'done' | 'current' | 'locked' | 'target';
@@ -71,9 +82,15 @@ export function TreeNode({
   const isTarget = state === 'target';
   const isCurrent = state === 'current';
   const isDone = state === 'done';
-  const imageUrl = resolveParkNodeImage(exercise) || IMAGE_PLACEHOLDER;
   const name = getLocalizedText(exercise.name, 'he');
-  const photoSize = isCurrent || isTarget ? 92 : 78;
+
+  const [imgFailed, setImgFailed] = useState(false);
+  useEffect(() => {
+    setImgFailed(false);
+  }, [exercise.id]);
+
+  const resolvedUrl = resolveImageForLocation(exercise, 'park');
+  const imageUrl = imgFailed || !resolvedUrl ? IMAGE_PLACEHOLDER : resolvedUrl;
 
   return (
     <div className={`flex flex-col items-${align === 'start' ? 'start' : 'end'} gap-1 max-w-[120px]`}>
@@ -95,7 +112,7 @@ export function TreeNode({
           type="button"
           onClick={onTap}
           className={`relative rounded-2xl overflow-hidden bg-slate-200 flex-shrink-0 transition-transform active:scale-95 ${STATE_RING[state]}`}
-          style={{ width: photoSize, height: photoSize }}
+          style={{ width: isCurrent || isTarget ? 92 : 78, height: isCurrent || isTarget ? 92 : 78 }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -105,9 +122,7 @@ export function TreeNode({
             loading="lazy"
             decoding="async"
             style={locked ? { filter: 'grayscale(55%) brightness(0.92)' } : undefined}
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = IMAGE_PLACEHOLDER;
-            }}
+            onError={() => setImgFailed(true)}
           />
 
           {/* On-photo level badge (top corner) */}
