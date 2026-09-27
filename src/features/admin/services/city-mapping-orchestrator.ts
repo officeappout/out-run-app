@@ -18,10 +18,17 @@
  *      admin_level=8 boundary and writes authorities/{id}.boundaryGeoJSON so
  *      resolveAuthorityForPoint has real data to match against. Reuses the
  *      authorityId authorityPreflight already resolved.
- *   2. routesGate — manual-gate verify-only read of official_routes count
- *      (route DISCOVERY itself stays a CLI command the operator runs by hand
- *      — LOCKED DECISION 1, refactoring geo-discovery-routes.ts into an
- *      importable function is out of scope for v1)
+ *   2. routesGate — manual-gate verify-only read of official_routes count.
+ *      LOCKED DECISION 1 (refactoring geo-discovery-routes.ts into an
+ *      importable function is out of scope for v1) was superseded
+ *      24.09.2026 — that refactor shipped independently (runGeoDiscovery is
+ *      importable, feat/geo-discovery-importable, merged 05.09.2026) and the
+ *      city-mapping-discovery-poller PR (27.09.2026) wired it end to end:
+ *      writing a city_mapping_discovery_runs doc (triggerRouteDiscovery,
+ *      below) now runs discovery for real, picked up by
+ *      cityMappingDiscoveryPoller (functions/src/geoDiscoveryWorker.ts)
+ *      within ~5min. routesGate's blocked-panel button below is that path —
+ *      discovery is no longer a CLI command the operator runs by hand.
  *   3. streetSegments — direct client call to runOsmImport(), already
  *      client-callable (proven at /admin/segments)
  *   4. lighting — thin API route wrapping runBackfillRouteLighting()
@@ -64,7 +71,7 @@
  * with `success:false` and the real error message the moment any step
  * fails, exactly mirroring `SeedResult.errors: string[]`'s existing shape.
  */
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { addDoc, collection, doc, getDocs, onSnapshot, query, serverTimestamp, Timestamp, Unsubscribe, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { findAuthorityByCityName } from '@/lib/route-collections/authority-resolution';
 import { runOsmImport } from './osm-segment-importer';
@@ -374,4 +381,89 @@ export async function runCityMapping(
   }
 
   return { success: true, authorityId, counts, errors: [] };
+}
+
+// ── routesGate discovery trigger (27.09.2026) ──────────────────────────────
+//
+// Mirrors functions/src/geoDiscoveryWorker.ts's CityMappingDiscoveryRunDoc —
+// a separate npm package (functions/), not importable from this app, so the
+// shape is duplicated here. Keep both in sync by hand if either changes.
+const CITY_MAPPING_DISCOVERY_RUNS_COLLECTION = 'city_mapping_discovery_runs';
+
+export type CityMappingDiscoveryRunStatus = 'pending' | 'running' | 'succeeded' | 'failed';
+
+export interface CityMappingDiscoveryRunDoc {
+  jobType: 'city-discovery';
+  regionKey: string;
+  apply: boolean;
+  requestedByUid: string;
+  status: CityMappingDiscoveryRunStatus;
+  createdAt: Timestamp | null; // null only in the brief window before serverTimestamp() resolves
+  claimedAt?: Timestamp;
+  attemptCount?: number;
+  keptCount?: number;
+  droppedCount?: number;
+  summary?: string;
+  finishedAt?: Timestamp;
+  errorMessage?: string;
+}
+
+/**
+ * Writes a city_mapping_discovery_runs doc — the ONLY thing routesGate's
+ * blocked-panel button does. Picked up by cityMappingDiscoveryPoller
+ * (onSchedule, every 5min) within ~5min.
+ *
+ * `apply` is caller-supplied, wired in page.tsx to the SAME Dry Run
+ * checkbox that already governs the rest of the pipeline — no new UI. A
+ * hardcoded apply:false would make this button pointless (never populates
+ * official_routes, the whole reason routesGate is blocking); a hardcoded
+ * apply:true removes the operator's ability to see a count first on an
+ * unfamiliar city, and skips the production-write confirmation this app's
+ * convention requires. Neither is right; the operator's own existing
+ * toggle decides.
+ *
+ * runGeoDiscovery's apply:true path is DOCUMENTED to always write
+ * status:'pending', published:false (its own source, scripts/
+ * geo-discovery-routes.ts) — but NOT YET VERIFIED end to end by a real
+ * passing run: the 27.09.2026 herzliya test only got as far as a dry-run
+ * line ("[dry-run] no writes. 15 pending routes would be written...") —
+ * good evidence of what apply:true WOULD do, not a measured apply:true
+ * write. The dedicated apply:true test (CALL 3 in
+ * scripts/_test-stage2-worker.ts) was never reached — the script crashed
+ * earlier, on the dry-run call's own final status write (see
+ * geoDiscoveryWorker.ts:193's NOT VERIFIED note). First real apply:true
+ * run from this button should be treated as the actual first measurement,
+ * not a formality.
+ *
+ * Safe to send apply:true from a client the worker doesn't otherwise trust:
+ * this page is already gated to isSuperAdmin/isSystemAdmin at the route
+ * level (see the auth effect above), and the worker's own
+ * isAuthorizedForApply re-checks the SAME two criteria server-side
+ * (Admin Auth root-email pattern, or users/{uid}.core.isSuperAdmin/
+ * isSystemAdmin) before ever touching runGeoDiscovery — defense in depth,
+ * not a bypass; a forged/replayed doc with someone else's uid still gets
+ * rejected there regardless of what this client claims.
+ */
+export async function triggerRouteDiscovery(regionKey: string, apply: boolean, requestedByUid: string): Promise<string> {
+  const ref = await addDoc(collection(db, CITY_MAPPING_DISCOVERY_RUNS_COLLECTION), {
+    jobType: 'city-discovery',
+    regionKey,
+    apply,
+    requestedByUid,
+    status: 'pending',
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+/** Live subscription to a discovery run doc's status — pending/running/succeeded/failed,
+ *  updating as cityMappingDiscoveryPoller processes it. Caller owns unsubscribing (React
+ *  effect cleanup). */
+export function subscribeToDiscoveryRun(
+  runId: string,
+  onUpdate: (data: CityMappingDiscoveryRunDoc | null) => void,
+): Unsubscribe {
+  return onSnapshot(doc(db, CITY_MAPPING_DISCOVERY_RUNS_COLLECTION, runId), (snap) => {
+    onUpdate(snap.exists() ? (snap.data() as CityMappingDiscoveryRunDoc) : null);
+  });
 }
