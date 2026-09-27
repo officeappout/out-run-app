@@ -20,6 +20,7 @@ import { PREF_KEY_PERMISSIONS } from '@/lib/healthBridge/init';
 import { getHealthSyncDebugState, type HealthSyncDebugState } from '@/lib/healthBridge/debugState';
 import { useSettingsStore } from '@/features/home/store/useSettingsStore';
 import { OutboxFlusher } from '@/lib/outbox/OutboxFlusher';
+import { getHealthSampleQueueDiagnostics, type HealthSampleQueueDiagnostics } from '@/lib/outbox/outbox-db';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,6 +35,7 @@ interface Snapshot {
   depthSamples: number;
   depthWorkouts: number;
   sync: HealthSyncDebugState;
+  queueDiagnostics: HealthSampleQueueDiagnostics;
   capturedAt: string;
 }
 
@@ -52,6 +54,7 @@ async function takeSnapshot(): Promise<Snapshot> {
   }
 
   const depth = await OutboxFlusher.getDepth();
+  const queueDiagnostics = await getHealthSampleQueueDiagnostics();
 
   return {
     prefKeyPermissionsRaw,
@@ -59,6 +62,7 @@ async function takeSnapshot(): Promise<Snapshot> {
     depthSamples: depth.samples,
     depthWorkouts: depth.workouts,
     sync: getHealthSyncDebugState(),
+    queueDiagnostics,
     capturedAt: new Date().toISOString(),
   };
 }
@@ -155,6 +159,12 @@ export default function HealthSyncDebugPage() {
             <Row label="flushed (lifetime this session)" value={snapshot.sync.totalFlushedLifetime} />
             <Row label="last flush error" value={snapshot.sync.lastFlushError} />
             <Row label="last flush at" value={snapshot.sync.lastFlushAt} />
+          </Section>
+
+          <Section title="5. Stuck-banner diagnosis (root A vs root B)">
+            <Row label="total samples in queue" value={snapshot.queueDiagnostics.total} />
+            <Row label="attempts ≥ 8 (root A — permanently skipped)" value={snapshot.queueDiagnostics.hardExhausted} />
+            <Row label="App Check failing > 1h (root B)" value={snapshot.queueDiagnostics.softExpired} />
           </Section>
 
           <Section title="Other">

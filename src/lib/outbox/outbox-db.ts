@@ -31,6 +31,17 @@ const DB_VERSION = 1;
 const HEALTH_STORE = 'healthSamplesOutbox';
 const WORKOUTS_STORE = 'workoutsOutbox';
 
+/** A record with attempts ≥ this is permanently skipped from retry — see
+ *  the `eligible` filter in OutboxFlusher.ts's runOnce(). Canonical home
+ *  for this threshold: OutboxFlusher imports it from here. */
+export const MAX_ATTEMPTS = 8;
+
+/** How long a record may sit with an unresolved App Check failure before
+ *  countHealthSamples() stops counting it towards the "syncing" banner.
+ *  Purely a display cutoff — see bumpHealthSampleSoftFailure()'s doc
+ *  comment for why this must NEVER gate retry eligibility. */
+export const SOFT_FAILURE_COUNT_CUTOFF_MS = 60 * 60 * 1000; // 1 hour
+
 // ────────────────────────────────────────────────────────────────────────────
 // Record shapes
 // ────────────────────────────────────────────────────────────────────────────
@@ -56,6 +67,15 @@ export interface OutboxHealthSample {
   enqueuedAt: number;
   /** Number of failed flush attempts. Used for backoff scheduling. */
   attempts: number;
+  /**
+   * Wall-clock millis of this record's FIRST unresolved App Check failure —
+   * set once, never moved forward by later App Check failures, cleared
+   * implicitly when the record is deleted (a later success). `null` means
+   * either no App Check failure has happened yet, or none is ongoing.
+   * Counting-only — never affects retry eligibility. See
+   * bumpHealthSampleSoftFailure() and countHealthSamples().
+   */
+  firstSoftFailureAt: number | null;
 }
 
 export interface OutboxWorkout {
@@ -172,10 +192,77 @@ export async function bumpHealthSampleAttempts(sampleUUIDs: string[]): Promise<v
   await tx.done;
 }
 
-export async function countHealthSamples(): Promise<number> {
+/**
+ * Records this record's FIRST unresolved App Check failure timestamp —
+ * a no-op if one is already set, so repeated App Check failures never move
+ * the clock forward. Deliberately separate from bumpHealthSampleAttempts():
+ * App Check failures must keep retrying forever (they're transient
+ * infrastructure, not a data problem), so this must NEVER be read by the
+ * `eligible` filter in OutboxFlusher.ts's runOnce() — only by
+ * countHealthSamples(), to stop an indefinitely-retrying record from
+ * holding the "syncing" banner up forever.
+ */
+export async function bumpHealthSampleSoftFailure(sampleUUIDs: string[]): Promise<void> {
+  if (sampleUUIDs.length === 0) return;
   const db = await getDB();
-  if (!db) return 0;
-  return db.count(HEALTH_STORE);
+  if (!db) return;
+  const tx = db.transaction(HEALTH_STORE, 'readwrite');
+  for (const id of sampleUUIDs) {
+    const rec = (await tx.store.get(id)) as OutboxHealthSample | undefined;
+    if (rec && rec.firstSoftFailureAt == null) {
+      rec.firstSoftFailureAt = Date.now();
+      await tx.store.put(rec);
+    }
+  }
+  await tx.done;
+}
+
+export interface HealthSampleQueueDiagnostics {
+  /** Every record currently in the outbox, regardless of state. */
+  total: number;
+  /** attempts >= MAX_ATTEMPTS — permanently skipped from retry (see the
+   *  `eligible` filter in OutboxFlusher.ts). */
+  hardExhausted: number;
+  /** firstSoftFailureAt set and older than SOFT_FAILURE_COUNT_CUTOFF_MS —
+   *  still retrying forever, just no longer counted in the banner. */
+  softExpired: number;
+  /** What countHealthSamples() actually returns — total minus both
+   *  exclusions above (a record can match both and is still only excluded
+   *  once here, unlike the two counts above which may overlap). */
+  stillCounted: number;
+}
+
+/**
+ * Single source of truth for both countHealthSamples() and the
+ * debug/health-sync diagnostics screen — one cursor pass classifies every
+ * record so the two callers can never disagree on what's excluded and why.
+ */
+export async function getHealthSampleQueueDiagnostics(): Promise<HealthSampleQueueDiagnostics> {
+  const db = await getDB();
+  if (!db) return { total: 0, hardExhausted: 0, softExpired: 0, stillCounted: 0 };
+  const now = Date.now();
+  let total = 0;
+  let hardExhausted = 0;
+  let softExpired = 0;
+  let stillCounted = 0;
+  let cursor = await db.transaction(HEALTH_STORE, 'readonly').store.openCursor();
+  while (cursor) {
+    const rec = cursor.value as OutboxHealthSample;
+    total++;
+    const isHardExhausted = (rec.attempts ?? 0) >= MAX_ATTEMPTS;
+    const isSoftExpired =
+      rec.firstSoftFailureAt != null && now - rec.firstSoftFailureAt > SOFT_FAILURE_COUNT_CUTOFF_MS;
+    if (isHardExhausted) hardExhausted++;
+    if (isSoftExpired) softExpired++;
+    if (!isHardExhausted && !isSoftExpired) stillCounted++;
+    cursor = await cursor.continue();
+  }
+  return { total, hardExhausted, softExpired, stillCounted };
+}
+
+export async function countHealthSamples(): Promise<number> {
+  const diagnostics = await getHealthSampleQueueDiagnostics();
+  return diagnostics.stillCounted;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
