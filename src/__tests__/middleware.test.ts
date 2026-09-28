@@ -122,4 +122,28 @@ describe('decideAdminGateAction', () => {
     expect(decideAdminGateAction('/admin', invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/admin/login' });
     expect(decideAdminGateAction('/admin/exercises', invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/admin/login' });
   });
+
+  // 28.09.2026 — David's live-test follow-up: does typing /admin/dashboard
+  // directly get blocked at the gate for a unit_admin, not just fail to
+  // render? Before this exclusion it was allowed through (same shared
+  // allowlist as authority_manager/tenant_owner) — only the page's own
+  // accidental early-return kept it from leaking real data.
+  const unitAdmin: GateSessionInfo = { admin: false, scope: 'unit_admin' };
+  const tenantOwner: GateSessionInfo = { admin: false, scope: 'tenant_owner' };
+
+  it('unit_admin on /admin/dashboard — blocked at the gate now, redirected (not allowed through to render)', () => {
+    expect(decideAdminGateAction('/admin/dashboard', unitAdmin)).toEqual({ action: 'redirect', to: '/admin/authority-manager' });
+  });
+
+  it('unit_admin on their own real destination — still allowed, unaffected by the dashboard exclusion', () => {
+    expect(decideAdminGateAction('/admin/authority/units/9307', unitAdmin)).toEqual({ action: 'allow' });
+  });
+
+  it('tenant_owner on /admin/dashboard — unaffected, still allowed (their own sidebar genuinely links here, a separate question)', () => {
+    expect(decideAdminGateAction('/admin/dashboard', tenantOwner)).toEqual({ action: 'allow' });
+  });
+
+  it('authority_manager on /admin/dashboard — unaffected, still allowed (unchanged, pre-existing behavior)', () => {
+    expect(decideAdminGateAction('/admin/dashboard', authorityManager)).toEqual({ action: 'allow' });
+  });
 });

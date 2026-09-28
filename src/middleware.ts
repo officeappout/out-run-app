@@ -207,6 +207,25 @@ export function decideAdminGateAction(
     session?.scope === 'tenant_owner' ||
     session?.scope === 'unit_admin'
   ) {
+    // unit_admin's own real destination is /admin/authority/units/[unitId]
+    // ONLY (decideUnitAdminRedirect, postAcceptRedirect.ts) —
+    // /admin/dashboard is a municipal/tenant_owner-flavored page
+    // (admin/dashboard/page.tsx has no unit_admin branch at all) this
+    // scope has no legitimate reason to reach. Before this exclusion,
+    // the shared allowlist below let it through regardless (a deliberate
+    // Stage 4 simplification — see that allowlist's own comment), relying
+    // entirely on the page's own early-return (aId stays null for
+    // unit_admin, since getAuthoritiesByManager is always empty for them)
+    // to avoid a real data leak. That's an accident of the page's current
+    // code, not a gate — a future edit to that early-return would silently
+    // reopen this. David's live-test question, 28.09.2026: does typing the
+    // URL directly get blocked at the gate, not merely fail to render data?
+    // Scoped to unit_admin only — authority_manager/tenant_owner keep
+    // today's unchanged access (tenant_owner's own sidebar genuinely links
+    // here, a separate, pre-existing question this fix doesn't touch).
+    if (session.scope === 'unit_admin' && pathname.startsWith('/admin/dashboard')) {
+      return { action: 'redirect', to: '/admin/authority-manager' };
+    }
     const isAllowed = AUTHORITY_MANAGER_ALLOWED_PATHS.some((p) => pathname.startsWith(p));
     return isAllowed ? { action: 'allow' } : { action: 'redirect', to: '/admin/authority-manager' };
   }
