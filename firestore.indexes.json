@@ -294,6 +294,30 @@
         { "fieldPath": "lastMessageAt", "order": "DESCENDING" }
       ]
     },
+    // §13.48 (28.09.2026) — these two were live in production but absent
+    // from this file (drift discovered when a routine index deploy
+    // offered to DELETE them; David declined and asked for them to be
+    // added back here so the next deploy stops proposing that). Powers
+    // the city-mapping discovery worker's claim/poll queries — see
+    // functions/src/geoDiscoveryWorker.ts. Do not remove without first
+    // confirming that worker no longer queries city_mapping_discovery_runs
+    // by status+claimedAt or status+createdAt.
+    {
+      "collectionGroup": "city_mapping_discovery_runs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "claimedAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "city_mapping_discovery_runs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
     // SPEC-03 Wave B (SEC-06): the two indexes that used to sit here —
     // {core.discoverable, core.name} and {core.discoverable,
     // core.authorityId, core.name} on `users` — supported
