@@ -202,6 +202,32 @@ export async function computeAcceptInvitation(db: Firestore, caller: Caller, inv
       const userRef = db.collection('users').doc(caller.uid);
       const userSnap = await tx.get(userRef);
 
+      // P1-3 item 3 (00-MASTER-PLAN.md §13.49) — read the caller's PRIOR
+      // role-defining fields (if any), so a stale authorities/{}.managerIds
+      // or tenants/{}/units/{}.managerIds grant from whatever they were
+      // assigned to before this acceptance gets cleaned up in the SAME
+      // transaction, instead of silently outliving the role it was granted
+      // for — exactly what left the §13.47 test account listed as a manager
+      // of a municipality its core.authorityId no longer pointed to. This
+      // is NOT multi-role handling (David explicitly deprioritized that,
+      // 28.09.2026) — it applies identically whether the "prior" assignment
+      // was concurrent or simply the caller's previous role before this
+      // ordinary reassignment, which this endpoint must already get right.
+      // All reads happen here, before any write below (Firestore
+      // transaction requirement).
+      const priorCore = (userSnap.data()?.core ?? {}) as Record<string, unknown>;
+      const priorAuthorityId = typeof priorCore.authorityId === 'string' ? priorCore.authorityId : null;
+      const priorTenantId = typeof priorCore.tenantId === 'string' ? priorCore.tenantId : null;
+      const priorUnitId = typeof priorCore.unitId === 'string' ? priorCore.unitId : null;
+      // Prior authorities/{}.managerIds membership can come from either an
+      // authority_manager (core.authorityId) or a tenant_owner
+      // (core.tenantId + core.isTenantOwner — tenant_owner never sets
+      // core.authorityId). unit_admin also mirrors core.authorityId onto
+      // its tenantId, but never actually gets added to authorities.
+      // managerIds — harmless either way, since arrayRemove on a value
+      // never present there is a no-op.
+      const priorAuthorityLikeId = priorAuthorityId ?? (priorCore.isTenantOwner === true ? priorTenantId : null);
+
       let authorityRef: FirebaseFirestore.DocumentReference | null = null;
       let authorityManagerIds: string[] = [];
       let tenantType: string | null = null;
@@ -231,6 +257,23 @@ export async function computeAcceptInvitation(db: Firestore, caller: Caller, inv
         unitPath = Array.isArray(rawPath) ? rawPath : [];
       }
 
+      // Existence-checked so the stale-cleanup writes below never blind-
+      // update a doc that no longer exists (which would throw at commit
+      // and roll back the whole acceptance) — same "reads before writes"
+      // transaction requirement as above.
+      let staleAuthorityRef: FirebaseFirestore.DocumentReference | null = null;
+      if (priorAuthorityLikeId && priorAuthorityLikeId !== authorityLikeId) {
+        const ref = db.collection('authorities').doc(priorAuthorityLikeId);
+        const snap = await tx.get(ref);
+        if (snap.exists) staleAuthorityRef = ref;
+      }
+      let staleUnitRef: FirebaseFirestore.DocumentReference | null = null;
+      if (priorUnitId && priorTenantId && !(priorTenantId === tenantId && priorUnitId === unitId)) {
+        const ref = db.collection('tenants').doc(priorTenantId).collection('units').doc(priorUnitId);
+        const snap = await tx.get(ref);
+        if (snap.exists) staleUnitRef = ref;
+      }
+
       // ── Writes — every value below comes from `inv` (the invitation
       // doc) or from a doc read above, never from the request body. ──
       if (userSnap.exists) {
@@ -245,6 +288,22 @@ export async function computeAcceptInvitation(db: Firestore, caller: Caller, inv
           'core.email': inv.email,
           updatedAt: FieldValue.serverTimestamp(),
         };
+        // P1-3 item 3 (00-MASTER-PLAN.md §13.49) — write the COMPLETE
+        // role-defining field bundle every time, not just this role's own
+        // subset. Before this, each branch below only ADDED its own
+        // fields — accepting a unit_admin invitation after previously
+        // having core.authorityId set (from an earlier, unrelated role)
+        // left it standing, silently mixed with the new role's fields.
+        // Every field here is explicitly cleared first, then the branch
+        // below sets only what the new role actually needs — acceptance
+        // always produces a doc consistent with exactly the ONE role
+        // being granted, never a leftover mix of two.
+        for (const field of [
+          'core.authorityId', 'core.tenantId', 'core.isTenantOwner', 'core.tenantType',
+          'core.unitId', 'core.unitPath', 'core.allowedSections', 'core.teamRole',
+        ]) {
+          update[field] = FieldValue.delete();
+        }
         if (inv.role === 'authority_manager') {
           update['core.authorityId'] = authorityId;
         } else if (inv.role === 'platform_member') {
@@ -295,6 +354,17 @@ export async function computeAcceptInvitation(db: Firestore, caller: Caller, inv
       }
       if (unitRef && !unitManagerIds.includes(caller.uid)) {
         tx.update(unitRef, { managerIds: FieldValue.arrayUnion(caller.uid) });
+      }
+
+      // P1-3 item 3 (00-MASTER-PLAN.md §13.49) — remove the caller from
+      // whatever PRIOR authority/unit's managerIds they're leaving behind.
+      // Existence already checked above (staleAuthorityRef/staleUnitRef
+      // are null if the doc doesn't exist), so these are always safe.
+      if (staleAuthorityRef) {
+        tx.update(staleAuthorityRef, { managerIds: FieldValue.arrayRemove(caller.uid) });
+      }
+      if (staleUnitRef) {
+        tx.update(staleUnitRef, { managerIds: FieldValue.arrayRemove(caller.uid) });
       }
 
       tx.update(invRef, {
