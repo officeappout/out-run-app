@@ -58,14 +58,32 @@
  * fail-open (David, 24.09.2026): "אם שאילתת ה-collectionGroup נכשלת מכל
  * סיבה (אינדקס חסר, Firestore לא זמין, timeout) — התוצאה היא denied, לא
  * ברירת מחדל מתירנית ולא חריגה שנבלעת במעלה הדרך והופכת להרשאה." Every
- * Firestore read in this function is wrapped in ONE try/catch that returns
- * `denied` on ANY failure — a missing index, a transient outage, a
- * timeout, or a bug — rather than letting the exception propagate to a
+ * Firestore read in this function is wrapped in ONE try/catch — a missing
+ * index, a transient outage, a timeout, or a bug never propagates to a
  * caller that might (now or later) treat a thrown error as anything other
  * than "no access." rateLimit.ts fails open because letting one extra
  * request through during an outage is cheap; this function fails closed
  * because the cost of the equivalent mistake here is a stranger approving
  * or reading someone else's unit membership.
+ *
+ * P1-3 item 1 (00-MASTER-PLAN.md §13.43/§13.49) — fail-CLOSED for
+ * authorization is unchanged by this: the catch block still always denies
+ * access. What changed is that it no longer calls that outcome the SAME
+ * thing as a real, checked "no" — this is exactly the production incident
+ * that motivated it (00-MASTER-PLAN.md §13.47/§13.48's standing rule:
+ * "המערכת לעולם לא מדווחת 'לא' כשהיא מתכוונת 'לא הצלחתי לבדוק'"). A missing
+ * collectionGroup index made a real unit_admin's FIRST-EVER attempt to view
+ * their own unit look identical, at every layer, to a stranger being
+ * correctly refused — because both collapsed into `{kind:'denied'}`.
+ *   - `denied` — every read SUCCEEDED and none of them found this uid in
+ *     root/tenantOwner/unitAdmin. A real, checked "no."
+ *   - `unknown` — a read THREW (whatever the cause). We genuinely do not
+ *     know whether this uid has access; access is still refused (fail-
+ *     closed for authorization purposes is not negotiable), but every
+ *     consumer of this scope must report THAT distinction to whoever hit
+ *     it — "we couldn't verify your access, try again" is a materially
+ *     different, and materially less alarming/misleading, message than
+ *     "you don't have access to this."
  */
 import type { Firestore } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase-admin';
@@ -132,7 +150,18 @@ export type UnitPermissionScope =
   | { kind: 'root' }
   | { kind: 'tenantOwner'; tenantId: string }
   | { kind: 'unitAdmin'; tenantId: string; unitIds: string[] }
-  | { kind: 'denied' };
+  | { kind: 'denied' }
+  | { kind: 'unknown' };
+
+/**
+ * The ONE generic "we couldn't verify" message every route-facing consumer
+ * should show — deliberately uniform (unlike each route's own
+ * action-specific DENIED_MESSAGE) because the failure mode itself is the
+ * same regardless of which action was being attempted: a transient
+ * inability to check, not a considered refusal. Paired status: 503.
+ */
+export const UNIT_SCOPE_UNKNOWN_MESSAGE =
+  'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע, ואם זה חוזר — פנה למנהל המערכת.';
 
 /**
  * Is a SPECIFIC member (identified by their own core.tenantId/unitId,
@@ -161,6 +190,11 @@ export function isMemberWithinScope(
   if (scope.kind === 'unitAdmin') {
     return memberTenantId === scope.tenantId && typeof memberUnitId === 'string' && scope.unitIds.includes(memberUnitId);
   }
+  // 'denied' and 'unknown' both fall through to false here — correct for
+  // fail-closed AUTHORIZATION either way. Callers that want to report the
+  // two differently (P1-3 item 1) must check scope.kind BEFORE calling
+  // this, same as they already do for 'denied' — see e.g.
+  // computeMemberWorkouts/computeRemoveMember/computeApproveMember.
   return false;
 }
 
@@ -200,7 +234,7 @@ export async function resolveUnitPermissionScope(uid: string): Promise<UnitPermi
 
     return { kind: 'denied' };
   } catch (err) {
-    console.error(`[unitPermissionScope] resolution failed for uid=${uid} — failing CLOSED (denied)`, err);
-    return { kind: 'denied' };
+    console.error(`[unitPermissionScope] resolution failed for uid=${uid} — failing CLOSED (unknown, not denied — a real check never ran)`, err);
+    return { kind: 'unknown' };
   }
 }

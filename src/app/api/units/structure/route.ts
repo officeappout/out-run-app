@@ -35,7 +35,7 @@ import type { Firestore, QueryDocumentSnapshot } from 'firebase-admin/firestore'
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { isRateLimited } from '@/lib/rateLimit';
 import { RATE_LIMITS } from '@/lib/rateLimitConfig';
-import { resolveUnitPermissionScope, type UnitPermissionScope } from '@/lib/unitPermissionScope';
+import { resolveUnitPermissionScope, UNIT_SCOPE_UNKNOWN_MESSAGE, type UnitPermissionScope } from '@/lib/unitPermissionScope';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -81,7 +81,7 @@ function toEntry(tenantId: string, d: QueryDocumentSnapshot): UnitStructureEntry
 
 export type UnitStructureResult =
   | { status: 200; body: { units: UnitStructureEntry[] } }
-  | { status: 400 | 403; body: { error: string } };
+  | { status: 400 | 403 | 503; body: { error: string } };
 
 /**
  * Core computation, factored out of the HTTP handler for direct emulator
@@ -92,6 +92,11 @@ export async function computeUnitStructure(
   scope: UnitPermissionScope,
   query: { tenantId?: string | null; unitId?: string | null },
 ): Promise<UnitStructureResult> {
+  if (scope.kind === 'unknown') {
+    // P1-3 item 1 (00-MASTER-PLAN.md §13.49) — verification failed, this is
+    // NOT a checked "no". Distinct status + message from DENIED_MESSAGE.
+    return { status: 503, body: { error: UNIT_SCOPE_UNKNOWN_MESSAGE } };
+  }
   if (scope.kind === 'denied') {
     return { status: 403, body: { error: DENIED_MESSAGE } };
   }

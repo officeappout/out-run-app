@@ -35,7 +35,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { isRateLimited } from '@/lib/rateLimit';
 import { RATE_LIMITS } from '@/lib/rateLimitConfig';
-import { resolveUnitPermissionScope, isMemberWithinScope, type UnitPermissionScope } from '@/lib/unitPermissionScope';
+import { resolveUnitPermissionScope, isMemberWithinScope, UNIT_SCOPE_UNKNOWN_MESSAGE, type UnitPermissionScope } from '@/lib/unitPermissionScope';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -44,7 +44,7 @@ const DENIED_MESSAGE = 'אין לך הרשאה לאשר את המשתמש הזה
 
 export type ApproveMemberResult =
   | { status: 200; body: { approved: true } }
-  | { status: 400 | 403; body: { error: string } };
+  | { status: 400 | 403 | 503; body: { error: string } };
 
 /**
  * Core computation, factored out of the HTTP handler for direct emulator
@@ -55,6 +55,11 @@ export async function computeApproveMember(
   scope: UnitPermissionScope,
   targetUid: string,
 ): Promise<ApproveMemberResult> {
+  if (scope.kind === 'unknown') {
+    // P1-3 item 1 (00-MASTER-PLAN.md §13.49) — verification failed, this is
+    // NOT a checked "no". Distinct status + message from DENIED_MESSAGE.
+    return { status: 503, body: { error: UNIT_SCOPE_UNKNOWN_MESSAGE } };
+  }
   if (scope.kind === 'denied') {
     return { status: 403, body: { error: DENIED_MESSAGE } };
   }

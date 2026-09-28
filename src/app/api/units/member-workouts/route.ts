@@ -63,7 +63,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { Firestore } from 'firebase-admin/firestore';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
-import { resolveUnitPermissionScope, isMemberWithinScope, type UnitPermissionScope } from '@/lib/unitPermissionScope';
+import { resolveUnitPermissionScope, isMemberWithinScope, UNIT_SCOPE_UNKNOWN_MESSAGE, type UnitPermissionScope } from '@/lib/unitPermissionScope';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -93,6 +93,11 @@ interface WorkoutSummaryEntry {
  * testability — matches the compute*() split used throughout this build.
  */
 export async function computeMemberWorkouts(db: Firestore, scope: UnitPermissionScope, targetUid: string) {
+  if (scope.kind === 'unknown') {
+    // P1-3 item 1 (00-MASTER-PLAN.md §13.49) — verification failed, this is
+    // NOT a checked "no". Distinct status + message from DENIED_MESSAGE.
+    return { status: 503 as const, body: { error: UNIT_SCOPE_UNKNOWN_MESSAGE } };
+  }
   if (scope.kind === 'denied') {
     return { status: 403 as const, body: { error: DENIED_MESSAGE } };
   }
