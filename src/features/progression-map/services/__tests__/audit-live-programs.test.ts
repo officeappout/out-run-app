@@ -37,15 +37,36 @@
  * confirmed separately that allow-list already includes all 6 Phase-1
  * skills since the original Phase-1 build; this file only verifies DATA
  * quality, not code wiring.
+ *
+ * Round 11 addition: a DIAGNOSTIC test (separate from the per-program
+ * PROGRAMS_TO_CHECK loop) also fetches `programs` and prints, for
+ * מתח-יד-אחת level 1 specifically, every candidate's full targetPrograms
+ * array (each entry annotated with the target program's real isMaster
+ * flag) plus the computed difficultyProxy and the actual winner — proving
+ * from real data why the beginner-appropriate representative pick lands
+ * where it does, instead of guessing.
  */
 import * as dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 dotenv.config();
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as admin from 'firebase-admin';
-import { buildSkillTree, groupRungsForDisplay } from '../build-skill-tree.service';
+import { buildSkillTree, groupRungsForDisplay, difficultyProxy } from '../build-skill-tree.service';
 import { resolveTreeNodeImage } from '../resolve-tree-node-image';
 import type { Exercise } from '@/features/content/exercises/core/exercise.types';
+
+/**
+ * Round 11 diagnostic target: the concrete reported example from the
+ * founder — מתח-יד-אחת (one-arm-pullup) level 1 should prefer the
+ * candidate with the lower level in whichever OTHER program it's tagged
+ * to (build-skill-tree.service.ts's difficultyProxy), but round 10's
+ * isMaster-gated version of that rule never flipped against real data.
+ * This is its own program id, separate from PROGRAMS_TO_CHECK above,
+ * since the diagnostic below is scoped to exactly this one program+level,
+ * not the general per-program report loop.
+ */
+const ONE_ARM_PULLUP_ID = 'cC0BOmm6KIqYAyQynEIo';
+const DIAGNOSTIC_LEVEL = 1;
 
 const PROGRAMS_TO_CHECK: { id: string; name: string }[] = [
   { id: 'pCI5NHXpowu2ySucqDn8', name: 'פלאנץ׳' },
@@ -95,11 +116,47 @@ function callWithCapturedDiagnostic(exercise: Exercise): { url: string; diagnost
 describe.skipIf(!hasCredentials)('progression-map — live-data audit (real Firestore, read-only)', () => {
   let allExercises: Exercise[] = [];
 
+  let programIsMaster: Map<string, boolean> = new Map();
+
   beforeAll(async () => {
     const db = initFb();
     const snap = await db.collection('exercises').get();
     allExercises = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as unknown as Exercise);
     console.log(`\nLoaded ${allExercises.length} exercises total.\n`);
+
+    const programsSnap = await db.collection('programs').get();
+    programIsMaster = new Map(programsSnap.docs.map((d) => [d.id, d.data().isMaster === true]));
+    console.log(`Loaded ${programIsMaster.size} programs (for isMaster lookup in the diagnostic below).\n`);
+  });
+
+  it('DIAGNOSTIC — מתח יד אחת level 1: every candidate, its full targetPrograms (+ isMaster per entry), computed proxy, and the winner', () => {
+    const candidates = allExercises.filter((exArg) =>
+      exArg.targetPrograms?.some((tp) => tp.programId === ONE_ARM_PULLUP_ID && tp.level === DIAGNOSTIC_LEVEL),
+    );
+
+    console.log(`\n${'='.repeat(70)}\nDIAGNOSTIC: מתח יד אחת (${ONE_ARM_PULLUP_ID}) level ${DIAGNOSTIC_LEVEL}\n${'='.repeat(70)}`);
+    console.log(`${candidates.length} candidate(s) tagged to this exact (programId, level):\n`);
+
+    for (const c of candidates) {
+      const name = nameOf(c.name as LocalizedTextLike, c.id);
+      const tpsAnnotated = (c.targetPrograms ?? []).map((tp) => ({
+        programId: tp.programId,
+        level: tp.level,
+        isMaster: programIsMaster.has(tp.programId) ? programIsMaster.get(tp.programId) : '(program doc not found)',
+      }));
+      const proxy = difficultyProxy(c, ONE_ARM_PULLUP_ID);
+      console.log(`  - "${name}" (${c.id})`);
+      console.log(`      targetPrograms: ${JSON.stringify(tpsAnnotated)}`);
+      console.log(`      computed difficultyProxy (round 11 — lowest level across ALL other entries, isMaster ignored): ${proxy === Infinity ? '∞ (no other targetPrograms entry)' : proxy}`);
+    }
+
+    const tree = buildSkillTree(allExercises, ONE_ARM_PULLUP_ID);
+    const rung = tree?.rungs.find((r) => r.level === DIAGNOSTIC_LEVEL);
+    const winner = rung?.representative;
+    const winnerName = winner ? nameOf(winner.name as LocalizedTextLike, winner.id) : '(none — no tree or gap at this level)';
+    console.log(`\n  → WINNER (buildSkillTree's actual pick): "${winnerName}" (${winner?.id ?? 'none'})\n`);
+
+    expect(candidates.length, 'no candidates found at all for מתח יד אחת level 1 — check the program id / level are still correct').toBeGreaterThan(0);
   });
 
   it.each(PROGRAMS_TO_CHECK)('$name ($id) — level range / gaps / crown / per-level image tier', (program) => {

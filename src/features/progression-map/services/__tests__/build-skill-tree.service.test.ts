@@ -117,88 +117,95 @@ describe('buildSkillTree', () => {
     expect(treeB.rungs[0].level).toBe(9);
   });
 
-  describe('beginner-appropriate representative pick (round 10)', () => {
+  describe('beginner-appropriate representative pick (round 10, un-gated in round 11)', () => {
     const ONE_ARM_PULLUP = PROGRAM_A;
-    const PULL_COMPOSITE = 'pullComposite'; // isMaster:true in real data — a plain string here, the function only cares whether it's IN compositeProgramIds
-    const COMPOSITE_IDS = new Set([PULL_COMPOSITE]);
+    // Round 11: the proxy no longer requires the OTHER program to be
+    // "composite"/isMaster — ANY other targetPrograms entry counts, because
+    // gating on isMaster silently no-opped against real Firestore data
+    // (משיכה isn't reliably flagged isMaster=true in production). "PULL" is
+    // just an ordinary other-program id here, same as any leaf program's id
+    // would be — the function makes no isMaster distinction anymore.
+    const PULL = 'pull';
 
-    it('the concrete example: picks the candidate with the LOWER broad-program (Pull) level as representative', () => {
+    it('the concrete example: picks the candidate with the LOWER level in the other program (Pull) as representative', () => {
       // "מתח שכמות קשתים" — one-arm-pullup L1, Pull L11 (harder)
       const scapularArch = ex('scapularArch', [
         { programId: ONE_ARM_PULLUP, level: 1 },
-        { programId: PULL_COMPOSITE, level: 11 },
+        { programId: PULL, level: 11 },
       ]);
-      // "מתח הפוך/סופינציה" — one-arm-pullup L1, Pull L10 (easier — should win)
+      // "מתח בתפיסה הפוכה/סופינציה" — one-arm-pullup L1, Pull L10 (easier — should win)
       const supinatedPullup = ex('supinatedPullup', [
         { programId: ONE_ARM_PULLUP, level: 1 },
-        { programId: PULL_COMPOSITE, level: 10 },
+        { programId: PULL, level: 10 },
       ]);
-      const tree = buildSkillTree([scapularArch, supinatedPullup], ONE_ARM_PULLUP, COMPOSITE_IDS)!;
+      const tree = buildSkillTree([scapularArch, supinatedPullup], ONE_ARM_PULLUP)!;
       const rung = tree.rungs.find((r) => r.level === 1)!;
       expect(rung.representative?.id).toBe('supinatedPullup');
     });
 
-    it('without compositeProgramIds (default), falls back to the old doc-ID tie-break — fully backward compatible', () => {
-      const scapularArch = ex('scapularArch', [
-        { programId: ONE_ARM_PULLUP, level: 1 },
-        { programId: PULL_COMPOSITE, level: 11 },
-      ]);
-      const supinatedPullup = ex('supinatedPullup', [
-        { programId: ONE_ARM_PULLUP, level: 1 },
-        { programId: PULL_COMPOSITE, level: 10 },
-      ]);
-      // No 3rd argument — same call shape every pre-round-10 caller/test uses.
-      const tree = buildSkillTree([scapularArch, supinatedPullup], ONE_ARM_PULLUP)!;
-      const rung = tree.rungs.find((r) => r.level === 1)!;
-      expect(rung.representative?.id).toBe('scapularArch'); // 'scapularArch' < 'supinatedPullup' lexicographically
-    });
-
-    it('a candidate with no composite-program tag at all loses to one that has a real proxy, regardless of doc ID', () => {
-      const noProxy = ex('aaa_no_proxy', [{ programId: ONE_ARM_PULLUP, level: 1 }]); // no Pull tag
+    it('a candidate with no other targetPrograms entry at all loses to one that has a real proxy, regardless of doc ID', () => {
+      const noProxy = ex('aaa_no_proxy', [{ programId: ONE_ARM_PULLUP, level: 1 }]); // no other program tag
       const withProxy = ex('zzz_has_proxy', [
         { programId: ONE_ARM_PULLUP, level: 1 },
-        { programId: PULL_COMPOSITE, level: 5 },
+        { programId: PULL, level: 5 },
       ]);
-      const tree = buildSkillTree([noProxy, withProxy], ONE_ARM_PULLUP, COMPOSITE_IDS)!;
+      const tree = buildSkillTree([noProxy, withProxy], ONE_ARM_PULLUP)!;
       const rung = tree.rungs.find((r) => r.level === 1)!;
       expect(rung.representative?.id).toBe('zzz_has_proxy');
     });
 
-    it('when neither candidate has a composite-program tag, falls back to doc ID (both proxies are Infinity)', () => {
+    it('when neither candidate has any other targetPrograms entry, falls back to doc ID (both proxies are Infinity)', () => {
       const a = ex('zzz', [{ programId: ONE_ARM_PULLUP, level: 1 }]);
       const b = ex('aaa', [{ programId: ONE_ARM_PULLUP, level: 1 }]);
-      const tree = buildSkillTree([a, b], ONE_ARM_PULLUP, COMPOSITE_IDS)!;
+      const tree = buildSkillTree([a, b], ONE_ARM_PULLUP)!;
       const rung = tree.rungs.find((r) => r.level === 1)!;
       expect(rung.representative?.id).toBe('aaa');
     });
 
-    it('ignores a targetPrograms entry pointing at the SAME leaf program being built (not a valid "other/broad" proxy)', () => {
-      // Only one candidate has a real Pull tag; the other's "self" entry must not be mistaken for a broad-program proxy.
+    it('ignores a targetPrograms entry pointing at the SAME leaf program being built (not a valid "other" proxy)', () => {
+      // Only one candidate has a real Pull tag; the other's "self" entry must not be mistaken for a proxy.
       const selfOnly = ex('selfOnly', [{ programId: ONE_ARM_PULLUP, level: 1 }]);
       const realProxy = ex('realProxy', [
         { programId: ONE_ARM_PULLUP, level: 1 },
-        { programId: PULL_COMPOSITE, level: 3 },
+        { programId: PULL, level: 3 },
       ]);
-      const tree = buildSkillTree([selfOnly, realProxy], ONE_ARM_PULLUP, COMPOSITE_IDS)!;
+      const tree = buildSkillTree([selfOnly, realProxy], ONE_ARM_PULLUP)!;
       const rung = tree.rungs.find((r) => r.level === 1)!;
       expect(rung.representative?.id).toBe('realProxy');
     });
 
-    it('ignores a targetPrograms entry pointing at a program NOT in compositeProgramIds (e.g. an unrelated leaf program)', () => {
-      const UNRELATED_LEAF = 'someOtherLeafProgram'; // not in COMPOSITE_IDS
+    it('a candidate cross-tagged to ANY other program counts, even an unrelated leaf program (no isMaster distinction anymore)', () => {
+      const UNRELATED_LEAF = 'someOtherLeafProgram';
       const crossTaggedToUnrelatedLeaf = ex('crossTagged', [
         { programId: ONE_ARM_PULLUP, level: 1 },
-        { programId: UNRELATED_LEAF, level: 1 }, // low level, but NOT a broad-program signal
+        { programId: UNRELATED_LEAF, level: 2 }, // low level — a real signal now, unlike round 10
       ]);
-      const realProxy = ex('realProxy', [
+      const higherProxy = ex('higherProxy', [
         { programId: ONE_ARM_PULLUP, level: 1 },
-        { programId: PULL_COMPOSITE, level: 20 }, // higher (harder) Pull level, but IS a real proxy
+        { programId: PULL, level: 20 },
       ]);
-      const tree = buildSkillTree([crossTaggedToUnrelatedLeaf, realProxy], ONE_ARM_PULLUP, COMPOSITE_IDS)!;
+      const tree = buildSkillTree([crossTaggedToUnrelatedLeaf, higherProxy], ONE_ARM_PULLUP)!;
       const rung = tree.rungs.find((r) => r.level === 1)!;
-      // realProxy wins because it has a resolvable composite-program proxy at all —
-      // crossTagged's unrelated-leaf tag never counts as a proxy, so it's Infinity.
-      expect(rung.representative?.id).toBe('realProxy');
+      // crossTagged wins now — its proxy (2) is lower than higherProxy's (20),
+      // and round 11 deliberately treats them the same regardless of which
+      // program each points to.
+      expect(rung.representative?.id).toBe('crossTagged');
+    });
+
+    it('a candidate tagged to MULTIPLE other programs uses the LOWEST level among them', () => {
+      const multiTagged = ex('multiTagged', [
+        { programId: ONE_ARM_PULLUP, level: 1 },
+        { programId: PULL, level: 15 },
+        { programId: 'someOtherProgram', level: 4 }, // lower — this one should win as the proxy
+      ]);
+      const singleTagged = ex('singleTagged', [
+        { programId: ONE_ARM_PULLUP, level: 1 },
+        { programId: PULL, level: 6 },
+      ]);
+      const tree = buildSkillTree([multiTagged, singleTagged], ONE_ARM_PULLUP)!;
+      const rung = tree.rungs.find((r) => r.level === 1)!;
+      // multiTagged's effective proxy is min(15, 4) = 4, beating singleTagged's 6.
+      expect(rung.representative?.id).toBe('multiTagged');
     });
   });
 });
