@@ -64,7 +64,7 @@ import type { Authority } from '@/types/admin-types';
 import { getSidebarConfig, type LucideIconName } from '@/features/admin/config/sidebarConfigs';
 import { OrgSelectorProvider, useOrgSelector } from '@/features/admin/context/OrgSelectorContext';
 import { AdminSessionSync } from '@/features/admin/components/AdminSessionSync';
-import { useSessionRefresh } from '@/features/admin/hooks/useSessionRefresh';
+import { SessionHealthBanner } from '@/features/admin/components/SessionHealthBanner';
 
 
 // Icon map for data-driven sidebar rendering
@@ -133,8 +133,6 @@ function AdminLayoutInner({
 }: {
     children: React.ReactNode;
 }) {
-    useSessionRefresh();
-
     const router = useRouter();
     const pathname = usePathname();
     const searchParamsRaw = useSearchParams();
@@ -607,6 +605,7 @@ function AdminLayoutInner({
         return (
             <>
                 <AdminSessionSync />
+                <SessionHealthBanner />
                 {children}
             </>
         );
@@ -654,6 +653,7 @@ function AdminLayoutInner({
         return (
             <div className="flex min-h-[100dvh] bg-gray-100 overflow-hidden" dir="rtl" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
                 <AdminSessionSync />
+                <SessionHealthBanner />
                 <aside className="w-64 bg-slate-900 text-white flex-shrink-0 hidden md:flex flex-col relative min-h-[100dvh] overflow-y-auto">
                     <div className="p-4 md:p-6 border-b border-slate-800">
                         {onlyAuthorityManager && authorityName ? (
@@ -692,6 +692,7 @@ function AdminLayoutInner({
     return (
         <div className="flex min-h-[100dvh] bg-gray-100 overflow-hidden" dir="rtl" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
             <AdminSessionSync />
+            <SessionHealthBanner />
             {/* Sidebar */}
             <aside className="w-64 bg-slate-900 text-white flex-shrink-0 hidden md:flex flex-col relative min-h-[100dvh]">
                 <div className="p-4 md:p-6 border-b border-slate-800 flex-shrink-0">

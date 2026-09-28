@@ -2091,7 +2091,7 @@ educational: [
 
 ### 13.49 — פריט 1 של חבילת ההשקה: פיצול `resolveUnitPermissionScope` ל-denied/unknown (28.09.2026)
 
-**מספור:** ענף `fix/unit-permission-scope-split` נחתך מ-`origin/main` לפני שענף `fix/session-mint-dedup` (P1-3, §13.49 שם) מוזג — שני הענפים "תופסים" §13.49 באופן עצמאי. יטופל באותה שיטה שכבר עבדה במיזוג P0-2 (§13.45): מי שממוזג שני מתוך השניים ינוקה למספר הבא הפנוי בזמן המיזוג, ללא אובדן תוכן.
+**מספור:** שני הענפים (זה ו-`fix/session-mint-dedup`, P1-3) תפסו §13.49 באופן עצמאי, כל אחד מ-`origin/main` לפני שהשני מוזג — אותה סיטואציה שכבר נפתרה ב-§13.45. נפתר כאן: פריט זה (שמוזג ראשון) שומר על §13.49; P1-3 (למטה) הוזז ל-§13.50.
 
 **מה נבנה, בדיוק כפי שאושר:** `UnitPermissionScope` (`src/lib/unitPermissionScope.ts`) קיבל חבר חדש — `{ kind: 'unknown' }` — לצד `denied` הקיים. ה-catch היחיד שעוטף את כל שאילתות הפונקציה כבר החזיר `denied` על **כל** כשל (אינדקס חסר, timeout, Firestore לא זמין, באג) לצד "בדקתי ולא נמצא". עכשיו: `denied` רק כשכל השאילתות **הצליחו** ולא נמצא כלום; `unknown` כשמשהו **זרק**. fail-closed להרשאה בפועל לא השתנה — שני המצבים עדיין חוסמים גישה — רק הדיווח-העצמי הפסיק לשקר על עצמו, בדיוק ניסוח הכלל הקבוע מ-§13.48/§13.47.
 
@@ -2115,3 +2115,33 @@ educational: [
 **צד-לקוח — אפס שינוי נדרש, אומת:** כל דפי הלקוח שקוראים ל-routes האלה (`admin/authority/units/page.tsx`, `[unitId]/page.tsx`) כבר בודקים רק `!res.ok` ומציגים את `body.error` כלשונו (נופלים לברירת-מחדל גנרית-עם-status רק כשאין `body.error` string) — ללא ענף ספציפי-לפי-status. הודעת ה-503 החדשה זורמת אוטומטית, בלי לגעת בקוד-לקוח כלל.
 
 **סטטוס: בנייה הושלמה, מקומי, טרם ממוזג. ממתין לאישור דוד.**
+
+### 13.50 — P1-3: איחוד קוראי session-mint, 429 גלוי, `/admin/login` מכבד `?next=` (28.09.2026)
+
+**רקע ותכולה, כפי שאושרה קודם (§13.43) ואושרה שוב היום ("בונה כפי שאושר"):** שלושה חלקים — (1) איחוד-קוראים ל-endpoint אחד, לא העלאת-סף-ה-429; (2) כשל-mint גלוי למשתמש, לא רק `console.warn`; (3) `/admin/login` מכבד `?next=`. ענף `fix/session-mint-dedup` מ-`origin/main` @ `d6c469f3`.
+
+**מה נמצא בפועל, בקריאת-קוד ישירה (לא רק מהחקירה הקודמת) — ארבעה מקורות עצמאיים, לא שלושה:**
+1. `mintAdminSessionCookie` (`auth.service.ts`) — נקרא **פעמיים** בזרימת-כניסה רגילה: `completeSignIn` (מיד אחרי חתימת ה-magic-link) ואז שוב מתוך `resolveDestination` (המסלול "אין הזמנה, תפקיד קיים") — כפילות **מכוונת ומתועדת** בהערה קיימת (כדי לכסות את מסלול ה-invitationApplied שמנווט ישירות בלי לעבור דרך `resolveDestination`), לא באג.
+2. `AdminSessionSync.tsx` — `postSession` עצמאי משלו, לא קורא ל-#1 בכלל. **התגלית החדשה של הפעם:** מרונדר **שלוש פעמים** ב-`admin/layout.tsx` (שורות 607/654/692 המקוריות) — בשלושה `return` שונים לגמרי (authority-login/pending-approval; loading; המסך המלא), כך שכל מעבר `loading→loaded` הוא **unmount+remount אמיתי** של הקומפוננטה, שמפעיל שוב את ה-`onAuthStateChanged` שלה ושוב `postSession` — mint שלישי (או רביעי) לאותה כניסה בודדת, לא רק "שני קוראים חיים בו-זמנית" כפי שתואר קודם.
+3. `useSessionRefresh.ts` — טיימר-55-דקות עצמאי, רץ **במקביל** ל-50-דקות של #2 (שניהם מותקנים יחד ב-`admin/layout.tsx`). הושווה מול #2 ונמצא **תת-קבוצה טהורה** שלו: אין לו mint-מיידי-על-mount, אין focus-listener, אין ניקוי-בהתנתקות — אפס כיסוי ייחודי.
+4. `admin-fetch.ts`'s `refreshSession` — היחיד מהארבעה עם דפוס-דדופ תקין (`inflightRefresh` promise יחיד), אבל גם הוא כפילות-קוד של אותו fetch, לא קורא ל-#1.
+
+**התיקון — לא העלאת-סף, איחוד אמיתי:**
+- `mintAdminSessionCookie` הפך ל**-single entrypoint** דדופ בשתי שכבות, שתיהן keyed לפי `uid` (כדי שהחלפת-חשבון לא תיחסם ע"י הצלחה-אחרונה של המשתמש הקודם): promise-בטיסה (קריאות-מקבילות לאותו uid חולקות בקשת-רשת אחת) + מטמון "הצלחה-לאחרונה" בן 5 שניות (קריאה חוזרת לאותו uid בתוך החלון — no-op, ללא בקשת-רשת). כשל מדווח ל-store חדש (`sessionHealth.store.ts`, Zustand, בדיוק בדפוס `usePushToastStore` הקיים) במקום רק `console.warn`.
+- `AdminSessionSync.tsx` — הוסר `postSession` העצמאי, כל שלוש נקודות-הקריאה (טיימר-50-דקות, focus, mount) קוראות ל-`mintAdminSessionCookie` המשותף.
+- `useSessionRefresh.ts` — **הוסר לגמרי** (קובץ + שתי נקודות-הקריאה ב-`admin/layout.tsx`) — תת-קבוצה טהורה של #2, אפס אובדן-כיסוי.
+- `admin-fetch.ts` — `refreshSession` הוסר, `adminFetch` קורא ישירות ל-`mintAdminSessionCookie` על 401 — ה-dedup המשותף מכסה גם התנגשות עם רענון-רקע.
+- **כשל גלוי:** `SessionHealthBanner.tsx` חדש — קורא מה-store, מוצג לצד כל שלוש נקודות-ה-mount של `AdminSessionSync` ב-`admin/layout.tsx`, עם כפתור "נסה שוב".
+- **`?next=`:** `middleware.ts` כבר קבע `?next=<pathname>` בהפניה ל-`/admin/login` (שורה ~353, לא נגעתי בו) — `/admin/login/page.tsx` פשוט התעלם ממנו עד היום. נוסף `resolveSafeNextPath` (פונקציה טהורה, `src/features/admin/services/safeNextPath.ts`) שמאמתת נתיב-יחסי תחת `/admin` בלבד (חוסם open-redirect: URL מוחלט, `//host` יחסי-פרוטוקול, ולולאה חזרה ל-`/admin/login`/`/admin/auth/callback`). מוחל בשתי נקודות: `/admin/login` (הפניה-ישירה כשכבר מחובר + העברה ל-URL של קישור-הקסם) ו-`admin/auth/callback/page.tsx`'s `resolveDestination` (**רק** במסלול "אין הזמנה, תפקיד קיים" — ענפי קבלת-הזמנה נשארו בלי שינוי, יש להם לוגיקת-יעד מפורשת ולא-קשורה משלהם).
+
+**מה זה חוסך בפועל, לכניסה בודדת (כפי שדוד ביקש לדעת):** לפני התיקון — 3-5 POST-ים ל-`/api/auth/session` לכניסה אחת (תלוי אם הניווט לעמוד-היעד הוא client-side או full reload). אחרי: **בקשת-רשת אחת בפועל** — כל הקריאות הנוספות (המכוונת מ-`resolveDestination`, ושתי ה-remounts של `AdminSessionSync` דרך `loading→loaded`) נופלות בתוך חלון-5-השניות ונחסמות ע"י המטמון. רענון-הרקע גם ירד — מטיימר כפול (50+55 דקות במקביל) לטיימר יחיד (50 דקות).
+
+**אימות:** tsc על העץ המלא — 804/804 שורות זהות ל-baseline הקבוע, אפס שגיאה חדשה בכל אחד מ-7 הקבצים שנערכו (אומת שורה-מול-שורה מול `git diff origin/main`). vitest מלא (אמולטור טרי): `5 failed | 2358 passed (2363)` — זהים חמשת הכשלים הידועים-מראש (PG5/CL3+CL8/AI5+AI6/WA10/logMultiCategoryWorkout streak), אפס רגרסיה. 18 טסטים חדשים, כולם עוברים: `safeNextPath.test.ts` (10, כולל open-redirect: URL מוחלט, `//host`, לולאת-login/callback) ו-`auth.service.mintSessionDedup.test.ts` (8, כולל dedup-מקביל, dedup-חוזר-בטווח, אי-חסימה-בין-uid-שונה [בדיקת-חשבון-מוחלף], דיווח-429/network ל-health-store, ואי-שמירת-כשל-במטמון).
+
+**עדכון (28.09.2026) — שתי שאלות של דוד לפני אישור, ותיקון אמיתי אחד שעלה מהן:**
+
+**1. האם `useSessionRefresh.ts` חידש תקופתית או רק בכניסה — עם הוכחה מהקוד.** חידש תקופתית, לא רק פעם אחת. הראייה (`git show d6c469f3:src/features/admin/hooks/useSessionRefresh.ts`, הקובץ לפני המחיקה): `schedule(user)` נקרא מתוך תוך ה-`setTimeout` שלו עצמו — `schedule(user); // reschedule regardless of success/failure` — כלומר קורא-לעצמו-מחדש בכל 55 דקות, ללא הגבלה, כל עוד הרכיב mounted. **המחליף (`AdminSessionSync`'s `window.setInterval(..., REFRESH_INTERVAL_MS)`, 50 דקות) גם הוא בלתי-מוגבל מעצם טבעו של `setInterval`** — לא היה צורך בהוכחה נפרדת לזה, זו התנהגות-ברירת-המחדל של הפונקציה. השאלה שנשארה: האם `AdminSessionSync` עצמו נשאר mounted באופן רציף מספיק זמן בשביל שהטיימר-הפנימי-שלו לא ייקטע? נבדק: גרפ על כל `setLoading(` ב-`admin/layout.tsx` מצא **ארבע** קריאות, **כולן** `setLoading(false)`, כולן בתוך ה-`onAuthStateChanged` היחיד (מנוי פעם אחת, `deps: []`) — **אין אף קריאה ל-`setLoading(true)` אחרי הברירת-מחדל הראשונית.** המשמעות: `loading` עובר `true→false` פעם אחת בלבד לכל טעינת-עמוד, ואז נשאר `false` עד sign-out/רענון-קשיח — כך ש-`AdminSessionSync` (אחרי ה-remount החד-פעמי שכבר תועד ב-§13.50 למעלה) נשאר mounted ברציפות, וה-`setInterval` שלו רץ ללא הפרעה. **מסקנה: אין החלפת-תקלה — הרענון התקופתי ממשיך, בשוליים בטוחים יותר (50 דק' מול 55, כלומר עוד 5 דקות מרווח לפני שהעוגייה בת-60-הדקות פגה) ובתוספת focus-listener שלא היה קודם.**
+
+**2. הבאנר לא הבחין בין 429 לכשל-רשת — לא היה נכון, ותוקן.** בדיקה של `SessionHealthBanner.tsx` הראתה שההודעה הייתה מחרוזת קבועה אחת, לא קוראת את `lastFailureReason` מה-store בכלל — למרות ש-`mintAdminSessionCookie` כבר תיעד שם סיבה מבחינה (`'rate_limited'`/`'network'`/`'http_XXX'`). **בדיוק הדפוס שהכלל הקבוע מ-§13.47/§13.48 נועד למנוע, קומה אחת מעל למקום שבו P1-3 עצמו כבר תיקן אותו.** תוקן: `messageForSessionFailure` (`src/features/admin/services/sessionHealthMessage.ts`, פונקציה טהורה, מחולצת לקובץ נפרד כדי שתהיה ניתנת-לבדיקה — `.tsx` לא נאסף ע"י vitest) — שלוש הודעות נבדלות: rate_limited / network / גנרית-לכל-השאר. 5 טסטים חדשים, כולל בדיקה מפורשת ששלוש הסיבות מפיקות שלוש מחרוזות שונות, לא אותה אחת שלוש פעמים. קומיט `98e1b42c`. tsc מלא אחרי התיקון: 804/804, אפס שגיאה חדשה. vitest מלא (אמולטור טרי): `5 failed | 2368 passed (2373)` — זהים חמשת הכשלים הידועים-מראש.
+
+**סטטוס: בנייה + תיקון-הבאנר הושלמו, מקומי. מאושר למיזוג ע"י דוד.**
