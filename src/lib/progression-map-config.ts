@@ -16,20 +16,34 @@ import type { Exercise } from '@/features/content/exercises';
 export interface ProgressionMapLeafProgram {
   programId: string;
   nameHe: string;
+  /**
+   * Whether this skill's card shows in the "המפות שלי" grid on the
+   * /progression hub (progression-hub feature). Independent of the tree
+   * route itself being reachable — every allow-listed program's
+   * /progression-map/[programId] route already works regardless of this
+   * flag (see the route guard's own comment). This flag only controls
+   * discoverability from the hub grid; flipping one entry to `true` is the
+   * entire "add a skill to the hub" change, no layout code touched.
+   */
+  visibleInHub: boolean;
 }
 
 export const PROGRESSION_MAP_LEAF_PROGRAMS: readonly ProgressionMapLeafProgram[] = [
-  { programId: 'mFcuYlNgKXLqWVUFo0zt', nameHe: 'פרונט לבר' },
-  { programId: 'pCI5NHXpowu2ySucqDn8', nameHe: 'פלאנץ׳' },
-  { programId: 'cC0BOmm6KIqYAyQynEIo', nameHe: 'מתח יד אחת' },
-  { programId: 'IOfBZFeorTTDkcz3tOA6', nameHe: 'עמידת ידיים' },
-  { programId: 'PAxprHuT7HjqrWU4wl0T', nameHe: 'שכיבות סמיכה בעמידת ידיים' },
-  { programId: 'EtY8YCol0qpF6DzgcTx1', nameHe: 'דגל אנושי' },
+  { programId: 'mFcuYlNgKXLqWVUFo0zt', nameHe: 'פרונט לבר', visibleInHub: true },
+  { programId: 'pCI5NHXpowu2ySucqDn8', nameHe: 'פלאנץ׳', visibleInHub: true },
+  { programId: 'cC0BOmm6KIqYAyQynEIo', nameHe: 'מתח יד אחת', visibleInHub: true },
+  { programId: 'IOfBZFeorTTDkcz3tOA6', nameHe: 'עמידת ידיים', visibleInHub: false },
+  { programId: 'PAxprHuT7HjqrWU4wl0T', nameHe: 'שכיבות סמיכה בעמידת ידיים', visibleInHub: true },
+  { programId: 'EtY8YCol0qpF6DzgcTx1', nameHe: 'דגל אנושי', visibleInHub: false },
 ] as const;
 
 export const PROGRESSION_MAP_LEAF_PROGRAM_IDS: ReadonlySet<string> = new Set(
   PROGRESSION_MAP_LEAF_PROGRAMS.map((p) => p.programId),
 );
+
+/** The visibleInHub subset, in the same order — the /progression hub's grid source. */
+export const PROGRESSION_MAP_HUB_PROGRAMS: readonly ProgressionMapLeafProgram[] =
+  PROGRESSION_MAP_LEAF_PROGRAMS.filter((p) => p.visibleInHub);
 
 /** Reference/first-build skill, per the brief — front lever. */
 export const PROGRESSION_MAP_REFERENCE_PROGRAM_ID = 'mFcuYlNgKXLqWVUFo0zt';

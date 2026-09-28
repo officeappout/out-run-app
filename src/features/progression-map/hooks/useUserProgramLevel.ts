@@ -34,6 +34,14 @@ import { resolveDataLevel } from '@/features/workout-engine/services/level-resol
 export interface UserProgramLevel {
   /** Null while resolving, or when the user has no data for this program. */
   currentLevel: number | null;
+  /**
+   * 0-100 — same field ProgramProgressCard/ProgramDrawer expect
+   * (progressPercent/percent). 0 while resolving or with no track data.
+   * Added for the progression-hub's grid cards; SkillTreeScreen.tsx computes
+   * this itself inline (unchanged, not touched here) rather than being
+   * migrated to read it from here, per "no changes to the tree itself."
+   */
+  percent: number;
   isLoading: boolean;
 }
 
@@ -52,16 +60,17 @@ export function useUserProgramLevel(programId: string | null): UserProgramLevel 
   }, []);
 
   if (!programId || !profile) {
-    return { currentLevel: null, isLoading: !profile };
+    return { currentLevel: null, percent: 0, isLoading: !profile };
   }
   if (!slugMapReady) {
-    return { currentLevel: null, isLoading: true };
+    return { currentLevel: null, percent: 0, isLoading: true };
   }
 
   const tracks = (profile.progression?.tracks ?? {}) as Record<string, unknown>;
   const slug = resolveToSlug(programId);
   const trackData = tracks[slug] ?? tracks[programId];
   const currentLevel = resolveDataLevel(trackData);
+  const percent = Math.min(100, Math.round((trackData as { percent?: number } | undefined)?.percent ?? 0));
 
-  return { currentLevel: currentLevel > 0 ? currentLevel : null, isLoading: false };
+  return { currentLevel: currentLevel > 0 ? currentLevel : null, percent, isLoading: false };
 }
