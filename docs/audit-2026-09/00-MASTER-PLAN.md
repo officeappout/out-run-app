@@ -2172,4 +2172,37 @@ educational: [
 **למה זו לא הצעת-רב-תפקידיות (כפי שדוד דרש):** הלוגיקה לא בודקת "יש למשתמש הזה עוד תפקיד פעיל?" ולא מחליטה מי מנצח — היא רק שואלת "מה היה כתוב פה *לפני* הכתיבה הזו, ואם זה שונה מהיעד-החדש — לנקות." זהה במדויק בין הקצאה-עוקבת-לגיטימית (קצין שעבר מיחידה A ל-B) לבין המקרה-הספציפי-שקרה (מנהל-רשות עירוני שגם קיבל תפקיד-קצין) — שני המקרים מתנקים באותה צורה, בלי קוד שיודע להבדיל ביניהם, וזה בדיוק הנקודה.
 
 **אימות:** tsc מלא — 804/804, אפס שגיאה חדשה. vitest מלא (אמולטור טרי): `5 failed | 2384 passed (2389)` — זהים חמשת הכשלים הידועים-מראש. **6 טסטים חדשים** (`src/app/api/auth/__tests__/accept-invitation.test.ts`, פייק-טרנזקציה מלא ל-Firestore Admin SDK — `tx.get`/`update`/`set` + פענוח `FieldValue.delete/arrayUnion/arrayRemove` על dot-path keys), כולל **שחזור מדויק של תקרית §13.47**: מנהל-רשות-קודם עם `core.authorityId='tel-aviv'` מקבל הזמנת-unit_admin — מאומת ש-`authorityId` מוחלף לגמרי, ש-`authorities/tel-aviv.managerIds` מנוקה, ושה-unit-החדש מקבל את ה-grant. גם: הפוך (unit_admin קודם → authority_manager), tenant_owner-קודם (מקור-שני ל-priorAuthorityLikeId), משתמש-חדש (אין ניקוי-מיותר), קבלה-חוזרת-לאותה-רשות (לא מנקה בטעות), ומסמך-ישן-שנמחק (לא קורס).
+
 **סטטוס: בנייה הושלמה, מקומי, טרם ממוזג. ממתין לאישור דוד.**
+
+### 13.53 — איחוד כניסות-קצינים: ההצעה נבנתה, ארבע התוספות, checkAdminEmail הוסר (28.09.2026)
+
+**רקע: הבדיקה החיה השנייה אישרה שני ממצאים בעין, ותצפית שלישית חדשה הובילה לחקירה מדויקת עד השורה.** דוד אישר את ההצעה (§13.49 הקודם) לבנייה, עם ארבע תוספות מפורשות. ענף `feat/login-entry-points-unification` מ-`origin/main` @ `a333b50c`.
+
+**ממצא-שורש מדויק ל-"כתובת האימייל לא נמצאה במערכת" — לא רק תסמין ידוע, שורש עד השורה:** `checkAdminEmail` → `getUserByEmail` מריצה `where('core.email','==',email)` — שאילתת client-SDK על אוסף מוגן. `firestore.rules` שורה 382: `allow read: if isOwner(userId) || isAdmin();` — עבור שאילתת `list` (לא `get` בודד), `isOwner(userId)` **לא ניתן להוכחה** לכל התוצאות האפשריות של שאילתה פתוחה (ה-userId הוא wildcard, לא נעוץ לערך אחד). לכן Firestore דוחה את השאילתה לכל מי שאינו `isAdmin()` — כולל עבור **החשבון של הקורא עצמו**. הדחייה (`permission-denied`) נתפסת בשקט (`passwordless-auth.service.ts:71`), `userDoc=null`, נופל ל-admin_invitations (ריק, כבר נוצל) → `{exists:false}` → ההודעה המדויקת שדוד ראה. **זו לא תקלה שקורית לפעמים — היא לא יכלה לעבוד אף פעם עבור מי שאינה מנהל, מעצם עיצוב-הכלל שמגן על האוסף מפני בדיוק סוג ההתקפה הזו.**
+
+**כלל קבוע חדש, axiom §25 (`.claude/rules/axioms.md`):** `isOwner()` לעולם לא יכול לשמש שער לשאילתת-אוסף פתוחה — רק ל-`get()` על מסמך בודד עם ID ידוע. כל שאילתת client-SDK חדשה על אוסף מוגן חייבת להוכיח שהתנאי מוכח לכל תוצאה אפשרית, לא רק למסמך-של-הקורא. אותה מחלת "0 שהוא לא 0" (§13.47/§13.48), מנגנון שלישי: לא אינדקס חסר (כשל לסירוגין), אלא אי-התאמה מבנית בין שאילתת-client-SDK לכללי-list — כשל **בכל קריאה**, לא רק לפעמים.
+
+**ארבע התוספות של דוד, כפי שנבנו:**
+
+1. **הכלל הקבוע לעיל — אקסיומה §25, לא רק רישום ב-MASTER-PLAN.** מנוסח כבדיקת-חובה לכל PR עתידי: לפני מיזוג שאילתת-client-SDK חדשה על אוסף מוגן, לוודא שה-`list` rule מוכח ברמת-האוסף (`isAdmin()`-style), לא רק ברמת-מסמך (`isOwner(docId)`).
+
+2. **re-mint — ניסיון אחד בלבד, דרך `mintAdminSessionCookie` הקיים.** ב-`admin/layout.tsx`, בדיקת-ה-mismatch הקיימת (זיהוי cookie-לזהות-שונה) הורחבה: כש-`cookieUid` הוא `null` לגמרי (לא רק שונה) — ניסיון-mint **אחד**, דרך אותה נקודת-כניסה ממודדת שכבר בנויה עם דדופ (P1-3) — לא נתיב-קריאה חדש, לא לולאה. נכשל → `reconnectNeeded=true`, בלי ניסיון שני. הצליח → `serverConfirmed=true`, ממשיך לזרימה הרגילה. בדיקת-ה-mismatch עצמה (אם נכשלה, לא ה-mint) נשארת אופטימית כפי שהיה — לא הוכחה חיובית של אי-הסכמה, לא לחסום עליה.
+
+3. **מצב-ההתחברות-מחדש אומר מה קרה.** מסך חדש (`reconnectNeeded`) — לא סיידבר, לא `AdminSessionSync`/`SessionHealthBanner` (שהיו מנסים mint נוסף בעצמם — בדיוק הלולאה שתוספת 2 אוסרת). כותרת משתנה לפי הסיבה (`messageForSessionFailure`, כבר קיים ונבדק, P1-3): "לא הצלחנו לרענן" (transient — network/rate_limited) מול "החיבור שלך פג — יש להתחבר מחדש" (הודעה גנרית/http). לעולם לא רומז שהמשתמש לא קיים. פעולה אחת: "התחבר מחדש", לדלת הנכונה (`resolveLoginDoorForPath`, ראו תוספת 4) עם `?next=` משומר.
+
+4. **תנאי חיובי, לא רשימת-חריגים.** `showFullSidebar`/`showSimplifiedSidebar` דורשים עכשיו גם `serverConfirmed && roleInfo !== null` — לא רק תפקיד. `/admin/login` **לא** נוסף לרשימת-הבייפס (`authority-login`/`pending-approval`) — בכוונה, כפי שדוד ביקש: הגזירה מהתנאי החיובי מייתרת את הצורך ברשימה שמישהו ישכח להוסיף אליה.
+
+**כלל קשיח 1 (קצין לעולם לא מגיע ל-`/admin/login`) — שני מקומות תוקנו:**
+- **`middleware.ts`'s `decideAdminGateAction`** — כשאין session בכלל (לא רק scope-mismatch), נבדק אם ה-pathname נמצא ב-`AUTHORITY_MANAGER_ALLOWED_PATHS` הקיים; אם כן → `/authority-portal/login`, לא `/admin/login`. **שני טסטים קיימים תוקנו** (הם קידדו את ההתנהגות הישנה כ"נכונה" — `/admin/authority-manager` ו-`/admin/dashboard` עם session=null ציפו ל-`/admin/login`), לא רק נוספו טסטים חדשים — התיקון תועד כשינוי-כוונה, לא כרגרסיה-שקטה.
+- **`admin/layout.tsx`'s client-side `!user` fallback** (נפרד ממיסמך middleware — סשן-לקוח שמתנקה בזמן שכבר mounted) — אותו תיקון, דרך `resolveLoginDoorForPath` (פונקציה טהורה חדשה, משותפת לשני המקומות, `src/features/admin/services/loginDoorForPath.ts`).
+- שני המקומות מפעילים `?next=` לדלת הנכונה — `authority-portal/login/page.tsx` קיבל תמיכת `?next=` חדשה (זהה ל-P1-3's `/admin/login`, אותה `resolveSafeNextPath`), כולל העברה ל-continueUrl של קישור-הקסם.
+
+**כלל קשיח 2 (מסך-הכניסה לעולם לא מגלה אם כתובת רשומה) — `checkAdminEmail` הוסר לגמרי:**
+`admin/login/page.tsx` עבר מ-`sendAdminMagicLink` (בדיקה-מקדימה, תגובה-שונה) ל-`sendMagicLinkRateLimited` (שליחה-ללא-תנאי) — **בדיוק הדפוס ש-`authority-portal/login/page.tsx` כבר מיישם**, כולל ניסוח-ההודעה הזהה: "אם הכתובת רשומה כ..., יישלח אליה קישור התחברות מאובטח." בטיחות: Firebase magic-link ממילא דורש גישה אמיתית לתיבת-הדואר להשלים כניסה — הסרת הבדיקה-המקדימה לא מחלישה הרשאה, רק מפסיקה לדלוף אם הכתובת רשומה. הרשאה-אמיתית עדיין נקבעת **אחרי** כניסה אמיתית, ב-`/admin/auth/callback`'s `resolveDestination` (`decideResolveDestinationBranch`'s `'cannot-determine'` fallback כבר מטפל נכון במי שאין לו שום תפקיד — נבדק, לא הונח).
+
+**אימות "אפס קוראים נותרו" (כפי שדוד ביקש):** גרפ מלא על `checkAdminEmail`/`sendAdminMagicLink`/`AdminCheckResult` — אפס קריאות-קוד נותרו (רק הערות-תיעוד, כולל שתיים שכבר היו לא-מדויקות *לפני* השינוי הזה ותוקנו תוך כדי). **שרשרת-מתה שלמה נמצאה ונמחקה, לא רק הפונקציה שהתבקשה:** `passwordless-auth.service.ts` (הקורא היחיד האמיתי — `admin/login/page.tsx` — כבר הוחלף) → `check-email/route.ts` (ה-API היחיד ש-`checkAdminEmail` קרא לו) → `adminInviteLookupOutcome.ts` (helper טהור ש-`checkAdminEmail` בלבד צרך). כל שלושת קבצי-הטסט הנלווים נמחקו יחד עם המקור.
+
+**אימות מלא:** tsc — 804/804, אפס שגיאה חדשה בכל קובץ שנערך (כולל ה-line-shift הצפוי בשגיאות `name.he/name.en` הקיימות ב-`admin/layout.tsx`/`authority-portal/login/page.tsx` — אותן שורות בדיוק, רק זזות). vitest מלא (אמולטור טרי): `5 failed | 2390 passed` — זהים חמשת הכשלים הידועים-מראש, אפס רגרסיה. טסטים חדשים: `middleware.test.ts` (2 טסטים קיימים תוקנו במפורש + טסטים חדשים ל-pathname-routing), `loginDoorForPath.test.ts` (4, כולל ברירת-מחדל ל-null/undefined).
+
+**סטטוס: בנייה הושלמה, מקומי, טרם ממוזג. דיווח — ממתין לבדיקה, לא מיזוג בלי אישור, כמבוקש.**
