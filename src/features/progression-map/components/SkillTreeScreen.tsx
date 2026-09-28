@@ -5,9 +5,17 @@
  *
  * Two separate taps, two separate existing surfaces:
  *   - Node tap → the existing per-EXERCISE ExerciseDetailSheet (same one the
- *     library uses), for that node's representative exercise. Locked nodes
- *     are NOT blocked — tapping one opens the same sheet with a small
- *     "above your level" notice instead of being disabled.
+ *     library uses), for that node's representative exercise. Any node
+ *     above the user's actual current level is NOT blocked — tapping it
+ *     opens the same sheet with a small "above your level" notice instead
+ *     of being disabled. Round 10 fix: this used to key off the node's
+ *     VISUAL state (`state === 'locked'`), which misses the target/crown
+ *     node entirely — deriveState (TreePath.tsx) always labels the max
+ *     level 'target' (gold crown), never 'locked', even before the user
+ *     has reached it. Now keyed off TreePath's isAboveCurrentLevel, a
+ *     direct level comparison independent of the visual label, so the
+ *     notice correctly shows on every not-yet-reached node including the
+ *     last one.
  *   - Header tap (skill name / level-summary block) → the existing
  *     per-PROGRAM ProgramDrawer, unmodified.
  *
@@ -228,10 +236,17 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
           <TreePath
             tree={displayTree}
             currentLevel={currentLevel}
-            onNodeTap={(rung: SkillTreeRung, state: TreeNodeState) => {
+            onNodeTap={(rung: SkillTreeRung, _state: TreeNodeState, isAboveCurrentLevel: boolean) => {
               if (!rung.representative) return;
               setDetailExercise(rung.representative);
-              setDetailNotice(state === 'locked' ? LOCKED_NOTICE : null);
+              // Round 10 fix: was `state === 'locked'` — but the target/
+              // crown node is ALWAYS visually 'target' (deriveState in
+              // TreePath.tsx), never 'locked', even before the user has
+              // reached it, so the notice never showed on the hardest
+              // node. isAboveCurrentLevel checks the actual level
+              // comparison directly, independent of the visual label —
+              // see TreePath.tsx's isAboveCurrentLevel for the full reasoning.
+              setDetailNotice(isAboveCurrentLevel ? LOCKED_NOTICE : null);
             }}
             onSwapTap={(rung) => setSwapRung(rung)}
           />

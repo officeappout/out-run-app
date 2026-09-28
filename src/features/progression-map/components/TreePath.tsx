@@ -60,6 +60,22 @@ function deriveState(rung: SkillTreeRung, tree: SkillTreeData, currentLevel: num
   return 'locked';
 }
 
+/**
+ * Whether the user hasn't actually reached this rung's level yet —
+ * independent of the VISUAL state label from deriveState(). deriveState
+ * collapses the max level to 'target' unconditionally (gold crown, even
+ * before the user has reached it), which is correct for the ring/crown
+ * styling but means `state === 'locked'` alone can't answer "should the
+ * detail sheet show the above-your-level notice" — that check was missing
+ * the target node entirely (tapping it opened the sheet with no notice,
+ * same as an already-earned node). This is the one place that check
+ * lives; callers should use this, not re-derive it from `state`.
+ */
+function isAboveCurrentLevel(rung: SkillTreeRung, tree: SkillTreeData, currentLevel: number | null): boolean {
+  const effectiveCurrent = currentLevel ?? tree.minLevel;
+  return rung.level > effectiveCurrent;
+}
+
 function GapPill({ fromLevel, toLevel }: { fromLevel: number; toLevel: number }) {
   const label = fromLevel === toLevel ? `רמה ${fromLevel}` : `רמות ${fromLevel}–${toLevel}`;
   return (
@@ -75,7 +91,7 @@ function GapPill({ fromLevel, toLevel }: { fromLevel: number; toLevel: number })
 export interface TreePathProps {
   tree: SkillTreeData;
   currentLevel: number | null;
-  onNodeTap: (rung: SkillTreeRung, state: TreeNodeState) => void;
+  onNodeTap: (rung: SkillTreeRung, state: TreeNodeState, isAboveCurrentLevel: boolean) => void;
   onSwapTap: (rung: SkillTreeRung) => void;
 }
 
@@ -141,7 +157,7 @@ export function TreePath({ tree, currentLevel, onNodeTap, onSwapTap }: TreePathP
               state={state}
               siblingCount={rung.siblingCount}
               align={align}
-              onTap={() => onNodeTap(rung, state)}
+              onTap={() => onNodeTap(rung, state, isAboveCurrentLevel(rung, tree, currentLevel))}
               onSwapTap={rung.siblingCount > 0 ? () => onSwapTap(rung) : undefined}
             />
           </div>
