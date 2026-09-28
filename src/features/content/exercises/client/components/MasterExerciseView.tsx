@@ -38,6 +38,7 @@ import ExerciseVideoPlayer from './ExerciseVideoPlayer';
 import LocationVariantSwitcher, {
   type LocationSwitcherOption,
 } from './LocationVariantSwitcher';
+import ProgramPathSwitcher, { type ProgramPathOption } from './ProgramPathSwitcher';
 import {
   ensureEquipmentCachesLoaded,
   getMuscleGroupLabel,
@@ -48,8 +49,10 @@ import { buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
 import {
   useExerciseMasterData,
   getExerciseLevel,
+  getExerciseLevelForProgram,
   type ProgressionChain,
 } from '../hooks/useExerciseMasterData';
+import { resolveTreeProgramId, isProgressionMapLeafProgram } from '@/lib/progression-map-config';
 
 // ── Visual tokens (shared with ExerciseDetailSheet) ────────────────────────
 const PILL_BORDER = '0.5px solid #E0E9FF';
@@ -104,10 +107,27 @@ export interface MasterExerciseViewProps {
   filterLocation?: 'home' | 'park' | 'gym' | null;
   /** programId → Hebrew label map for the "תוכניות" badges (consumer supplies). */
   programLabels?: Record<string, string>;
+  /**
+   * Feature #5 (program/path switcher, Phase 1): the initially-selected
+   * program when the exercise belongs to 2+ (targetPrograms). Opened from a
+   * Skill Tree → the caller passes that tree's own programId (SkillTreeScreen
+   * already knows it — the route param). Omitted (undefined) → falls back to
+   * resolveTreeProgramId(exercise) (the same pick "מפה מלאה" already used),
+   * then targetPrograms[0] — byte-identical default to before this prop
+   * existed for every caller that doesn't pass it.
+   */
+  defaultProgramId?: string | null;
   /** Tapping the performance card routes here. Consumer owns navigation. */
   onNavigateToAnalytics?: (exerciseId: string, exerciseName: string) => void;
-  /** Tapping "מפה מלאה ←" routes to the full roadmap for this movement family. */
-  onNavigateToRoadmap?: (baseMovementId: string) => void;
+  /**
+   * Tapping "מפה מלאה ←" routes here. Resolved by THIS component from its
+   * own activeProgramId (the switcher's current selection), not re-derived
+   * by the consumer — see handleRoadmapNavigate. `treeProgramId` is the
+   * live Skill Tree destination when the active path is one of the 6
+   * allow-listed programs; null means it isn't, so the consumer should fall
+   * back to the legacy base_movement_id roadmap route.
+   */
+  onNavigateToRoadmap?: (treeProgramId: string | null, fallbackBaseMovementId: string) => void;
   /**
    * Optional short notice banner shown at the very top of the sheet — e.g.
    * "above your current level" when opened from a locked Progression Map
@@ -239,6 +259,7 @@ function ChainNode({
   location,
   locked,
   completed = false,
+  activeProgramId,
 }: {
   exercise: Exercise;
   variant: 'lower' | 'same' | 'higher';
@@ -246,11 +267,13 @@ function ChainNode({
   locked: boolean;
   /** Prev node — the user already surpassed it → satisfied/completed look. */
   completed?: boolean;
+  /** Feature #5: show this node's level in the switcher's currently-selected path when it's tagged to it; falls back to the legacy targetPrograms[0] pick otherwise. */
+  activeProgramId?: string | null;
 }) {
   const cfg = LEVEL_ICONS[variant];
   const isCurrent = variant === 'same';
   const thumb = resolveThumbnail(exercise, location);
-  const level = getExerciseLevel(exercise);
+  const level = getExerciseLevelForProgram(exercise, activeProgramId);
   const name = getLocalizedText(exercise.name, 'he');
 
   // Only locked (un-reached) nodes get dimmed. Completed/current stay vivid.
@@ -310,12 +333,15 @@ function ProgressionChainRow({
   chain,
   location,
   userLevelInTrack,
+  activeProgramId,
   onNavigateToRoadmap,
   exercise,
 }: {
   chain: ProgressionChain;
   location: string | null;
   userLevelInTrack: number | null;
+  /** Feature #5: the switcher's current selection — passed through to each ChainNode's level display and used for the lock comparison below. */
+  activeProgramId?: string | null;
   onNavigateToRoadmap?: (baseMovementId: string) => void;
   exercise: Exercise;
 }) {
@@ -326,7 +352,7 @@ function ProgressionChainRow({
   const nextLocked =
     chain.next != null &&
     userLevelInTrack != null &&
-    userLevelInTrack < getExerciseLevel(chain.next);
+    userLevelInTrack < getExerciseLevelForProgram(chain.next, activeProgramId);
 
   const baseMovementId = exercise.base_movement_id ?? null;
 
@@ -351,13 +377,13 @@ function ProgressionChainRow({
           the three thumbnails cache instantly and render lightning-fast. */}
       <div className="flex items-start justify-center gap-6">
         {chain.prev && (
-          <ChainNode exercise={chain.prev} variant="lower" location={location} locked={false} completed />
+          <ChainNode exercise={chain.prev} variant="lower" location={location} locked={false} completed activeProgramId={activeProgramId} />
         )}
 
-        <ChainNode exercise={chain.current} variant="same" location={location} locked={false} />
+        <ChainNode exercise={chain.current} variant="same" location={location} locked={false} activeProgramId={activeProgramId} />
 
         {chain.next && (
-          <ChainNode exercise={chain.next} variant="higher" location={location} locked={nextLocked} />
+          <ChainNode exercise={chain.next} variant="higher" location={location} locked={nextLocked} activeProgramId={activeProgramId} />
         )}
       </div>
     </section>
@@ -370,6 +396,7 @@ export default function MasterExerciseView({
   exercise,
   filterLocation = null,
   programLabels,
+  defaultProgramId,
   onNavigateToAnalytics,
   onNavigateToRoadmap,
   onMethodChange,
@@ -553,12 +580,55 @@ export default function MasterExerciseView({
   // eslint-disable-next-line no-console
   console.log(`[MEV] selectedMethodIdx=${selectedMethodIdx} activeLocation="${activeLocation}"`);
 
+  // ── Program/path switcher (Feature #5, Phase 1) ────────────────────────
+  // Default: the caller's explicit defaultProgramId (SkillTreeScreen passes
+  // its own tree's programId) wins; otherwise resolveTreeProgramId(exercise)
+  // — the SAME pick "מפה מלאה" always used — so the default path stays
+  // whichever program the sheet already routed to before this feature
+  // existed; finally targetPrograms[0], matching the legacy level/lock
+  // display's own fallback, only when no program is allow-listed at all.
+  const resolveInitialProgramId = (): string | null =>
+    defaultProgramId ?? resolveTreeProgramId(exercise) ?? exercise.targetPrograms?.[0]?.programId ?? null;
+
+  const [activeProgramId, setActiveProgramId] = useState<string | null>(resolveInitialProgramId);
+  const [programSwitcherOpen, setProgramSwitcherOpen] = useState(false);
+  useEffect(() => {
+    setActiveProgramId(resolveInitialProgramId());
+    setProgramSwitcherOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exercise.id, defaultProgramId]);
+
   // Pass `selectedMethodIdx` as the 4th arg so the hook resolves the exact
   // method via array index — `buildSheetData` receives the pre-resolved method
-  // object and skips `findMethodForLocation` entirely.
+  // object and skips `findMethodForLocation` entirely. 5th arg (activeProgramId)
+  // makes userLevelInTrack (and therefore chain lock state) follow the
+  // switcher's current selection instead of the legacy targetPrograms[0] pick.
   const { sheetData, trend, isLoadingTrend, progressionChain, userLevelInTrack, programs } =
-    useExerciseMasterData(exercise, activeLocation, programLabels, selectedMethodIdx);
+    useExerciseMasterData(exercise, activeLocation, programLabels, selectedMethodIdx, activeProgramId);
 
+  // Switcher only when 2+ targetPrograms entries — a single-program exercise
+  // gets a static chip (no chevron, no panel), same rule LocationVariantSwitcher
+  // uses for a single-method exercise.
+  const canSwitchProgram = programs.length >= 2;
+  const programSwitcherOptions: ProgramPathOption[] = programs.map((p) => ({
+    programId: p.programId,
+    label: p.label,
+    level: p.level,
+    iconKey: p.iconKey,
+    isActive: p.programId === activeProgramId,
+  }));
+  const activeProgramOption =
+    programSwitcherOptions.find((o) => o.isActive) ?? programSwitcherOptions[0] ?? null;
+
+  // Resolves the "מפה מלאה" destination from the CURRENTLY SELECTED path
+  // (not a fresh resolveTreeProgramId(exercise) re-derive, which could
+  // disagree with what the switcher is showing) — see
+  // MasterExerciseViewProps.onNavigateToRoadmap's doc comment.
+  const handleRoadmapNavigate = (fallbackBaseMovementId: string) => {
+    const treeProgramId =
+      activeProgramId && isProgressionMapLeafProgram(activeProgramId) ? activeProgramId : null;
+    onNavigateToRoadmap?.(treeProgramId, fallbackBaseMovementId);
+  };
 
   const [switcherOpen, setSwitcherOpen] = useState(false);
   useEffect(() => { setSwitcherOpen(false); }, [exercise.id]);
@@ -688,26 +758,34 @@ export default function MasterExerciseView({
           if (programs.length === 0 && !showEquipmentCol) return null;
           return (
             <div className="grid grid-cols-2 gap-4 mb-6">
-              {/* Right column — Programs */}
-              {programs.length > 0 && (
+              {/* Right column — Programs. Feature #5 (Phase 1): the badge
+                  list is now a single active-path CHIP (name+level, same
+                  visual weight as the ציוד column's location switcher) that
+                  expands into a panel when the exercise belongs to 2+
+                  programs — same interaction pattern as LocationVariantSwitcher,
+                  mirrored (not reused directly — see ProgramPathSwitcher.tsx's
+                  own header comment) since program content differs from
+                  location/gear content. Single-program exercises get the
+                  SAME chip rendered statically (no chevron/panel) via
+                  canSwitch={false} — never an empty state, never a dead list. */}
+              {programs.length > 0 && activeProgramOption && (
                 <section className={`min-w-0 ${!showEquipmentCol ? 'col-span-2' : ''}`}>
-                  <h3 className="text-right text-[16px] font-semibold text-slate-800 mb-2 leading-[30px]" style={SECTION_FONT}>
-                    תוכניות
-                  </h3>
-                  <div className="flex flex-row overflow-x-auto gap-2 no-scrollbar">
-                    {programs.map((p, i) => (
-                      <div
-                        key={`${p.programId}-${i}`}
-                        className="flex-shrink-0 flex items-center gap-1.5 bg-white shadow-sm rounded-lg px-3"
-                        style={{ border: PILL_BORDER, height: 30 }}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src="/icons/programs/full_body.svg" alt="" width={16} height={16} className="object-contain flex-shrink-0" />
-                        <span className="text-xs font-normal text-gray-800 whitespace-nowrap" style={SECTION_FONT}>
-                          {p.label} · רמה {p.level}
-                        </span>
-                      </div>
-                    ))}
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <h3 className="text-right text-[16px] font-semibold text-slate-800 leading-[30px]" style={SECTION_FONT}>
+                      תוכניות
+                    </h3>
+                    <ProgramPathSwitcher
+                      activeOption={activeProgramOption}
+                      options={programSwitcherOptions}
+                      canSwitch={canSwitchProgram}
+                      open={programSwitcherOpen}
+                      onToggleOpen={() => setProgramSwitcherOpen((o) => !o)}
+                      onClose={() => setProgramSwitcherOpen(false)}
+                      onSelect={(opt) => {
+                        setActiveProgramId(opt.programId);
+                        setProgramSwitcherOpen(false);
+                      }}
+                    />
                   </div>
                 </section>
               )}
@@ -795,7 +873,8 @@ export default function MasterExerciseView({
           chain={progressionChain}
           location={activeLocation}
           userLevelInTrack={userLevelInTrack}
-          onNavigateToRoadmap={onNavigateToRoadmap}
+          activeProgramId={activeProgramId}
+          onNavigateToRoadmap={onNavigateToRoadmap ? handleRoadmapNavigate : undefined}
           exercise={exercise}
         />
 
