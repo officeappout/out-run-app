@@ -46,6 +46,8 @@ export interface ResolvedProgram {
   programId: string;
   label: string;
   level: number;
+  /** For the program-path switcher chip's icon (getProgramIcon). Undefined until the cached program fetch resolves, or if that program has no iconKey set. */
+  iconKey?: string;
 }
 
 export interface ExerciseMasterData {
@@ -97,6 +99,39 @@ export function getExerciseLevel(ex: Exercise | null | undefined): number {
   return 0;
 }
 
+/**
+ * Difficulty tier for a SPECIFIC program — the per-program-aware counterpart
+ * to getExerciseLevel's legacy targetPrograms[0]-only pick. Added for the
+ * program/path switcher (Feature #5): once the user selects a specific path
+ * (e.g. מתח יד אחת instead of the exercise's index-0 program), the chain's
+ * displayed level/lock state should reflect THAT program, not whichever one
+ * happened to be first in the array. Falls back to getExerciseLevel's
+ * legacy behavior when `programId` is absent or the exercise isn't tagged
+ * to it (e.g. a progression-chain sibling that only shares base_movement_id,
+ * not this specific program) — never surfaces a wrong/missing number.
+ *
+ * A tiny local equivalent of progression-map's resolveLevelInProgram
+ * (build-skill-tree.service.ts) — not imported from there on purpose: that
+ * lives in a different feature domain (CLAUDE.md Law 7, domain-agnostic
+ * boundary), and the formula is a 3-line targetPrograms.find — cheaper to
+ * duplicate here than to cross-import, same call this codebase already
+ * made for the identical scenario (see build-skill-tree.service.ts's own
+ * header comment on getExerciseLevel-style precedent).
+ */
+export function getExerciseLevelForProgram(
+  ex: Exercise | null | undefined,
+  programId: string | null | undefined,
+): number {
+  if (!ex) return 0;
+  if (programId) {
+    const match = ex.targetPrograms?.find((tp) => tp.programId === programId);
+    if (match && typeof match.level === 'number' && Number.isFinite(match.level)) {
+      return match.level;
+    }
+  }
+  return getExerciseLevel(ex);
+}
+
 export function useExerciseMasterData(
   exercise: Exercise | null,
   /** Location string — used only when `methodIdx` is null (legacy / no switcher). */
@@ -108,6 +143,13 @@ export function useExerciseMasterData(
    * method, guaranteeing that two methods at the same location remain distinct.
    */
   methodIdx: number | null = null,
+  /**
+   * The user-selected program/path (Feature #5's program switcher) —
+   * overrides targetPrograms[0] as the "primary program" for
+   * userLevelInTrack. Undefined/null → falls back to the legacy
+   * index-0 behavior, byte-identical to before this parameter existed.
+   */
+  activeProgramId?: string | null,
 ): ExerciseMasterData {
   // ── Synchronous view-model ─────────────────────────────────────────────
   const sheetData = useMemo<SheetData | null>(() => {
@@ -219,24 +261,25 @@ export function useExerciseMasterData(
   const domainProgress = useProgressionStore((s) => s.domainProgress);
 
   const userLevelInTrack = useMemo<number | null>(() => {
-    const programId = exercise?.targetPrograms?.[0]?.programId;
+    const programId = activeProgramId ?? exercise?.targetPrograms?.[0]?.programId;
     if (!programId) return null;
     const entry = domainProgress?.[programId];
     return typeof entry?.level === 'number' ? entry.level : null;
-  }, [exercise, domainProgress]);
+  }, [exercise, domainProgress, activeProgramId]);
 
   // ── Resolved program labels (independent of any passed map) ────────────
   // Pull the cached program hierarchy once so real Firestore program names
-  // are available; the static fallback + heuristic cover legacy slugs.
-  const [cachedProgramMap, setCachedProgramMap] = useState<Record<string, string>>({});
+  // (+ iconKey, for the program-path switcher chip) are available; the
+  // static fallback + heuristic cover legacy slugs.
+  const [cachedProgramMap, setCachedProgramMap] = useState<Record<string, { name: string; iconKey?: string }>>({});
   useEffect(() => {
     let cancelled = false;
     getCachedPrograms()
       .then((list) => {
         if (cancelled) return;
-        const map: Record<string, string> = {};
+        const map: Record<string, { name: string; iconKey?: string }> = {};
         for (const p of list) {
-          if (p?.id && p?.name) map[p.id] = p.name;
+          if (p?.id && p?.name) map[p.id] = { name: p.name, iconKey: p.iconKey };
         }
         setCachedProgramMap(map);
       })
@@ -254,15 +297,26 @@ export function useExerciseMasterData(
       const id = tp.programId;
       if (!id) continue;
       const lower = id.toLowerCase();
+      const cached = cachedProgramMap[id] ?? cachedProgramMap[lower];
       const label =
         programLabels?.[id] ??
         programLabels?.[lower] ??
-        cachedProgramMap[id] ??
-        cachedProgramMap[lower] ??
+        cached?.name ??
         PROGRAM_LABEL_FALLBACK[id] ??
         PROGRAM_LABEL_FALLBACK[lower] ??
         heuristicProgramLabel(id);
-      if (label) out.push({ programId: id, label, level: tp.level });
+      // Round 12 (program-path switcher): previously an entry with no
+      // resolvable label was silently DROPPED — invisible to both the old
+      // "תוכניות" badge list and the new switcher, for any program whose id
+      // is a Firestore hash (not a recognized slug) until the cached-name
+      // fetch resolves. Now always pushed, falling back to the raw id as a
+      // placeholder + a console.warn, per this feature's explicit
+      // "don't crash, show the id or a placeholder and log it" requirement.
+      if (!label) {
+        // eslint-disable-next-line no-console
+        console.warn(`[useExerciseMasterData] no resolvable name for programId "${id}" — showing the raw id as a placeholder`);
+      }
+      out.push({ programId: id, label: label ?? id, level: tp.level, iconKey: cached?.iconKey });
     }
     return out;
   }, [exercise, programLabels, cachedProgramMap]);

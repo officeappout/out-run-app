@@ -19,7 +19,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useExerciseLibraryStore } from '../store/useExerciseLibraryStore';
 import MasterExerciseView from './MasterExerciseView';
-import { resolveTreeProgramId } from '@/lib/progression-map-config';
 import type { Exercise } from '../../core/exercise.types';
 
 export interface ExerciseDetailSheetProps {
@@ -38,6 +37,18 @@ export interface ExerciseDetailSheetProps {
    * caller — falls through to the global filter, byte-identical to before.
    */
   locationOverride?: 'home' | 'park' | 'gym';
+  /**
+   * Feature #5 (program/path switcher, Phase 1): the initial selected path
+   * when the exercise belongs to 2+ targetPrograms — passed straight
+   * through to MasterExerciseView. SkillTreeScreen passes its own tree's
+   * programId here (the route param it already holds) so opening the
+   * sheet from a Skill Tree defaults to THAT tree's path, not whichever
+   * program happens to resolve first. Omitted for every other caller —
+   * MasterExerciseView falls back to its own default
+   * (resolveTreeProgramId(exercise), then targetPrograms[0]), unchanged
+   * from before this prop existed.
+   */
+  defaultProgramId?: string | null;
   /**
    * Round 6 (Progression Map, sheet round 6): when set, this instance is
    * driven ENTIRELY by these local props instead of the global
@@ -61,7 +72,7 @@ export interface ExerciseDetailSheetProps {
   };
 }
 
-export default function ExerciseDetailSheet({ locationOverride, controlled }: ExerciseDetailSheetProps = {}) {
+export default function ExerciseDetailSheet({ locationOverride, defaultProgramId, controlled }: ExerciseDetailSheetProps = {}) {
   const router = useRouter();
 
   // ── Store reads (unconditional — hooks can't be conditional; the
@@ -111,19 +122,19 @@ export default function ExerciseDetailSheet({ locationOverride, controlled }: Ex
     router.push(`/profile/exercise/${exerciseId}?name=${encodeURIComponent(exerciseName)}`);
   };
 
-  const handleNavigateToRoadmap = (baseMovementId: string) => {
-    // Phase 1 (Progression Map): the 6 allow-listed skill programs get the
-    // real Skill Tree. Every other exercise's "מפה מלאה" keeps today's exact
-    // behavior (the pre-existing base_movement_id route, still unbuilt) —
-    // untouched on purpose. Only exercise (closed over from the store read
-    // above) is needed to resolve this; no prop threading through
-    // MasterExerciseView/ProgressionChainRow required.
-    const treeProgramId = exercise ? resolveTreeProgramId(exercise) : null;
+  // Feature #5 (program/path switcher): treeProgramId is now resolved by
+  // MasterExerciseView itself, from its own activeProgramId (the switcher's
+  // current selection) — not re-derived here from a fresh
+  // resolveTreeProgramId(exercise) call, which could disagree with
+  // whichever path the switcher is actually showing for a multi-tagged
+  // exercise. This handler is now a plain "navigate to the resolved
+  // destination" executor.
+  const handleNavigateToRoadmap = (treeProgramId: string | null, fallbackBaseMovementId: string) => {
     if (treeProgramId) {
       router.push(`/progression-map/${treeProgramId}`);
       return;
     }
-    router.push(`/exercises/roadmap/${encodeURIComponent(baseMovementId)}`);
+    router.push(`/exercises/roadmap/${encodeURIComponent(fallbackBaseMovementId)}`);
   };
 
   const sheet = (
@@ -178,6 +189,7 @@ export default function ExerciseDetailSheet({ locationOverride, controlled }: Ex
               <MasterExerciseView
                 exercise={exercise}
                 filterLocation={filterLocation}
+                defaultProgramId={defaultProgramId}
                 onNavigateToAnalytics={handleNavigateToAnalytics}
                 onNavigateToRoadmap={handleNavigateToRoadmap}
                 notice={notice}

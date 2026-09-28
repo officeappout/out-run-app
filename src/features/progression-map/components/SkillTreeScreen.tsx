@@ -257,9 +257,16 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
           `controlled` drives it from this screen's own local state (round 6
           — see the header comment); locationOverride="park" is unrelated,
           a LOCAL prop forcing park media resolution regardless of the
-          (unused, in controlled mode) global library filter. */}
+          (unused, in controlled mode) global library filter.
+          defaultProgramId={programId} (Feature #5, program/path switcher):
+          this screen already knows which tree it's rendering (the route
+          param, in scope the whole time) — opening a multi-program
+          exercise's detail sheet FROM this tree should default the
+          switcher to THIS tree's path, not whichever program the exercise
+          itself would resolve to first. */}
       <ExerciseDetailSheet
         locationOverride="park"
+        defaultProgramId={programId}
         controlled={{ exercise: detailExercise, notice: detailNotice, onClose: closeDetail }}
       />
 
