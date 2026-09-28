@@ -27,7 +27,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { Firestore } from 'firebase-admin/firestore';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
-import { resolveUnitPermissionScope, type UnitPermissionScope } from '@/lib/unitPermissionScope';
+import { resolveUnitPermissionScope, UNIT_SCOPE_UNKNOWN_MESSAGE, type UnitPermissionScope } from '@/lib/unitPermissionScope';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -58,6 +58,16 @@ export async function computeDecideJoinRequest(
   targetUid: string,
   decision: Decision,
 ) {
+  if (scope.kind === 'unknown') {
+    // P1-3 item 1 (00-MASTER-PLAN.md §13.49) — verification failed, this is
+    // NOT a checked "no". Distinct status + message from
+    // DECISION_DENIED_MESSAGE — this reflects only the CALLER's own
+    // scope-resolution failure, so distinguishing it does not weaken this
+    // route's anti-enumeration guarantee (which is about never revealing
+    // WHICH check failed on the TARGET request — not-found vs already-
+    // decided vs wrong-scope stay indistinguishable from each other).
+    return { status: 503 as const, body: { error: UNIT_SCOPE_UNKNOWN_MESSAGE } };
+  }
   if (scope.kind === 'denied') {
     return { status: 403 as const, body: { error: DECISION_DENIED_MESSAGE } };
   }

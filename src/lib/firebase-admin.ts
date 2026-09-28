@@ -250,8 +250,19 @@ export async function computeAdminScope(
       else if (unitScope.kind === 'unitAdmin') scope = 'unit_admin';
       // unitScope.kind === 'root' can't happen here — resolveUnitPermission
       // Scope's own root check is the same isRootAdmin(email) gate already
-      // folded into `admin` above via ROOT_ADMIN_EMAIL_REGEX. 'denied'
-      // leaves scope undefined, falling through to the check below.
+      // folded into `admin` above via ROOT_ADMIN_EMAIL_REGEX. 'denied' AND
+      // 'unknown' both leave scope undefined here, falling through to the
+      // generic authority_manager check below — correct for either: this
+      // function's contract is additive classification, not a gate, so an
+      // unresolved unitScope never denies anything on its own, only fails
+      // to ALSO tag someone as tenant_owner/unit_admin this call. Logged
+      // distinctly (P1-3 item 1, 00-MASTER-PLAN.md §13.49) so a real
+      // verification failure here — which could misclassify a genuine
+      // tenant_owner/unit_admin as a plain authority_manager, the exact
+      // sidebar bug in §13.47 — is diagnosable instead of silent.
+      if (unitScope.kind === 'unknown') {
+        console.warn(`[firebase-admin] resolveUnitPermissionScope could not verify uid=${uid} — falling through to the generic authority_manager check, not a confirmed non-manager`);
+      }
     } catch (err) {
       console.warn('[firebase-admin] Failed to check unit permission scope:', err);
     }

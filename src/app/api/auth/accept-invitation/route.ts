@@ -55,7 +55,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { getRequestIp } from '@/lib/requestIp';
 import { RATE_LIMITS, isBlockedByAny } from '@/lib/rateLimitConfig';
 import { logRateLimitBlock } from '@/lib/rateLimitLog';
-import { resolveUnitPermissionScope } from '@/lib/unitPermissionScope';
+import { resolveUnitPermissionScope, UNIT_SCOPE_UNKNOWN_MESSAGE } from '@/lib/unitPermissionScope';
 import { tenantTypeOf } from '@/lib/tenantType';
 
 export const runtime = 'nodejs';
@@ -89,15 +89,26 @@ interface Caller {
  * tenant_owner of that SAME tenantId, re-resolved LIVE via
  * resolveUnitPermissionScope(inv.createdBy), never trusted from a value
  * stored at invitation-creation time.
+ *
+ * P1-3 item 1 (00-MASTER-PLAN.md §13.49) — three states, not a boolean.
+ * A thrown resolveUnitPermissionScope means we could not verify whether
+ * the INVITER (not the person accepting) was entitled — collapsing that
+ * into "not entitled" would permanently brick a brand-new user's genuine
+ * invitation on a transient hiccup, indistinguishable from a real forged/
+ * stale invitation. computeAcceptInvitation below reports 'unknown'
+ * distinctly (503, retry) instead of the normal 403 rejection.
  */
-async function isCreatorEntitledForRole(db: Firestore, inv: FirebaseFirestore.DocumentData): Promise<boolean> {
+type CreatorEntitlement = 'entitled' | 'not-entitled' | 'unknown';
+
+async function isCreatorEntitledForRole(db: Firestore, inv: FirebaseFirestore.DocumentData): Promise<CreatorEntitlement> {
   if (inv.role === 'unit_admin') {
-    if (isRootAdmin(inv.createdByEmail ?? null)) return true;
-    if (typeof inv.createdBy !== 'string' || !inv.createdBy) return false;
+    if (isRootAdmin(inv.createdByEmail ?? null)) return 'entitled';
+    if (typeof inv.createdBy !== 'string' || !inv.createdBy) return 'not-entitled';
     const scope = await resolveUnitPermissionScope(inv.createdBy);
-    return scope.kind === 'tenantOwner' && scope.tenantId === inv.tenantId;
+    if (scope.kind === 'unknown') return 'unknown';
+    return scope.kind === 'tenantOwner' && scope.tenantId === inv.tenantId ? 'entitled' : 'not-entitled';
   }
-  return isRootAdmin(inv.createdByEmail ?? null);
+  return isRootAdmin(inv.createdByEmail ?? null) ? 'entitled' : 'not-entitled';
 }
 
 /**
@@ -140,7 +151,15 @@ export async function computeAcceptInvitation(db: Firestore, caller: Caller, inv
   }
 
   // 3. Second-layer check: the invitation's creator must be entitled.
-  if (!(await isCreatorEntitledForRole(db, inv))) {
+  const creatorEntitlement = await isCreatorEntitledForRole(db, inv);
+  if (creatorEntitlement === 'unknown') {
+    // P1-3 item 1 (00-MASTER-PLAN.md §13.49) — the INVITER's entitlement
+    // couldn't be verified (not a checked "no") — distinct from a genuine
+    // rejection so a real new user's first-ever accept isn't permanently
+    // bricked by a transient index/Firestore hiccup on someone else's scope.
+    return { status: 503 as const, body: { error: UNIT_SCOPE_UNKNOWN_MESSAGE } };
+  }
+  if (creatorEntitlement !== 'entitled') {
     return { status: 403 as const, body: { error: 'Invitation was not created by an entitled admin' } };
   }
 

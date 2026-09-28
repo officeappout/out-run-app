@@ -83,7 +83,7 @@ import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { getRequestIp } from '@/lib/requestIp';
 import { RATE_LIMITS, isBlockedByAny } from '@/lib/rateLimitConfig';
 import { logRateLimitBlock } from '@/lib/rateLimitLog';
-import { resolveUnitPermissionScope } from '@/lib/unitPermissionScope';
+import { resolveUnitPermissionScope, UNIT_SCOPE_UNKNOWN_MESSAGE } from '@/lib/unitPermissionScope';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -193,6 +193,12 @@ export async function computeCreateInvitation(db: Firestore, caller: Caller, bod
       // server-resolved scope. The request body is read for `unitId`
       // alone; there is no tenantId field read from it in this sub-branch.
       const scope = await resolveUnitPermissionScope(caller.uid);
+      if (scope.kind === 'unknown') {
+        // P1-3 item 1 (00-MASTER-PLAN.md §13.49) — verification failed,
+        // this is NOT a checked "no". Distinct status + message from
+        // UNIT_ADMIN_INVITE_DENIED_MESSAGE.
+        return { status: 503 as const, body: { error: UNIT_SCOPE_UNKNOWN_MESSAGE } };
+      }
       if (scope.kind !== 'tenantOwner') {
         return { status: 403 as const, body: { error: UNIT_ADMIN_INVITE_DENIED_MESSAGE } };
       }
