@@ -1,36 +1,20 @@
 'use client';
 
 import { auth } from './firebase';
-
-// Singleton — concurrent 401s share one refresh, not N parallel attempts
-let inflightRefresh: Promise<void> | null = null;
-
-async function refreshSession(): Promise<void> {
-  if (inflightRefresh) return inflightRefresh;
-
-  inflightRefresh = (async () => {
-    const user = auth.currentUser;
-    if (!user) throw new Error('no-user');
-
-    const idToken = await user.getIdToken(/* forceRefresh */ true);
-    const res = await fetch('/api/auth/session', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idToken }),
-    });
-    if (!res.ok) throw new Error(`session-refresh-${res.status}`);
-  })().finally(() => {
-    inflightRefresh = null;
-  });
-
-  return inflightRefresh;
-}
+import { mintAdminSessionCookie } from './auth.service';
 
 /**
  * Drop-in replacement for fetch() on admin API routes.
- * On 401: silently refreshes the session cookie and retries once.
- * If the refresh fails (user logged out): redirects to /admin/login.
+ * On 401: refreshes the session cookie via mintAdminSessionCookie and
+ * retries once. If the refresh fails (user logged out, rate-limited,
+ * network down): redirects to /admin/login.
+ *
+ * P1-3 (00-MASTER-PLAN.md §13.43/§13.45.1) — used to have its own local
+ * `refreshSession` with its own in-flight-promise dedup, duplicating the
+ * exact same POST /api/auth/session as auth.service.ts and
+ * AdminSessionSync. Now calls the one shared, deduped entrypoint — a 401
+ * here that races AdminSessionSync's periodic refresh collapses into the
+ * same network call instead of firing twice.
  */
 export async function adminFetch(url: string, init: RequestInit = {}): Promise<Response> {
   const opts: RequestInit = { ...init, credentials: 'include' };
@@ -38,9 +22,9 @@ export async function adminFetch(url: string, init: RequestInit = {}): Promise<R
 
   if (res.status !== 401) return res;
 
-  try {
-    await refreshSession();
-  } catch {
+  const user = auth.currentUser;
+  const ok = user ? await mintAdminSessionCookie(user) : false;
+  if (!ok) {
     if (typeof window !== 'undefined') {
       window.location.href = '/admin/login';
     }

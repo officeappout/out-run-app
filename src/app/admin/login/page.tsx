@@ -3,16 +3,22 @@
 // Force dynamic rendering to prevent SSR issues with window/localStorage
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import { sendAdminMagicLink } from '@/features/admin/services/passwordless-auth.service';
+import { resolveSafeNextPath } from '@/features/admin/services/safeNextPath';
 import { Shield, Mail, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 
-export default function AdminLoginPage() {
+function AdminLoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // P1-3 (00-MASTER-PLAN.md §13.43): middleware.ts already sets ?next=
+  // when it bounces an unauthenticated /admin/* request here — this page
+  // used to ignore it entirely and always land everyone on bare /admin.
+  const safeNext = resolveSafeNextPath(searchParams?.get('next'));
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -25,10 +31,10 @@ export default function AdminLoginPage() {
       if (user) {
         try {
           const roleInfo = await checkUserRole(user.uid);
-          
+
           // Only allow super_admin and system_admin to access this portal
           if (roleInfo.isSuperAdmin || roleInfo.isSystemAdmin) {
-            router.replace('/admin');
+            router.replace(safeNext ?? '/admin');
             return;
           } else if (roleInfo.isAuthorityManager) {
             // Authority manager tried to access super admin portal - redirect
@@ -54,11 +60,14 @@ export default function AdminLoginPage() {
     setLoading(true);
 
     try {
-      // Send magic link only for super_admin/system_admin
+      // Send magic link only for super_admin/system_admin. Forward the
+      // validated `next` so a session that expired mid-navigation lands
+      // back where the admin actually was, not always at /admin root.
+      const nextParam = safeNext ? `&next=${encodeURIComponent(safeNext)}` : '';
       const result = await sendAdminMagicLink(
         email,
         'super_admin', // This will check for both super_admin and system_admin
-        `${typeof window !== 'undefined' ? window.location.origin : ''}/admin/auth/callback?email=${encodeURIComponent(email)}`
+        `${typeof window !== 'undefined' ? window.location.origin : ''}/admin/auth/callback?email=${encodeURIComponent(email)}${nextParam}`
       );
 
       if (result.error) {
@@ -192,5 +201,19 @@ export default function AdminLoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AdminLoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+          <Loader2 className="w-12 h-12 text-cyan-600 animate-spin" />
+        </div>
+      }
+    >
+      <AdminLoginContent />
+    </Suspense>
   );
 }

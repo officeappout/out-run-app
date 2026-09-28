@@ -20,6 +20,7 @@ import {
   ActionCodeSettings,
 } from 'firebase/auth';
 import { auth } from './firebase';
+import { useSessionHealthStore } from './sessionHealth.store';
 
 /**
  * localStorage key holding a "previously authenticated" hint. Read by
@@ -833,21 +834,72 @@ export async function linkPhoneNumber(phoneNumber: string) {
  * as an authority manager (00-MASTER-PLAN.md §13.10: this exact race,
  * from a page OUTSIDE admin/layout.tsx — authority-portal/login — was
  * part of a real redirect loop in production).
+ *
+ * P1-3 (00-MASTER-PLAN.md §13.43/§13.45.1) — this is now the ONE call site
+ * that actually reaches /api/auth/session for a proactive mint/refresh.
+ * AdminSessionSync, useSessionRefresh (retired — folded into
+ * AdminSessionSync), and admin-fetch.ts's 401-retry all call through here
+ * instead of each doing their own fetch. Two dedup layers absorb the
+ * redundant calls that caused real 429s in production (a single sign-in
+ * could fire 3-4 independent mints — two explicit calls in
+ * admin/auth/callback/page.tsx's completeSignIn/resolveDestination, plus
+ * AdminSessionSync remounting fresh across admin/layout.tsx's loading→
+ * loaded render-branch switch):
+ *   - An in-flight promise, keyed by uid — concurrent callers for the SAME
+ *     user share one network round trip instead of firing N.
+ *   - A short "recently succeeded" cache, also keyed by uid — a second
+ *     call for the same user within RECENT_SUCCESS_TTL_MS is a no-op. This
+ *     is intentionally short (absorbs same-tick duplicates, not real
+ *     periodic refreshes 50+ minutes apart) and keyed by uid specifically
+ *     so an account-switch (sign out, sign in as someone else) is never
+ *     masked by the previous user's recent success.
+ * Any failure — rate limit, network, a rejected token — reports into
+ * useSessionHealthStore so SessionHealthBanner can surface it, instead of
+ * only a console.warn nobody but a developer ever sees.
  */
+const RECENT_SUCCESS_TTL_MS = 5_000;
+let inflightMint: { uid: string; promise: Promise<boolean> } | null = null;
+let lastMintSuccess: { uid: string; at: number } | null = null;
+
 export async function mintAdminSessionCookie(user: User): Promise<boolean> {
-  try {
-    const idToken = await user.getIdToken(/* forceRefresh */ true);
-    const res = await fetch('/api/auth/session', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idToken }),
-    });
-    return res.ok;
-  } catch (err) {
-    console.warn('[auth.service] mintAdminSessionCookie failed:', err);
-    return false;
+  const uid = user.uid;
+
+  if (lastMintSuccess && lastMintSuccess.uid === uid && Date.now() - lastMintSuccess.at < RECENT_SUCCESS_TTL_MS) {
+    return true;
   }
+  if (inflightMint && inflightMint.uid === uid) {
+    return inflightMint.promise;
+  }
+
+  const promise = (async (): Promise<boolean> => {
+    try {
+      const idToken = await user.getIdToken(/* forceRefresh */ true);
+      const res = await fetch('/api/auth/session', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
+      if (res.ok) {
+        lastMintSuccess = { uid, at: Date.now() };
+        useSessionHealthStore.getState().markOk();
+        return true;
+      }
+      console.warn(`[auth.service] mintAdminSessionCookie failed — HTTP ${res.status}`);
+      useSessionHealthStore.getState().markFailed(res.status === 429 ? 'rate_limited' : `http_${res.status}`);
+      return false;
+    } catch (err) {
+      console.warn('[auth.service] mintAdminSessionCookie failed:', err);
+      useSessionHealthStore.getState().markFailed('network');
+      return false;
+    }
+  })();
+
+  inflightMint = { uid, promise };
+  promise.finally(() => {
+    if (inflightMint?.promise === promise) inflightMint = null;
+  });
+  return promise;
 }
 
 /**

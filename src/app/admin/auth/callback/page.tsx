@@ -13,6 +13,7 @@ import { getAuthoritiesByManager, getAuthority } from '@/features/admin/services
 import { authorityTypeToTenantType } from '@/features/admin/config/tenantLabels';
 import { decidePreflightAction } from '@/features/admin/services/auth-callback-preflight';
 import { decideInvitationRoleRedirect, decideResolveDestinationBranch } from '@/features/admin/services/postAcceptRedirect';
+import { resolveSafeNextPath } from '@/features/admin/services/safeNextPath';
 import { CheckCircle, AlertCircle, Mail } from 'lucide-react';
 import AppLogoLoader from '@/components/AppLogoLoader';
 
@@ -127,7 +128,13 @@ function AuthCallbackContent() {
     });
 
     if (decision.kind === 'redirect') {
-      router.replace(decision.path);
+      // P1-3 (00-MASTER-PLAN.md §13.43): only this "existing role, no
+      // invitation" branch honors `next` — a session that simply expired
+      // mid-navigation lands back where the admin actually was. The
+      // invitation-acceptance branches above/below this function keep
+      // their own explicit, unrelated destination logic untouched.
+      const safeNext = resolveSafeNextPath(searchParams?.get('next'));
+      router.replace(safeNext ?? decision.path);
     } else if (decision.kind === 'cannot-determine') {
       setError(decision.message);
       setLoading(false);

@@ -5,8 +5,9 @@
  * with the Firebase Auth state on the client.
  *
  * Mounted once at the top of /admin/layout.tsx. Whenever
- * `onAuthStateChanged` fires with a user, this component fetches a
- * fresh ID token and POSTs it to /api/auth/session, which:
+ * `onAuthStateChanged` fires with a user, this component mints/refreshes
+ * the session via `mintAdminSessionCookie` (src/lib/auth.service.ts),
+ * which:
  *   1. Verifies the ID token with the Admin SDK,
  *   2. Resolves the admin role server-side, and
  *   3. Mints an HttpOnly HMAC session cookie consumed by the Edge
@@ -16,40 +17,28 @@
  * so we re-sync every 50 minutes while the tab is open. We also re-sync
  * when the tab regains focus, in case it was suspended past the TTL.
  *
+ * P1-3 (00-MASTER-PLAN.md §13.43/§13.45.1): this component used to POST
+ * to /api/auth/session directly via its own local `postSession`, entirely
+ * uncoordinated with the identical calls in auth.service.ts and
+ * useSessionRefresh.ts (now retired — its 55-minute timer was a pure
+ * subset of this component's 50-minute timer + focus listener, running
+ * in parallel for no added coverage). admin/layout.tsx also mounts a
+ * fresh instance of THIS component on every loading→loaded render-branch
+ * switch (three separate early-return JSX trees), which fired a second
+ * onAuthStateChanged-triggered mint on nearly every page load. Routing
+ * through mintAdminSessionCookie's own in-flight/recent-success dedup
+ * absorbs all of that instead of raising the rate limit — this is what
+ * actually eliminates the redundant POSTs, not just moving them around.
+ *
  * On sign-out, the component DELETEs the cookie immediately.
  */
 
 import { useEffect, useRef } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { mintAdminSessionCookie } from '@/lib/auth.service';
 
 const REFRESH_INTERVAL_MS = 50 * 60 * 1000; // 50 minutes
-
-async function postSession(idToken: string): Promise<boolean> {
-  try {
-    const res = await fetch('/api/auth/session', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idToken }),
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      console.warn(
-        `[AdminSessionSync] Session mint failed — HTTP ${res.status}.`,
-        body,
-        res.status === 401
-          ? 'Check that FIREBASE_SERVICE_ACCOUNT_KEY is set and the project ID matches.'
-          : '',
-      );
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.warn('[AdminSessionSync] Failed to reach /api/auth/session:', err);
-    return false;
-  }
-}
 
 async function clearSession(): Promise<void> {
   try {
@@ -71,12 +60,7 @@ export function AdminSessionSync() {
       refreshTimer.current = window.setInterval(async () => {
         const u = auth.currentUser;
         if (!u) return;
-        try {
-          const idToken = await u.getIdToken(/* forceRefresh */ true);
-          await postSession(idToken); // logs on failure, never throws
-        } catch (err) {
-          console.warn('[AdminSessionSync] Refresh failed:', err);
-        }
+        await mintAdminSessionCookie(u); // logs + reports to sessionHealth.store on failure, never throws
       }, REFRESH_INTERVAL_MS);
     };
 
@@ -90,25 +74,15 @@ export function AdminSessionSync() {
     const onFocus = async () => {
       const u = auth.currentUser;
       if (!u) return;
-      try {
-        const idToken = await u.getIdToken(true);
-        await postSession(idToken);
-      } catch {
-        /* swallow — next nav will re-trigger */
-      }
+      await mintAdminSessionCookie(u);
     };
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        try {
-          const idToken = await user.getIdToken(/* forceRefresh */ true);
-          const ok = await postSession(idToken);
-          // Only start the periodic refresh if the mint succeeded.
-          // If it failed, the next tab-focus will retry via onFocus.
-          if (ok) startRefresh();
-        } catch (err) {
-          console.warn('[AdminSessionSync] Initial mint failed:', err);
-        }
+        const ok = await mintAdminSessionCookie(user);
+        // Only start the periodic refresh if the mint succeeded.
+        // If it failed, the next tab-focus will retry via onFocus.
+        if (ok) startRefresh();
       } else {
         stopRefresh();
         await clearSession();
