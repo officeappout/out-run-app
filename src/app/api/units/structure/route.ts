@@ -66,10 +66,22 @@ interface UnitStructureEntry {
    * previous mechanism (getChildrenByParent, a municipal parent-child
    * authorities query) was always empty for military/educational tenants,
    * whose sub-units live in tenants/{t}/units, a different collection
-   * entirely; unit_admin uids were never reachable from it at all. Exposing
-   * raw uids here is no more sensitive than parentUnitId/iconUrl already
-   * returned — the caller's own resolved scope already gates which units
-   * are even in this response.
+   * entirely; unit_admin uids were never reachable from it at all.
+   *
+   * Exposing raw manager uids here does NOT violate this codebase's
+   * privacy rule (David, 28.09.2026 — the reasoning matters, not just the
+   * conclusion): that rule protects SOLDIERS from each other — a member
+   * never sees another member's identity. It does not protect COMMANDERS
+   * from each other. An officer seeing the other officers within their own
+   * scope is seeing their own team, which is the entire point of this
+   * field — not a leak. This field only ever carries manager uids, never
+   * regular-member uids (see computeUnitMembers/approvedMembers for that,
+   * a genuinely different, member-facing list this field must never be
+   * confused with). Scope containment is separately guaranteed and
+   * PROVEN (not just argued) in __tests__/route.test.ts: a narrowly-scoped
+   * unitAdmin's response never includes an ancestor unit, so its
+   * managerIds can never appear here regardless of what tenantId is
+   * requested — scope.tenantId governs, never the client-supplied query.
    */
   managerIds: string[];
 }
