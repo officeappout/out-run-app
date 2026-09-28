@@ -309,8 +309,19 @@ export async function POST(request: NextRequest) {
     // safe). (This comment previously named sendAdminMagicLink, which that
     // page never actually called — removed entirely 28.09.2026, see
     // axiom §25 / login-entry-points unification.)
-    const { invitationId, token, authorityId, email: invitedEmail } = result.body;
-    const inviteLink = `${request.nextUrl.origin}/admin/authority-login?token=${token}${authorityId ? `&authority=${authorityId}` : ''}`;
+    const { invitationId, token, authorityId, tenantId, email: invitedEmail } = result.body;
+    // authorityId is only ever set for authority_manager (line ~137 above);
+    // tenant_owner/unit_admin invites carry tenantId instead — but that
+    // value IS itself a real authorities/{id} doc (validated at line ~170:
+    // "tenantId must be a real military_unit or school authority"), same
+    // collection authorityId points at. Forwarding whichever one is set
+    // under the SAME &authority= param lets the receiving page
+    // (authority-portal/login/page.tsx) resolve branding/vertical for every
+    // role with zero changes on that end — before this fix, a unit_admin/
+    // tenant_owner invite link carried no vertical signal at all (David,
+    // 28.09.2026 investigation).
+    const linkOrgId = authorityId || tenantId;
+    const inviteLink = `${request.nextUrl.origin}/admin/authority-login?token=${token}${linkOrgId ? `&authority=${linkOrgId}` : ''}`;
 
     // callbackUrl — the direct target for the magic link the panel sends
     // automatically on the caller's behalf (see sendMagicLink's
