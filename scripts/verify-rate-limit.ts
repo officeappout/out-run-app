@@ -19,10 +19,14 @@
  *   3. Two independent keys (e.g. email vs IP dimension) never interfere
  *   4. isRateLimited fails OPEN when Firestore itself is unreachable
  *
- * The "gate runs before checkAdminEmail" ordering property is covered
- * separately, against the REAL sendAdminMagicLink with its dependencies
- * mocked, in src/features/admin/services/__tests__/passwordless-auth.service.test.ts
- * (npm test) — that one doesn't need the Firestore emulator at all.
+ * The "gate runs before the expensive work" ordering property lives in
+ * sendMagicLinkRateLimited (src/lib/auth.service.ts) — checkLoginLinkGate
+ * always runs first, before sendMagicLink. (This comment previously
+ * pointed at sendAdminMagicLink/checkAdminEmail and their own test file —
+ * both removed 28.09.2026, login-entry-points unification, axiom §25:
+ * checkAdminEmail's differential pre-check could never work for anyone
+ * but an admin caller and was itself an enumeration oracle. Both login
+ * doors now call sendMagicLinkRateLimited directly, unconditionally.)
  *
  * Usage:
  *   firebase emulators:start --only firestore   (in one terminal)

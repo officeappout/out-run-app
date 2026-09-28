@@ -164,8 +164,36 @@ export type AdminGateAction =
  *                                       to login — they have a perfectly
  *                                       valid session, they just tried a
  *                                       path outside their role
- *   anything else (no session,
- *   invalid session, neither claim)  → redirect to /admin/login
+ *   no session at all (missing/
+ *   invalid/expired cookie)
+ *     + pathname in the allowlist    → redirect to /authority-portal/login,
+ *                                       NOT /admin/login (login-entry-points
+ *                                       unification, David's hard rule #1,
+ *                                       00-MASTER-PLAN.md — confirmed live
+ *                                       28.09.2026: an officer whose session
+ *                                       expired mid-navigation on an
+ *                                       authority-scoped path was bounced to
+ *                                       David's own super-admin portal and
+ *                                       shown "email not found in the
+ *                                       system" there). There's no session
+ *                                       to read a `scope` claim from, but the
+ *                                       PATHNAME alone already tells us this
+ *                                       request belongs to the
+ *                                       officer/authority-manager door's own
+ *                                       territory — reusing the SAME
+ *                                       allowlist that already gates it when
+ *                                       a session IS present. A super_admin
+ *                                       who loses session while browsing one
+ *                                       of these shared paths lands on the
+ *                                       wrong-branded login form, but still
+ *                                       signs in correctly afterward —
+ *                                       /admin/auth/callback's
+ *                                       resolveDestination routes by REAL
+ *                                       role, never by which door was used
+ *                                       (same reasoning that already makes
+ *                                       authority-portal/login safe to send
+ *                                       a magic link unconditionally).
+ *     + pathname NOT in the allowlist→ redirect to /admin/login (unchanged)
  */
 export function decideAdminGateAction(
   pathname: string,
@@ -181,6 +209,9 @@ export function decideAdminGateAction(
   ) {
     const isAllowed = AUTHORITY_MANAGER_ALLOWED_PATHS.some((p) => pathname.startsWith(p));
     return isAllowed ? { action: 'allow' } : { action: 'redirect', to: '/admin/authority-manager' };
+  }
+  if (AUTHORITY_MANAGER_ALLOWED_PATHS.some((p) => pathname.startsWith(p))) {
+    return { action: 'redirect', to: '/authority-portal/login' };
   }
   return { action: 'redirect', to: '/admin/login' };
 }
@@ -347,18 +378,19 @@ export async function middleware(request: NextRequest) {
 
     if (decision.action === 'redirect') {
       const url = new URL(decision.to, request.url);
-      if (decision.to === '/admin/login') {
+      const isLoginBounce = decision.to === '/admin/login' || decision.to === '/authority-portal/login';
+      if (isLoginBounce) {
         // Preserve the requested path so the login flow can bounce
-        // the user back after successful authentication.
+        // the user back after successful authentication — either door.
         url.searchParams.set('next', pathname);
       }
       const res = NextResponse.redirect(url);
-      // Only wipe the cookie when bouncing to login (no valid session at
-      // all, or a session with neither claim). A scope==='authority_manager'
-      // session redirected to their own portal for trying an out-of-scope
-      // path is still perfectly valid — clearing it would force a
-      // needless re-login.
-      if (cookie && decision.to === '/admin/login') {
+      // Only wipe the cookie when bouncing to a login door (no valid
+      // session at all, or a session with neither claim). A
+      // scope==='authority_manager' session redirected to their own portal
+      // for trying an out-of-scope path is still perfectly valid — clearing
+      // it would force a needless re-login.
+      if (cookie && isLoginBounce) {
         res.cookies.delete(SESSION_COOKIE_NAME);
       }
       return res;

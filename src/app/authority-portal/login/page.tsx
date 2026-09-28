@@ -8,6 +8,7 @@ import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services
 import { sendMagicLinkRateLimited, mintAdminSessionCookie, signOutUser } from '@/lib/auth.service';
 import { getAuthoritiesByManager, getAuthority } from '@/features/admin/services/authority.service';
 import { decideLoopBreak, readLastLoopAttempt, recordLoopAttempt, clearLoopAttempt } from '@/features/admin/services/authority-login-loop-guard';
+import { resolveSafeNextPath } from '@/features/admin/services/safeNextPath';
 import { Building2, Mail, AlertCircle, CheckCircle, Loader2, X, MailCheck, Search } from 'lucide-react';
 import AppLogoLoader from '@/components/AppLogoLoader';
 
@@ -36,6 +37,14 @@ function AuthorityPortalLoginContent() {
   // Set when /admin/login bounced an already-signed-in authority manager
   // here (?redirected=1) — shown once as an explanation, not an error.
   const wasRedirectedFromAdminLogin = searchParams.get('redirected') === '1';
+
+  // Login-entry-points unification (00-MASTER-PLAN.md, 28.09.2026) —
+  // middleware.ts now sends a session-lost officer/authority-manager here
+  // (their own door, never /admin/login) with ?next=<the page they were on>
+  // set. Validated the same way /admin/login already validates it (P1-3) —
+  // resolveSafeNextPath rejects anything outside /admin and any open-
+  // redirect shape.
+  const safeNext = resolveSafeNextPath(searchParams.get('next'));
 
   // Loop breaker (00-MASTER-PLAN.md §13.10): this page redirects a
   // confirmed authority manager straight to /admin/authority-manager.
@@ -119,7 +128,7 @@ function AuthorityPortalLoginContent() {
             // stale/missing cookie on the very first /admin/authority-manager
             // request and bounces to /admin/login (00-MASTER-PLAN.md §13.10).
             await mintAdminSessionCookie(user);
-            router.replace('/admin/authority-manager');
+            router.replace(safeNext ?? '/admin/authority-manager');
             return;
           } else if (roleInfo.isSuperAdmin || roleInfo.isSystemAdmin) {
             router.replace('/admin/login');
@@ -160,7 +169,11 @@ function AuthorityPortalLoginContent() {
       // text back. The link is sent unconditionally to whatever address was
       // typed; the server decides what that account is entitled to only
       // AFTER a real sign-in, in /admin/auth/callback.
-      const continueUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/admin/auth/callback?email=${encodeURIComponent(email)}`;
+      // Forward the validated next= so a session that expired mid-
+      // navigation lands back where the officer/manager actually was,
+      // not always at the generic /admin/authority-manager default.
+      const nextParam = safeNext ? `&next=${encodeURIComponent(safeNext)}` : '';
+      const continueUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/admin/auth/callback?email=${encodeURIComponent(email)}${nextParam}`;
       const result = await sendMagicLinkRateLimited(email, continueUrl);
 
       if (result.error) {

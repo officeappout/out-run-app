@@ -305,7 +305,10 @@ export async function POST(request: NextRequest) {
     // inviteLink — the self-service entry point (copy-link fallback):
     // invitee lands on /admin/authority-login, types their OWN email, and
     // /authority-portal/login sends them a fresh magic link via
-    // sendAdminMagicLink (their own device, their own localStorage — safe).
+    // sendMagicLinkRateLimited (their own device, their own localStorage —
+    // safe). (This comment previously named sendAdminMagicLink, which that
+    // page never actually called — removed entirely 28.09.2026, see
+    // axiom §25 / login-entry-points unification.)
     const { invitationId, token, authorityId, email: invitedEmail } = result.body;
     const inviteLink = `${request.nextUrl.origin}/admin/authority-login?token=${token}${authorityId ? `&authority=${authorityId}` : ''}`;
 

@@ -8,7 +8,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
-import { sendAdminMagicLink } from '@/features/admin/services/passwordless-auth.service';
+import { sendMagicLinkRateLimited } from '@/lib/auth.service';
 import { resolveSafeNextPath } from '@/features/admin/services/safeNextPath';
 import { Shield, Mail, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 
@@ -60,28 +60,35 @@ function AdminLoginContent() {
     setLoading(true);
 
     try {
-      // Send magic link only for super_admin/system_admin. Forward the
-      // validated `next` so a session that expired mid-navigation lands
-      // back where the admin actually was, not always at /admin root.
+      // Login-entry-points unification (00-MASTER-PLAN.md, 28.09.2026,
+      // hard rule #2): send unconditionally, never reveal whether the
+      // address is registered or what role it holds. This used to call
+      // sendAdminMagicLink → checkAdminEmail → getUserByEmail, a client-SDK
+      // query firestore.rules can only ever satisfy for an admin caller
+      // (axiom §25) — for anyone else it silently permission-denied and
+      // was read as "not found", exactly the enumeration-shaped answer this
+      // was supposed to avoid, and actively broken for the one population
+      // (real admins signing in for the first time) it needed to serve.
+      // Matches authority-portal/login/page.tsx's already-proven pattern:
+      // send the link regardless, let /admin/auth/callback's
+      // resolveDestination decide what the signed-in account is actually
+      // entitled to, AFTER a real sign-in — never before.
       const nextParam = safeNext ? `&next=${encodeURIComponent(safeNext)}` : '';
-      const result = await sendAdminMagicLink(
+      const result = await sendMagicLinkRateLimited(
         email,
-        'super_admin', // This will check for both super_admin and system_admin
         `${typeof window !== 'undefined' ? window.location.origin : ''}/admin/auth/callback?email=${encodeURIComponent(email)}${nextParam}`
       );
 
       if (result.error) {
+        // Only ever a rate-limit or a genuine send failure — never
+        // depends on whether the address is registered.
         setError(result.error);
         setLoading(false);
         return;
       }
 
-      if (result.sent) {
-        setSuccess(`נשלח קישור התחברות לכתובת ${email}. בדוק את תיבת הדואר הנכנס שלך.`);
-        setEmail('');
-      } else {
-        setError('שגיאה בשליחת הקישור. נסה שוב.');
-      }
+      setSuccess('אם הכתובת רשומה כמנהל מערכת, יישלח אליה קישור התחברות מאובטח. בדוק את תיבת הדואר הנכנס שלך.');
+      setEmail('');
     } catch (err: any) {
       console.error('Error sending magic link:', err);
       setError('שגיאה בשליחת הקישור. נסה שוב.');

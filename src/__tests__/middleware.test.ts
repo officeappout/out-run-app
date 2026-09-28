@@ -99,15 +99,27 @@ describe('decideAdminGateAction', () => {
     expect(decideAdminGateAction('/admin/authority/users', authorityManager)).toEqual({ action: 'redirect', to: '/admin/authority-manager' });
   });
 
-  it('anonymous session (admin:false, no scope) — redirected to login', () => {
-    expect(decideAdminGateAction('/admin/authority-manager', anonymous)).toEqual({ action: 'redirect', to: '/admin/login' });
+  it('anonymous session (admin:false, no scope) on an authority-scoped path — redirected to the officer/authority-manager door, NOT /admin/login (login-entry-points unification, 28.09.2026 — see decideAdminGateAction\'s own doc comment)', () => {
+    expect(decideAdminGateAction('/admin/authority-manager', anonymous)).toEqual({ action: 'redirect', to: '/authority-portal/login' });
   });
 
-  it('no cookie at all — redirected to login', () => {
-    expect(decideAdminGateAction('/admin/authority-manager', invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/admin/login' });
+  it('anonymous session on a NON-authority path — still redirected to /admin/login (unchanged)', () => {
+    expect(decideAdminGateAction('/admin/roadmap', anonymous)).toEqual({ action: 'redirect', to: '/admin/login' });
   });
 
-  it('invalid/expired cookie (verifyAdminSession already returned null) — redirected to login, same as no cookie', () => {
-    expect(decideAdminGateAction('/admin/dashboard', invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/admin/login' });
+  it('no cookie at all, authority-scoped path — redirected to /authority-portal/login, not /admin/login (the exact production case: an officer\'s session expires mid-navigation on their own unit page)', () => {
+    expect(decideAdminGateAction('/admin/authority-manager', invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/authority-portal/login' });
+    expect(decideAdminGateAction('/admin/authority/units/9307', invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/authority-portal/login' });
+  });
+
+  it('invalid/expired cookie (verifyAdminSession already returned null), authority-scoped path — same fix applies, same as no cookie', () => {
+    expect(decideAdminGateAction('/admin/authority/team', invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/authority-portal/login' });
+  });
+
+  it('no session at all on a NON-authority path (e.g. root-only screens) — still redirected to /admin/login, the allowlist is unchanged', () => {
+    expect(decideAdminGateAction('/admin/dashboard', invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/authority-portal/login' }); // /admin/dashboard IS in AUTHORITY_MANAGER_ALLOWED_PATHS
+    expect(decideAdminGateAction('/admin/roadmap', invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/admin/login' });
+    expect(decideAdminGateAction('/admin', invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/admin/login' });
+    expect(decideAdminGateAction('/admin/exercises', invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/admin/login' });
   });
 });

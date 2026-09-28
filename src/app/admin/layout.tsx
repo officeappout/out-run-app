@@ -49,6 +49,7 @@ import {
     Wallet,
     SearchX,
     UsersRound,
+    AlertCircle,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -56,12 +57,15 @@ import { auth } from '@/lib/firebase';
 import { checkUserRole, isOnlyAuthorityManager, isSystemAdmin as checkIsSystemAdmin, UserRoleInfo } from '@/features/admin/services/auth.service';
 import { hasAnyAdminAccess } from '@/features/admin/services/adminAccessGate';
 import { getAuthoritiesByManager, getAllAuthorities, getAuthority } from '@/features/admin/services/authority.service';
-import { signOutUser } from '@/lib/auth.service';
+import { signOutUser, mintAdminSessionCookie } from '@/lib/auth.service';
+import { messageForSessionFailure } from '@/features/admin/services/sessionHealthMessage';
+import { useSessionHealthStore } from '@/lib/sessionHealth.store';
 import { clearLoopAttempt } from '@/features/admin/services/authority-login-loop-guard';
 import AppLogoLoader from '@/components/AppLogoLoader';
 import { authorityTypeToTenantType, getTenantLabels, orgTypeDisplayName, VERTICAL_THEMES } from '@/features/admin/config/tenantLabels';
 import type { Authority } from '@/types/admin-types';
 import { getSidebarConfig, type LucideIconName } from '@/features/admin/config/sidebarConfigs';
+import { resolveLoginDoorForPath } from '@/features/admin/services/loginDoorForPath';
 import { OrgSelectorProvider, useOrgSelector } from '@/features/admin/context/OrgSelectorContext';
 import { AdminSessionSync } from '@/features/admin/components/AdminSessionSync';
 import { SessionHealthBanner } from '@/features/admin/components/SessionHealthBanner';
@@ -154,6 +158,18 @@ function AdminLayoutInner({
     // fires the sign-out-and-redirect at most once per mount, so a session
     // that can't be reconciled lands cleanly on login instead of looping.
     const mismatchHandledRef = useRef(false);
+    // Login-entry-points unification (00-MASTER-PLAN.md, 28.09.2026) —
+    // additions 2-4. `serverConfirmed` gates ALL sidebar rendering (a
+    // POSITIVE condition — role resolved AND server agrees — rather than an
+    // exclusion list of paths to special-case, which is exactly the shape
+    // of the /admin/login sidebar-leak bug: nobody remembered to add it).
+    // `reconnectNeeded` is set only when we have DEFINITIVE evidence the
+    // server disagrees (no cookie at all) AND the one-shot re-mint below
+    // also failed — never on a merely-inconclusive diagnostic check, which
+    // would regress today's working case into an unnecessary reconnect
+    // screen for a transient blip unrelated to the actual session.
+    const [serverConfirmed, setServerConfirmed] = useState(false);
+    const [reconnectNeeded, setReconnectNeeded] = useState(false);
     const [authorityType, setAuthorityType] = useState<string | null>(null);
     const [managedAuthorityId, setManagedAuthorityId] = useState<string | null>(null);
     
@@ -245,10 +261,19 @@ function AdminLayoutInner({
                             window.location.href = '/admin/authority-login';
                         }
                     } else {
-                        // Redirect to admin login for all other admin routes
-                        router.push('/admin/login');
+                        // Login-entry-points unification (00-MASTER-PLAN.md,
+                        // 28.09.2026, hard rule #1) — route by pathname, not
+                        // unconditionally to /admin/login. middleware.ts
+                        // already does this server-side for the equivalent
+                        // case; this client-side fallback (a Firebase
+                        // client session clearing while already mounted, not
+                        // the server-gated initial load) must not
+                        // contradict it.
+                        router.push(resolveLoginDoorForPath(pathnameRef.current));
                     }
                 }
+                setServerConfirmed(false);
+                setReconnectNeeded(false);
                 setRoleInfo({
                     role: 'none',
                     isSuperAdmin: false,
@@ -300,10 +325,39 @@ function AdminLayoutInner({
                         setLoading(false);
                         return;
                     }
+                    if (!cookieUid) {
+                        // Client is authenticated, server has no session at
+                        // all — the exact disagreement confirmed live
+                        // 28.09.2026 (an officer's sidebar rendered while
+                        // middleware bounced the page content to
+                        // /admin/login). ONE re-mint attempt through the
+                        // existing metered entrypoint — never a new fetch
+                        // path, never a retry loop (mintAdminSessionCookie's
+                        // own in-flight/recent-success dedup already covers
+                        // concurrent callers; adding a second attempt here
+                        // would reintroduce the exact 429 burst P1-3 fixed).
+                        const remintOk = await mintAdminSessionCookie(user);
+                        if (!remintOk) {
+                            setReconnectNeeded(true);
+                            setLoading(false);
+                            return;
+                        }
+                    }
+                    setServerConfirmed(true);
                 } catch {
-                    // Non-fatal — the session-check itself is a diagnostic;
-                    // if it fails, fall through to the normal role check.
+                    // The diagnostic check itself failed (e.g. offline) —
+                    // NOT definitive evidence of a real cookie/client
+                    // disagreement. Optimistically proceed (unchanged from
+                    // before this fix) rather than showing a reconnect
+                    // screen for a blip unrelated to the actual session;
+                    // a genuinely invalid cookie still surfaces correctly
+                    // via middleware on the next real navigation.
+                    setServerConfirmed(true);
                 }
+            } else {
+                // Anonymous user, or the mismatch guard already fired this
+                // mount — neither case has anything left to confirm here.
+                setServerConfirmed(true);
             }
 
             try {
@@ -441,6 +495,8 @@ function AdminLayoutInner({
                 });
                 setOnlyAuthorityManager(false);
                 setIsSystemAdminOnly(false);
+                setServerConfirmed(false);
+                setReconnectNeeded(false);
             }
             setLoading(false);
         });
@@ -461,8 +517,15 @@ function AdminLayoutInner({
     const isLocalManager = onlyAuthorityManager || isTenantOwnerOnly || isUnitAdminOnly;
 
     const isNeighborhoodAdmin = onlyAuthorityManager && authorityType === 'neighborhood';
-    const showFullSidebar = !isLocalManager;
-    const showSimplifiedSidebar = isLocalManager;
+    // Login-entry-points unification (00-MASTER-PLAN.md, 28.09.2026),
+    // addition 4 — POSITIVE condition, not an exclusion list: the sidebar
+    // renders only when a role has resolved (roleInfo !== null) AND the
+    // server agrees (serverConfirmed) — never derived from a growing list
+    // of paths to special-case, which is exactly the shape of the bug that
+    // let /admin/login keep rendering an officer's sidebar around a
+    // content area the server had already bounced to a different account.
+    const showFullSidebar = !isLocalManager && serverConfirmed && roleInfo !== null;
+    const showSimplifiedSidebar = isLocalManager && serverConfirmed && roleInfo !== null;
     const showAuthorityManagerLink = isAuthorityManager || isTenantOwnerOnly;
     // superAdmin/systemAdmin only — /admin/city-mapping keeps its own explicit
     // guard regardless, but the sidebar link itself must not be offered to
@@ -683,6 +746,38 @@ function AdminLayoutInner({
             </button>
         );
     };
+
+    if (reconnectNeeded) {
+        // Login-entry-points unification (00-MASTER-PLAN.md, 28.09.2026),
+        // additions 2-4: a terminal, self-contained state — no sidebar (the
+        // whole point), no AdminSessionSync/SessionHealthBanner here (they
+        // would each independently try to mint again, reintroducing the
+        // retry loop addition 2 explicitly forbids). The ONE way forward is
+        // the explicit action below, never an automatic second attempt.
+        const reason = useSessionHealthStore.getState().lastFailureReason;
+        const isTransient = reason === 'network' || reason === 'rate_limited';
+        const loginDoor = resolveLoginDoorForPath(pathname);
+        const nextParam = pathname ? `?next=${encodeURIComponent(pathname)}` : '';
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-6" dir="rtl">
+                <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+                    <AlertCircle className="w-16 h-16 text-amber-500 mx-auto mb-4" />
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                        {isTransient ? 'לא הצלחנו לרענן את החיבור שלך' : 'החיבור שלך פג — יש להתחבר מחדש'}
+                    </h2>
+                    <p className="text-gray-600 mb-6">
+                        {messageForSessionFailure(reason)}
+                    </p>
+                    <a
+                        href={`${loginDoor}${nextParam}`}
+                        className="inline-block w-full bg-cyan-600 text-white py-3 rounded-xl font-bold hover:bg-cyan-700 transition-colors"
+                    >
+                        {isTransient ? 'נסה שוב' : 'התחבר מחדש'}
+                    </a>
+                </div>
+            </div>
+        );
+    }
 
     if (loading) {
         return (
