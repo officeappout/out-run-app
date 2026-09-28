@@ -4,10 +4,15 @@ import {
   isProgressionMapLeafProgram,
   getProgressionMapProgramName,
   PROGRESSION_MAP_LEAF_PROGRAMS,
+  PROGRESSION_MAP_HUB_PROGRAMS,
 } from '../progression-map-config';
 
 const FRONT_LEVER = 'mFcuYlNgKXLqWVUFo0zt';
 const PLANCHE = 'pCI5NHXpowu2ySucqDn8';
+const ONE_ARM_PULLUP = 'cC0BOmm6KIqYAyQynEIo';
+const HANDSTAND = 'IOfBZFeorTTDkcz3tOA6';
+const HSPU = 'PAxprHuT7HjqrWU4wl0T';
+const HUMAN_FLAG = 'EtY8YCol0qpF6DzgcTx1';
 const NOT_ALLOWLISTED = 'someOtherProgramIdNotOnTheList';
 
 describe('PROGRESSION_MAP_LEAF_PROGRAMS', () => {
@@ -18,6 +23,32 @@ describe('PROGRESSION_MAP_LEAF_PROGRAMS', () => {
   it('does not include מאסל אפ (excluded per the founder — isMaster mis-flag, founder-only fix)', () => {
     const ids = PROGRESSION_MAP_LEAF_PROGRAMS.map((p) => p.programId);
     expect(ids).not.toContain('fTLWzjP9gH2VNpamyCZF');
+  });
+});
+
+describe('PROGRESSION_MAP_HUB_PROGRAMS', () => {
+  it('has exactly the 4 hub-visible skills from the progression-hub brief', () => {
+    expect(PROGRESSION_MAP_HUB_PROGRAMS).toHaveLength(4);
+    const ids = PROGRESSION_MAP_HUB_PROGRAMS.map((p) => p.programId);
+    expect(ids).toEqual([FRONT_LEVER, PLANCHE, ONE_ARM_PULLUP, HSPU]);
+  });
+
+  it('excludes handstand and human flag — deliberately held back from the hub grid', () => {
+    const ids = PROGRESSION_MAP_HUB_PROGRAMS.map((p) => p.programId);
+    expect(ids).not.toContain(HANDSTAND);
+    expect(ids).not.toContain(HUMAN_FLAG);
+  });
+
+  it('is a strict subset of PROGRESSION_MAP_LEAF_PROGRAMS — every hub entry is also allow-listed', () => {
+    const allowlistIds = new Set(PROGRESSION_MAP_LEAF_PROGRAMS.map((p) => p.programId));
+    PROGRESSION_MAP_HUB_PROGRAMS.forEach((p) => expect(allowlistIds.has(p.programId)).toBe(true));
+  });
+
+  it('every non-hub leaf program has visibleInHub: false (no entry silently missing the flag)', () => {
+    const hubIds = new Set(PROGRESSION_MAP_HUB_PROGRAMS.map((p) => p.programId));
+    PROGRESSION_MAP_LEAF_PROGRAMS.forEach((p) => {
+      expect(p.visibleInHub).toBe(hubIds.has(p.programId));
+    });
   });
 });
 
