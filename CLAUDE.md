@@ -13,6 +13,7 @@ and the **React/Capacitor mobile app**. Owner: David, Calisthenics Ltd (office@a
 - ענף נקי מ-`origin/main` (**לא** מ-`main` המקומי — הוא עלול להיות מיושן/מוזז בגלל סשנים מקבילים), PR רגיל. מיזוג ישיר ל-`main` רק כשדוד מבקש זאת במפורש (למשל hotfix דחוף לפרודקשן).
 - Commit כל צעד קטן מקומית בתוך ה-worktree. אל תדחפו על כל צעד — צוברים commits, ודוחפים באצווה **רק** כשדוד אומר במפורש "push".
 - עצור אחרי כל commit (הצג diff, המשך לצעד הבא) ואחרי כל שינוי side-effect (push / מיזוג / מחיקה) — לאישור דוד.
+- **סמוק אחרי push — לתת לפריסה להתפשט לפני שמכריזים על תקלה.** קרה בפועל (28.09.2026, מיזוג `feat/login-entry-points-unification`): הבדיקה הראשונה מיד אחרי push הראתה עדיין את ההתנהגות **הישנה** בפרודקשן — לא רגרסיה, פריסת-Vercel/Edge שעוד לא התפשטה (לקח כ-100 שניות בפועל). בודקים שוב אחרי דקה-שתיים (פולינג — `until`-לולאה שכותבים לקובץ ומריצים, לא `sleep` בודד ולא הכרזה על כשל מיד) לפני שמדווחים על תקלה מהבדיקה הראשונה.
 - Flags: כרגע כולם `true`; **אל תחווט XP אמיתי ל-hybrid עד ש-single-save נסגר (Phase 2)** — אחרת double-count.
 - **חובות פתוחים ממעבר דגלי המפה לפאנל (wave 1, 08.09.2026):**
   1. `enable_hybrid_slots`/`enable_full_park_workout`/`enable_route_stops`/`enable_recommended_hybrid` (`src/hooks/feature-flag-defs.ts`) הם `defaultValue: true` — רשת ביטחון **זמנית** לחלון הזריעה, חריגה מדויקת מדפוס ה-fail-closed הרגיל. אחרי שבוע-שבועיים של יציבות במסמך `system_config/feature_flags` — להחזיר את כולם ל-`false` בניקוי נפרד. עד אז, כשל קריאה אמיתי מ-Firestore ידליק בטעות פיצ'ר שכובה בכוונה.
