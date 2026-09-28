@@ -1057,10 +1057,19 @@ export async function checkLoginLinkGate(email: string): Promise<{ allowed: bool
 /**
  * Same as sendMagicLink, but checked against the rate-limit gate first.
  * Use this at every DIRECT self-service call site (the caller IS the
- * intended recipient — e.g. authority-portal/login's own form). Admin-
- * initiated sends on someone else's behalf (skipLocalStorage: true sites)
- * go through passwordless-auth.service.ts's sendAdminMagicLink instead,
- * which gates itself before its own role-check work.
+ * intended recipient) — both login doors' own forms (authority-portal/
+ * login and, since the login-entry-points unification, 00-MASTER-PLAN.md
+ * 28.09.2026, admin/login too — its old sendAdminMagicLink pre-check via
+ * checkAdminEmail was removed entirely, see axiom §25: that check's own
+ * primary lookup could never work for anyone except an admin, and its
+ * differential response was exactly the enumeration shape this project
+ * exists to avoid). Both doors send unconditionally and defer all real
+ * authorization to /admin/auth/callback, after a genuine sign-in.
+ *
+ * Admin-initiated sends on someone else's behalf (inviting a new team
+ * member) go through raw sendMagicLink with `skipLocalStorage: true`
+ * instead — see InviteMemberModal.tsx — never through this function,
+ * since the caller here is never the intended recipient.
  *
  * Unlike sendMagicLink itself, the error string here is always a safe,
  * already-translated Hebrew message — never the raw Firebase error — so
