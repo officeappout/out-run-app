@@ -7,10 +7,13 @@ import { auth } from '@/lib/firebase';
 import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
 import { sendMagicLinkRateLimited, mintAdminSessionCookie, signOutUser } from '@/lib/auth.service';
 import { getAuthoritiesByManager, getAuthority } from '@/features/admin/services/authority.service';
+import { authorityTypeToTenantType, getTenantLabels } from '@/features/admin/config/tenantLabels';
+import { decideUnitAdminRedirect, decideTenantOwnerRedirect } from '@/features/admin/services/postAcceptRedirect';
 import { decideLoopBreak, readLastLoopAttempt, recordLoopAttempt, clearLoopAttempt } from '@/features/admin/services/authority-login-loop-guard';
 import { resolveSafeNextPath } from '@/features/admin/services/safeNextPath';
 import { Building2, Mail, AlertCircle, CheckCircle, Loader2, X, MailCheck, Search } from 'lucide-react';
 import AppLogoLoader from '@/components/AppLogoLoader';
+import type { TenantType } from '@/types/admin-types';
 
 export default function AuthorityPortalLoginPage() {
   return (
@@ -18,6 +21,32 @@ export default function AuthorityPortalLoginPage() {
       <AuthorityPortalLoginContent />
     </Suspense>
   );
+}
+
+// Mirrors admin/auth/callback/page.tsx's own resolveTenantType — both
+// callers need the org's ACTUAL current vertical to route/brand correctly.
+// tenant_owner gets core.tenantType written at accept-time, unit_admin does
+// NOT (checked against accept-invitation/route.ts — no such write in that
+// branch), so both resolve it fresh via getAuthority(tenantId) +
+// authorityTypeToTenantType() rather than trusting a possibly-missing
+// stored field. Also returns name/logo so this page reuses the SAME fetch
+// for branding instead of a second one.
+async function resolveTenantOrg(tenantId: string): Promise<{ tenantType: TenantType; name: string; logoUrl: string | null } | null> {
+  try {
+    const org = await getAuthority(tenantId);
+    if (!org) return null;
+    // Authority['name'] is typed as plain `string`, but real docs can carry
+    // a {he,en} object at runtime (the same pre-existing drift admin/
+    // layout.tsx's unit_admin branch already works around this same way —
+    // not fixing the underlying type here, out of scope). Explicit cast
+    // instead of the `.he`/`.en`-on-`never` narrowing error the plain
+    // ternary below produces.
+    const rawName = org.name as unknown as string | { he?: string; en?: string };
+    const name = typeof rawName === 'object' && rawName !== null ? (rawName.he || rawName.en || '') : (rawName || '');
+    return { tenantType: authorityTypeToTenantType(org), name, logoUrl: org.logoUrl ?? null };
+  } catch {
+    return null;
+  }
 }
 
 function AuthorityPortalLoginContent() {
@@ -33,6 +62,15 @@ function AuthorityPortalLoginContent() {
   const [brandName, setBrandName] = useState<string | null>(null);
   const [brandLogo, setBrandLogo] = useState<string | null>(null);
   const [brandLoading, setBrandLoading] = useState(false);
+  // Vertical-copy pass (28.09.2026) — resolved from the SAME ?authority=
+  // param as brandName/brandLogo below (once /api/admin/invitations
+  // forwards tenantId for unit_admin/tenant_owner invites too, not just
+  // authorityId), or from the post-auth branch further down for a
+  // returning/session-loss officer. null (unresolved) renders today's
+  // existing municipal copy via getTenantLabels' own fallback — never a
+  // guess at an unconfirmed vertical.
+  const [tenantType, setTenantType] = useState<TenantType | null>(null);
+  const labels = getTenantLabels(tenantType);
 
   // Set when /admin/login bounced an already-signed-in authority manager
   // here (?redirected=1) — shown once as an explanation, not an error.
@@ -84,6 +122,7 @@ function AuthorityPortalLoginContent() {
           const name = typeof auth.name === 'string' ? auth.name : (auth.name?.he || auth.name?.en || '');
           if (name) setBrandName(name);
           if (auth.logoUrl) setBrandLogo(auth.logoUrl);
+          setTenantType(authorityTypeToTenantType(auth));
         }
       })
       .catch(() => {})
@@ -97,6 +136,60 @@ function AuthorityPortalLoginContent() {
         try {
           const roleInfo = await checkUserRole(user.uid);
           const isOnly = await isOnlyAuthorityManager(user.uid);
+
+          // Login-entry-points unification follow-up (28.09.2026, David's
+          // live-test finding) — check isTenantOwner/isUnitAdmin BEFORE
+          // isAuthorityManager, the same ordering postAcceptRedirect.ts
+          // documents and admin/auth/callback/page.tsx already follows: a
+          // real tenant_owner is ALSO, mechanically, an authority_manager
+          // (accept-invitation/route.ts arrayUnions them into
+          // authorities/{tenantId}.managerIds too) — checking
+          // isAuthorityManager first would send every tenant_owner to
+          // /admin/authority-manager instead of their own destination.
+          // unit_admin has no such collision but was never handled at all
+          // before this: falling through every branch below, it silently
+          // showed this page's login FORM to an already-authenticated
+          // officer, unbranded — exactly what David reported.
+          if (roleInfo.isTenantOwner || roleInfo.isUnitAdmin) {
+            // Same loop guard as the authority_manager branch below — an
+            // already-signed-in local manager landing here (a session-loss
+            // bounce, not a fresh visit) is the same category of risk
+            // regardless of which of the three local-manager roles it is.
+            const loopDecision = decideLoopBreak(readLastLoopAttempt(), Date.now());
+            if (loopDecision === 'stop') {
+              setLoopDetected(true);
+              setCheckingAuth(false);
+              return;
+            }
+            recordLoopAttempt();
+
+            const org = roleInfo.tenantId ? await resolveTenantOrg(roleInfo.tenantId) : null;
+            if (!brandName && org) {
+              setBrandName(org.name);
+              if (org.logoUrl) setBrandLogo(org.logoUrl);
+            }
+            if (org) setTenantType(org.tenantType);
+
+            const decision = roleInfo.isUnitAdmin
+              ? decideUnitAdminRedirect({ tenantId: roleInfo.tenantId, unitId: roleInfo.unitId, tenantType: org?.tenantType ?? null })
+              : decideTenantOwnerRedirect({ tenantId: roleInfo.tenantId, tenantType: org?.tenantType ?? null });
+
+            if (decision.kind === 'redirect') {
+              // Mint BEFORE navigating — same reason as the
+              // authority_manager branch below: this page lives OUTSIDE
+              // admin/layout.tsx, so AdminSessionSync never runs here.
+              await mintAdminSessionCookie(user);
+              router.replace(safeNext ?? decision.path);
+              return;
+            }
+            // 'cannot-determine' — a declared failure, not a silent one
+            // (same principle as admin/layout.tsx's
+            // unitOrgResolutionFailed): surface the message on this page's
+            // existing error banner rather than guess a destination.
+            setError(decision.message);
+            setCheckingAuth(false);
+            return;
+          }
 
           if (roleInfo.isAuthorityManager || isOnly) {
             // Loop guard: retry on the first attempt regardless of
@@ -259,12 +352,12 @@ function AuthorityPortalLoginContent() {
               </h1>
             )}
             <p className="text-lg text-gray-700 font-semibold mb-2">
-              פורטל ניהול הבריאות הרשותי
+              {labels.loginSubtitle}
             </p>
             <p className="text-sm text-gray-600 max-w-sm mx-auto leading-relaxed">
               {brandName
-                ? `התחברו לניהול הפארקים והמסלולים ב${brandName}`
-                : 'התחברו לניהול הפארקים והמסלולים במועצה המקומית שלכם'}
+                ? `התחברו לניהול ${labels.loginSubjectPhrase} ב${brandName}`
+                : `התחברו לניהול ${labels.loginSubjectPhrase} ${labels.loginOrgFallbackPhrase}`}
             </p>
           </div>
         </div>
@@ -275,7 +368,7 @@ function AuthorityPortalLoginContent() {
             <div className="mb-6 p-4 border border-cyan-200 bg-cyan-50 rounded-xl flex items-start gap-3">
               <Building2 size={20} className="flex-shrink-0 mt-0.5 text-cyan-600" />
               <p className="text-sm flex-1 text-cyan-800">
-                זוהית כמנהל רשות — הועברת לפורטל הנכון עבורך.
+                {labels.loginRedirectedBanner}
               </p>
             </div>
           )}
@@ -307,12 +400,12 @@ function AuthorityPortalLoginContent() {
                   required
                   disabled={loading}
                   className="w-full pr-12 pl-4 py-4 text-base text-gray-900 placeholder:text-gray-600 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-gray-50 focus:bg-white"
-                  placeholder="your.email@municipality.co.il"
+                  placeholder={labels.loginEmailPlaceholder}
                   dir="ltr"
                 />
               </div>
               <p className="mt-3 text-xs text-gray-500 text-center">
-                אם המייל רשום כמנהל, יישלח אליו קישור.
+                {labels.loginEmailHelper}
               </p>
             </div>
 
@@ -377,8 +470,8 @@ function AuthorityPortalLoginContent() {
 
             {/* Body */}
             <p className="text-gray-600 text-center leading-relaxed mb-2">
-              אם המייל שהזנת רשום כמנהל רשות, יישלח אליו קישור התחברות מאובטח.
-              לחיצה על הקישור תעביר אותך אוטומטית ליעד המתאים לך.
+              {labels.loginSuccessModalBody}
+              {' '}לחיצה על הקישור תעביר אותך אוטומטית ליעד המתאים לך.
             </p>
 
             {/* Email badge */}

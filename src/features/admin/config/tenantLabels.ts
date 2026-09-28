@@ -30,6 +30,33 @@ export interface TenantLabelSet {
   /** The org itself — for org-picker labels/placeholders and breadcrumb roots (municipal: רשות, military: חטיבה, educational: בית ספר) */
   orgSingular: string;
   orgPlural: string;
+  /**
+   * authority-portal/login/page.tsx's vertical-copy pass (28.09.2026,
+   * David's "same door, language derived by tenantType" fix). This is the
+   * shared login door for authority_manager, tenant_owner AND unit_admin —
+   * before this, its copy was hardcoded municipal wording ("פורטל ניהול
+   * הבריאות הרשותי", "אם המייל רשום כמנהל רשות" etc.) shown unmodified to
+   * every vertical. municipal's values below are the EXACT pre-existing
+   * strings, byte-for-byte — this must not change anything a municipal
+   * authority_manager sees. The others are new, reasonable-but-unconfirmed
+   * wording (flagged in the completion report), grounded in each vertical's
+   * existing hierarchyLabels/managerSingular already in this file.
+   */
+  loginSubtitle: string;
+  /** The "what you're managing" noun phrase — plugs into both the
+   * with-org-name and no-org-name description sentences identically. */
+  loginSubjectPhrase: string;
+  /** The "your X" fallback phrase used only when no org name resolved yet. */
+  loginOrgFallbackPhrase: string;
+  loginEmailPlaceholder: string;
+  loginEmailHelper: string;
+  /** wasRedirectedFromAdminLogin banner — shown when /admin/login bounces an
+   * already-signed-in local manager here. */
+  loginRedirectedBanner: string;
+  /** Success-modal body after the magic link is sent — David's literally-
+   * quoted example ("אם המייל רשום כמנהל רשות") is THIS string, not the
+   * shorter loginEmailHelper under the input field. */
+  loginSuccessModalBody: string;
 }
 
 /** Visual theme color tokens per vertical */
@@ -108,6 +135,13 @@ export const TENANT_LABELS: Record<TenantType, TenantLabelSet> = {
     teamTitle: 'ניהול צוות רשותי',
     orgSingular: 'רשות',
     orgPlural: 'רשויות',
+    loginSubtitle: 'פורטל ניהול הבריאות הרשותי',
+    loginSubjectPhrase: 'הפארקים והמסלולים',
+    loginOrgFallbackPhrase: 'במועצה המקומית שלכם',
+    loginEmailPlaceholder: 'your.email@municipality.co.il',
+    loginEmailHelper: 'אם המייל רשום כמנהל, יישלח אליו קישור.',
+    loginRedirectedBanner: 'זוהית כמנהל רשות — הועברת לפורטל הנכון עבורך.',
+    loginSuccessModalBody: 'אם המייל שהזנת רשום כמנהל רשות, יישלח אליו קישור התחברות מאובטח.',
   },
   military: {
     orgTypeLabel: 'צבאי',
@@ -125,6 +159,13 @@ export const TENANT_LABELS: Record<TenantType, TenantLabelSet> = {
     teamTitle: 'ניהול צוות צבאי',
     orgSingular: 'חטיבה',
     orgPlural: 'חטיבות',
+    loginSubtitle: 'פורטל ניהול הכשירות הגופנית',
+    loginSubjectPhrase: 'האימונים והכשירות',
+    loginOrgFallbackPhrase: 'ביחידה שלכם',
+    loginEmailPlaceholder: 'your.email@idf.il',
+    loginEmailHelper: 'אם המייל רשום כקצין ביחידה, יישלח אליו קישור.',
+    loginRedirectedBanner: 'זוהית כקצין ביחידה — הועברת לפורטל הנכון עבורך.',
+    loginSuccessModalBody: 'אם המייל שהזנת רשום כקצין ביחידה, יישלח אליו קישור התחברות מאובטח.',
   },
   educational: {
     orgTypeLabel: 'חינוכי',
@@ -146,6 +187,13 @@ export const TENANT_LABELS: Record<TenantType, TenantLabelSet> = {
     teamTitle: 'ניהול צוות בית ספר',
     orgSingular: 'בית ספר',
     orgPlural: 'בתי ספר',
+    loginSubtitle: 'פורטל ניהול החינוך הגופני',
+    loginSubjectPhrase: 'החינוך הגופני',
+    loginOrgFallbackPhrase: 'בבית הספר שלכם',
+    loginEmailPlaceholder: 'your.email@school.org.il',
+    loginEmailHelper: 'אם המייל רשום כמורה או רכז חנ"ג, יישלח אליו קישור.',
+    loginRedirectedBanner: 'זוהית כמורה או רכז חנ"ג — הועברת לפורטל הנכון עבורך.',
+    loginSuccessModalBody: 'אם המייל שהזנת רשום כמורה או רכז חנ"ג, יישלח אליו קישור התחברות מאובטח.',
   },
   company: {
     orgTypeLabel: 'ארגון',
@@ -163,6 +211,13 @@ export const TENANT_LABELS: Record<TenantType, TenantLabelSet> = {
     teamTitle: 'ניהול צוות ארגוני',
     orgSingular: 'חברה',
     orgPlural: 'חברות',
+    loginSubtitle: 'פורטל ניהול הרווחה הארגונית',
+    loginSubjectPhrase: 'תוכנית הבריאות',
+    loginOrgFallbackPhrase: 'בארגון שלכם',
+    loginEmailPlaceholder: 'your.email@company.co.il',
+    loginEmailHelper: 'אם המייל רשום כמנהל/ת, יישלח אליו קישור.',
+    loginRedirectedBanner: 'זוהית כמנהל/ת — הועברת לפורטל הנכון עבורך.',
+    loginSuccessModalBody: 'אם המייל שהזנת רשום כמנהל/ת, יישלח אליו קישור התחברות מאובטח.',
   },
   youth_movement: {
     orgTypeLabel: 'תנועת נוער',
@@ -180,6 +235,13 @@ export const TENANT_LABELS: Record<TenantType, TenantLabelSet> = {
     teamTitle: 'ניהול צוות תנועה',
     orgSingular: 'תנועה',
     orgPlural: 'תנועות',
+    loginSubtitle: 'פורטל ניהול הפעילות הגופנית',
+    loginSubjectPhrase: 'הפעילות הגופנית',
+    loginOrgFallbackPhrase: 'בתנועה שלכם',
+    loginEmailPlaceholder: 'your.email@movement.org.il',
+    loginEmailHelper: 'אם המייל רשום כרכז/ת, יישלח אליו קישור.',
+    loginRedirectedBanner: 'זוהית כרכז/ת — הועברת לפורטל הנכון עבורך.',
+    loginSuccessModalBody: 'אם המייל שהזנת רשום כרכז/ת, יישלח אליו קישור התחברות מאובטח.',
   },
 };
 

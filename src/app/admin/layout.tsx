@@ -170,6 +170,18 @@ function AdminLayoutInner({
     // screen for a transient blip unrelated to the actual session.
     const [serverConfirmed, setServerConfirmed] = useState(false);
     const [reconnectNeeded, setReconnectNeeded] = useState(false);
+    // §13.49 follow-up (28.09.2026, David's live-test finding) — a DISTINCT
+    // failure from reconnectNeeded above: the session/cookie are fine, but
+    // resolving the unit_admin's own tenant org (getAuthority(info.tenantId)
+    // below) came back empty. Before this flag existed, that silently fell
+    // through to getSidebarConfig(null)'s municipal default — a real
+    // officer saw a full municipal menu including a "דשבורד אנליטיקה" link
+    // to /admin/authority-manager, which the officer can't actually reach
+    // (middleware bounces it), i.e. a working session led to a dead click.
+    // The rule this closes: a resolution failure must be a DECLARED state
+    // the sidebar renders explicitly, never a silent fallback to a
+    // different vertical's real menu.
+    const [unitOrgResolutionFailed, setUnitOrgResolutionFailed] = useState(false);
     const [authorityType, setAuthorityType] = useState<string | null>(null);
     const [managedAuthorityId, setManagedAuthorityId] = useState<string | null>(null);
     
@@ -274,6 +286,7 @@ function AdminLayoutInner({
                 }
                 setServerConfirmed(false);
                 setReconnectNeeded(false);
+                setUnitOrgResolutionFailed(false);
                 setRoleInfo({
                     role: 'none',
                     isSuperAdmin: false,
@@ -475,8 +488,24 @@ function AdminLayoutInner({
                             setAuthorityType(tenantAuth.type ?? null);
                             setManagedAuthorityId(tenantAuth.id);
                             orgCtx?.setSelectedOrgId(tenantAuth.id);
+                            setUnitOrgResolutionFailed(false);
+                        } else {
+                            // getAuthority resolved but found no matching
+                            // authorities/{tenantId} doc — a declared failure,
+                            // not a silent one (see the state's own comment).
+                            console.error('[AdminLayout] unit_admin tenant org not found for tenantId:', info.tenantId);
+                            setUnitOrgResolutionFailed(true);
                         }
-                    } catch { /* non-critical */ }
+                    } catch (error) {
+                        console.error('[AdminLayout] unit_admin tenant org lookup failed:', error);
+                        setUnitOrgResolutionFailed(true);
+                    }
+                } else if (info.isUnitAdmin && !info.tenantId) {
+                    // info.isUnitAdmin true but tenantId itself is missing —
+                    // previously skipped this whole block silently, same
+                    // failure class as above, now declared the same way.
+                    console.error('[AdminLayout] unit_admin has no core.tenantId at all');
+                    setUnitOrgResolutionFailed(true);
                 }
             } catch (error) {
                 console.error('Error checking user role:', error);
@@ -497,6 +526,7 @@ function AdminLayoutInner({
                 setIsSystemAdminOnly(false);
                 setServerConfirmed(false);
                 setReconnectNeeded(false);
+                setUnitOrgResolutionFailed(false);
             }
             setLoading(false);
         });
@@ -890,7 +920,33 @@ function AdminLayoutInner({
                             />
                         </div>
                         );
-                        })() : (() => {
+                        })() : isUnitAdminOnly ? (
+                        /* ── Unit Admin — org resolution failed (declared,
+                           28.09.2026) — reaching here means isUnitAdminOnly
+                           is true but managedAuthorityId/roleInfo.unitId
+                           didn't resolve (see unitOrgResolutionFailed's own
+                           comment above). Must NOT fall through to the
+                           generic getSidebarConfig branch below: that would
+                           silently hand this officer a DIFFERENT vertical's
+                           real menu, including links (e.g. "אנליטיקה" →
+                           /admin/authority-manager) they can't actually
+                           reach — a working session ending in a dead click. */
+                        <div className="space-y-3 px-1">
+                            <div className="rounded-xl border border-amber-700/30 bg-amber-900/20 p-3">
+                                <p className="text-xs font-bold text-amber-400">לא הצלחנו לזהות את היחידה שלך</p>
+                                <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">
+                                    ייתכן שזו תקלת חיבור זמנית. נסה שוב — אם זה חוזר, פנה למפקד או למנהל המערכת.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => { if (typeof window !== 'undefined') window.location.reload(); }}
+                                className="w-full rounded-xl bg-slate-800 px-4 py-2 text-xs font-bold text-white hover:bg-slate-700 transition-colors"
+                            >
+                                נסה שוב
+                            </button>
+                        </div>
+                        ) : (() => {
                         /* ── Data-driven Portal sidebar (military / school / municipal / etc.) ── */
                         const sidebarCfg = getSidebarConfig(authorityType);
                         return (
