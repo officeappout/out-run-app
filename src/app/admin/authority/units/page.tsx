@@ -376,6 +376,11 @@ export default function UnitsListPage() {
           }
         } else {
           const auths = await getAuthoritiesByManager(user.uid);
+          // decideUnitsListOrgSource only picks which orgId THIS PAGE asks
+          // /api/units/structure about — never an authorization decision.
+          // That endpoint re-derives the caller's real scope server-side
+          // from their verified uid regardless of what tenantId gets sent
+          // here (see the function's own header comment).
           const decision = decideUnitsListOrgSource(role, auths[0]);
           if (decision.kind === 'org') {
             setSelectedOrgId(decision.orgId);
