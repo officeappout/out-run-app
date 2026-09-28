@@ -394,6 +394,36 @@ function AdminLayoutInner({
                         }
                     } catch { /* non-critical */ }
                 }
+
+                // Unit Admin — §13.49's finding: this branch never existed,
+                // so a clean unit_admin (isTenantOwner false, isUnitAdmin
+                // true) never got authorityName/authorityType/
+                // managedAuthorityId at all, which is why the sidebar had
+                // nothing to render for them (isLocalManager was always
+                // false, and the full-sidebar's hasSec() denies every
+                // section with no allowedSections). Mirrors the tenant_owner
+                // branch above exactly — same source (info.tenantId), same
+                // load, same non-critical failure handling.
+                if (info.isUnitAdmin && info.tenantId) {
+                    try {
+                        const tenantAuth = await getAuthority(info.tenantId);
+                        if (tenantAuth) {
+                            // Authority['name'] is typed as plain `string`, but
+                            // real docs can carry a {he,en} object at runtime
+                            // (same mismatch the isOnly/isAuthorityManager and
+                            // tenant_owner branches above already have — not
+                            // fixing those here, out of scope). Cast explicitly
+                            // instead of reproducing their `never`-narrowing tsc
+                            // error a third time.
+                            const name = tenantAuth.name as unknown as string | { he?: string; en?: string };
+                            const sanitizedName = typeof name === 'object' && name !== null ? (name.he || name.en || '') : (name || '');
+                            setAuthorityName(sanitizedName);
+                            setAuthorityType(tenantAuth.type ?? null);
+                            setManagedAuthorityId(tenantAuth.id);
+                            orgCtx?.setSelectedOrgId(tenantAuth.id);
+                        }
+                    } catch { /* non-critical */ }
+                }
             } catch (error) {
                 console.error('Error checking user role:', error);
                 setRoleInfo({
@@ -423,8 +453,13 @@ function AdminLayoutInner({
     const isVerticalAdminOnly = (roleInfo?.isVerticalAdmin ?? false) && !isSuperAdmin && !isSystemAdmin;
     const isAuthorityManager = roleInfo?.isAuthorityManager ?? false;
     const isTenantOwnerOnly = (roleInfo?.isTenantOwner ?? false) && !isSuperAdmin && !isSystemAdmin && !isAuthorityManager;
-    const isLocalManager = onlyAuthorityManager || isTenantOwnerOnly;
-    
+    // §13.49 — unit_admin's own local-manager flag, mirroring isTenantOwnerOnly.
+    // checkUserRole already derives isUnitAdmin as mutually exclusive with
+    // isTenantOwner (!isTenantOwner && !!unitId), so no explicit exclusion
+    // is needed here for consistency with that sibling flag's own style.
+    const isUnitAdminOnly = (roleInfo?.isUnitAdmin ?? false) && !isSuperAdmin && !isSystemAdmin && !isAuthorityManager;
+    const isLocalManager = onlyAuthorityManager || isTenantOwnerOnly || isUnitAdminOnly;
+
     const isNeighborhoodAdmin = onlyAuthorityManager && authorityType === 'neighborhood';
     const showFullSidebar = !isLocalManager;
     const showSimplifiedSidebar = isLocalManager;
@@ -728,7 +763,39 @@ function AdminLayoutInner({
                             <SidebarLink href="/admin/authority/locations" icon={Map} label="מיקומים" />
                             <SidebarLink href="/admin/authority/reports" icon={Flag} label="דיווחים" />
                         </div>
-                        ) : (() => {
+                        ) : isUnitAdminOnly && managedAuthorityId && roleInfo?.unitId ? (() => {
+                        /* ── Unit Admin — minimal sidebar (§13.49), same
+                           pattern as Neighborhood Admin above: a level-2
+                           role gets ONE scoped link, not the tenant's full
+                           sidebar. Links straight at the officer's own unit
+                           detail page — [unitId]/page.tsx already resolves
+                           ?org= with priority over getAuthoritiesByManager
+                           (which is always empty for a unit_admin), so this
+                           carries exactly the params postAcceptRedirect.ts
+                           already uses for the same page immediately after
+                           accepting an invitation. Sub-units/members/
+                           approvals are already built INTO that page — no
+                           second link needed for them. */
+                        const tenantTypeForLink = authorityTypeToTenantType(authorityType);
+                        const badgeCfg = getSidebarConfig(authorityType);
+                        return (
+                        <div className="space-y-1">
+                            {authorityName && (
+                                <div className={`px-4 py-2.5 mb-3 rounded-xl border ${badgeCfg.badgeColorClass}`}>
+                                    <p className={`text-[10px] font-bold uppercase tracking-widest ${badgeCfg.badgeTextClass}`}>פורטל יחידה</p>
+                                    <p className="text-sm font-black text-white truncate">{authorityName}</p>
+                                </div>
+                            )}
+
+                            <SidebarLink
+                                href={`/admin/authority/units/${roleInfo.unitId}?type=${tenantTypeForLink}&org=${managedAuthorityId}`}
+                                icon={Users}
+                                label="היחידה שלי"
+                                isActive={pathname?.startsWith('/admin/authority/units')}
+                            />
+                        </div>
+                        );
+                        })() : (() => {
                         /* ── Data-driven Portal sidebar (military / school / municipal / etc.) ── */
                         const sidebarCfg = getSidebarConfig(authorityType);
                         return (

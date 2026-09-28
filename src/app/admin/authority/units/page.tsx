@@ -10,6 +10,7 @@ import { auth, db } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, setDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import { getAuthoritiesByManager, getAllAuthorities, getAuthority, getChildrenByParent } from '@/features/admin/services/authority.service';
+import { decideUnitsListOrgSource } from '@/features/admin/services/unitsListOrgSource';
 import { authorityTypeToTenantType, getTenantLabels, orgTypeDisplayName, VERTICAL_THEMES } from '@/features/admin/config/tenantLabels';
 import type { Authority, TenantType } from '@/types/admin-types';
 import { Loader2, Users, ChevronLeft, Building2, Globe, Plus, X, Shield, GraduationCap, Upload, AlertTriangle, CheckCircle, Trash2, ArrowRight } from 'lucide-react';
@@ -375,10 +376,16 @@ export default function UnitsListPage() {
           }
         } else {
           const auths = await getAuthoritiesByManager(user.uid);
-          const authority = auths[0];
-          if (!authority) { setLoading(false); return; }
-          setSelectedOrgId(authority.id);
-          await loadUnitsForAuthority(authority.id);
+          const decision = decideUnitsListOrgSource(role, auths[0]);
+          if (decision.kind === 'org') {
+            setSelectedOrgId(decision.orgId);
+            await loadUnitsForAuthority(decision.orgId);
+          } else if (decision.kind === 'unit-admin-tenant') {
+            setSelectedOrgId(decision.tenantId);
+            await loadUnitsForAuthority(decision.tenantId);
+          } else {
+            setStructureLoadError('לא נמצא ארגון או יחידה המשויכים לחשבון שלך. אם לדעתך זו טעות, פנה למנהל המערכת.');
+          }
         }
       } catch (err) {
         console.error('[Units] load error:', err);
