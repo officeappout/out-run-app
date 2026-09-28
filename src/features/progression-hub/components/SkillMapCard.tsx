@@ -7,13 +7,18 @@
  * section already use (ProgramProgressCard) — no new card UI. This
  * component only adds the navigation wrapper (tap → that program's Skill
  * Tree) and fetches the small bits ProgramProgressCard needs that live on
- * the Program doc (icon, maxLevels), the same way SkillTreeScreen.tsx
- * fetches its own single program's meta.
+ * the Program doc (name, icon), the same way SkillTreeScreen.tsx fetches
+ * its own single program's meta.
  *
- * currentLevel/percent come from useUserProgramLevel — the same hook the
- * Tree screen's own header uses for "רמה X מתוך Y" — called once per card
- * instance (one hook call per mounted component), never inside a loop in
- * the parent grid.
+ * Round 10 fix: maxLevel now comes from useSkillTree's `tree.maxLevel` —
+ * the SAME source the Tree screen's own header ("רמה X מתוך Y") uses —
+ * not Program.maxLevels (a separate, manually-set CMS field that was
+ * showing "15" for every one of these skills regardless of its real
+ * ladder length; the Tree header never reads that field at all for this
+ * text, only the actual exercise-derived tree does). currentLevel/percent
+ * still come from useUserProgramLevel (useSkillTree calls it internally
+ * too, for currentLevel — calling it again here just for `percent` is a
+ * small, accepted duplication, not a bug).
  */
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -21,10 +26,7 @@ import { getProgramByTemplateId } from '@/features/content/programs/core/program
 import type { Program } from '@/features/content/programs/core/program.types';
 import { ProgramProgressCard } from '@/features/home/components/widgets/ProgramProgressCard';
 import { useUserProgramLevel } from '@/features/progression-map/hooks/useUserProgramLevel';
-
-// Same fallback ProgramsSection.tsx's buildCardData uses when a Program doc
-// has no maxLevels set — not invented here, matching established precedent.
-const FALLBACK_MAX_LEVEL = 25;
+import { useSkillTree } from '@/features/progression-map/hooks/useSkillTree';
 
 export interface SkillMapCardProps {
   programId: string;
@@ -35,7 +37,8 @@ export interface SkillMapCardProps {
 export function SkillMapCard({ programId, nameHe }: SkillMapCardProps) {
   const router = useRouter();
   const [programMeta, setProgramMeta] = useState<Program | null>(null);
-  const { currentLevel, percent } = useUserProgramLevel(programId);
+  const { percent } = useUserProgramLevel(programId);
+  const { tree, currentLevel } = useSkillTree(programId);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,6 +50,9 @@ export function SkillMapCard({ programId, nameHe }: SkillMapCardProps) {
     };
   }, [programId]);
 
+  const maxLevel = tree?.maxLevel ?? programMeta?.maxLevels ?? 1;
+  const displayLevel = currentLevel ?? tree?.minLevel ?? 1;
+
   return (
     <button
       type="button"
@@ -56,8 +62,8 @@ export function SkillMapCard({ programId, nameHe }: SkillMapCardProps) {
       <ProgramProgressCard
         programName={programMeta?.name ?? nameHe}
         iconKey={programMeta?.iconKey}
-        currentLevel={currentLevel ?? 1}
-        maxLevel={programMeta?.maxLevels ?? FALLBACK_MAX_LEVEL}
+        currentLevel={displayLevel}
+        maxLevel={maxLevel}
         progressPercent={percent}
         className="pointer-events-none"
       />

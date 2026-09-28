@@ -22,6 +22,7 @@
  * feature's scope).
  */
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Dumbbell } from 'lucide-react';
 import { getLocalizedText, ExecutionLocation, type Exercise } from '@/features/content/exercises';
 import { UserFullProfile } from '@/types/user-profile';
@@ -134,6 +135,22 @@ export function ProgramLevelSwapSheet({
   const [options, setOptions] = useState<SameLevelExerciseOption[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  // Portalled to document.body (round 10 fix) — this sheet is a child of
+  // SkillTreeScreen's root <div className="relative isolate ...">, and
+  // `isolate` creates a NEW STACKING CONTEXT. A z-index set on a descendant
+  // of an isolated element can never escape that context to compete with
+  // siblings OUTSIDE it (like the globally-mounted BottomNavbar, z-50) —
+  // it only wins against other elements INSIDE the same isolated box,
+  // regardless of how high the number is. That's why this sheet rendered
+  // BELOW the bottom nav even at z-[70] > BottomNavbar's z-50: the two
+  // numbers were never actually being compared in the same stacking
+  // context. ExerciseDetailSheet (this same screen's other sheet) already
+  // portals for exactly this reason — mirrored here.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
@@ -163,8 +180,8 @@ export function ProgramLevelSwapSheet({
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-[70]" dir="rtl">
+  const sheet = (
+    <div className="fixed inset-0 z-[65]" dir="rtl">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div
         className="absolute bottom-0 inset-x-0 bg-white rounded-t-2xl overflow-y-auto flex flex-col"
@@ -228,4 +245,7 @@ export function ProgramLevelSwapSheet({
       </div>
     </div>
   );
+
+  if (!mounted) return null;
+  return createPortal(sheet, document.body);
 }

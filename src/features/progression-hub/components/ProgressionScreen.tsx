@@ -16,6 +16,15 @@
  * SkillMapCard, itself a thin navigation wrapper around
  * ProgramProgressCard (Home/Profile's existing card) — no new card UI.
  *
+ * Round 10: single-column full-width stack, not a 2-col grid — the 2-col
+ * version squeezed the icon+name+ring row (ProgramProgressCard's own
+ * internal layout, unchanged) into roughly half the screen width, and the
+ * name (e.g. "פרונט לבר") truncated ("פרונ ט…") because the card had no
+ * room left after the fixed-size 68px progress ring. Full width gives it
+ * the same room ProgramsSection.tsx's own single (non-carousel) card gets
+ * on Profile — ProgramProgressCard itself is untouched, only its container
+ * changed.
+ *
  * No custom background here — the brief is explicit that the TREE's own
  * scenic background (SkillTreeBackground) stays untouched, and this is a
  * different screen entirely; it uses the same plain light background every
@@ -37,7 +46,7 @@ export function ProgressionScreen() {
             here (hero/streak, "המשך מכאן", achievements). */}
         <section className="space-y-3">
           <h2 className="text-sm font-black text-gray-800">המפות שלי</h2>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-3">
             {PROGRESSION_MAP_HUB_PROGRAMS.map((program) => (
               <SkillMapCard key={program.programId} programId={program.programId} nameHe={program.nameHe} />
             ))}

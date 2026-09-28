@@ -116,6 +116,91 @@ describe('buildSkillTree', () => {
     expect(treeA.rungs[0].level).toBe(1);
     expect(treeB.rungs[0].level).toBe(9);
   });
+
+  describe('beginner-appropriate representative pick (round 10)', () => {
+    const ONE_ARM_PULLUP = PROGRAM_A;
+    const PULL_COMPOSITE = 'pullComposite'; // isMaster:true in real data — a plain string here, the function only cares whether it's IN compositeProgramIds
+    const COMPOSITE_IDS = new Set([PULL_COMPOSITE]);
+
+    it('the concrete example: picks the candidate with the LOWER broad-program (Pull) level as representative', () => {
+      // "מתח שכמות קשתים" — one-arm-pullup L1, Pull L11 (harder)
+      const scapularArch = ex('scapularArch', [
+        { programId: ONE_ARM_PULLUP, level: 1 },
+        { programId: PULL_COMPOSITE, level: 11 },
+      ]);
+      // "מתח הפוך/סופינציה" — one-arm-pullup L1, Pull L10 (easier — should win)
+      const supinatedPullup = ex('supinatedPullup', [
+        { programId: ONE_ARM_PULLUP, level: 1 },
+        { programId: PULL_COMPOSITE, level: 10 },
+      ]);
+      const tree = buildSkillTree([scapularArch, supinatedPullup], ONE_ARM_PULLUP, COMPOSITE_IDS)!;
+      const rung = tree.rungs.find((r) => r.level === 1)!;
+      expect(rung.representative?.id).toBe('supinatedPullup');
+    });
+
+    it('without compositeProgramIds (default), falls back to the old doc-ID tie-break — fully backward compatible', () => {
+      const scapularArch = ex('scapularArch', [
+        { programId: ONE_ARM_PULLUP, level: 1 },
+        { programId: PULL_COMPOSITE, level: 11 },
+      ]);
+      const supinatedPullup = ex('supinatedPullup', [
+        { programId: ONE_ARM_PULLUP, level: 1 },
+        { programId: PULL_COMPOSITE, level: 10 },
+      ]);
+      // No 3rd argument — same call shape every pre-round-10 caller/test uses.
+      const tree = buildSkillTree([scapularArch, supinatedPullup], ONE_ARM_PULLUP)!;
+      const rung = tree.rungs.find((r) => r.level === 1)!;
+      expect(rung.representative?.id).toBe('scapularArch'); // 'scapularArch' < 'supinatedPullup' lexicographically
+    });
+
+    it('a candidate with no composite-program tag at all loses to one that has a real proxy, regardless of doc ID', () => {
+      const noProxy = ex('aaa_no_proxy', [{ programId: ONE_ARM_PULLUP, level: 1 }]); // no Pull tag
+      const withProxy = ex('zzz_has_proxy', [
+        { programId: ONE_ARM_PULLUP, level: 1 },
+        { programId: PULL_COMPOSITE, level: 5 },
+      ]);
+      const tree = buildSkillTree([noProxy, withProxy], ONE_ARM_PULLUP, COMPOSITE_IDS)!;
+      const rung = tree.rungs.find((r) => r.level === 1)!;
+      expect(rung.representative?.id).toBe('zzz_has_proxy');
+    });
+
+    it('when neither candidate has a composite-program tag, falls back to doc ID (both proxies are Infinity)', () => {
+      const a = ex('zzz', [{ programId: ONE_ARM_PULLUP, level: 1 }]);
+      const b = ex('aaa', [{ programId: ONE_ARM_PULLUP, level: 1 }]);
+      const tree = buildSkillTree([a, b], ONE_ARM_PULLUP, COMPOSITE_IDS)!;
+      const rung = tree.rungs.find((r) => r.level === 1)!;
+      expect(rung.representative?.id).toBe('aaa');
+    });
+
+    it('ignores a targetPrograms entry pointing at the SAME leaf program being built (not a valid "other/broad" proxy)', () => {
+      // Only one candidate has a real Pull tag; the other's "self" entry must not be mistaken for a broad-program proxy.
+      const selfOnly = ex('selfOnly', [{ programId: ONE_ARM_PULLUP, level: 1 }]);
+      const realProxy = ex('realProxy', [
+        { programId: ONE_ARM_PULLUP, level: 1 },
+        { programId: PULL_COMPOSITE, level: 3 },
+      ]);
+      const tree = buildSkillTree([selfOnly, realProxy], ONE_ARM_PULLUP, COMPOSITE_IDS)!;
+      const rung = tree.rungs.find((r) => r.level === 1)!;
+      expect(rung.representative?.id).toBe('realProxy');
+    });
+
+    it('ignores a targetPrograms entry pointing at a program NOT in compositeProgramIds (e.g. an unrelated leaf program)', () => {
+      const UNRELATED_LEAF = 'someOtherLeafProgram'; // not in COMPOSITE_IDS
+      const crossTaggedToUnrelatedLeaf = ex('crossTagged', [
+        { programId: ONE_ARM_PULLUP, level: 1 },
+        { programId: UNRELATED_LEAF, level: 1 }, // low level, but NOT a broad-program signal
+      ]);
+      const realProxy = ex('realProxy', [
+        { programId: ONE_ARM_PULLUP, level: 1 },
+        { programId: PULL_COMPOSITE, level: 20 }, // higher (harder) Pull level, but IS a real proxy
+      ]);
+      const tree = buildSkillTree([crossTaggedToUnrelatedLeaf, realProxy], ONE_ARM_PULLUP, COMPOSITE_IDS)!;
+      const rung = tree.rungs.find((r) => r.level === 1)!;
+      // realProxy wins because it has a resolvable composite-program proxy at all —
+      // crossTagged's unrelated-leaf tag never counts as a proxy, so it's Infinity.
+      expect(rung.representative?.id).toBe('realProxy');
+    });
+  });
 });
 
 describe('groupRungsForDisplay', () => {
