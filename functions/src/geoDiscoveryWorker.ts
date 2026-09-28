@@ -55,6 +55,25 @@ if (!admin.apps.length) {
 
 export const CITY_MAPPING_DISCOVERY_RUNS_COLLECTION = 'city_mapping_discovery_runs';
 
+// 27.09.2026 — Firebase's deploy-time change-detection did not treat a
+// dependency-only change (functions/package.json gaining @turf/* with zero
+// source-file edits) as a reason to rebuild this function's container:
+// `firebase deploy --only functions` reported `cityMappingDiscoveryPoller
+// ... Skipped (No changes detected)` across all 37 functions, and the next
+// real run failed on the exact same "Cannot find module
+// '@turf/boolean-point-in-polygon'" the dependency fix was supposed to
+// close — the container's node_modules was still the pre-fix one.
+// RULE: a change that touches only functions/package.json/package-lock.json
+// does NOT force a redeploy of this function's container. Bump this string
+// on every deploy whose purpose is a new/changed dependency (not needed for
+// a deploy that already touches this file's own source for another
+// reason) — that's what actually changes the source hash and forces a
+// rebuild. Logged at the top of every poller tick specifically so the next
+// time something looks stale in production, the logs say which build is
+// actually running, instead of costing another full diagnostic round like
+// this one did.
+export const DEPLOY_MARKER = '2026-09-27-turf-deps';
+
 // 30-min real function timeout (see cityMappingDiscoveryPoller's own options
 // below) + 5-min poller cadence as slack for clock skew / a claim that lands
 // right before a tick — a doc genuinely still running at 30min+5min is
@@ -310,6 +329,7 @@ async function reclaimStaleRuns(db: admin.firestore.Firestore): Promise<void> {
 export const cityMappingDiscoveryPoller = onSchedule(
   { schedule: 'every 5 minutes', timeoutSeconds: 1800, memory: '1GiB', retryCount: 0 },
   async () => {
+    logger.info(`[geoDiscoveryWorker] cityMappingDiscoveryPoller tick — DEPLOY_MARKER=${DEPLOY_MARKER}`);
     const db = admin.firestore();
     await reclaimStaleRuns(db);
 
