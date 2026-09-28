@@ -6,7 +6,12 @@
  * Consolidates everything the unified detail surface needs:
  *   • sheetData         — sync view-model (video, muscles, equipment, cues…)
  *   • trend             — async personal history from exercise-history.service
- *   • progressionChain  — prev / current / next variations sharing base_movement_id
+ *   • progressionChain  — prev / current / next. Two modes (Feature #5,
+ *                         Phase 1.1): with a real `activeProgramId`
+ *                         (opened from a Skill Tree), the SELECTED
+ *                         PROGRAM'S OWN LEVEL LADDER (via progression-map's
+ *                         buildSkillTree); otherwise the legacy
+ *                         base_movement_id movement-family chain, unchanged.
  *   • userLevelInTrack  — the user's current level for this exercise's program
  *
  * All three data sources are read independently so a slow Firestore trend
@@ -28,6 +33,15 @@ import type { Exercise } from '../../core/exercise.types';
 import { getAllExercisesNoOrder } from '../../core/exercise.service';
 import { getCachedPrograms } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { buildSheetData, type SheetData } from '../utils/sheet-data.utils';
+// Feature #5 Phase 1.1 — cross-domain import, deliberate: the brief
+// explicitly says to reuse the Skill Tree's own ladder builder rather than
+// re-deriving a second (programId, level) grouping + tie-break. Unlike
+// getExerciseLevelForProgram below (a 3-line formula, cheaper to duplicate
+// than cross-import per CLAUDE.md Law 7), buildSkillTree is a real,
+// non-trivial algorithm (grouping, gap-filling, the round-11 beginner-
+// appropriate representative tie-break) — duplicating THAT would be
+// exactly the "re-invent" the brief says not to do.
+import { buildSkillTree, resolveLevelInProgram } from '@/features/progression-map/services/build-skill-tree.service';
 
 /**
  * Module-level guard so the background corpus fetch fires at most once across
@@ -234,6 +248,53 @@ export function useExerciseMasterData(
   const progressionChain = useMemo<ProgressionChain>(() => {
     if (!exercise) return { prev: null, current: null, next: null };
 
+    // ── Program-ladder mode (Feature #5, Phase 1.1) ───────────────────────
+    // Only when the CALLER established a deliberate program context —
+    // MasterExerciseView passes null here for the plain library/home sheet
+    // (its own `activeProgramId` state always resolves to SOMETHING for the
+    // switcher chip's own display via a fallback, but that fallback is not
+    // a real "we're anchored to this program" signal — see
+    // MasterExerciseView.tsx's hasActiveProgramContext). Reuses buildSkillTree
+    // (progression-map's own ladder builder) instead of re-deriving a second
+    // grouping/tie-break — every member here is by construction tagged to
+    // THIS program with a real per-program level, unlike the base_movement_id
+    // family below (which can include neighbors that share the movement
+    // pattern but aren't tagged to whichever program is currently selected —
+    // the reported bug: switching to a program only updated the CURRENT
+    // node's level because the family's prev/next siblings genuinely had no
+    // entry for that program and silently fell back to a stale legacy level).
+    if (activeProgramId) {
+      const currentLevel = resolveLevelInProgram(exercise, activeProgramId);
+      const tree = currentLevel !== null ? buildSkillTree(allExercises, activeProgramId) : null;
+      const idx = tree ? tree.rungs.findIndex((r) => r.level === currentLevel) : -1;
+      if (tree && idx !== -1) {
+        let prev: Exercise | null = null;
+        for (let i = idx - 1; i >= 0; i--) {
+          if (!tree.rungs[i].isGap && tree.rungs[i].representative) {
+            prev = tree.rungs[i].representative;
+            break;
+          }
+        }
+        let next: Exercise | null = null;
+        for (let i = idx + 1; i < tree.rungs.length; i++) {
+          if (!tree.rungs[i].isGap && tree.rungs[i].representative) {
+            next = tree.rungs[i].representative;
+            break;
+          }
+        }
+        // Degrade gracefully: prev/next individually null (not a fake
+        // placeholder) when the current level is the ladder's top/bottom —
+        // ProgressionChainRow already renders exactly 2 nodes in that case
+        // (its {chain.prev && ...} / {chain.next && ...} guards), same as
+        // the family chain below has always done for an edge member.
+        return { prev, current: exercise, next };
+      }
+      // activeProgramId didn't resolve a ladder for this exercise (shouldn't
+      // happen in practice — it only ever comes from this exercise's own
+      // targetPrograms — but never crash) — fall through to family mode.
+    }
+
+    // ── Legacy movement-family chain (unchanged — the no-program context) ──
     const baseId = exercise.base_movement_id;
     if (!baseId) {
       // No family — the exercise stands alone as the current node.
@@ -255,7 +316,7 @@ export function useExerciseMasterData(
       current: family[currentIdx],
       next: currentIdx < family.length - 1 ? family[currentIdx + 1] : null,
     };
-  }, [exercise, allExercises]);
+  }, [exercise, allExercises, activeProgramId]);
 
   // ── User's current level in this exercise's program ────────────────────
   const domainProgress = useProgressionStore((s) => s.domainProgress);
