@@ -58,6 +58,32 @@ interface UnitStructureEntry {
    * raw Firestore doc, before that read moved to this endpoint (Slice D).
    */
   memberCount: number;
+  /**
+   * Passthrough of the unit doc's own managerIds — the unit_admin(s)
+   * commanding this specific unit. Added 28.09.2026 (team/page.tsx's
+   * "קצינים פעילים (0)" fix) so a caller can build the correct union of
+   * "everyone who manages a unit under this tenant" — team/page.tsx's own
+   * previous mechanism (getChildrenByParent, a municipal parent-child
+   * authorities query) was always empty for military/educational tenants,
+   * whose sub-units live in tenants/{t}/units, a different collection
+   * entirely; unit_admin uids were never reachable from it at all.
+   *
+   * Exposing raw manager uids here does NOT violate this codebase's
+   * privacy rule (David, 28.09.2026 — the reasoning matters, not just the
+   * conclusion): that rule protects SOLDIERS from each other — a member
+   * never sees another member's identity. It does not protect COMMANDERS
+   * from each other. An officer seeing the other officers within their own
+   * scope is seeing their own team, which is the entire point of this
+   * field — not a leak. This field only ever carries manager uids, never
+   * regular-member uids (see computeUnitMembers/approvedMembers for that,
+   * a genuinely different, member-facing list this field must never be
+   * confused with). Scope containment is separately guaranteed and
+   * PROVEN (not just argued) in __tests__/route.test.ts: a narrowly-scoped
+   * unitAdmin's response never includes an ancestor unit, so its
+   * managerIds can never appear here regardless of what tenantId is
+   * requested — scope.tenantId governs, never the client-supplied query.
+   */
+  managerIds: string[];
 }
 
 function chunk<T>(arr: T[], size: number): T[][] {
@@ -76,6 +102,7 @@ function toEntry(tenantId: string, d: QueryDocumentSnapshot): UnitStructureEntry
     parentUnitId: typeof data.parentUnitId === 'string' ? data.parentUnitId : null,
     iconUrl: typeof data.iconUrl === 'string' ? data.iconUrl : null,
     memberCount: typeof data.memberCount === 'number' ? data.memberCount : 0,
+    managerIds: Array.isArray(data.managerIds) ? data.managerIds.filter((s: unknown): s is string => typeof s === 'string') : [],
   };
 }
 

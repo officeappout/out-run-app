@@ -17,6 +17,12 @@
  * collapsed into the same report" pattern §13.47/§13.48's standing rule
  * is about. Message now branches on the reason mintAdminSessionCookie
  * actually recorded.
+ *
+ * §13.5x — the retry button itself had the same problem one layer down:
+ * offering an immediate manual retry on a rate_limited failure just
+ * re-trips the same limiter. Disabled specifically for that reason;
+ * available immediately for 'network' (a transient failure retrying
+ * makes sense for right away) and the generic fallback.
  */
 
 import { AlertTriangle } from 'lucide-react';
@@ -31,6 +37,8 @@ export function SessionHealthBanner() {
   const lastFailureReason = useSessionHealthStore((s) => s.lastFailureReason);
 
   if (status !== 'degraded') return null;
+
+  const isRateLimited = lastFailureReason === 'rate_limited';
 
   const handleRetry = async () => {
     const user = auth.currentUser;
@@ -49,7 +57,8 @@ export function SessionHealthBanner() {
       <span>{messageForSessionFailure(lastFailureReason)}</span>
       <button
         onClick={handleRetry}
-        disabled={retrying}
+        disabled={retrying || isRateLimited}
+        title={isRateLimited ? 'יותר מדי ניסיונות בזמן קצר — המתן כמה דקות' : undefined}
         className="underline font-bold disabled:opacity-60 disabled:no-underline flex-shrink-0"
       >
         {retrying ? 'מנסה...' : 'נסה שוב'}

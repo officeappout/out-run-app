@@ -47,6 +47,15 @@ interface TeamMember {
   photoURL?: string;
 }
 
+/**
+ * §13.5x — a fetch that genuinely fails is 'error', never silently
+ * coerced to 0. A real zero and a failure must render differently
+ * (matching /admin/authority/units/page.tsx's own established convention
+ * for this exact type — not shared/exported anywhere yet, so replicated
+ * here rather than a cross-file import).
+ */
+type CountOrError = number | 'error';
+
 export default function AuthorityTeamPage() {
   const searchParams = useSearchParams();
   const urlType = searchParams?.get('type') || '';
@@ -61,6 +70,11 @@ export default function AuthorityTeamPage() {
   const [childAuthorities, setChildAuthorities] = useState<Authority[]>([]);
 
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  // §13.5x — true when /api/units/structure (the source of unit-level
+  // managerIds) failed to load — teamMembers is then INCOMPLETE, not a
+  // true empty/small roster. Drives the "קצינים פעילים" card's
+  // failure-vs-real-0 rendering, same principle as CountOrError above.
+  const [teamMembersLoadFailed, setTeamMembersLoadFailed] = useState(false);
   const [invitations, setInvitations] = useState<AdminInvitation[]>([]);
 
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -71,9 +85,9 @@ export default function AuthorityTeamPage() {
   const [success, setSuccess] = useState('');
 
   // Summary stats
-  const [totalUsers, setTotalUsers] = useState(0);
+  const [totalUsers, setTotalUsers] = useState<CountOrError>(0);
   const [totalSubUnits, setTotalSubUnits] = useState(0);
-  const [activeUsersLast7d, setActiveUsersLast7d] = useState(0);
+  const [activeUsersLast7d, setActiveUsersLast7d] = useState<CountOrError>(0);
 
   // Org selector for Super Admins
   const [allOrgs, setAllOrgs] = useState<Authority[]>([]);
@@ -83,6 +97,7 @@ export default function AuthorityTeamPage() {
     setAuthorityId(null);
     setChildAuthorities([]);
     setTeamMembers([]);
+    setTeamMembersLoadFailed(false);
     setInvitations([]);
     setTotalSubUnits(0);
     setTotalUsers(0);
@@ -91,19 +106,55 @@ export default function AuthorityTeamPage() {
 
   const loadTeamData = useCallback(async (authId: string) => {
     try {
-      const auth = await getAuthority(authId);
-      if (!auth) return;
-      setAuthority(auth);
+      const authority_ = await getAuthority(authId);
+      if (!authority_) return;
+      setAuthority(authority_);
 
       const children = await getChildrenByParent(authId);
       setChildAuthorities(children);
 
-      // Collect all managerIds across authority + children
-      const allManagerIds = new Set<string>(auth.managerIds || []);
+      // §13.5x — municipal-style children (authorities by parentAuthorityId)
+      // never covers military/educational sub-units, which live in
+      // tenants/{authId}/units instead — a collection direct client-SDK
+      // reads can't reach at all (hasTenant(), Slice D §13.28). This
+      // mechanism was always silently empty for those tenant types, which
+      // is exactly why "קצינים פעילים" read 0 with a real, active unit_admin
+      // — not a display bug, a source bug: unit_admin uids were never
+      // reachable from getChildrenByParent's authorities-only view. Route
+      // through /api/units/structure (already resolves the caller's own
+      // scope server-side, same as [unitId]/page.tsx) for the union of
+      // every unit's own managerIds under this tenant. A genuine fetch
+      // failure here is tracked separately from "this tenant has zero
+      // units" — see structureLoadFailed below.
+      let unitManagerIds: string[] = [];
+      let structureLoadFailed = false;
+      const derivedTenantType = authority_.tenantType ?? authorityTypeToTenantType(authority_.type);
+      if (derivedTenantType !== 'municipal') {
+        try {
+          const idToken = await auth.currentUser?.getIdToken();
+          if (!idToken) throw new Error('not signed in');
+          const res = await fetch(`/api/units/structure?tenantId=${encodeURIComponent(authId)}`, {
+            headers: { Authorization: `Bearer ${idToken}` },
+          });
+          if (!res.ok) throw new Error(`structure fetch failed (${res.status})`);
+          const body = await res.json();
+          const units: Array<{ managerIds?: unknown }> = Array.isArray(body.units) ? body.units : [];
+          unitManagerIds = units.flatMap((u) => (Array.isArray(u.managerIds) ? u.managerIds.filter((m): m is string => typeof m === 'string') : []));
+        } catch (err) {
+          console.error('[TeamPage] Failed to load unit managerIds:', err);
+          structureLoadFailed = true;
+        }
+      }
+
+      // Collect all managerIds across authority + children + units
+      const allManagerIds = new Set<string>(authority_.managerIds || []);
       for (const child of children) {
         for (const mid of child.managerIds || []) {
           allManagerIds.add(mid);
         }
+      }
+      for (const mid of unitManagerIds) {
+        allManagerIds.add(mid);
       }
 
       // Resolve user profiles
@@ -122,6 +173,10 @@ export default function AuthorityTeamPage() {
         }
       }
       setTeamMembers(members);
+      // A structure-load failure means allManagerIds is INCOMPLETE (some
+      // real unit's officers are missing from it) — never silently show
+      // "קצינים פעילים" as if this were the true, complete count.
+      setTeamMembersLoadFailed(structureLoadFailed);
 
       // Load invitations for this authority + children
       const invs = await getInvitationsByAuthority(authId);
@@ -139,19 +194,45 @@ export default function AuthorityTeamPage() {
           collection(db, 'users'),
           where('core.tenantId', '==', authId),
         ));
-        setTotalUsers(usersSnap.size);
+        // §13.5x — a unit_admin/tenant_owner's OWN core.tenantId is set to
+        // this SAME tenant at accept-time (accept-invitation/route.ts), so
+        // an unfiltered count of "everyone with this tenantId" counts the
+        // officer as one of their own soldiers. Exclude anyone already
+        // identified as a manager (allManagerIds, now complete — see above).
+        const memberDocs = usersSnap.docs.filter((d) => !allManagerIds.has(d.id));
+        setTotalUsers(memberDocs.length);
 
+        // §13.5x — "activeUsersLast7d" used to read core.lastLoginAt (a
+        // PANEL-LOGIN timestamp written on every admin sign-in,
+        // auth.service.ts's logAdminLogin) — a soldier who never opened
+        // the app but whose OFFICER logged into the panel checking on them
+        // was never the mechanism; the actual bug was simpler: it measured
+        // login, not training, for every member including ones who trained
+        // zero times. Relabeled + re-measured together (David's explicit
+        // requirement — meaning and label change as one, never just one):
+        // now counts real workouts in the last 7 days, via the same
+        // userId+date composite index /api/units/member-workouts already
+        // relies on (firestore.indexes.json, no new index needed).
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        let activeCount = 0;
-        usersSnap.forEach(d => {
-          const lastLogin = d.data()?.core?.lastLoginAt?.toDate?.();
-          if (lastLogin && lastLogin >= sevenDaysAgo) activeCount++;
-        });
-        setActiveUsersLast7d(activeCount);
+        const trainedFlags = await Promise.all(
+          memberDocs.map(async (d) => {
+            try {
+              const snap = await getDocs(query(
+                collection(db, 'workouts'),
+                where('userId', '==', d.id),
+                where('date', '>=', sevenDaysAgo),
+              ));
+              return !snap.empty;
+            } catch {
+              return false;
+            }
+          }),
+        );
+        setActiveUsersLast7d(trainedFlags.filter(Boolean).length);
       } catch {
-        setTotalUsers(0);
-        setActiveUsersLast7d(0);
+        setTotalUsers('error');
+        setActiveUsersLast7d('error');
       }
     } catch (err) {
       console.error('[TeamPage] Error loading team:', err);
@@ -461,16 +542,29 @@ export default function AuthorityTeamPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 border-r-4 border-r-cyan-500 p-5">
           <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">{isMunicipal ? 'משתמשים רשומים' : `${labels.membersTitle} רשומים`}</p>
-          <p className="text-3xl font-black text-slate-800">{totalUsers}</p>
+          {totalUsers === 'error' ? (
+            <p className="text-3xl font-black text-red-500" title="שגיאה בטעינה">—</p>
+          ) : (
+            <p className="text-3xl font-black text-slate-800">{totalUsers}</p>
+          )}
         </div>
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 border-r-4 border-r-cyan-500 p-5">
           <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">{isMunicipal ? 'יחידות / שכונות' : labels.subUnitsTitle}</p>
           <p className="text-3xl font-black text-slate-800">{totalSubUnits}</p>
         </div>
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 border-r-4 border-r-cyan-500 p-5">
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">פעילים ב-7 ימים</p>
-          <p className="text-3xl font-black text-slate-800">{activeUsersLast7d}</p>
-          {totalUsers > 0 && (
+          {/* §13.5x — label changed together with the measurement, never
+              just one: this used to say "פעילים ב-7 ימים" while actually
+              counting panel LOGINS (core.lastLoginAt), not training. Now
+              measures and names the same thing — a real workout in the
+              last 7 days. */}
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">התאמנו השבוע</p>
+          {activeUsersLast7d === 'error' ? (
+            <p className="text-3xl font-black text-red-500" title="שגיאה בטעינה">—</p>
+          ) : (
+            <p className="text-3xl font-black text-slate-800">{activeUsersLast7d}</p>
+          )}
+          {typeof totalUsers === 'number' && typeof activeUsersLast7d === 'number' && totalUsers > 0 && (
             <p className="text-[10px] text-slate-400 mt-0.5">{Math.round((activeUsersLast7d / totalUsers) * 100)}% מהרשומים</p>
           )}
         </div>
@@ -517,8 +611,11 @@ export default function AuthorityTeamPage() {
         <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
           <h2 className="font-bold text-gray-800 flex items-center gap-2">
             <Shield size={18} className="text-cyan-600" />
-            {isMunicipal ? 'חברי צוות' : labels.managerTitle} פעילים ({teamMembers.length})
+            {isMunicipal ? 'חברי צוות' : labels.managerTitle} פעילים ({teamMembersLoadFailed ? <span className="text-red-500" title="שגיאה בטעינה — הרשימה עלולה להיות חלקית">—</span> : teamMembers.length})
           </h2>
+          {teamMembersLoadFailed && (
+            <p className="text-xs text-red-500 mt-1">שגיאה בטעינת חלק מהמנהלים — הרשימה עלולה להיות חלקית.</p>
+          )}
         </div>
 
         {teamMembers.length === 0 ? (
