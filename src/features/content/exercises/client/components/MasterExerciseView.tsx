@@ -598,13 +598,27 @@ export default function MasterExerciseView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exercise.id, defaultProgramId]);
 
+  // Phase 1.1: whether the CALLER established a deliberate program context
+  // (SkillTreeScreen passes defaultProgramId; ExerciseLibraryPage doesn't).
+  // activeProgramId above is NOT itself a reliable "is there an active
+  // program" signal — it always resolves to SOMETHING via a fallback
+  // (resolveTreeProgramId/targetPrograms[0]) purely so the switcher chip
+  // always has something to show, even in the plain library sheet. Only
+  // hasActiveProgramContext gates the progression-strip's ladder-vs-family
+  // mode (see useExerciseMasterData's progressionChain) — the switcher chip
+  // itself, and its "מפה מלאה" destination, are unaffected and keep using
+  // the raw activeProgramId regardless of context, unchanged from Phase 1.
+  const hasActiveProgramContext = defaultProgramId != null;
+  const stripProgramId = hasActiveProgramContext ? activeProgramId : null;
+
   // Pass `selectedMethodIdx` as the 4th arg so the hook resolves the exact
   // method via array index — `buildSheetData` receives the pre-resolved method
-  // object and skips `findMethodForLocation` entirely. 5th arg (activeProgramId)
-  // makes userLevelInTrack (and therefore chain lock state) follow the
-  // switcher's current selection instead of the legacy targetPrograms[0] pick.
+  // object and skips `findMethodForLocation` entirely. 5th arg
+  // (stripProgramId) makes userLevelInTrack AND progressionChain follow the
+  // active program ONLY in a deliberate program context — see
+  // hasActiveProgramContext above.
   const { sheetData, trend, isLoadingTrend, progressionChain, userLevelInTrack, programs } =
-    useExerciseMasterData(exercise, activeLocation, programLabels, selectedMethodIdx, activeProgramId);
+    useExerciseMasterData(exercise, activeLocation, programLabels, selectedMethodIdx, stripProgramId);
 
   // Switcher only when 2+ targetPrograms entries — a single-program exercise
   // gets a static chip (no chevron, no panel), same rule LocationVariantSwitcher
@@ -767,26 +781,32 @@ export default function MasterExerciseView({
                   own header comment) since program content differs from
                   location/gear content. Single-program exercises get the
                   SAME chip rendered statically (no chevron/panel) via
-                  canSwitch={false} — never an empty state, never a dead list. */}
+                  canSwitch={false} — never an empty state, never a dead list.
+                  Phase 1.1: the chip moved to its OWN row below the "תוכניות"
+                  heading (was inline beside it via justify-between) — at a
+                  narrow column width a long program name + level ("שכיבות
+                  סמיכה בעמידת ידיים · רמה 5") is whitespace-nowrap and could
+                  overflow past this half-width grid column, visually
+                  overlapping the LEFT column's "ציוד" heading sitting on the
+                  same line. Stacking removes that shared-line competition —
+                  the two headers are simply never on the same row anymore. */}
               {programs.length > 0 && activeProgramOption && (
                 <section className={`min-w-0 ${!showEquipmentCol ? 'col-span-2' : ''}`}>
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <h3 className="text-right text-[16px] font-semibold text-slate-800 leading-[30px]" style={SECTION_FONT}>
-                      תוכניות
-                    </h3>
-                    <ProgramPathSwitcher
-                      activeOption={activeProgramOption}
-                      options={programSwitcherOptions}
-                      canSwitch={canSwitchProgram}
-                      open={programSwitcherOpen}
-                      onToggleOpen={() => setProgramSwitcherOpen((o) => !o)}
-                      onClose={() => setProgramSwitcherOpen(false)}
-                      onSelect={(opt) => {
-                        setActiveProgramId(opt.programId);
-                        setProgramSwitcherOpen(false);
-                      }}
-                    />
-                  </div>
+                  <h3 className="text-right text-[16px] font-semibold text-slate-800 mb-2 leading-[30px]" style={SECTION_FONT}>
+                    תוכניות
+                  </h3>
+                  <ProgramPathSwitcher
+                    activeOption={activeProgramOption}
+                    options={programSwitcherOptions}
+                    canSwitch={canSwitchProgram}
+                    open={programSwitcherOpen}
+                    onToggleOpen={() => setProgramSwitcherOpen((o) => !o)}
+                    onClose={() => setProgramSwitcherOpen(false)}
+                    onSelect={(opt) => {
+                      setActiveProgramId(opt.programId);
+                      setProgramSwitcherOpen(false);
+                    }}
+                  />
                 </section>
               )}
 
@@ -873,7 +893,7 @@ export default function MasterExerciseView({
           chain={progressionChain}
           location={activeLocation}
           userLevelInTrack={userLevelInTrack}
-          activeProgramId={activeProgramId}
+          activeProgramId={stripProgramId}
           onNavigateToRoadmap={onNavigateToRoadmap ? handleRoadmapNavigate : undefined}
           exercise={exercise}
         />
