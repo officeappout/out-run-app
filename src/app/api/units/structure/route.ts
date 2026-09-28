@@ -58,6 +58,20 @@ interface UnitStructureEntry {
    * raw Firestore doc, before that read moved to this endpoint (Slice D).
    */
   memberCount: number;
+  /**
+   * Passthrough of the unit doc's own managerIds — the unit_admin(s)
+   * commanding this specific unit. Added 28.09.2026 (team/page.tsx's
+   * "קצינים פעילים (0)" fix) so a caller can build the correct union of
+   * "everyone who manages a unit under this tenant" — team/page.tsx's own
+   * previous mechanism (getChildrenByParent, a municipal parent-child
+   * authorities query) was always empty for military/educational tenants,
+   * whose sub-units live in tenants/{t}/units, a different collection
+   * entirely; unit_admin uids were never reachable from it at all. Exposing
+   * raw uids here is no more sensitive than parentUnitId/iconUrl already
+   * returned — the caller's own resolved scope already gates which units
+   * are even in this response.
+   */
+  managerIds: string[];
 }
 
 function chunk<T>(arr: T[], size: number): T[][] {
@@ -76,6 +90,7 @@ function toEntry(tenantId: string, d: QueryDocumentSnapshot): UnitStructureEntry
     parentUnitId: typeof data.parentUnitId === 'string' ? data.parentUnitId : null,
     iconUrl: typeof data.iconUrl === 'string' ? data.iconUrl : null,
     memberCount: typeof data.memberCount === 'number' ? data.memberCount : 0,
+    managerIds: Array.isArray(data.managerIds) ? data.managerIds.filter((s: unknown): s is string => typeof s === 'string') : [],
   };
 }
 
