@@ -396,6 +396,11 @@ export interface CityMappingDiscoveryRunDoc {
   jobType: 'city-discovery';
   regionKey: string;
   apply: boolean;
+  /** Optional, defaults to false in the worker when absent (29.09.2026) — see
+   *  functions/src/geoDiscoveryWorker.ts's own field comment. Not yet exposed in this
+   *  page's UI (triggerRouteDiscovery never sets it); kept here so the type stays in
+   *  sync with the worker's, per this interface's own header comment. */
+  roundtrips?: boolean;
   requestedByUid: string;
   status: CityMappingDiscoveryRunStatus;
   createdAt: Timestamp | null; // null only in the brief window before serverTimestamp() resolves

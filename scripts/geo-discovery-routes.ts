@@ -1823,8 +1823,8 @@ async function buildLoop(a: Anchor, targetM: number, seed: number): Promise<Cand
   return null;
 }
 
-// Anchors = region.roundTripAnchors + every `parks` gym in the region (city == region.label OR
-// coords inside the region bbox). Coordinates at location.lat/lng (Explore-verified). Read-only.
+// Anchors = region.roundTripAnchors + every `parks` gym genuinely inside the region.
+// Coordinates at location.lat/lng (Explore-verified). Read-only.
 // cityMatch was previously a hardcoded /אשקלון|ashkelon/i regex, region-agnostic in name only
 // (it never read the `region` argument this function already receives) — fixed Stage A,
 // city-orchestrator plan, 02.09.2026. Verified behavior-preserving by a live read-only query
@@ -1833,7 +1833,24 @@ async function buildLoop(a: Anchor, targetM: number, seed: number): Promise<Cand
 // `p.city === region.label` matches the identical 31-doc set for every one of the 9 Ashkelon-
 // family REGIONS entries (all of which set label: 'אשקלון'), with zero risk of silently
 // dropping a doc the old regex would have caught.
-async function loadParkAnchors(db: admin.firestore.Firestore, region: Region): Promise<Anchor[]> {
+//
+// Bbox-only matching found broken live, 29.09.2026 (kiryat-ono walkability investigation):
+// a small/enclave city's rectangular bbox catches real parks belonging to neighboring
+// municipalities. Measured on kiryat-ono: bbox matched 6 parks; ALL 6 carry a real,
+// non-empty `city`/`authorityId` naming a DIFFERENT actual city (רמת גן ×3, גבעת שמואל
+// ×1, פתח תקווה ×2 — confirmed against the authorities collection, not guessed from the
+// label text). `p.city === region.label` alone doesn't save this: 0 of kiryat-ono's own
+// parks carry city==='קריית אונו' at all (kiryat-ono's real parks — if any exist in this
+// collection at all — are 0 by authorityId too, a separate, likely coverage gap, not a
+// filtering bug). Fix: prefer the REAL municipal boundary polygon, already fetched once
+// per run by runGeoDiscovery (boundaryClipWikidata or adminRelationId) and threaded down
+// here as `boundaryPoly` — this is precise (a park is either inside the actual municipal
+// shape or it isn't) and needs no new Overpass call, no new Firestore read. Only when no
+// boundary polygon is available at all (a REGIONS entry with neither boundaryClipWikidata
+// nor adminRelationId set) does this fall back to bbox+cityMatch — WITH a negative filter
+// added: a bbox-matched doc whose OWN `city` field names some OTHER real place (non-empty,
+// != region.label) is rejected outright, even though it's geometrically inside the box.
+async function loadParkAnchors(db: admin.firestore.Firestore, region: Region, boundaryPoly: number[][] | null): Promise<Anchor[]> {
   const snap = await db.collection('parks').get();
   const b = region.bbox; const out: Anchor[] = [];
   for (const doc of snap.docs) {
@@ -1841,8 +1858,17 @@ async function loadParkAnchors(db: admin.firestore.Firestore, region: Region): P
     const lat = p.location?.lat ?? p.lat, lng = p.location?.lng ?? p.lng;
     if (typeof lat !== 'number' || typeof lng !== 'number') continue;
     const cityMatch = typeof p.city === 'string' && p.city === region.label;
-    const inBox = lat >= b.latMin && lat <= b.latMax && lng >= b.lonMin && lng <= b.lonMax;
-    if (!cityMatch && !inBox) continue;
+    if (boundaryPoly) {
+      // Primary path: real municipal shape. cityMatch still short-circuits it (a park
+      // correctly city-tagged for this region is kept even if its coordinates are
+      // slightly off/outside the polygon due to data noise) — the polygon exists to
+      // catch what bbox+cityMatch alone would wrongly ACCEPT, not to reject genuine matches.
+      if (!cityMatch && !inPoly([lat, lng], boundaryPoly)) continue;
+    } else {
+      const inBox = lat >= b.latMin && lat <= b.latMax && lng >= b.lonMin && lng <= b.lonMax;
+      if (!cityMatch && !inBox) continue;
+      if (!cityMatch && typeof p.city === 'string' && p.city.trim() !== '') continue; // bbox-only fallback: a populated city field naming somewhere else is real evidence, not noise.
+    }
     out.push({ key: `park-${doc.id}`, label: (p.name && String(p.name).trim()) || 'גינת כושר', lat, lng });
   }
   const CAP = 60;
@@ -1850,11 +1876,11 @@ async function loadParkAnchors(db: admin.firestore.Firestore, region: Region): P
   return out;
 }
 
-async function discoverRoundTrips(db: admin.firestore.Firestore, region: Region): Promise<{ candidates: Candidate[]; stats: any }> {
+async function discoverRoundTrips(db: admin.firestore.Firestore, region: Region, boundaryPoly: number[][] | null): Promise<{ candidates: Candidate[]; stats: any }> {
   const stats: any = { attempted: 0, built: 0, failed: 0, closed: 0, perDist: { 3: 0, 5: 0, 10: 0 } };
   if (!TOKEN) { console.warn('  ⚠ no NEXT_PUBLIC_MAPBOX_TOKEN — round-trip source skipped'); return { candidates: [], stats }; }
   const named = region.roundTripAnchors || [];
-  const parks = await loadParkAnchors(db, region);
+  const parks = await loadParkAnchors(db, region, boundaryPoly);
   const anchors: Anchor[] = [...named, ...parks];
   console.log(`\nround-trip anchors: ${named.length} named + ${parks.length} park gyms = ${anchors.length}, each × [3,5,10]km (foot)`);
   const candidates: Candidate[] = [];
@@ -1968,7 +1994,7 @@ export async function runGeoDiscovery(opts: GeoDiscoveryOptions, db: admin.fires
     blockPolys = await fetchBlockPolys(REGION.bbox);
   }
   if (ROUNDTRIPS) {
-    const rt = await discoverRoundTrips(db, REGION);
+    const rt = await discoverRoundTrips(db, REGION, boundaryPoly);
     candidates.push(...rt.candidates);
     stats.roundtrip = rt.stats;
     console.log(`round-trips: attempted ${rt.stats.attempted}, built ${rt.stats.built} (3km:${rt.stats.perDist[3]} · 5km:${rt.stats.perDist[5]} · 10km:${rt.stats.perDist[10]}), loop-closed ${rt.stats.closed}, failed ${rt.stats.failed}. blocking polygons: ${blockPolys.length}`);
