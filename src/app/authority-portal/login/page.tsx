@@ -80,6 +80,20 @@ function AuthorityPortalLoginContent() {
   // redirect shape.
   const safeNext = resolveSafeNextPath(searchParams.get('next'));
 
+  // 29.09.2026, David's live-test trap: middleware sets this specifically
+  // for an unit_admin/tenant_owner session BLOCKED from an out-of-scope
+  // path (never alongside ?next= — see decideAdminGateAction's own
+  // comment). A genuinely different situation from "session expired,
+  // resume where you were" — the session here is perfectly valid, the
+  // PATH just isn't in this scope's territory. Shown as its own explicit
+  // screen (accessBlocked below) rather than auto-redirected, so the
+  // message is honest about what actually happened instead of either
+  // silently landing them somewhere unexplained or (the original bug)
+  // re-attempting the same blocked path and tripping the loop guard.
+  const wasBlockedByGate = searchParams.get('blocked') === '1';
+  const [accessBlocked, setAccessBlocked] = useState(false);
+  const [accessBlockedDestination, setAccessBlockedDestination] = useState<string | null>(null);
+
   // Loop breaker (00-MASTER-PLAN.md §13.10): this page redirects a
   // confirmed authority manager straight to /admin/authority-manager.
   // Before the scope-cookie fix, middleware always bounced that request
@@ -171,6 +185,17 @@ function AuthorityPortalLoginContent() {
               : decideTenantOwnerRedirect({ tenantId: roleInfo.tenantId, tenantType: org?.tenantType ?? null });
 
             if (decision.kind === 'redirect') {
+              if (wasBlockedByGate) {
+                // This session is perfectly valid — middleware sent them
+                // here specifically BECAUSE the path they tried isn't in
+                // their scope, not because of a session problem. Show that
+                // plainly instead of auto-navigating (the ?next= trap this
+                // replaces) — the user clicks through deliberately.
+                setAccessBlockedDestination(decision.path);
+                setAccessBlocked(true);
+                setCheckingAuth(false);
+                return;
+              }
               // Mint BEFORE navigating — same reason as the
               // authority_manager branch below: this page lives OUTSIDE
               // admin/layout.tsx, so AdminSessionSync never runs here.
@@ -292,6 +317,35 @@ function AuthorityPortalLoginContent() {
     setLoopDetected(false);
     setCheckingAuth(false);
   };
+
+  if (accessBlocked) {
+    // Deliberately distinct from loopDetected below — different cause,
+    // different message. This is an intentional, working-as-designed
+    // block (a valid session tried a path outside its scope); loopDetected
+    // is for when the system genuinely couldn't identify the caller.
+    // Conflating them (the original bug, 29.09.2026) shows the wrong
+    // message and makes the next real identification failure harder to
+    // tell apart from an ordinary access block.
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-6" dir="rtl">
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+          <AlertCircle className="w-16 h-16 text-amber-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">אין לך גישה לעמוד הזה</h2>
+          <p className="text-gray-600 mb-6">
+            העמוד שניסית להגיע אליו אינו בתחום ההרשאה שלך.
+          </p>
+          {accessBlockedDestination && (
+            <a
+              href={accessBlockedDestination}
+              className="inline-block w-full bg-cyan-600 text-white py-3 rounded-xl font-bold hover:bg-cyan-700 transition-colors"
+            >
+              עבור לדף שלי
+            </a>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (loopDetected) {
     return (

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { shouldGateAdminRequest, decideAdminGateAction, type GateSessionInfo } from '../middleware';
+import { shouldGateAdminRequest, decideAdminGateAction, buildGateRedirectParams, type GateSessionInfo } from '../middleware';
 
 /**
  * SPEC-02 SEC-12: the admin-page cookie gate used to fire only when
@@ -92,35 +92,35 @@ describe('decideAdminGateAction', () => {
   });
 
   it('authority manager on a forbidden path — redirected to their own portal, NOT to login (session stays valid)', () => {
-    expect(decideAdminGateAction('/admin/users', authorityManager)).toEqual({ action: 'redirect', to: '/admin/authority-manager' });
+    expect(decideAdminGateAction('/admin/users', authorityManager)).toEqual({ action: 'redirect', to: '/admin/authority-manager', preserveNext: false });
   });
 
   it('authority manager cannot reach /admin/authority/users — deliberately excluded (super_admin/system_admin-only since 22.09.2026)', () => {
-    expect(decideAdminGateAction('/admin/authority/users', authorityManager)).toEqual({ action: 'redirect', to: '/admin/authority-manager' });
+    expect(decideAdminGateAction('/admin/authority/users', authorityManager)).toEqual({ action: 'redirect', to: '/admin/authority-manager', preserveNext: false });
   });
 
   it('anonymous session (admin:false, no scope) on an authority-scoped path — redirected to the officer/authority-manager door, NOT /admin/login (login-entry-points unification, 28.09.2026 — see decideAdminGateAction\'s own doc comment)', () => {
-    expect(decideAdminGateAction('/admin/authority-manager', anonymous)).toEqual({ action: 'redirect', to: '/authority-portal/login' });
+    expect(decideAdminGateAction('/admin/authority-manager', anonymous)).toEqual({ action: 'redirect', to: '/authority-portal/login', preserveNext: true });
   });
 
   it('anonymous session on a NON-authority path — still redirected to /admin/login (unchanged)', () => {
-    expect(decideAdminGateAction('/admin/roadmap', anonymous)).toEqual({ action: 'redirect', to: '/admin/login' });
+    expect(decideAdminGateAction('/admin/roadmap', anonymous)).toEqual({ action: 'redirect', to: '/admin/login', preserveNext: true });
   });
 
   it('no cookie at all, authority-scoped path — redirected to /authority-portal/login, not /admin/login (the exact production case: an officer\'s session expires mid-navigation on their own unit page)', () => {
-    expect(decideAdminGateAction('/admin/authority-manager', invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/authority-portal/login' });
-    expect(decideAdminGateAction('/admin/authority/units/9307', invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/authority-portal/login' });
+    expect(decideAdminGateAction('/admin/authority-manager', invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/authority-portal/login', preserveNext: true });
+    expect(decideAdminGateAction('/admin/authority/units/9307', invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/authority-portal/login', preserveNext: true });
   });
 
   it('invalid/expired cookie (verifyAdminSession already returned null), authority-scoped path — same fix applies, same as no cookie', () => {
-    expect(decideAdminGateAction('/admin/authority/team', invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/authority-portal/login' });
+    expect(decideAdminGateAction('/admin/authority/team', invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/authority-portal/login', preserveNext: true });
   });
 
   it('no session at all on a NON-authority path (e.g. root-only screens) — still redirected to /admin/login, the allowlist is unchanged', () => {
-    expect(decideAdminGateAction('/admin/dashboard', invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/authority-portal/login' }); // /admin/dashboard IS in AUTHORITY_MANAGER_ALLOWED_PATHS
-    expect(decideAdminGateAction('/admin/roadmap', invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/admin/login' });
-    expect(decideAdminGateAction('/admin', invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/admin/login' });
-    expect(decideAdminGateAction('/admin/exercises', invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/admin/login' });
+    expect(decideAdminGateAction('/admin/dashboard', invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/authority-portal/login', preserveNext: true }); // /admin/dashboard IS in AUTHORITY_MANAGER_ALLOWED_PATHS
+    expect(decideAdminGateAction('/admin/roadmap', invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/admin/login', preserveNext: true });
+    expect(decideAdminGateAction('/admin', invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/admin/login', preserveNext: true });
+    expect(decideAdminGateAction('/admin/exercises', invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/admin/login', preserveNext: true });
   });
 
   // 29.09.2026 — David's live-test findings 1-2: unit_admin reached
@@ -140,31 +140,70 @@ describe('decideAdminGateAction', () => {
     });
 
     it('blocked on the BARE units list — the exact page David\'s live test caught (delete-all/bulk-import/create battalion)', () => {
-      expect(decideAdminGateAction('/admin/authority/units', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login' });
-      expect(decideAdminGateAction('/admin/authority/units/', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login' });
+      expect(decideAdminGateAction('/admin/authority/units', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login', preserveNext: false });
+      expect(decideAdminGateAction('/admin/authority/units/', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login', preserveNext: false });
     });
 
     it('blocked on /admin/parks and /admin/locations — root-only park/route mapping, unscoped system-wide data', () => {
-      expect(decideAdminGateAction('/admin/parks', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login' });
-      expect(decideAdminGateAction('/admin/parks/new', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login' });
-      expect(decideAdminGateAction('/admin/locations', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login' });
-      expect(decideAdminGateAction('/admin/locations/import/parks', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login' });
+      expect(decideAdminGateAction('/admin/parks', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login', preserveNext: false });
+      expect(decideAdminGateAction('/admin/parks/new', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login', preserveNext: false });
+      expect(decideAdminGateAction('/admin/locations', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login', preserveNext: false });
+      expect(decideAdminGateAction('/admin/locations/import/parks', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login', preserveNext: false });
     });
 
     it('blocked on /admin/organizations — that door is isVerticalAdmin\'s, not theirs', () => {
-      expect(decideAdminGateAction('/admin/organizations', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login' });
+      expect(decideAdminGateAction('/admin/organizations', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login', preserveNext: false });
     });
 
     it('blocked on /admin/dashboard and /admin/authority-manager — not their scope\'s vertical', () => {
-      expect(decideAdminGateAction('/admin/dashboard', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login' });
-      expect(decideAdminGateAction('/admin/authority-manager', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login' });
+      expect(decideAdminGateAction('/admin/dashboard', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login', preserveNext: false });
+      expect(decideAdminGateAction('/admin/authority-manager', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login', preserveNext: false });
     });
 
     it('the "not allowed" redirect target is their OWN login door, never /admin/authority-manager — that would fail the SAME gate again (loop risk)', () => {
       const result = decideAdminGateAction('/admin/parks', unitAdmin);
-      expect(result).toEqual({ action: 'redirect', to: '/authority-portal/login' });
+      expect(result).toEqual({ action: 'redirect', to: '/authority-portal/login', preserveNext: false });
       // Prove no loop: /authority-portal/login isn't itself subject to this gate.
       expect(decideAdminGateAction('/admin/authority-manager', unitAdmin).action).toBe('redirect');
+    });
+
+    // 29.09.2026 — David's live-test trap, and the exact sequence he asked
+    // for a regression test covering: blocked path → out-of-scope decision
+    // → the redirect URL must never carry the blocked destination as
+    // next= (that's what looped — the resumed navigation hit the SAME
+    // block again, and decideLoopBreak mistook the repeat for a real
+    // identification failure) → blocked=1 instead, so the login door
+    // shows "no access" rather than auto-navigating.
+    describe('the next= loop trap — blocked path never becomes next=', () => {
+      it('decideAdminGateAction never sets preserveNext:true for an out-of-scope block', () => {
+        const decision = decideAdminGateAction('/admin/parks', unitAdmin);
+        expect(decision).toEqual({ action: 'redirect', to: '/authority-portal/login', preserveNext: false });
+      });
+
+      it('buildGateRedirectParams — the blocked destination is NEVER forwarded as next=, blocked=1 is set instead', () => {
+        const decision = decideAdminGateAction('/admin/parks', unitAdmin);
+        if (decision.action !== 'redirect') throw new Error('expected a redirect decision');
+        const params = buildGateRedirectParams(decision, '/admin/parks');
+        expect(params.next).toBeNull(); // the loop generator this closes
+        expect(params.blocked).toBe(true);
+      });
+
+      it('by contrast, a genuine "no session yet" bounce on the same path DOES preserve next= — this is the legitimate resume case, not a block', () => {
+        const decision = decideAdminGateAction('/admin/parks', invalidCookieOrNoCookie);
+        expect(decision).toEqual({ action: 'redirect', to: '/authority-portal/login', preserveNext: true });
+        if (decision.action !== 'redirect') throw new Error('expected a redirect decision');
+        const params = buildGateRedirectParams(decision, '/admin/parks');
+        expect(params.next).toBe('/admin/parks');
+        expect(params.blocked).toBe(false);
+      });
+
+      it('an authority_manager/tenant_owner out-of-scope block also never sets blocked=1 — that flag is unit_admin-specific (their redirect target isn\'t login-shaped)', () => {
+        const decision = decideAdminGateAction('/admin/parks', tenantOwner);
+        if (decision.action !== 'redirect') throw new Error('expected a redirect decision');
+        const params = buildGateRedirectParams(decision, '/admin/parks');
+        expect(params.next).toBeNull();
+        expect(params.blocked).toBe(false);
+      });
     });
   });
 
@@ -182,13 +221,13 @@ describe('decideAdminGateAction', () => {
     });
 
     it('blocked on /admin/parks, /admin/locations, /admin/organizations — same violation class as unit_admin, neither sidebar links there', () => {
-      expect(decideAdminGateAction('/admin/parks', tenantOwner)).toEqual({ action: 'redirect', to: '/admin/authority-manager' });
-      expect(decideAdminGateAction('/admin/locations', tenantOwner)).toEqual({ action: 'redirect', to: '/admin/authority-manager' });
-      expect(decideAdminGateAction('/admin/organizations', tenantOwner)).toEqual({ action: 'redirect', to: '/admin/authority-manager' });
+      expect(decideAdminGateAction('/admin/parks', tenantOwner)).toEqual({ action: 'redirect', to: '/admin/authority-manager', preserveNext: false });
+      expect(decideAdminGateAction('/admin/locations', tenantOwner)).toEqual({ action: 'redirect', to: '/admin/authority-manager', preserveNext: false });
+      expect(decideAdminGateAction('/admin/organizations', tenantOwner)).toEqual({ action: 'redirect', to: '/admin/authority-manager', preserveNext: false });
     });
 
     it('blocked on /admin/authority/users — the pre-existing super_admin/system_admin-only exclusion applies here too', () => {
-      expect(decideAdminGateAction('/admin/authority/users', tenantOwner)).toEqual({ action: 'redirect', to: '/admin/authority-manager' });
+      expect(decideAdminGateAction('/admin/authority/users', tenantOwner)).toEqual({ action: 'redirect', to: '/admin/authority-manager', preserveNext: false });
     });
   });
 
@@ -202,6 +241,18 @@ describe('decideAdminGateAction', () => {
     it('still allowed on /admin/dashboard and the bare units list — no change from before', () => {
       expect(decideAdminGateAction('/admin/dashboard', authorityManager)).toEqual({ action: 'allow' });
       expect(decideAdminGateAction('/admin/authority/units', authorityManager)).toEqual({ action: 'allow' });
+    });
+  });
+
+  describe('buildGateRedirectParams — cookie-clear alignment', () => {
+    it('preserveNext:true is exactly the "stale/invalid session" case where the cookie should be wiped (verified via the params it produces, the actual wipe happens in middleware() itself)', () => {
+      const noSession = decideAdminGateAction('/admin/parks', invalidCookieOrNoCookie);
+      if (noSession.action !== 'redirect') throw new Error('expected a redirect decision');
+      expect(noSession.preserveNext).toBe(true);
+
+      const outOfScope = decideAdminGateAction('/admin/parks', unitAdmin);
+      if (outOfScope.action !== 'redirect') throw new Error('expected a redirect decision');
+      expect(outOfScope.preserveNext).toBe(false);
     });
   });
 });

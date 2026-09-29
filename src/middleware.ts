@@ -188,7 +188,7 @@ export interface GateSessionInfo {
 
 export type AdminGateAction =
   | { action: 'allow' }
-  | { action: 'redirect'; to: string };
+  | { action: 'redirect'; to: string; preserveNext: boolean };
 
 /**
  * Pure decision for an already-gated /admin/* request: given the decoded
@@ -205,45 +205,70 @@ export type AdminGateAction =
  *                                       prefix — see its own comment)
  *     path in the matching scope's
  *     own list/pattern                → allow
- *     path NOT in it                  → redirect to their own portal — for
- *                                       authority_manager/tenant_owner,
+ *     path NOT in it                  → redirect to their own portal,
+ *                                       preserveNext: false ALWAYS. This is
+ *                                       an intentional, authorized-session
+ *                                       block — David's live-test trap
+ *                                       (29.09.2026): a unit_admin blocked
+ *                                       from /admin/parks got bounced to
+ *                                       /authority-portal/login?next=/admin/parks
+ *                                       (their own valid destination
+ *                                       redirect target IS a login door —
+ *                                       see below), re-authenticated, tried
+ *                                       the preserved next= again, got
+ *                                       blocked again, and decideLoopBreak
+ *                                       mistook the repeat for a real
+ *                                       identification failure. `next` may
+ *                                       only ever carry a path the caller is
+ *                                       ALREADY authorized for — a blocked
+ *                                       path in `next` is a loop generator,
+ *                                       not navigation. authority_manager/
+ *                                       tenant_owner redirect to
  *                                       /admin/authority-manager (in both
- *                                       their own lists, so this can never
- *                                       loop); for unit_admin specifically,
+ *                                       their own lists, so never blocked
+ *                                       again there regardless); unit_admin
+ *                                       specifically redirects to
  *                                       /authority-portal/login instead —
  *                                       /admin/authority-manager is NOT in
- *                                       their narrow pattern, so redirecting
- *                                       them there would immediately fail
- *                                       the SAME gate again. Their own login
+ *                                       their narrow pattern. Their own login
  *                                       door re-resolves role + destination
- *                                       via decideUnitAdminRedirect and sends
- *                                       them to their real unit page — reuses
- *                                       existing logic, no loop risk (that
- *                                       page isn't gated by this function at
- *                                       all, /authority-portal isn't under
- *                                       /admin).
+ *                                       via decideUnitAdminRedirect and shows
+ *                                       an explicit "no access" screen with a
+ *                                       link to it — never auto-navigates
+ *                                       there (see authority-portal/login/
+ *                                       page.tsx's own handling of this exact
+ *                                       redirect target's ?blocked=1 flag).
  *   no session at all (missing/
  *   invalid/expired cookie)
  *     + pathname in the (broadest,
  *       authority_manager) allowlist  → redirect to /authority-portal/login,
- *                                       NOT /admin/login (login-entry-points
- *                                       unification, David's hard rule #1,
- *                                       00-MASTER-PLAN.md — confirmed live
- *                                       28.09.2026: an officer whose session
- *                                       expired mid-navigation on an
- *                                       authority-scoped path was bounced to
- *                                       David's own super-admin portal and
- *                                       shown "email not found in the
- *                                       system" there). There's no session to
- *                                       read a `scope` claim from yet, so the
- *                                       PATHNAME alone is the only signal —
- *                                       the broadest (authority_manager's)
- *                                       list is checked here since every
- *                                       other scope's list is already a
- *                                       subset of it; this only decides
- *                                       which LOGIN DOOR to show, never
- *                                       which page to allow.
- *     + pathname NOT in it            → redirect to /admin/login (unchanged)
+ *                                       preserveNext: true — NOT /admin/login
+ *                                       (login-entry-points unification,
+ *                                       David's hard rule #1, 00-MASTER-
+ *                                       PLAN.md — confirmed live 28.09.2026:
+ *                                       an officer whose session expired
+ *                                       mid-navigation on an authority-
+ *                                       scoped path was bounced to David's
+ *                                       own super-admin portal and shown
+ *                                       "email not found in the system"
+ *                                       there). This IS the legitimate
+ *                                       "resume where you were" case `next`
+ *                                       exists for: there's no session yet
+ *                                       to know whether the destination is
+ *                                       even in-scope — if it turns out not
+ *                                       to be, THIS SAME gate re-evaluates it
+ *                                       after login and returns the
+ *                                       preserveNext:false branch above,
+ *                                       converging safely rather than
+ *                                       looping. The PATHNAME alone is the
+ *                                       only signal available here — the
+ *                                       broadest (authority_manager's) list
+ *                                       is checked since every other scope's
+ *                                       list is already a subset of it; this
+ *                                       only decides which LOGIN DOOR to
+ *                                       show, never which page to allow.
+ *     + pathname NOT in it            → redirect to /admin/login,
+ *                                       preserveNext: true (unchanged)
  */
 export function decideAdminGateAction(
   pathname: string,
@@ -254,21 +279,42 @@ export function decideAdminGateAction(
   }
   if (session?.scope === 'authority_manager') {
     const isAllowed = AUTHORITY_MANAGER_ALLOWED_PATHS.some((p) => pathname.startsWith(p));
-    return isAllowed ? { action: 'allow' } : { action: 'redirect', to: '/admin/authority-manager' };
+    return isAllowed ? { action: 'allow' } : { action: 'redirect', to: '/admin/authority-manager', preserveNext: false };
   }
   if (session?.scope === 'tenant_owner') {
     const isAllowed = TENANT_OWNER_ALLOWED_PATHS.some((p) => pathname.startsWith(p));
-    return isAllowed ? { action: 'allow' } : { action: 'redirect', to: '/admin/authority-manager' };
+    return isAllowed ? { action: 'allow' } : { action: 'redirect', to: '/admin/authority-manager', preserveNext: false };
   }
   if (session?.scope === 'unit_admin') {
     return UNIT_ADMIN_PATH_PATTERN.test(pathname)
       ? { action: 'allow' }
-      : { action: 'redirect', to: '/authority-portal/login' };
+      : { action: 'redirect', to: '/authority-portal/login', preserveNext: false };
   }
   if (AUTHORITY_MANAGER_ALLOWED_PATHS.some((p) => pathname.startsWith(p))) {
-    return { action: 'redirect', to: '/authority-portal/login' };
+    return { action: 'redirect', to: '/authority-portal/login', preserveNext: true };
   }
-  return { action: 'redirect', to: '/admin/login' };
+  return { action: 'redirect', to: '/admin/login', preserveNext: true };
+}
+
+/**
+ * Pure, extracted so the exact sequence David's live test caught
+ * (29.09.2026) is directly unit-testable: blocked path → out-of-scope
+ * decision → the redirect URL never carries the blocked destination as
+ * `next=` (the loop generator) → `blocked=1` instead, only for the one
+ * redirect target (unit_admin's) that happens to be login-shaped despite
+ * being a valid-session block.
+ */
+export function buildGateRedirectParams(
+  decision: { to: string; preserveNext: boolean },
+  pathname: string,
+): { next: string | null; blocked: boolean } {
+  if (decision.preserveNext) {
+    return { next: pathname, blocked: false };
+  }
+  if (decision.to === '/authority-portal/login') {
+    return { next: null, blocked: true };
+  }
+  return { next: null, blocked: false };
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -433,19 +479,16 @@ export async function middleware(request: NextRequest) {
 
     if (decision.action === 'redirect') {
       const url = new URL(decision.to, request.url);
-      const isLoginBounce = decision.to === '/admin/login' || decision.to === '/authority-portal/login';
-      if (isLoginBounce) {
-        // Preserve the requested path so the login flow can bounce
-        // the user back after successful authentication — either door.
-        url.searchParams.set('next', pathname);
-      }
+      const params = buildGateRedirectParams(decision, pathname);
+      if (params.next) url.searchParams.set('next', params.next);
+      if (params.blocked) url.searchParams.set('blocked', '1');
       const res = NextResponse.redirect(url);
-      // Only wipe the cookie when bouncing to a login door (no valid
-      // session at all, or a session with neither claim). A
-      // scope==='authority_manager' session redirected to their own portal
-      // for trying an out-of-scope path is still perfectly valid — clearing
-      // it would force a needless re-login.
-      if (cookie && isLoginBounce) {
+      // Only wipe the cookie on the preserveNext (no valid session at all,
+      // or a session with neither claim) branches. Every out-of-scope
+      // block (preserveNext: false) has a perfectly valid session that
+      // just tried a path outside it — clearing it would force a
+      // needless re-login for no reason.
+      if (cookie && decision.preserveNext) {
         res.cookies.delete(SESSION_COOKIE_NAME);
       }
       return res;
