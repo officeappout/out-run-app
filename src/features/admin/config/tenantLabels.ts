@@ -50,9 +50,6 @@ export interface TenantLabelSet {
   loginOrgFallbackPhrase: string;
   loginEmailPlaceholder: string;
   loginEmailHelper: string;
-  /** wasRedirectedFromAdminLogin banner — shown when /admin/login bounces an
-   * already-signed-in local manager here. */
-  loginRedirectedBanner: string;
   /** Success-modal body after the magic link is sent — David's literally-
    * quoted example ("אם המייל רשום כמנהל רשות") is THIS string, not the
    * shorter loginEmailHelper under the input field. */
@@ -140,7 +137,6 @@ export const TENANT_LABELS: Record<TenantType, TenantLabelSet> = {
     loginOrgFallbackPhrase: 'במועצה המקומית שלכם',
     loginEmailPlaceholder: 'your.email@municipality.co.il',
     loginEmailHelper: 'אם המייל רשום כמנהל, יישלח אליו קישור.',
-    loginRedirectedBanner: 'זוהית כמנהל רשות — הועברת לפורטל הנכון עבורך.',
     loginSuccessModalBody: 'אם המייל שהזנת רשום כמנהל רשות, יישלח אליו קישור התחברות מאובטח.',
   },
   military: {
@@ -162,9 +158,8 @@ export const TENANT_LABELS: Record<TenantType, TenantLabelSet> = {
     loginSubtitle: 'פורטל ניהול הכשירות הגופנית',
     loginSubjectPhrase: 'האימונים והכשירות',
     loginOrgFallbackPhrase: 'ביחידה שלכם',
-    loginEmailPlaceholder: 'your.email@idf.il',
+    loginEmailPlaceholder: 'your.email@example.com',
     loginEmailHelper: 'אם המייל רשום כקצין ביחידה, יישלח אליו קישור.',
-    loginRedirectedBanner: 'זוהית כקצין ביחידה — הועברת לפורטל הנכון עבורך.',
     loginSuccessModalBody: 'אם המייל שהזנת רשום כקצין ביחידה, יישלח אליו קישור התחברות מאובטח.',
   },
   educational: {
@@ -190,9 +185,8 @@ export const TENANT_LABELS: Record<TenantType, TenantLabelSet> = {
     loginSubtitle: 'פורטל ניהול החינוך הגופני',
     loginSubjectPhrase: 'החינוך הגופני',
     loginOrgFallbackPhrase: 'בבית הספר שלכם',
-    loginEmailPlaceholder: 'your.email@school.org.il',
+    loginEmailPlaceholder: 'your.email@example.com',
     loginEmailHelper: 'אם המייל רשום כמורה או רכז חנ"ג, יישלח אליו קישור.',
-    loginRedirectedBanner: 'זוהית כמורה או רכז חנ"ג — הועברת לפורטל הנכון עבורך.',
     loginSuccessModalBody: 'אם המייל שהזנת רשום כמורה או רכז חנ"ג, יישלח אליו קישור התחברות מאובטח.',
   },
   company: {
@@ -214,9 +208,8 @@ export const TENANT_LABELS: Record<TenantType, TenantLabelSet> = {
     loginSubtitle: 'פורטל ניהול הרווחה הארגונית',
     loginSubjectPhrase: 'תוכנית הבריאות',
     loginOrgFallbackPhrase: 'בארגון שלכם',
-    loginEmailPlaceholder: 'your.email@company.co.il',
+    loginEmailPlaceholder: 'your.email@example.com',
     loginEmailHelper: 'אם המייל רשום כמנהל/ת, יישלח אליו קישור.',
-    loginRedirectedBanner: 'זוהית כמנהל/ת — הועברת לפורטל הנכון עבורך.',
     loginSuccessModalBody: 'אם המייל שהזנת רשום כמנהל/ת, יישלח אליו קישור התחברות מאובטח.',
   },
   youth_movement: {
@@ -238,9 +231,8 @@ export const TENANT_LABELS: Record<TenantType, TenantLabelSet> = {
     loginSubtitle: 'פורטל ניהול הפעילות הגופנית',
     loginSubjectPhrase: 'הפעילות הגופנית',
     loginOrgFallbackPhrase: 'בתנועה שלכם',
-    loginEmailPlaceholder: 'your.email@movement.org.il',
+    loginEmailPlaceholder: 'your.email@example.com',
     loginEmailHelper: 'אם המייל רשום כרכז/ת, יישלח אליו קישור.',
-    loginRedirectedBanner: 'זוהית כרכז/ת — הועברת לפורטל הנכון עבורך.',
     loginSuccessModalBody: 'אם המייל שהזנת רשום כרכז/ת, יישלח אליו קישור התחברות מאובטח.',
   },
 };

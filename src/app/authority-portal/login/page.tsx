@@ -72,10 +72,6 @@ function AuthorityPortalLoginContent() {
   const [tenantType, setTenantType] = useState<TenantType | null>(null);
   const labels = getTenantLabels(tenantType);
 
-  // Set when /admin/login bounced an already-signed-in authority manager
-  // here (?redirected=1) — shown once as an explanation, not an error.
-  const wasRedirectedFromAdminLogin = searchParams.get('redirected') === '1';
-
   // Login-entry-points unification (00-MASTER-PLAN.md, 28.09.2026) —
   // middleware.ts now sends a session-lost officer/authority-manager here
   // (their own door, never /admin/login) with ?next=<the page they were on>
@@ -364,14 +360,6 @@ function AuthorityPortalLoginContent() {
 
         {/* Login Card */}
         <div className="bg-white rounded-3xl shadow-2xl p-8 border border-gray-100">
-          {wasRedirectedFromAdminLogin && (
-            <div className="mb-6 p-4 border border-cyan-200 bg-cyan-50 rounded-xl flex items-start gap-3">
-              <Building2 size={20} className="flex-shrink-0 mt-0.5 text-cyan-600" />
-              <p className="text-sm flex-1 text-cyan-800">
-                {labels.loginRedirectedBanner}
-              </p>
-            </div>
-          )}
           {error && (
             <div className="mb-6 p-4 border border-red-200 bg-red-50 rounded-xl flex items-start gap-3">
               <AlertCircle size={20} className="flex-shrink-0 mt-0.5 text-red-600" />

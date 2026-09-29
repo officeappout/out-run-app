@@ -38,9 +38,15 @@ function AdminLoginContent() {
             return;
           } else if (roleInfo.isAuthorityManager) {
             // Authority manager tried to access super admin portal - redirect
-            // to their portal, with a flag so it can explain why they landed
-            // there instead of showing this as an unexplained bounce.
-            router.replace('/authority-portal/login?redirected=1');
+            // to their own portal. No explanatory ?redirected=1 flag: that
+            // banner (removed 29.09.2026, David's live-test follow-up) could
+            // never be shown legitimately — this SAME redirect target
+            // independently re-verifies the role and redirects onward again
+            // before the banner's render path is ever reached, so the only
+            // way to actually SEE it was a forged query param on an
+            // unauthenticated visit, asserting an identity never proven —
+            // exactly what "never reveal registration status" forbids.
+            router.replace('/authority-portal/login');
             return;
           }
         } catch (error) {
