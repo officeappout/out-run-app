@@ -166,6 +166,13 @@ export function useProgressionSync({
         // After the fallback chain above this is always defined; widen-narrow for TS.
         const activeProgramId: string = resolvedProgramId ?? 'full_body';
 
+        // programLevels stays an empty placeholder — it's a required field
+        // on WorkoutExerciseResult but is no longer read for linked-program
+        // detection (Progression v2 Phase 2): processWorkoutCompletion now
+        // resolves each exercise's real targetPrograms tags itself via
+        // exerciseId → Firestore lookup, so this fallback path (previously
+        // silently dead for cross-program credit, since this field was
+        // always empty here) now credits linked programs correctly too.
         const exerciseResults = rawExerciseLog && rawExerciseLog.length > 0
           ? rawExerciseLog.map((entry) => ({
               exerciseId: entry.exerciseId,

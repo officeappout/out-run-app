@@ -74,9 +74,27 @@ async function isValidProgramTemplateId(templateId: unknown): Promise<boolean> {
   }
 }
 import { getProgramLevelSetting } from '@/features/content/programs/core/programLevelSettings.service';
-import { getExercise } from '@/features/content/exercises/core/exercise.service';
+import { getExercise, getAllExercisesNoOrder } from '@/features/content/exercises/core/exercise.service';
 import type { Exercise } from '@/features/content/exercises/core/exercise.types';
 import type { LevelGoal } from '@/types/workout';
+import { getUserAccessLevel } from '../../identity/services/access-control.service';
+/**
+ * Progression v2 Phase 2 — deliberate cross-domain reuse of progression-map's
+ * gating logic, NOT a Law 7 violation-by-oversight: Phase 1 built
+ * derivePrerequisites/evaluateProgramGate/getProgramState specifically so
+ * Phase 2's workout-completion fan-out could gate against them (explicit
+ * instruction, not a convenience import). Mirrors this codebase's
+ * established exception for non-trivial, purpose-built logic (see
+ * build-skill-tree.service.ts's own inline Law-7 reasoning) rather than
+ * re-deriving prerequisite/gate logic locally.
+ */
+import { derivePrerequisites, type DerivedPrerequisite } from '@/features/progression-map/services/prerequisite-derivation.service';
+import { evaluateProgramGate, getProgramState } from '@/features/progression-map/services/program-gating.service';
+import {
+  detectTargetProgramsFromExercises,
+  calculateVolumeContribution,
+  isCreditableProgramState,
+} from './target-program-fanout.service';
 
 const PROGRAM_LEVEL_SETTINGS_COLLECTION = 'program_level_settings';
 const PROGRESSION_RULES_COLLECTION = 'progression_rules';
@@ -111,7 +129,7 @@ export const KNOWN_MASTER_PROGRAMS: Record<string, string[]> = {
  *   1. movementPattern (admin-defined: 'push' | 'pull' | 'legs' | 'core')
  *   2. Lowercased/underscored name (e.g. "Full Body" → "full_body")
  */
-interface ProgramSlugMap {
+export interface ProgramSlugMap {
   idToSlug: Map<string, string>;
   slugToId: Map<string, string>;
   idToProgram: Map<string, Program>;
@@ -1192,29 +1210,6 @@ async function getProgressionRuleForLevel(
 }
 
 /**
- * Detect linked programs from exercise programLevels
- * Returns programs that exist in the exercise's programLevels
- */
-function detectLinkedProgramsFromExercises(
-  exercises: WorkoutExerciseResult[],
-  activeProgramId: string
-): Set<string> {
-  const linkedPrograms = new Set<string>();
-  
-  for (const exercise of exercises) {
-    if (exercise.programLevels) {
-      for (const programId of Object.keys(exercise.programLevels)) {
-        if (programId !== activeProgramId && exercise.programLevels[programId] !== undefined) {
-          linkedPrograms.add(programId);
-        }
-      }
-    }
-  }
-  
-  return linkedPrograms;
-}
-
-/**
  * Calculate total sets performed across all exercises
  */
 function calculateTotalSetsPerformed(exercises: WorkoutExerciseResult[]): number {
@@ -1259,24 +1254,139 @@ function calculatePerformanceRatio(exercises: WorkoutExerciseResult[]): number {
 }
 
 /**
- * Calculate volume contribution per linked program
- * Based on how many exercises from each program were performed
+ * Gate + credit a set of candidate target-program slugs (Progression v2
+ * Phase 2 — product decision: fan-out credits a program only when Phase 1's
+ * getProgramState says active/tracked/available; never locked_prereq/
+ * needs_assessment/locked_pro. This also fixes the prior production
+ * behavior — any programId surfacing in an exercise's tags got credited
+ * unconditionally, with no prerequisite/lock check at all).
+ *
+ * Mutates `updatedTracks` in place for every ALLOWED candidate, using the
+ * SAME partial-credit formula the leaf flow always used
+ * (totalGain × volumeContribution × 0.5) — this phase only changes WHICH
+ * programs are eligible and HOW they're detected, not the gain math itself.
+ * Returns the linkedProgramGains entries for credited candidates; blocked
+ * candidates are skipped and logged, never silently dropped.
+ *
+ * Gates against `snapshotTracks` — the tracks state as of the START of this
+ * completion call, not `updatedTracks` mid-mutation. Deterministic and
+ * order-independent: a program that crosses its own prerequisite threshold
+ * WITHIN this same workout does not retroactively unlock bonus credit to a
+ * newly-qualifying linked program in the same call — it qualifies from the
+ * next workout on.
  */
-function calculateVolumeContribution(
-  exercises: WorkoutExerciseResult[],
-  linkedProgramId: string
-): number {
-  let linkedExerciseCount = 0;
-  let totalExerciseCount = exercises.length;
-  
-  for (const exercise of exercises) {
-    if (exercise.programLevels && exercise.programLevels[linkedProgramId] !== undefined) {
-      linkedExerciseCount++;
-    }
+async function gateAndCreditTargetPrograms(params: {
+  candidateSlugs: Set<string>;
+  totalGain: number;
+  exercises: WorkoutExerciseResult[];
+  exerciseLookup: Map<string, Exercise>;
+  slugMap: ProgramSlugMap | null;
+  snapshotTracks: { [programId: string]: DomainTrackProgress };
+  activeProgramSlugs: Set<string>;
+  userTier: 1 | 2 | 3;
+  updatedTracks: { [programId: string]: DomainTrackProgress };
+  completedAt: Date;
+}): Promise<WorkoutCompletionResult['linkedProgramGains']> {
+  const {
+    candidateSlugs, totalGain, exercises, exerciseLookup, slugMap,
+    snapshotTracks, activeProgramSlugs, userTier, updatedTracks, completedAt,
+  } = params;
+
+  const gains: WorkoutCompletionResult['linkedProgramGains'] = [];
+  if (candidateSlugs.size === 0 || !slugMap) return gains;
+
+  // Full catalog is fetched only when there's at least one candidate to
+  // gate — derivePrerequisites needs every exercise tagged to a candidate
+  // program (not just this workout's own exercises) to build its tree, so
+  // this is a real, accepted extra Firestore read on sessions that have
+  // cross-tagged exercises. Flagged as the main performance cost of this
+  // phase in the Phase 2 report, not hidden.
+  let allExercisesCatalog: Exercise[] = [];
+  try {
+    allExercisesCatalog = await getAllExercisesNoOrder();
+  } catch (e) {
+    console.warn('[Progression] Gating: full exercise catalog fetch failed — cannot gate safely, crediting nothing this call:', e);
+    return gains; // fail closed: unable to verify safety, so credit nothing rather than risk over-crediting
   }
-  
-  if (totalExerciseCount === 0) return 0;
-  return linkedExerciseCount / totalExerciseCount;
+
+  const flatTracks: Record<string, number> = {};
+  for (const [slug, track] of Object.entries(snapshotTracks)) {
+    flatTracks[slug] = track.currentLevel;
+  }
+
+  for (const candidateSlug of Array.from(candidateSlugs)) {
+    const candidateRawId = slugMap.slugToId.get(candidateSlug);
+    if (!candidateRawId) {
+      console.warn(`[Progression] Gating: "${candidateSlug}" has no resolvable Firestore id — skipping (cannot gate safely)`);
+      continue;
+    }
+
+    const rawPrereqs = derivePrerequisites(allExercisesCatalog, candidateRawId);
+    const prereqsSlugSpace: DerivedPrerequisite[] = rawPrereqs.map((p) => ({
+      domainProgramId: slugMap.idToSlug.get(p.domainProgramId) ?? p.domainProgramId,
+      minLevel: p.minLevel,
+    }));
+
+    let candidateProgram: Program | null = null;
+    try {
+      candidateProgram = await getProgramByTemplateId(candidateSlug);
+    } catch (e) {
+      console.warn(`[Progression] Gating: could not fetch Program doc for "${candidateSlug}":`, e);
+    }
+
+    const gate = evaluateProgramGate(
+      { tracks: flatTracks, tier: userTier },
+      { requiredTier: candidateProgram?.requiredTier },
+      prereqsSlugSpace,
+    );
+    const state = getProgramState(
+      { tracks: flatTracks, tier: userTier, activeProgramIds: activeProgramSlugs },
+      candidateSlug,
+      gate,
+    );
+
+    if (!isCreditableProgramState(state)) {
+      console.log(`[Progression] Gating: "${candidateSlug}" NOT credited — state=${state}`, gate);
+      continue;
+    }
+
+    const volumeContribution = calculateVolumeContribution(exercises, candidateSlug, exerciseLookup, slugMap);
+    const linkedGain = totalGain * volumeContribution * 0.5;
+    if (linkedGain <= 0) continue;
+
+    const linkedTrack = updatedTracks[candidateSlug] || getDefaultTrackProgress();
+    const linkedNewPercent = linkedTrack.percent + linkedGain;
+    let linkedLeveledUp = false;
+    let linkedNewLevel = linkedTrack.currentLevel;
+
+    if (linkedNewPercent >= 100) {
+      linkedNewLevel = linkedTrack.currentLevel + 1;
+      linkedLeveledUp = true;
+      updatedTracks[candidateSlug] = {
+        currentLevel: linkedNewLevel,
+        percent: linkedNewPercent - 100,
+        lastWorkoutDate: completedAt,
+        totalWorkoutsCompleted: (linkedTrack.totalWorkoutsCompleted || 0) + 1,
+      };
+    } else {
+      updatedTracks[candidateSlug] = {
+        ...linkedTrack,
+        percent: linkedNewPercent,
+        lastWorkoutDate: completedAt,
+        totalWorkoutsCompleted: (linkedTrack.totalWorkoutsCompleted || 0) + 1,
+      };
+    }
+
+    gains.push({
+      programId: candidateSlug,
+      gain: linkedGain,
+      newPercent: linkedLeveledUp ? linkedNewPercent - 100 : linkedNewPercent,
+      leveledUp: linkedLeveledUp,
+      newLevel: linkedLeveledUp ? linkedNewLevel : undefined,
+    });
+  }
+
+  return gains;
 }
 
 /**
@@ -1639,19 +1749,16 @@ async function processBottomUpMasterCompletion(
   userData: UserFullProfile,
   masterProgram: Program,
   progression: NonNullable<UserFullProfile['progression']>,
+  slugMap: ProgramSlugMap | null,
+  exerciseLookup: Map<string, Exercise>,
 ): Promise<WorkoutCompletionResult> {
   const { userId, activeProgramId, exercises, completedAt } = data;
   const childProgramIds = masterProgram.subPrograms!;
   const updatedTracks = { ...progression.tracks };
 
-  // ── 1. Build Program Slug Map (resolves Firestore IDs → slugs like 'push', 'legs')
-  let slugMap: ProgramSlugMap | null = null;
-  try {
-    slugMap = await buildProgramSlugMap();
-    console.log(`[Progression] Bottom-Up: Built slug map with ${slugMap.idToSlug.size} programs`);
-  } catch (e) {
-    console.warn('[Progression] Bottom-Up: Slug map build failed:', e);
-  }
+  // slugMap + exerciseLookup are now hoisted to processWorkoutCompletion
+  // (Progression v2 Phase 2) so the leaf flow can share them too, instead
+  // of each flow fetching its own copy.
 
   // Normalize childProgramIds to slugs. If they are already slugs (from Tier 3
   // hardcoded fallback), they pass through unchanged. If they are Firestore IDs
@@ -1659,15 +1766,7 @@ async function processBottomUpMasterCompletion(
   const childSlugs = childProgramIds.map(id => slugMap?.idToSlug.get(id) ?? id);
 
   console.log(`[Progression] Bottom-Up: Master "${activeProgramId}" → child slugs [${childSlugs.join(', ')}]`);
-
-  // ── 2. Fetch exercise documents from Firestore for DB-driven classification
-  let exerciseLookup = new Map<string, Exercise>();
-  try {
-    exerciseLookup = await fetchExerciseLookup(exercises);
-    console.log(`[Progression] Bottom-Up: Fetched ${exerciseLookup.size}/${exercises.length} exercise docs from Firestore`);
-  } catch (e) {
-    console.warn('[Progression] Bottom-Up: Exercise fetch failed, falling back to keyword matching:', e);
-  }
+  console.log(`[Progression] Bottom-Up: Using ${exerciseLookup.size}/${exercises.length} shared exercise docs from Firestore`);
 
   // ── 3. Classify exercises to child programs (slug-resolved, keyword fallback)
   const childBuckets: Record<string, WorkoutExerciseResult[]> = {};
@@ -1970,6 +2069,26 @@ export async function processWorkoutCompletion(
     // Ensure tracks are initialized
     ensureTracksInitialized(progression);
 
+    // ── SHARED: exercise docs + program slug map ───────────────────────────
+    // Hoisted out of the master-only branch (Progression v2 Phase 2) — both
+    // the master and leaf flows now share one fetch instead of the master
+    // flow fetching its own copy while the leaf flow had none at all (the
+    // leaf flow's linked-program detection now needs real Exercise docs
+    // too, to read targetPrograms instead of the old, unreliable
+    // exercise.programLevels field — see Phase 2 report).
+    let slugMap: ProgramSlugMap | null = null;
+    try {
+      slugMap = await buildProgramSlugMap();
+    } catch (e) {
+      console.warn('[Progression] Slug map build failed:', e);
+    }
+    let exerciseLookup = new Map<string, Exercise>();
+    try {
+      exerciseLookup = await fetchExerciseLookup(exercises);
+    } catch (e) {
+      console.warn('[Progression] Exercise lookup fetch failed:', e);
+    }
+
     // ── MASTER PROGRAM DETECTION: Bottom-Up Aggregation ───────────────────
     // Master programs (e.g., full_body) do NOT have their own progression rules.
     // Their gain is calculated bottom-up from child programs.
@@ -2018,7 +2137,7 @@ export async function processWorkoutCompletion(
 
     if (masterProgram?.isMaster && masterProgram.subPrograms?.length) {
       console.log(`[Progression] "${activeProgramId}" is a MASTER → delegating to bottom-up flow`);
-      return processBottomUpMasterCompletion(data, userData, masterProgram, progression);
+      return processBottomUpMasterCompletion(data, userData, masterProgram, progression, slugMap, exerciseLookup);
     }
 
     // ── LEAF PROGRAM FLOW (unchanged) ─────────────────────────────────────
@@ -2224,64 +2343,79 @@ export async function processWorkoutCompletion(
     
     // Process linked programs
     const linkedProgramGains: WorkoutCompletionResult['linkedProgramGains'] = [];
-    
-    // Get linked programs from rule AND detected from exercises
+
+    // ── Rule-defined linked programs (admin-curated, in progression_rules) ──
+    // Deliberately left UNGATED by Progression v2 Phase 2: these are a
+    // human admin's explicit, deliberate curation of program X → program Y
+    // credit, a different mechanism from the automatic exercise-tag fan-out
+    // below — gating an admin's own deliberate choice wasn't asked for and
+    // isn't done here. Flagged in the Phase 2 report as a scope decision.
     const ruleLinkedPrograms = rule.linkedPrograms || [];
-    const detectedLinkedPrograms = detectLinkedProgramsFromExercises(exercises, activeProgramId);
-    
-    // Combine linked programs (rule takes priority for multiplier)
-    const allLinkedPrograms = new Map<string, number>();
-    
-    // Add rule-defined linked programs
+    const ruleLinkedIds = new Set(ruleLinkedPrograms.map((lp) => lp.targetProgramId));
     for (const lp of ruleLinkedPrograms) {
-      allLinkedPrograms.set(lp.targetProgramId, lp.multiplier);
-    }
-    
-    // Add detected linked programs with volume-based multiplier
-    Array.from(detectedLinkedPrograms).forEach(programId => {
-      if (!allLinkedPrograms.has(programId)) {
-        const volumeContribution = calculateVolumeContribution(exercises, programId);
-        // Default multiplier is 50% of volume contribution
-        allLinkedPrograms.set(programId, volumeContribution * 0.5);
-      }
-    });
-    
-    // Apply gains to linked programs
-    Array.from(allLinkedPrograms.entries()).forEach(([linkedProgramId, multiplier]) => {
-      const linkedTrack = updatedTracks[linkedProgramId] || getDefaultTrackProgress();
-      const linkedGain = totalGain * multiplier;
-      
+      const linkedTrack = updatedTracks[lp.targetProgramId] || getDefaultTrackProgress();
+      const linkedGain = totalGain * lp.multiplier;
+
       const linkedNewPercent = linkedTrack.percent + linkedGain;
       let linkedLeveledUp = false;
       let linkedNewLevel = linkedTrack.currentLevel;
-      
+
       if (linkedNewPercent >= 100) {
         linkedNewLevel = linkedTrack.currentLevel + 1;
         linkedLeveledUp = true;
-        updatedTracks[linkedProgramId] = {
+        updatedTracks[lp.targetProgramId] = {
           currentLevel: linkedNewLevel,
           percent: linkedNewPercent - 100,
           lastWorkoutDate: completedAt,
           totalWorkoutsCompleted: (linkedTrack.totalWorkoutsCompleted || 0) + 1,
         };
       } else {
-        updatedTracks[linkedProgramId] = {
+        updatedTracks[lp.targetProgramId] = {
           ...linkedTrack,
           percent: linkedNewPercent,
           lastWorkoutDate: completedAt,
           totalWorkoutsCompleted: (linkedTrack.totalWorkoutsCompleted || 0) + 1,
         };
       }
-      
+
       linkedProgramGains.push({
-        programId: linkedProgramId,
+        programId: lp.targetProgramId,
         gain: linkedGain,
         newPercent: linkedLeveledUp ? linkedNewPercent - 100 : linkedNewPercent,
         leveledUp: linkedLeveledUp,
         newLevel: linkedLeveledUp ? linkedNewLevel : undefined,
       });
+    }
+
+    // ── targetPrograms-detected linked programs (Progression v2 Phase 2) ──
+    // Gated through Phase 1's evaluateProgramGate/getProgramState — only
+    // active/tracked/available programs get credited (never locked_prereq/
+    // needs_assessment/locked_pro). Double-count guard: excludes
+    // activeProgramId AND every program rule.linkedPrograms already
+    // claimed this same call.
+    const detectedCandidates = detectTargetProgramsFromExercises(
+      exercises,
+      exerciseLookup,
+      new Set([activeProgramId, ...Array.from(ruleLinkedIds)]),
+      slugMap,
+      new Set(Object.keys(KNOWN_MASTER_PROGRAMS)),
+    );
+    const userTier = getUserAccessLevel(userData);
+    const activeProgramSlugs = new Set((progression.activePrograms ?? []).map((p) => p.templateId));
+    const detectedGains = await gateAndCreditTargetPrograms({
+      candidateSlugs: detectedCandidates,
+      totalGain,
+      exercises,
+      exerciseLookup,
+      slugMap,
+      snapshotTracks: progression.tracks ?? {},
+      activeProgramSlugs,
+      userTier,
+      updatedTracks,
+      completedAt,
     });
-    
+    linkedProgramGains.push(...detectedGains);
+
     // ── MASTER-TO-CHILD PROPAGATION ──────────────────────────────────────
     // When the active program is a MASTER (e.g., full_body), distribute
     // proportional gains to its child tracks (push, pull, legs, core)
@@ -2292,6 +2426,15 @@ export async function processWorkoutCompletion(
       const masterProgram = await getProgramByTemplateId(activeProgramId);
       if (masterProgram?.isMaster && masterProgram.subPrograms?.length) {
         const childProgramIds = masterProgram.subPrograms;
+
+        // Double-count guard (Progression v2 Phase 2): a program already
+        // credited above (activeProgramId itself, or via rule-linked /
+        // targetPrograms-detected fan-out) must not ALSO be credited here
+        // via keyword-matching — this block and the fan-out above can both
+        // reach the same child program in the same call when activeProgramId
+        // resolves as a master by this (getProgramByTemplateId) check even
+        // though the earlier Tier 1-3 master detection missed it.
+        const creditedProgramIds = new Set([activeProgramId, ...linkedProgramGains.map((g) => g.programId)]);
 
         // Classify each exercise by movement group → child program
         const childVolume: Record<string, { sets: number; reps: number }> = {};
@@ -2324,7 +2467,7 @@ export async function processWorkoutCompletion(
             }
           }
 
-          if (matchedChild && childVolume[matchedChild]) {
+          if (matchedChild && childVolume[matchedChild] && !creditedProgramIds.has(matchedChild)) {
             childVolume[matchedChild].sets += ex.setsCompleted;
             childVolume[matchedChild].reps += ex.repsPerSet.reduce((s, r) => s + r, 0);
           }
