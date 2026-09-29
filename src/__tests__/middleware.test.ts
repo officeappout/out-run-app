@@ -123,27 +123,85 @@ describe('decideAdminGateAction', () => {
     expect(decideAdminGateAction('/admin/exercises', invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/admin/login' });
   });
 
-  // 28.09.2026 — David's live-test follow-up: does typing /admin/dashboard
-  // directly get blocked at the gate for a unit_admin, not just fail to
-  // render? Before this exclusion it was allowed through (same shared
-  // allowlist as authority_manager/tenant_owner) — only the page's own
-  // accidental early-return kept it from leaking real data.
+  // 29.09.2026 — David's live-test findings 1-2: unit_admin reached
+  // /admin/parks, /admin/locations, /admin/organizations, and the BARE
+  // /admin/authority/units list (delete-all/bulk-import/create) — all
+  // through the SAME shared allowlist authority_manager/tenant_owner used,
+  // a documented "Stage 4" simplification that turned out to be a real
+  // vulnerability. Fixed with default-deny per scope: each scope now has
+  // its OWN explicit allowlist/pattern, derived from what it actually needs.
   const unitAdmin: GateSessionInfo = { admin: false, scope: 'unit_admin' };
   const tenantOwner: GateSessionInfo = { admin: false, scope: 'tenant_owner' };
 
-  it('unit_admin on /admin/dashboard — blocked at the gate now, redirected (not allowed through to render)', () => {
-    expect(decideAdminGateAction('/admin/dashboard', unitAdmin)).toEqual({ action: 'redirect', to: '/admin/authority-manager' });
+  describe('unit_admin — narrow regex, not the shared list', () => {
+    it('allowed on their own real destination (a unit id present)', () => {
+      expect(decideAdminGateAction('/admin/authority/units/9307', unitAdmin)).toEqual({ action: 'allow' });
+      expect(decideAdminGateAction('/admin/authority/units/9307/sub-page', unitAdmin)).toEqual({ action: 'allow' });
+    });
+
+    it('blocked on the BARE units list — the exact page David\'s live test caught (delete-all/bulk-import/create battalion)', () => {
+      expect(decideAdminGateAction('/admin/authority/units', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login' });
+      expect(decideAdminGateAction('/admin/authority/units/', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login' });
+    });
+
+    it('blocked on /admin/parks and /admin/locations — root-only park/route mapping, unscoped system-wide data', () => {
+      expect(decideAdminGateAction('/admin/parks', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login' });
+      expect(decideAdminGateAction('/admin/parks/new', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login' });
+      expect(decideAdminGateAction('/admin/locations', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login' });
+      expect(decideAdminGateAction('/admin/locations/import/parks', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login' });
+    });
+
+    it('blocked on /admin/organizations — that door is isVerticalAdmin\'s, not theirs', () => {
+      expect(decideAdminGateAction('/admin/organizations', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login' });
+    });
+
+    it('blocked on /admin/dashboard and /admin/authority-manager — not their scope\'s vertical', () => {
+      expect(decideAdminGateAction('/admin/dashboard', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login' });
+      expect(decideAdminGateAction('/admin/authority-manager', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login' });
+    });
+
+    it('the "not allowed" redirect target is their OWN login door, never /admin/authority-manager — that would fail the SAME gate again (loop risk)', () => {
+      const result = decideAdminGateAction('/admin/parks', unitAdmin);
+      expect(result).toEqual({ action: 'redirect', to: '/authority-portal/login' });
+      // Prove no loop: /authority-portal/login isn't itself subject to this gate.
+      expect(decideAdminGateAction('/admin/authority-manager', unitAdmin).action).toBe('redirect');
+    });
   });
 
-  it('unit_admin on their own real destination — still allowed, unaffected by the dashboard exclusion', () => {
-    expect(decideAdminGateAction('/admin/authority/units/9307', unitAdmin)).toEqual({ action: 'allow' });
+  describe('tenant_owner — own narrow list, not the shared one', () => {
+    it('allowed on their real sidebar destinations (union of SIDEBAR_CONFIGS.military_unit + .school)', () => {
+      expect(decideAdminGateAction('/admin/dashboard', tenantOwner)).toEqual({ action: 'allow' });
+      expect(decideAdminGateAction('/admin/authority-manager', tenantOwner)).toEqual({ action: 'allow' });
+      expect(decideAdminGateAction('/admin/authority/readiness', tenantOwner)).toEqual({ action: 'allow' });
+      expect(decideAdminGateAction('/admin/authority/units', tenantOwner)).toEqual({ action: 'allow' }); // legitimate for them — whole-org owner
+      expect(decideAdminGateAction('/admin/authority/grades', tenantOwner)).toEqual({ action: 'allow' });
+      expect(decideAdminGateAction('/admin/authority/locations', tenantOwner)).toEqual({ action: 'allow' });
+      expect(decideAdminGateAction('/admin/authority/team', tenantOwner)).toEqual({ action: 'allow' });
+      expect(decideAdminGateAction('/admin/heatmap', tenantOwner)).toEqual({ action: 'allow' });
+      expect(decideAdminGateAction('/admin/access-codes', tenantOwner)).toEqual({ action: 'allow' });
+    });
+
+    it('blocked on /admin/parks, /admin/locations, /admin/organizations — same violation class as unit_admin, neither sidebar links there', () => {
+      expect(decideAdminGateAction('/admin/parks', tenantOwner)).toEqual({ action: 'redirect', to: '/admin/authority-manager' });
+      expect(decideAdminGateAction('/admin/locations', tenantOwner)).toEqual({ action: 'redirect', to: '/admin/authority-manager' });
+      expect(decideAdminGateAction('/admin/organizations', tenantOwner)).toEqual({ action: 'redirect', to: '/admin/authority-manager' });
+    });
+
+    it('blocked on /admin/authority/users — the pre-existing super_admin/system_admin-only exclusion applies here too', () => {
+      expect(decideAdminGateAction('/admin/authority/users', tenantOwner)).toEqual({ action: 'redirect', to: '/admin/authority-manager' });
+    });
   });
 
-  it('tenant_owner on /admin/dashboard — unaffected, still allowed (their own sidebar genuinely links here, a separate question)', () => {
-    expect(decideAdminGateAction('/admin/dashboard', tenantOwner)).toEqual({ action: 'allow' });
-  });
+  describe('authority_manager — unchanged (existing list, production-proven, deliberately not touched today)', () => {
+    it('still allowed on /admin/parks, /admin/locations, /admin/organizations — flagged as a likely follow-up, not fixed here', () => {
+      expect(decideAdminGateAction('/admin/parks', authorityManager)).toEqual({ action: 'allow' });
+      expect(decideAdminGateAction('/admin/locations', authorityManager)).toEqual({ action: 'allow' });
+      expect(decideAdminGateAction('/admin/organizations', authorityManager)).toEqual({ action: 'allow' });
+    });
 
-  it('authority_manager on /admin/dashboard — unaffected, still allowed (unchanged, pre-existing behavior)', () => {
-    expect(decideAdminGateAction('/admin/dashboard', authorityManager)).toEqual({ action: 'allow' });
+    it('still allowed on /admin/dashboard and the bare units list — no change from before', () => {
+      expect(decideAdminGateAction('/admin/dashboard', authorityManager)).toEqual({ action: 'allow' });
+      expect(decideAdminGateAction('/admin/authority/units', authorityManager)).toEqual({ action: 'allow' });
+    });
   });
 });

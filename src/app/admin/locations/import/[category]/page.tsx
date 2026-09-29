@@ -228,19 +228,52 @@ export default function GISImportPage({ params }: { params: { category: string }
         getCategoryBranding().then(setBrandingConfig).catch(console.error);
     }, []);
 
-    // Auth check (minimal — just for awareness)
+    // Auth check — a REAL gate, not the discarded-result "for awareness"
+    // check this replaced (29.09.2026, David's live-test note 3: "a check
+    // whose result is thrown away is worse than no check — it documents
+    // intent without providing it"). This is a bulk GIS import tool
+    // (click-to-place points across the whole system, bulk equipment
+    // assignment to every placed point) — same root-only tier as its
+    // sibling /admin/parks/import (parks/import/page.tsx:98), mirrored here.
+    const [authed, setAuthed] = useState(false);
+    const [authLoading, setAuthLoading] = useState(true);
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
                 try {
-                    await checkUserRole(user.uid);
-                } catch (error) {
-                    console.error('Error checking user role:', error);
+                    const role = await checkUserRole(user.uid);
+                    setAuthed(role.isSuperAdmin || role.isSystemAdmin);
+                } catch {
+                    setAuthed(false);
                 }
             }
+            setAuthLoading(false);
         });
         return () => unsubscribe();
     }, []);
+
+    // ============================================
+    // GUARD: Not authorized
+    // ============================================
+
+    if (authLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+            </div>
+        );
+    }
+    if (!authed) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <div className="text-center space-y-3">
+                    <AlertCircle className="h-10 w-10 text-red-400 mx-auto" />
+                    <p className="text-gray-600">אין לך הרשאות לעמוד זה</p>
+                    <Link href="/admin" className="text-blue-600 underline text-sm">חזרה לדשבורד</Link>
+                </div>
+            </div>
+        );
+    }
 
     // ============================================
     // GUARD: Invalid category

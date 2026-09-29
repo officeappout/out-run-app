@@ -103,15 +103,6 @@ export function shouldGateAdminRequest(pathname: string, domain: string): boolea
 // `/admin/authority/users` is deliberately absent (super_admin/
 // system_admin-only since 22.09.2026) — this list must never add it back
 // without also updating layout.tsx's copy.
-//
-// tenant_owner/unit_admin reuse this EXACT same list, not a narrower one —
-// Stage 4's job is only "can this scope reach the /admin/authority/* family
-// at all," not "which specific fields within a page it may see." The latter
-// is each page's own job (resolveUnitPermissionScope + per-page scoping,
-// most of which still needs Stage 5-8's rebuild — see 00-MASTER-PLAN.md
-// §13.16's investigation). Granting the same allowlist here doesn't expose
-// anything new: every one of these routes already existed and was already
-// reachable by SOME scope; this only adds two more legitimate holders.
 const AUTHORITY_MANAGER_ALLOWED_PATHS = [
   '/admin/authority-manager',
   '/admin/dashboard',
@@ -131,13 +122,64 @@ const AUTHORITY_MANAGER_ALLOWED_PATHS = [
   '/admin/heatmap',
   '/admin/insights',
   '/admin/statistics',
-  '/admin/auth/callback',
-  '/admin/authority-login',
-  '/admin/pending-approval',
   '/admin/access-codes',
   '/admin/admin-directory',
   '/admin/organizations',
 ];
+
+// §26 follow-up (29.09.2026, David's live-test findings 1-2) — "tenant_owner/
+// unit_admin reuse the SAME list as authority_manager" turned out to be a
+// real vulnerability, not a harmless simplification: a unit_admin (a single
+// unit commander) reached /admin/parks, /admin/locations, /admin/organizations,
+// and the BARE /admin/authority/units list — pages with unscoped
+// system-wide reads and destructive UI (delete-all, bulk JSON import,
+// bulk park remapping) that render with no internal role gate. The only
+// thing that had been stopping a real write from most of them was each
+// page's OWN incidental early-return failing safe for unrelated reasons
+// (§26) — not a gate. David's explicit correction: park/route MAPPING is
+// root-only, full stop — a local-manager scope reaching /admin/parks or
+// /admin/locations (both fully unscoped — getAllParks(), not filtered by
+// tenant) is a direct violation of that, not a theoretical gap.
+//
+// Fix: default-deny per scope. Every scope gets its OWN explicit allowlist,
+// derived from what that scope's OWN sidebar actually links to (never the
+// broadest list that happens to work) — not one shared list three roles
+// happen to reuse. authority_manager's list above is UNCHANGED (existing,
+// production-proven for real municipal managers) pending its own separate
+// review — flagged, not touched here.
+
+// tenant_owner's real footprint = the union of SIDEBAR_CONFIGS.military_unit
+// and SIDEBAR_CONFIGS.school (sidebarConfigs.ts) — the only two verticals
+// the tenant_owner role covers. /admin/authority/users is deliberately
+// excluded even though both configs still link to it — that's a pre-existing
+// stale link (super_admin/system_admin-only since 22.09.2026, see the
+// comment on AUTHORITY_MANAGER_ALLOWED_PATHS above), not fixed here.
+// /admin/parks, /admin/locations, /admin/organizations are deliberately
+// excluded too — neither sidebar links to them, same root-only/
+// vertical-admin-only violation class as unit_admin's case.
+const TENANT_OWNER_ALLOWED_PATHS = [
+  '/admin/dashboard',
+  '/admin/authority-manager',
+  '/admin/authority/readiness',
+  '/admin/authority/units',
+  '/admin/authority/grades',
+  '/admin/authority/locations',
+  '/admin/authority/team',
+  '/admin/heatmap',
+  '/admin/access-codes',
+];
+
+// unit_admin's real footprint is exactly ONE page, always with a real
+// unitId: /admin/authority/units/[unitId] — decideUnitAdminRedirect's own
+// single destination (postAcceptRedirect.ts), and the minimal sidebar's
+// only link (admin/layout.tsx's isUnitAdminOnly branch). A regex (not a
+// prefix string) is required specifically so it does NOT match the bare
+// /admin/authority/units list page — that page is exactly the brigade-wide
+// delete-all/import/create tool David's live test caught a unit_admin
+// reaching (a `startsWith('/admin/authority/units')` prefix check, which
+// AUTHORITY_MANAGER_ALLOWED_PATHS still correctly uses for authority_manager/
+// tenant_owner, cannot make that distinction).
+const UNIT_ADMIN_PATH_PATTERN = /^\/admin\/authority\/units\/[^/]+/;
 
 export interface GateSessionInfo {
   admin: boolean;
@@ -157,16 +199,33 @@ export type AdminGateAction =
  *
  *   session.admin === true           → allow (root / super_admin / etc.,
  *                                       unchanged from before this fix)
- *   scope === 'authority_manager' |
- *   'tenant_owner' | 'unit_admin'
- *     + pathname in the allowlist    → allow
- *     + pathname NOT in the allowlist→ redirect to their own portal, NOT
- *                                       to login — they have a perfectly
- *                                       valid session, they just tried a
- *                                       path outside their role
+ *   scope === 'authority_manager'     → AUTHORITY_MANAGER_ALLOWED_PATHS
+ *   scope === 'tenant_owner'          → TENANT_OWNER_ALLOWED_PATHS
+ *   scope === 'unit_admin'            → UNIT_ADMIN_PATH_PATTERN (regex, not
+ *                                       prefix — see its own comment)
+ *     path in the matching scope's
+ *     own list/pattern                → allow
+ *     path NOT in it                  → redirect to their own portal — for
+ *                                       authority_manager/tenant_owner,
+ *                                       /admin/authority-manager (in both
+ *                                       their own lists, so this can never
+ *                                       loop); for unit_admin specifically,
+ *                                       /authority-portal/login instead —
+ *                                       /admin/authority-manager is NOT in
+ *                                       their narrow pattern, so redirecting
+ *                                       them there would immediately fail
+ *                                       the SAME gate again. Their own login
+ *                                       door re-resolves role + destination
+ *                                       via decideUnitAdminRedirect and sends
+ *                                       them to their real unit page — reuses
+ *                                       existing logic, no loop risk (that
+ *                                       page isn't gated by this function at
+ *                                       all, /authority-portal isn't under
+ *                                       /admin).
  *   no session at all (missing/
  *   invalid/expired cookie)
- *     + pathname in the allowlist    → redirect to /authority-portal/login,
+ *     + pathname in the (broadest,
+ *       authority_manager) allowlist  → redirect to /authority-portal/login,
  *                                       NOT /admin/login (login-entry-points
  *                                       unification, David's hard rule #1,
  *                                       00-MASTER-PLAN.md — confirmed live
@@ -175,25 +234,16 @@ export type AdminGateAction =
  *                                       authority-scoped path was bounced to
  *                                       David's own super-admin portal and
  *                                       shown "email not found in the
- *                                       system" there). There's no session
- *                                       to read a `scope` claim from, but the
- *                                       PATHNAME alone already tells us this
- *                                       request belongs to the
- *                                       officer/authority-manager door's own
- *                                       territory — reusing the SAME
- *                                       allowlist that already gates it when
- *                                       a session IS present. A super_admin
- *                                       who loses session while browsing one
- *                                       of these shared paths lands on the
- *                                       wrong-branded login form, but still
- *                                       signs in correctly afterward —
- *                                       /admin/auth/callback's
- *                                       resolveDestination routes by REAL
- *                                       role, never by which door was used
- *                                       (same reasoning that already makes
- *                                       authority-portal/login safe to send
- *                                       a magic link unconditionally).
- *     + pathname NOT in the allowlist→ redirect to /admin/login (unchanged)
+ *                                       system" there). There's no session to
+ *                                       read a `scope` claim from yet, so the
+ *                                       PATHNAME alone is the only signal —
+ *                                       the broadest (authority_manager's)
+ *                                       list is checked here since every
+ *                                       other scope's list is already a
+ *                                       subset of it; this only decides
+ *                                       which LOGIN DOOR to show, never
+ *                                       which page to allow.
+ *     + pathname NOT in it            → redirect to /admin/login (unchanged)
  */
 export function decideAdminGateAction(
   pathname: string,
@@ -202,32 +252,18 @@ export function decideAdminGateAction(
   if (session?.admin === true) {
     return { action: 'allow' };
   }
-  if (
-    session?.scope === 'authority_manager' ||
-    session?.scope === 'tenant_owner' ||
-    session?.scope === 'unit_admin'
-  ) {
-    // unit_admin's own real destination is /admin/authority/units/[unitId]
-    // ONLY (decideUnitAdminRedirect, postAcceptRedirect.ts) —
-    // /admin/dashboard is a municipal/tenant_owner-flavored page
-    // (admin/dashboard/page.tsx has no unit_admin branch at all) this
-    // scope has no legitimate reason to reach. Before this exclusion,
-    // the shared allowlist below let it through regardless (a deliberate
-    // Stage 4 simplification — see that allowlist's own comment), relying
-    // entirely on the page's own early-return (aId stays null for
-    // unit_admin, since getAuthoritiesByManager is always empty for them)
-    // to avoid a real data leak. That's an accident of the page's current
-    // code, not a gate — a future edit to that early-return would silently
-    // reopen this. David's live-test question, 28.09.2026: does typing the
-    // URL directly get blocked at the gate, not merely fail to render data?
-    // Scoped to unit_admin only — authority_manager/tenant_owner keep
-    // today's unchanged access (tenant_owner's own sidebar genuinely links
-    // here, a separate, pre-existing question this fix doesn't touch).
-    if (session.scope === 'unit_admin' && pathname.startsWith('/admin/dashboard')) {
-      return { action: 'redirect', to: '/admin/authority-manager' };
-    }
+  if (session?.scope === 'authority_manager') {
     const isAllowed = AUTHORITY_MANAGER_ALLOWED_PATHS.some((p) => pathname.startsWith(p));
     return isAllowed ? { action: 'allow' } : { action: 'redirect', to: '/admin/authority-manager' };
+  }
+  if (session?.scope === 'tenant_owner') {
+    const isAllowed = TENANT_OWNER_ALLOWED_PATHS.some((p) => pathname.startsWith(p));
+    return isAllowed ? { action: 'allow' } : { action: 'redirect', to: '/admin/authority-manager' };
+  }
+  if (session?.scope === 'unit_admin') {
+    return UNIT_ADMIN_PATH_PATTERN.test(pathname)
+      ? { action: 'allow' }
+      : { action: 'redirect', to: '/authority-portal/login' };
   }
   if (AUTHORITY_MANAGER_ALLOWED_PATHS.some((p) => pathname.startsWith(p))) {
     return { action: 'redirect', to: '/authority-portal/login' };
