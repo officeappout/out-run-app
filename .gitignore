@@ -9,6 +9,10 @@
 # testing
 /coverage
 
+# scripts/backfill-authority-boundaries-bulk.ts resume state — transient run
+# state, not a deliverable; the report it produces goes to docs/audit-2026-09/ instead
+scripts/.authority-boundary-backfill-progress.json
+
 # next.js
 /.next
 /out/
