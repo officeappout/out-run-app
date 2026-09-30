@@ -1,9 +1,14 @@
 'use client';
 
 /**
- * ActiveFilterChipsRow — removable chips for the committed secondary
- * filters (מסלול+רמה combined, מיקום, each ציוד item), plus "נקה הכל".
- * Rendered below the muscle bar, only when at least one is active.
+ * ActiveFilterChipsRow — removable chips for every active filter (muscle,
+ * מסלול+רמה combined, מיקום, each ציוד item), plus "נקה הכל". Rendered
+ * below the muscle bar, only when at least one is active.
+ *
+ * The muscle chip mirrors the top MuscleFilterBar / SecondaryFiltersSheet's
+ * "שרירים" section selection (same store field) — included here so the
+ * combination with any active track filter (AND logic) stays visible
+ * instead of a 0-result combo looking unexplained.
  */
 
 import { X } from 'lucide-react';
@@ -11,6 +16,7 @@ import {
   useExerciseLibraryStore,
   BODYWEIGHT_SENTINEL,
 } from '../store/useExerciseLibraryStore';
+import { findMatchingMuscleChip } from '../utils/muscle-bar.utils';
 import type { Program } from '@/features/content/programs/core/program.types';
 import type { GearDefinition } from '@/features/content/equipment/gear/core/gear-definition.types';
 
@@ -24,8 +30,18 @@ export default function ActiveFilterChipsRow({ programs, gear }: Props) {
   const setProgressionFilter = useExerciseLibraryStore((s) => s.setProgressionFilter);
   const setFilterLocation = useExerciseLibraryStore((s) => s.setFilterLocation);
   const setEquipmentIds = useExerciseLibraryStore((s) => s.setEquipmentIds);
+  const setMuscles = useExerciseLibraryStore((s) => s.setMuscles);
 
   const chips: Array<{ id: string; label: string; onRemove: () => void }> = [];
+
+  const muscleChip = findMatchingMuscleChip(filters.muscles);
+  if (muscleChip) {
+    chips.push({
+      id: 'muscle',
+      label: muscleChip.label,
+      onRemove: () => setMuscles([]),
+    });
+  }
 
   if (filters.programId) {
     const programName = programs.find((p) => p.id === filters.programId)?.name ?? 'מסלול';
@@ -58,6 +74,7 @@ export default function ActiveFilterChipsRow({ programs, gear }: Props) {
   if (chips.length === 0) return null;
 
   function clearAll() {
+    setMuscles([]);
     setProgressionFilter(null, null);
     setFilterLocation(null);
     setEquipmentIds([]);

@@ -20,6 +20,15 @@
  * `programs`/`gear` are fetched once by the parent (ExerciseLibraryPage)
  * and passed down so this sheet and ActiveFilterChipsRow don't each
  * re-fetch the same catalogs.
+ *
+ * The "שרירים" section reads/writes `filters.muscles` directly (no draft —
+ * unlike the other 4 sections) so it stays truly two-way-synced with the
+ * always-visible top MuscleFilterBar in real time: they're both just views
+ * onto the same store field, sharing MUSCLE_BAR_CHIPS from
+ * muscle-bar.utils.ts. Muscle + track combine as AND (unchanged) — this
+ * section exists to make that combination visible, not to change it, so a
+ * "0 results" combo reads as "these two narrow each other out" instead of
+ * looking like the sheet silently deleted everything.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -33,6 +42,7 @@ import {
   collectExerciseProgramIds,
   collectExerciseEquipmentIds,
 } from '../hooks/useExerciseLibraryFilters';
+import { MUSCLE_BAR_CHIPS, sameMuscleSet } from '../utils/muscle-bar.utils';
 import { getProgramIcon, resolveIconKey } from '@/features/content/programs/core/program-icon.util';
 import type { Program } from '@/features/content/programs/core/program.types';
 import type { GearDefinition } from '@/features/content/equipment/gear/core/gear-definition.types';
@@ -69,6 +79,7 @@ export default function SecondaryFiltersSheet({ programs, gear }: Props) {
   const setProgressionFilter = useExerciseLibraryStore((s) => s.setProgressionFilter);
   const setEquipmentIds = useExerciseLibraryStore((s) => s.setEquipmentIds);
   const setFilterLocation = useExerciseLibraryStore((s) => s.setFilterLocation);
+  const setMuscles = useExerciseLibraryStore((s) => s.setMuscles);
 
   const [draftProgramId, setDraftProgramId] = useState<string | null>(null);
   const [draftLevel, setDraftLevel] = useState<number | null>(null);
@@ -198,6 +209,39 @@ export default function SecondaryFiltersSheet({ programs, gear }: Props) {
   return (
     <FilterSheet isOpen={isOpen} title="פילטרים" onClose={() => setOpen(false)} footer={footer}>
       <div className="space-y-5">
+        {/* ── שרירים — synced with the top bar (same store field, no draft) ── */}
+        <section>
+          <h3 className="text-[13px] font-bold text-gray-700 mb-2">שרירים</h3>
+          <div className="flex flex-wrap gap-2">
+            {MUSCLE_BAR_CHIPS.map((chip) => {
+              const isOn = sameMuscleSet(filters.muscles, chip.groups);
+              return (
+                <button
+                  key={chip.key}
+                  type="button"
+                  onClick={() => setMuscles(isOn ? [] : chip.groups)}
+                  className={`flex items-center gap-1.5 ps-2.5 pe-3 py-1.5 rounded-full border text-xs font-bold transition-all ${
+                    isOn
+                      ? 'bg-primary/10 border-primary text-primary'
+                      : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={chip.icon}
+                    alt=""
+                    className="w-3.5 h-3.5 object-contain"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.visibility = 'hidden';
+                    }}
+                  />
+                  <span>{chip.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
         {/* ── מסלול ── */}
         <section>
           <h3 className="text-[13px] font-bold text-gray-700 mb-2">מסלול</h3>

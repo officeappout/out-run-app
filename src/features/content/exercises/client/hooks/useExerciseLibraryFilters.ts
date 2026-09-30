@@ -298,6 +298,9 @@ export function useExerciseLibraryFilters() {
       return false;
     });
 
+    // Default sort: level ascending (round 2 polish — was unsorted/DB order).
+    result.sort((a, b) => resolveExerciseLevel(a) - resolveExerciseLevel(b));
+
     // eslint-disable-next-line no-console
     console.log('[Library] Filter pipeline', {
       'DB total': allExercises.length,

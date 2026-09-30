@@ -8,12 +8,18 @@
  * EquipmentCard's מתקנים tile, whose fade is light and whose text sits below
  * the image rather than on it. 2-column grid, ~168px tall.
  *
- * Static thumbnail only (no autoplay preview video) — the ▶ badge is a tap
- * affordance, matching the facility-card visual model and keeping a 2-col
- * grid of many cards light.
+ * Static thumbnail only (no autoplay preview video) — the whole card is the
+ * tap target, so no separate play badge is needed.
+ *
+ * Muscle + level chips are white pills (border color #E0E9FF matches the
+ * app's standard subtle-card-border token, same one FacilityCard's mobile
+ * variant uses) rather than plain overlaid text — round 2 polish, per
+ * David's reference to the facility-card amenity chips. The dark scrim is
+ * now localized to just behind the name, not the whole lower half of the
+ * card, since the chips carry their own contrast via their white background.
  */
 
-import { Play } from 'lucide-react';
+import { Gauge, Play } from 'lucide-react';
 import { Exercise, getLocalizedText } from '../../core/exercise.types';
 import { resolveExerciseLevel } from '../hooks/useExerciseLibraryFilters';
 import { useExerciseLibraryStore } from '../store/useExerciseLibraryStore';
@@ -25,6 +31,18 @@ import {
 interface ExerciseImageCardProps {
   exercise: Exercise;
   onClick: () => void;
+}
+
+function Pill({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1 bg-white/95 text-gray-700 text-[9px] font-bold px-2 py-1 rounded-full"
+      style={{ border: '0.5px solid #E0E9FF' }}
+    >
+      {icon}
+      {label}
+    </span>
+  );
 }
 
 export default function ExerciseImageCard({ exercise, onClick }: ExerciseImageCardProps) {
@@ -71,28 +89,36 @@ export default function ExerciseImageCard({ exercise, onClick }: ExerciseImageCa
         </div>
       )}
 
-      {/* ── Dark bottom scrim ── */}
+      {/* ── Subtle scrim, localized behind the name only ── */}
       <div
-        className="absolute inset-0"
+        className="absolute inset-x-0 bottom-0 h-16"
         style={{
-          background:
-            'linear-gradient(0deg, rgba(10,22,32,.85) 8%, rgba(10,22,32,.05) 48%)',
+          background: 'linear-gradient(0deg, rgba(10,22,32,.55) 0%, rgba(10,22,32,0) 100%)',
         }}
       />
 
-      {/* ── Muscle tag (top-start) ── */}
-      {muscle && (
-        <span className="absolute top-2.5 start-2.5 bg-white/92 text-cyan-700 text-[9px] font-extrabold px-2.5 py-1 rounded-full">
-          {muscle.he}
-        </span>
-      )}
+      {/* ── Muscle + level chips (top) ── */}
+      <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between gap-1.5">
+        {muscle ? (
+          <Pill
+            icon={
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={`/icons/muscles/male/${exercise.primaryMuscle ?? exercise.muscleGroups?.[0]}.svg`}
+                alt=""
+                className="w-2.5 h-2.5 object-contain"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            }
+            label={muscle.he}
+          />
+        ) : <span />}
+        <Pill icon={<Gauge size={10} />} label={`רמה ${level}`} />
+      </div>
 
-      {/* ── Play affordance (top-end) ── */}
-      <span className="absolute top-2.5 end-2.5 w-[26px] h-[26px] rounded-full bg-white/90 flex items-center justify-center">
-        <Play className="w-3 h-3 text-cyan-700" fill="currentColor" />
-      </span>
-
-      {/* ── Name + level (bottom) ── */}
+      {/* ── Name (bottom) ── */}
       <div className="absolute inset-x-0 bottom-0 p-3 text-start">
         <h3
           className="font-extrabold text-[14px] leading-tight text-white line-clamp-2"
@@ -100,7 +126,6 @@ export default function ExerciseImageCard({ exercise, onClick }: ExerciseImageCa
         >
           {name}
         </h3>
-        <p className="text-[10px] text-white/90 mt-0.5">רמה {level}</p>
       </div>
     </button>
   );
