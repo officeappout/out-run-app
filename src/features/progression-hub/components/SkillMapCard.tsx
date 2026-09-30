@@ -24,17 +24,26 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getProgramByTemplateId } from '@/features/content/programs/core/program.service';
 import type { Program } from '@/features/content/programs/core/program.types';
-import { ProgramProgressCard } from '@/features/home/components/widgets/ProgramProgressCard';
+import { ProgramProgressCard, type ProgramCardVisualState } from '@/features/home/components/widgets/ProgramProgressCard';
 import { useUserProgramLevel } from '@/features/progression-map/hooks/useUserProgramLevel';
 import { useSkillTree } from '@/features/progression-map/hooks/useSkillTree';
+import { isProgressionMapLeafProgram } from '@/lib/progression-map-config';
 
 export interface SkillMapCardProps {
   programId: string;
   /** Config's Hebrew name — shown instantly, before/in case the Program doc fetch resolves a different one. */
   nameHe: string;
+  /**
+   * Progression v2 Phase 4a — all three optional, all additive. Omitting
+   * them (as "המפות שלי"'s existing call site still does) reproduces
+   * today's exact behavior unchanged.
+   */
+  state?: ProgramCardVisualState;
+  lockedHint?: string;
+  badge?: string;
 }
 
-export function SkillMapCard({ programId, nameHe }: SkillMapCardProps) {
+export function SkillMapCard({ programId, nameHe, state, lockedHint, badge }: SkillMapCardProps) {
   const router = useRouter();
   const [programMeta, setProgramMeta] = useState<Program | null>(null);
   const { percent } = useUserProgramLevel(programId);
@@ -53,10 +62,18 @@ export function SkillMapCard({ programId, nameHe }: SkillMapCardProps) {
   const maxLevel = tree?.maxLevel ?? programMeta?.maxLevels ?? 1;
   const displayLevel = currentLevel ?? tree?.minLevel ?? 1;
 
+  // Progression v2 Phase 4a: "the existing program view" only exists for
+  // Skill-Tree leaf programs (/progression-map/[programId]) — a composite/
+  // master program has no tree of its own (the same known gap Feature #5's
+  // program switcher already hit). For a master, fall back to /profile,
+  // where ProgramsSection/ProgramDrawer already show master detail — a
+  // second EXISTING destination, not a new one, chosen per program type.
+  const destination = isProgressionMapLeafProgram(programId) ? `/progression-map/${programId}` : '/profile';
+
   return (
     <button
       type="button"
-      onClick={() => router.push(`/progression-map/${programId}`)}
+      onClick={() => router.push(destination)}
       className="w-full text-right active:opacity-80 transition-opacity"
     >
       <ProgramProgressCard
@@ -65,6 +82,9 @@ export function SkillMapCard({ programId, nameHe }: SkillMapCardProps) {
         currentLevel={displayLevel}
         maxLevel={maxLevel}
         progressPercent={percent}
+        state={state}
+        lockedHint={lockedHint}
+        badge={badge}
         className="pointer-events-none"
       />
     </button>

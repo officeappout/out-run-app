@@ -15,6 +15,21 @@ export interface GoalItem {
   isCompleted: boolean;
 }
 
+/**
+ * Progression v2 Phase 4a — card state variant. Undefined (the default) is
+ * today's exact rendering, unchanged — this is fully additive, not a
+ * replacement of the existing visual. Only 4 values this phase (no PRO):
+ * 🟢 active / 🔵 tracked / ⚪ available render IDENTICALLY to the default
+ * (today's card) — the section a card appears in (Progression screen)
+ * already communicates which of the three it is, so there is no per-state
+ * visual difference among them. Only 🔒 locked_prereq gets a different
+ * look, reusing the exact dashed-border pattern that already exists as a
+ * hand-rolled sibling block in ProgramsSection.tsx (`!card.isAssessed`) —
+ * integrated into this card itself instead of staying a separate,
+ * duplicated block.
+ */
+export type ProgramCardVisualState = 'active' | 'tracked' | 'available' | 'locked_prereq';
+
 export interface ProgramProgressCardProps {
   programName: string;
   /** When true, renders a shimmer skeleton in place of the program name while the CMS fetch is pending. */
@@ -26,6 +41,17 @@ export interface ProgramProgressCardProps {
   goals?: GoalItem[];
   programCount?: number;
   className?: string;
+  /** Progression v2 Phase 4a — see ProgramCardVisualState above. Omit for today's unchanged behavior. */
+  state?: ProgramCardVisualState;
+  /**
+   * Shown under the (grayed) name only when state === 'locked_prereq' —
+   * either the derived prerequisite ("דרוש משיכה 10") or, for a program
+   * that's locked because it was never assessed, "בצע מבדק". The caller
+   * decides which text applies; the card just renders what it's given.
+   */
+  lockedHint?: string;
+  /** Small text badge next to the name (e.g. "ראשי" for the priority-#1 active program). Any state. */
+  badge?: string;
 }
 
 // ============================================================================
@@ -103,6 +129,9 @@ export function ProgramProgressCard({
   goals = [],
   programCount = 1,
   className = '',
+  state,
+  lockedHint,
+  badge,
 }: ProgramProgressCardProps) {
   const nextLevel = currentLevel + 1;
   const remainingPercent = Math.max(0, 100 - Math.round(progressPercent));
@@ -114,6 +143,51 @@ export function ProgramProgressCard({
   const cardStyle: React.CSSProperties = isCarousel
     ? { minHeight: 107 }
     : {};
+
+  const isLocked = state === 'locked_prereq';
+
+  // ── Locked variant (Progression v2 Phase 4a) ────────────────────────────
+  // Reuses ProgramsSection.tsx's existing dashed "not yet assessed" pattern
+  // exactly (1px dashed #CBD5E1, grayed name, cyan hint) rather than
+  // inventing a new locked look — no ring, no expandable goals, since a
+  // locked program has neither a meaningful level nor goals to show yet.
+  if (isLocked) {
+    return (
+      <div
+        className={`bg-white dark:bg-slate-800 w-full flex flex-col justify-between ${className}`}
+        style={{
+          minHeight: isCarousel ? 107 : undefined,
+          padding: 16,
+          borderRadius: 12,
+          border: '1px dashed #CBD5E1',
+        }}
+        dir="rtl"
+      >
+        <div className="flex items-start gap-2 min-h-[40px]">
+          <span className="text-gray-400 flex-shrink-0 mt-0.5">
+            {getProgramIcon(iconKey, 'w-5 h-5')}
+          </span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <h3 className="text-[15px] font-bold text-gray-500 line-clamp-2 break-words leading-snug">
+                {programName}
+              </h3>
+              {badge && (
+                <span className="text-[10px] font-black text-gray-400 bg-gray-100 rounded-full px-2 py-0.5 flex-shrink-0">
+                  {badge}
+                </span>
+              )}
+            </div>
+            {lockedHint && (
+              <p className="text-xs font-bold mt-2" style={{ color: BRAND_CYAN }}>
+                {lockedHint}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -149,9 +223,19 @@ export function ProgramProgressCard({
             {programNameLoading ? (
               <div className="h-[40px] w-full max-w-[120px] rounded-md bg-gray-200 dark:bg-zinc-700 animate-pulse" />
             ) : (
-              <h3 className="text-[15px] font-bold text-gray-900 dark:text-white line-clamp-2 break-words leading-snug">
-                {programName}
-              </h3>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h3 className="text-[15px] font-bold text-gray-900 dark:text-white line-clamp-2 break-words leading-snug">
+                  {programName}
+                </h3>
+                {badge && (
+                  <span
+                    className="text-[10px] font-black text-white rounded-full px-2 py-0.5 flex-shrink-0"
+                    style={{ backgroundColor: BRAND_CYAN }}
+                  >
+                    {badge}
+                  </span>
+                )}
+              </div>
             )}
           </div>
 
