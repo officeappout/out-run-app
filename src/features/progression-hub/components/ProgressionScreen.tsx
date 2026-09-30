@@ -5,10 +5,16 @@
  *
  * A stack of independent <section>s under one shared AppHeader (the same
  * header Home/Profile use). Section order (Progression v2 Phase 4a-fix):
- * hero (identity/XP/streak) -> "המשך מכאן" (resume priority-#1 active
- * program) -> "פעילות" (active only) -> "המפות שלי" (tracked only) ->
- * "גלה עוד" (everything else: available/needs_assessment/locked_prereq,
- * collapsed by default, LAST).
+ * hero (identity/XP/streak) -> "פעילות" (active only) -> "המפות שלי"
+ * (tracked only) -> "גלה עוד" (everything else: available/needs_assessment/
+ * locked_prereq, collapsed by default, LAST).
+ *
+ * Phase 4b round 4: the blue "המשך מכאן" hero CTA (ContinueHereCta) was
+ * removed — it resumed activePrograms[0], the exact same destination the
+ * white active-program card in "פעילות" already opens, making it a
+ * redundant second entry point to the same program. "פעילות" is now the
+ * single entry into the active program; ContinueHereCta.tsx itself was
+ * deleted (no other importer).
  *
  * The three state-driven sections are mutually exclusive by construction —
  * each derives its membership from the SAME real per-user state (Phase
@@ -36,7 +42,6 @@
  */
 import AppHeader from '@/components/ui/AppHeader';
 import { IdentityHeroCard } from '@/features/user/progression/components/IdentityHeroCard';
-import { ContinueHereCta } from './ContinueHereCta';
 import { ActiveProgramsSection } from './ActiveProgramsSection';
 import { TrackedProgramsSection } from './TrackedProgramsSection';
 import { DiscoverMoreSection } from './DiscoverMoreSection';
@@ -50,8 +55,6 @@ export function ProgressionScreen() {
         <h1 className="text-xl font-black text-gray-900">התקדמות</h1>
 
         <IdentityHeroCard />
-
-        <ContinueHereCta />
 
         <ActiveProgramsSection />
 
