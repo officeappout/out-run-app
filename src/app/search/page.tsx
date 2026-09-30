@@ -175,16 +175,14 @@ export default function SearchPage() {
   const loadConnections = useSocialStore((s) => s.loadConnections);
 
   // ── Top-level tab from URL ───────────────────────────────────────────────
-  // Explicit per-value so an actual `?tab=groups` deep link (if one exists
-  // anywhere, now or later) still resolves to groups — only a MISSING/
-  // unrecognized param (no param at all, or legacy 'social') falls through
-  // to the default. Round 8, #1: that default changed from 'groups' to
-  // 'exercises' — setTopTab('groups') deliberately DELETES the param to
-  // keep groups' own URL clean, which is exactly why this couldn't stay a
-  // simple "anything not in {people,exercises,events} → groups" catch-all
-  // once the no-param case stopped meaning groups. Any caller that wants
-  // to land specifically on groups must pass ?tab=groups explicitly now
-  // (see NearbyGroupsRow.tsx's "הכל" button, updated alongside this).
+  // Explicit per-value so an actual `?tab=groups` deep link still resolves
+  // to groups — only a MISSING/unrecognized param (no param at all, or
+  // legacy 'social') falls through to the default. Round 8 moved that
+  // default from 'groups' to 'exercises'; setTopTab (below) always sets an
+  // explicit ?tab=<value> now for every tab, including groups, so an
+  // in-page tab click and a direct deep link resolve through this exact
+  // same explicit-per-value logic — no second "which value means no
+  // param" rule to keep in sync with this one.
   const tabParam = searchParams.get('tab');
   const topTab: SearchTopTab =
     tabParam === 'groups' ? 'groups' :
@@ -193,14 +191,19 @@ export default function SearchPage() {
     tabParam === 'events' ? 'events' :
     'exercises'; // default; 'social' (legacy) also falls here
 
+  // HOTFIX (was: special-cased 'groups' to delete the ?tab param for a
+  // "clean URL" on the default tab). That was correct back when groups WAS
+  // the default, but round 8 moved the default to 'exercises' without
+  // updating this half — clicking קבוצות deleted the param, landing back
+  // on the no-param default ('exercises' now), so the tab never actually
+  // switched. Always setting the param explicitly removes the coupling
+  // entirely: this function no longer needs to know which tab is the
+  // current default, so it can't silently drift out of sync with the
+  // read-side resolution above again the next time that changes.
   const setTopTab = useCallback(
     (next: SearchTopTab) => {
       const params = new URLSearchParams(searchParams.toString());
-      if (next === 'groups') {
-        params.delete('tab');
-      } else {
-        params.set('tab', next);
-      }
+      params.set('tab', next);
       const qs = params.toString();
       router.replace(`/search${qs ? `?${qs}` : ''}`, { scroll: false });
     },
