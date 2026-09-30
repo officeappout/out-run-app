@@ -317,8 +317,19 @@ export default function AuthorityTeamPage() {
           // decideUnitsListOrgSource, which already uses it correctly).
           // authority_manager has no tenantId at all, so their fallback to
           // getAuthoritiesByManager below is unchanged.
-          const storedAuthId = typeof window !== 'undefined' ? window.localStorage.getItem('admin_selected_authority_id') : null;
-          let resolvedAuthId = storedAuthId || roleInfo.tenantId || null;
+          //
+          // 30.09.2026 (00-MASTER-PLAN.md §13.58) — localStorage REMOVED
+          // from this resolution entirely. A browser-writable value is
+          // never an authority identifier, full stop — David's exact
+          // words. `roleInfo.tenantId` stays: it's read from the caller's
+          // OWN users/{uid}.core.tenantId doc (auth.service.ts), server-
+          // written at accept-invitation time, gated by firestore.rules'
+          // isOwner(userId) — a legitimate server-verified fact about this
+          // caller, not a client-supplied value, unlike the
+          // admin_selected_authority_id key this used to try first. Every
+          // remaining source in this branch is server-verified: the
+          // caller's own tenantId, or getAuthoritiesByManager(uid) below.
+          let resolvedAuthId = roleInfo.tenantId || null;
 
           if (!resolvedAuthId) {
             const { getAuthoritiesByManager } = await import(

@@ -112,6 +112,7 @@ These govern the daily automated CRM scan (see `.claude/agents/crm-agent.md` for
 - Never `--force` push or `--no-verify`
 - Never commit `.env.local`, `secrets/`, or service-account key files
 - CI: Vercel deploys on merge to `main`
+- **כללי Firestore נפרסים מ-`main` בלבד, אחרי מיזוג — לעולם לא מענף לא-ממוזג.** כמעט קרה (30.09.2026, unit-deletion root-only): הוראת-פריסה ניתנה לדוד עם שם-ענף בלבד, בלי נתיב-תיקייה מלא — דוד היה ב-worktree אחר לגמרי, ואילו פרס משם היה פורס את הכללים הישנים תוך אמונה שהמחיקה נסגרה, כשהיא בפועל עדיין פתוחה. כל הוראת-פריסה של Firestore rules שניתנת לדוד חייבת לכלול: (1) נתיב-תיקייה מלא, (2) שם-הענף שהשינוי נמצא בו, (3) פקודת-אימות להרצה **לפני** הפריסה (למשל `git diff origin/main -- firestore.rules` מאותה תיקייה, כדי לוודא שהשינוי הנכון אכן שם). הפריסה עצמה תמיד מ-`main` אחרי מיזוג — לא מענף-פיצ'ר.
 
 ## Code Standards
 - TypeScript strict; avoid `any` except for Firebase/Google API return types

@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { doc, setDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
-import { checkUserRole } from '@/features/admin/services/auth.service';
+import { checkUserRole, type UserRoleInfo } from '@/features/admin/services/auth.service';
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { ORG_TYPE_OPTIONS, authorityTypeToTenantType, orgTypeDisplayName, VERTICAL_THEMES } from '@/features/admin/config/tenantLabels';
@@ -81,21 +81,33 @@ export default function OrganizationsPage() {
   const [importResult, setImportResult] = useState<{created: number; errors: string[]} | null>(null);
   const [recalculating, setRecalculating] = useState(false);
 
+  // 30.09.2026 (00-MASTER-PLAN.md §13.58) — role was previously a local
+  // variable inside the effect below, discarded after the initial data
+  // load. handleCreate and the bulk-import handler had no way to check it
+  // at all, so they didn't — the only thing stopping a write was
+  // firestore.rules' isAdmin() (written for a different purpose, not a
+  // gate this page installed). Stored in state so both write handlers can
+  // check it directly — real role checks at the point of action, not
+  // reliance on a rule written elsewhere. axioms.md §26.
+  const [role, setRole] = useState<UserRoleInfo | null>(null);
+  const canManageOrgs = !!role && (role.isSuperAdmin || role.isVerticalAdmin);
+
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) { setLoading(false); return; }
       setAdminUid(user.uid);
 
       try {
-        const role = await checkUserRole(user.uid);
-        if (!role.isSuperAdmin && !role.isVerticalAdmin) { setLoading(false); return; }
+        const roleInfo = await checkUserRole(user.uid);
+        setRole(roleInfo);
+        if (!roleInfo.isSuperAdmin && !roleInfo.isVerticalAdmin) { setLoading(false); return; }
 
         const authorities = await getAllAuthorities();
         let rootAuthorities = authorities.filter(a => ROOT_TYPES.has(a.type) && !a.parentAuthorityId);
 
-        if (role.isVerticalAdmin && role.managedVertical && !role.isSuperAdmin) {
+        if (roleInfo.isVerticalAdmin && roleInfo.managedVertical && !roleInfo.isSuperAdmin) {
           rootAuthorities = rootAuthorities.filter(a =>
-            (a.tenantType ?? authorityTypeToTenantType(a.type)) === role.managedVertical
+            (a.tenantType ?? authorityTypeToTenantType(a.type)) === roleInfo.managedVertical
           );
         }
 
@@ -173,6 +185,7 @@ export default function OrganizationsPage() {
   }), [orgs]);
 
   const handleCreate = async () => {
+    if (!canManageOrgs) { setCreateError('אין הרשאה ליצור ארגון'); return; }
     if (!newName.trim()) return;
     const normalized = normalizeOrgName(newName);
     const existing = orgs.find(o => normalizeOrgName(o.name) === normalized);
@@ -270,6 +283,7 @@ export default function OrganizationsPage() {
           </button>
           <button
             onClick={async () => {
+              if (!canManageOrgs) return;
               setRecalculating(true);
               try {
                 const countMap = await syncAllUnitCounts();
@@ -424,6 +438,7 @@ export default function OrganizationsPage() {
               </button>
               <button
                 onClick={async () => {
+                  if (!canManageOrgs) { setImportParseError('אין הרשאה לייבוא ארגונים'); return; }
                   const trimmed = importJson.trim();
                   if (!trimmed) { setImportParseError('הטקסט ריק — הדבק JSON תקין.'); return; }
 

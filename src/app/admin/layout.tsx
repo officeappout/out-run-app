@@ -623,6 +623,31 @@ function AdminLayoutInner({
 
             const localTenantOwnerOnly = roleInfo.isTenantOwner && !roleInfo.isSuperAdmin && !roleInfo.isSystemAdmin && !roleInfo.isAuthorityManager;
             if (onlyAuthorityManager || localTenantOwnerOnly) {
+                // UX LAYER ONLY — NOT a security boundary. The real gate is
+                // src/middleware.ts's AUTHORITY_MANAGER_ALLOWED_PATHS /
+                // TENANT_OWNER_ALLOWED_PATHS (server-side, enforced on every
+                // request). This list is shared between authority_manager
+                // AND tenant_owner (never split when the server-side lists
+                // were, 30.09.2026 — 00-MASTER-PLAN.md §13.58) and is
+                // DELIBERATELY broader than either role's real server-side
+                // allowlist: it exists only to client-side-redirect (router.
+                // replace) a stale bookmark or typed URL to somewhere
+                // sensible, never to grant access middleware.ts would deny.
+                // authority_manager gets this superset client-side, a
+                // narrower list server-side — the client over-allows, the
+                // server is the actual boundary, so there is no security
+                // gap from the mismatch. DO NOT narrow this list to match
+                // either role's server-side allowlist without first
+                // splitting it into two separate lists: shrinking the
+                // SHARED list to authority_manager's shape would client-side
+                // bounce a real tenant_owner away from their own legitimate
+                // pages (readiness/units/grades/access-codes) with no way to
+                // regression-test the breakage (this repo's vitest config is
+                // node-only, no jsdom — .tsx client logic has no test
+                // coverage here). If a future change needs this list
+                // narrower, split it first (see §13.58's note on the two
+                // allowlists-synced-by-hand drift risk — the eventual fix is
+                // one shared source both layers derive from, not yet built).
                 const allowedPaths = [
                     '/admin/authority-manager',
                     '/admin/dashboard',
