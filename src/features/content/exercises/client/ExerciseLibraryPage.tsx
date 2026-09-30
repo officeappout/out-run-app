@@ -29,40 +29,32 @@
  *     enters the viewport.
  */
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Search, X } from 'lucide-react';
-import FilterPills from './components/FilterPills';
-import ExerciseLibraryCard from './components/ExerciseLibraryCard';
+import MuscleFilterBar from './components/MuscleFilterBar';
+import ActiveFilterChipsRow from './components/ActiveFilterChipsRow';
+import SecondaryFiltersSheet from './components/SecondaryFiltersSheet';
+import ExerciseImageCard from './components/ExerciseImageCard';
 import ExerciseDetailSheet from './components/ExerciseDetailSheet';
 import { useExerciseLibraryStore } from './store/useExerciseLibraryStore';
 import { useExerciseLibraryFilters } from './hooks/useExerciseLibraryFilters';
 import { ensureEquipmentCachesLoaded } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { getAllPrograms } from '@/features/content/programs/core/program.service';
+import { getAllGearDefinitions } from '@/features/content/equipment/gear/core/gear-definition.service';
+import type { Program } from '@/features/content/programs/core/program.types';
+import type { GearDefinition } from '@/features/content/equipment/gear/core/gear-definition.types';
 
 /** Mobile-shell column width applied across the page (450px per spec). */
 const COLUMN = 'max-w-[450px] mx-auto';
 
 /**
- * Shimmer placeholder mirroring ExerciseLibraryCard's silhouette.
+ * Shimmer placeholder mirroring ExerciseImageCard's silhouette (2-col grid).
  * Pure tailwind (no JS) so it has zero runtime cost while loading.
  */
 function SkeletonCard() {
   return (
-    <div
-      className="relative w-full bg-white border-[0.5px] border-[#E0E9FF] rounded-lg shadow-sm overflow-hidden"
-      dir="rtl"
-    >
-      <div className="flex flex-row-reverse items-center py-2 px-3 animate-pulse">
-        <div className="flex items-center text-gray-200 ms-1 me-1">
-          <div className="w-4 h-4 rounded-full bg-gray-100" />
-        </div>
-        <div className="flex-1 flex flex-col justify-center mx-2 min-w-0 gap-2">
-          <div className="h-3 bg-gray-200 rounded w-3/4" />
-          <div className="h-2.5 bg-gray-100 rounded-full w-1/3" />
-        </div>
-        <div className="w-16 h-16 rounded-xl bg-gray-200 flex-shrink-0" />
-      </div>
-    </div>
+    <div className="h-[168px] rounded-[18px] bg-gray-200 animate-pulse" />
   );
 }
 
@@ -73,7 +65,7 @@ function SkeletonCard() {
 // ────────────────────────────────────────────────────────────────────────────
 
 interface ExerciseLibraryBodyProps {
-  /** When true (default), render the FilterPills row above the result list. */
+  /** When true (default), render the muscle bar + secondary-filters chrome above the result grid. */
   showFilterPills?: boolean;
   /** Top padding above the counter row. Defaults to `pt-3` for full page;
    *  callers embedding the library inside their own scroll container can
@@ -88,12 +80,20 @@ function ExerciseLibraryBody({
   const openDetail = useExerciseLibraryStore((s) => s.openDetail);
   const resetFilters = useExerciseLibraryStore((s) => s.resetFilters);
 
+  // Programs + gear catalogs — loaded once here (not inside
+  // SecondaryFiltersSheet/ActiveFilterChipsRow individually) so both share
+  // one fetch instead of each re-querying Firestore for the same lists.
+  const [programs, setPrograms] = useState<Program[]>([]);
+  const [gear, setGear] = useState<GearDefinition[]>([]);
+
   // Fresh start on every mount. The Zustand store is a module singleton so
   // any filter the user applied in a previous session would otherwise
   // survive a navigate-away-and-back and silently empty the list.
   useEffect(() => {
     resetFilters();
     void ensureEquipmentCachesLoaded();
+    getAllPrograms().then(setPrograms).catch(() => {});
+    getAllGearDefinitions().then(setGear).catch(() => {});
     // Mount-only — stable refs from Zustand / module-level singleton.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -140,10 +140,9 @@ function ExerciseLibraryBody({
   return (
     <>
       {showFilterPills && (
-        <div className={`${COLUMN} px-4 pt-3`}>
-          <div className="-mx-4">
-            <FilterPills />
-          </div>
+        <div className={`${COLUMN} px-4 pt-3 space-y-2`}>
+          <MuscleFilterBar />
+          <ActiveFilterChipsRow programs={programs} gear={gear} />
         </div>
       )}
 
@@ -179,7 +178,7 @@ function ExerciseLibraryBody({
             </p>
           </div>
         ) : isLoading ? (
-          <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-3">
             {Array.from({ length: 8 }).map((_, i) => (
               <SkeletonCard key={i} />
             ))}
@@ -199,14 +198,16 @@ function ExerciseLibraryBody({
             <p className="text-xs text-gray-500 mt-1">נסה להסיר חלק מהמסננים</p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {paginated.map((ex) => (
-              <ExerciseLibraryCard
-                key={ex.id}
-                exercise={ex}
-                onClick={() => openDetail(ex)}
-              />
-            ))}
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              {paginated.map((ex) => (
+                <ExerciseImageCard
+                  key={ex.id}
+                  exercise={ex}
+                  onClick={() => openDetail(ex)}
+                />
+              ))}
+            </div>
 
             {/* Sentinel is ALWAYS rendered so sentinelRef.current is never
                 null when the effect runs. The IO callback gates loadMore()
@@ -215,15 +216,16 @@ function ExerciseLibraryBody({
             <div ref={sentinelRef} aria-hidden className="h-px w-full" />
 
             {hasMore && (
-              <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-3 mt-3">
                 <SkeletonCard />
                 <SkeletonCard />
               </div>
             )}
-          </div>
+          </>
         )}
       </main>
 
+      <SecondaryFiltersSheet programs={programs} gear={gear} />
       <ExerciseDetailSheet />
     </>
   );
