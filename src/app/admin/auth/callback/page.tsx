@@ -236,6 +236,20 @@ function AuthCallbackContent() {
     // If invitation was just applied, redirect based on the invitation role
     // without re-querying Firestore (avoids cache/timing issues).
     if (invitationApplied) {
+      // 30.09.2026, David's live-test finding 3 (first-login race): the
+      // EARLIER mint above (before accept-invitation even ran) reflects
+      // this user's PRE-acceptance role — typically none at all. Every
+      // branch below navigates straight to an authority-scoped path
+      // without minting again, so middleware saw a scope-less cookie on
+      // the very first request and bounced to /authority-portal/login —
+      // which then had to re-resolve everything from scratch, and if
+      // THAT hit its own hiccup (e.g. getAuthority), decideLoopBreak
+      // mistook the resulting retry for a genuine identification failure.
+      // One re-mint, right here, through the SAME existing metered
+      // entrypoint (never a second path, never a retry loop) — closes
+      // this at the root instead of leaving every redirect below racing
+      // against a stale cookie.
+      await mintAdminSessionCookie(result.user);
       if (typeof window !== 'undefined' && invitationOrgId) {
         localStorage.setItem('admin_selected_org_id', invitationOrgId);
       }

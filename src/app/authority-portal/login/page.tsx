@@ -56,6 +56,12 @@ function AuthorityPortalLoginContent() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
+  // Distinct from checkingAuth's generic caption — shown only during the
+  // bounded single retry below (finding 3, 30.09.2026), so a first-time
+  // officer sees an honest "we're getting this ready," not a vague
+  // "checking permissions" that reads the same whether it takes 200ms or
+  // is quietly retrying.
+  const [preparingAccess, setPreparingAccess] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [sentToEmail, setSentToEmail] = useState('');
 
@@ -173,7 +179,21 @@ function AuthorityPortalLoginContent() {
             }
             recordLoopAttempt();
 
-            const org = roleInfo.tenantId ? await resolveTenantOrg(roleInfo.tenantId) : null;
+            let org = roleInfo.tenantId ? await resolveTenantOrg(roleInfo.tenantId) : null;
+            if (!org && roleInfo.tenantId) {
+              // Bounded single retry (not an open loop) — David's finding 3
+              // (30.09.2026): the accept-invitation transaction, or a
+              // transient getAuthority hiccup, may simply not have caught
+              // up yet on this exact first pass. Wait for it once instead
+              // of declaring a "couldn't identify you" failure immediately
+              // — a real first-time officer landing here right after
+              // accepting an invitation is the expected case this covers,
+              // not an edge case.
+              setPreparingAccess(true);
+              await new Promise((resolve) => setTimeout(resolve, 1500));
+              org = await resolveTenantOrg(roleInfo.tenantId);
+              setPreparingAccess(false);
+            }
             if (!brandName && org) {
               setBrandName(org.name);
               if (org.logoUrl) setBrandLogo(org.logoUrl);
@@ -368,7 +388,7 @@ function AuthorityPortalLoginContent() {
   }
 
   if (checkingAuth) {
-    return <AppLogoLoader caption="בודק הרשאות..." />;
+    return <AppLogoLoader caption={preparingAccess ? 'מכינים את הגישה שלך...' : 'בודק הרשאות...'} />;
   }
 
   return (
