@@ -10,6 +10,36 @@
  * מאסל אפ (עליית כוח, fTLWzjP9gH2VNpamyCZF) is intentionally NOT on this list —
  * it's currently mis-flagged isMaster=true in production; fixing that is a
  * founder-only data change, out of scope for Phase 1.
+ *
+ * Phase 4c-1: the 4 canonical domains (משיכה/דחיפה/ליבה/פלג גוף תחתון) were
+ * added — confirmed via a live, read-only Firestore audit (not fixture
+ * guessing) to be real leaf Program docs (isMaster:false) with genuinely
+ * populated exercise trees (47-89 tagged exercises each, real levels up to
+ * 13-22), previously excluded from this list for no data reason — they
+ * were simply out of Phase 1's original 6-skill scope. Adding them here is
+ * exactly what makes each open as a real Skill-Tree page instead of
+ * rendering a dead "מבוסס על התוכניות שלך" master-style card (the
+ * not_started_master fold in program-card-state.service.ts applies to any
+ * !isProgressionMapLeafProgram program stuck in the 'available' state —
+ * domains were hitting that fold purely because they weren't on this list,
+ * not because of any real master/leaf distinction; all 4 are isMaster:false
+ * in Firestore, same as every skill already here).
+ *
+ * Real Hebrew names below are the live Program docs' own `.name` field,
+ * confirmed live — note "legs" is really "פלג גוף תחתון", not "רגליים"
+ * (a naming gap flagged since Phase 0, still true; no program is named
+ * "רגליים" in Firestore).
+ *
+ * visibleInHub is set to false for all 4, same as handstand's existing
+ * precedent — but note (confirmed while making this change, not assumed):
+ * that flag currently has NO live consumer. DiscoverMoreSection.tsx imports
+ * PROGRESSION_MAP_LEAF_PROGRAMS directly (not the visibleInHub-filtered
+ * PROGRESSION_MAP_HUB_PROGRAMS, which is now dead code — zero real
+ * importers, only referenced by its own test). So domains WILL appear in
+ * "גלה עוד" once unassessed, same as any other leaf program on this list —
+ * which matches this phase's own goal (real tree, real discoverability),
+ * not a side effect being suppressed. Flagged here rather than silently
+ * assumed either way.
  */
 import type { Exercise } from '@/features/content/exercises';
 
@@ -35,6 +65,12 @@ export const PROGRESSION_MAP_LEAF_PROGRAMS: readonly ProgressionMapLeafProgram[]
   { programId: 'IOfBZFeorTTDkcz3tOA6', nameHe: 'עמידת ידיים', visibleInHub: false },
   { programId: 'PAxprHuT7HjqrWU4wl0T', nameHe: 'שכיבות סמיכה בעמידת ידיים', visibleInHub: true },
   { programId: 'EtY8YCol0qpF6DzgcTx1', nameHe: 'דגל אנושי', visibleInHub: false },
+  // Phase 4c-1 — the 4 canonical domains. See file header for the recon
+  // behind this addition. Real Hebrew names (live Program.name field).
+  { programId: 'UPDBtTdCvX748dtBlWYj', nameHe: 'משיכה', visibleInHub: false },
+  { programId: 'J0fLpmJhG0KDN2tQouxh', nameHe: 'דחיפה', visibleInHub: false },
+  { programId: 'kDMpobbKsuVTByTIKUpe', nameHe: 'ליבה', visibleInHub: false },
+  { programId: 'OrAmOH3F375dVio5yGdU', nameHe: 'פלג גוף תחתון', visibleInHub: false },
 ] as const;
 
 export const PROGRESSION_MAP_LEAF_PROGRAM_IDS: ReadonlySet<string> = new Set(
