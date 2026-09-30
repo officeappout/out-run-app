@@ -19,7 +19,8 @@
  *     layout, so no reflow-prevention trick is needed beyond that.
  *
  * z-index: deliberately explicit small values (panel z-[5], scrim z-[4]),
- * both safely below this screen's own sticky header (z-10, SkillTreeScreen.tsx)
+ * both safely below the sticky global AppHeader SkillTreeScreen.tsx now
+ * renders above them (default z-40, same as ProgressionScreen's own usage)
  * so the header can never end up visually buried under the panel during
  * scroll. Not registered in .cursorrules' Z-Index Budget table — that table
  * is scoped to Map UI; this panel lives entirely inside SkillTreeScreen's

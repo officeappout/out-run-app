@@ -32,8 +32,21 @@
  * collapsible ProgramInfoPanel (see that file) — collapsed by default (a
  * compact name/level/progress-bar strip), expanding on chevron tap into an
  * absolutely-positioned overlay that floats OVER the tree (scrim behind it)
- * without pushing the tree's own layout down. <header> now holds only the
- * back button.
+ * without pushing the tree's own layout down.
+ *
+ * Phase 4b round 3: the plain local <header> (just a back button) was
+ * replaced by the shared AppHeader (the same collapsing global header
+ * Home/Profile/ProgressionScreen use) — this is a sub-page reached from the
+ * META screen, so it should carry the same identity/logo/bell/chat/search
+ * chrome, not a stripped-down one-off. The back button is passed as
+ * AppHeader's `children` (its own documented extension point — "page-
+ * specific extras... rendered below the icon row INSIDE the same sticky
+ * wrapper"), matching how /feed's segmented tabs use the same slot. Also
+ * fixed this round: the banners/title wrapper used to render (empty, but
+ * still padded) even in the assessed state, producing a visible gap above
+ * ProgramInfoPanel — it's now only mounted at all when currentLevel is
+ * null, since every one of its children was already conditioned on that
+ * exact case.
  *
  * One page, two states (confirmed workable in recon, not a new screen):
  * ProgramInfoPanel renders ONLY when currentLevel is a real, non-null
@@ -78,6 +91,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronRight } from 'lucide-react';
+import AppHeader from '@/components/ui/AppHeader';
 import type { Exercise } from '@/features/content/exercises';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { getProgramByTemplateId } from '@/features/content/programs/core/program.service';
@@ -245,64 +259,73 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
     <div className="relative isolate min-h-screen" dir="rtl">
       <SkillTreeBackground />
 
-      <header className="sticky top-0 z-10 bg-white/90 backdrop-blur-sm border-b border-gray-100 px-4 py-3">
-        <button
-          type="button"
-          onClick={handleBack}
-          className="flex items-center gap-1 text-xs text-gray-400"
-        >
-          <ChevronRight size={14} />
-          חזרה
-        </button>
-      </header>
+      <AppHeader>
+        <div className="max-w-md mx-auto px-4 pb-2" dir="rtl">
+          <button
+            type="button"
+            onClick={handleBack}
+            className="flex items-center gap-1 text-xs text-gray-400"
+          >
+            <ChevronRight size={14} />
+            חזרה
+          </button>
+        </div>
+      </AppHeader>
 
       <main className="pb-16">
-        <div className="px-4 pt-6">
-          {/* Progression v2 Phase 4a-fix: informational only — viewing is
-              never blocked (see file header). Assessment is a prompt, not a
-              gate: this banner tells the user WHY they see no "אתה כאן"
-              marker (TreePath.tsx's own deriveState) and offers the same
-              mini-assessment trigger used elsewhere in the app, rather than
-              gating anything about the tree itself. */}
-          {!isLoading && isUnassessed && (
-            <div className="bg-slate-100 text-slate-600 text-[13px] font-semibold text-center rounded-xl px-4 py-2.5 mb-4 flex flex-col items-center gap-2">
-              <span>{UNASSESSED_BANNER_TEXT}</span>
-              <button
-                type="button"
-                onClick={() =>
-                  startMiniDomainAssessment(router, slug, undefined, domainTypeForSlug(slug))
-                }
-                className="text-xs font-black text-white rounded-full px-4 py-1.5 active:opacity-80"
-                style={{ background: 'linear-gradient(90deg, #2CE0C0 0%, #20C6D6 50%, #2AA3E8 100%)' }}
-              >
-                בצע מבדק
-              </button>
-            </div>
-          )}
-          {!isLoading && isPrereqLocked && (
-            <div className="bg-slate-100 text-slate-600 text-[13px] font-semibold text-center rounded-xl px-4 py-2.5 mb-4">
-              {lockedHint}
-            </div>
-          )}
-
-          {/* Unassessed/locked title strip — unchanged from round 1 by this
-              round's explicit brief ("Unassessed state: unchanged from 4a
-              ... no panel-with-current-level, no אתה כאן"). The assessed
-              state's equivalent content now lives in ProgramInfoPanel below,
-              not here. */}
-          {currentLevel == null && tree && (
-            <div className="w-full text-right mb-4" dir="rtl">
-              <h1 className="text-lg font-black text-gray-900">{skillName}</h1>
-              <p className="text-xs font-bold text-gray-500 mt-1">
-                רמה {tree.minLevel} מתוך {tree.maxLevel}
-                {targetName ? ` · היעד: ${targetName}` : ''}
-              </p>
-              <div className="w-full h-1.5 bg-gray-100 rounded-full mt-2 overflow-hidden">
-                <div className="h-full rounded-full" style={{ width: '0%' }} />
+        {/* Only mounted for the unassessed/locked states — every child here
+            was already conditioned on currentLevel == null; wrapping the
+            whole block the same way means it (and its padding) simply
+            doesn't exist in the assessed state, instead of rendering empty
+            above ProgramInfoPanel and leaving a visible gap. */}
+        {currentLevel == null && (
+          <div className="px-4 pt-6">
+            {/* Progression v2 Phase 4a-fix: informational only — viewing is
+                never blocked (see file header). Assessment is a prompt, not a
+                gate: this banner tells the user WHY they see no "אתה כאן"
+                marker (TreePath.tsx's own deriveState) and offers the same
+                mini-assessment trigger used elsewhere in the app, rather than
+                gating anything about the tree itself. */}
+            {!isLoading && isUnassessed && (
+              <div className="bg-slate-100 text-slate-600 text-[13px] font-semibold text-center rounded-xl px-4 py-2.5 mb-4 flex flex-col items-center gap-2">
+                <span>{UNASSESSED_BANNER_TEXT}</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    startMiniDomainAssessment(router, slug, undefined, domainTypeForSlug(slug))
+                  }
+                  className="text-xs font-black text-white rounded-full px-4 py-1.5 active:opacity-80"
+                  style={{ background: 'linear-gradient(90deg, #2CE0C0 0%, #20C6D6 50%, #2AA3E8 100%)' }}
+                >
+                  בצע מבדק
+                </button>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+            {!isLoading && isPrereqLocked && (
+              <div className="bg-slate-100 text-slate-600 text-[13px] font-semibold text-center rounded-xl px-4 py-2.5 mb-4">
+                {lockedHint}
+              </div>
+            )}
+
+            {/* Unassessed/locked title strip — unchanged from round 1 by this
+                round's explicit brief ("Unassessed state: unchanged from 4a
+                ... no panel-with-current-level, no אתה כאן"). The assessed
+                state's equivalent content now lives in ProgramInfoPanel below,
+                not here. */}
+            {tree && (
+              <div className="w-full text-right mb-4" dir="rtl">
+                <h1 className="text-lg font-black text-gray-900">{skillName}</h1>
+                <p className="text-xs font-bold text-gray-500 mt-1">
+                  רמה {tree.minLevel} מתוך {tree.maxLevel}
+                  {targetName ? ` · היעד: ${targetName}` : ''}
+                </p>
+                <div className="w-full h-1.5 bg-gray-100 rounded-full mt-2 overflow-hidden">
+                  <div className="h-full rounded-full" style={{ width: '0%' }} />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="relative">
           {/* Progression v2 Phase 4b round 2: ONE collapsible overlay panel,
