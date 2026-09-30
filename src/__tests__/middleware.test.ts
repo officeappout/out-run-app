@@ -255,4 +255,40 @@ describe('decideAdminGateAction', () => {
       expect(outOfScope.preserveNext).toBe(false);
     });
   });
+
+  // 30.09.2026 — David's explicit ask: confirm in code that a brand-new
+  // path, never added to ANY scope's list, is blocked by DEFAULT — not
+  // "happens to be blocked because someone remembered to list it
+  // elsewhere." A path invented here on the spot, that exists nowhere in
+  // middleware.ts, proves this: every scoped session's own `.some(p =>
+  // pathname.startsWith(p))` check structurally returns false for
+  // anything unlisted — there is no branch anywhere in
+  // decideAdminGateAction that defaults to `allow` when a scope's own
+  // list doesn't recognize the path. A future path someone adds a page
+  // for in a month, without also adding it here, inherits this same
+  // default: blocked, not exposed.
+  describe('a never-configured future path defaults to blocked, for every scope — proof, not assumption', () => {
+    const neverConfiguredPath = '/admin/some-future-feature-nobody-has-built-yet';
+
+    it('unit_admin — blocked (their pattern requires /admin/authority/units/[id] specifically)', () => {
+      expect(decideAdminGateAction(neverConfiguredPath, unitAdmin).action).toBe('redirect');
+    });
+
+    it('tenant_owner — blocked (not in their explicit list)', () => {
+      expect(decideAdminGateAction(neverConfiguredPath, tenantOwner).action).toBe('redirect');
+    });
+
+    it('authority_manager — blocked (not in their explicit list either)', () => {
+      expect(decideAdminGateAction(neverConfiguredPath, authorityManager).action).toBe('redirect');
+    });
+
+    it('anonymous / no session — blocked, straight to /admin/login (not even a login-door special case, since it matches no allowlist at all)', () => {
+      expect(decideAdminGateAction(neverConfiguredPath, anonymous)).toEqual({ action: 'redirect', to: '/admin/login', preserveNext: true });
+      expect(decideAdminGateAction(neverConfiguredPath, invalidCookieOrNoCookie)).toEqual({ action: 'redirect', to: '/admin/login', preserveNext: true });
+    });
+
+    it('only session.admin===true (root/super_admin/system_admin) reaches it — the one intentional "allow anywhere" case, unrelated to any scope list', () => {
+      expect(decideAdminGateAction(neverConfiguredPath, root)).toEqual({ action: 'allow' });
+    });
+  });
 });
