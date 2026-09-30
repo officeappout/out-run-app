@@ -17,23 +17,32 @@
  *     notice correctly shows on every not-yet-reached node including the
  *     last one.
  *
- * Phase 4b: the header no longer opens ProgramDrawer (a bottom-sheet) —
- * that component is UNTOUCHED (still used as-is by Profile's
- * ProgramsSection, confirmed via recon) but this screen stopped mounting
- * it. Its content moved INLINE, at the top of <main>, as the new
- * "current level" card — see below. Per an explicit decision, there is NO
- * "start workout" button on this card or anywhere on this screen: a
- * workout begins by tapping a tree node -> the exercise detail page
- * (confirmed by recon: no start-workout affordance exists on that path
- * today at all, so "gate starting a workout, not viewing" has nothing to
- * attach to here — viewing was, and stays, always unrestricted).
+ * Phase 4b round 1: the header no longer opens ProgramDrawer (a
+ * bottom-sheet) — that component is UNTOUCHED (still used as-is by
+ * Profile's ProgramsSection, confirmed via recon) but this screen stopped
+ * mounting it. Per an explicit decision, there is NO "start workout" button
+ * anywhere on this screen: a workout begins by tapping a tree node -> the
+ * exercise detail page (confirmed by recon: no start-workout affordance
+ * exists on that path today at all, so "gate starting a workout, not
+ * viewing" has nothing to attach to here — viewing was, and stays, always
+ * unrestricted).
+ *
+ * Phase 4b round 2: the header's static title strip AND round 1's
+ * always-expanded inline "current level" card were CONSOLIDATED into one
+ * collapsible ProgramInfoPanel (see that file) — collapsed by default (a
+ * compact name/level/progress-bar strip), expanding on chevron tap into an
+ * absolutely-positioned overlay that floats OVER the tree (scrim behind it)
+ * without pushing the tree's own layout down. <header> now holds only the
+ * back button.
  *
  * One page, two states (confirmed workable in recon, not a new screen):
- * the inline current-level card renders ONLY when currentLevel is a real,
- * non-null number (i.e. genuinely assessed) — structurally exclusive with
+ * ProgramInfoPanel renders ONLY when currentLevel is a real, non-null
+ * number (i.e. genuinely assessed) — structurally exclusive with
  * isUnassessed/isPrereqLocked below, since getProgramState's own
  * precedence means a real tracked/active level can never coexist with a
- * locked_prereq/needs_assessment result for the SAME program.
+ * locked_prereq/needs_assessment result for the SAME program. The
+ * unassessed/locked states keep the plain, non-interactive title strip
+ * exactly as round 1 shipped it — unchanged by design, per this round's brief.
  *
  * The swap sheet's "החלף לתרגיל זה" action updates a session-local override
  * (which exercise displays as a given level's representative) — not
@@ -68,7 +77,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, MapPin } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import type { Exercise } from '@/features/content/exercises';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { getProgramByTemplateId } from '@/features/content/programs/core/program.service';
@@ -86,6 +95,7 @@ import { resolveLevelSummary } from '../services/level-summary.service';
 import { TreePath } from './TreePath';
 import { ProgramLevelSwapSheet } from './ProgramLevelSwapSheet';
 import { SkillTreeBackground } from './SkillTreeBackground';
+import { ProgramInfoPanel, PROGRAM_INFO_PANEL_COLLAPSED_HEIGHT } from './ProgramInfoPanel';
 import type { SkillTreeRung } from '../core/types';
 import type { TreeNodeState } from './TreeNode';
 import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
@@ -239,168 +249,118 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
         <button
           type="button"
           onClick={handleBack}
-          className="flex items-center gap-1 text-xs text-gray-400 mb-2"
+          className="flex items-center gap-1 text-xs text-gray-400"
         >
           <ChevronRight size={14} />
           חזרה
         </button>
-        {/* Skill name / level-summary block — Progression v2 Phase 4b: no
-            longer tappable, no drawer to open. Its former stat content
-            (רמה נוכחית / התקדמות / סה״כ אימונים) moved into the new inline
-            "current level" card below, in the assessed state only. */}
-        <div className="w-full text-right">
-          <h1 className="text-lg font-black text-gray-900">{skillName}</h1>
-          {tree && (
-            <>
+      </header>
+
+      <main className="pb-16">
+        <div className="px-4 pt-6">
+          {/* Progression v2 Phase 4a-fix: informational only — viewing is
+              never blocked (see file header). Assessment is a prompt, not a
+              gate: this banner tells the user WHY they see no "אתה כאן"
+              marker (TreePath.tsx's own deriveState) and offers the same
+              mini-assessment trigger used elsewhere in the app, rather than
+              gating anything about the tree itself. */}
+          {!isLoading && isUnassessed && (
+            <div className="bg-slate-100 text-slate-600 text-[13px] font-semibold text-center rounded-xl px-4 py-2.5 mb-4 flex flex-col items-center gap-2">
+              <span>{UNASSESSED_BANNER_TEXT}</span>
+              <button
+                type="button"
+                onClick={() =>
+                  startMiniDomainAssessment(router, slug, undefined, domainTypeForSlug(slug))
+                }
+                className="text-xs font-black text-white rounded-full px-4 py-1.5 active:opacity-80"
+                style={{ background: 'linear-gradient(90deg, #2CE0C0 0%, #20C6D6 50%, #2AA3E8 100%)' }}
+              >
+                בצע מבדק
+              </button>
+            </div>
+          )}
+          {!isLoading && isPrereqLocked && (
+            <div className="bg-slate-100 text-slate-600 text-[13px] font-semibold text-center rounded-xl px-4 py-2.5 mb-4">
+              {lockedHint}
+            </div>
+          )}
+
+          {/* Unassessed/locked title strip — unchanged from round 1 by this
+              round's explicit brief ("Unassessed state: unchanged from 4a
+              ... no panel-with-current-level, no אתה כאן"). The assessed
+              state's equivalent content now lives in ProgramInfoPanel below,
+              not here. */}
+          {currentLevel == null && tree && (
+            <div className="w-full text-right mb-4" dir="rtl">
+              <h1 className="text-lg font-black text-gray-900">{skillName}</h1>
               <p className="text-xs font-bold text-gray-500 mt-1">
-                רמה {currentLevel ?? tree.minLevel} מתוך {tree.maxLevel}
+                רמה {tree.minLevel} מתוך {tree.maxLevel}
                 {targetName ? ` · היעד: ${targetName}` : ''}
               </p>
               <div className="w-full h-1.5 bg-gray-100 rounded-full mt-2 overflow-hidden">
-                <div
-                  className="h-full rounded-full"
-                  style={{
-                    width: `${Math.min(100, Math.round((((currentLevel ?? tree.minLevel) - tree.minLevel) / Math.max(1, tree.maxLevel - tree.minLevel)) * 100))}%`,
-                    background: 'linear-gradient(90deg, #2CE0C0 0%, #20C6D6 50%, #2AA3E8 100%)',
-                  }}
-                />
+                <div className="h-full rounded-full" style={{ width: '0%' }} />
               </div>
-            </>
+            </div>
           )}
         </div>
-      </header>
 
-      <main className="px-4 py-6 pb-16">
-        {/* Progression v2 Phase 4a-fix: informational only — viewing is
-            never blocked (see file header). Assessment is a prompt, not a
-            gate: this banner tells the user WHY they see no "אתה כאן"
-            marker (TreePath.tsx's own deriveState) and offers the same
-            mini-assessment trigger used elsewhere in the app, rather than
-            gating anything about the tree itself. */}
-        {!isLoading && isUnassessed && (
-          <div className="bg-slate-100 text-slate-600 text-[13px] font-semibold text-center rounded-xl px-4 py-2.5 mb-4 flex flex-col items-center gap-2">
-            <span>{UNASSESSED_BANNER_TEXT}</span>
-            <button
-              type="button"
-              onClick={() =>
-                startMiniDomainAssessment(router, slug, undefined, domainTypeForSlug(slug))
-              }
-              className="text-xs font-black text-white rounded-full px-4 py-1.5 active:opacity-80"
-              style={{ background: 'linear-gradient(90deg, #2CE0C0 0%, #20C6D6 50%, #2AA3E8 100%)' }}
-            >
-              בצע מבדק
-            </button>
-          </div>
-        )}
-        {!isLoading && isPrereqLocked && (
-          <div className="bg-slate-100 text-slate-600 text-[13px] font-semibold text-center rounded-xl px-4 py-2.5 mb-4">
-            {lockedHint}
-          </div>
-        )}
+        <div className="relative">
+          {/* Progression v2 Phase 4b round 2: ONE collapsible overlay panel,
+              replacing round 1's static header title + always-expanded
+              inline card. Assessed state ONLY — see file header. */}
+          {!isLoading && currentLevel != null && (
+            <ProgramInfoPanel
+              programName={skillName}
+              iconKey={programMeta?.iconKey ?? programId}
+              currentLevel={currentLevel}
+              maxLevel={displayTree?.maxLevel ?? currentLevel}
+              programDescription={programMeta?.description}
+              levelDescription={levelSummary?.realDescription ?? null}
+              matchingGoal={levelSummary?.matchingGoal ?? null}
+              currentLevelExerciseName={currentLevelExerciseName}
+              onReassess={() => startMiniDomainAssessment(router, slug, undefined, domainTypeForSlug(slug))}
+            />
+          )}
 
-        {/* ── Inline "current level" card (Progression v2 Phase 4b) ───────
-            Replaces ProgramDrawer. Assessed state ONLY (currentLevel is a
-            real number) — see the file header for why this is exclusive
-            with the two banners above. Deliberately NO "start workout"
-            button — decided confusing; a workout begins by tapping a tree
-            node below, same as always. */}
-        {!isLoading && currentLevel != null && (
           <div
-            className="bg-white rounded-2xl p-3.5 mb-4"
-            style={{ border: '1.5px solid #BDEEDE', boxShadow: '0 6px 18px rgba(37,194,129,0.08)' }}
-            dir="rtl"
+            className="px-4"
+            style={{ paddingTop: !isLoading && currentLevel != null ? PROGRAM_INFO_PANEL_COLLAPSED_HEIGHT : 0 }}
           >
-            <div className="flex items-center gap-3 mb-2.5">
-              <div
-                className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 text-white font-black text-lg"
-                style={{ background: 'linear-gradient(135deg, #2CE0C0 0%, #20C6D6 50%, #2AA3E8 100%)' }}
-              >
-                {currentLevel}
+            {isLoading && (
+              <div className="flex flex-col items-center gap-3 py-20">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="w-20 h-20 rounded-2xl bg-slate-100 animate-pulse" />
+                ))}
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-black text-gray-900">הרמה הנוכחית שלך · {currentLevel}</p>
-                {currentLevelExerciseName && (
-                  <p className="text-xs text-gray-400 truncate">{currentLevelExerciseName}</p>
-                )}
-              </div>
-              <span className="flex-shrink-0 flex items-center gap-1 text-[10px] font-black text-white rounded-full px-2.5 py-1" style={{ backgroundColor: '#2AA3E8' }}>
-                <MapPin size={10} />
-                אתה כאן
-              </span>
-            </div>
+            )}
 
-            {levelSummary?.realDescription && (
-              <p className="text-xs text-gray-600 bg-slate-50 rounded-xl px-3 py-2 mb-2.5 leading-relaxed">
-                <b className="text-gray-800">מה מצופה ברמה {currentLevel}:</b> {levelSummary.realDescription}
+            {!isLoading && !displayTree && (
+              <p className="text-sm text-gray-400 text-center py-20">
+                לא נמצאו תרגילים למסלול הזה כרגע.
               </p>
             )}
 
-            {currentLevelExercise && (
-              <div className="flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2 mb-2">
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-gray-800 truncate">תרגיל-היעד: {currentLevelExerciseName}</p>
-                  {levelSummary?.matchingGoal && (
-                    <p className="text-[11px] text-gray-400">
-                      יעד: {levelSummary.matchingGoal.targetValue}{' '}
-                      {levelSummary.matchingGoal.unit === 'seconds' ? 'שניות' : 'חזרות'}
-                    </p>
-                  )}
-                </div>
-              </div>
+            {!isLoading && displayTree && (
+              <TreePath
+                tree={displayTree}
+                currentLevel={currentLevel}
+                onNodeTap={(rung: SkillTreeRung, _state: TreeNodeState, isAboveCurrentLevel: boolean) => {
+                  if (!rung.representative) return;
+                  setDetailExercise(rung.representative);
+                  // Round 10 fix: was `state === 'locked'` — but the target/
+                  // crown node is ALWAYS visually 'target' (deriveState in
+                  // TreePath.tsx), never 'locked', even before the user has
+                  // reached it, so the notice never showed on the hardest
+                  // node. isAboveCurrentLevel checks the actual level
+                  // comparison directly, independent of the visual label —
+                  // see TreePath.tsx's isAboveCurrentLevel for the full reasoning.
+                  setDetailNotice(isAboveCurrentLevel ? LOCKED_NOTICE : null);
+                }}
+                onSwapTap={(rung) => setSwapRung(rung)}
+              />
             )}
-
-            {levelSummary?.hasGoals && (
-              <div className="flex items-center justify-between text-xs px-1 mb-2">
-                <span className="text-gray-500">סטטוס</span>
-                <span className={`font-bold ${levelSummary.goalsCompleted ? 'text-[#20C6D6]' : 'text-gray-700'}`}>
-                  {levelSummary.goalsCompleted ? 'הושלם' : 'בתהליך'}
-                </span>
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={() => startMiniDomainAssessment(router, slug, undefined, domainTypeForSlug(slug))}
-              className="w-full text-center text-[11.5px] font-bold text-[#0a8ea0] mt-1"
-            >
-              🔄 עדכן את הרמה שלי
-            </button>
           </div>
-        )}
-
-        {isLoading && (
-          <div className="flex flex-col items-center gap-3 py-20">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="w-20 h-20 rounded-2xl bg-slate-100 animate-pulse" />
-            ))}
-          </div>
-        )}
-
-        {!isLoading && !displayTree && (
-          <p className="text-sm text-gray-400 text-center py-20">
-            לא נמצאו תרגילים למסלול הזה כרגע.
-          </p>
-        )}
-
-        {!isLoading && displayTree && (
-          <TreePath
-            tree={displayTree}
-            currentLevel={currentLevel}
-            onNodeTap={(rung: SkillTreeRung, _state: TreeNodeState, isAboveCurrentLevel: boolean) => {
-              if (!rung.representative) return;
-              setDetailExercise(rung.representative);
-              // Round 10 fix: was `state === 'locked'` — but the target/
-              // crown node is ALWAYS visually 'target' (deriveState in
-              // TreePath.tsx), never 'locked', even before the user has
-              // reached it, so the notice never showed on the hardest
-              // node. isAboveCurrentLevel checks the actual level
-              // comparison directly, independent of the visual label —
-              // see TreePath.tsx's isAboveCurrentLevel for the full reasoning.
-              setDetailNotice(isAboveCurrentLevel ? LOCKED_NOTICE : null);
-            }}
-            onSwapTap={(rung) => setSwapRung(rung)}
-          />
-        )}
+        </div>
       </main>
 
       {/* Mounted here since it otherwise only exists inside ExerciseLibraryPage.
