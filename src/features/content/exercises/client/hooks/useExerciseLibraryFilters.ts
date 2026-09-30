@@ -62,6 +62,22 @@ export function collectExerciseProgramIds(exercise: Exercise): string[] {
   return Array.from(ids);
 }
 
+/**
+ * True only when the exercise has a GENUINE method for this location — an
+ * exact `location` match or a `locationMapping` entry. Deliberately does
+ * NOT use findMethodForLocation's later fallback tiers ("first method with
+ * any media" / "first method at all") — those exist for media resolution,
+ * where showing *something* beats showing nothing. Filtering eligibility
+ * needs a real match: an exercise with zero home methods must not pass the
+ * בית filter just because it has some other method with a photo.
+ */
+export function exerciseHasLocationMethod(exercise: Exercise, location: 'home' | 'park'): boolean {
+  const methods = exercise.execution_methods ?? exercise.executionMethods ?? [];
+  return methods.some(
+    (m) => m.location === location || m.locationMapping?.includes(location),
+  );
+}
+
 export function useExerciseLibraryFilters() {
   const allExercises = useExerciseLibraryStore((s) => s.allExercises);
   const isLoading = useExerciseLibraryStore((s) => s.isLoading);
@@ -161,6 +177,7 @@ export function useExerciseLibraryFilters() {
     let droppedByProgram = 0;
     let droppedByLevel = 0;
     let droppedByEquipment = 0;
+    let droppedByLocation = 0;
 
     // ── One-shot trace of the very first exercise through every stage ──
     // Runs ONCE per memo invocation, never per item. Tells us in plain
@@ -208,6 +225,11 @@ export function useExerciseLibraryFilters() {
         passEquipment = mBW || mGear;
       }
 
+      let passLocation = true;
+      if (filters.location === 'home' || filters.location === 'park') {
+        passLocation = exerciseHasLocationMethod(ex, filters.location);
+      }
+
       // eslint-disable-next-line no-console
       console.log('[Library] CURRENT FILTERS IN STORE:', filters);
       // eslint-disable-next-line no-console
@@ -228,6 +250,8 @@ export function useExerciseLibraryFilters() {
       console.log('[Library] Item 0 - Pass Level?', passLevel);
       // eslint-disable-next-line no-console
       console.log('[Library] Item 0 - Pass Equipment?', passEquipment);
+      // eslint-disable-next-line no-console
+      console.log('[Library] Item 0 - Pass Location?', passLocation);
     }
 
     const result = allExercises.filter((ex) => {
@@ -279,23 +303,36 @@ export function useExerciseLibraryFilters() {
       // stage entirely. This is the explicit safety net so an empty array
       // can NEVER accidentally drop exercises (including bodyweight ones).
       const equipmentIds = filters.equipmentIds;
-      if (equipmentIds.length === 0) return true;
+      if (equipmentIds.length > 0) {
+        // At least one chip is selected. The match rule is:
+        //   • The bodyweight sentinel matches exercises with zero gear IDs.
+        //   • Real gear IDs match exercises that reference any of them.
+        //   • Either condition passes (OR) — selections combine, never AND.
+        const wantsBodyweight = equipmentIds.includes(BODYWEIGHT_SENTINEL);
+        const gearIds = wantsBodyweight
+          ? equipmentIds.filter((g) => g !== BODYWEIGHT_SENTINEL)
+          : equipmentIds;
+        const exGear = collectExerciseEquipmentIds(ex);
+        const matchesBodyweight = wantsBodyweight && exGear.length === 0;
+        const matchesGear =
+          gearIds.length > 0 && gearIds.some((g) => exGear.includes(g));
+        if (!matchesBodyweight && !matchesGear) {
+          droppedByEquipment++;
+          return false;
+        }
+      }
 
-      // From here on, at least one chip is selected. The match rule is:
-      //   • The bodyweight sentinel matches exercises with zero gear IDs.
-      //   • Real gear IDs match exercises that reference any of them.
-      //   • Either condition passes (OR) — selections combine, never AND.
-      const wantsBodyweight = equipmentIds.includes(BODYWEIGHT_SENTINEL);
-      const gearIds = wantsBodyweight
-        ? equipmentIds.filter((g) => g !== BODYWEIGHT_SENTINEL)
-        : equipmentIds;
-      const exGear = collectExerciseEquipmentIds(ex);
-      const matchesBodyweight = wantsBodyweight && exGear.length === 0;
-      const matchesGear =
-        gearIds.length > 0 && gearIds.some((g) => exGear.includes(g));
-      if (matchesBodyweight || matchesGear) return true;
-      droppedByEquipment++;
-      return false;
+      // ── Location — real match only (round 2, #7). 'gym' and null bypass
+      // this stage entirely (gym is coded-but-not-offered in the UI today;
+      // null means no location filter is active).
+      if (filters.location === 'home' || filters.location === 'park') {
+        if (!exerciseHasLocationMethod(ex, filters.location)) {
+          droppedByLocation++;
+          return false;
+        }
+      }
+
+      return true;
     });
 
     // Default sort: level ascending (round 2 polish — was unsorted/DB order).
@@ -310,12 +347,14 @@ export function useExerciseLibraryFilters() {
         programId: filters.programId,
         level: filters.level,
         equipmentIds: filters.equipmentIds,
+        location: filters.location,
       },
       droppedByQuery,
       droppedByMuscles,
       droppedByProgram,
       droppedByLevel,
       droppedByEquipment,
+      droppedByLocation,
       'Visible Count after filters': result.length,
     });
 

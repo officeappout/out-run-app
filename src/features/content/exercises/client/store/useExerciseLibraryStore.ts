@@ -41,10 +41,19 @@ export interface LibraryFilters {
   /** Gear/equipment IDs the exercise must use (any-of). */
   equipmentIds: string[];
   /**
-   * Location context derived from the last applied preset (בית / פארק / חדר כושר).
-   * `null` = no preset active; media resolution defaults to 'park' as a fallback.
-   * This drives which execution-method media (thumbnail + video) is shown in cards
-   * and the detail sheet.
+   * Location filter (בית / פארק / חדר כושר — 'gym' is coded but not offered
+   * in the UI today). `null` = no location filter active.
+   *
+   * Two effects, both round-2-era:
+   *   1. Gates the result set (useExerciseLibraryFilters, #7): an exercise
+   *      must have a genuine method for this location (exact `location` or
+   *      `locationMapping` match) to appear — no more silent leak-through.
+   *   2. Seeds the initially-selected execution method in the detail sheet
+   *      (ExerciseDetailSheet → MasterExerciseView's `filterLocation` prop).
+   * It no longer drives the GRID CARD's image — ExerciseImageCard always
+   * resolves against 'park' regardless of this filter (#6), since the old
+   * "adapt the card to the active location" behavior had no way to signal
+   * when it was substituting a different location's photo.
    */
   location: 'home' | 'park' | 'gym' | null;
 }

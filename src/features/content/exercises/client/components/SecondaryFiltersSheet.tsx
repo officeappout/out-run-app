@@ -12,10 +12,9 @@
  * Unlike the old EquipmentFilterSheet, מיקום and ציוד are independent
  * selections here (no location→gear auto-fill preset) — the redesigned
  * funnel sheet presents all 4 dimensions as flat, separate panels; the old
- * preset-shortcut framing doesn't carry over to this layout. מיקום still
- * only affects which execution-method media a card shows (see
- * useExerciseLibraryStore's `location` doc comment) — it has never filtered
- * the result set, and that hasn't changed here.
+ * preset-shortcut framing doesn't carry over to this layout. מיקום now also
+ * filters the result set (round 2, #7 — via exerciseHasLocationMethod, an
+ * exact/locationMapping match only), not just card media as it did before.
  *
  * `programs`/`gear` are fetched once by the parent (ExerciseLibraryPage)
  * and passed down so this sheet and ActiveFilterChipsRow don't each
@@ -41,6 +40,7 @@ import {
   resolveExerciseLevel,
   collectExerciseProgramIds,
   collectExerciseEquipmentIds,
+  exerciseHasLocationMethod,
 } from '../hooks/useExerciseLibraryFilters';
 import { MUSCLE_BAR_CHIPS, sameMuscleSet } from '../utils/muscle-bar.utils';
 import { getProgramIcon, resolveIconKey } from '@/features/content/programs/core/program-icon.util';
@@ -147,8 +147,9 @@ export default function SecondaryFiltersSheet({ programs, gear }: Props) {
   // ── Live preview count — mirrors useExerciseLibraryFilters' matching
   // rules exactly (query + muscles stay at their committed values; program/
   // level/equipment use the draft so the count updates as the user taps,
-  // before Apply commits anything). Location is intentionally excluded —
-  // it has never affected the result set, only card media.
+  // before Apply commits anything). Location now DOES affect the result set
+  // (round 2, #7 — a real home/park match is required), so draftLocation is
+  // included here too.
   const previewCount = useMemo(() => {
     const q = filters.query.trim().toLowerCase();
     let count = 0;
@@ -181,10 +182,11 @@ export default function SecondaryFiltersSheet({ programs, gear }: Props) {
         const matchesGear = gearIds.length > 0 && gearIds.some((id) => exGear.includes(id));
         if (!matchesBW && !matchesGear) continue;
       }
+      if (draftLocation && !exerciseHasLocationMethod(ex, draftLocation)) continue;
       count++;
     }
     return count;
-  }, [allExercises, filters.query, filters.muscles, draftProgramId, draftLevel, draftEquipment]);
+  }, [allExercises, filters.query, filters.muscles, draftProgramId, draftLevel, draftEquipment, draftLocation]);
 
   function handleApply() {
     setProgressionFilter(draftProgramId, draftLevel);

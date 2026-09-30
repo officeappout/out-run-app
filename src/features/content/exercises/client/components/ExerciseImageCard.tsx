@@ -17,12 +17,18 @@
  * David's reference to the facility-card amenity chips. The dark scrim is
  * now localized to just behind the name, not the whole lower half of the
  * card, since the chips carry their own contrast via their white background.
+ *
+ * Image always resolves against 'park', regardless of the active location
+ * filter (round 2, #6) — findMethodForLocation's fallback chain has no
+ * "no real match" signal, so letting the card follow filters.location could
+ * silently substitute a different location's photo with no indication.
+ * Only the detail view's execution-method switcher changes the image now.
  */
 
+import { useState } from 'react';
 import { Gauge, Play } from 'lucide-react';
 import { Exercise, getLocalizedText } from '../../core/exercise.types';
 import { resolveExerciseLevel } from '../hooks/useExerciseLibraryFilters';
-import { useExerciseLibraryStore } from '../store/useExerciseLibraryStore';
 import {
   pickPrimaryMuscle,
   pickThumbnailUrl,
@@ -46,11 +52,15 @@ function Pill({ icon, label }: { icon: React.ReactNode; label: string }) {
 }
 
 export default function ExerciseImageCard({ exercise, onClick }: ExerciseImageCardProps) {
-  const filterLocation = useExerciseLibraryStore((s) => s.filters.location);
   const name = getLocalizedText(exercise.name);
   const muscle = pickPrimaryMuscle(exercise);
-  const thumbnailUrl = pickThumbnailUrl(exercise, filterLocation);
+  const thumbnailUrl = pickThumbnailUrl(exercise, 'park');
   const level = resolveExerciseLevel(exercise);
+  // A resolved URL can still 404 (e.g. Bunny hasn't finished encoding a
+  // thumbnail yet) — fall back to the branded gradient instead of a
+  // broken-image icon.
+  const [imgFailed, setImgFailed] = useState(false);
+  const showImage = thumbnailUrl && !imgFailed;
 
   return (
     <button
@@ -60,13 +70,14 @@ export default function ExerciseImageCard({ exercise, onClick }: ExerciseImageCa
       dir="rtl"
     >
       {/* ── Background: thumbnail or branded gradient fallback ── */}
-      {thumbnailUrl ? (
+      {showImage ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={thumbnailUrl}
           alt=""
           className="absolute inset-0 w-full h-full object-cover"
           loading="lazy"
+          onError={() => setImgFailed(true)}
         />
       ) : (
         <div

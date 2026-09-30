@@ -14,7 +14,7 @@ import {
   resolvePreviewForLang,
   resolveTutorialForLang,
 } from '../../core/exercise.types';
-import { buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
+import { buildBunnyThumbnailUrl, extractBunnyVideoId } from '@/lib/bunny/bunny.config';
 
 export function pickPrimaryMuscle(ex: Exercise): { he: string } | null {
   const m = ex.primaryMuscle ?? ex.muscleGroups?.[0];
@@ -62,6 +62,18 @@ export function pickBunnyVideoId(ex: Exercise, location: string | null): string 
   // 4. Exercise-level fullTutorial
   const topTutorial = resolveTutorialForLang(ex.media as Parameters<typeof resolveTutorialForLang>[0], 'he');
   if (topTutorial?.videoId && topTutorial.provider === 'bunny') return topTutorial.videoId;
+
+  // 5. Location-specific method — raw mainVideoUrl (legacy shape: a video
+  // that was never split into a structured previewVideo/fullTutorial entry).
+  // extractBunnyVideoId pulls the UUID straight out of the URL string —
+  // the same helper built for a prior black-screen bug of this exact shape
+  // (see bunny.config.ts's doc comment on it).
+  const methodRawId = extractBunnyVideoId(method?.media?.mainVideoUrl);
+  if (methodRawId) return methodRawId;
+
+  // 6. Exercise-level — raw videoUrl (legacy shape)
+  const topRawId = extractBunnyVideoId(ex.media?.videoUrl);
+  if (topRawId) return topRawId;
 
   return null;
 }
