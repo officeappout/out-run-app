@@ -172,6 +172,34 @@ describe('computeParkCreate', () => {
     expect(created?.data.origin).toBe('super_admin');
   });
 
+  // 30.09.2026 — caught wiring up the real callers (stage 3): ParkForm.tsx/
+  // LocationEditor.tsx's data objects still carry stale client-SDK-era
+  // fields (createdAt set to Firebase's serverTimestamp() sentinel, which
+  // JSON-serializes to garbage; contentStatus/published/origin/
+  // createdByUser from the OLD pending_review branch). Root's "full field
+  // access" must not let ANY of these override the server-derived values
+  // — not even for a trusted caller, since the caller in practice is
+  // stale/irrelevant client code, not a deliberate admin action.
+  it('root sends stale client-SDK fields (createdAt sentinel, contentStatus, origin, createdByUser) → all silently ignored, server-derived values win', async () => {
+    const db = makeFakeDb({ authorities: [{ id: 'city-haifa' }] });
+    const result = await computeParkCreate(db, { kind: 'root', uid: 'root-uid' }, {
+      name: 'New Park',
+      location: { lat: 32.8, lng: 34.9 },
+      authorityId: 'city-haifa',
+      createdAt: { _methodName: 'serverTimestamp' }, // what JSON.stringify(serverTimestamp()) actually looks like
+      contentStatus: 'pending_review', // an attempt to override the server's decision
+      origin: 'some-forged-value',
+      createdByUser: 'someone-else-entirely',
+    }, CTX);
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    const created = db.created.find((c) => c.id === result.body.parkId);
+    expect(created?.data.contentStatus).toBe('published'); // not 'pending_review'
+    expect(created?.data.origin).toBe('super_admin'); // not the forged value
+    expect(created?.data.createdByUser).toBe('root-uid'); // not 'someone-else-entirely'
+    expect(created?.data.createdAt).toBeInstanceOf(Date); // not the sentinel garbage
+  });
+
   it('root creates with an authorityId that does not exist → 400, nothing created', async () => {
     const db = makeFakeDb({ authorities: [] });
     const result = await computeParkCreate(db, { kind: 'root', uid: 'root-uid' }, { name: 'New Park', location: { lat: 32.8, lng: 34.9 }, authorityId: 'no-such-city' }, CTX);
@@ -232,15 +260,35 @@ describe('computeParkUpdate — the mandatory denial scenarios', () => {
     expect(Object.prototype.hasOwnProperty.call(update?.data ?? {}, 'authorityId')).toBe(false);
   });
 
-  it('authority_manager sends a field NOT in the allowlist (e.g. published) → 403 is wrong, this is a 400, and NOTHING is written — not even the allowed fields in the same request', async () => {
+  it('authority_manager sends a field NOT in the allowlist (e.g. rating) → 400, and NOTHING is written — not even the allowed fields in the same request', async () => {
+    const db = makeFakeDb({
+      authorities: [{ id: 'city-haifa', managerIds: ['am-uid'] }],
+      parks: [{ id: 'park-1', authorityId: 'city-haifa', name: 'Old Name' }],
+    });
+    const caller: ParkWriteCaller = { kind: 'authority_manager', uid: 'am-uid', authorityId: 'city-haifa' };
+    const result = await computeParkUpdate(db, caller, 'park-1', { name: 'New Name', rating: 5 }, CTX);
+    expect(result.status).toBe(400);
+    expect(db.updates.length).toBe(0);
+  });
+
+  // 'published' specifically is NOT rejected — it's one of
+  // ALWAYS_SERVER_CONTROLLED_FIELDS, silently dropped for every caller
+  // (root included), never a 400. Distinct from a genuinely-disallowed
+  // content field like `rating` above, which IS rejected for
+  // authority_manager. Two different reasons a field doesn't get
+  // written — worth a test each so they don't get conflated later.
+  it('authority_manager sends `published` (a server-controlled field, not merely an unlisted one) → silently dropped, the rest of a valid request still succeeds', async () => {
     const db = makeFakeDb({
       authorities: [{ id: 'city-haifa', managerIds: ['am-uid'] }],
       parks: [{ id: 'park-1', authorityId: 'city-haifa', name: 'Old Name' }],
     });
     const caller: ParkWriteCaller = { kind: 'authority_manager', uid: 'am-uid', authorityId: 'city-haifa' };
     const result = await computeParkUpdate(db, caller, 'park-1', { name: 'New Name', published: false }, CTX);
-    expect(result.status).toBe(400);
-    expect(db.updates.length).toBe(0);
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    expect(result.body.updatedFields).not.toContain('published');
+    const update = db.updates.find((u) => u.id === 'park-1');
+    expect(Object.prototype.hasOwnProperty.call(update?.data ?? {}, 'published')).toBe(false);
   });
 
   it('authenticated user with no relevant role at all → 403', async () => {
@@ -259,6 +307,24 @@ describe('computeParkUpdate — the mandatory denial scenarios', () => {
     const update = db.updates.find((u) => u.id === 'park-1');
     expect(update?.data.authorityId).toBe('city-haifa');
     expect(update?.data.name).toBe('Reassigned');
+  });
+
+  it('root sends stale client-SDK fields on update (createdAt, createdByUser, origin) → silently ignored, never written', async () => {
+    const db = makeFakeDb({ parks: [{ id: 'park-1', authorityId: 'city-haifa', name: 'Old Name' }] });
+    const result = await computeParkUpdate(db, { kind: 'root', uid: 'root-uid' }, 'park-1', {
+      name: 'New Name',
+      createdAt: { _methodName: 'serverTimestamp' },
+      createdByUser: 'someone-else',
+      origin: 'forged',
+    }, CTX);
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    expect(result.body.updatedFields).not.toContain('createdAt');
+    expect(result.body.updatedFields).not.toContain('createdByUser');
+    expect(result.body.updatedFields).not.toContain('origin');
+    const update = db.updates.find((u) => u.id === 'park-1');
+    expect(Object.prototype.hasOwnProperty.call(update?.data ?? {}, 'createdByUser')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(update?.data ?? {}, 'origin')).toBe(false);
   });
 
   it('root edits a park that does not exist → 404', async () => {

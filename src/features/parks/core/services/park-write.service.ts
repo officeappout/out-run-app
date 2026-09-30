@@ -49,6 +49,31 @@ export type ParkWriteCaller =
   | { kind: 'denied' };
 
 /**
+ * 30.09.2026 — caught while actually wiring the callers up (stage 3), not
+ * by the fake-db tests: ParkForm.tsx/LocationEditor.tsx's existing data
+ * objects still carry client-SDK-era fields — `createdAt`/`updatedAt` set
+ * to Firebase's `serverTimestamp()` sentinel, which JSON-serializes to
+ * garbage (a FieldValue is not a plain value); `contentStatus`/
+ * `published`/`origin`/`createdByUser` set by the OLD pending_review
+ * logic these forms haven't been touched to remove. `root`'s "full field
+ * access" design (for genuinely admin-only fields there's no other way to
+ * set) must NOT extend to these — they are ALWAYS server-derived, for
+ * every caller including root, no exception. Only `authorityId` keeps its
+ * caller-kind-specific handling below (root's one real escape hatch, e.g.
+ * for the 31 orphan parks).
+ */
+const ALWAYS_SERVER_CONTROLLED_FIELDS = new Set<string>([
+  'id',
+  'contentStatus',
+  'published',
+  'publishedAt',
+  'origin',
+  'createdByUser',
+  'createdAt',
+  'updatedAt',
+]);
+
+/**
  * `admin`/`scope` are already resolved server-side by the caller (via
  * resolveIdentity(idToken) in firebase-admin.ts, the same Bearer-token
  * verification every other admin-UI-facing route in this build uses) —
@@ -276,6 +301,7 @@ export async function computeParkCreate(
   const rejectedFields: string[] = [];
   for (const [key, value] of Object.entries(requestBody)) {
     if (key === 'authorityId') continue; // already resolved above, server-side
+    if (ALWAYS_SERVER_CONTROLLED_FIELDS.has(key)) continue; // silently dropped, for every caller — see the set's own comment
     if (caller.kind === 'root') {
       doc[key] = value;
       continue;
@@ -349,6 +375,14 @@ export async function computeParkUpdate(
       if (caller.kind === 'root') updates.authorityId = value;
       continue;
     }
+    // Same rule as create, applied to update too (30.09.2026, caught
+    // wiring up the real callers) — createdAt/createdByUser/origin are
+    // immutable after creation for anyone; contentStatus/published/
+    // publishedAt aren't toggleable through THIS route by any caller
+    // today (neither existing form's UI offers an unpublish action) — if
+    // that becomes a real need later it's a deliberate, explicit feature
+    // to design, not a side effect of root's field access here.
+    if (ALWAYS_SERVER_CONTROLLED_FIELDS.has(key)) continue;
     if (caller.kind === 'root') {
       updates[key] = value;
       continue;
