@@ -103,50 +103,60 @@ export function shouldGateAdminRequest(pathname: string, domain: string): boolea
 // `/admin/authority/users` is deliberately absent (super_admin/
 // system_admin-only since 22.09.2026) — this list must never add it back
 // without also updating layout.tsx's copy.
+// Rebuilt 30.09.2026 (00-MASTER-PLAN.md §13.58) — this list used to be 21
+// paths, built by hand over time rather than derived from anything, and
+// turned out to admit real gaps: /admin/parks, /admin/locations,
+// /admin/organizations, /admin/admin-directory, /admin/access-codes,
+// /admin/authority/units, /admin/authority/grades were all reachable for
+// a plain municipal authority_manager despite none of them being linked
+// from that role's own sidebar — the same "broadest list that happens to
+// work" pattern §26 already found dangerous for tenant_owner/unit_admin
+// (see below), just not yet applied to authority_manager itself. Two of
+// those (organizations, the bare units list) are reachable-but-currently-
+// empty, not reachable-and-safe — axioms.md §26, accidental protection is
+// not protection.
+//
+// Rebuilt the same way as TENANT_OWNER_ALLOWED_PATHS: default-deny,
+// derived ONLY from SIDEBAR_CONFIGS.municipal (sidebarConfigs.ts) — the
+// authority_manager role's real, current sidebar.
+//
+// Two paths kept despite not being literal sidebar entries:
+//   - /admin/authority/neighborhoods — /admin/authority-manager's own
+//     AnalyticsDashboard links each row of its neighborhood breakdown
+//     (server-scoped to the caller's own authorityId) to
+//     /admin/authority/neighborhoods/[id] (NeighborhoodBreakdown.tsx:156)
+//     — removing it breaks a real, currently-used feature, not just an
+//     unused door. This allowlist entry does NOT by itself fix
+//     neighborhoods/[id]'s own unvalidated-neighborhoodId bug — that page
+//     still trusts the URL param with no ownership check; tracked
+//     separately (00-MASTER-PLAN.md §13.58), fixed alongside this.
+//   - /admin/authority/events — a pure client-side redirect into
+//     /admin/authority/community?tab=rsvp (events/page.tsx), zero data
+//     access of its own; removing it breaks a bookmarkable link without
+//     closing anything.
+//
+// Removed (9), none linked from SIDEBAR_CONFIGS.municipal: /admin/parks,
+// /admin/locations (municipal's own sidebar links /admin/authority/locations
+// instead — already correctly scoped, this was just a redundant extra
+// door), /admin/authority/units + /admin/authority/grades (military_unit/
+// school sidebars only), /admin/access-codes (same — access-codes/page.tsx's
+// own role check admits authority_manager, but no sidebar link ever sends
+// one there; flagged as likely-unwired intent, not fixed here),
+// /admin/admin-directory + /admin/organizations (wrong domain entirely —
+// see axioms.md §26), /admin/insights, /admin/statistics (not linked).
 const AUTHORITY_MANAGER_ALLOWED_PATHS = [
-  '/admin/authority-manager',
   '/admin/dashboard',
+  '/admin/authority-manager',
+  '/admin/heatmap',
   '/admin/authority/locations',
   '/admin/authority/routes',
+  '/admin/approval-center',
+  '/admin/authority/community',
   '/admin/authority/reports',
   '/admin/authority/team',
-  '/admin/authority/community',
-  '/admin/authority/events',
   '/admin/authority/neighborhoods',
-  '/admin/authority/readiness',
-  '/admin/authority/units',
-  '/admin/authority/grades',
-  '/admin/approval-center',
-  '/admin/parks',
-  '/admin/locations',
-  '/admin/heatmap',
-  '/admin/insights',
-  '/admin/statistics',
-  '/admin/access-codes',
-  '/admin/admin-directory',
-  '/admin/organizations',
+  '/admin/authority/events',
 ];
-
-// §26 follow-up (29.09.2026, David's live-test findings 1-2) — "tenant_owner/
-// unit_admin reuse the SAME list as authority_manager" turned out to be a
-// real vulnerability, not a harmless simplification: a unit_admin (a single
-// unit commander) reached /admin/parks, /admin/locations, /admin/organizations,
-// and the BARE /admin/authority/units list — pages with unscoped
-// system-wide reads and destructive UI (delete-all, bulk JSON import,
-// bulk park remapping) that render with no internal role gate. The only
-// thing that had been stopping a real write from most of them was each
-// page's OWN incidental early-return failing safe for unrelated reasons
-// (§26) — not a gate. David's explicit correction: park/route MAPPING is
-// root-only, full stop — a local-manager scope reaching /admin/parks or
-// /admin/locations (both fully unscoped — getAllParks(), not filtered by
-// tenant) is a direct violation of that, not a theoretical gap.
-//
-// Fix: default-deny per scope. Every scope gets its OWN explicit allowlist,
-// derived from what that scope's OWN sidebar actually links to (never the
-// broadest list that happens to work) — not one shared list three roles
-// happen to reuse. authority_manager's list above is UNCHANGED (existing,
-// production-proven for real municipal managers) pending its own separate
-// review — flagged, not touched here.
 
 // tenant_owner's real footprint = the union of SIDEBAR_CONFIGS.military_unit
 // and SIDEBAR_CONFIGS.school (sidebarConfigs.ts) — the only two verticals
@@ -240,36 +250,63 @@ export type AdminGateAction =
  *                                       redirect target's ?blocked=1 flag).
  *   no session at all (missing/
  *   invalid/expired cookie)
- *     + pathname in the (broadest,
- *       authority_manager) allowlist  → redirect to /authority-portal/login,
- *                                       preserveNext: true — NOT /admin/login
- *                                       (login-entry-points unification,
- *                                       David's hard rule #1, 00-MASTER-
- *                                       PLAN.md — confirmed live 28.09.2026:
- *                                       an officer whose session expired
- *                                       mid-navigation on an authority-
- *                                       scoped path was bounced to David's
- *                                       own super-admin portal and shown
- *                                       "email not found in the system"
- *                                       there). This IS the legitimate
- *                                       "resume where you were" case `next`
- *                                       exists for: there's no session yet
- *                                       to know whether the destination is
- *                                       even in-scope — if it turns out not
- *                                       to be, THIS SAME gate re-evaluates it
- *                                       after login and returns the
- *                                       preserveNext:false branch above,
- *                                       converging safely rather than
- *                                       looping. The PATHNAME alone is the
- *                                       only signal available here — the
- *                                       broadest (authority_manager's) list
- *                                       is checked since every other scope's
- *                                       list is already a subset of it; this
- *                                       only decides which LOGIN DOOR to
- *                                       show, never which page to allow.
- *     + pathname NOT in it            → redirect to /admin/login,
+ *     + pathname in ANY scoped role's  → redirect to /authority-portal/login,
+ *       own allowlist/pattern            preserveNext: true — NOT /admin/login
+ *       (authority_manager OR            (login-entry-points unification,
+ *       tenant_owner OR unit_admin)      David's hard rule #1, 00-MASTER-
+ *                                        PLAN.md — confirmed live 28.09.2026:
+ *                                        an officer whose session expired
+ *                                        mid-navigation on an authority-
+ *                                        scoped path was bounced to David's
+ *                                        own super-admin portal and shown
+ *                                        "email not found in the system"
+ *                                        there). This IS the legitimate
+ *                                        "resume where you were" case `next`
+ *                                        exists for: there's no session yet
+ *                                        to know WHICH scope this caller will
+ *                                        turn out to have, so the pathname is
+ *                                        checked against the UNION of all
+ *                                        three scoped allowlists/pattern —
+ *                                        not just authority_manager's. Before
+ *                                        30.09.2026's allowlist rebuild,
+ *                                        authority_manager's list happened to
+ *                                        be a superset of tenant_owner's and
+ *                                        unit_admin's, so checking it alone
+ *                                        was sufficient — an accident of the
+ *                                        old, overly broad list, not a
+ *                                        designed invariant. Once that list
+ *                                        was narrowed to authority_manager's
+ *                                        own real sidebar, it stopped
+ *                                        covering tenant_owner-only paths
+ *                                        (e.g. /admin/authority/readiness) —
+ *                                        an expired-session tenant_owner on
+ *                                        one of those would have silently
+ *                                        regressed into the exact bug hard
+ *                                        rule #1 fixed. isAnyScopedPath()
+ *                                        below is the explicit fix: never
+ *                                        rely on one list happening to be
+ *                                        broadest again.
+ *     + pathname NOT in any of them   → redirect to /admin/login,
  *                                       preserveNext: true (unchanged)
  */
+
+/**
+ * True if `pathname` is a legitimate destination for ANY scoped role —
+ * used ONLY to pick which login door a session-less visitor sees, never to
+ * decide what an authenticated session may reach (each scope's own branch
+ * in decideAdminGateAction below still does that with its own list/pattern
+ * alone). See the "no session at all" case in decideAdminGateAction's own
+ * doc comment above for why this must be a union, not any single scope's
+ * list.
+ */
+function isAnyScopedPath(pathname: string): boolean {
+  return (
+    AUTHORITY_MANAGER_ALLOWED_PATHS.some((p) => pathname.startsWith(p)) ||
+    TENANT_OWNER_ALLOWED_PATHS.some((p) => pathname.startsWith(p)) ||
+    UNIT_ADMIN_PATH_PATTERN.test(pathname)
+  );
+}
+
 export function decideAdminGateAction(
   pathname: string,
   session: GateSessionInfo | null,
@@ -290,7 +327,7 @@ export function decideAdminGateAction(
       ? { action: 'allow' }
       : { action: 'redirect', to: '/authority-portal/login', preserveNext: false };
   }
-  if (AUTHORITY_MANAGER_ALLOWED_PATHS.some((p) => pathname.startsWith(p))) {
+  if (isAnyScopedPath(pathname)) {
     return { action: 'redirect', to: '/authority-portal/login', preserveNext: true };
   }
   return { action: 'redirect', to: '/admin/login', preserveNext: true };
