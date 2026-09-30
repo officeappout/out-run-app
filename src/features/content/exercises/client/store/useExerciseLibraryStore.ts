@@ -62,6 +62,15 @@ interface ExerciseLibraryState {
   selectedExercise: Exercise | null;
   isDetailOpen: boolean;
 
+  /**
+   * Secondary-filters bottom sheet (מסלול/רמה/מיקום/ציוד — the funnel icon).
+   * Tracked in the store, not local component state, because the trigger
+   * button (next to the search bar, in /search's AppHeader) and the sheet
+   * itself (inside the embedded exercises-tab body) live in different
+   * subtrees with no shared parent to hold this as local state.
+   */
+  isSecondaryFiltersOpen: boolean;
+
   // Actions
   setAllExercises: (exercises: Exercise[]) => void;
   setLoading: (loading: boolean) => void;
@@ -80,6 +89,7 @@ interface ExerciseLibraryState {
   resetFilters: () => void;
   openDetail: (exercise: Exercise) => void;
   closeDetail: () => void;
+  setSecondaryFiltersOpen: (open: boolean) => void;
 }
 
 const INITIAL_FILTERS: LibraryFilters = {
@@ -100,6 +110,7 @@ export const useExerciseLibraryStore = create<ExerciseLibraryState>((set) => ({
 
   selectedExercise: null,
   isDetailOpen: false,
+  isSecondaryFiltersOpen: false,
 
   setAllExercises: (exercises) => set({ allExercises: exercises }),
   setLoading: (loading) => set({ isLoading: loading }),
@@ -140,4 +151,5 @@ export const useExerciseLibraryStore = create<ExerciseLibraryState>((set) => ({
 
   openDetail: (exercise) => set({ selectedExercise: exercise, isDetailOpen: true }),
   closeDetail: () => set({ isDetailOpen: false }),
+  setSecondaryFiltersOpen: (open) => set({ isSecondaryFiltersOpen: open }),
 }));

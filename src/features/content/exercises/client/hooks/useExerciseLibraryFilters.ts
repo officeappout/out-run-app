@@ -42,7 +42,7 @@ export function resolveExerciseLevel(exercise: Exercise): number {
 }
 
 /** Collect all gear/equipment IDs referenced by an exercise's execution methods. */
-function collectExerciseEquipmentIds(exercise: Exercise): string[] {
+export function collectExerciseEquipmentIds(exercise: Exercise): string[] {
   const ids = new Set<string>();
   const methods = exercise.execution_methods ?? exercise.executionMethods ?? [];
   for (const m of methods) {
@@ -55,7 +55,7 @@ function collectExerciseEquipmentIds(exercise: Exercise): string[] {
 }
 
 /** Collect all program IDs an exercise belongs to. */
-function collectExerciseProgramIds(exercise: Exercise): string[] {
+export function collectExerciseProgramIds(exercise: Exercise): string[] {
   const ids = new Set<string>();
   exercise.programIds?.forEach((id) => id && ids.add(id));
   exercise.targetPrograms?.forEach((tp) => tp.programId && ids.add(tp.programId));
