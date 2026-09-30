@@ -12,6 +12,9 @@
  * `filters.muscles` store field, so showing the same chip set in both
  * places is what makes the two-way sync between them trivial (there's only
  * one source of truth to keep in sync with).
+ *
+ * Icon enlarged again in round 4 (#2) — chip square itself stays 76px,
+ * only the icon within it grows.
  */
 
 import { useMemo } from 'react';
@@ -53,7 +56,7 @@ export default function MuscleFilterBar() {
               <img
                 src={chip.icon}
                 alt=""
-                className="w-11 h-11 object-contain"
+                className="w-14 h-14 object-contain"
                 onError={(e) => {
                   (e.currentTarget as HTMLImageElement).style.visibility = 'hidden';
                 }}

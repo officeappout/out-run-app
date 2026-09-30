@@ -12,6 +12,7 @@
 
 import { create } from 'zustand';
 import type { Exercise, MuscleGroup } from '../../core/exercise.types';
+import type { Program } from '@/features/content/programs/core/program.types';
 
 /**
  * Sentinel ID added to `LibraryFilters.equipmentIds` when the user selects the
@@ -28,32 +29,35 @@ export interface LibraryFilters {
   query: string;
   muscles: MuscleGroup[];
   /**
-   * Single program filter (a level only makes sense within a program context,
-   * so the program acts as the parent of the level selection).
-   * `null` = no program selected.
+   * Selected track/skill program IDs — multi-select union (round 4, #6;
+   * was a single `programId: string | null`). Each ID may be a domain
+   * track, a skill program, or a master/hub program — useExerciseLibraryFilters'
+   * resolveProgramMatchIds expands a master to itself + its subPrograms
+   * when matching (round 4, #7), so selecting a master alone still returns
+   * its children's exercises instead of 0 results.
    */
-  programId: string | null;
+  programIds: string[];
   /**
-   * Specific level within the selected `programId`. `null` = "all levels of
-   * this program". Always reset when `programId` changes.
+   * Selected levels — multi-select union (round 4, #6; was a single
+   * `level: number | null`). Only meaningful alongside `programIds`; reset
+   * to `[]` whenever `programIds` becomes empty (a level has no meaning
+   * with no program context).
    */
-  level: number | null;
+  levels: number[];
   /** Gear/equipment IDs the exercise must use (any-of). */
   equipmentIds: string[];
   /**
    * Location filter (בית / פארק / חדר כושר — 'gym' is coded but not offered
    * in the UI today). `null` = no location filter active.
    *
-   * Two effects, both round-2-era:
-   *   1. Gates the result set (useExerciseLibraryFilters, #7): an exercise
-   *      must have a genuine method for this location (exact `location` or
-   *      `locationMapping` match) to appear — no more silent leak-through.
-   *   2. Seeds the initially-selected execution method in the detail sheet
-   *      (ExerciseDetailSheet → MasterExerciseView's `filterLocation` prop).
-   * It no longer drives the GRID CARD's image — ExerciseImageCard always
-   * resolves against 'park' regardless of this filter (#6), since the old
-   * "adapt the card to the active location" behavior had no way to signal
-   * when it was substituting a different location's photo.
+   * Two effects:
+   *   1. Gates the result set (useExerciseLibraryFilters, #7 round 2): an
+   *      exercise must have a genuine method for this location (exact
+   *      `location` or `locationMapping` match) to appear.
+   *   2. Feeds the grid card's image resolution AND seeds the initially-
+   *      selected execution method in the detail sheet (round 3, #1 —
+   *      corrects round 2's "always park" card fix, safe now that #7
+   *      guarantees a real match exists whenever this is set).
    */
   location: 'home' | 'park' | 'gym' | null;
 }
@@ -63,6 +67,15 @@ interface ExerciseLibraryState {
   allExercises: Exercise[];
   isLoading: boolean;
   loadError: string | null;
+
+  /**
+   * Program catalog — loaded once (ExerciseLibraryPage's mount effect) and
+   * stored here (not just passed as props to the sheet/chips-row) because
+   * useExerciseLibraryFilters' actual FILTERING logic needs it too, to
+   * resolve a selected master program to its children (round 4, #7) and to
+   * classify domain-vs-skill programs for the card's level display (#10).
+   */
+  allPrograms: Program[];
 
   // Filters
   filters: LibraryFilters;
@@ -84,14 +97,14 @@ interface ExerciseLibraryState {
   setAllExercises: (exercises: Exercise[]) => void;
   setLoading: (loading: boolean) => void;
   setLoadError: (error: string | null) => void;
+  setAllPrograms: (programs: Program[]) => void;
   setQuery: (query: string) => void;
   toggleMuscle: (muscle: MuscleGroup) => void;
   setMuscles: (muscles: MuscleGroup[]) => void;
-  /**
-   * Atomically commit a program + level pair from the unified progression
-   * filter sheet. Pass `null` for either to clear that dimension.
-   */
-  setProgressionFilter: (programId: string | null, level: number | null) => void;
+  /** Full-replace setter — callers compute the toggled array (mirrors setMuscles/setEquipmentIds). */
+  setProgramIds: (ids: string[]) => void;
+  /** Full-replace setter. Callers are responsible for only offering levels while a program is selected. */
+  setLevels: (levels: number[]) => void;
   setEquipmentIds: (ids: string[]) => void;
   /** Persist the location context derived from the active preset. */
   setFilterLocation: (location: 'home' | 'park' | 'gym' | null) => void;
@@ -104,8 +117,8 @@ interface ExerciseLibraryState {
 const INITIAL_FILTERS: LibraryFilters = {
   query: '',
   muscles: [],
-  programId: null,
-  level: null,
+  programIds: [],
+  levels: [],
   equipmentIds: [],
   location: null,
 };
@@ -114,6 +127,7 @@ export const useExerciseLibraryStore = create<ExerciseLibraryState>((set) => ({
   allExercises: [],
   isLoading: false,
   loadError: null,
+  allPrograms: [],
 
   filters: { ...INITIAL_FILTERS },
 
@@ -124,6 +138,7 @@ export const useExerciseLibraryStore = create<ExerciseLibraryState>((set) => ({
   setAllExercises: (exercises) => set({ allExercises: exercises }),
   setLoading: (loading) => set({ isLoading: loading }),
   setLoadError: (error) => set({ loadError: error }),
+  setAllPrograms: (programs) => set({ allPrograms: programs }),
 
   setQuery: (query) =>
     set((s) => ({ filters: { ...s.filters, query } })),
@@ -140,15 +155,18 @@ export const useExerciseLibraryStore = create<ExerciseLibraryState>((set) => ({
   setMuscles: (muscles) =>
     set((s) => ({ filters: { ...s.filters, muscles } })),
 
-  setProgressionFilter: (programId, level) =>
+  setProgramIds: (ids) =>
     set((s) => ({
       filters: {
         ...s.filters,
-        programId,
-        // Level only has meaning inside a program — drop it if program clears.
-        level: programId ? level : null,
+        programIds: ids,
+        // Level only has meaning inside a program — drop it once every program clears.
+        levels: ids.length > 0 ? s.filters.levels : [],
       },
     })),
+
+  setLevels: (levels) =>
+    set((s) => ({ filters: { ...s.filters, levels } })),
 
   setEquipmentIds: (ids) =>
     set((s) => ({ filters: { ...s.filters, equipmentIds: ids } })),

@@ -6,21 +6,30 @@
  * the same chip set in both places IS the two-way sync, not something built
  * on top of it.
  *
+ * One chip per ALL_MUSCLE_GROUPS entry (round 4, #3) — no more folding
+ * several raw groups into one "nearest region" chip. That folding (rounds
+ * 2-3) both hid real groups the admin panel actually offers (e.g. glutes
+ * had no chip of its own) and made "which muscles are selected" ambiguous.
+ * Icons come from src/lib/muscle-icons.const.ts, the app's existing shared
+ * muscle-icon map (already used by EquipmentDetailDrawer/MasterExerciseView/
+ * ExerciseDetailContent) — reused rather than re-picking representative
+ * icons per chip, so `core`→abs.svg and `legs`→leg.svg (distinct from
+ * quads.svg) match the same visual language used elsewhere in the app.
+ * `cardio` has no entry there; MUSCLE_FALLBACK_ICON covers it and `serratus`
+ * (no dedicated asset for either).
+ *
  * Multi-select (round 3): filters.muscles holds the UNION of every active
  * chip's `groups`. toggleMuscleChip adds/removes one chip's whole group set
- * atomically, so the array only ever contains complete chip group-sets —
- * that's what makes chipIsActive's simple "every group present" subset
- * check unambiguous even with several chips active at once.
- *
- * Every one of the 22 raw MuscleGroup values (exercise.types.ts) is folded
- * into exactly one chip below — round 3 fix for the bar silently omitting
- * some groups. Anatomically-adjacent values without their own bar chip
- * (middle_back, rear_delt, serratus, adductors, hip_flexors, traps) fold
- * into the nearest region rather than growing the bar past a scrollable
- * handful of chips.
+ * atomically. Each chip's `groups` is now always exactly one MuscleGroup —
+ * kept as an array (not a bare value) so chipIsActive/toggleMuscleChip/
+ * findActiveMuscleChips don't need a second code path for the 1-vs-many
+ * case; the array shape costs nothing and any future re-introduction of
+ * folding wouldn't need touching these three functions.
  */
 
 import type { MuscleGroup } from '../../core/exercise.types';
+import { ALL_MUSCLE_GROUPS } from '../../core/exercise.types';
+import { MUSCLE_ICON_PATHS, MUSCLE_FALLBACK_ICON } from '@/lib/muscle-icons.const';
 
 export interface MuscleBarChip {
   key: string;
@@ -29,16 +38,37 @@ export interface MuscleBarChip {
   groups: MuscleGroup[];
 }
 
-export const MUSCLE_BAR_CHIPS: MuscleBarChip[] = [
-  { key: 'chest', label: 'חזה', icon: '/icons/muscles/male/chest.svg', groups: ['chest'] },
-  { key: 'back', label: 'גב', icon: '/icons/muscles/male/back.svg', groups: ['back', 'middle_back', 'traps'] },
-  { key: 'shoulders', label: 'כתפיים', icon: '/icons/muscles/male/shoulders.svg', groups: ['shoulders', 'rear_delt'] },
-  { key: 'core', label: 'ליבה', icon: '/icons/muscles/male/abs.svg', groups: ['core', 'abs', 'obliques', 'serratus'] },
-  { key: 'arms', label: 'ידיים', icon: '/icons/muscles/male/biceps.svg', groups: ['biceps', 'triceps', 'forearms'] },
-  { key: 'legs', label: 'רגליים', icon: '/icons/muscles/male/quads.svg', groups: ['legs', 'quads', 'hamstrings', 'calves', 'glutes', 'adductors', 'hip_flexors'] },
-  { key: 'full_body', label: 'כל הגוף', icon: '/icons/programs/full_body.svg', groups: ['full_body'] },
-  { key: 'cardio', label: 'קרדיו', icon: '/icons/programs/Run.svg', groups: ['cardio'] },
-];
+const MUSCLE_LABELS_HE: Record<MuscleGroup, string> = {
+  chest: 'חזה',
+  back: 'גב',
+  middle_back: 'אמצע גב',
+  shoulders: 'כתפיים',
+  rear_delt: 'כתף אחורית',
+  abs: 'בטן',
+  obliques: 'אלכסונים',
+  forearms: 'אמות',
+  biceps: 'דו-ראשי',
+  triceps: 'תלת-ראשי',
+  quads: 'ארבע-ראשי',
+  hamstrings: 'המסטרינג',
+  glutes: 'ישבן',
+  calves: 'שוקיים',
+  traps: 'טרפז',
+  cardio: 'קרדיו',
+  full_body: 'כל הגוף',
+  core: 'ליבה',
+  legs: 'רגליים',
+  serratus: 'המסור',
+  adductors: 'מקרבי הירך',
+  hip_flexors: 'כופפי הירך',
+};
+
+export const MUSCLE_BAR_CHIPS: MuscleBarChip[] = ALL_MUSCLE_GROUPS.map((m) => ({
+  key: m,
+  label: MUSCLE_LABELS_HE[m],
+  icon: MUSCLE_ICON_PATHS[m] ?? MUSCLE_FALLBACK_ICON,
+  groups: [m],
+}));
 
 /** True when EVERY one of the chip's groups is present in the selection. */
 export function chipIsActive(selected: MuscleGroup[], chip: MuscleBarChip): boolean {

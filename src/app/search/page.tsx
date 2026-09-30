@@ -142,11 +142,13 @@ export default function SearchPage() {
   const { groups: myGroups } = useMyGroups();
   const { userCoords } = useUserLocation();
   const exerciseCount = useExerciseLibraryStore((s) => s.allExercises.length);
-  // Count of active secondary filters (מסלול+רמה count as one unit, מיקום as
-  // one, each ציוד item separately) — drives the funnel badge next to the
-  // search bar. Mirrors the grouping ActiveFilterChipsRow renders as chips.
+  // Count of active secondary filters (each track, each level, מיקום, each
+  // ציוד item — round 4: מסלול/רמה are multi-select, no longer one combined
+  // unit) — drives the funnel badge next to the search bar. Mirrors the
+  // chips ActiveFilterChipsRow renders.
   const secondaryFilterCount = useExerciseLibraryStore((s) =>
-    (s.filters.programId ? 1 : 0) +
+    s.filters.programIds.length +
+    s.filters.levels.length +
     (s.filters.location === 'home' || s.filters.location === 'park' ? 1 : 0) +
     s.filters.equipmentIds.length
   );

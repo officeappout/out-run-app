@@ -4,32 +4,27 @@
  * ExerciseImageCard — image-forward grid card for the redesigned library.
  *
  * Modeled on GroupCard.tsx's `compact` variant (the app's real "image fills
- * the card, dark bottom scrim carries overlaid text" pattern) — NOT on
- * EquipmentCard's מתקנים tile, whose fade is light and whose text sits below
- * the image rather than on it. 2-column grid, ~168px tall.
+ * the card, bottom fade carries overlaid text" pattern) — NOT on
+ * EquipmentCard's מתקנים tile, whose text sits below the image rather than
+ * on it. 2-column grid, ~168px tall.
  *
  * Static thumbnail only (no autoplay preview video) — the whole card is the
  * tap target, so no separate play badge is needed.
  *
- * Muscle + level chips are white pills (border color #E0E9FF matches the
- * app's standard subtle-card-border token, same one FacilityCard's mobile
- * variant uses) rather than plain overlaid text — round 2 polish, per
- * David's reference to the facility-card amenity chips. The dark scrim is
- * now localized to just behind the name, not the whole lower half of the
- * card, since the chips carry their own contrast via their white background.
+ * Bottom fade is WHITE with BLACK text (round 4, #1 — corrects rounds 2-3's
+ * dark scrim + white text), matching the app's light theme. Muscle + level
+ * chips are white pills (border color #E0E9FF matches the app's standard
+ * subtle-card-border token, same one FacilityCard's mobile variant uses).
  *
  * Image resolves against the active location filter, defaulting to 'park'
- * when none is set (round 3, #1 — corrects round 2's "always park" fix).
- * That fix existed because a home filter could leak in exercises with no
- * real home method, making a "matching" home photo actually be a silent
- * park substitute. #7 (useExerciseLibraryFilters) now filters the result
- * set to genuine location matches only, so every card reaching this
- * component under a בית filter is guaranteed to have a real home method —
- * the substitution risk that motivated "always park" no longer exists.
+ * when none is set (round 3, #1), with a multi-tier fallback across every
+ * execution method before giving up to the gradient (round 4, #9) — see
+ * card-media.utils.ts's pickThumbnailUrl for the full chain.
  *
  * Level pill only renders when resolveCardLevel finds a single unambiguous
- * level (round 3, #3a) — see that function's doc comment for why "the
- * exercise's level" isn't always a single number. No fake "1".
+ * level — domain-level by default, or the selected skill's level when a
+ * skill program is part of the active track filter (round 4, #10). No fake
+ * numbers.
  */
 
 import { useState } from 'react';
@@ -61,11 +56,12 @@ function Pill({ icon, label }: { icon: React.ReactNode; label: string }) {
 
 export default function ExerciseImageCard({ exercise, onClick }: ExerciseImageCardProps) {
   const filterLocation = useExerciseLibraryStore((s) => s.filters.location);
-  const activeProgramId = useExerciseLibraryStore((s) => s.filters.programId);
+  const activeProgramIds = useExerciseLibraryStore((s) => s.filters.programIds);
+  const allPrograms = useExerciseLibraryStore((s) => s.allPrograms);
   const name = getLocalizedText(exercise.name);
   const muscle = pickPrimaryMuscle(exercise);
   const thumbnailUrl = pickThumbnailUrl(exercise, filterLocation);
-  const level = resolveCardLevel(exercise, activeProgramId);
+  const level = resolveCardLevel(exercise, activeProgramIds, allPrograms);
   // A resolved URL can still 404 (e.g. Bunny hasn't finished encoding a
   // thumbnail yet) — fall back to the branded gradient instead of a
   // broken-image icon.
@@ -110,11 +106,11 @@ export default function ExerciseImageCard({ exercise, onClick }: ExerciseImageCa
         </div>
       )}
 
-      {/* ── Subtle scrim, localized behind the name only ── */}
+      {/* ── White bottom fade, localized behind the name ── */}
       <div
         className="absolute inset-x-0 bottom-0 h-16"
         style={{
-          background: 'linear-gradient(0deg, rgba(10,22,32,.55) 0%, rgba(10,22,32,0) 100%)',
+          background: 'linear-gradient(0deg, rgba(255,255,255,.92) 0%, rgba(255,255,255,0) 100%)',
         }}
       />
 
@@ -141,12 +137,9 @@ export default function ExerciseImageCard({ exercise, onClick }: ExerciseImageCa
         </div>
       )}
 
-      {/* ── Name (bottom) ── */}
+      {/* ── Name (bottom) — black text over the white fade ── */}
       <div className="absolute inset-x-0 bottom-0 p-3 text-start">
-        <h3
-          className="font-extrabold text-[14px] leading-tight text-white line-clamp-2"
-          style={{ textShadow: '0 1px 3px rgba(0,0,0,.4)' }}
-        >
+        <h3 className="font-extrabold text-[14px] leading-tight text-gray-900 line-clamp-2">
           {name}
         </h3>
       </div>

@@ -1,9 +1,10 @@
 'use client';
 
-import { 
-  ExerciseFormData, 
+import {
+  ExerciseFormData,
   MuscleGroup,
   MUSCLE_GROUP_LABELS,
+  ALL_MUSCLE_GROUPS,
 } from '../../../core/exercise.types';
 import { Target, Check, X } from 'lucide-react';
 
@@ -12,13 +13,6 @@ interface MuscleSelectionSectionProps {
   setFormData: React.Dispatch<React.SetStateAction<ExerciseFormData>> | ((data: ExerciseFormData | ((prev: ExerciseFormData) => ExerciseFormData)) => void);
   noContainer?: boolean; // When wrapped by CollapsibleSection, hide internal container
 }
-
-const ALL_MUSCLE_GROUPS: MuscleGroup[] = [
-  'chest', 'back', 'shoulders', 'abs', 'obliques', 'forearms',
-  'biceps', 'triceps', 'quads', 'hamstrings', 'glutes', 'calves',
-  'traps', 'core', 'legs', 'full_body', 'cardio',
-  'serratus', 'adductors', 'hip_flexors',
-];
 
 export default function MuscleSelectionSection({
   formData,

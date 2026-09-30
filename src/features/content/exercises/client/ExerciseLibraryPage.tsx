@@ -42,7 +42,6 @@ import { useExerciseLibraryFilters } from './hooks/useExerciseLibraryFilters';
 import { ensureEquipmentCachesLoaded } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { getAllPrograms } from '@/features/content/programs/core/program.service';
 import { getAllGearDefinitions } from '@/features/content/equipment/gear/core/gear-definition.service';
-import type { Program } from '@/features/content/programs/core/program.types';
 import type { GearDefinition } from '@/features/content/equipment/gear/core/gear-definition.types';
 
 /** Mobile-shell column width applied across the page (450px per spec). */
@@ -79,11 +78,15 @@ function ExerciseLibraryBody({
 }: ExerciseLibraryBodyProps) {
   const openDetail = useExerciseLibraryStore((s) => s.openDetail);
   const resetFilters = useExerciseLibraryStore((s) => s.resetFilters);
+  const setAllPrograms = useExerciseLibraryStore((s) => s.setAllPrograms);
 
-  // Programs + gear catalogs — loaded once here (not inside
-  // SecondaryFiltersSheet/ActiveFilterChipsRow individually) so both share
-  // one fetch instead of each re-querying Firestore for the same lists.
-  const [programs, setPrograms] = useState<Program[]>([]);
+  // Gear catalog — loaded once here (not inside SecondaryFiltersSheet/
+  // ActiveFilterChipsRow individually) so both share one fetch instead of
+  // each re-querying Firestore for the same list. Programs are fetched here
+  // too but land in the STORE (setAllPrograms) rather than local state —
+  // useExerciseLibraryFilters' actual filtering logic needs the program
+  // catalog too (master→children expansion, #7; domain-vs-skill
+  // classification, #10), not just the sheet/chips-row UI.
   const [gear, setGear] = useState<GearDefinition[]>([]);
 
   // Fresh start on every mount. The Zustand store is a module singleton so
@@ -92,7 +95,7 @@ function ExerciseLibraryBody({
   useEffect(() => {
     resetFilters();
     void ensureEquipmentCachesLoaded();
-    getAllPrograms().then(setPrograms).catch(() => {});
+    getAllPrograms().then(setAllPrograms).catch(() => {});
     getAllGearDefinitions().then(setGear).catch(() => {});
     // Mount-only — stable refs from Zustand / module-level singleton.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -142,7 +145,7 @@ function ExerciseLibraryBody({
       {showFilterPills && (
         <div className={`${COLUMN} px-4 pt-3 space-y-2`}>
           <MuscleFilterBar />
-          <ActiveFilterChipsRow programs={programs} gear={gear} />
+          <ActiveFilterChipsRow gear={gear} />
         </div>
       )}
 
@@ -225,7 +228,7 @@ function ExerciseLibraryBody({
         )}
       </main>
 
-      <SecondaryFiltersSheet programs={programs} gear={gear} />
+      <SecondaryFiltersSheet gear={gear} />
       <ExerciseDetailSheet />
     </>
   );

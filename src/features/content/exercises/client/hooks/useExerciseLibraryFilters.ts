@@ -19,6 +19,7 @@ import {
   BODYWEIGHT_SENTINEL,
 } from '../store/useExerciseLibraryStore';
 import type { Exercise } from '../../core/exercise.types';
+import type { Program } from '@/features/content/programs/core/program.types';
 
 /**
  * Initial batch size + increment for "Load More". 12 keeps the first paint
@@ -30,10 +31,10 @@ export const LIBRARY_PAGE_SIZE = 12;
  * Resolve the canonical level for an exercise.
  * Picks the lowest level across `targetPrograms` (entry-level), defaulting to 1.
  *
- * Used for the pagination sort (level ascending) and the program+level
- * filter's fallback ("show this exercise's own level when its targetPrograms
- * entry for the selected program has none"). NOT used for the card's level
- * pill — see resolveCardLevel below for why that needs different semantics.
+ * Used for the pagination sort (level ascending) and as the program+level
+ * filter's per-tag fallback ("this targetPrograms entry has no explicit
+ * level of its own"). NOT used for the card's level pill — see
+ * resolveCardLevel below for why that needs different semantics.
  */
 export function resolveExerciseLevel(exercise: Exercise): number {
   if (exercise.targetPrograms && exercise.targetPrograms.length > 0) {
@@ -47,39 +48,82 @@ export function resolveExerciseLevel(exercise: Exercise): number {
 }
 
 /**
- * Resolve the level to SHOW on a card — deliberately different from
- * resolveExerciseLevel (round 3, #3a). That function takes the MIN level
- * across every program the exercise belongs to, which is correct for its
- * own callers (sort, filter fallback) but wrong for display: an exercise
- * that's level 6 in "Push" but also tagged level 1 in some unrelated
- * beginner/foundational program would show "רמה 1" — technically true of
- * SOME program, but not a meaningful "the exercise's level" and not what a
- * user reads a level badge to mean. Root cause of the "everything shows
- * רמה 1" bug: most exercises belong to more than one program, and MIN
- * collapses onto whichever one happens to be level 1.
+ * IDs a program filter selection should match against an exercise's
+ * targetPrograms: the program itself, plus its subPrograms when it's a
+ * master/hub program (round 4, #7).
  *
- * Returns null — render nothing, never a guessed number — when there's no
- * single unambiguous level to show:
- *   • activeProgramId set → that program's own level (exact source, no
- *     ambiguity — this is the one case resolveExerciseLevel's fallback
- *     pattern already uses correctly elsewhere).
- *   • no active program, exactly one targetPrograms entry → that level.
- *   • no active program, multiple entries that all agree → that level.
- *   • no active program, multiple entries that DISAGREE → null (genuinely
- *     ambiguous — this is the actual "which one?" case, not a data gap).
- *   • no targetPrograms at all → legacy recommendedLevel, if set.
- *   • nothing at all → null.
+ * Root cause this fixes: no exercise is ever tagged directly to a master
+ * program (e.g. "קליסטניקס עליון") — only to its concrete children (Push,
+ * Pull, ...). Selecting the master used to match `exProgs.includes(masterId)`
+ * literally, which is never true, so it always returned 0 results. Master
+ * programs are aggregation-only records (Program.isMaster +
+ * Program.subPrograms — the same field program-hierarchy.utils.ts's
+ * resolveAncestorProgramIds walks in the reverse direction); this expands
+ * in the forward direction using that same field, nothing more.
  */
-export function resolveCardLevel(exercise: Exercise, activeProgramId: string | null): number | null {
-  if (activeProgramId) {
-    const tp = exercise.targetPrograms?.find((t) => t.programId === activeProgramId);
-    return tp ? tp.level : null;
+export function resolveProgramMatchIds(programId: string, programs: Program[]): string[] {
+  const program = programs.find((p) => p.id === programId);
+  if (program?.isMaster && program.subPrograms?.length) {
+    return [programId, ...program.subPrograms];
   }
-  const programs = exercise.targetPrograms ?? [];
-  if (programs.length > 0) {
-    const levels = new Set(programs.map((tp) => tp.level));
-    return levels.size === 1 ? programs[0].level : null;
+  return [programId];
+}
+
+/** A domain/track program: has a movementPattern (Push/Pull/Legs/Core) and isn't a master. */
+export function isDomainProgram(program: Program | undefined): boolean {
+  return !!program && !program.isMaster && !!program.movementPattern;
+}
+
+/** A specific-skill program (Planche, Front Lever, ...): not a master, no movementPattern. */
+export function isSkillProgram(program: Program | undefined): boolean {
+  return !!program && !program.isMaster && !program.movementPattern;
+}
+
+/**
+ * Resolve the level to SHOW on a card (round 4, #10 — replaces round 3's
+ * "show only when every targetPrograms entry agrees" rule).
+ *
+ * Priority:
+ *   1. A track filter is active AND the exercise is tagged to a program
+ *      within that active selection (expanded through resolveProgramMatchIds,
+ *      so an active master still resolves via its matching child) — among
+ *      those matching tags, a SKILL program's level wins if one exists
+ *      (the user narrowed to that specific skill); otherwise show the
+ *      matching level if every matching tag agrees, else omit (ambiguous).
+ *   2. No track filter active — show the exercise's own DOMAIN/track level
+ *      (a targetPrograms entry whose program is a domain, per
+ *      isDomainProgram — never a skill's level as the unscoped default).
+ *      Same single-vs-ambiguous rule as above.
+ *   3. No domain tag at all — legacy recommendedLevel, if set.
+ *   4. Nothing resolvable — null. Never a guessed/fake number.
+ */
+export function resolveCardLevel(
+  exercise: Exercise,
+  activeProgramIds: string[],
+  programs: Program[],
+): number | null {
+  const programsById = new Map(programs.map((p) => [p.id, p]));
+  const targetPrograms = exercise.targetPrograms ?? [];
+
+  if (activeProgramIds.length > 0) {
+    const activeEntries = targetPrograms.filter((tp) =>
+      activeProgramIds.some((pid) => resolveProgramMatchIds(pid, programs).includes(tp.programId)),
+    );
+    if (activeEntries.length === 0) return null; // shouldn't normally happen post-filter, but don't guess
+
+    const skillEntry = activeEntries.find((tp) => isSkillProgram(programsById.get(tp.programId)));
+    if (skillEntry) return skillEntry.level;
+
+    const levels = new Set(activeEntries.map((tp) => tp.level));
+    return levels.size === 1 ? activeEntries[0].level : null;
   }
+
+  const domainEntries = targetPrograms.filter((tp) => isDomainProgram(programsById.get(tp.programId)));
+  if (domainEntries.length > 0) {
+    const levels = new Set(domainEntries.map((tp) => tp.level));
+    return levels.size === 1 ? domainEntries[0].level : null;
+  }
+
   if (exercise.recommendedLevel && exercise.recommendedLevel > 0) {
     return exercise.recommendedLevel;
   }
@@ -125,6 +169,7 @@ export function exerciseHasLocationMethod(exercise: Exercise, location: 'home' |
 
 export function useExerciseLibraryFilters() {
   const allExercises = useExerciseLibraryStore((s) => s.allExercises);
+  const allPrograms = useExerciseLibraryStore((s) => s.allPrograms);
   const isLoading = useExerciseLibraryStore((s) => s.isLoading);
   const loadError = useExerciseLibraryStore((s) => s.loadError);
   const filters = useExerciseLibraryStore((s) => s.filters);
@@ -224,6 +269,13 @@ export function useExerciseLibraryFilters() {
     let droppedByEquipment = 0;
     let droppedByLocation = 0;
 
+    // Expand the program-filter selection once per memo invocation (not per
+    // exercise) — every selected ID's own match-set, unioned.
+    const allowedProgramIds = new Set<string>();
+    for (const pid of filters.programIds) {
+      for (const id of resolveProgramMatchIds(pid, allPrograms)) allowedProgramIds.add(id);
+    }
+
     // ── One-shot trace of the very first exercise through every stage ──
     // Runs ONCE per memo invocation, never per item. Tells us in plain
     // English which gate is sending exercise[0] to the floor — no more
@@ -235,26 +287,21 @@ export function useExerciseLibraryFilters() {
       const enName = (ex.name?.en ?? '').toLowerCase();
       const passSearch = !q || heName.includes(q) || enName.includes(q);
 
-      let passMuscles = true;
-      if (filters.muscles.length > 0) {
-        const muscles = new Set<string>();
-        if (ex.primaryMuscle) muscles.add(ex.primaryMuscle);
-        ex.secondaryMuscles?.forEach((m) => muscles.add(m));
-        ex.muscleGroups?.forEach((m) => muscles.add(m));
-        passMuscles = filters.muscles.some((m) => muscles.has(m));
-      }
+      // Primary-muscle-only (round 4, #4 — was primary OR secondary OR muscleGroups).
+      const passMuscles = filters.muscles.length === 0 || (!!ex.primaryMuscle && filters.muscles.includes(ex.primaryMuscle));
 
       let passProgram = true;
       let passLevel = true;
-      if (filters.programId) {
+      if (filters.programIds.length > 0) {
         const exProgs = collectExerciseProgramIds(ex);
-        passProgram = exProgs.includes(filters.programId);
-        if (passProgram && filters.level != null) {
-          const tp = ex.targetPrograms?.find(
-            (t) => t.programId === filters.programId,
-          );
-          const lvl = tp?.level ?? resolveExerciseLevel(ex);
-          passLevel = lvl === filters.level;
+        const matchedIds = exProgs.filter((id) => allowedProgramIds.has(id));
+        passProgram = matchedIds.length > 0;
+        if (passProgram && filters.levels.length > 0) {
+          passLevel = matchedIds.some((id) => {
+            const tp = ex.targetPrograms?.find((t) => t.programId === id);
+            const lvl = tp?.level ?? resolveExerciseLevel(ex);
+            return filters.levels.includes(lvl);
+          });
         }
       }
 
@@ -288,7 +335,7 @@ export function useExerciseLibraryFilters() {
       // eslint-disable-next-line no-console
       console.log('[Library] Item 0 - Pass Search?', passSearch);
       // eslint-disable-next-line no-console
-      console.log('[Library] Item 0 - Pass Muscles?', passMuscles);
+      console.log('[Library] Item 0 - Pass Muscles (primary-only)?', passMuscles);
       // eslint-disable-next-line no-console
       console.log('[Library] Item 0 - Pass Program?', passProgram);
       // eslint-disable-next-line no-console
@@ -310,33 +357,34 @@ export function useExerciseLibraryFilters() {
         }
       }
 
-      // Muscles — match if exercise targets ANY of the selected muscles
+      // Muscles — PRIMARY muscle only (round 4, #4). Was primary OR
+      // secondary OR the legacy muscleGroups array; narrowed because a
+      // muscle chip is meant to answer "is this exercise FOR this muscle",
+      // not "does this muscle get incidentally worked too".
       if (filters.muscles.length > 0) {
-        const muscles = new Set<string>();
-        if (ex.primaryMuscle) muscles.add(ex.primaryMuscle);
-        ex.secondaryMuscles?.forEach((m) => muscles.add(m));
-        ex.muscleGroups?.forEach((m) => muscles.add(m));
-        const hit = filters.muscles.some((m) => muscles.has(m));
-        if (!hit) {
+        if (!ex.primaryMuscle || !filters.muscles.includes(ex.primaryMuscle)) {
           droppedByMuscles++;
           return false;
         }
       }
 
-      // Unified Program + Level (level is scoped INSIDE the chosen program).
-      if (filters.programId) {
+      // Program + Level — multi-select union (round 4, #6), master programs
+      // expanded to their children (round 4, #7).
+      if (filters.programIds.length > 0) {
         const exProgs = collectExerciseProgramIds(ex);
-        if (!exProgs.includes(filters.programId)) {
+        const matchedIds = exProgs.filter((id) => allowedProgramIds.has(id));
+        if (matchedIds.length === 0) {
           droppedByProgram++;
           return false;
         }
 
-        if (filters.level != null) {
-          const tp = ex.targetPrograms?.find(
-            (t) => t.programId === filters.programId,
-          );
-          const lvl = tp?.level ?? resolveExerciseLevel(ex);
-          if (lvl !== filters.level) {
+        if (filters.levels.length > 0) {
+          const levelMatch = matchedIds.some((id) => {
+            const tp = ex.targetPrograms?.find((t) => t.programId === id);
+            const lvl = tp?.level ?? resolveExerciseLevel(ex);
+            return filters.levels.includes(lvl);
+          });
+          if (!levelMatch) {
             droppedByLevel++;
             return false;
           }
@@ -389,8 +437,8 @@ export function useExerciseLibraryFilters() {
       'Search Query': debouncedQuery || '(none)',
       'Active Filters': {
         muscles: filters.muscles,
-        programId: filters.programId,
-        level: filters.level,
+        programIds: filters.programIds,
+        levels: filters.levels,
         equipmentIds: filters.equipmentIds,
         location: filters.location,
       },
@@ -404,7 +452,7 @@ export function useExerciseLibraryFilters() {
     });
 
     return result;
-  }, [allExercises, debouncedQuery, filters]);
+  }, [allExercises, allPrograms, debouncedQuery, filters]);
 
   // ── 4. Pagination window ───────────────────────────────────────────────
   // Reset to the first page whenever the filter result changes (different

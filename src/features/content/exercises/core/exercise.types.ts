@@ -198,6 +198,25 @@ export type MuscleGroup =
   | 'hip_flexors';
 
 /**
+ * Muscle groups actually offered when tagging exercise content — the admin
+ * exercise editor's own selectable list (MuscleSelectionSection.tsx). A
+ * curated subset of the full MuscleGroup union above: excludes
+ * `middle_back`/`rear_delt`, which remain valid enum values (legacy data
+ * may still carry them) but are not offered for new tagging.
+ *
+ * Single source of truth — the admin editor and the mobile library's
+ * muscle bar / filter sheet both import this so the two never drift
+ * (round 4, #3: the bar used to fold several of these into a "nearest
+ * region" chip and silently miss others entirely).
+ */
+export const ALL_MUSCLE_GROUPS: MuscleGroup[] = [
+  'chest', 'back', 'shoulders', 'abs', 'obliques', 'forearms',
+  'biceps', 'triceps', 'quads', 'hamstrings', 'glutes', 'calves',
+  'traps', 'core', 'legs', 'full_body', 'cardio',
+  'serratus', 'adductors', 'hip_flexors',
+];
+
+/**
  * Labels for muscle groups (for UI display)
  */
 export const MUSCLE_GROUP_LABELS: Record<MuscleGroup, { he: string; en: string }> = {

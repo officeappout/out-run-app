@@ -2,14 +2,12 @@
 
 /**
  * ActiveFilterChipsRow — removable chips for every active filter (muscle,
- * מסלול+רמה combined, מיקום, each ציוד item), plus "נקה הכל". Rendered
+ * each track, each level, מיקום, each ציוד item), plus "נקה הכל". Rendered
  * below the muscle bar, only when at least one is active.
  *
- * The muscle bar is multi-select (round 3) — one removable chip per active
- * muscle group here, mirroring the top MuscleFilterBar / SecondaryFiltersSheet's
- * "שרירים" section (same store field, union-based). Included here so the
- * combination with any active track filter (AND logic) stays visible
- * instead of a 0-result combo looking unexplained.
+ * Track and level are separate chip groups (round 4, #6 — both multi-select
+ * unions now, no longer a single "Track · Level N" combined chip), mirroring
+ * how muscle chips already render one-per-active-value.
  */
 
 import { X } from 'lucide-react';
@@ -18,17 +16,17 @@ import {
   BODYWEIGHT_SENTINEL,
 } from '../store/useExerciseLibraryStore';
 import { findActiveMuscleChips, toggleMuscleChip } from '../utils/muscle-bar.utils';
-import type { Program } from '@/features/content/programs/core/program.types';
 import type { GearDefinition } from '@/features/content/equipment/gear/core/gear-definition.types';
 
 interface Props {
-  programs: Program[];
   gear: GearDefinition[];
 }
 
-export default function ActiveFilterChipsRow({ programs, gear }: Props) {
+export default function ActiveFilterChipsRow({ gear }: Props) {
   const filters = useExerciseLibraryStore((s) => s.filters);
-  const setProgressionFilter = useExerciseLibraryStore((s) => s.setProgressionFilter);
+  const programs = useExerciseLibraryStore((s) => s.allPrograms);
+  const setProgramIds = useExerciseLibraryStore((s) => s.setProgramIds);
+  const setLevels = useExerciseLibraryStore((s) => s.setLevels);
   const setFilterLocation = useExerciseLibraryStore((s) => s.setFilterLocation);
   const setEquipmentIds = useExerciseLibraryStore((s) => s.setEquipmentIds);
   const setMuscles = useExerciseLibraryStore((s) => s.setMuscles);
@@ -43,12 +41,20 @@ export default function ActiveFilterChipsRow({ programs, gear }: Props) {
     });
   }
 
-  if (filters.programId) {
-    const programName = programs.find((p) => p.id === filters.programId)?.name ?? 'מסלול';
+  for (const programId of filters.programIds) {
+    const programName = programs.find((p) => p.id === programId)?.name ?? 'מסלול';
     chips.push({
-      id: 'program',
-      label: filters.level != null ? `${programName} · רמה ${filters.level}` : programName,
-      onRemove: () => setProgressionFilter(null, null),
+      id: `program-${programId}`,
+      label: programName,
+      onRemove: () => setProgramIds(filters.programIds.filter((id) => id !== programId)),
+    });
+  }
+
+  for (const level of filters.levels) {
+    chips.push({
+      id: `level-${level}`,
+      label: `רמה ${level}`,
+      onRemove: () => setLevels(filters.levels.filter((l) => l !== level)),
     });
   }
 
@@ -75,7 +81,8 @@ export default function ActiveFilterChipsRow({ programs, gear }: Props) {
 
   function clearAll() {
     setMuscles([]);
-    setProgressionFilter(null, null);
+    setProgramIds([]);
+    setLevels([]);
     setFilterLocation(null);
     setEquipmentIds([]);
   }
