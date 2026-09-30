@@ -7,13 +7,13 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
-import { collection, query, where, getDocs, doc, setDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import { getAuthoritiesByManager, getAllAuthorities, getAuthority, getChildrenByParent } from '@/features/admin/services/authority.service';
 import { decideUnitsListOrgSource } from '@/features/admin/services/unitsListOrgSource';
 import { authorityTypeToTenantType, getTenantLabels, orgTypeDisplayName, VERTICAL_THEMES } from '@/features/admin/config/tenantLabels';
 import type { Authority, TenantType } from '@/types/admin-types';
-import { Loader2, Users, ChevronLeft, Building2, Globe, Plus, X, Shield, GraduationCap, Upload, AlertTriangle, CheckCircle, Trash2, ArrowRight } from 'lucide-react';
+import { Loader2, Users, ChevronLeft, Building2, Globe, Plus, X, Shield, GraduationCap, Upload, AlertTriangle, CheckCircle, ArrowRight } from 'lucide-react';
 import { importHierarchyFromJSON, type HierarchyImportResult } from '@/features/admin/services/unit-import.service';
 import { syncTenantUnitCount } from '@/features/admin/services/unit-count-sync.service';
 import AdminBreadcrumb from '@/features/admin/components/AdminBreadcrumb';
@@ -450,8 +450,6 @@ export default function UnitsListPage() {
   const [importParseError, setImportParseError] = useState('');
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<HierarchyImportResult | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deletingAll, setDeletingAll] = useState(false);
 
   const handleCreateUnit = async () => {
     if (!newUnitName.trim() || !selectedOrgId) return;
@@ -494,29 +492,15 @@ export default function UnitsListPage() {
     }
   };
 
-  const handleDeleteAllUnits = async () => {
-    if (!selectedOrgId) return;
-    setDeletingAll(true);
-    try {
-      const unitsSnap = await getDocs(collection(db, 'tenants', selectedOrgId, 'units'));
-      const BATCH_SIZE = 490;
-      for (let i = 0; i < unitsSnap.docs.length; i += BATCH_SIZE) {
-        const batch = writeBatch(db);
-        const chunk = unitsSnap.docs.slice(i, i + BATCH_SIZE);
-        for (const d of chunk) {
-          batch.delete(d.ref);
-        }
-        await batch.commit();
-      }
-      setUnits([]);
-      setShowDeleteConfirm(false);
-      syncTenantUnitCount(selectedOrgId).catch(() => {});
-    } catch (err) {
-      console.error('Error deleting all units:', err);
-    } finally {
-      setDeletingAll(false);
-    }
-  };
+  // handleDeleteAllUnits removed entirely (30.09.2026, David's explicit
+  // product decision, 00-MASTER-PLAN.md) — units are never deleted from
+  // the product, full stop, not "blocked for this role." A wrongly-
+  // created unit is marked inactive instead: its members keep their
+  // history and are never orphaned by their only unit doc vanishing.
+  // firestore.rules' own `allow write: if isAdmin()` on tenants/{t}/
+  // units/{u} already made this a no-op for every real caller today —
+  // removing the UI closes the exposure (the button/dialog rendering at
+  // all) rather than relying on that as the actual protection (§26).
 
   if (loading) {
     return (
@@ -678,15 +662,6 @@ export default function UnitsListPage() {
                 ייבוא JSON
               </button>
             )}
-            {!isMunicipal && units.length > 0 && (
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2.5 rounded-xl font-bold text-sm transition-all border border-red-200"
-              >
-                <Trash2 size={16} />
-                מחק הכל
-              </button>
-            )}
           </div>
         )}
       </div>
@@ -743,47 +718,6 @@ export default function UnitsListPage() {
             {typeof totalUsers === 'number' && typeof activeUsersLast7d === 'number' && totalUsers > 0 && (
               <p className="text-[10px] text-slate-400 mt-0.5">{Math.round((activeUsersLast7d / totalUsers) * 100)}% מהרשומים</p>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Dialog */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" onClick={() => { if (!deletingAll) setShowDeleteConfirm(false); }}>
-          <div
-            dir="rtl"
-            className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center">
-                <Trash2 size={24} className="text-red-500" />
-              </div>
-              <div>
-                <h2 className="text-lg font-black text-gray-900">מחיקת כל {labels.subUnitsTitle}</h2>
-                <p className="text-sm text-slate-500">האם למחוק את כל {units.length} {labels.subUnitsTitle} ב-{orgDisplayName}?</p>
-              </div>
-            </div>
-            <div className="bg-red-50 border border-red-200 rounded-xl p-3">
-              <p className="text-sm text-red-700 font-bold">פעולה זו בלתי הפיכה! כל {labels.subUnitsTitle} ותתי-ה{labels.subUnitSingular} יימחקו.</p>
-            </div>
-            <div className="flex items-center justify-end gap-3">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                disabled={deletingAll}
-                className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold transition-all disabled:opacity-50"
-              >
-                ביטול
-              </button>
-              <button
-                onClick={handleDeleteAllUnits}
-                disabled={deletingAll}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold transition-all disabled:opacity-50"
-              >
-                {deletingAll ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                {deletingAll ? 'מוחק...' : 'מחק הכל'}
-              </button>
-            </div>
           </div>
         </div>
       )}
