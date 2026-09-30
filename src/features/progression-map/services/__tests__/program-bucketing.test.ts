@@ -75,4 +75,52 @@ describe('bucketProgramsByRealState', () => {
     );
     expect(result.activeTemplateIds).toEqual(['push']);
   });
+
+  describe('within-bucket dedup by resolved slug (Phase 4b round 3 fix — the reported "כל הגוף/עליית כוח/פלג גוף עליון renders twice" bug)', () => {
+    const RAW = 'J0fLpmJhG0KDN2tQouxh';
+    const slugMap: Record<string, string> = { [RAW]: 'calisthenics_upper', calisthenics_upper: 'calisthenics_upper' };
+    const resolve = (id: string) => slugMap[id] ?? id;
+
+    it('two DIFFERENT tracks keys resolving to the SAME slug — neither active — collapse to one tracked entry, first-seen wins', () => {
+      const result = bucketProgramsByRealState(
+        [],
+        {
+          calisthenics_upper: { currentLevel: 5 },
+          [RAW]: { currentLevel: 14 },
+        },
+        resolve,
+      );
+      expect(result.trackedIds).toEqual(['calisthenics_upper']);
+    });
+
+    it('iteration-order-independent: the raw id first still collapses to one entry (the raw id, first-seen)', () => {
+      const result = bucketProgramsByRealState(
+        [],
+        {
+          [RAW]: { currentLevel: 14 },
+          calisthenics_upper: { currentLevel: 5 },
+        },
+        resolve,
+      );
+      expect(result.trackedIds).toEqual([RAW]);
+    });
+
+    it('two DIFFERENT activePrograms entries resolving to the SAME slug also collapse to one, same treatment as tracked', () => {
+      const result = bucketProgramsByRealState(
+        [{ templateId: 'calisthenics_upper' }, { templateId: RAW }],
+        {},
+        resolve,
+      );
+      expect(result.activeTemplateIds).toEqual(['calisthenics_upper']);
+    });
+
+    it('distinct programs (different resolved slugs) are never collapsed into each other', () => {
+      const result = bucketProgramsByRealState(
+        [],
+        { push: { currentLevel: 10 }, pull: { currentLevel: 5 } },
+        identitySlug,
+      );
+      expect(result.trackedIds).toEqual(['push', 'pull']);
+    });
+  });
 });

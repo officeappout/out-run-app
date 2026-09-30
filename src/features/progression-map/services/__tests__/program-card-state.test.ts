@@ -138,4 +138,89 @@ describe('resolveProgramCardState', () => {
     });
     expect(result).toEqual({ state: 'locked_prereq', lockedHint: 'בצע מבדק' });
   });
+
+  describe('configuredMasterChildCount — Phase 4b round 3 (the "too many masters at L14" / "calisthenics_upper opens with only [pull]" fix)', () => {
+    it('a tracked master with FEWER than 2 configured children folds to not_started_master, not tracked', () => {
+      const result = resolveProgramCardState({
+        programSlug: 'calisthenics_upper',
+        isLeafSkillProgram: false,
+        allExercises: CATALOG,
+        rawSkillProgramId: 'calisthenics_upper',
+        flatTracksBySlug: { calisthenics_upper: 5 },
+        activeProgramSlugs: new Set(),
+        resolveDomainSlug: identitySlug,
+        configuredMasterChildCount: 1,
+      });
+      expect(result).toEqual({ state: 'not_started_master' });
+    });
+
+    it('a tracked master with 0 configured children ALSO folds to not_started_master', () => {
+      const result = resolveProgramCardState({
+        programSlug: 'calisthenics_upper',
+        isLeafSkillProgram: false,
+        allExercises: CATALOG,
+        rawSkillProgramId: 'calisthenics_upper',
+        flatTracksBySlug: { calisthenics_upper: 5 },
+        activeProgramSlugs: new Set(),
+        resolveDomainSlug: identitySlug,
+        configuredMasterChildCount: 0,
+      });
+      expect(result).toEqual({ state: 'not_started_master' });
+    });
+
+    it('a tracked master with 2 or more configured children stays tracked, real number shown', () => {
+      const result = resolveProgramCardState({
+        programSlug: 'calisthenics_upper',
+        isLeafSkillProgram: false,
+        allExercises: CATALOG,
+        rawSkillProgramId: 'calisthenics_upper',
+        flatTracksBySlug: { calisthenics_upper: 5 },
+        activeProgramSlugs: new Set(),
+        resolveDomainSlug: identitySlug,
+        configuredMasterChildCount: 2,
+      });
+      expect(result).toEqual({ state: 'tracked' });
+    });
+
+    it('undefined count (master Program doc not fetched yet) never gates — stays tracked, no flash of the wrong state', () => {
+      const result = resolveProgramCardState({
+        programSlug: 'calisthenics_upper',
+        isLeafSkillProgram: false,
+        allExercises: CATALOG,
+        rawSkillProgramId: 'calisthenics_upper',
+        flatTracksBySlug: { calisthenics_upper: 5 },
+        activeProgramSlugs: new Set(),
+        resolveDomainSlug: identitySlug,
+      });
+      expect(result).toEqual({ state: 'tracked' });
+    });
+
+    it('the gate is scoped to tracked ONLY, never active — an active master with 1 child still resolves to active', () => {
+      const result = resolveProgramCardState({
+        programSlug: 'calisthenics_upper',
+        isLeafSkillProgram: false,
+        allExercises: CATALOG,
+        rawSkillProgramId: 'calisthenics_upper',
+        flatTracksBySlug: { calisthenics_upper: 5 },
+        activeProgramSlugs: new Set(['calisthenics_upper']),
+        resolveDomainSlug: identitySlug,
+        configuredMasterChildCount: 1,
+      });
+      expect(result).toEqual({ state: 'active' });
+    });
+
+    it('a LEAF program is never subject to this gate even if a caller mistakenly passes a low count', () => {
+      const result = resolveProgramCardState({
+        programSlug: 'front_lever',
+        isLeafSkillProgram: true,
+        allExercises: CATALOG,
+        rawSkillProgramId: FRONT_LEVER_RAW,
+        flatTracksBySlug: { pull: 5, front_lever: 2 },
+        activeProgramSlugs: new Set(['pull']),
+        resolveDomainSlug: identitySlug,
+        configuredMasterChildCount: 0,
+      });
+      expect(result).toEqual({ state: 'tracked' });
+    });
+  });
 });

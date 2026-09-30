@@ -18,6 +18,18 @@
  * it doesn't (a master has no own questionnaire, no own real level to
  * fabricate).
  *
+ * Phase 4b round 3: 'tracked' is ALSO folded into not_started_master for a
+ * master with fewer than 2 real configured children (configuredMasterChildCount).
+ * Root cause this closes (recon'd, not guessed): onboarding-sync's
+ * SKILL_TO_FOUNDATION_OFFSET cascade writes a `tracks` entry for a master
+ * (e.g. calisthenics_upper) as a side effect of assessing just ONE skill,
+ * which used to satisfy getProgramState's bare `tracks[id] != null` check
+ * and surface a card for a master that isn't meaningfully populated yet —
+ * the exact "too many masters at L14" / "calisthenics_upper opens with only
+ * [pull] configured" bugs. Scoped to 'tracked' only (not 'active') per
+ * David's explicit call: an active master reflects deliberate user intent
+ * (onboarding focus selection), a cascade-derived tracked entry doesn't.
+ *
  * All inputs are plain, already-slug-normalized data — no Firestore/store
  * access here, so this is independently unit-testable without React/jsdom
  * (this repo's vitest config is node-only, no jsdom — see the hook wrapper,
@@ -74,6 +86,14 @@ export function resolveProgramCardState(params: {
   activeProgramSlugs: Set<string>;
   /** Translates a derived prerequisite's raw domain id to the same slug space (resolveToSlug). */
   resolveDomainSlug: (rawDomainId: string) => string;
+  /**
+   * Only meaningful when !isLeafSkillProgram (a master). How many of this
+   * master's own subPrograms resolve to a slug with a real (>0) track level
+   * — undefined while the caller hasn't fetched the master's Program doc
+   * yet (never gates in that case, matching this hook's existing "don't
+   * flash a wrong state during a brief loading window" pattern elsewhere).
+   */
+  configuredMasterChildCount?: number;
 }): ProgramCardStateResult {
   const prerequisites =
     params.isLeafSkillProgram && params.allExercises.length > 0
@@ -91,8 +111,15 @@ export function resolveProgramCardState(params: {
     gate,
   );
 
-  if (rawState === 'active' || rawState === 'tracked') {
-    return { state: rawState };
+  if (rawState === 'active') {
+    return { state: 'active' };
+  }
+  if (rawState === 'tracked') {
+    const notMeaningfullyPopulated =
+      !params.isLeafSkillProgram &&
+      params.configuredMasterChildCount != null &&
+      params.configuredMasterChildCount < 2;
+    return notMeaningfullyPopulated ? { state: 'not_started_master' } : { state: 'tracked' };
   }
   if (rawState === 'available') {
     // Progression v2 Phase 4a-fix: 'available' structurally means "not
