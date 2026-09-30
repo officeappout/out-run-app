@@ -179,6 +179,27 @@ export default function NeighborhoodProfilePage() {
         } else {
           const auths = await getAuthoritiesByManager(user.uid);
           parentAuthId = role.authorityIds?.[0] ?? auths[0]?.id ?? null;
+
+          // 30.09.2026 (00-MASTER-PLAN.md §13.58) — neighborhoodId is a raw
+          // URL route param, fully caller-typeable. Before this fix it was
+          // used directly, with no ownership check, in every query below
+          // (activity trend, popular parks, reports, parks, and a raw
+          // residents query) — a City-A manager could type City-B's
+          // neighborhood id and receive whatever of City-B's data isn't
+          // independently rules-gated. parentAuthId above is already the
+          // caller's own server-verified authority — it just wasn't used to
+          // validate the URL's neighborhoodId against it. Undetermined
+          // (doc missing, or no parentAuthorityId at all) is a denial, not
+          // a guess — same principle as every other scope check in this
+          // build. Root/super_admin is exempt: they can type any
+          // neighborhood id regardless of which org their picker currently
+          // has selected, same as everywhere else root is unrestricted.
+          const candidateNeighborhood = await getAuthority(neighborhoodId);
+          if (!candidateNeighborhood || candidateNeighborhood.parentAuthorityId !== parentAuthId) {
+            setError('אין הרשאה לצפות בשכונה זו');
+            setLoading(false);
+            return;
+          }
         }
 
         // Load parent KPI settings
