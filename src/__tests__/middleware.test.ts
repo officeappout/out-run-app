@@ -188,13 +188,39 @@ describe('decideAdminGateAction', () => {
         expect(params.blocked).toBe(true);
       });
 
-      it('by contrast, a genuine "no session yet" bounce on the same path DOES preserve next= — this is the legitimate resume case, not a block', () => {
-        const decision = decideAdminGateAction('/admin/parks', invalidCookieOrNoCookie);
+    it('by contrast, a genuine "no session yet" bounce on an authority-scoped path DOES preserve next= — this is the legitimate resume case, not a block', () => {
+        const decision = decideAdminGateAction('/admin/authority/team', invalidCookieOrNoCookie);
         expect(decision).toEqual({ action: 'redirect', to: '/authority-portal/login', preserveNext: true });
         if (decision.action !== 'redirect') throw new Error('expected a redirect decision');
-        const params = buildGateRedirectParams(decision, '/admin/parks');
-        expect(params.next).toBe('/admin/parks');
+        const params = buildGateRedirectParams(decision, '/admin/authority/team');
+        expect(params.next).toBe('/admin/authority/team');
         expect(params.blocked).toBe(false);
+      });
+
+      // 30.09.2026 allowlist rebuild (00-MASTER-PLAN.md §13.58): /admin/parks
+      // is root-only now — no scoped role has ANY legitimate reason to land
+      // there, so a session-less visitor gets the ROOT login door, not the
+      // officer one. Before the rebuild this asserted the opposite
+      // (/authority-portal/login), correct only because the old, overly
+      // broad authority_manager list still happened to include /admin/parks
+      // — exactly the "accidental correctness" pattern axioms.md §26 warns
+      // about, just for routing rather than data exposure this time.
+      it('a session-less visit to a root-only path (e.g. /admin/parks) goes to /admin/login, not /authority-portal/login — no scoped role has it any more', () => {
+        const decision = decideAdminGateAction('/admin/parks', invalidCookieOrNoCookie);
+        expect(decision).toEqual({ action: 'redirect', to: '/admin/login', preserveNext: true });
+      });
+
+      // The regression this rebuild could have silently caused: narrowing
+      // AUTHORITY_MANAGER_ALLOWED_PATHS below TENANT_OWNER_ALLOWED_PATHS
+      // means checking authority_manager's list alone is no longer enough
+      // to find every scoped-role destination — isAnyScopedPath() in
+      // middleware.ts is the explicit fix. /admin/authority/readiness is
+      // tenant_owner-only (not in the new, narrower authority_manager
+      // list) — a tenant_owner whose session expires mid-navigation there
+      // must still land on /authority-portal/login, per hard rule #1.
+      it('a session-less visit to a TENANT_OWNER-only path (not in the narrower authority_manager list) still resolves to /authority-portal/login — proves the union fix, not an accident of one list being broadest', () => {
+        const decision = decideAdminGateAction('/admin/authority/readiness', invalidCookieOrNoCookie);
+        expect(decision).toEqual({ action: 'redirect', to: '/authority-portal/login', preserveNext: true });
       });
 
       it('an authority_manager/tenant_owner out-of-scope block also never sets blocked=1 — that flag is unit_admin-specific (their redirect target isn\'t login-shaped)', () => {
@@ -231,16 +257,56 @@ describe('decideAdminGateAction', () => {
     });
   });
 
-  describe('authority_manager — unchanged (existing list, production-proven, deliberately not touched today)', () => {
-    it('still allowed on /admin/parks, /admin/locations, /admin/organizations — flagged as a likely follow-up, not fixed here', () => {
-      expect(decideAdminGateAction('/admin/parks', authorityManager)).toEqual({ action: 'allow' });
-      expect(decideAdminGateAction('/admin/locations', authorityManager)).toEqual({ action: 'allow' });
-      expect(decideAdminGateAction('/admin/organizations', authorityManager)).toEqual({ action: 'allow' });
+  // 30.09.2026 — authority_manager's own allowlist rebuilt (00-MASTER-
+  // PLAN.md §13.58), same default-deny-derived-from-the-real-sidebar
+  // method already applied to tenant_owner/unit_admin. Derived from
+  // SIDEBAR_CONFIGS.municipal (sidebarConfigs.ts) plus two explicitly
+  // justified additions (neighborhoods, events — see the allowlist's own
+  // comment in middleware.ts). David's live question — can a city manager
+  // reach another city's screen, or the military/org side, by typing an
+  // address? — is what triggered this: /admin/parks, /admin/locations,
+  // /admin/organizations, /admin/admin-directory, /admin/access-codes,
+  // /admin/authority/units, /admin/authority/grades were all reachable
+  // before this, none of them linked from this role's own sidebar.
+  describe('authority_manager — rebuilt allowlist, derived from SIDEBAR_CONFIGS.municipal', () => {
+    it('allowed on every real sidebar destination', () => {
+      expect(decideAdminGateAction('/admin/dashboard', authorityManager)).toEqual({ action: 'allow' });
+      expect(decideAdminGateAction('/admin/authority-manager', authorityManager)).toEqual({ action: 'allow' });
+      expect(decideAdminGateAction('/admin/heatmap', authorityManager)).toEqual({ action: 'allow' });
+      expect(decideAdminGateAction('/admin/authority/locations', authorityManager)).toEqual({ action: 'allow' });
+      expect(decideAdminGateAction('/admin/authority/routes', authorityManager)).toEqual({ action: 'allow' });
+      expect(decideAdminGateAction('/admin/approval-center', authorityManager)).toEqual({ action: 'allow' });
+      expect(decideAdminGateAction('/admin/authority/community', authorityManager)).toEqual({ action: 'allow' });
+      expect(decideAdminGateAction('/admin/authority/reports', authorityManager)).toEqual({ action: 'allow' });
+      expect(decideAdminGateAction('/admin/authority/team', authorityManager)).toEqual({ action: 'allow' });
     });
 
-    it('still allowed on /admin/dashboard and the bare units list — no change from before', () => {
-      expect(decideAdminGateAction('/admin/dashboard', authorityManager)).toEqual({ action: 'allow' });
-      expect(decideAdminGateAction('/admin/authority/units', authorityManager)).toEqual({ action: 'allow' });
+    it('allowed on /admin/authority/neighborhoods — not a literal sidebar entry, but real, nested navigation from the analytics dashboard (NeighborhoodBreakdown.tsx), kept deliberately', () => {
+      expect(decideAdminGateAction('/admin/authority/neighborhoods', authorityManager)).toEqual({ action: 'allow' });
+      expect(decideAdminGateAction('/admin/authority/neighborhoods/some-id', authorityManager)).toEqual({ action: 'allow' });
+    });
+
+    it('allowed on /admin/authority/events — pure client redirect into an already-allowed page, kept so the bookmarkable link doesn\'t break', () => {
+      expect(decideAdminGateAction('/admin/authority/events', authorityManager)).toEqual({ action: 'allow' });
+    });
+
+    it('blocked on /admin/parks, /admin/locations, /admin/organizations, /admin/admin-directory — the exact gaps David\'s question found; municipal\'s own sidebar never linked to any of these', () => {
+      expect(decideAdminGateAction('/admin/parks', authorityManager)).toEqual({ action: 'redirect', to: '/admin/authority-manager', preserveNext: false });
+      expect(decideAdminGateAction('/admin/locations', authorityManager)).toEqual({ action: 'redirect', to: '/admin/authority-manager', preserveNext: false });
+      expect(decideAdminGateAction('/admin/organizations', authorityManager)).toEqual({ action: 'redirect', to: '/admin/authority-manager', preserveNext: false });
+      expect(decideAdminGateAction('/admin/admin-directory', authorityManager)).toEqual({ action: 'redirect', to: '/admin/authority-manager', preserveNext: false });
+    });
+
+    it('blocked on /admin/authority/units and /admin/authority/grades — military_unit/school sidebars only, never linked from municipal', () => {
+      expect(decideAdminGateAction('/admin/authority/units', authorityManager)).toEqual({ action: 'redirect', to: '/admin/authority-manager', preserveNext: false });
+      expect(decideAdminGateAction('/admin/authority/units/9307', authorityManager)).toEqual({ action: 'redirect', to: '/admin/authority-manager', preserveNext: false });
+      expect(decideAdminGateAction('/admin/authority/grades', authorityManager)).toEqual({ action: 'redirect', to: '/admin/authority-manager', preserveNext: false });
+    });
+
+    it('blocked on /admin/access-codes, /admin/insights, /admin/statistics — not linked from municipal\'s sidebar, even though access-codes/page.tsx\'s own role check admits authority_manager', () => {
+      expect(decideAdminGateAction('/admin/access-codes', authorityManager)).toEqual({ action: 'redirect', to: '/admin/authority-manager', preserveNext: false });
+      expect(decideAdminGateAction('/admin/insights', authorityManager)).toEqual({ action: 'redirect', to: '/admin/authority-manager', preserveNext: false });
+      expect(decideAdminGateAction('/admin/statistics', authorityManager)).toEqual({ action: 'redirect', to: '/admin/authority-manager', preserveNext: false });
     });
   });
 
