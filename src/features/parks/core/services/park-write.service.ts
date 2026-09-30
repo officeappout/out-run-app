@@ -94,13 +94,29 @@ export async function resolveParkWriteCaller(
  * never hand-written), terrainType/environment/externalSourceId
  * (route-classification/GIS-import bookkeeping, out of scope for a park
  * content edit), rating/ratingAvg/reviewCount (review-derived aggregates,
- * a separate pipeline entirely).
+ * a separate pipeline entirely), primaryBrand (equipment-majority-derived,
+ * per-equipment override takes precedence — not a hand-set field),
+ * maximumTime/segmentEndpoints (narrow legacy/linear-park support, no
+ * evidence any current editor UI sets these).
+ *
+ * 30.09.2026 — David's shape-verification ask, after the first version of
+ * this list was built by hand from the Park type alone: cross-checked
+ * against the TWO existing, proven write paths (createPark's own
+ * parkData object AND buildParkUpdateFields.ts, which has its own
+ * regression test for a real prior bug — images silently dropped on
+ * save). That caught a genuine gap this list had missed on the first
+ * pass: hasWaterFountain (and the rest of the "MapPark-specific
+ * features" flag group) is real, currently editable via
+ * ParkForm.tsx/LocationEditor.tsx, and read on the display side
+ * (park-preview/index.tsx) — it simply wasn't reached in the first,
+ * incomplete read of the Park type. `address` was removed — declared on
+ * the Park type but absent from BOTH existing write paths, no evidence
+ * it's actually wired for a park document specifically.
  */
 const AUTHORITY_MANAGER_ALLOWED_FIELDS = new Set<string>([
   'name',
   'description',
   'city',
-  'address',
   'location',
   'facilityType',
   'sportTypes',
@@ -115,10 +131,21 @@ const AUTHORITY_MANAGER_ALLOWED_FIELDS = new Set<string>([
   'courtType',
   'image',
   'images',
+  'imageUrl',
+  'imagePosition',
   'facilities',
   'gymEquipment',
   'amenities',
   'status',
+  'hasDogPark',
+  'hasWaterFountain',
+  'hasLights',
+  'isShaded',
+  'hasNaturalShade',
+  'hasBikeRacks',
+  'hasNearbyShelter',
+  'neighborhoodId',
+  'neighborhoodName',
 ]);
 
 // ── Audit ────────────────────────────────────────────────────────────────

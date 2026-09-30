@@ -144,6 +144,24 @@ describe('computeParkCreate', () => {
     expect(db.created.length).toBe(0);
   });
 
+  // 30.09.2026, David's shape-verification round — hasWaterFountain (and
+  // its "MapPark-specific features" sibling flags) was missing from the
+  // FIRST version of the allowlist, a real gap caught by cross-checking
+  // against the existing proven write paths (createPark/
+  // buildParkUpdateFields), not by this suite alone — a fake db proves
+  // the LOGIC decides correctly, never that the field names it reads/
+  // writes are real. This locks the fix in as a regression test.
+  it('authority_manager sends hasWaterFountain (a real, editable Park field missed on the first pass) → 200, accepted', async () => {
+    const db = makeFakeDb({ authorities: [{ id: 'city-haifa', managerIds: ['am-uid'] }] });
+    const caller: ParkWriteCaller = { kind: 'authority_manager', uid: 'am-uid', authorityId: 'city-haifa' };
+    const result = await computeParkCreate(db, caller, { name: 'New Park', location: { lat: 32.8, lng: 34.9 }, hasWaterFountain: true, neighborhoodId: 'nb-1' }, CTX);
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    const created = db.created.find((c) => c.id === result.body.parkId);
+    expect(created?.data.hasWaterFountain).toBe(true);
+    expect(created?.data.neighborhoodId).toBe('nb-1');
+  });
+
   it('root creates with an explicit, real authorityId → 200, that authorityId is used', async () => {
     const db = makeFakeDb({ authorities: [{ id: 'city-haifa' }] });
     const result = await computeParkCreate(db, { kind: 'root', uid: 'root-uid' }, { name: 'New Park', location: { lat: 32.8, lng: 34.9 }, authorityId: 'city-haifa' }, CTX);
