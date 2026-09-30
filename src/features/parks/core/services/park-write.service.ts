@@ -40,6 +40,7 @@
  */
 
 import type { Firestore } from 'firebase-admin/firestore';
+import { resolveAuthorityManagerScope } from '@/lib/authorityManagerScope';
 
 // ── Caller resolution ───────────────────────────────────────────────────
 
@@ -91,17 +92,9 @@ export async function resolveParkWriteCaller(
   if (admin) return { kind: 'root', uid };
   if (scope !== 'authority_manager') return { kind: 'denied' };
 
-  // Mirrors computeAdminScope's own authorities.managerIds lookup
-  // (firebase-admin.ts) — capturing the matched doc's id this time, not
-  // just checking non-emptiness. Never trusts a client-supplied
-  // authorityId for this resolution.
-  const managerSnap = await db
-    .collection('authorities')
-    .where('managerIds', 'array-contains', uid)
-    .limit(1)
-    .get();
-  if (managerSnap.empty) return { kind: 'denied' };
-  return { kind: 'authority_manager', uid, authorityId: managerSnap.docs[0].id };
+  const managerScope = await resolveAuthorityManagerScope(db, uid);
+  if (!managerScope) return { kind: 'denied' };
+  return { kind: 'authority_manager', uid, authorityId: managerScope.authorityId };
 }
 
 // ── Field allowlist ──────────────────────────────────────────────────────

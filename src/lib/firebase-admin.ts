@@ -277,12 +277,9 @@ export async function computeAdminScope(
     try {
       const { getFirestore } = await import('firebase-admin/firestore');
       const fs = getFirestore(ensureApp());
-      const managerSnap = await fs
-        .collection('authorities')
-        .where('managerIds', 'array-contains', uid)
-        .limit(1)
-        .get();
-      if (!managerSnap.empty) {
+      const { resolveAuthorityManagerScope } = await import('@/lib/authorityManagerScope');
+      const managerScope = await resolveAuthorityManagerScope(fs, uid);
+      if (managerScope) {
         scope = 'authority_manager';
       }
     } catch (err) {
