@@ -86,7 +86,12 @@ export default function AuthorityTeamPage() {
 
   // Summary stats
   const [totalUsers, setTotalUsers] = useState<CountOrError>(0);
-  const [totalSubUnits, setTotalSubUnits] = useState(0);
+  // CountOrError, not a plain number — 30.09.2026, David's live-test
+  // finding 4: this now comes from the same /api/units/structure fetch
+  // as unitManagerIds below, which can genuinely fail. A failure must
+  // read as a failure, never as "this tenant has 0 sub-units" — the
+  // exact principle already applied to totalUsers/activeUsersLast7d.
+  const [totalSubUnits, setTotalSubUnits] = useState<CountOrError>(0);
   const [activeUsersLast7d, setActiveUsersLast7d] = useState<CountOrError>(0);
 
   // Org selector for Super Admins
@@ -128,6 +133,16 @@ export default function AuthorityTeamPage() {
       // units" — see structureLoadFailed below.
       let unitManagerIds: string[] = [];
       let structureLoadFailed = false;
+      // 30.09.2026, David's live-test finding 4 — totalSubUnits (below)
+      // was wired to children.length (getChildrenByParent, the SAME dead
+      // municipal-only mechanism the comment above already documents for
+      // unitManagerIds) — guaranteed 0 for military/school regardless of
+      // the officer's real unit count. Reusing this SAME fetch's own
+      // units array (already scoped server-side to scope.unitIds — the
+      // caller's own unit(s) plus every descendant, resolveUnitPermissionScope's
+      // downward expansion, §13.28) fixes it with zero extra reads —
+      // matches units/page.tsx's own units.length for the identical scope.
+      let scopedUnitCount = 0;
       const derivedTenantType = authority_.tenantType ?? authorityTypeToTenantType(authority_.type);
       if (derivedTenantType !== 'municipal') {
         try {
@@ -140,6 +155,7 @@ export default function AuthorityTeamPage() {
           const body = await res.json();
           const units: Array<{ managerIds?: unknown }> = Array.isArray(body.units) ? body.units : [];
           unitManagerIds = units.flatMap((u) => (Array.isArray(u.managerIds) ? u.managerIds.filter((m): m is string => typeof m === 'string') : []));
+          scopedUnitCount = units.length;
         } catch (err) {
           console.error('[TeamPage] Failed to load unit managerIds:', err);
           structureLoadFailed = true;
@@ -188,7 +204,7 @@ export default function AuthorityTeamPage() {
       setInvitations([...invs, ...childInvs]);
 
       // Summary stats
-      setTotalSubUnits(children.length);
+      setTotalSubUnits(structureLoadFailed ? 'error' : (derivedTenantType !== 'municipal' ? scopedUnitCount : children.length));
       try {
         const usersSnap = await getDocs(query(
           collection(db, 'users'),
@@ -289,9 +305,20 @@ export default function AuthorityTeamPage() {
           // authorityId null → the empty "select org" state renders, its
           // selector already filtered to the URL's context.
         } else {
-          // Non-super-admin: resolve from their assigned authority
+          // Non-super-admin: resolve from their assigned authority.
+          //
+          // 30.09.2026, David's live-test finding 4 — `roleInfo.authorityId`
+          // (singular) does not exist on UserRoleInfo (only `tenantId` and
+          // `authorityIds`, plural) — always read as undefined, silently.
+          // For a unit_admin/tenant_owner with no matching localStorage
+          // entry, this fell straight through to getAuthoritiesByManager
+          // below, which is always empty for them — the correct field is
+          // `roleInfo.tenantId` (mirrors units/page.tsx's own
+          // decideUnitsListOrgSource, which already uses it correctly).
+          // authority_manager has no tenantId at all, so their fallback to
+          // getAuthoritiesByManager below is unchanged.
           const storedAuthId = typeof window !== 'undefined' ? window.localStorage.getItem('admin_selected_authority_id') : null;
-          let resolvedAuthId = storedAuthId || roleInfo.authorityId || null;
+          let resolvedAuthId = storedAuthId || roleInfo.tenantId || null;
 
           if (!resolvedAuthId) {
             const { getAuthoritiesByManager } = await import(
@@ -541,7 +568,12 @@ export default function AuthorityTeamPage() {
       {/* Summary Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 border-r-4 border-r-cyan-500 p-5">
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">{isMunicipal ? 'משתמשים רשומים' : `${labels.membersTitle} רשומים`}</p>
+          {/* 30.09.2026, David's live-test finding 4 — explicit scope
+              wording ("ובכפופות לה") so this number is never silently
+              compared against the unit-detail page's narrower ("ביחידה
+              זו") one: this screen's stats are the FULL scoped subtree,
+              same as units/page.tsx's own equivalent stats. */}
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">{isMunicipal ? 'משתמשים רשומים' : `${labels.membersTitle} רשומים ביחידה ובכפופות לה`}</p>
           {totalUsers === 'error' ? (
             <p className="text-3xl font-black text-red-500" title="שגיאה בטעינה">—</p>
           ) : (
@@ -549,8 +581,12 @@ export default function AuthorityTeamPage() {
           )}
         </div>
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 border-r-4 border-r-cyan-500 p-5">
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">{isMunicipal ? 'יחידות / שכונות' : labels.subUnitsTitle}</p>
-          <p className="text-3xl font-black text-slate-800">{totalSubUnits}</p>
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">{isMunicipal ? 'יחידות / שכונות' : `${labels.subUnitsTitle} ביחידה ובכפופות לה`}</p>
+          {totalSubUnits === 'error' ? (
+            <p className="text-3xl font-black text-red-500" title="שגיאה בטעינה">—</p>
+          ) : (
+            <p className="text-3xl font-black text-slate-800">{totalSubUnits}</p>
+          )}
         </div>
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 border-r-4 border-r-cyan-500 p-5">
           {/* §13.5x — label changed together with the measurement, never

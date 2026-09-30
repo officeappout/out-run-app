@@ -688,7 +688,13 @@ export default function UnitsListPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-5 ${theme.headerBorder} border-r-4`}>
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">
-              {tenantType === 'military' ? 'רשומים (הצהרה עצמית)' : tenantType === 'educational' ? `${labels.membersTitle} רשומים` : 'משתמשים רשומים'}
+              {/* 30.09.2026, David's live-test finding 4 — explicit scope
+                  wording so this number is never silently compared against
+                  the unit-detail page's narrower ("ביחידה זו") one: this
+                  page's stats are the FULL scoped subtree (both endpoints
+                  below are fetched without a unitId, so scope.unitIds — the
+                  caller's own unit(s) plus every descendant — governs). */}
+              {tenantType === 'military' ? 'רשומים (הצהרה עצמית) — ביחידה ובכפופות לה' : tenantType === 'educational' ? `${labels.membersTitle} רשומים ביחידה ובכפופות לה` : 'משתמשים רשומים'}
             </p>
             {totalUsers === 'error' ? (
               <p className="text-3xl font-black text-red-400" title="שגיאה בטעינה">—</p>
@@ -697,7 +703,7 @@ export default function UnitsListPage() {
             )}
           </div>
           <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-5 ${theme.headerBorder} border-r-4`}>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">{isMunicipal ? 'שכונות / יישובים' : labels.subUnitsTitle}</p>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">{isMunicipal ? 'שכונות / יישובים' : `${labels.subUnitsTitle} (ובכפופות)`}</p>
             <p className="text-3xl font-black text-slate-800">{units.length}</p>
             {syncedUnitCount !== null && (
               <p className={`text-[10px] mt-0.5 flex items-center gap-1 ${syncedUnitCount < units.length ? 'text-amber-600 font-bold' : 'text-slate-400'}`}>

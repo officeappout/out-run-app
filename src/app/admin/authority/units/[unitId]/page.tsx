@@ -867,7 +867,14 @@ export default function UnitDrilldownPage() {
               </span>
             </div>
             <p className="text-sm text-gray-500">
-              {members.length} {membersLabel} · {subUnits.length} {labels.subUnitsTitle}
+              {/* 30.09.2026, David's live-test finding 4 — the SAME word
+                  ("יחידות"/"מוצהרים"-type labels) described three DIFFERENT
+                  metrics across three screens, with no way to tell them
+                  apart on sight. This page's numbers are deliberately
+                  narrow — exactly this unit, direct children only, never
+                  descendants — spelled out explicitly rather than left
+                  implicit. */}
+              {members.length} {membersLabel} ביחידה זו · {subUnits.length} {labels.subUnitsTitle} ישירות
             </p>
           </div>
         </div>
