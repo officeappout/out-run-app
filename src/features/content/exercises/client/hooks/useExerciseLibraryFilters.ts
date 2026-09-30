@@ -29,6 +29,11 @@ export const LIBRARY_PAGE_SIZE = 12;
 /**
  * Resolve the canonical level for an exercise.
  * Picks the lowest level across `targetPrograms` (entry-level), defaulting to 1.
+ *
+ * Used for the pagination sort (level ascending) and the program+level
+ * filter's fallback ("show this exercise's own level when its targetPrograms
+ * entry for the selected program has none"). NOT used for the card's level
+ * pill — see resolveCardLevel below for why that needs different semantics.
  */
 export function resolveExerciseLevel(exercise: Exercise): number {
   if (exercise.targetPrograms && exercise.targetPrograms.length > 0) {
@@ -39,6 +44,46 @@ export function resolveExerciseLevel(exercise: Exercise): number {
     return exercise.recommendedLevel;
   }
   return 1;
+}
+
+/**
+ * Resolve the level to SHOW on a card — deliberately different from
+ * resolveExerciseLevel (round 3, #3a). That function takes the MIN level
+ * across every program the exercise belongs to, which is correct for its
+ * own callers (sort, filter fallback) but wrong for display: an exercise
+ * that's level 6 in "Push" but also tagged level 1 in some unrelated
+ * beginner/foundational program would show "רמה 1" — technically true of
+ * SOME program, but not a meaningful "the exercise's level" and not what a
+ * user reads a level badge to mean. Root cause of the "everything shows
+ * רמה 1" bug: most exercises belong to more than one program, and MIN
+ * collapses onto whichever one happens to be level 1.
+ *
+ * Returns null — render nothing, never a guessed number — when there's no
+ * single unambiguous level to show:
+ *   • activeProgramId set → that program's own level (exact source, no
+ *     ambiguity — this is the one case resolveExerciseLevel's fallback
+ *     pattern already uses correctly elsewhere).
+ *   • no active program, exactly one targetPrograms entry → that level.
+ *   • no active program, multiple entries that all agree → that level.
+ *   • no active program, multiple entries that DISAGREE → null (genuinely
+ *     ambiguous — this is the actual "which one?" case, not a data gap).
+ *   • no targetPrograms at all → legacy recommendedLevel, if set.
+ *   • nothing at all → null.
+ */
+export function resolveCardLevel(exercise: Exercise, activeProgramId: string | null): number | null {
+  if (activeProgramId) {
+    const tp = exercise.targetPrograms?.find((t) => t.programId === activeProgramId);
+    return tp ? tp.level : null;
+  }
+  const programs = exercise.targetPrograms ?? [];
+  if (programs.length > 0) {
+    const levels = new Set(programs.map((tp) => tp.level));
+    return levels.size === 1 ? programs[0].level : null;
+  }
+  if (exercise.recommendedLevel && exercise.recommendedLevel > 0) {
+    return exercise.recommendedLevel;
+  }
+  return null;
 }
 
 /** Collect all gear/equipment IDs referenced by an exercise's execution methods. */

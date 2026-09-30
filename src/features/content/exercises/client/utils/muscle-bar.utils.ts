@@ -6,10 +6,18 @@
  * the same chip set in both places IS the two-way sync, not something built
  * on top of it.
  *
- * Each chip maps to a SET of underlying MuscleGroup values (not a 1:1 enum
- * match) because the data model has no single tag for some of them — e.g.
- * "ידיים" means biceps ∪ triceps ∪ forearms. See exercise.types.ts's
- * MuscleGroup union for the full raw list this groups from.
+ * Multi-select (round 3): filters.muscles holds the UNION of every active
+ * chip's `groups`. toggleMuscleChip adds/removes one chip's whole group set
+ * atomically, so the array only ever contains complete chip group-sets —
+ * that's what makes chipIsActive's simple "every group present" subset
+ * check unambiguous even with several chips active at once.
+ *
+ * Every one of the 22 raw MuscleGroup values (exercise.types.ts) is folded
+ * into exactly one chip below — round 3 fix for the bar silently omitting
+ * some groups. Anatomically-adjacent values without their own bar chip
+ * (middle_back, rear_delt, serratus, adductors, hip_flexors, traps) fold
+ * into the nearest region rather than growing the bar past a scrollable
+ * handful of chips.
  */
 
 import type { MuscleGroup } from '../../core/exercise.types';
@@ -23,21 +31,29 @@ export interface MuscleBarChip {
 
 export const MUSCLE_BAR_CHIPS: MuscleBarChip[] = [
   { key: 'chest', label: 'חזה', icon: '/icons/muscles/male/chest.svg', groups: ['chest'] },
-  { key: 'back', label: 'גב', icon: '/icons/muscles/male/back.svg', groups: ['back', 'middle_back'] },
+  { key: 'back', label: 'גב', icon: '/icons/muscles/male/back.svg', groups: ['back', 'middle_back', 'traps'] },
   { key: 'shoulders', label: 'כתפיים', icon: '/icons/muscles/male/shoulders.svg', groups: ['shoulders', 'rear_delt'] },
-  { key: 'core', label: 'ליבה', icon: '/icons/muscles/male/abs.svg', groups: ['core', 'abs', 'obliques'] },
+  { key: 'core', label: 'ליבה', icon: '/icons/muscles/male/abs.svg', groups: ['core', 'abs', 'obliques', 'serratus'] },
   { key: 'arms', label: 'ידיים', icon: '/icons/muscles/male/biceps.svg', groups: ['biceps', 'triceps', 'forearms'] },
-  { key: 'legs', label: 'רגליים', icon: '/icons/muscles/male/quads.svg', groups: ['legs', 'quads', 'hamstrings', 'calves', 'glutes'] },
+  { key: 'legs', label: 'רגליים', icon: '/icons/muscles/male/quads.svg', groups: ['legs', 'quads', 'hamstrings', 'calves', 'glutes', 'adductors', 'hip_flexors'] },
+  { key: 'full_body', label: 'כל הגוף', icon: '/icons/programs/full_body.svg', groups: ['full_body'] },
+  { key: 'cardio', label: 'קרדיו', icon: '/icons/programs/Run.svg', groups: ['cardio'] },
 ];
 
-export function sameMuscleSet(a: MuscleGroup[], b: MuscleGroup[]): boolean {
-  if (a.length !== b.length) return false;
-  const setA = new Set(a);
-  return b.every((m) => setA.has(m));
+/** True when EVERY one of the chip's groups is present in the selection. */
+export function chipIsActive(selected: MuscleGroup[], chip: MuscleBarChip): boolean {
+  return chip.groups.every((g) => selected.includes(g));
 }
 
-/** Find the bar chip (if any) whose group set matches the given selection exactly. */
-export function findMatchingMuscleChip(selected: MuscleGroup[]): MuscleBarChip | null {
-  if (selected.length === 0) return null;
-  return MUSCLE_BAR_CHIPS.find((chip) => sameMuscleSet(selected, chip.groups)) ?? null;
+/** Add (if inactive) or remove (if active) one chip's whole group set — union-based multi-select. */
+export function toggleMuscleChip(selected: MuscleGroup[], chip: MuscleBarChip): MuscleGroup[] {
+  if (chipIsActive(selected, chip)) {
+    return selected.filter((m) => !chip.groups.includes(m));
+  }
+  return Array.from(new Set([...selected, ...chip.groups]));
+}
+
+/** Every chip currently fully selected — drives ActiveFilterChipsRow (one chip per active muscle). */
+export function findActiveMuscleChips(selected: MuscleGroup[]): MuscleBarChip[] {
+  return MUSCLE_BAR_CHIPS.filter((chip) => chipIsActive(selected, chip));
 }

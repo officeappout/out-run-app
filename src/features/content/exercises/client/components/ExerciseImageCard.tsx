@@ -18,17 +18,25 @@
  * now localized to just behind the name, not the whole lower half of the
  * card, since the chips carry their own contrast via their white background.
  *
- * Image always resolves against 'park', regardless of the active location
- * filter (round 2, #6) — findMethodForLocation's fallback chain has no
- * "no real match" signal, so letting the card follow filters.location could
- * silently substitute a different location's photo with no indication.
- * Only the detail view's execution-method switcher changes the image now.
+ * Image resolves against the active location filter, defaulting to 'park'
+ * when none is set (round 3, #1 — corrects round 2's "always park" fix).
+ * That fix existed because a home filter could leak in exercises with no
+ * real home method, making a "matching" home photo actually be a silent
+ * park substitute. #7 (useExerciseLibraryFilters) now filters the result
+ * set to genuine location matches only, so every card reaching this
+ * component under a בית filter is guaranteed to have a real home method —
+ * the substitution risk that motivated "always park" no longer exists.
+ *
+ * Level pill only renders when resolveCardLevel finds a single unambiguous
+ * level (round 3, #3a) — see that function's doc comment for why "the
+ * exercise's level" isn't always a single number. No fake "1".
  */
 
 import { useState } from 'react';
 import { Gauge, Play } from 'lucide-react';
 import { Exercise, getLocalizedText } from '../../core/exercise.types';
-import { resolveExerciseLevel } from '../hooks/useExerciseLibraryFilters';
+import { resolveCardLevel } from '../hooks/useExerciseLibraryFilters';
+import { useExerciseLibraryStore } from '../store/useExerciseLibraryStore';
 import {
   pickPrimaryMuscle,
   pickThumbnailUrl,
@@ -52,10 +60,12 @@ function Pill({ icon, label }: { icon: React.ReactNode; label: string }) {
 }
 
 export default function ExerciseImageCard({ exercise, onClick }: ExerciseImageCardProps) {
+  const filterLocation = useExerciseLibraryStore((s) => s.filters.location);
+  const activeProgramId = useExerciseLibraryStore((s) => s.filters.programId);
   const name = getLocalizedText(exercise.name);
   const muscle = pickPrimaryMuscle(exercise);
-  const thumbnailUrl = pickThumbnailUrl(exercise, 'park');
-  const level = resolveExerciseLevel(exercise);
+  const thumbnailUrl = pickThumbnailUrl(exercise, filterLocation);
+  const level = resolveCardLevel(exercise, activeProgramId);
   // A resolved URL can still 404 (e.g. Bunny hasn't finished encoding a
   // thumbnail yet) — fall back to the branded gradient instead of a
   // broken-image icon.
@@ -108,26 +118,28 @@ export default function ExerciseImageCard({ exercise, onClick }: ExerciseImageCa
         }}
       />
 
-      {/* ── Muscle + level chips (top) ── */}
-      <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between gap-1.5">
-        {muscle ? (
-          <Pill
-            icon={
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={`/icons/muscles/male/${exercise.primaryMuscle ?? exercise.muscleGroups?.[0]}.svg`}
-                alt=""
-                className="w-2.5 h-2.5 object-contain"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.display = 'none';
-                }}
-              />
-            }
-            label={muscle.he}
-          />
-        ) : <span />}
-        <Pill icon={<Gauge size={10} />} label={`רמה ${level}`} />
-      </div>
+      {/* ── Muscle + level chips (top) — either may be absent ── */}
+      {(muscle || level != null) && (
+        <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between gap-1.5">
+          {muscle ? (
+            <Pill
+              icon={
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={`/icons/muscles/male/${exercise.primaryMuscle ?? exercise.muscleGroups?.[0]}.svg`}
+                  alt=""
+                  className="w-2.5 h-2.5 object-contain"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              }
+              label={muscle.he}
+            />
+          ) : <span />}
+          {level != null && <Pill icon={<Gauge size={10} />} label={`רמה ${level}`} />}
+        </div>
+      )}
 
       {/* ── Name (bottom) ── */}
       <div className="absolute inset-x-0 bottom-0 p-3 text-start">

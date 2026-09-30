@@ -42,7 +42,7 @@ import {
   collectExerciseEquipmentIds,
   exerciseHasLocationMethod,
 } from '../hooks/useExerciseLibraryFilters';
-import { MUSCLE_BAR_CHIPS, sameMuscleSet } from '../utils/muscle-bar.utils';
+import { MUSCLE_BAR_CHIPS, chipIsActive, toggleMuscleChip } from '../utils/muscle-bar.utils';
 import { getProgramIcon, resolveIconKey } from '@/features/content/programs/core/program-icon.util';
 import type { Program } from '@/features/content/programs/core/program.types';
 import type { GearDefinition } from '@/features/content/equipment/gear/core/gear-definition.types';
@@ -216,12 +216,12 @@ export default function SecondaryFiltersSheet({ programs, gear }: Props) {
           <h3 className="text-[13px] font-bold text-gray-700 mb-2">שרירים</h3>
           <div className="flex flex-wrap gap-2">
             {MUSCLE_BAR_CHIPS.map((chip) => {
-              const isOn = sameMuscleSet(filters.muscles, chip.groups);
+              const isOn = chipIsActive(filters.muscles, chip);
               return (
                 <button
                   key={chip.key}
                   type="button"
-                  onClick={() => setMuscles(isOn ? [] : chip.groups)}
+                  onClick={() => setMuscles(toggleMuscleChip(filters.muscles, chip))}
                   className={`flex items-center gap-1.5 ps-2.5 pe-3 py-1.5 rounded-full border text-xs font-bold transition-all ${
                     isOn
                       ? 'bg-primary/10 border-primary text-primary'

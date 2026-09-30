@@ -5,8 +5,9 @@
  * מסלול+רמה combined, מיקום, each ציוד item), plus "נקה הכל". Rendered
  * below the muscle bar, only when at least one is active.
  *
- * The muscle chip mirrors the top MuscleFilterBar / SecondaryFiltersSheet's
- * "שרירים" section selection (same store field) — included here so the
+ * The muscle bar is multi-select (round 3) — one removable chip per active
+ * muscle group here, mirroring the top MuscleFilterBar / SecondaryFiltersSheet's
+ * "שרירים" section (same store field, union-based). Included here so the
  * combination with any active track filter (AND logic) stays visible
  * instead of a 0-result combo looking unexplained.
  */
@@ -16,7 +17,7 @@ import {
   useExerciseLibraryStore,
   BODYWEIGHT_SENTINEL,
 } from '../store/useExerciseLibraryStore';
-import { findMatchingMuscleChip } from '../utils/muscle-bar.utils';
+import { findActiveMuscleChips, toggleMuscleChip } from '../utils/muscle-bar.utils';
 import type { Program } from '@/features/content/programs/core/program.types';
 import type { GearDefinition } from '@/features/content/equipment/gear/core/gear-definition.types';
 
@@ -34,12 +35,11 @@ export default function ActiveFilterChipsRow({ programs, gear }: Props) {
 
   const chips: Array<{ id: string; label: string; onRemove: () => void }> = [];
 
-  const muscleChip = findMatchingMuscleChip(filters.muscles);
-  if (muscleChip) {
+  for (const muscleChip of findActiveMuscleChips(filters.muscles)) {
     chips.push({
-      id: 'muscle',
+      id: `muscle-${muscleChip.key}`,
       label: muscleChip.label,
-      onRemove: () => setMuscles([]),
+      onRemove: () => setMuscles(toggleMuscleChip(filters.muscles, muscleChip)),
     });
   }
 
