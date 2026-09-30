@@ -26,6 +26,17 @@ import { calculateWeeklyBudget } from '@/features/workout-engine/core/store/useW
 import { HEBREW_DAYS } from '@/features/user/scheduling/utils/dateUtils';
 
 import { getBaseUserLevel } from '../level-resolution.utils';
+import { resolveChildDomainsForParent } from '../program-hierarchy.utils';
+/**
+ * Progression v2 Phase 3 — deliberate cross-domain reuse of progression-map's
+ * gating logic (explicit instruction: "reuse Phase 1's getProgramState"),
+ * same reasoning as Phase 2's own cross-import of Phase 1's gating service —
+ * see target-program-fanout.service.ts's header comment. This is a NEW,
+ * further boundary crossing (workout-engine -> progression-map; Phase 2's
+ * was user/progression -> progression-map), so it gets its own note rather
+ * than inheriting Phase 2's as cover.
+ */
+import { getProgramState } from '@/features/progression-map/services/program-gating.service';
 
 const HABIT_BUILDER_SESSION_TYPES: SessionType[] = ['habit_builder', 'habit_builder_ultra'];
 const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
@@ -53,12 +64,62 @@ function isWithin48Hours(lastSessionDate: string, selectedDate: string): boolean
 }
 
 /**
+ * Progression v2 Phase 3 — general priority source: activePrograms' own
+ * array order (index 0 = highest priority; UserActiveProgram has no
+ * separate priority field, per Phase 0/3's recon — array order IS the
+ * priority signal). Each eligible entry is expanded via
+ * resolveChildDomainsForParent, which ALREADY returns [templateId] itself
+ * for a non-master and the assessed children for a master — so a master in
+ * the active set keeps combining its children exactly as it does
+ * everywhere else this function is used (e.g. exercise-eligibility
+ * filtering), no new master-handling logic here.
+ *
+ * Gating: only a program that resolves to 'active' via Phase 1's
+ * getProgramState feeds the generator — tracked/available/locked programs
+ * are progression-only, never workout drivers (explicit product decision).
+ * In practice, getProgramState's 'active' branch is a simple
+ * activeProgramIds.has(programId) check that short-circuits before ever
+ * touching its gate/tier parameters — so `tracks`/`tier`/`gate` below are
+ * structurally-inert placeholders for this call pattern, not real values;
+ * this still genuinely calls Phase 1's canonical function rather than
+ * duplicating its 'active' check locally, and defends against a malformed
+ * activePrograms entry (missing templateId) the same way everywhere else
+ * that reads this array should.
+ *
+ * Returns one string[] per priority tier (index 0 = P1, 1 = P2, 2 = P3) —
+ * only the top 3 eligible entries feed the dominance engine; a 4th+ active
+ * program is not force-fitted into a tier (documented scope limit — its
+ * exercises still reach the session via the ordinary/accessory exercise
+ * pool, just without a guaranteed budget share).
+ */
+export function resolveActiveSetPriorityTiers(profile: UserFullProfile): string[][] {
+  const activePrograms = profile.progression?.activePrograms ?? [];
+  const activeProgramIds = new Set(
+    activePrograms.map((ap) => ap.templateId).filter((id): id is string => !!id),
+  );
+
+  const tiers: string[][] = [];
+  for (const ap of activePrograms) {
+    if (!ap.templateId) continue;
+    const state = getProgramState(
+      { tracks: {}, tier: 1, activeProgramIds },
+      ap.templateId,
+      { status: 'available' },
+    );
+    if (state !== 'active') continue;
+
+    const expanded = resolveChildDomainsForParent(ap.templateId, profile);
+    tiers.push(expanded.length > 0 ? expanded : [ap.templateId]);
+  }
+  return tiers;
+}
+
+/**
  * Derive priority1, priority2, (and optionally priority3) skill IDs for dominance ratio.
  * - Path C multi-skill (calisthenics_upper + skillFocusIds): Dominance Day or Dynamic Rotation
- * - Push/Pull rotation: alternates based on lastSessionFocus
- * - Default: first two child programs as P1 and P2
+ * - General active set (Progression v2 Phase 3): activePrograms array order, top 3 tiers
  */
-function resolvePrioritySkillIds(
+export function resolvePrioritySkillIds(
   profile: UserFullProfile,
   sessionType: SessionType,
   lastSessionFocus: string | undefined,
@@ -157,115 +218,23 @@ function resolvePrioritySkillIds(
     };
   }
 
-  // ── Fallback: derive from activePrograms + tracks ──
-  const tracks = profile.progression?.tracks ?? {};
-  const allProgramIds = new Set<string>();
-  for (const ap of activePrograms) {
-    if (ap.templateId) allProgramIds.add(ap.templateId);
-  }
-  for (const tid of Object.keys(tracks)) {
-    allProgramIds.add(tid);
-  }
-
-  const childPrograms = Array.from(allProgramIds).filter(
-    (id) =>
-      !['full_body', 'upper_body', 'lower_body'].includes(id) &&
-      ['push', 'pull', 'legs', 'core', 'planche', 'oap', 'front_lever', 'handstand'].some(
-        (slug) => id.toLowerCase().includes(slug) || id === slug
-      )
-  );
-
-  if (childPrograms.length === 0) {
+  // ── General active-set fallback (Progression v2 Phase 3) ──────────────
+  // Replaces the old tracks-derived, hardcoded-whitelist, gender/PPL-
+  // heuristic reordering: activePrograms' own array order now IS the
+  // priority signal (see resolveActiveSetPriorityTiers above). A single
+  // active program yields P1-only, P2 empty — which keeps
+  // selectExercisesWithDominance's own caller-side gate closed exactly as
+  // it is today (that gate requires priority2SkillIds or
+  // priority3SkillIds to be non-empty), so single-active-program
+  // generation takes the SAME code path it does today, unchanged.
+  const activeSetTiers = resolveActiveSetPriorityTiers(profile);
+  if (activeSetTiers.length === 0) {
     return { priority1SkillIds: [], priority2SkillIds: [] };
   }
-
-  // PPL 3-Way Rotation: push → pull → legs → push …
-  const needsRotation =
-    sessionType === 'push_pull_rotation' || sessionType === 'skill_dominance';
-
-  if (needsRotation && childPrograms.length >= 2) {
-    const pushLike = childPrograms.filter((p) =>
-      ['push', 'planche', 'handstand'].some((s) => p.toLowerCase().includes(s))
-    );
-    const pullLike = childPrograms.filter((p) =>
-      ['pull', 'oap', 'front_lever'].some((s) => p.toLowerCase().includes(s))
-    );
-    const legsLike = childPrograms.filter((p) =>
-      ['legs', 'lower_body'].some((s) => p.toLowerCase().includes(s))
-    );
-
-    const PPL_ORDER: Array<'push' | 'pull' | 'legs'> = ['push', 'pull', 'legs'];
-    const buckets: Record<string, string[]> = { push: pushLike, pull: pullLike, legs: legsLike };
-
-    if (lastSessionFocus && PPL_ORDER.includes(lastSessionFocus as 'push' | 'pull' | 'legs')) {
-      const curIdx = PPL_ORDER.indexOf(lastSessionFocus as 'push' | 'pull' | 'legs');
-      const nextFocus = PPL_ORDER[(curIdx + 1) % 3];
-      const afterFocus = PPL_ORDER[(curIdx + 2) % 3];
-      const p1 = buckets[nextFocus];
-      const p2 = buckets[afterFocus];
-
-      if (p1.length > 0) {
-        console.log(`[PPL Rotation] ${lastSessionFocus} → ${nextFocus} (P1), ${afterFocus} (P2)`);
-        return {
-          priority1SkillIds: p1,
-          priority2SkillIds: p2.length > 0 ? p2 : buckets[lastSessionFocus] ?? [],
-        };
-      }
-    }
-
-    // First session or no match: default to push as P1
-    if (pushLike.length > 0) {
-      return {
-        priority1SkillIds: pushLike,
-        priority2SkillIds: pullLike.length > 0 ? pullLike : legsLike,
-      };
-    }
-  }
-
-  // ── Gender-Aware Dominance Sort ────────────────────────────────────────
-  // Before picking P1/P2 from Set insertion order, sort childPrograms so the
-  // biologically-appropriate dominant domains always land first.
-  //
-  //   Male (or unspecified): upper-body compound tracks → P1/P2, legs/core → P3+
-  //   Female:                lower-body tracks → P1, upper-body → P2+
-  //
-  // Tier values (lower = higher priority):
-  //   Male:   push/pull/planche/oap/front_lever/handstand → 0
-  //           legs/core                                    → 1
-  //           everything else                              → 2
-  //   Female: legs/glutes                                  → 0
-  //           push/pull and skill tracks                   → 1
-  //           everything else                              → 2
-  const gender: 'male' | 'female' | undefined = (profile as any).gender;
-  const isFemale = gender === 'female';
-
-  const UPPER_SLUGS  = ['push', 'pull', 'planche', 'oap', 'front_lever', 'handstand', 'muscle_up'];
-  const LOWER_SLUGS  = ['legs', 'lower_body', 'glutes', 'hinge', 'squat', 'lunge'];
-
-  const dominanceTier = (id: string): number => {
-    const lower = id.toLowerCase();
-    if (isFemale) {
-      if (LOWER_SLUGS.some(s => lower.includes(s))) return 0;
-      if (UPPER_SLUGS.some(s => lower.includes(s))) return 1;
-      return 2;
-    }
-    // Male / default: upper-body first
-    if (UPPER_SLUGS.some(s => lower.includes(s))) return 0;
-    if (LOWER_SLUGS.some(s => lower.includes(s))) return 1;
-    return 2;
-  };
-
-  const sortedPrograms = [...childPrograms].sort((a, b) => dominanceTier(a) - dominanceTier(b));
-  console.log(
-    `[SplitDecision] P1/P2 sort (gender=${gender ?? 'default/male'}): ` +
-    `[${sortedPrograms.join(', ')}]`,
-  );
-
-  // Default: first two child programs as P1 and P2
-  const [p1, p2] = sortedPrograms;
   return {
-    priority1SkillIds: p1 ? [p1] : [],
-    priority2SkillIds: p2 ? [p2] : [],
+    priority1SkillIds: activeSetTiers[0] ?? [],
+    priority2SkillIds: activeSetTiers[1] ?? [],
+    priority3SkillIds: activeSetTiers[2],
   };
 }
 
