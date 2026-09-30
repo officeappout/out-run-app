@@ -3,7 +3,7 @@
 /**
  * SkillTreeScreen — Phase 1's top-level screen for one leaf program's Skill Tree.
  *
- * Two separate taps, two separate existing surfaces:
+ * One tap surface (Progression v2 Phase 4b — the level drawer is GONE):
  *   - Node tap → the existing per-EXERCISE ExerciseDetailSheet (same one the
  *     library uses), for that node's representative exercise. Any node
  *     above the user's actual current level is NOT blocked — tapping it
@@ -16,8 +16,24 @@
  *     direct level comparison independent of the visual label, so the
  *     notice correctly shows on every not-yet-reached node including the
  *     last one.
- *   - Header tap (skill name / level-summary block) → the existing
- *     per-PROGRAM ProgramDrawer, unmodified.
+ *
+ * Phase 4b: the header no longer opens ProgramDrawer (a bottom-sheet) —
+ * that component is UNTOUCHED (still used as-is by Profile's
+ * ProgramsSection, confirmed via recon) but this screen stopped mounting
+ * it. Its content moved INLINE, at the top of <main>, as the new
+ * "current level" card — see below. Per an explicit decision, there is NO
+ * "start workout" button on this card or anywhere on this screen: a
+ * workout begins by tapping a tree node -> the exercise detail page
+ * (confirmed by recon: no start-workout affordance exists on that path
+ * today at all, so "gate starting a workout, not viewing" has nothing to
+ * attach to here — viewing was, and stays, always unrestricted).
+ *
+ * One page, two states (confirmed workable in recon, not a new screen):
+ * the inline current-level card renders ONLY when currentLevel is a real,
+ * non-null number (i.e. genuinely assessed) — structurally exclusive with
+ * isUnassessed/isPrereqLocked below, since getProgramState's own
+ * precedence means a real tracked/active level can never coexist with a
+ * locked_prereq/needs_assessment result for the SAME program.
  *
  * The swap sheet's "החלף לתרגיל זה" action updates a session-local override
  * (which exercise displays as a given level's representative) — not
@@ -52,19 +68,21 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, MapPin } from 'lucide-react';
 import type { Exercise } from '@/features/content/exercises';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { getProgramByTemplateId } from '@/features/content/programs/core/program.service';
 import type { Program } from '@/features/content/programs/core/program.types';
+import { getProgramLevelSetting } from '@/features/content/programs/core/programLevelSettings.service';
+import type { ProgramLevelSettings } from '@/features/content/programs/core/program.types';
 import { getLocalizedText } from '@/features/content/exercises';
 import ExerciseDetailSheet from '@/features/content/exercises/client/components/ExerciseDetailSheet';
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { domainTypeForSlug } from '@/features/profile/components/widgets/program-groups.utils';
-import ProgramDrawer, { type ProgramDrawerData } from '@/features/profile/components/widgets/ProgramDrawer';
 import { useSkillTree } from '../hooks/useSkillTree';
 import { useProgramCardState } from '../hooks/useProgramCardState';
 import { NEEDS_ASSESSMENT_HINT } from '../services/program-card-state.service';
+import { resolveLevelSummary } from '../services/level-summary.service';
 import { TreePath } from './TreePath';
 import { ProgramLevelSwapSheet } from './ProgramLevelSwapSheet';
 import { SkillTreeBackground } from './SkillTreeBackground';
@@ -91,7 +109,7 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
   const isUnassessed = cardState === 'locked_prereq' && lockedHint === NEEDS_ASSESSMENT_HINT;
   const isPrereqLocked = cardState === 'locked_prereq' && lockedHint != null && !isUnassessed;
   const [programMeta, setProgramMeta] = useState<Program | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [levelSettings, setLevelSettings] = useState<ProgramLevelSettings | null>(null);
   const [swapRung, setSwapRung] = useState<SkillTreeRung | null>(null);
   const [representativeOverrides, setRepresentativeOverrides] = useState<Record<number, Exercise>>({});
 
@@ -114,6 +132,25 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
       cancelled = true;
     };
   }, [programId]);
+
+  // Progression v2 Phase 4b — the inline current-level card's data source.
+  // getProgramLevelSetting keys its Firestore doc ID off the RAW program
+  // id (confirmed: admin/programs/page.tsx's own save call uses
+  // `programId: program.id`, not a slug) — programId here (the route
+  // param) already IS that raw id, same as every other call in this file.
+  useEffect(() => {
+    if (currentLevel == null) {
+      setLevelSettings(null);
+      return;
+    }
+    let cancelled = false;
+    getProgramLevelSetting(programId, currentLevel).then((s) => {
+      if (!cancelled) setLevelSettings(s);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [programId, currentLevel]);
 
   // Reset session-local overrides when switching to a different program (the
   // 6 Phase-1 screens will share this component once wired — an override for
@@ -153,24 +190,32 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
 
   const tracks = (profile?.progression?.tracks ?? {}) as Record<
     string,
-    { currentLevel?: number; percent?: number; totalWorkoutsCompleted?: number }
+    { currentLevel?: number; percent?: number; totalWorkoutsCompleted?: number; completedGoalIds?: string[] }
   >;
   const slug = resolveToSlug(programId);
   const trackData = tracks[slug] ?? tracks[programId];
 
-  const drawerData: ProgramDrawerData | null = programMeta
-    ? {
-        templateId: slug,
-        name: skillName,
-        description: programMeta.description,
-        currentLevel: currentLevel ?? 1,
-        maxLevel: programMeta.maxLevels ?? tree?.maxLevel ?? 1,
-        percent: Math.min(100, Math.round(trackData?.percent ?? 0)),
-        totalWorkoutsCompleted: trackData?.totalWorkoutsCompleted ?? 0,
-        iconKey: programMeta.iconKey,
-        domainType: domainTypeForSlug(slug),
-      }
-    : null;
+  // ── Inline "current level" card data (Progression v2 Phase 4b) ─────────
+  // Replaces ProgramDrawer's content — see file header. Three explicit
+  // data-source decisions are encoded in resolveLevelSummary
+  // (level-summary.service.ts, independently unit-tested) — this
+  // component just gathers the raw inputs (the tree's own current-level
+  // representative, the fetched ProgramLevelSettings, this program's
+  // completedGoalIds) and reads the result.
+  const currentRung = displayTree?.rungs.find((r) => r.level === currentLevel && !r.isGap);
+  const currentLevelExercise = currentRung?.representative ?? null;
+  const currentLevelExerciseName = currentLevelExercise ? getLocalizedText(currentLevelExercise.name, 'he') : '';
+
+  const levelSummary =
+    currentLevel != null
+      ? resolveLevelSummary({
+          currentLevel,
+          levelDescription: levelSettings?.levelDescription,
+          targetGoals: levelSettings?.targetGoals,
+          currentLevelExerciseId: currentLevelExercise?.id,
+          completedGoalIds: trackData?.completedGoalIds,
+        })
+      : null;
 
   // Node images resolve via resolveTreeNodeImage (park photo, else a
   // park-video-thumbnail derivation, else home — see TreeNode.tsx), and the
@@ -199,14 +244,11 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
           <ChevronRight size={14} />
           חזרה
         </button>
-        {/* Tappable skill name / level-summary block — opens the program-grain
-            ProgramDrawer (רמה נוכחית / התקדמות / סה״כ אימונים + עדכן רמה). */}
-        <button
-          type="button"
-          onClick={() => setDrawerOpen(true)}
-          disabled={!drawerData}
-          className="w-full text-right active:opacity-80 transition-opacity"
-        >
+        {/* Skill name / level-summary block — Progression v2 Phase 4b: no
+            longer tappable, no drawer to open. Its former stat content
+            (רמה נוכחית / התקדמות / סה״כ אימונים) moved into the new inline
+            "current level" card below, in the assessed state only. */}
+        <div className="w-full text-right">
           <h1 className="text-lg font-black text-gray-900">{skillName}</h1>
           {tree && (
             <>
@@ -225,7 +267,7 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
               </div>
             </>
           )}
-        </button>
+        </div>
       </header>
 
       <main className="px-4 py-6 pb-16">
@@ -253,6 +295,76 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
         {!isLoading && isPrereqLocked && (
           <div className="bg-slate-100 text-slate-600 text-[13px] font-semibold text-center rounded-xl px-4 py-2.5 mb-4">
             {lockedHint}
+          </div>
+        )}
+
+        {/* ── Inline "current level" card (Progression v2 Phase 4b) ───────
+            Replaces ProgramDrawer. Assessed state ONLY (currentLevel is a
+            real number) — see the file header for why this is exclusive
+            with the two banners above. Deliberately NO "start workout"
+            button — decided confusing; a workout begins by tapping a tree
+            node below, same as always. */}
+        {!isLoading && currentLevel != null && (
+          <div
+            className="bg-white rounded-2xl p-3.5 mb-4"
+            style={{ border: '1.5px solid #BDEEDE', boxShadow: '0 6px 18px rgba(37,194,129,0.08)' }}
+            dir="rtl"
+          >
+            <div className="flex items-center gap-3 mb-2.5">
+              <div
+                className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 text-white font-black text-lg"
+                style={{ background: 'linear-gradient(135deg, #2CE0C0 0%, #20C6D6 50%, #2AA3E8 100%)' }}
+              >
+                {currentLevel}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-black text-gray-900">הרמה הנוכחית שלך · {currentLevel}</p>
+                {currentLevelExerciseName && (
+                  <p className="text-xs text-gray-400 truncate">{currentLevelExerciseName}</p>
+                )}
+              </div>
+              <span className="flex-shrink-0 flex items-center gap-1 text-[10px] font-black text-white rounded-full px-2.5 py-1" style={{ backgroundColor: '#2AA3E8' }}>
+                <MapPin size={10} />
+                אתה כאן
+              </span>
+            </div>
+
+            {levelSummary?.realDescription && (
+              <p className="text-xs text-gray-600 bg-slate-50 rounded-xl px-3 py-2 mb-2.5 leading-relaxed">
+                <b className="text-gray-800">מה מצופה ברמה {currentLevel}:</b> {levelSummary.realDescription}
+              </p>
+            )}
+
+            {currentLevelExercise && (
+              <div className="flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2 mb-2">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-gray-800 truncate">תרגיל-היעד: {currentLevelExerciseName}</p>
+                  {levelSummary?.matchingGoal && (
+                    <p className="text-[11px] text-gray-400">
+                      יעד: {levelSummary.matchingGoal.targetValue}{' '}
+                      {levelSummary.matchingGoal.unit === 'seconds' ? 'שניות' : 'חזרות'}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {levelSummary?.hasGoals && (
+              <div className="flex items-center justify-between text-xs px-1 mb-2">
+                <span className="text-gray-500">סטטוס</span>
+                <span className={`font-bold ${levelSummary.goalsCompleted ? 'text-[#20C6D6]' : 'text-gray-700'}`}>
+                  {levelSummary.goalsCompleted ? 'הושלם' : 'בתהליך'}
+                </span>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => startMiniDomainAssessment(router, slug, undefined, domainTypeForSlug(slug))}
+              className="w-full text-center text-[11.5px] font-bold text-[#0a8ea0] mt-1"
+            >
+              🔄 עדכן את הרמה שלי
+            </button>
           </div>
         )}
 
@@ -307,8 +419,6 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
         defaultProgramId={programId}
         controlled={{ exercise: detailExercise, notice: detailNotice, onClose: closeDetail }}
       />
-
-      {drawerData && <ProgramDrawer program={drawerOpen ? drawerData : null} onClose={() => setDrawerOpen(false)} />}
 
       {swapRung && profile && (
         <ProgramLevelSwapSheet
