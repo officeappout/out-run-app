@@ -48,6 +48,13 @@
  * null, since every one of its children was already conditioned on that
  * exact case.
  *
+ * Phase 4b round 4: ProgramInfoPanel's progress bar now reads the real
+ * trackData.percent (progress toward the next level, always real —
+ * confirmed by recon, initialized to 0 on a fresh assessment, resets to 0
+ * on level-up) instead of the FABRICATED currentLevel/maxLevel ratio round
+ * 2 shipped — that ratio measured "how far through the whole ladder," not
+ * per-level progress, and never moved without a level-up.
+ *
  * One page, two states (confirmed workable in recon, not a new screen):
  * ProgramInfoPanel renders ONLY when currentLevel is a real, non-null
  * number (i.e. genuinely assessed) — structurally exclusive with
@@ -337,6 +344,7 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
               iconKey={programMeta?.iconKey ?? programId}
               currentLevel={currentLevel}
               maxLevel={displayTree?.maxLevel ?? currentLevel}
+              progressPercent={trackData?.percent ?? null}
               programDescription={programMeta?.description}
               levelDescription={levelSummary?.realDescription ?? null}
               matchingGoal={levelSummary?.matchingGoal ?? null}

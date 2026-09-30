@@ -32,6 +32,21 @@
  * whenever the tree has SOME representative, as round 1 did) — this round's
  * brief changed that decision explicitly: "target exercise only if
  * admin-curated (omit the line otherwise)".
+ *
+ * Phase 4b round 4 fix: the collapsed strip's progress bar/percent used to
+ * be FABRICATED — Math.round(currentLevel / maxLevel * 100), i.e. "how far
+ * through the whole ladder," mislabeled as "progress toward the next
+ * level." On a fresh assessment at level 1 of a 10-level tree that showed
+ * a permanent, meaningless "10%" that never moved until the next level-up.
+ * The real per-level-progress value already exists —
+ * profile.progression.tracks[slug].percent, confirmed (recon, not
+ * guessed) to be a real progress-toward-next-level field that's always
+ * explicitly initialized to 0 on a fresh assessment and reset to 0 on
+ * every level-up — SkillTreeScreen.tsx passes it straight through as
+ * `progressPercent`. `null` means no real source at all (no track entry);
+ * the bar and its caption are omitted entirely rather than fabricating
+ * anything — real 0 (a genuine fresh assessment) still renders normally,
+ * since 0% is honest data, not a fabrication.
  */
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -50,6 +65,8 @@ export interface ProgramInfoPanelProps {
   iconKey?: string;
   currentLevel: number;
   maxLevel: number;
+  /** Real progress toward the next level (profile.progression.tracks[slug].percent) — null when there's no real track entry to read it from (omits the bar/caption entirely, never fabricated). */
+  progressPercent: number | null;
   programDescription?: string | null;
   /** Real admin-authored level description only — null hides the line (see level-summary.service.ts). */
   levelDescription: string | null;
@@ -68,6 +85,7 @@ export function ProgramInfoPanel({
   iconKey,
   currentLevel,
   maxLevel,
+  progressPercent,
   programDescription,
   levelDescription,
   matchingGoal,
@@ -79,8 +97,9 @@ export function ProgramInfoPanel({
   const [expanded, setExpanded] = useState(false);
 
   const safeMaxLevel = Math.max(maxLevel, currentLevel, 1);
-  const percent = Math.min(100, Math.round((currentLevel / safeMaxLevel) * 100));
   const nextLevel = Math.min(safeMaxLevel, currentLevel + 1);
+  const hasRealProgress = progressPercent != null;
+  const clampedPercent = hasRealProgress ? Math.max(0, Math.min(100, Math.round(progressPercent))) : 0;
 
   return (
     <>
@@ -119,21 +138,23 @@ export function ProgramInfoPanel({
           </span>
         </button>
 
-        <div className="px-4 pb-3">
-          <div className="w-full h-[7px] bg-slate-100 rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full"
-              style={{
-                width: `${percent}%`,
-                background: 'linear-gradient(90deg, #2CE0C0 0%, #20C6D6 55%, #2AA3E8 100%)',
-              }}
-            />
+        {hasRealProgress && (
+          <div className="px-4 pb-3">
+            <div className="w-full h-[7px] bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: `${clampedPercent}%`,
+                  background: 'linear-gradient(90deg, #2CE0C0 0%, #20C6D6 55%, #2AA3E8 100%)',
+                }}
+              />
+            </div>
+            <div className="flex items-center justify-between mt-1 text-[9.5px] font-bold text-gray-400">
+              <span>{clampedPercent}% לרמה {nextLevel}</span>
+              <span>אתה כאן · רמה {currentLevel}</span>
+            </div>
           </div>
-          <div className="flex items-center justify-between mt-1 text-[9.5px] font-bold text-gray-400">
-            <span>{percent}% לרמה {nextLevel}</span>
-            <span>אתה כאן · רמה {currentLevel}</span>
-          </div>
-        </div>
+        )}
 
         <AnimatePresence initial={false}>
           {expanded && (
