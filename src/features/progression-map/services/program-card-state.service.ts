@@ -30,14 +30,48 @@
  * David's explicit call: an active master reflects deliberate user intent
  * (onboarding focus selection), a cascade-derived tracked entry doesn't.
  *
+ * Phase 4b round 4: configuredMasterChildCount is now computed by
+ * countConfiguredDomainChildren (below), restricted to the 4 CANONICAL
+ * domain slugs (push/pull/legs/core) — excludes a skill's own direct
+ * subProgram entry (e.g. front_lever, one of calisthenics_upper's real
+ * children) entirely, not just derived-foundation entries. Investigated
+ * and confirmed: the data model has no field distinguishing a directly-
+ * assessed domain track from one auto-derived via SKILL_TO_FOUNDATION_OFFSET
+ * — both write the identical shape, so "exclude derived only" isn't
+ * buildable without a data-model change (deferred — David's call, see
+ * useProgramCardState.ts). Domain-only counting still fully closes the
+ * reported bug on its own: each skill maps to exactly ONE foundation
+ * domain, so a single skill assessment can never supply more than 1
+ * domain-slug child — the ≥2 threshold still requires real signal beyond
+ * one skill.
+ *
  * All inputs are plain, already-slug-normalized data — no Firestore/store
  * access here, so this is independently unit-testable without React/jsdom
  * (this repo's vitest config is node-only, no jsdom — see the hook wrapper,
  * useProgramCardState.ts, for the React/store-reading side).
  */
-import { derivePrerequisites } from './prerequisite-derivation.service';
+import { derivePrerequisites, DOMAIN_PROGRAM_IDS } from './prerequisite-derivation.service';
 import { evaluateProgramGate, getProgramState, type ProgramState } from './program-gating.service';
 import type { Exercise } from '@/features/content/exercises/core/exercise.types';
+
+/** The 4 canonical domain slugs — see the file header's Phase 4b round 4 note. */
+const CANONICAL_DOMAIN_SLUGS: ReadonlySet<string> = new Set(Object.keys(DOMAIN_PROGRAM_IDS));
+
+/**
+ * How many of a master's own subProgram slugs are BOTH a canonical domain
+ * (push/pull/legs/core) AND have a real (>0) track level. Deliberately
+ * excludes any non-domain slug (a skill's own direct entry) regardless of
+ * its track level — see the file header for why domain-only counting is
+ * the buildable stand-in for "genuinely-assessed domains only".
+ */
+export function countConfiguredDomainChildren(
+  subProgramSlugs: string[],
+  flatTracksBySlug: Record<string, number>,
+): number {
+  return new Set(
+    subProgramSlugs.filter((slug) => CANONICAL_DOMAIN_SLUGS.has(slug) && flatTracksBySlug[slug] != null),
+  ).size;
+}
 
 /**
  * Progression v2 Phase 4a-fix: 'available' is included for spec-fidelity

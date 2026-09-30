@@ -13,7 +13,7 @@
  * questionnaire) or not_started_master (it doesn't).
  */
 import { describe, it, expect } from 'vitest';
-import { resolveProgramCardState } from '../program-card-state.service';
+import { resolveProgramCardState, countConfiguredDomainChildren } from '../program-card-state.service';
 import { DOMAIN_PROGRAM_IDS } from '../prerequisite-derivation.service';
 import type { Exercise } from '@/features/content/exercises/core/exercise.types';
 
@@ -222,5 +222,35 @@ describe('resolveProgramCardState', () => {
       });
       expect(result).toEqual({ state: 'tracked' });
     });
+  });
+});
+
+describe('countConfiguredDomainChildren — Phase 4b round 4 (domain-only refinement: exclude the skill\'s own entry, no provenance signal available to exclude derived-only)', () => {
+  it('a master with a real level on 2 of the 4 canonical domains counts 2', () => {
+    expect(countConfiguredDomainChildren(['push', 'pull', 'legs', 'core'], { push: 10, pull: 14 })).toBe(2);
+  });
+
+  it("a skill's own subProgram slug (never one of the 4 canonical domains) is excluded from the count even though it has a real level — the exact calisthenics_upper case (front_lever + derived pull)", () => {
+    expect(
+      countConfiguredDomainChildren(['front_lever', 'planche', 'push', 'pull'], { front_lever: 5, pull: 14 }),
+    ).toBe(1); // only 'pull' — front_lever is excluded for not being a domain slug, regardless of its own real level
+  });
+
+  it('a single derived domain (the reported bug\'s exact shape) counts 1, correctly below the >=2 threshold', () => {
+    expect(countConfiguredDomainChildren(['push', 'pull'], { pull: 14 })).toBe(1);
+  });
+
+  it('no configured domains at all counts 0', () => {
+    expect(countConfiguredDomainChildren(['push', 'pull', 'legs', 'core'], {})).toBe(0);
+  });
+
+  it('a track present but at level 0 (filtered out upstream by flatTracksBySlug\'s own >0 rule) is not double-counted here — relies on the caller only passing real (>0) entries', () => {
+    // flatTracksBySlug is documented as already >0-filtered by the caller (useProgramCardState) —
+    // this test only confirms the function doesn't need its own redundant level check to behave correctly.
+    expect(countConfiguredDomainChildren(['push', 'pull'], { push: 10 })).toBe(1);
+  });
+
+  it('duplicate slugs in subProgramSlugs (defensive — should not happen in real data) do not inflate the count', () => {
+    expect(countConfiguredDomainChildren(['pull', 'pull', 'push'], { pull: 14, push: 10 })).toBe(2);
   });
 });

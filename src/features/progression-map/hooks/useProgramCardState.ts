@@ -19,6 +19,18 @@
  * list and count how many resolve to a slug with a real track level. That
  * count feeds resolveProgramCardState's 'tracked' → not_started_master
  * fold — see that file's own header for the bug this closes.
+ *
+ * Phase 4b round 4 refinement: the count (countConfiguredDomainChildren,
+ * program-card-state.service.ts) is now restricted to CANONICAL DOMAIN
+ * slugs only (push/pull/legs/core). Investigated and confirmed (recon, not
+ * guessed): the data model has NO field distinguishing a directly-assessed
+ * domain track from one auto-derived from a skill assessment (onboarding-
+ * sync's SKILL_TO_FOUNDATION_OFFSET) — both write the identical
+ * {currentLevel, percent:0} shape, same call. Building "exclude derived
+ * entries" literally isn't possible without a data-model change (a new
+ * source field, explicitly deferred — David's call, see that function's
+ * own header for the full reasoning). Domain-only counting is the
+ * buildable fix that still fully closes the reported bug.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
@@ -26,7 +38,11 @@ import { useExerciseLibraryStore } from '@/features/content/exercises/client/sto
 import { getIdToSlugMap, resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { getProgramByTemplateId } from '@/features/content/programs/core/program.service';
 import { isProgressionMapLeafProgram } from '@/lib/progression-map-config';
-import { resolveProgramCardState, type ProgramCardStateResult } from '../services/program-card-state.service';
+import {
+  resolveProgramCardState,
+  countConfiguredDomainChildren,
+  type ProgramCardStateResult,
+} from '../services/program-card-state.service';
 
 export function useProgramCardState(programId: string): ProgramCardStateResult {
   const profile = useUserStore((s) => s.profile);
@@ -86,7 +102,7 @@ export function useProgramCardState(programId: string): ProgramCardStateResult {
 
     const configuredMasterChildCount =
       !isLeafSkillProgram && masterSubPrograms != null
-        ? new Set(masterSubPrograms.map(resolveToSlug).filter((slug) => flatTracksBySlug[slug] != null)).size
+        ? countConfiguredDomainChildren(masterSubPrograms.map(resolveToSlug), flatTracksBySlug)
         : undefined;
 
     return resolveProgramCardState({
