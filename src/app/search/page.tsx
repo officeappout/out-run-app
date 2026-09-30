@@ -175,11 +175,23 @@ export default function SearchPage() {
   const loadConnections = useSocialStore((s) => s.loadConnections);
 
   // ── Top-level tab from URL ───────────────────────────────────────────────
+  // Explicit per-value so an actual `?tab=groups` deep link (if one exists
+  // anywhere, now or later) still resolves to groups — only a MISSING/
+  // unrecognized param (no param at all, or legacy 'social') falls through
+  // to the default. Round 8, #1: that default changed from 'groups' to
+  // 'exercises' — setTopTab('groups') deliberately DELETES the param to
+  // keep groups' own URL clean, which is exactly why this couldn't stay a
+  // simple "anything not in {people,exercises,events} → groups" catch-all
+  // once the no-param case stopped meaning groups. Any caller that wants
+  // to land specifically on groups must pass ?tab=groups explicitly now
+  // (see NearbyGroupsRow.tsx's "הכל" button, updated alongside this).
   const tabParam = searchParams.get('tab');
   const topTab: SearchTopTab =
-    tabParam === 'people' || tabParam === 'exercises' || tabParam === 'events'
-      ? tabParam
-      : 'groups'; // default; 'social' (legacy) also falls here
+    tabParam === 'groups' ? 'groups' :
+    tabParam === 'people' ? 'people' :
+    tabParam === 'exercises' ? 'exercises' :
+    tabParam === 'events' ? 'events' :
+    'exercises'; // default; 'social' (legacy) also falls here
 
   const setTopTab = useCallback(
     (next: SearchTopTab) => {

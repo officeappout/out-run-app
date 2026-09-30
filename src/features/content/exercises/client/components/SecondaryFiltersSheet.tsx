@@ -89,6 +89,16 @@ import { resolveEquipmentSvgPathList } from '@/features/workout-engine/shared/ut
 const DEFAULT_MAX_LEVELS = 20;
 const GRID_COLS = 5;
 
+/**
+ * Parked programs excluded from the מסלול list (round 8, #2) — not deleted
+ * from Firestore, just not offered as a selectable track here. Exact-name
+ * match, not substring: "עמידת ידיים" (handstand) is excluded, but
+ * "שכיבות סמיכה בעמידת ידיים" (handstand PUSHUP) — a different program that
+ * happens to contain the same substring — must stay, so this can't be a
+ * `.includes()` check.
+ */
+const EXCLUDED_TRACK_NAMES = new Set(['דגל אנושי', 'עמידת ידיים']);
+
 // Same physical-type → location-relevant bucketing EquipmentFilterSheet uses.
 // Duplicated (not imported) on purpose — EquipmentFilterSheet is shared by
 // 3 other flows (profile editor, onboarding, workout builder) with a
@@ -204,15 +214,25 @@ export default function SecondaryFiltersSheet({ gear }: Props) {
 
   // ── מסלול hierarchy: master → its children (deduped across masters), plus
   // standalone tracks belonging to no master (round 5, #3) ──────────────
+  // `visiblePrograms` excludes parked programs (round 8, #2) from the
+  // LIST ONLY — `programs` (unfiltered) is still what resolveProgramMatchIds
+  // and the filter/matching logic use everywhere else, so an exercise
+  // already tagged to one of these doesn't silently stop matching; they
+  // just aren't offered as a new selection here.
+  const visiblePrograms = useMemo(
+    () => programs.filter((p) => !EXCLUDED_TRACK_NAMES.has(p.name.trim())),
+    [programs],
+  );
+
   const { masters, childrenByMaster, standalone } = useMemo(() => {
-    const masterList = programs.filter((p) => p.isMaster);
+    const masterList = visiblePrograms.filter((p) => p.isMaster);
     const childIdSet = new Set(masterList.flatMap((m) => m.subPrograms ?? []));
     const claimed = new Set<string>();
     const byMaster = new Map<string, Program[]>();
     for (const m of masterList) {
       const kids = (m.subPrograms ?? [])
         .filter((id) => !claimed.has(id))
-        .map((id) => programs.find((p) => p.id === id))
+        .map((id) => visiblePrograms.find((p) => p.id === id))
         .filter((p): p is Program => !!p);
       kids.forEach((k) => claimed.add(k.id));
       byMaster.set(m.id, kids);
@@ -220,9 +240,9 @@ export default function SecondaryFiltersSheet({ gear }: Props) {
     return {
       masters: masterList,
       childrenByMaster: byMaster,
-      standalone: programs.filter((p) => !p.isMaster && !childIdSet.has(p.id)),
+      standalone: visiblePrograms.filter((p) => !p.isMaster && !childIdSet.has(p.id)),
     };
-  }, [programs]);
+  }, [visiblePrograms]);
 
   const gearSections = useMemo(() => {
     const park: GearDefinition[] = [];

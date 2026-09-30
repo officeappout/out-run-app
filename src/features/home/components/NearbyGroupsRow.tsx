@@ -297,7 +297,10 @@ export default function NearbyGroupsRow() {
               </button>
             )}
             <button
-              onClick={() => router.push('/search')}
+              // Explicit ?tab=groups — /search's own no-param default
+              // changed to the exercises tab, this "see all nearby
+              // groups" link needs its own tab regardless of that default.
+              onClick={() => router.push('/search?tab=groups')}
               className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 min-h-[44px] px-1"
             >
               הכל ›
