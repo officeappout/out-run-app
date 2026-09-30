@@ -32,6 +32,18 @@
  * gating logic is needed. One hook call per card, via the small
  * DiscoverCard wrapper below (a .map() can't call hooks directly).
  *
+ * Phase 4b round 5: candidates now also include useGatedProgramBuckets'
+ * underPopulatedMasterIds — a master with a real `tracks` entry (so it's
+ * NOT "available" from getProgramState's own precedence) but fewer than 2
+ * genuinely assessed domain children, round 4's ≥2 gate. TrackedProgramsSection
+ * stops rendering these; this is where they now surface instead — DiscoverCard's
+ * own useProgramCardState call correctly resolves them to not_started_master
+ * (the SAME gate, now consulted for real instead of leaving them stranded in
+ * neither section). The static DISCOVER_MASTER_CANDIDATES list is unrelated
+ * and kept as-is — it covers masters NEVER touched at all (no tracks entry,
+ * so they can't appear in underPopulatedMasterIds either); this is a
+ * complementary, dynamically-detected case, not a replacement.
+ *
  * Progression v2 Phase 4a-fix: a card's primary tap (SkillMapCard's own
  * navigation, unchanged) opens the tree in VIEW mode regardless of state —
  * assessment/prerequisites gate nothing about viewing (see
@@ -49,12 +61,11 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
-import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { domainTypeForSlug } from '@/features/profile/components/widgets/program-groups.utils';
 import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
 import { PROGRESSION_MAP_LEAF_PROGRAMS } from '@/lib/progression-map-config';
-import { bucketProgramsByRealState } from '@/features/progression-map/services/program-bucketing.service';
+import { useGatedProgramBuckets } from '@/features/progression-map/hooks/useGatedProgramBuckets';
 import { useProgramCardState } from '@/features/progression-map/hooks/useProgramCardState';
 import { NEEDS_ASSESSMENT_HINT } from '@/features/progression-map/services/program-card-state.service';
 import { SkillMapCard } from './SkillMapCard';
@@ -87,17 +98,25 @@ function DiscoverCard({ programId, nameHe }: { programId: string; nameHe: string
 
 export function DiscoverMoreSection() {
   const [expanded, setExpanded] = useState(false);
-  const profile = useUserStore((s) => s.profile);
-
-  const activePrograms = profile?.progression?.activePrograms ?? [];
-  const tracksRaw = (profile?.progression?.tracks ?? {}) as Record<string, { currentLevel?: number } | undefined>;
-  const { activeTemplateIds, trackedIds } = bucketProgramsByRealState(activePrograms, tracksRaw, resolveToSlug);
+  const { activeTemplateIds, trackedIds, underPopulatedMasterIds } = useGatedProgramBuckets();
   const excludedSlugs = new Set([...activeTemplateIds, ...trackedIds].map(resolveToSlug));
 
-  const candidates = [...PROGRESSION_MAP_LEAF_PROGRAMS, ...DISCOVER_MASTER_CANDIDATES].filter((p) => {
+  const staticCandidates = [...PROGRESSION_MAP_LEAF_PROGRAMS, ...DISCOVER_MASTER_CANDIDATES].filter((p) => {
     if (HIDDEN_PROGRAM_IDS.has(p.programId)) return false;
     return !excludedSlugs.has(resolveToSlug(p.programId));
   });
+
+  // Under-populated tracked masters (round 4's ≥2-domain gate) — real
+  // "גלה עוד" candidates, not covered by the static catalog above. Skip any
+  // already present there (e.g. full_body, if it's ALSO under-populated —
+  // the static entry already renders it, no duplicate).
+  const staticSlugs = new Set(staticCandidates.map((p) => resolveToSlug(p.programId)));
+  const dynamicMasterCandidates = underPopulatedMasterIds
+    .filter((id) => !HIDDEN_PROGRAM_IDS.has(id))
+    .filter((id) => !staticSlugs.has(resolveToSlug(id)))
+    .map((id) => ({ programId: id, nameHe: id }));
+
+  const candidates = [...staticCandidates, ...dynamicMasterCandidates];
 
   if (candidates.length === 0) {
     return null;

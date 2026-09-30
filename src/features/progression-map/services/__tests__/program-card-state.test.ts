@@ -13,7 +13,7 @@
  * questionnaire) or not_started_master (it doesn't).
  */
 import { describe, it, expect } from 'vitest';
-import { resolveProgramCardState, countConfiguredDomainChildren } from '../program-card-state.service';
+import { resolveProgramCardState, countConfiguredDomainChildren, buildFlatTracksBySlug } from '../program-card-state.service';
 import { DOMAIN_PROGRAM_IDS } from '../prerequisite-derivation.service';
 import type { Exercise } from '@/features/content/exercises/core/exercise.types';
 
@@ -252,5 +252,26 @@ describe('countConfiguredDomainChildren — Phase 4b round 4 (domain-only refine
 
   it('duplicate slugs in subProgramSlugs (defensive — should not happen in real data) do not inflate the count', () => {
     expect(countConfiguredDomainChildren(['pull', 'pull', 'push'], { pull: 14, push: 10 })).toBe(2);
+  });
+});
+
+describe('buildFlatTracksBySlug — Phase 4b round 5 (shared by useProgramCardState and useGatedProgramBuckets)', () => {
+  const resolve = (id: string) => (id === 'RAWID_upper' ? 'calisthenics_upper' : id);
+
+  it('resolves mixed id/slug keys into one slug-normalized map, real levels only', () => {
+    expect(buildFlatTracksBySlug({ pull: { currentLevel: 14 }, RAWID_upper: { currentLevel: 5 } }, resolve)).toEqual({
+      pull: 14,
+      calisthenics_upper: 5,
+    });
+  });
+
+  it('drops entries with currentLevel 0 or missing', () => {
+    expect(buildFlatTracksBySlug({ pull: { currentLevel: 0 }, push: {}, legs: { currentLevel: 10 } }, resolve)).toEqual({
+      legs: 10,
+    });
+  });
+
+  it('empty tracks map yields an empty result, no crash', () => {
+    expect(buildFlatTracksBySlug({}, resolve)).toEqual({});
   });
 });

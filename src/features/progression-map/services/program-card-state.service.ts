@@ -74,6 +74,26 @@ export function countConfiguredDomainChildren(
 }
 
 /**
+ * Collapse a raw tracks map (mixed id/slug keys, per-key {currentLevel})
+ * into one slug-normalized {slug: level} map, keeping only real (>0)
+ * levels. Shared by useProgramCardState.ts and useGatedProgramBuckets.ts —
+ * extracted (Phase 4b round 5) so a third caller doesn't fork a copy.
+ */
+export function buildFlatTracksBySlug(
+  tracksRaw: Record<string, { currentLevel?: number } | undefined>,
+  resolveSlug: (id: string) => string,
+): Record<string, number> {
+  const flatTracksBySlug: Record<string, number> = {};
+  for (const [key, value] of Object.entries(tracksRaw)) {
+    const lvl = value?.currentLevel;
+    if (typeof lvl === 'number' && lvl > 0) {
+      flatTracksBySlug[resolveSlug(key)] = lvl;
+    }
+  }
+  return flatTracksBySlug;
+}
+
+/**
  * Progression v2 Phase 4a-fix: 'available' is included for spec-fidelity
  * (the original 4-state brief named it) but resolveProgramCardState below
  * never actually RETURNS it bare anymore — see that function's reasoning.

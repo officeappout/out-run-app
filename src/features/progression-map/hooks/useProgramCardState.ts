@@ -41,6 +41,7 @@ import { isProgressionMapLeafProgram } from '@/lib/progression-map-config';
 import {
   resolveProgramCardState,
   countConfiguredDomainChildren,
+  buildFlatTracksBySlug,
   type ProgramCardStateResult,
 } from '../services/program-card-state.service';
 
@@ -92,13 +93,7 @@ export function useProgramCardState(programId: string): ProgramCardStateResult {
     );
 
     const tracksRaw = (profile.progression?.tracks ?? {}) as Record<string, { currentLevel?: number } | undefined>;
-    const flatTracksBySlug: Record<string, number> = {};
-    for (const [key, value] of Object.entries(tracksRaw)) {
-      const lvl = value?.currentLevel;
-      if (typeof lvl === 'number' && lvl > 0) {
-        flatTracksBySlug[resolveToSlug(key)] = lvl;
-      }
-    }
+    const flatTracksBySlug = buildFlatTracksBySlug(tracksRaw, resolveToSlug);
 
     const configuredMasterChildCount =
       !isLeafSkillProgram && masterSubPrograms != null

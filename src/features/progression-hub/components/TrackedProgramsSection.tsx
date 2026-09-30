@@ -31,18 +31,25 @@
  * questionnaire via resolveOnboardingEntryHref. The section keeps its own
  * "המפות שלי" heading either way, so the user always knows which section
  * they're looking at.
+ *
+ * Phase 4b round 5: membership now comes from useGatedProgramBuckets
+ * instead of bucketProgramsByRealState directly — a tracked MASTER with
+ * fewer than 2 real assessed domain children (the ≥2 gate from round 4) is
+ * excluded here and picked up by DiscoverMoreSection instead. Round 4's
+ * gate only changed the CARD's visual state elsewhere (useProgramCardState
+ * was never called here — this section always passed a static
+ * state="tracked") — it never touched which SECTION the card rendered in,
+ * so an under-populated master kept showing under "המפות שלי" regardless.
+ * See useGatedProgramBuckets.ts for the full reasoning.
  */
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
-import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
-import { bucketProgramsByRealState } from '@/features/progression-map/services/program-bucketing.service';
+import { useGatedProgramBuckets } from '@/features/progression-map/hooks/useGatedProgramBuckets';
 import AddStrengthProgramCard from '@/features/home/components/AddStrengthProgramCard';
 import { SkillMapCard } from './SkillMapCard';
 
 export function TrackedProgramsSection() {
   const profile = useUserStore((s) => s.profile);
-  const activePrograms = profile?.progression?.activePrograms ?? [];
-  const tracksRaw = (profile?.progression?.tracks ?? {}) as Record<string, { currentLevel?: number } | undefined>;
-  const { trackedIds } = bucketProgramsByRealState(activePrograms, tracksRaw, resolveToSlug);
+  const { trackedIds } = useGatedProgramBuckets();
 
   return (
     <section className="space-y-3">
