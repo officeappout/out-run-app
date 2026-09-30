@@ -15,6 +15,13 @@
  *
  * Icon enlarged again in round 4 (#2) — chip square itself stays 76px,
  * only the icon within it grows.
+ *
+ * No longer bleeds to the viewport edge on its own (round 7, #4) — it now
+ * shares its row with SecondaryFiltersTrigger (the funnel button), which
+ * sits as a fixed sibling rather than scrolling away with the chips, so a
+ * symmetric edge-to-edge bleed no longer has a consistent edge to bleed
+ * from on the funnel's side. The caller (ExerciseLibraryPage) wraps this
+ * in a `flex-1 min-w-0` cell of that row.
  */
 
 import { useMemo } from 'react';
@@ -35,7 +42,7 @@ export default function MuscleFilterBar() {
   );
 
   return (
-    <div className="overflow-x-auto scrollbar-hide -mx-4 px-4" dir="rtl">
+    <div className="flex-1 min-w-0 overflow-x-auto scrollbar-hide" dir="rtl">
       <div className="flex gap-3 pb-1">
         {chips.map((chip) => (
           <button

@@ -111,9 +111,10 @@ export default function ExerciseImageCard({ exercise, onClick }: ExerciseImageCa
         </div>
       )}
 
-      {/* ── White bottom fade, localized behind the name ── */}
+      {/* ── White bottom fade, behind the name — raised taller (round 7, #2)
+           so the black text sits on more solid white ── */}
       <div
-        className="absolute inset-x-0 bottom-0 h-16"
+        className="absolute inset-x-0 bottom-0 h-24"
         style={{
           background: 'linear-gradient(0deg, rgba(255,255,255,.92) 0%, rgba(255,255,255,0) 100%)',
         }}

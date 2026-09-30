@@ -33,6 +33,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Search, X } from 'lucide-react';
 import MuscleFilterBar from './components/MuscleFilterBar';
+import SecondaryFiltersTrigger from './components/SecondaryFiltersTrigger';
 import ActiveFilterChipsRow from './components/ActiveFilterChipsRow';
 import SecondaryFiltersSheet from './components/SecondaryFiltersSheet';
 import ExerciseImageCard from './components/ExerciseImageCard';
@@ -144,7 +145,10 @@ function ExerciseLibraryBody({
     <>
       {showFilterPills && (
         <div className={`${COLUMN} px-4 pt-3 space-y-2`}>
-          <MuscleFilterBar />
+          <div className="flex items-center gap-2">
+            <SecondaryFiltersTrigger />
+            <MuscleFilterBar />
+          </div>
           <ActiveFilterChipsRow gear={gear} />
         </div>
       )}

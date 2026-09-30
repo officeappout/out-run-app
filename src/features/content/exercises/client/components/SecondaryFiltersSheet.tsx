@@ -103,9 +103,44 @@ function isImprovisedGear(g: GearDefinition): boolean {
   return g.category === 'improvised';
 }
 
-/** Same slug formula used by program-hierarchy.utils.ts / home-workout.service.ts. */
-function programSlug(program: Program): string {
-  return program.slug || program.movementPattern || program.name.toLowerCase().replace(/[\s-]+/g, '_');
+/**
+ * Hebrew name → domain slug, for the 4 core movement patterns — these exact
+ * strings are already the canonical Hebrew label for each domain in many
+ * other places in this codebase (program-icon.util.tsx's PROGRAM_ALIAS_TO_ICON
+ * reverse, useExerciseMasterData.ts's PROGRAM_LABEL_FALLBACK, onboarding's
+ * ProgramResult.tsx, etc.) — not invented here. Used as one of several
+ * fallback candidates below, not the primary source.
+ */
+const HEBREW_DOMAIN_NAME_TO_SLUG: Record<string, string> = {
+  'משיכה': 'pull',
+  'דחיפה': 'push',
+  'רגליים': 'legs',
+  'פלג גוף תחתון': 'legs',
+  'ליבה': 'core',
+};
+
+/**
+ * Every plausible slug a program document might resolve to, most-reliable
+ * first (round 7, #1 fix). A single-value resolution (round 5's
+ * `programSlug`) broke for דחיפה even though it worked for משיכה — some
+ * program docs simply don't have BOTH `slug` and `movementPattern`
+ * populated consistently with each other (admin data-entry reality, not
+ * verifiable from this environment — no Firestore credentials here). Rather
+ * than guess which single field is reliable, every candidate gets tried:
+ * domainsToChipIds safely ignores whichever ones don't match a real
+ * PROG_TO_CHIPS key (via its own `individualIds` filter), so throwing in
+ * extra guesses costs nothing and can only ever ADD a correct match, never
+ * introduce a wrong one.
+ */
+function programSlugCandidates(program: Program): string[] {
+  const candidates: string[] = [];
+  if (program.slug) candidates.push(program.slug);
+  if (program.movementPattern) candidates.push(program.movementPattern);
+  const name = program.name.trim();
+  const hebrewSlug = HEBREW_DOMAIN_NAME_TO_SLUG[name];
+  if (hebrewSlug) candidates.push(hebrewSlug);
+  candidates.push(name.toLowerCase().replace(/[\s-]+/g, '_'));
+  return candidates;
 }
 
 interface Props {
@@ -224,7 +259,8 @@ export default function SecondaryFiltersSheet({ gear }: Props) {
     for (const trackId of selectedTrackIds) {
       for (const id of resolveProgramMatchIds(trackId, programs)) {
         const p = programs.find((pr) => pr.id === id);
-        slugs.push(p ? programSlug(p) : id);
+        if (p) slugs.push(...programSlugCandidates(p));
+        else slugs.push(id);
       }
     }
     return new Set(domainsToChipIds(slugs) as MuscleGroup[]);

@@ -93,10 +93,15 @@ type SearchTopTab = 'groups' | 'people' | 'exercises' | 'events';
 type DiscoverMode = 'my' | 'discover';
 type EventFilter = 'all' | 'running' | 'walking' | 'strength' | 'near';
 
+// Order = visual order in the RTL tab row (first entry renders rightmost).
+// תרגילים first per round 7, #3 — this array is local to this screen only,
+// not shared with any other tab bar; default active tab (on a fresh visit,
+// no ?tab= param) is a separate hardcoded fallback below, unaffected by
+// this order.
 const TOP_TABS: { value: SearchTopTab; label: string }[] = [
+  { value: 'exercises', label: 'תרגילים' },
   { value: 'groups',    label: 'קבוצות' },
   { value: 'people',   label: 'אנשים' },
-  { value: 'exercises', label: 'תרגילים' },
   { value: 'events',   label: 'אירועים' },
 ];
 
@@ -142,17 +147,6 @@ export default function SearchPage() {
   const { groups: myGroups } = useMyGroups();
   const { userCoords } = useUserLocation();
   const exerciseCount = useExerciseLibraryStore((s) => s.allExercises.length);
-  // Count of active secondary filters (each track, each track's selected
-  // levels, מיקום, each ציוד item — round 5: level is per-track now,
-  // levelsByProgram: Record<programId, number[]>) — drives the funnel
-  // badge next to the search bar. Mirrors the chips ActiveFilterChipsRow
-  // renders.
-  const secondaryFilterCount = useExerciseLibraryStore((s) =>
-    Object.keys(s.filters.levelsByProgram).length +
-    Object.values(s.filters.levelsByProgram).reduce((sum, levels) => sum + levels.length, 0) +
-    (s.filters.location === 'home' || s.filters.location === 'park' ? 1 : 0) +
-    s.filters.equipmentIds.length
-  );
 
   // bannerSessions still used for GroupDetailsDrawer's liveSession prop (member attendance data)
   const { sessions: bannerSessions } = useCommunitySessionBanner();
@@ -543,48 +537,28 @@ export default function SearchPage() {
             with the global header so the entire chrome moves as a unit. ── */}
       <AppHeader zIndex={30}>
         <div className="max-w-md mx-auto px-5 pb-3" dir="rtl">
-          <div className="flex items-center gap-2">
-            {/* Search input */}
-            <div className="flex-1 min-w-0 flex items-center gap-2 bg-gray-100 rounded-xl px-3 py-2.5">
-              <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder={getPlaceholder(topTab, discoverMode)}
-                className="flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none"
-                aria-label="חיפוש"
-              />
-              {searchTerm && (
-                <button
-                  type="button"
-                  onClick={() => setSearchTerm('')}
-                  className="p-0.5 rounded-full hover:bg-gray-200 transition-colors"
-                  aria-label="נקה חיפוש"
-                >
-                  <X className="w-3.5 h-3.5 text-gray-500" />
-                </button>
-              )}
-            </div>
-
-            {/* Secondary-filters funnel — exercises tab only (מסלול/רמה/מיקום/ציוד) */}
-            {topTab === 'exercises' && (
+          {/* Search input — the secondary-filters funnel used to live here
+              (round 1-6); moved inline with the muscle-chip row instead
+              (round 7, #4), since it's exercises-tab-only chrome and reads
+              oddly sitting in the shared header above the tab bar. */}
+          <div className="flex items-center gap-2 bg-gray-100 rounded-xl px-3 py-2.5">
+            <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder={getPlaceholder(topTab, discoverMode)}
+              className="flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none"
+              aria-label="חיפוש"
+            />
+            {searchTerm && (
               <button
                 type="button"
-                onClick={() => useExerciseLibraryStore.getState().setSecondaryFiltersOpen(true)}
-                aria-label="סינון מתקדם"
-                className={`relative w-11 h-11 rounded-full flex items-center justify-center transition-colors flex-shrink-0 ${
-                  secondaryFilterCount > 0
-                    ? 'bg-[#00ADEF] text-white'
-                    : 'bg-gray-100 text-gray-600'
-                }`}
+                onClick={() => setSearchTerm('')}
+                className="p-0.5 rounded-full hover:bg-gray-200 transition-colors"
+                aria-label="נקה חיפוש"
               >
-                <SlidersHorizontal className="w-4 h-4" />
-                {secondaryFilterCount > 0 && (
-                  <span className="absolute -top-1 -start-1 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-white text-[10px] font-extrabold flex items-center justify-center border-2 border-white">
-                    {secondaryFilterCount}
-                  </span>
-                )}
+                <X className="w-3.5 h-3.5 text-gray-500" />
               </button>
             )}
           </div>
