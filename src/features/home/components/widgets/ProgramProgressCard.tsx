@@ -18,17 +18,24 @@ export interface GoalItem {
 /**
  * Progression v2 Phase 4a — card state variant. Undefined (the default) is
  * today's exact rendering, unchanged — this is fully additive, not a
- * replacement of the existing visual. Only 4 values this phase (no PRO):
- * 🟢 active / 🔵 tracked / ⚪ available render IDENTICALLY to the default
- * (today's card) — the section a card appears in (Progression screen)
- * already communicates which of the three it is, so there is no per-state
- * visual difference among them. Only 🔒 locked_prereq gets a different
- * look, reusing the exact dashed-border pattern that already exists as a
- * hand-rolled sibling block in ProgramsSection.tsx (`!card.isAssessed`) —
- * integrated into this card itself instead of staying a separate,
- * duplicated block.
+ * replacement of the existing visual. 🟢 active / 🔵 tracked render
+ * IDENTICALLY to the default (today's card) — the section a card appears
+ * in (Progression screen) already communicates which. 🔒 locked_prereq
+ * gets a different look, reusing the exact dashed-border pattern that
+ * already exists as a hand-rolled sibling block in ProgramsSection.tsx
+ * (`!card.isAssessed`) — integrated into this card itself instead of
+ * staying a separate, duplicated block.
+ *
+ * Phase 4a-fix: ⚪ available is kept in the type for spec-fidelity but the
+ * caller (program-card-state.service.ts's resolveProgramCardState) never
+ * actually produces it bare anymore — 'available' structurally means
+ * "never assessed, no data to show," so it always resolves to either
+ * locked_prereq (a leaf/skill program — it HAS a questionnaire) or the
+ * new not_started_master (a master — it has NO own questionnaire, no own
+ * real level to fabricate; same dashed look, different static text, never
+ * a tappable "בצע מבדק").
  */
-export type ProgramCardVisualState = 'active' | 'tracked' | 'available' | 'locked_prereq';
+export type ProgramCardVisualState = 'active' | 'tracked' | 'available' | 'locked_prereq' | 'not_started_master';
 
 export interface ProgramProgressCardProps {
   programName: string;
@@ -157,13 +164,21 @@ export function ProgramProgressCard({
     : {};
 
   const isLocked = state === 'locked_prereq';
+  const isNotStartedMaster = state === 'not_started_master';
 
-  // ── Locked variant (Progression v2 Phase 4a) ────────────────────────────
+  // ── Locked / not-started-master variant (Progression v2 Phase 4a,
+  // extended 4a-fix) ───────────────────────────────────────────────────────
   // Reuses ProgramsSection.tsx's existing dashed "not yet assessed" pattern
   // exactly (1px dashed #CBD5E1, grayed name, cyan hint) rather than
-  // inventing a new locked look — no ring, no expandable goals, since a
-  // locked program has neither a meaningful level nor goals to show yet.
-  if (isLocked) {
+  // inventing a new locked look — no ring, no expandable goals, since
+  // neither state has a meaningful own level to show yet. A master
+  // (not_started_master) never gets lockedHint/onLockedHintTap — it has no
+  // own questionnaire to assess, so it always shows the SAME static "not
+  // started, based on your programs" text with no tappable CTA, regardless
+  // of what the caller passed for lockedHint.
+  if (isLocked || isNotStartedMaster) {
+    const displayHint = isNotStartedMaster ? 'טרם התחיל · מבוסס על התוכניות שלך' : lockedHint;
+    const hintTappable = isLocked && !!onLockedHintTap;
     return (
       <div
         className={`bg-white dark:bg-slate-800 w-full flex flex-col justify-between ${className}`}
@@ -190,22 +205,25 @@ export function ProgramProgressCard({
                 </span>
               )}
             </div>
-            {lockedHint && (
-              onLockedHintTap ? (
+            {displayHint && (
+              hintTappable ? (
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onLockedHintTap();
+                    onLockedHintTap!();
                   }}
                   className="text-xs font-bold mt-2 underline active:opacity-70 pointer-events-auto relative z-10"
                   style={{ color: BRAND_CYAN }}
                 >
-                  {lockedHint}
+                  {displayHint}
                 </button>
               ) : (
-                <p className="text-xs font-bold mt-2" style={{ color: BRAND_CYAN }}>
-                  {lockedHint}
+                <p
+                  className={`text-xs font-bold mt-2 ${isNotStartedMaster ? 'text-gray-400' : ''}`}
+                  style={isNotStartedMaster ? undefined : { color: BRAND_CYAN }}
+                >
+                  {displayHint}
                 </p>
               )
             )}

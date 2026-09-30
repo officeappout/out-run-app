@@ -22,10 +22,20 @@
  * completely separate, hardcoded section with no such guarantee at all).
  * State is trivially 'tracked' by list membership here too — no gating
  * call needed.
+ *
+ * Progression v2 Phase 4a-fix (follow-up): when there's nothing tracked
+ * (the common brand-new-user case), this section is no longer blank —
+ * it renders the EXISTING home-screen onboarding card (AddStrengthProgramCard,
+ * "תוכנית כוח · אימון מותאם אישית למטרות שלך") as its empty state, reused
+ * as-is (not rebuilt) — it already routes to the general onboarding
+ * questionnaire via resolveOnboardingEntryHref. The section keeps its own
+ * "המפות שלי" heading either way, so the user always knows which section
+ * they're looking at.
  */
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { bucketProgramsByRealState } from '@/features/progression-map/services/program-bucketing.service';
+import AddStrengthProgramCard from '@/features/home/components/AddStrengthProgramCard';
 import { SkillMapCard } from './SkillMapCard';
 
 export function TrackedProgramsSection() {
@@ -34,18 +44,18 @@ export function TrackedProgramsSection() {
   const tracksRaw = (profile?.progression?.tracks ?? {}) as Record<string, { currentLevel?: number } | undefined>;
   const { trackedIds } = bucketProgramsByRealState(activePrograms, tracksRaw, resolveToSlug);
 
-  if (trackedIds.length === 0) {
-    return null;
-  }
-
   return (
     <section className="space-y-3">
       <h2 className="text-sm font-black text-gray-800">המפות שלי</h2>
-      <div className="space-y-3">
-        {trackedIds.map((id) => (
-          <SkillMapCard key={id} programId={id} nameHe={id} state="tracked" />
-        ))}
-      </div>
+      {trackedIds.length === 0 ? (
+        <AddStrengthProgramCard profile={profile} />
+      ) : (
+        <div className="space-y-3">
+          {trackedIds.map((id) => (
+            <SkillMapCard key={id} programId={id} nameHe={id} state="tracked" />
+          ))}
+        </div>
+      )}
     </section>
   );
 }

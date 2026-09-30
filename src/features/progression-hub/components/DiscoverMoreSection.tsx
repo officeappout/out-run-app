@@ -14,14 +14,23 @@
  * Program docs with no curation; a bigger catalog is a future-phase
  * decision, not built here. Filtered to programs that are NEITHER active
  * NOR tracked (those show in "פעילות"/"המפות שלי" instead, mutually
- * exclusive by construction — see ActiveProgramsSection.tsx /
- * TrackedProgramsSection.tsx).
+ * exclusive by construction — the SAME shared bucketProgramsByRealState
+ * ActiveProgramsSection.tsx/TrackedProgramsSection.tsx read).
  *
- * Each card's real state (available vs locked_prereq) is genuinely
- * unknown from list membership alone — unlike Active/TrackedProgramsSection,
- * this is where useProgramCardState's real Phase 1 gating logic is needed.
- * One hook call per card, via the small DiscoverCard wrapper below (a
- * .map() can't call hooks directly).
+ * Progression v2 Phase 4a-fix (follow-up): דגל אנושי (human flag,
+ * EtY8YCol0qpF6DzgcTx1) is explicitly excluded from the catalog — its own
+ * level-1 exercise carries no derivable domain tag at all (confirmed by
+ * Phase 0's live audit), so its prerequisite can't be resolved the way
+ * every other skill's can. Hidden entirely for now, consistent with the
+ * earlier decision to leave that program's design for later — excluded
+ * from the candidate list itself (not just skipped from rendering) so it
+ * can never leak into any bucket.
+ *
+ * Each card's real state (available/needs_assessment/locked_prereq) is
+ * genuinely unknown from list membership alone — unlike Active/
+ * TrackedProgramsSection, this is where useProgramCardState's real Phase 1
+ * gating logic is needed. One hook call per card, via the small
+ * DiscoverCard wrapper below (a .map() can't call hooks directly).
  *
  * Progression v2 Phase 4a-fix: a card's primary tap (SkillMapCard's own
  * navigation, unchanged) opens the tree in VIEW mode regardless of state —
@@ -33,7 +42,9 @@
  * WorkoutBuilderSheet.tsx) rather than inventing a new assessment entry
  * point. A real prerequisite lockedHint gets no CTA — nothing to action,
  * just informational (per the brief: gate starting a workout, not viewing,
- * and there's no start-workout action on this card at all).
+ * and there's no start-workout action on this card at all). A master
+ * (not_started_master state) never gets onAssessTap either — see
+ * program-card-state.service.ts's own reasoning (no own questionnaire).
  */
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -43,9 +54,13 @@ import { resolveToSlug } from '@/features/workout-engine/services/program-hierar
 import { domainTypeForSlug } from '@/features/profile/components/widgets/program-groups.utils';
 import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
 import { PROGRESSION_MAP_LEAF_PROGRAMS } from '@/lib/progression-map-config';
+import { bucketProgramsByRealState } from '@/features/progression-map/services/program-bucketing.service';
 import { useProgramCardState } from '@/features/progression-map/hooks/useProgramCardState';
 import { NEEDS_ASSESSMENT_HINT } from '@/features/progression-map/services/program-card-state.service';
 import { SkillMapCard } from './SkillMapCard';
+
+/** דגל אנושי — no derivable prerequisite, hidden for now. See file header. */
+const HIDDEN_PROGRAM_IDS: ReadonlySet<string> = new Set(['EtY8YCol0qpF6DzgcTx1']);
 
 /** The one flagship master surfaced here — see file header for why not a wider sweep. */
 const DISCOVER_MASTER_CANDIDATES: readonly { programId: string; nameHe: string }[] = [
@@ -75,19 +90,13 @@ export function DiscoverMoreSection() {
   const profile = useUserStore((s) => s.profile);
 
   const activePrograms = profile?.progression?.activePrograms ?? [];
-  const activeSlugs = new Set(
-    activePrograms.map((ap) => (ap?.templateId ? resolveToSlug(ap.templateId) : null)).filter(Boolean),
-  );
   const tracksRaw = (profile?.progression?.tracks ?? {}) as Record<string, { currentLevel?: number } | undefined>;
-  const trackedSlugs = new Set(
-    Object.entries(tracksRaw)
-      .filter(([, v]) => (v?.currentLevel ?? 0) > 0)
-      .map(([id]) => resolveToSlug(id)),
-  );
+  const { activeTemplateIds, trackedIds } = bucketProgramsByRealState(activePrograms, tracksRaw, resolveToSlug);
+  const excludedSlugs = new Set([...activeTemplateIds, ...trackedIds].map(resolveToSlug));
 
   const candidates = [...PROGRESSION_MAP_LEAF_PROGRAMS, ...DISCOVER_MASTER_CANDIDATES].filter((p) => {
-    const slug = resolveToSlug(p.programId);
-    return !activeSlugs.has(slug) && !trackedSlugs.has(slug);
+    if (HIDDEN_PROGRAM_IDS.has(p.programId)) return false;
+    return !excludedSlugs.has(resolveToSlug(p.programId));
   });
 
   if (candidates.length === 0) {

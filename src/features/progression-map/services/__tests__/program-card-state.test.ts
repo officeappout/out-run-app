@@ -1,13 +1,16 @@
 /**
- * program-card-state.test.ts — Progression System v2, Phase 4a.
+ * program-card-state.test.ts — Progression System v2, Phase 4a / 4a-fix.
  *
  * Unit tests for resolveProgramCardState — the pure state->variant mapping
  * behind ProgramProgressCard's new `state` prop. Reuses Phase 1's real
  * derivePrerequisites/evaluateProgramGate/getProgramState (same synthetic-
- * catalog worked-example pattern as Phase 1/2/3's own tests), asserting the
- * full chain: active/tracked/available map through unchanged; locked_prereq
- * carries the derived prerequisite label; needs_assessment renders like
- * locked_prereq but with the "בצע מבדק" hint instead.
+ * catalog worked-example pattern as Phase 1/2/3's own tests).
+ *
+ * Phase 4a-fix (follow-up): 'available' must never be returned bare — it
+ * structurally means "never assessed, no real data" (see the service's own
+ * reasoning), which used to render a fabricated "level 1 / 0%" card. It now
+ * always folds to either locked_prereq (a leaf/skill program — it HAS a
+ * questionnaire) or not_started_master (it doesn't).
  */
 import { describe, it, expect } from 'vitest';
 import { resolveProgramCardState } from '../program-card-state.service';
@@ -58,7 +61,7 @@ describe('resolveProgramCardState', () => {
     expect(result).toEqual({ state: 'tracked' });
   });
 
-  it('available (prerequisite met, not active/tracked) maps straight through, no hint', () => {
+  it('a leaf/skill program with prerequisite met (raw "available") folds to locked_prereq + "בצע מבדק" — it has never been assessed itself, and it HAS its own questionnaire', () => {
     const result = resolveProgramCardState({
       programSlug: 'front_lever',
       isLeafSkillProgram: true,
@@ -68,7 +71,7 @@ describe('resolveProgramCardState', () => {
       activeProgramSlugs: new Set(['pull']),
       resolveDomainSlug: identitySlug,
     });
-    expect(result).toEqual({ state: 'available' });
+    expect(result).toEqual({ state: 'locked_prereq', lockedHint: 'בצע מבדק' });
   });
 
   it('locked_prereq: below the required level -> the derived "דרוש X Y" hint', () => {
@@ -97,7 +100,7 @@ describe('resolveProgramCardState', () => {
     expect(result).toEqual({ state: 'locked_prereq', lockedHint: 'בצע מבדק' });
   });
 
-  it('a non-leaf (master) program never gets prerequisite-derived, always resolves available/active/tracked', () => {
+  it('a non-leaf (master) program never gets prerequisite-derived, and folds "available" to not_started_master — never a fabricated own level, never "בצע מבדק" (no own questionnaire)', () => {
     const result = resolveProgramCardState({
       programSlug: 'full_body',
       isLeafSkillProgram: false,
@@ -107,10 +110,23 @@ describe('resolveProgramCardState', () => {
       activeProgramSlugs: new Set(),
       resolveDomainSlug: identitySlug,
     });
-    expect(result).toEqual({ state: 'available' });
+    expect(result).toEqual({ state: 'not_started_master' });
   });
 
-  it('an empty exercise catalog (not yet hydrated) never crashes — falls through to available', () => {
+  it('a master that IS active still resolves to active, not not_started_master', () => {
+    const result = resolveProgramCardState({
+      programSlug: 'full_body',
+      isLeafSkillProgram: false,
+      allExercises: CATALOG,
+      rawSkillProgramId: 'full_body',
+      flatTracksBySlug: { full_body: 3 },
+      activeProgramSlugs: new Set(['full_body']),
+      resolveDomainSlug: identitySlug,
+    });
+    expect(result).toEqual({ state: 'active' });
+  });
+
+  it('an empty exercise catalog (not yet hydrated) never crashes — a leaf program falls through to locked_prereq/"בצע מבדק"', () => {
     const result = resolveProgramCardState({
       programSlug: 'front_lever',
       isLeafSkillProgram: true,
@@ -120,6 +136,6 @@ describe('resolveProgramCardState', () => {
       activeProgramSlugs: new Set(),
       resolveDomainSlug: identitySlug,
     });
-    expect(result).toEqual({ state: 'available' });
+    expect(result).toEqual({ state: 'locked_prereq', lockedHint: 'בצע מבדק' });
   });
 });

@@ -3,12 +3,20 @@
  *
  * Pure state->variant mapping for ProgramProgressCard's new `state` prop:
  * maps Phase 1's 6-value ProgramState (active/tracked/available/
- * locked_prereq/needs_assessment/locked_pro) down to the 4 card-visual
- * states this phase ships (no PRO yet — locked_pro is defensively folded
- * into locked_prereq with no hint, since it should be structurally
- * unreachable while every Program.requiredTier check is tier-1-passes).
+ * locked_prereq/needs_assessment/locked_pro) down to this phase's
+ * card-visual states (no PRO yet — locked_pro is defensively folded into
+ * locked_prereq with no hint, since it should be structurally unreachable
+ * while every Program.requiredTier check is tier-1-passes).
  * needs_assessment renders identically to locked_prereq, distinguished
  * only by lockedHint text ("בצע מבדק" vs the derived prerequisite label).
+ *
+ * Phase 4a-fix: 'available' is never returned bare — see
+ * resolveProgramCardState's own reasoning. A program that's structurally
+ * "never assessed, no blocking prerequisite" gets the SAME locked_prereq/
+ * "בצע מבדק" treatment as needs_assessment when it's a leaf/skill program
+ * (it has its own questionnaire), or the new not_started_master state when
+ * it doesn't (a master has no own questionnaire, no own real level to
+ * fabricate).
  *
  * All inputs are plain, already-slug-normalized data — no Firestore/store
  * access here, so this is independently unit-testable without React/jsdom
@@ -19,7 +27,16 @@ import { derivePrerequisites } from './prerequisite-derivation.service';
 import { evaluateProgramGate, getProgramState, type ProgramState } from './program-gating.service';
 import type { Exercise } from '@/features/content/exercises/core/exercise.types';
 
-export type ProgramCardVisualState = 'active' | 'tracked' | 'available' | 'locked_prereq';
+/**
+ * Progression v2 Phase 4a-fix: 'available' is included for spec-fidelity
+ * (the original 4-state brief named it) but resolveProgramCardState below
+ * never actually RETURNS it bare anymore — see that function's reasoning.
+ * 'not_started_master' is new: a master's own rollup level is never a real
+ * assessed level (no own questionnaire exists for a master), so it needs a
+ * visibly DIFFERENT "not started" treatment than a locked leaf program —
+ * never "בצע מבדק" (nothing to assess), never a fabricated level.
+ */
+export type ProgramCardVisualState = 'active' | 'tracked' | 'available' | 'locked_prereq' | 'not_started_master';
 
 export interface ProgramCardStateResult {
   state: ProgramCardVisualState;
@@ -74,8 +91,22 @@ export function resolveProgramCardState(params: {
     gate,
   );
 
-  if (rawState === 'active' || rawState === 'tracked' || rawState === 'available') {
+  if (rawState === 'active' || rawState === 'tracked') {
     return { state: rawState };
+  }
+  if (rawState === 'available') {
+    // Progression v2 Phase 4a-fix: 'available' structurally means "not
+    // active, not tracked" — i.e. this program has NEVER been assessed
+    // either way (no real track entry to read a level from). A leaf/skill
+    // program in this state genuinely can be assessed (it has its own
+    // mini-questionnaire), so it gets the SAME treatment as
+    // needs_assessment (dashed card + "בצע מבדק"). A master has no own
+    // questionnaire at all — it gets a distinct "not started" treatment
+    // instead (never a fabricated own level, never an assessment CTA
+    // that doesn't exist for it).
+    return params.isLeafSkillProgram
+      ? { state: 'locked_prereq', lockedHint: NEEDS_ASSESSMENT_HINT }
+      : { state: 'not_started_master' };
   }
   if (rawState === 'needs_assessment') {
     return { state: 'locked_prereq', lockedHint: NEEDS_ASSESSMENT_HINT };
