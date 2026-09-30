@@ -130,6 +130,13 @@ export const RATE_LIMITS = {
   unitMemberRemove: {
     uidHourly: () => envWindow('RL_UNIT_MEMBER_REMOVE_UID_HOURLY', HOUR, 100),
   },
+  // POST/PATCH /api/admin/parks(/[parkId]) (30.09.2026, stage 2 of the
+  // parks permission-model rebuild) — authority_manager create/edit,
+  // root create/edit/reassign. Same "generous headroom for a normal
+  // work session" shape as the unit-member actions above.
+  parkWrite: {
+    uidHourly: () => envWindow('RL_PARK_WRITE_UID_HOURLY', HOUR, 100),
+  },
 } as const;
 
 /**
