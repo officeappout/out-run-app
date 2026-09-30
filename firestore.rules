@@ -2336,7 +2336,18 @@ service cloud.firestore {
 
       match /units/{unitId} {
         allow read: if hasTenant(tenantId);
-        allow write: if isAdmin();
+        allow create: if isAdmin();
+        allow update: if isAdmin();
+        // Deletion — root only (David, 30.09.2026): isSuperAdminOnly(),
+        // NOT the broader isAdmin() (which also admits a plain
+        // core.role=='admin' user). No authority_manager/tenant_owner/
+        // unit_admin, ever — units are marked inactive instead
+        // (00-MASTER-PLAN.md §13.55's backlog item), not deleted. This
+        // bar is explicit and permanent, not inferred from "no role
+        // happens to satisfy it today" — the UI path (handleDeleteAllUnits)
+        // was already removed entirely (71e864f2); this is the rules-layer
+        // backstop so the bar holds even if a client bypasses the UI.
+        allow delete: if isSuperAdminOnly();
       }
     }
 

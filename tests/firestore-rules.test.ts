@@ -2311,6 +2311,80 @@ async function testSpec04MinorsAndRadius() {
   });
 }
 
+// ─── Unit deletion — root only (30.09.2026, David) ─────────────────────────
+//
+// tenants/{t}/units/{u}'s write was a single `allow write: if isAdmin()`.
+// Split into create/update (unchanged, isAdmin()) and delete
+// (isSuperAdminOnly() — deliberately narrower: excludes a plain
+// core.role=='admin' user, which isAdmin() would still admit). Proves the
+// split didn't regress create/update, and that delete now draws the line
+// exactly where isSuperAdminOnly() draws it — not where isAdmin() would.
+async function testUnitDeletion() {
+  console.log('\nunit-deletion — root only (isSuperAdminOnly, not the broader isAdmin)');
+
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'users', 'ud_super_admin'), { core: { name: 'SA', isSuperAdmin: true } });
+    await setDoc(doc(db, 'users', 'ud_system_admin'), { core: { name: 'SysA', isSystemAdmin: true } });
+    // The exact case isSuperAdminOnly() is deliberately narrower than
+    // isAdmin() for: a plain core.role=='admin' user with NEITHER
+    // isSuperAdmin NOR isSystemAdmin. isAdmin() admits this user;
+    // isSuperAdminOnly() must not.
+    await setDoc(doc(db, 'users', 'ud_plain_admin_role'), { core: { name: 'PA', role: 'admin' } });
+    // Stand-in for authority_manager/tenant_owner/unit_admin alike — none
+    // of the three carry ANY core.* flag isAdmin()/isSuperAdminOnly()
+    // check; the role distinction between them is enforced at the
+    // application layer (resolveUnitPermissionScope), not here.
+    await setDoc(doc(db, 'users', 'ud_no_admin_flags'), { core: { name: 'NA', isTenantOwner: true, unitId: 'co_ud_9307' } });
+
+    await setDoc(doc(db, 'tenants', 'brigade_ud_810'), { name: 'Test Brigade' });
+    await setDoc(doc(db, 'tenants', 'brigade_ud_810', 'units', 'co_ud_9307'), { name: 'Test Unit', parentUnitId: null });
+  });
+
+  await it('UD1 — super_admin creates a unit → ALLOW (create unchanged)', async () => {
+    const ctx = env.authenticatedContext('ud_super_admin');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'tenants', 'brigade_ud_810', 'units', 'co_ud_new1'), { name: 'New', parentUnitId: null }));
+  });
+
+  await it('UD2 — non-admin creates a unit → DENY (create unchanged)', async () => {
+    const ctx = env.authenticatedContext('ud_no_admin_flags');
+    await assertFails(setDoc(doc(ctx.firestore(), 'tenants', 'brigade_ud_810', 'units', 'co_ud_new2'), { name: 'New', parentUnitId: null }));
+  });
+
+  await it('UD3 — super_admin updates a unit → ALLOW (update unchanged)', async () => {
+    const ctx = env.authenticatedContext('ud_super_admin');
+    await assertSucceeds(updateDoc(doc(ctx.firestore(), 'tenants', 'brigade_ud_810', 'units', 'co_ud_9307'), { name: 'Renamed' }));
+  });
+
+  await it('UD4 — super_admin deletes a unit → ALLOW', async () => {
+    const ctx = env.authenticatedContext('ud_super_admin');
+    await assertSucceeds(deleteDoc(doc(ctx.firestore(), 'tenants', 'brigade_ud_810', 'units', 'co_ud_new1')));
+  });
+
+  await it('UD5 — system_admin deletes a unit → ALLOW', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'tenants', 'brigade_ud_810', 'units', 'co_ud_new3'), { name: 'New3', parentUnitId: null });
+    });
+    const ctx = env.authenticatedContext('ud_system_admin');
+    await assertSucceeds(deleteDoc(doc(ctx.firestore(), 'tenants', 'brigade_ud_810', 'units', 'co_ud_new3')));
+  });
+
+  await it('UD6 — plain core.role==\'admin\' (no isSuperAdmin/isSystemAdmin) deletes a unit → DENY (the exact narrowing this change makes — isAdmin() would have allowed this)', async () => {
+    const ctx = env.authenticatedContext('ud_plain_admin_role');
+    await assertFails(deleteDoc(doc(ctx.firestore(), 'tenants', 'brigade_ud_810', 'units', 'co_ud_9307')));
+  });
+
+  await it('UD7 — no admin flags (stand-in for authority_manager/tenant_owner/unit_admin) deletes a unit → DENY', async () => {
+    const ctx = env.authenticatedContext('ud_no_admin_flags');
+    await assertFails(deleteDoc(doc(ctx.firestore(), 'tenants', 'brigade_ud_810', 'units', 'co_ud_9307')));
+  });
+
+  await it('UD8 — unauthenticated deletes a unit → DENY', async () => {
+    const ctx = env.unauthenticatedContext();
+    await assertFails(deleteDoc(doc(ctx.firestore(), 'tenants', 'brigade_ud_810', 'units', 'co_ud_9307')));
+  });
+}
+
 // ─── Vitest wiring ──────────────────────────────────────────────────────────
 //
 // The harness's own `it()` (above) never throws — it catches each case's
@@ -2374,4 +2448,5 @@ describe('Firestore Rules — Cumulative Integration Test Suite', () => {
   vitestIt('connections SEC-01 (SPEC-02, partial)', wrapSuite(testConnectionsSec01));
   vitestIt('F-18 forgery (SPEC-02)', wrapSuite(testF18Forgery));
   vitestIt('SPEC-04 Wave A (presence age-scoped read) + Wave E (referrals lockdown)', wrapSuite(testSpec04MinorsAndRadius));
+  vitestIt('unit-deletion — root only (30.09.2026)', wrapSuite(testUnitDeletion));
 });
