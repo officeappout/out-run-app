@@ -12,7 +12,7 @@
  * close, body-scroll-lock). All content + data live in MasterExerciseView.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -28,6 +28,16 @@ export default function ExerciseDetailSheet() {
   const exercise       = useExerciseLibraryStore((s) => s.selectedExercise);
   const close          = useExerciseLibraryStore((s) => s.closeDetail);
   const filterLocation = useExerciseLibraryStore((s) => s.filters.location);
+  const allPrograms    = useExerciseLibraryStore((s) => s.allPrograms);
+
+  // Real program names for the "תוכניות" per-program level list (round 5,
+  // #2). Without this, useExerciseMasterData falls back to a static
+  // slug→Hebrew heuristic (PROGRAM_LABEL_FALLBACK) — a real name from the
+  // loaded catalog is strictly better when we already have it.
+  const programLabels = useMemo(
+    () => Object.fromEntries(allPrograms.map((p) => [p.id, p.name])),
+    [allPrograms],
+  );
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
@@ -117,6 +127,7 @@ export default function ExerciseDetailSheet() {
               <MasterExerciseView
                 exercise={exercise}
                 filterLocation={filterLocation}
+                programLabels={programLabels}
                 onNavigateToAnalytics={handleNavigateToAnalytics}
                 onNavigateToRoadmap={handleNavigateToRoadmap}
               />

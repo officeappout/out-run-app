@@ -2,12 +2,16 @@
 
 /**
  * ActiveFilterChipsRow — removable chips for every active filter (muscle,
- * each track, each level, מיקום, each ציוד item), plus "נקה הכל". Rendered
- * below the muscle bar, only when at least one is active.
+ * each track, each track's selected levels, מיקום, each ציוד item), plus
+ * "נקה הכל". Rendered below the muscle bar, only when at least one is
+ * active.
  *
- * Track and level are separate chip groups (round 4, #6 — both multi-select
- * unions now, no longer a single "Track · Level N" combined chip), mirroring
- * how muscle chips already render one-per-active-value.
+ * Track and level chips are separate (round 5, #6 — level is per-track now,
+ * levelsByProgram: Record<programId, number[]>): one chip per selected
+ * track (removing it clears that whole track, levels included), and one
+ * chip per selected level WITHIN a track, labeled "Track · רמה N" since two
+ * different tracks can each have their own level 3 selected at once and a
+ * bare "רמה 3" would be ambiguous about which track it belongs to.
  */
 
 import { X } from 'lucide-react';
@@ -25,8 +29,7 @@ interface Props {
 export default function ActiveFilterChipsRow({ gear }: Props) {
   const filters = useExerciseLibraryStore((s) => s.filters);
   const programs = useExerciseLibraryStore((s) => s.allPrograms);
-  const setProgramIds = useExerciseLibraryStore((s) => s.setProgramIds);
-  const setLevels = useExerciseLibraryStore((s) => s.setLevels);
+  const setLevelsByProgram = useExerciseLibraryStore((s) => s.setLevelsByProgram);
   const setFilterLocation = useExerciseLibraryStore((s) => s.setFilterLocation);
   const setEquipmentIds = useExerciseLibraryStore((s) => s.setEquipmentIds);
   const setMuscles = useExerciseLibraryStore((s) => s.setMuscles);
@@ -41,21 +44,31 @@ export default function ActiveFilterChipsRow({ gear }: Props) {
     });
   }
 
-  for (const programId of filters.programIds) {
+  for (const [programId, levels] of Object.entries(filters.levelsByProgram)) {
     const programName = programs.find((p) => p.id === programId)?.name ?? 'מסלול';
-    chips.push({
-      id: `program-${programId}`,
-      label: programName,
-      onRemove: () => setProgramIds(filters.programIds.filter((id) => id !== programId)),
-    });
-  }
 
-  for (const level of filters.levels) {
     chips.push({
-      id: `level-${level}`,
-      label: `רמה ${level}`,
-      onRemove: () => setLevels(filters.levels.filter((l) => l !== level)),
+      id: `track-${programId}`,
+      label: programName,
+      onRemove: () => {
+        const next = { ...filters.levelsByProgram };
+        delete next[programId];
+        setLevelsByProgram(next);
+      },
     });
+
+    for (const level of levels) {
+      chips.push({
+        id: `track-${programId}-level-${level}`,
+        label: `${programName} · רמה ${level}`,
+        onRemove: () => {
+          setLevelsByProgram({
+            ...filters.levelsByProgram,
+            [programId]: filters.levelsByProgram[programId].filter((l) => l !== level),
+          });
+        },
+      });
+    }
   }
 
   if (filters.location === 'home' || filters.location === 'park') {
@@ -81,8 +94,7 @@ export default function ActiveFilterChipsRow({ gear }: Props) {
 
   function clearAll() {
     setMuscles([]);
-    setProgramIds([]);
-    setLevels([]);
+    setLevelsByProgram({});
     setFilterLocation(null);
     setEquipmentIds([]);
   }

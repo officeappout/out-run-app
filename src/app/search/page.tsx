@@ -142,13 +142,14 @@ export default function SearchPage() {
   const { groups: myGroups } = useMyGroups();
   const { userCoords } = useUserLocation();
   const exerciseCount = useExerciseLibraryStore((s) => s.allExercises.length);
-  // Count of active secondary filters (each track, each level, מיקום, each
-  // ציוד item — round 4: מסלול/רמה are multi-select, no longer one combined
-  // unit) — drives the funnel badge next to the search bar. Mirrors the
-  // chips ActiveFilterChipsRow renders.
+  // Count of active secondary filters (each track, each track's selected
+  // levels, מיקום, each ציוד item — round 5: level is per-track now,
+  // levelsByProgram: Record<programId, number[]>) — drives the funnel
+  // badge next to the search bar. Mirrors the chips ActiveFilterChipsRow
+  // renders.
   const secondaryFilterCount = useExerciseLibraryStore((s) =>
-    s.filters.programIds.length +
-    s.filters.levels.length +
+    Object.keys(s.filters.levelsByProgram).length +
+    Object.values(s.filters.levelsByProgram).reduce((sum, levels) => sum + levels.length, 0) +
     (s.filters.location === 'home' || s.filters.location === 'park' ? 1 : 0) +
     s.filters.equipmentIds.length
   );

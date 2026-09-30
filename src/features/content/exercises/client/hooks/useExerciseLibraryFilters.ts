@@ -69,6 +69,45 @@ export function resolveProgramMatchIds(programId: string, programs: Program[]): 
   return [programId];
 }
 
+/**
+ * Does this exercise match the currently-selected tracks (round 5, #6)?
+ * Tracks combine with OR — this exercise matches if ANY selected track's
+ * own tag+level condition is satisfied (an empty `[]` value for a track
+ * means "this track selected, no level narrowing"). A level in one
+ * track's array is never checked against a DIFFERENT track's tag — level
+ * numbering is per-program, so "3" only means something under the track
+ * it's nested under.
+ *
+ * `[]` (no tracks selected at all) always matches, matching every other
+ * filter dimension's "empty selection bypasses this stage" convention.
+ *
+ * Shared by the real filter, the diagnostic trace, and
+ * SecondaryFiltersSheet's live preview count so those three can't drift
+ * out of sync with each other (three duplicate implementations of this
+ * specific rule would be too easy to update in only one place by mistake).
+ */
+export function exerciseMatchesTracks(
+  exercise: Exercise,
+  levelsByProgram: Record<string, number[]>,
+  programs: Program[],
+): boolean {
+  const trackIds = Object.keys(levelsByProgram);
+  if (trackIds.length === 0) return true;
+  const exProgs = collectExerciseProgramIds(exercise);
+  return trackIds.some((trackId) => {
+    const matchIds = resolveProgramMatchIds(trackId, programs);
+    const exTagsForTrack = exProgs.filter((id) => matchIds.includes(id));
+    if (exTagsForTrack.length === 0) return false;
+    const trackLevels = levelsByProgram[trackId];
+    if (trackLevels.length === 0) return true;
+    return exTagsForTrack.some((id) => {
+      const tp = exercise.targetPrograms?.find((t) => t.programId === id);
+      const lvl = tp?.level ?? resolveExerciseLevel(exercise);
+      return trackLevels.includes(lvl);
+    });
+  });
+}
+
 /** A domain/track program: has a movementPattern (Push/Pull/Legs/Core) and isn't a master. */
 export function isDomainProgram(program: Program | undefined): boolean {
   return !!program && !program.isMaster && !!program.movementPattern;
@@ -264,17 +303,9 @@ export function useExerciseLibraryFilters() {
     // of exercises rejected by that single stage.
     let droppedByQuery = 0;
     let droppedByMuscles = 0;
-    let droppedByProgram = 0;
-    let droppedByLevel = 0;
+    let droppedByTracks = 0;
     let droppedByEquipment = 0;
     let droppedByLocation = 0;
-
-    // Expand the program-filter selection once per memo invocation (not per
-    // exercise) — every selected ID's own match-set, unioned.
-    const allowedProgramIds = new Set<string>();
-    for (const pid of filters.programIds) {
-      for (const id of resolveProgramMatchIds(pid, allPrograms)) allowedProgramIds.add(id);
-    }
 
     // ── One-shot trace of the very first exercise through every stage ──
     // Runs ONCE per memo invocation, never per item. Tells us in plain
@@ -290,20 +321,8 @@ export function useExerciseLibraryFilters() {
       // Primary-muscle-only (round 4, #4 — was primary OR secondary OR muscleGroups).
       const passMuscles = filters.muscles.length === 0 || (!!ex.primaryMuscle && filters.muscles.includes(ex.primaryMuscle));
 
-      let passProgram = true;
-      let passLevel = true;
-      if (filters.programIds.length > 0) {
-        const exProgs = collectExerciseProgramIds(ex);
-        const matchedIds = exProgs.filter((id) => allowedProgramIds.has(id));
-        passProgram = matchedIds.length > 0;
-        if (passProgram && filters.levels.length > 0) {
-          passLevel = matchedIds.some((id) => {
-            const tp = ex.targetPrograms?.find((t) => t.programId === id);
-            const lvl = tp?.level ?? resolveExerciseLevel(ex);
-            return filters.levels.includes(lvl);
-          });
-        }
-      }
+      // Tracks — per-track level, OR across tracks (round 5, #6).
+      const passTracks = exerciseMatchesTracks(ex, filters.levelsByProgram, allPrograms);
 
       let passEquipment = true;
       if (filters.equipmentIds.length > 0) {
@@ -337,9 +356,7 @@ export function useExerciseLibraryFilters() {
       // eslint-disable-next-line no-console
       console.log('[Library] Item 0 - Pass Muscles (primary-only)?', passMuscles);
       // eslint-disable-next-line no-console
-      console.log('[Library] Item 0 - Pass Program?', passProgram);
-      // eslint-disable-next-line no-console
-      console.log('[Library] Item 0 - Pass Level?', passLevel);
+      console.log('[Library] Item 0 - Pass Tracks (per-track level)?', passTracks);
       // eslint-disable-next-line no-console
       console.log('[Library] Item 0 - Pass Equipment?', passEquipment);
       // eslint-disable-next-line no-console
@@ -368,27 +385,12 @@ export function useExerciseLibraryFilters() {
         }
       }
 
-      // Program + Level — multi-select union (round 4, #6), master programs
-      // expanded to their children (round 4, #7).
-      if (filters.programIds.length > 0) {
-        const exProgs = collectExerciseProgramIds(ex);
-        const matchedIds = exProgs.filter((id) => allowedProgramIds.has(id));
-        if (matchedIds.length === 0) {
-          droppedByProgram++;
-          return false;
-        }
-
-        if (filters.levels.length > 0) {
-          const levelMatch = matchedIds.some((id) => {
-            const tp = ex.targetPrograms?.find((t) => t.programId === id);
-            const lvl = tp?.level ?? resolveExerciseLevel(ex);
-            return filters.levels.includes(lvl);
-          });
-          if (!levelMatch) {
-            droppedByLevel++;
-            return false;
-          }
-        }
+      // Tracks — per-track level, OR across tracks (round 5, #6). Master
+      // programs still expand to their children (round 4, #7) inside
+      // exerciseMatchesTracks.
+      if (!exerciseMatchesTracks(ex, filters.levelsByProgram, allPrograms)) {
+        droppedByTracks++;
+        return false;
       }
 
       // ── Equipment — any-of, with optional bodyweight pseudo-chip ───────
@@ -437,15 +439,13 @@ export function useExerciseLibraryFilters() {
       'Search Query': debouncedQuery || '(none)',
       'Active Filters': {
         muscles: filters.muscles,
-        programIds: filters.programIds,
-        levels: filters.levels,
+        levelsByProgram: filters.levelsByProgram,
         equipmentIds: filters.equipmentIds,
         location: filters.location,
       },
       droppedByQuery,
       droppedByMuscles,
-      droppedByProgram,
-      droppedByLevel,
+      droppedByTracks,
       droppedByEquipment,
       droppedByLocation,
       'Visible Count after filters': result.length,

@@ -29,21 +29,27 @@ export interface LibraryFilters {
   query: string;
   muscles: MuscleGroup[];
   /**
-   * Selected track/skill program IDs — multi-select union (round 4, #6;
-   * was a single `programId: string | null`). Each ID may be a domain
-   * track, a skill program, or a master/hub program — useExerciseLibraryFilters'
-   * resolveProgramMatchIds expands a master to itself + its subPrograms
-   * when matching (round 4, #7), so selecting a master alone still returns
-   * its children's exercises instead of 0 results.
+   * Selected tracks AND their level narrowing, combined into one map
+   * (round 5, #6 — replaces round 4's separate `programIds: string[]` +
+   * `levels: number[]`).
+   *
+   * MIGRATION: a level used to be a single global value shared across
+   * whatever program was selected. That broke down the moment tracks
+   * became multi-select (round 4, #6) — "level 3" has no meaning when
+   * Push and Pull are both selected; level numbering is per-program.
+   * Now: object-key presence = that program is selected as a track filter;
+   * the value = the levels selected WITHIN that program (`[]` = the
+   * program is selected with no level narrowing — "all levels of this
+   * track"). Each ID may be a domain track, a skill program, or a
+   * master/hub program — useExerciseLibraryFilters' resolveProgramMatchIds
+   * expands a master to itself + its subPrograms when matching (round 4,
+   * #7), so selecting a master alone still returns its children's
+   * exercises instead of 0 results. Tracks combine with OR (round 5, #1
+   * confirmed model — AND across muscle/track/location, OR within each);
+   * an exercise matches if ANY selected track's own tag+level condition
+   * is satisfied.
    */
-  programIds: string[];
-  /**
-   * Selected levels — multi-select union (round 4, #6; was a single
-   * `level: number | null`). Only meaningful alongside `programIds`; reset
-   * to `[]` whenever `programIds` becomes empty (a level has no meaning
-   * with no program context).
-   */
-  levels: number[];
+  levelsByProgram: Record<string, number[]>;
   /** Gear/equipment IDs the exercise must use (any-of). */
   equipmentIds: string[];
   /**
@@ -101,10 +107,8 @@ interface ExerciseLibraryState {
   setQuery: (query: string) => void;
   toggleMuscle: (muscle: MuscleGroup) => void;
   setMuscles: (muscles: MuscleGroup[]) => void;
-  /** Full-replace setter — callers compute the toggled array (mirrors setMuscles/setEquipmentIds). */
-  setProgramIds: (ids: string[]) => void;
-  /** Full-replace setter. Callers are responsible for only offering levels while a program is selected. */
-  setLevels: (levels: number[]) => void;
+  /** Full-replace setter — callers compute the toggled map (mirrors setMuscles/setEquipmentIds). */
+  setLevelsByProgram: (map: Record<string, number[]>) => void;
   setEquipmentIds: (ids: string[]) => void;
   /** Persist the location context derived from the active preset. */
   setFilterLocation: (location: 'home' | 'park' | 'gym' | null) => void;
@@ -117,8 +121,7 @@ interface ExerciseLibraryState {
 const INITIAL_FILTERS: LibraryFilters = {
   query: '',
   muscles: [],
-  programIds: [],
-  levels: [],
+  levelsByProgram: {},
   equipmentIds: [],
   location: null,
 };
@@ -155,18 +158,8 @@ export const useExerciseLibraryStore = create<ExerciseLibraryState>((set) => ({
   setMuscles: (muscles) =>
     set((s) => ({ filters: { ...s.filters, muscles } })),
 
-  setProgramIds: (ids) =>
-    set((s) => ({
-      filters: {
-        ...s.filters,
-        programIds: ids,
-        // Level only has meaning inside a program — drop it once every program clears.
-        levels: ids.length > 0 ? s.filters.levels : [],
-      },
-    })),
-
-  setLevels: (levels) =>
-    set((s) => ({ filters: { ...s.filters, levels } })),
+  setLevelsByProgram: (map) =>
+    set((s) => ({ filters: { ...s.filters, levelsByProgram: map } })),
 
   setEquipmentIds: (ids) =>
     set((s) => ({ filters: { ...s.filters, equipmentIds: ids } })),

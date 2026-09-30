@@ -27,7 +27,7 @@
  * numbers.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Gauge, Play } from 'lucide-react';
 import { Exercise, getLocalizedText } from '../../core/exercise.types';
 import { resolveCardLevel } from '../hooks/useExerciseLibraryFilters';
@@ -56,8 +56,13 @@ function Pill({ icon, label }: { icon: React.ReactNode; label: string }) {
 
 export default function ExerciseImageCard({ exercise, onClick }: ExerciseImageCardProps) {
   const filterLocation = useExerciseLibraryStore((s) => s.filters.location);
-  const activeProgramIds = useExerciseLibraryStore((s) => s.filters.programIds);
+  const levelsByProgram = useExerciseLibraryStore((s) => s.filters.levelsByProgram);
   const allPrograms = useExerciseLibraryStore((s) => s.allPrograms);
+  // Object.keys() would create a new array every render if computed inline
+  // in the selector above — memoized so it only changes when the filter
+  // object itself actually changes (levelsByProgram is replaced wholesale
+  // by setLevelsByProgram, never mutated in place).
+  const activeProgramIds = useMemo(() => Object.keys(levelsByProgram), [levelsByProgram]);
   const name = getLocalizedText(exercise.name);
   const muscle = pickPrimaryMuscle(exercise);
   const thumbnailUrl = pickThumbnailUrl(exercise, filterLocation);
