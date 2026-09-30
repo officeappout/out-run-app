@@ -25,14 +25,23 @@
  *     master that claims it — masters are walked in catalog order and each
  *     child id is added to a running `claimed` set, so it can't sprawl
  *     across multiple expanded groups.
- *   - Level is now PER-TRACK, not global (round 5, #6): selecting a track
- *     (master, child, or standalone) renders its own level scale directly
- *     beneath its pill; a level chosen there is never checked against a
- *     different track. Tracks combine with OR — an exercise matches if ANY
- *     selected track's own tag+level condition holds (round 5, #1
- *     confirmed: AND across dimensions, OR within one). See
- *     useExerciseLibraryStore's `levelsByProgram` doc comment for the full
- *     migration note from round 4's flat `programIds`+`levels`.
+ *   - Level is PER-TRACK, not global (round 5, #6): selecting a track
+ *     renders its own level scale directly beneath its pill; a level chosen
+ *     there is never checked against a different track. Tracks combine
+ *     with OR — an exercise matches if ANY selected track's own tag+level
+ *     condition holds (round 5, #1 confirmed: AND across dimensions, OR
+ *     within one). See useExerciseLibraryStore's `levelsByProgram` doc
+ *     comment for the full migration note from round 4's flat
+ *     `programIds`+`levels`.
+ *   - A MASTER never gets a level grid (round 6, #1) — only a child/leaf
+ *     program does. A master's own level numbering has no relationship to
+ *     its children's (e.g. a Hub's level 2 isn't push/pull's level 2 —
+ *     David's example put them roughly around push/pull's level 11), so
+ *     selecting a master always means "every level of every child",
+ *     matching the union resolveProgramMatchIds already builds for it.
+ *     exerciseMatchesTracks (useExerciseLibraryFilters.ts) enforces this
+ *     at the data layer too — a master's levelsByProgram entry is ignored
+ *     even if somehow non-empty, not just hidden in this UI.
  *
  * `programs`/`gear` — programs come from the store (allPrograms, loaded
  * once by ExerciseLibraryPage); gear is still passed as a prop since only
@@ -349,12 +358,10 @@ export default function SecondaryFiltersSheet({ gear }: Props) {
                         </button>
                       )}
                     </div>
-                    {isSelected && (
-                      <TrackLevelRow
-                        program={master}
-                        levels={draftLevelsByProgram[master.id]}
-                        onToggleLevel={(lvl) => toggleTrackLevel(master.id, lvl)}
-                      />
+                    {isSelected && kids.length > 0 && (
+                      <p className="mt-1 mb-1.5 text-[11px] text-gray-400">
+                        כולל את כל הרמות של כל תת-המסלולים
+                      </p>
                     )}
                     {isExpanded && kids.length > 0 && (
                       <div className="mt-1.5 me-4 pe-2 border-e-2 border-gray-100 space-y-2.5">
@@ -461,7 +468,7 @@ function TrackLevelRow({
   const cells = useMemo(() => Array.from({ length: maxLevel }, (_, i) => i + 1), [maxLevel]);
   return (
     <div
-      className="mt-1.5 mb-0.5 grid gap-1.5"
+      className="mt-2 mb-1 grid gap-2"
       style={{ gridTemplateColumns: `repeat(${GRID_COLS}, minmax(0, 1fr))` }}
     >
       {cells.map((lvl) => {
@@ -471,10 +478,12 @@ function TrackLevelRow({
             key={lvl}
             type="button"
             onClick={() => onToggleLevel(lvl)}
-            className={`h-9 rounded-lg text-xs font-bold transition-all ${
-              isOn ? 'text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            className={`h-10 rounded-xl text-sm font-bold transition-all active:scale-95 ${
+              isOn
+                ? 'text-white shadow-sm'
+                : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 hover:bg-gray-50'
             }`}
-            style={isOn ? { backgroundColor: '#00dcd0' } : undefined}
+            style={isOn ? { background: 'linear-gradient(135deg, #2CE0C0, #20C6D6)' } : undefined}
           >
             {lvl}
           </button>

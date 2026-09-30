@@ -31,10 +31,11 @@ export const LIBRARY_PAGE_SIZE = 12;
  * Resolve the canonical level for an exercise.
  * Picks the lowest level across `targetPrograms` (entry-level), defaulting to 1.
  *
- * Used for the pagination sort (level ascending) and as the program+level
- * filter's per-tag fallback ("this targetPrograms entry has no explicit
- * level of its own"). NOT used for the card's level pill — see
- * resolveCardLevel below for why that needs different semantics.
+ * Used as the per-tag fallback inside exerciseMatchesTracks/resolveCardLevel
+ * ("this targetPrograms entry has no explicit level of its own"). NOT used
+ * for the default sort (round 6, #2 — that's resolveCardLevel now, so the
+ * sort order matches what the card actually displays) or the card's level
+ * pill — see resolveCardLevel below for why that needs different semantics.
  */
 export function resolveExerciseLevel(exercise: Exercise): number {
   if (exercise.targetPrograms && exercise.targetPrograms.length > 0) {
@@ -78,6 +79,17 @@ export function resolveProgramMatchIds(programId: string, programs: Program[]): 
  * numbering is per-program, so "3" only means something under the track
  * it's nested under.
  *
+ * A MASTER's own levelsByProgram entry is always ignored, even if non-empty
+ * (round 6, #1) — a master's level numbering has no relationship to its
+ * children's (e.g. a Hub's level 2 is nowhere near push/pull's level 2),
+ * so a level selected "under" a master would otherwise get compared
+ * directly against a CHILD's real level and silently mismatch. The sheet's
+ * UI already never lets a master carry levels (no level grid renders for
+ * one), but this is the data-layer guarantee — belt-and-braces against any
+ * other path that could populate one (a stale committed filter, a future
+ * UI bug), matching "never apply a master's level number to child
+ * exercises" as an invariant, not just a UI affordance.
+ *
  * `[]` (no tracks selected at all) always matches, matching every other
  * filter dimension's "empty selection bypasses this stage" convention.
  *
@@ -98,7 +110,8 @@ export function exerciseMatchesTracks(
     const matchIds = resolveProgramMatchIds(trackId, programs);
     const exTagsForTrack = exProgs.filter((id) => matchIds.includes(id));
     if (exTagsForTrack.length === 0) return false;
-    const trackLevels = levelsByProgram[trackId];
+    const program = programs.find((p) => p.id === trackId);
+    const trackLevels = program?.isMaster ? [] : levelsByProgram[trackId];
     if (trackLevels.length === 0) return true;
     return exTagsForTrack.some((id) => {
       const tp = exercise.targetPrograms?.find((t) => t.programId === id);
@@ -430,8 +443,24 @@ export function useExerciseLibraryFilters() {
       return true;
     });
 
-    // Default sort: level ascending (round 2 polish — was unsorted/DB order).
-    result.sort((a, b) => resolveExerciseLevel(a) - resolveExerciseLevel(b));
+    // Sort: level ascending, matching what the card ACTUALLY displays
+    // (round 6, #2 — was resolveExerciseLevel's MIN-across-every-program
+    // value, which could show "רמה 1" as the sort key while the card's
+    // resolveCardLevel showed a completely different scoped/domain level,
+    // producing an order with no visible logic to it). Exercises with no
+    // single resolvable level (resolveCardLevel returns null — genuinely
+    // ambiguous, or no domain tag at all) sort to the end rather than
+    // being scattered randomly among the numbered ones. Computed once per
+    // exercise up front (not inside the comparator, which .sort() would
+    // call O(n log n) times) since resolveCardLevel rebuilds a programs
+    // lookup map on every call. Array.prototype.sort is stable (ES2019+),
+    // so ties (equal level, or both unresolved) keep their original corpus
+    // order instead of reshuffling every time the filters change.
+    const activeProgramIds = Object.keys(filters.levelsByProgram);
+    const sortKeyByExerciseId = new Map(
+      result.map((ex) => [ex.id, resolveCardLevel(ex, activeProgramIds, allPrograms) ?? Number.POSITIVE_INFINITY]),
+    );
+    result.sort((a, b) => sortKeyByExerciseId.get(a.id)! - sortKeyByExerciseId.get(b.id)!);
 
     // eslint-disable-next-line no-console
     console.log('[Library] Filter pipeline', {
