@@ -41,6 +41,19 @@
  * state="tracked") — it never touched which SECTION the card rendered in,
  * so an under-populated master kept showing under "המפות שלי" regardless.
  * See useGatedProgramBuckets.ts for the full reasoning.
+ *
+ * Phase 4b round 6 fix: the AddStrengthProgramCard onboarding empty-state
+ * used to show whenever trackedIds was empty — even for a user who already
+ * has an ACTIVE program (e.g. משיכה, sitting in "פעילות") but nothing
+ * tracked yet. Not actually a brand-new user, so the onboarding prompt was
+ * wrong for them. Now gated on BOTH buckets being empty — the user has
+ * NEITHER an active NOR a tracked program anywhere. For the in-between
+ * case (active-only, nothing tracked) the section renders nothing at all
+ * — same "nothing to show -> null" convention ActiveProgramsSection
+ * already uses — rather than a bare heading with no content below it,
+ * which the original "keep the heading either way" reasoning above was
+ * never meant to cover (that was specifically for the brand-new-user +
+ * onboarding-CTA case).
  */
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { useGatedProgramBuckets } from '@/features/progression-map/hooks/useGatedProgramBuckets';
@@ -49,7 +62,11 @@ import { SkillMapCard } from './SkillMapCard';
 
 export function TrackedProgramsSection() {
   const profile = useUserStore((s) => s.profile);
-  const { trackedIds } = useGatedProgramBuckets();
+  const { activeTemplateIds, trackedIds } = useGatedProgramBuckets();
+
+  if (trackedIds.length === 0 && activeTemplateIds.length > 0) {
+    return null;
+  }
 
   return (
     <section className="space-y-3">
