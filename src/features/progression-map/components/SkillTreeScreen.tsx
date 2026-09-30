@@ -318,6 +318,8 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
               levelDescription={levelSummary?.realDescription ?? null}
               matchingGoal={levelSummary?.matchingGoal ?? null}
               currentLevelExerciseName={currentLevelExerciseName}
+              hasGoals={levelSummary?.hasGoals ?? false}
+              goalsCompleted={levelSummary?.goalsCompleted ?? false}
               onReassess={() => startMiniDomainAssessment(router, slug, undefined, domainTypeForSlug(slug))}
             />
           )}

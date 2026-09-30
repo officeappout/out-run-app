@@ -55,6 +55,10 @@ export interface ProgramInfoPanelProps {
   /** A targetGoals entry naming the tree's own current-level exercise — null hides the whole row. */
   matchingGoal: LevelGoalLike | null;
   currentLevelExerciseName: string;
+  /** Whether this level has any targetGoals at all — independent of matchingGoal (see resolveLevelSummary). */
+  hasGoals: boolean;
+  /** Only meaningful when hasGoals is true. */
+  goalsCompleted: boolean;
   onReassess: () => void;
 }
 
@@ -67,6 +71,8 @@ export function ProgramInfoPanel({
   levelDescription,
   matchingGoal,
   currentLevelExerciseName,
+  hasGoals,
+  goalsCompleted,
   onReassess,
 }: ProgramInfoPanelProps) {
   const [expanded, setExpanded] = useState(false);
@@ -173,6 +179,15 @@ export function ProgramInfoPanel({
                     <p className="text-[11px] text-gray-400 flex-shrink-0">
                       יעד: {matchingGoal.targetValue} {matchingGoal.unit === 'seconds' ? 'שניות' : 'חזרות'}
                     </p>
+                  </div>
+                )}
+
+                {hasGoals && (
+                  <div className="flex items-center justify-between text-xs px-1">
+                    <span className="text-gray-500">סטטוס</span>
+                    <span className={`font-bold ${goalsCompleted ? 'text-[#20C6D6]' : 'text-gray-700'}`}>
+                      {goalsCompleted ? 'הושלם' : 'בתהליך'}
+                    </span>
                   </div>
                 )}
 
