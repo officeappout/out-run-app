@@ -34,16 +34,17 @@ export interface SkillMapCardProps {
   /** Config's Hebrew name — shown instantly, before/in case the Program doc fetch resolves a different one. */
   nameHe: string;
   /**
-   * Progression v2 Phase 4a — all three optional, all additive. Omitting
-   * them (as "המפות שלי"'s existing call site still does) reproduces
-   * today's exact behavior unchanged.
+   * Progression v2 Phase 4a — all optional, all additive. Omitting them
+   * reproduces today's exact behavior unchanged.
    */
   state?: ProgramCardVisualState;
   lockedHint?: string;
   badge?: string;
+  /** Progression v2 Phase 4a-fix — see ProgramProgressCardProps.onLockedHintTap. */
+  onAssessTap?: () => void;
 }
 
-export function SkillMapCard({ programId, nameHe, state, lockedHint, badge }: SkillMapCardProps) {
+export function SkillMapCard({ programId, nameHe, state, lockedHint, badge, onAssessTap }: SkillMapCardProps) {
   const router = useRouter();
   const [programMeta, setProgramMeta] = useState<Program | null>(null);
   const { percent } = useUserProgramLevel(programId);
@@ -70,11 +71,18 @@ export function SkillMapCard({ programId, nameHe, state, lockedHint, badge }: Sk
   // second EXISTING destination, not a new one, chosen per program type.
   const destination = isProgressionMapLeafProgram(programId) ? `/progression-map/${programId}` : '/profile';
 
+  // div role="button" (not a real <button>) so ProgramProgressCard can host
+  // its own REAL nested <button> for the "בצע מבדק" secondary CTA
+  // (onAssessTap) without invalid nested-<button> HTML — same established
+  // pattern ProgramProgressCard's own inner clickable header already uses
+  // for the identical reason (see that file's header comment).
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => router.push(destination)}
-      className="w-full text-right active:opacity-80 transition-opacity"
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') router.push(destination); }}
+      className="w-full text-right active:opacity-80 transition-opacity cursor-pointer"
     >
       <ProgramProgressCard
         programName={programMeta?.name ?? nameHe}
@@ -84,9 +92,10 @@ export function SkillMapCard({ programId, nameHe, state, lockedHint, badge }: Sk
         progressPercent={percent}
         state={state}
         lockedHint={lockedHint}
+        onLockedHintTap={onAssessTap}
         badge={badge}
         className="pointer-events-none"
       />
-    </button>
+    </div>
   );
 }

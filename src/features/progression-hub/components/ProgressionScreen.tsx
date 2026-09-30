@@ -4,20 +4,30 @@
  * ProgressionScreen — the "התקדמות" bottom-nav tab.
  *
  * A stack of independent <section>s under one shared AppHeader (the same
- * header Home/Profile use). Layer A shipped "המפות שלי" alone. Phase 4a
- * (Progression v2) adds the sibling sections its own original comment
- * already anticipated, in the specified order: hero (identity/XP/streak),
- * "המשך מכאן" (resume priority-#1 active program), "התוכניות שלי" (the
- * active set + tracked maps, reusing the SAME ProgramProgressCard via
- * SkillMapCard), "גלה עוד" (available/locked, collapsed), then the
- * original "המפות שלי" — kept last, exactly as it already was, untouched.
+ * header Home/Profile use). Section order (Progression v2 Phase 4a-fix):
+ * hero (identity/XP/streak) -> "המשך מכאן" (resume priority-#1 active
+ * program) -> "פעילות" (active only) -> "המפות שלי" (tracked only) ->
+ * "גלה עוד" (everything else: available/needs_assessment/locked_prereq,
+ * collapsed by default, LAST).
+ *
+ * The three state-driven sections are mutually exclusive by construction —
+ * each derives its membership from the SAME real per-user state (Phase
+ * 1's getProgramState), never a hardcoded list. This replaced Phase 4a's
+ * original bug: a legacy, unconditional hardcoded-catalog section used to
+ * sit here under the SAME "המפות שלי" name, rendering regardless of user
+ * state — duplicating whatever DiscoverMoreSection also (correctly) showed
+ * for the same programs. That legacy section is gone; "המפות שלי" now
+ * means exactly one thing (TrackedProgramsSection).
  *
  * No achievements section this phase (explicitly deferred — a future
  * phase's "הכל →" will open the existing AchievementSheet). No PRO
  * anywhere this phase.
  *
  * Every card here is ProgramProgressCard (via SkillMapCard) — no new card
- * UI. Navigation is each card's own existing destination (unchanged).
+ * UI. Navigation is each card's own existing destination (unchanged) —
+ * tapping ANY card, including a locked/unassessed one, opens its tree in
+ * view mode (SkillTreeScreen itself has no assessment/prerequisite gate on
+ * viewing — see that file's own Phase 4a-fix banner instead).
  *
  * No custom background here — the TREE's own scenic background
  * (SkillTreeBackground) stays untouched; this screen uses the same plain
@@ -25,11 +35,10 @@
  * already uses.
  */
 import AppHeader from '@/components/ui/AppHeader';
-import { PROGRESSION_MAP_HUB_PROGRAMS } from '@/lib/progression-map-config';
 import { IdentityHeroCard } from '@/features/user/progression/components/IdentityHeroCard';
-import { SkillMapCard } from './SkillMapCard';
 import { ContinueHereCta } from './ContinueHereCta';
-import { MyProgramsSection } from './MyProgramsSection';
+import { ActiveProgramsSection } from './ActiveProgramsSection';
+import { TrackedProgramsSection } from './TrackedProgramsSection';
 import { DiscoverMoreSection } from './DiscoverMoreSection';
 
 export function ProgressionScreen() {
@@ -44,19 +53,11 @@ export function ProgressionScreen() {
 
         <ContinueHereCta />
 
-        <MyProgramsSection />
+        <ActiveProgramsSection />
+
+        <TrackedProgramsSection />
 
         <DiscoverMoreSection />
-
-        {/* Original Layer A — "My Maps". Untouched. */}
-        <section className="space-y-3">
-          <h2 className="text-sm font-black text-gray-800">המפות שלי</h2>
-          <div className="space-y-3">
-            {PROGRESSION_MAP_HUB_PROGRAMS.map((program) => (
-              <SkillMapCard key={program.programId} programId={program.programId} nameHe={program.nameHe} />
-            ))}
-          </div>
-        </section>
       </div>
     </div>
   );

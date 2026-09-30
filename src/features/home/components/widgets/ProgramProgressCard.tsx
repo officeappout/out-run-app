@@ -50,6 +50,17 @@ export interface ProgramProgressCardProps {
    * decides which text applies; the card just renders what it's given.
    */
   lockedHint?: string;
+  /**
+   * When provided, lockedHint renders as a tappable secondary CTA (its own
+   * button, stopping propagation so it doesn't also trigger the card's own
+   * outer tap) instead of plain text — Progression v2 Phase 4a-fix: "the
+   * 'בצע מבדק' text on discover cards becomes a secondary CTA; the card's
+   * primary tap is open/view the map." Omit for a real prerequisite label
+   * (no action to take there, just informational) — the card itself stays
+   * dumb about WHICH case this is; the caller already knows (it computed
+   * lockedHint) and decides whether to pass this.
+   */
+  onLockedHintTap?: () => void;
   /** Small text badge next to the name (e.g. "ראשי" for the priority-#1 active program). Any state. */
   badge?: string;
 }
@@ -131,6 +142,7 @@ export function ProgramProgressCard({
   className = '',
   state,
   lockedHint,
+  onLockedHintTap,
   badge,
 }: ProgramProgressCardProps) {
   const nextLevel = currentLevel + 1;
@@ -179,9 +191,23 @@ export function ProgramProgressCard({
               )}
             </div>
             {lockedHint && (
-              <p className="text-xs font-bold mt-2" style={{ color: BRAND_CYAN }}>
-                {lockedHint}
-              </p>
+              onLockedHintTap ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onLockedHintTap();
+                  }}
+                  className="text-xs font-bold mt-2 underline active:opacity-70 pointer-events-auto relative z-10"
+                  style={{ color: BRAND_CYAN }}
+                >
+                  {lockedHint}
+                </button>
+              ) : (
+                <p className="text-xs font-bold mt-2" style={{ color: BRAND_CYAN }}>
+                  {lockedHint}
+                </p>
+              )
             )}
           </div>
         </div>

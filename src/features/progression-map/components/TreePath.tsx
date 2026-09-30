@@ -35,8 +35,11 @@
  * unchanged). The max-level rung is always the target (crown), regardless
  * of whether the user has reached it. Below the user's current level =
  * done; at it = current; above = locked. When currentLevel is null (never
- * assessed for this program), the tree's own minimum level is treated as
- * "current" so there's always an entry point.
+ * assessed for this program — Progression v2 Phase 4a-fix), the tree's own
+ * minimum level still anchors the done/locked ladder shape (so there's
+ * always a coherent-looking tree), but NO rung earns 'current' — an
+ * unassessed user gets no "אתה כאן" marker at all; assessment is a prompt,
+ * not a proven fact about where they are (see deriveState below).
  *
  * dir="ltr" on the root is deliberate (unchanged from before) — it keeps
  * "left/right" in this file's math unambiguous regardless of the app's own
@@ -45,20 +48,13 @@
  */
 import { groupRungsForDisplay } from '../services/build-skill-tree.service';
 import { buildTreePathLayout, DEFAULT_TREE_PATH_LAYOUT_CONFIG } from '../services/tree-path-layout';
+import { deriveState } from '../services/tree-node-state.service';
 import { TreeNode, type TreeNodeState } from './TreeNode';
 import type { SkillTreeData, SkillTreeRung } from '../core/types';
 
 const PATH_COLOR = '#20C6D6';
 const PATH_STROKE_WIDTH = 2;
 const PATH_DASH = '6 6';
-
-function deriveState(rung: SkillTreeRung, tree: SkillTreeData, currentLevel: number | null): TreeNodeState {
-  if (rung.level === tree.maxLevel) return 'target';
-  const effectiveCurrent = currentLevel ?? tree.minLevel;
-  if (rung.level < effectiveCurrent) return 'done';
-  if (rung.level === effectiveCurrent) return 'current';
-  return 'locked';
-}
 
 /**
  * Whether the user hasn't actually reached this rung's level yet —

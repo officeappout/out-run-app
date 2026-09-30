@@ -26,6 +26,16 @@ export interface ProgramCardStateResult {
   lockedHint?: string;
 }
 
+/**
+ * The exact lockedHint text for the needs_assessment case (Progression v2
+ * Phase 4a/4a-fix) — exported as a named constant, not a string literal
+ * repeated at each call site, since it's the one thing distinguishing
+ * "never assessed" from a real derived prerequisite label wherever a
+ * consumer needs to react differently to the two (e.g. rendering the hint
+ * as a tappable "start assessment" CTA only in this specific case).
+ */
+export const NEEDS_ASSESSMENT_HINT = 'בצע מבדק';
+
 /** Hebrew labels for the 4 broad-domain slugs a derived prerequisite can name. */
 const DOMAIN_HEBREW_LABELS: Record<string, string> = {
   pull: 'משיכה',
@@ -68,7 +78,7 @@ export function resolveProgramCardState(params: {
     return { state: rawState };
   }
   if (rawState === 'needs_assessment') {
-    return { state: 'locked_prereq', lockedHint: 'בצע מבדק' };
+    return { state: 'locked_prereq', lockedHint: NEEDS_ASSESSMENT_HINT };
   }
   // locked_prereq, and the (this-phase-unreachable) locked_pro folded the same way.
   if (gate.status === 'locked_prereq' && gate.requirements.length > 0) {

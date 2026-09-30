@@ -63,13 +63,17 @@ import { resolveToSlug } from '@/features/workout-engine/services/program-hierar
 import { domainTypeForSlug } from '@/features/profile/components/widgets/program-groups.utils';
 import ProgramDrawer, { type ProgramDrawerData } from '@/features/profile/components/widgets/ProgramDrawer';
 import { useSkillTree } from '../hooks/useSkillTree';
+import { useProgramCardState } from '../hooks/useProgramCardState';
+import { NEEDS_ASSESSMENT_HINT } from '../services/program-card-state.service';
 import { TreePath } from './TreePath';
 import { ProgramLevelSwapSheet } from './ProgramLevelSwapSheet';
 import { SkillTreeBackground } from './SkillTreeBackground';
 import type { SkillTreeRung } from '../core/types';
 import type { TreeNodeState } from './TreeNode';
+import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
 
 const LOCKED_NOTICE = '🔒 שים לב — זה עוד לא תרגיל ברמה שלך';
+const UNASSESSED_BANNER_TEXT = 'עדיין לא יודעים את הרמה שלך — בצע מבדק כדי לסמן איפה אתה';
 
 export interface SkillTreeScreenProps {
   programId: string;
@@ -79,6 +83,13 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
   const router = useRouter();
   const profile = useUserStore((s) => s.profile);
   const { tree, currentLevel, isLoading } = useSkillTree(programId);
+  // Progression v2 Phase 4a-fix: viewing is never gated (see the file
+  // header — no such guard exists, by design), but an unassessed or
+  // prerequisite-locked program shows an informational banner instead of
+  // just silently rendering the tree as if nothing were unusual.
+  const { state: cardState, lockedHint } = useProgramCardState(programId);
+  const isUnassessed = cardState === 'locked_prereq' && lockedHint === NEEDS_ASSESSMENT_HINT;
+  const isPrereqLocked = cardState === 'locked_prereq' && lockedHint != null && !isUnassessed;
   const [programMeta, setProgramMeta] = useState<Program | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [swapRung, setSwapRung] = useState<SkillTreeRung | null>(null);
@@ -218,6 +229,33 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
       </header>
 
       <main className="px-4 py-6 pb-16">
+        {/* Progression v2 Phase 4a-fix: informational only — viewing is
+            never blocked (see file header). Assessment is a prompt, not a
+            gate: this banner tells the user WHY they see no "אתה כאן"
+            marker (TreePath.tsx's own deriveState) and offers the same
+            mini-assessment trigger used elsewhere in the app, rather than
+            gating anything about the tree itself. */}
+        {!isLoading && isUnassessed && (
+          <div className="bg-slate-100 text-slate-600 text-[13px] font-semibold text-center rounded-xl px-4 py-2.5 mb-4 flex flex-col items-center gap-2">
+            <span>{UNASSESSED_BANNER_TEXT}</span>
+            <button
+              type="button"
+              onClick={() =>
+                startMiniDomainAssessment(router, slug, undefined, domainTypeForSlug(slug))
+              }
+              className="text-xs font-black text-white rounded-full px-4 py-1.5 active:opacity-80"
+              style={{ background: 'linear-gradient(90deg, #2CE0C0 0%, #20C6D6 50%, #2AA3E8 100%)' }}
+            >
+              בצע מבדק
+            </button>
+          </div>
+        )}
+        {!isLoading && isPrereqLocked && (
+          <div className="bg-slate-100 text-slate-600 text-[13px] font-semibold text-center rounded-xl px-4 py-2.5 mb-4">
+            {lockedHint}
+          </div>
+        )}
+
         {isLoading && (
           <div className="flex flex-col items-center gap-3 py-20">
             {[1, 2, 3].map((i) => (
