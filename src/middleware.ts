@@ -167,6 +167,26 @@ const AUTHORITY_MANAGER_ALLOWED_PATHS = [
 // /admin/parks, /admin/locations, /admin/organizations are deliberately
 // excluded too — neither sidebar links to them, same root-only/
 // vertical-admin-only violation class as unit_admin's case.
+//
+// 01.10.2026 (00-MASTER-PLAN.md §13.61) — /admin/heatmap REMOVED. David's
+// hard constraint: an officer never reaches a map, a route, or a location
+// point, period — a brigade-level heatmap is operational information, not
+// a fitness metric. Confirmed safe to remove from this SHARED list:
+// SIDEBAR_CONFIGS.school never linked to heatmap at all (only
+// military_unit did), so this costs school nothing.
+//
+// /admin/authority/locations and /admin/access-codes are NOT removed here
+// despite the same hard constraint applying to military — this list is
+// shared with school's tenant_owner, whose own sidebar legitimately links
+// to both. This session (GateSessionInfo) carries scope only, not which
+// vertical the tenant_owner belongs to — there is no way to apply the
+// military-only removal to this one shared array without ALSO blocking a
+// real school tenant_owner. A real per-vertical split needs the session
+// to carry tenantType, which is a bigger change than this round's menu/
+// label fixes. Flagged for David's decision — not fixed here. The
+// military SIDEBAR no longer links to either (sidebarConfigs.ts,
+// §13.61), so a military officer won't find them through normal
+// navigation; a typed URL still reaches them until this is resolved.
 const TENANT_OWNER_ALLOWED_PATHS = [
   '/admin/dashboard',
   '/admin/authority-manager',
@@ -175,7 +195,6 @@ const TENANT_OWNER_ALLOWED_PATHS = [
   '/admin/authority/grades',
   '/admin/authority/locations',
   '/admin/authority/team',
-  '/admin/heatmap',
   '/admin/access-codes',
 ];
 

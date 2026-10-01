@@ -9,6 +9,7 @@ import { getAuthoritiesByManager, getAllAuthorities } from '@/features/admin/ser
 import { getParksByAuthority } from '@/features/admin/services/parks.service';
 import { getGroupsByAuthority, getEventsByAuthority } from '@/features/admin/services/community.service';
 import { getReportsByAuthority } from '@/features/admin/services/maintenance.service';
+import { authorityTypeToTenantType, getTenantLabels } from '@/features/admin/config/tenantLabels';
 import {
   Loader2,
   LayoutDashboard,
@@ -65,6 +66,11 @@ export default function AdminDashboardPage() {
   const [authorityName, setAuthorityName] = useState('');
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  // 01.10.2026 (00-MASTER-PLAN.md §13.61) — which vertical this authority
+  // belongs to, derived from the same authority object already resolved
+  // below (no extra fetch). Drives both the "registered X" stat label and
+  // which QuickLink cards render for a military tenant_owner.
+  const [tenantType, setTenantType] = useState<'municipal' | 'military' | 'educational' | 'company' | 'youth_movement'>('municipal');
 
   const resolveAuthority = useCallback(async (uid: string) => {
     try {
@@ -79,6 +85,7 @@ export default function AdminDashboardPage() {
         if (target) {
           aId = target.id;
           aName = typeof target.name === 'string' ? target.name : (target.name?.he || '');
+          setTenantType(authorityTypeToTenantType(target));
         }
       } else {
         const auths = await getAuthoritiesByManager(uid);
@@ -86,6 +93,7 @@ export default function AdminDashboardPage() {
           aId = aId ?? auths[0].id;
           const a = auths[0];
           aName = typeof a.name === 'string' ? a.name : (a.name?.he || a.name?.en || '');
+          setTenantType(authorityTypeToTenantType(a));
         }
       }
 
@@ -171,7 +179,7 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {stats.totalResidents !== null && (
           <StatCard
-            label="תושבים רשומים"
+            label={`${getTenantLabels(tenantType).membersTitle} רשומים`}
             value={stats.totalResidents}
             sub={stats.approvedResidents !== null ? `${stats.approvedResidents} מאושרים` : undefined}
             icon={UsersIcon}
@@ -179,7 +187,12 @@ export default function AdminDashboardPage() {
           />
         )}
         <StatCard label="מיקומים" value={stats.totalParks} sub={`${stats.publishedParks} פורסמו`} icon={MapPin} color="cyan" />
-        <StatCard label="קבוצות פעילות" value={stats.activeGroups} sub={`${stats.totalGroups} סה"כ`} icon={Dumbbell} color="violet" />
+        {/* 01.10.2026 (00-MASTER-PLAN.md §13.61) — decided down with the
+            rest of the "יורד" list; corrected after being mis-tracked as
+            undecided. */}
+        {tenantType !== 'military' && (
+          <StatCard label="קבוצות פעילות" value={stats.activeGroups} sub={`${stats.totalGroups} סה"כ`} icon={Dumbbell} color="violet" />
+        )}
         <StatCard label="אירועים קרובים" value={stats.upcomingEvents} icon={CalendarHeart} color="blue" />
         <StatCard label="דיווחים פתוחים" value={stats.openReports} icon={Wrench} color={stats.openReports > 0 ? 'amber' : 'emerald'} />
       </div>
@@ -195,35 +208,50 @@ export default function AdminDashboardPage() {
       )}
 
       {/* ═══ Quick Links ═══ */}
+      {/* 01.10.2026 (00-MASTER-PLAN.md §13.61) — all four cards hidden for
+          military: community/events and locations/parks don't fit a
+          brigade's own operations, "all groups / cross-authority"
+          specifically promises cross-org access no officer should see
+          advertised even as a dead link, and "דיווחי תחזוקה" was decided
+          down with the rest — corrected after being mis-tracked as
+          undecided (David's own explicit "יורד" list named it). */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <QuickLink
-          href="/admin/authority/community"
-          icon={CalendarHeart}
-          title="מרכז קהילה ואירועים"
-          description="לו״ז מפגשים, ניהול קבוצות ואירועים, רשימות נרשמים"
-          color="violet"
-        />
-        <QuickLink
-          href="/admin/authority/locations"
-          icon={MapPin}
-          title="מיקומים ופארקים"
-          description="ניהול מיקומים על המפה, סטטוסים וסיווגים"
-          color="cyan"
-        />
-        <QuickLink
-          href="/admin/authority/reports"
-          icon={Flag}
-          title="דיווחי תחזוקה"
-          description="דיווחי תשתית וקהילה, מעקב סטטוסים"
-          color="amber"
-        />
-        <QuickLink
-          href="/admin/community-groups-overview"
-          icon={UsersIcon}
-          title="כל הקבוצות במערכת"
-          description="חוצה-רשויות — רשמי מול משתמשים, סינון וסטטוס, בלי כניסה לכל עירייה בנפרד"
-          color="emerald"
-        />
+        {tenantType !== 'military' && (
+          <QuickLink
+            href="/admin/authority/community"
+            icon={CalendarHeart}
+            title="מרכז קהילה ואירועים"
+            description="לו״ז מפגשים, ניהול קבוצות ואירועים, רשימות נרשמים"
+            color="violet"
+          />
+        )}
+        {tenantType !== 'military' && (
+          <QuickLink
+            href="/admin/authority/locations"
+            icon={MapPin}
+            title="מיקומים ופארקים"
+            description="ניהול מיקומים על המפה, סטטוסים וסיווגים"
+            color="cyan"
+          />
+        )}
+        {tenantType !== 'military' && (
+          <QuickLink
+            href="/admin/authority/reports"
+            icon={Flag}
+            title="דיווחי תחזוקה"
+            description="דיווחי תשתית וקהילה, מעקב סטטוסים"
+            color="amber"
+          />
+        )}
+        {tenantType !== 'military' && (
+          <QuickLink
+            href="/admin/community-groups-overview"
+            icon={UsersIcon}
+            title="כל הקבוצות במערכת"
+            description="חוצה-רשויות — רשמי מול משתמשים, סינון וסטטוס, בלי כניסה לכל עירייה בנפרד"
+            color="emerald"
+          />
+        )}
       </div>
 
       {/* ═══ Today's Sessions — Compact Summary ═══ */}

@@ -68,19 +68,28 @@ export const SIDEBAR_CONFIGS: Record<string, PortalSidebarConfig> = {
         ],
       },
       {
+        // 01.10.2026 (00-MASTER-PLAN.md §13.61) — /admin/heatmap and
+        // /admin/authority/locations REMOVED. David's explicit hard
+        // constraint, not a product preference: an officer sees aggregate
+        // fitness data only, never a map, a route, or a location point —
+        // a brigade-level heatmap is operational information, not a
+        // fitness metric. This is military-vertical-only; the municipal
+        // sidebar keeps both (maps ARE the job for a city).
         title: 'אימונים',
         links: [
           { href: '/admin/authority-manager', icon: 'BarChart3', label: 'אנליטיקה' },
-          { href: '/admin/heatmap', icon: 'Activity', label: 'מפת חום חיה' },
-          { href: '/admin/authority/locations', icon: 'Map', label: 'מיקומים' },
         ],
       },
       {
+        // access-codes removed from the menu entry only (01.10.2026,
+        // §13.61) — frozen pending a real billing system, not rebuilt as
+        // a server route this round. Firestore rules/the page itself are
+        // untouched; this is the one deliberately incomplete fix in this
+        // round, intentional, not forgotten.
         title: 'תפעול',
         links: [
           { href: '/admin/authority/team', icon: 'Users', label: 'ניהול צוות' },
           { href: '/admin/authority/users', icon: 'Users', label: null, labelKey: 'membersTitle' },
-          { href: '/admin/access-codes', icon: 'KeyRound', label: 'קודי גישה' },
         ],
       },
     ],

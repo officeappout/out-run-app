@@ -242,8 +242,17 @@ describe('decideAdminGateAction', () => {
       expect(decideAdminGateAction('/admin/authority/grades', tenantOwner)).toEqual({ action: 'allow' });
       expect(decideAdminGateAction('/admin/authority/locations', tenantOwner)).toEqual({ action: 'allow' });
       expect(decideAdminGateAction('/admin/authority/team', tenantOwner)).toEqual({ action: 'allow' });
-      expect(decideAdminGateAction('/admin/heatmap', tenantOwner)).toEqual({ action: 'allow' });
       expect(decideAdminGateAction('/admin/access-codes', tenantOwner)).toEqual({ action: 'allow' });
+    });
+
+    // 01.10.2026 (00-MASTER-PLAN.md SS13.61) — David's live-test finding:
+    // a military tenant_owner reached /admin/heatmap and saw a live map.
+    // Hard constraint, not a product preference: an officer sees
+    // aggregate fitness data only, never a map, a route, or a location
+    // point. Removed from this list (safe for school's tenant_owner too
+    // -- school's own sidebar never linked to heatmap).
+    it('blocked on /admin/heatmap -- removed, an officer never reaches a map', () => {
+      expect(decideAdminGateAction('/admin/heatmap', tenantOwner)).toEqual({ action: 'redirect', to: '/admin/authority-manager', preserveNext: false });
     });
 
     it('blocked on /admin/parks, /admin/locations, /admin/organizations — same violation class as unit_admin, neither sidebar links there', () => {
