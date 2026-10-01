@@ -1023,8 +1023,14 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
       </div>
 
       {/* ── Section: Neighborhood & Maintenance ─────────────────────── */}
-
-      <NeighborhoodBreakdown data={neighborhoodBreakdown} loading={loading} kpiSettings={kpiSettings} />
+      {/* 01.10.2026 (00-MASTER-PLAN.md §13.61 follow-up) — hiding the
+          neighborhood FILTER (FilterBar's showNeighborhoodFilter) wasn't
+          enough; this whole card ("שכונות — מבט על") still rendered for
+          military, confirmed live. Hidden here too — no neighborhood
+          concept exists for a brigade. */}
+      {tenantType !== 'military' && (
+        <NeighborhoodBreakdown data={neighborhoodBreakdown} loading={loading} kpiSettings={kpiSettings} />
+      )}
 
       {/* Savings Over Time */}
       {savingsOverTime.length > 0 && (

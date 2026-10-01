@@ -165,7 +165,13 @@ export const TENANT_LABELS: Record<TenantType, TenantLabelSet> = {
     hierarchyLabels: ['חטיבה', 'גדוד', 'פלוגה', 'מחלקה'],
     managerTitle: 'קצינים',
     managerSingular: 'קצין',
-    tenantOwnerRoleLabel: 'קצין כושר קרבי ראשי',
+    // 01.10.2026 — corrected after David's live test: tenant_owner owns
+    // ONE brigade, not the whole army. "קצין כושר קרבי ראשי" (chief/
+    // supreme) is reserved for a layer ABOVE tenant_owner — someone who
+    // sees every brigade — which does not exist yet (see 00-MASTER-
+    // PLAN.md §13.61/§13.60: the brigade layer itself IS tenant_owner,
+    // already real; the missing layer sits above it, not at it).
+    tenantOwnerRoleLabel: 'קצין כושר קרבי חטיבתי',
     unitAdminRoleLabel: 'מדא״ג גדודי',
     teamTitle: 'ניהול צוות צבאי',
     orgSingular: 'חטיבה',
