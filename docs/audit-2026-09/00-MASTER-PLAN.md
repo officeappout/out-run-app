@@ -2446,4 +2446,82 @@ educational: [
 
 **פילוח-לפי-גדוד והשוואת-כשירות — פריט עתידי בלבד, לא תוכנן ולא הוצע כאן, כמבוקש.** שייכים למד-כשירות (`/admin/authority/readiness`), ייחקרו ויתוכננו בנפרד כש/אם יידרש.
 
+### §13.63 — מד כשירות: תשתית שרת (שלב 2, בנייה — 01.10.2026)
+
+**שלב 1 (חקירה) הושלם קודם** — דוח 5 השאלות + מפרט נעול בן 13 סעיפים
+מדוד. זהו שלב 2: תשתית שרת בלבד (אוספים, compute services, מסלולי
+API, הצעת rules, שני ממצאים מתועדים). **מסכים/UI מחוץ להיקף במפורש —
+דוד: "המסכים כבר מתוכננים, יגיעו בשלב הבא."**
+
+**נבנה, ענף `feat/military-readiness-foundation`, לא ממוזג:**
+- `src/features/readiness/core/services/readiness-write.service.ts` —
+  טיפוסים (`ReadinessSoldier`/`ReadinessResult`/`ReadinessThresholdsConfig`)
+  + compute services: `computeCreateSoldier`/`computeLinkSoldier`/
+  `computeUnlinkSoldier`/`computeMergeSoldiers` (root-בלבד)/
+  `computeGetThresholds`/`computeSetThresholds` (root-בלבד)/
+  `computeRecordResult`/`computeSoldierCurrentStatus` (נגזרת-קריאה
+  טהורה, ללא Firestore). אותו דפוס chokepoint בדיוק כמו
+  `park-write.service.ts`/`contribution-write.service.ts`: scope
+  נפתר מה-uid המאומת בלבד (`resolveUnitPermissionScope`/
+  `isMemberWithinScope`, **לא** מומצא מחדש), audit נכתב באותו handler.
+- 6 מסלולי שרת תחת `src/app/api/units/readiness/` (results,
+  soldiers, soldiers/link, soldiers/unlink, soldiers/merge,
+  thresholds) — אותה צורת thin-handler כמו `member-workouts/route.ts`.
+- `docs/audit-2026-09/readiness-firestore-rules-proposal.md` — **הצעה
+  בכתב בלבד, `firestore.rules` עצמו לא נגע.** כולל ממצא טכני מהותי:
+  ההיקף המלא של unit_admin ("מפקד רואה את כל מה שתחתיו", §13.28) אינו
+  ניתן-להוכחה ב-rules טהורים (ה-walk על `parentUnitId` הוא קוד
+  אימפרטיבי, לא predicate חסום) — רק ניהול *ישיר* של יחידה ניתן
+  להוכחה שם; ההיקף המלא נשאר דרך השרת, כפי שכבר עובד היום לכל כתיבה.
+  שתי חלופות מוצגות לדוד, עם המלצה.
+- `src/features/readiness/core/services/__tests__/readiness-write.service.test.ts`
+  — 39 בדיקות, כולל בדיקות-שלילה מפורשות (לא רק קבלה): scope מחוץ-להיקף,
+  רשומה-כבר-משויכת, כפילות-uid, רשומה-ממוזגת, ניסיון לקבוע `outcome`
+  מגוף הבקשה (מתעלם — מחושב מחדש מה-value), non-root מנסה merge/set-thresholds.
+  3 הרצות מבודדות זהות: 39/39 בכל פעם. `npx tsc --noEmit`: 448 שגיאות
+  (בסיס קיים ב-worktree זה, ללא שינוי) — אפס שגיאות חדשות מהקבצים האלה.
+
+**שתי החלטות-עיצוב לא-טריוויאליות, מתועדות כאן כדי שלא ייראו כשרירותיות:**
+1. יצירת רשומת-חייל עם `uid` מיידי (מסלול "פתח רשומה חדשה ושייך
+   בבת-אחת", סעיף 4 במפרט) ממלאת `gender` אוטומטית מ-`core.gender` של
+   החשבון המקושר — **רק** כש-`core.gender` הוא `'male'`/`'female'`
+   נקיים. כש-`core.gender === 'other'`: **לא** ממופה אוטומטית לאחד
+   מהסוגים (לדומיין הכשירות יש בדיוק שני מסלולי-סף) — הקצין חייב לציין
+   באופן מפורש. זו הייתה הסיבה לשאלת-השער ("האם יש מגדר בפרופיל") —
+   אומת: קיים, מאוכלס, `'male'|'female'|'other'`.
+2. `computeSetThresholds`/`computeMergeSoldiers` הוגבלו ל-root בלבד —
+   קריאה מילולית של "סף אחד לכל הוורטיקל... גלובלי" ו"מיזוג לכפילות —
+   פעולת root בלבד" מהמפרט הנעול. לא נבדק מול דוד אם tenantOwner צריך
+   גישת-קריאה/כתיבה רחבה יותר לסף — דגל פתוח, לא הכרעה.
+
+**שני ממצאים במסך הישן (`/admin/authority/readiness`) — מתועדים, לא
+תוקנו, כמבוקש במפורש:**
+1. **אי-התאמת שדה.** `readiness.service.ts`'s `getUnitReadiness` מקבל
+   `authority.id` כ-`unitId` (מ-`page.tsx`), אך משווה אותו מול
+   `core.unitId` במסמכי המשתמש — שני שדות שונים לגמרי. לעולם לא תואם.
+2. **כתיבה נכשלת בשקט.** `ThresholdConfig.tsx`'s `handleSave` תופס
+   כישלון רק ב-`console.error` — אין משוב UI כלשהו. קצין ששומר סף
+   חדש, שנחסם על ידי `firestore.rules`' `allow write: if isAdmin()`,
+   רואה מסך ששומר בהצלחה לכאורה.
+
+**המסך הישן אינו הבסיס לבנייה הזו** — אומת בשלב 1 כשבור בשלוש דרכים
+עצמאיות (אי-התאמת שדה, קריאות-חסומות, כתיבות-חסומות-בשקט), אפס
+צרכנים במורד-הזרם. התשתית החדשה כאן אינה קוראת/כותבת ל-`readiness_configs`
+בשום מקום.
+
+**בדיקת-צורה בפרודקשן (ספירות בלבד, בוצעה, סקריפט חד-פעמי נמחק
+מיד אחרי השימוש כמוסכם):** 49 רשויות מסוג `military_unit`, בסה״כ 11
+משתמשים (`core.tenantId`) פרוסים על פניהן. התפלגות `core.gender`:
+4 `male`, 2 `female`, 0 `other`, **5 חסרים**. שיעור-אוכלוסייה נקי
+(`male`/`female`): 54.5%. **מסקנה:** הנחת המילוי-האוטומטי בהחלטה #1
+תקפה פחות ממחצית מהזמן על הנתונים האמיתיים היום — לא באג (ה-fallback
+ל"נדרש קלט מפורש" כבר מטפל בכך נכון, `computeCreateSoldier` מחזיר 400
+כש-`gender` חסר וגם לא ניתן למילוי-אוטומטי), אבל קציני-יחידה צריכים
+לצפות להקליד מגדר ידנית ברוב הרשומות היום, לא רק כמקרה-קצה. בסיס-הנתונים
+הצבאי האמיתי כרגע קטן מאוד (11 משתמשים בלבד פרוסים על 49 רשויות) —
+רלוונטי להערכת-היקף כללית של הפיצ'ר, לא רק לשאלת ה-gender.
+
+ענף חדש בלבד (`feat/military-readiness-foundation`), ללא push עד הוראה
+מפורשת.
+
 **אימות:** tsc — 803 (זהה). `tenantLabels.test.ts` — 6/6, שם מעודכן. `middleware.test.ts` — 49/49. שלוש הרצות מבודדות זהות לשתיהן. סוויטה רחבה — 2452/2482 (אותם 3 כשלים קיימים-מראש, לא קשורים). שום שינוי ל-firestore.rules.
