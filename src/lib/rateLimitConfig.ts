@@ -137,6 +137,13 @@ export const RATE_LIMITS = {
   parkWrite: {
     uidHourly: () => envWindow('RL_PARK_WRITE_UID_HOURLY', HOUR, 100),
   },
+  // POST /api/admin/contributions/[id]/approve|reject (01.10.2026, stage 4
+  // of the parks permission-model rebuild). Same generous headroom as
+  // parkWrite above — a moderation session approving/rejecting a batch of
+  // pending contributions is a normal workflow, not abuse.
+  contributionWrite: {
+    uidHourly: () => envWindow('RL_CONTRIBUTION_WRITE_UID_HOURLY', HOUR, 100),
+  },
 } as const;
 
 /**

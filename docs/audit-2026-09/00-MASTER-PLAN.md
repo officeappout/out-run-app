@@ -2347,4 +2347,32 @@ educational: [
 
 **פריט לרישום בלבד, לא לבנייה כעת:** שתי רשימות-נתיבים ("מסונכרנות ידנית" — `middleware.ts` + `admin/layout.tsx`) הן מחולל-סחף במהותן — בדיוק המצב שגרם לרשימת authority_manager להישאר ישנה כל-כך-הרבה-זמן ב-middleware.ts עצמו. הפתרון הנכון: מקור-אמת אחד שממנו שתיהן נגזרות (לא ייבוא-ישיר אפשרי בין Edge middleware ל-'use client' page, כפי שכבר מתועד — צריך מנגנון-שיתוף אחר, למשל קובץ-קונפיג נטול-תלויות-Edge/client ששתיהן קוראות ממנו בזמן-build/runtime). לא נבנה כעת.
 
-**המשך (מאושר, עדיין בעבודה): תיקוני-רמת-עמוד למסך-הצוות, מסך-השכונה, מסך-הארגונים — ראה פריטים בהמשך המסמך.**
+**המשך — תיקוני-רמת-עמוד למסך-הצוות, מסך-השכונה, מסך-הארגונים: כולם הושלמו (01.10.2026), אומתו חי על ידי דוד (ארבעת הצעדים), נדחפו. `syncAllUnitCounts()` — כתיבה רוחבית על כל הארגונים מאחורי כפתור לא-מוגן — נמצאה ותוקנה באותו מעבר, לא רק שני הכפתורים שדווחו במקור.**
+
+**שני פריטי-דיווח נפרדים מהסבב הזה, ממתינים להחלטת דוד, לא תוקנו:**
+- **מחיקת ארגון (authorities)**: קיים מסלול מלא (UI+service+rules) ל-city/regional_council/local_council בלבד, דרך `/admin/authorities` (`AuthoritiesList.tsx`'s Trash2 → `deleteAuthority` → `isAdmin()`). `military_unit`/`school` אין להם מסלול נגיש בשום מקום — `groupAuthoritiesFromArray` (`authority.service.ts:435-460`) משמיט אותם משלושת הדליים בלי שהשירות/הכללים עצמם מגבילים לפי סוג. דוד יצר ארגון-בדיקה דרך `/admin/organizations` שיושב כעת בספירות (312 סה"כ, 49 צבאי) — אם מסוג municipal/'city' הוא ניתן למחיקה דרך `/admin/authorities`; אם military/educational — אין דרך. שתי אפשרויות-החלטה הוצגו (root-only delete מול mark-inactive כמו יחידות) — ממתין.
+- **military_unit/school ללא tenant תואם**: military_unit — 49/49 עם tenant (0 שבורים). school — 1/2 בלי tenant (ארגון בית-ספר אחד לא יכול להחזיק יחידות כלל). מספרים בלבד, לא תוקן, לא סומן.
+
+**השדה והמבנה הסופי של authorities.boundaryGeoJSON** (אושר מול צ'אט המסלולים): מחרוזת JSON.stringify(Feature&lt;Polygon|MultiPolygon&gt;), נקראת דרך `parseBoundaryGeoJSON`. point-in-polygon — אך ורק דרך `resolveAuthorityForPoint` הקיים (טסט-רגרסיה על באג אמיתי במועצות אזוריות), לעולם לא מומש מחדש. גיאומטריה כיום (dry-run, לא בפרודקשן, בבעלות צ'אט אחר): 6/262 רשויות זכאיות.
+
+**ממצא אבטחה חדש מצ'אט המסלולים, לא ניקיון-נתונים:** נמצא פארק עם authorityId שגוי — יושב פיזית ברשות אחת, רשום על אחרת. כל מודל ההרשאות נשען על השדה הזה. **הכרעת דוד:** גיאומטריה מנצחת תווית בתצוגה/חיפוש, אבל authorityId נשאר מפתח ההרשאה — כיסוי-הגיאומטריה הדליל (6/262, חלק לעולם לא יקבלו גבול) היה גורם להרשאה-לפי-גיאומטריה להיכשל-סגור לכמעט כל רכזת. דיווח-בלבד שהוזמן (ספירת סתירות גבול-מול-תווית על 6 הרשויות הניתנות-לבדיקה) — טרם בוצע.
+
+---
+
+### §13.59 — שלב 4: נתיב אישור/דחייה לתרומות (01.10.2026)
+
+נסגר ממצא 4 (§13.58), הממצא החמור ביותר בביקורת כולה: `contribution.service.ts` ייבא `createPark`/`updatePark` מהגרסה הישנה (יחסי, לפני שלבים 2-3) — אישור תרומה עקף לגמרי את ה-chokepoint, `editDiff` נכתב גולמי בלי שום allowlist.
+
+**`contribution-write.service.ts` (חדש):** `resolveParkWriteCaller` (הקיים) מיוצא-מחדש כ-`resolveContributionWriteCaller` — אותה לוגיקה בדיוק, entity-agnostic למרות השם, בלי עותק שלישי. `resolveContributionDecisionContext` — ה-core המשותף ל-approve ו-reject כפי שדוד דרש: שולף את התרומה, קובע authorityId אפקטיבי, בודק הרשאה, לפני שאף פעולה מחליטה מה לכתוב.
+
+**קביעת-גזרה** (0/33 תרומות אמיתיות נושאות authorityId על המסמך עצמו, שונה מההנחה המקורית בקוד): suggest_edit/review — דרך linkedParkId→park.authorityId (קיים, מאומת נקי). new_location/report — דרך resolveAuthorityForPoint הקיים בלבד (לא מומש-מחדש), 'ambiguous' נחשב לא-ניתן-לקביעה בדיוק כמו 'unresolved'. undetermined = דחייה לכל מי שאינו root, לא ברירת-מחדל לגזרת המאשר.
+
+**סגירת ממצא 4 בפועל:** new_location עובר דרך `computeParkCreate`, suggest_edit דרך `computeParkUpdate` — אותה רשימת-שדות-מותרים ואותם ALWAYS_SERVER_CONTROLLED_FIELDS שכבר קיימים, לא מסלול מקביל. טסט ייעודי מוכיח ש-editDiff עם authorityId מוזר נדחה בשקט, בדיוק כמו בנתיב הרגיל.
+
+**XP:** לא מוענק על ידי הנתיב הזה — החלטת דוד, לא מטפלים. אישור/דחייה לעולם לא תלויים בזה ולא יכולים להיכשל בגללו (אומת בטסט ייעודי).
+
+**audit:** נכתב באותו handler, targetEntity:'Contribution', actionType APPROVE/REJECT. כש-approve יוצר/מעדכן פארק, נכתבות שתי שורות audit — אחת מ-computeParkCreate/Update (Park), אחת מהנתיב הזה (Contribution) — במכוון, שני אירועים אמיתיים.
+
+**נתיבים:** `POST /api/admin/contributions/[contributionId]/approve`, `POST /api/admin/contributions/[contributionId]/reject`. `RATE_LIMITS.contributionWrite` חדש, אותה נדיבות כמו parkWrite.
+
+**אימות:** tsc — 803 (זהה). טסטים חדשים — 28/28, שלוש הרצות מבודדות זהות. סוויטת park-write ו-middleware נשארות ירוקות ללא שינוי (100/100 משולב). שום שינוי ל-firestore.rules, שום מיזוג.
