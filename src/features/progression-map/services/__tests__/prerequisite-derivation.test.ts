@@ -66,6 +66,29 @@ describe.skipIf(!hasCredentials)('derivePrerequisites — live Firestore, Phase 
   });
 });
 
+describe('derivePrerequisites — muscle_up manual override (Phase 4c-2 "Model A")', () => {
+  // Static lookup, no Firestore dependency — runs unconditionally, unlike
+  // the live-gated describe blocks above. Confirmed via a live audit that
+  // muscle_up's real exercise data cannot express this through the
+  // data-driven path (0/14 tagged exercises carry a push tag at all, and
+  // the lowest-level representative carries no domain tag whatsoever) —
+  // the override exists specifically because that path returns [] for it.
+  const MUSCLE_UP_ID = 'fTLWzjP9gH2VNpamyCZF';
+
+  it('returns [push L10, pull L10] regardless of exercise data — the override short-circuits before touching allExercises', () => {
+    const result = derivePrerequisites([], MUSCLE_UP_ID);
+    expect(result).toEqual([
+      { domainProgramId: DOMAIN_PROGRAM_IDS.push, minLevel: 10 },
+      { domainProgramId: DOMAIN_PROGRAM_IDS.pull, minLevel: 10 },
+    ]);
+  });
+
+  it('does not affect any other program id — the override is a targeted lookup, not a new default', () => {
+    const result = derivePrerequisites([], 'someOtherSkillId');
+    expect(result).toEqual([]);
+  });
+});
+
 describe.skipIf(!hasCredentials)('DOMAIN_PROGRAM_IDS.legs sanity check — live Firestore', () => {
   it('OrAmOH3F375dVio5yGdU resolves to a real program (name logged for report, not asserted — see Phase 1 report)', async () => {
     const db = initFb();

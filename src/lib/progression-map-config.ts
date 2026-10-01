@@ -7,9 +7,20 @@
  * src/features/content/exercises/) so both of those domains can import it
  * without a cross-domain violation (CLAUDE.md Law 7).
  *
- * מאסל אפ (עליית כוח, fTLWzjP9gH2VNpamyCZF) is intentionally NOT on this list —
- * it's currently mis-flagged isMaster=true in production; fixing that is a
- * founder-only data change, out of scope for Phase 1.
+ * Phase 4c-2 (Item 2, "Model A"): מאסל אפ / עליית כוח (fTLWzjP9gH2VNpamyCZF)
+ * was added to this list — it was intentionally excluded through Phase 1
+ * because it was mis-flagged isMaster=true in production (14 exercises
+ * tagged directly to it, never routed through a real leaf tree). Adding it
+ * here is one of TWO changes that must land together to avoid a split-brain
+ * state: this list controls whether the Skill-Tree UI (useProgramCardState,
+ * useGatedProgramBuckets) routes a program through the real
+ * derivePrerequisites/evaluateProgramGate pipeline at all — the Firestore
+ * isMaster:false flip (a separate data write, tracked alongside this) does
+ * NOT by itself make that happen. Its prerequisite (push L10 AND pull L10 —
+ * an AND of two domains, a new shape; see MANUAL_PREREQUISITE_OVERRIDES in
+ * prerequisite-derivation.service.ts) is a manual override, not derived from
+ * its own exercise data — confirmed via a live audit that none of its 14
+ * tagged exercises carry a usable domain tag for this purpose.
  *
  * Phase 4c-1: the 4 canonical domains (משיכה/דחיפה/ליבה/רגליים) were
  * added — confirmed via a live, read-only Firestore audit (not fixture
@@ -73,6 +84,11 @@ export const PROGRESSION_MAP_LEAF_PROGRAMS: readonly ProgressionMapLeafProgram[]
   { programId: 'IOfBZFeorTTDkcz3tOA6', nameHe: 'עמידת ידיים', visibleInHub: false },
   { programId: 'PAxprHuT7HjqrWU4wl0T', nameHe: 'שכיבות סמיכה בעמידת ידיים', visibleInHub: true },
   { programId: 'EtY8YCol0qpF6DzgcTx1', nameHe: 'דגל אנושי', visibleInHub: false },
+  // Phase 4c-2 Item 2 — muscle_up "Model A". See file header for why this
+  // must land together with the isMaster:false Firestore flip. visibleInHub
+  // follows the same false-by-default precedent as handstand/human_flag —
+  // David didn't ask for hub visibility, only the gating fix.
+  { programId: 'fTLWzjP9gH2VNpamyCZF', nameHe: 'עליית כוח', visibleInHub: false },
   // Phase 4c-1 — the 4 canonical domains. See file header for the recon
   // behind this addition. Real Hebrew names (live Program.name field).
   { programId: 'UPDBtTdCvX748dtBlWYj', nameHe: 'משיכה', visibleInHub: false },

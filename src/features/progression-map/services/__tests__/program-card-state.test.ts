@@ -19,6 +19,8 @@ import type { Exercise } from '@/features/content/exercises/core/exercise.types'
 
 const FRONT_LEVER_RAW = 'RAWID_frontlever_4a1';
 const PULL_RAW = DOMAIN_PROGRAM_IDS.pull; // must be a real hardcoded domain id — derivePrerequisites only recognizes these 4
+const PUSH_RAW = DOMAIN_PROGRAM_IDS.push;
+const MUSCLE_UP_RAW = 'fTLWzjP9gH2VNpamyCZF'; // real Firestore id — matches the MANUAL_PREREQUISITE_OVERRIDES key
 
 function ex(id: string, targetPrograms: { programId: string; level: number }[]): Exercise {
   return { id, name: { he: id }, targetPrograms } as unknown as Exercise;
@@ -33,6 +35,7 @@ const CATALOG: Exercise[] = [
 ];
 
 const identitySlug = (id: string) => (id === PULL_RAW ? 'pull' : id);
+const pushPullSlug = (id: string) => (id === PULL_RAW ? 'pull' : id === PUSH_RAW ? 'push' : id);
 
 describe('resolveProgramCardState', () => {
   it('active (in activePrograms) maps straight through, no hint', () => {
@@ -85,6 +88,52 @@ describe('resolveProgramCardState', () => {
       resolveDomainSlug: identitySlug,
     });
     expect(result).toEqual({ state: 'locked_prereq', lockedHint: 'דרוש משיכה 10' });
+  });
+
+  describe('muscle_up — Phase 4c-2 "Model A" (AND-of-two-domains via MANUAL_PREREQUISITE_OVERRIDES)', () => {
+    it('both push and pull below minLevel 10 -> the hint names BOTH, not just the first', () => {
+      const result = resolveProgramCardState({
+        programSlug: 'muscle_up',
+        isLeafSkillProgram: true,
+        // Non-empty on purpose: resolveProgramCardState only calls
+        // derivePrerequisites at all when allExercises.length > 0 (its own
+        // pre-check guard, separate from the override living inside
+        // derivePrerequisites itself) — content is irrelevant for muscle_up,
+        // the override short-circuits before any of it is read.
+        allExercises: CATALOG,
+        rawSkillProgramId: MUSCLE_UP_RAW,
+        flatTracksBySlug: { push: 5, pull: 3 },
+        activeProgramSlugs: new Set(),
+        resolveDomainSlug: pushPullSlug,
+      });
+      expect(result).toEqual({ state: 'locked_prereq', lockedHint: 'דרוש דחיפה 10 ומשיכה 10' });
+    });
+
+    it('pull satisfied but push still below minLevel -> only the unmet one is named (AND semantics: still locked)', () => {
+      const result = resolveProgramCardState({
+        programSlug: 'muscle_up',
+        isLeafSkillProgram: true,
+        allExercises: CATALOG, // non-empty, see comment above — content irrelevant, the override short-circuits
+        rawSkillProgramId: MUSCLE_UP_RAW,
+        flatTracksBySlug: { push: 5, pull: 12 },
+        activeProgramSlugs: new Set(),
+        resolveDomainSlug: pushPullSlug,
+      });
+      expect(result).toEqual({ state: 'locked_prereq', lockedHint: 'דרוש דחיפה 10' });
+    });
+
+    it('both push and pull at/above minLevel 10 -> unlocked (folds to locked_prereq + "בצע מבדק", same as any other leaf whose prerequisite is met)', () => {
+      const result = resolveProgramCardState({
+        programSlug: 'muscle_up',
+        isLeafSkillProgram: true,
+        allExercises: CATALOG, // non-empty, see comment above — content irrelevant, the override short-circuits
+        rawSkillProgramId: MUSCLE_UP_RAW,
+        flatTracksBySlug: { push: 10, pull: 14 },
+        activeProgramSlugs: new Set(),
+        resolveDomainSlug: pushPullSlug,
+      });
+      expect(result).toEqual({ state: 'locked_prereq', lockedHint: 'בצע מבדק' });
+    });
   });
 
   it('needs_assessment: prerequisite domain never assessed -> renders like locked_prereq with "בצע מבדק"', () => {

@@ -193,10 +193,21 @@ export function resolveProgramCardState(params: {
     return { state: 'locked_prereq', lockedHint: NEEDS_ASSESSMENT_HINT };
   }
   // locked_prereq, and the (this-phase-unreachable) locked_pro folded the same way.
+  // Phase 4c-2: render EVERY unmet requirement, not just the first — a
+  // program like muscle_up can require more than one domain at once (an
+  // AND, e.g. push AND pull), and the lock decision in evaluateProgramGate
+  // already correctly requires all of them; the hint text must name all of
+  // them too, or a user missing two domains only ever sees one.
   if (gate.status === 'locked_prereq' && gate.requirements.length > 0) {
-    const req = gate.requirements[0];
-    const label = DOMAIN_HEBREW_LABELS[req.domainProgramId] ?? req.domainProgramId;
-    return { state: 'locked_prereq', lockedHint: `דרוש ${label} ${req.need}` };
+    const parts = gate.requirements.map((req) => {
+      const label = DOMAIN_HEBREW_LABELS[req.domainProgramId] ?? req.domainProgramId;
+      return `${label} ${req.need}`;
+    });
+    const joined =
+      parts.length === 1
+        ? parts[0]
+        : `${parts.slice(0, -1).join(', ')} ו${parts[parts.length - 1]}`;
+    return { state: 'locked_prereq', lockedHint: `דרוש ${joined}` };
   }
   return { state: 'locked_prereq' };
 }

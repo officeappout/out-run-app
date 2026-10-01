@@ -17,16 +17,19 @@ const PULL = 'UPDBtTdCvX748dtBlWYj';
 const PUSH = 'J0fLpmJhG0KDN2tQouxh';
 const CORE = 'kDMpobbKsuVTByTIKUpe';
 const LEGS = 'OrAmOH3F375dVio5yGdU';
+const MUSCLE_UP = 'fTLWzjP9gH2VNpamyCZF';
 const NOT_ALLOWLISTED = 'someOtherProgramIdNotOnTheList';
 
 describe('PROGRESSION_MAP_LEAF_PROGRAMS', () => {
-  it('has exactly the 6 Phase 1 skills + 4 Phase 4c-1 domains', () => {
-    expect(PROGRESSION_MAP_LEAF_PROGRAMS).toHaveLength(10);
+  it('has exactly the 6 Phase 1 skills + 4 Phase 4c-1 domains + muscle_up (Phase 4c-2)', () => {
+    expect(PROGRESSION_MAP_LEAF_PROGRAMS).toHaveLength(11);
   });
 
-  it('does not include מאסל אפ (excluded per the founder — isMaster mis-flag, founder-only fix)', () => {
+  it('includes מאסל אפ / עליית כוח (Phase 4c-2 Item 2 — "Model A": isMaster flip + this list addition must land together)', () => {
     const ids = PROGRESSION_MAP_LEAF_PROGRAMS.map((p) => p.programId);
-    expect(ids).not.toContain('fTLWzjP9gH2VNpamyCZF');
+    expect(ids).toContain(MUSCLE_UP);
+    const byId = new Map(PROGRESSION_MAP_LEAF_PROGRAMS.map((p) => [p.programId, p.nameHe]));
+    expect(byId.get(MUSCLE_UP)).toBe('עליית כוח');
   });
 
   it('includes the 4 Phase 4c-1 domains with their Hebrew display names', () => {

@@ -44,6 +44,31 @@ export interface DerivedPrerequisite {
 }
 
 /**
+ * Phase 4c-2, Item 2 (muscle_up "Model A"): manual prerequisite overrides
+ * for skills whose real exercise data cannot express their intended
+ * prerequisite through the data-driven path below. Confirmed via a live
+ * Firestore audit of all 14 exercises tagged directly to muscle_up
+ * (fTLWzjP9gH2VNpamyCZF): zero carry a push tag, and the two lowest-level
+ * exercises (the ones derivePrerequisites would otherwise consult) carry
+ * no domain tag at all — so the data-driven path below returns [] for it,
+ * not the intended push+pull pair. muscle_up is genuinely composed of both
+ * push and pull (an AND, not a single domain) per David's explicit
+ * decision — minLevel 10 for both, David-supplied (not data-derivable;
+ * no muscle_up exercise is push-tagged at any level).
+ *
+ * Checked before adding this: evaluateProgramGate (program-gating.service.ts)
+ * already implements AND semantics over however many entries a
+ * DerivedPrerequisite[] carries — no gating-side change was needed, only
+ * this derivation-side override.
+ */
+const MANUAL_PREREQUISITE_OVERRIDES: Readonly<Record<string, DerivedPrerequisite[]>> = {
+  fTLWzjP9gH2VNpamyCZF: [
+    { domainProgramId: DOMAIN_PROGRAM_IDS.push, minLevel: 10 },
+    { domainProgramId: DOMAIN_PROGRAM_IDS.pull, minLevel: 10 },
+  ],
+};
+
+/**
  * Derives a skill program's prerequisite(s) from its own lowest-level
  * target-exercise's targetPrograms tags into a broad domain program.
  * Returns [] when there's no tree, the lowest rung is a gap or has no
@@ -52,6 +77,9 @@ export interface DerivedPrerequisite {
  * treats an empty array as "no prerequisite," not an error.
  */
 export function derivePrerequisites(allExercises: Exercise[], skillProgramId: string): DerivedPrerequisite[] {
+  const override = MANUAL_PREREQUISITE_OVERRIDES[skillProgramId];
+  if (override) return override;
+
   const tree = buildSkillTree(allExercises, skillProgramId);
   if (!tree) return [];
 
