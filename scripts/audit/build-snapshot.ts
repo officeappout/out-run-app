@@ -348,8 +348,26 @@ interface Combo {
    * set to any value — the key itself is absent, matching buildMockProfile's
    * "absent=absent" convention), activePrograms:[] — verifies a user who
    * never completed a core assessment doesn't get core fabricated for them.
+   *
+   * 'skill_only_front_lever' (2026-10-01, skill↔foundation unification fix
+   * regression tripwire) — a user who assessed ONLY a skill (front_lever L1),
+   * with no foundation domain ever directly assessed. domainLevels sets
+   * `front_lever` AND the derived `pull: level + 9` (mirrors onboarding-sync's
+   * real SKILL_TO_FOUNDATION_OFFSET=9 write — buildMockProfile has no such
+   * derivation itself, so both must be given explicitly or the scenario tests
+   * something subtly different: "skill assessed with no foundation at all").
+   * activePrograms:[{id:'front_lever',...}] — the skill IS the user's active
+   * program, matching the real shape a skill-only onboarding path produces
+   * (not wrapped in a calisthenics_upper master). Pre-fix: PipelineOrchestrator's
+   * domain-strict filter rejects every pull-tagged exercise because `domain`
+   * resolves to the bare skill slug and only widens foundation→skill, never
+   * skill→foundation — empty pool, 0 main exercises, rest-day fallback
+   * (verified: reproduces the reported bug exactly, including the same
+   * "17 candidates removed" pool size and the same "מתח סופינציה" L10 rescue
+   * candidate GuaranteePassRunner finds too late to use). Post-fix: the pool
+   * should admit pull-tagged exercises evaluated at the user's own pull level.
    */
-  activeProgramsMode: 'auto' | 'push_pull_legs_split' | 'full_body' | 'no_core_assessment';
+  activeProgramsMode: 'auto' | 'push_pull_legs_split' | 'full_body' | 'no_core_assessment' | 'skill_only_front_lever';
   /**
    * David, 07.09.2026 (Addendum 33): only meaningful for
    * activeProgramsMode:'auto' — see TARGET_DIFFICULTIES above. Ignored by
@@ -374,6 +392,13 @@ const FULL_BODY_LEVELS = SMOKE ? [8] : [8, 12];
 const FULL_BODY_DURATIONS = SMOKE ? [30] : [30, 45];
 const NO_CORE_ASSESSMENT_LEVELS = SMOKE ? [8] : [8, 12];
 const NO_CORE_ASSESSMENT_DURATIONS = SMOKE ? [30] : [30, 45];
+
+// Fixed at the exact reported level (front_lever L1), not a sweep — this is a
+// regression tripwire for one specific bug, not a parameter study. 2 durations
+// for a little more than n=1, same sizing convention as the sibling tripwires
+// above.
+const SKILL_ONLY_FRONT_LEVER_LEVELS = [1];
+const SKILL_ONLY_FRONT_LEVER_DURATIONS = SMOKE ? [30] : [30, 45];
 
 function buildCombos(): Combo[] {
   const combos: Combo[] = [];
@@ -407,6 +432,14 @@ function buildCombos(): Combo[] {
       combos.push({
         level, duration, location: 'home', domains: undefined, daysInactive: 0,
         activeProgramsMode: 'no_core_assessment',
+        targetDifficulty: 2, // placeholder — ignored, see above
+      });
+
+  for (const level of SKILL_ONLY_FRONT_LEVER_LEVELS)
+    for (const duration of SKILL_ONLY_FRONT_LEVER_DURATIONS)
+      combos.push({
+        level, duration, location: 'park', domains: undefined, daysInactive: 0,
+        activeProgramsMode: 'skill_only_front_lever',
         targetDifficulty: 2, // placeholder — ignored, see above
       });
 
@@ -493,9 +526,14 @@ async function runCombo(combo: Combo, runIndex: number): Promise<{ workouts: Wor
   // key itself absent, matching buildMockProfile's own "absent=absent"
   // handling (`if (domainLevels.core != null)`). Every other mode keeps the
   // original all-4-domains shape.
-  const domainLevels: Record<string, number> = activeProgramsMode === 'no_core_assessment'
-    ? { pull: level, push: level, legs: level }
-    : { pull: level, push: level, legs: level, core: level };
+  const domainLevels: Record<string, number> =
+    activeProgramsMode === 'no_core_assessment'
+      ? { pull: level, push: level, legs: level }
+      // front_lever + its derived pull level (offset +9) — see Combo's own
+      // doc comment on 'skill_only_front_lever' for why both are required.
+      : activeProgramsMode === 'skill_only_front_lever'
+      ? { front_lever: level, pull: level + 9 }
+      : { pull: level, push: level, legs: level, core: level };
   const activeProgramEntries =
     activeProgramsMode === 'push_pull_legs_split'
       ? [
@@ -505,6 +543,8 @@ async function runCombo(combo: Combo, runIndex: number): Promise<{ workouts: Wor
         ]
       : activeProgramsMode === 'full_body'
       ? [{ id: 'full_body', name: 'Full Body', level }]
+      : activeProgramsMode === 'skill_only_front_lever'
+      ? [{ id: 'front_lever', name: 'Front Lever', level }]
       : []; // 'auto' and 'no_core_assessment' — no active program
   const profile = buildMockProfile({
     level, persona: '', injuries: [],
@@ -512,6 +552,15 @@ async function runCombo(combo: Combo, runIndex: number): Promise<{ workouts: Wor
     gear: ['pullup_bar', 'dip_bar', 'parallel_bars'],
     activePrograms: activeProgramEntries,
   });
+  // buildMockProfile unconditionally stamps domains.full_body = {currentLevel:
+  // effectiveLevel} regardless of domainLevels (see its own source) — correct
+  // for every other mode (it mirrors the always-explicit `level` param), but
+  // would misrepresent THIS scenario: a user who assessed only front_lever has
+  // no full_body assessment at all. Stripped here only, not in the shared
+  // utility (every other combo's behavior must stay byte-identical).
+  if (activeProgramsMode === 'skill_only_front_lever') {
+    delete (profile.progression!.domains as any).full_body;
+  }
 
   // Addendum 33 (07.09.2026): strictDomains/targetDifficulty only apply to
   // 'auto' mode combos — see the Combo interface + TARGET_DIFFICULTIES /
@@ -569,6 +618,7 @@ async function runCombo(combo: Combo, runIndex: number): Promise<{ workouts: Wor
       req_domains: activeProgramsMode === 'push_pull_legs_split' ? 'split:push_pull_legs'
         : activeProgramsMode === 'full_body' ? 'program:full_body'
         : activeProgramsMode === 'no_core_assessment' ? 'no_core_assessment'
+        : activeProgramsMode === 'skill_only_front_lever' ? 'skill_only_front_lever'
         : (domains?.join(',') || 'auto'),
       days_inactive: daysInactive,
       title: w.title ?? '', structure: w.structure ?? null,
@@ -662,7 +712,8 @@ async function main() {
   const splitCombosCount = PUSH_PULL_LEGS_SPLIT_LEVELS.length * PUSH_PULL_LEGS_SPLIT_DURATIONS.length;
   const fullBodyCombosCount = FULL_BODY_LEVELS.length * FULL_BODY_DURATIONS.length;
   const noCoreCombosCount = NO_CORE_ASSESSMENT_LEVELS.length * NO_CORE_ASSESSMENT_DURATIONS.length;
-  report(`Matrix: ${LEVELS.length} levels × ${DURATIONS.length} durations × ${LOCATIONS.length} locations × ${DOMAIN_SUBSETS.length} domain-subsets × ${DAYS_INACTIVE.length} daysInactive × ${TARGET_DIFFICULTIES.length} targetDifficulty = ${autoCombosCount} 'auto' calls (1 workout row each, targetDifficulty-scoped — not free trio) + ${splitCombosCount} 'push_pull_legs_split' + ${fullBodyCombosCount} 'full_body' + ${noCoreCombosCount} 'no_core_assessment' calls (×3 bolts each, free per call) = ${combos.length} total calls`);
+  const skillOnlyCombosCount = SKILL_ONLY_FRONT_LEVER_LEVELS.length * SKILL_ONLY_FRONT_LEVER_DURATIONS.length;
+  report(`Matrix: ${LEVELS.length} levels × ${DURATIONS.length} durations × ${LOCATIONS.length} locations × ${DOMAIN_SUBSETS.length} domain-subsets × ${DAYS_INACTIVE.length} daysInactive × ${TARGET_DIFFICULTIES.length} targetDifficulty = ${autoCombosCount} 'auto' calls (1 workout row each, targetDifficulty-scoped — not free trio) + ${splitCombosCount} 'push_pull_legs_split' + ${fullBodyCombosCount} 'full_body' + ${noCoreCombosCount} 'no_core_assessment' + ${skillOnlyCombosCount} 'skill_only_front_lever' calls (×3 bolts each, free per call) = ${combos.length} total calls`);
   report(`Concurrency: ${CONCURRENCY}`);
 
   const db = new Database(SNAPSHOT_DB_PATH);
