@@ -111,8 +111,24 @@ export interface ReadinessThresholdSnapshot {
 }
 
 /**
- * Immutable once written (point 9/12) — nothing in this file ever updates
- * or deletes a readiness_results document after creation.
+ * The HISTORY fields (outcome/value/notPerformedReason/thresholdSnapshot/
+ * source/recordedBy/recordedAt) are immutable once written (point 9/12) —
+ * nothing in this file ever updates or deletes them after creation.
+ *
+ * `uid` is the one deliberate exception, added 01.10.2026 (David, rules
+ * review round): a read-key only, denormalized from the soldier record's
+ * own `uid` at the moment this result is recorded — NOT part of the frozen
+ * history. It exists purely so a soldier's own firestore.rules read rule
+ * can be a direct field comparison (`resource.data.uid ==
+ * request.auth.uid`) instead of a nested get() on the soldier record,
+ * which would hit Firestore's 20-get()-per-query cap on any `list` query
+ * once a soldier has more than 20 results. Kept in sync by
+ * computeLinkSoldier/computeUnlinkSoldier (every existing result for a
+ * soldier, updated atomically alongside the soldier record itself) and by
+ * computeMergeSoldiers (reconciled on both the moved and the pre-existing
+ * survivor results). The invariant this field exists to uphold: at any
+ * moment, every readiness_results doc's `uid` equals its soldier record's
+ * CURRENT `uid` — never stale, never partially updated.
  */
 export interface ReadinessResult {
   id: string;
@@ -127,6 +143,7 @@ export interface ReadinessResult {
   thresholdSnapshot: ReadinessThresholdSnapshot | null;
   recordedBy: string;
   recordedAt: Date;
+  uid: string | null;
 }
 
 export interface ReadinessTestDefinition {
@@ -387,11 +404,19 @@ export async function computeLinkSoldier(
   // uid must not already be linked to a different soldier record anywhere
   // in the system. A second, out-of-transaction query can't race-proof
   // (b) — both reads and the write live in the same transaction.
+  //
+  // 01.10.2026 (David, rules review round) — this soldier's EXISTING
+  // results also get their denormalized `uid` updated here, in the same
+  // transaction as the soldier-record link. Firestore requires every read
+  // in a transaction to happen before any write, so the results query is
+  // read alongside the other three below, not deferred until after the
+  // soldier doc is validated.
   const result = await db.runTransaction<LinkSoldierResult>(async (tx: Transaction) => {
-    const [soldierSnap, targetSnap, dupSnap] = await Promise.all([
+    const [soldierSnap, targetSnap, dupSnap, existingResultsSnap] = await Promise.all([
       tx.get(soldierRef),
       tx.get(targetRef),
       tx.get(db.collection('readiness_soldiers').where('uid', '==', targetUid).limit(2)),
+      tx.get(db.collection('readiness_results').where('soldierId', '==', soldierId)),
     ]);
 
     if (!soldierSnap.exists) {
@@ -427,6 +452,13 @@ export async function computeLinkSoldier(
 
     const now = new Date();
     tx.update(soldierRef, { uid: targetUid, linkedAt: now, updatedAt: now });
+    // This is NOT a history rewrite (points 9/12 still hold for
+    // outcome/value/thresholdSnapshot/etc.) — `uid` is a deliberate,
+    // documented exception: a denormalized read-key only, re-synced here
+    // on purpose. Do not "fix" this into only touching new results.
+    for (const resultDoc of existingResultsSnap.docs) {
+      tx.update(resultDoc.ref, { uid: targetUid });
+    }
 
     return { status: 200, body: { soldierId } };
   });
@@ -473,22 +505,50 @@ export async function computeUnlinkSoldier(
   }
 
   const soldierRef = db.collection('readiness_soldiers').doc(soldierId);
-  const snap = await soldierRef.get();
-  if (!snap.exists) {
-    return { status: 404, body: { error: 'רשומת חייל לא נמצאה.' } };
-  }
-  const soldier = snap.data() as Omit<ReadinessSoldier, 'id'>;
-  if (!isMemberWithinScope(scope, soldier.tenantId, soldier.unitId)) {
-    return { status: 403, body: { error: DENIED_MESSAGE } };
-  }
-  if (!soldier.uid) {
-    return { status: 400, body: { error: 'רשומה זו אינה משויכת לחשבון.' } };
-  }
 
-  const previousUid = soldier.uid;
-  // Point 5 — unlinking never touches readiness_results; they stay
-  // anchored to soldierId, which is untouched by this write.
-  await soldierRef.update({ uid: null, linkedAt: null, updatedAt: new Date() });
+  // Point 5 — unlinking never changes which soldierId a result belongs to;
+  // soldierId stays the anchor. But (01.10.2026, David, rules review
+  // round) the denormalized `uid` read-key on every one of this soldier's
+  // EXISTING results must be cleared to null atomically with the soldier
+  // record's own unlink — otherwise a soldier could, for a window, see
+  // PART of their result history (whatever hadn't been cleared yet) and
+  // not the rest, once the firestore.rules self-read rule compares
+  // resource.data.uid directly. Same transactional shape as
+  // computeLinkSoldier: all reads (soldier + their results) happen before
+  // any write, per Firestore's transaction rules.
+  const txResult = await db.runTransaction<UnlinkSoldierResult & { previousUid?: string }>(async (tx: Transaction) => {
+    const [snap, existingResultsSnap] = await Promise.all([
+      tx.get(soldierRef),
+      tx.get(db.collection('readiness_results').where('soldierId', '==', soldierId)),
+    ]);
+
+    if (!snap.exists) {
+      return { status: 404, body: { error: 'רשומת חייל לא נמצאה.' } };
+    }
+    const soldier = snap.data() as Omit<ReadinessSoldier, 'id'>;
+    if (!isMemberWithinScope(scope, soldier.tenantId, soldier.unitId)) {
+      return { status: 403, body: { error: DENIED_MESSAGE } };
+    }
+    if (!soldier.uid) {
+      return { status: 400, body: { error: 'רשומה זו אינה משויכת לחשבון.' } };
+    }
+
+    const previousUid = soldier.uid;
+    tx.update(soldierRef, { uid: null, linkedAt: null, updatedAt: new Date() });
+    // Same deliberate exception as computeLinkSoldier above — `uid` is a
+    // read-key, not part of the frozen history (points 9/12). Clearing
+    // it on every existing result here is intentional, not a regression.
+    for (const resultDoc of existingResultsSnap.docs) {
+      tx.update(resultDoc.ref, { uid: null });
+    }
+
+    return { status: 200, body: { soldierId }, previousUid };
+  });
+
+  if (txResult.status !== 200) {
+    return txResult;
+  }
+  const previousUid = txResult.previousUid as string;
 
   await writeReadinessAuditLog(db, {
     uid: ctx.callerUid,
@@ -549,12 +609,26 @@ export async function computeMergeSoldiers(
 
   // Point 9 — results are never deleted or rewritten; they're
   // re-pointed to the survivor's soldierId, keeping every original
-  // thresholdSnapshot/outcome/recordedAt intact.
-  const orphanResults = await db.collection('readiness_results').where('soldierId', '==', mergedId).get();
+  // thresholdSnapshot/outcome/recordedAt intact. `uid` is the one
+  // DELIBERATE exception (see ReadinessResult's own comment) — a
+  // denormalized read-key only, not an audited datum, not a history
+  // rewrite. Both the moved results AND the survivor's own pre-existing
+  // results are reconciled to the survivor's FINAL uid below (01.10.2026,
+  // David, rules review round), so the invariant "every result's uid
+  // matches its soldier's current uid" holds after a merge too, not just
+  // after link/unlink. Do not "fix" this into leaving uid untouched.
+  const finalUid = survivor.uid ?? merged.uid ?? null;
+  const [orphanResults, survivorExistingResults] = await Promise.all([
+    db.collection('readiness_results').where('soldierId', '==', mergedId).get(),
+    db.collection('readiness_results').where('soldierId', '==', survivorId).get(),
+  ]);
 
   const batch = db.batch();
   for (const doc of orphanResults.docs) {
-    batch.update(doc.ref, { soldierId: survivorId });
+    batch.update(doc.ref, { soldierId: survivorId, uid: finalUid });
+  }
+  for (const doc of survivorExistingResults.docs) {
+    batch.update(doc.ref, { uid: finalUid });
   }
   batch.update(mergedRef, { mergedInto: survivorId, updatedAt: new Date() });
   if (!survivor.uid && merged.uid) {
@@ -782,6 +856,15 @@ export async function computeRecordResult(
     thresholdSnapshot,
     recordedBy: ctx.callerUid,
     recordedAt: new Date(),
+    // Denormalized read-key (see ReadinessResult's own comment) —
+    // snapshotted from the soldier record fetched above. A soldier
+    // linked/unlinked between this fetch and the write below would see
+    // the new result briefly carry a stale uid until their next
+    // link/unlink op re-syncs it (computeLinkSoldier/computeUnlinkSoldier
+    // only touch EXISTING results at the moment they run) — a narrow,
+    // accepted race, not covered by a transaction here since this
+    // function wasn't asked to be transactional with the soldier fetch.
+    uid: soldier.uid,
   };
 
   const ref = await db.collection('readiness_results').add(doc);
