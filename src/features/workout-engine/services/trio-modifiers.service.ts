@@ -249,7 +249,19 @@ export function applyIntenseOption(
     return mg === 'core' || pm === 'core' || pm === 'abs';
   };
 
-  const corePool = main.filter(isCore).sort((a, b) => b.score - a.score);
+  // 00-PLAN.md §18: a user without a core assessment never gets a core
+  // exercise, in any path. This function used to keep up to MAX_CORE of
+  // whatever core-domain exercise was already in `main` unconditionally —
+  // no check against userProgramLevels at all (found live, 01.10.2026, see
+  // docs/workout-engine/03-CHANGES.md). If a core exercise reached `main`
+  // for an unassessed user through some earlier selection step, it must be
+  // dropped here, not preserved — and NOT folded into nonCorePool either
+  // (that pool's own fill logic doesn't domain-restrict, so it would just
+  // survive there instead under a different label).
+  const isCoreAssessed = userProgramLevels.has('core');
+  const corePool = isCoreAssessed
+    ? main.filter(isCore).sort((a, b) => b.score - a.score)
+    : [];
   const nonCorePool = main.filter(ex => !isCore(ex));
 
   // ── Domain-Aware Intense Selection ────────────────────────────────────────
