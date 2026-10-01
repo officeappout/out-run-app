@@ -36,7 +36,7 @@ describe('TENANT_LABELS — §13.40 new fields (managerTitle/managerSingular/tea
 
 describe('TENANT_LABELS — §13.61 tenantOwnerRoleLabel/unitAdminRoleLabel (military only, David\'s exact titles)', () => {
   it("military matches David's exact request", () => {
-    expect(TENANT_LABELS.military.tenantOwnerRoleLabel).toBe('קצין כושר קרבי ראשי');
+    expect(TENANT_LABELS.military.tenantOwnerRoleLabel).toBe('קצין כושר קרבי חטיבתי');
     expect(TENANT_LABELS.military.unitAdminRoleLabel).toBe('מדא״ג גדודי');
   });
 

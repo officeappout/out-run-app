@@ -255,31 +255,37 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* ═══ Today's Sessions — Compact Summary ═══ */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center">
-              <CalendarHeart size={18} className="text-blue-600" />
+      {/* 01.10.2026 (00-MASTER-PLAN.md §13.61 follow-up) — down for
+          military: points at /admin/authority/community, the same
+          blocked destination as the already-removed "מרכז קהילה ואירועים"
+          QuickLink. */}
+      {tenantType !== 'military' && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center">
+                <CalendarHeart size={18} className="text-blue-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-black text-gray-900">מפגשים וקבוצות</h2>
+                <p className="text-xs text-gray-400">
+                  {stats.activeGroups} קבוצות פעילות · {stats.upcomingEvents} אירועים קרובים
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-black text-gray-900">מפגשים וקבוצות</h2>
-              <p className="text-xs text-gray-400">
-                {stats.activeGroups} קבוצות פעילות · {stats.upcomingEvents} אירועים קרובים
-              </p>
-            </div>
+            <Link
+              href="/admin/authority/community"
+              className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm"
+            >
+              צפה במרכז הקהילה
+              <ArrowLeft size={14} />
+            </Link>
           </div>
-          <Link
-            href="/admin/authority/community"
-            className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm"
-          >
-            צפה במרכז הקהילה
-            <ArrowLeft size={14} />
-          </Link>
+          <p className="text-sm text-gray-500">
+            לצפייה בלוח הזמנים המלא, ניהול קבוצות ואירועים, ורשימות נרשמים — עברו למרכז הקהילה.
+          </p>
         </div>
-        <p className="text-sm text-gray-500">
-          לצפייה בלוח הזמנים המלא, ניהול קבוצות ואירועים, ורשימות נרשמים — עברו למרכז הקהילה.
-        </p>
-      </div>
+      )}
     </div>
   );
 }

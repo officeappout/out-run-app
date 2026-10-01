@@ -86,10 +86,21 @@ export const SIDEBAR_CONFIGS: Record<string, PortalSidebarConfig> = {
         // a server route this round. Firestore rules/the page itself are
         // untouched; this is the one deliberately incomplete fix in this
         // round, intentional, not forgotten.
+        //
+        // the "חיילים" link (membersTitle → /admin/authority/users) was
+        // REMOVED here (01.10.2026, §13.61 follow-up) — confirmed live,
+        // David's officer clicked it and reached nothing. Root cause:
+        // /admin/authority/users has been super_admin/system_admin-only
+        // since 22.09.2026 (middleware.ts's own comment on
+        // TENANT_OWNER_ALLOWED_PATHS/AUTHORITY_MANAGER_ALLOWED_PATHS
+        // already documented it as "deliberately absent" from both
+        // allowlists) — this sidebar entry was simply never updated to
+        // match when that happened, same stale-link class already noted
+        // for municipal/school's own copies of this same link, which are
+        // untouched here (out of scope, not this chat's call).
         title: 'תפעול',
         links: [
           { href: '/admin/authority/team', icon: 'Users', label: 'ניהול צוות' },
-          { href: '/admin/authority/users', icon: 'Users', label: null, labelKey: 'membersTitle' },
         ],
       },
     ],
