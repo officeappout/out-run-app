@@ -138,6 +138,45 @@ export interface WorkoutMetadataContext {
   previewNow?: Date;
 }
 
+/**
+ * Canonical numeric→categorical experience-level mapper — the single source
+ * for populating `WorkoutMetadataContext.experienceLevel` (the `@רמה`
+ * content tag, branding.utils.ts) from a plain program-level number.
+ *
+ * Before this existed, no caller populated `experienceLevel` at all in the
+ * live home-workout pipeline, so `@רמה` always fell through to its own
+ * generic-fallback string ("כל הרמות") in every admin-authored title/
+ * description row that used the tag — not a race or an edge case, a
+ * permanent gap (confirmed: `metadataCtxBase` in home-workout.service.ts
+ * never set this field; `experienceLevel` has exactly one other real
+ * producer in the whole repo, NextRunWorkoutCard.tsx's own inline 3-value
+ * ternary keyed off a running pace-profile enum — unrelated scale, not
+ * reusable here).
+ *
+ * No existing function in the repo maps a 1-25 program level to this exact
+ * 4-way `beginner/intermediate/advanced/pro` vocabulary (confirmed via
+ * targeted search). The closest relative is
+ * `getLevelTier` (split-decision.types.ts) — same 1-25 scale, same
+ * beginner/intermediate boundary (≤5 / ≤13), but only 3 tiers (caps at
+ * 'advanced') and tuned for a different purpose (SplitDecisionService's
+ * session-type matrix) — deliberately NOT reused/extended in place, since
+ * adding a 4th tier there would require touching that matrix for an
+ * unrelated content-tagging need. This function keeps the SAME
+ * beginner/intermediate boundary for consistency with that one existing
+ * tuned breakpoint, then splits the remaining range in two for
+ * advanced/pro — that split is a new, provisional judgment call (not
+ * sourced from any existing design doc); revisit with David if a more
+ * authoritative threshold ever surfaces.
+ */
+export function resolveExperienceLevelFromUserLevel(
+  userLevel: number,
+): 'beginner' | 'intermediate' | 'advanced' | 'pro' {
+  if (userLevel <= 5) return 'beginner';
+  if (userLevel <= 13) return 'intermediate';
+  if (userLevel <= 19) return 'advanced';
+  return 'pro';
+}
+
 export interface ResolvedWorkoutMetadata {
   /** Dynamic title from Firestore (or fallback) */
   title: string | null;

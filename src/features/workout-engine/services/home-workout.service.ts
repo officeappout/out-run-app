@@ -70,6 +70,7 @@ import {
   resolveWorkoutMetadata,
   detectTimeOfDay,
   detectDayPeriod,
+  resolveExperienceLevelFromUserLevel,
   TimeOfDay,
   WorkoutMetadataContext,
   TrioVariant,
@@ -2990,6 +2991,13 @@ async function _buildSharedPipeline(
     ancestorProgramIds,
     userAge,
     userLevel: baseUserLevel,
+    // @רמה content-tag fix (2026-10-01): this field was never populated in
+    // this pipeline before — every admin-authored title/description row
+    // using @רמה fell through to its own generic "כל הרמות" fallback for
+    // every home-generated workout, unconditionally. See
+    // resolveExperienceLevelFromUserLevel's own doc comment for the mapping
+    // and why no existing function was reused.
+    experienceLevel: resolveExperienceLevelFromUserLevel(baseUserLevel),
     isAbroad,
     recentBundleIds,
     previewNow,
