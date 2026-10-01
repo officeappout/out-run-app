@@ -94,8 +94,15 @@ export function normalizeEquipmentArray(
   gymEquipmentList: GymEquipment[],
   equipmentOverride?: string[],
 ): string[] {
+  // Decision F (park-hero-fix) — see resolveEquipment's own doc comment for the full
+  // rationale. Computed here (not inside resolveEquipment) since DOMAIN_RESOLUTION_SKILL_
+  // PARENT_MAP is already imported in this file.
+  const hasActiveSkillProgram = (profile.progression?.activePrograms ?? []).some(
+    (p) => DOMAIN_RESOLUTION_SKILL_PARENT_MAP[p.templateId] !== undefined,
+  );
+
   let availableEquipment = [
-    ...resolveEquipment(profile, location, equipmentOverride),
+    ...resolveEquipment(profile, location, equipmentOverride, hasActiveSkillProgram),
     // Only inject the full gym catalog when the user is actually at a gym.
     // For park/home/street, injecting the entire catalog would grant access
     // to resistance_bands, rings, TRX, etc. that the user doesn't own.

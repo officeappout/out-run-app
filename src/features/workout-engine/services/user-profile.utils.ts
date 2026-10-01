@@ -116,11 +116,24 @@ export function extractInjuryShield(
  * Resolve available equipment based on location and user profile.
  * Returns ['bodyweight'] as a guaranteed fallback so the engine always
  * has something to work with and never crashes on an empty equipment profile.
+ *
+ * Decision F (park-hero-fix, 2026-10-01): an empty profile for a user with an active SKILL
+ * program (front_lever, planche, …) also grants `resistance_bands` — bands are a basic
+ * skill-training item (band-assisted rows/pulls, etc.), and a full search of the onboarding
+ * and profile-equipment write paths confirmed no prior rule ever granted them; a skill user
+ * with no equipment set up silently got bodyweight-only, starving skill-assistance exercises
+ * of the one item most skill training actually uses. Scoped to the skill case only — a
+ * non-skill user's empty profile is unaffected. `hasActiveSkillProgram` is computed by the
+ * caller (normalizeEquipmentArray, which already has DOMAIN_RESOLUTION_SKILL_PARENT_MAP
+ * imported) rather than imported here, to avoid adding a new edge to the
+ * workout-selection.utils.ts ↔ InputSanitizerMiddleware.ts circular-import pair this function
+ * already sits next to.
  */
 export function resolveEquipment(
   userProfile: UserFullProfile,
   location: ExecutionLocation,
   equipmentOverride?: string[],
+  hasActiveSkillProgram?: boolean,
 ): string[] {
   if (equipmentOverride?.length) return equipmentOverride;
 
@@ -145,6 +158,13 @@ export function resolveEquipment(
   }
 
   if (result.length === 0) {
+    if (hasActiveSkillProgram) {
+      console.log(
+        `[HomeWorkout] Empty equipment profile for location "${location}" with an active skill ` +
+        'program — defaulting to bodyweight + resistance_bands',
+      );
+      return ['bodyweight', 'resistance_bands'];
+    }
     console.log(
       `[HomeWorkout] Empty equipment profile for location "${location}" — defaulting to bodyweight`,
     );
