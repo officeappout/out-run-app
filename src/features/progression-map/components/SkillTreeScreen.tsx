@@ -55,6 +55,14 @@
  * 2 shipped — that ratio measured "how far through the whole ladder," not
  * per-level progress, and never moved without a level-up.
  *
+ * Phase 4c-1 follow-up: the unassessed/locked title strip (name + "רמה X
+ * מתוך N") used to render as bare text directly on SkillTreeBackground's
+ * green map — no container at all, looking detached, unlike the assessed
+ * state's ProgramInfoPanel header which sits in a white card. Now wrapped
+ * in the same white-card visual language (bg-white, rounded-2xl, soft
+ * shadow) as that panel's own collapsed header — presentation only, the
+ * banner/CTA above it and the assessment logic are untouched.
+ *
  * One page, two states (confirmed workable in recon, not a new screen):
  * ProgramInfoPanel renders ONLY when currentLevel is a real, non-null
  * number (i.e. genuinely assessed) — structurally exclusive with
@@ -318,15 +326,21 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
                 round's explicit brief ("Unassessed state: unchanged from 4a
                 ... no panel-with-current-level, no אתה כאן"). The assessed
                 state's equivalent content now lives in ProgramInfoPanel below,
-                not here. */}
+                not here. Phase 4c-1 follow-up: now wrapped in the same
+                white-card treatment as that panel's own header, instead of
+                bare text floating on the green map background. */}
             {tree && (
-              <div className="w-full text-right mb-4" dir="rtl">
+              <div
+                className="w-full text-right rounded-2xl bg-white px-4 py-3.5 mb-4"
+                style={{ boxShadow: '0 6px 18px rgba(31,56,82,.14)' }}
+                dir="rtl"
+              >
                 <h1 className="text-lg font-black text-gray-900">{skillName}</h1>
                 <p className="text-xs font-bold text-gray-500 mt-1">
                   רמה {tree.minLevel} מתוך {tree.maxLevel}
                   {targetName ? ` · היעד: ${targetName}` : ''}
                 </p>
-                <div className="w-full h-1.5 bg-gray-100 rounded-full mt-2 overflow-hidden">
+                <div className="w-full h-1.5 bg-slate-100 rounded-full mt-2 overflow-hidden">
                   <div className="h-full rounded-full" style={{ width: '0%' }} />
                 </div>
               </div>
