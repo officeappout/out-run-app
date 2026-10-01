@@ -856,15 +856,37 @@ export async function linkPhoneNumber(phoneNumber: string) {
  * Any failure — rate limit, network, a rejected token — reports into
  * useSessionHealthStore so SessionHealthBanner can surface it, instead of
  * only a console.warn nobody but a developer ever sees.
+ *
+ * 01.10.2026 (00-MASTER-PLAN.md §13.60, axioms.md §28) — this cache is
+ * keyed ONLY on elapsed time; it has no way to know the Firestore role
+ * data its signed cookie payload is derived from changed underneath it.
+ * Commit 6510a27c (this dedupe) silently swallowed commit 942a6cec's
+ * later, unrelated fix — a re-mint deliberately placed right after
+ * accept-invitation writes a user's real role, intended to pick up that
+ * exact change. Both calls looked identical to this cache: same uid,
+ * same short interval, recent success. `opts.forceReason` is the
+ * escape hatch — a caller that KNOWS the underlying role/data changed
+ * bypasses the TTL short-circuit (not the in-flight dedupe, which guards
+ * against true concurrent duplicates, not staleness) and always hits the
+ * network. The reason string is required and self-documents at the call
+ * site WHY this particular call can't be trusted to the cache — never a
+ * bare boolean, so a future call site can't flip `force: true` out of
+ * habit without saying what changed.
  */
 const RECENT_SUCCESS_TTL_MS = 5_000;
 let inflightMint: { uid: string; promise: Promise<boolean> } | null = null;
 let lastMintSuccess: { uid: string; at: number } | null = null;
 
-export async function mintAdminSessionCookie(user: User): Promise<boolean> {
+export async function mintAdminSessionCookie(
+  user: User,
+  opts?: { forceReason: string },
+): Promise<boolean> {
   const uid = user.uid;
 
-  if (lastMintSuccess && lastMintSuccess.uid === uid && Date.now() - lastMintSuccess.at < RECENT_SUCCESS_TTL_MS) {
+  if (
+    !opts?.forceReason &&
+    lastMintSuccess && lastMintSuccess.uid === uid && Date.now() - lastMintSuccess.at < RECENT_SUCCESS_TTL_MS
+  ) {
     return true;
   }
   if (inflightMint && inflightMint.uid === uid) {

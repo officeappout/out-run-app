@@ -219,7 +219,17 @@ function AuthorityPortalLoginContent() {
               // Mint BEFORE navigating — same reason as the
               // authority_manager branch below: this page lives OUTSIDE
               // admin/layout.tsx, so AdminSessionSync never runs here.
-              await mintAdminSessionCookie(user);
+              //
+              // 01.10.2026 (00-MASTER-PLAN.md §13.60, axioms.md §28) —
+              // this call bypasses the dedupe deliberately. Landing on
+              // THIS page at all, for a signed-in tenant_owner/unit_admin,
+              // means something already went wrong upstream (most likely:
+              // the cookie middleware just rejected was stale from the
+              // SAME dedupe bug, minted before accept-invitation caught
+              // up). A recovery path is exactly the case where trusting a
+              // cached "recently succeeded" is wrong — the whole reason
+              // we're here is that the last mint's result was stale.
+              await mintAdminSessionCookie(user, { forceReason: 'recovery-path-after-gate-bounce' });
               router.replace(safeNext ?? decision.path);
               return;
             }
@@ -368,13 +378,22 @@ function AuthorityPortalLoginContent() {
   }
 
   if (loopDetected) {
+    // 01.10.2026 (00-MASTER-PLAN.md §13.60) — reworded. The old text
+    // ("יש בעיה בזיהוי ההרשאות שלך" — "there's a problem identifying
+    // YOUR permissions") pointed at the wrong party: the actual failure
+    // traced to this incident was mintAdminSessionCookie's dedupe cache
+    // silently skipping a necessary re-mint after the user's role
+    // changed — the user's permissions were never the problem, the
+    // system failed to refresh its own credential. Same class of fix as
+    // 29.09.2026's accessBlocked/loopDetected split above: say what
+    // actually happened, not an inverted-blame guess.
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-6" dir="rtl">
         <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
           <AlertCircle className="w-16 h-16 text-amber-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">יש בעיה בזיהוי ההרשאות שלך</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">תקלה ברענון החיבור</h2>
           <p className="text-gray-600 mb-6">
-            לא הצלחנו להעביר אותך לפורטל הנכון. נסה להתנתק ולהתחבר שוב — אם זה חוזר, פנה למנהל המערכת.
+            ההרשאות שלך תקינות — המערכת לא הצליחה לרענן את החיבור שלך בזמן. נסה להתנתק ולהתחבר שוב; זה כמעט תמיד פותר את זה. אם זה חוזר, פנה למנהל המערכת.
           </p>
           <button
             onClick={handleLoopSignOut}

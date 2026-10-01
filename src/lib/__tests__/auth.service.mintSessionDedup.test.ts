@@ -82,6 +82,35 @@ describe('mintAdminSessionCookie — P1-3 dedup + health reporting', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  // 01.10.2026 (00-MASTER-PLAN.md §13.60, axioms.md §28) — this is the
+  // test that would have caught the real production bug: commit 6510a27c
+  // (this dedupe) silently swallowed commit 942a6cec's later re-mint,
+  // placed deliberately right after accept-invitation wrote a user's real
+  // role, because neither call site had any way to tell this cache "the
+  // data changed, don't trust your cache." These two tests prove the
+  // fix — forceReason bypasses the TTL short-circuit; its absence doesn't.
+  it('forceReason bypasses the TTL short-circuit — a call within the 5s window with a reason reaches the network', async () => {
+    const user = fakeUser('user-forced-1');
+
+    const first = await mintAdminSessionCookie(user);
+    const second = await mintAdminSessionCookie(user, { forceReason: 'role-changed-post-accept-invitation' });
+
+    expect(first).toBe(true);
+    expect(second).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2); // NOT deduped
+  });
+
+  it('without forceReason, the same call sequence is still deduped — the bypass is opt-in, not the new default', async () => {
+    const user = fakeUser('user-unforced-1');
+
+    const first = await mintAdminSessionCookie(user);
+    const second = await mintAdminSessionCookie(user); // no opts — same as before
+
+    expect(first).toBe(true);
+    expect(second).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1); // still deduped, unchanged behavior
+  });
+
   it('does NOT let a different uid be masked by another uid\'s recent success (account switch)', async () => {
     const userA = fakeUser('user-switch-a');
     await mintAdminSessionCookie(userA);
