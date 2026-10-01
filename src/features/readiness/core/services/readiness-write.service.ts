@@ -452,6 +452,10 @@ export async function computeLinkSoldier(
 
     const now = new Date();
     tx.update(soldierRef, { uid: targetUid, linkedAt: now, updatedAt: now });
+    // This is NOT a history rewrite (points 9/12 still hold for
+    // outcome/value/thresholdSnapshot/etc.) — `uid` is a deliberate,
+    // documented exception: a denormalized read-key only, re-synced here
+    // on purpose. Do not "fix" this into only touching new results.
     for (const resultDoc of existingResultsSnap.docs) {
       tx.update(resultDoc.ref, { uid: targetUid });
     }
@@ -531,6 +535,9 @@ export async function computeUnlinkSoldier(
 
     const previousUid = soldier.uid;
     tx.update(soldierRef, { uid: null, linkedAt: null, updatedAt: new Date() });
+    // Same deliberate exception as computeLinkSoldier above — `uid` is a
+    // read-key, not part of the frozen history (points 9/12). Clearing
+    // it on every existing result here is intentional, not a regression.
     for (const resultDoc of existingResultsSnap.docs) {
       tx.update(resultDoc.ref, { uid: null });
     }
@@ -603,11 +610,13 @@ export async function computeMergeSoldiers(
   // Point 9 — results are never deleted or rewritten; they're
   // re-pointed to the survivor's soldierId, keeping every original
   // thresholdSnapshot/outcome/recordedAt intact. `uid` is the one
-  // exception (see ReadinessResult's own comment) — both the moved
-  // results AND the survivor's own pre-existing results are reconciled
-  // to the survivor's FINAL uid below (01.10.2026, David, rules review
-  // round), so the invariant "every result's uid matches its soldier's
-  // current uid" holds after a merge too, not just after link/unlink.
+  // DELIBERATE exception (see ReadinessResult's own comment) — a
+  // denormalized read-key only, not an audited datum, not a history
+  // rewrite. Both the moved results AND the survivor's own pre-existing
+  // results are reconciled to the survivor's FINAL uid below (01.10.2026,
+  // David, rules review round), so the invariant "every result's uid
+  // matches its soldier's current uid" holds after a merge too, not just
+  // after link/unlink. Do not "fix" this into leaving uid untouched.
   const finalUid = survivor.uid ?? merged.uid ?? null;
   const [orphanResults, survivorExistingResults] = await Promise.all([
     db.collection('readiness_results').where('soldierId', '==', mergedId).get(),
