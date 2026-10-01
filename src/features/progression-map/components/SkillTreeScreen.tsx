@@ -63,6 +63,15 @@
  * shadow) as that panel's own collapsed header — presentation only, the
  * banner/CTA above it and the assessment logic are untouched.
  *
+ * Phase 4c-1 Finding A fix: both startMiniDomainAssessment call sites
+ * (below) now pass an explicit returnTo (this tree's own route) instead of
+ * relying on the window.location.pathname fallback inside that function —
+ * cheap belt-and-suspenders on top of the real fix (making the demographics/
+ * health-declaration detour mini-aware — see assessment-visual/page.tsx,
+ * onboarding-new/profile/page.tsx, and onboarding-new/health/page.tsx's own
+ * mini-aware branches), which is what actually stops a mini-assessment from
+ * being bounced to Home in the first place.
+ *
  * One page, two states (confirmed workable in recon, not a new screen):
  * ProgramInfoPanel renders ONLY when currentLevel is a real, non-null
  * number (i.e. genuinely assessed) — structurally exclusive with
@@ -307,7 +316,7 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
                 <button
                   type="button"
                   onClick={() =>
-                    startMiniDomainAssessment(router, slug, undefined, domainTypeForSlug(slug))
+                    startMiniDomainAssessment(router, slug, `/progression-map/${programId}`, domainTypeForSlug(slug))
                   }
                   className="text-xs font-black text-white rounded-full px-4 py-1.5 active:opacity-80"
                   style={{ background: 'linear-gradient(90deg, #2CE0C0 0%, #20C6D6 50%, #2AA3E8 100%)' }}
@@ -365,7 +374,7 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
               currentLevelExerciseName={currentLevelExerciseName}
               hasGoals={levelSummary?.hasGoals ?? false}
               goalsCompleted={levelSummary?.goalsCompleted ?? false}
-              onReassess={() => startMiniDomainAssessment(router, slug, undefined, domainTypeForSlug(slug))}
+              onReassess={() => startMiniDomainAssessment(router, slug, `/progression-map/${programId}`, domainTypeForSlug(slug))}
             />
           )}
 

@@ -15,6 +15,7 @@ import { firePhaseConfetti } from '@/features/user/onboarding/utils/onboarding-c
 import { getOnboardingPref, getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
 import { resolveJoinLanding } from '@/lib/resolveJoinLanding';
 import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure';
+import { isMiniAssessmentActive } from '@/features/user/onboarding/services/mini-domain-assessment';
 
 /**
  * Resolve uid from multiple sources (in priority order):
@@ -324,7 +325,19 @@ export default function IdentityProfilePage() {
         sessionStorage.setItem('onboarding_personal_gender', formData.gender);
         sessionStorage.setItem('onboarding_personal_dob',    birthDate.toISOString().split('T')[0]);
         firePhaseConfetti();
-        router.push('/onboarding-new/program-path');
+        // Finding-A fix (4c-1 follow-up): a mini top-up (Progression/
+        // Skill-Tree CTA) only reaches this page because its own profile
+        // was missing gender/birthDate — now satisfied above. The domain
+        // to assess was already chosen by the CTA that launched it, so
+        // skip program-path (its card-selection UI would overwrite the
+        // single-domain scoping mini-domain-assessment.ts seeded in
+        // sessionStorage) and go straight back to the assessment. Every
+        // other caller (fresh full onboarding) never sets this flag.
+        if (isMiniAssessmentActive()) {
+          router.push('/onboarding-new/assessment-visual');
+        } else {
+          router.push('/onboarding-new/program-path');
+        }
       }
     } catch (error) {
       console.error('[Identity] Error saving profile:', error);

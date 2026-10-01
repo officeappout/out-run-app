@@ -59,6 +59,7 @@ import {
   consumeMiniAssessmentState,
   MINI_ASSESSMENT_DOMAIN_KEY,
 } from '@/features/user/onboarding/services/mini-domain-assessment';
+import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
 import { writeSingleDomainAssessment } from '@/features/user/onboarding/services/single-domain-assessment.service';
 import { baselineSkillMasterSubLevels } from '@/features/user/onboarding/utils/skill-result-levels';
 import { SKILL_TO_FOUNDATION_DOMAIN } from '@/features/user/onboarding/constants/skill-foundation-domain.constants';
@@ -818,18 +819,28 @@ export default function VisualAssessmentPage() {
     // ── Mini-domain-assessment short-circuit ──────────────────────────────
     // Set by `startMiniDomainAssessment` (WorkoutBuilderSheet's unlock CTA /
     // ProgramsSection's "not yet assessed" card / StatsOverview's unassessed
-    // pill) for an ALREADY-onboarded user topping up exactly one more domain.
-    // The normal path below reassigns activeProgramId from a mix of this one
-    // real category + 3 artificially-defaulted ones (toFullAssessmentLevels),
-    // re-stamps marketing attribution, and advances to /onboarding-new/health
-    // — none of which is correct for a top-up. Instead: write ONLY this
-    // domain via the dedicated single-domain writer and return to the caller.
-    // Every other caller (fresh full onboarding) never sets this flag, so the
-    // existing behaviour below is unchanged.
+    // pill / the Progression-v2 Skill-Tree CTAs) for an ALREADY-onboarded
+    // user topping up exactly one more domain. The normal path below
+    // reassigns activeProgramId from a mix of this one real category + 3
+    // artificially-defaulted ones (toFullAssessmentLevels), re-stamps
+    // marketing attribution, and advances to /onboarding-new/health — none
+    // of which is correct for a top-up. Instead: write ONLY this domain via
+    // the dedicated single-domain writer. Every other caller (fresh full
+    // onboarding) never sets this flag, so the existing behaviour below is
+    // unchanged.
+    //
+    // Finding-A/B fix (4c-1 follow-up): deliberately does NOT call
+    // consumeMiniAssessmentState() yet here — MINI_ASSESSMENT_DOMAIN_KEY is
+    // read directly (peek, doesn't clear) so the mini flags stay alive for
+    // one more hop when a health declaration is still needed. The ACTUAL
+    // clear+final-navigate happens in exactly one of two places: right here
+    // (health already accepted — nothing left to collect) or inside
+    // health/page.tsx's own mini-aware branch (after it's accepted there).
+    // Either way consumeMiniAssessmentState() runs exactly once, at
+    // whichever point is the true final step for this user.
     if (isMiniAssessmentActive()) {
       try {
-        const { domain, returnTo } = consumeMiniAssessmentState();
-        const targetDomain = domain ?? categories[0];
+        const targetDomain = sessionStorage.getItem(MINI_ASSESSMENT_DOMAIN_KEY) ?? categories[0];
         const assessedLevel = (result.levels as Record<string, number>)[targetDomain] ?? result.average;
         const ok = await writeSingleDomainAssessment(targetDomain, assessedLevel);
         if (!ok) {
@@ -841,7 +852,21 @@ export default function VisualAssessmentPage() {
         // current route happens to have its own onSnapshot listener mounted.
         await useUserStore.getState().refreshProfile();
         firePhaseConfetti();
-        router.push(returnTo);
+
+        // A genuinely new user still needs the health declaration — same
+        // legitimate requirement the full-onboarding chain has, just without
+        // detouring through program-path (which would clobber the seeded
+        // single-domain scoping — see health/page.tsx's own mini-aware
+        // handleContinue for the other half of this fix). An
+        // already-declared user (the common case for a top-up) skips
+        // straight to returnTo, same as before this fix.
+        const latestProfile = useUserStore.getState().profile;
+        if (!hasAcceptedHealthDeclaration(latestProfile as any)) {
+          router.push('/onboarding-new/health');
+        } else {
+          const { returnTo } = consumeMiniAssessmentState();
+          router.push(returnTo);
+        }
       } catch (err) {
         console.error('[Assessment] Mini-domain save error:', err);
         alert('שגיאה בשמירה — נסו שנית');
