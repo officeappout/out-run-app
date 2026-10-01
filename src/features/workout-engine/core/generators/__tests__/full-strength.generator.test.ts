@@ -9,7 +9,20 @@ vi.mock('../../../services/home-workout.service', () => ({
   generateHomeWorkoutTrio: vi.fn(),
 }));
 
+// park-hero-fix (Decisions B/C) — resolveFullStrengthWorkout now resolves real location/gear
+// before generating. GPS defaults to no-snapshot (null coords) unless a test overrides it;
+// resolveWorkoutContext is mocked directly since it's only ever reached when a snapshot exists.
+vi.mock('@/features/parks/core/store/useGPSStore', () => ({
+  useGPSStore: { getState: vi.fn(() => ({ coords: null })) },
+}));
+vi.mock('../../../services/workout-context-resolver', () => ({
+  resolveWorkoutContext: vi.fn(),
+}));
+
 import { generateHomeWorkoutTrio } from '../../../services/home-workout.service';
+import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
+import { resolveWorkoutContext } from '../../../services/workout-context-resolver';
+import { DEFAULT_PARK_GEAR } from '../../../shared/utils/gear-mapping.utils';
 import {
   detectFullStrengthMethodsUsed,
   getCachedFullStrengthWorkout,
@@ -131,5 +144,93 @@ describe('resolveFullStrengthWorkout — Tier-2 real build', () => {
     expect(generateHomeWorkoutTrio).toHaveBeenCalledTimes(1);
     expect(result1).toBe(realWorkout);
     expect(result2).toBe(realWorkout);
+  });
+});
+
+describe('resolveFullStrengthWorkout — location/gear resolution (park-hero-fix Decisions B/C)', () => {
+  const trioWith = (workout: GeneratedWorkout, usedEmptyPoolFallback = false) =>
+    ({ options: [null, { label: 'מאוזן', result: { workout, usedEmptyPoolFallback } }, null] }) as unknown as Awaited<ReturnType<typeof generateHomeWorkoutTrio>>;
+
+  const emptyPoolWorkout = {
+    title: 'יום מנוחה',
+    exercises: [],
+    isRecovery: true,
+    needsAssessment: false,
+  } as unknown as GeneratedWorkout;
+
+  const realWorkout = (title: string) =>
+    ({ title, exercises: [{ exercise: { id: 'ex1' } }], needsAssessment: false } as unknown as GeneratedWorkout);
+
+  it('no GPS snapshot, home generation succeeds → generates once at home, never touches resolveWorkoutContext (no permission-prompt risk)', async () => {
+    vi.mocked(useGPSStore.getState).mockReturnValue({ coords: null } as unknown as ReturnType<typeof useGPSStore.getState>);
+    vi.mocked(generateHomeWorkoutTrio).mockClear().mockResolvedValue(trioWith(realWorkout('אימון בית')));
+
+    const resolved = await resolveFullStrengthWorkout('sug-home-ok', assessedProfile, makeContext());
+
+    expect(resolveWorkoutContext).not.toHaveBeenCalled();
+    expect(generateHomeWorkoutTrio).toHaveBeenCalledTimes(1);
+    expect(generateHomeWorkoutTrio).toHaveBeenCalledWith(
+      expect.objectContaining({ location: 'home', parkEquipmentIds: undefined }),
+    );
+    expect(resolved?.title).toBe('אימון בית');
+  });
+
+  it('no GPS snapshot, home comes up empty-pool (usedEmptyPoolFallback) → escalates once to Default Park gear (Decision C/D)', async () => {
+    vi.mocked(useGPSStore.getState).mockReturnValue({ coords: null } as unknown as ReturnType<typeof useGPSStore.getState>);
+    vi.mocked(generateHomeWorkoutTrio).mockClear()
+      .mockResolvedValueOnce(trioWith(emptyPoolWorkout, true))
+      .mockResolvedValueOnce(trioWith(realWorkout('אימון פארק ברירת מחדל')));
+
+    const resolved = await resolveFullStrengthWorkout('sug-home-empty', assessedProfile, makeContext());
+
+    expect(generateHomeWorkoutTrio).toHaveBeenCalledTimes(2);
+    expect(generateHomeWorkoutTrio).toHaveBeenNthCalledWith(1, expect.objectContaining({ location: 'home' }));
+    expect(generateHomeWorkoutTrio).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      location: 'park',
+      parkEquipmentIds: Array.from(DEFAULT_PARK_GEAR),
+    }));
+    expect(resolved?.title).toBe('אימון פארק ברירת מחדל');
+  });
+
+  it('real GPS-resolved equipped park → generates once against its real gear, no escalation (invariant preserved)', async () => {
+    const snapshot = { lat: 32.08, lng: 34.78 };
+    vi.mocked(useGPSStore.getState).mockReturnValue({ coords: snapshot } as unknown as ReturnType<typeof useGPSStore.getState>);
+    vi.mocked(resolveWorkoutContext).mockResolvedValue({
+      location: 'park',
+      availableGear: ['pullup_bar', 'rings'],
+      source: 'equipped-park',
+    } as unknown as Awaited<ReturnType<typeof resolveWorkoutContext>>);
+    vi.mocked(generateHomeWorkoutTrio).mockClear().mockResolvedValue(trioWith(realWorkout('אימון פארק אמיתי')));
+
+    const resolved = await resolveFullStrengthWorkout('sug-real-park', assessedProfile, makeContext());
+
+    expect(resolveWorkoutContext).toHaveBeenCalledWith(assessedProfile, 'park', { gpsCoords: snapshot });
+    expect(generateHomeWorkoutTrio).toHaveBeenCalledTimes(1);
+    expect(generateHomeWorkoutTrio).toHaveBeenCalledWith(
+      expect.objectContaining({ location: 'park', parkEquipmentIds: ['pullup_bar', 'rings'] }),
+    );
+    expect(resolved?.title).toBe('אימון פארק אמיתי');
+  });
+
+  it('GPS snapshot present but no equipped park nearby → resolveWorkoutContext downgrades to home; empty-pool still escalates to Default Park', async () => {
+    const snapshot = { lat: 32.08, lng: 34.78 };
+    vi.mocked(useGPSStore.getState).mockReturnValue({ coords: snapshot } as unknown as ReturnType<typeof useGPSStore.getState>);
+    vi.mocked(resolveWorkoutContext).mockResolvedValue({
+      location: 'home',
+      availableGear: [],
+      source: 'no-equipped-park-home',
+    } as unknown as Awaited<ReturnType<typeof resolveWorkoutContext>>);
+    vi.mocked(generateHomeWorkoutTrio).mockClear()
+      .mockResolvedValueOnce(trioWith(emptyPoolWorkout, true))
+      .mockResolvedValueOnce(trioWith(realWorkout('אימון פארק ברירת מחדל 2')));
+
+    const resolved = await resolveFullStrengthWorkout('sug-no-park-nearby', assessedProfile, makeContext());
+
+    expect(generateHomeWorkoutTrio).toHaveBeenCalledTimes(2);
+    expect(generateHomeWorkoutTrio).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      location: 'park',
+      parkEquipmentIds: Array.from(DEFAULT_PARK_GEAR),
+    }));
+    expect(resolved?.title).toBe('אימון פארק ברירת מחדל 2');
   });
 });

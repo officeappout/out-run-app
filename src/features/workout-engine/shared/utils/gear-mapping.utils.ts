@@ -701,6 +701,26 @@ export const ESSENTIAL_PARK_GEAR: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * "Default Park" gear — a deliberately richer LOCATION-only substitute used when
+ * no real GPS-resolved park is available (park-hero-fix, Decision D). Sibling to
+ * ESSENTIAL_PARK_GEAR, NOT a replacement for it: ESSENTIAL_PARK_GEAR keeps its
+ * narrow "baseline fixtures always assumed present" meaning for every other
+ * caller (e.g. the park-gating CLIFF rescue) — this constant is wired only into
+ * normalizeEquipmentArray's final fallback tier (InputSanitizerMiddleware.ts),
+ * so a user with no resolvable park gets a generous default calisthenics-park
+ * loadout instead of the narrow 6-item essentials set. Deliberately excludes
+ * resistance_bands — bands are PERSONAL equipment (profile.equipment), unioned
+ * in separately, never assumed present at a park.
+ */
+export const DEFAULT_PARK_GEAR: ReadonlySet<string> = new Set([
+  'pullup_bar',
+  'dip_station',
+  'parallettes',
+  'rings',
+  'trx',
+]);
+
+/**
  * Assumed-present home fixtures — canonical IDs for placed-existing objects that
  * every home/indoor context has and that need no user marking (a door, a chair,
  * a wall, the floor≈mat, a towel). Injected into `availableEquipment` for

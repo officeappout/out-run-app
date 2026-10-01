@@ -30,12 +30,17 @@
  */
 
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
+import type { ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
 import type { Generator } from '../types/generator.types';
 import type { Suggestion } from '../types/suggestion.types';
 import type { UserContext } from '../types/user-context.types';
 import type { GeneratedWorkout } from '../../logic/WorkoutGenerator';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { generateHomeWorkoutTrio } from '../../services/home-workout.service';
+import type { HomeWorkoutOptions } from '../../services/home-workout.types';
+import { resolveWorkoutContext } from '../../services/workout-context-resolver';
+import { DEFAULT_PARK_GEAR } from '../../shared/utils/gear-mapping.utils';
 import { IS_CHEAP_SUGGESTION_RANKING_ENABLED } from '@/config/feature-flags';
 
 const FULL_STRENGTH_WORKOUT_CACHE_CAP = 10;
@@ -79,6 +84,67 @@ export function detectFullStrengthMethodsUsed(workout: GeneratedWorkout): string
 }
 
 /**
+ * Decisions B/C (park-hero-fix) — real location/gear resolution for the home full-strength
+ * trio, shared by resolveFullStrengthWorkout and resolveFullStrengthWorkoutAtIndex below.
+ * Previously neither ever called resolveWorkoutContext at all, so the daily card fell through
+ * to `generateHomeWorkoutTrio`'s own 'park' default with no gear — Ultimate Park Force serving
+ * a fake sparse park instead of real content (hero-location mismatch + ESSENTIAL_PARK_GEAR
+ * gating out front_lever-tagged L1 content).
+ *
+ * GPS is strictly NON-BLOCKING: only a store snapshot is ever read. Unlike StatsOverview's own
+ * resolveWorkoutContext call (an inferred-flow surface where a bounded permission prompt is
+ * acceptable), this runs silently in the background while ranking the home carousel — it must
+ * never trigger a location permission prompt. resolveWorkoutContext itself falls through to its
+ * own waitForGpsFix (which DOES race a permission request) whenever `gpsCoords` is omitted, so
+ * when no snapshot exists this deliberately skips calling it at all rather than passing
+ * `gpsCoords: undefined` — treating the user as plain no-GPS (home), never prompting.
+ *
+ * Decision C (level-aware default-park fallback) — reuses resolveWorkoutContext's own existing
+ * "no equipped park / no GPS → home" behavior as step 1 ("try home first") for free; this adds
+ * step 2 on top of it: if the resulting home generation comes up honestly empty
+ * (result.usedEmptyPoolFallback — the structured sibling of PipelineOrchestrator's honesty
+ * guard, see HomeWorkoutResult's own doc comment), escalate ONCE to the generous Default Park
+ * gear set (Decision D) instead of serving a thin/rest-day-shaped "workout". A real
+ * GPS-resolved equipped park never reaches this escalation at all (ctx.location is 'park'
+ * already) — invariant preserved.
+ */
+async function resolveFullStrengthTrioOption(
+  profile: UserFullProfile,
+  context: UserContext,
+  targetOptionIndex: 0 | 1 | 2,
+  extraOptions: Partial<HomeWorkoutOptions> = {},
+): Promise<GeneratedWorkout> {
+  const gpsSnapshot = useGPSStore.getState().coords;
+  const resolvedCtx = gpsSnapshot
+    ? await resolveWorkoutContext(profile, 'park', { gpsCoords: gpsSnapshot })
+    : { location: 'home' as ExecutionLocation, availableGear: [] as string[] };
+
+  const generateAt = (location: ExecutionLocation, parkEquipmentIds?: string[]) =>
+    generateHomeWorkoutTrio({
+      userProfile: profile,
+      availableTime: context.availableTimeMin,
+      generateSingleOption: true,
+      targetOptionIndex,
+      location,
+      parkEquipmentIds,
+      ...extraOptions,
+    });
+
+  let trio = await generateAt(
+    resolvedCtx.location,
+    resolvedCtx.availableGear.length > 0 ? resolvedCtx.availableGear : undefined,
+  );
+  let { result } = trio.options[targetOptionIndex];
+
+  if (resolvedCtx.location === 'home' && result.usedEmptyPoolFallback) {
+    trio = await generateAt('park', Array.from(DEFAULT_PARK_GEAR));
+    result = trio.options[targetOptionIndex].result;
+  }
+
+  return result.workout;
+}
+
+/**
  * Tier-2 — the real, full build for one specific, already-ranked suggestion id. Called
  * immediately for the home carousel's focused/center card, and via background prefetch for the
  * (up to 2) others (17.8 build-plan Section 1) — never eagerly for every candidate.
@@ -100,14 +166,7 @@ export async function resolveFullStrengthWorkout(
   if (inFlight) return inFlight;
 
   const promise = (async (): Promise<GeneratedWorkout | null> => {
-    const trio = await generateHomeWorkoutTrio({
-      userProfile: profile,
-      availableTime: context.availableTimeMin,
-      difficulty: 2,
-      generateSingleOption: true,
-      targetOptionIndex: 1,
-    });
-    const { workout } = trio.options[1].result;
+    const workout = await resolveFullStrengthTrioOption(profile, context, 1, { difficulty: 2 });
     if (workout.needsAssessment) return null;
 
     cacheFullStrengthWorkout(suggestionId, workout);
@@ -164,13 +223,7 @@ export async function resolveFullStrengthWorkoutAtIndex(
     // verified against generateHomeWorkoutTrio's own body (home-workout.service.ts): only
     // options.targetDifficulty is ever read there, options.difficulty is not consulted at all.
     // TRAINING_DAY_CONFIGS[optionIndex] alone determines the actual difficulty (1/2/3 by slot).
-    const trio = await generateHomeWorkoutTrio({
-      userProfile: profile,
-      availableTime: context.availableTimeMin,
-      generateSingleOption: true,
-      targetOptionIndex: optionIndex,
-    });
-    const { workout } = trio.options[optionIndex].result;
+    const workout = await resolveFullStrengthTrioOption(profile, context, optionIndex);
     if (workout.needsAssessment) return null;
 
     if (fullStrengthTrioOptionCache.size >= FULL_STRENGTH_TRIO_OPTION_CACHE_CAP) {

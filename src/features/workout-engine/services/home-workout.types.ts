@@ -229,6 +229,17 @@ export interface HomeWorkoutResult {
   /** The generated workout session */
   workout: GeneratedWorkout;
 
+  /**
+   * True when PipelineOrchestrator's empty-pool honesty guard fired for this option —
+   * `workout` is `buildRestDayFallback()`'s honest placeholder, not a real generated session
+   * (park-hero-fix, Decision C). Structured sibling of `workout.pipelineLog`'s
+   * `'orchestrator: empty_pool_fallback'` trace, added so callers that need this signal (e.g.
+   * full-strength.generator.ts's level-aware default-park escalation) can read a real field
+   * instead of parsing a log string. Absent/false for every other option, including the
+   * rest-day fast path's own (unrelated) recovery-video placeholder.
+   */
+  usedEmptyPoolFallback?: boolean;
+
   /** Context metadata (for display / debugging) */
   meta: {
     daysInactive: number;
