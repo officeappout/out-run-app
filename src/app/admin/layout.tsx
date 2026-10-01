@@ -182,6 +182,17 @@ function AdminLayoutInner({
     // the sidebar renders explicitly, never a silent fallback to a
     // different vertical's real menu.
     const [unitOrgResolutionFailed, setUnitOrgResolutionFailed] = useState(false);
+    // 01.10.2026 (00-MASTER-PLAN.md §13.61) — same declared-failure shape
+    // as unitOrgResolutionFailed above, for tenant_owner. A real
+    // tenant_owner is ALSO, mechanically, isAuthorityManager (the same
+    // managerIds mechanism) — isTenantOwnerOnly below (which requires
+    // !isAuthorityManager) is therefore never true for them, so this
+    // can't key off that flag; it keys off roleInfo.isTenantOwner
+    // directly. Before this, a failed getAuthoritiesByManager lookup for
+    // a real tenant_owner silently left authorityType null, and
+    // getSidebarConfig(null) silently fell to the municipal menu — no
+    // banner, no error — the exact bug this mirrors the fix for.
+    const [tenantOwnerOrgResolutionFailed, setTenantOwnerOrgResolutionFailed] = useState(false);
     const [authorityType, setAuthorityType] = useState<string | null>(null);
     const [managedAuthorityId, setManagedAuthorityId] = useState<string | null>(null);
     
@@ -287,6 +298,7 @@ function AdminLayoutInner({
                 setServerConfirmed(false);
                 setReconnectNeeded(false);
                 setUnitOrgResolutionFailed(false);
+                setTenantOwnerOrgResolutionFailed(false);
                 setRoleInfo({
                     role: 'none',
                     isSuperAdmin: false,
@@ -441,9 +453,21 @@ function AdminLayoutInner({
                                 localStorage.setItem('admin_selected_authority_id', auth.id);
                             }
                             orgCtx?.setSelectedOrgId(auth.id);
+                            if (info.isTenantOwner) setTenantOwnerOrgResolutionFailed(false);
+                        } else if (info.isTenantOwner) {
+                            // 01.10.2026 (00-MASTER-PLAN.md §13.61) — a real
+                            // tenant_owner (not a plain authority_manager,
+                            // which this same branch also serves and whose
+                            // existing, live-verified behavior stays
+                            // untouched) got zero authorities back. Declared
+                            // failure, not a silent fall-through to
+                            // getSidebarConfig(null)'s municipal default.
+                            console.error('[AdminLayout] tenant_owner authority lookup returned empty for uid:', user.uid);
+                            setTenantOwnerOrgResolutionFailed(true);
                         }
                     } catch (error) {
                         console.error('Error loading authority name:', error);
+                        if (info.isTenantOwner) setTenantOwnerOrgResolutionFailed(true);
                     }
                 }
 
@@ -527,6 +551,7 @@ function AdminLayoutInner({
                 setServerConfirmed(false);
                 setReconnectNeeded(false);
                 setUnitOrgResolutionFailed(false);
+                setTenantOwnerOrgResolutionFailed(false);
             }
             setLoading(false);
         });
@@ -961,6 +986,37 @@ function AdminLayoutInner({
                                 <p className="text-xs font-bold text-amber-400">לא הצלחנו לזהות את היחידה שלך</p>
                                 <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">
                                     ייתכן שזו תקלת חיבור זמנית. נסה שוב — אם זה חוזר, פנה למפקד או למנהל המערכת.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => { if (typeof window !== 'undefined') window.location.reload(); }}
+                                className="w-full rounded-xl bg-slate-800 px-4 py-2 text-xs font-bold text-white hover:bg-slate-700 transition-colors"
+                            >
+                                נסה שוב
+                            </button>
+                        </div>
+                        ) : (roleInfo?.isTenantOwner && tenantOwnerOrgResolutionFailed) ? (
+                        /* ── Tenant Owner — org resolution failed (declared,
+                           01.10.2026, 00-MASTER-PLAN.md §13.61) — mirrors
+                           the unit_admin branch above exactly. Keyed on
+                           roleInfo.isTenantOwner directly, not
+                           isTenantOwnerOnly: a real tenant_owner is ALSO,
+                           mechanically, isAuthorityManager, so
+                           isTenantOwnerOnly (which requires
+                           !isAuthorityManager) is never true for them —
+                           using it here would make this branch as dead as
+                           the pre-existing tenant_owner resolution effect
+                           it already is (see that branch's own comment,
+                           above in this file). Must NOT fall through to
+                           the generic getSidebarConfig branch below: that
+                           silently hands a military/school tenant_owner
+                           the municipal menu — the exact bug this closes. */
+                        <div className="space-y-3 px-1">
+                            <div className="rounded-xl border border-amber-700/30 bg-amber-900/20 p-3">
+                                <p className="text-xs font-bold text-amber-400">לא הצלחנו לזהות את הארגון שלך</p>
+                                <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">
+                                    ייתכן שזו תקלת חיבור זמנית. נסה שוב — אם זה חוזר, פנה למנהל המערכת.
                                 </p>
                             </div>
                             <button
