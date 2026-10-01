@@ -1035,3 +1035,29 @@ Proven empirically, not theoretically: added a new `isSuperAdminOnly()` helper +
 **Fix, not done now (explicitly deferred, David's call):** a deliberate, separately-scoped rules refactor — either narrow the catch-all itself (high blast radius: it's the safety net for probably dozens of collections that have no explicit rule of their own; touching it risks breaking legitimate plain-admin access across the whole panel) or give every collection that genuinely needs narrower-than-`isAdmin()` semantics its own explicit deny path ahead of the fallback. Not scoped for any single feature build — needs its own audit of every collection currently relying on the fallback.
 
 **Established workaround for now (matches the prior `street_segments`/`/admin/city-mapping` decision):** don't fight the rules layer — enforce the narrower bar at the trusted layer instead (a Cloud Function's own Admin-SDK-side check, or a client-side guard on a panel page). `functions/src/geoDiscoveryWorker.ts`'s `isAuthorizedForApply()` is the concrete instance of this for the discovery worker — real, bypass-proof enforcement of "only a superAdmin may run an `apply:true` job," living inside the trusted worker rather than relying on the (currently inert) rules-layer restriction.
+
+---
+
+## ✅ עדכון — "חמישה מבנים, אותה שאלה": איחוד בוצע (לא ל-4, ל-2) — 2026-10-01
+
+**Opened/Closed same day:** skill↔foundation level-reconciliation root-fix (front_lever-only-assessed user → empty pool, see the recon that preceded this). Updates the inventory at this file's own "חמישה מבנים, אותה שאלה" entry above.
+
+**מה אוחד בפועל:** 2 מתוך 4 המבנים שתועדו שם — `_CU_SKILL_PARENT` ו-`_HOME_WORKOUT_SKILL_PARENT_MAP` (שניהם ב-`home-workout.service.ts`) נמחקו; שני מקומות-הקריאה שלהם מפנים עכשיו ישירות ל-`DOMAIN_RESOLUTION_SKILL_PARENT_MAP`. בנוסף אוחד מבנה חמישי שלא נספר באותה רשימה — `SKILL_SIBLINGS` (`InputSanitizerMiddleware.ts`) — עכשיו נגזר (lazy, לא module-top-level — ראו הערת-TDZ בקוד) מהמפה הקנונית במקום רשימה מתוחזקת-ידנית. תוכן זהה בכל המקרים, אין שינוי-התנהגות מהאיחוד עצמו.
+
+**לא אוחד, בכוונה:** `SKILL_TO_FOUNDATION_DOMAIN` (`skill-foundation-domain.constants.ts`) — שכבה שונה (גזירת-רמה בזמן-הרשמה, לא רזולוציית-דומיין בזמן-ייצור), צרכנים שונים (`onboarding-sync.service.ts`, `assessment-path-config.service.ts`), ללא השקה עם מסלול-הייצור כלל. **נמצא פער-תוכן אמיתי שם, לא תוקן בכוונה:** המפה הזו כוללת מפתח נוסף — `hspu: 'push'` — שלא קיים באף אחד מהמבנים האחרים. נראה נכון (HSPU אכן דוחף) אבל לא אומת מול דוד; רשום כאן כדי שלא ילך לאיבוד, לא נוגעים בנתיב-הכתיבה של ההרשמה כדי לתקן את זה.
+
+**6→2 מבנים חיים — זו לא "איחוד-לכל-שימוש", וזה בכוונה:** היקף העבודה המאושר היה front_lever/filterForDomain בלבד, לא מיזוג-גורף של כל שימוש ב-skill→parent בקוד. המצאי המלא שנמצא תוך-כדי (6, לא 4): `DOMAIN_RESOLUTION_SKILL_PARENT_MAP` (קנוני), `_CU_SKILL_PARENT` + `_HOME_WORKOUT_SKILL_PARENT_MAP` (שניהם נמחקו, לעיל), `SKILL_SIBLINGS` (אוחד ל-derivation, לעיל), `PUSH_SKILL_SLUGS`/`PULL_SKILL_SLUGS` (`PipelineOrchestrator.ts` — נמחקו, הוחלפו בלוגיקה סימטרית מהמפה הקנונית — ראו קוד), ו-`SKILL_TO_FOUNDATION_DOMAIN` (שכבה נפרדת, לעיל — לא נוגע). נשאר בפועל: `DOMAIN_RESOLUTION_SKILL_PARENT_MAP` + `SKILL_TO_FOUNDATION_DOMAIN` = 2 מבנים. אם משהו עתידי מוצא מבנה-סקיל→הורה נוסף (`Bolt1Cap`/`Bolt2Cap` למטה הם מועמדים, לא מבנה-מפה בפני עצמו אלא אותה מחלקת-באג) — לבדוק קודם אם ראוי להצטרף לקנוני, לא להוסיף מבנה חדש.
+
+---
+
+## ⚠️ ממצא חדש, לא מתוקן — Bolt1Cap/Bolt2Cap (`WorkoutGenerator.ts`) הוא מופע שביעי של אותה מחלקת-באג — נמצא תוך-כדי אימות ה-harness, 2026-10-01
+
+**Opened:** 2026-10-01 · **Source:** הרצת ה-validation-harness האמיתי (לא ניתוח סטטי) על תרחיש front_lever-בלבד, אחרי תיקון `filterForDomain`/`PipelineOrchestrator` — ה-harness חשף את זה, ניתוח קוד סטטי לא.
+
+**מה נמצא:** אחרי שה-domain-strict filter תוקן (17/17 → 3/17 נדחים, 14 שורדים כראוי ב-pull L10), Bolt 2 (מאוזן, D2) **עדיין** מייצר 0 תרגילים ראשיים. הסיבה: `WorkoutGenerator.ts:598-658` (`Bolt2Cap`, "Bolt-2 Narrow Level Ceiling") היא מנגנון **נפרד** מ-`filterForDomain` — תקרת-רמה לפי בולט, לא פילטר-דומיין. כש-`context.domainBudgets` ריק (המצב האמיתי למשתמש skill-בלבד-בלי-עטיפת-מאסטר — `domainBudgets` מאוכלס רק עבור `calisthenics_upper`/`upper_body`/`full_body`, לא עבור skill בודד כ-activeProgram), הקוד נופל ל-`else if (context.activeProgramId)` (שורה 609-613): `bolt2FallbackLevel = userProgramLevels.get('front_lever') + 1 = 2` — **ואז מוחל כתקרה גורפת על כל התרגילים**, כולל תרגילי pull שאמורים להישקל מול pull L10, לא front_lever L1. תוצאה: **כל** תרגילי ה-pull (רמות 7-11) נדחים כ"מעל-התקרה". זהה ללוג אמיתי: `[Bolt2Cap] L2 (activeProgram=front_lever): filtered out 14 above-ceiling exercise(s). Pool: 14 → 0`.
+
+**Bolt 1 נמנע מזה במקרה, לא כי הוא נכון:** אותו דפוס-נפילה בדיוק קיים ב-"Bolt-1 Regression Ceiling" (שורות 660-744, "mirrors Bolt-2 per-domain logic" לפי ההערה של עצמה) — אבל הוא מוגן ב-`if (difficulty === 1 && bolt1ReferenceLevel > 4)` (שורה 697): מכיוון ש-`bolt1ReferenceLevel = front_lever L1`, שאינו `> 4`, **כל הבלוק מדולג**. זו תוצאת-לוואי של סף-עיצוב לא-קשור (משתמשי-L1 לא מקבלים חלון-דה-לוד), לא תיקון אמיתי לאותה בעיה — משתמש skill-בלבד ב-L5 (למשל) *כן* היה נופל לאותו באג ב-Bolt 1 גם כן.
+
+**Bolt 3 (אינטנסיבי) לא נבדק/לא רלוונטי** — לפי ההערה בקוד, בולט 3 בכוונה לא מקבל תקרת-רמה כלל ("Above-level exposures of +2/+3 belong exclusively to Bolt 3").
+
+**לא תוקן — מחוץ להיקף שאושר ("ROOT FIX — #6 + filterForDomain" בלבד).** אותה מחלקת-באג בדיוק (רמת-סקיל-גולמית-של-front_lever משמשת כתקרה/רפרנס גורף לכל תרגיל, במקום רפרנס-פר-דומיין, כש-domainBudgets ריק כי אין עטיפת-מאסטר) — אבל במנגנון נפרד (תקרת-קושי-לפי-בולט, לא מסנן-דומיין). נבדק ישירות מול הלוגים האמיתיים, לא ניחוש. **המלצה, לא הוכרעה:** אם/כשמתוקן — אותו דפוס בדיוק (activeDomains סימטרי מ-`DOMAIN_RESOLUTION_SKILL_PARENT_MAP`, לא `?? context.userLevel` גורף) יכול להחליף את ה-`else if (context.activeProgramId)` fallback בשני המקומות (Bolt1Cap + Bolt2Cap) — אבל זו עבודה נפרדת, לא כלולה כאן.
