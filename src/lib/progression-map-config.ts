@@ -11,7 +11,7 @@
  * it's currently mis-flagged isMaster=true in production; fixing that is a
  * founder-only data change, out of scope for Phase 1.
  *
- * Phase 4c-1: the 4 canonical domains (משיכה/דחיפה/ליבה/פלג גוף תחתון) were
+ * Phase 4c-1: the 4 canonical domains (משיכה/דחיפה/ליבה/רגליים) were
  * added — confirmed via a live, read-only Firestore audit (not fixture
  * guessing) to be real leaf Program docs (isMaster:false) with genuinely
  * populated exercise trees (47-89 tagged exercises each, real levels up to
@@ -25,10 +25,18 @@
  * not because of any real master/leaf distinction; all 4 are isMaster:false
  * in Firestore, same as every skill already here).
  *
- * Real Hebrew names below are the live Program docs' own `.name` field,
- * confirmed live — note "legs" is really "פלג גוף תחתון", not "רגליים"
- * (a naming gap flagged since Phase 0, still true; no program is named
- * "רגליים" in Firestore).
+ * Real Hebrew names below are normally the live Program docs' own `.name`
+ * field — EXCEPT legs (OrAmOH3F375dVio5yGdU): Firestore's own `.name` for
+ * it is still "פלג גוף תחתון" (a naming gap flagged since Phase 0), but
+ * this list's `nameHe` was corrected to "רגליים" in Phase 4c-2 per David's
+ * explicit rename request. Note this constant is NOT actually consumed by
+ * the Skill-Tree page's own title — SkillTreeScreen.tsx reads
+ * `programMeta?.name` directly from the live Firestore doc, bypassing this
+ * list entirely (getProgressionMapProgramName below has zero production
+ * callers, only its own test) — so this correction alone does not change
+ * what's on screen. The visible fix requires updating the Firestore doc's
+ * `.name` field itself (tracked as a Phase 4c-2 data-hygiene item, same
+ * category as the full_body/legs subPrograms cleanup).
  *
  * visibleInHub is set to false for all 4, same as handstand's existing
  * precedent — but note (confirmed while making this change, not assumed):
@@ -70,7 +78,7 @@ export const PROGRESSION_MAP_LEAF_PROGRAMS: readonly ProgressionMapLeafProgram[]
   { programId: 'UPDBtTdCvX748dtBlWYj', nameHe: 'משיכה', visibleInHub: false },
   { programId: 'J0fLpmJhG0KDN2tQouxh', nameHe: 'דחיפה', visibleInHub: false },
   { programId: 'kDMpobbKsuVTByTIKUpe', nameHe: 'ליבה', visibleInHub: false },
-  { programId: 'OrAmOH3F375dVio5yGdU', nameHe: 'פלג גוף תחתון', visibleInHub: false },
+  { programId: 'OrAmOH3F375dVio5yGdU', nameHe: 'רגליים', visibleInHub: false },
 ] as const;
 
 export const PROGRESSION_MAP_LEAF_PROGRAM_IDS: ReadonlySet<string> = new Set(

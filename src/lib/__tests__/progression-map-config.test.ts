@@ -29,13 +29,16 @@ describe('PROGRESSION_MAP_LEAF_PROGRAMS', () => {
     expect(ids).not.toContain('fTLWzjP9gH2VNpamyCZF');
   });
 
-  it('includes the 4 Phase 4c-1 domains with their real (live-verified) Hebrew names', () => {
+  it('includes the 4 Phase 4c-1 domains with their Hebrew display names', () => {
     const byId = new Map(PROGRESSION_MAP_LEAF_PROGRAMS.map((p) => [p.programId, p.nameHe]));
     expect(byId.get(PULL)).toBe('משיכה');
     expect(byId.get(PUSH)).toBe('דחיפה');
     expect(byId.get(CORE)).toBe('ליבה');
-    // Not "רגליים" — no program is named that in Firestore; the real name is "פלג גוף תחתון".
-    expect(byId.get(LEGS)).toBe('פלג גוף תחתון');
+    // Phase 4c-2: corrected to "רגליים" per David's explicit rename request.
+    // Firestore's own Program.name for this id is still "פלג גוף תחתון" —
+    // this constant isn't what the Skill-Tree page title reads (see file
+    // header), so the live doc also needs updating for the rename to show.
+    expect(byId.get(LEGS)).toBe('רגליים');
   });
 });
 
