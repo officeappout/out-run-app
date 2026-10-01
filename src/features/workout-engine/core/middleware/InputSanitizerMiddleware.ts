@@ -52,6 +52,7 @@ import {
 } from '../../services/program-hierarchy.utils';
 import type { SessionPolicy } from '../../services/periodization.service';
 import type { DifficultyLevel } from '../../logic/workout-generator.types';
+import { DOMAIN_RESOLUTION_SKILL_PARENT_MAP } from '../../logic/workout-selection.utils';
 
 // ============================================================================
 // FUNCTION A — Equipment Normalization
@@ -190,34 +191,53 @@ export interface ActiveProgramFiltersResult {
 // truth shared by buildActiveProgramFilters below AND resolveExercisePool's
 // CLIFF fallback further down this file; see 01-MAP.md §8 / §7 on the
 // pre-existing risk of these maps diverging when declared more than once). ──
-const SKILL_SIBLINGS: Record<string, string[]> = {
-  pull: ['muscle_up', 'front_lever', 'back_lever', 'one_arm_pullup'],
-  push: ['planche', 'handstand', 'handstand_pushup'],
-};
-
-// Derive the inverse map once from SKILL_SIBLINGS so there is a single
-// source of truth for which skill belongs to which parent.
-const SKILL_PARENT: Record<string, string> = {};
-for (const [parent, children] of Object.entries(SKILL_SIBLINGS)) {
-  for (const child of children) {
-    SKILL_PARENT[child] = parent;
+//
+// Derived from the canonical DOMAIN_RESOLUTION_SKILL_PARENT_MAP
+// (workout-selection.utils.ts) rather than hand-maintained (skill↔foundation
+// unification, 2026-10-01) — was one of (what was) at least 6 live copies of
+// the same skill→parent content; see parking-lot.md's "חמישה מבנים, אותה
+// שאלה" entry. Content is unchanged (already byte-identical to the
+// canonical map for these 7 keys) — this removes a duplicate, not a behavior.
+//
+// Lazily computed (NOT a module-top-level const) — workout-selection.utils.ts
+// imports `resolveUserLevelForProgram` FROM this file, so a top-level read of
+// DOMAIN_RESOLUTION_SKILL_PARENT_MAP here hits that circular import mid-load
+// and throws "Cannot access ... before initialization" (verified: crashes at
+// runtime the moment this file is required, even though tsc sees no error —
+// a TDZ issue, not a type issue). Deferring the read into a function body
+// means it only ever runs after both modules have finished loading.
+let _skillSiblings: Record<string, string[]> | undefined;
+function getSkillSiblings(): Record<string, string[]> {
+  if (!_skillSiblings) {
+    _skillSiblings = {};
+    for (const [skill, parent] of Object.entries(DOMAIN_RESOLUTION_SKILL_PARENT_MAP)) {
+      (_skillSiblings[parent] ??= []).push(skill);
+    }
   }
+  return _skillSiblings;
 }
 
-// Multi-parent variant of SKILL_PARENT, for resolveExercisePool's Step-B
-// fallback below — mechanically derived from the SAME SKILL_SIBLINGS above,
-// so it can never drift from it. `human_flag` is NOT a SKILL_SIBLINGS entry
-// (that map only covers `pull`/`push`; human_flag is absent from it
-// entirely — a pre-existing gap, not introduced here) so it's added
-// explicitly: a human_flag exercise legitimately carries both push and pull
-// levels in the live catalog (e.g. "דגל אנושי" has pull=L21, push=L21).
-const SKILL_TO_BASELINE_PARENTS: Record<string, string[]> = {};
-for (const [parent, children] of Object.entries(SKILL_SIBLINGS)) {
-  for (const child of children) {
-    (SKILL_TO_BASELINE_PARENTS[child] ??= []).push(parent);
+// Multi-parent variant of DOMAIN_RESOLUTION_SKILL_PARENT_MAP, for
+// resolveExercisePool's Step-B fallback below — mechanically derived from the
+// SAME getSkillSiblings() above, so it can never drift from it. `human_flag`
+// is NOT a skill-siblings entry (that map only covers `pull`/`push`;
+// human_flag is absent from it entirely — a pre-existing gap, not introduced
+// here) so it's added explicitly: a human_flag exercise legitimately carries
+// both push and pull levels in the live catalog (e.g. "דגל אנושי" has
+// pull=L21, push=L21). Also lazy, same TDZ reason as getSkillSiblings above.
+let _skillToBaselineParents: Record<string, string[]> | undefined;
+function getSkillToBaselineParents(): Record<string, string[]> {
+  if (!_skillToBaselineParents) {
+    _skillToBaselineParents = {};
+    for (const [parent, children] of Object.entries(getSkillSiblings())) {
+      for (const child of children) {
+        (_skillToBaselineParents[child] ??= []).push(parent);
+      }
+    }
+    _skillToBaselineParents.human_flag = ['push', 'pull'];
   }
+  return _skillToBaselineParents;
 }
-SKILL_TO_BASELINE_PARENTS.human_flag = ['push', 'pull'];
 
 export function buildActiveProgramFilters(
   effectiveProfile: UserFullProfile,
@@ -294,8 +314,9 @@ export function buildActiveProgramFilters(
   // 'pull') are hard-excluded because neither slug appears in the filter list.
   // Fix: when any skill-track slug is present in the filter, also add its
   // parent baseline domain so foundational exercises remain visible.
-  // SKILL_SIBLINGS / SKILL_PARENT are declared at module scope above (shared
-  // with resolveExercisePool's CLIFF fallback).
+  // SKILL_SIBLINGS is declared at module scope above (shared with
+  // resolveExercisePool's CLIFF fallback); the parent lookup below reads
+  // DOMAIN_RESOLUTION_SKILL_PARENT_MAP directly.
 
   // baseDomainCount is captured BEFORE either expansion so downstream
   // callers can still determine the user's original intended domain count.
@@ -303,7 +324,7 @@ export function buildActiveProgramFilters(
 
   // ── Forward expansion: baseline → include skill siblings ─────────────
   if (baseDomainCount === 1) {
-    const siblings = SKILL_SIBLINGS[activeProgramFilters[0]];
+    const siblings = getSkillSiblings()[activeProgramFilters[0]];
     if (siblings) {
       activeProgramFilters.push(...siblings);
       console.log(
@@ -319,7 +340,7 @@ export function buildActiveProgramFilters(
   // out of skill-track sessions. Uses a Set to deduplicate.
   const parentsToAdd = new Set<string>();
   for (const filter of activeProgramFilters) {
-    const parent = SKILL_PARENT[filter];
+    const parent = DOMAIN_RESOLUTION_SKILL_PARENT_MAP[filter];
     if (parent && !activeProgramFilters.includes(parent)) {
       parentsToAdd.add(parent);
     }
@@ -549,7 +570,7 @@ export function resolveExercisePool(
   // back to its healthy baseline parent domain(s) instead of the whole catalog.
   const parentDomains = new Set<string>();
   for (const domain of resolvedChildDomains) {
-    for (const parent of SKILL_TO_BASELINE_PARENTS[domain] ?? []) {
+    for (const parent of getSkillToBaselineParents()[domain] ?? []) {
       parentDomains.add(parent);
     }
   }

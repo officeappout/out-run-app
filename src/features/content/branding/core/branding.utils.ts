@@ -745,17 +745,38 @@ export function resolveDescription(
     return context.sportType || 'אימון';
   });
 
-  // @רמה — user's experience level
-  const levelLabels: Record<string, string> = {
-    beginner: 'מתחיל',
-    intermediate: 'בינוני',
-    advanced: 'מתקדם',
-    pro: 'מקצועי',
+  // @רמה — user's experience level, gendered (2026-10-01).
+  //
+  // Deliberately NOT a Record<string,string> keyed straight to the gendered
+  // label — context.experienceLevel (resolveExperienceLevelFromUserLevel,
+  // workout-metadata.service.ts) stays the plain English categorical key
+  // ('beginner'|'intermediate'|'advanced'|'pro'), unchanged, because it's
+  // ALSO the exact-match scoring key scoreContentRow compares against each
+  // Firestore row's own `experienceLevel` field — confirmed live: the admin
+  // panel's own workout-settings UI (experienceLevelLabels,
+  // admin/workout-settings/page.tsx) stores that SAME English key when an
+  // admin picks a level for a title/description row. Making the context
+  // field itself a gendered Hebrew string would silently break that match
+  // for every row an admin has tagged (scoring is applied via `ctx[ctxKey]
+  // === row[rowField]` string equality — a gendered Hebrew value could never
+  // equal the stored English key again). Gendering happens only at this
+  // final render step, using isFemale/isMale already computed above (the
+  // same userGender → tagCtx.userGender → WorkoutMetadataContext.gender →
+  // profile.core.gender pipeline @מגדר already uses) — unknown/missing
+  // gender defaults to the male form (isFemale false when gender is absent
+  // or 'other'), per explicit instruction — flagged here for revisit, not a
+  // silent assumption.
+  const levelLabels: Record<string, { male: string; female: string }> = {
+    beginner: { male: 'מתחיל', female: 'מתחילה' },
+    intermediate: { male: 'בינוני', female: 'בינונית' },
+    advanced: { male: 'מתקדם', female: 'מתקדמת' },
+    pro: { male: 'מקצוען', female: 'מקצוענית' },
   };
 
   resolved = resolved.replace(/@רמה/g, () => {
-    if (context.experienceLevel && levelLabels[context.experienceLevel]) {
-      return levelLabels[context.experienceLevel];
+    const entry = context.experienceLevel ? levelLabels[context.experienceLevel] : undefined;
+    if (entry) {
+      return isFemale ? entry.female : entry.male;
     }
     return context.experienceLevel || 'כל הרמות';
   });

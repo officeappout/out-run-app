@@ -70,6 +70,7 @@ import {
   resolveWorkoutMetadata,
   detectTimeOfDay,
   detectDayPeriod,
+  resolveExperienceLevelFromUserLevel,
   TimeOfDay,
   WorkoutMetadataContext,
   TrioVariant,
@@ -99,7 +100,7 @@ import {
   resolveExercisePool,
 } from '../core/middleware/InputSanitizerMiddleware';
 import { getBaseUserLevel, buildUserProgramLevels, resolveMostSpecificDomainBudget } from './level-resolution.utils';
-import { buildSkillPriorityMap } from '../logic/workout-selection.utils';
+import { buildSkillPriorityMap, DOMAIN_RESOLUTION_SKILL_PARENT_MAP } from '../logic/workout-selection.utils';
 import { getHistoryMapForExercises } from './exercise-history.service';
 import {
   getCachedPrograms,
@@ -1168,69 +1169,94 @@ export async function generateHomeWorkoutTrio(
       workout.aiCue = pipeline.aiCue;
     }
 
-    // Warmup — use the FULL allExercises pool (not scoredExercises) so that
-    // exercises with exerciseRole === 'warmup' are always available for Stage 1.
-    // scoredExercises is filtered by ContextualEngine for the *main* workout and
-    // intentionally excludes warmup-role exercises; allExercises retains them.
-    // warmup.service.ts has its own independent filter stack (passesEquipmentAndLocation,
-    // isPotentiationCandidate, etc.) so passing the full pool is safe.
-    const mainExercises = workout.exercises.filter(
-      ex => ex.exerciseRole !== 'warmup' && ex.exerciseRole !== 'cooldown',
-    );
-    prependWarmupExercises(
-      workout,
-      pipeline.allExercises,
-      pipeline.userProgramLevels,
-      pipeline.effectiveFilterLocation,
-      pipeline.resolvedChildDomains,
-      mainExercises,
-      workout.difficulty,
-      pipeline.baseGeneratorContext.availableEquipment,
-      effectiveTime, // time-aware warmup: included in the user's budget
-    );
-
-    // Cooldown
-    appendCooldownExercises(
-      workout,
-      pipeline.allExercises,
-      pipeline.filterContext,
-      pipeline.effectiveFilterLocation,
-      effectiveTime, // time-aware cooldown: included in the user's budget
-    );
-
-    // Post-processing (Option 2 & 3 modifiers) — delegated to trio-modifiers.service.ts
-    if (cfg.postProcess === 'intense') {
-      applyIntenseOption(workout, sessionBlacklist, pipeline.userProgramLevels, pipeline.allExercises, pipeline.effectiveFilterLocation);
-    } else if (cfg.postProcess === 'flow_regression') {
-      applyFlowRegression(
-        workout,
-        pipeline.userProgramLevels,
-        pipeline.allExercises,
-        sessionBlacklist,
-        pipeline.effectiveFilterLocation,
-        pipeline.baseGeneratorContext.activeProgramId,
-        pipeline.baseGeneratorContext.levelProgressPercent,
-        pipeline.baseGeneratorContext.intentMode,
+    // ── Honesty invariant (2026-10-01): an empty-pool fallback is NEVER
+    // dressed up as a real workout ──────────────────────────────────────
+    // orchResult.usedEmptyPoolFallback was introduced (56e1c2b1, "Block B
+    // under-delivery") specifically to make an emptied-pool degradation
+    // visible — but nothing downstream ever actually checked it: warmup/
+    // cooldown/post-processing/volume-cap all ran unconditionally on
+    // buildRestDayFallback()'s workout (title "יום מנוחה", 0 exercises),
+    // and resolveWorkoutMetadata then overwrote that honest title with a
+    // real Firestore-fetched one — producing exactly the reported bug: a
+    // 0-main-exercise, cooldown-only "workout" that still reads as a normal
+    // titled session. Skipping all of that here keeps buildRestDayFallback's
+    // own honest title/description/isRecovery untouched. Coordinate with the
+    // home-card "fake card / placeholder title" work (needsAssessment is a
+    // separate, earlier short-circuit that already skips this whole trio
+    // loop — this is the orchestrator-level sibling of that same problem)
+    // so the two don't end up rendering two different "degraded workout"
+    // treatments in the UI.
+    if (!orchResult.usedEmptyPoolFallback) {
+      // Warmup — use the FULL allExercises pool (not scoredExercises) so that
+      // exercises with exerciseRole === 'warmup' are always available for Stage 1.
+      // scoredExercises is filtered by ContextualEngine for the *main* workout and
+      // intentionally excludes warmup-role exercises; allExercises retains them.
+      // warmup.service.ts has its own independent filter stack (passesEquipmentAndLocation,
+      // isPotentiationCandidate, etc.) so passing the full pool is safe.
+      const mainExercises = workout.exercises.filter(
+        ex => ex.exerciseRole !== 'warmup' && ex.exerciseRole !== 'cooldown',
       );
-    } else if (cfg.postProcess === 'mobility_tag') {
-      applyTagPreference(workout, 'mobility', sessionBlacklist);
-    } else if (cfg.postProcess === 'flexibility_tag') {
-      applyTagPreference(workout, 'flexibility', sessionBlacklist);
-    }
+      prependWarmupExercises(
+        workout,
+        pipeline.allExercises,
+        pipeline.userProgramLevels,
+        pipeline.effectiveFilterLocation,
+        pipeline.resolvedChildDomains,
+        mainExercises,
+        workout.difficulty,
+        pipeline.baseGeneratorContext.availableEquipment,
+        effectiveTime, // time-aware warmup: included in the user's budget
+      );
 
-    // ── Volume Cap: enforce bolt duration ceiling (Tier-3 PresentationFormatter) ──
-    //
-    // Runs AFTER all post-processing (warmup, cooldown, intense/flow
-    // modifiers) so the final plan reflects real timing.  Phase A prunes
-    // expendable exercises (core → isolation → extra legs); Phase B trims
-    // sets down to a floor of 2 by ascending tier priority.  Rest seconds
-    // are never touched — the staircase is physiologically fixed.
-    enforceVolumeCap(workout, {
-      // Trim against the EFFECTIVE time (user request honoured above), not
-      // the bolt ceiling — otherwise a 20-min request still ships 45 min.
-      durationCap: effectiveTime,
-      diagnosticLabel: `Bolt${optionDifficulty}`,
-    });
+      // Cooldown
+      appendCooldownExercises(
+        workout,
+        pipeline.allExercises,
+        pipeline.filterContext,
+        pipeline.effectiveFilterLocation,
+        effectiveTime, // time-aware cooldown: included in the user's budget
+      );
+
+      // Post-processing (Option 2 & 3 modifiers) — delegated to trio-modifiers.service.ts
+      if (cfg.postProcess === 'intense') {
+        applyIntenseOption(workout, sessionBlacklist, pipeline.userProgramLevels, pipeline.allExercises, pipeline.effectiveFilterLocation);
+      } else if (cfg.postProcess === 'flow_regression') {
+        applyFlowRegression(
+          workout,
+          pipeline.userProgramLevels,
+          pipeline.allExercises,
+          sessionBlacklist,
+          pipeline.effectiveFilterLocation,
+          pipeline.baseGeneratorContext.activeProgramId,
+          pipeline.baseGeneratorContext.levelProgressPercent,
+          pipeline.baseGeneratorContext.intentMode,
+        );
+      } else if (cfg.postProcess === 'mobility_tag') {
+        applyTagPreference(workout, 'mobility', sessionBlacklist);
+      } else if (cfg.postProcess === 'flexibility_tag') {
+        applyTagPreference(workout, 'flexibility', sessionBlacklist);
+      }
+
+      // ── Volume Cap: enforce bolt duration ceiling (Tier-3 PresentationFormatter) ──
+      //
+      // Runs AFTER all post-processing (warmup, cooldown, intense/flow
+      // modifiers) so the final plan reflects real timing.  Phase A prunes
+      // expendable exercises (core → isolation → extra legs); Phase B trims
+      // sets down to a floor of 2 by ascending tier priority.  Rest seconds
+      // are never touched — the staircase is physiologically fixed.
+      enforceVolumeCap(workout, {
+        // Trim against the EFFECTIVE time (user request honoured above), not
+        // the bolt ceiling — otherwise a 20-min request still ships 45 min.
+        durationCap: effectiveTime,
+        diagnosticLabel: `Bolt${optionDifficulty}`,
+      });
+    } else {
+      console.log(
+        `[WorkoutTrio] Option ${i + 1}: usedEmptyPoolFallback=true — skipping warmup/cooldown/` +
+        'post-processing/metadata-overwrite so the rest-day fallback stays honest ' +
+        `(title="${workout.title}", exercises=${workout.exercises.length}).`,
+      );
+    }
 
     // Resolve dynamic title/description/logicCue from Firestore metadata.
     // Declared here (assigned inside the try below) so the reconciliation
@@ -1240,51 +1266,56 @@ export async function generateHomeWorkoutTrio(
     // the pruned workout.metadataCtx snapshot, which is missing fields
     // (location, daysInactive, weeklyGapDomain, …) that only
     // pipeline.metadataCtxBase carries.
+    //
+    // Skipped entirely for an empty-pool fallback (see honesty invariant
+    // above) — buildRestDayFallback's own title/description stay as-is.
     let optionMetaCtx: WorkoutMetadataContext | undefined;
-    try {
-      const initialCategoryMeta = resolveCategoryFromExercises(workout.exercises, workout.structure);
+    if (!orchResult.usedEmptyPoolFallback) {
+      try {
+        const initialCategoryMeta = resolveCategoryFromExercises(workout.exercises, workout.structure);
 
-      optionMetaCtx = {
-        ...pipeline.metadataCtxBase,
-        category: initialCategoryMeta.category,
-        durationMinutes: workout.estimatedDuration,
-        difficulty: workout.difficulty,
-        dominantMuscle: initialCategoryMeta.dominantMuscle,
-        categoryLabel: initialCategoryMeta.categoryLabel,
-      };
+        optionMetaCtx = {
+          ...pipeline.metadataCtxBase,
+          category: initialCategoryMeta.category,
+          durationMinutes: workout.estimatedDuration,
+          difficulty: workout.difficulty,
+          dominantMuscle: initialCategoryMeta.dominantMuscle,
+          categoryLabel: initialCategoryMeta.categoryLabel,
+        };
 
-      const variant: TrioVariant = resolveTrioVariant(cfg);
+        const variant: TrioVariant = resolveTrioVariant(cfg);
 
-      const logicTagOverrides = computeLogicTagOverrides(variant, workout, cfg);
+        const logicTagOverrides = computeLogicTagOverrides(variant, workout, cfg);
 
-      const metadata = await resolveWorkoutMetadata(optionMetaCtx, variant, logicTagOverrides);
-      if (metadata.title) workout.title = metadata.title;
-      if (metadata.description) workout.description = metadata.description;
-      if (metadata.aiCue) workout.aiCue = metadata.aiCue;
+        const metadata = await resolveWorkoutMetadata(optionMetaCtx, variant, logicTagOverrides);
+        if (metadata.title) workout.title = metadata.title;
+        if (metadata.description) workout.description = metadata.description;
+        if (metadata.aiCue) workout.aiCue = metadata.aiCue;
 
-      // Stash a LIGHT scalar snapshot (§19 eviction-safe) so swap-all can re-run
-      // resolveWorkoutMetadata for a NEW location without rebuilding the pipeline
-      // context. location + durationMinutes are re-injected at swap time, not stored.
-      workout.metadataCtx = toMetadataSnapshot(optionMetaCtx);
+        // Stash a LIGHT scalar snapshot (§19 eviction-safe) so swap-all can re-run
+        // resolveWorkoutMetadata for a NEW location without rebuilding the pipeline
+        // context. location + durationMinutes are re-injected at swap time, not stored.
+        workout.metadataCtx = toMetadataSnapshot(optionMetaCtx);
 
-      if (metadata.logicCue) {
-        workout.logicCue = metadata.logicCue;
-      } else {
-        workout.logicCue = computeLevelAwareLogicCue(
-          variant,
-          pipeline.userProgramLevels,
-          pipeline.resolvedChildDomains.length > 0 ? pipeline.resolvedChildDomains : undefined,
-        );
+        if (metadata.logicCue) {
+          workout.logicCue = metadata.logicCue;
+        } else {
+          workout.logicCue = computeLevelAwareLogicCue(
+            variant,
+            pipeline.userProgramLevels,
+            pipeline.resolvedChildDomains.length > 0 ? pipeline.resolvedChildDomains : undefined,
+          );
+        }
+
+        // Persist winning bundleId for anti-repetition (recommended slot only —
+        // center/D2 card in the full-trio path, or whichever index
+        // generateSingleOption actually computed in the fast path).
+        if (i === singleOptionWantIndex && metadata.bundleId) {
+          rememberBundleId(metadata.bundleId);
+        }
+      } catch {
+        // Non-critical — generator fallback strings are already in place
       }
-
-      // Persist winning bundleId for anti-repetition (recommended slot only —
-      // center/D2 card in the full-trio path, or whichever index
-      // generateSingleOption actually computed in the fast path).
-      if (i === singleOptionWantIndex && metadata.bundleId) {
-        rememberBundleId(metadata.bundleId);
-      }
-    } catch {
-      // Non-critical — generator fallback strings are already in place
     }
 
     // ── DESK WORKOUT CONSTRAINT ───────────────────────────────────────────
@@ -1876,7 +1907,7 @@ async function _buildSharedPipeline(
   if (activeProgramId === 'calisthenics_upper') {
     // 'one_arm_pullup' — not 'oap' — matches the catalog (program-path
     // /page.tsx's SKILL_PROGRAMS) and every other skill-slug consumer in
-    // this file (_CU_SKILL_PARENT/_HOME_WORKOUT_SKILL_PARENT_MAP). 'oap' was this set's
+    // this file (DOMAIN_RESOLUTION_SKILL_PARENT_MAP). 'oap' was this set's
     // own invention — confirmed 08.09.2026 by checking the real catalog,
     // not assumed. 'human_flag'/'back_lever' are real, recognized skill
     // domains elsewhere (MG_TO_DOMAIN, domain-mapping.constants.ts) but
@@ -2069,12 +2100,12 @@ async function _buildSharedPipeline(
     // SplitDecisionService.resolvePrioritySkillIds can apply skill rotation
     // (Dominance Day / Dynamic Rotation / Pendulum) unmodified.
     // ── Skill-track budget entries (planche=L5, front_lever=L5, …) ─────────
-    // Biomechanical parent map — mirrors _HOME_WORKOUT_SKILL_PARENT_MAP defined
-    // later in this file; duplicated here to avoid a forward-reference dependency.
-    const _CU_SKILL_PARENT: Record<string, string> = {
-      planche: 'push', handstand: 'push', handstand_pushup: 'push',
-      front_lever: 'pull', back_lever: 'pull', muscle_up: 'pull', one_arm_pullup: 'pull',
-    };
+    // Biomechanical parent map — was a local, byte-identical duplicate of
+    // DOMAIN_RESOLUTION_SKILL_PARENT_MAP (workout-selection.utils.ts), one of
+    // (what was) at least 6 live copies of the same skill→parent content —
+    // see parking-lot.md's "חמישה מבנים, אותה שאלה" entry. Unified to the
+    // canonical map (skill↔foundation consolidation, 2026-10-01) — no
+    // behavior change, content was already identical.
     // BUG 1 (rework): absent=absent (⑨) — a skill absent from userProgramLevels
     // (never assessed) must be EXCLUDED from this workout's budget/exercise
     // computation entirely, not assigned baseUserLevel (nor any other invented
@@ -2101,7 +2132,7 @@ async function _buildSharedPipeline(
     const _cuParentsSeen = new Set<string>();
     const parentDomains: string[] = [];
     for (const skillId of resolvedChildDomains) {
-      const parent = _CU_SKILL_PARENT[skillId];
+      const parent = DOMAIN_RESOLUTION_SKILL_PARENT_MAP[skillId];
       if (parent && !_cuParentsSeen.has(parent)) {
         _cuParentsSeen.add(parent);
         parentDomains.push(parent);
@@ -2229,22 +2260,15 @@ async function _buildSharedPipeline(
   // slugs, ensuring both push movements (planche) and pull movements (front_lever)
   // survive ContextualEngine's exerciseMatchesProgram gate.
 
-  // Biomechanical parent lookup for calisthenics skill-track slugs. Named
-  // `_HOME_WORKOUT_SKILL_PARENT_MAP` (14.09.2026, review round 2, David) —
-  // was `_SKILL_PARENT_MAP` until it collided, name-for-name, with the
-  // unrelated exported `DOMAIN_RESOLUTION_SKILL_PARENT_MAP` in
-  // workout-selection.utils.ts (renamed the same round). Used for two things
-  // in this function, not just the calisthenics_upper focusDomains expansion
-  // immediately below — also for general per-exercise domain-budget
+  // Biomechanical parent lookup for calisthenics skill-track slugs. Used for
+  // two things in this function — the calisthenics_upper focusDomains
+  // expansion immediately below, and general per-exercise domain-budget
   // resolution further down (`getUserLevelForExercise`'s
-  // `resolveMostSpecificDomainBudget` call, not calisthenics_upper-specific)
-  // — hence a name scoped to this file/function, not to either single call
-  // site. One of (at least) 4 live copies of the same skill→parent content
-  // — see parking-lot.md's "חמישה מבנים, אותה שאלה" entry.
-  const _HOME_WORKOUT_SKILL_PARENT_MAP: Record<string, string> = {
-    planche: 'push', handstand: 'push', handstand_pushup: 'push',
-    front_lever: 'pull', back_lever: 'pull', muscle_up: 'pull', one_arm_pullup: 'pull',
-  };
+  // `resolveMostSpecificDomainBudget` call). Was a local duplicate
+  // (`_HOME_WORKOUT_SKILL_PARENT_MAP`, formerly `_SKILL_PARENT_MAP`) of
+  // DOMAIN_RESOLUTION_SKILL_PARENT_MAP — unified to the canonical map
+  // (skill↔foundation consolidation, 2026-10-01); content was already
+  // byte-identical, so this is not a behavior change.
 
   // Stage 2 (2026-09-09, David) — the user's own skill-selection order,
   // wired into the live pipeline.
@@ -2295,7 +2319,7 @@ async function _buildSharedPipeline(
           // without needing to reconstruct it from raw profile data.
           const parentDomains = Array.from(new Set(
             resolvedChildDomains
-              .map((d) => _HOME_WORKOUT_SKILL_PARENT_MAP[d])
+              .map((d) => DOMAIN_RESOLUTION_SKILL_PARENT_MAP[d])
               .filter((p): p is string => !!p && !resolvedChildDomains.includes(p)),
           ));
           const fullFocusDomains = [...resolvedChildDomains, ...parentDomains];
@@ -2379,7 +2403,7 @@ async function _buildSharedPipeline(
           db = resolveMostSpecificDomainBudget(
             exercise.targetPrograms,
             resolvedDomainBudgets,
-            _HOME_WORKOUT_SKILL_PARENT_MAP,
+            DOMAIN_RESOLUTION_SKILL_PARENT_MAP,
             resolveToSlug,
             skillPriority,
           );
@@ -2967,6 +2991,13 @@ async function _buildSharedPipeline(
     ancestorProgramIds,
     userAge,
     userLevel: baseUserLevel,
+    // @רמה content-tag fix (2026-10-01): this field was never populated in
+    // this pipeline before — every admin-authored title/description row
+    // using @רמה fell through to its own generic "כל הרמות" fallback for
+    // every home-generated workout, unconditionally. See
+    // resolveExperienceLevelFromUserLevel's own doc comment for the mapping
+    // and why no existing function was reused.
+    experienceLevel: resolveExperienceLevelFromUserLevel(baseUserLevel),
     isAbroad,
     recentBundleIds,
     previewNow,

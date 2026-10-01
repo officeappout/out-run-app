@@ -1,23 +1,9 @@
 import type { WorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import {
   resolveVideoForLocation,
-  resolveImageForLocation,
+  findMethodForLocation,
 } from '@/features/content/exercises/core/exercise.types';
-
-// ============================================================================
-// Movement-group fallback images (high-quality Unsplash)
-// ============================================================================
-export const MOVEMENT_GROUP_FALLBACKS: Record<string, string> = {
-  horizontal_push: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&w=800&q=80',
-  vertical_push:   'https://images.unsplash.com/photo-1598971639058-a0c1e5321546?auto=format&fit=crop&w=800&q=80',
-  horizontal_pull:  'https://images.unsplash.com/photo-1597452485669-2c7bb5fef90d?auto=format&fit=crop&w=800&q=80',
-  vertical_pull:   'https://images.unsplash.com/photo-1598971457999-ca4ef48a9a71?auto=format&fit=crop&w=800&q=80',
-  squat:           'https://images.unsplash.com/photo-1574680096145-d05b474e2155?auto=format&fit=crop&w=800&q=80',
-  hinge:           'https://images.unsplash.com/photo-1434682881908-b43d0467b798?auto=format&fit=crop&w=800&q=80',
-  core:            'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=800&q=80',
-  isolation:       'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?auto=format&fit=crop&w=800&q=80',
-};
-export const DEFAULT_HERO_IMAGE = 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=800&q=80';
+import { resolveExerciseMedia } from './media-resolution.utils';
 
 /**
  * Pick the exercise whose media drives the workout hero.
@@ -63,23 +49,37 @@ export function pickHeroExercise(
 
 /**
  * Resolve thumbnail & video URLs for a given WorkoutExercise.
- * Priority: execution-method media -> legacy exercise.media -> movement-group fallback.
+ *
+ * Hero-image fix (2026-10-01, revised): now delegates to `resolveExerciseMedia`
+ * (media-resolution.utils.ts) — the same "exhaustive 5-level deep search"
+ * resolver `home/page.tsx`, the active workout player, the workout-preview-
+ * drawer, and the strength player all already use — instead of the narrower
+ * `resolveImageForLocation`/`resolveVideoForLocation` pair this used to call
+ * directly. Verified against the live catalog (371 exercises × 3 locations)
+ * before switching, not assumed: the narrow pair left 5.7% of combos with no
+ * image (21.7% with no video), because it only checks the ONE method
+ * `findMethodForLocation` selects — never scanning sibling methods for an
+ * image, nor the exercise-root `imageUrl`/`coverImage`/`thumbnailUrl` fields
+ * the wide resolver already covers. `resolveExerciseMedia` closes that gap to
+ * 0.5% missing image, matching every other surface in the app.
+ *
+ * The generic Unsplash stock-photo bank that used to live here is removed
+ * entirely, not patched — it never matched either the specific exercise or
+ * the outdoor-park brand. When (now genuinely rare, ~0.5% of combos) truly no
+ * real media resolves at all, `thumbnailUrl`/`videoUrl` are simply `''` — the
+ * caller (HeroMediaBackground, HeroWorkoutCard.tsx) renders an on-brand
+ * gradient in that case instead of an `<img>`, never a stock photo.
  */
 export function resolveHeroMedia(
   ex: WorkoutExercise | undefined,
   location?: string | null,
 ): { thumbnailUrl: string; videoUrl: string } {
   if (!ex) {
-    return { thumbnailUrl: DEFAULT_HERO_IMAGE, videoUrl: '' };
+    return { thumbnailUrl: '', videoUrl: '' };
   }
 
-  const image = resolveImageForLocation(ex.exercise, location);
-  const video = resolveVideoForLocation(ex.exercise, location);
+  const method = findMethodForLocation(ex.exercise, location);
+  const { imageUrl, videoUrl } = resolveExerciseMedia(ex.exercise, method);
 
-  const thumbnailUrl =
-    image ||
-    MOVEMENT_GROUP_FALLBACKS[ex.exercise.movementGroup || ''] ||
-    DEFAULT_HERO_IMAGE;
-
-  return { thumbnailUrl, videoUrl: video || '' };
+  return { thumbnailUrl: imageUrl || '', videoUrl: videoUrl || '' };
 }

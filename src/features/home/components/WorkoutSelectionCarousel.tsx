@@ -364,12 +364,19 @@ function TrioCard({
             thumbnailUrl={heroMedia.thumbnailUrl}
             videoUrl={heroMedia.videoUrl}
           />
-        ) : (
+        ) : heroMedia.thumbnailUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={heroMedia.thumbnailUrl}
             alt="Workout"
             className="absolute inset-0 w-full h-full object-cover"
+          />
+        ) : (
+          // Same on-brand-gradient fallback as HeroMediaBackground above —
+          // hero-image fix, 2026-10-01 (see heroMedia.utils.ts).
+          <div
+            className="absolute inset-0 w-full h-full"
+            style={{ background: 'linear-gradient(135deg, #00BAF7 0%, #0CF2E3 100%)' }}
           />
         )}
       </div>

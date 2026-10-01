@@ -1035,3 +1035,75 @@ Proven empirically, not theoretically: added a new `isSuperAdminOnly()` helper +
 **Fix, not done now (explicitly deferred, David's call):** a deliberate, separately-scoped rules refactor — either narrow the catch-all itself (high blast radius: it's the safety net for probably dozens of collections that have no explicit rule of their own; touching it risks breaking legitimate plain-admin access across the whole panel) or give every collection that genuinely needs narrower-than-`isAdmin()` semantics its own explicit deny path ahead of the fallback. Not scoped for any single feature build — needs its own audit of every collection currently relying on the fallback.
 
 **Established workaround for now (matches the prior `street_segments`/`/admin/city-mapping` decision):** don't fight the rules layer — enforce the narrower bar at the trusted layer instead (a Cloud Function's own Admin-SDK-side check, or a client-side guard on a panel page). `functions/src/geoDiscoveryWorker.ts`'s `isAuthorizedForApply()` is the concrete instance of this for the discovery worker — real, bypass-proof enforcement of "only a superAdmin may run an `apply:true` job," living inside the trusted worker rather than relying on the (currently inert) rules-layer restriction.
+
+---
+
+## ✅ עדכון — "חמישה מבנים, אותה שאלה": איחוד בוצע (לא ל-4, ל-2) — 2026-10-01
+
+**Opened/Closed same day:** skill↔foundation level-reconciliation root-fix (front_lever-only-assessed user → empty pool, see the recon that preceded this). Updates the inventory at this file's own "חמישה מבנים, אותה שאלה" entry above.
+
+**מה אוחד בפועל:** 2 מתוך 4 המבנים שתועדו שם — `_CU_SKILL_PARENT` ו-`_HOME_WORKOUT_SKILL_PARENT_MAP` (שניהם ב-`home-workout.service.ts`) נמחקו; שני מקומות-הקריאה שלהם מפנים עכשיו ישירות ל-`DOMAIN_RESOLUTION_SKILL_PARENT_MAP`. בנוסף אוחד מבנה חמישי שלא נספר באותה רשימה — `SKILL_SIBLINGS` (`InputSanitizerMiddleware.ts`) — עכשיו נגזר (lazy, לא module-top-level — ראו הערת-TDZ בקוד) מהמפה הקנונית במקום רשימה מתוחזקת-ידנית. תוכן זהה בכל המקרים, אין שינוי-התנהגות מהאיחוד עצמו.
+
+**לא אוחד, בכוונה:** `SKILL_TO_FOUNDATION_DOMAIN` (`skill-foundation-domain.constants.ts`) — שכבה שונה (גזירת-רמה בזמן-הרשמה, לא רזולוציית-דומיין בזמן-ייצור), צרכנים שונים (`onboarding-sync.service.ts`, `assessment-path-config.service.ts`), ללא השקה עם מסלול-הייצור כלל. **נמצא פער-תוכן אמיתי שם, לא תוקן בכוונה:** המפה הזו כוללת מפתח נוסף — `hspu: 'push'` — שלא קיים באף אחד מהמבנים האחרים. נראה נכון (HSPU אכן דוחף) אבל לא אומת מול דוד; רשום כאן כדי שלא ילך לאיבוד, לא נוגעים בנתיב-הכתיבה של ההרשמה כדי לתקן את זה.
+
+**6→2 מבנים חיים — זו לא "איחוד-לכל-שימוש", וזה בכוונה:** היקף העבודה המאושר היה front_lever/filterForDomain בלבד, לא מיזוג-גורף של כל שימוש ב-skill→parent בקוד. המצאי המלא שנמצא תוך-כדי (6, לא 4): `DOMAIN_RESOLUTION_SKILL_PARENT_MAP` (קנוני), `_CU_SKILL_PARENT` + `_HOME_WORKOUT_SKILL_PARENT_MAP` (שניהם נמחקו, לעיל), `SKILL_SIBLINGS` (אוחד ל-derivation, לעיל), `PUSH_SKILL_SLUGS`/`PULL_SKILL_SLUGS` (`PipelineOrchestrator.ts` — נמחקו, הוחלפו בלוגיקה סימטרית מהמפה הקנונית — ראו קוד), ו-`SKILL_TO_FOUNDATION_DOMAIN` (שכבה נפרדת, לעיל — לא נוגע). נשאר בפועל: `DOMAIN_RESOLUTION_SKILL_PARENT_MAP` + `SKILL_TO_FOUNDATION_DOMAIN` = 2 מבנים. אם משהו עתידי מוצא מבנה-סקיל→הורה נוסף (`Bolt1Cap`/`Bolt2Cap` למטה הם מועמדים, לא מבנה-מפה בפני עצמו אלא אותה מחלקת-באג) — לבדוק קודם אם ראוי להצטרף לקנוני, לא להוסיף מבנה חדש.
+
+---
+
+## ✅ תוקן — Bolt1Cap/Bolt2Cap (`WorkoutGenerator.ts`) היה מופע שביעי של אותה מחלקת-באג — נמצא ותוקן תוך-כדי אימות ה-harness, 2026-10-01
+
+**Opened:** 2026-10-01 · **Source:** הרצת ה-validation-harness האמיתי (לא ניתוח סטטי) על תרחיש front_lever-בלבד, אחרי תיקון `filterForDomain`/`PipelineOrchestrator` — ה-harness חשף את זה, ניתוח קוד סטטי לא.
+
+**מה נמצא:** אחרי שה-domain-strict filter תוקן (17/17 → 3/17 נדחים, 14 שורדים כראוי ב-pull L10), Bolt 2 (מאוזן, D2) **עדיין** מייצר 0 תרגילים ראשיים. הסיבה: `WorkoutGenerator.ts:598-658` (`Bolt2Cap`, "Bolt-2 Narrow Level Ceiling") היא מנגנון **נפרד** מ-`filterForDomain` — תקרת-רמה לפי בולט, לא פילטר-דומיין. כש-`context.domainBudgets` ריק (המצב האמיתי למשתמש skill-בלבד-בלי-עטיפת-מאסטר — `domainBudgets` מאוכלס רק עבור `calisthenics_upper`/`upper_body`/`full_body`, לא עבור skill בודד כ-activeProgram), הקוד נופל ל-`else if (context.activeProgramId)` (שורה 609-613): `bolt2FallbackLevel = userProgramLevels.get('front_lever') + 1 = 2` — **ואז מוחל כתקרה גורפת על כל התרגילים**, כולל תרגילי pull שאמורים להישקל מול pull L10, לא front_lever L1. תוצאה: **כל** תרגילי ה-pull (רמות 7-11) נדחים כ"מעל-התקרה". זהה ללוג אמיתי: `[Bolt2Cap] L2 (activeProgram=front_lever): filtered out 14 above-ceiling exercise(s). Pool: 14 → 0`.
+
+**Bolt 1 נמנע מזה במקרה, לא כי הוא נכון:** אותו דפוס-נפילה בדיוק קיים ב-"Bolt-1 Regression Ceiling" (שורות 660-744, "mirrors Bolt-2 per-domain logic" לפי ההערה של עצמה) — אבל הוא מוגן ב-`if (difficulty === 1 && bolt1ReferenceLevel > 4)` (שורה 697): מכיוון ש-`bolt1ReferenceLevel = front_lever L1`, שאינו `> 4`, **כל הבלוק מדולג**. זו תוצאת-לוואי של סף-עיצוב לא-קשור (משתמשי-L1 לא מקבלים חלון-דה-לוד), לא תיקון אמיתי לאותה בעיה — משתמש skill-בלבד ב-L5 (למשל) *כן* היה נופל לאותו באג ב-Bolt 1 גם כן.
+
+**Bolt 3 (אינטנסיבי) לא נבדק/לא רלוונטי** — לפי ההערה בקוד, בולט 3 בכוונה לא מקבל תקרת-רמה כלל ("Above-level exposures of +2/+3 belong exclusively to Bolt 3").
+
+**עדכון 2026-10-01 (אותו יום) — תוקן, אותו ענף.** דוד ביקש במפורש לקפל את התיקון לאותו ענף ("אותו root cause במיקום שני, להשאיר Bolt 2 ריק זה חצי-תיקון"). יושם אותו דפוס סימטרי בדיוק שהוצע כאן: ב-`else if (context.activeProgramId)` בשני המקומות (Bolt1Cap שורות ~711-734, Bolt2Cap שורות ~609-634), `activeProgramSlug` נפתר ל-slug, ואז **שני** ערכים נכנסים למפה הפר-דומיין — `activeProgramSlug` ברמתו-שלו, **ועוד** `DOMAIN_RESOLUTION_SKILL_PARENT_MAP[activeProgramSlug]` (ההורה) ברמתו-שלו-של-ההורה (`userProgramLevels.get(parentDomain)`) — כשקיים ומוערך. ל-Bolt1Cap בנוסף: `bolt1FallbackRef` (המשמש גם כ-`bolt1ReferenceLevel`, הסף שמחליט אם הבלוק כולו רץ) הפך ל-`max(רמת-הסקיל, רמת-ההורה)` במקום רמת-הסקיל-בלבד — כך ש-Bolt 1 **נכון מעיצוב**, לא ניצל במקרה סף `>4` לא-קשור. למשתמש לא-סקיל (activeProgramId רגיל כמו 'push') — ה-parentDomain לא קיים במפה, אז זו תוספת של ערך-יחיד השווה בדיוק לערך-הנפילה הקודם — התנהגות זהה, לא השתנתה.
+
+**אומת ישירות מול הלוגים האמיתיים אחרי התיקון:** `[Bolt1Cap] Recovery window per-domain [front_lever→[L1-L1], pull→[L7-L9]]` ו-`[Bolt2Cap] per-domain [front_lever→L2, pull→L11]` — כל דומיין מקבל חלון/תקרה משלו, לא עוד ערך-יחיד גורף.
+
+**תוצאה:** תרחיש `skill_only_front_lever` ב-harness — 6/6 בולטים (היה 4/6 אחרי תיקון filterForDomain בלבד, 0/6 לפני כל תיקון) מייצרים עכשיו אימון אמיתי. 4 המדדים הקיימים נותרו זהים-ביט (ראו PR/commit לפרטים המלאים) — אפס רגרסיה.
+
+---
+
+## ⚠️ ממצא חשוב, לא קשור לאף תיקון — ה-audit harness עצמו לא דטרמיניסטי, גם ב-SNAPSHOT_SEED/CONCURRENCY=1 — נמצא 2026-10-01
+
+**Opened:** 2026-10-01 · **Source:** בדיקת אימות ל-FIX 1 (ניקוד `experienceLevel`, @רמה) — ריצת harness מלאה שנייה (אותו קוד, אותו seed) נתנה תוצאה שונה ל-metric #2 (no_core_assessment: 9/3 → 10/2). חקירה ישירה, לא ניחוש.
+
+**מה אומת:** נבנה סקריפט בידוד (`_scratch-no-core-isolated.ts`, לא נשמר) שמריץ **רק** את 4 הקומבינציות של `no_core_assessment` (ללא 296 הקריאות האחרות שרצות לפניהן ב-matrix המלא), עם `Math.random` ו-`WORKOUT_ENGINE_FIXED_SHUFFLE_SEED` מזורעים זהה לסקריפט הראשי. **הורץ פעמיים, תהליכי-Node נפרדים, קוד זהה, seed זהה, סדר-קריאות זהה — תוצאה שונה**: ריצה 1 נתנה `core_promise_outcome` מעורב (2 satisfied מתוך 4 ב-combo הראשון), ריצה 2 נתנה 0 satisfied לאותו combo בדיוק. **זה קורה בלי לגעת בקוד של FIX 1 בכלל** — אותה תופעה קיימת גם בלי experienceLevel, מה שמוכיח שהיא תכונה קיימת-מראש של ה-pipeline/harness, לא נגרמה על ידי אף אחד מהתיקונים בענף הזה (לא האיחוד, לא FIX 1, לא FIX 2).
+
+**השערה סבירה, לא אומתה עד הסוף (לדווח כהשערה, לא כעובדה):** `generateHomeWorkoutTrio` מבצע קריאות-רשת אמיתיות ל-Firestore (לא אמולטור). שאילתות בלי `orderBy` מפורש אינן מבטיחות סדר-מסמכים יציב בין קריאות — אם מערך-קלט ל"ניקוד + shuffle-בין-תיקו" (למשל שורות-תוכן לכותרת, או מועמדי-תרגיל) מגיע בסדר שונה בכל ריצה אמיתית, אז גם עם `Math.random` מזורע זהה, "shuffle-בין-תיקו" יכול לבחור איבר שונה — כי האיבר ה"ראשון אחרי הערבוב" תלוי בסדר-הקלט, לא רק בזרע. ה-seed מבטיח רפרודוקביליות של ה*ערבוב עצמו*, לא של *סדר-הקלט* שמגיע מרשת אמיתית. לא הוכח סופית (לא עקבתי את זה עד שורת-הקוד הספציפית) — רק אומת שהתופעה אמיתית וחוזרת.
+
+**משמעות לעבודת-אימות עתידית (כולל הצ'אט המקביל שעוקב אחרי no_core_assessment):** "4 המדדים נשארו זהים-ביט" מהתיקון הקודם (unify + Bolt1Cap/Bolt2Cap, אותו מסמך) **כן נמדד** על 2-3 ריצות עוקבות שנתנו תוצאה זהה בפועל — זו עדות אמיתית, לא נסוגה כאן — אבל **אינה הוכחה הרמטית** של דטרמיניזם מוחלט, רק דגימה שיצאה יציבה. השוואת "לפני/אחרי" חד-פעמית על metric שתלוי ב-core_promise_outcome (מדדים 1+2+4 כאן) עלולה להראות תזוזה שמקורה ברעש-הרשת, לא בקוד שהשתנה. **המלצה:** לדווח טווח (כמה ריצות), לא מספר בודד, בכל פעם שמדד נשען על core_promise_outcome; ולשקול שאלה ישירה לצ'אט המקביל אם הם ראו וריאנס דומה ב-no_core_assessment שלהם.
+
+**לא תוקן, לא בסקופ — תיעוד-מצב בלבד.** חקירת ה-root cause המדויק (איזו שאילתה ספציפית חסרת orderBy) היא עבודה נפרדת, לא כלולה כאן.
+
+---
+
+## ✅ תוקן — "50% אין מדיה" היה טעות-מדידה שלי, לא ממצא אמיתי; resolveHeroMedia עבר ל-resolveExerciseMedia — 2026-10-01
+
+**עדכון (אותו יום, אחרי בדיקה חוזרת שדוד ביקש):** הרשומה המקורית למטה (זו שהייתה כאן קודם, "50% מה-execution_methods אין מדיה") **הייתה שגויה** — דוד ציין בצדק שהיא לא תואמת מציאות (~99% מהתרגילים אמורים להיות עם מדיה). הסיבה: הסקריפט שמדד את ה-"650/1298" עבר ישירות על כל method גולמי, **בלי לעבור דרך `findMethodForLocation`** (שכבר יש לו fallback חוצה-methods) — מדד "האם ל-method הזה בפני עצמו יש מדיה", לא "מה הריזולבר באמת מחזיר למיקום המבוקש". זו טעות במתודולוגיית-הבדיקה שלי, לא עובדה על הקטלוג.
+
+**המדידה הנכונה (ישירות מול Firestore, 371 תרגילים × 3 מיקומים = 1113 צירופים, דרך הפונקציות האמיתיות):**
+| נתיב | image חסר | video חסר |
+|---|---|---|
+| `resolveImageForLocation`/`resolveVideoForLocation` (הנתיב הצר — מה ש-`heroMedia.utils.ts` קרא לפני התיקון) | 5.7% | 21.7% |
+| `resolveExerciseMedia` (הנתיב הרחב — "video pipeline" שכבר בשימוש ב-`home/page.tsx`, הנגן, מגירת-התצוגה, נגן-הכוח) | **0.5%** | 0.8% |
+
+**הפער האמיתי (5.1 נקודות) הוא תערובת של גרנולריות (הבאג בסקריפט שלי) וגם פער-קוד אמיתי:** גם כש-`resolveImageForLocation` נקרא נכון (דרך `findMethodForLocation`), הוא לא סורק methods אחים לתמונה (park-first, כמו שהרחב עושה) ולא קורא שדות-root כמו `exercise.imageUrl`/`coverImage`/`thumbnailUrl` — רק `exercise.media?.imageUrl`. אומת עם דוגמאות אמיתיות מהקטלוג (כולל תרגיל front_lever).
+
+**מה תוקן בפועל (commit נפרד):** `resolveHeroMedia` (`heroMedia.utils.ts`) עבר לקרוא ל-`resolveExerciseMedia` במקום הזוג הצר. נמדד end-to-end אחרי המעבר: **99.46%** מהצירופים מקבלים thumbnail אמיתי — תואם את ה-"~99%" שדוד ציין. הגרדיאנט (commit קודם) הוא עכשיו fallback אמיתי של ~0.5%, לא המקרה השכיח.
+
+**לא תוקן, לא בסקופ:** תיקון `resolveImageForLocation` עצמו (גזירת Bunny-thumbnail מ-mainVideoUrl, commit קודם) **נשאר** — יש לו ערך עצמאי ל-3 קוראים אחרים (`program-path/page.tsx`, `visual-content-resolver.service.ts`, `ExerciseWishlistStrip.tsx`) שלא נוגעים בכרטיס-הבית. `pickHeroExercise`'s own `hasVideo` check עדיין משתמש ב-`resolveVideoForLocation` הצר — לא תוקן, מועמד-להמשך אם איכות-הבחירה (לא רק המדיה-שמוצגת) אי-פעם תידרש לאותה שדרוג.
+
+---
+
+## ⚠️ ממצא נלווה, לא תוקן — התנגשות-קידומת regex בין `@רמה` ל-`@רמה_הבאה` (branding.utils.ts) — קיים לפני תיקון-המגדר, נתגלה תוך-כדי אימות — 2026-10-01
+
+**Opened:** 2026-10-01 · **Source:** אימות-end-to-end ידני לתיקון-המגדר של `@רמה` — כותרת אמיתית יצאה "אתגר מתחילה_הבאה בבית".
+
+**מה נמצא:** `resolved.replace(/@רמה/g, ...)` (שורה ~776) רץ **לפני** `resolved.replace(/@רמה_הבאה/g, ...)` (שורה ~822) — אותו קובץ, אותה פונקציה (`resolveDescription`). הביטוי הרגולרי `/@רמה/g` תואם גם את שלושת-התווים הראשונים של `@רמה_הבאה` (תת-מחרוזת, לא רק התאמה-מלאה) — אז כל מופע של `@רמה_הבאה` בתבנית-תוכן נצרך חלקית ע"י ה-handler הראשון, ומשאיר שארית "_הבאה" דביקה שאף handler לא מנקה. **קיים מלפני תיקון-המגדר** (אותו סדר-שורות, אותו regex, מאומת: ה-label הישן ("מתחיל") היה מייצר בדיוק אותה תקלה — "מתחיל_הבאה" — רק פחות בולט כי לא הוחלף השם). התיקון-הנוכחי רק שינה את הטקסט הנראה בתוך השארית השבורה, לא יצר את הבאג.
+
+**לא תוקן כאן — לא בסקופ (תיקון-מגדר בלבד הוזמן).** תיקון אמיתי: לבדוק/להחליף סדר ה-`.replace()` calls כך ש-`@רמה_הבאה` (התג הארוך-יותר) נבדק/מוחלף **לפני** `@רמה`, או להשתמש ב-negative-lookahead ב-regex של `@רמה` (`/@רמה(?!_הבאה)/g`) כדי שלא יתפוס את הקידומת. דפוס-סיכון כללי שכדאי לבדוק: כל זוג תגיות בקובץ הזה שבו תגית אחת היא קידומת מילולית של תגית אחרת.
