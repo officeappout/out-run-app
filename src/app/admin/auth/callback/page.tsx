@@ -249,7 +249,17 @@ function AuthCallbackContent() {
       // entrypoint (never a second path, never a retry loop) — closes
       // this at the root instead of leaving every redirect below racing
       // against a stale cookie.
-      await mintAdminSessionCookie(result.user);
+      //
+      // 01.10.2026 (00-MASTER-PLAN.md §13.60, axioms.md §28) — this call
+      // MUST bypass mintAdminSessionCookie's 5-second dedupe. The earlier
+      // mint above (line ~180) ran BEFORE accept-invitation wrote this
+      // user's real role; this one runs AFTER. Without forceReason, the
+      // two near-simultaneous calls looked identical to the dedupe cache
+      // and the second one silently no-opped — this exact comment block
+      // describes the fix this was SUPPOSED to be, while the dedupe
+      // (added two days earlier, for an unrelated 429 problem) quietly
+      // swallowed it. Confirmed via git history, not guessed.
+      await mintAdminSessionCookie(result.user, { forceReason: 'role-changed-post-accept-invitation' });
       if (typeof window !== 'undefined' && invitationOrgId) {
         localStorage.setItem('admin_selected_org_id', invitationOrgId);
       }
