@@ -33,3 +33,18 @@ describe('TENANT_LABELS — §13.40 new fields (managerTitle/managerSingular/tea
     expect(getTenantLabels('not-a-real-vertical').managerTitle).toBe('רכזים');
   });
 });
+
+describe('TENANT_LABELS — §13.61 tenantOwnerRoleLabel/unitAdminRoleLabel (military only, David\'s exact titles)', () => {
+  it("military matches David's exact request", () => {
+    expect(TENANT_LABELS.military.tenantOwnerRoleLabel).toBe('קצין כושר קרבי ראשי');
+    expect(TENANT_LABELS.military.unitAdminRoleLabel).toBe('מדא״ג גדודי');
+  });
+
+  it('every OTHER vertical is untouched — the new fields stay undefined, nothing invented for them', () => {
+    const others: TenantType[] = ['municipal', 'educational', 'company', 'youth_movement'];
+    for (const vertical of others) {
+      expect(TENANT_LABELS[vertical].tenantOwnerRoleLabel, `${vertical}.tenantOwnerRoleLabel`).toBeUndefined();
+      expect(TENANT_LABELS[vertical].unitAdminRoleLabel, `${vertical}.unitAdminRoleLabel`).toBeUndefined();
+    }
+  });
+});

@@ -25,6 +25,19 @@ export interface TenantLabelSet {
    */
   managerTitle: string;
   managerSingular: string;
+  /**
+   * 01.10.2026 (00-MASTER-PLAN.md §13.61) — the SPECIFIC role title for
+   * tenant_owner vs unit_admin, distinct from managerSingular above
+   * (which names BOTH roles together, undifferentiated, wherever a team
+   * roster talks about "the managers" generically). Optional — only
+   * `military` populates these today, per David's explicit list; every
+   * other vertical is unchanged and these stay undefined for them.
+   * Consumed by InviteMemberModal.tsx's ROLE_OPTIONS_BY_CONTEXT instead
+   * of its old hardcoded strings. core.role and every other stored field
+   * are untouched — this is display text only.
+   */
+  tenantOwnerRoleLabel?: string;
+  unitAdminRoleLabel?: string;
   /** team/page.tsx's own page title — must match the sidebar's per-vertical link label (admin/layout.tsx) */
   teamTitle: string;
   /** The org itself — for org-picker labels/placeholders and breadcrumb roots (municipal: רשות, military: חטיבה, educational: בית ספר) */
@@ -152,6 +165,8 @@ export const TENANT_LABELS: Record<TenantType, TenantLabelSet> = {
     hierarchyLabels: ['חטיבה', 'גדוד', 'פלוגה', 'מחלקה'],
     managerTitle: 'קצינים',
     managerSingular: 'קצין',
+    tenantOwnerRoleLabel: 'קצין כושר קרבי ראשי',
+    unitAdminRoleLabel: 'מדא״ג גדודי',
     teamTitle: 'ניהול צוות צבאי',
     orgSingular: 'חטיבה',
     orgPlural: 'חטיבות',
