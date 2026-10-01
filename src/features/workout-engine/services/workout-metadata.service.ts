@@ -167,6 +167,17 @@ export interface WorkoutMetadataContext {
  * advanced/pro — that split is a new, provisional judgment call (not
  * sourced from any existing design doc); revisit with David if a more
  * authoritative threshold ever surfaces.
+ *
+ * Deliberately returns the plain English categorical key, NOT a gendered
+ * Hebrew label (2026-10-01) — this value doubles as scoreContentRow's exact-
+ * match scoring key against each Firestore content row's own `experienceLevel`
+ * field (confirmed live: the admin panel's workout-settings UI stores this
+ * same English key when an admin tags a row). Gendering the @רמה tag's
+ * rendered text happens one layer up, in branding.utils.ts's own @רמה block,
+ * using the SAME userGender/isFemale/isMale already threaded there via
+ * WorkoutMetadataContext.gender (metadataCtxBase, home-workout.service.ts) —
+ * not duplicated here, and not applied to this function's own return value,
+ * so the scoring key never changes shape.
  */
 export function resolveExperienceLevelFromUserLevel(
   userLevel: number,
