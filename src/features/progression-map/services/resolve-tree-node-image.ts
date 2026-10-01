@@ -146,22 +146,27 @@ export function resolveTreeNodeImage(exercise: Exercise): string {
   }
 
   // TEMPORARY diagnostic (round 6, extended round 7 for the multi-method
-  // scan). Unconditional (a Vercel preview sets NODE_ENV=production, which
-  // would silently suppress a dev-gated log) so the founder can see, per
-  // node, how many park methods exist, which one (if any) was chosen, and
-  // why — instead of guessing at the failing tier. Remove once Bug 1 is
-  // confirmed fixed for real.
-  // eslint-disable-next-line no-console
-  console.log('[resolveTreeNodeImage]', {
-    exerciseId: exercise.id,
-    exerciseName: exercise.name,
-    parkMethodCount: parkMethods.length,
-    foundParkMethod: parkMethods.length > 0,
-    chosenMethodIndex,
-    perMethodDiagnostics,
-    tier,
-    finalUrl: url,
-  });
+  // scan). Was deliberately unconditional (a Vercel preview sets
+  // NODE_ENV=production, which suppresses a dev-gated log) so the founder
+  // could see, per node, how many park methods exist, which one (if any)
+  // was chosen, and why. Gated behind NODE_ENV now (Phase 4c-2) — it was
+  // flooding the console on every render of every one of the ~20 tree
+  // nodes. If this needs to be visible on a preview again, flip the
+  // condition back rather than re-removing the guard blind. Remove this
+  // log entirely once Bug 1 is confirmed fixed for real.
+  if (process.env.NODE_ENV === 'development') {
+    // eslint-disable-next-line no-console
+    console.log('[resolveTreeNodeImage]', {
+      exerciseId: exercise.id,
+      exerciseName: exercise.name,
+      parkMethodCount: parkMethods.length,
+      foundParkMethod: parkMethods.length > 0,
+      chosenMethodIndex,
+      perMethodDiagnostics,
+      tier,
+      finalUrl: url,
+    });
+  }
 
   return url;
 }

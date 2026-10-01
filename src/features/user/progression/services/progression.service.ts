@@ -643,14 +643,22 @@ export async function getMasterProgramProgress(
     //   configuredChildIds.size === 0  → user has no assessed children → L0 write is correct
     //   configuredChildIds.size > 0    → children exist but all were filtered out → abort
     if (avgChildren.length === 0 && configuredChildIds.size > 0) {
-      console.warn(
-        `[Progression] getMasterProgramProgress: empty filter for master "${masterSlug}" ` +
-        `(id: "${masterProgramId}") — ${configuredChildIds.size} configured ` +
-        `${configuredChildIds.size === 1 ? 'child' : 'children'} ` +
-        `[${[...configuredChildIds].join(', ')}] were ALL rejected by the averaging filter. ` +
-        `skillFocusIds: [${skillFocusIds?.join(', ') ?? 'none'}]. ` +
-        `Aborting recalculation to prevent level wipeout (routingEmptySkip=true).`,
-      );
+      // Working-as-designed (confirmed Phase 4c-1 follow-up) — this is the
+      // calisthenics_upper Tier-3 "all children rejected by the averaging
+      // filter" guard, not a bug. Gated behind NODE_ENV (Phase 4c-2): it
+      // was firing on every relevant write and flooding the console.
+      // Logic (the abort itself, routingEmptySkip) is unchanged — only the
+      // log is silenced.
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(
+          `[Progression] getMasterProgramProgress: empty filter for master "${masterSlug}" ` +
+          `(id: "${masterProgramId}") — ${configuredChildIds.size} configured ` +
+          `${configuredChildIds.size === 1 ? 'child' : 'children'} ` +
+          `[${[...configuredChildIds].join(', ')}] were ALL rejected by the averaging filter. ` +
+          `skillFocusIds: [${skillFocusIds?.join(', ') ?? 'none'}]. ` +
+          `Aborting recalculation to prevent level wipeout (routingEmptySkip=true).`,
+        );
+      }
       return {
         displayLevel: 0,
         displayPercent: 0,

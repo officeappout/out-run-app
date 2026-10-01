@@ -436,10 +436,12 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
                     progression: progressionPatch as any,
                   });
 
-                  console.log(
-                    '[ProgressionStore] Bridged tracks/domains/activePrograms → useUserStore',
-                    Object.keys(progressionPatch),
-                  );
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log(
+                      '[ProgressionStore] Bridged tracks/domains/activePrograms → useUserStore',
+                      Object.keys(progressionPatch),
+                    );
+                  }
                 } catch (e) {
                   console.warn(
                     '[ProgressionStore] Failed to bridge tracks/domains to useUserStore:', e,

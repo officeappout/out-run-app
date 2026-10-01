@@ -49,7 +49,7 @@
  * itself accounts for it. Resets on exercise.id change so a swapped-in
  * representative isn't stuck showing a previous exercise's failure state.
  */
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { Check, Lock, Crown } from 'lucide-react';
 import { Exercise, getLocalizedText } from '@/features/content/exercises';
 import { resolveTreeNodeImage } from '../services/resolve-tree-node-image';
@@ -77,7 +77,7 @@ export interface TreeNodeProps {
   align: 'start' | 'end';
 }
 
-export function TreeNode({
+function TreeNodeImpl({
   exercise,
   level,
   state,
@@ -176,3 +176,28 @@ export function TreeNode({
     </div>
   );
 }
+
+// Phase 4c-2: memoized to stop an unrelated user-doc write (any Firestore
+// write to users/{uid} re-delivers the FULL doc via onSnapshot, which
+// produces a brand-new `profile` object reference even when nothing this
+// screen cares about changed) from re-rendering all ~20 tree nodes and
+// re-running resolveTreeNodeImage's per-node diagnostic on every one of
+// them. onTap/onSwapTap are deliberately excluded from the comparator —
+// both are recreated on every parent render regardless of whether anything
+// meaningful changed, so comparing them would defeat the memo entirely;
+// they're referenced only inside onClick handlers, never read during
+// render, so a retained "stale" closure from a skipped re-render is
+// behaviorally identical to a fresh one (both close over nothing but
+// React's own stable setters plus the same rung/state values already
+// compared below).
+function treeNodePropsEqual(prev: TreeNodeProps, next: TreeNodeProps): boolean {
+  return (
+    prev.exercise === next.exercise &&
+    prev.level === next.level &&
+    prev.state === next.state &&
+    prev.siblingCount === next.siblingCount &&
+    prev.align === next.align
+  );
+}
+
+export const TreeNode = memo(TreeNodeImpl, treeNodePropsEqual);
