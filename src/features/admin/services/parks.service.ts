@@ -15,8 +15,11 @@
  *
  * David's decision, 30.09.2026: authority_manager's create/edit now
  * publishes immediately — no more pending_review gate, no more
- * createEditRequest. Citizen-contribution approval (user_contributions,
- * approveNewLocation) is untouched, a separate pre-existing flow.
+ * createEditRequest. Citizen-contribution approval (user_contributions)
+ * was untouched here at the time — stage 4 (01.10.2026) closed it
+ * separately: contribution-write.service.ts, routed from
+ * moderation.service.ts, not through this file. approveNewLocation no
+ * longer exists.
  *
  * audit_logs writes also moved — they happen server-side, inside
  * computeParkCreate/computeParkUpdate, not via a client-side logAction()

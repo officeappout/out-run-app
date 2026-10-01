@@ -1,6 +1,8 @@
 /**
  * Community Intelligence — Contribution Service
- * CRUD for user_contributions + duplicate check + approval logic + XP awards
+ * CRUD for user_contributions + duplicate check + authority resolution.
+ * Approval/rejection moved server-side, 01.10.2026 — see this file's own
+ * "── Approval ──" section comment below.
  */
 import {
   collection,
@@ -8,7 +10,6 @@ import {
   getDoc,
   getDocs,
   addDoc,
-  updateDoc,
   query,
   where,
   orderBy,
@@ -20,8 +21,7 @@ import type {
   ContributionType,
   ContributionStatus,
 } from '@/types/contribution.types';
-import { XP_REWARDS } from '@/types/contribution.types';
-import { createPark, updatePark, getAllParks } from './parks.service';
+import { getAllParks } from './parks.service';
 import type { Park } from '../types/park.types';
 import type { ParkRatingSummary } from './park-rating.utils';
 import { resolveAuthorityForPoint, parseBoundaryGeoJSON, type AuthorityBoundary } from '@/lib/route-collections/authority-resolution';
@@ -356,83 +356,24 @@ export function resolveContributionAuthority(
 }
 
 // ── Approval ─────────────────────────────────────────────────────
-
-export async function approveNewLocation(
-  contribution: UserContribution,
-  adminId: string,
-): Promise<string> {
-  const authorities = await fetchAuthorityBoundaries();
-  const { authorityId, needsAuthorityTagging } = resolveContributionAuthority(
-    contribution.location,
-    contribution.authorityId,
-    authorities,
-  );
-
-  const parkId = await createPark({
-    name: contribution.parkName ?? 'מיקום חדש',
-    location: contribution.location,
-    facilityType: contribution.facilityType,
-    featureTags: contribution.featureTags ?? [],
-    gymEquipment: contribution.gymEquipment ?? [],
-    authorityId,
-    needsAuthorityTagging,
-    image: contribution.photoUrl,
-    status: 'open',
-    contentStatus: 'published',
-    published: true,
-    origin: 'authority_admin',
-    createdByUser: contribution.userId,
-  });
-
-  const xp = XP_REWARDS.new_location;
-  await updateDoc(doc(db, COLLECTION, contribution.id!), {
-    status: 'approved',
-    approvedParkId: parkId,
-    xpAwarded: xp,
-    updatedAt: serverTimestamp(),
-  });
-
-  await awardXP(contribution.userId, xp);
-  return parkId;
-}
-
-export async function approveSuggestEdit(
-  contribution: UserContribution,
-  adminId: string,
-): Promise<void> {
-  if (!contribution.linkedParkId || !contribution.editDiff) {
-    throw new Error('Missing linkedParkId or editDiff for suggest_edit approval');
-  }
-
-  await updatePark(contribution.linkedParkId, contribution.editDiff as any);
-
-  const xp = XP_REWARDS.suggest_edit;
-  await updateDoc(doc(db, COLLECTION, contribution.id!), {
-    status: 'approved',
-    xpAwarded: xp,
-    updatedAt: serverTimestamp(),
-  });
-
-  await awardXP(contribution.userId, xp);
-}
-
-export async function rejectContribution(id: string): Promise<void> {
-  await updateDoc(doc(db, COLLECTION, id), {
-    status: 'rejected',
-    updatedAt: serverTimestamp(),
-  });
-}
-
-// ── XP ───────────────────────────────────────────────────────────
-
-async function awardXP(_userId: string, xp: number): Promise<void> {
-  // Routed through the Guardian; firestore.rules block direct client writes
-  // to progression.globalXP. The Guardian derives the uid from request.auth,
-  // so contributors can only credit XP to themselves.
-  try {
-    const { awardWorkoutXP } = await import('@/lib/awardWorkoutXP');
-    await awardWorkoutXP({ xpDelta: xp, source: 'park-contribution' });
-  } catch (err) {
-    console.error('[Contributions] Failed to award XP:', err);
-  }
-}
+//
+// 01.10.2026 (00-MASTER-PLAN.md §13.59) — approveNewLocation/
+// approveSuggestEdit/rejectContribution/awardXP REMOVED. They were the
+// bypass: raw client-SDK createPark/updatePark with zero field allowlist,
+// and an XP-award call that credited whoever clicked approve, not the
+// actual contributor (awardWorkoutXP derives uid from request.auth of the
+// CALLER). Replaced by the server chokepoint —
+// src/features/parks/core/services/contribution-write.service.ts
+// (computeContributionApprove/computeContributionReject), called from
+// moderation.service.ts's approveEntity/rejectEntity for entityType
+// 'contribution'. This file has no approval logic of its own any more.
+//
+// resolveContributionAuthority/fetchAuthorityBoundaries above are left in
+// place even though their only real caller (approveNewLocation) is gone —
+// resolveContributionAuthority keeps its own dedicated regression test
+// (contribution-authority-resolution.test.ts) and the chokepoint's
+// resolution logic is deliberately independent (Admin SDK, not this
+// file's client SDK) rather than sharing it. Same situation Stage 3 found
+// with edit-requests.service.ts's createEditRequest: a function losing
+// its only caller as a migration side effect, reported rather than
+// deleted, since deleting it also means retiring its test.
