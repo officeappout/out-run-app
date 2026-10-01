@@ -59,12 +59,12 @@ describe('resolveTreeNodeImage', () => {
     expect(result).toContain('thumbnail.jpg');
   });
 
-  it('tier 4: a non-Bunny park video URL is not derivable — falls through to the canonical waterfall, which returns the raw video URL itself (pre-existing resolveImageForLocation behavior, not new here)', () => {
+  it('tier 4: a non-Bunny park video URL is not derivable — falls through to the canonical waterfall, which now derives a real image instead of returning the raw video URL (resolveImageForLocation hero-image fix, 2026-10-01 skill-foundation-unify merge, updated from the original pre-fix expectation)', () => {
     const e = ex(
       [method({ media: { mainVideoUrl: 'https://example.com/not-a-bunny-url.mp4' } })],
       'https://cdn/home-legacy.jpg',
     );
-    expect(resolveTreeNodeImage(e)).toBe('https://example.com/not-a-bunny-url.mp4');
+    expect(resolveTreeNodeImage(e)).toBe('https://cdn/home-legacy.jpg');
   });
 
   it('tier 4: falls through to the canonical waterfall (home) when the park method has no derivable media at all', () => {
