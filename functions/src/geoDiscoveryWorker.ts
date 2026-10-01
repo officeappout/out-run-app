@@ -97,6 +97,12 @@ export interface CityMappingDiscoveryRunDoc {
   jobType: CityMappingDiscoveryJobType;
   regionKey: string;
   apply: boolean;
+  /** Optional, defaults to false when absent — existing behavior for every caller that
+   *  doesn't set it is unchanged. Adds Mapbox round-trip loops anchored on region.roundTripAnchors
+   *  + the region's `parks` docs (see loadParkAnchors's own header comment, 29.09.2026, for why
+   *  this now needs a real boundary-polygon fix before it's safe to turn on broadly — a
+   *  small/enclave city's park anchors can otherwise belong to a neighboring municipality). */
+  roundtrips?: boolean;
   requestedByUid: string;
   status: CityMappingDiscoveryRunStatus;
   createdAt: FirebaseFirestore.Timestamp;
@@ -203,11 +209,15 @@ export async function processDiscoveryRun(runId: string, db: admin.firestore.Fir
       return;
     }
 
+    // roundtrips: caller-supplied, defaulting to false (29.09.2026 — was a
+    // hardcoded literal here; now reads from the run doc so a future caller
+    // can opt in per-run). !!undefined === false, so any doc written before
+    // this field existed keeps today's exact behavior.
     const opts: GeoDiscoveryOptions = {
       region: data.regionKey,
       apply,
       delete: false,
-      roundtrips: false,
+      roundtrips: !!data.roundtrips,
       skipOsm: false,
     };
     const result: GeoDiscoveryResult = await runGeoDiscovery(opts, db);
