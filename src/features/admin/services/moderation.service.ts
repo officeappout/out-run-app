@@ -19,15 +19,10 @@
  *   amenity       osm_amenities.status: pending → published | rejected(+rejectionReason)
  */
 import { doc, getDoc, setDoc, updateDoc, writeBatch, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { logAction } from './audit.service';
 import { approvePark } from './parks.service';
 import { InventoryService } from '@/features/parks/core/services/inventory.service';
-import {
-  approveNewLocation,
-  approveSuggestEdit,
-} from '@/features/parks/core/services/contribution.service';
-import type { UserContribution } from '@/types/contribution.types';
 import type { AuditTargetEntity } from '@/types/audit-log.type';
 import { logRouteDecision } from '@/lib/route-decisions/log-decision';
 import { buildUnitDoc } from '@/lib/unit-doc';
@@ -93,22 +88,29 @@ export async function approveEntity(
       break;
 
     case 'contribution': {
-      const snap = await getDoc(doc(db, 'user_contributions', id));
-      if (!snap.exists()) throw new Error('Contribution not found');
-      const contribution = { id: snap.id, ...(snap.data() as any) } as UserContribution;
-      // Route to the EXISTING UGC approval logic (creates park / applies edit + awards XP)
-      if (contribution.type === 'new_location') {
-        await approveNewLocation(contribution, admin.adminId);
-      } else if (contribution.type === 'suggest_edit') {
-        await approveSuggestEdit(contribution, admin.adminId);
-      } else {
-        // report / review: no entity to create — just mark approved
-        await updateDoc(doc(db, 'user_contributions', id), {
-          status: 'approved',
-          updatedAt: serverTimestamp(),
-        });
+      // 01.10.2026 (00-MASTER-PLAN.md §13.59) — routed through the server
+      // chokepoint (contribution-write.service.ts) instead of the old
+      // client-SDK approveNewLocation/approveSuggestEdit (deleted —
+      // contribution.service.ts no longer has ANY approval logic of its
+      // own). Closes finding 4: a citizen's editDiff used to be applied
+      // with zero field allowlist; now it goes through the exact same
+      // gate a real admin's ParkForm/LocationEditor edit does. The
+      // chokepoint writes its OWN 'Contribution'-entity audit row
+      // synchronously inside the same request — the generic logAction()
+      // below is skipped for this case via the early return: logging the
+      // same action twice (once reliably server-side, once fire-and-
+      // forget client-side) is redundant, not safer.
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error('לא מחובר — אין אפשרות לאשר.');
+      const res = await fetch(`/api/admin/contributions/${encodeURIComponent(id)}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}) as any);
+        throw new Error(body?.error || `שגיאת שרת (${res.status})`);
       }
-      break;
+      return;
     }
 
     case 'pending_unit': {
@@ -244,12 +246,26 @@ export async function rejectEntity(
       await updateDoc(doc(db, 'osm_amenities', id), { status: 'rejected', ...reviewFields });
       break;
 
-    case 'contribution':
-      // Single atomic write: status + reason + reviewer together (rejectContribution
-      // only sets status, so we inline the equivalent write to avoid a partial-failure
-      // window where a rejected contribution has no rejectionReason/reviewer).
-      await updateDoc(doc(db, 'user_contributions', id), { status: 'rejected', ...reviewFields });
-      break;
+    case 'contribution': {
+      // 01.10.2026 (00-MASTER-PLAN.md §13.59) — same reasoning as
+      // approveEntity's 'contribution' case above: routed through the
+      // server chokepoint, same scope-authorization core as approve (a
+      // reject is a write, not the absence of one). Early return skips
+      // the generic logAction() below — the chokepoint already wrote its
+      // own 'Contribution'-entity REJECT audit row synchronously.
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error('לא מחובר — אין אפשרות לדחות.');
+      const res = await fetch(`/api/admin/contributions/${encodeURIComponent(id)}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ reason }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}) as any);
+        throw new Error(body?.error || `שגיאת שרת (${res.status})`);
+      }
+      return;
+    }
 
     case 'pending_unit':
       // Stage A: reject only, no redirect (that's Stage B — resolvedTo stays
