@@ -1,5 +1,33 @@
 # הצעת firestore.rules — מד כשירות (מוכנה לאישור, לא הוחלה)
 
+**גרסה 2 (01.10.2026) — ארבעה תיקונים לפי הכרעת דוד על הגרסה הראשונה:**
+1. **אפס write** על שלושת האוספים, לכל תפקיד — כולל root/admin. ה-Admin
+   SDK עוקף rules ממילא; היתר write כאן לא נותן לשרת שום יכולת אמיתית,
+   רק פותח פתח עתידי לקוד-לקוח לעקוף בשקט את ה-chokepoint (לקבוע
+   `outcome`/`uid`/`mergedInto` ישירות). **יוצא מן הכלל:** `readiness_thresholds`
+   שומר על `allow write: if isRootAdmin();` בדיוק כפי שהוצע במקור — דוד
+   אישר זאת מפורשות (סעיף 3 להלן), כי כתיבה לשם אינה מאפשרת לזייף תוצאה
+   עבר (תוצאות כבר קפואות) — רק לשנות סף עתידי, שממילא שמור ל-root בלבד.
+2. **הוסרו כללי הקריאה של tenant_owner/unit_admin** (ה-`get()` על
+   `authorities`/`tenants/.../units`) — כל קריאת-קצין עוברת במסלול שרת;
+   כלל בלי צרכן הוא חוב, לא הגנה (axiom §26).
+3. **הוסרה הקריאה הפתוחה ל-`readiness_thresholds`** — תצלום-הסף כבר
+   יושב על כל תוצאה; אין ללקוח צורך במסמך הגלובלי. קריאה — דרך השרת
+   בלבד. כתיבה — נשארה root, ללא שינוי.
+4. **`readiness_results`' כלל-העצמי שונה.** הגרסה הראשונה עשתה `get()`
+   מקונן על רשומת החייל לכל מסמך — נתקל ב-20-ה-get()-לשאילתה שפיירסטור
+   אוכפת (`list`), כך שחייל עם יותר מ-20 תוצאות היה נכשל, בדיוק כשיש לו
+   היסטוריה אמיתית. **תוקן בקוד, לא רק בהצעה:** `uid` מדורמל כעת ישירות
+   על כל מסמך `readiness_results` (nullable), מסונכרן אטומית על ידי
+   `computeLinkSoldier`/`computeUnlinkSoldier` (טרנזקציה אחת מעדכנת גם
+   את רשומת החייל וגם את כל תוצאותיו הקיימות) ו-`computeMergeSoldiers`
+   (batch מיישב uid גם על התוצאות שהועברו וגם על התוצאות הקיימות-מראש
+   של השורד). הכלל עצמו הופך להשוואת-שדה ישירה, בלי `get()` כלל. ראו
+   `readiness-write.service.ts`'s `ReadinessResult` interface לתיעוד
+   המלא של ה-invariant, ו-5 בדיקות חדשות ב-
+   `readiness-write.service.test.ts` שמוכיחות את העדכון האטומי-על-כולם
+   (לא רק התוצאה הראשונה) בכל אחת משלוש הפעולות.
+
 **סטטוס:** הצעה בכתב בלבד, כפי שנדרש. `firestore.rules` עצמו **לא נגע**
 בסבב הזה. אין לפרוס שורה אחת מכאן ללא אישור מפורש ובכתב של דוד, ואז —
 אך ורק מ-`main` אחרי מיזוג, לעולם לא מענף.
@@ -28,87 +56,56 @@ SDK עוקף rules תמיד). ה-**קריאה** מהדפדפן (למסכים ש�
 | `unitAdmin` — ניהול **ישיר** של היחידה | כן | `get()` יחיד על `tenants/{tenantId}/units/{unitId}` |
 | `unitAdmin` — "מפקד רואה את כל מה שתחתיו" (יחידות-בת, §13.28) | **לא** | ה-walk ב-`expandUnitIdsDownward` הוא BFS אימפרטיבי מעל `parentUnitId`, בלי עומק קבוע מראש — חוק Firestore אינו תומך בלולאה/רקורסיה, ואין דרך לבדוק "אני מנהל של יחידת-אב כלשהי במעלה השרשרת" ב-`get()` בודד או אפילו קבוע |
 
-המסקנה המעשית: ה-**היקף המלא** (מפקד גדוד רואה גם פלוגה) ממשיך לעבוד
-רק דרך השרת — בדיוק כפי שכבר עובד היום לכתיבה, ולכל מסלולי ה-GET
-הקיימים (`member-workouts` ועוד). ה-rules המוצעים למטה מכסים רק את
-החלק ה**ניתן-להוכחה**: ניהול ישיר של יחידה, לא כל מה שתחתיה.
-
-**שתי חלופות, דוד בוחר:**
-1. **מומלץ.** קריאה ישירה מהדפדפן מוגבלת ליחידה שמנוהלת *ישירות*;
-   תצוגת "כל הפיקוד שלי" (כולל יחידות-בת) נשארת מסך שמוזן ממסלול שרת
-   (בדיוק הדפוס הקיים ב-`/admin/authority/units/[unitId]`). אין תחזוקה
-   נוספת, אין מקור-אמת כפול.
-2. לא מומלץ: denormalize של רשימת כל ה-unitIds שמפקד רואה (כולל
-   יורדים) אל מסמך המשתמש שלו עצמו, כדי שתהיה ניתנת-להוכחה ב-rules.
-   זה בדיוק אותה משפחת סיכון כמו ה-custom-claim המת של `hasTenant()`
-   (axiom §29) — מקור אמת שני שחייבים לסנכרן בכל שינוי בעץ היחידות,
-   וישכח.
-
-ברירת המחדל בהצעה למטה היא **חלופה 1**.
+**היסטוריה, לא עוד הבסיס להצעה (נשאר כאן לתיעוד ההיגיון בלבד):** גרסה 1
+הציעה לממש את מה שכן ניתן-להוכחה (ניהול ישיר של יחידה) ישירות ב-rules,
+ולהשאיר רק את ההיקף המלא (יחידות-בת) דרך השרת. **הכרעת דוד (01.10.2026,
+סעיף 2 למעלה) הלכה רחוק יותר מ"חלופה 1":** אף לא ניהול-ישיר מקבל כלל
+קריאה ישיר ב-rules — **כל** קריאת-קצין, ישיר או מורחב כאחד, עוברת דרך
+השרת. הטבלה למעלה נשארת רלוונטית להבנת למה דבר כלשהו היה בכלל ניתן
+להוכחה — לא כבסיס להחלטה בפועל, שכבר נפלה.
 
 ---
 
-## טקסט מוצע (להעתקה ל-`firestore.rules`, רק אחרי אישור)
+## טקסט מוצע, גרסה 2 (להעתקה ל-`firestore.rules`, רק אחרי אישור)
 
 ```
 // ============================================================
 // READINESS — soldier roster, test results, global thresholds
-// (docs/audit-2026-09/readiness-firestore-rules-proposal.md)
-// No direct client WRITE on any of the three — every mutation goes
-// through the compute*() server routes in readiness-write.service.ts,
-// which is where authorization, the server-only pass/fail computation
-// (point 2 of the locked spec), and audit logging all live. A bare
-// client write rule here would let a caller set outcome/uid/mergedInto
-// directly, defeating that chokepoint even if no UI ever offers it.
+// (docs/audit-2026-09/readiness-firestore-rules-proposal.md, v2)
+// No client write anywhere here, not even for root/admin — the Admin
+// SDK bypasses rules regardless, so a write grant gives the server no
+// real capability, only a latent path for future client-side code to
+// set outcome/uid/mergedInto directly and silently bypass the
+// compute*() chokepoint's authorization and audit logging. Every read
+// an officer needs goes through a server route — a rule with no
+// consumer is debt, not protection (axiom §26).
 // ============================================================
 
 match /readiness_soldiers/{soldierId} {
-  allow read, write: if isRootAdmin() || isAdmin();
-
-  // Tenant owner — single get() on the authority doc named by THIS
-  // record's own tenantId field. Provable without an unbounded search
-  // (unlike hasTenant()'s dead custom-claim branch, axiom §29) because
-  // tenantId here is a fixed, resource-derived path, not a client claim.
-  allow read: if isAuthenticated() &&
-    resource.data.tenantId is string &&
-    get(/databases/$(database)/documents/authorities/$(resource.data.tenantId)).data.managerIds.hasAny([request.auth.uid]);
-
-  // Unit admin — DIRECT management only (see table above). Does not
-  // include descendant units.
-  allow read: if isAuthenticated() &&
-    resource.data.tenantId is string && resource.data.unitId is string &&
-    get(/databases/$(database)/documents/tenants/$(resource.data.tenantId)/units/$(resource.data.unitId)).data.managerIds.hasAny([request.auth.uid]);
+  allow read: if isRootAdmin() || isAdmin();
 
   // A soldier reads their own linked record.
   allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
 }
 
 match /readiness_results/{resultId} {
-  allow read, write: if isRootAdmin() || isAdmin();
+  allow read: if isRootAdmin() || isAdmin();
 
-  allow read: if isAuthenticated() &&
-    resource.data.tenantId is string &&
-    get(/databases/$(database)/documents/authorities/$(resource.data.tenantId)).data.managerIds.hasAny([request.auth.uid]);
-
-  allow read: if isAuthenticated() &&
-    resource.data.tenantId is string && resource.data.unitId is string &&
-    get(/databases/$(database)/documents/tenants/$(resource.data.tenantId)/units/$(resource.data.unitId)).data.managerIds.hasAny([request.auth.uid]);
-
-  // A soldier reads their own result history — one extra get() on their
-  // own linked soldier record, bounded by this result's own soldierId
-  // field (not an unbounded search).
-  allow read: if isAuthenticated() &&
-    resource.data.soldierId is string &&
-    get(/databases/$(database)/documents/readiness_soldiers/$(resource.data.soldierId)).data.uid == request.auth.uid;
+  // A soldier reads their own result history. `uid` is denormalized
+  // onto every result (set at write time from the soldier record, kept
+  // in sync by computeLinkSoldier/computeUnlinkSoldier/
+  // computeMergeSoldiers in the same transaction/batch as the
+  // soldier-record change) — a direct field comparison, not a nested
+  // get() on the soldier record. A get()-per-document approach hits
+  // Firestore's 20-get()-per-query cap on any list query once a soldier
+  // has more than 20 results — exactly when they have real history.
+  allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
 }
 
 match /readiness_thresholds/{docId} {
-  // Global by design (point 1) — not tenant-scoped. Any authenticated
-  // user may read it (needed to interpret a result's frozen
-  // thresholdSnapshot even without re-deriving pass/fail themselves).
-  // A narrower read bar is possible but not obviously needed —
-  // flagged for David, not assumed.
-  allow read: if isAuthenticated();
+  // No client read at all — the frozen thresholdSnapshot already
+  // carried on every result is what a client needs to interpret it;
+  // the live global doc itself is read server-side only.
   allow write: if isRootAdmin(); // matches computeSetThresholds's root-only rule
 }
 ```

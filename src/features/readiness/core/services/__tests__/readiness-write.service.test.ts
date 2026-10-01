@@ -312,6 +312,25 @@ describe('computeLinkSoldier', () => {
     expect(db._stores.readiness_soldiers.get('s1').uid).toBe('new-uid');
     expect(db._stores.audit_logs.size).toBe(1);
   });
+
+  it("linking updates the denormalized uid on ALL of this soldier's existing results atomically (David's requirement, 01.10.2026) — not just the first, not just the soldier doc", async () => {
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', uid: null, mergedInto: null } },
+      users: { 'new-uid': { core: { tenantId: 'tenant-1', unitId: 'battalion-1' } } },
+      results: {
+        r1: { soldierId: 's1', uid: null, testId: 't1' },
+        r2: { soldierId: 's1', uid: null, testId: 't2' },
+        r3: { soldierId: 's1', uid: null, testId: 't3' },
+        other: { soldierId: 's2', uid: null, testId: 't1' }, // a different soldier's result — must stay untouched
+      },
+    });
+    const result = await computeLinkSoldier(db, UNIT_ADMIN_SCOPE, { soldierId: 's1', uid: 'new-uid' }, CTX);
+    expect(result.status).toBe(200);
+    expect(db._stores.readiness_results.get('r1').uid).toBe('new-uid');
+    expect(db._stores.readiness_results.get('r2').uid).toBe('new-uid');
+    expect(db._stores.readiness_results.get('r3').uid).toBe('new-uid');
+    expect(db._stores.readiness_results.get('other').uid).toBeNull();
+  });
 });
 
 describe('computeUnlinkSoldier', () => {
@@ -328,10 +347,10 @@ describe('computeUnlinkSoldier', () => {
     expect(db._stores.readiness_soldiers.get('s1').uid).toBe('u1');
   });
 
-  it('happy path clears uid/linkedAt and leaves results untouched (point 5)', async () => {
+  it('happy path clears uid/linkedAt and leaves results\' soldierId untouched (point 5)', async () => {
     const db = makeFakeDb({
       soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', uid: 'u1', linkedAt: new Date() } },
-      results: { r1: { soldierId: 's1', outcome: 'pass' } },
+      results: { r1: { soldierId: 's1', outcome: 'pass', uid: 'u1' } },
     });
     const result = await computeUnlinkSoldier(db, UNIT_ADMIN_SCOPE, { soldierId: 's1' }, CTX);
     expect(result.status).toBe(200);
@@ -339,6 +358,24 @@ describe('computeUnlinkSoldier', () => {
     expect(db._stores.readiness_soldiers.get('s1').linkedAt).toBeNull();
     expect(db._stores.readiness_results.get('r1').soldierId).toBe('s1');
     expect(db._stores.audit_logs.size).toBe(1);
+  });
+
+  it("unlinking clears the denormalized uid to null on ALL of this soldier's existing results atomically — the exact failure David named: a soldier must never see PART of their history and not the rest", async () => {
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', uid: 'u1', linkedAt: new Date() } },
+      results: {
+        r1: { soldierId: 's1', uid: 'u1', testId: 't1' },
+        r2: { soldierId: 's1', uid: 'u1', testId: 't2' },
+        r3: { soldierId: 's1', uid: 'u1', testId: 't3' },
+        other: { soldierId: 's2', uid: 'u1', testId: 't1' }, // same uid, different soldier — must stay untouched
+      },
+    });
+    const result = await computeUnlinkSoldier(db, UNIT_ADMIN_SCOPE, { soldierId: 's1' }, CTX);
+    expect(result.status).toBe(200);
+    expect(db._stores.readiness_results.get('r1').uid).toBeNull();
+    expect(db._stores.readiness_results.get('r2').uid).toBeNull();
+    expect(db._stores.readiness_results.get('r3').uid).toBeNull();
+    expect(db._stores.readiness_results.get('other').uid).toBe('u1');
   });
 });
 
@@ -383,6 +420,27 @@ describe('computeMergeSoldiers', () => {
     const result = await computeMergeSoldiers(db, ROOT_SCOPE, { survivorId: 'survivor', mergedId: 'dup' }, CTX);
     expect(result.status).toBe(409);
     expect(db._stores.readiness_soldiers.get('dup').mergedInto).toBeNull();
+  });
+
+  it("merging reconciles the denormalized uid on BOTH the moved results AND the survivor's own pre-existing results to the final survivor uid", async () => {
+    const db = makeFakeDb({
+      soldiers: {
+        // survivor had no account linked yet; the duplicate did — the
+        // merge inherits merged's uid onto the survivor record.
+        survivor: { tenantId: 'tenant-1', unitId: 'battalion-1', uid: null, mergedInto: null },
+        dup: { tenantId: 'tenant-1', unitId: 'battalion-1', uid: 'uid-X', mergedInto: null },
+      },
+      results: {
+        survivorsOwn: { soldierId: 'survivor', uid: null, testId: 't1' }, // recorded before survivor had any account
+        dupResult: { soldierId: 'dup', uid: 'uid-X', testId: 't2' },
+      },
+    });
+    const result = await computeMergeSoldiers(db, ROOT_SCOPE, { survivorId: 'survivor', mergedId: 'dup' }, CTX);
+    expect(result.status).toBe(200);
+    expect(db._stores.readiness_soldiers.get('survivor').uid).toBe('uid-X');
+    expect(db._stores.readiness_results.get('survivorsOwn').uid).toBe('uid-X');
+    expect(db._stores.readiness_results.get('dupResult').uid).toBe('uid-X');
+    expect(db._stores.readiness_results.get('dupResult').soldierId).toBe('survivor');
   });
 });
 
@@ -432,6 +490,30 @@ describe('computeRecordResult', () => {
     const result = await computeRecordResult(db, UNIT_ADMIN_SCOPE, { soldierId: 's1', testId: 't1', source: 'organized_test', value: 45 }, CTX);
     expect(result.status).toBe(200);
     if (result.status === 200) expect(result.body.outcome).toBe('pass');
+  });
+
+  it("a newly-recorded result carries the denormalized uid snapshotted from the soldier record at write time (linked soldier)", async () => {
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', uid: 'linked-uid', gender: 'male', mergedInto: null } },
+      thresholds: THRESHOLDS,
+    });
+    const result = await computeRecordResult(db, UNIT_ADMIN_SCOPE, { soldierId: 's1', testId: 't1', source: 'organized_test', value: 45 }, CTX);
+    expect(result.status).toBe(200);
+    if (result.status === 200) {
+      expect(db._stores.readiness_results.get(result.body.resultId).uid).toBe('linked-uid');
+    }
+  });
+
+  it('a newly-recorded result carries uid: null for an unlinked soldier record', async () => {
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', uid: null, gender: 'male', mergedInto: null } },
+      thresholds: THRESHOLDS,
+    });
+    const result = await computeRecordResult(db, UNIT_ADMIN_SCOPE, { soldierId: 's1', testId: 't1', source: 'organized_test', value: 45 }, CTX);
+    expect(result.status).toBe(200);
+    if (result.status === 200) {
+      expect(db._stores.readiness_results.get(result.body.resultId).uid).toBeNull();
+    }
   });
 
   it("a client-supplied 'outcome'/'status' field in the body is ignored — server recomputes from value regardless (point 2)", async () => {
@@ -505,7 +587,7 @@ describe('computeSoldierCurrentStatus (point 10 — expiry reverts to not_yet_te
     id: 'r', soldierId: 's1', tenantId: 't', unitId: 'u', testId: 't1',
     outcome: 'pass', value: 45, notPerformedReason: null, source: 'organized_test',
     thresholdSnapshot: { thresholdVersion: 1, gender: 'male', thresholdValue: 40, lowerIsBetter: false, validityDays: 180 },
-    recordedBy: 'officer', recordedAt: new Date('2026-01-01'),
+    recordedBy: 'officer', recordedAt: new Date('2026-01-01'), uid: null,
     ...overrides,
   });
 
