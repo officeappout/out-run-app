@@ -187,7 +187,12 @@ export default function AdminDashboardPage() {
           />
         )}
         <StatCard label="מיקומים" value={stats.totalParks} sub={`${stats.publishedParks} פורסמו`} icon={MapPin} color="cyan" />
-        <StatCard label="קבוצות פעילות" value={stats.activeGroups} sub={`${stats.totalGroups} סה"כ`} icon={Dumbbell} color="violet" />
+        {/* 01.10.2026 (00-MASTER-PLAN.md §13.61) — decided down with the
+            rest of the "יורד" list; corrected after being mis-tracked as
+            undecided. */}
+        {tenantType !== 'military' && (
+          <StatCard label="קבוצות פעילות" value={stats.activeGroups} sub={`${stats.totalGroups} סה"כ`} icon={Dumbbell} color="violet" />
+        )}
         <StatCard label="אירועים קרובים" value={stats.upcomingEvents} icon={CalendarHeart} color="blue" />
         <StatCard label="דיווחים פתוחים" value={stats.openReports} icon={Wrench} color={stats.openReports > 0 ? 'amber' : 'emerald'} />
       </div>
@@ -203,13 +208,13 @@ export default function AdminDashboardPage() {
       )}
 
       {/* ═══ Quick Links ═══ */}
-      {/* 01.10.2026 (00-MASTER-PLAN.md §13.61) — three of these four cards
-          hidden for military: community/events and locations/parks don't
-          fit a brigade's own operations, and "all groups / cross-
-          authority" specifically promises cross-org access no officer
-          should see advertised, even as a dead link. "דיווחי תחזוקה" is
-          NOT addressed here — flagged separately, David has not decided
-          whether it applies to military. */}
+      {/* 01.10.2026 (00-MASTER-PLAN.md §13.61) — all four cards hidden for
+          military: community/events and locations/parks don't fit a
+          brigade's own operations, "all groups / cross-authority"
+          specifically promises cross-org access no officer should see
+          advertised even as a dead link, and "דיווחי תחזוקה" was decided
+          down with the rest — corrected after being mis-tracked as
+          undecided (David's own explicit "יורד" list named it). */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {tenantType !== 'military' && (
           <QuickLink
@@ -229,13 +234,15 @@ export default function AdminDashboardPage() {
             color="cyan"
           />
         )}
-        <QuickLink
-          href="/admin/authority/reports"
-          icon={Flag}
-          title="דיווחי תחזוקה"
-          description="דיווחי תשתית וקהילה, מעקב סטטוסים"
-          color="amber"
-        />
+        {tenantType !== 'military' && (
+          <QuickLink
+            href="/admin/authority/reports"
+            icon={Flag}
+            title="דיווחי תחזוקה"
+            description="דיווחי תשתית וקהילה, מעקב סטטוסים"
+            color="amber"
+          />
+        )}
         {tenantType !== 'military' && (
           <QuickLink
             href="/admin/community-groups-overview"
