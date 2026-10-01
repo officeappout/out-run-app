@@ -34,6 +34,8 @@ import type {
 import { createContextualEngine } from '../../logic/ContextualEngine';
 import type { DifficultyLevel } from '../../logic/workout-generator.types';
 import { resolveToSlug } from '../../services/program-hierarchy.utils';
+import { resolveExerciseDomain, DOMAIN_RESOLUTION_SKILL_PARENT_MAP } from '../../logic/workout-selection.utils';
+import { resolveUserLevelForProgram } from '../middleware/InputSanitizerMiddleware';
 import type { CandidatePool, SessionStrategy } from './pipeline.types';
 
 // ============================================================================
@@ -436,11 +438,33 @@ export function findSkillTaggedSubstitute(
 //   domain-specific entry is within `toleranceRadius` of the user's domain
 //   level can appear in domain-specific workout slots.
 //
-// Semantics:
-//   • Exercise has a domain entry           → keep only if |entry.level – userDomainLevel| ≤ radius
-//   • Exercise has NO domain entry at all
+// Skill↔foundation unification (2026-10-01): the per-exercise "which domain
+// governs this exercise" decision now delegates to `resolveExerciseDomain`
+// (workout-selection.utils.ts) — the same resolver ContextualEngine's own
+// level_tolerance gate already uses — instead of an ad-hoc tag match. This
+// closes a real bug: a single_domain session whose primary domain IS a bare
+// skill (e.g. a user who assessed only front_lever, StructureDirector's
+// generic single-domain block topology never wraps this in a master program)
+// used to reject every foundation-tagged exercise (e.g. pull L10) outright,
+// because the old widening (`PUSH_SKILL_SLUGS`/`PULL_SKILL_SLUGS` in
+// PipelineOrchestrator) only ever went foundation→skill, never skill→
+// foundation — the pool emptied even though the user's own assessed pull
+// level made plenty of exercises level-appropriate. `activeDomains` (passed
+// in by the caller) now includes BOTH directions: the primary domain plus
+// its resolved parent (skill→foundation) and/or its skill children
+// (foundation→skill, replacing the old PUSH_SKILL_SLUGS/PULL_SKILL_SLUGS —
+// see PipelineOrchestrator.ts). `resolveExerciseDomain`'s own "specific beats
+// generic" tiering then does the right thing either way: a front_lever-
+// tagged exercise resolves to front_lever (evaluated at the user's front_lever
+// level), a bare pull-tagged exercise resolves to pull (evaluated at the
+// user's pull level) — never the wrong one's level borrowed for the other.
+//
+// Semantics (unchanged from before this fix):
+//   • Exercise resolves to one of activeDomains → keep only if
+//     |that domain's own entry level – user's level for that SAME domain| ≤ radius
+//   • Exercise has NO targetPrograms entry at all
 //       – programs array is empty (legacy/unkeyed)  → pass through (no domain metadata to gate on)
-//       – programs array is non-empty but no match  → EXCLUDE (has programs but wrong domain)
+//       – programs array is non-empty but resolves to none of activeDomains → EXCLUDE
 // ============================================================================
 
 /**
@@ -448,71 +472,69 @@ export function findSkillTaggedSubstitute(
  * level-appropriate for the given domain slot.
  *
  * @param scoredExercises    The shared pool from ContextualEngine.filterAndScore()
- * @param domain             Target domain slug (e.g. 'pull', 'push', 'legs')
- * @param userDomainLevel    User's actual level in that domain
+ * @param activeDomains      Every domain slug an exercise may legitimately resolve
+ *                           to for this slot — the session's primary domain, plus
+ *                           its resolved foundation parent (if the primary domain
+ *                           is itself a skill) and/or its skill children (if the
+ *                           primary domain is itself a foundation) — see the
+ *                           caller (PipelineOrchestrator.ts) for how this is built
+ *                           from DOMAIN_RESOLUTION_SKILL_PARENT_MAP.
+ * @param userProgramLevels  Per-track level map from the generation context — the
+ *                           user's own level for whichever domain in activeDomains
+ *                           an exercise resolves to.
+ * @param baseUserLevel      Fallback level when the resolved domain isn't itself in
+ *                           userProgramLevels (mirrors the pre-fix `?? context.userLevel`).
  * @param toleranceRadius    Level tolerance radius (typically 3; 5 when rescue fired)
- * @param additionalSlugs    Optional skill-track slugs that are biomechanically part
- *                           of `domain` (e.g. ['planche'] for push, ['front_lever'] for
- *                           pull).  An exercise whose targetPrograms entry matches one
- *                           of these slugs is kept even when no `domain` entry exists —
- *                           the level check is performed against that skill track's user
- *                           level from `userProgramLevels`, falling back to `userDomainLevel`
- *                           when the skill is not yet in the map.
- * @param userProgramLevels  Per-track level map from the generation context.  Required
- *                           for accurate per-skill level evaluation when `additionalSlugs`
- *                           is provided; has no effect when `additionalSlugs` is absent.
+ * @param skillPriority      Optional domain→rank map (buildSkillPriorityMap) — breaks
+ *                           ties when an exercise matches more than one skill in
+ *                           activeDomains. Omitted, falls back to stable tag order.
  */
 export function filterForDomain(
   scoredExercises: ScoredExercise[],
-  domain: string,
-  userDomainLevel: number,
+  activeDomains: string[],
+  userProgramLevels: Map<string, number> | undefined,
+  baseUserLevel: number,
   toleranceRadius: number,
-  additionalSlugs?: string[],
-  userProgramLevels?: Map<string, number>,
+  skillPriority?: Map<string, number>,
 ): ScoredExercise[] {
-  const hasAdditional = additionalSlugs && additionalSlugs.length > 0;
-
   return scoredExercises.filter(ex => {
     const programs = ex.exercise.targetPrograms ?? [];
 
     // Legacy / unkeyed exercises have no program metadata — pass through.
     if (programs.length === 0) return true;
 
-    // Find this exercise's level entry for the primary target domain.
-    const domainEntry = programs.find(tp => {
-      const slug = resolveToSlug(tp.programId);
-      return slug === domain || tp.programId === domain;
+    // Which of activeDomains actually governs this exercise — "specific
+    // (skill) beats generic (foundation)" tiering, same resolver
+    // ContextualEngine's own level_tolerance gate uses. See this file's
+    // header comment for why this replaced the old single-`domain` +
+    // one-directional `additionalSlugs` match.
+    const resolvedDomain = resolveExerciseDomain(ex.exercise, {
+      activeDomains,
+      skillPriority,
+      skillParentMap: DOMAIN_RESOLUTION_SKILL_PARENT_MAP,
+      resolveSlug: resolveToSlug,
     });
 
-    if (domainEntry) {
-      // Enforce primary domain-specific level proximity.
-      return Math.abs(domainEntry.level - userDomainLevel) <= toleranceRadius;
-    }
+    // Exercise has program entries but none for any domain this slot
+    // actually admits — exclude it, same as before this fix (prevents
+    // foreign-domain level evaluations, e.g. full_body L14, from qualifying
+    // a wrong-domain exercise).
+    if (!resolvedDomain) return false;
 
-    // No primary domain entry — check additional skill-track slugs.
-    // This handles multi-skill hybrid sessions (e.g. calisthenics_upper) where
-    // exercises are tagged with a granular skill slug ('planche', 'front_lever')
-    // rather than the foundational domain slug ('push', 'pull').  The exercise is
-    // kept if it has an entry for ANY of the provided skill-track slugs AND that
-    // entry is within tolerance of the user's level for that specific track.
-    if (hasAdditional) {
-      for (const tp of programs) {
-        const slug = resolveToSlug(tp.programId);
-        const matched = additionalSlugs!.includes(slug) || additionalSlugs!.includes(tp.programId);
-        if (matched) {
-          // Use the user's level for this specific skill track when available;
-          // fall back to the parent domain level as a safe proxy.
-          const skillKey = additionalSlugs!.includes(slug) ? slug : tp.programId;
-          const userSkillLevel = userProgramLevels?.get(skillKey) ?? userDomainLevel;
-          return Math.abs(tp.level - userSkillLevel) <= toleranceRadius;
-        }
-      }
-    }
+    const entry = programs.find(
+      tp => resolveToSlug(tp.programId) === resolvedDomain || tp.programId === resolvedDomain,
+    );
+    // Guaranteed present — resolvedDomain is only ever a slug
+    // resolveExerciseDomain itself matched against one of these entries.
+    if (!entry) return false;
 
-    // Exercise has program entries but NONE for the requested domain or any
-    // allowed skill-track slugs.  Exclude it to prevent foreign-domain level
-    // evaluations (e.g. full_body L14) from qualifying a wrong-domain exercise.
-    return false;
+    const userLevel = resolveUserLevelForProgram(
+      resolvedDomain,
+      userProgramLevels ?? new Map(),
+      resolveToSlug,
+      baseUserLevel,
+    );
+    return Math.abs(entry.level - userLevel) <= toleranceRadius;
   });
 }
 
