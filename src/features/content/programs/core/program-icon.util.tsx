@@ -218,8 +218,8 @@ export const PROGRAM_ALIAS_TO_ICON: Record<string, ProgramIconKey> = {
  */
 export const SLUG_HEBREW_FALLBACK: Record<string, string> = {
   full_body:          'כל הגוף',
-  upper_body:         'פלג עליון',
-  lower_body:         'פלג תחתון',
+  upper_body:         'פלג גוף עליון',
+  lower_body:         'פלג גוף תחתון',
   push:               'לחיצה',
   pull:               'משיכה',
   legs:               'רגליים',

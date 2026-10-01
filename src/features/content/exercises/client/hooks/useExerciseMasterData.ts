@@ -6,7 +6,12 @@
  * Consolidates everything the unified detail surface needs:
  *   • sheetData         — sync view-model (video, muscles, equipment, cues…)
  *   • trend             — async personal history from exercise-history.service
- *   • progressionChain  — prev / current / next variations sharing base_movement_id
+ *   • progressionChain  — prev / current / next. Two modes (Feature #5,
+ *                         Phase 1.1): with a real `activeProgramId`
+ *                         (opened from a Skill Tree), the SELECTED
+ *                         PROGRAM'S OWN LEVEL LADDER (via progression-map's
+ *                         buildSkillTree); otherwise the legacy
+ *                         base_movement_id movement-family chain, unchanged.
  *   • userLevelInTrack  — the user's current level for this exercise's program
  *
  * All three data sources are read independently so a slow Firestore trend
@@ -28,6 +33,15 @@ import type { Exercise } from '../../core/exercise.types';
 import { getAllExercisesNoOrder } from '../../core/exercise.service';
 import { getCachedPrograms } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { buildSheetData, type SheetData } from '../utils/sheet-data.utils';
+// Feature #5 Phase 1.1 — cross-domain import, deliberate: the brief
+// explicitly says to reuse the Skill Tree's own ladder builder rather than
+// re-deriving a second (programId, level) grouping + tie-break. Unlike
+// getExerciseLevelForProgram below (a 3-line formula, cheaper to duplicate
+// than cross-import per CLAUDE.md Law 7), buildSkillTree is a real,
+// non-trivial algorithm (grouping, gap-filling, the round-11 beginner-
+// appropriate representative tie-break) — duplicating THAT would be
+// exactly the "re-invent" the brief says not to do.
+import { buildSkillTree, resolveLevelInProgram } from '@/features/progression-map/services/build-skill-tree.service';
 
 /**
  * Module-level guard so the background corpus fetch fires at most once across
@@ -46,6 +60,8 @@ export interface ResolvedProgram {
   programId: string;
   label: string;
   level: number;
+  /** For the program-path switcher chip's icon (getProgramIcon). Undefined until the cached program fetch resolves, or if that program has no iconKey set. */
+  iconKey?: string;
 }
 
 export interface ExerciseMasterData {
@@ -97,6 +113,39 @@ export function getExerciseLevel(ex: Exercise | null | undefined): number {
   return 0;
 }
 
+/**
+ * Difficulty tier for a SPECIFIC program — the per-program-aware counterpart
+ * to getExerciseLevel's legacy targetPrograms[0]-only pick. Added for the
+ * program/path switcher (Feature #5): once the user selects a specific path
+ * (e.g. מתח יד אחת instead of the exercise's index-0 program), the chain's
+ * displayed level/lock state should reflect THAT program, not whichever one
+ * happened to be first in the array. Falls back to getExerciseLevel's
+ * legacy behavior when `programId` is absent or the exercise isn't tagged
+ * to it (e.g. a progression-chain sibling that only shares base_movement_id,
+ * not this specific program) — never surfaces a wrong/missing number.
+ *
+ * A tiny local equivalent of progression-map's resolveLevelInProgram
+ * (build-skill-tree.service.ts) — not imported from there on purpose: that
+ * lives in a different feature domain (CLAUDE.md Law 7, domain-agnostic
+ * boundary), and the formula is a 3-line targetPrograms.find — cheaper to
+ * duplicate here than to cross-import, same call this codebase already
+ * made for the identical scenario (see build-skill-tree.service.ts's own
+ * header comment on getExerciseLevel-style precedent).
+ */
+export function getExerciseLevelForProgram(
+  ex: Exercise | null | undefined,
+  programId: string | null | undefined,
+): number {
+  if (!ex) return 0;
+  if (programId) {
+    const match = ex.targetPrograms?.find((tp) => tp.programId === programId);
+    if (match && typeof match.level === 'number' && Number.isFinite(match.level)) {
+      return match.level;
+    }
+  }
+  return getExerciseLevel(ex);
+}
+
 export function useExerciseMasterData(
   exercise: Exercise | null,
   /** Location string — used only when `methodIdx` is null (legacy / no switcher). */
@@ -108,6 +157,13 @@ export function useExerciseMasterData(
    * method, guaranteeing that two methods at the same location remain distinct.
    */
   methodIdx: number | null = null,
+  /**
+   * The user-selected program/path (Feature #5's program switcher) —
+   * overrides targetPrograms[0] as the "primary program" for
+   * userLevelInTrack. Undefined/null → falls back to the legacy
+   * index-0 behavior, byte-identical to before this parameter existed.
+   */
+  activeProgramId?: string | null,
 ): ExerciseMasterData {
   // ── Synchronous view-model ─────────────────────────────────────────────
   const sheetData = useMemo<SheetData | null>(() => {
@@ -192,6 +248,53 @@ export function useExerciseMasterData(
   const progressionChain = useMemo<ProgressionChain>(() => {
     if (!exercise) return { prev: null, current: null, next: null };
 
+    // ── Program-ladder mode (Feature #5, Phase 1.1) ───────────────────────
+    // Only when the CALLER established a deliberate program context —
+    // MasterExerciseView passes null here for the plain library/home sheet
+    // (its own `activeProgramId` state always resolves to SOMETHING for the
+    // switcher chip's own display via a fallback, but that fallback is not
+    // a real "we're anchored to this program" signal — see
+    // MasterExerciseView.tsx's hasActiveProgramContext). Reuses buildSkillTree
+    // (progression-map's own ladder builder) instead of re-deriving a second
+    // grouping/tie-break — every member here is by construction tagged to
+    // THIS program with a real per-program level, unlike the base_movement_id
+    // family below (which can include neighbors that share the movement
+    // pattern but aren't tagged to whichever program is currently selected —
+    // the reported bug: switching to a program only updated the CURRENT
+    // node's level because the family's prev/next siblings genuinely had no
+    // entry for that program and silently fell back to a stale legacy level).
+    if (activeProgramId) {
+      const currentLevel = resolveLevelInProgram(exercise, activeProgramId);
+      const tree = currentLevel !== null ? buildSkillTree(allExercises, activeProgramId) : null;
+      const idx = tree ? tree.rungs.findIndex((r) => r.level === currentLevel) : -1;
+      if (tree && idx !== -1) {
+        let prev: Exercise | null = null;
+        for (let i = idx - 1; i >= 0; i--) {
+          if (!tree.rungs[i].isGap && tree.rungs[i].representative) {
+            prev = tree.rungs[i].representative;
+            break;
+          }
+        }
+        let next: Exercise | null = null;
+        for (let i = idx + 1; i < tree.rungs.length; i++) {
+          if (!tree.rungs[i].isGap && tree.rungs[i].representative) {
+            next = tree.rungs[i].representative;
+            break;
+          }
+        }
+        // Degrade gracefully: prev/next individually null (not a fake
+        // placeholder) when the current level is the ladder's top/bottom —
+        // ProgressionChainRow already renders exactly 2 nodes in that case
+        // (its {chain.prev && ...} / {chain.next && ...} guards), same as
+        // the family chain below has always done for an edge member.
+        return { prev, current: exercise, next };
+      }
+      // activeProgramId didn't resolve a ladder for this exercise (shouldn't
+      // happen in practice — it only ever comes from this exercise's own
+      // targetPrograms — but never crash) — fall through to family mode.
+    }
+
+    // ── Legacy movement-family chain (unchanged — the no-program context) ──
     const baseId = exercise.base_movement_id;
     if (!baseId) {
       // No family — the exercise stands alone as the current node.
@@ -213,30 +316,31 @@ export function useExerciseMasterData(
       current: family[currentIdx],
       next: currentIdx < family.length - 1 ? family[currentIdx + 1] : null,
     };
-  }, [exercise, allExercises]);
+  }, [exercise, allExercises, activeProgramId]);
 
   // ── User's current level in this exercise's program ────────────────────
   const domainProgress = useProgressionStore((s) => s.domainProgress);
 
   const userLevelInTrack = useMemo<number | null>(() => {
-    const programId = exercise?.targetPrograms?.[0]?.programId;
+    const programId = activeProgramId ?? exercise?.targetPrograms?.[0]?.programId;
     if (!programId) return null;
     const entry = domainProgress?.[programId];
     return typeof entry?.level === 'number' ? entry.level : null;
-  }, [exercise, domainProgress]);
+  }, [exercise, domainProgress, activeProgramId]);
 
   // ── Resolved program labels (independent of any passed map) ────────────
   // Pull the cached program hierarchy once so real Firestore program names
-  // are available; the static fallback + heuristic cover legacy slugs.
-  const [cachedProgramMap, setCachedProgramMap] = useState<Record<string, string>>({});
+  // (+ iconKey, for the program-path switcher chip) are available; the
+  // static fallback + heuristic cover legacy slugs.
+  const [cachedProgramMap, setCachedProgramMap] = useState<Record<string, { name: string; iconKey?: string }>>({});
   useEffect(() => {
     let cancelled = false;
     getCachedPrograms()
       .then((list) => {
         if (cancelled) return;
-        const map: Record<string, string> = {};
+        const map: Record<string, { name: string; iconKey?: string }> = {};
         for (const p of list) {
-          if (p?.id && p?.name) map[p.id] = p.name;
+          if (p?.id && p?.name) map[p.id] = { name: p.name, iconKey: p.iconKey };
         }
         setCachedProgramMap(map);
       })
@@ -254,15 +358,26 @@ export function useExerciseMasterData(
       const id = tp.programId;
       if (!id) continue;
       const lower = id.toLowerCase();
+      const cached = cachedProgramMap[id] ?? cachedProgramMap[lower];
       const label =
         programLabels?.[id] ??
         programLabels?.[lower] ??
-        cachedProgramMap[id] ??
-        cachedProgramMap[lower] ??
+        cached?.name ??
         PROGRAM_LABEL_FALLBACK[id] ??
         PROGRAM_LABEL_FALLBACK[lower] ??
         heuristicProgramLabel(id);
-      if (label) out.push({ programId: id, label, level: tp.level });
+      // Round 12 (program-path switcher): previously an entry with no
+      // resolvable label was silently DROPPED — invisible to both the old
+      // "תוכניות" badge list and the new switcher, for any program whose id
+      // is a Firestore hash (not a recognized slug) until the cached-name
+      // fetch resolves. Now always pushed, falling back to the raw id as a
+      // placeholder + a console.warn, per this feature's explicit
+      // "don't crash, show the id or a placeholder and log it" requirement.
+      if (!label) {
+        // eslint-disable-next-line no-console
+        console.warn(`[useExerciseMasterData] no resolvable name for programId "${id}" — showing the raw id as a placeholder`);
+      }
+      out.push({ programId: id, label: label ?? id, level: tp.level, iconKey: cached?.iconKey });
     }
     return out;
   }, [exercise, programLabels, cachedProgramMap]);

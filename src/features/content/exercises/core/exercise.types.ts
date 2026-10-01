@@ -4,7 +4,7 @@
  */
 
 import { LocalizedText, AppLanguage, getLocalizedText } from '../../shared/localized-text.types';
-import { buildBunnyStreamUrl, buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
+import { buildBunnyStreamUrl, buildBunnyThumbnailUrl, extractBunnyVideoId } from '@/lib/bunny/bunny.config';
 
 // Re-export shared types for backward compatibility
 export type { LocalizedText, AppLanguage };
@@ -929,11 +929,25 @@ export function resolveImageForLocation(
   const preview = resolvePreviewForLang(method?.media as any);
   const bunnyThumb =
     preview?.thumbnailUrl ?? (preview?.videoId ? buildBunnyThumbnailUrl(preview.videoId) : undefined);
-  return (
-    bunnyThumb ||
-    method?.media?.imageUrl ||
-    method?.media?.mainVideoUrl ||
-    (exercise as any).media?.imageUrl ||
-    ''
-  );
+  if (bunnyThumb) return bunnyThumb;
+  if (method?.media?.imageUrl) return method.media.imageUrl;
+
+  // Hero-image fix (2026-10-01): a real video ALWAYS exists for a composed
+  // workout exercise by the time its hero is resolved. The OLD fallback here
+  // returned the raw video URL itself as an "image" — an <img> tag can't
+  // render a .mp4/HLS stream, so this silently produced nothing visible,
+  // pushing callers to a generic stock-photo fallback instead. Derive a REAL
+  // thumbnail from the same video when it's Bunny-hosted (the overwhelming
+  // common case) via extractBunnyVideoId — the single shared parser for
+  // every known Bunny URL shape, already proven against a prior black-screen
+  // bug (see its own doc comment) — tried against the same two video
+  // sources resolveVideoForLocation itself falls through to, in the same
+  // order, so "the image matches whatever video actually plays" holds even
+  // when neither has a dedicated previewVideo entry yet.
+  const extractedVideoId =
+    extractBunnyVideoId(method?.media?.mainVideoUrl) ??
+    extractBunnyVideoId((exercise as any).media?.videoUrl);
+  if (extractedVideoId) return buildBunnyThumbnailUrl(extractedVideoId);
+
+  return (exercise as any).media?.imageUrl || '';
 }

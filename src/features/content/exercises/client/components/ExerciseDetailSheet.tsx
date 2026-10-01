@@ -19,16 +19,77 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useExerciseLibraryStore } from '../store/useExerciseLibraryStore';
 import MasterExerciseView from './MasterExerciseView';
+import type { Exercise } from '../../core/exercise.types';
 
-export default function ExerciseDetailSheet() {
+export interface ExerciseDetailSheetProps {
+  /**
+   * When set, overrides the GLOBAL useExerciseLibraryStore filters.location
+   * for this instance only — added for the Progression Map screen, which
+   * needs every open here to resolve the park execution-method regardless
+   * of whatever the user last set in the real library filter (which this
+   * sheet would otherwise silently inherit). Deliberately a local prop, not
+   * another write to the shared store: an earlier version forced the
+   * global filter on mount/restored it on unmount, which turned out to
+   * cause real churn (MasterExerciseView's own method-reseed effect is
+   * keyed off filterLocation, so mutating a value shared across every
+   * mounted consumer of that store was exactly the kind of cross-component
+   * side effect worth avoiding). Omitted (undefined) for every existing
+   * caller — falls through to the global filter, byte-identical to before.
+   */
+  locationOverride?: 'home' | 'park' | 'gym';
+  /**
+   * Feature #5 (program/path switcher, Phase 1): the initial selected path
+   * when the exercise belongs to 2+ targetPrograms — passed straight
+   * through to MasterExerciseView. SkillTreeScreen passes its own tree's
+   * programId here (the route param it already holds) so opening the
+   * sheet from a Skill Tree defaults to THAT tree's path, not whichever
+   * program happens to resolve first. Omitted for every other caller —
+   * MasterExerciseView falls back to its own default
+   * (resolveTreeProgramId(exercise), then targetPrograms[0]), unchanged
+   * from before this prop existed.
+   */
+  defaultProgramId?: string | null;
+  /**
+   * Round 6 (Progression Map, sheet round 6): when set, this instance is
+   * driven ENTIRELY by these local props instead of the global
+   * useExerciseLibraryStore open/close state. Added because the global
+   * store is an app-wide portal that survives a screen unmount and
+   * re-renders on whatever screen loads next — five rounds of patching the
+   * close path (popstate, pushState, pathname-change effects, unmount
+   * cleanup) all failed to fully close that gap, because the real fix was
+   * never "close it better," it was "don't share app-wide open/close state
+   * with a screen-scoped sheet." A caller in controlled mode owns its own
+   * `exercise` state; when the screen that renders this sheet unmounts
+   * (bottom nav, back, any navigation), the sheet unmounts with it — there
+   * is no shared state left for anything else to read as "still open."
+   * Omitted (undefined) for every other caller (ExerciseLibraryPage) —
+   * falls through to the global store, byte-identical to before.
+   */
+  controlled?: {
+    exercise: Exercise | null;
+    notice?: string | null;
+    onClose: () => void;
+  };
+}
+
+export default function ExerciseDetailSheet({ locationOverride, defaultProgramId, controlled }: ExerciseDetailSheetProps = {}) {
   const router = useRouter();
 
-  // ── Store reads ──────────────────────────────────────────────────────────
-  const isOpen         = useExerciseLibraryStore((s) => s.isDetailOpen);
-  const exercise       = useExerciseLibraryStore((s) => s.selectedExercise);
-  const close          = useExerciseLibraryStore((s) => s.closeDetail);
-  const filterLocation = useExerciseLibraryStore((s) => s.filters.location);
-  const allPrograms    = useExerciseLibraryStore((s) => s.allPrograms);
+  // ── Store reads (unconditional — hooks can't be conditional; the
+  // controlled/global choice below is a plain value computation, not a
+  // hook-call difference) ─────────────────────────────────────────────────
+  const globalIsOpen     = useExerciseLibraryStore((s) => s.isDetailOpen);
+  const globalExercise   = useExerciseLibraryStore((s) => s.selectedExercise);
+  const globalClose      = useExerciseLibraryStore((s) => s.closeDetail);
+  const globalNotice     = useExerciseLibraryStore((s) => s.detailNotice);
+  const globalFilterLocation = useExerciseLibraryStore((s) => s.filters.location);
+  const allPrograms      = useExerciseLibraryStore((s) => s.allPrograms);
+
+  const exercise       = controlled ? controlled.exercise : globalExercise;
+  const isOpen         = controlled ? controlled.exercise !== null : globalIsOpen;
+  const close          = controlled ? controlled.onClose : globalClose;
+  const notice         = controlled ? controlled.notice ?? null : globalNotice;
+  const filterLocation = locationOverride ?? globalFilterLocation;
 
   // Real program names for the "תוכניות" per-program level list (round 5,
   // #2). Without this, useExerciseMasterData falls back to a static
@@ -71,8 +132,19 @@ export default function ExerciseDetailSheet() {
     router.push(`/profile/exercise/${exerciseId}?name=${encodeURIComponent(exerciseName)}`);
   };
 
-  const handleNavigateToRoadmap = (baseMovementId: string) => {
-    router.push(`/exercises/roadmap/${encodeURIComponent(baseMovementId)}`);
+  // Feature #5 (program/path switcher): treeProgramId is now resolved by
+  // MasterExerciseView itself, from its own activeProgramId (the switcher's
+  // current selection) — not re-derived here from a fresh
+  // resolveTreeProgramId(exercise) call, which could disagree with
+  // whichever path the switcher is actually showing for a multi-tagged
+  // exercise. This handler is now a plain "navigate to the resolved
+  // destination" executor.
+  const handleNavigateToRoadmap = (treeProgramId: string | null, fallbackBaseMovementId: string) => {
+    if (treeProgramId) {
+      router.push(`/progression-map/${treeProgramId}`);
+      return;
+    }
+    router.push(`/exercises/roadmap/${encodeURIComponent(fallbackBaseMovementId)}`);
   };
 
   const sheet = (
@@ -128,8 +200,10 @@ export default function ExerciseDetailSheet() {
                 exercise={exercise}
                 filterLocation={filterLocation}
                 programLabels={programLabels}
+                defaultProgramId={defaultProgramId}
                 onNavigateToAnalytics={handleNavigateToAnalytics}
                 onNavigateToRoadmap={handleNavigateToRoadmap}
+                notice={notice}
               />
             </div>
           </motion.div>

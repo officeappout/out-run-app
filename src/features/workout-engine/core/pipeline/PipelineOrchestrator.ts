@@ -44,6 +44,7 @@ import { createBudgetDistributor } from './BudgetDistributor';
 import { createStructureDirector } from './StructureDirector';
 import { filterForDomain, PoolFactory } from './PoolFactory';
 import { resolveToSlug } from '../../services/program-hierarchy.utils';
+import { DOMAIN_RESOLUTION_SKILL_PARENT_MAP } from '../../logic/workout-selection.utils';
 
 // ============================================================================
 // REST-DAY FALLBACK
@@ -200,10 +201,6 @@ export class PipelineOrchestrator {
     // Applying a second single-domain gate here is both incorrect and destructive
     // for master sessions — we bypass it entirely.
 
-    // Skill-track slugs that belong to each foundational domain.
-    const PUSH_SKILL_SLUGS = ['planche', 'handstand', 'handstand_pushup'];
-    const PULL_SKILL_SLUGS = ['front_lever', 'muscle_up', 'back_lever'];
-
     // Master-program bypass set:
     //   • calisthenics_upper — dynamic skill-track hybrid (planche/front_lever/…)
     //   • upper_body        — static push + pull wrapper
@@ -236,45 +233,67 @@ export class PipelineOrchestrator {
         // pool contaminated by foreign-domain level evaluations.
         const STRICT_TOLERANCE = 3;
 
-        // ── Multi-skill hybrid: collect active skill slugs for this domain ──
-        // For programs other than calisthenics_upper where additionalSlugs
-        // may still be needed (e.g. a future single-domain skill variant).
-        let additionalSlugs: string[] | undefined;
+        // ── Symmetric skill↔foundation widening (2026-10-01 unification) ───
+        // activeDomains always starts with the primary domain itself, then
+        // widens in WHICHEVER direction applies — the old code only ever
+        // widened foundation→skill (PUSH_SKILL_SLUGS/PULL_SKILL_SLUGS, and
+        // only for skills the user had actually prioritized via
+        // priority1/2SkillIds), never skill→foundation. A bare single-skill
+        // session (e.g. a user who assessed only front_lever — no master
+        // program wrapper, so `domain` IS the skill slug itself) used to
+        // reject every foundation-tagged exercise outright because of this
+        // one-directional gap — see PoolFactory.ts's filterForDomain header
+        // for the full bug writeup.
+        const activeDomains = [domain];
+
+        // Skill→foundation: domain itself is a skill key in the canonical
+        // map — admit its resolved parent too, evaluated at the PARENT's own
+        // level (resolveExerciseDomain + resolveUserLevelForProgram inside
+        // filterForDomain do this correctly per-exercise, not a blanket
+        // level substitution here).
+        const parentDomain = DOMAIN_RESOLUTION_SKILL_PARENT_MAP[domain];
+        if (parentDomain) activeDomains.push(parentDomain);
+
+        // Foundation→skill: domain is itself someone's parent — admit the
+        // user's OWN prioritized skill children (replaces the old
+        // PUSH_SKILL_SLUGS/PULL_SKILL_SLUGS hardcoded lists, sourced from the
+        // same canonical map everywhere else in the engine uses — this also
+        // fixes an independent drift bug: the old PULL_SKILL_SLUGS list was
+        // missing 'one_arm_pullup', which the canonical map has always had).
         const focusIds = [
           ...(context.priority1SkillIds ?? []),
           ...(context.priority2SkillIds ?? []),
         ];
-        const domainVector = domain === 'push' ? PUSH_SKILL_SLUGS
-          : domain === 'pull' ? PULL_SKILL_SLUGS
-          : [];
-        const matched = focusIds.filter(id => domainVector.includes(id));
-        if (matched.length > 0) {
-          additionalSlugs = matched;
+        const skillChildrenOfDomain = Object.entries(DOMAIN_RESOLUTION_SKILL_PARENT_MAP)
+          .filter(([, parent]) => parent === domain)
+          .map(([skill]) => skill);
+        const matchedSkillChildren = focusIds.filter(id => skillChildrenOfDomain.includes(id));
+        if (matchedSkillChildren.length > 0) {
+          activeDomains.push(...matchedSkillChildren);
           console.log(
             `[PipelineOrchestrator] 🔓 Multi-skill: domain=${domain} ` +
-            `additionalSlugs=[${matched.join(', ')}]`,
+            `additionalSlugs=[${matchedSkillChildren.join(', ')}]`,
           );
         }
 
         const before = filteredPool.length;
         filteredPool = filterForDomain(
           filteredPool,
-          domain,
-          userDomainLevel,
-          STRICT_TOLERANCE,
-          additionalSlugs,
+          activeDomains,
           context.userProgramLevels,
+          context.userLevel,
+          STRICT_TOLERANCE,
+          context.skillPriority,
         );
         const removed = before - filteredPool.length;
         if (removed > 0) {
           log.push(
             `domain_filter: removed ${removed} context-blind candidates ` +
-            `(domain=${domain} L${userDomainLevel} ±${STRICT_TOLERANCE}` +
-            `${additionalSlugs ? ` +skills=[${additionalSlugs.join(',')}]` : ''})`,
+            `(activeDomains=[${activeDomains.join(',')}] primary=${domain} L${userDomainLevel} ±${STRICT_TOLERANCE})`,
           );
           console.log(
             `[PipelineOrchestrator] 🔒 Domain-strict filter: removed ${removed}/${before} ` +
-            `exercises that failed ${domain} L${userDomainLevel} ±${STRICT_TOLERANCE} check`,
+            `exercises that failed the activeDomains=[${activeDomains.join(', ')}] check`,
           );
         }
       }

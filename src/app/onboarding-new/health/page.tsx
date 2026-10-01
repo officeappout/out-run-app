@@ -12,6 +12,7 @@ import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLa
 import { STRENGTH_PHASES, RUNNING_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
 import { getOnboardingPref } from '@/lib/onboardingPrefs';
 import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
+import { isMiniAssessmentActive, consumeMiniAssessmentState } from '@/features/user/onboarding/services/mini-domain-assessment';
 import { createSkipAttemptGuard } from '@/features/user/onboarding/utils/skip-attempt-guard';
 import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure';
 
@@ -103,6 +104,14 @@ export default function HealthDeclarationPage() {
       return false;
     }
 
+    // Finding-A/B fix (4c-1 follow-up): a mini top-up (Progression/Skill-Tree
+    // CTA) only ever reaches this page because the user hadn't accepted the
+    // health declaration yet (assessment-visual's mini branch checks this
+    // explicitly before routing here) — captured once, synchronously, so the
+    // fallback-skip below and the final navigation decision both see the
+    // same value regardless of timing.
+    const miniActive = isMiniAssessmentActive();
+
     // Fire-and-forget — see comment above for why this must not block navigation.
     (async () => {
       try {
@@ -130,22 +139,34 @@ export default function HealthDeclarationPage() {
         // with a generic one. Reading from Firestore (where dynamic/page.tsx
         // already persisted the results) makes this sync idempotent across
         // tab-close / session restores.
-        const storedResults = typeof window !== 'undefined'
-          ? sessionStorage.getItem('onboarding_assigned_results')
-          : null;
-        if (!storedResults) {
-          try {
-            const userSnap = await getDoc(doc(db, 'users', uid));
-            const firestoreAssignedResults = userSnap.data()?.assignedResults;
-            if (Array.isArray(firestoreAssignedResults) && firestoreAssignedResults.length > 0) {
-              syncPayload.assignedResults = firestoreAssignedResults;
-              console.log(
-                '[Health] Restored assignedResults from Firestore (sessionStorage empty):',
-                firestoreAssignedResults.length, 'entries',
-              );
+        //
+        // Skipped entirely for a mini top-up: its single-domain result was
+        // already written via writeSingleDomainAssessment in
+        // assessment-visual's mini branch, so sessionStorage genuinely has no
+        // assignedResults here (never set for this path) — without this
+        // guard the fallback below would read whatever assignedResults is
+        // sitting in Firestore from this user's PRIOR full onboarding (real,
+        // but stale/unrelated to this top-up) and feed it back into
+        // syncOnboardingToFirestore, re-processing old program assignments
+        // on top of an existing user's real progression data.
+        if (!miniActive) {
+          const storedResults = typeof window !== 'undefined'
+            ? sessionStorage.getItem('onboarding_assigned_results')
+            : null;
+          if (!storedResults) {
+            try {
+              const userSnap = await getDoc(doc(db, 'users', uid));
+              const firestoreAssignedResults = userSnap.data()?.assignedResults;
+              if (Array.isArray(firestoreAssignedResults) && firestoreAssignedResults.length > 0) {
+                syncPayload.assignedResults = firestoreAssignedResults;
+                console.log(
+                  '[Health] Restored assignedResults from Firestore (sessionStorage empty):',
+                  firestoreAssignedResults.length, 'entries',
+                );
+              }
+            } catch (e) {
+              console.warn('[Health] Could not read assignedResults from Firestore fallback:', e);
             }
-          } catch (e) {
-            console.warn('[Health] Could not read assignedResults from Firestore fallback:', e);
           }
         }
 
@@ -197,7 +218,17 @@ export default function HealthDeclarationPage() {
       }
     })();
 
-    router.replace('/onboarding-new/health-connect');
+    // Mini top-up: skip health-connect entirely (it's HealthKit/Google-Fit
+    // integration, not required to finish a single-domain top-up) and
+    // return to wherever the assessment was launched from — the true final
+    // step, so this is the one place consumeMiniAssessmentState() runs for
+    // a user who was routed through this page.
+    if (miniActive) {
+      const { returnTo } = consumeMiniAssessmentState();
+      router.push(returnTo);
+    } else {
+      router.replace('/onboarding-new/health-connect');
+    }
     return true;
   };
 
