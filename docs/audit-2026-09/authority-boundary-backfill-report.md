@@ -1,8 +1,89 @@
-# Authority Boundary Backfill — Stage A Report
+# Authority Boundary Backfill — Report
 
-Generated 2026-10-01T05:42:50.753Z. Dry-run only — zero Firestore writes.
+Stage A generated 2026-10-01T05:42:50.753Z. Dry-run only — zero Firestore writes.
 
 PASS: 148 · FLAG: 1 · FAIL: 106 · total 255
+
+## Stage B — executed 2026-10-01
+
+David approved מזרעה from FLAG (0.98km², just under the 1km² floor — "the
+floor was arbitrary"). Wrote 148 PASS + מזרעה = **149 authorities**.
+Single-field merge (`boundaryGeoJSON` + `updatedAt`) only, reusing each
+authority's already-fetched Stage A feature — no re-fetch. Additive only:
+`buildTargetList` structurally excludes any authority that already had a
+boundary, and `runStageB` double-checks again immediately before each
+write. Spot-checked live afterward: Haifa (pre-existing) untouched;
+גבעתיים (new) has all its original fields intact plus the two written
+ones. **Authorities now carrying a boundary: 155** (149 new + 6 pre-existing).
+
+## Follow-ups — recorded, not executed (David's explicit instruction)
+
+### 1. The 106 FAILs are mostly name-normalization, not missing data
+
+Three clear patterns across the no-match list:
+- `"מועצה אזורית X"` (OSM) vs. our stored `"X"` alone — ~35
+- Different Arabic-name transliteration between OSM and our data — ~25
+- Extra yod / hyphen variants (קריית/קרית, with/without maqaf) — ~15
+
+**The fix, when picked up: normalize before comparing, not loosen the
+match.** Still require exactly one match after normalization; still FAIL
+outright on multiple matches. The refusal to guess on ambiguity is the
+reason the 148 PASS figures above are trustworthy — do not trade that away
+for a higher match rate.
+
+### 2. 17 "relation matched, geometry could not be assembled" is a separate bug, not a naming issue
+
+Full list: מגדל העמק, רעננה, פקיעין (בוקייעה), נחף, מטולה, רמת ישי, מעלה
+עירון, עילוט, יפיע, ביתר עילית, כפר קרע, אלפי מנשה, מועצה אזורית גוש
+עציון, בית אל, מועצה אזורית גולן, נשר, רמת השרון.
+
+**רעננה and רמת השרון are Herzliya's two neighboring authorities** — the
+exact places PR #80's Herzliya benchmark run sent 19 routes to as
+"dropped outside the boundary" (including "שביל סובב רעננה" twice). David:
+this gets priority. Worth investigating whether `osmtogeojson`'s relation
+assembly has a real bug for these specific geometries (multi-part?
+unusual member roles?) rather than assuming it's unfixable.
+
+### 3. Two data findings on `authorities` records — not fixed, impact-checked only
+
+- `name = "קרית אונו"` (missing the extra yod) — the same root-cause
+  spelling gap PR #80 found contaminating park anchors via `city`-field
+  matching, now confirmed on the authority record's own `name` field too.
+- `"wix"` (id `wix_iv5x`, type `city`) — a synthetic test record present
+  in production `authorities`.
+
+**Blast-radius check for changing `authorities/{id}.name`** (requested
+before any fix is attempted):
+- `findAuthorityByCityName`'s `CITY_NAME_MAP` already aliases
+  `'קרית אונו': ['קרית אונו', 'קריית אונו', 'kiryat ono', 'kiryat-ono']`
+  (`authority-resolution.ts:221`) — this exact gap was already found and
+  handled here once before. **Safe** for this consumer.
+- `onAuthorityWrite` (Cloud Function, `functions/src/onAuthorityWrite.ts`)
+  only acts when `isMilitaryAuthority(data)` is true — both קרית אונו and
+  wix are `type: 'city'`. **Not touched, zero risk.**
+- CRM agent's `nameMatchScore`/`authorityKeywords`
+  (`src/app/api/admin/crm-agent/run/route.ts:162-169`) splits `auth.name`
+  into ≥3-char tokens and substring-matches them against email text as a
+  *score*, not a hard gate. "קרית" and "קריית" aren't substrings of each
+  other, so a rename drops one of two keywords for this authority's
+  threads — but "אונו" alone still matches, and it's scored, not
+  required. **Low risk, not zero.**
+- `re-seed-authorities.ts` deletes **all** `authorities` docs and
+  recreates them from the static `src/lib/data/israel-locations.ts` file.
+  If it's ever re-run, it would silently revert any name fix **and wipe
+  all 155 `boundaryGeoJSON` writes from Stage B above** — that file has no
+  boundary field at all. `panel-api.md` documents `seed-*`/`fix-*` scripts
+  as one-off/write-once, not a regular API, so this isn't expected to run
+  again — but it's the one real structural risk, worth a guard (or at
+  least a loud comment) before any future name fix, independent of the
+  name question itself.
+
+~50 admin-panel UI files and ~90 one-off migration scripts also read
+`authorities.name` or import `authority.service.ts` — not traced
+individually; the overwhelming majority are pure display (a spelling fix
+there is a visible correction, not a break) or historical scripts already
+run once. The four consumers above are the ones that do real matching/
+propagation logic against the field.
 
 | שם רשות | סוג | relation id | שם ב-OSM | שטח קמ"ר | טבעות | verdict | reasons |
 |---|---|---|---|---|---|---|---|
