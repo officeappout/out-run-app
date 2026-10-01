@@ -1050,7 +1050,7 @@ Proven empirically, not theoretically: added a new `isSuperAdminOnly()` helper +
 
 ---
 
-## ⚠️ ממצא חדש, לא מתוקן — Bolt1Cap/Bolt2Cap (`WorkoutGenerator.ts`) הוא מופע שביעי של אותה מחלקת-באג — נמצא תוך-כדי אימות ה-harness, 2026-10-01
+## ✅ תוקן — Bolt1Cap/Bolt2Cap (`WorkoutGenerator.ts`) היה מופע שביעי של אותה מחלקת-באג — נמצא ותוקן תוך-כדי אימות ה-harness, 2026-10-01
 
 **Opened:** 2026-10-01 · **Source:** הרצת ה-validation-harness האמיתי (לא ניתוח סטטי) על תרחיש front_lever-בלבד, אחרי תיקון `filterForDomain`/`PipelineOrchestrator` — ה-harness חשף את זה, ניתוח קוד סטטי לא.
 
@@ -1060,4 +1060,8 @@ Proven empirically, not theoretically: added a new `isSuperAdminOnly()` helper +
 
 **Bolt 3 (אינטנסיבי) לא נבדק/לא רלוונטי** — לפי ההערה בקוד, בולט 3 בכוונה לא מקבל תקרת-רמה כלל ("Above-level exposures of +2/+3 belong exclusively to Bolt 3").
 
-**לא תוקן — מחוץ להיקף שאושר ("ROOT FIX — #6 + filterForDomain" בלבד).** אותה מחלקת-באג בדיוק (רמת-סקיל-גולמית-של-front_lever משמשת כתקרה/רפרנס גורף לכל תרגיל, במקום רפרנס-פר-דומיין, כש-domainBudgets ריק כי אין עטיפת-מאסטר) — אבל במנגנון נפרד (תקרת-קושי-לפי-בולט, לא מסנן-דומיין). נבדק ישירות מול הלוגים האמיתיים, לא ניחוש. **המלצה, לא הוכרעה:** אם/כשמתוקן — אותו דפוס בדיוק (activeDomains סימטרי מ-`DOMAIN_RESOLUTION_SKILL_PARENT_MAP`, לא `?? context.userLevel` גורף) יכול להחליף את ה-`else if (context.activeProgramId)` fallback בשני המקומות (Bolt1Cap + Bolt2Cap) — אבל זו עבודה נפרדת, לא כלולה כאן.
+**עדכון 2026-10-01 (אותו יום) — תוקן, אותו ענף.** דוד ביקש במפורש לקפל את התיקון לאותו ענף ("אותו root cause במיקום שני, להשאיר Bolt 2 ריק זה חצי-תיקון"). יושם אותו דפוס סימטרי בדיוק שהוצע כאן: ב-`else if (context.activeProgramId)` בשני המקומות (Bolt1Cap שורות ~711-734, Bolt2Cap שורות ~609-634), `activeProgramSlug` נפתר ל-slug, ואז **שני** ערכים נכנסים למפה הפר-דומיין — `activeProgramSlug` ברמתו-שלו, **ועוד** `DOMAIN_RESOLUTION_SKILL_PARENT_MAP[activeProgramSlug]` (ההורה) ברמתו-שלו-של-ההורה (`userProgramLevels.get(parentDomain)`) — כשקיים ומוערך. ל-Bolt1Cap בנוסף: `bolt1FallbackRef` (המשמש גם כ-`bolt1ReferenceLevel`, הסף שמחליט אם הבלוק כולו רץ) הפך ל-`max(רמת-הסקיל, רמת-ההורה)` במקום רמת-הסקיל-בלבד — כך ש-Bolt 1 **נכון מעיצוב**, לא ניצל במקרה סף `>4` לא-קשור. למשתמש לא-סקיל (activeProgramId רגיל כמו 'push') — ה-parentDomain לא קיים במפה, אז זו תוספת של ערך-יחיד השווה בדיוק לערך-הנפילה הקודם — התנהגות זהה, לא השתנתה.
+
+**אומת ישירות מול הלוגים האמיתיים אחרי התיקון:** `[Bolt1Cap] Recovery window per-domain [front_lever→[L1-L1], pull→[L7-L9]]` ו-`[Bolt2Cap] per-domain [front_lever→L2, pull→L11]` — כל דומיין מקבל חלון/תקרה משלו, לא עוד ערך-יחיד גורף.
+
+**תוצאה:** תרחיש `skill_only_front_lever` ב-harness — 6/6 בולטים (היה 4/6 אחרי תיקון filterForDomain בלבד, 0/6 לפני כל תיקון) מייצרים עכשיו אימון אמיתי. 4 המדדים הקיימים נותרו זהים-ביט (ראו PR/commit לפרטים המלאים) — אפס רגרסיה.
