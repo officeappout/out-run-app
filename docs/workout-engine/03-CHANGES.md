@@ -3919,3 +3919,85 @@ zero-exercise workouts, no duration anomalies in the measurement run.
 
 **Commit:** 2 code commits (`2508217c`, `0b84134e`) + this documentation commit + `00-PLAN.md` §18,
 local only, no push.
+
+---
+
+## Addendum 38 — `no_core_assessment` regression (01.10.2026): a core exercise reaching `main`
+## was rubber-stamped "satisfied" instead of gated on assessment; fixed at 2 confirmed sites,
+## 1 upstream site flagged (not touched — concurrent domain-resolver work elsewhere).
+
+### Background
+
+Routine re-verification (3 weeks after Addendum 37's push) found `no_core_assessment` satisfaction
+moved from **0.00 (0/12)** to **0.25 (3/12)** against current `origin/main`. Traced via
+`pipelineLog`: `protocol_block` was empty on all 3 offending rows — **not** Step 6b/Addendum 37's
+frozen mechanism reactivating (tabata composition measured clean: 9 blocks, 0 mixed, 9 pure, 0
+empty, same run).
+
+### Root cause 1 (confirmed, fixed) — `GuaranteePassRunner.ts:748-847`, `validateCorePromise`
+
+The function's "satisfying found" branch (`if (satisfying) { ... outcome = 'satisfied' }`) never
+checked `userLevelsMap.has('core')` — that check only existed on the INJECT path, reached only when
+no core exercise was present yet. A core exercise reaching `main` through any OTHER selection step
+was unconditionally rubber-stamped `satisfied`, regardless of assessment. Fixed: `isAssessed` is now
+checked FIRST — a `satisfying` core exercise found for an unassessed user is **removed** from
+`exercises` (not just logged), outcome `failed:unassessed_removed`. Unconditional on duration
+(00-PLAN.md §18's rule is unconditional; `CORE_PROTECTED_DURATION_MIN` governs a different axis —
+whether to bother injecting for short sessions, not whether assessment matters).
+
+### Root cause 2 (confirmed, fixed) — `trio-modifiers.service.ts:246-253`, `applyIntenseOption`
+
+Option 3 ("Intense")'s post-processing kept up to `MAX_CORE=1` of whatever core-domain exercise was
+already in `main` (`corePool = main.filter(isCore)...; keptCore = corePool.slice(0, MAX_CORE)`) with
+**zero** check against `userProgramLevels`. Only explains bolt 3 (Intense) — bolt 2 (Balanced) never
+calls this function at all, yet showed the same regression, so this was a contributing,
+independently-wrong path, not the sole cause. Fixed: `corePool` is now `[]` when
+`!userProgramLevels.has('core')` — the core exercise is dropped entirely (not folded into
+`nonCorePool` either, since that pool's own fill logic doesn't domain-restrict and would let it
+survive under a different label).
+
+### Root cause 3 (confirmed by code-tracing, NOT fixed — flagged per explicit coordination instruction)
+
+Bolt 2 ("Balanced") never touches `trio-modifiers.service.ts`'s core logic — its exercises come
+straight from `orchestrator.run()` (`home-workout.service.ts:1163`, **`PipelineOrchestrator`**).
+Since bolt 2 independently showed the same leak, the shared, true upstream root — wherever a
+core-domain candidate gets selected into `main` for a user with no `core` key in
+`userProgramLevels` in the first place — sits inside `PipelineOrchestrator`/`PoolFactory`/
+`workout-selection.utils.ts`'s selection chain. This is confirmed by call-structure, not a
+hypothesis (bolt 2's only possible exercise source, by elimination). **Deliberately not opened or
+edited**: these are exactly the files under concurrent "unified domain-resolver" work in a separate
+chat (per cross-session coordination, 14-15.09.2026 + reconfirmed 01.10.2026) — editing here risked
+colliding with that effort. The 2 fixes above are a complete, verified fix for the OBSERVABLE
+regression (both the backstop and a contributing path are closed; see measurement below) — this
+item is the known, narrower remaining gap: the leak's ultimate origin still exists upstream, just no
+longer reaches a live workout. Flagged for whoever picks up the domain-resolver unification, not
+assigned further here.
+
+### Tests — 6 new, fail-before/pass-after verified via real `git stash`
+
+`promise-validator.test.ts` (+3): core present + unassessed → removed, `reason=unassessed_removed`
+(not `satisfied`/`injected`); fires even below the 20-min protection floor (assessment is
+unconditional, a separate axis from duration); an earlier `isGuaranteedCore=true` flag does not
+exempt it. `trio-modifiers-intense-core-assessment-gate.test.ts` (+3, new file): unassessed → a core
+exercise already in `main` is dropped; assessed → still preserved (unchanged behavior, regression
+guard); `primaryMuscle==='abs'`-tagged core exercises are also caught (not just `movementGroup`).
+Full suite: 2453/2455 passing (2 pre-existing failures, confirmed present on unmodified
+`origin/main` before this fix too — one of them a date-boundary-sensitive arena test unrelated to
+this change). `tsc`: 448/448 before and after — 0 new errors.
+
+### Measurement — `SNAPSHOT_SEED=42 SNAPSHOT_CONCURRENCY=1`, before/after this fix, same `origin/main` base
+
+| metric | before this fix | after this fix |
+|---|---|---|
+| `no_core_assessment` satisfaction | 0.25 (3/12) ⚠️ | **0.00 (0/12)** ✅ |
+| `push,pull,legs,core` satisfaction | 47.2% (34/72) | 47.2% (34/72) — unchanged |
+| `core`-only avg core/workout | 2.972 | 2.972 — unchanged |
+| tabata blocks (mixed/pure/empty) | 9 (0/9/0) | 9 (0/9/0) — unchanged |
+
+Exactly the targeted metric moved, exactly to the required value; the other 3 are byte-identical —
+zero collateral movement, as required before this fix could be considered complete.
+
+### Status
+
+Branch `fix/no-core-assessment-rubber-stamp`, local only. **Not merged, not pushed, not deployed** —
+awaiting David's explicit go per his own instruction for this task.

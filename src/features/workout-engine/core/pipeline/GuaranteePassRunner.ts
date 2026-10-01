@@ -758,6 +758,33 @@ function validateCorePromise(
     e => MG_TO_DOMAIN[e.exercise.movementGroup ?? ''] === 'core',
   );
 
+  // 00-PLAN.md §18: a user without a core assessment never gets a core
+  // exercise, in any path — unconditional, not duration-gated (that's a
+  // separate axis, the CORE_PROTECTED_DURATION_MIN check below). Checked
+  // FIRST, before the happy-path "satisfying found → satisfied" branch:
+  // a core exercise reaching `main` through some other selection path for
+  // an unassessed user must not be rubber-stamped just because it's
+  // already there — this function previously only consulted
+  // userLevelsMap.has('core') on the INJECT path (below), never as a gate
+  // on an exercise already present (found live, 01.10.2026 — see
+  // docs/workout-engine/03-CHANGES.md).
+  const userLevelsMap = context.userProgramLevels;
+  const isAssessed = !!userLevelsMap?.has('core');
+
+  if (satisfying && !isAssessed) {
+    const filtered = exercises.filter(e => e.exercise.id !== satisfying.exercise.id);
+    const removedName = getLocalizedText(satisfying.exercise.name);
+    results.push({ domain: 'core', mechanism, outcome: 'failed', reason: 'unassessed_removed' });
+    pipelineLog.push(
+      `promise_validation:core:outcome=failed:mechanism=${mechanism}:reason=unassessed_removed:removed="${removedName}"`,
+    );
+    console.warn(
+      `[PromiseValidation] ⚠️ core present for an unassessed user — removed "${removedName}" ` +
+      `rather than rubber-stamping it as satisfied`,
+    );
+    return filtered;
+  }
+
   if (satisfying) {
     const outcome = satisfying.isGuaranteedCore ? 'injected' : 'satisfied';
     results.push({ domain: 'core', mechanism, outcome });
@@ -773,8 +800,7 @@ function validateCorePromise(
     return exercises;
   }
 
-  const userLevelsMap = context.userProgramLevels;
-  if (!userLevelsMap || !userLevelsMap.has('core')) {
+  if (!isAssessed) {
     results.push({ domain: 'core', mechanism, outcome: 'failed', reason: 'unassessed' });
     pipelineLog.push(`promise_validation:core:outcome=failed:mechanism=${mechanism}:reason=unassessed`);
     return exercises;
@@ -787,7 +813,7 @@ function validateCorePromise(
     return exercises;
   }
 
-  const domainLevel = userLevelsMap.get('core')!;
+  const domainLevel = userLevelsMap!.get('core')!;
   const usedIds = new Set(exercises.map(e => e.exercise.id));
 
   let sub: ReturnType<typeof findLevelAppropriateSubstitute> = null;

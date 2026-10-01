@@ -151,6 +151,48 @@ describe('validatePromisesPostCut — core outcomes', () => {
     expect(coreResult.reason).toBe('no_safe_victim');
   });
 
+  it('removed (unassessed_removed): core ALREADY present in main, but the user has not assessed core → removed, not rubber-stamped satisfied', () => {
+    // Regression found live 01.10.2026 (docs/workout-engine/03-CHANGES.md):
+    // a core exercise can reach `main` through a path other than this
+    // function's own injection — previously this branch never checked
+    // assessment at all, just "is a core exercise present → satisfied".
+    const core = makeWorkoutExercise(CORE_CANDIDATE);
+    const nonCore = makeWorkoutExercise(makeExercise('push-1', 'push', { movementGroup: 'vertical_push' } as any));
+    const exercises = [nonCore, core];
+    const context = baseContext({ userProgramLevels: new Map() }); // unassessed
+    const log: string[] = [];
+    const { exercises: result, results } = validatePromisesPostCut(exercises, context, FULL_BODY_BLUEPRINT, 2 as any, log);
+
+    expect(result.some(e => e.exercise.id === CORE_CANDIDATE.id)).toBe(false); // removed
+    expect(result.some(e => e.exercise.id === 'push-1')).toBe(true); // everything else untouched
+    expect(result.length).toBe(exercises.length - 1);
+
+    const coreResult = results.find(r => r.domain === 'core')!;
+    expect(coreResult.outcome).toBe('failed');
+    expect(coreResult.reason).toBe('unassessed_removed');
+    expect(log.some(l => l.includes('promise_validation:core:outcome=failed') && l.includes('reason=unassessed_removed'))).toBe(true);
+  });
+
+  it('removed (unassessed_removed): fires even below the 20-min protection floor — assessment is a separate, unconditional axis from duration', () => {
+    const core = makeWorkoutExercise(CORE_CANDIDATE);
+    const context = baseContext({ availableTime: 15, userProgramLevels: new Map() });
+    const { exercises: result, results } = validatePromisesPostCut([core], context, FULL_BODY_BLUEPRINT, 2 as any, []);
+
+    expect(result.length).toBe(0);
+    const coreResult = results.find(r => r.domain === 'core')!;
+    expect(coreResult.reason).toBe('unassessed_removed');
+  });
+
+  it('removed (unassessed_removed): an earlier isGuaranteedCore=true flag does not exempt it from the assessment gate', () => {
+    const core = makeWorkoutExercise(CORE_CANDIDATE, { isGuaranteedCore: true } as any);
+    const context = baseContext({ userProgramLevels: new Map() });
+    const { exercises: result, results } = validatePromisesPostCut([core], context, FULL_BODY_BLUEPRINT, 2 as any, []);
+
+    expect(result.length).toBe(0);
+    const coreResult = results.find(r => r.domain === 'core')!;
+    expect(coreResult.reason).toBe('unassessed_removed');
+  });
+
   it('replaced: core missing, availableTime=20, valid candidate + a replaceable victim → injection by REPLACEMENT, not addition', () => {
     const isolation = makeWorkoutExercise(
       makeExercise('iso-1', 'isolation move', { movementGroup: 'other', targetPrograms: [{ programId: 'push', level: 3 }] } as any),
