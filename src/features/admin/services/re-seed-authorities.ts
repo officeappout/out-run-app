@@ -104,6 +104,34 @@ function getCoordinates(locationId: string, parentCoordinates?: { lat: number; l
 const KNOWN_PRODUCTION_PROJECT_ID = 'appout-1';
 const REQUIRED_CONFIRM_PHRASE = 'DELETE ALL AUTHORITIES';
 
+/**
+ * Non-empty-collection guard (01.10.2026, audit finding — see
+ * docs/audit-2026-09/authority-boundary-backfill-report.md "Follow-ups
+ * §3"). Deliberately checked via `process.argv`, NOT a function parameter
+ * like `confirmPhrase` above — a parameter can be, and already was,
+ * defeated by a caller hardcoding the "correct" value: `useAuthorities.ts`'s
+ * `handleReSeedAuthorities` passes `confirmPhrase: REQUIRED_CONFIRM_PHRASE`
+ * literally in source, so a single button click + one generic browser
+ * `confirm()` popup already satisfies that check without a human typing
+ * anything. `process.argv` cannot be spoofed the same way by EITHER real
+ * invocation path:
+ *   - The API route (src/app/api/admin/re-seed-authorities/route.ts) runs
+ *     inside the Next.js server process, whose argv is fixed at server
+ *     startup (e.g. `next start`) — no HTTP request body can alter it.
+ *   - useAuthorities.ts's handleReSeedAuthorities is a React hook that
+ *     calls this function DIRECTLY IN THE BROWSER (client Firestore SDK,
+ *     no server round-trip) — `process` has no real meaning there; it's
+ *     either undefined (throws before reaching the delete loop) or an
+ *     empty bundler shim (`.includes` on it is false). Either way this
+ *     still fails closed, just via a less polished error in that case.
+ * Only a genuine terminal invocation of a process launched WITH this flag
+ * can satisfy it. No ready-made CLI entry point is provided on purpose —
+ * the friction of having to deliberately write and run one is the point,
+ * matching "an explicit flag someone must deliberately type," not a
+ * convenience bypass.
+ */
+const REQUIRE_NONEMPTY_FLAG = '--i-understand-this-deletes-a-nonempty-collection';
+
 export interface ReSeedOptions {
   /** Defaults to true. Must be explicitly passed as `false` to write anything. */
   dryRun?: boolean;
@@ -171,6 +199,25 @@ export async function reSeedIsraeliAuthorities(options: ReSeedOptions = {}): Pro
       const report = `[DRY RUN] would delete ${wouldDelete} existing authorities, would create ${wouldCreate} new ones. Nothing was written.`;
       console.log(`[Re-Seed] ${report}`);
       return { dryRun: true, deleted: 0, created: 0, errors: 0, report };
+    }
+
+    // Non-empty-collection guard — see REQUIRE_NONEMPTY_FLAG's doc comment
+    // above for why this is a process.argv check, not a parameter.
+    const nonInternalCount = snapshot.docs.filter(
+      (d) => !(d.id.includes('__SCHEMA_INIT__') || d.data()?.name?.includes('__SCHEMA_INIT__')),
+    ).length;
+    if (nonInternalCount > 0 && !process.argv.includes(REQUIRE_NONEMPTY_FLAG)) {
+      throw new Error(
+        `[Re-Seed] Refusing: the authorities collection currently holds ${nonInternalCount} real ` +
+        `record(s). Deleting them is NOT reversible from this app's own data: createAuthority ` +
+        `assigns brand-new auto-generated document IDs, so every existing foreign-key reference ` +
+        `elsewhere (users.core.authorityId, parks/routes/climb_segments.authorityId, CRM tasks, ` +
+        `invitations, everything) would point at a deleted doc. CRM contacts, financials, ` +
+        `activityLog, boundaryGeoJSON, isActiveClient/pipelineStatus, and every other field ` +
+        `ISRAELI_LOCATIONS doesn't carry are not recreated either. This requires a process ` +
+        `actually launched with ${REQUIRE_NONEMPTY_FLAG} on its own command line — not available ` +
+        `via the API route or the admin UI, by design.`,
+      );
     }
 
     for (const docSnapshot of snapshot.docs) {
