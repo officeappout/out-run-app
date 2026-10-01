@@ -9,7 +9,7 @@
  *
  * Responsibilities:
  *   A. normalizeEquipmentArray       — single source of truth for
- *                                      ESSENTIAL_PARK_GEAR catastrophic
+ *                                      DEFAULT_PARK_GEAR catastrophic
  *                                      fallback + park/gym injection
  *                                      + dedup.  After this runs,
  *                                      ContextualEngine.findMatchingMethod
@@ -42,7 +42,7 @@ import type { Exercise, ExecutionLocation } from '@/features/content/exercises/c
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
 import type { Program } from '@/features/content/programs/core/program.types';
-import { ESSENTIAL_PARK_GEAR, ASSUMED_HOME_GEAR } from '../../shared/utils/gear-mapping.utils';
+import { DEFAULT_PARK_GEAR, ASSUMED_HOME_GEAR } from '../../shared/utils/gear-mapping.utils';
 import { ASSUMED_HOME_GEAR_ENABLED } from '@/config/feature-flags';
 import type { ShadowMatrix } from '../../services/shadow-level.utils';
 import { resolveEquipment } from '../../services/user-profile.utils';
@@ -72,8 +72,10 @@ import { DOMAIN_RESOLUTION_SKILL_PARENT_MAP } from '../../logic/workout-selectio
  *      gym-only inventory.
  *   3. Park / Street fixtures —
  *        a. Real `parkEquipmentIds` when provided.
- *        b. ESSENTIAL_PARK_GEAR catastrophic fallback when no park
- *           inventory was resolved (canonical place this fires).
+ *        b. DEFAULT_PARK_GEAR catastrophic fallback when no park
+ *           inventory was resolved (canonical place this fires;
+ *           ESSENTIAL_PARK_GEAR's narrower set is still used as-is by
+ *           every other caller, e.g. park-gating's CLIFF rescue).
  *      Plus universal outdoor fixtures (`park_bench`, `park_step`).
  *
  * The result is deduplicated via `new Set(...)` so the array is stable
@@ -114,8 +116,10 @@ export function normalizeEquipmentArray(
         `[InputSanitizer] 🏞️ Park inventory (real): [${parkEquipmentIds.join(', ')}]`,
       );
     } else {
-      // Catastrophic fallback — no park resolved; assume baseline calisthenics fixtures.
-      const fallback = Array.from(ESSENTIAL_PARK_GEAR);
+      // Catastrophic fallback — no park resolved. Uses DEFAULT_PARK_GEAR (park-hero-fix,
+      // Decision D), a richer substitute than the narrow ESSENTIAL_PARK_GEAR baseline —
+      // ESSENTIAL_PARK_GEAR itself is untouched and still used as-is by every other caller.
+      const fallback = Array.from(DEFAULT_PARK_GEAR);
       availableEquipment = [
         ...availableEquipment,
         ...fallback,
@@ -123,7 +127,7 @@ export function normalizeEquipmentArray(
         'park_step',
       ];
       console.warn(
-        '[InputSanitizer] ⚠️ No park inventory resolved — ESSENTIAL_PARK_GEAR fallback active',
+        '[InputSanitizer] ⚠️ No park inventory resolved — DEFAULT_PARK_GEAR fallback active',
       );
     }
   }

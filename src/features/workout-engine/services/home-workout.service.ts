@@ -1513,6 +1513,7 @@ export async function generateHomeWorkoutTrio(
 
     const result: HomeWorkoutResult = {
       workout,
+      usedEmptyPoolFallback: orchResult.usedEmptyPoolFallback,
       meta: pipeline.resultMeta,
     };
 

@@ -3068,11 +3068,20 @@ export default function HomePage() {
                             onStart={() => handlePreWorkoutCardTap(s)}
                             isStarting={startingPreWorkoutSuggestionId === s.id}
                             userGender={profile?.core?.gender}
-                            // Per-card location: THIS suggestion's own stamped location once
-                            // swapped (persists independently of which card is active), else the
-                            // shared profile-seed default — never the active card's pin bleeding
-                            // into a suggestion the user hasn't touched the chip for.
-                            workoutLocation={swappedWorkoutById[s.id]?.executionLocation ?? carouselSeedLocation}
+                            // Per-card location (hero-location fix, Decision A): THIS
+                            // suggestion's own REAL resolved workout's stamped
+                            // executionLocation first — via resolveHeroWorkout, the exact
+                            // same lookup activeCarouselLocation above already uses (so a
+                            // card that resolved to 'park' via the default path, not just
+                            // via an explicit swap, gets its hero image right) — then the
+                            // swap override is already folded in as resolveHeroWorkout's
+                            // own overrideWorkout param, so this single call covers both
+                            // "swapped" and "resolved on the default path" cases. Falls back
+                            // to the shared profile-seed default only when truly nothing has
+                            // resolved yet (e.g. Tier-2 still in flight) — never the active
+                            // card's pin bleeding into a suggestion the user hasn't touched
+                            // the chip for.
+                            workoutLocation={resolveHeroWorkout(s, swappedWorkoutById[s.id])?.executionLocation ?? carouselSeedLocation}
                             programIconKey={carouselProgramIconKey}
                             overrideWorkout={swappedWorkoutById[s.id]}
                             healthConnected={healthConnected}
