@@ -52,6 +52,7 @@ import { TrendingUp, Users, Calendar, MapPin, Map, Target, DollarSign, Bell, Sen
 import { getParksByAuthority } from '@/features/parks';
 import { Park, KpiSettings, DEFAULT_KPI_SETTINGS } from '@/types/admin-types';
 import { getAuthority, updateAuthority } from '@/features/admin/services/authority.service';
+import { authorityTypeToTenantType } from '@/features/admin/config/tenantLabels';
 import {
   getWHO150Tracker,
   getHealthSavings,
@@ -131,6 +132,14 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
   const [kpiSaving, setKpiSaving] = useState(false);
   const [kpiDirty, setKpiDirty] = useState(false);
 
+  // 01.10.2026 (00-MASTER-PLAN.md §13.61) — which vertical this authority
+  // actually belongs to, derived once from the same getAuthority() call
+  // loadKpiSettings already makes (no extra fetch). Defaults to
+  // 'municipal' until resolved, matching authorityTypeToTenantType's own
+  // fallback — the neighborhood filter stays visible during that brief
+  // window rather than flashing hidden-then-shown.
+  const [tenantType, setTenantType] = useState<'municipal' | 'military' | 'educational' | 'company' | 'youth_movement'>('municipal');
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUserId(user?.uid || null);
@@ -154,6 +163,7 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
       } else {
         setKpiSettings(DEFAULT_KPI_SETTINGS);
       }
+      if (auth) setTenantType(authorityTypeToTenantType(auth));
       setKpiDirty(false);
     } catch (err) {
       console.error('[KPI] Error loading settings:', err);
@@ -488,7 +498,7 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
             <div className="flex items-center gap-6 flex-wrap">
               <div className="flex items-baseline gap-1.5">
                 <span className="text-2xl font-black tabular-nums">{stepsTotals.totalSteps.toLocaleString('he-IL')}</span>
-                <span className="text-[11px] text-white/60 font-semibold">סה"כ צעדים בעיר</span>
+                <span className="text-[11px] text-white/60 font-semibold">סה"כ צעדים</span>
               </div>
               <div className="w-px h-5 bg-white/20 hidden sm:block" />
               <div className="flex items-baseline gap-1.5">
@@ -508,7 +518,7 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
                   <div className="w-px h-5 bg-white/20 hidden sm:block" />
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-2xl font-black tabular-nums">{(stepsTotals.totalDistanceMeters / 1000).toLocaleString('he-IL', { maximumFractionDigits: 1 })}</span>
-                    <span className="text-[11px] text-white/60 font-semibold">ק״מ הליכה/ריצה בעיר</span>
+                    <span className="text-[11px] text-white/60 font-semibold">ק״מ הליכה/ריצה</span>
                   </div>
                 </>
               )}
@@ -712,6 +722,7 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
         filters={filters}
         neighborhoods={neighborhoods}
         onChange={setFilters}
+        showNeighborhoodFilter={tenantType !== 'military'}
       />
 
       {/* Activity by Hour Chart (responds to filters) */}
@@ -868,7 +879,7 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
               <Footprints size={24} className="text-green-600" />
             </div>
             <div>
-              <span className="text-sm font-bold text-gray-500">ק"מ עירוניים (ריצה + הליכה)</span>
+              <span className="text-sm font-bold text-gray-500">ק"מ ריצה + הליכה</span>
               {filters.gender !== 'all' || filters.neighborhoodId !== 'all' ? (
                 <div className="text-[10px] text-green-600 font-semibold">מסונן לפי הפילטרים הפעילים</div>
               ) : null}

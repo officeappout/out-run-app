@@ -47,10 +47,17 @@ interface RoleOption {
 // authorities in production have any authorities-children at all).
 // company/youth_movement stay empty — no persona-drawer unit-hierarchy
 // question exists for those verticals (unchanged from the original audit).
+// 01.10.2026 (00-MASTER-PLAN.md §13.61) — military's two labels below now
+// come from tenantLabels.ts's TENANT_LABELS.military.{tenantOwnerRoleLabel,
+// unitAdminRoleLabel} instead of hardcoded strings — David's exact
+// requested titles, through the existing label mechanism rather than a
+// one-off edit here. Every other vertical's options are untouched.
+const MILITARY_LABELS = getTenantLabels('military');
+
 const ROLE_OPTIONS_BY_CONTEXT: Record<TenantType | 'platform', RoleOption[]> = {
   military: [
-    { value: 'tenant_owner', label: 'בעל הגוף (מפקד ראשי)' },
-    { value: 'unit_admin', label: 'מנהל יחידה (מפקד)', requiresScope: 'unit' },
+    { value: 'tenant_owner', label: MILITARY_LABELS.tenantOwnerRoleLabel ?? 'בעל הגוף (מפקד ראשי)' },
+    { value: 'unit_admin', label: MILITARY_LABELS.unitAdminRoleLabel ?? 'מנהל יחידה (מפקד)', requiresScope: 'unit' },
   ],
   municipal: [
     { value: 'authority_manager', label: 'מנהל רשות (עיר)' },

@@ -7,6 +7,13 @@ interface FilterBarProps {
   filters: DashboardFilters;
   neighborhoods: { id: string; name: string }[];
   onChange: (next: DashboardFilters) => void;
+  /**
+   * 01.10.2026 (00-MASTER-PLAN.md §13.61) — "neighborhood" has no
+   * sensible equivalent for a military/educational tenant; hidden, not
+   * relabeled, for those verticals. Defaults to true (unchanged behavior
+   * for the only real caller, AnalyticsDashboard.tsx's municipal path).
+   */
+  showNeighborhoodFilter?: boolean;
 }
 
 const TIME_OPTIONS: { value: DashboardFilters['timeRange']; label: string }[] = [
@@ -32,7 +39,7 @@ function isDefault(f: DashboardFilters) {
     f.persona === 'all' && f.neighborhoodId === 'all' && !f.compareNeighborhoodId;
 }
 
-export default function FilterBar({ filters, neighborhoods, onChange }: FilterBarProps) {
+export default function FilterBar({ filters, neighborhoods, onChange, showNeighborhoodFilter = true }: FilterBarProps) {
   const set = (patch: Partial<DashboardFilters>) => onChange({ ...filters, ...patch });
 
   return (
@@ -70,25 +77,27 @@ export default function FilterBar({ filters, neighborhoods, onChange }: FilterBa
         </select>
 
         {/* Neighborhood */}
-        <select
-          value={filters.neighborhoodId}
-          onChange={e => {
-            const neighborhoodId = e.target.value;
-            set({
-              neighborhoodId,
-              compareNeighborhoodId: neighborhoodId === 'all' ? null : filters.compareNeighborhoodId,
-            });
-          }}
-          className="text-xs font-bold border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:ring-2 focus:ring-cyan-400 outline-none max-w-[180px]"
-        >
-          <option value="all">כל השכונות</option>
-          {neighborhoods.map(n => (
-            <option key={n.id} value={n.id}>{n.name}</option>
-          ))}
-        </select>
+        {showNeighborhoodFilter && (
+          <select
+            value={filters.neighborhoodId}
+            onChange={e => {
+              const neighborhoodId = e.target.value;
+              set({
+                neighborhoodId,
+                compareNeighborhoodId: neighborhoodId === 'all' ? null : filters.compareNeighborhoodId,
+              });
+            }}
+            className="text-xs font-bold border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:ring-2 focus:ring-cyan-400 outline-none max-w-[180px]"
+          >
+            <option value="all">כל השכונות</option>
+            {neighborhoods.map(n => (
+              <option key={n.id} value={n.id}>{n.name}</option>
+            ))}
+          </select>
+        )}
 
         {/* Compare Neighborhood (only visible when a neighborhood is selected) */}
-        {filters.neighborhoodId !== 'all' && (
+        {showNeighborhoodFilter && filters.neighborhoodId !== 'all' && (
           <select
             value={filters.compareNeighborhoodId ?? ''}
             onChange={e => set({ compareNeighborhoodId: e.target.value || null })}
