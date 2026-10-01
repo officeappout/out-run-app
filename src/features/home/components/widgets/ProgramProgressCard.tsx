@@ -15,6 +15,28 @@ export interface GoalItem {
   isCompleted: boolean;
 }
 
+/**
+ * Progression v2 Phase 4a — card state variant. Undefined (the default) is
+ * today's exact rendering, unchanged — this is fully additive, not a
+ * replacement of the existing visual. 🟢 active / 🔵 tracked render
+ * IDENTICALLY to the default (today's card) — the section a card appears
+ * in (Progression screen) already communicates which. 🔒 locked_prereq
+ * gets a different look, reusing the exact dashed-border pattern that
+ * already exists as a hand-rolled sibling block in ProgramsSection.tsx
+ * (`!card.isAssessed`) — integrated into this card itself instead of
+ * staying a separate, duplicated block.
+ *
+ * Phase 4a-fix: ⚪ available is kept in the type for spec-fidelity but the
+ * caller (program-card-state.service.ts's resolveProgramCardState) never
+ * actually produces it bare anymore — 'available' structurally means
+ * "never assessed, no data to show," so it always resolves to either
+ * locked_prereq (a leaf/skill program — it HAS a questionnaire) or the
+ * new not_started_master (a master — it has NO own questionnaire, no own
+ * real level to fabricate; same dashed look, different static text, never
+ * a tappable "בצע מבדק").
+ */
+export type ProgramCardVisualState = 'active' | 'tracked' | 'available' | 'locked_prereq' | 'not_started_master';
+
 export interface ProgramProgressCardProps {
   programName: string;
   /** When true, renders a shimmer skeleton in place of the program name while the CMS fetch is pending. */
@@ -26,6 +48,28 @@ export interface ProgramProgressCardProps {
   goals?: GoalItem[];
   programCount?: number;
   className?: string;
+  /** Progression v2 Phase 4a — see ProgramCardVisualState above. Omit for today's unchanged behavior. */
+  state?: ProgramCardVisualState;
+  /**
+   * Shown under the (grayed) name only when state === 'locked_prereq' —
+   * either the derived prerequisite ("דרוש משיכה 10") or, for a program
+   * that's locked because it was never assessed, "בצע מבדק". The caller
+   * decides which text applies; the card just renders what it's given.
+   */
+  lockedHint?: string;
+  /**
+   * When provided, lockedHint renders as a tappable secondary CTA (its own
+   * button, stopping propagation so it doesn't also trigger the card's own
+   * outer tap) instead of plain text — Progression v2 Phase 4a-fix: "the
+   * 'בצע מבדק' text on discover cards becomes a secondary CTA; the card's
+   * primary tap is open/view the map." Omit for a real prerequisite label
+   * (no action to take there, just informational) — the card itself stays
+   * dumb about WHICH case this is; the caller already knows (it computed
+   * lockedHint) and decides whether to pass this.
+   */
+  onLockedHintTap?: () => void;
+  /** Small text badge next to the name (e.g. "ראשי" for the priority-#1 active program). Any state. */
+  badge?: string;
 }
 
 // ============================================================================
@@ -103,6 +147,10 @@ export function ProgramProgressCard({
   goals = [],
   programCount = 1,
   className = '',
+  state,
+  lockedHint,
+  onLockedHintTap,
+  badge,
 }: ProgramProgressCardProps) {
   const nextLevel = currentLevel + 1;
   const remainingPercent = Math.max(0, 100 - Math.round(progressPercent));
@@ -114,6 +162,76 @@ export function ProgramProgressCard({
   const cardStyle: React.CSSProperties = isCarousel
     ? { minHeight: 107 }
     : {};
+
+  const isLocked = state === 'locked_prereq';
+  const isNotStartedMaster = state === 'not_started_master';
+
+  // ── Locked / not-started-master variant (Progression v2 Phase 4a,
+  // extended 4a-fix) ───────────────────────────────────────────────────────
+  // Reuses ProgramsSection.tsx's existing dashed "not yet assessed" pattern
+  // exactly (1px dashed #CBD5E1, grayed name, cyan hint) rather than
+  // inventing a new locked look — no ring, no expandable goals, since
+  // neither state has a meaningful own level to show yet. A master
+  // (not_started_master) never gets lockedHint/onLockedHintTap — it has no
+  // own questionnaire to assess, so it always shows the SAME static "not
+  // started, based on your programs" text with no tappable CTA, regardless
+  // of what the caller passed for lockedHint.
+  if (isLocked || isNotStartedMaster) {
+    const displayHint = isNotStartedMaster ? 'טרם התחיל · מבוסס על התוכניות שלך' : lockedHint;
+    const hintTappable = isLocked && !!onLockedHintTap;
+    return (
+      <div
+        className={`bg-white dark:bg-slate-800 w-full flex flex-col justify-between ${className}`}
+        style={{
+          minHeight: isCarousel ? 107 : undefined,
+          padding: 16,
+          borderRadius: 12,
+          border: '1px dashed #CBD5E1',
+        }}
+        dir="rtl"
+      >
+        <div className="flex items-start gap-2 min-h-[40px]">
+          <span className="text-gray-400 flex-shrink-0 mt-0.5">
+            {getProgramIcon(iconKey, 'w-5 h-5')}
+          </span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <h3 className="text-[15px] font-bold text-gray-500 line-clamp-2 break-words leading-snug">
+                {programName}
+              </h3>
+              {badge && (
+                <span className="text-[10px] font-black text-gray-400 bg-gray-100 rounded-full px-2 py-0.5 flex-shrink-0">
+                  {badge}
+                </span>
+              )}
+            </div>
+            {displayHint && (
+              hintTappable ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onLockedHintTap!();
+                  }}
+                  className="text-xs font-bold mt-2 underline active:opacity-70 pointer-events-auto relative z-10"
+                  style={{ color: BRAND_CYAN }}
+                >
+                  {displayHint}
+                </button>
+              ) : (
+                <p
+                  className={`text-xs font-bold mt-2 ${isNotStartedMaster ? 'text-gray-400' : ''}`}
+                  style={isNotStartedMaster ? undefined : { color: BRAND_CYAN }}
+                >
+                  {displayHint}
+                </p>
+              )
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -149,9 +267,19 @@ export function ProgramProgressCard({
             {programNameLoading ? (
               <div className="h-[40px] w-full max-w-[120px] rounded-md bg-gray-200 dark:bg-zinc-700 animate-pulse" />
             ) : (
-              <h3 className="text-[15px] font-bold text-gray-900 dark:text-white line-clamp-2 break-words leading-snug">
-                {programName}
-              </h3>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h3 className="text-[15px] font-bold text-gray-900 dark:text-white line-clamp-2 break-words leading-snug">
+                  {programName}
+                </h3>
+                {badge && (
+                  <span
+                    className="text-[10px] font-black text-white rounded-full px-2 py-0.5 flex-shrink-0"
+                    style={{ backgroundColor: BRAND_CYAN }}
+                  >
+                    {badge}
+                  </span>
+                )}
+              </div>
             )}
           </div>
 

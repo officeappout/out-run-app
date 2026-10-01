@@ -1,3 +1,15 @@
+## SKILL_TO_FOUNDATION_DOMAIN credits muscle_up to 'pull' only — now sits oddly next to its new push+pull AND gate
+
+**Opened:** 2026-10-01 · **Source:** Phase 4c-2 Item 2 (muscle_up "Model A" — isMaster:false + a new push-AND-pull unlock prerequisite). Flagged, not fixed, per David's explicit instruction to leave this alone and park it.
+
+`src/features/user/onboarding/constants/skill-foundation-domain.constants.ts`'s `SKILL_TO_FOUNDATION_DOMAIN` map already has `muscle_up: 'pull'` — used by `onboarding-sync.service.ts` (`SKILL_TO_FOUNDATION_OFFSET = 9`) to derive a foundational **pull**-track level from an assessed muscle_up skill level during onboarding sync (`Foundational Pull Level = Assessed muscle_up Level + 9`). This is a different relationship from Item 2's prerequisite/gating work (which lives entirely in `prerequisite-derivation.service.ts`/`program-gating.service.ts`) — Item 2 does not touch this file or map at all.
+
+But the two now sit in tension: muscle_up's new unlock gate requires **both** push and pull (an AND, `MANUAL_PREREQUISITE_OVERRIDES` in `prerequisite-derivation.service.ts`, minLevel 10 each), while this onboarding-sync map still credits an assessed muscle_up level toward **pull only** — push gets nothing. Whether that's fine as-is (a skill→domain credit heuristic doesn't have to mirror a domain→skill unlock gate) or should also credit push is a real, open question.
+
+**Not resolved — explicitly parked.** This file/map is also under active parallel consolidation by a separate "generator chat" session (consolidating 6 skill→parent map copies, of which this is one) — David's own coordination flag for Item 2. Do not touch `SKILL_TO_FOUNDATION_DOMAIN` or `onboarding-sync.service.ts` for this reason without David reconciling with that other effort first.
+
+---
+
 # Parking Lot — deferred follow-ups
 
 > Items intentionally deferred, with enough context to pick up later.

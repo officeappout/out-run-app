@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Home, Map, Users } from 'lucide-react';
+import { Home, Map, Users, TrendingUp } from 'lucide-react';
 import { useSessionStore } from '@/features/workout-engine';
 import { useUserStore } from '@/features/user';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
@@ -45,8 +45,9 @@ export default function BottomNavigation() {
   // of the social feed, so we must not hide the only entry point to /community
   // when only leagues is on.
   const navItems = [
-    { name: 'בית',    href: '/home',      icon: Home,  match: 'prefix' as const },
-    { name: 'מפה',    href: '/map',        icon: Map,   match: 'prefix' as const },
+    { name: 'בית',       href: '/home',        icon: Home,       match: 'prefix' as const },
+    { name: 'מפה',       href: '/map',          icon: Map,        match: 'prefix' as const },
+    { name: 'התקדמות',   href: '/progression',  icon: TrendingUp, match: 'prefix' as const },
     ...(flags.enableCommunityFeed || flags.enableLeagues
       ? [
           { name: 'חברתי', href: '/community', icon: Users, match: 'community-feed' as const },
