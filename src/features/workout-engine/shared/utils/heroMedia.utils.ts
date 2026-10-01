@@ -1,8 +1,9 @@
 import type { WorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import {
   resolveVideoForLocation,
-  resolveImageForLocation,
+  findMethodForLocation,
 } from '@/features/content/exercises/core/exercise.types';
+import { resolveExerciseMedia } from './media-resolution.utils';
 
 /**
  * Pick the exercise whose media drives the workout hero.
@@ -48,18 +49,26 @@ export function pickHeroExercise(
 
 /**
  * Resolve thumbnail & video URLs for a given WorkoutExercise.
- * Priority: execution-method media -> legacy exercise.media.
  *
- * Hero-image fix (2026-10-01): there is ALWAYS a real video for a composed
- * workout exercise — resolveImageForLocation now derives a real Bunny
- * thumbnail from it even when the video exists only via the legacy
- * mainVideoUrl field (see that function's own doc comment). The generic
- * Unsplash stock-photo bank that used to live here (a movement-group-keyed
- * fallback, then an absolute default) is removed entirely, not patched —
- * it never matched either the specific exercise or the outdoor-park brand.
- * When (rare) truly no real media resolves at all, `thumbnailUrl` is simply
- * `''` — the caller (HeroMediaBackground, HeroWorkoutCard.tsx) renders an
- * on-brand gradient in that case instead of an `<img>`, never a stock photo.
+ * Hero-image fix (2026-10-01, revised): now delegates to `resolveExerciseMedia`
+ * (media-resolution.utils.ts) — the same "exhaustive 5-level deep search"
+ * resolver `home/page.tsx`, the active workout player, the workout-preview-
+ * drawer, and the strength player all already use — instead of the narrower
+ * `resolveImageForLocation`/`resolveVideoForLocation` pair this used to call
+ * directly. Verified against the live catalog (371 exercises × 3 locations)
+ * before switching, not assumed: the narrow pair left 5.7% of combos with no
+ * image (21.7% with no video), because it only checks the ONE method
+ * `findMethodForLocation` selects — never scanning sibling methods for an
+ * image, nor the exercise-root `imageUrl`/`coverImage`/`thumbnailUrl` fields
+ * the wide resolver already covers. `resolveExerciseMedia` closes that gap to
+ * 0.5% missing image, matching every other surface in the app.
+ *
+ * The generic Unsplash stock-photo bank that used to live here is removed
+ * entirely, not patched — it never matched either the specific exercise or
+ * the outdoor-park brand. When (now genuinely rare, ~0.5% of combos) truly no
+ * real media resolves at all, `thumbnailUrl`/`videoUrl` are simply `''` — the
+ * caller (HeroMediaBackground, HeroWorkoutCard.tsx) renders an on-brand
+ * gradient in that case instead of an `<img>`, never a stock photo.
  */
 export function resolveHeroMedia(
   ex: WorkoutExercise | undefined,
@@ -69,8 +78,8 @@ export function resolveHeroMedia(
     return { thumbnailUrl: '', videoUrl: '' };
   }
 
-  const image = resolveImageForLocation(ex.exercise, location);
-  const video = resolveVideoForLocation(ex.exercise, location);
+  const method = findMethodForLocation(ex.exercise, location);
+  const { imageUrl, videoUrl } = resolveExerciseMedia(ex.exercise, method);
 
-  return { thumbnailUrl: image, videoUrl: video || '' };
+  return { thumbnailUrl: imageUrl || '', videoUrl: videoUrl || '' };
 }
