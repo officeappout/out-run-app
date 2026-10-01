@@ -61,7 +61,7 @@ const PROGRESS_FILE = path.join(__dirname, '.authority-boundary-backfill-progres
 const REPORT_FILE = path.join(__dirname, '..', 'docs', 'audit-2026-09', 'authority-boundary-backfill-report.md');
 const SLEEP_BETWEEN_AUTHORITIES_MS = 3000;
 
-type Verdict = 'PASS' | 'FLAG' | 'FAIL';
+type Verdict = 'PASS' | 'FLAG' | 'FAIL' | 'RETRY';
 
 interface ProgressEntry {
   authorityId: string;
@@ -160,6 +160,19 @@ interface RelationMatch {
 // reported in the output instead, unfiltered. Routed through the SAME
 // fetchOverpassRaw transport as fetchCityBoundary — not a new HTTP/retry
 // stack, just a new query string.
+//
+// 01.10.2026 fix: Overpass can return HTTP 200 with a truncated/incomplete
+// `elements` array under load — no thrown error, just silently fewer
+// results than the real answer. It signals this via a top-level `remark`
+// field (e.g. a timeout/runtime-error message) that fetchOverpassRaw's
+// return type doesn't declare but the raw JSON still carries at runtime.
+// A genuinely-zero-match result that was actually caused by this looked
+// IDENTICAL to a real "no OSM relation exists" FAIL — confirmed this is
+// exactly what happened to the 17 "geometry could not be assembled"
+// entries (all 17 re-verified clean on retry, see
+// docs/audit-2026-09/geometry-assembly-retry-findings.md). Throwing here
+// on a remark routes it through the same RETRY path as a real network
+// exception, instead of silently masquerading as a confirmed no-match.
 async function findAdminRelationsByName(name: string): Promise<RelationMatch[]> {
   const escaped = escapeOverpassString(name);
   const query = `[out:json][timeout:60];
@@ -168,7 +181,10 @@ async function findAdminRelationsByName(name: string): Promise<RelationMatch[]> 
   relation["boundary"="administrative"]["name:he"="${escaped}"];
 );
 out tags;`;
-  const result = await fetchOverpassRaw(query);
+  const result: any = await fetchOverpassRaw(query);
+  if (result.remark) {
+    throw new Error(`Overpass returned a remark (response likely incomplete, not trustworthy as a confirmed no-match): ${result.remark}`);
+  }
   const seen = new Map<number, RelationMatch>();
   for (const el of result.elements) {
     if (el.type !== 'relation') continue;
@@ -179,12 +195,7 @@ out tags;`;
   return Array.from(seen.values());
 }
 
-function classify(entry: ProgressEntry, matches: RelationMatch[], feature: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> | null): { verdict: Verdict; reasons: string[] } {
-  if (matches.length === 0) return { verdict: 'FAIL', reasons: ['no OSM relation matched name or name:he — not found'] };
-  // 🔴 explicit rule: on multiple match, never choose — FAIL, not FLAG.
-  if (matches.length > 1) return { verdict: 'FAIL', reasons: [`${matches.length} relations matched the name — ambiguous, not choosing (relation ids: ${matches.map((m) => m.id).join(', ')})`] };
-  if (!feature) return { verdict: 'FAIL', reasons: ['relation matched but boundary geometry could not be assembled'] };
-
+function classify(entry: ProgressEntry, matches: RelationMatch[], feature: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>): { verdict: Verdict; reasons: string[] } {
   const reasons: string[] = [];
   const areaKm2 = featureAreaKm2(feature);
   if ((entry.type === 'city' || entry.type === 'local_council') && areaKm2 > 500) reasons.push(`area ${areaKm2.toFixed(1)}km² > 500km² for ${entry.type}`);
@@ -216,39 +227,60 @@ async function runStageA(db: admin.firestore.Firestore, listOnly: boolean): Prom
     const entry = entries[i];
     if (entry.status === 'done') continue;
     console.log(`\n[${i + 1}/${entries.length}] ${entry.name} (${entry.type}, ${entry.authorityId})`);
+
+    // RETRY vs FAIL (01.10.2026 fix): a thrown exception anywhere in this
+    // block — from the name search OR the geometry fetch, including a
+    // remark-flagged incomplete Overpass response — means we genuinely
+    // don't know the answer yet, not that the answer is negative. Those
+    // entries go back to 'pending' so the next invocation retries exactly
+    // them, same resumable mechanism as every other partial run. Only a
+    // clean, exception-free response (real zero matches, real multiple
+    // matches, or a successfully-fetched feature) is a confirmed, 'done'
+    // PASS/FLAG/FAIL — see docs/audit-2026-09/geometry-assembly-retry-findings.md
+    // for why this distinction exists: the old code funneled every
+    // fetchCityBoundary exception into "geometry could not be assembled,"
+    // which 17/17 re-verified as actually transient, not structural.
     try {
       const matches = await findAdminRelationsByName(entry.name);
-      let feature: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> | null = null;
-      if (matches.length === 1) {
-        try {
-          feature = await fetchCityBoundary(matches[0].id, entry.name);
-        } catch (err) {
-          entry.error = err instanceof Error ? err.message : String(err);
-        }
-      }
-      const { verdict, reasons } = classify(entry, matches, feature);
-      entry.status = 'done';
-      entry.verdict = verdict;
-      entry.reasons = reasons;
       entry.matchCount = matches.length;
-      if (matches.length === 1) {
+
+      if (matches.length === 0) {
+        entry.status = 'done';
+        entry.verdict = 'FAIL';
+        entry.reasons = ['no OSM relation matched name or name:he — not found'];
+      } else if (matches.length > 1) {
+        // 🔴 explicit rule: on multiple match, never choose — FAIL, not FLAG.
+        entry.status = 'done';
+        entry.verdict = 'FAIL';
+        entry.reasons = [`${matches.length} relations matched the name — ambiguous, not choosing (relation ids: ${matches.map((m) => m.id).join(', ')})`];
+      } else {
         entry.relationId = matches[0].id;
         entry.osmName = matches[0].name;
         entry.osmNameHe = matches[0].nameHe;
+        try {
+          const feature = await fetchCityBoundary(matches[0].id, entry.name);
+          const { verdict, reasons } = classify(entry, matches, feature);
+          entry.status = 'done';
+          entry.verdict = verdict;
+          entry.reasons = reasons;
+          entry.areaKm2 = featureAreaKm2(feature);
+          entry.ringCount = featureRingCount(feature);
+          entry.geometryType = feature.geometry.type;
+          entry.featureJson = JSON.stringify(feature);
+        } catch (fetchErr) {
+          entry.status = 'pending';
+          entry.verdict = 'RETRY';
+          entry.error = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+          entry.reasons = [`fetchCityBoundary threw (network/transient, not a confirmed geometry defect — will retry): ${entry.error}`];
+        }
       }
-      if (feature) {
-        entry.areaKm2 = featureAreaKm2(feature);
-        entry.ringCount = featureRingCount(feature);
-        entry.geometryType = feature.geometry.type;
-        entry.featureJson = JSON.stringify(feature);
-      }
-      console.log(`   → ${verdict}${reasons.length ? ' (' + reasons.join('; ') + ')' : ''}`);
-    } catch (err) {
-      entry.status = 'done';
-      entry.verdict = 'FAIL';
-      entry.error = err instanceof Error ? err.message : String(err);
-      entry.reasons = [`unhandled error: ${entry.error}`];
-      console.log(`   → FAIL (error: ${entry.error})`);
+      console.log(`   → ${entry.verdict}${entry.reasons?.length ? ' (' + entry.reasons.join('; ') + ')' : ''}`);
+    } catch (searchErr) {
+      entry.status = 'pending';
+      entry.verdict = 'RETRY';
+      entry.error = searchErr instanceof Error ? searchErr.message : String(searchErr);
+      entry.reasons = [`findAdminRelationsByName threw (network/transient, not a confirmed no-match — will retry): ${entry.error}`];
+      console.log(`   → RETRY (error: ${entry.error})`);
     }
     saveProgress(entries);
     if (i < entries.length - 1) await sleep(SLEEP_BETWEEN_AUTHORITIES_MS);
@@ -258,14 +290,16 @@ async function runStageA(db: admin.firestore.Firestore, listOnly: boolean): Prom
   const pass = entries.filter((e) => e.verdict === 'PASS').length;
   const flag = entries.filter((e) => e.verdict === 'FLAG').length;
   const fail = entries.filter((e) => e.verdict === 'FAIL').length;
+  const retry = entries.filter((e) => e.verdict === 'RETRY').length;
   console.log(`\n=== STAGE A COMPLETE ===`);
-  console.log(`PASS: ${pass}  FLAG: ${flag}  FAIL: ${fail}  (total ${entries.length})`);
+  console.log(`PASS: ${pass}  FLAG: ${flag}  FAIL: ${fail}  RETRY: ${retry}  (total ${entries.length})`);
+  if (retry > 0) console.log(`⚠️  ${retry} entries are RETRY (network-caused, reset to pending) — re-run this same command to resolve them.`);
   console.log(`Report written to ${REPORT_FILE}`);
 }
 
 function writeReport(entries: ProgressEntry[]): void {
-  const order: Record<Verdict, number> = { FAIL: 0, FLAG: 1, PASS: 2 };
-  const sorted = [...entries].sort((a, b) => (order[a.verdict!] ?? 3) - (order[b.verdict!] ?? 3) || a.name.localeCompare(b.name));
+  const order: Record<Verdict, number> = { FAIL: 0, RETRY: 1, FLAG: 2, PASS: 3 };
+  const sorted = [...entries].sort((a, b) => (order[a.verdict!] ?? 4) - (order[b.verdict!] ?? 4) || a.name.localeCompare(b.name));
   const lines: string[] = [];
   lines.push('# Authority Boundary Backfill — Stage A Report');
   lines.push('');
@@ -274,7 +308,9 @@ function writeReport(entries: ProgressEntry[]): void {
   const pass = entries.filter((e) => e.verdict === 'PASS').length;
   const flag = entries.filter((e) => e.verdict === 'FLAG').length;
   const fail = entries.filter((e) => e.verdict === 'FAIL').length;
-  lines.push(`PASS: ${pass} · FLAG: ${flag} · FAIL: ${fail} · total ${entries.length}`);
+  const retry = entries.filter((e) => e.verdict === 'RETRY').length;
+  lines.push(`PASS: ${pass} · FLAG: ${flag} · FAIL: ${fail} · RETRY: ${retry} · total ${entries.length}`);
+  if (retry > 0) lines.push(`\n⚠️ ${retry} entries are RETRY (network-caused — Overpass exception or an incomplete/truncated response, not a confirmed negative result). Re-run the same command to resolve them; do not treat them as FAIL.`);
   lines.push('');
   lines.push('| שם רשות | סוג | relation id | שם ב-OSM | שטח קמ"ר | טבעות | verdict | reasons |');
   lines.push('|---|---|---|---|---|---|---|---|');
