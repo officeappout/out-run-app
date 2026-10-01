@@ -43,12 +43,24 @@ export function HeroMediaBackground({
 
   return (
     <>
-      {/* Thumbnail (always rendered as base layer) */}
-      <img
-        src={thumbnailUrl}
-        alt="Workout"
-        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-      />
+      {/* Thumbnail (always rendered as base layer) — falls to an on-brand
+          gradient, never a stock photo, when no real exercise media resolved
+          at all (hero-image fix, 2026-10-01: see heroMedia.utils.ts's own
+          doc comment — this used to be a generic indoor-gym Unsplash bank
+          unrelated to the actual workout; removed, not patched). Same
+          gradient as this card's own CTA pill below, for brand consistency. */}
+      {thumbnailUrl ? (
+        <img
+          src={thumbnailUrl}
+          alt="Workout"
+          className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+        />
+      ) : (
+        <div
+          className="absolute inset-0 w-full h-full"
+          style={{ background: 'linear-gradient(135deg, #00BAF7 0%, #0CF2E3 100%)' }}
+        />
+      )}
 
       {/* Lazy video loop (fades in when ready) */}
       {videoUrl && (

@@ -4,21 +4,6 @@ import {
   resolveImageForLocation,
 } from '@/features/content/exercises/core/exercise.types';
 
-// ============================================================================
-// Movement-group fallback images (high-quality Unsplash)
-// ============================================================================
-export const MOVEMENT_GROUP_FALLBACKS: Record<string, string> = {
-  horizontal_push: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&w=800&q=80',
-  vertical_push:   'https://images.unsplash.com/photo-1598971639058-a0c1e5321546?auto=format&fit=crop&w=800&q=80',
-  horizontal_pull:  'https://images.unsplash.com/photo-1597452485669-2c7bb5fef90d?auto=format&fit=crop&w=800&q=80',
-  vertical_pull:   'https://images.unsplash.com/photo-1598971457999-ca4ef48a9a71?auto=format&fit=crop&w=800&q=80',
-  squat:           'https://images.unsplash.com/photo-1574680096145-d05b474e2155?auto=format&fit=crop&w=800&q=80',
-  hinge:           'https://images.unsplash.com/photo-1434682881908-b43d0467b798?auto=format&fit=crop&w=800&q=80',
-  core:            'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=800&q=80',
-  isolation:       'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?auto=format&fit=crop&w=800&q=80',
-};
-export const DEFAULT_HERO_IMAGE = 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=800&q=80';
-
 /**
  * Pick the exercise whose media drives the workout hero.
  *
@@ -63,23 +48,29 @@ export function pickHeroExercise(
 
 /**
  * Resolve thumbnail & video URLs for a given WorkoutExercise.
- * Priority: execution-method media -> legacy exercise.media -> movement-group fallback.
+ * Priority: execution-method media -> legacy exercise.media.
+ *
+ * Hero-image fix (2026-10-01): there is ALWAYS a real video for a composed
+ * workout exercise — resolveImageForLocation now derives a real Bunny
+ * thumbnail from it even when the video exists only via the legacy
+ * mainVideoUrl field (see that function's own doc comment). The generic
+ * Unsplash stock-photo bank that used to live here (a movement-group-keyed
+ * fallback, then an absolute default) is removed entirely, not patched —
+ * it never matched either the specific exercise or the outdoor-park brand.
+ * When (rare) truly no real media resolves at all, `thumbnailUrl` is simply
+ * `''` — the caller (HeroMediaBackground, HeroWorkoutCard.tsx) renders an
+ * on-brand gradient in that case instead of an `<img>`, never a stock photo.
  */
 export function resolveHeroMedia(
   ex: WorkoutExercise | undefined,
   location?: string | null,
 ): { thumbnailUrl: string; videoUrl: string } {
   if (!ex) {
-    return { thumbnailUrl: DEFAULT_HERO_IMAGE, videoUrl: '' };
+    return { thumbnailUrl: '', videoUrl: '' };
   }
 
   const image = resolveImageForLocation(ex.exercise, location);
   const video = resolveVideoForLocation(ex.exercise, location);
 
-  const thumbnailUrl =
-    image ||
-    MOVEMENT_GROUP_FALLBACKS[ex.exercise.movementGroup || ''] ||
-    DEFAULT_HERO_IMAGE;
-
-  return { thumbnailUrl, videoUrl: video || '' };
+  return { thumbnailUrl: image, videoUrl: video || '' };
 }
