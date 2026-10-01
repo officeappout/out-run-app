@@ -24,8 +24,8 @@ matched" entries, per David's explicit hypothesis — **it didn't: all 88
 remain FAIL after convergence, zero flipped.** That number was real.
 Full writeup: `docs/audit-2026-09/geometry-assembly-retry-findings.md`.
 
-**17 authorities are now PASS but not yet written** (Stage B hasn't run
-for them) — same approval gate as before, awaiting go-ahead.
+**17 authorities written in a second Stage B pass, 01.10.2026** — see
+"Stage B — second pass" section near the end of this file.
 
 | שם רשות | סוג | relation id | שם ב-OSM | שטח קמ"ר | טבעות | verdict | reasons |
 |---|---|---|---|---|---|---|---|
@@ -299,7 +299,27 @@ ones. **Authorities now carrying a boundary: 155** (149 new + 6 pre-existing).
 
 The 17 geometry-assembly entries that flipped to PASS after the
 classification fix are NOT included in that 155 — they weren't written
-yet when this Stage B ran. Still awaiting a second Stage B pass.
+yet when this Stage B ran.
+
+## Stage B — second pass, 01.10.2026 (the 17 from the classification fix)
+
+David approved running Stage B on all 17 newly-PASS authorities — same
+rules as the first pass: single-field merge, additive-only, never
+overwrite an existing boundary. `npx tsx scripts/backfill-authority-boundaries-bulk.ts --apply`
+(no `--approve-flags` needed — all 17 are PASS, not FLAG).
+
+**Written: 17 exactly** — מגדל העמק, רעננה, פקיעין (בוקייעה), נחף, מטולה,
+רמת ישי, מעלה עירון, עילוט, יפיע, ביתר עילית, כפר קרע, אלפי מנשה, מועצה
+אזורית גוש עציון, בית אל, מועצה אזורית גולן, נשר, רמת השרון. The 148
+previously-PASS + מזרעה were correctly skipped (`already has a
+boundaryGeoJSON`) — zero redundant writes, zero risk of overwrite.
+
+Spot-checked live: רעננה now has `boundaryGeoJSON` plus all its original
+fields intact (`activityLog, cluster, contacts, isActiveClient,
+pipelineStatus, ...` — 21 fields total, nothing dropped). מזרעה's boundary
+from the first pass is untouched.
+
+**Authorities now carrying a boundary: 172** (155 + 17).
 
 ## Follow-ups — recorded, not executed (David's explicit instruction)
 
