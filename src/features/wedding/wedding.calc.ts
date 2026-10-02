@@ -152,3 +152,102 @@ export function buildRoadmap<T extends { daysBefore: number; done: boolean }>(
   }
   return { overdue, weeks };
 }
+
+/** Start of a task's range (equal to its due date for a one-day task). */
+export function taskStartDate(weddingIso: string, t: { daysBefore: number; startBefore?: number }): Date {
+  return taskDueDate(weddingIso, Math.max(t.startBefore ?? t.daysBefore, t.daysBefore));
+}
+
+/** Tasks whose [start, due] range overlaps [from, to] (inclusive days). */
+export function tasksOverlapping<T extends { daysBefore: number; startBefore?: number }>(weddingIso: string, tasks: T[], from: Date, to: Date): T[] {
+  return tasks.filter((t) => taskStartDate(weddingIso, t) <= to && taskDueDate(weddingIso, t.daysBefore) >= from);
+}
+
+export interface WeekSegment<T> {
+  task: T;
+  /** 0 = Sunday … 6 = Saturday */
+  col: number;
+  span: number;
+  lane: number;
+  /** The range continues before / after this week */
+  continuesBefore: boolean;
+  continuesAfter: boolean;
+}
+
+/**
+ * Lays out ranged tasks on one week row like a calendar: each task becomes
+ * a segment (col, span) clipped to the week, stacked into the first free
+ * lane. Longer and earlier tasks get the upper lanes.
+ */
+export function layoutWeek<T extends { daysBefore: number; startBefore?: number }>(weddingIso: string, weekStartDate: Date, tasks: T[]): Array<WeekSegment<T>> {
+  const ws = new Date(weekStartDate);
+  ws.setHours(0, 0, 0, 0);
+  const we = new Date(ws);
+  we.setDate(we.getDate() + 6);
+  const segs = tasksOverlapping(weddingIso, tasks, ws, we).map((task) => {
+    const start = taskStartDate(weddingIso, task);
+    const due = taskDueDate(weddingIso, task.daysBefore);
+    const a = start < ws ? 0 : Math.min(6, Math.max(0, start.getDay()));
+    const b = due > we ? 6 : Math.min(6, Math.max(0, due.getDay()));
+    return { task, col: a, span: b - a + 1, lane: 0, continuesBefore: start < ws, continuesAfter: due > we };
+  });
+  segs.sort((x, y) => x.col - y.col || y.span - x.span);
+  const laneEnds: number[] = [];
+  for (const sg of segs) {
+    let lane = laneEnds.findIndex((end) => end < sg.col);
+    if (lane < 0) {
+      lane = laneEnds.length;
+      laneEnds.push(-1);
+    }
+    laneEnds[lane] = sg.col + sg.span - 1;
+    sg.lane = lane;
+  }
+  return segs;
+}
+
+const GEM_ONES = ['', 'א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט'];
+const GEM_TENS = ['', 'י', 'כ', 'ל', 'מ', 'נ', 'ס', 'ע', 'פ', 'צ'];
+const GEM_HUNDREDS = ['', 'ק', 'ר', 'ש', 'ת', 'תק', 'תר', 'תש', 'תת', 'תתק'];
+
+/** Hebrew numerals with geresh/gershayim: 21 → כ״א, 15 → ט״ו, 30 → ל׳, 787 → תשפ״ז. */
+export function gematria(n: number): string {
+  let v = Math.floor(n) % 1000;
+  if (v <= 0) return '';
+  let s = GEM_HUNDREDS[Math.floor(v / 100)];
+  v %= 100;
+  if (v === 15) s += 'טו';
+  else if (v === 16) s += 'טז';
+  else s += GEM_TENS[Math.floor(v / 10)] + GEM_ONES[v % 10];
+  return s.length === 1 ? `${s}׳` : `${s.slice(0, -1)}״${s.slice(-1)}`;
+}
+
+export interface HebrewDate {
+  day: number;
+  /** e.g. 'תשרי', 'אדר א׳' */
+  month: string;
+  year: number;
+}
+
+const hebrewFmt = typeof Intl !== 'undefined' ? new Intl.DateTimeFormat('he-u-ca-hebrew', { day: 'numeric', month: 'long', year: 'numeric' }) : null;
+
+/** The Hebrew-calendar date of a civil day (via the browser's Intl Hebrew calendar). Null if unsupported. */
+export function hebrewDate(d: Date): HebrewDate | null {
+  if (!hebrewFmt) return null;
+  try {
+    const parts = hebrewFmt.formatToParts(d);
+    const day = Number(parts.find((p) => p.type === 'day')?.value);
+    const month = parts.find((p) => p.type === 'month')?.value ?? '';
+    const year = Number(parts.find((p) => p.type === 'year')?.value);
+    if (!day || !month || !year) return null;
+    return { day, month, year };
+  } catch {
+    return null;
+  }
+}
+
+/** 'כ״א בתשרי תשפ״ז' (withYear) or 'כ״א בתשרי'. */
+export function hebrewDateLabel(d: Date, withYear = true): string {
+  const h = hebrewDate(d);
+  if (!h) return '';
+  return `${gematria(h.day)} ב${h.month}${withYear ? ` ${gematria(h.year)}` : ''}`;
+}

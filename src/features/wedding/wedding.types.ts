@@ -76,13 +76,19 @@ export interface Vendor {
 export interface WeddingTask {
   id: string;
   name: string;
+  /** Due date (end of the range), as days before the wedding. */
   daysBefore: number;
+  /** Start of the range, as days before the wedding. Equal to daysBefore = a one-day task. */
+  startBefore: number;
   done: boolean;
-  /** Who does it: one of settings.people, TOGETHER, or '' (not assigned). */
-  owner: string;
+  /** Who does it: names from settings.people. Empty = not assigned. */
+  owners: string[];
 }
 
-/** Owner value for a task both people do. */
+/**
+ * Legacy single-owner value meaning "both of us". Tasks now take several
+ * owners, so on load it is expanded to every person; kept only for parsing.
+ */
 export const TOGETHER = 'ביחד';
 
 export interface WeddingState {

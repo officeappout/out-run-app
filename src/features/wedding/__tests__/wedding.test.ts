@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildRoadmap, daysBeforeFor, daysUntil, rankVenues, taskDueDate, toIso, venueCost } from '../wedding.calc';
+import { buildRoadmap, daysBeforeFor, daysUntil, gematria, hebrewDate, hebrewDateLabel, layoutWeek, rankVenues, taskDueDate, toIso, venueCost } from '../wedding.calc';
 import { DEFAULT_SETTINGS, initialWeddingState } from '../wedding.config';
 import { LIMITS, parseWeddingState } from '../wedding.schema';
 import type { Venue } from '../wedding.types';
@@ -104,10 +104,15 @@ describe('parseWeddingState', () => {
   it('parses people and task owners; old data without them gets defaults', () => {
     const s = parseWeddingState({
       settings: { people: ['  מיכל ', 'דוד', 'מיכל', 'ביחד', '', 7] },
-      tasks: [{ id: 't1', name: 'צלם', daysBefore: 10, owner: 'מיכל' }, { id: 't2', name: 'אולם', daysBefore: 20 }],
+      tasks: [
+        { id: 't1', name: 'צלם', daysBefore: 10, owner: 'מיכל' },
+        { id: 't2', name: 'אולם', daysBefore: 20 },
+        { id: 't3', name: 'רב', daysBefore: 30, owner: 'ביחד' },
+        { id: 't4', name: 'הזמנות', daysBefore: 40, owners: ['דוד', 'מיכל', 'דוד'] },
+      ],
     });
     expect(s.settings.people).toEqual(['מיכל', 'דוד']);
-    expect(s.tasks.map((t) => t.owner)).toEqual(['מיכל', '']);
+    expect(s.tasks.map((t) => t.owners)).toEqual([['מיכל'], [], ['מיכל', 'דוד'], ['דוד', 'מיכל']]);
     expect(parseWeddingState({ settings: {} }).settings.people).toEqual(DEFAULT_SETTINGS.people);
   });
 
@@ -155,5 +160,40 @@ describe('buildRoadmap across DST', () => {
     const { weeks } = buildRoadmap('2027-03-09', [{ id: 'nov', daysBefore: daysBeforeFor('2027-03-09', '2026-11-03'), done: false }], new Date(2026, 9, 2, 12));
     const w = weeks.find((x) => x.tasks.length);
     expect(w && toIso(w.start)).toBe('2026-11-01');
+  });
+});
+
+describe('task ranges', () => {
+  it('parses startBefore, defaulting to a one-day task and never after the due date', () => {
+    const s = parseWeddingState({ tasks: [{ id: 'a', daysBefore: 10 }, { id: 'b', daysBefore: 10, startBefore: 14 }, { id: 'c', daysBefore: 10, startBefore: 3 }] });
+    expect(s.tasks.map((x) => x.startBefore)).toEqual([10, 14, 10]);
+  });
+
+  it('lays out a range across days and wraps it into the next week', () => {
+    // Sun 4.10 – Sat 10.10.2026; task 6.10–13.10 (Tue → next Tue)
+    const t = { id: 'r', daysBefore: daysBeforeFor('2027-03-09', '2026-10-13'), startBefore: daysBeforeFor('2027-03-09', '2026-10-06') };
+    const w1 = layoutWeek('2027-03-09', new Date(2026, 9, 4), [t]);
+    expect(w1).toMatchObject([{ col: 2, span: 5, lane: 0, continuesBefore: false, continuesAfter: true }]);
+    const w2 = layoutWeek('2027-03-09', new Date(2026, 9, 11), [t]);
+    expect(w2).toMatchObject([{ col: 0, span: 3, lane: 0, continuesBefore: true, continuesAfter: false }]);
+  });
+
+  it('stacks overlapping tasks into separate lanes and reuses free ones', () => {
+    const d = (iso: string) => daysBeforeFor('2027-03-09', iso);
+    const a = { id: 'a', daysBefore: d('2026-10-07'), startBefore: d('2026-10-04') }; // Sun–Wed
+    const b = { id: 'b', daysBefore: d('2026-10-06'), startBefore: d('2026-10-05') }; // Mon–Tue
+    const c = { id: 'c', daysBefore: d('2026-10-09'), startBefore: d('2026-10-08') }; // Thu–Fri
+    const lanes = Object.fromEntries(layoutWeek('2027-03-09', new Date(2026, 9, 4), [a, b, c]).map((x) => [x.task.id, x.lane]));
+    expect(lanes).toEqual({ a: 0, b: 1, c: 0 });
+  });
+});
+
+describe('Hebrew calendar', () => {
+  it('writes Hebrew numerals', () => {
+    expect([1, 10, 15, 16, 21, 30, 787].map(gematria)).toEqual(['א׳', 'י׳', 'ט״ו', 'ט״ז', 'כ״א', 'ל׳', 'תשפ״ז']);
+  });
+  it('converts civil dates', () => {
+    expect(hebrewDate(new Date(2026, 9, 2))).toEqual({ day: 21, month: 'תשרי', year: 5787 });
+    expect(hebrewDateLabel(new Date(2027, 2, 9))).toBe('ל׳ באדר א׳ תשפ״ז'); // the wedding: Rosh Chodesh Adar II
   });
 });

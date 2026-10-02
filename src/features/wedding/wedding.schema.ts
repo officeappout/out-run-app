@@ -131,14 +131,29 @@ function parseVendor(x: unknown, i: number): Vendor | null {
   };
 }
 
-function parseTask(x: unknown, i: number): WeddingTask | null {
+/** Owners from `owners[]`, or the legacy single `owner` string; legacy TOGETHER = every person. */
+function parseOwners(x: Obj, people: string[]): string[] {
+  const raw = Array.isArray(x.owners) ? x.owners : typeof x.owner === 'string' && x.owner ? [x.owner] : [];
+  const out: string[] = [];
+  for (const o of raw.slice(0, LIMITS.people + 1)) {
+    const name = str(o, LIMITS.name);
+    const names = name === TOGETHER ? people : name ? [name] : [];
+    for (const n of names) if (!out.includes(n)) out.push(n);
+  }
+  return out;
+}
+
+function parseTask(x: unknown, i: number, people: string[]): WeddingTask | null {
   if (!isObj(x)) return null;
+  const daysBefore = count(x.daysBefore);
+  const start = x.startBefore === undefined ? daysBefore : count(x.startBefore);
   return {
     id: id(x.id, i, 'task'),
     name: str(x.name) || 'משימה',
-    daysBefore: count(x.daysBefore),
+    daysBefore,
+    startBefore: Math.max(start, daysBefore),
     done: x.done === true,
-    owner: str(x.owner, LIMITS.name),
+    owners: parseOwners(x, people),
   };
 }
 
@@ -160,6 +175,6 @@ export function parseWeddingState(x: unknown): WeddingState {
     settings,
     venues: uniqueIds(list(s.venues, LIMITS.venues).map((v, i) => parseVenue(v, i, settings.date)).filter(notNull), 'venue'),
     vendors: uniqueIds(list(s.vendors, LIMITS.vendors).map(parseVendor).filter(notNull), 'vendor'),
-    tasks: uniqueIds(list(s.tasks, LIMITS.tasks).map(parseTask).filter(notNull), 'task'),
+    tasks: uniqueIds(list(s.tasks, LIMITS.tasks).map((t, i) => parseTask(t, i, settings.people)).filter(notNull), 'task'),
   };
 }

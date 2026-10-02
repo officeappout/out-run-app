@@ -65,8 +65,9 @@ export function initialWeddingState(): WeddingState {
       id: `t${String(i + 1).padStart(2, '0')}`,
       name,
       daysBefore,
+      startBefore: daysBefore,
       done: false,
-      owner: '',
+      owners: [],
     })),
   };
 }
