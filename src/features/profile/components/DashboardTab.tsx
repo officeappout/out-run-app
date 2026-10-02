@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
-import { Flame, Trophy, CalendarDays, Settings2, Bookmark } from 'lucide-react';
+import { Flame, Trophy, Settings2, Bookmark, Dumbbell, Target, BarChart3 } from 'lucide-react';
 import { useProgressionStore } from '@/features/user/progression/store/useProgressionStore';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { getLevelName } from '@/features/user/progression/config/lemur-stages';
@@ -37,6 +37,15 @@ interface DashboardTabProps {
 /** Single asset path; LemurAvatar uses the same file. */
 const LEMUR_IMG = '/assets/lemur/king-lemur.png';
 
+// IA shell (Phase a) — visual-only tab bar. Tapping only changes which tab
+// looks selected; content wiring per tab is a later phase.
+const PROFILE_TABS = [
+  { id: 'workouts', label: 'אימונים', Icon: Dumbbell },
+  { id: 'skills', label: 'סקילים', Icon: Target },
+  { id: 'badges', label: 'הישגים', Icon: Trophy },
+  { id: 'programs', label: 'תוכניות', Icon: BarChart3 },
+] as const;
+
 export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: DashboardTabProps) {
   const {
     globalXP,
@@ -48,6 +57,9 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
   const { profile } = useUserStore();
   const gender = profile?.core?.gender ?? 'male';
   const userId = profile?.id ?? auth.currentUser?.uid ?? null;
+  const photoURL = profile?.core?.photoURL || null;
+  const userName = profile?.core?.name?.trim() || null;
+  const [activeTab, setActiveTab] = useState<typeof PROFILE_TABS[number]['id']>('workouts');
 
   // ── Debug: log profile.progression whenever it changes ────────────────────
   useEffect(() => {
@@ -117,7 +129,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
   return (
     <div className="space-y-4 pb-24" dir="rtl">
       {/* ════════════════════════════════════════════════════════════════════
-          BLOCK 1 — Lemur Hero Card
+          BLOCK 1 — IG-style header (avatar + 3 stats; photo falls back to lemur)
          ════════════════════════════════════════════════════════════════════ */}
       <motion.div
         initial={{ y: 16, opacity: 0 }}
@@ -147,15 +159,15 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
           </button>
         </div>
 
-        {/* Lemur image — 88px circle, green border, streak badge bottom-right */}
-        <div className="flex flex-col items-center pt-2">
-          <div className="relative" style={{ width: 88, height: 88 }}>
+        {/* ── IG-style header row: avatar (photo, fallback to lemur) + 3 stats ── */}
+        <div className="flex items-center gap-4 pt-2">
+          <div className="relative flex-shrink-0" style={{ width: 84, height: 84 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={LEMUR_IMG}
-              alt="Lemur"
-              width={88}
-              height={88}
+              src={photoURL || LEMUR_IMG}
+              alt={photoURL ? (userName || 'תמונת פרופיל') : 'Lemur'}
+              width={84}
+              height={84}
               className="w-full h-full rounded-full object-cover border-[3px] border-emerald-400 shadow-md bg-white"
             />
             {/* Streak badge — Flame + count */}
@@ -167,72 +179,112 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
             </div>
           </div>
 
-          {/* Level title (gendered) */}
-          <h2 className="text-xl font-black text-gray-900 mt-3">{levelName}</h2>
-          <span className="text-xs font-bold text-[#00ADEF] mt-0.5">שלב {globalLevel}</span>
-
-          {/* XP progress bar */}
-          <div className="w-full mt-4">
-            {!isHydrated ? (
-              <div className="space-y-2 animate-pulse">
-                <div className="h-3.5 bg-gray-100 rounded-full" />
-                <div className="h-3 bg-gray-100 rounded w-1/2 mx-auto" />
-              </div>
-            ) : isMaxLevel ? (
-              <div className="bg-gradient-to-l from-[#00ADEF] to-[#5BC2F2] rounded-full py-2 px-4 text-center">
-                <span className="text-white text-xs font-black">הגעת לשיא!</span>
-              </div>
-            ) : (
-              <>
-                <div className="h-3 bg-gray-100 rounded-full overflow-hidden shadow-inner">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${barTarget}%` }}
-                    transition={{ duration: 0.9, ease: 'easeOut' }}
-                    className="h-full rounded-full bg-gradient-to-l from-[#00ADEF] to-[#5BC2F2]"
-                  />
-                </div>
-                <div className="flex items-center justify-between mt-1.5 px-0.5" dir="ltr">
-                  <span className="text-[11px] font-bold text-gray-500 tabular-nums">
-                    {globalXP.toLocaleString()} / {nextLevelXP.toLocaleString()} XP
-                  </span>
-                  <span className="text-[11px] font-bold text-[#00ADEF]">
-                    שלב {globalLevel + 1} →
-                  </span>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Stats row (2 columns w/ vertical divider) */}
-          <div className="grid grid-cols-2 gap-1 mt-4 pt-4 border-t border-gray-100 w-full divide-x divide-x-reverse divide-gray-100">
-            {/* Workouts count — tappable, navigates to history */}
+          {/* 3 stats — workouts / streak / level */}
+          <div className="flex-1 grid grid-cols-3 gap-1">
             <button
               type="button"
               onClick={onNavigateToHistory}
               disabled={!onNavigateToHistory}
               aria-label="הצג היסטוריית אימונים"
-              className="flex flex-col items-center px-2 active:scale-95 transition-transform disabled:cursor-default"
+              className="flex flex-col items-center active:scale-95 transition-transform disabled:cursor-default"
             >
-              <div className="flex items-center gap-1.5 text-gray-500">
-                <Trophy className="w-3.5 h-3.5 text-amber-500" />
-                <span className="text-[10px] font-bold">אימונים</span>
-              </div>
-              <span className="text-xl font-black text-gray-900 leading-none mt-1 tabular-nums">
+              <span className="text-lg font-black text-gray-900 leading-none tabular-nums">
                 {historyLoading ? '—' : totalWorkouts}
               </span>
+              <span className="text-[10px] font-bold text-gray-500 mt-1">אימונים</span>
             </button>
 
-            <div className="flex flex-col items-center px-2">
-              <div className="flex items-center gap-1.5 text-gray-500">
-                <CalendarDays className="w-3.5 h-3.5 text-orange-500" />
-                <span className="text-[10px] font-bold">ימי רצף</span>
-              </div>
-              <span className="text-xl font-black text-gray-900 leading-none mt-1 tabular-nums">
+            <div className="flex flex-col items-center">
+              <span className="text-lg font-black text-gray-900 leading-none tabular-nums">
                 {currentStreak}
               </span>
+              <span className="text-[10px] font-bold text-gray-500 mt-1">ימי רצף</span>
+            </div>
+
+            <div className="flex flex-col items-center">
+              <span className="text-lg font-black text-gray-900 leading-none tabular-nums">
+                {globalLevel}
+              </span>
+              <span className="text-[10px] font-bold text-gray-500 mt-1">רמה</span>
             </div>
           </div>
+        </div>
+
+        {/* Name (if set) + level title (gendered) */}
+        <div className="text-center mt-4">
+          {userName && (
+            <p className="text-sm font-bold text-gray-900">{userName}</p>
+          )}
+          <h2 className="text-xl font-black text-gray-900 mt-0.5">{levelName}</h2>
+          <span className="text-xs font-bold text-[#00ADEF] mt-0.5 inline-block">שלב {globalLevel}</span>
+        </div>
+
+        {/* XP progress bar */}
+        <div className="w-full mt-4">
+          {!isHydrated ? (
+            <div className="space-y-2 animate-pulse">
+              <div className="h-3.5 bg-gray-100 rounded-full" />
+              <div className="h-3 bg-gray-100 rounded w-1/2 mx-auto" />
+            </div>
+          ) : isMaxLevel ? (
+            <div className="bg-gradient-to-l from-[#00ADEF] to-[#5BC2F2] rounded-full py-2 px-4 text-center">
+              <span className="text-white text-xs font-black">הגעת לשיא!</span>
+            </div>
+          ) : (
+            <>
+              <div className="h-3 bg-gray-100 rounded-full overflow-hidden shadow-inner">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${barTarget}%` }}
+                  transition={{ duration: 0.9, ease: 'easeOut' }}
+                  className="h-full rounded-full bg-gradient-to-l from-[#00ADEF] to-[#5BC2F2]"
+                />
+              </div>
+              <div className="flex items-center justify-between mt-1.5 px-0.5" dir="ltr">
+                <span className="text-[11px] font-bold text-gray-500 tabular-nums">
+                  {globalXP.toLocaleString()} / {nextLevelXP.toLocaleString()} XP
+                </span>
+                <span className="text-[11px] font-bold text-[#00ADEF]">
+                  שלב {globalLevel + 1} →
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+      </motion.div>
+
+      {/* ════════════════════════════════════════════════════════════════════
+          BLOCK 1.5 — IA tab shell (Phase a: visual-only)
+          Establishes the IG-style section structure. Tapping a tab only
+          changes which one looks selected — the existing content blocks
+          below are unchanged and still render as one continuous scroll.
+          Wiring each tab to its own panel is a later phase.
+         ════════════════════════════════════════════════════════════════════ */}
+      <motion.div
+        initial={{ y: 16, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.03 }}
+        className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+      >
+        <div className="flex" role="tablist" aria-label="תצוגת פרופיל">
+          {PROFILE_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`relative flex-1 flex flex-col items-center gap-1 py-3 transition-colors ${
+                activeTab === tab.id ? 'text-gray-900' : 'text-gray-400'
+              }`}
+            >
+              <tab.Icon className="w-5 h-5" />
+              <span className="text-[10px] font-bold">{tab.label}</span>
+              {activeTab === tab.id && (
+                <span className="absolute bottom-0 h-0.5 w-8 rounded-full bg-gradient-to-l from-[#00ADEF] to-[#5BC2F2]" />
+              )}
+            </button>
+          ))}
         </div>
       </motion.div>
 
@@ -382,7 +434,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
 // because Block 6 already provides its own card + section header + "הכל" link.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { Activity, Bike, PersonStanding, Dumbbell, Moon } from 'lucide-react';
+import { Activity, Bike, PersonStanding, Moon } from 'lucide-react';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 
 const DATE_FMT = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short' });
