@@ -53,6 +53,7 @@ export function initialWeddingState(): WeddingState {
   return {
     settings: { ...DEFAULT_SETTINGS },
     venues: [],
+    catalogHidden: [],
     vendors: SEED_VENDORS.map((name, i) => ({
       id: `v${i + 1}`,
       name,

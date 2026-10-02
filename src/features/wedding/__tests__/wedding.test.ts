@@ -3,6 +3,7 @@ import { buildRoadmap, daysBeforeFor, daysUntil, gematria, hebrewDate, hebrewDat
 import { DEFAULT_SETTINGS, initialWeddingState } from '../wedding.config';
 import { LIMITS, parseWeddingState } from '../wedding.schema';
 import type { Venue } from '../wedding.types';
+import { VENUE_CATALOG } from '../data/venueCatalog';
 
 const base: Venue = {
   id: 'a',
@@ -20,6 +21,7 @@ const base: Venue = {
   extras: 0,
   discount: 0,
   notes: '',
+  catalogId: '',
 };
 
 describe('venueCost', () => {
@@ -195,5 +197,15 @@ describe('Hebrew calendar', () => {
   it('converts civil dates', () => {
     expect(hebrewDate(new Date(2026, 9, 2))).toEqual({ day: 21, month: 'תשרי', year: 5787 });
     expect(hebrewDateLabel(new Date(2027, 2, 9))).toBe('ל׳ באדר א׳ תשפ״ז'); // the wedding: Rosh Chodesh Adar II
+  });
+});
+
+describe('venue catalog', () => {
+  it('has unique ids and parses hidden ids / venue catalogId', () => {
+    expect(new Set(VENUE_CATALOG.map((v) => v.id)).size).toBe(VENUE_CATALOG.length);
+    const s = parseWeddingState({ catalogHidden: ['c01', 'c01', 'x/../y', 5], venues: [{ name: 'גרייס', catalogId: 'c38' }] });
+    expect(s.catalogHidden).toEqual(['c01', 'xy']);
+    expect(s.venues[0].catalogId).toBe('c38');
+    expect(parseWeddingState({}).catalogHidden).toEqual([]);
   });
 });

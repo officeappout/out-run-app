@@ -116,6 +116,7 @@ function parseVenue(x: unknown, i: number, weddingDate: string): Venue | null {
     extras: money(x.extras),
     discount: money(x.discount),
     notes: str(x.notes, LIMITS.notes),
+    catalogId: typeof x.catalogId === 'string' ? x.catalogId.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 20) : '',
   };
 }
 
@@ -175,6 +176,10 @@ export function parseWeddingState(x: unknown): WeddingState {
     settings,
     venues: uniqueIds(list(s.venues, LIMITS.venues).map((v, i) => parseVenue(v, i, settings.date)).filter(notNull), 'venue'),
     vendors: uniqueIds(list(s.vendors, LIMITS.vendors).map(parseVendor).filter(notNull), 'vendor'),
+    catalogHidden: list(s.catalogHidden, 500)
+      .filter((v): v is string => typeof v === 'string')
+      .map((v) => v.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 20))
+      .filter((v, i, a) => v && a.indexOf(v) === i),
     tasks: uniqueIds(list(s.tasks, LIMITS.tasks).map((t, i) => parseTask(t, i, settings.people)).filter(notNull), 'task'),
   };
 }

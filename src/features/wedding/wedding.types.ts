@@ -62,6 +62,8 @@ export interface Venue {
   extras: number;
   discount: number;
   notes: string;
+  /** Set when the venue was added from the suggested-venues catalog ('' otherwise). */
+  catalogId: string;
 }
 
 export interface Vendor {
@@ -96,6 +98,8 @@ export interface WeddingState {
   venues: Venue[];
   vendors: Vendor[];
   tasks: WeddingTask[];
+  /** Suggested-venue catalog ids marked 'לא רלוונטי'. */
+  catalogHidden: string[];
 }
 
 /** What GET returns and PUT accepts: the state plus an optimistic-concurrency revision. */

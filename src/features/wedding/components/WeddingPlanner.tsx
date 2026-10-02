@@ -8,14 +8,16 @@ import { VENDOR_STATUSES, type Venue, type WeddingSettings, type WeddingState } 
 import { TagEditor } from './tags';
 import { TaskLine, TasksHub } from './TasksHub';
 import { SELECTED_STYLE, card, cellInput, fmtDate, fmtIso, newId, type Update } from './ui';
+import { VenueCatalog } from './VenueCatalog';
 import { VenueEditor } from './VenueEditor';
 import { useWeddingStore, type SaveStatus } from './useWeddingStore';
 
-type Tab = 'home' | 'tasks' | 'venues' | 'vendors' | 'market' | 'settings';
+type Tab = 'home' | 'tasks' | 'venues' | 'catalog' | 'vendors' | 'market' | 'settings';
 const TABS: Array<[Tab, string]> = [
   ['home', 'סקירה'],
   ['tasks', 'משימות ולוח שנה'],
   ['venues', 'השוואת אולמות'],
+  ['catalog', 'מקומות מוצעים'],
   ['vendors', 'ספקים'],
   ['market', 'מחירי שוק'],
   ['settings', 'הגדרות'],
@@ -41,6 +43,7 @@ function blankVenue(settings: WeddingSettings): Venue {
     extras: 0,
     discount: 0,
     notes: '',
+    catalogId: '',
   };
 }
 
@@ -120,6 +123,7 @@ export function WeddingPlanner() {
 
         {tab === 'home' && <Overview s={s} g={g} onNew={openNew} go={setTab} update={store.update} />}
         {tab === 'venues' && <Venues s={s} g={g} setGuests={setGuests} onNew={openNew} onEdit={openEdit} />}
+        {tab === 'catalog' && <VenueCatalog s={s} update={store.update} goCompare={() => setTab('venues')} />}
         {tab === 'vendors' && <Vendors s={s} update={store.update} />}
         {tab === 'tasks' && <TasksHub s={s} update={store.update} />}
         {tab === 'market' && <Market s={s} g={g} />}
