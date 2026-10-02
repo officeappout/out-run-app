@@ -2277,6 +2277,59 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // READINESS — soldier roster, test results, global thresholds
+    // (docs/audit-2026-09/readiness-firestore-rules-proposal.md, v3)
+    // No client write anywhere here, not even for root/admin — the Admin
+    // SDK bypasses rules regardless, so a write grant gives the server no
+    // real capability, only a latent path for future client-side code to
+    // set outcome/uid/mergedInto/thresholds directly and silently bypass
+    // the compute*() chokepoint's authorization and audit logging. Every
+    // read an officer needs goes through a server route — a rule with no
+    // consumer is debt, not protection (axiom §26).
+    //
+    // readiness_soldiers/readiness_results' isRootAdmin()||isAdmin() read
+    // grant was checked against production before approval (01.10.2026):
+    // exactly 2 accounts satisfy isAdmin() today, both root — see
+    // 00-MASTER-PLAN.md §13.64/§13.65 for the count. Re-check before
+    // relying on this again if meaningful time has passed or new admin
+    // accounts were granted.
+    // ============================================================
+
+    match /readiness_soldiers/{soldierId} {
+      allow read: if isRootAdmin() || isAdmin();
+
+      // A soldier reads their own linked record.
+      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+
+    match /readiness_results/{resultId} {
+      allow read: if isRootAdmin() || isAdmin();
+
+      // A soldier reads their own result history. `uid` is denormalized
+      // onto every result (set at write time from the soldier record, kept
+      // in sync by computeLinkSoldier/computeUnlinkSoldier/
+      // computeMergeSoldiers in the same transaction/batch as the
+      // soldier-record change) — a direct field comparison, not a nested
+      // get() on the soldier record. A get()-per-document approach hits
+      // Firestore's 20-get()-per-query cap on any list query once a soldier
+      // has more than 20 results — exactly when they have real history.
+      // `uid` is a deliberate exception to this collection's immutable-
+      // history rule (points 9/12 of the locked spec) — a read-key only,
+      // not an audited datum. It is NOT a bug if it changes after the
+      // result was recorded.
+      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+
+    match /readiness_thresholds/{docId} {
+      // No client read, no client write at all — fully locked from the
+      // client, deliberately. computeSetThresholds (root-only, enforced in
+      // readiness-write.service.ts) is the only writer, via Admin SDK,
+      // which bypasses this file regardless of what's written here. The
+      // frozen thresholdSnapshot already carried on every result is what a
+      // client needs to interpret one.
+    }
+
+    // ============================================================
     // LEADERBOARD SHARDS — distributed counters (written by CF)
     // Clients should not write directly; reads are tenant-scoped.
     // ============================================================
