@@ -10,7 +10,7 @@ import {
   BarChart3, Mail, Pencil, Check, Tag, CreditCard, MessageSquare, Calendar,
 } from 'lucide-react';
 import { sendPasswordResetEmail } from 'firebase/auth';
-import { doc, updateDoc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { signOutUser } from '@/lib/auth.service';
 import { useUserStore } from '@/features/user';
@@ -25,6 +25,7 @@ import { disconnectHealth } from '@/lib/healthBridge/init';
 import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
 import HealthConnectDisclosureModal from '@/components/ui/HealthConnectDisclosureModal';
 import NeighborhoodPickerSheet from '@/features/profile/components/NeighborhoodPickerSheet';
+import { usePersonalInfoEditor } from '@/features/profile/hooks/usePersonalInfoEditor';
 import LegalDocModal from '@/features/legal/components/LegalDocModal';
 import EquipmentFilterSheet from '@/features/content/exercises/client/components/EquipmentFilterSheet';
 import { useToast } from '@/components/ui/Toast';
@@ -302,7 +303,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     });
 
   // ── Derived ──────────────────────────────────────────────────────────────
-  const userId = profile?.id ?? auth.currentUser?.uid ?? null;
   const userName = profile?.core?.name ?? 'משתמש';
   const userEmail = profile?.core?.email ?? auth.currentUser?.email ?? '';
   const userAvatar = profile?.core?.photoURL;
@@ -311,80 +311,24 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     (p) => p.providerId === 'password',
   );
 
-  // Inline edit for personal info
+  // Inline edit for personal info — state/effects/save logic extracted to
+  // usePersonalInfoEditor (round 5 of the profile redesign) so the new Edit
+  // Profile screen can reuse the exact same staged-edit + save behavior.
+  // editPersonalOpen stays local: it's this modal's own "is the inline form
+  // expanded" UI concern, not personal-info data the new screen needs (it's
+  // always-expanded there, no toggle).
   const [editPersonalOpen, setEditPersonalOpen] = useState(false);
-  const [editName, setEditName] = useState('');
-  const [editWeight, setEditWeight] = useState('');
-  const [editDob, setEditDob] = useState({ day: '', month: '', year: '' });
-  const [editSaving, setEditSaving] = useState(false);
-
-  // 17.08.2026: עיר + שכונה moved into this same "פרטים אישיים" section —
-  // was a separate, easy-to-miss card at the bottom of /profile. Neighborhood
-  // is staged (editNeighborhoodId) like name/weight/DOB and only committed on
-  // "שמור" alongside them; city stays display-only here with a link out to
-  // the JIT onboarding flow (core.authorityId is client-write-locked —
-  // noTenantFieldsChanged(), axioms.md §20 — routes through
-  // /api/user/update-authority, not a plain updateDoc, so it can't join the
-  // same staged-save batch as the other fields).
-  const [neighborhoodPickerOpen, setNeighborhoodPickerOpen] = useState(false);
-  const [neighborhoodName, setNeighborhoodName] = useState<string | null>(null);
-  const [editNeighborhoodId, setEditNeighborhoodId] = useState<string | null>(null);
-  const [editNeighborhoodName, setEditNeighborhoodName] = useState<string | null>(null);
-  const cityAuthorityId = profile?.core?.authorityId ?? null;
-  // 17.08.2026 fix — was: profile.core.authority.name (a joined field the
-  // location-save path never populates) → core.affiliations' first city
-  // entry (written by a DIFFERENT mechanism — addAffiliation()/
-  // persistResolvedCity() in useUserCityName.ts, not this save path). Never
-  // read authorityId itself, so a successful, correctly-persisted city
-  // change could never show here — the display just kept whatever stale
-  // affiliations entry happened to exist from an unrelated earlier action.
-  // Now resolves authorityId directly, same live-lookup pattern as
-  // neighborhoodName below.
-  //
-  // 19.09.2026 fix — dropped the core.affiliations fallback entirely (was
-  // layer 3). That field is written by persistResolvedCity() in
-  // useUserCityName.ts off *live GPS reverse-geocoding* — it records
-  // whatever city the user's phone was physically in, not the city they
-  // selected. A user living in Tel Aviv whose phone briefly resolved
-  // Petah Tikva (e.g. mid-route GPS fix while traveling) would see "פתח
-  // תקווה" as "their city" here — confirmed against production data.
-  // core.authority.name (layer 2) is kept as a same-request fallback for
-  // when the live lookup below resolves to an authority doc with no
-  // `name` field — but only ever applied *after* loading finishes, never
-  // as a stand-in while cityResolving is true (see cityDisplay below).
-  const [resolvedCityName, setResolvedCityName] = useState<string | null>(null);
-  const [cityResolving, setCityResolving] = useState(false);
-  const cityDisplay = cityResolving
-    ? null
-    : resolvedCityName ?? (() => {
-        const a = (profile?.core as any)?.authority;
-        if (a && typeof a === 'object' && a.name) return String(a.name);
-        return null;
-      })();
-
-  useEffect(() => {
-    const aid = profile?.core?.authorityId;
-    if (!aid) { setResolvedCityName(null); setCityResolving(false); return; }
-    let cancelled = false;
-    setCityResolving(true);
-    getDoc(doc(db, 'authorities', aid))
-      .then((snap) => { if (!cancelled) setResolvedCityName(snap.exists() ? ((snap.data()?.name as string) ?? null) : null); })
-      .catch(() => { if (!cancelled) setResolvedCityName(null); })
-      .finally(() => { if (!cancelled) setCityResolving(false); });
-    return () => { cancelled = true; };
-  }, [profile?.core?.authorityId]);
-
-  useEffect(() => {
-    const nid = profile?.core?.neighborhoodId;
-    if (!nid) { setNeighborhoodName(null); return; }
-    let cancelled = false;
-    getDoc(doc(db, 'authorities', nid))
-      .then((snap) => { if (!cancelled) setNeighborhoodName(snap.exists() ? ((snap.data()?.name as string) ?? null) : null); })
-      .catch(() => { if (!cancelled) setNeighborhoodName(null); });
-    return () => { cancelled = true; };
-  }, [profile?.core?.neighborhoodId]);
-  const monthRef = useRef<HTMLInputElement>(null);
-  const yearRef  = useRef<HTMLInputElement>(null);
+  const {
+    editName, setEditName,
+    editWeight, setEditWeight,
+    editDob, setEditDob,
+    editSaving,
+    cityDisplay, cityResolving, cityAuthorityId, goToCityEdit,
+    neighborhoodPickerOpen, setNeighborhoodPickerOpen,
+    editNeighborhoodId, editNeighborhoodName, setEditNeighborhoodId, setEditNeighborhoodName,
+    monthRef, yearRef,
+    openPersonalEdit: openPersonalEditFields, savePersonalEdit: savePersonalEditFields,
+  } = usePersonalInfoEditor();
 
   // Coupon / access code
   const [couponCode, setCouponCode] = useState('');
@@ -661,74 +605,20 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   }, [isOpen, checkPushPermission]);
 
   // ── Personal info edit ───────────────────────────────────────────────────
+  // openPersonalEditFields/savePersonalEditFields come from
+  // usePersonalInfoEditor (see the hook import above) — wrapped below to
+  // also toggle this modal's own editPersonalOpen (collapse/expand) state,
+  // which the hook deliberately doesn't own.
 
   const openPersonalEdit = useCallback(() => {
-    setEditName(profile?.core?.name ?? '');
-    setEditWeight(profile?.core?.weight ? String(profile.core.weight) : '');
-    if (profile?.core?.birthDate) {
-      const d = profile.core.birthDate instanceof Date
-        ? profile.core.birthDate
-        : new Date(profile.core.birthDate as unknown as string);
-      if (!isNaN(d.getTime())) {
-        setEditDob({
-          day:   String(d.getDate()).padStart(2, '0'),
-          month: String(d.getMonth() + 1).padStart(2, '0'),
-          year:  String(d.getFullYear()),
-        });
-      } else {
-        setEditDob({ day: '', month: '', year: '' });
-      }
-    } else {
-      setEditDob({ day: '', month: '', year: '' });
-    }
-    setEditNeighborhoodId(profile?.core?.neighborhoodId ?? null);
-    setEditNeighborhoodName(neighborhoodName);
+    openPersonalEditFields();
     setEditPersonalOpen(true);
-  }, [profile, neighborhoodName]);
+  }, [openPersonalEditFields]);
 
   const savePersonalEdit = useCallback(async () => {
-    const uid = auth.currentUser?.uid ?? userId;
-    if (!uid || editSaving) return;
-    setEditSaving(true);
-    try {
-      const update: Record<string, unknown> = {};
-
-      const trimmedName = editName.trim();
-      if (trimmedName && trimmedName !== profile?.core?.name) {
-        update['core.name'] = trimmedName;
-      }
-
-      const w = parseFloat(editWeight);
-      if (!isNaN(w) && w > 0 && w !== profile?.core?.weight) {
-        update['core.weight'] = w;
-      }
-
-      const day   = parseInt(editDob.day,   10);
-      const month = parseInt(editDob.month, 10);
-      const year  = parseInt(editDob.year,  10);
-      if (day && month && year && month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 1900) {
-        update['core.birthDate'] = new Date(year, month - 1, day);
-      }
-
-      if (editNeighborhoodId && editNeighborhoodId !== profile?.core?.neighborhoodId) {
-        update['core.neighborhoodId'] = editNeighborhoodId;
-      }
-
-      if (Object.keys(update).length > 0) {
-        update['core.updatedAt'] = serverTimestamp();
-        await updateDoc(doc(db, 'users', uid), update);
-        const fresh = await getUserFromFirestore(uid);
-        if (fresh) useUserStore.setState({ profile: fresh });
-        showToast('success', 'הפרטים עודכנו בהצלחה');
-      }
-      setEditPersonalOpen(false);
-    } catch (e) {
-      console.error('[Settings] failed to save personal details', e);
-      showToast('error', 'שגיאה בשמירת הפרטים');
-    } finally {
-      setEditSaving(false);
-    }
-  }, [editName, editWeight, editDob, editNeighborhoodId, userId, profile, editSaving, showToast]);
+    const ok = await savePersonalEditFields();
+    if (ok) setEditPersonalOpen(false);
+  }, [savePersonalEditFields]);
 
   // ── Coupon code ──────────────────────────────────────────────────────────
 
@@ -1319,8 +1209,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                 type="button"
                                 onClick={() => {
                                   onClose();
-                                  sessionStorage.setItem('explorer_return_to', 'profile');
-                                  router.push('/explorer');
+                                  goToCityEdit();
                                 }}
                                 className="w-full flex items-center justify-between px-3 py-2 border border-gray-200 rounded-xl text-sm font-simpler text-right"
                               >
