@@ -19,6 +19,7 @@ import { IS_XP_ENABLED } from '@/config/feature-flags';
 import { StrengthWidgets, RunningWidgets } from './widgets/DashboardModeWidgets';
 import FavoritesSheet from './FavoritesSheet';
 import EditProfileModal from './EditProfileModal';
+import { TRAINING_TAG_OPTIONS } from '@/features/profile/hooks/usePersonalInfoEditor';
 
 // Carousels use Firestore + auth — keep them client-only via dynamic()
 const GoalCarousel = dynamic(() => import('./widgets/GoalCarousel'), { ssr: false });
@@ -105,6 +106,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
   // referral.service.ts increments this on a real referral event — not a
   // dead field, but most accounts are still 0 until that happens.
   const partnerCount = profile?.social?.partnerCount ?? 0;
+  const trainingTags = profile?.core?.trainingTags ?? [];
   const [activeTab, setActiveTab] = useState<typeof PROFILE_TABS[number]['id']>('workouts');
 
   // ── Debug: log profile.progression whenever it changes ────────────────────
@@ -299,6 +301,26 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
           <p className="text-xs font-medium text-gray-400 mt-1">
             {profile?.core?.bio?.trim() || 'עדיין אין תיאור אישי'}
           </p>
+
+          {/* Training tags (round 6 bug fix) — core.trainingTags saves
+              correctly via usePersonalInfoEditor; this display was simply
+              never added here, only on the public profile page. Hidden
+              entirely when empty — no "add tags" placeholder clutter. */}
+          {trainingTags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {trainingTags.map((tagId) => {
+                const tag = TRAINING_TAG_OPTIONS.find((t) => t.id === tagId);
+                return (
+                  <span
+                    key={tagId}
+                    className="text-[11px] font-semibold text-gray-600 bg-gray-50 border border-gray-200 rounded-full px-2.5 py-1"
+                  >
+                    {tag?.label ?? tagId}
+                  </span>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* עריכת פרופיל — opens the consolidated Edit Profile screen (round

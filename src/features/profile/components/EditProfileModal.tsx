@@ -32,6 +32,17 @@ interface EditProfileModalProps {
   onClose: () => void;
 }
 
+// Bug fix (smoke test, round 6): none of this modal's inputs/textarea had
+// an explicit text color, so on any device in dark mode they inherited
+// globals.css's `body { color: var(--foreground) }` — which the
+// `prefers-color-scheme: dark` media query there sets to #ededed (near
+// white) — rendering invisible text on these light-background fields.
+// -webkit-text-fill-color is set too: iOS Safari/WKWebView can apply its
+// own text-fill color to form controls independent of `color`, so both
+// must be pinned for this to be reliably fixed on iPhone specifically.
+const INPUT_TEXT_FIX: React.CSSProperties = { color: '#111827', WebkitTextFillColor: '#111827' };
+const INPUT_TEXT_CLASS = 'text-gray-900 placeholder:text-gray-400';
+
 export default function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
   const { profile } = useUserStore();
   const userAvatar = profile?.core?.photoURL;
@@ -123,7 +134,8 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                   placeholder="שמך"
-                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-cyan-400 focus:border-transparent outline-none text-right"
+                  className={`w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-cyan-400 focus:border-transparent outline-none text-right ${INPUT_TEXT_CLASS}`}
+                  style={INPUT_TEXT_FIX}
                 />
               </div>
 
@@ -135,7 +147,8 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                   onChange={(e) => setEditBio(e.target.value.slice(0, 150))}
                   placeholder="ספר/י קצת על עצמך..."
                   rows={2}
-                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-cyan-400 focus:border-transparent outline-none text-right resize-none"
+                  className={`w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-cyan-400 focus:border-transparent outline-none text-right resize-none ${INPUT_TEXT_CLASS}`}
+                  style={INPUT_TEXT_FIX}
                 />
                 <p className="text-[10px] text-gray-400 mt-1">{editBio.length}/150</p>
               </div>
@@ -174,7 +187,8 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                     placeholder='משקל (ק"ג)'
                     min="20"
                     max="300"
-                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-cyan-400 focus:border-transparent outline-none"
+                    className={`w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-cyan-400 focus:border-transparent outline-none ${INPUT_TEXT_CLASS}`}
+                    style={INPUT_TEXT_FIX}
                     dir="ltr"
                   />
 
@@ -189,7 +203,8 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                         if (v.length === 2) monthRef.current?.focus();
                       }}
                       placeholder="DD"
-                      className="w-16 px-2 py-2.5 border border-gray-200 rounded-xl text-sm text-center focus:ring-2 focus:ring-cyan-400 outline-none"
+                      className={`w-16 px-2 py-2.5 border border-gray-200 rounded-xl text-sm text-center focus:ring-2 focus:ring-cyan-400 outline-none ${INPUT_TEXT_CLASS}`}
+                      style={INPUT_TEXT_FIX}
                     />
                     <input
                       ref={monthRef}
@@ -202,7 +217,8 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                         if (v.length === 2) yearRef.current?.focus();
                       }}
                       placeholder="MM"
-                      className="w-16 px-2 py-2.5 border border-gray-200 rounded-xl text-sm text-center focus:ring-2 focus:ring-cyan-400 outline-none"
+                      className={`w-16 px-2 py-2.5 border border-gray-200 rounded-xl text-sm text-center focus:ring-2 focus:ring-cyan-400 outline-none ${INPUT_TEXT_CLASS}`}
+                      style={INPUT_TEXT_FIX}
                     />
                     <input
                       ref={yearRef}
@@ -211,7 +227,8 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                       value={editDob.year}
                       onChange={(e) => setEditDob((p) => ({ ...p, year: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
                       placeholder="YYYY"
-                      className="flex-1 px-2 py-2.5 border border-gray-200 rounded-xl text-sm text-center focus:ring-2 focus:ring-cyan-400 outline-none"
+                      className={`flex-1 px-2 py-2.5 border border-gray-200 rounded-xl text-sm text-center focus:ring-2 focus:ring-cyan-400 outline-none ${INPUT_TEXT_CLASS}`}
+                      style={INPUT_TEXT_FIX}
                     />
                   </div>
                 </div>
