@@ -302,3 +302,31 @@ it as a clean PASS. None were promoted to PASS automatically.
 ### ה-definite-article diagnostic (NOT applied — evidence only)
 
 Checked all 46 remaining no-match entries (ה added or stripped, same 5 OSM fields) — **zero hits**. Not a guess: 7 of the 46 initially errored (network) and were silently counted as "no evidence either way" by the first pass — re-verified each of those 7 individually rather than let that stand; all 7 also came back as clean, confirmed no-matches on retry. This rule would not help any of the remaining FAILs — not added.
+
+## Stage B — third pass, 02.10.2026 (all 43 FLAG, approved individually)
+
+David reviewed the full 43-row FLAG table row-by-row before approving (see `docs/audit-2026-09/authority-boundary-flag-approval-audit.md` for the permanent per-row record). Verdict: 40 are name-only differences fully explained by their normalization rule; 3 (גדרות ×0.69, מזרעה ×0.98, קריית יערים ×0.72) also failed the area floor but are real, correctly-sized places — "a wrong floor, not a wrong match." Sanity-check thresholds were NOT changed.
+
+`npx tsx scripts/backfill-authority-boundaries-bulk.ts --apply --approve-flags=<all 43 ids>` — same single-field merge, additive-only, never-overwrite guarantees as every prior Stage B run.
+
+**Written: 42** (43 approved − 1, מזרעה, already written in an earlier pass before this normalization work existed — correctly skipped, not re-written).
+
+**Live-verified on 3 David selected** (full field dump + `parseBoundaryGeoJSON` round-trip, not just log output):
+- ערבות הירדן (22 outer rings, the largest in the sample) — 19 fields, `boundaryGeoJSON` is a string, parses to `MultiPolygon` with 22 parts. ✅
+- קריית יערים (0.7km² MultiPolygon) — 19 fields, parses to `MultiPolygon` with 3 parts. ✅
+- קריית מוצקין (real city, B2G target) — 19 fields, parses to `MultiPolygon` with 2 parts. ✅
+
+Caught and corrected a real error during this verification: the first attempt used the wrong authorityId for ערבות הירדן (mistakenly queried הערבה התיכונה instead, a different, similarly-named regional council) — the mismatch surfaced immediately because the returned geometry (Polygon, 1 ring) didn't match the expected shape (MultiPolygon, 22 rings), re-verified with the correct id. No literal pre-write field-count snapshot exists for these 3 specific docs (not captured before the write, an oversight) — verified instead via the current full field dump plus a code-level read of the write call (`ref.update({boundaryGeoJSON, updatedAt})` — exactly 2 keys, structurally incapable of touching anything else).
+
+**Authorities now carrying a boundary: 214** (172 + 42).
+
+## Two FAIL exceptions investigated — not a naming issue (02.10.2026)
+
+מודיעין עילית and טירת כרמל FAIL with zero normalization issues at all (no prefix, no yod, no hyphen, no quote). Diagnosed per David's request — not fixed:
+
+- Exact-candidate search (what the real pipeline tries): 0 elements, no remark.
+- Broad regex search on `name`/`name:he`, `boundary=administrative` relations only: 0 elements.
+- Broadest possible check — ANY relation (no boundary-tag filter at all) with this name: 0 elements.
+- Cross-checked independently via Nominatim (a different OSM API, not Overpass): **both places exist in OSM, but only as simple `place=city`/`place=town` point/way features — neither has a `boundary=administrative` RELATION at all.** מודיעין עילית's Nominatim result additionally shows it's in "שטח C" (West Bank Area C) — a politically sensitive zone where formal administrative boundary relations are known to be sparse in OSM. טירת כרמל has no such context (ordinary Haifa-district town) — its gap looks like a plain OSM coverage gap, not political sensitivity.
+
+**Root cause: these two don't have an OSM administrative boundary relation to find at all — no amount of name matching can fix this.** This is a third, distinct failure category from the 47, separate from both the geometry-assembly bug (resolved) and name-normalization (resolved for 42). Likely explains more than these 2 among the remaining 47 — not re-checked against the full 47 yet, per the read-only scope of this investigation.
