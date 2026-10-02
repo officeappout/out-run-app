@@ -1,9 +1,9 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { AlertTriangle, CalendarDays, CheckCircle2, Loader2, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Loader2, Plus, Trash2, X } from 'lucide-react';
 import { MARKET } from '../wedding.config';
-import { buildRoadmap, daysBeforeFor, daysUntil, formatShekel, rankVenues, taskDueDate, toIso, venueCost } from '../wedding.calc';
+import { buildRoadmap, daysBeforeFor, daysUntil, formatShekel, rankVenues, taskDueDate, toIso, venueCost, weekStart } from '../wedding.calc';
 import { TOGETHER, VENDOR_STATUSES, type Venue, type WeddingSettings, type WeddingState, type WeddingTask } from '../wedding.types';
 import { VenueEditor } from './VenueEditor';
 import { useWeddingStore, type SaveStatus } from './useWeddingStore';
@@ -11,7 +11,7 @@ import { useWeddingStore, type SaveStatus } from './useWeddingStore';
 type Tab = 'home' | 'roadmap' | 'venues' | 'vendors' | 'tasks' | 'market' | 'settings';
 const TABS: Array<[Tab, string]> = [
   ['home', 'סקירה'],
-  ['roadmap', 'מפת דרכים'],
+  ['roadmap', 'לוח שנה'],
   ['venues', 'השוואת אולמות'],
   ['vendors', 'ספקים'],
   ['tasks', 'משימות'],
@@ -298,7 +298,7 @@ function Overview({ s, g, onNew, go, update }: { s: WeddingState; g: number; onN
             </p>
           )}
           <button onClick={() => go('roadmap')} className="mt-3 text-sm font-bold text-emerald-700">
-            למפת הדרכים
+            ללוח השנה
           </button>
         </div>
       </section>
@@ -535,6 +535,14 @@ function pillClass(owner: string, people: string[]): string {
   return i >= 0 ? PERSON_PILLS[i % PERSON_PILLS.length] : 'bg-gray-50 text-slate-600 border-gray-200';
 }
 
+const PERSON_DOTS = ['bg-sky-500', 'bg-violet-500', 'bg-amber-500', 'bg-teal-500', 'bg-rose-500', 'bg-lime-500'];
+function dotClass(owner: string, people: string[]): string {
+  if (!owner) return 'bg-gray-300';
+  if (owner === TOGETHER) return 'bg-slate-500';
+  const i = people.indexOf(owner);
+  return i >= 0 ? PERSON_DOTS[i % PERSON_DOTS.length] : 'bg-gray-400';
+}
+
 /** Who-does-it tag. A select styled as a pill when editable, a plain pill otherwise. */
 function OwnerTag({ t, s, update, editable }: { t: WeddingTask; s: WeddingState; update: Update; editable?: boolean }) {
   const people = s.settings.people;
@@ -635,89 +643,444 @@ function TaskLine({ t, s, update, late, editable }: { t: WeddingTask; s: Wedding
   );
 }
 
-/** Week-by-week plan from this week to the wedding week. */
+type TaskDraft = { task: WeddingTask; isNew: boolean };
+
+/** Today, or the wedding date if today is already past it. */
+function defaultDueIso(s: WeddingState): string {
+  const t = toIso(new Date());
+  return t > s.settings.date ? s.settings.date : t;
+}
+
+function newTaskOn(s: WeddingState, iso: string, owner: string): WeddingTask {
+  return { id: newId(), name: '', daysBefore: daysBeforeFor(s.settings.date, iso), done: false, owner };
+}
+
+function saveTask(update: Update, t: WeddingTask) {
+  update((st) => ({ ...st, tasks: st.tasks.some((x) => x.id === t.id) ? st.tasks.map((x) => (x.id === t.id ? t : x)) : [...st.tasks, t] }));
+}
+
+/** Add / edit one task: name, date, who, done. Opens on '+', a calendar day, or a task in the calendar. */
+function TaskDialog({ s, draft, onSave, onDelete, onClose }: { s: WeddingState; draft: TaskDraft; onSave: (t: WeddingTask) => void; onDelete: (id: string) => void; onClose: () => void }) {
+  const [t, setT] = useState<WeddingTask>(draft.task);
+  const [err, setErr] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
+  const due = toIso(taskDueDate(s.settings.date, t.daysBefore));
+  const owners = [...s.settings.people, TOGETHER];
+  if (t.owner && !owners.includes(t.owner)) owners.push(t.owner);
+
+  const submit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!t.name.trim()) {
+      setErr(true);
+      return;
+    }
+    onSave({ ...t, name: t.name.trim() });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-0 sm:items-center sm:p-4" onClick={onClose}>
+      <form
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="wt-title"
+        dir="rtl"
+        onSubmit={submit}
+        onKeyDown={(e) => e.key === 'Escape' && onClose()}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md rounded-t-2xl bg-white p-5 shadow-2xl sm:rounded-2xl"
+        style={{ paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h2 id="wt-title" className="text-lg font-black text-slate-900">
+            {draft.isNew ? 'משימה חדשה' : 'עריכת משימה'}
+          </h2>
+          <button type="button" onClick={onClose} aria-label="סגירה" className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-gray-100">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="wt-name" className="text-xs font-bold text-slate-600">
+              מה צריך לעשות
+            </label>
+            <input
+              id="wt-name"
+              autoFocus
+              placeholder="למשל: לסגור צלם"
+              className={`${cellInput} min-h-[44px] ${err ? 'border-red-400' : ''}`}
+              value={t.name}
+              maxLength={300}
+              onChange={(e) => {
+                setT({ ...t, name: e.target.value });
+                setErr(false);
+              }}
+            />
+            {err && <span className="text-xs text-red-600">כתוב מה המשימה כדי לשמור.</span>}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="wt-date" className="text-xs font-bold text-slate-600">
+                עד מתי
+              </label>
+              <input
+                id="wt-date"
+                type="date"
+                max={s.settings.date}
+                className={`${cellInput} min-h-[44px]`}
+                value={due}
+                onChange={(e) => e.target.value && setT({ ...t, daysBefore: daysBeforeFor(s.settings.date, e.target.value) })}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="wt-owner" className="text-xs font-bold text-slate-600">
+                מי עושה
+              </label>
+              <select id="wt-owner" className={`${cellInput} min-h-[44px]`} value={t.owner} onChange={(e) => setT({ ...t, owner: e.target.value })}>
+                <option value="">עוד לא החלטנו</option>
+                {owners.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {!draft.isNew && (
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input type="checkbox" className="h-5 w-5 accent-emerald-600" checked={t.done} onChange={(e) => setT({ ...t, done: e.target.checked })} />
+              בוצע
+            </label>
+          )}
+        </div>
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex gap-2">
+            <button type="submit" className="min-h-[44px] rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white hover:bg-emerald-700">
+              {draft.isNew ? 'הוספה' : 'שמירה'}
+            </button>
+            <button type="button" onClick={onClose} className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-sm font-bold text-slate-700 hover:bg-gray-50">
+              ביטול
+            </button>
+          </div>
+          {!draft.isNew &&
+            (confirmDel ? (
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => onDelete(t.id)} className="min-h-[38px] rounded-xl bg-red-600 px-3 text-sm font-bold text-white">
+                  כן, למחוק
+                </button>
+                <button type="button" onClick={() => setConfirmDel(false)} className="min-h-[38px] rounded-xl border border-gray-200 px-3 text-sm font-bold text-slate-700">
+                  לא
+                </button>
+              </div>
+            ) : (
+              <button type="button" onClick={() => setConfirmDel(true)} className="min-h-[38px] rounded-xl px-3 text-sm font-bold text-red-600 hover:bg-red-50">
+                מחיקה
+              </button>
+            ))}
+        </div>
+      </form>
+    </div>
+  );
+}
+
+const HEB_DAYS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+
+/** Month grid (Sunday-first). Tasks sit on their due day; '+' on a day adds a task there; a task opens for editing. */
+function MonthCalendar({ s, tasks, onAdd, onOpen }: { s: WeddingState; tasks: WeddingTask[]; onAdd: (iso: string) => void; onOpen: (t: WeddingTask) => void }) {
+  const [month, setMonth] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
+  const todayIso = toIso(new Date());
+  const wedding = s.settings.date;
+  // Phone: tap a day to list its tasks under the grid (names don't fit in the cells).
+  const [picked, setPicked] = useState<string>(todayIso);
+  const byDay = new Map<string, WeddingTask[]>();
+  for (const t of tasks) {
+    const k = toIso(taskDueDate(wedding, t.daysBefore));
+    byDay.set(k, [...(byDay.get(k) ?? []), t]);
+  }
+  const first = weekStart(month);
+  const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  const rows = Math.ceil((month.getDay() + daysInMonth) / 7);
+  const cells: Date[] = [];
+  for (let i = 0; i < rows * 7; i++) {
+    const d = new Date(first);
+    d.setDate(first.getDate() + i);
+    cells.push(d);
+  }
+  const shift = (n: number) => setMonth((m) => new Date(m.getFullYear(), m.getMonth() + n, 1));
+  const title = month.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
+  const weddingMonth = new Date(`${wedding}T00:00:00`);
+
+  return (
+    <section className={`${card} p-3 md:p-4`}>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-1">
+          <button onClick={() => shift(-1)} aria-label="החודש הקודם" className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-slate-700 hover:bg-gray-50">
+            <ChevronRight className="h-5 w-5" />
+          </button>
+          <h2 className="min-w-[130px] text-center text-lg font-black text-slate-900">{title}</h2>
+          <button onClick={() => shift(1)} aria-label="החודש הבא" className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-slate-700 hover:bg-gray-50">
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))}
+            className="min-h-[36px] rounded-xl border border-gray-200 px-3 text-sm font-bold text-slate-700 hover:bg-gray-50"
+          >
+            היום
+          </button>
+          <button
+            onClick={() => setMonth(new Date(weddingMonth.getFullYear(), weddingMonth.getMonth(), 1))}
+            className="min-h-[36px] rounded-xl border border-gray-200 px-3 text-sm font-bold text-slate-700 hover:bg-gray-50"
+          >
+            חודש החתונה
+          </button>
+        </div>
+      </div>
+      <div className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border border-gray-200 bg-gray-200">
+        {HEB_DAYS.map((d) => (
+          <div key={d} className="bg-gray-50 py-1.5 text-center text-xs font-bold text-slate-500">
+            {d}
+          </div>
+        ))}
+        {cells.map((d) => {
+          const iso = toIso(d);
+          const inMonth = d.getMonth() === month.getMonth();
+          const isToday = iso === todayIso;
+          const isWedding = iso === wedding;
+          const list = byDay.get(iso) ?? [];
+          const shown = list.slice(0, 3);
+          const late = (t: WeddingTask) => !t.done && iso < todayIso;
+          return (
+            <div key={iso} className={`min-w-0 ${isWedding ? 'bg-emerald-50' : inMonth ? 'bg-white' : 'bg-gray-50'}`}>
+              {/* Phone: the whole day is one button; tasks show as colored dots. */}
+              <button
+                onClick={() => setPicked(iso)}
+                aria-label={`${fmtDate(d)}${list.length ? `, ${list.length} משימות` : ''}`}
+                aria-pressed={picked === iso}
+                className={`flex min-h-[60px] w-full flex-col items-center gap-1 p-1 md:hidden ${picked === iso ? 'ring-2 ring-inset ring-emerald-500' : ''}`}
+              >
+                <span
+                  className={`flex h-6 min-w-[24px] items-center justify-center rounded-full px-1 text-xs tabular-nums ${
+                    isToday ? 'bg-emerald-600 font-bold text-white' : isWedding ? 'bg-slate-900 font-bold text-white' : inMonth ? 'text-slate-700' : 'text-slate-400'
+                  }`}
+                >
+                  {d.getDate()}
+                </span>
+                <span className="flex flex-wrap justify-center gap-0.5">
+                  {list.slice(0, 6).map((t) => (
+                    <i key={t.id} className={`block h-2 w-2 rounded-full ${late(t) ? 'bg-red-500' : dotClass(t.owner, s.settings.people)} ${t.done ? 'opacity-30' : ''}`} />
+                  ))}
+                </span>
+              </button>
+              {/* Desktop: names in the cell, '+' on hover. */}
+              <div className="group hidden min-h-[104px] flex-col gap-1 p-1.5 md:flex">
+              <div className="flex items-center justify-between">
+                <span
+                  className={`flex h-6 min-w-[24px] items-center justify-center rounded-full px-1 text-xs tabular-nums ${
+                    isToday ? 'bg-emerald-600 font-bold text-white' : inMonth ? 'text-slate-700' : 'text-slate-400'
+                  }`}
+                >
+                  {d.getDate()}
+                </span>
+                {iso <= wedding && (
+                  <button
+                    onClick={() => onAdd(iso)}
+                    aria-label={`משימה ל-${fmtDate(d)}`}
+                    className="flex h-6 w-6 items-center justify-center rounded-md text-slate-400 opacity-0 hover:bg-emerald-50 hover:text-emerald-700 focus:opacity-100 group-hover:opacity-100"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              {isWedding && <span className="truncate rounded bg-emerald-600 px-1 text-[11px] font-bold text-white">החתונה</span>}
+              {shown.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => onOpen(t)}
+                  title={t.owner ? `${t.name} · ${t.owner}` : t.name}
+                  className={`w-full truncate rounded border px-1 py-0.5 text-right text-[11px] leading-tight md:text-xs ${
+                    late(t) ? 'border-red-200 bg-red-50 text-red-700' : pillClass(t.owner, s.settings.people)
+                  } ${t.done ? 'line-through opacity-60' : ''}`}
+                >
+                  {t.name}
+                </button>
+              ))}
+              {list.length > shown.length && (
+                <button onClick={() => onOpen(list[shown.length])} className="text-right text-[11px] font-bold text-slate-500">
+                  +{list.length - shown.length} נוספות
+                </button>
+              )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-3 md:hidden">
+        <div className="mb-1 flex items-center justify-between">
+          <h3 className="font-black text-slate-900">
+            {new Date(`${picked}T00:00:00`).toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' })}
+          </h3>
+          {picked <= wedding && (
+            <button onClick={() => onAdd(picked)} className="flex items-center gap-1 text-sm font-bold text-emerald-700">
+              <Plus className="h-4 w-4" /> משימה ליום הזה
+            </button>
+          )}
+        </div>
+        {picked === wedding && <p className="py-1 text-sm font-bold text-emerald-700">יום החתונה</p>}
+        {(byDay.get(picked) ?? []).length ? (
+          (byDay.get(picked) ?? []).map((t) => (
+            <button
+              key={t.id}
+              onClick={() => onOpen(t)}
+              className={`mb-1.5 flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-right text-sm ${pillClass(t.owner, s.settings.people)} ${t.done ? 'line-through opacity-60' : ''}`}
+            >
+              <span className="min-w-0 flex-1 truncate">{t.name}</span>
+              {t.owner && <span className="shrink-0 text-xs">{t.owner}</span>}
+            </button>
+          ))
+        ) : (
+          <p className="py-1 text-sm text-slate-400">אין משימות ביום הזה.</p>
+        )}
+      </div>
+      <p className="mt-2 hidden text-xs text-slate-500 md:block">לחיצה על משימה פותחת אותה לעריכה. ה-+ שמופיע כשעוברים על יום מוסיף לו משימה.</p>
+    </section>
+  );
+}
+
+/** Calendar tab: a month grid (default) or a week-by-week list, sharing one filter and one task dialog. */
 function Roadmap({ s, update }: { s: WeddingState; update: Update }) {
+  const [view, setView] = useState<'month' | 'weeks'>('month');
   const [showEmpty, setShowEmpty] = useState(false);
   const [who, setWho] = useState<OwnerFilter>('');
-  const { overdue, weeks } = buildRoadmap(s.settings.date, s.tasks.filter((t) => matchesOwner(t, who)));
+  const [draft, setDraft] = useState<TaskDraft | null>(null);
+  const filtered = s.tasks.filter((t) => matchesOwner(t, who));
+  const { overdue, weeks } = buildRoadmap(s.settings.date, filtered);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const ownerForNew = who && who !== '__none' ? who : '';
 
-  const addTo = (start: Date, end: Date) => {
-    // This week: due today; future weeks: due on the week's Thursday (capped by the wedding date).
+  const addOn = (iso: string) => setDraft({ task: newTaskOn(s, iso, ownerForNew), isNew: true });
+  const addToWeek = (start: Date, end: Date) => {
+    // This week: due today; future weeks: the week's Thursday (capped by the wedding date).
     const thu = new Date(start);
     thu.setDate(thu.getDate() + 4);
-    const due = start <= today && today <= end ? today : thu;
-    const iso = toIso(due) > s.settings.date ? s.settings.date : toIso(due);
-    // A task added while filtering by a person is tagged with that person.
-    const owner = who && who !== '__none' ? who : '';
-    update((st) => ({ ...st, tasks: [...st.tasks, { id: newId(), name: 'משימה חדשה', daysBefore: daysBeforeFor(st.settings.date, iso), done: false, owner }] }));
+    const iso = toIso(start <= today && today <= end ? today : thu);
+    addOn(iso > s.settings.date ? s.settings.date : iso);
   };
 
   const label = (offset: number, wedding: boolean) =>
     wedding ? 'שבוע החתונה' : offset === 0 ? 'השבוע' : offset === 1 ? 'שבוע הבא' : `בעוד ${offset} שבועות`;
-
   const visible = weeks.filter((w) => showEmpty || w.offset < 2 || w.isWeddingWeek || w.tasks.length > 0);
   const hidden = weeks.length - visible.length;
 
   return (
     <div className="flex flex-col gap-4">
-      <section className={`${card} flex flex-wrap items-center justify-between gap-3`}>
-        <p className="text-sm text-slate-700">
-          <b className="tabular-nums">{weeks.length}</b> שבועות עד החתונה · <b className="tabular-nums">{s.tasks.filter((t) => t.done).length}</b> מתוך{' '}
-          <b className="tabular-nums">{s.tasks.length}</b> משימות בוצעו
-        </p>
+      <section className={`${card} flex flex-col gap-3`}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-slate-700">
+            <b className="tabular-nums">{weeks.length}</b> שבועות עד החתונה · <b className="tabular-nums">{s.tasks.filter((t) => t.done).length}</b> מתוך{' '}
+            <b className="tabular-nums">{s.tasks.length}</b> משימות בוצעו
+          </p>
+          <div className="flex items-center gap-2">
+            <div className="flex gap-0.5 rounded-xl bg-gray-100 p-1" role="group" aria-label="תצוגה">
+              {(
+                [
+                  ['month', 'חודש'],
+                  ['weeks', 'שבועות'],
+                ] as const
+              ).map(([v, l]) => (
+                <button
+                  key={v}
+                  aria-pressed={view === v}
+                  onClick={() => setView(v)}
+                  className={`min-h-[34px] rounded-lg px-3 text-sm font-bold ${view === v ? 'bg-slate-900 text-white' : 'text-slate-600'}`}
+                  style={view === v ? SELECTED_STYLE : undefined}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => addOn(defaultDueIso(s))} className="flex min-h-[40px] items-center gap-1.5 rounded-xl bg-emerald-600 px-3 text-sm font-bold text-white hover:bg-emerald-700">
+              <Plus className="h-4 w-4" /> משימה
+            </button>
+          </div>
+        </div>
         <OwnerFilterBar s={s} value={who} onChange={setWho} />
-        {hidden > 0 || showEmpty ? (
-          <button onClick={() => setShowEmpty((v) => !v)} className="text-sm font-bold text-emerald-700">
-            {showEmpty ? 'להסתיר שבועות ריקים' : `להציג גם ${hidden} שבועות ריקים`}
-          </button>
-        ) : null}
       </section>
 
       {overdue.length > 0 && (
         <section className="rounded-2xl border border-red-200 bg-red-50/60 p-4 md:p-5">
           <h2 className="mb-1 font-black text-red-700">באיחור</h2>
-          <p className="mb-2 text-xs text-red-700/80">משימות שהתאריך שלהן עבר. סמן שבוצעו, או שנה תאריך כדי להעביר לשבוע אחר.</p>
+          <p className="mb-2 text-xs text-red-700/80">משימות שהתאריך שלהן עבר. סמן שבוצעו, או שנה תאריך כדי להעביר אותן.</p>
           {overdue.map((t) => (
             <TaskLine key={t.id} t={t} s={s} update={update} late editable />
           ))}
         </section>
       )}
 
-      <ol className="flex flex-col gap-3">
-        {visible.map((w) => {
-          const done = w.tasks.filter((t) => t.done).length;
-          const current = w.offset === 0;
-          return (
-            <li
-              key={w.start.getTime()}
-              className={`rounded-2xl border bg-white p-4 md:p-5 ${current ? 'border-emerald-400 ring-1 ring-emerald-200' : w.isWeddingWeek ? 'border-slate-900' : 'border-gray-200'}`}
-            >
-              <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <CalendarDays className={`h-4 w-4 ${current ? 'text-emerald-600' : 'text-slate-400'}`} />
-                  <h2 className="font-black text-slate-900">{label(w.offset, w.isWeddingWeek)}</h2>
-                  <span className="text-xs tabular-nums text-slate-500">{weekRange(w.start, w.end)}</span>
-                </div>
-                {w.tasks.length > 0 && (
-                  <span className={`rounded-full px-2 py-0.5 text-xs tabular-nums ${done === w.tasks.length ? 'bg-emerald-50 text-emerald-800' : 'bg-gray-100 text-slate-600'}`}>
-                    {done}/{w.tasks.length}
-                  </span>
-                )}
-              </div>
-              {w.tasks.length ? (
-                w.tasks.map((t) => <TaskLine key={t.id} t={t} s={s} update={update} editable />)
-              ) : (
-                <p className="py-1 text-sm text-slate-400">אין משימות לשבוע הזה.</p>
-              )}
-              <button onClick={() => addTo(w.start, w.end)} className="mt-2 flex items-center gap-1 text-sm font-bold text-emerald-700">
-                <Plus className="h-4 w-4" /> משימה לשבוע הזה
-              </button>
-            </li>
-          );
-        })}
-      </ol>
+      {view === 'month' ? (
+        <MonthCalendar s={s} tasks={filtered} onAdd={addOn} onOpen={(t) => setDraft({ task: t, isNew: false })} />
+      ) : (
+        <>
+          {(hidden > 0 || showEmpty) && (
+            <button onClick={() => setShowEmpty((v) => !v)} className="self-start text-sm font-bold text-emerald-700">
+              {showEmpty ? 'להסתיר שבועות ריקים' : `להציג גם ${hidden} שבועות ריקים`}
+            </button>
+          )}
+          <ol className="flex flex-col gap-3">
+            {visible.map((w) => {
+              const done = w.tasks.filter((t) => t.done).length;
+              const current = w.offset === 0;
+              return (
+                <li
+                  key={w.start.getTime()}
+                  className={`rounded-2xl border bg-white p-4 md:p-5 ${current ? 'border-emerald-400 ring-1 ring-emerald-200' : w.isWeddingWeek ? 'border-slate-900' : 'border-gray-200'}`}
+                >
+                  <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <CalendarDays className={`h-4 w-4 ${current ? 'text-emerald-600' : 'text-slate-400'}`} />
+                      <h2 className="font-black text-slate-900">{label(w.offset, w.isWeddingWeek)}</h2>
+                      <span className="text-xs tabular-nums text-slate-500">{weekRange(w.start, w.end)}</span>
+                    </div>
+                    {w.tasks.length > 0 && (
+                      <span className={`rounded-full px-2 py-0.5 text-xs tabular-nums ${done === w.tasks.length ? 'bg-emerald-50 text-emerald-800' : 'bg-gray-100 text-slate-600'}`}>
+                        {done}/{w.tasks.length}
+                      </span>
+                    )}
+                  </div>
+                  {w.tasks.length ? (
+                    w.tasks.map((t) => <TaskLine key={t.id} t={t} s={s} update={update} editable />)
+                  ) : (
+                    <p className="py-1 text-sm text-slate-400">אין משימות לשבוע הזה.</p>
+                  )}
+                  <button onClick={() => addToWeek(w.start, w.end)} className="mt-2 flex items-center gap-1 text-sm font-bold text-emerald-700">
+                    <Plus className="h-4 w-4" /> משימה לשבוע הזה
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        </>
+      )}
+
+      {draft && (
+        <TaskDialog
+          s={s}
+          draft={draft}
+          onClose={() => setDraft(null)}
+          onSave={(t) => {
+            saveTask(update, t);
+            setDraft(null);
+          }}
+          onDelete={(id) => {
+            update((st) => ({ ...st, tasks: st.tasks.filter((x) => x.id !== id) }));
+            setDraft(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -799,6 +1162,8 @@ function Tasks({ s, update }: { s: WeddingState; update: Update }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const [who, setWho] = useState<OwnerFilter>('');
+  const [draft, setDraft] = useState<TaskDraft | null>(null);
+  const [added, setAdded] = useState<string | null>(null);
   const list = [...s.tasks].filter((t) => matchesOwner(t, who)).sort((a, b) => b.daysBefore - a.daysBefore);
   const done = list.filter((t) => t.done).length;
   const patch = (id: string, p: Partial<WeddingState['tasks'][number]>) =>
@@ -811,7 +1176,7 @@ function Tasks({ s, update }: { s: WeddingState; update: Update }) {
           <b className="tabular-nums">{done}</b> מתוך <b className="tabular-nums">{list.length}</b> משימות בוצעו
         </p>
         <button
-          onClick={() => update((st) => ({ ...st, tasks: [...st.tasks, { id: newId(), name: 'משימה חדשה', daysBefore: 30, done: false, owner: who && who !== '__none' ? who : '' }] }))}
+          onClick={() => setDraft({ task: newTaskOn(s, defaultDueIso(s), who && who !== '__none' ? who : ''), isNew: true })}
           className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-bold text-white"
         >
           <Plus className="h-4 w-4" /> משימה
@@ -819,7 +1184,28 @@ function Tasks({ s, update }: { s: WeddingState; update: Update }) {
         <div className="w-full">
           <OwnerFilterBar s={s} value={who} onChange={setWho} />
         </div>
+        {added && (
+          <p role="status" className="w-full rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            {added}
+          </p>
+        )}
       </section>
+      {draft && (
+        <TaskDialog
+          s={s}
+          draft={draft}
+          onClose={() => setDraft(null)}
+          onSave={(t) => {
+            saveTask(update, t);
+            setDraft(null);
+            setAdded(`נוספה המשימה "${t.name}" ל-${fmtDate(taskDueDate(s.settings.date, t.daysBefore))}. היא מופיעה ברשימה לפי התאריך שלה.`);
+          }}
+          onDelete={(id) => {
+            update((st) => ({ ...st, tasks: st.tasks.filter((x) => x.id !== id) }));
+            setDraft(null);
+          }}
+        />
+      )}
       <section className={`${card} overflow-x-auto p-2 md:p-2`}>
         <table className="w-full min-w-[700px] border-collapse text-sm">
           <thead>
