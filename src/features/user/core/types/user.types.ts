@@ -297,6 +297,18 @@ export interface UserFullProfile {
     weight: number;
     birthDate?: Date;
     photoURL?: string;
+    /** Free-text self-description, set via the Edit Profile screen. New
+     * field (profile redesign round 5, approved scope: bio + training tags
+     * only — NOT the relationship-status/looking-for/18+ fields, deferred).
+     * Mirrored to userPublic/{uid} by userPublicSync.ts for public-profile
+     * display — see that file's MIRRORED_CORE_FIELDS. */
+    bio?: string;
+    /** Fixed-vocabulary training-preference chips (see
+     * TRAINING_TAG_OPTIONS in usePersonalInfoEditor.ts), set via the Edit
+     * Profile screen. Same new-field scope as bio above. Also mirrored to
+     * userPublic/{uid} and surfaced on the partner-finder card (presence
+     * doc) — single source, no duplicated input. */
+    trainingTags?: string[];
     authorityId?: string; // Link to authority (city/region) for manager access control
     neighborhoodId?: string; // Link to a neighborhood-level authorities/{id} doc, scoped under authorityId (see location-utils.ts findNeighborhoodIdByCity)
     // Closed-community (tenant) binding — VERIFIED, written ONLY server-side

@@ -409,12 +409,19 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
         </div>
       ) : (
         <div className="px-4 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] border-t border-gray-100 bg-white flex items-center gap-2">
+          {/* Bug fix (round 6, same root cause as EditProfileModal): no
+              explicit text color meant this input inherited globals.css's
+              dark-mode `body { color: var(--foreground) }` (#ededed, near
+              white) on a gray-100 background — invisible on any device in
+              dark mode. -webkit-text-fill-color pinned too for iOS
+              Safari/WKWebView's own independent text-fill override. */}
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="כתוב הודעה..."
-            className="flex-1 bg-gray-100 rounded-full px-4 py-2.5 text-sm outline-none text-right placeholder:text-gray-400"
+            className="flex-1 bg-gray-100 rounded-full px-4 py-2.5 text-sm outline-none text-right text-gray-900 placeholder:text-gray-400"
+            style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
           />
           <button
             onClick={handleSend}

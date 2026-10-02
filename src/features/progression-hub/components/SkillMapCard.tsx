@@ -26,10 +26,10 @@ import { getProgramByTemplateId, MASTER_PROGRAM_ID_TO_SLUG } from '@/features/co
 import type { Program } from '@/features/content/programs/core/program.types';
 import { ProgramProgressCard, type ProgramCardVisualState } from '@/features/home/components/widgets/ProgramProgressCard';
 import { resolveProgramLabel } from '@/features/content/programs';
-import { resolveToSlug, resolveSlugToId } from '@/features/workout-engine/services/program-hierarchy.utils';
+import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { useUserProgramLevel } from '@/features/progression-map/hooks/useUserProgramLevel';
 import { useSkillTree } from '@/features/progression-map/hooks/useSkillTree';
-import { isProgressionMapLeafProgram } from '@/lib/progression-map-config';
+import { resolveProgressionMapDestination } from '@/lib/progression-map-config';
 
 /**
  * Phase 4b round 5 fix: the displayed name used to fall back to the raw
@@ -94,25 +94,15 @@ export function SkillMapCard({ programId, nameHe, state, lockedHint, badge, onAs
   // Skill-Tree leaf programs (/progression-map/[programId]) — a composite/
   // master program has no tree of its own (the same known gap Feature #5's
   // program switcher already hit). For a master, fall back to /profile,
-  // where ProgramsSection/ProgramDrawer already show master detail — a
-  // second EXISTING destination, not a new one, chosen per program type.
-  //
-  // Phase 0 fix (program-identity audit): isProgressionMapLeafProgram's
-  // allowlist is raw-Firestore-id-only — a leaf skill whose `programId`
-  // here happens to be a SLUG (not the id) used to miss it unconditionally
-  // and fall back to /profile every time, even though it's a real leaf
-  // program. Same slug→id fallback already proven on #86
-  // (feat/profile-ig-shell, unmerged) — ported directly here since this
-  // file predates that branch.
-  let destination = '/profile';
-  if (isProgressionMapLeafProgram(programId)) {
-    destination = `/progression-map/${programId}`;
-  } else {
-    const resolvedId = resolveSlugToId(programId);
-    if (resolvedId && isProgressionMapLeafProgram(resolvedId)) {
-      destination = `/progression-map/${resolvedId}`;
-    }
-  }
+  // where ProgramsSection already shows master detail — a second EXISTING
+  // destination, not a new one, chosen per program type. Shared with
+  // ProgramsSection's own tap target via resolveProgressionMapDestination —
+  // see that function's own comment for why it resolves both the raw-id and
+  // slug forms of programId (main independently found and inline-patched
+  // this exact gap while #86 was still open — see that commit's own note
+  // citing this branch; converged back onto the shared helper here instead
+  // of keeping two copies of the identical fix).
+  const destination = resolveProgressionMapDestination(programId);
 
   // div role="button" (not a real <button>) so ProgramProgressCard can host
   // its own REAL nested <button> for the "בצע מבדק" secondary CTA

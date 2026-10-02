@@ -12,9 +12,11 @@
  */
 
 import React from 'react';
+import { Users } from 'lucide-react';
 import LemurAvatar from '@/features/user/progression/components/LemurAvatar';
 import { useUserStore } from '@/features/user';
 import { g } from '@/lib/utils/gendered-text';
+import { IS_XP_ENABLED } from '@/config/feature-flags';
 
 interface PartnerEmptyStateProps {
   tab: 'live' | 'scheduled';
@@ -42,8 +44,18 @@ export function PartnerEmptyState({ tab }: PartnerEmptyStateProps) {
       dir="rtl"
       className="flex flex-col items-center justify-center text-center px-8 py-10 w-full"
     >
+      {/* IS_XP_ENABLED gate (round 5 — a missed gamification-character
+          instance). Default: a neutral icon placeholder, consistent with
+          the profile header's initials-avatar approach — no specific user
+          here to show initials for, so a generic icon instead. */}
       <div className="opacity-50 mb-4">
-        <LemurAvatar level={1} size="large" />
+        {IS_XP_ENABLED ? (
+          <LemurAvatar level={1} size="large" />
+        ) : (
+          <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
+            <Users className="w-8 h-8 text-gray-400" />
+          </div>
+        )}
       </div>
       <p className="text-sm font-black text-gray-800 max-w-[260px] leading-snug">
         {title}

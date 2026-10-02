@@ -13,10 +13,12 @@
  */
 
 import React, { useMemo } from 'react';
-import { Dumbbell, Trophy, Clock, Layers, Footprints, Gauge, Activity, Route } from 'lucide-react';
+import { Footprints, Gauge, Activity, Route } from 'lucide-react';
 import { useWeeklyVolumeStore } from '@/features/workout-engine/core/store/useWeeklyVolumeStore';
 import { useDailyActivity } from '@/features/activity';
+import { useProgramProgress } from '@/features/home/hooks/useProgramProgress';
 import { DAILY_STEP_GOAL } from '@/config/health-goals';
+import CircularProgress from '@/components/CircularProgress';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -89,22 +91,15 @@ const HEBREW_DOMAIN_LABEL: Record<string, string> = {
   full_body: 'כל הגוף',
 };
 
-export function StrengthWidgets({ workouts }: StrengthWidgetsProps) {
+const WEEKDAY_LABELS_SUN_FIRST = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
+
+export function StrengthWidgets({}: StrengthWidgetsProps) {
   const strength = useWeeklyVolumeStore((s) => s.strength);
   const activeMinutes = useWeeklyVolumeStore((s) => s.activeMinutes);
-
-  // Top PR proxy: the strength workout with the most setsCompleted in the
-  // last 50 sessions. We deliberately do NOT fabricate per-exercise PRs
-  // since `WorkoutHistoryEntry` doesn't expose them. Falls back to '—'.
-  const topPR = useMemo(() => {
-    const strengthWorkouts = workouts.filter((w) => w.workoutType === 'strength');
-    if (strengthWorkouts.length === 0) return null;
-    const best = strengthWorkouts.reduce((acc, w) => {
-      const sets = w.setsCompleted ?? 0;
-      return sets > acc ? sets : acc;
-    }, 0);
-    return best > 0 ? best : null;
-  }, [workouts]);
+  const sessionLogs = useWeeklyVolumeStore((s) => s.sessionLogs);
+  // Same program-level data ProgramsSection (Skills tab) already reads —
+  // existing hook, existing source, no new fetch.
+  const progressData = useProgramProgress();
 
   // Distinct domains the user trained this week (e.g. push / pull / legs).
   const domainList = useMemo(() => {
@@ -113,58 +108,105 @@ export function StrengthWidgets({ workouts }: StrengthWidgetsProps) {
     return entries.map(([key]) => HEBREW_DOMAIN_LABEL[key.toLowerCase()] ?? key);
   }, [strength.domainSetsCompleted]);
 
-  const volumePct = strength.weeklyBudget > 0
-    ? Math.round((strength.totalSetsCompleted / strength.weeklyBudget) * 100)
-    : 0;
   const minutesPct = activeMinutes.weeklyGoal > 0
     ? Math.round((activeMinutes.totalMinutes / activeMinutes.weeklyGoal) * 100)
     : 0;
 
+  // Daily load strip (Sun..Sat) — client-side aggregation of this week's
+  // already-loaded sessionLogs (same recovery exclusion the volume budget
+  // above already applies). No new metric/fetch, just a different view of
+  // data this store already holds.
+  const dailyLoad = useMemo(() => {
+    const days = [0, 0, 0, 0, 0, 0, 0];
+    for (const log of sessionLogs) {
+      if (log.isRecovery) continue;
+      const day = new Date(log.completedAt).getDay();
+      days[day] += log.setsCompleted;
+    }
+    return days;
+  }, [sessionLogs]);
+  const maxDailyLoad = Math.max(1, ...dailyLoad);
+
+  const hasPR = !!progressData && !progressData.programNameLoading && progressData.currentLevel > 0;
+
   return (
     <div>
-      <SectionLabel>כוח</SectionLabel>
-      <div className="grid grid-cols-2 gap-3">
-        <WidgetCard
-          Icon={Dumbbell}
-          iconColor="text-purple-500"
-          label="נפח שבועי"
-          value={
-            strength.weeklyBudget > 0
-              ? `${strength.totalSetsCompleted} / ${strength.weeklyBudget}`
-              : `${strength.totalSetsCompleted}`
-          }
-          sub="סטים השבוע"
-          progressPct={volumePct}
-        />
+      <SectionLabel>השבוע שלך</SectionLabel>
+      <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+        {/* Ring + 2 tiles — degrades gracefully at 0 (empty ring, "0" tiles
+            with a friendly sub-label) instead of 4 separate broken-looking
+            squares. */}
+        <div className="flex items-center gap-4">
+          <CircularProgress
+            percentage={minutesPct}
+            size={72}
+            strokeWidth={7}
+            colorClass="text-[#00ADEF]"
+          >
+            <div className="flex flex-col items-center">
+              <span className="text-sm font-black text-gray-900 leading-none tabular-nums">
+                {activeMinutes.totalMinutes}
+              </span>
+              <span className="text-[8px] text-gray-400 mt-0.5 whitespace-nowrap">
+                מתוך {activeMinutes.weeklyGoal}&apos;
+              </span>
+            </div>
+          </CircularProgress>
 
-        <WidgetCard
-          Icon={Trophy}
-          iconColor="text-amber-500"
-          label="שיא אישי"
-          value={topPR != null ? `${topPR}` : '—'}
-          sub={topPR != null ? 'סטים בסשן אחד' : 'אין נתונים עדיין'}
-        />
+          <div className="flex-1 grid grid-cols-2 gap-2">
+            <div className="bg-gray-50 rounded-xl p-2.5">
+              <span className="text-lg font-black text-gray-900 leading-none tabular-nums block">
+                {strength.totalSetsCompleted}
+              </span>
+              <span className="text-[10px] font-bold text-gray-500">סטים השבוע</span>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-2.5">
+              <span className="text-lg font-black text-gray-900 leading-none tabular-nums block">
+                {domainList.length}
+              </span>
+              <span className="text-[10px] font-bold text-gray-500 truncate block">
+                {domainList.length > 0 ? domainList.slice(0, 2).join(' · ') : 'קבוצות שרירים'}
+              </span>
+            </div>
+          </div>
+        </div>
 
-        <WidgetCard
-          Icon={Clock}
-          iconColor="text-emerald-500"
-          label="זמן פעיל"
-          value={`${activeMinutes.totalMinutes}`}
-          sub={`מתוך ${activeMinutes.weeklyGoal} דק׳`}
-          progressPct={minutesPct}
-        />
+        {/* Weekly load strip */}
+        <div className="mt-4">
+          <p className="text-[10px] font-bold text-gray-400 mb-1.5">עומס יומי</p>
+          <div className="flex items-end gap-1.5" style={{ height: 32 }}>
+            {WEEKDAY_LABELS_SUN_FIRST.map((label, i) => (
+              <div key={label} className="flex-1 h-full flex flex-col justify-end items-center gap-1">
+                <div
+                  className="w-full rounded-sm bg-gradient-to-t from-[#00ADEF] to-[#5BC2F2]"
+                  style={{
+                    height: `${Math.max(10, (dailyLoad[i] / maxDailyLoad) * 100)}%`,
+                    opacity: dailyLoad[i] > 0 ? 1 : 0.15,
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-1.5 mt-1">
+            {WEEKDAY_LABELS_SUN_FIRST.map((label) => (
+              <span key={label} className="flex-1 text-center text-[9px] text-gray-300 font-bold">
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
 
-        <WidgetCard
-          Icon={Layers}
-          iconColor="text-[#00ADEF]"
-          label="קבוצות שרירים"
-          value={`${domainList.length}`}
-          sub={
-            domainList.length > 0
-              ? domainList.slice(0, 3).join(' · ')
-              : 'התחל אימון'
-          }
-        />
+        {/* Personal-record footer — reuses the same master-program data
+            ProgramsSection already shows in the Skills tab. */}
+        <div className="mt-3 pt-3 border-t border-gray-100 text-center">
+          {hasPR ? (
+            <p className="text-xs font-bold text-gray-600">
+              🏅 שיא · {progressData!.programName} · רמה {progressData!.currentLevel}
+            </p>
+          ) : (
+            <p className="text-xs font-medium text-gray-400">עוד לא נקבע שיא — תתחיל להתאמן 💪</p>
+          )}
+        </div>
       </div>
     </div>
   );

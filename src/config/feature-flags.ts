@@ -16,6 +16,17 @@ export const AEROBIC_SOLO_ENABLED = true;
 // Set to true to re-enable automatic post creation on workout completion.
 export const IS_COMMUNITY_FEED_ENABLED = false;
 
+// XP_SYSTEM_PAUSED: single source of truth for showing/hiding the XP +
+// gamification-character (lemur) system in the UI. Hides, does NOT stop,
+// accrual — awardWorkoutXP/reverseWorkoutXP, progression.globalXP/globalLevel
+// writes, and every Firestore field keep working exactly as today; this only
+// gates whether the UI renders the XP bar / level number / "שלב X" labels /
+// lemur character avatar. While false, every gated site renders its
+// pre-existing non-XP fallback (e.g. an initials avatar instead of the
+// lemur) rather than nothing. Set to true to re-enable the full
+// gamification display.
+export const IS_XP_ENABLED = false;
+
 // HYBRID_SLOTS_ENABLED / HYBRID_FULL_PARK_WORKOUT_ENABLED — REMOVED (wave 1, 08.09.2026).
 // Both compile-time constants were replaced by admin-panel toggles: system_config/
 // feature_flags.enable_hybrid_slots / .enable_full_park_workout (system-settings/page.tsx),

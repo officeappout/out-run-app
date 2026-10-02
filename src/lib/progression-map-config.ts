@@ -61,6 +61,7 @@
  * assumed either way.
  */
 import type { Exercise } from '@/features/content/exercises';
+import { resolveSlugToId } from '@/features/workout-engine/services/program-hierarchy.utils';
 
 export interface ProgressionMapLeafProgram {
   programId: string;
@@ -110,6 +111,29 @@ export const PROGRESSION_MAP_REFERENCE_PROGRAM_ID = 'mFcuYlNgKXLqWVUFo0zt';
 
 export function isProgressionMapLeafProgram(programId: string): boolean {
   return PROGRESSION_MAP_LEAF_PROGRAM_IDS.has(programId);
+}
+
+/**
+ * Shared "where does tapping this program go" resolver — the single place
+ * both the /progression hub (SkillMapCard) and the profile Skills tab
+ * (ProgramsSection) decide this, so the same program always lands on the
+ * same destination in both places.
+ *
+ * Accepts either identifier form real program data actually mixes for the
+ * same logical program (see program-bucketing.service.ts's own header
+ * comment: "activePrograms/tracks data mixes raw Firestore ids and slugs"):
+ * a raw Firestore programId (what this list is keyed by), or a
+ * human-readable slug (e.g. 'front_lever'). Tries the id form first, then
+ * resolves slug→id and tries again — so a genuine leaf skill is never
+ * missed just because one particular caller happened to hold the slug
+ * form. A composite/master program (no tree of its own) falls back to
+ * /profile, where its detail already lives.
+ */
+export function resolveProgressionMapDestination(idOrSlug: string): string {
+  if (isProgressionMapLeafProgram(idOrSlug)) return `/progression-map/${idOrSlug}`;
+  const resolvedId = resolveSlugToId(idOrSlug);
+  if (resolvedId && isProgressionMapLeafProgram(resolvedId)) return `/progression-map/${resolvedId}`;
+  return '/profile';
 }
 
 export function getProgressionMapProgramName(programId: string): string | null {

@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
-import { Flame, Trophy, CalendarDays, Settings2, Bookmark } from 'lucide-react';
+import { Flame, Trophy, Settings2, Bookmark, Dumbbell, Target, BarChart3 } from 'lucide-react';
 import { useProgressionStore } from '@/features/user/progression/store/useProgressionStore';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { getLevelName } from '@/features/user/progression/config/lemur-stages';
@@ -15,8 +15,11 @@ import { useAchievements } from '@/features/user/progression/hooks/useAchievemen
 import { BadgeDisplay } from '@/features/user/progression/components/BadgeDisplay';
 import { AchievementSheet } from '@/features/user/progression/components/AchievementSheet';
 import { AchievementUnlockToast } from '@/features/user/progression/components/AchievementUnlockToast';
+import { IS_XP_ENABLED } from '@/config/feature-flags';
 import { StrengthWidgets, RunningWidgets } from './widgets/DashboardModeWidgets';
 import FavoritesSheet from './FavoritesSheet';
+import EditProfileModal from './EditProfileModal';
+import { TRAINING_TAG_OPTIONS } from '@/features/profile/hooks/usePersonalInfoEditor';
 
 // Carousels use Firestore + auth — keep them client-only via dynamic()
 const GoalCarousel = dynamic(() => import('./widgets/GoalCarousel'), { ssr: false });
@@ -37,6 +40,56 @@ interface DashboardTabProps {
 /** Single asset path; LemurAvatar uses the same file. */
 const LEMUR_IMG = '/assets/lemur/king-lemur.png';
 
+// IA shell (Phase a) — visual-only tab bar. Tapping only changes which tab
+// looks selected; content wiring per tab is a later phase.
+const PROFILE_TABS = [
+  { id: 'workouts', label: 'אימונים', Icon: Dumbbell },
+  { id: 'skills', label: 'סקילים', Icon: Target },
+  { id: 'badges', label: 'הישגים', Icon: Trophy },
+  { id: 'programs', label: 'תוכניות', Icon: BarChart3 },
+] as const;
+
+// Default no-photo avatar (IS_XP_ENABLED=false): initials on a per-user
+// deterministic color, so two users without a photo don't look identical.
+// Small brand-aligned palette — swap freely, nothing else depends on these
+// exact hexes.
+const AVATAR_PALETTE = ['#00ADEF', '#10B981', '#F59E0B', '#8B5CF6', '#F43F5E', '#0EA5E9'];
+const AVATAR_FALLBACK_GRADIENT = 'linear-gradient(135deg, #00ADEF, #5BC2F2)';
+
+function hashString(input: string): number {
+  let hash = 0;
+  for (let i = 0; i < input.length; i++) {
+    hash = (hash * 31 + input.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+}
+
+/** Deterministic background for a user's initials avatar — same uid/name
+ * always lands on the same palette color. Falls back to the brand gradient
+ * when neither uid nor name is available (truly unknown user). */
+function avatarBackground(seed: string | null): string {
+  if (!seed) return AVATAR_FALLBACK_GRADIENT;
+  return AVATAR_PALETTE[hashString(seed) % AVATAR_PALETTE.length];
+}
+
+/** Grapheme-safe first letter — avoids splitting a surrogate pair (emoji,
+ * non-BMP characters) in half. Hebrew/Latin names uppercase as expected;
+ * .toUpperCase() is a harmless no-op on Hebrew (no case to begin with). */
+function firstGrapheme(name: string | null): string {
+  const trimmed = name?.trim();
+  if (!trimmed) return '?';
+  const SegmenterCtor = (Intl as unknown as { Segmenter?: new (locale?: string, opts?: { granularity: string }) => { segment(s: string): Iterable<{ segment: string }> } }).Segmenter;
+  if (SegmenterCtor) {
+    // Array.from (not spread/for-of) — this repo's tsconfig has no `target`
+    // set, so spreading a non-array iterable hits TS2802; Array.from is a
+    // plain function call, not a language construct the compiler needs to
+    // downlevel, and still iterates the real runtime iterator correctly.
+    const first = Array.from(new SegmenterCtor(undefined, { granularity: 'grapheme' }).segment(trimmed))[0];
+    return first ? first.segment.toUpperCase() : '?';
+  }
+  return Array.from(trimmed)[0]?.toUpperCase() ?? '?';
+}
+
 export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: DashboardTabProps) {
   const {
     globalXP,
@@ -48,6 +101,13 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
   const { profile } = useUserStore();
   const gender = profile?.core?.gender ?? 'male';
   const userId = profile?.id ?? auth.currentUser?.uid ?? null;
+  const photoURL = profile?.core?.photoURL || null;
+  const userName = profile?.core?.name?.trim() || null;
+  // referral.service.ts increments this on a real referral event — not a
+  // dead field, but most accounts are still 0 until that happens.
+  const partnerCount = profile?.social?.partnerCount ?? 0;
+  const trainingTags = profile?.core?.trainingTags ?? [];
+  const [activeTab, setActiveTab] = useState<typeof PROFILE_TABS[number]['id']>('workouts');
 
   // ── Debug: log profile.progression whenever it changes ────────────────────
   useEffect(() => {
@@ -76,6 +136,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
   );
   const [isAchievementSheetOpen, setIsAchievementSheetOpen] = useState(false);
   const [isFavoritesSheetOpen, setIsFavoritesSheetOpen] = useState(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
   // ── Hydrate progression store on mount (idempotent) ────────────────────────
   const hydrationAttemptedRef = useRef(false);
@@ -117,7 +178,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
   return (
     <div className="space-y-4 pb-24" dir="rtl">
       {/* ════════════════════════════════════════════════════════════════════
-          BLOCK 1 — Lemur Hero Card
+          BLOCK 1 — IG-style header (avatar + 3 stats; photo falls back to lemur)
          ════════════════════════════════════════════════════════════════════ */}
       <motion.div
         initial={{ y: 16, opacity: 0 }}
@@ -147,17 +208,41 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
           </button>
         </div>
 
-        {/* Lemur image — 88px circle, green border, streak badge bottom-right */}
-        <div className="flex flex-col items-center pt-2">
-          <div className="relative" style={{ width: 88, height: 88 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={LEMUR_IMG}
-              alt="Lemur"
-              width={88}
-              height={88}
-              className="w-full h-full rounded-full object-cover border-[3px] border-emerald-400 shadow-md bg-white"
-            />
+        {/* ── IG-style header row: avatar (photo, fallback to lemur) + 3 stats ── */}
+        <div className="flex items-center gap-4 pt-2">
+          <div className="relative flex-shrink-0" style={{ width: 84, height: 84 }}>
+            {/* Gradient ring (brand gradient, same tokens as the XP bar below) —
+                padding reveals the gradient as a ring around the white inset. */}
+            <div className="w-full h-full rounded-full p-[3px] bg-gradient-to-br from-[#00ADEF] to-[#5BC2F2] shadow-md">
+              <div className="w-full h-full rounded-full overflow-hidden bg-white">
+                {photoURL ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={photoURL}
+                    alt={userName || 'תמונת פרופיל'}
+                    width={84}
+                    height={84}
+                    className="w-full h-full object-cover"
+                  />
+                ) : IS_XP_ENABLED ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={LEMUR_IMG}
+                    alt="Lemur"
+                    width={84}
+                    height={84}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div
+                    className="w-full h-full flex items-center justify-center text-white font-black text-2xl"
+                    style={{ background: avatarBackground(userId || userName) }}
+                  >
+                    {firstGrapheme(userName)}
+                  </div>
+                )}
+              </div>
+            </div>
             {/* Streak badge — Flame + count */}
             <div className="absolute -bottom-1 -right-1 bg-white rounded-full px-1.5 py-0.5 shadow-md border border-gray-100 flex items-center gap-0.5">
               <Flame className="w-3.5 h-3.5 text-orange-500" fill="currentColor" />
@@ -167,11 +252,91 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
             </div>
           </div>
 
-          {/* Level title (gendered) */}
-          <h2 className="text-xl font-black text-gray-900 mt-3">{levelName}</h2>
-          <span className="text-xs font-bold text-[#00ADEF] mt-0.5">שלב {globalLevel}</span>
+          {/* 3 stats — workouts / partners / streak (level dropped — see
+              partnerCount note above) */}
+          <div className="flex-1 grid grid-cols-3 gap-1">
+            <button
+              type="button"
+              onClick={onNavigateToHistory}
+              disabled={!onNavigateToHistory}
+              aria-label="הצג היסטוריית אימונים"
+              className="flex flex-col items-center active:scale-95 transition-transform disabled:cursor-default"
+            >
+              <span className="text-lg font-black text-gray-900 leading-none tabular-nums">
+                {historyLoading ? '—' : totalWorkouts}
+              </span>
+              <span className="text-[10px] font-bold text-gray-500 mt-1">אימונים</span>
+            </button>
 
-          {/* XP progress bar */}
+            <div className="flex flex-col items-center">
+              <span className="text-lg font-black text-gray-900 leading-none tabular-nums">
+                {partnerCount}
+              </span>
+              <span className="text-[10px] font-bold text-gray-500 mt-1">שותפים</span>
+            </div>
+
+            <div className="flex flex-col items-center">
+              <span className="text-lg font-black text-gray-900 leading-none tabular-nums">
+                {currentStreak}
+              </span>
+              <span className="text-[10px] font-bold text-gray-500 mt-1">ימי רצף</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Name + meta + bio — start-aligned (not centered), matching the
+            mockup. levelName is a level-tier name (e.g. "המטפס") — part of
+            the XP/character system, gated behind IS_XP_ENABLED like the
+            rest of it (round 4 follow-up; previously kept unconditional).
+            Bio (round 5): core.bio is a real field now, set via
+            EditProfileModal — shows the real value when set, same
+            empty-safe placeholder as before when not. */}
+        <div className="mt-4">
+          {userName && (
+            <p className="text-sm font-bold text-gray-900">{userName}</p>
+          )}
+          {IS_XP_ENABLED && (
+            <p className="text-xs font-bold text-[#00ADEF] mt-0.5">{levelName}</p>
+          )}
+          <p className="text-xs font-medium text-gray-400 mt-1">
+            {profile?.core?.bio?.trim() || 'עדיין אין תיאור אישי'}
+          </p>
+
+          {/* Training tags (round 6 bug fix) — core.trainingTags saves
+              correctly via usePersonalInfoEditor; this display was simply
+              never added here, only on the public profile page. Hidden
+              entirely when empty — no "add tags" placeholder clutter. */}
+          {trainingTags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {trainingTags.map((tagId) => {
+                const tag = TRAINING_TAG_OPTIONS.find((t) => t.id === tagId);
+                return (
+                  <span
+                    key={tagId}
+                    className="text-[11px] font-semibold text-gray-600 bg-gray-50 border border-gray-200 rounded-full px-2.5 py-1"
+                  >
+                    {tag?.label ?? tagId}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* עריכת פרופיל — opens the consolidated Edit Profile screen (round
+            5). Additive: the gear/bookmark corner icons above keep their
+            existing jobs (settings / saved workouts) unchanged. */}
+        <button
+          type="button"
+          onClick={() => setIsEditProfileOpen(true)}
+          className="w-full mt-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm font-bold text-gray-700 active:scale-[0.98] transition-transform"
+        >
+          עריכת פרופיל ✏️
+        </button>
+
+        {/* XP progress bar — IS_XP_ENABLED gate. Hidden, not deleted: no
+            accrual is stopped, only this display. */}
+        {IS_XP_ENABLED && (
           <div className="w-full mt-4">
             {!isHydrated ? (
               <div className="space-y-2 animate-pulse">
@@ -203,157 +368,168 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
               </>
             )}
           </div>
-
-          {/* Stats row (2 columns w/ vertical divider) */}
-          <div className="grid grid-cols-2 gap-1 mt-4 pt-4 border-t border-gray-100 w-full divide-x divide-x-reverse divide-gray-100">
-            {/* Workouts count — tappable, navigates to history */}
-            <button
-              type="button"
-              onClick={onNavigateToHistory}
-              disabled={!onNavigateToHistory}
-              aria-label="הצג היסטוריית אימונים"
-              className="flex flex-col items-center px-2 active:scale-95 transition-transform disabled:cursor-default"
-            >
-              <div className="flex items-center gap-1.5 text-gray-500">
-                <Trophy className="w-3.5 h-3.5 text-amber-500" />
-                <span className="text-[10px] font-bold">אימונים</span>
-              </div>
-              <span className="text-xl font-black text-gray-900 leading-none mt-1 tabular-nums">
-                {historyLoading ? '—' : totalWorkouts}
-              </span>
-            </button>
-
-            <div className="flex flex-col items-center px-2">
-              <div className="flex items-center gap-1.5 text-gray-500">
-                <CalendarDays className="w-3.5 h-3.5 text-orange-500" />
-                <span className="text-[10px] font-bold">ימי רצף</span>
-              </div>
-              <span className="text-xl font-black text-gray-900 leading-none mt-1 tabular-nums">
-                {currentStreak}
-              </span>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* ════════════════════════════════════════════════════════════════════
-          BLOCK 2 — יעדי תרגילים (GoalCarousel; +150 XP line lives in GoalCard)
-         ════════════════════════════════════════════════════════════════════ */}
-      <motion.div
-        initial={{ y: 16, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.06 }}
-      >
-        <GoalCarousel />
-      </motion.div>
-
-      {/* ════════════════════════════════════════════════════════════════════
-          BLOCK 2.5 — תרגילים שאני רוצה ללמוד (Slice 2b exercise wishlist)
-          Placement provisional — David will rearrange the profile later.
-         ════════════════════════════════════════════════════════════════════ */}
-      <motion.div
-        initial={{ y: 16, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.08 }}
-      >
-        <ExerciseWishlistStrip />
-      </motion.div>
-
-      {/* ════════════════════════════════════════════════════════════════════
-          BLOCK 3 — הישגים (BadgeDisplay compact + sheet trigger)
-         ════════════════════════════════════════════════════════════════════ */}
-      <motion.div
-        initial={{ y: 16, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.12 }}
-        className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100"
-      >
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Trophy className="w-4 h-4 text-amber-500" />
-            <h3 className="text-sm font-bold text-gray-800">הישגים</h3>
-          </div>
-          <button
-            type="button"
-            onClick={() => setIsAchievementSheetOpen(true)}
-            className="text-xs font-semibold text-[#00ADEF]"
-          >
-            כל ההישגים
-          </button>
-        </div>
-
-        <BadgeDisplay
-          unlockedAchievements={unlockedAchievements}
-          onViewAll={() => setIsAchievementSheetOpen(true)}
-          maxVisible={6}
-        />
-      </motion.div>
-
-      {/* ════════════════════════════════════════════════════════════════════
-          BLOCK 4 — Mode-based widgets (כוח / ריצה)
-         ════════════════════════════════════════════════════════════════════ */}
-      <motion.div
-        initial={{ y: 16, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.18 }}
-      >
-        {isRunningMode ? (
-          <RunningWidgets workouts={workouts} />
-        ) : (
-          <StrengthWidgets workouts={workouts} />
         )}
       </motion.div>
 
       {/* ════════════════════════════════════════════════════════════════════
-          BLOCK 5 — התוכניות שלי (master + child program cards)
+          BLOCK 1.5 — IA tab bar
+          Each tab now shows only its own panel (see the panels below) —
+          same existing blocks as before, just partitioned instead of one
+          continuous scroll.
          ════════════════════════════════════════════════════════════════════ */}
       <motion.div
         initial={{ y: 16, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.24 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.03 }}
+        className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
       >
-        <ProgramsSection />
+        <div className="flex" role="tablist" aria-label="תצוגת פרופיל">
+          {PROFILE_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`relative flex-1 flex flex-col items-center gap-1 py-3 transition-colors ${
+                activeTab === tab.id ? 'text-gray-900' : 'text-gray-400'
+              }`}
+            >
+              <tab.Icon className="w-5 h-5" />
+              <span className="text-[10px] font-bold">{tab.label}</span>
+              {activeTab === tab.id && (
+                <span className="absolute bottom-0 h-0.5 w-8 rounded-full bg-gradient-to-l from-[#00ADEF] to-[#5BC2F2]" />
+              )}
+            </button>
+          ))}
+        </div>
       </motion.div>
 
       {/* ════════════════════════════════════════════════════════════════════
-          BLOCK 5.5 — מה בחרת, לפי עדיפות (multi-select program path priority
-          order — renders nothing when there's nothing to show)
+          Tab panels — every block that used to render in one continuous
+          scroll is now routed into one of the 4 tabs above. All 4 panels
+          stay mounted (toggled via the `hidden` utility, not conditional
+          JSX) so switching tabs never remounts — and never re-fires the
+          data fetch inside — any of these existing blocks.
          ════════════════════════════════════════════════════════════════════ */}
-      <motion.div
-        initial={{ y: 16, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.27 }}
-      >
-        <PrioritiesSection />
-      </motion.div>
 
-      {/* ════════════════════════════════════════════════════════════════════
-          BLOCK 6 — פעילות אחרונה (last 5 workouts + "הכל" link)
-         ════════════════════════════════════════════════════════════════════ */}
-      <motion.div
-        initial={{ y: 16, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.30 }}
-        className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100"
-      >
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-black text-gray-800">פעילות אחרונה</h3>
-          {onNavigateToHistory && (
+      {/* ── אימונים ── BLOCK 6 (recent activity; workout history is a later phase) */}
+      <div className={activeTab === 'workouts' ? 'space-y-4' : 'hidden'}>
+        <motion.div
+          initial={{ y: 16, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.06 }}
+          className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-black text-gray-800">פעילות אחרונה</h3>
+            {onNavigateToHistory && (
+              <button
+                type="button"
+                onClick={onNavigateToHistory}
+                className="text-xs font-semibold text-[#00ADEF]"
+              >
+                הכל
+              </button>
+            )}
+          </div>
+
+          {/* RecentActivityList renders its own card chrome — strip the wrapper
+              by passing only the list portion. We re-implement the rows inline
+              because we already render the section header above. */}
+          <InlineRecentList workouts={workouts} isLoading={historyLoading} />
+        </motion.div>
+      </div>
+
+      {/* ── סקילים ── BLOCK 5 (ProgramsSection — confirmed round 3: this is
+          the per-skill progression rings/list, e.g. front lever 9/15 68%.
+          Its own existing empty state ("עדיין לא בחרת תוכנית אימון" + "בחר
+          תוכנית" → the real assessment questionnaire) carries over
+          unchanged — this is a pure relocation, ProgramsSection.tsx itself
+          is untouched.) */}
+      <div className={activeTab === 'skills' ? 'space-y-4' : 'hidden'}>
+        <motion.div
+          initial={{ y: 16, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.06 }}
+        >
+          <ProgramsSection />
+        </motion.div>
+      </div>
+
+      {/* ── הישגים ── BLOCK 3 */}
+      <div className={activeTab === 'badges' ? 'space-y-4' : 'hidden'}>
+        <motion.div
+          initial={{ y: 16, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.06 }}
+          className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-amber-500" />
+              <h3 className="text-sm font-bold text-gray-800">הישגים</h3>
+            </div>
             <button
               type="button"
-              onClick={onNavigateToHistory}
+              onClick={() => setIsAchievementSheetOpen(true)}
               className="text-xs font-semibold text-[#00ADEF]"
             >
-              הכל
+              כל ההישגים
             </button>
-          )}
-        </div>
+          </div>
 
-        {/* RecentActivityList renders its own card chrome — strip the wrapper
-            by passing only the list portion. We re-implement the rows inline
-            because we already render the section header above. */}
-        <InlineRecentList workouts={workouts} isLoading={historyLoading} />
-      </motion.div>
+          <BadgeDisplay
+            unlockedAchievements={unlockedAchievements}
+            onViewAll={() => setIsAchievementSheetOpen(true)}
+            maxVisible={6}
+          />
+        </motion.div>
+      </div>
+
+      {/* ── תוכניות ── BLOCK 2 (goals) + BLOCK 2.5 (exercise wishlist — moved
+          here since ProgramsSection took its old spot in סקילים; flagged
+          in PR notes, redirect if you'd rather it live in סקילים instead)
+          + BLOCK 4 (mode widgets — StrengthWidgets' 4 squares now
+          consolidated into one weekly card, see DashboardModeWidgets.tsx)
+          + BLOCK 5.5 (priority order) */}
+      <div className={activeTab === 'programs' ? 'space-y-4' : 'hidden'}>
+        <motion.div
+          initial={{ y: 16, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.06 }}
+        >
+          <GoalCarousel />
+        </motion.div>
+
+        <motion.div
+          initial={{ y: 16, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.1 }}
+        >
+          <ExerciseWishlistStrip />
+        </motion.div>
+
+        <motion.div
+          initial={{ y: 16, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.14 }}
+        >
+          {isRunningMode ? (
+            <RunningWidgets workouts={workouts} />
+          ) : (
+            <StrengthWidgets workouts={workouts} />
+          )}
+        </motion.div>
+
+        <motion.div
+          initial={{ y: 16, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.18 }}
+        >
+          <PrioritiesSection />
+        </motion.div>
+      </div>
 
       {/* ── Achievement Sheet (full-screen) ── */}
       <AchievementSheet
@@ -366,6 +542,12 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
       <FavoritesSheet
         isOpen={isFavoritesSheetOpen}
         onClose={() => setIsFavoritesSheetOpen(false)}
+      />
+
+      {/* ── Edit Profile — opened by the "עריכת פרופיל" button (round 5) ── */}
+      <EditProfileModal
+        isOpen={isEditProfileOpen}
+        onClose={() => setIsEditProfileOpen(false)}
       />
 
       {/* ── Unlock Toast (bottom overlay) ── */}
@@ -382,7 +564,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
 // because Block 6 already provides its own card + section header + "הכל" link.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { Activity, Bike, PersonStanding, Dumbbell, Moon } from 'lucide-react';
+import { Activity, Bike, PersonStanding, Moon } from 'lucide-react';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 
 const DATE_FMT = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short' });
