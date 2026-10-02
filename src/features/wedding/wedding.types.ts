@@ -29,7 +29,12 @@ export interface WeddingSettings {
   bar: number;
   /** Names that tasks can be tagged with (who does it). */
   people: string[];
+  /** Tag name (a person or TOGETHER) → color key from TAG_COLORS. Missing = default by position. */
+  tagColors: Record<string, TagColor>;
 }
+
+export const TAG_COLORS = ['sky', 'violet', 'amber', 'teal', 'rose', 'lime', 'emerald', 'orange', 'pink', 'slate'] as const;
+export type TagColor = (typeof TAG_COLORS)[number];
 
 export interface VenueIncludes {
   design: boolean;

@@ -111,6 +111,12 @@ describe('parseWeddingState', () => {
     expect(parseWeddingState({ settings: {} }).settings.people).toEqual(DEFAULT_SETTINGS.people);
   });
 
+  it('keeps only known tag colors', () => {
+    const s = parseWeddingState({ settings: { tagColors: { 'דוד': 'rose', 'מיכל': 'neon', '': 'sky', 'ביחד': 'slate' } } });
+    expect(s.settings.tagColors).toEqual({ 'דוד': 'rose', 'ביחד': 'slate' });
+    expect(parseWeddingState({}).settings.tagColors).toEqual({});
+  });
+
   it('de-duplicates ids', () => {
     const s = parseWeddingState({ vendors: [{ id: 'v1', name: 'a' }, { id: 'v1', name: 'b' }] });
     expect(new Set(s.vendors.map((v) => v.id)).size).toBe(2);

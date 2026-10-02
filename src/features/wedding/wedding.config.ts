@@ -16,6 +16,7 @@ export const DEFAULT_SETTINGS: WeddingSettings = {
   light: 6000,
   bar: 30,
   people: ['דוד', 'בת הזוג'],
+  tagColors: {},
 };
 
 const SEED_TASKS: Array<[string, number]> = [

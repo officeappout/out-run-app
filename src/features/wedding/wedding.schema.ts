@@ -1,6 +1,8 @@
 import { DEFAULT_SETTINGS } from './wedding.config';
 import {
+  TAG_COLORS,
   TOGETHER,
+  type TagColor,
   VENDOR_STATUSES,
   VENUE_STATUSES,
   type Vendor,
@@ -19,7 +21,7 @@ import {
  * rule (CLAUDE.md §5) — nothing here assumes a field exists.
  */
 
-export const LIMITS = { venues: 100, vendors: 100, tasks: 200, text: 300, notes: 2000, people: 6, name: 30 } as const;
+export const LIMITS = { venues: 100, vendors: 100, tasks: 200, text: 300, notes: 2000, people: 10, name: 30 } as const;
 
 type Obj = Record<string, unknown>;
 const isObj = (x: unknown): x is Obj => typeof x === 'object' && x !== null && !Array.isArray(x);
@@ -66,7 +68,18 @@ export function parseSettings(x: unknown): WeddingSettings {
     light: s.light === undefined ? d.light : money(s.light),
     bar: s.bar === undefined ? d.bar : money(s.bar),
     people: parsePeople(s.people),
+    tagColors: parseTagColors(s.tagColors),
   };
+}
+
+function parseTagColors(x: unknown): Record<string, TagColor> {
+  const out: Record<string, TagColor> = {};
+  if (!isObj(x)) return out;
+  for (const [k, v] of Object.entries(x).slice(0, LIMITS.people + 1)) {
+    const name = str(k, LIMITS.name);
+    if (name && TAG_COLORS.includes(v as TagColor)) out[name] = v as TagColor;
+  }
+  return out;
 }
 
 function parsePeople(x: unknown): string[] {

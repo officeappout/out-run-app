@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { AlertTriangle, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Loader2, Plus, Trash2, X } from 'lucide-react';
 import { MARKET } from '../wedding.config';
 import { buildRoadmap, daysBeforeFor, daysUntil, formatShekel, rankVenues, taskDueDate, toIso, venueCost, weekStart } from '../wedding.calc';
-import { TOGETHER, VENDOR_STATUSES, type Venue, type WeddingSettings, type WeddingState, type WeddingTask } from '../wedding.types';
+import { TAG_COLORS, TOGETHER, VENDOR_STATUSES, type TagColor, type Venue, type WeddingSettings, type WeddingState, type WeddingTask } from '../wedding.types';
 import { VenueEditor } from './VenueEditor';
 import { useWeddingStore, type SaveStatus } from './useWeddingStore';
 
@@ -519,34 +519,43 @@ function patchTask(update: Update, id: string, p: Partial<WeddingTask>) {
   update((st) => ({ ...st, tasks: st.tasks.map((t) => (t.id === id ? { ...t, ...p } : t)) }));
 }
 
-/** Pill colors per person, by position in settings.people; TOGETHER and unassigned have their own. */
-const PERSON_PILLS = [
-  'bg-sky-50 text-sky-800 border-sky-200',
-  'bg-violet-50 text-violet-800 border-violet-200',
-  'bg-amber-50 text-amber-800 border-amber-200',
-  'bg-teal-50 text-teal-800 border-teal-200',
-  'bg-rose-50 text-rose-800 border-rose-200',
-  'bg-lime-50 text-lime-800 border-lime-200',
-];
-function pillClass(owner: string, people: string[]): string {
-  if (!owner) return 'border-dashed border-gray-300 bg-white text-slate-400';
-  if (owner === TOGETHER) return 'bg-slate-100 text-slate-700 border-slate-200';
-  const i = people.indexOf(owner);
-  return i >= 0 ? PERSON_PILLS[i % PERSON_PILLS.length] : 'bg-gray-50 text-slate-600 border-gray-200';
-}
+/** Static class sets per tag color (Tailwind needs literal class names). */
+const TAG_STYLES: Record<TagColor, { pill: string; dot: string; label: string }> = {
+  sky: { pill: 'bg-sky-50 text-sky-800 border-sky-200', dot: 'bg-sky-500', label: 'תכלת' },
+  violet: { pill: 'bg-violet-50 text-violet-800 border-violet-200', dot: 'bg-violet-500', label: 'סגול' },
+  amber: { pill: 'bg-amber-50 text-amber-800 border-amber-200', dot: 'bg-amber-500', label: 'צהוב' },
+  teal: { pill: 'bg-teal-50 text-teal-800 border-teal-200', dot: 'bg-teal-500', label: 'טורקיז' },
+  rose: { pill: 'bg-rose-50 text-rose-800 border-rose-200', dot: 'bg-rose-500', label: 'ורוד' },
+  lime: { pill: 'bg-lime-50 text-lime-800 border-lime-200', dot: 'bg-lime-500', label: 'ירוק בהיר' },
+  emerald: { pill: 'bg-emerald-50 text-emerald-800 border-emerald-200', dot: 'bg-emerald-600', label: 'ירוק' },
+  orange: { pill: 'bg-orange-50 text-orange-800 border-orange-200', dot: 'bg-orange-500', label: 'כתום' },
+  pink: { pill: 'bg-pink-50 text-pink-800 border-pink-200', dot: 'bg-pink-500', label: 'פוקסיה' },
+  slate: { pill: 'bg-slate-100 text-slate-700 border-slate-200', dot: 'bg-slate-500', label: 'אפור' },
+};
+const UNASSIGNED_STYLE = { pill: 'border-dashed border-gray-300 bg-white text-slate-400', dot: 'bg-gray-300' };
 
-const PERSON_DOTS = ['bg-sky-500', 'bg-violet-500', 'bg-amber-500', 'bg-teal-500', 'bg-rose-500', 'bg-lime-500'];
-function dotClass(owner: string, people: string[]): string {
-  if (!owner) return 'bg-gray-300';
-  if (owner === TOGETHER) return 'bg-slate-500';
-  const i = people.indexOf(owner);
-  return i >= 0 ? PERSON_DOTS[i % PERSON_DOTS.length] : 'bg-gray-400';
+/** The color a tag shows in: its chosen color, else a default by position (TOGETHER defaults to slate). */
+function tagColor(owner: string, settings: WeddingSettings): TagColor | null {
+  if (!owner) return null;
+  const chosen = settings.tagColors[owner];
+  if (chosen) return chosen;
+  if (owner === TOGETHER) return 'slate';
+  const i = settings.people.indexOf(owner);
+  return i >= 0 ? TAG_COLORS[i % (TAG_COLORS.length - 1)] : 'slate';
+}
+function pillClass(owner: string, settings: WeddingSettings): string {
+  const c = tagColor(owner, settings);
+  return c ? TAG_STYLES[c].pill : UNASSIGNED_STYLE.pill;
+}
+function dotClass(owner: string, settings: WeddingSettings): string {
+  const c = tagColor(owner, settings);
+  return c ? TAG_STYLES[c].dot : UNASSIGNED_STYLE.dot;
 }
 
 /** Who-does-it tag. A select styled as a pill when editable, a plain pill otherwise. */
 function OwnerTag({ t, s, update, editable }: { t: WeddingTask; s: WeddingState; update: Update; editable?: boolean }) {
   const people = s.settings.people;
-  const cls = `shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold ${pillClass(t.owner, people)}`;
+  const cls = `shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold ${pillClass(t.owner, s.settings)}`;
   if (!editable) return t.owner ? <span className={cls}>{t.owner}</span> : null;
   const options = [...people, TOGETHER];
   if (t.owner && !options.includes(t.owner)) options.push(t.owner); // keep a name that was renamed/removed in settings
@@ -570,7 +579,8 @@ function matchesOwner(t: WeddingTask, f: OwnerFilter): boolean {
   return t.owner === f || (f !== TOGETHER && t.owner === TOGETHER);
 }
 
-function OwnerFilterBar({ s, value, onChange }: { s: WeddingState; value: OwnerFilter; onChange: (v: OwnerFilter) => void }) {
+function OwnerFilterBar({ s, value, onChange, update }: { s: WeddingState; value: OwnerFilter; onChange: (v: OwnerFilter) => void; update: Update }) {
+  const [editing, setEditing] = useState(false);
   const opts: Array<[OwnerFilter, string]> = [['', 'כולם'], ...s.settings.people.map((p): [string, string] => [p, p]), [TOGETHER, TOGETHER], ['__none', 'בלי שיוך']];
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -588,6 +598,34 @@ function OwnerFilterBar({ s, value, onChange }: { s: WeddingState; value: OwnerF
           </button>
         ))}
       </div>
+      <button onClick={() => setEditing(true)} className="min-h-[34px] rounded-lg px-2 text-sm font-bold text-emerald-700 hover:bg-emerald-50">
+        עריכת תגיות
+      </button>
+      {editing && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 sm:items-center sm:p-4" onClick={() => setEditing(false)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="עריכת תגיות"
+            dir="rtl"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.key === 'Escape' && setEditing(false)}
+            className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl sm:rounded-2xl"
+            style={{ paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-lg font-black text-slate-900">עריכת תגיות</h2>
+              <button onClick={() => setEditing(false)} aria-label="סגירה" className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-gray-100">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <TagEditor s={s} update={update} />
+            <button onClick={() => setEditing(false)} className="mt-4 min-h-[44px] w-full rounded-xl bg-emerald-600 text-sm font-bold text-white">
+              סיום
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -871,7 +909,7 @@ function MonthCalendar({ s, tasks, onAdd, onOpen }: { s: WeddingState; tasks: We
                 </span>
                 <span className="flex flex-wrap justify-center gap-0.5">
                   {list.slice(0, 6).map((t) => (
-                    <i key={t.id} className={`block h-2 w-2 rounded-full ${late(t) ? 'bg-red-500' : dotClass(t.owner, s.settings.people)} ${t.done ? 'opacity-30' : ''}`} />
+                    <i key={t.id} className={`block h-2 w-2 rounded-full ${late(t) ? 'bg-red-500' : dotClass(t.owner, s.settings)} ${t.done ? 'opacity-30' : ''}`} />
                   ))}
                 </span>
               </button>
@@ -902,7 +940,7 @@ function MonthCalendar({ s, tasks, onAdd, onOpen }: { s: WeddingState; tasks: We
                   onClick={() => onOpen(t)}
                   title={t.owner ? `${t.name} · ${t.owner}` : t.name}
                   className={`w-full truncate rounded border px-1 py-0.5 text-right text-[11px] leading-tight md:text-xs ${
-                    late(t) ? 'border-red-200 bg-red-50 text-red-700' : pillClass(t.owner, s.settings.people)
+                    late(t) ? 'border-red-200 bg-red-50 text-red-700' : pillClass(t.owner, s.settings)
                   } ${t.done ? 'line-through opacity-60' : ''}`}
                 >
                   {t.name}
@@ -935,7 +973,7 @@ function MonthCalendar({ s, tasks, onAdd, onOpen }: { s: WeddingState; tasks: We
             <button
               key={t.id}
               onClick={() => onOpen(t)}
-              className={`mb-1.5 flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-right text-sm ${pillClass(t.owner, s.settings.people)} ${t.done ? 'line-through opacity-60' : ''}`}
+              className={`mb-1.5 flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-right text-sm ${pillClass(t.owner, s.settings)} ${t.done ? 'line-through opacity-60' : ''}`}
             >
               <span className="min-w-0 flex-1 truncate">{t.name}</span>
               {t.owner && <span className="shrink-0 text-xs">{t.owner}</span>}
@@ -1008,7 +1046,7 @@ function Roadmap({ s, update }: { s: WeddingState; update: Update }) {
             </button>
           </div>
         </div>
-        <OwnerFilterBar s={s} value={who} onChange={setWho} />
+        <OwnerFilterBar s={s} value={who} onChange={setWho} update={update} />
       </section>
 
       {overdue.length > 0 && (
@@ -1182,7 +1220,7 @@ function Tasks({ s, update }: { s: WeddingState; update: Update }) {
           <Plus className="h-4 w-4" /> משימה
         </button>
         <div className="w-full">
-          <OwnerFilterBar s={s} value={who} onChange={setWho} />
+          <OwnerFilterBar s={s} value={who} onChange={setWho} update={update} />
         </div>
         {added && (
           <p role="status" className="w-full rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
@@ -1349,7 +1387,7 @@ function Market({ s, g }: { s: WeddingState; g: number }) {
 
 function Settings({ s, update }: { s: WeddingState; update: Update }) {
   const set = (k: keyof WeddingSettings, v: string | number) => update((st) => ({ ...st, settings: { ...st.settings, [k]: v } }));
-  const num = (k: Exclude<keyof WeddingSettings, 'date' | 'people'>, label: string, hint?: string) => (
+  const num = (k: Exclude<keyof WeddingSettings, 'date' | 'people' | 'tagColors'>, label: string, hint?: string) => (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={`ws-${k}`} className="text-xs font-bold text-slate-600">
         {label}
@@ -1394,72 +1432,178 @@ function Settings({ s, update }: { s: WeddingState; update: Update }) {
         </div>
         <p className="mt-3 text-xs text-slate-500">אלה הערכות ראשוניות. כדאי לעדכן אותן כשמגיעות הצעות אמיתיות מספקים.</p>
       </section>
-      <PeopleSettings s={s} update={update} />
+      <section className={card}>
+        <h2 className="mb-3 font-black text-slate-900">תגיות – מי עושה</h2>
+        <TagEditor s={s} update={update} />
+      </section>
       <p className="text-xs text-slate-500">כל שינוי נשמר אוטומטית.</p>
     </div>
   );
 }
 
 /**
- * Names tasks can be tagged with. Renaming a person retags their tasks;
- * removing one leaves their tasks tagged with the old name (still shown,
- * filterable as-is) rather than silently unassigning them.
+ * Add, rename, recolor and delete the who-does-it tags. Renaming retags
+ * that person's tasks; deleting unassigns them (after a confirm that says
+ * how many). TOGETHER is built in: color only.
  */
-function PeopleSettings({ s, update }: { s: WeddingState; update: Update }) {
+function TagEditor({ s, update }: { s: WeddingState; update: Update }) {
   const people = s.settings.people;
-  const rename = (i: number, name: string) =>
+  const [adding, setAdding] = useState('');
+  const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const taken = (name: string, except?: string) => name === TOGETHER || people.some((p) => p === name && p !== except);
+
+  const setColor = (name: string, color: TagColor) =>
+    update((st) => ({ ...st, settings: { ...st.settings, tagColors: { ...st.settings.tagColors, [name]: color } } }));
+
+  const rename = (old: string, name: string): boolean => {
+    if (!name || name === old) return true;
+    if (taken(name, old)) {
+      setError(`כבר יש תגית בשם "${name}".`);
+      return false;
+    }
+    setError(null);
     update((st) => {
-      const old = st.settings.people[i];
-      if (!name || name === old || name === TOGETHER || st.settings.people.includes(name)) return st;
+      const colors = { ...st.settings.tagColors };
+      const c = colors[old] ?? tagColor(old, st.settings);
+      delete colors[old];
+      if (c) colors[name] = c;
       return {
         ...st,
-        settings: { ...st.settings, people: st.settings.people.map((p, j) => (j === i ? name : p)) },
+        settings: { ...st.settings, people: st.settings.people.map((p) => (p === old ? name : p)), tagColors: colors },
         tasks: st.tasks.map((t) => (t.owner === old ? { ...t, owner: name } : t)),
       };
     });
-  return (
-    <section className={card}>
-      <h2 className="mb-1 font-black text-slate-900">מי עושה את המשימות</h2>
-      <p className="mb-3 text-xs text-slate-500">השמות שאפשר לתייג בהם משימות. בנוסף תמיד יש &quot;{TOGETHER}&quot;.</p>
-      <div className="flex flex-col gap-2">
-        {people.map((p, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <span className={`h-3 w-3 shrink-0 rounded-full border ${pillClass(p || ' ', people)}`} aria-hidden="true" />
-            <PersonName key={p} index={i} name={p} onRename={rename} />
-            <button
-              aria-label={`הסרת ${p}`}
-              onClick={() => update((st) => ({ ...st, settings: { ...st.settings, people: st.settings.people.filter((_, j) => j !== i) } }))}
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-slate-500 hover:bg-red-50 hover:text-red-600"
-            >
-              <Trash2 className="h-4 w-4" />
+    return true;
+  };
+
+  const remove = (name: string) => {
+    update((st) => {
+      const colors = { ...st.settings.tagColors };
+      delete colors[name];
+      return {
+        ...st,
+        settings: { ...st.settings, people: st.settings.people.filter((p) => p !== name), tagColors: colors },
+        tasks: st.tasks.map((t) => (t.owner === name ? { ...t, owner: '' } : t)),
+      };
+    });
+    setConfirmDel(null);
+  };
+
+  const add = (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = adding.trim();
+    if (!name) return;
+    if (taken(name)) {
+      setError(`כבר יש תגית בשם "${name}".`);
+      return;
+    }
+    setError(null);
+    // First color not already in use, so a new tag stands out.
+    const used = new Set([...people, TOGETHER].map((p) => tagColor(p, s.settings)));
+    const color = TAG_COLORS.find((c) => !used.has(c)) ?? 'slate';
+    update((st) => ({
+      ...st,
+      settings: { ...st.settings, people: [...st.settings.people, name], tagColors: { ...st.settings.tagColors, [name]: color } },
+    }));
+    setAdding('');
+  };
+
+  const row = (name: string, fixed: boolean) => {
+    const current = tagColor(name, s.settings) ?? 'slate';
+    const count = s.tasks.filter((t) => t.owner === name).length;
+    return (
+      <li key={name} className="rounded-xl border border-gray-200 p-3">
+        <div className="flex items-center gap-2">
+          <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold ${TAG_STYLES[current].pill}`}>{name}</span>
+          {fixed ? (
+            <span className="flex-1 text-xs text-slate-500">תגית קבועה · {count} משימות</span>
+          ) : (
+            <TagName name={name} onRename={rename} />
+          )}
+          {!fixed &&
+            (confirmDel === name ? null : (
+              <button
+                onClick={() => (count ? setConfirmDel(name) : remove(name))}
+                aria-label={`מחיקת התגית ${name}`}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-slate-500 hover:bg-red-50 hover:text-red-600"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            ))}
+        </div>
+        {confirmDel === name && (
+          <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg bg-red-50 p-2 text-sm text-red-800">
+            <span className="flex-1">{count} משימות מתויגות &quot;{name}&quot; ויעברו ל&quot;מי?&quot;. למחוק?</span>
+            <button onClick={() => remove(name)} className="min-h-[34px] rounded-lg bg-red-600 px-3 font-bold text-white">
+              כן, למחוק
+            </button>
+            <button onClick={() => setConfirmDel(null)} className="min-h-[34px] rounded-lg border border-red-200 bg-white px-3 font-bold text-red-700">
+              לא
             </button>
           </div>
-        ))}
-      </div>
-      {people.length < 6 && (
-        <button
-          onClick={() => update((st) => ({ ...st, settings: { ...st.settings, people: [...st.settings.people, `אדם ${st.settings.people.length + 1}`] } }))}
-          className="mt-3 flex items-center gap-1 text-sm font-bold text-emerald-700"
-        >
-          <Plus className="h-4 w-4" /> שם נוסף
-        </button>
+        )}
+        <div className="mt-2 flex flex-wrap gap-1.5" role="radiogroup" aria-label={`צבע לתגית ${name}`}>
+          {TAG_COLORS.map((c) => (
+            <button
+              key={c}
+              role="radio"
+              aria-checked={c === current}
+              aria-label={TAG_STYLES[c].label}
+              title={TAG_STYLES[c].label}
+              onClick={() => setColor(name, c)}
+              className={`h-7 w-7 rounded-full ${TAG_STYLES[c].dot} ${c === current ? 'ring-2 ring-slate-900 ring-offset-2' : 'opacity-80 hover:opacity-100'}`}
+            />
+          ))}
+        </div>
+      </li>
+    );
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-xs text-slate-500">שינוי שם מעדכן את כל המשימות של התגית. הצבע מופיע בלוח השנה ובכל הרשימות.</p>
+      <ul className="flex flex-col gap-2">
+        {people.map((p) => row(p, false))}
+        {row(TOGETHER, true)}
+      </ul>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      {people.length < 10 && (
+        <form onSubmit={add} className="flex gap-2">
+          <label htmlFor="tag-new" className="sr-only">
+            תגית חדשה
+          </label>
+          <input
+            id="tag-new"
+            placeholder="תגית חדשה, למשל: אמא"
+            maxLength={30}
+            className={`${cellInput} min-h-[44px] flex-1`}
+            value={adding}
+            onChange={(e) => {
+              setAdding(e.target.value);
+              setError(null);
+            }}
+          />
+          <button type="submit" className="flex min-h-[44px] items-center gap-1 rounded-xl bg-emerald-600 px-4 text-sm font-bold text-white disabled:opacity-50" disabled={!adding.trim()}>
+            <Plus className="h-4 w-4" /> הוספה
+          </button>
+        </form>
       )}
-    </section>
+    </div>
   );
 }
 
-/** Edits a name locally and applies the rename on blur/Enter, so typing never orphans tagged tasks. */
-function PersonName({ index, name, onRename }: { index: number; name: string; onRename: (i: number, name: string) => void }) {
+/** Edits a tag name locally and applies it on blur/Enter, so typing never orphans tagged tasks. */
+function TagName({ name, onRename }: { name: string; onRename: (old: string, name: string) => boolean }) {
   const [draft, setDraft] = useState(name);
   const commit = () => {
     const v = draft.trim();
-    if (v && v !== name) onRename(index, v);
-    else setDraft(name);
+    if (!v || v === name || !onRename(name, v)) setDraft(name);
   };
   return (
     <input
-      aria-label={`שם ${index + 1}`}
-      className={`${cellInput} min-h-[42px] max-w-xs`}
+      aria-label={`שם התגית ${name}`}
+      className={`${cellInput} min-h-[38px] min-w-0 flex-1`}
       value={draft}
       maxLength={30}
       onChange={(e) => setDraft(e.target.value)}
