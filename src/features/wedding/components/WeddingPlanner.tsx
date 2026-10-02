@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Loader2, Plus, Trash2 } from 'lucide-react';
 import { MARKET } from '../wedding.config';
-import { dayTypeOf, venuePriceFor, type DayType, type ScenarioPrice, buildRoadmap, daysUntil, formatShekel, hebrewDateLabel, rankVenues, taskDueDate, tasksOverlapping, venueCost } from '../wedding.calc';
+import { dayTypeOf, venuePriceFor, type DayType, type ScenarioPrice, buildRoadmap, daysUntil, formatShekel, hebrewDateLabel, rankVenues, taskDueDate, tasksOverlapping, toIso, venueCost } from '../wedding.calc';
 import { VENDOR_STATUSES, type Venue, type WeddingSettings, type WeddingState } from '../wedding.types';
-import { TagEditor } from './tags';
+import { OwnerPicker, TagEditor } from './tags';
+import { autoTask, bookingLead, closeWindow, taskOrder } from '../wedding.links';
 import { TaskLine, TasksHub } from './TasksHub';
 import { SELECTED_STYLE, card, cellInput, fmtDate, fmtIso, newId, type Update } from './ui';
 import { VENUE_CATALOG } from '../data/venueCatalog';
@@ -692,6 +693,16 @@ function Vendors({ s, update }: { s: WeddingState; update: Update }) {
   const total = s.vendors.reduce((a, v) => a + v.price, 0);
   const paid = s.vendors.reduce((a, v) => a + v.paid, 0);
   const estimated = s.vendors.reduce((a, v) => a + (v.priceIsEstimate ? v.price : 0), 0);
+  const order = taskOrder(s.tasks);
+  const linked = (id: string) => s.tasks.find((t) => t.vendorId === id);
+  const setOwners = (v: WeddingState['vendors'][number], owners: string[]) =>
+    update((st) => {
+      const has = st.tasks.some((t) => t.vendorId === v.id);
+      const tasks = has ? st.tasks : [...st.tasks, autoTask(v, st.settings.date, newId())];
+      return { ...st, tasks: tasks.map((t) => (t.vendorId === v.id ? { ...t, owners } : t)) };
+    });
+  const addTask = (v: WeddingState['vendors'][number]) => update((st) => ({ ...st, tasks: [...st.tasks, autoTask(v, st.settings.date, newId())] }));
+  const sorted = [...s.vendors].sort((a, b) => (order.get(linked(a.id)?.id ?? '') ?? 999) - (order.get(linked(b.id)?.id ?? '') ?? 999));
   const patch = (id: string, p: Partial<WeddingState['vendors'][number]>) =>
     update((st) => ({ ...st, vendors: st.vendors.map((v) => (v.id === id ? { ...v, ...p } : v)) }));
 
@@ -707,10 +718,10 @@ function Vendors({ s, update }: { s: WeddingState; update: Update }) {
         <Kpi label="נשאר לשלם" value={formatShekel(total - paid)} sub=" " />
       </section>
       <section className={`${card} overflow-x-auto p-2 md:p-2`}>
-        <table className="w-full min-w-[760px] border-collapse text-sm">
+        <table className="w-full min-w-[1240px] border-collapse text-sm">
           <thead>
             <tr className="text-right text-xs text-slate-500">
-              {['קטגוריה', 'ספק', 'מחיר (₪)', 'שולם (₪)', 'יתרה', 'סטטוס', ''].map((h, i) => (
+              {['#', 'קטגוריה', 'ספק', 'מי סוגר', 'לסגור עד', 'מחיר (₪)', 'שולם (₪)', 'יתרה', 'סטטוס', ''].map((h, i) => (
                 <th key={i} className="border-b border-gray-200 px-2 py-2.5 font-medium">
                   {h}
                 </th>
@@ -718,13 +729,41 @@ function Vendors({ s, update }: { s: WeddingState; update: Update }) {
             </tr>
           </thead>
           <tbody>
-            {s.vendors.map((v) => (
-              <tr key={v.id} className="border-b border-gray-100">
+            {sorted.map((v) => {
+              const t = linked(v.id);
+              const lead = bookingLead(v.name);
+              const late = closeWindow(v.name, s.settings.date).late;
+              const due = t ? taskDueDate(s.settings.date, t.daysBefore) : null;
+              const overdue = !!due && !t?.done && toIso(due) < toIso(new Date());
+              return (
+              <tr key={v.id} className="border-b border-gray-100 align-top">
+                <td className="px-2 py-3 text-xs font-bold tabular-nums text-slate-400">{t ? `#${order.get(t.id)}` : ''}</td>
                 <td className="px-2 py-2">
                   <input aria-label="קטגוריה" className={cellInput} value={v.name} onChange={(e) => patch(v.id, { name: e.target.value })} />
                 </td>
                 <td className="px-2 py-2">
                   <input aria-label="שם הספק" placeholder="שם הספק" className={cellInput} value={v.supplier} onChange={(e) => patch(v.id, { supplier: e.target.value })} />
+                </td>
+                <td className="px-2 py-2">
+                  <div className="w-[150px]">
+                    <OwnerPicker compact s={s} value={t?.owners ?? []} onChange={(o) => setOwners(v, o)} />
+                  </div>
+                </td>
+                <td className="whitespace-nowrap px-2 py-2 text-xs">
+                  {t ? (
+                    <>
+                      <p className={`font-bold tabular-nums ${t.done ? 'text-emerald-700' : overdue ? 'text-red-600' : 'text-slate-800'}`}>
+                        {t.done ? 'נסגר ✓' : fmtDate(due as Date)}
+                        {overdue ? ' · באיחור' : ''}
+                      </p>
+                      <p className="text-slate-500">מומלץ: {lead.label} לפני</p>
+                      {late && !t.done && <p className="font-bold text-orange-700">כבר עברנו את המומלץ – בהקדם</p>}
+                    </>
+                  ) : (
+                    <button onClick={() => addTask(v)} className="rounded-lg border border-dashed border-gray-300 px-2 py-1 font-bold text-slate-600 hover:bg-gray-50">
+                      + משימה בלוח
+                    </button>
+                  )}
                 </td>
                 <td className="px-2 py-2">
                   <input
@@ -759,7 +798,8 @@ function Vendors({ s, update }: { s: WeddingState; update: Update }) {
                   </button>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
         <div className="px-2 pb-2 pt-3">

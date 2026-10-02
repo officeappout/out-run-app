@@ -98,6 +98,8 @@ export interface WeddingTask {
   done: boolean;
   /** Who does it: names from settings.people. Empty = not assigned. */
   owners: string[];
+  /** The vendor this task closes ('' = none). Done ⇄ vendor closed are kept in sync. */
+  vendorId: string;
 }
 
 /**

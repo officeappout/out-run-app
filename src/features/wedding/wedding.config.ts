@@ -70,9 +70,35 @@ export function initialWeddingState(): WeddingState {
       startBefore: daysBefore,
       done: false,
       owners: [],
+      vendorId: '',
     })),
   };
 }
+
+/**
+ * Recommended booking lead time per vendor kind, in days before the wedding
+ * (researched 02.10.2026: Zola vendor timeline, planning.wedding checklist,
+ * guini RSVP guide, mitchatnim / saveadate on the rabbinate). First match on
+ * the vendor name wins. Used to date a vendor's "close" task.
+ */
+export const BOOKING_LEADS: Array<{ match: string[]; days: number; label: string }> = [
+  { match: ['אולם', 'גן אירועים', 'מקום'], days: 365, label: '12 חודשים' },
+  { match: ['מגנט', 'עמדת צילום'], days: 180, label: '6 חודשים' },
+  { match: ['צילום', 'צלם', 'וידאו'], days: 330, label: '10–12 חודשים' },
+  { match: ['רבנות', 'הדרכ'], days: 90, label: '3 חודשים (רישום עד 45 יום לפני)' },
+  { match: ['רב ', 'רב/', 'עורך טקס'], days: 270, label: '8–10 חודשים' },
+  { match: ['חליפ', 'טבעות', 'טבעת', 'נעליים', 'אביזר'], days: 150, label: '5 חודשים' },
+  { match: ['פרח', 'זר', 'עיצוב'], days: 270, label: '8–9 חודשים' },
+  { match: ['DJ', 'די ג׳יי', 'להקה', 'מוזיקה', 'זמר', 'כנר', 'סקסופון'], days: 255, label: '8–9 חודשים' },
+  { match: ['שמל'], days: 240, label: '8 חודשים (תפירה: לפחות 3–4)' },
+  { match: ['הסעות', 'רכב', 'לינה', 'מלון'], days: 210, label: '7 חודשים' },
+  { match: ['עוגה', 'קינוח'], days: 210, label: '7 חודשים' },
+  { match: ['איפור', 'שיער', 'מאפר'], days: 180, label: '6 חודשים' },
+  { match: ['אפקט', 'זיקוק', 'עשן'], days: 150, label: '5 חודשים' },
+  { match: ['הזמנות', 'אישורי הגעה'], days: 90, label: '3 חודשים (שליחה 6–8 שבועות לפני)' },
+  { match: ['טיפ'], days: 3, label: 'בשבוע האחרון' },
+];
+export const DEFAULT_LEAD = { days: 120, label: '4 חודשים' };
 
 /**
  * Market reference figures (researched 02.10.2026). Display-only.

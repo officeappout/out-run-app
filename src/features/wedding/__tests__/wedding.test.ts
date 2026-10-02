@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { bookingLead, closeWindow, syncVendorTasks, taskOrder } from '../wedding.links';
 import { blockedReason, venuePriceFor, buildRoadmap, dateFactor, daysBeforeFor, daysUntil, gematria, hebrewDate, hebrewDateLabel, layoutWeek, monthOptions, rankVenues, taskDueDate, toIso, venueCost } from '../wedding.calc';
 import { DEFAULT_SETTINGS, initialWeddingState } from '../wedding.config';
 import { LIMITS, parseWeddingState } from '../wedding.schema';
@@ -262,5 +263,44 @@ describe('venue price per scenario', () => {
     const s = parseWeddingState({ venues: [{ name: 'x', offers: [{ date: '2027-01-19', price: 280 }, { date: 'bad', price: 5 }, { date: '2027-02-01', price: 0 }] }] });
     expect(s.venues[0].offers).toHaveLength(1);
     expect(s.venues[0].offers[0]).toMatchObject({ date: '2027-01-19', price: 280 });
+  });
+});
+
+describe('vendor ⇄ task link', () => {
+  const today = new Date('2026-10-02T12:00:00');
+  const base0 = parseWeddingState({ settings: { date: '2027-03-09' }, vendors: [{ id: 'p', name: 'צילום', status: 'לברר' }], tasks: [{ id: 'tp', name: 'צלם', daysBefore: 130, vendorId: 'p' }] });
+  it('dates by the recommended lead, squeezed when late', () => {
+    expect(bookingLead('צילום סטילס ווידאו').days).toBe(330);
+    expect(bookingLead('מגנטים / עמדת צילום').days).toBe(180);
+    expect(bookingLead('רבנות והדרכת כלה/חתן').days).toBe(90);
+    expect(bookingLead('רב / עורך טקס').days).toBe(270);
+    // every vendor name in use maps to its own row, not a substring neighbour
+    for (const [name, days] of [['נעליים ואביזרים (כולל הינומה ותכשיטים)', 150], ['זר כלה וסידור פרחים לרכב', 270], ['מוזיקה לחופה (כנר/סקסופון/זמר)', 255], ['אפקטים (זיקוקים קרים, עשן, בועות)', 150], ['טיפים לצוות', 3], ['DJ (שלנו)', 255], ['שמלת כלה', 240], ['איפור ושיער', 180], ['הזמנות ואישורי הגעה', 90]] as const)
+      expect([name, bookingLead(name).days]).toEqual([name, days]);
+    expect(closeWindow('צילום', '2027-03-09', today)).toEqual({ startBefore: 158, daysBefore: 144, late: true });
+    expect(closeWindow('טיפים לצוות', '2027-03-09', today)).toEqual({ startBefore: 17, daysBefore: 3, late: false });
+  });
+  it('a new vendor gets an auto task; deleting it removes that task', () => {
+    const next = { ...base0, vendors: [...base0.vendors, { id: 'n', name: 'מגנטים', supplier: '', price: 0, paid: 0, status: 'לברר' as const, priceIsEstimate: false }] };
+    const s1 = syncVendorTasks(base0, next, today, () => 'auto1');
+    expect(s1.tasks.find((t) => t.id === 'auto1')).toMatchObject({ name: 'לסגור: מגנטים', vendorId: 'n', daysBefore: 144 });
+    const s2 = syncVendorTasks(s1, { ...s1, vendors: s1.vendors.filter((v) => v.id !== 'n') }, today);
+    expect(s2.tasks.some((t) => t.id === 'auto1')).toBe(false);
+  });
+  it('deleting a vendor only unlinks a task the couple wrote', () => {
+    const s = syncVendorTasks(base0, { ...base0, vendors: [] }, today);
+    expect(s.tasks[0]).toMatchObject({ id: 'tp', vendorId: '' });
+  });
+  it('vendor closed ⇄ task done', () => {
+    const closed = syncVendorTasks(base0, { ...base0, vendors: [{ ...base0.vendors[0], status: 'נסגר' }] }, today);
+    expect(closed.tasks[0].done).toBe(true);
+    const reopened = syncVendorTasks(closed, { ...closed, tasks: [{ ...closed.tasks[0], done: false }] }, today);
+    expect(reopened.vendors[0].status).toBe('לברר');
+    const ticked = syncVendorTasks(base0, { ...base0, tasks: [{ ...base0.tasks[0], done: true }] }, today);
+    expect(ticked.vendors[0].status).toBe('נסגר');
+  });
+  it('numbers tasks in booking order', () => {
+    const o = taskOrder(parseWeddingState({ tasks: [{ id: 'a', daysBefore: 10 }, { id: 'b', daysBefore: 100 }, { id: 'c', daysBefore: 50 }] }).tasks);
+    expect([o.get('b'), o.get('c'), o.get('a')]).toEqual([1, 2, 3]);
   });
 });

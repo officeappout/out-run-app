@@ -50,10 +50,10 @@ export function OwnerPills({ t, s, showEmpty }: { t: WeddingTask; s: WeddingStat
 }
 
 /** Multi-select: tap a name to add or remove it. */
-export function OwnerPicker({ s, value, onChange, id }: { s: WeddingState; value: string[]; onChange: (v: string[]) => void; id?: string }) {
+export function OwnerPicker({ s, value, onChange, id, compact }: { s: WeddingState; value: string[]; onChange: (v: string[]) => void; id?: string; compact?: boolean }) {
   const names = [...s.settings.people, ...value.filter((v) => !s.settings.people.includes(v))];
   return (
-    <div id={id} className="flex flex-wrap gap-1.5" role="group" aria-label="מי עושה">
+    <div id={id} className={`flex flex-wrap ${compact ? 'gap-1' : 'gap-1.5'}`} role="group" aria-label="מי עושה">
       {names.map((n) => {
         const on = value.includes(n);
         const st = TAG_STYLES[tagColor(n, s.settings)];
@@ -63,7 +63,7 @@ export function OwnerPicker({ s, value, onChange, id }: { s: WeddingState; value
             type="button"
             aria-pressed={on}
             onClick={() => onChange(on ? value.filter((v) => v !== n) : [...value, n])}
-            className={`min-h-[38px] rounded-full border px-3 text-sm font-bold ${on ? st.pill : 'border-gray-200 bg-white text-slate-500'}`}
+            className={`${compact ? 'min-h-[30px] px-2 text-xs' : 'min-h-[38px] px-3 text-sm'} rounded-full border font-bold ${on ? st.pill : 'border-gray-200 bg-white text-slate-500'}`}
           >
             {on ? '✓ ' : ''}
             {n}

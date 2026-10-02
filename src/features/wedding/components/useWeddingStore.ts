@@ -1,5 +1,6 @@
 'use client';
 
+import { syncVendorTasks } from '../wedding.links';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   WeddingAccessError,
@@ -83,7 +84,8 @@ export function useWeddingStore() {
     (fn: (s: WeddingState) => WeddingState) => {
       setState((prev) => {
         if (!prev) return prev;
-        const next = fn(prev);
+        // Vendor ⇄ task link is maintained here so every editor gets it for free.
+        const next = syncVendorTasks(prev, fn(prev));
         latest.current = next;
         return next;
       });

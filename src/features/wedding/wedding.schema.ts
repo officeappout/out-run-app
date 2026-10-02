@@ -161,6 +161,7 @@ function parseTask(x: unknown, i: number, people: string[]): WeddingTask | null 
     startBefore: Math.max(start, daysBefore),
     done: x.done === true,
     owners: parseOwners(x, people),
+    vendorId: typeof x.vendorId === 'string' ? x.vendorId.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) : '',
   };
 }
 

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react';
 import { buildRoadmap, daysBeforeFor, gematria, hebrewDate, hebrewDateLabel, layoutWeek, taskDueDate, taskStartDate, tasksOverlapping, toIso, weekStart } from '../wedding.calc';
 import type { WeddingState, WeddingTask } from '../wedding.types';
+import { taskOrder } from '../wedding.links';
 import { OwnerFilterBar, OwnerPicker, OwnerPills, TAG_STYLES, matchesOwner, tagColor, taskStyle, type OwnerFilter } from './tags';
 import { SELECTED_STYLE, card, cellInput, fmtDate, newId, type Update } from './ui';
 
@@ -35,14 +36,18 @@ function defaultDueIso(s: WeddingState): string {
 
 function newTaskOn(s: WeddingState, iso: string, owners: string[]): WeddingTask {
   const d = daysBeforeFor(s.settings.date, iso);
-  return { id: newId(), name: '', daysBefore: d, startBefore: d, done: false, owners };
+  return { id: newId(), name: '', daysBefore: d, startBefore: d, done: false, owners, vendorId: '' };
 }
 
 /** One task row: tick + name, when, who. Tapping the name opens the dialog when `onOpen` is given. */
 export function TaskLine({ t, s, update, late, onOpen }: { t: WeddingTask; s: WeddingState; update: Update; late?: boolean; onOpen?: (t: WeddingTask) => void }) {
+  const n = taskOrder(s.tasks).get(t.id);
+  const vendor = t.vendorId ? s.vendors.find((v) => v.id === t.vendorId) : undefined;
   const body = (
     <>
+      {n && <span className="w-7 shrink-0 text-center text-xs font-bold tabular-nums text-slate-400">#{n}</span>}
       <span className={`min-w-0 flex-1 ${t.done ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{t.name}</span>
+      {vendor && <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">ספק</span>}
       <OwnerPills t={t} s={s} />
       <span className={`shrink-0 tabular-nums ${late ? 'font-bold text-red-600' : 'text-slate-500'}`}>
         {taskWhen(s, t)}
@@ -188,6 +193,21 @@ function TaskDialog({ s, draft, onSave, onDelete, onClose }: { s: WeddingState; 
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-bold text-slate-600">מי עושה (אפשר לבחור כמה)</span>
             <OwnerPicker s={s} value={t.owners} onChange={(owners) => setT({ ...t, owners })} />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="wt-vendor" className="text-xs font-bold text-slate-600">
+              קשורה לספק
+            </label>
+            <select id="wt-vendor" className={`${cellInput} min-h-[44px]`} value={t.vendorId} onChange={(e) => setT({ ...t, vendorId: e.target.value })}>
+              <option value="">— לא קשורה —</option>
+              {s.vendors.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.name}
+                </option>
+              ))}
+            </select>
+            {t.vendorId && <span className="text-xs text-slate-500">סימון &quot;בוצע&quot; כאן מסמן את הספק כ&quot;נסגר&quot;, ולהפך.</span>}
           </div>
 
           {!draft.isNew && (
@@ -483,7 +503,8 @@ function WeeksView({ s, tasks, update, onAddDate, onOpen }: { s: WeddingState; t
 /** All tasks by due date, grouped by month. */
 function ListView({ s, tasks, update, onOpen }: { s: WeddingState; tasks: WeddingTask[]; update: Update; onOpen: (t: WeddingTask) => void }) {
   const todayIso = toIso(new Date());
-  const sorted = [...tasks].sort((a, b) => b.daysBefore - a.daysBefore);
+  const order = taskOrder(s.tasks);
+  const sorted = [...tasks].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
   const groups: Array<{ label: string; items: WeddingTask[] }> = [];
   for (const t of sorted) {
     const label = taskDueDate(s.settings.date, t.daysBefore).toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
