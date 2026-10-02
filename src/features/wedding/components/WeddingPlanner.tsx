@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { AlertTriangle, CalendarDays, CheckCircle2, Loader2, Plus, Trash2 } from 'lucide-react';
 import { MARKET } from '../wedding.config';
 import { buildRoadmap, daysBeforeFor, daysUntil, formatShekel, rankVenues, taskDueDate, toIso, venueCost } from '../wedding.calc';
-import { VENDOR_STATUSES, type Venue, type WeddingSettings, type WeddingState, type WeddingTask } from '../wedding.types';
+import { TOGETHER, VENDOR_STATUSES, type Venue, type WeddingSettings, type WeddingState, type WeddingTask } from '../wedding.types';
 import { VenueEditor } from './VenueEditor';
 import { useWeddingStore, type SaveStatus } from './useWeddingStore';
 
@@ -519,11 +519,76 @@ function patchTask(update: Update, id: string, p: Partial<WeddingTask>) {
   update((st) => ({ ...st, tasks: st.tasks.map((t) => (t.id === id ? { ...t, ...p } : t)) }));
 }
 
-/** One task row: tick, name, and (in the roadmap) a date to move it to another week. */
+/** Pill colors per person, by position in settings.people; TOGETHER and unassigned have their own. */
+const PERSON_PILLS = [
+  'bg-sky-50 text-sky-800 border-sky-200',
+  'bg-violet-50 text-violet-800 border-violet-200',
+  'bg-amber-50 text-amber-800 border-amber-200',
+  'bg-teal-50 text-teal-800 border-teal-200',
+  'bg-rose-50 text-rose-800 border-rose-200',
+  'bg-lime-50 text-lime-800 border-lime-200',
+];
+function pillClass(owner: string, people: string[]): string {
+  if (!owner) return 'border-dashed border-gray-300 bg-white text-slate-400';
+  if (owner === TOGETHER) return 'bg-slate-100 text-slate-700 border-slate-200';
+  const i = people.indexOf(owner);
+  return i >= 0 ? PERSON_PILLS[i % PERSON_PILLS.length] : 'bg-gray-50 text-slate-600 border-gray-200';
+}
+
+/** Who-does-it tag. A select styled as a pill when editable, a plain pill otherwise. */
+function OwnerTag({ t, s, update, editable }: { t: WeddingTask; s: WeddingState; update: Update; editable?: boolean }) {
+  const people = s.settings.people;
+  const cls = `shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold ${pillClass(t.owner, people)}`;
+  if (!editable) return t.owner ? <span className={cls}>{t.owner}</span> : null;
+  const options = [...people, TOGETHER];
+  if (t.owner && !options.includes(t.owner)) options.push(t.owner); // keep a name that was renamed/removed in settings
+  return (
+    <select aria-label={`מי עושה: ${t.name}`} className={`${cls} min-h-[32px] cursor-pointer appearance-none text-center`} value={t.owner} onChange={(e) => patchTask(update, t.id, { owner: e.target.value })}>
+      <option value="">מי?</option>
+      {options.map((o) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+/** '' = everyone. A person filter also shows tasks tagged TOGETHER. */
+type OwnerFilter = string;
+function matchesOwner(t: WeddingTask, f: OwnerFilter): boolean {
+  if (!f) return true;
+  if (f === '__none') return !t.owner;
+  return t.owner === f || (f !== TOGETHER && t.owner === TOGETHER);
+}
+
+function OwnerFilterBar({ s, value, onChange }: { s: WeddingState; value: OwnerFilter; onChange: (v: OwnerFilter) => void }) {
+  const opts: Array<[OwnerFilter, string]> = [['', 'כולם'], ...s.settings.people.map((p): [string, string] => [p, p]), [TOGETHER, TOGETHER], ['__none', 'בלי שיוך']];
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-sm text-slate-500">של מי</span>
+      <div className="flex flex-wrap gap-0.5 rounded-xl bg-gray-100 p-1" role="group" aria-label="סינון לפי מי עושה">
+        {opts.map(([v, l]) => (
+          <button
+            key={v || 'all'}
+            aria-pressed={v === value}
+            onClick={() => onChange(v)}
+            className={`min-h-[34px] rounded-lg px-3 text-sm font-bold ${v === value ? 'bg-slate-900 text-white' : 'text-slate-600'}`}
+            style={v === value ? SELECTED_STYLE : undefined}
+          >
+            {l}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** One task row: tick, name, who, and (in the roadmap) a date to move it to another week. */
 function TaskLine({ t, s, update, late, editable }: { t: WeddingTask; s: WeddingState; update: Update; late?: boolean; editable?: boolean }) {
   const due = taskDueDate(s.settings.date, t.daysBefore);
   return (
-    <div className="flex items-center gap-2 border-b border-gray-100 py-2 text-sm last:border-b-0">
+    <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 py-2 text-sm last:border-b-0">
       <input
         type="checkbox"
         aria-label={`בוצע: ${t.name}`}
@@ -534,13 +599,14 @@ function TaskLine({ t, s, update, late, editable }: { t: WeddingTask; s: Wedding
       {editable ? (
         <input
           aria-label="משימה"
-          className={`${cellInput} min-w-0 flex-1 ${t.done ? 'text-slate-400 line-through' : ''}`}
+          className={`${cellInput} min-w-[50%] flex-1 ${t.done ? 'text-slate-400 line-through' : ''}`}
           value={t.name}
           onChange={(e) => patchTask(update, t.id, { name: e.target.value })}
         />
       ) : (
         <span className={`min-w-0 flex-1 ${t.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{t.name}</span>
       )}
+      <OwnerTag t={t} s={s} update={update} editable={editable} />
       {editable ? (
         <input
           type="date"
@@ -572,7 +638,8 @@ function TaskLine({ t, s, update, late, editable }: { t: WeddingTask; s: Wedding
 /** Week-by-week plan from this week to the wedding week. */
 function Roadmap({ s, update }: { s: WeddingState; update: Update }) {
   const [showEmpty, setShowEmpty] = useState(false);
-  const { overdue, weeks } = buildRoadmap(s.settings.date, s.tasks);
+  const [who, setWho] = useState<OwnerFilter>('');
+  const { overdue, weeks } = buildRoadmap(s.settings.date, s.tasks.filter((t) => matchesOwner(t, who)));
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -582,7 +649,9 @@ function Roadmap({ s, update }: { s: WeddingState; update: Update }) {
     thu.setDate(thu.getDate() + 4);
     const due = start <= today && today <= end ? today : thu;
     const iso = toIso(due) > s.settings.date ? s.settings.date : toIso(due);
-    update((st) => ({ ...st, tasks: [...st.tasks, { id: newId(), name: 'משימה חדשה', daysBefore: daysBeforeFor(st.settings.date, iso), done: false }] }));
+    // A task added while filtering by a person is tagged with that person.
+    const owner = who && who !== '__none' ? who : '';
+    update((st) => ({ ...st, tasks: [...st.tasks, { id: newId(), name: 'משימה חדשה', daysBefore: daysBeforeFor(st.settings.date, iso), done: false, owner }] }));
   };
 
   const label = (offset: number, wedding: boolean) =>
@@ -598,6 +667,7 @@ function Roadmap({ s, update }: { s: WeddingState; update: Update }) {
           <b className="tabular-nums">{weeks.length}</b> שבועות עד החתונה · <b className="tabular-nums">{s.tasks.filter((t) => t.done).length}</b> מתוך{' '}
           <b className="tabular-nums">{s.tasks.length}</b> משימות בוצעו
         </p>
+        <OwnerFilterBar s={s} value={who} onChange={setWho} />
         {hidden > 0 || showEmpty ? (
           <button onClick={() => setShowEmpty((v) => !v)} className="text-sm font-bold text-emerald-700">
             {showEmpty ? 'להסתיר שבועות ריקים' : `להציג גם ${hidden} שבועות ריקים`}
@@ -728,7 +798,8 @@ function Vendors({ s, update }: { s: WeddingState; update: Update }) {
 function Tasks({ s, update }: { s: WeddingState; update: Update }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const list = [...s.tasks].sort((a, b) => b.daysBefore - a.daysBefore);
+  const [who, setWho] = useState<OwnerFilter>('');
+  const list = [...s.tasks].filter((t) => matchesOwner(t, who)).sort((a, b) => b.daysBefore - a.daysBefore);
   const done = list.filter((t) => t.done).length;
   const patch = (id: string, p: Partial<WeddingState['tasks'][number]>) =>
     update((st) => ({ ...st, tasks: st.tasks.map((t) => (t.id === id ? { ...t, ...p } : t)) }));
@@ -740,17 +811,20 @@ function Tasks({ s, update }: { s: WeddingState; update: Update }) {
           <b className="tabular-nums">{done}</b> מתוך <b className="tabular-nums">{list.length}</b> משימות בוצעו
         </p>
         <button
-          onClick={() => update((st) => ({ ...st, tasks: [...st.tasks, { id: newId(), name: 'משימה חדשה', daysBefore: 30, done: false }] }))}
+          onClick={() => update((st) => ({ ...st, tasks: [...st.tasks, { id: newId(), name: 'משימה חדשה', daysBefore: 30, done: false, owner: who && who !== '__none' ? who : '' }] }))}
           className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-bold text-white"
         >
           <Plus className="h-4 w-4" /> משימה
         </button>
+        <div className="w-full">
+          <OwnerFilterBar s={s} value={who} onChange={setWho} />
+        </div>
       </section>
       <section className={`${card} overflow-x-auto p-2 md:p-2`}>
-        <table className="w-full min-w-[620px] border-collapse text-sm">
+        <table className="w-full min-w-[700px] border-collapse text-sm">
           <thead>
             <tr className="text-right text-xs text-slate-500">
-              {['', 'משימה', 'ימים לפני', 'תאריך יעד', ''].map((h, i) => (
+              {['', 'משימה', 'מי', 'ימים לפני', 'תאריך יעד', ''].map((h, i) => (
                 <th key={i} className="border-b border-gray-200 px-2 py-2.5 font-medium">
                   {h}
                 </th>
@@ -768,6 +842,9 @@ function Tasks({ s, update }: { s: WeddingState; update: Update }) {
                   </td>
                   <td className="px-2 py-2">
                     <input aria-label="משימה" className={`${cellInput} ${t.done ? 'text-slate-400 line-through' : ''}`} value={t.name} onChange={(e) => patch(t.id, { name: e.target.value })} />
+                  </td>
+                  <td className="w-28 px-2 py-2">
+                    <OwnerTag t={t} s={s} update={update} editable />
                   </td>
                   <td className="w-28 px-2 py-2">
                     <input aria-label="ימים לפני החתונה" type="number" min={0} className={cellInput} value={t.daysBefore} onChange={(e) => patch(t.id, { daysBefore: Math.max(0, Math.round(Number(e.target.value) || 0)) })} />
@@ -886,7 +963,7 @@ function Market({ s, g }: { s: WeddingState; g: number }) {
 
 function Settings({ s, update }: { s: WeddingState; update: Update }) {
   const set = (k: keyof WeddingSettings, v: string | number) => update((st) => ({ ...st, settings: { ...st.settings, [k]: v } }));
-  const num = (k: Exclude<keyof WeddingSettings, 'date'>, label: string, hint?: string) => (
+  const num = (k: Exclude<keyof WeddingSettings, 'date' | 'people'>, label: string, hint?: string) => (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={`ws-${k}`} className="text-xs font-bold text-slate-600">
         {label}
@@ -931,7 +1008,79 @@ function Settings({ s, update }: { s: WeddingState; update: Update }) {
         </div>
         <p className="mt-3 text-xs text-slate-500">אלה הערכות ראשוניות. כדאי לעדכן אותן כשמגיעות הצעות אמיתיות מספקים.</p>
       </section>
+      <PeopleSettings s={s} update={update} />
       <p className="text-xs text-slate-500">כל שינוי נשמר אוטומטית.</p>
     </div>
+  );
+}
+
+/**
+ * Names tasks can be tagged with. Renaming a person retags their tasks;
+ * removing one leaves their tasks tagged with the old name (still shown,
+ * filterable as-is) rather than silently unassigning them.
+ */
+function PeopleSettings({ s, update }: { s: WeddingState; update: Update }) {
+  const people = s.settings.people;
+  const rename = (i: number, name: string) =>
+    update((st) => {
+      const old = st.settings.people[i];
+      if (!name || name === old || name === TOGETHER || st.settings.people.includes(name)) return st;
+      return {
+        ...st,
+        settings: { ...st.settings, people: st.settings.people.map((p, j) => (j === i ? name : p)) },
+        tasks: st.tasks.map((t) => (t.owner === old ? { ...t, owner: name } : t)),
+      };
+    });
+  return (
+    <section className={card}>
+      <h2 className="mb-1 font-black text-slate-900">מי עושה את המשימות</h2>
+      <p className="mb-3 text-xs text-slate-500">השמות שאפשר לתייג בהם משימות. בנוסף תמיד יש &quot;{TOGETHER}&quot;.</p>
+      <div className="flex flex-col gap-2">
+        {people.map((p, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <span className={`h-3 w-3 shrink-0 rounded-full border ${pillClass(p || ' ', people)}`} aria-hidden="true" />
+            <PersonName key={p} index={i} name={p} onRename={rename} />
+            <button
+              aria-label={`הסרת ${p}`}
+              onClick={() => update((st) => ({ ...st, settings: { ...st.settings, people: st.settings.people.filter((_, j) => j !== i) } }))}
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-slate-500 hover:bg-red-50 hover:text-red-600"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+      {people.length < 6 && (
+        <button
+          onClick={() => update((st) => ({ ...st, settings: { ...st.settings, people: [...st.settings.people, `אדם ${st.settings.people.length + 1}`] } }))}
+          className="mt-3 flex items-center gap-1 text-sm font-bold text-emerald-700"
+        >
+          <Plus className="h-4 w-4" /> שם נוסף
+        </button>
+      )}
+    </section>
+  );
+}
+
+/** Edits a name locally and applies the rename on blur/Enter, so typing never orphans tagged tasks. */
+function PersonName({ index, name, onRename }: { index: number; name: string; onRename: (i: number, name: string) => void }) {
+  const [draft, setDraft] = useState(name);
+  const commit = () => {
+    const v = draft.trim();
+    if (v && v !== name) onRename(index, v);
+    else setDraft(name);
+  };
+  return (
+    <input
+      aria-label={`שם ${index + 1}`}
+      className={`${cellInput} min-h-[42px] max-w-xs`}
+      value={draft}
+      maxLength={30}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+      }}
+    />
   );
 }

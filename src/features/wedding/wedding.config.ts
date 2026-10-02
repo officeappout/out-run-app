@@ -15,6 +15,7 @@ export const DEFAULT_SETTINGS: WeddingSettings = {
   chuppah: 3000,
   light: 6000,
   bar: 30,
+  people: ['דוד', 'בת הזוג'],
 };
 
 const SEED_TASKS: Array<[string, number]> = [
@@ -64,6 +65,7 @@ export function initialWeddingState(): WeddingState {
       name,
       daysBefore,
       done: false,
+      owner: '',
     })),
   };
 }

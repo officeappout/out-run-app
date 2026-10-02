@@ -27,6 +27,8 @@ export interface WeddingSettings {
   light: number;
   /** Bar cost per guest (₪) */
   bar: number;
+  /** Names that tasks can be tagged with (who does it). */
+  people: string[];
 }
 
 export interface VenueIncludes {
@@ -71,7 +73,12 @@ export interface WeddingTask {
   name: string;
   daysBefore: number;
   done: boolean;
+  /** Who does it: one of settings.people, TOGETHER, or '' (not assigned). */
+  owner: string;
 }
+
+/** Owner value for a task both people do. */
+export const TOGETHER = 'ביחד';
 
 export interface WeddingState {
   settings: WeddingSettings;

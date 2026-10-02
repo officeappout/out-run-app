@@ -101,6 +101,16 @@ describe('parseWeddingState', () => {
     expect(s.tasks).toHaveLength(LIMITS.tasks);
   });
 
+  it('parses people and task owners; old data without them gets defaults', () => {
+    const s = parseWeddingState({
+      settings: { people: ['  מיכל ', 'דוד', 'מיכל', 'ביחד', '', 7] },
+      tasks: [{ id: 't1', name: 'צלם', daysBefore: 10, owner: 'מיכל' }, { id: 't2', name: 'אולם', daysBefore: 20 }],
+    });
+    expect(s.settings.people).toEqual(['מיכל', 'דוד']);
+    expect(s.tasks.map((t) => t.owner)).toEqual(['מיכל', '']);
+    expect(parseWeddingState({ settings: {} }).settings.people).toEqual(DEFAULT_SETTINGS.people);
+  });
+
   it('de-duplicates ids', () => {
     const s = parseWeddingState({ vendors: [{ id: 'v1', name: 'a' }, { id: 'v1', name: 'b' }] });
     expect(new Set(s.vendors.map((v) => v.id)).size).toBe(2);

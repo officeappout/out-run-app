@@ -1,5 +1,6 @@
 import { DEFAULT_SETTINGS } from './wedding.config';
 import {
+  TOGETHER,
   VENDOR_STATUSES,
   VENUE_STATUSES,
   type Vendor,
@@ -18,7 +19,7 @@ import {
  * rule (CLAUDE.md §5) — nothing here assumes a field exists.
  */
 
-export const LIMITS = { venues: 100, vendors: 100, tasks: 200, text: 300, notes: 2000 } as const;
+export const LIMITS = { venues: 100, vendors: 100, tasks: 200, text: 300, notes: 2000, people: 6, name: 30 } as const;
 
 type Obj = Record<string, unknown>;
 const isObj = (x: unknown): x is Obj => typeof x === 'object' && x !== null && !Array.isArray(x);
@@ -64,7 +65,18 @@ export function parseSettings(x: unknown): WeddingSettings {
     chuppah: s.chuppah === undefined ? d.chuppah : money(s.chuppah),
     light: s.light === undefined ? d.light : money(s.light),
     bar: s.bar === undefined ? d.bar : money(s.bar),
+    people: parsePeople(s.people),
   };
+}
+
+function parsePeople(x: unknown): string[] {
+  if (!Array.isArray(x)) return [...DEFAULT_SETTINGS.people];
+  const out: string[] = [];
+  for (const p of x.slice(0, LIMITS.people)) {
+    const name = str(p, LIMITS.name);
+    if (name && name !== TOGETHER && !out.includes(name)) out.push(name);
+  }
+  return out;
 }
 
 function parseVenue(x: unknown, i: number, weddingDate: string): Venue | null {
@@ -113,6 +125,7 @@ function parseTask(x: unknown, i: number): WeddingTask | null {
     name: str(x.name) || 'משימה',
     daysBefore: count(x.daysBefore),
     done: x.done === true,
+    owner: str(x.owner, LIMITS.name),
   };
 }
 
