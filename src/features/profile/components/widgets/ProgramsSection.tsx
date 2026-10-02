@@ -17,10 +17,14 @@
  *                          active program). Previously these were silently
  *                          invisible — only activePrograms[0] was ever read.
  *
- * Tapping any card opens ProgramDrawer with per-program metadata + stats.
+ * Tapping an assessed card navigates to that program's Skill-Tree detail
+ * page (/progression-map/[programId]) — the same destination the
+ * /progression hub's SkillMapCard already uses for the identical program,
+ * via the identical isProgressionMapLeafProgram check (a composite/master
+ * program with no tree of its own falls back to /profile, same as there).
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { getProgramByTemplateId } from '@/features/content/programs/core/program.service';
@@ -31,11 +35,11 @@ import {
 } from '@/features/home/hooks/useProgramProgress';
 import { ProgramProgressCard } from '@/features/home/components/widgets/ProgramProgressCard';
 import { PROGRAM_NAME_HE } from '@/lib/utils/program-names';
-import ProgramDrawer, { type ProgramDrawerData } from './ProgramDrawer';
 import type { Program } from '@/features/content/programs/core/program.types';
 import { startMiniDomainAssessment, type MiniAssessmentDomainType } from '@/features/user/onboarding/services/mini-domain-assessment';
 import { isDomainAssessed, resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
-import { resolveAdditionalProgramSlugs, domainTypeForSlug, resolveMasterAssessDomainType } from './program-groups.utils';
+import { resolveProgressionMapDestination } from '@/lib/progression-map-config';
+import { resolveAdditionalProgramSlugs, domainTypeForSlug } from './program-groups.utils';
 import { resolveOnboardingEntryHref } from '@/features/user/onboarding/utils/onboarding-entry';
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -84,13 +88,8 @@ export default function ProgramsSection() {
 
   // Resolved metadata for child programs (description, iconKey, maxLevels)
   const [childMeta, setChildMeta] = useState<Record<string, Program>>({});
-  const [masterMeta, setMasterMeta] = useState<Program | null>(null);
   // Resolved metadata for additional (index 1+) independent active programs
   const [additionalMeta, setAdditionalMeta] = useState<Record<string, Program>>({});
-
-  // Drawer state
-  const [drawerProgram, setDrawerProgram] = useState<ProgramDrawerData | null>(null);
-  const closeDrawer = useCallback(() => setDrawerProgram(null), []);
 
   // Resolve the master program templateId
   const masterTemplateId =
@@ -114,16 +113,6 @@ export default function ProgramsSection() {
     profile?.progression?.activePrograms,
     resolveToSlug,
   );
-
-  // Fetch master metadata once
-  useEffect(() => {
-    if (!masterTemplateId) return;
-    let cancelled = false;
-    fetchProgramMeta(masterTemplateId).then((meta) => {
-      if (!cancelled && meta) setMasterMeta(meta);
-    });
-    return () => { cancelled = true; };
-  }, [masterTemplateId]);
 
   // Fetch child program metadata for description / iconKey / maxLevels
   useEffect(() => {
@@ -174,44 +163,17 @@ export default function ProgramsSection() {
   const masterName = progressData?.programName ?? (masterTemplateId ? PROGRAM_NAME_HE[masterTemplateId] ?? masterTemplateId : 'תוכנית אימון');
   const masterIconKey = progressData?.iconKey;
 
-  // ── Open drawer for the master program ─────────────────────────
-  // templateId here is the resolved slug (not the raw masterTemplateId used
-  // for fetchProgramMeta above) — ProgramDrawer passes it straight into
-  // startMiniDomainAssessment, which expects a category/skill slug. Safe:
-  // ProgramDrawer is this component's only caller and only reads
-  // `.templateId` for its own icon-fallback display.
-  const openMasterDrawer = useCallback(() => {
+  // ── Navigate to a program's detail page — shared with SkillMapCard's
+  // identical tap target (resolveProgressionMapDestination handles both the
+  // raw-id and slug forms, since real program data mixes both). ──
+  const goToMasterProgram = () => {
     if (!masterTemplateId) return;
-    setDrawerProgram({
-      templateId: masterSlug ?? masterTemplateId,
-      name: masterName,
-      description: masterMeta?.description,
-      currentLevel: masterLevel,
-      maxLevel: masterMaxLevel,
-      percent: masterPercent,
-      totalWorkoutsCompleted: (masterSlug ? tracks[masterSlug] : undefined)?.totalWorkoutsCompleted ?? 0,
-      iconKey: masterIconKey ?? masterMeta?.iconKey,
-      domainType: resolveMasterAssessDomainType(childSlugs.length, masterSlug),
-    });
-  }, [masterTemplateId, masterSlug, masterName, masterMeta, masterLevel, masterMaxLevel, masterPercent, masterIconKey, tracks, childSlugs.length]);
+    router.push(resolveProgressionMapDestination(masterTemplateId));
+  };
 
-  // ── Open drawer for a non-master program (child OR additional) ──
-  const openProgramDrawer = useCallback(
-    (slug: string, card: ChildCardData, domainType: MiniAssessmentDomainType) => {
-      setDrawerProgram({
-        templateId: slug,
-        name: card.name,
-        description: card.description,
-        currentLevel: card.currentLevel,
-        maxLevel: card.maxLevel,
-        percent: card.percent,
-        totalWorkoutsCompleted: card.totalWorkoutsCompleted,
-        iconKey: card.iconKey,
-        domainType,
-      });
-    },
-    [],
-  );
+  const goToProgram = (slug: string) => {
+    router.push(resolveProgressionMapDestination(slug));
+  };
 
   // ── Build card data for a given slug (shared by children + additional programs) ──
   const buildCardData = (slug: string, meta: Program | undefined): ChildCardData => {
@@ -243,16 +205,17 @@ export default function ProgramsSection() {
   const additionalCards: ChildCardData[] = additionalSlugs.map((slug) => buildCardData(slug, additionalMeta[slug]));
 
   // ── Render one card tile (shared by children + additional programs) ────
-  // Assessed → tap opens ProgramDrawer. Not yet assessed → explicit
-  // "not yet assessed" cue + CTA to the mini-questionnaire (never a silently
-  // fabricated "Level 1" card) — domainType picks category vs skill routing.
+  // Assessed → tap navigates to that program's Skill-Tree detail page. Not
+  // yet assessed → explicit "not yet assessed" cue + CTA to the
+  // mini-questionnaire (never a silently fabricated "Level 1" card) —
+  // domainType picks category vs skill routing for that CTA.
   const renderCardTile = (card: ChildCardData, groupSize: number, domainType: MiniAssessmentDomainType) =>
     card.isAssessed ? (
       <button
         key={card.slug}
         type="button"
         className="flex-shrink-0 text-right active:opacity-80 transition-opacity"
-        onClick={() => openProgramDrawer(card.slug, card, domainType)}
+        onClick={() => goToProgram(card.slug)}
       >
         <ProgramProgressCard
           programName={card.name}
@@ -318,64 +281,59 @@ export default function ProgramsSection() {
   }
 
   return (
-    <>
-      <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-5" dir="rtl">
-        {/* Section header */}
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-black text-gray-800">התוכניות שלי</h3>
-          <button
-            type="button"
-            onClick={() => router.push('/home')}
-            className="text-xs font-semibold text-[#00C9F2] active:opacity-70"
-          >
-            ניהול
-          </button>
-        </div>
-
-        {/* Group 1 — Master program */}
-        {masterTemplateId && progressData && (
-          <div className="space-y-2">
-            <p className="text-xs font-bold text-gray-400 tracking-wide">תוכנית פעילה</p>
-            <button
-              type="button"
-              className="w-full text-right active:opacity-80 transition-opacity"
-              onClick={openMasterDrawer}
-            >
-              <ProgramProgressCard
-                programName={masterName}
-                iconKey={masterIconKey}
-                currentLevel={masterLevel}
-                maxLevel={masterMaxLevel}
-                progressPercent={masterPercent}
-                className="!max-w-none pointer-events-none"
-              />
-            </button>
-          </div>
-        )}
-
-        {/* Group 2 — Child programs (unchanged: derived from activePrograms[0] only) */}
-        {childCards.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-xs font-bold text-gray-400 tracking-wide">תוכניות בנות</p>
-            <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-              {childCards.map((card) => renderCardTile(card, childCards.length, 'category'))}
-            </div>
-          </div>
-        )}
-
-        {/* Group 3 — Additional independent active programs (activePrograms index 1+) */}
-        {additionalCards.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-xs font-bold text-gray-400 tracking-wide">תוכניות נוספות</p>
-            <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-              {additionalCards.map((card) => renderCardTile(card, additionalCards.length, domainTypeForSlug(card.slug)))}
-            </div>
-          </div>
-        )}
+    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-5" dir="rtl">
+      {/* Section header */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-black text-gray-800">התוכניות שלי</h3>
+        <button
+          type="button"
+          onClick={() => router.push('/home')}
+          className="text-xs font-semibold text-[#00C9F2] active:opacity-70"
+        >
+          ניהול
+        </button>
       </div>
 
-      {/* Drawer — portalled outside the card */}
-      <ProgramDrawer program={drawerProgram} onClose={closeDrawer} />
-    </>
+      {/* Group 1 — Master program */}
+      {masterTemplateId && progressData && (
+        <div className="space-y-2">
+          <p className="text-xs font-bold text-gray-400 tracking-wide">תוכנית פעילה</p>
+          <button
+            type="button"
+            className="w-full text-right active:opacity-80 transition-opacity"
+            onClick={goToMasterProgram}
+          >
+            <ProgramProgressCard
+              programName={masterName}
+              iconKey={masterIconKey}
+              currentLevel={masterLevel}
+              maxLevel={masterMaxLevel}
+              progressPercent={masterPercent}
+              className="!max-w-none pointer-events-none"
+            />
+          </button>
+        </div>
+      )}
+
+      {/* Group 2 — Child programs (unchanged: derived from activePrograms[0] only) */}
+      {childCards.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-bold text-gray-400 tracking-wide">תוכניות בנות</p>
+          <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+            {childCards.map((card) => renderCardTile(card, childCards.length, 'category'))}
+          </div>
+        </div>
+      )}
+
+      {/* Group 3 — Additional independent active programs (activePrograms index 1+) */}
+      {additionalCards.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-bold text-gray-400 tracking-wide">תוכניות נוספות</p>
+          <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+            {additionalCards.map((card) => renderCardTile(card, additionalCards.length, domainTypeForSlug(card.slug)))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

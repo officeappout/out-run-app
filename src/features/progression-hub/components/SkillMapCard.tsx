@@ -29,7 +29,7 @@ import { resolveProgramLabel } from '@/features/content/programs';
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { useUserProgramLevel } from '@/features/progression-map/hooks/useUserProgramLevel';
 import { useSkillTree } from '@/features/progression-map/hooks/useSkillTree';
-import { isProgressionMapLeafProgram } from '@/lib/progression-map-config';
+import { resolveProgressionMapDestination } from '@/lib/progression-map-config';
 
 /**
  * Phase 4b round 5 fix: the displayed name used to fall back to the raw
@@ -94,9 +94,12 @@ export function SkillMapCard({ programId, nameHe, state, lockedHint, badge, onAs
   // Skill-Tree leaf programs (/progression-map/[programId]) — a composite/
   // master program has no tree of its own (the same known gap Feature #5's
   // program switcher already hit). For a master, fall back to /profile,
-  // where ProgramsSection/ProgramDrawer already show master detail — a
-  // second EXISTING destination, not a new one, chosen per program type.
-  const destination = isProgressionMapLeafProgram(programId) ? `/progression-map/${programId}` : '/profile';
+  // where ProgramsSection already shows master detail — a second EXISTING
+  // destination, not a new one, chosen per program type. Shared with
+  // ProgramsSection's own tap target via resolveProgressionMapDestination —
+  // see that function's own comment for why it resolves both the raw-id and
+  // slug forms of programId, not just this one.
+  const destination = resolveProgressionMapDestination(programId);
 
   // div role="button" (not a real <button>) so ProgramProgressCard can host
   // its own REAL nested <button> for the "בצע מבדק" secondary CTA

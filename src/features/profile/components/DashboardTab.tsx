@@ -281,17 +281,19 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
         </div>
 
         {/* Name + meta + bio — start-aligned (not centered), matching the
-            mockup. levelName is kept unconditionally as a persona-style
-            label (word only, no "· שלב X" number) — it reads fine on its
-            own and isn't gated behind IS_XP_ENABLED; see PR notes. Bio has
-            no backing field yet (no new Firestore fields this phase) —
-            always the same empty-safe placeholder, never reads anything
-            that could be missing. */}
+            mockup. levelName is a level-tier name (e.g. "המטפס") — part of
+            the XP/character system, gated behind IS_XP_ENABLED like the
+            rest of it (round 4 follow-up; previously kept unconditional).
+            Bio has no backing field yet (no new Firestore fields this
+            phase) — always the same empty-safe placeholder, never reads
+            anything that could be missing. */}
         <div className="mt-4">
           {userName && (
             <p className="text-sm font-bold text-gray-900">{userName}</p>
           )}
-          <p className="text-xs font-bold text-[#00ADEF] mt-0.5">{levelName}</p>
+          {IS_XP_ENABLED && (
+            <p className="text-xs font-bold text-[#00ADEF] mt-0.5">{levelName}</p>
+          )}
           <p className="text-xs font-medium text-gray-400 mt-1">עדיין אין תיאור אישי</p>
         </div>
 
