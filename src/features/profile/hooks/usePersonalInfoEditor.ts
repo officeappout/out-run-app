@@ -16,6 +16,12 @@
  * core.authorityId is client-write-locked (noTenantFieldsChanged(),
  * axioms.md §20) and routes through /explorer instead of joining this
  * hook's own staged save.
+ *
+ * Round 5 addition: bio + trainingTags. Approved scope is explicitly these
+ * two fields only — NOT relationship-status/looking-for/18+-opt-in, which
+ * stay deferred pending a dedicated round. Both are new core.* fields (see
+ * user.types.ts) with no prior UI anywhere; staged/saved the same way as
+ * name/weight/DOB above, in the same atomic updateDoc.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -24,6 +30,21 @@ import { auth, db } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
 import { useToast } from '@/components/ui/Toast';
 import { getUserFromFirestore } from '@/lib/firestore.service';
+
+/** Fixed vocabulary for the training-tags chip picker — first pass, easy to
+ * adjust (plain string literals, no migration needed to add/remove one). */
+export const TRAINING_TAG_OPTIONS: readonly { id: string; label: string }[] = [
+  { id: 'loves_park', label: 'אוהב פארק' },
+  { id: 'morning', label: 'בוקר' },
+  { id: 'evening', label: 'מתאמן בערב' },
+  { id: 'beginner', label: 'מתחיל' },
+  { id: 'intermediate', label: 'רמת ביניים' },
+  { id: 'advanced', label: 'מתקדם' },
+  { id: 'home', label: 'בית' },
+  { id: 'running', label: 'ריצה' },
+  { id: 'front_lever', label: 'פרונט לבר' },
+  { id: 'muscle_up', label: 'מאסל אפ' },
+];
 
 export function usePersonalInfoEditor() {
   const router = useRouter();
@@ -34,7 +55,15 @@ export function usePersonalInfoEditor() {
   const [editName, setEditName] = useState('');
   const [editWeight, setEditWeight] = useState('');
   const [editDob, setEditDob] = useState({ day: '', month: '', year: '' });
+  const [editBio, setEditBio] = useState('');
+  const [editTrainingTags, setEditTrainingTags] = useState<string[]>([]);
   const [editSaving, setEditSaving] = useState(false);
+
+  const toggleTrainingTag = useCallback((tagId: string) => {
+    setEditTrainingTags((prev) =>
+      prev.includes(tagId) ? prev.filter((t) => t !== tagId) : [...prev, tagId],
+    );
+  }, []);
 
   // Neighborhood is staged like name/weight/DOB, committed together on save.
   // City stays display-only — see goToCityEdit below.
@@ -103,6 +132,8 @@ export function usePersonalInfoEditor() {
     }
     setEditNeighborhoodId(profile?.core?.neighborhoodId ?? null);
     setEditNeighborhoodName(neighborhoodName);
+    setEditBio(profile?.core?.bio ?? '');
+    setEditTrainingTags(profile?.core?.trainingTags ?? []);
   }, [profile, neighborhoodName]);
 
   const savePersonalEdit = useCallback(async () => {
@@ -133,6 +164,22 @@ export function usePersonalInfoEditor() {
         update['core.neighborhoodId'] = editNeighborhoodId;
       }
 
+      const trimmedBio = editBio.trim();
+      if (trimmedBio !== (profile?.core?.bio ?? '')) {
+        update['core.bio'] = trimmedBio;
+      }
+
+      // Whole-array overwrite is correct here (not FieldValue.arrayUnion,
+      // axioms.md §5's append rule) — trainingTags is a single-owner,
+      // user-set-the-complete-list preference, not a shared/incrementally-
+      // appended collection. The user's chip selection IS the full value.
+      const currentTags = profile?.core?.trainingTags ?? [];
+      const tagsChanged = editTrainingTags.length !== currentTags.length
+        || editTrainingTags.some((t) => !currentTags.includes(t));
+      if (tagsChanged) {
+        update['core.trainingTags'] = editTrainingTags;
+      }
+
       if (Object.keys(update).length > 0) {
         update['core.updatedAt'] = serverTimestamp();
         await updateDoc(doc(db, 'users', uid), update);
@@ -148,7 +195,7 @@ export function usePersonalInfoEditor() {
     } finally {
       setEditSaving(false);
     }
-  }, [editName, editWeight, editDob, editNeighborhoodId, userId, profile, editSaving, showToast]);
+  }, [editName, editWeight, editDob, editNeighborhoodId, editBio, editTrainingTags, userId, profile, editSaving, showToast]);
 
   /** core.authorityId is client-write-locked — city editing routes through
    * /explorer (the current location-edit flow) instead of this hook's own
@@ -164,6 +211,8 @@ export function usePersonalInfoEditor() {
     editName, setEditName,
     editWeight, setEditWeight,
     editDob, setEditDob,
+    editBio, setEditBio,
+    editTrainingTags, toggleTrainingTag,
     editSaving,
     cityDisplay, cityResolving, cityAuthorityId, goToCityEdit,
     neighborhoodPickerOpen, setNeighborhoodPickerOpen,

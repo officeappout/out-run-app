@@ -18,6 +18,7 @@ import { AchievementUnlockToast } from '@/features/user/progression/components/A
 import { IS_XP_ENABLED } from '@/config/feature-flags';
 import { StrengthWidgets, RunningWidgets } from './widgets/DashboardModeWidgets';
 import FavoritesSheet from './FavoritesSheet';
+import EditProfileModal from './EditProfileModal';
 
 // Carousels use Firestore + auth — keep them client-only via dynamic()
 const GoalCarousel = dynamic(() => import('./widgets/GoalCarousel'), { ssr: false });
@@ -133,6 +134,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
   );
   const [isAchievementSheetOpen, setIsAchievementSheetOpen] = useState(false);
   const [isFavoritesSheetOpen, setIsFavoritesSheetOpen] = useState(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
   // ── Hydrate progression store on mount (idempotent) ────────────────────────
   const hydrationAttemptedRef = useRef(false);
@@ -284,9 +286,9 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
             mockup. levelName is a level-tier name (e.g. "המטפס") — part of
             the XP/character system, gated behind IS_XP_ENABLED like the
             rest of it (round 4 follow-up; previously kept unconditional).
-            Bio has no backing field yet (no new Firestore fields this
-            phase) — always the same empty-safe placeholder, never reads
-            anything that could be missing. */}
+            Bio (round 5): core.bio is a real field now, set via
+            EditProfileModal — shows the real value when set, same
+            empty-safe placeholder as before when not. */}
         <div className="mt-4">
           {userName && (
             <p className="text-sm font-bold text-gray-900">{userName}</p>
@@ -294,8 +296,21 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
           {IS_XP_ENABLED && (
             <p className="text-xs font-bold text-[#00ADEF] mt-0.5">{levelName}</p>
           )}
-          <p className="text-xs font-medium text-gray-400 mt-1">עדיין אין תיאור אישי</p>
+          <p className="text-xs font-medium text-gray-400 mt-1">
+            {profile?.core?.bio?.trim() || 'עדיין אין תיאור אישי'}
+          </p>
         </div>
+
+        {/* עריכת פרופיל — opens the consolidated Edit Profile screen (round
+            5). Additive: the gear/bookmark corner icons above keep their
+            existing jobs (settings / saved workouts) unchanged. */}
+        <button
+          type="button"
+          onClick={() => setIsEditProfileOpen(true)}
+          className="w-full mt-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm font-bold text-gray-700 active:scale-[0.98] transition-transform"
+        >
+          עריכת פרופיל ✏️
+        </button>
 
         {/* XP progress bar — IS_XP_ENABLED gate. Hidden, not deleted: no
             accrual is stopped, only this display. */}
@@ -505,6 +520,12 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
       <FavoritesSheet
         isOpen={isFavoritesSheetOpen}
         onClose={() => setIsFavoritesSheetOpen(false)}
+      />
+
+      {/* ── Edit Profile — opened by the "עריכת פרופיל" button (round 5) ── */}
+      <EditProfileModal
+        isOpen={isEditProfileOpen}
+        onClose={() => setIsEditProfileOpen(false)}
       />
 
       {/* ── Unlock Toast (bottom overlay) ── */}

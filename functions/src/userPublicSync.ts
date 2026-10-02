@@ -47,6 +47,11 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
+// Primitive (string/number) fields only — compared with !==, which is
+// correct for primitives but would be WRONG for an array field (two
+// independently-deserialized Firestore snapshots never share array
+// references, so !== would read as "changed" on every write regardless of
+// actual content — see trainingTagsChanged below, compared by value instead).
 const MIRRORED_CORE_FIELDS = [
   'name',
   'photoURL',
@@ -54,6 +59,9 @@ const MIRRORED_CORE_FIELDS = [
   'authorityId',
   'ageGroup',
   'initialFitnessTier',
+  // Profile redesign round 5 — set via the new Edit Profile screen,
+  // displayed on the public profile page.
+  'bio',
 ] as const;
 
 export const userPublicSync = onDocumentWritten('users/{uid}', async (event) => {
@@ -85,6 +93,13 @@ export const userPublicSync = onDocumentWritten('users/{uid}', async (event) => 
   const afterLevel = (after.progression as Record<string, unknown> | undefined)?.currentLevel;
   const beforeLevel = (before?.progression as Record<string, unknown> | undefined)?.currentLevel;
 
+  // trainingTags is an array — compared by value (below), not with the
+  // generic !== loop above, which only works for primitives.
+  const afterTags = (afterCore.trainingTags as string[] | undefined) ?? [];
+  const beforeTags = (beforeCore.trainingTags as string[] | undefined) ?? [];
+  const trainingTagsChanged =
+    afterTags.length !== beforeTags.length || afterTags.some((t) => !beforeTags.includes(t));
+
   // Write on opt-in (discoverable just flipped false→true), or when a
   // MIRRORED field actually changed — an XP/progression write that never
   // touches core.name/photoURL/etc. must not trigger a userPublic write at
@@ -106,7 +121,9 @@ export const userPublicSync = onDocumentWritten('users/{uid}', async (event) => 
   // standing per-write existence check on a hot path.
   const justOptedIn = !beforeDiscoverable;
   const mirroredFieldChanged =
-    MIRRORED_CORE_FIELDS.some((f) => afterCore[f] !== beforeCore[f]) || afterLevel !== beforeLevel;
+    MIRRORED_CORE_FIELDS.some((f) => afterCore[f] !== beforeCore[f])
+    || trainingTagsChanged
+    || afterLevel !== beforeLevel;
 
   if (!justOptedIn && !mirroredFieldChanged) {
     return;
@@ -120,6 +137,8 @@ export const userPublicSync = onDocumentWritten('users/{uid}', async (event) => 
     ageGroup: (afterCore.ageGroup as string | undefined) ?? 'minor',
     initialFitnessTier: (afterCore.initialFitnessTier as string | undefined) ?? null,
     currentLevel: (afterLevel as string | number | undefined) ?? null,
+    bio: (afterCore.bio as string | undefined) ?? null,
+    trainingTags: afterTags,
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 

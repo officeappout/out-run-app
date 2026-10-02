@@ -14,6 +14,7 @@ import { useChatStore } from '@/features/social/store/useChatStore';
 import { getUserPosts, type FeedPost } from '@/features/social/services/feed.service';
 import FeedPostCard from '@/features/social/components/FeedPostCard';
 import ReportContentSheet from '@/features/arena/components/ReportContentSheet';
+import { TRAINING_TAG_OPTIONS } from '@/features/profile/hooks/usePersonalInfoEditor';
 
 interface PublicProfile {
   name: string;
@@ -23,6 +24,11 @@ interface PublicProfile {
   mainGoal?: string;
   /** Set from users/{uid}.core.ageGroup — used by the DM gate, same as UserProfileSheet.tsx. */
   ageGroup?: 'minor' | 'adult';
+  /** Profile redesign round 5 — same core.bio/core.trainingTags the Edit
+   * Profile screen sets; mirrored to userPublic by userPublicSync.ts (code
+   * updated, NOT YET DEPLOYED as a Cloud Function — see PR notes). */
+  bio?: string;
+  trainingTags?: string[];
 }
 
 const GOAL_LABELS: Record<string, string> = {
@@ -107,6 +113,8 @@ export default function PublicProfilePage() {
             initialFitnessTier: data.core?.initialFitnessTier ?? undefined,
             mainGoal: data.core?.mainGoal ?? undefined,
             ageGroup: data.core?.ageGroup === 'minor' || data.core?.ageGroup === 'adult' ? data.core.ageGroup : undefined,
+            bio: data.core?.bio ?? undefined,
+            trainingTags: data.core?.trainingTags ?? undefined,
           } : {
             name: data.name ?? 'משתמש',
             photoURL: data.photoURL ?? undefined,
@@ -126,6 +134,10 @@ export default function PublicProfilePage() {
             // defeating the whole minor-DM gate for the one case (viewing
             // someone else) the send-message feature actually exists for.
             ageGroup: data.ageGroup === 'minor' || data.ageGroup === 'adult' ? data.ageGroup : undefined,
+            // Flat schema, same as the rest of this branch — see
+            // userPublicSync.ts's publicRef.set() payload.
+            bio: data.bio ?? undefined,
+            trainingTags: data.trainingTags ?? undefined,
           });
         }
         setPosts(userPosts);
@@ -261,6 +273,30 @@ export default function PublicProfilePage() {
               </div>
             </div>
           </div>
+
+          {/* Bio + training tags — round 5, same core.bio/core.trainingTags
+              the Edit Profile screen sets. Public viewer sees them via the
+              userPublicSync mirror (code updated, not yet deployed — see
+              PR notes), so this may render empty on a live prod viewer
+              until that Cloud Function redeploys. */}
+          {publicProfile.bio && (
+            <p className="text-sm text-gray-700 mb-3" dir="rtl">{publicProfile.bio}</p>
+          )}
+          {publicProfile.trainingTags && publicProfile.trainingTags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {publicProfile.trainingTags.map((tagId) => {
+                const tag = TRAINING_TAG_OPTIONS.find((t) => t.id === tagId);
+                return (
+                  <span
+                    key={tagId}
+                    className="text-[11px] font-semibold text-gray-600 bg-gray-50 border border-gray-200 rounded-full px-2.5 py-1"
+                  >
+                    {tag?.label ?? tagId}
+                  </span>
+                );
+              })}
+            </div>
+          )}
 
           {/* Follow button */}
           {!isSelf && myUid && (
