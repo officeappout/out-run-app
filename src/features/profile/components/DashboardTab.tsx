@@ -15,6 +15,7 @@ import { useAchievements } from '@/features/user/progression/hooks/useAchievemen
 import { BadgeDisplay } from '@/features/user/progression/components/BadgeDisplay';
 import { AchievementSheet } from '@/features/user/progression/components/AchievementSheet';
 import { AchievementUnlockToast } from '@/features/user/progression/components/AchievementUnlockToast';
+import { IS_XP_ENABLED } from '@/config/feature-flags';
 import { StrengthWidgets, RunningWidgets } from './widgets/DashboardModeWidgets';
 import FavoritesSheet from './FavoritesSheet';
 
@@ -46,6 +47,47 @@ const PROFILE_TABS = [
   { id: 'programs', label: 'תוכניות', Icon: BarChart3 },
 ] as const;
 
+// Default no-photo avatar (IS_XP_ENABLED=false): initials on a per-user
+// deterministic color, so two users without a photo don't look identical.
+// Small brand-aligned palette — swap freely, nothing else depends on these
+// exact hexes.
+const AVATAR_PALETTE = ['#00ADEF', '#10B981', '#F59E0B', '#8B5CF6', '#F43F5E', '#0EA5E9'];
+const AVATAR_FALLBACK_GRADIENT = 'linear-gradient(135deg, #00ADEF, #5BC2F2)';
+
+function hashString(input: string): number {
+  let hash = 0;
+  for (let i = 0; i < input.length; i++) {
+    hash = (hash * 31 + input.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+}
+
+/** Deterministic background for a user's initials avatar — same uid/name
+ * always lands on the same palette color. Falls back to the brand gradient
+ * when neither uid nor name is available (truly unknown user). */
+function avatarBackground(seed: string | null): string {
+  if (!seed) return AVATAR_FALLBACK_GRADIENT;
+  return AVATAR_PALETTE[hashString(seed) % AVATAR_PALETTE.length];
+}
+
+/** Grapheme-safe first letter — avoids splitting a surrogate pair (emoji,
+ * non-BMP characters) in half. Hebrew/Latin names uppercase as expected;
+ * .toUpperCase() is a harmless no-op on Hebrew (no case to begin with). */
+function firstGrapheme(name: string | null): string {
+  const trimmed = name?.trim();
+  if (!trimmed) return '?';
+  const SegmenterCtor = (Intl as unknown as { Segmenter?: new (locale?: string, opts?: { granularity: string }) => { segment(s: string): Iterable<{ segment: string }> } }).Segmenter;
+  if (SegmenterCtor) {
+    // Array.from (not spread/for-of) — this repo's tsconfig has no `target`
+    // set, so spreading a non-array iterable hits TS2802; Array.from is a
+    // plain function call, not a language construct the compiler needs to
+    // downlevel, and still iterates the real runtime iterator correctly.
+    const first = Array.from(new SegmenterCtor(undefined, { granularity: 'grapheme' }).segment(trimmed))[0];
+    return first ? first.segment.toUpperCase() : '?';
+  }
+  return Array.from(trimmed)[0]?.toUpperCase() ?? '?';
+}
+
 export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: DashboardTabProps) {
   const {
     globalXP,
@@ -59,6 +101,9 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
   const userId = profile?.id ?? auth.currentUser?.uid ?? null;
   const photoURL = profile?.core?.photoURL || null;
   const userName = profile?.core?.name?.trim() || null;
+  // referral.service.ts increments this on a real referral event — not a
+  // dead field, but most accounts are still 0 until that happens.
+  const partnerCount = profile?.social?.partnerCount ?? 0;
   const [activeTab, setActiveTab] = useState<typeof PROFILE_TABS[number]['id']>('workouts');
 
   // ── Debug: log profile.progression whenever it changes ────────────────────
@@ -166,14 +211,32 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
                 padding reveals the gradient as a ring around the white inset. */}
             <div className="w-full h-full rounded-full p-[3px] bg-gradient-to-br from-[#00ADEF] to-[#5BC2F2] shadow-md">
               <div className="w-full h-full rounded-full overflow-hidden bg-white">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={photoURL || LEMUR_IMG}
-                  alt={photoURL ? (userName || 'תמונת פרופיל') : 'Lemur'}
-                  width={84}
-                  height={84}
-                  className="w-full h-full object-cover"
-                />
+                {photoURL ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={photoURL}
+                    alt={userName || 'תמונת פרופיל'}
+                    width={84}
+                    height={84}
+                    className="w-full h-full object-cover"
+                  />
+                ) : IS_XP_ENABLED ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={LEMUR_IMG}
+                    alt="Lemur"
+                    width={84}
+                    height={84}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div
+                    className="w-full h-full flex items-center justify-center text-white font-black text-2xl"
+                    style={{ background: avatarBackground(userId || userName) }}
+                  >
+                    {firstGrapheme(userName)}
+                  </div>
+                )}
               </div>
             </div>
             {/* Streak badge — Flame + count */}
@@ -185,7 +248,8 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
             </div>
           </div>
 
-          {/* 3 stats — workouts / streak / level */}
+          {/* 3 stats — workouts / partners / streak (level dropped — see
+              partnerCount note above) */}
           <div className="flex-1 grid grid-cols-3 gap-1">
             <button
               type="button"
@@ -202,66 +266,70 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
 
             <div className="flex flex-col items-center">
               <span className="text-lg font-black text-gray-900 leading-none tabular-nums">
-                {currentStreak}
+                {partnerCount}
               </span>
-              <span className="text-[10px] font-bold text-gray-500 mt-1">ימי רצף</span>
+              <span className="text-[10px] font-bold text-gray-500 mt-1">שותפים</span>
             </div>
 
             <div className="flex flex-col items-center">
               <span className="text-lg font-black text-gray-900 leading-none tabular-nums">
-                {globalLevel}
+                {currentStreak}
               </span>
-              <span className="text-[10px] font-bold text-gray-500 mt-1">רמה</span>
+              <span className="text-[10px] font-bold text-gray-500 mt-1">ימי רצף</span>
             </div>
           </div>
         </div>
 
-        {/* Name + meta (level/stage) + bio — start-aligned (not centered),
-            matching the mockup. Bio has no backing field yet (no new
-            Firestore fields this phase) — always the same empty-safe
-            placeholder, never reads anything that could be missing. */}
+        {/* Name + meta + bio — start-aligned (not centered), matching the
+            mockup. levelName is kept unconditionally as a persona-style
+            label (word only, no "· שלב X" number) — it reads fine on its
+            own and isn't gated behind IS_XP_ENABLED; see PR notes. Bio has
+            no backing field yet (no new Firestore fields this phase) —
+            always the same empty-safe placeholder, never reads anything
+            that could be missing. */}
         <div className="mt-4">
           {userName && (
             <p className="text-sm font-bold text-gray-900">{userName}</p>
           )}
-          <p className="text-xs font-bold text-[#00ADEF] mt-0.5">
-            {levelName} · שלב {globalLevel}
-          </p>
+          <p className="text-xs font-bold text-[#00ADEF] mt-0.5">{levelName}</p>
           <p className="text-xs font-medium text-gray-400 mt-1">עדיין אין תיאור אישי</p>
         </div>
 
-        {/* XP progress bar */}
-        <div className="w-full mt-4">
-          {!isHydrated ? (
-            <div className="space-y-2 animate-pulse">
-              <div className="h-3.5 bg-gray-100 rounded-full" />
-              <div className="h-3 bg-gray-100 rounded w-1/2 mx-auto" />
-            </div>
-          ) : isMaxLevel ? (
-            <div className="bg-gradient-to-l from-[#00ADEF] to-[#5BC2F2] rounded-full py-2 px-4 text-center">
-              <span className="text-white text-xs font-black">הגעת לשיא!</span>
-            </div>
-          ) : (
-            <>
-              <div className="h-3 bg-gray-100 rounded-full overflow-hidden shadow-inner">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${barTarget}%` }}
-                  transition={{ duration: 0.9, ease: 'easeOut' }}
-                  className="h-full rounded-full bg-gradient-to-l from-[#00ADEF] to-[#5BC2F2]"
-                />
+        {/* XP progress bar — IS_XP_ENABLED gate. Hidden, not deleted: no
+            accrual is stopped, only this display. */}
+        {IS_XP_ENABLED && (
+          <div className="w-full mt-4">
+            {!isHydrated ? (
+              <div className="space-y-2 animate-pulse">
+                <div className="h-3.5 bg-gray-100 rounded-full" />
+                <div className="h-3 bg-gray-100 rounded w-1/2 mx-auto" />
               </div>
-              <div className="flex items-center justify-between mt-1.5 px-0.5" dir="ltr">
-                <span className="text-[11px] font-bold text-gray-500 tabular-nums">
-                  {globalXP.toLocaleString()} / {nextLevelXP.toLocaleString()} XP
-                </span>
-                <span className="text-[11px] font-bold text-[#00ADEF]">
-                  שלב {globalLevel + 1} →
-                </span>
+            ) : isMaxLevel ? (
+              <div className="bg-gradient-to-l from-[#00ADEF] to-[#5BC2F2] rounded-full py-2 px-4 text-center">
+                <span className="text-white text-xs font-black">הגעת לשיא!</span>
               </div>
-            </>
-          )}
-        </div>
+            ) : (
+              <>
+                <div className="h-3 bg-gray-100 rounded-full overflow-hidden shadow-inner">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${barTarget}%` }}
+                    transition={{ duration: 0.9, ease: 'easeOut' }}
+                    className="h-full rounded-full bg-gradient-to-l from-[#00ADEF] to-[#5BC2F2]"
+                  />
+                </div>
+                <div className="flex items-center justify-between mt-1.5 px-0.5" dir="ltr">
+                  <span className="text-[11px] font-bold text-gray-500 tabular-nums">
+                    {globalXP.toLocaleString()} / {nextLevelXP.toLocaleString()} XP
+                  </span>
+                  <span className="text-[11px] font-bold text-[#00ADEF]">
+                    שלב {globalLevel + 1} →
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </motion.div>
 
       {/* ════════════════════════════════════════════════════════════════════
@@ -334,16 +402,19 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
         </motion.div>
       </div>
 
-      {/* ── סקילים ── BLOCK 2.5 (exercise wishlist — the one existing block
-          about specific named skills; thinner than the per-domain level/%
-          data ProgramsSection has, see PR notes) */}
+      {/* ── סקילים ── BLOCK 5 (ProgramsSection — confirmed round 3: this is
+          the per-skill progression rings/list, e.g. front lever 9/15 68%.
+          Its own existing empty state ("עדיין לא בחרת תוכנית אימון" + "בחר
+          תוכנית" → the real assessment questionnaire) carries over
+          unchanged — this is a pure relocation, ProgramsSection.tsx itself
+          is untouched.) */}
       <div className={activeTab === 'skills' ? 'space-y-4' : 'hidden'}>
         <motion.div
           initial={{ y: 16, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.06 }}
         >
-          <ExerciseWishlistStrip />
+          <ProgramsSection />
         </motion.div>
       </div>
 
@@ -377,9 +448,12 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
         </motion.div>
       </div>
 
-      {/* ── תוכניות ── BLOCK 2 (goals) + BLOCK 4 (mode widgets) + BLOCK 5
-          (programs) + BLOCK 5.5 (priority order — program-adjacent, no
-          better home among the 4 tabs) */}
+      {/* ── תוכניות ── BLOCK 2 (goals) + BLOCK 2.5 (exercise wishlist — moved
+          here since ProgramsSection took its old spot in סקילים; flagged
+          in PR notes, redirect if you'd rather it live in סקילים instead)
+          + BLOCK 4 (mode widgets — StrengthWidgets' 4 squares now
+          consolidated into one weekly card, see DashboardModeWidgets.tsx)
+          + BLOCK 5.5 (priority order) */}
       <div className={activeTab === 'programs' ? 'space-y-4' : 'hidden'}>
         <motion.div
           initial={{ y: 16, opacity: 0 }}
@@ -394,11 +468,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
           animate={{ y: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.1 }}
         >
-          {isRunningMode ? (
-            <RunningWidgets workouts={workouts} />
-          ) : (
-            <StrengthWidgets workouts={workouts} />
-          )}
+          <ExerciseWishlistStrip />
         </motion.div>
 
         <motion.div
@@ -406,7 +476,11 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
           animate={{ y: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.14 }}
         >
-          <ProgramsSection />
+          {isRunningMode ? (
+            <RunningWidgets workouts={workouts} />
+          ) : (
+            <StrengthWidgets workouts={workouts} />
+          )}
         </motion.div>
 
         <motion.div

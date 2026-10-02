@@ -42,6 +42,7 @@
  */
 import AppHeader from '@/components/ui/AppHeader';
 import { IdentityHeroCard } from '@/features/user/progression/components/IdentityHeroCard';
+import { IS_XP_ENABLED } from '@/config/feature-flags';
 import { ActiveProgramsSection } from './ActiveProgramsSection';
 import { TrackedProgramsSection } from './TrackedProgramsSection';
 import { DiscoverMoreSection } from './DiscoverMoreSection';
@@ -54,7 +55,9 @@ export function ProgressionScreen() {
       <div className="max-w-md mx-auto px-4 py-5 space-y-6">
         <h1 className="text-xl font-black text-gray-900">התקדמות</h1>
 
-        <IdentityHeroCard />
+        {/* IS_XP_ENABLED gate — the whole card is XP/level/lemur, nothing
+            else, so hide it outright rather than leave an empty shell. */}
+        {IS_XP_ENABLED && <IdentityHeroCard />}
 
         <ActiveProgramsSection />
 
