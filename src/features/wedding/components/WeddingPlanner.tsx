@@ -1,16 +1,17 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Loader2, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, CalendarDays, CheckCircle2, Loader2, Plus, Trash2 } from 'lucide-react';
 import { MARKET } from '../wedding.config';
-import { daysUntil, formatShekel, rankVenues, taskDueDate, venueCost } from '../wedding.calc';
-import { VENDOR_STATUSES, type Venue, type WeddingSettings, type WeddingState } from '../wedding.types';
+import { buildRoadmap, daysBeforeFor, daysUntil, formatShekel, rankVenues, taskDueDate, toIso, venueCost } from '../wedding.calc';
+import { VENDOR_STATUSES, type Venue, type WeddingSettings, type WeddingState, type WeddingTask } from '../wedding.types';
 import { VenueEditor } from './VenueEditor';
 import { useWeddingStore, type SaveStatus } from './useWeddingStore';
 
-type Tab = 'home' | 'venues' | 'vendors' | 'tasks' | 'market' | 'settings';
+type Tab = 'home' | 'roadmap' | 'venues' | 'vendors' | 'tasks' | 'market' | 'settings';
 const TABS: Array<[Tab, string]> = [
   ['home', 'סקירה'],
+  ['roadmap', 'מפת דרכים'],
   ['venues', 'השוואת אולמות'],
   ['vendors', 'ספקים'],
   ['tasks', 'משימות'],
@@ -130,7 +131,8 @@ export function WeddingPlanner() {
           </div>
         )}
 
-        {tab === 'home' && <Overview s={s} g={g} onNew={openNew} go={setTab} />}
+        {tab === 'home' && <Overview s={s} g={g} onNew={openNew} go={setTab} update={store.update} />}
+        {tab === 'roadmap' && <Roadmap s={s} update={store.update} />}
         {tab === 'venues' && <Venues s={s} g={g} setGuests={setGuests} onNew={openNew} onEdit={openEdit} />}
         {tab === 'vendors' && <Vendors s={s} update={store.update} />}
         {tab === 'tasks' && <Tasks s={s} update={store.update} />}
@@ -220,7 +222,7 @@ function CostBars({ rows, split }: { rows: ReturnType<typeof rankVenues>; split:
   );
 }
 
-function Overview({ s, g, onNew, go }: { s: WeddingState; g: number; onNew: () => void; go: (t: Tab) => void }) {
+function Overview({ s, g, onNew, go, update }: { s: WeddingState; g: number; onNew: () => void; go: (t: Tab) => void; update: Update }) {
   const ranked = rankVenues(s.venues, g, s.settings);
   const best = ranked[0];
   const worst = ranked[ranked.length - 1];
@@ -228,12 +230,9 @@ function Overview({ s, g, onNew, go }: { s: WeddingState; g: number; onNew: () =
   const cheapestPlate = [...ranked].sort((a, b) => a.venue.price - b.venue.price)[0];
   const cheapRank = cheapestPlate ? ranked.indexOf(cheapestPlate) + 1 : 0;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const upcoming = s.tasks
-    .filter((t) => !t.done)
-    .sort((a, b) => b.daysBefore - a.daysBefore)
-    .slice(0, 6);
+  const { overdue, weeks } = buildRoadmap(s.settings.date, s.tasks);
+  const thisWeek = weeks[0]?.tasks ?? [];
+  const nextUp = weeks.slice(1).flatMap((w) => w.tasks).find((t) => !t.done);
 
   const chosen = s.venues.find((v) => v.status === 'נבחר') ?? best?.venue;
   const venueTotal = chosen ? venueCost(chosen, g, s.settings).total : 0;
@@ -284,26 +283,22 @@ function Overview({ s, g, onNew, go }: { s: WeddingState; g: number; onNew: () =
           )}
         </div>
         <div className={card}>
-          <h2 className="mb-2 font-black text-slate-900">משימות קרובות</h2>
-          {upcoming.length ? (
-            upcoming.map((t) => {
-              const d = taskDueDate(s.settings.date, t.daysBefore);
-              const late = d < today;
-              return (
-                <div key={t.id} className="flex justify-between gap-2 border-b border-gray-100 py-2 text-sm">
-                  <span className="text-slate-700">{t.name}</span>
-                  <span className={`shrink-0 tabular-nums ${late ? 'font-bold text-red-600' : 'text-slate-500'}`}>
-                    {fmtDate(d)}
-                    {late ? ' · באיחור' : ''}
-                  </span>
-                </div>
-              );
-            })
-          ) : (
-            <p className="text-sm text-slate-500">הכל בוצע.</p>
+          <h2 className="mb-1 font-black text-slate-900">השבוע שלך</h2>
+          {weeks[0] && <p className="mb-2 text-xs text-slate-500">{weekRange(weeks[0].start, weeks[0].end)}</p>}
+          {overdue.map((t) => (
+            <TaskLine key={t.id} t={t} s={s} update={update} late />
+          ))}
+          {thisWeek.map((t) => (
+            <TaskLine key={t.id} t={t} s={s} update={update} />
+          ))}
+          {!overdue.length && !thisWeek.length && (
+            <p className="py-2 text-sm text-slate-500">
+              אין משימות לשבוע הזה.
+              {nextUp ? ` הבאה בתור: ${nextUp.name} (${fmtDate(taskDueDate(s.settings.date, nextUp.daysBefore))}).` : ''}
+            </p>
           )}
-          <button onClick={() => go('tasks')} className="mt-3 text-sm font-bold text-emerald-700">
-            לכל המשימות
+          <button onClick={() => go('roadmap')} className="mt-3 text-sm font-bold text-emerald-700">
+            למפת הדרכים
           </button>
         </div>
       </section>
@@ -517,6 +512,145 @@ function Legend({ cls, label }: { cls: string; label: string }) {
 }
 
 type Update = (fn: (s: WeddingState) => WeddingState) => void;
+
+const weekRange = (a: Date, b: Date) => `${fmtDate(a)}–${fmtDate(b)}`;
+
+function patchTask(update: Update, id: string, p: Partial<WeddingTask>) {
+  update((st) => ({ ...st, tasks: st.tasks.map((t) => (t.id === id ? { ...t, ...p } : t)) }));
+}
+
+/** One task row: tick, name, and (in the roadmap) a date to move it to another week. */
+function TaskLine({ t, s, update, late, editable }: { t: WeddingTask; s: WeddingState; update: Update; late?: boolean; editable?: boolean }) {
+  const due = taskDueDate(s.settings.date, t.daysBefore);
+  return (
+    <div className="flex items-center gap-2 border-b border-gray-100 py-2 text-sm last:border-b-0">
+      <input
+        type="checkbox"
+        aria-label={`בוצע: ${t.name}`}
+        className="h-5 w-5 shrink-0 accent-emerald-600"
+        checked={t.done}
+        onChange={(e) => patchTask(update, t.id, { done: e.target.checked })}
+      />
+      {editable ? (
+        <input
+          aria-label="משימה"
+          className={`${cellInput} min-w-0 flex-1 ${t.done ? 'text-slate-400 line-through' : ''}`}
+          value={t.name}
+          onChange={(e) => patchTask(update, t.id, { name: e.target.value })}
+        />
+      ) : (
+        <span className={`min-w-0 flex-1 ${t.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{t.name}</span>
+      )}
+      {editable ? (
+        <input
+          type="date"
+          aria-label={`תאריך יעד: ${t.name}`}
+          className={`${cellInput} w-36 min-w-0 shrink-0 ${late ? 'text-red-600' : ''}`}
+          value={toIso(due)}
+          max={s.settings.date}
+          onChange={(e) => e.target.value && patchTask(update, t.id, { daysBefore: daysBeforeFor(s.settings.date, e.target.value) })}
+        />
+      ) : (
+        <span className={`shrink-0 tabular-nums ${late ? 'font-bold text-red-600' : 'text-slate-500'}`}>
+          {fmtDate(due)}
+          {late ? ' · באיחור' : ''}
+        </span>
+      )}
+      {editable && (
+        <button
+          aria-label={`מחיקת ${t.name}`}
+          onClick={() => update((st) => ({ ...st, tasks: st.tasks.filter((x) => x.id !== t.id) }))}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-slate-500 hover:bg-red-50 hover:text-red-600"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Week-by-week plan from this week to the wedding week. */
+function Roadmap({ s, update }: { s: WeddingState; update: Update }) {
+  const [showEmpty, setShowEmpty] = useState(false);
+  const { overdue, weeks } = buildRoadmap(s.settings.date, s.tasks);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const addTo = (start: Date, end: Date) => {
+    // This week: due today; future weeks: due on the week's Thursday (capped by the wedding date).
+    const thu = new Date(start);
+    thu.setDate(thu.getDate() + 4);
+    const due = start <= today && today <= end ? today : thu;
+    const iso = toIso(due) > s.settings.date ? s.settings.date : toIso(due);
+    update((st) => ({ ...st, tasks: [...st.tasks, { id: newId(), name: 'משימה חדשה', daysBefore: daysBeforeFor(st.settings.date, iso), done: false }] }));
+  };
+
+  const label = (offset: number, wedding: boolean) =>
+    wedding ? 'שבוע החתונה' : offset === 0 ? 'השבוע' : offset === 1 ? 'שבוע הבא' : `בעוד ${offset} שבועות`;
+
+  const visible = weeks.filter((w) => showEmpty || w.offset < 2 || w.isWeddingWeek || w.tasks.length > 0);
+  const hidden = weeks.length - visible.length;
+
+  return (
+    <div className="flex flex-col gap-4">
+      <section className={`${card} flex flex-wrap items-center justify-between gap-3`}>
+        <p className="text-sm text-slate-700">
+          <b className="tabular-nums">{weeks.length}</b> שבועות עד החתונה · <b className="tabular-nums">{s.tasks.filter((t) => t.done).length}</b> מתוך{' '}
+          <b className="tabular-nums">{s.tasks.length}</b> משימות בוצעו
+        </p>
+        {hidden > 0 || showEmpty ? (
+          <button onClick={() => setShowEmpty((v) => !v)} className="text-sm font-bold text-emerald-700">
+            {showEmpty ? 'להסתיר שבועות ריקים' : `להציג גם ${hidden} שבועות ריקים`}
+          </button>
+        ) : null}
+      </section>
+
+      {overdue.length > 0 && (
+        <section className="rounded-2xl border border-red-200 bg-red-50/60 p-4 md:p-5">
+          <h2 className="mb-1 font-black text-red-700">באיחור</h2>
+          <p className="mb-2 text-xs text-red-700/80">משימות שהתאריך שלהן עבר. סמן שבוצעו, או שנה תאריך כדי להעביר לשבוע אחר.</p>
+          {overdue.map((t) => (
+            <TaskLine key={t.id} t={t} s={s} update={update} late editable />
+          ))}
+        </section>
+      )}
+
+      <ol className="flex flex-col gap-3">
+        {visible.map((w) => {
+          const done = w.tasks.filter((t) => t.done).length;
+          const current = w.offset === 0;
+          return (
+            <li
+              key={w.start.getTime()}
+              className={`rounded-2xl border bg-white p-4 md:p-5 ${current ? 'border-emerald-400 ring-1 ring-emerald-200' : w.isWeddingWeek ? 'border-slate-900' : 'border-gray-200'}`}
+            >
+              <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <CalendarDays className={`h-4 w-4 ${current ? 'text-emerald-600' : 'text-slate-400'}`} />
+                  <h2 className="font-black text-slate-900">{label(w.offset, w.isWeddingWeek)}</h2>
+                  <span className="text-xs tabular-nums text-slate-500">{weekRange(w.start, w.end)}</span>
+                </div>
+                {w.tasks.length > 0 && (
+                  <span className={`rounded-full px-2 py-0.5 text-xs tabular-nums ${done === w.tasks.length ? 'bg-emerald-50 text-emerald-800' : 'bg-gray-100 text-slate-600'}`}>
+                    {done}/{w.tasks.length}
+                  </span>
+                )}
+              </div>
+              {w.tasks.length ? (
+                w.tasks.map((t) => <TaskLine key={t.id} t={t} s={s} update={update} editable />)
+              ) : (
+                <p className="py-1 text-sm text-slate-400">אין משימות לשבוע הזה.</p>
+              )}
+              <button onClick={() => addTo(w.start, w.end)} className="mt-2 flex items-center gap-1 text-sm font-bold text-emerald-700">
+                <Plus className="h-4 w-4" /> משימה לשבוע הזה
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
 
 function Vendors({ s, update }: { s: WeddingState; update: Update }) {
   const total = s.vendors.reduce((a, v) => a + v.price, 0);

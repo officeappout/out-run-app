@@ -86,3 +86,69 @@ export function daysUntil(weddingIso: string, today: Date = new Date()): number 
 export function formatShekel(n: number): string {
   return `${Math.round(n).toLocaleString('en-US')} ₪`;
 }
+
+/** ISO date (YYYY-MM-DD) in local time. */
+export function toIso(d: Date): string {
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+/** daysBefore value that puts a task on `dateIso` (never negative). */
+export function daysBeforeFor(weddingIso: string, dateIso: string): number {
+  const w = new Date(`${weddingIso}T00:00:00`).getTime();
+  const d = new Date(`${dateIso}T00:00:00`).getTime();
+  return Math.max(0, Math.round((w - d) / 86_400_000));
+}
+
+/** Sunday 00:00 of the week containing `d` (Israeli week, Sunday–Saturday). */
+export function weekStart(d: Date): Date {
+  const s = new Date(d);
+  s.setHours(0, 0, 0, 0);
+  s.setDate(s.getDate() - s.getDay());
+  return s;
+}
+
+export interface RoadmapWeek<T> {
+  start: Date;
+  end: Date;
+  /** Week index from the current week: 0 = this week, 1 = next week… */
+  offset: number;
+  isWeddingWeek: boolean;
+  tasks: T[];
+}
+
+/**
+ * Weekly roadmap from the current week through the wedding week. Tasks are
+ * placed by their due date (wedding date − daysBefore). Unfinished tasks due
+ * before this week go to `overdue`; finished past tasks are dropped.
+ */
+export function buildRoadmap<T extends { daysBefore: number; done: boolean }>(
+  weddingIso: string,
+  tasks: T[],
+  today: Date = new Date(),
+): { overdue: T[]; weeks: Array<RoadmapWeek<T>> } {
+  const first = weekStart(today);
+  const last = weekStart(new Date(`${weddingIso}T00:00:00`));
+  const weeks: Array<RoadmapWeek<T>> = [];
+  for (let s = new Date(first), i = 0; s <= last && i < 260; i++) {
+    const end = new Date(s);
+    end.setDate(end.getDate() + 6);
+    weeks.push({ start: new Date(s), end, offset: i, isWeddingWeek: s.getTime() === last.getTime(), tasks: [] });
+    s.setDate(s.getDate() + 7);
+  }
+  const overdue: T[] = [];
+  const sorted = [...tasks].sort((a, b) => b.daysBefore - a.daysBefore);
+  for (const t of sorted) {
+    const due = taskDueDate(weddingIso, t.daysBefore);
+    if (due < first) {
+      if (!t.done) overdue.push(t);
+      continue;
+    }
+    // round, not floor: a DST change (Israel: late Oct / late Mar) makes a week 1h short or long
+    const idx = Math.round((weekStart(due).getTime() - first.getTime()) / (7 * 86_400_000));
+    const week = weeks[Math.min(Math.max(idx, 0), weeks.length - 1)];
+    if (week) week.tasks.push(t);
+  }
+  return { overdue, weeks };
+}

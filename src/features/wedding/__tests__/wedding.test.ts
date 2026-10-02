@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { daysUntil, rankVenues, taskDueDate, venueCost } from '../wedding.calc';
+import { buildRoadmap, daysBeforeFor, daysUntil, rankVenues, taskDueDate, toIso, venueCost } from '../wedding.calc';
 import { DEFAULT_SETTINGS, initialWeddingState } from '../wedding.config';
 import { LIMITS, parseWeddingState } from '../wedding.schema';
 import type { Venue } from '../wedding.types';
@@ -104,5 +104,40 @@ describe('parseWeddingState', () => {
   it('de-duplicates ids', () => {
     const s = parseWeddingState({ vendors: [{ id: 'v1', name: 'a' }, { id: 'v1', name: 'b' }] });
     expect(new Set(s.vendors.map((v) => v.id)).size).toBe(2);
+  });
+});
+
+describe('buildRoadmap', () => {
+  const today = new Date(2026, 9, 2, 12); // Fri 2.10.2026
+  const t = (id: string, daysBefore: number, done = false) => ({ id, daysBefore, done });
+
+  it('runs from this week (Sun 27.9) to the wedding week', () => {
+    const { weeks } = buildRoadmap('2027-03-09', [], today);
+    expect(toIso(weeks[0].start)).toBe('2026-09-27');
+    expect(weeks[weeks.length - 1].isWeddingWeek).toBe(true);
+    expect(toIso(weeks[weeks.length - 1].start)).toBe('2027-03-07');
+  });
+
+  it('places tasks by due week and collects unfinished past tasks as overdue', () => {
+    const tasks = [t('this', 158), t('next', 155), t('late', 170), t('lateDone', 170, true), t('wedding', 0)];
+    const { overdue, weeks } = buildRoadmap('2027-03-09', tasks, today);
+    expect(overdue.map((x) => x.id)).toEqual(['late']);
+    expect(weeks[0].tasks.map((x) => x.id)).toEqual(['this']); // due 2.10
+    expect(weeks[1].tasks.map((x) => x.id)).toEqual(['next']); // due 5.10
+    expect(weeks[weeks.length - 1].tasks.map((x) => x.id)).toEqual(['wedding']);
+  });
+
+  it('daysBeforeFor is the inverse of taskDueDate', () => {
+    expect(daysBeforeFor('2027-03-09', '2026-10-05')).toBe(155);
+    expect(toIso(taskDueDate('2027-03-09', daysBeforeFor('2027-03-09', '2026-12-24')))).toBe('2026-12-24');
+    expect(daysBeforeFor('2027-03-09', '2027-04-01')).toBe(0);
+  });
+});
+
+describe('buildRoadmap across DST', () => {
+  it('keeps a task in its own week after the clocks change (Israel, Oct 25 2026)', () => {
+    const { weeks } = buildRoadmap('2027-03-09', [{ id: 'nov', daysBefore: daysBeforeFor('2027-03-09', '2026-11-03'), done: false }], new Date(2026, 9, 2, 12));
+    const w = weeks.find((x) => x.tasks.length);
+    expect(w && toIso(w.start)).toBe('2026-11-01');
   });
 });
