@@ -98,7 +98,10 @@ export function SkillMapCard({ programId, nameHe, state, lockedHint, badge, onAs
   // destination, not a new one, chosen per program type. Shared with
   // ProgramsSection's own tap target via resolveProgressionMapDestination —
   // see that function's own comment for why it resolves both the raw-id and
-  // slug forms of programId, not just this one.
+  // slug forms of programId (main independently found and inline-patched
+  // this exact gap while #86 was still open — see that commit's own note
+  // citing this branch; converged back onto the shared helper here instead
+  // of keeping two copies of the identical fix).
   const destination = resolveProgressionMapDestination(programId);
 
   // div role="button" (not a real <button>) so ProgramProgressCard can host

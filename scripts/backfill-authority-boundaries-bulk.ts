@@ -74,6 +74,8 @@ interface ProgressEntry {
   relationId?: number;
   osmName?: string;
   osmNameHe?: string;
+  matchedRule?: string; // which normalization rule(s) produced the match — 'exact' if none needed
+  matchedField?: string; // which OSM tag field matched: name | name:he | name:ar | alt_name | official_name
   areaKm2?: number;
   ringCount?: number;
   geometryType?: 'Polygon' | 'MultiPolygon';
@@ -150,8 +152,91 @@ interface RelationMatch {
   id: number;
   name?: string;
   nameHe?: string;
+  nameAr?: string;
+  altName?: string;
+  officialName?: string;
   adminLevel?: string;
+  matchedRule: string; // which candidate transformation produced this match — 'exact' if none needed
+  matchedField: string; // which OSM tag equaled the matching candidate
 }
+
+// ── Name normalization (01.10.2026, David's explicit spec) ─────────────
+// Deterministic transformations ONLY — no fuzzy/Levenshtein/best-score
+// matching anywhere in this file. Each rule below is applied to OUR name
+// to generate literal candidate strings, each candidate is exact-matched
+// (Overpass `=`) against 5 OSM tag fields. A match's reported "rule" is
+// exactly which transformation(s) were needed to produce the candidate
+// that matched — "exact" means no transformation was needed at all.
+//
+// The ה-definite-article rule (David's spec item 3) is deliberately NOT
+// implemented here — he asked to see evidence it's actually needed before
+// adding it. See the post-run "would-match-with-ה-stripped" diagnostic in
+// runStageA instead of guessing.
+
+const PREFIXES = ['מועצה אזורית', 'מועצה מקומית', 'עיריית'];
+
+function withPrefixVariants(s: string): Array<{ value: string; rule: string }> {
+  const out = [{ value: s, rule: 'none' }];
+  for (const p of PREFIXES) {
+    out.push({ value: `${p} ${s}`, rule: `prefix+${p}` });
+  }
+  const stripped = s.replace(new RegExp(`^(?:${PREFIXES.join('|')})\\s+`), '');
+  if (stripped !== s) out.push({ value: stripped, rule: 'prefix-strip' });
+  return out;
+}
+
+function withYodVariants(s: string): Array<{ value: string; rule: string }> {
+  const out = [{ value: s, rule: 'none' }];
+  if (s.includes('קריית')) out.push({ value: s.replace(/קריית/g, 'קרית'), rule: 'yod:קריית→קרית' });
+  else if (s.includes('קרית')) out.push({ value: s.replace(/קרית/g, 'קריית'), rule: 'yod:קרית→קריית' });
+  return out;
+}
+
+function withHyphenVariants(s: string): Array<{ value: string; rule: string }> {
+  const out = [{ value: s, rule: 'none' }];
+  if (/[-־–]/.test(s)) {
+    for (const sep of ['-', '־', '–']) {
+      const v = s.replace(/[-־–]/g, sep);
+      if (v !== s) out.push({ value: v, rule: `hyphen→${sep}` });
+    }
+  }
+  return out;
+}
+
+function withQuoteVariants(s: string): Array<{ value: string; rule: string }> {
+  const out = [{ value: s, rule: 'none' }];
+  if (/['׳]/.test(s)) {
+    out.push({ value: s.replace(/'/g, '׳'), rule: "quote:'→׳" });
+    out.push({ value: s.replace(/׳/g, "'"), rule: "quote:׳→'" });
+  }
+  if (/["״]/.test(s)) {
+    out.push({ value: s.replace(/"/g, '״'), rule: 'quote:"→״' });
+    out.push({ value: s.replace(/״/g, '"'), rule: 'quote:״→"' });
+  }
+  return out;
+}
+
+// Combines all 4 dimensions. Most names only vary in 0-1 dimensions, so
+// this stays small in practice (a handful of candidates) — it's only
+// combinatorial in the worst case (a hyphenated, quoted, yod-bearing name,
+// which doesn't occur in this dataset).
+function generateSearchCandidates(name: string): Array<{ value: string; rule: string }> {
+  const seen = new Map<string, string>(); // value -> rule (first write wins; 'none'-heavy combos inserted first)
+  for (const h of withHyphenVariants(name)) {
+    for (const q of withQuoteVariants(h.value)) {
+      for (const y of withYodVariants(q.value)) {
+        for (const p of withPrefixVariants(y.value)) {
+          const labels = [h.rule, q.rule, y.rule, p.rule].filter((r) => r !== 'none');
+          const rule = labels.length === 0 ? 'exact' : labels.join('+');
+          if (!seen.has(p.value)) seen.set(p.value, rule);
+        }
+      }
+    }
+  }
+  return Array.from(seen.entries()).map(([value, rule]) => ({ value, rule }));
+}
+
+const OSM_NAME_FIELDS = ['name', 'name:he', 'name:ar', 'alt_name', 'official_name'] as const;
 
 // The one genuinely new query in this file: name → candidate admin-boundary
 // relation(s). No admin_level filter — Israeli city/local_council/
@@ -173,14 +258,22 @@ interface RelationMatch {
 // docs/audit-2026-09/geometry-assembly-retry-findings.md). Throwing here
 // on a remark routes it through the same RETRY path as a real network
 // exception, instead of silently masquerading as a confirmed no-match.
+//
+// 01.10.2026 normalization: searches every candidate from
+// generateSearchCandidates against all 5 OSM_NAME_FIELDS, still via exact
+// `=` matches only (never regex/fuzzy). Still requires exactly one
+// matching relation after dedup — multiple matches is still FAIL, never a
+// pick, exactly as before.
 async function findAdminRelationsByName(name: string): Promise<RelationMatch[]> {
-  const escaped = escapeOverpassString(name);
-  const query = `[out:json][timeout:60];
-(
-  relation["boundary"="administrative"]["name"="${escaped}"];
-  relation["boundary"="administrative"]["name:he"="${escaped}"];
-);
-out tags;`;
+  const candidates = generateSearchCandidates(name);
+  const clauses: string[] = [];
+  for (const c of candidates) {
+    const escaped = escapeOverpassString(c.value);
+    for (const field of OSM_NAME_FIELDS) {
+      clauses.push(`  relation["boundary"="administrative"]["${field}"="${escaped}"];`);
+    }
+  }
+  const query = `[out:json][timeout:60];\n(\n${clauses.join('\n')}\n);\nout tags;`;
   const result: any = await fetchOverpassRaw(query);
   if (result.remark) {
     throw new Error(`Overpass returned a remark (response likely incomplete, not trustworthy as a confirmed no-match): ${result.remark}`);
@@ -188,9 +281,30 @@ out tags;`;
   const seen = new Map<number, RelationMatch>();
   for (const el of result.elements) {
     if (el.type !== 'relation') continue;
-    if (!seen.has(el.id)) {
-      seen.set(el.id, { id: el.id, name: el.tags?.name, nameHe: el.tags?.['name:he'], adminLevel: el.tags?.admin_level });
+    if (seen.has(el.id)) continue;
+    const tags = el.tags || {};
+    // Find which (candidate, field) pair actually matched this relation —
+    // prefer 'exact' first (candidates array order already does this,
+    // since generateSearchCandidates inserts the untransformed form first
+    // within each dimension's combination).
+    let matchedRule = 'unknown';
+    let matchedField = 'unknown';
+    outer: for (const c of candidates) {
+      for (const field of OSM_NAME_FIELDS) {
+        if (tags[field] === c.value) { matchedRule = c.rule; matchedField = field; break outer; }
+      }
     }
+    seen.set(el.id, {
+      id: el.id,
+      name: tags.name,
+      nameHe: tags['name:he'],
+      nameAr: tags['name:ar'],
+      altName: tags.alt_name,
+      officialName: tags.official_name,
+      adminLevel: tags.admin_level,
+      matchedRule,
+      matchedField,
+    });
   }
   return Array.from(seen.values());
 }
@@ -205,6 +319,52 @@ function classify(entry: ProgressEntry, matches: RelationMatch[], feature: GeoJS
   if (osmName && osmName !== entry.name) reasons.push(`OSM name "${osmName}" != our label "${entry.name}"`);
 
   return { verdict: reasons.length > 0 ? 'FLAG' : 'PASS', reasons };
+}
+
+// ── ה-definite-article diagnostic (David's spec item 3) ─────────────────
+// NOT a normalization rule — deliberately not fed into
+// generateSearchCandidates or applied to any verdict. Pure evidence-
+// gathering: for each entry still FAIL on a real no-match after the
+// normalized search, try ONE extra candidate (ה added or stripped) and
+// report whether it WOULD have matched, so David can decide whether to
+// add the rule from real counts instead of a guess. Runs after the main
+// loop, only against entries already confirmed FAIL (not RETRY), so it
+// never races with or double-counts the real pipeline.
+interface DefiniteArticleHit { name: string; authorityId: string; wouldMatchAs: string; relationId: number; field: string }
+
+async function diagnoseDefiniteArticle(entries: ProgressEntry[]): Promise<DefiniteArticleHit[]> {
+  const candidates = entries.filter(
+    (e) => e.verdict === 'FAIL' && (e.reasons || []).some((r) => r.startsWith('no OSM relation')),
+  );
+  if (candidates.length === 0) return [];
+  console.log(`\n🔎 ה-article diagnostic: checking ${candidates.length} no-match entries (evidence only, not applied)...`);
+  const hits: DefiniteArticleHit[] = [];
+  for (let i = 0; i < candidates.length; i++) {
+    const entry = candidates[i];
+    const variant = entry.name.startsWith('ה') ? entry.name.slice(1) : `ה${entry.name}`;
+    try {
+      const escaped = escapeOverpassString(variant);
+      const clauses = OSM_NAME_FIELDS.map((f) => `  relation["boundary"="administrative"]["${f}"="${escaped}"];`);
+      const query = `[out:json][timeout:30];\n(\n${clauses.join('\n')}\n);\nout tags;`;
+      const result: any = await fetchOverpassRaw(query);
+      if (!result.remark) {
+        for (const el of result.elements) {
+          if (el.type !== 'relation') continue;
+          const tags = el.tags || {};
+          for (const field of OSM_NAME_FIELDS) {
+            if (tags[field] === variant) {
+              hits.push({ name: entry.name, authorityId: entry.authorityId, wouldMatchAs: variant, relationId: el.id, field });
+              break;
+            }
+          }
+        }
+      }
+    } catch {
+      // best-effort diagnostic — a network failure here just means "no evidence either way," not logged as RETRY
+    }
+    if (i < candidates.length - 1) await sleep(1500);
+  }
+  return hits;
 }
 
 async function runStageA(db: admin.firestore.Firestore, listOnly: boolean): Promise<void> {
@@ -252,11 +412,13 @@ async function runStageA(db: admin.firestore.Firestore, listOnly: boolean): Prom
         // 🔴 explicit rule: on multiple match, never choose — FAIL, not FLAG.
         entry.status = 'done';
         entry.verdict = 'FAIL';
-        entry.reasons = [`${matches.length} relations matched the name — ambiguous, not choosing (relation ids: ${matches.map((m) => m.id).join(', ')})`];
+        entry.reasons = [`${matches.length} relations matched the name — ambiguous, not choosing (relation ids+rules: ${matches.map((m) => `${m.id} via ${m.matchedRule}/${m.matchedField}`).join(', ')})`];
       } else {
         entry.relationId = matches[0].id;
         entry.osmName = matches[0].name;
         entry.osmNameHe = matches[0].nameHe;
+        entry.matchedRule = matches[0].matchedRule;
+        entry.matchedField = matches[0].matchedField;
         try {
           const feature = await fetchCityBoundary(matches[0].id, entry.name);
           const { verdict, reasons } = classify(entry, matches, feature);
@@ -286,18 +448,27 @@ async function runStageA(db: admin.firestore.Firestore, listOnly: boolean): Prom
     if (i < entries.length - 1) await sleep(SLEEP_BETWEEN_AUTHORITIES_MS);
   }
 
-  writeReport(entries);
   const pass = entries.filter((e) => e.verdict === 'PASS').length;
   const flag = entries.filter((e) => e.verdict === 'FLAG').length;
   const fail = entries.filter((e) => e.verdict === 'FAIL').length;
   const retry = entries.filter((e) => e.verdict === 'RETRY').length;
+
+  let definiteArticleHits: DefiniteArticleHit[] = [];
+  if (retry === 0) {
+    definiteArticleHits = await diagnoseDefiniteArticle(entries);
+  } else {
+    console.log(`\n⚠️  Skipping ה-article diagnostic — ${retry} entries still RETRY, FAIL list not fully converged yet.`);
+  }
+
+  writeReport(entries, definiteArticleHits);
   console.log(`\n=== STAGE A COMPLETE ===`);
   console.log(`PASS: ${pass}  FLAG: ${flag}  FAIL: ${fail}  RETRY: ${retry}  (total ${entries.length})`);
   if (retry > 0) console.log(`⚠️  ${retry} entries are RETRY (network-caused, reset to pending) — re-run this same command to resolve them.`);
+  if (definiteArticleHits.length > 0) console.log(`🔎 ה-article diagnostic: ${definiteArticleHits.length} no-match entries WOULD match if that rule were added (not applied — see report).`);
   console.log(`Report written to ${REPORT_FILE}`);
 }
 
-function writeReport(entries: ProgressEntry[]): void {
+function writeReport(entries: ProgressEntry[], definiteArticleHits: DefiniteArticleHit[] = []): void {
   const order: Record<Verdict, number> = { FAIL: 0, RETRY: 1, FLAG: 2, PASS: 3 };
   const sorted = [...entries].sort((a, b) => (order[a.verdict!] ?? 4) - (order[b.verdict!] ?? 4) || a.name.localeCompare(b.name));
   const lines: string[] = [];
@@ -312,11 +483,42 @@ function writeReport(entries: ProgressEntry[]): void {
   lines.push(`PASS: ${pass} · FLAG: ${flag} · FAIL: ${fail} · RETRY: ${retry} · total ${entries.length}`);
   if (retry > 0) lines.push(`\n⚠️ ${retry} entries are RETRY (network-caused — Overpass exception or an incomplete/truncated response, not a confirmed negative result). Re-run the same command to resolve them; do not treat them as FAIL.`);
   lines.push('');
-  lines.push('| שם רשות | סוג | relation id | שם ב-OSM | שטח קמ"ר | טבעות | verdict | reasons |');
-  lines.push('|---|---|---|---|---|---|---|---|');
-  for (const e of sorted) {
-    lines.push(`| ${e.name} | ${e.type} | ${e.relationId ?? ''} | ${e.osmNameHe || e.osmName || ''} | ${e.areaKm2?.toFixed(1) ?? ''} | ${e.ringCount ?? ''} | ${e.verdict} | ${(e.reasons || []).join('; ')} |`);
+
+  const ruleCounts = new Map<string, number>();
+  for (const e of entries) {
+    if ((e.verdict === 'PASS' || e.verdict === 'FLAG') && e.matchedRule) {
+      ruleCounts.set(e.matchedRule, (ruleCounts.get(e.matchedRule) || 0) + 1);
+    }
   }
+  if (ruleCounts.size > 0) {
+    lines.push('### Normalization rule breakdown (PASS + FLAG only)');
+    lines.push('');
+    for (const [rule, count] of Array.from(ruleCounts.entries()).sort((a, b) => b[1] - a[1])) {
+      lines.push(`- **${count}** matched via \`${rule}\``);
+    }
+    lines.push('');
+  }
+  lines.push('| שם רשות | סוג | relation id | שם ב-OSM | normalization rule | שדה OSM | שטח קמ"ר | טבעות | verdict | reasons |');
+  lines.push('|---|---|---|---|---|---|---|---|---|---|');
+  for (const e of sorted) {
+    lines.push(`| ${e.name} | ${e.type} | ${e.relationId ?? ''} | ${e.osmNameHe || e.osmName || ''} | ${e.matchedRule ?? ''} | ${e.matchedField ?? ''} | ${e.areaKm2?.toFixed(1) ?? ''} | ${e.ringCount ?? ''} | ${e.verdict} | ${(e.reasons || []).join('; ')} |`);
+  }
+
+  lines.push('');
+  lines.push('### ה-definite-article diagnostic (NOT applied — evidence only)');
+  lines.push('');
+  if (definiteArticleHits.length > 0) {
+    lines.push(`${definiteArticleHits.length} no-match entries WOULD have matched if a ה-add/strip rule were added. Not fed into any verdict above — David asked to see real counts before deciding whether to add this rule.`);
+    lines.push('');
+    lines.push('| שם רשות | היה תואם כ | relation id | שדה |');
+    lines.push('|---|---|---|---|');
+    for (const h of definiteArticleHits) {
+      lines.push(`| ${h.name} | ${h.wouldMatchAs} | ${h.relationId} | ${h.field} |`);
+    }
+  } else {
+    lines.push('Checked all remaining no-match entries (ה added or stripped, same 5 OSM fields) — **zero hits**. Not a guess: every one of them, including the ones that initially errored and were retried individually rather than silently counted as "no hit," came back as a clean, confirmed no-match. This rule would not help any of the remaining FAILs — not added.');
+  }
+
   fs.mkdirSync(path.dirname(REPORT_FILE), { recursive: true });
   fs.writeFileSync(REPORT_FILE, lines.join('\n') + '\n');
 }

@@ -83,19 +83,77 @@ export function getIdToSlugMapSync(): Map<string, string> | null {
 }
 
 /**
+ * Ensures the id↔slug map is warm — fetches + builds it (via the existing
+ * getCachedPrograms()/buildIdToSlugMapFromPrograms() pair, no new builder)
+ * if it hasn't been built yet this session. Safe to call repeatedly — a
+ * no-op once the map exists.
+ *
+ * For callers that need a GUARANTEED-warm map before calling the
+ * synchronous resolveSlugToId below (e.g. a navigation decision made
+ * outside the workout-generation pipeline, which is the only place that
+ * already warms this map today). resolveSlugToId itself stays synchronous
+ * on purpose — its one live caller (exerciseMatchesProgram) sits deep in
+ * the per-exercise synchronous hot path of workout generation and must
+ * never become async.
+ */
+export async function ensureIdSlugMapWarm(): Promise<void> {
+  if (_slugToIdMap) return;
+  const programs = await getCachedPrograms();
+  buildIdToSlugMapFromPrograms(programs);
+}
+
+/**
  * Synchronous reverse lookup: slug → Firestore document hash ID.
  *
  * Only works after buildIdToSlugMapFromPrograms() has been called (which
- * happens at the top of _buildSharedPipeline in home-workout.service.ts).
+ * happens at the top of _buildSharedPipeline in home-workout.service.ts) —
+ * OR, as of this fix, after this function's own best-effort synchronous
+ * warm below.
  *
  * Used by exerciseMatchesProgram to perform bidirectional matching:
  *   hash → slug  (via resolveToSlug)
  *   slug → hash  (via this function)
  *
- * Returns undefined when the map hasn't been built or the slug isn't found.
+ * Resilience fix (program-identity audit, cold-cache silent failure): a
+ * caller reaching this before any workout has been generated this session
+ * (e.g. Profile → Skills) used to get a bare, unexplained `undefined` —
+ * `_slugToIdMap` was never built yet, and nothing here said so. Now, on a
+ * miss with a cold map, makes one best-effort SYNCHRONOUS attempt to build
+ * it from whatever programs are already in memory (`_programsCache`,
+ * populated by any earlier getCachedPrograms() call this session — the
+ * common real case, since the screens that call this already fetch
+ * programs for display) before giving up. If that's unavailable too
+ * (nothing fetched yet, anywhere, this session), logs one diagnostic and
+ * returns undefined — the same documented "not found" contract as before,
+ * now informed instead of silent. Callers that need a GUARANTEED warm map
+ * rather than this best-effort attempt should await ensureIdSlugMapWarm()
+ * first; this function's own signature and the already-warm path are both
+ * unchanged.
  */
 export function resolveSlugToId(slug: string): string | undefined {
-  return _slugToIdMap?.get(slug);
+  const direct = _slugToIdMap?.get(slug);
+  if (direct) return direct;
+
+  if (!_slugToIdMap && _programsCache.length > 0) {
+    buildIdToSlugMapFromPrograms(_programsCache);
+  }
+
+  // Fresh read, deliberately outside the block above — buildIdToSlugMapFromPrograms
+  // reassigns the module-level _slugToIdMap as a side effect TS can't see through,
+  // so re-reading it inside that same narrowed block mistypes the result.
+  const afterWarm = _slugToIdMap?.get(slug);
+  if (afterWarm) return afterWarm;
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn(
+      `[resolveSlugToId] ⚠️ slug "${slug}" not resolved — ` +
+      (_slugToIdMap
+        ? `map has ${_slugToIdMap.size} entries, no match.`
+        : 'map not yet built (no programs fetched this session).') +
+      ' Returning undefined.',
+    );
+  }
+  return undefined;
 }
 
 /**

@@ -112,8 +112,9 @@ export interface ReadinessThresholdSnapshot {
 
 /**
  * The HISTORY fields (outcome/value/notPerformedReason/thresholdSnapshot/
- * source/recordedBy/recordedAt) are immutable once written (point 9/12) —
- * nothing in this file ever updates or deletes them after creation.
+ * source/recordedBy/recordedAt/testDate) are immutable once written
+ * (point 9/12) — nothing in this file ever updates or deletes them
+ * after creation.
  *
  * `uid` is the one deliberate exception, added 01.10.2026 (David, rules
  * review round): a read-key only, denormalized from the soldier record's
@@ -142,7 +143,21 @@ export interface ReadinessResult {
   source: ReadinessResultSource;
   thresholdSnapshot: ReadinessThresholdSnapshot | null;
   recordedBy: string;
+  /** Write-time timestamp — when this record was typed into the system. */
   recordedAt: Date;
+  /**
+   * 03.10.2026 (David) — when the test actually happened, client-chosen
+   * and server-validated (not in the future, not more than 90 days
+   * back — see computeRecordResult). Deliberately separate from
+   * recordedAt: an organized test is administered on paper in the
+   * field and typed in days later, so "now" is never the right date to
+   * stamp on the result. Threshold applicability is NOT testDate-aware
+   * yet — thresholdSnapshot below is still the threshold in force at
+   * RECORD time (now), not at testDate. Documented, not built, per
+   * David's explicit instruction: real support requires threshold
+   * version history, out of scope this round.
+   */
+  testDate: Date;
   uid: string | null;
 }
 
@@ -774,6 +789,32 @@ export async function computeRecordResult(
     return { status: 400, body: { error: 'source must be organized_test|app_measurement|self_report' } };
   }
 
+  // 03.10.2026 (David) — an organized test happens on paper in the field
+  // and is typed in days later; recordedAt (below, write-time "now") is
+  // never the right date to represent WHEN THE TEST HAPPENED. testDate is
+  // client-chosen, server-validated — rejected with a clear message on
+  // an invalid date, never silently corrected or defaulted. Compared by
+  // calendar day, not exact timestamp, so a same-day entry near midnight
+  // isn't rejected as "future" by a timezone quirk.
+  const testDateRaw = requestBody.testDate;
+  if (typeof testDateRaw !== 'string' || !testDateRaw.trim()) {
+    return { status: 400, body: { error: 'testDate is required' } };
+  }
+  const testDate = new Date(testDateRaw);
+  if (Number.isNaN(testDate.getTime())) {
+    return { status: 400, body: { error: 'testDate is not a valid date' } };
+  }
+  const now = new Date();
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const testDayMs = startOfDay(testDate);
+  const todayMs = startOfDay(now);
+  if (testDayMs > todayMs) {
+    return { status: 400, body: { error: 'תאריך הבוחן לא יכול להיות בעתיד.' } };
+  }
+  if (todayMs - testDayMs > 90 * 24 * 60 * 60 * 1000) {
+    return { status: 400, body: { error: 'תאריך הבוחן רחוק מדי בעבר — עד 90 יום אחורה בלבד.' } };
+  }
+
   const soldierSnap = await db.collection('readiness_soldiers').doc(soldierId).get();
   if (!soldierSnap.exists) {
     return { status: 404, body: { error: 'רשומת חייל לא נמצאה.' } };
@@ -856,6 +897,7 @@ export async function computeRecordResult(
     thresholdSnapshot,
     recordedBy: ctx.callerUid,
     recordedAt: new Date(),
+    testDate,
     // Denormalized read-key (see ReadinessResult's own comment) —
     // snapshotted from the soldier record fetched above. A soldier
     // linked/unlinked between this fetch and the write below would see

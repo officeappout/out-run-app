@@ -481,13 +481,18 @@ describe('computeRecordResult', () => {
   const THRESHOLDS = {
     global: { id: 'global', version: 3, tests: [{ id: 't1', label: 'Push-ups', metric: 'reps', unit: 'count', lowerIsBetter: false, threshold: { male: 40, female: 25 }, validityDays: 180 }], updatedBy: 'root', updatedAt: new Date() },
   };
+  // Computed fresh at test-run time (never hardcoded) so these tests never
+  // drift into the 90-day-back rejection window as real time passes —
+  // exactly the kind of date-relative-to-"now" flakiness already seen
+  // elsewhere in this repo's broader suite (getWindowStart).
+  const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
   it('officer in scope records a measured value → outcome computed server-side (pass)', async () => {
     const db = makeFakeDb({
       soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', uid: null, gender: 'male', mergedInto: null } },
       thresholds: THRESHOLDS,
     });
-    const result = await computeRecordResult(db, UNIT_ADMIN_SCOPE, { soldierId: 's1', testId: 't1', source: 'organized_test', value: 45 }, CTX);
+    const result = await computeRecordResult(db, UNIT_ADMIN_SCOPE, { soldierId: 's1', testId: 't1', source: 'organized_test', value: 45, testDate: TODAY_ISO }, CTX);
     expect(result.status).toBe(200);
     if (result.status === 200) expect(result.body.outcome).toBe('pass');
   });
@@ -497,7 +502,7 @@ describe('computeRecordResult', () => {
       soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', uid: 'linked-uid', gender: 'male', mergedInto: null } },
       thresholds: THRESHOLDS,
     });
-    const result = await computeRecordResult(db, UNIT_ADMIN_SCOPE, { soldierId: 's1', testId: 't1', source: 'organized_test', value: 45 }, CTX);
+    const result = await computeRecordResult(db, UNIT_ADMIN_SCOPE, { soldierId: 's1', testId: 't1', source: 'organized_test', value: 45, testDate: TODAY_ISO }, CTX);
     expect(result.status).toBe(200);
     if (result.status === 200) {
       expect(db._stores.readiness_results.get(result.body.resultId).uid).toBe('linked-uid');
@@ -509,7 +514,7 @@ describe('computeRecordResult', () => {
       soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', uid: null, gender: 'male', mergedInto: null } },
       thresholds: THRESHOLDS,
     });
-    const result = await computeRecordResult(db, UNIT_ADMIN_SCOPE, { soldierId: 's1', testId: 't1', source: 'organized_test', value: 45 }, CTX);
+    const result = await computeRecordResult(db, UNIT_ADMIN_SCOPE, { soldierId: 's1', testId: 't1', source: 'organized_test', value: 45, testDate: TODAY_ISO }, CTX);
     expect(result.status).toBe(200);
     if (result.status === 200) {
       expect(db._stores.readiness_results.get(result.body.resultId).uid).toBeNull();
@@ -524,7 +529,7 @@ describe('computeRecordResult', () => {
     const result = await computeRecordResult(
       db,
       UNIT_ADMIN_SCOPE,
-      { soldierId: 's1', testId: 't1', source: 'organized_test', value: 10, outcome: 'pass', status: 'pass' },
+      { soldierId: 's1', testId: 't1', source: 'organized_test', value: 10, outcome: 'pass', status: 'pass', testDate: TODAY_ISO },
       CTX,
     );
     expect(result.status).toBe(200);
@@ -537,7 +542,7 @@ describe('computeRecordResult', () => {
       thresholds: THRESHOLDS,
     });
     const selfCtx: ReadinessCtx = { callerUid: 'soldier-uid', tokenEmail: undefined, sourceIp: '203.0.113.1' };
-    const result = await computeRecordResult(db, DENIED_SCOPE, { soldierId: 's1', testId: 't1', source: 'self_report', value: 30 }, selfCtx);
+    const result = await computeRecordResult(db, DENIED_SCOPE, { soldierId: 's1', testId: 't1', source: 'self_report', value: 30, testDate: TODAY_ISO }, selfCtx);
     expect(result.status).toBe(200);
   });
 
@@ -547,7 +552,7 @@ describe('computeRecordResult', () => {
       thresholds: THRESHOLDS,
     });
     const randomCtx: ReadinessCtx = { callerUid: 'random-uid', tokenEmail: undefined, sourceIp: '203.0.113.1' };
-    const result = await computeRecordResult(db, DENIED_SCOPE, { soldierId: 's1', testId: 't1', source: 'self_report', value: 30 }, randomCtx);
+    const result = await computeRecordResult(db, DENIED_SCOPE, { soldierId: 's1', testId: 't1', source: 'self_report', value: 30, testDate: TODAY_ISO }, randomCtx);
     expect(result.status).toBe(403);
   });
 
@@ -556,14 +561,14 @@ describe('computeRecordResult', () => {
       soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', uid: null, gender: 'male', mergedInto: null } },
       thresholds: THRESHOLDS,
     });
-    const result = await computeRecordResult(db, UNIT_ADMIN_SCOPE, { soldierId: 's1', testId: 't1', source: 'organized_test', notPerformedReason: 'medical_exemption' }, CTX);
+    const result = await computeRecordResult(db, UNIT_ADMIN_SCOPE, { soldierId: 's1', testId: 't1', source: 'organized_test', notPerformedReason: 'medical_exemption', testDate: TODAY_ISO }, CTX);
     expect(result.status).toBe(200);
     if (result.status === 200) expect(result.body.outcome).toBe('not_performed');
   });
 
   it('no global threshold config exists → 400 for a measured value', async () => {
     const db = makeFakeDb({ soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', uid: null, gender: 'male', mergedInto: null } } });
-    const result = await computeRecordResult(db, UNIT_ADMIN_SCOPE, { soldierId: 's1', testId: 't1', source: 'organized_test', value: 45 }, CTX);
+    const result = await computeRecordResult(db, UNIT_ADMIN_SCOPE, { soldierId: 's1', testId: 't1', source: 'organized_test', value: 45, testDate: TODAY_ISO }, CTX);
     expect(result.status).toBe(400);
   });
 
@@ -572,13 +577,94 @@ describe('computeRecordResult', () => {
       soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', uid: null, gender: 'male', mergedInto: null } },
       thresholds: THRESHOLDS,
     });
-    const result = await computeRecordResult(db, UNIT_ADMIN_SCOPE, { soldierId: 's1', testId: 't1', source: 'organized_test', value: 45 }, CTX);
+    const result = await computeRecordResult(db, UNIT_ADMIN_SCOPE, { soldierId: 's1', testId: 't1', source: 'organized_test', value: 45, testDate: TODAY_ISO }, CTX);
     expect(result.status).toBe(200);
     if (result.status === 200) {
       const stored = db._stores.readiness_results.get(result.body.resultId);
       expect(stored.thresholdSnapshot.thresholdVersion).toBe(3);
       expect(stored.thresholdSnapshot.thresholdValue).toBe(40);
     }
+  });
+
+  // David's 4 explicit test requirements, 03.10.2026 — testDate is
+  // separate from recordedAt because an organized test happens on paper
+  // in the field and is typed in days later; "now" is never the right
+  // date for when the test actually took place.
+
+  it('testDate in the future → rejected', async () => {
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', uid: null, gender: 'male', mergedInto: null } },
+      thresholds: THRESHOLDS,
+    });
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const result = await computeRecordResult(db, UNIT_ADMIN_SCOPE, { soldierId: 's1', testId: 't1', source: 'organized_test', value: 45, testDate: tomorrow }, CTX);
+    expect(result.status).toBe(400);
+    expect(db._stores.readiness_results.size).toBe(0);
+  });
+
+  it('testDate from 120 days ago → rejected (more than 90 days back)', async () => {
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', uid: null, gender: 'male', mergedInto: null } },
+      thresholds: THRESHOLDS,
+    });
+    const longAgo = new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const result = await computeRecordResult(db, UNIT_ADMIN_SCOPE, { soldierId: 's1', testId: 't1', source: 'organized_test', value: 45, testDate: longAgo }, CTX);
+    expect(result.status).toBe(400);
+    expect(db._stores.readiness_results.size).toBe(0);
+  });
+
+  it('testDate from 10 days ago → written; recordedAt stays today, testDate stays the chosen date (the two are independent)', async () => {
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', uid: null, gender: 'male', mergedInto: null } },
+      thresholds: THRESHOLDS,
+    });
+    const tenDaysAgoDate = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    const tenDaysAgoIso = tenDaysAgoDate.toISOString().slice(0, 10);
+    const beforeCall = Date.now();
+    const result = await computeRecordResult(db, UNIT_ADMIN_SCOPE, { soldierId: 's1', testId: 't1', source: 'organized_test', value: 45, testDate: tenDaysAgoIso }, CTX);
+    expect(result.status).toBe(200);
+    if (result.status === 200) {
+      const stored = db._stores.readiness_results.get(result.body.resultId);
+      // recordedAt is "now" (write time) — must NOT equal testDate.
+      expect(stored.recordedAt.getTime()).toBeGreaterThanOrEqual(beforeCall);
+      // testDate stores the chosen calendar day, not today.
+      expect(stored.testDate.getFullYear()).toBe(tenDaysAgoDate.getFullYear());
+      expect(stored.testDate.getMonth()).toBe(tenDaysAgoDate.getMonth());
+      expect(stored.testDate.getDate()).toBe(tenDaysAgoDate.getDate());
+      expect(stored.testDate.getTime()).not.toBe(stored.recordedAt.getTime());
+    }
+  });
+
+  it('a soldier with "medical exemption" on one test and valid passing results on the others: that test counts as neither a failure nor "not yet tested"', async () => {
+    const multiTestThresholds = {
+      global: {
+        id: 'global', version: 1, updatedBy: 'root', updatedAt: new Date(),
+        tests: [
+          { id: 'run_3000m', label: 'Run', metric: 'time_seconds', unit: 'seconds', lowerIsBetter: true, threshold: { male: 1080, female: 1200 }, validityDays: 365 },
+          { id: 'pullups', label: 'Pull-ups', metric: 'reps', unit: 'reps', lowerIsBetter: false, threshold: { male: 3, female: 3 }, validityDays: 365 },
+          { id: 'dips', label: 'Dips', metric: 'reps', unit: 'reps', lowerIsBetter: false, threshold: { male: 5, female: 5 }, validityDays: 365 },
+        ],
+      },
+    };
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', uid: null, gender: 'male', mergedInto: null } },
+      thresholds: multiTestThresholds,
+    });
+
+    const run = await computeRecordResult(db, UNIT_ADMIN_SCOPE, { soldierId: 's1', testId: 'run_3000m', source: 'organized_test', notPerformedReason: 'medical_exemption', testDate: TODAY_ISO }, CTX);
+    const pullups = await computeRecordResult(db, UNIT_ADMIN_SCOPE, { soldierId: 's1', testId: 'pullups', source: 'organized_test', value: 5, testDate: TODAY_ISO }, CTX);
+    const dips = await computeRecordResult(db, UNIT_ADMIN_SCOPE, { soldierId: 's1', testId: 'dips', source: 'organized_test', value: 7, testDate: TODAY_ISO }, CTX);
+    expect(run.status).toBe(200);
+    expect(pullups.status).toBe(200);
+    expect(dips.status).toBe(200);
+    if (run.status === 200) expect(run.body.outcome).toBe('not_performed');
+
+    const allResults = Array.from(db._stores.readiness_results.values()).map((r: any) => ({ ...r, id: 'x' })) as ReadinessResult[];
+    const runStatus = computeSoldierCurrentStatus(allResults, 'run_3000m', new Date());
+    // The exact two negatives David asked to see proven explicitly:
+    expect(runStatus).not.toBe('fail');
+    expect(runStatus).not.toBe('not_yet_tested');
+    expect(runStatus).toBe('not_performed');
   });
 });
 
@@ -587,7 +673,7 @@ describe('computeSoldierCurrentStatus (point 10 — expiry reverts to not_yet_te
     id: 'r', soldierId: 's1', tenantId: 't', unitId: 'u', testId: 't1',
     outcome: 'pass', value: 45, notPerformedReason: null, source: 'organized_test',
     thresholdSnapshot: { thresholdVersion: 1, gender: 'male', thresholdValue: 40, lowerIsBetter: false, validityDays: 180 },
-    recordedBy: 'officer', recordedAt: new Date('2026-01-01'), uid: null,
+    recordedBy: 'officer', recordedAt: new Date('2026-01-01'), testDate: new Date('2026-01-01'), uid: null,
     ...overrides,
   });
 

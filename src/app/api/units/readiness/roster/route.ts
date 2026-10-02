@@ -1,20 +1,20 @@
 /**
- * POST /api/units/readiness/soldiers/link — link an existing readiness
- * soldier record to a pending self-declared user account. No invite code
- * (point 4) — the officer picks both sides explicitly. Transactionally
- * enforces both uniqueness rules from point 7 — see
- * readiness-write.service.ts#computeLinkSoldier.
+ * GET /api/units/readiness/roster — the officer's full-command-span
+ * readiness roster (linked soldiers + pending-link candidates) for the
+ * "unit soldiers" screen (02.10.2026). Thin handler, same shape as every
+ * other route in this build — see readiness-read.service.ts#computeUnitRoster
+ * for the real logic and the scope/approval-gate decisions.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { resolveUnitPermissionScope } from '@/lib/unitPermissionScope';
-import { computeLinkSoldier } from '@/features/readiness/core/services/readiness-write.service';
+import { computeUnitRoster } from '@/features/readiness/core/services/readiness-read.service';
 import { logReadinessInternalError } from '@/features/readiness/core/services/readiness-error-id';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('Authorization') ?? '';
     const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
@@ -24,24 +24,23 @@ export async function POST(request: NextRequest) {
 
     const adminAuth = getAdminAuth();
     let uid: string;
-    let tokenEmail: string | undefined;
     try {
       const decoded = await adminAuth.verifyIdToken(idToken, true);
       uid = decoded.uid;
-      tokenEmail = decoded.email;
     } catch {
       return NextResponse.json({ error: 'Invalid auth token' }, { status: 401 });
     }
 
     const scope = await resolveUnitPermissionScope(uid);
     const db = getAdminDb();
-    const body = await request.json().catch(() => ({}));
-    const sourceIp = request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? 'unknown';
-
-    const result = await computeLinkSoldier(db, scope, body, { callerUid: uid, tokenEmail, sourceIp });
+    const query = {
+      tenantId: request.nextUrl.searchParams.get('tenantId'),
+      unitId: request.nextUrl.searchParams.get('unitId'),
+    };
+    const result = await computeUnitRoster(db, scope, query);
     return NextResponse.json(result.body, { status: result.status });
   } catch (err: any) {
-    const errorId = logReadinessInternalError('/api/units/readiness/soldiers/link', err);
+    const errorId = logReadinessInternalError('/api/units/readiness/roster', err);
     return NextResponse.json({ error: `שגיאה פנימית. קוד: ${errorId}`, errorId }, { status: 500 });
   }
 }
