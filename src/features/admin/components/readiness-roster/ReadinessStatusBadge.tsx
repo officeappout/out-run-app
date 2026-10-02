@@ -7,35 +7,51 @@
  * never color alone.
  *
  * 'not_performed' (medical exemption / no-show / other — point 11 of the
- * locked spec) has no dedicated color in David's 3-color spec. Design
- * call, not a silent assumption: displayed identically to
- * 'not_yet_tested' (grey, "טרם נבדק") since neither represents a valid
- * current pass/fail determination — flagged in the completion report for
- * David to override if he wants a 4th visual state later.
+ * locked spec) shares "טרם נבדק"'s grey (#9A9C98 — David confirmed same
+ * color, 02.10.2026) but is a DIFFERENT label ("לא ביצע") with its
+ * reason shown alongside — David, verbatim: "איחוד שלהם גורם לקצין
+ * לרדוף אחרי מי שכבר קיבל פטור." Never collapse the two into one label.
  */
-import type { ReadinessCurrentStatus } from '@/features/readiness/core/services/readiness-write.service';
+import type { ReadinessCurrentStatus, NotPerformedReason } from '@/features/readiness/core/services/readiness-write.service';
 
-const STATUS_CONFIG: Record<'pass' | 'fail' | 'neutral', { color: string; label: string }> = {
+const REASON_LABEL: Record<NotPerformedReason, string> = {
+  medical_exemption: 'פטור רפואי',
+  no_show: 'לא הופיע',
+  other: 'אחר',
+};
+
+const STATUS_CONFIG: Record<'pass' | 'fail' | 'not_performed' | 'not_yet_tested', { color: string; label: string }> = {
   pass: { color: '#0E5A42', label: 'כשיר' },
   fail: { color: '#D9541F', label: 'לא כשיר' },
-  neutral: { color: '#9A9C98', label: 'טרם נבדק' },
+  not_performed: { color: '#9A9C98', label: 'לא ביצע' },
+  not_yet_tested: { color: '#9A9C98', label: 'טרם נבדק' },
 };
 
 function resolveVisual(status: ReadinessCurrentStatus | null) {
   if (status === 'pass') return STATUS_CONFIG.pass;
   if (status === 'fail') return STATUS_CONFIG.fail;
-  return STATUS_CONFIG.neutral; // null | 'not_yet_tested' | 'not_performed'
+  if (status === 'not_performed') return STATUS_CONFIG.not_performed;
+  return STATUS_CONFIG.not_yet_tested; // null | 'not_yet_tested'
 }
 
-export default function ReadinessStatusBadge({ status }: { status: ReadinessCurrentStatus | null }) {
+interface ReadinessStatusBadgeProps {
+  status: ReadinessCurrentStatus | null;
+  /** Required reading when status === 'not_performed' — the reason IS the information. */
+  notPerformedReason?: NotPerformedReason | null;
+}
+
+export default function ReadinessStatusBadge({ status, notPerformedReason }: ReadinessStatusBadgeProps) {
   const cfg = resolveVisual(status);
   return (
     <span
       className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full"
       style={{ backgroundColor: `${cfg.color}1A`, color: cfg.color }}
     >
-      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: cfg.color }} />
+      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: cfg.color }} />
       {cfg.label}
+      {status === 'not_performed' && notPerformedReason && (
+        <span className="opacity-80">({REASON_LABEL[notPerformedReason]})</span>
+      )}
     </span>
   );
 }

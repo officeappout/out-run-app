@@ -113,7 +113,7 @@ export default function LinkExistingSoldierModal({
                   >
                     <span className="font-bold text-sm text-slate-800">{s.name}</span>
                     <span className="flex items-center gap-2 flex-shrink-0">
-                      <ReadinessStatusBadge status={s.currentStatus} />
+                      <ReadinessStatusBadge status={s.currentStatus} notPerformedReason={s.notPerformedReason} />
                       {linkingId === s.id && <span className="text-[11px] text-slate-400">משייך...</span>}
                     </span>
                   </button>

@@ -245,6 +245,81 @@ describe('computeUnitRoster — currentStatus derivation', () => {
     expect(result.status).toBe(200);
     if (result.status === 200) expect(result.body.soldiers[0].currentStatus).toBe('not_yet_tested');
   });
+
+  it('David\'s locked doctrine, 02.10.2026: pass requires ALL tests passing — one test passed + one never attempted is NOT overall "pass"', async () => {
+    const recent = new Date();
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', name: 'Aaa', gender: 'male', uid: null, mergedInto: null } },
+      thresholds: { global: { id: 'global', version: 1, tests: [{ id: 't1' }, { id: 't2' }] } },
+      results: {
+        r1: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 't1', outcome: 'pass', recordedAt: recent, thresholdSnapshot: { validityDays: 365 } },
+        // t2 has no result at all — this is exactly the bug the old "any pass -> pass" policy would have gotten wrong.
+      },
+    });
+    const result = await computeUnitRoster(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status === 200) expect(result.body.soldiers[0].currentStatus).toBe('not_yet_tested');
+  });
+
+  it('overall "pass" only when EVERY configured test currently reads pass', async () => {
+    const recent = new Date();
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', name: 'Aaa', gender: 'male', uid: null, mergedInto: null } },
+      thresholds: { global: { id: 'global', version: 1, tests: [{ id: 't1' }, { id: 't2' }] } },
+      results: {
+        r1: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 't1', outcome: 'pass', recordedAt: recent, thresholdSnapshot: { validityDays: 365 } },
+        r2: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 't2', outcome: 'pass', recordedAt: recent, thresholdSnapshot: { validityDays: 365 } },
+      },
+    });
+    const result = await computeUnitRoster(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status === 200) expect(result.body.soldiers[0].currentStatus).toBe('pass');
+  });
+
+  it('"not_performed" is distinct from "not_yet_tested" and carries its reason (point 1, 02.10.2026 — never conflate the two)', async () => {
+    const recent = new Date();
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', name: 'Aaa', gender: 'male', uid: null, mergedInto: null } },
+      thresholds: { global: { id: 'global', version: 1, tests: [{ id: 't1' }] } },
+      results: {
+        r1: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 't1', outcome: 'not_performed', notPerformedReason: 'medical_exemption', recordedAt: recent, thresholdSnapshot: { validityDays: 365 } },
+      },
+    });
+    const result = await computeUnitRoster(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status === 200) {
+      expect(result.body.soldiers[0].currentStatus).toBe('not_performed');
+      expect(result.body.soldiers[0].notPerformedReason).toBe('medical_exemption');
+    }
+  });
+
+  it('notPerformedReason stays null for a plain not_yet_tested soldier (no result at all)', async () => {
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', name: 'Aaa', gender: 'male', uid: null, mergedInto: null } },
+      thresholds: { global: { id: 'global', version: 1, tests: [{ id: 't1' }] } },
+    });
+    const result = await computeUnitRoster(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status === 200) expect(result.body.soldiers[0].notPerformedReason).toBeNull();
+  });
+
+  it('not_performed on one test beats a pass on another (no fail present) — matches the priority order, not just "any pass"', async () => {
+    const recent = new Date();
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', name: 'Aaa', gender: 'male', uid: null, mergedInto: null } },
+      thresholds: { global: { id: 'global', version: 1, tests: [{ id: 't1' }, { id: 't2' }] } },
+      results: {
+        r1: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 't1', outcome: 'pass', recordedAt: recent, thresholdSnapshot: { validityDays: 365 } },
+        r2: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 't2', outcome: 'not_performed', notPerformedReason: 'no_show', recordedAt: recent, thresholdSnapshot: { validityDays: 365 } },
+      },
+    });
+    const result = await computeUnitRoster(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status === 200) {
+      expect(result.body.soldiers[0].currentStatus).toBe('not_performed');
+      expect(result.body.soldiers[0].notPerformedReason).toBe('no_show');
+    }
+  });
 });
 
 describe('computeUnitRoster — pending-link candidates', () => {
@@ -275,13 +350,26 @@ describe('computeUnitRoster — pending-link candidates', () => {
     }
   });
 
-  it('self-declared but NOT YET approved by an officer → excluded (David\'s explicit decision)', async () => {
+  it('self-declared but NOT YET approved by an officer → excluded from the linkable list, but counted in unapprovedPendingCount (02.10.2026 fix — never invisible)', async () => {
     const db = makeFakeDb({
       users: { u1: { core: { tenantId: 'tenant-1', unitId: 'battalion-1', name: 'X', unitMembershipSource: 'self_declared', unitApprovedByOfficer: false } } },
     });
     const result = await computeUnitRoster(db, TENANT_OWNER_SCOPE, {});
     expect(result.status).toBe(200);
-    if (result.status === 200) expect(result.body.pending).toEqual([]);
+    if (result.status === 200) {
+      expect(result.body.pending).toEqual([]);
+      expect(result.body.unapprovedPendingCount).toBe(1);
+    }
+  });
+
+  it('an already-linked soldier\'s account is never double-counted in unapprovedPendingCount even if still unapproved', async () => {
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', name: 'Already Linked', gender: 'male', uid: 'u1', mergedInto: null } },
+      users: { u1: { core: { tenantId: 'tenant-1', unitId: 'battalion-1', name: 'X', unitMembershipSource: 'self_declared', unitApprovedByOfficer: false } } },
+    });
+    const result = await computeUnitRoster(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status === 200) expect(result.body.unapprovedPendingCount).toBe(0);
   });
 
   it('not self-declared at all (e.g. access-code join) → excluded regardless of approval flag', async () => {

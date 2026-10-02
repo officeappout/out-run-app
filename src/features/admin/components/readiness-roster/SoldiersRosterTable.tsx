@@ -89,7 +89,7 @@ export default function SoldiersRosterTable({ soldiers, onAddSoldier, onUnlinked
                   <td className="py-2.5 px-3 font-bold text-slate-800">{s.name}</td>
                   <td className="py-2.5 px-3 text-slate-600">{GENDER_LABEL[s.gender]}</td>
                   <td className="py-2.5 px-3 text-slate-600">{s.uid ? 'כן' : 'לא'}</td>
-                  <td className="py-2.5 px-3"><ReadinessStatusBadge status={s.currentStatus} /></td>
+                  <td className="py-2.5 px-3"><ReadinessStatusBadge status={s.currentStatus} notPerformedReason={s.notPerformedReason} /></td>
                   <td className="py-2.5 px-3">
                     {s.uid && (
                       <button

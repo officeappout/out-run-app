@@ -23,14 +23,27 @@
  *   - denied/unknown: same fail-closed/503 split as every other route in
  *     this build.
  *
- * "ממתינים לשיוך" (pending-link) candidates — David's explicit decision
- * (02.10.2026, AskUserQuestion): only self-declared users ALREADY approved
- * by an officer (core.unitApprovedByOfficer === true). An unapproved
- * self-declaration is not yet trusted enough to attach to a real soldier's
- * history — this reads the EXISTING self-declare/approve flow's output,
- * never modifies it (same users/{uid}.core.* fields computeUnitMembers
- * already reads, same single-field core.tenantId query, filtered in
- * memory for unitId/source/approval — no new Firestore index).
+ * "ממתינים לשיוך" (pending-link) candidates — only self-declared users
+ * ALREADY approved by an officer (core.unitApprovedByOfficer === true).
+ * An unapproved self-declaration is not yet trusted enough to attach to
+ * a real soldier's history — this reads the EXISTING self-declare/
+ * approve flow's output, never modifies it (same users/{uid}.core.*
+ * fields computeUnitMembers already reads, same single-field
+ * core.tenantId query, filtered in memory for unitId/source/approval —
+ * no new Firestore index).
+ *
+ * 02.10.2026 correction (David) — the approval gate above left a real
+ * visibility gap: a self-declared-but-not-yet-approved user appeared
+ * NOWHERE on this screen (not in `pending`, not in `soldiers`, no
+ * indication they existed at all) — exactly the split this build was
+ * meant to prevent, since an officer working only from this screen
+ * would have no way to know there was a backlog waiting on a DIFFERENT
+ * page (/admin/authority/units, where unitApprovedByOfficer is actually
+ * flipped). Fixed by surfacing `unapprovedPendingCount` — a count only
+ * (no names/uids, consistent with this route's existing privacy
+ * posture) — so the UI can show "X declarations await officer approval"
+ * with a pointer to where that approval actually happens. This does NOT
+ * touch the approval flow itself, only reads its current state.
  */
 import type { Firestore } from 'firebase-admin/firestore';
 import {
@@ -44,6 +57,7 @@ import {
   type ReadinessResult,
   type ReadinessCurrentStatus,
   type ReadinessThresholdsConfig,
+  type NotPerformedReason,
 } from './readiness-write.service';
 
 export interface RosterSoldierEntry {
@@ -60,6 +74,14 @@ export interface RosterSoldierEntry {
    * exist but this soldier hasn't a valid result for any of them.
    */
   currentStatus: ReadinessCurrentStatus | null;
+  /**
+   * David, 02.10.2026: "לא ביצע" must show ITS reason, never be
+   * conflated with "טרם נבדק" — an officer must not go chasing someone
+   * who already has a recorded exemption. Populated only when
+   * currentStatus === 'not_performed', from whichever test is currently
+   * in that state (see findCurrentNotPerformedReason below).
+   */
+  notPerformedReason: NotPerformedReason | null;
 }
 
 export interface RosterPendingEntry {
@@ -89,28 +111,60 @@ export interface RosterUnitEntry {
 }
 
 export type UnitRosterResult =
-  | { status: 200; body: { soldiers: RosterSoldierEntry[]; pending: RosterPendingEntry[]; units: RosterUnitEntry[] } }
+  | { status: 200; body: { soldiers: RosterSoldierEntry[]; pending: RosterPendingEntry[]; units: RosterUnitEntry[]; unapprovedPendingCount: number } }
   | { status: 400 | 403 | 503; body: { error: string } };
 
 const DENIED_MESSAGE = 'אין לך הרשאה לצפות ברשימה זו.';
 
 /**
  * Reduces one soldier's per-test current statuses to a single overall
- * signal for the roster's "תוצאה אחרונה" column. Policy (not explicitly
- * specified for the multi-test case — documented here so it's a visible,
- * revisitable choice, not a silent assumption; moot today since
- * production has zero readiness_results and no deployed thresholds
- * config, confirmed at merge time):
- *   any test 'fail' → 'fail' (a single failed test fails the soldier)
- *   else any test 'pass' → 'pass'
- *   else any test 'not_performed' → 'not_performed'
- *   else → 'not_yet_tested'
+ * signal for the roster's "תוצאה אחרונה" column. David's locked doctrine
+ * (02.10.2026, קמל"ר — not a product choice): readiness = passing EVERY
+ * component. One failing component fails the soldier overall; a 'pass'
+ * overall requires ALL configured tests to individually read 'pass' —
+ * moot today (production has zero readiness_results and no deployed
+ * thresholds config, confirmed at merge time), but wrong order here
+ * would silently mislabel a soldier "כשיר" the first time a second test
+ * is ever added, so it's implemented correctly now rather than patched
+ * later under pressure.
+ *
+ * Priority, most-severe/most-actionable first:
+ *   1. any test 'fail'          → 'fail'   (one failure is enough — locked)
+ *   2. else any test 'not_performed' → 'not_performed' (distinct from
+ *      "untested" — point 1, 02.10.2026: an officer must not chase
+ *      someone who already has a recorded exemption)
+ *   3. else every test 'pass'   → 'pass'   (ALL components, not "any")
+ *   4. else                      → 'not_yet_tested'
  */
 function reduceOverallStatus(perTest: ReadinessCurrentStatus[]): ReadinessCurrentStatus {
   if (perTest.includes('fail')) return 'fail';
-  if (perTest.includes('pass')) return 'pass';
   if (perTest.includes('not_performed')) return 'not_performed';
+  if (perTest.length > 0 && perTest.every((s) => s === 'pass')) return 'pass';
   return 'not_yet_tested';
+}
+
+/**
+ * computeSoldierCurrentStatus (readiness-write.service.ts, off-limits
+ * this round) returns only the derived ENUM, not the underlying result —
+ * so when the overall status resolves to 'not_performed' there's no way
+ * to read ITS reason without re-deriving "which result is currently
+ * valid for this test" here too. Deliberately duplicates that function's
+ * validity-window check (same recordedAt + thresholdSnapshot.validityDays
+ * comparison) rather than editing the protected file — flagged as a
+ * candidate for a future refactor (e.g. computeSoldierCurrentStatus
+ * returning the full current result, not just its outcome) once that
+ * file is back in scope.
+ */
+function findCurrentNotPerformedReason(results: ReadinessResult[], testId: string, now: Date): NotPerformedReason | null {
+  const forTest = results
+    .filter((r) => r.testId === testId)
+    .sort((a, b) => b.recordedAt.getTime() - a.recordedAt.getTime());
+  const latest = forTest[0];
+  if (!latest) return null;
+  const validityDays = latest.thresholdSnapshot?.validityDays ?? 365;
+  const expiresAt = latest.recordedAt.getTime() + validityDays * 24 * 60 * 60 * 1000;
+  if (now.getTime() > expiresAt) return null;
+  return latest.outcome === 'not_performed' ? latest.notPerformedReason : null;
 }
 
 function toIsoOrNull(d: unknown): string | null {
@@ -195,14 +249,17 @@ export async function computeUnitRoster(
     if (data.uid) linkedUids.add(data.uid);
 
     const soldierResults = resultsBySoldier.get(doc.id) ?? [];
-    const currentStatus = testIds.length === 0
-      ? null
-      : reduceOverallStatus(testIds.map((testId) => computeSoldierCurrentStatus(soldierResults, testId, now)));
+    const perTestStatus = testIds.map((testId) => computeSoldierCurrentStatus(soldierResults, testId, now));
+    const currentStatus = testIds.length === 0 ? null : reduceOverallStatus(perTestStatus);
+    const notPerformedReason = currentStatus === 'not_performed'
+      ? (testIds.map((testId) => findCurrentNotPerformedReason(soldierResults, testId, now)).find((r) => r !== null) ?? null)
+      : null;
 
     soldiers.push({
       id: doc.id,
       name: data.name,
       gender: data.gender,
+      notPerformedReason,
       uid: data.uid,
       linkedAt: toIsoOrNull(data.linkedAt),
       currentStatus,
@@ -211,17 +268,25 @@ export async function computeUnitRoster(
   soldiers.sort((a, b) => a.name.localeCompare(b.name, 'he'));
 
   const pending: RosterPendingEntry[] = [];
+  let unapprovedPendingCount = 0;
   for (const doc of usersSnap.docs) {
     const core = (doc.data()?.core ?? {}) as Record<string, unknown>;
     if (!inScope(core.unitId)) continue;
     if (core.unitMembershipSource !== 'self_declared') continue;
-    if (core.unitApprovedByOfficer !== true) continue;
     if (linkedUids.has(doc.id)) continue; // already linked to a readiness_soldiers record
+    if (core.unitApprovedByOfficer !== true) {
+      // Self-declared, not yet approved by an officer — not trusted
+      // enough to offer for linking, but MUST still be surfaced as a
+      // signal (count only, no name/uid) so this screen never looks
+      // "complete" while a real backlog sits unseen on a different page.
+      unapprovedPendingCount++;
+      continue;
+    }
     const rawGender = core.gender;
     const gender = rawGender === 'male' || rawGender === 'female' ? rawGender : null;
     pending.push({ uid: doc.id, name: typeof core.name === 'string' ? core.name : '', gender });
   }
   pending.sort((a, b) => a.name.localeCompare(b.name, 'he'));
 
-  return { status: 200, body: { soldiers, pending, units } };
+  return { status: 200, body: { soldiers, pending, units, unapprovedPendingCount } };
 }

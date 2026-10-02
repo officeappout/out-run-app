@@ -15,7 +15,8 @@ import type {
   RosterPendingEntry,
   RosterUnitEntry,
 } from '@/features/readiness/core/services/readiness-read.service';
-import { Loader2, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
+import { Loader2, ShieldCheck, AlertCircle } from 'lucide-react';
 
 /**
  * Round 1 of the "unit soldiers" screen (02.10.2026, locked spec). ONE
@@ -32,6 +33,7 @@ export default function ReadinessPage() {
   const [soldiers, setSoldiers] = useState<RosterSoldierEntry[]>([]);
   const [pending, setPending] = useState<RosterPendingEntry[]>([]);
   const [units, setUnits] = useState<RosterUnitEntry[]>([]);
+  const [unapprovedPendingCount, setUnapprovedPendingCount] = useState(0);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [addPrefill, setAddPrefill] = useState<{ uid: string; name: string; gender: 'male' | 'female' | null } | undefined>(undefined);
@@ -48,6 +50,7 @@ export default function ReadinessPage() {
     setSoldiers(body.soldiers ?? []);
     setPending(body.pending ?? []);
     setUnits(body.units ?? []);
+    setUnapprovedPendingCount(body.unapprovedPendingCount ?? 0);
   }, []);
 
   useEffect(() => {
@@ -104,6 +107,23 @@ export default function ReadinessPage() {
           >
             נסה שוב
           </button>
+        </div>
+      )}
+
+      {!loadError && unapprovedPendingCount > 0 && (
+        <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between gap-3">
+          <p className="text-sm text-amber-800 font-semibold flex items-center gap-2">
+            <AlertCircle size={16} className="flex-shrink-0" />
+            {unapprovedPendingCount === 1
+              ? 'יש הצהרה אחת הממתינה לאישור קצין — היא תופיע כאן לשיוך רק לאחר האישור.'
+              : `יש ${unapprovedPendingCount} הצהרות הממתינות לאישור קצין — הן יופיעו כאן לשיוך רק לאחר האישור.`}
+          </p>
+          <Link
+            href="/admin/authority/units"
+            className="text-xs font-bold text-amber-800 bg-white border border-amber-200 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors flex-shrink-0"
+          >
+            לאישור הצהרות
+          </Link>
         </div>
       )}
 
