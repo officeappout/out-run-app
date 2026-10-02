@@ -7,6 +7,7 @@ import { daysUntil, formatShekel, rankVenues, taskDueDate, venueCost } from '../
 import { VENDOR_STATUSES, type Venue, type WeddingSettings, type WeddingState } from '../wedding.types';
 import { VenueEditor } from './VenueEditor';
 import { useWeddingStore, type SaveStatus } from './useWeddingStore';
+import type { WeddingAccess } from '../wedding.client';
 
 type Tab = 'home' | 'venues' | 'vendors' | 'tasks' | 'market' | 'settings';
 const TABS: Array<[Tab, string]> = [
@@ -17,6 +18,12 @@ const TABS: Array<[Tab, string]> = [
   ['market', 'מחירי שוק'],
   ['settings', 'הגדרות'],
 ];
+/**
+ * Selected pill colors set inline as well as by class: in the live admin the
+ * label of a selected tab rendered invisible (dark on dark) — inline style
+ * wins over whatever cascade caused it.
+ */
+const SELECTED_STYLE: React.CSSProperties = { backgroundColor: '#0f172a', color: '#ffffff' };
 const WEEKDAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 
 const card = 'rounded-2xl border border-gray-200 bg-white p-4 md:p-5';
@@ -50,8 +57,8 @@ function blankVenue(settings: WeddingSettings): Venue {
   };
 }
 
-export function WeddingPlanner() {
-  const store = useWeddingStore();
+export function WeddingPlanner({ access = { mode: 'admin' } }: { access?: WeddingAccess }) {
+  const store = useWeddingStore(access);
   const [tab, setTab] = useState<Tab>('home');
   const [guests, setGuests] = useState<number | null>(null);
   const [editing, setEditing] = useState<{ venue: Venue; isNew: boolean } | null>(null);
@@ -59,7 +66,7 @@ export function WeddingPlanner() {
   if (store.forbidden) {
     return (
       <div className={`${card} mx-auto mt-10 max-w-md text-center`}>
-        <p className="font-bold text-slate-900">אין לך גישה לעמוד הזה.</p>
+        <p className="font-bold text-slate-900">{access.mode === 'share' ? 'הקישור לא תקין או שכבר לא פעיל.' : 'אין לך גישה לעמוד הזה.'}</p>
       </div>
     );
   }
@@ -108,6 +115,7 @@ export function WeddingPlanner() {
               aria-selected={tab === id}
               onClick={() => setTab(id)}
               className={`min-h-[40px] rounded-xl px-4 text-sm font-bold ${tab === id ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-gray-100'}`}
+              style={tab === id ? SELECTED_STYLE : undefined}
             >
               {label}
             </button>
@@ -382,6 +390,7 @@ function Venues({
                 aria-pressed={o === g}
                 onClick={() => setGuests(o)}
                 className={`min-h-[36px] rounded-lg px-3 text-sm font-bold ${o === g ? 'bg-slate-900 text-white' : 'text-slate-600'}`}
+                style={o === g ? SELECTED_STYLE : undefined}
               >
                 {o}
               </button>
