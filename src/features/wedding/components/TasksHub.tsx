@@ -5,7 +5,8 @@ import { CalendarDays, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react';
 import { buildRoadmap, daysBeforeFor, gematria, hebrewDate, hebrewDateLabel, layoutWeek, taskDueDate, taskStartDate, tasksOverlapping, toIso, weekStart } from '../wedding.calc';
 import type { WeddingState, WeddingTask } from '../wedding.types';
 import { taskOrder } from '../wedding.links';
-import { OwnerFilterBar, OwnerPicker, OwnerPills, TAG_STYLES, matchesOwner, tagColor, taskStyle, type OwnerFilter } from './tags';
+import { OwnerDots, OwnerFilterBar, OwnerPicker, OwnerPills, TASK_STYLES, matchesOwner, taskColor, taskStyle, type OwnerFilter } from './tags';
+import { TASK_COLORS } from '../wedding.types';
 import { SELECTED_STYLE, card, cellInput, fmtDate, newId, type Update } from './ui';
 
 /**
@@ -36,16 +37,18 @@ function defaultDueIso(s: WeddingState): string {
 
 function newTaskOn(s: WeddingState, iso: string, owners: string[]): WeddingTask {
   const d = daysBeforeFor(s.settings.date, iso);
-  return { id: newId(), name: '', daysBefore: d, startBefore: d, done: false, owners, vendorId: '' };
+  return { id: newId(), name: '', daysBefore: d, startBefore: d, done: false, owners, vendorId: '', color: '' };
 }
 
 /** One task row: tick + name, when, who. Tapping the name opens the dialog when `onOpen` is given. */
 export function TaskLine({ t, s, update, late, onOpen }: { t: WeddingTask; s: WeddingState; update: Update; late?: boolean; onOpen?: (t: WeddingTask) => void }) {
-  const n = taskOrder(s.tasks).get(t.id);
+  const order = taskOrder(s.tasks);
+  const n = order.get(t.id);
   const vendor = t.vendorId ? s.vendors.find((v) => v.id === t.vendorId) : undefined;
   const body = (
     <>
       {n && <span className="w-7 shrink-0 text-center text-xs font-bold tabular-nums text-slate-400">#{n}</span>}
+      <i className={`block h-3 w-3 shrink-0 rounded-sm ${TASK_STYLES[taskColor(t, order)].dot}`} aria-hidden="true" />
       <span className={`min-w-0 flex-1 ${t.done ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{t.name}</span>
       {vendor && <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">ספק</span>}
       <OwnerPills t={t} s={s} />
@@ -196,6 +199,32 @@ function TaskDialog({ s, draft, onSave, onDelete, onClose }: { s: WeddingState; 
           </div>
 
           <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-bold text-slate-600">צבע המשימה בלוח</span>
+            <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="צבע המשימה">
+              <button
+                type="button"
+                aria-pressed={!t.color}
+                onClick={() => setT({ ...t, color: '' })}
+                className={`min-h-[30px] rounded-full border px-2.5 text-xs font-bold ${!t.color ? 'border-slate-900 text-slate-900' : 'border-gray-200 text-slate-500'}`}
+              >
+                אוטומטי
+              </button>
+              {TASK_COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  aria-label={TASK_STYLES[c].label}
+                  title={TASK_STYLES[c].label}
+                  aria-pressed={t.color === c}
+                  onClick={() => setT({ ...t, color: c })}
+                  className={`h-7 w-7 rounded-full ${TASK_STYLES[c].dot} ${t.color === c ? 'ring-2 ring-slate-900 ring-offset-2' : 'opacity-80 hover:opacity-100'}`}
+                />
+              ))}
+            </div>
+            <span className="text-xs text-slate-500">הצבע שייך למשימה. מי שמבצע מסומן בנקודות הצבעוניות של התגיות.</span>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
             <label htmlFor="wt-vendor" className="text-xs font-bold text-slate-600">
               קשורה לספק
             </label>
@@ -261,6 +290,7 @@ function MonthCalendar({ s, tasks, onAdd, onOpen }: { s: WeddingState; tasks: We
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
   const todayIso = toIso(new Date());
+  const order = taskOrder(s.tasks);
   const [picked, setPicked] = useState<string>(todayIso);
   const wedding = s.settings.date;
   const weddingDate = new Date(`${wedding}T00:00:00`);
@@ -374,7 +404,7 @@ function MonthCalendar({ s, tasks, onAdd, onOpen }: { s: WeddingState; tasks: We
               {segs
                 .filter((sg) => sg.lane < MAX_LANES)
                 .map((sg) => {
-                  const st = taskStyle(sg.task, s.settings);
+                  const st = taskStyle(sg.task, order);
                   const late = isLate(sg.task);
                   return (
                     <button
@@ -389,13 +419,9 @@ function MonthCalendar({ s, tasks, onAdd, onOpen }: { s: WeddingState; tasks: We
                       }`}
                     >
                       <span className="hidden truncate md:inline">{sg.task.name}</span>
-                      {sg.task.owners.length > 1 && (
-                        <span className="ms-auto hidden shrink-0 gap-0.5 md:flex" aria-hidden="true">
-                          {sg.task.owners.map((o) => (
-                            <i key={o} className={`block h-2 w-2 rounded-full ${TAG_STYLES[tagColor(o, s.settings)].dot}`} />
-                          ))}
-                        </span>
-                      )}
+                      <span className="ms-auto hidden md:flex">
+                        <OwnerDots t={sg.task} s={s} />
+                      </span>
                     </button>
                   );
                 })}
@@ -419,7 +445,7 @@ function MonthCalendar({ s, tasks, onAdd, onOpen }: { s: WeddingState; tasks: We
         {picked === wedding && <p className="py-1 text-sm font-bold text-emerald-700">יום החתונה</p>}
         {pickedTasks.length ? (
           pickedTasks.map((t) => {
-            const st = taskStyle(t, s.settings);
+            const st = taskStyle(t, order);
             return (
               <button
                 key={t.id}
@@ -527,11 +553,43 @@ function ListView({ s, tasks, update, onOpen }: { s: WeddingState; tasks: Weddin
   );
 }
 
+/** Subscribe link: Google adds the feed as its own calendar ("תכנון החתונה") and keeps re-reading it. */
+function GoogleCalendarPanel() {
+  const [copied, setCopied] = useState(false);
+  const feed = `${typeof window === 'undefined' ? 'https://outrun.co.il' : window.location.origin}/api/public/wedding/calendar`;
+  const subscribe = `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(feed.replace(/^https?:/, 'webcal:'))}`;
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-sm">
+      <p className="text-slate-700">
+        כל המשימות כלוח שנה נפרד ביומן גוגל (&quot;תכנון החתונה&quot;), עם הטווחים, המספור ומי מבצע. כל שינוי כאן מתעדכן שם לבד. גוגל מרענן יומנים כאלה בעצמו, בדרך כלל תוך כמה שעות.
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <a href={subscribe} target="_blank" rel="noopener noreferrer" className="flex min-h-[40px] items-center rounded-xl bg-emerald-600 px-4 font-bold text-white hover:bg-emerald-700">
+          הוספה ליומן גוגל
+        </a>
+        <button
+          type="button"
+          onClick={() => {
+            void navigator.clipboard?.writeText(feed).then(() => setCopied(true));
+          }}
+          className="min-h-[40px] rounded-xl border border-gray-200 bg-white px-3 font-bold text-slate-700 hover:bg-gray-50"
+        >
+          {copied ? 'הקישור הועתק ✓' : 'העתקת קישור היומן'}
+        </button>
+      </div>
+      <p className="text-xs text-slate-500">
+        את ההוספה עושים פעם אחת, מהמחשב (באפליקציית גוגל יומן בטלפון אין הוספה לפי קישור). אחרי זה היומן מופיע גם בטלפון. כל אחד מהזוג/המשפחה יכול להוסיף לעצמו.
+      </p>
+    </div>
+  );
+}
+
 export function TasksHub({ s, update }: { s: WeddingState; update: Update }) {
   const [view, setView] = useState<View>('calendar');
   const [who, setWho] = useState<OwnerFilter>('');
   const [draft, setDraft] = useState<TaskDraft | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [gcal, setGcal] = useState(false);
   const filtered = s.tasks.filter((t) => matchesOwner(t, who));
   const { overdue, weeks } = buildRoadmap(s.settings.date, filtered);
   const ownersForNew = who && who !== '__none' ? [who] : [];
@@ -567,11 +625,19 @@ export function TasksHub({ s, update }: { s: WeddingState; update: Update }) {
                 </button>
               ))}
             </div>
+            <button
+              onClick={() => setGcal((x) => !x)}
+              aria-expanded={gcal}
+              className="flex min-h-[40px] items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-sm font-bold text-slate-700 hover:bg-gray-50"
+            >
+              <CalendarDays className="h-4 w-4" /> יומן גוגל
+            </button>
             <button onClick={() => addOn(defaultDueIso(s))} className="flex min-h-[40px] items-center gap-1.5 rounded-xl bg-emerald-600 px-3 text-sm font-bold text-white hover:bg-emerald-700">
               <Plus className="h-4 w-4" /> משימה
             </button>
           </div>
         </div>
+        {gcal && <GoogleCalendarPanel />}
         <OwnerFilterBar s={s} value={who} onChange={setWho} update={update} />
         {notice && (
           <p role="status" className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">

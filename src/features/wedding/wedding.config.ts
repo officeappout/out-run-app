@@ -71,6 +71,7 @@ export function initialWeddingState(): WeddingState {
       done: false,
       owners: [],
       vendorId: '',
+      color: '',
     })),
   };
 }

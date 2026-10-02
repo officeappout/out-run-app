@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
-import { TAG_COLORS, type TagColor, type WeddingSettings, type WeddingState, type WeddingTask } from '../wedding.types';
+import { TAG_COLORS, TASK_COLORS, type TaskColor, type TagColor, type WeddingSettings, type WeddingState, type WeddingTask } from '../wedding.types';
 import { SELECTED_STYLE, cellInput, type Update } from './ui';
 
 /** Who-does-it tags: colors, display pills, the multi-select picker, the filter bar and the tag editor. */
@@ -30,9 +30,46 @@ export function tagColor(name: string, settings: WeddingSettings): TagColor {
   return i >= 0 ? TAG_COLORS[i % (TAG_COLORS.length - 1)] : 'slate';
 }
 
-/** Style of a task by its first owner (bars and calendar dots use one color). */
-export function taskStyle(t: WeddingTask, settings: WeddingSettings) {
-  return t.owners.length ? TAG_STYLES[tagColor(t.owners[0], settings)] : UNASSIGNED;
+/** Per-task palette (calendar bars, day list). Separate from the owner tags; red is reserved for "late". */
+export const TASK_STYLES: Record<TaskColor, { pill: string; dot: string; bar: string; label: string }> = {
+  sky: { pill: 'bg-sky-50 text-sky-900 border-sky-200', dot: 'bg-sky-500', bar: 'bg-sky-100 text-sky-900 border-sky-300', label: 'תכלת' },
+  violet: { pill: 'bg-violet-50 text-violet-900 border-violet-200', dot: 'bg-violet-500', bar: 'bg-violet-100 text-violet-900 border-violet-300', label: 'סגול' },
+  amber: { pill: 'bg-amber-50 text-amber-900 border-amber-200', dot: 'bg-amber-500', bar: 'bg-amber-100 text-amber-900 border-amber-300', label: 'ענבר' },
+  teal: { pill: 'bg-teal-50 text-teal-900 border-teal-200', dot: 'bg-teal-500', bar: 'bg-teal-100 text-teal-900 border-teal-300', label: 'טורקיז' },
+  rose: { pill: 'bg-rose-50 text-rose-900 border-rose-200', dot: 'bg-rose-400', bar: 'bg-rose-100 text-rose-900 border-rose-300', label: 'ורוד' },
+  lime: { pill: 'bg-lime-50 text-lime-900 border-lime-200', dot: 'bg-lime-500', bar: 'bg-lime-100 text-lime-900 border-lime-300', label: 'ירוק בהיר' },
+  indigo: { pill: 'bg-indigo-50 text-indigo-900 border-indigo-200', dot: 'bg-indigo-500', bar: 'bg-indigo-100 text-indigo-900 border-indigo-300', label: 'אינדיגו' },
+  orange: { pill: 'bg-orange-50 text-orange-900 border-orange-200', dot: 'bg-orange-500', bar: 'bg-orange-100 text-orange-900 border-orange-300', label: 'כתום' },
+  cyan: { pill: 'bg-cyan-50 text-cyan-900 border-cyan-200', dot: 'bg-cyan-500', bar: 'bg-cyan-100 text-cyan-900 border-cyan-300', label: 'ציאן' },
+  fuchsia: { pill: 'bg-fuchsia-50 text-fuchsia-900 border-fuchsia-200', dot: 'bg-fuchsia-500', bar: 'bg-fuchsia-100 text-fuchsia-900 border-fuchsia-300', label: 'פוקסיה' },
+  emerald: { pill: 'bg-emerald-50 text-emerald-900 border-emerald-200', dot: 'bg-emerald-600', bar: 'bg-emerald-100 text-emerald-900 border-emerald-300', label: 'ירוק' },
+  yellow: { pill: 'bg-yellow-50 text-yellow-900 border-yellow-200', dot: 'bg-yellow-400', bar: 'bg-yellow-100 text-yellow-900 border-yellow-300', label: 'צהוב' },
+  blue: { pill: 'bg-blue-50 text-blue-900 border-blue-200', dot: 'bg-blue-500', bar: 'bg-blue-100 text-blue-900 border-blue-300', label: 'כחול' },
+  pink: { pill: 'bg-pink-50 text-pink-900 border-pink-200', dot: 'bg-pink-400', bar: 'bg-pink-100 text-pink-900 border-pink-300', label: 'ורוד בהיר' },
+};
+
+/** A task's color: the one picked for it, else automatic by booking order (#1, #2… cycle the palette, so neighbours differ). */
+export function taskColor(t: WeddingTask, order: Map<string, number>): TaskColor {
+  if (t.color) return t.color;
+  const n = order.get(t.id) ?? 0;
+  return TASK_COLORS[(Math.max(n, 1) - 1) % TASK_COLORS.length];
+}
+
+/** Style of a task: its own color (not the owner's). */
+export function taskStyle(t: WeddingTask, order: Map<string, number>) {
+  return TASK_STYLES[taskColor(t, order)];
+}
+
+/** Small owner dots (tag colors) — shown on bars now that the bar color belongs to the task. */
+export function OwnerDots({ t, s }: { t: WeddingTask; s: WeddingState }) {
+  if (!t.owners.length) return null;
+  return (
+    <span className="ms-auto flex shrink-0 gap-0.5" aria-hidden="true">
+      {t.owners.map((o) => (
+        <i key={o} className={`block h-2 w-2 rounded-full ring-1 ring-white ${TAG_STYLES[tagColor(o, s.settings)].dot}`} />
+      ))}
+    </span>
+  );
 }
 
 /** Owner pills for display. Shows 'מי?' when nobody is assigned and `showEmpty` is set. */

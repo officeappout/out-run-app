@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { bookingLead, closeWindow, syncVendorTasks, taskOrder } from '../wedding.links';
+import { buildIcs, foldLine } from '../wedding.ics';
 import { blockedReason, venuePriceFor, buildRoadmap, dateFactor, daysBeforeFor, daysUntil, gematria, hebrewDate, hebrewDateLabel, layoutWeek, monthOptions, rankVenues, taskDueDate, toIso, venueCost } from '../wedding.calc';
 import { DEFAULT_SETTINGS, initialWeddingState } from '../wedding.config';
 import { LIMITS, parseWeddingState } from '../wedding.schema';
@@ -302,5 +303,32 @@ describe('vendor ⇄ task link', () => {
   it('numbers tasks in booking order', () => {
     const o = taskOrder(parseWeddingState({ tasks: [{ id: 'a', daysBefore: 10 }, { id: 'b', daysBefore: 100 }, { id: 'c', daysBefore: 50 }] }).tasks);
     expect([o.get('b'), o.get('c'), o.get('a')]).toEqual([1, 2, 3]);
+  });
+});
+
+describe('calendar feed (.ics)', () => {
+  const s = parseWeddingState({
+    settings: { date: '2027-03-09' },
+    vendors: [{ id: 'p', name: 'צילום', supplier: 'סטודיו, לב', status: 'לברר' }],
+    tasks: [
+      { id: 'a', name: 'סגירת אולם', startBefore: 145, daysBefore: 140, owners: ['דוד'] },
+      { id: 'b', name: 'צלם', daysBefore: 133, vendorId: 'p', done: true },
+    ],
+  });
+  const ics = buildIcs(s, new Date('2026-10-02T12:00:00Z'));
+  const unfolded = ics.replace(/\r\n /g, '');
+  it('one all-day event per task over its range, plus the wedding day', () => {
+    expect(unfolded.match(/BEGIN:VEVENT/g)).toHaveLength(3);
+    expect(unfolded).toContain('DTSTART;VALUE=DATE:20261015\r\nDTEND;VALUE=DATE:20261021');
+    expect(unfolded).toContain('DTSTART;VALUE=DATE:20270309\r\nDTEND;VALUE=DATE:20270310');
+    expect(unfolded).toContain('SUMMARY:#1 סגירת אולם · דוד');
+    expect(unfolded).toContain('SUMMARY:✓ #2 צלם');
+    expect(unfolded).toContain('ספק: צילום (סטודיו\\, לב)');
+  });
+  it('folds lines at 75 octets without breaking Hebrew letters', () => {
+    const long = 'SUMMARY:' + 'חתונה '.repeat(40);
+    const folded = foldLine(long);
+    for (const l of folded.split('\r\n')) expect(new TextEncoder().encode(l).length).toBeLessThanOrEqual(75);
+    expect(folded.replace(/\r\n /g, '')).toBe(long);
   });
 });

@@ -100,7 +100,12 @@ export interface WeddingTask {
   owners: string[];
   /** The vendor this task closes ('' = none). Done ⇄ vendor closed are kept in sync. */
   vendorId: string;
+  /** The task's own color in the calendar ('' = automatic by booking order). Independent of the owner tags. */
+  color: TaskColor | '';
 }
+
+export const TASK_COLORS = ['sky', 'violet', 'amber', 'teal', 'rose', 'lime', 'indigo', 'orange', 'cyan', 'fuchsia', 'emerald', 'yellow', 'blue', 'pink'] as const;
+export type TaskColor = (typeof TASK_COLORS)[number];
 
 /**
  * Legacy single-owner value meaning "both of us". Tasks now take several

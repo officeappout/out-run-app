@@ -1,6 +1,8 @@
 import { DEFAULT_SETTINGS } from './wedding.config';
 import {
   TAG_COLORS,
+  TASK_COLORS,
+  type TaskColor,
   TOGETHER,
   type TagColor,
   VENDOR_STATUSES,
@@ -162,6 +164,7 @@ function parseTask(x: unknown, i: number, people: string[]): WeddingTask | null 
     done: x.done === true,
     owners: parseOwners(x, people),
     vendorId: typeof x.vendorId === 'string' ? x.vendorId.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) : '',
+    color: TASK_COLORS.includes(x.color as TaskColor) ? (x.color as TaskColor) : '',
   };
 }
 
