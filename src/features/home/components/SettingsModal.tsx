@@ -1163,7 +1163,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                 value={editName}
                                 onChange={(e) => setEditName(e.target.value)}
                                 placeholder="שמך"
-                                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-simpler focus:ring-2 focus:ring-cyan-400 focus:border-transparent outline-none text-right"
+                                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-simpler focus:ring-2 focus:ring-cyan-400 focus:border-transparent outline-none text-right text-gray-900 placeholder:text-gray-400"
+                                style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
                               />
                             </div>
                             {/* Weight */}
@@ -1176,7 +1177,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                 placeholder="70"
                                 min="20"
                                 max="300"
-                                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-simpler focus:ring-2 focus:ring-cyan-400 focus:border-transparent outline-none"
+                                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-simpler focus:ring-2 focus:ring-cyan-400 focus:border-transparent outline-none text-gray-900 placeholder:text-gray-400"
+                                style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
                                 dir="ltr"
                               />
                             </div>
@@ -1251,7 +1253,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                     if (v.length === 2) monthRef.current?.focus();
                                   }}
                                   placeholder="DD"
-                                  className="w-14 px-2 py-2 border border-gray-200 rounded-xl text-sm font-simpler text-center focus:ring-2 focus:ring-cyan-400 outline-none"
+                                  className="w-14 px-2 py-2 border border-gray-200 rounded-xl text-sm font-simpler text-center focus:ring-2 focus:ring-cyan-400 outline-none text-gray-900 placeholder:text-gray-400"
+                                  style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
                                 />
                                 <input
                                   ref={monthRef}
@@ -1264,7 +1267,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                     if (v.length === 2) yearRef.current?.focus();
                                   }}
                                   placeholder="MM"
-                                  className="w-14 px-2 py-2 border border-gray-200 rounded-xl text-sm font-simpler text-center focus:ring-2 focus:ring-cyan-400 outline-none"
+                                  className="w-14 px-2 py-2 border border-gray-200 rounded-xl text-sm font-simpler text-center focus:ring-2 focus:ring-cyan-400 outline-none text-gray-900 placeholder:text-gray-400"
+                                  style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
                                 />
                                 <input
                                   ref={yearRef}
@@ -1273,7 +1277,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                   value={editDob.year}
                                   onChange={(e) => setEditDob((p) => ({ ...p, year: e.target.value.slice(0, 4) }))}
                                   placeholder="YYYY"
-                                  className="w-20 px-2 py-2 border border-gray-200 rounded-xl text-sm font-simpler text-center focus:ring-2 focus:ring-cyan-400 outline-none"
+                                  className="w-20 px-2 py-2 border border-gray-200 rounded-xl text-sm font-simpler text-center focus:ring-2 focus:ring-cyan-400 outline-none text-gray-900 placeholder:text-gray-400"
+                                  style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
                                 />
                               </div>
                             </div>
