@@ -2,8 +2,7 @@
 
 import type { WeddingDocument, WeddingState } from './wedding.types';
 
-/** The share-link token from /public/wedding/<token>. */
-export type WeddingAccess = { mode: 'share'; token: string };
+const URL = '/api/public/wedding';
 
 export class WeddingAccessError extends Error {}
 export class WeddingConflictError extends Error {
@@ -12,24 +11,17 @@ export class WeddingConflictError extends Error {
   }
 }
 
-function request(access: WeddingAccess, init: RequestInit = {}): Promise<Response> {
-  return fetch('/api/public/wedding', {
-    ...init,
-    cache: 'no-store',
-    headers: { ...(init.headers as Record<string, string> | undefined), 'x-wedding-token': access.token },
-  });
-}
-
-export async function loadWedding(access: WeddingAccess): Promise<WeddingDocument> {
-  const res = await request(access);
+export async function loadWedding(): Promise<WeddingDocument> {
+  const res = await fetch(URL, { cache: 'no-store' });
   if (res.status === 403 || res.status === 404) throw new WeddingAccessError('forbidden');
   if (!res.ok) throw new Error(`טעינה נכשלה (${res.status})`);
   return (await res.json()) as WeddingDocument;
 }
 
-export async function saveWedding(access: WeddingAccess, state: WeddingState, rev: number): Promise<WeddingDocument> {
-  const res = await request(access, {
+export async function saveWedding(state: WeddingState, rev: number): Promise<WeddingDocument> {
+  const res = await fetch(URL, {
     method: 'PUT',
+    cache: 'no-store',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ state, rev }),
   });
@@ -37,7 +29,6 @@ export async function saveWedding(access: WeddingAccess, state: WeddingState, re
     const body = (await res.json()) as WeddingDocument;
     throw new WeddingConflictError({ state: body.state, rev: body.rev });
   }
-  if (res.status === 403 || res.status === 404) throw new WeddingAccessError('forbidden');
   if (!res.ok) throw new Error(`שמירה נכשלה (${res.status})`);
   return (await res.json()) as WeddingDocument;
 }

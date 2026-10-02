@@ -6,7 +6,6 @@ import {
   WeddingConflictError,
   loadWedding,
   saveWedding,
-  type WeddingAccess,
 } from '../wedding.client';
 import type { WeddingState } from '../wedding.types';
 
@@ -18,7 +17,7 @@ export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
  * carry the last known rev — a 409 means another tab saved first, so the
  * server's copy replaces ours and the person is told.
  */
-export function useWeddingStore(access: WeddingAccess) {
+export function useWeddingStore() {
   const [state, setState] = useState<WeddingState | null>(null);
   const [status, setStatus] = useState<SaveStatus>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -30,12 +29,10 @@ export function useWeddingStore(access: WeddingAccess) {
   const dirty = useRef(false);
   const inFlight = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Stable for the page's lifetime; a ref keeps the callbacks below stable too.
-  const accessRef = useRef(access);
 
   useEffect(() => {
     let alive = true;
-    loadWedding(accessRef.current)
+    loadWedding()
       .then((doc) => {
         if (!alive) return;
         rev.current = doc.rev;
@@ -58,7 +55,7 @@ export function useWeddingStore(access: WeddingAccess) {
     dirty.current = false;
     setStatus('saving');
     try {
-      const doc = await saveWedding(accessRef.current, latest.current, rev.current);
+      const doc = await saveWedding(latest.current, rev.current);
       rev.current = doc.rev;
       setStatus(dirty.current ? 'saving' : 'saved');
     } catch (e: unknown) {

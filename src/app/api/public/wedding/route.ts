@@ -1,37 +1,26 @@
 import 'server-only';
 import { NextRequest, NextResponse } from 'next/server';
-import { isValidShareToken, readWedding, writeWedding } from '@/features/wedding/wedding.server';
+import { readWedding, writeWedding } from '@/features/wedding/wedding.server';
 
 /**
- * /api/public/wedding — share-link access to the wedding planner.
- * No login: the caller presents the secret in the `x-wedding-token` header
- * (the page at /public/wedding/<token> sends it). A wrong token, or the
- * link being switched off (WEDDING_SHARE_TOKEN unset), answers 404 so the
- * endpoint does not confirm it exists.
+ * /api/public/wedding — the wedding planner's data. Open by design, no
+ * login or token (David's explicit choice, 02.10.2026). Touches only the
+ * single wedding_planner/main document; the body is sanitized by
+ * parseWeddingState before it is stored.
  */
 
 export const dynamic = 'force-dynamic';
 
-function denied(request: NextRequest): NextResponse | null {
-  if (isValidShareToken(request.headers.get('x-wedding-token'))) return null;
-  return NextResponse.json({ error: 'Not found' }, { status: 404 });
-}
-
 const noStore = { 'Cache-Control': 'no-store' };
 
-export async function GET(request: NextRequest) {
-  const deny = denied(request);
-  if (deny) return deny;
+export async function GET() {
   return NextResponse.json(await readWedding(), { headers: noStore });
 }
 
 export async function PUT(request: NextRequest) {
-  const deny = denied(request);
-  if (deny) return deny;
-
   const body = await request.json().catch(() => null);
   try {
-    const result = await writeWedding(body, 'share-link');
+    const result = await writeWedding(body, 'public-link');
     if ('error' in result) return NextResponse.json({ error: result.error }, { status: 400 });
     if (result.conflict) return NextResponse.json({ error: 'conflict', ...result.doc }, { status: 409, headers: noStore });
     return NextResponse.json(result.doc, { headers: noStore });

@@ -7,7 +7,6 @@ import { daysUntil, formatShekel, rankVenues, taskDueDate, venueCost } from '../
 import { VENDOR_STATUSES, type Venue, type WeddingSettings, type WeddingState } from '../wedding.types';
 import { VenueEditor } from './VenueEditor';
 import { useWeddingStore, type SaveStatus } from './useWeddingStore';
-import type { WeddingAccess } from '../wedding.client';
 
 type Tab = 'home' | 'venues' | 'vendors' | 'tasks' | 'market' | 'settings';
 const TABS: Array<[Tab, string]> = [
@@ -57,8 +56,8 @@ function blankVenue(settings: WeddingSettings): Venue {
   };
 }
 
-export function WeddingPlanner({ access }: { access: WeddingAccess }) {
-  const store = useWeddingStore(access);
+export function WeddingPlanner() {
+  const store = useWeddingStore();
   const [tab, setTab] = useState<Tab>('home');
   const [guests, setGuests] = useState<number | null>(null);
   const [editing, setEditing] = useState<{ venue: Venue; isNew: boolean } | null>(null);
@@ -66,7 +65,7 @@ export function WeddingPlanner({ access }: { access: WeddingAccess }) {
   if (store.forbidden) {
     return (
       <div className={`${card} mx-auto mt-10 max-w-md text-center`}>
-        <p className="font-bold text-slate-900">הקישור לא תקין או שכבר לא פעיל.</p>
+        <p className="font-bold text-slate-900">העמוד לא זמין כרגע.</p>
       </div>
     );
   }

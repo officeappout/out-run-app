@@ -1,6 +1,6 @@
 /**
  * Wedding planner — the owner's personal tool, reached only through the
- * share link (/public/wedding/<token>). Not part of the admin panel.
+ * open link (/public/wedding). Not part of the admin panel.
  * Self-contained domain: nothing outside src/features/wedding imports from
  * here except that page and /api/public/wedding.
  */
