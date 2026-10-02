@@ -1,20 +1,31 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { auth } from '@/lib/firebase';
-import type { RosterSoldierEntry } from '@/features/readiness/core/services/readiness-read.service';
-import type { ReadinessThresholdsConfig, NotPerformedReason } from '@/features/readiness/core/services/readiness-write.service';
+import type { RosterSoldierEntry, RosterSoldierTestDetail } from '@/features/readiness/core/services/readiness-read.service';
+import type { ReadinessThresholdsConfig, ReadinessTestDefinition, NotPerformedReason } from '@/features/readiness/core/services/readiness-write.service';
 import ReadinessStatusBadge from './ReadinessStatusBadge';
 import RunTimeInput from './RunTimeInput';
 
 /**
- * Results-entry grid (03.10.2026 locked spec; "not performed" corrected
- * 03.10.2026 — David: per-cell, not per-row). Hardcodes awareness of the
- * 3 known test roles (run / pull-ups / dips) to drive the "which
- * components were measured today" grouping and the mm:ss run input —
- * actual threshold NUMBERS are always read live from `config`, never
+ * Results-entry grid (03.10.2026 locked spec; corrected twice since:
+ * "not performed" is per-cell not per-row; and 03.10.2026 live-test
+ * finding — "אסור שיוצג פסק דין בלי הראיה שמאחוריו", no verdict without
+ * the evidence behind it). Hardcodes awareness of the 3 known test
+ * roles (run / pull-ups / dips) to drive the "which components were
+ * measured today" grouping and the mm:ss run input — actual threshold
+ * NUMBERS are always read live from `config`/`testDetails`, never
  * hardcoded.
+ *
+ * David's live-test report looked like a bug ("entered passing values,
+ * status stayed לא כשיר") but the real production data showed the
+ * aggregation was correct — one component had a genuinely failing
+ * value, and "one failure is enough" is the locked rule. The actual
+ * problem was that the screen gave no way to SEE which component, what
+ * value, or how stale it was. This file's per-cell evidence block (every
+ * test, always rendered, regardless of session state) is the fix —
+ * not a change to the aggregation logic, which was already correct.
  *
  * "Not performed" is a per-CELL value, each with its own reason — a
  * soldier medically exempt from the run still does pull-ups and dips
@@ -35,10 +46,10 @@ import RunTimeInput from './RunTimeInput';
  *  - testDate is the SAME for the whole entry session (one header field,
  *    passed down as a prop) — separate from recordedAt, which the
  *    server still stamps itself at write time.
- *  - A cell already saved this session is locked (shows a checkmark, no
- *    retry) — no correction action exists yet (§13.69 decision 1), so a
- *    resubmit would recreate the exact "correction or new test"
- *    ambiguity that decision avoided.
+ *  - A cell already saved this session is locked (shows the now-current
+ *    evidence instead of an input, no retry) — no correction action
+ *    exists yet (§13.69 decision 1), so a resubmit would recreate the
+ *    exact "correction or new test" ambiguity that decision avoided.
  */
 
 type ComponentsMode = 'both' | 'run_only' | 'strength_only';
@@ -48,6 +59,22 @@ const REASON_OPTIONS: { value: NotPerformedReason; label: string }[] = [
   { value: 'no_show', label: 'לא התייצב' },
   { value: 'other', label: 'אחר' },
 ];
+const REASON_LABEL: Record<NotPerformedReason, string> = {
+  medical_exemption: 'פטור רפואי',
+  no_show: 'לא התייצב',
+  other: 'אחר',
+};
+
+function formatValue(value: number | null, unit: string): string {
+  if (value === null) return '—';
+  if (unit === 'seconds') return `${Math.floor(value / 60)}:${String(value % 60).padStart(2, '0')}`;
+  return String(value);
+}
+
+function formatDate(iso: string | null): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('he-IL');
+}
 
 interface CellState {
   value: number | null;
@@ -183,29 +210,50 @@ export default function ReadinessEntryTable({ soldiers, config, componentsMode, 
     if (failures.length === 0) onSaved();
   };
 
+  /**
+   * The evidence block — ALWAYS rendered for every active test, whether
+   * there's a saved result or not. This is the direct fix for "no
+   * verdict without the evidence behind it": value, date, threshold,
+   * pass/fail, all visible, not just the collapsed badge. Highlighted
+   * red when this specific test is the (or one of the) reason the
+   * overall status reads "לא כשיר" — so the officer never has to guess
+   * which component to investigate.
+   */
+  const renderEvidence = (detail: RosterSoldierTestDetail, test: ReadinessTestDefinition, isCulprit: boolean) => {
+    const thresholdDisplay = formatValue(detail.thresholdValue, test.unit);
+    if (detail.status === 'not_yet_tested') {
+      return <p className="text-[10px] text-slate-400">טרם נבדק · סף: {thresholdDisplay}</p>;
+    }
+    const valueDisplay = detail.status === 'not_performed'
+      ? (detail.notPerformedReason ? REASON_LABEL[detail.notPerformedReason] : 'לא ביצע')
+      : formatValue(detail.value, test.unit);
+    return (
+      <div className={`text-[10px] rounded-lg px-2 py-1 ${isCulprit ? 'bg-red-50 text-red-700 font-bold border border-red-200' : 'bg-slate-50 text-slate-600'}`}>
+        <div>ערך: {valueDisplay} · סף: {thresholdDisplay}</div>
+        <div className={isCulprit ? 'text-red-600' : 'text-slate-400'}>{formatDate(detail.testDate)}</div>
+      </div>
+    );
+  };
+
   const renderCell = (
     soldierId: string,
     kind: 'run' | 'pullups' | 'dips',
     test: NonNullable<typeof runTest>,
+    detail: RosterSoldierTestDetail,
     cell: CellState,
-    gender: RosterSoldierEntry['gender'],
     saved: boolean,
     pending: boolean,
+    isCulprit: boolean,
   ) => {
     if (saved) {
-      return <span className="flex items-center gap-1 text-emerald-700 text-xs font-bold"><Check size={13} /> נשמר</span>;
+      // The just-saved value is shown via the evidence block itself
+      // (refreshed by onSaved()) — no separate "✓ saved" marker needed
+      // once the evidence IS the value.
+      return renderEvidence(detail, test, isCulprit);
     }
-    const thresholdNote = test.threshold.male !== test.threshold.female
-      ? (
-        <span className="text-[10px] text-slate-400 block">
-          סף: {test.unit === 'seconds'
-            ? `${Math.floor(test.threshold[gender] / 60)}:${String(test.threshold[gender] % 60).padStart(2, '0')}`
-            : test.threshold[gender]}
-        </span>
-      )
-      : null;
     return (
-      <div className="space-y-1">
+      <div className="space-y-1.5">
+        {renderEvidence(detail, test, isCulprit)}
         {cell.notPerformed ? (
           <select
             value={cell.notPerformedReason}
@@ -238,7 +286,6 @@ export default function ReadinessEntryTable({ soldiers, config, componentsMode, 
           />
           לא ביצע
         </label>
-        {thresholdNote}
       </div>
     );
   };
@@ -260,23 +307,25 @@ export default function ReadinessEntryTable({ soldiers, config, componentsMode, 
         <tbody>
           {soldiers.map((s, i) => {
             const row = getRow(s.id);
+            const detailByTestId = Object.fromEntries(s.testDetails.map((d) => [d.testId, d]));
+            const isOverallFail = s.currentStatus === 'fail';
             return (
               <tr key={s.id} className="border-b border-slate-100 last:border-b-0 align-top">
                 <td className="py-2.5 px-3 text-[11px] text-slate-400">{i + 1}</td>
                 <td className="py-2.5 px-3 font-bold text-slate-800">{s.name}</td>
-                {runActive && (
+                {runActive && runTest && (
                   <td className="py-2.5 px-3">
-                    {renderCell(s.id, 'run', runTest!, row.run, s.gender, row.savedTestIds.has(runTest!.id), row.pendingTestIds.has(runTest!.id))}
+                    {renderCell(s.id, 'run', runTest, detailByTestId[runTest.id], row.run, row.savedTestIds.has(runTest.id), row.pendingTestIds.has(runTest.id), isOverallFail && detailByTestId[runTest.id]?.status === 'fail')}
                   </td>
                 )}
-                {pullupsActive && (
+                {pullupsActive && pullupsTest && (
                   <td className="py-2.5 px-3">
-                    {renderCell(s.id, 'pullups', pullupsTest!, row.pullups, s.gender, row.savedTestIds.has(pullupsTest!.id), row.pendingTestIds.has(pullupsTest!.id))}
+                    {renderCell(s.id, 'pullups', pullupsTest, detailByTestId[pullupsTest.id], row.pullups, row.savedTestIds.has(pullupsTest.id), row.pendingTestIds.has(pullupsTest.id), isOverallFail && detailByTestId[pullupsTest.id]?.status === 'fail')}
                   </td>
                 )}
-                {dipsActive && (
+                {dipsActive && dipsTest && (
                   <td className="py-2.5 px-3">
-                    {renderCell(s.id, 'dips', dipsTest!, row.dips, s.gender, row.savedTestIds.has(dipsTest!.id), row.pendingTestIds.has(dipsTest!.id))}
+                    {renderCell(s.id, 'dips', dipsTest, detailByTestId[dipsTest.id], row.dips, row.savedTestIds.has(dipsTest.id), row.pendingTestIds.has(dipsTest.id), isOverallFail && detailByTestId[dipsTest.id]?.status === 'fail')}
                   </td>
                 )}
                 <td className="py-2.5 px-3"><ReadinessStatusBadge status={s.currentStatus} notPerformedReason={s.notPerformedReason} /></td>
