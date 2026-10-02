@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { daysUntil, rankVenues, taskDueDate, venueCost } from '../wedding.calc';
-import { DEFAULT_SETTINGS, initialWeddingState, isWeddingOwner } from '../wedding.config';
+import { DEFAULT_SETTINGS, initialWeddingState } from '../wedding.config';
 import { LIMITS, parseWeddingState } from '../wedding.schema';
 import type { Venue } from '../wedding.types';
 
@@ -104,13 +104,5 @@ describe('parseWeddingState', () => {
   it('de-duplicates ids', () => {
     const s = parseWeddingState({ vendors: [{ id: 'v1', name: 'a' }, { id: 'v1', name: 'b' }] });
     expect(new Set(s.vendors.map((v) => v.id)).size).toBe(2);
-  });
-});
-
-describe('isWeddingOwner', () => {
-  it('matches case-insensitively and rejects others', () => {
-    expect(isWeddingOwner('Office@AppOut.co.il')).toBe(true);
-    expect(isWeddingOwner('matan.danan@appout.co.il')).toBe(false);
-    expect(isWeddingOwner(null)).toBe(false);
   });
 });

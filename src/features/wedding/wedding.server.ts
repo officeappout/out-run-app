@@ -7,9 +7,9 @@ import { parseWeddingState } from './wedding.schema';
 import type { WeddingDocument } from './wedding.types';
 
 /**
- * Server-side storage for the wedding planner, shared by the admin route
- * (/api/admin/wedding) and the share-link route (/api/public/wedding).
- * One document, Admin SDK only — firestore.rules never expose it.
+ * Server-side storage for the wedding planner, used by the share-link
+ * route (/api/public/wedding). One document, Admin SDK only —
+ * firestore.rules never expose it. Not part of the admin panel.
  */
 
 function docRef() {

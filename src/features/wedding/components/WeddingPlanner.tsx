@@ -19,7 +19,7 @@ const TABS: Array<[Tab, string]> = [
   ['settings', 'הגדרות'],
 ];
 /**
- * Selected pill colors set inline as well as by class: in the live admin the
+ * Selected pill colors set inline as well as by class: in production the
  * label of a selected tab rendered invisible (dark on dark) — inline style
  * wins over whatever cascade caused it.
  */
@@ -57,7 +57,7 @@ function blankVenue(settings: WeddingSettings): Venue {
   };
 }
 
-export function WeddingPlanner({ access = { mode: 'admin' } }: { access?: WeddingAccess }) {
+export function WeddingPlanner({ access }: { access: WeddingAccess }) {
   const store = useWeddingStore(access);
   const [tab, setTab] = useState<Tab>('home');
   const [guests, setGuests] = useState<number | null>(null);
@@ -66,7 +66,7 @@ export function WeddingPlanner({ access = { mode: 'admin' } }: { access?: Weddin
   if (store.forbidden) {
     return (
       <div className={`${card} mx-auto mt-10 max-w-md text-center`}>
-        <p className="font-bold text-slate-900">{access.mode === 'share' ? 'הקישור לא תקין או שכבר לא פעיל.' : 'אין לך גישה לעמוד הזה.'}</p>
+        <p className="font-bold text-slate-900">הקישור לא תקין או שכבר לא פעיל.</p>
       </div>
     );
   }

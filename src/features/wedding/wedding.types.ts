@@ -1,7 +1,8 @@
 /**
- * Wedding planner — personal tool for the owner, living inside the admin panel.
- * Self-contained domain: nothing outside src/features/wedding imports from here
- * except the admin page and the API route.
+ * Wedding planner — the owner's personal tool, reached only through the
+ * share link (/public/wedding/<token>). Not part of the admin panel.
+ * Self-contained domain: nothing outside src/features/wedding imports from
+ * here except that page and /api/public/wedding.
  */
 
 export const VENUE_STATUSES = ['לברר', 'נשלחה הצעה', 'ביקרנו', 'במשא ומתן', 'נבחר', 'נפסל'] as const;

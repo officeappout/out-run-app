@@ -1,17 +1,5 @@
 import type { WeddingSettings, WeddingState } from './wedding.types';
 
-/**
- * Who may open /admin/wedding. Checked server-side in
- * src/app/api/admin/wedding/route.ts on top of the super-admin check,
- * so other super admins get 403 and see nothing.
- * Lower-case emails only.
- */
-export const WEDDING_OWNER_EMAILS: readonly string[] = ['office@appout.co.il', 'david@appout.co.il'];
-
-export function isWeddingOwner(email: string | null | undefined): boolean {
-  return !!email && WEDDING_OWNER_EMAILS.includes(email.trim().toLowerCase());
-}
-
 /** Firestore location. Server-only access through the Admin SDK. */
 export const WEDDING_COLLECTION = 'wedding_planner';
 export const WEDDING_DOC_ID = 'main';

@@ -1,10 +1,9 @@
 'use client';
 
-import { adminFetch } from '@/lib/admin-fetch';
 import type { WeddingDocument, WeddingState } from './wedding.types';
 
-/** How the page reaches the data: the admin session, or the share-link token. */
-export type WeddingAccess = { mode: 'admin' } | { mode: 'share'; token: string };
+/** The share-link token from /public/wedding/<token>. */
+export type WeddingAccess = { mode: 'share'; token: string };
 
 export class WeddingAccessError extends Error {}
 export class WeddingConflictError extends Error {
@@ -14,7 +13,6 @@ export class WeddingConflictError extends Error {
 }
 
 function request(access: WeddingAccess, init: RequestInit = {}): Promise<Response> {
-  if (access.mode === 'admin') return adminFetch('/api/admin/wedding', init);
   return fetch('/api/public/wedding', {
     ...init,
     cache: 'no-store',

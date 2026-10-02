@@ -12,7 +12,7 @@ import {
 } from './wedding.types';
 
 /**
- * Coerces an untrusted body (PUT /api/admin/wedding) or a stored Firestore
+ * Coerces an untrusted body (PUT /api/public/wedding) or a stored Firestore
  * document into a well-formed WeddingState. Never throws: bad fields fall
  * back to defaults, oversized lists and strings are truncated. Field-guard
  * rule (CLAUDE.md §5) — nothing here assumes a field exists.

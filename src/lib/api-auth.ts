@@ -151,7 +151,7 @@ function checkAgentKey(request: NextRequest): boolean {
 }
 
 /** Resolves the calling admin's uid from a Bearer ID token or session cookie (agent-key is checked separately by callers). Null when neither resolves to an admin. */
-export async function resolveAdminUid(request: NextRequest): Promise<string | null> {
+async function resolveAdminUid(request: NextRequest): Promise<string | null> {
   const authHeader = request.headers.get('authorization') || '';
   const bearer = authHeader.toLowerCase().startsWith('bearer ')
     ? authHeader.slice(7).trim()
