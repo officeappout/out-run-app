@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { MARKET } from '../wedding.config';
 import { formatShekel, venueCost } from '../wedding.calc';
+import { newId } from './ui';
 import { VENUE_STATUSES, type Venue, type VenueIncludes, type WeddingSettings } from '../wedding.types';
 
 interface Props {
@@ -137,6 +138,50 @@ export function VenueEditor({ venue, isNew, guests, settings, onSave, onDelete, 
               )}
             </>,
           )}
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <span className="text-xs font-bold text-slate-600">מחירים לתאריכים נוספים</span>
+            <span className="text-xs text-slate-500">
+              קיבלתם מחיר לתאריך אחר (חודש אחר, או חמישי במקום יום חול)? הוסיפו כאן. בהשוואה, הצעה לחודש וליום הזה גוברת על ההערכה. שאר התנאים (מע״מ, מינימום, מה כלול) כמו למעלה.
+            </span>
+            {(draft.offers ?? []).map((o) => (
+              <div key={o.id} className="flex items-center gap-2">
+                <input
+                  aria-label="תאריך"
+                  type="date"
+                  className={inputCls}
+                  value={o.date}
+                  onChange={(e) => set('offers', draft.offers.map((x) => (x.id === o.id ? { ...x, date: e.target.value } : x)))}
+                />
+                <input
+                  aria-label="מחיר למנה"
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  placeholder="מחיר למנה"
+                  className={inputCls}
+                  value={o.price || ''}
+                  onChange={(e) => set('offers', draft.offers.map((x) => (x.id === o.id ? { ...x, price: Math.max(0, Number(e.target.value) || 0) } : x)))}
+                />
+                <button
+                  type="button"
+                  aria-label="הסרת תאריך"
+                  onClick={() => set('offers', draft.offers.filter((x) => x.id !== o.id))}
+                  className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl border border-gray-200 text-slate-500 hover:bg-red-50 hover:text-red-600"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+            {(draft.offers ?? []).length < 20 && (
+              <button
+                type="button"
+                onClick={() => set('offers', [...(draft.offers ?? []), { id: newId(), date: '', price: 0 }])}
+                className="self-start rounded-xl border border-dashed border-gray-300 px-3 py-2 text-sm font-bold text-slate-600 hover:bg-gray-50"
+              >
+                + תאריך ומחיר
+              </button>
+            )}
+          </div>
           {field('minGuests', 'מינימום מנות', numInput('minGuests'))}
           {field('alcohol', 'תוספת אלכוהול למנה (₪)', numInput('alcohol'))}
           {field('djFee', 'כניסת DJ חיצוני (₪)', numInput('djFee'))}

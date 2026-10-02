@@ -66,6 +66,15 @@ export interface Venue {
   catalogId: string;
   /** price is the catalog's couple-reported average, not a quote. Cleared when the price is edited. */
   priceIsEstimate: boolean;
+  /** Quotes for other dates (price per plate). Same terms otherwise: VAT, minimum, inclusions, DJ fee. */
+  offers: VenueOffer[];
+}
+
+export interface VenueOffer {
+  id: string;
+  /** YYYY-MM-DD */
+  date: string;
+  price: number;
 }
 
 export interface Vendor {
@@ -75,6 +84,8 @@ export interface Vendor {
   price: number;
   paid: number;
   status: VendorStatus;
+  /** price is a market-midpoint estimate, not a quote. Cleared when the price is edited. */
+  priceIsEstimate: boolean;
 }
 
 export interface WeddingTask {

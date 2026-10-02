@@ -314,3 +314,46 @@ export function monthOptions(year: number, month0: number, from?: Date): MonthOp
   }
   return out;
 }
+
+export type DayType = 'weekday' | 'thursday';
+
+/** Sun–Wed = weekday, Thu = thursday; Fri/Sat = null (no price data for them). */
+export function dayTypeOf(d: Date): DayType | null {
+  const w = d.getDay();
+  return w === 4 ? 'thursday' : w <= 3 ? 'weekday' : null;
+}
+
+export interface ScenarioPrice {
+  /** Price per plate as quoted (VAT per the venue's vatIncluded) */
+  price: number;
+  /** quote = an offer for this month + day type; estimate = the catalog's reported price for it; derived = projected from another date by the market factors */
+  source: 'quote' | 'estimate' | 'derived';
+  /** The offer date it came from (quote/estimate) or was projected from (derived) */
+  fromDate: string;
+}
+
+/**
+ * A venue's price per plate for a scenario month + day type. Uses an
+ * offer for that exact month and day type when one exists (cheapest if
+ * several); otherwise projects from a real quote (or the estimate) with
+ * dateFactor. Null when the venue has no price at all.
+ */
+export function venuePriceFor(v: Venue, year: number, month0: number, dt: DayType): ScenarioPrice | null {
+  const all = [
+    ...(v.price > 0 && v.date ? [{ date: v.date, price: v.price, est: v.priceIsEstimate }] : []),
+    ...(v.offers ?? []).filter((o) => o.price > 0 && o.date).map((o) => ({ date: o.date, price: o.price, est: false })),
+  ];
+  if (!all.length) return null;
+  const at = (iso: string) => new Date(`${iso}T12:00:00`);
+  const match = all
+    .filter((o) => {
+      const d = at(o.date);
+      return d.getFullYear() === year && d.getMonth() === month0 && dayTypeOf(d) === dt;
+    })
+    .sort((a, b) => a.price - b.price || Number(a.est) - Number(b.est))[0];
+  if (match) return { price: match.price, source: match.est ? 'estimate' : 'quote', fromDate: match.date };
+  const ref = all.find((o) => !o.est && dayTypeOf(at(o.date))) ?? all.find((o) => dayTypeOf(at(o.date))) ?? all[0];
+  const base = ref.price / dateFactor(at(ref.date));
+  const f = seasonFactor(month0) * (dt === 'thursday' ? DAY_FACTOR.thursday : DAY_FACTOR.weekday);
+  return { price: Math.round(base * f), source: 'derived', fromDate: ref.date };
+}

@@ -37,6 +37,7 @@ function toVenue(c: CatalogVenue, weddingIso: string): Venue {
     discount: 0,
     notes: `${facts}\n${c.url}`,
     catalogId: c.id,
+    offers: [],
   };
 }
 

@@ -61,6 +61,7 @@ export function initialWeddingState(): WeddingState {
       price: 0,
       paid: 0,
       status: i === 0 ? 'נסגר' : 'לברר',
+      priceIsEstimate: false,
     })),
     tasks: SEED_TASKS.map(([name, daysBefore], i) => ({
       id: `t${String(i + 1).padStart(2, '0')}`,
@@ -84,11 +85,11 @@ export const MARKET = {
   thursdaySurcharge: '10–12%',
   alcoholPerGuest: { min: 22, max: 45 },
   vendors: [
-    { name: 'צילום סטילס+וידאו', min: 6000, max: 14000 },
-    { name: 'DJ', min: 3500, max: 12000 },
-    { name: 'עיצוב ופרחים', min: 8000, max: 40000 },
-    { name: 'שמלה (השכרה)', min: 1500, max: 7000 },
-    { name: 'חליפה', min: 2000, max: 6000 },
+    { name: 'צילום סטילס+וידאו', min: 6000, max: 14000, match: 'צילום' },
+    { name: 'DJ', min: 3500, max: 12000, match: '' },
+    { name: 'עיצוב ופרחים', min: 8000, max: 40000, match: '' },
+    { name: 'שמלה (השכרה)', min: 1500, max: 7000, match: 'שמל' },
+    { name: 'חליפה', min: 2000, max: 6000, match: 'חליפ' },
   ],
   sources: [
     { label: 'Evanto – עלות חתונה 2026', url: 'https://www.evanto.co.il/guide/wedding-cost-israel-2026' },

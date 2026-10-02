@@ -8,6 +8,7 @@ import {
   type Vendor,
   type VendorStatus,
   type Venue,
+  type VenueOffer,
   type VenueStatus,
   type WeddingSettings,
   type WeddingState,
@@ -117,6 +118,9 @@ function parseVenue(x: unknown, i: number, weddingDate: string): Venue | null {
     discount: money(x.discount),
     notes: str(x.notes, LIMITS.notes),
     priceIsEstimate: x.priceIsEstimate === true,
+    offers: list(x.offers, 20)
+      .map((o, j) => (isObj(o) ? { id: id(o.id, j, 'offer'), date: isoDate(o.date, ''), price: money(o.price) } : null))
+      .filter((o): o is VenueOffer => !!o && !!o.date && o.price > 0),
     catalogId: typeof x.catalogId === 'string' ? x.catalogId.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 20) : '',
   };
 }
@@ -130,6 +134,7 @@ function parseVendor(x: unknown, i: number): Vendor | null {
     price: money(x.price),
     paid: money(x.paid),
     status: oneOf<VendorStatus>(x.status, VENDOR_STATUSES, 'לברר'),
+    priceIsEstimate: x.priceIsEstimate === true,
   };
 }
 

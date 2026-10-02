@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { blockedReason, buildRoadmap, dateFactor, daysBeforeFor, daysUntil, gematria, hebrewDate, hebrewDateLabel, layoutWeek, monthOptions, rankVenues, taskDueDate, toIso, venueCost } from '../wedding.calc';
+import { blockedReason, venuePriceFor, buildRoadmap, dateFactor, daysBeforeFor, daysUntil, gematria, hebrewDate, hebrewDateLabel, layoutWeek, monthOptions, rankVenues, taskDueDate, toIso, venueCost } from '../wedding.calc';
 import { DEFAULT_SETTINGS, initialWeddingState } from '../wedding.config';
 import { LIMITS, parseWeddingState } from '../wedding.schema';
 import type { Venue } from '../wedding.types';
@@ -23,6 +23,7 @@ const base: Venue = {
   notes: '',
   catalogId: '',
   priceIsEstimate: false,
+  offers: [],
 };
 
 describe('venueCost', () => {
@@ -239,5 +240,27 @@ describe('date comparison', () => {
     const jan = monthOptions(2027, 0);
     expect(Object.keys(jan.blocked)).toEqual([]);
     expect(jan.weekdayFree + jan.thursdayFree).toBe(21);
+  });
+});
+
+describe('venue price per scenario', () => {
+  const v: Venue = { ...base, price: 330, date: '2027-03-09', offers: [{ id: 'o1', date: '2027-01-19', price: 280 }] };
+  it('uses a quote for the same month and day type', () => {
+    expect(venuePriceFor(v, 2027, 2, 'weekday')).toEqual({ price: 330, source: 'quote', fromDate: '2027-03-09' });
+    expect(venuePriceFor(v, 2027, 0, 'weekday')).toEqual({ price: 280, source: 'quote', fromDate: '2027-01-19' });
+  });
+  it('projects other months / days from the main quote by the market factors', () => {
+    // 330 on a March Tuesday (×1.12) → winter Thursday = 330/1.12×1.11
+    expect(venuePriceFor(v, 2026, 11, 'thursday')).toEqual({ price: Math.round((330 / 1.12) * 1.11), source: 'derived', fromDate: '2027-03-09' });
+    expect(venuePriceFor(v, 2027, 5, 'weekday')!.price).toBe(Math.round((330 / 1.12) * 1.25));
+  });
+  it('marks a catalog estimate and returns null without any price', () => {
+    expect(venuePriceFor({ ...v, offers: [], priceIsEstimate: true }, 2027, 2, 'weekday')!.source).toBe('estimate');
+    expect(venuePriceFor({ ...v, price: 0, offers: [] }, 2027, 2, 'weekday')).toBeNull();
+  });
+  it('parses offers and drops incomplete ones', () => {
+    const s = parseWeddingState({ venues: [{ name: 'x', offers: [{ date: '2027-01-19', price: 280 }, { date: 'bad', price: 5 }, { date: '2027-02-01', price: 0 }] }] });
+    expect(s.venues[0].offers).toHaveLength(1);
+    expect(s.venues[0].offers[0]).toMatchObject({ date: '2027-01-19', price: 280 });
   });
 });

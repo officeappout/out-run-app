@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Loader2, Plus, Trash2 } from 'lucide-react';
 import { MARKET } from '../wedding.config';
-import { buildRoadmap, daysUntil, formatShekel, hebrewDateLabel, rankVenues, taskDueDate, tasksOverlapping, venueCost } from '../wedding.calc';
+import { dayTypeOf, venuePriceFor, type DayType, type ScenarioPrice, buildRoadmap, daysUntil, formatShekel, hebrewDateLabel, rankVenues, taskDueDate, tasksOverlapping, venueCost } from '../wedding.calc';
 import { VENDOR_STATUSES, type Venue, type WeddingSettings, type WeddingState } from '../wedding.types';
 import { TagEditor } from './tags';
 import { TaskLine, TasksHub } from './TasksHub';
@@ -28,6 +28,14 @@ const WEEKDAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמיש�
 
 
 
+/** Market midpoint for a vendor category, matched by name ('' match = no estimate, e.g. our own DJ). 0 = none. */
+function vendorEstimate(name: string): number {
+  const m = MARKET.vendors.find((x) => x.match && name.includes(x.match));
+  return m ? Math.round((m.min + m.max) / 2 / 250) * 250 : 0;
+}
+
+const MONTHS_HE = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+
 function blankVenue(settings: WeddingSettings): Venue {
   return {
     id: newId(),
@@ -47,6 +55,7 @@ function blankVenue(settings: WeddingSettings): Venue {
     notes: '',
     catalogId: '',
     priceIsEstimate: false,
+    offers: [],
   };
 }
 
@@ -59,9 +68,14 @@ export function WeddingPlanner() {
     backfilled.current = true;
     const reported = new Map(VENUE_CATALOG.filter((c) => c.reportedPrice).map((c) => [c.id, c.reportedPrice as number]));
     const needs = store.state.venues.some((v) => v.catalogId && v.price === 0 && reported.has(v.catalogId));
-    if (!needs) return;
+    const vendorNeeds = store.state.vendors.some((v) => v.price === 0 && vendorEstimate(v.name));
+    if (!needs && !vendorNeeds) return;
     store.update((st) => ({
       ...st,
+      vendors: st.vendors.map((v) => {
+        const est = v.price === 0 ? vendorEstimate(v.name) : 0;
+        return est ? { ...v, price: est, priceIsEstimate: true } : v;
+      }),
       venues: st.venues.map((v) =>
         v.catalogId && v.price === 0 && reported.has(v.catalogId)
           ? { ...v, price: reported.get(v.catalogId) as number, vatIncluded: true, priceIsEstimate: true }
@@ -378,40 +392,126 @@ function Venues({
   onNew: () => void;
   onEdit: (v: Venue) => void;
 }) {
-  const ranked = rankVenues(s.venues, g, s.settings);
+  const wedding = new Date(`${s.settings.date}T12:00:00`);
+  const [view, setView] = useState<'table' | 'months'>('table');
+  const [ym, setYm] = useState<[number, number]>([wedding.getFullYear(), wedding.getMonth()]);
+  const [dt, setDt] = useState<DayType>(dayTypeOf(wedding) ?? 'weekday');
+  const months = useMemo(() => {
+    const now = new Date();
+    const list = Array.from({ length: 12 }, (_, i) => new Date(now.getFullYear(), now.getMonth() + i, 1)).map((d) => [d.getFullYear(), d.getMonth()] as [number, number]);
+    const w: [number, number] = [wedding.getFullYear(), wedding.getMonth()];
+    if (!list.some(([y, m]) => y === w[0] && m === w[1])) list.push(w);
+    return list;
+  }, [wedding.getFullYear(), wedding.getMonth()]); // eslint-disable-line react-hooks/exhaustive-deps
+  const isWeddingScenario = ym[0] === wedding.getFullYear() && ym[1] === wedding.getMonth() && dt === (dayTypeOf(wedding) ?? 'weekday');
+
+  // Every venue priced for the scenario: a quote for that month/day if there is one, else projected.
+  const scen = new Map<string, ScenarioPrice | null>(s.venues.map((v) => [v.id, venuePriceFor(v, ym[0], ym[1], dt)]));
+  const atScenario = (v: Venue): Venue => ({ ...v, price: scen.get(v.id)?.price ?? 0 });
+  const ranked = rankVenues(s.venues.map(atScenario), g, s.settings);
   const rankedIds = new Set(ranked.map((r) => r.venue.id));
   const out = s.venues.filter((v) => !rankedIds.has(v.id));
   const options = useMemo(
     () => [s.settings.low, s.settings.guests, s.settings.high].filter((x, i, a) => x > 0 && a.indexOf(x) === i),
     [s.settings.low, s.settings.guests, s.settings.high],
   );
-  const rows: Array<{ venue: Venue; rank: number }> = [...ranked.map((r, i) => ({ venue: r.venue, rank: i + 1 })), ...out.map((venue) => ({ venue, rank: 0 }))];
+  const original = new Map(s.venues.map((v) => [v.id, v]));
+  const rows: Array<{ venue: Venue; rank: number }> = [
+    ...ranked.map((r, i) => ({ venue: original.get(r.venue.id) as Venue, rank: i + 1 })),
+    ...out.map((venue) => ({ venue, rank: 0 })),
+  ];
+  const seg = (on: boolean) => `min-h-[36px] rounded-lg px-3 text-sm font-bold ${on ? 'bg-slate-900 text-white' : 'text-slate-600'}`;
 
   return (
     <div className="flex flex-col gap-4">
-      <section className={`${card} flex flex-wrap items-center justify-between gap-3`}>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm text-slate-500">מספר אורחים</span>
-          <div className="flex gap-0.5 rounded-xl bg-gray-100 p-1" role="group" aria-label="מספר אורחים">
-            {options.map((o) => (
-              <button
-                key={o}
-                aria-pressed={o === g}
-                onClick={() => setGuests(o)}
-                className={`min-h-[36px] rounded-lg px-3 text-sm font-bold ${o === g ? 'bg-slate-900 text-white' : 'text-slate-600'}`}
-                style={o === g ? SELECTED_STYLE : undefined}
-              >
-                {o}
+      <section className={`${card} flex flex-col gap-3`}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex gap-0.5 rounded-xl bg-gray-100 p-1" role="group" aria-label="תצוגה">
+            {(
+              [
+                ['table', 'השוואה לתרחיש'],
+                ['months', 'לפי חודשים'],
+              ] as const
+            ).map(([k, label]) => (
+              <button key={k} aria-pressed={view === k} onClick={() => setView(k)} className={seg(view === k)} style={view === k ? SELECTED_STYLE : undefined}>
+                {label}
               </button>
             ))}
           </div>
+          <button onClick={onNew} className="flex min-h-[42px] items-center gap-1.5 rounded-xl bg-emerald-600 px-4 text-sm font-bold text-white hover:bg-emerald-700">
+            <Plus className="h-4 w-4" /> הצעה חדשה
+          </button>
         </div>
-        <button onClick={onNew} className="flex min-h-[42px] items-center gap-1.5 rounded-xl bg-emerald-600 px-4 text-sm font-bold text-white hover:bg-emerald-700">
-          <Plus className="h-4 w-4" /> הצעה חדשה
-        </button>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-slate-500">אורחים</span>
+            <div className="flex gap-0.5 rounded-xl bg-gray-100 p-1" role="group" aria-label="מספר אורחים">
+              {options.map((o) => (
+                <button key={o} aria-pressed={o === g} onClick={() => setGuests(o)} className={seg(o === g)} style={o === g ? SELECTED_STYLE : undefined}>
+                  {o}
+                </button>
+              ))}
+            </div>
+            <input
+              aria-label="מספר אורחים מדויק"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              placeholder="מספר אחר"
+              className={cellInput}
+              style={{ width: '7.5rem' }}
+              value={options.includes(g) ? '' : g}
+              onChange={(e) => {
+                const n = Math.round(Number(e.target.value));
+                if (n > 0) setGuests(Math.min(n, 5000));
+              }}
+            />
+          </div>
+          {view === 'table' && (
+            <label className="flex items-center gap-2 text-sm text-slate-500">
+              חודש
+              <select
+                className={`${cellInput} w-auto`}
+                value={`${ym[0]}-${ym[1]}`}
+                onChange={(e) => {
+                  const [y, m] = e.target.value.split('-').map(Number);
+                  setYm([y, m]);
+                }}
+              >
+                {months.map(([y, m]) => (
+                  <option key={`${y}-${m}`} value={`${y}-${m}`}>
+                    {MONTHS_HE[m]} {y}
+                    {y === wedding.getFullYear() && m === wedding.getMonth() ? ' (התאריך שלכם)' : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-slate-500">יום</span>
+            <div className="flex gap-0.5 rounded-xl bg-gray-100 p-1" role="group" aria-label="יום בשבוע">
+              {(
+                [
+                  ['weekday', 'א׳–ד׳'],
+                  ['thursday', 'חמישי'],
+                ] as const
+              ).map(([k, label]) => (
+                <button key={k} aria-pressed={dt === k} onClick={() => setDt(k)} className={seg(dt === k)} style={dt === k ? SELECTED_STYLE : undefined}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <p className="text-xs text-slate-500">
+          הבסיס הוא ההערכה שלנו: מחיר שהוזן לתאריך אחד מחושב לחודשים ולימים אחרים לפי מקדמי השוק (חמישי +11%, עונה אפריל–אוקטובר +25%, מרץ +12%). הצעה אמיתית לתאריך מסוים (בעריכת האולם → &quot;מחירים לתאריכים נוספים&quot;) גוברת על ההערכה.
+          {!isWeddingScenario && <b className="text-slate-700"> מוצג תרחיש שאינו התאריך שלכם.</b>}
+        </p>
       </section>
 
-      {rows.length === 0 ? (
+      {view === 'months' && rows.length > 0 && <MonthsMatrix s={s} g={g} dt={dt} months={months} onEdit={onEdit} />}
+
+      {view === 'months' ? null : rows.length === 0 ? (
         <div className={`${card} py-10 text-center text-sm text-slate-500`}>
           עוד אין הצעות. לחץ על &quot;הצעה חדשה&quot; והזן מחיר למנה, מינימום ומה כלול בחבילה.
         </div>
@@ -420,7 +520,7 @@ function Venues({
           <table className="w-full min-w-[960px] border-collapse text-sm">
             <thead>
               <tr className="text-right text-xs text-slate-500">
-                {['דירוג', 'אולם', 'סטטוס', 'מחיר בהצעה', 'מנה אמיתית', 'מינימום', 'מה כלול', 'כניסת DJ', 'עלות כוללת', 'לאורח'].map((h) => (
+                {['דירוג', 'אולם', 'סטטוס', 'מחיר למנה', 'מנה אמיתית', 'מינימום', 'מה כלול', 'כניסת DJ', 'עלות כוללת', 'לאורח'].map((h) => (
                   <th key={h} className="whitespace-nowrap border-b border-gray-200 px-2 py-2.5 font-medium">
                     {h}
                   </th>
@@ -429,8 +529,9 @@ function Venues({
             </thead>
             <tbody>
               {rows.map(({ venue: v, rank }) => {
-                const c = venueCost(v, g, s.settings);
-                const priced = v.price > 0;
+                const sp = scen.get(v.id) ?? null;
+                const c = venueCost(atScenario(v), g, s.settings);
+                const priced = !!sp;
                 return (
                   <tr
                     key={v.id}
@@ -469,8 +570,8 @@ function Venues({
                       </span>
                     </td>
                     <td className="px-2 py-3 tabular-nums">
-                      {priced ? formatShekel(v.price) : '—'}
-                      {v.priceIsEstimate && <span className="mr-1.5 rounded-full bg-amber-50 px-1.5 py-0.5 text-[11px] font-bold text-amber-800">הערכה</span>}
+                      {sp ? formatShekel(sp.price) : '—'}
+                      {sp && <SourceChip sp={sp} />}
                       <p className="text-xs text-slate-500">
                         {v.vatIncluded ? 'כולל מע״מ' : '+ מע״מ'}
                         {v.alcohol ? ` · אלכוהול +${v.alcohol}` : ''}
@@ -498,7 +599,7 @@ function Venues({
         </section>
       )}
 
-      {ranked.length > 0 && (
+      {view === 'table' && ranked.length > 0 && (
         <section className={card}>
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="font-black text-slate-900">ממה מורכבת העלות</h2>
@@ -518,6 +619,66 @@ function Venues({
   );
 }
 
+function SourceChip({ sp }: { sp: ScenarioPrice }) {
+  const quote = sp.source === 'quote';
+  return (
+    <>
+      <span className={`mr-1.5 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-bold ${quote ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'}`}>{quote ? 'מהצעה' : 'הערכה'}</span>
+      {sp.source === 'derived' && <p className="text-[11px] text-slate-400">מחושב מ-{fmtIso(sp.fromDate)}</p>}
+    </>
+  );
+}
+
+/** Rows = venues, columns = months, for one day type. Cell = total (per guest below); real quotes marked; cheapest per month green. */
+function MonthsMatrix({ s, g, dt, months, onEdit }: { s: WeddingState; g: number; dt: DayType; months: Array<[number, number]>; onEdit: (v: Venue) => void }) {
+  const venues = s.venues.filter((v) => v.status !== 'נפסל' && venuePriceFor(v, months[0][0], months[0][1], dt));
+  const grid = venues.map((v) =>
+    months.map(([y, m]) => {
+      const sp = venuePriceFor(v, y, m, dt) as ScenarioPrice;
+      return { sp, cost: venueCost({ ...v, price: sp.price }, g, s.settings) };
+    }),
+  );
+  const best = months.map((_, j) => Math.min(...grid.map((row) => row[j].cost.total)));
+  const wd = new Date(`${s.settings.date}T12:00:00`);
+  if (!venues.length) return <div className={`${card} py-10 text-center text-sm text-slate-500`}>אין עדיין אולמות עם מחיר.</div>;
+  return (
+    <section className={`${card} overflow-x-auto p-2 md:p-2`}>
+      <table className="w-full min-w-[1240px] border-collapse text-sm">
+        <thead>
+          <tr className="text-right text-xs text-slate-500">
+            <th className="sticky right-0 border-b border-gray-200 bg-white px-2 py-2.5 font-medium">אולם</th>
+            {months.map(([y, m]) => (
+              <th key={`${y}-${m}`} className={`whitespace-nowrap border-b border-gray-200 px-2 py-2.5 font-medium ${y === wd.getFullYear() && m === wd.getMonth() ? 'text-emerald-700' : ''}`}>
+                {MONTHS_HE[m]} {String(y).slice(2)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {venues.map((v, i) => (
+            <tr key={v.id} className="cursor-pointer border-b border-gray-100 hover:bg-gray-50" onClick={() => onEdit(v)}>
+              <td className="sticky right-0 bg-white px-2 py-2.5">
+                <p className="whitespace-nowrap font-bold text-slate-900">{v.name}</p>
+                <p className="text-xs text-slate-500">{v.city}</p>
+              </td>
+              {grid[i].map(({ sp, cost }, j) => (
+                <td key={j} className={`whitespace-nowrap px-2 py-2.5 align-top tabular-nums ${cost.total === best[j] && venues.length > 1 ? 'bg-emerald-50' : ''}`}>
+                  <div className={`font-bold ${cost.total === best[j] && venues.length > 1 ? 'text-emerald-800' : 'text-slate-900'}`}>{formatShekel(cost.total)}</div>
+                  <div className="text-xs text-slate-500">{formatShekel(cost.perGuest)} לאורח</div>
+                  {sp.source === 'quote' && <span className="rounded-full bg-emerald-100 px-1.5 text-[10px] font-bold text-emerald-800">מהצעה</span>}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="px-2 pt-2 text-xs text-slate-500">
+        עלות כוללת ל-{g} אורחים ב{dt === 'thursday' ? 'יום חמישי' : 'ימים א׳–ד׳'}, כולל מע״מ והשלמות. ירוק = הזול בחודש. &quot;מהצעה&quot; = מחיר אמיתי שהוזן לחודש הזה; כל השאר הערכה.
+      </p>
+    </section>
+  );
+}
+
 function Legend({ cls, label }: { cls: string; label: string }) {
   return (
     <span className="flex items-center gap-1.5">
@@ -530,13 +691,18 @@ function Legend({ cls, label }: { cls: string; label: string }) {
 function Vendors({ s, update }: { s: WeddingState; update: Update }) {
   const total = s.vendors.reduce((a, v) => a + v.price, 0);
   const paid = s.vendors.reduce((a, v) => a + v.paid, 0);
+  const estimated = s.vendors.reduce((a, v) => a + (v.priceIsEstimate ? v.price : 0), 0);
   const patch = (id: string, p: Partial<WeddingState['vendors'][number]>) =>
     update((st) => ({ ...st, vendors: st.vendors.map((v) => (v.id === id ? { ...v, ...p } : v)) }));
 
   return (
     <div className="flex flex-col gap-4">
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Kpi label="סה״כ ספקים" value={formatShekel(total)} sub={`${s.vendors.length} ספקים`} />
+        <Kpi
+          label="סה״כ ספקים"
+          value={formatShekel(total)}
+          sub={estimated ? `מתוכם ${formatShekel(estimated)} הערכה` : `${s.vendors.length} ספקים`}
+        />
         <Kpi label="שולם" value={formatShekel(paid)} sub="מקדמות ותשלומים" />
         <Kpi label="נשאר לשלם" value={formatShekel(total - paid)} sub=" " />
       </section>
@@ -561,7 +727,16 @@ function Vendors({ s, update }: { s: WeddingState; update: Update }) {
                   <input aria-label="שם הספק" placeholder="שם הספק" className={cellInput} value={v.supplier} onChange={(e) => patch(v.id, { supplier: e.target.value })} />
                 </td>
                 <td className="px-2 py-2">
-                  <input aria-label="מחיר" type="number" inputMode="numeric" min={0} className={cellInput} value={v.price || ''} onChange={(e) => patch(v.id, { price: Math.max(0, Number(e.target.value) || 0) })} />
+                  <input
+                    aria-label="מחיר"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    className={`${cellInput} ${v.priceIsEstimate ? 'border-amber-300 bg-amber-50/50' : ''}`}
+                    value={v.price || ''}
+                    onChange={(e) => patch(v.id, { price: Math.max(0, Number(e.target.value) || 0), priceIsEstimate: false })}
+                  />
+                  {v.priceIsEstimate && <p className="mt-0.5 text-[11px] font-bold text-amber-800">הערכת שוק · הזינו מחיר אמיתי</p>}
                 </td>
                 <td className="px-2 py-2">
                   <input aria-label="שולם" type="number" inputMode="numeric" min={0} className={cellInput} value={v.paid || ''} onChange={(e) => patch(v.id, { paid: Math.max(0, Number(e.target.value) || 0) })} />
@@ -589,7 +764,7 @@ function Vendors({ s, update }: { s: WeddingState; update: Update }) {
         </table>
         <div className="px-2 pb-2 pt-3">
           <button
-            onClick={() => update((st) => ({ ...st, vendors: [...st.vendors, { id: newId(), name: 'ספק חדש', supplier: '', price: 0, paid: 0, status: 'לברר' }] }))}
+            onClick={() => update((st) => ({ ...st, vendors: [...st.vendors, { id: newId(), name: 'ספק חדש', supplier: '', price: 0, paid: 0, status: 'לברר', priceIsEstimate: false }] }))}
             className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-bold text-white"
           >
             <Plus className="h-4 w-4" /> ספק
