@@ -162,14 +162,20 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
         {/* ── IG-style header row: avatar (photo, fallback to lemur) + 3 stats ── */}
         <div className="flex items-center gap-4 pt-2">
           <div className="relative flex-shrink-0" style={{ width: 84, height: 84 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={photoURL || LEMUR_IMG}
-              alt={photoURL ? (userName || 'תמונת פרופיל') : 'Lemur'}
-              width={84}
-              height={84}
-              className="w-full h-full rounded-full object-cover border-[3px] border-emerald-400 shadow-md bg-white"
-            />
+            {/* Gradient ring (brand gradient, same tokens as the XP bar below) —
+                padding reveals the gradient as a ring around the white inset. */}
+            <div className="w-full h-full rounded-full p-[3px] bg-gradient-to-br from-[#00ADEF] to-[#5BC2F2] shadow-md">
+              <div className="w-full h-full rounded-full overflow-hidden bg-white">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={photoURL || LEMUR_IMG}
+                  alt={photoURL ? (userName || 'תמונת פרופיל') : 'Lemur'}
+                  width={84}
+                  height={84}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
             {/* Streak badge — Flame + count */}
             <div className="absolute -bottom-1 -right-1 bg-white rounded-full px-1.5 py-0.5 shadow-md border border-gray-100 flex items-center gap-0.5">
               <Flame className="w-3.5 h-3.5 text-orange-500" fill="currentColor" />
@@ -210,13 +216,18 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
           </div>
         </div>
 
-        {/* Name (if set) + level title (gendered) */}
-        <div className="text-center mt-4">
+        {/* Name + meta (level/stage) + bio — start-aligned (not centered),
+            matching the mockup. Bio has no backing field yet (no new
+            Firestore fields this phase) — always the same empty-safe
+            placeholder, never reads anything that could be missing. */}
+        <div className="mt-4">
           {userName && (
             <p className="text-sm font-bold text-gray-900">{userName}</p>
           )}
-          <h2 className="text-xl font-black text-gray-900 mt-0.5">{levelName}</h2>
-          <span className="text-xs font-bold text-[#00ADEF] mt-0.5 inline-block">שלב {globalLevel}</span>
+          <p className="text-xs font-bold text-[#00ADEF] mt-0.5">
+            {levelName} · שלב {globalLevel}
+          </p>
+          <p className="text-xs font-medium text-gray-400 mt-1">עדיין אין תיאור אישי</p>
         </div>
 
         {/* XP progress bar */}
@@ -254,11 +265,10 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
       </motion.div>
 
       {/* ════════════════════════════════════════════════════════════════════
-          BLOCK 1.5 — IA tab shell (Phase a: visual-only)
-          Establishes the IG-style section structure. Tapping a tab only
-          changes which one looks selected — the existing content blocks
-          below are unchanged and still render as one continuous scroll.
-          Wiring each tab to its own panel is a later phase.
+          BLOCK 1.5 — IA tab bar
+          Each tab now shows only its own panel (see the panels below) —
+          same existing blocks as before, just partitioned instead of one
+          continuous scroll.
          ════════════════════════════════════════════════════════════════════ */}
       <motion.div
         initial={{ y: 16, opacity: 0 }}
@@ -289,123 +299,124 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
       </motion.div>
 
       {/* ════════════════════════════════════════════════════════════════════
-          BLOCK 2 — יעדי תרגילים (GoalCarousel; +150 XP line lives in GoalCard)
+          Tab panels — every block that used to render in one continuous
+          scroll is now routed into one of the 4 tabs above. All 4 panels
+          stay mounted (toggled via the `hidden` utility, not conditional
+          JSX) so switching tabs never remounts — and never re-fires the
+          data fetch inside — any of these existing blocks.
          ════════════════════════════════════════════════════════════════════ */}
-      <motion.div
-        initial={{ y: 16, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.06 }}
-      >
-        <GoalCarousel />
-      </motion.div>
 
-      {/* ════════════════════════════════════════════════════════════════════
-          BLOCK 2.5 — תרגילים שאני רוצה ללמוד (Slice 2b exercise wishlist)
-          Placement provisional — David will rearrange the profile later.
-         ════════════════════════════════════════════════════════════════════ */}
-      <motion.div
-        initial={{ y: 16, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.08 }}
-      >
-        <ExerciseWishlistStrip />
-      </motion.div>
-
-      {/* ════════════════════════════════════════════════════════════════════
-          BLOCK 3 — הישגים (BadgeDisplay compact + sheet trigger)
-         ════════════════════════════════════════════════════════════════════ */}
-      <motion.div
-        initial={{ y: 16, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.12 }}
-        className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100"
-      >
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Trophy className="w-4 h-4 text-amber-500" />
-            <h3 className="text-sm font-bold text-gray-800">הישגים</h3>
+      {/* ── אימונים ── BLOCK 6 (recent activity; workout history is a later phase) */}
+      <div className={activeTab === 'workouts' ? 'space-y-4' : 'hidden'}>
+        <motion.div
+          initial={{ y: 16, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.06 }}
+          className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-black text-gray-800">פעילות אחרונה</h3>
+            {onNavigateToHistory && (
+              <button
+                type="button"
+                onClick={onNavigateToHistory}
+                className="text-xs font-semibold text-[#00ADEF]"
+              >
+                הכל
+              </button>
+            )}
           </div>
-          <button
-            type="button"
-            onClick={() => setIsAchievementSheetOpen(true)}
-            className="text-xs font-semibold text-[#00ADEF]"
-          >
-            כל ההישגים
-          </button>
-        </div>
 
-        <BadgeDisplay
-          unlockedAchievements={unlockedAchievements}
-          onViewAll={() => setIsAchievementSheetOpen(true)}
-          maxVisible={6}
-        />
-      </motion.div>
+          {/* RecentActivityList renders its own card chrome — strip the wrapper
+              by passing only the list portion. We re-implement the rows inline
+              because we already render the section header above. */}
+          <InlineRecentList workouts={workouts} isLoading={historyLoading} />
+        </motion.div>
+      </div>
 
-      {/* ════════════════════════════════════════════════════════════════════
-          BLOCK 4 — Mode-based widgets (כוח / ריצה)
-         ════════════════════════════════════════════════════════════════════ */}
-      <motion.div
-        initial={{ y: 16, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.18 }}
-      >
-        {isRunningMode ? (
-          <RunningWidgets workouts={workouts} />
-        ) : (
-          <StrengthWidgets workouts={workouts} />
-        )}
-      </motion.div>
+      {/* ── סקילים ── BLOCK 2.5 (exercise wishlist — the one existing block
+          about specific named skills; thinner than the per-domain level/%
+          data ProgramsSection has, see PR notes) */}
+      <div className={activeTab === 'skills' ? 'space-y-4' : 'hidden'}>
+        <motion.div
+          initial={{ y: 16, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.06 }}
+        >
+          <ExerciseWishlistStrip />
+        </motion.div>
+      </div>
 
-      {/* ════════════════════════════════════════════════════════════════════
-          BLOCK 5 — התוכניות שלי (master + child program cards)
-         ════════════════════════════════════════════════════════════════════ */}
-      <motion.div
-        initial={{ y: 16, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.24 }}
-      >
-        <ProgramsSection />
-      </motion.div>
-
-      {/* ════════════════════════════════════════════════════════════════════
-          BLOCK 5.5 — מה בחרת, לפי עדיפות (multi-select program path priority
-          order — renders nothing when there's nothing to show)
-         ════════════════════════════════════════════════════════════════════ */}
-      <motion.div
-        initial={{ y: 16, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.27 }}
-      >
-        <PrioritiesSection />
-      </motion.div>
-
-      {/* ════════════════════════════════════════════════════════════════════
-          BLOCK 6 — פעילות אחרונה (last 5 workouts + "הכל" link)
-         ════════════════════════════════════════════════════════════════════ */}
-      <motion.div
-        initial={{ y: 16, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.30 }}
-        className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100"
-      >
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-black text-gray-800">פעילות אחרונה</h3>
-          {onNavigateToHistory && (
+      {/* ── הישגים ── BLOCK 3 */}
+      <div className={activeTab === 'badges' ? 'space-y-4' : 'hidden'}>
+        <motion.div
+          initial={{ y: 16, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.06 }}
+          className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-amber-500" />
+              <h3 className="text-sm font-bold text-gray-800">הישגים</h3>
+            </div>
             <button
               type="button"
-              onClick={onNavigateToHistory}
+              onClick={() => setIsAchievementSheetOpen(true)}
               className="text-xs font-semibold text-[#00ADEF]"
             >
-              הכל
+              כל ההישגים
             </button>
-          )}
-        </div>
+          </div>
 
-        {/* RecentActivityList renders its own card chrome — strip the wrapper
-            by passing only the list portion. We re-implement the rows inline
-            because we already render the section header above. */}
-        <InlineRecentList workouts={workouts} isLoading={historyLoading} />
-      </motion.div>
+          <BadgeDisplay
+            unlockedAchievements={unlockedAchievements}
+            onViewAll={() => setIsAchievementSheetOpen(true)}
+            maxVisible={6}
+          />
+        </motion.div>
+      </div>
+
+      {/* ── תוכניות ── BLOCK 2 (goals) + BLOCK 4 (mode widgets) + BLOCK 5
+          (programs) + BLOCK 5.5 (priority order — program-adjacent, no
+          better home among the 4 tabs) */}
+      <div className={activeTab === 'programs' ? 'space-y-4' : 'hidden'}>
+        <motion.div
+          initial={{ y: 16, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.06 }}
+        >
+          <GoalCarousel />
+        </motion.div>
+
+        <motion.div
+          initial={{ y: 16, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.1 }}
+        >
+          {isRunningMode ? (
+            <RunningWidgets workouts={workouts} />
+          ) : (
+            <StrengthWidgets workouts={workouts} />
+          )}
+        </motion.div>
+
+        <motion.div
+          initial={{ y: 16, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.14 }}
+        >
+          <ProgramsSection />
+        </motion.div>
+
+        <motion.div
+          initial={{ y: 16, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.18 }}
+        >
+          <PrioritiesSection />
+        </motion.div>
+      </div>
 
       {/* ── Achievement Sheet (full-screen) ── */}
       <AchievementSheet
