@@ -16,7 +16,7 @@ import type {
   RosterUnitEntry,
 } from '@/features/readiness/core/services/readiness-read.service';
 import Link from 'next/link';
-import { Loader2, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Loader2, ShieldCheck, AlertCircle, ClipboardList } from 'lucide-react';
 
 /**
  * Round 1 of the "unit soldiers" screen (02.10.2026, locked spec). ONE
@@ -88,14 +88,22 @@ export default function ReadinessPage() {
         { label: 'מד כשירות' },
       ]} />
 
-      <div className="flex items-center gap-3">
-        <div className="w-12 h-12 bg-lime-50 rounded-2xl flex items-center justify-center">
-          <ShieldCheck size={24} className="text-lime-700" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-lime-50 rounded-2xl flex items-center justify-center">
+            <ShieldCheck size={24} className="text-lime-700" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-gray-900">חיילי היחידה</h1>
+            <p className="text-sm text-gray-500">רשימת חיילים, שיוך לחשבונות ומעקב סטטוס כשירות</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-black text-gray-900">חיילי היחידה</h1>
-          <p className="text-sm text-gray-500">רשימת חיילים, שיוך לחשבונות ומעקב סטטוס כשירות</p>
-        </div>
+        <Link
+          href="/admin/authority/readiness/entry"
+          className="flex items-center gap-2 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-all bg-lime-700 hover:bg-lime-800"
+        >
+          <ClipboardList size={16} /> רישום תוצאות בוחן
+        </Link>
       </div>
 
       {loadError && (

@@ -195,6 +195,22 @@ describe('computeUnitRoster — scope resolution', () => {
     expect(result.status).toBe(200);
     if (result.status === 200) expect(result.body.soldiers.map((s) => s.name)).toEqual(['אבי', 'זאב']);
   });
+
+  it("each soldier entry carries its own real unitId (03.10.2026 — the results-entry screen filters by this)", async () => {
+    const db = makeFakeDb({
+      soldiers: {
+        s1: { tenantId: 'tenant-1', unitId: 'battalion-1', name: 'Aaa', gender: 'male', uid: null, mergedInto: null },
+        s2: { tenantId: 'tenant-1', unitId: 'company-1', name: 'Bbb', gender: 'male', uid: null, mergedInto: null },
+      },
+    });
+    const result = await computeUnitRoster(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status === 200) {
+      const byId = Object.fromEntries(result.body.soldiers.map((s) => [s.id, s.unitId]));
+      expect(byId.s1).toBe('battalion-1');
+      expect(byId.s2).toBe('company-1');
+    }
+  });
 });
 
 describe('computeUnitRoster — currentStatus derivation', () => {

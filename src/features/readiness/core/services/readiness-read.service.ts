@@ -65,6 +65,14 @@ export interface RosterSoldierEntry {
   name: string;
   gender: ReadinessSoldier['gender'];
   uid: string | null;
+  /**
+   * 03.10.2026 — added for the results-entry screen, which (unlike the
+   * roster screen's deliberate combined-command-span view) operates on
+   * one unit at a time, matching how a real organized test is actually
+   * administered. Lets the client filter the already-fetched roster by
+   * unit without a second request.
+   */
+  unitId: string;
   linkedAt: string | null; // ISO, JSON-safe
   /**
    * Overall current status across every configured test, reduced from
@@ -259,6 +267,7 @@ export async function computeUnitRoster(
       id: doc.id,
       name: data.name,
       gender: data.gender,
+      unitId: data.unitId,
       notPerformedReason,
       uid: data.uid,
       linkedAt: toIsoOrNull(data.linkedAt),
