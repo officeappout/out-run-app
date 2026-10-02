@@ -329,4 +329,47 @@ Caught and corrected a real error during this verification: the first attempt us
 - Broadest possible check — ANY relation (no boundary-tag filter at all) with this name: 0 elements.
 - Cross-checked independently via Nominatim (a different OSM API, not Overpass): **both places exist in OSM, but only as simple `place=city`/`place=town` point/way features — neither has a `boundary=administrative` RELATION at all.** מודיעין עילית's Nominatim result additionally shows it's in "שטח C" (West Bank Area C) — a politically sensitive zone where formal administrative boundary relations are known to be sparse in OSM. טירת כרמל has no such context (ordinary Haifa-district town) — its gap looks like a plain OSM coverage gap, not political sensitivity.
 
-**Root cause: these two don't have an OSM administrative boundary relation to find at all — no amount of name matching can fix this.** This is a third, distinct failure category from the 47, separate from both the geometry-assembly bug (resolved) and name-normalization (resolved for 42). Likely explains more than these 2 among the remaining 47 — not re-checked against the full 47 yet, per the read-only scope of this investigation.
+**Root cause: these two don't have an OSM administrative boundary relation to find at all — no amount of name matching can fix this.** This is a third, distinct failure category from the 47, separate from both the geometry-assembly bug (resolved) and name-normalization (resolved for 42). Confirmed systematically for all 47 via the Nominatim scan below — these two are part of a larger 20-authority bucket with no admin relation at all.
+
+## Full Nominatim coverage scan — the real ceiling (02.10.2026)
+
+Scanned all 47 FAIL entries directly via Nominatim (not Overpass) — does an administrative boundary relation exist at all, independent of whether our name-matching can find it. Caught and fixed a real bug mid-run: used Nominatim's `class` field, which doesn't exist in the `jsonv2` response — the real field is `category`. Verified against the raw response before trusting any result; discarded and re-ran the contaminated first pass.
+
+**27/47 have a real admin relation (all admin_level=8)** — real candidates for a second write pass, see `docs/audit-2026-09/authority-boundary-by-id-report.md`.
+
+**20/47 have no administrative relation in OSM at all** — no amount of name matching, normalization, or coordinate lookup through OSM's admin-boundary data can produce a result for these:
+
+| רשות | מה נמצא ב-Nominatim |
+|---|---|
+| דייר אל-אסד | אפס תוצאות |
+| פרדסייה | אפס תוצאות |
+| דבורייה | אפס תוצאות |
+| מועצה אזורית גליל עמקים | אפס תוצאות |
+| שבלי - אום אל-גנם | node/place |
+| ג'ש (גוש חלב) | way/waterway |
+| הגליל העליון | way/shop |
+| דייר חנא | node/highway |
+| הגלבוע | way/highway |
+| רמת הנגב | node/natural |
+| ג'ולס | way/highway |
+| כסרא-סמיע | node/highway |
+| עיילבון | node/amenity |
+| אכסאל | node/highway |
+| טירת כרמל | node/place |
+| מודיעין עילית | way/place |
+| שער שומרון | node/highway |
+| הגליל התחתון | node/waterway |
+| בועיינה-נוג'ידאת | node/highway |
+| wix | way/office (synthetic test record) |
+
+## Jerusalem — decided (02.10.2026)
+
+Two known relations compared directly (admin_level, area, rings, tags) — David chose **relation/1381350** (admin_level=8, standard tagging, matches every other successfully-resolved authority's pattern; area 126.12km², MultiPolygon, 2 outer parts) over relation/6502363 (no admin_level at all, generic `type=multipolygon` tag, smaller area 76.27km² — not a real administrative-boundary-tagged relation).
+
+## 6 authorities closed as "no available source" — not revisited
+
+מועצה אזורית גליל עמקים, הגליל העליון, הגליל התחתון, הגלבוע, רמת הנגב (all `regional_council`), and **שער שומרון (actually `local_council`, not `regional_council`** — flagged, the original closure list called all 6 regional councils, one isn't).
+
+Reasoning: no OSM admin relation exists (confirmed above), and reverse-geocoding by coordinate doesn't fit a regional council's geography — a regional council's own `coordinates` field is some arbitrary point among its scattered member settlements, which would resolve to whichever settlement (possibly belonging to a DIFFERENT authority) happens to contain that point, not the regional council itself. שער שומרון is included here despite being a local_council because the same "no admin relation, and its coordinate point likely falls inside a specific settlement rather than uniquely identifying it" risk applies — flagged for David's awareness, not silently reclassified.
+
+**Status: no Ministry-of-Interior-file path is being pursued for these (explicitly out of scope per instruction) — permanently unresolved via current sources, closed.**

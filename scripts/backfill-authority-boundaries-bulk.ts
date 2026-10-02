@@ -61,9 +61,9 @@ const PROGRESS_FILE = path.join(__dirname, '.authority-boundary-backfill-progres
 const REPORT_FILE = path.join(__dirname, '..', 'docs', 'audit-2026-09', 'authority-boundary-backfill-report.md');
 const SLEEP_BETWEEN_AUTHORITIES_MS = 3000;
 
-type Verdict = 'PASS' | 'FLAG' | 'FAIL' | 'RETRY';
+export type Verdict = 'PASS' | 'FLAG' | 'FAIL' | 'RETRY';
 
-interface ProgressEntry {
+export interface ProgressEntry {
   authorityId: string;
   name: string;
   type: AuthorityType;
@@ -131,7 +131,7 @@ function polygonParts(feature: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPo
   return feature.geometry.type === 'Polygon' ? [feature.geometry.coordinates] : feature.geometry.coordinates;
 }
 
-function featureAreaKm2(feature: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>): number {
+export function featureAreaKm2(feature: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>): number {
   let totalM2 = 0;
   for (const poly of polygonParts(feature)) {
     totalM2 += ringAreaM2(poly[0]); // outer ring
@@ -140,7 +140,7 @@ function featureAreaKm2(feature: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.Multi
   return totalM2 / 1_000_000;
 }
 
-function featureRingCount(feature: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>): number {
+export function featureRingCount(feature: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>): number {
   return polygonParts(feature).reduce((sum, poly) => sum + poly.length, 0);
 }
 
@@ -148,7 +148,7 @@ function escapeOverpassString(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
-interface RelationMatch {
+export interface RelationMatch {
   id: number;
   name?: string;
   nameHe?: string;
@@ -309,7 +309,7 @@ async function findAdminRelationsByName(name: string): Promise<RelationMatch[]> 
   return Array.from(seen.values());
 }
 
-function classify(entry: ProgressEntry, matches: RelationMatch[], feature: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>): { verdict: Verdict; reasons: string[] } {
+export function classify(entry: ProgressEntry, matches: RelationMatch[], feature: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>): { verdict: Verdict; reasons: string[] } {
   const reasons: string[] = [];
   const areaKm2 = featureAreaKm2(feature);
   if ((entry.type === 'city' || entry.type === 'local_council') && areaKm2 > 500) reasons.push(`area ${areaKm2.toFixed(1)}km² > 500km² for ${entry.type}`);
