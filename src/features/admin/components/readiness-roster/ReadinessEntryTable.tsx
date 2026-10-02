@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Check, Loader2 } from 'lucide-react';
 import { auth } from '@/lib/firebase';
 import type { RosterSoldierEntry } from '@/features/readiness/core/services/readiness-read.service';
@@ -9,28 +9,36 @@ import ReadinessStatusBadge from './ReadinessStatusBadge';
 import RunTimeInput from './RunTimeInput';
 
 /**
- * Results-entry grid (03.10.2026 locked spec). Hardcodes awareness of
- * the 3 known test roles (run / pull-ups / dips) to drive the "which
+ * Results-entry grid (03.10.2026 locked spec; "not performed" corrected
+ * 03.10.2026 — David: per-cell, not per-row). Hardcodes awareness of the
+ * 3 known test roles (run / pull-ups / dips) to drive the "which
  * components were measured today" grouping and the mm:ss run input —
  * actual threshold NUMBERS are always read live from `config`, never
- * hardcoded, so a future threshold edit (root-only, later round) is
- * reflected here without a code change.
+ * hardcoded.
+ *
+ * "Not performed" is a per-CELL value, each with its own reason — a
+ * soldier medically exempt from the run still does pull-ups and dips
+ * normally, and forcing one row-level flag would make the officer
+ * either discard two valid results or leave them blank (which reads as
+ * "not yet tested," not "exempt" — wrong in a different way). The
+ * row-level control is kept as a one-click SHORTCUT that bulk-applies a
+ * chosen reason to every currently-active, not-yet-saved cell in the
+ * row — convenience, not the model; each cell can still be toggled
+ * individually afterward.
  *
  * Iron rules enforced by construction, not validation:
- *  - Status is never typed — the component only ever sends `value` or
- *    `notPerformedReason` to POST /api/units/readiness/results; there is
- *    no field anywhere in this file that could carry an outcome.
- *  - Each test is its own independent POST — a soldier with only the
- *    run filled in submits exactly one call, leaving pull-ups/dips
- *    untouched (they stay "טרם נבדק", never implicitly failed).
- *  - source is always 'organized_test', hardcoded — never a prop, never
- *    user-selectable.
- *  - Once a specific cell's save succeeds THIS SESSION, it's locked
- *    (shows a checkmark, no retry) — point 1 of §13.69's decision: this
- *    screen creates new results only, it has no correction action, so
- *    there is no safe way to let an already-saved cell be resubmitted
- *    without silently creating the exact "is this a correction or a
- *    new test" ambiguity David's decision explicitly avoided.
+ *  - Status is never typed — only `value`/`notPerformedReason`/`testDate`
+ *    ever leave this component.
+ *  - Each test is its own independent POST — partial entry never
+ *    implicitly fails an untouched component.
+ *  - source is always 'organized_test', hardcoded.
+ *  - testDate is the SAME for the whole entry session (one header field,
+ *    passed down as a prop) — separate from recordedAt, which the
+ *    server still stamps itself at write time.
+ *  - A cell already saved this session is locked (shows a checkmark, no
+ *    retry) — no correction action exists yet (§13.69 decision 1), so a
+ *    resubmit would recreate the exact "correction or new test"
+ *    ambiguity that decision avoided.
  */
 
 type ComponentsMode = 'both' | 'run_only' | 'strength_only';
@@ -41,27 +49,35 @@ const REASON_OPTIONS: { value: NotPerformedReason; label: string }[] = [
   { value: 'other', label: 'אחר' },
 ];
 
-interface RowState {
-  runSeconds: number | null;
-  pullups: number | null;
-  dips: number | null;
+interface CellState {
+  value: number | null;
   notPerformed: boolean;
   notPerformedReason: NotPerformedReason | '';
+}
+
+function emptyCell(): CellState {
+  return { value: null, notPerformed: false, notPerformedReason: '' };
+}
+
+interface RowState {
+  run: CellState;
+  pullups: CellState;
+  dips: CellState;
   savedTestIds: Set<string>;
   pendingTestIds: Set<string>;
   error: string | null;
+  bulkReason: NotPerformedReason | '';
 }
 
 function emptyRow(): RowState {
   return {
-    runSeconds: null,
-    pullups: null,
-    dips: null,
-    notPerformed: false,
-    notPerformedReason: '',
+    run: emptyCell(),
+    pullups: emptyCell(),
+    dips: emptyCell(),
     savedTestIds: new Set(),
     pendingTestIds: new Set(),
     error: null,
+    bulkReason: '',
   };
 }
 
@@ -69,10 +85,11 @@ interface ReadinessEntryTableProps {
   soldiers: RosterSoldierEntry[];
   config: ReadinessThresholdsConfig;
   componentsMode: ComponentsMode;
+  testDate: string; // ISO yyyy-mm-dd, shared across the whole entry session
   onSaved: () => void;
 }
 
-export default function ReadinessEntryTable({ soldiers, config, componentsMode, onSaved }: ReadinessEntryTableProps) {
+export default function ReadinessEntryTable({ soldiers, config, componentsMode, testDate, onSaved }: ReadinessEntryTableProps) {
   const [rows, setRows] = useState<Record<string, RowState>>({});
 
   const runTest = config.tests.find((t) => t.id === 'run_3000m') ?? null;
@@ -88,10 +105,33 @@ export default function ReadinessEntryTable({ soldiers, config, componentsMode, 
   const setRow = (soldierId: string, patch: Partial<RowState>) => {
     setRows((prev) => ({ ...prev, [soldierId]: { ...getRow(soldierId), ...patch } }));
   };
+  const setCell = (soldierId: string, cell: 'run' | 'pullups' | 'dips', patch: Partial<CellState>) => {
+    const row = getRow(soldierId);
+    setRow(soldierId, { [cell]: { ...row[cell], ...patch }, error: null } as Partial<RowState>);
+  };
 
+  const cellReady = (cell: CellState): boolean => {
+    if (cell.notPerformed) return cell.notPerformedReason !== '';
+    return cell.value !== null;
+  };
   const isDirty = (row: RowState): boolean => {
-    if (row.notPerformed) return row.notPerformedReason !== '';
-    return (runActive && row.runSeconds !== null) || (pullupsActive && row.pullups !== null) || (dipsActive && row.dips !== null);
+    return (runActive && (row.run.value !== null || row.run.notPerformed)) ||
+      (pullupsActive && (row.pullups.value !== null || row.pullups.notPerformed)) ||
+      (dipsActive && (row.dips.value !== null || row.dips.notPerformed));
+  };
+  const hasIncompleteNotPerformed = (row: RowState): boolean => {
+    return (runActive && row.run.notPerformed && !row.run.notPerformedReason) ||
+      (pullupsActive && row.pullups.notPerformed && !row.pullups.notPerformedReason) ||
+      (dipsActive && row.dips.notPerformed && !row.dips.notPerformedReason);
+  };
+
+  const applyBulkReason = (soldierId: string, reason: NotPerformedReason) => {
+    const row = getRow(soldierId);
+    const patch: Partial<RowState> = { bulkReason: reason };
+    if (runActive && !row.savedTestIds.has(runTest!.id)) patch.run = { value: null, notPerformed: true, notPerformedReason: reason };
+    if (pullupsActive && !row.savedTestIds.has(pullupsTest!.id)) patch.pullups = { value: null, notPerformed: true, notPerformedReason: reason };
+    if (dipsActive && !row.savedTestIds.has(dipsTest!.id)) patch.dips = { value: null, notPerformed: true, notPerformedReason: reason };
+    setRow(soldierId, patch);
   };
 
   const recordOne = async (soldierId: string, testId: string, body: { value?: number; notPerformedReason?: NotPerformedReason }) => {
@@ -100,7 +140,7 @@ export default function ReadinessEntryTable({ soldiers, config, componentsMode, 
     const res = await fetch('/api/units/readiness/results', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ soldierId, testId, source: 'organized_test', ...body }),
+      body: JSON.stringify({ soldierId, testId, source: 'organized_test', testDate, ...body }),
     });
     const responseBody = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(typeof responseBody.error === 'string' ? responseBody.error : `שגיאה (${res.status})`);
@@ -108,35 +148,32 @@ export default function ReadinessEntryTable({ soldiers, config, componentsMode, 
 
   const handleSaveRow = async (soldierId: string) => {
     const row = getRow(soldierId);
-    if (row.notPerformed && !row.notPerformedReason) {
-      setRow(soldierId, { error: 'יש לבחור סיבה.' });
+    if (hasIncompleteNotPerformed(row)) {
+      setRow(soldierId, { error: 'יש לבחור סיבה לכל מרכיב שסומן כ"לא ביצע".' });
       return;
     }
 
     const toSubmit: Array<{ testId: string; body: { value?: number; notPerformedReason?: NotPerformedReason } }> = [];
-    if (row.notPerformed) {
-      if (runActive && runTest) toSubmit.push({ testId: runTest.id, body: { notPerformedReason: row.notPerformedReason as NotPerformedReason } });
-      if (pullupsActive && pullupsTest) toSubmit.push({ testId: pullupsTest.id, body: { notPerformedReason: row.notPerformedReason as NotPerformedReason } });
-      if (dipsActive && dipsTest) toSubmit.push({ testId: dipsTest.id, body: { notPerformedReason: row.notPerformedReason as NotPerformedReason } });
-    } else {
-      if (runActive && runTest && row.runSeconds !== null) toSubmit.push({ testId: runTest.id, body: { value: row.runSeconds } });
-      if (pullupsActive && pullupsTest && row.pullups !== null) toSubmit.push({ testId: pullupsTest.id, body: { value: row.pullups } });
-      if (dipsActive && dipsTest && row.dips !== null) toSubmit.push({ testId: dipsTest.id, body: { value: row.dips } });
-    }
-    // Never resubmit a cell already saved this session (see file header).
-    const toSubmitFresh = toSubmit.filter((s) => !row.savedTestIds.has(s.testId));
-    if (toSubmitFresh.length === 0) return;
+    const addIfReady = (active: boolean, test: typeof runTest, cell: CellState) => {
+      if (!active || !test || row.savedTestIds.has(test.id) || !cellReady(cell)) return;
+      if (cell.notPerformed) toSubmit.push({ testId: test.id, body: { notPerformedReason: cell.notPerformedReason as NotPerformedReason } });
+      else toSubmit.push({ testId: test.id, body: { value: cell.value as number } });
+    };
+    addIfReady(runActive, runTest, row.run);
+    addIfReady(pullupsActive, pullupsTest, row.pullups);
+    addIfReady(dipsActive, dipsTest, row.dips);
+    if (toSubmit.length === 0) return;
 
-    setRow(soldierId, { error: null, pendingTestIds: new Set(toSubmitFresh.map((s) => s.testId)) });
+    setRow(soldierId, { error: null, pendingTestIds: new Set(toSubmit.map((s) => s.testId)) });
 
-    const results = await Promise.allSettled(toSubmitFresh.map((s) => recordOne(soldierId, s.testId, s.body)));
+    const results = await Promise.allSettled(toSubmit.map((s) => recordOne(soldierId, s.testId, s.body)));
 
     const current = getRow(soldierId);
     const nextSaved = new Set(current.savedTestIds);
     const failures: string[] = [];
     results.forEach((r, i) => {
-      if (r.status === 'fulfilled') nextSaved.add(toSubmitFresh[i].testId);
-      else failures.push(toSubmitFresh[i].testId);
+      if (r.status === 'fulfilled') nextSaved.add(toSubmit[i].testId);
+      else failures.push(toSubmit[i].testId);
     });
     setRow(soldierId, {
       savedTestIds: nextSaved,
@@ -144,6 +181,66 @@ export default function ReadinessEntryTable({ soldiers, config, componentsMode, 
       error: failures.length > 0 ? 'חלק מהשמירה נכשל — נסה שוב עבור השדות שלא נשמרו.' : null,
     });
     if (failures.length === 0) onSaved();
+  };
+
+  const renderCell = (
+    soldierId: string,
+    kind: 'run' | 'pullups' | 'dips',
+    test: NonNullable<typeof runTest>,
+    cell: CellState,
+    gender: RosterSoldierEntry['gender'],
+    saved: boolean,
+    pending: boolean,
+  ) => {
+    if (saved) {
+      return <span className="flex items-center gap-1 text-emerald-700 text-xs font-bold"><Check size={13} /> נשמר</span>;
+    }
+    const thresholdNote = test.threshold.male !== test.threshold.female
+      ? (
+        <span className="text-[10px] text-slate-400 block">
+          סף: {test.unit === 'seconds'
+            ? `${Math.floor(test.threshold[gender] / 60)}:${String(test.threshold[gender] % 60).padStart(2, '0')}`
+            : test.threshold[gender]}
+        </span>
+      )
+      : null;
+    return (
+      <div className="space-y-1">
+        {cell.notPerformed ? (
+          <select
+            value={cell.notPerformedReason}
+            onChange={(e) => setCell(soldierId, kind, { notPerformedReason: e.target.value as NotPerformedReason })}
+            disabled={pending}
+            className="text-xs border border-gray-200 rounded-lg px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-cyan-200 w-full"
+            dir="rtl"
+          >
+            <option value="">בחר סיבה...</option>
+            {REASON_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+          </select>
+        ) : kind === 'run' ? (
+          <RunTimeInput totalSeconds={cell.value} onChange={(v) => setCell(soldierId, kind, { value: v })} disabled={pending} />
+        ) : (
+          <input
+            type="number"
+            min={0}
+            disabled={pending}
+            value={cell.value ?? ''}
+            onChange={(e) => setCell(soldierId, kind, { value: e.target.value === '' ? null : Number(e.target.value) })}
+            className="w-16 px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-300"
+          />
+        )}
+        <label className="flex items-center gap-1 text-[10px] text-slate-500">
+          <input
+            type="checkbox"
+            checked={cell.notPerformed}
+            disabled={pending}
+            onChange={(e) => setCell(soldierId, kind, { notPerformed: e.target.checked, value: null, notPerformedReason: e.target.checked ? cell.notPerformedReason : '' })}
+          />
+          לא ביצע
+        </label>
+        {thresholdNote}
+      </div>
+    );
   };
 
   return (
@@ -156,7 +253,6 @@ export default function ReadinessEntryTable({ soldiers, config, componentsMode, 
             {runActive && <th className="text-right py-2 px-3">ריצת 3,000 מ׳</th>}
             {pullupsActive && <th className="text-right py-2 px-3">עליות מתח</th>}
             {dipsActive && <th className="text-right py-2 px-3">מקבילים</th>}
-            <th className="text-right py-2 px-3">לא ביצע</th>
             <th className="text-right py-2 px-3">תוצאה</th>
             <th className="text-right py-2 px-3">פעולות</th>
           </tr>
@@ -164,95 +260,39 @@ export default function ReadinessEntryTable({ soldiers, config, componentsMode, 
         <tbody>
           {soldiers.map((s, i) => {
             const row = getRow(s.id);
-            const genderNote = (test: typeof runTest) => {
-              if (!test) return null;
-              if (test.threshold.male === test.threshold.female) return null;
-              const mine = test.threshold[s.gender];
-              return <span className="text-[10px] text-slate-400 block">סף: {test.unit === 'seconds' ? `${Math.floor(mine / 60)}:${String(mine % 60).padStart(2, '0')}` : mine}</span>;
-            };
             return (
               <tr key={s.id} className="border-b border-slate-100 last:border-b-0 align-top">
                 <td className="py-2.5 px-3 text-[11px] text-slate-400">{i + 1}</td>
                 <td className="py-2.5 px-3 font-bold text-slate-800">{s.name}</td>
                 {runActive && (
                   <td className="py-2.5 px-3">
-                    {row.savedTestIds.has(runTest!.id) ? (
-                      <span className="flex items-center gap-1 text-emerald-700 text-xs font-bold"><Check size={13} /> נשמר</span>
-                    ) : (
-                      <>
-                        <RunTimeInput
-                          totalSeconds={row.runSeconds}
-                          onChange={(v) => setRow(s.id, { runSeconds: v })}
-                          disabled={row.notPerformed || row.pendingTestIds.has(runTest!.id)}
-                        />
-                        {genderNote(runTest)}
-                      </>
-                    )}
+                    {renderCell(s.id, 'run', runTest!, row.run, s.gender, row.savedTestIds.has(runTest!.id), row.pendingTestIds.has(runTest!.id))}
                   </td>
                 )}
                 {pullupsActive && (
                   <td className="py-2.5 px-3">
-                    {row.savedTestIds.has(pullupsTest!.id) ? (
-                      <span className="flex items-center gap-1 text-emerald-700 text-xs font-bold"><Check size={13} /> נשמר</span>
-                    ) : (
-                      <>
-                        <input
-                          type="number"
-                          min={0}
-                          disabled={row.notPerformed || row.pendingTestIds.has(pullupsTest!.id)}
-                          value={row.pullups ?? ''}
-                          onChange={(e) => setRow(s.id, { pullups: e.target.value === '' ? null : Number(e.target.value) })}
-                          className="w-16 px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-300"
-                        />
-                        {genderNote(pullupsTest)}
-                      </>
-                    )}
+                    {renderCell(s.id, 'pullups', pullupsTest!, row.pullups, s.gender, row.savedTestIds.has(pullupsTest!.id), row.pendingTestIds.has(pullupsTest!.id))}
                   </td>
                 )}
                 {dipsActive && (
                   <td className="py-2.5 px-3">
-                    {row.savedTestIds.has(dipsTest!.id) ? (
-                      <span className="flex items-center gap-1 text-emerald-700 text-xs font-bold"><Check size={13} /> נשמר</span>
-                    ) : (
-                      <>
-                        <input
-                          type="number"
-                          min={0}
-                          disabled={row.notPerformed || row.pendingTestIds.has(dipsTest!.id)}
-                          value={row.dips ?? ''}
-                          onChange={(e) => setRow(s.id, { dips: e.target.value === '' ? null : Number(e.target.value) })}
-                          className="w-16 px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-300"
-                        />
-                        {genderNote(dipsTest)}
-                      </>
-                    )}
+                    {renderCell(s.id, 'dips', dipsTest!, row.dips, s.gender, row.savedTestIds.has(dipsTest!.id), row.pendingTestIds.has(dipsTest!.id))}
                   </td>
                 )}
-                <td className="py-2.5 px-3">
-                  <div className="space-y-1">
-                    <label className="flex items-center gap-1.5 text-xs">
-                      <input
-                        type="checkbox"
-                        checked={row.notPerformed}
-                        onChange={(e) => setRow(s.id, { notPerformed: e.target.checked, runSeconds: null, pullups: null, dips: null, error: null })}
-                      />
-                      לא ביצע
-                    </label>
-                    {row.notPerformed && (
-                      <select
-                        value={row.notPerformedReason}
-                        onChange={(e) => setRow(s.id, { notPerformedReason: e.target.value as NotPerformedReason })}
-                        className="text-xs border border-gray-200 rounded-lg px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-cyan-200"
-                        dir="rtl"
-                      >
-                        <option value="">בחר סיבה...</option>
-                        {REASON_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-                      </select>
-                    )}
-                  </div>
-                </td>
                 <td className="py-2.5 px-3"><ReadinessStatusBadge status={s.currentStatus} notPerformedReason={s.notPerformedReason} /></td>
-                <td className="py-2.5 px-3">
+                <td className="py-2.5 px-3 space-y-1.5 min-w-[140px]">
+                  <div className="flex items-center gap-1">
+                    <select
+                      value={row.bulkReason}
+                      onChange={(e) => { if (e.target.value) applyBulkReason(s.id, e.target.value as NotPerformedReason); }}
+                      className="text-[10px] border border-gray-200 rounded-lg px-1 py-1 focus:outline-none focus:ring-2 focus:ring-cyan-200"
+                      dir="rtl"
+                      title="סמן את כל המרכיבים הפעילים כלא ביצע, בסיבה אחת"
+                    >
+                      <option value="">לא ביצע הכל...</option>
+                      {REASON_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                    </select>
+                  </div>
                   <button
                     onClick={() => handleSaveRow(s.id)}
                     disabled={!isDirty(row) || row.pendingTestIds.size > 0}
@@ -261,7 +301,7 @@ export default function ReadinessEntryTable({ soldiers, config, componentsMode, 
                     {row.pendingTestIds.size > 0 ? <Loader2 size={12} className="animate-spin" /> : null}
                     שמור
                   </button>
-                  {row.error && <p className="text-[10px] text-red-600 font-semibold mt-1">{row.error}</p>}
+                  {row.error && <p className="text-[10px] text-red-600 font-semibold">{row.error}</p>}
                 </td>
               </tr>
             );

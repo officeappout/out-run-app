@@ -14,16 +14,23 @@ import { Loader2, ClipboardList, ArrowRight } from 'lucide-react';
 
 type ComponentsMode = 'both' | 'run_only' | 'strength_only';
 
+function isoDaysAgo(days: number): string {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
 /**
- * Results-entry screen (03.10.2026 locked spec, Stage 3 round 2).
+ * Results-entry screen (03.10.2026 locked spec, Stage 3 round 2;
+ * testDate added 03.10.2026 per David's explicit, approved touch to
+ * readiness-write.service.ts).
  *
- * "תאריך הבוחן" is displayed as today's date and is NOT editable —
- * computeRecordResult (readiness-write.service.ts, off-limits this
- * round) hardcodes `recordedAt: new Date()` with no client-supplied-date
- * field at all. If retroactive entry (recording a test that happened on
- * an earlier date) is actually needed, that requires a deliberate,
- * scoped change to the protected write-service file — flagged, not
- * silently assumed either way.
+ * "תאריך הבוחן" is a real, editable date — separate from recordedAt
+ * (the write-time timestamp, still server-only). The server is the
+ * authoritative enforcement (not in the future, not more than 90 days
+ * back, rejected with a clear message); the date input's min/max here
+ * are a client-side convenience only, never trusted alone. An organized
+ * test happens on paper in the field and is typed in days later —
+ * "today" is just the sensible default, not an assumption the server
+ * relies on.
  */
 export default function ReadinessEntryPage() {
   const [loading, setLoading] = useState(true);
@@ -36,6 +43,7 @@ export default function ReadinessEntryPage() {
 
   const [selectedUnitId, setSelectedUnitId] = useState<string>('');
   const [componentsMode, setComponentsMode] = useState<ComponentsMode>('both');
+  const [testDate, setTestDate] = useState<string>(() => isoDaysAgo(0));
 
   const load = useCallback(async () => {
     const token = await auth.currentUser?.getIdToken();
@@ -81,7 +89,6 @@ export default function ReadinessEntryPage() {
   }
 
   const unitSoldiers = soldiers.filter((s) => s.unitId === selectedUnitId);
-  const todayLabel = new Date().toLocaleDateString('he-IL');
 
   return (
     <div dir="rtl" className="space-y-6 pb-12 max-w-5xl mx-auto">
@@ -147,7 +154,17 @@ export default function ReadinessEntryPage() {
               ) : (
                 <p className="text-sm text-gray-700"><span className="font-bold">יחידה:</span> {units[0]?.name ?? '—'}</p>
               )}
-              <p className="text-sm text-gray-700"><span className="font-bold">תאריך הבוחן:</span> {todayLabel}</p>
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-bold text-gray-600">תאריך הבוחן:</label>
+                <input
+                  type="date"
+                  value={testDate}
+                  min={isoDaysAgo(90)}
+                  max={isoDaysAgo(0)}
+                  onChange={(e) => setTestDate(e.target.value)}
+                  className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-cyan-200 bg-white"
+                />
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -190,6 +207,7 @@ export default function ReadinessEntryPage() {
               soldiers={unitSoldiers}
               config={config}
               componentsMode={componentsMode}
+              testDate={testDate}
               onSaved={() => load().catch((err) => console.error('[ReadinessEntry] refresh error:', err))}
             />
           )}
