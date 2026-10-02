@@ -200,20 +200,32 @@ function ProgramPill({
 }
 
 // ─── Muscle chip (shared between the primary/secondary rows) ───────────────────
-// Visual states, in precedence order:
+// Four visually distinct states (UX pass #2 — the old pale-blue-vs-pale-grey
+// pair was almost indistinguishable; this reuses the same solid ACTIVE_PILL
+// treatment as the program pills / "אוטו" button so selection reads as ONE
+// consistent app-wide language, not a separate muscle-grid style):
 //   isGated      — conflicts with the currently-selected program's domain(s)
 //                  (unchanged, pre-existing behaviour): fully blocked, opacity-30.
-//   isUnassessed — NEW: the user has never been assessed for any program this
-//                  muscle could activate. Ported from ProgramPill's isUnenrolled
-//                  visual language (opacity-40 grayscale) — still clickable,
-//                  tapping opens the same assessment popup (handled by onToggle).
-//   active       — selected (manual, darker; auto, lighter sky) — unchanged.
+//   isUnassessed — never assessed in any program this muscle could activate:
+//                  muted + a small lock badge. Still clickable — tapping opens
+//                  the same assessment popup via onToggle → toggleChip's own
+//                  gate — never a silent no-op.
+//   active (isManual || isAuto), with a readable sub-state:
+//     isRecommended — active AND still the untouched system recommendation
+//                     (isUsingRecommendedDefaults true, nothing manually
+//                     touched yet): same strong fill plus a small sparkle
+//                     marker, so a pre-filled chip reads as "the system
+//                     picked this, change it if you want" rather than a
+//                     silently pre-checked box.
+//     plain active  — manually confirmed: strong brand-teal fill, no marker.
+//   unselected — neutral border, full-opacity (grayscale) icon, clearly tappable.
 function MuscleChipButton({
   chip,
   isManual,
   isAuto,
   isGated,
   isUnassessed,
+  isRecommended,
   size,
   onToggle,
 }: {
@@ -222,6 +234,7 @@ function MuscleChipButton({
   isAuto: boolean;
   isGated: boolean;
   isUnassessed: boolean;
+  isRecommended: boolean;
   size: number;
   onToggle: () => void;
 }) {
@@ -231,17 +244,23 @@ function MuscleChipButton({
       onClick={() => !isGated && onToggle()}
       disabled={isGated}
       className={`
-        flex-shrink-0 flex flex-col items-center gap-1 px-2 pt-2 pb-1.5 rounded-2xl
-        text-[11px] font-bold min-w-[52px]
+        relative flex-shrink-0 flex flex-col items-center gap-1 px-2 pt-2 pb-1.5 rounded-2xl border
+        text-[11px] font-bold min-w-[58px]
         ${isGated
-          ? 'opacity-30 cursor-not-allowed text-gray-400'
+          ? 'opacity-30 cursor-not-allowed border-transparent text-gray-400'
           : isUnassessed
-            ? 'opacity-40 cursor-pointer text-gray-400'
+            ? 'border-gray-200 dark:border-gray-700 text-gray-400 cursor-pointer'
             : `transition-all active:scale-95 ${active
-                ? (isManual ? 'bg-[#2b6cb0]/10 text-[#2b6cb0]' : 'bg-sky-100 text-sky-600')
-                : 'text-gray-500 hover:bg-gray-50'}`}
+                ? `${ACTIVE_PILL} ${isRecommended ? 'ring-2 ring-offset-1 ring-[#00BAF7]/40 dark:ring-offset-gray-900' : ''}`
+                : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'}`}
       `}
     >
+      {isUnassessed && (
+        <Lock size={10} className="absolute top-1.5 right-1.5 text-gray-400" />
+      )}
+      {active && isRecommended && (
+        <span className="absolute -top-1.5 -left-1.5 text-[10px] leading-none" aria-hidden>✨</span>
+      )}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={chip.svgPath}
@@ -249,7 +268,7 @@ function MuscleChipButton({
         width={size}
         height={size}
         className="object-contain"
-        style={{ filter: isUnassessed ? 'grayscale(100%)' : active ? 'none' : 'grayscale(100%) opacity(0.8)' }}
+        style={{ filter: isUnassessed ? 'grayscale(100%) opacity(0.5)' : active ? BOLT_FILTER_FILLED_ACTIVE : 'grayscale(100%)' }}
         onError={(e) => {
           const el = e.currentTarget;
           el.style.display = 'none';
@@ -287,7 +306,11 @@ export default function WorkoutBuilderSheet({
   const initDuration = useRef<number>(
     (() => {
       const n = Number(defaultDurationParam);
-      return (TIME_OPTIONS as readonly number[]).includes(n) ? n : 45;
+      // UX pass #1 — recommended default: 30 ("קלאסי. הזמן שעובד לרוב" per
+      // TIME_MOTIVATION's own copy below) rather than 45. No per-user
+      // duration preference exists anywhere in the profile today — this is
+      // the app's own already-established "typical" value, not a new signal.
+      return (TIME_OPTIONS as readonly number[]).includes(n) ? n : 30;
     })(),
   );
   const initDifficulty = useRef<DifficultyLevel>(paramToDifficulty(defaultIntensityParam));
@@ -376,11 +399,32 @@ export default function WorkoutBuilderSheet({
 
   // ── If no explicit defaultProgramId, fall back to user's active program ──
   const activeTemplateId = profile?.progression?.activePrograms?.[0]?.templateId;
+
+  // ── Recommended defaults (UX pass #1) — the user's own real active program
+  // is "the recommendation" whenever nothing has been manually chosen. One
+  // definition, reused by the opening pre-fill effect AND the "אוטו" reset
+  // action below, instead of two copies of "what's recommended."
+  const recommendedProgramIds = useMemo<string[]>(
+    () => (activeTemplateId ? [activeTemplateId] : []),
+    [activeTemplateId],
+  );
+  const isAutoActive = useMemo(() => {
+    if (recommendedProgramIds.length === 0) return selectedProgramIds.length === 0;
+    return selectedProgramIds.length === recommendedProgramIds.length &&
+      recommendedProgramIds.every(id => selectedProgramIds.includes(id));
+  }, [selectedProgramIds, recommendedProgramIds]);
+
+  // ── "Recommended defaults" legibility (UX pass #1) — true until the user
+  // manually touches program / duration / intensity / muscles; flips back to
+  // true on "אוטו" (an explicit request to return to the recommendation).
+  // Display-only — never affects generation.
+  const [isUsingRecommendedDefaults, setIsUsingRecommendedDefaults] = useState(true);
+
   useEffect(() => {
-    if (activeTemplateId && selectedProgramIds.length === 0 && !initProgramId.current) {
-      setSelectedProgramIds([activeTemplateId]);
+    if (recommendedProgramIds.length > 0 && selectedProgramIds.length === 0 && !initProgramId.current) {
+      setSelectedProgramIds(recommendedProgramIds);
     }
-  }, [activeTemplateId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [recommendedProgramIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Program → auto-select muscle chips ──────────────────────────────────
   useEffect(() => {
@@ -662,6 +706,7 @@ export default function WorkoutBuilderSheet({
 
     const wasActive = selectedChips.includes(id);
     setSelectedChips(prev => (wasActive ? prev.filter(c => c !== id) : [...prev, id]));
+    setIsUsingRecommendedDefaults(false);
 
     // Muscle → program inverse (Behavior #2) — only on activation, only for
     // programs the user is actually enrolled in. A muscle can be primary for
@@ -909,6 +954,26 @@ export default function WorkoutBuilderSheet({
           );
         })()}
 
+        {/* ── Recommended defaults banner (UX pass #1) ────────────────────
+            Shown only while nothing has been manually touched yet, so the
+            pre-filled program/duration/intensity/muscles read legibly as
+            "we picked these for you, change anything below" rather than
+            silently pre-checked chips. Disappears the moment any control is
+            touched, and reappears on an explicit "אוטו" tap. */}
+        {!isScheduleMode && isUsingRecommendedDefaults && recommendedProgramIds.length > 0 && (
+          <div className="flex items-start gap-2.5 px-4 py-3 bg-sky-50 dark:bg-sky-900/20 rounded-2xl border border-sky-100 dark:border-sky-800">
+            <span className="text-base leading-none mt-0.5" aria-hidden>✨</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-sky-700 dark:text-sky-300 leading-snug">
+                מילאנו עבורכם הגדרות מומלצות
+              </p>
+              <p className="text-xs text-sky-500 dark:text-sky-400 mt-0.5">
+                תוכנית, משך, עצימות ואזורי אימון — אפשר לשנות כל דבר למטה
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* ── Schedule mode: date + time ── */}
         {isScheduleMode && scheduleDateParam && (
           <>
@@ -1009,6 +1074,7 @@ export default function WorkoutBuilderSheet({
                       setAvailableTime(t);
                       setShowCustomTime(false);
                       setTimeMotivation(TIME_MOTIVATION[t][gender]);
+                      setIsUsingRecommendedDefaults(false);
                     }}
                     className={`flex flex-col items-center gap-0.5 py-3 rounded-2xl border text-xs font-bold transition-all active:scale-95 ${active ? ACTIVE_PILL : INACTIVE_PILL}`}
                   >
@@ -1023,6 +1089,7 @@ export default function WorkoutBuilderSheet({
                   setShowCustomTime(true);
                   setAvailableTime(customTime);
                   setTimeMotivation(TIME_MOTIVATION['other'][gender]);
+                  setIsUsingRecommendedDefaults(false);
                 }}
                 className={`flex flex-col items-center gap-0.5 py-3 rounded-2xl border text-xs font-bold transition-all active:scale-95 ${showCustomTime ? ACTIVE_PILL : INACTIVE_PILL}`}
               >
@@ -1055,6 +1122,7 @@ export default function WorkoutBuilderSheet({
                     const v = Number(e.target.value);
                     setCustomTime(v);
                     setAvailableTime(v);
+                    setIsUsingRecommendedDefaults(false);
                   }}
                   className="w-full h-2 rounded-full accent-[#00BAF7] cursor-pointer"
                   style={{ direction: 'rtl' }}
@@ -1074,13 +1142,23 @@ export default function WorkoutBuilderSheet({
             <div className="overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
               <div className="flex gap-2 pb-1" style={{ direction: 'rtl' }}>
                 <button
-                  onClick={() => { setSelectedProgramIds([]); setMuscleAddedProgramIds(new Set()); }}
-                  className={`flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2.5 rounded-2xl border text-xs font-bold transition-all active:scale-95 ${selectedProgramIds.length === 0 ? ACTIVE_PILL : INACTIVE_PILL}`}
+                  onClick={() => {
+                    // "אוטו" fills the grid with the system's recommendation
+                    // and leaves it visible + editable — it must never blank
+                    // the grid to a uniform grey (that was the bug: it reads
+                    // as "we picked for you," not "we erased your picks").
+                    setSelectedProgramIds(recommendedProgramIds);
+                    setSelectedChips([]);
+                    setMuscleAddedProgramIds(new Set());
+                    setIsUsingRecommendedDefaults(true);
+                    setMuscleExpanded(true);
+                  }}
+                  className={`flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2.5 rounded-2xl border text-xs font-bold transition-all active:scale-95 ${isAutoActive ? ACTIVE_PILL : INACTIVE_PILL}`}
                   style={{ minWidth: 68 }}
                 >
                   <span className="text-base leading-none">✨</span>
                   <span>אוטו</span>
-                  <span className={`text-[10px] font-medium ${selectedProgramIds.length === 0 ? 'text-blue-100' : 'text-gray-400'}`}>
+                  <span className={`text-[10px] font-medium ${isAutoActive ? 'text-blue-100' : 'text-gray-400'}`}>
                     מומלץ
                   </span>
                 </button>
@@ -1097,6 +1175,7 @@ export default function WorkoutBuilderSheet({
                               ? prev.filter(id => id !== prog.id)
                               : [...prev, prog.id],
                           );
+                          setIsUsingRecommendedDefaults(false);
                           // An explicit tap always "promotes" the program to
                           // manual — whether adding it fresh or re-affirming
                           // one the muscle inverse (#2) already added — so
@@ -1186,7 +1265,8 @@ export default function WorkoutBuilderSheet({
                         isAuto={autoChips.includes(chip.id)}
                         isGated={isGated}
                         isUnassessed={!isGated && !isChipAssessed(chip)}
-                        size={34}
+                        isRecommended={isUsingRecommendedDefaults}
+                        size={44}
                         onToggle={() => toggleChip(chip.id)}
                       />
                     );
@@ -1212,7 +1292,8 @@ export default function WorkoutBuilderSheet({
                         isAuto={autoChips.includes(chip.id)}
                         isGated={isGated}
                         isUnassessed={!isGated && !isChipAssessed(chip)}
-                        size={24}
+                        isRecommended={isUsingRecommendedDefaults}
+                        size={32}
                         onToggle={() => toggleChip(chip.id)}
                       />
                     );
@@ -1239,7 +1320,7 @@ export default function WorkoutBuilderSheet({
               return (
                 <button
                   key={level}
-                  onClick={() => setDifficulty(level)}
+                  onClick={() => { setDifficulty(level); setIsUsingRecommendedDefaults(false); }}
                   className={`flex-1 flex flex-col items-center gap-2 py-3 rounded-2xl border transition-all active:scale-95 ${active ? ACTIVE_PILL : INACTIVE_PILL}`}
                 >
                   <span className="flex items-center gap-0.5">
