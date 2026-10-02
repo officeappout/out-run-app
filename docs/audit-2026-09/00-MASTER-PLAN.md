@@ -2953,3 +2953,94 @@ hardcoded — כדי לא ליצור את אותה שבריריות תלוית-�
 מייל/שם/מזהה לא הודפס.
 
 ענף קיים (`feat/readiness-results-entry-screen`), **לא נדחף**, כמבוקש.
+
+**תיקון-רישום (03.10.2026):** הענף הזה (קומיט `e2befaaa`) נמצא כעת על
+`origin/main` — מוזג/נדחף על ידי דוד עצמו, לא על ידי הסוכן. זה בדיוק
+ה"הזנה ראשונה אי-פעם ל-readiness_results" שהובילה לממצא ב-§13.72
+למטה.
+
+### §13.72 — באג-פרודקשן אמיתי: 500 ב-GET roster מיד אחרי הכתיבה הראשונה (03.10.2026)
+
+**חקירה לפני תיקון, כנדרש במפורש, שלוש תשובות מדויקות:**
+
+1. **ספירה: 3 מסמכים** ב-`readiness_results`. **אין אובדן נתון** —
+   שלוש הכתיבות נשמרו בהצלחה; זה כשל-תצוגה, לא כשל-נתון.
+2. **הצורה המדויקת של המסמך האמיתי** (שמות שדות וטיפוסים, בלי ערכים
+   מזהים): `soldierId: string · tenantId: string · unitId: string ·
+   testId: string · outcome: string · value: number ·
+   notPerformedReason: null · source: string · thresholdSnapshot:
+   object{thresholdVersion,gender,thresholdValue,lowerIsBetter,
+   validityDays} · recordedBy: string · recordedAt: Firestore Timestamp
+   · testDate: Firestore Timestamp · uid: string`.
+3. **מיקום הזריקה המדויק, עם השגיאה האמיתית, שוכפל נגד המסמך האמיתי
+   (לא fixture אמולטור):** `computeSoldierCurrentStatus`
+   (`readiness-write.service.ts`), בשורה
+   `results...sort((a,b) => b.recordedAt.getTime() - ...)`, מגיע
+   מהלולאה ב-`computeUnitRoster`. שגיאה אמיתית, משוכפלת מילה-במילה:
+   `TypeError: latest.recordedAt.getTime is not a function`.
+   **שורש-הבעיה המאומת:** Firestore Admin SDK מחזיר מופעי `Timestamp`
+   בקריאה (לא `Date` רגיל), אפילו לשדה שנכתב כ-`new Date()`. ל-`Timestamp`
+   אין `.getTime()`, יש `.toDate()`. ההשערה של דוד אומתה במדויק.
+
+**ממצא-בונוס, אותה משפחת-שורש, שקט ולא-קורס (לא זה שגרם ל-500, אבל
+אותה בעיה בדיוק):** `readiness_soldiers.linkedAt` הוא גם `Timestamp`
+בקריאה; `toIsoOrNull`'s `instanceof Date` מחזיר `false` עליו — אז
+`linkedAt` של **כל** חייל-מקושר-אמיתי הוצג כ-`null` בתגובת ה-roster,
+גם כשהוא באמת מקושר. תוקן באותו מקום.
+
+**שלושת התיקונים, כולם בוצעו, ענף `fix/readiness-roster-timestamp-500`
+מעל `main` הנוכחי (לא נגוע):**
+
+**א. התיקון עצמו + הבדיקה שהייתה חסרה.** `toDate(v)` חדש
+(`readiness-read.service.ts`) מנרמל Timestamp→Date **בגבול אחד**, בלולאת
+בניית `resultsBySoldier` ב-`computeUnitRoster` — לא בכל פונקציה
+שצורכת `ReadinessResult`, כך ש-`computeSoldierCurrentStatus`/
+`findCurrentNotPerformedReason` ממשיכות לבטוח ב-`.getTime()` בלי שינוי,
+כי עד שהן רואות את הנתון הוא **באמת** `Date`. `toIsoOrNull` תוקן
+במקביל לתמוך גם ב-`Timestamp`. **הבדיקה שהייתה חסרה, נבנתה:** קובץ
+אינטגרציה חדש, `readiness-write-then-read.integration.test.ts` —
+כותב דרך `computeRecordResult` **וקורא** דרך `computeUnitRoster` **באותו
+מבחן**, מול fake db שמדמה באמת את המרה-ל-Timestamp-בכתיבה (מחלקת
+`FakeTimestamp` עם `.toDate()`/`.toMillis()`, **בלי** `.getTime()` —
+בדיוק כמו ה-SDK האמיתי). **אומת ששהבדיקה הזו באמת תופסת את הבאג:**
+הוסר זמנית `toDate(...)` מהקוד, הורצה הבדיקה — נכשלה עם **אותה שגיאה
+מדויקת** שקרתה בפרודקשן (`TypeError: latest.recordedAt.getTime is not
+a function`), אז הוחזר התיקון ואומת שהבדיקה עוברת. זו לא בדיקה
+שנכתבה ולא נבדקה שהיא תופסת — נבדקה במו-ידיים.
+**אומת גם נגד פרודקשן בפועל** (סקריפט חד-פעמי, קריאה בלבד, נמחק מיד):
+קריאה ל-`computeUnitRoster` האמיתי מול 3 הרשומות האמיתיות →
+`status: 200`, `linkedAt` כ-string תקין — לא עוד 500.
+
+**ב. הודעת "נשמר" — הופרדה משני המצבים.** `ReadinessEntryTable`'s
+`handleSaveRow` כבר סימן "✓ נשמר" רק אחרי `Promise.allSettled` על
+קריאת-POST אמיתית (לא שינוי). **הפער היה ב-`onSaved`** (`page.tsx`):
+רענון-תצוגה שנכשל נרשם ל-console בלבד, בלי שום סימן למשתמש — התוצאה
+כבר נשמרה בשרת, אבל המסך לא עודכן, ולא היה שום אינדיקציה. **תוקן:**
+מצב חדש, `refreshWarning`, נפרד לגמרי מ-`loadError` (כתום, לא אדום —
+"התוצאה נשמרה בהצלחה בשרת, אך תצוגת הרשימה לא התעדכנה. רענן את הדף"),
+עם כפתור-רענון ייעודי. שני מצבים, שתי הודעות, לעולם לא כשל שקט.
+
+**ג. Internal error — קוד-שגיאה ניתן-להצלבה, בלי לחשוף פרטים.** קובץ
+חדש, `readiness-error-id.ts`, `logReadinessInternalError(routeName,
+err)` — מייצר מזהה-שגיאה ייחודי, רושם אותו ל-console **לצד** השגיאה
+האמיתית המלאה (לא רק `.message`, גם `.stack` כשקיים), ומחזיר ללקוח
+`{error: "שגיאה פנימית. קוד: <id>", errorId: <id>}` — בלי חשיפת
+stack/internals. **הוחל על כל 7 מסלולי ה-readiness** (לא רק זה
+שנשבר) — אותה פרצה-עיוורת הייתה חוזרת במסלול-אח מחר. 4 בדיקות חדשות
+ל-`logReadinessInternalError` עצמו.
+
+**אקסיומה חדשה, §31 ב-`axioms.md`, כפי שנדרש במפורש:** אימות-צורה מול
+פרודקשן אינו אפשרי על אוסף ריק — אין מסמך אמיתי לבדוק נגדו עד שהכתיבה
+הראשונה קורית, ואז זה כבר מאוחר. הכלל: כל כתיבה-ראשונה לאוסף חדש
+חייבת בדיקת כתיבה-ואז-קריאה **באותו מבחן**, מול fake db שמדמה את
+המרת-הטיפוס האמיתית של ה-DB (לא רק מחזירה מה שהוכנס), ובדיקה חיה
+מיד אחרי דיפלוי — לא נדחית ל"מתי שדוד יבדוק."
+
+**אימות:** tsc 448 (ללא שינוי). שלוש הרצות מבודדות: 82/82 (48
+write-service + 27 read-service + 3 אינטגרציה חדשים + 4 error-id
+חדשים). סוויטה רחבה: 2789/2819 (אותם 2 כשלי-תאריך קיימים-מראש + 28
+מדולגים-emulator, לא קשורים — אין רגרסיה). `firestore.rules` לא נגוע.
+שום מייל/שם/מזהה לא הודפס באף שלב.
+
+ענף חדש (`fix/readiness-roster-timestamp-500`), מעל `main` הנוכחי,
+**לא נדחף**, ממתין להוראה מפורשת.

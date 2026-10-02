@@ -175,8 +175,45 @@ function findCurrentNotPerformedReason(results: ReadinessResult[], testId: strin
   return latest.outcome === 'not_performed' ? latest.notPerformedReason : null;
 }
 
+/**
+ * Normalizes a Firestore-read date-ish value to a real JS Date.
+ *
+ * 03.10.2026 production incident — the Admin SDK always returns
+ * Firestore Timestamp instances (not plain JS Date) when reading back a
+ * field that was written as `new Date()`. Every field typed `Date` in
+ * ReadinessResult/ReadinessSoldier is affected the instant it's read
+ * from Firestore — the type was never dishonest at WRITE time, only at
+ * READ time, which is exactly why this stayed invisible: every test in
+ * this build uses an in-memory fake db that hands back whatever JS
+ * object was stored, never round-tripping through Firestore's real
+ * serialization. The very first real readiness_results document ever
+ * written hit this immediately: computeSoldierCurrentStatus (and this
+ * file's own findCurrentNotPerformedReason) call `.getTime()` on
+ * `recordedAt`, which a Timestamp does not have, and both threw
+ * `TypeError: ...getTime is not a function`.
+ *
+ * Fixed ONCE, at the boundary where Firestore data becomes a
+ * ReadinessResult object (the results loop below) — every downstream
+ * consumer keeps calling `.getTime()` on `recordedAt`/`testDate`
+ * exactly as before, because by the time they see it, it's genuinely a
+ * Date, not because they were made Timestamp-aware individually.
+ */
+function toDate(v: unknown): Date {
+  if (v instanceof Date) return v;
+  if (v && typeof (v as { toDate?: unknown }).toDate === 'function') {
+    return (v as { toDate: () => Date }).toDate();
+  }
+  throw new Error(`Expected a Date or Firestore Timestamp, got: ${typeof v}`);
+}
+
+/** Same Timestamp-vs-Date gap as toDate() above, for the one call site
+ * (soldier.linkedAt) that tolerates absence instead of needing to throw —
+ * an unlinked soldier's linkedAt is legitimately null, not a bug. */
 function toIsoOrNull(d: unknown): string | null {
   if (d instanceof Date) return d.toISOString();
+  if (d && typeof (d as { toDate?: unknown }).toDate === 'function') {
+    return (d as { toDate: () => Date }).toDate().toISOString();
+  }
   return null;
 }
 
@@ -243,7 +280,11 @@ export async function computeUnitRoster(
     const data = doc.data() as Omit<ReadinessResult, 'id'>;
     if (!inScope(data.unitId)) continue;
     const list = resultsBySoldier.get(data.soldierId) ?? [];
-    list.push({ id: doc.id, ...data });
+    // Normalize at the boundary — see toDate()'s own comment. Without
+    // this, computeSoldierCurrentStatus/findCurrentNotPerformedReason's
+    // .getTime() calls throw on every real result (never on fake-db
+    // test data, which is exactly how this shipped undetected).
+    list.push({ id: doc.id, ...data, recordedAt: toDate(data.recordedAt), testDate: toDate(data.testDate) });
     resultsBySoldier.set(data.soldierId, list);
   }
 
