@@ -97,6 +97,52 @@ export const PROG_TO_CHIPS: Record<string, string[]> = {
 };
 
 /**
+ * Per-program PRIMARY movers — hand-curated (same authorship model as
+ * PROG_TO_CHIPS: a flat, manually-maintained table, not derived from
+ * exercise data). Used ONLY for the muscle→program inverse selection in
+ * WorkoutBuilderSheet's bidirectional muscle↔program feature — selecting a
+ * muscle chip auto-selects every program where that muscle is listed here.
+ *
+ * NOT the same axis as `MuscleChip.group` ('primary'|'secondary'): that's a
+ * GLOBAL anatomical size classification (which scroll row a muscle sits in),
+ * fixed per muscle, independent of any program. This table is PER-PROGRAM
+ * and deliberately narrower than PROG_TO_CHIPS's full per-program muscle
+ * list — do not conflate the two or use one in place of the other.
+ *
+ * Aggregates (upper_body/lower_body/full_body) have no entry — the
+ * muscle→program inverse never auto-selects an aggregate.
+ */
+export const PROG_PRIMARY_CHIPS: Record<string, string[]> = {
+  push: ['chest'],
+  pull: ['back'],
+  legs: ['quads', 'glutes'],
+  core: ['abs'],
+  planche: ['shoulders'],
+  front_lever: ['back'],
+  handstand: ['shoulders'],
+  handstand_pushup: ['shoulders'],
+  muscle_up: ['back', 'chest'],
+  back_lever: ['back'],
+  one_arm_pullup: ['back'],
+  human_flag: ['shoulders'],
+};
+
+/**
+ * Reverse index of PROG_PRIMARY_CHIPS: muscle chip id → every program id
+ * where it is a PRIMARY mover. Built once at module load (small, static
+ * table) rather than inverted on every render/call.
+ */
+export const CHIP_TO_PRIMARY_PROGRAMS: Record<string, string[]> = (() => {
+  const out: Record<string, string[]> = {};
+  for (const [programId, chipIds] of Object.entries(PROG_PRIMARY_CHIPS)) {
+    for (const chipId of chipIds) {
+      (out[chipId] ??= []).push(programId);
+    }
+  }
+  return out;
+})();
+
+/**
  * Given a program's focusDomains array (may contain domain strings or program
  * IDs), return the INDIVIDUAL chip IDs to highlight in the UI.
  *
