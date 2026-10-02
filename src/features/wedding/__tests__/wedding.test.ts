@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildRoadmap, daysBeforeFor, daysUntil, gematria, hebrewDate, hebrewDateLabel, layoutWeek, rankVenues, taskDueDate, toIso, venueCost } from '../wedding.calc';
+import { blockedReason, buildRoadmap, dateFactor, daysBeforeFor, daysUntil, gematria, hebrewDate, hebrewDateLabel, layoutWeek, monthOptions, rankVenues, taskDueDate, toIso, venueCost } from '../wedding.calc';
 import { DEFAULT_SETTINGS, initialWeddingState } from '../wedding.config';
 import { LIMITS, parseWeddingState } from '../wedding.schema';
 import type { Venue } from '../wedding.types';
@@ -210,5 +210,34 @@ describe('venue catalog', () => {
     expect(s.venues[0].priceIsEstimate).toBe(false);
     expect(parseWeddingState({ venues: [{ name: 'x', price: 457, priceIsEstimate: true }] }).venues[0].priceIsEstimate).toBe(true);
     expect(parseWeddingState({}).catalogHidden).toEqual([]);
+  });
+});
+
+describe('date comparison', () => {
+  const at = (iso: string) => new Date(`${iso}T12:00:00`);
+  it('blocks the Omer, the Three Weeks and holidays, but not Lag BaOmer', () => {
+    expect(blockedReason(at('2027-04-22'))).toBe('פסח'); // 15 Nisan
+    expect(blockedReason(at('2027-04-29'))).toBe('ספירת העומר'); // 22 Nisan
+    expect(blockedReason(at('2027-05-25'))).toBeNull(); // Lag BaOmer
+    expect(blockedReason(at('2027-06-10'))).toBe('ספירת העומר'); // 5 Sivan
+    expect(blockedReason(at('2027-06-11'))).toBe('שבועות');
+    expect(blockedReason(at('2027-06-13'))).toBeNull();
+    expect(blockedReason(at('2027-07-22'))).toBe('בין המצרים'); // 17 Tammuz
+    expect(blockedReason(at('2027-08-13'))).toBeNull(); // 10 Av
+    expect(blockedReason(at('2027-03-09'))).toBeNull(); // the wedding date
+  });
+  it('prices Thursdays and peak season higher than a winter weekday', () => {
+    expect(dateFactor(at('2027-01-12'))).toBe(1); // Tue, January
+    expect(dateFactor(at('2027-01-14'))).toBeCloseTo(1.11); // Thu
+    expect(dateFactor(at('2027-06-15'))).toBeCloseTo(1.25); // Tue, June
+    expect(dateFactor(at('2027-03-09'))).toBeCloseTo(1.12); // Tue, March
+  });
+  it('counts usable Sun–Thu dates per month', () => {
+    const may = monthOptions(2027, 4);
+    expect(may.blocked['ספירת העומר']).toBeGreaterThan(15);
+    expect(may.weekdayFree + may.thursdayFree).toBeGreaterThanOrEqual(1); // Lag BaOmer at least
+    const jan = monthOptions(2027, 0);
+    expect(Object.keys(jan.blocked)).toEqual([]);
+    expect(jan.weekdayFree + jan.thursdayFree).toBe(21);
   });
 });

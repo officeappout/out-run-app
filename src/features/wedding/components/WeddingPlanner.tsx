@@ -9,6 +9,7 @@ import { TagEditor } from './tags';
 import { TaskLine, TasksHub } from './TasksHub';
 import { SELECTED_STYLE, card, cellInput, fmtDate, fmtIso, newId, type Update } from './ui';
 import { VENUE_CATALOG } from '../data/venueCatalog';
+import { DateCompare } from './DateCompare';
 import { VenueCatalog } from './VenueCatalog';
 import { VenueEditor } from './VenueEditor';
 import { useWeddingStore, type SaveStatus } from './useWeddingStore';
@@ -20,7 +21,7 @@ const TABS: Array<[Tab, string]> = [
   ['venues', 'השוואת אולמות'],
   ['catalog', 'מקומות מוצעים'],
   ['vendors', 'ספקים'],
-  ['market', 'מחירי שוק'],
+  ['market', 'מחירי שוק ותאריכים'],
   ['settings', 'הגדרות'],
 ];
 const WEEKDAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
@@ -611,6 +612,8 @@ function Market({ s, g }: { s: WeddingState; g: number }) {
         <Kpi label="תוספת ליום חמישי" value={MARKET.thursdaySurcharge} sub="על מחיר המנה" />
         <Kpi label="בר אלכוהול" value={`${MARKET.alcoholPerGuest.min}–${MARKET.alcoholPerGuest.max} ₪`} sub="לאורח" />
       </section>
+
+      <DateCompare s={s} />
 
       <section className={card}>
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">

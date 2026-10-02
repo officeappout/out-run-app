@@ -251,3 +251,66 @@ export function hebrewDateLabel(d: Date, withYear = true): string {
   if (!h) return '';
   return `${gematria(h.day)} ב${h.month}${withYear ? ` ${gematria(h.year)}` : ''}`;
 }
+
+/**
+ * Days when weddings are customarily not held, by the Hebrew calendar:
+ * Sefirat HaOmer (16 Nisan – 5 Sivan, except Lag BaOmer), Bein HaMetzarim
+ * (17 Tammuz – 9 Av), and holidays (Rosh Hashana, Yom Kippur, Sukkot,
+ * Pesach, Shavuot). Customs vary (Ashkenazi/Sephardi, end of the Omer) —
+ * this is the common, conservative reading. Shabbat is not included.
+ */
+export function blockedReason(d: Date): string | null {
+  const h = hebrewDate(d);
+  if (!h) return null;
+  const { day, month } = h;
+  if (month === 'תשרי' && (day === 1 || day === 2 || day === 10 || (day >= 15 && day <= 22))) return 'חג';
+  if (month === 'ניסן' && day >= 15 && day <= 21) return 'פסח';
+  if ((month === 'ניסן' && day >= 16) || (month === 'אייר' && day !== 18) || (month === 'סיוון' && day <= 5)) return 'ספירת העומר';
+  if (month === 'סיוון' && day === 6) return 'שבועות';
+  if ((month === 'תמוז' && day >= 17) || (month === 'אב' && day <= 9)) return 'בין המצרים';
+  return null;
+}
+
+/** Price factors from the market research (see MARKET): Thursday +10–12%, peak season +20–30%. */
+export const DAY_FACTOR = { weekday: 1, thursday: 1.11 } as const;
+/** Low season (Nov–Feb) = 1. Peak (Apr–Oct) = 1.25. March: sources disagree → in between. */
+export function seasonFactor(month0: number): number {
+  if (month0 >= 10 || month0 <= 1) return 1;
+  if (month0 === 2) return 1.12;
+  return 1.25;
+}
+export function seasonLabel(month0: number): string {
+  if (month0 >= 10 || month0 <= 1) return 'חורף';
+  if (month0 === 2) return 'מעבר';
+  return 'עונה';
+}
+export function dateFactor(d: Date): number {
+  return seasonFactor(d.getMonth()) * (d.getDay() === 4 ? DAY_FACTOR.thursday : DAY_FACTOR.weekday);
+}
+
+export interface MonthOption {
+  year: number;
+  month0: number;
+  /** Sun–Wed / Thu dates in the month that are not blocked */
+  weekdayFree: number;
+  thursdayFree: number;
+  /** Blocked weekday (Sun–Thu) dates by reason */
+  blocked: Record<string, number>;
+}
+
+/** Counts usable Sun–Thu dates in a month (from `from` on, if given), and how many are blocked and why. */
+export function monthOptions(year: number, month0: number, from?: Date): MonthOption {
+  const out: MonthOption = { year, month0, weekdayFree: 0, thursdayFree: 0, blocked: {} };
+  const days = new Date(year, month0 + 1, 0).getDate();
+  for (let i = 1; i <= days; i++) {
+    const d = new Date(year, month0, i, 12);
+    if (from && d < from) continue;
+    const wd = d.getDay();
+    if (wd > 4) continue;
+    const r = blockedReason(d);
+    if (r) out.blocked[r] = (out.blocked[r] ?? 0) + 1;
+    else if (wd === 4) out.thursdayFree++;
+    else out.weekdayFree++;
+  }
+  return out;
+}
