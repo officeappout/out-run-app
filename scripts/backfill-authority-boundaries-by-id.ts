@@ -75,6 +75,14 @@ interface ByIdEntry extends ProgressEntry {
   preWriteFieldCount?: number; // snapshot taken BEFORE the fetch
   preWriteFields?: string[];
   nameConsistencyOk?: boolean; // feature's OSM name vs our expected name, checked right after fetch
+  // Containment check (02.10.2026, David's spec — replaces area as the
+  // write gate for this batch): does the fetched polygon contain the
+  // point Nominatim returned for this name? Written by the separate
+  // _containment_check.ts pass (isPointInPolygon, @turf/boolean-point-in-polygon,
+  // not reimplemented here) — only declared here so writeReport can read it.
+  containmentResult?: 'CONTAINS' | 'DOES_NOT_CONTAIN' | 'INCONCLUSIVE' | 'ERROR';
+  containmentPoint?: { lat: number; lng: number };
+  containmentNote?: string;
 }
 
 function sleep(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
@@ -177,44 +185,58 @@ function writeReport(entries: ByIdEntry[]) {
   const retry = entries.filter((e) => e.verdict === 'RETRY').length;
   lines.push(`PASS: ${pass} · FLAG: ${flag} · FAIL: ${fail} · RETRY: ${retry} · total ${entries.length}`);
   lines.push('');
-  lines.push('| שם רשות | סוג | relation id | שדות לפני | שם ב-OSM | התאמת שם | גאומטריה | שטח קמ"ר | טבעות | verdict | reasons |');
-  lines.push('|---|---|---|---|---|---|---|---|---|---|---|');
+  lines.push('| שם רשות | סוג | relation id | שדות לפני | שם ב-OSM | התאמת שם | גאומטריה | שטח קמ"ר | טבעות | verdict | תוצאת בדיקת הכלה | reasons |');
+  lines.push('|---|---|---|---|---|---|---|---|---|---|---|---|');
   for (const e of sorted) {
-    lines.push(`| ${e.name} | ${e.type} | ${e.relationId} | ${e.preWriteFieldCount ?? ''} | ${e.osmNameHe || e.osmName || ''} | ${e.nameConsistencyOk === false ? '🔴 MISMATCH' : (e.nameConsistencyOk === true ? 'ok' : '')} | ${e.geometryType ?? ''} | ${e.areaKm2?.toFixed(1) ?? ''} | ${e.ringCount ?? ''} | ${e.verdict} | ${(e.reasons || []).join('; ')} |`);
+    const containmentCol = e.containmentResult === 'CONTAINS' ? '✅ CONTAINS'
+      : e.containmentResult === 'DOES_NOT_CONTAIN' ? '🔴 DOES NOT CONTAIN'
+      : e.containmentResult ? `⚠️ ${e.containmentResult}` : '';
+    lines.push(`| ${e.name} | ${e.type} | ${e.relationId} | ${e.preWriteFieldCount ?? ''} | ${e.osmNameHe || e.osmName || ''} | ${e.nameConsistencyOk === false ? '🔴 MISMATCH' : (e.nameConsistencyOk === true ? 'ok' : '')} | ${e.geometryType ?? ''} | ${e.areaKm2?.toFixed(1) ?? ''} | ${e.ringCount ?? ''} | ${e.verdict} | ${containmentCol} | ${(e.reasons || []).join('; ')} |`);
   }
   fs.mkdirSync(path.dirname(REPORT_FILE), { recursive: true });
   fs.writeFileSync(REPORT_FILE, lines.join('\n') + '\n');
 }
 
-async function runStageB(db: admin.firestore.Firestore, approveFlags: Set<string>) {
+async function runStageB(db: admin.firestore.Firestore) {
   const entries = loadProgress();
   if (!entries) throw new Error('No progress file — run Stage A first.');
-  let written = 0;
+
+  // 02.10.2026, David's explicit spec: all 27 (1 PASS + 26 FLAG) approved
+  // as one batch — the area/name differences don't gate the write here,
+  // containment does. "Does the fetched polygon contain the point
+  // Nominatim returned for this name?" CONTAINS -> write regardless of
+  // name/area FLAG reasons; anything else -> never write, the id is
+  // presumed wrong no matter what the name says. No approveFlags needed —
+  // this replaces that mechanism for this batch.
+  let written = 0, skippedNoContainment = 0, skippedAlready = 0;
   for (const entry of entries) {
     if (entry.status !== 'done') continue;
-    const shouldWrite = entry.verdict === 'PASS' || (entry.verdict === 'FLAG' && approveFlags.has(entry.authorityId));
-    if (!shouldWrite || !entry.featureJson) continue;
+    if (entry.verdict !== 'PASS' && entry.verdict !== 'FLAG') continue;
+    if (entry.containmentResult !== 'CONTAINS') {
+      skippedNoContainment++;
+      console.log(`🔴 ${entry.name} — containment=${entry.containmentResult ?? 'not run'}, NOT written (id presumed wrong regardless of name match).`);
+      continue;
+    }
+    if (!entry.featureJson) continue;
     const ref = db.collection('authorities').doc(entry.authorityId);
     const existing = await ref.get();
-    if (existing.data()?.boundaryGeoJSON) { console.log(`⏭️  ${entry.name} already has a boundaryGeoJSON — skipping.`); continue; }
+    if (existing.data()?.boundaryGeoJSON) { console.log(`⏭️  ${entry.name} already has a boundaryGeoJSON — skipping.`); skippedAlready++; continue; }
     await ref.update({ boundaryGeoJSON: entry.featureJson, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
     written++;
-    console.log(`💾 ${entry.name} (${entry.authorityId}) — written.`);
+    console.log(`💾 ${entry.name} (${entry.authorityId}) — written (containment confirmed).`);
   }
   const allSnap = await db.collection('authorities').get();
   const totalNow = allSnap.docs.filter((d) => !!d.data().boundaryGeoJSON).length;
   console.log(`\n=== STAGE B COMPLETE ===`);
-  console.log(`Written: ${written}. Authorities now carrying a boundary: ${totalNow}.`);
+  console.log(`Written: ${written}. Skipped (no containment): ${skippedNoContainment}. Skipped (already had boundary): ${skippedAlready}. Authorities now carrying a boundary: ${totalNow}.`);
 }
 
 if (require.main === module) {
   const isApply = process.argv.includes('--apply');
-  const approveFlagsArg = process.argv.find((a) => a.startsWith('--approve-flags='));
-  const approveFlags = new Set((approveFlagsArg ? approveFlagsArg.slice('--approve-flags='.length) : '').split(',').filter(Boolean));
   const rawKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
   if (!rawKey) { console.error('❌ FIREBASE_SERVICE_ACCOUNT_KEY not set.'); process.exit(1); }
   const cred = JSON.parse(rawKey);
   if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.cert(cred), projectId: cred.project_id });
   const db = admin.firestore();
-  (isApply ? runStageB(db, approveFlags) : runStageA(db)).then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+  (isApply ? runStageB(db) : runStageA(db)).then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
 }

@@ -366,10 +366,14 @@ Scanned all 47 FAIL entries directly via Nominatim (not Overpass) — does an ad
 
 Two known relations compared directly (admin_level, area, rings, tags) — David chose **relation/1381350** (admin_level=8, standard tagging, matches every other successfully-resolved authority's pattern; area 126.12km², MultiPolygon, 2 outer parts) over relation/6502363 (no admin_level at all, generic `type=multipolygon` tag, smaller area 76.27km² — not a real administrative-boundary-tagged relation).
 
-## 6 authorities closed as "no available source" — not revisited
+## 5 authorities closed as "no available source" — not revisited
 
-מועצה אזורית גליל עמקים, הגליל העליון, הגליל התחתון, הגלבוע, רמת הנגב (all `regional_council`), and **שער שומרון (actually `local_council`, not `regional_council`** — flagged, the original closure list called all 6 regional councils, one isn't).
+**Corrected 02.10.2026** (was 6, with שער שומרון included): מועצה אזורית גליל עמקים, הגליל העליון, הגליל התחתון, הגלבוע, רמת הנגב — all genuinely `regional_council`. שער שומרון moved OUT of this bucket once the `local_council`-vs-`regional_council` mislabel was caught: a `local_council`'s `coordinates` field is one settlement's point, not a scattered-settlements centroid, so reverse-geocoding is actually viable for it — moved to the by-coordinate investigation below instead (13 → 14).
 
-Reasoning: no OSM admin relation exists (confirmed above), and reverse-geocoding by coordinate doesn't fit a regional council's geography — a regional council's own `coordinates` field is some arbitrary point among its scattered member settlements, which would resolve to whichever settlement (possibly belonging to a DIFFERENT authority) happens to contain that point, not the regional council itself. שער שומרון is included here despite being a local_council because the same "no admin relation, and its coordinate point likely falls inside a specific settlement rather than uniquely identifying it" risk applies — flagged for David's awareness, not silently reclassified.
+Reasoning for the remaining 5: no OSM admin relation exists (confirmed above), and reverse-geocoding by coordinate doesn't fit a regional council's geography — a regional council's own `coordinates` field is some arbitrary point among its scattered member settlements, which would resolve to whichever settlement (possibly belonging to a DIFFERENT authority) happens to contain that point, not the regional council itself.
+
+## 14 authorities for coordinate-based reverse-geocoding (not yet run)
+
+The original 13 (דייר אל-אסד, פרדסייה, דבורייה, שבלי-אום אל-גנם, ג'ש (גוש חלב), דייר חנא, ג'ולס, כסרא-סמיע, עיילבון, אכסאל, טירת כרמל, מודיעין עילית) **plus שער שומרון** — correction above — moved here once confirmed as `local_council`, where a single coordinate point meaningfully identifies the place. Not started — explicitly sequenced to begin only after this batch's Stage B writes (now complete).
 
 **Status: no Ministry-of-Interior-file path is being pursued for these (explicitly out of scope per instruction) — permanently unresolved via current sources, closed.**
