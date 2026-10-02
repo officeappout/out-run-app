@@ -116,6 +116,7 @@ function parseVenue(x: unknown, i: number, weddingDate: string): Venue | null {
     extras: money(x.extras),
     discount: money(x.discount),
     notes: str(x.notes, LIMITS.notes),
+    priceIsEstimate: x.priceIsEstimate === true,
     catalogId: typeof x.catalogId === 'string' ? x.catalogId.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 20) : '',
   };
 }

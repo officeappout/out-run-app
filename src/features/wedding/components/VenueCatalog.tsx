@@ -24,8 +24,11 @@ function toVenue(c: CatalogVenue, weddingIso: string): Venue {
     contact: c.phone,
     date: weddingIso,
     status: 'לברר',
-    price: 0,
-    vatIncluded: false,
+    // The reported average fills the price so the venue ranks at once; flagged as an estimate.
+    // Couples report what they paid per guest, so it is treated as VAT-included.
+    price: c.reportedPrice ?? 0,
+    vatIncluded: !!c.reportedPrice,
+    priceIsEstimate: !!c.reportedPrice,
     minGuests: 0,
     alcohol: 0,
     incl: { design: false, chuppah: false, light: false, bar: false },
@@ -86,7 +89,11 @@ export function VenueCatalog({ s, update, goCompare }: { s: WeddingState; update
 
   const add = (c: CatalogVenue) => {
     update((st) => ({ ...st, venues: [...st.venues, toVenue(c, st.settings.date)] }));
-    setNotice(`${c.name} נוסף להשוואת האולמות. כשתקבלו הצעה, פותחים אותו שם ומזינים מחיר.`);
+    setNotice(
+      c.reportedPrice
+        ? `${c.name} נוסף להשוואה עם מחיר משוער של ${c.reportedPrice} ₪ למנה (מדווח). כשתקבלו הצעה, מעדכנים שם את המחיר.`
+        : `${c.name} נוסף להשוואת האולמות. אין לו מחיר מדווח, אז הוא ייכנס לדירוג כשתזינו מחיר מהצעה.`,
+    );
   };
   const setHidden = (id: string, hide: boolean) =>
     update((st) => ({ ...st, catalogHidden: hide ? [...st.catalogHidden.filter((x) => x !== id), id] : st.catalogHidden.filter((x) => x !== id) }));

@@ -22,6 +22,7 @@ const base: Venue = {
   discount: 0,
   notes: '',
   catalogId: '',
+  priceIsEstimate: false,
 };
 
 describe('venueCost', () => {
@@ -206,6 +207,8 @@ describe('venue catalog', () => {
     const s = parseWeddingState({ catalogHidden: ['c01', 'c01', 'x/../y', 5], venues: [{ name: 'גרייס', catalogId: 'c38' }] });
     expect(s.catalogHidden).toEqual(['c01', 'xy']);
     expect(s.venues[0].catalogId).toBe('c38');
+    expect(s.venues[0].priceIsEstimate).toBe(false);
+    expect(parseWeddingState({ venues: [{ name: 'x', price: 457, priceIsEstimate: true }] }).venues[0].priceIsEstimate).toBe(true);
     expect(parseWeddingState({}).catalogHidden).toEqual([]);
   });
 });

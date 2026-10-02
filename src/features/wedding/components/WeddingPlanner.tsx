@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Loader2, Plus, Trash2 } from 'lucide-react';
 import { MARKET } from '../wedding.config';
 import { buildRoadmap, daysUntil, formatShekel, hebrewDateLabel, rankVenues, taskDueDate, tasksOverlapping, venueCost } from '../wedding.calc';
@@ -8,6 +8,7 @@ import { VENDOR_STATUSES, type Venue, type WeddingSettings, type WeddingState } 
 import { TagEditor } from './tags';
 import { TaskLine, TasksHub } from './TasksHub';
 import { SELECTED_STYLE, card, cellInput, fmtDate, fmtIso, newId, type Update } from './ui';
+import { VENUE_CATALOG } from '../data/venueCatalog';
 import { VenueCatalog } from './VenueCatalog';
 import { VenueEditor } from './VenueEditor';
 import { useWeddingStore, type SaveStatus } from './useWeddingStore';
@@ -44,11 +45,29 @@ function blankVenue(settings: WeddingSettings): Venue {
     discount: 0,
     notes: '',
     catalogId: '',
+    priceIsEstimate: false,
   };
 }
 
 export function WeddingPlanner() {
   const store = useWeddingStore();
+  // One-time fill for venues added from the catalog before estimates existed: copy the reported price in.
+  const backfilled = useRef(false);
+  useEffect(() => {
+    if (backfilled.current || !store.state) return;
+    backfilled.current = true;
+    const reported = new Map(VENUE_CATALOG.filter((c) => c.reportedPrice).map((c) => [c.id, c.reportedPrice as number]));
+    const needs = store.state.venues.some((v) => v.catalogId && v.price === 0 && reported.has(v.catalogId));
+    if (!needs) return;
+    store.update((st) => ({
+      ...st,
+      venues: st.venues.map((v) =>
+        v.catalogId && v.price === 0 && reported.has(v.catalogId)
+          ? { ...v, price: reported.get(v.catalogId) as number, vatIncluded: true, priceIsEstimate: true }
+          : v,
+      ),
+    }));
+  }, [store]);
   const [tab, setTab] = useState<Tab>('home');
   const [guests, setGuests] = useState<number | null>(null);
   const [editing, setEditing] = useState<{ venue: Venue; isNew: boolean } | null>(null);
@@ -450,6 +469,7 @@ function Venues({
                     </td>
                     <td className="px-2 py-3 tabular-nums">
                       {priced ? formatShekel(v.price) : '—'}
+                      {v.priceIsEstimate && <span className="mr-1.5 rounded-full bg-amber-50 px-1.5 py-0.5 text-[11px] font-bold text-amber-800">הערכה</span>}
                       <p className="text-xs text-slate-500">
                         {v.vatIncluded ? 'כולל מע״מ' : '+ מע״מ'}
                         {v.alcohol ? ` · אלכוהול +${v.alcohol}` : ''}

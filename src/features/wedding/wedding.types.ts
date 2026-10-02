@@ -64,6 +64,8 @@ export interface Venue {
   notes: string;
   /** Set when the venue was added from the suggested-venues catalog ('' otherwise). */
   catalogId: string;
+  /** price is the catalog's couple-reported average, not a quote. Cleared when the price is edited. */
+  priceIsEstimate: boolean;
 }
 
 export interface Vendor {

@@ -42,8 +42,11 @@ export function VenueEditor({ venue, isNew, guests, settings, onSave, onDelete, 
   }, [onClose]);
 
   const set = <K extends keyof Venue>(k: K, v: Venue[K]) => setDraft((d) => ({ ...d, [k]: v }));
-  const setNum = (k: 'price' | 'minGuests' | 'alcohol' | 'djFee' | 'extras' | 'discount') => (e: React.ChangeEvent<HTMLInputElement>) =>
-    set(k, Math.max(0, Number(e.target.value) || 0));
+  const setNum = (k: 'price' | 'minGuests' | 'alcohol' | 'djFee' | 'extras' | 'discount') => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = Math.max(0, Number(e.target.value) || 0);
+    // Typing a price replaces the catalog estimate with a real figure.
+    setDraft((d) => ({ ...d, [k]: v, ...(k === 'price' ? { priceIsEstimate: false } : {}) }));
+  };
 
   const cost = venueCost(draft, guests, settings);
   const hasPrice = draft.price > 0;
@@ -124,7 +127,16 @@ export function VenueEditor({ venue, isNew, guests, settings, onSave, onDelete, 
               ))}
             </select>,
           )}
-          {field('price', 'מחיר למנה (₪)', numInput('price'))}
+          {field(
+            'price',
+            'מחיר למנה (₪)',
+            <>
+              {numInput('price')}
+              {draft.priceIsEstimate && (
+                <span className="text-xs text-amber-800">מחיר משוער: ממוצע שזוגות דיווחו ב-mit4mit, כולל מע״מ. עדכנו כשתקבלו הצעה.</span>
+              )}
+            </>,
+          )}
           {field('minGuests', 'מינימום מנות', numInput('minGuests'))}
           {field('alcohol', 'תוספת אלכוהול למנה (₪)', numInput('alcohol'))}
           {field('djFee', 'כניסת DJ חיצוני (₪)', numInput('djFee'))}
