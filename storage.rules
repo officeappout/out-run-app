@@ -28,6 +28,7 @@ rules_version = '2';
 //   /communities/*                   — admin-only (image)
 //   /contribution-photos/{uid}/*     — owner-only (image)         [user UGC]
 //   /health-declarations/{uid}/*     — owner-only (PDF)           [user UGC]
+//   /profiles/{uid}/*                — owner-only (image, ≤5MB)   [user UGC]
 //
 // ⚠️  Cross-service note: firestore.get() in Storage rules issues a real
 //     Firestore read per evaluation. The result is cached within a single
@@ -95,9 +96,13 @@ service firebase.storage {
     }
 
     // Size caps — keep strict to prevent quota-bomb abuse.
-    function isImageSize() { return request.resource.size <  10 * 1024 * 1024; }   //  10 MB
-    function isVideoSize() { return request.resource.size < 200 * 1024 * 1024; }   // 200 MB
-    function isPdfSize()   { return request.resource.size <  10 * 1024 * 1024; }   //  10 MB
+    function isImageSize()  { return request.resource.size <  10 * 1024 * 1024; }   //  10 MB
+    function isVideoSize()  { return request.resource.size < 200 * 1024 * 1024; }   // 200 MB
+    function isPdfSize()    { return request.resource.size <  10 * 1024 * 1024; }   //  10 MB
+    // Tighter than isImageSize() on purpose — a profile avatar has no reason
+    // to need the general 10 MB image allowance (per PR notes: flagged for
+    // review in case consistency with isImageSize() is preferred instead).
+    function isAvatarSize() { return request.resource.size <   5 * 1024 * 1024; }   //   5 MB
 
     // ── 1. Admin Content Folders (Public Read, Admin-Only Write) ─────
     //
@@ -205,7 +210,28 @@ service firebase.storage {
       allow write: if isOwner(userId) && isPdf() && isPdfSize();
     }
 
-    // ── 5. Catch-all: Deny everything else ───────────────────────────
+    // ── 5. User Private: Profile Photos (Owner Write, Public Read) ──────
+    //
+    // Production incident (round 8, profile redesign): this path has NEVER
+    // had a rule — confirmed via full git history search, not assumed —
+    // since ProfilePhotoUploader.tsx was built. Every upload has fallen
+    // through to the catch-all deny-all below (storage/unauthorized), same
+    // class of gap as units/icons above; unrelated to the profile-redesign
+    // branch's own code changes, which never touched this file.
+    // Path: /profiles/{uid}/avatar.jpg (fixed filename, always overwritten
+    // — see that component's own header comment).
+    // Public read: core.photoURL (the resulting download URL) is rendered
+    // for users OTHER than the owner — the public profile page
+    // (/profile/[userId]) and the partner-finder card (PartnerCard.tsx)
+    // both display it. Same public-read shape as contribution-photos/
+    // admin-avatars/communities above, for the same reason.
+
+    match /profiles/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isOwner(userId) && isImage() && isAvatarSize();
+    }
+
+    // ── 6. Catch-all: Deny everything else ───────────────────────────
     //
     // Any path not explicitly matched above is denied.
     // This prevents accidental exposure of new folders.

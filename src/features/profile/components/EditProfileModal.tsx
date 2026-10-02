@@ -51,7 +51,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
   const {
     editName, setEditName,
     editWeight, setEditWeight,
-    editDob, setEditDob,
+    editDob,
     editBio, setEditBio,
     editTrainingTags, toggleTrainingTag,
     editSaving,
@@ -192,45 +192,40 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                     dir="ltr"
                   />
 
+                  {/* Read-only (production incident, round 8): core.birthDate is
+                      locked by firestore.rules' noLockedCoreFieldsChanged() — a
+                      direct client write to it is always rejected, so this was
+                      never a working edit path. Display-only now; no new edit
+                      flow added per instruction. */}
                   <div className="flex gap-2" dir="ltr">
                     <input
                       type="text"
-                      inputMode="numeric"
+                      readOnly
                       value={editDob.day}
-                      onChange={(e) => {
-                        const v = e.target.value.replace(/\D/g, '').slice(0, 2);
-                        setEditDob((p) => ({ ...p, day: v }));
-                        if (v.length === 2) monthRef.current?.focus();
-                      }}
                       placeholder="DD"
-                      className={`w-16 px-2 py-2.5 border border-gray-200 rounded-xl text-sm text-center focus:ring-2 focus:ring-cyan-400 outline-none ${INPUT_TEXT_CLASS}`}
+                      className={`w-16 px-2 py-2.5 border border-gray-200 rounded-xl text-sm text-center outline-none bg-gray-50 cursor-default ${INPUT_TEXT_CLASS}`}
                       style={INPUT_TEXT_FIX}
                     />
                     <input
                       ref={monthRef}
                       type="text"
-                      inputMode="numeric"
+                      readOnly
                       value={editDob.month}
-                      onChange={(e) => {
-                        const v = e.target.value.replace(/\D/g, '').slice(0, 2);
-                        setEditDob((p) => ({ ...p, month: v }));
-                        if (v.length === 2) yearRef.current?.focus();
-                      }}
                       placeholder="MM"
-                      className={`w-16 px-2 py-2.5 border border-gray-200 rounded-xl text-sm text-center focus:ring-2 focus:ring-cyan-400 outline-none ${INPUT_TEXT_CLASS}`}
+                      className={`w-16 px-2 py-2.5 border border-gray-200 rounded-xl text-sm text-center outline-none bg-gray-50 cursor-default ${INPUT_TEXT_CLASS}`}
                       style={INPUT_TEXT_FIX}
                     />
                     <input
                       ref={yearRef}
                       type="text"
-                      inputMode="numeric"
+                      readOnly
                       value={editDob.year}
-                      onChange={(e) => setEditDob((p) => ({ ...p, year: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
                       placeholder="YYYY"
-                      className={`flex-1 px-2 py-2.5 border border-gray-200 rounded-xl text-sm text-center focus:ring-2 focus:ring-cyan-400 outline-none ${INPUT_TEXT_CLASS}`}
+                      className={`flex-1 px-2 py-2.5 border border-gray-200 rounded-xl text-sm text-center outline-none bg-gray-50 cursor-default ${INPUT_TEXT_CLASS}`}
                       style={INPUT_TEXT_FIX}
                     />
                   </div>
+                  <p className="text-[10px] text-gray-400 mt-1">תאריך לידה לא ניתן לעריכה כאן</p>
                 </div>
               </div>
 
