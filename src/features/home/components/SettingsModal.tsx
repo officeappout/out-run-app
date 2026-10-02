@@ -321,7 +321,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const {
     editName, setEditName,
     editWeight, setEditWeight,
-    editDob, setEditDob,
+    editDob,
     editSaving,
     cityDisplay, cityResolving, cityAuthorityId, goToCityEdit,
     neighborhoodPickerOpen, setNeighborhoodPickerOpen,
@@ -1239,48 +1239,44 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                 </span>
                               </button>
                             </div>
-                            {/* Birthdate */}
+                            {/* Birthdate — read-only (production incident,
+                                round 8): core.birthDate is locked by
+                                firestore.rules' noLockedCoreFieldsChanged(),
+                                a direct client write is always rejected, so
+                                this was never a working edit path. Display-
+                                only now; no new edit flow added per
+                                instruction. */}
                             <div>
                               <label className="block text-xs font-semibold text-gray-500 mb-1 font-simpler">תאריך לידה</label>
                               <div className="flex gap-2" dir="ltr">
                                 <input
                                   type="text"
-                                  inputMode="numeric"
+                                  readOnly
                                   value={editDob.day}
-                                  onChange={(e) => {
-                                    const v = e.target.value.slice(0, 2);
-                                    setEditDob((p) => ({ ...p, day: v }));
-                                    if (v.length === 2) monthRef.current?.focus();
-                                  }}
                                   placeholder="DD"
-                                  className="w-14 px-2 py-2 border border-gray-200 rounded-xl text-sm font-simpler text-center focus:ring-2 focus:ring-cyan-400 outline-none text-gray-900 placeholder:text-gray-400"
+                                  className="w-14 px-2 py-2 border border-gray-200 rounded-xl text-sm font-simpler text-center outline-none bg-gray-50 cursor-default text-gray-900 placeholder:text-gray-400"
                                   style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
                                 />
                                 <input
                                   ref={monthRef}
                                   type="text"
-                                  inputMode="numeric"
+                                  readOnly
                                   value={editDob.month}
-                                  onChange={(e) => {
-                                    const v = e.target.value.slice(0, 2);
-                                    setEditDob((p) => ({ ...p, month: v }));
-                                    if (v.length === 2) yearRef.current?.focus();
-                                  }}
                                   placeholder="MM"
-                                  className="w-14 px-2 py-2 border border-gray-200 rounded-xl text-sm font-simpler text-center focus:ring-2 focus:ring-cyan-400 outline-none text-gray-900 placeholder:text-gray-400"
+                                  className="w-14 px-2 py-2 border border-gray-200 rounded-xl text-sm font-simpler text-center outline-none bg-gray-50 cursor-default text-gray-900 placeholder:text-gray-400"
                                   style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
                                 />
                                 <input
                                   ref={yearRef}
                                   type="text"
-                                  inputMode="numeric"
+                                  readOnly
                                   value={editDob.year}
-                                  onChange={(e) => setEditDob((p) => ({ ...p, year: e.target.value.slice(0, 4) }))}
                                   placeholder="YYYY"
-                                  className="w-20 px-2 py-2 border border-gray-200 rounded-xl text-sm font-simpler text-center focus:ring-2 focus:ring-cyan-400 outline-none text-gray-900 placeholder:text-gray-400"
+                                  className="w-20 px-2 py-2 border border-gray-200 rounded-xl text-sm font-simpler text-center outline-none bg-gray-50 cursor-default text-gray-900 placeholder:text-gray-400"
                                   style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
                                 />
                               </div>
+                              <p className="text-[10px] text-gray-400 mt-1 font-simpler">תאריך לידה לא ניתן לעריכה כאן</p>
                             </div>
                             {/* Cancel */}
                             <button

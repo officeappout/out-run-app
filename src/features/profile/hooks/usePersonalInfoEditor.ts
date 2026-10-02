@@ -157,7 +157,36 @@ export function usePersonalInfoEditor() {
       const month = parseInt(editDob.month, 10);
       const year = parseInt(editDob.year, 10);
       if (day && month && year && month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 1900) {
-        update['core.birthDate'] = new Date(year, month - 1, day);
+        // Bug fix (production incident, round 8): this used to unconditionally
+        // recompute and include core.birthDate on EVERY save, since editDob is
+        // always pre-filled from the existing profile — meaning virtually every
+        // save (even one only touching bio) resubmitted birthDate. Firestore's
+        // noLockedCoreFieldsChanged() rule requires it to be byte-identical to
+        // the stored value or denies the WHOLE update (permission-denied) —
+        // and it almost never was: the stored value was very likely constructed
+        // server-side (core/complete-profile's own `new Date(year, month-1, day)`)
+        // in the SERVER's timezone, while this candidate is built in the
+        // BROWSER's timezone. Same inputs, different `Date` constructor
+        // timezone context — not equal.
+        //
+        // Deliberately comparing by CALENDAR DATE (local Y/M/D, same getters
+        // openPersonalEdit already used to seed this form), NOT by raw
+        // getTime() equality — comparing epoch milliseconds would reintroduce
+        // this exact bug via a different path: even a genuinely-UNCHANGED
+        // birthDate would still "differ" by the timezone offset once
+        // reconstructed here, so a pure timestamp comparison would still
+        // resubmit it on every save. Comparing the Y/M/D the user actually
+        // sees/edited is immune to that cross-timezone mismatch.
+        const currentBirthDate = profile?.core?.birthDate
+          ? (profile.core.birthDate instanceof Date ? profile.core.birthDate : new Date(profile.core.birthDate as unknown as string))
+          : null;
+        const birthDateUnchanged = !!currentBirthDate
+          && currentBirthDate.getFullYear() === year
+          && currentBirthDate.getMonth() === month - 1
+          && currentBirthDate.getDate() === day;
+        if (!birthDateUnchanged) {
+          update['core.birthDate'] = new Date(year, month - 1, day);
+        }
       }
 
       if (editNeighborhoodId && editNeighborhoodId !== profile?.core?.neighborhoodId) {
