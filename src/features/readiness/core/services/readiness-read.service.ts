@@ -170,7 +170,7 @@ const DENIED_MESSAGE = 'אין לך הרשאה לצפות ברשימה זו.';
  *   3. else every test 'pass'   → 'pass'   (ALL components, not "any")
  *   4. else                      → 'not_yet_tested'
  */
-function reduceOverallStatus(perTest: ReadinessCurrentStatus[]): ReadinessCurrentStatus {
+export function reduceOverallStatus(perTest: ReadinessCurrentStatus[]): ReadinessCurrentStatus {
   if (perTest.includes('fail')) return 'fail';
   if (perTest.includes('not_performed')) return 'not_performed';
   if (perTest.length > 0 && perTest.every((s) => s === 'pass')) return 'pass';
@@ -231,7 +231,7 @@ function findCurrentNotPerformedReason(results: ReadinessResult[], testId: strin
  * exactly as before, because by the time they see it, it's genuinely a
  * Date, not because they were made Timestamp-aware individually.
  */
-function toDate(v: unknown): Date {
+export function toDate(v: unknown): Date {
   if (v instanceof Date) return v;
   if (v && typeof (v as { toDate?: unknown }).toDate === 'function') {
     return (v as { toDate: () => Date }).toDate();
