@@ -26,7 +26,7 @@ import { getProgramByTemplateId, MASTER_PROGRAM_ID_TO_SLUG } from '@/features/co
 import type { Program } from '@/features/content/programs/core/program.types';
 import { ProgramProgressCard, type ProgramCardVisualState } from '@/features/home/components/widgets/ProgramProgressCard';
 import { resolveProgramLabel } from '@/features/content/programs';
-import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
+import { resolveToSlug, resolveSlugToId } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { useUserProgramLevel } from '@/features/progression-map/hooks/useUserProgramLevel';
 import { useSkillTree } from '@/features/progression-map/hooks/useSkillTree';
 import { isProgressionMapLeafProgram } from '@/lib/progression-map-config';
@@ -96,7 +96,23 @@ export function SkillMapCard({ programId, nameHe, state, lockedHint, badge, onAs
   // program switcher already hit). For a master, fall back to /profile,
   // where ProgramsSection/ProgramDrawer already show master detail — a
   // second EXISTING destination, not a new one, chosen per program type.
-  const destination = isProgressionMapLeafProgram(programId) ? `/progression-map/${programId}` : '/profile';
+  //
+  // Phase 0 fix (program-identity audit): isProgressionMapLeafProgram's
+  // allowlist is raw-Firestore-id-only — a leaf skill whose `programId`
+  // here happens to be a SLUG (not the id) used to miss it unconditionally
+  // and fall back to /profile every time, even though it's a real leaf
+  // program. Same slug→id fallback already proven on #86
+  // (feat/profile-ig-shell, unmerged) — ported directly here since this
+  // file predates that branch.
+  let destination = '/profile';
+  if (isProgressionMapLeafProgram(programId)) {
+    destination = `/progression-map/${programId}`;
+  } else {
+    const resolvedId = resolveSlugToId(programId);
+    if (resolvedId && isProgressionMapLeafProgram(resolvedId)) {
+      destination = `/progression-map/${resolvedId}`;
+    }
+  }
 
   // div role="button" (not a real <button>) so ProgramProgressCard can host
   // its own REAL nested <button> for the "בצע מבדק" secondary CTA
