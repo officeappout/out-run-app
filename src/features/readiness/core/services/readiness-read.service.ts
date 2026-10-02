@@ -90,6 +90,32 @@ export interface RosterSoldierEntry {
    * in that state (see findCurrentNotPerformedReason below).
    */
   notPerformedReason: NotPerformedReason | null;
+  /**
+   * 03.10.2026 — David, live-test finding: a live-test soldier showed
+   * "לא כשיר" overall with empty entry fields, which looked like a bug
+   * but was the correct, locked "one failure is enough" rule doing
+   * exactly what it was told — the screen just gave no way to see WHICH
+   * component was responsible, or whether its result was from today or
+   * from weeks ago. "אסור שיוצג פסק דין בלי הראיה שמאחוריו" (no verdict
+   * without the evidence behind it) — one entry per configured test,
+   * always present regardless of session state, so the entry screen can
+   * show the stored value/date/threshold next to the input field itself
+   * rather than only the collapsed overall badge.
+   */
+  testDetails: RosterSoldierTestDetail[];
+}
+
+export interface RosterSoldierTestDetail {
+  testId: string;
+  /** This ONE test's own current status — never collapsed with the others (contrast currentStatus above, which IS the collapsed one). */
+  status: ReadinessCurrentStatus;
+  value: number | null;
+  notPerformedReason: NotPerformedReason | null;
+  /** ISO. The date the test actually happened (not recordedAt) — null when there's no current (valid, non-expired) result for this test. */
+  testDate: string | null;
+  /** The threshold this soldier's gender is compared against for this test — shown even when untested, so "what do I need to beat" is always visible (same number the header already shows globally, repeated per cell for convenience). */
+  thresholdValue: number | null;
+  lowerIsBetter: boolean | null;
 }
 
 export interface RosterPendingEntry {
@@ -154,16 +180,18 @@ function reduceOverallStatus(perTest: ReadinessCurrentStatus[]): ReadinessCurren
 /**
  * computeSoldierCurrentStatus (readiness-write.service.ts, off-limits
  * this round) returns only the derived ENUM, not the underlying result —
- * so when the overall status resolves to 'not_performed' there's no way
- * to read ITS reason without re-deriving "which result is currently
- * valid for this test" here too. Deliberately duplicates that function's
- * validity-window check (same recordedAt + thresholdSnapshot.validityDays
- * comparison) rather than editing the protected file — flagged as a
- * candidate for a future refactor (e.g. computeSoldierCurrentStatus
- * returning the full current result, not just its outcome) once that
- * file is back in scope.
+ * so showing the EVIDENCE behind a status (its value, its date, which
+ * threshold it was measured against — David, 03.10.2026: "אסור שיוצג
+ * פסק דין בלי הראיה שמאחוריו") needs the full result object, not just
+ * its outcome. Deliberately duplicates that function's validity-window
+ * check (same recordedAt + thresholdSnapshot.validityDays comparison)
+ * rather than editing the protected file — flagged as a candidate for a
+ * future refactor (e.g. computeSoldierCurrentStatus returning the full
+ * current result, not just its outcome) once that file is back in scope.
+ * Used by both findCurrentNotPerformedReason (below) and the
+ * per-test evidence built in computeUnitRoster.
  */
-function findCurrentNotPerformedReason(results: ReadinessResult[], testId: string, now: Date): NotPerformedReason | null {
+function findCurrentResult(results: ReadinessResult[], testId: string, now: Date): ReadinessResult | null {
   const forTest = results
     .filter((r) => r.testId === testId)
     .sort((a, b) => b.recordedAt.getTime() - a.recordedAt.getTime());
@@ -172,7 +200,12 @@ function findCurrentNotPerformedReason(results: ReadinessResult[], testId: strin
   const validityDays = latest.thresholdSnapshot?.validityDays ?? 365;
   const expiresAt = latest.recordedAt.getTime() + validityDays * 24 * 60 * 60 * 1000;
   if (now.getTime() > expiresAt) return null;
-  return latest.outcome === 'not_performed' ? latest.notPerformedReason : null;
+  return latest;
+}
+
+function findCurrentNotPerformedReason(results: ReadinessResult[], testId: string, now: Date): NotPerformedReason | null {
+  const current = findCurrentResult(results, testId, now);
+  return current && current.outcome === 'not_performed' ? current.notPerformedReason : null;
 }
 
 /**
@@ -304,6 +337,22 @@ export async function computeUnitRoster(
       ? (testIds.map((testId) => findCurrentNotPerformedReason(soldierResults, testId, now)).find((r) => r !== null) ?? null)
       : null;
 
+    const testDetails: RosterSoldierTestDetail[] = (config?.tests ?? []).map((testDef) => {
+      const current = findCurrentResult(soldierResults, testDef.id, now);
+      return {
+        testId: testDef.id,
+        status: current ? current.outcome : 'not_yet_tested',
+        value: current?.value ?? null,
+        notPerformedReason: current?.notPerformedReason ?? null,
+        testDate: current ? current.testDate.toISOString() : null,
+        // Falls back to the test definition's live threshold when there's
+        // no current result — "what do I need to beat" stays visible
+        // even for an untested soldier, not just once they have a result.
+        thresholdValue: current?.thresholdSnapshot?.thresholdValue ?? testDef.threshold?.[data.gender] ?? null,
+        lowerIsBetter: current?.thresholdSnapshot?.lowerIsBetter ?? testDef.lowerIsBetter ?? null,
+      };
+    });
+
     soldiers.push({
       id: doc.id,
       name: data.name,
@@ -313,6 +362,7 @@ export async function computeUnitRoster(
       uid: data.uid,
       linkedAt: toIsoOrNull(data.linkedAt),
       currentStatus,
+      testDetails,
     });
   }
   soldiers.sort((a, b) => a.name.localeCompare(b.name, 'he'));

@@ -338,6 +338,76 @@ describe('computeUnitRoster — currentStatus derivation', () => {
   });
 });
 
+describe('computeUnitRoster — testDetails (03.10.2026, David\'s live-test finding: no verdict without the evidence behind it)', () => {
+  it('the exact production scenario: one genuinely-failing component (value below threshold) correctly produces overall fail, AND testDetails shows the real value/threshold/date that caused it — not a stale-data bug, a missing-evidence problem', async () => {
+    const recent = new Date();
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', name: 'Aaa', gender: 'male', uid: null, mergedInto: null } },
+      thresholds: {
+        global: {
+          id: 'global', version: 1,
+          tests: [
+            { id: 'run_3000m', lowerIsBetter: true, threshold: { male: 1080, female: 1200 } },
+            { id: 'pullups', lowerIsBetter: false, threshold: { male: 3, female: 3 } },
+            { id: 'dips', lowerIsBetter: false, threshold: { male: 5, female: 5 } },
+          ],
+        },
+      },
+      results: {
+        r1: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 'run_3000m', outcome: 'pass', value: 900, recordedAt: recent, testDate: recent, thresholdSnapshot: { thresholdVersion: 1, gender: 'male', thresholdValue: 1080, lowerIsBetter: true, validityDays: 365 } },
+        r2: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 'pullups', outcome: 'pass', value: 5, recordedAt: recent, testDate: recent, thresholdSnapshot: { thresholdVersion: 1, gender: 'male', thresholdValue: 3, lowerIsBetter: false, validityDays: 365 } },
+        // dips genuinely fails — 4 reps does not meet a 5-rep threshold.
+        r3: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 'dips', outcome: 'fail', value: 4, recordedAt: recent, testDate: recent, thresholdSnapshot: { thresholdVersion: 1, gender: 'male', thresholdValue: 5, lowerIsBetter: false, validityDays: 365 } },
+      },
+    });
+    const result = await computeUnitRoster(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    const soldier = result.body.soldiers[0];
+    expect(soldier.currentStatus).toBe('fail');
+
+    // The evidence the UI needs to explain WHY, without guessing:
+    const byTestId = Object.fromEntries(soldier.testDetails.map((t) => [t.testId, t]));
+    expect(byTestId.run_3000m.status).toBe('pass');
+    expect(byTestId.pullups.status).toBe('pass');
+    expect(byTestId.dips.status).toBe('fail');
+    expect(byTestId.dips.value).toBe(4);
+    expect(byTestId.dips.thresholdValue).toBe(5);
+    expect(byTestId.dips.lowerIsBetter).toBe(false);
+    expect(byTestId.dips.testDate).toBe(recent.toISOString());
+
+    // The UI can identify exactly which test(s) caused the overall fail:
+    const culprits = soldier.testDetails.filter((t) => t.status === 'fail').map((t) => t.testId);
+    expect(culprits).toEqual(['dips']);
+  });
+
+  it('an untested component still shows the live threshold (so "what do I need to beat" is visible even with no result yet) but null value/testDate', async () => {
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', name: 'Aaa', gender: 'female', uid: null, mergedInto: null } },
+      thresholds: { global: { id: 'global', version: 1, tests: [{ id: 't1', lowerIsBetter: true, threshold: { male: 1080, female: 1200 } }] } },
+    });
+    const result = await computeUnitRoster(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status === 200) {
+      const detail = result.body.soldiers[0].testDetails[0];
+      expect(detail.status).toBe('not_yet_tested');
+      expect(detail.value).toBeNull();
+      expect(detail.testDate).toBeNull();
+      expect(detail.thresholdValue).toBe(1200); // her gender's threshold, shown even though untested
+    }
+  });
+
+  it('testDetails carries one entry per configured test, in the same order as the global config', async () => {
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', name: 'Aaa', gender: 'male', uid: null, mergedInto: null } },
+      thresholds: { global: { id: 'global', version: 1, tests: [{ id: 'run_3000m' }, { id: 'pullups' }, { id: 'dips' }] } },
+    });
+    const result = await computeUnitRoster(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status === 200) expect(result.body.soldiers[0].testDetails.map((t) => t.testId)).toEqual(['run_3000m', 'pullups', 'dips']);
+  });
+});
+
 describe('computeUnitRoster — pending-link candidates', () => {
   it('self-declared AND officer-approved AND unlinked → appears as pending', async () => {
     const db = makeFakeDb({
