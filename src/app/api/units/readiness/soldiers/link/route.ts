@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { resolveUnitPermissionScope } from '@/lib/unitPermissionScope';
 import { computeLinkSoldier } from '@/features/readiness/core/services/readiness-write.service';
+import { logReadinessInternalError } from '@/features/readiness/core/services/readiness-error-id';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
     const result = await computeLinkSoldier(db, scope, body, { callerUid: uid, tokenEmail, sourceIp });
     return NextResponse.json(result.body, { status: result.status });
   } catch (err: any) {
-    console.error('[/api/units/readiness/soldiers/link] error:', err?.message ?? err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logReadinessInternalError('/api/units/readiness/soldiers/link', err);
+    return NextResponse.json({ error: `שגיאה פנימית. קוד: ${errorId}`, errorId }, { status: 500 });
   }
 }

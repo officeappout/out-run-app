@@ -239,8 +239,8 @@ describe('computeUnitRoster — currentStatus derivation', () => {
       soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', name: 'Aaa', gender: 'male', uid: null, mergedInto: null } },
       thresholds: { global: { id: 'global', version: 1, tests: [{ id: 't1' }, { id: 't2' }] } },
       results: {
-        r1: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 't1', outcome: 'pass', recordedAt: recent, thresholdSnapshot: { validityDays: 365 } },
-        r2: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 't2', outcome: 'fail', recordedAt: recent, thresholdSnapshot: { validityDays: 365 } },
+        r1: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 't1', outcome: 'pass', recordedAt: recent, testDate: recent, thresholdSnapshot: { validityDays: 365 } },
+        r2: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 't2', outcome: 'fail', recordedAt: recent, testDate: recent, thresholdSnapshot: { validityDays: 365 } },
       },
     });
     const result = await computeUnitRoster(db, TENANT_OWNER_SCOPE, {});
@@ -254,7 +254,7 @@ describe('computeUnitRoster — currentStatus derivation', () => {
       soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', name: 'Aaa', gender: 'male', uid: null, mergedInto: null } },
       thresholds: { global: { id: 'global', version: 1, tests: [{ id: 't1' }] } },
       results: {
-        r1: { soldierId: 'SOME-OTHER-soldier', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 't1', outcome: 'fail', recordedAt: recent, thresholdSnapshot: { validityDays: 365 } },
+        r1: { soldierId: 'SOME-OTHER-soldier', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 't1', outcome: 'fail', recordedAt: recent, testDate: recent, thresholdSnapshot: { validityDays: 365 } },
       },
     });
     const result = await computeUnitRoster(db, TENANT_OWNER_SCOPE, {});
@@ -268,7 +268,7 @@ describe('computeUnitRoster — currentStatus derivation', () => {
       soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', name: 'Aaa', gender: 'male', uid: null, mergedInto: null } },
       thresholds: { global: { id: 'global', version: 1, tests: [{ id: 't1' }, { id: 't2' }] } },
       results: {
-        r1: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 't1', outcome: 'pass', recordedAt: recent, thresholdSnapshot: { validityDays: 365 } },
+        r1: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 't1', outcome: 'pass', recordedAt: recent, testDate: recent, thresholdSnapshot: { validityDays: 365 } },
         // t2 has no result at all — this is exactly the bug the old "any pass -> pass" policy would have gotten wrong.
       },
     });
@@ -283,8 +283,8 @@ describe('computeUnitRoster — currentStatus derivation', () => {
       soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', name: 'Aaa', gender: 'male', uid: null, mergedInto: null } },
       thresholds: { global: { id: 'global', version: 1, tests: [{ id: 't1' }, { id: 't2' }] } },
       results: {
-        r1: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 't1', outcome: 'pass', recordedAt: recent, thresholdSnapshot: { validityDays: 365 } },
-        r2: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 't2', outcome: 'pass', recordedAt: recent, thresholdSnapshot: { validityDays: 365 } },
+        r1: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 't1', outcome: 'pass', recordedAt: recent, testDate: recent, thresholdSnapshot: { validityDays: 365 } },
+        r2: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 't2', outcome: 'pass', recordedAt: recent, testDate: recent, thresholdSnapshot: { validityDays: 365 } },
       },
     });
     const result = await computeUnitRoster(db, TENANT_OWNER_SCOPE, {});
@@ -298,7 +298,7 @@ describe('computeUnitRoster — currentStatus derivation', () => {
       soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', name: 'Aaa', gender: 'male', uid: null, mergedInto: null } },
       thresholds: { global: { id: 'global', version: 1, tests: [{ id: 't1' }] } },
       results: {
-        r1: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 't1', outcome: 'not_performed', notPerformedReason: 'medical_exemption', recordedAt: recent, thresholdSnapshot: { validityDays: 365 } },
+        r1: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 't1', outcome: 'not_performed', notPerformedReason: 'medical_exemption', recordedAt: recent, testDate: recent, thresholdSnapshot: { validityDays: 365 } },
       },
     });
     const result = await computeUnitRoster(db, TENANT_OWNER_SCOPE, {});
@@ -325,8 +325,8 @@ describe('computeUnitRoster — currentStatus derivation', () => {
       soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', name: 'Aaa', gender: 'male', uid: null, mergedInto: null } },
       thresholds: { global: { id: 'global', version: 1, tests: [{ id: 't1' }, { id: 't2' }] } },
       results: {
-        r1: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 't1', outcome: 'pass', recordedAt: recent, thresholdSnapshot: { validityDays: 365 } },
-        r2: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 't2', outcome: 'not_performed', notPerformedReason: 'no_show', recordedAt: recent, thresholdSnapshot: { validityDays: 365 } },
+        r1: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 't1', outcome: 'pass', recordedAt: recent, testDate: recent, thresholdSnapshot: { validityDays: 365 } },
+        r2: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 't2', outcome: 'not_performed', notPerformedReason: 'no_show', recordedAt: recent, testDate: recent, thresholdSnapshot: { validityDays: 365 } },
       },
     });
     const result = await computeUnitRoster(db, TENANT_OWNER_SCOPE, {});

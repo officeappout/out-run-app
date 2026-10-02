@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { resolveUnitPermissionScope } from '@/lib/unitPermissionScope';
 import { computeGetThresholds, computeSetThresholds } from '@/features/readiness/core/services/readiness-write.service';
+import { logReadinessInternalError } from '@/features/readiness/core/services/readiness-error-id';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -39,8 +40,8 @@ export async function GET(request: NextRequest) {
     const result = await computeGetThresholds(db, scope);
     return NextResponse.json(result.body, { status: result.status });
   } catch (err: any) {
-    console.error('[/api/units/readiness/thresholds GET] error:', err?.message ?? err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logReadinessInternalError('/api/units/readiness/thresholds GET', err);
+    return NextResponse.json({ error: `שגיאה פנימית. קוד: ${errorId}`, errorId }, { status: 500 });
   }
 }
 
@@ -57,7 +58,7 @@ export async function PUT(request: NextRequest) {
     const result = await computeSetThresholds(db, scope, body, { callerUid: caller.uid, tokenEmail: caller.tokenEmail, sourceIp });
     return NextResponse.json(result.body, { status: result.status });
   } catch (err: any) {
-    console.error('[/api/units/readiness/thresholds PUT] error:', err?.message ?? err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logReadinessInternalError('/api/units/readiness/thresholds PUT', err);
+    return NextResponse.json({ error: `שגיאה פנימית. קוד: ${errorId}`, errorId }, { status: 500 });
   }
 }

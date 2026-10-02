@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { resolveUnitPermissionScope } from '@/lib/unitPermissionScope';
 import { computeUnitRoster } from '@/features/readiness/core/services/readiness-read.service';
+import { logReadinessInternalError } from '@/features/readiness/core/services/readiness-error-id';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
     const result = await computeUnitRoster(db, scope, query);
     return NextResponse.json(result.body, { status: result.status });
   } catch (err: any) {
-    console.error('[/api/units/readiness/roster] error:', err?.message ?? err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const errorId = logReadinessInternalError('/api/units/readiness/roster', err);
+    return NextResponse.json({ error: `שגיאה פנימית. קוד: ${errorId}`, errorId }, { status: 500 });
   }
 }

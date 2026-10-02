@@ -10,7 +10,7 @@ import AdminBreadcrumb from '@/features/admin/components/AdminBreadcrumb';
 import ReadinessEntryTable from '@/features/admin/components/readiness-roster/ReadinessEntryTable';
 import type { RosterSoldierEntry, RosterUnitEntry } from '@/features/readiness/core/services/readiness-read.service';
 import type { ReadinessThresholdsConfig } from '@/features/readiness/core/services/readiness-write.service';
-import { Loader2, ClipboardList, ArrowRight } from 'lucide-react';
+import { Loader2, ClipboardList, ArrowRight, AlertTriangle } from 'lucide-react';
 
 type ComponentsMode = 'both' | 'run_only' | 'strength_only';
 
@@ -36,6 +36,18 @@ export default function ReadinessEntryPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retrySeq, setRetrySeq] = useState(0);
+  /**
+   * 03.10.2026 (David) — a save failure and a refresh-only failure are
+   * two different states and must never be collapsed into one silent
+   * outcome. This is deliberately separate from `loadError`: loadError
+   * means nothing is showing at all; refreshWarning means a save just
+   * SUCCEEDED on the server (the row already shows "✓ נשמר") but the
+   * follow-up re-fetch that would update the rest of the table's
+   * displayed status failed — the data is safe, the screen is just
+   * stale. Without this distinction, a stale display after the incident
+   * that prompted this fix looked indistinguishable from data loss.
+   */
+  const [refreshWarning, setRefreshWarning] = useState<string | null>(null);
 
   const [soldiers, setSoldiers] = useState<RosterSoldierEntry[]>([]);
   const [units, setUnits] = useState<RosterUnitEntry[]>([]);
@@ -128,6 +140,24 @@ export default function ReadinessEntryPage() {
         </div>
       )}
 
+      {/* Deliberately a DIFFERENT color/message from loadError above —
+          this means the opposite of "nothing loaded": the save already
+          succeeded on the server, only the display refresh failed. */}
+      {refreshWarning && (
+        <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between gap-3">
+          <p className="text-sm text-amber-800 font-semibold flex items-center gap-2">
+            <AlertTriangle size={16} className="flex-shrink-0" />
+            {refreshWarning}
+          </p>
+          <button
+            onClick={() => { setRefreshWarning(null); setLoading(true); setRetrySeq((s) => s + 1); }}
+            className="text-xs font-bold text-amber-800 bg-white border border-amber-200 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors flex-shrink-0"
+          >
+            רענן כעת
+          </button>
+        </div>
+      )}
+
       {!loadError && (!config || config.tests.length === 0) && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center">
           <p className="text-lg font-bold text-gray-900">ספי הכשירות טרם הוגדרו</p>
@@ -208,7 +238,13 @@ export default function ReadinessEntryPage() {
               config={config}
               componentsMode={componentsMode}
               testDate={testDate}
-              onSaved={() => load().catch((err) => console.error('[ReadinessEntry] refresh error:', err))}
+              onSaved={() => {
+                setRefreshWarning(null);
+                load().catch((err) => {
+                  console.error('[ReadinessEntry] refresh error:', err);
+                  setRefreshWarning('התוצאה נשמרה בהצלחה בשרת, אך תצוגת הרשימה לא התעדכנה. רענן את הדף כדי לראות את הסטטוס העדכני.');
+                });
+              }}
             />
           )}
         </>
