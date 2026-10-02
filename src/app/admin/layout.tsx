@@ -68,6 +68,7 @@ import { getSidebarConfig, type LucideIconName } from '@/features/admin/config/s
 import { resolveLoginDoorForPath } from '@/features/admin/services/loginDoorForPath';
 import { OrgSelectorProvider, useOrgSelector } from '@/features/admin/context/OrgSelectorContext';
 import { AdminSessionSync } from '@/features/admin/components/AdminSessionSync';
+import { isWeddingOwner } from '@/features/wedding/wedding.config';
 import { SessionHealthBanner } from '@/features/admin/components/SessionHealthBanner';
 
 
@@ -1220,6 +1221,9 @@ function AdminLayoutInner({
                                         <div className="pr-2 space-y-0.5 pb-2">
                                             <SidebarLink href="/admin/finance/approvals" icon={Wallet} label="תור אישור חשבוניות" />
                                             <SidebarLink href="/admin/finance/expenses" icon={LayoutGrid} label="ספר הוצאות" />
+                                            {isSuperAdmin && isWeddingOwner(auth.currentUser?.email) && (
+                                                <SidebarLink href="/admin/wedding" icon={CalendarHeart} label="תכנון חתונה" />
+                                            )}
                                         </div>
                                     )}
                                 </>
