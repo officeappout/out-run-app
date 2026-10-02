@@ -2327,6 +2327,7 @@ service cloud.firestore {
       // which bypasses this file regardless of what's written here. The
       // frozen thresholdSnapshot already carried on every result is what a
       // client needs to interpret one.
+      allow read, write: if false;
     }
 
     // ============================================================
