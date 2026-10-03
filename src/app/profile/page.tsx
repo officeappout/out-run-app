@@ -110,7 +110,11 @@ export default function ProfilePage() {
   const [showUpdateToast, setShowUpdateToast] = useState(false);
   const { showToast } = useToast();
 
-  // ── Feedback form ──
+  // ── Feedback form ── "פרופיל חלק" follow-up: demoted from an
+  // always-visible card to a small flat row that expands this same form
+  // inline — feedbackOpen just toggles visibility, the send flow itself
+  // (handleSendFeedback below) is untouched.
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState('');
   const [feedbackSending, setFeedbackSending] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(false);
@@ -345,62 +349,80 @@ export default function ProfilePage() {
             SettingsModal's "פרטים אישיים" section (grouped with שם/משקל/
             תאריך לידה), not a separate easy-to-miss card here. */}
 
-        {/* ── Feedback card ──────────────────────────────────────────────── */}
-        <div
-          dir="rtl"
-          className="mt-6 mb-10 bg-white rounded-2xl border border-gray-100 shadow-subtle p-5 space-y-4"
-        >
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#00C9F2]/10 flex items-center justify-center flex-shrink-0">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00C9F2" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-black text-gray-900">שלח משוב או דווח על באג</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">הפידבק שלך משפיע ישירות על הפיתוח</p>
-            </div>
-          </div>
+        {/* ── Feedback row ── flat, demoted from the always-visible card above
+            ("פרופיל חלק" follow-up) — a small row that expands the exact
+            same form below it. handleSendFeedback/feedbackText/feedbackSent
+            are all untouched; only the wrapping presentation changed. */}
+        <div dir="rtl" className="mt-6 mb-10 border-t border-gray-100 pt-4">
+          <button
+            type="button"
+            onClick={() => setFeedbackOpen((v) => !v)}
+            aria-expanded={feedbackOpen}
+            className="w-full flex items-center gap-2.5 py-1 active:opacity-70 transition-opacity"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00C9F2" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <span className="text-sm font-bold text-gray-700">שלח משוב / דווח על באג</span>
+            <ChevronLeft
+              size={16}
+              className={`text-gray-400 flex-shrink-0 mr-auto transition-transform ${feedbackOpen ? '-rotate-90' : ''}`}
+            />
+          </button>
 
-          <textarea
-            value={feedbackText}
-            onChange={(e) => setFeedbackText(e.target.value)}
-            placeholder="כתוב כאן את המשוב, הבאג, או הרעיון שלך..."
-            rows={4}
-            className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:border-[#00C9F2] focus:ring-2 focus:ring-[#00C9F2]/20 transition-all leading-relaxed"
-          />
-
-          <AnimatePresence mode="wait">
-            {feedbackSent ? (
+          <AnimatePresence initial={false}>
+            {feedbackOpen && (
               <motion.div
-                key="sent"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="h-12 flex items-center justify-center gap-2 rounded-xl bg-[#10B981]/10 text-[#10B981]"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
               >
-                <Check size={16} strokeWidth={3} />
-                <span className="text-sm font-bold">תודה! המשוב נשלח בהצלחה</span>
+                <div className="pt-3 space-y-3">
+                  <textarea
+                    value={feedbackText}
+                    onChange={(e) => setFeedbackText(e.target.value)}
+                    placeholder="כתוב כאן את המשוב, הבאג, או הרעיון שלך..."
+                    rows={4}
+                    className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:border-[#00C9F2] focus:ring-2 focus:ring-[#00C9F2]/20 transition-all leading-relaxed"
+                  />
+
+                  <AnimatePresence mode="wait">
+                    {feedbackSent ? (
+                      <motion.div
+                        key="sent"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="h-12 flex items-center justify-center gap-2 rounded-xl bg-[#10B981]/10 text-[#10B981]"
+                      >
+                        <Check size={16} strokeWidth={3} />
+                        <span className="text-sm font-bold">תודה! המשוב נשלח בהצלחה</span>
+                      </motion.div>
+                    ) : (
+                      <motion.button
+                        key="btn"
+                        onClick={handleSendFeedback}
+                        disabled={!feedbackText.trim() || feedbackSending}
+                        className="w-full h-12 rounded-xl font-bold text-sm text-white bg-gradient-to-l from-[#00C9F2] to-[#5BC2F2] shadow-md shadow-cyan-500/20 active:scale-[0.97] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
+                      >
+                        {feedbackSending ? (
+                          <Loader2 size={18} className="animate-spin" />
+                        ) : (
+                          <>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                              <line x1="22" y1="2" x2="11" y2="13" />
+                              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                            </svg>
+                            שלח לעוזר ה-AI
+                          </>
+                        )}
+                      </motion.button>
+                    )}
+                  </AnimatePresence>
+                </div>
               </motion.div>
-            ) : (
-              <motion.button
-                key="btn"
-                onClick={handleSendFeedback}
-                disabled={!feedbackText.trim() || feedbackSending}
-                className="w-full h-12 rounded-xl font-bold text-sm text-white bg-gradient-to-l from-[#00C9F2] to-[#5BC2F2] shadow-md shadow-cyan-500/20 active:scale-[0.97] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
-              >
-                {feedbackSending ? (
-                  <Loader2 size={18} className="animate-spin" />
-                ) : (
-                  <>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="22" y1="2" x2="11" y2="13" />
-                      <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                    </svg>
-                    שלח לעוזר ה-AI
-                  </>
-                )}
-              </motion.button>
             )}
           </AnimatePresence>
         </div>

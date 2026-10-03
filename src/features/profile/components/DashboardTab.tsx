@@ -389,13 +389,14 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
             than have this row show a different number than the "שותפים"
             stat above it (which is a referral count, not a follow count).
             So: render ONLY the add-affordance, per his fallback
-            instruction — no invented avatars. Routes to /search, the
-            existing user-discovery/follow surface — not a new destination. */}
+            instruction — no invented avatars. Routes to /search?tab=people
+            (the existing people-discovery tab, "גלה" sub-mode by default)
+            — not a new destination, just a deep-linked existing one. */}
         <div className="mt-5 pb-5 border-b border-gray-100">
           <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide" dir="rtl">
             <button
               type="button"
-              onClick={() => router.push('/search')}
+              onClick={() => router.push('/search?tab=people')}
               aria-label="הוסף שותפי אימון"
               className="flex flex-col items-center gap-1 flex-shrink-0 active:scale-95 transition-transform"
             >
@@ -500,13 +501,12 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
         </motion.div>
       </div>
 
-      {/* ── הישגים ── BLOCK 3 */}
+      {/* ── הישגים ── BLOCK 3 — flat, no card wrapper ("פרופיל חלק" follow-up) */}
       <div className={activeTab === 'badges' ? 'space-y-4' : 'hidden'}>
         <motion.div
           initial={{ y: 16, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.06 }}
-          className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100"
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
