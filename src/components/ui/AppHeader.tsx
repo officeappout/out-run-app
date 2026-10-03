@@ -6,12 +6,14 @@
  * Layout (RTL):
  *   - RIGHT zone (visually leftmost in RTL): avatar pill (photo + verified
  *     corner badge + animated flame + streak count). Tapping the pill
- *     navigates to /profile.
+ *     navigates to /profile; a small red dot on the avatar itself (shown
+ *     only when there's unread activity) independently opens the global
+ *     ActivityPanel via useActivityPanelStore — this replaced a standalone
+ *     bell icon in the left zone (chrome-polish round).
  *   - CENTER: OUT logotype.
- *   - LEFT zone (visually rightmost in RTL): three icon buttons —
- *       1. Bell  → opens the global ActivityPanel via useActivityPanelStore
- *       2. Chat  → opens the global ChatInbox via useChatStore
- *       3. Search→ navigates to /search
+ *   - LEFT zone (visually rightmost in RTL): two icon buttons —
+ *       1. Chat  → opens the global ChatInbox via useChatStore
+ *       2. Search→ navigates to /search
  *
  * Pages can pass `children` to render page-specific extras (e.g. a segmented
  * tab bar) below the icon row INSIDE the same CollapsingHeader, so the whole
@@ -21,7 +23,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Bell, MessageCircle, Search, BadgeCheck, Users } from 'lucide-react';
+import { MessageCircle, Search, BadgeCheck, Users } from 'lucide-react';
 import CollapsingHeader from '@/components/ui/CollapsingHeader';
 import AnimatedFlame from '@/components/ui/AnimatedFlame';
 import CommunityCoLogo from '@/components/ui/CommunityCoLogo';
@@ -84,16 +86,32 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false }: 
   const openChat = useChatStore((s) => s.open);
 
   // ── Shared inner row — identical markup for both sticky and overlay modes ──
+  // py-1 not py-1.5 (chrome polish — header was reported too thick;
+  // tightened vertical padding only, icon sizes untouched).
   const innerRow = (
     <div
-      className="max-w-md mx-auto px-4 py-1.5 flex items-center justify-between"
+      className="max-w-md mx-auto px-4 py-1 flex items-center justify-between"
       dir="rtl"
     >
-      {/* Right zone (visually leftmost in RTL) — avatar + flame + streak */}
-      <button
-        type="button"
+      {/* Right zone (visually leftmost in RTL) — avatar + flame + streak.
+          Chrome polish: the bell (notifications) button that used to live
+          in the left icon row is gone — its unread badge moved to a small
+          dot on the avatar instead, so the function isn't lost, just
+          relocated. div role="button" (not <button>) hosting a REAL nested
+          <button> for the dot — same pattern used elsewhere in this
+          codebase (ProgramProgressCard, SkillMapCard) to avoid invalid
+          nested-<button> HTML. Tapping the dot opens notifications
+          in-place (stopPropagation so it doesn't also navigate to
+          /profile); tapping anywhere else on the avatar still navigates
+          to /profile, unchanged. */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => { hapticSuccess(); router.push('/profile'); }}
-        className="flex items-center gap-1.5 active:scale-95 transition-transform"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') { hapticSuccess(); router.push('/profile'); }
+        }}
+        className="flex items-center gap-1.5 active:scale-95 transition-transform cursor-pointer"
         aria-label="פרופיל"
       >
         <div className="relative w-8 h-8 rounded-full overflow-hidden border-2 border-white shadow-md">
@@ -116,6 +134,14 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false }: 
               <BadgeCheck className="w-3 h-3 text-blue-500" fill="currentColor" />
             </span>
           )}
+          {activityUnread > 0 && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); openActivity(); }}
+              aria-label={`התראות${activityUnread > 0 ? ` — ${activityUnread > 99 ? '99+' : activityUnread} חדשות` : ''}`}
+              className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-red-500 border-2 border-white"
+            />
+          )}
         </div>
 
         <div className="flex items-center gap-1.5">
@@ -130,7 +156,7 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false }: 
             </span>
           )}
         </div>
-      </button>
+      </div>
 
       {/* Center — community co-logo (if any) + OUT logotype ("community × OUT") */}
       <div className="flex items-center gap-2" dir="ltr">
@@ -145,22 +171,11 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false }: 
         </Link>
       </div>
 
-      {/* Left zone (visually rightmost in RTL) — Bell + Chat + Search */}
+      {/* Left zone (visually rightmost in RTL) — Chat + Search.
+          Bell removed per chrome polish: its unread badge now lives as a
+          small dot on the avatar (right zone) instead, so the entry point
+          isn't lost, just relocated next to the identity it's about. */}
       <div className="flex items-center gap-0.5">
-        <button
-          type="button"
-          onClick={openActivity}
-          className="relative p-2 rounded-lg hover:bg-gray-100 active:scale-90 transition-all"
-          aria-label="התראות"
-        >
-          <Bell className="w-5 h-5 text-gray-600" />
-          {activityUnread > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center px-1 shadow-sm">
-              {activityUnread > 99 ? '99+' : activityUnread}
-            </span>
-          )}
-        </button>
-
         <button
           type="button"
           onClick={openChat}
@@ -213,10 +228,28 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false }: 
   }
 
   // ── Default sticky variant — CollapsingHeader for scrollable pages ──
+  //
+  // Chrome polish (round — home chrome): was bg-white/90 + backdrop-blur-md,
+  // meant to read as frosted glass. Investigated the reported "transparent/
+  // detached on scroll" look before touching anything: this header is
+  // ALWAYS 90%-opaque (that's not scroll-dependent — it looks faintly
+  // see-through at rest too), and backdrop-filter is well known to render
+  // unreliably on exactly this combination — an element with an actively
+  // Framer-Motion-animated `transform` (CollapsingHeader's hide/show slide)
+  // plus `willChange: 'transform'`, which is precisely this header's setup.
+  // WebKit/iOS in particular can fail to keep the blur's sampled backdrop
+  // in sync with that compositing layer, which reads as exactly the
+  // "detached" look reported. Fix: solid background (reliable on every
+  // engine, no backdrop-filter dependency) + a border/shadow that only
+  // appears once actually scrolled (scrolledClassName, CollapsingHeader's
+  // new prop) — rather than the old unconditional border, so the header
+  // doesn't look like a hard-edged bar sitting on the page before there's
+  // anything to be "above."
   return (
     <CollapsingHeader
       zIndex={zIndex}
-      className="bg-white/90 backdrop-blur-md border-b border-gray-100"
+      className="bg-white"
+      scrolledClassName="border-b border-gray-100 shadow-sm"
     >
       {innerRow}
       {/* Page-specific extras (e.g. segmented tabs on /feed) */}
