@@ -14,6 +14,7 @@ import { VENUE_CATALOG } from '../data/venueCatalog';
 import { DateCompare } from './DateCompare';
 import { VenueCatalog } from './VenueCatalog';
 import { VenueEditor } from './VenueEditor';
+import { VenueBoard } from './VenueBoard';
 import { useWeddingStore, type SaveStatus } from './useWeddingStore';
 
 type Tab = 'home' | 'tasks' | 'venues' | 'catalog' | 'vendors' | 'market' | 'settings';
@@ -157,7 +158,7 @@ export function WeddingPlanner() {
           </div>
         )}
 
-        {tab === 'home' && <Overview s={s} g={g} onNew={openNew} go={setTab} update={store.update} />}
+        {tab === 'home' && <Overview s={s} g={g} onNew={openNew} onEdit={openEdit} go={setTab} update={store.update} />}
         {tab === 'venues' && <Venues s={s} g={g} setGuests={setGuests} onNew={openNew} onEdit={openEdit} />}
         {tab === 'catalog' && <VenueCatalog s={s} update={store.update} goCompare={() => setTab('venues')} />}
         {tab === 'vendors' && <Vendors s={s} update={store.update} />}
@@ -248,7 +249,7 @@ function CostBars({ rows, split }: { rows: ReturnType<typeof rankVenues>; split:
   );
 }
 
-function Overview({ s, g, onNew, go, update }: { s: WeddingState; g: number; onNew: () => void; go: (t: Tab) => void; update: Update }) {
+function Overview({ s, g, onNew, onEdit, go, update }: { s: WeddingState; g: number; onNew: () => void; onEdit: (v: Venue) => void; go: (t: Tab) => void; update: Update }) {
   const ranked = rankVenues(s.venues, g, s.settings);
   const best = ranked[0];
   const worst = ranked[ranked.length - 1];
@@ -333,6 +334,8 @@ function Overview({ s, g, onNew, go, update }: { s: WeddingState; g: number; onN
           </button>
         </div>
       </section>
+
+      <VenueBoard s={s} update={update} onEdit={onEdit} onAll={() => go('venues')} />
 
       <section className={card}>
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
