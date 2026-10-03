@@ -95,6 +95,18 @@ import {
   calculateVolumeContribution,
   isCreditableProgramState,
 } from './target-program-fanout.service';
+/**
+ * Program-identity audit §06 Stage 7 — deliberate cross-domain reuse of the
+ * canonical id→slug resolver, NOT a Law 7 violation-by-oversight. This is
+ * the SAME resolver already imported directly by ~30 other files across
+ * profile/progression-hub/progression-map/home (see program-hierarchy.utils.ts
+ * itself), so this file joining them is consistent with established practice,
+ * not a new precedent. Used to stop recalculateMasterLevel's mixed hash+slug
+ * dual-write below (see that function) — see MASTER_PROGRAM_ID_TO_SLUG's own
+ * updated doc comment for why that older, narrower map stays as a fallback
+ * rather than being deleted in favor of this one.
+ */
+import { resolveToSlug, ensureIdSlugMapWarm } from '@/features/workout-engine/services/program-hierarchy.utils';
 
 const PROGRAM_LEVEL_SETTINGS_COLLECTION = 'program_level_settings';
 const PROGRESSION_RULES_COLLECTION = 'progression_rules';
@@ -709,7 +721,9 @@ export async function getMasterProgramProgress(
  * This is called after any child track is updated (XP award, workout completion, etc.)
  * to keep the master-level view in sync.
  *
- * The result is written to `progression.tracks[masterProgramId]`.
+ * The result is written to `progression.tracks[canonicalSlug]` — the
+ * resolved slug key, NOT the raw masterProgramId hash (Stage 7 fix,
+ * program-identity audit §06: this function used to dual-write both forms).
  *
  * Safety guarantees (three-defense model):
  *   A. Slug routing  — getMasterProgramProgress uses buildProgramSlugMap() so
@@ -727,7 +741,14 @@ export async function recalculateMasterLevel(
   const progress = await getMasterProgramProgress(userId, masterProgramId);
   if (!progress) return null;
 
-  const masterSlug = MASTER_PROGRAM_ID_TO_SLUG[masterProgramId] ?? masterProgramId;
+  // Stage 7 fix (program-identity audit §06): resolve through the canonical
+  // resolver first — MASTER_PROGRAM_ID_TO_SLUG (4 hardcoded entries) only
+  // stays as a fallback for a cold id→slug cache, not the primary source.
+  await ensureIdSlugMapWarm();
+  const resolvedSlug = resolveToSlug(masterProgramId);
+  const masterSlug = resolvedSlug !== masterProgramId
+    ? resolvedSlug
+    : (MASTER_PROGRAM_ID_TO_SLUG[masterProgramId] ?? masterProgramId);
 
   // ── Defense C: Empty-set abort ────────────────────────────────────────────
   // getMasterProgramProgress sets routingEmptySkip when configured children
@@ -761,21 +782,17 @@ export async function recalculateMasterLevel(
   const safePercent = progress.displayPercent;
 
   // Persist the aggregated level into the master program's own track.
-  // Dual-write: once under the Firestore hash key (e.g. 'H2279XsRGDg9G370J7S9')
-  // and once under the canonical slug key (e.g. 'full_body') so every reader
-  // (admin panel, workout engine, dashboard) finds the correct value regardless
-  // of which key format it uses.
+  // Stage 7 fix (program-identity audit §06): write ONLY the canonical slug
+  // key going forward — the previous dual-write (hash key + slug key) was
+  // the confirmed source of new mixed-key tracks entries. Existing
+  // hash-keyed documents from before this fix are left as-is (no backfill
+  // in this stage); reads elsewhere already tolerate both forms.
   const firestoreWrites: Record<string, unknown> = {
-    [`progression.tracks.${masterProgramId}.currentLevel`]: safeLevel,
-    [`progression.tracks.${masterProgramId}.percent`]:      safePercent,
-    [`progression.domains.${masterProgramId}.currentLevel`]: safeLevel,
+    [`progression.tracks.${masterSlug}.currentLevel`]: safeLevel,
+    [`progression.tracks.${masterSlug}.percent`]:      safePercent,
+    [`progression.domains.${masterSlug}.currentLevel`]: safeLevel,
     updatedAt: serverTimestamp(),
   };
-  if (masterSlug !== masterProgramId) {
-    firestoreWrites[`progression.tracks.${masterSlug}.currentLevel`] = safeLevel;
-    firestoreWrites[`progression.tracks.${masterSlug}.percent`]      = safePercent;
-    firestoreWrites[`progression.domains.${masterSlug}.currentLevel`] = safeLevel;
-  }
 
   const userDocRef = doc(db, USERS_COLLECTION, userId);
   await updateDoc(userDocRef, firestoreWrites);
