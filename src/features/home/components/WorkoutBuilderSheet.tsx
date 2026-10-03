@@ -273,6 +273,16 @@ export default function WorkoutBuilderSheet({
   // tap always removes an id from this set (see the pill's onSelect below),
   // "promoting" it to manual even if the muscle inverse added it first.
   const [muscleAddedProgramIds, setMuscleAddedProgramIds] = useState<Set<string>>(new Set());
+  // Bug fix (UX pass v2.1): explicit opt-out for an autoChips-sourced
+  // muscle. `autoChips` reflects the CURRENTLY SELECTED PROGRAM(S) only —
+  // it has no memory of a tap — so a plain selectedChips toggle could never
+  // make an auto-selected chip look/behave deselected (it stayed in the
+  // selected∪auto union regardless). Every `autoChips.includes(id)` read
+  // for "is this chip active" now pairs with `!manuallyDeselectedChips.has(id)`.
+  // Reset whenever selectedProgramIds itself changes (see the dedicated
+  // effect below) so switching programs offers a fresh recommended set
+  // rather than carrying over removals made against the previous program(s).
+  const [manuallyDeselectedChips, setManuallyDeselectedChips] = useState<Set<string>>(new Set());
 
   // ── Location — resets equipment override when changed ──────────────────
   // Seed priority: URL param → profile location preference → 'park' fallback
@@ -372,6 +382,15 @@ export default function WorkoutBuilderSheet({
     }
     setAutoChips([...chips]);
   }, [selectedProgramIds, profile]);
+
+  // Reset manual muscle opt-outs when the selected PROGRAM SET itself
+  // changes — deliberately keyed on selectedProgramIds alone (not profile,
+  // which the autoChips effect above also depends on) so an unrelated
+  // profile refresh never silently discards a real opt-out; only an actual
+  // program switch should offer a fresh recommended set.
+  useEffect(() => {
+    setManuallyDeselectedChips(new Set());
+  }, [selectedProgramIds]);
 
   // ── Build display program list ─────────────────────────────────────────
   // enrolledIds is lifted here so toggleChip can access it for enrollment gating.
@@ -517,8 +536,11 @@ export default function WorkoutBuilderSheet({
 
   // ── Derived ────────────────────────────────────────────────────────────
   const effectiveChips = useMemo(
-    () => [...new Set([...autoChips, ...selectedChips])],
-    [autoChips, selectedChips],
+    () => [...new Set([
+      ...autoChips.filter(id => !manuallyDeselectedChips.has(id)),
+      ...selectedChips,
+    ])],
+    [autoChips, selectedChips, manuallyDeselectedChips],
   );
 
   const derivedRequiredDomains: string[] | undefined = useMemo(
@@ -637,8 +659,37 @@ export default function WorkoutBuilderSheet({
       return;
     }
 
-    const wasActive = selectedChips.includes(id);
-    setSelectedChips(prev => (wasActive ? prev.filter(c => c !== id) : [...prev, id]));
+    // Bug fix (UX pass v2.1): "active" must account for autoChips too, not
+    // just selectedChips — otherwise a tap on an auto-selected-but-never-
+    // manually-touched chip always takes the "turn on" branch (it reads as
+    // inactive from selectedChips alone), which only ever ADDS to
+    // selectedChips and can never make the chip look/behave deselected,
+    // since the render/effectiveChips union with autoChips still wins.
+    const isAutoActive = autoChips.includes(id) && !manuallyDeselectedChips.has(id);
+    const wasActive = isAutoActive || selectedChips.includes(id);
+
+    if (wasActive) {
+      setSelectedChips(prev => prev.filter(c => c !== id));
+      // Only an autoChips-sourced chip needs an explicit opt-out recorded —
+      // a purely-manual chip is already fully handled by the filter above.
+      if (autoChips.includes(id)) {
+        setManuallyDeselectedChips(prev => {
+          const next = new Set(prev);
+          next.add(id);
+          return next;
+        });
+      }
+    } else {
+      setSelectedChips(prev => [...prev, id]);
+      // Re-selecting a chip that was previously opted out of its program's
+      // auto-set — clear the opt-out so it doesn't shadow this fresh pick.
+      setManuallyDeselectedChips(prev => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
     setIsUsingRecommendedDefaults(false);
 
     // Muscle → program inverse (Behavior #2) — only on activation, only for
@@ -667,7 +718,7 @@ export default function WorkoutBuilderSheet({
         setShowUnlockModal(true);
       }
     }
-  }, [isChipAssessed, isEnrolledInProgram, selectedChips, selectedProgramIds, resolveBaseCategoryForThisProgram]);
+  }, [isChipAssessed, isEnrolledInProgram, selectedChips, autoChips, manuallyDeselectedChips, selectedProgramIds, resolveBaseCategoryForThisProgram]);
 
   // Deselect cascade (Behavior #4): a program the muscle inverse added
   // auto-removes once NONE of its own PROG_PRIMARY_CHIPS muscles are still
@@ -1195,7 +1246,7 @@ export default function WorkoutBuilderSheet({
                         key={chip.id}
                         icon={chip.svgPath}
                         label={chip.label}
-                        selected={selectedChips.includes(chip.id) || autoChips.includes(chip.id)}
+                        selected={selectedChips.includes(chip.id) || (autoChips.includes(chip.id) && !manuallyDeselectedChips.has(chip.id))}
                         disabled={isGated}
                         locked={!isGated && !isChipAssessed(chip)}
                         recommended={isUsingRecommendedDefaults}
@@ -1222,7 +1273,7 @@ export default function WorkoutBuilderSheet({
                         key={chip.id}
                         icon={chip.svgPath}
                         label={chip.label}
-                        selected={selectedChips.includes(chip.id) || autoChips.includes(chip.id)}
+                        selected={selectedChips.includes(chip.id) || (autoChips.includes(chip.id) && !manuallyDeselectedChips.has(chip.id))}
                         disabled={isGated}
                         locked={!isGated && !isChipAssessed(chip)}
                         recommended={isUsingRecommendedDefaults}

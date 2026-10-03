@@ -53,7 +53,13 @@ export default function MuscleFilterChip({
   size = 'md',
 }: MuscleFilterChipProps) {
   const { box, icon: iconPx } = SIZE_PX[size];
-  const active = selected && !disabled;
+  // Precedence ladder (bug fix, UX pass v2.1): `locked` must suppress the
+  // active/teal treatment regardless of `selected` — a chip can legitimately
+  // be auto-selected (its program is chosen) while not yet assessed, and the
+  // real tap-time gate (toggleChip's own isChipAssessed check) already
+  // treats it as locked; the paint must agree, or a chip can render teal
+  // while actually opening the assessment popup on tap.
+  const active = selected && !disabled && !locked;
 
   return (
     <button
