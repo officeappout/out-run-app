@@ -101,6 +101,12 @@ export default function UnitsListPage() {
   const [showAddUnit, setShowAddUnit] = useState(false);
   const [newUnitName, setNewUnitName] = useState('');
   const [creatingUnit, setCreatingUnit] = useState(false);
+  // Parent picker (03.10.2026, §13.81) — '' means "directly under the
+  // brigade" (no parentUnitId written at all, matching the existing
+  // omit-when-absent convention). Military/educational only; municipal's
+  // branch below never reads this.
+  const [newUnitParentId, setNewUnitParentId] = useState('');
+  const [createUnitError, setCreateUnitError] = useState<string | null>(null);
 
   const loadUnitsForAuthority = async (authId: string) => {
     const a = await getAuthority(authId);
@@ -454,13 +460,18 @@ export default function UnitsListPage() {
   const handleCreateUnit = async () => {
     if (!newUnitName.trim() || !selectedOrgId) return;
     setCreatingUnit(true);
+    setCreateUnitError(null);
     try {
       const trimmed = newUnitName.trim();
-      const slug = trimmed.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-      const suffix = Math.random().toString(36).substring(2, 6);
-      const unitId = slug ? `${slug}_${suffix}` : `unit_${suffix}`;
 
       if (isMunicipal) {
+        // Municipal children are authorities docs (neighborhoods/local
+        // councils), a different collection with its own rules — untouched
+        // by this round, which is scoped to the military/educational
+        // tenants/{t}/units parent-picker bug only.
+        const slug = trimmed.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+        const suffix = Math.random().toString(36).substring(2, 6);
+        const unitId = slug ? `${slug}_${suffix}` : `unit_${suffix}`;
         const childType = authoritySubType === 'regional_council' ? 'local_council' : 'neighborhood';
         await setDoc(doc(db, 'authorities', unitId), {
           name: trimmed,
@@ -472,21 +483,43 @@ export default function UnitsListPage() {
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
+        setUnits(prev => [...prev, { id: unitId, name: trimmed, memberCount: 0, unitPath: [], parentUnitId: null, iconUrl: null }]);
       } else {
-        await setDoc(doc(db, 'tenants', selectedOrgId, 'units', unitId), {
+        // §13.81 — server-validated creation (resolveUnitPermissionScope +
+        // isMemberWithinScope, same shared check every other officer
+        // mutation on this page's family already uses). Also the fix for a
+        // pre-existing bug: firestore.rules' allow create on this path is
+        // isAdmin()-only, so the prior direct client setDoc here only ever
+        // succeeded for a super_admin/root test account — a real
+        // tenant_owner/unit_admin's click has always failed silently.
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) throw new Error('משתמש לא מחובר. רענן את הדף ונסה שוב.');
+        const res = await fetch('/api/units/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ tenantId: selectedOrgId, name: trimmed, parentUnitId: newUnitParentId || null }),
+        });
+        const resBody = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(typeof resBody.error === 'string' ? resBody.error : `שגיאה ביצירת ${childLabel} (${res.status})`);
+        }
+        setUnits(prev => [...prev, {
+          id: resBody.unitId,
           name: trimmed,
           memberCount: 0,
-          unitPath: [trimmed],
-          createdAt: serverTimestamp(),
-        });
+          unitPath: Array.isArray(resBody.unitPath) ? resBody.unitPath : [],
+          parentUnitId: resBody.parentUnitId ?? null,
+          iconUrl: null,
+        }]);
         syncTenantUnitCount(selectedOrgId).catch(() => {});
       }
 
-      setUnits(prev => [...prev, { id: unitId, name: trimmed, memberCount: 0, unitPath: [], parentUnitId: null, iconUrl: null }]);
       setNewUnitName('');
+      setNewUnitParentId('');
       setShowAddUnit(false);
     } catch (err) {
       console.error('Error creating unit:', err);
+      setCreateUnitError(err instanceof Error ? err.message : `שגיאה ביצירת ${childLabel}. נסה שוב.`);
     } finally {
       setCreatingUnit(false);
     }
@@ -651,7 +684,7 @@ export default function UnitsListPage() {
               }`}
             >
               <Plus size={16} />
-              הוסף {childLabel}
+              {isMunicipal ? `הוסף ${childLabel}` : 'הוסף יחידה'}
             </button>
             {!isMunicipal && (
               <button
@@ -871,16 +904,39 @@ export default function UnitsListPage() {
         <div className={`bg-white rounded-2xl shadow-sm border-l-4 border border-gray-100 p-5 ${theme.headerBorder}`}>
           <h3 className="text-sm font-black text-gray-900 mb-3 flex items-center gap-2">
             <Plus size={16} className={theme.accentText} />
-            הוסף {childLabel} ל-{orgDisplayName}
+            {isMunicipal ? `הוסף ${childLabel} ל-${orgDisplayName}` : `הוסף יחידה ל-${orgDisplayName}`}
           </h3>
+
+          {createUnitError && (
+            <div className="mb-3 px-3 py-2 rounded-lg bg-red-50 border border-red-200">
+              <p className="text-xs text-red-700 font-semibold">{createUnitError}</p>
+            </div>
+          )}
+
           <div className="flex items-center gap-3">
             <input
               type="text"
               value={newUnitName}
               onChange={e => setNewUnitName(e.target.value)}
-              placeholder={`שם ה${childLabel}`}
+              placeholder={isMunicipal ? `שם ה${childLabel}` : 'שם היחידה'}
               className="flex-1 px-4 py-2.5 rounded-xl border-2 border-gray-200 text-sm focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 outline-none"
             />
+            {!isMunicipal && (
+              // §13.81 — the officer picks a parent only from units already
+              // loaded on this page (their own tenant's hierarchy); the
+              // server independently re-validates this against
+              // resolveUnitPermissionScope regardless of what the client
+              // sends. Leaving it unselected (the default) creates directly
+              // under the brigade — exactly today's existing behavior.
+              <div className="flex-1">
+                <SearchableSelect
+                  options={orderedUnits.map(u => ({ id: u.id, label: `${'— '.repeat(u.depth)}${displayUnitName(u, tenantType)}` }))}
+                  value={newUnitParentId}
+                  onChange={setNewUnitParentId}
+                  placeholder="ישירות תחת החטיבה (ללא הורה)"
+                />
+              </div>
+            )}
             <button
               onClick={handleCreateUnit}
               disabled={!newUnitName.trim() || creatingUnit}
@@ -893,10 +949,27 @@ export default function UnitsListPage() {
               {creatingUnit ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
               צור
             </button>
-            <button onClick={() => { setShowAddUnit(false); setNewUnitName(''); }} className="text-slate-400 hover:text-slate-600">
+            <button onClick={() => { setShowAddUnit(false); setNewUnitName(''); setNewUnitParentId(''); setCreateUnitError(null); }} className="text-slate-400 hover:text-slate-600">
               <X size={18} />
             </button>
           </div>
+
+          {!isMunicipal && (
+            // §13.81 (David's live-test finding, 04.10.2026) — a list
+            // missing its own first item reads as broken, not as policy,
+            // if nothing on screen says why. This caption is unconditional
+            // (not role-detection — the client never resolves its own
+            // scope) because it's correct for every caller: the list is
+            // always exactly "units within your own permission scope,"
+            // which for a tenant_owner/root is everything (so the brigade
+            // not appearing as a selectable ROW is simply because it's
+            // never a tenants/{t}/units doc, not a scope restriction) and
+            // for a narrower officer is genuinely narrower — the server
+            // enforces this regardless of what this text says.
+            <p className="text-[11px] text-slate-400 mt-2">
+              הרשימה מציגה רק יחידות שבתחום ההרשאה שלך. אם ההורה שאתה מחפש לא ברשימה — הוא מחוץ לתחום שלך, לא תקלה.
+            </p>
+          )}
         </div>
       )}
 

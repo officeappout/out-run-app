@@ -130,6 +130,13 @@ export const RATE_LIMITS = {
   unitMemberRemove: {
     uidHourly: () => envWindow('RL_UNIT_MEMBER_REMOVE_UID_HOURLY', HOUR, 100),
   },
+  // POST /api/units/create (03.10.2026, parent-unit-picker build,
+  // 00-MASTER-PLAN.md §13.81) — officer-initiated unit creation. Same
+  // "normal work session, not abuse" shape as the member actions above —
+  // generous enough for building out a brigade's hierarchy in one sitting.
+  unitCreate: {
+    uidHourly: () => envWindow('RL_UNIT_CREATE_UID_HOURLY', HOUR, 100),
+  },
   // POST/PATCH /api/admin/parks(/[parkId]) (30.09.2026, stage 2 of the
   // parks permission-model rebuild) — authority_manager create/edit,
   // root create/edit/reassign. Same "generous headroom for a normal

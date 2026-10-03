@@ -132,6 +132,7 @@ export default function UnitDrilldownPage() {
   const [showAddSubUnit, setShowAddSubUnit] = useState(false);
   const [newSubUnitName, setNewSubUnitName] = useState('');
   const [creatingSubUnit, setCreatingSubUnit] = useState(false);
+  const [createSubUnitError, setCreateSubUnitError] = useState<string | null>(null);
   // Unit icon (military only, tenants/{orgId}/units/{unitId}.iconUrl) —
   // 07.09.2026, same field the icon-manifest import already writes.
   const [iconUrl, setIconUrl] = useState<string | null>(null);
@@ -564,33 +565,42 @@ export default function UnitDrilldownPage() {
     : null;
   const workoutCountLabel = memberWorkouts.length >= 20 ? '20+' : String(memberWorkouts.length);
 
+  // §13.81 — migrated to the server-validated POST /api/units/create
+  // (same route units/page.tsx's handleCreateUnit now uses). Behavior is
+  // unchanged: parent is always the unit currently being viewed (unitId),
+  // no picker here — the server re-derives+re-validates this against
+  // resolveUnitPermissionScope regardless. Also fixes the same
+  // pre-existing bug as that route's header comment: firestore.rules'
+  // allow create on tenants/{t}/units/{u} is isAdmin()-only, so the prior
+  // direct client setDoc here only ever succeeded for a super_admin/root
+  // test account.
   const handleCreateSubUnit = async () => {
     if (!newSubUnitName.trim() || !tenantId) return;
     setCreatingSubUnit(true);
+    setCreateSubUnitError(null);
     try {
       const trimmedName = newSubUnitName.trim();
-      const slug = trimmedName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-      const suffix = Math.random().toString(36).substring(2, 6);
-      const subId = slug ? `${slug}_${suffix}` : `unit_${suffix}`;
 
-      const parentPath = unitPath.length > 0 ? unitPath : [unitName];
-      const childPath = [...parentPath, trimmedName];
-
-      console.log('[UnitDrilldown] Creating sub-unit:', { subId, name: trimmedName, parentUnitId: unitId, childPath, tenantType: resolvedTenantType });
-
-      await setDoc(doc(db, 'tenants', tenantId, 'units', subId), {
-        name: trimmedName,
-        parentUnitId: unitId,
-        unitPath: childPath,
-        memberCount: 0,
-        createdAt: serverTimestamp(),
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error('משתמש לא מחובר. רענן את הדף ונסה שוב.');
+      const res = await fetch('/api/units/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ tenantId, name: trimmedName, parentUnitId: unitId }),
       });
-      setSubUnits(prev => [...prev, { id: subId, name: trimmedName, memberCount: 0, unitPath: childPath, iconUrl: null }]);
+      const resBody = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(typeof resBody.error === 'string' ? resBody.error : `שגיאה ביצירת ה${nextHierarchyLabel} (${res.status})`);
+      }
+
+      const childPath: string[] = Array.isArray(resBody.unitPath) ? resBody.unitPath : [...(unitPath.length > 0 ? unitPath : [unitName]), trimmedName];
+      setSubUnits(prev => [...prev, { id: resBody.unitId, name: trimmedName, memberCount: 0, unitPath: childPath, iconUrl: null }]);
       setNewSubUnitName('');
       setShowAddSubUnit(false);
-      if (tenantId) syncTenantUnitCount(tenantId).catch(() => {});
+      syncTenantUnitCount(tenantId).catch(() => {});
     } catch (err) {
       console.error('[UnitDrilldown] Error creating sub-unit:', err);
+      setCreateSubUnitError(err instanceof Error ? err.message : `שגיאה ביצירת ה${nextHierarchyLabel}. נסה שוב.`);
     } finally {
       setCreatingSubUnit(false);
     }
@@ -819,6 +829,13 @@ export default function UnitDrilldownPage() {
             <Plus size={16} className={theme.accentText} />
             הוסף {nextHierarchyLabel} תחת {unitName}
           </h3>
+
+          {createSubUnitError && (
+            <div className="mb-3 px-3 py-2 rounded-lg bg-red-50 border border-red-200">
+              <p className="text-xs text-red-700 font-semibold">{createSubUnitError}</p>
+            </div>
+          )}
+
           <div className="flex items-center gap-3">
             <input
               type="text"
@@ -839,7 +856,7 @@ export default function UnitDrilldownPage() {
               {creatingSubUnit ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
               צור
             </button>
-            <button onClick={() => { setShowAddSubUnit(false); setNewSubUnitName(''); }} className="text-slate-400 hover:text-slate-600">
+            <button onClick={() => { setShowAddSubUnit(false); setNewSubUnitName(''); setCreateSubUnitError(null); }} className="text-slate-400 hover:text-slate-600">
               <X size={18} />
             </button>
           </div>
