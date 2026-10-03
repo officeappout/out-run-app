@@ -20,11 +20,13 @@ import EquipmentFilterSheet from '@/features/content/exercises/client/components
 import { BODYWEIGHT_SENTINEL } from '@/features/content/exercises/client/store/useExerciseLibraryStore';
 import { resolveEquipmentSvgPathList } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { DrumTimePicker } from '@/components/ui/DrumTimePicker';
+import MuscleFilterChip from '@/components/ui/MuscleFilterChip';
 import { upsertScheduleEntry } from '@/features/user/scheduling/services/userSchedule.service';
 import {
   MUSCLE_CHIPS,
   domainsToChipIds,
   CHIP_TO_PRIMARY_PROGRAMS,
+  CHIP_TO_PROGRAMS,
   PROG_PRIMARY_CHIPS,
   type MuscleChip,
 } from '@/features/home/constants/muscle-chips';
@@ -200,87 +202,13 @@ function ProgramPill({
 }
 
 // ─── Muscle chip (shared between the primary/secondary rows) ───────────────────
-// Four visually distinct states (UX pass #2 — the old pale-blue-vs-pale-grey
-// pair was almost indistinguishable; this reuses the same solid ACTIVE_PILL
-// treatment as the program pills / "אוטו" button so selection reads as ONE
-// consistent app-wide language, not a separate muscle-grid style):
-//   isGated      — conflicts with the currently-selected program's domain(s)
-//                  (unchanged, pre-existing behaviour): fully blocked, opacity-30.
-//   isUnassessed — never assessed in any program this muscle could activate:
-//                  muted + a small lock badge. Still clickable — tapping opens
-//                  the same assessment popup via onToggle → toggleChip's own
-//                  gate — never a silent no-op.
-//   active (isManual || isAuto), with a readable sub-state:
-//     isRecommended — active AND still the untouched system recommendation
-//                     (isUsingRecommendedDefaults true, nothing manually
-//                     touched yet): same strong fill plus a small sparkle
-//                     marker, so a pre-filled chip reads as "the system
-//                     picked this, change it if you want" rather than a
-//                     silently pre-checked box.
-//     plain active  — manually confirmed: strong brand-teal fill, no marker.
-//   unselected — neutral border, full-opacity (grayscale) icon, clearly tappable.
-function MuscleChipButton({
-  chip,
-  isManual,
-  isAuto,
-  isGated,
-  isUnassessed,
-  isRecommended,
-  size,
-  onToggle,
-}: {
-  chip: MuscleChip;
-  isManual: boolean;
-  isAuto: boolean;
-  isGated: boolean;
-  isUnassessed: boolean;
-  isRecommended: boolean;
-  size: number;
-  onToggle: () => void;
-}) {
-  const active = isManual || isAuto;
-  return (
-    <button
-      onClick={() => !isGated && onToggle()}
-      disabled={isGated}
-      className={`
-        relative flex-shrink-0 flex flex-col items-center gap-1 px-2 pt-2 pb-1.5 rounded-2xl border
-        text-[11px] font-bold min-w-[58px]
-        ${isGated
-          ? 'opacity-30 cursor-not-allowed border-transparent text-gray-400'
-          : isUnassessed
-            ? 'border-gray-200 dark:border-gray-700 text-gray-400 cursor-pointer'
-            : `transition-all active:scale-95 ${active
-                ? `${ACTIVE_PILL} ${isRecommended ? 'ring-2 ring-offset-1 ring-[#00BAF7]/40 dark:ring-offset-gray-900' : ''}`
-                : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'}`}
-      `}
-    >
-      {isUnassessed && (
-        <Lock size={10} className="absolute top-1.5 right-1.5 text-gray-400" />
-      )}
-      {active && isRecommended && (
-        <span className="absolute -top-1.5 -left-1.5 text-[10px] leading-none" aria-hidden>✨</span>
-      )}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={chip.svgPath}
-        alt=""
-        width={size}
-        height={size}
-        className="object-contain"
-        style={{ filter: isUnassessed ? 'grayscale(100%) opacity(0.5)' : active ? BOLT_FILTER_FILLED_ACTIVE : 'grayscale(100%)' }}
-        onError={(e) => {
-          const el = e.currentTarget;
-          el.style.display = 'none';
-          const fb = el.nextElementSibling as HTMLElement | null;
-          if (fb) fb.style.display = 'inline';
-        }}
-      />
-      <span className="hidden">{chip.emoji}</span>
-      <span className="text-center leading-tight whitespace-nowrap">{chip.label}</span>
-    </button>
-  );
-}
+// UX pass v2: the bespoke 4-state chip above is retired in favour of the
+// SAME MuscleFilterChip used by the exercise-library's muscle filter (teal
+// `primary` selected border/fill, same box/icon sizing) — "reuse the search
+// screen's component" rather than a parallel custom visual. The builder adds
+// two states search doesn't need (locked/recommended) via that component's
+// own optional props; isGated keeps its original fully-blocked behaviour via
+// `disabled`. See MuscleFilterChip.tsx for the shared implementation.
 
 // ─── WorkoutBuilderSheet ──────────────────────────────────────────────────────
 export default function WorkoutBuilderSheet({
@@ -672,13 +600,18 @@ export default function WorkoutBuilderSheet({
   );
 
   // A chip is "assessed" when the user is enrolled in at least one program
-  // it could activate. For a PRIMARY-mapped muscle (CHIP_TO_PRIMARY_PROGRAMS
-  // has an entry) this checks the muscle→program inverse's own candidate
-  // set; a secondary muscle (no entry) keeps the original coarse
-  // domain-level enrollment check (DOMAIN_ENROLLMENT_SLUGS), unchanged.
+  // that trains it AT ALL — primary OR secondary mover (CHIP_TO_PROGRAMS,
+  // built from PROG_TO_CHIPS's full per-program muscle set). UX pass #2
+  // (product decision): gating on CHIP_TO_PRIMARY_PROGRAMS alone locked a
+  // muscle for a user enrolled in a program that trains it only as a
+  // secondary mover — e.g. push's primary mover is chest, but push also
+  // trains shoulders+triceps, which must unlock too. The domain-level
+  // fallback (DOMAIN_ENROLLMENT_SLUGS) stays only as a safety net for a
+  // chip CHIP_TO_PROGRAMS doesn't cover — none do today, since PROG_TO_CHIPS
+  // has an identity entry for every individual muscle chip.
   const isChipAssessed = useCallback((chip: MuscleChip): boolean => {
-    const primaryPrograms = CHIP_TO_PRIMARY_PROGRAMS[chip.id] ?? [];
-    if (primaryPrograms.length > 0) return primaryPrograms.some(isEnrolledInProgram);
+    const trainingPrograms = CHIP_TO_PROGRAMS[chip.id] ?? [];
+    if (trainingPrograms.length > 0) return trainingPrograms.some(isEnrolledInProgram);
     return chip.domains.some(domain => {
       const required = DOMAIN_ENROLLMENT_SLUGS[domain] ?? [domain];
       return required.some(isEnrolledInProgram);
@@ -1258,16 +1191,16 @@ export default function WorkoutBuilderSheet({
                     const isGated = selectedProgramAllowedDomains.size > 0 &&
                       !chip.domains.some(d => selectedProgramAllowedDomains.has(d));
                     return (
-                      <MuscleChipButton
+                      <MuscleFilterChip
                         key={chip.id}
-                        chip={chip}
-                        isManual={selectedChips.includes(chip.id)}
-                        isAuto={autoChips.includes(chip.id)}
-                        isGated={isGated}
-                        isUnassessed={!isGated && !isChipAssessed(chip)}
-                        isRecommended={isUsingRecommendedDefaults}
-                        size={44}
-                        onToggle={() => toggleChip(chip.id)}
+                        icon={chip.svgPath}
+                        label={chip.label}
+                        selected={selectedChips.includes(chip.id) || autoChips.includes(chip.id)}
+                        disabled={isGated}
+                        locked={!isGated && !isChipAssessed(chip)}
+                        recommended={isUsingRecommendedDefaults}
+                        size="md"
+                        onClick={() => toggleChip(chip.id)}
                       />
                     );
                   })}
@@ -1285,16 +1218,16 @@ export default function WorkoutBuilderSheet({
                     const isGated = selectedProgramAllowedDomains.size > 0 &&
                       !chip.domains.some(d => selectedProgramAllowedDomains.has(d));
                     return (
-                      <MuscleChipButton
+                      <MuscleFilterChip
                         key={chip.id}
-                        chip={chip}
-                        isManual={selectedChips.includes(chip.id)}
-                        isAuto={autoChips.includes(chip.id)}
-                        isGated={isGated}
-                        isUnassessed={!isGated && !isChipAssessed(chip)}
-                        isRecommended={isUsingRecommendedDefaults}
-                        size={32}
-                        onToggle={() => toggleChip(chip.id)}
+                        icon={chip.svgPath}
+                        label={chip.label}
+                        selected={selectedChips.includes(chip.id) || autoChips.includes(chip.id)}
+                        disabled={isGated}
+                        locked={!isGated && !isChipAssessed(chip)}
+                        recommended={isUsingRecommendedDefaults}
+                        size="sm"
+                        onClick={() => toggleChip(chip.id)}
                       />
                     );
                   })}

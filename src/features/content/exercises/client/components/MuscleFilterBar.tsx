@@ -22,11 +22,17 @@
  * symmetric edge-to-edge bleed no longer has a consistent edge to bleed
  * from on the funnel's side. The caller (ExerciseLibraryPage) wraps this
  * in a `flex-1 min-w-0` cell of that row.
+ *
+ * Chip visual extracted to the shared MuscleFilterChip (workout builder UX
+ * pass v2) so this bar and the home workout builder render from one
+ * component instead of two independently-maintained copies — this file's
+ * own behaviour/markup is unchanged, just delegated.
  */
 
 import { useMemo } from 'react';
 import { useExerciseLibraryStore } from '../store/useExerciseLibraryStore';
 import { MUSCLE_BAR_CHIPS, chipIsActive, toggleMuscleChip } from '../utils/muscle-bar.utils';
+import MuscleFilterChip from '@/components/ui/MuscleFilterChip';
 
 export default function MuscleFilterBar() {
   const selected = useExerciseLibraryStore((s) => s.filters.muscles);
@@ -45,38 +51,13 @@ export default function MuscleFilterBar() {
     <div className="flex-1 min-w-0 overflow-x-auto scrollbar-hide" dir="rtl">
       <div className="flex gap-3 pb-1">
         {chips.map((chip) => (
-          <button
+          <MuscleFilterChip
             key={chip.key}
-            type="button"
+            icon={chip.icon}
+            label={chip.label}
+            selected={chip.isActive}
             onClick={() => setMuscles(toggleMuscleChip(selected, chip))}
-            className="flex flex-col items-center gap-1.5 flex-shrink-0 w-[84px]"
-            aria-pressed={chip.isActive}
-          >
-            <div
-              className={`w-[76px] h-[76px] rounded-2xl border flex items-center justify-center transition-all ${
-                chip.isActive
-                  ? 'bg-cyan-50 border-primary shadow-sm'
-                  : 'bg-gray-50 border-gray-200'
-              }`}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={chip.icon}
-                alt=""
-                className="w-14 h-14 object-contain"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.visibility = 'hidden';
-                }}
-              />
-            </div>
-            <span
-              className={`text-[11px] font-semibold whitespace-nowrap ${
-                chip.isActive ? 'text-primary' : 'text-gray-600'
-              }`}
-            >
-              {chip.label}
-            </span>
-          </button>
+          />
         ))}
       </div>
     </div>
