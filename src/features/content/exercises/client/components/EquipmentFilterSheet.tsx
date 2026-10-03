@@ -405,7 +405,7 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
           <Chip
             active={draft.has(BODYWEIGHT_SENTINEL)}
             onClick={() => toggle(BODYWEIGHT_SENTINEL)}
-            iconNode={<PersonStanding size={isProfileMode ? 18 : 16} className="text-gray-700" />}
+            iconNode={<PersonStanding size={isProfileMode ? 20 : 16} className="text-gray-700" />}
             label="משקל גוף"
             large={isProfileMode}
           />
@@ -499,12 +499,24 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
     <AnimatePresence>
       {isOpen && (
         isProfileMode ? (
+          // z-[102] — NOT z-[71] (that's the filter/inline bottom-sheet
+          // tier, correct for those but far below SettingsModal's z-[101]).
+          // This full-screen branch is launched FROM INSIDE SettingsModal
+          // (the "הציוד שלי" row) and must render above it, same stacking
+          // relationship as z-[130]/[131] (LegalDocModal) needing to clear
+          // z-[120] (HealthConnectDisclosureModal) which opens it inline —
+          // see .cursorrules' Z-Index Budget, updated with this entry.
+          // Portal mount itself was already correct (createPortal to
+          // document.body, same target every other full-screen overlay in
+          // this app uses, including SettingsModal) — the stacking bug was
+          // purely the numeric gap between z-[71] and SettingsModal's
+          // z-[101], not a stacking-context/portal issue.
           <motion.div
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-            className="fixed inset-0 z-[71] bg-white flex flex-col"
+            className="fixed inset-0 z-[102] bg-white flex flex-col"
             dir="rtl"
           >
             {innerContent}

@@ -1216,19 +1216,19 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                    ══════════════════════════════════════════════════════════ */}
                 <Section title="חשבון">
                   <SettingsRow
-                    icon={<User size={18} className="text-gray-700" />}
+                    icon={<User size={20} className="text-gray-700" />}
                     label="פרטים אישיים"
                     sublabel="עיר, משקל, תאריך לידה"
                     onClick={openPersonalEdit}
                   />
                   <SettingsRow
-                    icon={<Users size={18} className="text-gray-700" />}
+                    icon={<Users size={20} className="text-gray-700" />}
                     label="הפרסונות שלי"
                     sublabel="פרטים פרטיים, לא מופיעים בפרופיל הציבורי"
                     onClick={() => setScreen('personas')}
                   />
                   <SettingsRow
-                    icon={<Lock size={18} className="text-gray-700" />}
+                    icon={<Lock size={20} className="text-gray-700" />}
                     label={pwResetSent ? 'מייל נשלח ✓' : 'סיסמה ואבטחה'}
                     sublabel={
                       !hasEmailAuth
@@ -1256,7 +1256,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 <Section title="מנוי">
                   {/* City Pass status */}
                   <SettingsRow
-                    icon={<CreditCard size={18} className="text-gray-700" />}
+                    icon={<CreditCard size={20} className="text-gray-700" />}
                     label="City Pass"
                     sublabel={
                       cityAffiliation
@@ -1280,7 +1280,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <div className="py-3.5">
                     <div className="flex items-center gap-3">
                       <div className="p-2 rounded-lg bg-amber-50 flex-shrink-0">
-                        <Tag size={18} className="text-gray-700" />
+                        <Tag size={20} className="text-gray-700" />
                       </div>
                       <div className="flex-1 min-w-0 text-right">
                         <p className="text-sm font-semibold text-gray-900 font-simpler">הזנת קוד קופון</p>
@@ -1326,12 +1326,12 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                    ══════════════════════════════════════════════════════════ */}
                 <Section title="התראות ופרטיות">
                   <SettingsRow
-                    icon={<Bell size={18} className="text-gray-700" />}
+                    icon={<Bell size={20} className="text-gray-700" />}
                     label="התראות"
                     onClick={() => setScreen('notifications')}
                   />
                   <SettingsRow
-                    icon={<Lock size={18} className="text-gray-500" />}
+                    icon={<Lock size={20} className="text-gray-700" />}
                     label="פרטיות ונראות"
                     onClick={() => setScreen('privacy')}
                   />
@@ -1362,7 +1362,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     icon={
                       pushSaving
                         ? <Loader2 size={18} className="text-gray-700 animate-spin" />
-                        : <Bell size={18} className="text-gray-700" />
+                        : <Bell size={20} className="text-gray-700" />
                     }
                     label="התראות פוש"
                     sublabel={
@@ -1443,7 +1443,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     icon={
                       chatNotifSaving
                         ? <Loader2 size={18} className="text-gray-700 animate-spin" />
-                        : <MessageSquare size={18} className="text-gray-700" />
+                        : <MessageSquare size={20} className="text-gray-700" />
                     }
                     label="התראות צ׳אט"
                     sublabel={
@@ -1483,7 +1483,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     icon={
                       channelSaving['progression']
                         ? <Loader2 size={18} className="text-gray-700 animate-spin" />
-                        : <Dumbbell size={18} className="text-gray-700" />
+                        : <Dumbbell size={20} className="text-gray-700" />
                     }
                     label="התקדמות"
                     sublabel="עלייה ברמה, שיאים אישיים"
@@ -1500,7 +1500,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     icon={
                       channelSaving['social']
                         ? <Loader2 size={18} className="text-gray-700 animate-spin" />
-                        : <Users size={18} className="text-gray-700" />
+                        : <Users size={20} className="text-gray-700" />
                     }
                     label="חברתי"
                     sublabel="הצטרפות לקבוצה, קאדוז"
@@ -1517,7 +1517,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     icon={
                       channelSaving['training_reminder']
                         ? <Loader2 size={18} className="text-gray-700 animate-spin" />
-                        : <Calendar size={18} className="text-gray-700" />
+                        : <Calendar size={20} className="text-gray-700" />
                     }
                     label="תזכורות אימון"
                     sublabel="בוקר לפני אימון מתוזמן"
@@ -1534,7 +1534,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     icon={
                       channelSaving['encouragement']
                         ? <Loader2 size={18} className="text-gray-700 animate-spin" />
-                        : <Bell size={18} className="text-gray-700" />
+                        : <Bell size={20} className="text-gray-700" />
                     }
                     label="עידוד ומוטיבציה"
                     sublabel="הודעות מהעירייה שלך"
@@ -1551,7 +1551,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     icon={
                       channelSaving['retention']
                         ? <Loader2 size={18} className="text-gray-700 animate-spin" />
-                        : <Heart size={18} className="text-gray-700" />
+                        : <Heart size={20} className="text-gray-700" />
                     }
                     label="חזרה לשגרה"
                     sublabel="תזכורת כשלא התאמנת כמה ימים"
@@ -1727,8 +1727,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   {/* Map visibility — inline 3-option selector */}
                   <div>
                     <div className="flex items-center gap-2 mb-3">
-                      <MapPin size={16} className="text-gray-500" />
-                      <p className="text-sm font-semibold text-gray-800 font-simpler">נראות במפה</p>
+                      <MapPin size={20} className="text-gray-700" />
+                      <p className="text-base font-semibold text-gray-800 font-simpler">נראות במפה</p>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
                       {(computeAgeGroup(profile?.core?.birthDate) === 'minor'
@@ -1764,7 +1764,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <div className="mt-5 divide-y divide-gray-100">
                     {/* Profile discoverability */}
                     <SettingsRow
-                      icon={discoverable ? <Eye size={18} className="text-gray-700" /> : <EyeOff size={18} className="text-gray-700" />}
+                      icon={discoverable ? <Eye size={20} className="text-gray-700" /> : <EyeOff size={20} className="text-gray-700" />}
                       label="נגישות פרופיל בחיפוש"
                       sublabel="אפשר למשתמשים אחרים למצוא אותך לפי שם"
                       right={
@@ -1778,7 +1778,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
                     {/* Analytics sharing — note: display is inverted (analyticsOptOut → "share" = !optOut) */}
                     <SettingsRow
-                      icon={<BarChart3 size={18} className="text-gray-700" />}
+                      icon={<BarChart3 size={20} className="text-gray-700" />}
                       label="שיתוף אנליטיקס"
                       sublabel="שיתוף נתוני שימוש אנונימיים לשיפור האפליקציה"
                       right={
@@ -1803,7 +1803,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <SettingsRow
                     icon={
                       <Heart
-                        size={18}
+                        size={20}
                         className="text-gray-700"
                       />
                     }
@@ -1837,7 +1837,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       className="w-full flex items-center gap-3 py-3.5 text-start active:bg-gray-50 transition-colors"
                     >
                       <div className="flex-shrink-0">
-                        <Ruler size={18} className="text-gray-700" />
+                        <Ruler size={20} className="text-gray-700" />
                       </div>
                       <div className="flex-1 min-w-0 text-right">
                         <p className="text-base font-semibold text-gray-900 font-simpler">יחידות מידה</p>
@@ -1881,7 +1881,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
                   {/* Equipment */}
                   <SettingsRow
-                    icon={<Dumbbell size={18} className="text-gray-700" />}
+                    icon={<Dumbbell size={20} className="text-gray-700" />}
                     label="הציוד שלי"
                     sublabel="עדכן את הציוד הזמין לך"
                     onClick={() => setEquipmentSheetOpen(true)}
@@ -1891,7 +1891,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <SettingsRow
                     icon={
                       <Camera
-                        size={18}
+                        size={20}
                         className="text-gray-700"
                       />
                     }
@@ -1916,7 +1916,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <SettingsRow
                     icon={
                       <MapPin
-                        size={18}
+                        size={20}
                         className="text-gray-700"
                       />
                     }
@@ -1946,17 +1946,17 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                    ══════════════════════════════════════════════════════════ */}
                 <Section title="כללי">
                   <SettingsRow
-                    icon={<FileText size={18} className="text-gray-700" />}
+                    icon={<FileText size={20} className="text-gray-700" />}
                     label="תנאי שימוש ופרטיות"
                     onClick={() => setShowTermsModal(true)}
                   />
                   <SettingsRow
-                    icon={<Shield size={18} className="text-gray-700" />}
+                    icon={<Shield size={20} className="text-gray-700" />}
                     label="מדיניות פרטיות"
                     onClick={() => setShowPrivacyModal(true)}
                   />
                   <SettingsRow
-                    icon={<Mail size={18} className="text-gray-700" />}
+                    icon={<Mail size={20} className="text-gray-700" />}
                     label="יצירת קשר"
                     sublabel="office@appout.co.il"
                     onClick={() => window.open('mailto:office@appout.co.il', '_blank')}
@@ -1972,10 +1972,13 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     onClick={handleLogout}
                     className="w-full flex items-center gap-3 py-3.5 hover:bg-gray-50 transition-colors active:bg-gray-100"
                   >
-                    <div className="p-2 bg-gray-100 rounded-lg">
-                      <LogOut size={18} className="text-gray-600" />
+                    {/* Icon box removed (was p-2 bg-gray-100 rounded-lg) —
+                        missed in the earlier clean-icon pass; matches every
+                        other row now. Size/color bumped to match too. */}
+                    <div className="flex-shrink-0">
+                      <LogOut size={20} className="text-gray-700" />
                     </div>
-                    <span className="flex-1 text-right text-sm font-semibold text-gray-700 font-simpler">התנתק</span>
+                    <span className="flex-1 text-right text-base font-semibold text-gray-700 font-simpler">התנתק</span>
                   </button>
                 </div>
 
