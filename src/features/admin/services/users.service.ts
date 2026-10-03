@@ -144,6 +144,15 @@ export interface AdminUserListItem {
     campaign: string | null;
     adId: string | null;
   };
+  /**
+   * core.isTestData / core.isMockData — set by scripts/mark-test-accounts.ts
+   * (approved 23.09.2026) and the Sderot demo seed respectively. Exposed here
+   * so this list can filter them the same way src/lib/testAccountFilter.ts's
+   * isTestOrMockUser() already does for statistics-summary/insights-summary/
+   * analytics.service — this was the one admin surface NOT applying it yet.
+   */
+  isTestData?: boolean;
+  isMockData?: boolean;
 }
 
 /**
@@ -208,6 +217,8 @@ export async function getAllUsers(): Promise<AdminUserListItem[]> {
         fcmTokenCount: Array.isArray(fcmTokens) ? fcmTokens.length : 0,
         // Growth Hub — Tier 3 projection (also a pure in-memory read):
         marketingAttribution,
+        isTestData: core.isTestData === true,
+        isMockData: core.isMockData === true,
       };
     });
   } catch (error) {
