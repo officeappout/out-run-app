@@ -1548,6 +1548,26 @@ service cloud.firestore {
             request.resource.data.followers.hasAll(resource.data.get('followers', []).removeAll([request.auth.uid]))
           )
         );
+
+      // First-follow CREATE gap (public-profile investigation, 03.10.2026):
+      // the `allow update` branch above only ever fires when the target's
+      // connections/{userId} doc already EXISTS — Firestore classifies a
+      // write as create/update by document existence, not by which client
+      // method was called. A target who has never visited any screen that
+      // self-creates their own doc (search, community, the map's presence
+      // layer) has no doc yet, so the FIRST person to follow them hits only
+      // the owner-only `allow write` above and is rejected with
+      // "Missing or insufficient permissions" — reproduced live via
+      // useSocialStore.followUser's own fallback path
+      // (setDoc(targetRef, {following:[], followers:[myUid]}, {merge:true})
+      // after the initial updateDoc throws). Same self-insertion shape as
+      // the non-owner update branch above, just for the create case —
+      // permits exactly that one fallback payload and nothing wider.
+      allow create: if isAuthenticated() && !isAnonymous() && request.auth.uid != userId &&
+        request.resource.data.keys().hasOnly(['followers', 'following', 'updatedAt']) &&
+        request.resource.data.get('following', []).size() == 0 &&
+        request.resource.data.followers.hasOnly([request.auth.uid]) &&
+        request.resource.data.followers.hasAll([request.auth.uid]);
     }
 
     // ============================================================

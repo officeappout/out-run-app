@@ -77,13 +77,21 @@ export default function PublicProfilePage() {
   const isSelf = myUid === targetUid;
   const followed = isFollowing(targetUid);
 
-  // Compliance Phase 2.2 — DM is blocked when EITHER party is a minor, same
-  // gate as UserProfileSheet.tsx (the source of truth is the server-side
-  // Firestore rule on /chats DM create; this only avoids showing a button
-  // that would fail on click).
-  const currentIsMinor = myProfile?.core?.ageGroup === 'minor';
-  const targetIsMinor = publicProfile?.ageGroup === 'minor';
-  const canDirectMessage = !isSelf && !!myUid && !currentIsMinor && !targetIsMinor;
+  // Compliance Phase 2.2 — DM requires BOTH parties to be exactly 'adult',
+  // same polarity as the server-side Firestore rule on /chats DM create
+  // (firestore.rules' chats/{chatId} allow create: both participants'
+  // core.ageGroup == 'adult'). Investigation finding (03.10.2026): this
+  // used to read `!== 'minor'` -- permissive by default, so a missing/
+  // undefined ageGroup (a legacy pre-ageGroup account) passed this check
+  // and showed an enabled button that then 403'd on click, since the rule
+  // requires the field to be PRESENT and exactly 'adult', not merely "not
+  // minor". Tightened to match the rule's own polarity exactly -- this
+  // only prevents showing a button that was always going to fail; it
+  // never allows anything the rule wouldn't already allow.
+  const canDirectMessage =
+    !isSelf && !!myUid &&
+    myProfile?.core?.ageGroup === 'adult' &&
+    publicProfile?.ageGroup === 'adult';
 
   const handleSendMessage = useCallback(() => {
     if (!myUid || !publicProfile) return;
@@ -149,9 +157,10 @@ export default function PublicProfilePage() {
             // already-updated UserProfileSheet.tsx, which reads this same field
             // the same flat way. Keeping main's line only on the isSelf branch
             // would leave ageGroup permanently undefined for every OTHER
-            // profile — targetIsMinor below would always read false, silently
-            // defeating the whole minor-DM gate for the one case (viewing
-            // someone else) the send-message feature actually exists for.
+            // profile — canDirectMessage's publicProfile.ageGroup === 'adult'
+            // check below would never pass, silently defeating the whole
+            // minor-DM gate for the one case (viewing someone else) the
+            // send-message feature actually exists for.
             ageGroup: data.ageGroup === 'minor' || data.ageGroup === 'adult' ? data.ageGroup : undefined,
             // Flat schema, same as the rest of this branch — see
             // userPublicSync.ts's publicRef.set() payload.
@@ -355,7 +364,11 @@ export default function PublicProfilePage() {
                       <MessageCircle className="w-4 h-4" />
                       שלח הודעה
                     </button>
-                  ) : (currentIsMinor || targetIsMinor) ? (
+                  ) : (
+                    // Covers both a real minor AND a missing/undefined
+                    // ageGroup (legacy account) -- canDirectMessage already
+                    // requires 'adult' on both sides, so "not that" always
+                    // means "can't message," never "unknown, try anyway."
                     <div
                       className="flex-1 py-2.5 rounded-full text-[10px] font-bold leading-tight flex items-center justify-center gap-1.5 bg-gray-50 text-gray-400 border border-gray-100 text-center px-1"
                       aria-disabled="true"
@@ -363,7 +376,7 @@ export default function PublicProfilePage() {
                       <Lock className="w-3.5 h-3.5 flex-shrink-0" />
                       הודעות לבני 18+ בלבד
                     </div>
-                  ) : null}
+                  )}
                 </div>
               ) : undefined
             }
