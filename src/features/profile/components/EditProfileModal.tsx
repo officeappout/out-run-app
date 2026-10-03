@@ -1,18 +1,27 @@
 'use client';
 
 /**
- * EditProfileModal — consolidated "עריכת פרופיל" screen (profile redesign
- * round 5). Replaces the scattered editing entry points (SettingsModal's
- * inline hero form) with one screen covering everything per the approved
- * canvas mockup: photo, name, bio, personal details (city/weight/DOB), and
- * training tags.
+ * EditProfileModal — consolidated "עריכת פרופיל" screen.
  *
- * Every field here is powered by usePersonalInfoEditor — the SAME hook
- * SettingsModal now uses — so there is exactly one save path for this data,
- * not two. This component only lays out JSX; see that hook for the actual
- * staged-edit/save logic and its own comments on each field's save
- * semantics (e.g. why core.birthDate is a direct client write, why
- * trainingTags is a whole-array overwrite not arrayUnion).
+ * "פרופיל חלק" Part 2: scoped down to PUBLIC presentation only — photo,
+ * name, bio, training tags. Personal details (city/neighborhood/weight/DOB)
+ * moved out entirely; they're private, not public-presentation, and already
+ * live in SettingsModal (same usePersonalInfoEditor hook). A dedicated flat
+ * "פרטים אישיים" screen is planned for the Settings redesign (Part 3) — this
+ * screen does not attempt to be that.
+ *
+ * Still powered by usePersonalInfoEditor — the SAME hook SettingsModal
+ * uses — so there is exactly one save path for this data, not two. This
+ * component only lays out JSX; see that hook for the actual staged-edit/
+ * save logic. Because savePersonalEdit() only ever includes a field in its
+ * Firestore update when the staged value actually differs from the stored
+ * one (see that function's own diff-checks), and openPersonalEdit() still
+ * seeds weight/DOB/neighborhood from the profile on open even though this
+ * screen no longer renders controls for them, those fields are seeded but
+ * never mutated here — the diff is always "unchanged," so they're silently
+ * never included on save. No hook change was needed to make this safe; this
+ * screen just stopped rendering (and therefore stopped touching) that part
+ * of the hook's state.
  *
  * Explicitly OUT of scope this round (approved: bio + training tags only,
  * not the full dating-layer mockup): relationship status, "what I'm looking
@@ -23,7 +32,6 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, Loader2 } from 'lucide-react';
 import ProfilePhotoUploader from '@/components/ui/ProfilePhotoUploader';
-import NeighborhoodPickerSheet from '@/features/profile/components/NeighborhoodPickerSheet';
 import { useUserStore } from '@/features/user';
 import { usePersonalInfoEditor, TRAINING_TAG_OPTIONS } from '@/features/profile/hooks/usePersonalInfoEditor';
 
@@ -46,11 +54,8 @@ const INPUT_TEXT_FIX: React.CSSProperties = { color: '#111827', WebkitTextFillCo
 // heuristic so the keyboard-covered text stays readable). Fixing the
 // font-size is the correct fix; the viewport meta/maximum-scale must NOT
 // be touched to suppress this, since that breaks pinch-zoom accessibility
-// for everyone, not just this one screen. Applied here (not per-input)
-// so every consumer of INPUT_TEXT_CLASS gets it uniformly — including the
-// now-read-only DOB inputs below, which stay focusable even though they
-// can't be typed into, so they're included defensively for visual
-// consistency with the editable fields rather than left at the old 14px.
+// for everyone, not just this one screen. Applied here (not per-input) so
+// every consumer of INPUT_TEXT_CLASS gets it uniformly.
 const INPUT_TEXT_CLASS = 'text-base text-gray-900 placeholder:text-gray-400';
 
 export default function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
@@ -60,17 +65,9 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
 
   const {
     editName, setEditName,
-    editWeight, setEditWeight,
-    editDob,
     editBio, setEditBio,
     editTrainingTags, toggleTrainingTag,
     editSaving,
-    cityDisplay, cityResolving,
-    goToCityEdit,
-    neighborhoodPickerOpen, setNeighborhoodPickerOpen,
-    editNeighborhoodId, editNeighborhoodName, setEditNeighborhoodId, setEditNeighborhoodName,
-    cityAuthorityId,
-    monthRef, yearRef,
     openPersonalEdit, savePersonalEdit,
   } = usePersonalInfoEditor();
 
@@ -136,110 +133,36 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                 <ProfilePhotoUploader photoURL={userAvatar} displayName={userName} size={88} />
               </div>
 
-              {/* Name */}
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1.5">שם</label>
+              {/* Name — flat: bottom-border only, no boxed field (פרופיל חלק Part 2) */}
+              <div className="border-b border-gray-200 pb-2.5">
+                <label className="block text-xs font-bold text-gray-500 mb-1">שם</label>
                 <input
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                   placeholder="שמך"
-                  className={`w-full px-3.5 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-cyan-400 focus:border-transparent outline-none text-right ${INPUT_TEXT_CLASS}`}
+                  className={`w-full bg-transparent outline-none text-right ${INPUT_TEXT_CLASS}`}
                   style={INPUT_TEXT_FIX}
                 />
               </div>
 
-              {/* Bio */}
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1.5">תיאור אישי</label>
+              {/* Bio — flat: bottom-border only, no boxed field */}
+              <div className="border-b border-gray-200 pb-2.5">
+                <label className="block text-xs font-bold text-gray-500 mb-1">תיאור אישי</label>
                 <textarea
                   value={editBio}
                   onChange={(e) => setEditBio(e.target.value.slice(0, 150))}
                   placeholder="ספר/י קצת על עצמך..."
                   rows={2}
-                  className={`w-full px-3.5 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-cyan-400 focus:border-transparent outline-none text-right resize-none ${INPUT_TEXT_CLASS}`}
+                  className={`w-full bg-transparent outline-none text-right resize-none ${INPUT_TEXT_CLASS}`}
                   style={INPUT_TEXT_FIX}
                 />
                 <p className="text-[10px] text-gray-400 mt-1">{editBio.length}/150</p>
               </div>
 
-              {/* פרטים אישיים */}
-              <div>
-                <h3 className="text-xs font-bold text-gray-500 mb-2">פרטים אישיים</h3>
-                <div className="space-y-2">
-                  <button
-                    type="button"
-                    onClick={() => goToCityEdit()}
-                    className="w-full flex items-center justify-between px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm text-right"
-                  >
-                    <span className="text-[#00ADEF] font-semibold text-xs">ערוך</span>
-                    <span className="text-gray-900">{cityResolving ? 'טוען…' : cityDisplay ?? 'עיר · לא הוגדרה'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setNeighborhoodPickerOpen(true)}
-                    disabled={!cityAuthorityId}
-                    className="w-full flex items-center justify-between px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm text-right disabled:opacity-50"
-                  >
-                    <span className="text-[#00ADEF] font-semibold text-xs">
-                      {editNeighborhoodName ? 'ערוך' : 'בחר'}
-                    </span>
-                    <span className="text-gray-900">
-                      {!cityAuthorityId ? 'שכונה · קודם בחר עיר' : editNeighborhoodName ?? 'שכונה · לא הוגדרה'}
-                    </span>
-                  </button>
-
-                  <input
-                    type="number"
-                    value={editWeight}
-                    onChange={(e) => setEditWeight(e.target.value)}
-                    placeholder='משקל (ק"ג)'
-                    min="20"
-                    max="300"
-                    className={`w-full px-3.5 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-cyan-400 focus:border-transparent outline-none ${INPUT_TEXT_CLASS}`}
-                    style={INPUT_TEXT_FIX}
-                    dir="ltr"
-                  />
-
-                  {/* Read-only (production incident, round 8): core.birthDate is
-                      locked by firestore.rules' noLockedCoreFieldsChanged() — a
-                      direct client write to it is always rejected, so this was
-                      never a working edit path. Display-only now; no new edit
-                      flow added per instruction. */}
-                  <div className="flex gap-2" dir="ltr">
-                    <input
-                      type="text"
-                      readOnly
-                      value={editDob.day}
-                      placeholder="DD"
-                      className={`w-16 px-2 py-2.5 border border-gray-200 rounded-xl text-center outline-none bg-gray-50 cursor-default ${INPUT_TEXT_CLASS}`}
-                      style={INPUT_TEXT_FIX}
-                    />
-                    <input
-                      ref={monthRef}
-                      type="text"
-                      readOnly
-                      value={editDob.month}
-                      placeholder="MM"
-                      className={`w-16 px-2 py-2.5 border border-gray-200 rounded-xl text-center outline-none bg-gray-50 cursor-default ${INPUT_TEXT_CLASS}`}
-                      style={INPUT_TEXT_FIX}
-                    />
-                    <input
-                      ref={yearRef}
-                      type="text"
-                      readOnly
-                      value={editDob.year}
-                      placeholder="YYYY"
-                      className={`flex-1 px-2 py-2.5 border border-gray-200 rounded-xl text-center outline-none bg-gray-50 cursor-default ${INPUT_TEXT_CLASS}`}
-                      style={INPUT_TEXT_FIX}
-                    />
-                  </div>
-                  <p className="text-[10px] text-gray-400 mt-1">תאריך לידה לא ניתן לעריכה כאן</p>
-                </div>
-              </div>
-
-              {/* תגיות אימון */}
+              {/* תגיות אימון — chip selector stays as-is (it's the control
+                  itself, not a boxed section wrapper); only the surrounding
+                  field styling above was flattened. */}
               <div>
                 <h3 className="text-xs font-bold text-gray-500 mb-2">תגיות אימון</h3>
                 <p className="text-[11px] text-gray-400 mb-2.5">אלה התגיות שיופיעו עליך בכרטיס השותף</p>
@@ -263,6 +186,12 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                   })}
                 </div>
               </div>
+
+              {/* Personal details (city/neighborhood/weight/DOB) live in
+                  Settings now — this screen is public-presentation only. */}
+              <p className="text-[11px] text-gray-400 text-center pt-1">
+                פרטים אישיים (עיר, משקל, תאריך לידה) נערכים בהגדרות
+              </p>
             </div>
 
             {/* Footer save button */}
@@ -278,15 +207,6 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
               </button>
             </div>
           </motion.div>
-
-          <NeighborhoodPickerSheet
-            isOpen={neighborhoodPickerOpen}
-            onClose={() => setNeighborhoodPickerOpen(false)}
-            cityAuthorityId={cityAuthorityId}
-            cityName={cityDisplay}
-            currentNeighborhoodId={editNeighborhoodId}
-            onSelect={(n) => { setEditNeighborhoodId(n.id); setEditNeighborhoodName(n.name); }}
-          />
         </motion.div>
       )}
     </AnimatePresence>
