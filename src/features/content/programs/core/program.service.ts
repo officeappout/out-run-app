@@ -39,6 +39,20 @@ export const MASTER_PROGRAM_SLUG_TO_ID: Record<string, string> = {
  * Inverse of MASTER_PROGRAM_SLUG_TO_ID.
  * Used by the admin panel and other writers to convert a program's Firestore
  * doc ID back to its semantic slug before writing to `domains` / `tracks`.
+ *
+ * Re-evaluated per the program-identity audit §06 Stage 7 ("is this map
+ * still needed or can it be deleted in favor of the canonical resolver?"):
+ * KEPT, demoted to fallback. `resolveToSlug` (program-hierarchy.utils.ts)
+ * is now tried FIRST at every write boundary this map used to gate alone
+ * (recalculateMasterLevel, admin/users/all/page.tsx) — it correctly reads
+ * these masters' real `Program.slug` field when its id→slug cache is warm.
+ * This map stays only as a zero-cost safety net for a cold cache (no async
+ * fetch needed, just a 4-entry lookup) and because several OTHER call
+ * sites in this codebase (recalculateAncestorMasters's hash lookup,
+ * getMasterProgramProgress's masterSlugForPrior) also depend on it for
+ * purposes beyond Stage 7's write-boundary scope — deleting it outright
+ * would be a larger refactor than this stage's "no backfill, writes only"
+ * mandate covers.
  */
 export const MASTER_PROGRAM_ID_TO_SLUG: Record<string, string> = Object.fromEntries(
   Object.entries(MASTER_PROGRAM_SLUG_TO_ID).map(([slug, id]) => [id, slug]),
