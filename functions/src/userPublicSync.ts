@@ -17,6 +17,12 @@
  * field is there; `ageGroup` in particular is NOT in the field set the
  * spec suggested, but is load-bearing for a minor-DM safety gate).
  *
+ * `currentStreak`/`workoutCount` ("public profile" slice 1 addition) — the
+ * public profile page's header stat row. Steps are explicitly NOT mirrored
+ * here, or anywhere else — that stays private by design. See the comment
+ * at their read site below for why they're read into the payload but
+ * deliberately excluded from `mirroredFieldChanged`'s trigger condition.
+ *
  * Existence IS the discoverable signal — a doc only exists here for a
  * user whose `core.discoverable` is not explicitly `false` (unset/null
  * default to discoverable — see afterDiscoverable/beforeDiscoverable
@@ -106,6 +112,23 @@ export const userPublicSync = onDocumentWritten('users/{uid}', async (event) => 
   const afterLevel = (after.progression as Record<string, unknown> | undefined)?.currentLevel;
   const beforeLevel = (before?.progression as Record<string, unknown> | undefined)?.currentLevel;
 
+  // Public-profile streak/workout-count ("public profile" slice 1 addition)
+  // — read here for the payload below ONLY. Deliberately NOT added to
+  // mirroredFieldChanged below: progression.workoutCount increments on
+  // EVERY workout (completion-sync.service.ts) and progression.currentStreak
+  // changes roughly every active day — treating either as a sync trigger
+  // would turn this function's own documented guarantee ("an XP-only write
+  // never triggers a userPublic write") into "every single workout does,"
+  // reopening exactly the write-amplification this file's top comment
+  // explains it was built to avoid. These two values instead freshen
+  // opportunistically, piggybacking on whichever OTHER mirrored-field write
+  // already triggers a real sync (profile edit, level-up, opt-in) — so a
+  // user who trains often but never touches their profile or levels up
+  // will show a STALE public streak/workoutCount between those events.
+  // Known, accepted tradeoff — surfaced explicitly, not hidden; revisit if
+  // this staleness turns out to matter in practice.
+  const afterProgression = (after.progression ?? {}) as Record<string, unknown>;
+
   // trainingTags is an array — compared by value (below), not with the
   // generic !== loop above, which only works for primitives.
   const afterTags = (afterCore.trainingTags as string[] | undefined) ?? [];
@@ -160,6 +183,8 @@ export const userPublicSync = onDocumentWritten('users/{uid}', async (event) => 
     ageGroup: (afterCore.ageGroup as string | undefined) ?? 'minor',
     initialFitnessTier: (afterCore.initialFitnessTier as string | undefined) ?? null,
     currentLevel: (afterLevel as string | number | undefined) ?? null,
+    currentStreak: (afterProgression.currentStreak as number | undefined) ?? null,
+    workoutCount: (afterProgression.workoutCount as number | undefined) ?? null,
     bio: (afterCore.bio as string | undefined) ?? null,
     trainingTags: afterTags,
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),

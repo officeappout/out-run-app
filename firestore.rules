@@ -521,13 +521,19 @@ service cloud.firestore {
     // USER PUBLIC — SPEC-03 Wave B (SEC-06)
     // Lean mirror of users/{uid}, ONLY for users with core.discoverable
     // == true: {name, photoURL, currentLevel, mainGoal, authorityId,
-    // ageGroup, initialFitnessTier}. No email, no birthDate, no home
-    // coordinates, no tenantId — none of those have a single real
-    // cross-user reader anywhere in src/ (verified via grep, not
-    // assumed). ageGroup is here despite not being in the original
-    // spec's suggested field set — UserProfileSheet.tsx's minor-DM
-    // safety gate is the one caller that needs it, and it's arguably the
-    // most safety-critical field in this whole collection.
+    // ageGroup, initialFitnessTier, bio, trainingTags, currentStreak,
+    // workoutCount}. No email, no birthDate, no home coordinates, no
+    // tenantId, no steps — none of those have a single real cross-user
+    // reader anywhere in src/ (verified via grep, not assumed); steps in
+    // particular is a deliberate exclusion, not an oversight (stays
+    // private by design, "public profile" slice 1). ageGroup is here
+    // despite not being in the original spec's suggested field set —
+    // UserProfileSheet.tsx's minor-DM safety gate is the one caller that
+    // needs it, and it's arguably the most safety-critical field in this
+    // whole collection. bio/trainingTags/currentStreak/workoutCount were
+    // added later (profile redesign round 5 and "public profile" slice 1
+    // respectively) — see userPublicSync.ts's own top-of-file comment for
+    // the full per-field reasoning, this list is kept in sync with it.
     //
     // Doc ID == uid (not a separate generated ID) — getUsersByUids'
     // `documentId() in [...]` query (the "people you follow" list) needs
@@ -1542,6 +1548,26 @@ service cloud.firestore {
             request.resource.data.followers.hasAll(resource.data.get('followers', []).removeAll([request.auth.uid]))
           )
         );
+
+      // First-follow CREATE gap (public-profile investigation, 03.10.2026):
+      // the `allow update` branch above only ever fires when the target's
+      // connections/{userId} doc already EXISTS — Firestore classifies a
+      // write as create/update by document existence, not by which client
+      // method was called. A target who has never visited any screen that
+      // self-creates their own doc (search, community, the map's presence
+      // layer) has no doc yet, so the FIRST person to follow them hits only
+      // the owner-only `allow write` above and is rejected with
+      // "Missing or insufficient permissions" — reproduced live via
+      // useSocialStore.followUser's own fallback path
+      // (setDoc(targetRef, {following:[], followers:[myUid]}, {merge:true})
+      // after the initial updateDoc throws). Same self-insertion shape as
+      // the non-owner update branch above, just for the create case —
+      // permits exactly that one fallback payload and nothing wider.
+      allow create: if isAuthenticated() && !isAnonymous() && request.auth.uid != userId &&
+        request.resource.data.keys().hasOnly(['followers', 'following', 'updatedAt']) &&
+        request.resource.data.get('following', []).size() == 0 &&
+        request.resource.data.followers.hasOnly([request.auth.uid]) &&
+        request.resource.data.followers.hasAll([request.auth.uid]);
     }
 
     // ============================================================

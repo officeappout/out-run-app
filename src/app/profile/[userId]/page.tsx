@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowRight, UserPlus, UserMinus, Flag, MessageCircle, Lock } from 'lucide-react';
+import { ArrowRight, UserPlus, UserMinus, Flag, MessageCircle, Lock, Flame } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { motion } from 'framer-motion';
@@ -12,31 +12,46 @@ import { useUserStore } from '@/features/user';
 import { useSocialStore } from '@/features/social/store/useSocialStore';
 import { useChatStore } from '@/features/social/store/useChatStore';
 import { getUserPosts, type FeedPost } from '@/features/social/services/feed.service';
-import FeedPostCard from '@/features/social/components/FeedPostCard';
+import { getMutualPartners } from '@/features/social/services/mutual-partners.service';
+import type { UserSearchResult } from '@/features/social/services/user-search.service';
 import ReportContentSheet from '@/features/arena/components/ReportContentSheet';
-import { TRAINING_TAG_OPTIONS } from '@/features/profile/hooks/usePersonalInfoEditor';
+import ProfileHeader from '@/features/profile/components/ProfileHeader';
+import PartnersHighlightsRow from '@/features/profile/components/PartnersHighlightsRow';
+import PublicActivityGrid from '@/features/profile/components/PublicActivityGrid';
+
+/**
+ * Public profile — flat (IG-style) redesign, "public profile" slice 1.
+ * Was a boxed-card placeholder (avatar, name, goal label, follow/message,
+ * "אין פעילות אחרונה") — now built from the same flat building blocks the
+ * self-profile (DashboardTab) uses: ProfileHeader, PartnersHighlightsRow,
+ * PublicActivityGrid. All data-fetch + follow/message/report logic below
+ * is unchanged from before this redesign — only the render changed.
+ *
+ * currentLevel/mainGoal are deliberately NOT displayed here (investigation
+ * finding): `progression.currentLevel` is a per-program skill-level field,
+ * a different concept from the self-profile's actual role-line source
+ * (globalLevel/levelName via getLevelName) — showing it here would read
+ * as an inconsistent "role line" relative to the self-profile's own,
+ * currently-empty one (IS_XP_ENABLED=false). mainGoal's label-only value
+ * added little on its own once currentLevel was dropped alongside it.
+ */
 
 interface PublicProfile {
   name: string;
   photoURL?: string;
-  currentLevel?: string;
-  initialFitnessTier?: number;
-  mainGoal?: string;
   /** Set from users/{uid}.core.ageGroup — used by the DM gate, same as UserProfileSheet.tsx. */
   ageGroup?: 'minor' | 'adult';
-  /** Profile redesign round 5 — same core.bio/core.trainingTags the Edit
-   * Profile screen sets; mirrored to userPublic by userPublicSync.ts (code
-   * updated, NOT YET DEPLOYED as a Cloud Function — see PR notes). */
   bio?: string;
   trainingTags?: string[];
+  /** Header stat row additions. `undefined` means "not mirrored yet" (old
+   * userPublicSync version, or the mirror piggybacks on another field and
+   * hasn't refreshed since this user's last workout — see
+   * userPublicSync.ts's own comment) -- rendered as an omitted stat, NOT
+   * as 0, since a real 0 and "unknown" must not look the same. Steps are
+   * deliberately never read/displayed anywhere on this page. */
+  currentStreak?: number;
+  workoutCount?: number;
 }
-
-const GOAL_LABELS: Record<string, string> = {
-  healthy_lifestyle: 'אורח חיים בריא',
-  performance_boost: 'שיפור ביצועים',
-  weight_loss: 'ירידה במשקל',
-  skill_mastery: 'שליטה במיומנויות',
-};
 
 export default function PublicProfilePage() {
   const router = useRouter();
@@ -53,16 +68,30 @@ export default function PublicProfilePage() {
   // Phase 7.2 — report-user sheet state
   const [showReport, setShowReport] = useState(false);
 
+  // Real mutual-follow partners (connections/{targetUid}, readable by any
+  // authenticated user — see mutual-partners.service.ts) — independent
+  // loading state so the grid above it doesn't wait on this round trip.
+  const [partners, setPartners] = useState<UserSearchResult[]>([]);
+  const [partnersLoading, setPartnersLoading] = useState(true);
+
   const isSelf = myUid === targetUid;
   const followed = isFollowing(targetUid);
 
-  // Compliance Phase 2.2 — DM is blocked when EITHER party is a minor, same
-  // gate as UserProfileSheet.tsx (the source of truth is the server-side
-  // Firestore rule on /chats DM create; this only avoids showing a button
-  // that would fail on click).
-  const currentIsMinor = myProfile?.core?.ageGroup === 'minor';
-  const targetIsMinor = publicProfile?.ageGroup === 'minor';
-  const canDirectMessage = !isSelf && !!myUid && !currentIsMinor && !targetIsMinor;
+  // Compliance Phase 2.2 — DM requires BOTH parties to be exactly 'adult',
+  // same polarity as the server-side Firestore rule on /chats DM create
+  // (firestore.rules' chats/{chatId} allow create: both participants'
+  // core.ageGroup == 'adult'). Investigation finding (03.10.2026): this
+  // used to read `!== 'minor'` -- permissive by default, so a missing/
+  // undefined ageGroup (a legacy pre-ageGroup account) passed this check
+  // and showed an enabled button that then 403'd on click, since the rule
+  // requires the field to be PRESENT and exactly 'adult', not merely "not
+  // minor". Tightened to match the rule's own polarity exactly -- this
+  // only prevents showing a button that was always going to fail; it
+  // never allows anything the rule wouldn't already allow.
+  const canDirectMessage =
+    !isSelf && !!myUid &&
+    myProfile?.core?.ageGroup === 'adult' &&
+    publicProfile?.ageGroup === 'adult';
 
   const handleSendMessage = useCallback(() => {
     if (!myUid || !publicProfile) return;
@@ -109,18 +138,16 @@ export default function PublicProfilePage() {
           setPublicProfile(isSelf ? {
             name: data.core?.name ?? 'משתמש',
             photoURL: data.core?.photoURL ?? undefined,
-            currentLevel: data.progression?.currentLevel ?? undefined,
-            initialFitnessTier: data.core?.initialFitnessTier ?? undefined,
-            mainGoal: data.core?.mainGoal ?? undefined,
             ageGroup: data.core?.ageGroup === 'minor' || data.core?.ageGroup === 'adult' ? data.core.ageGroup : undefined,
             bio: data.core?.bio ?? undefined,
             trainingTags: data.core?.trainingTags ?? undefined,
+            // isSelf reads the live private doc directly -- real-time
+            // values, no mirror staleness (unlike the public branch below).
+            currentStreak: data.progression?.currentStreak ?? undefined,
+            workoutCount: data.progression?.workoutCount ?? undefined,
           } : {
             name: data.name ?? 'משתמש',
             photoURL: data.photoURL ?? undefined,
-            currentLevel: data.currentLevel ?? undefined,
-            initialFitnessTier: data.initialFitnessTier ?? undefined,
-            mainGoal: data.mainGoal ?? undefined,
             // Merge note (main ← worktree-spec01-close-guest-leaks, 2026-09-10):
             // main added ageGroup only to the isSelf branch (data.core.ageGroup,
             // correct for the raw users/{uid} doc that branch reads). This repo's
@@ -130,14 +157,22 @@ export default function PublicProfilePage() {
             // already-updated UserProfileSheet.tsx, which reads this same field
             // the same flat way. Keeping main's line only on the isSelf branch
             // would leave ageGroup permanently undefined for every OTHER
-            // profile — targetIsMinor below would always read false, silently
-            // defeating the whole minor-DM gate for the one case (viewing
-            // someone else) the send-message feature actually exists for.
+            // profile — canDirectMessage's publicProfile.ageGroup === 'adult'
+            // check below would never pass, silently defeating the whole
+            // minor-DM gate for the one case (viewing someone else) the
+            // send-message feature actually exists for.
             ageGroup: data.ageGroup === 'minor' || data.ageGroup === 'adult' ? data.ageGroup : undefined,
             // Flat schema, same as the rest of this branch — see
             // userPublicSync.ts's publicRef.set() payload.
             bio: data.bio ?? undefined,
             trainingTags: data.trainingTags ?? undefined,
+            // Mirrored, may lag behind the user's real current value (see
+            // userPublicSync.ts) or be entirely absent on an older mirror
+            // doc -- `?? undefined` (not `?? 0`) so ProfileHeader's stat
+            // row can tell "unknown" apart from a real 0 and omit the
+            // stat instead of showing a misleading number.
+            currentStreak: data.currentStreak ?? undefined,
+            workoutCount: data.workoutCount ?? undefined,
           });
         }
         setPosts(userPosts);
@@ -151,6 +186,36 @@ export default function PublicProfilePage() {
     load();
     return () => { cancelled = true; };
   }, [targetUid, isSelf]);
+
+  // Fetch the target user's real mutual-follow partners, separately from
+  // the profile+posts load above — needs the viewer's own ageGroup
+  // (getUsersByUids' required age-scoping, see that function's own
+  // comment), which may hydrate slightly after myUid itself.
+  useEffect(() => {
+    if (!targetUid || !myUid) {
+      setPartnersLoading(false);
+      return;
+    }
+    const callerAgeGroup = myProfile?.core?.ageGroup;
+    if (callerAgeGroup !== 'minor' && callerAgeGroup !== 'adult') {
+      setPartnersLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setPartnersLoading(true);
+    getMutualPartners(targetUid, callerAgeGroup, myUid)
+      .then((result) => {
+        if (!cancelled) setPartners(result);
+      })
+      .catch((err) => {
+        console.error('[PublicProfile] getMutualPartners failed:', err);
+      })
+      .finally(() => {
+        if (!cancelled) setPartnersLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [targetUid, myUid, myProfile?.core?.ageGroup]);
 
   const handleToggleFollow = useCallback(() => {
     if (!myUid || isSelf) return;
@@ -233,141 +298,103 @@ export default function PublicProfilePage() {
         />
       )}
 
-      <div className="max-w-md mx-auto px-4 py-5 space-y-4">
-        {/* Profile card */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100"
-          dir="rtl"
-        >
-          <div className="flex items-center gap-4 mb-4">
-            {publicProfile.photoURL ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={publicProfile.photoURL}
-                alt={publicProfile.name}
-                className="w-14 h-14 rounded-full object-cover flex-shrink-0"
-              />
-            ) : (
-              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white text-xl font-black flex-shrink-0">
-                {publicProfile.name.charAt(0)}
-              </div>
-            )}
-
-            <div className="flex-1 min-w-0">
-              <h2 className="text-lg font-black text-gray-900 truncate">
-                {publicProfile.name}
-              </h2>
-              <div className="flex items-center gap-2 mt-0.5">
-                {publicProfile.currentLevel && (
-                  <span className="text-xs font-bold text-cyan-600">
-                    {publicProfile.currentLevel}
-                  </span>
-                )}
-                {publicProfile.mainGoal && (
-                  <span className="text-[11px] text-gray-500">
-                    {GOAL_LABELS[publicProfile.mainGoal] ?? publicProfile.mainGoal}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Bio + training tags — round 5, same core.bio/core.trainingTags
-              the Edit Profile screen sets. Public viewer sees them via the
-              userPublicSync mirror (code updated, not yet deployed — see
-              PR notes), so this may render empty on a live prod viewer
-              until that Cloud Function redeploys. */}
-          {publicProfile.bio && (
-            <p className="text-sm text-gray-700 mb-3" dir="rtl">{publicProfile.bio}</p>
-          )}
-          {publicProfile.trainingTags && publicProfile.trainingTags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mb-3">
-              {publicProfile.trainingTags.map((tagId) => {
-                const tag = TRAINING_TAG_OPTIONS.find((t) => t.id === tagId);
-                return (
-                  <span
-                    key={tagId}
-                    className="text-[11px] font-semibold text-gray-600 bg-gray-50 border border-gray-200 rounded-full px-2.5 py-1"
+      <div className="max-w-md mx-auto px-4 py-5">
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+          <ProfileHeader
+            photoURL={publicProfile.photoURL ?? null}
+            name={publicProfile.name}
+            stats={[
+              // Omitted (not shown as 0/"—") when undefined -- the mirror
+              // may not carry this field yet, either because userPublicSync
+              // hasn't been redeployed, or because it's piggybacking on
+              // another field's sync and hasn't refreshed since this
+              // user's last workout (see userPublicSync.ts). Canvas order:
+              // streak · partners · workouts.
+              ...(publicProfile.currentStreak != null
+                ? [{
+                    key: 'streak',
+                    value: (
+                      <span className="inline-flex items-center gap-1">
+                        <Flame className="w-4 h-4 text-orange-500" fill="currentColor" />
+                        {publicProfile.currentStreak}
+                      </span>
+                    ),
+                    label: 'ימי רצף',
+                  }]
+                : []),
+              { key: 'partners', value: partnersLoading ? '—' : partners.length, label: 'שותפים' },
+              ...(publicProfile.workoutCount != null
+                ? [{ key: 'workouts', value: publicProfile.workoutCount, label: 'אימונים' }]
+                : []),
+            ]}
+            bio={publicProfile.bio ?? null}
+            bioPlaceholder={isSelf ? 'עדיין אין תיאור אישי' : 'המשתמש לא הוסיף תיאור אישי'}
+            tagIds={publicProfile.trainingTags ?? []}
+            actions={
+              !isSelf && myUid ? (
+                <div className="flex items-center gap-2 mt-4" dir="rtl">
+                  <button
+                    type="button"
+                    onClick={handleToggleFollow}
+                    className={`flex-1 py-2.5 rounded-full text-sm font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${
+                      followed
+                        ? 'bg-gray-100 text-gray-600 border border-gray-200'
+                        : 'bg-[#00ADEF] text-white'
+                    }`}
                   >
-                    {tag?.label ?? tagId}
-                  </span>
-                );
-              })}
-            </div>
-          )}
+                    {followed ? (
+                      <>
+                        <UserMinus className="w-4 h-4" />
+                        מפסיק לעקוב
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="w-4 h-4" />
+                        עקוב
+                      </>
+                    )}
+                  </button>
 
-          {/* Follow button */}
-          {!isSelf && myUid && (
-            <button
-              onClick={handleToggleFollow}
-              className={`w-full py-2.5 rounded-xl text-sm font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${
-                followed
-                  ? 'bg-gray-100 text-gray-600 border border-gray-200'
-                  : 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25'
-              }`}
-            >
-              {followed ? (
-                <>
-                  <UserMinus className="w-4 h-4" />
-                  מפסיק לעקוב
-                </>
-              ) : (
-                <>
-                  <UserPlus className="w-4 h-4" />
-                  עקוב
-                </>
-              )}
-            </button>
-          )}
-
-          {/* Send-message button — same Minor DM Block gate as UserProfileSheet.tsx:
-              hidden for self, disabled-with-explanation when either party is a minor. */}
-          {canDirectMessage ? (
-            <button
-              onClick={handleSendMessage}
-              className="mt-2 w-full py-2.5 rounded-xl text-sm font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200"
-            >
-              <MessageCircle className="w-4 h-4" />
-              שלח הודעה
-            </button>
-          ) : (!isSelf && myUid && (currentIsMinor || targetIsMinor)) ? (
-            <div
-              className="mt-2 w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 bg-gray-50 text-gray-400 border border-gray-100"
-              aria-disabled="true"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              הודעות ישירות זמינות רק לבני 18+
-            </div>
-          ) : null}
+                  {canDirectMessage ? (
+                    <button
+                      type="button"
+                      onClick={handleSendMessage}
+                      className="flex-1 py-2.5 rounded-full text-sm font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2 bg-gray-50 text-gray-600 border border-gray-200"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      שלח הודעה
+                    </button>
+                  ) : (
+                    // Covers both a real minor AND a missing/undefined
+                    // ageGroup (legacy account) -- canDirectMessage already
+                    // requires 'adult' on both sides, so "not that" always
+                    // means "can't message," never "unknown, try anyway."
+                    <div
+                      className="flex-1 py-2.5 rounded-full text-[10px] font-bold leading-tight flex items-center justify-center gap-1.5 bg-gray-50 text-gray-400 border border-gray-100 text-center px-1"
+                      aria-disabled="true"
+                    >
+                      <Lock className="w-3.5 h-3.5 flex-shrink-0" />
+                      הודעות לבני 18+ בלבד
+                    </div>
+                  )}
+                </div>
+              ) : undefined
+            }
+          />
         </motion.div>
 
-        {/* Activity feed */}
-        {posts.length > 0 && (
-          <section>
-            <h3 className="text-sm font-bold text-gray-900 px-1 mb-3" dir="rtl">
-              פעילות אחרונה
-            </h3>
-            <div className="space-y-3">
-              {posts.map((post) => (
-                <motion.div
-                  key={post.id}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                >
-                  <FeedPostCard post={post} currentUid={myUid} />
-                </motion.div>
-              ))}
-            </div>
-          </section>
-        )}
+        <div className="mt-5">
+          <PartnersHighlightsRow
+            partners={partners.map((p) => ({ uid: p.uid, name: p.name, photoURL: p.photoURL }))}
+            isLoading={partnersLoading}
+            onPartnerClick={(uid) => router.push(`/profile/${uid}`)}
+          />
+        </div>
 
-        {posts.length === 0 && (
-          <div className="flex flex-col items-center py-10 text-center" dir="rtl">
-            <p className="text-sm text-gray-500">אין פעילות אחרונה</p>
-          </div>
-        )}
+        <div className="mt-5" dir="rtl">
+          <h3 className="text-sm font-black text-gray-800 mb-3">פעילות אחרונה</h3>
+          <PublicActivityGrid posts={posts} isLoading={loading} />
+        </div>
       </div>
     </div>
   );
