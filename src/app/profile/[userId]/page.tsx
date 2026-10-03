@@ -6,7 +6,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowRight, UserPlus, UserMinus, Flag, MessageCircle, Lock, Flame } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { motion } from 'framer-motion';
 import { useUserStore } from '@/features/user';
 import { useSocialStore } from '@/features/social/store/useSocialStore';
@@ -18,6 +18,7 @@ import ReportContentSheet from '@/features/arena/components/ReportContentSheet';
 import ProfileHeader from '@/features/profile/components/ProfileHeader';
 import PartnersHighlightsRow from '@/features/profile/components/PartnersHighlightsRow';
 import PublicActivityGrid from '@/features/profile/components/PublicActivityGrid';
+import LinkAccountPrompt from '@/components/LinkAccountPrompt';
 
 /**
  * Public profile — flat (IG-style) redesign, "public profile" slice 1.
@@ -74,6 +75,15 @@ export default function PublicProfilePage() {
   const [partners, setPartners] = useState<UserSearchResult[]>([]);
   const [partnersLoading, setPartnersLoading] = useState(true);
 
+  // Guest-account UX fix (03.10.2026 investigation): follow and DM both
+  // hit firestore.rules' deliberate !isAnonymous() gate for a guest who
+  // filled out the profile form but never linked Google/Apple -- the bar
+  // itself is correct (owner decision, kept as-is), the bug was the
+  // silent/raw failure. Gate client-side BEFORE firing the write; on a
+  // successful link, re-run whichever action was pending.
+  const [showLinkPrompt, setShowLinkPrompt] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'follow' | 'message' | null>(null);
+
   const isSelf = myUid === targetUid;
   const followed = isFollowing(targetUid);
 
@@ -95,6 +105,11 @@ export default function PublicProfilePage() {
 
   const handleSendMessage = useCallback(() => {
     if (!myUid || !publicProfile) return;
+    if (auth.currentUser?.isAnonymous) {
+      setPendingAction('message');
+      setShowLinkPrompt(true);
+      return;
+    }
     void useChatStore.getState().openDM(
       myUid,
       myProfile?.core?.name ?? 'אווטיר',
@@ -219,6 +234,11 @@ export default function PublicProfilePage() {
 
   const handleToggleFollow = useCallback(() => {
     if (!myUid || isSelf) return;
+    if (auth.currentUser?.isAnonymous) {
+      setPendingAction('follow');
+      setShowLinkPrompt(true);
+      return;
+    }
     if (followed) {
       unfollowUser(myUid, targetUid);
     } else {
@@ -297,6 +317,23 @@ export default function PublicProfilePage() {
           reporterId={myUid}
         />
       )}
+
+      {/* Guest-account link prompt — see state comment above. Re-runs
+          whichever handler triggered it once linking succeeds, so follow/
+          send-message completes in one flow instead of a second tap. */}
+      <LinkAccountPrompt
+        isOpen={showLinkPrompt}
+        onClose={() => {
+          setShowLinkPrompt(false);
+          setPendingAction(null);
+        }}
+        onLinked={() => {
+          setShowLinkPrompt(false);
+          if (pendingAction === 'follow') handleToggleFollow();
+          else if (pendingAction === 'message') handleSendMessage();
+          setPendingAction(null);
+        }}
+      />
 
       <div className="max-w-md mx-auto px-4 py-5">
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>

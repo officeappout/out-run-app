@@ -10,10 +10,11 @@ import {
   collection,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { subscribeToMessages, sendMessage, markThreadAsRead } from '../services/chat.service';
 import { KELLY_UID } from '../services/kelly-welcome-bot.service';
 import type { ChatMessage, ChatThread as ChatThreadType } from '../types/chat.types';
+import LinkAccountPrompt from '@/components/LinkAccountPrompt';
 
 interface ChatThreadProps {
   thread: ChatThreadType;
@@ -60,6 +61,18 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportSubmitted, setReportSubmitted] = useState(false);
 
+  // Guest-account UX fix (03.10.2026 investigation) — "DM sends-then-
+  // deletes": the thread itself creates fine for a guest (no anonymity
+  // check on chats/{chatId} create), but messages/{id}'s create rule
+  // DOES require !isAnonymous(), so the actual send always 403'd. The
+  // input was cleared optimistically before the write, so it looked like
+  // the message sent and then vanished (it was never written at all).
+  // Fixed below: pre-check before attempting, clear input only after a
+  // real success, and surface this same prompt on a permission error as
+  // a defensive fallback (e.g. a stale client that hasn't re-read
+  // isAnonymous() yet).
+  const [showLinkPrompt, setShowLinkPrompt] = useState(false);
+
   // ── Message subscription ──
   useEffect(() => {
     const unsub = subscribeToMessages(thread.id, setMessages);
@@ -83,10 +96,26 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
   async function handleSend() {
     const text = input.trim();
     if (!text || isSending) return;
-    setInput('');
+
+    if (auth.currentUser?.isAnonymous) {
+      setShowLinkPrompt(true);
+      return;
+    }
+
     setIsSending(true);
     try {
       await sendMessage(thread.id, myUid, myName, text);
+      // Clear only after the write actually succeeds -- clearing first
+      // (the old behavior) is what made a rejected send look like it
+      // "sent, then vanished": the input emptied immediately, but the
+      // message was never persisted, so it never appeared.
+      setInput('');
+    } catch (err: unknown) {
+      console.error('[ChatThread] sendMessage failed:', err);
+      if ((err as { code?: string })?.code === 'permission-denied') {
+        setShowLinkPrompt(true);
+      }
+      // Text stays in the input either way -- nothing typed is lost.
     } finally {
       setIsSending(false);
     }
@@ -432,6 +461,16 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
           </button>
         </div>
       )}
+
+      <LinkAccountPrompt
+        isOpen={showLinkPrompt}
+        onClose={() => setShowLinkPrompt(false)}
+        onLinked={() => {
+          setShowLinkPrompt(false);
+          handleSend();
+        }}
+        message="כדי לשלוח הודעה צריך לקשר חשבון"
+      />
     </div>
   );
 }

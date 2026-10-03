@@ -47,6 +47,7 @@
 - z-[130]/z-[131]: LegalDocModal (backdrop/sheet) — must clear HealthConnectDisclosureModal (z-[120]), which can open it inline
 - z-[140]: JITSetupModal — inline Health Declaration state (full-screen, after "השלם עכשיו")
 - z-[141]: JITSetupModal — centered confirmation-card state (requirements list, not yet the questionnaire). Was z-[90] (too low — collided with the referral toast z-[95] and every full-screen overlay z-[100]); moved up alongside its sibling z-[140] state — mutually exclusive with it, kept as a separate value for clarity
+- z-[145]: LinkAccountPrompt (guest-account UX fix, "public profile" follow-up round) — the "link your Google/Apple account" modal shown when an anonymous session hits the follow/DM !isAnonymous() gate. Must clear ChatInbox's message sheet (z-[101], since it can open from inside ChatThread's composer) — z-[150] (RollingAgenda's sheet, a different, pre-existing undocumented value found while picking this one) was deliberately avoided rather than reused, to keep the two unrelated.
 - z-[200]: Post-workout summary (RunSummary nested UI)
 - DO NOT create new z-index values without updating this table.
 
