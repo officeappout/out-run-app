@@ -80,6 +80,26 @@ const THRESHOLDS = {
   },
 };
 
+const THREE_TESTS = {
+  global: {
+    id: 'global', version: 1, updatedBy: 'root', updatedAt: new Date(),
+    tests: [
+      { id: 'run_3000m', label: "ריצת 3,000 מ'", metric: 'time_seconds', unit: 'seconds', lowerIsBetter: true, threshold: { male: 1080, female: 1200 }, validityDays: 365 },
+      { id: 'pullups', label: 'עליות מתח', metric: 'reps', unit: 'reps', lowerIsBetter: false, threshold: { male: 3, female: 3 }, validityDays: 365 },
+      { id: 'dips', label: 'מקבילים', metric: 'reps', unit: 'reps', lowerIsBetter: false, threshold: { male: 5, female: 5 }, validityDays: 365 },
+    ],
+  },
+};
+
+function resultDoc(soldierId: string, testId: string, outcome: 'pass' | 'fail', value: number): FakeDoc {
+  const recent = new Date();
+  return {
+    soldierId, tenantId: 'tenant-1', unitId: 'battalion-1', testId, outcome, value,
+    source: 'organized_test', recordedAt: recent, testDate: recent,
+    thresholdSnapshot: { thresholdVersion: 1, gender: 'male', thresholdValue: 1, lowerIsBetter: false, validityDays: 365 },
+  };
+}
+
 describe('computeBrigadeDashboard — scope resolution', () => {
   it('unknown scope → 503', async () => {
     const db = makeFakeDb({});
@@ -188,8 +208,8 @@ describe('computeBrigadeDashboard — point 3: a unit with zero tested soldiers 
       const emptyRow = result.body.units.find((u) => u.unitId === 'empty-unit');
       expect(emptyRow).toBeDefined();
       expect(emptyRow!.totalCount).toBe(0);
-      expect(emptyRow!.testedCount).toBe(0);
-      expect(emptyRow!.overallPassPercent).toBeNull();
+      expect(emptyRow!.views.all.testedCount).toBe(0);
+      expect(emptyRow!.views.all.passPercent).toBeNull();
     }
   });
 
@@ -203,8 +223,8 @@ describe('computeBrigadeDashboard — point 3: a unit with zero tested soldiers 
     if (result.status === 200) {
       const row = result.body.units.find((u) => u.unitId === 'battalion-1')!;
       expect(row.totalCount).toBe(1);
-      expect(row.testedCount).toBe(0);
-      expect(row.overallPassPercent).toBeNull(); // not 0
+      expect(row.views.all.testedCount).toBe(0);
+      expect(row.views.all.passPercent).toBeNull(); // not 0
     }
   });
 });
@@ -287,6 +307,115 @@ describe('computeBrigadeDashboard — point 5: only organized_test counts here',
       expect(runComponent.passCount).toBe(1);
       const pullupsComponent = result.body.components.find((c) => c.testId === 'pullups')!;
       expect(pullupsComponent.testedCount).toBe(0);
+    }
+  });
+});
+
+describe('computeBrigadeDashboard — unit views (03.10.2026, table filter round: הכל/ריצה/כוח)', () => {
+  it('"strength" view requires BOTH pullups and dips to pass — one failure is enough, never an average of the two percentages', async () => {
+    const db = makeFakeDb({
+      soldiers: {
+        s1: { tenantId: 'tenant-1', unitId: 'battalion-1', gender: 'male', mergedInto: null }, // passes both
+        s2: { tenantId: 'tenant-1', unitId: 'battalion-1', gender: 'male', mergedInto: null }, // passes pullups, fails dips
+      },
+      thresholds: THREE_TESTS,
+      results: {
+        s1p: resultDoc('s1', 'pullups', 'pass', 5),
+        s1d: resultDoc('s1', 'dips', 'pass', 6),
+        s2p: resultDoc('s2', 'pullups', 'pass', 5),
+        s2d: resultDoc('s2', 'dips', 'fail', 2),
+      },
+      units: { 'tenant-1': { 'battalion-1': { name: 'Battalion One' } } },
+    });
+    const result = await computeBrigadeDashboard(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status === 200) {
+      const row = result.body.units.find((u) => u.unitId === 'battalion-1')!;
+      expect(row.views.strength.passCount).toBe(1);
+      expect(row.views.strength.failCount).toBe(1);
+      // Pullups alone would be 100%, dips alone 50% — an averaged "75%"
+      // would be the exact wrong-shape bug §13.68 already caught once.
+      expect(row.views.strength.passPercent).toBe(50);
+    }
+  });
+
+  it('"run" view reads run_3000m alone, independent of the soldier\'s strength results', async () => {
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', gender: 'male', mergedInto: null } }, // passes run, fails dips
+      thresholds: THREE_TESTS,
+      results: {
+        s1r: resultDoc('s1', 'run_3000m', 'pass', 900),
+        s1p: resultDoc('s1', 'pullups', 'pass', 5),
+        s1d: resultDoc('s1', 'dips', 'fail', 1),
+      },
+      units: { 'tenant-1': { 'battalion-1': { name: 'Battalion One' } } },
+    });
+    const result = await computeBrigadeDashboard(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status === 200) {
+      const row = result.body.units.find((u) => u.unitId === 'battalion-1')!;
+      expect(row.views.run.passPercent).toBe(100); // run alone passes
+      expect(row.views.all.failCount).toBe(1); // but overall fails (dips failed, all-must-pass)
+    }
+  });
+
+  it('a soldier missing one of the two strength tests resolves to not_yet_tested under "strength" — never a lone-test pass', async () => {
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', gender: 'male', mergedInto: null } }, // only pullups tested, no dips result at all
+      thresholds: THREE_TESTS,
+      results: { s1p: resultDoc('s1', 'pullups', 'pass', 5) },
+      units: { 'tenant-1': { 'battalion-1': { name: 'Battalion One' } } },
+    });
+    const result = await computeBrigadeDashboard(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status === 200) {
+      const row = result.body.units.find((u) => u.unitId === 'battalion-1')!;
+      expect(row.views.strength.passCount).toBe(0);
+      expect(row.views.strength.failCount).toBe(0);
+      expect(row.views.strength.notYetTestedCount).toBe(1);
+    }
+  });
+
+  it('"all", "run" and "strength" are independent per-unit counters that can disagree for the same unit at once', async () => {
+    const db = makeFakeDb({
+      soldiers: {
+        s1: { tenantId: 'tenant-1', unitId: 'battalion-1', gender: 'male', mergedInto: null }, // passes everything
+        s2: { tenantId: 'tenant-1', unitId: 'battalion-1', gender: 'male', mergedInto: null }, // fails run, passes strength
+      },
+      thresholds: THREE_TESTS,
+      results: {
+        s1r: resultDoc('s1', 'run_3000m', 'pass', 900),
+        s1p: resultDoc('s1', 'pullups', 'pass', 5),
+        s1d: resultDoc('s1', 'dips', 'pass', 6),
+        s2r: resultDoc('s2', 'run_3000m', 'fail', 1300),
+        s2p: resultDoc('s2', 'pullups', 'pass', 5),
+        s2d: resultDoc('s2', 'dips', 'pass', 6),
+      },
+      units: { 'tenant-1': { 'battalion-1': { name: 'Battalion One' } } },
+    });
+    const result = await computeBrigadeDashboard(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status === 200) {
+      const row = result.body.units.find((u) => u.unitId === 'battalion-1')!;
+      expect(row.views.all.passPercent).toBe(50); // s1 pass, s2 fail (run fails -> overall fail)
+      expect(row.views.run.passPercent).toBe(50); // s1 pass, s2 fail
+      expect(row.views.strength.passPercent).toBe(100); // both pass strength
+    }
+  });
+
+  it('rule 3 unchanged under every view: a unit where nobody has any result at all reports null for all three views, never 0%', async () => {
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', gender: 'male', mergedInto: null } },
+      thresholds: THREE_TESTS,
+      units: { 'tenant-1': { 'battalion-1': { name: 'Battalion One' } } },
+    });
+    const result = await computeBrigadeDashboard(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status === 200) {
+      const row = result.body.units.find((u) => u.unitId === 'battalion-1')!;
+      expect(row.views.all.passPercent).toBeNull();
+      expect(row.views.run.passPercent).toBeNull();
+      expect(row.views.strength.passPercent).toBeNull();
     }
   });
 });

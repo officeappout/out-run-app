@@ -1,17 +1,7 @@
 'use client';
 
 import type { DashboardOverallBreakdown } from '@/features/readiness/core/services/readiness-dashboard.service';
-
-/**
- * Same grey family as "טרם נבדק" (#9A9C98) — matches
- * ReadinessStatusBadge's precedent of sharing that color with
- * 'not_performed' — but a lighter, distinguishable shade. That
- * precedent covers ONE badge shown at a time, always next to its own
- * text label; here two segments sit directly adjacent in a stacked
- * bar, where the identical color would render as one indistinguishable
- * block instead of two.
- */
-const NOT_PERFORMED_COLOR = '#C7C9C5';
+import { READINESS_COLORS } from './colors';
 
 function LegendRow({ color, label, count }: { color: string; label: string; count: number }) {
   return (
@@ -53,7 +43,7 @@ export default function OverallReadinessCard({ overall }: { overall: DashboardOv
         <p className="text-sm text-gray-400">אין עדיין נתונים</p>
       ) : (
         <>
-          <p className="text-3xl font-black" style={{ color: '#0E5A42' }}>{overall.passPercent}%</p>
+          <p className="text-3xl font-black" style={{ color: READINESS_COLORS.pass }}>{overall.passPercent}%</p>
           <p className="text-xs text-gray-500 mt-1">{overall.passCount} מתוך {overall.testedCount}</p>
         </>
       )}
@@ -61,23 +51,23 @@ export default function OverallReadinessCard({ overall }: { overall: DashboardOv
       {total > 0 && (
         <>
           <div className="flex h-2 rounded-full overflow-hidden bg-gray-100 mt-3 mb-3">
-            <div style={{ width: `${(overall.passCount / total) * 100}%`, backgroundColor: '#0E5A42' }} />
-            <div style={{ width: `${(overall.failCount / total) * 100}%`, backgroundColor: '#D9541F' }} />
-            <div style={{ width: `${(overall.notYetTestedCount / total) * 100}%`, backgroundColor: '#9A9C98' }} />
-            <div style={{ width: `${(overall.notPerformedCount / total) * 100}%`, backgroundColor: NOT_PERFORMED_COLOR }} />
+            <div style={{ width: `${(overall.passCount / total) * 100}%`, backgroundColor: READINESS_COLORS.pass }} />
+            <div style={{ width: `${(overall.failCount / total) * 100}%`, backgroundColor: READINESS_COLORS.fail }} />
+            <div style={{ width: `${(overall.notYetTestedCount / total) * 100}%`, backgroundColor: READINESS_COLORS.notYetTested }} />
+            <div style={{ width: `${(overall.notPerformedCount / total) * 100}%`, backgroundColor: READINESS_COLORS.notPerformed }} />
           </div>
 
           <div className="space-y-1 mb-3">
-            <LegendRow color="#0E5A42" label="כשיר" count={overall.passCount} />
-            <LegendRow color="#D9541F" label="לא כשיר" count={overall.failCount} />
-            <LegendRow color="#9A9C98" label="טרם נבדק" count={overall.notYetTestedCount} />
-            <LegendRow color={NOT_PERFORMED_COLOR} label="פטור" count={overall.notPerformedCount} />
+            <LegendRow color={READINESS_COLORS.pass} label="כשיר" count={overall.passCount} />
+            <LegendRow color={READINESS_COLORS.fail} label="לא כשיר" count={overall.failCount} />
+            <LegendRow color={READINESS_COLORS.notYetTested} label="טרם נבדק" count={overall.notYetTestedCount} />
+            <LegendRow color={READINESS_COLORS.notPerformed} label="פטור" count={overall.notPerformedCount} />
           </div>
         </>
       )}
 
       {notYetTestedPercent !== null && (
-        <p className="text-[11px] font-bold mt-auto" style={{ color: '#D9541F' }}>
+        <p className="text-[11px] font-bold mt-auto" style={{ color: READINESS_COLORS.fail }}>
           {notYetTestedPercent}% מהחטיבה עדיין לא נבדקו
         </p>
       )}

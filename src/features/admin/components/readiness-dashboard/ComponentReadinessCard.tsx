@@ -1,6 +1,7 @@
 'use client';
 
 import type { DashboardComponentBreakdown } from '@/features/readiness/core/services/readiness-dashboard.service';
+import { READINESS_COLORS } from './colors';
 
 function formatThreshold(value: number | null, unit: string): string {
   if (value === null) return '—';
@@ -31,15 +32,15 @@ export default function ComponentReadinessCard({ component }: { component: Dashb
         <p className="text-sm text-gray-400">אין עדיין נתונים</p>
       ) : (
         <>
-          <p className="text-3xl font-black" style={{ color: '#0E5A42' }}>{component.passPercent}%</p>
+          <p className="text-3xl font-black" style={{ color: READINESS_COLORS.pass }}>{component.passPercent}%</p>
           <p className="text-xs text-gray-500 mt-1">{component.passCount} מתוך {component.testedCount} עוברים</p>
         </>
       )}
 
       {component.testedCount > 0 && (
         <div className="flex h-1.5 rounded-full overflow-hidden bg-gray-100 mt-3">
-          <div style={{ width: `${(component.passCount / component.testedCount) * 100}%`, backgroundColor: '#0E5A42' }} />
-          <div style={{ width: `${(component.failCount / component.testedCount) * 100}%`, backgroundColor: '#D9541F' }} />
+          <div style={{ width: `${(component.passCount / component.testedCount) * 100}%`, backgroundColor: READINESS_COLORS.pass }} />
+          <div style={{ width: `${(component.failCount / component.testedCount) * 100}%`, backgroundColor: READINESS_COLORS.fail }} />
         </div>
       )}
     </div>

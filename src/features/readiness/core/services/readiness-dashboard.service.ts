@@ -36,6 +36,25 @@
  * this round), no cross-brigade comparison, no trend charts (blocked by
  * §13.69's open correction-marking decision — a trend line would render
  * a typo as a genuine readiness decline).
+ *
+ * 03.10.2026 (table visual-continuation round) — per-unit `views` added:
+ * the same per-soldier reduction already computed for the brigade-wide
+ * 'overall' figure (reduceOverallStatus over ALL tests) is additionally
+ * computed over two fixed subsets — 'run' (just run_3000m) and
+ * 'strength' (pullups + dips, same all-must-pass rule, no averaging —
+ * David's explicit definition, verbatim: "אותו כלל של כישלון אחד
+ * מספיק... אל תמציא ממוצע"). No new Firestore reads — every soldier's
+ * perTestStatus array was already computed in-memory for the existing
+ * 'all' reduction; this just reduces it two more ways and accumulates
+ * three parallel counters per unit instead of one. The two test ids are
+ * hardcoded ('run_3000m' / 'pullups' + 'dips') because
+ * ReadinessTestDefinition has no category/group field to key off of —
+ * adding one would touch the protected readiness-write.service.ts and
+ * require a data backfill, neither in scope this round. Flagged as a
+ * known limitation: a future test that isn't run_3000m/pullups/dips
+ * (e.g. a swim or agility test) silently falls into neither view's
+ * accumulator today and would need this file revisited by name, not
+ * picked up automatically.
  */
 import type { Firestore } from 'firebase-admin/firestore';
 import {
@@ -47,10 +66,14 @@ import {
   type ReadinessSoldier,
   type ReadinessResult,
   type ReadinessThresholdsConfig,
+  type ReadinessCurrentStatus,
 } from './readiness-write.service';
 import { reduceOverallStatus, toDate } from './readiness-read.service';
 
 const DENIED_MESSAGE = 'אין לך הרשאה לצפות בלוח זה.';
+
+const RUN_TEST_ID = 'run_3000m';
+const STRENGTH_TEST_IDS = ['pullups', 'dips'];
 
 export interface DashboardOverallBreakdown {
   totalCount: number;
@@ -78,12 +101,24 @@ export interface DashboardComponentBreakdown {
   thresholdFemale: number | null;
 }
 
+/** Same shape as DashboardOverallBreakdown minus totalCount (the unit's totalCount is fixed and lives once on DashboardUnitRow, not duplicated per view). */
+export interface DashboardUnitStatusBreakdown {
+  passCount: number;
+  failCount: number;
+  notPerformedCount: number;
+  notYetTestedCount: number;
+  testedCount: number;
+  passPercent: number | null;
+}
+
+export type DashboardUnitViewKey = 'all' | 'run' | 'strength';
+
 export interface DashboardUnitRow {
   unitId: string;
   unitName: string;
   totalCount: number;
-  testedCount: number;
-  overallPassPercent: number | null;
+  /** One breakdown per filter view — 'all' (every test, all-must-pass), 'run' (run_3000m alone), 'strength' (pullups+dips, all-must-pass). The table's overall-readiness column, status bar, and sort must all read from the SAME active view — never mix views on screen at once. */
+  views: Record<DashboardUnitViewKey, DashboardUnitStatusBreakdown>;
   perComponent: Record<string, { testedCount: number; passPercent: number | null }>;
   /** ISO, the most recent testDate among this unit's soldiers' organized_test results. null if none. */
   lastTestDate: string | null;
@@ -103,6 +138,29 @@ export type BrigadeDashboardResult =
 function pct(numerator: number, denominator: number): number | null {
   if (denominator === 0) return null;
   return Math.round((numerator / denominator) * 1000) / 10; // one decimal
+}
+
+interface ViewAcc {
+  passCount: number;
+  failCount: number;
+  notPerformedCount: number;
+  notYetTestedCount: number;
+}
+
+function newViewAcc(): ViewAcc {
+  return { passCount: 0, failCount: 0, notPerformedCount: 0, notYetTestedCount: 0 };
+}
+
+function bumpViewAcc(acc: ViewAcc, status: ReadinessCurrentStatus): void {
+  if (status === 'pass') acc.passCount++;
+  else if (status === 'fail') acc.failCount++;
+  else if (status === 'not_performed') acc.notPerformedCount++;
+  else acc.notYetTestedCount++;
+}
+
+function toUnitBreakdown(acc: ViewAcc): DashboardUnitStatusBreakdown {
+  const testedCount = acc.passCount + acc.failCount;
+  return { ...acc, testedCount, passPercent: pct(acc.passCount, testedCount) };
 }
 
 export async function computeBrigadeDashboard(
@@ -161,6 +219,8 @@ export async function computeBrigadeDashboard(
 
   const config = thresholdsSnap.exists ? (thresholdsSnap.data() as ReadinessThresholdsConfig) : null;
   const testIds = config?.tests.map((t) => t.id) ?? [];
+  const runIdx = testIds.indexOf(RUN_TEST_ID);
+  const strengthIdxs = STRENGTH_TEST_IDS.map((id) => testIds.indexOf(id)).filter((i) => i !== -1);
 
   // Point 5 — organized_test only, filtered BEFORE any aggregation.
   const resultsBySoldier = new Map<string, ReadinessResult[]>();
@@ -180,16 +240,20 @@ export async function computeBrigadeDashboard(
   // all still gets a row, "טרם נבדקה").
   interface UnitAcc {
     totalCount: number;
-    passCount: number;
-    failCount: number;
     perComponent: Record<string, { passCount: number; failCount: number }>;
     lastTestMs: number | null;
+    views: { all: ViewAcc; run: ViewAcc; strength: ViewAcc };
   }
   const unitAcc = new Map<string, UnitAcc>();
   const ensureUnitAcc = (unitId: string): UnitAcc => {
     let acc = unitAcc.get(unitId);
     if (!acc) {
-      acc = { totalCount: 0, passCount: 0, failCount: 0, perComponent: {}, lastTestMs: null };
+      acc = {
+        totalCount: 0,
+        perComponent: {},
+        lastTestMs: null,
+        views: { all: newViewAcc(), run: newViewAcc(), strength: newViewAcc() },
+      };
       for (const testId of testIds) acc.perComponent[testId] = { passCount: 0, failCount: 0 };
       unitAcc.set(unitId, acc);
     }
@@ -218,17 +282,17 @@ export async function computeBrigadeDashboard(
     const soldierResults = resultsBySoldier.get(doc.id) ?? [];
     const perTestStatus = testIds.map((testId) => computeSoldierCurrentStatus(soldierResults, testId, now));
     const overall = testIds.length === 0 ? 'not_yet_tested' : reduceOverallStatus(perTestStatus);
+    const runStatus = runIdx === -1 ? 'not_yet_tested' : perTestStatus[runIdx];
+    const strengthStatus = strengthIdxs.length === 0 ? 'not_yet_tested' : reduceOverallStatus(strengthIdxs.map((i) => perTestStatus[i]));
 
     if (overall === 'pass') passCount++;
     else if (overall === 'fail') failCount++;
     else if (overall === 'not_performed') notPerformedCount++;
     else notYetTestedCount++;
 
-    if (overall === 'pass') unitRow.passCount++;
-    else if (overall === 'fail') unitRow.failCount++;
-    // not_performed/not_yet_tested soldiers don't add to the unit's
-    // pass/fail counters — they're absent from the tested denominator,
-    // exactly like the brigade-wide figures below.
+    bumpViewAcc(unitRow.views.all, overall);
+    bumpViewAcc(unitRow.views.run, runStatus);
+    bumpViewAcc(unitRow.views.strength, strengthStatus);
 
     testIds.forEach((testId, i) => {
       const status = perTestStatus[i];
@@ -275,7 +339,6 @@ export async function computeBrigadeDashboard(
   });
 
   const units: DashboardUnitRow[] = Array.from(unitAcc.entries()).map(([unitId, acc]) => {
-    const unitTested = acc.passCount + acc.failCount;
     const perComponent: Record<string, { testedCount: number; passPercent: number | null }> = {};
     for (const testId of testIds) {
       const c = acc.perComponent[testId];
@@ -286,8 +349,11 @@ export async function computeBrigadeDashboard(
       unitId,
       unitName: unitNameById.get(unitId) ?? unitId,
       totalCount: acc.totalCount,
-      testedCount: unitTested,
-      overallPassPercent: pct(acc.passCount, unitTested),
+      views: {
+        all: toUnitBreakdown(acc.views.all),
+        run: toUnitBreakdown(acc.views.run),
+        strength: toUnitBreakdown(acc.views.strength),
+      },
       perComponent,
       lastTestDate: acc.lastTestMs !== null ? new Date(acc.lastTestMs).toISOString() : null,
     };
