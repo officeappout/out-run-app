@@ -3727,3 +3727,58 @@ failed (זהה למה ש-`firestore-rules.test.ts` כבר עושה).
 קיימים-מראש לא-קשורים). `firestore.rules` ו-`readiness-write.service.ts`
 לא נגועים. `functions/` לא נגוע. ענף חדש (`feat/readiness-unit-detail-screen`),
 מעל `origin/main` העדכני, **לא נדחף**, ממתין לאישור-מיזוג מפורש.
+
+### §13.80 (תיקון) — שלוש נקודות לפני מיזוג (03.10.2026)
+
+**1. לחיצת שורה בדשבורד — שתי מטרות על אותה שורה, לא אחת במקום השנייה.**
+תוקן ב-`UnitReadinessTable.tsx`: חזרה ה-state `expanded` + ה-rendering
+הרקורסיבי מהסבב הקודם (Stage 6), **יחד עם** הניווט שנוסף השבוע —
+עכשיו שני יעדי-לחיצה נפרדים על אותה שורה: החץ (`button` עצמאי) מרחיב/
+מכווץ במקום בדיוק כמו לפני; שם היחידה (`button` עצמאי, underline
+ב-hover) מנווט ל-`/admin/authority/readiness/unit/{unitId}`. שום חלק
+אחר בשורה לא לחיץ.
+
+**2. אימות עובדתי — כן, `computeRecordResult` מאמת בשרת, בלי תלות
+בשום קלט-URL/גוף-בקשה.** `readiness-write.service.ts`, שורות 1013-1019:
+```
+const isSelf = soldier.uid !== null && soldier.uid === ctx.callerUid;
+const isOfficerInScope =
+  (scope.kind === 'root' || scope.kind === 'tenantOwner' || scope.kind === 'unitAdmin') &&
+  isMemberWithinScope(scope, soldier.tenantId, soldier.unitId);
+if (!isSelf && !isOfficerInScope) {
+  return { status: 403, body: { error: DENIED_MESSAGE } };
+}
+```
+**הפונקציה הזו לא מקבלת `unitId` מה-request body בכלל** (אומת: גריפ
+מלא על כל `requestBody.` בפונקציה — אין `requestBody.unitId` בשום
+מקום). היחידה הקובעת היא `soldier.unitId`, נקרא מהמסמך האמיתי
+(`readiness_soldiers/{soldierId}`), לא מכלום שנשלח מהלקוח. כלומר
+ה-`?unitId=` שהוספתי למסך ההזנה הוא **אך ורק נוחות-UI** (איזו אפשרות
+נבחרת-מראש בתפריט הנפתח) — אין לו שום השפעה על ההרשאה בפועל, כי
+נתיב-הכתיבה כלל לא קורא unitId מהבקשה.
+
+**3. האימות המצטברת — נבדק מחדש, בפירוט רב יותר.** ספירה אמיתית:
+שתי הפלוגות האמיתיות היחידות במערכת — ל**אחת 1 חייל, לשנייה 0**
+(הגדוד-הורה שלהן: 2 חיילים משלו). הרצתי את `computeUnitDetail`
+במפורש מול הגדוד האמיתי הזה ובדקתי את `cumulative` עצמו (לא רק
+ownSoldierCount/childUnitCount כמו בסבב הקודם): **`own.totalCount: 2`,
+`cumulative.totalCount: 3`** — שונה באמת מ-own, לא שווה-בטריוויאליות.
+הביקורת שלך הייתה נכונה מבחינה מתודולוגית (הבדיקה הקודמת לא בדקה את
+הערך של cumulative עצמו) — אבל במקרה הזה הנתונים האמיתיים כן תומכים
+באימות אמיתי, לא רק באמולטור.
+
+**שאלה נוספת — לא חוסמת:** כן, מנגנון הצגת-סף-שונה-מברירת-מחדל
+מיושם באופן כללי, לא קשור ל"עם גומייה". `isDefaultThreshold`
+(`readiness-unit-detail.service.ts`) משווה את הסף שהוחל בפועל על
+החייל (`testDetail.thresholdValue`, כבר תלוי-מגדר) מול סף-הגברים
+בלבד — כל הפרש (כולל חיילת עם סף-ריצה שונה, בלי שום "גומייה") גורם
+ל-`isDefaultThreshold: false`, והטבלה (`UnitDetailSoldiersTable.tsx`)
+מציגה את שורת "סף: X" מתחתיו. לא נדרש תיקון.
+
+**אימות:** tsc 448 (ללא שינוי). שלוש הרצות מבודדות: 135/140 (5
+דילוגי-אמולטור, כבוי בסבב הזה — לא נגעתי בשירות המבוסס-אמולטור).
+סוויטה רחבה: 2848/2883 (זהה לבסיס). `firestore.rules` ו-
+`readiness-write.service.ts` לא נגועים (ורק נקראו, לא נערכו, לצורך
+תשובה 2). אותו ענף (`feat/readiness-unit-detail-screen`), **לא
+נדחף**, ממתין לאישור-מיזוג מפורש. דרישת צילום-המסך הוסרה על ידי
+דוד (§11 סותר) — בדיקה ויזואלית תהיה שלו, אחרי מיזוג.

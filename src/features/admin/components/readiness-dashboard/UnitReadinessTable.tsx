@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { ChevronDown, ChevronLeft } from 'lucide-react';
 import type {
   DashboardUnitRow,
   DashboardComponentBreakdown,
@@ -29,13 +30,17 @@ import { READINESS_COLORS } from './colors';
  * — they're inherently single-test breakdowns already, untouched by
  * which combined view is selected.
  *
- * 03.10.2026 (Stage 7, unit-detail screen round) — rows now navigate to
- * /admin/authority/readiness/unit/{unitId} (David: "המסך הזה הוא מה
- * שנפתח בלחיצה על שורת יחידה") instead of the previous round's inline
- * expand/collapse — that page is now where a unit's own children show,
- * as their own dedicated cards, so this table no longer needs to
- * render nested rows itself. "שייכות" still shows the ancestor chain
- * per row for context in this flat, worst-first-sorted list.
+ * 03.10.2026 (Stage 6, unit-hierarchy round) — grouped by the real tree
+ * (`parentUnitId`, resolved server-side via unitDirectory, §13.76-78).
+ *
+ * 03.10.2026 (Stage 7 correction, David, verbatim) — "הקינון בטבלה הוא
+ * העץ שהקצין רואה במבט אחד, והוא נבנה בכוונה... אל תחליף אחד בשני":
+ * TWO independent click targets on the SAME row, never one replacing
+ * the other — the chevron expands/collapses in place (nested rows,
+ * exactly like the original Stage 6 build), and the unit NAME
+ * specifically navigates to that unit's own detail page
+ * (/admin/authority/readiness/unit/{unitId}). No other part of the row
+ * is clickable.
  */
 const FILTER_OPTIONS: { key: DashboardUnitViewKey; label: string }[] = [
   { key: 'all', label: 'הכל' },
@@ -83,7 +88,7 @@ function ComponentPercentCell({ percent, tested }: { percent: number | null; tes
   );
 }
 
-/** Worst-first by pass rate under the active view — units with no data (null) sort after every unit with a real number, since they aren't comparable to one. */
+/** Worst-first by pass rate under the active view — units with no data (null) sort after every unit with a real number, since they aren't comparable to one. Shared by the top level and every nested group so ordering is consistent throughout the tree. */
 function compareByFilteredPassPercent(a: DashboardUnitRow, b: DashboardUnitRow, filter: DashboardUnitViewKey): number {
   const pa = a.views[filter].passPercent;
   const pb = b.views[filter].passPercent;
@@ -102,10 +107,85 @@ interface UnitReadinessTableProps {
 export default function UnitReadinessTable({ units, components }: UnitReadinessTableProps) {
   const router = useRouter();
   const [filter, setFilter] = useState<DashboardUnitViewKey>('all');
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  const sortedUnits = useMemo(() => {
-    return [...units].sort((a, b) => compareByFilteredPassPercent(a, b, filter));
+  const { topLevel, childrenByParent } = useMemo(() => {
+    const childMap = new Map<string, DashboardUnitRow[]>();
+    const top: DashboardUnitRow[] = [];
+    for (const u of units) {
+      if (u.parentUnitId) {
+        const list = childMap.get(u.parentUnitId) ?? [];
+        list.push(u);
+        childMap.set(u.parentUnitId, list);
+      } else {
+        top.push(u);
+      }
+    }
+    top.sort((a, b) => compareByFilteredPassPercent(a, b, filter));
+    for (const list of Array.from(childMap.values())) list.sort((a, b) => compareByFilteredPassPercent(a, b, filter));
+    return { topLevel: top, childrenByParent: childMap };
   }, [units, filter]);
+
+  const toggleExpanded = (unitId: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(unitId)) next.delete(unitId);
+      else next.add(unitId);
+      return next;
+    });
+  };
+
+  const renderRow = (u: DashboardUnitRow, depth: number) => {
+    const view = u.views[filter];
+    const children = childrenByParent.get(u.unitId) ?? [];
+    const hasChildren = children.length > 0;
+    const isExpanded = expanded.has(u.unitId);
+    return (
+      <Fragment key={u.unitId}>
+        <tr className="border-b border-slate-100 last:border-b-0">
+          <td className="py-2.5 px-3 font-bold text-slate-800">
+            <div className="flex items-center gap-1.5" style={{ paddingRight: depth * 16 }}>
+              {hasChildren ? (
+                <button
+                  onClick={() => toggleExpanded(u.unitId)}
+                  className="flex-shrink-0 text-slate-400 hover:text-slate-600"
+                  aria-label={isExpanded ? 'כווץ' : 'הרחב'}
+                >
+                  {isExpanded ? <ChevronDown size={14} /> : <ChevronLeft size={14} />}
+                </button>
+              ) : (
+                <span className="w-[14px] flex-shrink-0" />
+              )}
+              <button
+                onClick={() => router.push(`/admin/authority/readiness/unit/${u.unitId}`)}
+                className="text-right hover:text-lime-700 hover:underline transition-colors"
+              >
+                {u.unitName}
+              </button>
+            </div>
+          </td>
+          <td className="py-2.5 px-3 text-[11px] text-slate-500">{u.breadcrumb ?? '—'}</td>
+          <td className="py-2.5 px-3 w-28">
+            <UnitStatusBar breakdown={view} totalCount={u.totalCount} />
+          </td>
+          <td className="py-2.5 px-3"><PassPercentCell breakdown={view} /></td>
+          <td className="py-2.5 px-3 text-slate-600">{view.testedCount} מתוך {u.totalCount}</td>
+          {components.map((c) => {
+            const cell = u.perComponent[c.testId];
+            return (
+              <td key={c.testId} className="py-2.5 px-3">
+                <ComponentPercentCell percent={cell?.passPercent ?? null} tested={cell?.testedCount ?? 0} />
+              </td>
+            );
+          })}
+          <td className="py-2.5 px-3 text-[11px] text-slate-500">
+            {u.lastTestDate ? new Date(u.lastTestDate).toLocaleDateString('he-IL') : '—'}
+          </td>
+        </tr>
+        {hasChildren && isExpanded && children.map((child) => renderRow(child, depth + 1))}
+      </Fragment>
+    );
+  };
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 overflow-x-auto">
@@ -139,35 +219,7 @@ export default function UnitReadinessTable({ units, components }: UnitReadinessT
           </tr>
         </thead>
         <tbody>
-          {sortedUnits.map((u) => {
-            const view = u.views[filter];
-            return (
-              <tr
-                key={u.unitId}
-                onClick={() => router.push(`/admin/authority/readiness/unit/${u.unitId}`)}
-                className="border-b border-slate-100 last:border-b-0 cursor-pointer hover:bg-slate-50"
-              >
-                <td className="py-2.5 px-3 font-bold text-slate-800">{u.unitName}</td>
-                <td className="py-2.5 px-3 text-[11px] text-slate-500">{u.breadcrumb ?? '—'}</td>
-                <td className="py-2.5 px-3 w-28">
-                  <UnitStatusBar breakdown={view} totalCount={u.totalCount} />
-                </td>
-                <td className="py-2.5 px-3"><PassPercentCell breakdown={view} /></td>
-                <td className="py-2.5 px-3 text-slate-600">{view.testedCount} מתוך {u.totalCount}</td>
-                {components.map((c) => {
-                  const cell = u.perComponent[c.testId];
-                  return (
-                    <td key={c.testId} className="py-2.5 px-3">
-                      <ComponentPercentCell percent={cell?.passPercent ?? null} tested={cell?.testedCount ?? 0} />
-                    </td>
-                  );
-                })}
-                <td className="py-2.5 px-3 text-[11px] text-slate-500">
-                  {u.lastTestDate ? new Date(u.lastTestDate).toLocaleDateString('he-IL') : '—'}
-                </td>
-              </tr>
-            );
-          })}
+          {topLevel.map((u) => renderRow(u, 0))}
         </tbody>
       </table>
       {units.length === 0 && (
