@@ -78,6 +78,7 @@ export function buildIcs(s: WeddingState, now = new Date()): string {
       t.owners.length ? `מי: ${t.owners.join(', ')}` : 'מי: עוד לא שויך',
       v ? `ספק: ${v.name}${v.supplier ? ` (${v.supplier})` : ''} · ${v.status}` : '',
       start.getTime() !== due.getTime() ? `עד ${due.getDate()}.${due.getMonth() + 1}` : '',
+      t.notes ? `הערות: ${t.notes}` : '',
       `לעריכה: ${PAGE}`,
     ].filter(Boolean);
     lines.push(

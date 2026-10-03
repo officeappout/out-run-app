@@ -31,6 +31,29 @@ export interface WeddingSettings {
   people: string[];
   /** Tag name (a person or TOGETHER) → color key from TAG_COLORS. Missing = default by position. */
   tagColors: Record<string, TagColor>;
+  /** Family birthdays / yahrzeits to keep the wedding (and its dates) off. */
+  familyDates: FamilyDate[];
+}
+
+export const HEBREW_MONTHS = ['תשרי', 'חשוון', 'כסלו', 'טבת', 'שבט', 'אדר', 'אדר א׳', 'אדר ב׳', 'ניסן', 'אייר', 'סיוון', 'תמוז', 'אב', 'אלול'] as const;
+export type HebrewMonth = (typeof HEBREW_MONTHS)[number];
+export const FAMILY_KINDS = ['יום הולדת', 'אזכרה', 'אחר'] as const;
+export type FamilyKind = (typeof FAMILY_KINDS)[number];
+
+/**
+ * A recurring family date. Marked every year on its Hebrew date and, when
+ * given, also on its civil date (they drift apart year to year).
+ */
+export interface FamilyDate {
+  id: string;
+  name: string;
+  kind: FamilyKind;
+  /** Hebrew day 1–30 (0 = none) and month. Plain 'אדר' matches both Adars in a leap year. */
+  hDay: number;
+  hMonth: HebrewMonth;
+  /** Civil day/month (0 = none). */
+  gDay: number;
+  gMonth: number;
 }
 
 export const TAG_COLORS = ['sky', 'violet', 'amber', 'teal', 'rose', 'lime', 'emerald', 'orange', 'pink', 'slate'] as const;
@@ -102,6 +125,8 @@ export interface WeddingTask {
   vendorId: string;
   /** The task's own color in the calendar ('' = automatic by booking order). Independent of the owner tags. */
   color: TaskColor | '';
+  /** Free-text notes. */
+  notes: string;
 }
 
 export const TASK_COLORS = ['sky', 'violet', 'amber', 'teal', 'rose', 'lime', 'indigo', 'orange', 'cyan', 'fuchsia', 'emerald', 'yellow', 'blue', 'pink'] as const;

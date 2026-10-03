@@ -31,7 +31,7 @@ export function closeWindow(name: string, weddingIso: string, today = new Date()
 
 export function autoTask(v: Vendor, weddingIso: string, id: string, today = new Date()): WeddingTask {
   const w = closeWindow(v.name, weddingIso, today);
-  return { id, name: `${AUTO_PREFIX}${v.name}`, startBefore: w.startBefore, daysBefore: w.daysBefore, done: isClosed(v.status), owners: [], vendorId: v.id, color: '' };
+  return { id, name: `${AUTO_PREFIX}${v.name}`, startBefore: w.startBefore, daysBefore: w.daysBefore, done: isClosed(v.status), owners: [], vendorId: v.id, color: '', notes: '' };
 }
 
 /** Booking order: by due date, then by start; 1 = first to do. */

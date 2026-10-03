@@ -6,6 +6,7 @@ import { MARKET } from '../wedding.config';
 import { dayTypeOf, venuePriceFor, type DayType, type ScenarioPrice, buildRoadmap, daysUntil, formatShekel, hebrewDateLabel, rankVenues, taskDueDate, tasksOverlapping, toIso, venueCost } from '../wedding.calc';
 import { VENDOR_STATUSES, type Venue, type WeddingSettings, type WeddingState } from '../wedding.types';
 import { OwnerPicker, TagEditor } from './tags';
+import { FamilyDatesEditor, WeddingDateFamilyNote } from './FamilyDates';
 import { autoTask, bookingLead, closeWindow, taskOrder } from '../wedding.links';
 import { TaskLine, TasksHub } from './TasksHub';
 import { SELECTED_STYLE, card, cellInput, fmtDate, fmtIso, newId, type Update } from './ui';
@@ -907,7 +908,7 @@ function Market({ s, g }: { s: WeddingState; g: number }) {
 
 function Settings({ s, update }: { s: WeddingState; update: Update }) {
   const set = (k: keyof WeddingSettings, v: string | number) => update((st) => ({ ...st, settings: { ...st.settings, [k]: v } }));
-  const num = (k: Exclude<keyof WeddingSettings, 'date' | 'people' | 'tagColors'>, label: string, hint?: string) => (
+  const num = (k: Exclude<keyof WeddingSettings, 'date' | 'people' | 'tagColors' | 'familyDates'>, label: string, hint?: string) => (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={`ws-${k}`} className="text-xs font-bold text-slate-600">
         {label}
@@ -934,6 +935,7 @@ function Settings({ s, update }: { s: WeddingState; update: Update }) {
               תאריך החתונה
             </label>
             <input id="ws-date" type="date" className={`${cellInput} min-h-[42px]`} value={s.settings.date} onChange={(e) => e.target.value && set('date', e.target.value)} />
+            <WeddingDateFamilyNote settings={s.settings} />
           </div>
           {num('guests', 'מספר אורחים צפוי')}
           {num('low', 'תרחיש נמוך')}
@@ -951,6 +953,10 @@ function Settings({ s, update }: { s: WeddingState; update: Update }) {
           {num('bar', 'בר – לאורח (₪)')}
         </div>
         <p className="mt-3 text-xs text-slate-500">אלה הערכות ראשוניות. כדאי לעדכן אותן כשמגיעות הצעות אמיתיות מספקים.</p>
+      </section>
+      <section className={card}>
+        <h2 className="mb-2 font-black text-slate-900">תאריכים משפחתיים</h2>
+        <FamilyDatesEditor settings={s.settings} update={update} />
       </section>
       <section className={card}>
         <h2 className="mb-3 font-black text-slate-900">תגיות – מי עושה</h2>

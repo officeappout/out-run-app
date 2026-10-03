@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { bookingLead, closeWindow, syncVendorTasks, taskOrder } from '../wedding.links';
 import { buildIcs, foldLine } from '../wedding.ics';
+import { familyOn, hebrewMonthMatches, monthOptions as monthOpts } from '../wedding.calc';
 import { blockedReason, venuePriceFor, buildRoadmap, dateFactor, daysBeforeFor, daysUntil, gematria, hebrewDate, hebrewDateLabel, layoutWeek, monthOptions, rankVenues, taskDueDate, toIso, venueCost } from '../wedding.calc';
 import { DEFAULT_SETTINGS, initialWeddingState } from '../wedding.config';
 import { LIMITS, parseWeddingState } from '../wedding.schema';
@@ -330,5 +331,41 @@ describe('calendar feed (.ics)', () => {
     const folded = foldLine(long);
     for (const l of folded.split('\r\n')) expect(new TextEncoder().encode(l).length).toBeLessThanOrEqual(75);
     expect(folded.replace(/\r\n /g, '')).toBe(long);
+  });
+});
+
+describe('family dates', () => {
+  const s = parseWeddingState({
+    settings: {
+      familyDates: [
+        { name: 'Ethan', kind: 'יום הולדת', hDay: 6, hMonth: 'חשוון', gDay: 18, gMonth: 10 },
+        { name: 'Eli', kind: 'יום הולדת', hDay: 4, hMonth: 'אדר', gDay: 2, gMonth: 3 },
+        { name: 'סבא', kind: 'אזכרה', hDay: 24, hMonth: 'שבט' },
+        { name: '', hDay: 1 },
+        { name: 'bad', hDay: 40, hMonth: 'xx' },
+      ],
+    },
+  });
+  const fd = s.settings.familyDates;
+  const at = (iso: string) => familyOn(new Date(`${iso}T12:00:00`), fd).map((h) => `${h.date.name}:${h.by}`);
+  it('parses and drops entries with no name or no date', () => {
+    expect(fd.map((f) => f.name)).toEqual(['Ethan', 'Eli', 'סבא']);
+    expect(fd[2]).toMatchObject({ gDay: 0, gMonth: 0, kind: 'אזכרה' });
+  });
+  it('marks the Hebrew date and the civil date (they differ this year)', () => {
+    expect(at('2026-10-17')).toEqual(['Ethan:hebrew']); // 6 Cheshvan 5787
+    expect(at('2026-10-18')).toEqual(['Ethan:civil']);
+    expect(at('2027-02-01')).toEqual(['סבא:hebrew']); // 24 Shevat 5787
+  });
+  it("plain 'אדר' hits both Adars in a leap year", () => {
+    expect(at('2027-02-11')).toEqual(['Eli:hebrew']); // 4 Adar I
+    expect(at('2027-03-13')).toEqual(['Eli:hebrew']); // 4 Adar II
+    expect(at('2027-03-02')).toEqual(['Eli:civil']);
+    expect(hebrewMonthMatches('אדר', 'אדר ב׳')).toBe(true);
+    expect(hebrewMonthMatches('ניסן', 'אדר')).toBe(false);
+  });
+  it('counts as blocked when looking for open dates', () => {
+    const o = monthOpts(2027, 2, undefined, fd); // March 2027: Eli 2.3 (Tue) civil; 13.3 is Shabbat
+    expect(o.blocked['תאריך משפחתי']).toBe(1);
   });
 });
