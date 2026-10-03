@@ -33,12 +33,20 @@
  * (e.g. adding "pull" alongside "push") could still read as gated/foreign
  * for one render. A useMemo recomputes synchronously in the same render
  * as the selectedProgramIds change, closing that window entirely.
+ *
+ * Program-identity fix (round 4): selectedProgramIds is now guaranteed to
+ * hold canonical slugs at its source (WorkoutBuilderSheet's pill tap
+ * handler resolves via resolveToSlug before ever calling
+ * setSelectedProgramIds) — but autoChips still defensively re-resolves
+ * every pid here too, so any OTHER future caller that hands it a raw
+ * Firestore id (or a legacy activePrograms entry whose own templateId is
+ * still a raw hash) resolves correctly rather than silently matching
+ * nothing and falling through to an empty focusDomains guess.
  */
 
 import { useState, useEffect, useMemo, useCallback, type Dispatch, type SetStateAction } from 'react';
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import {
-  MUSCLE_CHIPS,
   domainsToChipIds,
   CHIP_TO_PRIMARY_PROGRAMS,
   CHIP_TO_PROGRAMS,
@@ -53,10 +61,6 @@ export interface UseMuscleChipSelectionParams {
   setSelectedProgramIds: Dispatch<SetStateAction<string[]>>;
   /** Shared with the parent's own program-level checks (displayPrograms etc.) — owned there, passed in here. */
   isEnrolledInProgram: (pid: string) => boolean;
-  /** Diagnostic-only (round 2) — the raw enrollment set itself, so the temp
-   * dump below can show exactly what's IN it (slugs? hash ids? both?)
-   * instead of only the derived isEnrolledInProgram boolean. */
-  enrolledIds: Set<string>;
   resolveBaseCategoryForThisProgram: (id: string) => string;
   onNeedsAssessment: (domain: string | null) => void;
   onManualInteraction: () => void;
@@ -67,7 +71,6 @@ export function useMuscleChipSelection({
   selectedProgramIds,
   setSelectedProgramIds,
   isEnrolledInProgram,
-  enrolledIds,
   resolveBaseCategoryForThisProgram,
   onNeedsAssessment,
   onManualInteraction,
@@ -92,43 +95,22 @@ export function useMuscleChipSelection({
   // a second program is reflected in the SAME render (see the bug-fix note
   // at the top of this file).
   const autoChips = useMemo<string[]>(() => {
-    // TEMP DIAGNOSTIC (round 3 — flat primitives only, no behavior change)
-    // — traces wire 2 (autoChips following selectedProgramIds) across a
-    // pill tap: the raw pid as stored (hash or slug?), whether/how it
-    // matched an activePrograms entry, which source produced focusDomains,
-    // and the resulting chip ids — per pid, then the final set. Remove
-    // before merge.
-    if (selectedProgramIds.length === 0) {
-      // eslint-disable-next-line no-console
-      console.log('[muscle-chip diag] autoChips: selectedProgramIds=[] -> autoChips=[]');
-      return [];
-    }
+    if (selectedProgramIds.length === 0) return [];
     const chips = new Set<string>();
-    for (const pid of selectedProgramIds) {
+    for (const rawPid of selectedProgramIds) {
+      // Defensive normalize (program-identity fix, round 4) — see the
+      // module-level note above for why this stays even though the pill-
+      // tap source now always hands us a slug.
+      const pid = resolveToSlug(rawPid) || rawPid;
       const ap = profile?.progression?.activePrograms?.find(
         p => p.templateId === pid || (p as any).id === pid,
       );
-      const matchedVia = !ap ? 'none' : ap.templateId === pid ? 'templateId' : 'id';
-      const hasFocusDomains = (ap?.focusDomains as string[] | undefined)?.length;
-      const focusDomains = hasFocusDomains ? (ap!.focusDomains as string[]) : [pid];
-      const resolvedChipIds = domainsToChipIds(focusDomains);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const apRawId = (ap as any)?.id ?? 'n/a';
-      // eslint-disable-next-line no-console
-      console.log(
-        `[muscle-chip diag] autoChips: pid=${pid} matchedVia=${matchedVia} ` +
-        `apTemplateId=${ap?.templateId ?? 'n/a'} apId=${apRawId} ` +
-        `focusDomainsSource=${hasFocusDomains ? 'ap.focusDomains' : 'fallback=[pid]'} ` +
-        `focusDomains=[${focusDomains.join(',')}] chipIds=[${resolvedChipIds.join(',')}]`,
-      );
-      resolvedChipIds.forEach(c => chips.add(c));
+      const focusDomains = (ap?.focusDomains as string[] | undefined)?.length
+        ? (ap!.focusDomains as string[])
+        : [pid];
+      domainsToChipIds(focusDomains).forEach(c => chips.add(c));
     }
-    const result = [...chips];
-    // eslint-disable-next-line no-console
-    console.log(
-      `[muscle-chip diag] autoChips: selectedProgramIds=[${selectedProgramIds.join(',')}] -> autoChips=[${result.join(',')}]`,
-    );
-    return result;
+    return [...chips];
   }, [selectedProgramIds, profile]);
 
   // Reset manual muscle opt-outs when the selected PROGRAM SET itself
@@ -164,41 +146,6 @@ export function useMuscleChipSelection({
       (autoChips.includes(chip.id) && !manuallyDeselectedChips.has(chip.id)),
     [selectedChips, autoChips, manuallyDeselectedChips],
   );
-
-  // TEMP DIAGNOSTIC (round 3 — flat primitives only, FIXED from round 2
-  // where nested objects printed as "Object" with no way to read the real
-  // per-chip values). One line per chip, plain string interpolation only
-  // — no object literal anywhere in this block. Still traces wire 1: for
-  // every mapped program on a chip, isEnrolledInProgram's result AND
-  // resolveToSlug's own output, plus the raw enrolledIds contents on their
-  // own flat line. Remove before merge.
-  useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log(
-      `[muscle-chip diag] state: selectedProgramIds=[${selectedProgramIds.join(',')}] ` +
-      `autoChips=[${autoChips.join(',')}] selectedChips=[${selectedChips.join(',')}] ` +
-      `manuallyDeselectedChips=[${Array.from(manuallyDeselectedChips).join(',')}]`,
-    );
-    // eslint-disable-next-line no-console
-    console.log(`[muscle-chip diag] enrolledIds=[${Array.from(enrolledIds).join(',')}]`);
-    for (const chip of MUSCLE_CHIPS.filter(c => c.group !== 'aggregate')) {
-      const assessed = isAssessed(chip);
-      const selected = isSelected(chip);
-      const isAuto = autoChips.includes(chip.id);
-      // eslint-disable-next-line no-console
-      console.log(
-        `[muscle-chip diag] chip=${chip.id} isAssessed=${assessed} isSelected=${selected} isAuto=${isAuto}`,
-      );
-      const mappedPrograms = CHIP_TO_PROGRAMS[chip.id] ?? [];
-      for (const pid of mappedPrograms) {
-        // eslint-disable-next-line no-console
-        console.log(
-          `[muscle-chip diag] chip=${chip.id} program=${pid} ` +
-          `isEnrolledInProgram=${isEnrolledInProgram(pid)} resolveToSlug=${resolveToSlug(pid)}`,
-        );
-      }
-    }
-  }, [selectedProgramIds, autoChips, selectedChips, manuallyDeselectedChips, enrolledIds, isAssessed, isSelected, isEnrolledInProgram]);
 
   const toggleChip = useCallback((chip: MuscleChip) => {
     const primaryPrograms = CHIP_TO_PRIMARY_PROGRAMS[chip.id] ?? [];

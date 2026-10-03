@@ -36,6 +36,10 @@ export type LocationId = 'park' | 'gym' | 'home' | 'service';
 
 interface DisplayProgram {
   id: string;
+  /** Canonical slug (resolveToSlug(id) || id) — program-identity fix: every
+   * selectedProgramIds read/write goes through THIS, never the raw id, so
+   * a pill tap can never push the opaque Firestore hash into state. */
+  slug: string;
   label: string;
   level: number;
   isMaster: boolean;
@@ -317,8 +321,12 @@ export default function WorkoutBuilderSheet({
   // is "the recommendation" whenever nothing has been manually chosen. One
   // definition, reused by the opening pre-fill effect AND the "אוטו" reset
   // action below, instead of two copies of "what's recommended."
+  // Program-identity fix (round 4): activeTemplateId can be the raw
+  // Firestore hash (legacy accounts) — resolve to slug HERE, once, so
+  // every selectedProgramIds consumer downstream gets a slug no matter
+  // which path pre-filled it.
   const recommendedProgramIds = useMemo<string[]>(
-    () => (activeTemplateId ? [activeTemplateId] : []),
+    () => (activeTemplateId ? [resolveToSlug(activeTemplateId) || activeTemplateId] : []),
     [activeTemplateId],
   );
   const isAutoActive = useMemo(() => {
@@ -344,8 +352,16 @@ export default function WorkoutBuilderSheet({
   const enrolledIds = useMemo(() => {
     // Seed from explicit activePrograms templateIds — this is the ground truth
     // for "the user consciously chose this program during onboarding/evolution".
+    // Program-identity fix (round 4): resolve each templateId to its
+    // canonical slug. A fresh mini-assessment already writes templateId as
+    // the plain slug, but a legacy-onboarded account can still have the raw
+    // Firestore hash here — CHIP_TO_PROGRAMS/isEnrolledInProgram's direct
+    // checks are slug-keyed, so an un-resolved hash silently never matches,
+    // reading as "never assessed" for a program the user is really enrolled in.
     const ids = new Set<string>(
-      profile?.progression?.activePrograms?.map(p => p.templateId) ?? [],
+      (profile?.progression?.activePrograms ?? []).map(
+        p => resolveToSlug(p.templateId) || p.templateId,
+      ),
     );
     // Supplement with track keys, but ONLY for known leaf-level slugs.
     // Master-derived track entries written by recalculateMasterLevel
@@ -381,11 +397,15 @@ export default function WorkoutBuilderSheet({
       // raw Firestore program doc id, so tracks[id] missed for every
       // enrolled program and silently fell to the `?? 1` default, showing
       // "רמה 1" regardless of the user's real assessed level.
-      const trackSlug = resolveToSlug(id) || id;
-      const level = isUnenrolled ? 0 : (tracks[trackSlug] as any)?.currentLevel ?? (tracks[trackSlug] as any)?.level ?? 1;
+      // `slug` is the SAME resolution, exposed on the program itself (program-
+      // identity fix, round 4) — every selectedProgramIds read/write below
+      // goes through prog.slug now, never the raw id, so a pill tap can
+      // never push the opaque Firestore hash into state.
+      const slug = resolveToSlug(id) || id;
+      const level = isUnenrolled ? 0 : (tracks[slug] as any)?.currentLevel ?? (tracks[slug] as any)?.level ?? 1;
       const domainEntry = (domains as any)[id];
       const isLocked = domainEntry !== undefined && domainEntry.isUnlocked === false;
-      return { id, label, level, isMaster, children, isLocked, isUnenrolled, IconComp };
+      return { id, slug, label, level, isMaster, children, isLocked, isUnenrolled, IconComp };
     }).sort((a, b) => {
       // Enrolled programs first; within each group masters before leaf; then by level desc
       if (!!a.isUnenrolled !== !!b.isUnenrolled) return a.isUnenrolled ? 1 : -1;
@@ -470,7 +490,9 @@ export default function WorkoutBuilderSheet({
     const seen = new Set<string>();
     for (const pid of selectedProgramIds) {
       const slug = toSlug(pid);
-      const prog = displayPrograms.find(p => p.id === pid);
+      // selectedProgramIds now stores slugs (program-identity fix, round 4) —
+      // match against prog.slug, not the raw prog.id.
+      const prog = displayPrograms.find(p => p.slug === pid);
       if (prog?.isMaster && prog.children.length > 0) {
         // Master programs: lead with resolved master slug (engine uses index 0
         // as activeProgramId), then expand children so the budget infrastructure
@@ -537,7 +559,6 @@ export default function WorkoutBuilderSheet({
     selectedProgramIds,
     setSelectedProgramIds,
     isEnrolledInProgram,
-    enrolledIds,
     resolveBaseCategoryForThisProgram,
     onNeedsAssessment: (domain) => { setUnlockDomain(domain); setShowUnlockModal(true); },
     onManualInteraction: () => setIsUsingRecommendedDefaults(false),
@@ -991,47 +1012,31 @@ export default function WorkoutBuilderSheet({
                   <ProgramPill
                     key={prog.id}
                     prog={prog}
-                    isSelected={selectedProgramIds.includes(prog.id)}
+                    isSelected={selectedProgramIds.includes(prog.slug)}
                     onSelect={prog.isUnenrolled
-                      ? () => {
-                          // TEMP DIAGNOSTIC (round 3 — flat primitives only) — if
-                          // THIS fires instead of the real toggle branch below,
-                          // the pill never reaches selectedProgramIds at all
-                          // (isUnenrolled is wrongly true). Remove before merge.
-                          // eslint-disable-next-line no-console
-                          console.log(
-                            `[muscle-chip diag] pill tap prog=${prog.id} -> UNENROLLED branch (no selectedProgramIds change)`,
-                          );
-                          setUnlockDomain(resolveBaseCategoryForThisProgram(prog.id));
-                          setShowUnlockModal(true);
-                        }
+                      ? () => { setUnlockDomain(resolveBaseCategoryForThisProgram(prog.id)); setShowUnlockModal(true); }
                       : () => {
-                          // TEMP DIAGNOSTIC (round 3 — flat primitives only) —
-                          // before/after around the state update itself, to
-                          // trace wire 2's first link: does the tap actually
-                          // reach selectedProgramIds, and with what raw value
-                          // (hash or slug)? Remove before merge.
-                          // eslint-disable-next-line no-console
-                          console.log(
-                            `[muscle-chip diag] pill tap prog=${prog.id} isUnenrolled=${prog.isUnenrolled} ` +
-                            `selectedProgramIds_BEFORE=[${selectedProgramIds.join(',')}]`,
+                          // Program-identity fix (round 4): always store the
+                          // canonical SLUG, never the raw Firestore hash — the
+                          // bug this closes: a pill tap pushed prog.id (the
+                          // opaque hash) into selectedProgramIds, which the
+                          // muscle→program inverse and the deselect cascade
+                          // both key by slug (CHIP_TO_PRIMARY_PROGRAMS etc.),
+                          // so a hash entry matched nothing downstream and
+                          // its muscles never lit up — and tapping the SAME
+                          // program again via a muscle chip could then push
+                          // the slug too, leaving the array holding both.
+                          setSelectedProgramIds(prev =>
+                            prev.includes(prog.slug)
+                              ? prev.filter(id => id !== prog.slug)
+                              : [...prev, prog.slug],
                           );
-                          setSelectedProgramIds(prev => {
-                            const next = prev.includes(prog.id)
-                              ? prev.filter(id => id !== prog.id)
-                              : [...prev, prog.id];
-                            // eslint-disable-next-line no-console
-                            console.log(
-                              `[muscle-chip diag] pill tap prog=${prog.id} selectedProgramIds_AFTER=[${next.join(',')}]`,
-                            );
-                            return next;
-                          });
                           setIsUsingRecommendedDefaults(false);
                           // An explicit tap always "promotes" the program to
                           // manual — whether adding it fresh or re-affirming
                           // one the muscle inverse (#2) already added — so
                           // only this same tap can ever remove it again (#4).
-                          promoteProgram(prog.id);
+                          promoteProgram(prog.slug);
                           // Auto-expand muscle panel so the auto-selected
                           // chip highlights are immediately visible.
                           setMuscleExpanded(true);
@@ -1057,7 +1062,7 @@ export default function WorkoutBuilderSheet({
 
             {selectedProgramIds.length > 0 && (() => {
               const masterProgs = selectedProgramIds
-                .map(pid => displayPrograms.find(p => p.id === pid))
+                .map(pid => displayPrograms.find(p => p.slug === pid))
                 .filter((p): p is DisplayProgram => !!p?.isMaster && p.children.length > 0);
               if (masterProgs.length === 0) return null;
               const allChildLabels = [...new Set(masterProgs.flatMap(p => p.children))].map(cid => {
