@@ -1893,7 +1893,32 @@ async function _buildSharedPipeline(
   const { levels: userProgramLevels } = buildUserProgramLevels(effectiveProfile, masterProgramIds, '[HomeWorkout:Trio]');
 
   const activeProgramId = effectiveProfile.progression?.activePrograms?.[0]?.templateId;
-  let resolvedChildDomains = resolveChildDomainsForParent(activeProgramId, userProfile);
+
+  // Fix #2 (generator-leveling audit): resolveChildDomainsForParent's model
+  // is one-parent-to-children (full_body→4 domains, upper_body→2,
+  // calisthenics_upper→skillFocusIds) — correct for a single master, but
+  // activePrograms can legitimately hold >1 CO-EQUAL entries with none a
+  // parent of another (a Custom Builder / scheduled multi-domain session,
+  // e.g. push+pull). Resolving against activeProgramId ([0]) alone silently
+  // dropped every sibling after it — confirmed root cause of push being
+  // absent from resolvedChildDomains despite being in scheduledProgramIds.
+  // isLeadingMaster above already guarantees effectiveActiveIds (and so
+  // effectiveProfile's activePrograms) has exactly one entry whenever a
+  // master was selected, so this union only ever fires for the genuinely
+  // multi, non-master shape this fix targets — the master/skill paths below
+  // (1d) are untouched.
+  const isMultiCoEqualDomains = !isLeadingMaster && effectiveActiveIds.length > 1;
+  let resolvedChildDomains = isMultiCoEqualDomains
+    ? Array.from(new Set(
+        effectiveActiveIds.flatMap(id => resolveChildDomainsForParent(id, userProfile)),
+      ))
+    : resolveChildDomainsForParent(activeProgramId, userProfile);
+  if (isMultiCoEqualDomains) {
+    console.log(
+      `[HomeWorkout] multi-domain activePrograms union: [${effectiveActiveIds.join(', ')}] → ` +
+      `resolvedChildDomains=[${resolvedChildDomains.join(', ')}]`,
+    );
+  }
 
   // ── 1d. UPPER_CALISTHENICS child domain normalisation ─────────────────
   // When the scheduled day is a hybrid session (UPPER_CALISTHENICS, normalised

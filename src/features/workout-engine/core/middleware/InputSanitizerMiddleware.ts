@@ -265,7 +265,8 @@ export function buildActiveProgramFilters(
   }
 
   if (activeProgramFilters.length === 0) {
-    const ap = effectiveProfile.progression?.activePrograms?.[0];
+    const activePrograms = effectiveProfile.progression?.activePrograms ?? [];
+    const ap = activePrograms[0];
     const parentId = ap?.templateId ?? ap?.id;
 
     // Priority 1 — explicit focusDomains injected by the caller.
@@ -283,7 +284,27 @@ export function buildActiveProgramFilters(
         `[${ap.focusDomains.join(', ')}] → activeProgramFilters`,
       );
     } else {
-      const resolvedDomains = resolveChildDomainsForParent(parentId, originalProfile);
+      // Fix #2 (generator-leveling audit): mirrors the identical fix in
+      // home-workout.service.ts's own resolvedChildDomains derivation.
+      // resolveChildDomainsForParent's model is one-parent-to-children —
+      // correct for a single master, but activePrograms can legitimately
+      // hold >1 CO-EQUAL, non-master entries (a multi-domain Custom Builder
+      // / scheduled session, e.g. push+pull). Reading only [0] here silently
+      // dropped every sibling after it, so baseDomainCount below undercounted
+      // the real number of active domains — the exact trigger for the
+      // single-domain skill-sibling forward-expansion misfiring on a
+      // genuinely multi-domain session.
+      const isAnyMaster = activePrograms.some((p) => {
+        const id = p.templateId ?? p.id;
+        if (!id) return false;
+        const slug = resolveToSlug(id);
+        return programs.some((prog) => prog.isMaster && (prog.id === id || prog.slug === id || prog.slug === slug));
+      });
+      const resolvedDomains = (activePrograms.length > 1 && !isAnyMaster)
+        ? Array.from(new Set(
+            activePrograms.flatMap((p) => resolveChildDomainsForParent(p.templateId ?? p.id, originalProfile)),
+          ))
+        : resolveChildDomainsForParent(parentId, originalProfile);
       if (resolvedDomains.length > 0) {
         activeProgramFilters.push(...resolvedDomains);
       } else {
@@ -474,6 +495,46 @@ export function resolveUserLevelForProgram(
   return baseUserLevel;
 }
 
+/**
+ * Fix #1 (generator-leveling audit, STRICT HIDE — owner decision): a skill
+ * exercise (planche, front_lever, muscle_up, etc. — any tag that's a key in
+ * DOMAIN_RESOLUTION_SKILL_PARENT_MAP) must never surface unless the user has
+ * a DIRECT assessed level for that exact skill. No inverse skill↔foundation
+ * scale conversion — a plain exclusion, not a re-score.
+ *
+ * userProgramLevels is absent=absent by construction (buildUserProgramLevels)
+ * — `.has(slug)` here means "a real tracks/domains entry exists for this
+ * slug," never a derived/fallback value. This is deliberately independent of
+ * the forward skill-sibling expansion above (which stays unconditional, by
+ * design, for tag-eligibility) — this function gates whether an exercise
+ * actually reaches the candidate pool at all, the step the expansion itself
+ * was never meant to answer.
+ *
+ * An exercise with at least one non-skill (foundational) tag, or at least
+ * one skill tag the user HAS directly reached, stays eligible via that tag
+ * — this only removes an exercise whose EVERY tag is an unreached skill.
+ */
+function isExerciseSkillEligible(
+  exercise: Exercise,
+  userProgramLevels: Map<string, number>,
+): boolean {
+  const tags: string[] = [
+    ...(exercise.targetPrograms ?? []).map((tp) => tp.programId),
+    ...(exercise.programIds ?? []),
+  ];
+  if (tags.length === 0) return true; // nothing to gate on — unaffected by this fix
+
+  for (const raw of tags) {
+    const slug = resolveToSlug(raw);
+    const isSkill =
+      DOMAIN_RESOLUTION_SKILL_PARENT_MAP[slug] !== undefined ||
+      DOMAIN_RESOLUTION_SKILL_PARENT_MAP[raw] !== undefined;
+    if (!isSkill) return true; // a foundational tag always keeps the exercise eligible
+    if (userProgramLevels.has(slug) || userProgramLevels.has(raw)) return true; // directly assessed
+  }
+  return false; // every tag was a skill, none directly reached
+}
+
 export function resolveExercisePool(
   allExercises: Exercise[],
   userProgramLevels: Map<string, number>,
@@ -481,6 +542,12 @@ export function resolveExercisePool(
   idToSlug: Map<string, string>,
   baseUserLevel: number,
 ): ExercisePoolResult {
+  // Fix #1 (see isExerciseSkillEligible above) — runs before any
+  // tolerance/rescue logic below, against the raw catalog, so a thin pool
+  // can never "rescue" an unreached skill back in via the CLIFF fallbacks
+  // further down this function.
+  allExercises = allExercises.filter((ex) => isExerciseSkillEligible(ex, userProgramLevels));
+
   if (userProgramLevels.size === 0 && resolvedChildDomains.length === 0) {
     return { exercises: allExercises };
   }
