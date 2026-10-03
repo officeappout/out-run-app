@@ -18,8 +18,14 @@
  * spec suggested, but is load-bearing for a minor-DM safety gate).
  *
  * Existence IS the discoverable signal — a doc only exists here for a
- * user whose `core.discoverable` is true. No `discoverable` field is
- * mirrored; no query anywhere needs to filter by it.
+ * user whose `core.discoverable` is not explicitly `false` (unset/null
+ * default to discoverable — see afterDiscoverable/beforeDiscoverable
+ * below). No `discoverable` field is mirrored; no query anywhere needs to
+ * filter by it — user-search.service.ts (the only read path) has no
+ * separate discoverable check of its own, by design: existence in this
+ * collection already IS the complete gate, so there's nothing to keep in
+ * sync on the read side when this file's definition of "discoverable"
+ * changes.
  *
  * Why a write TRIGGER here, unlike dailyActivityPublicSync's SCHEDULE
  * ─────────────────────────────────────────────────────────────────────
@@ -79,8 +85,15 @@ export const userPublicSync = onDocumentWritten('users/{uid}', async (event) => 
   const afterCore = (after.core ?? {}) as Record<string, unknown>;
   const beforeCore = (before?.core ?? {}) as Record<string, unknown>;
 
-  const afterDiscoverable = afterCore.discoverable === true;
-  const beforeDiscoverable = beforeCore.discoverable === true;
+  // Default-to-discoverable (chrome polish follow-up, display-default-only
+  // change in #95 aligned here with real behavior): was `=== true`, so an
+  // unset core.discoverable (the default for every user who's never
+  // touched the toggle) read as NOT discoverable. Now `!== false` — unset/
+  // undefined/null count as discoverable; an EXPLICIT core.discoverable:
+  // false (a real opt-out write) still correctly reads as not discoverable
+  // either way. No other field/path touched.
+  const afterDiscoverable = afterCore.discoverable !== false;
+  const beforeDiscoverable = beforeCore.discoverable !== false;
 
   if (!afterDiscoverable) {
     if (beforeDiscoverable) {
@@ -100,25 +113,35 @@ export const userPublicSync = onDocumentWritten('users/{uid}', async (event) => 
   const trainingTagsChanged =
     afterTags.length !== beforeTags.length || afterTags.some((t) => !beforeTags.includes(t));
 
-  // Write on opt-in (discoverable just flipped false→true), or when a
+  // Write on opt-in (discoverable just flipped false→non-false), or when a
   // MIRRORED field actually changed — an XP/progression write that never
   // touches core.name/photoURL/etc. must not trigger a userPublic write at
   // all (that per-write cost is exactly what this diff-and-skip exists to
   // avoid; a mirror doc's existence is never re-checked here on purpose —
   // see below).
   //
-  // Known gap, by design, not oversight (found 10.09.2026): justOptedIn
-  // only catches beforeDiscoverable flipping from false→true. A user who
-  // was ALREADY core.discoverable === true before this function was ever
-  // deployed has beforeDiscoverable === true on every subsequent write
-  // too, so justOptedIn is always false for them — meaning if their
-  // mirror doc is missing or was never created, this trigger alone will
-  // never create or repair it, no matter how many times it fires,
-  // because it has no way to notice the absence without paying for a
-  // read on every write (including every XP award) to check. That read
-  // is deliberately NOT added here — the fix for this class of gap is a
-  // one-time backfill script (scripts/backfill-user-public.ts), not a
-  // standing per-write existence check on a hot path.
+  // Known gap, by design, not oversight (found 10.09.2026, widened by the
+  // unset→discoverable default change above): justOptedIn only catches
+  // beforeDiscoverable flipping from false→non-false. A user whose
+  // core.discoverable was ALREADY non-false (true, OR — as of this change
+  // — simply unset) before this exact write has beforeDiscoverable ===
+  // true on every subsequent write too, so justOptedIn is always false for
+  // them — meaning if their mirror doc is missing or was never created,
+  // this trigger alone will never create or repair it UNLESS that same
+  // write also happens to change a MIRRORED field (name/photoURL/
+  // mainGoal/authorityId/ageGroup/initialFitnessTier/bio/trainingTags) or
+  // progression.currentLevel. A pure XP award with no level-up touches
+  // none of those and will NOT self-heal a missing mirror. This directly
+  // means: existing users who were already discoverable-by-default (unset)
+  // before this deploy do NOT all get a mirror doc "on their next sync" —
+  // only those whose next write happens to touch one of the fields above.
+  // The only way to backfill ALL of them is the one-time
+  // scripts/backfill-user-public.ts — which, as of this change, still
+  // skips on `core.discoverable !== true` (its own, separate, NOT-yet-
+  // updated check) and therefore would currently skip every unset user
+  // too. That script was intentionally NOT touched here (outside this
+  // change's scope) — update it to match before relying on it to backfill
+  // unset users.
   const justOptedIn = !beforeDiscoverable;
   const mirroredFieldChanged =
     MIRRORED_CORE_FIELDS.some((f) => afterCore[f] !== beforeCore[f])
