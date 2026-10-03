@@ -13,13 +13,12 @@ import { checkUserRole } from '@/features/admin/services/auth.service';
 import { getAuthoritiesByManager, getAuthority } from '@/features/admin/services/authority.service';
 import { authorityTypeToTenantType, getTenantLabels, VERTICAL_THEMES } from '@/features/admin/config/tenantLabels';
 import { syncTenantUnitCount } from '@/features/admin/services/unit-count-sync.service';
-import { createAccessCode, createBatchAccessCodes, getAccessCodesByTenant, type AccessCode as AccessCodeType } from '@/features/admin/services/access-code-admin.service';
 import UnitIconBadge from '@/components/ui/UnitIconBadge';
 import {
   Loader2, ArrowRight, Users, Dumbbell,
   Building2, ChevronLeft, Search,
   ChevronDown, Clock, User,
-  KeyRound, Copy, Check, Plus, X, Download, Package,
+  Plus, X,
   Shield, GraduationCap, Upload,
 } from 'lucide-react';
 
@@ -125,16 +124,6 @@ export default function UnitDrilldownPage() {
   // loadMemberWorkouts' own comment and the render below.
   const [workoutsLoadError, setWorkoutsLoadError] = useState<string | null>(null);
   const [tenantId, setTenantId] = useState<string>('');
-  const [showCodePanel, setShowCodePanel] = useState(false);
-  const [codeMaxUses, setCodeMaxUses] = useState(50);
-  const [codeExpiryDays, setCodeExpiryDays] = useState(30);
-  const [codeLabel, setCodeLabel] = useState('');
-  const [generatingCode, setGeneratingCode] = useState(false);
-  const [generatedCodes, setGeneratedCodes] = useState<AccessCodeType[]>([]);
-  const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
-  const [adminUid, setAdminUid] = useState<string>('');
-  const [batchCount, setBatchCount] = useState(10);
-  const [generatingBatch, setGeneratingBatch] = useState(false);
   // Slice C (25.09.2026, §13.27) — bumped by the error banner's "נסה שוב"
   // button to re-run the whole load effect below (matches how this page
   // already reloads everything on unitId change — no separate partial-
@@ -154,7 +143,6 @@ export default function UnitDrilldownPage() {
 
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) { setLoading(false); return; }
-      setAdminUid(user.uid);
 
       try {
         const auths = await getAuthoritiesByManager(user.uid);
@@ -413,13 +401,6 @@ export default function UnitDrilldownPage() {
           }
         }
 
-        if (activeTenantId) {
-          try {
-            const allCodes = await getAccessCodesByTenant(activeTenantId);
-            const unitCodes = allCodes.filter(c => c.unitId === unitId);
-            setGeneratedCodes(unitCodes);
-          } catch { /* ignore */ }
-        }
       } catch (err) {
         console.error('[UnitDrilldown] load error:', err);
       } finally {
@@ -448,76 +429,6 @@ export default function UnitDrilldownPage() {
   const resolvedTenantType = KNOWN_TENANT_TYPES.includes(tenantType as any)
     ? (tenantType as 'municipal' | 'educational' | 'military' | 'company' | 'youth_movement')
     : null;
-
-  const handleGenerateCode = async () => {
-    if (!tenantId || !unitId || !resolvedTenantType) return; // unclassified org — refuse to guess
-    setGeneratingCode(true);
-    try {
-      console.log('[UnitDrilldown] Generating code with tenantType:', resolvedTenantType, '(raw:', tenantType, ')');
-      const newCode = await createAccessCode({
-        tenantId,
-        unitId,
-        unitPath,
-        tenantType: resolvedTenantType,
-        maxUses: codeMaxUses,
-        expiresInDays: codeExpiryDays,
-        label: codeLabel || `${unitName} — קוד גישה`,
-        adminUid,
-      });
-      setGeneratedCodes(prev => [newCode, ...prev]);
-      setCodeLabel('');
-    } catch (err) {
-      console.error('Error generating code:', err);
-    } finally {
-      setGeneratingCode(false);
-    }
-  };
-
-  const handleGenerateBatch = async () => {
-    if (!tenantId || !unitId || batchCount < 1 || !resolvedTenantType) return; // unclassified org — refuse to guess
-    setGeneratingBatch(true);
-    try {
-      console.log('[UnitDrilldown] Generating batch with tenantType:', resolvedTenantType, '(raw:', tenantType, ')');
-      const newCodes = await createBatchAccessCodes({
-        tenantId,
-        unitId,
-        unitPath,
-        tenantType: resolvedTenantType,
-        maxUses: 1,
-        expiresInDays: codeExpiryDays,
-        label: codeLabel || `${unitName} — חבילה`,
-        adminUid,
-      }, batchCount);
-      setGeneratedCodes(prev => [...newCodes, ...prev]);
-      setCodeLabel('');
-    } catch (err) {
-      console.error('Error generating batch:', err);
-    } finally {
-      setGeneratingBatch(false);
-    }
-  };
-
-  const handleExportCodes = () => {
-    const lines = ['קוד,סטטוס,משתמש,שימושים,תיאור'];
-    generatedCodes.forEach(c => {
-      const status = c.usageCount > 0 ? 'נוצל' : 'זמין';
-      const user = c.lastUsedByDisplayName || (c.usageCount > 0 ? 'לא ידוע' : '—');
-      lines.push(`${c.code},${status},${user},${c.usageCount}/${c.maxUses},${c.label ?? ''}`);
-    });
-    const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `access-codes-${unitId}-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const copyCode = (code: string, id: string) => {
-    navigator.clipboard.writeText(code);
-    setCopiedCodeId(id);
-    setTimeout(() => setCopiedCodeId(null), 2000);
-  };
 
   const filteredMembers = useMemo(() => {
     let list = members;
@@ -891,13 +802,6 @@ export default function UnitDrilldownPage() {
             <Plus size={14} />
             הוסף {nextHierarchyLabel}
           </button>
-          <button
-            onClick={() => setShowCodePanel(prev => !prev)}
-            className="flex items-center gap-2 bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-sm font-bold px-4 py-2.5 rounded-xl transition-all"
-          >
-            <KeyRound size={14} />
-            קודי גישה
-          </button>
           <Link
             href={`/admin/authority/units${urlTenantType ? `?type=${urlTenantType}` : ''}`}
             className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold px-4 py-2.5 rounded-xl transition-all"
@@ -939,150 +843,6 @@ export default function UnitDrilldownPage() {
               <X size={18} />
             </button>
           </div>
-        </div>
-      )}
-
-      {/* ═══ Access Code Generator ═══ */}
-      {showCodePanel && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 bg-cyan-50 rounded-xl flex items-center justify-center">
-                <KeyRound size={18} className="text-cyan-600" />
-              </div>
-              <div>
-                <h2 className="text-base font-black text-gray-900">קודי גישה — {unitName}</h2>
-                <p className="text-xs text-slate-500">קודים עבור {labels.membersTitle} להצטרפות ישירה ל{labels.subUnitSingular} זו</p>
-              </div>
-            </div>
-            {generatedCodes.length > 0 && (
-              <button
-                onClick={handleExportCodes}
-                className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold px-4 py-2 rounded-xl transition-all"
-              >
-                <Download size={14} />
-                ייצוא רשימה
-              </button>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 rounded-xl p-4">
-            <input
-              type="text"
-              value={codeLabel}
-              onChange={e => setCodeLabel(e.target.value)}
-              placeholder="תיאור (אופציונלי)"
-              className="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-cyan-300 focus:border-transparent"
-            />
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-slate-500 whitespace-nowrap">מקסימום שימושים:</label>
-              <input
-                type="number"
-                min={1}
-                value={codeMaxUses}
-                onChange={e => setCodeMaxUses(Number(e.target.value))}
-                className="w-20 px-2 py-2 rounded-lg border border-slate-200 text-sm text-center focus:ring-2 focus:ring-cyan-300"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-slate-500 whitespace-nowrap">תוקף (ימים):</label>
-              <input
-                type="number"
-                min={1}
-                value={codeExpiryDays}
-                onChange={e => setCodeExpiryDays(Number(e.target.value))}
-                className="w-20 px-2 py-2 rounded-lg border border-slate-200 text-sm text-center focus:ring-2 focus:ring-cyan-300"
-              />
-            </div>
-          </div>
-
-          {!resolvedTenantType && (
-            <p className="text-xs font-bold text-red-500 mb-2">
-              לא ניתן להפיק קוד — לארגון הזה סיווג לא מזוהה (type/tenantType/vertical). תקנו את מסמך ה-tenant קודם.
-            </p>
-          )}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleGenerateCode}
-              disabled={generatingCode || !resolvedTenantType}
-              className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-bold px-5 py-2.5 rounded-xl transition-all disabled:opacity-50"
-            >
-              {generatingCode ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-              הפק קוד בודד
-            </button>
-
-            <div className="flex items-center gap-2 bg-violet-50 rounded-xl px-3 py-1.5 border border-violet-200">
-              <input
-                type="number"
-                min={2}
-                max={100}
-                value={batchCount}
-                onChange={e => setBatchCount(Math.max(2, Math.min(100, Number(e.target.value))))}
-                className="w-14 px-1 py-1 rounded-lg border border-violet-200 text-sm text-center bg-white focus:ring-2 focus:ring-violet-300"
-              />
-              <button
-                onClick={handleGenerateBatch}
-                disabled={generatingBatch || !resolvedTenantType}
-                className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold px-4 py-2 rounded-xl transition-all disabled:opacity-50"
-              >
-                {generatingBatch ? <Loader2 size={14} className="animate-spin" /> : <Package size={14} />}
-                הפק חבילת קודים (חד-פעמיים)
-              </button>
-            </div>
-          </div>
-
-          {generatedCodes.length > 0 && (
-            <div className="bg-slate-50 rounded-xl overflow-hidden">
-              <table className="w-full text-sm" dir="rtl">
-                <thead>
-                  <tr className="text-[11px] text-slate-400 font-bold border-b border-slate-200">
-                    <th className="text-right py-2 px-3">קוד</th>
-                    <th className="text-right py-2 px-3">שימושים</th>
-                    <th className="text-right py-2 px-3">סטטוס / משתמש</th>
-                    <th className="text-right py-2 px-3">תיאור</th>
-                    <th className="text-right py-2 px-3 w-16"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {generatedCodes.map(c => {
-                    const isUsed = c.usageCount > 0;
-                    return (
-                      <tr key={c.id} className="border-b border-slate-100 last:border-b-0">
-                        <td className="py-2.5 px-3">
-                          <code dir="ltr" className="text-sm font-black text-slate-800 tracking-wider">{c.code}</code>
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <span className="text-xs font-bold">{c.usageCount}/{c.maxUses}</span>
-                        </td>
-                        <td className="py-2.5 px-3">
-                          {isUsed ? (
-                            <span className="text-xs font-bold text-violet-600 flex items-center gap-1">
-                              <User size={11} />
-                              {c.lastUsedByDisplayName || 'משתמש'}
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700">
-                              זמין
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-3 text-xs text-slate-500">{c.label ?? '—'}</td>
-                        <td className="py-2.5 px-3">
-                          <button
-                            onClick={() => copyCode(c.code, c.id)}
-                            className="flex items-center gap-1 text-xs font-bold text-cyan-600 hover:text-cyan-800 transition-colors"
-                          >
-                            {copiedCodeId === c.id ? <Check size={12} /> : <Copy size={12} />}
-                            {copiedCodeId === c.id ? 'הועתק' : 'העתק'}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
         </div>
       )}
 
