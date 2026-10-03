@@ -21,6 +21,8 @@ import { StrengthWidgets, RunningWidgets } from './widgets/DashboardModeWidgets'
 import FavoritesSheet from './FavoritesSheet';
 import EditProfileModal from './EditProfileModal';
 import { TRAINING_TAG_OPTIONS } from '@/features/profile/hooks/usePersonalInfoEditor';
+import WorkoutGrid from './WorkoutGrid';
+import { avatarBackground, firstGrapheme } from '@/features/profile/utils/avatar';
 
 // Carousels use Firestore + auth — keep them client-only via dynamic()
 const GoalCarousel = dynamic(() => import('./widgets/GoalCarousel'), { ssr: false });
@@ -49,44 +51,9 @@ const PROFILE_TABS = [
 
 // Default no-photo avatar (IS_XP_ENABLED=false): initials on a per-user
 // deterministic color, so two users without a photo don't look identical.
-// Small brand-aligned palette — swap freely, nothing else depends on these
-// exact hexes.
-const AVATAR_PALETTE = ['#00ADEF', '#10B981', '#F59E0B', '#8B5CF6', '#F43F5E', '#0EA5E9'];
-const AVATAR_FALLBACK_GRADIENT = 'linear-gradient(135deg, #00ADEF, #5BC2F2)';
-
-function hashString(input: string): number {
-  let hash = 0;
-  for (let i = 0; i < input.length; i++) {
-    hash = (hash * 31 + input.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash);
-}
-
-/** Deterministic background for a user's initials avatar — same uid/name
- * always lands on the same palette color. Falls back to the brand gradient
- * when neither uid nor name is available (truly unknown user). */
-function avatarBackground(seed: string | null): string {
-  if (!seed) return AVATAR_FALLBACK_GRADIENT;
-  return AVATAR_PALETTE[hashString(seed) % AVATAR_PALETTE.length];
-}
-
-/** Grapheme-safe first letter — avoids splitting a surrogate pair (emoji,
- * non-BMP characters) in half. Hebrew/Latin names uppercase as expected;
- * .toUpperCase() is a harmless no-op on Hebrew (no case to begin with). */
-function firstGrapheme(name: string | null): string {
-  const trimmed = name?.trim();
-  if (!trimmed) return '?';
-  const SegmenterCtor = (Intl as unknown as { Segmenter?: new (locale?: string, opts?: { granularity: string }) => { segment(s: string): Iterable<{ segment: string }> } }).Segmenter;
-  if (SegmenterCtor) {
-    // Array.from (not spread/for-of) — this repo's tsconfig has no `target`
-    // set, so spreading a non-array iterable hits TS2802; Array.from is a
-    // plain function call, not a language construct the compiler needs to
-    // downlevel, and still iterates the real runtime iterator correctly.
-    const first = Array.from(new SegmenterCtor(undefined, { granularity: 'grapheme' }).segment(trimmed))[0];
-    return first ? first.segment.toUpperCase() : '?';
-  }
-  return Array.from(trimmed)[0]?.toUpperCase() ?? '?';
-}
+// avatarBackground/firstGrapheme moved to features/profile/utils/avatar.ts
+// ("public profile" slice 1) so the public-profile page can reuse the
+// exact same fallback instead of a second implementation.
 
 export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: DashboardTabProps) {
   const router = useRouter();
@@ -613,103 +580,3 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// WorkoutGrid — 3-column flat grid of workout tiles for the אימונים tab
-// ("פרופיל חלק" round). Each tile is a type-colored gradient (no real
-// thumbnail exists on WorkoutHistoryEntry) + icon + one-line caption
-// (type label + one stat: distance for cardio, duration for strength/
-// hybrid/recovery — same headline stat each type's own existing history
-// card already leads with). Opens the real unified workout-detail route.
-// ─────────────────────────────────────────────────────────────────────────────
-
-import { Activity, Bike, PersonStanding, Moon } from 'lucide-react';
-import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
-
-function getActivityMeta(workout: WorkoutHistoryEntry): {
-  Icon: React.ElementType;
-  label: string;
-  tileGradient: string;
-} {
-  const type = (workout.workoutType ?? workout.activityType ?? 'running').toLowerCase();
-  switch (type) {
-    case 'strength':
-      return { Icon: Dumbbell, label: 'אימון כוח', tileGradient: 'from-purple-500 to-purple-400' };
-    case 'walking':
-      return { Icon: PersonStanding, label: 'הליכה', tileGradient: 'from-emerald-500 to-emerald-400' };
-    case 'cycling':
-      return { Icon: Bike, label: 'רכיבה', tileGradient: 'from-amber-500 to-amber-400' };
-    case 'recovery':
-      return { Icon: Moon, label: 'אימון התאוששות', tileGradient: 'from-slate-500 to-slate-400' };
-    case 'running':
-    default:
-      return { Icon: Activity, label: 'ריצה', tileGradient: 'from-[#00ADEF] to-[#5BC2F2]' };
-  }
-}
-
-/** One-line tile stat — distance for cardio types, duration (minutes) for
- * strength/hybrid/recovery, matching each type's existing history card. */
-function tileStat(workout: WorkoutHistoryEntry): string {
-  const type = (workout.workoutType ?? workout.activityType ?? 'running').toLowerCase();
-  if (type === 'strength' || type === 'hybrid' || type === 'recovery') {
-    const mins = Math.round((workout.duration ?? 0) / 60);
-    return `${mins} דק'`;
-  }
-  const km = workout.distance ?? 0;
-  return `${km.toFixed(1)} ק״מ`;
-}
-
-function WorkoutGrid({
-  workouts,
-  isLoading,
-  onOpen,
-}: {
-  workouts: WorkoutHistoryEntry[];
-  isLoading: boolean;
-  onOpen: (workoutId: string) => void;
-}) {
-  if (isLoading) {
-    return (
-      <div className="grid grid-cols-3 gap-2">
-        {[0, 1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="aspect-square rounded-xl bg-gray-100 animate-pulse" />
-        ))}
-      </div>
-    );
-  }
-
-  if (workouts.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-10 gap-2">
-        <span className="text-3xl">🏃</span>
-        <p className="text-sm font-bold text-gray-500 text-center">
-          עוד אין אימונים.
-          <br />
-          תתחיל לזוז!
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid grid-cols-3 gap-2">
-      {workouts.map((workout, idx) => {
-        const { Icon, label, tileGradient } = getActivityMeta(workout);
-        const workoutId = workout.id;
-
-        return (
-          <button
-            key={workoutId ?? idx}
-            type="button"
-            onClick={() => workoutId && onOpen(workoutId)}
-            disabled={!workoutId}
-            className={`relative aspect-square rounded-xl overflow-hidden bg-gradient-to-br ${tileGradient} flex flex-col items-center justify-center gap-1.5 active:scale-95 transition-transform disabled:cursor-default disabled:opacity-60`}
-          >
-            <Icon className="w-6 h-6 text-white/90" />
-            <span className="text-[10px] font-black text-white leading-tight">{label}</span>
-            <span className="text-[10px] font-bold text-white/80 tabular-nums">{tileStat(workout)}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
