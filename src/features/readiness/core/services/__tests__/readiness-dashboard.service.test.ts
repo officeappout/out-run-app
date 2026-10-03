@@ -14,11 +14,13 @@ function makeFakeDb(seed: {
   results?: Record<string, FakeDoc>;
   thresholds?: Record<string, FakeDoc>;
   units?: Record<string, Record<string, FakeDoc>>; // units[tenantId][unitId]
+  unitDirectory?: Record<string, FakeDoc>; // keyed by directoryId directly
 }) {
   const stores: Record<string, Map<string, FakeDoc>> = {
     readiness_soldiers: new Map(Object.entries(seed.soldiers ?? {})),
     readiness_results: new Map(Object.entries(seed.results ?? {})),
     readiness_thresholds: new Map(Object.entries(seed.thresholds ?? {})),
+    unitDirectory: new Map(Object.entries(seed.unitDirectory ?? {})),
   };
   const unitsByTenant: Record<string, Map<string, FakeDoc>> = {};
   for (const [tenantId, units] of Object.entries(seed.units ?? {})) {
@@ -416,6 +418,67 @@ describe('computeBrigadeDashboard — unit views (03.10.2026, table filter round
       expect(row.views.all.passPercent).toBeNull();
       expect(row.views.run.passPercent).toBeNull();
       expect(row.views.strength.passPercent).toBeNull();
+    }
+  });
+});
+
+describe('computeBrigadeDashboard — unit hierarchy from unitDirectory (03.10.2026, Stage 6, §13.76-78)', () => {
+  it('a battalion with no real parentUnitId resolves to top-level (parentUnitId: null) via the brigade/tenantId fallback — matches the real-world 135/135 case found live', async () => {
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', gender: 'male', mergedInto: null } },
+      units: { 'tenant-1': { 'battalion-1': { name: 'Battalion One' } } },
+      unitDirectory: {
+        'tenant-1': { name: 'Brigade One', parentId: null, level: 'brigade', orgId: 'tenant-1', unitId: null },
+        'tenant-1__battalion-1': { name: 'Battalion One', parentId: 'tenant-1', level: 'battalion', orgId: 'tenant-1', unitId: 'battalion-1' },
+      },
+    });
+    const result = await computeBrigadeDashboard(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status === 200) {
+      const row = result.body.units.find((u) => u.unitId === 'battalion-1')!;
+      expect(row.parentUnitId).toBeNull();
+      expect(row.breadcrumb).toBe('Brigade One');
+    }
+  });
+
+  it('a company with a REAL parentUnitId resolves parentUnitId to its battalion\'s real unitId, and the breadcrumb is nearest-first (battalion, then brigade)', async () => {
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'company-1', gender: 'male', mergedInto: null } },
+      units: {
+        'tenant-1': {
+          'battalion-1': { name: 'Battalion One' },
+          'company-1': { name: 'Company One', parentUnitId: 'battalion-1' },
+        },
+      },
+      unitDirectory: {
+        'tenant-1': { name: 'Brigade One', parentId: null, level: 'brigade', orgId: 'tenant-1', unitId: null },
+        'tenant-1__battalion-1': { name: 'Battalion One', parentId: 'tenant-1', level: 'battalion', orgId: 'tenant-1', unitId: 'battalion-1' },
+        'tenant-1__company-1': { name: 'Company One', parentId: 'tenant-1__battalion-1', level: 'company', orgId: 'tenant-1', unitId: 'company-1' },
+      },
+    });
+    const result = await computeBrigadeDashboard(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status === 200) {
+      const row = result.body.units.find((u) => u.unitId === 'company-1')!;
+      expect(row.parentUnitId).toBe('battalion-1');
+      expect(row.breadcrumb).toBe('Battalion One · Brigade One');
+      const battalionRow = result.body.units.find((u) => u.unitId === 'battalion-1')!;
+      expect(battalionRow.parentUnitId).toBeNull(); // the battalion itself stays top-level
+    }
+  });
+
+  it('a unit with NO unitDirectory entry at all falls back gracefully — parentUnitId null, breadcrumb null, no crash', async () => {
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', gender: 'male', mergedInto: null } },
+      units: { 'tenant-1': { 'battalion-1': { name: 'Battalion One' } } },
+      // unitDirectory deliberately empty — simulates sync lag / edge case.
+    });
+    const result = await computeBrigadeDashboard(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status === 200) {
+      const row = result.body.units.find((u) => u.unitId === 'battalion-1')!;
+      expect(row.parentUnitId).toBeNull();
+      expect(row.breadcrumb).toBeNull();
     }
   });
 });

@@ -37,6 +37,26 @@
  * §13.69's open correction-marking decision — a trend line would render
  * a typo as a genuine readiness decline).
  *
+ * 03.10.2026 (Stage 6, unit-hierarchy round) — DashboardUnitRow gains
+ * `parentUnitId`/`breadcrumb`, resolved from the `unitDirectory`
+ * collection (NOT from this unit's own, almost-always-absent
+ * `parentUnitId` field — §13.76's investigation found only 2/137 real
+ * units have that field populated). unitDirectory already links every
+ * battalion to its brigade — NOT via a real parentUnitId chain, but via
+ * a fallback: onUnitWrite.ts writes `parentId: parentUnitId ??
+ * tenantId` for every unit, so a battalion with no explicit parent
+ * falls back to its own tenantId, which IS its brigade's unitDirectory
+ * doc id 1:1 (onAuthorityWrite.ts writes the brigade entry at
+ * `unitDirectory/{authorityId}` directly) — verified live, 03.10.2026:
+ * authorities/{id} exists for all 49/49 real military tenants, and all
+ * 135/135 real battalions resolve their brigade through exactly this
+ * fallback (0 via a real parentUnitId — only the 2 real companies in
+ * the whole system use an actual parentUnitId chain). Read-only: this
+ * file queries unitDirectory, never writes it, and firestore.rules
+ * already makes it unconditionally public (`allow read: if true`) —
+ * moot anyway since every read in this file goes through the Admin
+ * SDK, which rules never gate.
+ *
  * 03.10.2026 (table visual-continuation round) — per-unit `views` added:
  * the same per-soldier reduction already computed for the brigade-wide
  * 'overall' figure (reduceOverallStatus over ALL tests) is additionally
@@ -122,6 +142,10 @@ export interface DashboardUnitRow {
   perComponent: Record<string, { testedCount: number; passPercent: number | null }>;
   /** ISO, the most recent testDate among this unit's soldiers' organized_test results. null if none. */
   lastTestDate: string | null;
+  /** The REAL unitId (within this same tenant's unit list) this unit nests under — null for a top-level unit (its parent, if any in unitDirectory, is the brigade itself, not another unit in this list). Resolved via unitDirectory, see file header. */
+  parentUnitId: string | null;
+  /** Ancestor names, nearest-first, joined with " · " (e.g. "גדוד 9307 · חטיבה 810") — null only if unitDirectory has no entry for this unit at all (sync hasn't caught up, or an edge case) — never fabricated. */
+  breadcrumb: string | null;
 }
 
 export type BrigadeDashboardResult =
@@ -161,6 +185,46 @@ function bumpViewAcc(acc: ViewAcc, status: ReadinessCurrentStatus): void {
 function toUnitBreakdown(acc: ViewAcc): DashboardUnitStatusBreakdown {
   const testedCount = acc.passCount + acc.failCount;
   return { ...acc, testedCount, passPercent: pct(acc.passCount, testedCount) };
+}
+
+interface UnitDirectoryEntry {
+  name: string;
+  parentId: string | null;
+  unitId: string | null;
+}
+
+/** Mirrors onUnitWrite.ts's own directoryIdForUnit() exactly — same composite-id convention, not a new one. */
+function directoryIdForUnit(tenantId: string, unitId: string): string {
+  return `${tenantId}__${unitId}`;
+}
+
+/**
+ * This unit's parent, expressed as a REAL unitId within the same
+ * tenant's unit list — null when the unit is top-level (its
+ * unitDirectory parentId is either absent, or is the tenantId itself —
+ * the brigade fallback described in the file header, meaning "no
+ * parent unit in this list, only the brigade").
+ */
+function resolveParentUnitId(tenantId: string, unitId: string, dirByDirectoryId: Map<string, UnitDirectoryEntry>): string | null {
+  const entry = dirByDirectoryId.get(directoryIdForUnit(tenantId, unitId));
+  const parentDirectoryId = entry?.parentId ?? null;
+  if (!parentDirectoryId || parentDirectoryId === tenantId) return null;
+  return dirByDirectoryId.get(parentDirectoryId)?.unitId ?? null;
+}
+
+/** Ancestor names, nearest-first — same walk shape as unit-league-selection.ts's buildBreadcrumb (arena domain), reimplemented here rather than imported (CLAUDE.md: no cross-domain imports). */
+function buildBreadcrumb(tenantId: string, unitId: string, dirByDirectoryId: Map<string, UnitDirectoryEntry>): string | null {
+  const names: string[] = [];
+  let parentId = dirByDirectoryId.get(directoryIdForUnit(tenantId, unitId))?.parentId ?? null;
+  let guard = 0;
+  while (parentId && guard < 10) {
+    const parent = dirByDirectoryId.get(parentId);
+    if (!parent) break;
+    names.push(parent.name);
+    parentId = parent.parentId;
+    guard++;
+  }
+  return names.length > 0 ? names.join(' · ') : null;
 }
 
 export async function computeBrigadeDashboard(
@@ -205,16 +269,31 @@ export async function computeBrigadeDashboard(
         snaps.filter((s): s is FirebaseFirestore.QueryDocumentSnapshot => s.exists) as unknown as FirebaseFirestore.QueryDocumentSnapshot[],
       );
 
-  const [soldiersSnap, resultsSnap, thresholdsSnap, unitDocs] = await Promise.all([
+  const [soldiersSnap, resultsSnap, thresholdsSnap, unitDocs, unitDirectorySnap] = await Promise.all([
     db.collection('readiness_soldiers').where('tenantId', '==', targetTenantId).get(),
     db.collection('readiness_results').where('tenantId', '==', targetTenantId).get(),
     db.collection('readiness_thresholds').doc('global').get(),
     unitDocsPromise,
+    db.collection('unitDirectory').where('orgId', '==', targetTenantId).get(),
   ]);
 
   const unitNameById = new Map<string, string>();
   for (const d of unitDocs) {
     unitNameById.set(d.id, typeof d.data()?.name === 'string' ? d.data()!.name : d.id);
+  }
+
+  // Read-only: resolves unit hierarchy (brigade<->battalion<->company)
+  // from unitDirectory — see file header for why the real units'
+  // own parentUnitId field can't be used directly (almost never
+  // populated). Never written to here.
+  const dirByDirectoryId = new Map<string, UnitDirectoryEntry>();
+  for (const d of unitDirectorySnap.docs) {
+    const data = d.data();
+    dirByDirectoryId.set(d.id, {
+      name: typeof data.name === 'string' ? data.name : d.id,
+      parentId: typeof data.parentId === 'string' ? data.parentId : null,
+      unitId: typeof data.unitId === 'string' ? data.unitId : null,
+    });
   }
 
   const config = thresholdsSnap.exists ? (thresholdsSnap.data() as ReadinessThresholdsConfig) : null;
@@ -356,6 +435,8 @@ export async function computeBrigadeDashboard(
       },
       perComponent,
       lastTestDate: acc.lastTestMs !== null ? new Date(acc.lastTestMs).toISOString() : null,
+      parentUnitId: resolveParentUnitId(targetTenantId, unitId, dirByDirectoryId),
+      breadcrumb: buildBreadcrumb(targetTenantId, unitId, dirByDirectoryId),
     };
   });
   units.sort((a, b) => a.unitName.localeCompare(b.unitName, 'he'));

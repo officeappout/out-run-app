@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
+import { ChevronDown, ChevronLeft } from 'lucide-react';
 import type {
   DashboardUnitRow,
   DashboardComponentBreakdown,
@@ -28,8 +29,14 @@ import { READINESS_COLORS } from './colors';
  * — they're inherently single-test breakdowns already, untouched by
  * which combined view is selected.
  *
- * No row click, no "click opens the battalion" — there is no
- * battalion-detail screen to open.
+ * 03.10.2026 (Stage 6, unit-hierarchy round) — grouped by the real tree
+ * (`parentUnitId`, resolved server-side via unitDirectory, §13.76-78):
+ * top-level units (battalions) are the primary rows; a unit with real
+ * children (companies) gets a click-to-expand row revealing them
+ * nested directly beneath, sorted the same worst-first way as the top
+ * level. A unit with NO children is never clickable and shows no
+ * expand affordance — "לא ניתן ללחוץ, בלי הבטחה ריקה" (David). A new
+ * "שייכות" column shows the full ancestor breadcrumb for every row.
  */
 const FILTER_OPTIONS: { key: DashboardUnitViewKey; label: string }[] = [
   { key: 'all', label: 'הכל' },
@@ -77,6 +84,17 @@ function ComponentPercentCell({ percent, tested }: { percent: number | null; tes
   );
 }
 
+/** Worst-first by pass rate under the active view — units with no data (null) sort after every unit with a real number, since they aren't comparable to one. Shared by the top level and every nested group so ordering is consistent throughout the tree. */
+function compareByFilteredPassPercent(a: DashboardUnitRow, b: DashboardUnitRow, filter: DashboardUnitViewKey): number {
+  const pa = a.views[filter].passPercent;
+  const pb = b.views[filter].passPercent;
+  if (pa === null && pb === null) return a.unitName.localeCompare(b.unitName, 'he');
+  if (pa === null) return 1;
+  if (pb === null) return -1;
+  if (pa !== pb) return pa - pb;
+  return a.unitName.localeCompare(b.unitName, 'he');
+}
+
 interface UnitReadinessTableProps {
   units: DashboardUnitRow[];
   components: DashboardComponentBreakdown[];
@@ -84,21 +102,77 @@ interface UnitReadinessTableProps {
 
 export default function UnitReadinessTable({ units, components }: UnitReadinessTableProps) {
   const [filter, setFilter] = useState<DashboardUnitViewKey>('all');
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  const sortedUnits = useMemo(() => {
-    return [...units].sort((a, b) => {
-      const pa = a.views[filter].passPercent;
-      const pb = b.views[filter].passPercent;
-      // Worst-first by pass rate — units with no data under this view
-      // (null) sort after every unit with a real number, since they
-      // aren't comparable to one.
-      if (pa === null && pb === null) return a.unitName.localeCompare(b.unitName, 'he');
-      if (pa === null) return 1;
-      if (pb === null) return -1;
-      if (pa !== pb) return pa - pb;
-      return a.unitName.localeCompare(b.unitName, 'he');
-    });
+  const { topLevel, childrenByParent } = useMemo(() => {
+    const childMap = new Map<string, DashboardUnitRow[]>();
+    const top: DashboardUnitRow[] = [];
+    for (const u of units) {
+      if (u.parentUnitId) {
+        const list = childMap.get(u.parentUnitId) ?? [];
+        list.push(u);
+        childMap.set(u.parentUnitId, list);
+      } else {
+        top.push(u);
+      }
+    }
+    top.sort((a, b) => compareByFilteredPassPercent(a, b, filter));
+    for (const list of Array.from(childMap.values())) list.sort((a, b) => compareByFilteredPassPercent(a, b, filter));
+    return { topLevel: top, childrenByParent: childMap };
   }, [units, filter]);
+
+  const toggleExpanded = (unitId: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(unitId)) next.delete(unitId);
+      else next.add(unitId);
+      return next;
+    });
+  };
+
+  const renderRow = (u: DashboardUnitRow, depth: number) => {
+    const view = u.views[filter];
+    const children = childrenByParent.get(u.unitId) ?? [];
+    const hasChildren = children.length > 0;
+    const isExpanded = expanded.has(u.unitId);
+    return (
+      <Fragment key={u.unitId}>
+        <tr
+          onClick={hasChildren ? () => toggleExpanded(u.unitId) : undefined}
+          className={`border-b border-slate-100 last:border-b-0 ${hasChildren ? 'cursor-pointer hover:bg-slate-50' : ''}`}
+        >
+          <td className="py-2.5 px-3 font-bold text-slate-800">
+            <div className="flex items-center gap-1.5" style={{ paddingRight: depth * 16 }}>
+              {hasChildren ? (
+                isExpanded ? <ChevronDown size={14} className="text-slate-400 flex-shrink-0" /> : <ChevronLeft size={14} className="text-slate-400 flex-shrink-0" />
+              ) : (
+                <span className="w-[14px] flex-shrink-0" />
+              )}
+              {u.unitName}
+            </div>
+          </td>
+          <td className="py-2.5 px-3 text-[11px] text-slate-500">{u.breadcrumb ?? '—'}</td>
+          <td className="py-2.5 px-3 w-28">
+            <UnitStatusBar breakdown={view} totalCount={u.totalCount} />
+          </td>
+          <td className="py-2.5 px-3"><PassPercentCell breakdown={view} /></td>
+          <td className="py-2.5 px-3 text-slate-600">{view.testedCount} מתוך {u.totalCount}</td>
+          {components.map((c) => {
+            const cell = u.perComponent[c.testId];
+            return (
+              <td key={c.testId} className="py-2.5 px-3">
+                <ComponentPercentCell percent={cell?.passPercent ?? null} tested={cell?.testedCount ?? 0} />
+              </td>
+            );
+          })}
+          <td className="py-2.5 px-3 text-[11px] text-slate-500">
+            {u.lastTestDate ? new Date(u.lastTestDate).toLocaleDateString('he-IL') : '—'}
+          </td>
+        </tr>
+        {hasChildren && isExpanded && children.map((child) => renderRow(child, depth + 1))}
+      </Fragment>
+    );
+  };
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 overflow-x-auto">
@@ -123,6 +197,7 @@ export default function UnitReadinessTable({ units, components }: UnitReadinessT
         <thead>
           <tr className="text-[11px] text-slate-400 font-bold border-b border-slate-200">
             <th className="text-right py-2 px-3">יחידה</th>
+            <th className="text-right py-2 px-3">שייכות</th>
             <th className="text-right py-2 px-3">תמונת מצב</th>
             <th className="text-right py-2 px-3">כשירות כוללת</th>
             <th className="text-right py-2 px-3">נבדקו</th>
@@ -131,30 +206,7 @@ export default function UnitReadinessTable({ units, components }: UnitReadinessT
           </tr>
         </thead>
         <tbody>
-          {sortedUnits.map((u) => {
-            const view = u.views[filter];
-            return (
-              <tr key={u.unitId} className="border-b border-slate-100 last:border-b-0">
-                <td className="py-2.5 px-3 font-bold text-slate-800">{u.unitName}</td>
-                <td className="py-2.5 px-3 w-28">
-                  <UnitStatusBar breakdown={view} totalCount={u.totalCount} />
-                </td>
-                <td className="py-2.5 px-3"><PassPercentCell breakdown={view} /></td>
-                <td className="py-2.5 px-3 text-slate-600">{view.testedCount} מתוך {u.totalCount}</td>
-                {components.map((c) => {
-                  const cell = u.perComponent[c.testId];
-                  return (
-                    <td key={c.testId} className="py-2.5 px-3">
-                      <ComponentPercentCell percent={cell?.passPercent ?? null} tested={cell?.testedCount ?? 0} />
-                    </td>
-                  );
-                })}
-                <td className="py-2.5 px-3 text-[11px] text-slate-500">
-                  {u.lastTestDate ? new Date(u.lastTestDate).toLocaleDateString('he-IL') : '—'}
-                </td>
-              </tr>
-            );
-          })}
+          {topLevel.map((u) => renderRow(u, 0))}
         </tbody>
       </table>
       {units.length === 0 && (
