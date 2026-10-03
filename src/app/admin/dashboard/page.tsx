@@ -10,6 +10,14 @@ import { getParksByAuthority } from '@/features/admin/services/parks.service';
 import { getGroupsByAuthority, getEventsByAuthority } from '@/features/admin/services/community.service';
 import { getReportsByAuthority } from '@/features/admin/services/maintenance.service';
 import { authorityTypeToTenantType, getTenantLabels } from '@/features/admin/config/tenantLabels';
+import OverallReadinessCard from '@/features/admin/components/readiness-dashboard/OverallReadinessCard';
+import ComponentReadinessCard from '@/features/admin/components/readiness-dashboard/ComponentReadinessCard';
+import UnitReadinessTable from '@/features/admin/components/readiness-dashboard/UnitReadinessTable';
+import type {
+  DashboardOverallBreakdown,
+  DashboardComponentBreakdown,
+  DashboardUnitRow,
+} from '@/features/readiness/core/services/readiness-dashboard.service';
 import {
   Loader2,
   LayoutDashboard,
@@ -23,6 +31,34 @@ import {
   ShieldCheck,
   Dumbbell,
 } from 'lucide-react';
+
+/**
+ * 03.10.2026 (00-MASTER-PLAN.md §13.74 follow-up, David's explicit
+ * routing decision) — the sidebar's "דשבורד כשירות" item already
+ * pointed here; it just had nothing readiness-related to show (every
+ * generic QuickLink/section below is already hidden for military per
+ * §13.61). Wiring the real content into the EXISTING menu item instead
+ * of a disconnected third route.
+ */
+async function fetchReadinessDashboard(
+  tenantId: string,
+): Promise<{ overall: DashboardOverallBreakdown | null; components: DashboardComponentBreakdown[]; units: DashboardUnitRow[]; error: string | null }> {
+  try {
+    const user = auth.currentUser;
+    if (!user) return { overall: null, components: [], units: [], error: 'משתמש לא מחובר. רענן את הדף ונסה שוב.' };
+    const idToken = await user.getIdToken();
+    const res = await fetch(`/api/units/readiness/dashboard?tenantId=${encodeURIComponent(tenantId)}`, {
+      headers: { Authorization: `Bearer ${idToken}` },
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { overall: null, components: [], units: [], error: typeof body.error === 'string' ? body.error : `שגיאה בטעינת לוח הכשירות (${res.status})` };
+    }
+    return { overall: body.overall ?? null, components: body.components ?? [], units: body.units ?? [], error: null };
+  } catch (err: any) {
+    return { overall: null, components: [], units: [], error: err?.message ?? 'שגיאה בטעינת לוח הכשירות.' };
+  }
+}
 
 const AUTHORITY_STORAGE_KEY = 'admin_selected_authority_id';
 
@@ -72,11 +108,17 @@ export default function AdminDashboardPage() {
   // which QuickLink cards render for a military tenant_owner.
   const [tenantType, setTenantType] = useState<'municipal' | 'military' | 'educational' | 'company' | 'youth_movement'>('municipal');
 
+  const [readinessOverall, setReadinessOverall] = useState<DashboardOverallBreakdown | null>(null);
+  const [readinessComponents, setReadinessComponents] = useState<DashboardComponentBreakdown[]>([]);
+  const [readinessUnits, setReadinessUnits] = useState<DashboardUnitRow[]>([]);
+  const [readinessError, setReadinessError] = useState<string | null>(null);
+
   const resolveAuthority = useCallback(async (uid: string) => {
     try {
       const role = await checkUserRole(uid);
       let aId: string | null = role.authorityIds?.[0] || null;
       let aName = '';
+      let resolvedTenantType: typeof tenantType = 'municipal';
 
       if (role.isSuperAdmin) {
         const allAuths = await getAllAuthorities(undefined, true);
@@ -85,7 +127,7 @@ export default function AdminDashboardPage() {
         if (target) {
           aId = target.id;
           aName = typeof target.name === 'string' ? target.name : (target.name?.he || '');
-          setTenantType(authorityTypeToTenantType(target));
+          resolvedTenantType = authorityTypeToTenantType(target);
         }
       } else {
         const auths = await getAuthoritiesByManager(uid);
@@ -93,13 +135,24 @@ export default function AdminDashboardPage() {
           aId = aId ?? auths[0].id;
           const a = auths[0];
           aName = typeof a.name === 'string' ? a.name : (a.name?.he || a.name?.en || '');
-          setTenantType(authorityTypeToTenantType(a));
+          resolvedTenantType = authorityTypeToTenantType(a);
         }
       }
+
+      setTenantType(resolvedTenantType);
 
       if (!aId) { setLoading(false); return; }
       setAuthorityId(aId);
       setAuthorityName(aName);
+
+      if (resolvedTenantType === 'military') {
+        const result = await fetchReadinessDashboard(aId);
+        setReadinessOverall(result.overall);
+        setReadinessComponents(result.components);
+        setReadinessUnits(result.units);
+        setReadinessError(result.error);
+        return;
+      }
 
       // Fetch all stats in parallel
       const [parks, groups, events, reports, residents] = await Promise.all([
@@ -150,6 +203,71 @@ export default function AdminDashboardPage() {
     );
   }
 
+  if (tenantType === 'military') {
+    if (!authorityId) {
+      return (
+        <div className="flex items-center justify-center h-64 text-gray-400" dir="rtl">
+          <p className="text-sm">לא נמצאה יחידה משויכת</p>
+        </div>
+      );
+    }
+    return (
+      <div dir="rtl" className="space-y-6 pb-12 max-w-5xl mx-auto">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-lime-50 rounded-2xl flex items-center justify-center">
+              <ShieldCheck size={24} className="text-lime-700" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-black text-gray-900">{getTenantLabels(tenantType).dashboardTitle}</h1>
+              {authorityName && (
+                <p className="text-sm text-gray-500 mt-0.5">
+                  סטטוס כשירות מצטבר · <span className="font-bold text-lime-700">{authorityName}</span>
+                </p>
+              )}
+            </div>
+          </div>
+          <Link
+            href="/admin/authority/readiness"
+            className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold px-4 py-2.5 rounded-xl transition-all"
+          >
+            <UsersIcon size={14} /> רשימת חיילים
+          </Link>
+        </div>
+
+        {readinessError && (
+          <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200">
+            <p className="text-sm text-red-700 font-semibold">{readinessError}</p>
+          </div>
+        )}
+
+        {!readinessError && readinessOverall && (
+          <>
+            <OverallReadinessCard overall={readinessOverall} />
+
+            {readinessComponents.length > 0 && (
+              <div className={`grid gap-4 ${readinessComponents.length === 1 ? 'grid-cols-1' : readinessComponents.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                {readinessComponents.map((c) => <ComponentReadinessCard key={c.testId} component={c} />)}
+              </div>
+            )}
+
+            <UnitReadinessTable units={readinessUnits} components={readinessComponents} />
+
+            <p className="text-xs text-gray-400 text-center">
+              רק בוחן מסודר נספר בלוח זה. תוצאות ממדידות אפליקציה ומדיווח עצמי אינן נכללות.
+            </p>
+          </>
+        )}
+
+        {!readinessError && !readinessOverall && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center">
+            <p className="text-lg font-bold text-gray-900">אין נתוני כשירות להצגה</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (!authorityId || !stats) {
     return (
       <div className="flex items-center justify-center h-64 text-gray-400" dir="rtl">
@@ -189,10 +307,13 @@ export default function AdminDashboardPage() {
         <StatCard label="מיקומים" value={stats.totalParks} sub={`${stats.publishedParks} פורסמו`} icon={MapPin} color="cyan" />
         {/* 01.10.2026 (00-MASTER-PLAN.md §13.61) — decided down with the
             rest of the "יורד" list; corrected after being mis-tracked as
-            undecided. */}
-        {tenantType !== 'military' && (
-          <StatCard label="קבוצות פעילות" value={stats.activeGroups} sub={`${stats.totalGroups} סה"כ`} icon={Dumbbell} color="violet" />
-        )}
+            undecided. 03.10.2026 — the `tenantType !== 'military'` guard
+            that used to live here is now unreachable: military returns
+            from its own branch above before this code is ever reached
+            (§13.74 follow-up), so it was removed rather than left as
+            dead, always-true conditionals (tsc correctly flagged the
+            redundant comparisons as TS2367 when it was still here). */}
+        <StatCard label="קבוצות פעילות" value={stats.activeGroups} sub={`${stats.totalGroups} סה"כ`} icon={Dumbbell} color="violet" />
         <StatCard label="אירועים קרובים" value={stats.upcomingEvents} icon={CalendarHeart} color="blue" />
         <StatCard label="דיווחים פתוחים" value={stats.openReports} icon={Wrench} color={stats.openReports > 0 ? 'amber' : 'emerald'} />
       </div>
@@ -208,84 +329,79 @@ export default function AdminDashboardPage() {
       )}
 
       {/* ═══ Quick Links ═══ */}
-      {/* 01.10.2026 (00-MASTER-PLAN.md §13.61) — all four cards hidden for
-          military: community/events and locations/parks don't fit a
-          brigade's own operations, "all groups / cross-authority"
+      {/* 01.10.2026 (00-MASTER-PLAN.md §13.61) — these four cards never
+          applied to military (community/events and locations/parks don't
+          fit a brigade's own operations, "all groups / cross-authority"
           specifically promises cross-org access no officer should see
           advertised even as a dead link, and "דיווחי תחזוקה" was decided
-          down with the rest — corrected after being mis-tracked as
-          undecided (David's own explicit "יורד" list named it). */}
+          down with the rest). 03.10.2026 — the per-card `tenantType !==
+          'military'` guards were removed: military now returns from its
+          own branch above before this code is ever reached, so the
+          guards were dead, always-true conditionals (tsc flagged them as
+          TS2367). This block is unreachable for military by construction
+          now, not by a runtime check. */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {tenantType !== 'military' && (
-          <QuickLink
-            href="/admin/authority/community"
-            icon={CalendarHeart}
-            title="מרכז קהילה ואירועים"
-            description="לו״ז מפגשים, ניהול קבוצות ואירועים, רשימות נרשמים"
-            color="violet"
-          />
-        )}
-        {tenantType !== 'military' && (
-          <QuickLink
-            href="/admin/authority/locations"
-            icon={MapPin}
-            title="מיקומים ופארקים"
-            description="ניהול מיקומים על המפה, סטטוסים וסיווגים"
-            color="cyan"
-          />
-        )}
-        {tenantType !== 'military' && (
-          <QuickLink
-            href="/admin/authority/reports"
-            icon={Flag}
-            title="דיווחי תחזוקה"
-            description="דיווחי תשתית וקהילה, מעקב סטטוסים"
-            color="amber"
-          />
-        )}
-        {tenantType !== 'military' && (
-          <QuickLink
-            href="/admin/community-groups-overview"
-            icon={UsersIcon}
-            title="כל הקבוצות במערכת"
-            description="חוצה-רשויות — רשמי מול משתמשים, סינון וסטטוס, בלי כניסה לכל עירייה בנפרד"
-            color="emerald"
-          />
-        )}
+        <QuickLink
+          href="/admin/authority/community"
+          icon={CalendarHeart}
+          title="מרכז קהילה ואירועים"
+          description="לו״ז מפגשים, ניהול קבוצות ואירועים, רשימות נרשמים"
+          color="violet"
+        />
+        <QuickLink
+          href="/admin/authority/locations"
+          icon={MapPin}
+          title="מיקומים ופארקים"
+          description="ניהול מיקומים על המפה, סטטוסים וסיווגים"
+          color="cyan"
+        />
+        <QuickLink
+          href="/admin/authority/reports"
+          icon={Flag}
+          title="דיווחי תחזוקה"
+          description="דיווחי תשתית וקהילה, מעקב סטטוסים"
+          color="amber"
+        />
+        <QuickLink
+          href="/admin/community-groups-overview"
+          icon={UsersIcon}
+          title="כל הקבוצות במערכת"
+          description="חוצה-רשויות — רשמי מול משתמשים, סינון וסטטוס, בלי כניסה לכל עירייה בנפרד"
+          color="emerald"
+        />
       </div>
 
       {/* ═══ Today's Sessions — Compact Summary ═══ */}
-      {/* 01.10.2026 (00-MASTER-PLAN.md §13.61 follow-up) — down for
-          military: points at /admin/authority/community, the same
-          blocked destination as the already-removed "מרכז קהילה ואירועים"
-          QuickLink. */}
-      {tenantType !== 'military' && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center">
-                <CalendarHeart size={18} className="text-blue-600" />
-              </div>
-              <div>
-                <h2 className="text-lg font-black text-gray-900">מפגשים וקבוצות</h2>
-                <p className="text-xs text-gray-400">
-                  {stats.activeGroups} קבוצות פעילות · {stats.upcomingEvents} אירועים קרובים
-                </p>
-              </div>
+      {/* 01.10.2026 (00-MASTER-PLAN.md §13.61 follow-up) — never applied
+          to military (points at /admin/authority/community, the same
+          blocked destination as the "מרכז קהילה ואירועים" QuickLink
+          above). 03.10.2026 — guard removed, same reason as above: dead
+          by construction now that military returns earlier. */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center">
+              <CalendarHeart size={18} className="text-blue-600" />
             </div>
-            <Link
-              href="/admin/authority/community"
-              className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm"
-            >
-              צפה במרכז הקהילה
-              <ArrowLeft size={14} />
-            </Link>
+            <div>
+              <h2 className="text-lg font-black text-gray-900">מפגשים וקבוצות</h2>
+              <p className="text-xs text-gray-400">
+                {stats.activeGroups} קבוצות פעילות · {stats.upcomingEvents} אירועים קרובים
+              </p>
+            </div>
           </div>
-          <p className="text-sm text-gray-500">
-            לצפייה בלוח הזמנים המלא, ניהול קבוצות ואירועים, ורשימות נרשמים — עברו למרכז הקהילה.
-          </p>
+          <Link
+            href="/admin/authority/community"
+            className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm"
+          >
+            צפה במרכז הקהילה
+            <ArrowLeft size={14} />
+          </Link>
         </div>
-      )}
+        <p className="text-sm text-gray-500">
+          לצפייה בלוח הזמנים המלא, ניהול קבוצות ואירועים, ורשימות נרשמים — עברו למרכז הקהילה.
+        </p>
+      </div>
     </div>
   );
 }

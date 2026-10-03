@@ -16,7 +16,7 @@ import type {
   RosterUnitEntry,
 } from '@/features/readiness/core/services/readiness-read.service';
 import Link from 'next/link';
-import { Loader2, ShieldCheck, AlertCircle, ClipboardList } from 'lucide-react';
+import { Loader2, ShieldCheck, AlertCircle, ClipboardList, LayoutDashboard } from 'lucide-react';
 
 /**
  * Round 1 of the "unit soldiers" screen (02.10.2026, locked spec). ONE
@@ -98,12 +98,20 @@ export default function ReadinessPage() {
             <p className="text-sm text-gray-500">רשימת חיילים, שיוך לחשבונות ומעקב סטטוס כשירות</p>
           </div>
         </div>
-        <Link
-          href="/admin/authority/readiness/entry"
-          className="flex items-center gap-2 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-all bg-lime-700 hover:bg-lime-800"
-        >
-          <ClipboardList size={16} /> רישום תוצאות בוחן
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/dashboard"
+            className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold px-4 py-2.5 rounded-xl transition-all"
+          >
+            <LayoutDashboard size={16} /> לוח כשירות
+          </Link>
+          <Link
+            href="/admin/authority/readiness/entry"
+            className="flex items-center gap-2 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-all bg-lime-700 hover:bg-lime-800"
+          >
+            <ClipboardList size={16} /> רישום תוצאות בוחן
+          </Link>
+        </div>
       </div>
 
       {loadError && (
