@@ -100,7 +100,7 @@ export default function ReadinessPage() {
         </div>
         <div className="flex items-center gap-2">
           <Link
-            href="/admin/authority/readiness/dashboard"
+            href="/admin/dashboard"
             className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold px-4 py-2.5 rounded-xl transition-all"
           >
             <LayoutDashboard size={16} /> לוח כשירות
