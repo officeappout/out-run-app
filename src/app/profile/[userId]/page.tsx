@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowRight, UserPlus, UserMinus, Flag, MessageCircle, Lock } from 'lucide-react';
+import { ArrowRight, UserPlus, UserMinus, Flag, MessageCircle, Lock, Flame } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { motion } from 'framer-motion';
@@ -43,6 +43,14 @@ interface PublicProfile {
   ageGroup?: 'minor' | 'adult';
   bio?: string;
   trainingTags?: string[];
+  /** Header stat row additions. `undefined` means "not mirrored yet" (old
+   * userPublicSync version, or the mirror piggybacks on another field and
+   * hasn't refreshed since this user's last workout — see
+   * userPublicSync.ts's own comment) -- rendered as an omitted stat, NOT
+   * as 0, since a real 0 and "unknown" must not look the same. Steps are
+   * deliberately never read/displayed anywhere on this page. */
+  currentStreak?: number;
+  workoutCount?: number;
 }
 
 export default function PublicProfilePage() {
@@ -125,6 +133,10 @@ export default function PublicProfilePage() {
             ageGroup: data.core?.ageGroup === 'minor' || data.core?.ageGroup === 'adult' ? data.core.ageGroup : undefined,
             bio: data.core?.bio ?? undefined,
             trainingTags: data.core?.trainingTags ?? undefined,
+            // isSelf reads the live private doc directly -- real-time
+            // values, no mirror staleness (unlike the public branch below).
+            currentStreak: data.progression?.currentStreak ?? undefined,
+            workoutCount: data.progression?.workoutCount ?? undefined,
           } : {
             name: data.name ?? 'משתמש',
             photoURL: data.photoURL ?? undefined,
@@ -145,6 +157,13 @@ export default function PublicProfilePage() {
             // userPublicSync.ts's publicRef.set() payload.
             bio: data.bio ?? undefined,
             trainingTags: data.trainingTags ?? undefined,
+            // Mirrored, may lag behind the user's real current value (see
+            // userPublicSync.ts) or be entirely absent on an older mirror
+            // doc -- `?? undefined` (not `?? 0`) so ProfileHeader's stat
+            // row can tell "unknown" apart from a real 0 and omit the
+            // stat instead of showing a misleading number.
+            currentStreak: data.currentStreak ?? undefined,
+            workoutCount: data.workoutCount ?? undefined,
           });
         }
         setPosts(userPosts);
@@ -276,8 +295,28 @@ export default function PublicProfilePage() {
             photoURL={publicProfile.photoURL ?? null}
             name={publicProfile.name}
             stats={[
-              { key: 'posts', value: posts.length, label: 'אימונים' },
+              // Omitted (not shown as 0/"—") when undefined -- the mirror
+              // may not carry this field yet, either because userPublicSync
+              // hasn't been redeployed, or because it's piggybacking on
+              // another field's sync and hasn't refreshed since this
+              // user's last workout (see userPublicSync.ts). Canvas order:
+              // streak · partners · workouts.
+              ...(publicProfile.currentStreak != null
+                ? [{
+                    key: 'streak',
+                    value: (
+                      <span className="inline-flex items-center gap-1">
+                        <Flame className="w-4 h-4 text-orange-500" fill="currentColor" />
+                        {publicProfile.currentStreak}
+                      </span>
+                    ),
+                    label: 'ימי רצף',
+                  }]
+                : []),
               { key: 'partners', value: partnersLoading ? '—' : partners.length, label: 'שותפים' },
+              ...(publicProfile.workoutCount != null
+                ? [{ key: 'workouts', value: publicProfile.workoutCount, label: 'אימונים' }]
+                : []),
             ]}
             bio={publicProfile.bio ?? null}
             bioPlaceholder={isSelf ? 'עדיין אין תיאור אישי' : 'המשתמש לא הוסיף תיאור אישי'}
