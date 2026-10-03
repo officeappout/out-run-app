@@ -2,7 +2,7 @@
 
 /**
  * useMuscleChipSelection — single source of truth for muscle-chip
- * selection/assessment/gating in the workout builder.
+ * selection/assessment in the workout builder.
  *
  * Extracted from WorkoutBuilderSheet after a real bug class: "selected"
  * (autoChips/selectedChips) and "assessed" (enrolledIds) were computed
@@ -11,23 +11,33 @@
  * selected — so a chip that was selected-but-unassessed could never be
  * turned off by tapping it; it always reopened the assessment popup
  * instead. This hook is now the ONE place both the render (isSelected /
- * isAssessed / isGated) and the click handler (toggleChip) read from — they
- * cannot structurally diverge again because there is only one copy of each.
+ * isAssessed) and the click handler (toggleChip) read from — they cannot
+ * structurally diverge again because there is only one copy of each.
  *
  * Click-order contract (toggleChip) — deliberate, do not reorder:
- *   1. isGated    → feedback only (onGatedTap); never toggles, never opens
- *                   the assessment popup. Domain conflict with the
- *                   currently-selected program(s) — tappable, not a dead tap.
- *   2. isSelected → ALWAYS deselects, regardless of assessment. An active
- *                   chip must always be turnable off by tapping it again.
- *   3. !isAssessed → opens the assessment popup (onNeedsAssessment).
- *   4. else        → selects, and runs the muscle→program inverse.
+ *   1. isSelected  → ALWAYS deselects, regardless of assessment. An active
+ *                    chip must always be turnable off by tapping it again.
+ *   2. !isAssessed → opens the assessment popup (onNeedsAssessment).
+ *   3. else        → selects, and runs the muscle→program inverse.
+ *
+ * No program-membership gate (retired, product decision): a muscle chip is
+ * no longer blocked for belonging to a domain outside the currently-
+ * selected program(s) — isGated was always a UX-only restriction (never a
+ * generator safety net; derivedRequiredDomains/requiredDomains never read
+ * it), and the simpler two-state model (assessed → toggle, unassessed →
+ * assess) is what's wanted now.
+ *
+ * autoChips is a plain derived useMemo, not a useEffect+setState pair
+ * (bug fix) — the previous effect-based version lagged one render behind
+ * selectedProgramIds, so a muscle just added to the selected-program set
+ * (e.g. adding "pull" alongside "push") could still read as gated/foreign
+ * for one render. A useMemo recomputes synchronously in the same render
+ * as the selectedProgramIds change, closing that window entirely.
  */
 
 import { useState, useEffect, useMemo, useCallback, type Dispatch, type SetStateAction } from 'react';
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import {
-  MUSCLE_CHIPS,
   domainsToChipIds,
   CHIP_TO_PRIMARY_PROGRAMS,
   CHIP_TO_PROGRAMS,
@@ -43,7 +53,6 @@ export interface UseMuscleChipSelectionParams {
   isEnrolledInProgram: (pid: string) => boolean;
   resolveBaseCategoryForThisProgram: (id: string) => string;
   onNeedsAssessment: (domain: string | null) => void;
-  onGatedTap: (chipLabel: string) => void;
   onManualInteraction: () => void;
 }
 
@@ -54,11 +63,9 @@ export function useMuscleChipSelection({
   isEnrolledInProgram,
   resolveBaseCategoryForThisProgram,
   onNeedsAssessment,
-  onGatedTap,
   onManualInteraction,
 }: UseMuscleChipSelectionParams) {
   const [selectedChips, setSelectedChips] = useState<string[]>([]);
-  const [autoChips, setAutoChips] = useState<string[]>([]);
   // Muscle↔program bidirectional selection — tracks which selectedProgramIds
   // entries were auto-added by the muscle→program inverse (Behavior #2), as
   // opposed to an explicit program-pill tap. Only muscle-derived entries are
@@ -72,12 +79,13 @@ export function useMuscleChipSelection({
   // behave deselected (it stayed in the selected∪auto union regardless).
   const [manuallyDeselectedChips, setManuallyDeselectedChips] = useState<Set<string>>(new Set());
 
-  // ── Program → auto-select muscle chips ──────────────────────────────────
-  useEffect(() => {
-    if (selectedProgramIds.length === 0) {
-      setAutoChips([]);
-      return;
-    }
+  // ── Program(s) → auto-select muscle chips ───────────────────────────────
+  // Union of EVERY currently-selected program's own chip set — recomputes
+  // synchronously whenever selectedProgramIds or profile changes, so adding
+  // a second program is reflected in the SAME render (see the bug-fix note
+  // at the top of this file).
+  const autoChips = useMemo<string[]>(() => {
+    if (selectedProgramIds.length === 0) return [];
     const chips = new Set<string>();
     for (const pid of selectedProgramIds) {
       const ap = profile?.progression?.activePrograms?.find(
@@ -88,14 +96,14 @@ export function useMuscleChipSelection({
         : [pid];
       domainsToChipIds(focusDomains).forEach(c => chips.add(c));
     }
-    setAutoChips([...chips]);
+    return [...chips];
   }, [selectedProgramIds, profile]);
 
   // Reset manual muscle opt-outs when the selected PROGRAM SET itself
   // changes — deliberately keyed on selectedProgramIds alone (not profile,
-  // which the autoChips effect above also depends on) so an unrelated
-  // profile refresh never silently discards a real opt-out; only an actual
-  // program switch should offer a fresh recommended set.
+  // which autoChips above also depends on) so an unrelated profile refresh
+  // never silently discards a real opt-out; only an actual program switch
+  // should offer a fresh recommended set.
   useEffect(() => {
     setManuallyDeselectedChips(new Set());
   }, [selectedProgramIds]);
@@ -108,16 +116,6 @@ export function useMuscleChipSelection({
     ])],
     [autoChips, selectedChips, manuallyDeselectedChips],
   );
-
-  // When program pills are selected, derive their allowed movement domains
-  // so incompatible muscle chips can be gated (feedback + dimmed, not a
-  // dead tap — see isGated/onGatedTap below).
-  const selectedProgramAllowedDomains: Set<string> = useMemo(() => {
-    if (selectedProgramIds.length === 0) return new Set();
-    // autoChips are already the union of all selected programs via useEffect;
-    const domains = autoChips.flatMap(id => MUSCLE_CHIPS.find(c => c.id === id)?.domains ?? []);
-    return new Set(domains);
-  }, [selectedProgramIds, autoChips]);
 
   // A chip is "assessed" when the user is enrolled in at least one program
   // that trains it AT ALL — primary OR secondary mover (CHIP_TO_PROGRAMS,
@@ -135,34 +133,7 @@ export function useMuscleChipSelection({
     [selectedChips, autoChips, manuallyDeselectedChips],
   );
 
-  const isGated = useCallback(
-    (chip: MuscleChip): boolean =>
-      selectedProgramAllowedDomains.size > 0 &&
-      !chip.domains.some(d => selectedProgramAllowedDomains.has(d)),
-    [selectedProgramAllowedDomains],
-  );
-
   const toggleChip = useCallback((chip: MuscleChip) => {
-    // TEMP DIAGNOSTIC — remove before merge. Confirms, on the live preview,
-    // that isAssessed reads the real enrollment data for push's muscles
-    // (the "selected+assessed chest/shoulders opened the popup" report) —
-    // static reading couldn't reproduce a wrong read against the confirmed
-    // slug-consistent write path, so this logs the actual inputs at tap time.
-    // eslint-disable-next-line no-console
-    console.log('[muscle-chip diag]', {
-      chip: chip.id,
-      isAssessed: isAssessed(chip),
-      isSelected: isSelected(chip),
-      isGated: isGated(chip),
-      activeProgramTemplateIds: profile?.progression?.activePrograms?.map(p => p.templateId),
-      trackKeys: Object.keys(profile?.progression?.tracks ?? {}),
-    });
-
-    if (isGated(chip)) {
-      onGatedTap(chip.label);
-      return;
-    }
-
     const primaryPrograms = CHIP_TO_PRIMARY_PROGRAMS[chip.id] ?? [];
 
     if (isSelected(chip)) {
@@ -184,7 +155,6 @@ export function useMuscleChipSelection({
       // Not assessed in ANY program this muscle could activate — gate
       // entirely (same popup the program-pill flow already uses). Nothing
       // is applied here, so there is nothing to revert if the user cancels.
-      console.log(`[WorkoutBuilder] Chip gated — not assessed: ${chip.id}`);
       const domain = primaryPrograms.length > 0
         ? resolveBaseCategoryForThisProgram(primaryPrograms[0])
         : (chip.domains[0] ?? null);
@@ -228,9 +198,8 @@ export function useMuscleChipSelection({
       }
     }
   }, [
-    isAssessed, isSelected, isGated, isEnrolledInProgram, autoChips, selectedProgramIds,
-    setSelectedProgramIds, resolveBaseCategoryForThisProgram,
-    onNeedsAssessment, onGatedTap, onManualInteraction, profile,
+    isAssessed, isSelected, isEnrolledInProgram, autoChips, selectedProgramIds,
+    setSelectedProgramIds, resolveBaseCategoryForThisProgram, onNeedsAssessment, onManualInteraction,
   ]);
 
   // Deselect cascade (Behavior #4): a program the muscle inverse added
@@ -279,14 +248,9 @@ export function useMuscleChipSelection({
 
   return {
     selectedChips,
-    autoChips,
-    manuallyDeselectedChips,
-    muscleAddedProgramIds,
     effectiveChips,
-    selectedProgramAllowedDomains,
     isAssessed,
     isSelected,
-    isGated,
     toggleChip,
     promoteProgram,
     resetManualOverrides,

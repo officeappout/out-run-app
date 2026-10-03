@@ -8,9 +8,9 @@
  * builder UX pass v2) so both screens render the SAME visual — box size,
  * teal `primary` selected border/fill, label color — from one place instead
  * of two independently-maintained copies. The search screen only ever needs
- * `selected`; `locked`/`disabled`/`recommended` are additional, builder-only
- * states layered on top (all default to off, so MuscleFilterBar's own
- * behaviour is pixel-identical to before this extraction).
+ * `selected`; `locked`/`recommended` are additional, builder-only states
+ * layered on top (both default to off, so MuscleFilterBar's own behaviour
+ * is pixel-identical to before this extraction).
  */
 
 import { Lock } from 'lucide-react';
@@ -24,11 +24,6 @@ export interface MuscleFilterChipProps {
    * Still clickable — the click is expected to open the assessment popup,
    * never a silent no-op. Shows a small lock badge, mutes the icon. */
   locked?: boolean;
-  /** Builder-only: conflicts with the currently-selected program's domain.
-   * Visual-only muting — onClick still fires (UX pass v3: a gated chip must
-   * stay tappable so the caller can show feedback instead of a dead tap;
-   * the caller's click handler is what decides there's nothing to toggle). */
-  disabled?: boolean;
   /** Builder-only: selected AND still the untouched system recommendation
    * (not yet manually touched) — same selected fill, plus a small marker
    * so it reads as "the system picked this" rather than silently pre-checked. */
@@ -49,30 +44,27 @@ export default function MuscleFilterChip({
   selected,
   onClick,
   locked = false,
-  disabled = false,
   recommended = false,
   size = 'md',
 }: MuscleFilterChipProps) {
   const { box, icon: iconPx } = SIZE_PX[size];
-  // Precedence ladder (bug fix, UX pass v2.1): `locked` must suppress the
-  // active/teal treatment regardless of `selected` — a chip can legitimately
-  // be auto-selected (its program is chosen) while not yet assessed, and the
-  // real tap-time gate (toggleChip's own isChipAssessed check) already
-  // treats it as locked; the paint must agree, or a chip can render teal
-  // while actually opening the assessment popup on tap.
-  const active = selected && !disabled && !locked;
+  // Precedence (bug fix, UX pass v2.1): `locked` must suppress the active/
+  // teal treatment regardless of `selected` — a chip can legitimately be
+  // auto-selected (its program is chosen) while not yet assessed, and the
+  // real tap-time gate (toggleChip's own isAssessed check) already treats
+  // it as locked; the paint must agree, or a chip can render teal while
+  // actually opening the assessment popup on tap.
+  const active = selected && !locked;
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`relative flex flex-col items-center gap-1.5 flex-shrink-0 ${
-        disabled ? 'opacity-30' : ''
-      }`}
+      className="relative flex flex-col items-center gap-1.5 flex-shrink-0"
       style={{ width: box + 8 }}
       aria-pressed={active}
     >
-      {locked && !disabled && (
+      {locked && (
         <Lock size={11} className="absolute top-0 right-1 text-gray-400 z-10" aria-hidden />
       )}
       {recommended && active && (
@@ -93,7 +85,7 @@ export default function MuscleFilterChip({
           style={{
             width: iconPx,
             height: iconPx,
-            filter: locked && !disabled ? 'grayscale(100%) opacity(0.5)' : undefined,
+            filter: locked ? 'grayscale(100%) opacity(0.5)' : undefined,
           }}
           className="object-contain"
           onError={(e) => {

@@ -21,7 +21,6 @@ import { BODYWEIGHT_SENTINEL } from '@/features/content/exercises/client/store/u
 import { resolveEquipmentSvgPathList } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { DrumTimePicker } from '@/components/ui/DrumTimePicker';
 import MuscleFilterChip from '@/components/ui/MuscleFilterChip';
-import { useToast } from '@/components/ui/Toast';
 import { upsertScheduleEntry } from '@/features/user/scheduling/services/userSchedule.service';
 import { MUSCLE_CHIPS } from '@/features/home/constants/muscle-chips';
 import { useMuscleChipSelection } from '@/features/home/hooks/useMuscleChipSelection';
@@ -204,11 +203,13 @@ function ProgramPill({
 // two states search doesn't need (locked/recommended) via that component's
 // own optional props.
 //
-// UX pass v3: `disabled` (isGated) is now a VISUAL-only flag — a gated chip
-// still fires onClick (see MuscleFilterChip.tsx), so the hook's toggleChip
-// can show feedback instead of a silent dead tap. isAssessed/isSelected/
-// isGated all come from one place — useMuscleChipSelection — consumed
-// identically by this render and by toggleChip's click-time branching.
+// UX pass v3.1: the program-membership gate (isGated) is retired entirely
+// (product decision) — a muscle chip is no longer blocked for belonging to
+// a domain outside the currently-selected program(s). Two states drive a
+// tap now: assessed → toggle select; unassessed → open the assessment
+// popup, always. isAssessed/isSelected come from one place —
+// useMuscleChipSelection — consumed identically by this render and by
+// toggleChip's click-time branching.
 
 // ─── WorkoutBuilderSheet ──────────────────────────────────────────────────────
 export default function WorkoutBuilderSheet({
@@ -223,7 +224,6 @@ export default function WorkoutBuilderSheet({
   const { profile } = useUserStore();
   const gender = useUserStore((s) => (s.profile?.core as any)?.gender === 'female' ? 'female' : 'male') as 'male' | 'female';
   const router = useRouter();
-  const { showToast } = useToast();
 
   const isScheduleMode = mode === 'schedule' && !!scheduleDateParam;
 
@@ -519,16 +519,16 @@ export default function WorkoutBuilderSheet({
   );
 
   // ── Muscle-chip selection (UX pass v3) — single source of truth ─────────
-  // isAssessed/isSelected/isGated live in ONE hook, consumed identically by
-  // both render and the click handler — see useMuscleChipSelection.ts for
-  // the full contract (and the bug class this closes: render and click used
-  // to compute "assessed"/"selected" independently and could disagree).
+  // isAssessed/isSelected live in ONE hook, consumed identically by both
+  // render and the click handler — see useMuscleChipSelection.ts for the
+  // full contract. No program-membership gate (retired, product decision,
+  // UX pass v3.1): a muscle unlocks purely on assessment now, independent
+  // of which program(s) happen to be currently selected.
   const {
     selectedChips,
     effectiveChips,
     isAssessed: isChipAssessed,
     isSelected: isChipSelected,
-    isGated: isChipGated,
     toggleChip,
     promoteProgram,
     resetManualOverrides,
@@ -539,7 +539,6 @@ export default function WorkoutBuilderSheet({
     isEnrolledInProgram,
     resolveBaseCategoryForThisProgram,
     onNeedsAssessment: (domain) => { setUnlockDomain(domain); setShowUnlockModal(true); },
-    onGatedTap: (label) => showToast('error', `${label} אינו חלק מהתוכנית שנבחרה`),
     onManualInteraction: () => setIsUsingRecommendedDefaults(false),
   });
 
@@ -1080,8 +1079,7 @@ export default function WorkoutBuilderSheet({
                       icon={chip.svgPath}
                       label={chip.label}
                       selected={isChipSelected(chip)}
-                      disabled={isChipGated(chip)}
-                      locked={!isChipGated(chip) && !isChipAssessed(chip)}
+                      locked={!isChipAssessed(chip)}
                       recommended={isUsingRecommendedDefaults}
                       size="md"
                       onClick={() => toggleChip(chip)}
@@ -1103,8 +1101,7 @@ export default function WorkoutBuilderSheet({
                       icon={chip.svgPath}
                       label={chip.label}
                       selected={isChipSelected(chip)}
-                      disabled={isChipGated(chip)}
-                      locked={!isChipGated(chip) && !isChipAssessed(chip)}
+                      locked={!isChipAssessed(chip)}
                       recommended={isUsingRecommendedDefaults}
                       size="sm"
                       onClick={() => toggleChip(chip)}
