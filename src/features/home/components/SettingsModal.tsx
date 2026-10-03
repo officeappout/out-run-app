@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, User, Lock, Bell, Shield, Wrench, FileText, LogOut, Trash2,
-  ChevronLeft, Loader2, AlertTriangle, Globe, Users, EyeOff,
+  ChevronLeft, ArrowRight, Loader2, AlertTriangle, Globe, Users, EyeOff,
   Heart, Ruler, Camera, MapPin, Dumbbell, Eye,
   BarChart3, Mail, Pencil, Check, Tag, CreditCard, MessageSquare, Calendar,
 } from 'lucide-react';
@@ -173,14 +173,17 @@ function SettingsRow({
   onClick?: () => void;
   disabled?: boolean;
 }) {
+  // Flattened ("פרופיל חלק" Part 3) — no card chrome (was bg-white rounded-xl
+  // border per row); Section's divide-y below now draws the hairline between
+  // adjacent rows, so this primitive just needs its own vertical padding.
   if (onClick) {
     return (
       <button
         type="button"
         onClick={onClick}
         disabled={disabled}
-        className={`w-full flex items-center gap-3 px-4 py-3.5 bg-white hover:bg-gray-50 rounded-xl border border-gray-100 transition-colors text-start ${
-          disabled ? 'opacity-50 cursor-not-allowed' : 'active:scale-[0.98]'
+        className={`w-full flex items-center gap-3 py-3.5 transition-colors text-start ${
+          disabled ? 'opacity-50 cursor-not-allowed' : 'active:bg-gray-50'
         }`}
       >
         <div className={`p-2 rounded-lg flex-shrink-0 ${iconBg}`}>{icon}</div>
@@ -196,7 +199,7 @@ function SettingsRow({
   }
 
   return (
-    <div className="flex items-center gap-3 px-4 py-3.5 bg-white rounded-xl border border-gray-100">
+    <div className="flex items-center gap-3 py-3.5">
       <div className={`p-2 rounded-lg flex-shrink-0 ${iconBg}`}>{icon}</div>
       <div className="flex-1 min-w-0 text-right">
         <p className="text-sm font-semibold text-gray-900 font-simpler">{label}</p>
@@ -209,13 +212,16 @@ function SettingsRow({
   );
 }
 
+// Flattened ("פרופיל חלק" Part 3) — divide-y hairlines between rows instead
+// of space-y-2 gaps between individually-boxed rows; small gray uppercase
+// label stays as-is (already matched the "flat section header" language).
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="px-5 pt-5">
-      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2.5 font-simpler px-1">
+      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1 font-simpler px-1">
         {title}
       </p>
-      <div className="space-y-2">{children}</div>
+      <div className="divide-y divide-gray-100">{children}</div>
     </div>
   );
 }
@@ -311,15 +317,27 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     (p) => p.providerId === 'password',
   );
 
+  // ── Screens ("פרופיל חלק" Part 3) ──────────────────────────────────────────
+  // SettingsModal used to be one continuous scroll; it's now 4 screens
+  // (main + 3 drill-down sub-screens) navigated via this local state, reset
+  // to 'main' on every open (see the dedicated effect below) — matching the
+  // canvas boards' iOS-Settings-style back-chevron navigation. Pure UI
+  // routing: every handler/hook/save-path below is completely unchanged,
+  // only WHICH existing JSX block is currently rendered changed.
+  type SettingsScreen = 'main' | 'personal' | 'notifications' | 'privacy';
+  const [screen, setScreen] = useState<SettingsScreen>('main');
+  useEffect(() => {
+    if (isOpen) setScreen('main');
+  }, [isOpen]);
+
   // Inline edit for personal info — state/effects/save logic extracted to
   // usePersonalInfoEditor (round 5 of the profile redesign) so the new Edit
   // Profile screen can reuse the exact same staged-edit + save behavior.
-  // editPersonalOpen stays local: it's this modal's own "is the inline form
-  // expanded" UI concern, not personal-info data the new screen needs (it's
-  // always-expanded there, no toggle).
-  const [editPersonalOpen, setEditPersonalOpen] = useState(false);
+  // editName/setEditName NOT destructured here ("פרופיל חלק" Part 3): name
+  // editing now lives in Edit Profile only (Part 2) — the hook still seeds/
+  // owns that state for EditProfileModal's sake, this screen just never
+  // reads it.
   const {
-    editName, setEditName,
     editWeight, setEditWeight,
     editDob,
     editSaving,
@@ -518,12 +536,12 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       setPrivacyMode('ghost');
     }
 
-    // Reset transient UI state
+    // Reset transient UI state (screen itself is reset by its own dedicated
+    // effect, isolated from this effect's broader dep array)
     setCouponCode('');
     setCouponError(null);
     setCouponSuccessResult(null);
     setPwResetSent(false);
-    setEditPersonalOpen(false);
 
     // ── Check native permission statuses ──────────────────────────────────
     // Re-probe on every open so the status reflects any OS-level changes
@@ -607,17 +625,20 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   // ── Personal info edit ───────────────────────────────────────────────────
   // openPersonalEditFields/savePersonalEditFields come from
   // usePersonalInfoEditor (see the hook import above) — wrapped below to
-  // also toggle this modal's own editPersonalOpen (collapse/expand) state,
-  // which the hook deliberately doesn't own.
+  // also navigate this modal's own screen state, which the hook deliberately
+  // doesn't own. Was "expand/collapse the inline hero form" pre-Part-3; now
+  // navigates to/from the dedicated פרטים אישיים screen instead — same two
+  // call sites (hero's עריכה button, חשבון section's row), same underlying
+  // save, just a different screen-level destination.
 
   const openPersonalEdit = useCallback(() => {
     openPersonalEditFields();
-    setEditPersonalOpen(true);
+    setScreen('personal');
   }, [openPersonalEditFields]);
 
   const savePersonalEdit = useCallback(async () => {
     const ok = await savePersonalEditFields();
-    if (ok) setEditPersonalOpen(false);
+    if (ok) setScreen('main');
   }, [savePersonalEditFields]);
 
   // ── Coupon code ──────────────────────────────────────────────────────────
@@ -1091,13 +1112,33 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 <div className="w-10 h-1 bg-gray-300 rounded-full" />
               </div>
 
-              {/* Sticky header */}
-              <div className="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-100 px-5 py-3 flex items-center justify-between z-10 flex-shrink-0">
-                <h2 className="text-xl font-black text-gray-900 font-simpler">הגדרות</h2>
+              {/* Sticky header — screen-aware ("פרופיל חלק" Part 3): a
+                  back-chevron appears on every sub-screen (ArrowRight, the
+                  established RTL "back" convention in this codebase — see
+                  ExerciseLibraryPage's identical back button), title is
+                  dynamic per screen, X always closes the whole modal
+                  regardless of which screen is showing. */}
+              <div className="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-100 px-5 py-3 flex items-center gap-2 z-10 flex-shrink-0">
+                {screen !== 'main' && (
+                  <button
+                    type="button"
+                    onClick={() => setScreen('main')}
+                    aria-label="חזרה"
+                    className="p-1 -mr-1 text-gray-500 hover:text-gray-800 flex-shrink-0"
+                  >
+                    <ArrowRight size={20} />
+                  </button>
+                )}
+                <h2 className="flex-1 text-xl font-black text-gray-900 font-simpler">
+                  {screen === 'main' ? 'הגדרות'
+                    : screen === 'personal' ? 'פרטים אישיים'
+                    : screen === 'notifications' ? 'התראות'
+                    : 'פרטיות ונראות'}
+                </h2>
                 <button
                   onClick={onClose}
                   disabled={isDeleting}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-40"
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-40 flex-shrink-0"
                 >
                   <X size={22} />
                 </button>
@@ -1105,191 +1146,43 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
               {/* Scrollable content */}
               <div className="flex-1 overflow-y-auto pb-10">
-
+              {screen === 'main' && (
+                <>
                 {/* ══════════════════════════════════════════════════════════
-                    1. USER HERO
+                    1. USER HERO — flat, read-only (no card chrome, no inline
+                    edit here anymore). Name/bio/photo edit lives in Edit
+                    Profile (public presentation, Part 2); city/weight/DOB
+                    edit is the dedicated פרטים אישיים screen below (private,
+                    reached via the חשבון row or this hero's own pencil).
                    ══════════════════════════════════════════════════════════ */}
                 <div className="px-5 pt-5 pb-2">
-                  <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                    <div className="flex items-center gap-3">
-                      {/* Avatar — tap the camera badge to upload from native
-                          camera/gallery (native only; web shows a toast). */}
-                      <ProfilePhotoUploader
-                        photoURL={userAvatar}
-                        displayName={userName}
-                        size={64}
-                        className="flex-shrink-0"
-                      />
+                  <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
+                    {/* Avatar — tap the camera badge to upload from native
+                        camera/gallery (native only; web shows a toast). */}
+                    <ProfilePhotoUploader
+                      photoURL={userAvatar}
+                      displayName={userName}
+                      size={64}
+                      className="flex-shrink-0"
+                    />
 
-                      {/* Name + email */}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-base font-bold text-gray-900 font-simpler truncate">{userName}</p>
-                        <p className="text-xs text-gray-500 font-simpler truncate">{userEmail}</p>
-                      </div>
-
-                      {/* Edit toggle */}
-                      <button
-                        type="button"
-                        onClick={editPersonalOpen ? savePersonalEdit : openPersonalEdit}
-                        disabled={editSaving}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors text-xs font-semibold text-gray-700 font-simpler active:scale-95 disabled:opacity-50"
-                      >
-                        {editSaving ? (
-                          <Loader2 size={14} className="animate-spin" />
-                        ) : editPersonalOpen ? (
-                          <Check size={14} className="text-cyan-500" />
-                        ) : (
-                          <Pencil size={14} />
-                        )}
-                        {editPersonalOpen ? 'שמור' : 'עריכה'}
-                      </button>
+                    {/* Name + email */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-base font-bold text-gray-900 font-simpler truncate">{userName}</p>
+                      <p className="text-xs text-gray-500 font-simpler truncate">{userEmail}</p>
                     </div>
 
-                    {/* Inline edit form */}
-                    <AnimatePresence>
-                      {editPersonalOpen && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          className="overflow-hidden"
-                        >
-                          <div className="mt-4 space-y-3 border-t border-gray-200 pt-4">
-                            {/* Name */}
-                            <div>
-                              <label className="block text-xs font-semibold text-gray-500 mb-1 font-simpler">שם מלא</label>
-                              <input
-                                type="text"
-                                value={editName}
-                                onChange={(e) => setEditName(e.target.value)}
-                                placeholder="שמך"
-                                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-simpler focus:ring-2 focus:ring-cyan-400 focus:border-transparent outline-none text-right text-gray-900 placeholder:text-gray-400"
-                                style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
-                              />
-                            </div>
-                            {/* Weight */}
-                            <div>
-                              <label className="block text-xs font-semibold text-gray-500 mb-1 font-simpler">משקל (ק"ג)</label>
-                              <input
-                                type="number"
-                                value={editWeight}
-                                onChange={(e) => setEditWeight(e.target.value)}
-                                placeholder="70"
-                                min="20"
-                                max="300"
-                                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-simpler focus:ring-2 focus:ring-cyan-400 focus:border-transparent outline-none text-gray-900 placeholder:text-gray-400"
-                                style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
-                                dir="ltr"
-                              />
-                            </div>
-                            {/* City — display-only here, links out to /explorer
-                                (core.authorityId is client-write-locked, can't
-                                join this staged save). NOT /onboarding-new —
-                                that's the old full onboarding wizard; its JIT
-                                mode has no exit for the LOCATION step (dead-
-                                ends past confirm). /explorer is the current
-                                location-edit flow (same UnifiedLocationStep,
-                                explorer mode) and returns here via
-                                explorer_return_to. */}
-                            {/* 19.09.2026 — intentionally NOT clearing
-                                core.affiliations[type='city'] here when the
-                                city changes. That would fix the display bug
-                                (see cityDisplay above) but the same field is
-                                also the source of truth for the "City Pass"
-                                status badge below ("מנוי" section) — clearing
-                                it on every city change would flip that badge
-                                to "לא פעיל" for real users until GPS happens
-                                to re-fire persistResolvedCity(). A wrong
-                                "inactive" status on a real subscription
-                                feature is worse than a wrong city label.
-                                Do this only after City Pass gets its own
-                                source of truth independent of affiliations —
-                                do not "fix" it here as a quick follow-up. */}
-                            <div>
-                              <label className="block text-xs font-semibold text-gray-500 mb-1 font-simpler">עיר</label>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  onClose();
-                                  goToCityEdit();
-                                }}
-                                className="w-full flex items-center justify-between px-3 py-2 border border-gray-200 rounded-xl text-sm font-simpler text-right"
-                              >
-                                <span className="text-cyan-600 font-semibold text-xs">ערוך</span>
-                                <span className="text-gray-900">
-                                  {cityResolving ? 'טוען…' : cityDisplay ?? 'לא הוגדרה'}
-                                </span>
-                              </button>
-                            </div>
-                            {/* Neighborhood — staged like name/weight/DOB,
-                                constrained to the selected city's children. */}
-                            <div>
-                              <label className="block text-xs font-semibold text-gray-500 mb-1 font-simpler">שכונה</label>
-                              <button
-                                type="button"
-                                onClick={() => setNeighborhoodPickerOpen(true)}
-                                disabled={!cityAuthorityId}
-                                className="w-full flex items-center justify-between px-3 py-2 border border-gray-200 rounded-xl text-sm font-simpler text-right disabled:opacity-50"
-                              >
-                                <span className="text-cyan-600 font-semibold text-xs">
-                                  {editNeighborhoodName ? 'ערוך' : 'בחר'}
-                                </span>
-                                <span className="text-gray-900">
-                                  {!cityAuthorityId ? 'קודם בחר עיר' : editNeighborhoodName ?? 'לא הוגדרה'}
-                                </span>
-                              </button>
-                            </div>
-                            {/* Birthdate — read-only (production incident,
-                                round 8): core.birthDate is locked by
-                                firestore.rules' noLockedCoreFieldsChanged(),
-                                a direct client write is always rejected, so
-                                this was never a working edit path. Display-
-                                only now; no new edit flow added per
-                                instruction. */}
-                            <div>
-                              <label className="block text-xs font-semibold text-gray-500 mb-1 font-simpler">תאריך לידה</label>
-                              <div className="flex gap-2" dir="ltr">
-                                <input
-                                  type="text"
-                                  readOnly
-                                  value={editDob.day}
-                                  placeholder="DD"
-                                  className="w-14 px-2 py-2 border border-gray-200 rounded-xl text-sm font-simpler text-center outline-none bg-gray-50 cursor-default text-gray-900 placeholder:text-gray-400"
-                                  style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
-                                />
-                                <input
-                                  ref={monthRef}
-                                  type="text"
-                                  readOnly
-                                  value={editDob.month}
-                                  placeholder="MM"
-                                  className="w-14 px-2 py-2 border border-gray-200 rounded-xl text-sm font-simpler text-center outline-none bg-gray-50 cursor-default text-gray-900 placeholder:text-gray-400"
-                                  style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
-                                />
-                                <input
-                                  ref={yearRef}
-                                  type="text"
-                                  readOnly
-                                  value={editDob.year}
-                                  placeholder="YYYY"
-                                  className="w-20 px-2 py-2 border border-gray-200 rounded-xl text-sm font-simpler text-center outline-none bg-gray-50 cursor-default text-gray-900 placeholder:text-gray-400"
-                                  style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
-                                />
-                              </div>
-                              <p className="text-[10px] text-gray-400 mt-1 font-simpler">תאריך לידה לא ניתן לעריכה כאן</p>
-                            </div>
-                            {/* Cancel */}
-                            <button
-                              type="button"
-                              onClick={() => setEditPersonalOpen(false)}
-                              className="w-full py-2 text-sm text-gray-500 font-simpler font-medium hover:text-gray-700 transition-colors"
-                            >
-                              ביטול
-                            </button>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                    {/* Pencil → פרטים אישיים screen (same destination as the
+                        חשבון row below; name/photo editing lives in Edit
+                        Profile now, not here). */}
+                    <button
+                      type="button"
+                      onClick={openPersonalEdit}
+                      aria-label="פרטים אישיים"
+                      className="p-2 text-gray-400 hover:text-gray-600 flex-shrink-0"
+                    >
+                      <Pencil size={16} />
+                    </button>
                   </div>
                 </div>
 
@@ -1301,7 +1194,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     icon={<User size={18} className="text-cyan-600" />}
                     iconBg="bg-cyan-50"
                     label="פרטים אישיים"
-                    sublabel="שם, תאריך לידה, משקל"
+                    sublabel="עיר, משקל, תאריך לידה"
                     onClick={openPersonalEdit}
                   />
                   <MyPersonasSection />
@@ -1354,8 +1247,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   />
 
                   {/* Coupon / access code */}
-                  <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-                    <div className="flex items-center gap-3 px-4 py-3.5">
+                  <div className="py-3.5">
+                    <div className="flex items-center gap-3">
                       <div className="p-2 rounded-lg bg-amber-50 flex-shrink-0">
                         <Tag size={18} className="text-amber-600" />
                       </div>
@@ -1368,7 +1261,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         )}
                       </div>
                     </div>
-                    <div className="px-4 pb-4 space-y-2">
+                    <div className="pt-3 space-y-2">
                       <input
                         type="text"
                         dir="ltr"
@@ -1395,14 +1288,36 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 </Section>
 
                 {/* ══════════════════════════════════════════════════════════
-                    4. התראות
+                    4. התראות / פרטיות ונראות — now drill-down sub-screens
+                    (see the screen==='notifications'/'privacy' blocks below)
+                    instead of inline sections; these two rows are the only
+                    thing left here.
                    ══════════════════════════════════════════════════════════ */}
-                <Section title="התראות">
+                <Section title="התראות ופרטיות">
+                  <SettingsRow
+                    icon={<Bell size={18} className="text-purple-500" />}
+                    iconBg="bg-purple-50"
+                    label="התראות"
+                    onClick={() => setScreen('notifications')}
+                  />
+                  <SettingsRow
+                    icon={<Lock size={18} className="text-gray-500" />}
+                    iconBg="bg-gray-100"
+                    label="פרטיות ונראות"
+                    onClick={() => setScreen('privacy')}
+                  />
+                </Section>
+                </>
+              )}
+
+              {screen === 'notifications' && (
+                <div className="px-5 py-5">
                   {/* Master push switch — gates ALL push; triggers OS prompt on native.
                       When the native OS permission is missing (denied/prompt) the
                       toggle is forced OFF and a PermissionStatusBadge replaces it,
                       tapping it deep-links to system settings (denied) or re-prompts
                       (prompt). This is the App Store Guideline 4.5.4 fix. */}
+                  <div className="divide-y divide-gray-100">
                   <SettingsRow
                     icon={
                       pushSaving
@@ -1619,12 +1534,12 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     }
                   />
 
+                  </div>
+
                   {/* Notification frequency — drives push.service.ts's per-user daily engagement cap */}
-                  <div className="bg-white rounded-xl border border-gray-100 overflow-hidden" dir="rtl">
-                    <div className="px-4 pt-3.5 pb-1">
-                      <p className="text-sm font-semibold text-gray-900 font-simpler text-right">כמה תזכורות?</p>
-                    </div>
-                    <div className="px-4 pb-3.5 pt-1 space-y-2">
+                  <div className="pt-4" dir="rtl">
+                    <p className="text-sm font-semibold text-gray-900 font-simpler text-right mb-2">כמה תזכורות?</p>
+                    <div className="space-y-2">
                       {(
                         [
                           { value: 'min' as const, label: 'מינימלי', sublabel: 'רק החשוב ביותר. עד תזכורת אחת ביום.' },
@@ -1774,14 +1689,13 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     </AnimatePresence>
                   </div>
                   */}
-                </Section>
+                </div>
+              )}
 
-                {/* ══════════════════════════════════════════════════════════
-                    5. פרטיות ומיקום
-                   ══════════════════════════════════════════════════════════ */}
-                <Section title="פרטיות ומיקום">
+              {screen === 'privacy' && (
+                <div className="px-5 py-5">
                   {/* Map visibility — inline 3-option selector */}
-                  <div className="bg-white rounded-xl border border-gray-100 p-4">
+                  <div>
                     <div className="flex items-center gap-2 mb-3">
                       <MapPin size={16} className="text-gray-500" />
                       <p className="text-sm font-semibold text-gray-800 font-simpler">נראות במפה</p>
@@ -1817,37 +1731,42 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     </div>
                   </div>
 
-                  {/* Profile discoverability */}
-                  <SettingsRow
-                    icon={discoverable ? <Eye size={18} className="text-amber-600" /> : <EyeOff size={18} className="text-amber-600" />}
-                    iconBg="bg-amber-50"
-                    label="נגישות פרופיל בחיפוש"
-                    sublabel="אפשר למשתמשים אחרים למצוא אותך לפי שם"
-                    right={
-                      <Toggle
-                        checked={discoverable}
-                        onChange={handleDiscoverableToggle}
-                        disabled={isSavingDiscoverable}
-                      />
-                    }
-                  />
+                  <div className="mt-5 divide-y divide-gray-100">
+                    {/* Profile discoverability */}
+                    <SettingsRow
+                      icon={discoverable ? <Eye size={18} className="text-amber-600" /> : <EyeOff size={18} className="text-amber-600" />}
+                      iconBg="bg-amber-50"
+                      label="נגישות פרופיל בחיפוש"
+                      sublabel="אפשר למשתמשים אחרים למצוא אותך לפי שם"
+                      right={
+                        <Toggle
+                          checked={discoverable}
+                          onChange={handleDiscoverableToggle}
+                          disabled={isSavingDiscoverable}
+                        />
+                      }
+                    />
 
-                  {/* Analytics sharing — note: display is inverted (analyticsOptOut → "share" = !optOut) */}
-                  <SettingsRow
-                    icon={<BarChart3 size={18} className="text-emerald-600" />}
-                    iconBg="bg-emerald-50"
-                    label="שיתוף אנליטיקס"
-                    sublabel="שיתוף נתוני שימוש אנונימיים לשיפור האפליקציה"
-                    right={
-                      <Toggle
-                        checked={!analyticsOptOut}
-                        onChange={handleAnalyticsToggle}
-                        disabled={isSavingAnalytics}
-                      />
-                    }
-                  />
-                </Section>
+                    {/* Analytics sharing — note: display is inverted (analyticsOptOut → "share" = !optOut) */}
+                    <SettingsRow
+                      icon={<BarChart3 size={18} className="text-emerald-600" />}
+                      iconBg="bg-emerald-50"
+                      label="שיתוף אנליטיקס"
+                      sublabel="שיתוף נתוני שימוש אנונימיים לשיפור האפליקציה"
+                      right={
+                        <Toggle
+                          checked={!analyticsOptOut}
+                          onChange={handleAnalyticsToggle}
+                          disabled={isSavingAnalytics}
+                        />
+                      }
+                    />
+                  </div>
+                </div>
+              )}
 
+              {screen === 'main' && (
+                <>
                 {/* ══════════════════════════════════════════════════════════
                     6. כלים
                    ══════════════════════════════════════════════════════════ */}
@@ -1880,7 +1799,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   />
 
                   {/* Units */}
-                  <div className="bg-white rounded-xl border border-gray-100 p-4">
+                  <div className="py-3.5">
                     <div className="flex items-center gap-2 mb-3">
                       <Ruler size={16} className="text-gray-500" />
                       <p className="text-sm font-semibold text-gray-800 font-simpler">יחידות מידה</p>
@@ -1994,15 +1913,15 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 </Section>
 
                 {/* ══════════════════════════════════════════════════════════
-                    8. Logout
+                    8. Logout — flattened (was boxed: bg-gray-50/border/rounded)
                    ══════════════════════════════════════════════════════════ */}
-                <div className="px-5 pt-5">
+                <div className="px-5 pt-5 border-t border-gray-100">
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-3 px-4 py-4 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl transition-colors active:scale-[0.98]"
+                    className="w-full flex items-center gap-3 py-3.5 hover:bg-gray-50 transition-colors active:bg-gray-100"
                   >
-                    <div className="p-2 bg-gray-200 rounded-lg">
+                    <div className="p-2 bg-gray-100 rounded-lg">
                       <LogOut size={18} className="text-gray-600" />
                     </div>
                     <span className="flex-1 text-right text-sm font-semibold text-gray-700 font-simpler">התנתק</span>
@@ -2037,8 +1956,160 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 <div className="px-5 py-5 text-center">
                   <p className="text-[10px] text-gray-300 font-simpler">גרסה 1.0.0</p>
                 </div>
+                </>
+              )}
+
+              {/* ══════════════════════════════════════════════════════════
+                  פרטים אישיים — dedicated screen ("פרופיל חלק" Part 3).
+                  Was the hero card's inline expand/collapse form; same
+                  fields except name (name/bio/photo now live in Edit
+                  Profile, public presentation, Part 2) — city, weight, DOB
+                  only, matching the canvas board exactly. Same
+                  usePersonalInfoEditor state/handlers, untouched; only the
+                  screen this content renders on changed.
+                 ══════════════════════════════════════════════════════════ */}
+              {screen === 'personal' && (
+                <div className="px-5 py-5">
+                  <p className="text-xs text-gray-400 font-simpler mb-4">הנתונים שמזהים את מנוע האימון</p>
+                  <div className="divide-y divide-gray-100">
+                    {/* City — display-only here, links out to /explorer
+                        (core.authorityId is client-write-locked, can't join
+                        this staged save). NOT /onboarding-new — that's the
+                        old full onboarding wizard; its JIT mode has no exit
+                        for the LOCATION step (dead-ends past confirm).
+                        /explorer is the current location-edit flow (same
+                        UnifiedLocationStep, explorer mode) and returns here
+                        via explorer_return_to. */}
+                    {/* 19.09.2026 — intentionally NOT clearing
+                        core.affiliations[type='city'] here when the city
+                        changes. That would fix the display bug (see
+                        cityDisplay above) but the same field is also the
+                        source of truth for the "City Pass" status badge
+                        (main screen's "מנוי" section) — clearing it on
+                        every city change would flip that badge to "לא פעיל"
+                        for real users until GPS happens to re-fire
+                        persistResolvedCity(). A wrong "inactive" status on
+                        a real subscription feature is worse than a wrong
+                        city label. Do this only after City Pass gets its
+                        own source of truth independent of affiliations —
+                        do not "fix" it here as a quick follow-up. */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        goToCityEdit();
+                      }}
+                      className="w-full flex items-center justify-between py-3.5 text-sm font-simpler text-right"
+                    >
+                      <span className="text-cyan-600 font-semibold text-xs">ערוך</span>
+                      <span className="flex items-center gap-2">
+                        <span className="text-gray-900">{cityResolving ? 'טוען…' : cityDisplay ?? 'לא הוגדרה'}</span>
+                        <span className="text-gray-900 font-semibold">עיר</span>
+                      </span>
+                    </button>
+
+                    {/* Weight */}
+                    <div className="flex items-center justify-between py-3.5">
+                      <input
+                        type="number"
+                        value={editWeight}
+                        onChange={(e) => setEditWeight(e.target.value)}
+                        placeholder="70"
+                        min="20"
+                        max="300"
+                        className="w-20 bg-transparent outline-none text-right text-base text-gray-900 placeholder:text-gray-400"
+                        style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
+                        dir="ltr"
+                      />
+                      <span className="text-gray-900 font-semibold text-sm">משקל</span>
+                    </div>
+
+                    {/* Birthdate — read-only (production incident, round 8):
+                        core.birthDate is locked by firestore.rules'
+                        noLockedCoreFieldsChanged(), a direct client write is
+                        always rejected, so this was never a working edit
+                        path. Display-only; no new edit flow added. */}
+                    <div className="py-3.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex gap-2" dir="ltr">
+                          <input
+                            type="text"
+                            readOnly
+                            value={editDob.day}
+                            placeholder="DD"
+                            className="w-10 bg-transparent outline-none text-center text-base text-gray-900 placeholder:text-gray-400 cursor-default"
+                            style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
+                          />
+                          <input
+                            ref={monthRef}
+                            type="text"
+                            readOnly
+                            value={editDob.month}
+                            placeholder="MM"
+                            className="w-10 bg-transparent outline-none text-center text-base text-gray-900 placeholder:text-gray-400 cursor-default"
+                            style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
+                          />
+                          <input
+                            ref={yearRef}
+                            type="text"
+                            readOnly
+                            value={editDob.year}
+                            placeholder="YYYY"
+                            className="w-14 bg-transparent outline-none text-center text-base text-gray-900 placeholder:text-gray-400 cursor-default"
+                            style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
+                          />
+                        </div>
+                        <span className="text-gray-900 font-semibold text-sm">תאריך לידה</span>
+                      </div>
+                      <p className="text-[10px] text-gray-400 mt-1.5 font-simpler">תאריך לידה לא ניתן לעריכה כאן</p>
+                    </div>
+
+                    {/* Neighborhood — staged like weight/DOB, constrained to
+                        the selected city's children. */}
+                    <button
+                      type="button"
+                      onClick={() => setNeighborhoodPickerOpen(true)}
+                      disabled={!cityAuthorityId}
+                      className="w-full flex items-center justify-between py-3.5 text-sm font-simpler text-right disabled:opacity-50"
+                    >
+                      <span className="text-cyan-600 font-semibold text-xs">
+                        {editNeighborhoodName ? 'ערוך' : 'בחר'}
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <span className="text-gray-900">
+                          {!cityAuthorityId ? 'קודם בחר עיר' : editNeighborhoodName ?? 'לא הוגדרה'}
+                        </span>
+                        <span className="text-gray-900 font-semibold">שכונה</span>
+                      </span>
+                    </button>
+                  </div>
+
+                  <p className="text-[11px] text-gray-400 font-simpler mt-5 leading-relaxed">
+                    הנתונים האלה לא מופיעים בכרטיס הציבורי שלך. שינוי תאריך לידה עובר דרך זיהוי.
+                  </p>
+                </div>
+              )}
 
               </div>
+
+              {/* Pinned footer save — personal-details screen only. These
+                  fields ARE staged (unlike every toggle in Notifications/
+                  Privacy, which already save immediately on change — see
+                  those screens' own handlers) — a real, working "שמירה"
+                  button here, same footer pattern EditProfileModal uses. */}
+              {screen === 'personal' && (
+                <div className="p-5 border-t border-gray-100 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={savePersonalEdit}
+                    disabled={editSaving}
+                    className="w-full py-3.5 rounded-2xl bg-gradient-to-l from-[#00ADEF] to-[#5BC2F2] text-white font-bold text-sm shadow-lg shadow-cyan-500/20 active:scale-[0.98] transition-transform flex items-center justify-center gap-2 disabled:opacity-60"
+                  >
+                    {editSaving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={3} />}
+                    שמירה
+                  </button>
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}
