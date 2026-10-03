@@ -51,7 +51,7 @@ export default function PrioritiesSection() {
   if (groups.length === 0) return null;
 
   return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-5" dir="rtl">
+    <div className="space-y-5" dir="rtl">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-black text-gray-800">מה בחרת, לפי עדיפות</h3>
       </div>

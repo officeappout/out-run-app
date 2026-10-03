@@ -82,7 +82,7 @@ export default function GoalCarousel() {
   };
 
   return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100" dir="rtl">
+    <div dir="rtl">
       <h3 className="text-sm font-black text-gray-800 mb-3">יעדי תרגילים</h3>
 
       {isLoading ? (

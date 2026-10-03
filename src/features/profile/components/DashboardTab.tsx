@@ -536,11 +536,19 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
           + BLOCK 4 (mode widgets — StrengthWidgets' 4 squares now
           consolidated into one weekly card, see DashboardModeWidgets.tsx)
           + BLOCK 5.5 (priority order) */}
-      <div className={activeTab === 'programs' ? 'space-y-4' : 'hidden'}>
+      {/* Flattened ("פרופיל חלק" follow-up): each widget below no longer
+          carries its own card border, so the hairline between blocks now
+          lives here instead — a trailing border-b on each ALWAYS-rendering
+          block (GoalCarousel/ExerciseWishlistStrip/mode-widgets). Deliberately
+          NOT on PrioritiesSection's wrapper: it renders null for most users
+          (single-item selections don't qualify), and a border attached to
+          an empty block would show as a stray trailing line. */}
+      <div className={activeTab === 'programs' ? '' : 'hidden'}>
         <motion.div
           initial={{ y: 16, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.06 }}
+          className="pb-5 border-b border-gray-100"
         >
           <GoalCarousel />
         </motion.div>
@@ -549,6 +557,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
           initial={{ y: 16, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.1 }}
+          className="pt-5 pb-5 border-b border-gray-100"
         >
           <ExerciseWishlistStrip />
         </motion.div>
@@ -557,6 +566,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
           initial={{ y: 16, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.14 }}
+          className="pt-5 pb-5 border-b border-gray-100"
         >
           {isRunningMode ? (
             <RunningWidgets workouts={workouts} />
@@ -569,6 +579,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
           initial={{ y: 16, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.18 }}
+          className="pt-5"
         >
           <PrioritiesSection />
         </motion.div>
