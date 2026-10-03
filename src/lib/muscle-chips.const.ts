@@ -143,6 +143,27 @@ export const CHIP_TO_PRIMARY_PROGRAMS: Record<string, string[]> = (() => {
 })();
 
 /**
+ * Reverse index of PROG_TO_CHIPS: muscle chip id → every program id that
+ * trains it AT ALL — primary or secondary mover — a strict superset of
+ * CHIP_TO_PRIMARY_PROGRAMS above. This is the membership set the builder's
+ * assessment gate checks (UX pass #2, product decision): a muscle unlocks
+ * the moment ANY enrolled program trains it, not only when the user
+ * happens to be enrolled in the one program where it's the primary mover.
+ * Example: push's primary mover is chest (CHIP_TO_PRIMARY_PROGRAMS), but
+ * push also trains shoulders+triceps as secondary movers (PROG_TO_CHIPS) —
+ * an assessed push must unlock all three, not just chest.
+ */
+export const CHIP_TO_PROGRAMS: Record<string, string[]> = (() => {
+  const out: Record<string, string[]> = {};
+  for (const [programId, chipIds] of Object.entries(PROG_TO_CHIPS)) {
+    for (const chipId of chipIds) {
+      (out[chipId] ??= []).push(programId);
+    }
+  }
+  return out;
+})();
+
+/**
  * Given a program's focusDomains array (may contain domain strings or program
  * IDs), return the INDIVIDUAL chip IDs to highlight in the UI.
  *

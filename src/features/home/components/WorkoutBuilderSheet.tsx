@@ -20,14 +20,10 @@ import EquipmentFilterSheet from '@/features/content/exercises/client/components
 import { BODYWEIGHT_SENTINEL } from '@/features/content/exercises/client/store/useExerciseLibraryStore';
 import { resolveEquipmentSvgPathList } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { DrumTimePicker } from '@/components/ui/DrumTimePicker';
+import MuscleFilterChip from '@/components/ui/MuscleFilterChip';
 import { upsertScheduleEntry } from '@/features/user/scheduling/services/userSchedule.service';
-import {
-  MUSCLE_CHIPS,
-  domainsToChipIds,
-  CHIP_TO_PRIMARY_PROGRAMS,
-  PROG_PRIMARY_CHIPS,
-  type MuscleChip,
-} from '@/features/home/constants/muscle-chips';
+import { MUSCLE_CHIPS } from '@/features/home/constants/muscle-chips';
+import { useMuscleChipSelection } from '@/features/home/hooks/useMuscleChipSelection';
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import {
   startMiniDomainAssessment,
@@ -40,6 +36,10 @@ export type LocationId = 'park' | 'gym' | 'home' | 'service';
 
 interface DisplayProgram {
   id: string;
+  /** Canonical slug (resolveToSlug(id) || id) — program-identity fix: every
+   * selectedProgramIds read/write goes through THIS, never the raw id, so
+   * a pill tap can never push the opaque Firestore hash into state. */
+  slug: string;
   label: string;
   level: number;
   isMaster: boolean;
@@ -200,68 +200,20 @@ function ProgramPill({
 }
 
 // ─── Muscle chip (shared between the primary/secondary rows) ───────────────────
-// Visual states, in precedence order:
-//   isGated      — conflicts with the currently-selected program's domain(s)
-//                  (unchanged, pre-existing behaviour): fully blocked, opacity-30.
-//   isUnassessed — NEW: the user has never been assessed for any program this
-//                  muscle could activate. Ported from ProgramPill's isUnenrolled
-//                  visual language (opacity-40 grayscale) — still clickable,
-//                  tapping opens the same assessment popup (handled by onToggle).
-//   active       — selected (manual, darker; auto, lighter sky) — unchanged.
-function MuscleChipButton({
-  chip,
-  isManual,
-  isAuto,
-  isGated,
-  isUnassessed,
-  size,
-  onToggle,
-}: {
-  chip: MuscleChip;
-  isManual: boolean;
-  isAuto: boolean;
-  isGated: boolean;
-  isUnassessed: boolean;
-  size: number;
-  onToggle: () => void;
-}) {
-  const active = isManual || isAuto;
-  return (
-    <button
-      onClick={() => !isGated && onToggle()}
-      disabled={isGated}
-      className={`
-        flex-shrink-0 flex flex-col items-center gap-1 px-2 pt-2 pb-1.5 rounded-2xl
-        text-[11px] font-bold min-w-[52px]
-        ${isGated
-          ? 'opacity-30 cursor-not-allowed text-gray-400'
-          : isUnassessed
-            ? 'opacity-40 cursor-pointer text-gray-400'
-            : `transition-all active:scale-95 ${active
-                ? (isManual ? 'bg-[#2b6cb0]/10 text-[#2b6cb0]' : 'bg-sky-100 text-sky-600')
-                : 'text-gray-500 hover:bg-gray-50'}`}
-      `}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={chip.svgPath}
-        alt=""
-        width={size}
-        height={size}
-        className="object-contain"
-        style={{ filter: isUnassessed ? 'grayscale(100%)' : active ? 'none' : 'grayscale(100%) opacity(0.8)' }}
-        onError={(e) => {
-          const el = e.currentTarget;
-          el.style.display = 'none';
-          const fb = el.nextElementSibling as HTMLElement | null;
-          if (fb) fb.style.display = 'inline';
-        }}
-      />
-      <span className="hidden">{chip.emoji}</span>
-      <span className="text-center leading-tight whitespace-nowrap">{chip.label}</span>
-    </button>
-  );
-}
+// UX pass v2: the bespoke 4-state chip above is retired in favour of the
+// SAME MuscleFilterChip used by the exercise-library's muscle filter (teal
+// `primary` selected border/fill, same box/icon sizing) — "reuse the search
+// screen's component" rather than a parallel custom visual. The builder adds
+// two states search doesn't need (locked/recommended) via that component's
+// own optional props.
+//
+// UX pass v3.1: the program-membership gate (isGated) is retired entirely
+// (product decision) — a muscle chip is no longer blocked for belonging to
+// a domain outside the currently-selected program(s). Two states drive a
+// tap now: assessed → toggle select; unassessed → open the assessment
+// popup, always. isAssessed/isSelected come from one place —
+// useMuscleChipSelection — consumed identically by this render and by
+// toggleChip's click-time branching.
 
 // ─── WorkoutBuilderSheet ──────────────────────────────────────────────────────
 export default function WorkoutBuilderSheet({
@@ -287,7 +239,11 @@ export default function WorkoutBuilderSheet({
   const initDuration = useRef<number>(
     (() => {
       const n = Number(defaultDurationParam);
-      return (TIME_OPTIONS as readonly number[]).includes(n) ? n : 45;
+      // UX pass #1 — recommended default: 30 ("קלאסי. הזמן שעובד לרוב" per
+      // TIME_MOTIVATION's own copy below) rather than 45. No per-user
+      // duration preference exists anywhere in the profile today — this is
+      // the app's own already-established "typical" value, not a new signal.
+      return (TIME_OPTIONS as readonly number[]).includes(n) ? n : 30;
     })(),
   );
   const initDifficulty = useRef<DifficultyLevel>(paramToDifficulty(defaultIntensityParam));
@@ -312,16 +268,7 @@ export default function WorkoutBuilderSheet({
   const [selectedProgramIds, setSelectedProgramIds] = useState<string[]>(
     initProgramId.current ? [initProgramId.current] : [],
   );
-  const [selectedChips, setSelectedChips]   = useState<string[]>([]);
-  const [autoChips, setAutoChips]           = useState<string[]>([]);
   const [muscleExpanded, setMuscleExpanded] = useState(false);
-  // Muscle↔program bidirectional selection — tracks which selectedProgramIds
-  // entries were auto-added by the muscle→program inverse (Behavior #2),
-  // as opposed to an explicit program-pill tap. Only muscle-derived entries
-  // are eligible for the deselect cascade (Behavior #4); an explicit pill
-  // tap always removes an id from this set (see the pill's onSelect below),
-  // "promoting" it to manual even if the muscle inverse added it first.
-  const [muscleAddedProgramIds, setMuscleAddedProgramIds] = useState<Set<string>>(new Set());
 
   // ── Location — resets equipment override when changed ──────────────────
   // Seed priority: URL param → profile location preference → 'park' fallback
@@ -367,47 +314,54 @@ export default function WorkoutBuilderSheet({
   const [workoutId, setWorkoutId]               = useState<string>('');
   const [showPreview, setShowPreview]           = useState(false);
 
-  // ── Clear generated workout whenever form fields change ─────────────────
-  // This ensures the user always sees a fresh result after tweaking settings.
-  useEffect(() => {
-    setGeneratedWorkout(null);
-    setShowPreview(false);
-  }, [location, availableTime, difficulty, selectedProgramIds, selectedChips, equipmentOverride]);
-
   // ── If no explicit defaultProgramId, fall back to user's active program ──
   const activeTemplateId = profile?.progression?.activePrograms?.[0]?.templateId;
-  useEffect(() => {
-    if (activeTemplateId && selectedProgramIds.length === 0 && !initProgramId.current) {
-      setSelectedProgramIds([activeTemplateId]);
-    }
-  }, [activeTemplateId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Program → auto-select muscle chips ──────────────────────────────────
+  // ── Recommended defaults (UX pass #1) — the user's own real active program
+  // is "the recommendation" whenever nothing has been manually chosen. One
+  // definition, reused by the opening pre-fill effect AND the "אוטו" reset
+  // action below, instead of two copies of "what's recommended."
+  // Program-identity fix (round 4): activeTemplateId can be the raw
+  // Firestore hash (legacy accounts) — resolve to slug HERE, once, so
+  // every selectedProgramIds consumer downstream gets a slug no matter
+  // which path pre-filled it.
+  const recommendedProgramIds = useMemo<string[]>(
+    () => (activeTemplateId ? [resolveToSlug(activeTemplateId) || activeTemplateId] : []),
+    [activeTemplateId],
+  );
+  const isAutoActive = useMemo(() => {
+    if (recommendedProgramIds.length === 0) return selectedProgramIds.length === 0;
+    return selectedProgramIds.length === recommendedProgramIds.length &&
+      recommendedProgramIds.every(id => selectedProgramIds.includes(id));
+  }, [selectedProgramIds, recommendedProgramIds]);
+
+  // ── "Recommended defaults" legibility (UX pass #1) — true until the user
+  // manually touches program / duration / intensity / muscles; flips back to
+  // true on "אוטו" (an explicit request to return to the recommendation).
+  // Display-only — never affects generation.
+  const [isUsingRecommendedDefaults, setIsUsingRecommendedDefaults] = useState(true);
+
   useEffect(() => {
-    if (selectedProgramIds.length === 0) {
-      setAutoChips([]);
-      return;
+    if (recommendedProgramIds.length > 0 && selectedProgramIds.length === 0 && !initProgramId.current) {
+      setSelectedProgramIds(recommendedProgramIds);
     }
-    const chips = new Set<string>();
-    for (const pid of selectedProgramIds) {
-      const ap = profile?.progression?.activePrograms?.find(
-        p => p.templateId === pid || (p as any).id === pid,
-      );
-      const focusDomains = (ap?.focusDomains as string[] | undefined)?.length
-        ? (ap!.focusDomains as string[])
-        : [pid];
-      domainsToChipIds(focusDomains).forEach(c => chips.add(c));
-    }
-    setAutoChips([...chips]);
-  }, [selectedProgramIds, profile]);
+  }, [recommendedProgramIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Build display program list ─────────────────────────────────────────
   // enrolledIds is lifted here so toggleChip can access it for enrollment gating.
   const enrolledIds = useMemo(() => {
     // Seed from explicit activePrograms templateIds — this is the ground truth
     // for "the user consciously chose this program during onboarding/evolution".
+    // Program-identity fix (round 4): resolve each templateId to its
+    // canonical slug. A fresh mini-assessment already writes templateId as
+    // the plain slug, but a legacy-onboarded account can still have the raw
+    // Firestore hash here — CHIP_TO_PROGRAMS/isEnrolledInProgram's direct
+    // checks are slug-keyed, so an un-resolved hash silently never matches,
+    // reading as "never assessed" for a program the user is really enrolled in.
     const ids = new Set<string>(
-      profile?.progression?.activePrograms?.map(p => p.templateId) ?? [],
+      (profile?.progression?.activePrograms ?? []).map(
+        p => resolveToSlug(p.templateId) || p.templateId,
+      ),
     );
     // Supplement with track keys, but ONLY for known leaf-level slugs.
     // Master-derived track entries written by recalculateMasterLevel
@@ -438,10 +392,20 @@ export default function WorkoutBuilderSheet({
       const label = resolveProgramLabel(id, doc?.name);
       const resolvedKey = resolveIconKey(doc?.iconKey, id);
       const IconComp = ICON_MAP[resolvedKey]?.component ?? null;
-      const level = isUnenrolled ? 0 : (tracks[id] as any)?.currentLevel ?? (tracks[id] as any)?.level ?? 1;
+      // Bug fix: tracks is ALWAYS slug-keyed (confirmed pattern, same fix
+      // already proven in useProgramProgress.ts:136-137) — `id` here is the
+      // raw Firestore program doc id, so tracks[id] missed for every
+      // enrolled program and silently fell to the `?? 1` default, showing
+      // "רמה 1" regardless of the user's real assessed level.
+      // `slug` is the SAME resolution, exposed on the program itself (program-
+      // identity fix, round 4) — every selectedProgramIds read/write below
+      // goes through prog.slug now, never the raw id, so a pill tap can
+      // never push the opaque Firestore hash into state.
+      const slug = resolveToSlug(id) || id;
+      const level = isUnenrolled ? 0 : (tracks[slug] as any)?.currentLevel ?? (tracks[slug] as any)?.level ?? 1;
       const domainEntry = (domains as any)[id];
       const isLocked = domainEntry !== undefined && domainEntry.isUnlocked === false;
-      return { id, label, level, isMaster, children, isLocked, isUnenrolled, IconComp };
+      return { id, slug, label, level, isMaster, children, isLocked, isUnenrolled, IconComp };
     }).sort((a, b) => {
       // Enrolled programs first; within each group masters before leaf; then by level desc
       if (!!a.isUnenrolled !== !!b.isUnenrolled) return a.isUnenrolled ? 1 : -1;
@@ -526,7 +490,9 @@ export default function WorkoutBuilderSheet({
     const seen = new Set<string>();
     for (const pid of selectedProgramIds) {
       const slug = toSlug(pid);
-      const prog = displayPrograms.find(p => p.id === pid);
+      // selectedProgramIds now stores slugs (program-identity fix, round 4) —
+      // match against prog.slug, not the raw prog.id.
+      const prog = displayPrograms.find(p => p.slug === pid);
       if (prog?.isMaster && prog.children.length > 0) {
         // Master programs: lead with resolved master slug (engine uses index 0
         // as activeProgramId), then expand children so the budget infrastructure
@@ -542,59 +508,6 @@ export default function WorkoutBuilderSheet({
     }
     return result;
   }, [selectedProgramIds, displayPrograms, programs]);
-
-  // ── Derived ────────────────────────────────────────────────────────────
-  const effectiveChips = useMemo(
-    () => [...new Set([...autoChips, ...selectedChips])],
-    [autoChips, selectedChips],
-  );
-
-  const derivedRequiredDomains: string[] | undefined = useMemo(
-    () =>
-      effectiveChips.length > 0
-        ? [...new Set(effectiveChips.flatMap(id => MUSCLE_CHIPS.find(c => c.id === id)?.domains ?? []))]
-        : undefined,
-    [effectiveChips],
-  );
-
-  // ── When program pills are selected, derive their allowed movement domains
-  // so incompatible muscle chips can be gated (disabled + dimmed). ─────────
-  const selectedProgramAllowedDomains: Set<string> = useMemo(() => {
-    if (selectedProgramIds.length === 0) return new Set();
-    // autoChips are already the union of all selected programs via useEffect;
-    // derive their domains to build the allowed set.
-    const domains = autoChips.flatMap(id => MUSCLE_CHIPS.find(c => c.id === id)?.domains ?? []);
-    return new Set(domains);
-  }, [selectedProgramIds, autoChips]);
-
-  // ── Auto-applied program (UI-visible, enters generation) ─────────────────
-  // Resolution order (stability fix, 08.07.2026): explicit pill > CU master
-  // arbitration. The CU arbitration lives here (not inside handleGenerate)
-  // so the note below the pills shows the user exactly which program will
-  // drive generation.
-  //
-  // The former third branch (a single chip-derived "suggested" program,
-  // shown as a dashed amber pill) is retired — superseded by the real
-  // muscle→program inverse (CHIP_TO_PRIMARY_PROGRAMS, see toggleChip below),
-  // which adds matching programs directly to selectedProgramIds instead of
-  // only suggesting one at generation time.
-  const autoAppliedProgram = useMemo<{ ids: string[]; label: string; reason: 'cu' } | null>(() => {
-    if (resolvedScheduledProgramIds) return null; // explicit pill wins — never override
-    const toSlug = (id: string): string => {
-      const p = programs.find(pr => pr.id === id);
-      return p?.slug || p?.movementPattern || resolveToSlug(id) || id;
-    };
-    const chipsTargetUpperBody = (derivedRequiredDomains ?? []).some(d => d === 'push' || d === 'pull');
-    const cuProgram = displayPrograms.find(p => p.id === 'calisthenics_upper');
-    if (cuProgram && chipsTargetUpperBody) {
-      return {
-        ids: ['calisthenics_upper', ...cuProgram.children.map(toSlug)],
-        label: cuProgram.label,
-        reason: 'cu',
-      };
-    }
-    return null;
-  }, [resolvedScheduledProgramIds, derivedRequiredDomains, displayPrograms, programs]);
 
   // Maps each coarse movement domain to the program slugs that constitute enrollment
   // in that domain.  If none of these slugs appear in enrolledIds, the user hasn't
@@ -619,102 +532,81 @@ export default function WorkoutBuilderSheet({
     [], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
-  // Enrollment check shared by toggleChip (the tap-time gate) and the muscle-
-  // chip render (the greyed/unassessed visual, Behavior #6) — one definition
-  // so the two can never drift apart.
+  // Enrollment check shared by the muscle-chip hook (assessment gate) and
+  // isMasterEligible/displayPrograms above — one definition so they can
+  // never drift apart.
   const isEnrolledInProgram = useCallback(
     (pid: string) => enrolledIds.has(pid) || enrolledIds.has(resolveToSlug(pid) || pid),
     [enrolledIds],
   );
 
-  // A chip is "assessed" when the user is enrolled in at least one program
-  // it could activate. For a PRIMARY-mapped muscle (CHIP_TO_PRIMARY_PROGRAMS
-  // has an entry) this checks the muscle→program inverse's own candidate
-  // set; a secondary muscle (no entry) keeps the original coarse
-  // domain-level enrollment check (DOMAIN_ENROLLMENT_SLUGS), unchanged.
-  const isChipAssessed = useCallback((chip: MuscleChip): boolean => {
-    const primaryPrograms = CHIP_TO_PRIMARY_PROGRAMS[chip.id] ?? [];
-    if (primaryPrograms.length > 0) return primaryPrograms.some(isEnrolledInProgram);
-    return chip.domains.some(domain => {
-      const required = DOMAIN_ENROLLMENT_SLUGS[domain] ?? [domain];
-      return required.some(isEnrolledInProgram);
-    });
-  }, [isEnrolledInProgram]); // eslint-disable-line react-hooks/exhaustive-deps
+  // ── Muscle-chip selection (UX pass v3) — single source of truth ─────────
+  // isAssessed/isSelected live in ONE hook, consumed identically by both
+  // render and the click handler — see useMuscleChipSelection.ts for the
+  // full contract. No program-membership gate (retired, product decision,
+  // UX pass v3.1): a muscle unlocks purely on assessment now, independent
+  // of which program(s) happen to be currently selected.
+  const {
+    selectedChips,
+    effectiveChips,
+    isAssessed: isChipAssessed,
+    isSelected: isChipSelected,
+    toggleChip,
+    promoteProgram,
+    resetManualOverrides,
+  } = useMuscleChipSelection({
+    profile,
+    selectedProgramIds,
+    setSelectedProgramIds,
+    isEnrolledInProgram,
+    resolveBaseCategoryForThisProgram,
+    onNeedsAssessment: (domain) => { setUnlockDomain(domain); setShowUnlockModal(true); },
+    onManualInteraction: () => setIsUsingRecommendedDefaults(false),
+  });
 
-  const toggleChip = useCallback((id: string) => {
-    const chip = MUSCLE_CHIPS.find(c => c.id === id);
-    if (!chip) return;
-    const primaryPrograms = CHIP_TO_PRIMARY_PROGRAMS[id] ?? [];
-
-    if (!isChipAssessed(chip)) {
-      // Not assessed in ANY program this muscle could activate — gate
-      // entirely (same popup the program-pill flow already uses). Nothing
-      // is applied here, so there is nothing to revert if the user cancels
-      // (absent=absent) — see the module-level note on this design choice.
-      console.log(`[WorkoutBuilder] Chip gated — not assessed: ${id}`);
-      const domain = primaryPrograms.length > 0
-        ? resolveBaseCategoryForThisProgram(primaryPrograms[0])
-        : (chip.domains[0] ?? null);
-      setUnlockDomain(domain);
-      setShowUnlockModal(true);
-      return;
-    }
-
-    const wasActive = selectedChips.includes(id);
-    setSelectedChips(prev => (wasActive ? prev.filter(c => c !== id) : [...prev, id]));
-
-    // Muscle → program inverse (Behavior #2) — only on activation, only for
-    // programs the user is actually enrolled in. A muscle can be primary for
-    // several programs (e.g. 'back' → pull/front_lever/muscle_up/back_lever/
-    // one_arm_pullup) — every enrolled match is added, union-style (#3).
-    if (!wasActive && primaryPrograms.length > 0) {
-      const toAdd = primaryPrograms.filter(
-        pid => isEnrolledInProgram(pid) && !selectedProgramIds.includes(pid),
-      );
-      if (toAdd.length > 0) {
-        setSelectedProgramIds(prev => [...prev, ...toAdd]);
-        setMuscleAddedProgramIds(prev => {
-          const next = new Set(prev);
-          toAdd.forEach(id => next.add(id));
-          return next;
-        });
-      }
-      // Mixed case: some of this muscle's primary programs are enrolled
-      // (added above), others aren't — surface the assessment popup for the
-      // first unassessed one too, without blocking the ones that already
-      // activated.
-      const stillUnassessed = primaryPrograms.find(pid => !isEnrolledInProgram(pid));
-      if (stillUnassessed) {
-        setUnlockDomain(resolveBaseCategoryForThisProgram(stillUnassessed));
-        setShowUnlockModal(true);
-      }
-    }
-  }, [isChipAssessed, isEnrolledInProgram, selectedChips, selectedProgramIds, resolveBaseCategoryForThisProgram]);
-
-  // Deselect cascade (Behavior #4): a program the muscle inverse added
-  // auto-removes once NONE of its own PROG_PRIMARY_CHIPS muscles are still
-  // manually selected — checked against selectedChips specifically (not the
-  // wider autoChips union), since those primary muscles are the only thing
-  // that could have triggered this program's addition in the first place.
-  // Explicitly pinned programs are never in muscleAddedProgramIds (the pill
-  // tap handler below removes them from it immediately), so this never
-  // touches a manually-selected program.
+  // ── Clear generated workout whenever form fields change ─────────────────
+  // This ensures the user always sees a fresh result after tweaking settings.
   useEffect(() => {
-    if (muscleAddedProgramIds.size === 0) return;
-    const toRemove: string[] = [];
-    Array.from(muscleAddedProgramIds).forEach(pid => {
-      const primaryMuscles = PROG_PRIMARY_CHIPS[pid] ?? [];
-      const stillTriggered = primaryMuscles.some(m => selectedChips.includes(m));
-      if (!stillTriggered) toRemove.push(pid);
-    });
-    if (toRemove.length === 0) return;
-    setSelectedProgramIds(prev => prev.filter(id => !toRemove.includes(id)));
-    setMuscleAddedProgramIds(prev => {
-      const next = new Set(prev);
-      toRemove.forEach(id => next.delete(id));
-      return next;
-    });
-  }, [selectedChips, muscleAddedProgramIds]);
+    setGeneratedWorkout(null);
+    setShowPreview(false);
+  }, [location, availableTime, difficulty, selectedProgramIds, selectedChips, equipmentOverride]);
+
+  const derivedRequiredDomains: string[] | undefined = useMemo(
+    () =>
+      effectiveChips.length > 0
+        ? [...new Set(effectiveChips.flatMap(id => MUSCLE_CHIPS.find(c => c.id === id)?.domains ?? []))]
+        : undefined,
+    [effectiveChips],
+  );
+
+  // ── Auto-applied program (UI-visible, enters generation) ─────────────────
+  // Resolution order (stability fix, 08.07.2026): explicit pill > CU master
+  // arbitration. The CU arbitration lives here (not inside handleGenerate)
+  // so the note below the pills shows the user exactly which program will
+  // drive generation.
+  //
+  // The former third branch (a single chip-derived "suggested" program,
+  // shown as a dashed amber pill) is retired — superseded by the real
+  // muscle→program inverse (CHIP_TO_PRIMARY_PROGRAMS, inside the hook),
+  // which adds matching programs directly to selectedProgramIds instead of
+  // only suggesting one at generation time.
+  const autoAppliedProgram = useMemo<{ ids: string[]; label: string; reason: 'cu' } | null>(() => {
+    if (resolvedScheduledProgramIds) return null; // explicit pill wins — never override
+    const toSlug = (id: string): string => {
+      const p = programs.find(pr => pr.id === id);
+      return p?.slug || p?.movementPattern || resolveToSlug(id) || id;
+    };
+    const chipsTargetUpperBody = (derivedRequiredDomains ?? []).some(d => d === 'push' || d === 'pull');
+    const cuProgram = displayPrograms.find(p => p.id === 'calisthenics_upper');
+    if (cuProgram && chipsTargetUpperBody) {
+      return {
+        ids: ['calisthenics_upper', ...cuProgram.children.map(toSlug)],
+        label: cuProgram.label,
+        reason: 'cu',
+      };
+    }
+    return null;
+  }, [resolvedScheduledProgramIds, derivedRequiredDomains, displayPrograms, programs]);
 
   // ── Equipment chips — show override if set, else profile.equipment[location] ──
   const equipmentChips = useMemo(() => {
@@ -909,6 +801,26 @@ export default function WorkoutBuilderSheet({
           );
         })()}
 
+        {/* ── Recommended defaults banner (UX pass #1) ────────────────────
+            Shown only while nothing has been manually touched yet, so the
+            pre-filled program/duration/intensity/muscles read legibly as
+            "we picked these for you, change anything below" rather than
+            silently pre-checked chips. Disappears the moment any control is
+            touched, and reappears on an explicit "אוטו" tap. */}
+        {!isScheduleMode && isUsingRecommendedDefaults && recommendedProgramIds.length > 0 && (
+          <div className="flex items-start gap-2.5 px-4 py-3 bg-sky-50 dark:bg-sky-900/20 rounded-2xl border border-sky-100 dark:border-sky-800">
+            <span className="text-base leading-none mt-0.5" aria-hidden>✨</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-sky-700 dark:text-sky-300 leading-snug">
+                מילאנו עבורכם הגדרות מומלצות
+              </p>
+              <p className="text-xs text-sky-500 dark:text-sky-400 mt-0.5">
+                תוכנית, משך, עצימות ואזורי אימון — אפשר לשנות כל דבר למטה
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* ── Schedule mode: date + time ── */}
         {isScheduleMode && scheduleDateParam && (
           <>
@@ -1009,6 +921,7 @@ export default function WorkoutBuilderSheet({
                       setAvailableTime(t);
                       setShowCustomTime(false);
                       setTimeMotivation(TIME_MOTIVATION[t][gender]);
+                      setIsUsingRecommendedDefaults(false);
                     }}
                     className={`flex flex-col items-center gap-0.5 py-3 rounded-2xl border text-xs font-bold transition-all active:scale-95 ${active ? ACTIVE_PILL : INACTIVE_PILL}`}
                   >
@@ -1023,6 +936,7 @@ export default function WorkoutBuilderSheet({
                   setShowCustomTime(true);
                   setAvailableTime(customTime);
                   setTimeMotivation(TIME_MOTIVATION['other'][gender]);
+                  setIsUsingRecommendedDefaults(false);
                 }}
                 className={`flex flex-col items-center gap-0.5 py-3 rounded-2xl border text-xs font-bold transition-all active:scale-95 ${showCustomTime ? ACTIVE_PILL : INACTIVE_PILL}`}
               >
@@ -1055,6 +969,7 @@ export default function WorkoutBuilderSheet({
                     const v = Number(e.target.value);
                     setCustomTime(v);
                     setAvailableTime(v);
+                    setIsUsingRecommendedDefaults(false);
                   }}
                   className="w-full h-2 rounded-full accent-[#00BAF7] cursor-pointer"
                   style={{ direction: 'rtl' }}
@@ -1074,13 +989,22 @@ export default function WorkoutBuilderSheet({
             <div className="overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
               <div className="flex gap-2 pb-1" style={{ direction: 'rtl' }}>
                 <button
-                  onClick={() => { setSelectedProgramIds([]); setMuscleAddedProgramIds(new Set()); }}
-                  className={`flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2.5 rounded-2xl border text-xs font-bold transition-all active:scale-95 ${selectedProgramIds.length === 0 ? ACTIVE_PILL : INACTIVE_PILL}`}
+                  onClick={() => {
+                    // "אוטו" fills the grid with the system's recommendation
+                    // and leaves it visible + editable — it must never blank
+                    // the grid to a uniform grey (that was the bug: it reads
+                    // as "we picked for you," not "we erased your picks").
+                    setSelectedProgramIds(recommendedProgramIds);
+                    resetManualOverrides();
+                    setIsUsingRecommendedDefaults(true);
+                    setMuscleExpanded(true);
+                  }}
+                  className={`flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2.5 rounded-2xl border text-xs font-bold transition-all active:scale-95 ${isAutoActive ? ACTIVE_PILL : INACTIVE_PILL}`}
                   style={{ minWidth: 68 }}
                 >
                   <span className="text-base leading-none">✨</span>
                   <span>אוטו</span>
-                  <span className={`text-[10px] font-medium ${selectedProgramIds.length === 0 ? 'text-blue-100' : 'text-gray-400'}`}>
+                  <span className={`text-[10px] font-medium ${isAutoActive ? 'text-blue-100' : 'text-gray-400'}`}>
                     מומלץ
                   </span>
                 </button>
@@ -1088,25 +1012,31 @@ export default function WorkoutBuilderSheet({
                   <ProgramPill
                     key={prog.id}
                     prog={prog}
-                    isSelected={selectedProgramIds.includes(prog.id)}
+                    isSelected={selectedProgramIds.includes(prog.slug)}
                     onSelect={prog.isUnenrolled
                       ? () => { setUnlockDomain(resolveBaseCategoryForThisProgram(prog.id)); setShowUnlockModal(true); }
                       : () => {
+                          // Program-identity fix (round 4): always store the
+                          // canonical SLUG, never the raw Firestore hash — the
+                          // bug this closes: a pill tap pushed prog.id (the
+                          // opaque hash) into selectedProgramIds, which the
+                          // muscle→program inverse and the deselect cascade
+                          // both key by slug (CHIP_TO_PRIMARY_PROGRAMS etc.),
+                          // so a hash entry matched nothing downstream and
+                          // its muscles never lit up — and tapping the SAME
+                          // program again via a muscle chip could then push
+                          // the slug too, leaving the array holding both.
                           setSelectedProgramIds(prev =>
-                            prev.includes(prog.id)
-                              ? prev.filter(id => id !== prog.id)
-                              : [...prev, prog.id],
+                            prev.includes(prog.slug)
+                              ? prev.filter(id => id !== prog.slug)
+                              : [...prev, prog.slug],
                           );
+                          setIsUsingRecommendedDefaults(false);
                           // An explicit tap always "promotes" the program to
                           // manual — whether adding it fresh or re-affirming
                           // one the muscle inverse (#2) already added — so
                           // only this same tap can ever remove it again (#4).
-                          setMuscleAddedProgramIds(prev => {
-                            if (!prev.has(prog.id)) return prev;
-                            const next = new Set(prev);
-                            next.delete(prog.id);
-                            return next;
-                          });
+                          promoteProgram(prog.slug);
                           // Auto-expand muscle panel so the auto-selected
                           // chip highlights are immediately visible.
                           setMuscleExpanded(true);
@@ -1132,7 +1062,7 @@ export default function WorkoutBuilderSheet({
 
             {selectedProgramIds.length > 0 && (() => {
               const masterProgs = selectedProgramIds
-                .map(pid => displayPrograms.find(p => p.id === pid))
+                .map(pid => displayPrograms.find(p => p.slug === pid))
                 .filter((p): p is DisplayProgram => !!p?.isMaster && p.children.length > 0);
               if (masterProgs.length === 0) return null;
               const allChildLabels = [...new Set(masterProgs.flatMap(p => p.children))].map(cid => {
@@ -1175,22 +1105,18 @@ export default function WorkoutBuilderSheet({
                   className="flex flex-nowrap gap-3 overflow-x-auto pb-1"
                   style={{ scrollbarWidth: 'none' }}
                 >
-                  {MUSCLE_CHIPS.filter(c => c.group === 'primary').map(chip => {
-                    const isGated = selectedProgramAllowedDomains.size > 0 &&
-                      !chip.domains.some(d => selectedProgramAllowedDomains.has(d));
-                    return (
-                      <MuscleChipButton
-                        key={chip.id}
-                        chip={chip}
-                        isManual={selectedChips.includes(chip.id)}
-                        isAuto={autoChips.includes(chip.id)}
-                        isGated={isGated}
-                        isUnassessed={!isGated && !isChipAssessed(chip)}
-                        size={34}
-                        onToggle={() => toggleChip(chip.id)}
-                      />
-                    );
-                  })}
+                  {MUSCLE_CHIPS.filter(c => c.group === 'primary').map(chip => (
+                    <MuscleFilterChip
+                      key={chip.id}
+                      icon={chip.svgPath}
+                      label={chip.label}
+                      selected={isChipSelected(chip)}
+                      locked={!isChipAssessed(chip)}
+                      recommended={isUsingRecommendedDefaults}
+                      size="md"
+                      onClick={() => toggleChip(chip)}
+                    />
+                  ))}
                 </div>
               </div>
 
@@ -1201,22 +1127,18 @@ export default function WorkoutBuilderSheet({
                   className="flex flex-nowrap gap-3 overflow-x-auto pb-1"
                   style={{ scrollbarWidth: 'none' }}
                 >
-                  {MUSCLE_CHIPS.filter(c => c.group === 'secondary').map(chip => {
-                    const isGated = selectedProgramAllowedDomains.size > 0 &&
-                      !chip.domains.some(d => selectedProgramAllowedDomains.has(d));
-                    return (
-                      <MuscleChipButton
-                        key={chip.id}
-                        chip={chip}
-                        isManual={selectedChips.includes(chip.id)}
-                        isAuto={autoChips.includes(chip.id)}
-                        isGated={isGated}
-                        isUnassessed={!isGated && !isChipAssessed(chip)}
-                        size={24}
-                        onToggle={() => toggleChip(chip.id)}
-                      />
-                    );
-                  })}
+                  {MUSCLE_CHIPS.filter(c => c.group === 'secondary').map(chip => (
+                    <MuscleFilterChip
+                      key={chip.id}
+                      icon={chip.svgPath}
+                      label={chip.label}
+                      selected={isChipSelected(chip)}
+                      locked={!isChipAssessed(chip)}
+                      recommended={isUsingRecommendedDefaults}
+                      size="sm"
+                      onClick={() => toggleChip(chip)}
+                    />
+                  ))}
                 </div>
               </div>
 
@@ -1239,7 +1161,7 @@ export default function WorkoutBuilderSheet({
               return (
                 <button
                   key={level}
-                  onClick={() => setDifficulty(level)}
+                  onClick={() => { setDifficulty(level); setIsUsingRecommendedDefaults(false); }}
                   className={`flex-1 flex flex-col items-center gap-2 py-3 rounded-2xl border transition-all active:scale-95 ${active ? ACTIVE_PILL : INACTIVE_PILL}`}
                 >
                   <span className="flex items-center gap-0.5">
