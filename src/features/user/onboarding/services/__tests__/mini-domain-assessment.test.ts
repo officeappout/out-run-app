@@ -145,6 +145,35 @@ describe('isMiniAssessmentActive / consumeMiniAssessmentState', () => {
     expect(sessionStorageStub.getItem(MINI_ASSESSMENT_DOMAIN_KEY)).toBeNull();
     expect(sessionStorageStub.getItem(MINI_ASSESSMENT_RETURN_TO_KEY)).toBeNull();
   });
+
+  // Stage 5(a) fix (program-identity audit §05-A): the single-domain scoping
+  // flags startMiniDomainAssessment seeds (body_focus or skills path) must be
+  // cleared alongside the mini_* flags — left alone, they survive into a
+  // LATER, unrelated onboarding-sync call in the same session and feed its
+  // "Path B" fallback, which synthesizes a stale Level-1 result from them.
+  it('consuming ALSO clears the body_focus scoping flags (onboarding_program_path / onboarding_muscle_focus) — the Stage 5(a) fix', () => {
+    const router = { push: vi.fn() };
+    startMiniDomainAssessment(router, 'push', '/profile', 'category');
+    expect(sessionStorageStub.getItem('onboarding_program_path')).toBe('body_focus');
+    expect(sessionStorageStub.getItem('onboarding_muscle_focus')).toBe(JSON.stringify(['push']));
+
+    consumeMiniAssessmentState();
+
+    expect(sessionStorageStub.getItem('onboarding_program_path')).toBeNull();
+    expect(sessionStorageStub.getItem('onboarding_muscle_focus')).toBeNull();
+  });
+
+  it('consuming ALSO clears the skills scoping flag (onboarding_skill_focus) for a skill-type mini assessment', () => {
+    const router = { push: vi.fn() };
+    startMiniDomainAssessment(router, 'planche', '/profile', 'skill');
+    expect(sessionStorageStub.getItem('onboarding_program_path')).toBe('skills');
+    expect(sessionStorageStub.getItem('onboarding_skill_focus')).toBe(JSON.stringify(['planche']));
+
+    consumeMiniAssessmentState();
+
+    expect(sessionStorageStub.getItem('onboarding_program_path')).toBeNull();
+    expect(sessionStorageStub.getItem('onboarding_skill_focus')).toBeNull();
+  });
 });
 
 describe('resolveBaseCategoryForProgramId — WorkoutBuilderSheet unlock CTA domain resolution', () => {
