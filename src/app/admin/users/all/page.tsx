@@ -46,6 +46,7 @@ import { usePagination } from '@/features/admin/hooks/usePagination';
 import Pagination from '@/features/admin/components/shared/Pagination';
 import { formatFirebaseTimestamp, convertTimestampToDate } from '@/lib/utils/date-formatter';
 import { formatPace } from '@/features/workout-engine/core/utils/formatPace';
+import { isTestOrMockUser } from '@/lib/testAccountFilter';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Growth Hub — Timeline tab module-level constants.
@@ -2896,6 +2897,11 @@ export default function AllUsersPage() {
   const [stepFilter, setStepFilter] = useState<'ALL' | 'LOCATION' | 'EQUIPMENT' | 'HISTORY' | 'SCHEDULE' | 'HEALTH_DECLARATION' | 'COMPLETED'>('ALL');
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'REGISTERED' | 'GUEST'>('ALL');
   const [activityFilter, setActivityFilter] = useState<'ALL' | 'NEW' | 'BEGINNER' | 'PRO'>('ALL');
+  // Defaults to hiding test/mock accounts (core.isTestData/core.isMockData) —
+  // matches isTestOrMockUser() filtering already applied to statistics-summary/
+  // insights-summary/analytics.service; this list was the one surface not
+  // applying it, which is why it showed ~777 instead of the real population.
+  const [testAccountFilter, setTestAccountFilter] = useState<'HIDE' | 'ALL' | 'ONLY'>('HIDE');
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -2971,11 +2977,17 @@ export default function AllUsersPage() {
         activityFilter === 'BEGINNER' ? (workoutsCompleted > 0 && workoutsCompleted <= 5) :
         workoutsCompleted > 5; // PRO
 
-      return matchesSearch && matchesStatus && matchesStep && matchesType && matchesActivity;
+      // 6. Test/Mock Account Check
+      const isTestOrMock = isTestOrMockUser({ isTestData: user.isTestData, isMockData: user.isMockData });
+      const matchesTestAccount = testAccountFilter === 'ALL' ? true :
+        testAccountFilter === 'HIDE' ? !isTestOrMock :
+        isTestOrMock; // ONLY
+
+      return matchesSearch && matchesStatus && matchesStep && matchesType && matchesActivity && matchesTestAccount;
     });
 
     setFilteredUsers(filtered);
-  }, [searchTerm, users, statusFilter, stepFilter, typeFilter, activityFilter]);
+  }, [searchTerm, users, statusFilter, stepFilter, typeFilter, activityFilter, testAccountFilter]);
 
   // Pagination for filtered users
   const { currentPage, totalPages, paginatedItems, goToPage, resetPagination } = usePagination(filteredUsers, 10);
@@ -2984,7 +2996,7 @@ export default function AllUsersPage() {
   useEffect(() => {
     resetPagination();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, statusFilter, stepFilter, typeFilter, activityFilter]);
+  }, [searchTerm, statusFilter, stepFilter, typeFilter, activityFilter, testAccountFilter]);
 
 
   const loadUsers = async (filterByAuthority: boolean = false, authorityIds: string[] = []) => {
@@ -3282,6 +3294,20 @@ export default function AllUsersPage() {
               <option value="NEW">חדש (0 אימונים)</option>
               <option value="BEGINNER">מתחיל (1-5 אימונים)</option>
               <option value="PRO">מתמיד (5+ אימונים)</option>
+            </select>
+          </div>
+
+          {/* Test/Mock Account Filter */}
+          <div className="flex-1 min-w-[150px]">
+            <label className="block text-xs font-bold text-gray-700 mb-1.5 font-simpler">חשבונות טסט/דמו</label>
+            <select
+              value={testAccountFilter}
+              onChange={(e) => setTestAccountFilter(e.target.value as 'HIDE' | 'ALL' | 'ONLY')}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-simpler focus:ring-2 focus:ring-[#5BC2F2] focus:border-transparent outline-none text-black"
+            >
+              <option value="HIDE">הסתר (מומלץ)</option>
+              <option value="ALL">הצג הכל</option>
+              <option value="ONLY">הצג רק טסט/דמו</option>
             </select>
           </div>
 
