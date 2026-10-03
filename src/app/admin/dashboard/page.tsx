@@ -243,13 +243,19 @@ export default function AdminDashboardPage() {
 
         {!readinessError && readinessOverall && (
           <>
-            <OverallReadinessCard overall={readinessOverall} />
-
-            {readinessComponents.length > 0 && (
-              <div className={`grid gap-4 ${readinessComponents.length === 1 ? 'grid-cols-1' : readinessComponents.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
-                {readinessComponents.map((c) => <ComponentReadinessCard key={c.testId} component={c} />)}
-              </div>
-            )}
+            {/* 03.10.2026 — David's visual-fix round: one row, equal-
+                size cards. The overall card used to stand alone above a
+                separate, smaller second-row grid of component cards —
+                fixed to a single grid holding all of them together. */}
+            <div className={`grid gap-4 ${
+              readinessComponents.length === 0 ? 'grid-cols-1'
+              : readinessComponents.length === 1 ? 'grid-cols-2'
+              : readinessComponents.length === 2 ? 'grid-cols-3'
+              : 'grid-cols-2 lg:grid-cols-4'
+            }`}>
+              <OverallReadinessCard overall={readinessOverall} />
+              {readinessComponents.map((c) => <ComponentReadinessCard key={c.testId} component={c} />)}
+            </div>
 
             <UnitReadinessTable units={readinessUnits} components={readinessComponents} />
 

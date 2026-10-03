@@ -6,7 +6,7 @@ import { blockedReason, venuePriceFor, buildRoadmap, dateFactor, daysBeforeFor, 
 import { DEFAULT_SETTINGS, initialWeddingState } from '../wedding.config';
 import { LIMITS, parseWeddingState } from '../wedding.schema';
 import type { Venue } from '../wedding.types';
-import { VENUE_CATALOG } from '../data/venueCatalog';
+import { CATALOG_AREAS, VENUE_CATALOG } from '../data/venueCatalog';
 
 const base: Venue = {
   id: 'a',
@@ -367,5 +367,20 @@ describe('family dates', () => {
   it('counts as blocked when looking for open dates', () => {
     const o = monthOpts(2027, 2, undefined, fd); // March 2027: Eli 2.3 (Tue) civil; 13.3 is Shabbat
     expect(o.blocked['תאריך משפחתי']).toBe(1);
+  });
+});
+
+describe('venue catalog integrity', () => {
+  it('every venue has a known area and a real link', () => {
+    for (const v of VENUE_CATALOG) {
+      expect(CATALOG_AREAS as readonly string[]).toContain(v.area);
+      expect(v.url).toMatch(/^https?:\/\//);
+    }
+  });
+  it('no duplicates by mit4mit page or by name + city', () => {
+    const biz = VENUE_CATALOG.map((v) => v.url.match(/mit4mit\.co\.il\/biz\/(\d+)/)?.[1]).filter(Boolean);
+    expect(new Set(biz).size).toBe(biz.length);
+    const key = VENUE_CATALOG.map((v) => `${v.name.replace(/\s+/g, '')}|${v.city}`);
+    expect(new Set(key).size).toBe(key.length);
   });
 });

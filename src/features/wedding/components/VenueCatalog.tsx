@@ -64,7 +64,8 @@ function Chips<T extends string>({ label, value, options, onChange }: { label: s
 
 export function VenueCatalog({ s, update, goCompare }: { s: WeddingState; update: Update; goCompare: () => void }) {
   const [area, setArea] = useState<string>('');
-  const [type, setType] = useState<'' | 'אולם' | 'גן'>('');
+  const [type, setType] = useState<'' | 'אולם' | 'גן' | 'על הים' | 'חלל'>('');
+  const [onlyNew, setOnlyNew] = useState(false);
   const [onlyPriced, setOnlyPriced] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
   const [sort, setSort] = useState<Sort>('rating');
@@ -78,6 +79,7 @@ export function VenueCatalog({ s, update, goCompare }: { s: WeddingState; update
     if (area && c.area !== area) return false;
     if (type && !c.type.includes(type)) return false;
     if (onlyPriced && !c.reportedPrice) return false;
+    if (onlyNew && !c.isNew) return false;
     if (!showHidden && hidden.has(c.id)) return false;
     const needle = q.trim();
     if (needle && !`${c.name} ${c.city}`.includes(needle)) return false;
@@ -105,12 +107,27 @@ export function VenueCatalog({ s, update, goCompare }: { s: WeddingState; update
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="font-black text-slate-900">מקומות מוצעים במרכז</h2>
           <span className="text-xs text-slate-500">
-            {VENUE_CATALOG.length} מקומות ל-200–300 אורחים · נאספו ב-{fmtIso(CATALOG_UPDATED)} מ-mit4mit, וואלה ו&quot;מקומות אירועים&quot;
+            {VENUE_CATALOG.length} מקומות ל-200–300 אורחים · עודכן ב-{fmtIso(CATALOG_UPDATED)} · mit4mit, וואלה, &quot;מקומות אירועים&quot;, rsrv ואתרי המקומות
           </span>
         </div>
         <Chips label="אזור" value={area} onChange={setArea} options={[['', 'הכל'], ...CATALOG_AREAS.map((a): [string, string] => [a, a])]} />
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-          <Chips<'' | 'אולם' | 'גן'> label="סוג" value={type} onChange={setType} options={[['', 'הכל'], ['אולם', 'אולם'], ['גן', 'גן']]} />
+          <Chips<'' | 'אולם' | 'גן' | 'על הים' | 'חלל'>
+            label="סוג"
+            value={type}
+            onChange={setType}
+            options={[
+              ['', 'הכל'],
+              ['אולם', 'אולם'],
+              ['גן', 'גן'],
+              ['על הים', 'על הים'],
+              ['חלל', 'חלל / לופט'],
+            ]}
+          />
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input type="checkbox" className="h-5 w-5 accent-emerald-600" checked={onlyNew} onChange={(e) => setOnlyNew(e.target.checked)} />
+            רק חדשים ({VENUE_CATALOG.filter((c) => c.isNew).length})
+          </label>
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input type="checkbox" className="h-5 w-5 accent-emerald-600" checked={onlyPriced} onChange={(e) => setOnlyPriced(e.target.checked)} />
             רק עם מחיר מדווח
@@ -159,7 +176,10 @@ export function VenueCatalog({ s, update, goCompare }: { s: WeddingState; update
               <li key={c.id} className={`${card} flex flex-col gap-2 ${isHidden ? 'opacity-50' : ''} ${isAdded ? 'border-emerald-300' : ''}`}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <h3 className="font-black leading-tight text-slate-900">{c.name}</h3>
+                    <h3 className="font-black leading-tight text-slate-900">
+                      {c.name}
+                      {c.isNew && <span className="mr-1.5 rounded-full bg-sky-50 px-1.5 py-0.5 align-middle text-[11px] font-bold text-sky-800">חדש</span>}
+                    </h3>
                     <p className="text-xs text-slate-500">
                       {[c.city, c.area].filter(Boolean).join(' · ')}
                     </p>
