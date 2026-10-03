@@ -93,7 +93,8 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center"
+          className="fixed inset-0 z-[100] bg-black/40 flex items-end sm:items-center justify-center"
+          style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
           onClick={() => !editSaving && onClose()}
         >
           <motion.div

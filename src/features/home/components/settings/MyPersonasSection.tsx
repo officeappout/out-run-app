@@ -42,13 +42,15 @@ function PersonaRow({
     ? 'טרם הושלם — הקש להשלמה'
     : summary.parts.join(' · ');
 
+  // Flattened ("פרופיל חלק" Part 3) — no card chrome, matching
+  // SettingsModal's own flat SettingsRow primitive.
   return (
     <div className="flex items-center gap-2">
       {hasQuestions ? (
         <button
           type="button"
           onClick={onEdit}
-          className="flex-1 flex items-center justify-between px-4 py-3 bg-white rounded-xl border border-gray-100 active:scale-[0.98] transition-transform text-start"
+          className="flex-1 flex items-center justify-between py-3 active:bg-gray-50 transition-colors text-start"
         >
           <div className="flex items-center gap-3 min-w-0">
             {/* 07.09.2026 — the one place a user's OWN declared unit shows
@@ -70,7 +72,7 @@ function PersonaRow({
           </div>
         </button>
       ) : (
-        <div className="flex-1 px-4 py-3 bg-white rounded-xl border border-gray-100">
+        <div className="flex-1 py-3">
           <p className="text-sm font-semibold text-gray-900">{LIFESTYLE_LABELS[entry.id]}</p>
         </div>
       )}

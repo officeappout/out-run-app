@@ -342,6 +342,7 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
             exit={{ opacity: 0 }}
             onClick={onClose}
             className="fixed inset-0 bg-black/40 z-[70]"
+            style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
           />
 
           <motion.div

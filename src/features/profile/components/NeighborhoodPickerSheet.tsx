@@ -78,6 +78,7 @@ export function NeighborhoodPickerSheet({
             // EquipmentFilterSheet (z-70/71), SettingsModal's other sibling
             // sheet with the identical role.
             className="fixed inset-0 bg-black/40 z-[70] pointer-events-auto"
+            style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
           />
 
           <motion.div
