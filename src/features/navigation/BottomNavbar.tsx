@@ -114,7 +114,7 @@ export default function BottomNavigation() {
                 isActive ? 'text-[#00C9F2]' : 'text-gray-900'
               }`}
             >
-              <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+              <Icon size={26} strokeWidth={isActive ? 2.5 : 2} />
               <span className={`text-[10px] leading-none ${isActive ? 'font-bold' : 'font-medium'}`}>
                 {item.name}
               </span>

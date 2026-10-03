@@ -9,6 +9,13 @@ interface CollapsingHeaderProps {
   /** Tailwind classes appended to the sticky wrapper. */
   className?: string;
   /**
+   * Extra Tailwind classes appended ONLY once the scroll container has
+   * moved (scrollTop > ~2px) — e.g. a border/shadow that signals "this is
+   * now a distinct layer above scrolled content" instead of being present
+   * unconditionally, matching native app chrome behavior.
+   */
+  scrolledClassName?: string;
+  /**
    * z-index for the sticky header. Defaults to 40 (within the documented
    * z-index budget; map-screen overlays own >=50). Override per page if
    * the page has its own stacking requirements.
@@ -46,6 +53,7 @@ interface CollapsingHeaderProps {
 export default function CollapsingHeader({
   children,
   className = '',
+  scrolledClassName = '',
   zIndex = 40,
   applySafeAreaTop = true,
   topOffset = 80,
@@ -54,7 +62,7 @@ export default function CollapsingHeader({
   // walking up the DOM from this header — more robust on Android WebView
   // than the document.querySelector('main') fallback alone.
   const headerRef = useRef<HTMLElement>(null);
-  const hidden = useScrollDirection({
+  const { hidden, scrolled } = useScrollDirection({
     topOffset,
     anchorRef: headerRef,
   });
@@ -64,7 +72,7 @@ export default function CollapsingHeader({
       ref={headerRef}
       animate={{ y: hidden ? '-100%' : '0%' }}
       transition={{ type: 'tween', duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-      className={`sticky top-0 ${className}`}
+      className={`sticky top-0 ${className} ${scrolled ? scrolledClassName : ''}`}
       style={{
         zIndex,
         paddingTop: applySafeAreaTop

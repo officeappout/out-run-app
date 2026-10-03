@@ -29,14 +29,29 @@ interface UseScrollDirectionOptions {
   anchorRef?: React.RefObject<HTMLElement>;
 }
 
+export interface ScrollDirectionState {
+  /** `true` once the header should hide (scrolled down past `topOffset`). */
+  hidden: boolean;
+  /**
+   * `true` as soon as the container has scrolled at all (scrollTop > 2px —
+   * a small deadzone, not 0, so iOS rubber-band overscroll at rest doesn't
+   * flicker it). For callers that want to apply a "now you've scrolled"
+   * visual (e.g. a border/shadow that appears once content has moved under
+   * a sticky header) without waiting for `hidden`'s larger `topOffset`.
+   */
+  scrolled: boolean;
+}
+
 /**
- * Tracks vertical scroll direction on the app's main scroll container and
- * returns whether a top-anchored header should currently be hidden.
+ * Tracks vertical scroll position/direction on the app's main scroll
+ * container.
  *
- * Behaviour:
- * - Scrolling DOWN past `topOffset` → returns `true` (hide header).
- * - Scrolling UP at any position    → returns `false` (show immediately).
- * - Above `topOffset`               → always returns `false`.
+ * `hidden` behaviour:
+ * - Scrolling DOWN past `topOffset` → `true` (hide header).
+ * - Scrolling UP at any position    → `false` (show immediately).
+ * - Above `topOffset`               → always `false`.
+ *
+ * `scrolled` is independent of `topOffset` — see field doc above.
  *
  * The reading is rAF-throttled so the callback runs at most once per frame.
  */
@@ -45,8 +60,9 @@ export function useScrollDirection({
   topOffset = 80,
   scrollContainer,
   anchorRef,
-}: UseScrollDirectionOptions = {}): boolean {
+}: UseScrollDirectionOptions = {}): ScrollDirectionState {
   const [hidden, setHidden] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const lastY = useRef(0);
   const ticking = useRef(false);
 
@@ -65,6 +81,9 @@ export function useScrollDirection({
     if (!el) return;
 
     lastY.current = el.scrollTop;
+    // Initial read — the page may mount already scrolled (browser scroll
+    // restoration), so don't wait for the first scroll event to set this.
+    setScrolled(el.scrollTop > 2);
 
     const onScroll = () => {
       if (ticking.current) return;
@@ -72,6 +91,8 @@ export function useScrollDirection({
       requestAnimationFrame(() => {
         const y = el.scrollTop;
         const diff = y - lastY.current;
+
+        setScrolled(y > 2);
 
         // We call `setHidden(...)` unconditionally and rely on React's
         // built-in Object.is bail-out to skip re-renders when the value
@@ -102,7 +123,7 @@ export function useScrollDirection({
     return () => el.removeEventListener('scroll', onScroll);
   }, [scrollContainer, anchorRef, threshold, topOffset]);
 
-  return hidden;
+  return { hidden, scrolled };
 }
 
 function findScrollableAncestor(node: HTMLElement | null): HTMLElement | null {
