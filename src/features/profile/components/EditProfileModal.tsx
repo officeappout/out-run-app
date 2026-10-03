@@ -41,7 +41,17 @@ interface EditProfileModalProps {
 // own text-fill color to form controls independent of `color`, so both
 // must be pinned for this to be reliably fixed on iPhone specifically.
 const INPUT_TEXT_FIX: React.CSSProperties = { color: '#111827', WebkitTextFillColor: '#111827' };
-const INPUT_TEXT_CLASS = 'text-gray-900 placeholder:text-gray-400';
+// text-base (16px), not text-sm (14px) — iOS Safari auto-zooms the whole
+// viewport on focus of any text input under 16px (a built-in accessibility
+// heuristic so the keyboard-covered text stays readable). Fixing the
+// font-size is the correct fix; the viewport meta/maximum-scale must NOT
+// be touched to suppress this, since that breaks pinch-zoom accessibility
+// for everyone, not just this one screen. Applied here (not per-input)
+// so every consumer of INPUT_TEXT_CLASS gets it uniformly — including the
+// now-read-only DOB inputs below, which stay focusable even though they
+// can't be typed into, so they're included defensively for visual
+// consistency with the editable fields rather than left at the old 14px.
+const INPUT_TEXT_CLASS = 'text-base text-gray-900 placeholder:text-gray-400';
 
 export default function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
   const { profile } = useUserStore();
@@ -134,7 +144,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                   placeholder="שמך"
-                  className={`w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-cyan-400 focus:border-transparent outline-none text-right ${INPUT_TEXT_CLASS}`}
+                  className={`w-full px-3.5 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-cyan-400 focus:border-transparent outline-none text-right ${INPUT_TEXT_CLASS}`}
                   style={INPUT_TEXT_FIX}
                 />
               </div>
@@ -147,7 +157,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                   onChange={(e) => setEditBio(e.target.value.slice(0, 150))}
                   placeholder="ספר/י קצת על עצמך..."
                   rows={2}
-                  className={`w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-cyan-400 focus:border-transparent outline-none text-right resize-none ${INPUT_TEXT_CLASS}`}
+                  className={`w-full px-3.5 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-cyan-400 focus:border-transparent outline-none text-right resize-none ${INPUT_TEXT_CLASS}`}
                   style={INPUT_TEXT_FIX}
                 />
                 <p className="text-[10px] text-gray-400 mt-1">{editBio.length}/150</p>
@@ -187,7 +197,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                     placeholder='משקל (ק"ג)'
                     min="20"
                     max="300"
-                    className={`w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-cyan-400 focus:border-transparent outline-none ${INPUT_TEXT_CLASS}`}
+                    className={`w-full px-3.5 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-cyan-400 focus:border-transparent outline-none ${INPUT_TEXT_CLASS}`}
                     style={INPUT_TEXT_FIX}
                     dir="ltr"
                   />
@@ -203,7 +213,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                       readOnly
                       value={editDob.day}
                       placeholder="DD"
-                      className={`w-16 px-2 py-2.5 border border-gray-200 rounded-xl text-sm text-center outline-none bg-gray-50 cursor-default ${INPUT_TEXT_CLASS}`}
+                      className={`w-16 px-2 py-2.5 border border-gray-200 rounded-xl text-center outline-none bg-gray-50 cursor-default ${INPUT_TEXT_CLASS}`}
                       style={INPUT_TEXT_FIX}
                     />
                     <input
@@ -212,7 +222,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                       readOnly
                       value={editDob.month}
                       placeholder="MM"
-                      className={`w-16 px-2 py-2.5 border border-gray-200 rounded-xl text-sm text-center outline-none bg-gray-50 cursor-default ${INPUT_TEXT_CLASS}`}
+                      className={`w-16 px-2 py-2.5 border border-gray-200 rounded-xl text-center outline-none bg-gray-50 cursor-default ${INPUT_TEXT_CLASS}`}
                       style={INPUT_TEXT_FIX}
                     />
                     <input
@@ -221,7 +231,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                       readOnly
                       value={editDob.year}
                       placeholder="YYYY"
-                      className={`flex-1 px-2 py-2.5 border border-gray-200 rounded-xl text-sm text-center outline-none bg-gray-50 cursor-default ${INPUT_TEXT_CLASS}`}
+                      className={`flex-1 px-2 py-2.5 border border-gray-200 rounded-xl text-center outline-none bg-gray-50 cursor-default ${INPUT_TEXT_CLASS}`}
                       style={INPUT_TEXT_FIX}
                     />
                   </div>
