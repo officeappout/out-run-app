@@ -245,11 +245,29 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false }: 
   // new prop) — rather than the old unconditional border, so the header
   // doesn't look like a hard-edged bar sitting on the page before there's
   // anything to be "above."
+  // applySafeAreaTop={false} — chrome polish, thick-header/overlap bug fix.
+  // Root cause: ClientLayout.tsx's <main> ALREADY applies
+  // `paddingTop: env(safe-area-inset-top)` for every route that is neither
+  // /map nor on its explicit TOP_PADDING_EXEMPT_EXACT_ROUTES list (which
+  // this file's own sticky consumers — /home, /search, bare /profile, bare
+  // /community, /progression — all confirmed NOT to be on, and none of the
+  // actually-exempt routes render this component at all, confirmed via
+  // grep). CollapsingHeader's own `applySafeAreaTop` default (true) was
+  // ALSO adding the same inset on top of that — doubling the real safe-area
+  // height into a visibly "thick" header, and plausibly the cause of the
+  // reported content-clipping too (a `position: sticky` element asserting
+  // its own safe-area padding INSIDE an ancestor scroll container that
+  // already reserved that exact space is a known source of iOS WebKit
+  // sticky-offset glitches). <main>'s own padding is relied on as the
+  // single source of truth here instead — matches the asOverlay branch
+  // above, which has always had single (not double) safe-area handling,
+  // which is why Map's header reads "slim" relative to this one.
   return (
     <CollapsingHeader
       zIndex={zIndex}
       className="bg-white"
       scrolledClassName="border-b border-gray-100 shadow-sm"
+      applySafeAreaTop={false}
     >
       {innerRow}
       {/* Page-specific extras (e.g. segmented tabs on /feed) */}

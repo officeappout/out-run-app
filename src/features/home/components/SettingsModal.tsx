@@ -183,10 +183,13 @@ function SettingsRow({
   // adjacent rows, so this primitive just needs its own vertical padding.
   // Clean icon treatment (chrome polish follow-up): dropped the colored
   // rounded-square background a row icon used to sit in (was `p-2 rounded-lg
-  // ${iconBg}`, iconBg removed from every call site in the same pass) —
-  // every icon already carries its own tint via its own className at the
-  // call site (e.g. text-cyan-600), so removing the box leaves exactly "the
-  // glyph itself, tinted, no box," per instruction.
+  // ${iconBg}`, iconBg removed from every call site in the same pass), and
+  // every icon's own per-icon color has since been unified to one flat
+  // neutral (text-gray-700) across every call site in this file — no box,
+  // no rainbow, per instruction.
+  // Text size bumped slightly (chrome polish): label text-sm→text-base,
+  // sublabel text-xs→text-sm, applied once here so it cascades to every
+  // row in the file.
   if (onClick) {
     return (
       <button
@@ -199,9 +202,9 @@ function SettingsRow({
       >
         <div className="flex-shrink-0">{icon}</div>
         <div className="flex-1 min-w-0 text-right">
-          <p className="text-sm font-semibold text-gray-900 font-simpler">{label}</p>
+          <p className="text-base font-semibold text-gray-900 font-simpler">{label}</p>
           {sublabel && (
-            <p className="text-xs text-gray-400 font-simpler mt-0.5 leading-snug">{sublabel}</p>
+            <p className="text-sm text-gray-400 font-simpler mt-0.5 leading-snug">{sublabel}</p>
           )}
         </div>
         {right ?? <ChevronLeft size={16} className="text-gray-300 flex-shrink-0" />}
@@ -213,9 +216,9 @@ function SettingsRow({
     <div className="flex items-center gap-3 py-3.5">
       <div className="flex-shrink-0">{icon}</div>
       <div className="flex-1 min-w-0 text-right">
-        <p className="text-sm font-semibold text-gray-900 font-simpler">{label}</p>
+        <p className="text-base font-semibold text-gray-900 font-simpler">{label}</p>
         {sublabel && (
-          <p className="text-xs text-gray-400 font-simpler mt-0.5 leading-snug">{sublabel}</p>
+          <p className="text-sm text-gray-400 font-simpler mt-0.5 leading-snug">{sublabel}</p>
         )}
       </div>
       {right}
@@ -335,7 +338,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   // canvas boards' iOS-Settings-style back-chevron navigation. Pure UI
   // routing: every handler/hook/save-path below is completely unchanged,
   // only WHICH existing JSX block is currently rendered changed.
-  type SettingsScreen = 'main' | 'personal' | 'notifications' | 'privacy';
+  type SettingsScreen = 'main' | 'personal' | 'notifications' | 'privacy' | 'personas';
   const [screen, setScreen] = useState<SettingsScreen>('main');
   useEffect(() => {
     if (isOpen) setScreen('main');
@@ -389,6 +392,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   // Equipment editor sheet
   const [equipmentSheetOpen, setEquipmentSheetOpen] = useState(false);
+
+  // Units row — collapsed by default (chrome polish); reveals the km/miles
+  // options only on tap instead of always showing them inline.
+  const [unitsExpanded, setUnitsExpanded] = useState(false);
 
   // Legal modals
   const [showTermsModal, setShowTermsModal] = useState(false);
@@ -1150,6 +1157,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   {screen === 'main' ? 'הגדרות'
                     : screen === 'personal' ? 'פרטים אישיים'
                     : screen === 'notifications' ? 'התראות'
+                    : screen === 'personas' ? 'הפרסונות שלי'
                     : 'פרטיות ונראות'}
                 </h2>
                 <button
@@ -1208,14 +1216,19 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                    ══════════════════════════════════════════════════════════ */}
                 <Section title="חשבון">
                   <SettingsRow
-                    icon={<User size={18} className="text-cyan-600" />}
+                    icon={<User size={18} className="text-gray-700" />}
                     label="פרטים אישיים"
                     sublabel="עיר, משקל, תאריך לידה"
                     onClick={openPersonalEdit}
                   />
-                  <MyPersonasSection />
                   <SettingsRow
-                    icon={<Lock size={18} className="text-purple-600" />}
+                    icon={<Users size={18} className="text-gray-700" />}
+                    label="הפרסונות שלי"
+                    sublabel="פרטים פרטיים, לא מופיעים בפרופיל הציבורי"
+                    onClick={() => setScreen('personas')}
+                  />
+                  <SettingsRow
+                    icon={<Lock size={18} className="text-gray-700" />}
                     label={pwResetSent ? 'מייל נשלח ✓' : 'סיסמה ואבטחה'}
                     sublabel={
                       !hasEmailAuth
@@ -1243,7 +1256,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 <Section title="מנוי">
                   {/* City Pass status */}
                   <SettingsRow
-                    icon={<CreditCard size={18} className={cityAffiliation ? 'text-emerald-600' : 'text-gray-400'} />}
+                    icon={<CreditCard size={18} className="text-gray-700" />}
                     label="City Pass"
                     sublabel={
                       cityAffiliation
@@ -1267,7 +1280,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <div className="py-3.5">
                     <div className="flex items-center gap-3">
                       <div className="p-2 rounded-lg bg-amber-50 flex-shrink-0">
-                        <Tag size={18} className="text-amber-600" />
+                        <Tag size={18} className="text-gray-700" />
                       </div>
                       <div className="flex-1 min-w-0 text-right">
                         <p className="text-sm font-semibold text-gray-900 font-simpler">הזנת קוד קופון</p>
@@ -1313,7 +1326,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                    ══════════════════════════════════════════════════════════ */}
                 <Section title="התראות ופרטיות">
                   <SettingsRow
-                    icon={<Bell size={18} className="text-purple-500" />}
+                    icon={<Bell size={18} className="text-gray-700" />}
                     label="התראות"
                     onClick={() => setScreen('notifications')}
                   />
@@ -1324,6 +1337,17 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   />
                 </Section>
                 </>
+              )}
+
+              {/* הפרסונות שלי — own drill-down screen (chrome polish), was
+                  an inline block in חשבון above. MyPersonasSection itself
+                  is completely unchanged — confirmed via grep it's used
+                  ONLY here (its own doc comment already said so) — this is
+                  pure relocation, no logic touched. */}
+              {screen === 'personas' && (
+                <div className="px-5 py-5">
+                  <MyPersonasSection />
+                </div>
               )}
 
               {screen === 'notifications' && (
@@ -1337,8 +1361,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <SettingsRow
                     icon={
                       pushSaving
-                        ? <Loader2 size={18} className="text-purple-500 animate-spin" />
-                        : <Bell size={18} className="text-purple-500" />
+                        ? <Loader2 size={18} className="text-gray-700 animate-spin" />
+                        : <Bell size={18} className="text-gray-700" />
                     }
                     label="התראות פוש"
                     sublabel={
@@ -1418,8 +1442,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <SettingsRow
                     icon={
                       chatNotifSaving
-                        ? <Loader2 size={18} className="text-blue-500 animate-spin" />
-                        : <MessageSquare size={18} className="text-blue-500" />
+                        ? <Loader2 size={18} className="text-gray-700 animate-spin" />
+                        : <MessageSquare size={18} className="text-gray-700" />
                     }
                     label="התראות צ׳אט"
                     sublabel={
@@ -1458,8 +1482,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <SettingsRow
                     icon={
                       channelSaving['progression']
-                        ? <Loader2 size={18} className="text-indigo-500 animate-spin" />
-                        : <Dumbbell size={18} className="text-indigo-500" />
+                        ? <Loader2 size={18} className="text-gray-700 animate-spin" />
+                        : <Dumbbell size={18} className="text-gray-700" />
                     }
                     label="התקדמות"
                     sublabel="עלייה ברמה, שיאים אישיים"
@@ -1475,8 +1499,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <SettingsRow
                     icon={
                       channelSaving['social']
-                        ? <Loader2 size={18} className="text-purple-500 animate-spin" />
-                        : <Users size={18} className="text-purple-500" />
+                        ? <Loader2 size={18} className="text-gray-700 animate-spin" />
+                        : <Users size={18} className="text-gray-700" />
                     }
                     label="חברתי"
                     sublabel="הצטרפות לקבוצה, קאדוז"
@@ -1492,8 +1516,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <SettingsRow
                     icon={
                       channelSaving['training_reminder']
-                        ? <Loader2 size={18} className="text-amber-500 animate-spin" />
-                        : <Calendar size={18} className="text-amber-500" />
+                        ? <Loader2 size={18} className="text-gray-700 animate-spin" />
+                        : <Calendar size={18} className="text-gray-700" />
                     }
                     label="תזכורות אימון"
                     sublabel="בוקר לפני אימון מתוזמן"
@@ -1509,8 +1533,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <SettingsRow
                     icon={
                       channelSaving['encouragement']
-                        ? <Loader2 size={18} className="text-cyan-500 animate-spin" />
-                        : <Bell size={18} className="text-cyan-500" />
+                        ? <Loader2 size={18} className="text-gray-700 animate-spin" />
+                        : <Bell size={18} className="text-gray-700" />
                     }
                     label="עידוד ומוטיבציה"
                     sublabel="הודעות מהעירייה שלך"
@@ -1526,8 +1550,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <SettingsRow
                     icon={
                       channelSaving['retention']
-                        ? <Loader2 size={18} className="text-orange-500 animate-spin" />
-                        : <Heart size={18} className="text-orange-500" />
+                        ? <Loader2 size={18} className="text-gray-700 animate-spin" />
+                        : <Heart size={18} className="text-gray-700" />
                     }
                     label="חזרה לשגרה"
                     sublabel="תזכורת כשלא התאמנת כמה ימים"
@@ -1740,7 +1764,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <div className="mt-5 divide-y divide-gray-100">
                     {/* Profile discoverability */}
                     <SettingsRow
-                      icon={discoverable ? <Eye size={18} className="text-amber-600" /> : <EyeOff size={18} className="text-amber-600" />}
+                      icon={discoverable ? <Eye size={18} className="text-gray-700" /> : <EyeOff size={18} className="text-gray-700" />}
                       label="נגישות פרופיל בחיפוש"
                       sublabel="אפשר למשתמשים אחרים למצוא אותך לפי שם"
                       right={
@@ -1754,7 +1778,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
                     {/* Analytics sharing — note: display is inverted (analyticsOptOut → "share" = !optOut) */}
                     <SettingsRow
-                      icon={<BarChart3 size={18} className="text-emerald-600" />}
+                      icon={<BarChart3 size={18} className="text-gray-700" />}
                       label="שיתוף אנליטיקס"
                       sublabel="שיתוף נתוני שימוש אנונימיים לשיפור האפליקציה"
                       right={
@@ -1780,7 +1804,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     icon={
                       <Heart
                         size={18}
-                        className={store.healthBridgeEnabled ? 'text-red-500' : 'text-gray-400'}
+                        className="text-gray-700"
                       />
                     }
                     label="HealthKit / Health Connect"
@@ -1801,33 +1825,63 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     }
                   />
 
-                  {/* Units */}
-                  <div className="py-3.5">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Ruler size={16} className="text-gray-500" />
-                      <p className="text-sm font-semibold text-gray-800 font-simpler">יחידות מידה</p>
-                    </div>
-                    <div className="flex gap-2">
-                      {(['km', 'miles'] as const).map((u) => (
-                        <button
-                          key={u}
-                          type="button"
-                          onClick={() => handleUnitsChange(u)}
-                          className={`flex-1 py-2.5 rounded-xl border-2 text-sm font-bold font-simpler transition-all ${
-                            store.units === u
-                              ? 'border-cyan-500 bg-cyan-50 text-cyan-700'
-                              : 'border-gray-100 bg-gray-50 text-gray-500'
-                          }`}
+                  {/* Units — collapsible (chrome polish, was always-inline).
+                      Reuses SettingsRow's own look (sublabel shows the
+                      current value) with a custom chevron that rotates
+                      open, same disclosure pattern as a drill-down row
+                      without actually navigating away. */}
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setUnitsExpanded((v) => !v)}
+                      className="w-full flex items-center gap-3 py-3.5 text-start active:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex-shrink-0">
+                        <Ruler size={18} className="text-gray-700" />
+                      </div>
+                      <div className="flex-1 min-w-0 text-right">
+                        <p className="text-base font-semibold text-gray-900 font-simpler">יחידות מידה</p>
+                        <p className="text-sm text-gray-400 font-simpler mt-0.5">
+                          {store.units === 'km' ? 'קילומטרים' : 'מיילים'}
+                        </p>
+                      </div>
+                      <motion.div animate={{ rotate: unitsExpanded ? -90 : 0 }} className="flex-shrink-0">
+                        <ChevronLeft size={16} className="text-gray-300" />
+                      </motion.div>
+                    </button>
+                    <AnimatePresence initial={false}>
+                      {unitsExpanded && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden"
                         >
-                          {u === 'km' ? 'קילומטרים' : 'מיילים'}
-                        </button>
-                      ))}
-                    </div>
+                          <div className="flex gap-2 pb-3.5">
+                            {(['km', 'miles'] as const).map((u) => (
+                              <button
+                                key={u}
+                                type="button"
+                                onClick={() => { handleUnitsChange(u); setUnitsExpanded(false); }}
+                                className={`flex-1 py-2.5 rounded-xl border-2 text-sm font-bold font-simpler transition-all ${
+                                  store.units === u
+                                    ? 'border-cyan-500 bg-cyan-50 text-cyan-700'
+                                    : 'border-gray-100 bg-gray-50 text-gray-500'
+                                }`}
+                              >
+                                {u === 'km' ? 'קילומטרים' : 'מיילים'}
+                              </button>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
 
                   {/* Equipment */}
                   <SettingsRow
-                    icon={<Dumbbell size={18} className="text-cyan-600" />}
+                    icon={<Dumbbell size={18} className="text-gray-700" />}
                     label="הציוד שלי"
                     sublabel="עדכן את הציוד הזמין לך"
                     onClick={() => setEquipmentSheetOpen(true)}
@@ -1838,7 +1892,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     icon={
                       <Camera
                         size={18}
-                        className={cameraStatus === 'granted' ? 'text-slate-700' : 'text-gray-400'}
+                        className="text-gray-700"
                       />
                     }
                     label="גישה למצלמה וגלריה"
@@ -1863,7 +1917,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     icon={
                       <MapPin
                         size={18}
-                        className={locationStatus === 'granted' ? 'text-cyan-600' : 'text-gray-400'}
+                        className="text-gray-700"
                       />
                     }
                     label="גישה למיקום"
@@ -1892,17 +1946,17 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                    ══════════════════════════════════════════════════════════ */}
                 <Section title="כללי">
                   <SettingsRow
-                    icon={<FileText size={18} className="text-purple-600" />}
+                    icon={<FileText size={18} className="text-gray-700" />}
                     label="תנאי שימוש ופרטיות"
                     onClick={() => setShowTermsModal(true)}
                   />
                   <SettingsRow
-                    icon={<Shield size={18} className="text-purple-600" />}
+                    icon={<Shield size={18} className="text-gray-700" />}
                     label="מדיניות פרטיות"
                     onClick={() => setShowPrivacyModal(true)}
                   />
                   <SettingsRow
-                    icon={<Mail size={18} className="text-blue-600" />}
+                    icon={<Mail size={18} className="text-gray-700" />}
                     label="יצירת קשר"
                     sublabel="office@appout.co.il"
                     onClick={() => window.open('mailto:office@appout.co.il', '_blank')}

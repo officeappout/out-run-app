@@ -307,7 +307,7 @@ export default function ProfilePage() {
 
   if (!_hasHydrated) {
     return (
-      <div className="h-screen flex items-center justify-center bg-[#F8FAFC]">
+      <div className="h-screen flex items-center justify-center bg-white">
         <p className="text-sm text-gray-500 animate-pulse">טוען...</p>
       </div>
     );
@@ -315,7 +315,7 @@ export default function ProfilePage() {
 
   if (!profile) {
     return (
-      <div className="h-screen flex items-center justify-center bg-[#F8FAFC]">
+      <div className="h-screen flex items-center justify-center bg-white">
         <p className="text-sm text-gray-500">מעביר להרשמה...</p>
       </div>
     );
@@ -333,7 +333,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC]">
+    <div className="min-h-screen bg-white">
       {/* Shared AppHeader — avatar pill + OUT logo + bell/chat/search. */}
       <AppHeader />
 

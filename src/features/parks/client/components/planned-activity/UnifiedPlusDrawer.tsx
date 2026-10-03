@@ -42,19 +42,19 @@ export default function UnifiedPlusDrawer({
 }: UnifiedPlusDrawerProps) {
   const select = (fn: () => void) => () => { onClose(); fn(); };
 
-  // Clean icon treatment (chrome polish, matching Settings' rows): no more
-  // colored circle behind a white glyph — each icon carries its own tint
-  // directly (inline style, same hex the circle used to be filled with),
-  // rendered with no background box.
+  // Clean icon treatment (chrome polish): no colored circle behind a white
+  // glyph, AND — per the unify-all-icon-colors round — no more per-icon
+  // rainbow either. Every icon is now the same flat neutral (text-gray-700),
+  // matching Settings' rows/profile rows; no background box either way.
   const activityRows: Row[] = [
     {
-      icon: <Footprints size={18} style={{ color: '#00C9F2' }} />,
+      icon: <Footprints size={18} className="text-gray-700" />,
       label: 'יוצא להתאמן',
       sublabel: 'שתף שאתה יוצא לאימון — ריצה, הליכה או כוח',
       onSelect: select(onGoTrain),
     },
     {
-      icon: <Users size={18} style={{ color: '#00C9F2' }} />,
+      icon: <Users size={18} className="text-gray-700" />,
       label: 'פתח קבוצה/ליגה',
       sublabel: 'התחל קהילה או ליגה חדשה',
       onSelect: select(onCreateGroup),
@@ -63,13 +63,13 @@ export default function UnifiedPlusDrawer({
 
   const contributeRows: Row[] = [
     {
-      icon: <MapPin size={18} style={{ color: '#10B981' }} />,
+      icon: <MapPin size={18} className="text-gray-700" />,
       label: 'הוסף מיקום',
       sublabel: 'פארק, גינת כושר או נקודת עניין חדשה',
       onSelect: select(onAddLocation),
     },
     {
-      icon: <Zap size={18} style={{ color: '#F59E0B' }} />,
+      icon: <Zap size={18} className="text-gray-700" />,
       label: 'דיווח מהיר',
       sublabel: 'ציוד פגום, תאורה, ניקיון ועוד',
       onSelect: select(onReport),
@@ -104,6 +104,7 @@ export default function UnifiedPlusDrawer({
           // QuickReportSheet, PlannedActivityComposeSheet — see .cursorrules
           // z-index budget "Full-screen overlays").
           className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40"
+          style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
           onClick={onClose}
         >
           <motion.div
