@@ -1433,10 +1433,26 @@ export async function syncOnboardingToFirestore(
         }
 
         // Merge existing tracks with quiz tracks (quiz overrides on conflict)
-        const mergedTracks = {
-          ...(updateData.progression?.tracks || {}),
-          ...quizTracks,
-        };
+        // — but never let a quiz-derived level REGRESS an already-higher
+        // stored level (Stage 5(b) fix, program-identity audit §05-A: a
+        // later sync pass — e.g. a stale Path B synthesis — must not
+        // silently downgrade a real assessed level). Mirrors the same
+        // Math.max floor already proven safe in recalculateMasterLevel
+        // (progression.service.ts, ~line 733). Programs not present in
+        // quizTracks are untouched by the initial spread, same as before.
+        const existingTracksForMerge = updateData.progression?.tracks || {};
+        const mergedTracks = { ...existingTracksForMerge };
+        for (const [programId, incomingTrack] of Object.entries(quizTracks)) {
+          const existingLevel = existingTracksForMerge[programId]?.currentLevel ?? 0;
+          if (incomingTrack.currentLevel >= existingLevel) {
+            mergedTracks[programId] = incomingTrack;
+          } else {
+            console.warn(
+              `[OnboardingSync] Blocked regression on tracks.${programId}: ` +
+              `existing currentLevel=${existingLevel}, incoming=${incomingTrack.currentLevel}. Keeping existing.`,
+            );
+          }
+        }
         console.log(
           '[OnboardingSync] Writing progression.tracks (Path B/C assessment levels):',
           mergedTracks

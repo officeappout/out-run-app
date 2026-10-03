@@ -112,6 +112,20 @@ export default function HealthDeclarationPage() {
     // same value regardless of timing.
     const miniActive = isMiniAssessmentActive();
 
+    // Stage 5(a) fix (program-identity audit §05-A): consume (read + clear)
+    // the mini-assessment state HERE, before the sync below fires — not
+    // after, as this previously did at the bottom of this function.
+    // syncOnboardingToFirestore reads its stale-state fallback inputs
+    // (onboarding_program_path / onboarding_muscle_focus) synchronously,
+    // before this function's own async IIFE below ever yields — clearing
+    // them only after the call (the previous order) was already too late to
+    // stop that read. consumeMiniAssessmentState() now also clears those two
+    // flags (see mini-domain-assessment.ts), so capturing its result here,
+    // before the IIFE runs, is what actually prevents the regression. Still
+    // gated on miniActive, still "the one place this runs for a user routed
+    // through this page" — only the timing moved, not the condition.
+    const miniReturnTo = miniActive ? consumeMiniAssessmentState().returnTo : null;
+
     // Fire-and-forget — see comment above for why this must not block navigation.
     (async () => {
       try {
@@ -221,11 +235,11 @@ export default function HealthDeclarationPage() {
     // Mini top-up: skip health-connect entirely (it's HealthKit/Google-Fit
     // integration, not required to finish a single-domain top-up) and
     // return to wherever the assessment was launched from — the true final
-    // step, so this is the one place consumeMiniAssessmentState() runs for
-    // a user who was routed through this page.
+    // destination. consumeMiniAssessmentState() itself already ran above
+    // (Stage 5(a) fix — moved earlier so its clearing lands before the sync
+    // fires); miniReturnTo is that same call's result, just captured sooner.
     if (miniActive) {
-      const { returnTo } = consumeMiniAssessmentState();
-      router.push(returnTo);
+      router.push(miniReturnTo!);
     } else {
       router.replace('/onboarding-new/health-connect');
     }

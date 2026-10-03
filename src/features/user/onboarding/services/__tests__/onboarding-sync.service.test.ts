@@ -1005,6 +1005,82 @@ describe('syncOnboardingToFirestore — Phase 3 (union-based program/track creat
   });
 });
 
+describe('syncOnboardingToFirestore — Stage 5(b) fix (program-identity audit §05-A): Path B must never regress an existing higher level', () => {
+  it('a second sync pass with no assignedResults (the stale Path B trigger) does not overwrite an already-assessed L6 down to Path B\'s synthesized level', async () => {
+    // The user is ALREADY assessed at push L6 — simulates the state right
+    // after a real, prior sync call (e.g. writeSingleDomainAssessment).
+    state.EXISTING_DOC = {
+      createdAt: 'X',
+      core: { name: 'A', gender: 'other', initialFitnessTier: 2 },
+      progression: {
+        globalLevel: 4, globalXP: 500, coins: 10,
+        domains: { push: { currentLevel: 6, maxLevel: 25, isUnlocked: true } },
+        tracks: { push: { currentLevel: 6, percent: 0 } },
+        activePrograms: [
+          { id: 'push', templateId: 'push', name: 'push', startDate: 'X', durationWeeks: 52, currentWeek: 1, focusDomains: ['push'] },
+        ],
+      },
+      currentProgramId: 'push',
+      onboardingStatus: 'COMPLETED',
+      onboardingCompletedAt: 'ORIGINAL_COMPLETION_TIMESTAMP',
+      lifestyle: {},
+    };
+
+    // The stale trigger: body_focus + a muscle focus still set, exactly as if
+    // consumeMiniAssessmentState() had never cleared them (pre-Stage-5(a)) —
+    // and NO assignedResults, Path B's own firing condition — on a SECOND,
+    // unrelated sync call for the same user. domainLevelMap caps Path B's
+    // synthesized level at 5 (fitnessLevel 1-3 → 1/3/5), so this is a real
+    // regression attempt against the existing L6, not a no-op by coincidence.
+    pathConfigState.programPath = 'body_focus';
+    pathConfigState.cardOrder = ['body_focus'];
+    pathConfigState.muscleFocus = ['chest']; // deriveActiveProgramFromMuscleFocus mock → 'push'
+    stubBrowserStorage();
+
+    const ok = await syncOnboardingToFirestore('COMPLETED', {} as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+    // Path B DID fire (visible via the synthesized activePrograms entry) —
+    // but the floor must keep the existing, higher level rather than
+    // Path B's synthesized one.
+    expect(written.progression.tracks.push.currentLevel).toBe(6);
+  });
+
+  it('still lets a quiz-derived level through normally when it is NOT a regression (floor is not a one-way lock)', async () => {
+    state.EXISTING_DOC = {
+      createdAt: 'X',
+      core: { name: 'A', gender: 'other', initialFitnessTier: 2 },
+      progression: {
+        globalLevel: 4, globalXP: 500, coins: 10,
+        domains: { push: { currentLevel: 2, maxLevel: 25, isUnlocked: true } },
+        tracks: { push: { currentLevel: 2, percent: 0 } },
+        activePrograms: [
+          { id: 'push', templateId: 'push', name: 'push', startDate: 'X', durationWeeks: 52, currentWeek: 1, focusDomains: ['push'] },
+        ],
+      },
+      currentProgramId: 'push',
+      onboardingStatus: 'COMPLETED',
+      onboardingCompletedAt: 'ORIGINAL_COMPLETION_TIMESTAMP',
+      lifestyle: {},
+    };
+    pathConfigState.programPath = 'body_focus';
+    pathConfigState.cardOrder = ['body_focus'];
+    pathConfigState.muscleFocus = ['chest'];
+    stubBrowserStorage();
+
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      assignedResults: [
+        { programId: 'push', levelId: 'push_level_9', masterProgramSubLevels: { push: 9, pull: 0, legs: 0, core: 0 } },
+      ],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+    expect(written.progression.tracks.push.currentLevel).toBe(9);
+  });
+});
+
 describe('syncOnboardingToFirestore — Phase 3 (union-based program/track creation): combos — the actual bug fix + Decisions 1-3', () => {
   it('THE HEADLINE BUG FIX: body_focus primary + skills secondary (2+ skills) — both a tracked muscle program AND a tracked skill program are written, skillFocusIds present', async () => {
     pathConfigState.programPath = 'body_focus';

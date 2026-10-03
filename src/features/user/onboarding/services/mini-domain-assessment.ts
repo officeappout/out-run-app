@@ -190,6 +190,17 @@ export function consumeMiniAssessmentState(): { domain: string | null; returnTo:
     sessionStorage.removeItem(MINI_ASSESSMENT_ACTIVE_KEY);
     sessionStorage.removeItem(MINI_ASSESSMENT_DOMAIN_KEY);
     sessionStorage.removeItem(MINI_ASSESSMENT_RETURN_TO_KEY);
+    // Stage 5(a) fix (program-identity audit §05-A): also clear the single-
+    // domain scoping flags this same mini top-up seeded (startMiniDomainAssessment
+    // above). Left alone, these stale flags survive into a LATER, unrelated
+    // sync call in the same session (e.g. this user's own health-declaration
+    // step) and feed onboarding-sync's "Path B" fallback — which synthesizes
+    // a Level-1 result from them with no idea a real, higher level was
+    // already assessed. Clearing them here, alongside the mini_* flags they
+    // were seeded with, is the correct lifetime for all of them together.
+    sessionStorage.removeItem('onboarding_program_path');
+    sessionStorage.removeItem('onboarding_muscle_focus');
+    sessionStorage.removeItem('onboarding_skill_focus');
     // Consumed via the clean mini-branch — the durable copy is no longer
     // needed (health-connect's own read is only for the detoured case).
     removeOnboardingPref(MAP_RETURN_TARGET_PREF_KEY);

@@ -126,8 +126,22 @@ export const KNOWN_MASTER_PROGRAMS: Record<string, string[]> = {
  *   - slugToId: slug → Firestore ID (reverse lookup)
  *
  * Slug priority:
- *   1. movementPattern (admin-defined: 'push' | 'pull' | 'legs' | 'core')
- *   2. Lowercased/underscored name (e.g. "Full Body" → "full_body")
+ *   1. Program.slug (canonical — admin-set, e.g. 'planche', 'front_lever')
+ *   2. movementPattern (admin-defined: 'push' | 'pull' | 'legs' | 'core')
+ *   3. Lowercased/underscored name (e.g. "Full Body" → "full_body")
+ *
+ * Stage 6 fix (program-identity audit §05-B): priority 1 was missing
+ * entirely until this fix — the formula read movementPattern-or-name only,
+ * the OPPOSITE priority of the canonical resolver (program-hierarchy.utils.ts's
+ * buildIdToSlugMapFromPrograms, and Program.slug's own doc comment, both of
+ * which put slug first). A master program's skill children (movementPattern
+ * null, slug-only — e.g. calisthenics_upper's planche/front_lever/
+ * one_arm_pullup/handstand_pushup) fell straight to a Hebrew-name-derived
+ * garbage string, never matching their real tracks keys — the confirmed
+ * cause of getMasterProgramProgress's routingEmptySkip abort for any master
+ * mixing foundational children (movementPattern set) with skill children
+ * (slug-only). General fix, not calisthenics_upper-specific — this is the
+ * one shared resolver every master's child-lookup goes through.
  */
 export interface ProgramSlugMap {
   idToSlug: Map<string, string>;
@@ -142,7 +156,7 @@ async function buildProgramSlugMap(): Promise<ProgramSlugMap> {
   const idToProgram = new Map<string, Program>();
 
   for (const p of allPrograms) {
-    const slug = p.movementPattern || p.name.toLowerCase().replace(/[\s-]+/g, '_');
+    const slug = p.slug || p.movementPattern || p.name.toLowerCase().replace(/[\s-]+/g, '_');
     idToSlug.set(p.id, slug);
     slugToId.set(slug, p.id);
     idToProgram.set(p.id, p);
