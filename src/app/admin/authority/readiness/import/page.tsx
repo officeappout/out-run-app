@@ -87,11 +87,18 @@ export default function ReadinessBulkImportPage() {
         name: r.name,
         gender: null,
         isDuplicate: existingNames.has(r.name),
-        // Default "add anyway" — a skip-by-default would silently
-        // under-import a real person who happens to share a name with
-        // someone already on the roster ("שני אנשים יכולים להיקרא אותו
-        // דבר"); the officer actively opts OUT via "דלג" instead.
-        duplicateChoice: 'add',
+        // Default "skip" (David, 03.10.2026 correction) — frequency and
+        // asymmetry, not principle: the common case is re-pasting an
+        // updated list where MOST rows are already on the roster.
+        // Defaulting to "add" would silently create dozens of
+        // not-yet-tested phantom records, diluting the readiness
+        // denominator and dragging the pass rate down — invisibly,
+        // looking completely normal on screen. The opposite mistake (a
+        // real soldier skipped) is immediately visible and a one-click
+        // fix. An invisible error is worse than a visible one. The row
+        // still shows and is still marked — the officer can choose "הוסף
+        // בכל זאת" per row; this is a visible default, not a silent drop.
+        duplicateChoice: 'skip',
         extraFields: r.extraFields,
       })),
     );
