@@ -1,4 +1,4 @@
-import type { Venue, WeddingSettings } from './wedding.types';
+import type { FamilyDate, HebrewMonth, Venue, WeddingSettings } from './wedding.types';
 
 export interface VenueCost {
   /** Price per plate after alcohol and VAT */
@@ -299,7 +299,7 @@ export interface MonthOption {
 }
 
 /** Counts usable Sun–Thu dates in a month (from `from` on, if given), and how many are blocked and why. */
-export function monthOptions(year: number, month0: number, from?: Date): MonthOption {
+export function monthOptions(year: number, month0: number, from?: Date, family: FamilyDate[] = []): MonthOption {
   const out: MonthOption = { year, month0, weekdayFree: 0, thursdayFree: 0, blocked: {} };
   const days = new Date(year, month0 + 1, 0).getDate();
   for (let i = 1; i <= days; i++) {
@@ -307,7 +307,7 @@ export function monthOptions(year: number, month0: number, from?: Date): MonthOp
     if (from && d < from) continue;
     const wd = d.getDay();
     if (wd > 4) continue;
-    const r = blockedReason(d);
+    const r = blockedReason(d) ?? (familyOn(d, family).length ? 'תאריך משפחתי' : null);
     if (r) out.blocked[r] = (out.blocked[r] ?? 0) + 1;
     else if (wd === 4) out.thursdayFree++;
     else out.weekdayFree++;
@@ -357,3 +357,31 @@ export function venuePriceFor(v: Venue, year: number, month0: number, dt: DayTyp
   const f = seasonFactor(month0) * (dt === 'thursday' ? DAY_FACTOR.thursday : DAY_FACTOR.weekday);
   return { price: Math.round(base * f), source: 'derived', fromDate: ref.date };
 }
+
+/** Does a Hebrew month (from Intl) satisfy a stored one? Plain 'אדר' = either Adar; 'אדר א׳'/'אדר ב׳' = plain Adar in a regular year. */
+export function hebrewMonthMatches(actual: string, stored: HebrewMonth): boolean {
+  if (actual === stored) return true;
+  if (stored === 'אדר') return actual === 'אדר א׳' || actual === 'אדר ב׳';
+  if (stored === 'אדר א׳' || stored === 'אדר ב׳') return actual === 'אדר';
+  return false;
+}
+
+export interface FamilyHit {
+  date: FamilyDate;
+  /** Which calendar put it on this day. */
+  by: 'hebrew' | 'civil';
+}
+
+/** Family dates that fall on a civil day (by Hebrew date and/or civil date). */
+export function familyOn(d: Date, family: FamilyDate[]): FamilyHit[] {
+  if (!family.length) return [];
+  const h = hebrewDate(d);
+  const out: FamilyHit[] = [];
+  for (const f of family) {
+    if (f.hDay && h && h.day === f.hDay && hebrewMonthMatches(h.month, f.hMonth)) out.push({ date: f, by: 'hebrew' });
+    else if (f.gDay && d.getDate() === f.gDay && d.getMonth() + 1 === f.gMonth) out.push({ date: f, by: 'civil' });
+  }
+  return out;
+}
+
+export const familyIcon = (f: FamilyDate) => (f.kind === 'אזכרה' ? '🕯️' : f.kind === 'יום הולדת' ? '🎂' : '⭐');

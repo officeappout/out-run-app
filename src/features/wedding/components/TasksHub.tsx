@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react';
-import { buildRoadmap, daysBeforeFor, gematria, hebrewDate, hebrewDateLabel, layoutWeek, taskDueDate, taskStartDate, tasksOverlapping, toIso, weekStart } from '../wedding.calc';
+import { familyIcon, familyOn, buildRoadmap, daysBeforeFor, gematria, hebrewDate, hebrewDateLabel, layoutWeek, taskDueDate, taskStartDate, tasksOverlapping, toIso, weekStart } from '../wedding.calc';
 import type { WeddingState, WeddingTask } from '../wedding.types';
 import { taskOrder } from '../wedding.links';
 import { OwnerDots, OwnerFilterBar, OwnerPicker, OwnerPills, TASK_STYLES, matchesOwner, taskColor, taskStyle, type OwnerFilter } from './tags';
@@ -37,7 +37,7 @@ function defaultDueIso(s: WeddingState): string {
 
 function newTaskOn(s: WeddingState, iso: string, owners: string[]): WeddingTask {
   const d = daysBeforeFor(s.settings.date, iso);
-  return { id: newId(), name: '', daysBefore: d, startBefore: d, done: false, owners, vendorId: '', color: '' };
+  return { id: newId(), name: '', daysBefore: d, startBefore: d, done: false, owners, vendorId: '', color: '', notes: '' };
 }
 
 /** One task row: tick + name, when, who. Tapping the name opens the dialog when `onOpen` is given. */
@@ -51,6 +51,11 @@ export function TaskLine({ t, s, update, late, onOpen }: { t: WeddingTask; s: We
       <i className={`block h-3 w-3 shrink-0 rounded-sm ${TASK_STYLES[taskColor(t, order)].dot}`} aria-hidden="true" />
       <span className={`min-w-0 flex-1 ${t.done ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{t.name}</span>
       {vendor && <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">ספק</span>}
+      {t.notes && (
+        <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-bold text-slate-600" title={t.notes}>
+          הערות
+        </span>
+      )}
       <OwnerPills t={t} s={s} />
       <span className={`shrink-0 tabular-nums ${late ? 'font-bold text-red-600' : 'text-slate-500'}`}>
         {taskWhen(s, t)}
@@ -196,6 +201,21 @@ function TaskDialog({ s, draft, onSave, onDelete, onClose }: { s: WeddingState; 
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-bold text-slate-600">מי עושה (אפשר לבחור כמה)</span>
             <OwnerPicker s={s} value={t.owners} onChange={(owners) => setT({ ...t, owners })} />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="wt-notes" className="text-xs font-bold text-slate-600">
+              הערות
+            </label>
+            <textarea
+              id="wt-notes"
+              rows={3}
+              maxLength={2000}
+              placeholder="טלפונים, מה סוכם, מה לבדוק…"
+              className={`${cellInput} min-h-[80px] resize-y leading-relaxed`}
+              value={t.notes}
+              onChange={(e) => setT({ ...t, notes: e.target.value })}
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -374,15 +394,17 @@ function MonthCalendar({ s, tasks, onAdd, onOpen }: { s: WeddingState; tasks: We
                 const inMonth = d.getMonth() === month.getMonth();
                 const isWedding = iso === wedding;
                 const h = hebrewDate(d);
+                const fam = familyOn(d, s.settings.familyDates);
                 return (
                   <button
                     key={iso}
                     onClick={() => setPicked(iso)}
-                    aria-label={d.toLocaleDateString('he-IL', { day: 'numeric', month: 'long' })}
+                    aria-label={`${d.toLocaleDateString('he-IL', { day: 'numeric', month: 'long' })}${fam.length ? ` · ${fam.map((x) => x.date.name).join(', ')}` : ''}`}
+                    title={fam.length ? fam.map((x) => `${familyIcon(x.date)} ${x.date.name}${x.by === 'civil' ? ' (לועזי)' : ''}`).join('\n') : undefined}
                     aria-pressed={picked === iso}
                     style={{ gridColumn: i + 1, gridRow: '1 / -1' }}
                     className={`flex flex-col items-start gap-0.5 border-s border-gray-100 p-1 first:border-s-0 md:min-h-[96px] md:flex-row md:flex-wrap md:items-center md:content-start md:gap-x-1.5 md:p-1.5 ${
-                      isWedding ? 'bg-emerald-50' : inMonth ? 'bg-white hover:bg-gray-50' : 'bg-gray-50'
+                      isWedding ? 'bg-emerald-50' : fam.length ? 'bg-amber-50 hover:bg-amber-100' : inMonth ? 'bg-white hover:bg-gray-50' : 'bg-gray-50'
                     } ${picked === iso ? 'ring-2 ring-inset ring-emerald-500' : ''}`}
                   >
                     <span
@@ -395,6 +417,11 @@ function MonthCalendar({ s, tasks, onAdd, onOpen }: { s: WeddingState; tasks: We
                     {h && (
                       <span className={`max-w-full truncate text-[10px] leading-tight md:text-[11px] ${h.day === 1 ? 'font-bold text-emerald-700' : inMonth ? 'text-slate-400' : 'text-slate-300'}`}>
                         {h.day === 1 ? `${gematria(1)} ${h.month}` : gematria(h.day)}
+                      </span>
+                    )}
+                    {fam.length > 0 && (
+                      <span className="text-[11px] leading-none" aria-hidden="true">
+                        {fam.map((x) => familyIcon(x.date)).join('')}
                       </span>
                     )}
                     {hiddenByDay[i] > 0 && <span className="mt-auto hidden text-[11px] font-bold text-slate-500 md:block">+{hiddenByDay[i]} נוספות</span>}
@@ -443,6 +470,12 @@ function MonthCalendar({ s, tasks, onAdd, onOpen }: { s: WeddingState; tasks: We
           )}
         </div>
         {picked === wedding && <p className="py-1 text-sm font-bold text-emerald-700">יום החתונה</p>}
+        {familyOn(pickedDate, s.settings.familyDates).map((x) => (
+          <p key={x.date.id} className="mb-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-900">
+            {familyIcon(x.date)} {x.date.name} · {x.date.kind}
+            {x.by === 'civil' ? ' (תאריך לועזי)' : ''}
+          </p>
+        ))}
         {pickedTasks.length ? (
           pickedTasks.map((t) => {
             const st = taskStyle(t, order);

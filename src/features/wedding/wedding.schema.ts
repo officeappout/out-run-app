@@ -2,6 +2,11 @@ import { DEFAULT_SETTINGS } from './wedding.config';
 import {
   TAG_COLORS,
   TASK_COLORS,
+  FAMILY_KINDS,
+  HEBREW_MONTHS,
+  type FamilyDate,
+  type FamilyKind,
+  type HebrewMonth,
   type TaskColor,
   TOGETHER,
   type TagColor,
@@ -72,7 +77,32 @@ export function parseSettings(x: unknown): WeddingSettings {
     bar: s.bar === undefined ? d.bar : money(s.bar),
     people: parsePeople(s.people),
     tagColors: parseTagColors(s.tagColors),
+    familyDates: parseFamilyDates(s.familyDates),
   };
+}
+
+function intIn(x: unknown, min: number, max: number): number {
+  const n = Math.round(Number(x));
+  return Number.isFinite(n) && n >= min && n <= max ? n : 0;
+}
+
+function parseFamilyDates(x: unknown): FamilyDate[] {
+  return list(x, 60)
+    .map((f, i): FamilyDate | null => {
+      if (!isObj(f)) return null;
+      const out: FamilyDate = {
+        id: id(f.id, i, 'fd'),
+        name: str(f.name, 60),
+        kind: oneOf<FamilyKind>(f.kind, FAMILY_KINDS, 'אחר'),
+        hDay: intIn(f.hDay, 1, 30),
+        hMonth: oneOf<HebrewMonth>(f.hMonth, HEBREW_MONTHS, 'תשרי'),
+        gDay: intIn(f.gDay, 1, 31),
+        gMonth: intIn(f.gMonth, 1, 12),
+      };
+      if (!out.gDay || !out.gMonth) out.gDay = out.gMonth = 0;
+      return out.name && (out.hDay || out.gDay) ? out : null;
+    })
+    .filter((f): f is FamilyDate => !!f);
 }
 
 function parseTagColors(x: unknown): Record<string, TagColor> {
@@ -165,6 +195,7 @@ function parseTask(x: unknown, i: number, people: string[]): WeddingTask | null 
     owners: parseOwners(x, people),
     vendorId: typeof x.vendorId === 'string' ? x.vendorId.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) : '',
     color: TASK_COLORS.includes(x.color as TaskColor) ? (x.color as TaskColor) : '',
+    notes: str(x.notes, LIMITS.notes),
   };
 }
 

@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { DAY_FACTOR, dateFactor, formatShekel, gematria, hebrewDate, monthOptions, seasonFactor, seasonLabel } from '../wedding.calc';
+import { DAY_FACTOR, familyIcon, familyOn, dateFactor, formatShekel, gematria, hebrewDate, monthOptions, seasonFactor, seasonLabel } from '../wedding.calc';
 import { MARKET } from '../wedding.config';
 import type { WeddingState } from '../wedding.types';
 import { card, cellInput, fmtIso } from './ui';
+import { WeddingDateFamilyNote } from './FamilyDates';
 
 /**
  * "What if we moved the date?" — estimated price per guest for a weekday
@@ -68,6 +69,10 @@ export function DateCompare({ s }: { s: WeddingState }) {
         </label>
       </div>
 
+      <div className="mb-2">
+        <WeddingDateFamilyNote settings={s.settings} />
+      </div>
+
       <div className="overflow-x-auto">
         <table className="w-full min-w-[620px] border-collapse text-sm">
           <thead>
@@ -82,7 +87,10 @@ export function DateCompare({ s }: { s: WeddingState }) {
             {months.map((m) => {
               const today = new Date();
               today.setHours(0, 0, 0, 0);
-              const opt = monthOptions(m.getFullYear(), m.getMonth(), today);
+              const opt = monthOptions(m.getFullYear(), m.getMonth(), today, s.settings.familyDates);
+              const famDays = Array.from({ length: new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate() }, (_, i) => new Date(m.getFullYear(), m.getMonth(), i + 1, 12))
+                .filter((d) => d >= today)
+                .flatMap((d) => familyOn(d, s.settings.familyDates).map((x) => ({ ...x, d })));
               const isWeddingMonth = m.getFullYear() === wedding.getFullYear() && m.getMonth() === wedding.getMonth();
               const weddingIsThu = wedding.getDay() === 4;
               const f = seasonFactor(m.getMonth());
@@ -119,6 +127,15 @@ export function DateCompare({ s }: { s: WeddingState }) {
                         ))}
                       </div>
                     )}
+                    {famDays.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {famDays.map((x) => (
+                          <span key={`${x.date.id}-${x.d.getDate()}`} className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-900">
+                            {familyIcon(x.date)} {x.d.getDate()}.{x.d.getMonth() + 1} {x.date.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </td>
                 </tr>
               );
@@ -133,7 +150,7 @@ export function DateCompare({ s }: { s: WeddingState }) {
           חלוקים, אז הוא באמצע (+12%). המספרים הם הערכה בלבד. המחיר האמיתי לכל תאריך מגיע רק מהצעה כתובה של האולם.
         </p>
         <p>
-          <b>תאריכים חסומים:</b> ספירת העומר (בלי ל״ג בעומר), בין המצרים וחגים, לפי המנהג הנפוץ. המנהגים שונים בין עדות, אז כדאי לבדוק מול הרב. שישי בצהריים ומוצאי שבת לא נכללים, כי
+          <b>תאריכים משפחתיים</b> (ימי הולדת ואזכרות, עורכים בהגדרות) נספרים כתפוסים ומופיעים בצהוב בכל חודש. <b>תאריכים חסומים:</b> ספירת העומר (בלי ל״ג בעומר), בין המצרים וחגים, לפי המנהג הנפוץ. המנהגים שונים בין עדות, אז כדאי לבדוק מול הרב. שישי בצהריים ומוצאי שבת לא נכללים, כי
           אין עליהם נתוני מחיר אמינים.
         </p>
       </div>

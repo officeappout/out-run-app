@@ -17,6 +17,7 @@ export const DEFAULT_SETTINGS: WeddingSettings = {
   bar: 30,
   people: ['דוד', 'בת הזוג'],
   tagColors: {},
+  familyDates: [],
 };
 
 const SEED_TASKS: Array<[string, number]> = [
@@ -72,6 +73,7 @@ export function initialWeddingState(): WeddingState {
       owners: [],
       vendorId: '',
       color: '',
+      notes: '',
     })),
   };
 }
