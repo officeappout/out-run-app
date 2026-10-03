@@ -139,19 +139,23 @@ export interface DashboardUnitRow {
   totalCount: number;
   /** One breakdown per filter view — 'all' (every test, all-must-pass), 'run' (run_3000m alone), 'strength' (pullups+dips, all-must-pass). The table's overall-readiness column, status bar, and sort must all read from the SAME active view — never mix views on screen at once. */
   views: Record<DashboardUnitViewKey, DashboardUnitStatusBreakdown>;
-  perComponent: Record<string, { testedCount: number; passPercent: number | null }>;
+  perComponent: Record<string, { passCount: number; failCount: number; testedCount: number; passPercent: number | null }>;
   /** ISO, the most recent testDate among this unit's soldiers' organized_test results. null if none. */
   lastTestDate: string | null;
   /** The REAL unitId (within this same tenant's unit list) this unit nests under — null for a top-level unit (its parent, if any in unitDirectory, is the brigade itself, not another unit in this list). Resolved via unitDirectory, see file header. */
   parentUnitId: string | null;
   /** Ancestor names, nearest-first, joined with " · " (e.g. "גדוד 9307 · חטיבה 810") — null only if unitDirectory has no entry for this unit at all (sync hasn't caught up, or an edge case) — never fabricated. */
   breadcrumb: string | null;
+  /** This unit's own unitDirectory level ('battalion'/'company'/'platoon') — null if unitDirectory has no entry for it. */
+  level: string | null;
 }
 
 export type BrigadeDashboardResult =
   | {
       status: 200;
       body: {
+        /** The resolved tenant this result is scoped to — added for computeUnitDetail (readiness-unit-detail.service.ts), which needs it to fetch the brigade's own unitDirectory entry without re-deriving scope-resolution logic a second time. */
+        tenantId: string;
         overall: DashboardOverallBreakdown;
         components: DashboardComponentBreakdown[];
         units: DashboardUnitRow[];
@@ -191,6 +195,7 @@ interface UnitDirectoryEntry {
   name: string;
   parentId: string | null;
   unitId: string | null;
+  level: string | null;
 }
 
 /** Mirrors onUnitWrite.ts's own directoryIdForUnit() exactly — same composite-id convention, not a new one. */
@@ -210,6 +215,11 @@ function resolveParentUnitId(tenantId: string, unitId: string, dirByDirectoryId:
   const parentDirectoryId = entry?.parentId ?? null;
   if (!parentDirectoryId || parentDirectoryId === tenantId) return null;
   return dirByDirectoryId.get(parentDirectoryId)?.unitId ?? null;
+}
+
+/** This unit's own unitDirectory level ('battalion'/'company'/'platoon') — null when unitDirectory has no entry for it. Used for level-correct Hebrew wording (e.g. "הגדוד עצמו... הפלוגות") on the unit-detail screen, see readiness-unit-detail.service.ts. */
+function resolveLevel(tenantId: string, unitId: string, dirByDirectoryId: Map<string, UnitDirectoryEntry>): string | null {
+  return dirByDirectoryId.get(directoryIdForUnit(tenantId, unitId))?.level ?? null;
 }
 
 /** Ancestor names, nearest-first — same walk shape as unit-league-selection.ts's buildBreadcrumb (arena domain), reimplemented here rather than imported (CLAUDE.md: no cross-domain imports). */
@@ -293,6 +303,7 @@ export async function computeBrigadeDashboard(
       name: typeof data.name === 'string' ? data.name : d.id,
       parentId: typeof data.parentId === 'string' ? data.parentId : null,
       unitId: typeof data.unitId === 'string' ? data.unitId : null,
+      level: typeof data.level === 'string' ? data.level : null,
     });
   }
 
@@ -418,11 +429,11 @@ export async function computeBrigadeDashboard(
   });
 
   const units: DashboardUnitRow[] = Array.from(unitAcc.entries()).map(([unitId, acc]) => {
-    const perComponent: Record<string, { testedCount: number; passPercent: number | null }> = {};
+    const perComponent: Record<string, { passCount: number; failCount: number; testedCount: number; passPercent: number | null }> = {};
     for (const testId of testIds) {
       const c = acc.perComponent[testId];
       const testedForComponent = c.passCount + c.failCount;
-      perComponent[testId] = { testedCount: testedForComponent, passPercent: pct(c.passCount, testedForComponent) };
+      perComponent[testId] = { passCount: c.passCount, failCount: c.failCount, testedCount: testedForComponent, passPercent: pct(c.passCount, testedForComponent) };
     }
     return {
       unitId,
@@ -437,9 +448,10 @@ export async function computeBrigadeDashboard(
       lastTestDate: acc.lastTestMs !== null ? new Date(acc.lastTestMs).toISOString() : null,
       parentUnitId: resolveParentUnitId(targetTenantId, unitId, dirByDirectoryId),
       breadcrumb: buildBreadcrumb(targetTenantId, unitId, dirByDirectoryId),
+      level: resolveLevel(targetTenantId, unitId, dirByDirectoryId),
     };
   });
   units.sort((a, b) => a.unitName.localeCompare(b.unitName, 'he'));
 
-  return { status: 200, body: { overall, components, units } };
+  return { status: 200, body: { tenantId: targetTenantId, overall, components, units } };
 }

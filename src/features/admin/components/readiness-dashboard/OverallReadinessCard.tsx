@@ -31,7 +31,15 @@ function LegendRow({ color, label, count }: { color: string; label: string; coun
  * the warning line below (that line is specifically "who still needs a
  * test scheduled," and an exempt soldier isn't one of those).
  */
-export default function OverallReadinessCard({ overall }: { overall: DashboardOverallBreakdown }) {
+interface OverallReadinessCardProps {
+  overall: DashboardOverallBreakdown;
+  /** 03.10.2026, unit-detail screen reuse — overrides "מהחטיבה" in the bottom warning line (e.g. "מהיחידה"). Omitted everywhere else — the brigade dashboard's own call site is unchanged. */
+  warningScopeLabel?: string;
+  /** 03.10.2026, unit-detail screen reuse — the mandatory cumulative line ("כולל הפלוגות: X חיילים · Y כשירים (Z%)"), rendered as its own, explicitly-marked row below everything else. Omitted everywhere else. */
+  cumulativeNote?: string;
+}
+
+export default function OverallReadinessCard({ overall, warningScopeLabel = 'מהחטיבה', cumulativeNote }: OverallReadinessCardProps) {
   const total = overall.totalCount;
   const notYetTestedPercent = total > 0 ? Math.round((overall.notYetTestedCount / total) * 1000) / 10 : null;
 
@@ -68,7 +76,13 @@ export default function OverallReadinessCard({ overall }: { overall: DashboardOv
 
       {notYetTestedPercent !== null && (
         <p className="text-[11px] font-bold mt-auto" style={{ color: READINESS_COLORS.fail }}>
-          {notYetTestedPercent}% מהחטיבה עדיין לא נבדקו
+          {notYetTestedPercent}% {warningScopeLabel} עדיין לא נבדקו
+        </p>
+      )}
+
+      {cumulativeNote && (
+        <p className="text-[11px] font-bold text-slate-500 pt-2 mt-2 border-t border-slate-100">
+          {cumulativeNote}
         </p>
       )}
     </div>

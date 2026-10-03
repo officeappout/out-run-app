@@ -3,6 +3,7 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import Link from 'next/link';
@@ -33,6 +34,12 @@ function isoDaysAgo(days: number): string {
  * relies on.
  */
 export default function ReadinessEntryPage() {
+  // 03.10.2026 (Stage 7, unit-detail screen) — "רישום תוצאות בוחן" from
+  // a unit's own detail page should open here with that exact unit
+  // already selected, not default to the first unit in the list.
+  const searchParams = useSearchParams();
+  const preselectedUnitId = searchParams?.get('unitId') ?? null;
+
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retrySeq, setRetrySeq] = useState(0);
@@ -73,8 +80,10 @@ export default function ReadinessEntryPage() {
     setSoldiers(rosterBody.soldiers ?? []);
     setUnits(rosterBody.units ?? []);
     setConfig(thresholdsBody.config ?? null);
-    setSelectedUnitId((prev) => prev || (rosterBody.units?.[0]?.id ?? ''));
-  }, []);
+    const availableUnits: RosterUnitEntry[] = rosterBody.units ?? [];
+    const preselectedIsValid = preselectedUnitId && availableUnits.some((u) => u.id === preselectedUnitId);
+    setSelectedUnitId((prev) => prev || (preselectedIsValid ? preselectedUnitId! : (availableUnits[0]?.id ?? '')));
+  }, [preselectedUnitId]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
