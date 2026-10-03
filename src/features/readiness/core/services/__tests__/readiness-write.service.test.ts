@@ -12,6 +12,8 @@ vi.mock('@/lib/firebase-admin', () => ({
 
 import {
   computeCreateSoldier,
+  computeBulkCreateSoldiers,
+  BULK_IMPORT_MAX_ROWS,
   computeLinkSoldier,
   computeUnlinkSoldier,
   computeMergeSoldiers,
@@ -141,6 +143,7 @@ function makeFakeDb(seed: {
       const ops: Array<() => void> = [];
       return {
         update: (ref: any, data: FakeDoc) => ops.push(() => applyUpdate(ref.collName, ref.id, data)),
+        create: (ref: any, data: FakeDoc) => ops.push(() => stores[ref.collName].set(ref.id, { ...data })),
         commit: async () => ops.forEach((op) => op()),
       };
     },
@@ -248,6 +251,125 @@ describe('computeCreateSoldier', () => {
     const db = makeFakeDb({ units: { 'tenant-1': { 'battalion-1': {} } } });
     await computeCreateSoldier(db, UNIT_ADMIN_SCOPE, { name: 'Soldier A', unitId: 'battalion-1', gender: 'male' }, CTX);
     expect(db._stores.audit_logs.size).toBe(1);
+  });
+});
+
+describe('computeBulkCreateSoldiers (03.10.2026, bulk-import round — atomic, single WriteBatch)', () => {
+  it('unknown scope → 503, nothing created', async () => {
+    const db = makeFakeDb({});
+    const result = await computeBulkCreateSoldiers(db, UNKNOWN_SCOPE, { unitId: 'battalion-1', soldiers: [{ name: 'A', gender: 'male' }] }, CTX);
+    expect(result.status).toBe(503);
+    expect(db._stores.readiness_soldiers.size).toBe(0);
+  });
+
+  it('denied scope → 403, nothing created', async () => {
+    const db = makeFakeDb({});
+    const result = await computeBulkCreateSoldiers(db, DENIED_SCOPE, { unitId: 'battalion-1', soldiers: [{ name: 'A', gender: 'male' }] }, CTX);
+    expect(result.status).toBe(403);
+    expect(db._stores.readiness_soldiers.size).toBe(0);
+  });
+
+  it('soldiers missing or empty → 400, nothing created', async () => {
+    const db = makeFakeDb({ units: { 'tenant-1': { 'battalion-1': {} } } });
+    const result = await computeBulkCreateSoldiers(db, UNIT_ADMIN_SCOPE, { unitId: 'battalion-1', soldiers: [] }, CTX);
+    expect(result.status).toBe(400);
+    expect(db._stores.readiness_soldiers.size).toBe(0);
+  });
+
+  it(`more than ${BULK_IMPORT_MAX_ROWS} rows → 400, nothing created, NO automatic split into multiple batches`, async () => {
+    const db = makeFakeDb({ units: { 'tenant-1': { 'battalion-1': {} } } });
+    const soldiers = Array.from({ length: BULK_IMPORT_MAX_ROWS + 1 }, (_, i) => ({ name: `S${i}`, gender: 'male' }));
+    const result = await computeBulkCreateSoldiers(db, UNIT_ADMIN_SCOPE, { unitId: 'battalion-1', soldiers }, CTX);
+    expect(result.status).toBe(400);
+    if (result.status === 400) expect(result.body.error).toContain(String(BULK_IMPORT_MAX_ROWS));
+    expect(db._stores.readiness_soldiers.size).toBe(0);
+  });
+
+  it('exactly the cap (300 rows) is accepted', async () => {
+    const db = makeFakeDb({ units: { 'tenant-1': { 'battalion-1': {} } } });
+    const soldiers = Array.from({ length: BULK_IMPORT_MAX_ROWS }, (_, i) => ({ name: `S${i}`, gender: 'male' }));
+    const result = await computeBulkCreateSoldiers(db, UNIT_ADMIN_SCOPE, { unitId: 'battalion-1', soldiers }, CTX);
+    expect(result.status).toBe(200);
+    expect(db._stores.readiness_soldiers.size).toBe(BULK_IMPORT_MAX_ROWS);
+  });
+
+  it('unitAdmin importing into a unit outside their unitIds → 403, nothing created', async () => {
+    const db = makeFakeDb({ units: { 'tenant-1': { 'company-9': {} } } });
+    const result = await computeBulkCreateSoldiers(db, UNIT_ADMIN_SCOPE, { unitId: 'company-9', soldiers: [{ name: 'A', gender: 'male' }] }, CTX);
+    expect(result.status).toBe(403);
+    expect(db._stores.readiness_soldiers.size).toBe(0);
+  });
+
+  it('unitId does not exist → 400, nothing created (same check as single-create, shared helper)', async () => {
+    const db = makeFakeDb({});
+    const result = await computeBulkCreateSoldiers(db, UNIT_ADMIN_SCOPE, { unitId: 'battalion-1', soldiers: [{ name: 'A', gender: 'male' }] }, CTX);
+    expect(result.status).toBe(400);
+    expect(db._stores.readiness_soldiers.size).toBe(0);
+  });
+
+  it('ONE invalid row (missing gender) among otherwise-valid rows blocks the WHOLE import — nothing written, not even the valid rows', async () => {
+    const db = makeFakeDb({ units: { 'tenant-1': { 'battalion-1': {} } } });
+    const result = await computeBulkCreateSoldiers(
+      db,
+      UNIT_ADMIN_SCOPE,
+      { unitId: 'battalion-1', soldiers: [{ name: 'Good One', gender: 'male' }, { name: 'Missing Gender', gender: null }, { name: 'Good Two', gender: 'female' }] },
+      CTX,
+    );
+    expect(result.status).toBe(400);
+    if (result.status === 400) {
+      expect(result.body.invalidRows).toEqual([{ index: 1, error: 'gender is required (male|female)' }]);
+    }
+    // Atomicity — the two VALID rows must NOT have been written either.
+    expect(db._stores.readiness_soldiers.size).toBe(0);
+  });
+
+  it('a row with an empty/whitespace-only name is invalid, reported with its own index', async () => {
+    const db = makeFakeDb({ units: { 'tenant-1': { 'battalion-1': {} } } });
+    const result = await computeBulkCreateSoldiers(
+      db,
+      UNIT_ADMIN_SCOPE,
+      { unitId: 'battalion-1', soldiers: [{ name: '   ', gender: 'male' }] },
+      CTX,
+    );
+    expect(result.status).toBe(400);
+    if (result.status === 400) expect(result.body.invalidRows).toEqual([{ index: 0, error: 'name is required' }]);
+  });
+
+  it('happy path: N soldiers all created with correct tenantId/unitId/name/gender, uid always null (no uid-linking path in bulk import)', async () => {
+    const db = makeFakeDb({ units: { 'tenant-1': { 'battalion-1': {} } } });
+    const result = await computeBulkCreateSoldiers(
+      db,
+      UNIT_ADMIN_SCOPE,
+      { unitId: 'battalion-1', soldiers: [{ name: '  Soldier One  ', gender: 'male' }, { name: 'Soldier Two', gender: 'female' }] },
+      CTX,
+    );
+    expect(result.status).toBe(200);
+    if (result.status === 200) {
+      expect(result.body.soldierIds.length).toBe(2);
+      for (const id of result.body.soldierIds) {
+        const stored = db._stores.readiness_soldiers.get(id);
+        expect(stored.tenantId).toBe('tenant-1');
+        expect(stored.unitId).toBe('battalion-1');
+        expect(stored.uid).toBeNull();
+        expect(stored.mergedInto).toBeNull();
+      }
+      const names = result.body.soldierIds.map((id: string) => db._stores.readiness_soldiers.get(id).name);
+      expect(names).toEqual(['Soldier One', 'Soldier Two']); // trimmed, same as single-create
+    }
+  });
+
+  it('a successful bulk import writes exactly ONE aggregate audit_logs entry, never one per soldier', async () => {
+    const db = makeFakeDb({ units: { 'tenant-1': { 'battalion-1': {} } } });
+    const soldiers = Array.from({ length: 10 }, (_, i) => ({ name: `S${i}`, gender: 'male' }));
+    await computeBulkCreateSoldiers(db, UNIT_ADMIN_SCOPE, { unitId: 'battalion-1', soldiers }, CTX);
+    expect(db._stores.audit_logs.size).toBe(1);
+  });
+
+  it('root without tenantId in body → 400, nothing created (shared resolveTenantAndUnit, same as single-create)', async () => {
+    const db = makeFakeDb({});
+    const result = await computeBulkCreateSoldiers(db, ROOT_SCOPE, { unitId: 'battalion-1', soldiers: [{ name: 'A', gender: 'male' }] }, CTX);
+    expect(result.status).toBe(400);
+    expect(db._stores.readiness_soldiers.size).toBe(0);
   });
 });
 

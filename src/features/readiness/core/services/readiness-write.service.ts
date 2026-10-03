@@ -261,6 +261,61 @@ export type CreateSoldierResult =
   | { status: 200; body: { soldierId: string } }
   | { status: 400 | 403 | 503; body: { error: string } };
 
+/**
+ * 03.10.2026 (David, bulk-import round) — extracted verbatim from
+ * computeCreateSoldier's own body, same order, same messages, zero
+ * behavior change. Condition David set on this extraction: every
+ * existing computeCreateSoldier test must pass with NO test-code
+ * changes — if one needs to change, that's proof the behavior moved,
+ * not just the code. Shared by computeCreateSoldier (single row) and
+ * computeBulkCreateSoldiers (N rows, validated once per row before any
+ * write happens).
+ */
+function validateSoldierName(raw: unknown): { ok: true; name: string } | { ok: false; status: 400; error: string } {
+  if (typeof raw !== 'string' || !raw.trim()) {
+    return { ok: false, status: 400, error: 'name is required' };
+  }
+  return { ok: true, name: raw.trim().slice(0, 200) };
+}
+
+function validateSoldierGender(raw: unknown): { ok: true; gender: ReadinessGender } | { ok: false; status: 400; error: string } {
+  if (raw === 'male' || raw === 'female') {
+    return { ok: true, gender: raw };
+  }
+  return { ok: false, status: 400, error: 'gender is required (male|female)' };
+}
+
+/**
+ * tenantId/unitId resolution — identical logic to computeCreateSoldier's
+ * own inline checks, extracted so both the single-create and bulk-create
+ * paths resolve the SAME way. Caller must have already excluded
+ * scope.kind 'unknown'/'denied' before calling this (same precondition
+ * computeCreateSoldier's inline version always had).
+ */
+async function resolveTenantAndUnit(
+  db: Firestore,
+  scope: UnitPermissionScope,
+  requestBody: Record<string, unknown>,
+): Promise<{ ok: true; tenantId: string; unitId: string } | { ok: false; status: 400 | 403; error: string }> {
+  const tenantId = resolveCallerTenantId(scope, requestBody.tenantId);
+  if (!tenantId) {
+    return { ok: false, status: 400, error: 'tenantId is required' };
+  }
+
+  const unitId = requestBody.unitId;
+  if (typeof unitId !== 'string' || !unitId.trim()) {
+    return { ok: false, status: 400, error: 'unitId is required' };
+  }
+  if (scope.kind === 'unitAdmin' && !scope.unitIds.includes(unitId)) {
+    return { ok: false, status: 403, error: DENIED_MESSAGE };
+  }
+  if (!(await unitExists(db, tenantId, unitId))) {
+    return { ok: false, status: 400, error: 'unitId does not exist for this tenant' };
+  }
+
+  return { ok: true, tenantId, unitId };
+}
+
 export async function computeCreateSoldier(
   db: Firestore,
   scope: UnitPermissionScope,
@@ -274,26 +329,16 @@ export async function computeCreateSoldier(
     return { status: 403, body: { error: DENIED_MESSAGE } };
   }
 
-  const name = requestBody.name;
-  if (typeof name !== 'string' || !name.trim()) {
-    return { status: 400, body: { error: 'name is required' } };
+  const nameResult = validateSoldierName(requestBody.name);
+  if (!nameResult.ok) {
+    return { status: nameResult.status, body: { error: nameResult.error } };
   }
 
-  const tenantId = resolveCallerTenantId(scope, requestBody.tenantId);
-  if (!tenantId) {
-    return { status: 400, body: { error: 'tenantId is required' } };
+  const tenantUnitResult = await resolveTenantAndUnit(db, scope, requestBody);
+  if (!tenantUnitResult.ok) {
+    return { status: tenantUnitResult.status, body: { error: tenantUnitResult.error } };
   }
-
-  const unitId = requestBody.unitId;
-  if (typeof unitId !== 'string' || !unitId.trim()) {
-    return { status: 400, body: { error: 'unitId is required' } };
-  }
-  if (scope.kind === 'unitAdmin' && !scope.unitIds.includes(unitId)) {
-    return { status: 403, body: { error: DENIED_MESSAGE } };
-  }
-  if (!(await unitExists(db, tenantId, unitId))) {
-    return { status: 400, body: { error: 'unitId does not exist for this tenant' } };
-  }
+  const { tenantId, unitId } = tenantUnitResult;
 
   // Point 4 — "open a new record and link it in one step": an immediate
   // uid is optional here. When present, this record is born already
@@ -330,19 +375,18 @@ export async function computeCreateSoldier(
   }
 
   if (!gender) {
-    const requestedGender = requestBody.gender;
-    if (requestedGender === 'male' || requestedGender === 'female') {
-      gender = requestedGender;
-    } else {
-      return { status: 400, body: { error: 'gender is required (male|female)' } };
+    const genderResult = validateSoldierGender(requestBody.gender);
+    if (!genderResult.ok) {
+      return { status: genderResult.status, body: { error: genderResult.error } };
     }
+    gender = genderResult.gender;
   }
 
   const now = new Date();
   const doc: Omit<ReadinessSoldier, 'id'> = {
     tenantId,
     unitId,
-    name: name.trim().slice(0, 200),
+    name: nameResult.name,
     gender,
     uid: linkUid,
     linkedAt: linkUid ? now : null,
@@ -381,6 +425,141 @@ export async function computeCreateSoldier(
   }
 
   return { status: 200, body: { soldierId: ref.id } };
+}
+
+// ── Bulk-create soldier records (atomic import) ─────────────────────────
+
+/** Firestore WriteBatch hard-caps at 500 operations. David, 03.10.2026:
+ * capped well under that (not at the exact ceiling) so a future field
+ * added to this same batch doesn't silently break the import in the
+ * field — and explicitly NOT split into multiple batches when exceeded,
+ * since a 2nd batch failing after the 1st committed is "half a list in
+ * costume." A caller over the cap gets a clear 400 telling them to split
+ * into two imports themselves — never a silent/automatic split. */
+export const BULK_IMPORT_MAX_ROWS = 300;
+
+export interface BulkCreateSoldierRow {
+  name: unknown;
+  gender: unknown;
+}
+
+export type BulkCreateSoldiersResult =
+  | { status: 200; body: { soldierIds: string[] } }
+  | { status: 400 | 403 | 503; body: { error: string; invalidRows?: { index: number; error: string }[] } };
+
+/**
+ * Atomic bulk-create — David's explicit requirement: "הייבוא אטומי — או
+ * שהכל נכנס או שכלום לא." computeCreateSoldier itself writes
+ * immediately and individually (no batch param) — N sequential calls to
+ * it would NOT be atomic, so this is a dedicated function, not a loop
+ * calling computeCreateSoldier N times. Reuses the SAME validation
+ * helpers computeCreateSoldier uses (validateSoldierName/
+ * validateSoldierGender/resolveTenantAndUnit) — nothing reinvented, same
+ * permission/scope checks, same error messages. No uid-linking path
+ * here at all — bulk rows are name+gender only, matching the existing
+ * model (point 13).
+ *
+ * Pattern mirrored from computeMergeSoldiers (this file, the merge op):
+ * the data mutation is one WriteBatch/commit; the audit log is ONE
+ * aggregate entry written AFTER the commit succeeds, not inside the
+ * batch and not one entry per soldier (David: "פעולה אחת, רשומה אחת" —
+ * per-soldier provenance already lives in createdBy/createdAt on each
+ * record itself).
+ */
+export async function computeBulkCreateSoldiers(
+  db: Firestore,
+  scope: UnitPermissionScope,
+  requestBody: Record<string, unknown>,
+  ctx: ReadinessCtx,
+): Promise<BulkCreateSoldiersResult> {
+  if (scope.kind === 'unknown') {
+    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע.' } };
+  }
+  if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin') {
+    return { status: 403, body: { error: DENIED_MESSAGE } };
+  }
+
+  const rawRows = requestBody.soldiers;
+  if (!Array.isArray(rawRows) || rawRows.length === 0) {
+    return { status: 400, body: { error: 'soldiers is required and must be a non-empty array' } };
+  }
+  if (rawRows.length > BULK_IMPORT_MAX_ROWS) {
+    return {
+      status: 400,
+      body: { error: `עד ${BULK_IMPORT_MAX_ROWS} חיילים בייבוא אחד — הרשימה הזו מכילה ${rawRows.length}. פצל לשתי העברות נפרדות.` },
+    };
+  }
+
+  const tenantUnitResult = await resolveTenantAndUnit(db, scope, requestBody);
+  if (!tenantUnitResult.ok) {
+    return { status: tenantUnitResult.status, body: { error: tenantUnitResult.error } };
+  }
+  const { tenantId, unitId } = tenantUnitResult;
+
+  // Validate EVERY row before writing anything at all — one invalid row
+  // blocks the whole import (point: nothing is written before the
+  // officer sees a clean preview; this is the server-side mirror of
+  // that same rule, never trusting the client's own validation alone).
+  const invalidRows: { index: number; error: string }[] = [];
+  const validatedRows: { name: string; gender: ReadinessGender }[] = [];
+  rawRows.forEach((row, index) => {
+    if (typeof row !== 'object' || row === null) {
+      invalidRows.push({ index, error: 'invalid row' });
+      return;
+    }
+    const r = row as Record<string, unknown>;
+    const nameResult = validateSoldierName(r.name);
+    if (!nameResult.ok) {
+      invalidRows.push({ index, error: nameResult.error });
+      return;
+    }
+    const genderResult = validateSoldierGender(r.gender);
+    if (!genderResult.ok) {
+      invalidRows.push({ index, error: genderResult.error });
+      return;
+    }
+    validatedRows.push({ name: nameResult.name, gender: genderResult.gender });
+  });
+
+  if (invalidRows.length > 0) {
+    return { status: 400, body: { error: `${invalidRows.length} שורות לא תקינות`, invalidRows } };
+  }
+
+  const now = new Date();
+  const batch = db.batch();
+  const soldierIds: string[] = [];
+  for (const row of validatedRows) {
+    const ref = db.collection('readiness_soldiers').doc();
+    const doc: Omit<ReadinessSoldier, 'id'> = {
+      tenantId,
+      unitId,
+      name: row.name,
+      gender: row.gender,
+      uid: null,
+      linkedAt: null,
+      mergedInto: null,
+      createdBy: ctx.callerUid,
+      createdAt: now,
+      updatedAt: now,
+    };
+    batch.create(ref, doc);
+    soldierIds.push(ref.id);
+  }
+  await batch.commit();
+
+  await writeReadinessAuditLog(db, {
+    uid: ctx.callerUid,
+    tokenEmail: ctx.tokenEmail,
+    actionType: 'CREATE',
+    targetEntity: 'ReadinessSoldier',
+    targetId: unitId,
+    details: `Bulk-imported ${soldierIds.length} readiness soldier record(s) into unit ${unitId}`,
+    oldValue: null,
+    newValue: { tenantId, unitId, count: soldierIds.length },
+    sourceIp: ctx.sourceIp,
+  });
+
+  return { status: 200, body: { soldierIds } };
 }
 
 // ── Link ─────────────────────────────────────────────────────────────────
