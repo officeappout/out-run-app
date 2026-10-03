@@ -38,12 +38,14 @@
 import { useState, useEffect, useMemo, useCallback, type Dispatch, type SetStateAction } from 'react';
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import {
+  MUSCLE_CHIPS,
   domainsToChipIds,
   CHIP_TO_PRIMARY_PROGRAMS,
   CHIP_TO_PROGRAMS,
   PROG_PRIMARY_CHIPS,
   type MuscleChip,
 } from '@/features/home/constants/muscle-chips';
+import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 
 export interface UseMuscleChipSelectionParams {
   profile: UserFullProfile | null | undefined;
@@ -51,6 +53,10 @@ export interface UseMuscleChipSelectionParams {
   setSelectedProgramIds: Dispatch<SetStateAction<string[]>>;
   /** Shared with the parent's own program-level checks (displayPrograms etc.) — owned there, passed in here. */
   isEnrolledInProgram: (pid: string) => boolean;
+  /** Diagnostic-only (round 2) — the raw enrollment set itself, so the temp
+   * dump below can show exactly what's IN it (slugs? hash ids? both?)
+   * instead of only the derived isEnrolledInProgram boolean. */
+  enrolledIds: Set<string>;
   resolveBaseCategoryForThisProgram: (id: string) => string;
   onNeedsAssessment: (domain: string | null) => void;
   onManualInteraction: () => void;
@@ -61,6 +67,7 @@ export function useMuscleChipSelection({
   selectedProgramIds,
   setSelectedProgramIds,
   isEnrolledInProgram,
+  enrolledIds,
   resolveBaseCategoryForThisProgram,
   onNeedsAssessment,
   onManualInteraction,
@@ -132,6 +139,40 @@ export function useMuscleChipSelection({
       (autoChips.includes(chip.id) && !manuallyDeselectedChips.has(chip.id)),
     [selectedChips, autoChips, manuallyDeselectedChips],
   );
+
+  // TEMP DIAGNOSTIC (re-added, round 2 — investigation only, no behavior
+  // change) — full per-chip assessment-chain dump whenever the chip grid's
+  // own inputs change (selectedProgramIds/autoChips/selectedChips/opt-outs),
+  // which is effectively "on render" for anything that could move the grid.
+  // Traces wire B precisely: for every mapped program on a chip, shows BOTH
+  // isEnrolledInProgram's result AND resolveToSlug's own output, plus the
+  // raw enrolledIds contents — so a slug-vs-hash-id mismatch (the
+  // suspected root cause) is directly visible rather than inferred.
+  // Remove before merge.
+  useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log('[muscle-chip diag] ── state ──', {
+      selectedProgramIds,
+      autoChips,
+      selectedChips,
+      manuallyDeselectedChips: Array.from(manuallyDeselectedChips),
+      enrolledIds: Array.from(enrolledIds),
+    });
+    for (const chip of MUSCLE_CHIPS.filter(c => c.group !== 'aggregate')) {
+      const mappedPrograms = CHIP_TO_PROGRAMS[chip.id] ?? [];
+      // eslint-disable-next-line no-console
+      console.log(`[muscle-chip diag] chip=${chip.id}`, {
+        isAssessed: isAssessed(chip),
+        isSelected: isSelected(chip),
+        mappedPrograms,
+        perProgram: mappedPrograms.map(pid => ({
+          pid,
+          isEnrolledInProgram: isEnrolledInProgram(pid),
+          resolveToSlug: resolveToSlug(pid),
+        })),
+      });
+    }
+  }, [selectedProgramIds, autoChips, selectedChips, manuallyDeselectedChips, enrolledIds, isAssessed, isSelected, isEnrolledInProgram]);
 
   const toggleChip = useCallback((chip: MuscleChip) => {
     const primaryPrograms = CHIP_TO_PRIMARY_PROGRAMS[chip.id] ?? [];

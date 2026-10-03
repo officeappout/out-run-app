@@ -537,6 +537,7 @@ export default function WorkoutBuilderSheet({
     selectedProgramIds,
     setSelectedProgramIds,
     isEnrolledInProgram,
+    enrolledIds,
     resolveBaseCategoryForThisProgram,
     onNeedsAssessment: (domain) => { setUnlockDomain(domain); setShowUnlockModal(true); },
     onManualInteraction: () => setIsUsingRecommendedDefaults(false),
@@ -992,13 +993,30 @@ export default function WorkoutBuilderSheet({
                     prog={prog}
                     isSelected={selectedProgramIds.includes(prog.id)}
                     onSelect={prog.isUnenrolled
-                      ? () => { setUnlockDomain(resolveBaseCategoryForThisProgram(prog.id)); setShowUnlockModal(true); }
+                      ? () => {
+                          // TEMP DIAGNOSTIC (round 2) — if THIS fires instead of
+                          // the real toggle branch below, the pill never reaches
+                          // selectedProgramIds at all (isUnenrolled is wrongly
+                          // true). Remove before merge.
+                          // eslint-disable-next-line no-console
+                          console.log('[muscle-chip diag] pill tap', prog.id, '→ UNENROLLED branch (no selectedProgramIds change)');
+                          setUnlockDomain(resolveBaseCategoryForThisProgram(prog.id));
+                          setShowUnlockModal(true);
+                        }
                       : () => {
-                          setSelectedProgramIds(prev =>
-                            prev.includes(prog.id)
+                          // TEMP DIAGNOSTIC (round 2) — before/after around the
+                          // state update itself, to trace wire A: does the tap
+                          // actually reach selectedProgramIds? Remove before merge.
+                          // eslint-disable-next-line no-console
+                          console.log('[muscle-chip diag] pill tap', prog.id, 'isUnenrolled:', prog.isUnenrolled, 'BEFORE:', selectedProgramIds);
+                          setSelectedProgramIds(prev => {
+                            const next = prev.includes(prog.id)
                               ? prev.filter(id => id !== prog.id)
-                              : [...prev, prog.id],
-                          );
+                              : [...prev, prog.id];
+                            // eslint-disable-next-line no-console
+                            console.log('[muscle-chip diag] pill tap', prog.id, 'AFTER:', next);
+                            return next;
+                          });
                           setIsUsingRecommendedDefaults(false);
                           // An explicit tap always "promotes" the program to
                           // manual — whether adding it fresh or re-affirming
