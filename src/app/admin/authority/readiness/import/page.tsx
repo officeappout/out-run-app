@@ -82,25 +82,38 @@ export default function ReadinessBulkImportPage() {
   const liveParse = useMemo(() => parseImportText(pasteText), [pasteText]);
 
   const handleParse = () => {
+    // Internal (within-paste) duplicates — David, 03.10.2026: "השורה
+    // הנפוצה — רשימה מוואטסאפ מכילה כפילויות משלה." Tracked separately
+    // from roster duplicates (different reason, different counter) —
+    // the FIRST occurrence of a name is never flagged; the 2nd/3rd/...
+    // are. A row can be a duplicate for both reasons at once.
+    const seenWithinPaste = new Set<string>();
     setRows(
-      liveParse.rows.map((r) => ({
-        name: r.name,
-        gender: null,
-        isDuplicate: existingNames.has(r.name),
-        // Default "skip" (David, 03.10.2026 correction) — frequency and
-        // asymmetry, not principle: the common case is re-pasting an
-        // updated list where MOST rows are already on the roster.
-        // Defaulting to "add" would silently create dozens of
-        // not-yet-tested phantom records, diluting the readiness
-        // denominator and dragging the pass rate down — invisibly,
-        // looking completely normal on screen. The opposite mistake (a
-        // real soldier skipped) is immediately visible and a one-click
-        // fix. An invisible error is worse than a visible one. The row
-        // still shows and is still marked — the officer can choose "הוסף
-        // בכל זאת" per row; this is a visible default, not a silent drop.
-        duplicateChoice: 'skip',
-        extraFields: r.extraFields,
-      })),
+      liveParse.rows.map((r) => {
+        const isDuplicateWithinPaste = seenWithinPaste.has(r.name);
+        seenWithinPaste.add(r.name);
+        const isDuplicateVsRoster = existingNames.has(r.name);
+        return {
+          name: r.name,
+          gender: null,
+          isDuplicateVsRoster,
+          isDuplicateWithinPaste,
+          // Default "skip" (David, 03.10.2026 correction) — frequency and
+          // asymmetry, not principle: the common case is re-pasting an
+          // updated list where MOST rows are already on the roster (or
+          // repeated within the same paste). Defaulting to "add" would
+          // silently create phantom not-yet-tested records, diluting the
+          // readiness denominator and dragging the pass rate down —
+          // invisibly, looking completely normal on screen. The opposite
+          // mistake (a real soldier skipped) is immediately visible and a
+          // one-click fix. An invisible error is worse than a visible
+          // one. The row still shows and is still marked — the officer
+          // can choose "הוסף בכל זאת" per row; this is a visible default,
+          // not a silent drop.
+          duplicateChoice: 'skip' as 'add' | 'skip',
+          extraFields: r.extraFields,
+        };
+      }),
     );
     setSubmitError(null);
   };
@@ -126,7 +139,7 @@ export default function ReadinessBulkImportPage() {
       if (!token) throw new Error('משתמש לא מחובר. רענן את הדף ונסה שוב.');
 
       const toSubmit = rows
-        .filter((r) => !(r.isDuplicate && r.duplicateChoice === 'skip'))
+        .filter((r) => !((r.isDuplicateVsRoster || r.isDuplicateWithinPaste) && r.duplicateChoice === 'skip'))
         .map((r) => ({ name: r.name, gender: r.gender }));
 
       const res = await fetch('/api/units/readiness/soldiers/bulk', {

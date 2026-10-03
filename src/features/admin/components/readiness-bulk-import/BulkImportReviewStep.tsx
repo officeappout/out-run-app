@@ -6,7 +6,10 @@ import type { ReadinessGender } from '@/features/readiness/core/services/readine
 export interface BulkImportReviewRow {
   name: string;
   gender: ReadinessGender | null;
-  isDuplicate: boolean;
+  /** Matches a name already saved on this unit's roster. */
+  isDuplicateVsRoster: boolean;
+  /** NOT the first occurrence of this name within the current paste — the first occurrence is never flagged (David, 03.10.2026: "הופעה ראשונה נכנסת, החוזרות מסומנות"). A row can be true for both reasons at once — they're tracked independently so the two counters stay accurate. */
+  isDuplicateWithinPaste: boolean;
   duplicateChoice: 'add' | 'skip';
   extraFields: string[];
 }
@@ -21,9 +24,14 @@ export interface BulkImportReviewRow {
  * with gender: null until the officer picks one; a null-gender row
  * blocks the whole import (point: atomic, all-or-nothing).
  *
- * A duplicate (name already in this unit's roster) never blocks —
- * "לא נכנס בשקט, ולא נחסם בכוח": the officer explicitly chooses
- * skip/add-anyway per row. Two people can share a name.
+ * A duplicate (vs. the existing roster, OR a repeat within the same
+ * paste — two distinct reasons, David 03.10.2026) never blocks — "לא
+ * נכנס בשקט, ולא נחסם בכוח": the officer explicitly chooses skip/add-
+ * anyway per row. Two people can share a name. Default is "skip" (not
+ * "add") — David's correction: the common case is re-pasting an
+ * updated list where most rows already exist; defaulting to "add"
+ * would silently create invisible phantom records that drag the
+ * readiness percentage down while looking completely normal on screen.
  */
 interface BulkImportReviewStepProps {
   rows: BulkImportReviewRow[];
@@ -38,8 +46,10 @@ interface BulkImportReviewStepProps {
 export default function BulkImportReviewStep({
   rows, onGenderChange, onDuplicateChoiceChange, onCancel, onSubmit, submitting, submitError,
 }: BulkImportReviewStepProps) {
-  const duplicateCount = rows.filter((r) => r.isDuplicate).length;
-  const toImportCount = rows.filter((r) => !(r.isDuplicate && r.duplicateChoice === 'skip')).length;
+  const isDup = (r: BulkImportReviewRow) => r.isDuplicateVsRoster || r.isDuplicateWithinPaste;
+  const vsRosterCount = rows.filter((r) => r.isDuplicateVsRoster).length;
+  const withinPasteCount = rows.filter((r) => r.isDuplicateWithinPaste).length;
+  const toImportCount = rows.filter((r) => !(isDup(r) && r.duplicateChoice === 'skip')).length;
   const missingGenderCount = rows.filter((r) => r.gender === null).length;
   const allSkipped = rows.length > 0 && toImportCount === 0;
   const blocked = missingGenderCount > 0 || allSkipped;
@@ -53,9 +63,14 @@ export default function BulkImportReviewStep({
             <span className="text-[11px] font-bold px-2 py-1 rounded-full" style={{ backgroundColor: `${READINESS_COLORS.pass}1A`, color: READINESS_COLORS.pass }}>
               {toImportCount} ייובאו
             </span>
-            {duplicateCount > 0 && (
+            {vsRosterCount > 0 && (
               <span className="text-[11px] font-bold px-2 py-1 rounded-full" style={{ backgroundColor: `${READINESS_COLORS.fail}1A`, color: READINESS_COLORS.fail }}>
-                {duplicateCount} כפילויות
+                {vsRosterCount} כפילות מול הרשימה
+              </span>
+            )}
+            {withinPasteCount > 0 && (
+              <span className="text-[11px] font-bold px-2 py-1 rounded-full" style={{ backgroundColor: `${READINESS_COLORS.fail}1A`, color: READINESS_COLORS.fail }}>
+                {withinPasteCount} כפילות בתוך ההדבקה
               </span>
             )}
           </div>
@@ -79,7 +94,8 @@ export default function BulkImportReviewStep({
             </thead>
             <tbody>
               {rows.map((row, i) => {
-                const rowBg = row.gender === null ? 'bg-amber-50' : row.isDuplicate ? 'bg-slate-50' : '';
+                const dup = isDup(row);
+                const rowBg = row.gender === null ? 'bg-amber-50' : dup ? 'bg-slate-50' : '';
                 return (
                   <tr key={i} className={`border-b border-slate-100 last:border-b-0 ${rowBg}`}>
                     <td className="py-2 px-2 text-[11px] text-slate-400">{i + 1}</td>
@@ -107,9 +123,15 @@ export default function BulkImportReviewStep({
                     <td className="py-2 px-2">
                       {row.gender === null ? (
                         <span className="text-[11px] font-bold text-amber-700">חסר מגדר</span>
-                      ) : row.isDuplicate ? (
+                      ) : dup ? (
                         <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-bold text-red-600">כבר קיים ברשימה</span>
+                          <span className="text-[11px] font-bold text-red-600">
+                            {row.isDuplicateVsRoster && row.isDuplicateWithinPaste
+                              ? 'כבר קיים ברשימה · כפילות בהדבקה'
+                              : row.isDuplicateVsRoster
+                                ? 'כבר קיים ברשימה'
+                                : 'כפילות בתוך ההדבקה'}
+                          </span>
                           <div className="inline-flex rounded-lg overflow-hidden border border-gray-200">
                             <button
                               onClick={() => onDuplicateChoiceChange(i, 'skip')}
