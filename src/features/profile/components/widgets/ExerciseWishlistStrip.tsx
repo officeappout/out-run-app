@@ -75,7 +75,7 @@ export default function ExerciseWishlistStrip() {
 
   if (entries.length === 0) {
     return (
-      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100" dir="rtl">
+      <div dir="rtl">
         <div className="flex items-center gap-2 mb-3">
           <Star className="w-4 h-4 text-amber-400" />
           <h3 className="text-sm font-black text-gray-900">תרגילים שאני רוצה ללמוד</h3>

@@ -36,9 +36,12 @@ interface WidgetProps {
   sub?: string;
 }
 
+/** Flattened ("פרופיל חלק" follow-up) — no card chrome; the 2x2 grid's own
+ * divide-x/divide-y hairlines (see the grid wrapper below) provide the only
+ * visual separation between cells, padding replaces the old card padding. */
 function WidgetCard({ Icon, iconColor, label, value, progressPct, sub }: WidgetProps) {
   return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col gap-1.5">
+    <div className="p-3 flex flex-col gap-1.5">
       <div className="flex items-center gap-1.5">
         <Icon className={`w-4 h-4 ${iconColor}`} />
         <span className="text-[11px] font-bold text-gray-500">{label}</span>
@@ -132,81 +135,81 @@ export function StrengthWidgets({}: StrengthWidgetsProps) {
   return (
     <div>
       <SectionLabel>השבוע שלך</SectionLabel>
-      <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-        {/* Ring + 2 tiles — degrades gracefully at 0 (empty ring, "0" tiles
-            with a friendly sub-label) instead of 4 separate broken-looking
-            squares. */}
-        <div className="flex items-center gap-4">
-          <CircularProgress
-            percentage={minutesPct}
-            size={72}
-            strokeWidth={7}
-            colorClass="text-[#00ADEF]"
-          >
-            <div className="flex flex-col items-center">
-              <span className="text-sm font-black text-gray-900 leading-none tabular-nums">
-                {activeMinutes.totalMinutes}
-              </span>
-              <span className="text-[8px] text-gray-400 mt-0.5 whitespace-nowrap">
-                מתוך {activeMinutes.weeklyGoal}&apos;
-              </span>
-            </div>
-          </CircularProgress>
+      {/* Ring + flat inline stat row — degrades gracefully at 0 (empty ring,
+          "0" stats with a friendly sub-label) instead of broken-looking
+          boxed squares. Flattened ("פרופיל חלק" follow-up): no card
+          wrapper, and the 2 stats are now a plain flex row (no bg-gray-50
+          tile fill), matching the header's 3-stat row styling. */}
+      <div className="flex items-center gap-4">
+        <CircularProgress
+          percentage={minutesPct}
+          size={72}
+          strokeWidth={7}
+          colorClass="text-[#00ADEF]"
+        >
+          <div className="flex flex-col items-center">
+            <span className="text-sm font-black text-gray-900 leading-none tabular-nums">
+              {activeMinutes.totalMinutes}
+            </span>
+            <span className="text-[8px] text-gray-400 mt-0.5 whitespace-nowrap">
+              מתוך {activeMinutes.weeklyGoal}&apos;
+            </span>
+          </div>
+        </CircularProgress>
 
-          <div className="flex-1 grid grid-cols-2 gap-2">
-            <div className="bg-gray-50 rounded-xl p-2.5">
-              <span className="text-lg font-black text-gray-900 leading-none tabular-nums block">
-                {strength.totalSetsCompleted}
-              </span>
-              <span className="text-[10px] font-bold text-gray-500">סטים השבוע</span>
-            </div>
-            <div className="bg-gray-50 rounded-xl p-2.5">
-              <span className="text-lg font-black text-gray-900 leading-none tabular-nums block">
-                {domainList.length}
-              </span>
-              <span className="text-[10px] font-bold text-gray-500 truncate block">
-                {domainList.length > 0 ? domainList.slice(0, 2).join(' · ') : 'קבוצות שרירים'}
-              </span>
-            </div>
+        <div className="flex-1 flex items-center justify-around gap-2">
+          <div className="flex flex-col items-center text-center">
+            <span className="text-lg font-black text-gray-900 leading-none tabular-nums">
+              {strength.totalSetsCompleted}
+            </span>
+            <span className="text-[10px] font-bold text-gray-500 mt-0.5">סטים השבוע</span>
+          </div>
+          <div className="flex flex-col items-center text-center max-w-[100px]">
+            <span className="text-lg font-black text-gray-900 leading-none tabular-nums">
+              {domainList.length}
+            </span>
+            <span className="text-[10px] font-bold text-gray-500 mt-0.5 truncate">
+              {domainList.length > 0 ? domainList.slice(0, 2).join(' · ') : 'קבוצות שרירים'}
+            </span>
           </div>
         </div>
+      </div>
 
-        {/* Weekly load strip */}
-        <div className="mt-4">
-          <p className="text-[10px] font-bold text-gray-400 mb-1.5">עומס יומי</p>
-          <div className="flex items-end gap-1.5" style={{ height: 32 }}>
-            {WEEKDAY_LABELS_SUN_FIRST.map((label, i) => (
-              <div key={label} className="flex-1 h-full flex flex-col justify-end items-center gap-1">
-                <div
-                  className="w-full rounded-sm bg-gradient-to-t from-[#00ADEF] to-[#5BC2F2]"
-                  style={{
-                    height: `${Math.max(10, (dailyLoad[i] / maxDailyLoad) * 100)}%`,
-                    opacity: dailyLoad[i] > 0 ? 1 : 0.15,
-                  }}
-                />
-              </div>
-            ))}
-          </div>
-          <div className="flex gap-1.5 mt-1">
-            {WEEKDAY_LABELS_SUN_FIRST.map((label) => (
-              <span key={label} className="flex-1 text-center text-[9px] text-gray-300 font-bold">
-                {label}
-              </span>
-            ))}
-          </div>
+      {/* Weekly load strip */}
+      <div className="mt-4">
+        <p className="text-[10px] font-bold text-gray-400 mb-1.5">עומס יומי</p>
+        <div className="flex items-end gap-1.5" style={{ height: 32 }}>
+          {WEEKDAY_LABELS_SUN_FIRST.map((label, i) => (
+            <div key={label} className="flex-1 h-full flex flex-col justify-end items-center gap-1">
+              <div
+                className="w-full rounded-sm bg-gradient-to-t from-[#00ADEF] to-[#5BC2F2]"
+                style={{
+                  height: `${Math.max(10, (dailyLoad[i] / maxDailyLoad) * 100)}%`,
+                  opacity: dailyLoad[i] > 0 ? 1 : 0.15,
+                }}
+              />
+            </div>
+          ))}
         </div>
+        <div className="flex gap-1.5 mt-1">
+          {WEEKDAY_LABELS_SUN_FIRST.map((label) => (
+            <span key={label} className="flex-1 text-center text-[9px] text-gray-300 font-bold">
+              {label}
+            </span>
+          ))}
+        </div>
+      </div>
 
-        {/* Personal-record footer — reuses the same master-program data
-            ProgramsSection already shows in the Skills tab. */}
-        <div className="mt-3 pt-3 border-t border-gray-100 text-center">
-          {hasPR ? (
-            <p className="text-xs font-bold text-gray-600">
-              🏅 שיא · {progressData!.programName} · רמה {progressData!.currentLevel}
-            </p>
-          ) : (
-            <p className="text-xs font-medium text-gray-400">עוד לא נקבע שיא — תתחיל להתאמן 💪</p>
-          )}
-        </div>
+      {/* Personal-record footer — reuses the same master-program data
+          ProgramsSection already shows in the Skills tab. */}
+      <div className="mt-3 pt-3 border-t border-gray-100 text-center">
+        {hasPR ? (
+          <p className="text-xs font-bold text-gray-600">
+            🏅 שיא · {progressData!.programName} · רמה {progressData!.currentLevel}
+          </p>
+        ) : (
+          <p className="text-xs font-medium text-gray-400">עוד לא נקבע שיא — תתחיל להתאמן 💪</p>
+        )}
       </div>
     </div>
   );
@@ -260,7 +263,11 @@ export function RunningWidgets({ workouts }: RunningWidgetsProps) {
   return (
     <div>
       <SectionLabel>ריצה</SectionLabel>
-      <div className="grid grid-cols-2 gap-3">
+      {/* Flattened ("פרופיל חלק" follow-up) — internal hairline
+          divide-x/divide-y only, no outer border/box, instead of 4
+          separate boxed cards; WidgetCard itself carries no chrome now,
+          see its own comment above. */}
+      <div className="grid grid-cols-2 divide-x divide-y divide-gray-100">
         <WidgetCard
           Icon={Route}
           iconColor="text-[#00ADEF]"

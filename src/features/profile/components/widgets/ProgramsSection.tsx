@@ -259,7 +259,7 @@ export default function ProgramsSection() {
   // templateId while entry[1]+ are valid shouldn't hide real programs.
   if (!masterTemplateId && childSlugs.length === 0 && additionalCards.length === 0) {
     return (
-      <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100" dir="rtl">
+      <div dir="rtl">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-black text-gray-800">התוכניות שלי</h3>
         </div>
@@ -281,7 +281,7 @@ export default function ProgramsSection() {
   }
 
   return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-5" dir="rtl">
+    <div className="space-y-5" dir="rtl">
       {/* Section header */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-black text-gray-800">התוכניות שלי</h3>
