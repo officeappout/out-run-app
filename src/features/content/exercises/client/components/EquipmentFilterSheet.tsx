@@ -35,7 +35,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Home, MapPin, PersonStanding, Loader2 } from 'lucide-react';
+import { X, ArrowRight, Home, MapPin, PersonStanding, Loader2 } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { getAllGearDefinitions } from '@/features/content/equipment/gear/core/gear-definition.service';
@@ -332,165 +332,226 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
   // (it's only here to force a re-render after the equipment cache loads).
   void iconCacheVersion;
 
+  // Shared between both outer shells (bottom-sheet and full-screen) — only
+  // the wrapper differs by mode; the header/body/footer content itself is
+  // identical either way, computed once here so there is no duplicated
+  // JSX to drift between the two branches below.
+  const innerContent = (
+    <>
+      {/* Header. Profile mode: back-chevron (ArrowRight), not X — matches
+          the exact pattern every other Settings sub-screen uses (chrome
+          polish, equipment-full-screen round); X stays for filter/inline
+          modes, which are still a dismissible bottom sheet, not a screen
+          reached via back-navigation. */}
+      <div className="flex items-center gap-2 px-5 py-3 border-b border-gray-100">
+        {isProfileMode && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="חזרה"
+            className="p-1 -mr-1 text-gray-500 hover:text-gray-800 flex-shrink-0"
+          >
+            <ArrowRight size={20} />
+          </button>
+        )}
+        <h2 className={`font-bold text-gray-900 ${isProfileMode ? 'flex-1 text-lg' : 'text-base'}`}>
+          {isProfileMode ? 'הציוד שלי' : 'ציוד ומיקום'}
+        </h2>
+        {!isProfileMode && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 -me-2 text-gray-400 hover:text-gray-600 rounded-full"
+            aria-label="סגור"
+          >
+            <X size={18} />
+          </button>
+        )}
+      </div>
+
+      {/* Body */}
+      <div className={`flex-1 overflow-y-auto px-5 ${isProfileMode ? 'py-5' : 'py-4'}`}>
+        {/* ── Preset shortcuts (filter mode only) ── */}
+        {!isProfileMode && (
+          <>
+            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">
+              מקום אימון
+            </p>
+            {/* חדר כושר removed — no gym footage exists. The 'gym' PresetId and
+                its applyPreset branch are intentionally kept so a previously
+                stored filterLocation still resolves; it is simply not offerable. */}
+            <div className="grid grid-cols-2 gap-2 mb-5">
+              <PresetButton
+                active={activePreset === 'home'}
+                onClick={() => applyPreset('home')}
+                icon={<Home size={18} />}
+                label="בית"
+              />
+              <PresetButton
+                active={activePreset === 'park'}
+                onClick={() => applyPreset('park')}
+                icon={<MapPin size={18} />}
+                label="פארק"
+              />
+            </div>
+          </>
+        )}
+
+        {/* ── Bodyweight (universal) ── */}
+        <p className={`font-bold text-gray-400 uppercase tracking-wider mb-2 ${isProfileMode ? 'text-xs' : 'text-[11px]'}`}>
+          בסיס
+        </p>
+        <div className="mb-5">
+          <Chip
+            active={draft.has(BODYWEIGHT_SENTINEL)}
+            onClick={() => toggle(BODYWEIGHT_SENTINEL)}
+            iconNode={<PersonStanding size={isProfileMode ? 20 : 16} className="text-gray-700" />}
+            label="משקל גוף"
+            large={isProfileMode}
+          />
+        </div>
+
+        {loadError ? (
+          <p className="text-sm text-red-600 text-center py-6">
+            שגיאה בטעינת הציוד
+          </p>
+        ) : gear.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-8">
+            טוען ציוד...
+          </p>
+        ) : (
+          <>
+            {!isProfileMode && (
+              <Section
+                title="ציוד פארק"
+                items={sections.park}
+                draft={draft}
+                onToggle={toggle}
+              />
+            )}
+            <Section
+              title="ציוד מאולתר / ביתי"
+              items={sections.improvised}
+              draft={draft}
+              onToggle={toggle}
+              large={isProfileMode}
+            />
+            <Section
+              title="ציוד אישי"
+              items={sections.personal}
+              draft={draft}
+              onToggle={toggle}
+              large={isProfileMode}
+            />
+          </>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="border-t border-gray-100 bg-white">
+        <p className="px-5 pt-3 text-[12px] font-semibold text-gray-500 text-center">
+          {summary}
+        </p>
+        <div className="flex items-center gap-2 px-5 py-3">
+          <button
+            type="button"
+            onClick={clear}
+            className="flex-1 py-2.5 rounded-lg text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
+          >
+            נקה
+          </button>
+          <button
+            type="button"
+            onClick={apply}
+            disabled={saving}
+            className={`flex-1 font-bold text-white disabled:opacity-50 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 ${
+              isInlineMode
+                ? 'h-14 rounded-full text-base'
+                : 'py-2.5 rounded-lg text-sm bg-primary hover:opacity-90 transition-opacity'
+            }`}
+            style={isInlineMode ? {
+              background: 'linear-gradient(to left, #00C9F2, #00AEEF)',
+              boxShadow: '0 4px 18px rgba(0, 185, 242, 0.38)',
+            } : undefined}
+          >
+            {saving ? (
+              <><Loader2 size={14} className="animate-spin" /><span>שומר...</span></>
+            ) : isProfileMode ? (
+              'שמור שינויים'
+            ) : isInlineMode ? (
+              'בואו נעדכן ציוד'
+            ) : (
+              'החל סינון'
+            )}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+
+  // Outer shell — branches by mode (chrome polish, equipment-full-screen
+  // round). Profile mode: full-screen, matching SettingsModal's own
+  // sub-screens (same slide-in-from-the-side pattern, no backdrop/drag —
+  // there's nothing "behind" a full-screen surface to dim or swipe past).
+  // filter/inline-onboarding modes: UNCHANGED bottom-sheet with backdrop +
+  // drag-to-dismiss — this branch is untouched byte-for-byte from before.
   const sheet = (
     <AnimatePresence>
       {isOpen && (
-        <>
+        isProfileMode ? (
+          // z-[102] — NOT z-[71] (that's the filter/inline bottom-sheet
+          // tier, correct for those but far below SettingsModal's z-[101]).
+          // This full-screen branch is launched FROM INSIDE SettingsModal
+          // (the "הציוד שלי" row) and must render above it, same stacking
+          // relationship as z-[130]/[131] (LegalDocModal) needing to clear
+          // z-[120] (HealthConnectDisclosureModal) which opens it inline —
+          // see .cursorrules' Z-Index Budget, updated with this entry.
+          // Portal mount itself was already correct (createPortal to
+          // document.body, same target every other full-screen overlay in
+          // this app uses, including SettingsModal) — the stacking bug was
+          // purely the numeric gap between z-[71] and SettingsModal's
+          // z-[101], not a stacking-context/portal issue.
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/40 z-[70]"
-            style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
-          />
-
-          <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
             transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-            drag="y"
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={0.2}
-            onDragEnd={(_, info) => { if (info.offset.y > 120) onClose(); }}
-            className="fixed bottom-0 left-0 right-0 z-[71] bg-white rounded-t-3xl shadow-drawer max-h-[85vh] flex flex-col"
+            className="fixed inset-0 z-[102] bg-white flex flex-col"
             dir="rtl"
           >
-            {/* Drag handle */}
-            <div className="flex justify-center pt-2 pb-1">
-              <div className="w-10 h-1 rounded-full bg-gray-200" />
-            </div>
-
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-              <h2 className="text-base font-bold text-gray-900">{isProfileMode ? 'הציוד שלי' : 'ציוד ומיקום'}</h2>
-              <button
-                type="button"
-                onClick={onClose}
-                className="p-2 -me-2 text-gray-400 hover:text-gray-600 rounded-full"
-                aria-label="סגור"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Body */}
-            <div className="flex-1 overflow-y-auto px-5 py-4">
-              {/* ── Preset shortcuts (filter mode only) ── */}
-              {!isProfileMode && (
-                <>
-                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">
-                    מקום אימון
-                  </p>
-                  {/* חדר כושר removed — no gym footage exists. The 'gym' PresetId and
-                      its applyPreset branch are intentionally kept so a previously
-                      stored filterLocation still resolves; it is simply not offerable. */}
-                  <div className="grid grid-cols-2 gap-2 mb-5">
-                    <PresetButton
-                      active={activePreset === 'home'}
-                      onClick={() => applyPreset('home')}
-                      icon={<Home size={18} />}
-                      label="בית"
-                    />
-                    <PresetButton
-                      active={activePreset === 'park'}
-                      onClick={() => applyPreset('park')}
-                      icon={<MapPin size={18} />}
-                      label="פארק"
-                    />
-                  </div>
-                </>
-              )}
-
-              {/* ── Bodyweight (universal) ── */}
-              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">
-                בסיס
-              </p>
-              <div className="mb-5">
-                <Chip
-                  active={draft.has(BODYWEIGHT_SENTINEL)}
-                  onClick={() => toggle(BODYWEIGHT_SENTINEL)}
-                  iconNode={<PersonStanding size={16} className="text-cyan-600" />}
-                  label="משקל גוף"
-                />
-              </div>
-
-              {loadError ? (
-                <p className="text-sm text-red-600 text-center py-6">
-                  שגיאה בטעינת הציוד
-                </p>
-              ) : gear.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-8">
-                  טוען ציוד...
-                </p>
-              ) : (
-                <>
-                  {!isProfileMode && (
-                    <Section
-                      title="ציוד פארק"
-                      items={sections.park}
-                      draft={draft}
-                      onToggle={toggle}
-                    />
-                  )}
-                  <Section
-                    title="ציוד מאולתר / ביתי"
-                    items={sections.improvised}
-                    draft={draft}
-                    onToggle={toggle}
-                  />
-                  <Section
-                    title="ציוד אישי"
-                    items={sections.personal}
-                    draft={draft}
-                    onToggle={toggle}
-                  />
-                </>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="border-t border-gray-100 bg-white">
-              <p className="px-5 pt-3 text-[12px] font-semibold text-gray-500 text-center">
-                {summary}
-              </p>
-              <div className="flex items-center gap-2 px-5 py-3">
-                <button
-                  type="button"
-                  onClick={clear}
-                  className="flex-1 py-2.5 rounded-lg text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
-                >
-                  נקה
-                </button>
-                <button
-                  type="button"
-                  onClick={apply}
-                  disabled={saving}
-                  className={`flex-1 font-bold text-white disabled:opacity-50 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 ${
-                    isInlineMode
-                      ? 'h-14 rounded-full text-base'
-                      : 'py-2.5 rounded-lg text-sm bg-primary hover:opacity-90 transition-opacity'
-                  }`}
-                  style={isInlineMode ? {
-                    background: 'linear-gradient(to left, #00C9F2, #00AEEF)',
-                    boxShadow: '0 4px 18px rgba(0, 185, 242, 0.38)',
-                  } : undefined}
-                >
-                  {saving ? (
-                    <><Loader2 size={14} className="animate-spin" /><span>שומר...</span></>
-                  ) : isProfileMode ? (
-                    'שמור שינויים'
-                  ) : isInlineMode ? (
-                    'בואו נעדכן ציוד'
-                  ) : (
-                    'החל סינון'
-                  )}
-                </button>
-              </div>
-            </div>
+            {innerContent}
           </motion.div>
-        </>
+        ) : (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={onClose}
+              className="fixed inset-0 bg-black/40 z-[70]"
+              style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
+            />
+
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', stiffness: 320, damping: 32 }}
+              drag="y"
+              dragConstraints={{ top: 0, bottom: 0 }}
+              dragElastic={0.2}
+              onDragEnd={(_, info) => { if (info.offset.y > 120) onClose(); }}
+              className="fixed bottom-0 left-0 right-0 z-[71] bg-white rounded-t-3xl shadow-drawer max-h-[85vh] flex flex-col"
+              dir="rtl"
+            >
+              {/* Drag handle */}
+              <div className="flex justify-center pt-2 pb-1">
+                <div className="w-10 h-1 rounded-full bg-gray-200" />
+              </div>
+              {innerContent}
+            </motion.div>
+          </>
+        )
       )}
     </AnimatePresence>
   );
@@ -533,22 +594,25 @@ function Section({
   items,
   draft,
   onToggle,
+  large = false,
 }: {
   title: string;
   items: GearDefinition[];
   draft: Set<string>;
   onToggle: (id: string) => void;
+  /** Profile (full-screen) mode — bigger chips/labels (chrome polish). */
+  large?: boolean;
 }) {
   if (items.length === 0) return null;
   return (
     <section className="mb-5">
       <div className="flex items-center justify-between mb-2">
-        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+        <p className={`font-bold text-gray-400 uppercase tracking-wider ${large ? 'text-xs' : 'text-[11px]'}`}>
           {title}
         </p>
-        <span className="text-[10px] text-gray-400">{items.length}</span>
+        <span className={`text-gray-400 ${large ? 'text-xs' : 'text-[10px]'}`}>{items.length}</span>
       </div>
-      <div className="flex flex-wrap gap-1.5">
+      <div className={`flex flex-wrap ${large ? 'gap-2' : 'gap-1.5'}`}>
         {items.map((g) => {
           const label = g.name?.he || g.name?.en || g.id;
           const svgPaths = resolveEquipmentSvgPathList(g.id);
@@ -560,6 +624,7 @@ function Section({
               onClick={() => onToggle(g.id)}
               iconSrc={iconSrc}
               label={label}
+              large={large}
             />
           );
         })}
@@ -574,18 +639,23 @@ function Chip({
   iconSrc,
   iconNode,
   label,
+  large = false,
 }: {
   active: boolean;
   onClick: () => void;
   iconSrc?: string | null;
   iconNode?: React.ReactNode;
   label: string;
+  /** Profile (full-screen) mode — bigger chip/label/icon (chrome polish). */
+  large?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-1.5 ps-2.5 pe-3 py-1.5 rounded-full border text-xs font-bold transition-all ${
+      className={`flex items-center transition-all rounded-full border font-bold ${
+        large ? 'gap-2 ps-3 pe-4 py-2.5 text-sm' : 'gap-1.5 ps-2.5 pe-3 py-1.5 text-xs'
+      } ${
         active
           ? 'bg-primary/10 border-primary text-primary'
           : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
@@ -596,15 +666,15 @@ function Chip({
         <img
           src={iconSrc}
           alt=""
-          width={16}
-          height={16}
+          width={large ? 20 : 16}
+          height={large ? 20 : 16}
           className="object-contain flex-shrink-0"
           onError={(e) => {
             (e.currentTarget as HTMLImageElement).style.visibility = 'hidden';
           }}
         />
       ) : (
-        <span className="w-4 h-4 rounded-full bg-gray-100 flex-shrink-0" />
+        <span className={`rounded-full bg-gray-100 flex-shrink-0 ${large ? 'w-5 h-5' : 'w-4 h-4'}`} />
       ))}
       <span className="whitespace-nowrap">{label}</span>
     </button>
