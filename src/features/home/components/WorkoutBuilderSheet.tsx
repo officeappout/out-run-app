@@ -994,27 +994,36 @@ export default function WorkoutBuilderSheet({
                     isSelected={selectedProgramIds.includes(prog.id)}
                     onSelect={prog.isUnenrolled
                       ? () => {
-                          // TEMP DIAGNOSTIC (round 2) — if THIS fires instead of
-                          // the real toggle branch below, the pill never reaches
-                          // selectedProgramIds at all (isUnenrolled is wrongly
-                          // true). Remove before merge.
+                          // TEMP DIAGNOSTIC (round 3 — flat primitives only) — if
+                          // THIS fires instead of the real toggle branch below,
+                          // the pill never reaches selectedProgramIds at all
+                          // (isUnenrolled is wrongly true). Remove before merge.
                           // eslint-disable-next-line no-console
-                          console.log('[muscle-chip diag] pill tap', prog.id, '→ UNENROLLED branch (no selectedProgramIds change)');
+                          console.log(
+                            `[muscle-chip diag] pill tap prog=${prog.id} -> UNENROLLED branch (no selectedProgramIds change)`,
+                          );
                           setUnlockDomain(resolveBaseCategoryForThisProgram(prog.id));
                           setShowUnlockModal(true);
                         }
                       : () => {
-                          // TEMP DIAGNOSTIC (round 2) — before/after around the
-                          // state update itself, to trace wire A: does the tap
-                          // actually reach selectedProgramIds? Remove before merge.
+                          // TEMP DIAGNOSTIC (round 3 — flat primitives only) —
+                          // before/after around the state update itself, to
+                          // trace wire 2's first link: does the tap actually
+                          // reach selectedProgramIds, and with what raw value
+                          // (hash or slug)? Remove before merge.
                           // eslint-disable-next-line no-console
-                          console.log('[muscle-chip diag] pill tap', prog.id, 'isUnenrolled:', prog.isUnenrolled, 'BEFORE:', selectedProgramIds);
+                          console.log(
+                            `[muscle-chip diag] pill tap prog=${prog.id} isUnenrolled=${prog.isUnenrolled} ` +
+                            `selectedProgramIds_BEFORE=[${selectedProgramIds.join(',')}]`,
+                          );
                           setSelectedProgramIds(prev => {
                             const next = prev.includes(prog.id)
                               ? prev.filter(id => id !== prog.id)
                               : [...prev, prog.id];
                             // eslint-disable-next-line no-console
-                            console.log('[muscle-chip diag] pill tap', prog.id, 'AFTER:', next);
+                            console.log(
+                              `[muscle-chip diag] pill tap prog=${prog.id} selectedProgramIds_AFTER=[${next.join(',')}]`,
+                            );
                             return next;
                           });
                           setIsUsingRecommendedDefaults(false);
