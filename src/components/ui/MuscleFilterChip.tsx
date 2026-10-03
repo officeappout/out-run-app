@@ -24,9 +24,10 @@ export interface MuscleFilterChipProps {
    * Still clickable — the click is expected to open the assessment popup,
    * never a silent no-op. Shows a small lock badge, mutes the icon. */
   locked?: boolean;
-  /** Builder-only: fully blocked (conflicts with the currently-selected
-   * program's domain). No click fires at all — distinct from `locked`,
-   * which stays interactive. */
+  /** Builder-only: conflicts with the currently-selected program's domain.
+   * Visual-only muting — onClick still fires (UX pass v3: a gated chip must
+   * stay tappable so the caller can show feedback instead of a dead tap;
+   * the caller's click handler is what decides there's nothing to toggle). */
   disabled?: boolean;
   /** Builder-only: selected AND still the untouched system recommendation
    * (not yet manually touched) — same selected fill, plus a small marker
@@ -64,10 +65,9 @@ export default function MuscleFilterChip({
   return (
     <button
       type="button"
-      onClick={() => !disabled && onClick()}
-      disabled={disabled}
+      onClick={onClick}
       className={`relative flex flex-col items-center gap-1.5 flex-shrink-0 ${
-        disabled ? 'opacity-30 cursor-not-allowed' : ''
+        disabled ? 'opacity-30' : ''
       }`}
       style={{ width: box + 8 }}
       aria-pressed={active}
