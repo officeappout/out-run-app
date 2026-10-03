@@ -90,6 +90,13 @@ const PRIVACY_MODES: Array<{
 
 const DELETE_CONFIRM_WORD = 'מחק';
 
+// Chrome polish — temporary UI-hide only. City Pass status + coupon-code
+// entry are hidden pending restoration; their state/handlers/write-paths
+// (couponCode/handleCouponSubmit/validateAccessCode/cityAffiliation, etc.)
+// are completely untouched below — flipping this back to true brings the
+// "מנוי" section straight back with zero other changes.
+const SHOW_SUBSCRIPTION_SECTION = false;
+
 /** Unified permission lifecycle state used by Location, Camera and Health rows. */
 type PermStatus = 'loading' | 'granted' | 'prompt' | 'denied';
 
@@ -160,7 +167,6 @@ function SettingsRow({
   icon,
   label,
   sublabel,
-  iconBg = 'bg-gray-100',
   right,
   onClick,
   disabled = false,
@@ -168,7 +174,6 @@ function SettingsRow({
   icon: React.ReactNode;
   label: string;
   sublabel?: string;
-  iconBg?: string;
   right?: React.ReactNode;
   onClick?: () => void;
   disabled?: boolean;
@@ -176,6 +181,12 @@ function SettingsRow({
   // Flattened ("פרופיל חלק" Part 3) — no card chrome (was bg-white rounded-xl
   // border per row); Section's divide-y below now draws the hairline between
   // adjacent rows, so this primitive just needs its own vertical padding.
+  // Clean icon treatment (chrome polish follow-up): dropped the colored
+  // rounded-square background a row icon used to sit in (was `p-2 rounded-lg
+  // ${iconBg}`, iconBg removed from every call site in the same pass) —
+  // every icon already carries its own tint via its own className at the
+  // call site (e.g. text-cyan-600), so removing the box leaves exactly "the
+  // glyph itself, tinted, no box," per instruction.
   if (onClick) {
     return (
       <button
@@ -186,7 +197,7 @@ function SettingsRow({
           disabled ? 'opacity-50 cursor-not-allowed' : 'active:bg-gray-50'
         }`}
       >
-        <div className={`p-2 rounded-lg flex-shrink-0 ${iconBg}`}>{icon}</div>
+        <div className="flex-shrink-0">{icon}</div>
         <div className="flex-1 min-w-0 text-right">
           <p className="text-sm font-semibold text-gray-900 font-simpler">{label}</p>
           {sublabel && (
@@ -200,7 +211,7 @@ function SettingsRow({
 
   return (
     <div className="flex items-center gap-3 py-3.5">
-      <div className={`p-2 rounded-lg flex-shrink-0 ${iconBg}`}>{icon}</div>
+      <div className="flex-shrink-0">{icon}</div>
       <div className="flex-1 min-w-0 text-right">
         <p className="text-sm font-semibold text-gray-900 font-simpler">{label}</p>
         {sublabel && (
@@ -517,7 +528,16 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
     // Hydrate already-working toggles from profile
     setAnalyticsOptOut(profile?.core?.analyticsOptOut === true);
-    setDiscoverable(profile?.core?.discoverable === true);
+    // Default change (chrome polish, confirmed independent of the map-
+    // visibility/presence-broadcast path — core.discoverable only ever
+    // feeds userPublicSync.ts's mirror + user-search.service.ts's query,
+    // never usePrivacyStore/usePresenceLayer): previously `=== true`
+    // treated "unset" and "explicitly false" identically (both → false).
+    // Now unset specifically defaults to true; an EXISTING explicit
+    // true/false value is read back exactly as saved, untouched.
+    setDiscoverable(
+      profile?.core?.discoverable === undefined ? true : profile.core.discoverable === true,
+    );
     applyAnalyticsConsent(profile?.core?.analyticsOptOut === true);
 
     // Probe the real OS notification permission (D1/D2). Forces push/chat
@@ -1081,12 +1101,23 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     <>
       <AnimatePresence>
         {isOpen && (
+          // Full-screen, not a bottom-sheet (chrome polish). This was two
+          // nested motion.div layers (a dimmed/blurred backdrop + a sheet
+          // sliding up from the bottom, rounded-t-3xl, capped at 92vh) —
+          // collapsed to one full-bleed layer sliding in from the side
+          // (matching the back-chevron "push" navigation already built for
+          // the internal screen drill-down), since a full-screen opaque
+          // surface has no "behind" left to dim/blur or tap-to-close.
+          // CONTAINED to this file: confirmed via grep that no other modal
+          // in the codebase imports a shared wrapper for this outer shell —
+          // every modal (this one included) inlines its own backdrop/sheet
+          // JSX, so this change touches no shared modal plumbing.
           <motion.div
-            key="settings-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
+            key="settings-sheet"
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 32, stiffness: 300 }}
             // z-[101], not z-50: BottomNavbar is also z-50 (fixed, mounted
             // globally in ClientLayout) and — since equal z-index ties
             // resolve by DOM order — was painting on top of this entire
@@ -1095,23 +1126,9 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             // test 03.09.2026). z-[101] matches the table's own precedent
             // for full-screen sheets that also need to clear OfflineBanner
             // (z-[100], fixed bottom-0, same ClientLayout).
-            className="fixed inset-0 z-[101] flex items-end justify-center bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 z-[101] bg-white flex flex-col"
+            dir="rtl"
           >
-            <motion.div
-              key="settings-sheet"
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 32, stiffness: 300 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-t-3xl shadow-2xl w-full max-w-md max-h-[92vh] flex flex-col"
-              dir="rtl"
-            >
-              {/* Handle bar */}
-              <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-                <div className="w-10 h-1 bg-gray-300 rounded-full" />
-              </div>
-
               {/* Sticky header — screen-aware ("פרופיל חלק" Part 3): a
                   back-chevron appears on every sub-screen (ArrowRight, the
                   established RTL "back" convention in this codebase — see
@@ -1192,7 +1209,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 <Section title="חשבון">
                   <SettingsRow
                     icon={<User size={18} className="text-cyan-600" />}
-                    iconBg="bg-cyan-50"
                     label="פרטים אישיים"
                     sublabel="עיר, משקל, תאריך לידה"
                     onClick={openPersonalEdit}
@@ -1200,7 +1216,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <MyPersonasSection />
                   <SettingsRow
                     icon={<Lock size={18} className="text-purple-600" />}
-                    iconBg="bg-purple-50"
                     label={pwResetSent ? 'מייל נשלח ✓' : 'סיסמה ואבטחה'}
                     sublabel={
                       !hasEmailAuth
@@ -1220,13 +1235,15 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 </Section>
 
                 {/* ══════════════════════════════════════════════════════════
-                    3. מנוי
+                    3. מנוי — temporarily hidden (chrome polish, UI-only;
+                    see SHOW_SUBSCRIPTION_SECTION at top of file). All
+                    state/handlers/write-paths below are untouched.
                    ══════════════════════════════════════════════════════════ */}
+                {SHOW_SUBSCRIPTION_SECTION && (
                 <Section title="מנוי">
                   {/* City Pass status */}
                   <SettingsRow
                     icon={<CreditCard size={18} className={cityAffiliation ? 'text-emerald-600' : 'text-gray-400'} />}
-                    iconBg={cityAffiliation ? 'bg-emerald-50' : 'bg-gray-100'}
                     label="City Pass"
                     sublabel={
                       cityAffiliation
@@ -1286,6 +1303,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     </div>
                   </div>
                 </Section>
+                )}
 
                 {/* ══════════════════════════════════════════════════════════
                     4. התראות / פרטיות ונראות — now drill-down sub-screens
@@ -1296,13 +1314,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 <Section title="התראות ופרטיות">
                   <SettingsRow
                     icon={<Bell size={18} className="text-purple-500" />}
-                    iconBg="bg-purple-50"
                     label="התראות"
                     onClick={() => setScreen('notifications')}
                   />
                   <SettingsRow
                     icon={<Lock size={18} className="text-gray-500" />}
-                    iconBg="bg-gray-100"
                     label="פרטיות ונראות"
                     onClick={() => setScreen('privacy')}
                   />
@@ -1324,7 +1340,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         ? <Loader2 size={18} className="text-purple-500 animate-spin" />
                         : <Bell size={18} className="text-purple-500" />
                     }
-                    iconBg="bg-purple-50"
                     label="התראות פוש"
                     sublabel={
                       nativePushBlocked
@@ -1362,7 +1377,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       `settings.notificationPrefs.{channel}`). Non-functional → hidden.
                   <SettingsRow
                     icon={<Bell size={18} className="text-orange-500" />}
-                    iconBg="bg-orange-50"
                     label="מעקב אי-פעילות"
                     sublabel="קבל התראה כשלא התאמנת כמה ימים"
                     right={
@@ -1375,7 +1389,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   />
                   <SettingsRow
                     icon={<Bell size={18} className="text-amber-500" />}
-                    iconBg="bg-amber-50"
                     label="הישגים ורמות"
                     sublabel="עדכונים על פתיחת הישגים ועלייה ברמה"
                     right={
@@ -1388,7 +1401,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   />
                   <SettingsRow
                     icon={<Bell size={18} className="text-cyan-500" />}
-                    iconBg="bg-cyan-50"
                     label="טיפים ומוטיבציה"
                     sublabel="תוכן יומי מהקואץ׳"
                     right={
@@ -1409,7 +1421,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         ? <Loader2 size={18} className="text-blue-500 animate-spin" />
                         : <MessageSquare size={18} className="text-blue-500" />
                     }
-                    iconBg="bg-blue-50"
                     label="התראות צ׳אט"
                     sublabel={
                       nativePushBlocked
@@ -1450,7 +1461,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         ? <Loader2 size={18} className="text-indigo-500 animate-spin" />
                         : <Dumbbell size={18} className="text-indigo-500" />
                     }
-                    iconBg="bg-indigo-50"
                     label="התקדמות"
                     sublabel="עלייה ברמה, שיאים אישיים"
                     right={
@@ -1468,7 +1478,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         ? <Loader2 size={18} className="text-purple-500 animate-spin" />
                         : <Users size={18} className="text-purple-500" />
                     }
-                    iconBg="bg-purple-50"
                     label="חברתי"
                     sublabel="הצטרפות לקבוצה, קאדוז"
                     right={
@@ -1486,7 +1495,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         ? <Loader2 size={18} className="text-amber-500 animate-spin" />
                         : <Calendar size={18} className="text-amber-500" />
                     }
-                    iconBg="bg-amber-50"
                     label="תזכורות אימון"
                     sublabel="בוקר לפני אימון מתוזמן"
                     right={
@@ -1504,7 +1512,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         ? <Loader2 size={18} className="text-cyan-500 animate-spin" />
                         : <Bell size={18} className="text-cyan-500" />
                     }
-                    iconBg="bg-cyan-50"
                     label="עידוד ומוטיבציה"
                     sublabel="הודעות מהעירייה שלך"
                     right={
@@ -1522,7 +1529,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         ? <Loader2 size={18} className="text-orange-500 animate-spin" />
                         : <Heart size={18} className="text-orange-500" />
                     }
-                    iconBg="bg-orange-50"
                     label="חזרה לשגרה"
                     sublabel="תזכורת כשלא התאמנת כמה ימים"
                     right={
@@ -1735,7 +1741,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     {/* Profile discoverability */}
                     <SettingsRow
                       icon={discoverable ? <Eye size={18} className="text-amber-600" /> : <EyeOff size={18} className="text-amber-600" />}
-                      iconBg="bg-amber-50"
                       label="נגישות פרופיל בחיפוש"
                       sublabel="אפשר למשתמשים אחרים למצוא אותך לפי שם"
                       right={
@@ -1750,7 +1755,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     {/* Analytics sharing — note: display is inverted (analyticsOptOut → "share" = !optOut) */}
                     <SettingsRow
                       icon={<BarChart3 size={18} className="text-emerald-600" />}
-                      iconBg="bg-emerald-50"
                       label="שיתוף אנליטיקס"
                       sublabel="שיתוף נתוני שימוש אנונימיים לשיפור האפליקציה"
                       right={
@@ -1779,7 +1783,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         className={store.healthBridgeEnabled ? 'text-red-500' : 'text-gray-400'}
                       />
                     }
-                    iconBg={store.healthBridgeEnabled ? 'bg-red-50' : 'bg-gray-100'}
                     label="HealthKit / Health Connect"
                     sublabel={
                       !isNativeApp()
@@ -1825,7 +1828,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   {/* Equipment */}
                   <SettingsRow
                     icon={<Dumbbell size={18} className="text-cyan-600" />}
-                    iconBg="bg-cyan-50"
                     label="הציוד שלי"
                     sublabel="עדכן את הציוד הזמין לך"
                     onClick={() => setEquipmentSheetOpen(true)}
@@ -1839,7 +1841,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         className={cameraStatus === 'granted' ? 'text-slate-700' : 'text-gray-400'}
                       />
                     }
-                    iconBg={cameraStatus === 'granted' ? 'bg-slate-100' : 'bg-gray-100'}
                     label="גישה למצלמה וגלריה"
                     sublabel={
                       !isNativeApp()
@@ -1865,7 +1866,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         className={locationStatus === 'granted' ? 'text-cyan-600' : 'text-gray-400'}
                       />
                     }
-                    iconBg={locationStatus === 'granted' ? 'bg-cyan-50' : 'bg-gray-100'}
                     label="גישה למיקום"
                     sublabel={
                       !isNativeApp()
@@ -1893,19 +1893,16 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 <Section title="כללי">
                   <SettingsRow
                     icon={<FileText size={18} className="text-purple-600" />}
-                    iconBg="bg-purple-50"
                     label="תנאי שימוש ופרטיות"
                     onClick={() => setShowTermsModal(true)}
                   />
                   <SettingsRow
                     icon={<Shield size={18} className="text-purple-600" />}
-                    iconBg="bg-purple-50"
                     label="מדיניות פרטיות"
                     onClick={() => setShowPrivacyModal(true)}
                   />
                   <SettingsRow
                     icon={<Mail size={18} className="text-blue-600" />}
-                    iconBg="bg-blue-50"
                     label="יצירת קשר"
                     sublabel="office@appout.co.il"
                     onClick={() => window.open('mailto:office@appout.co.il', '_blank')}
@@ -2110,7 +2107,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   </button>
                 </div>
               )}
-            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -2149,7 +2145,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/60 z-[110] flex items-center justify-center p-4"
+            style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
             onClick={() => { if (!isDeleting) setShowDeleteConfirm(false); }}
           >
             <motion.div

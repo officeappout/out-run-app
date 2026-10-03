@@ -42,15 +42,19 @@ export default function UnifiedPlusDrawer({
 }: UnifiedPlusDrawerProps) {
   const select = (fn: () => void) => () => { onClose(); fn(); };
 
+  // Clean icon treatment (chrome polish, matching Settings' rows): no more
+  // colored circle behind a white glyph — each icon carries its own tint
+  // directly (inline style, same hex the circle used to be filled with),
+  // rendered with no background box.
   const activityRows: Row[] = [
     {
-      icon: <Footprints size={18} className="text-white" />,
+      icon: <Footprints size={18} style={{ color: '#00C9F2' }} />,
       label: 'יוצא להתאמן',
       sublabel: 'שתף שאתה יוצא לאימון — ריצה, הליכה או כוח',
       onSelect: select(onGoTrain),
     },
     {
-      icon: <Users size={18} className="text-white" />,
+      icon: <Users size={18} style={{ color: '#00C9F2' }} />,
       label: 'פתח קבוצה/ליגה',
       sublabel: 'התחל קהילה או ליגה חדשה',
       onSelect: select(onCreateGroup),
@@ -59,29 +63,26 @@ export default function UnifiedPlusDrawer({
 
   const contributeRows: Row[] = [
     {
-      icon: <MapPin size={18} className="text-white" />,
+      icon: <MapPin size={18} style={{ color: '#10B981' }} />,
       label: 'הוסף מיקום',
       sublabel: 'פארק, גינת כושר או נקודת עניין חדשה',
       onSelect: select(onAddLocation),
     },
     {
-      icon: <Zap size={18} className="text-white" />,
+      icon: <Zap size={18} style={{ color: '#F59E0B' }} />,
       label: 'דיווח מהיר',
       sublabel: 'ציוד פגום, תאורה, ניקיון ועוד',
       onSelect: select(onReport),
     },
   ];
 
-  const renderRow = (row: Row, color: string) => (
+  const renderRow = (row: Row) => (
     <button
       key={row.label}
       onClick={row.onSelect}
       className="w-full flex items-center gap-3 px-3 py-3 rounded-2xl bg-gray-50 hover:bg-gray-100 active:scale-[0.99] transition-all text-right"
     >
-      <div
-        className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
-        style={{ backgroundColor: color }}
-      >
+      <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center">
         {row.icon}
       </div>
       <div className="flex-1 min-w-0">
@@ -133,14 +134,14 @@ export default function UnifiedPlusDrawer({
               <div className="space-y-2">
                 <div className="text-[11px] font-bold text-gray-400 px-1">פעילות</div>
                 <div className="space-y-1.5">
-                  {activityRows.map((row) => renderRow(row, '#00C9F2'))}
+                  {activityRows.map((row) => renderRow(row))}
                 </div>
               </div>
               <div className="space-y-2">
                 <div className="text-[11px] font-bold text-gray-400 px-1">תרומה למפה</div>
                 <div className="space-y-1.5">
-                  {renderRow(contributeRows[0], '#10B981')}
-                  {renderRow(contributeRows[1], '#F59E0B')}
+                  {renderRow(contributeRows[0])}
+                  {renderRow(contributeRows[1])}
                 </div>
               </div>
             </div>
