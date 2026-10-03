@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Flame, Trophy, Settings2, Bookmark, Dumbbell, Target, BarChart3, Plus } from 'lucide-react';
+import { Flame, Trophy, Settings2, Bookmark, Dumbbell, Target, BarChart3 } from 'lucide-react';
 import { useProgressionStore } from '@/features/user/progression/store/useProgressionStore';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { getLevelName } from '@/features/user/progression/config/lemur-stages';
@@ -20,9 +20,9 @@ import { IS_XP_ENABLED } from '@/config/feature-flags';
 import { StrengthWidgets, RunningWidgets } from './widgets/DashboardModeWidgets';
 import FavoritesSheet from './FavoritesSheet';
 import EditProfileModal from './EditProfileModal';
-import { TRAINING_TAG_OPTIONS } from '@/features/profile/hooks/usePersonalInfoEditor';
 import WorkoutGrid from './WorkoutGrid';
-import { avatarBackground, firstGrapheme } from '@/features/profile/utils/avatar';
+import ProfileHeader from './ProfileHeader';
+import PartnersHighlightsRow from './PartnersHighlightsRow';
 
 // Carousels use Firestore + auth — keep them client-only via dynamic()
 const GoalCarousel = dynamic(() => import('./widgets/GoalCarousel'), { ssr: false });
@@ -37,9 +37,6 @@ interface DashboardTabProps {
   onNavigateToHistory?: () => void;
 }
 
-/** Single asset path; LemurAvatar uses the same file. */
-const LEMUR_IMG = '/assets/lemur/king-lemur.png';
-
 // IA shell (Phase a) — visual-only tab bar. Tapping only changes which tab
 // looks selected; content wiring per tab is a later phase.
 const PROFILE_TABS = [
@@ -48,12 +45,6 @@ const PROFILE_TABS = [
   { id: 'badges', label: 'הישגים', Icon: Trophy },
   { id: 'programs', label: 'תוכניות', Icon: BarChart3 },
 ] as const;
-
-// Default no-photo avatar (IS_XP_ENABLED=false): initials on a per-user
-// deterministic color, so two users without a photo don't look identical.
-// avatarBackground/firstGrapheme moved to features/profile/utils/avatar.ts
-// ("public profile" slice 1) so the public-profile page can reuse the
-// exact same fallback instead of a second implementation.
 
 export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: DashboardTabProps) {
   const router = useRouter();
@@ -178,136 +169,57 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
           </button>
         </div>
 
-        {/* ── IG-style header row: avatar (photo, fallback to lemur) + 3 stats ──
-            pt-10 clears the absolutely-positioned icon cluster above (36px
-            buttons + gap) now that there's no card padding to do it for us. */}
-        <div className="flex items-center gap-4 pt-10">
-          <div className="relative flex-shrink-0" style={{ width: 84, height: 84 }}>
-            {/* Gradient ring (brand gradient, same tokens as the XP bar below) —
-                padding reveals the gradient as a ring around the white inset. */}
-            <div className="w-full h-full rounded-full p-[3px] bg-gradient-to-br from-[#00ADEF] to-[#5BC2F2] shadow-md">
-              <div className="w-full h-full rounded-full overflow-hidden bg-white">
-                {photoURL ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={photoURL}
-                    alt={userName || 'תמונת פרופיל'}
-                    width={84}
-                    height={84}
-                    className="w-full h-full object-cover"
-                  />
-                ) : IS_XP_ENABLED ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={LEMUR_IMG}
-                    alt="Lemur"
-                    width={84}
-                    height={84}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div
-                    className="w-full h-full flex items-center justify-center text-white font-black text-2xl"
-                    style={{ background: avatarBackground(userId || userName) }}
-                  >
-                    {firstGrapheme(userName)}
-                  </div>
-                )}
-              </div>
-            </div>
-            {/* Streak badge — Flame + count */}
-            <div className="absolute -bottom-1 -right-1 bg-white rounded-full px-1.5 py-0.5 shadow-md border border-gray-100 flex items-center gap-0.5">
-              <Flame className="w-3.5 h-3.5 text-orange-500" fill="currentColor" />
-              <span className="text-[11px] font-black text-gray-900 tabular-nums">
-                {currentStreak}
-              </span>
-            </div>
-          </div>
-
-          {/* 3 stats — workouts / partners / streak (level dropped — see
-              partnerCount note above) */}
-          <div className="flex-1 grid grid-cols-3 gap-1">
-            <button
-              type="button"
-              onClick={onNavigateToHistory}
-              disabled={!onNavigateToHistory}
-              aria-label="הצג היסטוריית אימונים"
-              className="flex flex-col items-center active:scale-95 transition-transform disabled:cursor-default"
-            >
-              <span className="text-lg font-black text-gray-900 leading-none tabular-nums">
-                {historyLoading ? '—' : totalWorkouts}
-              </span>
-              <span className="text-[10px] font-bold text-gray-500 mt-1">אימונים</span>
-            </button>
-
-            <div className="flex flex-col items-center">
-              <span className="text-lg font-black text-gray-900 leading-none tabular-nums">
-                {partnerCount}
-              </span>
-              <span className="text-[10px] font-bold text-gray-500 mt-1">שותפים</span>
-            </div>
-
-            <div className="flex flex-col items-center">
-              <span className="text-lg font-black text-gray-900 leading-none tabular-nums">
-                {currentStreak}
-              </span>
-              <span className="text-[10px] font-bold text-gray-500 mt-1">ימי רצף</span>
-            </div>
-          </div>
+        {/* pt-10 clears the absolutely-positioned icon cluster above (36px
+            buttons + gap) now that there's no card padding to do it for us.
+            ProfileHeader (avatar+stats+name+bio+tags+actions) extracted to
+            features/profile/components/ProfileHeader.tsx ("public profile"
+            slice 1) so the public-profile page renders the same building
+            block for another user — same markup/behavior as before this
+            extraction, just parameterized. */}
+        <div className="pt-10">
+          <ProfileHeader
+            photoURL={photoURL}
+            name={userName}
+            cornerBadge={
+              <>
+                <Flame className="w-3.5 h-3.5 text-orange-500" fill="currentColor" />
+                <span className="text-[11px] font-black text-gray-900 tabular-nums">
+                  {currentStreak}
+                </span>
+              </>
+            }
+            stats={[
+              {
+                key: 'workouts',
+                value: historyLoading ? '—' : totalWorkouts,
+                label: 'אימונים',
+                onClick: onNavigateToHistory,
+              },
+              { key: 'partners', value: partnerCount, label: 'שותפים' },
+              { key: 'streak', value: currentStreak, label: 'ימי רצף' },
+            ]}
+            bio={profile?.core?.bio ?? null}
+            bioPlaceholder="עדיין אין תיאור אישי"
+            roleLine={
+              IS_XP_ENABLED ? (
+                <p className="text-xs font-bold text-[#00ADEF] mt-0.5">{levelName}</p>
+              ) : undefined
+            }
+            tagIds={trainingTags}
+            actions={
+              /* עריכת פרופיל — opens the consolidated Edit Profile screen
+                 (round 5). Flat, full-width (no pill/border chrome) — just
+                 a plain brand-teal label on the page background. */
+              <button
+                type="button"
+                onClick={() => setIsEditProfileOpen(true)}
+                className="w-full mt-4 py-2.5 text-sm font-bold text-[#00ADEF] text-center active:bg-gray-50 transition-colors rounded-lg"
+              >
+                עריכת פרופיל
+              </button>
+            }
+          />
         </div>
-
-        {/* Name + role line + bio — flowing plain text, start-aligned
-            (not centered), matching the mockup. levelName (e.g. "המטפס")
-            serves as the role line here — it's part of the XP/character
-            system, gated behind IS_XP_ENABLED like the rest of it (round 4
-            follow-up; previously kept unconditional). Bio (round 5):
-            core.bio is a real field now, set via EditProfileModal — shows
-            the real value when set, same empty-safe placeholder as before
-            when not. */}
-        <div className="mt-4">
-          {userName && (
-            <p className="text-base font-bold text-gray-900">{userName}</p>
-          )}
-          {IS_XP_ENABLED && (
-            <p className="text-xs font-bold text-[#00ADEF] mt-0.5">{levelName}</p>
-          )}
-          <p className="text-sm font-medium text-gray-400 mt-1 leading-relaxed">
-            {profile?.core?.bio?.trim() || 'עדיין אין תיאור אישי'}
-          </p>
-
-          {/* Training tags (round 6 bug fix) — core.trainingTags saves
-              correctly via usePersonalInfoEditor; this display was simply
-              never added here, only on the public profile page. Hidden
-              entirely when empty — no "add tags" placeholder clutter. */}
-          {trainingTags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {trainingTags.map((tagId) => {
-                const tag = TRAINING_TAG_OPTIONS.find((t) => t.id === tagId);
-                return (
-                  <span
-                    key={tagId}
-                    className="text-[11px] font-semibold text-gray-600 bg-gray-50 border border-gray-200 rounded-full px-2.5 py-1"
-                  >
-                    {tag?.label ?? tagId}
-                  </span>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* עריכת פרופיל — opens the consolidated Edit Profile screen (round
-            5). Flat, full-width (no pill/border chrome) — just a plain
-            brand-teal label on the page background. Additive: the
-            gear/bookmark corner icons above keep their existing jobs
-            (settings / saved workouts) unchanged. */}
-        <button
-          type="button"
-          onClick={() => setIsEditProfileOpen(true)}
-          className="w-full mt-4 py-2.5 text-sm font-bold text-[#00ADEF] text-center active:bg-gray-50 transition-colors rounded-lg"
-        >
-          עריכת פרופיל
-        </button>
 
         {/* XP progress bar — IS_XP_ENABLED gate. Hidden, not deleted: no
             accrual is stopped, only this display. */}
@@ -345,34 +257,17 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
           </div>
         )}
 
-        {/* Partners highlights (new, "פרופיל חלק" round) — horizontal row of
-            circular avatars of the user's workout partners, leading "+
-            הוסף". DEPENDENCY GAP, confirmed during investigation: no
-            friends/partners list is wired to the self-profile today. A real
-            mutual-follow graph DOES exist (connections/{uid}.following ∩
-            .followers via useSocialStore, resolvable via the existing
-            getUsersByUids in user-search.service.ts) — but David explicitly
-            chose to defer wiring it this round (visual-only scope) rather
-            than have this row show a different number than the "שותפים"
-            stat above it (which is a referral count, not a follow count).
-            So: render ONLY the add-affordance, per his fallback
-            instruction — no invented avatars. Routes to /search?tab=people
-            (the existing people-discovery tab, "גלה" sub-mode by default)
-            — not a new destination, just a deep-linked existing one. */}
-        <div className="mt-5 pb-5 border-b border-gray-100">
-          <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide" dir="rtl">
-            <button
-              type="button"
-              onClick={() => router.push('/search?tab=people')}
-              aria-label="הוסף שותפי אימון"
-              className="flex flex-col items-center gap-1 flex-shrink-0 active:scale-95 transition-transform"
-            >
-              <div className="w-14 h-14 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400">
-                <Plus className="w-5 h-5" />
-              </div>
-              <span className="text-[10px] font-semibold text-gray-500">הוסף</span>
-            </button>
-          </div>
+        {/* Partners highlights (new, "פרופיל חלק" round) — see
+            PartnersHighlightsRow.tsx's own comment for the DEPENDENCY GAP
+            (no friends/partners list wired to the self-profile today) and
+            why only the add-affordance renders here, same as before this
+            extraction. Routes to /search?tab=people (existing
+            people-discovery tab, "גלה" sub-mode by default). */}
+        <div className="mt-5">
+          <PartnersHighlightsRow
+            partners={[]}
+            onAddClick={() => router.push('/search?tab=people')}
+          />
         </div>
       </motion.div>
 
