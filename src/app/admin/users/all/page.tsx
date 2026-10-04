@@ -5,49 +5,23 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
 import {
   getAllUsers,
-  getUserDetails,
-  getUserHealthDeclarationPdfUrl,
-  getUserWorkoutHistory,
   deleteUser,
   AdminUserListItem
 } from '@/features/admin/services/users.service';
-import { UserFullProfile } from '@/types/user-profile';
-import { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
-import { getStepsTrend, type DailyStepsSnapshot } from '@/features/activity/services/activity-history.service';
-import { safeRenderText } from '@/utils/render-helpers';
-import { 
-  Search, Trash2, Eye, Shield, Mail, Phone, Calendar, Coins, 
-  User, X, Activity, TrendingUp, MapPin, Package, RefreshCw, 
-  Building2, Clock, CheckCircle2, AlertCircle, Dumbbell, Footprints, Move, Bike,
-  FileText, ExternalLink, Edit3, Save, Plus, ArrowRightLeft, Shuffle,
-  Bell, BellOff, Smartphone, Moon, Maximize2, Minimize2, Flame
+import {
+  Search, Trash2, Eye, Shield, Mail, Coins,
+  User, Activity, TrendingUp, MapPin, RefreshCw,
+  Flame
 } from 'lucide-react';
-import { getProgramIcon, resolveIconKey } from '@/features/content/programs/core/program-icon.util';
-import dynamicImport from 'next/dynamic';
-
-// Dynamic import for map to avoid SSR issues
-const RunMapBlock = dynamicImport(
-  () => import('@/features/workout-engine/summary/components/running/RunMapBlock'),
-  { ssr: false }
-);
 import { logAction } from '@/features/admin/services/audit.service';
-import { getAllGearDefinitions } from '@/features/content/equipment/gear';
-import { GearDefinition } from '@/features/content/equipment/gear';
-import { getUserEvents, AnalyticsEvent } from '@/features/analytics/AnalyticsService';
-import { getAuthority } from '@/features/admin/services/authority.service';
-import { getProgram, getAllPrograms, MASTER_PROGRAM_ID_TO_SLUG } from '@/features/content/programs';
-import { Program } from '@/features/content/programs';
-import { resolveToSlug, ensureIdSlugMapWarm, FULL_BODY_CHILD_DOMAINS, UPPER_BODY_CHILD_DOMAINS } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { usePagination } from '@/features/admin/hooks/usePagination';
 import Pagination from '@/features/admin/components/shared/Pagination';
 import { formatFirebaseTimestamp, convertTimestampToDate } from '@/lib/utils/date-formatter';
-import { formatPace } from '@/features/workout-engine/core/utils/formatPace';
 import { isTestOrMockUser } from '@/lib/testAccountFilter';
 import { formatLastActivity, securityBadge, computeEffectiveLevel } from '../shared.utils';
 
