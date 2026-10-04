@@ -3,7 +3,7 @@
 // Force dynamic rendering to prevent SSR issues with window/localStorage
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -2938,6 +2938,14 @@ export default function AllUsersPage() {
   // insights-summary/analytics.service; this list was the one surface not
   // applying it, which is why it showed ~777 instead of the real population.
   const [testAccountFilter, setTestAccountFilter] = useState<'HIDE' | 'ALL' | 'ONLY'>('HIDE');
+  // Ghost quick-filter (David, 04.10.2026): no email AND 0 workouts AND
+  // default level AND no name — see user.isGhost, computed in loadUsers().
+  const [ghostOnly, setGhostOnly] = useState(false);
+  // Join-date sort — default newest-first per David's triage workflow.
+  const [joinDateSort, setJoinDateSort] = useState<'desc' | 'asc'>('desc');
+  // Bulk isTestData flag action — persists across pages; cleared on refresh.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkActionPending, setBulkActionPending] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -3019,20 +3027,32 @@ export default function AllUsersPage() {
         testAccountFilter === 'HIDE' ? !isTestOrMock :
         isTestOrMock; // ONLY
 
-      return matchesSearch && matchesStatus && matchesStep && matchesType && matchesActivity && matchesTestAccount;
+      // 7. Ghost quick-filter (no email AND 0 workouts AND default level AND no name)
+      const matchesGhost = !ghostOnly || user.isGhost === true;
+
+      return matchesSearch && matchesStatus && matchesStep && matchesType && matchesActivity && matchesTestAccount && matchesGhost;
     });
 
     setFilteredUsers(filtered);
-  }, [searchTerm, users, statusFilter, stepFilter, typeFilter, activityFilter, testAccountFilter]);
+  }, [searchTerm, users, statusFilter, stepFilter, typeFilter, activityFilter, testAccountFilter, ghostOnly]);
 
-  // Pagination for filtered users
-  const { currentPage, totalPages, paginatedItems, goToPage, resetPagination } = usePagination(filteredUsers, 10);
-  
+  // Sort filtered users by join date — applied before pagination so sorting
+  // is stable across pages, not just within the current page's 10 rows.
+  const sortedUsers = useMemo(() => {
+    const withTime = (u: AdminUserListItem) => u.joinDate instanceof Date ? u.joinDate.getTime() : -Infinity;
+    return [...filteredUsers].sort((a, b) =>
+      joinDateSort === 'desc' ? withTime(b) - withTime(a) : withTime(a) - withTime(b)
+    );
+  }, [filteredUsers, joinDateSort]);
+
+  // Pagination for sorted + filtered users
+  const { currentPage, totalPages, paginatedItems, goToPage, resetPagination } = usePagination(sortedUsers, 10);
+
   // Reset pagination when filters change
   useEffect(() => {
     resetPagination();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, statusFilter, stepFilter, typeFilter, activityFilter, testAccountFilter]);
+  }, [searchTerm, statusFilter, stepFilter, typeFilter, activityFilter, testAccountFilter, ghostOnly, joinDateSort]);
 
 
   const loadUsers = async (filterByAuthority: boolean = false, authorityIds: string[] = []) => {
@@ -3069,7 +3089,29 @@ export default function AllUsersPage() {
         const snapshot = await getDocs(q);
         snapshots = snapshot.docs;
       }
-      
+
+      // ── Protection-rule inputs (mirrors scripts/mark-test-accounts.ts) ──
+      // authorityManager: uid appears in managerIds of any authorities/{id} doc.
+      const authoritiesSnap = await getDocs(collection(db, 'authorities'));
+      const managerUids = new Set<string>();
+      authoritiesSnap.docs.forEach((d) => {
+        const ids = d.data().managerIds;
+        if (Array.isArray(ids)) ids.forEach((uid) => typeof uid === 'string' && managerUids.add(uid));
+      });
+
+      // realEngagedUser: real per-user workout count, from the `workouts`
+      // collection itself — NOT progression.workoutCount, which is a
+      // client-written counter that can silently under-count (see
+      // completion-sync.service.ts). This also feeds the "רמת פעילות" filter
+      // below, which previously always read 0 (workoutsCompleted was never
+      // populated on this object).
+      const workoutsSnap = await getDocs(collection(db, 'workouts'));
+      const workoutCountByUid = new Map<string, number>();
+      workoutsSnap.docs.forEach((d: any) => {
+        const uid = d.data()?.userId;
+        if (typeof uid === 'string') workoutCountByUid.set(uid, (workoutCountByUid.get(uid) ?? 0) + 1);
+      });
+
       let usersData = snapshots.map((docSnap: any) => {
         const data = docSnap.data();
         const core = data?.core || {};
@@ -3099,6 +3141,33 @@ export default function AllUsersPage() {
         const cityName = affName
           || (typeof rawAuth === 'string' ? rawAuth : undefined);
 
+        // ── Protection rules + ghost rule (mirrors scripts/mark-test-accounts.ts) ──
+        const hasName = typeof core.name === 'string' && core.name.trim().length > 0;
+        const hasEmail = typeof core.email === 'string' && core.email.trim().length > 0;
+        const workoutCount = workoutCountByUid.get(docSnap.id) ?? 0;
+        const hasWorkout = workoutCount > 0;
+        const allowedSections = core.allowedSections;
+        const hasAdminRole =
+          core.isSuperAdmin === true ||
+          core.isSystemAdmin === true ||
+          core.role === 'system_admin' ||
+          core.isVerticalAdmin === true ||
+          core.isTenantOwner === true ||
+          (Array.isArray(allowedSections) && allowedSections.length > 0);
+        const isAuthorityManager = managerUids.has(docSnap.id);
+
+        let isProtected = false;
+        let protectedReason: 'authorityManager' | 'hasAdminRole' | 'realEngagedUser' | undefined;
+        if (isAuthorityManager) { isProtected = true; protectedReason = 'authorityManager'; }
+        else if (hasAdminRole) { isProtected = true; protectedReason = 'hasAdminRole'; }
+        else if (hasWorkout && hasEmail) { isProtected = true; protectedReason = 'realEngagedUser'; }
+
+        // Ghost rule (David, 04.10.2026): no email AND 0 workouts AND default
+        // level AND no name. CRITICAL: a no-email user WITH workouts is a real
+        // anonymous-guest signup, never a ghost — hasWorkout being false is
+        // load-bearing here, not incidental.
+        const isGhost = !hasEmail && !hasWorkout && effectiveLevel <= 1 && !hasName;
+
         return {
           id: docSnap.id,
           name: core.name || 'ללא שם',
@@ -3126,6 +3195,12 @@ export default function AllUsersPage() {
           programName,
           cityName,
           birthDate: core.birthDate || undefined,
+          isTestData: core.isTestData === true,
+          isMockData: core.isMockData === true,
+          workoutCount,
+          isProtected,
+          protectedReason,
+          isGhost,
         };
       });
       
@@ -3145,8 +3220,76 @@ export default function AllUsersPage() {
     setRefreshing(true);
     try {
       await loadUsers();
+      setSelectedIds(new Set()); // underlying data just changed — stale selection isn't safe to keep
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  /**
+   * Bulk core.isTestData flag/unflag — reuses the exact mechanism
+   * scripts/mark-test-accounts.ts already uses (core.isTestData boolean,
+   * read by src/lib/testAccountFilter.ts's isTestOrMockUser()). Never
+   * touches core.isMockData. Protected users (authorityManager/
+   * hasAdminRole/realEngagedUser — computed in loadUsers()) are always
+   * skipped here even if their row was checked, and the skip count is
+   * reported — this is the enforcement point, not just the checkbox UI.
+   */
+  const handleBulkSetTestData = async (flag: boolean) => {
+    const targets = users.filter((u) => selectedIds.has(u.id));
+    const toWrite = targets.filter((u) => !u.isProtected);
+    const skipped = targets.filter((u) => u.isProtected);
+
+    const verb = flag ? 'לסמן' : 'לבטל סימון עבור';
+    const confirmMsg = `${verb} ${toWrite.length} משתמשים כטסט/דמו (core.isTestData)?` +
+      (skipped.length > 0 ? `\n\n${skipped.length} מהנבחרים מוגנים (מנהל רשות / הרשאת מנהל / משתמש פעיל אמיתי) וידלגו אוטומטית.` : '') +
+      `\n\nזו פעולה הפיכה — לא מחיקה. היא תסתיר/תציג אותם בדשבורדים בהתאם ל-core.isTestData.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    if (toWrite.length === 0) {
+      alert(`0 נכתבו — כל ${targets.length} הנבחרים מוגנים ודולגו.`);
+      return;
+    }
+
+    setBulkActionPending(true);
+    try {
+      const { doc, writeBatch, arrayUnion, serverTimestamp } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase');
+
+      // Chunk at 400 to stay safely under Firestore's 500-write batch limit
+      // (mirrors scripts/backfill-age-group.ts's COMMIT_BATCH_SIZE convention).
+      const CHUNK = 400;
+      for (let i = 0; i < toWrite.length; i += CHUNK) {
+        const batch = writeBatch(db);
+        for (const u of toWrite.slice(i, i + CHUNK)) {
+          const ref = doc(db, 'users', u.id);
+          if (flag) {
+            batch.update(ref, {
+              'core.isTestData': true,
+              'core.testDataReason': arrayUnion('manualBulkFlag'),
+              'core.testDataMarkedAt': serverTimestamp(),
+            });
+          } else {
+            batch.update(ref, { 'core.isTestData': false });
+          }
+        }
+        await batch.commit();
+      }
+
+      // Optimistic local update — avoids a full reload for immediate UI feedback.
+      const writtenIds = new Set(toWrite.map((u) => u.id));
+      const applyFlag = (list: AdminUserListItem[]) =>
+        list.map((u) => (writtenIds.has(u.id) ? { ...u, isTestData: flag } : u));
+      setUsers((prev) => applyFlag(prev));
+      setFilteredUsers((prev) => applyFlag(prev));
+      setSelectedIds(new Set());
+
+      alert(`${toWrite.length} ${flag ? 'סומנו' : 'בוטל סימונם'}.` + (skipped.length > 0 ? ` ${skipped.length} דולגו (מוגנים).` : ''));
+    } catch (error) {
+      console.error('Error in bulk isTestData update:', error);
+      alert('שגיאה בעדכון המסיבי — ראה console.');
+    } finally {
+      setBulkActionPending(false);
     }
   };
 
@@ -3347,6 +3490,25 @@ export default function AllUsersPage() {
             </select>
           </div>
 
+          {/* Ghost Quick-Filter */}
+          <div className="flex-1 min-w-[180px]">
+            <label className="block text-xs font-bold text-gray-700 mb-1.5 font-simpler">
+              חשבונות ריקים
+            </label>
+            <button
+              type="button"
+              onClick={() => setGhostOnly((v) => !v)}
+              title="ריק = ללא אימייל וללא אימונים וללא שם וברמת בסיס. משתמש אנונימי-אורח עם אימונים/streak לעולם לא ייחשב ריק."
+              className={`w-full px-3 py-2 rounded-lg text-sm font-simpler border transition-colors ${
+                ghostOnly
+                  ? 'bg-[#5BC2F2] text-white border-[#5BC2F2]'
+                  : 'bg-white text-gray-700 border-slate-200 hover:border-[#5BC2F2]'
+              }`}
+            >
+              {ghostOnly ? '✓ מציג רק ריקים' : 'הצג רק ריקים'}
+            </button>
+          </div>
+
           {/* Result Count Badge */}
           <div className="flex items-end">
             <div className="px-4 py-2 bg-[#5BC2F2]/10 rounded-lg border border-[#5BC2F2]/20">
@@ -3356,7 +3518,45 @@ export default function AllUsersPage() {
             </div>
           </div>
         </div>
+        <p className="mt-3 text-xs text-gray-500 font-simpler" dir="rtl">
+          <strong>כלל "ריק":</strong> ללא אימייל <strong>וגם</strong> 0 אימונים <strong>וגם</strong> רמת בסיס (≤1) <strong>וגם</strong> ללא שם.
+          משתמש ללא אימייל שיש לו אימונים/streak הוא אורח-אנונימי אמיתי — לעולם לא ייחשב ריק ולא יסומן אוטומטית.
+        </p>
       </div>
+
+      {/* Bulk Action Bar — only visible when rows are selected */}
+      {selectedIds.size > 0 && (
+        <div className="bg-amber-50 rounded-xl border border-amber-200 p-4 flex items-center justify-between gap-4">
+          <span className="text-sm font-bold text-amber-800 font-simpler">
+            {selectedIds.size} נבחרו
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={bulkActionPending}
+              onClick={() => handleBulkSetTestData(true)}
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-sm rounded-lg transition-colors disabled:opacity-50 font-simpler"
+            >
+              סמן כטסט/דמו
+            </button>
+            <button
+              type="button"
+              disabled={bulkActionPending}
+              onClick={() => handleBulkSetTestData(false)}
+              className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-bold text-sm rounded-lg transition-colors disabled:opacity-50 font-simpler"
+            >
+              בטל סימון
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              className="px-3 py-2 text-gray-500 hover:text-gray-700 text-sm font-simpler"
+            >
+              נקה בחירה
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -3384,6 +3584,22 @@ export default function AllUsersPage() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
+                <th className="py-4 px-4 text-sm font-bold text-gray-700 w-10">
+                  <input
+                    type="checkbox"
+                    title="בחר הכל בעמוד"
+                    checked={paginatedItems.length > 0 && paginatedItems.every((u) => selectedIds.has(u.id))}
+                    onChange={(e) => {
+                      setSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        if (e.target.checked) paginatedItems.forEach((u) => next.add(u.id));
+                        else paginatedItems.forEach((u) => next.delete(u.id));
+                        return next;
+                      });
+                    }}
+                    className="w-4 h-4 cursor-pointer"
+                  />
+                </th>
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">משתמש</th>
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">תוכנית</th>
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">רמה אפקטיבית</th>
@@ -3393,20 +3609,46 @@ export default function AllUsersPage() {
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">סטטוס</th>
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">תאריך לידה</th>
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">מטבעות</th>
-                <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">הצטרפות</th>
+                <th
+                  className="text-right py-4 px-6 text-sm font-bold text-gray-700 cursor-pointer select-none hover:text-[#5BC2F2]"
+                  onClick={() => setJoinDateSort((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
+                  title="מיין לפי תאריך הצטרפות"
+                >
+                  <span className="inline-flex items-center gap-1">
+                    הצטרפות
+                    <span className="text-xs">{joinDateSort === 'desc' ? '▼' : '▲'}</span>
+                  </span>
+                </th>
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">פעולות</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {paginatedItems.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="text-center py-12 text-gray-500 font-simpler" dir="rtl">
+                  <td colSpan={12} className="text-center py-12 text-gray-500 font-simpler" dir="rtl">
                     {searchTerm ? 'לא נמצאו משתמשים התואמים לחיפוש' : 'אין משתמשים'}
                   </td>
                 </tr>
               ) : (
                 paginatedItems.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                    {/* בחירה */}
+                    <td className="py-4 px-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(user.id)}
+                        onChange={(e) => {
+                          setSelectedIds((prev) => {
+                            const next = new Set(prev);
+                            if (e.target.checked) next.add(user.id);
+                            else next.delete(user.id);
+                            return next;
+                          });
+                        }}
+                        title={user.isProtected ? `מוגן (${user.protectedReason}) — ידלג אוטומטית מסימון טסט/דמו` : undefined}
+                        className="w-4 h-4 cursor-pointer"
+                      />
+                    </td>
                     {/* משתמש */}
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-3">

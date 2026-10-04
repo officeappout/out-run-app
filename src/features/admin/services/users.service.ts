@@ -153,6 +153,28 @@ export interface AdminUserListItem {
    */
   isTestData?: boolean;
   isMockData?: boolean;
+  /**
+   * Real per-user completed-workout count (from the `workouts` collection,
+   * not progression.workoutCount — that field is client-written and can
+   * silently under-count, see completion-sync.service.ts). 0 for a user
+   * with zero workout docs.
+   */
+  workoutCount?: number;
+  /**
+   * Computed client-side at load time, mirroring scripts/mark-test-accounts.ts's
+   * protection rules (authorityManager / hasAdminRole / realEngagedUser).
+   * A protected user is never auto-selected by the "ghost" quick-filter and
+   * is always skipped (not written) by the bulk isTestData flag action,
+   * regardless of whether its checkbox was checked.
+   */
+  isProtected?: boolean;
+  protectedReason?: 'authorityManager' | 'hasAdminRole' | 'realEngagedUser';
+  /**
+   * Ghost rule (David, 04.10.2026): no email AND 0 workouts AND default
+   * level (<=1) AND no name. Deliberately does NOT include isProtected —
+   * check both independently before treating a row as safe to auto-select.
+   */
+  isGhost?: boolean;
 }
 
 /**
