@@ -78,6 +78,18 @@ function PassPercentCell({ breakdown }: { breakdown: DashboardUnitStatusBreakdow
   );
 }
 
+/** 04.10.2026 (§13.86) — denominator is the unit's OWN totalCount, same "every soldier, not just linked" rule as the card above. */
+function AppActivityCell({ row, totalCount }: { row: UnitAppActivityRow | undefined; totalCount: number }) {
+  if (!row || totalCount === 0) return <span className="text-[11px] text-slate-400 font-bold">—</span>;
+  const percent = Math.round((row.activeCount / totalCount) * 100);
+  return (
+    <div>
+      <span className="text-sm font-bold text-slate-800">{percent}%</span>
+      <span className="text-[10px] text-slate-400 block">{row.activeCount} מתוך {totalCount}</span>
+    </div>
+  );
+}
+
 function ComponentPercentCell({ percent, tested }: { percent: number | null; tested: number }) {
   if (percent === null) return <span className="text-[11px] text-slate-400 font-bold">טרם נבדקה</span>;
   return (
@@ -99,9 +111,18 @@ function compareByFilteredPassPercent(a: DashboardUnitRow, b: DashboardUnitRow, 
   return a.unitName.localeCompare(b.unitName, 'he');
 }
 
+export interface UnitAppActivityRow {
+  unitId: string;
+  totalCount: number;
+  linkedCount: number;
+  activeCount: number;
+}
+
 interface UnitReadinessTableProps {
   units: DashboardUnitRow[];
   components: DashboardComponentBreakdown[];
+  /** 04.10.2026 (§13.86) — optional: when provided, adds a "פעילים באפליקציה" column. Omitted (undefined) renders the table exactly as before, with no column. */
+  appActivityByUnit?: UnitAppActivityRow[];
   /**
    * 04.10.2026 (§13.85) — controlled from the parent page's
    * NearThresholdCard, not an internal chip here: this is an orthogonal
@@ -117,10 +138,15 @@ interface UnitReadinessTableProps {
   nearThresholdOnly?: boolean;
 }
 
-export default function UnitReadinessTable({ units, components, nearThresholdOnly = false }: UnitReadinessTableProps) {
+export default function UnitReadinessTable({ units, components, nearThresholdOnly = false, appActivityByUnit }: UnitReadinessTableProps) {
   const router = useRouter();
   const [filter, setFilter] = useState<DashboardUnitViewKey>('all');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const appActivityById = useMemo(
+    () => new Map((appActivityByUnit ?? []).map((a) => [a.unitId, a])),
+    [appActivityByUnit],
+  );
 
   const { topLevel, childrenByParent } = useMemo(() => {
     let source = units;
@@ -209,6 +235,11 @@ export default function UnitReadinessTable({ units, components, nearThresholdOnl
               </td>
             );
           })}
+          {appActivityByUnit && (
+            <td className="py-2.5 px-3">
+              <AppActivityCell row={appActivityById.get(u.unitId)} totalCount={u.totalCount} />
+            </td>
+          )}
           <td className="py-2.5 px-3 text-[11px] text-slate-500">
             {u.lastTestDate ? new Date(u.lastTestDate).toLocaleDateString('he-IL') : '—'}
           </td>
@@ -246,6 +277,7 @@ export default function UnitReadinessTable({ units, components, nearThresholdOnl
             <th className="text-right py-2 px-3">כשירות כוללת</th>
             <th className="text-right py-2 px-3">נבדקו</th>
             {components.map((c) => <th key={c.testId} className="text-right py-2 px-3">{c.label}</th>)}
+            {appActivityByUnit && <th className="text-right py-2 px-3">פעילים באפליקציה</th>}
             <th className="text-right py-2 px-3">עודכן לאחרונה</th>
           </tr>
         </thead>

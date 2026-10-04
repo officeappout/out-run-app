@@ -14,6 +14,8 @@ import OverallReadinessCard from '@/features/admin/components/readiness-dashboar
 import ComponentReadinessCard from '@/features/admin/components/readiness-dashboard/ComponentReadinessCard';
 import UnitReadinessTable from '@/features/admin/components/readiness-dashboard/UnitReadinessTable';
 import NearThresholdCard from '@/features/admin/components/readiness-dashboard/NearThresholdCard';
+import AppActivityCard from '@/features/admin/components/readiness-dashboard/AppActivityCard';
+import FailToPassTransitionCard from '@/features/admin/components/readiness-dashboard/FailToPassTransitionCard';
 import type {
   DashboardOverallBreakdown,
   DashboardComponentBreakdown,
@@ -60,6 +62,49 @@ async function fetchReadinessDashboard(
     return { overall: null, components: [], units: [], nearThresholdCount: 0, error: err?.message ?? 'שגיאה בטעינת לוח הכשירות.' };
   }
 }
+
+/**
+ * 04.10.2026 (§13.86) — leading-indicators strip at the top of the
+ * readiness dashboard. Deliberately fetched/failed independently of
+ * fetchReadinessDashboard above: a failure here must never block the
+ * actual readiness numbers from rendering, and vice versa.
+ */
+async function fetchReadinessAppActivity(
+  tenantId: string,
+): Promise<{
+  totalCount: number;
+  linkedCount: number;
+  activeCount: number;
+  activePercent: number | null;
+  failToPassCount: number | null;
+  failToPassEligibleCount: number;
+  units: { unitId: string; totalCount: number; linkedCount: number; activeCount: number }[];
+} | null> {
+  try {
+    const user = auth.currentUser;
+    if (!user) return null;
+    const idToken = await user.getIdToken();
+    const res = await fetch(`/api/units/readiness/app-activity?tenantId=${encodeURIComponent(tenantId)}`, {
+      headers: { Authorization: `Bearer ${idToken}` },
+    });
+    if (!res.ok) return null;
+    const body = await res.json().catch(() => null);
+    if (!body) return null;
+    return {
+      totalCount: body.totalCount ?? 0,
+      linkedCount: body.linkedCount ?? 0,
+      activeCount: body.activeCount ?? 0,
+      activePercent: body.activePercent ?? null,
+      failToPassCount: body.failToPassCount ?? null,
+      failToPassEligibleCount: body.failToPassEligibleCount ?? 0,
+      units: body.units ?? [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+const ACTIVE_WINDOW_DAYS = 30;
 
 const AUTHORITY_STORAGE_KEY = 'admin_selected_authority_id';
 
@@ -115,6 +160,7 @@ export default function AdminDashboardPage() {
   const [readinessNearThresholdCount, setReadinessNearThresholdCount] = useState(0);
   const [readinessNearThresholdOnly, setReadinessNearThresholdOnly] = useState(false);
   const [readinessError, setReadinessError] = useState<string | null>(null);
+  const [readinessAppActivity, setReadinessAppActivity] = useState<Awaited<ReturnType<typeof fetchReadinessAppActivity>>>(null);
 
   const resolveAuthority = useCallback(async (uid: string) => {
     try {
@@ -149,12 +195,16 @@ export default function AdminDashboardPage() {
       setAuthorityName(aName);
 
       if (resolvedTenantType === 'military') {
-        const result = await fetchReadinessDashboard(aId);
+        const [result, appActivity] = await Promise.all([
+          fetchReadinessDashboard(aId),
+          fetchReadinessAppActivity(aId),
+        ]);
         setReadinessOverall(result.overall);
         setReadinessComponents(result.components);
         setReadinessUnits(result.units);
         setReadinessNearThresholdCount(result.nearThresholdCount);
         setReadinessError(result.error);
+        setReadinessAppActivity(appActivity);
         return;
       }
 
@@ -241,6 +291,28 @@ export default function AdminDashboardPage() {
 
         {!readinessError && readinessOverall && (
           <>
+            {/* 04.10.2026 (§13.86) — leading-indicators strip, deliberately
+                ABOVE and SEPARATE from the readiness (green) grid below:
+                these two cards answer "is the app used" / "is anyone
+                improving," neither of which is a readiness calculation.
+                Renders even if readinessAppActivity failed to load (null) —
+                a failure here must never block the real readiness numbers. */}
+            {readinessAppActivity && (
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+                <AppActivityCard
+                  totalCount={readinessAppActivity.totalCount}
+                  linkedCount={readinessAppActivity.linkedCount}
+                  activeCount={readinessAppActivity.activeCount}
+                  activePercent={readinessAppActivity.activePercent}
+                  windowDays={ACTIVE_WINDOW_DAYS}
+                />
+                <FailToPassTransitionCard
+                  count={readinessAppActivity.failToPassCount}
+                  eligibleCount={readinessAppActivity.failToPassEligibleCount}
+                />
+              </div>
+            )}
+
             {/* 03.10.2026 — David's visual-fix round: one row, equal-
                 size cards. The overall card used to stand alone above a
                 separate, smaller second-row grid of component cards —
@@ -267,7 +339,12 @@ export default function AdminDashboardPage() {
               onClick={() => setReadinessNearThresholdOnly((v) => !v)}
             />
 
-            <UnitReadinessTable units={readinessUnits} components={readinessComponents} nearThresholdOnly={readinessNearThresholdOnly} />
+            <UnitReadinessTable
+              units={readinessUnits}
+              components={readinessComponents}
+              nearThresholdOnly={readinessNearThresholdOnly}
+              appActivityByUnit={readinessAppActivity?.units}
+            />
 
             <p className="text-xs text-gray-400 text-center">
               רק בוחן מסודר נספר בלוח זה. תוצאות ממדידות אפליקציה ומדיווח עצמי אינן נכללות.
