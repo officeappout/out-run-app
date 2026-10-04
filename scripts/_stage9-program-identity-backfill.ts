@@ -9,34 +9,64 @@
  * data only.
  *
  * SAFE BY DEFAULT: running this script with no flags performs ZERO writes.
- * It builds the full plan, prints a report, and backs up every document it
- * would touch to a local JSON file — then stops. Pass --confirm to
- * actually write (still backs up first, same file). Idempotent: re-running
- * after a successful write detects the now-clean state and reports 0
- * remaining targets for whichever finding was already resolved.
+ * It builds the full plan, prints a report (including every field of every
+ * entry it would touch, not just currentLevel — see "pre-flight review"
+ * below), and backs up every document it would touch to a local JSON file
+ * — then stops. Pass --confirm to actually write (still backs up first,
+ * same file, and re-reads + re-checks each doc fresh immediately before
+ * writing it — see "Apply" below). Idempotent: re-running after a
+ * successful write detects the now-clean state and reports 0 remaining
+ * targets for whichever finding was already resolved.
  *
  * Three findings, matching the audit's Stage 9 scope exactly:
  *
  *   (a) activePrograms[].templateId still a raw Firestore hash (the
  *       "legendary templateId bug" — never fixed retroactively by Stages
  *       5-8, which only stopped NEW occurrences). Rewrites the array
- *       entry's id/templateId to its resolved slug. Read-only field
- *       (name/startDate/etc.) is otherwise untouched.
+ *       entry's id/templateId to its resolved slug. Every other field on
+ *       the entry (name/startDate/etc.) is untouched.
  *
  *   (b) DUAL-KEYED progression.tracks/domains: a hash key AND its slug
- *       sibling both exist for the same program (recalculateMasterLevel's
- *       pre-Stage-7 dual-write). Collapsed to slug-only — but ONLY when
- *       both keys agree on currentLevel. A disagreement is NOT
- *       auto-resolved: it's a signal of prior corruption and is reported
- *       separately, under NEEDS MANUAL REVIEW, excluded from the write set
- *       entirely (per the audit's explicit instruction).
+ *       sibling both exist for the same program. Collapsed to slug-only —
+ *       but ONLY when both keys agree on currentLevel; a disagreement is
+ *       NOT auto-resolved (reported under NEEDS MANUAL REVIEW, excluded
+ *       from the write set entirely, per the audit's explicit instruction
+ *       — that's a signal of prior corruption, not noise to paper over).
+ *
+ *       PRE-FLIGHT FINDING (confirmed against the real field model —
+ *       DomainTrackProgress/DomainProgress in progression.types.ts /
+ *       user.types.ts — before this script was approved to run): a
+ *       tracks/domains entry holds real fields beyond currentLevel
+ *       (tracks: percent, lastWorkoutDate, totalWorkoutsCompleted,
+ *       completedGoalIds; domains: maxLevel, isUnlocked). Tracing their
+ *       writers (progression.service.ts's actual workout-completion path)
+ *       confirmed the key it writes under is whatever `activeProgramId`
+ *       the caller passed — which, for a legacy account, can be the SAME
+ *       raw hash this whole Stage exists to clean up. So neither the hash
+ *       nor the slug entry can be assumed authoritative for every field —
+ *       either could hold real accumulated history the other lacks.
+ *       Collapsing by deleting the hash key outright (the original design
+ *       of this script, before this finding) would have silently dropped
+ *       data on any account where that happened. Fixed: the two entries
+ *       are MERGED (see mergeTrackEntries/mergeDomainEntries below), never
+ *       just one kept — percent/totalWorkoutsCompleted take the higher
+ *       value, lastWorkoutDate takes the more recent, completedGoalIds is
+ *       a union, maxLevel takes the higher value, isUnlocked is OR'd. The
+ *       dry-run report prints BOTH full entries AND the merge result for
+ *       every planned collapse — reviewable before --confirm, not blind.
  *
  *   (c) HASH-ONLY progression.tracks/domains: a hash key exists with NO
  *       slug sibling at all (the pre-Stage-7 admin-enroll gap — a leaf
  *       child written only under its raw hash). Renamed in place to its
- *       slug key (old key deleted, value moved) — there is no "other key"
- *       to disagree with here, so this is always safe once the hash
- *       resolves to a real, known slug.
+ *       slug key (old key deleted, value moved verbatim) — there is no
+ *       "other entry" to merge with here, so this is always
+ *       field-complete once the hash resolves to a real, known slug.
+ *
+ * Collision check (pre-flight, run separately, not part of this script):
+ * scripts/_check-program-slug-collisions.ts confirmed 0 of the current 14
+ * real program docs share a slug. The rename/collapse guard below still
+ * checks for it defensively (skips + reports, never silently merges two
+ * DIFFERENT programs into one key) in case that ever changes.
  *
  * What this script does NOT do: touch any document whose hash doesn't
  * resolve to a known program (logged under UNRESOLVED, skipped — a
@@ -77,13 +107,87 @@ function programSlug(p: admin.firestore.DocumentData): string {
   return p.slug || p.movementPattern || String(p.name ?? '').toLowerCase().replace(/[\s-]+/g, '_');
 }
 
+interface TrackEntry {
+  currentLevel?: number;
+  percent?: number;
+  lastWorkoutDate?: unknown;
+  totalWorkoutsCompleted?: number;
+  completedGoalIds?: string[];
+  [k: string]: unknown;
+}
+
+interface DomainEntry {
+  currentLevel?: number;
+  maxLevel?: number;
+  isUnlocked?: boolean;
+  [k: string]: unknown;
+}
+
+/** Firestore Admin SDK Timestamp, a JS Date, an ISO string, or absent — all 4 appear across this codebase's various writers. Normalized to epoch ms for comparison only; the ORIGINAL value (whichever side wins) is what actually gets written, never a reconstructed one. */
+function toMillis(v: unknown): number {
+  if (!v) return 0;
+  if (v instanceof admin.firestore.Timestamp) return v.toMillis();
+  if (v instanceof Date) return v.getTime();
+  if (typeof v === 'string' || typeof v === 'number') { const d = new Date(v); return isNaN(d.getTime()) ? 0 : d.getTime(); }
+  return 0;
+}
+
+/**
+ * Merge two DUAL-KEYED tracks entries for the SAME program (currentLevel
+ * already confirmed equal by the caller) into one, losing neither side's
+ * real history. See the file-header "PRE-FLIGHT FINDING" for why neither
+ * side can be assumed authoritative on its own.
+ */
+function mergeTrackEntries(hash: TrackEntry, slug: TrackEntry): TrackEntry {
+  const merged: TrackEntry = {
+    currentLevel: slug.currentLevel ?? hash.currentLevel,
+    percent: Math.max(hash.percent ?? 0, slug.percent ?? 0),
+  };
+  const totalWorkouts = Math.max(hash.totalWorkoutsCompleted ?? 0, slug.totalWorkoutsCompleted ?? 0);
+  if (totalWorkouts > 0) merged.totalWorkoutsCompleted = totalWorkouts;
+
+  const hashMs = toMillis(hash.lastWorkoutDate);
+  const slugMs = toMillis(slug.lastWorkoutDate);
+  if (hashMs || slugMs) merged.lastWorkoutDate = hashMs >= slugMs ? hash.lastWorkoutDate : slug.lastWorkoutDate;
+
+  const goalIds = Array.from(new Set([...(hash.completedGoalIds ?? []), ...(slug.completedGoalIds ?? [])]));
+  if (goalIds.length > 0) merged.completedGoalIds = goalIds;
+
+  return merged;
+}
+
+/** Same purpose as mergeTrackEntries, for progression.domains' narrower field set. */
+function mergeDomainEntries(hash: DomainEntry, slug: DomainEntry): DomainEntry {
+  const merged: DomainEntry = {
+    currentLevel: slug.currentLevel ?? hash.currentLevel,
+    isUnlocked: !!(hash.isUnlocked || slug.isUnlocked),
+  };
+  const maxLevel = Math.max(hash.maxLevel ?? 0, slug.maxLevel ?? 0);
+  if (maxLevel > 0) merged.maxLevel = maxLevel;
+  return merged;
+}
+
+interface CollapsePlan {
+  hashKey: string;
+  slugKey: string;
+  hashEntry: TrackEntry | DomainEntry;
+  slugEntry: TrackEntry | DomainEntry;
+  merged: TrackEntry | DomainEntry;
+}
+
+interface RenamePlan {
+  hashKey: string;
+  slugKey: string;
+  entry: TrackEntry | DomainEntry;
+}
+
 interface PlannedUserWrite {
   uid: string;
   activeProgramsFix?: { index: number; from: string; to: string }[];
-  tracksCollapse?: { hashKey: string; slugKey: string; level: number }[];
-  domainsCollapse?: { hashKey: string; slugKey: string; level: number }[];
-  tracksRename?: { hashKey: string; slugKey: string }[];
-  domainsRename?: { hashKey: string; slugKey: string }[];
+  tracksCollapse?: CollapsePlan[];
+  domainsCollapse?: CollapsePlan[];
+  tracksRename?: RenamePlan[];
+  domainsRename?: RenamePlan[];
 }
 
 interface ManualReviewFlag {
@@ -99,6 +203,13 @@ interface UnresolvedHash {
   uid: string;
   field: 'tracks' | 'domains' | 'activePrograms';
   key: string;
+}
+
+interface SlugCollision {
+  uid: string;
+  field: 'tracks' | 'domains';
+  slugKey: string;
+  hashKeys: string[];
 }
 
 async function main() {
@@ -123,6 +234,7 @@ async function main() {
   const planned: PlannedUserWrite[] = [];
   const manualReview: ManualReviewFlag[] = [];
   const unresolved: UnresolvedHash[] = [];
+  const slugCollisions: SlugCollision[] = [];
   const backupDocs: Record<string, unknown> = {};
 
   const isRawHash = (key: string) => idToSlug.has(key);
@@ -131,8 +243,8 @@ async function main() {
     const uid = userDoc.id;
     const data = userDoc.data();
     const progression = data.progression ?? {};
-    const tracks: Record<string, { currentLevel?: number }> = progression.tracks ?? {};
-    const domains: Record<string, { currentLevel?: number }> = progression.domains ?? {};
+    const tracks: Record<string, TrackEntry> = progression.tracks ?? {};
+    const domains: Record<string, DomainEntry> = progression.domains ?? {};
     const activePrograms: Array<{ id?: string; templateId?: string }> = progression.activePrograms ?? [];
 
     const write: PlannedUserWrite = { uid };
@@ -153,40 +265,59 @@ async function main() {
     }
 
     // ── (b)/(c) tracks and domains: dual-keyed collapse vs hash-only rename ──
-    const scanField = (
+    // Also detects a slug COLLISION — two DIFFERENT hash keys both
+    // resolving to the SAME slug on this one user doc. _check-program-
+    // slug-collisions.ts found 0 of these across the real programs
+    // collection today, but this guard stays: it's cheap, and it's exactly
+    // the kind of silent-merge-of-two-different-things bug this whole
+    // audit exists to stop adding more of. Flagged and skipped, never
+    // guessed at.
+    const scanField = <T extends TrackEntry | DomainEntry>(
       field: 'tracks' | 'domains',
-      obj: Record<string, { currentLevel?: number }>,
-    ): { collapse: { hashKey: string; slugKey: string; level: number }[]; rename: { hashKey: string; slugKey: string }[] } => {
-      const collapse: { hashKey: string; slugKey: string; level: number }[] = [];
-      const rename: { hashKey: string; slugKey: string }[] = [];
+      obj: Record<string, T>,
+      merge: (hash: T, slug: T) => T,
+    ): { collapse: CollapsePlan[]; rename: RenamePlan[] } => {
+      const collapse: CollapsePlan[] = [];
+      const rename: RenamePlan[] = [];
+      const slugTargets = new Map<string, string[]>(); // slugKey -> hashKeys that map to it
 
       for (const hashKey of Object.keys(obj)) {
         if (!isRawHash(hashKey)) continue; // already a slug key
         const slugKey = idToSlug.get(hashKey)!;
         if (slugKey === hashKey) continue; // defensive — formula returned the id itself, nothing to do
-        const hashLevel = obj[hashKey]?.currentLevel ?? 0;
+        if (!slugTargets.has(slugKey)) slugTargets.set(slugKey, []);
+        slugTargets.get(slugKey)!.push(hashKey);
+      }
+
+      for (const [slugKey, hashKeys] of Array.from(slugTargets.entries())) {
+        if (hashKeys.length > 1) {
+          slugCollisions.push({ uid, field, slugKey, hashKeys });
+          continue; // skip all of them — don't guess which one is "right"
+        }
+        const hashKey = hashKeys[0];
+        const hashEntry = obj[hashKey];
+        const hashLevel = hashEntry?.currentLevel ?? 0;
 
         if (Object.prototype.hasOwnProperty.call(obj, slugKey)) {
-          // Dual-keyed — both exist. Only safe to collapse if they agree.
-          const slugLevel = obj[slugKey]?.currentLevel ?? 0;
+          const slugEntry = obj[slugKey];
+          const slugLevel = slugEntry?.currentLevel ?? 0;
           if (hashLevel === slugLevel) {
-            collapse.push({ hashKey, slugKey, level: slugLevel });
+            collapse.push({ hashKey, slugKey, hashEntry, slugEntry, merged: merge(hashEntry, slugEntry) });
           } else {
             manualReview.push({ uid, field, hashKey, slugKey, hashLevel, slugLevel });
           }
         } else {
-          // Hash-only — no slug sibling. Safe rename, nothing to disagree with.
-          rename.push({ hashKey, slugKey });
+          rename.push({ hashKey, slugKey, entry: hashEntry });
         }
       }
       return { collapse, rename };
     };
 
-    const tracksScan = scanField('tracks', tracks);
+    const tracksScan = scanField('tracks', tracks, mergeTrackEntries);
     if (tracksScan.collapse.length > 0) { write.tracksCollapse = tracksScan.collapse; touched = true; }
     if (tracksScan.rename.length > 0) { write.tracksRename = tracksScan.rename; touched = true; }
 
-    const domainsScan = scanField('domains', domains);
+    const domainsScan = scanField('domains', domains, mergeDomainEntries);
     if (domainsScan.collapse.length > 0) { write.domainsCollapse = domainsScan.collapse; touched = true; }
     if (domainsScan.rename.length > 0) { write.domainsRename = domainsScan.rename; touched = true; }
 
@@ -221,10 +352,16 @@ async function main() {
   for (const w of planned) {
     console.log(`\n${w.uid}`);
     w.activeProgramsFix?.forEach(f => console.log(`  activePrograms[${f.index}]: ${f.from} → ${f.to}`));
-    w.tracksCollapse?.forEach(c => console.log(`  tracks.${c.hashKey} + tracks.${c.slugKey} (both L${c.level}) → collapse to tracks.${c.slugKey} only`));
-    w.domainsCollapse?.forEach(c => console.log(`  domains.${c.hashKey} + domains.${c.slugKey} (both L${c.level}) → collapse to domains.${c.slugKey} only`));
-    w.tracksRename?.forEach(r => console.log(`  tracks.${r.hashKey} → renamed to tracks.${r.slugKey} (no prior slug entry)`));
-    w.domainsRename?.forEach(r => console.log(`  domains.${r.hashKey} → renamed to domains.${r.slugKey} (no prior slug entry)`));
+    const printCollapse = (field: string, c: CollapsePlan) => {
+      console.log(`  ${field}.${c.hashKey} + ${field}.${c.slugKey} → collapse to ${field}.${c.slugKey}:`);
+      console.log(`      hash entry:   ${JSON.stringify(c.hashEntry)}`);
+      console.log(`      slug entry:   ${JSON.stringify(c.slugEntry)}`);
+      console.log(`      merged (new): ${JSON.stringify(c.merged)}`);
+    };
+    w.tracksCollapse?.forEach(c => printCollapse('tracks', c));
+    w.domainsCollapse?.forEach(c => printCollapse('domains', c));
+    w.tracksRename?.forEach(r => console.log(`  tracks.${r.hashKey} → renamed to tracks.${r.slugKey} (verbatim, no prior slug entry): ${JSON.stringify(r.entry)}`));
+    w.domainsRename?.forEach(r => console.log(`  domains.${r.hashKey} → renamed to domains.${r.slugKey} (verbatim, no prior slug entry): ${JSON.stringify(r.entry)}`));
   }
 
   console.log(`\n${'='.repeat(78)}`);
@@ -235,6 +372,13 @@ async function main() {
   }
 
   console.log(`\n${'='.repeat(78)}`);
+  console.log(`SLUG COLLISIONS ON A USER DOC: ${slugCollisions.length} — two DIFFERENT hash keys resolved to the same slug. NOT included in any write.`);
+  console.log('='.repeat(78));
+  for (const s of slugCollisions) {
+    console.log(`  ${s.uid}: ${s.field} — [${s.hashKeys.join(', ')}] all resolve to "${s.slugKey}"`);
+  }
+
+  console.log(`\n${'='.repeat(78)}`);
   console.log(`UNRESOLVED (hash-shaped key, no matching program doc): ${unresolved.length} — skipped, needs investigation, not guessed at.`);
   console.log('='.repeat(78));
   for (const u of unresolved) {
@@ -242,7 +386,7 @@ async function main() {
   }
 
   console.log(`\n${'='.repeat(78)}`);
-  console.log(`SUMMARY: ${planned.length} doc(s) to write, ${manualReview.length} flagged for manual review, ${unresolved.length} unresolved hash(es) skipped.`);
+  console.log(`SUMMARY: ${planned.length} doc(s) to write, ${manualReview.length} flagged for manual review, ${slugCollisions.length} slug collision(s) skipped, ${unresolved.length} unresolved hash(es) skipped.`);
   console.log('='.repeat(78));
 
   if (planned.length === 0) {
@@ -255,7 +399,7 @@ async function main() {
   console.log(`\nBacked up ${Object.keys(backupDocs).length} full user doc(s) to:\n  ${BACKUP_PATH}`);
 
   if (!CONFIRM) {
-    console.log('\nDRY RUN complete — no writes made. Re-run with --confirm to apply the plan above.');
+    console.log('\nDRY RUN complete — no writes made. Review the merged values above carefully, then re-run with --confirm to apply.');
     return;
   }
 
@@ -267,12 +411,15 @@ async function main() {
     if (!snap.exists) { console.log(`  ✗ ${w.uid} — no longer exists, skipped`); continue; }
     const data = snap.data()!;
     const progression = data.progression ?? {};
-    const tracks: Record<string, unknown> = { ...(progression.tracks ?? {}) };
-    const domains: Record<string, unknown> = { ...(progression.domains ?? {}) };
+    const tracks: Record<string, TrackEntry> = { ...(progression.tracks ?? {}) };
+    const domains: Record<string, DomainEntry> = { ...(progression.domains ?? {}) };
     const activePrograms: Array<{ id?: string; templateId?: string }> = [...(progression.activePrograms ?? [])];
 
-    // Re-verify each targeted field still matches what the plan assumed —
-    // skip + warn instead of overwriting if something changed it since.
+    // Re-verify each targeted field against a FRESH read, immediately
+    // before writing — skip + warn instead of overwriting if something
+    // changed since the plan was built (minutes or days ago, per David's
+    // own review-then-decide flow). The merge itself is RECOMPUTED fresh
+    // here too, never reused from the stale dry-run plan.
     let skippedAny = false;
 
     w.activeProgramsFix?.forEach((f) => {
@@ -282,22 +429,36 @@ async function main() {
       activePrograms[f.index] = { ...current, id: f.to, templateId: f.to };
     });
 
-    for (const [obj, collapses, renames] of [
-      [tracks, w.tracksCollapse, w.tracksRename],
-      [domains, w.domainsCollapse, w.domainsRename],
-    ] as const) {
+    const applyField = <T extends TrackEntry | DomainEntry>(
+      obj: Record<string, T>,
+      collapses: CollapsePlan[] | undefined,
+      renames: RenamePlan[] | undefined,
+      merge: (hash: T, slug: T) => T,
+    ) => {
       collapses?.forEach((c) => {
-        const h = (obj[c.hashKey] as { currentLevel?: number } | undefined)?.currentLevel ?? 0;
-        const s = (obj[c.slugKey] as { currentLevel?: number } | undefined)?.currentLevel ?? 0;
-        if (h !== c.level || s !== c.level) { console.log(`  ⚠ ${w.uid} ${c.hashKey}/${c.slugKey} changed since plan — skipping this collapse`); skippedAny = true; return; }
+        const freshHash = obj[c.hashKey] as T | undefined;
+        const freshSlug = obj[c.slugKey] as T | undefined;
+        if (!freshHash || !freshSlug || (freshHash.currentLevel ?? 0) !== (freshSlug.currentLevel ?? 0)) {
+          console.log(`  ⚠ ${w.uid} ${c.hashKey}/${c.slugKey} changed since plan — skipping this collapse`);
+          skippedAny = true;
+          return;
+        }
+        obj[c.slugKey] = merge(freshHash, freshSlug);
         delete obj[c.hashKey];
       });
       renames?.forEach((r) => {
-        if (!(r.hashKey in obj) || r.slugKey in obj) { console.log(`  ⚠ ${w.uid} ${r.hashKey}→${r.slugKey} changed since plan — skipping this rename`); skippedAny = true; return; }
+        if (!(r.hashKey in obj) || r.slugKey in obj) {
+          console.log(`  ⚠ ${w.uid} ${r.hashKey}→${r.slugKey} changed since plan — skipping this rename`);
+          skippedAny = true;
+          return;
+        }
         obj[r.slugKey] = obj[r.hashKey];
         delete obj[r.hashKey];
       });
-    }
+    };
+
+    applyField(tracks, w.tracksCollapse, w.tracksRename, mergeTrackEntries);
+    applyField(domains, w.domainsCollapse, w.domainsRename, mergeDomainEntries);
 
     await ref.update({
       'progression.tracks': tracks,
