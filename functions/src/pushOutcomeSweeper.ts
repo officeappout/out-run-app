@@ -6,21 +6,34 @@
  * ═══════════════════════════════════════════════════════════════════════
  * Measurement layer, stage A (Wave 1): for every `push_sent` event whose
  * outcome window has elapsed (`checkAfter <= now`, `outcomeChecked == false`
- * — see `services/push-events.service.ts`), determine whether the user
- * completed their daily goal and write a `post_push_outcome` event.
+ * — see `services/push-events.service.ts`), determine whether the tracked
+ * outcome happened and write a `post_push_outcome` event.
  *
- * Wave 1 only knows how to check ONE goal type: `category === 'Daily_Goal'`
- * + `activityType === 'walking'` → compare `dailyActivity/{uid}_{date}.steps`
- * against `users/{uid}.progression.dailyStepGoal`, for the CALENDAR DAY the
- * push was sent (derived from `sentAt` in Asia/Jerusalem — a daily step
- * goal is anchored to the send day, not to whatever day the check happens
- * to run on, since the default 6h window can cross local midnight).
+ * ── Attribution anchor: OPEN, not SEND (fixed 04.10.2026) ─────────────────
+ * `checkAfter` is only ever populated by `onPushOpened.ts`'s trigger, from
+ * the OPEN instant — a push that was never tapped has `checkAfter: null`
+ * and will never match this sweeper's query (Firestore inequality filters
+ * don't match null), so it is correctly never checked. There is nothing to
+ * attribute without an open. This file no longer reads `sentAt` for any
+ * outcome-window math — only `openedAt`.
  *
- * Any other category/activityType combination (strength — deferred this
- * wave; any non-Daily_Goal category that opts into measurement) is marked
- * checked with `goalCompleted: false` and a log note — there is no outcome
- * logic for it yet, and leaving it unchecked would make the sweeper re-scan
- * it forever.
+ * ── Outcome dispatch (parametrized 04.10.2026) ────────────────────────────
+ * Previously this file hardcoded exactly ONE outcome check (daily walking
+ * step-goal) and marked every other category "unresolvable" without a real
+ * check. `resolveOutcome()` now dispatches:
+ *   - `category === 'Daily_Goal' && activityType === 'walking'` → the
+ *     original specific check (did `dailyActivity.steps` reach
+ *     `progression.dailyStepGoal`, for the Israel calendar day containing
+ *     the OPEN instant — previously the SEND instant).
+ *   - everything else → a GENERIC "started a workout within the window of
+ *     open" check: does a `workouts` doc exist for this uid with `date`
+ *     inside [openedAt, openedAt + outcomeWindowHours]. This closes the
+ *     gap for every non-step-goal sender that opts into measurement (e.g.
+ *     onPlannedActivityCreated's `Future_Partner_Plan` sends, which
+ *     previously got `unresolvable` unconditionally).
+ * Adding a third, more specific outcome later is a matter of adding one
+ * more branch to `resolveOutcome()` — no change needed to the sweep loop,
+ * the query, or activation.
  *
  * ═══════════════════════════════════════════════════════════════════════
  * SCHEDULE
@@ -34,7 +47,7 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
-import { writePostPushOutcomeEvent } from './services/push-events.service';
+import { writePostPushOutcomeEvent, computeOutcomeWindowBounds, DEFAULT_OUTCOME_WINDOW_HOURS } from './services/push-events.service';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -43,6 +56,8 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 const SWEEP_BATCH_LIMIT = 200;
+
+export type OutcomeType = 'daily_step_goal' | 'workout_started';
 
 /** Israel-local YYYY-MM-DD for a given instant — matches
  * stepGoalNudgeScheduler.ts's todayDateStringIsrael() format. */
@@ -59,8 +74,16 @@ function dateStringIsrael(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-async function checkWalkingGoal(uid: string, sentAt: admin.firestore.Timestamp): Promise<boolean> {
-  const dateStr = dateStringIsrael(sentAt.toDate());
+/** Which checker applies — pure, no I/O, directly unit-testable. */
+export function resolveOutcomeType(category: string | undefined, activityType: string | undefined): OutcomeType {
+  if (category === 'Daily_Goal' && activityType === 'walking') return 'daily_step_goal';
+  return 'workout_started';
+}
+
+/** Specific check — unchanged logic, re-anchored on the OPEN calendar day
+ * instead of the SEND calendar day. */
+async function checkWalkingGoal(uid: string, openedAtMillis: number): Promise<boolean> {
+  const dateStr = dateStringIsrael(new Date(openedAtMillis));
   const [activitySnap, userSnap] = await Promise.all([
     db.collection('dailyActivity').doc(`${uid}_${dateStr}`).get(),
     db.collection('users').doc(uid).get(),
@@ -72,6 +95,39 @@ async function checkWalkingGoal(uid: string, sentAt: admin.firestore.Timestamp):
   const rawGoal = progression?.dailyStepGoal;
   const goal = typeof rawGoal === 'number' && rawGoal > 0 ? rawGoal : 3000;
   return Number.isFinite(steps) && steps >= goal;
+}
+
+/** Generic check — did the user complete any workout inside the window of
+ * open. Uses the existing `workouts` (userId ASC, date DESC) composite
+ * index — no new index required. */
+async function checkWorkoutStartedWithinWindow(uid: string, openedAtMillis: number, windowHours: number): Promise<boolean> {
+  const { startMillis, endMillis } = computeOutcomeWindowBounds(openedAtMillis, windowHours);
+  const snap = await db
+    .collection('workouts')
+    .where('userId', '==', uid)
+    .where('date', '>=', admin.firestore.Timestamp.fromMillis(startMillis))
+    .where('date', '<=', admin.firestore.Timestamp.fromMillis(endMillis))
+    .limit(1)
+    .get();
+  return !snap.empty;
+}
+
+/** Dispatch — the one place that decides which checker applies. */
+async function resolveOutcome(opts: {
+  uid: string;
+  category?: string;
+  activityType?: string;
+  openedAtMillis: number;
+  windowHours: number;
+}): Promise<{ achieved: boolean; outcomeType: OutcomeType }> {
+  const outcomeType = resolveOutcomeType(opts.category, opts.activityType);
+  if (outcomeType === 'daily_step_goal') {
+    return { achieved: await checkWalkingGoal(opts.uid, opts.openedAtMillis), outcomeType };
+  }
+  return {
+    achieved: await checkWorkoutStartedWithinWindow(opts.uid, opts.openedAtMillis, opts.windowHours),
+    outcomeType,
+  };
 }
 
 export const pushOutcomeSweeper = onSchedule(
@@ -104,38 +160,49 @@ export const pushOutcomeSweeper = onSchedule(
     }
 
     let checked = 0;
-    let completed = 0;
-    let unresolvable = 0;
+    let achieved = 0;
+    let byType: Record<string, number> = {};
+    let errors = 0;
 
     for (const doc of dueDocs) {
       const data = doc.data() as Record<string, unknown>;
       const uid = data.uid as string;
       const category = data.category as string | undefined;
       const activityType = data.activityType as string | undefined;
-      const sentAt = data.sentAt as admin.firestore.Timestamp | undefined;
+      const openedAt = data.openedAt as admin.firestore.Timestamp | undefined;
+      const windowHours = typeof data.outcomeWindowHours === 'number' ? data.outcomeWindowHours : DEFAULT_OUTCOME_WINDOW_HOURS;
+
+      if (!openedAt) {
+        // Should not happen — checkAfter is only ever set alongside openedAt
+        // by activateOutcomeWindow(). Defensive skip, not a silent re-queue:
+        // mark checked so a malformed doc doesn't get swept forever.
+        logger.warn(`[pushOutcomeSweeper] due doc with no openedAt, pushId=${data.pushId} uid=${uid} — marking checked`);
+        await writePostPushOutcomeEvent({ pushSentDoc: doc, outcomeAchieved: false, outcomeType: 'workout_started' });
+        errors++;
+        continue;
+      }
 
       try {
-        if (category === 'Daily_Goal' && activityType === 'walking' && sentAt) {
-          const goalCompleted = await checkWalkingGoal(uid, sentAt);
-          await writePostPushOutcomeEvent({ pushSentDoc: doc, goalCompleted });
-          checked++;
-          if (goalCompleted) completed++;
-        } else {
-          // No outcome logic for this category/activityType yet (e.g.
-          // strength, deferred this wave) — mark checked so it doesn't
-          // get re-scanned forever, but don't claim a completion we can't
-          // actually verify.
-          await writePostPushOutcomeEvent({ pushSentDoc: doc, goalCompleted: false });
-          unresolvable++;
-        }
+        const result = await resolveOutcome({
+          uid,
+          category,
+          activityType,
+          openedAtMillis: openedAt.toMillis(),
+          windowHours,
+        });
+        await writePostPushOutcomeEvent({ pushSentDoc: doc, outcomeAchieved: result.achieved, outcomeType: result.outcomeType });
+        checked++;
+        if (result.achieved) achieved++;
+        byType[result.outcomeType] = (byType[result.outcomeType] ?? 0) + 1;
       } catch (err: any) {
+        errors++;
         logger.warn(`[pushOutcomeSweeper] failed for uid=${uid} pushId=${data.pushId}:`, err?.message);
       }
     }
 
     logger.info(
-      `[pushOutcomeSweeper] run complete — due=${dueDocs.length} checked=${checked} ` +
-        `completed=${completed} unresolvable=${unresolvable}`,
+      `[pushOutcomeSweeper] run complete — due=${dueDocs.length} checked=${checked} achieved=${achieved} ` +
+        `byType=${JSON.stringify(byType)} errors=${errors}`,
     );
   },
 );

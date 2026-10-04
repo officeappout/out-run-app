@@ -61,6 +61,13 @@ export { onKudosCreated } from './onKudosCreated';
 // ── Notification-Manager-driven Triggers (reads workoutMetadata/notifications) ─
 export { stepGoalNudgeScheduler } from './stepGoalNudgeScheduler';
 export { pushOutcomeSweeper } from './pushOutcomeSweeper';
+// onPushOpened (04.10.2026, attribution-correctness fix) — activates the
+// outcome window on OPEN instead of SEND. Needs its own `firebase deploy
+// --only functions:onPushOpened` like any new function; nothing here makes
+// it live by itself. Until deployed, push_sent.checkAfter stays null forever
+// (same as today) and pushOutcomeSweeper simply never has anything to check
+// — a safe, inert default, not a broken intermediate state.
+export { onPushOpened } from './onPushOpened';
 // ── Social-Activities Build Plan Phase 3 — nearby-activity push ───────────────
 // Flag-gated (app_config/feature_flags.socialActivityNearbyPushEnabled,
 // default false) — see onPlannedActivityCreated.ts header. NOT deployed yet;
