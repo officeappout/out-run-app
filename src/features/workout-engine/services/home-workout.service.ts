@@ -188,7 +188,21 @@ const SKILL_ID_NORMALIZATION: Record<string, string> = {
 
 /**
  * Normalise a single program ID: maps known SKILL_DISPLAY uppercase keys to
- * their engine slug; everything else falls back to toLowerCase().
+ * their engine slug; otherwise attempts the canonical resolver
+ * (`resolveToSlug`); only when NEITHER resolves does this fall back to
+ * `.toLowerCase()`.
+ *
+ * Stage 8 fix (program-identity audit §06): a raw Firestore hash id (e.g.
+ * 'J0fLpmJhG0KDN2tQouxh') used to reach the bare `.toLowerCase()` fallback
+ * directly — not a SKILL_DISPLAY key, so it just got lowercased into a
+ * garbled string matching nothing (not the hash, not any real slug).
+ * `resolveToSlug` is safe to call unconditionally here even before its
+ * backing id→slug map is warm: on a cold cache it returns the input
+ * UNCHANGED (never throws, never garbles — see its own doc comment), so
+ * `resolved !== id` is false and this falls through to the exact same
+ * `.toLowerCase()` behavior as before for that edge case. No new risk on
+ * the cold-cache path; a real fix whenever the map happens to be warm
+ * (the common case after the first generation in a session).
  *
  * Exported (16.09.2026 — "gate Block A by scheduled domains" fix) so any
  * caller that needs to independently derive the same scheduled-domain set
@@ -199,7 +213,11 @@ const SKILL_ID_NORMALIZATION: Record<string, string> = {
  * on the SKILL_DISPLAY uppercase case.
  */
 export function normalizeProgramId(id: string): string {
-  return SKILL_ID_NORMALIZATION[id] ?? id.toLowerCase();
+  const knownSkillKey = SKILL_ID_NORMALIZATION[id];
+  if (knownSkillKey) return knownSkillKey;
+  const resolved = resolveToSlug(id);
+  if (resolved !== id) return resolved;
+  return id.toLowerCase();
 }
 
 // ============================================================================
@@ -2455,11 +2473,19 @@ async function _buildSharedPipeline(
         // Pick the first skill focus child whose programId matches one of the
         // exercise's targetPrograms entries — this is the exact track the
         // exercise belongs to, and the one that carries the correct user level.
-        const matchingChild = resolvedChildDomains.find(child =>
-          exercise.targetPrograms?.some(
-            tp => tp.programId === child || resolveToSlug(tp.programId) === child,
-          ),
-        );
+        //
+        // Stage 8 fix (program-identity audit §06): resolve BOTH sides, not
+        // just the exercise's tag. `child` usually already IS a slug, but
+        // the calisthenics_upper normalisation above (1d, Pass A) can still
+        // leave a raw Firestore hash in resolvedChildDomains on an idToSlug
+        // miss (`idToSlug.get(id) ?? id`) — resolving `child` too (a no-op
+        // when it's already a slug) closes that edge case symmetrically.
+        const matchingChild = resolvedChildDomains.find(child => {
+          const childSlug = resolveToSlug(child);
+          return exercise.targetPrograms?.some(
+            tp => tp.programId === child || resolveToSlug(tp.programId) === childSlug,
+          );
+        });
         resolvedActiveProgramId = matchingChild ?? resolvedChildDomains[0];
       }
 

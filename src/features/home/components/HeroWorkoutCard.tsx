@@ -5,6 +5,7 @@ import { MockWorkout } from '../data/mock-schedule-data';
 import { Dumbbell, PersonStanding } from 'lucide-react';
 import type { WorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { pickHeroExercise, resolveHeroMedia } from '@/features/workout-engine/shared/utils/heroMedia.utils';
+import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import {
   resolveEquipmentLabel,
   resolveEquipmentSvgPathList,
@@ -510,8 +511,16 @@ export default function HeroWorkoutCard({
     return { display: icons.slice(0, 4), total: icons.length };
   }, [exercises, workoutLocation, iconsReady]);
 
+  // Stage 8 fix (program-identity audit §06): the third ad hoc normalizer —
+  // a raw Firestore hash (a legacy account's templateId, or any caller that
+  // hasn't normalized yet) survives `.toLowerCase()` unrecognizably, so it
+  // never matches any PROGRAM_ICON_MAP key and the icon silently vanishes.
+  // Try the canonical resolver first; `.toLowerCase()` stays as the final
+  // fallback for whatever resolveToSlug can't resolve either (unchanged
+  // behavior for the already-correct slug case, since resolveToSlug
+  // passes a real slug through unchanged).
   const programIconSrc = programIconKey
-    ? PROGRAM_ICON_MAP[programIconKey.toLowerCase()] ?? null
+    ? PROGRAM_ICON_MAP[resolveToSlug(programIconKey).toLowerCase()] ?? null
     : null;
 
   const ctaText = useMemo(() => getGenderedCtaText(userGender, workout.title), [userGender, workout.title]);

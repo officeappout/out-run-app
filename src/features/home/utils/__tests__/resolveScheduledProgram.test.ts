@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { resolveScheduledProgram } from '../resolveScheduledProgram';
+import { buildIdToSlugMapFromPrograms } from '@/features/workout-engine/services/program-hierarchy.utils';
 import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
+import type { Program } from '@/features/content/programs/core/program.types';
 
 // Pins the fix/schedule-entry-per-item StatsOverview fix: this decision logic
 // used to pick ONE entry via .find() and read that entry's .programIds — under
@@ -182,5 +184,40 @@ describe('resolveScheduledProgram', () => {
     });
 
     expect(result.scheduledProgramIds).toEqual(['FULL_BODY']);
+  });
+
+  describe('Stage 8 fix (program-identity audit §06): activeProgramId fallback is no longer a verbatim passthrough', () => {
+    it('a legacy account whose activeProgramId is still a raw Firestore hash resolves to its real slug', () => {
+      // Warms the shared id→slug map (program-hierarchy.utils.ts) with a
+      // small real-shaped fixture — resolveToSlug reads this same
+      // module-level cache in production.
+      buildIdToSlugMapFromPrograms([
+        { id: 'J0fLpmJhG0KDN2tQouxh', name: 'דחיפה', slug: 'push', movementPattern: 'push', isMaster: false } as Program,
+      ]);
+
+      const result = resolveScheduledProgram({
+        rawEntries: [],
+        hydrated: [],
+        templateDayIds: undefined,
+        hasScheduleConfigured: false,
+        activeProgramId: 'J0fLpmJhG0KDN2tQouxh',
+        runningProgramId: undefined,
+      });
+
+      expect(result.scheduledProgramIds).toEqual(['push']);
+    });
+
+    it('an already-correct slug activeProgramId is unaffected (resolveToSlug is a no-op on it)', () => {
+      const result = resolveScheduledProgram({
+        rawEntries: [],
+        hydrated: [],
+        templateDayIds: undefined,
+        hasScheduleConfigured: false,
+        activeProgramId: 'push',
+        runningProgramId: undefined,
+      });
+
+      expect(result.scheduledProgramIds).toEqual(['push']);
+    });
   });
 });
