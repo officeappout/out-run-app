@@ -407,10 +407,20 @@ export function getEffectiveLevelForExercise(
     // because of array order, even when the user is actively training
     // the planche track.
     if (activeProgramId) {
+      // Stage 8 fix (program-identity audit §06): resolve BOTH sides of
+      // this match, not just the exercise's tag. Before, a legacy account
+      // whose activePrograms[0].templateId is still a raw Firestore hash
+      // (never a slug) would never match here at all — tp.programId
+      // (already a real slug, e.g. 'planche') compared against the raw
+      // hash directly, and resolveToSlug(tp.programId) ('planche' again)
+      // still never equals the unresolved hash on the right side. Resolving
+      // activeProgramId once, up front, makes this symmetric; a no-op for
+      // the already-correct case where it's already a slug.
+      const activeProgramSlug = resolveToSlug(activeProgramId);
       const activeTp = exercise.targetPrograms.find(
         (tp) =>
           tp.programId === activeProgramId ||
-          resolveToSlug(tp.programId) === activeProgramId,
+          resolveToSlug(tp.programId) === activeProgramSlug,
       );
       if (activeTp) {
         const activeSlug = toSlug(activeTp.programId);

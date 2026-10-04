@@ -1,5 +1,6 @@
 import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 import { excludeRunningShadowEntry } from '@/features/schedule/services/excludeRunningShadowEntry';
+import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 
 /**
  * Pure decision logic behind StatsOverview's "what should today's workout be
@@ -81,13 +82,28 @@ export function resolveScheduledProgram(input: ScheduledProgramInput): Scheduled
     return out;
   })();
 
+  // Stage 8 fix (program-identity audit §06): activeProgramId
+  // (profile.progression.activePrograms[0].templateId) is this function's
+  // last-resort fallback — used only when neither a real scheduled entry
+  // nor a template day exists. It was passed through VERBATIM, whatever
+  // form it happened to be in (the long-standing "legendary templateId
+  // bug" — a raw Firestore hash on a legacy account, not a slug).
+  // scheduledTrainingIds/templateFallbackIds don't need this: they already
+  // get normalized downstream by every generator-facing consumer
+  // (home-workout.service.ts's `scheduledProgramIds.map(normalizeProgramId)`)
+  // — but this function's result is ALSO read directly, unnormalized, by
+  // StatsOverview.tsx's Custom-Builder prefill (`handleBuildCustomWrapped`
+  // → BuilderContext.programIds), which never calls normalizeProgramId at
+  // all. resolveToSlug is a safe, defensive no-op on anything it can't
+  // resolve (passthrough, never throws), so this is correct for the
+  // already-a-slug case too.
   const scheduledProgramIds: string[] = isRestDay
     ? []
     : scheduledTrainingIds.length > 0
       ? scheduledTrainingIds
       : templateFallbackIds?.length
         ? templateFallbackIds
-        : activeProgramId ? [activeProgramId] : [];
+        : activeProgramId ? [resolveToSlug(activeProgramId)] : [];
 
   return { isRestDay, scheduledProgramIds };
 }
