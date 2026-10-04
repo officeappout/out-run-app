@@ -195,6 +195,69 @@ function mostCommonOpenHourIsrael(entries: PushHistoryEntry[]): number | null {
 }
 
 /**
+ * Last-activity recency bucketing for the admin users table (David,
+ * 04.10.2026 design brief): ≤1 day = active, 2-7 = calm, 8-29 = cooling,
+ * 30+ = churn-risk. Source is `users/{uid}.lastActive` — the general
+ * last-seen signal already fetched by loadUsers() (not workout-specific;
+ * see this task's PR description for why).
+ */
+function formatLastActivity(lastActive: Date | undefined): { label: string; dotColor: string; textClass: string } {
+  if (!lastActive) {
+    return { label: 'אין נתון', dotColor: 'bg-gray-300', textClass: 'text-gray-400' };
+  }
+  const daysSince = Math.floor((Date.now() - lastActive.getTime()) / 86_400_000);
+  if (daysSince <= 1) {
+    return { label: daysSince <= 0 ? 'היום' : 'אתמול', dotColor: 'bg-green-500', textClass: 'text-green-700 font-bold' };
+  }
+  if (daysSince <= 7) {
+    return { label: `לפני ${daysSince} ימים`, dotColor: 'bg-teal-500', textClass: 'text-teal-700' };
+  }
+  if (daysSince <= 29) {
+    return { label: `לפני ${daysSince} ימים`, dotColor: 'bg-amber-500', textClass: 'text-amber-700' };
+  }
+  return { label: `סיכון נטישה · לפני ${daysSince} ימים`, dotColor: 'bg-red-500', textClass: 'text-red-700 font-bold' };
+}
+
+/**
+ * Simplified 3-state security badge for the identity cell (David's brief:
+ * "verified / registered / guest"). Collapses the richer 4-state/method
+ * breakdown the old standalone "אבטחת חשבון" column used to show
+ * (secured-by-google/phone/email vs. unsecured vs. guest vs. registered)
+ * down to exactly the 3 named states — the finer detail isn't lost, it
+ * moves into this badge's `title` tooltip instead of its own column.
+ */
+function securityBadge(user: { accountStatus?: string; accountMethod?: string; isAnonymous?: boolean; email?: string }): {
+  label: string;
+  className: string;
+  title: string;
+} {
+  const hasEmail = !!user.email;
+  const isAnon = user.isAnonymous === true;
+  const methodLabel = user.accountMethod === 'google' ? 'גוגל'
+    : user.accountMethod === 'phone' ? 'טלפון'
+    : user.accountMethod === 'email' ? 'אימייל' : undefined;
+
+  if (user.accountStatus === 'secured') {
+    return {
+      label: 'מאומת',
+      className: 'bg-green-100 text-green-700',
+      title: methodLabel ? `מאומת דרך ${methodLabel}` : 'מאומת',
+    };
+  }
+  if (isAnon && !hasEmail) {
+    return { label: 'אורח', className: 'bg-gray-100 text-gray-600', title: 'משתמש אורח — ללא אימייל' };
+  }
+  if (hasEmail) {
+    return {
+      label: 'רשום',
+      className: 'bg-blue-100 text-blue-700',
+      title: user.accountStatus === 'unsecured' ? 'רשום, ללא גיבוי חשבון' : 'רשום',
+    };
+  }
+  return { label: 'רשום', className: 'bg-gray-100 text-gray-500', title: 'ללא אימייל, לא אורח מפורש' };
+}
+
+/**
  * Program-identity audit §06 Stage 7: resolve a Firestore program id to its
  * canonical track/domain slug BEFORE using it as a Firestore field-path key.
  * This file had 3 independent ad hoc resolvers (assignProgramToUser's
@@ -3380,22 +3443,34 @@ export default function AllUsersPage() {
         const progression = data?.progression || {};
         
         // Effective level: tracks (highest) > domains > globalLevel > 1
+        // safeLevel guards against a non-numeric currentLevel silently
+        // propagating NaN through Math.max (a single bad value would
+        // otherwise poison the whole computation — NaN <= 1 is false,
+        // NaN is also not > 1, so a corrupt field could make a user vanish
+        // from both "ghost" and "non-base-level" classification at once).
+        const safeLevel = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
         let effectiveLevel = 1;
         const tracks = progression.tracks as Record<string, { currentLevel?: number }> | undefined;
         const domains = progression.domains as Record<string, { currentLevel?: number }> | undefined;
         if (tracks) {
-          const trackLevels = Object.values(tracks).map((t) => t?.currentLevel || 0);
+          const trackLevels = Object.values(tracks).map((t) => safeLevel(t?.currentLevel));
           effectiveLevel = Math.max(effectiveLevel, ...trackLevels);
         }
         if (domains) {
-          const domainLevels = Object.values(domains).map((d) => d?.currentLevel || 0);
+          const domainLevels = Object.values(domains).map((d) => safeLevel(d?.currentLevel));
           effectiveLevel = Math.max(effectiveLevel, ...domainLevels);
         }
-        effectiveLevel = Math.max(effectiveLevel, progression.globalLevel || 1);
+        effectiveLevel = Math.max(effectiveLevel, safeLevel(progression.globalLevel) || 1);
 
-        // Program name from activePrograms
-        const activeProg = progression.activePrograms?.[0];
+        // Program name(s) from activePrograms — a user can be enrolled in
+        // several at once; programName (first only) kept for back-compat,
+        // programNames is the full list the table now renders as chips.
+        const activeProgramsList = Array.isArray(progression.activePrograms) ? progression.activePrograms : [];
+        const activeProg = activeProgramsList[0];
         const programName = activeProg?.name || activeProg?.templateId || undefined;
+        const programNames = activeProgramsList
+          .map((p: { name?: string; templateId?: string }) => p?.name || p?.templateId)
+          .filter((n: unknown): n is string => typeof n === 'string' && n.length > 0);
 
         // City name: affiliations[].name > authorityId (string only)
         const rawAuth = core.authorityId;
@@ -3455,6 +3530,7 @@ export default function AllUsersPage() {
           accountStatus: data?.accountStatus || undefined,
           accountMethod: data?.accountMethod || undefined,
           programName,
+          programNames,
           cityName,
           birthDate: core.birthDate || undefined,
           isTestData: core.isTestData === true,
@@ -3863,11 +3939,10 @@ export default function AllUsersPage() {
                   />
                 </th>
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">משתמש</th>
-                <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">תוכנית</th>
+                <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">תוכניות</th>
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">רמה אפקטיבית</th>
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">עיר</th>
-                <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">אימייל</th>
-                <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">אבטחת חשבון</th>
+                <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">פעילות אחרונה</th>
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">סטטוס</th>
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">תאריך לידה</th>
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">מטבעות</th>
@@ -3887,7 +3962,7 @@ export default function AllUsersPage() {
             <tbody className="divide-y divide-gray-200">
               {paginatedItems.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="text-center py-12 text-gray-500 font-simpler" dir="rtl">
+                  <td colSpan={11} className="text-center py-12 text-gray-500 font-simpler" dir="rtl">
                     {searchTerm ? 'לא נמצאו משתמשים התואמים לחיפוש' : 'אין משתמשים'}
                   </td>
                 </tr>
@@ -3911,7 +3986,11 @@ export default function AllUsersPage() {
                         className="w-4 h-4 cursor-pointer"
                       />
                     </td>
-                    {/* משתמש */}
+                    {/* משתמש — identity: avatar + name, email folded in as a
+                        secondary line, security state as a small inline
+                        badge (David's brief, 04.10.2026). Replaces the old
+                        separate אימייל + אבטחת חשבון columns — same data,
+                        denser, with room freed for פעילות אחרונה. */}
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-3">
                         {user.photoURL ? (
@@ -3921,8 +4000,27 @@ export default function AllUsersPage() {
                             {user.name.charAt(0).toUpperCase()}
                           </div>
                         )}
-                        <div>
-                          <div className="font-bold text-gray-900 font-simpler">{user.name}</div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-gray-900 font-simpler truncate max-w-[180px]">{user.name}</span>
+                            {(() => {
+                              const badge = securityBadge(user);
+                              return (
+                                <span
+                                  title={badge.title}
+                                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold font-simpler shrink-0 ${badge.className}`}
+                                >
+                                  {badge.label}
+                                </span>
+                              );
+                            })()}
+                          </div>
+                          {user.email && (
+                            <div className="flex items-center gap-1 text-xs text-gray-500 font-simpler truncate max-w-[220px]">
+                              <Mail size={11} className="shrink-0" />
+                              {user.email}
+                            </div>
+                          )}
                           {user.isSuperAdmin && (
                             <div className="text-xs text-purple-600 font-medium flex items-center gap-1">
                               <Shield size={12} /> מנהל מערכת
@@ -3931,12 +4029,16 @@ export default function AllUsersPage() {
                         </div>
                       </div>
                     </td>
-                    {/* תוכנית */}
+                    {/* תוכניות — a chip per active program, not just the first */}
                     <td className="py-4 px-6">
-                      {(user as any).programName ? (
-                        <span className="px-2 py-1 bg-cyan-50 text-cyan-700 rounded-lg text-xs font-bold font-simpler">
-                          {(user as any).programName}
-                        </span>
+                      {(user as any).programNames && (user as any).programNames.length > 0 ? (
+                        <div className="flex flex-wrap gap-1 max-w-[220px]">
+                          {((user as any).programNames as string[]).map((name, idx) => (
+                            <span key={`${user.id}-prog-${idx}`} className="px-2 py-1 bg-cyan-50 text-cyan-700 rounded-lg text-xs font-bold font-simpler">
+                              {name}
+                            </span>
+                          ))}
+                        </div>
                       ) : (
                         <span className="text-xs text-gray-400 font-simpler">—</span>
                       )}
@@ -3959,43 +4061,16 @@ export default function AllUsersPage() {
                         <span className="text-xs text-gray-400 font-simpler">—</span>
                       )}
                     </td>
-                    {/* אימייל */}
-                    <td className="py-4 px-6">
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Mail size={16} />
-                        <span className="font-simpler text-black text-sm truncate max-w-[160px]">{user.email || '—'}</span>
-                      </div>
-                    </td>
-                    {/* אבטחת חשבון */}
+                    {/* פעילות אחרונה — recency-bucketed, see formatLastActivity() */}
                     <td className="py-4 px-6">
                       {(() => {
-                        const accountStatus = (user as any).accountStatus;
-                        const accountMethod = (user as any).accountMethod;
-                        const hasEmail = !!user.email;
-                        const isAnon = user.isAnonymous === true;
-                        if (accountStatus === 'secured') {
-                          const methodLabel = accountMethod === 'google' ? 'גוגל'
-                            : accountMethod === 'email' ? 'אימייל'
-                            : accountMethod === 'phone' ? 'טלפון' : 'מאובטח';
-                          const methodColor = accountMethod === 'google' ? 'bg-blue-100 text-blue-700'
-                            : accountMethod === 'phone' ? 'bg-purple-100 text-purple-700'
-                            : 'bg-green-100 text-green-700';
-                          return (
-                            <span className={`px-2 py-1 ${methodColor} rounded-full text-xs font-bold font-simpler flex items-center gap-1 w-fit`}>
-                              <Shield size={12} /> {methodLabel}
-                            </span>
-                          );
-                        }
-                        if (accountStatus === 'unsecured') {
-                          return (
-                            <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-bold font-simpler flex items-center gap-1 w-fit">
-                              <AlertCircle size={12} /> ללא גיבוי
-                            </span>
-                          );
-                        }
-                        if (isAnon && !hasEmail) return <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-bold font-simpler flex items-center gap-1 w-fit"><User size={12} /> אורח</span>;
-                        if (hasEmail) return <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold font-simpler flex items-center gap-1 w-fit"><Shield size={12} /> רשום</span>;
-                        return <span className="text-xs text-gray-400">—</span>;
+                        const recency = formatLastActivity(user.lastActive);
+                        return (
+                          <span className={`inline-flex items-center gap-1.5 text-xs font-simpler ${recency.textClass}`}>
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${recency.dotColor}`} />
+                            {recency.label}
+                          </span>
+                        );
                       })()}
                     </td>
                     {/* סטטוס */}

@@ -104,8 +104,10 @@ export interface AdminUserListItem {
   accountMethod?: string;
   /** Effective level from progression.tracks (highest priority), then domains */
   effectiveLevel?: number;
-  /** Active program display name */
+  /** Active program display name — first program only, kept for back-compat */
   programName?: string;
+  /** All active program display names (progression.activePrograms, full list) */
+  programNames?: string[];
   /** City display name resolved from authorityId + affiliations */
   cityName?: string;
   /** Birth date for display */
