@@ -187,6 +187,8 @@ export async function computeReadinessAppActivity(
   for (const doc of resultsSnap.docs) {
     const data = doc.data() as Omit<ReadinessResult, 'id'>;
     if (!inScope(data.unitId)) continue;
+    // §13.87 "תיקון מוצהר" — never count a superseded result.
+    if (data.supersededByResultId) continue;
     const list = resultsBySoldier.get(data.soldierId) ?? [];
     list.push({ id: doc.id, ...data, recordedAt: toDate(data.recordedAt), testDate: toDate(data.testDate) });
     resultsBySoldier.set(data.soldierId, list);

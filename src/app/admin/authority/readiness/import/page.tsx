@@ -77,6 +77,8 @@ export default function ReadinessBulkImportPage() {
   const [grid, setGrid] = useState<CellValue[][]>([]);
 
   const [reviewRows, setReviewRows] = useState<BulkResultsReviewRow[]>([]);
+  /** 04.10.2026 (§13.87) — ONE choice for the whole paste; reset whenever mode changes (same reset handleModeChange already does for reviewRows). */
+  const [conflictMode, setConflictMode] = useState<'new_test' | 'correction' | ''>('');
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -142,6 +144,17 @@ export default function ReadinessBulkImportPage() {
     const pullupsStatus = previewStatus(parsed.pullupsReps, testById.get('pullups'), effectiveGender);
     const dipsStatus = previewStatus(parsed.dipsReps, testById.get('dips'), effectiveGender);
 
+    // §13.87 "תיקון מוצהר" — 'existing_roster' only (a 'new_roster' soldier
+    // is brand new, can't already have a result). testDetails is already
+    // fetched as part of the roster load — no extra request.
+    const conflictsWithExisting = mode === 'existing_roster' && matchedSoldier
+      ? [
+          { present: parsed.runSeconds !== null, testId: 'run_3000m' },
+          { present: parsed.pullupsReps !== null, testId: 'pullups' },
+          { present: parsed.dipsReps !== null, testId: 'dips' },
+        ].some(({ present, testId }) => present && matchedSoldier.testDetails.find((t) => t.testId === testId)?.status !== 'not_yet_tested')
+      : false;
+
     return {
       parsed,
       isDuplicateVsRoster,
@@ -153,6 +166,7 @@ export default function ReadinessBulkImportPage() {
       pullupsStatus,
       dipsStatus,
       overallLabel: overallPreviewLabel([runStatus, pullupsStatus, dipsStatus]),
+      conflictsWithExisting,
     };
   }, [mode, existingNames, existingUnitRoster, testById]);
 
@@ -160,6 +174,7 @@ export default function ReadinessBulkImportPage() {
     const seenWithinPaste = new Set<string>();
     setReviewRows(liveParse.rows.map((r) => buildReviewRow(r, seenWithinPaste)));
     setSubmitError(null);
+    setConflictMode('');
   };
 
   const handleDuplicateChoiceChange = (index: number, choice: 'add' | 'skip') => {
@@ -167,12 +182,27 @@ export default function ReadinessBulkImportPage() {
   };
 
   const handleSoldierPick = (index: number, soldierId: string) => {
-    setReviewRows((prev) => prev.map((r, i) => (i === index ? { ...r, chosenSoldierId: soldierId || null } : r)));
+    setReviewRows((prev) => prev.map((r, i) => {
+      if (i !== index) return r;
+      // §13.87 — an ambiguous row's conflict check couldn't know the
+      // matched soldier at buildReviewRow time (nothing was chosen
+      // yet); recompute it now that one has been.
+      const picked = soldierId ? soldiers.find((s) => s.id === soldierId) : null;
+      const conflictsWithExisting = picked
+        ? [
+            { present: r.parsed.runSeconds !== null, testId: 'run_3000m' },
+            { present: r.parsed.pullupsReps !== null, testId: 'pullups' },
+            { present: r.parsed.dipsReps !== null, testId: 'dips' },
+          ].some(({ present, testId }) => present && picked.testDetails.find((t) => t.testId === testId)?.status !== 'not_yet_tested')
+        : false;
+      return { ...r, chosenSoldierId: soldierId || null, conflictsWithExisting };
+    }));
   };
 
   const handleModeChange = (next: 'new_roster' | 'existing_roster') => {
     setMode(next);
     setReviewRows([]);
+    setConflictMode('');
   };
 
   const handleCancel = () => {
@@ -212,6 +242,7 @@ export default function ReadinessBulkImportPage() {
           mode,
           defaultTestDate: new Date(defaultTestDate).toISOString(),
           rows,
+          ...(conflictMode ? { conflictMode } : {}),
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -350,6 +381,8 @@ export default function ReadinessBulkImportPage() {
               onSubmit={handleSubmit}
               submitting={submitting}
               submitError={submitError}
+              conflictMode={conflictMode}
+              onConflictModeChange={setConflictMode}
             />
           </div>
         </>
