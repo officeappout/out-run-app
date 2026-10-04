@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { adminAuthedFetch } from '@/lib/adminAuthedFetch';
 import {
   getTopBaseMovements,
   getLocationDistribution,
@@ -17,6 +18,9 @@ import AuthorityPerformanceTable from '@/features/admin/components/cpo-dashboard
 import ProductInsights from '@/features/admin/components/cpo-dashboard/ProductInsights';
 import MaintenanceOverview from '@/features/admin/components/cpo-dashboard/MaintenanceOverview';
 import PremiumConversion, { type PremiumMetricsData } from '@/features/admin/components/cpo-dashboard/PremiumConversion';
+import NorthStarRow, { type NorthStarData } from '@/features/admin/components/cpo-dashboard/NorthStarRow';
+import ActiveUsersHeroChart, { type ActiveUsersTrendPoint, type TimelineMarker } from '@/features/admin/components/cpo-dashboard/ActiveUsersHeroChart';
+import EconomyByAuthorityTable, { type EconomyByAuthorityRow } from '@/features/admin/components/cpo-dashboard/EconomyByAuthorityTable';
 import HealthWakeUpChart from '@/features/admin/components/strategic-insights/HealthWakeUpChart';
 import EquipmentGapAnalysis from '@/features/admin/components/strategic-insights/EquipmentGapAnalysis';
 import SleepyNeighborhoodsList from '@/features/admin/components/strategic-insights/SleepyNeighborhoodsList';
@@ -51,16 +55,13 @@ interface InsightsSummaryResponse {
   sleepyNeighborhoods: any[];
 }
 
-async function authedFetch<T>(path: string): Promise<{ ok: true; data: T } | { ok: false; status: number; message: string }> {
-  const user = auth.currentUser;
-  if (!user) return { ok: false, status: 401, message: 'לא מחובר.' };
-  const idToken = await user.getIdToken();
-  const res = await fetch(path, { headers: { Authorization: `Bearer ${idToken}` } });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    return { ok: false, status: res.status, message: body?.error ?? 'שגיאה בטעינת הנתונים.' };
-  }
-  return { ok: true, data: await res.json() };
+interface GrowthMetricsResponse {
+  scope: 'platform' | 'vertical';
+  vertical?: string;
+  northStar: NorthStarData;
+  activeUsersTrend: ActiveUsersTrendPoint[];
+  pushCampaignMarkers: TimelineMarker[];
+  economyByAuthority: EconomyByAuthorityRow[];
 }
 
 export default function StatisticsPage() {
@@ -71,6 +72,9 @@ export default function StatisticsPage() {
     const [statisticsDenied, setStatisticsDenied] = useState<string | null>(null);
     const [insightsSummary, setInsightsSummary] = useState<InsightsSummaryResponse | null>(null);
     const [insightsDenied, setInsightsDenied] = useState<string | null>(null);
+
+    const [growthMetrics, setGrowthMetrics] = useState<GrowthMetricsResponse | null>(null);
+    const [growthMetricsDenied, setGrowthMetricsDenied] = useState<string | null>(null);
 
     const [topMovements, setTopMovements] = useState<any[]>([]);
     const [locationDistribution, setLocationDistribution] = useState<any[]>([]);
@@ -87,9 +91,10 @@ export default function StatisticsPage() {
         async function loadData() {
             setDataLoading(true);
 
-            const [statsResult, insightsResult, movements, locations, maintenance] = await Promise.all([
-                authedFetch<StatisticsSummaryResponse>('/api/admin/statistics-summary'),
-                authedFetch<InsightsSummaryResponse>('/api/admin/insights-summary'),
+            const [statsResult, insightsResult, growthResult, movements, locations, maintenance] = await Promise.all([
+                adminAuthedFetch<StatisticsSummaryResponse>('/api/admin/statistics-summary'),
+                adminAuthedFetch<InsightsSummaryResponse>('/api/admin/insights-summary'),
+                adminAuthedFetch<GrowthMetricsResponse>('/api/admin/growth-metrics'),
                 getTopBaseMovements(5),
                 getLocationDistribution(),
                 getGlobalMaintenanceReports(),
@@ -100,6 +105,9 @@ export default function StatisticsPage() {
 
             if (insightsResult.ok) { setInsightsSummary(insightsResult.data); setInsightsDenied(null); }
             else { setInsightsSummary(null); setInsightsDenied(insightsResult.message); }
+
+            if (growthResult.ok) { setGrowthMetrics(growthResult.data); setGrowthMetricsDenied(null); }
+            else { setGrowthMetrics(null); setGrowthMetricsDenied(growthResult.message); }
 
             setTopMovements(movements);
             setLocationDistribution(locations);
@@ -139,6 +147,26 @@ export default function StatisticsPage() {
                 </>
             )}
 
+            {/* Analytics v2 — Phase 1 (04.10.2026). North-Star + Hero trend,
+                same server-route/scope pattern as statisticsSummary above —
+                see /api/admin/growth-metrics. */}
+            {growthMetricsDenied && !dataLoading && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+                    <AlertCircle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-amber-800">{growthMetricsDenied}</p>
+                </div>
+            )}
+            {(growthMetrics || dataLoading) && (
+                <>
+                    <NorthStarRow data={growthMetrics?.northStar ?? null} loading={dataLoading} />
+                    <ActiveUsersHeroChart
+                        data={growthMetrics?.activeUsersTrend ?? []}
+                        markers={growthMetrics?.pushCampaignMarkers ?? []}
+                        loading={dataLoading}
+                    />
+                </>
+            )}
+
             {/* Product Insights — unrelated to the users-collection scoping fix; unchanged */}
             <ProductInsights
                 topMovements={topMovements}
@@ -159,6 +187,10 @@ export default function StatisticsPage() {
                     <EquipmentGapAnalysis data={insightsSummary.equipmentGaps} loading={dataLoading} topCities={3} />
                     <SleepyNeighborhoodsList data={insightsSummary.sleepyNeighborhoods} loading={dataLoading} limit={5} />
                 </>
+            )}
+
+            {growthMetrics && (
+                <EconomyByAuthorityTable data={growthMetrics.economyByAuthority} loading={dataLoading} />
             )}
 
             {/* Maintenance Overview & Premium Conversion */}
