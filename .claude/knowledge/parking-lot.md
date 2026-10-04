@@ -1137,3 +1137,17 @@ Proven empirically, not theoretically: added a new `isSuperAdminOnly()` helper +
 **ההחלטה שהתקבלה (נרשמת כעת, לא בוצעה עבודה):** כתובת ה-URL לגרסה האנגלית תהיה **route נפרד `/privacy/en`**, **לא** `?lang=en` query param. הנימוק: כתובת קבועה אפשר להכניס ישירות לטופס ההצהרה ב-Play Console ולהפנות אליה בודק, בלי תלות בפרמטרים שעלולים להישמט.
 
 **לא בוצע:** אין קוד חדש, אין תרגום, אין route. דחוי בכוונה — לא חוסם הגשה נוכחית.
+
+---
+
+## ⚠️ באג אמיתי, לא תוקן, נתגלה בטעות תוך-כדי PR #117 — `recommendation.service.ts`'s `programLookup` ממופה ב-hash, כל שאר הטבלאות הסטטיות ממופות ב-slug — **כל** המלצת GOAL_ALIGNED/EQUIPMENT ל**כל** סקיל מחזירה ריק כבר היום — 2026-10-04
+
+**Opened:** 2026-10-04 · **Source:** אימות ישיר (לא ניחוש) תוך-כדי כתיבת ה-freeze ל-handstand ב-PR #117 — סקריפט אימות שהיה צריך להראות שההמלצה ל-handstand חסומה, הראה "ריק" **גם** ל-skill אח (`planche`) שלא היה אמור להיות חסום כלל, מה שהוביל לחקירת השורש.
+
+**מה נמצא:** ב-`src/features/user/onboarding/services/recommendation.service.ts`, `makeRec()` בונה `programLookup = new Map(allPrograms.map(p => [p.id, p]))` — ממפה לפי ה-Firestore document ID (hash אקראי). אבל **כל** טבלת-הכללים הסטטית בקובץ (`COMPLEMENTARY_PAIRS`, `GOAL_PROGRAM_AFFINITY`, `EQUIPMENT_PROGRAM_MAP`, `UPGRADE_TRIGGERS`) ממופה לפי ה-slug הקריא (`'planche'`, `'handstand'`, `'front_lever'` וכו'). אומת חי: `programLookup.get('planche')` ו-`programLookup.get('handstand')` שניהם מחזירים `undefined` — ה-lookup אף פעם לא תואם, לכל סקיל, לא רק לאלה הקשורים ל-PR הזה.
+
+**ההשלכה:** כל ענף שתלוי ב-`programLookup.get(programId)` בתוך `makeRec()` — כלומר כל המלצה מסוג `GOAL_ALIGNED` וגם `EQUIPMENT` — שקטה ומחזירה `null`/ריק, **לכל** סקיל, כבר היום, באופן בלתי-תלוי לגמרי בכל שינוי ב-PR #117 (human_flag freeze / handstand freeze). זה לא נגרם על ידי PR #117 — זה baseline קיים שרק נחשף עליו תוך-כדי אימות.
+
+**לא תוקן כאן — מחוץ לסקופ המוזמן (PR #117 היה freeze ל-human_flag+handstand, לא תיקון recommendation.service.ts).** תועד בקוד (הערה), בהודעת ה-commit, ובתיאור ה-PR — לא הוסתר, לא "תוקן בדרך".
+
+**תיקון מועמד לעתיד:** לבנות את ה-`programLookup` עם מפתח-slug (`p.slug` אם קיים על ה-type, או שדה שווה-ערך) במקום `p.id`, או להוסיף מיפוי-כפול (hash→program וגם slug→program) אם שני הצרכנים (קוד שצריך hash, קוד שצריך slug) קיימים במקביל באותו קובץ. לפני כל תיקון — grep לכל קורא אחר ל-`programLookup` באותו קובץ, לוודא שאף אחד לא *תלוי* בהתנהגות-ה-undefined הנוכחית (לא סביר, אבל לא אומת).
