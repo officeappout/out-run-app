@@ -2,7 +2,9 @@
 
 **Status: read-only investigation. No code changed, no deploy, no data written.**
 
-Builds on `.claude/knowledge/push-engine-capabilities.md` (11.08.2026, uncommitted, still on disk in the main checkout) — that audit is 54 days old and this one found a full new build wave it doesn't mention at all (Phase-0 persona work + a whole measurement layer, 12.08–08.09.2026). Every claim below is re-verified against the live repo today (`origin/main`) and, where noted, against live production Firestore data (read-only queries, same credentials used earlier this session).
+Builds on `.claude/knowledge/push-engine-capabilities.md` (11.08.2026, committed to git 28.08.2026 — see §Correction below) — that audit is 54 days old and this one found a full new build wave it doesn't mention at all (Phase-0 persona work + a whole measurement layer, 12.08–08.09.2026). Every claim below is re-verified against the live repo today (`origin/main`) and, where noted, against live production Firestore data (read-only queries, same credentials used earlier this session).
+
+**Correction (04.10.2026, same day, after merge):** this doc's original text claimed `push-engine-capabilities.md` and `notification-manager-wiring-design.md` were "uncommitted, main checkout" — that was wrong, asserted by analogy with an old memory note instead of checking `git log` directly, which is exactly the kind of staleness error this whole audit exists to avoid repeating. Both files (and the other two push-related knowledge docs) were committed to git on 28.08.2026 (`564ad915`, "commit the .claude/knowledge base into git") — over a month before this audit was written. `push-engine-capabilities.md` now carries an explicit superseded-banner (same commit as this correction) pointing back here.
 
 ---
 
@@ -152,7 +154,7 @@ push_events (live, read-only query, 04.10.2026):
 
 ## Source map
 
-- Content library + new wiring: `src/app/admin/workout-settings/page.tsx`, `functions/src/services/notification-content.service.ts`, `functions/src/services/persona-alias-map.service.ts`, `.claude/knowledge/notification-manager-wiring-design.md` (uncommitted, main checkout)
+- Content library + new wiring: `src/app/admin/workout-settings/page.tsx`, `functions/src/services/notification-content.service.ts`, `functions/src/services/persona-alias-map.service.ts`, `.claude/knowledge/notification-manager-wiring-design.md`
 - New senders: `functions/src/stepGoalNudgeScheduler.ts`, `functions/src/onPlannedActivityCreated.ts`
 - Measurement layer: `functions/src/services/push-events.service.ts`, `functions/src/pushOutcomeSweeper.ts`, tap-side writes in `src/lib/native/push.ts`
 - Shared send core: `functions/src/services/push.service.ts`
