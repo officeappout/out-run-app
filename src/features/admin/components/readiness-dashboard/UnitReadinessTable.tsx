@@ -102,17 +102,44 @@ function compareByFilteredPassPercent(a: DashboardUnitRow, b: DashboardUnitRow, 
 interface UnitReadinessTableProps {
   units: DashboardUnitRow[];
   components: DashboardComponentBreakdown[];
+  /**
+   * 04.10.2026 (§13.85) — controlled from the parent page's
+   * NearThresholdCard, not an internal chip here: this is an orthogonal
+   * AND-filter on top of whichever view is selected, not a fourth view
+   * option. A unit's OWN qualification is still "its own soldiers only"
+   * (nearThresholdCount, same "each level counts only its own" rule as
+   * every other number on this row) — but a qualifying unit's ANCESTOR
+   * chain is kept visible too (even an ancestor with 0 of its own),
+   * purely so the row has somewhere to nest under instead of vanishing:
+   * the table's own tree only ever renders a child beneath an actually-
+   * rendered parent row.
+   */
+  nearThresholdOnly?: boolean;
 }
 
-export default function UnitReadinessTable({ units, components }: UnitReadinessTableProps) {
+export default function UnitReadinessTable({ units, components, nearThresholdOnly = false }: UnitReadinessTableProps) {
   const router = useRouter();
   const [filter, setFilter] = useState<DashboardUnitViewKey>('all');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const { topLevel, childrenByParent } = useMemo(() => {
+    let source = units;
+    if (nearThresholdOnly) {
+      const byId = new Map(units.map((u) => [u.unitId, u]));
+      const visibleIds = new Set<string>();
+      for (const u of units) {
+        if (u.nearThresholdCount <= 0) continue;
+        let cur: DashboardUnitRow | undefined = u;
+        while (cur && !visibleIds.has(cur.unitId)) {
+          visibleIds.add(cur.unitId);
+          cur = cur.parentUnitId ? byId.get(cur.parentUnitId) : undefined;
+        }
+      }
+      source = units.filter((u) => visibleIds.has(u.unitId));
+    }
     const childMap = new Map<string, DashboardUnitRow[]>();
     const top: DashboardUnitRow[] = [];
-    for (const u of units) {
+    for (const u of source) {
       if (u.parentUnitId) {
         const list = childMap.get(u.parentUnitId) ?? [];
         list.push(u);
@@ -124,7 +151,7 @@ export default function UnitReadinessTable({ units, components }: UnitReadinessT
     top.sort((a, b) => compareByFilteredPassPercent(a, b, filter));
     for (const list of Array.from(childMap.values())) list.sort((a, b) => compareByFilteredPassPercent(a, b, filter));
     return { topLevel: top, childrenByParent: childMap };
-  }, [units, filter]);
+  }, [units, filter, nearThresholdOnly]);
 
   const toggleExpanded = (unitId: string) => {
     setExpanded((prev) => {
@@ -139,7 +166,11 @@ export default function UnitReadinessTable({ units, components }: UnitReadinessT
     const view = u.views[filter];
     const children = childrenByParent.get(u.unitId) ?? [];
     const hasChildren = children.length > 0;
-    const isExpanded = expanded.has(u.unitId);
+    // nearThresholdOnly: a qualifying nested unit must be visible the
+    // moment the officer clicks the card, not hidden behind a chevron
+    // they don't know to click — force-expand every parent kept in the
+    // filtered tree, ignoring the manual expand/collapse state.
+    const isExpanded = nearThresholdOnly ? true : expanded.has(u.unitId);
     return (
       <Fragment key={u.unitId}>
         <tr className="border-b border-slate-100 last:border-b-0">

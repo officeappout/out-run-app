@@ -408,6 +408,88 @@ describe('computeUnitRoster — testDetails (03.10.2026, David\'s live-test find
   });
 });
 
+describe('computeUnitRoster — nearThreshold (04.10.2026, §13.85, "קרובים לרף")', () => {
+  it('"כשיר" (pass) never gets a near-threshold tag — already passed, nothing to be "close" to', async () => {
+    const recent = new Date();
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', name: 'Aaa', gender: 'male', uid: null, mergedInto: null } },
+      thresholds: { global: { id: 'global', version: 1, tests: [{ id: 'run_3000m', label: 'ריצה', unit: 'seconds', lowerIsBetter: true, threshold: { male: 1080, female: 1200 } }] } },
+      results: {
+        r1: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 'run_3000m', outcome: 'pass', value: 900, recordedAt: recent, testDate: recent, thresholdSnapshot: { thresholdVersion: 1, gender: 'male', thresholdValue: 1080, lowerIsBetter: true, validityDays: 365 } },
+      },
+    });
+    const result = await computeUnitRoster(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status === 200) expect(result.body.soldiers[0].nearThreshold).toEqual({ isNear: false, note: null });
+  });
+
+  it('"טרם נבדק" (no result at all) never gets a near-threshold tag — no data, no distance', async () => {
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', name: 'Aaa', gender: 'male', uid: null, mergedInto: null } },
+      thresholds: { global: { id: 'global', version: 1, tests: [{ id: 'run_3000m', label: 'ריצה', unit: 'seconds', lowerIsBetter: true, threshold: { male: 1080, female: 1200 } }] } },
+    });
+    const result = await computeUnitRoster(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status === 200) expect(result.body.soldiers[0].nearThreshold).toEqual({ isNear: false, note: null });
+  });
+
+  it('"לא כשיר" (fail) by 30s against a 60s default tolerance → near-threshold tag with the real distance', async () => {
+    const recent = new Date();
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', name: 'Aaa', gender: 'male', uid: null, mergedInto: null } },
+      thresholds: { global: { id: 'global', version: 1, tests: [{ id: 'run_3000m', label: 'ריצה', unit: 'seconds', lowerIsBetter: true, threshold: { male: 1080, female: 1200 } }] } },
+      results: {
+        r1: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 'run_3000m', outcome: 'fail', value: 1110, recordedAt: recent, testDate: recent, thresholdSnapshot: { thresholdVersion: 1, gender: 'male', thresholdValue: 1080, lowerIsBetter: true, validityDays: 365 } },
+      },
+    });
+    const result = await computeUnitRoster(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status === 200) {
+      expect(result.body.soldiers[0].nearThreshold.isNear).toBe(true);
+      expect(result.body.soldiers[0].nearThreshold.note).toBe('ריצה · 30 שניות מהסף');
+    }
+  });
+
+  it('"לא כשיר" far from the threshold (4 minutes over) → no near-threshold tag', async () => {
+    const recent = new Date();
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', name: 'Aaa', gender: 'male', uid: null, mergedInto: null } },
+      thresholds: { global: { id: 'global', version: 1, tests: [{ id: 'run_3000m', label: 'ריצה', unit: 'seconds', lowerIsBetter: true, threshold: { male: 1080, female: 1200 } }] } },
+      results: {
+        r1: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 'run_3000m', outcome: 'fail', value: 1080 + 240, recordedAt: recent, testDate: recent, thresholdSnapshot: { thresholdVersion: 1, gender: 'male', thresholdValue: 1080, lowerIsBetter: true, validityDays: 365 } },
+      },
+    });
+    const result = await computeUnitRoster(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status === 200) expect(result.body.soldiers[0].nearThreshold).toEqual({ isNear: false, note: null });
+  });
+
+  it('failed on two components, close on only one → NOT near (David\'s locked "all failed components must be close" rule)', async () => {
+    const recent = new Date();
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', name: 'Aaa', gender: 'male', uid: null, mergedInto: null } },
+      thresholds: {
+        global: {
+          id: 'global', version: 1,
+          tests: [
+            { id: 'run_3000m', label: 'ריצה', unit: 'seconds', lowerIsBetter: true, threshold: { male: 1080, female: 1200 } },
+            { id: 'pullups', label: 'עליות מתח', unit: 'reps', lowerIsBetter: false, threshold: { male: 3, female: 3 } },
+          ],
+        },
+      },
+      results: {
+        // run: close (30s over a 60s tolerance)
+        r1: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 'run_3000m', outcome: 'fail', value: 1110, recordedAt: recent, testDate: recent, thresholdSnapshot: { thresholdVersion: 1, gender: 'male', thresholdValue: 1080, lowerIsBetter: true, validityDays: 365 } },
+        // pullups: far (3 reps short of a 1-rep tolerance)
+        r2: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 'pullups', outcome: 'fail', value: 0, recordedAt: recent, testDate: recent, thresholdSnapshot: { thresholdVersion: 1, gender: 'male', thresholdValue: 3, lowerIsBetter: false, validityDays: 365 } },
+      },
+    });
+    const result = await computeUnitRoster(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status === 200) expect(result.body.soldiers[0].nearThreshold).toEqual({ isNear: false, note: null });
+  });
+});
+
 describe('computeUnitRoster — pending-link candidates', () => {
   it('self-declared AND officer-approved AND unlinked → appears as pending', async () => {
     const db = makeFakeDb({

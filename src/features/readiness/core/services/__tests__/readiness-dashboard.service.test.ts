@@ -499,3 +499,81 @@ describe('computeBrigadeDashboard — components breakdown', () => {
     }
   });
 });
+
+describe('computeBrigadeDashboard — nearThresholdCount (04.10.2026, §13.85, "קרובים לרף")', () => {
+  it('a soldier failing by 30s against a 60s default tolerance counts at both brigade and unit level', async () => {
+    const recent = new Date();
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', gender: 'male', mergedInto: null } },
+      thresholds: THRESHOLDS,
+      units: { 'tenant-1': { 'battalion-1': { name: 'Battalion One' } } },
+      results: {
+        r1: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 'run_3000m', outcome: 'fail', value: 1110, source: 'organized_test', recordedAt: recent, testDate: recent, thresholdSnapshot: { thresholdVersion: 1, gender: 'male', thresholdValue: 1080, lowerIsBetter: true, validityDays: 365 } },
+      },
+    });
+    const result = await computeBrigadeDashboard(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status === 200) {
+      expect(result.body.nearThresholdCount).toBe(1);
+      expect(result.body.units.find((u) => u.unitId === 'battalion-1')?.nearThresholdCount).toBe(1);
+    }
+  });
+
+  it('a soldier failing far from the threshold (4 minutes over) is never counted', async () => {
+    const recent = new Date();
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', gender: 'male', mergedInto: null } },
+      thresholds: THRESHOLDS,
+      units: { 'tenant-1': { 'battalion-1': { name: 'Battalion One' } } },
+      results: {
+        r1: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 'run_3000m', outcome: 'fail', value: 1080 + 240, source: 'organized_test', recordedAt: recent, testDate: recent, thresholdSnapshot: { thresholdVersion: 1, gender: 'male', thresholdValue: 1080, lowerIsBetter: true, validityDays: 365 } },
+      },
+    });
+    const result = await computeBrigadeDashboard(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status === 200) expect(result.body.nearThresholdCount).toBe(0);
+  });
+
+  it('failed on two components, close on only one → not counted (same locked rule as the roster)', async () => {
+    const recent = new Date();
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', gender: 'male', mergedInto: null } },
+      thresholds: THREE_TESTS,
+      units: { 'tenant-1': { 'battalion-1': { name: 'Battalion One' } } },
+      results: {
+        // run: close (30s over a 60s tolerance)
+        r1: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 'run_3000m', outcome: 'fail', value: 1110, source: 'organized_test', recordedAt: recent, testDate: recent, thresholdSnapshot: { thresholdVersion: 1, gender: 'male', thresholdValue: 1080, lowerIsBetter: true, validityDays: 365 } },
+        // pullups: far (3 reps short of a 1-rep tolerance)
+        r2: { soldierId: 's1', tenantId: 'tenant-1', unitId: 'battalion-1', testId: 'pullups', outcome: 'fail', value: 0, source: 'organized_test', recordedAt: recent, testDate: recent, thresholdSnapshot: { thresholdVersion: 1, gender: 'male', thresholdValue: 3, lowerIsBetter: false, validityDays: 365 } },
+      },
+    });
+    const result = await computeBrigadeDashboard(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status === 200) expect(result.body.nearThresholdCount).toBe(0);
+  });
+
+  it('each unit counts only its OWN soldiers — matches the "each level counts only its own" rule every other number on this row already follows', async () => {
+    const recent = new Date();
+    const closeResult = (soldierId: string, unitId: string) => ({
+      soldierId, tenantId: 'tenant-1', unitId, testId: 'run_3000m', outcome: 'fail' as const, value: 1110,
+      source: 'organized_test', recordedAt: recent, testDate: recent,
+      thresholdSnapshot: { thresholdVersion: 1, gender: 'male', thresholdValue: 1080, lowerIsBetter: true, validityDays: 365 },
+    });
+    const db = makeFakeDb({
+      soldiers: {
+        s1: { tenantId: 'tenant-1', unitId: 'battalion-1', gender: 'male', mergedInto: null },
+        s2: { tenantId: 'tenant-1', unitId: 'battalion-2', gender: 'male', mergedInto: null },
+      },
+      thresholds: THRESHOLDS,
+      units: { 'tenant-1': { 'battalion-1': { name: 'Battalion One' }, 'battalion-2': { name: 'Battalion Two' } } },
+      results: { r1: closeResult('s1', 'battalion-1'), r2: closeResult('s2', 'battalion-2') },
+    });
+    const result = await computeBrigadeDashboard(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status === 200) {
+      expect(result.body.nearThresholdCount).toBe(2);
+      expect(result.body.units.find((u) => u.unitId === 'battalion-1')?.nearThresholdCount).toBe(1);
+      expect(result.body.units.find((u) => u.unitId === 'battalion-2')?.nearThresholdCount).toBe(1);
+    }
+  });
+});

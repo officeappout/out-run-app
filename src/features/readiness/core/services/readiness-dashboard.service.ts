@@ -88,7 +88,8 @@ import {
   type ReadinessThresholdsConfig,
   type ReadinessCurrentStatus,
 } from './readiness-write.service';
-import { reduceOverallStatus, toDate } from './readiness-read.service';
+import { reduceOverallStatus, toDate, findCurrentResult } from './readiness-read.service';
+import { computeNearThreshold, type FailedComponentInput } from './readiness-near-threshold';
 
 const DENIED_MESSAGE = 'אין לך הרשאה לצפות בלוח זה.';
 
@@ -140,6 +141,8 @@ export interface DashboardUnitRow {
   /** One breakdown per filter view — 'all' (every test, all-must-pass), 'run' (run_3000m alone), 'strength' (pullups+dips, all-must-pass). The table's overall-readiness column, status bar, and sort must all read from the SAME active view — never mix views on screen at once. */
   views: Record<DashboardUnitViewKey, DashboardUnitStatusBreakdown>;
   perComponent: Record<string, { passCount: number; failCount: number; testedCount: number; passPercent: number | null }>;
+  /** 04.10.2026 (§13.85) — this unit's OWN soldiers only (never descendants', same "each level counts only its own" rule everything else on this row already follows) who are overall 'fail' AND close on every component they failed. */
+  nearThresholdCount: number;
   /** ISO, the most recent testDate among this unit's soldiers' organized_test results. null if none. */
   lastTestDate: string | null;
   /** The REAL unitId (within this same tenant's unit list) this unit nests under — null for a top-level unit (its parent, if any in unitDirectory, is the brigade itself, not another unit in this list). Resolved via unitDirectory, see file header. */
@@ -159,6 +162,8 @@ export type BrigadeDashboardResult =
         overall: DashboardOverallBreakdown;
         components: DashboardComponentBreakdown[];
         units: DashboardUnitRow[];
+        /** 04.10.2026 (§13.85) — brigade-wide count across every soldier in scope (not per-unit — see DashboardUnitRow.nearThresholdCount for that). */
+        nearThresholdCount: number;
       };
     }
   | { status: 400 | 403 | 503; body: { error: string } };
@@ -333,6 +338,7 @@ export async function computeBrigadeDashboard(
     perComponent: Record<string, { passCount: number; failCount: number }>;
     lastTestMs: number | null;
     views: { all: ViewAcc; run: ViewAcc; strength: ViewAcc };
+    nearThresholdCount: number;
   }
   const unitAcc = new Map<string, UnitAcc>();
   const ensureUnitAcc = (unitId: string): UnitAcc => {
@@ -343,6 +349,7 @@ export async function computeBrigadeDashboard(
         perComponent: {},
         lastTestMs: null,
         views: { all: newViewAcc(), run: newViewAcc(), strength: newViewAcc() },
+        nearThresholdCount: 0,
       };
       for (const testId of testIds) acc.perComponent[testId] = { passCount: 0, failCount: 0 };
       unitAcc.set(unitId, acc);
@@ -350,6 +357,10 @@ export async function computeBrigadeDashboard(
     return acc;
   };
   for (const d of unitDocs) ensureUnitAcc(d.id); // seed every real unit, even with zero soldiers
+
+  // testId → full definition (label/unit/threshold/lowerIsBetter), for
+  // the near-threshold distance text below — same config already fetched.
+  const testDefById = new Map(config?.tests.map((t) => [t.id, t]) ?? []);
 
   const brigadeComponentAcc: Record<string, { passCount: number; failCount: number }> = {};
   for (const testId of testIds) brigadeComponentAcc[testId] = { passCount: 0, failCount: 0 };
@@ -359,6 +370,7 @@ export async function computeBrigadeDashboard(
   let failCount = 0;
   let notPerformedCount = 0;
   let notYetTestedCount = 0;
+  let nearThresholdCount = 0;
 
   for (const doc of soldiersSnap.docs) {
     const data = doc.data() as Omit<ReadinessSoldier, 'id'>;
@@ -398,6 +410,26 @@ export async function computeBrigadeDashboard(
     for (const r of soldierResults) {
       const ms = r.testDate.getTime();
       if (unitRow.lastTestMs === null || ms > unitRow.lastTestMs) unitRow.lastTestMs = ms;
+    }
+
+    // §13.85 "קרובים לרף" — pure derivation from the SAME soldierResults
+    // already in memory, only for soldiers whose overall is 'fail'.
+    if (overall === 'fail') {
+      const failedComponents: FailedComponentInput[] = [];
+      testIds.forEach((testId, i) => {
+        if (perTestStatus[i] !== 'fail') return;
+        const current = findCurrentResult(soldierResults, testId, now);
+        const def = testDefById.get(testId);
+        if (!current || current.value === null || !def) return;
+        const thresholdValue = current.thresholdSnapshot?.thresholdValue ?? def.threshold?.[data.gender] ?? null;
+        const lowerIsBetter = current.thresholdSnapshot?.lowerIsBetter ?? def.lowerIsBetter ?? null;
+        if (thresholdValue === null || lowerIsBetter === null) return;
+        failedComponents.push({ testId, label: def.label, unit: def.unit, value: current.value, thresholdValue, lowerIsBetter });
+      });
+      if (computeNearThreshold(failedComponents).isNear) {
+        nearThresholdCount++;
+        unitRow.nearThresholdCount++;
+      }
     }
   }
 
@@ -445,6 +477,7 @@ export async function computeBrigadeDashboard(
         strength: toUnitBreakdown(acc.views.strength),
       },
       perComponent,
+      nearThresholdCount: acc.nearThresholdCount,
       lastTestDate: acc.lastTestMs !== null ? new Date(acc.lastTestMs).toISOString() : null,
       parentUnitId: resolveParentUnitId(targetTenantId, unitId, dirByDirectoryId),
       breadcrumb: buildBreadcrumb(targetTenantId, unitId, dirByDirectoryId),
@@ -453,5 +486,5 @@ export async function computeBrigadeDashboard(
   });
   units.sort((a, b) => a.unitName.localeCompare(b.unitName, 'he'));
 
-  return { status: 200, body: { tenantId: targetTenantId, overall, components, units } };
+  return { status: 200, body: { tenantId: targetTenantId, overall, components, units, nearThresholdCount } };
 }

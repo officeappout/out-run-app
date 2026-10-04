@@ -59,6 +59,7 @@ import {
   type ReadinessThresholdsConfig,
   type NotPerformedReason,
 } from './readiness-write.service';
+import { computeNearThreshold, type FailedComponentInput, type NearThresholdInfo } from './readiness-near-threshold';
 
 export interface RosterSoldierEntry {
   id: string;
@@ -103,6 +104,13 @@ export interface RosterSoldierEntry {
    * rather than only the collapsed overall badge.
    */
   testDetails: RosterSoldierTestDetail[];
+  /**
+   * 04.10.2026 (§13.85, "קרובים לרף") — only meaningful when
+   * currentStatus === 'fail'; { isNear: false, note: null } otherwise.
+   * Pure derivation from testDetails' own value/thresholdValue/
+   * lowerIsBetter above — no new Firestore read, no new stored field.
+   */
+  nearThreshold: NearThresholdInfo;
 }
 
 export interface RosterSoldierTestDetail {
@@ -191,7 +199,7 @@ export function reduceOverallStatus(perTest: ReadinessCurrentStatus[]): Readines
  * Used by both findCurrentNotPerformedReason (below) and the
  * per-test evidence built in computeUnitRoster.
  */
-function findCurrentResult(results: ReadinessResult[], testId: string, now: Date): ReadinessResult | null {
+export function findCurrentResult(results: ReadinessResult[], testId: string, now: Date): ReadinessResult | null {
   const forTest = results
     .filter((r) => r.testId === testId)
     .sort((a, b) => b.recordedAt.getTime() - a.recordedAt.getTime());
@@ -353,6 +361,17 @@ export async function computeUnitRoster(
       };
     });
 
+    const failedComponents: FailedComponentInput[] = currentStatus === 'fail'
+      ? testDetails
+          .filter((t): t is RosterSoldierTestDetail & { value: number; thresholdValue: number; lowerIsBetter: boolean } =>
+            t.status === 'fail' && t.value !== null && t.thresholdValue !== null && t.lowerIsBetter !== null)
+          .map((t) => {
+            const def = config?.tests.find((td) => td.id === t.testId);
+            return { testId: t.testId, label: def?.label ?? t.testId, unit: def?.unit ?? '', value: t.value, thresholdValue: t.thresholdValue, lowerIsBetter: t.lowerIsBetter };
+          })
+      : [];
+    const nearThreshold = computeNearThreshold(failedComponents);
+
     soldiers.push({
       id: doc.id,
       name: data.name,
@@ -363,6 +382,7 @@ export async function computeUnitRoster(
       linkedAt: toIsoOrNull(data.linkedAt),
       currentStatus,
       testDetails,
+      nearThreshold,
     });
   }
   soldiers.sort((a, b) => a.name.localeCompare(b.name, 'he'));

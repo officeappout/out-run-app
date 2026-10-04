@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { UnitDetailSoldierRow } from '@/features/readiness/core/services/readiness-unit-detail.service';
 import type { DashboardComponentBreakdown } from '@/features/readiness/core/services/readiness-dashboard.service';
 import type { ReadinessCurrentStatus } from '@/features/readiness/core/services/readiness-write.service';
@@ -13,9 +13,10 @@ import { READINESS_COLORS } from '../readiness-dashboard/colors';
  * (readiness-unit-detail.service.ts) — this component only renders and
  * client-side filters, never re-derives any of it.
  */
-const FILTER_CHIPS: { key: 'all' | ReadinessCurrentStatus; label: string }[] = [
+const FILTER_CHIPS: { key: 'all' | ReadinessCurrentStatus | 'near_threshold'; label: string }[] = [
   { key: 'all', label: 'הכל' },
   { key: 'fail', label: 'לא כשיר' },
+  { key: 'near_threshold', label: 'קרובים לסף' },
   { key: 'not_yet_tested', label: 'טרם נבדק' },
   { key: 'pass', label: 'כשיר' },
   { key: 'not_performed', label: 'פטור' },
@@ -34,21 +35,34 @@ function statusTagColor(filterStatus: ReadinessCurrentStatus): string {
   return READINESS_COLORS.notYetTested;
 }
 
+type UnitDetailSoldiersFilter = 'all' | ReadinessCurrentStatus | 'near_threshold';
+
 interface UnitDetailSoldiersTableProps {
   soldiers: UnitDetailSoldierRow[];
   components: DashboardComponentBreakdown[];
+  /**
+   * 04.10.2026 (§13.85) — lifted to the parent page so the new
+   * "קרובים לסף" card (rendered above this table, outside it) can drive
+   * the SAME filter state as these chips, not a second, disconnected
+   * toggle.
+   */
+  filter: UnitDetailSoldiersFilter;
+  onFilterChange: (filter: UnitDetailSoldiersFilter) => void;
 }
 
-export default function UnitDetailSoldiersTable({ soldiers, components }: UnitDetailSoldiersTableProps) {
-  const [filter, setFilter] = useState<'all' | ReadinessCurrentStatus>('all');
-
+export default function UnitDetailSoldiersTable({ soldiers, components, filter, onFilterChange }: UnitDetailSoldiersTableProps) {
   const counts = useMemo(() => {
     const map: Record<string, number> = { all: soldiers.length };
     for (const s of soldiers) map[s.filterStatus] = (map[s.filterStatus] ?? 0) + 1;
+    map.near_threshold = soldiers.filter((s) => s.nearThreshold.isNear).length;
     return map;
   }, [soldiers]);
 
-  const visible = filter === 'all' ? soldiers : soldiers.filter((s) => s.filterStatus === filter);
+  const visible = filter === 'all'
+    ? soldiers
+    : filter === 'near_threshold'
+    ? soldiers.filter((s) => s.nearThreshold.isNear)
+    : soldiers.filter((s) => s.filterStatus === filter);
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 overflow-x-auto">
@@ -57,7 +71,7 @@ export default function UnitDetailSoldiersTable({ soldiers, components }: UnitDe
           {FILTER_CHIPS.map((chip) => (
             <button
               key={chip.key}
-              onClick={() => setFilter(chip.key)}
+              onClick={() => onFilterChange(chip.key)}
               className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all ${
                 filter === chip.key ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
@@ -111,6 +125,9 @@ export default function UnitDetailSoldiersTable({ soldiers, components }: UnitDe
                   <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: statusTagColor(s.filterStatus) }} />
                   {s.statusLabel}
                 </span>
+                {s.nearThreshold.isNear && (
+                  <div className="text-[10px] text-slate-500 mt-1">{s.nearThreshold.note}</div>
+                )}
               </td>
             </tr>
           ))}

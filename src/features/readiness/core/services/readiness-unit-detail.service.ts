@@ -63,6 +63,7 @@ import {
 } from './readiness-dashboard.service';
 import { computeUnitRoster, reduceOverallStatus } from './readiness-read.service';
 import type { ReadinessCurrentStatus, NotPerformedReason } from './readiness-write.service';
+import type { NearThresholdInfo } from './readiness-near-threshold';
 
 const DENIED_MESSAGE = 'אין לך הרשאה לצפות ביחידה זו.';
 
@@ -130,6 +131,8 @@ export interface UnitDetailSoldierRow {
   /** 0 fail, 1 partial, 2 not_yet_tested, 3 pass, 4 exempt — David's locked sort order. */
   sortGroup: number;
   latestTestDate: string | null;
+  /** 04.10.2026 (§13.85) — passed through verbatim from computeUnitRoster's own soldier.nearThreshold; nothing re-derived here. */
+  nearThreshold: NearThresholdInfo;
 }
 
 export interface UnitDetailBody {
@@ -139,6 +142,8 @@ export interface UnitDetailBody {
   breadcrumbChain: UnitDetailBreadcrumbSegment[];
   ownSoldierCount: number;
   childUnitCount: number;
+  /** 04.10.2026 (§13.85) — this unit's OWN soldiers only, same scope as ownSoldierCount, read straight from DashboardUnitRow.nearThresholdCount (computeBrigadeDashboard, already resolved per-unit there). No cumulative variant — matches the locked "each level counts only its own" rule this whole screen already follows. */
+  nearThresholdCount: number;
   lastUpdated: string | null;
   own: { overall: DashboardOverallBreakdown; components: DashboardComponentBreakdown[] };
   /** null when childUnitCount === 0 — the cumulative row never renders for a unit with no sub-units (nothing to accumulate). */
@@ -312,7 +317,7 @@ export async function computeUnitDetail(
     const realDates = s.testDetails.map((t) => t.testDate).filter((d): d is string => d !== null);
     const latestTestDate = realDates.length > 0 ? realDates.reduce((a, b) => (a > b ? a : b)) : null;
 
-    return { soldierId: s.id, name: s.name, tests, statusLabel: label, filterStatus, sortGroup, latestTestDate };
+    return { soldierId: s.id, name: s.name, tests, statusLabel: label, filterStatus, sortGroup, latestTestDate, nearThreshold: s.nearThreshold };
   });
 
   soldiers.sort((a, b) => {
@@ -352,6 +357,7 @@ export async function computeUnitDetail(
       breadcrumbChain: chain,
       ownSoldierCount: target.totalCount,
       childUnitCount: children.length,
+      nearThresholdCount: target.nearThresholdCount,
       lastUpdated: target.lastTestDate,
       own: { overall: own, components: ownComponents },
       cumulative,

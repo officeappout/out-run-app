@@ -9,9 +9,11 @@ import { auth } from '@/lib/firebase';
 import AdminBreadcrumb, { type BreadcrumbItem } from '@/features/admin/components/AdminBreadcrumb';
 import OverallReadinessCard from '@/features/admin/components/readiness-dashboard/OverallReadinessCard';
 import ComponentReadinessCard from '@/features/admin/components/readiness-dashboard/ComponentReadinessCard';
+import NearThresholdCard from '@/features/admin/components/readiness-dashboard/NearThresholdCard';
 import UnitDetailChildCard from '@/features/admin/components/readiness-unit-detail/UnitDetailChildCard';
 import UnitDetailSoldiersTable from '@/features/admin/components/readiness-unit-detail/UnitDetailSoldiersTable';
 import type { UnitDetailBody } from '@/features/readiness/core/services/readiness-unit-detail.service';
+import type { ReadinessCurrentStatus } from '@/features/readiness/core/services/readiness-write.service';
 import { Loader2, ClipboardList } from 'lucide-react';
 
 /**
@@ -35,6 +37,7 @@ export default function ReadinessUnitDetailPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [data, setData] = useState<UnitDetailBody | null>(null);
+  const [soldiersFilter, setSoldiersFilter] = useState<'all' | ReadinessCurrentStatus | 'near_threshold'>('all');
 
   const load = useCallback(async () => {
     const token = await auth.currentUser?.getIdToken();
@@ -137,7 +140,18 @@ export default function ReadinessUnitDetailPage() {
         </div>
       )}
 
-      <UnitDetailSoldiersTable soldiers={data.soldiers} components={data.own.components} />
+      <NearThresholdCard
+        count={data.nearThresholdCount}
+        active={soldiersFilter === 'near_threshold'}
+        onClick={() => setSoldiersFilter((f) => (f === 'near_threshold' ? 'all' : 'near_threshold'))}
+      />
+
+      <UnitDetailSoldiersTable
+        soldiers={data.soldiers}
+        components={data.own.components}
+        filter={soldiersFilter}
+        onFilterChange={setSoldiersFilter}
+      />
 
       <p className="text-xs text-gray-400 text-center">
         בוחן מסודר בלבד — תוצאות ממדידות אפליקציה ומדיווח עצמי אינן נכללות.

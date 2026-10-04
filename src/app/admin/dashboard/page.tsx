@@ -13,6 +13,7 @@ import { authorityTypeToTenantType, getTenantLabels } from '@/features/admin/con
 import OverallReadinessCard from '@/features/admin/components/readiness-dashboard/OverallReadinessCard';
 import ComponentReadinessCard from '@/features/admin/components/readiness-dashboard/ComponentReadinessCard';
 import UnitReadinessTable from '@/features/admin/components/readiness-dashboard/UnitReadinessTable';
+import NearThresholdCard from '@/features/admin/components/readiness-dashboard/NearThresholdCard';
 import type {
   DashboardOverallBreakdown,
   DashboardComponentBreakdown,
@@ -42,21 +43,21 @@ import {
  */
 async function fetchReadinessDashboard(
   tenantId: string,
-): Promise<{ overall: DashboardOverallBreakdown | null; components: DashboardComponentBreakdown[]; units: DashboardUnitRow[]; error: string | null }> {
+): Promise<{ overall: DashboardOverallBreakdown | null; components: DashboardComponentBreakdown[]; units: DashboardUnitRow[]; nearThresholdCount: number; error: string | null }> {
   try {
     const user = auth.currentUser;
-    if (!user) return { overall: null, components: [], units: [], error: 'משתמש לא מחובר. רענן את הדף ונסה שוב.' };
+    if (!user) return { overall: null, components: [], units: [], nearThresholdCount: 0, error: 'משתמש לא מחובר. רענן את הדף ונסה שוב.' };
     const idToken = await user.getIdToken();
     const res = await fetch(`/api/units/readiness/dashboard?tenantId=${encodeURIComponent(tenantId)}`, {
       headers: { Authorization: `Bearer ${idToken}` },
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
-      return { overall: null, components: [], units: [], error: typeof body.error === 'string' ? body.error : `שגיאה בטעינת לוח הכשירות (${res.status})` };
+      return { overall: null, components: [], units: [], nearThresholdCount: 0, error: typeof body.error === 'string' ? body.error : `שגיאה בטעינת לוח הכשירות (${res.status})` };
     }
-    return { overall: body.overall ?? null, components: body.components ?? [], units: body.units ?? [], error: null };
+    return { overall: body.overall ?? null, components: body.components ?? [], units: body.units ?? [], nearThresholdCount: body.nearThresholdCount ?? 0, error: null };
   } catch (err: any) {
-    return { overall: null, components: [], units: [], error: err?.message ?? 'שגיאה בטעינת לוח הכשירות.' };
+    return { overall: null, components: [], units: [], nearThresholdCount: 0, error: err?.message ?? 'שגיאה בטעינת לוח הכשירות.' };
   }
 }
 
@@ -111,6 +112,8 @@ export default function AdminDashboardPage() {
   const [readinessOverall, setReadinessOverall] = useState<DashboardOverallBreakdown | null>(null);
   const [readinessComponents, setReadinessComponents] = useState<DashboardComponentBreakdown[]>([]);
   const [readinessUnits, setReadinessUnits] = useState<DashboardUnitRow[]>([]);
+  const [readinessNearThresholdCount, setReadinessNearThresholdCount] = useState(0);
+  const [readinessNearThresholdOnly, setReadinessNearThresholdOnly] = useState(false);
   const [readinessError, setReadinessError] = useState<string | null>(null);
 
   const resolveAuthority = useCallback(async (uid: string) => {
@@ -150,6 +153,7 @@ export default function AdminDashboardPage() {
         setReadinessOverall(result.overall);
         setReadinessComponents(result.components);
         setReadinessUnits(result.units);
+        setReadinessNearThresholdCount(result.nearThresholdCount);
         setReadinessError(result.error);
         return;
       }
@@ -257,7 +261,13 @@ export default function AdminDashboardPage() {
               {readinessComponents.map((c) => <ComponentReadinessCard key={c.testId} component={c} />)}
             </div>
 
-            <UnitReadinessTable units={readinessUnits} components={readinessComponents} />
+            <NearThresholdCard
+              count={readinessNearThresholdCount}
+              active={readinessNearThresholdOnly}
+              onClick={() => setReadinessNearThresholdOnly((v) => !v)}
+            />
+
+            <UnitReadinessTable units={readinessUnits} components={readinessComponents} nearThresholdOnly={readinessNearThresholdOnly} />
 
             <p className="text-xs text-gray-400 text-center">
               רק בוחן מסודר נספר בלוח זה. תוצאות ממדידות אפליקציה ומדיווח עצמי אינן נכללות.

@@ -255,7 +255,12 @@ export default function SoldiersRosterTable({ soldiers, suggestions, ambiguities
                           <span className="text-xs font-bold text-slate-400">לא מחובר</span>
                         )}
                       </td>
-                      <td className="py-2.5 px-3"><ReadinessStatusBadge status={s.currentStatus} notPerformedReason={s.notPerformedReason} /></td>
+                      <td className="py-2.5 px-3">
+                        <ReadinessStatusBadge status={s.currentStatus} notPerformedReason={s.notPerformedReason} />
+                        {s.nearThreshold.isNear && (
+                          <div className="text-[10px] text-slate-500 mt-1">{s.nearThreshold.note}</div>
+                        )}
+                      </td>
                       <td className="py-2.5 px-3">
                         {s.uid && (
                           <button
