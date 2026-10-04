@@ -42,6 +42,7 @@ import { getUserEvents, AnalyticsEvent } from '@/features/analytics/AnalyticsSer
 import { getAuthority } from '@/features/admin/services/authority.service';
 import { getProgram, getAllPrograms, MASTER_PROGRAM_ID_TO_SLUG } from '@/features/content/programs';
 import { Program } from '@/features/content/programs';
+import { resolveToSlug, ensureIdSlugMapWarm } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { usePagination } from '@/features/admin/hooks/usePagination';
 import Pagination from '@/features/admin/components/shared/Pagination';
 import { formatFirebaseTimestamp, convertTimestampToDate } from '@/lib/utils/date-formatter';
@@ -96,6 +97,25 @@ const EVENT_TIMELINE_STYLE: Record<
   error_occurred: { dot: 'bg-red-500', text: 'text-red-700' },
   default: { dot: 'bg-gray-400', text: 'text-gray-600' },
 };
+
+/**
+ * Program-identity audit §06 Stage 7: resolve a Firestore program id to its
+ * canonical track/domain slug BEFORE using it as a Firestore field-path key.
+ * This file had 3 independent ad hoc resolvers (assignProgramToUser's
+ * subPrograms loop, syncDomainsFromTracks, saveManualLevelOverrides) that
+ * fell back to writing the raw hash id whenever MASTER_PROGRAM_ID_TO_SLUG
+ * (a static 4-entry map, master-programs-only) missed — an ongoing source
+ * of new hash-keyed tracks/domains entries, especially for leaf children
+ * (push/pull/legs/core/skills), which that map never covered at all.
+ * resolveToSlug is tried first (reads the real Program.slug/movementPattern
+ * off Firestore via its own cache); the static map stays as a fallback for
+ * a cold cache. No backfill — this only changes what NEW writes look like.
+ */
+async function resolveTrackSlug(programId: string): Promise<string> {
+  await ensureIdSlugMapWarm();
+  const resolved = resolveToSlug(programId);
+  return resolved !== programId ? resolved : (MASTER_PROGRAM_ID_TO_SLUG[programId] ?? programId);
+}
 
 interface UserDetailModalProps {
   user: AdminUserListItem | null;
@@ -218,10 +238,14 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
       if (childLevels.length > 0) {
         const cap = MASTER_CAP_SYNC[masterProg.id] ?? Infinity;
         const derivedLevel = Math.min(cap, Math.round(childLevels.reduce((a, b) => a + b, 0) / childLevels.length));
-        const currentMasterTrack = tracks[masterProg.id]?.currentLevel ?? 0;
-        const currentMasterDomain = domains?.[masterProg.id]?.currentLevel ?? 0;
+        // Stage 7 fix: write the resolved slug key, not the raw masterProg.id
+        // hash — read both forms so an existing hash-keyed entry doesn't
+        // trigger a spurious re-write of the (now-separate) slug key.
+        const masterKey = await resolveTrackSlug(masterProg.id);
+        const currentMasterTrack = tracks[masterKey]?.currentLevel ?? tracks[masterProg.id]?.currentLevel ?? 0;
+        const currentMasterDomain = domains?.[masterKey]?.currentLevel ?? domains?.[masterProg.id]?.currentLevel ?? 0;
         if (currentMasterTrack !== derivedLevel || currentMasterDomain !== derivedLevel) {
-          updates[masterProg.id] = derivedLevel;
+          updates[masterKey] = derivedLevel;
         }
       }
     }
@@ -305,8 +329,10 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
           if (childLevels.length > 0) {
             const cap = MASTER_CAP[masterProg.id] ?? Infinity;
             const derivedLevel = Math.min(cap, Math.round(childLevels.reduce((a, b) => a + b, 0) / childLevels.length));
-            firestoreUpdates[`progression.tracks.${masterProg.id}.currentLevel`] = derivedLevel;
-            firestoreUpdates[`progression.domains.${masterProg.id}.currentLevel`] = derivedLevel;
+            // Stage 7 fix: write the resolved slug key, not the raw hash.
+            const masterKey = await resolveTrackSlug(masterProg.id);
+            firestoreUpdates[`progression.tracks.${masterKey}.currentLevel`] = derivedLevel;
+            firestoreUpdates[`progression.domains.${masterKey}.currentLevel`] = derivedLevel;
           }
         }
       }
@@ -372,10 +398,14 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
       const initialLevel = Math.min(globalLevel, maxLevel);
 
       // Resolve the program's semantic slug so that domains/tracks use slug
-      // keys (e.g. 'full_body') instead of Firestore hash IDs.  Leaf programs
-      // carry their slug in movementPattern; master programs are covered by the
-      // static MASTER_PROGRAM_ID_TO_SLUG export from program.service.
+      // keys (e.g. 'full_body') instead of Firestore hash IDs. Stage 7 fix
+      // (program-identity audit §06): Program.slug now takes priority — the
+      // old formula skipped it entirely, the same backwards-priority bug
+      // Stage 6 fixed in buildProgramSlugMap. `program` is the full,
+      // already-fetched Program doc, so this is a direct field read, no
+      // async resolver call needed.
       const programSlug: string =
+        program.slug ||
         (program as any).movementPattern ||
         MASTER_PROGRAM_ID_TO_SLUG[program.id] ||
         program.id; // safe fallback — at least consistent with itself
@@ -401,10 +431,16 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
       // If program has subPrograms (e.g. push, pull, legs, core), init each.
       // subPrograms[] stores Firestore hash IDs — resolve each to its slug so
       // progression.tracks and progression.domains use consistent slug keys.
+      //
+      // Stage 7 fix (program-identity audit §06 — the write-time site this
+      // stage prioritizes): MASTER_PROGRAM_ID_TO_SLUG only covers the 4
+      // MASTER programs, never leaf children (push/pull/legs/core/skills) —
+      // every subHash here is a leaf child, so the old `|| subHash` fallback
+      // fired on EVERY enroll, writing a brand-new raw-hash-keyed entry each
+      // time. resolveTrackSlug (resolveToSlug first) actually covers leaves.
       if ((program as any).subPrograms?.length) {
         for (const subHash of (program as any).subPrograms as string[]) {
-          const subSlug: string =
-            MASTER_PROGRAM_ID_TO_SLUG[subHash] || subHash;
+          const subSlug = await resolveTrackSlug(subHash);
           firestoreUpdates[`progression.tracks.${subSlug}.currentLevel`] = initialLevel;
           firestoreUpdates[`progression.tracks.${subSlug}.maxLevel`] = maxLevel;
           firestoreUpdates[`progression.tracks.${subSlug}.percent`] = 0;
