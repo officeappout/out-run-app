@@ -113,11 +113,15 @@ export interface AdminUserListItem {
   /** Birth date for display */
   birthDate?: unknown;
   /**
-   * Last recorded user activity timestamp (from users.lastActive).
-   * Undefined when the user has no recorded activity (legacy doc or
-   * brand-new account that has not yet triggered an active session).
+   * Most recent `workouts` doc date for this user (David, 04.10.2026:
+   * "lastActive reads empty; a user with workouts should show a real
+   * date"). Undefined when the user has zero workout docs — the table
+   * falls back to a plain "no data" display, never to lastActive.
    */
-  lastActive?: Date;
+  lastWorkoutDate?: Date;
+  /** progression.currentStreak, read straight off the same users-collection
+   * doc already being fetched — no extra query. */
+  currentStreak?: number;
   /**
    * Whether push notifications are enabled in the user's settings.
    * Defaults to `false` when settings.pushEnabled is missing — safer to
@@ -325,6 +329,12 @@ export async function getUserWorkoutHistory(userId: string, limit: number = 50):
         routeId: data.routeId,
         routeName: data.routeName,
         earnedCoins: data.earnedCoins || 0,
+        // Rework (04.10.2026): segments[] was already stored on every solo
+        // strength workout doc (active/page.tsx's saveWorkout call — one
+        // 'strength' segment, actual.exerciseLog) but this admin read path
+        // never fetched it — "today it's only a total count with nothing to
+        // open" was a data-plumbing gap, not a missing feature.
+        segments: Array.isArray(data.segments) ? data.segments : undefined,
       });
     });
 
