@@ -562,6 +562,380 @@ export async function computeBulkCreateSoldiers(
   return { status: 200, body: { soldierIds } };
 }
 
+// ── Bulk-import results (paste or file), two explicit modes ─────────────
+
+/**
+ * Firestore WriteBatch hard-caps at 500 operations. A results-import row
+ * can need up to 4 operations in one batch (1 soldier-create in
+ * 'new_roster' mode + up to 3 result-creates: run/pullups/dips) — unlike
+ * computeBulkCreateSoldiers's 1-op-per-row shape, so that function's own
+ * 300-row cap does NOT carry over here. 100 × 4 = 400, the same ~20%
+ * margin-under-the-cap ratio as the existing 300/500 cap (David,
+ * 04.10.2026, chose explicitly over keeping 300 and splitting batches —
+ * same "never split into two batches" rule as computeBulkCreateSoldiers).
+ */
+export const BULK_RESULTS_IMPORT_MAX_ROWS = 100;
+
+export type BulkResultsImportMode = 'new_roster' | 'existing_roster';
+
+/**
+ * Client-normalized values only — every raw text/time-format parsing
+ * (paste or file) happens client-side before submission, same convention
+ * as the existing single-entry screen's RunTimeInput (mm:ss → seconds
+ * before it ever reaches the server). This function never sees a string
+ * time value, never guesses a format — it only validates that a NUMBER
+ * is present or absent.
+ */
+export interface BulkResultsImportRow {
+  /** 'new_roster' mode only. */
+  name?: unknown;
+  /** 'new_roster' mode only. */
+  gender?: unknown;
+  /** 'existing_roster' mode only — resolved to a soldierId CLIENT-SIDE
+   *  (the review step is where name-matching/ambiguity is shown to the
+   *  officer); this function never matches by name itself, so the same
+   *  matching logic never exists in two places that could disagree. */
+  soldierId?: unknown;
+  /** Per-row override of the top-level defaultTestDate. Absent/null = use the default. */
+  testDate?: unknown;
+  /** Absent/null = "not performed" for this test — never written as a
+   *  result at all (not even a 'not_performed' outcome, which requires a
+   *  specific reason this format doesn't capture). A soldier with no
+   *  result document for a test reads as "טרם נבדק" at display time —
+   *  exactly the point: an empty cell must never become a 0, and 0 is a
+   *  real, distinct, failing value. */
+  runSeconds?: unknown;
+  pullupsReps?: unknown;
+  dipsReps?: unknown;
+}
+
+export type BulkResultsImportResult =
+  | { status: 200; body: { soldierIds: string[]; resultsWritten: number } }
+  | { status: 400 | 403 | 503; body: { error: string; invalidRows?: { index: number; error: string }[] } };
+
+const RESULT_VALUE_FIELDS: { testId: string; field: 'runSeconds' | 'pullupsReps' | 'dipsReps' }[] = [
+  { testId: 'run_3000m', field: 'runSeconds' },
+  { testId: 'pullups', field: 'pullupsReps' },
+  { testId: 'dips', field: 'dipsReps' },
+];
+
+/**
+ * A fresh, standalone date-range check for this function only — NOT
+ * extracted out of computeRecordResult's own inline version (David,
+ * explicit: don't touch any existing function in this file). Same rule,
+ * duplicated rather than shared: not in the future, not more than 90
+ * days back, compared by calendar day.
+ */
+function validateImportTestDate(raw: unknown): { ok: true; date: Date } | { ok: false; error: string } {
+  if (typeof raw !== 'string' || !raw.trim()) {
+    return { ok: false, error: 'תאריך בוחן נדרש' };
+  }
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) {
+    return { ok: false, error: 'תאריך בוחן אינו תקין' };
+  }
+  const now = new Date();
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const dayMs = startOfDay(date);
+  const todayMs = startOfDay(now);
+  if (dayMs > todayMs) {
+    return { ok: false, error: 'תאריך הבוחן לא יכול להיות בעתיד.' };
+  }
+  if (todayMs - dayMs > 90 * 24 * 60 * 60 * 1000) {
+    return { ok: false, error: 'תאריך הבוחן רחוק מדי בעבר — עד 90 יום אחורה בלבד.' };
+  }
+  return { ok: true, date };
+}
+
+/** Same pass/fail comparison computeRecordResult's own inline version
+ *  uses (lowerIsBetter-aware), factored out here only because THIS
+ *  function calls it once per test per row — not shared with
+ *  computeRecordResult, which keeps its own copy untouched. */
+function computeOutcomeForValue(
+  test: ReadinessTestDefinition,
+  config: ReadinessThresholdsConfig,
+  gender: ReadinessGender,
+  value: number,
+): { outcome: ReadinessOutcome; thresholdSnapshot: ReadinessThresholdSnapshot } {
+  const thresholdValue = test.threshold[gender];
+  const outcome: ReadinessOutcome = test.lowerIsBetter
+    ? (value <= thresholdValue ? 'pass' : 'fail')
+    : (value >= thresholdValue ? 'pass' : 'fail');
+  return {
+    outcome,
+    thresholdSnapshot: {
+      thresholdVersion: config.version,
+      gender,
+      thresholdValue,
+      lowerIsBetter: test.lowerIsBetter,
+      validityDays: test.validityDays,
+    },
+  };
+}
+
+interface ValidatedImportRow {
+  name: string | null;
+  gender: ReadinessGender;
+  /** null in 'new_roster' mode (not yet created); a real id in 'existing_roster' mode. */
+  soldierId: string | null;
+  /** Denormalized read-key for the result docs below (ReadinessResult.uid
+   *  — see its own doc comment). Always null in 'new_roster' mode (a
+   *  freshly-created soldier is never linked). In 'existing_roster' mode,
+   *  the EXISTING soldier's real current uid, read once during
+   *  validation — never re-derived at write time. */
+  uid: string | null;
+  testDate: Date;
+  values: { testId: string; value: number }[];
+}
+
+/**
+ * Two explicit, officer-chosen modes sharing one function (David,
+ * 04.10.2026, §13.83) — 'new_roster' creates soldiers (results
+ * optional, same as computeBulkCreateSoldiers's existing shape, just
+ * extended); 'existing_roster' creates NO soldier, ever — a name that
+ * doesn't resolve to exactly one existing record is resolved (or
+ * rejected) in the CLIENT-side review step, never guessed here. Same
+ * pattern as computeBulkCreateSoldiers, mirrored exactly: validate
+ * EVERY row first (collect invalidRows, 400 on any failure, nothing
+ * written), then ONE WriteBatch for the whole operation, then ONE
+ * aggregate audit log entry after commit — never split into two
+ * batches, never one audit entry per row.
+ */
+export async function computeBulkImportResults(
+  db: Firestore,
+  scope: UnitPermissionScope,
+  requestBody: Record<string, unknown>,
+  ctx: ReadinessCtx,
+): Promise<BulkResultsImportResult> {
+  if (scope.kind === 'unknown') {
+    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע.' } };
+  }
+  if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin') {
+    return { status: 403, body: { error: DENIED_MESSAGE } };
+  }
+
+  const mode = requestBody.mode;
+  if (mode !== 'new_roster' && mode !== 'existing_roster') {
+    return { status: 400, body: { error: 'mode must be new_roster or existing_roster' } };
+  }
+
+  const rawRows = requestBody.rows;
+  if (!Array.isArray(rawRows) || rawRows.length === 0) {
+    return { status: 400, body: { error: 'rows is required and must be a non-empty array' } };
+  }
+  if (rawRows.length > BULK_RESULTS_IMPORT_MAX_ROWS) {
+    return {
+      status: 400,
+      body: { error: `עד ${BULK_RESULTS_IMPORT_MAX_ROWS} שורות בייבוא אחד — הרשימה הזו מכילה ${rawRows.length}. פצל לשתי העברות נפרדות.` },
+    };
+  }
+
+  const tenantUnitResult = await resolveTenantAndUnit(db, scope, requestBody);
+  if (!tenantUnitResult.ok) {
+    return { status: tenantUnitResult.status, body: { error: tenantUnitResult.error } };
+  }
+  const { tenantId, unitId } = tenantUnitResult;
+
+  const defaultDateResult = validateImportTestDate(requestBody.defaultTestDate);
+  if (!defaultDateResult.ok) {
+    return { status: 400, body: { error: defaultDateResult.error } };
+  }
+
+  // Thresholds are only needed if at least one row carries at least one
+  // numeric value — a pure 'new_roster' name+gender import (results
+  // optional, point in the spec) never has to touch this collection.
+  const anyValuePresent = rawRows.some((row) => {
+    if (typeof row !== 'object' || row === null) return false;
+    const r = row as Record<string, unknown>;
+    return RESULT_VALUE_FIELDS.some(({ field }) => typeof r[field] === 'number');
+  });
+
+  let config: ReadinessThresholdsConfig | null = null;
+  if (anyValuePresent) {
+    const configSnap = await db.collection('readiness_thresholds').doc(THRESHOLDS_DOC_ID).get();
+    if (!configSnap.exists) {
+      return { status: 400, body: { error: 'לא הוגדר סף כשירות גלובלי.' } };
+    }
+    config = configSnap.data() as ReadinessThresholdsConfig;
+  }
+
+  // 'existing_roster' mode — fetch every referenced soldier ONCE up
+  // front (deduplicated), before validating any individual row. Never a
+  // name-match here: the client already resolved name → soldierId in
+  // the review step (including ambiguity), so this function only ever
+  // confirms the id it was given is real, unmerged, in the right
+  // tenant/unit, and in the caller's own scope.
+  const existingSoldierById = new Map<string, { tenantId: string; unitId: string; gender: ReadinessGender; uid: string | null; mergedInto: string | null }>();
+  if (mode === 'existing_roster') {
+    const ids = Array.from(new Set(
+      rawRows
+        .map((r) => (typeof r === 'object' && r !== null ? (r as Record<string, unknown>).soldierId : null))
+        .filter((id): id is string => typeof id === 'string' && id.trim().length > 0),
+    ));
+    const snaps = await Promise.all(ids.map((id) => db.collection('readiness_soldiers').doc(id).get()));
+    snaps.forEach((snap, i) => {
+      if (!snap.exists) return;
+      const data = snap.data() as Omit<ReadinessSoldier, 'id'>;
+      existingSoldierById.set(ids[i], { tenantId: data.tenantId, unitId: data.unitId, gender: data.gender, uid: data.uid, mergedInto: data.mergedInto });
+    });
+  }
+
+  const invalidRows: { index: number; error: string }[] = [];
+  const validated: ValidatedImportRow[] = [];
+
+  rawRows.forEach((row, index) => {
+    if (typeof row !== 'object' || row === null) {
+      invalidRows.push({ index, error: 'invalid row' });
+      return;
+    }
+    const r = row as Record<string, unknown>;
+
+    let name: string | null = null;
+    let gender: ReadinessGender;
+    let soldierId: string | null = null;
+    let uid: string | null = null;
+
+    if (mode === 'new_roster') {
+      const nameResult = validateSoldierName(r.name);
+      if (!nameResult.ok) { invalidRows.push({ index, error: nameResult.error }); return; }
+      const genderResult = validateSoldierGender(r.gender);
+      if (!genderResult.ok) { invalidRows.push({ index, error: genderResult.error }); return; }
+      name = nameResult.name;
+      gender = genderResult.gender;
+    } else {
+      const rawId = r.soldierId;
+      if (typeof rawId !== 'string' || !rawId.trim()) {
+        invalidRows.push({ index, error: 'soldierId is required' });
+        return;
+      }
+      soldierId = rawId.trim();
+      const existing = existingSoldierById.get(soldierId);
+      if (!existing) {
+        invalidRows.push({ index, error: 'soldierId not found' });
+        return;
+      }
+      if (existing.mergedInto) {
+        invalidRows.push({ index, error: 'soldier record was merged into another' });
+        return;
+      }
+      if (existing.tenantId !== tenantId || existing.unitId !== unitId) {
+        invalidRows.push({ index, error: 'soldier does not belong to this unit' });
+        return;
+      }
+      if (!isMemberWithinScope(scope, existing.tenantId, existing.unitId)) {
+        invalidRows.push({ index, error: DENIED_MESSAGE });
+        return;
+      }
+      gender = existing.gender;
+      uid = existing.uid;
+    }
+
+    const rowDate = r.testDate !== undefined && r.testDate !== null
+      ? validateImportTestDate(r.testDate)
+      : { ok: true as const, date: defaultDateResult.date };
+    if (!rowDate.ok) {
+      invalidRows.push({ index, error: rowDate.error });
+      return;
+    }
+
+    const values: { testId: string; value: number }[] = [];
+    for (const { testId, field } of RESULT_VALUE_FIELDS) {
+      const raw = r[field];
+      if (raw === undefined || raw === null) continue; // empty cell = not performed, never written as 0
+      if (typeof raw !== 'number' || !Number.isFinite(raw)) {
+        invalidRows.push({ index, error: `${field} is not a valid number` });
+        return;
+      }
+      if (!config || !config.tests.find((t) => t.id === testId)) {
+        invalidRows.push({ index, error: `${testId} אינו קיים בהגדרת הסף הגלובלית` });
+        return;
+      }
+      values.push({ testId, value: raw });
+    }
+
+    validated.push({ name, gender, soldierId, uid, testDate: rowDate.date, values });
+  });
+
+  if (invalidRows.length > 0) {
+    return { status: 400, body: { error: `${invalidRows.length} שורות לא תקינות`, invalidRows } };
+  }
+
+  const now = new Date();
+  const batch = db.batch();
+  const soldierIds: string[] = [];
+  let resultsWritten = 0;
+
+  for (const row of validated) {
+    let soldierId: string;
+    if (row.soldierId) {
+      soldierId = row.soldierId;
+    } else {
+      const ref = db.collection('readiness_soldiers').doc();
+      const soldierDoc: Omit<ReadinessSoldier, 'id'> = {
+        tenantId,
+        unitId,
+        name: row.name!,
+        gender: row.gender,
+        uid: null,
+        linkedAt: null,
+        mergedInto: null,
+        createdBy: ctx.callerUid,
+        createdAt: now,
+        updatedAt: now,
+      };
+      batch.create(ref, soldierDoc);
+      soldierId = ref.id;
+    }
+    soldierIds.push(soldierId);
+
+    for (const { testId, value } of row.values) {
+      const test = config!.tests.find((t) => t.id === testId)!;
+      const { outcome, thresholdSnapshot } = computeOutcomeForValue(test, config!, row.gender, value);
+      const resultRef = db.collection('readiness_results').doc();
+      const resultDoc: Omit<ReadinessResult, 'id'> = {
+        soldierId,
+        tenantId,
+        unitId,
+        testId,
+        outcome,
+        value,
+        notPerformedReason: null,
+        source: 'organized_test',
+        thresholdSnapshot,
+        recordedBy: ctx.callerUid,
+        recordedAt: now,
+        testDate: row.testDate,
+        // Same denormalized read-key convention as computeRecordResult —
+        // resolved once during validation (ValidatedImportRow.uid): null
+        // for a soldier created in this same batch ('new_roster' mode,
+        // never linked at creation), or the EXISTING soldier's real
+        // current uid in 'existing_roster' mode.
+        uid: row.uid,
+      };
+      batch.create(resultRef, resultDoc);
+      resultsWritten++;
+    }
+  }
+
+  await batch.commit();
+
+  await writeReadinessAuditLog(db, {
+    uid: ctx.callerUid,
+    tokenEmail: ctx.tokenEmail,
+    actionType: 'CREATE',
+    targetEntity: 'ReadinessResult',
+    targetId: unitId,
+    details: mode === 'new_roster'
+      ? `Bulk-imported ${soldierIds.length} readiness soldier record(s) with ${resultsWritten} result(s) into unit ${unitId}`
+      : `Bulk-imported ${resultsWritten} readiness result(s) for ${soldierIds.length} existing soldier(s) in unit ${unitId}`,
+    oldValue: null,
+    newValue: { tenantId, unitId, mode, soldiersCreated: mode === 'new_roster' ? soldierIds.length : 0, resultsWritten },
+    sourceIp: ctx.sourceIp,
+  });
+
+  return { status: 200, body: { soldierIds, resultsWritten } };
+}
+
 // ── Link ─────────────────────────────────────────────────────────────────
 
 export type LinkSoldierResult =
