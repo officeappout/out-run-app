@@ -25,7 +25,7 @@ import {
   User, X, Activity, TrendingUp, MapPin, Package, RefreshCw, 
   Building2, Clock, CheckCircle2, AlertCircle, Dumbbell, Footprints, Move, Bike,
   FileText, ExternalLink, Edit3, Save, Plus, ArrowRightLeft, Shuffle,
-  Bell, BellOff, Smartphone, Moon
+  Bell, BellOff, Smartphone, Moon, Maximize2, Minimize2, Flame
 } from 'lucide-react';
 import { getProgramIcon, resolveIconKey } from '@/features/content/programs/core/program-icon.util';
 import dynamicImport from 'next/dynamic';
@@ -42,7 +42,7 @@ import { getUserEvents, AnalyticsEvent } from '@/features/analytics/AnalyticsSer
 import { getAuthority } from '@/features/admin/services/authority.service';
 import { getProgram, getAllPrograms, MASTER_PROGRAM_ID_TO_SLUG } from '@/features/content/programs';
 import { Program } from '@/features/content/programs';
-import { resolveToSlug, ensureIdSlugMapWarm } from '@/features/workout-engine/services/program-hierarchy.utils';
+import { resolveToSlug, ensureIdSlugMapWarm, FULL_BODY_CHILD_DOMAINS, UPPER_BODY_CHILD_DOMAINS } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { usePagination } from '@/features/admin/hooks/usePagination';
 import Pagination from '@/features/admin/components/shared/Pagination';
 import { formatFirebaseTimestamp, convertTimestampToDate } from '@/lib/utils/date-formatter';
@@ -276,6 +276,127 @@ async function resolveTrackSlug(programId: string): Promise<string> {
   return resolved !== programId ? resolved : (MASTER_PROGRAM_ID_TO_SLUG[programId] ?? programId);
 }
 
+/**
+ * Phase B program hierarchy (04.10.2026) — read-only אב→בן tree, self-contained
+ * resolution using only the already-loaded `programs` array (no dependency on
+ * program-hierarchy.utils's separate module-level cache/async warm-up — this
+ * is a display-only read path, not a write path, so it doesn't need that
+ * module's write-time guarantees).
+ *
+ * IMPORTANT DEVIATION FROM THE DESIGN REFERENCE, documented here deliberately:
+ * the mockup shows a strict 3-level אב→בן→סקיל nesting (skills grouped under
+ * their specific sub-program). Real data does NOT reliably support that —
+ * confirmed via direct investigation of program-hierarchy.utils.ts/
+ * prerequisite-derivation.service.ts: there is no stored parent-domain field
+ * on a skill, only a fragile exercise-tag-based heuristic that explicitly
+ * fails for some skills (e.g. human_flag has no domain tag at all). Only
+ * full_body/upper_body have a REAL, static, working children relationship
+ * (FULL_BODY_CHILD_DOMAINS/UPPER_BODY_CHILD_DOMAINS, program-hierarchy.utils.ts).
+ * For any other master (e.g. calisthenics_upper), this renders its actual
+ * stored subPrograms as flat direct children — domains and skills together,
+ * exactly matching how the data is really structured, not forcing a 3rd tier
+ * the data can't back. This is a 2-level tree (master → direct children),
+ * not 3. Flagged for David's review, not silently simplified.
+ */
+function resolveProgramByIdOrSlug(idOrSlug: string | undefined, programs: Program[]): Program | undefined {
+  if (!idOrSlug) return undefined;
+  return programs.find((p) => p.id === idOrSlug || p.slug === idOrSlug || p.movementPattern === idOrSlug);
+}
+
+/** Never returns a raw id/slug as the name — a miss is explicitly flagged,
+ * never silently passed through (the one hard rule for this screen). */
+function programDisplayName(idOrSlug: string, programs: Program[]): { name: string; resolved: boolean; raw: string } {
+  const prog = resolveProgramByIdOrSlug(idOrSlug, programs);
+  return prog?.name
+    ? { name: prog.name, resolved: true, raw: idOrSlug }
+    : { name: '⚠️ לא זוהה', resolved: false, raw: idOrSlug };
+}
+
+/** Checks the tracks object under every representation a key might take
+ * (as given, as the resolved Program's id, slug, or movementPattern) —
+ * mirrors resolveUserLevelFromMap's multi-layer approach without the
+ * cross-module async cache dependency. */
+function getTrackLevel(idOrSlug: string, tracks: Record<string, { currentLevel?: number }> | undefined, programs: Program[]): number {
+  if (!tracks) return 0;
+  const direct = tracks[idOrSlug]?.currentLevel;
+  if (typeof direct === 'number') return direct;
+  const prog = resolveProgramByIdOrSlug(idOrSlug, programs);
+  if (prog) {
+    const byId = tracks[prog.id]?.currentLevel;
+    if (typeof byId === 'number') return byId;
+    if (prog.slug) {
+      const bySlug = tracks[prog.slug]?.currentLevel;
+      if (typeof bySlug === 'number') return bySlug;
+    }
+    if (prog.movementPattern) {
+      const byPattern = tracks[prog.movementPattern]?.currentLevel;
+      if (typeof byPattern === 'number') return byPattern;
+    }
+  }
+  return 0;
+}
+
+interface HierarchyNode {
+  idOrSlug: string;
+  name: string;
+  resolved: boolean;
+  level: number;
+  isMaster: boolean;
+  children: HierarchyNode[];
+}
+
+function buildProgramHierarchy(fullProfile: UserFullProfile, programs: Program[]): HierarchyNode[] {
+  const tracks = (fullProfile.progression as any)?.tracks as Record<string, { currentLevel?: number }> | undefined;
+  const activePrograms = fullProfile.progression?.activePrograms ?? [];
+
+  const masterIds = Array.from(
+    new Set(activePrograms.map((ap: any) => ap.templateId || ap.id).filter((id: unknown): id is string => typeof id === 'string')),
+  );
+
+  return masterIds.map((masterIdOrSlug): HierarchyNode => {
+    const { name, resolved } = programDisplayName(masterIdOrSlug, programs);
+    const masterProg = resolveProgramByIdOrSlug(masterIdOrSlug, programs);
+    const masterSlug = masterProg?.slug ?? masterProg?.movementPattern ?? masterIdOrSlug;
+
+    let childKeys: string[];
+    if (masterSlug === 'full_body') childKeys = [...FULL_BODY_CHILD_DOMAINS];
+    else if (masterSlug === 'upper_body') childKeys = [...UPPER_BODY_CHILD_DOMAINS];
+    else childKeys = masterProg?.subPrograms ?? [];
+
+    const children: HierarchyNode[] = childKeys.map((childKey) => {
+      const childDisplay = programDisplayName(childKey, programs);
+      const childProg = resolveProgramByIdOrSlug(childKey, programs);
+      return {
+        idOrSlug: childKey,
+        name: childDisplay.name,
+        resolved: childDisplay.resolved,
+        level: getTrackLevel(childKey, tracks, programs),
+        isMaster: childProg?.isMaster === true,
+        children: [],
+      };
+    });
+
+    // Master's own displayed level: average of non-master children (mirrors
+    // the existing editable "Program Tracks" section's exact same formula —
+    // MASTER_EXCLUDED_DISPLAY/MASTER_CAP_DISPLAY below, kept in sync with it
+    // deliberately rather than refactored into one shared function, since
+    // that section is a live editing tool and this is a separate read-only
+    // view — touching the former wasn't this task's scope).
+    const MASTER_EXCLUDED: Record<string, string[]> = { full_body: ['core'] };
+    const MASTER_CAP: Record<string, number> = { full_body: 15 };
+    const excluded = MASTER_EXCLUDED[masterSlug] ?? [];
+    const childLevels = children
+      .filter((c) => !c.isMaster && !excluded.includes(c.idOrSlug))
+      .map((c) => c.level)
+      .filter((l) => l > 0);
+    const masterLevel = childLevels.length > 0
+      ? Math.min(MASTER_CAP[masterSlug] ?? Infinity, Math.round(childLevels.reduce((a, b) => a + b, 0) / childLevels.length))
+      : getTrackLevel(masterIdOrSlug, tracks, programs);
+
+    return { idOrSlug: masterIdOrSlug, name, resolved, level: masterLevel, isMaster: true, children };
+  });
+}
+
 interface UserDetailModalProps {
   user: AdminUserListItem | null;
   onClose: () => void;
@@ -292,6 +413,9 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
   const [authority, setAuthority] = useState<{ name: string; type?: string; id?: string } | null>(null);
   const [programs, setPrograms] = useState<Program[]>([]);
   const [loading, setLoading] = useState(false);
+  // Phase B (04.10.2026): full-screen option, extends the existing
+  // slide-over — same component/state/data, just a wider container.
+  const [isFullScreen, setIsFullScreen] = useState(false);
   const [editingDomains, setEditingDomains] = useState(false);
   const [editingTracks, setEditingTracks] = useState(false);
   const [editLevels, setEditLevels] = useState<Record<string, number>>({});
@@ -955,21 +1079,34 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
   };
 
   // Helper function to get event label in Hebrew
+  // Phase B fix (04.10.2026): this used to fall through to the raw English
+  // eventName for anything not in the map — a real leak, not hypothetical.
+  // AnalyticsEventType (AnalyticsService.ts) has 16 real values; this map
+  // was missing 5 of them (onboarding_start, onboarding_step_completed —
+  // the 'completed' variant, distinct from 'complete' — onboarding_completed,
+  // workout_session_started, permission_location_status), which would have
+  // rendered verbatim in the timeline for any user who hit those paths.
+  // Fallback is now a generic Hebrew label, never the raw key.
   const getEventLabel = (eventName: string): string => {
     const labels: Record<string, string> = {
       app_open: 'פתיחת אפליקציה',
       app_close: 'סגירת אפליקציה',
       login: 'התחברות',
       logout: 'התנתקות',
-      onboarding_step_complete: 'שלב Onboarding הושלם',
+      onboarding_start: 'תחילת תהליך הרשמה',
+      onboarding_step_complete: 'שלב הרשמה הושלם',
+      onboarding_step_completed: 'שלב הרשמה הושלם',
+      onboarding_completed: 'תהליך הרשמה הושלם',
       workout_start: 'התחלת אימון',
+      workout_session_started: 'התחלת אימון',
       workout_complete: 'אימון הושלם',
       workout_abandoned: 'אימון ננטש',
       profile_created: 'פרופיל נוצר',
       profile_updated: 'פרופיל עודכן',
+      permission_location_status: 'הרשאת מיקום',
       error_occurred: 'שגיאה',
     };
-    return labels[eventName] || eventName;
+    return labels[eventName] || 'פעילות לא מזוהה';
   };
 
   // Helper function to get event details
@@ -998,7 +1135,21 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
       details.push(`קוד שגיאה: ${event.error_code}`);
       if (event.screen) details.push(`מסך: ${event.screen}`);
     }
-    
+
+    if (event.eventName === 'permission_location_status' && 'status' in event) {
+      const statusLabel = event.status === 'granted' ? 'אושרה' : event.status === 'denied' ? 'נדחתה' : 'התבקשה';
+      details.push(`סטטוס: ${statusLabel}`);
+    }
+
+    if (event.eventName === 'onboarding_completed') {
+      if ('total_time_spent' in event && event.total_time_spent) {
+        details.push(`זמן כולל: ${Math.floor(event.total_time_spent / 60)} דקות`);
+      }
+      if ('steps_completed' in event && event.steps_completed) {
+        details.push(`שלבים: ${event.steps_completed}`);
+      }
+    }
+
     return details.join(' • ') || 'אין פרטים נוספים';
   };
 
@@ -1019,7 +1170,9 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
           animate={{ x: 0 }}
           exit={{ x: '100%' }}
           transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-          className="absolute right-0 top-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl overflow-y-auto"
+          className={`absolute right-0 top-0 bottom-0 w-full bg-white shadow-2xl overflow-y-auto transition-[max-width] duration-200 ${
+            isFullScreen ? 'max-w-none' : 'max-w-2xl'
+          }`}
           dir="rtl"
         >
           {/* Header */}
@@ -1219,12 +1372,64 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                 </div>
               </div>
               <button
+                onClick={() => setIsFullScreen((v) => !v)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                title={isFullScreen ? 'חזור לתצוגת חלון' : 'פתח במסך מלא'}
+              >
+                {isFullScreen ? <Minimize2 size={20} className="text-gray-600" /> : <Maximize2 size={20} className="text-gray-600" />}
+              </button>
+              <button
                 onClick={onClose}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
               >
                 <X size={24} className="text-gray-600" />
               </button>
             </div>
+
+            {/* KPI tiles — Phase B (04.10.2026). Proposed set: effective
+                level, coins, total workouts (user.workoutCount — the real
+                count from the `workouts` collection, same field PR #107's
+                ghost/protection logic uses, not capped like workoutHistory's
+                50-doc fetch), current streak, last-activity recency (reuses
+                Phase A's formatLastActivity for a consistent color language
+                across both the table and this screen). Flagged for David's
+                confirmation per the brief — easy to swap/extend. */}
+            {user && (
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-center">
+                  <div className="text-[11px] text-blue-600 font-bold mb-0.5">רמה כוללת</div>
+                  <div className="text-xl font-black text-blue-800">{(user as any).effectiveLevel ?? user.level}</div>
+                </div>
+                <div className="bg-yellow-50 border border-yellow-100 rounded-xl p-3 text-center">
+                  <div className="text-[11px] text-yellow-700 font-bold mb-0.5 flex items-center justify-center gap-1">
+                    <Coins size={11} /> מטבעות
+                  </div>
+                  <div className="text-xl font-black text-yellow-800">{user.coins}</div>
+                </div>
+                <div className="bg-cyan-50 border border-cyan-100 rounded-xl p-3 text-center">
+                  <div className="text-[11px] text-cyan-700 font-bold mb-0.5">סה"כ אימונים</div>
+                  <div className="text-xl font-black text-cyan-800">{(user as any).workoutCount ?? 0}</div>
+                </div>
+                <div className="bg-orange-50 border border-orange-100 rounded-xl p-3 text-center">
+                  <div className="text-[11px] text-orange-700 font-bold mb-0.5 flex items-center justify-center gap-1">
+                    <Flame size={11} /> רצף
+                  </div>
+                  <div className="text-xl font-black text-orange-800">{(fullProfile?.progression as any)?.currentStreak ?? 0}</div>
+                </div>
+                <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 text-center">
+                  <div className="text-[11px] text-gray-500 font-bold mb-0.5">פעילות אחרונה</div>
+                  {(() => {
+                    const recency = formatLastActivity(user.lastActive);
+                    return (
+                      <div className={`text-xs font-black inline-flex items-center gap-1 ${recency.textClass}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${recency.dotColor}`} />
+                        {recency.label}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
 
             {/* Tabs */}
             <div className="flex gap-2 border-b border-gray-200 overflow-x-auto">
@@ -2349,6 +2554,120 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                       </div>
                     </div>
 
+                    {/* Economy — Phase B (04.10.2026). Coins balance already
+                        lives on the table row (user.coins); the two trend
+                        numbers here are new, derived from workoutHistory
+                        (already fetched, up to 50 most recent) — no new
+                        Firestore read. */}
+                    <div>
+                      <h3 className="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
+                        <Coins size={20} className="text-yellow-500" />
+                        כלכלה
+                      </h3>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="bg-yellow-50 rounded-xl p-4 text-center">
+                          <p className="text-xs text-yellow-700 font-medium">יתרת מטבעות</p>
+                          <p className="text-2xl font-black text-yellow-800">{user?.coins ?? fullProfile.progression?.coins ?? 0}</p>
+                        </div>
+                        <div className="bg-yellow-50 rounded-xl p-4 text-center">
+                          <p className="text-xs text-yellow-700 font-medium">הורווחו ב-7 ימים</p>
+                          <p className="text-2xl font-black text-yellow-800">
+                            {workoutHistory
+                              .filter((w) => Date.now() - w.date.getTime() <= 7 * 86_400_000)
+                              .reduce((sum, w) => sum + (w.earnedCoins || 0), 0)}
+                          </p>
+                        </div>
+                        <div className="bg-yellow-50 rounded-xl p-4 text-center">
+                          <p className="text-xs text-yellow-700 font-medium">ממוצע לאימון (50 אחרונים)</p>
+                          <p className="text-2xl font-black text-yellow-800">
+                            {workoutHistory.length > 0
+                              ? Math.round(workoutHistory.reduce((sum, w) => sum + (w.earnedCoins || 0), 0) / workoutHistory.length)
+                              : 0}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Program Hierarchy — Phase B (04.10.2026), read-only.
+                        Adds a clearer אב→בן view of the SAME tracks data the
+                        editable "Program Tracks" list below already shows —
+                        extends, doesn't replace that editor. See
+                        buildProgramHierarchy()'s own comment for why this is
+                        a 2-level tree (master→children), not 3 — the design
+                        reference's skill-under-domain nesting isn't backed
+                        by a real stored relationship in this data model. */}
+                    <div>
+                      <h3 className="text-lg font-black text-gray-900 mb-4">היררכיית תוכניות</h3>
+                      {(() => {
+                        const hierarchy = buildProgramHierarchy(fullProfile, programs);
+                        if (hierarchy.length === 0) {
+                          return <p className="text-gray-500 text-sm">אין תוכניות פעילות</p>;
+                        }
+                        return (
+                          <div className="space-y-3">
+                            {hierarchy.map((master) => (
+                              <div key={master.idOrSlug} className="bg-cyan-50 border border-cyan-200 rounded-xl p-4">
+                                <div className="flex items-center justify-between">
+                                  <p className="font-black text-cyan-900 flex items-center gap-2">
+                                    <span className="text-[10px] font-bold text-cyan-500 bg-white px-1.5 py-0.5 rounded">אב</span>
+                                    {!master.resolved && <span title={`לא זוהה: ${master.idOrSlug}`}><AlertCircle size={14} className="text-amber-500" /></span>}
+                                    {master.name}
+                                  </p>
+                                  <span className="px-3 py-1 bg-cyan-600 text-white rounded-full text-sm font-bold">רמה {master.level}</span>
+                                </div>
+                                {master.children.length > 0 && (
+                                  <div className="mt-3 mr-6 space-y-1.5 border-r-2 border-cyan-200 pr-3">
+                                    {master.children.map((child) => (
+                                      <div key={child.idOrSlug} className="flex items-center justify-between bg-white rounded-lg px-3 py-2">
+                                        <p className="text-sm font-bold text-gray-800 flex items-center gap-1.5">
+                                          <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">בן</span>
+                                          {!child.resolved && <span title={`לא זוהה: ${child.idOrSlug}`}><AlertCircle size={12} className="text-amber-500" /></span>}
+                                          {child.name}
+                                        </p>
+                                        <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs font-bold">רמה {child.level}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                      {/* Skills tracked but not covered by a static master's
+                          children (e.g. front_lever/planche progress for a
+                          full_body/upper_body enrollee, whose static children
+                          are strictly the 4/2 domains) — surfaced flat rather
+                          than silently dropped. */}
+                      {(() => {
+                        const hierarchy = buildProgramHierarchy(fullProfile, programs);
+                        const tracks = (fullProfile.progression as any)?.tracks as Record<string, { currentLevel?: number }> | undefined;
+                        if (!tracks) return null;
+                        const coveredKeys = new Set<string>();
+                        hierarchy.forEach((m) => {
+                          coveredKeys.add(m.idOrSlug);
+                          m.children.forEach((c) => coveredKeys.add(c.idOrSlug));
+                        });
+                        const extraSkills = Object.entries(tracks)
+                          .filter(([key, v]) => (v?.currentLevel ?? 0) > 0 && !coveredKeys.has(key))
+                          .map(([key]) => ({ key, ...programDisplayName(key, programs), level: getTrackLevel(key, tracks, programs) }));
+                        if (extraSkills.length === 0) return null;
+                        return (
+                          <div className="mt-3">
+                            <p className="text-xs text-gray-500 font-bold mb-2">סקילים נוספים במעקב (לא תחת תוכנית אב סטטית)</p>
+                            <div className="flex flex-wrap gap-2">
+                              {extraSkills.map((s) => (
+                                <span key={s.key} className="px-3 py-1.5 bg-purple-50 border border-purple-200 text-purple-800 rounded-lg text-xs font-bold flex items-center gap-1.5">
+                                  {!s.resolved && <span title={`לא זוהה: ${s.raw}`}><AlertCircle size={11} className="text-amber-500" /></span>}
+                                  {s.name} · רמה {s.level}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
                     {/* Program Tracks */}
                     <div>
                       <div className="flex items-center justify-between mb-4">
@@ -3000,6 +3319,44 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                         </div>
                       </div>
                     </div>
+
+                    {/* Retention signals — Phase B (04.10.2026). Reuses
+                        Phase A's formatLastActivity for the same recency
+                        language as the table, plus two numbers derived from
+                        already-fetched data (workoutHistory, fullProfile) —
+                        no new Firestore reads. */}
+                    {user && (
+                      <div>
+                        <h3 className="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
+                          <TrendingUp size={20} className="text-[#5BC2F2]" />
+                          אותות שימור
+                        </h3>
+                        <div className="grid grid-cols-3 gap-3">
+                          {(() => {
+                            const recency = formatLastActivity(user.lastActive);
+                            return (
+                              <div className={`rounded-xl p-4 text-center border ${recency.dotColor === 'bg-red-500' ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-100'}`}>
+                                <p className="text-xs text-gray-500 font-medium mb-1">סטטוס פעילות</p>
+                                <p className={`text-sm font-black inline-flex items-center gap-1 ${recency.textClass}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${recency.dotColor}`} />
+                                  {recency.label}
+                                </p>
+                              </div>
+                            );
+                          })()}
+                          <div className="bg-orange-50 border border-orange-100 rounded-xl p-4 text-center">
+                            <p className="text-xs text-orange-600 font-medium mb-1">רצף נוכחי</p>
+                            <p className="text-sm font-black text-orange-800">{(fullProfile?.progression as any)?.currentStreak ?? 0} ימים</p>
+                          </div>
+                          <div className="bg-cyan-50 border border-cyan-100 rounded-xl p-4 text-center">
+                            <p className="text-xs text-cyan-600 font-medium mb-1">אימונים ב-7 ימים</p>
+                            <p className="text-sm font-black text-cyan-800">
+                              {workoutHistory.filter((w) => Date.now() - w.date.getTime() <= 7 * 86_400_000).length}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Vertical Stepper */}
                     <div>
