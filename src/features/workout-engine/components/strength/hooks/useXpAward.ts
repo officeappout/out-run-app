@@ -131,8 +131,15 @@ export function useXpAward({
       const bolts: 1 | 2 | 3 =
         difficultyBolts ?? (difficulty === 'easy' ? 1 : difficulty === 'medium' ? 2 : 3);
       const totalSetsCount = completedExercises.reduce((acc, ex) => acc + ex.sets.length, 0);
-      // useActivityStore.currentStreak is updated synchronously by syncWorkoutCompletion
-      // (called by useActivitySync earlier in the same mount tick).
+      // useActivityStore.currentStreak reflects the PRE-this-session value here
+      // (04.10.2026 streak-accuracy fix moved the streak write — runActivitySync,
+      // called via syncWorkoutCompletion — out of this component's mount tick and
+      // into handleSummaryFinish, after Finish is tapped, so it no longer runs
+      // before this XP calculation). This hook still fires on mount, unchanged —
+      // only the streak INPUT here now lags one session behind what it used to
+      // be; the multiplier for this completion is computed off yesterday's
+      // streak count instead of today's. Left as-is deliberately (product call,
+      // not prioritized — see the streak investigation, 04.10.2026).
       // useProgressionStore.currentStreak may still be stale — take the max.
       const currentStreak = Math.max(
         useActivityStore.getState().currentStreak,
@@ -162,8 +169,11 @@ export function useXpAward({
     }
   }, [difficultyBolts, difficulty, completedExercises, durationMinutes, totalReps, showToast, isRecovery, recoveryXp, isReadOnly, savedXpEarned]);
 
-  // Fire once on mount.  Declared after useActivitySync in the orchestrator so
-  // syncWorkoutCompletion has already updated useActivityStore.currentStreak.
+  // Fire once on mount. (Previously also relied on useActivitySync's mount
+  // effect, declared earlier in the orchestrator, to have already updated
+  // useActivityStore.currentStreak by this point — that write moved to
+  // handleSummaryFinish, 04.10.2026 streak-accuracy fix; see the comment on
+  // `currentStreak` above.)
   useEffect(() => {
     if (hasFiredOnMount.current) return;
     hasFiredOnMount.current = true;

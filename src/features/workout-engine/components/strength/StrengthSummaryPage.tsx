@@ -57,7 +57,6 @@ import { useSummaryAnalytics } from './hooks/useSummaryAnalytics';
 import { useGoalEvaluation } from './hooks/useGoalEvaluation';
 import { useEmailCapture } from './hooks/useEmailCapture';
 import { useXpAward } from './hooks/useXpAward';
-import { useActivitySync } from './hooks/useActivitySync';
 import { useProgressionSync } from './hooks/useProgressionSync';
 
 // ============================================================================
@@ -220,10 +219,20 @@ export default function StrengthSummaryPage({
   //   2. useProgressionSync    — emits progressionResult (drives analytics)
   //   3. useSummaryAnalytics   — emits durationMinutes/calories/coins
   //   4. useGoalEvaluation     — independent (per-session goal checklist)
-  //   5. useActivitySync       — consumes calories/coins/durationMinutes
-  //   6. useXpAward            — consumes durationMinutes; fires AFTER
-  //                              useActivitySync so the activity store's
-  //                              currentStreak is updated before the CF call
+  //   5. useXpAward            — consumes durationMinutes
+  //
+  // The activity/streak write (formerly useActivitySync, step 5 here) no
+  // longer fires on mount — it's a correctness fix (04.10.2026 streak
+  // investigation): firing it the instant this screen is reached, before the
+  // workout doc was ever saved, let an abandoned summary screen (app kill,
+  // crash, back-navigation) write a streaks/{uid} update with nothing behind
+  // it. It now runs via the standalone runActivitySync(), called from
+  // active/page.tsx's handleSummaryFinish right after saveWorkoutToHistory
+  // succeeds — same relocation running/hybrid's finishWorkout/finishHybrid
+  // already use. One consequence: useXpAward below now reads
+  // useActivityStore's currentStreak BEFORE this session's increment lands
+  // (that increment happens later, at Finish) — it used to read the
+  // already-incremented value. See useXpAward.ts's own comment on this.
   // ──────────────────────────────────────────────────────────────────────
 
   const email = useEmailCapture({ isReadOnly });
@@ -254,23 +263,6 @@ export default function StrengthSummaryPage({
     programId: propProgramId,
     currentLevel,
     completedExercises,
-  });
-
-  useActivitySync({
-    trainingType,
-    durationMinutes: analytics.durationMinutes,
-    calories: analytics.calories,
-    coins: analytics.coins,
-    programName,
-    programId: propProgramId,
-    rawExerciseLog,
-    completedExercises,
-    totalPlannedSets,
-    difficulty,
-    difficultyBolts,
-    isRecovery,
-    domainSets,
-    isReadOnly,
   });
 
   const xp = useXpAward({

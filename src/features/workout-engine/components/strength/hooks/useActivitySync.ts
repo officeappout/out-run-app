@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
 import { auth } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
 import { useProgressionStore } from '@/features/user/progression/store/useProgressionStore';
@@ -23,10 +22,8 @@ import { RECOVERY_DAY_BADGE_FIX_ENABLED, HOME_DAILY_GOAL_V1 } from '@/config/fea
 import type { CompletedExercise, Difficulty } from '../utils/summary.utils';
 
 /**
- * useActivitySync — single-shot Firestore + Zustand fan-out on summary mount.
- *
- * Pure side-effect hook (returns `void`).  On first mount fires four
- * coordinated writes (via `runActivitySync`, see below):
+ * runActivitySync — Firestore + Zustand fan-out for a completed strength
+ * session. Fires four coordinated writes:
  *   1. `syncWorkoutCompletion(...)`  — Activity Store (rings + streak)
  *   2. `addCoins(...)`               — Progression Store (global coin balance)
  *   3. `recordStrengthSession(...)`  — Weekly Volume Store (planned-vs-actual)
@@ -36,21 +33,24 @@ import type { CompletedExercise, Difficulty } from '../utils/summary.utils';
  * Replaced `[...new Set([...])]` spread with `Array.from(new Set([...]))` so
  * the build target no longer needs `--downlevelIteration`.
  *
- * Mount-only — guarded by a ref so React 18 StrictMode double-invocation
- * doesn't trigger duplicate Firestore writes.
- *
  * Extracted from StrengthSummaryPage.tsx (Decoupling Step S-7).
  *
- * **RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED (13.08.2026):** the four writes
- * themselves now live in the standalone `runActivitySync` function below —
- * this hook is just a mount-once wrapper around it. That lets
- * active/page.tsx's handleComplete call the exact same write logic directly
- * (no summary-screen mount) for the recovery-video-trio shortcut path,
- * instead of duplicating it by hand. Behaviour for every existing caller of
- * this hook is unchanged — same writes, same single-fire-on-mount guarantee.
+ * **Call sites, both at actual-completion time, never on a screen mount
+ * (04.10.2026 streak-accuracy fix):**
+ *   - active/page.tsx's `handleComplete`, for the recovery-video-trio
+ *     shortcut (RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED) — added 13.08.2026.
+ *   - active/page.tsx's `handleSummaryFinish`, for every other strength
+ *     completion — right after `saveWorkoutToHistory` confirms the workout
+ *     doc actually saved. Moved here 04.10.2026 from a `useActivitySync`
+ *     mount-effect on StrengthSummaryPage: firing on mount meant the streak
+ *     write happened the instant the summary screen was reached, before the
+ *     user ever confirmed Finish — any abandonment in between (app kill,
+ *     crash, back-navigation) wrote a streaks/{uid} update with no
+ *     corresponding `workouts` doc. The old hook wrapper is gone; this
+ *     function is the only entry point now.
  *
  * **HOME_DAILY_GOAL_V1 (17.08.2026):** for a non-recovery strength completion,
- * `runActivitySync` also resolves a ⅔-of-daily-target completion snapshot
+ * this function also resolves a ⅔-of-daily-target completion snapshot
  * (`resolveActiveProgramBudget` + `computeDailyStrengthTarget`, the same
  * resolver the daily strength ring uses) and forwards it to
  * `syncWorkoutCompletion` → `markTodayAsCompleted`, which gates
@@ -100,27 +100,15 @@ export interface UseActivitySyncParams {
   isRecovery: boolean;
   /** Per-domain set counts for the weekly volume store (Phase 3). */
   domainSets?: Record<string, number>;
-  /**
-   * Read-only history view of an already-saved workout — skip all 4 writes
-   * entirely (`runActivitySync` is never called). Only checked by the
-   * `useActivitySync` hook wrapper below; the standalone `runActivitySync`
-   * export (used directly by active/page.tsx's recovery-trio shortcut) is
-   * unaffected.
-   */
-  isReadOnly?: boolean;
 }
 
 /**
  * runActivitySync — the actual four-write fan-out (see file header).
  *
- * Standalone, plain async function (NOT a hook) — safe to call from outside
- * React's render/effect lifecycle. Reads the two Zustand actions it needs
- * via `.getState()` instead of the hook form, since there is no component
- * to subscribe from here; this is the exact same action reference the hook
- * form would have returned (Zustand action functions are stable, defined
- * once on the store), so behaviour is unchanged for the existing caller.
- *
- * `useActivitySync` below is now a thin mount-once wrapper around this.
+ * Standalone, plain async function — called directly from each completion
+ * call site (see file header), never from a component mount effect. Reads
+ * the Zustand actions it needs via `.getState()` since there is no component
+ * to subscribe from here.
  */
 export async function runActivitySync(params: UseActivitySyncParams): Promise<void> {
   const {
@@ -302,17 +290,4 @@ export async function runActivitySync(params: UseActivitySyncParams): Promise<vo
     }
   };
   trackMusclesForShield();
-}
-
-export function useActivitySync(params: UseActivitySyncParams): void {
-  const hasFired = useRef(false);
-
-  useEffect(() => {
-    if (hasFired.current) return;
-    hasFired.current = true;
-    if (params.isReadOnly) return;
-    runActivitySync(params);
-  // Intentional mount-only fire; the ref guard handles correctness.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 }
