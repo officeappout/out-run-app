@@ -1151,3 +1151,27 @@ Proven empirically, not theoretically: added a new `isSuperAdminOnly()` helper +
 **לא תוקן כאן — מחוץ לסקופ המוזמן (PR #117 היה freeze ל-human_flag+handstand, לא תיקון recommendation.service.ts).** תועד בקוד (הערה), בהודעת ה-commit, ובתיאור ה-PR — לא הוסתר, לא "תוקן בדרך".
 
 **תיקון מועמד לעתיד:** לבנות את ה-`programLookup` עם מפתח-slug (`p.slug` אם קיים על ה-type, או שדה שווה-ערך) במקום `p.id`, או להוסיף מיפוי-כפול (hash→program וגם slug→program) אם שני הצרכנים (קוד שצריך hash, קוד שצריך slug) קיימים במקביל באותו קובץ. לפני כל תיקון — grep לכל קורא אחר ל-`programLookup` באותו קובץ, לוודא שאף אחד לא *תלוי* בהתנהגות-ה-undefined הנוכחית (לא סביר, אבל לא אומת).
+
+---
+
+## 📌 פער-תוכן (לא באג) — `calisthenics_upper`/`planche` מחזירים pool ריק ברמה גבוהה+משך ארוך — 2026-10-04
+
+**Opened:** 2026-10-04 · **Source:** Stage 1 (smoke) של `scripts/audit/generator-validation-harness.ts` (PR #121) — ריצה חיה על `origin/main` (commit `20fe3d81`).
+
+**מה נמצא:** בקומבינציות `calisthenics_upper L15 45min D3 @park` ו-`planche L22 60min D3 @park` (משתמש-סינתטי עם `activePrograms` ממש על הסקיל, ורמת-בסיס-מקבילה `level+9` ב-push/pull, תואם את הקונבנציה הקיימת של `build-snapshot.ts`), `PipelineOrchestrator`'s empty-pool honesty guard (`usedEmptyPoolFallback`) הצית — כלומר ה-pool האמיתי של תרגילים מתאימים היה **ריק לגמרי**, לא רק דל. המנוע החזיר placeholder כן-וישר (לא אימון מזויף) — ההתנהגות של ה-guard עצמו תקינה; זה **ממצא-תוכן**, לא באג-קוד.
+
+**לא נבדק עד הסוף:** האם זה נובע מכך שאין בקטלוג מספיק תרגילי calisthenics_upper/planche בטווח-הרמה הזה (±3 מרמה 15/22 אפקטיבית, push+pull), או ממגבלה אחרת בפייפליין (למשל תלות ב-`DOMAIN_RESOLUTION_SKILL_PARENT_MAP`/`resolveChildDomainsForParent` עבור skill שאין לו requiredDomains מפורש). לא חקרתי את השורש המדויק — רק אימתתי שהתופעה אמיתית וחוזרת (3/10 קומבינציות ב-Stage 1 בלבד).
+
+**לא תוקן, לא בסקופ.** מועמד-המשך: אם רוצים לסגור, לבדוק ראשית כמה תרגילים אמיתיים בקטלוג מתויגים ל-calisthenics_upper/planche ברמות 12-18/19-25 בהתאמה, לפני שמניחים תיקון-קוד.
+
+---
+
+## 📌 פער-תוכן (לא באג) — `calisthenics_upper`, `muscle_up`, `handstand`: 0 רמות onboarding מתועדות — תקרת-רמה אמיתית לא ידועה — 2026-10-04
+
+**Opened:** 2026-10-04 · **Source:** Stage 0 של `scripts/audit/generator-validation-harness.ts` (PR #121) — קריאה חיה ל-`getOnboardingLevelsForCategory(programId)` לכל אחת מ-11 התוכניות, ישירות מול Firestore.
+
+**מה נמצא:** `getOnboardingLevelsForCategory` מחזיר מערך ריק (`[]`) לשלוש תוכניות: `calisthenics_upper`, `muscle_up`, `handstand`. שאר 8 התוכניות מחזירות תוצאה אמיתית (לדוגמה: push=10 רמות מתועדות עד L20, core=8 רמות עד L14). `handstand` תואם ממצא קודם ומתועד (ה-freeze מ-PR #117 — אין תוכן-הערכה אמיתי). `calisthenics_upper` ו-`muscle_up` **לא** היו ידועים קודם כ"0 רמות" — ממצא חדש.
+
+**ההשלכה:** לכל שלוש התוכניות האלה, "תקרת הרמה האמיתית" (הרמה המקסימלית שבאמת מוערכת/מתועדת) **לא ידועה** — לא ניתן לדעת אם רמה גבוהה שמוזנת למחולל (למשל L15/L22 ב-sweep הזה) היא "בטווח" או "הרבה מעבר לכל תוכן אמיתי שתועד" עבור אותן תוכניות ספציפית. ייתכן שזה קשור לממצא הקודם (pool ריק ב-calisthenics_upper/planche ברמה גבוהה) — לא אומת קשר-סיבתי, רק צמידות.
+
+**לא תוקן, לא בסקופ — ממצא-תוכן בלבד.** מועמד-המשך: לבדוק עם דוד אם `calisthenics_upper`/`muscle_up` אמורות להיות תוכניות עם onboarding-levels עצמאיות (כמו front_lever/planche/hspu/one_arm_pullup, שיש להן 7-11 רמות מתועדות כל אחת), או אם אלה תוכניות-מאסטר/נגזרות שלא אמורות להיות עם רמות-onboarding עצמאיות כלל (למשל `calisthenics_upper` כ"מאסטר" שמסתמך על push/pull — תואם את ה-"P1/P2/P3 rotation" המתועד ב-LAW 3 תנאי #5 של `Workout_Engine_Truth.md`).
