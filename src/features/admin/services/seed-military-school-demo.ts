@@ -197,7 +197,15 @@ async function seedMilitaryUsers(): Promise<SeedUserRecord[]> {
 
       const uid = `military-demo-${unit.unitId}-${String(i).padStart(2, '0')}`;
 
+      // isMockData (root + core) — same tagging convention demo-seed-sderot.ts
+      // already uses, so this demo data is filterable by the admin panel's
+      // existing ghost/test filters (admin/users/all/page.tsx) instead of
+      // looking like real users. Previously untagged here — found during the
+      // 04.10.2026 streak-accuracy investigation: these seeded users'
+      // streaks/{uid} docs (seedStreaks, below) were polluting the production
+      // streak/workouts accuracy audit as false-positive "bug" cases.
       await setDoc(doc(db, 'users', uid), {
+        isMockData: true,
         core: {
           name,
           email: `${uid}@military-demo.local`,
@@ -211,6 +219,7 @@ async function seedMilitaryUsers(): Promise<SeedUserRecord[]> {
           ageGroup: 'adult',
           isApproved: false,
           isSuperAdmin: false,
+          isMockData: true,
           joinDate: Timestamp.fromDate(randDate(90)),
           onboardingStatus: 'COMPLETED',
           accessLevel: 'free',
@@ -372,7 +381,10 @@ async function seedSchoolUsers(): Promise<SeedUserRecord[]> {
 
       const uid = `school-demo-${cls.classId}-${String(i).padStart(2, '0')}`;
 
+      // isMockData (root + core) — see the matching comment in
+      // seedMilitaryUsers above; same fix, same reason.
       await setDoc(doc(db, 'users', uid), {
+        isMockData: true,
         core: {
           name,
           email: `${uid}@school-demo.local`,
@@ -392,6 +404,7 @@ async function seedSchoolUsers(): Promise<SeedUserRecord[]> {
           ageGroup: 'minor',
           isApproved: false,
           isSuperAdmin: false,
+          isMockData: true,
           joinDate: Timestamp.fromDate(randDate(90)),
           onboardingStatus: 'COMPLETED',
           accessLevel: 'free',
