@@ -1,5 +1,17 @@
 'use client';
 
+/**
+ * ⚠️ SUPERSEDED 04.10.2026 (00-MASTER-PLAN.md §13.83) — its only caller,
+ * import/page.tsx, dropped it when that route switched to the
+ * results-import flow (BulkResultsInputStep.tsx / BulkResultsReviewStep.tsx),
+ * which has no equivalent "discarded extra fields" modal of its own
+ * (the new 5/6-column format uses every field it parses; nothing is
+ * silently dropped the way a 2nd+ tab-separated field was here). No
+ * remaining caller as of this date. Deliberately NOT deleted yet
+ * (David: this is the rollback if something breaks in production) —
+ * kept for one week of real usage before a separate deletion round.
+ */
+
 import { X } from 'lucide-react';
 import type { ParsedImportRow } from '@/features/readiness/core/services/readiness-import-parse';
 

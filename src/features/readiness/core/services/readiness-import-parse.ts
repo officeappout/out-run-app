@@ -1,4 +1,17 @@
 /**
+ * ⚠️ SUPERSEDED 04.10.2026 (00-MASTER-PLAN.md §13.83) — parseImportText
+ * has no remaining caller: import/page.tsx (its only consumer) switched
+ * to readiness-results-import-parse.ts's parseResultsGrid, which
+ * handles name+gender+results together instead of names alone.
+ * BulkImportExtraFieldsModal.tsx still imports this file's
+ * ParsedImportRow type, but that component is itself unused for the
+ * same reason. Deliberately NOT deleted yet (David: this is the
+ * rollback if something breaks in production) — kept for one week of
+ * real usage before a separate deletion round. Do not add new behavior
+ * here; edit readiness-results-import-parse.ts instead.
+ */
+
+/**
  * Pure, Firestore-free parsing for the bulk soldier-list import screen
  * (Stage 5, 03.10.2026, 00-MASTER-PLAN.md §13.75). An officer pastes a
  * WhatsApp message or an Excel column — never a clean CSV — so this

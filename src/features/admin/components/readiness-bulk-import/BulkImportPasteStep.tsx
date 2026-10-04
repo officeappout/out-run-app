@@ -3,6 +3,17 @@
 import { useState } from 'react';
 
 /**
+ * ⚠️ SUPERSEDED 04.10.2026 (00-MASTER-PLAN.md §13.83) — replaced by
+ * BulkResultsInputStep.tsx, used by the same route
+ * (/admin/authority/readiness/import), since that route's page.tsx now
+ * calls the results-import flow instead of this one. No remaining
+ * caller as of this date. Deliberately NOT deleted yet (David: this is
+ * the rollback if something breaks in production) — kept for one week
+ * of real usage before a separate deletion round. Do not add new
+ * behavior here; edit BulkResultsInputStep.tsx instead.
+ */
+
+/**
  * Step 1 (right, narrow column) — paste step. David, 03.10.2026: "לקצין
  * יש הודעת וואטסאפ או עמודה מאקסל, לא CSV נקי" — a plain textarea, not
  * a file upload. Cleanup/parsing itself lives in the pure

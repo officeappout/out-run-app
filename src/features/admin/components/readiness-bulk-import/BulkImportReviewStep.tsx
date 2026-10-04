@@ -1,5 +1,16 @@
 'use client';
 
+/**
+ * ⚠️ SUPERSEDED 04.10.2026 (00-MASTER-PLAN.md §13.83) — replaced by
+ * BulkResultsReviewStep.tsx, used by the same route
+ * (/admin/authority/readiness/import), since that route's page.tsx now
+ * calls the results-import flow instead of this one. No remaining
+ * caller as of this date. Deliberately NOT deleted yet (David: this is
+ * the rollback if something breaks in production) — kept for one week
+ * of real usage before a separate deletion round. Do not add new
+ * behavior here; edit BulkResultsReviewStep.tsx instead.
+ */
+
 import { READINESS_COLORS } from '../readiness-dashboard/colors';
 import type { ReadinessGender } from '@/features/readiness/core/services/readiness-write.service';
 

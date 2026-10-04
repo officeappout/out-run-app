@@ -1,4 +1,17 @@
 /**
+ * ⚠️ SUPERSEDED 04.10.2026 (00-MASTER-PLAN.md §13.83) — the admin panel
+ * UI (/admin/authority/readiness/import) now calls
+ * /api/units/readiness/results/bulk-import instead (same creates-
+ * soldiers behavior when every result column is left empty, plus
+ * optional results in the same call). No remaining caller from the
+ * panel as of this date. The underlying function,
+ * computeBulkCreateSoldiers, is untouched and still fully correct —
+ * this route is deliberately NOT deleted yet (David: this is the
+ * rollback if something breaks in production) — kept for one week of
+ * real usage before a separate deletion round.
+ */
+
+/**
  * POST /api/units/readiness/soldiers/bulk — atomic bulk-import of
  * readiness soldier records into one unit (Stage 5, 03.10.2026).
  * Thin handler, same shape as every other route in this build — see

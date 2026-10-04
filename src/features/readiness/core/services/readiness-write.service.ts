@@ -448,6 +448,18 @@ export type BulkCreateSoldiersResult =
   | { status: 400 | 403 | 503; body: { error: string; invalidRows?: { index: number; error: string }[] } };
 
 /**
+ * ⚠️ SUPERSEDED 04.10.2026 (00-MASTER-PLAN.md §13.83) — the admin panel
+ * no longer calls this function; /admin/authority/readiness/import now
+ * calls computeBulkImportResults (below in this same file) instead,
+ * which does everything this one does (name+gender bulk-create) plus
+ * optional results in the same write. This function and its route
+ * (/api/units/readiness/soldiers/bulk) are untouched and still fully
+ * correct — kept, not deleted, as the rollback if something breaks in
+ * production. Do not add new behavior here; computeBulkImportResults
+ * is where the admin panel's bulk-import logic now lives.
+ */
+
+/**
  * Atomic bulk-create — David's explicit requirement: "הייבוא אטומי — או
  * שהכל נכנס או שכלום לא." computeCreateSoldier itself writes
  * immediately and individually (no batch param) — N sequential calls to
