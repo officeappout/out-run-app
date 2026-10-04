@@ -247,7 +247,13 @@ export default function AdminDashboardPage() {
               : readinessComponents.length === 2 ? 'grid-cols-3'
               : 'grid-cols-2 lg:grid-cols-4'
             }`}>
-              <OverallReadinessCard overall={readinessOverall} />
+              {/* §13.82 (David, 04.10.2026) — this card's number was
+                  already cumulative (every battalion + company under the
+                  brigade), it just never said so, inconsistent with the
+                  unit-detail screen's own explicit cumulativeNote for the
+                  same concept one level down. Text only — no change to
+                  readinessOverall or how it's computed. */}
+              <OverallReadinessCard overall={readinessOverall} cumulativeNote="מצטבר — כולל את כל החיילים בגדודים ובפלוגות שבחטיבה" />
               {readinessComponents.map((c) => <ComponentReadinessCard key={c.testId} component={c} />)}
             </div>
 
