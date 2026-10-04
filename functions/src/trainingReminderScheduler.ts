@@ -348,6 +348,20 @@ export const trainingReminderScheduler = onSchedule(
           // single blanket 07:30 run (always safely outside 22:00-07:00), a
           // user-chosen hour can legitimately fall inside the quiet window.
           skipQuietHours: false,
+          // Task 3 fast-follow (04.10.2026) — extends push_events logging to
+          // this sender, closing the "only 2 of 12 senders measured" gap for
+          // the retention workhorse. `variantId` reuses the message's own
+          // grouping key (title is already unique per group within a run) —
+          // no new per-variant ID scheme needed. `persona` is 'generic'
+          // since this scheduler doesn't resolve persona at all today (same
+          // as every other pre-Wave-1 sender). No activityType/timeOfDay —
+          // optional fields, the generic "started a workout" outcome
+          // checker doesn't need them.
+          measurement: {
+            variantId: title,
+            category: 'ScheduledWorkout',
+            persona: 'generic',
+          },
         });
         totalDelivered += result.delivered;
         logger.info(

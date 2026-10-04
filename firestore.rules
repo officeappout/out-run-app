@@ -817,8 +817,9 @@ service cloud.firestore {
     // with the exact field set each writes — a field-level allowlist so a
     // client can never smuggle in delivered/goalCompleted/variantId/etc.
     // (fields real only on the server-only event types) onto its own doc.
-    // push_dismissed is intentionally NOT in the allowed set — no client
-    // code writes it yet (see push-events.service.ts header comment).
+    // push_dismissed (04.10.2026): removed from PushEventType entirely —
+    // was declared with zero writers ever (no OS-level dismiss listener
+    // exists in this codebase). See push-events.service.ts header comment.
     // ============================================================
     match /push_events/{docId} {
       allow read: if isAdmin();
