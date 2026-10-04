@@ -59,6 +59,7 @@ import { DOMAIN_RESOLUTION_SKILL_PARENT_MAP } from '../../src/features/workout-e
 import { resolveToSlug } from '../../src/features/workout-engine/services/program-hierarchy.utils';
 import { MG_TO_DOMAIN } from '../../src/features/workout-engine/shared/constants/domain-mapping.constants';
 import { getExerciseCountForDuration } from '../../src/features/workout-engine/logic/workout-budgeting.utils';
+import { applyDomainPrioritySort } from '../../src/features/workout-engine/logic/workout-sorting.utils';
 import { getOnboardingLevelsForCategory } from '../../src/features/user/onboarding/services/visual-content-resolver.service';
 
 // ============================================================================
@@ -250,8 +251,6 @@ function isSkillLeak(ex: any, assessedSkillIds: Set<string>): boolean {
   return true; // every tag was an unreached skill -> leak
 }
 
-const PRIORITY_ORDER: Record<string, number> = { skill: 0, compound: 1, accessory: 2, isolation: 3 };
-
 interface RuleResult { rule: string; pass: boolean; detail: string; }
 
 function runHardRules(workout: any, combo: Combo, assessedSkillIds: Set<string>): RuleResult[] {
@@ -296,18 +295,29 @@ function runHardRules(workout: any, combo: Combo, assessedSkillIds: Set<string>)
     }
   }
 
-  // H4 — exercise_priority_order (LAW 4: skill -> compound -> accessory -> isolation, main block only)
-  const mainExercises = exercises.filter(ex => (ex.exerciseRole ?? 'main') === 'main');
-  let orderOk = true;
-  let prevRank = -1;
-  for (const ex of mainExercises) {
-    const rank = PRIORITY_ORDER[ex.priority as string] ?? 1;
-    if (rank < prevRank) { orderOk = false; break; }
-    prevRank = rank;
-  }
+  // H4 — exercise_priority_order (self-consistency against the REAL final sort)
+  //
+  // CORRECTED 2026-10-04 (generator-validation-harness investigation, PR #121):
+  // the original check re-derived LAW 4's doc as a flat static-priority-tag
+  // rank — `{skill:0, compound:1, accessory:2, isolation:3}` — and flagged a
+  // genuinely correct `core`-only workout as broken, because that doc (now
+  // fixed — see Workout_Engine_Truth.md LAW 4) was stale: the real final sort
+  // (`applyDomainPrioritySort`, workout-sorting.utils.ts) buckets by
+  // `movementGroup` domain-weight FIRST (core/isolation/accessory all collapse
+  // to the SAME weight), then by `tier` (elite/hard outranks the static
+  // `priority` tag), then `priority`, then `programLevel`. Re-deriving that
+  // logic here a second time would only create a second place for it to drift
+  // out of date — so this check instead uses the REAL function, imported
+  // read-only, as the oracle: does the array already equal what
+  // `applyDomainPrioritySort` would produce from the same exercises? If
+  // something mutated the array AFTER the real sort ran (the actual bug class
+  // this check exists to catch), the two will disagree.
+  const oracleOrder = applyDomainPrioritySort(exercises);
+  const orderOk = oracleOrder.length === exercises.length && oracleOrder.every((ex, i) => ex === exercises[i]);
   results.push({
     rule: 'exercise_priority_order', pass: orderOk,
-    detail: orderOk ? 'monotonic' : `priorities=[${mainExercises.map(e => e.priority).join(',')}]`,
+    detail: orderOk ? 'matches applyDomainPrioritySort oracle' :
+      `actual=[${exercises.map(e => e.exercise?.id ?? '?').join(',')}] oracle=[${oracleOrder.map((e: any) => e.exercise?.id ?? '?').join(',')}]`,
   });
 
   // H5 — sa_ba_balance (LAW 8 / condition 29: <=2 straight_arm per session)
