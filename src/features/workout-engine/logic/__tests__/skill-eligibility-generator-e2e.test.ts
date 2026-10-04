@@ -46,6 +46,23 @@ import type { ContextualFilterContext } from '../contextual-engine.types';
  * data was touched. The "all 7 elite skills excluded" assertions below
  * cover human_flag the same as the other 6 now; no special-cased exception
  * remains.
+ *
+ * handstand (same round, separate decision): David also asked to take
+ * handstand out of active offering (insufficient assessment content).
+ * Unlike human_flag, handstand's GENERATOR-level gate was never broken — it
+ * has been in DOMAIN_RESOLUTION_SKILL_PARENT_MAP since PR #104. Investigated
+ * before writing any code: program-path/page.tsx's onboarding skill picker
+ * already has its own live, content-driven "skill readiness gate" that
+ * disables any skill with <2 authored onboarding levels — confirmed
+ * handstand reads 0 live, so that entry point was ALREADY correctly
+ * blocking new selection, no change needed. recommendation.service.ts had
+ * no such check at all; gated behind a re-introduced
+ * HANDSTAND_ASSESSMENT_ENABLED flag (feature-flags.ts), mirroring the prior
+ * (since-removed) mechanism of the same name. Neither change touches
+ * existing users' stored handstand progress or the generator's own gate.
+ * See "handstand" describe block below for the generator-level regression
+ * guard (explicitly requested alongside human_flag's, even though nothing
+ * needed fixing there).
  */
 
 function ex(id: string, nameHe: string, targetPrograms: Array<{ programId: string; level: number }>): Exercise {
@@ -82,12 +99,22 @@ const PUSH_PULL_CATALOG: Exercise[] = [
   ex('handstand-pushup-wall', 'שכיבות סמיכה בעמידת ידיים (קיר)', [{ programId: 'handstand_pushup', level: 9 }]),
   ex('back-lever-tuck', 'בק לבר טאק', [{ programId: 'back_lever', level: 9 }]),
   ex('human-flag-tuck', 'דגל אנושי טאק', [{ programId: 'human_flag', level: 9 }]),
+  // 'handstand' is a DIFFERENT skill tag than 'handstand_pushup' above —
+  // both already covered by DOMAIN_RESOLUTION_SKILL_PARENT_MAP since before
+  // this round (04.10.2026). Added as its own fixture (not previously
+  // present in this catalog) specifically because David separately asked
+  // for an explicit handstand-excluded-when-unassessed assertion, alongside
+  // human_flag's — this locks in generator-level behavior that was already
+  // correct; see the module doc-comment for the SEPARATE, real onboarding-
+  // layer gap found and fixed this same round (recommendation.service.ts).
+  ex('handstand-hold', 'עמידת ידיים בקיר', [{ programId: 'handstand', level: 9 }]),
 ];
 
 const ELITE_SKILL_IDS = [
   'muscle-up-elite',
   'front-lever-raise',
   'planche-lean',
+  'handstand-hold',
   'one-arm-pullup-neg',
   'handstand-pushup-wall',
   'back-lever-tuck',
@@ -196,6 +223,7 @@ describe('Scenario 3 — a user WITH a direct skill track (front_lever) — the 
     expect(ids).not.toContain('back-lever-tuck');
     expect(ids).not.toContain('handstand-pushup-wall');
     expect(ids).not.toContain('human-flag-tuck');
+    expect(ids).not.toContain('handstand-hold');
   });
 });
 
@@ -212,5 +240,30 @@ describe('human_flag fix verification (04.10.2026) — now gated identically to 
     const result = runPipeline(PUSH_PULL_CATALOG, userLevels, ['pull', 'push', 'human_flag'], 9);
     const ids = result.exercises.map((e) => e.exercise.id);
     expect(ids).toContain('human-flag-tuck');
+  });
+});
+
+describe('handstand — generator-level gate was ALREADY correct before this round (regression guard, explicitly requested)', () => {
+  // Unlike human_flag, handstand has been in DOMAIN_RESOLUTION_SKILL_PARENT_MAP
+  // since PR #104 — nothing changed here. The real handstand work this round
+  // was at the ONBOARDING layer (program-path/page.tsx's live readiness gate
+  // was already correctly blocking it — confirmed 0 authored levels via
+  // getOnboardingLevelsForCategory('handstand') before writing any code;
+  // recommendation.service.ts had no such check at all and now does, behind
+  // HANDSTAND_ASSESSMENT_ENABLED — see feature-flags.ts). These two tests
+  // lock in the generator-level behavior explicitly, as requested, alongside
+  // human_flag's — not because it was broken, but so it's asserted by name.
+  it('a handstand-only exercise IS excluded for an unassessed user, same as human_flag/muscle_up/etc.', () => {
+    const userLevels = new Map<string, number>([['pull', 6], ['push', 9]]);
+    const result = runPipeline(PUSH_PULL_CATALOG, userLevels, ['pull', 'push'], 9);
+    const ids = result.exercises.map((e) => e.exercise.id);
+    expect(ids).not.toContain('handstand-hold');
+  });
+
+  it('does NOT over-exclude: a user WITH a direct handstand level still gets handstand exercises', () => {
+    const userLevels = new Map<string, number>([['pull', 6], ['push', 9], ['handstand', 9]]);
+    const result = runPipeline(PUSH_PULL_CATALOG, userLevels, ['pull', 'push', 'handstand'], 9);
+    const ids = result.exercises.map((e) => e.exercise.id);
+    expect(ids).toContain('handstand-hold');
   });
 });

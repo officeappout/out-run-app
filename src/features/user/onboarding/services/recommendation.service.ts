@@ -25,6 +25,7 @@ import { db } from '@/lib/firebase';
 import { Program } from '@/features/content/programs/core/program.types';
 import { getAllPrograms } from '@/features/content/programs/core/program.service';
 import { LevelEquivalenceRule } from '@/features/user/core/types/progression.types';
+import { HANDSTAND_ASSESSMENT_ENABLED } from '@/config/feature-flags';
 import type { OnboardingData } from '../types';
 
 // ============================================================================
@@ -270,6 +271,14 @@ export async function generateRecommendations(
   ): Recommendation | null => {
     // Don't recommend already-assigned programs
     if (context.assignedProgramIds.includes(programId)) return null;
+
+    // HANDSTAND_ASSESSMENT_ENABLED (feature-flags.ts): handstand has zero
+    // authored onboarding content — don't offer it as a NEW suggestion.
+    // Scoped to recommending handstand itself, not to complementary
+    // suggestions FOR a user who already has it assigned (COMPLEMENTARY_
+    // PAIRS['handstand'] calls makeRec with compId = push/core, never with
+    // 'handstand' as programId, so that path is already unaffected).
+    if (programId === 'handstand' && !HANDSTAND_ASSESSMENT_ENABLED) return null;
 
     const program = programLookup.get(programId);
     // Don't recommend master programs directly (they're aggregation-only)

@@ -1562,6 +1562,47 @@ export const GENERAL_FINISHER_TABATA_ENABLED = false;
 // same rule as every other flag in this file.
 export const SKILL_REPRESENTATION_GUARANTEE_ENABLED = true;
 
+// HANDSTAND_ASSESSMENT_ENABLED: re-introduced (04.10.2026) — a prior flag of
+// this exact name (commit 4b861096, 03.08.2026) gated handstand's two
+// user-facing entry points for the same reason (handstand's
+// visual_assessment_content has zero authored onboarding levels — confirmed
+// LIVE again just now via getOnboardingLevelsForCategory('handstand') → 0,
+// same as it was then) and was later removed once a DIFFERENT, better
+// mechanism superseded it for ONE of those two entry points — see below.
+// Re-added because that supersession only covers one of the two entry
+// points, not both.
+//
+// Entry point 1 — program-path/page.tsx's skill picker: NOT gated by this
+// flag, and does NOT need to be. It already has its own live, generic,
+// self-correcting "skill readiness gate" (`readySkillIds`, re-queries
+// getOnboardingLevelsForCategory per skill, >=2 authored levels required —
+// the same threshold the assessment slider itself uses) that disables the
+// button (`disabled={isNotReady}`, guarded onClick) for ANY skill lacking
+// content, handstand included, automatically, with no flag and no code
+// change when content is later authored. Confirmed live: handstand reads
+// 0 levels today, so this gate is ALREADY correctly blocking new selection
+// on unmodified main — verified before writing this flag, not assumed.
+//
+// Entry point 2 — recommendation.service.ts: has NO content-readiness check
+// of any kind (a static, synchronous rule table) — it will recommend
+// handstand to any user whose goals/equipment match, regardless of content.
+// This is the one real remaining leak, and the one this flag actually
+// gates (see makeRec() there).
+//
+// While FALSE (default): recommendation.service.ts never recommends
+// handstand as a NEW suggestion (GOAL_ALIGNED/EQUIPMENT paths). The
+// COMPLEMENTARY path is UNAFFECTED either way — it only fires FOR a user
+// who already has 'handstand' in assignedProgramIds (an existing
+// assignment), recommending push/core as balance, never handstand itself —
+// so an existing handstand-track user's own complementary suggestions are
+// untouched. Nothing here touches stored user data (progression.tracks/
+// domains.handstand) or the generator's own handstand gate
+// (DOMAIN_RESOLUTION_SKILL_PARENT_MAP, workout-selection.utils.ts, unrelated
+// and unchanged) — an existing assessed user's workouts are unaffected.
+// Flip true once handstand's onboarding content is authored (the same
+// signal that already un-gates entry point 1 automatically).
+export const HANDSTAND_ASSESSMENT_ENABLED = false;
+
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
   return IS_COIN_SYSTEM_ENABLED;
