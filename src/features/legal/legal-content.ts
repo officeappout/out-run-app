@@ -25,7 +25,7 @@
  */
 
 export const LEGAL_VERSION = '2.3';
-export const LEGAL_LAST_UPDATED_HE = 'יוני 2026';
+export const LEGAL_LAST_UPDATED_HE = 'אוקטובר 2026';
 
 /** Either a single paragraph or an ordered list of paragraphs. */
 export type LegalParagraphs = string | string[];
@@ -248,11 +248,11 @@ export const TERMS_OF_USE_HE: LegalDoc = {
 };
 
 // ─────────────────────────────────────────────
-// PRIVACY POLICY — approved Hebrew text (v2.4, אוקטובר 2026)
+// PRIVACY POLICY — approved Hebrew text (v2.3, אוקטובר 2026)
 // ─────────────────────────────────────────────
 export const PRIVACY_POLICY_HE: LegalDoc = {
   title: 'מדיניות פרטיות',
-  intro: 'קליסטניקס בע"מ, ח.פ 516841806 | גרסה 2.4 | אוקטובר 2026 | office@appout.co.il',
+  intro: 'קליסטניקס בע"מ, ח.פ 516841806 | גרסה 2.3 | אוקטובר 2026 | office@appout.co.il',
   sections: [
     {
       title: 'מבוא',
@@ -495,7 +495,7 @@ export const PRIVACY_POLICY_HE: LegalDoc = {
       body: [
         'דוא"ל: office@appout.co.il',
         'כתובת: שדרות הר ציון 39, תל אביב',
-        'מדיניות זו נכנסת לתוקף ביום 1 בינואר 2026. עודכנה: אוקטובר 2026 (גרסה 2.4). © 2026 קליסטניקס בע"מ.',
+        'מדיניות זו נכנסת לתוקף ביום 1 בינואר 2026. עודכנה: אוקטובר 2026 (גרסה 2.3). © 2026 קליסטניקס בע"מ.',
       ],
     },
   ],
