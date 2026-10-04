@@ -323,6 +323,8 @@ export async function computeBrigadeDashboard(
     const data = doc.data() as Omit<ReadinessResult, 'id'>;
     if (!inScope(data.unitId)) continue;
     if (data.source !== 'organized_test') continue;
+    // §13.87 "תיקון מוצהר" — never count a superseded result.
+    if (data.supersededByResultId) continue;
     const list = resultsBySoldier.get(data.soldierId) ?? [];
     list.push({ id: doc.id, ...data, recordedAt: toDate(data.recordedAt), testDate: toDate(data.testDate) });
     resultsBySoldier.set(data.soldierId, list);

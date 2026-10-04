@@ -24,6 +24,15 @@ export interface BulkResultsReviewRow {
   pullupsStatus: PreviewTestStatus;
   dipsStatus: PreviewTestStatus;
   overallLabel: 'כשיר' | 'לא כשיר' | 'חלקי' | 'טרם נבדק';
+  /**
+   * 04.10.2026 (§13.87, "תיקון מוצהר") — 'existing_roster' mode only: at
+   * least one test value in this row already has an active organized_
+   * test result on file for the matched/chosen soldier. Purely
+   * informational here (never excludes the row) — the ONE paste-level
+   * conflictMode choice (not per-row) decides what happens to every
+   * conflicting row at submit time.
+   */
+  conflictsWithExisting: boolean;
 }
 
 function parseErrorsOf(row: BulkResultsReviewRow, mode: 'new_roster' | 'existing_roster'): string[] {
@@ -91,10 +100,14 @@ interface BulkResultsReviewStepProps {
   onSubmit: () => void;
   submitting: boolean;
   submitError: string | null;
+  /** 04.10.2026 (§13.87) — ONE choice for the whole paste, not per row. '' = unset (blocks submit whenever at least one INCLUDED row conflicts). */
+  conflictMode: 'new_test' | 'correction' | '';
+  onConflictModeChange: (mode: 'new_test' | 'correction') => void;
 }
 
 export default function BulkResultsReviewStep({
   mode, rows, onDuplicateChoiceChange, onSoldierPick, onCancel, onSubmit, submitting, submitError,
+  conflictMode, onConflictModeChange,
 }: BulkResultsReviewStepProps) {
   const included = rows.filter((r) => !rowIsExcluded(r, mode) && !rowHasBlockingError(r, mode));
   const blockingCount = rows.filter((r) => rowHasBlockingError(r, mode)).length;
@@ -105,13 +118,15 @@ export default function BulkResultsReviewStep({
   const ambiguousUnresolvedCount = mode === 'existing_roster'
     ? rows.filter((r) => r.rosterMatch?.kind === 'ambiguous' && !r.chosenSoldierId).length
     : 0;
+  const conflictingIncludedCount = included.filter((r) => r.conflictsWithExisting).length;
 
   const summaryCounts = included.reduce(
     (acc, r) => { acc[r.overallLabel] = (acc[r.overallLabel] ?? 0) + 1; return acc; },
     {} as Record<string, number>,
   );
 
-  const blocked = blockingCount > 0 || included.length === 0;
+  const needsConflictChoice = conflictingIncludedCount > 0 && conflictMode === '';
+  const blocked = blockingCount > 0 || included.length === 0 || needsConflictChoice;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col h-full">
@@ -128,6 +143,7 @@ export default function BulkResultsReviewStep({
             {withinPasteCount > 0 && <span className="text-[11px] font-bold px-2 py-1 rounded-full bg-amber-50 text-amber-700">{withinPasteCount} כפילות בתוך ההדבקה</span>}
             {notFoundCount > 0 && <span className="text-[11px] font-bold px-2 py-1 rounded-full bg-amber-50 text-amber-700">{notFoundCount} שם לא נמצא</span>}
             {ambiguousUnresolvedCount > 0 && <span className="text-[11px] font-bold px-2 py-1 rounded-full bg-amber-50 text-amber-700">{ambiguousUnresolvedCount} דורשים הכרעה</span>}
+            {conflictingIncludedCount > 0 && <span className="text-[11px] font-bold px-2 py-1 rounded-full bg-amber-50 text-amber-700">{conflictingIncludedCount} מתנגשות עם תוצאות קיימות</span>}
           </div>
         )}
       </div>
@@ -197,6 +213,10 @@ export default function BulkResultsReviewStep({
                             ))}
                           </select>
                         </div>
+                      ) : row.conflictsWithExisting ? (
+                        <span className="text-[11px] font-bold text-amber-700">
+                          מתנגש עם תוצאה קיימת — {conflictMode === 'correction' ? 'יוחלף' : conflictMode === 'new_test' ? 'יתווסף לצד הקיים' : 'ממתין לבחירה'}
+                        </span>
                       ) : (
                         <span className="text-[11px] font-bold" style={{ color: READINESS_COLORS.pass }}>מוכן לייבוא</span>
                       )}
@@ -209,6 +229,22 @@ export default function BulkResultsReviewStep({
         </div>
       )}
 
+      {conflictingIncludedCount > 0 && (
+        <div className="mt-3 text-[11px] bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 space-y-1.5">
+          <p className="font-bold text-amber-800">
+            {conflictingIncludedCount} שורות מתנגשות עם תוצאות קיימות. ההדבקה היא אירוע אחד — בחירה אחת לכל השורות המתנגשות:
+          </p>
+          <label className="flex items-center gap-1.5">
+            <input type="radio" name="bulk-conflict-mode" checked={conflictMode === 'new_test'} onChange={() => onConflictModeChange('new_test')} />
+            מבדק חדש — כל השורות המתנגשות נוספות לצד הקיימות
+          </label>
+          <label className="flex items-center gap-1.5">
+            <input type="radio" name="bulk-conflict-mode" checked={conflictMode === 'correction'} onChange={() => onConflictModeChange('correction')} />
+            תיקון של אותו יום — כל השורות המתנגשות מחליפות את הקיימות
+          </label>
+        </div>
+      )}
+
       {rows.length > 0 && (
         <div className="pt-4 mt-2 border-t border-gray-100">
           {submitError && <p className="text-xs text-red-600 font-semibold mb-2">{submitError}</p>}
@@ -218,6 +254,8 @@ export default function BulkResultsReviewStep({
                 <span className="font-bold text-red-600">{blockingCount} שורות עם שגיאה — הייבוא חסום עד שיתוקנו.</span>
               ) : included.length === 0 ? (
                 <span className="font-bold text-amber-700">אין שורות לייבוא.</span>
+              ) : needsConflictChoice ? (
+                <span className="font-bold text-amber-700">יש לבחור מבדק חדש או תיקון לפני ייבוא.</span>
               ) : (
                 <>הייבוא הוא פעולה אחת — או שהכל נכנס או שכלום לא.{excludedCount > 0 && ` ${excludedCount} שורות לא יישמרו (דולגו/לא נמצאו/לא הוכרעו).`}</>
               )}

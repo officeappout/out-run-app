@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { auth } from '@/lib/firebase';
 import type { RosterSoldierEntry, RosterSoldierTestDetail } from '@/features/readiness/core/services/readiness-read.service';
-import type { ReadinessThresholdsConfig, ReadinessTestDefinition, NotPerformedReason } from '@/features/readiness/core/services/readiness-write.service';
+import type { ReadinessThresholdsConfig, ReadinessTestDefinition, NotPerformedReason, RecordResultChoice } from '@/features/readiness/core/services/readiness-write.service';
 import ReadinessStatusBadge from './ReadinessStatusBadge';
 import RunTimeInput from './RunTimeInput';
 
@@ -46,10 +46,16 @@ import RunTimeInput from './RunTimeInput';
  *  - testDate is the SAME for the whole entry session (one header field,
  *    passed down as a prop) — separate from recordedAt, which the
  *    server still stamps itself at write time.
- *  - A cell already saved this session is locked (shows the now-current
- *    evidence instead of an input, no retry) — no correction action
- *    exists yet (§13.69 decision 1), so a resubmit would recreate the
- *    exact "correction or new test" ambiguity that decision avoided.
+ *  - A cell already saved this session (or carrying an existing active
+ *    result from before this session) shows the now-current evidence
+ *    by default, with a "הזן תוצאה נוספת" button to reopen it — no
+ *    silent retry. 04.10.2026 (§13.87, "תיקון מוצהר") lifted the
+ *    §13.69 decision-1 lock described here historically: a resubmit
+ *    used to recreate an unresolvable "correction or new test"
+ *    ambiguity, so it was blocked outright. Now that ambiguity has a
+ *    real answer — the officer explicitly picks "מבדק חדש" or "תיקון
+ *    של הקודמת" the moment a conflicting test is reopened — so
+ *    reopening is safe again.
  */
 
 type ComponentsMode = 'both' | 'run_only' | 'strength_only';
@@ -80,10 +86,18 @@ interface CellState {
   value: number | null;
   notPerformed: boolean;
   notPerformedReason: NotPerformedReason | '';
+  /** 04.10.2026 (§13.87) — true while the officer has explicitly
+   *  reopened a cell that already shows evidence (saved this session,
+   *  or an existing active result from before it), to enter another
+   *  value. Resets to false the moment that new entry is saved. */
+  reentering: boolean;
+  /** Required ONLY when this cell's test already has an active result
+   *  — 'new_test' | 'correction' | '' (unset, blocks save). */
+  choice: RecordResultChoice | '';
 }
 
 function emptyCell(): CellState {
-  return { value: null, notPerformed: false, notPerformedReason: '' };
+  return { value: null, notPerformed: false, notPerformedReason: '', reentering: false, choice: '' };
 }
 
 interface RowState {
@@ -137,7 +151,17 @@ export default function ReadinessEntryTable({ soldiers, config, componentsMode, 
     setRow(soldierId, { [cell]: { ...row[cell], ...patch }, error: null } as Partial<RowState>);
   };
 
-  const cellReady = (cell: CellState): boolean => {
+  /** 04.10.2026 (§13.87) — an existing ACTIVE result for this test, from
+   *  either before this session or saved earlier in it (both show up
+   *  identically in testDetails — the roster refetches after every
+   *  save). A soldier with no result at all for this test has nothing
+   *  to disambiguate, so no choice is ever required. */
+  const hasExistingResult = (detailByTestId: Record<string, RosterSoldierTestDetail>, testId: string): boolean => {
+    return detailByTestId[testId]?.status !== 'not_yet_tested';
+  };
+
+  const cellReady = (cell: CellState, existing: boolean): boolean => {
+    if (existing && cell.choice === '') return false;
     if (cell.notPerformed) return cell.notPerformedReason !== '';
     return cell.value !== null;
   };
@@ -151,17 +175,25 @@ export default function ReadinessEntryTable({ soldiers, config, componentsMode, 
       (pullupsActive && row.pullups.notPerformed && !row.pullups.notPerformedReason) ||
       (dipsActive && row.dips.notPerformed && !row.dips.notPerformedReason);
   };
+  const hasIncompleteChoice = (row: RowState, detailByTestId: Record<string, RosterSoldierTestDetail>): boolean => {
+    const missing = (active: boolean, test: typeof runTest, cell: CellState) => {
+      if (!active || !test) return false;
+      const dirty = cell.value !== null || cell.notPerformed;
+      return dirty && hasExistingResult(detailByTestId, test.id) && cell.choice === '';
+    };
+    return missing(runActive, runTest, row.run) || missing(pullupsActive, pullupsTest, row.pullups) || missing(dipsActive, dipsTest, row.dips);
+  };
 
   const applyBulkReason = (soldierId: string, reason: NotPerformedReason) => {
     const row = getRow(soldierId);
     const patch: Partial<RowState> = { bulkReason: reason };
-    if (runActive && !row.savedTestIds.has(runTest!.id)) patch.run = { value: null, notPerformed: true, notPerformedReason: reason };
-    if (pullupsActive && !row.savedTestIds.has(pullupsTest!.id)) patch.pullups = { value: null, notPerformed: true, notPerformedReason: reason };
-    if (dipsActive && !row.savedTestIds.has(dipsTest!.id)) patch.dips = { value: null, notPerformed: true, notPerformedReason: reason };
+    if (runActive && !row.savedTestIds.has(runTest!.id)) patch.run = { ...row.run, value: null, notPerformed: true, notPerformedReason: reason };
+    if (pullupsActive && !row.savedTestIds.has(pullupsTest!.id)) patch.pullups = { ...row.pullups, value: null, notPerformed: true, notPerformedReason: reason };
+    if (dipsActive && !row.savedTestIds.has(dipsTest!.id)) patch.dips = { ...row.dips, value: null, notPerformed: true, notPerformedReason: reason };
     setRow(soldierId, patch);
   };
 
-  const recordOne = async (soldierId: string, testId: string, body: { value?: number; notPerformedReason?: NotPerformedReason }) => {
+  const recordOne = async (soldierId: string, testId: string, body: { value?: number; notPerformedReason?: NotPerformedReason; choice?: RecordResultChoice }) => {
     const token = await auth.currentUser?.getIdToken();
     if (!token) throw new Error('משתמש לא מחובר. רענן את הדף ונסה שוב.');
     const res = await fetch('/api/units/readiness/results', {
@@ -175,16 +207,27 @@ export default function ReadinessEntryTable({ soldiers, config, componentsMode, 
 
   const handleSaveRow = async (soldierId: string) => {
     const row = getRow(soldierId);
+    const soldier = soldiers.find((s) => s.id === soldierId);
+    const detailByTestId = Object.fromEntries((soldier?.testDetails ?? []).map((d) => [d.testId, d]));
+
     if (hasIncompleteNotPerformed(row)) {
       setRow(soldierId, { error: 'יש לבחור סיבה לכל מרכיב שסומן כ"לא ביצע".' });
       return;
     }
+    if (hasIncompleteChoice(row, detailByTestId)) {
+      setRow(soldierId, { error: 'כבר קיימת תוצאה למרכיב זה — יש לבחור מבדק חדש או תיקון של הקודמת.' });
+      return;
+    }
 
-    const toSubmit: Array<{ testId: string; body: { value?: number; notPerformedReason?: NotPerformedReason } }> = [];
+    const toSubmit: Array<{ testId: string; body: { value?: number; notPerformedReason?: NotPerformedReason; choice?: RecordResultChoice } }> = [];
     const addIfReady = (active: boolean, test: typeof runTest, cell: CellState) => {
-      if (!active || !test || row.savedTestIds.has(test.id) || !cellReady(cell)) return;
-      if (cell.notPerformed) toSubmit.push({ testId: test.id, body: { notPerformedReason: cell.notPerformedReason as NotPerformedReason } });
-      else toSubmit.push({ testId: test.id, body: { value: cell.value as number } });
+      if (!active || !test) return;
+      if (row.savedTestIds.has(test.id) && !cell.reentering) return;
+      const existing = hasExistingResult(detailByTestId, test.id);
+      if (!cellReady(cell, existing)) return;
+      const choice = existing ? (cell.choice as RecordResultChoice) : undefined;
+      if (cell.notPerformed) toSubmit.push({ testId: test.id, body: { notPerformedReason: cell.notPerformedReason as NotPerformedReason, choice } });
+      else toSubmit.push({ testId: test.id, body: { value: cell.value as number, choice } });
     };
     addIfReady(runActive, runTest, row.run);
     addIfReady(pullupsActive, pullupsTest, row.pullups);
@@ -198,11 +241,22 @@ export default function ReadinessEntryTable({ soldiers, config, componentsMode, 
     const current = getRow(soldierId);
     const nextSaved = new Set(current.savedTestIds);
     const failures: string[] = [];
+    const resetPatch: Partial<RowState> = {};
     results.forEach((r, i) => {
-      if (r.status === 'fulfilled') nextSaved.add(toSubmit[i].testId);
-      else failures.push(toSubmit[i].testId);
+      const testId = toSubmit[i].testId;
+      if (r.status === 'fulfilled') {
+        nextSaved.add(testId);
+        // Back to the default "just saved, showing evidence" cell state
+        // — reentering/choice are per-submission, never carried forward.
+        if (testId === runTest?.id) resetPatch.run = emptyCell();
+        if (testId === pullupsTest?.id) resetPatch.pullups = emptyCell();
+        if (testId === dipsTest?.id) resetPatch.dips = emptyCell();
+      } else {
+        failures.push(testId);
+      }
     });
     setRow(soldierId, {
+      ...resetPatch,
       savedTestIds: nextSaved,
       pendingTestIds: new Set(),
       error: failures.length > 0 ? 'חלק מהשמירה נכשל — נסה שוב עבור השדות שלא נשמרו.' : null,
@@ -245,15 +299,53 @@ export default function ReadinessEntryTable({ soldiers, config, componentsMode, 
     pending: boolean,
     isCulprit: boolean,
   ) => {
-    if (saved) {
-      // The just-saved value is shown via the evidence block itself
-      // (refreshed by onSaved()) — no separate "✓ saved" marker needed
-      // once the evidence IS the value.
-      return renderEvidence(detail, test, isCulprit);
+    const existing = detail?.status !== 'not_yet_tested';
+    if ((saved || existing) && !cell.reentering) {
+      // The just-saved (or already-existing) value is shown via the
+      // evidence block itself — no separate "✓ saved" marker needed
+      // once the evidence IS the value. 04.10.2026 (§13.87) — a button
+      // to reopen it, instead of a permanent lock: reopening is safe
+      // now that the officer must explicitly pick "מבדק חדש" or "תיקון
+      // של הקודמת" the moment they do.
+      return (
+        <div className="space-y-1">
+          {renderEvidence(detail, test, isCulprit)}
+          <button
+            type="button"
+            onClick={() => setCell(soldierId, kind, { reentering: true })}
+            className="text-[10px] text-cyan-700 hover:underline font-semibold"
+          >
+            הזן תוצאה נוספת
+          </button>
+        </div>
+      );
     }
     return (
       <div className="space-y-1.5">
         {renderEvidence(detail, test, isCulprit)}
+        {existing && (
+          <div className="text-[10px] bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 space-y-1">
+            <p className="font-bold text-amber-800">כבר קיימת תוצאה — מה זה?</p>
+            <label className="flex items-center gap-1.5">
+              <input
+                type="radio"
+                name={`choice-${soldierId}-${test.id}`}
+                checked={cell.choice === 'new_test'}
+                onChange={() => setCell(soldierId, kind, { choice: 'new_test' })}
+              />
+              מבדק חדש — נוספת לצד הקודמת
+            </label>
+            <label className="flex items-center gap-1.5">
+              <input
+                type="radio"
+                name={`choice-${soldierId}-${test.id}`}
+                checked={cell.choice === 'correction'}
+                onChange={() => setCell(soldierId, kind, { choice: 'correction' })}
+              />
+              תיקון של הקודמת — מחליפה אותה
+            </label>
+          </div>
+        )}
         {cell.notPerformed ? (
           <select
             value={cell.notPerformedReason}

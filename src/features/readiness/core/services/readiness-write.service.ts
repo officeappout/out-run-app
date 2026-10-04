@@ -173,6 +173,40 @@ export interface ReadinessResult {
    */
   testDate: Date;
   uid: string | null;
+  /**
+   * 04.10.2026 (§13.87, "תיקון מוצהר") — a SECOND deliberate exception to
+   * this interface's own "immutable once written" doctrine (the first
+   * being `uid` above). Two new fields, always a pair: this one is set
+   * ONLY on the NEW result when an officer explicitly chose "תיקון של
+   * הקודמת" (correction) over "מבדק חדש" (new test) for a
+   * source==='organized_test' result that already had an active one for
+   * the same soldier+test — it names the id of the result THIS one
+   * replaces. Absent/null on every "מבדק חדש" result and on every
+   * result from before this round. Written once, at creation, by
+   * computeRecordResultWithCorrectionChoice /
+   * computeBulkImportResultsWithCorrectionChoice — never by
+   * computeRecordResult/computeBulkImportResults, both ⚠️ SUPERSEDED and
+   * unmodified by this round.
+   */
+  correctsResultId?: string | null;
+  /**
+   * The forward-pointing half of the pair above — set on the OLD result
+   * the moment a later one corrects it (never at that result's own
+   * creation). Absent/null = still active, still counted by EVERY
+   * reader (computeSoldierCurrentStatus's own input, computeUnitRoster,
+   * computeBrigadeDashboard, computeReadinessAppActivity — each filters
+   * out any result with this field set, at the point results are
+   * fetched from Firestore, before any of those functions' own
+   * untouched logic ever sees it). Never deleted (point 9's own rule
+   * still holds) — a superseded result still exists, forever, just
+   * excluded from every calculation. `supersededAt`/`supersededByUid`
+   * are the "marked as replaced AND by whom" David asked for, denormalized
+   * onto this same document so no reader ever needs to look up the
+   * correcting document just to answer "who superseded this."
+   */
+  supersededByResultId?: string | null;
+  supersededAt?: Date | null;
+  supersededByUid?: string | null;
 }
 
 export interface ReadinessTestDefinition {
@@ -726,6 +760,17 @@ interface ValidatedImportRow {
  * written), then ONE WriteBatch for the whole operation, then ONE
  * aggregate audit log entry after commit — never split into two
  * batches, never one audit entry per row.
+ *
+ * ⚠️ SUPERSEDED 04.10.2026 (§13.87, "תיקון מוצהר") — replaced by
+ * computeBulkImportResultsWithCorrectionChoice below, which adds the
+ * mandatory paste-level "מבדק חדש / תיקון" choice whenever any row in
+ * 'existing_roster' mode would conflict with an already-active
+ * organized_test result, and otherwise behaves identically. No
+ * remaining caller as of this date — /api/units/readiness/results/
+ * bulk-import/route.ts now calls the new function. Deliberately NOT
+ * deleted, same one-week-rollback convention as every other
+ * superseded function in this file. This function's own body is
+ * untouched, per David's explicit instruction for this round.
  */
 export async function computeBulkImportResults(
   db: Firestore,
@@ -960,6 +1005,318 @@ export async function computeBulkImportResults(
   });
 
   return { status: 200, body: { soldierIds, resultsWritten } };
+}
+
+// ── Bulk-import results, with a mandatory correction choice ────────────
+
+function chunkLocal<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+export type BulkConflictMode = 'new_test' | 'correction';
+
+export type BulkResultsImportWithChoiceResult =
+  | { status: 200; body: { soldierIds: string[]; resultsWritten: number; resultsCorrected: number } }
+  | { status: 400 | 403 | 503; body: { error: string; invalidRows?: { index: number; error: string }[] } };
+
+/**
+ * "תיקון מוצהר" (04.10.2026, §13.87) for the bulk path — identical to
+ * computeBulkImportResults (⚠️ SUPERSEDED above, untouched) in every
+ * respect except the conflict handling below. David, explicit: ONE
+ * choice for the whole paste, never per row — "הדבקה היא אירוע אחד: או
+ * שזה יום בוחן חדש, או שזה תיקון של אותו יום." A conflict can only
+ * arise in 'existing_roster' mode (a 'new_roster' row's soldier is
+ * brand new in this same batch and can't already have a result).
+ *
+ * `conflictMode` is optional at the request level — only REQUIRED when
+ * at least one row actually conflicts; a paste with zero conflicts
+ * never needs it, same "no choice forced on the unambiguous case" rule
+ * as the single-entry function. The client's own review step (same
+ * screen that already resolves name-matching ambiguity before
+ * submission) is expected to have already shown the officer exactly
+ * which rows conflict and let them pick — this function's own 400 here
+ * is a server-side backstop, not the primary UX.
+ */
+export async function computeBulkImportResultsWithCorrectionChoice(
+  db: Firestore,
+  scope: UnitPermissionScope,
+  requestBody: Record<string, unknown>,
+  ctx: ReadinessCtx,
+): Promise<BulkResultsImportWithChoiceResult> {
+  if (scope.kind === 'unknown') {
+    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע.' } };
+  }
+  if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin') {
+    return { status: 403, body: { error: DENIED_MESSAGE } };
+  }
+
+  const mode = requestBody.mode;
+  if (mode !== 'new_roster' && mode !== 'existing_roster') {
+    return { status: 400, body: { error: 'mode must be new_roster or existing_roster' } };
+  }
+
+  const rawRows = requestBody.rows;
+  if (!Array.isArray(rawRows) || rawRows.length === 0) {
+    return { status: 400, body: { error: 'rows is required and must be a non-empty array' } };
+  }
+  if (rawRows.length > BULK_RESULTS_IMPORT_MAX_ROWS) {
+    return {
+      status: 400,
+      body: { error: `עד ${BULK_RESULTS_IMPORT_MAX_ROWS} שורות בייבוא אחד — הרשימה הזו מכילה ${rawRows.length}. פצל לשתי העברות נפרדות.` },
+    };
+  }
+
+  const tenantUnitResult = await resolveTenantAndUnit(db, scope, requestBody);
+  if (!tenantUnitResult.ok) {
+    return { status: tenantUnitResult.status, body: { error: tenantUnitResult.error } };
+  }
+  const { tenantId, unitId } = tenantUnitResult;
+
+  const defaultDateResult = validateImportTestDate(requestBody.defaultTestDate);
+  if (!defaultDateResult.ok) {
+    return { status: 400, body: { error: defaultDateResult.error } };
+  }
+
+  const anyValuePresent = rawRows.some((row) => {
+    if (typeof row !== 'object' || row === null) return false;
+    const r = row as Record<string, unknown>;
+    return RESULT_VALUE_FIELDS.some(({ field }) => typeof r[field] === 'number');
+  });
+
+  let config: ReadinessThresholdsConfig | null = null;
+  if (anyValuePresent) {
+    const configSnap = await db.collection('readiness_thresholds').doc(THRESHOLDS_DOC_ID).get();
+    if (!configSnap.exists) {
+      return { status: 400, body: { error: 'לא הוגדר סף כשירות גלובלי.' } };
+    }
+    config = configSnap.data() as ReadinessThresholdsConfig;
+  }
+
+  const existingSoldierById = new Map<string, { tenantId: string; unitId: string; gender: ReadinessGender; uid: string | null; mergedInto: string | null }>();
+  if (mode === 'existing_roster') {
+    const ids = Array.from(new Set(
+      rawRows
+        .map((r) => (typeof r === 'object' && r !== null ? (r as Record<string, unknown>).soldierId : null))
+        .filter((id): id is string => typeof id === 'string' && id.trim().length > 0),
+    ));
+    const snaps = await Promise.all(ids.map((id) => db.collection('readiness_soldiers').doc(id).get()));
+    snaps.forEach((snap, i) => {
+      if (!snap.exists) return;
+      const data = snap.data() as Omit<ReadinessSoldier, 'id'>;
+      existingSoldierById.set(ids[i], { tenantId: data.tenantId, unitId: data.unitId, gender: data.gender, uid: data.uid, mergedInto: data.mergedInto });
+    });
+  }
+
+  // The SAME "fetch once for every referenced soldier, in <=30-sized
+  // batches, filter in memory" shape already used elsewhere in this
+  // build (readiness-match.service.ts's already-linked-elsewhere
+  // check) — never one query per row. Only 'existing_roster' mode can
+  // have a conflict at all (a 'new_roster' soldier is brand new).
+  // Keeps only the MOST RECENT active organized_test result per
+  // soldier+test — exactly "the previous one" a correction targets.
+  const mostRecentActiveByKey = new Map<string, { id: string; recordedAt: unknown }>();
+  if (mode === 'existing_roster') {
+    const ids = Array.from(existingSoldierById.keys());
+    for (const idsChunk of chunkLocal(ids, 30)) {
+      if (idsChunk.length === 0) continue;
+      const snap = await db.collection('readiness_results').where('soldierId', 'in', idsChunk).get();
+      snap.docs.forEach((d) => {
+        const data = d.data() as Omit<ReadinessResult, 'id'>;
+        if (data.source !== 'organized_test' || data.supersededByResultId) return;
+        const key = `${data.soldierId}__${data.testId}`;
+        const existing = mostRecentActiveByKey.get(key);
+        if (!existing || toMillisLocal(data.recordedAt) > toMillisLocal(existing.recordedAt)) {
+          mostRecentActiveByKey.set(key, { id: d.id, recordedAt: data.recordedAt });
+        }
+      });
+    }
+  }
+
+  const invalidRows: { index: number; error: string }[] = [];
+  const validated: (ValidatedImportRow & { correctsResultIdByTestId: Map<string, string> })[] = [];
+  let anyRowConflicts = false;
+
+  rawRows.forEach((row, index) => {
+    if (typeof row !== 'object' || row === null) {
+      invalidRows.push({ index, error: 'invalid row' });
+      return;
+    }
+    const r = row as Record<string, unknown>;
+
+    let name: string | null = null;
+    let gender: ReadinessGender;
+    let soldierId: string | null = null;
+    let uid: string | null = null;
+
+    if (mode === 'new_roster') {
+      const nameResult = validateSoldierName(r.name);
+      if (!nameResult.ok) { invalidRows.push({ index, error: nameResult.error }); return; }
+      const genderResult = validateSoldierGender(r.gender);
+      if (!genderResult.ok) { invalidRows.push({ index, error: genderResult.error }); return; }
+      name = nameResult.name;
+      gender = genderResult.gender;
+    } else {
+      const rawId = r.soldierId;
+      if (typeof rawId !== 'string' || !rawId.trim()) {
+        invalidRows.push({ index, error: 'soldierId is required' });
+        return;
+      }
+      soldierId = rawId.trim();
+      const existing = existingSoldierById.get(soldierId);
+      if (!existing) {
+        invalidRows.push({ index, error: 'soldierId not found' });
+        return;
+      }
+      if (existing.mergedInto) {
+        invalidRows.push({ index, error: 'soldier record was merged into another' });
+        return;
+      }
+      if (existing.tenantId !== tenantId || existing.unitId !== unitId) {
+        invalidRows.push({ index, error: 'soldier does not belong to this unit' });
+        return;
+      }
+      if (!isMemberWithinScope(scope, existing.tenantId, existing.unitId)) {
+        invalidRows.push({ index, error: DENIED_MESSAGE });
+        return;
+      }
+      gender = existing.gender;
+      uid = existing.uid;
+    }
+
+    const rowDate = r.testDate !== undefined && r.testDate !== null
+      ? validateImportTestDate(r.testDate)
+      : { ok: true as const, date: defaultDateResult.date };
+    if (!rowDate.ok) {
+      invalidRows.push({ index, error: rowDate.error });
+      return;
+    }
+
+    const values: { testId: string; value: number }[] = [];
+    const correctsResultIdByTestId = new Map<string, string>();
+    for (const { testId, field } of RESULT_VALUE_FIELDS) {
+      const raw = r[field];
+      if (raw === undefined || raw === null) continue;
+      if (typeof raw !== 'number' || !Number.isFinite(raw)) {
+        invalidRows.push({ index, error: `${field} is not a valid number` });
+        return;
+      }
+      if (!config || !config.tests.find((t) => t.id === testId)) {
+        invalidRows.push({ index, error: `${testId} אינו קיים בהגדרת הסף הגלובלית` });
+        return;
+      }
+      if (soldierId) {
+        const conflict = mostRecentActiveByKey.get(`${soldierId}__${testId}`);
+        if (conflict) {
+          anyRowConflicts = true;
+          correctsResultIdByTestId.set(testId, conflict.id);
+        }
+      }
+      values.push({ testId, value: raw });
+    }
+
+    validated.push({ name, gender, soldierId, uid, testDate: rowDate.date, values, correctsResultIdByTestId });
+  });
+
+  if (invalidRows.length > 0) {
+    return { status: 400, body: { error: `${invalidRows.length} שורות לא תקינות`, invalidRows } };
+  }
+
+  let conflictMode: BulkConflictMode | null = null;
+  if (anyRowConflicts) {
+    const raw = requestBody.conflictMode;
+    if (raw !== 'new_test' && raw !== 'correction') {
+      return { status: 400, body: { error: 'חלק מהשורות מתנגשות עם תוצאות קיימות. יש לבחור: מבדק חדש או תיקון של הקודמת — בחירה אחת לכל ההדבקה.' } };
+    }
+    conflictMode = raw;
+  }
+
+  const now = new Date();
+  const batch = db.batch();
+  const soldierIds: string[] = [];
+  let resultsWritten = 0;
+  let resultsCorrected = 0;
+
+  for (const row of validated) {
+    let soldierId: string;
+    if (row.soldierId) {
+      soldierId = row.soldierId;
+    } else {
+      const ref = db.collection('readiness_soldiers').doc();
+      const soldierDoc: Omit<ReadinessSoldier, 'id'> = {
+        tenantId,
+        unitId,
+        name: row.name!,
+        gender: row.gender,
+        uid: null,
+        linkedAt: null,
+        mergedInto: null,
+        createdBy: ctx.callerUid,
+        createdAt: now,
+        updatedAt: now,
+      };
+      batch.create(ref, soldierDoc);
+      soldierId = ref.id;
+    }
+    soldierIds.push(soldierId);
+
+    for (const { testId, value } of row.values) {
+      const test = config!.tests.find((t) => t.id === testId)!;
+      const { outcome, thresholdSnapshot } = computeOutcomeForValue(test, config!, row.gender, value);
+      const resultRef = db.collection('readiness_results').doc();
+      const conflictingId = row.correctsResultIdByTestId.get(testId) ?? null;
+      const correctsResultId = conflictingId && conflictMode === 'correction' ? conflictingId : null;
+      const resultDoc: Omit<ReadinessResult, 'id'> = {
+        soldierId,
+        tenantId,
+        unitId,
+        testId,
+        outcome,
+        value,
+        notPerformedReason: null,
+        source: 'organized_test',
+        thresholdSnapshot,
+        recordedBy: ctx.callerUid,
+        recordedAt: now,
+        testDate: row.testDate,
+        uid: row.uid,
+        correctsResultId,
+        supersededByResultId: null,
+        supersededAt: null,
+        supersededByUid: null,
+      };
+      batch.create(resultRef, resultDoc);
+      resultsWritten++;
+
+      if (correctsResultId) {
+        batch.update(db.collection('readiness_results').doc(correctsResultId), {
+          supersededByResultId: resultRef.id,
+          supersededAt: now,
+          supersededByUid: ctx.callerUid,
+        });
+        resultsCorrected++;
+      }
+    }
+  }
+
+  await batch.commit();
+
+  await writeReadinessAuditLog(db, {
+    uid: ctx.callerUid,
+    tokenEmail: ctx.tokenEmail,
+    actionType: 'CREATE',
+    targetEntity: 'ReadinessResult',
+    targetId: unitId,
+    details: mode === 'new_roster'
+      ? `Bulk-imported ${soldierIds.length} readiness soldier record(s) with ${resultsWritten} result(s) into unit ${unitId}`
+      : `Bulk-imported ${resultsWritten} readiness result(s) (${resultsCorrected} as corrections) for ${soldierIds.length} existing soldier(s) in unit ${unitId}`,
+    oldValue: null,
+    newValue: { tenantId, unitId, mode, conflictMode, soldiersCreated: mode === 'new_roster' ? soldierIds.length : 0, resultsWritten, resultsCorrected },
+    sourceIp: ctx.sourceIp,
+  });
+
+  return { status: 200, body: { soldierIds, resultsWritten, resultsCorrected } };
 }
 
 // ── Link ─────────────────────────────────────────────────────────────────
@@ -1495,6 +1852,18 @@ export async function computeSetThresholds(
 
 // ── Record a result ─────────────────────────────────────────────────────
 
+/**
+ * ⚠️ SUPERSEDED 04.10.2026 (§13.87, "תיקון מוצהר") — replaced by
+ * computeRecordResultWithCorrectionChoice below, which adds the
+ * mandatory "מבדק חדש / תיקון" choice whenever an active organized_test
+ * result already exists for this soldier+test, and otherwise behaves
+ * identically. No remaining caller as of this date — /api/units/
+ * readiness/results/route.ts now calls the new function. Deliberately
+ * NOT deleted (David: this is the rollback if something breaks in
+ * production) — kept for one week of real usage before a separate
+ * deletion round. This function's own body is untouched, per David's
+ * explicit instruction for this round.
+ */
 export type RecordResultResult =
   | { status: 200; body: { resultId: string; outcome: ReadinessOutcome } }
   | { status: 400 | 403 | 404 | 503; body: { error: string } };
@@ -1657,6 +2026,247 @@ export async function computeRecordResult(
   });
 
   return { status: 200, body: { resultId: ref.id, outcome } };
+}
+
+// ── Record a result, with a mandatory correction choice ────────────────
+
+/**
+ * Real Admin SDK reads of `recordedAt` return a Firestore `Timestamp`,
+ * never a plain JS `Date` (axiom §31's own lesson — EVERY write in this
+ * file before this round only ever WROTE recordedAt, never read one
+ * back for comparison; this is the first read-after-write path for
+ * that field, so the gap had never been hit yet). Deliberately NOT the
+ * same toDate() readiness-read.service.ts already has — importing it
+ * here would create a circular dependency (that file already imports
+ * types FROM this one). A tiny, local, duplicate helper instead.
+ */
+function toMillisLocal(v: unknown): number {
+  if (v instanceof Date) return v.getTime();
+  if (v && typeof (v as { toMillis?: unknown }).toMillis === 'function') return (v as { toMillis: () => number }).toMillis();
+  throw new Error('Expected a Date or Firestore Timestamp');
+}
+
+export type RecordResultChoice = 'new_test' | 'correction';
+
+export type RecordResultWithChoiceResult =
+  | { status: 200; body: { resultId: string; outcome: ReadinessOutcome } }
+  | { status: 400 | 403 | 404 | 409 | 503; body: { error: string } };
+
+/**
+ * "תיקון מוצהר" (04.10.2026, §13.87). David's problem statement,
+ * verbatim: two results for the same soldier+test look identical in
+ * the data — there was no way to say whether a second one is a real
+ * second test (a trend) or a typo fix (the trend would be fabricated).
+ * Only the person entering it knows which, and until now had no way to
+ * say so.
+ *
+ * Identical to computeRecordResult (⚠️ SUPERSEDED above, untouched) in
+ * every respect EXCEPT: when the new result's source is
+ * 'organized_test' AND an active (non-superseded) organized_test
+ * result already exists for this exact soldier+test, the caller MUST
+ * supply `choice: 'new_test' | 'correction'` — no default, on purpose
+ * (David: a default of either kind is an invisible failure mode; a
+ * forced choice is one extra click on a genuinely rare case). Any
+ * other source (app_measurement/self_report) never triggers this —
+ * those are continuous, self-generated signals, not an officer-entered
+ * "מבדק" with a typo-correction concern.
+ *
+ * 'correction' resolves "the previous one" as the MOST RECENT active
+ * result for this soldier+test, re-read inside the same transaction
+ * that creates the new result and marks the old one superseded — never
+ * a client-supplied id, so a stale read between page-load and submit
+ * can never point at the wrong document.
+ */
+export async function computeRecordResultWithCorrectionChoice(
+  db: Firestore,
+  scope: UnitPermissionScope,
+  requestBody: Record<string, unknown>,
+  ctx: ReadinessCtx,
+): Promise<RecordResultWithChoiceResult> {
+  if (scope.kind === 'unknown') {
+    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע.' } };
+  }
+
+  const soldierId = requestBody.soldierId;
+  const testId = requestBody.testId;
+  const source = requestBody.source;
+  if (typeof soldierId !== 'string' || !soldierId.trim()) {
+    return { status: 400, body: { error: 'soldierId is required' } };
+  }
+  if (typeof testId !== 'string' || !testId.trim()) {
+    return { status: 400, body: { error: 'testId is required' } };
+  }
+  if (source !== 'organized_test' && source !== 'app_measurement' && source !== 'self_report') {
+    return { status: 400, body: { error: 'source must be organized_test|app_measurement|self_report' } };
+  }
+
+  const testDateRaw = requestBody.testDate;
+  if (typeof testDateRaw !== 'string' || !testDateRaw.trim()) {
+    return { status: 400, body: { error: 'testDate is required' } };
+  }
+  const testDate = new Date(testDateRaw);
+  if (Number.isNaN(testDate.getTime())) {
+    return { status: 400, body: { error: 'testDate is not a valid date' } };
+  }
+  const now = new Date();
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const testDayMs = startOfDay(testDate);
+  const todayMs = startOfDay(now);
+  if (testDayMs > todayMs) {
+    return { status: 400, body: { error: 'תאריך הבוחן לא יכול להיות בעתיד.' } };
+  }
+  if (todayMs - testDayMs > 90 * 24 * 60 * 60 * 1000) {
+    return { status: 400, body: { error: 'תאריך הבוחן רחוק מדי בעבר — עד 90 יום אחורה בלבד.' } };
+  }
+
+  const soldierSnap = await db.collection('readiness_soldiers').doc(soldierId).get();
+  if (!soldierSnap.exists) {
+    return { status: 404, body: { error: 'רשומת חייל לא נמצאה.' } };
+  }
+  const soldier = soldierSnap.data() as Omit<ReadinessSoldier, 'id'>;
+  if (soldier.mergedInto) {
+    return { status: 400, body: { error: 'רשומה זו מוזגה לרשומה אחרת.' } };
+  }
+
+  const isSelf = soldier.uid !== null && soldier.uid === ctx.callerUid;
+  const isOfficerInScope =
+    (scope.kind === 'root' || scope.kind === 'tenantOwner' || scope.kind === 'unitAdmin') &&
+    isMemberWithinScope(scope, soldier.tenantId, soldier.unitId);
+  if (!isSelf && !isOfficerInScope) {
+    return { status: 403, body: { error: DENIED_MESSAGE } };
+  }
+
+  const notPerformedReasonRaw = requestBody.notPerformedReason;
+  const isNotPerformed = notPerformedReasonRaw === 'medical_exemption' || notPerformedReasonRaw === 'no_show' || notPerformedReasonRaw === 'other';
+
+  let outcome: ReadinessOutcome;
+  let value: number | null = null;
+  let notPerformedReason: NotPerformedReason | null = null;
+  let thresholdSnapshot: ReadinessThresholdSnapshot | null = null;
+
+  if (isNotPerformed) {
+    outcome = 'not_performed';
+    notPerformedReason = notPerformedReasonRaw as NotPerformedReason;
+  } else {
+    const rawValue = requestBody.value;
+    if (typeof rawValue !== 'number' || !Number.isFinite(rawValue)) {
+      return { status: 400, body: { error: 'value (number) or notPerformedReason is required' } };
+    }
+
+    const configSnap = await db.collection('readiness_thresholds').doc(THRESHOLDS_DOC_ID).get();
+    if (!configSnap.exists) {
+      return { status: 400, body: { error: 'לא הוגדר סף כשירות גלובלי.' } };
+    }
+    const config = configSnap.data() as ReadinessThresholdsConfig;
+    const test = config.tests.find((t) => t.id === testId);
+    if (!test) {
+      return { status: 400, body: { error: 'testId אינו קיים בהגדרת הסף הגלובלית.' } };
+    }
+
+    const thresholdValue = test.threshold[soldier.gender];
+    outcome = test.lowerIsBetter
+      ? (rawValue <= thresholdValue ? 'pass' : 'fail')
+      : (rawValue >= thresholdValue ? 'pass' : 'fail');
+    value = rawValue;
+    thresholdSnapshot = {
+      thresholdVersion: config.version,
+      gender: soldier.gender,
+      thresholdValue,
+      lowerIsBetter: test.lowerIsBetter,
+      validityDays: test.validityDays,
+    };
+  }
+
+  // The conflict check — single-equality query on soldierId alone (no
+  // composite index needed, same shape computeLinkSoldier's own
+  // existingResultsSnap query already uses), filtered to this testId
+  // and to organized_test in memory.
+  let correctsResultId: string | null = null;
+  if (source === 'organized_test') {
+    const existingSnap = await db.collection('readiness_results').where('soldierId', '==', soldierId).get();
+    const conflicting = existingSnap.docs
+      .map((d) => ({ id: d.id, ...(d.data() as Omit<ReadinessResult, 'id'>) }))
+      .filter((r) => r.testId === testId && r.source === 'organized_test' && !r.supersededByResultId);
+
+    if (conflicting.length > 0) {
+      const choice = requestBody.choice;
+      if (choice !== 'new_test' && choice !== 'correction') {
+        return { status: 400, body: { error: 'כבר קיימת תוצאה לחייל זה במבחן זה. יש לבחור: מבדק חדש או תיקון של הקודמת.' } };
+      }
+      if (choice === 'correction') {
+        conflicting.sort((a, b) => toMillisLocal(b.recordedAt) - toMillisLocal(a.recordedAt));
+        correctsResultId = conflicting[0].id;
+      }
+    }
+  }
+
+  const doc: Omit<ReadinessResult, 'id'> = {
+    soldierId,
+    tenantId: soldier.tenantId,
+    unitId: soldier.unitId,
+    testId,
+    outcome,
+    value,
+    notPerformedReason,
+    source,
+    thresholdSnapshot,
+    recordedBy: ctx.callerUid,
+    recordedAt: new Date(),
+    testDate,
+    uid: soldier.uid,
+    correctsResultId,
+    supersededByResultId: null,
+    supersededAt: null,
+    supersededByUid: null,
+  };
+
+  let resultId: string;
+  if (correctsResultId) {
+    const newRef = db.collection('readiness_results').doc();
+    const oldRef = db.collection('readiness_results').doc(correctsResultId);
+    try {
+      await db.runTransaction(async (tx: Transaction) => {
+        const oldSnap = await tx.get(oldRef);
+        if (!oldSnap.exists) throw new Error('RESULT_NOT_FOUND');
+        const oldData = oldSnap.data() as Omit<ReadinessResult, 'id'>;
+        if (oldData.supersededByResultId) throw new Error('ALREADY_SUPERSEDED');
+        tx.create(newRef, doc);
+        tx.update(oldRef, {
+          supersededByResultId: newRef.id,
+          supersededAt: new Date(),
+          supersededByUid: ctx.callerUid,
+        });
+      });
+    } catch (err: any) {
+      if (err.message === 'RESULT_NOT_FOUND') {
+        return { status: 404, body: { error: 'התוצאה שנבחרה לתיקון לא נמצאה.' } };
+      }
+      if (err.message === 'ALREADY_SUPERSEDED') {
+        return { status: 409, body: { error: 'התוצאה הזו כבר תוקנה על ידי רשומה אחרת. רענן ונסה שוב.' } };
+      }
+      throw err;
+    }
+    resultId = newRef.id;
+  } else {
+    const ref = await db.collection('readiness_results').add(doc);
+    resultId = ref.id;
+  }
+
+  await writeReadinessAuditLog(db, {
+    uid: ctx.callerUid,
+    tokenEmail: ctx.tokenEmail,
+    actionType: correctsResultId ? 'UPDATE' : 'CREATE',
+    targetEntity: 'ReadinessResult',
+    targetId: resultId,
+    details: correctsResultId
+      ? `Corrected readiness result ${correctsResultId} for soldier ${soldierId}, test ${testId}: ${outcome}`
+      : `Recorded readiness result for soldier ${soldierId}, test ${testId}: ${outcome}`,
+    oldValue: null,
+    newValue: doc,
+    sourceIp: ctx.sourceIp,
+  });
+
+  return { status: 200, body: { resultId, outcome } };
 }
 
 // ── Current status derivation (pure, read-side) ─────────────────────────

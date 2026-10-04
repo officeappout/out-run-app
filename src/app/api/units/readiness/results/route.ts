@@ -11,13 +11,19 @@
  *
  * 'כשיר'/'לא כשיר' is always computed server-side from a raw measured
  * `value`; this body has no `outcome`/`status` field the client could use
- * to claim a verdict directly (computeRecordResult never reads one even if
- * sent).
+ * to claim a verdict directly.
+ *
+ * 04.10.2026 (§13.87, "תיקון מוצהר") — now calls
+ * computeRecordResultWithCorrectionChoice, which additionally requires a
+ * `choice: 'new_test' | 'correction'` field whenever this soldier
+ * already has an active organized_test result for the same test. The
+ * previous computeRecordResult is ⚠️ SUPERSEDED (kept, unmodified, for
+ * rollback) — see its own comment in readiness-write.service.ts.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { resolveUnitPermissionScope } from '@/lib/unitPermissionScope';
-import { computeRecordResult } from '@/features/readiness/core/services/readiness-write.service';
+import { computeRecordResultWithCorrectionChoice } from '@/features/readiness/core/services/readiness-write.service';
 import { logReadinessInternalError } from '@/features/readiness/core/services/readiness-error-id';
 
 export const runtime = 'nodejs';
@@ -47,7 +53,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const sourceIp = request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? 'unknown';
 
-    const result = await computeRecordResult(db, scope, body, { callerUid: uid, tokenEmail, sourceIp });
+    const result = await computeRecordResultWithCorrectionChoice(db, scope, body, { callerUid: uid, tokenEmail, sourceIp });
     return NextResponse.json(result.body, { status: result.status });
   } catch (err: any) {
     const errorId = logReadinessInternalError('/api/units/readiness/results', err);

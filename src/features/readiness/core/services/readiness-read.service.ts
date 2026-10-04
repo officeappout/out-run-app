@@ -320,6 +320,12 @@ export async function computeUnitRoster(
   for (const doc of resultsSnap.docs) {
     const data = doc.data() as Omit<ReadinessResult, 'id'>;
     if (!inScope(data.unitId)) continue;
+    // §13.87 "תיקון מוצהר" — a superseded result is never deleted but
+    // must never be counted by any reader; excluded at this exact
+    // boundary so every existing function below (computeSoldierCurrentStatus
+    // included) sees only active results, with zero changes to their own
+    // bodies.
+    if (data.supersededByResultId) continue;
     const list = resultsBySoldier.get(data.soldierId) ?? [];
     // Normalize at the boundary — see toDate()'s own comment. Without
     // this, computeSoldierCurrentStatus/findCurrentNotPerformedReason's
