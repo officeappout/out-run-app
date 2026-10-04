@@ -15,6 +15,8 @@ import type {
   RosterPendingEntry,
   RosterUnitEntry,
 } from '@/features/readiness/core/services/readiness-read.service';
+import type { ReadinessMatchSuggestionsBody } from '@/features/readiness/core/services/readiness-match.service';
+import DeclaredNotInRosterSection from '@/features/admin/components/readiness-roster/DeclaredNotInRosterSection';
 import Link from 'next/link';
 import { Loader2, ShieldCheck, AlertCircle, ClipboardList, LayoutDashboard, UploadCloud } from 'lucide-react';
 
@@ -34,6 +36,12 @@ export default function ReadinessPage() {
   const [pending, setPending] = useState<RosterPendingEntry[]>([]);
   const [units, setUnits] = useState<RosterUnitEntry[]>([]);
   const [unapprovedPendingCount, setUnapprovedPendingCount] = useState(0);
+  // §13.84 — match suggestions are a separate, additional fetch
+  // (computeReadinessMatchSuggestions), never folded into the roster
+  // endpoint above — a failure here degrades to "no suggestions shown"
+  // (every row just falls back to מחובר/לא מחובר), never blocks loading
+  // the roster itself.
+  const [matchData, setMatchData] = useState<ReadinessMatchSuggestionsBody>({ suggestions: [], ambiguities: [], declaredNotInRoster: [] });
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [addPrefill, setAddPrefill] = useState<{ uid: string; name: string; gender: 'male' | 'female' | null } | undefined>(undefined);
@@ -51,6 +59,22 @@ export default function ReadinessPage() {
     setPending(body.pending ?? []);
     setUnits(body.units ?? []);
     setUnapprovedPendingCount(body.unapprovedPendingCount ?? 0);
+
+    try {
+      const matchRes = await fetch('/api/units/readiness/match-suggestions', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const matchBody = await matchRes.json().catch(() => ({}));
+      if (matchRes.ok) {
+        setMatchData({
+          suggestions: matchBody.suggestions ?? [],
+          ambiguities: matchBody.ambiguities ?? [],
+          declaredNotInRoster: matchBody.declaredNotInRoster ?? [],
+        });
+      }
+    } catch {
+      // Degrades silently to "no suggestions" — the roster itself already loaded successfully above.
+    }
   }, []);
 
   useEffect(() => {
@@ -162,9 +186,14 @@ export default function ReadinessPage() {
 
           <SoldiersRosterTable
             soldiers={soldiers}
+            suggestions={matchData.suggestions}
+            ambiguities={matchData.ambiguities}
             onAddSoldier={() => { setAddPrefill(undefined); setShowAddModal(true); }}
             onUnlinked={refresh}
+            onMatchResolved={refresh}
           />
+
+          <DeclaredNotInRosterSection entries={matchData.declaredNotInRoster} />
         </>
       )}
 

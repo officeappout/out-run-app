@@ -55,6 +55,7 @@
  */
 
 import type { Firestore, Transaction } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
 import {
   isMemberWithinScope,
   type UnitPermissionScope,
@@ -93,6 +94,19 @@ export interface ReadinessSoldier {
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
+  /**
+   * 04.10.2026 (§13.84, match-suggestion round) — "לא הוא": an officer's
+   * explicit rejection of a specific uid as a match candidate for this
+   * soldier record, remembered so the SAME suggestion never resurfaces
+   * (David: "אחרת הקצין ידחה את אותו דבר כל שבוע מחדש"). Additive,
+   * optional field — absent on every record created before this round,
+   * which computeReadinessMatchSuggestions treats identically to an
+   * empty array. Written only by computeRejectReadinessMatch
+   * (FieldValue.arrayUnion) — never read or written by
+   * computeLinkSoldier/computeUnlinkSoldier/computeBulkCreateSoldiers,
+   * all untouched by this round.
+   */
+  rejectedUids?: string[];
 }
 
 export type ReadinessResultSource = 'organized_test' | 'app_measurement' | 'self_report';
@@ -1058,6 +1072,160 @@ export async function computeLinkSoldier(
   }
 
   return result;
+}
+
+// ── Match suggestions: reject + bulk-approve ─────────────────────────────
+
+export type RejectReadinessMatchResult =
+  | { status: 200; body: { soldierId: string } }
+  | { status: 400 | 403 | 404 | 503; body: { error: string } };
+
+/**
+ * "לא הוא" (David, §13.84) — remembers a rejected (soldierId, uid) pair
+ * forever, on the soldier record itself (rejectedUids, FieldValue.
+ * arrayUnion), so computeReadinessMatchSuggestions never re-offers it.
+ * Same scope-check shape as computeLinkSoldier/computeUnlinkSoldier —
+ * deliberately NOT a transaction (unlike computeLinkSoldier): rejecting
+ * a candidate has no uniqueness invariant to protect, a single
+ * conditional update is enough and keeps this function simple.
+ */
+export async function computeRejectReadinessMatch(
+  db: Firestore,
+  scope: UnitPermissionScope,
+  requestBody: Record<string, unknown>,
+  ctx: ReadinessCtx,
+): Promise<RejectReadinessMatchResult> {
+  if (scope.kind === 'unknown') {
+    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע.' } };
+  }
+  if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin') {
+    return { status: 403, body: { error: DENIED_MESSAGE } };
+  }
+
+  const soldierId = requestBody.soldierId;
+  const rejectedUid = requestBody.uid;
+  if (typeof soldierId !== 'string' || !soldierId.trim()) {
+    return { status: 400, body: { error: 'soldierId is required' } };
+  }
+  if (typeof rejectedUid !== 'string' || !rejectedUid.trim()) {
+    return { status: 400, body: { error: 'uid is required' } };
+  }
+
+  const soldierRef = db.collection('readiness_soldiers').doc(soldierId);
+  const soldierSnap = await soldierRef.get();
+  if (!soldierSnap.exists) {
+    return { status: 404, body: { error: 'רשומת חייל לא נמצאה.' } };
+  }
+  const soldier = soldierSnap.data() as Omit<ReadinessSoldier, 'id'>;
+  if (soldier.mergedInto) {
+    return { status: 400, body: { error: 'רשומה זו מוזגה לרשומה אחרת.' } };
+  }
+  if (!isMemberWithinScope(scope, soldier.tenantId, soldier.unitId)) {
+    return { status: 403, body: { error: DENIED_MESSAGE } };
+  }
+
+  await soldierRef.update({
+    rejectedUids: FieldValue.arrayUnion(rejectedUid),
+    updatedAt: new Date(),
+  });
+
+  await writeReadinessAuditLog(db, {
+    uid: ctx.callerUid,
+    tokenEmail: ctx.tokenEmail,
+    actionType: 'UPDATE',
+    targetEntity: 'ReadinessSoldier',
+    targetId: soldierId,
+    details: `Rejected a match suggestion (uid ${rejectedUid})`,
+    oldValue: null,
+    newValue: { rejectedUid },
+    sourceIp: ctx.sourceIp,
+  });
+
+  return { status: 200, body: { soldierId } };
+}
+
+/** Firestore WriteBatch's 500-op cap doesn't apply here the way it does
+ *  for computeBulkCreateSoldiers/computeBulkImportResults — this
+ *  function never builds one batch at all (see its own doc comment for
+ *  why). 100 chosen for consistency with those two rounds' same-shaped
+ *  cap, not because of a different Firestore ceiling here. */
+export const BULK_APPROVE_MATCHES_MAX_PAIRS = 100;
+
+export interface BulkApproveMatchesResult200 {
+  linked: string[];
+  failed: { soldierId: string; error: string }[];
+}
+export type BulkApproveMatchesResult =
+  | { status: 200; body: BulkApproveMatchesResult200 }
+  | { status: 400 | 403 | 503; body: { error: string } };
+
+/**
+ * "אשר את כל ההתאמות החד-משמעיות" (David, §13.84) — David's explicit
+ * constraint: "הכתיבה דרך computeLinkSoldier הקיים. אל תיצור נתיב קישור
+ * שני." This function creates NO new linking logic whatsoever — it is
+ * purely an orchestrator that calls computeLinkSoldier once per pair,
+ * unchanged, in a loop. Deliberately NOT one Firestore WriteBatch/
+ * transaction spanning all pairs: computeLinkSoldier already wraps each
+ * link in its OWN transaction (soldier/user/dup-check reads, point 7's
+ * system-wide uniqueness) — collapsing N independent people's links
+ * into one shared transaction would mean either reimplementing that
+ * uniqueness check at a different granularity (the "second linking
+ * path" David explicitly forbade) or accepting that Firestore
+ * transactions don't compose that way to begin with. One person's
+ * conflict (e.g. linked elsewhere a moment ago) does not block the
+ * other 99 — each pair's outcome is reported individually in `linked`/
+ * `failed`, never silently swallowed.
+ */
+export async function computeBulkApproveReadinessMatches(
+  db: Firestore,
+  scope: UnitPermissionScope,
+  requestBody: Record<string, unknown>,
+  ctx: ReadinessCtx,
+): Promise<BulkApproveMatchesResult> {
+  if (scope.kind === 'unknown') {
+    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע.' } };
+  }
+  if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin') {
+    return { status: 403, body: { error: DENIED_MESSAGE } };
+  }
+
+  const rawPairs = requestBody.pairs;
+  if (!Array.isArray(rawPairs) || rawPairs.length === 0) {
+    return { status: 400, body: { error: 'pairs is required and must be a non-empty array' } };
+  }
+  if (rawPairs.length > BULK_APPROVE_MATCHES_MAX_PAIRS) {
+    return {
+      status: 400,
+      body: { error: `עד ${BULK_APPROVE_MATCHES_MAX_PAIRS} אישורים בפעולה אחת — הרשימה הזו מכילה ${rawPairs.length}. פצל לשתי העברות נפרדות.` },
+    };
+  }
+
+  const linked: string[] = [];
+  const failed: { soldierId: string; error: string }[] = [];
+
+  for (const raw of rawPairs) {
+    if (typeof raw !== 'object' || raw === null) {
+      failed.push({ soldierId: '', error: 'invalid pair' });
+      continue;
+    }
+    const r = raw as Record<string, unknown>;
+    const soldierId = typeof r.soldierId === 'string' ? r.soldierId : '';
+    const uid = typeof r.uid === 'string' ? r.uid : '';
+    if (!soldierId || !uid) {
+      failed.push({ soldierId: soldierId || '', error: 'soldierId and uid are required' });
+      continue;
+    }
+    // Every scope/uniqueness/validity check lives inside this ONE call —
+    // nothing above re-derives or re-checks any of it.
+    const result = await computeLinkSoldier(db, scope, { soldierId, uid }, ctx);
+    if (result.status === 200) {
+      linked.push(soldierId);
+    } else {
+      failed.push({ soldierId, error: result.body.error });
+    }
+  }
+
+  return { status: 200, body: { linked, failed } };
 }
 
 // ── Unlink ───────────────────────────────────────────────────────────────
