@@ -321,3 +321,48 @@ export function buildProgramHierarchy(fullProfile: UserFullProfile, programs: Pr
     return { idOrSlug: masterIdOrSlug, name, resolved, level: masterLevel, isMaster: true, children };
   });
 }
+
+// ── Chart data bucketing (Phase B rework, 04.10.2026) ─────────────────────
+
+export interface DailyTrendPoint {
+  label: string;
+  value: number;
+}
+
+/**
+ * Buckets a workout list into the last `days` calendar days (today
+ * inclusive), summing `valueFn` per day. Days with zero matching workouts
+ * still appear with value 0 — a real "no activity" signal for the chart,
+ * not a gap to drop.
+ *
+ * Shared by both the retention (workout count/day) and economy (coins/day)
+ * trend charts so the two can't drift into different bucketing rules.
+ *
+ * Input is whatever workoutHistory the caller already fetched — on the
+ * user-detail page that's getUserWorkoutHistory's 50-doc cap, comfortably
+ * more than 14 days for any real user, but the chart is only as complete
+ * as that fetch.
+ */
+export function bucketWorkoutsByDay<W extends { date: Date }>(
+  workoutHistory: W[],
+  days: number,
+  valueFn: (w: W) => number,
+): DailyTrendPoint[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const points: DailyTrendPoint[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const bucketStart = new Date(today);
+    bucketStart.setDate(bucketStart.getDate() - i);
+    const bucketEnd = new Date(bucketStart);
+    bucketEnd.setDate(bucketEnd.getDate() + 1);
+    const value = workoutHistory
+      .filter((w) => w.date.getTime() >= bucketStart.getTime() && w.date.getTime() < bucketEnd.getTime())
+      .reduce((sum, w) => sum + valueFn(w), 0);
+    points.push({
+      label: bucketStart.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' }),
+      value,
+    });
+  }
+  return points;
+}

@@ -53,7 +53,9 @@ import {
   getTrackLevel,
   HierarchyNode,
   buildProgramHierarchy,
+  bucketWorkoutsByDay,
 } from '../shared.utils';
+import { DailyTrendChart } from '../charts';
 
 const ONBOARDING_STEP_LABELS: Record<string, string> = {
   ACCESS_CODE: 'קוד גישה',
@@ -196,8 +198,14 @@ export default function UserDetailPage() {
       isTestData: core.isTestData === true,
       isMockData: core.isMockData === true,
       workoutCount,
+      // David, 04.10.2026: "lastActive reads empty; a user with workouts
+      // should show a real date" — same fix as the list page, applied here
+      // too so this screen's own KPI/retention tiles don't repeat the bug.
+      // workoutHistory is already sorted desc by date (getUserWorkoutHistory's
+      // orderBy), so the first entry is the most recent workout — no new read.
+      lastWorkoutDate: workoutHistory[0]?.date,
     };
-  }, [fullProfile, workoutCount, uid]);
+  }, [fullProfile, workoutCount, uid, workoutHistory]);
 
   const loadUserDetails = async (forUid: string) => {
     setLoading(true);
@@ -1062,14 +1070,14 @@ export default function UserDetailPage() {
                           })()}
                         </span>
                       )}
-                      {/* Growth Hub — Lifecycle KPI badges (lastActive, pushEnabled, fcmTokenCount) */}
-                      {user.lastActive && (
+                      {/* Growth Hub — Lifecycle KPI badges (lastWorkoutDate, pushEnabled, fcmTokenCount) */}
+                      {user.lastWorkoutDate && (
                         <span
                           className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-bold flex items-center gap-1"
-                          title={user.lastActive.toLocaleString('he-IL')}
+                          title={user.lastWorkoutDate.toLocaleString('he-IL')}
                         >
                           <Clock size={12} />
-                          פעיל לאחרונה: {user.lastActive.toLocaleDateString('he-IL')}
+                          פעיל לאחרונה: {user.lastWorkoutDate.toLocaleDateString('he-IL')}
                         </span>
                       )}
                       {user.pushEnabled ? (
@@ -1187,7 +1195,7 @@ export default function UserDetailPage() {
                 <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 text-center">
                   <div className="text-[11px] text-gray-500 font-bold mb-0.5">פעילות אחרונה</div>
                   {(() => {
-                    const recency = formatLastActivity(user.lastActive);
+                    const recency = formatLastActivity(user.lastWorkoutDate);
                     return (
                       <div className={`text-xs font-black inline-flex items-center gap-1 ${recency.textClass}`}>
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${recency.dotColor}`} />
@@ -2320,19 +2328,34 @@ export default function UserDetailPage() {
                           <p className="text-2xl font-black text-orange-700">{(fullProfile.progression as any)?.currentStreak ?? 0}</p>
                         </div>
                       </div>
+                      {/* Level/XP-over-time chart — explicitly NOT built.
+                          progression.globalLevel/globalXP are overwritten
+                          in place on every award (XP_Progression_Truth.md
+                          LAW 0); no levelHistory/xpHistory/xp_log collection
+                          exists anywhere in this codebase (verified by grep,
+                          04.10.2026). Flagging per the brief ("if a chart
+                          needs history that isn't stored, flag it rather
+                          than fake it") instead of fabricating a trend line
+                          from a single current snapshot. */}
+                      <div className="mt-3 bg-gray-50 border border-dashed border-gray-300 rounded-xl p-3 flex items-start gap-2">
+                        <AlertCircle size={14} className="text-gray-400 flex-shrink-0 mt-0.5" />
+                        <p className="text-xs text-gray-500 font-simpler">
+                          גרף רמה/XP לאורך זמן לא זמין — המערכת לא שומרת היסטוריית רמה/XP לפי תאריך (progression.globalLevel/globalXP מתעדכנים במקום, ללא לוג תקופתי). להציג גרף אמיתי כאן דורש שינוי מודל נתונים (snapshot/log עתי) — לא הוצג נתון מזויף.
+                        </p>
+                      </div>
                     </div>
 
                     {/* Economy — Phase B (04.10.2026). Coins balance already
-                        lives on the table row (user.coins); the two trend
-                        numbers here are new, derived from workoutHistory
-                        (already fetched, up to 50 most recent) — no new
-                        Firestore read. */}
+                        lives on the table row (user.coins); the three
+                        numbers + the trend chart below are all derived from
+                        workoutHistory (already fetched, up to 50 most
+                        recent) — no new Firestore read. */}
                     <div>
                       <h3 className="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
                         <Coins size={20} className="text-yellow-500" />
                         כלכלה
                       </h3>
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-3 gap-3 mb-3">
                         <div className="bg-yellow-50 rounded-xl p-4 text-center">
                           <p className="text-xs text-yellow-700 font-medium">יתרת מטבעות</p>
                           <p className="text-2xl font-black text-yellow-800">{user?.coins ?? fullProfile.progression?.coins ?? 0}</p>
@@ -2354,6 +2377,13 @@ export default function UserDetailPage() {
                           </p>
                         </div>
                       </div>
+                      <DailyTrendChart
+                        title="מטבעות שהורווחו ביום (14 הימים האחרונים)"
+                        icon={<Coins size={16} className="text-yellow-500" />}
+                        data={bucketWorkoutsByDay(workoutHistory, 14, (w) => w.earnedCoins || 0)}
+                        color="#CA8A04"
+                        valueLabel="מטבעות"
+                      />
                     </div>
 
                     {/* Program Hierarchy — Phase B (04.10.2026), read-only.
@@ -3083,8 +3113,8 @@ export default function UserDetailPage() {
                       <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
                         <div className="text-[11px] text-slate-500 font-bold mb-1">פעיל לאחרונה</div>
                         <div className="text-sm font-black text-slate-800">
-                          {user.lastActive
-                            ? user.lastActive.toLocaleDateString('he-IL')
+                          {user.lastWorkoutDate
+                            ? user.lastWorkoutDate.toLocaleDateString('he-IL')
                             : 'ללא נתון'}
                         </div>
                       </div>
@@ -3153,7 +3183,7 @@ export default function UserDetailPage() {
                         </h3>
                         <div className="grid grid-cols-3 gap-3">
                           {(() => {
-                            const recency = formatLastActivity(user.lastActive);
+                            const recency = formatLastActivity(user.lastWorkoutDate);
                             return (
                               <div className={`rounded-xl p-4 text-center border ${recency.dotColor === 'bg-red-500' ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-100'}`}>
                                 <p className="text-xs text-gray-500 font-medium mb-1">סטטוס פעילות</p>
@@ -3174,6 +3204,15 @@ export default function UserDetailPage() {
                               {workoutHistory.filter((w) => Date.now() - w.date.getTime() <= 7 * 86_400_000).length}
                             </p>
                           </div>
+                        </div>
+                        <div className="mt-3">
+                          <DailyTrendChart
+                            title="אימונים ביום (14 הימים האחרונים)"
+                            icon={<Activity size={16} className="text-cyan-600" />}
+                            data={bucketWorkoutsByDay(workoutHistory, 14, () => 1)}
+                            color="#0891B2"
+                            valueLabel="אימונים"
+                          />
                         </div>
                       </div>
                     )}
