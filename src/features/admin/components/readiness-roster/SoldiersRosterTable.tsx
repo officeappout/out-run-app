@@ -46,6 +46,17 @@ export default function SoldiersRosterTable({ soldiers, suggestions, ambiguities
   const [rowError, setRowError] = useState<string | null>(null);
   const [bulkApproving, setBulkApproving] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
+  /** David's Q1, explicit: a partial failure must be VISIBLE — which
+   *  pairs, and why — not just a count. Persists across the
+   *  onMatchResolved() refresh (not auto-cleared) until the next bulk
+   *  attempt, so the officer can read it alongside the table below,
+   *  which — correctly, with no special-casing needed here — keeps
+   *  showing "ממתין לאישור" for any pair whose underlying suggestion is
+   *  still valid after the refresh (it only disappears when the
+   *  underlying data genuinely changed, e.g. someone else linked it in
+   *  the meantime — a stale suggestion correctly vanishing, not a
+   *  hidden failure). */
+  const [bulkFailures, setBulkFailures] = useState<{ soldierId: string; soldierName: string; error: string }[]>([]);
 
   const suggestionBySoldierId = useMemo(() => new Map(suggestions.map((s) => [s.soldierId, s])), [suggestions]);
   const ambiguityBySoldierId = useMemo(() => new Map(ambiguities.map((a) => [a.soldierId, a])), [ambiguities]);
@@ -121,6 +132,7 @@ export default function SoldiersRosterTable({ soldiers, suggestions, ambiguities
     if (suggestions.length === 0) return;
     setBulkApproving(true);
     setBulkError(null);
+    setBulkFailures([]);
     try {
       const token = await auth.currentUser?.getIdToken();
       if (!token) throw new Error('משתמש לא מחובר. רענן את הדף ונסה שוב.');
@@ -132,7 +144,15 @@ export default function SoldiersRosterTable({ soldiers, suggestions, ambiguities
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(typeof body.error === 'string' ? body.error : `שגיאה (${res.status})`);
       if (Array.isArray(body.failed) && body.failed.length > 0) {
-        setBulkError(`${body.linked?.length ?? 0} אושרו, ${body.failed.length} נכשלו — ייתכן ואחת ההתאמות השתנתה. רענן ונסה שוב.`);
+        // Exactly which pairs, and why — a count alone isn't enough
+        // (David, explicit: "צריך שיראה בדיוק אילו זוגות נכשלו ולמה").
+        setBulkFailures(
+          body.failed.map((f: { soldierId: string; error: string }) => ({
+            soldierId: f.soldierId,
+            soldierName: suggestionBySoldierId.get(f.soldierId)?.soldierName ?? f.soldierId,
+            error: f.error,
+          })),
+        );
       }
       onMatchResolved();
     } catch (err: any) {
@@ -166,6 +186,21 @@ export default function SoldiersRosterTable({ soldiers, suggestions, ambiguities
       </div>
 
       {bulkError && <p className="text-xs text-red-600 font-semibold mb-3">{bulkError}</p>}
+
+      {bulkFailures.length > 0 && (
+        <div className="mb-3 px-3 py-2.5 rounded-xl bg-red-50 border border-red-200">
+          <p className="text-xs font-bold text-red-700 mb-1.5">
+            {bulkFailures.length === 1 ? 'קישור אחד נכשל:' : `${bulkFailures.length} קישורים נכשלו:`}
+          </p>
+          <ul className="space-y-0.5">
+            {bulkFailures.map((f) => (
+              <li key={f.soldierId} className="text-[11px] text-red-600">
+                <span className="font-bold">{f.soldierName}</span> — {f.error}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {soldiers.length === 0 ? (
         <div className="text-center py-20">

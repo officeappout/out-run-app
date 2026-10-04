@@ -23,7 +23,7 @@ vi.mock('@/lib/firebase-admin', () => ({
 import { initializeApp, deleteApp, type App } from 'firebase-admin/app';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import { computeReadinessMatchSuggestions } from '../readiness-match.service';
-import { computeRejectReadinessMatch, computeBulkApproveReadinessMatches } from '../readiness-write.service';
+import { computeRejectReadinessMatch, computeBulkApproveReadinessMatches, computeLinkSoldier } from '../readiness-write.service';
 import type { UnitPermissionScope } from '@/lib/unitPermissionScope';
 
 const PROJECT_ID = 'appout-1-emulator-test';
@@ -228,6 +228,28 @@ describe('computeReadinessMatchSuggestions', () => {
     // Confirmed on the real stored document, not just inferred from behavior.
     const soldierSnap = await db.collection('readiness_soldiers').doc('s1').get();
     expect(soldierSnap.data()?.rejectedUids).toEqual(['u1']);
+  });
+
+  it('"לא הוא" is NOT a one-way door — a rejected pair can still be linked MANUALLY afterward, because computeLinkSoldier never reads rejectedUids (David\'s Q2, verified on the real document, not just by reading the source)', async () => {
+    await seedSoldier('s1', 'יוסי לוי');
+    await seedUser('u1', 'יוסי לוי');
+
+    const reject = await computeRejectReadinessMatch(db, TENANT_OWNER_SCOPE, { soldierId: 's1', uid: 'u1' }, CTX);
+    expect(reject.status).toBe(200);
+
+    // Confirm the suggestion is really gone first — otherwise this test
+    // wouldn't be exercising the "rejected, then manually linked anyway" path.
+    const afterReject = await computeReadinessMatchSuggestions(db, TENANT_OWNER_SCOPE, { unitId: UNIT_ID });
+    expect(afterReject.status).toBe(200);
+    if (afterReject.status === 200) expect(afterReject.body.suggestions).toHaveLength(0);
+
+    // The officer changes their mind and links the SAME pair manually
+    // (e.g. via the existing "שייך לרשומה קיימת" picker) — must succeed.
+    const link = await computeLinkSoldier(db, TENANT_OWNER_SCOPE, { soldierId: 's1', uid: 'u1' }, CTX);
+    expect(link.status).toBe(200);
+
+    const soldierSnap = await db.collection('readiness_soldiers').doc('s1').get();
+    expect(soldierSnap.data()?.uid).toBe('u1'); // really linked, on the real document
   });
 
   it('omitting unitId matches across every unit in the officer\'s whole command span, never crossing a soldier in one unit with a declaration in another', async () => {
