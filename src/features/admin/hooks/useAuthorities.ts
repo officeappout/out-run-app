@@ -9,7 +9,6 @@ import {
 import { getParksByAuthority } from '@/features/admin/services/parks.service';
 import { initializeAuthoritiesSchema } from '@/features/admin/services/schema-initializer.service';
 import { seedIsraeliAuthorities } from '@/features/admin/services/seed-israeli-authorities';
-import { reSeedIsraeliAuthorities } from '@/features/admin/services/re-seed-authorities';
 import { repairTelAvivAuthorities, formatRepairReport } from '@/features/admin/services/repair-authorities';
 import { Authority, AuthorityType, PipelineStatus, hasOverdueInstallments } from '@/types/admin-types';
 import { ISRAELI_LOCATIONS, SubLocation } from '@/lib/data/israel-locations';
@@ -48,7 +47,6 @@ export function useAuthorities(verticalTypes?: AuthorityType[] | null) {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
-  const [reSeeding, setReSeeding] = useState(false);
   const [repairing, setRepairing] = useState(false);
   const [typeFilter, setTypeFilter] = useState<AuthorityType | 'all'>('all');
   const [viewMode, setViewMode] = useState<'grouped' | 'flat' | 'board'>('flat');
@@ -340,40 +338,6 @@ export function useAuthorities(verticalTypes?: AuthorityType[] | null) {
     }
   }, []);
 
-  const handleReSeedAuthorities = useCallback(async () => {
-    if (!confirm('⚠️ אזהרה: פעולה זו תמחק את כל הרשויות הקיימות ותיצור אותן מחדש עם מבנה היררכי תקין.\n\nפעולה זו אינה ניתנת לביטול!\n\nהאם אתה בטוח שברצונך להמשיך?')) return;
-
-    try {
-      setReSeeding(true);
-      // Explicit real-run request — the confirm() above is this call's only
-      // consent step. reSeedIsraeliAuthorities has its own safety gate on
-      // top of this (env var + a project-id check that currently refuses
-      // unconditionally, since there is no separate staging project — see
-      // re-seed-authorities.ts) and will throw, not silently no-op, if that
-      // gate isn't satisfied; the catch block below surfaces why.
-      const result = await reSeedIsraeliAuthorities({ dryRun: false, confirmPhrase: 'DELETE ALL AUTHORITIES' });
-
-      let message = result.dryRun
-        ? `הרצת בדיקה בלבד — לא נכתב דבר.\n${result.report}`
-        : `הטעינה מחדש הושלמה!\n`;
-      if (!result.dryRun) {
-        message += `🗑️ נמחקו: ${result.deleted} רשויות\n`;
-        message += `✓ נוצרו: ${result.created} רשויות\n`;
-        if (result.errors > 0) {
-          message += `✗ שגיאות: ${result.errors}\n\n${result.report}`;
-        }
-      }
-
-      alert(message);
-      // onSnapshot will auto-update the list
-    } catch (error: any) {
-      console.error('Error re-seeding authorities:', error);
-      alert(`שגיאה בטעינת רשויות מחדש: ${error.message}`);
-    } finally {
-      setReSeeding(false);
-    }
-  }, []);
-
   const handleRepairTelAviv = useCallback(async () => {
     if (!confirm('פעולה זו תמצא ותתקן רשויות כפולות של "תל אביב-יפו". אחת תישאר כהורה (עירייה) והשאר יהפכו לשכונות עם parentAuthorityId. האם להמשיך?')) return;
 
@@ -609,7 +573,6 @@ export function useAuthorities(verticalTypes?: AuthorityType[] | null) {
     groupedData,
     loading,
     seeding,
-    reSeeding,
     repairing,
     typeFilter,
     viewMode,
@@ -641,7 +604,6 @@ export function useAuthorities(verticalTypes?: AuthorityType[] | null) {
     handleToggleActiveClient,
     handleInitializeSchema,
     handleSeedAuthorities,
-    handleReSeedAuthorities,
     handleRepairTelAviv,
     loadAuthorities,
   };
