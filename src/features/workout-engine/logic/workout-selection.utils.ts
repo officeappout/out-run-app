@@ -84,6 +84,26 @@ export { DOMAIN_ALIAS_MAP, DOMAIN_PARENT_MAP };
 const DOMAIN_RESOLUTION_SKILL_PARENT_MAP: Record<string, string> = {
   planche: 'push', handstand: 'push', handstand_pushup: 'push',
   front_lever: 'pull', back_lever: 'pull', muscle_up: 'pull', one_arm_pullup: 'pull',
+  // human_flag added (04.10.2026, generator-leveling re-verification): found
+  // missing while writing post-#104 end-to-end tests — a human_flag-only
+  // exercise passed `isExerciseSkillEligible` (InputSanitizerMiddleware.ts,
+  // the only consumer of THIS specific map) unconditionally for an
+  // unassessed user, since absence from this map made it read as a
+  // "foundational" tag rather than a gated skill. Confirmed live at both the
+  // single-stage and full 2-stage generator-pipeline level
+  // (skill-eligibility-generator-e2e.test.ts). Deliberately scoped to this
+  // one map only, matching PR #104's own precedent (it added the other 5
+  // non-muscle_up entries here alone too) — NOT propagated to the other 3
+  // known copies of this same skill→parent data (`_CU_SKILL_PARENT`,
+  // home-workout.service.ts's `_CU_FOCUS_DOMAINS_SKILL_PARENT`,
+  // onboarding-sync.service.ts's `SKILL_TO_FOUNDATION_DOMAIN` — see this
+  // const's own doc-comment above and parking-lot.md's "חמישה מבנים, אותה
+  // שאלה" entry); unifying those is a separate, already-flagged, undecided
+  // item, out of scope here. Parent domain 'push' matches the one other
+  // hand-curated classification of human_flag already in the codebase —
+  // PROG_PRIMARY_CHIPS.human_flag = ['shoulders'] (src/lib/muscle-chips.
+  // const.ts), shoulders being a push-domain muscle.
+  human_flag: 'push',
 };
 export { DOMAIN_RESOLUTION_SKILL_PARENT_MAP };
 

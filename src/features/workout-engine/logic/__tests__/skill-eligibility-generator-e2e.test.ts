@@ -31,16 +31,21 @@ import type { ContextualFilterContext } from '../contextual-engine.types';
  * a real-Firestore test here would be unrepeatable in CI, the opposite of
  * what was asked for.
  *
- * REAL FINDING while building these tests (not hypothesized — confirmed by
- * direct execution, see "KNOWN GAP" describe block below): `human_flag` is
- * NOT covered by EITHER skill-gating mechanism in the pipeline —
- * DOMAIN_RESOLUTION_SKILL_PARENT_MAP (PR #104's gate, workout-selection.utils
- * .ts) has 6 entries (planche/handstand/handstand_pushup/front_lever/
- * back_lever/muscle_up/one_arm_pullup) and GATED_SKILL_DOMAINS (the older,
- * pre-#104 "Exclusive Skill Domain Gate" inside ContextualEngine.ts) covers
- * only `['muscle_up']`. A human_flag-only exercise passes both unconditionally
- * for an unassessed user. Documented with it.fails so this stays visible
- * and CI stays green until someone deliberately decides to close it.
+ * REAL FINDING while building these tests, now FIXED (04.10.2026, same
+ * change): `human_flag` was covered by NEITHER skill-gating mechanism in
+ * the pipeline — DOMAIN_RESOLUTION_SKILL_PARENT_MAP (PR #104's gate,
+ * workout-selection.utils.ts) had 6 entries (planche/handstand/
+ * handstand_pushup/front_lever/back_lever/muscle_up/one_arm_pullup) and
+ * GATED_SKILL_DOMAINS (the older, pre-#104 "Exclusive Skill Domain Gate"
+ * inside ContextualEngine.ts) covers only `['muscle_up']`. A human_flag-only
+ * exercise passed both unconditionally for an unassessed user, confirmed by
+ * direct execution before the fix. Closed by adding `human_flag: 'push'` to
+ * DOMAIN_RESOLUTION_SKILL_PARENT_MAP (David's explicit decision: mirror the
+ * generator's own skill maps directly, not a new feature flag) — see that
+ * map's own doc-comment for why only this one of the 4 known copies of this
+ * data was touched. The "all 7 elite skills excluded" assertions below
+ * cover human_flag the same as the other 6 now; no special-cased exception
+ * remains.
  */
 
 function ex(id: string, nameHe: string, targetPrograms: Array<{ programId: string; level: number }>): Exercise {
@@ -86,6 +91,7 @@ const ELITE_SKILL_IDS = [
   'one-arm-pullup-neg',
   'handstand-pushup-wall',
   'back-lever-tuck',
+  'human-flag-tuck', // now covered — see module doc-comment
 ];
 
 const EXPECTED_BASELINE_IDS = ['pushup-std', 'dip-parallel', 'pullup-std', 'row-bent'];
@@ -120,21 +126,14 @@ function runPipeline(
 describe('Scenario 1 — the exact PR #104 repro: pull=6, push=9, NO direct skill tracks', () => {
   const userLevels = new Map<string, number>([['pull', 6], ['push', 9]]);
 
-  it('excludes every elite skill exercise covered by the current skill gates, and includes all appropriate push/pull work', () => {
+  it('excludes every elite skill exercise and keeps only appropriate push/pull work — exact set, all 7 skills covered', () => {
     const result = runPipeline(PUSH_PULL_CATALOG, userLevels, ['pull', 'push'], 9);
-    const ids = result.exercises.map((e) => e.exercise.id);
+    const ids = result.exercises.map((e) => e.exercise.id).sort();
 
     for (const skillId of ELITE_SKILL_IDS) {
       expect(ids).not.toContain(skillId);
     }
-    for (const baselineId of EXPECTED_BASELINE_IDS) {
-      expect(ids).toContain(baselineId);
-    }
-    // Deliberately NOT asserting ids.length / exact-set-equality here — the
-    // known human_flag gap (see KNOWN GAP block below) means the real
-    // current result also contains 'human-flag-tuck'. Coupling THIS test
-    // (about the 6 gates that DO work) to that separate, already-tracked
-    // finding would make it fail for the wrong reason.
+    expect(ids).toEqual(EXPECTED_BASELINE_IDS.slice().sort());
   });
 
   it('every baseline (push/pull) exercise that survives is genuinely push or pull work, not an accidental other-domain leak', () => {
@@ -149,7 +148,7 @@ describe('Scenario 1 — the exact PR #104 repro: pull=6, push=9, NO direct skil
 
   it('the filter-stage counters attribute the skill exclusions to the skill gate, not level tolerance', () => {
     const pool = resolveExercisePool(PUSH_PULL_CATALOG, userLevels, ['pull', 'push'], new Map(), 9);
-    // resolveExercisePool's own output already has all 6 gated skills removed
+    // resolveExercisePool's own output already has all 7 gated skills removed
     // (Fix #1 runs first, "against the raw catalog" per its own doc comment).
     const poolIds = pool.exercises.map((e) => e.id);
     for (const skillId of ELITE_SKILL_IDS) {
@@ -166,11 +165,13 @@ describe('Scenario 2 — foundational beginner: low levels, no skills assessed',
       ex('pullup-band', 'מתח בעזרת גומייה', [{ programId: 'pull', level: 2 }]),
       ex('muscle-up-elite-2', 'מאסל אפ', [{ programId: 'muscle_up', level: 2 }]),
       ex('planche-lean-2', 'פלאנץ׳ לין', [{ programId: 'planche', level: 2 }]),
+      ex('human-flag-tuck-2', 'דגל אנושי טאק', [{ programId: 'human_flag', level: 2 }]),
     ];
     const result = runPipeline(beginnerCatalog, userLevels, ['pull', 'push'], 2);
     const ids = result.exercises.map((e) => e.exercise.id);
     expect(ids).not.toContain('muscle-up-elite-2');
     expect(ids).not.toContain('planche-lean-2');
+    expect(ids).not.toContain('human-flag-tuck-2');
     expect(ids.length).toBeGreaterThan(0); // the session isn't left empty
   });
 });
@@ -184,11 +185,7 @@ describe('Scenario 3 — a user WITH a direct skill track (front_lever) — the 
     expect(ids).toContain('front-lever-raise'); // now allowed — direct assessment
     expect(ids).not.toContain('muscle-up-elite'); // still unreached — still excluded
     expect(ids).not.toContain('planche-lean');
-    // human-flag-tuck deliberately NOT asserted here either way — it's the
-    // known, separately-tracked gap (see KNOWN GAP block below): it
-    // currently survives in EVERY scenario in this file, regardless of
-    // front_lever's assessment state, so it carries no signal for "does
-    // assessing front_lever correctly stay scoped to front_lever."
+    expect(ids).not.toContain('human-flag-tuck'); // still unreached — still excluded (post-fix)
   });
 
   it('does not accidentally widen to OTHER unreached skills just because one skill became active', () => {
@@ -198,14 +195,22 @@ describe('Scenario 3 — a user WITH a direct skill track (front_lever) — the 
     expect(ids).not.toContain('one-arm-pullup-neg');
     expect(ids).not.toContain('back-lever-tuck');
     expect(ids).not.toContain('handstand-pushup-wall');
+    expect(ids).not.toContain('human-flag-tuck');
   });
 });
 
-describe('KNOWN GAP (found while building these tests, not hypothesized) — human_flag is not covered by either skill gate', () => {
-  it.fails('EXPECTED TO FAIL today: a human_flag-only exercise should be excluded for an unassessed user, same as the other 6 elite skills — it is not, because human_flag is absent from BOTH DOMAIN_RESOLUTION_SKILL_PARENT_MAP (workout-selection.utils.ts) and GATED_SKILL_DOMAINS (ContextualEngine.ts, which only lists muscle_up). Flip this to a real it() the day either map gains a human_flag entry.', () => {
+describe('human_flag fix verification (04.10.2026) — now gated identically to the other 6 elite skills', () => {
+  it('a human_flag-only exercise IS excluded for an unassessed user, same as muscle_up/front_lever/etc.', () => {
     const userLevels = new Map<string, number>([['pull', 6], ['push', 9]]);
     const result = runPipeline(PUSH_PULL_CATALOG, userLevels, ['pull', 'push'], 9);
     const ids = result.exercises.map((e) => e.exercise.id);
     expect(ids).not.toContain('human-flag-tuck');
+  });
+
+  it('does NOT over-exclude: a user WITH a direct human_flag level still gets human_flag exercises', () => {
+    const userLevels = new Map<string, number>([['pull', 6], ['push', 9], ['human_flag', 9]]);
+    const result = runPipeline(PUSH_PULL_CATALOG, userLevels, ['pull', 'push', 'human_flag'], 9);
+    const ids = result.exercises.map((e) => e.exercise.id);
+    expect(ids).toContain('human-flag-tuck');
   });
 });
