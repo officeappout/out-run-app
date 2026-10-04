@@ -123,19 +123,80 @@ next. (Extracted from the workout-generation research — the canonical debuggin
 
 ## LAW 4 — Exercise Ordering (Authoritative)
 
+**⚠️ The flat priority map this section used to describe was STALE — corrected 2026-10-04.**
+**Source:** `generator-validation-harness.ts` investigation (PR #121) — a rubric built
+directly from the old text below flagged a `core`-only workout as "broken ordering"
+(`priorities=[accessory,compound,compound,compound]`). Direct code read + live
+reproduction (seeded + unseeded real `generateHomeWorkoutTrio` calls) proved the
+engine was correct and this doc was wrong: the real final sort has evolved well past
+a flat `{skill,compound,accessory,isolation}` map, and `tier` (not the static
+`priority` tag) is the dominant signal within a domain bucket. Keeping the old text
+struck through below rather than deleting it — the gap itself is the lesson: a doc
+read as ground truth fed a check that mis-flagged correct engine behavior as a bug.
+
 - **Selection within a bucket:** by ContextualEngine **score (descending)**. No shuffle among equal scores.
-- **Final order:** STRICT priority sort — `skill → compound → accessory → isolation`.
+- **Final order — two real passes, not one flat map:**
 
-```ts
-const priorityOrder = { skill: 0, compound: 1, accessory: 2, isolation: 3 };
-workoutExercises.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
-```
+  1. **`applyPhysiologicalSort`** (`src/features/workout-engine/logic/workout-sorting.utils.ts:64`) —
+     an earlier pass. 5-tier domain priority by `movementGroup`: core always last (tier 4);
+     legs tier 2 (tier 0 for female full-body); skill-compound movement groups
+     (`muscle_up`/`planche`/`handstand_pushup`/`front_lever`/`back_lever`) and vertical
+     push/pull → tier 0; horizontal push/pull → tier 1; `priority==='isolation'|'accessory'`
+     → tier 3. Within a tier: `programLevel` descending, then original index.
 
-**Priority classification** (`classifyPriority`, inferred from `tags` + `movementType`):
-`skill` tag → skill · `compound` tag / `movementType==='compound'` / `primaryMuscle==='full_body'` → compound · `isolation` tag → isolation · default → accessory.
+  2. **`applyDomainPrioritySort`** (same file, line 200) — called from `sortAndPair`
+     (`PresentationFormatter.ts`), explicitly documented as **"the LAST mutation allowed
+     on `workout.exercises`"** — this is the real authoritative pass, not the map below.
+     Order of keys, each applied only when the previous key ties:
+     1. `exerciseRole` (warmup → main → cooldown)
+     2. `isGeneralWarmup` pin (Stage-1 mobility drill always leads the warmup block)
+     3. Pyramid gate — a pyramid-protocol exercise always leads the main block
+     4. **Domain weight by `movementGroup`** (`DOMAIN_PRIORITY_WEIGHTS`): upper compounds +
+        skills (push/pull/muscle_up/HSPU/planche) = 1 · legs = 2 ·
+        **`core`/`anti_extension`/`anti_rotation`/`isolation`/`accessory` are ALL weight 3 —
+        a core-only or accessory-only session collapses to a single bucket here.**
+     5. **Tier-equality gate:** if two exercises share the exact same `tier`, sort by
+        `programLevel` descending FIRST — the level is a truer intensity signal than the
+        categorical tier-sub-order below it.
+     6. **Tier sub-order** (`resolveTierSubOrder`, same file:179) — `tier==='elite'→0`,
+        `tier==='hard'→1`, **then** `priority==='skill'|'compound'→2`,
+        `priority==='foundation'→3`, `tier==='match'→4`, else (flow/easy/accessory/isolation)
+        `→5`. **This is the key fact the old map missed: an exercise's dynamically-resolved
+        `tier` (elite/hard) outranks its static catalog `priority` tag.** An `accessory`-tagged
+        exercise whose resolved level lands it at `tier='hard'` for THIS user/session
+        correctly sorts before an `easy`-tier `compound`-tagged one — that is intentional
+        CNS-demand-first ordering, not a bug.
+     7. `programLevel` descending, then original array index (stable fallback).
+
+- ~~**Final order:** STRICT priority sort — `skill → compound → accessory → isolation`.~~
+  ~~`const priorityOrder = { skill: 0, compound: 1, accessory: 2, isolation: 3 };`~~
+  ~~`workoutExercises.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);`~~
+  **Superseded — see the real two-pass logic above.** This never existed as literal code;
+  it was always a simplification, and by 2026-10 no longer an accurate one.
+
+**Priority classification** (`classifyPriority`, `workout-selection.utils.ts:532`) — 5 real
+categories, checked in this exact order (the old doc omitted `foundation` entirely):
+1. `isFoundationExercise` → **foundation** — not a skill exercise (see #2) AND (tagged
+   `foundation`, OR name matches a pull-up/dip/push-up/row pattern, OR tagged `compound`/
+   `movementType==='compound'` AND `mechanicalType==='bent_arm'`)
+2. `isSkillExercise` → **skill** — tagged `skill`, or name matches back-lever/front-lever/
+   human-flag/muscle-up/planche patterns. Checked *before* foundation — "Tuck Planche
+   Push-up" contains "Push-up" but the skill keyword wins.
+3. tagged `compound` or `movementType==='compound'` → **compound**
+4. tagged `isolation` → **isolation**
+5. `primaryMuscle==='full_body'` → **compound**
+6. default → **accessory**
 
 There is NO separate difficulty sort key — score already incorporates level
 proximity, gear match and persona.
+
+**Verification note for future investigations:** if you need to check whether a
+generated workout's exercise order is "correct," don't re-derive a simplified rule from
+this doc — import and call `applyDomainPrioritySort` (and, if warmup/physiological
+ordering is in question, `applyPhysiologicalSort` too) directly as the oracle and
+compare its output to the real array. That is exactly how this section's own error was
+caught — a hand-rolled approximation drifted from the real implementation once, and a
+doc paraphrase of either function is one refactor away from doing it again.
 
 ---
 
