@@ -123,12 +123,40 @@ interface DomainEntry {
   [k: string]: unknown;
 }
 
-/** Firestore Admin SDK Timestamp, a JS Date, an ISO string, or absent — all 4 appear across this codebase's various writers. Normalized to epoch ms for comparison only; the ORIGINAL value (whichever side wins) is what actually gets written, never a reconstructed one. */
+/**
+ * Firestore Admin SDK Timestamp, a JS Date, an ISO string, or absent —
+ * all 4 appear across this codebase's various writers. Normalized to
+ * epoch ms for comparison only; the ORIGINAL value (whichever side wins)
+ * is what actually gets written, never a reconstructed one.
+ *
+ * CORRECTNESS FIX (found reviewing this script's own first real dry-run
+ * against live data, before any --confirm): a real 5th shape exists —
+ * a PLAIN object with `seconds`/`nanoseconds` (no underscore, no
+ * Timestamp prototype) — distinct from the Admin SDK's own
+ * `_seconds`/`_nanoseconds` Timestamp instances, which also appear in the
+ * same collection. Confirmed by direct inspection of the dry-run's
+ * printed entries: some lastWorkoutDate values round-tripped through a
+ * path that strips the Timestamp class (e.g. a client-SDK write, or a
+ * JSON serialize/deserialize somewhere upstream) before ever reaching
+ * Firestore, so they're stored as — and read back as — a bare map, not a
+ * real Timestamp. Without this branch, toMillis silently returned 0 for
+ * that shape, so a real lastWorkoutDate on the losing side of a merge
+ * would have been DROPPED instead of compared — the exact class of bug
+ * this whole merge rewrite exists to prevent, just one shape deeper.
+ */
 function toMillis(v: unknown): number {
   if (!v) return 0;
   if (v instanceof admin.firestore.Timestamp) return v.toMillis();
   if (v instanceof Date) return v.getTime();
   if (typeof v === 'string' || typeof v === 'number') { const d = new Date(v); return isNaN(d.getTime()) ? 0 : d.getTime(); }
+  if (typeof v === 'object') {
+    const obj = v as Record<string, unknown>;
+    const seconds = typeof obj.seconds === 'number' ? obj.seconds : typeof obj._seconds === 'number' ? obj._seconds : undefined;
+    if (seconds !== undefined) {
+      const nanos = typeof obj.nanoseconds === 'number' ? obj.nanoseconds : typeof obj._nanoseconds === 'number' ? obj._nanoseconds : 0;
+      return seconds * 1000 + Math.floor(nanos / 1e6);
+    }
+  }
   return 0;
 }
 
