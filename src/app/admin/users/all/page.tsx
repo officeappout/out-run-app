@@ -99,6 +99,102 @@ const EVENT_TIMELINE_STYLE: Record<
 };
 
 /**
+ * Per-user push history (read-only aggregation over the existing
+ * `push_events` collection — see .claude/knowledge/push-notifications-audit-
+ * 2026-10-04.md). One row per `pushId`, merged from however many of the up
+ * to 4 event docs that pushId has (push_sent always exists if it exists at
+ * all; push_opened/landing_screen/post_push_outcome are each optional,
+ * present only if that stage actually happened). Covers only the senders
+ * that opt into measurement today (stepGoalNudgeScheduler,
+ * onPlannedActivityCreated) — see the audit doc's gap table.
+ */
+interface PushHistoryEntry {
+  pushId: string;
+  sentAt?: Date;
+  category?: string;
+  channel?: string;
+  persona?: string;
+  variantId?: string;
+  copyText?: string;
+  delivered?: boolean;
+  openedAt?: Date;
+  landingPath?: string;
+  outcomeChecked?: boolean;
+  outcomeAchieved?: boolean;
+  outcomeType?: string;
+}
+
+/** Merge push_events docs (already filtered to one uid) into one row per
+ * pushId. Pure — no I/O — so the grouping logic itself is easy to reason
+ * about separately from the Firestore fetch that produces its input. */
+function groupPushEventsByPushId(
+  docs: Array<{ data: () => Record<string, unknown> }>,
+): PushHistoryEntry[] {
+  const byPushId = new Map<string, PushHistoryEntry>();
+  const toDateSafe = (v: unknown): Date | undefined => {
+    if (v && typeof (v as { toDate?: () => Date }).toDate === 'function') {
+      return (v as { toDate: () => Date }).toDate();
+    }
+    return undefined;
+  };
+
+  for (const doc of docs) {
+    const d = doc.data();
+    const pushId = d.pushId as string | undefined;
+    if (!pushId) continue;
+    const entry = byPushId.get(pushId) ?? { pushId };
+
+    switch (d.eventType as string) {
+      case 'push_sent':
+        entry.sentAt = toDateSafe(d.sentAt);
+        entry.category = (d.category as string) ?? entry.category;
+        entry.channel = (d.channel as string) ?? entry.channel;
+        entry.persona = (d.persona as string) ?? entry.persona;
+        entry.variantId = (d.variantId as string) ?? entry.variantId;
+        entry.delivered = d.delivered as boolean | undefined;
+        break;
+      case 'push_opened':
+        entry.openedAt = toDateSafe(d.openedAt);
+        entry.channel = entry.channel ?? (d.channel as string);
+        break;
+      case 'landing_screen':
+        entry.landingPath = d.landingPath as string | undefined;
+        break;
+      case 'post_push_outcome':
+        entry.outcomeChecked = true;
+        entry.outcomeAchieved = d.goalCompleted as boolean | undefined;
+        entry.outcomeType = d.outcomeType as string | undefined;
+        break;
+      default:
+        break;
+    }
+    byPushId.set(pushId, entry);
+  }
+
+  return Array.from(byPushId.values()).sort((a, b) => (b.sentAt?.getTime() ?? 0) - (a.sentAt?.getTime() ?? 0));
+}
+
+/** "If derivable" per the task — null when there are zero opens to derive
+ * an hour from, not a misleading 0/00:00 default. */
+function mostCommonOpenHourIsrael(entries: PushHistoryEntry[]): number | null {
+  const hours = entries
+    .filter((e) => e.openedAt)
+    .map((e) => Number(new Date(e.openedAt!.toLocaleString('en-US', { timeZone: 'Asia/Jerusalem' })).getHours()));
+  if (hours.length === 0) return null;
+  const counts = new Map<number, number>();
+  hours.forEach((h) => counts.set(h, (counts.get(h) ?? 0) + 1));
+  let bestHour = hours[0];
+  let bestCount = -1;
+  counts.forEach((count, hour) => {
+    if (count > bestCount) {
+      bestHour = hour;
+      bestCount = count;
+    }
+  });
+  return bestHour;
+}
+
+/**
  * Program-identity audit §06 Stage 7: resolve a Firestore program id to its
  * canonical track/domain slug BEFORE using it as a Firestore field-path key.
  * This file had 3 independent ad hoc resolvers (assignProgramToUser's
@@ -123,11 +219,12 @@ interface UserDetailModalProps {
 }
 
 function UserDetailModal({ user, onClose }: UserDetailModalProps) {
-  const [activeTab, setActiveTab] = useState<'profile' | 'stats' | 'progression' | 'onboarding' | 'history' | 'timeline'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'stats' | 'progression' | 'onboarding' | 'history' | 'timeline' | 'pushHistory'>('profile');
   const [fullProfile, setFullProfile] = useState<UserFullProfile | null>(null);
   const [workoutHistory, setWorkoutHistory] = useState<WorkoutHistoryEntry[]>([]);
   const [stepsHistory, setStepsHistory] = useState<DailyStepsSnapshot[]>([]);
   const [analyticsEvents, setAnalyticsEvents] = useState<AnalyticsEvent[]>([]);
+  const [pushHistory, setPushHistory] = useState<PushHistoryEntry[]>([]);
   const [gearDefinitions, setGearDefinitions] = useState<GearDefinition[]>([]);
   const [authority, setAuthority] = useState<{ name: string; type?: string; id?: string } | null>(null);
   const [programs, setPrograms] = useState<Program[]>([]);
@@ -175,6 +272,43 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
       // Load analytics events
       const events = await getUserEvents(user.id, undefined, 100);
       setAnalyticsEvents(events);
+
+      // Load this user's push history — read-only aggregation over the
+      // existing push_events collection, no writes. See
+      // .claude/knowledge/push-notifications-audit-2026-10-04.md for why
+      // this only covers 2 of 12 senders today (measurement is opt-in).
+      try {
+        const { collection, query: firestoreQuery, getDocs, where } = await import('firebase/firestore');
+        const { db: firestoreDb } = await import('@/lib/firebase');
+        const pushEventsSnap = await getDocs(
+          firestoreQuery(collection(firestoreDb, 'push_events'), where('uid', '==', user.id)),
+        );
+        let grouped = groupPushEventsByPushId(pushEventsSnap.docs);
+
+        // Best-effort copy lookup: resolve each distinct variantId (bundleId)
+        // against the live "מנהל התראות" corpus. A miss just means no copy
+        // shown — never blocks rendering the rest of the row.
+        const bundleIds = Array.from(new Set(grouped.map((e) => e.variantId).filter((v): v is string => !!v))).slice(0, 30);
+        if (bundleIds.length > 0) {
+          const corpusSnap = await getDocs(
+            firestoreQuery(
+              collection(firestoreDb, 'workoutMetadata', 'notifications', 'notifications'),
+              where('bundleId', 'in', bundleIds),
+            ),
+          );
+          const textByBundleId = new Map<string, string>();
+          corpusSnap.docs.forEach((d) => {
+            const data = d.data() as { bundleId?: string; text?: string };
+            if (data.bundleId && data.text) textByBundleId.set(data.bundleId, data.text);
+          });
+          grouped = grouped.map((e) => ({ ...e, copyText: e.variantId ? textByBundleId.get(e.variantId) : undefined }));
+        }
+
+        setPushHistory(grouped);
+      } catch (error) {
+        console.error('Error loading push history:', error);
+        setPushHistory([]);
+      }
 
       // Load gear definitions for equipment display
       const gear = await getAllGearDefinitions();
@@ -1031,7 +1165,7 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
 
             {/* Tabs */}
             <div className="flex gap-2 border-b border-gray-200 overflow-x-auto">
-              {(['profile', 'stats', 'progression', 'onboarding', 'history', 'timeline'] as const).map((tab) => (
+              {(['profile', 'stats', 'progression', 'onboarding', 'history', 'timeline', 'pushHistory'] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -1050,6 +1184,12 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                     <span className="flex items-center gap-1.5">
                       <Clock size={14} />
                       ציר זמן
+                    </span>
+                  )}
+                  {tab === 'pushHistory' && (
+                    <span className="flex items-center gap-1.5">
+                      <Bell size={14} />
+                      היסטוריית פוש
                     </span>
                   )}
                   {activeTab === tab && (
@@ -2908,6 +3048,128 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                     </div>
                   </div>
                 )}
+
+                {activeTab === 'pushHistory' && (() => {
+                  const totalSent = pushHistory.length;
+                  const openedCount = pushHistory.filter((e) => e.openedAt).length;
+                  const openRate = totalSent > 0 ? Math.round((openedCount / totalSent) * 100) : null;
+                  const lastSent = pushHistory[0]?.sentAt; // already sorted newest-first
+                  const bestHour = mostCommonOpenHourIsrael(pushHistory);
+
+                  return (
+                    <div className="space-y-6">
+                      {/* Per-user summary strip */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                          <div className="text-[11px] text-slate-500 font-bold mb-1">סה״כ נשלחו</div>
+                          <div className="text-sm font-black text-slate-800">{totalSent}</div>
+                        </div>
+                        <div
+                          className={`border rounded-xl p-3 ${
+                            openRate !== null && openRate > 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-200'
+                          }`}
+                        >
+                          <div className="text-[11px] text-gray-500 font-bold mb-1">אחוז פתיחה</div>
+                          <div className="text-sm font-black text-gray-800">
+                            {openRate !== null ? `${openRate}% (${openedCount}/${totalSent})` : 'ללא נתון'}
+                          </div>
+                        </div>
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+                          <div className="text-[11px] text-blue-600 font-bold mb-1">פוש אחרון שנשלח</div>
+                          <div className="text-sm font-black text-blue-800">
+                            {lastSent ? lastSent.toLocaleString('he-IL') : 'ללא נתון'}
+                          </div>
+                        </div>
+                        <div className="bg-purple-50 border border-purple-200 rounded-xl p-3">
+                          <div className="text-[11px] text-purple-600 font-bold mb-1">שעת פתיחה שכיחה</div>
+                          <div className="text-sm font-black text-purple-800">
+                            {bestHour !== null ? `${String(bestHour).padStart(2, '0')}:00` : 'אין מספיק נתונים'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-[11px] text-gray-400 font-simpler" dir="rtl">
+                        מכיל רק פושים שנשלחו ע״י הסנדרים ששולבו במדידה (step-goal, planned-activity) — לא כל סוגי הפוש.
+                        ראו .claude/knowledge/push-notifications-audit-2026-10-04.md.
+                      </div>
+
+                      {/* Reverse-chronological push list */}
+                      <div>
+                        <h3 className="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
+                          <Bell size={20} className="text-[#5BC2F2]" />
+                          היסטוריית פוש (חדש → ישן)
+                        </h3>
+
+                        {pushHistory.length === 0 ? (
+                          <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                            <Bell size={32} className="mx-auto text-gray-300 mb-2" />
+                            <div className="text-gray-500 text-sm font-simpler">
+                              אין פושים מתועדים למשתמש זה
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-3 max-h-[600px] overflow-y-auto pe-2">
+                            {pushHistory.map((entry) => (
+                              <div key={entry.pushId} className="bg-white border border-gray-200 rounded-xl p-3">
+                                <div className="flex items-start justify-between gap-2 mb-1">
+                                  <div className="font-bold text-sm font-simpler text-gray-900">
+                                    {entry.category ?? 'ללא קטגוריה'}
+                                    {entry.channel && <span className="text-gray-400"> · {entry.channel}</span>}
+                                  </div>
+                                  <div className="text-xs text-gray-400 whitespace-nowrap">
+                                    {entry.sentAt ? entry.sentAt.toLocaleString('he-IL') : '—'}
+                                  </div>
+                                </div>
+
+                                {entry.copyText && (
+                                  <div className="text-xs text-gray-600 font-simpler mb-2 bg-gray-50 rounded-lg p-2" dir="rtl">
+                                    {entry.copyText}
+                                  </div>
+                                )}
+
+                                <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                                  <span
+                                    className={`px-2 py-0.5 rounded-full font-bold ${
+                                      entry.delivered ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                                    }`}
+                                  >
+                                    {entry.delivered ? 'נמסר' : 'לא נמסר'}
+                                  </span>
+                                  <span
+                                    className={`px-2 py-0.5 rounded-full font-bold ${
+                                      entry.openedAt ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+                                    }`}
+                                  >
+                                    {entry.openedAt ? `נפתח ${entry.openedAt.toLocaleString('he-IL')}` : 'לא נפתח'}
+                                  </span>
+                                  {entry.landingPath && (
+                                    <span className="px-2 py-0.5 rounded-full font-bold bg-cyan-100 text-cyan-700">
+                                      נחת: {entry.landingPath}
+                                    </span>
+                                  )}
+                                  {entry.outcomeChecked && (
+                                    <span
+                                      className={`px-2 py-0.5 rounded-full font-bold ${
+                                        entry.outcomeAchieved ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                                      }`}
+                                    >
+                                      {entry.outcomeAchieved ? '✓' : '✗'} תוצאה ({entry.outcomeType ?? '—'})
+                                    </span>
+                                  )}
+                                  {!entry.outcomeChecked && entry.openedAt && (
+                                    <span className="px-2 py-0.5 rounded-full font-bold bg-gray-100 text-gray-500">
+                                      תוצאה: ממתין לבדיקה
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </>
             )}
           </div>
