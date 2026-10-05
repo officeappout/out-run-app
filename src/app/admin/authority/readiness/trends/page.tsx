@@ -104,7 +104,12 @@ export default function ReadinessTrendsPage() {
     );
   }
 
-  const bothEmpty = data.green.length === 0;
+  // David's correction, 06.10.2026 — this used to check green alone
+  // despite its name, hiding a real blue line (a never-officially-
+  // tested unit with real app-derived data) behind the empty state.
+  // Nothing to show only when BOTH lines have nothing real to draw.
+  const hasRealBlueLine = data.blue.some((b) => b.meetsPercent !== null);
+  const nothingToShow = data.green.length === 0 && !hasRealBlueLine;
   const RUN_COLOR = '#2563EB';
   const PULL_COLOR = READINESS_COLORS.pass;
 
@@ -159,7 +164,7 @@ export default function ReadinessTrendsPage() {
         <p className="text-[11px] font-bold text-amber-700 -mt-2">{data.populationFilterNote}</p>
       )}
 
-      {bothEmpty ? (
+      {nothingToShow ? (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center">
           <p className="text-sm font-bold text-gray-900">דרושים מבדק שני ומשתמשים מקושרים.</p>
           <p className="text-xs text-gray-400 mt-1">אין עדיין נתונים להצגה בתחום זה.</p>

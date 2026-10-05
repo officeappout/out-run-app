@@ -81,7 +81,10 @@ export default function TrendsMainChart({ green, blue }: TrendsMainChartProps) {
   const hasBlueLine = blue.some((b) => b.meetsPercent !== null);
   const rows = buildChartRows(green, blue);
 
-  if (green.length === 0) {
+  // David's correction, 06.10.2026 — green being empty (a unit never
+  // officially tested) must NOT hide a real blue line. Only bail out
+  // here when there is truly nothing to draw on either line.
+  if (green.length === 0 && !hasBlueLine) {
     return (
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center">
         <p className="text-sm text-gray-400">אין עדיין תאריך בוחן בתחום זה — דרושים מבדק שני ומשתמשים מקושרים.</p>

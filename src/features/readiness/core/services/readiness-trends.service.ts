@@ -86,6 +86,9 @@ const MIN_QUALIFYING_LEVEL: Record<BaseProgramSlug, number> = { pull: 11, push: 
 /** Below this fraction of the scope with a determinable blue-line value, the point is never drawn — a line built from a handful of people would look like a claim about a whole unit. */
 const MIN_DETERMINABLE_FRACTION = 0.3;
 
+/** David's fixed constant, 06.10.2026 — how far back to anchor the blue line's month range when there is NO test-date history at all (a unit never officially tested). Anchoring to "now" instead would produce a single month, a dot rather than a trend. */
+const BLUE_LINE_FALLBACK_MONTHS = 6;
+
 export type ComponentFilter = 'all' | 'run' | 'strength';
 export type PopulationFilter = 'all' | 'passed_previous_round' | 'did_not_pass_previous_round';
 
@@ -468,8 +471,18 @@ export async function computeReadinessTrends(
     const programIdBySlug = await resolveProgramIdsBySlug(db);
     await verifyCanonicalLevelsExist(db, programIdBySlug);
 
+    // David's correction, 06.10.2026 — a unit that has NEVER had an
+    // official test still deserves a real trend line, not a single
+    // month's point. Anchoring to "now" when there's no test-date
+    // history produces exactly one month (the loop below starts and
+    // ends at the same year/month) — a dot, not a trend. Anchor 6
+    // months back instead, fixed, whenever there's no test-date
+    // history to anchor to; once a real test-date event exists, the
+    // anchor goes back to being that event's own month, unchanged.
     const now = new Date();
-    const firstMonthAnchor = testDateEvents.length > 0 ? testDateEvents[0] : now;
+    const firstMonthAnchor = testDateEvents.length > 0
+      ? testDateEvents[0]
+      : new Date(now.getFullYear(), now.getMonth() - BLUE_LINE_FALLBACK_MONTHS, 1);
     const months: { year: number; month: number }[] = [];
     let y = firstMonthAnchor.getFullYear();
     let m = firstMonthAnchor.getMonth();

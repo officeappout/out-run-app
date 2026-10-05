@@ -413,3 +413,73 @@ describe('computeReadinessTrends — cumulative scope fallback (fix #3) and popu
     expect(result.body.populationFilterNote).toBe('אין עדיין סבב קודם להשוואה — דרושים שני תאריכי בוחן בהיקף זה.');
   });
 });
+
+describe('computeReadinessTrends — blue line without any official test history (06.10.2026 correction)', () => {
+  it('0 test-date events + 40% linked+determinable → the blue line is anchored 6 months back (a real range), not a single dot', async () => {
+    const soldierIds = Array.from({ length: 20 }, (_, i) => `anchor-s${i}`);
+    for (const id of soldierIds) await createSoldier(id, `חייל ${id}`, 'male', null);
+    for (let i = 0; i < 8; i++) {
+      const id = soldierIds[i];
+      const uid = `anchor-uid-${i}`;
+      await db.collection('readiness_soldiers').doc(id).update({ uid });
+      await seedStrengthWorkout(`anchor-w-${id}-1`, uid, daysAgo(1), FULL_PULLUP, [6]);
+      await seedStrengthWorkout(`anchor-w-${id}-2`, uid, daysAgo(2), FULL_PULLUP, [6]);
+      await seedStrengthWorkout(`anchor-w-${id}-3`, uid, daysAgo(1), FULL_DIP, [11]);
+      await seedStrengthWorkout(`anchor-w-${id}-4`, uid, daysAgo(2), FULL_DIP, [12]);
+    }
+    // Zero addResult() calls anywhere — this unit has never had an official test.
+
+    const result = await computeReadinessTrends(db, TENANT_OWNER_SCOPE, { componentFilter: 'strength' });
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    expect(result.body.green.length).toBe(0);
+    expect(result.body.blue.length).toBe(7); // anchored 6 months back through the current month, inclusive — a range, not "now" alone
+    const hasRealPoint = result.body.blue.some((b) => b.meetsPercent !== null);
+    expect(hasRealPoint).toBe(true); // this is exactly what the screen's render-gate (hasBlueLine) depends on
+  });
+
+  it('0 test-date events + 25% (below the 30% floor) → still nothing real to draw on either line', async () => {
+    await createSoldier('s1', 'ח1', 'male', 'uid-a');
+    await createSoldier('s2', 'ח2', 'male', null);
+    await createSoldier('s3', 'ח3', 'male', null);
+    await createSoldier('s4', 'ח4', 'male', null);
+    await seedStrengthWorkout('w1', 'uid-a', daysAgo(1), FULL_PULLUP, [3]);
+    await seedStrengthWorkout('w2', 'uid-a', daysAgo(2), FULL_PULLUP, [4]);
+    await seedStrengthWorkout('w3', 'uid-a', daysAgo(1), FULL_DIP, [11]);
+    await seedStrengthWorkout('w4', 'uid-a', daysAgo(2), FULL_DIP, [12]);
+    // Zero addResult() calls — no official test history.
+
+    const result = await computeReadinessTrends(db, TENANT_OWNER_SCOPE, { componentFilter: 'strength' });
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    expect(result.body.green.length).toBe(0);
+    expect(result.body.blue.every((b) => b.meetsPercent === null)).toBe(true); // below the floor every month — correctly nothing to draw
+  });
+
+  it('0 test-date events + 0 linked soldiers → nothing to show at all', async () => {
+    await createSoldier('s1', 'חייל', 'male', null);
+    await createSoldier('s2', 'חייל', 'male', null);
+
+    const result = await computeReadinessTrends(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    expect(result.body.green.length).toBe(0);
+    expect(result.body.blue.length).toBe(0); // linkedUids.length === 0 — the blue block never runs at all
+  });
+
+  it('regression: a real test-date event still anchors the blue line to its OWN month, not the 6-month fallback', async () => {
+    await createSoldier('s1', 'חייל', 'male', 'uid-1');
+    // 2026-02-01 is well before the ~6-month-back fallback window from
+    // "now" (2026-10-xx) would reach — if the anchor fix regressed to
+    // always using the fallback, the first blue month would land around
+    // April 2026, not February.
+    await addResult('r1', 's1', 'run_3000m', 'pass', 1000, new Date('2026-02-01'));
+
+    const result = await computeReadinessTrends(db, TENANT_OWNER_SCOPE, { componentFilter: 'strength' });
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    const firstBlueMonth = new Date(result.body.blue[0].month);
+    expect(firstBlueMonth.getFullYear()).toBe(2026);
+    expect(firstBlueMonth.getMonth()).toBe(1); // February (0-indexed) — the test-date's own month
+  });
+});
