@@ -106,8 +106,15 @@ export interface CityMappingDiscoveryRunDoc {
   requestedByUid: string;
   status: CityMappingDiscoveryRunStatus;
   createdAt: FirebaseFirestore.Timestamp;
-  /** Set by the transaction that flips pending->running. Drives stale-run reclaim (see reclaimStaleRuns). */
+  /** Set by the transaction that flips pending->running. Fallback staleness signal for runs
+   *  that predate lastHeartbeatAt (06.10.2026) — see reclaimStaleRuns. */
   claimedAt?: FirebaseFirestore.Timestamp;
+  /** Written every ~2min by runGeoDiscovery itself (scripts/geo-discovery-routes.ts,
+   *  from inside overpass()'s own retry loop) for as long as the run is genuinely
+   *  making progress. The real staleness signal reclaimStaleRuns judges by — claimedAt
+   *  is only the fallback for a run doc that predates this field. Absent on every
+   *  run started before 06.10.2026. */
+  lastHeartbeatAt?: FirebaseFirestore.Timestamp;
   /** How many times this doc has been reclaimed after going stale. 0/undefined on a fresh doc; capped at 2 — see reclaimStaleRuns. */
   attemptCount?: number;
   keptCount?: number;
@@ -219,6 +226,7 @@ export async function processDiscoveryRun(runId: string, db: admin.firestore.Fir
       delete: false,
       roundtrips: !!data.roundtrips,
       skipOsm: false,
+      runId, // drives the heartbeat write inside runGeoDiscovery — see reclaimStaleRuns below
     };
     const result: GeoDiscoveryResult = await runGeoDiscovery(opts, db);
     // NOT VERIFIED (27.09.2026) — a real 19-min run against herzliya via
@@ -271,6 +279,28 @@ export async function processDiscoveryRun(runId: string, db: admin.firestore.Fir
  * what stops that from becoming an infinite reclaim loop once this runs
  * across dozens of cities instead of one at a time.
  *
+ * Judged by lastHeartbeatAt age, NOT claimedAt age (06.10.2026 fix — see the
+ * Arad incident below). claimedAt is only the fallback for a run doc that
+ * predates lastHeartbeatAt entirely. Real incident this responds to: a run
+ * against Arad took 117 real minutes (Overpass congestion, not a bug in
+ * Arad's own data) — claimedAt-only staleness reclaimed it TWICE while it
+ * was still genuinely alive and making progress, spawning a fully
+ * concurrent second runGeoDiscovery against the same region (confirmed via
+ * Cloud Logging trace IDs: two independent completions, "26 created, 0
+ * updated" followed by "0 created, 26 updated" for the same candidates 20
+ * minutes later — harmless only because the official_routes write is an
+ * externalId upsert, see that comment in geo-discovery-routes.ts). A run
+ * that's still heartbeating is, by definition, not stale — no matter how
+ * long it's been claimed.
+ *
+ * The outer Firestore query below still filters on claimedAt, not
+ * lastHeartbeatAt — that's a deliberate, cheap, always-safe PRE-filter, not
+ * the real judgment. claimedAt is written once at claim time, strictly
+ * before any heartbeat write can happen, so claimedAt < cutoff can never
+ * exclude a genuinely-stale doc; it may just ALSO include some docs whose
+ * heartbeat is actually fresh, which the per-doc check below correctly
+ * leaves alone. This avoids a new composite index on lastHeartbeatAt.
+ *
  * Each doc is reclaimed inside its own transaction (not a single batch)
  * because the re-read-and-check (status still 'running'?) has to happen
  * atomically per doc — a batch write has no equivalent conditional-check,
@@ -279,7 +309,8 @@ export async function processDiscoveryRun(runId: string, db: admin.firestore.Fir
  * clobbering a real result back to 'pending'.
  */
 async function reclaimStaleRuns(db: admin.firestore.Firestore): Promise<void> {
-  const cutoff = admin.firestore.Timestamp.fromMillis(Date.now() - STALE_RUNNING_THRESHOLD_MS);
+  const cutoffMs = Date.now() - STALE_RUNNING_THRESHOLD_MS;
+  const cutoff = admin.firestore.Timestamp.fromMillis(cutoffMs);
   const staleSnap = await db
     .collection(CITY_MAPPING_DISCOVERY_RUNS_COLLECTION)
     .where('status', '==', 'running')
@@ -291,6 +322,10 @@ async function reclaimStaleRuns(db: admin.firestore.Firestore): Promise<void> {
       const fresh = await tx.get(doc.ref);
       const data = fresh.data() as Partial<CityMappingDiscoveryRunDoc> | undefined;
       if (!data || data.status !== 'running') return; // resolved (or reclaimed) since the query ran
+      // Real liveness signal: lastHeartbeatAt when the run writes one, falling
+      // back to claimedAt for a run doc that predates this field entirely.
+      const lastAlive = data.lastHeartbeatAt ?? data.claimedAt;
+      if (lastAlive && lastAlive.toMillis() >= cutoffMs) return; // still genuinely alive — the outer query's pre-filter caught it, but it isn't actually stale
       const attemptCount = (data.attemptCount ?? 0) + 1;
       if (attemptCount >= 2) {
         logger.error(`[geoDiscoveryWorker] run ${doc.id} reclaimed a 2nd time — presumed non-transient, marking failed`);
@@ -301,7 +336,7 @@ async function reclaimStaleRuns(db: admin.firestore.Firestore): Promise<void> {
           finishedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
       } else {
-        logger.info(`[geoDiscoveryWorker] run ${doc.id} stale on 'running' since ${data.claimedAt?.toDate?.().toISOString()} — reverting to pending (attempt ${attemptCount})`);
+        logger.info(`[geoDiscoveryWorker] run ${doc.id} stale on 'running' — last alive (${data.lastHeartbeatAt ? 'heartbeat' : 'claimedAt fallback'}) ${lastAlive?.toDate?.().toISOString()} — reverting to pending (attempt ${attemptCount})`);
         tx.update(doc.ref, { status: 'pending', attemptCount });
       }
     });

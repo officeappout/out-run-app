@@ -24,6 +24,7 @@ import {
   runCityMapping,
   triggerRouteDiscovery,
   subscribeToDiscoveryRun,
+  findActiveDiscoveryRun,
   type CityMappingProgressUpdate,
   type CityMappingStepName,
   type CityMappingResult,
@@ -216,6 +217,19 @@ export default function CityMappingPage() {
     return unsubscribe;
   }, [discoveryRunId]);
 
+  // Adopt an already-active run for this city instead of leaving the operator
+  // able to fire a second, fully concurrent one — covers the page being
+  // reopened/refreshed while a prior discoveryRunId only lived in the last
+  // session's React state (see findActiveDiscoveryRun's own header comment).
+  useEffect(() => {
+    if (!summary?.registeredCity || discoveryRunId) return;
+    let cancelled = false;
+    findActiveDiscoveryRun(summary.registeredCity.key).then((existing) => {
+      if (!cancelled && existing) setDiscoveryRunId(existing.id);
+    });
+    return () => { cancelled = true; };
+  }, [summary?.registeredCity, discoveryRunId]);
+
   const onProgress = useCallback((update: CityMappingProgressUpdate) => {
     setSteps((prev) =>
       prev.map((s) => (s.id === update.step ? { ...s, status: update.status, message: update.message, count: update.count ?? s.count } : s)),
@@ -248,6 +262,12 @@ export default function CityMappingPage() {
 
   async function handleTriggerDiscovery() {
     if (!summary?.registeredCity || !currentUserId || discoveryTriggering) return;
+    // Defensive re-check — the mount-time adopt effect above should already
+    // have caught this, but re-verify right before creating a new run doc
+    // rather than trust React state alone (closes the race where the adopt
+    // effect hasn't resolved yet when this fires).
+    const existing = await findActiveDiscoveryRun(summary.registeredCity.key);
+    if (existing) { setDiscoveryRunId(existing.id); return; }
     const apply = !dryRun; // same toggle that already governs the rest of this page's pipeline — no new UI
     if (apply) {
       // Real production write (creates status:'pending', published:false

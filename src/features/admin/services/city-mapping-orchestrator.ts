@@ -414,6 +414,32 @@ export interface CityMappingDiscoveryRunDoc {
 }
 
 /**
+ * Finds an already-active (pending or running) discovery run for a given
+ * regionKey, if one exists. Used by the Add-City page so a second click of
+ * "הרץ גילוי" — or simply reopening the page while a prior run is still
+ * in flight — ADOPTS the existing run instead of creating a second,
+ * independent `city_mapping_discovery_runs` doc that would run fully
+ * concurrently against the same city (geoDiscoveryWorker.ts's
+ * cityMappingDiscoveryPoller has no regionKey-based exclusivity at all —
+ * confirmed live, 05.10.2026, two concurrent runs against Arad both
+ * completed independently). This is a UI-level guard against THAT specific
+ * trigger path; it does not and cannot stop a second run started some
+ * other way (a direct script, a retried client call that races this check)
+ * — real regionKey exclusivity in the worker itself is a separate piece of
+ * work, not this fix.
+ *
+ * Filters regionKey client-side over the active-run set — that set is
+ * small (single city-discovery jobs, not a backlog of hundreds), and
+ * status alone is already covered by the existing status+claimedAt /
+ * status+createdAt composite indexes, so this needs no new index.
+ */
+export async function findActiveDiscoveryRun(regionKey: string): Promise<{ id: string; data: CityMappingDiscoveryRunDoc } | null> {
+  const snap = await getDocs(query(collection(db, CITY_MAPPING_DISCOVERY_RUNS_COLLECTION), where('status', 'in', ['pending', 'running'])));
+  const match = snap.docs.find((d) => (d.data() as CityMappingDiscoveryRunDoc).regionKey === regionKey);
+  return match ? { id: match.id, data: match.data() as CityMappingDiscoveryRunDoc } : null;
+}
+
+/**
  * Writes a city_mapping_discovery_runs doc — the ONLY thing routesGate's
  * blocked-panel button does. Picked up by cityMappingDiscoveryPoller
  * (onSchedule, every 5min) within ~5min.
@@ -427,18 +453,11 @@ export interface CityMappingDiscoveryRunDoc {
  * convention requires. Neither is right; the operator's own existing
  * toggle decides.
  *
- * runGeoDiscovery's apply:true path is DOCUMENTED to always write
- * status:'pending', published:false (its own source, scripts/
- * geo-discovery-routes.ts) — but NOT YET VERIFIED end to end by a real
- * passing run: the 27.09.2026 herzliya test only got as far as a dry-run
- * line ("[dry-run] no writes. 15 pending routes would be written...") —
- * good evidence of what apply:true WOULD do, not a measured apply:true
- * write. The dedicated apply:true test (CALL 3 in
- * scripts/_test-stage2-worker.ts) was never reached — the script crashed
- * earlier, on the dry-run call's own final status write (see
- * geoDiscoveryWorker.ts:193's NOT VERIFIED note). First real apply:true
- * run from this button should be treated as the actual first measurement,
- * not a formality.
+ * runGeoDiscovery's apply:true path WRITES status:'pending', published:false
+ * — verified end to end by a real passing run (05.10.2026, Arad: 26 routes
+ * created, all status:'pending'/published:false — see the heartbeat fix
+ * above, functions/src/geoDiscoveryWorker.ts, for why that specific run also
+ * exposed a real concurrency bug independent of this write path itself).
  *
  * Safe to send apply:true from a client the worker doesn't otherwise trust:
  * this page is already gated to isSuperAdmin/isSystemAdmin at the route
