@@ -320,12 +320,50 @@ function runHardRules(workout: any, combo: Combo, assessedSkillIds: Set<string>)
       `actual=[${exercises.map(e => e.exercise?.id ?? '?').join(',')}] oracle=[${oracleOrder.map((e: any) => e.exercise?.id ?? '?').join(',')}]`,
   });
 
-  // H5 — sa_ba_balance (LAW 8 / condition 29: <=2 straight_arm per session)
+  // H5 — sa_ba_balance: self-consistency against the REAL penalty mechanism.
+  //
+  // CORRECTED 2026-10-05 (sa_ba_balance investigation): LAW 8's own doc text
+  // was already accurate ("penalized, not excluded") -- the bug was in THIS
+  // check, which hard-asserted the outcome the design never guarantees.
+  // `applyMechanicalBalancing` (ContextualEngine.ts) applies a SCORE PENALTY
+  // (`(count-2)*5`) to the 3rd+ straight-arm exercise encountered while
+  // scoring the pool -- it never excludes one. Traced the one documented
+  // escape hatch (`relaxSABA`, single-program-filter) and confirmed by
+  // direct reproduction that it did NOT apply to the combo that first
+  // surfaced this (push L15 -- the user's overall assessed domains include
+  // pull/legs too, so `activeProgramFilters.length > 1`); the penalty fired
+  // correctly every time, confirmed live via each exercise's own
+  // `reasoning` array (`"SA עודף: -N (count/2)"`) -- a thin single-domain
+  // pool can still let a heavily-penalized (even negative-scored) exercise
+  // win when nothing better is available. That is the mechanism working as
+  // designed, not a bypassed cap.
+  //
+  // Since the penalty only ever skips the 1st and 2nd straight-arm exercise
+  // ENCOUNTERED during pool-scoring (not the 1st/2nd in the final cut), a
+  // pigeonhole argument gives the real, checkable invariant: whenever the
+  // FINAL straight-arm count exceeds 2, at least (count - 2) of those final
+  // straight-arm exercises must carry an "SA עודף" marker in their own
+  // `reasoning` -- proof the mechanism actually engaged for them, rather
+  // than asserting a cap the design never promises to hold.
   const saCount = workout.mechanicalBalance?.straightArm ?? 0;
-  results.push({
-    rule: 'sa_ba_balance', pass: saCount <= 2,
-    detail: `straightArm=${saCount}`,
-  });
+  if (saCount <= 2) {
+    results.push({ rule: 'sa_ba_balance', pass: true, detail: `straightArm=${saCount} (within soft cap)` });
+  } else {
+    const mainStraightArm = exercises.filter(
+      (ex: any) => (ex.exerciseRole ?? 'main') === 'main' && ex.mechanicalType === 'straight_arm',
+    );
+    const penalizedCount = mainStraightArm.filter((ex: any) =>
+      (ex.reasoning ?? []).some((r: string) => r.startsWith('SA עודף')),
+    ).length;
+    const expectedMinPenalized = saCount - 2;
+    const pass = penalizedCount >= expectedMinPenalized;
+    results.push({
+      rule: 'sa_ba_balance', pass,
+      detail: pass
+        ? `straightArm=${saCount}, ${penalizedCount}/${mainStraightArm.length} carry the SA penalty marker (mechanism engaged, soft cap exceeded by design)`
+        : `straightArm=${saCount} but only ${penalizedCount}/${mainStraightArm.length} carry the SA penalty marker (expected >=${expectedMinPenalized}) -- the penalty mechanism may not have run`,
+    });
+  }
 
   return results;
 }
