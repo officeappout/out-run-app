@@ -60,11 +60,9 @@ import {
   type MarketingLink,
 } from '@/features/admin/services/marketing-links.service';
 import { adminAuthedFetch } from '@/lib/adminAuthedFetch';
-import { Send } from 'lucide-react';
-import type {
-  PushFunnelStageCounts,
-  PushFunnelCategoryBreakdown,
-} from '@/app/api/admin/push-funnel-summary/route';
+import PushFunnelSection, {
+  type PushFunnelSummaryResponse,
+} from '@/features/admin/components/cpo-dashboard/PushFunnelSection';
 
 // ──────────────────────────────────────────────────────────────────────
 // Module constants — static UI vocabulary kept outside the component so
@@ -113,19 +111,6 @@ interface DistinctAttribution {
   sources: string[];
   mediums: string[];
 }
-
-interface PushFunnelSummaryResponse {
-  overall: PushFunnelStageCounts;
-  byCategory: PushFunnelCategoryBreakdown[];
-  measuredSenderCount: number;
-}
-
-const PUSH_FUNNEL_STAGE_LABELS: { key: keyof PushFunnelStageCounts; labelHe: string }[] = [
-  { key: 'sent', labelHe: 'נשלחו' },
-  { key: 'delivered', labelHe: 'נמסרו' },
-  { key: 'opened', labelHe: 'נפתחו' },
-  { key: 'startedWorkout', labelHe: 'התחילו אימון' },
-];
 
 async function loadDistinctAttributionValues(): Promise<DistinctAttribution> {
   try {
@@ -550,86 +535,7 @@ export default function AnalyticsDashboardPage() {
           </div>
         </div>
 
-        {/* ── PUSH → ACTION FUNNEL (Analytics v2 Phase 1, 04.10.2026) ──
-            Separate funnel, separate data source (push_events, not
-            users) — sent → delivered → opened → started a workout.
-            Retained-7d (the brief's 5th stage) is explicitly deferred,
-            see .claude/knowledge/analytics-retention-dashboard-audit-
-            2026-10-04.md. Only the 3-of-12 senders that currently call
-            sendPush() with `measurement` appear here — a real, current
-            data-coverage limit, not a bug. */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-200 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-sm shrink-0">
-              <Send size={18} className="text-white" />
-            </div>
-            <div>
-              <h2 className="text-lg font-black text-slate-900">משפך פוש → פעולה</h2>
-              <p className="text-sm text-slate-500 mt-1">
-                {pushFunnelDenied
-                  ? pushFunnelDenied
-                  : `נשלח → נמסר → נפתח → התחיל אימון · ${pushFunnel?.measuredSenderCount ?? 0} סוגי פוש נמדדים כיום (מתוך 12)`}
-              </p>
-            </div>
-          </div>
-
-          {!pushFunnelDenied && (
-            <>
-              <div className="flex gap-3 overflow-x-auto px-6 py-5">
-                {PUSH_FUNNEL_STAGE_LABELS.map(({ key, labelHe }, i) => {
-                  const count = pushFunnel?.overall[key] ?? 0;
-                  const prevCount = i === 0 ? null : (pushFunnel?.overall[PUSH_FUNNEL_STAGE_LABELS[i - 1].key] ?? 0);
-                  const stepPct = prevCount != null && prevCount > 0 ? Math.round((count / prevCount) * 1000) / 10 : null;
-                  return (
-                    <div
-                      key={key}
-                      className="shrink-0 min-w-[150px] rounded-2xl p-4 border-2 border-slate-200 bg-white"
-                    >
-                      <span className="text-xs font-bold text-slate-600">{labelHe}</span>
-                      <div className="text-2xl font-black text-slate-900 mt-2">
-                        {pushFunnelLoading ? (
-                          <span className="inline-block w-12 h-7 bg-slate-200 rounded animate-pulse" />
-                        ) : (
-                          count.toLocaleString('he-IL')
-                        )}
-                      </div>
-                      {stepPct != null && (
-                        <div className="mt-2 text-xs font-bold text-emerald-600">{stepPct}% מהשלב הקודם</div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {!pushFunnelLoading && (pushFunnel?.byCategory.length ?? 0) > 0 && (
-                <div className="overflow-x-auto border-t border-slate-200">
-                  <table className="w-full text-right">
-                    <thead className="bg-slate-50 text-xs font-bold text-slate-600 uppercase tracking-wide">
-                      <tr>
-                        <th className="px-6 py-3">קטגוריה</th>
-                        <th className="px-6 py-3">נשלחו</th>
-                        <th className="px-6 py-3">נמסרו</th>
-                        <th className="px-6 py-3">נפתחו</th>
-                        <th className="px-6 py-3">התחילו אימון</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {pushFunnel!.byCategory.map((row) => (
-                        <tr key={row.category}>
-                          <td className="px-6 py-3 text-sm font-bold text-slate-900">{row.category}</td>
-                          <td className="px-6 py-3 text-sm text-slate-700">{row.sent.toLocaleString('he-IL')}</td>
-                          <td className="px-6 py-3 text-sm text-slate-700">{row.delivered.toLocaleString('he-IL')}</td>
-                          <td className="px-6 py-3 text-sm text-slate-700">{row.opened.toLocaleString('he-IL')}</td>
-                          <td className="px-6 py-3 text-sm text-slate-700">{row.startedWorkout.toLocaleString('he-IL')}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+        <PushFunnelSection data={pushFunnel} loading={pushFunnelLoading} denied={pushFunnelDenied} />
 
       </div>
     </div>
