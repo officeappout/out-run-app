@@ -586,7 +586,7 @@ export default function NeighborhoodProfilePage() {
                   i === 0 ? 'bg-yellow-400' : i === 1 ? 'bg-gray-400' : 'bg-amber-600'
                 }`}>{i + 1}</span>
                 <p className="text-sm font-bold text-slate-800 flex-1">{park.parkName}</p>
-                <span className="text-xs font-bold text-cyan-600">{park.checkInCount} ביקורים</span>
+                <span className="text-xs font-bold text-cyan-600">{park.completedSessionCount} ביקורים</span>
               </div>
             ))}
           </div>

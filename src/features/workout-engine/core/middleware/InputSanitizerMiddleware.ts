@@ -541,12 +541,41 @@ export function resolveExercisePool(
   resolvedChildDomains: string[],
   idToSlug: Map<string, string>,
   baseUserLevel: number,
+  /**
+   * Temporary HSPU freeze — RE-SCOPED 2026-10-05 (David's explicit request).
+   * The original approach (a per-exercise denylist, `isHspuFrozen`, removed)
+   * was over-broad: it keyed on whether an EXERCISE carried an hspu/
+   * handstand_pushup tag anywhere, not on whether THIS REQUEST was actually
+   * hspu-targeted — so a genuinely multi-tagged exercise (e.g. tagged BOTH
+   * push@L20 and handstand_pushup@L11 — confirmed live:
+   * "שכיבות סמיכה בעמידת ידיים חזה לקיר", W61ECyiZmD9APomgxAfz) would have
+   * been stripped from a plain PUSH session too, not just an hspu one, the
+   * moment the (separate, still-open) 'hspu' vs 'handstand_pushup' slug-
+   * mismatch that made the old filter a no-op against real data ever got
+   * closed.
+   *
+   * Caller (home-workout.service.ts) computes this from
+   * activePrograms[0].templateId — the session's actual primary target —
+   * BEFORE any domain-resolution collapsing, and passes it down already
+   * flag-gated. When true, this function returns an EMPTY pool for THIS
+   * CALL only; no exercise's catalog membership is touched, so the exact
+   * same multi-tagged exercise still resolves normally via its OTHER tag
+   * for a non-hspu request.
+   */
+  isHspuTargetedRequest: boolean = false,
 ): ExercisePoolResult {
   // Fix #1 (see isExerciseSkillEligible above) — runs before any
   // tolerance/rescue logic below, against the raw catalog, so a thin pool
   // can never "rescue" an unreached skill back in via the CLIFF fallbacks
   // further down this function.
   allExercises = allExercises.filter((ex) => isExerciseSkillEligible(ex, userProgramLevels));
+
+  // Temporary HSPU freeze — see this parameter's own doc comment above.
+  // Short-circuits BEFORE any tolerance/rescue logic, for the same reason
+  // Fix #1 does: a thin pool must never "rescue" this back in.
+  if (isHspuTargetedRequest) {
+    return { exercises: [] };
+  }
 
   if (userProgramLevels.size === 0 && resolvedChildDomains.length === 0) {
     return { exercises: allExercises };

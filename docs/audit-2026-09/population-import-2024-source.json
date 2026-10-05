@@ -1,0 +1,788 @@
+[
+  {
+    "id": "1NgV7FJ9xthvlgLfaOex",
+    "name": "גן רווה",
+    "type": "regional_council",
+    "population": 6137,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "1O54R5EOghNYylTEhxJa",
+    "name": "הרצליה",
+    "type": "city",
+    "population": 110885,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "23vF9Kb9OZ5bZAE1JWUt",
+    "name": "מגדל העמק",
+    "type": "city",
+    "population": 28431,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "2P5ALaQsigsGSaijvuHB",
+    "name": "רעננה",
+    "type": "city",
+    "population": 82963,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "2lbGe71GBJfYo2wWbMsj",
+    "name": "יואב",
+    "type": "regional_council",
+    "population": 9274,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "34R4AdquTOa64CH6Wgka",
+    "name": "הר חברון",
+    "type": "regional_council",
+    "population": 11797,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "48fifj5HW65TF7HfisRi",
+    "name": "ערבות הירדן",
+    "type": "regional_council",
+    "population": 7847,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "5K1Xdouqk5VAb8Dir53l",
+    "name": "גדרות",
+    "type": "regional_council",
+    "population": 5112,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "5pyEfgFR0hj8Vyf6Va76",
+    "name": "מנשה",
+    "type": "regional_council",
+    "population": 22626,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "6KFKyhbvMvqMGlLvTBix",
+    "name": "טייבה",
+    "type": "city",
+    "population": 46870,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "6avkHMMtd1nbmnvr4j8I",
+    "name": "טמרה",
+    "type": "city",
+    "population": 36919,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "7PN1nJv0woPRv9IITPaQ",
+    "name": "שער הנגב",
+    "type": "regional_council",
+    "population": 9806,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "8RH5qn7bDFNKJqknap32",
+    "name": "שפיר",
+    "type": "regional_council",
+    "population": 14842,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "8zjZxYzxvr394PshoOvt",
+    "name": "אופקים",
+    "type": "city",
+    "population": 39894,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "9Y7F380QV1mXpmIbAyLx",
+    "name": "נתיבות",
+    "type": "city",
+    "population": 56019,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "9ZdWFmlkP0njOyFPceEw",
+    "name": "חיפה",
+    "type": "city",
+    "population": 297083,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "9bStjbWc8CmtGLnn4n8j",
+    "name": "אלעד",
+    "type": "city",
+    "population": 50845,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "9fDuM9W7dvMpaN1OPzrF",
+    "name": "אשדוד",
+    "type": "city",
+    "population": 228562,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "A1QWEQh6SnP1WM4DJODo",
+    "name": "יבנה",
+    "type": "city",
+    "population": 58090,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "ASDZghxSiHISeBIJSkw9",
+    "name": "עמק המעיינות",
+    "type": "regional_council",
+    "population": 16628,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "AeX1HwybsDTctZCGcPJ2",
+    "name": "חוף אשקלון",
+    "type": "regional_council",
+    "population": 20875,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "BH5UV7YK0vyq36KmyEcp",
+    "name": "אל קסום",
+    "type": "regional_council",
+    "population": 21329,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "BtpJYZ06vGN6C70Oo5pd",
+    "name": "גדרה",
+    "type": "local_council",
+    "population": 31389,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "CdiRk1QP5UrUGSbGjCkU",
+    "name": "שדרות",
+    "type": "city",
+    "population": 37239,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "D9HJQHNitVw1bM2I685t",
+    "name": "אל-בטוף",
+    "type": "regional_council",
+    "population": 9388,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "EATz52e1LSFuI7Zb54HM",
+    "name": "עפולה",
+    "type": "city",
+    "population": 66362,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "Eea1FXz6FQ7y7mOCPDSV",
+    "name": "בוסתן אל-מרג'",
+    "type": "regional_council",
+    "population": 8450,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "FkpprOJE3RX7AWopI3Gh",
+    "name": "נס ציונה",
+    "type": "city",
+    "population": 47268,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "GKc7XyOefUsqsz20YnXj",
+    "name": "מבשרת ציון",
+    "type": "local_council",
+    "population": 26534,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "HRF8LBEFS17y34fzsOMW",
+    "name": "אלונה",
+    "type": "regional_council",
+    "population": 2161,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "HmYsVbx1GnOGCba3zPiL",
+    "name": "הוד השרון",
+    "type": "city",
+    "population": 66398,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "IfEHp2Qws1NaskZrctkK",
+    "name": "מבואות החרמון",
+    "type": "regional_council",
+    "population": 9013,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "IpaTTbTGgxniStzWl03l",
+    "name": "מגידו",
+    "type": "regional_council",
+    "population": 12734,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "KUMBL6qyjYNInlzki3wj",
+    "name": "מטה אשר",
+    "type": "regional_council",
+    "population": 32031,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "KWDyl0t92XfhB1xosFiQ",
+    "name": "שוהם",
+    "type": "local_council",
+    "population": 23592,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "LaNDfhqss3MiSqYy7TYz",
+    "name": "כפר סבא",
+    "type": "city",
+    "population": 99410,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "MWYxpraxAZQ08FAiKIhO",
+    "name": "שדות דן",
+    "type": "regional_council",
+    "population": 16283,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "MipsYOQoSCMoX8551L0r",
+    "name": "עמק הירדן",
+    "type": "regional_council",
+    "population": 16341,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "Ms3xgneLGgmZzYTQdHke",
+    "name": "הגליל העליון",
+    "type": "regional_council",
+    "population": 20675,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "NcTzjFkNxdfShnA9zvZ3",
+    "name": "באר טוביה",
+    "type": "regional_council",
+    "population": 24873,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "NjpenyP3FsmRynQ7ea56",
+    "name": "רהט",
+    "type": "city",
+    "population": 77996,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "OAYVMMxdySIirAUT8apP",
+    "name": "שדות נגב",
+    "type": "regional_council",
+    "population": 12779,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "QTT37abFKCGdQHcc6gF6",
+    "name": "חוף הכרמל",
+    "type": "regional_council",
+    "population": 35534,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "R6GOKtZpNo8CghcaHxiL",
+    "name": "לב השרון",
+    "type": "regional_council",
+    "population": 24251,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "R7aq9jBkeq822zu18dc2",
+    "name": "הגלבוע",
+    "type": "regional_council",
+    "population": 34420,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "Sy2VFerWiFXNuddMkVld",
+    "name": "קרית אתא",
+    "type": "city",
+    "population": 62584,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "SyzwqMrFbQc6tftxSL5T",
+    "name": "לכיש",
+    "type": "regional_council",
+    "population": 16252,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "UVQxq9PNGwQhL2udcEX8",
+    "name": "גבעת שמואל",
+    "type": "city",
+    "population": 29405,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "Uk7aGIl1VKRq0bVuvq7q",
+    "name": "יקנעם עילית",
+    "type": "city",
+    "population": 24928,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "UvznR6YyVqRXmJiHIfap",
+    "name": "קרית ים",
+    "type": "city",
+    "population": 41959,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "V7oo4yBkn1pjbH9ECUHI",
+    "name": "בני ברק",
+    "type": "city",
+    "population": 229995,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "WXGs7A6vN41zySjVmsBQ",
+    "name": "נצרת",
+    "type": "city",
+    "population": 75704,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "X505lUcEWgiih0WJ3yP7",
+    "name": "באר שבע",
+    "type": "city",
+    "population": 223587,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "X82KhLDEmUjmTN9xxndA",
+    "name": "מרחבים",
+    "type": "regional_council",
+    "population": 15373,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "YzARcI38vk2CMH0Q4Wbc",
+    "name": "ברנר",
+    "type": "regional_council",
+    "population": 7843,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "ZpoGRWQwTVBy1oxt5ghS",
+    "name": "חדרה",
+    "type": "city",
+    "population": 107974,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "Zy51iAeSXann5MyaBEFj",
+    "name": "אור יהודה",
+    "type": "city",
+    "population": 41130,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "aU1IcV3CKNXRwDvhLsjW",
+    "name": "נווה מדבר",
+    "type": "regional_council",
+    "population": 14993,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "bIGx5m6BKsmMCHpvB6dh",
+    "name": "בית שמש",
+    "type": "city",
+    "population": 176786,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "bnhDavVEy3pq0vaQbEox",
+    "name": "זכרון יעקב",
+    "type": "local_council",
+    "population": 24200,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "d2ivpsWVtOys1NLBkhm3",
+    "name": "תמר",
+    "type": "regional_council",
+    "population": 2140,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "dRk9LUrVnTlNc7EbOdvq",
+    "name": "אשקלון",
+    "type": "city",
+    "population": 166865,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "eisEeoZnew1f74nfZfyd",
+    "name": "עכו",
+    "type": "city",
+    "population": 52884,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "f3PMiSHCMNejf4xvdmHT",
+    "name": "ראש העין",
+    "type": "city",
+    "population": 79023,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "fWBLjWKwWtMqSIPB3YsM",
+    "name": "ערד",
+    "type": "city",
+    "population": 29505,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "fiKAQlmQJZb02wB2a6Vq",
+    "name": "כפר יונה",
+    "type": "city",
+    "population": 29820,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "gUnk3Sy9UqgfWmUlw3Fd",
+    "name": "מעלה יוסף",
+    "type": "regional_council",
+    "population": 12505,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "gdfypEG6O9UaiXNgGX8X",
+    "name": "פתח תקווה",
+    "type": "city",
+    "population": 270403,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "goZznzyUjIw7dBeOyzz7",
+    "name": "מרום הגליל",
+    "type": "regional_council",
+    "population": 16184,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "gsGwhL3DwpfRpU3N3d8f",
+    "name": "דימונה",
+    "type": "city",
+    "population": 39590,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "itl5LciDnITLg5U1oSLA",
+    "name": "רמת הנגב",
+    "type": "regional_council",
+    "population": 9125,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "jBMboivtZJYRlrIepvCw",
+    "name": "בני שמעון",
+    "type": "regional_council",
+    "population": 12032,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "k3dBx2Ml6xhiH5mIO6e1",
+    "name": "נהריה",
+    "type": "city",
+    "population": 67877,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "k89XhZKXPFirYY9VN5ur",
+    "name": "רחובות",
+    "type": "city",
+    "population": 155050,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "lSaF0rbEx8D0kABe5r1L",
+    "name": "חולון",
+    "type": "city",
+    "population": 191829,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "leV6uPoy1rV148F8BvCC",
+    "name": "טבריה",
+    "type": "city",
+    "population": 52122,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "lfdFHzo43oS7GN8qRHpM",
+    "name": "קרית גת",
+    "type": "city",
+    "population": 72139,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "mHF6LGPyKmsOh5PkXyhe",
+    "name": "נתניה",
+    "type": "city",
+    "population": 234812,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "mzQYo5tux0QIa5auWO0q",
+    "name": "כרמיאל",
+    "type": "city",
+    "population": 47941,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "n2nyLNCZAl92AQCe8hIs",
+    "name": "מגילות ים המלח",
+    "type": "regional_council",
+    "population": 2786,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "nl0pyUe31vU4tZKZgoNP",
+    "name": "רמלה",
+    "type": "city",
+    "population": 86052,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "oXy7Fccw2FFbFd6vAPY3",
+    "name": "רמת גן",
+    "type": "city",
+    "population": 172242,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "osFAdxIz1w8lF55fnPiH",
+    "name": "צפת",
+    "type": "city",
+    "population": 38687,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "qWF0GzsDubBFAauycGzM",
+    "name": "לוד",
+    "type": "city",
+    "population": 94189,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "rKRy8AHMIqw7TrSTfO38",
+    "name": "בת ים",
+    "type": "city",
+    "population": 129495,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "rrplIfQbK0hT8HIrxYi8",
+    "name": "זבולון",
+    "type": "regional_council",
+    "population": 13137,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "sL6Z8bHngXH9HhisVqon",
+    "name": "חבל אילות",
+    "type": "regional_council",
+    "population": 5203,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "sWujgA3cuZiNJSBGQnpm",
+    "name": "ראשון לציון",
+    "type": "city",
+    "population": 259275,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "siottOZAY5CkpvauSJwp",
+    "name": "קרית אונו",
+    "type": "city",
+    "population": 45048,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "t9OykBnyxxCAvfMdViKZ",
+    "name": "אילת",
+    "type": "city",
+    "population": 56004,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "w4ZMsmFOx0eZCt3MTWrT",
+    "name": "הגליל התחתון",
+    "type": "regional_council",
+    "population": 13414,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "x2vRiGuSjCVhAA1l4KpL",
+    "name": "נשר",
+    "type": "city",
+    "population": 22897,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "x8Vets9PdgNqPIwABQvt",
+    "name": "חבל יבנה",
+    "type": "regional_council",
+    "population": 6574,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "xLXoGR0Gtz00F077TpTk",
+    "name": "נחל שורק",
+    "type": "regional_council",
+    "population": 10682,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "yV2g5NWjvsd9u3NXWyCU",
+    "name": "הערבה התיכונה",
+    "type": "regional_council",
+    "population": 6752,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "z7rGYEtFWhL861COiue7",
+    "name": "רמת השרון",
+    "type": "city",
+    "population": 48860,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024
+  },
+  {
+    "id": "vxYpJ9HKm4fot5y1ahDA",
+    "name": "ירושלים",
+    "type": "city",
+    "population": 1050151,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024,
+    "authorityCode": "3000"
+  },
+  {
+    "id": "t9hiRkDnJtgZESlNCBp8",
+    "name": "תל אביב-יפו",
+    "type": "city",
+    "population": 494900,
+    "populationSource": "הלמ\"ס, קובץ יישובים 2024",
+    "populationYear": 2024,
+    "authorityCode": "5000"
+  }
+]

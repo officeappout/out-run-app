@@ -1178,6 +1178,40 @@ Proven empirically, not theoretically: added a new `isSuperAdminOnly()` helper +
 
 ---
 
+## "תיקון מוצהר" (§13.87) מכסה רק source==='organized_test' — self_report/app_measurement עדיין מזינים את הסטטוס הרשמי במסך הרשימה, בלי שום מסלול תיקון
+
+**Opened:** 2026-10-04 · **Source:** שאלת-אימות מפורשת של דוד אחרי אישור מיזוג §13.87 — "האם self_report/app_measurement מזינים את reduceOverallStatus בכלל? אם כן, תרשום את הפער." אומת ישירות בקוד, לא בניחוש.
+
+**מה נמצא:** `computeUnitRoster` (readiness-read.service.ts) ו-`computeReadinessAppActivity` (readiness-app-activity.service.ts) שולפים את כל `readiness_results` עבור הטננט **בלי שום סינון לפי source** — `computeSoldierCurrentStatus`/`findCurrentResult`/`reduceOverallStatus` מקבלים ומטפלים בכל שלושת ה-source-ים (organized_test, self_report, app_measurement) באותה צורה, בוחרים את התוצאה העדכנית ביותר לכל מבחן ללא קשר למקור. כלומר הסטטוס הרשמי שמוצג במסך הרשימה (`currentStatus`/`testDetails`) **כן** יכול להיגזר מתוצאת self_report או app_measurement, אם היא העדכנית ביותר לאותו מבחן. (לעומת זאת `computeBrigadeDashboard` מסנן במפורש ל-organized_test בלבד — "point 5" המתועד שם — כך שדשבורד החטיבה לא נחשף לפער הזה, רק מסך הרשימה/פירוט-יחידה.)
+
+**הפער:** "תיקון מוצהר" (§13.87, computeRecordResultWithCorrectionChoice/computeBulkImportResultsWithCorrectionChoice) בודק התנגשות ומאפשר `supersededByResultId` **רק** כש-`source === 'organized_test'` — תוצאת self_report/app_measurement שגויה (קריאת GPS גרועה, טעות בדיווח עצמי) **אין לה שום מסלול תיקון/סימון-כמוחלפת** היום. היא תמשיך להיות "הסטטוס הנוכחי" הרשמי עד שתוצאה חדשה **כלשהי** (מכל source) לאותו מבחן תוחלף אוטומטית דרך הסדר הטבעי של "העדכנית ביותר מנצחת" — לא דרך מנגנון תיקון מכוון.
+
+**לא תוקן כאן — בכוונה, אושר על ידי דוד כהחלטה מודעת, לא תקרית.** אם ירצו לסגור בעתיד: להרחיב את בדיקת ההתנגשות גם ל-self_report/app_measurement (שאלה נפרדת: האם "תיקון מוצהר" הגיוני בכלל לנתון רציף/עצמי, או שצריך מנגנון אחר — למשל "דגל חשוד" בלי supersede).
+
+---
+
+## ייבוא מרוכז — `conflictMode` אחד לכל ההדבקה לא תומך בכוונה-מעורבת (חלק מהשורות להחליף, חלק להוסיף) באותה הדבקה
+
+**Opened:** 2026-10-04 · **Source:** דוד, אחרי אישור מיזוג §13.87 — "log a parking-lot note that mixed-intent pastes aren't supported yet, to revisit if municipality admins hit it."
+
+**מה נמצא:** `computeBulkImportResultsWithCorrectionChoice` מקבל `conflictMode: 'new_test' | 'correction'` **אחד** לכל הקריאה (לא per-row) — החלטה מכוונת של דוד: "הדבקה היא אירוע אחד: או שזה יום בוחן חדש, או שזה תיקון של אותו יום." קצין שמדביק הדבקה שבה חלק מהשורות הן תיקון-טעות וחלק הן מבדק-אמיתי-חדש, לא יכול לבטא את זה בהדבקה אחת — יצטרך לפצל לשתי הדבקות נפרדות (אחת לכל mode).
+
+**לא תוקן — v1 מכוון ומאושר כך.** מועמד-המשך: אם מנהלי רשויות נתקלים בזה בפועל (הדבקה עם כוונה מעורבת אמיתית), לשקול `conflictMode` ברמת-שורה בעדכון עתידי — דורש גם שינוי במסך הסקירה (כפתור בחירה per-row, לא רק באנר אחד למעלה).
+
+---
+
+## `readiness-trends.emulator.test.ts` — הרצה אחת מתוך ~77 נכשלה, ההודעה לא נלכדה
+
+**Opened:** 2026-10-05 · **Source:** דוד, אחרי דיווח תיקוני §13.90 (תיקון #4) — אישר שאין על מה לחקור, ביקש לרשום את העובדה בלבד, בלי מסקנה.
+
+**מה קרה:** בסבב הפיתוח של מסך המגמות, הרצה אחת של `readiness-trends.emulator.test.ts` הציגה "6 failed" (פלט `tail -6` בלבד, לא ההודעה המלאה של ה-assertion). ההרצה לא שוחזרה מאז, על פני ~77 הרצות רצופות נוספות על אמולטור נקי (46 ראשוניות + 30 עם לכידת פלט מלא לקובץ).
+
+**אין מסקנה.** אין בסיס לקבוע אם זה היה assertion (באג לוגי) או כשל-תשתית (חיבור לאמולטור) — ואין ניחוש בין השניים. לא נחקר מעבר לזה, לפי הוראה מפורשת.
+
+**כלל קבוע מכאן ואילך (דוד, 05.10.2026):** כל הרצת vitest שמדווחים עליה נשמרת לקובץ עם פלט מלא, לא `tail`. "לא שוחזר" לעולם לא יחזור להיות "לא ניתן לאבחון" — אם זה חוזר, יש לנו הודעה מלאה לנתח, לא רק סטטיסטיקה.
+
+---
+
 ## 📌 פער-תוכן (לא באג) — רשימה מתועדפת: היכן ה-pool ריק/דל — ריצה מלאה 912 קריאות, 2026-10-05
 
 **Opened:** 2026-10-05 · **Source:** ריצה מלאה (Stage 0→3, 912 קריאות אמיתיות ל-`generateHomeWorkoutTrio`, 0 קריסות) של `scripts/audit/generator-validation-harness.ts` אחרי שני תיקוני-rubric (ordering + sa_ba_balance) ו-PR #127 — על `origin/main` commit `361b75aa`. ממצא-על: **263/912 (28.8%) מהקומבינציות פגעו ב-empty-pool honesty guard** של `PipelineOrchestrator` — לא "דל", **ריק לגמרי**. ממוצע-תרגילים כללי בסוויפ: **4.8** (יציב מול ריצה קודמת: 4.7) — פי ~3 פחות מהקורפוס הידני של דוד (14.8).

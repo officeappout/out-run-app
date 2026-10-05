@@ -42,7 +42,14 @@ export type AnalyticsEventType =
   | 'workout_detail_viewed'
   | 'screen_view'
   | 'session_start'
-  | 'session_end';
+  | 'session_end'
+  // ── Reminder-schedule build (scheduling-capability-audit.md Part A) ──
+  // 'reminder_set' fires the first time a user ever adds a reminder slot
+  // (0 -> 1); 'reminder_updated' fires on every subsequent add or remove
+  // once they already have at least one — distinguishes first-commitment
+  // from ongoing management, same split growth-metrics uses elsewhere.
+  | 'reminder_set'
+  | 'reminder_updated';
 
 /**
  * Base Analytics Event Interface
@@ -143,6 +150,14 @@ export interface WorkoutPlayPressedEvent extends BaseAnalyticsEvent {
   workout_id: string;
   generator_id: string;
   surface: string;
+}
+
+export interface ReminderScheduleEvent extends BaseAnalyticsEvent {
+  eventName: 'reminder_set' | 'reminder_updated';
+  day: string;
+  time: string;
+  action: 'add' | 'remove';
+  total_reminders: number;
 }
 
 /**
@@ -491,5 +506,19 @@ export const Analytics = {
       workout_id: opts.workoutId,
       generator_id: opts.generatorId,
       surface: opts.surface,
+    }),
+
+  // Reminder-schedule build (scheduling-capability-audit.md Part A).
+  logReminderSchedule: (opts: {
+    day: string;
+    time: string;
+    action: 'add' | 'remove';
+    totalReminders: number;
+  }) =>
+    logEvent(opts.action === 'add' && opts.totalReminders === 1 ? 'reminder_set' : 'reminder_updated', {
+      day: opts.day,
+      time: opts.time,
+      action: opts.action,
+      total_reminders: opts.totalReminders,
     }),
 };
