@@ -1175,3 +1175,25 @@ Proven empirically, not theoretically: added a new `isSuperAdminOnly()` helper +
 **ההשלכה:** לכל שלוש התוכניות האלה, "תקרת הרמה האמיתית" (הרמה המקסימלית שבאמת מוערכת/מתועדת) **לא ידועה** — לא ניתן לדעת אם רמה גבוהה שמוזנת למחולל (למשל L15/L22 ב-sweep הזה) היא "בטווח" או "הרבה מעבר לכל תוכן אמיתי שתועד" עבור אותן תוכניות ספציפית. ייתכן שזה קשור לממצא הקודם (pool ריק ב-calisthenics_upper/planche ברמה גבוהה) — לא אומת קשר-סיבתי, רק צמידות.
 
 **לא תוקן, לא בסקופ — ממצא-תוכן בלבד.** מועמד-המשך: לבדוק עם דוד אם `calisthenics_upper`/`muscle_up` אמורות להיות תוכניות עם onboarding-levels עצמאיות (כמו front_lever/planche/hspu/one_arm_pullup, שיש להן 7-11 רמות מתועדות כל אחת), או אם אלה תוכניות-מאסטר/נגזרות שלא אמורות להיות עם רמות-onboarding עצמאיות כלל (למשל `calisthenics_upper` כ"מאסטר" שמסתמך על push/pull — תואם את ה-"P1/P2/P3 rotation" המתועד ב-LAW 3 תנאי #5 של `Workout_Engine_Truth.md`).
+
+---
+
+## "תיקון מוצהר" (§13.87) מכסה רק source==='organized_test' — self_report/app_measurement עדיין מזינים את הסטטוס הרשמי במסך הרשימה, בלי שום מסלול תיקון
+
+**Opened:** 2026-10-04 · **Source:** שאלת-אימות מפורשת של דוד אחרי אישור מיזוג §13.87 — "האם self_report/app_measurement מזינים את reduceOverallStatus בכלל? אם כן, תרשום את הפער." אומת ישירות בקוד, לא בניחוש.
+
+**מה נמצא:** `computeUnitRoster` (readiness-read.service.ts) ו-`computeReadinessAppActivity` (readiness-app-activity.service.ts) שולפים את כל `readiness_results` עבור הטננט **בלי שום סינון לפי source** — `computeSoldierCurrentStatus`/`findCurrentResult`/`reduceOverallStatus` מקבלים ומטפלים בכל שלושת ה-source-ים (organized_test, self_report, app_measurement) באותה צורה, בוחרים את התוצאה העדכנית ביותר לכל מבחן ללא קשר למקור. כלומר הסטטוס הרשמי שמוצג במסך הרשימה (`currentStatus`/`testDetails`) **כן** יכול להיגזר מתוצאת self_report או app_measurement, אם היא העדכנית ביותר לאותו מבחן. (לעומת זאת `computeBrigadeDashboard` מסנן במפורש ל-organized_test בלבד — "point 5" המתועד שם — כך שדשבורד החטיבה לא נחשף לפער הזה, רק מסך הרשימה/פירוט-יחידה.)
+
+**הפער:** "תיקון מוצהר" (§13.87, computeRecordResultWithCorrectionChoice/computeBulkImportResultsWithCorrectionChoice) בודק התנגשות ומאפשר `supersededByResultId` **רק** כש-`source === 'organized_test'` — תוצאת self_report/app_measurement שגויה (קריאת GPS גרועה, טעות בדיווח עצמי) **אין לה שום מסלול תיקון/סימון-כמוחלפת** היום. היא תמשיך להיות "הסטטוס הנוכחי" הרשמי עד שתוצאה חדשה **כלשהי** (מכל source) לאותו מבחן תוחלף אוטומטית דרך הסדר הטבעי של "העדכנית ביותר מנצחת" — לא דרך מנגנון תיקון מכוון.
+
+**לא תוקן כאן — בכוונה, אושר על ידי דוד כהחלטה מודעת, לא תקרית.** אם ירצו לסגור בעתיד: להרחיב את בדיקת ההתנגשות גם ל-self_report/app_measurement (שאלה נפרדת: האם "תיקון מוצהר" הגיוני בכלל לנתון רציף/עצמי, או שצריך מנגנון אחר — למשל "דגל חשוד" בלי supersede).
+
+---
+
+## ייבוא מרוכז — `conflictMode` אחד לכל ההדבקה לא תומך בכוונה-מעורבת (חלק מהשורות להחליף, חלק להוסיף) באותה הדבקה
+
+**Opened:** 2026-10-04 · **Source:** דוד, אחרי אישור מיזוג §13.87 — "log a parking-lot note that mixed-intent pastes aren't supported yet, to revisit if municipality admins hit it."
+
+**מה נמצא:** `computeBulkImportResultsWithCorrectionChoice` מקבל `conflictMode: 'new_test' | 'correction'` **אחד** לכל הקריאה (לא per-row) — החלטה מכוונת של דוד: "הדבקה היא אירוע אחד: או שזה יום בוחן חדש, או שזה תיקון של אותו יום." קצין שמדביק הדבקה שבה חלק מהשורות הן תיקון-טעות וחלק הן מבדק-אמיתי-חדש, לא יכול לבטא את זה בהדבקה אחת — יצטרך לפצל לשתי הדבקות נפרדות (אחת לכל mode).
+
+**לא תוקן — v1 מכוון ומאושר כך.** מועמד-המשך: אם מנהלי רשויות נתקלים בזה בפועל (הדבקה עם כוונה מעורבת אמיתית), לשקול `conflictMode` ברמת-שורה בעדכון עתידי — דורש גם שינוי במסך הסקירה (כפתור בחירה per-row, לא רק באנר אחד למעלה).
