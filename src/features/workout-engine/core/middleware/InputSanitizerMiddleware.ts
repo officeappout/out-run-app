@@ -43,7 +43,7 @@ import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
 import type { Program } from '@/features/content/programs/core/program.types';
 import { DEFAULT_PARK_GEAR, ASSUMED_HOME_GEAR } from '../../shared/utils/gear-mapping.utils';
-import { ASSUMED_HOME_GEAR_ENABLED } from '@/config/feature-flags';
+import { ASSUMED_HOME_GEAR_ENABLED, HSPU_GENERATOR_EXCLUDED } from '@/config/feature-flags';
 import type { ShadowMatrix } from '../../services/shadow-level.utils';
 import { resolveEquipment } from '../../services/user-profile.utils';
 import {
@@ -535,6 +535,33 @@ function isExerciseSkillEligible(
   return false; // every tag was a skill, none directly reached
 }
 
+/**
+ * Temporary freeze, HSPU_GENERATOR_EXCLUDED (@/config/feature-flags) —
+ * 2026-10-05, pending a real HSPU (handstand push-up) rule module that does
+ * not exist yet. See the flag's own doc comment for the full finding
+ * (generator-validation-harness.ts's 912-combo sweep: hspu returned an empty
+ * pool at every tested level, unlike every other program).
+ *
+ * Deliberately UNCONDITIONAL — unlike `isExerciseSkillEligible` above (which
+ * only gates an UNASSESSED user), this excludes every hspu/handstand_pushup
+ * exercise for every user, assessed or not. The goal is "must never appear
+ * in a generated program or workout" until real rules exist, not merely
+ * "hidden from users who haven't unlocked it."
+ */
+function isHspuFrozen(exercise: Exercise): boolean {
+  if (!HSPU_GENERATOR_EXCLUDED) return false;
+  // Cast to string — 'handstand_pushup' is a real Firestore movementGroup
+  // value (workout-sorting.utils.ts's DOMAIN_PRIORITY_WEIGHTS/
+  // SKILL_COMPOUND_MOVEMENT_GROUPS already key on it) but predates the
+  // MovementGroup union type, same established pattern as that file.
+  if ((exercise.movementGroup as string) === 'handstand_pushup') return true;
+  const tags: string[] = [
+    ...(exercise.targetPrograms ?? []).map((tp) => tp.programId),
+    ...(exercise.programIds ?? []),
+  ];
+  return tags.some((raw) => raw === 'hspu' || resolveToSlug(raw) === 'hspu');
+}
+
 export function resolveExercisePool(
   allExercises: Exercise[],
   userProgramLevels: Map<string, number>,
@@ -547,6 +574,10 @@ export function resolveExercisePool(
   // can never "rescue" an unreached skill back in via the CLIFF fallbacks
   // further down this function.
   allExercises = allExercises.filter((ex) => isExerciseSkillEligible(ex, userProgramLevels));
+  // Temporary HSPU freeze (see isHspuFrozen above) — same unconditional,
+  // pre-tolerance placement as Fix #1, for the same reason: must not be
+  // rescuable back in by any fallback further down this function.
+  allExercises = allExercises.filter((ex) => !isHspuFrozen(ex));
 
   if (userProgramLevels.size === 0 && resolvedChildDomains.length === 0) {
     return { exercises: allExercises };
