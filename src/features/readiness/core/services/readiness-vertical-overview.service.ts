@@ -94,6 +94,31 @@ export async function computeReadinessVerticalOverview(
     .filter((d) => inScopeIds.has(d.id))
     .map((d) => ({ id: d.id, name: typeof d.data().name === 'string' ? (d.data().name as string) : d.id }));
 
+  // 06.10.2026 (David's explicit review) — this literal is a scope
+  // object the function manufactures FOR ITSELF, not one any caller
+  // provided — worth stating plainly why that's safe, not just doing it.
+  // (a) It is constructed INLINE, as an argument expression, passed
+  //     directly into this one `await computeBrigadeDashboard(...)`
+  //     call — never assigned to a variable with any lifetime beyond
+  //     this expression, never returned (VerticalOverviewResult's body
+  //     only ever contains the plain tenantId STRING + numbers below,
+  //     confirmed by that type), never stored (this file has no
+  //     module-level `let`/cache of any kind — confirmed, there is
+  //     nothing here for it to leak INTO).
+  // (b) It cannot elevate a LATER, real request either: every readiness
+  //     route (including this one and computeBrigadeDashboard's own
+  //     real route) calls resolveUnitPermissionScope(uid) fresh, from
+  //     Firestore, on every single HTTP request — there is no
+  //     scope-caching layer anywhere in this codebase (confirmed by
+  //     grep). A vertical officer who clicks a row here and lands on
+  //     the real dashboard page triggers a BRAND NEW request that
+  //     re-resolves their REAL 'vertical' scope from scratch; nothing
+  //     carries this function's synthetic tenantOwner forward into it.
+  // Safe specifically BECAUSE authorization for `id` already happened
+  // above (the military_unit ∩ scope.authorityIds intersection) — this
+  // is "I already proved I may read this one tenant's numbers, now let
+  // me read them" using the exact function every real tenantOwner's own
+  // dashboard uses, not a bypass of anything.
   const rows = await Promise.all(
     militaryAuthorities.map(async ({ id, name }): Promise<VerticalBrigadeRow> => {
       const result = await computeBrigadeDashboard(db, { kind: 'tenantOwner', tenantId: id }, {});

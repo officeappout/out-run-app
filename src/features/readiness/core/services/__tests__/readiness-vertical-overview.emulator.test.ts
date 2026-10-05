@@ -192,6 +192,43 @@ describe('computeBrigadeDashboard — the new validated vertical branch (click-t
   });
 });
 
+describe('the synthetic scope cannot leak into a later write (David\'s explicit review, 06.10.2026)', () => {
+  it('the FULL click-through sequence — list, then that brigade\'s dashboard, then a write attempt — a write is STILL 403, using the real vertical scope throughout', async () => {
+    await seedSoldierAndResult(TENANT_MIL_1, 's1', 'pass');
+    await db.collection('readiness_soldiers').doc('leak-test-s1').set({
+      tenantId: TENANT_MIL_1, unitId: UNIT_ID, name: 'חייל', gender: 'male', uid: null, linkedAt: null, mergedInto: null,
+      createdBy: 'test', createdAt: new Date(), updatedAt: new Date(),
+    });
+
+    // Step 1 — the list screen. Internally constructs-and-discards a
+    // synthetic {kind:'tenantOwner'} scope per row, once per call; never
+    // returned (the result body below is plain strings/numbers, not a
+    // scope object) and never stored anywhere this test — or any real
+    // caller — could later read back.
+    const listResult = await computeReadinessVerticalOverview(db, VERTICAL_SCOPE);
+    expect(listResult.status).toBe(200);
+
+    // Step 2 — "clicking" TENANT_MIL_1's row: a SEPARATE call, using the
+    // REAL vertical scope (not anything step 1 produced) — this is
+    // exactly what the real /api/units/readiness/dashboard route does,
+    // since it re-resolves scope fresh from Firestore on every request.
+    const dashboardResult = await computeBrigadeDashboard(db, VERTICAL_SCOPE, { tenantId: TENANT_MIL_1 });
+    expect(dashboardResult.status).toBe(200);
+    if (dashboardResult.status === 200) expect(dashboardResult.body.tenantId).toBe(TENANT_MIL_1);
+
+    // Step 3 — a write attempt, same real vertical scope, same uid,
+    // immediately after "landing" on that brigade's dashboard. If the
+    // synthetic from step 1 had leaked or elevated anything, this would
+    // be the place it would show up as an unexpected 200. It does not.
+    const writeResult = await computeRecordResult(
+      db, VERTICAL_SCOPE,
+      { soldierId: 'leak-test-s1', testId: 'run_3000m', source: 'organized_test', testDate: new Date().toISOString(), value: 1000 },
+      CTX,
+    );
+    expect(writeResult.status).toBe(403);
+  });
+});
+
 describe('every write path refuses a vertical scope — explicit, in-code, not "we just won\'t add a button" (06.10.2026)', () => {
   /** computeRecordResult/computeRecordResultWithCorrectionChoice fetch a REAL soldier doc before checking scope at all (they need soldier.tenantId/unitId to check isMemberWithinScope against) — an empty requestBody 400s on `soldierId is required` before ever reaching that check, which would prove nothing about the vertical-rejection itself. A minimally valid body against a real soldier is required to actually exercise the scope gate. */
   async function validRecordResultBody(soldierId: string): Promise<Record<string, unknown>> {
