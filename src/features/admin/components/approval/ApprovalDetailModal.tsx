@@ -29,6 +29,7 @@ import {
 import { getGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
 import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
 import EquipmentCard from '@/features/parks/client/components/equipment-detail/EquipmentCard';
+import RouteShapeReviewSection from '@/features/admin/components/routes/RouteShapeReviewSection';
 
 // Map is client-only (react-map-gl) — load lazily so the drawer shell renders instantly.
 const ApprovalPreviewMap = dynamicImport(() => import('./ApprovalPreviewMap'), {
@@ -67,6 +68,24 @@ interface ApprovalDetailModalProps {
   onApprove: (entityType: ModerationEntityType, id: string) => void;
   onReject: (entityType: ModerationEntityType, id: string) => void;
   onClose: () => void;
+  /** Optional — only supplied by the shape-review screen. When present and
+   * item.entityType === 'route', renders the geometric-shape training
+   * section below the info rows. A SEPARATE action from onApprove/onReject
+   * above: writes only `shapeTrainingReview`, never publishes or rejects
+   * the route itself. Omitted (default) everywhere else this modal is
+   * already used — zero behavior change for existing callers. */
+  shapeReviewAdmin?: { adminId: string; adminName: string };
+  /** Optional — called right after a shape-training decision is saved
+   * (before the panel closes), so the caller's list/map can update the
+   * route's badge/color immediately rather than only on close. */
+  onShapeReviewSubmitted?: () => void;
+  /** Optional — suppresses the native Approve/Reject action bar (and its
+   * "approval is done by a super admin" footer) entirely. The shape-review
+   * screen sets this: it has its own ✅/❓/❌ action row and must not also
+   * show buttons wired to onApprove/onReject it doesn't implement — those
+   * would render but silently no-op, which is worse than not showing them.
+   * Default false — zero behavior change for existing callers. */
+  hideNativeActions?: boolean;
 }
 
 // NaN is typeof 'number' — so coordinate guards MUST use Number.isFinite, not typeof.
@@ -207,7 +226,7 @@ function infoRows(entityType: ModerationEntityType, x: any): Array<[string, stri
 }
 
 export default function ApprovalDetailModal({
-  item, isSuperAdmin, processingId, onApprove, onReject, onClose,
+  item, isSuperAdmin, processingId, onApprove, onReject, onClose, shapeReviewAdmin, hideNativeActions, onShapeReviewSubmitted,
 }: ApprovalDetailModalProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -385,11 +404,26 @@ export default function ApprovalDetailModal({
                 </div>
               </div>
             )}
+
+            {/* Shape-review training section — route entities only, only when
+                the shape-review screen supplied an admin identity. A
+                SEPARATE action from Approve/Reject below. */}
+            {item.entityType === 'route' && shapeReviewAdmin && data && (
+              <RouteShapeReviewSection
+                routeId={item.id}
+                shapeType={data.shapeType}
+                geometryMetrics={data.geometryMetrics}
+                existingReview={data.shapeTrainingReview ?? null}
+                suggestedReasonChips={data.suggestedReasonChips}
+                admin={shapeReviewAdmin}
+                onSubmitted={onShapeReviewSubmitted}
+              />
+            )}
           </div>
         )}
 
         {/* Actions */}
-        {isSuperAdmin && (
+        {!hideNativeActions && isSuperAdmin && (
           <div className="flex items-center gap-3 px-5 py-4 border-t border-gray-100 flex-shrink-0">
             <button
               onClick={() => onApprove(item.entityType, item.id)}
@@ -409,7 +443,7 @@ export default function ApprovalDetailModal({
           </div>
         )}
 
-        {!isSuperAdmin && (
+        {!hideNativeActions && !isSuperAdmin && (
           <div className="flex items-center gap-2 px-5 py-4 border-t border-gray-100 text-xs text-gray-400 flex-shrink-0">
             <Building2 size={14} /> אישור מתבצע ע״י מנהל ראשי
           </div>

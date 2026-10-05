@@ -35,7 +35,7 @@ import enclosingCircle from 'smallest-enclosing-circle';
 import { computeAccuracyQueue } from '../src/lib/route-decisions/compute-queue';
 import { normalizePathToLngLatTuples } from './lib/distance-unit-classify';
 
-type LngLat = [number, number];
+export type LngLat = [number, number];
 
 // ─────────────────────────────────────────────────────────────────────────
 // Measurement-resolution parameters — NOT quality thresholds. These pick
@@ -47,7 +47,7 @@ type LngLat = [number, number];
 const JUNCTION_CLUSTER_RADIUS_M = 6;     // ~ a path's own width; two self-crossings closer than this read as "the same junction," not two
 const OVERLAP_BUFFER_RADIUS_M = 4;       // half a typical path width — retracing the same path double-counts within this envelope
 const SHARP_TURN_DEGREES = 150;          // David's own spec, not derived
-const CLOSURE_STRUCTURAL_GAP_M = 50;     // see "Closure bucketing" below — a geometric-necessity cutoff, not a quality bar
+export const CLOSURE_STRUCTURAL_GAP_M = 50; // see "Closure bucketing" below — a geometric-necessity cutoff, not a quality bar
 
 // ─────────────────────────────────────────────────────────────────────────
 // Geometry primitives
@@ -79,7 +79,7 @@ function toLocalMeters(path: LngLat[]): { x: number; y: number }[] {
   return path.map(([lng, lat]) => ({ x: lng * mPerDegLng, y: lat * mPerDegLat }));
 }
 
-interface CompactnessResult {
+export interface CompactnessResult {
   areaM2: number;
   perimeterM: number;
   polsbyPopper: number;
@@ -163,7 +163,7 @@ function computeSelfOverlap(pathPts: LngLat[], totalLengthM: number): number {
   return Math.max(0, Math.min(1, 1 - actualAreaM2 / idealAreaM2));
 }
 
-interface JunctionInfo {
+export interface JunctionInfo {
   location: LngLat;
   visits: number; // how many times the path's own sequence passes near this location
 }
@@ -215,7 +215,7 @@ function computeJunctions(pathPts: LngLat[]): JunctionInfo[] {
   });
 }
 
-interface DeadBranchInfo {
+export interface DeadBranchInfo {
   junctionIndex: number;
   outAndBackLengthM: number;
   maxDisplacementM: number;
@@ -263,7 +263,7 @@ function computeDeadBranches(pathPts: LngLat[], junctions: JunctionInfo[]): Dead
   return results;
 }
 
-interface SharpTurnStreak {
+export interface SharpTurnStreak {
   length: number; // consecutive flagged-vertex run length
 }
 
@@ -292,7 +292,7 @@ function computeSharpTurns(pathPts: LngLat[]): { angles: number[]; streaks: Shar
 // Per-route profile
 // ─────────────────────────────────────────────────────────────────────────
 
-interface RouteDoc {
+export interface RouteDoc {
   id: string;
   name: string;
   city: string;
@@ -302,7 +302,7 @@ interface RouteDoc {
   status: string;
 }
 
-interface RouteProfile {
+export interface RouteProfile {
   id: string;
   name: string;
   city: string;
@@ -321,7 +321,7 @@ interface RouteProfile {
   looksLikePromenade: boolean; // name-pattern + open-path signal, reported separately, not folded into "bad shape"
 }
 
-function profileRoute(r: RouteDoc): RouteProfile {
+export function profileRoute(r: RouteDoc): RouteProfile {
   const pathPts = r.path;
   const totalLengthM = pathLengthM(pathPts);
   const closureGapM = pathPts.length >= 2 ? haversineM(pathPts[0], pathPts[pathPts.length - 1]) : 0;
@@ -340,7 +340,7 @@ function profileRoute(r: RouteDoc): RouteProfile {
   // bucket "promenade" without any actual evidence of linear intent. This
   // under-catches unnamed promenades/greenways inside the not-closed
   // bucket — reported as a named limitation, not papered over.
-  const looksLikePromenade = /טיילת|רצועה ירוקה|רצועת חוף|שביל טבע/.test(r.name);
+  const looksLikePromenade = /טיילת|רצועה ירוקה|רצועת חוף|שביל טבע|שביל ואדי|ואדי/.test(r.name);
 
   return {
     id: r.id, name: r.name, city: r.city,
@@ -356,7 +356,7 @@ function profileRoute(r: RouteDoc): RouteProfile {
 // Firestore access
 // ─────────────────────────────────────────────────────────────────────────
 
-function toRouteDoc(id: string, data: FirebaseFirestore.DocumentData): RouteDoc | null {
+export function toRouteDoc(id: string, data: FirebaseFirestore.DocumentData): RouteDoc | null {
   const rawPath = Array.isArray(data.path) ? data.path : [];
   // Reuses the same normalizer compute-queue.ts/the accuracy agent use —
   // live data mixes [lng,lat] tuples and {lng,lat} objects; re-deriving
@@ -606,4 +606,6 @@ async function main() {
   console.log(`\n(Full per-route data in /tmp/route_geometry_profiles.json.)`);
 }
 
-main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+if (require.main === module) {
+  main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+}
