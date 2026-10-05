@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
-import { getAuthoritiesByManager, getAllAuthorities } from '@/features/admin/services/authority.service';
+import { getAuthoritiesByManager, getAllAuthorities, getAuthority } from '@/features/admin/services/authority.service';
 import { getParksByAuthority } from '@/features/admin/services/parks.service';
 import { getGroupsByAuthority, getEventsByAuthority } from '@/features/admin/services/community.service';
 import { getReportsByAuthority } from '@/features/admin/services/maintenance.service';
@@ -177,6 +177,26 @@ export default function AdminDashboardPage() {
           aId = target.id;
           aName = typeof target.name === 'string' ? target.name : (target.name?.he || '');
           resolvedTenantType = authorityTypeToTenantType(target);
+        }
+      } else if (role.isVerticalAdmin && role.managedVertical === 'military') {
+        // 06.10.2026 ("chief fitness officer") — same localStorage
+        // click-through convention as isSuperAdmin above, but resolving
+        // ONE specific authority by id rather than listing every
+        // authority client-side (a vertical admin has no reason to see
+        // an unscoped picker here). This id is purely a client-side
+        // display convenience — the real authorization boundary is
+        // server-side (computeBrigadeDashboard's own validated
+        // 'vertical' branch, readiness-dashboard.service.ts), which
+        // checks this SAME uid's real scope.authorityIds independently
+        // of whatever the client sends.
+        const savedId = typeof window !== 'undefined' ? localStorage.getItem(AUTHORITY_STORAGE_KEY) : null;
+        if (savedId) {
+          const target = await getAuthority(savedId);
+          if (target) {
+            aId = target.id;
+            aName = typeof target.name === 'string' ? target.name : (target.name?.he || '');
+            resolvedTenantType = authorityTypeToTenantType(target);
+          }
         }
       } else {
         const auths = await getAuthoritiesByManager(uid);
