@@ -566,7 +566,13 @@ async function loadTiles() {
   if (!TOKEN) { console.warn('  ⚠ no NEXT_PUBLIC_MAPBOX_TOKEN — DEM enrichment skipped (elevationGain=0)'); return; }
   const b = REGION.bbox;
   const txMin = Math.floor(lon2gx(b.lonMin) / 256), txMax = Math.floor(lon2gx(b.lonMax) / 256), tyMin = Math.floor(lat2gy(b.latMax) / 256), tyMax = Math.floor(lat2gy(b.latMin) / 256);
-  for (let tx = txMin; tx <= txMax; tx++) for (let ty = tyMin; ty <= tyMax; ty++) { try { tiles.set(`${tx}_${ty}`, decodePNG(await fetchBuf(`https://api.mapbox.com/v4/mapbox.terrain-rgb/${Z}/${tx}/${ty}.pngraw?access_token=${TOKEN}`))); } catch {} }
+  // Scales with bbox area (tile count), not city complexity, and calls
+  // Mapbox's tile API — never Overpass — so maybeWriteHeartbeat's own
+  // call sites inside overpass() never cover this loop. Currently inert in
+  // the deployed worker (no NEXT_PUBLIC_MAPBOX_TOKEN there — see the guard
+  // two lines up), but that's a deploy-config fact, not a structural one;
+  // found via the audit for PR #144's heartbeat-candidate-loop follow-up.
+  for (let tx = txMin; tx <= txMax; tx++) for (let ty = tyMin; ty <= tyMax; ty++) { await maybeWriteHeartbeat(); try { tiles.set(`${tx}_${ty}`, decodePNG(await fetchBuf(`https://api.mapbox.com/v4/mapbox.terrain-rgb/${Z}/${tx}/${ty}.pngraw?access_token=${TOKEN}`))); } catch {} }
 }
 function pxElev(ix: number, iy: number): number | null { const tx = Math.floor(ix / 256), ty = Math.floor(iy / 256), t = tiles.get(`${tx}_${ty}`); if (!t) return null; const idx = ((iy - ty * 256) * t.width + (ix - tx * 256)) * t.ch; return -10000 + (t.data[idx] * 65536 + t.data[idx + 1] * 256 + t.data[idx + 2]) * 0.1; }
 function elevAt(lon: number, lat: number): number | null { const gx = lon2gx(lon), gy = lat2gy(lat), x0 = Math.floor(gx), y0 = Math.floor(gy), fx = gx - x0, fy = gy - y0; const e00 = pxElev(x0, y0), e10 = pxElev(x0 + 1, y0), e01 = pxElev(x0, y0 + 1), e11 = pxElev(x0 + 1, y0 + 1); if (e00 == null || e10 == null || e01 == null || e11 == null) return e00; return e00 * (1 - fx) * (1 - fy) + e10 * fx * (1 - fy) + e01 * (1 - fx) * fy + e11 * fx * fy; }
@@ -1931,6 +1937,15 @@ async function discoverRoundTrips(db: admin.firestore.Firestore, region: Region,
   let seed = 0;
   for (const a of anchors) {
     for (const d of RT_DISTS) {
+      // Scales with anchor count (up to 60 parks + named anchors) × 3
+      // distances, calls Mapbox Directions via buildLoop/mapboxWalk — never
+      // Overpass, so this is never covered by overpass()'s own heartbeat
+      // call. Currently inert on two independent counts (roundtrips
+      // defaults to false, AND the deployed worker has no
+      // NEXT_PUBLIC_MAPBOX_TOKEN — see the guard above), but neither is a
+      // structural guarantee; found via the audit for PR #144's
+      // heartbeat-candidate-loop follow-up.
+      await maybeWriteHeartbeat();
       stats.attempted++;
       const c = await buildLoop(a, d, seed++);
       await sleep(120); // be polite to the Mapbox Directions API
@@ -2102,6 +2117,12 @@ export async function runGeoDiscovery(opts: GeoDiscoveryOptions, db: admin.fires
     const dropped: { name: string; reason: string }[] = [];
     const boundaryDropped: { name: string; reason: string }[] = [];
     for (const c of candidates) {
+      // No Overpass call in this loop (computeRouteLighting is a Firestore
+      // read) — measured 06.10.2026, Arad: 4.34min for 26 candidates with
+      // no heartbeat coverage at all before this line existed. Scales with
+      // candidate count, not city complexity — a bigger candidate pool can
+      // cross the 35min reclaim threshold on its own. See PR #144.
+      await maybeWriteHeartbeat();
       const reason = artifactReason(c.pts, blockPolys);
       if (reason) { dropped.push({ name: c.osmName || c.externalId, reason }); continue; }
       const boundaryReason = outsideBoundaryReason(c.pts, boundaryPoly);
@@ -2169,6 +2190,12 @@ export async function runGeoDiscovery(opts: GeoDiscoveryOptions, db: admin.fires
     // real duplicate-routes bug.
     let created = 0, updated = 0;
     for (const k of kept) {
+      // Found via the same audit as the loop above (06.10.2026) — another
+      // no-Overpass, Firestore-only loop that scales with kept.length, not
+      // city complexity. Measured, Arad: ~152s for 26 routes (~5.85s/route;
+      // one read + one write, sequential, not batched) — under the 35min
+      // threshold at this scale, but not structurally bounded against it.
+      await maybeWriteHeartbeat();
       const existing = await col.where('source.externalId', '==', k.c.externalId).limit(1).get();
       if (existing.empty) {
         await col.add({ ...k.doc, createdAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() });
