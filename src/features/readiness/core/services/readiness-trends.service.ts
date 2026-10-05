@@ -36,9 +36,16 @@
  * aggregation primitive as a readiness-domain 'not_yet_tested' value,
  * which is why `reduceOverallStatus` (readiness-read.service.ts,
  * unmodified) is reusable here verbatim for combining pull+push (or
- * run+pull+push) into one "meets threshold" signal per soldier: "any
- * confirmed fail wins; otherwise any undeterminable component makes
- * the whole thing undeterminable; only all-confirmed-pass is a pass."
+ * run+pull+push) into one "meets threshold" signal per soldier. Its
+ * priority, unambiguously (David's 05.10.2026 correction confirmed
+ * this is what the function's own first line already does —
+ * `if (perTest.includes('fail')) return 'fail'`, checked before
+ * anything else): (1) ANY confirmed fail wins, full stop, even over an
+ * undeterminable component — a soldier who clearly failed the run is
+ * counted as a fail, not excused into "not determinable" just because
+ * their pull-up reps happen to be uncountable; (2) no fail, but ANY
+ * component undeterminable → the whole thing is undeterminable; (3)
+ * every component confirmed pass → pass.
  *
  * === The canonical pull/push levels — hardcoded, verified, guarded ===
  * David's own answer, verbatim: pull → 11 (full pull-up), push → 10
@@ -151,6 +158,10 @@ export interface TrendsBody {
   latestCoverageNote: string | null;
   /** "מתוך N שלא עברו ב-DD.MM — M עברו ב-DD.MM" — null when there is no test-date event at all yet. */
   title: string | null;
+  /** David's 05.10.2026 correction — non-null whenever the counted numbers are cumulative across a sub-tree rather than one unit's own soldiers: always set when no unit is selected (brigade-wide), and set when a SPECIFIC selected unit has zero soldiers of its own and falls back to its descendants. Same wording convention as OverallReadinessCard's own cumulativeNote. */
+  cumulativeNote: string | null;
+  /** Non-null only when populationFilter isn't 'all' and there is no shared "previous round" test-date in scope to compare against — an explicit, honest empty state, never a silent 0. */
+  populationFilterNote: string | null;
   componentAverages: {
     run_3000m: ComponentAveragePoint[];
     pullups: ComponentAveragePoint[];
@@ -233,6 +244,55 @@ function strengthMeetsStatus(
   return pass ? 'pass' : 'fail';
 }
 
+/**
+ * David's correction, 05.10.2026 — a scope whose selected unit has no
+ * soldiers of ITS OWN (everyone is actually under its sub-units) must
+ * fall back to the cumulative subtree, with an explicit note — the
+ * SAME wording/distinction as OverallReadinessCard's own
+ * `cumulativeNote` on the brigade dashboard, not a new convention.
+ * Never changes the counting rule itself (each level still counts
+ * only what's really assigned to it or its descendants) — just
+ * prevents an officer from opening a real unit and seeing a blank
+ * screen with no explanation. Mirrors
+ * readiness-dashboard.service.ts's own unitDirectory-based subtree
+ * walk (same directory-id convention, same collection) — duplicated
+ * here deliberately rather than imported, since that file exposes no
+ * reusable descendant-resolution helper today.
+ */
+function directoryIdForUnit(tenantId: string, unitId: string): string {
+  return `${tenantId}__${unitId}`;
+}
+
+async function resolveDescendantUnitIds(db: Firestore, tenantId: string, unitId: string): Promise<string[]> {
+  const dirSnap = await db.collection('unitDirectory').where('orgId', '==', tenantId).get();
+  const childrenByParentDirId = new Map<string, string[]>();
+  dirSnap.docs.forEach((d) => {
+    const data = d.data();
+    const parentId = typeof data.parentId === 'string' ? data.parentId : null;
+    const childUnitId = typeof data.unitId === 'string' ? data.unitId : null;
+    if (!parentId || !childUnitId) return;
+    const list = childrenByParentDirId.get(parentId) ?? [];
+    list.push(childUnitId);
+    childrenByParentDirId.set(parentId, list);
+  });
+
+  const descendants: string[] = [];
+  let frontier = [directoryIdForUnit(tenantId, unitId)];
+  let guard = 0;
+  while (frontier.length > 0 && guard < 20) {
+    const nextFrontier: string[] = [];
+    for (const dirId of frontier) {
+      for (const childUnitId of childrenByParentDirId.get(dirId) ?? []) {
+        descendants.push(childUnitId);
+        nextFrontier.push(directoryIdForUnit(tenantId, childUnitId));
+      }
+    }
+    frontier = nextFrontier;
+    guard++;
+  }
+  return descendants;
+}
+
 function componentStatusesForFilter(
   filter: ComponentFilter,
   run: ReadinessCurrentStatus,
@@ -276,10 +336,6 @@ export async function computeReadinessTrends(
     return { status: 403, body: { error: DENIED_MESSAGE } };
   }
 
-  const inScope = (unitId: unknown): boolean => {
-    if (targetUnitIds === null) return true;
-    return typeof unitId === 'string' && targetUnitIds.includes(unitId);
-  };
   const componentFilter = query.componentFilter ?? 'all';
   const populationFilter = query.populationFilter ?? 'all';
 
@@ -294,6 +350,36 @@ export async function computeReadinessTrends(
   }
   const config = thresholdsSnap.data() as ReadinessThresholdsConfig;
   const testIds = config.tests.map((t) => t.id);
+
+  // David's correction, 05.10.2026 — a specific unit with zero soldiers
+  // of its OWN (everyone is really under its sub-units) falls back to
+  // the cumulative subtree instead of showing a blank screen. Only
+  // triggers on an EXPLICIT unit selection — a unitAdmin's own default
+  // multi-unit command span (no query.unitId at all) is a different
+  // thing and never goes through this fallback.
+  let cumulativeNote: string | null = null;
+  if (query.unitId) {
+    const ownCount = soldiersSnap.docs.filter((d) => {
+      const data = d.data();
+      return !data.mergedInto && data.unitId === query.unitId;
+    }).length;
+    if (ownCount === 0) {
+      const descendantIds = await resolveDescendantUnitIds(db, targetTenantId, query.unitId);
+      if (descendantIds.length > 0) {
+        targetUnitIds = [query.unitId, ...descendantIds];
+        cumulativeNote = 'מצטבר — ליחידה זו אין חיילים משלה; המספרים כוללים את כל היחידות שתחתיה.';
+      }
+      // If there are no descendants either, targetUnitIds stays [query.unitId] — a genuinely empty unit, not a cumulative case; the empty-state UI already handles zero soldiers honestly.
+    }
+  } else {
+    // Brigade-wide (no unit selected) is ALWAYS cumulative — same reason, same wording as OverallReadinessCard's own unconditional cumulativeNote on the brigade dashboard.
+    cumulativeNote = 'מצטבר — כולל את כל החיילים בגדודים ובפלוגות שבחטיבה.';
+  }
+
+  const inScope = (unitId: unknown): boolean => {
+    if (targetUnitIds === null) return true;
+    return typeof unitId === 'string' && targetUnitIds.includes(unitId);
+  };
 
   const soldiers: (Omit<ReadinessSoldier, 'id'> & { id: string })[] = soldiersSnap.docs
     .map((d) => ({ id: d.id, ...(d.data() as Omit<ReadinessSoldier, 'id'>) }))
@@ -318,6 +404,13 @@ export async function computeReadinessTrends(
   // ── Population filter — evaluated at the single most-recent test-date event across the whole scope ──
   const mostRecentEventDate = testDateEvents.length > 0 ? testDateEvents[testDateEvents.length - 1] : null;
   const previousEventDate = testDateEvents.length > 1 ? testDateEvents[testDateEvents.length - 2] : null;
+
+  // Explicit, honest empty state when the chosen population filter has
+  // nothing to compare against — never a silent 0 pretending there's
+  // simply nobody in that bucket.
+  const populationFilterNote: string | null = populationFilter !== 'all' && !previousEventDate
+    ? 'אין עדיין סבב קודם להשוואה — דרושים שני תאריכי בוחן בהיקף זה.'
+    : null;
 
   const passesPopulationFilter = (soldierId: string): boolean => {
     if (populationFilter === 'all') return true;
@@ -457,6 +550,8 @@ export async function computeReadinessTrends(
       blue,
       latestCoverageNote,
       title,
+      cumulativeNote,
+      populationFilterNote,
       componentAverages: {
         run_3000m: buildComponentAverage(RUN_TEST_ID),
         pullups: buildComponentAverage(PULL_TEST_ID),

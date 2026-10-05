@@ -116,6 +116,7 @@ export default function ReadinessTrendsPage() {
         <div>
           <h1 className="text-2xl font-black text-gray-900">מגמות כשירות</h1>
           {data.title && <p className="text-sm text-gray-500 mt-1">{data.title}</p>}
+          {data.cumulativeNote && <p className="text-[11px] font-bold text-slate-500 mt-1">{data.cumulativeNote}</p>}
         </div>
         <select
           value={selectedUnitId}
@@ -153,6 +154,10 @@ export default function ReadinessTrendsPage() {
           ))}
         </div>
       </div>
+
+      {data.populationFilterNote && (
+        <p className="text-[11px] font-bold text-amber-700 -mt-2">{data.populationFilterNote}</p>
+      )}
 
       {bothEmpty ? (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center">

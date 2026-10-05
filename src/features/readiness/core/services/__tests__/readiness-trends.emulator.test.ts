@@ -71,8 +71,15 @@ async function createSoldier(id: string, name: string, gender: 'male' | 'female'
   });
 }
 
+async function createSoldierInUnit(id: string, unitId: string, gender: 'male' | 'female', uid: string | null): Promise<void> {
+  await db.collection('readiness_soldiers').doc(id).set({
+    tenantId: TENANT_ID, unitId, name: 'חייל', gender, uid, linkedAt: null, mergedInto: null,
+    createdBy: 'test', createdAt: new Date(), updatedAt: new Date(),
+  });
+}
+
 async function addResult(
-  id: string, soldierId: string, testId: string, outcome: 'pass' | 'fail', value: number,
+  id: string, soldierId: string, testId: string, outcome: 'pass' | 'fail' | 'not_performed', value: number | null,
   testDate: Date, uid: string | null = null, extra: Record<string, unknown> = {},
 ): Promise<void> {
   await db.collection('readiness_results').doc(id).set({
@@ -280,5 +287,116 @@ describe('computeReadinessTrends — filters', () => {
     const latestGreen = result.body.green[result.body.green.length - 1];
     expect(latestGreen.testedCount).toBe(1);
     expect(latestGreen.passPercent).toBe(100);
+  });
+});
+
+describe('computeReadinessTrends — asOf upper bound (fix #1, 05.10.2026)', () => {
+  it('a workout that would meet threshold, dated AFTER a given month, does not change that month\'s already-computed point', async () => {
+    await createSoldier('s1', 'חייל', 'male', 'uid-1');
+    // Anchors the blue-line's month range at January 2026 — without a
+    // test-date event the whole series starts at "now" instead, and
+    // January would never be computed at all.
+    await addResult('anchor', 's1', 'run_3000m', 'pass', 1000, new Date('2026-01-01'));
+
+    // January evidence: level 11 (qualifies — 2 performances), but low
+    // reps → fails the pull-ups threshold (male >= 5).
+    await seedStrengthWorkout('w-jan-pull-1', 'uid-1', new Date('2026-01-05'), FULL_PULLUP, [2]);
+    await seedStrengthWorkout('w-jan-pull-2', 'uid-1', new Date('2026-01-10'), FULL_PULLUP, [2]);
+    await seedStrengthWorkout('w-jan-dip-1', 'uid-1', new Date('2026-01-05'), FULL_DIP, [12]);
+    await seedStrengthWorkout('w-jan-dip-2', 'uid-1', new Date('2026-01-10'), FULL_DIP, [12]);
+
+    // February evidence, dated AFTER January's asOf — same level, much
+    // higher reps. Without an upper bound on the window query, these
+    // would leak into January's computation and incorrectly flip it to
+    // "meets."
+    await seedStrengthWorkout('w-feb-pull-1', 'uid-1', new Date('2026-02-05'), FULL_PULLUP, [20]);
+    await seedStrengthWorkout('w-feb-pull-2', 'uid-1', new Date('2026-02-10'), FULL_PULLUP, [20]);
+
+    const result = await computeReadinessTrends(db, TENANT_OWNER_SCOPE, { componentFilter: 'strength' });
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    const januaryPoint = result.body.blue[0]; // months[] is built in order starting at the January anchor
+    expect(januaryPoint.determinableCount).toBe(1); // pull fails → determinable (fail wins over push's pass)
+    expect(januaryPoint.meetsCount).toBe(0); // NOT flipped to "meets" by February's later, higher-rep evidence
+  });
+});
+
+describe('computeReadinessTrends — reduceOverallStatus priority, fail wins over not_performed (fix #2, 05.10.2026)', () => {
+  it('a confirmed run fail + a pull-up with no count ("אין ספירה") → the soldier counts as FAIL, inside the denominator', async () => {
+    await createSoldier('s1', 'חייל', 'male', null);
+    const testDate = new Date('2026-02-01');
+    await addResult('r1', 's1', 'run_3000m', 'fail', 1600, testDate);
+    await addResult('r2', 's1', 'pullups', 'not_performed', null, testDate, null, { notPerformedReason: 'other' });
+
+    const result = await computeReadinessTrends(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    const point = result.body.green[0];
+    expect(point.failCount).toBe(1);
+    expect(point.passCount).toBe(0);
+    expect(point.testedCount).toBe(1); // counted in the denominator, not excused out by the "no count" pull-up
+    expect(point.passPercent).toBe(0);
+  });
+
+  it('a passing run + a pull-up with no count (no fail anywhere) → not determinable, excluded from the denominator entirely', async () => {
+    await createSoldier('s1', 'חייל', 'male', null);
+    const testDate = new Date('2026-02-01');
+    await addResult('r1', 's1', 'run_3000m', 'pass', 1000, testDate);
+    await addResult('r2', 's1', 'pullups', 'not_performed', null, testDate, null, { notPerformedReason: 'other' });
+
+    const result = await computeReadinessTrends(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    const point = result.body.green[0];
+    expect(point.testedCount).toBe(0); // neither pass nor fail — correctly excluded, not a silent 0% or 100%
+    expect(point.passPercent).toBeNull();
+  });
+});
+
+describe('computeReadinessTrends — cumulative scope fallback (fix #3) and population-filter empty state (fix #5, both 05.10.2026)', () => {
+  it('a selected unit with zero soldiers of its own falls back to its descendant subtree and reports the specific-unit cumulativeNote', async () => {
+    const BRIGADE_ID = 'brigade-1';
+    const BATTALION_ID = 'battalion-1';
+    await db.collection('unitDirectory').doc('dir-1').set({
+      orgId: TENANT_ID, unitId: BATTALION_ID, parentId: `${TENANT_ID}__${BRIGADE_ID}`,
+    });
+    await createSoldierInUnit('s1', BATTALION_ID, 'male', null);
+    await addResult('r1', 's1', 'run_3000m', 'pass', 1000, new Date('2026-02-01'), null, { unitId: BATTALION_ID });
+
+    const result = await computeReadinessTrends(db, TENANT_OWNER_SCOPE, { unitId: BRIGADE_ID });
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    expect(result.body.green.length).toBe(1); // the battalion's soldier IS counted under the brigade selection
+    expect(result.body.cumulativeNote).toBe('מצטבר — ליחידה זו אין חיילים משלה; המספרים כוללים את כל היחידות שתחתיה.');
+  });
+
+  it('brigade-wide (no unit selected) always carries the cumulativeNote, even with soldiers directly in scope', async () => {
+    await createSoldier('s1', 'חייל', 'male', null);
+    await addResult('r1', 's1', 'run_3000m', 'pass', 1000, new Date('2026-02-01'));
+
+    const result = await computeReadinessTrends(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    expect(result.body.cumulativeNote).toBe('מצטבר — כולל את כל החיילים בגדודים ובפלוגות שבחטיבה.');
+  });
+
+  it('a selected unit WITH its own soldiers never gets a cumulativeNote', async () => {
+    await createSoldier('s1', 'חייל', 'male', null); // unitId = UNIT_ID (the default)
+    await addResult('r1', 's1', 'run_3000m', 'pass', 1000, new Date('2026-02-01'));
+
+    const result = await computeReadinessTrends(db, TENANT_OWNER_SCOPE, { unitId: UNIT_ID });
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    expect(result.body.cumulativeNote).toBeNull();
+  });
+
+  it('populationFilter active with no previous round in scope → explicit populationFilterNote, not a silent empty result', async () => {
+    await createSoldier('s1', 'חייל', 'male', null);
+    await addResult('r1', 's1', 'run_3000m', 'pass', 1000, new Date('2026-02-01')); // only ONE test-date event — no "previous round" exists
+
+    const result = await computeReadinessTrends(db, TENANT_OWNER_SCOPE, { populationFilter: 'did_not_pass_previous_round' });
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    expect(result.body.populationFilterNote).toBe('אין עדיין סבב קודם להשוואה — דרושים שני תאריכי בוחן בהיקף זה.');
   });
 });
