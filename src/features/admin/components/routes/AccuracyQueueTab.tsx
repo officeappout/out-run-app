@@ -187,7 +187,12 @@ export default function AccuracyQueueTab({ isSuperAdmin, currentUserId, adminNam
                 <div key={row.id} className="px-6 py-4 flex flex-col gap-2">
                   <div className="flex items-center gap-3 flex-wrap">
                     <span className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full border ${style.badge}`}>
-                      <style.icon size={12} /> {style.label} · ביטחון {row.decision.confidence}%
+                      {/* Label only, 05.10.2026 — this score measures surface/infrastructure
+                          composition (sidewalk vs. dedicated path vs. street), not shape,
+                          context, or safety. "ביטחון" read as a confidence/safety claim it
+                          never made — caught when it gave 90% to 7 routes that are bottom-
+                          quartile on every geometric measure. Computation unchanged. */}
+                      <style.icon size={12} /> {style.label} · ניקיון הרכב: {row.decision.confidence}%
                     </span>
                     <p className="font-bold text-gray-900 text-sm">{row.name}</p>
                     <span className="text-xs text-gray-400">{row.city}</span>
