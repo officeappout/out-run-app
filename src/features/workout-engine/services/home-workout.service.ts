@@ -120,6 +120,7 @@ import {
   sortAndPair,
 } from '../core/presentation/PresentationFormatter';
 import { validatePromisesPostCut, runSkillRepresentationGuarantee } from '../core/pipeline/GuaranteePassRunner';
+import { recomputeMechanicalBalance } from '../logic/workout-sorting.utils';
 import {
   derivePeriodizationWeek,
   resolveSessionPolicy,
@@ -1523,6 +1524,17 @@ export async function generateHomeWorkoutTrio(
     // but this still belongs at the very end of the pipeline like
     // annotateRepRanges.
     roundRestSeconds(workout.exercises);
+
+    // ── Final mechanical-balance recompute (staleness fix, 2026-10-05) ──────
+    // Must be the LAST thing that reads workout.exercises' composition
+    // before the result is built — every composition-changing mutation
+    // (validatePromisesPostCut, runSkillRepresentationGuarantee, sortAndPair's
+    // antagonist re-pairing) has already run by this point. Overwrites the
+    // mid-pipeline value WorkoutGenerator originally computed, which this
+    // service's own later mutations never refreshed — see
+    // recomputeMechanicalBalance's own doc comment for the reproduced
+    // staleness case.
+    workout.mechanicalBalance = recomputeMechanicalBalance(workout.exercises);
 
     // Collect main exercise IDs into blacklist for next iteration
     workout.exercises
