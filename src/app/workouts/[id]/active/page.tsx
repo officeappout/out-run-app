@@ -1363,6 +1363,41 @@ export default function ActiveWorkoutPage() {
       xpStatus: xpAwardStatus,
     });
 
+    // 1a. Streak/completion write — ONLY after the workout doc above actually
+    // saved. Previously fired from StrengthSummaryPage's mount effect
+    // (useActivitySync), i.e. the instant the summary screen was reached —
+    // before the user ever tapped Finish. Any abandonment in between (app
+    // kill, crash, backgrounding, navigating away) wrote a streaks/{uid}
+    // update with no corresponding `workouts` doc, which is the confirmed
+    // root cause of the streak/workouts data-accuracy bug (see streak
+    // investigation, 04.10.2026). Relocated here to mirror exactly how
+    // running (useRunningPlayer.finishWorkout) and hybrid
+    // (useHybridRun.finishHybrid) already do it — save first, streak second,
+    // both inside the same completion action, never gated on a later mount.
+    // Reuses the same runActivitySync the recovery-video-trio shortcut above
+    // already calls this way (see RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED in
+    // feature-flags.ts) — no new write logic, just the correct call site.
+    if (saved) {
+      const calories = calculateCalories(durationSec, workoutStats.difficulty);
+      const coins = calculateCoins(calories);
+      await runActivitySync({
+        trainingType: stableWorkoutPlan?.trainingType,
+        durationMinutes: durationMin,
+        calories,
+        coins,
+        programName: stableWorkoutPlan?.name || 'אימון כוח',
+        programId: userProgression.programId,
+        rawExerciseLog: workoutStats.rawExerciseLog,
+        completedExercises: workoutStats.completedExercises,
+        totalPlannedSets: stableWorkoutPlan?.totalPlannedSets,
+        difficulty: workoutStats.difficulty,
+        isRecovery: stableWorkoutPlan?.isRecovery === true,
+        domainSets: workoutStats.domainSets,
+      }).catch((e) =>
+        console.error('[ActiveWorkoutPage] runActivitySync failed:', e),
+      );
+    }
+
     // 1b. Park check-in for `getPopularParks()` analytics.
     // Best-effort: never block UI / navigation on this write.
     if (saved && currentUser && detectedPark?.parkId) {
@@ -1441,7 +1476,7 @@ export default function ActiveWorkoutPage() {
     // the next workout of any mode can startSession() cleanly.
     if (ownsSessionRef.current) useSessionStore.getState().clearSession();
     router.push('/home');
-  }, [router, refreshProfile, workoutStats.duration, workoutStats.difficulty, workoutStats.completedExercises, workoutStats.totalReps, workoutStats.rawExerciseLog, profile, stableWorkoutPlan]);
+  }, [router, refreshProfile, workoutStats.duration, workoutStats.difficulty, workoutStats.completedExercises, workoutStats.totalReps, workoutStats.rawExerciseLog, workoutStats.domainSets, profile, stableWorkoutPlan, userProgression]);
 
   // Handle pause
   const handlePause = () => {

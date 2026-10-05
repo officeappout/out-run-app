@@ -1041,7 +1041,9 @@ export const HOME_RECOVERY_START_SHORTCUT_ENABLED = true;
 // StrengthDopamineScreen (percentage/level-up celebration) then
 // StrengthSummaryPage (stats + "Finish" button) — and ONLY the Finish tap
 // actually writes the workout to history (saveWorkout) and fires the
-// streak/completion write (useActivitySync's mount effect). Every OTHER
+// streak/completion write (runActivitySync, called from handleSummaryFinish
+// right after saveWorkoutToHistory — see the 04.10.2026 streak-accuracy fix;
+// it used to fire from a StrengthSummaryPage mount effect instead). Every OTHER
 // workout type (real strength, multi-exercise recovery e.g. the Budget
 // Floor cooldown) is completely unaffected — they keep showing
 // dopamine → summary → Finish exactly as today.
@@ -1050,9 +1052,9 @@ export const HOME_RECOVERY_START_SHORTCUT_ENABLED = true;
 // exactly where it unconditionally calls setFlowState('dopamine'): when
 // isPureRecoveryVideoTrioWorkout(workoutPlan) AND this flag are both true,
 // handleComplete performs the same two writes the summary flow would have
-// performed instead — runActivitySync (useActivitySync.ts's mount-effect
-// body, extracted into a standalone callable so both call sites share one
-// implementation) and saveWorkoutToHistory (the same classification-gated
+// performed instead — runActivitySync (useActivitySync.ts's standalone
+// callable, also called from handleSummaryFinish for the normal path — see
+// the 04.10.2026 streak-accuracy fix) and saveWorkoutToHistory (the same classification-gated
 // saveWorkout payload builder handleSummaryFinish uses, likewise extracted
 // and shared) — then navigates straight to /home, WITHOUT ever calling
 // setFlowState('dopamine') or setFlowState('summary'). XP is unaffected
