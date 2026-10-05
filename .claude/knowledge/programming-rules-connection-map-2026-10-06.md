@@ -134,9 +134,31 @@ Ranked by *how much a real user's weekly sessions would change if it worked*.
 
 ---
 
+## Table 5 — completing Limitations §3's pending sweep (admin config-writer inventory, full repo)
+
+A full pass over every admin page/API route under `src/app/admin/` and `src/app/api/admin/` that writes Firestore, cross-referenced against every config collection the generator reads. Confirms Tables 1-4 are complete for strength-programming scope and surfaces three things not in either prior report.
+
+**5.1 — `maxSets`/`baseGain`/`firstSessionBonus`/etc. aren't empty in Firestore — they're populated with real, level-computed curves, unused.** `POST /api/admin/master-evolution-sync` (`master-evolution-sync.service.ts:97-126`, called from `/admin/progression-manager/page.tsx:563`) bulk-writes `programLevelSettings` for every program × level 1-25. Verified the payload directly (`:103-122`): `maxSets`/`minSets`/`baseGain`/`firstSessionBonus` are FRESHLY COMPUTED per level via `getMaxSets`/`getBaseGain`/`getFirstSessionBonus` (20/24/30/35, 8/6/4/2, 3/1.5/0.5 — matching the ranked items above), `persistenceBonusConfig`/`rpeBonusConfig` are written from flat constants every run, and `parentLevelMapping` is set from a lookup table. `straightArmRatio`/`weeklyVolumeTarget`/`maxIntenseWorkoutsPerWeek` are NOT computed by this sync — it preserves `existing?.straightArmRatio` unchanged, so this particular mechanism doesn't add new evidence for that one field specifically (Table 1's finding on it stands as previously reported). **For the other fields, this strengthens the WIRE recommendations above**: "wire it" isn't "design a curve from scratch," it's "read a curve that's already computed and synced into Firestore today, doing nothing downstream."
+
+**5.2 — A second, previously-undiscovered Firestore collection: `program_level_settings` (snake_case).** Distinct from the camelCase `programLevelSettings` every other finding in both reports is about. Read-only at `progression.service.ts:111,229`; **no writer anywhere.** Both have their own `match` block in `firestore.rules` (`:937`, `:942`). Two collections, near-identical names, one convention each, one of them dead — exactly the kind of naming collision axioms warns is "actively misleading to the next reader" (same family as BUG-11/14 in the first report). Recommend: confirm with David this isn't a half-finished migration in either direction, then delete the dead one and its rules block.
+
+**5.3 — ShadowMatrix is dead more completely than previously stated.** The first connection-map said "zero writers." Full sweep confirms there is **no Firestore storage mechanism for it at all** — no collection, no doc, no `firestore.rules` match block matching `shadowMatrix`/`shadow-matrix`/`shadow_matrix` anywhere in the repo. `createDefaultShadowMatrix()` (`shadow-level.utils.ts:637`) has zero call sites outside its own re-export. The admin simulator (`/admin/workout-simulator/page.tsx:339-351`) builds its `HomeWorkoutOptions` literal WITHOUT a `shadowMatrix` key at all. **Revises row 8's effort estimate**: this isn't "needs a UI" (implying the plumbing exists and a form is missing) — it needs new Firestore schema, a new persistence path, AND a UI. Still recommend HIDE/document for now; just a bigger lift than stated if ever prioritized.
+
+**5.4 — Other dead collections found, outside strength-programming scope but worth a line each:**
+- `app_config/training_os` (`global-training-config.service.ts:87-140`, `@deprecated`) — confirms BUG-7 from the first report (`global-training-config.service.ts` has zero importers); this is its Firestore-side counterpart, also unreachable.
+- `app_config/workout_trio` — read-only (`trio-labels.service.ts:43`), no writer.
+- `workout_content_fragments`, `workout_funny_titles`, `workout_titles_creative`, `workout_time_contexts`, `workout_focus_fragments` — the inverse of the usual pattern: WRITER functions exist (`contentFragmentService.ts`, `messageService.ts`) but have zero callers, so these are dead write paths, not dead reads.
+- `workoutTitles` (top-level, distinct from the live `workoutMetadata/workoutTitles/titles` subcollection) — referenced in `firestore.rules:974` with no code path anywhere.
+- `readiness_configs/{unitId}` (`firestore.rules:2300`) — no writer in `src/`. Readiness-domain, noted for completeness only.
+- `readiness_thresholds/global` — has a writer, but only via a root-only API route (`PUT /api/units/readiness/thresholds`); the two admin-facing pages that touch it only `GET`. Not a strength-programming finding; flagged because it's the same "admin page looks like the control surface but isn't" shape as Table 1's dead rows, in a different domain.
+
+No other admin page or API route under `src/app/admin/` or `src/app/api/admin/` writes program/level/generation config beyond what Tables 1-4 already cover — this was the point of the sweep, and it came back negative (a good result, not a gap).
+
+---
+
 ## Limitations
 
-1. **Live Firestore values were not read.** Schema, writers and readers only — consistent with the prior report. A disconnected field's *stored* value is irrelevant to its connection status, so no finding here depends on this.
+1. **Live Firestore values were not read directly** (no live query run) — but see Table 5.1: the *existence and shape* of real per-level values is now confirmed via the sync mechanism that populates them, which is a stronger basis than "unverified" for the affected rows.
 2. **Progression/XP fields** (`baseGain`, `firstSessionBonus`, `persistenceBonusConfig`, `rpeBonusConfig`, `progressionWeight`) are governed by `XP_Progression_Truth.md` + axioms §2. Their wiring status is reported; the *correct values* are out of scope and server-owned.
-3. **Tables 1-4 cover the admin surfaces that write program/level-keyed generation config.** A parallel broad sweep for additional admin config collections (feature flags, readiness thresholds, running templates) was still running when this report was written; running-engine and readiness config are out of this task's strength-programming scope in any case. If that sweep surfaces another program/level-keyed collection, it belongs as a Table 5.
+3. ~~A parallel sweep for additional admin config collections was still running when this report was written... belongs as a Table 5.~~ **RESOLVED — see Table 5 above.** Tables 1-4 are confirmed complete for strength-programming scope.
 4. **No runtime reproduction** (axioms §11 — build/dev commands not run). All connection calls are static traces of the actual read sites.
