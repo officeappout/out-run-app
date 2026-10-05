@@ -50,6 +50,7 @@ import {
     SearchX,
     UsersRound,
     AlertCircle,
+    Compass,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -100,7 +101,7 @@ const sectionContainsPath = (sectionId: SectionId, pathname: string | null, orgT
         strategy: ['/admin', '/admin/roadmap', '/admin/master-roadmap'],
         crm: ['/admin/authorities', '/admin/organizations', '/admin/admin-directory'],
         marketing: ['/admin/marketing-hub', '/admin/messages', '/admin/workout-settings', '/admin/simulator', '/admin/workout-simulator', '/admin/links', '/admin/content-matrix', '/admin/unreachable-exercises', '/admin/content-status', '/admin/media-library', '/admin/notifications'],
-        product: ['/admin/analytics', '/admin/statistics', '/admin/insights', '/admin/users/all', '/admin/community-groups-overview'],
+        product: ['/admin/journey', '/admin/analytics', '/admin/statistics', '/admin/insights', '/admin/users/all', '/admin/community-groups-overview'],
         dev: [
             '/admin/locations', '/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs',
             '/admin/levels', '/admin/progression-manager', '/admin/level-equivalence', '/admin/gym-equipment',
@@ -744,7 +745,7 @@ function AdminLayoutInner({
                     strategy: ['/admin', '/admin/roadmap', '/admin/master-roadmap'],
                     crm:      ['/admin/authorities', '/admin/organizations', '/admin/admin-directory'],
                     marketing: ['/admin/marketing-hub', '/admin/messages', '/admin/workout-settings', '/admin/simulator', '/admin/workout-simulator', '/admin/links', '/admin/content-matrix', '/admin/unreachable-exercises', '/admin/content-status', '/admin/media-library', '/admin/notifications'],
-                    product:  ['/admin/analytics', '/admin/statistics', '/admin/insights', '/admin/users/all'],
+                    product:  ['/admin/journey', '/admin/analytics', '/admin/statistics', '/admin/insights', '/admin/users/all'],
                     dev:      ['/admin/locations', '/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs', '/admin/levels', '/admin/progression-manager', '/admin/level-equivalence', '/admin/gym-equipment', '/admin/brands', '/admin/gear-definitions', '/admin/questionnaire', '/admin/visual-assessment', '/admin/assessment-rules', '/admin/program-thresholds', '/admin/demo-seed', '/admin/schools', '/admin/running', '/admin/admins-management', '/admin/users', '/admin/audit-logs', '/admin/system-settings', '/admin/access-codes'],
                     finance: ['/admin/finance'],
                     // ── Vertical sections (unchanged) ─────────────────────
@@ -757,7 +758,7 @@ function AdminLayoutInner({
                     running:   ['/admin/running'],
                     production: ['/admin/content-matrix', '/admin/unreachable-exercises', '/admin/content-status', '/admin/media-library'],
                     brandComm: ['/admin/messages', '/admin/workout-settings', '/admin/simulator', '/admin/workout-simulator', '/admin/links'],
-                    system:    ['/admin/admins-management', '/admin/users', '/admin/audit-logs', '/admin/system-settings', '/admin/analytics', '/admin/users/all', '/admin/statistics', '/admin/insights'],
+                    system:    ['/admin/admins-management', '/admin/users', '/admin/audit-logs', '/admin/system-settings', '/admin/journey', '/admin/analytics', '/admin/users/all', '/admin/statistics', '/admin/insights'],
                 };
                 const publicAdminRoutes = ['/admin/auth/callback', '/admin/authority-login', '/admin/pending-approval', '/admin/login'];
                 if (publicAdminRoutes.some(p => pathname?.startsWith(p))) return;
@@ -1202,6 +1203,10 @@ function AdminLayoutInner({
                                     <SectionHeader sectionId="product" icon={LineChart} label="ניהול מוצר / צמיחה" />
                                     {expandedSections.has('product') && (
                                         <div className="pr-2 space-y-0.5 pb-2">
+                                            {/* Journey hub (growth-analytics-plan.md) — consolidates the two
+                                                links below into 3 lifecycle tabs; those stay linked until
+                                                Phase 0's validation + redirect step (not done yet). */}
+                                            <SidebarLink href="/admin/journey" icon={Compass} label="מסע משתמש" />
                                             <SidebarLink href="/admin/analytics" icon={BarChart3} label="משפך המרות ואנליטיקס" />
                                             <SidebarLink href="/admin/statistics" icon={TrendingUp} label="סטטיסטיקות" />
                                             <SidebarLink href="/admin/insights" icon={Lightbulb} label="תובנות אסטרטגיות" />

@@ -13,6 +13,16 @@
  *     accuracy bug (`.claude/knowledge/streak-system-and-behavioral-
  *     analytics-map.md`) and no metric here may depend on it. Every
  *     activity signal below comes from real `workouts` docs.
+ *   - northStar also carries dailyActiveUsers/monthlyActiveUsers/
+ *     stickinessPct (journey-hub Phase 0, growth-analytics-plan.md §3).
+ *     monthlyActiveUsers is a true 30-day DISTINCT-user union, not a sum
+ *     of activeUsersTrend's per-day counts — summing those would
+ *     double-count any user active on more than one day. It's computed
+ *     from the SAME `relevantWorkoutDocs` the trend loop already walks
+ *     (one extra Set, zero extra reads). stickinessPct = dailyActiveUsers
+ *     ÷ monthlyActiveUsers × 100, matching the industry DAU/MAU
+ *     definition the plan doc's benchmark band (20-30% solid, >50% =
+ *     daily-habit) is stated against.
  *   - activeUsersTrend: distinct active users per day, last 30 days —
  *     the Hero chart's line.
  *   - pushCampaignMarkers: one marker per push category, dated at that
@@ -127,13 +137,16 @@ export async function computeGrowthMetrics(db: FirebaseFirestore.Firestore, scop
     relevantWorkoutDocs = [];
   }
 
-  // ── Daily active-users trend (Hero chart) ────────────────────────────────
+  // ── Daily active-users trend (Hero chart) + the 30-day distinct union
+  //    (monthlyActiveUsers) in the same pass — the union is NOT derivable
+  //    from the per-day counts below after the fact (see module header).
   const dateMap = new Map<string, Set<string>>();
   for (let i = TREND_WINDOW_DAYS - 1; i >= 0; i--) {
     const d = new Date(now);
     d.setDate(d.getDate() - i);
     dateMap.set(d.toISOString().split('T')[0], new Set());
   }
+  const monthlyActiveSet = new Set<string>();
   relevantWorkoutDocs.forEach((d) => {
     const data = d.data();
     const date = toDateSafe(data?.date);
@@ -141,8 +154,14 @@ export async function computeGrowthMetrics(db: FirebaseFirestore.Firestore, scop
     if (!date || typeof uid !== 'string') return;
     const key = date.toISOString().split('T')[0];
     dateMap.get(key)?.add(uid);
+    monthlyActiveSet.add(uid);
   });
   const activeUsersTrend = Array.from(dateMap.entries()).map(([date, users]) => ({ date, activeUsers: users.size }));
+  const dailyActiveUsers = activeUsersTrend[activeUsersTrend.length - 1]?.activeUsers ?? 0;
+  const monthlyActiveUsers = monthlyActiveSet.size;
+  const stickinessPct = monthlyActiveUsers > 0
+    ? Math.round((dailyActiveUsers / monthlyActiveUsers) * 1000) / 10
+    : 0;
 
   // ── North-Star: weekly active exercisers + workouts/active-user ─────────
   const weeklyActiveSet = new Set<string>();
@@ -228,7 +247,13 @@ export async function computeGrowthMetrics(db: FirebaseFirestore.Firestore, scop
     body: {
       scope: scope.kind,
       vertical: scope.kind === 'vertical' ? scope.vertical : undefined,
-      northStar: { weeklyActiveExercisers, workoutsPerActiveUser },
+      northStar: {
+        weeklyActiveExercisers,
+        workoutsPerActiveUser,
+        dailyActiveUsers,
+        monthlyActiveUsers,
+        stickinessPct,
+      },
       activeUsersTrend,
       pushCampaignMarkers,
       economyByAuthority,
