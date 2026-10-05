@@ -64,8 +64,29 @@ export {
 
 /**
  * Maximum straight arm exercises per session (SA limit)
+ *
+ * Exported (06.10.2026, SA/BA final-pass guard fix) so the final-pass
+ * guard in `workout-sorting.utils.ts`'s `enforceFinalStraightArmPenalty`
+ * can re-apply the SAME cap over the true final exercise array, instead of
+ * re-declaring its own copy of this number — see that function's own doc
+ * comment for why a second copy of the threshold was exactly the kind of
+ * drift this codebase has been burned by before (parking-lot.md's "חמישה
+ * מבנים, אותה שאלה" entry).
  */
-const MAX_STRAIGHT_ARM_PER_SESSION = 2;
+export const MAX_STRAIGHT_ARM_PER_SESSION = 2;
+
+/**
+ * Canonical "is SA/BA balancing relaxed for this session" condition —
+ * extracted (06.10.2026) so the final-pass guard can ask the SAME question
+ * the original per-encounter penalty pass asks, rather than re-deriving a
+ * second copy that could silently drift from this one. A single active
+ * program filter means the user explicitly asked for a focused
+ * (non-balanced) session; SA/BA enforcement stands down entirely in that
+ * case, both at the original scoring-time pass AND at the final-pass guard.
+ */
+export function shouldRelaxSABA(activeProgramFilters: string[]): boolean {
+  return activeProgramFilters.length === 1;
+}
 
 // ── Exclusive Skill Domain Gate ───────────────────────────────────────────────
 // Technique-heavy skill tracks that must NOT appear in general strength sessions
@@ -319,7 +340,7 @@ export class ContextualEngine {
     // Step 3: Apply SA/BA balancing
     // When a single program is selected, the user explicitly wants a
     // focused (non-balanced) workout — relax SA:BA enforcement.
-    const relaxSABA = hasStrictProgramFilter && activeProgramFilters.length === 1;
+    const relaxSABA = hasStrictProgramFilter && shouldRelaxSABA(activeProgramFilters);
     const balancedExercises = this.applyMechanicalBalancing(scoredExercises, relaxSABA);
     
     // Step 4: Sort by score

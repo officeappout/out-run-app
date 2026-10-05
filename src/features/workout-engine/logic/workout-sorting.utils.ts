@@ -9,6 +9,7 @@
 
 import { exerciseMatchesProgram } from '../services/shadow-level.utils';
 import { normalizeGearId } from '../shared/utils/gear-mapping.utils';
+import { MAX_STRAIGHT_ARM_PER_SESSION, shouldRelaxSABA } from './ContextualEngine';
 import type { WorkoutExercise, MechanicalBalanceSummary } from './workout-generator.types';
 
 // ============================================================================
@@ -624,4 +625,88 @@ export function recomputeMechanicalBalance(exercises: WorkoutExercise[]): Mechan
   const ratio = `${counts.straightArm}:${counts.bentArm}`;
   const isBalanced = counts.straightArm <= 2 && Math.abs(counts.straightArm - counts.bentArm) <= 2;
   return { ...counts, ratio, isBalanced };
+}
+
+// ============================================================================
+// SA/BA FINAL-PASS PENALTY GUARD (final-pass fix, 2026-10-06)
+// ============================================================================
+
+/**
+ * Re-applies the SA (straight-arm) session-wide penalty over the TRUE FINAL
+ * exercise array. Must be called as the true final step, right alongside
+ * `recomputeMechanicalBalance` above — same principle, same placement, for
+ * the sibling piece of data that function doesn't touch: the PER-EXERCISE
+ * penalty marker, not just the aggregate count.
+ *
+ * Why this exists: `ContextualEngine.applyMechanicalBalancing` runs the real
+ * SA penalty exactly once, early, over the scored pool, walking it in array
+ * order and marking (score penalty + "SA עודף" reasoning tag) every
+ * straight-arm exercise beyond the 2nd it encounters. That mechanism is
+ * correct in isolation. The bug is downstream: `trio-modifiers.service.ts`'s
+ * `applyFlowRegression` (D1/flow bolt) and `applyIntenseOption` (D3/intense
+ * bolt, "David Rule inject" path) both swap `ex.exercise` to a DIFFERENT
+ * exercise after this point -- correctly re-deriving `mechanicalType` for the
+ * replacement, but only ever APPENDING to the old `.reasoning` array, never
+ * re-consulting the SA penalty for the new identity. A replacement that
+ * happens to be straight-arm therefore enters the final array with zero
+ * chance of ever carrying the marker, however many straight-arm exercises
+ * already exist in the session -- reproduced live, 2026-10-06: `push L18
+ * 60min D1` repeatedly landed at 5-6 final straight-arm exercises with only
+ * the original 2-3 pre-swap ones marked, the swapped-in replacements never
+ * marked at all.
+ *
+ * Rather than patching each swap site individually (the exact failure mode
+ * this function exists to close off against RECURRING at some future swap
+ * site nobody remembers to patch), this re-runs the SAME counting+marking
+ * logic `applyMechanicalBalancing` uses, over the exercises array AS IT
+ * ACTUALLY STANDS right before the workout is returned -- regardless of how
+ * any individual exercise got there. Idempotent: an exercise that already
+ * carries an "SA עודף" marker from the original pass is left untouched, not
+ * double-penalized, so calling this after a run that needed no correction at
+ * all is a no-op.
+ *
+ * Deliberately does NOT swap/remove exercises to force the count back under
+ * the cap -- this is a MARKING pass, not a selection pass, matching this
+ * codebase's own established "penalize, not exclude" design for this rule
+ * (LAW 8 / `.cursoragents/Workout_Engine_Truth.md`): by this point in the
+ * pipeline, composition is final and domain-requirement invariants (e.g. "at
+ * least one exercise per required domain") have already been satisfied by
+ * everything upstream -- forcing a last-second swap here risks silently
+ * breaking one of those invariants with no room left to recover. A true
+ * hard-cap (actively swapping away excess straight-arm exercises for a
+ * same-movementGroup alternative) is a bigger, deliberately separate design
+ * decision -- flagged, not bundled into this fix.
+ *
+ * Scope matches `recomputeMechanicalBalance`: main-role exercises only, in
+ * their current (already final-sorted) array order. Respects the same
+ * `relaxSABA` escape hatch the original pass respects -- a focused
+ * single-program session is not supposed to be balanced, at either pass.
+ */
+export function enforceFinalStraightArmPenalty(
+  exercises: WorkoutExercise[],
+  activeProgramFilters: string[],
+): WorkoutExercise[] {
+  if (shouldRelaxSABA(activeProgramFilters)) return exercises;
+
+  let straightArmCount = 0;
+  return exercises.map((ex) => {
+    if ((ex.exerciseRole ?? 'main') !== 'main') return ex;
+    if (ex.mechanicalType !== 'straight_arm') return ex;
+
+    straightArmCount++;
+    if (straightArmCount <= MAX_STRAIGHT_ARM_PER_SESSION) return ex;
+
+    const alreadyMarked = ex.reasoning.some((r) => r.startsWith('SA עודף'));
+    if (alreadyMarked) return ex;
+
+    const penalty = (straightArmCount - MAX_STRAIGHT_ARM_PER_SESSION) * 5;
+    return {
+      ...ex,
+      score: ex.score - penalty,
+      reasoning: [
+        ...ex.reasoning,
+        `SA עודף: -${penalty} (${straightArmCount}/${MAX_STRAIGHT_ARM_PER_SESSION})`,
+      ],
+    };
+  });
 }
