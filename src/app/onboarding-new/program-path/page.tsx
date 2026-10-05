@@ -12,6 +12,7 @@ import {
 import { db } from '@/lib/firebase';
 import { getExercise } from '@/features/content/exercises/core/exercise.service';
 import { getOnboardingLevelsForCategory } from '@/features/user/onboarding/services/visual-content-resolver.service';
+import { HSPU_GENERATOR_EXCLUDED } from '@/config/feature-flags';
 import { getLocalizedText } from '@/features/content/shared/localized-text.types';
 import type { ExerciseWishlistEntry } from '@/features/user/core/types/user.types';
 import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLayout';
@@ -364,12 +365,24 @@ export default function ProgramPathPage() {
           })
         );
         if (!cancelled) {
-          setReadySkillIds(new Set(entries.filter(([, ready]) => ready).map(([id]) => id)));
+          const ready = new Set(entries.filter(([, ready]) => ready).map(([id]) => id));
+          // Temporary HSPU freeze (2026-10-05, same flag as the generator-pool
+          // exclusion, PR #136) — hspu has real authored content (11 levels)
+          // so the content-readiness check above would otherwise mark it
+          // selectable, leading a new user straight into the generator's own
+          // empty-pool fallback. Removed here, not from SKILL_PROGRAMS itself,
+          // so the one flag flip re-enables both the generator and this picker
+          // together once a real HSPU ruleset lands.
+          if (HSPU_GENERATOR_EXCLUDED) ready.delete('hspu');
+          setReadySkillIds(ready);
         }
       } catch (e) {
         console.error('[ProgramPath] Failed to resolve skill readiness:', e);
         // Fail open on error — never block selection because of a read failure.
-        if (!cancelled) setReadySkillIds(new Set(SKILL_PROGRAMS.map((s) => s.id)));
+        // Still honours the HSPU freeze even on this fallback path.
+        const fallback = new Set(SKILL_PROGRAMS.map((s) => s.id));
+        if (HSPU_GENERATOR_EXCLUDED) fallback.delete('hspu');
+        if (!cancelled) setReadySkillIds(fallback);
       }
     })();
     return () => { cancelled = true; };
