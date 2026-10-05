@@ -9,7 +9,7 @@
 
 import { exerciseMatchesProgram } from '../services/shadow-level.utils';
 import { normalizeGearId } from '../shared/utils/gear-mapping.utils';
-import type { WorkoutExercise } from './workout-generator.types';
+import type { WorkoutExercise, MechanicalBalanceSummary } from './workout-generator.types';
 
 // ============================================================================
 // EQUIPMENT KEY
@@ -585,4 +585,43 @@ export function deduplicateExercises(exercises: WorkoutExercise[]): WorkoutExerc
     seen.add(id);
     return true;
   });
+}
+
+// ============================================================================
+// MECHANICAL BALANCE — final recompute (staleness fix, 2026-10-05)
+// ============================================================================
+
+/**
+ * Recomputes `GeneratedWorkout.mechanicalBalance` directly from the SETTLED
+ * exercises array. Must be called as the true final step, right before a
+ * workout is returned.
+ *
+ * WorkoutGenerator.calculateMechanicalBalance (its private equivalent of this
+ * function, same logic, same shape) runs mid-pipeline, before
+ * home-workout.service.ts's own later per-bolt mutations: warmup/cooldown
+ * prepend/append, enforceVolumeCap, validatePromisesPostCut,
+ * runSkillRepresentationGuarantee, and sortAndPair's antagonist re-pairing +
+ * final domain-priority sort. None of those recompute the field afterward,
+ * so it can disagree with the actual final composition -- reproduced live:
+ * the field read {straightArm:3, bentArm:3} while the real final array held
+ * 4 straight-arm / 2 bent-arm exercises.
+ *
+ * Mirrors WorkoutGenerator.calculateMechanicalBalance's exact logic (same
+ * main-role-only scope, same isBalanced rule: straightArm<=2 AND
+ * |straightArm-bentArm|<=2) -- a drop-in replacement of a stale snapshot,
+ * not a new definition of "balanced." Counts main-role exercises only, the
+ * same scope the original mid-pipeline computation had (warmup/cooldown
+ * didn't exist yet at that point in the pipeline).
+ */
+export function recomputeMechanicalBalance(exercises: WorkoutExercise[]): MechanicalBalanceSummary {
+  const counts = { straightArm: 0, bentArm: 0, hybrid: 0 };
+  for (const ex of exercises) {
+    if ((ex.exerciseRole ?? 'main') !== 'main') continue;
+    if (ex.mechanicalType === 'straight_arm') counts.straightArm++;
+    else if (ex.mechanicalType === 'bent_arm') counts.bentArm++;
+    else if (ex.mechanicalType === 'hybrid') counts.hybrid++;
+  }
+  const ratio = `${counts.straightArm}:${counts.bentArm}`;
+  const isBalanced = counts.straightArm <= 2 && Math.abs(counts.straightArm - counts.bentArm) <= 2;
+  return { ...counts, ratio, isBalanced };
 }

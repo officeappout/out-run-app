@@ -92,7 +92,7 @@ import {
 } from './user-profile.utils';
 import { ensureEquipmentCachesLoaded } from '../shared/utils/gear-mapping.utils';
 import { selectMethodForContext } from '../shared/utils/method-selection.utils';
-import { CONTEXT_AWARE_SELECTION_ENABLED, SKILL_REPRESENTATION_GUARANTEE_ENABLED } from '@/config/feature-flags';
+import { CONTEXT_AWARE_SELECTION_ENABLED, SKILL_REPRESENTATION_GUARANTEE_ENABLED, HSPU_GENERATOR_EXCLUDED } from '@/config/feature-flags';
 import { MG_TO_DOMAIN } from '../shared/constants/domain-mapping.constants';
 import {
   normalizeEquipmentArray,
@@ -120,6 +120,7 @@ import {
   sortAndPair,
 } from '../core/presentation/PresentationFormatter';
 import { validatePromisesPostCut, runSkillRepresentationGuarantee } from '../core/pipeline/GuaranteePassRunner';
+import { recomputeMechanicalBalance } from '../logic/workout-sorting.utils';
 import {
   derivePeriodizationWeek,
   resolveSessionPolicy,
@@ -1525,6 +1526,17 @@ export async function generateHomeWorkoutTrio(
     // annotateRepRanges.
     roundRestSeconds(workout.exercises);
 
+    // ── Final mechanical-balance recompute (staleness fix, 2026-10-05) ──────
+    // Must be the LAST thing that reads workout.exercises' composition
+    // before the result is built — every composition-changing mutation
+    // (validatePromisesPostCut, runSkillRepresentationGuarantee, sortAndPair's
+    // antagonist re-pairing) has already run by this point. Overwrites the
+    // mid-pipeline value WorkoutGenerator originally computed, which this
+    // service's own later mutations never refreshed — see
+    // recomputeMechanicalBalance's own doc comment for the reproduced
+    // staleness case.
+    workout.mechanicalBalance = recomputeMechanicalBalance(workout.exercises);
+
     // Collect main exercise IDs into blacklist for next iteration
     workout.exercises
       .filter(ex => ex.exerciseRole !== 'warmup' && ex.exerciseRole !== 'cooldown')
@@ -1918,6 +1930,32 @@ async function _buildSharedPipeline(
 
   const activeProgramId = effectiveProfile.progression?.activePrograms?.[0]?.templateId;
 
+  // Temporary HSPU freeze — re-scoped 2026-10-05 (David's explicit request,
+  // after confirming the original per-exercise denylist was over-broad: it
+  // would strip a MULTI-TAGGED exercise — e.g. "שכיבות סמיכה בעמידת ידיים
+  // חזה לקיר" (W61ECyiZmD9APomgxAfz), tagged BOTH push@L20 AND
+  // handstand_pushup@L11 — from a plain push session too, the moment the
+  // literal-string gap ('hspu' vs 'handstand_pushup') that made the old
+  // filter a no-op got closed. Gated on activeProgramId instead: this is
+  // computed directly from activePrograms[0].templateId, BEFORE any
+  // domain-resolution collapsing/sibling-expansion runs (confirmed live —
+  // resolvedChildDomains for an hspu-targeted request collapses to just
+  // ['push'], never containing 'hspu' or 'handstand_pushup' itself; using
+  // that downstream value would have made this gate silently inert, same
+  // failure as the thing being replaced). Checks BOTH the literal 'hspu'
+  // slug and its resolved form, since a caller may pass either the slug or
+  // a raw Firestore hash id for activePrograms[0].id/templateId.
+  //
+  // When true, resolveExercisePool below returns an empty pool for THIS
+  // REQUEST only — every other exercise's catalog membership (including
+  // both of its own tags) is completely untouched, so the same exercise
+  // still appears normally in a push-focused request matched via its OWN
+  // 'push' tag. Does not touch Firestore data or onboarding selectability.
+  const isHspuTargetedRequest =
+    HSPU_GENERATOR_EXCLUDED &&
+    !!activeProgramId &&
+    (activeProgramId === 'hspu' || resolveToSlug(activeProgramId) === 'handstand_pushup');
+
   // Fix #2 (generator-leveling audit): resolveChildDomainsForParent's model
   // is one-parent-to-children (full_body→4 domains, upper_body→2,
   // calisthenics_upper→skillFocusIds) — correct for a single master, but
@@ -2043,6 +2081,7 @@ async function _buildSharedPipeline(
     resolvedChildDomains,
     idToSlug,
     baseUserLevel,
+    isHspuTargetedRequest,
   );
   const exercises: Exercise[] = poolResult.exercises;
   const exercisePoolRelaxedConstraints = poolResult.relaxedConstraints;

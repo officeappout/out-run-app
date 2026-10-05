@@ -778,7 +778,7 @@ export default function StatsOverview({
           null;
         let hydrated: UserScheduleEntry[] = [];
         if (!rawMatch && profile.lifestyle?.recurringTemplate) {
-          hydrated = await hydrateFromTemplate(profile.id, targetDate, profile.lifestyle.recurringTemplate);
+          hydrated = await hydrateFromTemplate(profile.id, targetDate, profile.lifestyle.recurringTemplate, profile.lifestyle?.reminders);
         }
         genPerfMark('#1-2 schedule (getScheduleEntries + hydrateFromTemplate)');
 

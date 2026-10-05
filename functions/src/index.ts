@@ -55,6 +55,13 @@ export { onLevelUp } from './onLevelUp';
 export { onContributionApproved } from './onContributionApproved';
 export { retentionScheduler } from './retentionScheduler';
 export { trainingReminderScheduler } from './trainingReminderScheduler';
+// Reminder-sweep (workout-reminders build, Part B) — flag-gated
+// (app_config/feature_flags.enableReminderSweepPush, default false) — see
+// reminderSweepScheduler.ts header. NOT deployed yet; exported here so
+// it's ready to ship once deployed and verified against the emulator
+// test (reminderSweepScheduler.emulator.test.ts). David flips the flag
+// himself after deploy — nothing in this build does that automatically.
+export { reminderSweepScheduler } from './reminderSweepScheduler';
 // ── Push Notification Triggers (Social Engagement Engine — phase 3: social) ───
 export { onGroupMemberJoin } from './onGroupMemberJoin';
 export { onKudosCreated } from './onKudosCreated';

@@ -278,6 +278,15 @@ export interface UserAffiliation {
 /** Onboarding path chosen at the Gateway */
 export type OnboardingPath = 'MAP_ONLY' | 'FULL_PROGRAM';
 
+/** Weekday key for a recurring reminder slot — English, matches the SettingsModal UI's original (pre-shelving) convention. Independent of the Hebrew-letter convention used by `scheduleDays`/`recurringTemplate`. */
+export type ReminderWeekday = 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday';
+
+/** One durable per-weekday reminder slot — `lifestyle.reminders.schedule[]`. */
+export interface ReminderSlot {
+  day: ReminderWeekday;
+  time: string; // 'HH:MM', 24-hour, 5-minute grid
+}
+
 // ==========================================
 // 5. הפרופיל המלא והסופי (Root Object)
 // ==========================================
@@ -440,6 +449,14 @@ export interface UserFullProfile {
     reminders?: {
       runningTime?: string;   // preferred running workout time
       strengthTime?: string;  // preferred strength workout time
+      /**
+       * Durable per-weekday reminder slots — the real backend for the
+       * SettingsModal "תזכורות אימון" accordion (previously in-memory-only,
+       * un-shelved alongside this field; see reminder-schedule.service.ts).
+       * Written via arrayUnion (add) / full-array rewrite (remove), per
+       * axioms.md §5 — never via arrayRemove (silently fails on objects).
+       */
+      schedule?: ReminderSlot[];
     };
   };
 
