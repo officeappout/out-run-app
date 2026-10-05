@@ -90,3 +90,7 @@ functions/src/_vendor/
 
 # Firestore emulator debug log
 firestore-debug.log
+
+# Disposable, never-committed investigation scripts (one-off production
+# read-only checks) — kept on disk, just not tracked.
+scripts/_investigate-*
