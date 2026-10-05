@@ -1225,6 +1225,7 @@ export async function generateHomeWorkoutTrio(
         workout.difficulty,
         pipeline.baseGeneratorContext.availableEquipment,
         effectiveTime, // time-aware warmup: included in the user's budget
+        pipeline.idToSlug, // closes the warmup skill-leak — see prependWarmupExercises' own doc comment
       );
 
       // Cooldown
@@ -1736,6 +1737,11 @@ import type { FilterStageCounts } from '../logic/contextual-engine.types';
 interface SharedPipelineState {
   scoredExercises: ScoredExercise[];
   allExercises: Exercise[];
+  /** Request-scoped hash→slug map (see prependWarmupExercises' own doc
+   *  comment, Item 4 follow-up) — exposed so callers downstream of
+   *  _buildSharedPipeline can apply isExerciseSkillEligible against the same
+   *  pool resolveExercisePool itself used, instead of a stale/global one. */
+  idToSlug: Map<string, string>;
   filterContext: ContextualFilterContext;
   baseGeneratorContext: WorkoutGenerationContext;
   userProgramLevels: Map<string, number>;
@@ -3097,6 +3103,7 @@ async function _buildSharedPipeline(
   return {
     scoredExercises: filterResult.exercises,
     allExercises,
+    idToSlug,
     filterContext,
     baseGeneratorContext,
     userProgramLevels,

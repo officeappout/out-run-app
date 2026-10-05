@@ -26,6 +26,7 @@ import { collectMethodGear } from '../shared/constants/domain-mapping.constants'
 import { warmupSlotBudget } from '../logic/session-frame.utils';
 import { selectMethodForContext } from '../shared/utils/method-selection.utils';
 import { CONTEXT_AWARE_SELECTION_ENABLED } from '@/config/feature-flags';
+import { isExerciseSkillEligible } from '../core/middleware/InputSanitizerMiddleware';
 
 // ============================================================================
 // CONSTANTS
@@ -460,7 +461,27 @@ export function prependWarmupExercises(
    * 45min+ → the full 6-min ladder. Omitted → legacy ceiling (unchanged).
    */
   availableTimeMin?: number,
+  /**
+   * Request-scoped hash→slug map, same one resolveExercisePool receives —
+   * REQUIRED to close the skill-leak this parameter was added for (Item 4
+   * follow-up, 2026-10-05). This caller receives `pipeline.allExercises`
+   * directly (the FULL, unfiltered catalog — by design, so warmup-role
+   * exercises excluded from the main pool stay available here), which means
+   * it never passed through resolveExercisePool's isExerciseSkillEligible
+   * gate at all. Confirmed live: a muscle_up-tagged exercise leaked into a
+   * "pull activation" warmup slot for a user with no muscle_up assessment
+   * (pull L5 30min D3 @park, 10/15 reproductions) — the exact combo
+   * generator-validation-harness.ts originally flagged. Optional only so a
+   * caller with no request-scoped map (none exist today) degrades to the
+   * pre-fix behavior rather than crashing — every real caller should pass
+   * it.
+   */
+  idToSlug?: Map<string, string>,
 ): void {
+  if (idToSlug) {
+    allExercises = allExercises.filter((ex) => isExerciseSkillEligible(ex, userProgramLevels, idToSlug));
+  }
+
   const mainExercises = selectedMainExercises
     ?? workout.exercises.filter((ex) => ex.exerciseRole !== 'warmup' && ex.exerciseRole !== 'cooldown');
   if (mainExercises.length === 0) return;

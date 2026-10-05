@@ -157,6 +157,103 @@ describe('Fix #2 — buildActiveProgramFilters: union across ALL non-master acti
   });
 });
 
+describe('Item 4 — skill-gate cold-cache leak: isExerciseSkillEligible fails CLOSED on an unresolved hash tag', () => {
+  // Repro case (2026-10-05, generator-validation-harness.ts): a real
+  // exercise ("נדנוד הכנה לעליית כוח", a muscle_up prep swing) leaked to a
+  // user with pull=5/push=5/legs=5 assessed and NO muscle_up assessment.
+  // Its real Firestore tag is targetPrograms:[{programId:"fTLWzjP9gH2VNpa
+  // mCZF" (a 20-char hash, resolves to 'muscle_up' in a WARM idToSlug map),
+  // level:2}]. Before the fix: isExerciseSkillEligible called the standalone
+  // resolveToSlug(raw), which reads a SHARED, module-level cache this unit
+  // test (and, live, a concurrent request) never populates/can race on —
+  // returning the raw hash unchanged, missing the
+  // DOMAIN_RESOLUTION_SKILL_PARENT_MAP lookup (keyed by slug), and reading
+  // as foundational. Fixed: resolveExercisePool's own idToSlug PARAMETER
+  // (request-scoped) is used directly, with a hash-shaped-and-unresolved
+  // tag now failing CLOSED instead of open.
+  const PULL_5 = new Map<string, number>([['pull', 5], ['push', 5], ['legs', 5]]);
+  const MUSCLE_UP_HASH = 'fTLWzjP9gH2VNpamyCZF'; // 20 chars, no underscore — the real shape
+  const prepSwing = exercise('prep-swing-muscle-up', [{ programId: MUSCLE_UP_HASH, level: 2 }]);
+  const pullExercise2 = exercise('pull-basic-2', [{ programId: 'pull', level: 5 }]);
+
+  it('reproduces the leak and confirms it is now closed: EMPTY idToSlug (cold/unresolved) excludes the hash-tagged skill exercise', () => {
+    const result = resolveExercisePool(
+      [pullExercise2, prepSwing],
+      PULL_5,
+      ['pull'],
+      new Map(), // empty — exactly the "cache never resolved this id" case
+      5,
+    );
+    const ids = result.exercises.map((e) => e.id);
+    expect(ids).not.toContain('prep-swing-muscle-up');
+    expect(ids).toContain('pull-basic-2');
+  });
+
+  it('does NOT over-exclude: a WARM idToSlug correctly resolving the hash to muscle_up still excludes it for an unassessed user (same outcome, right reason)', () => {
+    const warmMap = new Map([[MUSCLE_UP_HASH, 'muscle_up']]);
+    const result = resolveExercisePool([pullExercise2, prepSwing], PULL_5, ['pull'], warmMap, 5);
+    expect(result.exercises.map((e) => e.id)).not.toContain('prep-swing-muscle-up');
+  });
+
+  it('does NOT over-exclude on the real (warm) path: a user who HAS muscle_up assessed gets the exercise once idToSlug resolves the hash', () => {
+    // userProgramLevels is ALWAYS slug-keyed (buildUserProgramLevels'
+    // absent=absent contract) -- it can never contain a raw hash. So the
+    // "directly assessed" check can only ever match once the hash is
+    // actually resolved to its slug. On the real request path (primary
+    // fix: resolveExercisePool's own idToSlug parameter, populated
+    // synchronously on every request before this runs) that's the normal
+    // case -- confirmed here.
+    // muscle_up level set to 2, matching prepSwing's own targetPrograms
+    // level tag exactly (same convention the pre-existing tests above use)
+    // so it also survives the UNRELATED ±3 level-tolerance filter --
+    // isolates the skill-eligibility gate, not level-tolerance exclusion.
+    const withMuscleUp = new Map(PULL_5);
+    withMuscleUp.set('muscle_up', 2);
+    const warmResult = resolveExercisePool(
+      [pullExercise2, prepSwing], withMuscleUp, ['pull'], new Map([[MUSCLE_UP_HASH, 'muscle_up']]), 5,
+    );
+    expect(warmResult.exercises.map((e) => e.id)).toContain('prep-swing-muscle-up');
+  });
+
+  it('documents the accepted trade-off: under a genuinely EMPTY idToSlug, even an assessed user\'s own hash-tagged skill is excluded, not just an unassessed one\'s', () => {
+    // Known, accepted limitation of the fail-closed design, not a separate
+    // bug: with idToSlug empty, the hash can't be resolved to 'muscle_up'
+    // at all, so "is this assessed" can't be answered either way --
+    // checking userProgramLevels.has(<the raw hash>) can never match (that
+    // map is slug-keyed). Same STRICT HIDE philosophy as the original Fix
+    // #1 (generator-leveling audit): when assessment status can't be
+    // verified, hide rather than risk showing locked content -- a narrow,
+    // self-correcting (next request, idToSlug warm again) under-delivery
+    // is preferred over any chance of an over-delivery leak. This is why
+    // the PRIMARY fix (passing the request-scoped idToSlug through,
+    // instead of the racy global resolveToSlug) matters far more than this
+    // safety net -- idToSlug is populated synchronously on every real
+    // request, so this branch should rarely if ever fire in production.
+    const withMuscleUp = new Map(PULL_5);
+    withMuscleUp.set('muscle_up', 11);
+    const coldResult = resolveExercisePool([pullExercise2, prepSwing], withMuscleUp, ['pull'], new Map(), 5);
+    expect(coldResult.exercises.map((e) => e.id)).not.toContain('prep-swing-muscle-up');
+  });
+
+  it('documents the same trade-off for a hypothetical foundational hash-shaped tag: an unresolved hash is excluded even when it isn\'t actually a skill', () => {
+    // Every foundational fixture elsewhere in this file tags via the
+    // literal slug ('push'/'pull'/etc.), matching this catalog's observed
+    // convention -- a foundational exercise referencing its domain by raw
+    // Firestore hash id (rather than slug) is not a confirmed real case.
+    // If one did exist, this is the one scenario where fail-closed costs
+    // something real: a non-skill exercise could be wrongly excluded under
+    // a cold cache. Accepted deliberately (same reasoning as the test
+    // above) -- cannot distinguish "unresolved foundational hash" from
+    // "unresolved skill hash" without a resolved slug, and the two
+    // failure directions are not symmetric in cost (a content-gating leak
+    // vs. one exercise temporarily missing from an otherwise-healthy pool).
+    const UNRESOLVED_HASH = 'J0fLpmJhG0KDN2tQouxh'; // 20 chars, no underscore -- real shape, arbitrary id
+    const hashTagged = exercise('hash-tagged-unverifiable', [{ programId: UNRESOLVED_HASH, level: 5 }]);
+    const result = resolveExercisePool([hashTagged], PULL_5, ['pull'], new Map(), 5);
+    expect(result.exercises.map((e) => e.id)).not.toContain('hash-tagged-unverifiable');
+  });
+});
+
 describe('Combined repro — owner\'s exact case: pull=6, push=9, Custom Builder multi-select [pull, push]', () => {
   const PROGRAMS: Program[] = [
     program({ id: 'push-hash', slug: 'push', movementPattern: 'push', isMaster: false }),

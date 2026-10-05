@@ -513,10 +513,43 @@ export function resolveUserLevelForProgram(
  * An exercise with at least one non-skill (foundational) tag, or at least
  * one skill tag the user HAS directly reached, stays eligible via that tag
  * — this only removes an exercise whose EVERY tag is an unreached skill.
+ *
+ * FIXED 2026-10-05 (Item 4, skill-gate cold-cache leak): used to call the
+ * standalone `resolveToSlug(raw)` — which reads the SHARED, module-level,
+ * concurrently-mutable `_idToSlugMap` (program-hierarchy.utils.ts) — instead
+ * of the `idToSlug` map `resolveExercisePool` already receives as a
+ * request-scoped parameter (and already uses safely elsewhere in that same
+ * function). Reproduced live: a real exercise tagged
+ * `targetPrograms:[{programId:"<muscle_up's Firestore hash>", level:2}]`
+ * leaked to a user with no muscle_up assessment, with `skill_gate: 0`
+ * exclusions logged for that call — `resolveToSlug` had returned the raw,
+ * unresolved hash unchanged (its own documented cold-cache fallback,
+ * `console.error`-only, never thrown), so the lookup against
+ * DOMAIN_RESOLUTION_SKILL_PARENT_MAP (keyed by slug) missed and the tag read
+ * as foundational. Now takes `idToSlug` directly — request-scoped, so it
+ * can't be affected by a concurrent request's cache rebuild — and, as
+ * defense in depth, treats a hash-SHAPED tag that still doesn't resolve
+ * (not in `idToSlug`, not a known slug) as UNPROVEN rather than safe: fails
+ * CLOSED (excludes, same as an unreached skill) instead of failing open.
+ *
+ * EXPORTED (2026-10-05, Item 4 follow-up): `resolveExercisePool` is NOT the
+ * only consumer of the full, unfiltered catalog — `prependWarmupExercises`/
+ * `appendCooldownExercises` (home-workout.service.ts's trio loop) both
+ * receive `pipeline.allExercises` directly, bypassing this gate entirely,
+ * by design ("warmup.service.ts has its own independent filter stack" —
+ * see that call site's own comment). That stack never included a skill
+ * check. Confirmed live: the exact `pull L5 30min D3 @park` leak this
+ * module's own Fix #1 was built to close still reproduced (10/15 attempts)
+ * AFTER this file's own idToSlug fix — root cause was a muscle_up-tagged
+ * exercise selected as a warmup "pull activation" slot, never passing
+ * through this function at all. Exported so warmup/cooldown can apply the
+ * identical, single-source-of-truth gate instead of a second
+ * reimplementation that could drift out of sync.
  */
-function isExerciseSkillEligible(
+export function isExerciseSkillEligible(
   exercise: Exercise,
   userProgramLevels: Map<string, number>,
+  idToSlug: Map<string, string>,
 ): boolean {
   const tags: string[] = [
     ...(exercise.targetPrograms ?? []).map((tp) => tp.programId),
@@ -525,10 +558,28 @@ function isExerciseSkillEligible(
   if (tags.length === 0) return true; // nothing to gate on — unaffected by this fix
 
   for (const raw of tags) {
-    const slug = resolveToSlug(raw);
+    const resolved = idToSlug.get(raw);
+    const slug = resolved ?? resolveToSlug(raw);
     const isSkill =
       DOMAIN_RESOLUTION_SKILL_PARENT_MAP[slug] !== undefined ||
       DOMAIN_RESOLUTION_SKILL_PARENT_MAP[raw] !== undefined;
+
+    // Defense in depth: a hash-shaped tag (long, no underscore — same
+    // heuristic resolveToSlug's own diagnostic uses) that resolved to
+    // NOTHING in the request-scoped map and isn't itself a known slug or a
+    // known skill key cannot be proven foundational. Fail closed rather
+    // than silently trusting an unresolved identifier — no "directly
+    // assessed" escape hatch here on purpose: userProgramLevels is always
+    // slug-keyed (buildUserProgramLevels' absent=absent contract), so
+    // checking it against the raw, unresolved hash could never match
+    // anyway (axioms.md §29 — don't keep a check that can't fire). The
+    // asymmetry is intentional: a genuinely assessed user only loses this
+    // one exercise for one request, until idToSlug is warm again (every
+    // real request, since resolveExercisePool's caller builds it
+    // synchronously beforehand) — a content-gating leak does not
+    // self-correct the same way.
+    if (resolved === undefined && raw.length > 15 && !raw.includes('_') && !isSkill) return false;
+
     if (!isSkill) return true; // a foundational tag always keeps the exercise eligible
     if (userProgramLevels.has(slug) || userProgramLevels.has(raw)) return true; // directly assessed
   }
@@ -568,7 +619,10 @@ export function resolveExercisePool(
   // tolerance/rescue logic below, against the raw catalog, so a thin pool
   // can never "rescue" an unreached skill back in via the CLIFF fallbacks
   // further down this function.
-  allExercises = allExercises.filter((ex) => isExerciseSkillEligible(ex, userProgramLevels));
+  // Combines both fixes: request-scoped idToSlug (closes the cold-cache
+  // skill leak) + the request-level HSPU short-circuit (replaces the
+  // removed isHspuFrozen per-exercise denylist, PR #142).
+  allExercises = allExercises.filter((ex) => isExerciseSkillEligible(ex, userProgramLevels, idToSlug));
 
   // Temporary HSPU freeze — see this parameter's own doc comment above.
   // Short-circuits BEFORE any tolerance/rescue logic, for the same reason
