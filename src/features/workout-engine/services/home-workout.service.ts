@@ -120,7 +120,7 @@ import {
   sortAndPair,
 } from '../core/presentation/PresentationFormatter';
 import { validatePromisesPostCut, runSkillRepresentationGuarantee } from '../core/pipeline/GuaranteePassRunner';
-import { recomputeMechanicalBalance } from '../logic/workout-sorting.utils';
+import { recomputeMechanicalBalance, enforceFinalStraightArmPenalty } from '../logic/workout-sorting.utils';
 import {
   derivePeriodizationWeek,
   resolveSessionPolicy,
@@ -1525,6 +1525,20 @@ export async function generateHomeWorkoutTrio(
     // but this still belongs at the very end of the pipeline like
     // annotateRepRanges.
     roundRestSeconds(workout.exercises);
+
+    // ── SA/BA final-pass penalty guard (final-pass fix, 2026-10-06) ─────────
+    // Must run before the mechanicalBalance recompute below, and after EVERY
+    // composition/identity-changing mutation — in particular
+    // `applyFlowRegression` (D1) and `applyIntenseOption` (D3), both of which
+    // swap `ex.exercise` to a different exercise without ever re-consulting
+    // the original SA penalty pass (`ContextualEngine.applyMechanicalBalancing`,
+    // which already ran once, early, on the pre-swap pool). See
+    // enforceFinalStraightArmPenalty's own doc comment for the reproduced
+    // case this closes.
+    workout.exercises = enforceFinalStraightArmPenalty(
+      workout.exercises,
+      pipeline.filterContext.activeProgramFilters ?? [],
+    );
 
     // ── Final mechanical-balance recompute (staleness fix, 2026-10-05) ──────
     // Must be the LAST thing that reads workout.exercises' composition
