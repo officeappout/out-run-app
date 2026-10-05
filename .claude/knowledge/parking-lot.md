@@ -1212,6 +1212,23 @@ Proven empirically, not theoretically: added a new `isSuperAdminOnly()` helper +
 
 ---
 
+## `resolveUnitPermissionScope` — מנהל-יחידה בשני טננטים רואה רק את הראשון, בשקט
+
+**Opened:** 2026-10-06 · **Source:** דוד, אחרי דוח מיפוי "קצין כושר ראשי" (חקירה בלבד, §B) — "לא נוגעים בזה עכשיו. רק רשום."
+
+**מה נמצא:** בענף `unitAdmin` של `resolveUnitPermissionScope` (`unitPermissionScope.ts:223-231`), כש-`managedUnitsSnap` (כל היחידות שה-uid מנהל, חוצה-טננטים במפורש — `db.collectionGroup('units')`) מכיל תוצאות משני טננטים שונים, הקוד לוקח את הטננט של התוצאה **הראשונה** (`managedUnitsSnap.docs[0].ref.parent.parent?.id`) ואז מסנן את **כל** היחידות לאותו טננט בלבד:
+```ts
+const tenantId = managedUnitsSnap.docs[0].ref.parent.parent?.id;
+const directUnitIds = managedUnitsSnap.docs
+  .filter((d) => d.ref.parent.parent?.id === tenantId)
+  .map((d) => d.id);
+```
+יחידות בטננט השני נופלות בשקט — אין שגיאה, אין אינדיקציה, `scope.kind` יוצא `unitAdmin` תקין עם `tenantId` אחד בלבד.
+
+**לא תוקן.** לא ידוע אם המקרה הזה קיים בפועל בפרודקשן היום (לא נבדק, לא מתוך הסקופ של המיפוי). מועמד-המשך: אם מתברר שמנהל-יחידה אמיתי מנהל יחידות בשני טננטים, זה צריך להיות `scope.kind === 'denied'` או מערך-טננטים מפורש, לא בחירה שקטה של הראשון.
+
+---
+
 ## 📌 פער-תוכן (לא באג) — רשימה מתועדפת: היכן ה-pool ריק/דל — ריצה מלאה 912 קריאות, 2026-10-05
 
 **Opened:** 2026-10-05 · **Source:** ריצה מלאה (Stage 0→3, 912 קריאות אמיתיות ל-`generateHomeWorkoutTrio`, 0 קריסות) של `scripts/audit/generator-validation-harness.ts` אחרי שני תיקוני-rubric (ordering + sa_ba_balance) ו-PR #127 — על `origin/main` commit `361b75aa`. ממצא-על: **263/912 (28.8%) מהקומבינציות פגעו ב-empty-pool honesty guard** של `PipelineOrchestrator` — לא "דל", **ריק לגמרי**. ממוצע-תרגילים כללי בסוויפ: **4.8** (יציב מול ריצה קודמת: 4.7) — פי ~3 פחות מהקורפוס הידני של דוד (14.8).
