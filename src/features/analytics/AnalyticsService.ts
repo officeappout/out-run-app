@@ -27,7 +27,22 @@ export type AnalyticsEventType =
   | 'profile_created'
   | 'profile_updated'
   | 'permission_location_status'
-  | 'error_occurred';
+  | 'error_occurred'
+  // ── Journey-hub Phase 1 seed events (docs/analytics/event-taxonomy.md) ──
+  // 'recommendation_shown' and 'workout_play_pressed' are WIRED (home-
+  // screen carousel, src/app/home/page.tsx) as of this change. The other
+  // 3 are declared here per the taxonomy doc's naming convention but are
+  // NOT yet wired anywhere — their instrumentation points weren't
+  // identified during planning and need their own short scan before use
+  // (see the taxonomy doc §3). Treat them the same way this file already
+  // treats 'app_open'/'app_close': present in the type, no guarantee any
+  // code actually calls logEvent() with them yet.
+  | 'recommendation_shown'
+  | 'workout_play_pressed'
+  | 'workout_detail_viewed'
+  | 'screen_view'
+  | 'session_start'
+  | 'session_end';
 
 /**
  * Base Analytics Event Interface
@@ -106,6 +121,31 @@ export interface ErrorEvent extends BaseAnalyticsEvent {
 }
 
 /**
+ * Journey-hub Phase 1 (docs/analytics/event-taxonomy.md §4). Fields are
+ * what `Suggestion` (suggestion.types.ts) actually carries at the moment
+ * a card is shown/tapped — NOT the plan doc's original illustrative
+ * `{level, equipment}` shape, which don't exist on that type. `difficulty`
+ * (1|2|3) is the real available proxy for "level"; `equipment` isn't
+ * reliably available at this point (would need the optional, sometimes-
+ * absent `preview` field) so it's omitted rather than faked.
+ */
+export interface RecommendationShownEvent extends BaseAnalyticsEvent {
+  eventName: 'recommendation_shown';
+  workout_id: string;
+  suggestion_type: string; // Suggestion['type'] — daily_workout | post_workout | program_recommendation | micro_nudge
+  generator_id: string;
+  difficulty: 1 | 2 | 3;
+  surface: string; // which UI surface shown on — reuses UserContextSurface's existing vocabulary (user-context.types.ts), e.g. 'home'
+}
+
+export interface WorkoutPlayPressedEvent extends BaseAnalyticsEvent {
+  eventName: 'workout_play_pressed';
+  workout_id: string;
+  generator_id: string;
+  surface: string;
+}
+
+/**
  * Union type for all event types
  */
 export type AnalyticsEvent =
@@ -118,7 +158,9 @@ export type AnalyticsEvent =
   | WorkoutAbandonedEvent
   | ProfileEvent
   | PermissionLocationStatusEvent
-  | ErrorEvent;
+  | ErrorEvent
+  | RecommendationShownEvent
+  | WorkoutPlayPressedEvent;
 
 /**
  * Convert Date to Firestore Timestamp
@@ -428,4 +470,26 @@ export const Analytics = {
   // Error events
   logError: (errorCode: string, screen?: string, errorMessage?: string) =>
     logEvent('error_occurred', { error_code: errorCode, screen, error_message: errorMessage }),
+
+  // Journey-hub Phase 1 seed events (docs/analytics/event-taxonomy.md)
+  logRecommendationShown: (opts: {
+    workoutId: string;
+    suggestionType: string;
+    generatorId: string;
+    difficulty: 1 | 2 | 3;
+    surface: string;
+  }) =>
+    logEvent('recommendation_shown', {
+      workout_id: opts.workoutId,
+      suggestion_type: opts.suggestionType,
+      generator_id: opts.generatorId,
+      difficulty: opts.difficulty,
+      surface: opts.surface,
+    }),
+  logWorkoutPlayPressed: (opts: { workoutId: string; generatorId: string; surface: string }) =>
+    logEvent('workout_play_pressed', {
+      workout_id: opts.workoutId,
+      generator_id: opts.generatorId,
+      surface: opts.surface,
+    }),
 };

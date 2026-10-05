@@ -30,6 +30,7 @@ import CommunitySessionBanner from '@/features/arena/components/CommunitySession
 import GroupDetailsDrawer from '@/features/arena/components/GroupDetailsDrawer';
 import PostJoinSuccessDrawer from '@/features/arena/components/PostJoinSuccessDrawer';
 import type { CommunityGroup, ScheduleSlot } from '@/types/community.types';
+import { Analytics } from '@/features/analytics/AnalyticsService';
 
 import {
   Shield, CheckCircle2, Circle, ChevronDown, X, Plus,
@@ -1366,6 +1367,19 @@ export default function HomePage() {
   // for the same id, so this can never cause a redundant generateHomeWorkoutTrio call.
   const handlePreWorkoutSettle = useCallback((suggestion: Suggestion) => {
     setActivePreWorkoutSuggestion(suggestion);
+    // Journey-hub Phase 1 seed event (docs/analytics/event-taxonomy.md) —
+    // fired here, not per-render, matching SuggestionCarousel's own
+    // onSettle semantics (~300ms after a card becomes centered, not
+    // every scroll frame). surface: 'home' matches the SAME literal
+    // buildHomeUserContext already uses a few lines below, not a new
+    // vocabulary.
+    Analytics.logRecommendationShown({
+      workoutId: suggestion.id,
+      suggestionType: suggestion.type,
+      generatorId: suggestion.generatorId,
+      difficulty: suggestion.difficulty,
+      surface: 'home',
+    });
     if (!profile) return;
     const context = buildHomeUserContext({
       profile,
@@ -1820,6 +1834,14 @@ export default function HomePage() {
   const handlePreWorkoutCardTap = useCallback(async (suggestion: Suggestion) => {
     if (!profile) return;
     setStartingPreWorkoutSuggestionId(suggestion.id);
+    // Journey-hub Phase 1 seed event (docs/analytics/event-taxonomy.md) —
+    // same 'home' surface literal as handlePreWorkoutSettle's
+    // recommendation_shown above, not a new vocabulary.
+    Analytics.logWorkoutPlayPressed({
+      workoutId: suggestion.id,
+      generatorId: suggestion.generatorId,
+      surface: 'home',
+    });
     try {
       const context = buildHomeUserContext({
         profile,
