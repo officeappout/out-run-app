@@ -35,6 +35,8 @@ import {
   collection,
   query,
   where,
+  orderBy,
+  limit,
   getCountFromServer,
   getDocs,
   Timestamp,
@@ -403,3 +405,56 @@ function isDrop(stepConversion: number | null): boolean {
  */
 export const FUNNEL_DROP_THRESHOLD = 50;
 export const FUNNEL_CAUTION_THRESHOLD = 70;
+
+// ──────────────────────────────────────────────────────────────────────
+// Distinct-value loader — moved here from /admin/analytics/page.tsx
+// (Journey Hub Wave 2, 05.10.2026) so the new cross-tab filter bar can
+// reuse the exact same loader instead of a second copy. Fills the
+// campaign/source dropdowns from the existing user docs that have a
+// marketingAttribution object. Capped at 200 docs so even on a very
+// large user base this stays a single cheap query.
+//
+// Note: this is a deliberate trade-off — for very large datasets the
+// "distinct values" list may be incomplete (a long-tail campaign in
+// doc #201+ would not appear). The trade-off is acceptable because:
+//   • The most common campaigns/sources will dominate the top docs.
+//   • Admins can still type-filter by URL param if needed.
+//   • A proper "distinct" query would require a separate aggregation
+//     pipeline that's overkill for v1.
+// ──────────────────────────────────────────────────────────────────────
+
+export interface DistinctAttribution {
+  campaigns: string[];
+  sources: string[];
+  mediums: string[];
+}
+
+export async function loadDistinctAttributionValues(): Promise<DistinctAttribution> {
+  try {
+    const q = query(
+      collection(db, USERS_COLLECTION),
+      where('marketingAttribution.source', '!=', null),
+      orderBy('marketingAttribution.source'),
+      limit(200),
+    );
+    const snap = await getDocs(q);
+    const campaigns = new Set<string>();
+    const sources   = new Set<string>();
+    const mediums   = new Set<string>();
+    snap.forEach((doc) => {
+      const a = doc.data()?.marketingAttribution;
+      if (!a) return;
+      if (typeof a.campaign === 'string' && a.campaign) campaigns.add(a.campaign);
+      if (typeof a.source   === 'string' && a.source)   sources.add(a.source);
+      if (typeof a.medium   === 'string' && a.medium)   mediums.add(a.medium);
+    });
+    return {
+      campaigns: Array.from(campaigns).sort(),
+      sources:   Array.from(sources).sort(),
+      mediums:   Array.from(mediums).sort(),
+    };
+  } catch (err) {
+    console.error('[FunnelAnalytics] Failed to load distinct attribution values:', err);
+    return { campaigns: [], sources: [], mediums: [] };
+  }
+}
