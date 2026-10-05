@@ -8,6 +8,7 @@ import {
   ChevronLeft, ArrowRight, Loader2, AlertTriangle, Globe, Users, EyeOff,
   Heart, Ruler, Camera, MapPin, Dumbbell, Eye,
   BarChart3, Mail, Pencil, Check, Tag, CreditCard, MessageSquare, Calendar,
+  Clock, Plus,
 } from 'lucide-react';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { doc, updateDoc, setDoc } from 'firebase/firestore';
@@ -44,6 +45,14 @@ import {
 import { initPushNotifications } from '@/lib/native/push';
 import { hapticSelection } from '@/lib/haptics';
 import MyPersonasSection from './settings/MyPersonasSection';
+import { DrumTimePicker } from '@/components/ui/DrumTimePicker';
+import {
+  getReminderSchedule,
+  addReminderSlot,
+  removeReminderSlot,
+} from '@/features/notifications/services/reminder-schedule.service';
+import { Analytics } from '@/features/analytics/AnalyticsService';
+import type { ReminderSlot, ReminderWeekday } from '@/features/user/core/types/user.types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES & CONSTANTS
@@ -54,27 +63,23 @@ interface SettingsModalProps {
   onClose: () => void;
 }
 
-// ── Workout Reminders (HIDDEN — App Store cleanup D6) ──────────────────────
-// The reminders UI relied on unstable in-memory React state (lost on modal/app
-// close) with no FCM / LocalNotifications persistence. Hidden until a durable
-// scheduling backend exists. Re-enable the `Reminder` interface + DAYS_OF_WEEK
-// constant together with the accordion JSX further below.
-//
-// interface Reminder {
-//   id: string;
-//   day: string;
-//   time: string;
-// }
-//
-// const DAYS_OF_WEEK = [
-//   { value: 'sunday',    label: 'ראשון' },
-//   { value: 'monday',    label: 'שני' },
-//   { value: 'tuesday',   label: 'שלישי' },
-//   { value: 'wednesday', label: 'רביעי' },
-//   { value: 'thursday',  label: 'חמישי' },
-//   { value: 'friday',    label: 'שישי' },
-//   { value: 'saturday',  label: 'שבת' },
-// ];
+// ── Workout Reminders (App Store cleanup D6 — RE-ENABLED) ──────────────────
+// Previously hidden: relied on in-memory React state with no FCM/
+// LocalNotifications persistence. Now backed by
+// `users/{uid}.lifestyle.reminders.schedule` via reminder-schedule.service.ts
+// — see scheduling-capability-audit.md Part A. Sending (the sweep cron that
+// would actually fire a push at these times) is a separate, not-yet-built
+// Part B — this UI only persists the user's chosen slots.
+
+const DAYS_OF_WEEK: { value: ReminderWeekday; label: string }[] = [
+  { value: 'sunday',    label: 'ראשון' },
+  { value: 'monday',    label: 'שני' },
+  { value: 'tuesday',   label: 'שלישי' },
+  { value: 'wednesday', label: 'רביעי' },
+  { value: 'thursday',  label: 'חמישי' },
+  { value: 'friday',    label: 'שישי' },
+  { value: 'saturday',  label: 'שבת' },
+];
 
 const PRIVACY_MODES: Array<{
   value: PrivacyMode;
@@ -344,6 +349,20 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     if (isOpen) setScreen('main');
   }, [isOpen]);
 
+  // ── Reminder schedule — load on open ───────────────────────────────────────
+  useEffect(() => {
+    if (!isOpen) return;
+    const uid = auth.currentUser?.uid;
+    if (!uid) { setRemindersLoading(false); return; }
+    let cancelled = false;
+    setRemindersLoading(true);
+    getReminderSchedule(uid)
+      .then((slots) => { if (!cancelled) setReminders(slots); })
+      .catch((err) => console.error('[Settings] reminder schedule load failed:', err))
+      .finally(() => { if (!cancelled) setRemindersLoading(false); });
+    return () => { cancelled = true; };
+  }, [isOpen]);
+
   // Inline edit for personal info — state/effects/save logic extracted to
   // usePersonalInfoEditor (round 5 of the profile redesign) so the new Edit
   // Profile screen can reuse the exact same staged-edit + save behavior.
@@ -383,12 +402,14 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [analyticsOptOut, setAnalyticsOptOut] = useState(false);
   const [isSavingAnalytics, setIsSavingAnalytics] = useState(false);
 
-  // Reminders (HIDDEN — App Store cleanup D6). In-memory only, no persistence.
-  // const [reminders, setReminders] = useState<Reminder[]>([]);
-  // const [showAddReminder, setShowAddReminder] = useState(false);
-  // const [remindersExpanded, setRemindersExpanded] = useState(false);
-  // const [selectedDay, setSelectedDay] = useState('sunday');
-  // const [selectedTime, setSelectedTime] = useState('18:00');
+  // Reminders — durable (users/{uid}.lifestyle.reminders.schedule), re-enabled.
+  const [reminders, setReminders] = useState<ReminderSlot[]>([]);
+  const [remindersLoading, setRemindersLoading] = useState(true);
+  const [remindersSaving, setRemindersSaving] = useState(false);
+  const [showAddReminder, setShowAddReminder] = useState(false);
+  const [remindersExpanded, setRemindersExpanded] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<ReminderWeekday>('sunday');
+  const [selectedTime, setSelectedTime] = useState('18:00');
 
   // Equipment editor sheet
   const [equipmentSheetOpen, setEquipmentSheetOpen] = useState(false);
@@ -1009,22 +1030,63 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     triggerHealthPermission();
   }, [store.healthBridgeEnabled, triggerHealthPermission, showToast]);
 
-  // ── Reminders (HIDDEN — App Store cleanup D6) ─────────────────────────────
-  // const handleAddReminder = useCallback(() => {
-  //   if (!selectedDay || !selectedTime) return;
-  //   setReminders((prev) => [
-  //     ...prev,
-  //     { id: Date.now().toString(), day: selectedDay, time: selectedTime },
-  //   ]);
-  //   setShowAddReminder(false);
-  //   setSelectedDay('sunday');
-  //   setSelectedTime('18:00');
-  // }, [selectedDay, selectedTime]);
-  //
-  // const getDayLabel = useCallback(
-  //   (v: string) => DAYS_OF_WEEK.find((d) => d.value === v)?.label ?? v,
-  //   [],
-  // );
+  // ── Reminders ──────────────────────────────────────────────────────────────
+  const handleAddReminder = useCallback(async () => {
+    const uid = auth.currentUser?.uid;
+    if (!uid || !selectedDay || !selectedTime || remindersSaving) return;
+    const slot: ReminderSlot = { day: selectedDay, time: selectedTime };
+    const previous = reminders;
+    setRemindersSaving(true);
+    setReminders((prev) => [...prev, slot]); // optimistic
+    setShowAddReminder(false);
+    try {
+      const updated = await addReminderSlot(uid, slot);
+      setReminders(updated);
+      Analytics.logReminderSchedule({
+        day: slot.day,
+        time: slot.time,
+        action: 'add',
+        totalReminders: updated.length,
+      });
+    } catch (err) {
+      console.error('[Settings] addReminderSlot failed:', err);
+      setReminders(previous);
+      showToast('error', 'שגיאה בשמירת התזכורת');
+    } finally {
+      setRemindersSaving(false);
+      setSelectedDay('sunday');
+      setSelectedTime('18:00');
+    }
+  }, [selectedDay, selectedTime, reminders, remindersSaving, showToast]);
+
+  const handleRemoveReminder = useCallback(async (slot: ReminderSlot) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid || remindersSaving) return;
+    const previous = reminders;
+    setRemindersSaving(true);
+    setReminders((prev) => prev.filter((s) => !(s.day === slot.day && s.time === slot.time))); // optimistic
+    try {
+      const updated = await removeReminderSlot(uid, slot);
+      setReminders(updated);
+      Analytics.logReminderSchedule({
+        day: slot.day,
+        time: slot.time,
+        action: 'remove',
+        totalReminders: updated.length,
+      });
+    } catch (err) {
+      console.error('[Settings] removeReminderSlot failed:', err);
+      setReminders(previous);
+      showToast('error', 'שגיאה בהסרת התזכורת');
+    } finally {
+      setRemindersSaving(false);
+    }
+  }, [reminders, remindersSaving, showToast]);
+
+  const getDayLabel = useCallback(
+    (v: string) => DAYS_OF_WEEK.find((d) => d.value === v)?.label ?? v,
+    [],
+  );
 
   // ── Logout ───────────────────────────────────────────────────────────────
 
@@ -1612,12 +1674,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     </div>
                   </div>
 
-                  {/* Reminders accordion — HIDDEN (App Store cleanup D6).
-                      Relied on in-memory React state with no FCM/LocalNotifications
-                      persistence (settings were lost on modal/app close). Hidden until
-                      a durable scheduling backend exists. Re-enable together with the
-                      reminders state + handlers + DAYS_OF_WEEK constant above.
-
+                  {/* Reminders accordion — re-enabled (App Store cleanup D6),
+                      now backed by users/{uid}.lifestyle.reminders.schedule.
+                      Sending is a separate, not-yet-built Part B — this only
+                      persists the chosen slots. */}
                   <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
                     <button
                       type="button"
@@ -1630,7 +1690,9 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       <div className="flex-1 text-right">
                         <p className="text-sm font-semibold text-gray-900 font-simpler">תזכורות אימון</p>
                         <p className="text-xs text-gray-400 font-simpler mt-0.5">
-                          {reminders.length > 0 ? `${reminders.length} תזכורות מוגדרות` : 'לא הוגדרו תזכורות'}
+                          {remindersLoading
+                            ? 'טוען...'
+                            : reminders.length > 0 ? `${reminders.length} תזכורות מוגדרות` : 'לא הוגדרו תזכורות'}
                         </p>
                       </div>
                       <motion.div animate={{ rotate: remindersExpanded ? 90 : 0 }}>
@@ -1649,13 +1711,14 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                           <div className="px-4 py-3 space-y-2">
                             {reminders.map((r) => (
                               <div
-                                key={r.id}
+                                key={`${r.day}-${r.time}`}
                                 className="flex items-center justify-between py-2 px-3 bg-cyan-50 border border-cyan-100 rounded-xl"
                               >
                                 <button
                                   type="button"
-                                  onClick={() => setReminders((prev) => prev.filter((x) => x.id !== r.id))}
-                                  className="text-red-400 hover:text-red-600 p-1"
+                                  onClick={() => { void handleRemoveReminder(r); }}
+                                  disabled={remindersSaving}
+                                  className="text-red-400 hover:text-red-600 p-1 disabled:opacity-50"
                                   aria-label="הסר תזכורת"
                                 >
                                   <X size={14} />
@@ -1669,23 +1732,16 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
                             {showAddReminder ? (
                               <div className="space-y-2 pt-1">
-                                <div className="flex gap-2">
-                                  <select
-                                    value={selectedDay}
-                                    onChange={(e) => setSelectedDay(e.target.value)}
-                                    className="flex-1 px-2 py-2 border border-gray-200 rounded-xl text-sm font-simpler outline-none focus:ring-2 focus:ring-cyan-400"
-                                  >
-                                    {DAYS_OF_WEEK.map((d) => (
-                                      <option key={d.value} value={d.value}>{d.label}</option>
-                                    ))}
-                                  </select>
-                                  <input
-                                    type="time"
-                                    value={selectedTime}
-                                    onChange={(e) => setSelectedTime(e.target.value)}
-                                    className="w-24 px-2 py-2 border border-gray-200 rounded-xl text-sm font-simpler outline-none focus:ring-2 focus:ring-cyan-400"
-                                  />
-                                </div>
+                                <select
+                                  value={selectedDay}
+                                  onChange={(e) => setSelectedDay(e.target.value as ReminderWeekday)}
+                                  className="w-full px-2 py-2 border border-gray-200 rounded-xl text-sm font-simpler outline-none focus:ring-2 focus:ring-cyan-400"
+                                >
+                                  {DAYS_OF_WEEK.map((d) => (
+                                    <option key={d.value} value={d.value}>{d.label}</option>
+                                  ))}
+                                </select>
+                                <DrumTimePicker value={selectedTime} onChange={setSelectedTime} />
                                 <div className="flex gap-2">
                                   <button
                                     type="button"
@@ -1696,8 +1752,9 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={handleAddReminder}
-                                    className="flex-1 py-2 text-sm font-bold text-white bg-cyan-500 rounded-xl hover:bg-cyan-600 font-simpler"
+                                    onClick={() => { void handleAddReminder(); }}
+                                    disabled={remindersSaving}
+                                    className="flex-1 py-2 text-sm font-bold text-white bg-cyan-500 rounded-xl hover:bg-cyan-600 font-simpler disabled:opacity-50"
                                   >
                                     הוסף
                                   </button>
@@ -1718,7 +1775,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       )}
                     </AnimatePresence>
                   </div>
-                  */}
                 </div>
               )}
 
