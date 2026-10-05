@@ -1609,28 +1609,36 @@ export const HANDSTAND_ASSESSMENT_ENABLED = false;
 // push-up) ruleset, which does not exist yet. Added 2026-10-05 after
 // scripts/audit/generator-validation-harness.ts's full 912-combo sweep found
 // hspu returning an EMPTY candidate pool at EVERY tested level (L1-L15,
-// unlike every other program, which works fine at low/mid levels) --
-// logged in .claude/knowledge/parking-lot.md as a content-depth finding with
-// an open, unverified root cause (missing content vs. a park-location/
-// equipment-tagging gap for wall/parallette-dependent movements).
+// unlike every other program, which works fine at low/mid levels).
 //
-// While TRUE (default): isHspuFrozen() below hard-excludes every exercise
-// tagged to the hspu program or handstand_pushup movementGroup from
-// resolveExercisePool's candidate pool, UNCONDITIONALLY -- for every user,
-// assessed or not, not just the unassessed-skill gate isExerciseSkillEligible
-// already applies. This is deliberately broader than that gate: the goal
-// here is "must never appear in a generated program or workout" at all,
-// until a real HSPU rule module (level bands, progressions, equipment
-// requirements) is built -- not just "hidden from users who haven't
-// unlocked it yet."
+// RE-SCOPED 2026-10-05 (David's explicit request, same day): the original
+// mechanism was a per-exercise denylist (isHspuFrozen, removed) that keyed
+// on whether an EXERCISE carried an hspu/handstand_pushup tag anywhere --
+// confirmed over-broad by live trace: a real exercise is tagged BOTH
+// push@L20 and handstand_pushup@L11 ("שכיבות סמיכה בעמידת ידיים חזה לקיר",
+// W61ECyiZmD9APomgxAfz) and correctly appears in a plain push L20+ session
+// today; a denylist keyed on tag membership would have silently stripped it
+// from that unrelated push session too, the moment the (separate, now-
+// documented -- see parking-lot.md) 'hspu' vs 'handstand_pushup' slug
+// mismatch that made the original filter a no-op against real data ever
+// got closed.
+//
+// While TRUE (default): home-workout.service.ts computes, per request,
+// whether THIS session's primary target (activePrograms[0].templateId,
+// resolved) is hspu/handstand_pushup -- BEFORE any domain-resolution
+// collapsing -- and resolveExercisePool returns an empty pool for that one
+// request only. No exercise's catalog membership is touched, so a multi-
+// tagged exercise still resolves normally via its OTHER tag for any
+// non-hspu request. Goal unchanged: hspu must never appear in a generated
+// program or workout, until a real HSPU rule module (level bands,
+// progressions, equipment requirements) is built.
 //
 // Does NOT touch Firestore data, onboarding selectability
 // (program-path/page.tsx's SKILL_PROGRAMS still lists hspu, and its own
 // readySkillIds content-gate still passes it -- hspu has 11 real authored
 // onboarding levels, unlike handstand), or any existing user's stored
-// progression/tracks. Purely a generator-pool filter. Flip to false once a
-// real HSPU ruleset lands (and re-verify the empty-pool finding is actually
-// gone, not just hidden).
+// progression/tracks. Flip to false once a real HSPU ruleset lands (and
+// re-verify the empty-pool finding is actually gone, not just hidden).
 export const HSPU_GENERATOR_EXCLUDED = true;
 
 // Helper function for conditional rendering
