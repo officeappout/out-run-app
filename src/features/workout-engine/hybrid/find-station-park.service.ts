@@ -11,7 +11,7 @@ import type { Park } from '@/features/parks/core/types/park.types';
 import { haversineMeters } from '@/features/parks/core/services/geoUtils';
 import { normalizeGearIds } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { parkGymEquipmentToGearIds } from './park-equipment.util';
-import { isPrimaryFitness } from './park-fitness.util';
+import { isPrimaryFitness, hasUsableEquipment } from './park-fitness.util';
 
 export interface StationPark {
   parkId: string;
@@ -65,7 +65,7 @@ export async function findStationPark(
   const candidates: Array<{ park: Park; distToPath: number; waypointIndex: number; distFromStart: number }> = [];
   let cEquip = 0, cPrimary = 0, nearestMiss = Infinity; // diag counters
   for (const p of parks) {
-    if ((p.gymEquipment?.length ?? 0) === 0 || p.location?.lat == null || p.location?.lng == null) continue;
+    if (!hasUsableEquipment(p) || p.location?.lat == null || p.location?.lng == null) continue;
     cEquip++;
     if (!isPrimaryFitness(p)) continue;
     cPrimary++;
@@ -96,8 +96,15 @@ export async function findStationPark(
   );
   if (!best) return null; // no equipment park on/near the path → bodyweight fallback (A3)
 
-  const rawIds = (best.park.gymEquipment ?? []).map((e) => e.equipmentId).filter(Boolean);
-  const availableEquipment = parkGymEquipmentToGearIds(best.park.gymEquipment, normalizeGearIds);
+  // Point-fetch the winner's full record: `best.park` may have come from the lean
+  // catalog (opts.parks) and carry only the precomputed hasUsableEquipment flag that
+  // got it selected, not the real gymEquipment array. Falls back to best.park if the
+  // point-fetch fails, same defensive posture as park-out-and-back.ts's resolver.
+  const { getPark } = await import('@/features/parks/core/services/parks.service');
+  const fullPark = (await getPark(best.park.id).catch(() => null)) ?? best.park;
+
+  const rawIds = (fullPark.gymEquipment ?? []).map((e) => e.equipmentId).filter(Boolean);
+  const availableEquipment = parkGymEquipmentToGearIds(fullPark.gymEquipment, normalizeGearIds);
   // DIAG (temporary): what equipment does this station actually produce for the generator?
   console.log(
     `[hybrid:diag] station "${best.park.name}" raw(${rawIds.length})=[${rawIds.join(',')}]` +
