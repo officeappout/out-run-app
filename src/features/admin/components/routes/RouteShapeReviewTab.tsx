@@ -1,28 +1,30 @@
 'use client';
 
 /**
- * /admin/routes/shape-review — the geometric shape-review screen, stage 1
- * of the plan. READ-FOCUSED display + a training-decision capture action;
- * does not publish, reject, or delete any route, does not touch
- * route-generator/route-stitching/decide-accuracy.ts. SuperAdmin-only, same
- * gate as the Accuracy Queue tab this screen complements.
+ * RouteShapeReviewTab — the "מסלולים" tab content in Approval Center.
  *
- * List and map are the SAME filtered set, just two views of it (toggle, not
- * separate pages) — per spec. The map is forced to one city at a time (no
- * "all cities" option on the map) because 97 routes on a national map is
- * spaghetti; the list has no such restriction. Reuses ApprovalDetailModal
- * (not a new panel) and RouteShapeReviewMap (not a third independent map
- * implementation — see that file's own header for why one extraction was
- * still necessary).
+ * Previously lived at the standalone page /admin/routes/shape-review (PR
+ * #133). Merged into this tab (06.10.2026) because the Approval Center's own
+ * "מסלולים" tab was a SECOND screen over the exact same 97-route pending
+ * queue — two places a training decision could land, splitting the training
+ * data. One screen now: same map, same chips, same ✅/❓/❌. Isolated tab +
+ * isolated component, same pattern as AccuracyQueueTab (its own fetch/state,
+ * not routed through the page's generic QueueItem/shownItems machinery) —
+ * this screen's data (geometryMetrics, shapeType, path, shapeTrainingReview)
+ * doesn't fit that generic shape any more than AccuracyQueueTab's does.
+ *
+ * Auth is the embedding page's responsibility now (Approval Center already
+ * gates on isSuperAdmin before rendering this tab) — adminId/adminName come
+ * in as props instead of this component doing its own onAuthStateChanged
+ * check, mirroring AccuracyQueueTab's prop shape exactly.
+ *
+ * Does not publish, reject, or delete any route — read-focused display +
+ * a training-decision capture action only, unchanged from the original page.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import dynamicImport from 'next/dynamic';
-import { checkUserRole } from '@/features/admin/services/auth.service';
-import { getUserFromFirestore } from '@/lib/firestore.service';
 import { List, Map as MapIcon, Loader2, Search, Building2 } from 'lucide-react';
 import ApprovalDetailModal, { type ApprovalDetailItem } from '@/features/admin/components/approval/ApprovalDetailModal';
 import { SHAPE_TYPE_LABEL, SHAPE_TYPE_ICON } from '@/features/admin/components/routes/shape-review-chips';
@@ -52,37 +54,18 @@ const DECISION_BADGE: Record<string, { label: string; className: string }> = {
   rejected: { label: '❌ לא', className: 'bg-red-50 text-red-600' },
 };
 
-export default function RouteShapeReviewPage() {
-  const router = useRouter();
-  const [authChecked, setAuthChecked] = useState(false);
-  const [adminId, setAdminId] = useState('');
-  const [adminName, setAdminName] = useState('');
+interface Props {
+  adminId: string;
+  adminName: string;
+}
 
+export default function RouteShapeReviewTab({ adminId, adminName }: Props) {
   const [routes, setRoutes] = useState<RouteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'list' | 'map'>('list');
   const [cityFilter, setCityFilter] = useState<string | null>(null);
   const [citySearch, setCitySearch] = useState('');
   const [selectedItem, setSelectedItem] = useState<ApprovalDetailItem | null>(null);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) { router.push('/admin/login'); return; }
-      try {
-        const roleInfo = await checkUserRole(user.uid);
-        const isSA = !!roleInfo.isSuperAdmin || !!roleInfo.isSystemAdmin;
-        if (!isSA) { router.push('/admin'); return; }
-        const profile = await getUserFromFirestore(user.uid, { allowSelfHeal: false });
-        setAdminId(user.uid);
-        setAdminName(profile?.core?.name || user.email || '');
-        setAuthChecked(true);
-      } catch (e) {
-        console.error('[shape-review] auth check failed:', e);
-        router.push('/admin');
-      }
-    });
-    return () => unsubscribe();
-  }, [router]);
 
   const loadRoutes = async () => {
     setLoading(true);
@@ -112,7 +95,7 @@ export default function RouteShapeReviewPage() {
     }
   };
 
-  useEffect(() => { if (authChecked) loadRoutes(); }, [authChecked]);
+  useEffect(() => { loadRoutes(); }, []);
 
   const cities = useMemo(() => Array.from(new Set(routes.map((r) => r.city))).sort(), [routes]);
   const filteredCities = useMemo(
@@ -125,17 +108,12 @@ export default function RouteShapeReviewPage() {
     [routes, cityFilter],
   );
 
-  if (!authChecked) {
-    return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-cyan-500" size={32} /></div>;
-  }
-
   return (
-    <div className="p-6 max-w-7xl mx-auto" dir="rtl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-black text-gray-900">סיווג צורה — סקירת מסלולים ממתינים</h1>
-          <p className="text-sm text-gray-400 mt-1">{routes.length} מסלולים · {routes.filter((r) => r.isReviewPriority).length} בעדיפות (ביטחון 90% + רבעון תחתון בשלושת המודדים)</p>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <p className="text-sm text-gray-500">
+          {routes.length} מסלולים · {routes.filter((r) => r.isReviewPriority).length} בעדיפות (ניקיון הרכב 90%+ רבעון תחתון בשלושת המודדים)
+        </p>
         <div className="flex items-center gap-2 bg-gray-100 rounded-2xl p-1">
           <button
             onClick={() => setView('list')}
@@ -154,7 +132,7 @@ export default function RouteShapeReviewPage() {
 
       {/* City filter — same filter feeds both views; the map enforces a
           selection, the list does not (spec: map=per-city forced, list=not). */}
-      <div className="mb-4 relative max-w-xs">
+      <div className="relative max-w-xs">
         <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
           type="text"
@@ -184,7 +162,7 @@ export default function RouteShapeReviewPage() {
       {loading ? (
         <div className="py-20 flex items-center justify-center"><Loader2 className="animate-spin text-cyan-500" size={28} /></div>
       ) : view === 'list' ? (
-        <div className="bg-white rounded-3xl shadow-premium border border-gray-50 divide-y divide-gray-50">
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 divide-y divide-gray-50">
           {filteredRoutes.map((r) => (
             <button
               key={r.id}
@@ -212,13 +190,13 @@ export default function RouteShapeReviewPage() {
           {filteredRoutes.length === 0 && <p className="text-center text-gray-400 text-sm py-10">אין מסלולים בסינון הנוכחי</p>}
         </div>
       ) : !cityFilter ? (
-        <div className="h-[600px] bg-white rounded-3xl shadow-premium border border-gray-50 flex flex-col items-center justify-center gap-3 text-gray-400">
+        <div className="h-[600px] bg-white rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-3 text-gray-400">
           <MapIcon size={40} />
           <p className="text-sm font-bold">בחר עיר כדי להציג מפה</p>
           <p className="text-xs">97 מסלולים על מפה ארצית = ספגטי — המפה דורשת עיר אחת</p>
         </div>
       ) : (
-        <div className="h-[600px] rounded-3xl overflow-hidden shadow-premium border border-gray-50">
+        <div className="h-[600px] rounded-3xl overflow-hidden shadow-sm border border-gray-100">
           <RouteShapeReviewMap
             routes={filteredRoutes
               .filter((r) => r.path.length >= 2)
