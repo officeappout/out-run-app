@@ -37,14 +37,31 @@ export const dynamic = 'force-dynamic';
  * trend, time-to-first-workout, and activation-by-source are Wave 2 —
  * each tab's own copy says so explicitly rather than looking finished.
  *
+ * Journey Hub Wave 2 (05.10.2026, same approved wave plan):
+ * - A single `JourneyFilterBar` now sits above the tabs — date/campaign/
+ *   source/city + the 4 segmentation dimensions (program/level/sex/
+ *   age), applying to every tab, not a per-tab copy. See `filters`
+ *   state below; drives both `getFunnelCounts` (native Firestore
+ *   constraints) and `/api/admin/growth-metrics` (query params, an
+ *   in-memory predicate server-side — see that route's own comment for
+ *   why the two apply filters differently).
+ * - Activation: time-to-first-workout + activation-by-source are now
+ *   real (growth-metrics' new `activation`/`activationBySource`
+ *   fields). Acquisition: new-users-over-time is now a real trend
+ *   (`newUsersTrend`), not the old before/after ratio.
+ * - Retention: the stickiness card is now an actual visual meter
+ *   against the documented target bands, not a text label.
+ *
  * Not done yet (by design, see the approved wave plan):
  * - /admin/statistics and /admin/analytics are NOT retired or redirected
  *   — both stay live until this hub covers what they show today.
- * - The full funnel (stages 4-6, filters, marketing-link picker) stays
- *   on /admin/analytics; only stages 1-4 are relocated here so far.
+ * - The full funnel (stages 5-6, the marketing-link/medium picker)
+ *   stays on /admin/analytics; only stages 1-4 are relocated here.
+ * - Cohort retention curve, D7, and resurrected-users are Wave 3 —
+ *   deliberately not touched in this wave.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { adminAuthedFetch } from '@/lib/adminAuthedFetch';
@@ -99,13 +116,17 @@ import CommitmentSurfacesSection, {
 //     /admin/statistics already renders, via the same
 //     /api/admin/statistics-summary route (also the source of
 //     overallCompletionRate for the Activation tab).
-//   - getMarketingAttributedCount: an existing account-metrics.service
-//     function (built for the Marketing Hub's single KPI card),
-//     reused here against Stage 1's registered count to derive an
-//     organic/attributed split — one subtraction, zero new reads.
+//   - getAttributedCount: Wave 2 addition to funnel-analytics.service.ts
+//     itself (reuses buildBaseConstraints/countStage, not a parallel
+//     query) — the filter-aware counterpart of account-metrics.
+//     service.ts's getMarketingAttributedCount, needed once the filter
+//     row can scope Stage 1's registered count the organic/attributed
+//     split is derived from. See that function's own doc comment.
 import {
   getFunnelCounts,
+  getAttributedCount,
   DEFAULT_FUNNEL_FILTERS,
+  type FunnelFilters,
   type FunnelStage,
 } from '@/features/admin/services/funnel-analytics.service';
 import FunnelStagesSection, {
@@ -113,7 +134,14 @@ import FunnelStagesSection, {
 } from '@/features/admin/components/cpo-dashboard/FunnelStagesSection';
 import AuthorityPerformanceTable from '@/features/admin/components/cpo-dashboard/AuthorityPerformanceTable';
 import type { AuthorityPerformance } from '@/features/admin/services/cpo-analytics.service';
-import { getMarketingAttributedCount } from '@/features/admin/services/account-metrics.service';
+
+// Journey Hub Wave 2 — the shared filter row + its 4 segmentation
+// dimensions, mounted once above the tabs.
+import JourneyFilterBar, {
+  DEFAULT_JOURNEY_FILTERS,
+  type JourneyFilters,
+} from '@/features/admin/components/cpo-dashboard/JourneyFilterBar';
+import NewUsersTrendChart from '@/features/admin/components/cpo-dashboard/NewUsersTrendChart';
 
 interface GrowthMetricsResponse {
   scope: 'platform' | 'vertical';
@@ -122,6 +150,10 @@ interface GrowthMetricsResponse {
   activeUsersTrend: ActiveUsersTrendPoint[];
   pushCampaignMarkers: TimelineMarker[];
   economyByAuthority: EconomyByAuthorityRow[];
+  // Wave 2 additions — see growth-metrics/route.ts's own header comment.
+  newUsersTrend: { date: string; newUsers: number }[];
+  activationBySource: { source: string; totalUsers: number; activatedUsers: number; activationRate: number | null }[];
+  activation: { avgDaysToFirstWorkout: number | null; medianDaysToFirstWorkout: number | null; sampleSize: number };
 }
 
 // Wave 1 — only the two fields this hub actually renders from
@@ -169,35 +201,68 @@ export default function JourneyHubPage() {
 
   const [attributedCount, setAttributedCount] = useState<number | null>(null);
 
+  // Wave 2 — the shared filter row's state. Drives getFunnelCounts and
+  // /api/admin/growth-metrics (see the two conversion helpers below).
+  // push-funnel-summary, commitment-surfaces-summary, and
+  // statistics-summary deliberately stay UNFILTERED by this row — none
+  // of the three routes behind them accepts these params (only
+  // growth-metrics and funnel-analytics do, per the approved wave plan),
+  // and extending them is not in this wave's scope.
+  const [filters, setFilters] = useState<JourneyFilters>(DEFAULT_JOURNEY_FILTERS);
+  const updateFilters = useCallback((patch: Partial<JourneyFilters>) => {
+    setFilters((prev) => ({ ...prev, ...patch }));
+  }, []);
+
+  const funnelFilters = useMemo<FunnelFilters>(() => ({
+    ...DEFAULT_FUNNEL_FILTERS,
+    campaign: filters.campaign,
+    source: filters.source,
+    dateFrom: filters.dateFrom,
+    dateTo: filters.dateTo,
+    gender: filters.sex,
+    cityAuthorityId: filters.cityAuthorityId,
+    level: filters.level,
+    program: filters.program,
+    age: filters.age,
+  }), [filters]);
+
+  const growthMetricsQuery = useMemo(() => {
+    const params = new URLSearchParams();
+    if (filters.dateFrom) params.set('dateFrom', filters.dateFrom.toISOString());
+    if (filters.dateTo) params.set('dateTo', filters.dateTo.toISOString());
+    if (filters.campaign) params.set('campaign', filters.campaign);
+    if (filters.source) params.set('source', filters.source);
+    if (filters.cityAuthorityId) params.set('city', filters.cityAuthorityId);
+    if (filters.sex) params.set('sex', filters.sex);
+    if (filters.level) params.set('level', filters.level);
+    if (filters.program) params.set('program', filters.program);
+    if (filters.age) params.set('age', filters.age);
+    const qs = params.toString();
+    return qs ? `?${qs}` : '';
+  }, [filters]);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, () => setAuthLoading(false));
     return () => unsubscribe();
   }, []);
 
+  // Static data (push-funnel-summary, commitment-surfaces-summary,
+  // statistics-summary) — none of the 3 routes behind these accepts the
+  // Wave 2 filter params, so they fetch once on mount, same as before
+  // Wave 2, not re-fetched on every filter tweak.
+  const [staticLoading, setStaticLoading] = useState(true);
   useEffect(() => {
     if (authLoading) return;
+    let cancelled = false;
 
-    async function loadData() {
-      setDataLoading(true);
-
-      // growth-metrics + push-funnel-summary are PR #123's existing routes;
-      // commitment-surfaces-summary landed via a parallel session
-      // (b59f246a); statistics-summary is the same route /admin/statistics
-      // calls. getFunnelCounts/getMarketingAttributedCount are direct
-      // client-SDK service calls (same pattern /admin/analytics already
-      // uses for the funnel — not every data source here is a server
-      // route, and that's an existing, working split, not something new).
-      const [growthResult, pushResult, commitmentResult, statisticsResult, funnelResult, attributedResult] = await Promise.all([
-        adminAuthedFetch<GrowthMetricsResponse>('/api/admin/growth-metrics'),
+    async function loadStaticData() {
+      setStaticLoading(true);
+      const [pushResult, commitmentResult, statisticsResult] = await Promise.all([
         adminAuthedFetch<PushFunnelSummaryResponse>('/api/admin/push-funnel-summary'),
         adminAuthedFetch<CommitmentSurfacesSummary>('/api/admin/commitment-surfaces-summary'),
         adminAuthedFetch<StatisticsSummaryResponse>('/api/admin/statistics-summary'),
-        getFunnelCounts(DEFAULT_FUNNEL_FILTERS),
-        getMarketingAttributedCount(),
       ]);
-
-      if (growthResult.ok) { setGrowthMetrics(growthResult.data); setGrowthMetricsDenied(null); }
-      else { setGrowthMetrics(null); setGrowthMetricsDenied(growthResult.message); }
+      if (cancelled) return;
 
       if (pushResult.ok) { setPushFunnel(pushResult.data); setPushFunnelDenied(null); }
       else { setPushFunnel(null); setPushFunnelDenied(pushResult.message); }
@@ -208,6 +273,44 @@ export default function JourneyHubPage() {
       if (statisticsResult.ok) { setStatisticsSummary(statisticsResult.data); setStatisticsDenied(null); }
       else { setStatisticsSummary(null); setStatisticsDenied(statisticsResult.message); }
 
+      setStaticLoading(false);
+    }
+
+    loadStaticData();
+    return () => { cancelled = true; };
+  }, [authLoading]);
+
+  // Filter-dependent data (growth-metrics + the client-side funnel calls)
+  // — debounced 300ms on `filters` (same pattern /admin/analytics
+  // already uses) so rapid filter changes don't pile up redundant
+  // fetches.
+  useEffect(() => {
+    if (authLoading) return;
+
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      loadFilteredData();
+    }, 300);
+
+    async function loadFilteredData() {
+      setDataLoading(true);
+
+      // growth-metrics is PR #123's existing route; getFunnelCounts/
+      // getAttributedCount are direct client-SDK service calls (same
+      // pattern /admin/analytics already uses for the funnel — not
+      // every data source here is a server route, and that's an
+      // existing, working split, not something new).
+      const [growthResult, funnelResult, attributedResult] = await Promise.all([
+        adminAuthedFetch<GrowthMetricsResponse>(`/api/admin/growth-metrics${growthMetricsQuery}`),
+        getFunnelCounts(funnelFilters),
+        getAttributedCount(funnelFilters),
+      ]);
+
+      if (cancelled) return;
+
+      if (growthResult.ok) { setGrowthMetrics(growthResult.data); setGrowthMetricsDenied(null); }
+      else { setGrowthMetrics(null); setGrowthMetricsDenied(growthResult.message); }
+
       setFunnelStages(funnelResult);
       setFunnelLoading(false);
       setAttributedCount(attributedResult);
@@ -215,8 +318,11 @@ export default function JourneyHubPage() {
       setDataLoading(false);
     }
 
-    loadData();
-  }, [authLoading]);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [authLoading, funnelFilters, growthMetricsQuery]);
 
   if (authLoading) {
     return (
@@ -254,6 +360,14 @@ export default function JourneyHubPage() {
         </div>
       )}
 
+      {/* Wave 2 — one filter row, applies to every tab below. See the
+          Wave 2 import block above for which data it actually scopes
+          (growth-metrics + the client-side funnel calls; push-funnel-
+          summary / commitment-surfaces-summary / statistics-summary
+          stay unfiltered — none of those 3 routes accepts these params
+          yet, and that's out of this wave's approved scope). */}
+      <JourneyFilterBar filters={filters} onChange={updateFilters} />
+
       {/* Tabs */}
       <div className="flex gap-2 border-b border-gray-200">
         {TABS.map((tab) => (
@@ -272,12 +386,10 @@ export default function JourneyHubPage() {
         ))}
       </div>
 
-      {/* Acquisition — Wave 1 (05.10.2026, gap-map + wave plan approved).
-          Funnel stages 1-3 + the organic/attributed split + the
-          authority/city breakdown are all RELOCATED/WIRED here, not
-          rebuilt — see the Wave 1 import block above for sources.
-          Deeper source/campaign SEGMENTATION filters and a real
-          new-users-over-time trend are Wave 2, not here yet. */}
+      {/* Acquisition — Wave 1 relocated the funnel/organic-split/city
+          breakdown; Wave 2 added the real new-users-over-time trend
+          (`NewUsersTrendChart`) and made the whole tab respond to the
+          shared filter row above (source/campaign/city/segmentation). */}
       {activeTab === 'acquisition' && (
         <div className="space-y-6">
           <FunnelStagesSection
@@ -310,12 +422,14 @@ export default function JourneyHubPage() {
               </div>
             )}
             <p className="text-gray-400 text-xs mt-2">
-              פילוח לפי קמפיין/מקור/מדיה ספציפי (לא רק אורגני-מול-משיווק) הוא Wave 2 — שורת הסינון המשותפת לכל הטאבים.
+              פילוח מדויק לפי קמפיין/מקור ספציפי — באמצעות שורת הסינון שמעל הטאבים. "אורגני מול משיווק" כאן הוא תמיד תקציר דו-ערכי.
             </p>
           </div>
 
-          <AuthorityPerformanceTable data={statisticsSummary?.authorityPerformance ?? []} loading={dataLoading} />
-          {statisticsDenied && !dataLoading && (
+          <NewUsersTrendChart data={growthMetrics?.newUsersTrend ?? []} loading={dataLoading} />
+
+          <AuthorityPerformanceTable data={statisticsSummary?.authorityPerformance ?? []} loading={staticLoading} />
+          {statisticsDenied && !staticLoading && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
               <AlertCircle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-amber-800">{statisticsDenied}</p>
@@ -323,21 +437,19 @@ export default function JourneyHubPage() {
           )}
 
           <p className="text-gray-400 text-xs">
-            install/visit (לפני הרשמה) אינו נמדד באף מקום היום — פער-תוכן אמיתי, לא רק לא-מחובר. "משתמשים חדשים לאורך זמן" (טרנד אמיתי, לא יחס לפני/אחרי בודד) הוא Wave 2.
+            install/visit (לפני הרשמה) אינו נמדד באף מקום היום — פער-תוכן אמיתי, לא רק לא-מחובר, ונשאר כך גם אחרי Wave 2.
           </p>
         </div>
       )}
 
-      {/* Activation — Wave 1 (05.10.2026). First-workout rate (funnel
-          stage 4) + onboarding-completion rate are RELOCATED/WIRED here
-          — both were already computed elsewhere, see the Wave 1 import
-          block above. Time-to-first-workout and activation-by-source are
-          genuinely not computed anywhere yet (confirmed, not just
-          unwired) — Wave 2 builds the former; the latter is a breakout
-          of this same stage-4 query, also Wave 2. */}
+      {/* Activation — Wave 1 relocated first-workout-rate + onboarding-
+          completion-rate. Wave 2 adds the two genuinely-new metrics
+          (time-to-first-workout, activation-by-source) via
+          growth-metrics' new `activation`/`activationBySource` fields —
+          both respond to the shared filter row above. */}
       {activeTab === 'activation' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
             {activationStage ? (
               <FunnelStageCard stage={activationStage} loading={funnelLoading} />
             ) : (
@@ -348,7 +460,7 @@ export default function JourneyHubPage() {
             )}
             <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
               <p className="text-xs md:text-sm text-gray-500 mb-1">שיעור השלמת אונבורדינג</p>
-              {dataLoading ? (
+              {staticLoading ? (
                 <div className="h-8 bg-gray-200 rounded w-16 animate-pulse" />
               ) : (
                 <p className="text-2xl md:text-3xl font-black text-gray-900">
@@ -356,11 +468,58 @@ export default function JourneyHubPage() {
                 </p>
               )}
             </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
+              <p className="text-xs md:text-sm text-gray-500 mb-1">זמן עד אימון ראשון (חציון)</p>
+              {dataLoading ? (
+                <div className="h-8 bg-gray-200 rounded w-16 animate-pulse" />
+              ) : (
+                <>
+                  <p className="text-2xl md:text-3xl font-black text-gray-900">
+                    {growthMetrics?.activation.medianDaysToFirstWorkout != null
+                      ? `${growthMetrics.activation.medianDaysToFirstWorkout} ימים`
+                      : '—'}
+                  </p>
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    ממוצע: {growthMetrics?.activation.avgDaysToFirstWorkout ?? '—'} · מדגם: {growthMetrics?.activation.sampleSize ?? 0}
+                  </p>
+                </>
+              )}
+            </div>
           </div>
 
-          <p className="text-gray-400 text-xs">
-            זמן עד אימון ראשון אינו מחושב באף מקום היום — פער-תוכן אמיתי, לא רק לא-מחובר. פילוח הפעלה לפי מקור/קוהורט הוא Wave 2.
-          </p>
+          <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
+            <p className="text-sm font-bold text-gray-900 mb-3">הפעלה לפי מקור</p>
+            {dataLoading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />)}
+              </div>
+            ) : !growthMetrics || growthMetrics.activationBySource.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-4">אין נתונים להצגה</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-right">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="py-2 px-3 text-xs font-bold text-gray-600">מקור</th>
+                      <th className="py-2 px-3 text-xs font-bold text-gray-600">נרשמו</th>
+                      <th className="py-2 px-3 text-xs font-bold text-gray-600">הופעלו</th>
+                      <th className="py-2 px-3 text-xs font-bold text-gray-600">שיעור הפעלה</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {growthMetrics.activationBySource.map((row) => (
+                      <tr key={row.source}>
+                        <td className="py-2 px-3 text-sm font-bold text-gray-900">{row.source}</td>
+                        <td className="py-2 px-3 text-sm text-gray-700">{row.totalUsers.toLocaleString('he-IL')}</td>
+                        <td className="py-2 px-3 text-sm text-gray-700">{row.activatedUsers.toLocaleString('he-IL')}</td>
+                        <td className="py-2 px-3 text-sm font-bold text-cyan-600">{row.activationRate != null ? `${row.activationRate}%` : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -378,8 +537,8 @@ export default function JourneyHubPage() {
             markers={growthMetrics?.pushCampaignMarkers ?? []}
             loading={dataLoading}
           />
-          <PushFunnelSection data={pushFunnel} loading={dataLoading} denied={pushFunnelDenied} />
-          <CommitmentSurfacesSection data={commitmentSurfaces} loading={dataLoading} denied={commitmentSurfacesDenied} />
+          <PushFunnelSection data={pushFunnel} loading={staticLoading} denied={pushFunnelDenied} />
+          <CommitmentSurfacesSection data={commitmentSurfaces} loading={staticLoading} denied={commitmentSurfacesDenied} />
         </div>
       )}
     </div>

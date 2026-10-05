@@ -394,6 +394,30 @@ export async function getFunnelCounts(
   return stages;
 }
 
+/**
+ * Count of registered users attributed to any non-organic marketing
+ * touchpoint, WITHIN the given filters — the filter-aware counterpart
+ * of `account-metrics.service.ts`'s `getMarketingAttributedCount`
+ * (built for the Marketing Hub's single, always-unfiltered KPI card).
+ *
+ * Journey Hub Wave 2: once the shared filter row can scope Stage 1's
+ * registered count (e.g. to one city), the organic/attributed split
+ * computed from it has to be scoped the SAME way, or the split math
+ * breaks (an unfiltered attributed count could exceed a filtered
+ * registered count). Reuses the exact same `buildBaseConstraints` +
+ * `countStage` this file's stage-1 query already uses, with the one
+ * extra `source != 'organic'` constraint — not a parallel query
+ * builder. With `DEFAULT_FUNNEL_FILTERS`, this returns the identical
+ * number `getMarketingAttributedCount` would.
+ */
+export async function getAttributedCount(filters: FunnelFilters): Promise<number> {
+  const constraints: QueryConstraint[] = [
+    ...buildBaseConstraints(filters, 'createdAt'),
+    where('marketingAttribution.source', '!=', 'organic'),
+  ];
+  return countStage(constraints, 'attributed', filters.program);
+}
+
 /** Centralised drop-warning rule so both service and UI agree. */
 function isDrop(stepConversion: number | null): boolean {
   return stepConversion !== null && stepConversion < 50;
