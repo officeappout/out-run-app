@@ -224,3 +224,38 @@ describe('Combined repro — owner\'s exact case: pull=6, push=9, Custom Builder
     expect(pool.exercises.some((e) => e.targetPrograms?.some((tp) => tp.programId === 'push'))).toBe(true);
   });
 });
+
+describe('HSPU freeze — RE-SCOPED 2026-10-05: request-scoped short-circuit, not a per-exercise denylist', () => {
+  // Mirrors the real multi-tagged exercise found live
+  // ("שכיבות סמיכה בעמידת ידיים חזה לקיר", W61ECyiZmD9APomgxAfz): tagged
+  // BOTH push@L20 and handstand_pushup@L11. The original per-exercise
+  // denylist (isHspuFrozen, removed) would have stripped this from EVERY
+  // pool, including a plain push request, the moment it actually matched
+  // real data. The replacement -- an isHspuTargetedRequest boolean the
+  // caller computes from THIS request's own primary target -- must leave
+  // the exercise's catalog membership completely untouched.
+  const multiTaggedExercise = exercise('wall-hspu-multitag', [
+    { programId: 'push', level: 20 },
+    { programId: 'handstand_pushup', level: 11 },
+  ]);
+  const PUSH_20 = new Map<string, number>([['push', 20]]);
+
+  it('isHspuTargetedRequest=false (the default/omitted case): the multi-tagged exercise resolves normally via its push tag', () => {
+    const result = resolveExercisePool([multiTaggedExercise], PUSH_20, ['push'], new Map(), 20);
+    expect(result.exercises.map((e) => e.id)).toContain('wall-hspu-multitag');
+  });
+
+  it('isHspuTargetedRequest=true: returns an empty pool for THIS call, regardless of what exercises were passed in', () => {
+    const result = resolveExercisePool([multiTaggedExercise], PUSH_20, ['push'], new Map(), 20, true);
+    expect(result.exercises).toEqual([]);
+  });
+
+  it('does NOT mutate the exercise itself: the same multi-tagged exercise object still resolves normally in a later, non-hspu-targeted call', () => {
+    // Guards against an accidental shared-state / mutation bug -- calling
+    // resolveExercisePool with isHspuTargetedRequest=true must not alter
+    // the exercise objects themselves, only this call's own return value.
+    resolveExercisePool([multiTaggedExercise], PUSH_20, ['push'], new Map(), 20, true);
+    const result = resolveExercisePool([multiTaggedExercise], PUSH_20, ['push'], new Map(), 20, false);
+    expect(result.exercises.map((e) => e.id)).toContain('wall-hspu-multitag');
+  });
+});
