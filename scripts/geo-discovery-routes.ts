@@ -122,6 +122,15 @@ export interface GeoDiscoveryOptions {
   delete: boolean;     // --delete (preview or, with apply, perform a batch delete)
   roundtrips: boolean; // --roundtrips (add Mapbox foot round-trip loops)
   skipOsm: boolean;    // --skip-osm (skip Overpass discovery; round-trips only)
+  /** city_mapping_discovery_runs doc id — set only by geoDiscoveryWorker.ts's
+   *  processDiscoveryRun; always undefined on a CLI invocation. Drives the
+   *  heartbeat write below (maybeWriteHeartbeat) so reclaimStaleRuns can tell
+   *  a genuinely-dead run from one that's merely slow (06.10.2026 — the Arad
+   *  incident this fixes: Overpass congestion made one real run take 117min;
+   *  the old claimedAt-only staleness check reclaimed it twice anyway and
+   *  spawned a fully concurrent duplicate run against the same city). No-op
+   *  when absent — never required, never touched by the CLI path. */
+  runId?: string;
 }
 
 interface Region {
@@ -464,8 +473,43 @@ const normalizeName = (name: string): string => name
 
 // ─────────────────────────────── Overpass ───────────────────────────────
 const MIRRORS = ['https://overpass.kumi.systems/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass-api.de/api/interpreter'];
+// Heartbeat for functions/src/geoDiscoveryWorker.ts's reclaimStaleRuns — set
+// once per runGeoDiscovery() call (below), read from here. Written from
+// overpass()'s own retry loop deliberately, NOT from a setInterval: every
+// discovery stage calls overpass() repeatedly from the top of the file to
+// the bottom, so this is a point the code genuinely passes through again
+// and again while real work is happening — a setInterval ticking in the
+// background would keep heartbeating even if the event loop were wedged on
+// something else, which defeats the whole point of a liveness signal.
+// mirrors geoDiscoveryWorker.ts's CITY_MAPPING_DISCOVERY_RUNS_COLLECTION —
+// duplicated across the package boundary the same way CityMappingDiscoveryRunDoc
+// itself already is (functions/ can't import scripts/, see city-mapping-
+// orchestrator.ts's own header comment on that interface).
+const CITY_MAPPING_DISCOVERY_RUNS_COLLECTION = 'city_mapping_discovery_runs';
+const HEARTBEAT_INTERVAL_MS = 2 * 60 * 1000; // comfortably under reclaimStaleRuns' 35min threshold
+let heartbeatDb: admin.firestore.Firestore | null = null;
+let heartbeatRunId: string | null = null;
+let lastHeartbeatWriteMs = 0;
+
+async function maybeWriteHeartbeat(): Promise<void> {
+  if (!heartbeatDb || !heartbeatRunId) return; // CLI path (no runId) — no-op by design
+  const now = Date.now();
+  if (now - lastHeartbeatWriteMs < HEARTBEAT_INTERVAL_MS) return;
+  lastHeartbeatWriteMs = now;
+  try {
+    await heartbeatDb.collection(CITY_MAPPING_DISCOVERY_RUNS_COLLECTION).doc(heartbeatRunId)
+      .update({ lastHeartbeatAt: admin.firestore.FieldValue.serverTimestamp() });
+  } catch (e) {
+    // A heartbeat write failing must never fail discovery itself — worst
+    // case reclaimStaleRuns falls back to claimedAt-age for this run, same
+    // as every run before this fix.
+    console.error(`  ⚠ heartbeat write failed: ${(e as Error).message}`);
+  }
+}
+
 async function overpass(q: string): Promise<any> {
   for (let a = 0; a < 6; a++) for (const m of MIRRORS) {
+    await maybeWriteHeartbeat();
     try {
       const buf: Buffer = await new Promise((res, rej) => {
         const req = https.request(m, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'OUT/1.0 (office@appout.co.il)' } }, r => { const b: Buffer[] = []; r.on('data', d => b.push(d)); r.on('end', () => r.statusCode === 200 ? res(Buffer.concat(b)) : rej(new Error('HTTP ' + r.statusCode))); });
@@ -1933,202 +1977,224 @@ export async function runGeoDiscovery(opts: GeoDiscoveryOptions, db: admin.fires
   console.log(`\n=== GEO-DISCOVERY — region: ${REGION.label} (${REGION.key}) ===`);
   const col = db.collection('official_routes');
 
-  if (DELETE) {
-    const snap = await col.where('importBatchId', '==', REGION.batchId).get();
-    if (!APPLY) {
-      const summary = `[dry-run] --delete would remove ${snap.size} route(s) from batch ${REGION.batchId}. Run with --delete --apply to actually delete.`;
+  // Heartbeat context for this call only — cleared in the finally below so a
+  // long-lived worker container that later calls runGeoDiscovery again for a
+  // DIFFERENT run never inherits a stale runId. No-op for the CLI path
+  // (opts.runId is always undefined there).
+  heartbeatDb = opts.runId ? db : null;
+  heartbeatRunId = opts.runId ?? null;
+  lastHeartbeatWriteMs = 0;
+  try {
+
+    if (DELETE) {
+      const snap = await col.where('importBatchId', '==', REGION.batchId).get();
+      if (!APPLY) {
+        const summary = `[dry-run] --delete would remove ${snap.size} route(s) from batch ${REGION.batchId}. Run with --delete --apply to actually delete.`;
+        console.log(summary);
+        for (const d of snap.docs) console.log(`  would delete [${d.id}] "${d.data().name}"`);
+        return { mode: 'delete', keptCount: 0, droppedCount: 0, deletedCount: 0, summary };
+      }
+      console.log(`deleting ${snap.size} routes from batch ${REGION.batchId} …`);
+      let b = db.batch(), n = 0; for (const d of snap.docs) { b.delete(d.ref); if (++n % 450 === 0) { await b.commit(); b = db.batch(); } } await b.commit();
+      const summary = `✅ deleted ${snap.size} routes from batch ${REGION.batchId}.`;
       console.log(summary);
-      for (const d of snap.docs) console.log(`  would delete [${d.id}] "${d.data().name}"`);
-      return { mode: 'delete', keptCount: 0, droppedCount: 0, deletedCount: 0, summary };
+      return { mode: 'delete', keptCount: 0, droppedCount: 0, deletedCount: snap.size, summary };
     }
-    console.log(`deleting ${snap.size} routes from batch ${REGION.batchId} …`);
-    let b = db.batch(), n = 0; for (const d of snap.docs) { b.delete(d.ref); if (++n % 450 === 0) { await b.commit(); b = db.batch(); } } await b.commit();
-    const summary = `✅ deleted ${snap.size} routes from batch ${REGION.batchId}.`;
-    console.log(summary);
-    return { mode: 'delete', keptCount: 0, droppedCount: 0, deletedCount: snap.size, summary };
-  }
 
-  // Stage 1B — this script never set authorityId before (confirmed absent
-  // via grep during the route-enrichment-pipeline investigation). Resolve
-  // it once for the whole region: REGION.label is a city NAME (not raw
-  // coordinates), so the fuzzy name-matcher is the right tool, not the
-  // polygon resolver. Fail fast if it doesn't resolve — every candidate in
-  // this run shares the same authority, so an unresolved region means
-  // nothing in this run can pass the chokepoint anyway.
-  const { findAuthorityByCityName, buildValidatedDoc } = await import('../src/lib/route-collections');
-  const authoritySnap = await db.collection('authorities').get();
-  const authorityList = authoritySnap.docs.map(d => ({ id: d.id, name: (d.data().name as string) || '' }));
-  const knownAuthorityIds = new Set(authorityList.map(a => a.id));
-  const resolvedAuthorityId = findAuthorityByCityName(REGION.label, authorityList);
-  if (!resolvedAuthorityId) {
-    throw new Error(`Could not resolve an authority for REGION.label="${REGION.label}" — checked against ${authorityList.length} known authorities. Aborting (no candidate in this run could pass the chokepoint without it).`);
-  }
-  console.log(`resolved authority: ${REGION.label} → ${resolvedAuthorityId}`);
-
-  console.log('loading Terrain-RGB DEM tiles …'); await loadTiles(); console.log(`  decoded ${tiles.size} tiles`);
-  let boundaryPoly: number[][] | null = null;
-  // Prefer boundaryClipWikidata (hand-curated in-file regions); fall back to
-  // adminRelationId (05.09.2026, cross-city-bleed fix) for a city_registrations-
-  // sourced region, which has the OSM relation id but no Wikidata QID — see
-  // each field's own doc comment on the Region interface. outsideBoundaryReason
-  // and the per-candidate filtering loop below are unchanged either way — they
-  // only ever see a resolved polygon or null, never which source it came from.
-  if (REGION.boundaryClipWikidata) {
-    console.log(`fetching admin boundary polygon (wikidata=${REGION.boundaryClipWikidata}, clip-filter only — not used as discovery scope) …`);
-    boundaryPoly = await fetchAdminBoundaryPoly(REGION.boundaryClipWikidata);
-    console.log(boundaryPoly ? `  boundary polygon loaded: ${boundaryPoly.length} vertices` : '  ⚠ boundary polygon not found — clip filter skipped');
-  } else if (REGION.adminRelationId) {
-    console.log(`fetching admin boundary polygon (relation/${REGION.adminRelationId}, clip-filter only — not used as discovery scope) …`);
-    boundaryPoly = await fetchAdminBoundaryPolyByRelationId(REGION.adminRelationId);
-    console.log(boundaryPoly ? `  boundary polygon loaded: ${boundaryPoly.length} vertices` : '  ⚠ boundary polygon not found — clip filter skipped');
-  }
-  let candidates: Candidate[] = [];
-  let blockPolys: { poly: number[][]; label: string }[] = [];
-  let stats: any = {};
-  if (!SKIP_OSM) {
-    const d = await discover();
-    candidates = d.candidates; blockPolys = d.blockPolys; stats = d.stats;
-    console.log(`\ndiscovered: ${stats.relations} trail-relations → ${stats.relLines} local lines (${stats.relRescued || 0} rejected-for-length, rescued named members) · ${stats.parks || 0} named park/garden loops · ${stats.loops} loops · ${stats.segments} named segments (from ${stats.ways} ways, ${stats.stitchedSameName || 0} same-name + ${stats.stitchedCrossName || 0} cross-name stitches, ${stats.recreationalGateDropped || 0} candidates dropped by the recreational-quality gate). road bike lanes: ${stats.bikeLaneSegments || 0} named (from ${stats.bikeLaneWays || 0} tagged ways). blocking polygons: ${blockPolys.length}`);
-  } else {
-    console.log('--skip-osm: skipping Overpass discovery; fetching blocking polygons only (for the round-trip artifact filter) …');
-    blockPolys = await fetchBlockPolys(REGION.bbox);
-  }
-  if (ROUNDTRIPS) {
-    const rt = await discoverRoundTrips(db, REGION, boundaryPoly);
-    candidates.push(...rt.candidates);
-    stats.roundtrip = rt.stats;
-    console.log(`round-trips: attempted ${rt.stats.attempted}, built ${rt.stats.built} (3km:${rt.stats.perDist[3]} · 5km:${rt.stats.perDist[5]} · 10km:${rt.stats.perDist[10]}), loop-closed ${rt.stats.closed}, failed ${rt.stats.failed}. blocking polygons: ${blockPolys.length}`);
-  }
-
-  // filter artifacts + enrich + validate through the Stage 1B chokepoint.
-  // Validated in the SAME code path regardless of --dry-run, so the dry-run
-  // preview reflects what would actually be allowed to write, not just what
-  // buildRouteDoc happened to produce. A validation failure drops just that
-  // one candidate (logged, not silent) rather than aborting the whole run —
-  // in practice none should fail, since authorityId is resolved above and
-  // difficulty was fixed in Stage 0, but this is the safety net for
-  // anything this investigation missed.
-  // Quality-certificate v1 composition — ONE city-wide way-grid fetch for the
-  // whole run (not per-candidate), reusing the exact same classifier module
-  // Stage 1/2's backfill uses (scripts/lib/route-composition-classify.ts).
-  // discover()'s own internal way-fetches (roadSegGrid, the named-segment
-  // fetch, etc.) are each scoped narrower for their own purpose — none is
-  // the unrestricted "every highway way, all tags" fetch composition
-  // classification needs — so this is a genuinely separate fetch, not a
-  // duplicate of one discover() already made. Skipped under --skip-osm
-  // (no way data fetched at all that run) — composition is then simply
-  // omitted from every doc, never faked.
-  let cityGrid: CityWayGrid | null = null;
-  if (!SKIP_OSM) {
-    console.log('\nFetching city-wide way grid for quality-certificate composition …');
-    cityGrid = await fetchCityWayGrid(`${REGION.bbox.latMin},${REGION.bbox.lonMin},${REGION.bbox.latMax},${REGION.bbox.lonMax}`);
-    console.log(`  ${cityGrid.wayCount} ways fetched (${cityGrid.roadWayCount} road-category).`);
-  }
-  const wayCategoryCache = new Map<number, WayCategory>();
-
-  // Lighting at discovery time. Reads the region's ALREADY-INGESTED
-  // street_segments (no new fetch, no Overpass call) via the same
-  // computeRouteLighting used by scripts/backfill-route-lighting-haifa.ts,
-  // honesty fix (untagged-vs-confirmed-unlit) included.
-  //
-  // REGION.computeLighting ?? fallback (Stage A, city-orchestrator plan,
-  // 02.09.2026) replaces the old unconditional `REGION.label === 'חיפה'`
-  // literal check — additive, not a replacement of the old behavior: none
-  // of the 11 in-file REGIONS entries sets `computeLighting`, so every one
-  // of them still falls through to the exact same `label === 'חיפה'` test
-  // as before (Haifa true, everyone else false — byte-identical). The field
-  // only takes effect for a region resolved from `city_registrations`
-  // (src/lib/city-registrations.ts), where it defaults `true` at the
-  // ingester script's own call site (not schema-defaulted) — the lighting
-  // honesty-gate (`status:'unknown'`) already handles low-OSM-coverage
-  // cities gracefully, so there's no remaining reason to default a new
-  // city to `false` just for not being Haifa.
-  const computeLightingForThisRegion = REGION.computeLighting ?? (REGION.label === 'חיפה');
-
-  const kept: { doc: ReturnType<typeof buildRouteDoc>; c: Candidate }[] = [];
-  const dropped: { name: string; reason: string }[] = [];
-  const boundaryDropped: { name: string; reason: string }[] = [];
-  for (const c of candidates) {
-    const reason = artifactReason(c.pts, blockPolys);
-    if (reason) { dropped.push({ name: c.osmName || c.externalId, reason }); continue; }
-    const boundaryReason = outsideBoundaryReason(c.pts, boundaryPoly);
-    if (boundaryReason) { boundaryDropped.push({ name: c.osmName || c.externalId, reason: boundaryReason }); continue; }
-    const dem = demProfile(c.pts);
-    const composition = cityGrid
-      ? (() => {
-          const comp = computeRouteComposition(c.pts as [number, number][], cityGrid!.waysById, cityGrid!.allGrid, cityGrid!.roadGrid, wayCategoryCache);
-          return { sidewalkPct: comp.sidewalkPct, genuinePct: comp.genuinePct, ordinaryPct: comp.ordinaryPct, otherPct: comp.otherPct + comp.unmatchedPct };
-        })()
-      : undefined;
-    const lighting = computeLightingForThisRegion
-      ? await (async () => {
-          const rawPath = c.pts.map(([lat, lng]: number[]) => ({ lat, lng }));
-          const result = await computeRouteLighting(db, rawPath, [REGION.label]);
-          return { status: result.status, litCoveragePct: result.litCoveragePct, isLit: result.isLit };
-        })()
-      : undefined;
-    const doc = buildRouteDoc(c, dem, resolvedAuthorityId, composition, lighting);
-    try {
-      const validatedDoc = buildValidatedDoc('official_routes', doc, { mode: 'create', knownAuthorityIds }) as typeof doc;
-      kept.push({ doc: validatedDoc, c });
-    } catch (e: any) {
-      dropped.push({ name: c.osmName || c.externalId, reason: `chokepoint: ${e.message}` });
+    // Stage 1B — this script never set authorityId before (confirmed absent
+    // via grep during the route-enrichment-pipeline investigation). Resolve
+    // it once for the whole region: REGION.label is a city NAME (not raw
+    // coordinates), so the fuzzy name-matcher is the right tool, not the
+    // polygon resolver. Fail fast if it doesn't resolve — every candidate in
+    // this run shares the same authority, so an unresolved region means
+    // nothing in this run can pass the chokepoint anyway.
+    const { findAuthorityByCityName, buildValidatedDoc } = await import('../src/lib/route-collections');
+    const authoritySnap = await db.collection('authorities').get();
+    const authorityList = authoritySnap.docs.map(d => ({ id: d.id, name: (d.data().name as string) || '' }));
+    const knownAuthorityIds = new Set(authorityList.map(a => a.id));
+    const resolvedAuthorityId = findAuthorityByCityName(REGION.label, authorityList);
+    if (!resolvedAuthorityId) {
+      throw new Error(`Could not resolve an authority for REGION.label="${REGION.label}" — checked against ${authorityList.length} known authorities. Aborting (no candidate in this run could pass the chokepoint without it).`);
     }
-  }
+    console.log(`resolved authority: ${REGION.label} → ${resolvedAuthorityId}`);
 
-  // Prefer loops: loops first, then by (climb-weighted) length descending.
-  kept.sort((a, b) => (Number(b.c.isLoop) - Number(a.c.isLoop)) || (b.doc.distance * (1 + (b.doc.elevationGain || 0) / 100) - a.doc.distance * (1 + (a.doc.elevationGain || 0) / 100)));
-
-  const nParks = kept.filter(k => k.c.kind === 'park').length;
-  const nLoops = kept.filter(k => k.c.isLoop && !k.c.isBicycle && k.c.kind !== 'park').length;
-  const nTrails = kept.filter(k => k.c.kind === 'trail' && !k.c.isBicycle).length;
-  const nSegments = kept.filter(k => k.c.kind === 'segment' && !k.c.isLoop && !k.c.isBicycle).length;
-  const nCycling = kept.filter(k => k.c.isBicycle).length;
-  const nStitched = kept.filter(k => (k.c.sourceWayIds?.length ?? 0) > 0).length;
-  console.log(`\nAFTER FILTER: ${kept.length} routes kept (${nParks} park loops, ${nLoops} loops, ${nTrails} marked-trail lines), ${dropped.length} artifacts dropped, ${boundaryDropped.length} dropped as outside the boundary.`);
-  console.log(`  by type: ${nTrails} trail · ${nParks} park · ${nLoops} loop · ${nSegments} named segment · ${nCycling} cycling  (${nStitched} of these are stitched from >1 OSM way)`);
-  if (dropped.length) dropped.slice(0, 10).forEach(d => console.log(`   ✗ artifact: ${d.name} — ${d.reason}`));
-  if (boundaryDropped.length) boundaryDropped.slice(0, 15).forEach(d => console.log(`   ✗ outside boundary: ${d.name} — ${d.reason}`));
-
-  console.log('\n── candidates (loops first) ──');
-  for (const k of kept) {
-    const d = k.doc;
-    const icon = k.c.kind === 'park' ? '🌳' : k.c.isBicycle ? '🚲' : k.c.isLoop ? '🔁' : k.c.kind === 'trail' ? '🥾' : '·';
-    const stitchNote = (k.c.sourceWayIds?.length ?? 0) > 0 ? ` (stitched from ${k.c.sourceWayIds!.length} ways)` : '';
-    console.log(`  ${icon} ${String(d.distance).padStart(5)}m  gain ${String(d.elevationGain).padStart(4)}m  ${d.difficulty.padEnd(8)} ${d.activityType.padEnd(8)} ${d.name}  [${k.c.externalId}]${stitchNote}`);
-  }
-
-  if (!APPLY) {
-    const summary = `[dry-run] no writes. ${kept.length} pending routes would be written to official_routes (batch ${REGION.batchId}). Run with --apply to write.`;
-    console.log(`\n${summary}`);
-    return { mode: 'discover', keptCount: kept.length, droppedCount: dropped.length + boundaryDropped.length, summary };
-  }
-
-  // idempotent upsert by source.externalId; preserve moderation state on re-run.
-  let created = 0, updated = 0;
-  for (const k of kept) {
-    const existing = await col.where('source.externalId', '==', k.c.externalId).limit(1).get();
-    if (existing.empty) {
-      await col.add({ ...k.doc, createdAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() });
-      created++;
+    console.log('loading Terrain-RGB DEM tiles …'); await loadTiles(); console.log(`  decoded ${tiles.size} tiles`);
+    let boundaryPoly: number[][] | null = null;
+    // Prefer boundaryClipWikidata (hand-curated in-file regions); fall back to
+    // adminRelationId (05.09.2026, cross-city-bleed fix) for a city_registrations-
+    // sourced region, which has the OSM relation id but no Wikidata QID — see
+    // each field's own doc comment on the Region interface. outsideBoundaryReason
+    // and the per-candidate filtering loop below are unchanged either way — they
+    // only ever see a resolved polygon or null, never which source it came from.
+    if (REGION.boundaryClipWikidata) {
+      console.log(`fetching admin boundary polygon (wikidata=${REGION.boundaryClipWikidata}, clip-filter only — not used as discovery scope) …`);
+      boundaryPoly = await fetchAdminBoundaryPoly(REGION.boundaryClipWikidata);
+      console.log(boundaryPoly ? `  boundary polygon loaded: ${boundaryPoly.length} vertices` : '  ⚠ boundary polygon not found — clip filter skipped');
+    } else if (REGION.adminRelationId) {
+      console.log(`fetching admin boundary polygon (relation/${REGION.adminRelationId}, clip-filter only — not used as discovery scope) …`);
+      boundaryPoly = await fetchAdminBoundaryPolyByRelationId(REGION.adminRelationId);
+      console.log(boundaryPoly ? `  boundary polygon loaded: ${boundaryPoly.length} vertices` : '  ⚠ boundary polygon not found — clip filter skipped');
+    }
+    let candidates: Candidate[] = [];
+    let blockPolys: { poly: number[][]; label: string }[] = [];
+    let stats: any = {};
+    if (!SKIP_OSM) {
+      const d = await discover();
+      candidates = d.candidates; blockPolys = d.blockPolys; stats = d.stats;
+      console.log(`\ndiscovered: ${stats.relations} trail-relations → ${stats.relLines} local lines (${stats.relRescued || 0} rejected-for-length, rescued named members) · ${stats.parks || 0} named park/garden loops · ${stats.loops} loops · ${stats.segments} named segments (from ${stats.ways} ways, ${stats.stitchedSameName || 0} same-name + ${stats.stitchedCrossName || 0} cross-name stitches, ${stats.recreationalGateDropped || 0} candidates dropped by the recreational-quality gate). road bike lanes: ${stats.bikeLaneSegments || 0} named (from ${stats.bikeLaneWays || 0} tagged ways). blocking polygons: ${blockPolys.length}`);
     } else {
-      const prev = existing.docs[0].data();
-      // never resurrect an already-moderated route back to pending
-      const status = prev.status && prev.status !== 'pending' ? prev.status : 'pending';
-      const published = prev.published === true ? true : false;
-      await existing.docs[0].ref.set({ ...k.doc, status, published, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-      updated++;
+      console.log('--skip-osm: skipping Overpass discovery; fetching blocking polygons only (for the round-trip artifact filter) …');
+      blockPolys = await fetchBlockPolys(REGION.bbox);
     }
+    if (ROUNDTRIPS) {
+      const rt = await discoverRoundTrips(db, REGION, boundaryPoly);
+      candidates.push(...rt.candidates);
+      stats.roundtrip = rt.stats;
+      console.log(`round-trips: attempted ${rt.stats.attempted}, built ${rt.stats.built} (3km:${rt.stats.perDist[3]} · 5km:${rt.stats.perDist[5]} · 10km:${rt.stats.perDist[10]}), loop-closed ${rt.stats.closed}, failed ${rt.stats.failed}. blocking polygons: ${blockPolys.length}`);
+    }
+
+    // filter artifacts + enrich + validate through the Stage 1B chokepoint.
+    // Validated in the SAME code path regardless of --dry-run, so the dry-run
+    // preview reflects what would actually be allowed to write, not just what
+    // buildRouteDoc happened to produce. A validation failure drops just that
+    // one candidate (logged, not silent) rather than aborting the whole run —
+    // in practice none should fail, since authorityId is resolved above and
+    // difficulty was fixed in Stage 0, but this is the safety net for
+    // anything this investigation missed.
+    // Quality-certificate v1 composition — ONE city-wide way-grid fetch for the
+    // whole run (not per-candidate), reusing the exact same classifier module
+    // Stage 1/2's backfill uses (scripts/lib/route-composition-classify.ts).
+    // discover()'s own internal way-fetches (roadSegGrid, the named-segment
+    // fetch, etc.) are each scoped narrower for their own purpose — none is
+    // the unrestricted "every highway way, all tags" fetch composition
+    // classification needs — so this is a genuinely separate fetch, not a
+    // duplicate of one discover() already made. Skipped under --skip-osm
+    // (no way data fetched at all that run) — composition is then simply
+    // omitted from every doc, never faked.
+    let cityGrid: CityWayGrid | null = null;
+    if (!SKIP_OSM) {
+      console.log('\nFetching city-wide way grid for quality-certificate composition …');
+      cityGrid = await fetchCityWayGrid(`${REGION.bbox.latMin},${REGION.bbox.lonMin},${REGION.bbox.latMax},${REGION.bbox.lonMax}`);
+      console.log(`  ${cityGrid.wayCount} ways fetched (${cityGrid.roadWayCount} road-category).`);
+    }
+    const wayCategoryCache = new Map<number, WayCategory>();
+
+    // Lighting at discovery time. Reads the region's ALREADY-INGESTED
+    // street_segments (no new fetch, no Overpass call) via the same
+    // computeRouteLighting used by scripts/backfill-route-lighting-haifa.ts,
+    // honesty fix (untagged-vs-confirmed-unlit) included.
+    //
+    // REGION.computeLighting ?? fallback (Stage A, city-orchestrator plan,
+    // 02.09.2026) replaces the old unconditional `REGION.label === 'חיפה'`
+    // literal check — additive, not a replacement of the old behavior: none
+    // of the 11 in-file REGIONS entries sets `computeLighting`, so every one
+    // of them still falls through to the exact same `label === 'חיפה'` test
+    // as before (Haifa true, everyone else false — byte-identical). The field
+    // only takes effect for a region resolved from `city_registrations`
+    // (src/lib/city-registrations.ts), where it defaults `true` at the
+    // ingester script's own call site (not schema-defaulted) — the lighting
+    // honesty-gate (`status:'unknown'`) already handles low-OSM-coverage
+    // cities gracefully, so there's no remaining reason to default a new
+    // city to `false` just for not being Haifa.
+    const computeLightingForThisRegion = REGION.computeLighting ?? (REGION.label === 'חיפה');
+
+    const kept: { doc: ReturnType<typeof buildRouteDoc>; c: Candidate }[] = [];
+    const dropped: { name: string; reason: string }[] = [];
+    const boundaryDropped: { name: string; reason: string }[] = [];
+    for (const c of candidates) {
+      const reason = artifactReason(c.pts, blockPolys);
+      if (reason) { dropped.push({ name: c.osmName || c.externalId, reason }); continue; }
+      const boundaryReason = outsideBoundaryReason(c.pts, boundaryPoly);
+      if (boundaryReason) { boundaryDropped.push({ name: c.osmName || c.externalId, reason: boundaryReason }); continue; }
+      const dem = demProfile(c.pts);
+      const composition = cityGrid
+        ? (() => {
+            const comp = computeRouteComposition(c.pts as [number, number][], cityGrid!.waysById, cityGrid!.allGrid, cityGrid!.roadGrid, wayCategoryCache);
+            return { sidewalkPct: comp.sidewalkPct, genuinePct: comp.genuinePct, ordinaryPct: comp.ordinaryPct, otherPct: comp.otherPct + comp.unmatchedPct };
+          })()
+        : undefined;
+      const lighting = computeLightingForThisRegion
+        ? await (async () => {
+            const rawPath = c.pts.map(([lat, lng]: number[]) => ({ lat, lng }));
+            const result = await computeRouteLighting(db, rawPath, [REGION.label]);
+            return { status: result.status, litCoveragePct: result.litCoveragePct, isLit: result.isLit };
+          })()
+        : undefined;
+      const doc = buildRouteDoc(c, dem, resolvedAuthorityId, composition, lighting);
+      try {
+        const validatedDoc = buildValidatedDoc('official_routes', doc, { mode: 'create', knownAuthorityIds }) as typeof doc;
+        kept.push({ doc: validatedDoc, c });
+      } catch (e: any) {
+        dropped.push({ name: c.osmName || c.externalId, reason: `chokepoint: ${e.message}` });
+      }
+    }
+
+    // Prefer loops: loops first, then by (climb-weighted) length descending.
+    kept.sort((a, b) => (Number(b.c.isLoop) - Number(a.c.isLoop)) || (b.doc.distance * (1 + (b.doc.elevationGain || 0) / 100) - a.doc.distance * (1 + (a.doc.elevationGain || 0) / 100)));
+
+    const nParks = kept.filter(k => k.c.kind === 'park').length;
+    const nLoops = kept.filter(k => k.c.isLoop && !k.c.isBicycle && k.c.kind !== 'park').length;
+    const nTrails = kept.filter(k => k.c.kind === 'trail' && !k.c.isBicycle).length;
+    const nSegments = kept.filter(k => k.c.kind === 'segment' && !k.c.isLoop && !k.c.isBicycle).length;
+    const nCycling = kept.filter(k => k.c.isBicycle).length;
+    const nStitched = kept.filter(k => (k.c.sourceWayIds?.length ?? 0) > 0).length;
+    console.log(`\nAFTER FILTER: ${kept.length} routes kept (${nParks} park loops, ${nLoops} loops, ${nTrails} marked-trail lines), ${dropped.length} artifacts dropped, ${boundaryDropped.length} dropped as outside the boundary.`);
+    console.log(`  by type: ${nTrails} trail · ${nParks} park · ${nLoops} loop · ${nSegments} named segment · ${nCycling} cycling  (${nStitched} of these are stitched from >1 OSM way)`);
+    if (dropped.length) dropped.slice(0, 10).forEach(d => console.log(`   ✗ artifact: ${d.name} — ${d.reason}`));
+    if (boundaryDropped.length) boundaryDropped.slice(0, 15).forEach(d => console.log(`   ✗ outside boundary: ${d.name} — ${d.reason}`));
+
+    console.log('\n── candidates (loops first) ──');
+    for (const k of kept) {
+      const d = k.doc;
+      const icon = k.c.kind === 'park' ? '🌳' : k.c.isBicycle ? '🚲' : k.c.isLoop ? '🔁' : k.c.kind === 'trail' ? '🥾' : '·';
+      const stitchNote = (k.c.sourceWayIds?.length ?? 0) > 0 ? ` (stitched from ${k.c.sourceWayIds!.length} ways)` : '';
+      console.log(`  ${icon} ${String(d.distance).padStart(5)}m  gain ${String(d.elevationGain).padStart(4)}m  ${d.difficulty.padEnd(8)} ${d.activityType.padEnd(8)} ${d.name}  [${k.c.externalId}]${stitchNote}`);
+    }
+
+    if (!APPLY) {
+      const summary = `[dry-run] no writes. ${kept.length} pending routes would be written to official_routes (batch ${REGION.batchId}). Run with --apply to write.`;
+      console.log(`\n${summary}`);
+      return { mode: 'discover', keptCount: kept.length, droppedCount: dropped.length + boundaryDropped.length, summary };
+    }
+
+    // idempotent upsert by source.externalId; preserve moderation state on re-run.
+    // This is a deliberate safety net, not incidental dedup — see the heartbeat
+    // fix above (opts.runId) for why: reclaimStaleRuns can still believe a
+    // merely-slow-but-alive run is dead and let a second runGeoDiscovery
+    // start concurrently against the same region (confirmed live, Arad,
+    // 05.10.2026 — two full concurrent runs produced "26 created, 0 updated"
+    // followed 20min later by "0 created, 26 updated" for the exact same
+    // candidates). Do NOT remove or weaken this upsert in favor of a plain
+    // col.add() — that would turn a wasted-but-harmless concurrent run into a
+    // real duplicate-routes bug.
+    let created = 0, updated = 0;
+    for (const k of kept) {
+      const existing = await col.where('source.externalId', '==', k.c.externalId).limit(1).get();
+      if (existing.empty) {
+        await col.add({ ...k.doc, createdAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+        created++;
+      } else {
+        const prev = existing.docs[0].data();
+        // never resurrect an already-moderated route back to pending
+        const status = prev.status && prev.status !== 'pending' ? prev.status : 'pending';
+        const published = prev.published === true ? true : false;
+        await existing.docs[0].ref.set({ ...k.doc, status, published, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        updated++;
+      }
+    }
+    console.log(`\n✅ official_routes: ${created} created, ${updated} updated — all status:'pending', published:false (batch ${REGION.batchId}). NO street_segments broadcast, NO merge.`);
+    return {
+      mode: 'discover',
+      keptCount: kept.length,
+      droppedCount: dropped.length + boundaryDropped.length,
+      createdCount: created,
+      updatedCount: updated,
+      summary: `${created} created, ${updated} updated (batch ${REGION.batchId}).`,
+    };
+  } finally {
+    heartbeatDb = null;
+    heartbeatRunId = null;
   }
-  console.log(`\n✅ official_routes: ${created} created, ${updated} updated — all status:'pending', published:false (batch ${REGION.batchId}). NO street_segments broadcast, NO merge.`);
-  return {
-    mode: 'discover',
-    keptCount: kept.length,
-    droppedCount: dropped.length + boundaryDropped.length,
-    createdCount: created,
-    updatedCount: updated,
-    summary: `${created} created, ${updated} updated (batch ${REGION.batchId}).`,
-  };
 }
 
 // ─────────────────────────────── CLI entry ───────────────────────────────
