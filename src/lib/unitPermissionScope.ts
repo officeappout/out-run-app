@@ -255,6 +255,16 @@ export async function resolveUnitPermissionScope(uid: string): Promise<UnitPermi
     // different, broader surface; this file's own root→tenantOwner→
     // unitAdmin precedence above is untouched and checked first, so an
     // existing brigade officer's scope is byte-for-byte unchanged).
+    //
+    // KNOWN TRAP (David, 06.10.2026, deliberately left as-is — the
+    // direction is safe and not being changed): because this check runs
+    // LAST, an account that is BOTH a real tenantOwner/unitAdmin for some
+    // brigade AND a chief-fitness-officer (core.isVerticalAdmin+
+    // managedVertical) will ALWAYS resolve to the narrower tenantOwner/
+    // unitAdmin scope — silently, with no error. The chief-officer
+    // feature simply will not work for that account, and nothing here
+    // will tell them why. If a real dual-role account ever needs both,
+    // this precedence is the reason to look at first. See parking-lot.md.
     if (core.isVerticalAdmin === true && typeof core.managedVertical === 'string' && core.managedVertical) {
       const vertical = core.managedVertical;
       const authoritiesSnap = await db.collection('authorities').select('type').get();
