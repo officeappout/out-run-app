@@ -320,12 +320,50 @@ function runHardRules(workout: any, combo: Combo, assessedSkillIds: Set<string>)
       `actual=[${exercises.map(e => e.exercise?.id ?? '?').join(',')}] oracle=[${oracleOrder.map((e: any) => e.exercise?.id ?? '?').join(',')}]`,
   });
 
-  // H5 — sa_ba_balance (LAW 8 / condition 29: <=2 straight_arm per session)
+  // H5 — sa_ba_balance: self-consistency against the REAL penalty mechanism.
+  //
+  // CORRECTED 2026-10-05 (sa_ba_balance investigation): LAW 8's own doc text
+  // was already accurate ("penalized, not excluded") -- the bug was in THIS
+  // check, which hard-asserted the outcome the design never guarantees.
+  // `applyMechanicalBalancing` (ContextualEngine.ts) applies a SCORE PENALTY
+  // (`(count-2)*5`) to the 3rd+ straight-arm exercise encountered while
+  // scoring the pool -- it never excludes one. Traced the one documented
+  // escape hatch (`relaxSABA`, single-program-filter) and confirmed by
+  // direct reproduction that it did NOT apply to the combo that first
+  // surfaced this (push L15 -- the user's overall assessed domains include
+  // pull/legs too, so `activeProgramFilters.length > 1`); the penalty fired
+  // correctly every time, confirmed live via each exercise's own
+  // `reasoning` array (`"SA עודף: -N (count/2)"`) -- a thin single-domain
+  // pool can still let a heavily-penalized (even negative-scored) exercise
+  // win when nothing better is available. That is the mechanism working as
+  // designed, not a bypassed cap.
+  //
+  // Since the penalty only ever skips the 1st and 2nd straight-arm exercise
+  // ENCOUNTERED during pool-scoring (not the 1st/2nd in the final cut), a
+  // pigeonhole argument gives the real, checkable invariant: whenever the
+  // FINAL straight-arm count exceeds 2, at least (count - 2) of those final
+  // straight-arm exercises must carry an "SA עודף" marker in their own
+  // `reasoning` -- proof the mechanism actually engaged for them, rather
+  // than asserting a cap the design never promises to hold.
   const saCount = workout.mechanicalBalance?.straightArm ?? 0;
-  results.push({
-    rule: 'sa_ba_balance', pass: saCount <= 2,
-    detail: `straightArm=${saCount}`,
-  });
+  if (saCount <= 2) {
+    results.push({ rule: 'sa_ba_balance', pass: true, detail: `straightArm=${saCount} (within soft cap)` });
+  } else {
+    const mainStraightArm = exercises.filter(
+      (ex: any) => (ex.exerciseRole ?? 'main') === 'main' && ex.mechanicalType === 'straight_arm',
+    );
+    const penalizedCount = mainStraightArm.filter((ex: any) =>
+      (ex.reasoning ?? []).some((r: string) => r.startsWith('SA עודף')),
+    ).length;
+    const expectedMinPenalized = saCount - 2;
+    const pass = penalizedCount >= expectedMinPenalized;
+    results.push({
+      rule: 'sa_ba_balance', pass,
+      detail: pass
+        ? `straightArm=${saCount}, ${penalizedCount}/${mainStraightArm.length} carry the SA penalty marker (mechanism engaged, soft cap exceeded by design)`
+        : `straightArm=${saCount} but only ${penalizedCount}/${mainStraightArm.length} carry the SA penalty marker (expected >=${expectedMinPenalized}) -- the penalty mechanism may not have run`,
+    });
+  }
 
   return results;
 }
@@ -376,7 +414,21 @@ class FailFastGate {
   aborted = false;
   abortReason = '';
 
-  record(combo: Combo, hardResults: RuleResult[]): void {
+  /**
+   * CORRECTED 2026-10-05: a beyond-authored-ceiling probe (content past the
+   * program's real, Stage-0-discovered level range) must never feed the
+   * fail-fast counters — it's a deliberate edge-probe, not a scenario the
+   * gate is meant to police. Without this, a single beyond-ceiling combo
+   * (e.g. `pull L22` against a ceiling of 20) could inflate the per-stage
+   * failure rate or contribute to a consecutive-same-rule streak and trip
+   * the gate on its own — exactly what happened on the 2026-10-04 run
+   * (`pull L22 30min D2 @park` counted toward the 2/10 that tripped Stage 2).
+   * `beyondCeiling` combos are still run and still reported (§8 of the
+   * rendered report) — they just don't count here.
+   */
+  record(combo: Combo, hardResults: RuleResult[], beyondCeiling: boolean): void {
+    if (beyondCeiling) return;
+
     this.processed++;
     const anyHardFail = hardResults.some(r => !r.pass);
     if (anyHardFail) this.hardFailedCombos++;
@@ -843,7 +895,7 @@ async function main() {
         reruns.push(outcome);
         stage1Outcomes.push(outcome); // every rerun counted, not just the first — a failure on rerun 2/3 must still show in §3
         if (outcome.crashed) { gate.recordCrash(combo, outcome.crashed); break; }
-        gate.record(combo, outcome.hardResults);
+        gate.record(combo, outcome.hardResults, outcome.beyondCeiling);
         if (gate.aborted) break;
       }
       if (reruns.length === 3 && !reruns.some(r => r.crashed)) {
@@ -870,7 +922,7 @@ async function main() {
       const outcome = await runCombo(combo, ceilings);
       stage2Outcomes.push(outcome);
       if (outcome.crashed) { gate.recordCrash(combo, outcome.crashed); aborted = { stage: 2, reason: gate.abortReason }; break; }
-      gate.record(combo, outcome.hardResults);
+      gate.record(combo, outcome.hardResults, outcome.beyondCeiling);
       if (gate.aborted) { aborted = { stage: 2, reason: gate.abortReason }; break; }
     }
     if (!aborted) report(`Stage 2 passed (${stage2Outcomes.length} combos).`);
@@ -889,7 +941,7 @@ async function main() {
         const outcome = outcomes[j];
         stage3Outcomes.push(outcome);
         if (outcome.crashed) { gate.recordCrash(batch[j], outcome.crashed); aborted = { stage: 3, reason: gate.abortReason }; break; }
-        gate.record(batch[j], outcome.hardResults);
+        gate.record(batch[j], outcome.hardResults, outcome.beyondCeiling);
         if (gate.aborted) { aborted = { stage: 3, reason: gate.abortReason }; break; }
       }
       if (aborted) break;
