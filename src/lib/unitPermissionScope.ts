@@ -88,6 +88,7 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { isRootAdmin } from '@/config/feature-flags';
+import { tenantTypeOf } from '@/lib/tenantType';
 
 const TENANT_AUTHORITY_TYPES = ['military_unit', 'school'];
 
@@ -146,10 +147,24 @@ async function expandUnitIdsDownward(db: Firestore, tenantId: string, directUnit
   return Array.from(allIds);
 }
 
+/**
+ * 06.10.2026 ("chief fitness officer" scoping, David's explicit
+ * instruction) — EXTENDS this union rather than inventing a parallel
+ * grant mechanism. Reuses the EXACT shape already live in
+ * adminAnalyticsScope.ts's AdminAnalyticsScope (`{kind:'vertical',
+ * vertical, authorityIds}`), and the EXACT same grant fields
+ * (`core.isVerticalAdmin`, `core.managedVertical`) already written by
+ * the real, reviewable admin-directory/admins-management UI — no
+ * second place that grants cross-organization access, no new flag.
+ * `authorityIds` is pre-filtered to this caller's own vertical ONLY
+ * (never the whole authorities collection) — see
+ * resolveUnitPermissionScope's own vertical branch below.
+ */
 export type UnitPermissionScope =
   | { kind: 'root' }
   | { kind: 'tenantOwner'; tenantId: string }
   | { kind: 'unitAdmin'; tenantId: string; unitIds: string[] }
+  | { kind: 'vertical'; vertical: string; authorityIds: string[] }
   | { kind: 'denied' }
   | { kind: 'unknown' };
 
@@ -230,6 +245,23 @@ export async function resolveUnitPermissionScope(uid: string): Promise<UnitPermi
         const unitIds = await expandUnitIdsDownward(db, tenantId, directUnitIds);
         return { kind: 'unitAdmin', tenantId, unitIds };
       }
+    }
+
+    // "Chief fitness officer" — same fields adminAnalyticsScope.ts
+    // already reads (core.isVerticalAdmin, core.managedVertical), same
+    // tenantTypeOf mapping, deliberately NOT importing
+    // resolveAdminAnalyticsScope itself (that resolver's precedence —
+    // platform wins over vertical — is a different policy for a
+    // different, broader surface; this file's own root→tenantOwner→
+    // unitAdmin precedence above is untouched and checked first, so an
+    // existing brigade officer's scope is byte-for-byte unchanged).
+    if (core.isVerticalAdmin === true && typeof core.managedVertical === 'string' && core.managedVertical) {
+      const vertical = core.managedVertical;
+      const authoritiesSnap = await db.collection('authorities').select('type').get();
+      const authorityIds = authoritiesSnap.docs
+        .filter((d) => tenantTypeOf((d.data().type as string) ?? '') === vertical)
+        .map((d) => d.id);
+      return { kind: 'vertical', vertical, authorityIds };
     }
 
     return { kind: 'denied' };

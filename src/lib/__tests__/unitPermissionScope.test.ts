@@ -21,6 +21,8 @@ const state = vi.hoisted(() => ({
   ownedTenantDocs: [] as Array<{ id: string }>,
   managedUnitDocs: [] as Array<{ id: string; tenantId: string }>,
   descendantsByParent: {} as Record<string, Array<{ id: string; parentUnitId: string }>>,
+  /** 06.10.2026 ("chief fitness officer") — every authority's type, for the new vertical branch's `authorities.select('type').get()` read. */
+  allAuthorityTypes: [] as Array<{ id: string; type: string }>,
   throwOn: null as null | 'user' | 'authorities' | 'units' | 'downward',
 }));
 
@@ -54,6 +56,13 @@ vi.mock('@/lib/firebase-admin', () => ({
                   };
                 },
               }),
+            }),
+          }),
+          // The vertical branch's own read — no `.where()` at all, matches
+          // `db.collection('authorities').select('type').get()` exactly.
+          select: () => ({
+            get: async () => ({
+              docs: state.allAuthorityTypes.map((a) => ({ id: a.id, data: () => ({ type: a.type }) })),
             }),
           }),
         };
@@ -103,6 +112,7 @@ describe('resolveUnitPermissionScope — denied vs unknown split (P1-3 item 1)',
     state.ownedTenantDocs = [];
     state.managedUnitDocs = [];
     state.descendantsByParent = {};
+    state.allAuthorityTypes = [];
     state.throwOn = null;
   });
 
@@ -157,6 +167,59 @@ describe('resolveUnitPermissionScope — denied vs unknown split (P1-3 item 1)',
     state.throwOn = 'downward';
     const scope = await resolveUnitPermissionScope('any-uid');
     expect(scope).toEqual({ kind: 'unknown' });
+  });
+});
+
+describe('resolveUnitPermissionScope — "chief fitness officer" vertical branch (06.10.2026)', () => {
+  beforeEach(() => {
+    state.userDoc = { core: { email: 'someone@example.com' } };
+    state.ownedTenantDocs = [];
+    state.managedUnitDocs = [];
+    state.descendantsByParent = {};
+    state.allAuthorityTypes = [];
+    state.throwOn = null;
+  });
+
+  it('resolves vertical for core.isVerticalAdmin + managedVertical, filtered to that vertical only', async () => {
+    state.userDoc = { core: { email: 'x@y.com', isVerticalAdmin: true, managedVertical: 'military' } };
+    state.allAuthorityTypes = [
+      { id: 'mil-1', type: 'military_unit' },
+      { id: 'mil-2', type: 'military_unit' },
+      { id: 'school-1', type: 'school' },
+      { id: 'city-1', type: 'city' },
+    ];
+    const scope = await resolveUnitPermissionScope('chief-uid');
+    expect(scope.kind).toBe('vertical');
+    if (scope.kind === 'vertical') {
+      expect(scope.vertical).toBe('military');
+      expect(scope.authorityIds.sort()).toEqual(['mil-1', 'mil-2']); // never school-1/city-1
+    }
+  });
+
+  it('a regular tenantOwner NEVER resolves to vertical, even if core.isVerticalAdmin is ALSO (incorrectly) set — brigade-officer precedence is unchanged', async () => {
+    state.userDoc = { core: { email: 'x@y.com', isVerticalAdmin: true, managedVertical: 'military' } };
+    state.ownedTenantDocs = [{ id: 'tenant-1' }];
+    const scope = await resolveUnitPermissionScope('owner-uid');
+    expect(scope).toEqual({ kind: 'tenantOwner', tenantId: 'tenant-1' }); // zero diff from the pre-vertical behavior
+  });
+
+  it('a regular unitAdmin NEVER resolves to vertical either, for the same reason', async () => {
+    state.userDoc = { core: { email: 'x@y.com', isVerticalAdmin: true, managedVertical: 'military' } };
+    state.managedUnitDocs = [{ id: 'battalion-1', tenantId: 'tenant-1' }];
+    const scope = await resolveUnitPermissionScope('commander-uid');
+    expect(scope.kind).toBe('unitAdmin');
+  });
+
+  it('isVerticalAdmin without a real managedVertical string resolves denied, not vertical — no silent "every authority" grant', async () => {
+    state.userDoc = { core: { email: 'x@y.com', isVerticalAdmin: true, managedVertical: '' } };
+    const scope = await resolveUnitPermissionScope('half-configured-uid');
+    expect(scope).toEqual({ kind: 'denied' });
+  });
+});
+
+describe('isMemberWithinScope — a vertical scope is rejected, same as denied (06.10.2026)', () => {
+  it('returns false for vertical — the gate behind unit creation and member approve/remove must refuse it, with zero code change to this function', () => {
+    expect(isMemberWithinScope({ kind: 'vertical', vertical: 'military', authorityIds: ['mil-1'] }, 'mil-1', null)).toBe(false);
   });
 });
 
