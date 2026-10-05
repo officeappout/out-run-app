@@ -460,7 +460,15 @@ export async function getAgeDistribution(
 export interface PopularPark {
   parkId: string;
   parkName: string;
-  checkInCount: number;
+  /**
+   * Named completedSessionCount, not checkInCount: it's a count of
+   * `sessions` docs written at workout COMPLETION (strength/running park-
+   * proximity detection), not a present-tense arrival signal — there is no
+   * real "check-in" event for parks today. See
+   * scheduling-capability-audit.md's park check-in finding; the old field
+   * name was actively misleading to anyone reading this metric.
+   */
+  completedSessionCount: number;
 }
 
 export async function getPopularParks(
@@ -502,7 +510,7 @@ export async function getPopularParks(
     return topEntries.map(([parkId, count], i) => ({
       parkId,
       parkName: resolvedNames[i],
-      checkInCount: count,
+      completedSessionCount: count,
     }));
   } catch (error) {
     console.error('Error calculating popular parks:', error);

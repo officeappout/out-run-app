@@ -67,6 +67,15 @@ import PushFunnelSection, {
   type PushFunnelSummaryResponse,
 } from '@/features/admin/components/cpo-dashboard/PushFunnelSection';
 
+// New this PR — surfaces the scheduling/commitment surfaces mapped in
+// scheduling-capability-audit.md (reminders, schedule-entry times, map "+"
+// planned sessions, group check-ins). Same reuse-don't-rebuild rule as
+// PushFunnelSection above: one new route + one new component, not a
+// second analytics page.
+import CommitmentSurfacesSection, {
+  type CommitmentSurfacesSummary,
+} from '@/features/admin/components/cpo-dashboard/CommitmentSurfacesSection';
+
 interface GrowthMetricsResponse {
   scope: 'platform' | 'vertical';
   vertical?: string;
@@ -95,6 +104,9 @@ export default function JourneyHubPage() {
   const [pushFunnel, setPushFunnel] = useState<PushFunnelSummaryResponse | null>(null);
   const [pushFunnelDenied, setPushFunnelDenied] = useState<string | null>(null);
 
+  const [commitmentSurfaces, setCommitmentSurfaces] = useState<CommitmentSurfacesSummary | null>(null);
+  const [commitmentSurfacesDenied, setCommitmentSurfacesDenied] = useState<string | null>(null);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, () => setAuthLoading(false));
     return () => unsubscribe();
@@ -106,10 +118,12 @@ export default function JourneyHubPage() {
     async function loadData() {
       setDataLoading(true);
 
-      // Same two routes PR #123 already shipped — no new endpoints.
-      const [growthResult, pushResult] = await Promise.all([
+      // growth-metrics + push-funnel-summary are PR #123's existing routes;
+      // commitment-surfaces-summary is new this PR.
+      const [growthResult, pushResult, commitmentResult] = await Promise.all([
         adminAuthedFetch<GrowthMetricsResponse>('/api/admin/growth-metrics'),
         adminAuthedFetch<PushFunnelSummaryResponse>('/api/admin/push-funnel-summary'),
+        adminAuthedFetch<CommitmentSurfacesSummary>('/api/admin/commitment-surfaces-summary'),
       ]);
 
       if (growthResult.ok) { setGrowthMetrics(growthResult.data); setGrowthMetricsDenied(null); }
@@ -117,6 +131,9 @@ export default function JourneyHubPage() {
 
       if (pushResult.ok) { setPushFunnel(pushResult.data); setPushFunnelDenied(null); }
       else { setPushFunnel(null); setPushFunnelDenied(pushResult.message); }
+
+      if (commitmentResult.ok) { setCommitmentSurfaces(commitmentResult.data); setCommitmentSurfacesDenied(null); }
+      else { setCommitmentSurfaces(null); setCommitmentSurfacesDenied(commitmentResult.message); }
 
       setDataLoading(false);
     }
@@ -225,6 +242,7 @@ export default function JourneyHubPage() {
             loading={dataLoading}
           />
           <PushFunnelSection data={pushFunnel} loading={dataLoading} denied={pushFunnelDenied} />
+          <CommitmentSurfacesSection data={commitmentSurfaces} loading={dataLoading} denied={commitmentSurfacesDenied} />
         </div>
       )}
     </div>

@@ -1111,7 +1111,7 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
                   </div>
                   <div>
                     <div className="font-bold text-gray-900">{park.parkName}</div>
-                    <div className="text-sm text-gray-500">{park.checkInCount} ביקורים</div>
+                    <div className="text-sm text-gray-500">{park.completedSessionCount} ביקורים</div>
                   </div>
                 </div>
               </div>

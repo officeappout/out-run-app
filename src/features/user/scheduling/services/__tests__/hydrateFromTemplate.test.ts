@@ -154,3 +154,34 @@ describe('hydrateFromTemplate — one entry per id, not one entry per day', () =
     expect(written.entries.filter((e) => e.source === 'recurring')).toHaveLength(2);
   });
 });
+
+// Pins the scheduling-capability-audit.md fix: recurring entries previously
+// had no `startTime` at all, breaking trainingReminderScheduler.ts's ability
+// to ever reference a time for them.
+describe('hydrateFromTemplate — startTime on recurring entries', () => {
+  it('training entries get DEFAULT_RECURRING_START_TIME when no reminders are passed', async () => {
+    const result = await hydrateFromTemplate('test-uid-1', '2026-09-02', { 'ד': ['FULL_BODY'] });
+    expect(result).toHaveLength(1);
+    expect(result[0].startTime).toBe('07:00');
+  });
+
+  it('prefers strengthTime over runningTime when both are set', async () => {
+    const result = await hydrateFromTemplate('test-uid-1', '2026-09-02', { 'ד': ['FULL_BODY'] }, {
+      runningTime: '06:00',
+      strengthTime: '18:30',
+    });
+    expect(result[0].startTime).toBe('18:30');
+  });
+
+  it('falls back to runningTime when strengthTime is absent', async () => {
+    const result = await hydrateFromTemplate('test-uid-1', '2026-09-02', { 'ד': ['FULL_BODY'] }, {
+      runningTime: '06:00',
+    });
+    expect(result[0].startTime).toBe('06:00');
+  });
+
+  it('rest-day entries do not get a startTime (none needed)', async () => {
+    const result = await hydrateFromTemplate('test-uid-1', '2026-09-03', { 'ה': [] }, { strengthTime: '18:30' });
+    expect(result[0].startTime).toBeUndefined();
+  });
+});
