@@ -190,7 +190,7 @@ describe('computeReadinessTrends — the blue line and the third ("could lie") s
     // like a percent-of-zero claim. Say how many are connected and that none
     // of them cleared the bar yet.
     expect(result.body.latestCoverageNote).toBe(
-      'אין עדיין נתוני אימון להצגה — מתוך 1 חיילים, 1 מחוברים לחשבון באפליקציה, ואף אחד לא צבר מספיק אימונים בחודש האחרון.',
+      'אין עדיין נתוני אימון להצגה — מתוך חייל אחד, חייל אחד מחובר לחשבון באפליקציה, ואף אחד לא צבר מספיק אימונים בחודש האחרון.',
     );
   });
 
@@ -229,7 +229,7 @@ describe('computeReadinessTrends — the blue line and the third ("could lie") s
     // but NOT zero: say how many are connected and how many of them
     // actually cleared the bar, not a percent built on too little evidence.
     expect(result.body.latestCoverageNote).toBe(
-      'אין עדיין מספיק נתון להצגת מגמה — מתוך 4 חיילים, 1 מחוברים לחשבון באפליקציה, ו-1 מהם צברו מספיק אימונים בחודש האחרון.',
+      'אין עדיין מספיק נתון להצגת מגמה — מתוך 4 חיילים, חייל אחד מחובר לחשבון באפליקציה, ואחד מהם צבר מספיק אימונים בחודש האחרון.',
     );
   });
 

@@ -518,13 +518,22 @@ export async function computeReadinessTrends(
   // touched here), three honest phrasings depending on what the counts
   // actually support: zero determinable, some determinable but below
   // the draw-a-line floor, or enough to state plainly.
+  //
+  // Second correction, same day — the singular case ("מתוך 1 חיילים",
+  // "1 מחוברים", "1 מהם צברו") is grammatically wrong Hebrew, and this
+  // is the one line that's always on screen. Three tiny phrase helpers,
+  // text only, no counts touched.
+  const soldiersPhrase = (n: number): string => (n === 1 ? 'חייל אחד' : `${n} חיילים`);
+  const connectedPhrase = (n: number): string => (n === 1 ? 'חייל אחד מחובר' : `${n} מחוברים`);
+  const determinedClause = (n: number): string => (n === 1 ? 'ואחד מהם צבר' : `ו-${n} מהם צברו`);
+
   const latest = blue[blue.length - 1] ?? null;
   let latestCoverageNote: string | null = null;
   if (latest) {
     if (latest.determinableCount === 0) {
-      latestCoverageNote = `אין עדיין נתוני אימון להצגה — מתוך ${latest.totalCount} חיילים, ${latest.linkedCount} מחוברים לחשבון באפליקציה, ואף אחד לא צבר מספיק אימונים בחודש האחרון.`;
+      latestCoverageNote = `אין עדיין נתוני אימון להצגה — מתוך ${soldiersPhrase(latest.totalCount)}, ${connectedPhrase(latest.linkedCount)} לחשבון באפליקציה, ואף אחד לא צבר מספיק אימונים בחודש האחרון.`;
     } else if (latest.meetsPercent === null) {
-      latestCoverageNote = `אין עדיין מספיק נתון להצגת מגמה — מתוך ${latest.totalCount} חיילים, ${latest.linkedCount} מחוברים לחשבון באפליקציה, ו-${latest.determinableCount} מהם צברו מספיק אימונים בחודש האחרון.`;
+      latestCoverageNote = `אין עדיין מספיק נתון להצגת מגמה — מתוך ${soldiersPhrase(latest.totalCount)}, ${connectedPhrase(latest.linkedCount)} לחשבון באפליקציה, ${determinedClause(latest.determinableCount)} מספיק אימונים בחודש האחרון.`;
     } else {
       latestCoverageNote = `מבוסס על ${latest.determinableCount} מתוך ${latest.totalCount} חיילים — ${latest.linkedCount} מקושרים, ${latest.determinableCount} עם נתון שניתן לקביעה.`;
     }
