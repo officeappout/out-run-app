@@ -10,6 +10,22 @@ export const dynamic = 'force-dynamic';
  * rather than rebuilt — see each import below for which existing
  * component/route it reuses.
  *
+ * Tabs IA cleanup (05.10.2026, post-launch feedback — real small-N data
+ * surfaced that Activation and Retention/Engagement were mixed
+ * together): DAU/WAU/MAU+stickiness, the North-Star row, the
+ * active-users trend chart, and the push→action funnel are ENGAGEMENT
+ * signals by definition, not activation ones — moved from the
+ * Activation tab to Retention, which is explicitly named "שימור
+ * ומעורבות" (Retention & Engagement) to match. The Activation tab is
+ * now an honest placeholder — true activation metrics (first-workout
+ * rate, onboarding completion, time-to-first-workout) aren't wired into
+ * this hub yet; see the placeholder copy below for what's real vs. not
+ * built. The economy-by-authority table was removed from Retention
+ * entirely (not moved anywhere) — not a real retention lever yet; the
+ * underlying `economyByAuthority` field in growth-metrics' response is
+ * untouched, so this is a pure UI removal, re-addable later without any
+ * data-layer change.
+ *
  * Not done in this PR (intentionally, see the plan's Phase 0 scope):
  * - Acquisition tab stays a placeholder; the funnel at /admin/analytics
  *   is NOT migrated yet — that refactor (embeddable component +
@@ -32,9 +48,12 @@ import ActiveUsersHeroChart, {
   type ActiveUsersTrendPoint,
   type TimelineMarker,
 } from '@/features/admin/components/cpo-dashboard/ActiveUsersHeroChart';
-import EconomyByAuthorityTable, {
-  type EconomyByAuthorityRow,
-} from '@/features/admin/components/cpo-dashboard/EconomyByAuthorityTable';
+// EconomyByAuthorityTable itself is deliberately NOT imported here anymore
+// (Item 2, tabs IA cleanup) — removed from the UI, not deleted; the type
+// import stays so GrowthMetricsResponse keeps accurately describing the
+// route's real response shape even though this page doesn't render that
+// field right now.
+import type { EconomyByAuthorityRow } from '@/features/admin/components/cpo-dashboard/EconomyByAuthorityTable';
 
 // New this PR — DAU/WAU/MAU + stickiness, a pure display of fields
 // growth-metrics' existing response now also carries (one extra division
@@ -62,7 +81,7 @@ type JourneyTab = 'acquisition' | 'activation' | 'retention';
 const TABS: { id: JourneyTab; label: string }[] = [
   { id: 'acquisition', label: 'רכישה' },
   { id: 'activation', label: 'הפעלה' },
-  { id: 'retention', label: 'שימור' },
+  { id: 'retention', label: 'שימור ומעורבות' },
 ];
 
 export default function JourneyHubPage() {
@@ -167,27 +186,45 @@ export default function JourneyHubPage() {
         </div>
       )}
 
-      {/* Activation */}
+      {/* Activation — placeholder (tabs IA cleanup, 05.10.2026). The
+          engagement panels that used to render here moved to Retention
+          below; true activation metrics (first-workout rate, onboarding
+          completion, time-to-first-workout) aren't wired into this hub
+          yet — not fabricated here. */}
       {activeTab === 'activation' && (
+        <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-10 text-center">
+          <p className="text-gray-500 text-sm">
+            מדדי הפעלה אמיתיים (שיעור אימון ראשון, שיעור השלמת אונבורדינג, זמן עד אימון ראשון) עדיין לא מחוברים ללוח הזה.
+          </p>
+          <p className="text-gray-400 text-xs mt-2">
+            שיעור אימון ראשון קיים כחלק ממשפך ההמרות (שלב 4) ב
+            <a
+              href="/admin/analytics"
+              className="text-cyan-600 font-bold hover:underline inline-flex items-center gap-1 mx-1"
+            >
+              משפך המרות ואנליטיקס
+              <ExternalLink size={12} />
+            </a>
+            — יעבור לכאן יחד עם שאר המשפך. שיעור השלמת אונבורדינג כבר מחושב (executiveSummary.overallCompletionRate) אך לא מוצג כאן. זמן עד אימון ראשון אינו מחושב באף מקום היום.
+          </p>
+        </div>
+      )}
+
+      {/* Retention & Engagement — North-Star, stickiness, the trend
+          chart, and the push funnel all moved here from Activation
+          (tabs IA cleanup, 05.10.2026) — these are engagement signals by
+          definition, matching the tab's own name. Economy-by-authority
+          was removed entirely (Item 2), not moved — see the file header. */}
+      {activeTab === 'retention' && (
         <div className="space-y-6">
-          <NorthStarRow data={growthMetrics?.northStar ?? null} loading={dataLoading} />
-          {/* growthMetrics.northStar already structurally satisfies
-              StickinessData (NorthStarData ∩ the 3 fields added to the
-              route this PR) — same object, no reshaping needed. */}
           <StickinessRow data={growthMetrics?.northStar ?? null} loading={dataLoading} />
+          <NorthStarRow data={growthMetrics?.northStar ?? null} loading={dataLoading} />
           <ActiveUsersHeroChart
             data={growthMetrics?.activeUsersTrend ?? []}
             markers={growthMetrics?.pushCampaignMarkers ?? []}
             loading={dataLoading}
           />
           <PushFunnelSection data={pushFunnel} loading={dataLoading} denied={pushFunnelDenied} />
-        </div>
-      )}
-
-      {/* Retention */}
-      {activeTab === 'retention' && (
-        <div className="space-y-6">
-          <EconomyByAuthorityTable data={growthMetrics?.economyByAuthority ?? []} loading={dataLoading} />
         </div>
       )}
     </div>
