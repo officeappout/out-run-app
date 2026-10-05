@@ -512,10 +512,23 @@ export async function computeReadinessTrends(
     }
   }
 
+  // David's correction, 05.10.2026 — "say how many there are and how
+  // many are missing," never a percent-shaped claim built on top of
+  // zero or near-zero evidence. Same counts as before (no computation
+  // touched here), three honest phrasings depending on what the counts
+  // actually support: zero determinable, some determinable but below
+  // the draw-a-line floor, or enough to state plainly.
   const latest = blue[blue.length - 1] ?? null;
-  const latestCoverageNote = latest
-    ? `מבוסס על ${latest.determinableCount} מתוך ${latest.totalCount} חיילים — ${latest.linkedCount} מקושרים, ${latest.determinableCount} עם נתון שניתן לקביעה.`
-    : null;
+  let latestCoverageNote: string | null = null;
+  if (latest) {
+    if (latest.determinableCount === 0) {
+      latestCoverageNote = `אין עדיין נתוני אימון להצגה — מתוך ${latest.totalCount} חיילים, ${latest.linkedCount} מחוברים לחשבון באפליקציה, ואף אחד לא צבר מספיק אימונים בחודש האחרון.`;
+    } else if (latest.meetsPercent === null) {
+      latestCoverageNote = `אין עדיין מספיק נתון להצגת מגמה — מתוך ${latest.totalCount} חיילים, ${latest.linkedCount} מחוברים לחשבון באפליקציה, ו-${latest.determinableCount} מהם צברו מספיק אימונים בחודש האחרון.`;
+    } else {
+      latestCoverageNote = `מבוסס על ${latest.determinableCount} מתוך ${latest.totalCount} חיילים — ${latest.linkedCount} מקושרים, ${latest.determinableCount} עם נתון שניתן לקביעה.`;
+    }
+  }
 
   // ── Component averages — only from soldiers tested ON that exact date, for THIS specific test, non-superseded ──
   function buildComponentAverage(testId: string): ComponentAveragePoint[] {

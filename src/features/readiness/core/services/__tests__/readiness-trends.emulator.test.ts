@@ -185,6 +185,13 @@ describe('computeReadinessTrends — the blue line and the third ("could lie") s
     if (result.status !== 200) return;
     const latest = result.body.blue[result.body.blue.length - 1];
     expect(latest.determinableCount).toBe(0); // level=11 (qualifies) but reps=null — not determinable, not a pass
+    // David's wording correction, 05.10.2026 (text only, no computation changed) —
+    // zero determinable must never read as "based on 0 out of N," which looks
+    // like a percent-of-zero claim. Say how many are connected and that none
+    // of them cleared the bar yet.
+    expect(result.body.latestCoverageNote).toBe(
+      'אין עדיין נתוני אימון להצגה — מתוך 1 חיילים, 1 מחוברים לחשבון באפליקציה, ואף אחד לא צבר מספיק אימונים בחודש האחרון.',
+    );
   });
 
   it('a linked soldier who trained and did NOT meet the threshold → a real 0, counted inside the denominator', async () => {
@@ -218,6 +225,12 @@ describe('computeReadinessTrends — the blue line and the third ("could lie") s
     expect(latest.totalCount).toBe(4);
     expect(latest.determinableCount).toBe(1); // 25%
     expect(latest.meetsPercent).toBeNull();
+    // David's wording correction, 05.10.2026 (text only) — below the floor
+    // but NOT zero: say how many are connected and how many of them
+    // actually cleared the bar, not a percent built on too little evidence.
+    expect(result.body.latestCoverageNote).toBe(
+      'אין עדיין מספיק נתון להצגת מגמה — מתוך 4 חיילים, 1 מחוברים לחשבון באפליקציה, ו-1 מהם צברו מספיק אימונים בחודש האחרון.',
+    );
   });
 
   it('35% determinable → a real blue line point, with the coverage declaration', async () => {
