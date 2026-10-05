@@ -88,6 +88,12 @@ function chunk<T>(arr: T[], size: number): T[][] {
 export async function computeDemonstratedRunLevels(
   db: Firestore,
   uids: string[],
+  /**
+   * 05.10.2026 (§13.90, trends screen) — same purpose and same
+   * backward-compatible default as computeDemonstratedStrengthLevels's
+   * own `asOf` parameter; see that comment for why it exists.
+   */
+  asOf: Date = new Date(),
 ): Promise<Record<string, RunLevelResult>> {
   const result: Record<string, RunLevelResult> = {};
   for (const uid of uids) {
@@ -95,7 +101,7 @@ export async function computeDemonstratedRunLevels(
   }
   if (uids.length === 0) return result;
 
-  const cutoff = new Date(Date.now() - RUN_LEVEL_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  const cutoff = new Date(asOf.getTime() - RUN_LEVEL_WINDOW_DAYS * 24 * 60 * 60 * 1000);
   const countedRunsByUid = new Map<string, number[]>();
   const excludedCountByUid = new Map<string, number>();
 
@@ -104,6 +110,7 @@ export async function computeDemonstratedRunLevels(
     const snap = await db.collection('workouts')
       .where('userId', 'in', uidChunk)
       .where('date', '>=', cutoff)
+      .where('date', '<=', asOf)
       .get();
 
     snap.docs.forEach((doc) => {

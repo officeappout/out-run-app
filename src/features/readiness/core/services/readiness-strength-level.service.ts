@@ -125,6 +125,17 @@ interface Performance {
 export async function computeDemonstratedStrengthLevels(
   db: Firestore,
   uids: string[],
+  /**
+   * 05.10.2026 (§13.90, trends screen) — the reference point the 30-day
+   * window counts back FROM. Defaults to now, matching every caller
+   * before this round exactly (backward compatible, zero behavior
+   * change for them). The trends screen's monthly blue-line series is
+   * the reason this exists: it calls this function once per month
+   * boundary in the chart's range, each time with that month's own
+   * `asOf`, to get a REAL historical value per month using the exact
+   * same derivation — never a second, parallel "historical" code path.
+   */
+  asOf: Date = new Date(),
 ): Promise<Record<string, StrengthLevelsBySlug>> {
   const result: Record<string, StrengthLevelsBySlug> = {};
   for (const uid of uids) {
@@ -188,7 +199,7 @@ export async function computeDemonstratedStrengthLevels(
     exerciseInfoById.set(d.id, { type, levelBySlug });
   });
 
-  const cutoff = new Date(Date.now() - STRENGTH_LEVEL_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  const cutoff = new Date(asOf.getTime() - STRENGTH_LEVEL_WINDOW_DAYS * 24 * 60 * 60 * 1000);
   const performancesByKey = new Map<string, Performance[]>(); // key = `${uid}__${slug}`
 
   for (const uidChunk of chunk(uids, 30)) {
@@ -196,6 +207,7 @@ export async function computeDemonstratedStrengthLevels(
     const snap = await db.collection('workouts')
       .where('userId', 'in', uidChunk)
       .where('date', '>=', cutoff)
+      .where('date', '<=', asOf)
       .get();
 
     snap.docs.forEach((doc) => {
