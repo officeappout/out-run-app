@@ -345,13 +345,22 @@ function runHardRules(workout: any, combo: Combo, assessedSkillIds: Set<string>)
   // straight-arm exercises must carry an "SA עודף" marker in their own
   // `reasoning` -- proof the mechanism actually engaged for them, rather
   // than asserting a cap the design never promises to hold.
-  const saCount = workout.mechanicalBalance?.straightArm ?? 0;
+  // CORRECTED 2026-10-05 (stale-balance investigation, Item 3): was reading
+  // `workout.mechanicalBalance?.straightArm` -- a field confirmed to go
+  // stale relative to the true final array (reproduced live: field read
+  // 3/3, actual array held 4 straight-arm/2 bent-arm). Fixed at the source
+  // (home-workout.service.ts now recomputes the field as the true last
+  // step, see recomputeMechanicalBalance), but this check no longer trusts
+  // ANY precomputed field either way -- it counts straight-arm main
+  // exercises directly from the same `exercises` array every other check
+  // here already inspects, so it can never disagree with itself again.
+  const mainStraightArm = exercises.filter(
+    (ex: any) => (ex.exerciseRole ?? 'main') === 'main' && ex.mechanicalType === 'straight_arm',
+  );
+  const saCount = mainStraightArm.length;
   if (saCount <= 2) {
     results.push({ rule: 'sa_ba_balance', pass: true, detail: `straightArm=${saCount} (within soft cap)` });
   } else {
-    const mainStraightArm = exercises.filter(
-      (ex: any) => (ex.exerciseRole ?? 'main') === 'main' && ex.mechanicalType === 'straight_arm',
-    );
     const penalizedCount = mainStraightArm.filter((ex: any) =>
       (ex.reasoning ?? []).some((r: string) => r.startsWith('SA עודף')),
     ).length;
