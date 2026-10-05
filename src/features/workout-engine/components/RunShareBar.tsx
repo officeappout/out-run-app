@@ -121,6 +121,7 @@ function DateTimePicker({
       />
       <input
         type="time"
+        step={300}
         value={time}
         onChange={(e) => onTimeChange(e.target.value)}
         className="rounded-xl border text-[13px] font-bold px-3 text-gray-800 focus:outline-none focus:ring-2"
