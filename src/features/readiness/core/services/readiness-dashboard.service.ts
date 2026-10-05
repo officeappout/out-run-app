@@ -263,6 +263,23 @@ export async function computeBrigadeDashboard(
   } else if (scope.kind === 'tenantOwner') {
     targetTenantId = scope.tenantId;
     targetUnitIds = null;
+  } else if (scope.kind === 'vertical') {
+    // 06.10.2026 ("chief fitness officer") — a vertical-scoped caller
+    // has no SINGLE own tenant, unlike tenantOwner/unitAdmin above, so
+    // (same as root) this must come from query.tenantId — but unlike
+    // root, it is NOT trusted blindly: it must be one of the tenants
+    // this specific caller's own vertical grant actually covers. Zero
+    // change to the root branch below (still the exact same blind-trust
+    // behavior it always had) — this is a NEW branch, not a
+    // modification of an existing one.
+    if (!query.tenantId) {
+      return { status: 400, body: { error: 'tenantId is required' } };
+    }
+    if (!scope.authorityIds.includes(query.tenantId)) {
+      return { status: 403, body: { error: DENIED_MESSAGE } };
+    }
+    targetTenantId = query.tenantId;
+    targetUnitIds = query.unitId ? [query.unitId] : null;
   } else {
     // root — no "own" domain to default to, same as computeUnitRoster/computeUnitMembers.
     if (!query.tenantId) {
