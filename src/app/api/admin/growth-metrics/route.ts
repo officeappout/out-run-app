@@ -77,6 +77,7 @@ import { resolveAdminAnalyticsScope, type AdminAnalyticsScope } from '@/lib/admi
 import { isTestOrMockUser } from '@/lib/testAccountFilter';
 import { hasStrengthTrack, hasRunningTrack } from '@/lib/track-ownership';
 import { getLevelTier } from '@/features/workout-engine/services/split-decision/split-decision.types';
+import { isAgeBucket, ageBucketToYearRange, getAgeInYears, type AgeBucket } from '@/lib/age-buckets';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -105,10 +106,6 @@ export interface PushCampaignMarker {
   label: string;
   type: 'push_campaign';
 }
-
-/** Age buckets, in whole years. 'u18'/'55p' are open-ended on their outer edge. */
-export const AGE_BUCKETS = ['u18', '18-24', '25-34', '35-44', '45-54', '55p'] as const;
-export type AgeBucket = (typeof AGE_BUCKETS)[number];
 
 /**
  * Segmentation + cross-cutting filters — Journey Hub Wave 2. Every field
@@ -146,30 +143,6 @@ export const DEFAULT_GROWTH_METRICS_FILTERS: GrowthMetricsFilters = {
   program: null,
   age: null,
 };
-
-/**
- * [minAgeInclusive, maxAgeInclusive] in years for a bucket, or null for
- * the open-ended edges (u18 → no lower bound; 55p → no upper bound).
- */
-function ageBucketToYearRange(bucket: AgeBucket): [number | null, number | null] {
-  switch (bucket) {
-    case 'u18': return [null, 17];
-    case '18-24': return [18, 24];
-    case '25-34': return [25, 34];
-    case '35-44': return [35, 44];
-    case '45-54': return [45, 54];
-    case '55p': return [55, null];
-  }
-}
-
-function getAgeInYears(birthDate: Date, asOf: Date): number {
-  let age = asOf.getFullYear() - birthDate.getFullYear();
-  const hasHadBirthdayThisYear =
-    asOf.getMonth() > birthDate.getMonth() ||
-    (asOf.getMonth() === birthDate.getMonth() && asOf.getDate() >= birthDate.getDate());
-  if (!hasHadBirthdayThisYear) age--;
-  return age;
-}
 
 /**
  * The one chokepoint every segmentation/cross-cutting filter passes
@@ -523,7 +496,7 @@ function parseGrowthMetricsFilters(request: NextRequest): GrowthMetricsFilters {
   const programRaw = str('program');
   const program = programRaw === 'strength' || programRaw === 'running' || programRaw === 'map_only' ? programRaw : null;
   const ageRaw = str('age');
-  const age = (AGE_BUCKETS as readonly string[]).includes(ageRaw ?? '') ? (ageRaw as AgeBucket) : null;
+  const age = isAgeBucket(ageRaw) ? ageRaw : null;
 
   return {
     dateFrom: date('dateFrom'),
