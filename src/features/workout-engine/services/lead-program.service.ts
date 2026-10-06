@@ -29,7 +29,7 @@ import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import { getAllPrograms } from '@/features/content/programs/core/program.service';
 import { getProgramLevelSetting, isPlsCacheEnabled } from '@/features/content/programs/core/programLevelSettings.service';
 import { resolveToSlug, buildIdToSlugMapFromPrograms } from './program-hierarchy.utils';
-import { resolveDataLevel } from './level-resolution.utils';
+import { resolveDataLevel, getBaseUserLevel } from './level-resolution.utils';
 
 // ============================================================================
 // TYPES
@@ -41,8 +41,8 @@ export interface LeadProgramBudget {
   leadProgramId: string;
   /** That program's ID-friendly name (for logging). */
   leadProgramName: string;
-  /** Movement pattern being resolved. */
-  pattern: MovementPattern;
+  /** Movement pattern being resolved. Absent when `isSafeDefault` (no real pattern to report). */
+  pattern?: MovementPattern;
   /** The user's level in the lead program. */
   level: number;
   /** Weekly set budget for all exercises under this pattern. */
@@ -51,6 +51,21 @@ export interface LeadProgramBudget {
   maxIntenseWorkoutsPerWeek: number;
   /** Max sets per session (Safety Brake / Hard Cap). Prevents junk volume. */
   maxSets?: number;
+  /**
+   * True when this budget did NOT come from a resolved lead program — the
+   * safety-brake fallback (`buildSafeDefaultLeadBudget`) was used instead.
+   * Added 2026-10-06 (null-fallback safety fix): `resolveActiveProgramBudget`
+   * used to return `null` here, which every call site then fed into its own
+   * `?? calculateWeeklyBudget(level)` — the UNPROTECTED level×2 formula with
+   * no safety brake at all, and (at the home-workout.service.ts call site)
+   * silently disabled BudgetDistributor's hard maxSets cap entirely (its
+   * `!= null` guard just never fired). `resolveActiveProgramBudget` now
+   * never returns null — callers that need to distinguish "a real
+   * per-program value" from "the generic safe default was used" (the
+   * `source: 'lead' | 'fallback'` tracking in useDailyStrengthTarget.ts /
+   * useActivitySync.ts) should check THIS flag, not nullness.
+   */
+  isSafeDefault?: boolean;
 }
 
 // ============================================================================
@@ -76,6 +91,30 @@ export function getDefaultMaxSets(level: number): number {
   if (level <= 5) return 20;
   if (level <= 12) return 24;
   return 28;
+}
+
+/**
+ * Safety-brake fallback budget — used by `resolveActiveProgramBudget` when no
+ * lead program can be resolved at all (no active program, or the matched
+ * program is missing `movementPattern`). Routes through the SAME tier
+ * defaults a resolved budget would fall back to (`getDefaultVolumeTarget`,
+ * `getDefaultMaxIntense`, `getDefaultMaxSets`) instead of leaving the caller
+ * to invent its own unprotected calculation. `level` uses `getBaseUserLevel`
+ * — the same "highest effective level across all domains/tracks" concept
+ * already used for the (now-dead-but-harmless) `calculateWeeklyBudget`
+ * call-site fallbacks this replaces.
+ */
+export function buildSafeDefaultLeadBudget(userProfile: UserFullProfile): LeadProgramBudget {
+  const level = getBaseUserLevel(userProfile);
+  return {
+    leadProgramId: '',
+    leadProgramName: '(no resolvable lead program)',
+    level,
+    weeklyVolumeTarget: getDefaultVolumeTarget(level),
+    maxIntenseWorkoutsPerWeek: getDefaultMaxIntense(level),
+    maxSets: getDefaultMaxSets(level),
+    isSafeDefault: true,
+  };
 }
 
 // ============================================================================
@@ -232,12 +271,16 @@ export async function resolveGlobalMaxIntense(
  *
  * @param userProfile   The full user profile.
  * @param allPrograms   Optional pre-fetched program list.
- * @returns             Budget for the active pattern, or `null`.
+ * @returns             Budget for the active pattern. NEVER null (safety fix,
+ *                       2026-10-06) — falls back to `buildSafeDefaultLeadBudget`
+ *                       rather than leaving every caller to invent its own
+ *                       unprotected fallback. Check `.isSafeDefault` to tell
+ *                       a real lead-program resolution apart from the fallback.
  */
 export async function resolveActiveProgramBudget(
   userProfile: UserFullProfile,
   allPrograms?: Program[],
-): Promise<LeadProgramBudget | null> {
+): Promise<LeadProgramBudget> {
   const programs = allPrograms ?? await getAllPrograms();
   // Ensure the ID→slug map exists before resolveToSlug is used below — this path
   // (StatsOverview budget effect) runs before generateHomeWorkoutTrio builds it.
@@ -248,21 +291,26 @@ export async function resolveActiveProgramBudget(
     userProfile.progression?.activePrograms?.[0]?.templateId;
   // activeTemplateId may be a SLUG ("pull") rather than the Firestore doc-id — match by id,
   // by resolved slug (via _idToSlugMap, already built), or by the program's movementPattern
-  // field, so the budget resolves the real program instead of falling to calculateWeeklyBudget.
-  const activeProgram = programs.find(
-    (p) =>
-      p.id === activeTemplateId ||
-      resolveToSlug(p.id) === activeTemplateId ||
-      p.movementPattern === activeTemplateId,
-  );
-  if (!activeTemplateId) return null;
-  if (!activeProgram?.movementPattern) return null;
+  // field, so the budget resolves the real program instead of falling to the safety brake.
+  const activeProgram = activeTemplateId
+    ? programs.find(
+        (p) =>
+          p.id === activeTemplateId ||
+          resolveToSlug(p.id) === activeTemplateId ||
+          p.movementPattern === activeTemplateId,
+      )
+    : undefined;
 
-  return resolveLeadProgramBudget(
-    activeProgram.movementPattern,
-    userProfile,
-    programs,
-  );
+  // Three ways to land here with nothing resolved: no active program at all,
+  // the matched program has no movementPattern, or resolveLeadProgramBudget
+  // itself found no enrolled candidate for that pattern (its own internal
+  // `candidates.length === 0` null-return) — all three get the SAME safe
+  // fallback, not three different unprotected guesses at three call sites.
+  const resolved = activeProgram?.movementPattern
+    ? await resolveLeadProgramBudget(activeProgram.movementPattern, userProfile, programs)
+    : null;
+
+  return resolved ?? buildSafeDefaultLeadBudget(userProfile);
 }
 
 /** Per-domain budget for aggregate full_body workouts */

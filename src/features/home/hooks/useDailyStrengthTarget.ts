@@ -72,11 +72,16 @@ export function useDailyStrengthTarget(enabled: boolean = true): DailyStrengthTa
       .then((allPrograms) => resolveActiveProgramBudget(profile, allPrograms))
       .then((lead) => {
         if (cancelled) return;
-        setResolved(
-          lead?.weeklyVolumeTarget != null
-            ? { weeklyTarget: lead.weeklyVolumeTarget, source: 'lead' }
-            : { weeklyTarget: calculateWeeklyBudget(baseLevel), source: 'fallback' },
-        );
+        // resolveActiveProgramBudget never returns null (safety fix, 2026-10-06) —
+        // lead.weeklyVolumeTarget is now ALWAYS a safe, tier-aware number (a real
+        // per-program value, or the same safety-brake default the generator uses),
+        // never the old unprotected calculateWeeklyBudget(level) guess. Only the
+        // 'lead' vs 'fallback' SOURCE label still needs isSafeDefault to stay
+        // meaningful — the NUMBER itself should never regress to the old formula.
+        setResolved({
+          weeklyTarget: lead.weeklyVolumeTarget,
+          source: lead.isSafeDefault ? 'fallback' : 'lead',
+        });
       })
       .catch(() => {
         if (!cancelled) {
