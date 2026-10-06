@@ -196,6 +196,8 @@ export type BrigadeDashboardResult =
         /** The resolved tenant this result is scoped to — added for computeUnitDetail (readiness-unit-detail.service.ts), which needs it to fetch the brigade's own unitDirectory entry without re-deriving scope-resolution logic a second time. */
         tenantId: string;
         overall: DashboardOverallBreakdown;
+        /** 06.10.2026 (command-screen round) — brigade-wide training-derived overall, same shape/meaning as DashboardUnitRow.trainingOverall, just summed across every soldier in scope instead of one unit's own. Added so a brigade-level card can show the SAME subordinate dashed training bar a per-unit row already shows — not previously exposed at this level. */
+        trainingOverall: DashboardUnitStatusBreakdown;
         components: DashboardComponentBreakdown[];
         units: DashboardUnitRow[];
         /** 04.10.2026 (§13.85) — brigade-wide count across every soldier in scope (not per-unit — see DashboardUnitRow.nearThresholdCount for that). */
@@ -452,6 +454,8 @@ export async function computeBrigadeDashboard(
   // 06.10.2026 — training-derived counterpart to brigadeComponentAcc above.
   const brigadeTrainingComponentAcc: Record<string, { passCount: number; failCount: number }> = {};
   for (const testId of testIds) brigadeTrainingComponentAcc[testId] = { passCount: 0, failCount: 0 };
+  // 06.10.2026 (command-screen round) — brigade-wide counterpart to unitRow.trainingOverall.
+  const brigadeTrainingOverallAcc: ViewAcc = newViewAcc();
 
   let totalCount = 0;
   let passCount = 0;
@@ -513,6 +517,7 @@ export async function computeBrigadeDashboard(
       });
       const trainingOverall = testIds.length === 0 ? 'not_yet_tested' : reduceOverallStatus(trainingPerTestStatus);
       bumpViewAcc(unitRow.trainingOverall, trainingOverall);
+      bumpViewAcc(brigadeTrainingOverallAcc, trainingOverall);
 
       testIds.forEach((testId, i) => {
         const status = trainingPerTestStatus[i];
@@ -620,5 +625,5 @@ export async function computeBrigadeDashboard(
   });
   units.sort((a, b) => a.unitName.localeCompare(b.unitName, 'he'));
 
-  return { status: 200, body: { tenantId: targetTenantId, overall, components, units, nearThresholdCount } };
+  return { status: 200, body: { tenantId: targetTenantId, overall, trainingOverall: toUnitBreakdown(brigadeTrainingOverallAcc), components, units, nearThresholdCount } };
 }
