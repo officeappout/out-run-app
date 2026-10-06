@@ -3,7 +3,7 @@
 import { auth } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
 import { useProgressionStore } from '@/features/user/progression/store/useProgressionStore';
-import { useWeeklyVolumeStore, calculateWeeklyBudget } from '@/features/workout-engine/core/store/useWeeklyVolumeStore';
+import { useWeeklyVolumeStore } from '@/features/workout-engine/core/store/useWeeklyVolumeStore';
 import { syncWorkoutCompletion, type StrengthCompletionSnapshot } from '@/features/workout-engine/services/completion-sync.service';
 import { trackMuscleUsage } from '@/features/workout-engine/services/split-decision';
 import { getExercise } from '@/features/content/exercises/core/exercise.service';
@@ -11,7 +11,6 @@ import type { MuscleGroup } from '@/features/content/exercises/core/exercise.typ
 import { resolveActiveProgramBudget } from '@/features/workout-engine/services/lead-program.service';
 import { getCachedPrograms } from '@/features/workout-engine/services/program-hierarchy.utils';
 import {
-  computeBaseLevel,
   computeDailyStrengthTarget,
   isTodayTrainingDay,
   type DailyStrengthTargetSource,
@@ -153,7 +152,6 @@ export async function runActivitySync(params: UseActivitySyncParams): Promise<vo
         const recurringTemplate = profile.lifestyle?.recurringTemplate as
           | Record<string, string[] | undefined>
           | undefined;
-        const baseLevel = computeBaseLevel(profile.progression?.tracks, profile.progression?.domains);
         const scheduleDays = scheduleDaysArr?.length ?? 0;
         const isRestDay = !isTodayTrainingDay(scheduleDaysArr, recurringTemplate);
 
@@ -162,8 +160,10 @@ export async function runActivitySync(params: UseActivitySyncParams): Promise<vo
         // uncached getAllPrograms() read.
         const allPrograms = await getCachedPrograms();
         const lead = await resolveActiveProgramBudget(profile, allPrograms);
-        const weeklyTarget = lead?.weeklyVolumeTarget ?? calculateWeeklyBudget(baseLevel);
-        const source: DailyStrengthTargetSource = lead?.weeklyVolumeTarget != null ? 'lead' : 'fallback';
+        // resolveActiveProgramBudget never returns null (safety fix, 2026-10-06) — lead.weeklyVolumeTarget
+        // is always a safe, tier-aware number now. Only the source label still needs isSafeDefault.
+        const weeklyTarget = lead.weeklyVolumeTarget;
+        const source: DailyStrengthTargetSource = lead.isSafeDefault ? 'fallback' : 'lead';
         const dailyTarget = computeDailyStrengthTarget({ weeklyTarget, scheduleDays, isRestDay, source });
 
         const priorSetsToday = summarizeTodayStrengthVolume(
