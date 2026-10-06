@@ -48,20 +48,47 @@ const FILTER_OPTIONS: { key: DashboardUnitViewKey; label: string }[] = [
   { key: 'strength', label: 'כוח' },
 ];
 
-function UnitStatusBar({ breakdown, totalCount }: { breakdown: DashboardUnitStatusBreakdown; totalCount: number }) {
+function UnitStatusBar({
+  breakdown,
+  totalCount,
+  variant = 'official',
+}: {
+  breakdown: DashboardUnitStatusBreakdown;
+  totalCount: number;
+  /**
+   * 06.10.2026 (David, verbatim) — 'training' renders visually
+   * SUBORDINATE to the official bar: dashed outline + lower
+   * height/opacity, the SAME visual language as the dashed blue line in
+   * the trends chart (TrendsMainChart.tsx:117-128, legend "אפליקציה
+   * (אינדיקציה, לא קובע)") — dashed = app-derived indication, solid =
+   * official test result. Colors stay pass/fail/grey either way; only
+   * the bar's visual weight changes, never its palette.
+   */
+  variant?: 'official' | 'training';
+}) {
+  const isTraining = variant === 'training';
+  const heightClass = isTraining ? 'h-1' : 'h-2';
+  const fillOpacity = isTraining ? 0.55 : 1;
+  const wrapperClass = isTraining ? 'p-0.5 rounded-full border border-dashed border-slate-300' : '';
   // Rule 3, unchanged from the previous round: nobody evaluated under
   // this view at all — solid grey, no split between the categories,
   // no percentage anywhere near it.
   if (breakdown.testedCount === 0 && breakdown.notPerformedCount === 0) {
-    return <div className="h-2 rounded-full w-full" style={{ backgroundColor: READINESS_COLORS.notYetTested }} />;
+    return (
+      <div className={wrapperClass}>
+        <div className={`${heightClass} rounded-full w-full`} style={{ backgroundColor: READINESS_COLORS.notYetTested, opacity: fillOpacity }} />
+      </div>
+    );
   }
   const denom = totalCount || 1;
   return (
-    <div className="flex h-2 rounded-full overflow-hidden bg-gray-100 w-full">
-      <div style={{ width: `${(breakdown.passCount / denom) * 100}%`, backgroundColor: READINESS_COLORS.pass }} />
-      <div style={{ width: `${(breakdown.failCount / denom) * 100}%`, backgroundColor: READINESS_COLORS.fail }} />
-      <div style={{ width: `${(breakdown.notYetTestedCount / denom) * 100}%`, backgroundColor: READINESS_COLORS.notYetTested }} />
-      <div style={{ width: `${(breakdown.notPerformedCount / denom) * 100}%`, backgroundColor: READINESS_COLORS.notPerformed }} />
+    <div className={wrapperClass}>
+      <div className={`flex ${heightClass} rounded-full overflow-hidden bg-gray-100 w-full`} style={{ opacity: fillOpacity }}>
+        <div style={{ width: `${(breakdown.passCount / denom) * 100}%`, backgroundColor: READINESS_COLORS.pass }} />
+        <div style={{ width: `${(breakdown.failCount / denom) * 100}%`, backgroundColor: READINESS_COLORS.fail }} />
+        <div style={{ width: `${(breakdown.notYetTestedCount / denom) * 100}%`, backgroundColor: READINESS_COLORS.notYetTested }} />
+        <div style={{ width: `${(breakdown.notPerformedCount / denom) * 100}%`, backgroundColor: READINESS_COLORS.notPerformed }} />
+      </div>
     </div>
   );
 }
@@ -230,9 +257,11 @@ export default function UnitReadinessTable({ units, components, nearThresholdOnl
               training data) from one that's untested-and-not-training
               (solid grey, same "nobody evaluated" rule UnitStatusBar
               already applies to the official-test column before this
-              one — same component, just fed u.trainingOverall). */}
+              one). variant="training" renders it visually subordinate
+              (dashed outline, lower height/opacity) to the official bar
+              beside it — never mistakable for a test result. */}
           <td className="py-2.5 px-3 w-28">
-            <UnitStatusBar breakdown={u.trainingOverall} totalCount={u.totalCount} />
+            <UnitStatusBar breakdown={u.trainingOverall} totalCount={u.totalCount} variant="training" />
           </td>
           <td className="py-2.5 px-3"><PassPercentCell breakdown={view} /></td>
           <td className="py-2.5 px-3 text-slate-600">{view.testedCount} מתוך {u.totalCount}</td>
@@ -283,7 +312,10 @@ export default function UnitReadinessTable({ units, components, nearThresholdOnl
             <th className="text-right py-2 px-3">יחידה</th>
             <th className="text-right py-2 px-3">שייכות</th>
             <th className="text-right py-2 px-3">תמונת מצב</th>
-            <th className="text-right py-2 px-3">תמונת אימון</th>
+            <th className="text-right py-2 px-3">
+              תמונת אימון
+              <span className="block text-[9px] text-slate-400 font-normal normal-case">אפליקציה, לא בוחן</span>
+            </th>
             <th className="text-right py-2 px-3">כשירות כוללת</th>
             <th className="text-right py-2 px-3">נבדקו</th>
             {components.map((c) => <th key={c.testId} className="text-right py-2 px-3">{c.label}</th>)}

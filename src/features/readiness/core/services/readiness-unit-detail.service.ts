@@ -289,18 +289,25 @@ export async function computeUnitDetail(
     cumulative = { totalCount, passCount, failCount, notPerformedCount, notYetTestedCount, testedCount, passPercent: pct(passCount, testedCount) };
   }
 
+  // 06.10.2026 (David, pattern fix) — explicit field-by-field construction,
+  // never `...c` (the brigade-wide breakdown). A spread silently carries
+  // through any field this unit-scoped object doesn't override — that's
+  // exactly how the training fields almost shipped with brigade-wide
+  // numbers instead of this unit's own. Listing every field by name turns
+  // a future unguarded addition to DashboardComponentBreakdown into a tsc
+  // error here (missing property), not a silently-wrong number.
   const ownComponents: DashboardComponentBreakdown[] = components.map((c) => {
     const cell = target.perComponent[c.testId];
     return {
-      ...c,
+      testId: c.testId,
+      label: c.label,
+      unit: c.unit,
+      thresholdMale: c.thresholdMale,
+      thresholdFemale: c.thresholdFemale,
       passCount: cell?.passCount ?? 0,
       failCount: cell?.failCount ?? 0,
       testedCount: cell?.testedCount ?? 0,
       passPercent: cell?.passPercent ?? null,
-      // 06.10.2026 — this unit's OWN training numbers, not the brigade-
-      // wide ones `...c` would otherwise carry through unchanged (the
-      // same bug the four fields above this comment already guard
-      // against for the official-test numbers).
       trainingPassCount: cell?.trainingPassCount ?? 0,
       trainingFailCount: cell?.trainingFailCount ?? 0,
       trainingTestedCount: cell?.trainingTestedCount ?? 0,
