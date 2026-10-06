@@ -373,6 +373,18 @@ export async function syncOnboardingToFirestore(
         neighborhoodIdToSync = selectedNeighborhoodId;
       }
 
+      // Event-instrumentation audit (06.10.2026) — no creation path wrote
+      // which platform a user signed up on; added here, go-forward only
+      // (no backfill possible, nothing has ever sent this before). Same
+      // `window.Capacitor.getPlatform()` global-bridge read already used
+      // 3x in auth.service.ts, not a new detection mechanism.
+      const signupPlatform: 'ios' | 'android' | 'web' = (() => {
+        if (typeof window === 'undefined') return 'web';
+        const cap = window as unknown as { Capacitor?: { getPlatform?: () => string } };
+        const p = cap.Capacitor?.getPlatform?.();
+        return p === 'ios' || p === 'android' ? p : 'web';
+      })();
+
       updateData.core = {
         name: userName || data.city || 'User', // Use name from sessionStorage, or city, or fallback
         ...(user.email ? { email: user.email } : {}), // Only include email if it exists (not undefined)
@@ -387,6 +399,7 @@ export async function syncOnboardingToFirestore(
         gender: userGender || (data.gender as 'male' | 'female' | 'other') || 'other', // Get gender from sessionStorage or data, default to 'other'
         weight: 70,
         isAnonymous: isAnonymous,
+        signupPlatform,
         ...(!selectedAuthorityId && selectedNeighborhoodId ? { neighborhoodId: selectedNeighborhoodId } : {}),
         // authorityId (+ neighborhoodId, when paired with it) written
         // together via updateUserAuthority() after setDoc — see above.

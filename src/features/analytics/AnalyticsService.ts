@@ -11,38 +11,40 @@ const ANALYTICS_COLLECTION = 'analytics_events';
 /**
  * Event Types
  */
+/**
+ * Event-instrumentation audit (06.10.2026, see the Journey Hub arc's
+ * project memory) found 12 of the previously-declared values here had
+ * ZERO call sites anywhere in `src/` or `functions/` — either never
+ * wired in the first place ('workout_detail_viewed', 'screen_view',
+ * 'session_start', 'session_end' — declared per the taxonomy doc's
+ * naming convention but their instrumentation points were never
+ * identified) or wired once and later orphaned when their call sites
+ * were removed ('app_open', 'app_close', 'login', 'logout',
+ * 'workout_start', 'workout_abandoned', 'profile_created',
+ * 'profile_updated'). Removed per David's explicit "de-clutter the
+ * taxonomy" instruction. If any of these need re-adding later (Phase 2
+ * instrumentation build), re-add the literal AND wire a real call site
+ * in the same change — don't let the type and the code drift again.
+ *
+ * NOTE for admin-timeline readers: any historical `analytics_events`
+ * Firestore doc with one of these 12 old eventName values (if any exist
+ * from before its call site was removed) will now render with the
+ * generic "פעילות לא מזוהה" fallback in the admin user-detail timeline
+ * instead of its old specific label — see that page's own comment.
+ */
 export type AnalyticsEventType =
-  | 'app_open'
-  | 'app_close'
-  | 'login'
-  | 'logout'
   | 'onboarding_start'
   | 'onboarding_step_complete'
   | 'onboarding_step_completed'
   | 'onboarding_completed'
-  | 'workout_start'
   | 'workout_session_started'
   | 'workout_complete'
-  | 'workout_abandoned'
-  | 'profile_created'
-  | 'profile_updated'
   | 'permission_location_status'
   | 'error_occurred'
   // ── Journey-hub Phase 1 seed events (docs/analytics/event-taxonomy.md) ──
-  // 'recommendation_shown' and 'workout_play_pressed' are WIRED (home-
-  // screen carousel, src/app/home/page.tsx) as of this change. The other
-  // 3 are declared here per the taxonomy doc's naming convention but are
-  // NOT yet wired anywhere — their instrumentation points weren't
-  // identified during planning and need their own short scan before use
-  // (see the taxonomy doc §3). Treat them the same way this file already
-  // treats 'app_open'/'app_close': present in the type, no guarantee any
-  // code actually calls logEvent() with them yet.
+  // Both WIRED (home-screen carousel, src/app/home/page.tsx).
   | 'recommendation_shown'
   | 'workout_play_pressed'
-  | 'workout_detail_viewed'
-  | 'screen_view'
-  | 'session_start'
-  | 'session_end'
   // ── Reminder-schedule build (scheduling-capability-audit.md Part A) ──
   // 'reminder_set' fires the first time a user ever adds a reminder slot
   // (0 -> 1); 'reminder_updated' fires on every subsequent add or remove
@@ -66,10 +68,6 @@ export interface BaseAnalyticsEvent {
 /**
  * Specific Event Type Interfaces
  */
-export interface SessionEvent extends BaseAnalyticsEvent {
-  eventName: 'app_open' | 'app_close' | 'login' | 'logout';
-}
-
 export interface OnboardingStartEvent extends BaseAnalyticsEvent {
   eventName: 'onboarding_start';
   source?: string; // Where they came from (e.g., 'landing_page', 'direct')
@@ -89,7 +87,7 @@ export interface OnboardingCompletedEvent extends BaseAnalyticsEvent {
 }
 
 export interface WorkoutStartEvent extends BaseAnalyticsEvent {
-  eventName: 'workout_start' | 'workout_session_started';
+  eventName: 'workout_session_started';
   level?: number;
   location?: string;
   workout_type?: string; // e.g., 'running', 'calisthenics'
@@ -101,17 +99,6 @@ export interface WorkoutCompleteEvent extends BaseAnalyticsEvent {
   duration?: number; // seconds
   calories?: number;
   earned_coins?: number;
-}
-
-export interface WorkoutAbandonedEvent extends BaseAnalyticsEvent {
-  eventName: 'workout_abandoned';
-  workout_id?: string;
-  duration_before_abandon?: number; // seconds
-}
-
-export interface ProfileEvent extends BaseAnalyticsEvent {
-  eventName: 'profile_created' | 'profile_updated';
-  profile_fields?: string[]; // Which fields were updated
 }
 
 export interface PermissionLocationStatusEvent extends BaseAnalyticsEvent {
@@ -164,18 +151,16 @@ export interface ReminderScheduleEvent extends BaseAnalyticsEvent {
  * Union type for all event types
  */
 export type AnalyticsEvent =
-  | SessionEvent
   | OnboardingStartEvent
   | OnboardingStepCompleteEvent
   | OnboardingCompletedEvent
   | WorkoutStartEvent
   | WorkoutCompleteEvent
-  | WorkoutAbandonedEvent
-  | ProfileEvent
   | PermissionLocationStatusEvent
   | ErrorEvent
   | RecommendationShownEvent
-  | WorkoutPlayPressedEvent;
+  | WorkoutPlayPressedEvent
+  | ReminderScheduleEvent;
 
 /**
  * Convert Date to Firestore Timestamp
@@ -313,7 +298,6 @@ export async function logEvent(
     // Get user level if not provided in params (for workout events)
     let level = params.level;
     if (level === undefined && (
-      eventName === 'workout_start' || 
       eventName === 'workout_session_started' ||
       eventName === 'workout_complete'
     )) {
@@ -448,12 +432,6 @@ export async function getAllEvents(limitCount: number = 1000): Promise<Analytics
  * Convenience functions for common events
  */
 export const Analytics = {
-  // Session events
-  logAppOpen: () => logEvent('app_open'),
-  logAppClose: () => logEvent('app_close'),
-  logLogin: (method?: string) => logEvent('login', { method }),
-  logLogout: () => logEvent('logout'),
-
   // Onboarding events
   logOnboardingStart: (source?: string) =>
     logEvent('onboarding_start', { source }),
@@ -463,20 +441,10 @@ export const Analytics = {
     logEvent('onboarding_completed', { total_time_spent: totalTimeSpent, steps_completed: stepsCompleted }),
 
   // Workout events
-  logWorkoutStart: (location?: string) =>
-    logEvent('workout_start', { location }),
   logWorkoutSessionStarted: (routeId?: string, workoutType?: string, activityType?: string) =>
     logEvent('workout_session_started', { route_id: routeId, workout_type: workoutType, activity_type: activityType }),
   logWorkoutComplete: (workoutId?: string, duration?: number, calories?: number, earnedCoins?: number) =>
     logEvent('workout_complete', { workout_id: workoutId, duration, calories, earned_coins: earnedCoins }),
-  logWorkoutAbandoned: (workoutId?: string, durationBeforeAbandon?: number) =>
-    logEvent('workout_abandoned', { workout_id: workoutId, duration_before_abandon: durationBeforeAbandon }),
-
-  // Profile events
-  logProfileCreated: (fields?: string[]) =>
-    logEvent('profile_created', { profile_fields: fields }),
-  logProfileUpdated: (fields?: string[]) =>
-    logEvent('profile_updated', { profile_fields: fields }),
 
   // Permission events
   logPermissionLocationStatus: (status: 'granted' | 'denied' | 'prompt', source?: string) =>

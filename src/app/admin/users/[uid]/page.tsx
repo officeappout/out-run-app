@@ -72,27 +72,31 @@ const ONBOARDING_STEP_LABELS: Record<string, string> = {
  * Visual identity for each AnalyticsEvent type rendered in the timeline.
  * Tailwind classes — `dot` paints the stepper bullet, `text` colors the
  * event title. Unknown event types fall back to the `default` slot.
+ *
+ * Event-instrumentation audit (06.10.2026, Journey Hub arc) — kept this
+ * in sync with `AnalyticsEventType`'s real 12 live values after removing
+ * 12 dead ones (AnalyticsService.ts's own comment has the full list).
+ * Before this fix, 4 already-firing events (recommendation_shown,
+ * workout_play_pressed, reminder_set, reminder_updated) had NO entry here
+ * and silently fell back to "פעילות לא מזוהה" in this very timeline —
+ * real, correctly-named data that was simply never displayed correctly.
  */
 const EVENT_TIMELINE_STYLE: Record<
   string,
   { dot: string; text: string }
 > = {
-  app_open: { dot: 'bg-gray-300', text: 'text-gray-500' },
-  app_close: { dot: 'bg-gray-300', text: 'text-gray-500' },
-  login: { dot: 'bg-slate-400', text: 'text-slate-600' },
-  logout: { dot: 'bg-slate-400', text: 'text-slate-600' },
   onboarding_start: { dot: 'bg-blue-500', text: 'text-blue-700' },
   onboarding_step_complete: { dot: 'bg-green-500', text: 'text-green-700' },
   onboarding_step_completed: { dot: 'bg-green-500', text: 'text-green-700' },
   onboarding_completed: { dot: 'bg-emerald-600', text: 'text-emerald-700' },
-  workout_start: { dot: 'bg-[#5BC2F2]', text: 'text-[#1e88c4]' },
   workout_session_started: { dot: 'bg-[#5BC2F2]', text: 'text-[#1e88c4]' },
   workout_complete: { dot: 'bg-green-600', text: 'text-green-700' },
-  workout_abandoned: { dot: 'bg-amber-500', text: 'text-amber-700' },
-  profile_created: { dot: 'bg-purple-500', text: 'text-purple-700' },
-  profile_updated: { dot: 'bg-purple-400', text: 'text-purple-600' },
   permission_location_status: { dot: 'bg-cyan-500', text: 'text-cyan-700' },
   error_occurred: { dot: 'bg-red-500', text: 'text-red-700' },
+  recommendation_shown: { dot: 'bg-amber-300', text: 'text-amber-600' },
+  workout_play_pressed: { dot: 'bg-sky-400', text: 'text-sky-600' },
+  reminder_set: { dot: 'bg-indigo-400', text: 'text-indigo-600' },
+  reminder_updated: { dot: 'bg-indigo-300', text: 'text-indigo-500' },
   default: { dot: 'bg-gray-400', text: 'text-gray-600' },
 };
 
@@ -880,30 +884,31 @@ export default function UserDetailPage() {
   // Helper function to get event label in Hebrew
   // Phase B fix (04.10.2026): this used to fall through to the raw English
   // eventName for anything not in the map — a real leak, not hypothetical.
-  // AnalyticsEventType (AnalyticsService.ts) has 16 real values; this map
-  // was missing 5 of them (onboarding_start, onboarding_step_completed —
-  // the 'completed' variant, distinct from 'complete' — onboarding_completed,
-  // workout_session_started, permission_location_status), which would have
-  // rendered verbatim in the timeline for any user who hit those paths.
-  // Fallback is now a generic Hebrew label, never the raw key.
+  // Fallback is a generic Hebrew label, never the raw key.
+  //
+  // Event-instrumentation audit fix (06.10.2026, Journey Hub arc): this
+  // map had drifted stale again — 4 real, already-firing events
+  // (recommendation_shown, workout_play_pressed, reminder_set,
+  // reminder_updated) had no entry and silently rendered as "פעילות לא
+  // מזוהה" despite being correctly captured in Firestore. Re-synced with
+  // AnalyticsEventType's current 12 live values (12 dead ones removed in
+  // the same change — see AnalyticsService.ts's own comment for the
+  // full list and the historical-data caveat for old docs with those
+  // retired eventName values).
   const getEventLabel = (eventName: string): string => {
     const labels: Record<string, string> = {
-      app_open: 'פתיחת אפליקציה',
-      app_close: 'סגירת אפליקציה',
-      login: 'התחברות',
-      logout: 'התנתקות',
       onboarding_start: 'תחילת תהליך הרשמה',
       onboarding_step_complete: 'שלב הרשמה הושלם',
       onboarding_step_completed: 'שלב הרשמה הושלם',
       onboarding_completed: 'תהליך הרשמה הושלם',
-      workout_start: 'התחלת אימון',
       workout_session_started: 'התחלת אימון',
       workout_complete: 'אימון הושלם',
-      workout_abandoned: 'אימון ננטש',
-      profile_created: 'פרופיל נוצר',
-      profile_updated: 'פרופיל עודכן',
       permission_location_status: 'הרשאת מיקום',
       error_occurred: 'שגיאה',
+      recommendation_shown: 'הצעת אימון הוצגה',
+      workout_play_pressed: 'לחיצה להתחלת אימון',
+      reminder_set: 'תזכורת נקבעה',
+      reminder_updated: 'תזכורת עודכנה',
     };
     return labels[eventName] || 'פעילות לא מזוהה';
   };
@@ -919,7 +924,7 @@ export default function UserDetailPage() {
       }
     }
     
-    if (event.eventName === 'workout_start' && 'level' in event) {
+    if (event.eventName === 'workout_session_started' && 'level' in event) {
       if (event.level) details.push(`רמה: ${event.level}`);
       if (event.location) details.push(`מיקום: ${event.location}`);
     }
