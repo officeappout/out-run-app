@@ -5,6 +5,7 @@ import type {
   PushFunnelStageCounts,
   PushFunnelCategoryBreakdown,
 } from '@/app/api/admin/push-funnel-summary/route';
+import InfoHint from './InfoHint';
 
 export interface PushFunnelSummaryResponse {
   overall: PushFunnelStageCounts;
@@ -12,11 +13,11 @@ export interface PushFunnelSummaryResponse {
   measuredSenderCount: number;
 }
 
-const PUSH_FUNNEL_STAGE_LABELS: { key: keyof PushFunnelStageCounts; labelHe: string }[] = [
-  { key: 'sent', labelHe: 'נשלחו' },
-  { key: 'delivered', labelHe: 'נמסרו' },
-  { key: 'opened', labelHe: 'נפתחו' },
-  { key: 'startedWorkout', labelHe: 'התחילו אימון' },
+const PUSH_FUNNEL_STAGE_LABELS: { key: keyof PushFunnelStageCounts; labelHe: string; hintHe: string }[] = [
+  { key: 'sent', labelHe: 'נשלחו', hintHe: 'פוש שנשלח בפועל מהשרת.' },
+  { key: 'delivered', labelHe: 'נמסרו', hintHe: 'הפוש הגיע למכשיר (נמסר ע״י מערכת ההפעלה).' },
+  { key: 'opened', labelHe: 'נפתחו', hintHe: 'המשתמש הקיש/פתח את ההתראה.' },
+  { key: 'startedWorkout', labelHe: 'התחילו אימון', hintHe: 'המשתמש התחיל אימון בהמשך לפתיחת ההתראה.' },
 ];
 
 interface PushFunnelSectionProps {
@@ -58,7 +59,7 @@ export default function PushFunnelSection({ data, loading, denied }: PushFunnelS
       {!denied && (
         <>
           <div className="flex gap-3 overflow-x-auto px-6 py-5">
-            {PUSH_FUNNEL_STAGE_LABELS.map(({ key, labelHe }, i) => {
+            {PUSH_FUNNEL_STAGE_LABELS.map(({ key, labelHe, hintHe }, i) => {
               const count = data?.overall[key] ?? 0;
               const prevCount = i === 0 ? null : (data?.overall[PUSH_FUNNEL_STAGE_LABELS[i - 1].key] ?? 0);
               const stepPct = prevCount != null && prevCount > 0 ? Math.round((count / prevCount) * 1000) / 10 : null;
@@ -67,7 +68,10 @@ export default function PushFunnelSection({ data, loading, denied }: PushFunnelS
                   key={key}
                   className="shrink-0 min-w-[150px] rounded-2xl p-4 border-2 border-slate-200 bg-white"
                 >
-                  <span className="text-xs font-bold text-slate-600">{labelHe}</span>
+                  <span className="text-xs font-bold text-slate-600 inline-flex items-center gap-1">
+                    {labelHe}
+                    <InfoHint text={hintHe} />
+                  </span>
                   <div className="text-2xl font-black text-slate-900 mt-2">
                     {loading ? (
                       <span className="inline-block w-12 h-7 bg-slate-200 rounded animate-pulse" />

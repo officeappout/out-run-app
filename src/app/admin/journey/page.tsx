@@ -158,6 +158,7 @@ import FunnelStagesSection, {
 } from '@/features/admin/components/cpo-dashboard/FunnelStagesSection';
 import AuthorityPerformanceTable from '@/features/admin/components/cpo-dashboard/AuthorityPerformanceTable';
 import type { AuthorityPerformance } from '@/features/admin/services/cpo-analytics.service';
+import InfoHint from '@/features/admin/components/cpo-dashboard/InfoHint';
 
 // Journey Hub Wave 2 — the shared filter row + its 4 segmentation
 // dimensions, mounted once above the tabs.
@@ -458,7 +459,10 @@ export default function JourneyHubPage() {
           />
 
           <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
-            <p className="text-xs md:text-sm text-gray-500 mb-1">רכישה לפי מקור</p>
+            <p className="text-xs md:text-sm text-gray-500 mb-1 flex items-center gap-1">
+              רכישה לפי מקור
+              <InfoHint text="כמה מהנרשמים הגיעו דרך קמפיין/קישור/QR (״משיווק״) מול כל השאר (״אורגני״)." />
+            </p>
             {funnelLoading ? (
               <div className="h-8 bg-gray-200 rounded w-32 animate-pulse" />
             ) : (
@@ -517,7 +521,10 @@ export default function JourneyHubPage() {
               </div>
             )}
             <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
-              <p className="text-xs md:text-sm text-gray-500 mb-1">שיעור השלמת אונבורדינג</p>
+              <p className="text-xs md:text-sm text-gray-500 mb-1 flex items-center gap-1">
+                שיעור השלמת אונבורדינג
+                <InfoHint text="כמה מכל הנרשמים (כל הזמנים) סיימו את כל שלבי האונבורדינג." />
+              </p>
               {staticLoading ? (
                 <div className="h-8 bg-gray-200 rounded w-16 animate-pulse" />
               ) : (
@@ -527,7 +534,10 @@ export default function JourneyHubPage() {
               )}
             </div>
             <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
-              <p className="text-xs md:text-sm text-gray-500 mb-1">זמן עד אימון ראשון (חציון)</p>
+              <p className="text-xs md:text-sm text-gray-500 mb-1 flex items-center gap-1">
+                זמן עד אימון ראשון (חציון)
+                <InfoHint text="ימים מהרשמה ועד האימון האמיתי הראשון (לא כולל חימום בלבד) — חציון על פני כל המשתמשים שהפעילו." />
+              </p>
               {dataLoading ? (
                 <div className="h-8 bg-gray-200 rounded w-16 animate-pulse" />
               ) : (
@@ -546,7 +556,10 @@ export default function JourneyHubPage() {
           </div>
 
           <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
-            <p className="text-sm font-bold text-gray-900 mb-3">הפעלה לפי מקור</p>
+            <p className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-1">
+              הפעלה לפי מקור
+              <InfoHint text="שיעור ההפעלה (אימון אמיתי ראשון) מפולח לפי מקור ההרשמה — לאיזה מקור יש את ההפעלה הטובה ביותר." />
+            </p>
             {dataLoading ? (
               <div className="space-y-2">
                 {[1, 2, 3].map((i) => <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />)}
@@ -601,7 +614,10 @@ export default function JourneyHubPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
             <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
-              <p className="text-xs md:text-sm text-gray-500 mb-1">שימור D7</p>
+              <p className="text-xs md:text-sm text-gray-500 mb-1 flex items-center gap-1">
+                שימור D7
+                <InfoHint text="מתוך משתמשים שחלפו עליהם 7 ימים לפחות מהרשמה — כמה היו פעילים (אימון אמיתי) סביב היום השביעי." />
+              </p>
               {staticLoading ? (
                 <div className="h-8 bg-gray-200 rounded w-16 animate-pulse" />
               ) : !retentionDepth?.d7Retention.thresholdMet ? (
@@ -619,7 +635,10 @@ export default function JourneyHubPage() {
               )}
             </div>
             <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
-              <p className="text-xs md:text-sm text-gray-500 mb-1">משתמשים מוחזרים (30 יום)</p>
+              <p className="text-xs md:text-sm text-gray-500 mb-1 flex items-center gap-1">
+                משתמשים מוחזרים (30 יום)
+                <InfoHint text="משתמשים פעילים בעבר שנעלמו לפרק זמן (ללא אימונים) וחזרו להתאמן ב-30 הימים האחרונים." />
+              </p>
               {staticLoading ? (
                 <div className="h-8 bg-gray-200 rounded w-16 animate-pulse" />
               ) : !retentionDepth?.resurrectedUsers.thresholdMet ? (

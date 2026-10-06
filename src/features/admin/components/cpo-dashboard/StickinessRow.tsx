@@ -1,6 +1,7 @@
 'use client';
 
 import { Flame } from 'lucide-react';
+import InfoHint from './InfoHint';
 
 export interface StickinessData {
   dailyActiveUsers: number;
@@ -65,20 +66,32 @@ export default function StickinessRow({ data, loading }: StickinessRowProps) {
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 md:gap-6">
         <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
-          <p className="text-xs md:text-sm text-gray-500 mb-1">פעילים יומי</p>
+          <p className="text-xs md:text-sm text-gray-500 mb-1 flex items-center gap-1">
+            פעילים יומי
+            <InfoHint text="משתמשים עם אימון אמיתי אחד לפחות ביום האחרון שנמדד." />
+          </p>
           <p className="text-2xl md:text-3xl font-black text-gray-900">{dau.toLocaleString('he-IL')}</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
-          <p className="text-xs md:text-sm text-gray-500 mb-1">פעילים שבועי</p>
+          <p className="text-xs md:text-sm text-gray-500 mb-1 flex items-center gap-1">
+            פעילים שבועי
+            <InfoHint text="משתמשים עם אימון אמיתי אחד לפחות ב-7 הימים האחרונים." />
+          </p>
           <p className="text-2xl md:text-3xl font-black text-gray-900">{wau.toLocaleString('he-IL')}</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
-          <p className="text-xs md:text-sm text-gray-500 mb-1">פעילים חודשי</p>
+          <p className="text-xs md:text-sm text-gray-500 mb-1 flex items-center gap-1">
+            פעילים חודשי
+            <InfoHint text="משתמשים ייחודיים עם אימון אמיתי אחד לפחות ב-30 הימים האחרונים (איחוד אמיתי, לא סכימה של ימים)." />
+          </p>
           <p className="text-2xl md:text-3xl font-black text-gray-900">{mau.toLocaleString('he-IL')}</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
           <div className="flex items-center justify-between mb-1">
-            <p className="text-xs md:text-sm text-gray-500">דביקות</p>
+            <p className="text-xs md:text-sm text-gray-500 flex items-center gap-1">
+              דביקות
+              <InfoHint text="יחס פעילים-יומי ÷ פעילים-חודשי — כמה מהמשתמשים הפעילים בחודש חוזרים כל יום." />
+            </p>
             <Flame size={16} className={bandColor} />
           </div>
           <p className="text-2xl md:text-3xl font-black text-gray-900">{stickinessPct}%</p>
