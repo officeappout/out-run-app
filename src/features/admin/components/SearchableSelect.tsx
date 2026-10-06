@@ -8,6 +8,12 @@ export interface SelectOption {
   label: string;
   group?: string;
   icon?: React.ReactNode;
+  /**
+   * 06.10.2026 — optional trailing content (a small stat badge/tag),
+   * rendered after the label, pushed to the far end of the row. Omitted
+   * (undefined) for every existing caller — zero visual change to them.
+   */
+  trailing?: React.ReactNode;
 }
 
 interface SearchableSelectProps {
@@ -71,11 +77,12 @@ export default function SearchableSelect({
         className={`w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm bg-white text-right flex items-center justify-between transition-all hover:border-gray-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 outline-none disabled:opacity-40 disabled:cursor-not-allowed ${isOpen ? 'border-cyan-500 ring-2 ring-cyan-200' : ''}`}
         dir="rtl"
       >
-        <span className={selectedOption ? 'text-gray-900 font-bold' : 'text-gray-400'}>
+        <span className={`flex-1 min-w-0 ${selectedOption ? 'text-gray-900 font-bold' : 'text-gray-400'}`}>
           {selectedOption ? (
             <span className="flex items-center gap-2">
               {selectedOption.icon}
               {selectedOption.label}
+              {selectedOption.trailing && <span className="ms-auto">{selectedOption.trailing}</span>}
             </span>
           ) : placeholder}
         </span>
@@ -135,6 +142,7 @@ export default function SearchableSelect({
                     >
                       {opt.icon}
                       {opt.label}
+                      {opt.trailing && <span className="ms-auto flex-shrink-0">{opt.trailing}</span>}
                     </button>
                   ))}
                 </div>

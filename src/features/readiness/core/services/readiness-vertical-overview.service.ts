@@ -65,6 +65,8 @@ export interface VerticalBrigadeRow {
   passPercent: number | null;
   /** totalCount > 0 — false means this brigade has never entered a single soldier. Distinct from passPercent===null (which can also happen WITH soldiers, zero of them tested). */
   hasData: boolean;
+  /** 06.10.2026 — same field every other brigade-icon consumer in this codebase already reads (units/page.tsx's own org cards); null for the ~58% of brigades with no real icon, same as everywhere else — UnitIconBadge's hash-derived fallback handles that, not a gap introduced here. */
+  logoUrl: string | null;
 }
 
 export type VerticalOverviewResult =
@@ -114,7 +116,11 @@ export async function computeReadinessVerticalOverview(
   const authoritiesSnap = await db.collection('authorities').where('type', '==', 'military_unit').get();
   const militaryAuthorities = authoritiesSnap.docs
     .filter((d) => inScopeIds === null || inScopeIds.has(d.id))
-    .map((d) => ({ id: d.id, name: typeof d.data().name === 'string' ? (d.data().name as string) : d.id }));
+    .map((d) => ({
+      id: d.id,
+      name: typeof d.data().name === 'string' ? (d.data().name as string) : d.id,
+      logoUrl: typeof d.data().logoUrl === 'string' ? (d.data().logoUrl as string) : null,
+    }));
 
   // 06.10.2026 (David's explicit review) — this literal is a scope
   // object the function manufactures FOR ITSELF, not one any caller
@@ -142,14 +148,14 @@ export async function computeReadinessVerticalOverview(
   // me read them" using the exact function every real tenantOwner's own
   // dashboard uses, not a bypass of anything.
   const rows = await Promise.all(
-    militaryAuthorities.map(async ({ id, name }): Promise<VerticalBrigadeRow> => {
+    militaryAuthorities.map(async ({ id, name, logoUrl }): Promise<VerticalBrigadeRow> => {
       const result = await computeBrigadeDashboard(db, { kind: 'tenantOwner', tenantId: id }, {});
       if (result.status !== 200) {
         // computeBrigadeDashboard only returns non-200 for 'unknown'/'denied'
         // scope kinds or a missing tenantId — none of which apply to the
         // synthetic tenantOwner scope constructed above. Treated as "no
         // data yet" rather than silently dropping the row.
-        return { tenantId: id, tenantName: name, totalCount: 0, passCount: 0, passPercent: null, hasData: false };
+        return { tenantId: id, tenantName: name, totalCount: 0, passCount: 0, passPercent: null, hasData: false, logoUrl };
       }
       const { overall } = result.body;
       return {
@@ -159,6 +165,7 @@ export async function computeReadinessVerticalOverview(
         passCount: overall.passCount,
         passPercent: overall.passPercent,
         hasData: overall.totalCount > 0,
+        logoUrl,
       };
     }),
   );

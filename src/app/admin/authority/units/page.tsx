@@ -656,6 +656,15 @@ export default function UnitsListPage() {
             <p className="text-sm text-gray-500">
               {orgDisplayName ? `${orgDisplayName} — ` : ''}ניהול {labels.subUnitsTitle} ו{labels.membersTitle}
             </p>
+            {/* 06.10.2026 (David) — military-only: a new officer on this
+                screen doesn't know how it differs from "מד כשירות" (the
+                roster screen) without this. Municipal/educational render
+                byte-identical to before — this line is additive, gated. */}
+            {tenantType === 'military' && (
+              <p className="text-xs text-slate-400 mt-1">
+                מבנה החטיבה — גדודים ופלוגות, ומי מהמשתמשים באפליקציה שייך לכל יחידה. מופיעים כאן רק מי שהוריד את האפליקציה ונרשם ליחידה.
+              </p>
+            )}
           </div>
         </div>
         {selectedOrgId && (

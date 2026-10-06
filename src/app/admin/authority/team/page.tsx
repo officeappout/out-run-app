@@ -566,6 +566,11 @@ export default function AuthorityTeamPage() {
           <p className="text-gray-500 mt-1 text-sm">
             {isMunicipal ? 'ניהול רכזים ומנהלים עבור' : `ניהול ${labels.managerTitle} עבור`} <span className="font-bold text-gray-700">{authorityDisplayName}</span>
           </p>
+          {/* 06.10.2026 (David) — military-only: distinguishes this screen
+              from "היררכיית יחידות" and "מד כשירות" for a new officer. */}
+          {derivedTenantType === 'military' && (
+            <p className="text-xs text-slate-400 mt-1">הקצינים המורשים לנהל את החטיבה ואת היחידות שבתוכה.</p>
+          )}
         </div>
         <button
           onClick={() => setShowInviteModal(true)}

@@ -193,6 +193,14 @@ export default function ReadinessPage() {
           <div>
             <h1 className="text-2xl font-black text-gray-900">חיילי היחידה</h1>
             <p className="text-sm text-gray-500">רשימת חיילים, שיוך לחשבונות ומעקב סטטוס כשירות</p>
+            {/* 06.10.2026 (David) — a new officer can't tell this screen
+                apart from the units ("היררכיית יחידות") one without this. */}
+            <p className="text-xs text-slate-400 mt-1">
+              רשימת החיילים ביחידה כפי שהוזנה מהצבא, תוצאות הבוחן הרשמי, ומי מהחיילים מקושר לחשבון באפליקציה. הרשימה כאן אינה תלויה בהורדת האפליקציה.
+            </p>
+            <p className="text-xs text-slate-400">
+              רשימת החיילים מגיעה מהצבא. היררכיית היחידות מראה מי נרשם באפליקציה. הקישור בין השניים הוא מה שמאפשר להציג נתוני אימון על חייל ברשימה.
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">

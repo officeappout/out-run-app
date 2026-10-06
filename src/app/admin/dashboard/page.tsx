@@ -6,6 +6,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import { getAuthoritiesByManager, getAllAuthorities, getAuthority } from '@/features/admin/services/authority.service';
+import { resolveSuperAdminAuthorityTarget } from '@/features/admin/services/resolveSuperAdminAuthorityTarget';
 import { getParksByAuthority } from '@/features/admin/services/parks.service';
 import { getGroupsByAuthority, getEventsByAuthority } from '@/features/admin/services/community.service';
 import { getReportsByAuthority } from '@/features/admin/services/maintenance.service';
@@ -184,7 +185,15 @@ export default function AdminDashboardPage() {
       if (role.isSuperAdmin) {
         const allAuths = await getAllAuthorities(undefined, true);
         const savedId = typeof window !== 'undefined' ? localStorage.getItem(AUTHORITY_STORAGE_KEY) : null;
-        const target = (savedId && allAuths.find(a => a.id === savedId)) ?? allAuths[0];
+        // 06.10.2026 (David's bug report) — getAllAuthorities(undefined,
+        // true) filters to top-level only, which silently excludes every
+        // military brigade (see resolveSuperAdminAuthorityTarget's own
+        // header for why) — a saved brigade id needs a direct by-id
+        // lookup as its real fallback, not allAuths[0].
+        const directLookup = savedId && !allAuths.some((a) => a.id === savedId)
+          ? await getAuthority(savedId)
+          : null;
+        const target = resolveSuperAdminAuthorityTarget(allAuths, savedId, directLookup);
         if (target) {
           aId = target.id;
           aName = typeof target.name === 'string' ? target.name : (target.name?.he || '');

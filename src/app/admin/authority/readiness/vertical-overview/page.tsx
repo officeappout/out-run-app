@@ -8,6 +8,8 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import AdminBreadcrumb from '@/features/admin/components/AdminBreadcrumb';
 import type { VerticalBrigadeRow } from '@/features/readiness/core/services/readiness-vertical-overview.service';
+import SearchableSelect, { type SelectOption } from '@/features/admin/components/SearchableSelect';
+import UnitIconBadge from '@/components/ui/UnitIconBadge';
 import { Loader2 } from 'lucide-react';
 
 /** Same key /admin/dashboard/page.tsx's own super_admin authority-switcher already uses — deliberately NOT exported/imported, just the same literal string, so a row-click here puts that page into the exact state it already knows how to resolve for a vertical admin. */
@@ -80,35 +82,47 @@ export default function ReadinessVerticalOverviewPage() {
     );
   }
 
+  // 06.10.2026 (David's review) — "49 rows with no search is unusable."
+  // The SAME component the units ("team"/hierarchy) screen already uses
+  // for picking among many, not a new one — SearchableSelect's own icon
+  // slot carries the real brigade badge (UnitIconBadge, same source
+  // every other screen already reads: authorities.logoUrl), and its new
+  // optional `trailing` slot (added here, additive-only — every other
+  // caller never sets it, zero visual change to them) carries the same
+  // pass-stats tag this screen always showed, just inside the reused
+  // component instead of a hand-rolled flat list.
+  const options: SelectOption[] = rows.map((row) => ({
+    id: row.tenantId,
+    label: row.tenantName,
+    icon: <UnitIconBadge unitId={row.tenantId} iconUrl={row.logoUrl} name={row.tenantName} size={28} />,
+    trailing: row.hasData ? (
+      <span className="text-xs font-bold text-cyan-600 whitespace-nowrap">
+        {row.passCount}/{row.totalCount}{row.passPercent !== null && ` · ${row.passPercent}%`}
+      </span>
+    ) : (
+      <span className="text-xs text-gray-400 whitespace-nowrap">טרם הוזנו נתונים</span>
+    ),
+  }));
+
   return (
     <div dir="rtl" className="space-y-4 pb-12 max-w-3xl mx-auto">
       <AdminBreadcrumb items={breadcrumbItems} />
-      <h1 className="text-2xl font-black text-gray-900">כשירות — כל החטיבות</h1>
+      <div>
+        <h1 className="text-2xl font-black text-gray-900">כשירות — כל החטיבות</h1>
+        <p className="text-sm text-gray-500 mt-1">תמונת מצב של כל החטיבות. לחיצה על חטיבה נכנסת לנתונים שלה.</p>
+      </div>
 
       {rows.length === 0 ? (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center">
           <p className="text-sm text-gray-400">אין חטיבות בתחום שלך.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-100">
-          {rows.map((row) => (
-            <button
-              key={row.tenantId}
-              onClick={() => openBrigade(row.tenantId)}
-              className="w-full flex items-center justify-between px-5 py-4 text-right hover:bg-slate-50 transition-colors"
-            >
-              <span className="font-bold text-gray-900">{row.tenantName}</span>
-              {row.hasData ? (
-                <span className="text-sm text-gray-500">
-                  {row.passCount} כשירים מתוך {row.totalCount}
-                  {row.passPercent !== null && <span className="font-semibold text-gray-700"> · {row.passPercent}%</span>}
-                </span>
-              ) : (
-                <span className="text-sm text-gray-400">טרם הוזנו נתונים</span>
-              )}
-            </button>
-          ))}
-        </div>
+        <SearchableSelect
+          options={options}
+          value=""
+          onChange={(id) => { if (id) openBrigade(id); }}
+          placeholder={`חפש מתוך ${rows.length} חטיבות...`}
+        />
       )}
     </div>
   );
