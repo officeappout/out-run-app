@@ -63,7 +63,11 @@ export const SIDEBAR_CONFIGS: Record<string, PortalSidebarConfig> = {
         title: '',
         links: [
           { href: '/admin/dashboard', icon: 'LayoutDashboard', label: null, labelKey: 'dashboardTitle' },
-          { href: '/admin/authority/readiness', icon: 'ShieldCheck', label: 'מד כשירות' },
+          // 06.10.2026 (David) — "מד כשירות" renamed to "חיילים ותוצאות":
+          // as the CATEGORY name it's the dashboard above, not this roster
+          // screen — kept it on both was the confusing part.
+          { href: '/admin/authority/readiness', icon: 'ShieldCheck', label: 'חיילים ותוצאות' },
+          { href: '/admin/authority/readiness/trends', icon: 'BarChart3', label: 'מגמות' },
           { href: '/admin/authority/units', icon: 'Users', label: null, labelKey: 'subUnitsTitle' },
         ],
       },

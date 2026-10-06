@@ -133,7 +133,7 @@ export default function ReadinessPage() {
       <div dir="rtl" className="max-w-4xl mx-auto px-4 pt-6 space-y-4">
         <AdminBreadcrumb items={[
           { label: 'ארגונים', href: '/admin/organizations' },
-          { label: 'מד כשירות' },
+          { label: 'חיילים ותוצאות' },
         ]} />
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center space-y-3">
           <Building2 size={40} className="mx-auto text-slate-300" />
@@ -162,7 +162,7 @@ export default function ReadinessPage() {
     <div dir="rtl" className="space-y-6 pb-12 max-w-4xl mx-auto">
       <AdminBreadcrumb items={[
         { label: 'ארגונים', href: '/admin/organizations' },
-        { label: 'מד כשירות' },
+        { label: 'חיילים ותוצאות' },
       ]} />
 
       {/* 06.10.2026 — root/chief-officer only; reuses the SAME

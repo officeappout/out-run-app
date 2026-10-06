@@ -96,6 +96,19 @@ export default function AuthorityTeamPage() {
 
   // Org selector for Super Admins
   const [allOrgs, setAllOrgs] = useState<Authority[]>([]);
+  // 06.10.2026 (David) — a chief fitness officer has no own brigade, same
+  // as root in this screen's own terms, but no other vertical either.
+  const [isReadinessChiefOfficer, setIsReadinessChiefOfficer] = useState(false);
+
+  // 06.10.2026 (David's explicit request) — "ניהול צוות צבאי" gets its
+  // own "show all" read-only overview when no brigade is picked: every
+  // military brigade + its officer count, never requiring a pick first
+  // (unlike the uniform "pick a brigade" empty state every other
+  // readiness screen uses). No invite action here — invitation stays
+  // scoped inside a brigade, exactly as it is today.
+  interface BrigadeOfficerCount { id: string; name: string; officerCount: number | 'error' }
+  const [allBrigadesOfficerCounts, setAllBrigadesOfficerCounts] = useState<BrigadeOfficerCount[] | null>(null);
+  const [loadingAllBrigades, setLoadingAllBrigades] = useState(false);
 
   const resetLoadedTeamState = useCallback(() => {
     setAuthority(null);
@@ -256,6 +269,51 @@ export default function AuthorityTeamPage() {
     }
   }, []);
 
+  /**
+   * 06.10.2026 (David's explicit request) — "ניהול צוות צבאי" shows all
+   * brigades + officer counts without picking one first, unlike every
+   * other readiness screen's uniform "pick a brigade" empty state.
+   * Read-only: no invite action from this view. Officer count = this
+   * brigade's own managerIds (tenant_owner) ∪ every one of its units'
+   * managerIds (unit_admin) — the same union loadTeamData already
+   * builds for ONE brigade, just computed for every military brigade in
+   * parallel. A per-brigade /api/units/structure failure marks that row
+   * 'error' (not a fabricated 0), never blocking the other rows.
+   */
+  const loadAllBrigadesOfficerCounts = useCallback(async (militaryOrgs: Authority[]) => {
+    setLoadingAllBrigades(true);
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      const counts = await Promise.all(
+        militaryOrgs.map(async (org): Promise<{ id: string; name: string; officerCount: number | 'error' }> => {
+          const name = typeof org.name === 'string' ? org.name : (org.name as any)?.he || org.id;
+          const ownManagerIds = new Set<string>(org.managerIds || []);
+          if (!idToken) return { id: org.id, name, officerCount: ownManagerIds.size };
+          try {
+            const res = await fetch(`/api/units/structure?tenantId=${encodeURIComponent(org.id)}`, {
+              headers: { Authorization: `Bearer ${idToken}` },
+            });
+            if (!res.ok) throw new Error(`structure fetch failed (${res.status})`);
+            const body = await res.json();
+            const units: Array<{ managerIds?: unknown }> = Array.isArray(body.units) ? body.units : [];
+            for (const u of units) {
+              if (Array.isArray(u.managerIds)) {
+                for (const mid of u.managerIds) if (typeof mid === 'string') ownManagerIds.add(mid);
+              }
+            }
+            return { id: org.id, name, officerCount: ownManagerIds.size };
+          } catch (err) {
+            console.error(`[TeamPage] officer-count fetch failed for ${org.id}:`, err);
+            return { id: org.id, name, officerCount: 'error' };
+          }
+        }),
+      );
+      setAllBrigadesOfficerCounts(counts);
+    } finally {
+      setLoadingAllBrigades(false);
+    }
+  }, []);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
@@ -268,8 +326,9 @@ export default function AuthorityTeamPage() {
       try {
         const roleInfo = await checkUserRole(user.uid);
         setIsSuperAdmin(roleInfo.isSuperAdmin);
+        setIsReadinessChiefOfficer(roleInfo.isReadinessChiefOfficer);
 
-        if (roleInfo.isSuperAdmin) {
+        if (roleInfo.isSuperAdmin || roleInfo.isReadinessChiefOfficer) {
           try {
             const orgs = await getAllAuthorities();
             setAllOrgs(orgs);
@@ -304,6 +363,17 @@ export default function AuthorityTeamPage() {
           // Otherwise (missing, or mismatched against ?type=): leave
           // authorityId null → the empty "select org" state renders, its
           // selector already filtered to the URL's context.
+        } else if (roleInfo.isReadinessChiefOfficer) {
+          // 06.10.2026 — same storage key every other readiness screen
+          // uses (admin_selected_authority_id), not root's own
+          // admin_selected_org_id, so a pick on any of those screens
+          // carries here too. Nothing saved yet → the "show all
+          // brigades" overview renders below instead of a single org.
+          const storedId = typeof window !== 'undefined' ? window.localStorage.getItem('admin_selected_authority_id') : null;
+          if (storedId && await authorityMatchesUrlContext(storedId)) {
+            setAuthorityId(storedId);
+            await loadTeamData(storedId);
+          }
         } else {
           // Non-super-admin: resolve from their assigned authority.
           //
@@ -355,6 +425,19 @@ export default function AuthorityTeamPage() {
     });
     return () => unsubscribe();
   }, [loadTeamData]);
+
+  // 06.10.2026 (David) — the "show all brigades" overview loads once
+  // allOrgs is in and no single brigade is selected, military context
+  // only (root/chief-officer both reach it via ?type=military). Never
+  // for municipal/educational — byte-identical to before for them.
+  useEffect(() => {
+    if (urlType !== 'military') return;
+    if (!(isSuperAdmin || isReadinessChiefOfficer)) return;
+    if (authorityId) return;
+    if (allOrgs.length === 0) return;
+    const militaryOrgs = allOrgs.filter((o) => authorityTypeToTenantType(o) === 'military');
+    loadAllBrigadesOfficerCounts(militaryOrgs);
+  }, [urlType, isSuperAdmin, isReadinessChiefOfficer, authorityId, allOrgs, loadAllBrigadesOfficerCounts]);
 
   // §13.38 — the sidebar has two Links to this SAME route with different
   // ?type= (municipal/military team-management), and Next.js client-side
@@ -466,9 +549,21 @@ export default function AuthorityTeamPage() {
   const orgPickerLabel = isMunicipal ? 'ארגון' : labels.orgSingular;
 
   if (!authority) {
+    // 06.10.2026 — root/chief-officer, military only (see this file's
+    // own header on why the storage key differs by role).
+    const selectBrigade = async (newId: string) => {
+      if (isReadinessChiefOfficer) {
+        try { localStorage.setItem('admin_selected_authority_id', newId); } catch { /* ditto as elsewhere */ }
+      }
+      setAuthorityId(newId);
+      setLoading(true);
+      await loadTeamData(newId);
+      setLoading(false);
+    };
+
     return (
       <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-8" dir="rtl">
-        {isSuperAdmin && allOrgs.length > 0 && (
+        {(isSuperAdmin || isReadinessChiefOfficer) && allOrgs.length > 0 && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4">
             <Globe size={20} className="text-cyan-600 flex-shrink-0" />
             <div className="flex-1" style={{ position: 'relative', zIndex: 20 }}>
@@ -484,28 +579,56 @@ export default function AuthorityTeamPage() {
                   });
                 })()}
                 value=""
-                onChange={async (newId) => {
-                  if (newId) {
-                    setAuthorityId(newId);
-                    setLoading(true);
-                    await loadTeamData(newId);
-                    setLoading(false);
-                  }
-                }}
+                onChange={async (newId) => { if (newId) await selectBrigade(newId); }}
                 placeholder={`בחר ${orgPickerLabel}...`}
               />
             </div>
           </div>
         )}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
-          <Users size={48} className="mx-auto mb-4 text-slate-200" />
-          <h2 className="text-lg font-black text-slate-700 mb-2">בחר {orgPickerLabel} להצגה</h2>
-          <p className="text-sm text-slate-400">
-            {isMunicipal
-              ? 'בחר ארגון מהרשימה למעלה כדי לצפות בצוות הניהולי שלו.'
-              : `בחר ${labels.orgSingular} מהרשימה למעלה כדי לצפות ב${labels.managerTitle}.`}
-          </p>
-        </div>
+
+        {/* 06.10.2026 (David's explicit request) — "ניהול צוות צבאי" shows
+            every brigade + its officer count without picking one first.
+            Read-only; no invite action here — invitation stays inside a
+            brigade. Military only — municipal/educational keep the
+            generic placeholder below, byte-identical to before. */}
+        {urlType === 'military' && (isSuperAdmin || isReadinessChiefOfficer) ? (
+          loadingAllBrigades || !allBrigadesOfficerCounts ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-100">
+              <div className="px-5 py-3 flex items-center justify-between text-xs font-bold text-slate-400">
+                <span>חטיבה</span>
+                <span>מספר קצינים</span>
+              </div>
+              {allBrigadesOfficerCounts.map((row) => (
+                <button
+                  key={row.id}
+                  onClick={() => selectBrigade(row.id)}
+                  className="w-full flex items-center justify-between px-5 py-4 text-right hover:bg-slate-50 transition-colors"
+                >
+                  <span className="font-bold text-gray-900">{row.name}</span>
+                  {row.officerCount === 'error' ? (
+                    <span className="text-sm font-bold text-red-400" title="שגיאה בטעינה">—</span>
+                  ) : (
+                    <span className="text-sm font-bold text-cyan-600">{row.officerCount}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )
+        ) : (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+            <Users size={48} className="mx-auto mb-4 text-slate-200" />
+            <h2 className="text-lg font-black text-slate-700 mb-2">בחר {orgPickerLabel} להצגה</h2>
+            <p className="text-sm text-slate-400">
+              {isMunicipal
+                ? 'בחר ארגון מהרשימה למעלה כדי לצפות בצוות הניהולי שלו.'
+                : `בחר ${labels.orgSingular} מהרשימה למעלה כדי לצפות ב${labels.managerTitle}.`}
+            </p>
+          </div>
+        )}
       </div>
     );
   }
@@ -567,7 +690,8 @@ export default function AuthorityTeamPage() {
             {isMunicipal ? 'ניהול רכזים ומנהלים עבור' : `ניהול ${labels.managerTitle} עבור`} <span className="font-bold text-gray-700">{authorityDisplayName}</span>
           </p>
           {/* 06.10.2026 (David) — military-only: distinguishes this screen
-              from "היררכיית יחידות" and "מד כשירות" for a new officer. */}
+              from "היררכיית יחידות" and "חיילים ותוצאות" for a new
+              officer. */}
           {derivedTenantType === 'military' && (
             <p className="text-xs text-slate-400 mt-1">הקצינים המורשים לנהל את החטיבה ואת היחידות שבתוכה.</p>
           )}

@@ -58,13 +58,19 @@ function displayUnitName(unit: Pick<UnitRow, 'name' | 'unitPath'>, tenantType: s
 
 export default function UnitsListPage() {
   const searchParams = useSearchParams();
-  const typeFilter = searchParams?.get('type') as TenantType | null;
+  const urlTypeFilter = searchParams?.get('type') as TenantType | null;
   const urlOrgId = searchParams?.get('org') as string | null;
 
   const [loading, setLoading] = useState(true);
   const [units, setUnits] = useState<UnitRow[]>([]);
   const [tenantType, setTenantType] = useState<string>('municipal');
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  // 06.10.2026 (David) — a chief fitness officer has no own brigade
+  // (same as root, in this screen's own multi-org terms) but, unlike
+  // root, has no OTHER vertical to ever browse — the overview grid
+  // below is forced to military regardless of the URL for them.
+  const [isReadinessChiefOfficer, setIsReadinessChiefOfficer] = useState(false);
+  const typeFilter = isReadinessChiefOfficer ? ('military' as TenantType) : urlTypeFilter;
   const [allOrgs, setAllOrgs] = useState<Authority[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
   const [orgDisplayName, setOrgDisplayName] = useState<string>('');
@@ -359,8 +365,9 @@ export default function UnitsListPage() {
       try {
         const role = await checkUserRole(user.uid);
         setIsSuperAdmin(role.isSuperAdmin);
+        setIsReadinessChiefOfficer(role.isReadinessChiefOfficer);
 
-        if (role.isSuperAdmin) {
+        if (role.isSuperAdmin || role.isReadinessChiefOfficer) {
           const orgs = await getAllAuthorities();
           let filtered = orgs;
           if (typeFilter) {
@@ -368,8 +375,15 @@ export default function UnitsListPage() {
           }
           setAllOrgs(filtered);
 
-          // Only auto-select if there's an explicit URL org or saved context — never default to first
-          const savedId = typeof window !== 'undefined' ? localStorage.getItem('admin_selected_org_id') : null;
+          // 06.10.2026 — a chief officer reads/writes the SAME storage
+          // key every other readiness screen uses (admin_selected_
+          // authority_id), not root's own page-specific
+          // admin_selected_org_id — so a pick here carries to the
+          // dashboard/roster/trends screens and vice versa. Root's own
+          // behavior and key are completely untouched.
+          const savedId = typeof window !== 'undefined'
+            ? localStorage.getItem(role.isReadinessChiefOfficer ? 'admin_selected_authority_id' : 'admin_selected_org_id')
+            : null;
           const targetId = (urlOrgId && filtered.some(o => o.id === urlOrgId))
             ? urlOrgId
             : (savedId && savedId !== 'all' && filtered.some(o => o.id === savedId))
@@ -543,10 +557,19 @@ export default function UnitsListPage() {
     );
   }
 
+  // 06.10.2026 — a chief officer's pick here is persisted to the SAME
+  // key every other readiness screen reads (admin_selected_authority_id)
+  // so it carries over; root's own existing behavior (no persistence at
+  // all from this page) is unchanged.
+  const persistOrgSelectionIfChiefOfficer = (id: string) => {
+    if (!isReadinessChiefOfficer) return;
+    try { localStorage.setItem('admin_selected_authority_id', id); } catch { /* ditto as elsewhere */ }
+  };
+
   return (
     <div dir="rtl" className="space-y-6 pb-12 max-w-4xl mx-auto">
-      {/* Org Selector for Super Admins */}
-      {isSuperAdmin && allOrgs.length > 1 && (
+      {/* Org Selector for Super Admins (06.10.2026: and a chief fitness officer — same picker, same military-only list) */}
+      {(isSuperAdmin || isReadinessChiefOfficer) && allOrgs.length > 1 && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4">
           <Globe size={20} className="text-cyan-600 flex-shrink-0" />
           <div className="flex-1" style={{ position: 'relative', zIndex: 20 }}>
@@ -559,6 +582,7 @@ export default function UnitsListPage() {
               value={selectedOrgId}
               onChange={async (id) => {
                 if (!id) return;
+                persistOrgSelectionIfChiefOfficer(id);
                 setSelectedOrgId(id);
                 setLoading(true);
                 await loadUnitsForAuthority(id);
@@ -570,8 +594,8 @@ export default function UnitsListPage() {
         </div>
       )}
 
-      {/* Overview: show all orgs as clickable cards when no org is selected */}
-      {isSuperAdmin && !selectedOrgId && (
+      {/* Overview: show all orgs as clickable cards when no org is selected (06.10.2026: and a chief fitness officer) */}
+      {(isSuperAdmin || isReadinessChiefOfficer) && !selectedOrgId && (
         <div className="space-y-4">
           <div className="flex items-center gap-3">
             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${typeFilter === 'military' ? 'bg-lime-50' : typeFilter === 'educational' ? 'bg-orange-50' : 'bg-blue-50'}`}>
@@ -597,6 +621,7 @@ export default function UnitsListPage() {
                 <button
                   key={org.id}
                   onClick={async () => {
+                    persistOrgSelectionIfChiefOfficer(org.id);
                     setSelectedOrgId(org.id);
                     setLoading(true);
                     await loadUnitsForAuthority(org.id);
@@ -633,7 +658,10 @@ export default function UnitsListPage() {
         </div>
       )}
 
-      {(selectedOrgId || !isSuperAdmin) && (
+      {/* 06.10.2026 — a chief officer is treated like a super admin here
+          too: main content only once an org is actually selected, never
+          alongside the overview grid above. */}
+      {(selectedOrgId || (!isSuperAdmin && !isReadinessChiefOfficer)) && (
       <>
       <AdminBreadcrumb items={[
         { label: isMunicipal ? 'ארגונים' : labels.orgPlural, href: '/admin/organizations' },
@@ -657,9 +685,10 @@ export default function UnitsListPage() {
               {orgDisplayName ? `${orgDisplayName} — ` : ''}ניהול {labels.subUnitsTitle} ו{labels.membersTitle}
             </p>
             {/* 06.10.2026 (David) — military-only: a new officer on this
-                screen doesn't know how it differs from "מד כשירות" (the
-                roster screen) without this. Municipal/educational render
-                byte-identical to before — this line is additive, gated. */}
+                screen doesn't know how it differs from "חיילים ותוצאות"
+                (the roster screen) without this. Municipal/educational
+                render byte-identical to before — this line is additive,
+                gated. */}
             {tenantType === 'military' && (
               <p className="text-xs text-slate-400 mt-1">
                 מבנה החטיבה — גדודים ופלוגות, ומי מהמשתמשים באפליקציה שייך לכל יחידה. מופיעים כאן רק מי שהוריד את האפליקציה ונרשם ליחידה.
@@ -669,11 +698,12 @@ export default function UnitsListPage() {
         </div>
         {selectedOrgId && (
           <div className="flex items-center gap-2">
-            {isSuperAdmin && (
+            {(isSuperAdmin || isReadinessChiefOfficer) && (
               // 07.09.2026 — the unit-detail page (units/[unitId]/page.tsx)
               // has a "חזור" button in this exact spot; this page (viewing a
               // specific org's unit list) was missing its own. Only shown for
-              // a superadmin — a regular authority manager (!isSuperAdmin)
+              // a superadmin (06.10.2026: or a chief fitness officer, same
+              // picker/overview-grid gate) — a regular authority manager
               // never had an org picker to go back TO in the first place
               // (same gate as the org picker itself, line 400).
               <button

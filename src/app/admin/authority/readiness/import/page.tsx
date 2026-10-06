@@ -288,7 +288,7 @@ export default function ReadinessBulkImportPage() {
       <div dir="rtl" className="max-w-6xl mx-auto px-4 pt-6 space-y-4">
         <AdminBreadcrumb items={[
           { label: 'ארגונים', href: '/admin/organizations' },
-          { label: 'מד כשירות', href: '/admin/authority/readiness' },
+          { label: 'חיילים ותוצאות', href: '/admin/authority/readiness' },
           { label: 'ייבוא תוצאות' },
         ]} />
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center space-y-3">
@@ -318,7 +318,7 @@ export default function ReadinessBulkImportPage() {
     <div dir="rtl" className="space-y-6 pb-12 max-w-6xl mx-auto">
       <AdminBreadcrumb items={[
         { label: 'ארגונים', href: '/admin/organizations' },
-        { label: 'מד כשירות', href: '/admin/authority/readiness' },
+        { label: 'חיילים ותוצאות', href: '/admin/authority/readiness' },
         { label: 'ייבוא תוצאות' },
       ]} />
 

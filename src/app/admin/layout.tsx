@@ -66,6 +66,7 @@ import AppLogoLoader from '@/components/AppLogoLoader';
 import { authorityTypeToTenantType, getTenantLabels, orgTypeDisplayName, VERTICAL_THEMES } from '@/features/admin/config/tenantLabels';
 import type { Authority } from '@/types/admin-types';
 import { getSidebarConfig, type LucideIconName } from '@/features/admin/config/sidebarConfigs';
+import { MILITARY_ROOT_NAV_ITEMS, type MilitaryNavIconName } from '@/features/admin/config/militaryNavItems';
 import { resolveLoginDoorForPath } from '@/features/admin/services/loginDoorForPath';
 import { OrgSelectorProvider, useOrgSelector } from '@/features/admin/context/OrgSelectorContext';
 import { AdminSessionSync } from '@/features/admin/components/AdminSessionSync';
@@ -77,6 +78,15 @@ const ICON_MAP: Record<LucideIconName, React.ElementType> = {
   LayoutDashboard, BarChart3, Activity, Map, Route,
   Users, Flag, CalendarHeart, ShieldCheck, GraduationCap,
   ClipboardCheck, Trophy, Building2, KeyRound, Shield,
+};
+
+// 06.10.2026 — resolves MILITARY_ROOT_NAV_ITEMS' icon name strings to
+// real components. A separate small map from ICON_MAP above (that one
+// belongs to the generic getSidebarConfig system and doesn't need
+// Dumbbell today) rather than extending shared infrastructure beyond
+// what this round needs.
+const MILITARY_NAV_ICON_MAP: Record<MilitaryNavIconName, React.ElementType> = {
+  Dumbbell, LayoutDashboard, ShieldCheck, BarChart3, Shield,
 };
 
 // Section IDs for collapsible state — 5 global centres + 3 verticals
@@ -1056,12 +1066,31 @@ function AdminLayoutInner({
                                 <p className="text-[10px] font-bold text-lime-400 uppercase tracking-widest">כשירות — כל החטיבות</p>
                                 <p className="text-sm font-black text-white truncate">קצין כושר ראשי</p>
                             </div>
-                            <SidebarLink
-                                href="/admin/authority/readiness/vertical-overview"
-                                icon={Dumbbell}
-                                label="כל החטיבות"
-                                isActive={pathname?.startsWith('/admin/authority/readiness/vertical-overview')}
-                            />
+                            {/* 06.10.2026 (David's explicit 7-item spec) —
+                                rendered from the SAME MILITARY_ROOT_NAV_ITEMS
+                                array as the hasSec('military') block above;
+                                this branch itself stays its own isolated
+                                block, never reusing hasSec() or
+                                isVerticalAdminOnly's bypass pattern (see this
+                                role's own header comment above). A real
+                                brigade officer never sees this branch at
+                                all — simpler isActive here (no sibling
+                                verticals to disambiguate against). */}
+                            {MILITARY_ROOT_NAV_ITEMS.map((item) => {
+                                const path = item.href.split('?')[0];
+                                const isActive = (path === '/admin/dashboard' || path === '/admin/authority/readiness')
+                                    ? pathname === path
+                                    : !!pathname?.startsWith(path);
+                                return (
+                                    <SidebarLink
+                                        key={item.href}
+                                        href={item.href}
+                                        icon={MILITARY_NAV_ICON_MAP[item.icon]}
+                                        label={item.label}
+                                        isActive={isActive}
+                                    />
+                                );
+                            })}
                         </div>
                         ) : (() => {
                         /* ── Data-driven Portal sidebar (military / school / municipal / etc.) ── */
@@ -1170,19 +1199,34 @@ function AdminLayoutInner({
                                     <SectionHeader sectionId="military" icon={ShieldCheck} label="ניהול צבאי" colorClass={VERTICAL_THEMES.military.sidebarIcon} />
                                     {expandedSections.has('military') && (
                                         <div className="pr-2 space-y-0.5 pb-2 border-r-2 border-lime-700/40 mr-2">
-                                            <SidebarLink
-                                                href="/admin/authority/units?type=military"
-                                                icon={Shield}
-                                                label="היררכיית יחידות"
-                                                isActive={pathname?.startsWith('/admin/authority/units') && (urlVerticalType === 'military' || (!urlVerticalType && orgCtx.selectedOrgType === 'military'))}
-                                            />
-                                            <SidebarLink
-                                                href="/admin/authority/team?type=military"
-                                                icon={Shield}
-                                                label="ניהול צוות צבאי"
-                                                isActive={pathname?.startsWith('/admin/authority/team') && (urlVerticalType === 'military' || (!urlVerticalType && orgCtx.selectedOrgType === 'military'))}
-                                            />
-                                            <SidebarLink href="/admin/authority/readiness" icon={ShieldCheck} label="מד כשירות" />
+                                            {/* 06.10.2026 (David's explicit 7-item spec) — rendered from
+                                                MILITARY_ROOT_NAV_ITEMS, the SAME array the isolated
+                                                chief-officer block below also renders from. דשבורד/מגמות
+                                                were previously reachable only by direct URL — no sidebar
+                                                item at all (David's own finding). */}
+                                            {MILITARY_ROOT_NAV_ITEMS.map((item) => {
+                                                const path = item.href.split('?')[0];
+                                                const inMilitaryVerticalContext = urlVerticalType === 'military' || (!urlVerticalType && orgCtx.selectedOrgType === 'military');
+                                                let isActive: boolean;
+                                                if (path === '/admin/dashboard') {
+                                                    isActive = pathname === path && inMilitaryVerticalContext;
+                                                } else if (path === '/admin/authority/readiness') {
+                                                    isActive = pathname === path;
+                                                } else if (path === '/admin/authority/units' || path === '/admin/authority/team') {
+                                                    isActive = !!pathname?.startsWith(path) && inMilitaryVerticalContext;
+                                                } else {
+                                                    isActive = !!pathname?.startsWith(path);
+                                                }
+                                                return (
+                                                    <SidebarLink
+                                                        key={item.href}
+                                                        href={item.href}
+                                                        icon={MILITARY_NAV_ICON_MAP[item.icon]}
+                                                        label={item.label}
+                                                        isActive={isActive}
+                                                    />
+                                                );
+                                            })}
                                         </div>
                                     )}
                                 </>
