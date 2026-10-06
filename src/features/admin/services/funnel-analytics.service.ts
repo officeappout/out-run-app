@@ -90,10 +90,26 @@ export interface FunnelFilters {
   gender: 'male' | 'female' | 'other' | null;
   /** `authorities/{id}` doc id — Journey Hub Wave 2's "city" filter. */
   cityAuthorityId: string | null;
-  /** Journey Hub Wave 2 — reuses `getLevelTier`'s exact thresholds via `levelTierToRange`, never re-derived. */
-  level: LevelTier | null;
-  /** Journey Hub Wave 2. See `getFunnelCounts`' own comment for why only 'running' is a native query constraint. */
-  program: 'strength' | 'running' | 'map_only' | null;
+  /**
+   * `LevelTier` ('beginner'/'intermediate'/'advanced', global-level-
+   * based) when `program` is null/'running'/'map_only' — reuses
+   * `getLevelTier`'s exact thresholds via `levelTierToRange`, never
+   * re-derived. A plain `number` (next panel wave, 06.10.2026) ONLY
+   * when `program` is a specific strength-program slug: "minimum
+   * level within THAT program" (`progression.domains.<slug>.
+   * currentLevel >= N`), replacing the global tier with the program's
+   * own real level scale. See `buildBaseConstraints`'s own comment.
+   */
+  level: LevelTier | number | null;
+  /**
+   * 'running' / 'map_only' stay the 2 broad buckets they always were.
+   * Any OTHER non-null value (next panel wave, 06.10.2026) is a real
+   * strength-program SLUG (e.g. 'front_lever', 'planche') — the actual
+   * named programs, replacing the old generic 'strength' bucket. See
+   * `getFunnelCounts`'s own comment for the native-query cost split
+   * between these 3 shapes.
+   */
+  program: string | null;
   /** Journey Hub Wave 2 — see `age-buckets.ts`. */
   age: AgeBucket | null;
 }
@@ -219,7 +235,20 @@ function buildBaseConstraints(
   if (filters.cityAuthorityId) {
     constraints.push(where('core.authorityId', '==', filters.cityAuthorityId));
   }
-  if (filters.level) {
+  const specificProgramSlug = isSpecificProgramSlug(filters.program) ? filters.program : null;
+
+  if (typeof filters.level === 'number') {
+    // Next panel wave, 06.10.2026: a specific program is selected, so
+    // "level" means "minimum level WITHIN that program," not the
+    // global tier. Only meaningful paired with a specific program —
+    // if one isn't selected, there's no `progression.domains.<slug>`
+    // path to constrain, so this is silently a no-op (matches the UI,
+    // which only ever shows a numeric level option once a program is
+    // chosen — see JourneyFilterBar.tsx).
+    if (specificProgramSlug) {
+      constraints.push(where(`progression.domains.${specificProgramSlug}.currentLevel`, '>=', filters.level));
+    }
+  } else if (filters.level) {
     // Range on the SAME field (`progression.globalLevel`) — Firestore
     // allows multiple inequality constraints on one field in one query.
     // Thresholds come from `levelTierToRange`, never re-derived here.
@@ -235,12 +264,35 @@ function buildBaseConstraints(
     if (maxBirthDate) constraints.push(where('core.birthDate', '<=', Timestamp.fromDate(maxBirthDate)));
   }
   if (filters.program === 'running') {
-    // The only program value expressible as a native constraint — see
-    // `getFunnelCounts`' own comment for 'strength'/'map_only'.
     constraints.push(where('running.isUnlocked', '==', true));
+  } else if (specificProgramSlug) {
+    // Next panel wave, 06.10.2026: a real named strength program
+    // (e.g. 'front_lever'), not the old generic 'strength' bucket.
+    // Unlike that old bucket, this IS a native constraint — no
+    // `hasStrengthTrack` full-doc fallback needed, because we're
+    // checking ONE known field path, not "any of N possible domain
+    // keys." KNOWN GAP, documented not silently assumed away: a small
+    // number of users have this exact program entry keyed by its
+    // Firestore doc-ID hash instead of this slug in `progression.
+    // domains` (see [[healingpass-dualkey-domains]] memory / `.claude/
+    // knowledge/parking-lot.md` — separately-tracked tech debt, a
+    // dedicated writer-normalize + backfill task, not something to
+    // bolt onto this filter). Those users won't match here until that
+    // backfill lands — see `getFunnelCounts`'s own comment for why
+    // `growth-metrics` (in-memory, same wave) checks both keys instead.
+    constraints.push(where(`progression.domains.${specificProgramSlug}.currentLevel`, '>', 0));
   }
+  // 'map_only' (neither strength nor running) still can't be a native
+  // constraint — "no domain key is present" isn't expressible as a
+  // single where() without knowing every possible key in advance. See
+  // countStage's own fallback for how it's handled instead.
 
   return constraints;
+}
+
+/** True when `program` is a real strength-program slug, not one of the 2 broad buckets or null. */
+function isSpecificProgramSlug(program: string | null): program is string {
+  return !!program && program !== 'running' && program !== 'map_only';
 }
 
 /**
@@ -267,19 +319,20 @@ interface StageCountResult {
  * render an explicit "לא זמין" state instead. The original error is
  * still logged to console either way, for DevTools-level debugging.
  *
- * Journey Hub Wave 2 — `programFilter` 'strength'/'map_only' can't be
- * expressed as a native Firestore constraint: `hasStrengthTrack` reads
- * the full `progression.domains`/`tracks` maps and iterates their keys
- * (track-ownership.ts), which `getCountFromServer`'s pure count
- * aggregation has no way to post-filter. Only when one of those two
- * values is active, this falls back to a real `getDocs` fetch + an
- * in-memory `hasStrengthTrack`/`hasRunningTrack` filter — genuinely more
- * expensive (full documents, not just a count) than the normal path,
- * but bounded to exactly the stage's other constraints and only paid
- * when an admin actually selects that filter. 'running' and `null`
- * (unset) stay on the cheap `getCountFromServer` path via the
- * `where('running.isUnlocked', ...)` constraint `buildBaseConstraints`
- * already adds.
+ * `programFilter === 'map_only'` can't be expressed as a native
+ * Firestore constraint — "no domain key is present" isn't a single
+ * field check, it's the ABSENCE of every possible one, which
+ * `getCountFromServer`'s pure count aggregation has no way to post-
+ * filter. Only when that one value is active, this falls back to a
+ * real `getDocs` fetch + an in-memory `hasStrengthTrack`/
+ * `hasRunningTrack` check — genuinely more expensive (full documents,
+ * not just a count) than the normal path, but bounded to exactly the
+ * stage's other constraints and only paid when an admin selects it.
+ * `null`, `'running'`, and any specific program slug (next panel wave,
+ * 06.10.2026 — real named programs replacing the old generic
+ * 'strength' bucket) all stay on the cheap `getCountFromServer` path
+ * via a native `where()` constraint `buildBaseConstraints` already
+ * adds for each.
  */
 async function countStage(
   constraints: QueryConstraint[],
@@ -288,12 +341,16 @@ async function countStage(
 ): Promise<StageCountResult> {
   try {
     const q = query(collection(db, USERS_COLLECTION), ...constraints);
-    if (programFilter === 'strength' || programFilter === 'map_only') {
+    if (programFilter === 'map_only') {
+      // The one remaining program value that isn't a native constraint
+      // — "no domain key present" can't be expressed without knowing
+      // every possible key in advance. Specific-program slugs and
+      // 'running' are now both native where() clauses (buildBaseConstraints),
+      // so this fallback only exists for 'map_only'.
       const snapshot = await getDocs(q);
       const count = snapshot.docs.filter((d) => {
         const data = d.data();
-        const isStrength = hasStrengthTrack(data);
-        return programFilter === 'strength' ? isStrength : !isStrength && !hasRunningTrack(data);
+        return !hasStrengthTrack(data) && !hasRunningTrack(data);
       }).length;
       return { count, failed: false };
     }
@@ -350,11 +407,14 @@ async function getActivationRetentionCounts(
   try {
     const eligibleSnap = await getDocs(query(collection(db, USERS_COLLECTION), ...eligibleConstraints));
     let eligibleDocs = eligibleSnap.docs;
-    if (programFilter === 'strength' || programFilter === 'map_only') {
+    if (programFilter === 'map_only') {
+      // 'running' and a specific program slug are already applied as
+      // native where() clauses inside `eligibleConstraints` (built by
+      // buildBaseConstraints) — only 'map_only' still needs this
+      // in-memory fallback. See that function's own comment.
       eligibleDocs = eligibleDocs.filter((d) => {
         const data = d.data();
-        const isStrength = hasStrengthTrack(data);
-        return programFilter === 'strength' ? isStrength : !isStrength && !hasRunningTrack(data);
+        return !hasStrengthTrack(data) && !hasRunningTrack(data);
       });
     }
     const eligibleUserIds = new Set(eligibleDocs.map((d) => d.id));

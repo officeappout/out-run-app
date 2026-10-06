@@ -97,6 +97,11 @@ function chunk<T>(arr: T[], size: number): T[][] {
   return out;
 }
 
+/** True when `program` is a real strength-program slug, not one of the 2 broad buckets or null. Same trivial helper as funnel-analytics.service.ts's — not shared across a client/server boundary for one line. */
+function isSpecificProgramSlug(program: string | null): program is string {
+  return !!program && program !== 'running' && program !== 'map_only';
+}
+
 function toDateSafe(v: unknown): Date | null {
   if (!v) return null;
   if (v instanceof Date) return v;
@@ -128,9 +133,21 @@ export interface GrowthMetricsFilters {
   /** `authorities/{id}` doc id — narrows to one city within the caller's scope. */
   cityAuthorityId: string | null;
   sex: 'male' | 'female' | 'other' | null;
-  level: 'beginner' | 'intermediate' | 'advanced' | null;
-  /** 'map_only' = neither strength nor running track. */
-  program: 'strength' | 'running' | 'map_only' | null;
+  /**
+   * 'beginner'/'intermediate'/'advanced' (global-level tier) when
+   * `program` is null/'running'/'map_only'. A plain `number` (next
+   * panel wave, 06.10.2026) ONLY when `program` is a specific
+   * strength-program slug: "minimum level within THAT program" —
+   * see `userMatchesFilters`'s own comment.
+   */
+  level: 'beginner' | 'intermediate' | 'advanced' | number | null;
+  /**
+   * 'map_only' = neither strength nor running track. Any OTHER non-
+   * null value (next panel wave, 06.10.2026) is a real strength-
+   * program slug (e.g. 'front_lever') — the actual named programs,
+   * replacing the old generic 'strength' bucket.
+   */
+  program: string | null;
   age: AgeBucket | null;
 }
 
@@ -171,17 +188,46 @@ function userMatchesFilters(
     if (filters.dateTo && createdAt > filters.dateTo) return false;
   }
 
-  if (filters.level) {
+  const specificProgramSlug = isSpecificProgramSlug(filters.program) ? filters.program : null;
+
+  // Shared helper for the specific-program case below: the best
+  // (highest) currentLevel found for `slug` across BOTH `progression.
+  // domains` and `.tracks` — checking both fields is a free in-memory
+  // win this server route can take that the funnel's native query
+  // (funnel-analytics.service.ts, one field path only) can't. Does
+  // NOT also check the Firestore-doc-ID hash key some legacy docs use
+  // instead of the slug ([[healingpass-dualkey-domains]] — separately-
+  // tracked tech debt, a dedicated writer-normalize + backfill task,
+  // not resolved here either) — importing that resolver would pull a
+  // client-Firestore-SDK file into this Admin SDK route.
+  const bestProgramLevel = (slug: string): number => {
+    const levels = [
+      data?.progression?.domains?.[slug]?.currentLevel,
+      data?.progression?.tracks?.[slug]?.currentLevel,
+    ].filter((l): l is number => typeof l === 'number');
+    return levels.length > 0 ? Math.max(...levels) : 0;
+  };
+
+  if (typeof filters.level === 'number') {
+    // Next panel wave, 06.10.2026: a specific program is selected, so
+    // "level" means "minimum level WITHIN that program," not the
+    // global tier. No-op (keeps the doc) if no specific program is
+    // selected — matches the UI, which only shows a numeric level
+    // once a program is chosen.
+    if (specificProgramSlug && bestProgramLevel(specificProgramSlug) < filters.level) return false;
+  } else if (filters.level) {
     const globalLevel = typeof data?.progression?.globalLevel === 'number' ? data.progression.globalLevel : 0;
     if (getLevelTier(globalLevel) !== filters.level) return false;
   }
 
-  if (filters.program) {
-    const isStrength = hasStrengthTrack(data);
-    const isRunning = hasRunningTrack(data);
-    if (filters.program === 'strength' && !isStrength) return false;
-    if (filters.program === 'running' && !isRunning) return false;
-    if (filters.program === 'map_only' && (isStrength || isRunning)) return false;
+  if (filters.program === 'running') {
+    if (!hasRunningTrack(data)) return false;
+  } else if (filters.program === 'map_only') {
+    if (hasStrengthTrack(data) || hasRunningTrack(data)) return false;
+  } else if (specificProgramSlug) {
+    // Real named strength program (e.g. 'front_lever'), not the old
+    // generic 'strength' bucket — "assessed at all" (level > 0).
+    if (bestProgramLevel(specificProgramSlug) <= 0) return false;
   }
 
   if (filters.age) {
@@ -509,10 +555,21 @@ function parseGrowthMetricsFilters(request: NextRequest): GrowthMetricsFilters {
   };
   const sexRaw = str('sex');
   const sex = sexRaw === 'male' || sexRaw === 'female' || sexRaw === 'other' ? sexRaw : null;
+  // Next panel wave, 06.10.2026: `level` is either a global tier
+  // string OR a plain number (minimum level within a specific
+  // program — only meaningful paired with a non-null `program` below,
+  // same contract as GrowthMetricsFilters.level's own doc comment).
   const levelRaw = str('level');
-  const level = levelRaw === 'beginner' || levelRaw === 'intermediate' || levelRaw === 'advanced' ? levelRaw : null;
-  const programRaw = str('program');
-  const program = programRaw === 'strength' || programRaw === 'running' || programRaw === 'map_only' ? programRaw : null;
+  const levelNum = levelRaw != null ? Number(levelRaw) : NaN;
+  const level: GrowthMetricsFilters['level'] =
+    levelRaw === 'beginner' || levelRaw === 'intermediate' || levelRaw === 'advanced'
+      ? levelRaw
+      : Number.isFinite(levelNum) ? levelNum : null;
+  // `program` is now any non-empty string — 'running'/'map_only', or a
+  // real strength-program slug (e.g. 'front_lever'). No closed list to
+  // validate against here; an unrecognized slug just matches nothing
+  // downstream, same as any other filter value that happens to be stale.
+  const program = str('program');
   const ageRaw = str('age');
   const age = isAgeBucket(ageRaw) ? ageRaw : null;
 
