@@ -5,6 +5,7 @@ import type {
   PushFunnelStageCounts,
   PushFunnelCategoryBreakdown,
 } from '@/app/api/admin/push-funnel-summary/route';
+import { TOTAL_PUSH_TYPE_COUNT } from '@/features/admin/services/push-catalog.service';
 import InfoHint from './InfoHint';
 
 export interface PushFunnelSummaryResponse {
@@ -35,9 +36,11 @@ interface PushFunnelSectionProps {
  * Separate funnel, separate data source (push_events, not users) — sent →
  * delivered → opened → started a workout. Retained-7d (the brief's 5th
  * stage) is explicitly deferred, see .claude/knowledge/analytics-
- * retention-dashboard-audit-2026-10-04.md. Only the 3-of-12 senders that
- * currently call sendPush() with `measurement` appear here — a real,
- * current data-coverage limit, not a bug.
+ * retention-dashboard-audit-2026-10-04.md. Only the senders that currently
+ * call sendPush() with `measurement` appear here — a real, current
+ * data-coverage limit, not a bug (07.10.2026: 5 of `TOTAL_PUSH_TYPE_COUNT`
+ * today — see push-catalog.service.ts for the live count; this comment
+ * used to hardcode "3 of 12", which was already stale before this fix).
  */
 export default function PushFunnelSection({ data, loading, denied }: PushFunnelSectionProps) {
   return (
@@ -51,7 +54,7 @@ export default function PushFunnelSection({ data, loading, denied }: PushFunnelS
           <p className="text-sm text-slate-500 mt-1">
             {denied
               ? denied
-              : `נשלח → נמסר → נפתח → התחיל אימון · ${data?.measuredSenderCount ?? 0} סוגי פוש נמדדים כיום (מתוך 12)`}
+              : `נשלח → נמסר → נפתח → התחיל אימון · ${data?.measuredSenderCount ?? 0} סוגי פוש נמדדים כיום (מתוך ${TOTAL_PUSH_TYPE_COUNT})`}
           </p>
         </div>
       </div>
