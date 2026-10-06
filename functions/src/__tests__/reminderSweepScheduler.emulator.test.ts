@@ -103,6 +103,29 @@ async function enableFlag() {
   await testDb.doc('app_config/feature_flags').set({ enableReminderSweepPush: true }, { merge: true });
 }
 
+/** Pass 2 — enables both the master gate and the workout-entries sub-gate, optionally overriding the lead time. */
+async function enableWorkoutEntries(leadMinutes?: number) {
+  await testDb.doc('app_config/feature_flags').set({
+    enableReminderSweepPush: true,
+    reminderSweepWorkoutEntriesEnabled: true,
+    ...(leadMinutes != null ? { reminderSweepLeadMinutes: leadMinutes } : {}),
+  }, { merge: true });
+}
+
+async function seedWorkoutEntry(uid: string, opts: { entryId: string; startTime: string; completed?: boolean }) {
+  await testDb.collection('userSchedule').doc(`${uid}_2026-10-04`).set({
+    userId: uid,
+    date: '2026-10-04',
+    entries: [{
+      entryId: opts.entryId,
+      type: 'training',
+      completed: opts.completed ?? false,
+      startTime: opts.startTime,
+      scheduledCategories: ['strength'],
+    }],
+  });
+}
+
 describe('reminderSweepScheduler — REAL emulator integration', () => {
   beforeAll(async () => {
     process.env.FIRESTORE_EMULATOR_HOST = EMULATOR_HOST;
@@ -207,5 +230,115 @@ describe('reminderSweepScheduler — REAL emulator integration', () => {
     const eventsSnap = await testDb.collection('push_events').where('eventType', '==', 'push_sent').get();
     expect(eventsSnap.size).toBeGreaterThan(0);
     expect(eventsSnap.docs[0].data().category).toBe('ReminderSweep');
+  });
+
+  // ── Pass 2 (workout-entry, v2) ─────────────────────────────────────────
+  describe('Pass 2 — workout-entry (userSchedule, lead-time)', () => {
+    it('fires at ~T-10 (default lead), not at T itself', async () => {
+      await enableWorkoutEntries(); // default lead = 10
+      await seedUser('user-workout', { scheduleSlots: [] });
+      await seedWorkoutEntry('user-workout', { entryId: 'e1', startTime: '18:00' });
+
+      setIsraelTime(18, 0); // AT the workout time, not before it
+      await (reminderSweepScheduler as any)();
+      expect(fakeMessaging.sendEachForMulticast).not.toHaveBeenCalled();
+
+      setIsraelTime(17, 50); // T-10, floored to the grid
+      await (reminderSweepScheduler as any)();
+      expect(fakeMessaging.sendEachForMulticast).toHaveBeenCalledWith(
+        expect.objectContaining({ tokens: ['tok-user-workout'] }),
+      );
+    });
+
+    it('respects a custom reminderSweepLeadMinutes instead of the default', async () => {
+      await enableWorkoutEntries(20);
+      await seedUser('user-custom-lead', { scheduleSlots: [] });
+      await seedWorkoutEntry('user-custom-lead', { entryId: 'e1', startTime: '18:00' });
+
+      setIsraelTime(17, 50); // the DEFAULT lead's slot — must NOT fire with a 20-min lead configured
+      await (reminderSweepScheduler as any)();
+      expect(fakeMessaging.sendEachForMulticast).not.toHaveBeenCalled();
+
+      setIsraelTime(17, 40); // T-20, floored
+      await (reminderSweepScheduler as any)();
+      expect(fakeMessaging.sendEachForMulticast).toHaveBeenCalledWith(
+        expect.objectContaining({ tokens: ['tok-user-custom-lead'] }),
+      );
+    });
+
+    it('idempotency holds across sweep ticks — running twice for the same entry+slot sends only once', async () => {
+      await enableWorkoutEntries();
+      await seedUser('user-workout-twice', { scheduleSlots: [] });
+      await seedWorkoutEntry('user-workout-twice', { entryId: 'e1', startTime: '18:00' });
+      setIsraelTime(17, 50);
+
+      await (reminderSweepScheduler as any)();
+      await (reminderSweepScheduler as any)(); // simulates an overlapping/retried run for the same tick
+
+      expect(fakeMessaging.sendEachForMulticast).toHaveBeenCalledTimes(1);
+      const marker = await testDb.collection('reminder_fired').doc('user-workout-twice_2026-10-04_1750_workout_e1').get();
+      expect(marker.exists).toBe(true);
+    });
+
+    it('a completed entry is never a candidate', async () => {
+      await enableWorkoutEntries();
+      await seedUser('user-completed', { scheduleSlots: [] });
+      await seedWorkoutEntry('user-completed', { entryId: 'e1', startTime: '18:00', completed: true });
+      setIsraelTime(17, 50);
+
+      await (reminderSweepScheduler as any)();
+      expect(fakeMessaging.sendEachForMulticast).not.toHaveBeenCalled();
+    });
+
+    it('reminderSweepWorkoutEntriesEnabled absent/false — Pass 2 is a pure no-op even with a real matching entry', async () => {
+      await enableFlag(); // master ON, workout sub-flag deliberately NOT set
+      await seedUser('user-v2-off', { scheduleSlots: [] });
+      await seedWorkoutEntry('user-v2-off', { entryId: 'e1', startTime: '18:00' });
+      setIsraelTime(17, 50);
+
+      await (reminderSweepScheduler as any)();
+      expect(fakeMessaging.sendEachForMulticast).not.toHaveBeenCalled();
+    });
+
+    it('a settings-slot marker and a workout-entry marker for the same uid/date/time never collide at the IDEMPOTENCY layer — both are independently claimed, even though the shared training_reminder rate cap then naturally suppresses the second actual delivery', async () => {
+      await enableWorkoutEntries();
+      await seedUser('user-both', { scheduleSlots: [{ day: 'sunday', time: '17:50' }] });
+      await seedWorkoutEntry('user-both', { entryId: 'e1', startTime: '18:00' }); // lead=10 -> also targets 17:50
+      setIsraelTime(17, 50);
+
+      await (reminderSweepScheduler as any)();
+
+      // Both markers are claimed independently — the key shapes genuinely
+      // don't collide, proving the idempotency layer treats these as two
+      // distinct reminders. But both passes send on the SAME channel
+      // (training_reminder), and push.service.ts's existing per-channel
+      // rate cap (push_rate/{uid}.training_reminder_lastSentAt, 22h) is
+      // uid+channel scoped, not sender-scoped — so Pass 1's send (which
+      // runs first) updates that cap before Pass 2's send checks it, and
+      // Pass 2's send is correctly rate-capped to an empty token list
+      // before it ever reaches sendEachForMulticast. Verified empirically
+      // here, not assumed — an earlier draft of this PR's own doc comment
+      // claimed "both fire," which this test disproved.
+      expect(fakeMessaging.sendEachForMulticast).toHaveBeenCalledTimes(1);
+      const settingsMarker = await testDb.collection('reminder_fired').doc('user-both_2026-10-04_1750').get();
+      const workoutMarker = await testDb.collection('reminder_fired').doc('user-both_2026-10-04_1750_workout_e1').get();
+      expect(settingsMarker.exists).toBe(true);
+      expect(workoutMarker.exists).toBe(true);
+    });
+
+    it('tags the send with the distinct ReminderSweepWorkout funnel category', async () => {
+      await enableWorkoutEntries();
+      await seedUser('user-workout-measured', { scheduleSlots: [] });
+      await seedWorkoutEntry('user-workout-measured', { entryId: 'e1', startTime: '18:00' });
+      setIsraelTime(17, 50);
+
+      await (reminderSweepScheduler as any)();
+
+      const eventsSnap = await testDb.collection('push_events')
+        .where('eventType', '==', 'push_sent')
+        .where('category', '==', 'ReminderSweepWorkout')
+        .get();
+      expect(eventsSnap.size).toBeGreaterThan(0);
+    });
   });
 });
