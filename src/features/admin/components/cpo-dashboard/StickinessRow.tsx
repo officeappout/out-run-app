@@ -23,6 +23,14 @@ interface StickinessRowProps {
  * activeUsersTrend's per-day counts client-side — see the route's own
  * comment for why a client-side derivation from per-day counts would
  * double-count.
+ *
+ * Wave 2 (05.10.2026, approved wave plan) — the stickiness card gained
+ * an actual visual meter against the target bands below the number,
+ * replacing the text-only label that was here before (confirmed via
+ * this task's gap-map: the DATA was always live, only the "meter with
+ * target bands" visual treatment from the design was missing).
+ * Band boundaries are unchanged from the original text-label logic —
+ * only the rendering changed, not the thresholds.
  */
 export default function StickinessRow({ data, loading }: StickinessRowProps) {
   if (loading) {
@@ -74,7 +82,19 @@ export default function StickinessRow({ data, loading }: StickinessRowProps) {
             <Flame size={16} className={bandColor} />
           </div>
           <p className="text-2xl md:text-3xl font-black text-gray-900">{stickinessPct}%</p>
-          <p className={`text-[11px] font-bold mt-1 ${bandColor}`}>{bandLabel} (בנצ׳מרק: 20-30%+)</p>
+          {/* Target-band meter — 0-20% gray (below benchmark), 20-50%
+              cyan (good stickiness), 50%+ emerald (daily habit). A
+              marker at the real value sits on top of the bands. */}
+          <div className="relative h-2.5 bg-gray-100 rounded-full overflow-hidden mt-2.5" dir="ltr">
+            <div className="absolute inset-y-0 bg-gray-200" style={{ left: 0, width: '20%' }} />
+            <div className="absolute inset-y-0 bg-cyan-200" style={{ left: '20%', width: '30%' }} />
+            <div className="absolute inset-y-0 bg-emerald-200" style={{ left: '50%', right: 0 }} />
+            <div
+              className="absolute inset-y-0 w-1 rounded-full bg-gray-900"
+              style={{ left: `calc(${Math.min(100, Math.max(0, stickinessPct))}% - 2px)` }}
+            />
+          </div>
+          <p className={`text-[11px] font-bold mt-1.5 ${bandColor}`}>{bandLabel} (בנצ׳מרק: 20-30%+)</p>
         </div>
       </div>
     </div>

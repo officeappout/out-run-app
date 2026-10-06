@@ -45,11 +45,39 @@
  * DAU/trend functions). Vertical scope reuses the SAME single query,
  * filtered in memory against that vertical's real user-id set — cheaper
  * than batching per vertical too.
+ *
+ * Journey Hub Wave 2 (05.10.2026, approved wave plan) additions —
+ * same read-cost discipline, each either zero new reads or one bounded
+ * new batch:
+ *   - Segmentation filters (program/level/sex/age) + date/campaign/
+ *     source/city, applied as an IN-MEMORY predicate on `realUserDocs`
+ *     BEFORE every computation above runs — zero new reads, every
+ *     existing computation just operates on a narrowed set. `program`
+ *     reuses `hasStrengthTrack`/`hasRunningTrack` (track-ownership.ts,
+ *     not re-derived here); `level` reuses `getLevelTier` (split-
+ *     decision.types.ts). See `applyUserFilters` below.
+ *   - activationBySource: grouped from the SAME `realUserDocs` already
+ *     in memory (marketingAttribution.source, defaulting to 'organic'
+ *     per account-metrics.service.ts's documented convention) — zero
+ *     new reads.
+ *   - newUsersTrend: day-bucketed signup counts from `realUserDocs`'
+ *     own `createdAt` — same dateMap template as activeUsersTrend
+ *     above, fed from a different field, zero new reads.
+ *   - activation.{avg,median}DaysToFirstWorkout: the ONE new read this
+ *     Wave — for users with `progression.workoutCount >= 1` only (not
+ *     every user), one chunked `workouts.where('userId','in',batch)`
+ *     batch (same batching pattern `statistics-summary/route.ts`
+ *     already uses for its own per-user workout read) to find each
+ *     such user's earliest `date`. Confirmed nowhere else in the
+ *     codebase computes this (growth-analytics-plan.md's gap audit).
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { resolveAdminAnalyticsScope, type AdminAnalyticsScope } from '@/lib/adminAnalyticsScope';
 import { isTestOrMockUser } from '@/lib/testAccountFilter';
+import { hasStrengthTrack, hasRunningTrack } from '@/lib/track-ownership';
+import { getLevelTier } from '@/features/workout-engine/services/split-decision/split-decision.types';
+import { isAgeBucket, ageBucketToYearRange, getAgeInYears, type AgeBucket } from '@/lib/age-buckets';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -80,11 +108,101 @@ export interface PushCampaignMarker {
 }
 
 /**
+ * Segmentation + cross-cutting filters — Journey Hub Wave 2. Every field
+ * is optional/null = "no constraint," matching `FunnelFilters`' existing
+ * convention (funnel-analytics.service.ts) so the Journey hub's shared
+ * filter row can drive both this route and the client-side funnel with
+ * the same mental model, even though the two sources apply filters very
+ * differently (this route: in-memory predicate over already-fetched
+ * docs; the funnel: native Firestore `where()` constraints).
+ */
+export interface GrowthMetricsFilters {
+  dateFrom: Date | null;
+  dateTo: Date | null;
+  campaign: string | null;
+  source: string | null;
+  medium: string | null;
+  /** `authorities/{id}` doc id — narrows to one city within the caller's scope. */
+  cityAuthorityId: string | null;
+  sex: 'male' | 'female' | 'other' | null;
+  level: 'beginner' | 'intermediate' | 'advanced' | null;
+  /** 'map_only' = neither strength nor running track. */
+  program: 'strength' | 'running' | 'map_only' | null;
+  age: AgeBucket | null;
+}
+
+export const DEFAULT_GROWTH_METRICS_FILTERS: GrowthMetricsFilters = {
+  dateFrom: null,
+  dateTo: null,
+  campaign: null,
+  source: null,
+  medium: null,
+  cityAuthorityId: null,
+  sex: null,
+  level: null,
+  program: null,
+  age: null,
+};
+
+/**
+ * The one chokepoint every segmentation/cross-cutting filter passes
+ * through — applied to `realUserDocs` BEFORE any downstream computation,
+ * so every metric this route returns is automatically scoped without
+ * touching the computation code itself. Returns true = keep the doc.
+ */
+function userMatchesFilters(
+  data: FirebaseFirestore.DocumentData,
+  filters: GrowthMetricsFilters,
+  now: Date,
+): boolean {
+  if (filters.cityAuthorityId && data?.core?.authorityId !== filters.cityAuthorityId) return false;
+  if (filters.campaign && data?.marketingAttribution?.campaign !== filters.campaign) return false;
+  if (filters.source && data?.marketingAttribution?.source !== filters.source) return false;
+  if (filters.medium && data?.marketingAttribution?.medium !== filters.medium) return false;
+  if (filters.sex && data?.core?.gender !== filters.sex) return false;
+
+  if (filters.dateFrom || filters.dateTo) {
+    const createdAt = toDateSafe(data?.createdAt);
+    if (!createdAt) return false;
+    if (filters.dateFrom && createdAt < filters.dateFrom) return false;
+    if (filters.dateTo && createdAt > filters.dateTo) return false;
+  }
+
+  if (filters.level) {
+    const globalLevel = typeof data?.progression?.globalLevel === 'number' ? data.progression.globalLevel : 0;
+    if (getLevelTier(globalLevel) !== filters.level) return false;
+  }
+
+  if (filters.program) {
+    const isStrength = hasStrengthTrack(data);
+    const isRunning = hasRunningTrack(data);
+    if (filters.program === 'strength' && !isStrength) return false;
+    if (filters.program === 'running' && !isRunning) return false;
+    if (filters.program === 'map_only' && (isStrength || isRunning)) return false;
+  }
+
+  if (filters.age) {
+    const birthDate = toDateSafe(data?.core?.birthDate);
+    if (!birthDate) return false;
+    const [minAge, maxAge] = ageBucketToYearRange(filters.age);
+    const age = getAgeInYears(birthDate, now);
+    if (minAge != null && age < minAge) return false;
+    if (maxAge != null && age > maxAge) return false;
+  }
+
+  return true;
+}
+
+/**
  * Core computation, factored out of the HTTP handler so it's directly
  * unit-testable against a fake Firestore — same shape as
  * statistics-summary/route.ts's computeStatisticsSummary.
  */
-export async function computeGrowthMetrics(db: FirebaseFirestore.Firestore, scope: AdminAnalyticsScope) {
+export async function computeGrowthMetrics(
+  db: FirebaseFirestore.Firestore,
+  scope: AdminAnalyticsScope,
+  filters: GrowthMetricsFilters = DEFAULT_GROWTH_METRICS_FILTERS,
+) {
   if (scope.kind === 'denied') {
     return { status: 403 as const, body: { error: NO_ACCESS_MESSAGE } };
   }
@@ -101,7 +219,10 @@ export async function computeGrowthMetrics(db: FirebaseFirestore.Firestore, scop
       : authorityIds.length === 0
         ? []
         : (await Promise.all(chunk(authorityIds, 30).map((b) => db.collection('users').where('core.authorityId', 'in', b).get()))).flatMap((s) => s.docs);
-  const realUserDocs = userDocs.filter((d) => !isTestOrMockUser(d.data()?.core as Record<string, unknown> | undefined));
+  const now = new Date();
+  const realUserDocs = userDocs
+    .filter((d) => !isTestOrMockUser(d.data()?.core as Record<string, unknown> | undefined))
+    .filter((d) => userMatchesFilters(d.data(), filters, now));
   const realUserIds = new Set(realUserDocs.map((d) => d.id));
   const userIdToAuthorityId = new Map<string, string>();
   realUserDocs.forEach((d) => {
@@ -110,7 +231,6 @@ export async function computeGrowthMetrics(db: FirebaseFirestore.Firestore, scop
   });
 
   // ── One workouts range query, last 30 days, no userId filter ────────────
-  const now = new Date();
   const trendStart = new Date(now);
   trendStart.setDate(trendStart.getDate() - (TREND_WINDOW_DAYS - 1));
   trendStart.setHours(0, 0, 0, 0);
@@ -219,6 +339,94 @@ export async function computeGrowthMetrics(db: FirebaseFirestore.Firestore, scop
       .sort((a, b) => b.coinsBalance - a.coinsBalance);
   }
 
+  // ── New-users-over-time (Acquisition tab, Wave 2) — same dateMap
+  //    template as activeUsersTrend above, fed from realUserDocs'
+  //    createdAt instead of workout dates. Zero new reads — realUserDocs
+  //    is already in memory. ───────────────────────────────────────────
+  const newUsersDateMap = new Map<string, number>();
+  for (let i = TREND_WINDOW_DAYS - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    newUsersDateMap.set(d.toISOString().split('T')[0], 0);
+  }
+  realUserDocs.forEach((d) => {
+    const createdAt = toDateSafe(d.data()?.createdAt);
+    if (!createdAt || createdAt < trendStart) return;
+    const key = createdAt.toISOString().split('T')[0];
+    if (newUsersDateMap.has(key)) newUsersDateMap.set(key, (newUsersDateMap.get(key) ?? 0) + 1);
+  });
+  const newUsersTrend = Array.from(newUsersDateMap.entries()).map(([date, newUsers]) => ({ date, newUsers }));
+
+  // ── Activation by source (Activation tab, Wave 2) — grouped from the
+  //    SAME realUserDocs already in memory, zero new reads. `source`
+  //    defaults to 'organic' per account-metrics.service.ts's documented
+  //    convention (buildAttributionPayload never leaves it null). ──────
+  const bySource = new Map<string, { totalUsers: number; activatedUsers: number }>();
+  realUserDocs.forEach((d) => {
+    const data = d.data();
+    const source = typeof data?.marketingAttribution?.source === 'string' && data.marketingAttribution.source
+      ? data.marketingAttribution.source
+      : 'organic';
+    const entry = bySource.get(source) ?? { totalUsers: 0, activatedUsers: 0 };
+    entry.totalUsers++;
+    if ((data?.progression?.workoutCount ?? 0) >= 1) entry.activatedUsers++;
+    bySource.set(source, entry);
+  });
+  const activationBySource = Array.from(bySource.entries())
+    .map(([source, { totalUsers, activatedUsers }]) => ({
+      source,
+      totalUsers,
+      activatedUsers,
+      activationRate: totalUsers > 0 ? Math.round((activatedUsers / totalUsers) * 1000) / 10 : null,
+    }))
+    .sort((a, b) => b.totalUsers - a.totalUsers);
+
+  // ── Time-to-first-workout (Activation tab, Wave 2) — the one genuinely
+  //    new read. Scoped to activated users only (not every user), same
+  //    chunked userId-in batching statistics-summary/route.ts already
+  //    uses for its own per-user workout read — reads each such user's
+  //    FULL workout history (not just the 30-day trend window above,
+  //    since a user may have activated long before it) to find their
+  //    earliest `date`. Confirmed nowhere else computes this. ──────────
+  const activatedUserDocs = realUserDocs.filter((d) => (d.data()?.progression?.workoutCount ?? 0) >= 1);
+  const firstWorkoutDateByUser = new Map<string, Date>();
+  if (activatedUserDocs.length > 0) {
+    const activatedUserIds = activatedUserDocs.map((d) => d.id);
+    const workoutBatches = await Promise.all(
+      chunk(activatedUserIds, 30).map((b) => db.collection('workouts').where('userId', 'in', b).get()),
+    );
+    workoutBatches.flat().forEach((snap) => {
+      snap.docs.forEach((doc) => {
+        const data = doc.data();
+        const uid = data?.userId;
+        const date = toDateSafe(data?.date);
+        if (typeof uid !== 'string' || !date) return;
+        const existing = firstWorkoutDateByUser.get(uid);
+        if (!existing || date < existing) firstWorkoutDateByUser.set(uid, date);
+      });
+    });
+  }
+  const daysToFirstWorkout: number[] = [];
+  activatedUserDocs.forEach((d) => {
+    const createdAt = toDateSafe(d.data()?.createdAt);
+    const firstWorkoutAt = firstWorkoutDateByUser.get(d.id);
+    if (!createdAt || !firstWorkoutAt) return;
+    const days = (firstWorkoutAt.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
+    if (days >= 0) daysToFirstWorkout.push(days);
+  });
+  daysToFirstWorkout.sort((a, b) => a - b);
+  const avgDaysToFirstWorkout = daysToFirstWorkout.length > 0
+    ? Math.round((daysToFirstWorkout.reduce((sum, d) => sum + d, 0) / daysToFirstWorkout.length) * 10) / 10
+    : null;
+  const medianDaysToFirstWorkout = daysToFirstWorkout.length > 0
+    ? Math.round(daysToFirstWorkout[Math.floor(daysToFirstWorkout.length / 2)] * 10) / 10
+    : null;
+  const activation = {
+    avgDaysToFirstWorkout,
+    medianDaysToFirstWorkout,
+    sampleSize: daysToFirstWorkout.length,
+  };
+
   // ── Push-campaign markers (platform-wide context, shown regardless of
   //    scope — campaign category + date is non-sensitive business
   //    metadata, not a per-vertical metric; see module header) ────────────
@@ -257,7 +465,50 @@ export async function computeGrowthMetrics(db: FirebaseFirestore.Firestore, scop
       activeUsersTrend,
       pushCampaignMarkers,
       economyByAuthority,
+      newUsersTrend,
+      activationBySource,
+      activation,
     },
+  };
+}
+
+/**
+ * Query-string -> GrowthMetricsFilters. Unknown/malformed values fall
+ * back to "no constraint" (null) rather than throwing — a bad filter
+ * value should degrade to "unfiltered," never 500 the whole dashboard.
+ */
+function parseGrowthMetricsFilters(request: NextRequest): GrowthMetricsFilters {
+  const params = request.nextUrl.searchParams;
+  const str = (key: string): string | null => {
+    const v = params.get(key);
+    return v && v.length > 0 ? v : null;
+  };
+  const date = (key: string): Date | null => {
+    const v = str(key);
+    if (!v) return null;
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+  const sexRaw = str('sex');
+  const sex = sexRaw === 'male' || sexRaw === 'female' || sexRaw === 'other' ? sexRaw : null;
+  const levelRaw = str('level');
+  const level = levelRaw === 'beginner' || levelRaw === 'intermediate' || levelRaw === 'advanced' ? levelRaw : null;
+  const programRaw = str('program');
+  const program = programRaw === 'strength' || programRaw === 'running' || programRaw === 'map_only' ? programRaw : null;
+  const ageRaw = str('age');
+  const age = isAgeBucket(ageRaw) ? ageRaw : null;
+
+  return {
+    dateFrom: date('dateFrom'),
+    dateTo: date('dateTo'),
+    campaign: str('campaign'),
+    source: str('source'),
+    medium: str('medium'),
+    cityAuthorityId: str('city'),
+    sex,
+    level,
+    program,
+    age,
   };
 }
 
@@ -280,7 +531,8 @@ export async function GET(request: NextRequest) {
 
     const scope = await resolveAdminAnalyticsScope(uid);
     const db = getAdminDb();
-    const result = await computeGrowthMetrics(db, scope);
+    const filters = parseGrowthMetricsFilters(request);
+    const result = await computeGrowthMetrics(db, scope, filters);
     return NextResponse.json(result.body, { status: result.status });
   } catch (err: any) {
     console.error('[/api/admin/growth-metrics] error:', err?.message ?? err);

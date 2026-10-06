@@ -35,11 +35,17 @@ import {
   collection,
   query,
   where,
+  orderBy,
+  limit,
   getCountFromServer,
+  getDocs,
   Timestamp,
   type QueryConstraint,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { hasStrengthTrack, hasRunningTrack } from '@/lib/track-ownership';
+import { levelTierToRange, type LevelTier } from '@/features/workout-engine/services/split-decision/split-decision.types';
+import { ageBucketToBirthDateRange, type AgeBucket } from '@/lib/age-buckets';
 
 const USERS_COLLECTION = 'users';
 
@@ -66,6 +72,14 @@ export interface FunnelFilters {
   /** Inclusive upper bound on the date field for the stage. */
   dateTo: Date | null;
   gender: 'male' | 'female' | 'other' | null;
+  /** `authorities/{id}` doc id — Journey Hub Wave 2's "city" filter. */
+  cityAuthorityId: string | null;
+  /** Journey Hub Wave 2 — reuses `getLevelTier`'s exact thresholds via `levelTierToRange`, never re-derived. */
+  level: LevelTier | null;
+  /** Journey Hub Wave 2. See `getFunnelCounts`' own comment for why only 'running' is a native query constraint. */
+  program: 'strength' | 'running' | 'map_only' | null;
+  /** Journey Hub Wave 2 — see `age-buckets.ts`. */
+  age: AgeBucket | null;
 }
 
 /**
@@ -102,6 +116,10 @@ export const DEFAULT_FUNNEL_FILTERS: FunnelFilters = {
   dateFrom: null,
   dateTo: null,
   gender: null,
+  cityAuthorityId: null,
+  level: null,
+  program: null,
+  age: null,
 };
 
 // ──────────────────────────────────────────────────────────────────────
@@ -171,23 +189,68 @@ function buildBaseConstraints(
   if (filters.gender) {
     constraints.push(where('core.gender', '==', filters.gender));
   }
+  if (filters.cityAuthorityId) {
+    constraints.push(where('core.authorityId', '==', filters.cityAuthorityId));
+  }
+  if (filters.level) {
+    // Range on the SAME field (`progression.globalLevel`) — Firestore
+    // allows multiple inequality constraints on one field in one query.
+    // Thresholds come from `levelTierToRange`, never re-derived here.
+    const [min, max] = levelTierToRange(filters.level);
+    constraints.push(where('progression.globalLevel', '>=', min));
+    if (max != null) constraints.push(where('progression.globalLevel', '<=', max));
+  }
+  if (filters.age) {
+    // A larger age bucket -> an EARLIER birthDate, so min/max flip —
+    // see ageBucketToBirthDateRange's own doc comment.
+    const [minBirthDate, maxBirthDate] = ageBucketToBirthDateRange(filters.age, new Date());
+    if (minBirthDate) constraints.push(where('core.birthDate', '>=', Timestamp.fromDate(minBirthDate)));
+    if (maxBirthDate) constraints.push(where('core.birthDate', '<=', Timestamp.fromDate(maxBirthDate)));
+  }
+  if (filters.program === 'running') {
+    // The only program value expressible as a native constraint — see
+    // `getFunnelCounts`' own comment for 'strength'/'map_only'.
+    constraints.push(where('running.isUnlocked', '==', true));
+  }
 
   return constraints;
 }
 
 /**
- * Resolve a single stage's count via `getCountFromServer`. Returns 0
- * (not null) on failure so the caller can keep computing conversions
- * without special-casing rejected promises. The original error is
- * logged so missing composite indexes / rule failures are still
- * discoverable in DevTools.
+ * Resolve a single stage's count. Returns 0 (not null) on failure so the
+ * caller can keep computing conversions without special-casing rejected
+ * promises. The original error is logged so missing composite indexes /
+ * rule failures are still discoverable in DevTools.
+ *
+ * Journey Hub Wave 2 — `programFilter` 'strength'/'map_only' can't be
+ * expressed as a native Firestore constraint: `hasStrengthTrack` reads
+ * the full `progression.domains`/`tracks` maps and iterates their keys
+ * (track-ownership.ts), which `getCountFromServer`'s pure count
+ * aggregation has no way to post-filter. Only when one of those two
+ * values is active, this falls back to a real `getDocs` fetch + an
+ * in-memory `hasStrengthTrack`/`hasRunningTrack` filter — genuinely more
+ * expensive (full documents, not just a count) than the normal path,
+ * but bounded to exactly the stage's other constraints and only paid
+ * when an admin actually selects that filter. 'running' and `null`
+ * (unset) stay on the cheap `getCountFromServer` path via the
+ * `where('running.isUnlocked', ...)` constraint `buildBaseConstraints`
+ * already adds.
  */
 async function countStage(
   constraints: QueryConstraint[],
   stageLabel: string,
+  programFilter: FunnelFilters['program'] = null,
 ): Promise<number> {
   try {
     const q = query(collection(db, USERS_COLLECTION), ...constraints);
+    if (programFilter === 'strength' || programFilter === 'map_only') {
+      const snapshot = await getDocs(q);
+      return snapshot.docs.filter((d) => {
+        const data = d.data();
+        const isStrength = hasStrengthTrack(data);
+        return programFilter === 'strength' ? isStrength : !isStrength && !hasRunningTrack(data);
+      }).length;
+    }
     const snapshot = await getCountFromServer(q);
     return snapshot.data().count;
   } catch (err) {
@@ -255,11 +318,11 @@ export async function getFunnelCounts(
   // other stages and the conversion math continues with 0 for the
   // failed one. Individual failures are logged inside `countStage`.
   const settled = await Promise.allSettled([
-    countStage(stage1Constraints, 'registered'),
-    countStage(stage2Constraints, 'midpoint'),
-    countStage(stage3Constraints, 'completed'),
-    countStage(stage4Constraints, 'activation'),
-    countStage(stage5Constraints, 'retention'),
+    countStage(stage1Constraints, 'registered', filters.program),
+    countStage(stage2Constraints, 'midpoint', filters.program),
+    countStage(stage3Constraints, 'completed', filters.program),
+    countStage(stage4Constraints, 'activation', filters.program),
+    countStage(stage5Constraints, 'retention', filters.program),
   ]);
 
   // `countStage` already swallows errors and returns 0, so the
@@ -331,6 +394,30 @@ export async function getFunnelCounts(
   return stages;
 }
 
+/**
+ * Count of registered users attributed to any non-organic marketing
+ * touchpoint, WITHIN the given filters — the filter-aware counterpart
+ * of `account-metrics.service.ts`'s `getMarketingAttributedCount`
+ * (built for the Marketing Hub's single, always-unfiltered KPI card).
+ *
+ * Journey Hub Wave 2: once the shared filter row can scope Stage 1's
+ * registered count (e.g. to one city), the organic/attributed split
+ * computed from it has to be scoped the SAME way, or the split math
+ * breaks (an unfiltered attributed count could exceed a filtered
+ * registered count). Reuses the exact same `buildBaseConstraints` +
+ * `countStage` this file's stage-1 query already uses, with the one
+ * extra `source != 'organic'` constraint — not a parallel query
+ * builder. With `DEFAULT_FUNNEL_FILTERS`, this returns the identical
+ * number `getMarketingAttributedCount` would.
+ */
+export async function getAttributedCount(filters: FunnelFilters): Promise<number> {
+  const constraints: QueryConstraint[] = [
+    ...buildBaseConstraints(filters, 'createdAt'),
+    where('marketingAttribution.source', '!=', 'organic'),
+  ];
+  return countStage(constraints, 'attributed', filters.program);
+}
+
 /** Centralised drop-warning rule so both service and UI agree. */
 function isDrop(stepConversion: number | null): boolean {
   return stepConversion !== null && stepConversion < 50;
@@ -342,3 +429,56 @@ function isDrop(stepConversion: number | null): boolean {
  */
 export const FUNNEL_DROP_THRESHOLD = 50;
 export const FUNNEL_CAUTION_THRESHOLD = 70;
+
+// ──────────────────────────────────────────────────────────────────────
+// Distinct-value loader — moved here from /admin/analytics/page.tsx
+// (Journey Hub Wave 2, 05.10.2026) so the new cross-tab filter bar can
+// reuse the exact same loader instead of a second copy. Fills the
+// campaign/source dropdowns from the existing user docs that have a
+// marketingAttribution object. Capped at 200 docs so even on a very
+// large user base this stays a single cheap query.
+//
+// Note: this is a deliberate trade-off — for very large datasets the
+// "distinct values" list may be incomplete (a long-tail campaign in
+// doc #201+ would not appear). The trade-off is acceptable because:
+//   • The most common campaigns/sources will dominate the top docs.
+//   • Admins can still type-filter by URL param if needed.
+//   • A proper "distinct" query would require a separate aggregation
+//     pipeline that's overkill for v1.
+// ──────────────────────────────────────────────────────────────────────
+
+export interface DistinctAttribution {
+  campaigns: string[];
+  sources: string[];
+  mediums: string[];
+}
+
+export async function loadDistinctAttributionValues(): Promise<DistinctAttribution> {
+  try {
+    const q = query(
+      collection(db, USERS_COLLECTION),
+      where('marketingAttribution.source', '!=', null),
+      orderBy('marketingAttribution.source'),
+      limit(200),
+    );
+    const snap = await getDocs(q);
+    const campaigns = new Set<string>();
+    const sources   = new Set<string>();
+    const mediums   = new Set<string>();
+    snap.forEach((doc) => {
+      const a = doc.data()?.marketingAttribution;
+      if (!a) return;
+      if (typeof a.campaign === 'string' && a.campaign) campaigns.add(a.campaign);
+      if (typeof a.source   === 'string' && a.source)   sources.add(a.source);
+      if (typeof a.medium   === 'string' && a.medium)   mediums.add(a.medium);
+    });
+    return {
+      campaigns: Array.from(campaigns).sort(),
+      sources:   Array.from(sources).sort(),
+      mediums:   Array.from(mediums).sort(),
+    };
+  } catch (err) {
+    console.error('[FunnelAnalytics] Failed to load distinct attribution values:', err);
+    return { campaigns: [], sources: [], mediums: [] };
+  }
+}

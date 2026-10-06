@@ -118,6 +118,20 @@ export function getLevelTier(userLevel: number): LevelTier {
   return 'advanced';
 }
 
+/**
+ * The inverse of `getLevelTier` — [minInclusive, maxInclusive] (null =
+ * open-ended) for a tier. Co-located so a Firestore range-query
+ * consumer (e.g. a segmentation filter) can't drift from the bucket
+ * boundaries `getLevelTier` itself defines above.
+ */
+export function levelTierToRange(tier: LevelTier): [number, number | null] {
+  switch (tier) {
+    case 'beginner': return [0, 5];
+    case 'intermediate': return [6, 13];
+    case 'advanced': return [14, null];
+  }
+}
+
 export function getFrequencyIndex(scheduleDays: number): number {
   if (scheduleDays <= 2) return 0;
   if (scheduleDays === 3) return 1;
