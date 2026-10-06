@@ -15,13 +15,25 @@
  *   - workout (strength): park picker only.
  *   - running: route picker (default), park also offered as a secondary tab.
  *   - walking: park picker (default), route also offered as a secondary tab.
- * Routes are fetched via `InventoryService.fetchCuratedRoutesByAuthority` —
- * the real, authority-scoped, already-client-proven equivalent of
- * `getParksByAuthority` for named/curated routes (confirmed live outside the
- * map at onboarding's location-utils.ts). The heavier live-map route pickers
- * (RouteCarousel/BottomJourneyContainer) are ad-hoc-generation-focused and
- * tightly coupled to map camera/GPS state — not reusable inside a generic
- * bottom sheet, so this deliberately does not attempt to embed them.
+ *
+ * GPS-proximity data paths, NOT authority-scoped (fixed 06.10.2026 — the
+ * original authority-exact-match queries here, `getParksByAuthority` /
+ * `InventoryService.fetchCuratedRoutesByAuthority`, came back empty for real
+ * users: `parks.authorityId` is sparsely/inconsistently tagged, and
+ * `curated_routes` is a narrow onboarding-only cache, not a general route
+ * catalog — see scheduling-capability-audit.md). Both lists now converge
+ * onto the SAME proven data fetches home/map already use successfully:
+ *   - parks: `fetchRealParks()` (the shared, cached catalog) + GPS-distance
+ *     filter — identical to `useNearbyParks.ts`'s own pattern.
+ *   - routes: `getCachedOfficialRoutes()` + `isRouteNearby()` — identical to
+ *     `useRouteGeneration.ts`'s own "nearby official routes" pattern.
+ * `authorityId` is no longer read here at all — GPS is the only signal,
+ * same as both proven references. This reuses the DATA fetch functions
+ * only, not the heavier live-map route/park picker UI components
+ * (RouteCarousel/BottomJourneyContainer) — those are ad-hoc-generation-
+ * focused and tightly coupled to map camera/GPS state, not reusable inside
+ * a generic bottom sheet; this file's job is still just a thin GPS-filtered
+ * list, now backed by the right data.
  *
  * Level: no `level: FitnessLevel` value is ever written by this sheet, for
  * ANY activity type — confirmed (grounded investigation, not assumption)
@@ -49,8 +61,11 @@ import { DrumTimePicker } from '@/components/ui/DrumTimePicker';
 import { useUserStore } from '@/features/user';
 import { auth } from '@/lib/firebase';
 import { g } from '@/lib/utils/gendered-text';
-import { getParksByAuthority } from '@/features/admin/services/parks.service';
-import { InventoryService } from '@/features/parks/core/services/inventory.service';
+import { fetchRealParks } from '@/features/parks/core/services/parks.service';
+import { getCachedOfficialRoutes } from '@/features/parks/core/services/inventory.service';
+import { isRouteNearby } from '@/features/parks/core/services/geoUtils';
+import { calculateDistance } from '@/lib/services/location.service';
+import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { createPlannedSession } from '@/features/admin/services/planned-sessions.service';
 import type { Park } from '@/features/parks/core/types/park.types';
 import type { PrivacyMode } from '@/types/community.types';
@@ -120,6 +135,8 @@ const TYPE_OPTIONS: Array<{ value: ComposeActivityType; label: string; icon: Rea
 
 const EMPTY_PROGRAMS: Array<{ templateId: string; name?: string }> = [];
 const EMPTY_TRACKS: Record<string, { currentLevel?: number }> = {};
+/** Matches useNearbyParks.ts's MAX_PARK_DISTANCE_M — same "nearby" radius as home's proven park list. */
+const COMPOSE_PARK_RADIUS_M = 2000;
 
 function getNextFullHour(): string {
   const now = new Date();
@@ -138,7 +155,10 @@ export default function PlannedActivityComposeSheet({
 }: PlannedActivityComposeSheetProps) {
   const router = useRouter();
   const gender = useUserStore((s) => s.profile?.core?.gender ?? 'male');
-  const authorityId = useUserStore((s) => s.profile?.core?.authorityId ?? '');
+  // GPS is the only signal for park/route proximity now (06.10.2026 fix) —
+  // same shared store useNearbyParks.ts/useRouteGeneration.ts already read,
+  // never this sheet's own watcher (see useGPSStore's architecture contract).
+  const coords = useGPSStore((s) => s.coords);
   const activePrograms = useUserStore((s) => s.profile?.progression?.activePrograms ?? EMPTY_PROGRAMS) as Array<{ templateId: string; name?: string }>;
   const tracks = useUserStore((s) => s.profile?.progression?.tracks ?? EMPTY_TRACKS) as Record<string, { currentLevel?: number }>;
 
@@ -191,21 +211,46 @@ export default function PlannedActivityComposeSheet({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type]);
 
+  // Same fetch + radius as useNearbyParks.ts (home's proven "nearby parks"
+  // path) — fetchRealParks() is the shared, cached catalog; PR #150 fixed
+  // its equipped-park consumers, but this list doesn't filter on equipment
+  // at all, so it was never affected by that bug — it was broken by the
+  // authority-exact-match query this replaces (see file header).
   useEffect(() => {
-    if (!isOpen || !authorityId || whereType !== 'park') return;
+    if (!isOpen || whereType !== 'park' || !coords) return;
+    let cancelled = false;
     setParksLoading(true);
-    getParksByAuthority(authorityId)
-      .then(setParks)
-      .finally(() => setParksLoading(false));
-  }, [isOpen, authorityId, whereType]);
+    fetchRealParks()
+      .then((allParks) => {
+        if (cancelled) return;
+        const nearby = allParks
+          .filter((p) => p.location?.lat != null && p.location?.lng != null)
+          .map((p) => ({ park: p, dist: calculateDistance(coords.lat, coords.lng, p.location!.lat, p.location!.lng) }))
+          .filter((x) => x.dist <= COMPOSE_PARK_RADIUS_M)
+          .sort((a, b) => a.dist - b.dist)
+          .map((x) => x.park);
+        setParks(nearby);
+      })
+      .finally(() => { if (!cancelled) setParksLoading(false); });
+    return () => { cancelled = true; };
+  }, [isOpen, coords, whereType]);
 
+  // Same fetch + proximity check as useRouteGeneration.ts's "nearby official
+  // routes" path (official_routes, GPS-filtered) — NOT curated_routes,
+  // which is a narrow onboarding-only cache unrelated to general nearby
+  // discovery (see file header).
   useEffect(() => {
-    if (!isOpen || !authorityId || whereType !== 'route') return;
+    if (!isOpen || whereType !== 'route' || !coords) return;
+    let cancelled = false;
     setRoutesLoading(true);
-    InventoryService.fetchCuratedRoutesByAuthority(authorityId)
-      .then(setRoutes)
-      .finally(() => setRoutesLoading(false));
-  }, [isOpen, authorityId, whereType]);
+    getCachedOfficialRoutes()
+      .then((allRoutes) => {
+        if (cancelled) return;
+        setRoutes(allRoutes.filter((r) => isRouteNearby(r, coords)));
+      })
+      .finally(() => { if (!cancelled) setRoutesLoading(false); });
+    return () => { cancelled = true; };
+  }, [isOpen, coords, whereType]);
 
   // Uniform PlaceOption lists — the fetched authority-scoped list, with the
   // caller's own pinned place (if any, matching this whereType) prepended
@@ -434,11 +479,7 @@ export default function PlannedActivityComposeSheet({
                 </div>
 
                 {whereType === 'park' ? (
-                  parksLoading && parkOptions.length === 0 ? (
-                    <div className="text-xs text-gray-400 py-2">טוען פארקים...</div>
-                  ) : parkOptions.length === 0 ? (
-                    <div className="text-xs text-gray-400 py-2">לא נמצאו פארקים עירוניים</div>
-                  ) : (
+                  parkOptions.length > 0 ? (
                     <div className="flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
                       {parkOptions.map((park) => (
                         <button
@@ -454,12 +495,14 @@ export default function PlannedActivityComposeSheet({
                         </button>
                       ))}
                     </div>
+                  ) : !coords ? (
+                    <div className="text-xs text-gray-400 py-2">לא הצלחנו לאתר את המיקום שלך</div>
+                  ) : parksLoading ? (
+                    <div className="text-xs text-gray-400 py-2">טוען פארקים...</div>
+                  ) : (
+                    <div className="text-xs text-gray-400 py-2">לא נמצאו פארקים בקרבתך</div>
                   )
-                ) : routesLoading && routeOptions.length === 0 ? (
-                  <div className="text-xs text-gray-400 py-2">טוען מסלולים...</div>
-                ) : routeOptions.length === 0 ? (
-                  <div className="text-xs text-gray-400 py-2">לא נמצאו מסלולים עירוניים</div>
-                ) : (
+                ) : routeOptions.length > 0 ? (
                   <div className="flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
                     {routeOptions.map((route) => (
                       <button
@@ -475,6 +518,12 @@ export default function PlannedActivityComposeSheet({
                       </button>
                     ))}
                   </div>
+                ) : !coords ? (
+                  <div className="text-xs text-gray-400 py-2">לא הצלחנו לאתר את המיקום שלך</div>
+                ) : routesLoading ? (
+                  <div className="text-xs text-gray-400 py-2">טוען מסלולים...</div>
+                ) : (
+                  <div className="text-xs text-gray-400 py-2">לא נמצאו מסלולים בקרבתך</div>
                 )}
               </div>
 
