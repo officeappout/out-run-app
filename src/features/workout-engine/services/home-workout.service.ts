@@ -1684,6 +1684,63 @@ export function buildAssessedDomainBudgets(
 }
 
 /**
+ * Real-settings-aware sibling of buildAssessedDomainBudgets — same
+ * has()-guarded absent=absent (⑨) contract, same return shape, but reads
+ * each domain's REAL programLevelSettings.weeklyVolumeTarget/maxSets (via
+ * getProgramLevelSetting) when a program resolves for that domain slug,
+ * falling back to the generic calculateWeeklyBudget formula only when no
+ * program resolves or it has no settings doc at that level.
+ *
+ * Built for the calisthenics_upper master path (2026-10-06): the one
+ * mechanism before this always used the generic level*2 formula for EVERY
+ * domain, including the user's own selected skills (planche, front_lever,
+ * …) — meaning a skill's real per-level volume curve (PR #160) never
+ * governed a combined multi-skill session, only a single-skill-focused one
+ * (resolveLeadProgramBudget, a completely separate function, already reads
+ * real settings). Not wired into full_body/upper_body's calls to the
+ * original buildAssessedDomainBudgets — explicitly out of scope, left
+ * unchanged.
+ *
+ * Also returns maxSetsByDomain (DomainBudgetEntry has no maxSets field —
+ * that stays a session-wide-only concept, see LeadProgramBudget) so the
+ * caller can combine per-skill session ceilings into one session-wide
+ * backstop instead of defaulting to the master program's own (absent)
+ * settings.
+ */
+export async function buildAssessedDomainBudgetsFromRealSettings(
+  domains: string[],
+  userProgramLevels: Map<string, number>,
+  scheduleDays: number,
+  allPrograms: { id: string }[],
+): Promise<{ entries: DomainBudgetEntry[]; maxSetsByDomain: Map<string, number> }> {
+  const entries: DomainBudgetEntry[] = [];
+  const maxSetsByDomain = new Map<string, number>();
+
+  for (const domain of domains) {
+    if (!userProgramLevels.has(domain)) continue;
+    const level = userProgramLevels.get(domain)!;
+    const program = allPrograms.find(p => resolveToSlug(p.id) === domain);
+
+    let weekly: number | undefined;
+    if (program) {
+      try {
+        const settings = await getProgramLevelSetting(program.id, level);
+        if (settings?.weeklyVolumeTarget != null) weekly = settings.weeklyVolumeTarget;
+        if (settings?.maxSets != null) maxSetsByDomain.set(domain, settings.maxSets);
+      } catch (e) {
+        console.warn(`[DomainBudget] Could not fetch real settings for ${domain} (${program.id}) L${level} — falling back to generic formula`, e);
+      }
+    }
+    if (weekly == null) weekly = calculateWeeklyBudget(level, scheduleDays);
+
+    const daily = Math.max(1, Math.ceil(weekly / Math.max(1, scheduleDays)));
+    entries.push({ domain, level, weekly, daily });
+  }
+
+  return { entries, maxSetsByDomain };
+}
+
+/**
  * Resolves the effective execution location for workout generation ("Ultimate
  * Park Force"). `testLocation` (originally a QA/Master-Simulator bypass) wins
  * if set; otherwise an explicit `location` — what the real home-page caller
@@ -2125,6 +2182,13 @@ async function _buildSharedPipeline(
     resolveActiveProgramBudget(userProfile, allPrograms),
     resolveGlobalMaxIntense(userProfile, allPrograms),
   ]);
+  // Session-wide maxSets backstop. Defaults to the lead (master) program's
+  // own settings (#154's safety net — calisthenics_upper's master id has no
+  // movementPattern, so this is normally the generic fallback). Overridden
+  // below, for the calisthenics_upper path only, with the MAX real maxSets
+  // across the user's active skills — same MAX-across-domains convention as
+  // resolveGlobalMaxIntense ("the most advanced level dictates total capacity").
+  let effectiveMaxSets = leadBudget?.maxSets;
 
   // ── 2c. Split Decision Engine ────────────────────────────────────────
   const scheduleDays = (userProfile.lifestyle?.scheduleDays?.length ?? 0) || 3;
@@ -2216,7 +2280,13 @@ async function _buildSharedPipeline(
     // to assessed-only skills, but buildAssessedDomainBudgets stays has()-guarded
     // as defense-in-depth (e.g. a slug/hash key that somehow isn't dual-keyed in
     // userProgramLevels must never silently borrow the user's unrelated global level).
-    const skillBudgetEntries = buildAssessedDomainBudgets(resolvedChildDomains, userProgramLevels, scheduleDays);
+    const skillBudgetResult = await buildAssessedDomainBudgetsFromRealSettings(
+      resolvedChildDomains,
+      userProgramLevels,
+      scheduleDays,
+      allPrograms,
+    );
+    const skillBudgetEntries = skillBudgetResult.entries;
 
     // ── Parent foundational domain entries (push=L14, pull=L14, …) ─────────
     // Without these, the Bolt caps in WorkoutGenerator use
@@ -2241,12 +2311,32 @@ async function _buildSharedPipeline(
         parentDomains.push(parent);
       }
     }
-    const parentBudgetEntries = buildAssessedDomainBudgets(parentDomains, userProgramLevels, scheduleDays);
+    const parentBudgetResult = await buildAssessedDomainBudgetsFromRealSettings(
+      parentDomains,
+      userProgramLevels,
+      scheduleDays,
+      allPrograms,
+    );
+    const parentBudgetEntries = parentBudgetResult.entries;
 
     resolvedDomainBudgets = [...skillBudgetEntries, ...parentBudgetEntries];
     console.log(
       `[DomainBudget] calisthenics_upper budgets (skills + parents): [${resolvedDomainBudgets.map(db => `${db.domain}=L${db.level}`).join(', ')}]`,
     );
+
+    // Session-wide maxSets backstop, sourced from the SAME real-settings fetch
+    // above (no extra Firestore reads) — MAX across active skills' real
+    // maxSets, mirroring resolveGlobalMaxIntense's own MAX-across-domains
+    // convention. Parent (foundational) domains intentionally excluded: the
+    // session-wide cap should reflect the skills actually being trained, not
+    // their foundational push/pull track's own (likely higher) ceiling.
+    const realSkillMaxSets = Array.from(skillBudgetResult.maxSetsByDomain.values());
+    if (realSkillMaxSets.length > 0) {
+      effectiveMaxSets = Math.max(...realSkillMaxSets);
+      console.log(
+        `[DomainBudget] calisthenics_upper effectiveMaxSets=${effectiveMaxSets} (real, from: ${Array.from(skillBudgetResult.maxSetsByDomain.entries()).map(([d, v]) => `${d}=${v}`).join(', ')})`,
+      );
+    }
     // Deficit-aware daily budget adjustment (mirrors full-body Phase 4 logic).
     // Skipped for manual-override sessions — the Custom Builder must never
     // receive domain daily budgets clamped to 0 by an exhausted weekly quota.
@@ -2997,7 +3087,7 @@ async function _buildSharedPipeline(
     weeklySACap: WEEKLY_SA_CAP,
     levelDefaultRestSeconds,
     restMultiplier,
-    maxSets: leadBudget?.maxSets,
+    maxSets: effectiveMaxSets,
     splitType: splitContext.splitType,
     dominanceRatio: splitContext.splitLogic.dominanceRatio,
     priority1SkillIds: splitContext.priority1SkillIds,

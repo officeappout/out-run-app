@@ -87,6 +87,17 @@ export function __clearPlsCacheForTests(): void {
 }
 
 /**
+ * Test-only: seed the read cache with a hypothetical value so
+ * getProgramLevelSetting returns it WITHOUT touching Firestore — lets a
+ * verification script run the real generator against proposed-but-not-yet-
+ * written settings. Mirrors __clearPlsCacheForTests' existing precedent for
+ * test-only cache access; same TTL/enabled gating as a real read.
+ */
+export function __seedPlsCacheForTests(programId: string, levelNumber: number, value: ProgramLevelSettings | null): void {
+  plsCacheSet(generateSettingsId(programId, levelNumber), value);
+}
+
+/**
  * Strip undefined values from an object before writing to Firestore.
  * Firebase throws if any field value is `undefined`.
  */
