@@ -49,7 +49,8 @@
  */
 import type { Firestore } from 'firebase-admin/firestore';
 import { UNIT_SCOPE_UNKNOWN_MESSAGE, type UnitPermissionScope } from '@/lib/unitPermissionScope';
-import { computeBrigadeDashboard } from './readiness-dashboard.service';
+import { computeBrigadeDashboard, type DashboardComponentBreakdown, type DashboardUnitStatusBreakdown } from './readiness-dashboard.service';
+import { computeReadinessAppActivity } from './readiness-app-activity.service';
 
 const DENIED_MESSAGE = 'אין לך הרשאה לצפות בתצוגה זו.';
 
@@ -61,12 +62,29 @@ export interface VerticalBrigadeRow {
   tenantName: string;
   totalCount: number;
   passCount: number;
+  /** 06.10.2026 (command-screen round) — added alongside passCount so a brigade card can render the full 3-segment bar (כשיר/לא כשיר/טרם נבדק), the same breakdown DashboardOverallBreakdown/DashboardUnitStatusBreakdown already carry at the brigade/unit level. */
+  failCount: number;
+  notPerformedCount: number;
+  notYetTestedCount: number;
+  testedCount: number;
   /** null exactly when testedCount is 0 — "not yet tested," never a fabricated 0%. Same meaning as DashboardOverallBreakdown.passPercent. */
   passPercent: number | null;
   /** totalCount > 0 — false means this brigade has never entered a single soldier. Distinct from passPercent===null (which can also happen WITH soldiers, zero of them tested). */
   hasData: boolean;
   /** 06.10.2026 — same field every other brigade-icon consumer in this codebase already reads (units/page.tsx's own org cards); null for the ~58% of brigades with no real icon, same as everywhere else — UnitIconBadge's hash-derived fallback handles that, not a gap introduced here. */
   logoUrl: string | null;
+  /**
+   * 06.10.2026 (command-screen round) — this brigade's training-derived
+   * overall (readiness-training-status.service.ts via
+   * computeBrigadeDashboard, never recomputed here), and its per-component
+   * breakdown (ריצה/מתח/מקבילים), reused verbatim from computeBrigadeDashboard
+   * — not duplicated, not recalculated.
+   */
+  trainingOverall: DashboardUnitStatusBreakdown;
+  components: DashboardComponentBreakdown[];
+  nearThresholdCount: number;
+  /** From computeReadinessAppActivity, same synthetic-tenantOwner-scope reuse as the dashboard numbers above — not a second calculation of anything dashboard-related, a genuinely separate metric (app-engagement, not readiness status). */
+  appActivity: { totalCount: number; linkedCount: number; activeCount: number; activePercent: number | null };
 }
 
 export type VerticalOverviewResult =
@@ -147,25 +165,51 @@ export async function computeReadinessVerticalOverview(
   // is "I already proved I may read this one tenant's numbers, now let
   // me read them" using the exact function every real tenantOwner's own
   // dashboard uses, not a bypass of anything.
+  // 06.10.2026 (command-screen round) — 49 brigades is not 49 serial
+  // round-trips: every brigade's two reads (dashboard + app-activity) are
+  // fired together, and all 49 brigades run concurrently via the outer
+  // Promise.all — one wide fan-out, not a chain. Each individual call is
+  // already scoped to a single tenantId (a handful of `where('tenantId',
+  // '==', id)` reads), so total load is ~49× that handful, all in flight
+  // at once, never 49 sequential round-trips.
+  const EMPTY_BREAKDOWN: DashboardUnitStatusBreakdown = { passCount: 0, failCount: 0, notPerformedCount: 0, notYetTestedCount: 0, testedCount: 0, passPercent: null };
   const rows = await Promise.all(
     militaryAuthorities.map(async ({ id, name, logoUrl }): Promise<VerticalBrigadeRow> => {
-      const result = await computeBrigadeDashboard(db, { kind: 'tenantOwner', tenantId: id }, {});
-      if (result.status !== 200) {
+      const [dashboardResult, appActivityResult] = await Promise.all([
+        computeBrigadeDashboard(db, { kind: 'tenantOwner', tenantId: id }, {}),
+        computeReadinessAppActivity(db, { kind: 'tenantOwner', tenantId: id }, {}),
+      ]);
+      const appActivity = appActivityResult.status === 200
+        ? { totalCount: appActivityResult.body.totalCount, linkedCount: appActivityResult.body.linkedCount, activeCount: appActivityResult.body.activeCount, activePercent: appActivityResult.body.activePercent }
+        : { totalCount: 0, linkedCount: 0, activeCount: 0, activePercent: null };
+      if (dashboardResult.status !== 200) {
         // computeBrigadeDashboard only returns non-200 for 'unknown'/'denied'
         // scope kinds or a missing tenantId — none of which apply to the
         // synthetic tenantOwner scope constructed above. Treated as "no
         // data yet" rather than silently dropping the row.
-        return { tenantId: id, tenantName: name, totalCount: 0, passCount: 0, passPercent: null, hasData: false, logoUrl };
+        return {
+          tenantId: id, tenantName: name, totalCount: 0, passCount: 0, failCount: 0, notPerformedCount: 0,
+          notYetTestedCount: 0, testedCount: 0, passPercent: null, hasData: false, logoUrl,
+          trainingOverall: EMPTY_BREAKDOWN, components: [], nearThresholdCount: 0, appActivity,
+        };
       }
-      const { overall } = result.body;
+      const { overall, trainingOverall, components, nearThresholdCount } = dashboardResult.body;
       return {
         tenantId: id,
         tenantName: name,
         totalCount: overall.totalCount,
         passCount: overall.passCount,
+        failCount: overall.failCount,
+        notPerformedCount: overall.notPerformedCount,
+        notYetTestedCount: overall.notYetTestedCount,
+        testedCount: overall.testedCount,
         passPercent: overall.passPercent,
         hasData: overall.totalCount > 0,
         logoUrl,
+        trainingOverall,
+        components,
+        nearThresholdCount,
+        appActivity,
       };
     }),
   );
