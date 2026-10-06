@@ -68,10 +68,21 @@ export const dynamic = 'force-dynamic';
  * Not done yet (by design, see the approved wave plan):
  * - /admin/statistics and /admin/analytics are NOT retired or redirected
  *   — both stay live until this hub covers what they show today.
- * - The full funnel (stages 5-6, the marketing-link/medium picker)
- *   stays on /admin/analytics; only stages 1-4 are relocated here.
+ * - The full funnel's revenue stage + the marketing-link/medium picker
+ *   stay on /admin/analytics only.
  * - "Core users" (if distinct from MAU) has no agreed definition yet —
  *   deliberately not guessed at; deferred until David defines it.
+ *
+ * Next panel wave (06.10.2026) — Acquisition's funnel chart now shows
+ * all 5 real stages (registered → onboarding-mid → onboarding-complete
+ * → first workout → 3 workouts), not just the first 3. The activation/
+ * retention counts were already correct (BUG 1's fix, #155) — this is
+ * purely a display change (`acquisitionStages`' filter below), not a
+ * new computation. The Activation tab keeps its own standalone
+ * first-workout `FunnelStageCard` alongside this — that one stays
+ * focused on activation-specific deep-dive metrics (time-to-first-
+ * workout, activation-by-source), while the Acquisition chart shows
+ * the whole journey's drop-off shape in one place.
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -375,7 +386,10 @@ export default function JourneyHubPage() {
   }
 
   // ── Wave 1 derived values ────────────────────────────────────────────
-  const acquisitionStages = funnelStages.filter((s) => ['registered', 'midpoint', 'completed'].includes(s.id));
+  // Next panel wave (06.10.2026): extended from 3 stages to all 5 real
+  // ones (excludes only 'revenue', the no-data placeholder) — see the
+  // file header comment above.
+  const acquisitionStages = funnelStages.filter((s) => s.id !== 'revenue');
   const activationStage = funnelStages.find((s) => s.id === 'activation') ?? null;
   const registeredCount = funnelStages.find((s) => s.id === 'registered')?.count ?? null;
   const organicCount = registeredCount != null && attributedCount != null ? Math.max(0, registeredCount - attributedCount) : null;
@@ -437,8 +451,8 @@ export default function JourneyHubPage() {
           <FunnelStagesSection
             stages={acquisitionStages}
             loading={funnelLoading}
-            title="משפך הרשמה ואונבורדינג"
-            subtitle="נרשמו במערכת ← אמצע אונבורדינג ← סיימו אונבורדינג"
+            title="משפך הרשמה עד שימור"
+            subtitle="נרשמו במערכת ← אמצע אונבורדינג ← סיימו אונבורדינג ← אימון ראשון ← 3 אימונים"
           />
 
           <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
