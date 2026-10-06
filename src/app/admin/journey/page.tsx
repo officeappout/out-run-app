@@ -52,13 +52,26 @@ export const dynamic = 'force-dynamic';
  * - Retention: the stickiness card is now an actual visual meter
  *   against the documented target bands, not a text label.
  *
+ * Journey Hub Wave 3 (05.10.2026, same approved wave plan) — the 3
+ * "defer-until-scale" Retention elements, via a new dedicated route
+ * (`/api/admin/retention-depth` — see its own header for why a new
+ * route rather than a 3rd concern crammed into growth-metrics):
+ * - Cohort retention curve (`CohortRetentionChart`) — real weekly
+ *   signup cohorts, day 0/1/3/7/14/30, gated per-cohort behind a
+ *   minimum sample size with an explicit empty state, not a fake
+ *   stubbed curve.
+ * - D7 retention + resurrected/reactivated users — same real-query-
+ *   behind-a-threshold discipline, plain stat cards.
+ * Deliberately NOT filtered by the Wave 2 segmentation row — these are
+ * new structures, not existing graphs (see the route's own comment).
+ *
  * Not done yet (by design, see the approved wave plan):
  * - /admin/statistics and /admin/analytics are NOT retired or redirected
  *   — both stay live until this hub covers what they show today.
  * - The full funnel (stages 5-6, the marketing-link/medium picker)
  *   stays on /admin/analytics; only stages 1-4 are relocated here.
- * - Cohort retention curve, D7, and resurrected-users are Wave 3 —
- *   deliberately not touched in this wave.
+ * - "Core users" (if distinct from MAU) has no agreed definition yet —
+ *   deliberately not guessed at; deferred until David defines it.
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -143,6 +156,12 @@ import JourneyFilterBar, {
 } from '@/features/admin/components/cpo-dashboard/JourneyFilterBar';
 import NewUsersTrendChart from '@/features/admin/components/cpo-dashboard/NewUsersTrendChart';
 
+// Journey Hub Wave 3 — the 3 defer-until-scale Retention elements, via
+// a new dedicated route (see that route's own header comment).
+import CohortRetentionChart, {
+  type CohortRetentionEntry,
+} from '@/features/admin/components/cpo-dashboard/CohortRetentionChart';
+
 interface GrowthMetricsResponse {
   scope: 'platform' | 'vertical';
   vertical?: string;
@@ -154,6 +173,18 @@ interface GrowthMetricsResponse {
   newUsersTrend: { date: string; newUsers: number }[];
   activationBySource: { source: string; totalUsers: number; activatedUsers: number; activationRate: number | null }[];
   activation: { avgDaysToFirstWorkout: number | null; medianDaysToFirstWorkout: number | null; sampleSize: number };
+}
+
+// Wave 3 — /api/admin/retention-depth's full response shape (see that
+// route's own header comment for the computation + threshold logic).
+interface RetentionDepthResponse {
+  minSampleSize: number;
+  cohortRetention: {
+    cohorts: CohortRetentionEntry[];
+    dayOffsets: readonly number[];
+  };
+  d7Retention: { pct: number | null; sampleSize: number; thresholdMet: boolean };
+  resurrectedUsers: { count: number; eligiblePopulation: number; thresholdMet: boolean };
 }
 
 // Wave 1 — only the two fields this hub actually renders from
@@ -189,6 +220,13 @@ export default function JourneyHubPage() {
 
   const [commitmentSurfaces, setCommitmentSurfaces] = useState<CommitmentSurfacesSummary | null>(null);
   const [commitmentSurfacesDenied, setCommitmentSurfacesDenied] = useState<string | null>(null);
+
+  // Wave 3 — cohort retention curve + D7 + resurrected users. Fetched
+  // once on mount alongside the other static data below (this route
+  // isn't filtered by the Wave 2 segmentation row either — see its own
+  // header comment).
+  const [retentionDepth, setRetentionDepth] = useState<RetentionDepthResponse | null>(null);
+  const [retentionDepthDenied, setRetentionDepthDenied] = useState<string | null>(null);
 
   // Wave 1 — funnel stages 1-4 (client-side, same call /admin/analytics
   // makes), the statistics-summary route (completion rate + city
@@ -247,9 +285,9 @@ export default function JourneyHubPage() {
   }, []);
 
   // Static data (push-funnel-summary, commitment-surfaces-summary,
-  // statistics-summary) — none of the 3 routes behind these accepts the
-  // Wave 2 filter params, so they fetch once on mount, same as before
-  // Wave 2, not re-fetched on every filter tweak.
+  // statistics-summary, retention-depth) — none of these 4 routes
+  // accepts the Wave 2 filter params, so they fetch once on mount, same
+  // as before Wave 2, not re-fetched on every filter tweak.
   const [staticLoading, setStaticLoading] = useState(true);
   useEffect(() => {
     if (authLoading) return;
@@ -257,10 +295,11 @@ export default function JourneyHubPage() {
 
     async function loadStaticData() {
       setStaticLoading(true);
-      const [pushResult, commitmentResult, statisticsResult] = await Promise.all([
+      const [pushResult, commitmentResult, statisticsResult, retentionDepthResult] = await Promise.all([
         adminAuthedFetch<PushFunnelSummaryResponse>('/api/admin/push-funnel-summary'),
         adminAuthedFetch<CommitmentSurfacesSummary>('/api/admin/commitment-surfaces-summary'),
         adminAuthedFetch<StatisticsSummaryResponse>('/api/admin/statistics-summary'),
+        adminAuthedFetch<RetentionDepthResponse>('/api/admin/retention-depth'),
       ]);
       if (cancelled) return;
 
@@ -272,6 +311,9 @@ export default function JourneyHubPage() {
 
       if (statisticsResult.ok) { setStatisticsSummary(statisticsResult.data); setStatisticsDenied(null); }
       else { setStatisticsSummary(null); setStatisticsDenied(statisticsResult.message); }
+
+      if (retentionDepthResult.ok) { setRetentionDepth(retentionDepthResult.data); setRetentionDepthDenied(null); }
+      else { setRetentionDepth(null); setRetentionDepthDenied(retentionDepthResult.message); }
 
       setStaticLoading(false);
     }
@@ -527,7 +569,10 @@ export default function JourneyHubPage() {
           chart, and the push funnel all moved here from Activation
           (tabs IA cleanup, 05.10.2026) — these are engagement signals by
           definition, matching the tab's own name. Economy-by-authority
-          was removed entirely (Item 2), not moved — see the file header. */}
+          was removed entirely (Item 2), not moved — see the file header.
+          Wave 3 added the cohort curve + D7 + resurrected-users block
+          below — each gated behind its own real sample-size threshold,
+          see retention-depth/route.ts. */}
       {activeTab === 'retention' && (
         <div className="space-y-6">
           <StickinessRow data={growthMetrics?.northStar ?? null} loading={dataLoading} />
@@ -537,6 +582,59 @@ export default function JourneyHubPage() {
             markers={growthMetrics?.pushCampaignMarkers ?? []}
             loading={dataLoading}
           />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
+              <p className="text-xs md:text-sm text-gray-500 mb-1">שימור D7</p>
+              {staticLoading ? (
+                <div className="h-8 bg-gray-200 rounded w-16 animate-pulse" />
+              ) : !retentionDepth?.d7Retention.thresholdMet ? (
+                <>
+                  <p className="text-lg font-black text-gray-400">אין מספיק נתונים עדיין</p>
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    מדגם נוכחי: {retentionDepth?.d7Retention.sampleSize ?? 0} (דרושים {retentionDepth?.minSampleSize ?? '—'}+) · ממלא את עצמו אוטומטית
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-2xl md:text-3xl font-black text-gray-900">{retentionDepth.d7Retention.pct}%</p>
+                  <p className="text-[11px] text-gray-400 mt-1">מדגם: {retentionDepth.d7Retention.sampleSize}</p>
+                </>
+              )}
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
+              <p className="text-xs md:text-sm text-gray-500 mb-1">משתמשים מוחזרים (30 יום)</p>
+              {staticLoading ? (
+                <div className="h-8 bg-gray-200 rounded w-16 animate-pulse" />
+              ) : !retentionDepth?.resurrectedUsers.thresholdMet ? (
+                <>
+                  <p className="text-lg font-black text-gray-400">אין מספיק נתונים עדיין</p>
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    אוכלוסייה רלוונטית: {retentionDepth?.resurrectedUsers.eligiblePopulation ?? 0} (דרושים {retentionDepth?.minSampleSize ?? '—'}+) · ממלא את עצמו אוטומטית
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-2xl md:text-3xl font-black text-gray-900">{retentionDepth.resurrectedUsers.count.toLocaleString('he-IL')}</p>
+                  <p className="text-[11px] text-gray-400 mt-1">מתוך {retentionDepth.resurrectedUsers.eligiblePopulation} רלוונטיים</p>
+                </>
+              )}
+            </div>
+          </div>
+
+          <CohortRetentionChart
+            cohorts={retentionDepth?.cohortRetention.cohorts ?? []}
+            dayOffsets={retentionDepth?.cohortRetention.dayOffsets ?? []}
+            minSampleSize={retentionDepth?.minSampleSize ?? 50}
+            loading={staticLoading}
+          />
+          {retentionDepthDenied && !staticLoading && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+              <AlertCircle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-800">{retentionDepthDenied}</p>
+            </div>
+          )}
+
           <PushFunnelSection data={pushFunnel} loading={staticLoading} denied={pushFunnelDenied} />
           <CommitmentSurfacesSection data={commitmentSurfaces} loading={staticLoading} denied={commitmentSurfacesDenied} />
         </div>
