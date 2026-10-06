@@ -27,6 +27,7 @@ import { List, Map as MapIcon, Loader2, Search, Building2 } from 'lucide-react';
 import ApprovalDetailModal, { type ApprovalDetailItem } from '@/features/admin/components/approval/ApprovalDetailModal';
 import { SHAPE_TYPE_LABEL, SHAPE_TYPE_ICON } from '@/features/admin/components/routes/shape-review-chips';
 import { normalizeStoredRoutePath } from '@/features/parks/core/utils/routePath';
+import { classifyRouteGenerator, ROUTE_GENERATOR_LABELS, type RouteGenerator } from '@/lib/route-collections';
 import type { ReviewMapRoute, ReviewDecision } from '@/features/admin/components/routes/RouteShapeReviewMap';
 
 const RouteShapeReviewMap = dynamicImport(() => import('@/features/admin/components/routes/RouteShapeReviewMap'), {
@@ -44,6 +45,11 @@ interface RouteRow {
   suggestedReasonChips: string[] | undefined;
   shapeTrainingReview: { decision: ReviewDecision; reasonChips: string[]; reasonFreeText: string | null } | null;
   path: [number, number][];
+  // Prefers the persisted field (every route written after 06.10.2026); falls
+  // back to classifyRouteGenerator for every older route that predates it —
+  // same classifier geo-discovery-routes.ts now writes at creation time, so
+  // this screen and that write path never disagree on how to derive it.
+  generator: RouteGenerator;
 }
 
 const DECISION_BADGE: Record<string, { label: string; className: string }> = {
@@ -102,6 +108,7 @@ export default function RouteShapeReviewPage() {
           suggestedReasonChips: d.suggestedReasonChips,
           shapeTrainingReview: d.shapeTrainingReview ?? null,
           path: normalizeStoredRoutePath(d.path),
+          generator: d.generator ?? classifyRouteGenerator({ sourceExternalId: d.source?.externalId, activityType: d.activityType, name: d.name }),
         });
       }
       // Priority (the 7) first, then everyone else — same list order feeds both views.
@@ -197,6 +204,9 @@ export default function RouteShapeReviewPage() {
                 <p className="font-bold text-gray-900 text-sm truncate">{r.name}</p>
                 <p className="text-xs text-gray-400">{r.city} · {SHAPE_TYPE_LABEL[r.shapeType ?? ''] ?? 'לא מסווג'}</p>
               </div>
+              <span className="text-[10px] font-bold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full flex-shrink-0 hidden sm:inline">
+                {ROUTE_GENERATOR_LABELS[r.generator]}
+              </span>
               {r.geometryMetrics?.compactness && (
                 <span className="text-[10px] font-mono text-gray-400 flex-shrink-0 hidden sm:inline">
                   PP={r.geometryMetrics.compactness.polsbyPopper} R={r.geometryMetrics.compactness.reock} CH={r.geometryMetrics.compactness.convexHullRatio}

@@ -15,3 +15,8 @@ export {
   mapOsmSurfaceToType,
   type SurfaceType,
 } from './surface-type';
+export {
+  ROUTE_GENERATOR_LABELS,
+  classifyRouteGenerator,
+  type RouteGenerator,
+} from './route-generator';

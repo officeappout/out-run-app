@@ -107,6 +107,7 @@
 import * as dotenv from 'dotenv'; dotenv.config({ path: '.env.local' }); dotenv.config();
 import * as zlib from 'zlib'; import * as https from 'https'; import * as admin from 'firebase-admin';
 import { mapOsmSurfaceToType } from '../src/lib/route-collections/surface-type';
+import { classifyRouteGenerator } from '../src/lib/route-collections/route-generator';
 import { fetchCityWayGrid, type CityWayGrid } from './lib/route-quality-osm-fetch.node';
 import { computeRouteComposition, type WayCategory } from './lib/route-composition-classify';
 import { computeRouteLighting } from './lib/route-lighting-street-segments.node';
@@ -1772,6 +1773,14 @@ function buildRouteDoc(
     // Top-level, not nested under `source` (see RouteFieldsSchema.sourceWayIds's
     // doc comment — `source` itself isn't schema-validated as a nested object).
     ...(c.sourceWayIds ? { sourceWayIds: c.sourceWayIds } : {}),
+    // Which of the 5 generators produced this candidate (06.10.2026) — c.kind
+    // alone can't say (round-trip and standalone-loop candidates both set
+    // kind:'loop'), so this is derived from the exact same externalId-prefix
+    // classifier the shape-review chip reads for every OLDER route that
+    // predates this field — see classifyRouteGenerator's own header comment.
+    // Purely additive: does not touch source/origin, which real reader code
+    // already depends on.
+    generator: classifyRouteGenerator({ sourceExternalId: c.externalId, activityType, name }),
     elevationGain: gain,
     maxGrade: dem?.maxGrade ?? 0,
     // Granular ground-material vocabulary — deliberately a NEW top-level
