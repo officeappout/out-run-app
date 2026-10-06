@@ -42,6 +42,7 @@ const FIRESTORE_HOST = '127.0.0.1:8080';
 const TENANT_MIL_1 = 'emu-vert-mil-1'; // has real data
 const TENANT_MIL_2 = 'emu-vert-mil-2'; // zero soldiers — "hasData: false"
 const TENANT_SCHOOL = 'emu-vert-school-1'; // deliberately included in the hand-built scope below, to prove the defensive re-filter works
+const TENANT_MUNICIPAL = 'emu-vert-municipal-1'; // a REAL city authority, NEVER in VERTICAL_SCOPE's authorityIds — 06.10.2026 drill-down check
 const UNIT_ID = 'emu-vert-unit';
 
 let app: App;
@@ -72,6 +73,7 @@ async function seedAuthoritiesAndThresholds(): Promise<void> {
   batch.set(db.collection('authorities').doc(TENANT_MIL_1), { name: 'חטיבה א', type: 'military_unit' });
   batch.set(db.collection('authorities').doc(TENANT_MIL_2), { name: 'חטיבה ב', type: 'military_unit' });
   batch.set(db.collection('authorities').doc(TENANT_SCHOOL), { name: 'בית ספר', type: 'school' });
+  batch.set(db.collection('authorities').doc(TENANT_MUNICIPAL), { name: 'עיר', type: 'city' });
   batch.set(db.collection('readiness_thresholds').doc('global'), THRESHOLDS_CONFIG);
   await batch.commit();
 }
@@ -179,6 +181,11 @@ describe('computeBrigadeDashboard — the new validated vertical branch (click-t
     const narrowScope: UnitPermissionScope = { kind: 'vertical', vertical: 'military', authorityIds: [TENANT_MIL_1] };
     const result = await computeBrigadeDashboard(db, narrowScope, { tenantId: OUTSIDE_TENANT });
     expect(result.status).toBe(403);
+  });
+
+  it('06.10.2026 — a chief fitness officer requesting a REAL municipal tenant\'s dashboard is DENIED, not just "absent from the list" — /admin/dashboard is a shared page across every vertical, and this is the real cross-vertical leak path that matters', async () => {
+    const result = await computeBrigadeDashboard(db, VERTICAL_SCOPE, { tenantId: TENANT_MUNICIPAL });
+    expect(result.status).toBe(403); // TENANT_MUNICIPAL is a real, existing authority — just never in scope.authorityIds (military-only, by resolveUnitPermissionScope's own tenantTypeOf filter)
   });
 
   it('regression: a regular brigade tenantOwner requesting ANOTHER brigade\'s tenantId still only ever gets their OWN brigade\'s data', async () => {

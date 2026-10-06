@@ -15,6 +15,9 @@
  *   persona-audience — community_groups_reserve top-level collection, gated by
  *                      get() on the requester's own military_declarations doc
  *                      ("צו כושר" fitness-meetup groups, Phase 07.09.2026)
+ *   readiness-chief-officer-lockdown — core.isReadinessChiefOfficer
+ *                      admin-only self-grant fix ("chief fitness officer"
+ *                      cross-brigade readiness role, 06.10.2026)
  *
  * Run: `firebase emulators:start --only firestore,auth` in one terminal,
  * `npm test` in another. Every case below fails immediately if the emulator
@@ -604,6 +607,50 @@ async function testTenantUnitLockdown() {
     const ctx = env.authenticatedContext('new_normal_user');
     await assertSucceeds(setDoc(doc(ctx.firestore(), 'users', 'new_normal_user'), {
       core: { name: 'Normal' },
+    }));
+  });
+}
+
+// 06.10.2026 ("chief fitness officer") — the self-grant hole this field
+// was added to noAdminFieldsChanged()/the create-path check specifically
+// to close: without it, ANY authenticated user could set
+// core.isReadinessChiefOfficer=true on their own doc via the client SDK
+// and get cross-brigade readiness access (resolveUnitPermissionScope
+// reads via the Admin SDK, which bypasses rules — so this field is the
+// ONLY gate standing between a plain user and that grant). Mirrors
+// testTenantUnitLockdown's T1/T4 shape exactly (update-path + create-path,
+// same no_tenant_user fixture for the update case — it already has no
+// core.isReadinessChiefOfficer field at all, a clean non-admin baseline).
+async function testReadinessChiefOfficerLockdown() {
+  console.log('\nreadiness-chief-officer-lockdown — core.isReadinessChiefOfficer self-grant fix (06.10.2026)');
+
+  // RCO1 — a real, existing non-admin user self-grants on UPDATE → DENY.
+  await it('RCO1 — non-admin self-grants core.isReadinessChiefOfficer via updateDoc → DENY (was the open self-grant hole before this field was added to the blocklist)', async () => {
+    const ctx = env.authenticatedContext('no_tenant_user');
+    await assertFails(updateDoc(doc(ctx.firestore(), 'users', 'no_tenant_user'), {
+      'core.isReadinessChiefOfficer': true,
+    }));
+  });
+
+  // RCO2 — a brand-new user bakes the grant into their very first doc
+  // write (CREATE), never an update at all → DENY. The create-path check
+  // had a separate, independent guard added for this same reason as
+  // tenant-unit's own T4 — a create-time bypass is not covered by the
+  // update-path blocklist.
+  await it('RCO2 — a brand-new user self-grants core.isReadinessChiefOfficer at doc CREATION → DENY', async () => {
+    const ctx = env.authenticatedContext('rco_self_assigning_user');
+    await assertFails(setDoc(doc(ctx.firestore(), 'users', 'rco_self_assigning_user'), {
+      core: { name: 'Sneaky RCO', isReadinessChiefOfficer: true },
+    }));
+  });
+
+  // RCO3 — admin still can (invitation-acceptance's real write shape,
+  // Admin SDK bypasses rules anyway, but confirms this fix didn't
+  // accidentally lock out the real grant path for an in-rules admin too).
+  await it('RCO3 — an OUT admin sets core.isReadinessChiefOfficer on someone else\'s doc → ALLOW', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(updateDoc(doc(ctx.firestore(), 'users', 'no_tenant_user'), {
+      'core.isReadinessChiefOfficer': true,
     }));
   });
 }
@@ -2428,6 +2475,7 @@ describe('Firestore Rules — Cumulative Integration Test Suite', () => {
   vitestIt('activity — dailyActivity + streaks (auth-timing invariant)', wrapSuite(testActivityRules));
   vitestIt('dailyActivityPublic (SPEC-03 Wave A / SEC-02)', wrapSuite(testDailyActivityPublic));
   vitestIt('tenant-unit-lockdown', wrapSuite(testTenantUnitLockdown));
+  vitestIt('readiness-chief-officer-lockdown (06.10.2026)', wrapSuite(testReadinessChiefOfficerLockdown));
   vitestIt('military-declarations lockdown', wrapSuite(testMilitaryDeclarationLockdown));
   vitestIt('unitDirectory', wrapSuite(testUnitDirectory));
   vitestIt('unit-league-aggregates', wrapSuite(testUnitLeagueAggregates));
