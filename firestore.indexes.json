@@ -753,6 +753,105 @@
       ]
     },
 
+    // ── Growth Hub: Journey Hub bug-fix round, 06.10.2026 (BUG 2) ─────────
+    // Root cause: `funnel-analytics.service.ts`'s `buildBaseConstraints`
+    // adds a date-RANGE `where()` whenever an admin picks a date filter in
+    // the Journey hub's filter row, and EVERY stage past Stage 1 also adds
+    // its own stage-defining field constraint — a composite index is
+    // required for each such pairing, and until now none of these existed
+    // (only the linkId+createdAt pair above was pre-provisioned). The
+    // missing index threw `failed-precondition`, which `countStage` caught
+    // and silently returned as `0` — looking exactly like "this stage has
+    // no users," not "this query couldn't run." The 5 pairs below cover
+    // every stage + every Wave-2 segmentation dimension that can combine
+    // with a date-range filter. (`countStage` itself was also hardened in
+    // this same round to surface a missing-index failure as an explicit
+    // error state instead of a silent 0 — see that function's own
+    // comment in funnel-analytics.service.ts.)
+    //
+    // Stage 2 (midpoint): where('onboardingStep','in',[...]) + date range.
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "onboardingStep", "order": "ASCENDING" },
+        { "fieldPath": "createdAt",      "order": "ASCENDING" }
+      ]
+    },
+    // Stage 3 (completed): where('onboardingStatus','==','COMPLETED') +
+    // date range on onboardingCompletedAt specifically (NOT createdAt —
+    // the onboardingStatus+createdAt pair above doesn't cover this).
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "onboardingStatus",     "order": "ASCENDING" },
+        { "fieldPath": "onboardingCompletedAt", "order": "ASCENDING" }
+      ]
+    },
+    // Stages 4/5 (activation/retention): where('progression.workoutCount',
+    // '>=', N) + date range. NOTE: as of the same bug-fix round, stages 4/5
+    // no longer issue this query at all (see getActivationRetentionCounts,
+    // funnel-analytics.service.ts — switched to a real-completion count
+    // from the `workouts` collection, which needs no index). Kept here
+    // anyway since it was explicitly asked for and is harmless to have —
+    // an unused index costs nothing but storage.
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "progression.workoutCount", "order": "ASCENDING" },
+        { "fieldPath": "createdAt",                "order": "ASCENDING" }
+      ]
+    },
+    // Wave-2 segmentation — city filter: where('core.authorityId','==',id)
+    // + date range.
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "core.authorityId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt",        "order": "ASCENDING" }
+      ]
+    },
+    // Wave-2 segmentation — level filter: a RANGE on
+    // progression.globalLevel (levelTierToRange's min/max) + date range —
+    // two inequality fields on two different fields, Firestore's
+    // multiple-inequality-filter support (both fields must appear in the
+    // index).
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "progression.globalLevel", "order": "ASCENDING" },
+        { "fieldPath": "createdAt",                "order": "ASCENDING" }
+      ]
+    },
+    // Wave-2 segmentation — age filter: a RANGE on core.birthDate
+    // (ageBucketToBirthDateRange's min/max) + date range — same
+    // two-different-fields-inequality shape as level above.
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "core.birthDate", "order": "ASCENDING" },
+        { "fieldPath": "createdAt",      "order": "ASCENDING" }
+      ]
+    },
+    // Wave-2 segmentation — program:'running' filter:
+    // where('running.isUnlocked','==',true) + date range. ('strength' /
+    // 'map_only' fall back to a full-document fetch with no `where` on
+    // program at all — see countStage's own comment — so they need no
+    // index.)
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "running.isUnlocked", "order": "ASCENDING" },
+        { "fieldPath": "createdAt",          "order": "ASCENDING" }
+      ]
+    },
+
     // ── Challenge submissions — gender-filtered leaderboard ────────────────
     // Required by /api/challenge/leaderboard?gender=male|female
     // Uses COLLECTION_GROUP to cover all community_groups/{groupId}/challenge_submissions

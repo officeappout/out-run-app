@@ -206,6 +206,26 @@ interface FunnelStageCardProps {
 export const FunnelStageCard: React.FC<FunnelStageCardProps> = ({ stage, loading }) => {
   const fill = STAGE_FILL[stage.id];
   const isWarn = stage.isDropWarning;
+
+  // Bug-fix round, 06.10.2026 (BUG 2) — a stage whose query actually
+  // FAILED (e.g. a missing composite index) must never look like a
+  // confident "0 users." Checked before every other branch below.
+  if (stage.isUnavailable) {
+    return (
+      <div className="shrink-0 min-w-[180px] rounded-2xl p-4 border-2 border-amber-300 bg-amber-50 shadow-sm">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: fill }} />
+          <span className="text-xs font-bold text-slate-600">{stage.labelHe}</span>
+        </div>
+        <div className="text-lg font-black text-amber-700 flex items-center gap-1">
+          <AlertTriangle size={16} />
+          לא זמין
+        </div>
+        <p className="mt-1 text-[11px] text-amber-600">שגיאת שליפה — ראו קונסול</p>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`shrink-0 min-w-[180px] rounded-2xl p-4 border-2 shadow-sm transition-shadow ${
@@ -245,8 +265,10 @@ interface ConversionRowProps {
 const ConversionRow: React.FC<ConversionRowProps> = ({ stage }) => {
   const fill = STAGE_FILL[stage.id];
   const isPlaceholder = stage.count == null;
+  // Bug-fix round, 06.10.2026 (BUG 2) — see FunnelStageCard's own comment.
+  const isUnavailable = !!stage.isUnavailable;
   return (
-    <tr className={isPlaceholder ? 'bg-slate-50/50' : 'hover:bg-slate-50/60 transition-colors'}>
+    <tr className={isUnavailable ? 'bg-amber-50/60' : isPlaceholder ? 'bg-slate-50/50' : 'hover:bg-slate-50/60 transition-colors'}>
       {/* Stage name */}
       <td className="px-6 py-4">
         <div className="flex items-center gap-2.5">
@@ -259,8 +281,10 @@ const ConversionRow: React.FC<ConversionRowProps> = ({ stage }) => {
 
       {/* Count */}
       <td className="px-6 py-4">
-        <span className={`text-sm font-bold tabular-nums ${isPlaceholder ? 'text-slate-400' : 'text-slate-800'}`}>
-          {isPlaceholder ? 'ממתין לנתונים' : fmtCount(stage.count)}
+        <span className={`text-sm font-bold tabular-nums ${
+          isUnavailable ? 'text-amber-700' : isPlaceholder ? 'text-slate-400' : 'text-slate-800'
+        }`}>
+          {isUnavailable ? 'לא זמין' : isPlaceholder ? 'ממתין לנתונים' : fmtCount(stage.count)}
         </span>
       </td>
 
@@ -276,7 +300,7 @@ const ConversionRow: React.FC<ConversionRowProps> = ({ stage }) => {
 
       {/* Status badge */}
       <td className="px-6 py-4">
-        <StatusBadge stepConversion={stage.stepConversion} isPlaceholder={isPlaceholder} />
+        <StatusBadge stepConversion={stage.stepConversion} isPlaceholder={isPlaceholder} isUnavailable={isUnavailable} />
       </td>
     </tr>
   );
@@ -320,13 +344,25 @@ const ProgressBar: React.FC<ProgressBarProps> = ({ percent, fill, emphasizeWarni
 /**
  * Status pill — green / amber / red based on step conversion.
  * The placeholder revenue stage gets a calm gray "ממתין לנתונים" badge.
+ * A genuinely failed stage (bug-fix round, 06.10.2026 — BUG 2) gets its
+ * own distinct amber "שגיאת שליפה" badge — checked first, since it must
+ * never be confused with either the placeholder or a real conversion %.
  */
 interface StatusBadgeProps {
   stepConversion: number | null;
   isPlaceholder: boolean;
+  isUnavailable?: boolean;
 }
 
-const StatusBadge: React.FC<StatusBadgeProps> = ({ stepConversion, isPlaceholder }) => {
+const StatusBadge: React.FC<StatusBadgeProps> = ({ stepConversion, isPlaceholder, isUnavailable }) => {
+  if (isUnavailable) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
+        <AlertTriangle size={12} />
+        שגיאת שליפה
+      </span>
+    );
+  }
   if (isPlaceholder) {
     return (
       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-500">

@@ -19,20 +19,31 @@
  *     Firestore returns a count for the exact filtered subset.
  *   • Stage queries run in parallel via `Promise.allSettled` — one
  *     failing stage (e.g. missing composite index) does not poison the
- *     whole funnel render.
+ *     whole funnel render. Failed stages surface as `FunnelStage.
+ *     isUnavailable: true` (bug-fix round, 06.10.2026 — BUG 2; see
+ *     `countStage`'s own comment) — a real failure is never rendered
+ *     as a confident-looking "0 users," which is exactly how a missing
+ *     index silently looked indistinguishable from a real empty stage
+ *     before this fix. Stages 4-5 get the same treatment via
+ *     `getActivationRetentionCounts`'s own `failed` flag.
  *
- * Index prerequisite (stages 1-3 only — see above): composite indexes
- * on `users` for combinations of (createdAt, marketingAttribution.
- * {source|campaign|medium|linkId}, core.gender, onboardingStatus,
- * onboardingCompletedAt). `firestore.indexes.json` pre-provisions the
- * single most common one (linkId + createdAt — "show me one QR code's
- * funnel"); every other combination auto-suggests its own index on
+ * Index prerequisite (stages 1-3 — see the design-contract bullet
+ * above for why 4-5 don't query `users` with an extra field any more):
+ * composite indexes on `users` for combinations of (createdAt,
+ * marketingAttribution.{source|campaign|medium|linkId}, core.gender,
+ * onboardingStatus, onboardingCompletedAt, core.authorityId,
+ * progression.globalLevel, core.birthDate, running.isUnlocked).
+ * `progression.workoutCount` + `createdAt` is ALSO pre-provisioned in
+ * `firestore.indexes.json` for historical completeness, even though no
+ * code here queries that combination any more post-BUG-1-fix — harmless
+ * to keep. `firestore.indexes.json` pre-provisions linkId+createdAt
+ * plus every stage-defining-field / segmentation-dimension pairing
+ * added in the 06.10.2026 bug-fix round (BUG 2 — see that file's own
+ * comments for the full list); any OTHER simultaneous-filter
+ * combination not pre-provisioned still auto-suggests its own index on
  * first failed query — click the console link to provision. A failed
- * stage returns 0 (see `countStage`), so a missing index degrades a
- * dashboard card, it never breaks the page. ⚠️ Known gap, separately
- * tracked (BUG 2, 06.10.2026): this silent-0 behavior is itself under
- * fix in a follow-up PR — a missing index should surface as an
- * explicit error state, not a confident-looking zero.
+ * stage now surfaces as `isUnavailable: true`, not a silent 0 (see
+ * above).
  */
 
 import {
@@ -108,6 +119,17 @@ export interface FunnelStage {
   stepConversion: number | null;
   /** True when `stepConversion < 50` — flags acute leakage points. */
   isDropWarning: boolean;
+  /**
+   * True when this stage's underlying Firestore query threw (e.g. a
+   * missing composite index) — bug-fix round, 06.10.2026 (BUG 2).
+   * `count` is always 0 in this case, but it is NOT a real zero —
+   * UIs must render this distinctly ("לא זמין" / an error treatment),
+   * never as a confident "0 users." Previously `countStage` swallowed
+   * every error into a bare `0`, indistinguishable from a real empty
+   * stage — exactly how a missing index silently looked like "this
+   * stage has no users" instead of "this query couldn't run."
+   */
+  isUnavailable?: boolean;
 }
 
 /**
@@ -222,10 +244,28 @@ function buildBaseConstraints(
 }
 
 /**
- * Resolve a single stage's count. Returns 0 (not null) on failure so the
- * caller can keep computing conversions without special-casing rejected
- * promises. The original error is logged so missing composite indexes /
- * rule failures are still discoverable in DevTools.
+ * A stage count, plus whether the underlying query actually failed.
+ * `count` is always 0 when `failed` is true — but callers must treat
+ * that 0 as "unavailable," never as "really zero." See `FunnelStage.
+ * isUnavailable`'s own doc comment for why this distinction exists.
+ */
+interface StageCountResult {
+  count: number;
+  failed: boolean;
+}
+
+/**
+ * Resolve a single stage's count.
+ *
+ * Bug-fix round, 06.10.2026 (BUG 2): previously returned a bare
+ * `number`, swallowing every error into a plain `0` — indistinguishable
+ * from a real empty stage. A missing composite index (the actual root
+ * cause an admin hit: a 30-day date filter zeroed out every stage past
+ * Stage 1) looked exactly like "this stage really has 0 users." Now
+ * returns `{count, failed}` so the caller (`getFunnelCounts`) can mark
+ * the resulting `FunnelStage.isUnavailable = true` and the UI can
+ * render an explicit "לא זמין" state instead. The original error is
+ * still logged to console either way, for DevTools-level debugging.
  *
  * Journey Hub Wave 2 — `programFilter` 'strength'/'map_only' can't be
  * expressed as a native Firestore constraint: `hasStrengthTrack` reads
@@ -245,22 +285,23 @@ async function countStage(
   constraints: QueryConstraint[],
   stageLabel: string,
   programFilter: FunnelFilters['program'] = null,
-): Promise<number> {
+): Promise<StageCountResult> {
   try {
     const q = query(collection(db, USERS_COLLECTION), ...constraints);
     if (programFilter === 'strength' || programFilter === 'map_only') {
       const snapshot = await getDocs(q);
-      return snapshot.docs.filter((d) => {
+      const count = snapshot.docs.filter((d) => {
         const data = d.data();
         const isStrength = hasStrengthTrack(data);
         return programFilter === 'strength' ? isStrength : !isStrength && !hasRunningTrack(data);
       }).length;
+      return { count, failed: false };
     }
     const snapshot = await getCountFromServer(q);
-    return snapshot.data().count;
+    return { count: snapshot.data().count, failed: false };
   } catch (err) {
-    console.error(`[FunnelAnalytics] Stage "${stageLabel}" count failed:`, err);
-    return 0;
+    console.error(`[FunnelAnalytics] Stage "${stageLabel}" count failed — likely a missing composite index, see the Firestore error below for the console link to provision it:`, err);
+    return { count: 0, failed: true };
   }
 }
 
@@ -294,11 +335,18 @@ function pct(numerator: number, denominator: number): number | null {
  * Firestore-side `workoutCount` constraint means neither stage needs a
  * composite index any more (BUG 2's missing-index problem doesn't
  * apply here at all).
+ *
+ * Returns `failed` (bug-fix round, 06.10.2026 — BUG 2's `countStage`
+ * hardening, extended here to cover these 2 stages too, since they
+ * stopped going through `countStage` once BUG 1's fix landed): true
+ * when the eligible-user query OR the `workouts` read threw. `activation`/
+ * `retention` are always 0 in that case but, same as every other
+ * stage, that 0 is NOT a real zero — see `FunnelStage.isUnavailable`.
  */
 async function getActivationRetentionCounts(
   eligibleConstraints: QueryConstraint[],
   programFilter: FunnelFilters['program'],
-): Promise<{ activation: number; retention: number }> {
+): Promise<{ activation: number; retention: number; failed: boolean }> {
   try {
     const eligibleSnap = await getDocs(query(collection(db, USERS_COLLECTION), ...eligibleConstraints));
     let eligibleDocs = eligibleSnap.docs;
@@ -328,10 +376,10 @@ async function getActivationRetentionCounts(
       if (count >= 1) activation++;
       if (count >= 3) retention++;
     });
-    return { activation, retention };
+    return { activation, retention, failed: false };
   } catch (err) {
-    console.error('[FunnelAnalytics] Activation/retention count failed:', err);
-    return { activation: 0, retention: 0 };
+    console.error('[FunnelAnalytics] Activation/retention count failed — likely a missing composite index, see the Firestore error below for the console link to provision it:', err);
+    return { activation: 0, retention: 0, failed: true };
   }
 }
 
@@ -376,8 +424,11 @@ export async function getFunnelCounts(
   // `Promise.allSettled` (not `Promise.all`) so a single failed stage
   // doesn't poison the whole dashboard — the caller still gets the
   // other stages and the conversion math continues with 0 for the
-  // failed one. Individual failures are logged inside `countStage` /
-  // `getActivationRetentionCounts`.
+  // failed one. `countStage` / `getActivationRetentionCounts` never
+  // reject (each catches its own errors into its own `failed: true`
+  // result), so `allSettled` is really just defensive-in-depth here,
+  // not the primary failure-reporting mechanism — that's each result's
+  // own `.failed` flag, unpacked below.
   const settled = await Promise.allSettled([
     countStage(stage1Constraints, 'registered', filters.program),
     countStage(stage2Constraints, 'midpoint', filters.program),
@@ -386,12 +437,19 @@ export async function getFunnelCounts(
   ]);
 
   const [registeredResult, midpointResult, completedResult, activationRetentionResult] = settled;
-  const c1 = registeredResult.status === 'fulfilled' ? registeredResult.value : 0;
-  const c2 = midpointResult.status === 'fulfilled' ? midpointResult.value : 0;
-  const c3 = completedResult.status === 'fulfilled' ? completedResult.value : 0;
-  const { activation: c4, retention: c5 } = activationRetentionResult.status === 'fulfilled'
+  const r1 = registeredResult.status === 'fulfilled' ? registeredResult.value : { count: 0, failed: true };
+  const r2 = midpointResult.status === 'fulfilled' ? midpointResult.value : { count: 0, failed: true };
+  const r3 = completedResult.status === 'fulfilled' ? completedResult.value : { count: 0, failed: true };
+  // Stages 4/5 share one underlying query pair (getActivationRetentionCounts),
+  // so they also share one `failed` flag — see r45.failed's 2 uses below.
+  const r45 = activationRetentionResult.status === 'fulfilled'
     ? activationRetentionResult.value
-    : { activation: 0, retention: 0 };
+    : { activation: 0, retention: 0, failed: true };
+  const c1 = r1.count;
+  const c2 = r2.count;
+  const c3 = r3.count;
+  const c4 = r45.activation;
+  const c5 = r45.retention;
 
   // ── Compose the stage entries with conversion math ─────────────────
   //
@@ -402,46 +460,59 @@ export async function getFunnelCounts(
   // Stage 1 is the anchor — its globalConversion is always 100% (when
   // there are users at all) and its stepConversion is null (no
   // predecessor).
+  //
+  // `safePct` additionally forces `null` whenever EITHER side of the
+  // ratio came from a failed stage — `pct()` alone would compute a
+  // misleading "0%" from a failed stage's fake `count:0`, exactly the
+  // "confident-looking wrong number" BUG 2's fix is about eliminating.
+  const safePct = (numeratorCount: number, numeratorFailed: boolean, denomCount: number, denomFailed: boolean): number | null =>
+    (numeratorFailed || denomFailed) ? null : pct(numeratorCount, denomCount);
+
   const stages: FunnelStage[] = [
     {
       id: 'registered',
       labelHe: 'נרשמו במערכת',
       count: c1,
-      globalConversion: c1 > 0 ? 100 : null,
+      globalConversion: r1.failed ? null : (c1 > 0 ? 100 : null),
       stepConversion: null,
       isDropWarning: false,
+      isUnavailable: r1.failed,
     },
     {
       id: 'midpoint',
       labelHe: 'אמצע אונבורדינג',
       count: c2,
-      globalConversion: pct(c2, c1),
-      stepConversion: pct(c2, c1),
-      isDropWarning: isDrop(pct(c2, c1)),
+      globalConversion: safePct(c2, r2.failed, c1, r1.failed),
+      stepConversion: safePct(c2, r2.failed, c1, r1.failed),
+      isDropWarning: isDrop(safePct(c2, r2.failed, c1, r1.failed)),
+      isUnavailable: r2.failed,
     },
     {
       id: 'completed',
       labelHe: 'סיימו אונבורדינג',
       count: c3,
-      globalConversion: pct(c3, c1),
-      stepConversion: pct(c3, c2),
-      isDropWarning: isDrop(pct(c3, c2)),
+      globalConversion: safePct(c3, r3.failed, c1, r1.failed),
+      stepConversion: safePct(c3, r3.failed, c2, r2.failed),
+      isDropWarning: isDrop(safePct(c3, r3.failed, c2, r2.failed)),
+      isUnavailable: r3.failed,
     },
     {
       id: 'activation',
       labelHe: 'הפעלה (אימון ראשון)',
       count: c4,
-      globalConversion: pct(c4, c1),
-      stepConversion: pct(c4, c3),
-      isDropWarning: isDrop(pct(c4, c3)),
+      globalConversion: safePct(c4, r45.failed, c1, r1.failed),
+      stepConversion: safePct(c4, r45.failed, c3, r3.failed),
+      isDropWarning: isDrop(safePct(c4, r45.failed, c3, r3.failed)),
+      isUnavailable: r45.failed,
     },
     {
       id: 'retention',
       labelHe: 'שימור (3 אימונים+)',
       count: c5,
-      globalConversion: pct(c5, c1),
-      stepConversion: pct(c5, c4),
-      isDropWarning: isDrop(pct(c5, c4)),
+      globalConversion: safePct(c5, r45.failed, c1, r1.failed),
+      stepConversion: safePct(c5, r45.failed, c4, r45.failed),
+      isDropWarning: isDrop(safePct(c5, r45.failed, c4, r45.failed)),
+      isUnavailable: r45.failed,
     },
     {
       id: 'revenue',
@@ -477,7 +548,8 @@ export async function getAttributedCount(filters: FunnelFilters): Promise<number
     ...buildBaseConstraints(filters, 'createdAt'),
     where('marketingAttribution.source', '!=', 'organic'),
   ];
-  return countStage(constraints, 'attributed', filters.program);
+  const result = await countStage(constraints, 'attributed', filters.program);
+  return result.count;
 }
 
 /** Centralised drop-warning rule so both service and UI agree. */
