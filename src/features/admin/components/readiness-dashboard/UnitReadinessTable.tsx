@@ -225,6 +225,15 @@ export default function UnitReadinessTable({ units, components, nearThresholdOnl
           <td className="py-2.5 px-3 w-28">
             <UnitStatusBar breakdown={view} totalCount={u.totalCount} />
           </td>
+          {/* 06.10.2026 (David) — "תמונת אימון": distinguishes a unit
+              that's untested-but-training (colored bar below, from
+              training data) from one that's untested-and-not-training
+              (solid grey, same "nobody evaluated" rule UnitStatusBar
+              already applies to the official-test column before this
+              one — same component, just fed u.trainingOverall). */}
+          <td className="py-2.5 px-3 w-28">
+            <UnitStatusBar breakdown={u.trainingOverall} totalCount={u.totalCount} />
+          </td>
           <td className="py-2.5 px-3"><PassPercentCell breakdown={view} /></td>
           <td className="py-2.5 px-3 text-slate-600">{view.testedCount} מתוך {u.totalCount}</td>
           {components.map((c) => {
@@ -274,6 +283,7 @@ export default function UnitReadinessTable({ units, components, nearThresholdOnl
             <th className="text-right py-2 px-3">יחידה</th>
             <th className="text-right py-2 px-3">שייכות</th>
             <th className="text-right py-2 px-3">תמונת מצב</th>
+            <th className="text-right py-2 px-3">תמונת אימון</th>
             <th className="text-right py-2 px-3">כשירות כוללת</th>
             <th className="text-right py-2 px-3">נבדקו</th>
             {components.map((c) => <th key={c.testId} className="text-right py-2 px-3">{c.label}</th>)}

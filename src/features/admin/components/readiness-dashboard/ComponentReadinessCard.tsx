@@ -37,6 +37,18 @@ export default function ComponentReadinessCard({ component }: { component: Dashb
         </>
       )}
 
+      {/* 06.10.2026 (David) — training-derived (app workout data), ALWAYS
+          below the official-test numbers above, never in their place.
+          Counted only among those with a determinable training value —
+          a soldier with none is never counted toward a fail, same
+          principle the official percent above already follows. A dash
+          (never "0%") when nobody has a training value yet. */}
+      <p className="text-xs mt-1" style={{ color: component.trainingPassPercent !== null ? '#2563EB' : '#9CA3AF' }}>
+        {component.trainingPassPercent !== null
+          ? `${component.trainingPassPercent}% באימון (${component.trainingPassCount} מתוך ${component.trainingTestedCount})`
+          : '— באימון'}
+      </p>
+
       {component.testedCount > 0 && (
         <div className="flex h-1.5 rounded-full overflow-hidden bg-gray-100 mt-3">
           <div style={{ width: `${(component.passCount / component.testedCount) * 100}%`, backgroundColor: READINESS_COLORS.pass }} />

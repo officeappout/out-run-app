@@ -111,6 +111,18 @@ export default function UnitDetailSoldiersTable({ soldiers, components, filter, 
                         סף: {formatTestValue(t.thresholdValue, c.unit)}
                       </span>
                     )}
+                    {/* 06.10.2026 (David) — training-derived (app workout
+                        data), ALWAYS below the official-test value+threshold
+                        above, never in their place. A dash (never a false
+                        "0") when there's no training evidence; the gap from
+                        threshold shown only when the training value itself
+                        would currently fail. */}
+                    {t && (
+                      <span className="text-[10px] block" style={{ color: t.trainingValue !== null ? '#2563EB' : '#9CA3AF' }}>
+                        באימון: {t.trainingValue !== null ? formatTestValue(t.trainingValue, c.unit) : '—'}
+                        {t.trainingStatus === 'fail' && t.trainingGapFromThreshold !== null && ` (חסר ${formatTestValue(t.trainingGapFromThreshold, c.unit)})`}
+                      </span>
+                    )}
                   </td>
                 );
               })}

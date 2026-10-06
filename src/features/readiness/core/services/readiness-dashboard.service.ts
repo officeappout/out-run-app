@@ -90,6 +90,14 @@ import {
 } from './readiness-write.service';
 import { reduceOverallStatus, toDate, findCurrentResult } from './readiness-read.service';
 import { computeNearThreshold, type FailedComponentInput } from './readiness-near-threshold';
+// 06.10.2026 — training-derived (app workout data) "meets threshold"
+// indicators, alongside the official-test ones this file already
+// computes. PULL_TEST_ID/PUSH_TEST_ID imported rather than re-declared
+// — this file's own RUN_TEST_ID below is the same value ('run_3000m')
+// and is reused directly, no alias needed.
+import { computeDemonstratedStrengthLevels } from './readiness-strength-level.service';
+import { computeDemonstratedRunLevels } from './readiness-run-level.service';
+import { PULL_TEST_ID, PUSH_TEST_ID, runMeetsStatus, strengthMeetsStatus } from './readiness-training-status.service';
 
 const DENIED_MESSAGE = 'אין לך הרשאה לצפות בלוח זה.';
 
@@ -120,6 +128,20 @@ export interface DashboardComponentBreakdown {
   passPercent: number | null;
   thresholdMale: number | null;
   thresholdFemale: number | null;
+  /**
+   * 06.10.2026 — training-derived (app workout data), NOT the official
+   * test above. Counted ONLY among linked soldiers (uid !== null) with
+   * a determinable training status (pass or fail) — a soldier with no
+   * training evidence in the 30-day window is never counted toward
+   * trainingFailCount, same "never a false failure" principle the
+   * official testedCount above already follows. trainingPassPercent is
+   * null (never 0%) exactly when trainingTestedCount is 0.
+   */
+  trainingPassCount: number;
+  trainingFailCount: number;
+  /** trainingPassCount + trainingFailCount — the denominator, shown alongside the percent exactly like testedCount above. */
+  trainingTestedCount: number;
+  trainingPassPercent: number | null;
 }
 
 /** Same shape as DashboardOverallBreakdown minus totalCount (the unit's totalCount is fixed and lives once on DashboardUnitRow, not duplicated per view). */
@@ -140,7 +162,21 @@ export interface DashboardUnitRow {
   totalCount: number;
   /** One breakdown per filter view — 'all' (every test, all-must-pass), 'run' (run_3000m alone), 'strength' (pullups+dips, all-must-pass). The table's overall-readiness column, status bar, and sort must all read from the SAME active view — never mix views on screen at once. */
   views: Record<DashboardUnitViewKey, DashboardUnitStatusBreakdown>;
-  perComponent: Record<string, { passCount: number; failCount: number; testedCount: number; passPercent: number | null }>;
+  perComponent: Record<string, {
+    passCount: number; failCount: number; testedCount: number; passPercent: number | null;
+    /** 06.10.2026 — same training-derived meaning as DashboardComponentBreakdown's own fields, scoped to this unit's own soldiers only. */
+    trainingPassCount: number; trainingFailCount: number; trainingTestedCount: number; trainingPassPercent: number | null;
+  }>;
+  /**
+   * 06.10.2026 — this unit's own soldiers' training-derived OVERALL
+   * status (run+pull+push, same all-must-pass reduceOverallStatus rule
+   * as `views.all`, just fed training statuses instead of official-test
+   * ones) — the "training picture" column, distinguishing a unit that's
+   * untested-but-training from one that's untested-and-not-training.
+   * Same shape as views.all for a reason: render it with the exact same
+   * status-bar component, fed this field instead.
+   */
+  trainingOverall: DashboardUnitStatusBreakdown;
   /** 04.10.2026 (§13.85) — this unit's OWN soldiers only (never descendants', same "each level counts only its own" rule everything else on this row already follows) who are overall 'fail' AND close on every component they failed. */
   nearThresholdCount: number;
   /** ISO, the most recent testDate among this unit's soldiers' organized_test results. null if none. */
@@ -349,14 +385,39 @@ export async function computeBrigadeDashboard(
 
   const now = new Date();
 
+  // 06.10.2026 — training-derived (app workout data) level/time, for
+  // every LINKED soldier in scope. Fetched ONCE here (not per-soldier
+  // in the loop below) — same "fetch once, group in memory" pattern
+  // every other aggregation in this file already follows. An unlinked
+  // soldier (uid === null) simply never appears in either map below —
+  // looked up as undefined in the main loop, which the training-status
+  // branch there already treats as "no evidence," never a false fail.
+  const linkedUids: string[] = [];
+  for (const doc of soldiersSnap.docs) {
+    const data = doc.data() as Omit<ReadinessSoldier, 'id'>;
+    if (data.mergedInto) continue;
+    if (!inScope(data.unitId)) continue;
+    if (typeof data.uid === 'string') linkedUids.push(data.uid);
+  }
+  const [strengthLevelsByUid, runLevelsByUid] = config && linkedUids.length > 0
+    ? await Promise.all([
+        computeDemonstratedStrengthLevels(db, linkedUids),
+        computeDemonstratedRunLevels(db, linkedUids),
+      ])
+    : [{}, {}];
+
   // Per-unit accumulators, seeded for EVERY real unit in scope (point 3's
   // "never silently hide a zero-data unit" — a unit with no soldiers at
   // all still gets a row, "טרם נבדקה").
   interface UnitAcc {
     totalCount: number;
     perComponent: Record<string, { passCount: number; failCount: number }>;
+    /** 06.10.2026 — training-derived counterpart to perComponent above, same per-testId shape. */
+    trainingPerComponent: Record<string, { passCount: number; failCount: number }>;
     lastTestMs: number | null;
     views: { all: ViewAcc; run: ViewAcc; strength: ViewAcc };
+    /** 06.10.2026 — this unit's own soldiers' training-derived overall (run+pull+push, all-must-pass) — see DashboardUnitRow.trainingOverall's own comment. */
+    trainingOverall: ViewAcc;
     nearThresholdCount: number;
   }
   const unitAcc = new Map<string, UnitAcc>();
@@ -366,11 +427,16 @@ export async function computeBrigadeDashboard(
       acc = {
         totalCount: 0,
         perComponent: {},
+        trainingPerComponent: {},
         lastTestMs: null,
         views: { all: newViewAcc(), run: newViewAcc(), strength: newViewAcc() },
+        trainingOverall: newViewAcc(),
         nearThresholdCount: 0,
       };
-      for (const testId of testIds) acc.perComponent[testId] = { passCount: 0, failCount: 0 };
+      for (const testId of testIds) {
+        acc.perComponent[testId] = { passCount: 0, failCount: 0 };
+        acc.trainingPerComponent[testId] = { passCount: 0, failCount: 0 };
+      }
       unitAcc.set(unitId, acc);
     }
     return acc;
@@ -383,6 +449,9 @@ export async function computeBrigadeDashboard(
 
   const brigadeComponentAcc: Record<string, { passCount: number; failCount: number }> = {};
   for (const testId of testIds) brigadeComponentAcc[testId] = { passCount: 0, failCount: 0 };
+  // 06.10.2026 — training-derived counterpart to brigadeComponentAcc above.
+  const brigadeTrainingComponentAcc: Record<string, { passCount: number; failCount: number }> = {};
+  for (const testId of testIds) brigadeTrainingComponentAcc[testId] = { passCount: 0, failCount: 0 };
 
   let totalCount = 0;
   let passCount = 0;
@@ -426,6 +495,37 @@ export async function computeBrigadeDashboard(
       }
     });
 
+    // 06.10.2026 — training-derived (app workout data) status, parallel
+    // to perTestStatus above. A soldier with no uid (never linked to the
+    // app) or no demonstrated evidence at all simply gets
+    // 'not_yet_tested' for every test here — never counted toward a
+    // fail, same principle the official aggregation above already
+    // follows for its own not_yet_tested bucket.
+    if (config) {
+      const uid = typeof data.uid === 'string' ? data.uid : null;
+      const strengthLevels = uid ? strengthLevelsByUid[uid] : undefined;
+      const runLevel = uid ? runLevelsByUid[uid] : undefined;
+      const trainingPerTestStatus = testIds.map((testId) => {
+        if (testId === RUN_TEST_ID) return runMeetsStatus(runLevel?.normalizedTimeSeconds ?? null, config, data.gender);
+        if (testId === PULL_TEST_ID) return strengthMeetsStatus('pull', strengthLevels?.pull.level ?? null, strengthLevels?.pull.reps ?? null, config, data.gender);
+        if (testId === PUSH_TEST_ID) return strengthMeetsStatus('push', strengthLevels?.push.level ?? null, strengthLevels?.push.reps ?? null, config, data.gender);
+        return 'not_yet_tested' as ReadinessCurrentStatus; // a future test type this module doesn't derive training evidence for — never guessed at
+      });
+      const trainingOverall = testIds.length === 0 ? 'not_yet_tested' : reduceOverallStatus(trainingPerTestStatus);
+      bumpViewAcc(unitRow.trainingOverall, trainingOverall);
+
+      testIds.forEach((testId, i) => {
+        const status = trainingPerTestStatus[i];
+        if (status === 'pass') {
+          brigadeTrainingComponentAcc[testId].passCount++;
+          unitRow.trainingPerComponent[testId].passCount++;
+        } else if (status === 'fail') {
+          brigadeTrainingComponentAcc[testId].failCount++;
+          unitRow.trainingPerComponent[testId].failCount++;
+        }
+      });
+    }
+
     for (const r of soldierResults) {
       const ms = r.testDate.getTime();
       if (unitRow.lastTestMs === null || ms > unitRow.lastTestMs) unitRow.lastTestMs = ms;
@@ -466,6 +566,8 @@ export async function computeBrigadeDashboard(
   const components: DashboardComponentBreakdown[] = (config?.tests ?? []).map((t) => {
     const acc = brigadeComponentAcc[t.id] ?? { passCount: 0, failCount: 0 };
     const testedForComponent = acc.passCount + acc.failCount;
+    const trainingAcc = brigadeTrainingComponentAcc[t.id] ?? { passCount: 0, failCount: 0 };
+    const trainingTestedForComponent = trainingAcc.passCount + trainingAcc.failCount;
     return {
       testId: t.id,
       label: t.label,
@@ -476,15 +578,27 @@ export async function computeBrigadeDashboard(
       passPercent: pct(acc.passCount, testedForComponent),
       thresholdMale: t.threshold?.male ?? null,
       thresholdFemale: t.threshold?.female ?? null,
+      trainingPassCount: trainingAcc.passCount,
+      trainingFailCount: trainingAcc.failCount,
+      trainingTestedCount: trainingTestedForComponent,
+      trainingPassPercent: pct(trainingAcc.passCount, trainingTestedForComponent),
     };
   });
 
   const units: DashboardUnitRow[] = Array.from(unitAcc.entries()).map(([unitId, acc]) => {
-    const perComponent: Record<string, { passCount: number; failCount: number; testedCount: number; passPercent: number | null }> = {};
+    const perComponent: Record<string, {
+      passCount: number; failCount: number; testedCount: number; passPercent: number | null;
+      trainingPassCount: number; trainingFailCount: number; trainingTestedCount: number; trainingPassPercent: number | null;
+    }> = {};
     for (const testId of testIds) {
       const c = acc.perComponent[testId];
       const testedForComponent = c.passCount + c.failCount;
-      perComponent[testId] = { passCount: c.passCount, failCount: c.failCount, testedCount: testedForComponent, passPercent: pct(c.passCount, testedForComponent) };
+      const tc = acc.trainingPerComponent[testId];
+      const trainingTestedForComponent = tc.passCount + tc.failCount;
+      perComponent[testId] = {
+        passCount: c.passCount, failCount: c.failCount, testedCount: testedForComponent, passPercent: pct(c.passCount, testedForComponent),
+        trainingPassCount: tc.passCount, trainingFailCount: tc.failCount, trainingTestedCount: trainingTestedForComponent, trainingPassPercent: pct(tc.passCount, trainingTestedForComponent),
+      };
     }
     return {
       unitId,
@@ -496,6 +610,7 @@ export async function computeBrigadeDashboard(
         strength: toUnitBreakdown(acc.views.strength),
       },
       perComponent,
+      trainingOverall: toUnitBreakdown(acc.trainingOverall),
       nearThresholdCount: acc.nearThresholdCount,
       lastTestDate: acc.lastTestMs !== null ? new Date(acc.lastTestMs).toISOString() : null,
       parentUnitId: resolveParentUnitId(targetTenantId, unitId, dirByDirectoryId),

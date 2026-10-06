@@ -62,8 +62,15 @@ import {
   type DashboardUnitRow,
 } from './readiness-dashboard.service';
 import { computeUnitRoster, reduceOverallStatus } from './readiness-read.service';
-import type { ReadinessCurrentStatus, NotPerformedReason } from './readiness-write.service';
+import type { ReadinessCurrentStatus, NotPerformedReason, ReadinessThresholdsConfig } from './readiness-write.service';
 import type { NearThresholdInfo } from './readiness-near-threshold';
+// 06.10.2026 — training-derived (app workout data) value, per soldier
+// per test, alongside the official test value this file already shows.
+// RUN_TEST_ID below (line ~70) is the same value the shared module's
+// own RUN_TEST_ID holds — reused directly, no alias needed.
+import { computeDemonstratedStrengthLevels } from './readiness-strength-level.service';
+import { computeDemonstratedRunLevels } from './readiness-run-level.service';
+import { PULL_TEST_ID, PUSH_TEST_ID, runMeetsStatus, strengthMeetsStatus } from './readiness-training-status.service';
 
 const DENIED_MESSAGE = 'אין לך הרשאה לצפות ביחידה זו.';
 
@@ -119,6 +126,25 @@ export interface UnitDetailSoldierTest {
   status: ReadinessCurrentStatus;
   /** This specific test's own status is 'fail' — the ONLY cells that get the red highlight (never a whole row, never a whole group). */
   isFailCause: boolean;
+  /**
+   * 06.10.2026 — training-derived (app workout data) value, NOT the
+   * official test above. Same unit as `value` (reps for pull/push,
+   * normalized 3,000m-equivalent seconds for run) — directly
+   * comparable to `thresholdValue`. null = no training evidence in the
+   * 30-day window (unlinked soldier, or not enough qualifying
+   * performances) — render a dash, never a false "0".
+   */
+  trainingValue: number | null;
+  /** trainingValue's own meets/fails verdict via runMeetsStatus/strengthMeetsStatus — 'not_yet_tested' whenever trainingValue is null. */
+  trainingStatus: ReadinessCurrentStatus;
+  /**
+   * How far below the threshold trainingValue is, in the SAME unit as
+   * trainingValue — a positive number meaning "needs this much more to
+   * pass" regardless of lowerIsBetter's direction. null unless
+   * trainingStatus === 'fail' (never shown for 'pass' — nothing to
+   * report — or 'not_yet_tested' — no value to measure a gap from).
+   */
+  trainingGapFromThreshold: number | null;
 }
 
 export interface UnitDetailSoldierRow {
@@ -271,6 +297,14 @@ export async function computeUnitDetail(
       failCount: cell?.failCount ?? 0,
       testedCount: cell?.testedCount ?? 0,
       passPercent: cell?.passPercent ?? null,
+      // 06.10.2026 — this unit's OWN training numbers, not the brigade-
+      // wide ones `...c` would otherwise carry through unchanged (the
+      // same bug the four fields above this comment already guard
+      // against for the official-test numbers).
+      trainingPassCount: cell?.trainingPassCount ?? 0,
+      trainingFailCount: cell?.trainingFailCount ?? 0,
+      trainingTestedCount: cell?.trainingTestedCount ?? 0,
+      trainingPassPercent: cell?.trainingPassPercent ?? null,
     };
   });
 
@@ -296,18 +330,66 @@ export async function computeUnitDetail(
   const config200 = rosterResult.body;
   const ownSoldiers = config200.soldiers.filter((s) => s.unitId === target.unitId);
 
+  // 06.10.2026 — training-derived (app workout data) value, same shared
+  // module/functions the dashboard's own training columns use. Scoped
+  // to just THIS unit's own linked soldiers (not the whole brigade) —
+  // efficient, and this is the only place that needs the real
+  // thresholds config object (readiness-dashboard.service.ts's own copy
+  // isn't exposed in its return value, so one small extra read here,
+  // same precedent as this file's own brigade-name read just above).
+  const thresholdsSnap = await db.collection('readiness_thresholds').doc('global').get();
+  const thresholdsConfig = thresholdsSnap.exists ? (thresholdsSnap.data() as ReadinessThresholdsConfig) : null;
+  const linkedUids = ownSoldiers.filter((s) => typeof s.uid === 'string').map((s) => s.uid as string);
+  const [strengthLevelsByUid, runLevelsByUid] = thresholdsConfig && linkedUids.length > 0
+    ? await Promise.all([
+        computeDemonstratedStrengthLevels(db, linkedUids),
+        computeDemonstratedRunLevels(db, linkedUids),
+      ])
+    : [{}, {}];
+
   const soldiers: UnitDetailSoldierRow[] = ownSoldiers.map((s) => {
     const statusByTestId = new Map(s.testDetails.map((t) => [t.testId, t.status]));
     const { label, sortGroup, filterStatus } = deriveStatusLabelAndSort(s.currentStatus, s.notPerformedReason, statusByTestId);
 
+    const uid = typeof s.uid === 'string' ? s.uid : null;
+    const strengthLevels = uid ? strengthLevelsByUid[uid] : undefined;
+    const runLevel = uid ? runLevelsByUid[uid] : undefined;
+
     const tests: UnitDetailSoldierTest[] = s.testDetails.map((t) => {
       const def = components.find((c) => c.testId === t.testId);
       const defaultThreshold = def?.thresholdMale ?? null;
+
+      // Training value/status — same unit (reps / normalized seconds)
+      // as `value` below, directly comparable to `thresholdValue`.
+      let trainingValue: number | null = null;
+      let trainingStatus: ReadinessCurrentStatus = 'not_yet_tested';
+      if (thresholdsConfig) {
+        if (t.testId === RUN_TEST_ID) {
+          trainingValue = runLevel?.normalizedTimeSeconds ?? null;
+          trainingStatus = runMeetsStatus(trainingValue, thresholdsConfig, s.gender);
+        } else if (t.testId === PULL_TEST_ID) {
+          trainingValue = strengthLevels?.pull.reps ?? null;
+          trainingStatus = strengthMeetsStatus('pull', strengthLevels?.pull.level ?? null, trainingValue, thresholdsConfig, s.gender);
+        } else if (t.testId === PUSH_TEST_ID) {
+          trainingValue = strengthLevels?.push.reps ?? null;
+          trainingStatus = strengthMeetsStatus('push', strengthLevels?.push.level ?? null, trainingValue, thresholdsConfig, s.gender);
+        }
+        // any other test id — this module derives no training evidence for it; stays null/not_yet_tested, never guessed at.
+      }
+      const trainingTestDef = thresholdsConfig?.tests.find((td) => td.id === t.testId) ?? null;
+      const trainingThreshold = trainingTestDef ? trainingTestDef.threshold[s.gender] : null;
+      const trainingGapFromThreshold = trainingStatus === 'fail' && trainingValue !== null && trainingThreshold !== null && trainingTestDef
+        ? Math.abs(trainingTestDef.lowerIsBetter ? trainingValue - trainingThreshold : trainingThreshold - trainingValue)
+        : null;
+
       return {
         testId: t.testId,
         value: t.value,
         testDate: t.testDate,
         thresholdValue: t.thresholdValue,
+        trainingValue,
+        trainingStatus,
+        trainingGapFromThreshold,
         isDefaultThreshold: defaultThreshold !== null && t.thresholdValue === defaultThreshold,
         status: t.status,
         isFailCause: t.status === 'fail',
