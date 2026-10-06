@@ -38,9 +38,14 @@ export interface AdminSessionPayload extends JWTPayload {
   /** Mirrors ResolvedIdentity.scope (firebase-admin.ts) — a narrow,
    * server-computed grant distinct from `admin`: 'authority_manager',
    * plus (24.09.2026, Stage 4 of the military/school vertical build)
-   * 'tenant_owner'/'unit_admin'. See middleware.ts's decideAdminGateAction
-   * for what each alone permits. */
-  scope?: 'authority_manager' | 'tenant_owner' | 'unit_admin';
+   * 'tenant_owner'/'unit_admin', plus (06.10.2026, "chief fitness
+   * officer") 'readiness_chief_officer' — a cross-brigade readiness
+   * grant, deliberately NOT folded into `admin` (see firebase-admin.ts's
+   * computeAdminScope — this value is never derived from
+   * core.isVerticalAdmin/isTenantOwner/isAdmin, only from its own
+   * dedicated core.isReadinessChiefOfficer flag). See middleware.ts's
+   * decideAdminGateAction for what each scope value alone permits. */
+  scope?: 'authority_manager' | 'tenant_owner' | 'unit_admin' | 'readiness_chief_officer';
 }
 
 /**

@@ -211,7 +211,15 @@ service cloud.firestore {
           && request.resource.data.get('core', {}).get('isApproved', false)
              == resource.data.get('core', {}).get('isApproved', false)
           && request.resource.data.get('core', {}).get('managedVertical', '')
-             == resource.data.get('core', {}).get('managedVertical', '');
+             == resource.data.get('core', {}).get('managedVertical', '')
+          // 06.10.2026 ("chief fitness officer," cross-brigade readiness
+          // role, §13.90 follow-up) — a brand-new, dedicated flag, added
+          // here from birth rather than discovered missing later (axioms.md
+          // §32 — a flag predates every role that reuses it; this is the
+          // role's OWN first flag, so there is no "later" to be caught by).
+          // Never isVerticalAdmin, never admin, never a hasSec() input.
+          && request.resource.data.get('core', {}).get('isReadinessChiefOfficer', false)
+             == resource.data.get('core', {}).get('isReadinessChiefOfficer', false);
     }
 
     // Group B — tenant/unit assignment. Owned by `validateAccessCode`
@@ -415,6 +423,7 @@ service cloud.firestore {
                     && request.resource.data.get('core', {}).get('isApproved', false) == false
                     && request.resource.data.get('core', {}).get('role', '') == ''
                     && request.resource.data.get('core', {}).get('managedVertical', '') == ''
+                    && request.resource.data.get('core', {}).get('isReadinessChiefOfficer', false) == false
                     // Same fix as noTenantFieldsChanged() (Group B, below) —
                     // the create path had NO guard on these fields at all
                     // before this fix, not even an "initial-write allowance".

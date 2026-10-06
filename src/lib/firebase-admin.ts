@@ -151,7 +151,7 @@ const ROOT_ADMIN_EMAIL_REGEX = /^(david|office)@appout\.co\.il$/i;
  *     Stage 2 made creating one possible. Removed from the admin check;
  *     replaced with a narrow scope, exactly like authority_manager.
  */
-export type IdentityScope = 'authority_manager' | 'tenant_owner' | 'unit_admin';
+export type IdentityScope = 'authority_manager' | 'tenant_owner' | 'unit_admin' | 'readiness_chief_officer';
 
 export interface ResolvedIdentity {
   uid: string;
@@ -248,6 +248,12 @@ export async function computeAdminScope(
       const unitScope = await resolveUnitPermissionScope(uid);
       if (unitScope.kind === 'tenantOwner') scope = 'tenant_owner';
       else if (unitScope.kind === 'unitAdmin') scope = 'unit_admin';
+      // 06.10.2026 ("chief fitness officer") — deliberately NOT derived
+      // from admin, core.isVerticalAdmin, or any hasSec()-adjacent flag.
+      // This is the SAME {kind:'vertical', vertical, authorityIds} shape
+      // resolveUnitPermissionScope already returns for a vertical-scoped
+      // officer — mapped here one-to-one, nothing re-derived.
+      else if (unitScope.kind === 'vertical') scope = 'readiness_chief_officer';
       // unitScope.kind === 'root' can't happen here — resolveUnitPermission
       // Scope's own root check is the same isRootAdmin(email) gate already
       // folded into `admin` above via ROOT_ADMIN_EMAIL_REGEX. 'denied' AND

@@ -210,9 +210,22 @@ const TENANT_OWNER_ALLOWED_PATHS = [
 // tenant_owner, cannot make that distinction).
 const UNIT_ADMIN_PATH_PATTERN = /^\/admin\/authority\/units\/[^/]+/;
 
+// 06.10.2026 ("chief fitness officer") — two destinations, not one: the
+// cross-brigade list itself, AND /admin/dashboard, which the list's own
+// row-click navigates to (same localStorage authority-switch convention
+// super_admin already uses) to show ONE specific in-scope brigade's real,
+// existing dashboard — the whole point of reusing that screen instead of
+// building a second one. Nothing wider than these two. Deliberately NOT
+// isVerticalAdminOnly's pattern (admin/layout.tsx's hasSec() unconditional
+// bypass) — this scope value never touches hasSec() at all.
+const READINESS_CHIEF_OFFICER_ALLOWED_PATHS = [
+  '/admin/authority/readiness/vertical-overview',
+  '/admin/dashboard',
+];
+
 export interface GateSessionInfo {
   admin: boolean;
-  scope?: 'authority_manager' | 'tenant_owner' | 'unit_admin';
+  scope?: 'authority_manager' | 'tenant_owner' | 'unit_admin' | 'readiness_chief_officer';
 }
 
 export type AdminGateAction =
@@ -345,6 +358,12 @@ export function decideAdminGateAction(
     return UNIT_ADMIN_PATH_PATTERN.test(pathname)
       ? { action: 'allow' }
       : { action: 'redirect', to: '/authority-portal/login', preserveNext: false };
+  }
+  if (session?.scope === 'readiness_chief_officer') {
+    const isAllowed = READINESS_CHIEF_OFFICER_ALLOWED_PATHS.some((p) => pathname.startsWith(p));
+    return isAllowed
+      ? { action: 'allow' }
+      : { action: 'redirect', to: '/admin/authority/readiness/vertical-overview', preserveNext: false };
   }
   if (isAnyScopedPath(pathname)) {
     return { action: 'redirect', to: '/authority-portal/login', preserveNext: true };
