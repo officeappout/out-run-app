@@ -37,25 +37,13 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { sendEncouragementPush } from '@/features/admin/services/engagement.service';
 import { getAllUsers } from '@/features/admin/services/users.service';
+import {
+  PUSH_CATALOG,
+  type ChannelKey,
+  type CatalogEntry,
+} from '@/features/admin/services/push-catalog.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-// The 9 literal `channel:` strings actually passed to sendPush()/the raw FCM
-// payload across functions/src — confirmed by grepping every sender
-// (06.10.2026 push tidy-up). This is what app_config/notification_configs.
-// channels.{key}.enabled and push.service.ts's channel gate key off, so a
-// ChannelKey here must match a real sender's literal string or the toggle
-// controls nothing.
-type ChannelKey =
-  | 'progression'
-  | 'retention'
-  | 'onboarding_dropoff'
-  | 'training_reminder'
-  | 'encouragement'
-  | 'social'
-  | 'chat'
-  | 'health_milestone'
-  | 'community';
 
 interface ChannelConfig {
   enabled: boolean;
@@ -84,209 +72,24 @@ interface RecentSend {
 
 // ─── Catalog definition ───────────────────────────────────────────────────────
 //
-// 06.10.2026 push tidy-up — this catalog used to cover only 6 of the 14 real
-// push types the app can send, and had one confirmed-wrong label (`social`
-// marked "בפיתוח" when onGroupMemberJoin has been deployed and live the
-// whole time — see `firebase functions:list`, cross-checked against
-// `.claude/knowledge/push-notifications-audit-2026-10-04.md`). All 9 cards
-// below are deployed today; `deployed` stays a per-entry flag (not dropped)
-// so a genuinely-not-yet-shipped future sender still has somewhere honest
-// to say so.
-//
-// Several real channel strings are shared by more than one Cloud Function
-// trigger (confirmed by grep, not assumed) — `sources` lists each one
-// explicitly instead of collapsing them into a single misleading `trigger`
-// line:
-//   - `training_reminder`: 3 sources (trainingReminderScheduler, both
-//     reminderSweepScheduler passes) — one concept, one Firestore-rate-cap
-//     (uid+channel scoped, not per-sender), 3 independent triggers.
-//   - `social`: 3 sources (onKudosCreated, onGroupMemberJoin ×2) — all three
-//     call sendPush with the exact same channel literal 'social'.
+// The real catalog data (channels/labels/sources/measured flags) lives in
+// `push-catalog.service.ts` (07.10.2026 extraction) — shared with the
+// /admin/journey Push Performance tab so both read ONE list instead of two
+// hand-maintained copies. Icons/colors are presentation-only and stay here,
+// merged with the shared data at render time via `CHANNEL_UI`.
+const CATALOG = PUSH_CATALOG;
 
-interface CatalogSource {
-  label: string;
-  trigger: string;
-  /** Writes a push_sent event to push_events (funnel-measured). */
-  measured: boolean;
-  /** push_events.category value to sum for this source, when measured. */
-  funnelCategory?: string;
-  note?: string;
-}
-
-interface CatalogEntry {
-  channel: ChannelKey;
-  label: string;
-  type: 'auto' | 'manual';
-  /** Single-source entries only — omit when `sources` is set. */
-  trigger?: string;
-  /** Multi-source entries only (see header comment above). */
-  sources?: CatalogSource[];
-  icon: React.ElementType;
-  iconBg: string;
-  templateVars?: string[];
-  defaultTitle?: string;
-  defaultBody?: string;
-  rateCapHours?: number;
-  deployed: boolean;
-  /** Single-source measurement — ignored when `sources` is set. */
-  measured?: boolean;
-  funnelCategory?: string;
-  /**
-   * True for the 3 senders confirmed (04.10.2026 audit) to still call FCM
-   * directly instead of routing through push.service.ts in their default
-   * code path — the per-channel enable toggle below writes
-   * notification_configs either way, but isn't guaranteed to be read by
-   * these specific senders yet (tracked separately as the
-   * `pushRouting_*` migration flags, not part of this tidy-up).
-   */
-  bypassesPushService?: boolean;
-  note?: string;
-}
-
-const CATALOG: CatalogEntry[] = [
-  {
-    channel: 'progression',
-    label: 'עליית רמה',
-    type: 'auto',
-    trigger: 'onChange users/{uid}.progression.globalLevel',
-    icon: Trophy,
-    iconBg: 'bg-yellow-100 text-yellow-600',
-    templateVars: ['{level}'],
-    defaultTitle: 'עלית לרמה {level}! 🎉',
-    defaultBody: 'המשיכו כך — כל אימון מקדם אתכם!',
-    rateCapHours: 24,
-    deployed: true,
-    measured: false,
-  },
-  {
-    channel: 'retention',
-    label: 'חזרה לשגרה',
-    type: 'auto',
-    trigger: 'Scheduler — כל יום 10:00',
-    icon: Heart,
-    iconBg: 'bg-rose-100 text-rose-600',
-    templateVars: ['{name}', '{days_since}'],
-    defaultTitle: '{name}, {days_since} ימים בלי אימון',
-    defaultBody: 'הגוף שלך מחכה לך. אפילו 15 דקות ישנו את מצב הרוח שלך.',
-    rateCapHours: 48,
-    deployed: true,
-    measured: false,
-  },
-  {
-    channel: 'onboarding_dropoff',
-    label: 'נשירת הרשמה',
-    type: 'auto',
-    trigger: 'Scheduler — כל 30 דקות',
-    icon: LogOut,
-    iconBg: 'bg-orange-100 text-orange-600',
-    deployed: true,
-    measured: false,
-    bypassesPushService: true,
-  },
-  {
-    channel: 'training_reminder',
-    label: 'תזכורת אימון',
-    type: 'auto',
-    icon: Calendar,
-    iconBg: 'bg-amber-100 text-amber-600',
-    rateCapHours: 22,
-    deployed: true,
-    sources: [
-      {
-        label: 'תזכורת קבועה יומית',
-        trigger: 'Scheduler — כל יום 07:30 (trainingReminderScheduler)',
-        measured: true,
-        funnelCategory: 'ScheduledWorkout',
-      },
-      {
-        label: 'משבצת אישית שהוגדרה בהגדרות',
-        trigger: 'Sweep כל 5 דק\' — slot שהמשתמש קבע (reminderSweepScheduler, pass 1)',
-        measured: true,
-        funnelCategory: 'ReminderSweep',
-      },
-      {
-        label: 'לפני אימון מתוזמן (~10 דק\')',
-        trigger: 'Sweep כל 5 דק\' — startTime מדויק מ-userSchedule (reminderSweepScheduler, pass 2, נוסף 06.10.2026)',
-        measured: true,
-        funnelCategory: 'ReminderSweepWorkout',
-        note: 'דגל reminderSweepWorkoutEntriesEnabled הודלק 06.10.2026 — טרם אומת שליחה אמיתית',
-      },
-    ],
-  },
-  {
-    channel: 'encouragement',
-    label: 'עידוד מהעירייה',
-    type: 'manual',
-    trigger: 'שליחה ידנית מהפאנל',
-    icon: Megaphone,
-    iconBg: 'bg-blue-100 text-blue-600',
-    deployed: true,
-    bypassesPushService: true,
-  },
-  {
-    channel: 'social',
-    label: 'פעילות חברתית — קודוס והצטרפות לקבוצה',
-    type: 'auto',
-    icon: Users,
-    iconBg: 'bg-purple-100 text-purple-600',
-    rateCapHours: 24,
-    deployed: true,
-    sources: [
-      {
-        label: 'קודוס שהתקבל',
-        trigger: 'onCreate — קודוס חדש (onKudosCreated)',
-        measured: false,
-      },
-      {
-        label: 'ברוכים הבאים לקבוצה',
-        trigger: 'onCreate community_groups/{groupId}/members/{uid} (onGroupMemberJoin)',
-        measured: false,
-      },
-      {
-        label: 'התראת מנהל קבוצה',
-        trigger: 'אותו טריגר — להתראת המנהל (onGroupMemberJoin)',
-        measured: false,
-      },
-    ],
-  },
-  {
-    channel: 'chat',
-    label: 'הודעה בצ\'אט',
-    type: 'auto',
-    trigger: 'onCreate chats/{chatId}/messages',
-    icon: MessageCircle,
-    iconBg: 'bg-green-100 text-green-600',
-    deployed: true,
-    measured: false,
-    bypassesPushService: true,
-    note: 'תוכן נגזר מהודעה עצמה',
-  },
-  {
-    channel: 'health_milestone',
-    label: 'תזכורת יעד צעדים',
-    type: 'auto',
-    trigger: 'Scheduler — כל יום 18:00 (stepGoalNudgeScheduler)',
-    icon: Footprints,
-    iconBg: 'bg-lime-100 text-lime-700',
-    deployed: true,
-    measured: true,
-    funnelCategory: 'Daily_Goal',
-    note: 'לפי נתוני 04.10.2026 הייתה מוגבלת ל-uid בדיקה יחיד (feature_flags.stepGoalTestUids) — יש לאמת מול Firestore אם זה עדיין המצב',
-  },
-  {
-    channel: 'community',
-    label: 'פעילות קרובה (SOCIAL — "מישהו מתאמן לידך")',
-    type: 'auto',
-    trigger: 'onCreate planned_sessions/{sessionId} (onPlannedActivityCreated)',
-    icon: Radar,
-    iconBg: 'bg-sky-100 text-sky-700',
-    rateCapHours: 2,
-    deployed: true,
-    measured: true,
-    funnelCategory: 'Future_Partner_Plan',
-    note: 'דגל feature_flags.socialActivityNearbyPushEnabled — ערך חי לא אומת בסשן האודיט האחרון',
-  },
-];
+const CHANNEL_UI: Record<ChannelKey, { icon: React.ElementType; iconBg: string }> = {
+  progression: { icon: Trophy, iconBg: 'bg-yellow-100 text-yellow-600' },
+  retention: { icon: Heart, iconBg: 'bg-rose-100 text-rose-600' },
+  onboarding_dropoff: { icon: LogOut, iconBg: 'bg-orange-100 text-orange-600' },
+  training_reminder: { icon: Calendar, iconBg: 'bg-amber-100 text-amber-600' },
+  encouragement: { icon: Megaphone, iconBg: 'bg-blue-100 text-blue-600' },
+  social: { icon: Users, iconBg: 'bg-purple-100 text-purple-600' },
+  chat: { icon: MessageCircle, iconBg: 'bg-green-100 text-green-600' },
+  health_milestone: { icon: Footprints, iconBg: 'bg-lime-100 text-lime-700' },
+  community: { icon: Radar, iconBg: 'bg-sky-100 text-sky-700' },
+};
 
 const AUDIENCE_LABELS: Record<string, string> = {
   all: 'כל המשתמשים',
@@ -742,7 +545,7 @@ export default function NotificationsPage() {
       {/* ── Catalog */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {CATALOG.map((entry) => {
-          const Icon = entry.icon;
+          const Icon = CHANNEL_UI[entry.channel].icon;
           const enabled = isEnabled(entry.channel);
           const isEditing = editingChannel === entry.channel;
           const sendCount = channelSendCount(entry.channel);
@@ -771,7 +574,7 @@ export default function NotificationsPage() {
             >
               {/* Card header */}
               <div className="flex items-start gap-3 p-4">
-                <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${entry.iconBg}`}>
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${CHANNEL_UI[entry.channel].iconBg}`}>
                   <Icon size={16} />
                 </div>
                 <div className="flex-1 min-w-0">
