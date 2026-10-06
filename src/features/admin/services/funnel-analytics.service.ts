@@ -60,7 +60,7 @@ import {
 import { db } from '@/lib/firebase';
 import { hasStrengthTrack, hasRunningTrack } from '@/lib/track-ownership';
 import { levelTierToRange, type LevelTier } from '@/features/workout-engine/services/split-decision/split-decision.types';
-import { ageBucketToBirthDateRange, type AgeBucket } from '@/lib/age-buckets';
+import { ageRangeToBirthDateRange } from '@/lib/age-buckets';
 import { isRealWorkoutCompletion } from '@/lib/workout-completion-kpi';
 
 const USERS_COLLECTION = 'users';
@@ -110,8 +110,9 @@ export interface FunnelFilters {
    * between these 3 shapes.
    */
   program: string | null;
-  /** Journey Hub Wave 2 — see `age-buckets.ts`. */
-  age: AgeBucket | null;
+  /** Admin-defined range, in years — no fixed buckets. See `age-buckets.ts`. */
+  ageFrom: number | null;
+  ageTo: number | null;
 }
 
 /**
@@ -162,7 +163,8 @@ export const DEFAULT_FUNNEL_FILTERS: FunnelFilters = {
   cityAuthorityId: null,
   level: null,
   program: null,
-  age: null,
+  ageFrom: null,
+  ageTo: null,
 };
 
 // ──────────────────────────────────────────────────────────────────────
@@ -256,10 +258,10 @@ function buildBaseConstraints(
     constraints.push(where('progression.globalLevel', '>=', min));
     if (max != null) constraints.push(where('progression.globalLevel', '<=', max));
   }
-  if (filters.age) {
-    // A larger age bucket -> an EARLIER birthDate, so min/max flip —
-    // see ageBucketToBirthDateRange's own doc comment.
-    const [minBirthDate, maxBirthDate] = ageBucketToBirthDateRange(filters.age, new Date());
+  if (filters.ageFrom != null || filters.ageTo != null) {
+    // A larger age -> an EARLIER birthDate, so min/max flip — see
+    // ageRangeToBirthDateRange's own doc comment.
+    const [minBirthDate, maxBirthDate] = ageRangeToBirthDateRange(filters.ageFrom, filters.ageTo, new Date());
     if (minBirthDate) constraints.push(where('core.birthDate', '>=', Timestamp.fromDate(minBirthDate)));
     if (maxBirthDate) constraints.push(where('core.birthDate', '<=', Timestamp.fromDate(maxBirthDate)));
   }

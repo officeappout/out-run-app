@@ -38,7 +38,6 @@ import {
 } from '@/features/admin/services/funnel-analytics.service';
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
 import type { Authority } from '@/types/admin-types';
-import { AGE_BUCKETS, type AgeBucket } from '@/lib/age-buckets';
 import type { LevelTier } from '@/features/workout-engine/services/split-decision/split-decision.types';
 import { getAllPrograms } from '@/features/content/programs/core/program.service';
 
@@ -61,7 +60,9 @@ export interface JourneyFilters {
    * slug list comes from. No more generic 'strength' bucket.
    */
   program: string | null;
-  age: AgeBucket | null;
+  /** Admin-defined range, in years — no fixed buckets (see age-buckets.ts). */
+  ageFrom: number | null;
+  ageTo: number | null;
 }
 
 /** One real strength-program option for the "תוכנית" dropdown. */
@@ -84,7 +85,8 @@ export const DEFAULT_JOURNEY_FILTERS: JourneyFilters = {
   sex: null,
   level: null,
   program: null,
-  age: null,
+  ageFrom: null,
+  ageTo: null,
 };
 
 const SEX_OPTIONS: { value: JourneyFilters['sex']; label: string }[] = [
@@ -127,14 +129,20 @@ function levelOptionsFor(
   return levels;
 }
 
-const AGE_LABELS: Record<AgeBucket, string> = {
-  u18: 'עד 18',
-  '18-24': '18-24',
-  '25-34': '25-34',
-  '35-44': '35-44',
-  '45-54': '45-54',
-  '55p': '55+',
-};
+/**
+ * Quick-fill shortcuts for the age-range inputs — NOT a fixed bucket
+ * list the filter is constrained to. Clicking one just writes ageFrom/
+ * ageTo; the admin can edit either number afterward. Mirrors the
+ * DATE_PRESETS buttons below (same shortcut-then-editable pattern).
+ */
+const AGE_PRESETS: { label: string; from: number | null; to: number | null }[] = [
+  { label: 'עד 18', from: null, to: 17 },
+  { label: '18-24', from: 18, to: 24 },
+  { label: '25-34', from: 25, to: 34 },
+  { label: '35-44', from: 35, to: 44 },
+  { label: '45-54', from: 45, to: 54 },
+  { label: '55+', from: 55, to: null },
+];
 
 const DATE_PRESETS = [
   { days: 7, label: '7 ימים' },
@@ -160,7 +168,7 @@ export default function JourneyFilterBar({ filters, onChange }: JourneyFilterBar
     loadDistinctAttributionValues().then(setDistinct);
     getAllAuthorities().then(setCities).catch(() => setCities([]));
     // Real named strength programs for the "תוכנית" dropdown — the
-    // same catalog /admin/catalog manages, not a second list. `slug`
+    // same catalog /admin/programs manages, not a second list. `slug`
     // derivation mirrors program-hierarchy.utils.ts's own formula
     // (slug field -> movementPattern -> lowercased name) so the value
     // this bar sends matches the SAME key funnel-analytics.service.ts
@@ -234,12 +242,42 @@ export default function JourneyFilterBar({ filters, onChange }: JourneyFilterBar
       <EnumSelect label="מין" value={filters.sex} options={SEX_OPTIONS} onChange={(v) => onChange({ sex: v })} />
       <EnumSelect label="תוכנית" value={filters.program} options={programOptions} onChange={handleProgramChange} />
       <EnumSelect label="רמה" value={filters.level} options={levelOptions} onChange={(v) => onChange({ level: v })} />
-      <EnumSelect
-        label="גיל"
-        value={filters.age}
-        options={[{ value: null, label: 'הכל' }, ...AGE_BUCKETS.map((b) => ({ value: b, label: AGE_LABELS[b] }))]}
-        onChange={(v) => onChange({ age: v })}
-      />
+
+      <div className="flex flex-col gap-1">
+        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">מגיל</label>
+        <input
+          type="number"
+          min={0}
+          max={120}
+          placeholder="הכל"
+          value={filters.ageFrom ?? ''}
+          onChange={(e) => onChange({ ageFrom: e.target.value === '' ? null : Number(e.target.value) })}
+          className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-800 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 w-20"
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">עד גיל</label>
+        <input
+          type="number"
+          min={0}
+          max={120}
+          placeholder="הכל"
+          value={filters.ageTo ?? ''}
+          onChange={(e) => onChange({ ageTo: e.target.value === '' ? null : Number(e.target.value) })}
+          className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-800 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 w-20"
+        />
+      </div>
+      <div className="flex items-center gap-1 flex-wrap max-w-[220px]">
+        {AGE_PRESETS.map((p) => (
+          <button
+            key={p.label}
+            onClick={() => onChange({ ageFrom: p.from, ageTo: p.to })}
+            className="px-2 py-1.5 text-xs font-bold rounded-md bg-gray-100 hover:bg-cyan-100 hover:text-cyan-700 text-gray-600 transition-colors"
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
 
       <Divider />
 

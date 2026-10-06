@@ -79,7 +79,7 @@ import { resolveAdminAnalyticsScope, type AdminAnalyticsScope } from '@/lib/admi
 import { isTestOrMockUser } from '@/lib/testAccountFilter';
 import { hasStrengthTrack, hasRunningTrack } from '@/lib/track-ownership';
 import { getLevelTier } from '@/features/workout-engine/services/split-decision/split-decision.types';
-import { isAgeBucket, ageBucketToYearRange, getAgeInYears, type AgeBucket } from '@/lib/age-buckets';
+import { getAgeInYears } from '@/lib/age-buckets';
 import { isRealWorkoutCompletion } from '@/lib/workout-completion-kpi';
 
 export const runtime = 'nodejs';
@@ -148,7 +148,9 @@ export interface GrowthMetricsFilters {
    * replacing the old generic 'strength' bucket.
    */
   program: string | null;
-  age: AgeBucket | null;
+  /** Admin-defined range, in years — no fixed buckets. See `age-buckets.ts`. */
+  ageFrom: number | null;
+  ageTo: number | null;
 }
 
 export const DEFAULT_GROWTH_METRICS_FILTERS: GrowthMetricsFilters = {
@@ -161,7 +163,8 @@ export const DEFAULT_GROWTH_METRICS_FILTERS: GrowthMetricsFilters = {
   sex: null,
   level: null,
   program: null,
-  age: null,
+  ageFrom: null,
+  ageTo: null,
 };
 
 /**
@@ -230,13 +233,12 @@ function userMatchesFilters(
     if (bestProgramLevel(specificProgramSlug) <= 0) return false;
   }
 
-  if (filters.age) {
+  if (filters.ageFrom != null || filters.ageTo != null) {
     const birthDate = toDateSafe(data?.core?.birthDate);
     if (!birthDate) return false;
-    const [minAge, maxAge] = ageBucketToYearRange(filters.age);
     const age = getAgeInYears(birthDate, now);
-    if (minAge != null && age < minAge) return false;
-    if (maxAge != null && age > maxAge) return false;
+    if (filters.ageFrom != null && age < filters.ageFrom) return false;
+    if (filters.ageTo != null && age > filters.ageTo) return false;
   }
 
   return true;
@@ -570,8 +572,12 @@ function parseGrowthMetricsFilters(request: NextRequest): GrowthMetricsFilters {
   // validate against here; an unrecognized slug just matches nothing
   // downstream, same as any other filter value that happens to be stale.
   const program = str('program');
-  const ageRaw = str('age');
-  const age = isAgeBucket(ageRaw) ? ageRaw : null;
+  const ageNum = (key: string): number | null => {
+    const v = str(key);
+    if (v == null) return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
 
   return {
     dateFrom: date('dateFrom'),
@@ -583,7 +589,8 @@ function parseGrowthMetricsFilters(request: NextRequest): GrowthMetricsFilters {
     sex,
     level,
     program,
-    age,
+    ageFrom: ageNum('ageFrom'),
+    ageTo: ageNum('ageTo'),
   };
 }
 
