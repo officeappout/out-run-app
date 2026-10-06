@@ -3,7 +3,7 @@
 import { Fragment, useMemo, useState } from 'react';
 import { Users, Plus, Unlink, Check, X as XIcon, ChevronDown, ChevronUp } from 'lucide-react';
 import { auth } from '@/lib/firebase';
-import type { RosterSoldierEntry } from '@/features/readiness/core/services/readiness-read.service';
+import type { RosterSoldierEntry, RosterUnitEntry } from '@/features/readiness/core/services/readiness-read.service';
 import type { ReadinessMatchSuggestion, ReadinessMatchAmbiguity } from '@/features/readiness/core/services/readiness-match.service';
 import ReadinessStatusBadge from './ReadinessStatusBadge';
 
@@ -28,6 +28,8 @@ function connectionState(soldierId: string, uid: string | null, hasSuggestion: b
 
 interface SoldiersRosterTableProps {
   soldiers: RosterSoldierEntry[];
+  /** 06.10.2026 (David) — for the "יחידה" column, a battalion of 33 across 7 units with no unit visible had no way to tell who belongs where. */
+  units: RosterUnitEntry[];
   suggestions: ReadinessMatchSuggestion[];
   ambiguities: ReadinessMatchAmbiguity[];
   onAddSoldier: () => void;
@@ -36,7 +38,8 @@ interface SoldiersRosterTableProps {
   onMatchResolved: () => void;
 }
 
-export default function SoldiersRosterTable({ soldiers, suggestions, ambiguities, onAddSoldier, onUnlinked, onMatchResolved }: SoldiersRosterTableProps) {
+export default function SoldiersRosterTable({ soldiers, units, suggestions, ambiguities, onAddSoldier, onUnlinked, onMatchResolved }: SoldiersRosterTableProps) {
+  const unitNameById = useMemo(() => new Map(units.map((u) => [u.id, u.name])), [units]);
   const [confirmUnlink, setConfirmUnlink] = useState<RosterSoldierEntry | null>(null);
   const [unlinking, setUnlinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -223,6 +226,7 @@ export default function SoldiersRosterTable({ soldiers, suggestions, ambiguities
               <tr className="text-[11px] text-slate-400 font-bold border-b border-slate-200">
                 <th className="text-right py-2 px-3 w-8">#</th>
                 <th className="text-right py-2 px-3">שם</th>
+                <th className="text-right py-2 px-3">יחידה</th>
                 <th className="text-right py-2 px-3">מגדר</th>
                 <th className="text-right py-2 px-3">מחובר לאפליקציה</th>
                 <th className="text-right py-2 px-3">תוצאה אחרונה</th>
@@ -240,6 +244,7 @@ export default function SoldiersRosterTable({ soldiers, suggestions, ambiguities
                     <tr className="border-b border-slate-100 last:border-b-0 hover:bg-slate-100/50 transition-colors">
                       <td className="py-2.5 px-3 text-[11px] text-slate-400">{i + 1}</td>
                       <td className="py-2.5 px-3 font-bold text-slate-800">{s.name}</td>
+                      <td className="py-2.5 px-3 text-slate-600">{unitNameById.get(s.unitId) ?? '—'}</td>
                       <td className="py-2.5 px-3 text-slate-600">{GENDER_LABEL[s.gender]}</td>
                       <td className="py-2.5 px-3">
                         {state === 'connected' ? (
@@ -274,7 +279,7 @@ export default function SoldiersRosterTable({ soldiers, suggestions, ambiguities
                     </tr>
                     {isExpanded && (suggestion || ambiguity) && (
                       <tr key={`${s.id}-expanded`} className="border-b border-slate-100 last:border-b-0 bg-slate-50/50">
-                        <td colSpan={6} className="py-3 px-3">
+                        <td colSpan={7} className="py-3 px-3">
                           {rowError && <p className="text-xs text-red-600 font-semibold mb-2">{rowError}</p>}
                           {suggestion ? (
                             <div className="flex items-center justify-between bg-cyan-50 border border-cyan-100 rounded-xl px-3 py-2.5">

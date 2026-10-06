@@ -53,6 +53,10 @@ export default function ReadinessPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [addPrefill, setAddPrefill] = useState<{ uid: string; name: string; gender: 'male' | 'female' | null } | undefined>(undefined);
   const [linkTarget, setLinkTarget] = useState<RosterPendingEntry | null>(null);
+  // 06.10.2026 (David) — 33 soldiers across 7 units with no way to tell
+  // who belongs where. '' = the screen's own existing default (every
+  // soldier in the officer's full command span, unchanged).
+  const [selectedUnitId, setSelectedUnitId] = useState<string>('');
 
   const loadRoster = useCallback(async (tenantId: string | null) => {
     const token = await auth.currentUser?.getIdToken();
@@ -97,6 +101,13 @@ export default function ReadinessPage() {
     });
     return () => unsub();
   }, []);
+
+  // Switching brigades (root/chief-officer only) — the previously
+  // selected unit belonged to the OLD brigade and must not silently
+  // carry over as a filter against the new one.
+  useEffect(() => {
+    if (selection.needsSelection) setSelectedUnitId('');
+  }, [selection.needsSelection, selection.tenantId]);
 
   useEffect(() => {
     if (!ready) return;
@@ -225,6 +236,25 @@ export default function ReadinessPage() {
         </div>
       </div>
 
+      {/* 06.10.2026 (David) — same unit filter trends/page.tsx already
+          has, not a new control. '' (the default) shows every soldier in
+          the officer's full command span, unchanged from before this. */}
+      {!loadError && units.length > 1 && (
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-bold text-gray-600">יחידה:</label>
+          <select
+            value={selectedUnitId}
+            onChange={(e) => setSelectedUnitId(e.target.value)}
+            className="text-sm border border-gray-200 rounded-xl px-3 py-2 bg-white"
+          >
+            <option value="">כל היחידות</option>
+            {units.map((u) => (
+              <option key={u.id} value={u.id}>{u.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {loadError && (
         <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 flex items-center justify-between gap-3">
           <p className="text-sm text-red-700 font-semibold">{loadError}</p>
@@ -266,7 +296,8 @@ export default function ReadinessPage() {
           />
 
           <SoldiersRosterTable
-            soldiers={soldiers}
+            soldiers={selectedUnitId ? soldiers.filter((s) => s.unitId === selectedUnitId) : soldiers}
+            units={units}
             suggestions={matchData.suggestions}
             ambiguities={matchData.ambiguities}
             onAddSoldier={() => { setAddPrefill(undefined); setShowAddModal(true); }}

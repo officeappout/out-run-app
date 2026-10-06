@@ -14,7 +14,7 @@
  * (they have no cross-brigade access to link to).
  */
 
-export type MilitaryNavIconName = 'Dumbbell' | 'LayoutDashboard' | 'ShieldCheck' | 'BarChart3' | 'Shield';
+export type MilitaryNavIconName = 'Dumbbell' | 'LayoutDashboard' | 'ShieldCheck' | 'BarChart3' | 'Shield' | 'ClipboardList';
 
 export interface MilitaryNavItem {
   href: string;
@@ -26,6 +26,9 @@ export const MILITARY_ROOT_NAV_ITEMS: MilitaryNavItem[] = [
   { href: '/admin/authority/readiness/vertical-overview', icon: 'Dumbbell', label: 'כל החטיבות' },
   { href: '/admin/dashboard', icon: 'LayoutDashboard', label: 'דשבורד כשירות' },
   { href: '/admin/authority/readiness', icon: 'ShieldCheck', label: 'חיילים ותוצאות' },
+  // 06.10.2026 (David) — was reachable only via a button inside the
+  // roster screen, no sidebar item at all.
+  { href: '/admin/authority/readiness/entry', icon: 'ClipboardList', label: 'רישום תוצאות בוחן' },
   { href: '/admin/authority/readiness/trends', icon: 'BarChart3', label: 'מגמות' },
   { href: '/admin/authority/units?type=military', icon: 'Shield', label: 'היררכיית יחידות' },
   { href: '/admin/authority/team?type=military', icon: 'Shield', label: 'ניהול צוות צבאי' },

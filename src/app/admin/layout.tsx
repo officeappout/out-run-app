@@ -86,7 +86,7 @@ const ICON_MAP: Record<LucideIconName, React.ElementType> = {
 // Dumbbell today) rather than extending shared infrastructure beyond
 // what this round needs.
 const MILITARY_NAV_ICON_MAP: Record<MilitaryNavIconName, React.ElementType> = {
-  Dumbbell, LayoutDashboard, ShieldCheck, BarChart3, Shield,
+  Dumbbell, LayoutDashboard, ShieldCheck, BarChart3, Shield, ClipboardList,
 };
 
 // Section IDs for collapsible state — 5 global centres + 3 verticals
