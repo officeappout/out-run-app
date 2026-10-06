@@ -47,6 +47,15 @@ function classifyShape(profile: RouteProfile): ShapeType {
 const COMPACTNESS_PRIORITY_THRESHOLDS = {
   polsbyPopper: 0.05,
   reock: 0.06,
+  // 06.10.2026, מדגם 32 לולאות / ~4 ערים:
+  // convexHullRatio לא נכשל אף פעם לבד —
+  // תמיד יחד עם pp או reock.
+  // 🔴 זה לא אומר שהוא מיותר. הוא קיים כדי
+  //    לתפוס "רשת שבילים, לא מסלול" (Bar Yehuda,
+  //    קריית אונו) — והמדגם הזה כנראה לא הכיל
+  //    מקרה כזה.
+  // ⚠️ לבדוק שוב ב-100+ לולאות מ-10+ ערים.
+  //    אם גם אז לא תפס לבד — אז לשקול להסיר.
   convexHullRatio: 0.10,
 } as const;
 
