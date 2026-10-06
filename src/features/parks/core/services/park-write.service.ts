@@ -41,6 +41,7 @@
 
 import type { Firestore } from 'firebase-admin/firestore';
 import { resolveAuthorityManagerScope } from '@/lib/authorityManagerScope';
+import { computeNeedsFacilityDetails } from '../utils/park-completeness.util';
 
 // ── Caller resolution ───────────────────────────────────────────────────
 
@@ -72,6 +73,11 @@ const ALWAYS_SERVER_CONTROLLED_FIELDS = new Set<string>([
   'createdByUser',
   'createdAt',
   'updatedAt',
+  // David's decision, OSM-import Stage 1 (06.10.2026): computed from
+  // gymEquipment/image on every write (computeNeedsFacilityDetails,
+  // park-completeness.util.ts) — never settable directly, by anyone,
+  // including root. Same pattern as published/contentStatus above.
+  'needsFacilityDetails',
 ]);
 
 /**
@@ -309,6 +315,8 @@ export async function computeParkCreate(
     return { status: 400, body: { error: `שדות לא מורשים: ${rejectedFields.join(', ')}` } };
   }
 
+  doc.needsFacilityDetails = computeNeedsFacilityDetails(doc);
+
   const ref = await db.collection('parks').add(doc);
 
   await writeParkAuditLog(db, {
@@ -397,6 +405,11 @@ export async function computeParkUpdate(
   for (const key of Object.keys(updates)) {
     oldSnapshot[key] = existingPark[key] ?? null;
   }
+
+  // Recomputed from the RESULTING state (existing doc + this patch merged),
+  // not just the patch alone — an update that doesn't touch gymEquipment/
+  // image must still reflect the park's real current completeness.
+  updates.needsFacilityDetails = computeNeedsFacilityDetails({ ...existingPark, ...updates });
 
   updates.updatedAt = new Date();
   await db.collection('parks').doc(parkId).update(updates);

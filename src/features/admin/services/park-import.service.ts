@@ -27,6 +27,7 @@ import type { Authority } from '@/types/admin-types';
 import type { GymEquipment, EquipmentBrand } from '@/features/content/equipment/gym/core/gym-equipment.types';
 import type { ParkGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
 import type { ParkFeatureTag } from '@/features/parks/core/types/park.types';
+import { computeNeedsFacilityDetails } from '@/features/parks/core/utils/park-completeness.util';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -1401,6 +1402,7 @@ export async function executeImport(
       };
 
       if (!isUpdate) parkData.createdAt = serverTimestamp();
+      parkData.needsFacilityDetails = computeNeedsFacilityDetails(parkData);
 
       batch.set(doc(db, 'parks', docId), stripUndefined(parkData), { merge: true });
       if (isUpdate) batchUpdated++; else batchCreated++;
@@ -1646,10 +1648,12 @@ export async function bulkUploadLocalMedia(
           const parkDoc = await getDoc(doc(db, 'parks', match.docId));
           const existingImages: string[] = parkDoc.data()?.images ?? [];
           const firebaseImages = existingImages.filter(isAlreadyMigrated);
+          const newImages = [downloadUrl, ...firebaseImages];
 
           await updateDoc(doc(db, 'parks', match.docId), stripUndefined({
             image: downloadUrl,
-            images: [downloadUrl, ...firebaseImages],
+            images: newImages,
+            needsFacilityDetails: computeNeedsFacilityDetails({ ...parkDoc.data(), image: downloadUrl, images: newImages }),
             updatedAt: serverTimestamp(),
           }));
 

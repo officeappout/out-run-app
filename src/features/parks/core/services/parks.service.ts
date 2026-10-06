@@ -77,6 +77,11 @@ function normalizePark(docId: string, data: any): Park {
     amenities: data?.amenities ?? undefined,
     authorityId: data?.authorityId ?? undefined,
     needsAuthorityTagging: data?.needsAuthorityTagging ?? false,
+    // Same whitelist-drop bug class as ratingAvg/reviewCount below (see that
+    // comment) — caught before shipping, not after, this time. Without this
+    // line getAllParks()/getParksByAuthority() would silently return every
+    // park as "documented" regardless of the real Firestore value.
+    needsFacilityDetails: data?.needsFacilityDetails ?? false,
     neighborhoodId: data?.neighborhoodId ?? undefined,
     neighborhoodName: data?.neighborhoodName ?? undefined,
     isFunctional: data?.isFunctional ?? undefined,

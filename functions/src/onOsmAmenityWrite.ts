@@ -139,6 +139,27 @@ export async function findNearestPark(
  * Firestore "read the guard field inside the transaction that writes it"
  * pattern, not a manual lock.
  */
+/**
+ * Deliberate duplicate of src/features/parks/core/utils/park-completeness.
+ * util.ts's computeNeedsFacilityDetails — functions/src cannot import from
+ * src/ (separate compilation project; same constraint documented at this
+ * repo's resolveDisplayName in park-write.service.ts). David's rule
+ * (06.10.2026): needsFacilityDetails is ALWAYS server-computed from the
+ * resulting gymEquipment/image state, never a manually-forced value — this
+ * supersedes this file's earlier "force true on link, as a review nudge"
+ * behavior (see header comment above): linking an OSM amenity to a park
+ * that already has real equipment+photo no longer re-flags it incomplete.
+ */
+function computeNeedsFacilityDetails(data: { image?: unknown; images?: unknown; gymEquipment?: unknown }): boolean {
+  const hasPhoto =
+    (typeof data.image === 'string' && data.image.trim().length > 0) ||
+    (Array.isArray(data.images) && data.images.some((v) => typeof v === 'string' && v.trim().length > 0));
+  const hasEquipment =
+    Array.isArray(data.gymEquipment) &&
+    data.gymEquipment.some((e) => e && typeof e === 'object' && typeof (e as { equipmentId?: unknown }).equipmentId === 'string' && (e as { equipmentId: string }).equipmentId.trim().length > 0);
+  return !(hasPhoto && hasEquipment);
+}
+
 export async function applyFitnessStationToParkLink(
   firestore: admin.firestore.Firestore,
   amenityId: string,
@@ -163,8 +184,13 @@ export async function applyFitnessStationToParkLink(
 
     if (nearest && nearest.distanceMeters <= PARK_LINK_RADIUS_METERS) {
       const parkRef = firestore.collection('parks').doc(nearest.id);
+      // Read BEFORE any tx.update — this linkage doesn't touch gymEquipment/
+      // image (see header comment: no equipment detail in osm_amenities to
+      // populate), so the flag must reflect the park's EXISTING completeness,
+      // not be force-set — an already-fully-documented park stays documented.
+      const parkSnap = await tx.get(parkRef);
       tx.update(parkRef, {
-        needsFacilityDetails: true,
+        needsFacilityDetails: computeNeedsFacilityDetails(parkSnap.data() ?? {}),
         linkedOsmAmenityIds: admin.firestore.FieldValue.arrayUnion(amenityId),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
@@ -197,7 +223,7 @@ export async function applyFitnessStationToParkLink(
       isShaded: false,
       origin: 'super_admin',
       externalSourceId: amenityData.osmId ?? undefined,
-      needsFacilityDetails: true,
+      needsFacilityDetails: computeNeedsFacilityDetails({ gymEquipment: [] }),
       linkedOsmAmenityIds: [amenityId],
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
