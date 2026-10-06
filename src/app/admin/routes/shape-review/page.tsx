@@ -134,7 +134,7 @@ export default function RouteShapeReviewPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-black text-gray-900">סיווג צורה — סקירת מסלולים ממתינים</h1>
-          <p className="text-sm text-gray-400 mt-1">{routes.length} מסלולים · {routes.filter((r) => r.isReviewPriority).length} בעדיפות (ביטחון 90% + רבעון תחתון בשלושת המודדים)</p>
+          <p className="text-sm text-gray-400 mt-1">{routes.length} מסלולים · {routes.filter((r) => r.isReviewPriority).length} בעדיפות (ביטחון 90% + נכשל בסף קומפקטיות אחד לפחות)</p>
         </div>
         <div className="flex items-center gap-2 bg-gray-100 rounded-2xl p-1">
           <button

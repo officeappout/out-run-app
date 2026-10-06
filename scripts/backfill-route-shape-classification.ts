@@ -42,10 +42,13 @@ function classifyShape(profile: RouteProfile): ShapeType {
   return 'unclassified';
 }
 
-function percentileRank(values: number[], v: number): number {
-  const sorted = [...values].sort((a, b) => a - b);
-  return (sorted.filter((x) => x < v).length / sorted.length) * 100;
-}
+// Thresholds calibrated on 32 loops from ~4 Israeli cities, 06.10.2026.
+// To re-check after 100+ loops from 10+ cities.
+const COMPACTNESS_PRIORITY_THRESHOLDS = {
+  polsbyPopper: 0.05,
+  reock: 0.06,
+  convexHullRatio: 0.10,
+} as const;
 
 async function main() {
   const isApply = process.argv.includes('--apply');
@@ -73,27 +76,30 @@ async function main() {
   console.log(`Loaded ${targets.length} pending routes (skipped ${skippedArchived} archived, ${skippedBadGeometry} bad geometry).`);
   console.log(`Shape breakdown: loop=${byType.loop}  linear_corridor=${byType.linear_corridor}  unclassified=${byType.unclassified}`);
 
-  // ── Review priority — the EXACT cut (b) logic from the measurement
-  // report (docs/audit-2026-10/route-geometry-measurement-report.md),
-  // computed once here so the live screen can just sort on a field rather
-  // than hardcoding 7 route IDs in UI code. Not a new judgment — a literal
-  // transcription of the already-validated, already-reported criterion:
-  // certificate verdict=approve AND bottom-quartile (<=25th percentile) on
-  // all 3 compactness measures at once.
+  // ── Review priority — absolute thresholds on the compactness measures
+  // themselves (06.10.2026), replacing the original percentile-rank cut
+  // (docs/audit-2026-10/route-geometry-measurement-report.md's criterion
+  // (b)): percentile rank made a route's flag depend on OTHER routes in
+  // the same run (confirmed live — adding Arad's 4 loops to the pool
+  // shifted an unrelated Herzliya route across the bottom-quartile
+  // boundary with no change to its own numbers). A route now flags on its
+  // own measures alone: certificate verdict=approve AND at least one of
+  // the 3 compactness measures at or below its threshold (not all 3 — any
+  // single bad measure is enough).
   const loopTargets = targets.filter((t) => t.shapeType === 'loop' && t.profile.compactness);
-  const measureKeys = ['polsbyPopper', 'reock', 'convexHullRatio'] as const;
-  const measureValues: Record<string, number[]> = {};
-  for (const m of measureKeys) measureValues[m] = loopTargets.map((t) => t.profile.compactness![m]);
   const accuracyQueue = await computeAccuracyQueue(db); // unmodified, read-only reuse
   const accuracyById = new Map(accuracyQueue.rows.map((r) => [r.id, r]));
 
   const reviewPriorityIds = new Set<string>();
   for (const t of loopTargets) {
-    const ranks = measureKeys.map((m) => percentileRank(measureValues[m], t.profile.compactness![m]));
+    const c = t.profile.compactness!;
+    const failsAny = c.polsbyPopper <= COMPACTNESS_PRIORITY_THRESHOLDS.polsbyPopper
+      || c.reock <= COMPACTNESS_PRIORITY_THRESHOLDS.reock
+      || c.convexHullRatio <= COMPACTNESS_PRIORITY_THRESHOLDS.convexHullRatio;
     const certApprove = accuracyById.get(t.id)?.decision.verdict === 'approve';
-    if (certApprove && ranks.every((r) => r <= 25)) reviewPriorityIds.add(t.id);
+    if (certApprove && failsAny) reviewPriorityIds.add(t.id);
   }
-  console.log(`Review-priority (cert=approve + bottom-quartile on all 3): ${reviewPriorityIds.size} routes.`);
+  console.log(`Review-priority (cert=approve + fails at least one compactness threshold): ${reviewPriorityIds.size} routes.`);
 
   if (!isApply) {
     console.log('\nDry run only (pass --apply to write). No Firestore writes made.');
