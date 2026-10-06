@@ -65,6 +65,24 @@
  * ───────────────────────────────────────────────────────
  *   TRAINING_REMINDER_BATCH    — max docs to process per run (default 500)
  *   TRAINING_REMINDER_TEST_MODE — if 'true', logs intent, skips FCM + writes
+ *
+ * GATE — reminderSweepScheduler v2 (06.10.2026)
+ * ──────────────────────────────────────────────
+ * `app_config/feature_flags.reminderSweepWorkoutEntriesEnabled` (default
+ * false/absent): when true, any userSchedule entry that HAS a `startTime`
+ * is skipped here entirely — `reminderSweepScheduler`'s 5-minute sweep now
+ * owns those precisely (fires ~leadMinutes before startTime, not this
+ * scheduler's coarse per-user hour). This scheduler keeps serving the
+ * residual case the sweep structurally can't — entries with no startTime
+ * at all. Reversible with ZERO code change: flip the flag back to
+ * false/absent and every entry is a candidate here again, exactly as
+ * before this gate existed. Fails OPEN (treats a read error as false, the
+ * OLD behavior) — unlike reminderSweepScheduler's own fail-closed flag
+ * read, a transient error here must never silently stop an
+ * already-relied-upon, already-live reminder from firing.
+ * `categoryLabel`/`buildMessage` are exported so reminderSweepScheduler
+ * can reuse the exact same category-aware copy for workout-entry sends,
+ * rather than duplicating it.
  */
 
 import { onSchedule } from 'firebase-functions/v2/scheduler';
@@ -75,8 +93,6 @@ import { sendPush } from './services/push.service';
 if (!admin.apps.length) {
   admin.initializeApp();
 }
-
-const db = admin.firestore();
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -103,7 +119,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   walking: 'הליכה',
 };
 
-function categoryLabel(categories: string[] | undefined): string {
+export function categoryLabel(categories: string[] | undefined): string {
   if (!categories || categories.length === 0) return 'אימון';
   const labels = categories
     .map((c) => CATEGORY_LABEL[c])
@@ -130,7 +146,7 @@ function pickBody(): string {
 }
 
 /** Build push content from a scheduled entry's categories. */
-function buildMessage(workoutLabel: string, startTime?: string): { title: string; body: string } {
+export function buildMessage(workoutLabel: string, startTime?: string): { title: string; body: string } {
   const timeHint = startTime ? ` ב-${startTime}` : ' היום';
   return {
     title: `📅 ${workoutLabel}${timeHint}`,
@@ -175,11 +191,32 @@ export const trainingReminderScheduler = onSchedule(
     memory: '512MiB',
   },
   async () => {
+    // Lazy init (06.10.2026) — was module-scope, moved here: once
+    // reminderSweepScheduler started importing this file's categoryLabel/
+    // buildMessage, an eager admin.firestore() call at import time became
+    // a real testability hazard (a mocked firestore()'s closure variable
+    // isn't assigned yet at that point). Harmless functional no-op —
+    // db was only ever read inside this same handler anyway.
+    const db = admin.firestore();
     const dateStr = todayISO();
     const currentHour = currentHourIST();
+
+    // Gate flag — fails OPEN (false = old behavior) on a read error, see
+    // this file's header. A transient read error must never silently stop
+    // an already-live reminder; worst case is one run's workout-entry gate
+    // doesn't apply, which just means a candidate gets handled here instead
+    // of waiting for the sweep — never a missed reminder.
+    let gateWorkoutEntries = false;
+    try {
+      const flagsSnap = await db.doc('app_config/feature_flags').get();
+      gateWorkoutEntries = flagsSnap.exists && flagsSnap.data()?.reminderSweepWorkoutEntriesEnabled === true;
+    } catch (err) {
+      logger.warn('[training-reminder] feature_flags read failed, defaulting gate to false (old behavior)', err);
+    }
+
     logger.info(
       `[training-reminder] Starting run for date=${dateStr} hour=${currentHour} ` +
-        `batchLimit=${BATCH_LIMIT} testMode=${TEST_MODE}`,
+        `batchLimit=${BATCH_LIMIT} testMode=${TEST_MODE} gateWorkoutEntries=${gateWorkoutEntries}`,
     );
 
     // Query all userSchedule docs for today.
@@ -227,6 +264,12 @@ export const trainingReminderScheduler = onSchedule(
         (e) => e.type === 'training' && e.completed !== true,
       );
       if (!trainEntry) continue;
+
+      // v2 gate: when enabled, any entry WITH a startTime is now owned
+      // precisely by reminderSweepScheduler — skip it here entirely rather
+      // than also sending this scheduler's coarser per-hour reminder for
+      // the same workout (see this file's header).
+      if (gateWorkoutEntries && trainEntry.startTime) continue;
 
       // Skip if the workout's startTime has already passed (no point reminding after the fact)
       if (trainEntry.startTime) {

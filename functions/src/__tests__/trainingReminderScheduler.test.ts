@@ -127,15 +127,19 @@ function setDoc(collection: string, id: string, data: Record<string, any>) {
   state.store.set(pathKey(collection, id), data);
 }
 
-function seedSchedule(uid: string, date: string) {
+function seedSchedule(uid: string, date: string, startTime?: string) {
   state.userSchedule.push({
     id: `${uid}_${date}`,
     data: {
       userId: uid,
       date,
-      entries: [{ type: 'training', completed: false, scheduledCategories: ['strength'] }],
+      entries: [{ type: 'training', completed: false, scheduledCategories: ['strength'], ...(startTime ? { startTime } : {}) }],
     },
   });
+}
+
+function setWorkoutEntriesGate(enabled: boolean) {
+  setDoc('app_config', 'feature_flags', { reminderSweepWorkoutEntriesEnabled: enabled });
 }
 
 function seedUser(uid: string, runningTime?: string) {
@@ -224,5 +228,49 @@ describe('trainingReminderScheduler — personalized hour targeting', () => {
     await (trainingReminderScheduler as any)();
 
     expect(fakeMessaging.sendEachForMulticast).not.toHaveBeenCalled();
+  });
+
+  describe('reminderSweepWorkoutEntriesEnabled gate (v2, 06.10.2026)', () => {
+    // All 3 cases: current time = 17:00 = the user's preferred hour (so
+    // hour-matching alone would pass), entry startTime = 18:00 — in the
+    // FUTURE relative to "now," so the pre-existing "already passed" skip
+    // (trainEntry.startTime <= now) never fires either. This isolates the
+    // NEW gate as the only possible cause of a skip in test 1.
+    it('gate ON + entry HAS a startTime — skipped here entirely, even though the hour matches', async () => {
+      setWorkoutEntriesGate(true);
+      setIsraelTime(17);
+      seedSchedule('user5', TODAY, '18:00'); // has startTime, not yet passed
+      seedUser('user5', '17:00');
+
+      await (trainingReminderScheduler as any)();
+
+      expect(fakeMessaging.sendEachForMulticast).not.toHaveBeenCalled();
+    });
+
+    it('gate ON + entry has NO startTime — still fires normally (the residual case the sweep cannot serve)', async () => {
+      setWorkoutEntriesGate(true);
+      setIsraelTime(17);
+      seedSchedule('user6', TODAY); // no startTime
+      seedUser('user6', '17:00');
+
+      await (trainingReminderScheduler as any)();
+
+      expect(fakeMessaging.sendEachForMulticast).toHaveBeenCalledWith(
+        expect.objectContaining({ tokens: ['tok-user6'] }),
+      );
+    });
+
+    it('gate OFF/absent — an entry WITH a startTime still fires exactly as before (zero-code-change reversibility)', async () => {
+      // Deliberately NOT calling setWorkoutEntriesGate — app_config/feature_flags absent entirely.
+      setIsraelTime(17);
+      seedSchedule('user7', TODAY, '18:00');
+      seedUser('user7', '17:00');
+
+      await (trainingReminderScheduler as any)();
+
+      expect(fakeMessaging.sendEachForMulticast).toHaveBeenCalledWith(
+        expect.objectContaining({ tokens: ['tok-user7'] }),
+      );
+    });
   });
 });
