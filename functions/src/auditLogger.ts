@@ -61,7 +61,8 @@ const MAX_TARGET_ID_LEN = 200;
 const ROOT_ADMIN_EMAIL_REGEX = /^(david|office)@appout\.co\.il$/i;
 
 /**
- * Verify caller has admin privileges — same 3-path logic as runDataMigration.
+ * Verify caller has admin privileges (3-path check: custom claim, hardcoded
+ * root admin email, or a Firestore core.is*Admin/core.isTenantOwner flag).
  * Throws permission-denied if none of the paths match.
  */
 async function requireAdmin(

@@ -24,11 +24,14 @@ setGlobalOptions({ maxInstances: 20 });
 export { onGroupMemberWrite, deleteZombieGroups } from './onGroupMemberWrite';
 export { validateAccessCode } from './validateAccessCode';
 export { onFeedPostCreate, onWorkoutCreate, rollupLeaderboard } from './leaderboard';
-// runDataMigration — deliberately NOT exported (removed from deploy 10.09.2026,
-// per David's approval and the master-plan's own flagged concern: "destructive
-// function still deployed in production; take it down until you need it for a
-// migration, bring it back after"). Source file (runDataMigration.ts) is kept,
-// not deleted — this is meant to be temporary, re-exported when next needed.
+// runDataMigration.ts — deleted entirely 06.10.2026 (David's approval). Had
+// already been pulled from deploy 10.09.2026 for being a destructive,
+// globally-unscoped (not caller-tenant-scoped) migration whose admin-check
+// accepted core.isTenantOwner === true — a real, held, customer role. Its
+// one-time Hebrew-ID migration already ran; confirmed zero callers anywhere
+// in the repo (grep, not assumed) before deletion. If a similar migration is
+// ever needed again, write a fresh one scoped to the problem at hand — this
+// is not a reusable utility to resurrect as-is.
 export { onUnitWrite } from './onUnitWrite';
 export { onAuthorityWrite } from './onAuthorityWrite';
 export { onOsmAmenityWrite } from './onOsmAmenityWrite';

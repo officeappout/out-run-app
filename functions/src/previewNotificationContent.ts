@@ -14,12 +14,11 @@
  * `personaliseNotificationText` mirror is already missing a real tag,
  * `@זמן_אימון` — a duplicated-logic bug this tool must not repeat).
  *
- * Security: mirrors runDataMigration.ts's requireAdmin (3-path admin check:
- * custom claim / hardcoded root admin email / Firestore role flags) — this
- * repo has no shared cross-callable admin-check utility yet (runDataMigration.ts
- * and auditLogger.ts each carry their own copy too), so this follows the
- * same established, if duplicated, convention rather than introducing a
- * fourth one.
+ * Security: same 3-path admin check used elsewhere in this project (custom
+ * claim / hardcoded root admin email / Firestore role flags) — this repo has
+ * no shared cross-callable admin-check utility yet (auditLogger.ts carries
+ * its own copy too), so this follows the same established, if duplicated,
+ * convention rather than introducing a new one.
  *
  * NOT DEPLOYED as of this commit — exported here so it's ready to ship, but
  * actually invoking it (from the admin panel or anywhere else) requires
@@ -46,7 +45,7 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 const ROOT_ADMIN_EMAIL_REGEX = /^(david|office)@appout\.co\.il$/i;
 
-/** Duplicated from runDataMigration.ts by established (if imperfect) convention — see file header. */
+/** Duplicated per the established (if imperfect) convention — see file header. */
 async function requireAdmin(auth: { uid: string; token?: Record<string, any> } | undefined): Promise<string> {
   if (!auth) {
     throw new HttpsError('unauthenticated', 'Sign-in required to preview notification content.');
