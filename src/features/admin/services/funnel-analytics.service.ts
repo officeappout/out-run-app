@@ -6,29 +6,33 @@
  * funnel, sliced by marketing attribution and user demographics.
  *
  * Design contract:
- *   • EVERY stage query uses `getCountFromServer` — only a single
- *     primitive count is transferred per stage, never full user
- *     payloads. This keeps Firestore read costs flat at O(stages)
- *     regardless of dataset size and avoids the read-amplification
- *     anti-pattern in `cpo-analytics.service.ts` (which does full
- *     `getDocs()` scans).
+ *   • Stages 1-3 use `getCountFromServer` — only a single primitive
+ *     count is transferred per stage, never full user payloads. This
+ *     keeps Firestore read costs flat at O(stages) regardless of
+ *     dataset size and avoids the read-amplification anti-pattern in
+ *     `cpo-analytics.service.ts` (which does full `getDocs()` scans).
+ *     Stages 4-5 (activation/retention) are the one exception — see
+ *     `getActivationRetentionCounts`'s own comment for why they need
+ *     real documents, not just a count.
  *   • All filters (`campaign`, `source`, `medium`, `gender`, date range)
  *     are applied natively as `where()` constraints on the server, so
  *     Firestore returns a count for the exact filtered subset.
  *   • Stage queries run in parallel via `Promise.allSettled` — one
  *     failing stage (e.g. missing composite index) does not poison the
- *     whole funnel render. Failed stages surface as count 0 with the
- *     error logged to console.
+ *     whole funnel render.
  *
- * Index prerequisite: composite indexes on `users` for combinations of
- * (createdAt, marketingAttribution.{source|campaign|medium|linkId},
- * core.gender, onboardingStatus, onboardingCompletedAt,
- * progression.workoutCount). `firestore.indexes.json` pre-provisions the
+ * Index prerequisite (stages 1-3 only — see above): composite indexes
+ * on `users` for combinations of (createdAt, marketingAttribution.
+ * {source|campaign|medium|linkId}, core.gender, onboardingStatus,
+ * onboardingCompletedAt). `firestore.indexes.json` pre-provisions the
  * single most common one (linkId + createdAt — "show me one QR code's
- * funnel"); every other filter combination auto-suggests its own index on
+ * funnel"); every other combination auto-suggests its own index on
  * first failed query — click the console link to provision. A failed
  * stage returns 0 (see `countStage`), so a missing index degrades a
- * dashboard card, it never breaks the page.
+ * dashboard card, it never breaks the page. ⚠️ Known gap, separately
+ * tracked (BUG 2, 06.10.2026): this silent-0 behavior is itself under
+ * fix in a follow-up PR — a missing index should surface as an
+ * explicit error state, not a confident-looking zero.
  */
 
 import {
@@ -46,6 +50,7 @@ import { db } from '@/lib/firebase';
 import { hasStrengthTrack, hasRunningTrack } from '@/lib/track-ownership';
 import { levelTierToRange, type LevelTier } from '@/features/workout-engine/services/split-decision/split-decision.types';
 import { ageBucketToBirthDateRange, type AgeBucket } from '@/lib/age-buckets';
+import { isRealWorkoutCompletion } from '@/lib/workout-completion-kpi';
 
 const USERS_COLLECTION = 'users';
 
@@ -269,6 +274,67 @@ function pct(numerator: number, denominator: number): number | null {
   return Math.round((numerator / denominator) * 1000) / 10;
 }
 
+/**
+ * Stage 4 (activation) + Stage 5 (retention) — bug-fix round, 06.10.2026
+ * (BUG 1). Previously `where('progression.workoutCount', '>=', N)`: a
+ * client-written best-effort counter (`completion-sync.service.ts:
+ * 137-146`) that silently under-counts on any write failure, and reads
+ * 0 even when real completions exist. Fixed by adopting the SAME real-
+ * completion source already proven in `users.service.ts:162-167` /
+ * `admin/users/all/page.tsx:211-217` — one unscoped read of the real
+ * `workouts` collection, not a second denormalized counter.
+ *
+ * Both stages share Stage 1's exact eligible-user population (same
+ * `constraints` — no extra Firestore-side field needed any more), so
+ * this takes `eligibleConstraints` once and cross-references real
+ * workouts in memory: per-user qualifying-workout counts via
+ * `isRealWorkoutCompletion` (workout-completion-kpi.ts, the locked KPI
+ * definition — docs/product/kpi-definitions.md), then activation =
+ * count>=1, retention = count>=3. A side benefit: removing the
+ * Firestore-side `workoutCount` constraint means neither stage needs a
+ * composite index any more (BUG 2's missing-index problem doesn't
+ * apply here at all).
+ */
+async function getActivationRetentionCounts(
+  eligibleConstraints: QueryConstraint[],
+  programFilter: FunnelFilters['program'],
+): Promise<{ activation: number; retention: number }> {
+  try {
+    const eligibleSnap = await getDocs(query(collection(db, USERS_COLLECTION), ...eligibleConstraints));
+    let eligibleDocs = eligibleSnap.docs;
+    if (programFilter === 'strength' || programFilter === 'map_only') {
+      eligibleDocs = eligibleDocs.filter((d) => {
+        const data = d.data();
+        const isStrength = hasStrengthTrack(data);
+        return programFilter === 'strength' ? isStrength : !isStrength && !hasRunningTrack(data);
+      });
+    }
+    const eligibleUserIds = new Set(eligibleDocs.map((d) => d.id));
+
+    const workoutsSnap = await getDocs(collection(db, 'workouts'));
+    const qualifyingCountByUid = new Map<string, number>();
+    workoutsSnap.docs.forEach((d) => {
+      const data = d.data();
+      const uid = data?.userId;
+      if (typeof uid !== 'string' || !eligibleUserIds.has(uid)) return;
+      if (!isRealWorkoutCompletion(data)) return;
+      qualifyingCountByUid.set(uid, (qualifyingCountByUid.get(uid) ?? 0) + 1);
+    });
+
+    let activation = 0;
+    let retention = 0;
+    eligibleUserIds.forEach((uid) => {
+      const count = qualifyingCountByUid.get(uid) ?? 0;
+      if (count >= 1) activation++;
+      if (count >= 3) retention++;
+    });
+    return { activation, retention };
+  } catch (err) {
+    console.error('[FunnelAnalytics] Activation/retention count failed:', err);
+    return { activation: 0, retention: 0 };
+  }
+}
+
 // ──────────────────────────────────────────────────────────────────────
 // Public API
 // ──────────────────────────────────────────────────────────────────────
@@ -301,35 +367,31 @@ export async function getFunnelCounts(
     where('onboardingStatus', '==', 'COMPLETED'),
   ];
 
-  const stage4Constraints: QueryConstraint[] = [
-    ...buildBaseConstraints(filters, 'createdAt'),
-    where('progression.workoutCount', '>=', 1),
-  ];
+  // Stages 4/5 (activation/retention) share Stage 1's exact eligible
+  // population — see getActivationRetentionCounts above for why there's
+  // no separate Firestore-side constraint for them any more.
 
-  const stage5Constraints: QueryConstraint[] = [
-    ...buildBaseConstraints(filters, 'createdAt'),
-    where('progression.workoutCount', '>=', 3),
-  ];
-
-  // ── Fire all 5 stage counts in parallel ────────────────────────────
+  // ── Fire all stage counts in parallel ──────────────────────────────
   //
   // `Promise.allSettled` (not `Promise.all`) so a single failed stage
   // doesn't poison the whole dashboard — the caller still gets the
   // other stages and the conversion math continues with 0 for the
-  // failed one. Individual failures are logged inside `countStage`.
+  // failed one. Individual failures are logged inside `countStage` /
+  // `getActivationRetentionCounts`.
   const settled = await Promise.allSettled([
     countStage(stage1Constraints, 'registered', filters.program),
     countStage(stage2Constraints, 'midpoint', filters.program),
     countStage(stage3Constraints, 'completed', filters.program),
-    countStage(stage4Constraints, 'activation', filters.program),
-    countStage(stage5Constraints, 'retention', filters.program),
+    getActivationRetentionCounts(stage1Constraints, filters.program),
   ]);
 
-  // `countStage` already swallows errors and returns 0, so the
-  // `fulfilled` branch will always trigger — but we keep the defensive
-  // unwrap for the impossible case where the wrapper itself rejected.
-  const counts = settled.map((res) => (res.status === 'fulfilled' ? res.value : 0));
-  const [c1, c2, c3, c4, c5] = counts;
+  const [registeredResult, midpointResult, completedResult, activationRetentionResult] = settled;
+  const c1 = registeredResult.status === 'fulfilled' ? registeredResult.value : 0;
+  const c2 = midpointResult.status === 'fulfilled' ? midpointResult.value : 0;
+  const c3 = completedResult.status === 'fulfilled' ? completedResult.value : 0;
+  const { activation: c4, retention: c5 } = activationRetentionResult.status === 'fulfilled'
+    ? activationRetentionResult.value
+    : { activation: 0, retention: 0 };
 
   // ── Compose the stage entries with conversion math ─────────────────
   //

@@ -56,20 +56,22 @@
  *     reuses `hasStrengthTrack`/`hasRunningTrack` (track-ownership.ts,
  *     not re-derived here); `level` reuses `getLevelTier` (split-
  *     decision.types.ts). See `applyUserFilters` below.
- *   - activationBySource: grouped from the SAME `realUserDocs` already
- *     in memory (marketingAttribution.source, defaulting to 'organic'
- *     per account-metrics.service.ts's documented convention) — zero
- *     new reads.
+ *   - activationBySource / activation.{avg,median}DaysToFirstWorkout:
+ *     both driven by ONE unscoped `workouts` collection read, filtered
+ *     through `isRealWorkoutCompletion` (workout-completion-kpi.ts —
+ *     the locked KPI definition, shared with funnel-analytics.
+ *     service.ts's client-side fix). Bug-fix round, 06.10.2026 (BUG 1):
+ *     originally keyed on `progression.workoutCount >= 1`, a client-
+ *     written best-effort counter (completion-sync.service.ts:
+ *     137-146) that silently under-counts on any write failure. Fixed
+ *     by adopting the SAME real-completion source already proven in
+ *     `users.service.ts:162-167` / `admin/users/all/page.tsx:211-217`
+ *     — one unscoped `workouts` read, not a second denormalized
+ *     counter. Deliberately not scoped to the 30-day trend window
+ *     above (a user's first-ever real workout can predate it).
  *   - newUsersTrend: day-bucketed signup counts from `realUserDocs`'
  *     own `createdAt` — same dateMap template as activeUsersTrend
  *     above, fed from a different field, zero new reads.
- *   - activation.{avg,median}DaysToFirstWorkout: the ONE new read this
- *     Wave — for users with `progression.workoutCount >= 1` only (not
- *     every user), one chunked `workouts.where('userId','in',batch)`
- *     batch (same batching pattern `statistics-summary/route.ts`
- *     already uses for its own per-user workout read) to find each
- *     such user's earliest `date`. Confirmed nowhere else in the
- *     codebase computes this (growth-analytics-plan.md's gap audit).
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
@@ -78,6 +80,7 @@ import { isTestOrMockUser } from '@/lib/testAccountFilter';
 import { hasStrengthTrack, hasRunningTrack } from '@/lib/track-ownership';
 import { getLevelTier } from '@/features/workout-engine/services/split-decision/split-decision.types';
 import { isAgeBucket, ageBucketToYearRange, getAgeInYears, type AgeBucket } from '@/lib/age-buckets';
+import { isRealWorkoutCompletion } from '@/lib/workout-completion-kpi';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -357,10 +360,46 @@ export async function computeGrowthMetrics(
   });
   const newUsersTrend = Array.from(newUsersDateMap.entries()).map(([date, newUsers]) => ({ date, newUsers }));
 
+  // ── Real completion data (bug-fix round, 06.10.2026, BUG 1) — ONE
+  //    unscoped `workouts` read, feeding BOTH activationBySource and
+  //    time-to-first-workout below. Previously each used
+  //    `progression.workoutCount >= 1` — a client-written best-effort
+  //    counter (completion-sync.service.ts:137-146) that silently
+  //    under-counts on any write failure. Fixed by adopting the SAME
+  //    real-completion source already proven in `users.service.ts:
+  //    162-167` / `admin/users/all/page.tsx:211-217` (one unscoped
+  //    `workouts` read, not a second denormalized counter), filtered
+  //    through the locked KPI predicate (`isRealWorkoutCompletion`,
+  //    workout-completion-kpi.ts — shared verbatim with funnel-
+  //    analytics.service.ts's client-side fix so the same tab can't
+  //    show two different "activated" answers). This read is
+  //    deliberately NOT scoped to the 30-day trend window above — a
+  //    user's first-ever real workout, or their total qualifying count,
+  //    can predate that window. ─────────────────────────────────────────
+  const qualifyingCountByUid = new Map<string, number>();
+  const firstQualifyingDateByUid = new Map<string, Date>();
+  try {
+    const allWorkoutsSnap = await db.collection('workouts').get();
+    allWorkoutsSnap.docs.forEach((doc) => {
+      const data = doc.data();
+      const uid = data?.userId;
+      if (typeof uid !== 'string' || !realUserIds.has(uid)) return;
+      if (!isRealWorkoutCompletion(data)) return;
+      qualifyingCountByUid.set(uid, (qualifyingCountByUid.get(uid) ?? 0) + 1);
+      const date = toDateSafe(data?.date);
+      if (date) {
+        const existing = firstQualifyingDateByUid.get(uid);
+        if (!existing || date < existing) firstQualifyingDateByUid.set(uid, date);
+      }
+    });
+  } catch (err) {
+    console.error('[/api/admin/growth-metrics] workouts full-collection read failed:', err);
+  }
+
   // ── Activation by source (Activation tab, Wave 2) — grouped from the
-  //    SAME realUserDocs already in memory, zero new reads. `source`
-  //    defaults to 'organic' per account-metrics.service.ts's documented
-  //    convention (buildAttributionPayload never leaves it null). ──────
+  //    SAME realUserDocs already in memory. `source` defaults to
+  //    'organic' per account-metrics.service.ts's documented convention
+  //    (buildAttributionPayload never leaves it null). ────────────────
   const bySource = new Map<string, { totalUsers: number; activatedUsers: number }>();
   realUserDocs.forEach((d) => {
     const data = d.data();
@@ -369,7 +408,7 @@ export async function computeGrowthMetrics(
       : 'organic';
     const entry = bySource.get(source) ?? { totalUsers: 0, activatedUsers: 0 };
     entry.totalUsers++;
-    if ((data?.progression?.workoutCount ?? 0) >= 1) entry.activatedUsers++;
+    if ((qualifyingCountByUid.get(d.id) ?? 0) >= 1) entry.activatedUsers++;
     bySource.set(source, entry);
   });
   const activationBySource = Array.from(bySource.entries())
@@ -381,35 +420,14 @@ export async function computeGrowthMetrics(
     }))
     .sort((a, b) => b.totalUsers - a.totalUsers);
 
-  // ── Time-to-first-workout (Activation tab, Wave 2) — the one genuinely
-  //    new read. Scoped to activated users only (not every user), same
-  //    chunked userId-in batching statistics-summary/route.ts already
-  //    uses for its own per-user workout read — reads each such user's
-  //    FULL workout history (not just the 30-day trend window above,
-  //    since a user may have activated long before it) to find their
-  //    earliest `date`. Confirmed nowhere else computes this. ──────────
-  const activatedUserDocs = realUserDocs.filter((d) => (d.data()?.progression?.workoutCount ?? 0) >= 1);
-  const firstWorkoutDateByUser = new Map<string, Date>();
-  if (activatedUserDocs.length > 0) {
-    const activatedUserIds = activatedUserDocs.map((d) => d.id);
-    const workoutBatches = await Promise.all(
-      chunk(activatedUserIds, 30).map((b) => db.collection('workouts').where('userId', 'in', b).get()),
-    );
-    workoutBatches.flat().forEach((snap) => {
-      snap.docs.forEach((doc) => {
-        const data = doc.data();
-        const uid = data?.userId;
-        const date = toDateSafe(data?.date);
-        if (typeof uid !== 'string' || !date) return;
-        const existing = firstWorkoutDateByUser.get(uid);
-        if (!existing || date < existing) firstWorkoutDateByUser.set(uid, date);
-      });
-    });
-  }
+  // ── Time-to-first-workout (Activation tab, Wave 2) — scoped to really-
+  //    activated users only, using the SAME qualifying-workout data read
+  //    above (no second read needed any more). ───────────────────────
+  const activatedUserDocs = realUserDocs.filter((d) => (qualifyingCountByUid.get(d.id) ?? 0) >= 1);
   const daysToFirstWorkout: number[] = [];
   activatedUserDocs.forEach((d) => {
     const createdAt = toDateSafe(d.data()?.createdAt);
-    const firstWorkoutAt = firstWorkoutDateByUser.get(d.id);
+    const firstWorkoutAt = firstQualifyingDateByUid.get(d.id);
     if (!createdAt || !firstWorkoutAt) return;
     const days = (firstWorkoutAt.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
     if (days >= 0) daysToFirstWorkout.push(days);
