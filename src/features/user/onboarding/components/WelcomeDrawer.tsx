@@ -8,15 +8,12 @@
  *   1. אימון כוח מותאם → parent calls the existing `handleHeroPress()`
  *      (home/page.tsx) — zero new navigation logic.
  *   2. Geo-aware second option — copy + destination both depend on
- *      `geoBranch` (resolved by useEntryRouter's Gate 2):
- *        - 'none'    → `/map?openRun=walking`, a fully EXISTING deep link
- *          (DiscoverLayer.tsx's initialOpenRun handling opens the free-
- *          cardio drawer directly) — zero new map-file code.
- *        - 'gardens' / 'routes' → plain `/map` for THIS slice. Auto-
- *          triggering the hybrid-slots carousel or the curated-route
- *          carousel would need new logic inside MapShell.tsx/
- *          DiscoverLayer.tsx, which are David's owned map/nav files — not
- *          touched here without his separate go (see the PR description).
+ *      `geoBranch` (resolved by useEntryRouter's Gate 2), each a one-shot
+ *      map deep-link (home/page.tsx's `onSecondaryOption` owns the actual
+ *      URLs): `openRun=walking` (pre-existing), `openHybridSlots=1` /
+ *      `openDiscover=1` (geo-branch auto-trigger fast-follow, 06.10.2026 —
+ *      see MapShell.tsx/DiscoverLayer.tsx, David's owned map/nav files,
+ *      touched only after his explicit go for this specific fast-follow).
  *
  * Purely presentational — every destination/callback is supplied by the
  * caller (home/page.tsx) so this component owns no navigation itself.
