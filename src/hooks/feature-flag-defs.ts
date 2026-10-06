@@ -64,6 +64,14 @@ export const FLAG_DEFS = [
   // (MockLocationBanner + the workout-active block apply to everyone regardless of
   // this flag either way — it only gates the panel's own visibility).
   { key: 'enableMockLocationPanel', firestoreKey: 'enable_mock_location_panel', defaultValue: true, superAdminValue: true },
+  // Onboarding tutorial, entry-mechanism slice (06.10.2026) — the whole new
+  // welcome-drawer + 2-gate entry router. defaultValue AND superAdminValue
+  // both false, deliberately NOT the usual "super admins always preview"
+  // convenience: David's own instruction was "nothing changes in production
+  // until I flip it" — with live paying users + a city on this app, that
+  // must hold for his own account too, not just everyone else's. Normal
+  // fail-closed pattern otherwise — this is not a wave-1-style exception.
+  { key: 'enableOnboardingTutorialV1', firestoreKey: 'enable_onboarding_tutorial_v1', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];
