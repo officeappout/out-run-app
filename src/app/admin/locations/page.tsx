@@ -52,6 +52,7 @@ import {
     Footprints,
     Search,
     AlertTriangle,
+    Download,
 } from 'lucide-react';
 import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
@@ -1552,6 +1553,11 @@ export default function LocationsPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
 
+    // OSM-import Stage 1 (David, 06.10.2026): filter by documentation
+    // completeness — needsFacilityDetails is server-computed (photo +
+    // real gymEquipment both present → false, missing either → true).
+    const [completenessFilter, setCompletenessFilter] = useState<'all' | 'empty' | 'full'>('all');
+
     // Auth & Data loading
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -1681,6 +1687,38 @@ export default function LocationsPage() {
             return (name as any).he || (name as any).en || String(name);
         }
         return String(name || '');
+    };
+
+    // OSM-import Stage 1 (David, 06.10.2026): CSV of all parks currently
+    // missing facility details (photo and/or real equipment), grouped by
+    // city — across ALL parks, not just the active tab/search, since the
+    // point is a complete worklist to hand an admin.
+    const handleDownloadEmptyParksCsv = () => {
+        const empties = parks.filter(p => p.needsFacilityDetails === true);
+        const sorted = [...empties].sort((a, b) => (a.city || '').localeCompare(b.city || '') || a.name.localeCompare(b.name));
+        const rows = [['עיר', 'שם', 'מזהה', 'קואורדינטות', 'יש תמונה', 'יש ציוד']];
+        for (const p of sorted) {
+            const hasPhoto = !!(p.image || (p.images && p.images.length > 0));
+            const hasEquipment = !!(p.gymEquipment && p.gymEquipment.some(e => e.equipmentId));
+            rows.push([
+                p.city || '',
+                p.name,
+                p.id,
+                p.location ? `${p.location.lat},${p.location.lng}` : '',
+                hasPhoto ? 'כן' : 'לא',
+                hasEquipment ? 'כן' : 'לא',
+            ]);
+        }
+        const csv = '﻿' + rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `גינות-חסרות-פרטים-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     };
 
     const handleDelete = async (id: string) => {
@@ -1930,6 +1968,17 @@ export default function LocationsPage() {
         })
         : filteredParks;
 
+    // Apply the completeness filter on top of search — 'empty' = needs
+    // facility details (missing photo and/or real equipment), 'full' =
+    // has both. Routes don't carry this field; the filter is a no-op there.
+    const visibleParks = completenessFilter === 'all'
+        ? searchedParks
+        : searchedParks.filter(park =>
+            completenessFilter === 'empty' ? park.needsFacilityDetails === true : park.needsFacilityDetails === false
+        );
+
+    const emptyParksCount = searchedParks.filter(p => p.needsFacilityDetails === true).length;
+
     const currentTabConfig = TABS.find(t => t.id === activeTab)!;
 
     if (loading) {
@@ -2092,6 +2141,31 @@ export default function LocationsPage() {
                             <X size={16} />
                         </button>
                     )}
+                    {activeTab !== 'routes' && (
+                        <>
+                            <div className="w-px h-6 bg-gray-200 flex-shrink-0" />
+                            <select
+                                value={completenessFilter}
+                                onChange={e => setCompletenessFilter(e.target.value as 'all' | 'empty' | 'full')}
+                                dir="rtl"
+                                className="text-xs font-bold text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 outline-none flex-shrink-0"
+                                title="סינון לפי שלמות תיעוד (תמונה + ציוד)"
+                            >
+                                <option value="all">הכל</option>
+                                <option value="empty">ריקות בלבד ({emptyParksCount})</option>
+                                <option value="full">מתועדות בלבד</option>
+                            </select>
+                            <button
+                                onClick={handleDownloadEmptyParksCsv}
+                                disabled={emptyParksCount === 0}
+                                className="flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+                                title="הורדת רשימת גינות ריקות (CSV), מקובצות לפי עיר"
+                            >
+                                <Download size={14} />
+                                <span className="hidden sm:inline">ייצוא ריקות</span>
+                            </button>
+                        </>
+                    )}
                 </div>
             )}
 
@@ -2244,7 +2318,7 @@ export default function LocationsPage() {
                             <Loader2 className="w-6 h-6 animate-spin" />
                             <span className="text-sm font-bold text-gray-500">טוען מסלולים…</span>
                         </div>
-                    ) : searchedParks.length === 0 ? (
+                    ) : visibleParks.length === 0 ? (
                         <div className="text-center py-20">
                             <div
                                 className="inline-flex p-4 rounded-full mb-4"
@@ -2297,7 +2371,7 @@ export default function LocationsPage() {
                         </div>
                     ) : (
                             <LocationTable
-                            parks={searchedParks}
+                            parks={visibleParks}
                             getAuthorityName={getAuthorityName}
                             onEdit={(park) => {
                                 if (activeTab === 'parks') {
@@ -2376,7 +2450,7 @@ function LocationTable({
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                     {parks.map(park => (
-                        <tr key={park.id} className="hover:bg-blue-50/50 transition-colors group">
+                        <tr key={park.id} className={`hover:bg-blue-50/50 transition-colors group ${park.needsFacilityDetails ? 'bg-amber-50/50' : ''}`}>
                             <td className="px-4 py-4">
                                 <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden">
                                     {(park.images?.[0] || park.image || park.imageUrl) ? (
@@ -2420,7 +2494,14 @@ function LocationTable({
                                         );
                                     })()}
                                     <div>
-                                        <span className="font-bold text-gray-900">{park.name}</span>
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="font-bold text-gray-900">{park.name}</span>
+                                            {park.needsFacilityDetails && (
+                                                <span title="חסרה תמונה ו/או רשימת ציוד — דורש השלמת פרטי מתקנים">
+                                                    <AlertTriangle size={13} className="text-amber-500" />
+                                                </span>
+                                            )}
+                                        </div>
                                         {park.featureTags && park.featureTags.length > 0 && (
                                             <div className="flex gap-1 mt-1">
                                                 {park.featureTags.slice(0, 3).map(tag => {
