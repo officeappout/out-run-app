@@ -144,6 +144,12 @@ const AGE_PRESETS: { label: string; from: number | null; to: number | null }[] =
   { label: '55+', from: 55, to: null },
 ];
 
+/** Display-only override for raw attribution source values — the underlying filter value stays the raw string. */
+const SOURCE_LABEL_OVERRIDES: Record<string, string> = {
+  organic: 'אורגני',
+};
+const sourceLabel = (raw: string): string => SOURCE_LABEL_OVERRIDES[raw] ?? raw;
+
 const DATE_PRESETS = [
   { days: 7, label: '7 ימים' },
   { days: 30, label: '30 ימים' },
@@ -229,7 +235,12 @@ export default function JourneyFilterBar({ filters, onChange }: JourneyFilterBar
       </div>
 
       <Select label="קמפיין" value={filters.campaign} options={distinct.campaigns} onChange={(v) => onChange({ campaign: v })} />
-      <Select label="מקור" value={filters.source} options={distinct.sources} onChange={(v) => onChange({ source: v })} />
+      <Select
+        label="מקור"
+        value={filters.source}
+        optionPairs={distinct.sources.map((s) => [s, sourceLabel(s)] as [string, string])}
+        onChange={(v) => onChange({ source: v })}
+      />
       <Select
         label="עיר / רשות"
         value={filters.cityAuthorityId}
