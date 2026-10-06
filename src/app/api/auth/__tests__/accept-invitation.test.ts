@@ -272,4 +272,52 @@ describe('computeAcceptInvitation — write-completeness + stale managerIds clea
     const core = (store.get(`users/${CALLER.uid}`)!.core) as Record<string, unknown>;
     expect(core.authorityId).toBe('haifa');
   });
+
+  describe('06.10.2026 ("chief fitness officer") — readiness_chief_officer acceptance', () => {
+    it('a brand-new user accepting writes EXACTLY core.isReadinessChiefOfficer=true — no tenantId/unitId/authorityId at all, no managerIds array touched', async () => {
+      const db = makeFakeDb();
+      seedInvitation('inv-rco-1', { role: 'readiness_chief_officer', email: CALLER.email });
+
+      const result = await computeAcceptInvitation(db, CALLER, 'inv-rco-1');
+
+      expect(result.status).toBe(200);
+      const core = (store.get(`users/${CALLER.uid}`)!.core) as Record<string, unknown>;
+      expect(core.isReadinessChiefOfficer).toBe(true);
+      expect(core.tenantId).toBeUndefined();
+      expect(core.unitId).toBeUndefined();
+      expect(core.authorityId).toBeUndefined();
+      expect(core.isTenantOwner).toBeUndefined();
+    });
+
+    it('a real tenant_owner reassigned to readiness_chief_officer — old tenant_owner fields cleared, old authorities.managerIds grant removed, isReadinessChiefOfficer set (exercises the EXISTING stale-cleanup path with the new role plugged in, zero new cleanup code)', async () => {
+      const db = makeFakeDb();
+      seedUser(CALLER.uid, { tenantId: 'brigade-810', isTenantOwner: true, tenantType: 'military', email: CALLER.email });
+      store.set('authorities/brigade-810', { managerIds: [CALLER.uid] });
+      seedInvitation('inv-rco-2', { role: 'readiness_chief_officer', email: CALLER.email });
+
+      const result = await computeAcceptInvitation(db, CALLER, 'inv-rco-2');
+
+      expect(result.status).toBe(200);
+      const core = (store.get(`users/${CALLER.uid}`)!.core) as Record<string, unknown>;
+      expect(core.isReadinessChiefOfficer).toBe(true);
+      expect(core.isTenantOwner).toBeUndefined();
+      expect(core.tenantId).toBeUndefined();
+      expect(core.tenantType).toBeUndefined();
+      expect((store.get('authorities/brigade-810')!.managerIds as string[])).not.toContain(CALLER.uid);
+    });
+
+    it('a real readiness_chief_officer reassigned to tenant_owner — isReadinessChiefOfficer is cleared, not left as a stale second grant', async () => {
+      const db = makeFakeDb();
+      seedUser(CALLER.uid, { isReadinessChiefOfficer: true, email: CALLER.email });
+      store.set('authorities/brigade-810', { managerIds: [] });
+      seedInvitation('inv-rco-3', { role: 'tenant_owner', email: CALLER.email, tenantId: 'brigade-810' });
+
+      const result = await computeAcceptInvitation(db, CALLER, 'inv-rco-3');
+
+      expect(result.status).toBe(200);
+      const core = (store.get(`users/${CALLER.uid}`)!.core) as Record<string, unknown>;
+      expect(core.isTenantOwner).toBe(true);
+      expect(core.isReadinessChiefOfficer).toBeUndefined();
+    });
+  });
 });
