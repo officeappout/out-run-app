@@ -8,6 +8,7 @@ const baseFlags = {
   isTenantOwner: false,
   isUnitAdmin: false,
   isVerticalAdmin: false,
+  isReadinessChiefOfficer: false,
   role: 'none',
 };
 
@@ -26,6 +27,10 @@ describe('hasAnyAdminAccess', () => {
 
   it('vertical_admin has access (unaffected)', () => {
     expect(hasAnyAdminAccess({ ...baseFlags, isVerticalAdmin: true })).toBe(true);
+  });
+
+  it('06.10.2026 ("chief fitness officer") — a real readiness-chief-officer (every other flag false) has access, matching the real shape accept-invitation produces for this role', () => {
+    expect(hasAnyAdminAccess({ ...baseFlags, isReadinessChiefOfficer: true })).toBe(true);
   });
 
   it('super_admin has access (unaffected)', () => {

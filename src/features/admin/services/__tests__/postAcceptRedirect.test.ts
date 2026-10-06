@@ -65,6 +65,11 @@ describe('decideInvitationRoleRedirect (fresh-invitation call site)', () => {
     const result = decideInvitationRoleRedirect('unit_admin', { tenantId: 't1', unitId: null, tenantType: 'military' });
     expect(result.kind).toBe('cannot-determine');
   });
+
+  it('06.10.2026 ("chief fitness officer") — redirects straight to the vertical-overview list, no tenantId/unitId/tenantType needed at all', () => {
+    const result = decideInvitationRoleRedirect('readiness_chief_officer', {});
+    expect(result).toEqual({ kind: 'redirect', path: '/admin/authority/readiness/vertical-overview' });
+  });
 });
 
 describe('decideResolveDestinationBranch (existing-role call site)', () => {
@@ -76,6 +81,7 @@ describe('decideResolveDestinationBranch (existing-role call site)', () => {
     isVerticalAdmin: false,
     isSuperAdmin: false,
     isSystemAdmin: false,
+    isReadinessChiefOfficer: false,
   };
 
   it('unit_admin — redirects to their unit', () => {
@@ -151,5 +157,21 @@ describe('decideResolveDestinationBranch (existing-role call site)', () => {
   it('none of the flags true — cannot-determine with the existing "no access" message, unchanged', () => {
     const result = decideResolveDestinationBranch(baseFlags);
     expect(result).toEqual({ kind: 'cannot-determine', message: 'אין לך גישה לפורטל. פנה למנהל המערכת.' });
+  });
+
+  it('06.10.2026 ("chief fitness officer") — redirects to the vertical-overview list', () => {
+    const result = decideResolveDestinationBranch({ ...baseFlags, isReadinessChiefOfficer: true });
+    expect(result).toEqual({ kind: 'redirect', path: '/admin/authority/readiness/vertical-overview' });
+  });
+
+  it('precedence regression: a real tenantOwner who ALSO (incorrectly) has isReadinessChiefOfficer set still lands on their own brigade\'s units list, never the cross-brigade screen — same dual-role trap as resolveUnitPermissionScope, axioms.md §32', () => {
+    const result = decideResolveDestinationBranch({
+      ...baseFlags,
+      isTenantOwner: true,
+      isReadinessChiefOfficer: true,
+      tenantId: 't1',
+      tenantType: 'military',
+    });
+    expect(result).toEqual({ kind: 'redirect', path: '/admin/authority/units?type=military' });
   });
 });

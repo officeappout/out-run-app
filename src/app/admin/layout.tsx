@@ -309,6 +309,7 @@ function AdminLayoutInner({
                     isRootAdmin: false,
                     isTenantOwner: false,
                     isUnitAdmin: false,
+                    isReadinessChiefOfficer: false,
                     authorityIds: [],
                     isApproved: false,
                     allowedSections: [],
@@ -543,6 +544,7 @@ function AdminLayoutInner({
                     isRootAdmin: false,
                     isTenantOwner: false,
                     isUnitAdmin: false,
+                    isReadinessChiefOfficer: false,
                     authorityIds: [],
                     isApproved: false,
                     allowedSections: [],
@@ -570,7 +572,15 @@ function AdminLayoutInner({
     // isTenantOwner (!isTenantOwner && !!unitId), so no explicit exclusion
     // is needed here for consistency with that sibling flag's own style.
     const isUnitAdminOnly = (roleInfo?.isUnitAdmin ?? false) && !isSuperAdmin && !isSystemAdmin && !isAuthorityManager;
-    const isLocalManager = onlyAuthorityManager || isTenantOwnerOnly || isUnitAdminOnly;
+    // 06.10.2026 ("chief fitness officer") — same "Only" shape as its
+    // siblings above, excluding every role whose own sidebar must win
+    // (matches resolveUnitPermissionScope's root→tenantOwner→unitAdmin→
+    // vertical precedence, axioms.md §32's dual-role trap, on the
+    // frontend too). Deliberately NOT added to hasSec() and does NOT
+    // reuse isVerticalAdminOnly's unconditional bypass pattern — this
+    // flag never touches that function at all.
+    const isReadinessChiefOfficerOnly = (roleInfo?.isReadinessChiefOfficer ?? false) && !isSuperAdmin && !isSystemAdmin && !isAuthorityManager && !isTenantOwnerOnly && !isUnitAdminOnly;
+    const isLocalManager = onlyAuthorityManager || isTenantOwnerOnly || isUnitAdminOnly || isReadinessChiefOfficerOnly;
 
     const isNeighborhoodAdmin = onlyAuthorityManager && authorityType === 'neighborhood';
     // Login-entry-points unification (00-MASTER-PLAN.md, 28.09.2026),
@@ -1027,6 +1037,31 @@ function AdminLayoutInner({
                             >
                                 נסה שוב
                             </button>
+                        </div>
+                        ) : isReadinessChiefOfficerOnly ? (
+                        /* ── Chief Fitness Officer — minimal sidebar
+                           (06.10.2026), same "level-2 role, one scoped
+                           link" pattern as Unit Admin/Neighborhood Admin
+                           above. No org-resolution dependency at all (no
+                           tenantId/unitId to resolve, unlike every other
+                           branch in this chain) — this role spans every
+                           military tenant by design, so there is no
+                           single "my org" to show a badge for. Does NOT
+                           touch hasSec() and does NOT reuse
+                           isVerticalAdminOnly's bypass pattern — see that
+                           flag's own definition above for why this one is
+                           intentionally separate. */
+                        <div className="space-y-1">
+                            <div className="px-4 py-2.5 mb-3 rounded-xl bg-lime-900/30 border border-lime-700/30">
+                                <p className="text-[10px] font-bold text-lime-400 uppercase tracking-widest">כשירות — כל החטיבות</p>
+                                <p className="text-sm font-black text-white truncate">קצין כושר ראשי</p>
+                            </div>
+                            <SidebarLink
+                                href="/admin/authority/readiness/vertical-overview"
+                                icon={Dumbbell}
+                                label="כל החטיבות"
+                                isActive={pathname?.startsWith('/admin/authority/readiness/vertical-overview')}
+                            />
                         </div>
                         ) : (() => {
                         /* ── Data-driven Portal sidebar (military / school / municipal / etc.) ── */

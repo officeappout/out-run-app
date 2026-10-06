@@ -122,6 +122,7 @@ function AuthCallbackContent() {
       isVerticalAdmin: roleInfo.isVerticalAdmin,
       isSuperAdmin: roleInfo.isSuperAdmin,
       isSystemAdmin: roleInfo.isSystemAdmin,
+      isReadinessChiefOfficer: roleInfo.isReadinessChiefOfficer,
       tenantId: roleInfo.tenantId,
       unitId: roleInfo.unitId,
       tenantType,

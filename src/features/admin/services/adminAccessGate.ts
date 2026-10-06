@@ -18,6 +18,8 @@ export interface AdminAccessFlags {
   isTenantOwner: boolean;
   isUnitAdmin: boolean;
   isVerticalAdmin: boolean;
+  /** 06.10.2026 ("chief fitness officer") — a separate, dedicated grant; NOT a replacement for isVerticalAdmin, which stays legitimate for its own (analytics) purpose. */
+  isReadinessChiefOfficer: boolean;
   role: string;
 }
 
@@ -29,6 +31,7 @@ export function hasAnyAdminAccess(info: AdminAccessFlags): boolean {
     info.isTenantOwner ||
     info.isUnitAdmin ||
     info.isVerticalAdmin ||
+    info.isReadinessChiefOfficer ||
     info.role === 'platform_member'
   );
 }

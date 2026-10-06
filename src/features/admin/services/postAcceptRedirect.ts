@@ -75,6 +75,11 @@ export function decideInvitationRoleRedirect(
 ): PostAcceptRedirectDecision | { kind: 'legacy' } {
   if (role === 'unit_admin') return decideUnitAdminRedirect(input);
   if (role === 'tenant_owner') return decideTenantOwnerRedirect(input);
+  // 06.10.2026 ("chief fitness officer") — no tenantId/unitId/tenantType
+  // needed at all, unlike the two above; this role isn't tied to one org.
+  if (role === 'readiness_chief_officer') {
+    return { kind: 'redirect', path: '/admin/authority/readiness/vertical-overview' };
+  }
   return { kind: 'legacy' };
 }
 
@@ -102,6 +107,8 @@ export interface ResolveDestinationFlags {
   isVerticalAdmin: boolean;
   isSuperAdmin: boolean;
   isSystemAdmin: boolean;
+  /** 06.10.2026 ("chief fitness officer") — checked AFTER isTenantOwner/isUnitAdmin, deliberately, same precedence as resolveUnitPermissionScope's own root→tenantOwner→unitAdmin→vertical order (axioms.md §32's dual-role trap is the same shape here — a real brigade officer's existing destination is untouched). */
+  isReadinessChiefOfficer: boolean;
   tenantId?: string | null;
   unitId?: string | null;
   tenantType?: string | null;
@@ -114,6 +121,9 @@ export function decideResolveDestinationBranch(
     return flags.isUnitAdmin
       ? decideUnitAdminRedirect(flags)
       : decideTenantOwnerRedirect(flags);
+  }
+  if (flags.isReadinessChiefOfficer) {
+    return { kind: 'redirect', path: '/admin/authority/readiness/vertical-overview' };
   }
   if (flags.isAuthorityManager || flags.isOnlyAuthorityManager) {
     return { kind: 'legacy-authority-manager' };

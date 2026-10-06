@@ -27,6 +27,8 @@ export interface UserRoleInfo {
   /** Unit Admin manages a single unit under a tenant — mutually exclusive with isTenantOwner (§13.39) */
   isUnitAdmin: boolean;
   unitId?: string;
+  /** 06.10.2026 ("chief fitness officer") — reads core.isReadinessChiefOfficer ONLY, never isVerticalAdmin/managedVertical. A dedicated, standalone flag — see axioms.md §32. */
+  isReadinessChiefOfficer: boolean;
   authorityIds: string[];
   isApproved: boolean;
   email?: string;
@@ -64,6 +66,7 @@ export async function checkUserRole(userId: string, userEmail?: string | null): 
     let tenantType: string | undefined;
     let isUnitAdmin = false;
     let unitId: string | undefined;
+    let isReadinessChiefOfficer = false;
     let isApproved = false;
     let emailFromProfile: string | null = null;
     let allowedSections: string[] = [];
@@ -88,6 +91,7 @@ export async function checkUserRole(userId: string, userEmail?: string | null): 
         // mutually exclusive by construction, never both true.
         unitId = core?.unitId || undefined;
         isUnitAdmin = !isTenantOwner && !!unitId;
+        isReadinessChiefOfficer = core?.isReadinessChiefOfficer === true;
         isApproved = core?.isApproved === true;
         emailFromProfile = core?.email || null;
         await logAdminLogin(userId);
@@ -152,6 +156,7 @@ export async function checkUserRole(userId: string, userEmail?: string | null): 
       tenantType,
       isUnitAdmin,
       unitId,
+      isReadinessChiefOfficer,
       authorityIds: authorities.map((a) => a.id),
       isApproved,
       email: emailToCheck || undefined,
@@ -160,7 +165,7 @@ export async function checkUserRole(userId: string, userEmail?: string | null): 
     };
   } catch (error) {
     console.error('Error in checkUserRole:', error);
-    return { role: 'none', isSuperAdmin: false, isSystemAdmin: false, isVerticalAdmin: false, isAuthorityManager: false, isRootAdmin: false, isTenantOwner: false, isUnitAdmin: false, authorityIds: [], isApproved: false, allowedSections: [] };
+    return { role: 'none', isSuperAdmin: false, isSystemAdmin: false, isVerticalAdmin: false, isAuthorityManager: false, isRootAdmin: false, isTenantOwner: false, isUnitAdmin: false, isReadinessChiefOfficer: false, authorityIds: [], isApproved: false, allowedSections: [] };
   }
 }
 
@@ -232,6 +237,7 @@ export function useUserRole() {
           isRootAdmin: false,
           isTenantOwner: false,
           isUnitAdmin: false,
+          isReadinessChiefOfficer: false,
           authorityIds: [],
           isApproved: false,
           allowedSections: [],
