@@ -184,11 +184,21 @@ export async function activateOutcomeWindow(opts: {
  * only — stored under the SAME field name for continuity with the 64 docs
  * already written before this fix (not a data-model change, just a wider
  * meaning for an existing boolean). `outcomeType` is new and additive,
- * recording which checker produced the verdict. */
+ * recording which checker produced the verdict.
+ *
+ * `actionAt` (07.10.2026, push-performance instrumentation) is additive and
+ * go-forward only — older docs simply lack it (read as `null`/absent, never
+ * backfilled). It's the matched action's OWN timestamp (e.g. the workout's
+ * `date`), distinct from `checkedAt` (when the sweeper happened to run).
+ * Without it, "time to action" cannot be computed at all — `checkedAt` only
+ * says when the sweep noticed, often tens of minutes after the real action.
+ * Absent/null for outcome types with no real single-instant action to
+ * report (e.g. `daily_step_goal` — see pushOutcomeSweeper.ts's own comment). */
 export async function writePostPushOutcomeEvent(opts: {
   pushSentDoc: FirebaseFirestore.QueryDocumentSnapshot;
   outcomeAchieved: boolean;
   outcomeType: string;
+  actionAt?: admin.firestore.Timestamp | null;
 }): Promise<void> {
   const sent = opts.pushSentDoc.data() as Record<string, unknown>;
   const pushId = sent.pushId as string;
@@ -209,6 +219,7 @@ export async function writePostPushOutcomeEvent(opts: {
     channel: sent.channel ?? null,
     goalCompleted: opts.outcomeAchieved,
     outcomeType: opts.outcomeType,
+    actionAt: opts.actionAt ?? null,
     checkedAt: admin.firestore.Timestamp.now(),
     createdAt: admin.firestore.Timestamp.now(),
   });

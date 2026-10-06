@@ -159,12 +159,20 @@ const BODY_VARIANTS: string[] = [
   'רגע קטן לעצמך — האימון שקבעת מחכה.',
 ];
 
-function pickBody(): string {
+/**
+ * Returns both the chosen body and its index (07.10.2026, push-performance
+ * instrumentation) — Pass 1's `variantId` used to be the constant title
+ * string alone, meaning every one of the 3 rotating bodies reported as the
+ * identical "variant." The index lets the caller fold it into a real
+ * per-body variantId instead.
+ */
+function pickBody(): { body: string; index: number } {
   const now = new Date();
   const dayOfYear = Math.floor(
     (now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86_400_000,
   );
-  return BODY_VARIANTS[dayOfYear % BODY_VARIANTS.length];
+  const index = dayOfYear % BODY_VARIANTS.length;
+  return { body: BODY_VARIANTS[index], index };
 }
 
 /** Fallback lead-time (minutes) when reminderSweepLeadMinutes is absent/invalid. */
@@ -244,7 +252,7 @@ async function runSettingsSlotPass(db: admin.firestore.Firestore): Promise<void>
   if (claimedUids.length === 0) return;
 
   const title = '⏰ זמן להתאמן';
-  const body = pickBody();
+  const { body, index: bodyIndex } = pickBody();
 
   try {
     const result = await sendPush({
@@ -257,7 +265,10 @@ async function runSettingsSlotPass(db: admin.firestore.Firestore): Promise<void>
       rateCapHours: 22, // same tolerance as trainingReminderScheduler
       skipQuietHours: false, // a user-chosen slot can legitimately fall in quiet hours — suppress, don't reroute
       measurement: {
-        variantId: title,
+        // title is a constant for this pass — variantId folds in bodyIndex
+        // (07.10.2026) so the 3 rotating bodies are distinguishable in the
+        // push-performance table; previously every send reported identically.
+        variantId: `${title}__b${bodyIndex}`,
         category: 'ReminderSweep', // distinct from trainingReminderScheduler's 'ScheduledWorkout' — by explicit decision, not de-duped
         persona: 'generic',
       },
@@ -366,15 +377,15 @@ async function runWorkoutEntryPass(db: admin.firestore.Firestore, flagsData: Rec
   // ── Group by message, same reuse-the-category-copy approach as
   // trainingReminderScheduler — a user with a unique category/time gets
   // its own sendPush call, but identical messages batch together. ──────
-  const byMessage = new Map<string, { uids: string[]; title: string; body: string }>();
+  const byMessage = new Map<string, { uids: string[]; title: string; body: string; bodyIndex: number }>();
   for (const c of claimed) {
     const msg = buildMessage(c.workoutLabel, c.startTime);
     const key = `${msg.title}|${msg.body}`;
-    if (!byMessage.has(key)) byMessage.set(key, { uids: [], title: msg.title, body: msg.body });
+    if (!byMessage.has(key)) byMessage.set(key, { uids: [], title: msg.title, body: msg.body, bodyIndex: msg.bodyIndex });
     byMessage.get(key)!.uids.push(c.uid);
   }
 
-  for (const [, { uids, title, body }] of byMessage) {
+  for (const [, { uids, title, body, bodyIndex }] of byMessage) {
     try {
       const result = await sendPush({
         toUids: uids,
@@ -386,7 +397,9 @@ async function runWorkoutEntryPass(db: admin.firestore.Firestore, flagsData: Rec
         rateCapHours: 22,
         skipQuietHours: false, // same reasoning as trainingReminderScheduler — a near-workout reminder can legitimately fall in quiet hours; suppress, don't reroute
         measurement: {
-          variantId: title,
+          // variantId folds in bodyIndex (07.10.2026) — see buildMessage()'s
+          // own doc comment; title alone hid the 3 rotating bodies.
+          variantId: `${title}__b${bodyIndex}`,
           category: 'ReminderSweepWorkout', // distinct from Pass 1's 'ReminderSweep' and the sibling scheduler's 'ScheduledWorkout'
           persona: 'generic',
         },

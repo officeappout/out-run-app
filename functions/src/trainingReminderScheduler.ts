@@ -137,20 +137,30 @@ const BODY_VARIANTS: string[] = [
 ];
 
 /** Deterministic day-of-year index so every user in a single run gets the same body. */
-function pickBody(): string {
+function pickBodyIndex(): number {
   const now = new Date();
   const dayOfYear = Math.floor(
     (now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86_400_000,
   );
-  return BODY_VARIANTS[dayOfYear % BODY_VARIANTS.length];
+  return dayOfYear % BODY_VARIANTS.length;
 }
 
-/** Build push content from a scheduled entry's categories. */
-export function buildMessage(workoutLabel: string, startTime?: string): { title: string; body: string } {
+/**
+ * Build push content from a scheduled entry's categories. `bodyIndex` is
+ * additive (07.10.2026, push-performance instrumentation) — `title` alone
+ * was being used as the measurement `variantId` at both call sites of this
+ * function, which made the 3 rotating bodies invisible to the push-
+ * performance table (two different bodies under the same category+time
+ * collapsed to one "variant"). Callers now fold `bodyIndex` into their own
+ * variantId instead.
+ */
+export function buildMessage(workoutLabel: string, startTime?: string): { title: string; body: string; bodyIndex: number } {
   const timeHint = startTime ? ` ב-${startTime}` : ' היום';
+  const bodyIndex = pickBodyIndex();
   return {
     title: `📅 ${workoutLabel}${timeHint}`,
-    body: pickBody(),
+    body: BODY_VARIANTS[bodyIndex],
+    bodyIndex,
   };
 }
 
@@ -364,20 +374,20 @@ export const trainingReminderScheduler = onSchedule(
 
     // ── Group by message so we batch-send identical content together ──────
     // Key = "title|body" to allow reuse of same sendPush call for same workout type
-    const byMessage = new Map<string, { uids: string[]; title: string; body: string }>();
+    const byMessage = new Map<string, { uids: string[]; title: string; body: string; bodyIndex: number }>();
 
     for (const t of targets) {
       const msg = buildMessage(t.workoutLabel, t.startTime);
       const key = `${msg.title}|${msg.body}`;
       if (!byMessage.has(key)) {
-        byMessage.set(key, { uids: [], title: msg.title, body: msg.body });
+        byMessage.set(key, { uids: [], title: msg.title, body: msg.body, bodyIndex: msg.bodyIndex });
       }
       byMessage.get(key)!.uids.push(t.uid);
     }
 
     let totalDelivered = 0;
 
-    for (const [, { uids, title, body }] of Array.from(byMessage.entries()) as [string, { uids: string[]; title: string; body: string }][]) {
+    for (const [, { uids, title, body, bodyIndex }] of Array.from(byMessage.entries()) as [string, { uids: string[]; title: string; body: string; bodyIndex: number }][]) {
       try {
         const result = await sendPush({
           toUids: uids,
@@ -393,15 +403,18 @@ export const trainingReminderScheduler = onSchedule(
           skipQuietHours: false,
           // Task 3 fast-follow (04.10.2026) — extends push_events logging to
           // this sender, closing the "only 2 of 12 senders measured" gap for
-          // the retention workhorse. `variantId` reuses the message's own
-          // grouping key (title is already unique per group within a run) —
-          // no new per-variant ID scheme needed. `persona` is 'generic'
-          // since this scheduler doesn't resolve persona at all today (same
-          // as every other pre-Wave-1 sender). No activityType/timeOfDay —
-          // optional fields, the generic "started a workout" outcome
-          // checker doesn't need them.
+          // the retention workhorse. `persona` is 'generic' since this
+          // scheduler doesn't resolve persona at all today (same as every
+          // other pre-Wave-1 sender). No activityType/timeOfDay — optional
+          // fields, the generic "started a workout" outcome checker doesn't
+          // need them.
+          //
+          // `variantId` folds in `bodyIndex` (07.10.2026) — title alone
+          // collapsed the 3 rotating bodies into one indistinguishable
+          // "variant" for the push-performance table; see buildMessage()'s
+          // own doc comment.
           measurement: {
-            variantId: title,
+            variantId: `${title}__b${bodyIndex}`,
             category: 'ScheduledWorkout',
             persona: 'generic',
           },
