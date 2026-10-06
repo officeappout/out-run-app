@@ -4,6 +4,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
+import {
+  resolveTenantSelectionAfterOptionsLoad,
+  type MilitaryTenantOption,
+} from './militaryTenantSelection.util';
+
+export type { MilitaryTenantOption };
 
 /**
  * Same key /admin/dashboard's existing super-admin authority-switcher and
@@ -13,11 +19,6 @@ import { checkUserRole } from '@/features/admin/services/auth.service';
  * the others without any shared module coupling them).
  */
 const AUTHORITY_STORAGE_KEY = 'admin_selected_authority_id';
-
-export interface MilitaryTenantOption {
-  id: string;
-  name: string;
-}
 
 export interface MilitaryTenantSelection {
   /** True while the caller's role is still being resolved — every other field is meaningless until this is false. */
@@ -89,7 +90,19 @@ export function useMilitaryTenantSelection(): MilitaryTenantSelection {
       const body = await res.json().catch(() => ({}));
       if (!cancelled && res.ok) {
         const rows = (body.rows ?? []) as { tenantId: string; tenantName: string }[];
-        setOptions(rows.map((r) => ({ id: r.tenantId, name: r.tenantName })));
+        const opts = rows.map((r) => ({ id: r.tenantId, name: r.tenantName }));
+        setOptions(opts);
+        setTenantIdState((current) => {
+          const resolved = resolveTenantSelectionAfterOptionsLoad(current, opts);
+          if (resolved === null && current !== null) {
+            try {
+              localStorage.removeItem(AUTHORITY_STORAGE_KEY);
+            } catch {
+              // Nothing more to clean up client-side either way — the stale value just won't be read again.
+            }
+          }
+          return resolved;
+        });
       }
     })().finally(() => {
       if (!cancelled) setLoadingOptions(false);
