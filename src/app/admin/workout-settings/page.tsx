@@ -18,7 +18,6 @@ import {
   where,
   orderBy,
   limit,
-  collectionGroup,
   getCountFromServer,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -513,9 +512,14 @@ export default function WorkoutSettingsPage() {
   //     processedAt desc; this intentionally excludes pending messages
   //     because they have no recipientCount / CTR yet).
   //  2. For each row, fan out a `getCountFromServer` aggregation query
-  //     against the collectionGroup('notification_clicks'). This returns
-  //     ONLY a count — no document payloads are transferred, so the
-  //     network cost stays flat regardless of click volume.
+  //     against `push_events` filtered to this push's `pushId` +
+  //     `eventType == 'push_opened'`. This returns ONLY a count — no
+  //     document payloads are transferred, so the network cost stays
+  //     flat regardless of click volume. (06.10.2026 push tidy-up: this
+  //     used to query the separate `notification_clicks` collection
+  //     group — consolidated onto `push_events`, the same tap write
+  //     `src/lib/native/push.ts` already made unconditionally, so no
+  //     coverage was lost.)
   //  3. Promise.allSettled guarantees a single failed row never aborts
   //     the rest of the CTR map.
   //  4. Single setState at the end → exactly one React re-render even
@@ -567,8 +571,9 @@ export default function WorkoutSettingsPage() {
         const ctrResults = await Promise.allSettled(
           rows.map(async (msg) => {
             const clicksQuery = query(
-              collectionGroup(db, 'notification_clicks'),
-              where('messageId', '==', msg.id),
+              collection(db, 'push_events'),
+              where('pushId', '==', msg.id),
+              where('eventType', '==', 'push_opened'),
             );
             const agg = await getCountFromServer(clicksQuery);
             const clicksCount = agg.data().count;
@@ -3471,7 +3476,7 @@ export default function WorkoutSettingsPage() {
       {/* ================================================================== */}
       {/* GROWTH HUB — TIER 2: PUSH HISTORY & CTR PERFORMANCE PANEL          */}
       {/* Lists the latest 20 processed push_messages and computes a live    */}
-      {/* CTR by aggregating the user-scoped notification_clicks via         */}
+      {/* CTR by aggregating push_events (push_opened) via                   */}
       {/* getCountFromServer (zero document payloads transferred).           */}
       {/* ================================================================== */}
       <section>

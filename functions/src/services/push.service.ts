@@ -243,7 +243,7 @@ export type PushChannel =
  * Opt-in measurement (Wave 1 notification engine). When provided, sendPush()
  * writes a `push_sent` event to `push_events` per attempted uid and stamps
  * `data.messageId` with the generated pushId (reusing the field the native
- * tap handler already reads for its notification_clicks CTR write) so the
+ * tap handler already reads for its push_opened CTR write) so the
  * client can log push_opened/landing_screen against the same pushId. See
  * `push-events.service.ts`'s header comment for the storage-decision
  * reasoning. Absent = zero behavior change (no write, no messageId stamp) —
