@@ -26,20 +26,29 @@ export const dynamic = 'force-dynamic';
  * untouched, so this is a pure UI removal, re-addable later without any
  * data-layer change.
  *
- * Not done in this PR (intentionally, see the plan's Phase 0 scope):
- * - Acquisition tab stays a placeholder; the funnel at /admin/analytics
- *   is NOT migrated yet — that refactor (embeddable component +
- *   adminAnalyticsScope migration) is its own follow-up PR, per the
- *   plan's still-open §5 item 2.
+ * Journey Hub Wave 1 (05.10.2026, gap-map + wave plan approved this
+ * session): Acquisition and Activation are no longer placeholders.
+ * Acquisition now renders funnel stages 1-3, an organic/attributed
+ * split, and the authority/city breakdown. Activation now renders the
+ * first-workout-rate stage card and the onboarding-completion-rate
+ * stat. Every number reuses an existing computation — see the Wave 1
+ * import block below for exact sources; nothing here is a new metric.
+ * Deeper source/campaign segmentation, a real new-users-over-time
+ * trend, time-to-first-workout, and activation-by-source are Wave 2 —
+ * each tab's own copy says so explicitly rather than looking finished.
+ *
+ * Not done yet (by design, see the approved wave plan):
  * - /admin/statistics and /admin/analytics are NOT retired or redirected
  *   — both stay live until this hub covers what they show today.
+ * - The full funnel (stages 4-6, filters, marketing-link picker) stays
+ *   on /admin/analytics; only stages 1-4 are relocated here so far.
  */
 
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { adminAuthedFetch } from '@/lib/adminAuthedFetch';
-import { Compass, AlertCircle, ExternalLink } from 'lucide-react';
+import { Compass, AlertCircle } from 'lucide-react';
 
 // Reused as-is from PR #123 — same components /admin/statistics already
 // mounts, just repositioned into this hub's tabs.
@@ -76,6 +85,36 @@ import CommitmentSurfacesSection, {
   type CommitmentSurfacesSummary,
 } from '@/features/admin/components/cpo-dashboard/CommitmentSurfacesSection';
 
+// Journey Hub Wave 1 (05.10.2026) — gap-map + wave plan approved this
+// session. Every import below reuses an EXISTING computation; nothing
+// here is a new metric:
+//   - getFunnelCounts/DEFAULT_FUNNEL_FILTERS: the same client-side
+//     6-stage funnel service /admin/analytics already calls. Stages
+//     1-3 (registered/midpoint/completed) → Acquisition tab; stage 4
+//     (activation) → Activation tab.
+//   - FunnelStagesSection/FunnelStageCard: extracted this Wave from
+//     /admin/analytics' inline JSX (see that file's own history) so
+//     this page can render a stage SUBSET without duplicating it.
+//   - AuthorityPerformanceTable: the same city/authority breakdown
+//     /admin/statistics already renders, via the same
+//     /api/admin/statistics-summary route (also the source of
+//     overallCompletionRate for the Activation tab).
+//   - getMarketingAttributedCount: an existing account-metrics.service
+//     function (built for the Marketing Hub's single KPI card),
+//     reused here against Stage 1's registered count to derive an
+//     organic/attributed split — one subtraction, zero new reads.
+import {
+  getFunnelCounts,
+  DEFAULT_FUNNEL_FILTERS,
+  type FunnelStage,
+} from '@/features/admin/services/funnel-analytics.service';
+import FunnelStagesSection, {
+  FunnelStageCard,
+} from '@/features/admin/components/cpo-dashboard/FunnelStagesSection';
+import AuthorityPerformanceTable from '@/features/admin/components/cpo-dashboard/AuthorityPerformanceTable';
+import type { AuthorityPerformance } from '@/features/admin/services/cpo-analytics.service';
+import { getMarketingAttributedCount } from '@/features/admin/services/account-metrics.service';
+
 interface GrowthMetricsResponse {
   scope: 'platform' | 'vertical';
   vertical?: string;
@@ -83,6 +122,18 @@ interface GrowthMetricsResponse {
   activeUsersTrend: ActiveUsersTrendPoint[];
   pushCampaignMarkers: TimelineMarker[];
   economyByAuthority: EconomyByAuthorityRow[];
+}
+
+// Wave 1 — only the two fields this hub actually renders from
+// /api/admin/statistics-summary (overallCompletionRate for Activation,
+// authorityPerformance for Acquisition's city breakdown). The route's
+// real response carries more (activeAuthorities/activeClients/
+// premiumMetrics/notApplicable) — see /admin/statistics' own
+// StatisticsSummaryResponse for the full shape; not duplicated here
+// since this hub doesn't use the rest.
+interface StatisticsSummaryResponse {
+  executiveSummary: { overallCompletionRate: number };
+  authorityPerformance: AuthorityPerformance[];
 }
 
 type JourneyTab = 'acquisition' | 'activation' | 'retention';
@@ -107,6 +158,17 @@ export default function JourneyHubPage() {
   const [commitmentSurfaces, setCommitmentSurfaces] = useState<CommitmentSurfacesSummary | null>(null);
   const [commitmentSurfacesDenied, setCommitmentSurfacesDenied] = useState<string | null>(null);
 
+  // Wave 1 — funnel stages 1-4 (client-side, same call /admin/analytics
+  // makes), the statistics-summary route (completion rate + city
+  // breakdown), and the organic/attributed split derived from Stage 1.
+  const [funnelStages, setFunnelStages] = useState<FunnelStage[]>([]);
+  const [funnelLoading, setFunnelLoading] = useState(true);
+
+  const [statisticsSummary, setStatisticsSummary] = useState<StatisticsSummaryResponse | null>(null);
+  const [statisticsDenied, setStatisticsDenied] = useState<string | null>(null);
+
+  const [attributedCount, setAttributedCount] = useState<number | null>(null);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, () => setAuthLoading(false));
     return () => unsubscribe();
@@ -119,11 +181,19 @@ export default function JourneyHubPage() {
       setDataLoading(true);
 
       // growth-metrics + push-funnel-summary are PR #123's existing routes;
-      // commitment-surfaces-summary is new this PR.
-      const [growthResult, pushResult, commitmentResult] = await Promise.all([
+      // commitment-surfaces-summary landed via a parallel session
+      // (b59f246a); statistics-summary is the same route /admin/statistics
+      // calls. getFunnelCounts/getMarketingAttributedCount are direct
+      // client-SDK service calls (same pattern /admin/analytics already
+      // uses for the funnel — not every data source here is a server
+      // route, and that's an existing, working split, not something new).
+      const [growthResult, pushResult, commitmentResult, statisticsResult, funnelResult, attributedResult] = await Promise.all([
         adminAuthedFetch<GrowthMetricsResponse>('/api/admin/growth-metrics'),
         adminAuthedFetch<PushFunnelSummaryResponse>('/api/admin/push-funnel-summary'),
         adminAuthedFetch<CommitmentSurfacesSummary>('/api/admin/commitment-surfaces-summary'),
+        adminAuthedFetch<StatisticsSummaryResponse>('/api/admin/statistics-summary'),
+        getFunnelCounts(DEFAULT_FUNNEL_FILTERS),
+        getMarketingAttributedCount(),
       ]);
 
       if (growthResult.ok) { setGrowthMetrics(growthResult.data); setGrowthMetricsDenied(null); }
@@ -134,6 +204,13 @@ export default function JourneyHubPage() {
 
       if (commitmentResult.ok) { setCommitmentSurfaces(commitmentResult.data); setCommitmentSurfacesDenied(null); }
       else { setCommitmentSurfaces(null); setCommitmentSurfacesDenied(commitmentResult.message); }
+
+      if (statisticsResult.ok) { setStatisticsSummary(statisticsResult.data); setStatisticsDenied(null); }
+      else { setStatisticsSummary(null); setStatisticsDenied(statisticsResult.message); }
+
+      setFunnelStages(funnelResult);
+      setFunnelLoading(false);
+      setAttributedCount(attributedResult);
 
       setDataLoading(false);
     }
@@ -148,6 +225,15 @@ export default function JourneyHubPage() {
       </div>
     );
   }
+
+  // ── Wave 1 derived values ────────────────────────────────────────────
+  const acquisitionStages = funnelStages.filter((s) => ['registered', 'midpoint', 'completed'].includes(s.id));
+  const activationStage = funnelStages.find((s) => s.id === 'activation') ?? null;
+  const registeredCount = funnelStages.find((s) => s.id === 'registered')?.count ?? null;
+  const organicCount = registeredCount != null && attributedCount != null ? Math.max(0, registeredCount - attributedCount) : null;
+  const attributedPct = registeredCount != null && registeredCount > 0 && attributedCount != null
+    ? Math.round((attributedCount / registeredCount) * 1000) / 10
+    : null;
 
   return (
     <div className="space-y-6" dir="rtl">
@@ -186,43 +272,94 @@ export default function JourneyHubPage() {
         ))}
       </div>
 
-      {/* Acquisition — placeholder only, funnel refactor is a follow-up PR */}
+      {/* Acquisition — Wave 1 (05.10.2026, gap-map + wave plan approved).
+          Funnel stages 1-3 + the organic/attributed split + the
+          authority/city breakdown are all RELOCATED/WIRED here, not
+          rebuilt — see the Wave 1 import block above for sources.
+          Deeper source/campaign SEGMENTATION filters and a real
+          new-users-over-time trend are Wave 2, not here yet. */}
       {activeTab === 'acquisition' && (
-        <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-10 text-center">
-          <p className="text-gray-500 text-sm">
-            משפך הרכישה (הרשמה ← אונבורדינג) נמצא כרגע ב
-            <a
-              href="/admin/analytics"
-              className="text-cyan-600 font-bold hover:underline inline-flex items-center gap-1 mx-1"
-            >
-              משפך המרות ואנליטיקס
-              <ExternalLink size={12} />
-            </a>
-            — יעבור לכאן בעדכון הבא.
+        <div className="space-y-6">
+          <FunnelStagesSection
+            stages={acquisitionStages}
+            loading={funnelLoading}
+            title="משפך הרשמה ואונבורדינג"
+            subtitle="נרשמו במערכת ← אמצע אונבורדינג ← סיימו אונבורדינג"
+          />
+
+          <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
+            <p className="text-xs md:text-sm text-gray-500 mb-1">רכישה לפי מקור</p>
+            {funnelLoading ? (
+              <div className="h-8 bg-gray-200 rounded w-32 animate-pulse" />
+            ) : (
+              <div className="flex flex-wrap items-baseline gap-4">
+                <div>
+                  <span className="text-2xl md:text-3xl font-black text-gray-900">
+                    {organicCount != null ? organicCount.toLocaleString('he-IL') : '—'}
+                  </span>
+                  <span className="text-xs text-gray-500 mr-1.5">אורגני</span>
+                </div>
+                <div>
+                  <span className="text-2xl md:text-3xl font-black text-gray-900">
+                    {attributedCount != null ? attributedCount.toLocaleString('he-IL') : '—'}
+                  </span>
+                  <span className="text-xs text-gray-500 mr-1.5">
+                    משיווק (קמפיין / קישור / QR){attributedPct != null && ` — ${attributedPct}%`}
+                  </span>
+                </div>
+              </div>
+            )}
+            <p className="text-gray-400 text-xs mt-2">
+              פילוח לפי קמפיין/מקור/מדיה ספציפי (לא רק אורגני-מול-משיווק) הוא Wave 2 — שורת הסינון המשותפת לכל הטאבים.
+            </p>
+          </div>
+
+          <AuthorityPerformanceTable data={statisticsSummary?.authorityPerformance ?? []} loading={dataLoading} />
+          {statisticsDenied && !dataLoading && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+              <AlertCircle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-800">{statisticsDenied}</p>
+            </div>
+          )}
+
+          <p className="text-gray-400 text-xs">
+            install/visit (לפני הרשמה) אינו נמדד באף מקום היום — פער-תוכן אמיתי, לא רק לא-מחובר. "משתמשים חדשים לאורך זמן" (טרנד אמיתי, לא יחס לפני/אחרי בודד) הוא Wave 2.
           </p>
         </div>
       )}
 
-      {/* Activation — placeholder (tabs IA cleanup, 05.10.2026). The
-          engagement panels that used to render here moved to Retention
-          below; true activation metrics (first-workout rate, onboarding
-          completion, time-to-first-workout) aren't wired into this hub
-          yet — not fabricated here. */}
+      {/* Activation — Wave 1 (05.10.2026). First-workout rate (funnel
+          stage 4) + onboarding-completion rate are RELOCATED/WIRED here
+          — both were already computed elsewhere, see the Wave 1 import
+          block above. Time-to-first-workout and activation-by-source are
+          genuinely not computed anywhere yet (confirmed, not just
+          unwired) — Wave 2 builds the former; the latter is a breakout
+          of this same stage-4 query, also Wave 2. */}
       {activeTab === 'activation' && (
-        <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-10 text-center">
-          <p className="text-gray-500 text-sm">
-            מדדי הפעלה אמיתיים (שיעור אימון ראשון, שיעור השלמת אונבורדינג, זמן עד אימון ראשון) עדיין לא מחוברים ללוח הזה.
-          </p>
-          <p className="text-gray-400 text-xs mt-2">
-            שיעור אימון ראשון קיים כחלק ממשפך ההמרות (שלב 4) ב
-            <a
-              href="/admin/analytics"
-              className="text-cyan-600 font-bold hover:underline inline-flex items-center gap-1 mx-1"
-            >
-              משפך המרות ואנליטיקס
-              <ExternalLink size={12} />
-            </a>
-            — יעבור לכאן יחד עם שאר המשפך. שיעור השלמת אונבורדינג כבר מחושב (executiveSummary.overallCompletionRate) אך לא מוצג כאן. זמן עד אימון ראשון אינו מחושב באף מקום היום.
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+            {activationStage ? (
+              <FunnelStageCard stage={activationStage} loading={funnelLoading} />
+            ) : (
+              <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6 animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-24 mb-4" />
+                <div className="h-8 bg-gray-200 rounded w-16" />
+              </div>
+            )}
+            <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
+              <p className="text-xs md:text-sm text-gray-500 mb-1">שיעור השלמת אונבורדינג</p>
+              {dataLoading ? (
+                <div className="h-8 bg-gray-200 rounded w-16 animate-pulse" />
+              ) : (
+                <p className="text-2xl md:text-3xl font-black text-gray-900">
+                  {statisticsSummary ? `${statisticsSummary.executiveSummary.overallCompletionRate}%` : '—'}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <p className="text-gray-400 text-xs">
+            זמן עד אימון ראשון אינו מחושב באף מקום היום — פער-תוכן אמיתי, לא רק לא-מחובר. פילוח הפעלה לפי מקור/קוהורט הוא Wave 2.
           </p>
         </div>
       )}

@@ -12,9 +12,11 @@
  * Layout (top to bottom):
  *   1. Page header with refresh action
  *   2. Sticky filter bar (campaign · source · medium · gender · date)
- *   3. 5-card KPI strip with raw counts
- *   4. Recharts FunnelChart visual canvas
- *   5. Detailed conversion table with per-stage drop-off math and badges
+ *   3. KPI strip + Recharts FunnelChart + conversion table — via the
+ *      shared `FunnelStagesSection` (extracted journey hub Wave 1,
+ *      05.10.2026, so the Journey hub's Acquisition tab can render a
+ *      subset of this same funnel without duplicating the JSX)
+ *   4. Push → action funnel section
  */
 
 export const dynamic = 'force-dynamic';
@@ -30,28 +32,14 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
-  FunnelChart,
-  Funnel,
-  LabelList,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-} from 'recharts';
-import {
   BarChart3,
   Filter,
   RefreshCw,
-  AlertTriangle,
-  CheckCircle2,
-  TrendingDown,
   Calendar,
-  Loader2,
 } from 'lucide-react';
 import {
   getFunnelCounts,
   DEFAULT_FUNNEL_FILTERS,
-  FUNNEL_DROP_THRESHOLD,
-  FUNNEL_CAUTION_THRESHOLD,
   type FunnelFilters,
   type FunnelStage,
 } from '@/features/admin/services/funnel-analytics.service';
@@ -63,20 +51,12 @@ import { adminAuthedFetch } from '@/lib/adminAuthedFetch';
 import PushFunnelSection, {
   type PushFunnelSummaryResponse,
 } from '@/features/admin/components/cpo-dashboard/PushFunnelSection';
+import FunnelStagesSection from '@/features/admin/components/cpo-dashboard/FunnelStagesSection';
 
 // ──────────────────────────────────────────────────────────────────────
 // Module constants — static UI vocabulary kept outside the component so
 // the React reconciler never recreates these on every render.
 // ──────────────────────────────────────────────────────────────────────
-
-const STAGE_FILL: Record<FunnelStage['id'], string> = {
-  registered: '#6366f1',  // indigo-500  — top of funnel anchor
-  midpoint:   '#0ea5e9',  // sky-500     — onboarding push
-  completed:  '#10b981',  // emerald-500 — onboarding success
-  activation: '#f59e0b',  // amber-500   — first workout
-  retention:  '#ef4444',  // red-500     — retained user
-  revenue:    '#9ca3af',  // gray-400    — placeholder (no data yet)
-};
 
 const GENDER_OPTIONS: { value: FunnelFilters['gender']; label: string }[] = [
   { value: null,     label: 'הכל' },
@@ -147,30 +127,12 @@ async function loadDistinctAttributionValues(): Promise<DistinctAttribution> {
 // unused and stay private to the dashboard.
 // ──────────────────────────────────────────────────────────────────────
 
-const fmtCount = (n: number | null) =>
-  n == null ? '—' : n.toLocaleString('he-IL');
-
-const fmtPct = (p: number | null) =>
-  p == null ? '—' : `${p.toFixed(1)}%`;
-
 const toInputDate = (d: Date | null): string =>
   d ? d.toISOString().slice(0, 10) : '';
 
 const fromInputDate = (s: string): Date | null =>
   s ? new Date(`${s}T00:00:00`) : null;
 
-// ──────────────────────────────────────────────────────────────────────
-// Funnel label renderer.
-//
-// Recharts' custom-label content prop receives `(props)` containing
-// `{x, y, width, height, value, index, ...rowData}` — but the exact
-// shape varies between minor versions and between chart types. To
-// avoid that fragility we lean on the built-in `dataKey`-driven label
-// (which is guaranteed stable across versions) and surface every
-// detailed per-stage signal (count, conversion %, warning chip) in the
-// KPI strip and conversion table that flank the chart. This keeps the
-// chart itself a clean visual primitive whose only job is showing the
-// funnel's geometric shape.
 // ──────────────────────────────────────────────────────────────────────
 // Page component
 // ──────────────────────────────────────────────────────────────────────
@@ -263,22 +225,6 @@ export default function AnalyticsDashboardPage() {
     setFilters(DEFAULT_FUNNEL_FILTERS);
   }, []);
 
-  // Map funnel stages → Recharts data shape. The chart silently drops
-  // entries with `value == null`, which is exactly what we want for the
-  // revenue placeholder so it doesn't distort the funnel proportions.
-  const chartData = useMemo(
-    () => stages
-      .filter((s) => s.count != null)
-      .map((s) => ({
-        name: s.labelHe,
-        value: s.count as number,
-        fill: STAGE_FILL[s.id],
-        stage: s,
-      })),
-    [stages],
-  );
-
-  const stage1Count = stages[0]?.count ?? null;
   const hasActiveFilters = useMemo(
     () => (
       filters.campaign != null ||
@@ -422,118 +368,7 @@ export default function AnalyticsDashboardPage() {
       {/* ── PAGE BODY ──────────────────────────────────────────────── */}
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
 
-        {/* KPI STRIP — 5 cards, horizontal scroll on narrow viewports */}
-        <div className="flex gap-3 overflow-x-auto pb-1">
-          {stages
-            .filter((s) => s.id !== 'revenue')
-            .map((s) => (
-              <KPICard key={s.id} stage={s} loading={loading && stages.length === 0} />
-            ))}
-        </div>
-
-        {/* FUNNEL CHART */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 relative">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-black text-slate-900">המחשת המשפך</h2>
-            {loading && (
-              <div className="flex items-center gap-2 text-sm text-slate-500">
-                <Loader2 size={14} className="animate-spin" />
-                מרענן נתונים…
-              </div>
-            )}
-          </div>
-
-          {/* Skeleton overlay during loading — kept absolutely positioned
-              so the chart itself never unmounts, preventing the layout
-              jank that a hard remount would cause on every filter tap. */}
-          {loading && stages.length === 0 ? (
-            <div className="h-[420px] flex items-center justify-center text-slate-400">
-              <Loader2 size={32} className="animate-spin" />
-            </div>
-          ) : chartData.length === 0 ? (
-            <div className="h-[420px] flex flex-col items-center justify-center text-slate-400">
-              <BarChart3 size={48} className="mb-3 opacity-40" />
-              <p className="text-sm font-medium">אין נתונים עבור הסינון הנבחר</p>
-            </div>
-          ) : (
-            <div className="h-[420px] w-full" dir="ltr">
-              {/* dir=ltr on the chart wrapper because Recharts geometry
-                  assumes LTR — the labels render the Hebrew text fine,
-                  but the funnel must layout left-to-right. */}
-              <ResponsiveContainer width="100%" height="100%">
-                <FunnelChart>
-                  <Tooltip
-                    formatter={(value: number, _name: string, item: { payload?: { name?: string } }) => [
-                      value.toLocaleString('he-IL'),
-                      item?.payload?.name ?? '',
-                    ]}
-                    cursor={{ fill: 'rgba(99,102,241,0.05)' }}
-                    contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0' }}
-                  />
-                  <Funnel
-                    dataKey="value"
-                    data={chartData}
-                    isAnimationActive
-                    lastShapeType="rectangle"
-                  >
-                    {/* Built-in label renderers: name floats to the right
-                        of each band; count is centered inside it. */}
-                    <LabelList
-                      position="right"
-                      dataKey="name"
-                      fill="#1f2937"
-                      fontSize={14}
-                      fontWeight={700}
-                    />
-                    <LabelList
-                      position="center"
-                      dataKey="value"
-                      fill="#ffffff"
-                      fontSize={16}
-                      fontWeight={800}
-                      formatter={(value: number) => value.toLocaleString('he-IL')}
-                    />
-                    {chartData.map((entry, idx) => (
-                      <Cell key={`cell-${idx}`} fill={entry.fill} />
-                    ))}
-                  </Funnel>
-                </FunnelChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </div>
-
-        {/* CONVERSION TABLE */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-200">
-            <h2 className="text-lg font-black text-slate-900">פירוט המרות לפי שלב</h2>
-            <p className="text-sm text-slate-500 mt-1">
-              מסומן באדום: שלב עם נטישה חדה מעל 50%. מסומן בכתום: צריך תשומת לב.
-            </p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-right">
-              <thead className="bg-slate-50 text-xs font-bold text-slate-600 uppercase tracking-wide">
-                <tr>
-                  <th className="px-6 py-3">שלב</th>
-                  <th className="px-6 py-3">משתמשים</th>
-                  <th className="px-6 py-3 min-w-[200px]">משפך כללי (מול S1)</th>
-                  <th className="px-6 py-3 min-w-[200px]">זרימת שלב (מול קודם)</th>
-                  <th className="px-6 py-3">סטטוס</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {stages.map((s) => (
-                  <ConversionRow
-                    key={s.id}
-                    stage={s}
-                    stage1Count={stage1Count}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <FunnelStagesSection stages={stages} loading={loading} />
 
         <PushFunnelSection data={pushFunnel} loading={pushFunnelLoading} denied={pushFunnelDenied} />
 
@@ -601,183 +436,6 @@ const LinkFilterSelect: React.FC<LinkFilterSelectProps> = ({ label, value, optio
   </div>
 );
 
-/**
- * Single KPI card in the horizontal strip. Renders count, stage name,
- * and step conversion %. Drop-warning stages get a red border accent.
- */
-interface KPICardProps {
-  stage: FunnelStage;
-  loading: boolean;
-}
-
-const KPICard: React.FC<KPICardProps> = ({ stage, loading }) => {
-  const fill = STAGE_FILL[stage.id];
-  const isWarn = stage.isDropWarning;
-  return (
-    <div
-      className={`shrink-0 min-w-[180px] rounded-2xl p-4 border-2 shadow-sm transition-shadow ${
-        isWarn ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-white hover:shadow-md'
-      }`}
-    >
-      <div className="flex items-center gap-2 mb-2">
-        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: fill }} />
-        <span className="text-xs font-bold text-slate-600">{stage.labelHe}</span>
-      </div>
-      <div className="text-2xl font-black text-slate-900">
-        {loading ? <span className="inline-block w-12 h-7 bg-slate-200 rounded animate-pulse" /> : fmtCount(stage.count)}
-      </div>
-      {stage.stepConversion != null && (
-        <div className={`mt-2 text-xs font-bold flex items-center gap-1 ${isWarn ? 'text-rose-600' : 'text-emerald-600'}`}>
-          {isWarn && <TrendingDown size={12} />}
-          {fmtPct(stage.stepConversion)} מהשלב הקודם
-        </div>
-      )}
-      {stage.stepConversion == null && stage.globalConversion != null && (
-        <div className="mt-2 text-xs font-bold text-indigo-600">
-          עוגן ראשי
-        </div>
-      )}
-    </div>
-  );
-};
-
-/**
- * Single row of the conversion table. Renders both progress bars
- * (global and step), plus the stage status badge.
- */
-interface ConversionRowProps {
-  stage: FunnelStage;
-  stage1Count: number | null;
-}
-
-const ConversionRow: React.FC<ConversionRowProps> = ({ stage, stage1Count }) => {
-  const fill = STAGE_FILL[stage.id];
-  const isPlaceholder = stage.count == null;
-  return (
-    <tr className={isPlaceholder ? 'bg-slate-50/50' : 'hover:bg-slate-50/60 transition-colors'}>
-      {/* Stage name */}
-      <td className="px-6 py-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: fill }} />
-          <span className={`text-sm font-bold ${isPlaceholder ? 'text-slate-400' : 'text-slate-900'}`}>
-            {stage.labelHe}
-          </span>
-        </div>
-      </td>
-
-      {/* Count */}
-      <td className="px-6 py-4">
-        <span className={`text-sm font-bold tabular-nums ${isPlaceholder ? 'text-slate-400' : 'text-slate-800'}`}>
-          {isPlaceholder ? 'ממתין לנתונים' : fmtCount(stage.count)}
-        </span>
-      </td>
-
-      {/* Global conversion bar */}
-      <td className="px-6 py-4">
-        <ProgressBar
-          percent={stage.globalConversion}
-          fill={fill}
-          base={stage1Count}
-        />
-      </td>
-
-      {/* Step conversion bar */}
-      <td className="px-6 py-4">
-        <ProgressBar
-          percent={stage.stepConversion}
-          fill={fill}
-          emphasizeWarning
-        />
-      </td>
-
-      {/* Status badge */}
-      <td className="px-6 py-4">
-        <StatusBadge stepConversion={stage.stepConversion} isPlaceholder={isPlaceholder} />
-      </td>
-    </tr>
-  );
-};
-
-/**
- * Horizontal progress bar with the percentage rendered to its left.
- * Width is clamped 0-100 so absurd values (e.g. stage count > stage1
- * count after an index drift) still render gracefully.
- */
-interface ProgressBarProps {
-  percent: number | null;
-  fill: string;
-  base?: number | null;
-  emphasizeWarning?: boolean;
-}
-
-const ProgressBar: React.FC<ProgressBarProps> = ({ percent, fill, emphasizeWarning }) => {
-  if (percent == null) {
-    return <span className="text-xs font-medium text-slate-400">—</span>;
-  }
-  const clamped = Math.max(0, Math.min(100, percent));
-  const isWarn = emphasizeWarning && percent < FUNNEL_DROP_THRESHOLD;
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden min-w-[100px]">
-        <div
-          className="h-full rounded-full transition-all duration-500"
-          style={{
-            width: `${clamped}%`,
-            backgroundColor: isWarn ? '#ef4444' : fill,
-          }}
-        />
-      </div>
-      <span className={`text-xs font-bold tabular-nums min-w-[44px] text-left ${isWarn ? 'text-rose-600' : 'text-slate-700'}`}>
-        {fmtPct(percent)}
-      </span>
-    </div>
-  );
-};
-
-/**
- * Status pill — green / amber / red based on step conversion.
- * The placeholder revenue stage gets a calm gray "ממתין לנתונים" badge.
- */
-interface StatusBadgeProps {
-  stepConversion: number | null;
-  isPlaceholder: boolean;
-}
-
-const StatusBadge: React.FC<StatusBadgeProps> = ({ stepConversion, isPlaceholder }) => {
-  if (isPlaceholder) {
-    return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-500">
-        ממתין לנתונים
-      </span>
-    );
-  }
-  if (stepConversion == null) {
-    return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700">
-        עוגן ראשי
-      </span>
-    );
-  }
-  if (stepConversion < FUNNEL_DROP_THRESHOLD) {
-    return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-700">
-        <AlertTriangle size={12} />
-        ירידה חדה
-      </span>
-    );
-  }
-  if (stepConversion < FUNNEL_CAUTION_THRESHOLD) {
-    return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
-        <AlertTriangle size={12} />
-        זהירות
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">
-      <CheckCircle2 size={12} />
-      תקין
-    </span>
-  );
-};
+// KPICard / ConversionRow / ProgressBar / StatusBadge moved to
+// FunnelStagesSection.tsx (journey hub Wave 1) — reused from there now,
+// not duplicated here.
