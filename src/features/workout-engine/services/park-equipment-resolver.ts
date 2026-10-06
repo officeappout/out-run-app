@@ -94,9 +94,11 @@ export async function resolveParkEquipmentIds(
         const parks = await fetchRealParks();
         const equipped = equippedParksWithin(options.gpsCoords, parks, EQUIPPED_PARK_RADIUS_M);
         for (const park of equipped.slice(0, MAX_PARK_CANDIDATES)) {
-          const ids = (park.gymEquipment ?? [])
-            .map((eq) => normalizeGearId(eq.equipmentId))
-            .filter(Boolean);
+          // `park` came from the lean catalog (fetchRealParks()) — no raw gymEquipment
+          // to read directly. extractParkEquipment() already point-fetches + normalizes
+          // (the same helper Priorities 1 and 3 use below) — reuse it instead of a second,
+          // inconsistent reader of the same data (SPEC-07 production-bug fix).
+          const ids = await extractParkEquipment(park.id);
           if (ids.length > 0) {
             console.log(
               `[ParkEquipmentResolver] Nearest equipped park "${park.name}" (${park.id}): [${ids.join(', ')}]`,

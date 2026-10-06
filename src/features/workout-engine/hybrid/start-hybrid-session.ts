@@ -118,13 +118,32 @@ function normalizePath(raw: unknown): [number, number][] {
 // them to the stop candidate for station-content-resolver.ts to render — the gate
 // no longer discards which machine(s) it found. `parkHasHydraulicEquipment` stays a
 // thin boolean wrapper so gate-only call sites don't need to change shape.
-function findHydraulicEquipment(park: any, equipmentCatalog: GymEquipment[]): GymEquipment[] {
-  const ids = new Set<string>((park?.gymEquipment ?? []).map((e: any) => e.equipmentId).filter(Boolean));
+//
+// Catalog-aware (SPEC-07 production-bug fix): every real call site feeds this `park`
+// from `safeFetchRealParks()` (the lean catalog) — it has no raw `gymEquipment` array,
+// only the precomputed hasUsableEquipment flag. Point-fetches the full record when
+// `gymEquipment` is absent, so the hydraulic check runs against real equipment instead
+// of silently seeing an empty array. Both functions are now async as a result — all 3
+// call sites already run inside async composers, just need `await` added.
+async function resolveParkGymEquipment(park: any): Promise<{ equipmentId?: string }[]> {
+  if (Array.isArray(park?.gymEquipment)) return park.gymEquipment;
+  if (!park?.id) return [];
+  try {
+    const { getPark } = await import('@/features/parks/core/services/parks.service');
+    const full = await getPark(park.id);
+    return full?.gymEquipment ?? [];
+  } catch {
+    return [];
+  }
+}
+async function findHydraulicEquipment(park: any, equipmentCatalog: GymEquipment[]): Promise<GymEquipment[]> {
+  const gymEquipment = await resolveParkGymEquipment(park);
+  const ids = new Set<string>(gymEquipment.map((e) => e.equipmentId).filter(Boolean) as string[]);
   if (ids.size === 0) return [];
   return equipmentCatalog.filter((eq) => ids.has(eq.id) && eq.isFunctional === false);
 }
-function parkHasHydraulicEquipment(park: any, equipmentCatalog: GymEquipment[]): boolean {
-  return findHydraulicEquipment(park, equipmentCatalog).length > 0;
+async function parkHasHydraulicEquipment(park: any, equipmentCatalog: GymEquipment[]): Promise<boolean> {
+  return (await findHydraulicEquipment(park, equipmentCatalog)).length > 0;
 }
 
 /**
@@ -336,7 +355,7 @@ async function composeFullParkWorkout(
   if (!hasAssessment) {
     const equipmentCatalog = await getAllGymEquipment();
     const oabPark = parks.find((p: any) => p.id === oab.station.parkId);
-    if (!oabPark || !parkHasHydraulicEquipment(oabPark, equipmentCatalog)) {
+    if (!oabPark || !(await parkHasHydraulicEquipment(oabPark, equipmentCatalog))) {
       console.warn('[composeFullParkWorkout] gated: no completed assessment + nearest park is not hydraulic → needs_assessment');
       const needsAssessment = await buildNeedsAssessmentFallback();
       const station = {
@@ -779,6 +798,33 @@ async function composeRouteStopsWorkout(
   const routePath = backbone.routePath;
   const rawStops = resolveRouteStops(routePath, parks as any);
 
+  // SPEC-07 production-bug fix: resolveRouteStops is pure/sync (no I/O), so a stop
+  // correctly classified `activityType: 'strength'` by mapParkToStop's
+  // hasUsableEquipment check can still come back with availableEquipment: [] — `parks`
+  // here is the lean catalog (safeFetchRealParks()), no raw gymEquipment to translate.
+  // Point-fetch the real equipment for exactly those stops before the equippedStops
+  // filter below, so a correctly-identified strength stop stops silently degrading to
+  // bodyweight. See scheduling-capability-audit.md.
+  const strengthStopsNeedingEquipment = rawStops.filter((s) => s.activityType === 'strength' && s.availableEquipment.length === 0);
+  if (strengthStopsNeedingEquipment.length > 0) {
+    const [{ getPark }, { parkGymEquipmentToGearIds }, { normalizeGearIds }] = await Promise.all([
+      import('@/features/parks/core/services/parks.service'),
+      import('./park-equipment.util'),
+      import('@/features/workout-engine/shared/utils/gear-mapping.utils'),
+    ]);
+    for (const s of strengthStopsNeedingEquipment) {
+      if (!s.parkId) continue;
+      try {
+        const fullPark = await getPark(s.parkId);
+        if (fullPark?.gymEquipment) {
+          s.availableEquipment = parkGymEquipmentToGearIds(fullPark.gymEquipment, normalizeGearIds);
+        }
+      } catch {
+        /* leave availableEquipment as [] — falls through to bodyweight, never throws */
+      }
+    }
+  }
+
   // Domain-assessment gate (David, 23-24.09.2026, field-test doc TBD): replaces the
   // old session-level Gate A here (blocked the WHOLE session on !hasAssessment + no
   // hydraulic park nearby — removed per David's explicit approval, 23-24.09.2026).
@@ -798,7 +844,7 @@ async function composeRouteStopsWorkout(
     for (const s of equippedStops) {
       const stopPark = parks.find((p: any) => p.id === s.parkId);
       if (!stopPark) continue;
-      const matched = findHydraulicEquipment(stopPark, equipmentCatalog);
+      const matched = await findHydraulicEquipment(stopPark, equipmentCatalog);
       if (matched.length > 0) (s as any).parkEquipment = matched;
     }
   }
@@ -1202,7 +1248,7 @@ export async function composeHybridPlan(
       const { getAllGymEquipment } = await import('@/features/content/equipment/gym/core/gym-equipment.service');
       const equipmentCatalog = await getAllGymEquipment();
       const sourcePark = parks.find((p: any) => p.id === source.parkId);
-      const matched = sourcePark ? findHydraulicEquipment(sourcePark, equipmentCatalog) : [];
+      const matched = sourcePark ? await findHydraulicEquipment(sourcePark, equipmentCatalog) : [];
       if (matched.length === 0) {
         console.warn('[composeHybridPlan] gated: no completed assessment + nearest station is not hydraulic → needs_assessment');
         return needsAssessmentSession();

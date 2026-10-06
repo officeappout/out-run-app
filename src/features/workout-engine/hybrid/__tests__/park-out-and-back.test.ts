@@ -4,6 +4,7 @@ import {
   buildOutAndBackPath,
   roundTripKm,
   nearestEquippedPark,
+  equippedParksWithin,
   type LngLat,
 } from '../park-out-and-back';
 
@@ -116,5 +117,63 @@ describe('nearestEquippedPark', () => {
     const far = mk({ id: 'far', location: { lat: 32.08, lng: 34.80 } }); // ~1.9 km away
     expect(nearestEquippedPark(user, [far], { maxRadiusMeters: 500 })).toBeNull();
     expect(nearestEquippedPark(user, [far], { maxRadiusMeters: 5000 })?.id).toBe('far');
+  });
+});
+
+// ── Catalog-shaped parks (SPEC-07 production-bug fix) ──────────────────────────
+// fetchRealParks() returns the LEAN catalog shape: hasUsableEquipment/isPrimaryFitness
+// precomputed booleans, NO raw gymEquipment/sportTypes arrays at all. Every test above
+// uses full-record-style fixtures (raw gymEquipment/sportTypes) — none of them exercise
+// this shape, which is exactly the one every real production caller actually hits. This
+// is the regression class the bug was: these booleans silently defaulting to falsy on
+// catalog data made every equipped-park check return "none found" in production.
+describe('nearestEquippedPark / equippedParksWithin — catalog shape (boolean-only, no raw fields)', () => {
+  const user = { lat: 32.08, lng: 34.78 };
+
+  const mkCatalog = (over: Record<string, unknown>): Park =>
+    ({
+      id: 'p',
+      name: 'Park',
+      location: { lat: 32.08, lng: 34.78 },
+      hasUsableEquipment: true,
+      isPrimaryFitness: true,
+      // Deliberately absent: gymEquipment, sportTypes, category — proves the booleans
+      // alone are sufficient, with no raw-field fallback masking a real regression.
+      ...over,
+    } as unknown as Park);
+
+  it('nearestEquippedPark finds a catalog-shaped park via the booleans alone', () => {
+    const park = mkCatalog({ id: 'catalog-1' });
+    expect(nearestEquippedPark(user, [park])?.id).toBe('catalog-1');
+  });
+
+  it('nearestEquippedPark excludes a catalog park with hasUsableEquipment: false', () => {
+    const park = mkCatalog({ id: 'no-equip', hasUsableEquipment: false });
+    expect(nearestEquippedPark(user, [park])).toBeNull();
+  });
+
+  it('nearestEquippedPark excludes a catalog park with isPrimaryFitness: false', () => {
+    const park = mkCatalog({ id: 'not-primary', isPrimaryFitness: false });
+    expect(nearestEquippedPark(user, [park])).toBeNull();
+  });
+
+  it('equippedParksWithin finds a catalog-shaped park via hasUsableEquipment alone', () => {
+    const park = mkCatalog({ id: 'catalog-2' });
+    expect(equippedParksWithin(user, [park], 5000).map((p) => p.id)).toEqual(['catalog-2']);
+  });
+
+  it('equippedParksWithin excludes a catalog park with hasUsableEquipment: false', () => {
+    const park = mkCatalog({ id: 'no-equip-2', hasUsableEquipment: false });
+    expect(equippedParksWithin(user, [park], 5000)).toEqual([]);
+  });
+
+  it('a mixed array of catalog-shaped and full-record parks both resolve correctly', () => {
+    const catalogPark = mkCatalog({ id: 'catalog-3' });
+    const fullRecordPark = {
+      id: 'full-1', name: 'Full', location: { lat: 32.08, lng: 34.781 },
+      gymEquipment: [{ equipmentId: 'pullup_bar' }], sportTypes: ['calisthenics'],
+    } as unknown as Park;
+    const result = equippedParksWithin(user, [catalogPark, fullRecordPark], 5000);
+    expect(result.map((p) => p.id).sort()).toEqual(['catalog-3', 'full-1']);
   });
 });

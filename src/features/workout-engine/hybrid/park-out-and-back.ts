@@ -23,7 +23,7 @@ import type { Park } from '@/features/parks/core/types/park.types';
 import type { ActivityType } from '@/features/parks/core/types/route.types';
 import type { StationPark } from './find-station-park.service';
 import { haversineMeters, buildOutAndBackPath } from '@/features/parks/core/services/geoUtils';
-import { isPrimaryFitness } from './park-fitness.util';
+import { isPrimaryFitness, hasUsableEquipment } from './park-fitness.util';
 
 /** A canonical route vertex: `[lng, lat]` (matches RoutePath used across the engine). */
 export type LngLat = [number, number];
@@ -64,7 +64,7 @@ export function nearestEquippedPark(
 ): Park | null {
   let best: { park: Park; dist: number } | null = null;
   for (const p of parks) {
-    if ((p.gymEquipment?.length ?? 0) === 0) continue;
+    if (!hasUsableEquipment(p)) continue;
     if (p.location?.lat == null || p.location?.lng == null) continue;
     if (!isPrimaryFitness(p)) continue;
     const dist = haversineMeters(user.lat, user.lng, p.location.lat, p.location.lng);
@@ -91,7 +91,7 @@ export function equippedParksWithin(
 ): Park[] {
   const withDist: { park: Park; dist: number }[] = [];
   for (const p of parks) {
-    if ((p.gymEquipment?.length ?? 0) === 0) continue;
+    if (!hasUsableEquipment(p)) continue;
     if (p.location?.lat == null || p.location?.lng == null) continue;
     const dist = haversineMeters(user.lat, user.lng, p.location.lat, p.location.lng);
     if (dist > radiusMeters) continue;
@@ -139,9 +139,19 @@ export interface ParkOutAndBack {
 export async function resolveParkOutAndBack(
   args: ResolveParkOutAndBackArgs,
 ): Promise<ParkOutAndBack | null> {
-  const park = nearestEquippedPark(args.userPosition, args.parks, {
+  const candidate = nearestEquippedPark(args.userPosition, args.parks, {
     maxRadiusMeters: args.maxRadiusMeters,
   });
+  if (!candidate || candidate.location?.lat == null || candidate.location?.lng == null) return null;
+
+  // Point-fetch the winner's full record: `candidate` may have come from the lean
+  // catalog (fetchRealParks()) and carry only the precomputed hasUsableEquipment flag
+  // that got it selected, not the real gymEquipment array. Real normalization needs
+  // the actual equipment list — never carry gymEquipment through the catalog object
+  // itself. Falls back to `candidate` if the point-fetch fails so a transient read
+  // error degrades to "no usable equipment" (below) rather than throwing.
+  const { getPark } = await import('@/features/parks/core/services/parks.service');
+  const park = (await getPark(candidate.id).catch(() => null)) ?? candidate;
   if (!park || park.location?.lat == null || park.location?.lng == null) return null;
 
   // Translate gear ids — requires a warm equipment cache (park-equipment.util ⚠️).
