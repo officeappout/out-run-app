@@ -13,7 +13,7 @@ import { useSmartSchedule } from '@/features/home/hooks/useSmartSchedule';
 import { MOCK_STATS } from '@/features/home/data/mock-schedule-data';
 import BlurryBridgeOverlay from '@/features/user/onboarding/components/BlurryBridgeOverlay';
 import WelcomeDrawer from '@/features/user/onboarding/components/WelcomeDrawer';
-import { useEntryRouter } from '@/features/user/onboarding/hooks/useEntryRouter';
+import { useEntryRouter, type EntryRouterGeoBranch } from '@/features/user/onboarding/hooks/useEntryRouter';
 import LifestyleWizard from '@/features/user/onboarding/components/LifestyleWizard';
 import { calculateProfileCompletion, type CompletionItem } from '@/features/user/identity/services/profile-completion.service';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
@@ -3343,9 +3343,12 @@ export default function HomePage() {
               }}
               onSecondaryOption={() => {
                 dismissWelcomeDrawer();
-                router.push(
-                  entryRouterClassification.geoBranch === 'none' ? '/map?openRun=walking' : '/map',
-                );
+                const geoDestination: Record<EntryRouterGeoBranch, string> = {
+                  gardens: '/map?openHybridSlots=1',
+                  routes: '/map?openDiscover=1',
+                  none: '/map?openRun=walking',
+                };
+                router.push(geoDestination[entryRouterClassification.geoBranch]);
               }}
               onSkipToMap={() => {
                 dismissWelcomeDrawer();

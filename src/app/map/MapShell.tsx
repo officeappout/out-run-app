@@ -112,9 +112,12 @@ interface MapShellInnerProps {
   /** Step-goal push deep-link target (see IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED). */
   targetSteps?: string | null;
   isDemoMode?: boolean;
+  /** Tutorial entry-mechanism fast-follow deep-links — see MapShell's own searchParams reads. */
+  initialOpenHybridSlots?: boolean;
+  initialOpenDiscover?: boolean;
 }
 
-function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = false }: MapShellInnerProps) {
+function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = false, initialOpenHybridSlots = false, initialOpenDiscover = false }: MapShellInnerProps) {
   const { mode, setMode, activityType: contextActivity } = useMapMode();
 
   // devSim + profile hoisted above useMapLogic (David, 22.09.2026, field-test
@@ -695,7 +698,7 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
       </AnimatePresence>
 
       {/* ══════ LAYER ROUTER ══════ */}
-      {mode === 'discover' && <DiscoverLayer logic={logic} flyoverComplete={flyover.flyoverComplete} devSim={devSim} initialOpenRun={initialOpenRun} targetSteps={targetSteps} onRecenter={handleRecenter} />}
+      {mode === 'discover' && <DiscoverLayer logic={logic} flyoverComplete={flyover.flyoverComplete} devSim={devSim} initialOpenRun={initialOpenRun} targetSteps={targetSteps} initialOpenHybridSlots={initialOpenHybridSlots} initialOpenDiscover={initialOpenDiscover} onRecenter={handleRecenter} />}
       {mode === 'builder' && <BuilderLayer logic={logic} />}
       {mode === 'navigate' && <NavigateLayer logic={logic} />}
       {mode === 'free_run' && <FreeRunLayer logic={logic} effectivePos={effectivePos} onRecenter={handleRecenter} />}
@@ -815,6 +818,12 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
   const initialOpenRun = searchParams.get('openRun'); // 'running' | 'walking' | null
   const targetSteps = searchParams.get('targetSteps'); // step-goal push deep-link target, or null
   const isDemoMode = searchParams.get('demo') === '1';
+  // Onboarding tutorial entry-mechanism fast-follow (06.10.2026) — the
+  // Welcome drawer's geo-aware second option, for the "gardens nearby" /
+  // "routes nearby (no gardens)" branches. Same one-shot deep-link shape as
+  // openRun/targetSteps above; consumed once by DiscoverLayer.
+  const initialOpenHybridSlots = searchParams.get('openHybridSlots') === '1';
+  const initialOpenDiscover = searchParams.get('openDiscover') === '1';
   // Social-activities push deep-link (Phase 3, onPlannedActivityCreated) —
   // opens the specific park/route via the SAME global-store mechanism
   // ParkDetailSheet/RouteDetailSheet already use elsewhere (GlobalDetailOverlay,
@@ -1000,7 +1009,7 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
     <>
       {/* Map tree always mounts — Mapbox warms up behind the gate */}
       <MapModeProvider initialWorkoutId={initialWorkoutId ?? null} initialContext={initialContext}>
-        <MapShellInner spotFocus={spotFocus ?? null} initialOpenRun={initialOpenRun} targetSteps={targetSteps} isDemoMode={isDemoMode} />
+        <MapShellInner spotFocus={spotFocus ?? null} initialOpenRun={initialOpenRun} targetSteps={targetSteps} isDemoMode={isDemoMode} initialOpenHybridSlots={initialOpenHybridSlots} initialOpenDiscover={initialOpenDiscover} />
       </MapModeProvider>
 
       {/* Location gate — high z-index overlay, not a tree gate.

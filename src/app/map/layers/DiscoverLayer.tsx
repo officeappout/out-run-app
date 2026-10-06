@@ -201,11 +201,15 @@ interface DiscoverLayerProps {
   initialOpenRun?: string | null;
   /** Step-goal push deep-link target (see IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED). */
   targetSteps?: string | null;
+  /** Tutorial entry-mechanism fast-follow (06.10.2026) — Welcome drawer's
+   *  geo-aware second option. One-shot deep-links, same shape as initialOpenRun. */
+  initialOpenHybridSlots?: boolean;
+  initialOpenDiscover?: boolean;
   /** Center the camera on the best-available fix (live GPS or fallback dot). */
   onRecenter?: () => void;
 }
 
-export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialOpenRun, targetSteps, onRecenter }: DiscoverLayerProps) {
+export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialOpenRun, targetSteps, initialOpenHybridSlots, initialOpenDiscover, onRecenter }: DiscoverLayerProps) {
   const router = useRouter();
   const { setMode } = useMapMode();
   // Phase 3 (social-activities plan): opportunistically refresh the
@@ -405,6 +409,12 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // Graceful fallback: if localStorage is malformed or membership expired,
   // the drawer still opens — the user can run alone without partner visibility.
   const openRunConsumedRef = useRef(false);
+  // Tutorial entry-mechanism fast-follow (06.10.2026) — one-shot guards for
+  // the two new geo-branch deep-links. Effects live further down (after
+  // mapFeatureFlags is declared, for the hybrid-slots one) — see
+  // "openHybridSlots/openDiscover deep-links" below.
+  const openHybridSlotsConsumedRef = useRef(false);
+  const openDiscoverConsumedRef = useRef(false);
   // Step-goal push deep-link (/map?openRun=walking&targetSteps=N) — separate ref
   // so this can fire on a LATER effect run than the one-time setup below (it
   // needs userLocation, which may not be ready yet on mount; the setup below
@@ -681,6 +691,39 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // pre-existing compile-time behaviour of always being `true`.
   const isSuperAdmin = profile?.core?.isSuperAdmin === true;
   const { flags: mapFeatureFlags } = useFeatureFlags(isSuperAdmin);
+
+  // ── openHybridSlots / openDiscover deep-links (tutorial entry-mechanism
+  // fast-follow, 06.10.2026) ─────────────────────────────────────────────────
+  // Fired once from the Welcome drawer's geo-aware second option
+  // (home/page.tsx's WelcomeDrawer mount), via /map?openHybridSlots=1 for the
+  // "gardens nearby" branch or /map?openDiscover=1 for "routes nearby (no
+  // gardens)". Mirrors the openRun deep-link's one-shot-ref shape above, but
+  // simpler: unlike openRun/targetSteps, neither trigger needs to wait on
+  // userLocation — the hybrid-slots carousel always renders at least
+  // aerobic_quick/recommended regardless of GPS (hybrid-slots.ts gates only
+  // full_park/route_stops individually on it), and the discover carousel's
+  // own render guard (`mapMode === 'discover' && allDisplayRoutes.length > 0`,
+  // below) already waits gracefully for routesToDisplay to populate.
+  useEffect(() => {
+    if (!initialOpenHybridSlots || openHybridSlotsConsumedRef.current) return;
+    // Same gate the manual "מה עושים היום?" shimmer button itself uses — if
+    // the flag is off, firing this would land on a mode with nothing to show.
+    if (!mapFeatureFlags.enableHybridSlots) return;
+    openHybridSlotsConsumedRef.current = true;
+    resetHybridFlow('slots');
+    setMapMode('freeRun');
+  }, [initialOpenHybridSlots, mapFeatureFlags.enableHybridSlots, resetHybridFlow]);
+
+  useEffect(() => {
+    if (!initialOpenDiscover || openDiscoverConsumedRef.current) return;
+    openDiscoverConsumedRef.current = true;
+    // Same effective body as handleMapModeChange('discover') further down —
+    // inlined here since that function is defined later in this component
+    // and every one of its OTHER mode-specific branches is a no-op for
+    // 'discover' (verified against its current body).
+    useMapStore.getState().setSelectedPark(null);
+    setMapMode('discover');
+  }, [initialOpenDiscover]);
 
   // ── Full-park gate signals (Phase 3.1c) ────────────────────────────────────
   // hasStrengthProgram (fixed 09.08.2026): was `activePrograms.length > 0` — the
