@@ -12,6 +12,8 @@ import WorkoutPreviewDrawer from '@/features/workouts/components/WorkoutPreviewD
 import { useSmartSchedule } from '@/features/home/hooks/useSmartSchedule';
 import { MOCK_STATS } from '@/features/home/data/mock-schedule-data';
 import BlurryBridgeOverlay from '@/features/user/onboarding/components/BlurryBridgeOverlay';
+import WelcomeDrawer from '@/features/user/onboarding/components/WelcomeDrawer';
+import { useEntryRouter } from '@/features/user/onboarding/hooks/useEntryRouter';
 import LifestyleWizard from '@/features/user/onboarding/components/LifestyleWizard';
 import { calculateProfileCompletion, type CompletionItem } from '@/features/user/identity/services/profile-completion.service';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
@@ -324,6 +326,7 @@ export default function HomePage() {
   const { profile, _hasHydrated, refreshProfile } = useUserStore();
   const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
   const { flags: featureFlags } = useFeatureFlags(isSuperAdmin);
+  const { classification: entryRouterClassification, dismiss: dismissWelcomeDrawer } = useEntryRouter();
   const resolvedDashboardMode = useDashboardMode(profile, featureFlags.enableRunningPrograms);
   const scheduleState = useSmartSchedule();
   const { interceptWorkoutStart, jitState, dismissJIT, cancelJIT } = useRequiredSetup();
@@ -3322,6 +3325,35 @@ export default function HomePage() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* ── Onboarding tutorial — Welcome drawer (entry mechanism, slice 1,
+          06.10.2026, enableOnboardingTutorialV1). Only shown for the "new"
+          classification (never-trained, per useEntryRouter's Gate 1) and
+          only while no other full-screen home overlay/sheet is active —
+          same guard list as the FAB below, so this never stacks on top of
+          the lifestyle wizard, planner, builder, or an open workout. */}
+      <AnimatePresence>
+        {entryRouterClassification.kind === 'new' &&
+          !showPlanner && !showLifestyleWizard && !builderOpen && !editEntry && !selectedWorkout && !shouldShowBridge && (
+            <WelcomeDrawer
+              geoBranch={entryRouterClassification.geoBranch}
+              onStrengthProgram={() => {
+                dismissWelcomeDrawer();
+                handleHeroPress();
+              }}
+              onSecondaryOption={() => {
+                dismissWelcomeDrawer();
+                router.push(
+                  entryRouterClassification.geoBranch === 'none' ? '/map?openRun=walking' : '/map',
+                );
+              }}
+              onSkipToMap={() => {
+                dismissWelcomeDrawer();
+                router.push('/map');
+              }}
+            />
+          )}
+      </AnimatePresence>
 
       {/* ── Unified "+" FAB — promoted home entry point, opens the SAME
           UnifiedPlusDrawer the map "+" opens (Phase 1 revision — one
