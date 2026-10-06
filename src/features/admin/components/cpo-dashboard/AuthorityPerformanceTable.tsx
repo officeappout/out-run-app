@@ -1,6 +1,7 @@
 'use client';
 
 import { AuthorityPerformance } from '@/features/admin/services/cpo-analytics.service';
+import InfoHint from './InfoHint';
 
 interface AuthorityPerformanceTableProps {
   data: AuthorityPerformance[];
@@ -33,9 +34,24 @@ export default function AuthorityPerformanceTable({ data, loading }: AuthorityPe
             <thead>
               <tr className="border-b border-gray-200">
                 <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold text-gray-700">רשות</th>
-                <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold text-gray-700">מספר משתמשים</th>
-                <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold text-gray-700">פארקים פעילים</th>
-                <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold text-gray-700">ציון מעורבות</th>
+                <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold text-gray-700">
+                  <span className="inline-flex items-center gap-1">
+                    מספר משתמשים
+                    <InfoHint text="כל המשתמשים הרשומים ברשות הזו (כל הזמנים)." />
+                  </span>
+                </th>
+                <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold text-gray-700">
+                  <span className="inline-flex items-center gap-1">
+                    פארקים פעילים
+                    <InfoHint text="מספר הפארקים ברשות עם פעילות מתועדת." />
+                  </span>
+                </th>
+                <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold text-gray-700">
+                  <span className="inline-flex items-center gap-1">
+                    ציון מעורבות
+                    <InfoHint text="סה״כ אימונים ÷ סה״כ משתמשים רשומים ברשות (כל הזמנים) — לא מנורמל לחלון זמן." />
+                  </span>
+                </th>
               </tr>
             </thead>
             <tbody>

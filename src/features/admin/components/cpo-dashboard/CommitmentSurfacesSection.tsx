@@ -2,6 +2,7 @@
 
 import { CalendarClock } from 'lucide-react';
 import type { CommitmentSurfacesSummary } from '@/app/api/admin/commitment-surfaces-summary/route';
+import InfoHint from './InfoHint';
 
 export type { CommitmentSurfacesSummary };
 
@@ -9,13 +10,14 @@ interface Stat {
   key: keyof CommitmentSurfacesSummary;
   labelHe: string;
   windowHe: string;
+  hintHe: string;
 }
 
 const STATS: Stat[] = [
-  { key: 'remindersSetOrUpdated30d', labelHe: 'תזכורות נקבעו/עודכנו', windowHe: '30 יום' },
-  { key: 'scheduleEntriesWithTime7d', labelHe: 'ערכי לו״ז עם שעה', windowHe: '7 ימים' },
-  { key: 'plannedSessionsCreated7d', labelHe: '"יוצא להתאמן" (+ במפה)', windowHe: '7 ימים' },
-  { key: 'groupCheckIns7d', labelHe: 'צ׳ק-אין קבוצתי ("אני כאן!")', windowHe: '7 ימים' },
+  { key: 'remindersSetOrUpdated30d', labelHe: 'תזכורות נקבעו/עודכנו', windowHe: '30 יום', hintHe: 'משתמשים שקבעו או עדכנו תזכורת אימון בחלון הזמן.' },
+  { key: 'scheduleEntriesWithTime7d', labelHe: 'ערכי לו״ז עם שעה', windowHe: '7 ימים', hintHe: 'רשומות לו״ז עם שעה מוגדרת (לא רק יום).' },
+  { key: 'plannedSessionsCreated7d', labelHe: '"יוצא להתאמן" (+ במפה)', windowHe: '7 ימים', hintHe: 'לחיצות "יוצא להתאמן" או תכנון אימון דרך המפה.' },
+  { key: 'groupCheckIns7d', labelHe: 'צ׳ק-אין קבוצתי ("אני כאן!")', windowHe: '7 ימים', hintHe: 'משתמשים שסימנו "אני כאן!" בצ׳ק-אין קבוצתי.' },
 ];
 
 interface CommitmentSurfacesSectionProps {
@@ -50,11 +52,14 @@ export default function CommitmentSurfacesSection({ data, loading, denied }: Com
 
       {!denied && (
         <div className="flex gap-3 overflow-x-auto px-6 py-5">
-          {STATS.map(({ key, labelHe, windowHe }) => {
+          {STATS.map(({ key, labelHe, windowHe, hintHe }) => {
             const value = data?.[key];
             return (
               <div key={key} className="shrink-0 min-w-[170px] rounded-2xl p-4 border-2 border-slate-200 bg-white">
-                <span className="text-xs font-bold text-slate-600">{labelHe}</span>
+                <span className="text-xs font-bold text-slate-600 inline-flex items-center gap-1">
+                  {labelHe}
+                  <InfoHint text={hintHe} />
+                </span>
                 <div className="text-2xl font-black text-slate-900 mt-2">
                   {loading ? (
                     <span className="inline-block w-12 h-7 bg-slate-200 rounded animate-pulse" />

@@ -30,6 +30,17 @@ import {
   FUNNEL_CAUTION_THRESHOLD,
   type FunnelStage,
 } from '@/features/admin/services/funnel-analytics.service';
+import InfoHint from './InfoHint';
+
+/** Piece 5 (06.10.2026) — plain-Hebrew explanation of what each stage actually counts. */
+export const STAGE_HINT: Record<FunnelStage['id'], string> = {
+  registered: 'משתמשים שנרשמו למערכת ופתחו חשבון — תחילת המשפך.',
+  midpoint: 'הגיעו לאמצע תהליך האונבורדינג אך עדיין לא סיימו אותו.',
+  completed: 'סיימו את כל שלבי האונבורדינג.',
+  activation: 'הפעלה = כמה מהנרשמים השלימו אימון אמיתי ראשון (לא כולל חימום בלבד).',
+  retention: 'השלימו 3 אימונים אמיתיים או יותר — איתות ראשוני לשימור.',
+  revenue: 'שלב הכנסות — placeholder, תשלומים עדיין לא מחווטים.',
+};
 
 export const STAGE_FILL: Record<FunnelStage['id'], string> = {
   registered: '#6366f1',  // indigo-500  — top of funnel anchor
@@ -216,6 +227,7 @@ export const FunnelStageCard: React.FC<FunnelStageCardProps> = ({ stage, loading
         <div className="flex items-center gap-2 mb-2">
           <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: fill }} />
           <span className="text-xs font-bold text-slate-600">{stage.labelHe}</span>
+          <InfoHint text={STAGE_HINT[stage.id]} />
         </div>
         <div className="text-lg font-black text-amber-700 flex items-center gap-1">
           <AlertTriangle size={16} />
@@ -235,6 +247,7 @@ export const FunnelStageCard: React.FC<FunnelStageCardProps> = ({ stage, loading
       <div className="flex items-center gap-2 mb-2">
         <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: fill }} />
         <span className="text-xs font-bold text-slate-600">{stage.labelHe}</span>
+        <InfoHint text={STAGE_HINT[stage.id]} />
       </div>
       <div className="text-2xl font-black text-slate-900">
         {loading ? <span className="inline-block w-12 h-7 bg-slate-200 rounded animate-pulse" /> : fmtCount(stage.count)}
@@ -276,6 +289,7 @@ const ConversionRow: React.FC<ConversionRowProps> = ({ stage }) => {
           <span className={`text-sm font-bold ${isPlaceholder ? 'text-slate-400' : 'text-slate-900'}`}>
             {stage.labelHe}
           </span>
+          <InfoHint text={STAGE_HINT[stage.id]} />
         </div>
       </td>
 
