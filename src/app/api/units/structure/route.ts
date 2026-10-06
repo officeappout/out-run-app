@@ -155,6 +155,35 @@ export async function computeUnitStructure(
     } else {
       targetUnitIds = null;
     }
+  } else if (scope.kind === 'vertical') {
+    // 06.10.2026 (David's correction, 07.10.2026) — this branch used to
+    // fall through to the 'root' one below, which blindly trusts
+    // query.tenantId with NO authorityIds check at all. This is a real
+    // cross-CUSTOMER data leak, not a narrower in-military one: nothing
+    // here ever constrained query.tenantId to military_unit tenants —
+    // a 'vertical' caller could request a MUNICIPAL tenant's id and get
+    // its real unit structure back, the same way root can reach any
+    // tenant. That it happened to be unexploited so far is a fact about
+    // who holds the role today, not about what the code allowed. Fixed
+    // to match the real pattern every OTHER readiness route already
+    // uses (axioms.md §29/§32) — 'vertical' is NOT root and must never
+    // be treated as root.
+    if (!query.tenantId) {
+      return { status: 400, body: { error: 'tenantId is required' } };
+    }
+    if (!scope.authorityIds.includes(query.tenantId)) {
+      return { status: 403, body: { error: DENIED_MESSAGE } };
+    }
+    targetTenantId = query.tenantId;
+    if (query.unitId) {
+      const unitSnap = await db.collection('tenants').doc(targetTenantId).collection('units').doc(query.unitId).get();
+      if (!unitSnap.exists) {
+        return { status: 400, body: { error: 'unit not found' } };
+      }
+      targetUnitIds = [query.unitId];
+    } else {
+      targetUnitIds = null;
+    }
   } else {
     // scope.kind === 'root' — no "own" domain to default to.
     if (!query.tenantId) {

@@ -178,3 +178,43 @@ describe('computeUnitStructure — managerIds passthrough scope (28.09.2026)', (
     expect(result.body.units[0].managerIds).toEqual(['real-uid']);
   });
 });
+
+describe('computeUnitStructure — "vertical" scope (06.10.2026 fix, axioms.md §29/§32)', () => {
+  it('a vertical-scoped caller requesting an IN-scope tenantId succeeds', async () => {
+    const db = makeFakeDb(HIERARCHY);
+    const scope: UnitPermissionScope = { kind: 'vertical', vertical: 'military', authorityIds: ['brigade-810', 'brigade-other'] };
+
+    const result = await computeUnitStructure(db, scope, { tenantId: 'brigade-810' });
+
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    expect(result.body.units.map((u) => u.unitId).sort()).toEqual(['battalion-9307', 'company-A']);
+  });
+
+  it('THE BUG THIS ROUND FIXED (David\'s correction: cross-CUSTOMER leak, not a narrower in-military one) — a vertical-scoped caller requesting a REAL MUNICIPAL tenant\'s id is now DENIED. Before this fix, nothing here checked query.tenantId against authorityIds at all, so a military "vertical" caller could request a city\'s own tenantId and get real municipal unit structure back.', async () => {
+    const db = makeFakeDb(HIERARCHY);
+    const scope: UnitPermissionScope = { kind: 'vertical', vertical: 'military', authorityIds: ['brigade-810'] };
+
+    const result = await computeUnitStructure(db, scope, { tenantId: 'city-ofakim' });
+
+    expect(result.status).toBe(403);
+  });
+
+  it('a vertical-scoped caller with no tenantId at all → 400, same as root', async () => {
+    const db = makeFakeDb(HIERARCHY);
+    const scope: UnitPermissionScope = { kind: 'vertical', vertical: 'military', authorityIds: ['brigade-810'] };
+
+    const result = await computeUnitStructure(db, scope, {});
+
+    expect(result.status).toBe(400);
+  });
+
+  it('root is UNCHANGED by this fix — still blindly trusts query.tenantId (root has no "own" authorityIds to check against)', async () => {
+    const db = makeFakeDb(HIERARCHY);
+    const result = await computeUnitStructure(db, { kind: 'root' }, { tenantId: 'brigade-810' });
+
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    expect(result.body.units.map((u) => u.unitId).sort()).toEqual(['battalion-9307', 'company-A']);
+  });
+});
