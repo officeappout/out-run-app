@@ -24,7 +24,6 @@ import {
   fetchAmenitiesByStatus, amenityEmoji,
 } from '@/features/admin/services/osm-amenity-admin.service';
 import type { AmenityCategory, CourtSport } from '@/features/parks/core/types/osm-amenity.types';
-import { InventoryService } from '@/features/parks';
 import UnitIconBadge from '@/components/ui/UnitIconBadge';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import {
@@ -44,12 +43,12 @@ import {
   X,
   ChevronLeft,
   RotateCcw,
-  Search,
   Gauge,
 } from 'lucide-react';
 import dynamicImport from 'next/dynamic';
 import ApprovalDetailModal, { type ApprovalDetailItem } from '@/features/admin/components/approval/ApprovalDetailModal';
 import AccuracyQueueTab from '@/features/admin/components/routes/AccuracyQueueTab';
+import RouteShapeReviewTab from '@/features/admin/components/routes/RouteShapeReviewTab';
 import {
   CLIMB_TYPE_LABELS, CONTRIB_TYPE_LABELS, FACILITY_LABELS, AMENITY_CATEGORY_LABELS, COURT_SPORT_LABELS,
   formatDistance, climbDisplayName,
@@ -122,21 +121,6 @@ export default function ApprovalCenterPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<ApprovalDetailItem | null>(null);
   const [climbFilter, setClimbFilter] = useState<string>('all');
-  // Routes tab filters — client-side over the already-fetched pending queue (mirrors
-  // admin/routes/page.tsx's inventory-tab invFilterCity/invFilterActivity pattern).
-  // Makes reviewing one city's routes practical among a mixed-city queue (e.g. 118
-  // Haifa routes among 216 total). Tab-local, same convention as amenity*Filter below.
-  const [routeCityFilter, setRouteCityFilter] = useState<string>('all');
-  const [routeActivityFilter, setRouteActivityFilter] = useState<'all' | 'pedestrian' | 'cycling'>('all');
-  const [routeSearchQuery, setRouteSearchQuery] = useState('');
-  // Bulk approve/reject selection — routes tab, mirrors selectedAmenityIds/
-  // bulkApprovingAmenities/bulkRejectingAmenities exactly (separate Set, same shape).
-  const [selectedRouteIds, setSelectedRouteIds] = useState<Set<string>>(new Set());
-  const [bulkApprovingRoutes, setBulkApprovingRoutes] = useState(false);
-  const [bulkRejectingRoutes, setBulkRejectingRoutes] = useState(false);
-  // Selection is filter-scoped: a route hidden by the city/activity/search filters must
-  // not stay silently selected for a bulk action once it's out of view.
-  useEffect(() => { setSelectedRouteIds(new Set()); }, [routeCityFilter, routeActivityFilter, routeSearchQuery]);
   // Bulk-reject selection — climbs tab only (Stage 6, 17.08.2026): triaging
   // structural noise at scale means selecting many, not clicking "דחה" 175 times.
   const [selectedClimbIds, setSelectedClimbIds] = useState<Set<string>>(new Set());
@@ -477,7 +461,6 @@ export default function ApprovalCenterPage() {
     setActiveTab(tab);
     setSelectedClimbIds(new Set()); // selection is climbs-tab-scoped, don't carry stale ids across tabs
     setSelectedAmenityIds(new Set()); // same — amenities-tab-scoped
-    setSelectedRouteIds(new Set()); // same — routes-tab-scoped
     setAmenitySubView('pending'); // always land on the main queue, not wherever the sub-view was left
     if (tab === 'amenities' && !amenitiesLoaded) {
       setLoadingAmenities(true);
@@ -553,62 +536,6 @@ export default function ApprovalCenterPage() {
       alert('שגיאה בדחייה מרוכזת');
     } finally {
       setBulkRejectingAmenities(false);
-    }
-  };
-
-  const toggleRouteSelected = (id: string) => {
-    setSelectedRouteIds(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
-
-  // Routes aren't in BulkModerationEntityType ('climb' | 'amenity' only) — see that
-  // type's own doc comment: route approve/reject aren't a fixed-shape status flip,
-  // they carry real side effects (broadcast to street_segments, adjacency/enrichment
-  // recompute), so the generic bulk writeBatch helper deliberately excludes them.
-  // Approve: InventoryService.bulkApproveRoutes IS the routes-specific equivalent —
-  // same payload + same broadcast/recompute chain as InventoryService.approveRoute,
-  // which is exactly what the per-row approveEntity('route', id) already calls here.
-  // Reject: InventoryService.bulkRejectRoutes is NOT a match despite the name — it's
-  // the inventory tab's soft un-publish (status:'pending', draft toggle). Approval
-  // Center's own per-row rejectEntity('route', ...) sets status:'archived' (terminal,
-  // out of this queue for good). Using the inventory one would silently leave
-  // "rejected" routes back in this same pending queue, so this loops the existing
-  // per-route rejectEntity instead — same call handleReject already makes per id.
-  const handleBulkApproveRoutes = async () => {
-    if (selectedRouteIds.size === 0) return;
-    if (!window.confirm(`לאשר ${selectedRouteIds.size} מסלולים נבחרים?`)) return;
-    setBulkApprovingRoutes(true);
-    try {
-      const ids = Array.from(selectedRouteIds);
-      await InventoryService.bulkApproveRoutes(ids);
-      setRoutes(prev => prev.filter(r => !selectedRouteIds.has(r.id)));
-      setSelectedRouteIds(new Set());
-    } catch (e) {
-      console.error(e);
-      alert('שגיאה באישור מרוכז');
-    } finally {
-      setBulkApprovingRoutes(false);
-    }
-  };
-
-  const handleBulkRejectRoutes = async () => {
-    if (selectedRouteIds.size === 0) return;
-    const reason = window.prompt(`דחיית ${selectedRouteIds.size} מסלולים — סיבה (אופציונלי, יירשם ב-audit לכל אחד):`);
-    if (reason === null) return; // cancelled
-    setBulkRejectingRoutes(true);
-    try {
-      const ids = Array.from(selectedRouteIds);
-      await Promise.all(ids.map(id => rejectEntity('route', id, reason, { adminId: currentUserId || '', adminName })));
-      setRoutes(prev => prev.filter(r => !selectedRouteIds.has(r.id)));
-      setSelectedRouteIds(new Set());
-    } catch (e) {
-      console.error(e);
-      alert('שגיאה בדחייה מרוכזת');
-    } finally {
-      setBulkRejectingRoutes(false);
     }
   };
 
@@ -700,30 +627,16 @@ export default function ApprovalCenterPage() {
     (amenityCityFilter === 'all' || a.city === amenityCityFilter),
   );
 
-  // Routes tab — city/activity/name filters, same "distinct values from the loaded
-  // list" approach as uniqueCities/filteredInventoryRoutes in admin/routes/page.tsx.
-  const routeCities = Array.from(new Set(routes.map(r => r.city).filter(Boolean) as string[])).sort();
-  const filteredRoutes = routes.filter(r => {
-    if (routeCityFilter !== 'all' && r.city !== routeCityFilter) return false;
-    if (routeActivityFilter !== 'all') {
-      const act = r.activityType || '';
-      if (routeActivityFilter === 'cycling' && act !== 'cycling') return false;
-      if (routeActivityFilter === 'pedestrian' && act !== 'walking' && act !== 'running') return false;
-    }
-    if (routeSearchQuery.trim() && !r.title.toLowerCase().includes(routeSearchQuery.trim().toLowerCase())) return false;
-    return true;
-  });
-
-  // 'accuracy' has no TABS entry (see ApprovalTab's own comment) — short-
-  // circuited first so `active.items` below is never reached for it.
-  const shownItems = activeTab === 'accuracy'
+  // 'accuracy' and 'routes' have no shownItems-driven rendering — both are
+  // isolated tabs with their own component + own fetch (AccuracyQueueTab,
+  // RouteShapeReviewTab), short-circuited first so `active.items` below is
+  // never reached for them.
+  const shownItems = activeTab === 'accuracy' || activeTab === 'routes'
     ? []
     : activeTab === 'climbs' && climbFilter !== 'all'
     ? active.items.filter(i => i.climbType === climbFilter)
     : activeTab === 'amenities'
     ? (amenitySubView === 'suppressed' ? suppressedAmenities : filteredAmenities)
-    : activeTab === 'routes'
-    ? filteredRoutes
     : active.items;
 
   return (
@@ -828,52 +741,6 @@ export default function ApprovalCenterPage() {
               </button>
             );
           })}
-        </div>
-      )}
-
-      {/* City / activity / name filters — routes tab only, client-side over the already-
-          fetched pending queue. No new query, no moderation-logic change. */}
-      {activeTab === 'routes' && routes.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 bg-gray-50 rounded-xl p-3 border border-gray-100">
-          <div className="relative flex-1 min-w-[160px] max-w-xs">
-            <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              value={routeSearchQuery}
-              onChange={(e) => setRouteSearchQuery(e.target.value)}
-              placeholder="חיפוש לפי שם מסלול..."
-              className="w-full pr-9 pl-3 py-1.5 bg-white rounded-lg border border-gray-200 focus:border-cyan-400 outline-none text-xs"
-            />
-          </div>
-          <select
-            value={routeCityFilter}
-            onChange={(e) => setRouteCityFilter(e.target.value)}
-            className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-[11px] font-bold text-gray-700 focus:border-cyan-400 focus:outline-none cursor-pointer"
-          >
-            <option value="all">כל הערים ({routeCities.length})</option>
-            {routeCities.map(c => (
-              <option key={c} value={c}>{c} ({routes.filter(r => r.city === c).length})</option>
-            ))}
-          </select>
-          <select
-            value={routeActivityFilter}
-            onChange={(e) => setRouteActivityFilter(e.target.value as 'all' | 'pedestrian' | 'cycling')}
-            className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-[11px] font-bold text-gray-700 focus:border-cyan-400 focus:outline-none cursor-pointer"
-          >
-            <option value="all">כל הפעילויות</option>
-            <option value="pedestrian">🚶 הולכי רגל / ריצה</option>
-            <option value="cycling">🚴 רכיבה</option>
-          </select>
-          {(routeCityFilter !== 'all' || routeActivityFilter !== 'all' || routeSearchQuery) && (
-            <button
-              onClick={() => { setRouteCityFilter('all'); setRouteActivityFilter('all'); setRouteSearchQuery(''); }}
-              className="flex items-center gap-1 text-[10px] font-bold text-red-500 hover:text-red-700 transition-colors"
-            >
-              <X size={12} />
-              נקה סינון
-            </button>
-          )}
-          <span className="text-[10px] font-bold text-gray-400 mr-auto">{filteredRoutes.length} מתוך {routes.length}</span>
         </div>
       )}
 
@@ -984,52 +851,6 @@ export default function ApprovalCenterPage() {
         </div>
       )}
 
-      {/* Bulk approve/reject bar — routes tab. Mirrors the amenities tab's bulk-
-          select pattern exactly (master toggle + action bar), cyan instead of
-          teal to match this tab's own accent (TABS' iconColor). "בחר הכל" selects
-          shownItems, which for the routes tab IS filteredRoutes (city/activity/
-          search) — never the full unfiltered queue. */}
-      {activeTab === 'routes' && isSuperAdmin && shownItems.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3 bg-cyan-50 border border-cyan-200 rounded-2xl px-4 py-3">
-          <button
-            type="button"
-            onClick={() => setSelectedRouteIds(
-              selectedRouteIds.size === shownItems.length
-                ? new Set()
-                : new Set(shownItems.map(i => i.id)),
-            )}
-            className="text-xs font-bold text-cyan-700 hover:text-cyan-900 transition-colors"
-          >
-            {selectedRouteIds.size === shownItems.length ? 'נקה בחירה' : `בחר הכל (${shownItems.length} מוצגים)`}
-          </button>
-          {selectedRouteIds.size > 0 && (
-            <>
-              <span className="text-xs font-bold text-cyan-600">{selectedRouteIds.size} נבחרו</span>
-              <div className="flex items-center gap-2 mr-auto">
-                <button
-                  type="button"
-                  onClick={handleBulkApproveRoutes}
-                  disabled={bulkApprovingRoutes || bulkRejectingRoutes}
-                  className="flex items-center gap-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all disabled:opacity-60"
-                >
-                  {bulkApprovingRoutes ? <Loader2 className="animate-spin" size={12} /> : <ShieldCheck size={12} />}
-                  {bulkApprovingRoutes ? 'מאשר...' : `אשר ${selectedRouteIds.size} נבחרים`}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleBulkRejectRoutes}
-                  disabled={bulkApprovingRoutes || bulkRejectingRoutes}
-                  className="flex items-center gap-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold px-3 py-1.5 rounded-xl transition-all disabled:opacity-60"
-                >
-                  {bulkRejectingRoutes ? <Loader2 className="animate-spin" size={12} /> : <X size={12} />}
-                  {bulkRejectingRoutes ? 'דוחה...' : `דחה ${selectedRouteIds.size} נבחרים`}
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
       {/* Bulk-reject bar — climbs tab only. Triaging noise (stairs / construction-
           ramp false positives) at 175-item scale needs select-many, not 175 clicks. */}
       {activeTab === 'climbs' && isSuperAdmin && shownItems.length > 0 && (
@@ -1111,8 +932,24 @@ export default function ApprovalCenterPage() {
         <AccuracyQueueTab isSuperAdmin={isSuperAdmin} currentUserId={currentUserId} adminName={adminName} />
       )}
 
+      {/* Routes tab content — isolated component, own fetch/state, same pattern
+          as AccuracyQueueTab above (see RouteShapeReviewTab.tsx's own header for
+          why: this used to be a second, separate screen over the same pending
+          queue — merged in 06.10.2026 so a shape-training decision has one home,
+          not two). SuperAdmin-only, same gate the standalone page had. */}
+      {activeTab === 'routes' && (
+        isSuperAdmin
+          ? <RouteShapeReviewTab adminId={currentUserId || ''} adminName={adminName} />
+          : (
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 py-16 flex flex-col items-center gap-3 text-center">
+              <CheckCircle2 size={40} className="text-green-400" />
+              <p className="text-sm text-gray-400">מסלולים מנוהלים ע״י מנהל ראשי בלבד</p>
+            </div>
+          )
+      )}
+
       {/* Active tab list */}
-      {activeTab !== 'accuracy' && (
+      {activeTab !== 'accuracy' && activeTab !== 'routes' && (
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
         {activeTab === 'amenities' && (amenitySubView === 'suppressed' ? loadingSuppressed : amenitySubView === 'published' ? loadingPublished : loadingAmenities) ? (
           <div className="py-16 flex flex-col items-center gap-3 text-center">
@@ -1169,14 +1006,6 @@ export default function ApprovalCenterPage() {
                     checked={selectedAmenityIds.has(item.id)}
                     onChange={() => toggleAmenitySelected(item.id)}
                     className="w-4 h-4 flex-shrink-0 accent-teal-500 cursor-pointer"
-                  />
-                )}
-                {activeTab === 'routes' && isSuperAdmin && (
-                  <input
-                    type="checkbox"
-                    checked={selectedRouteIds.has(item.id)}
-                    onChange={() => toggleRouteSelected(item.id)}
-                    className="w-4 h-4 flex-shrink-0 accent-cyan-500 cursor-pointer"
                   />
                 )}
                 <button
