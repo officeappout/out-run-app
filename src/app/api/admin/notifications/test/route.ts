@@ -5,12 +5,15 @@ import * as admin from 'firebase-admin';
 
 // Test message per channel — realistic samples with [טסט] suffix
 const TEST_MESSAGES: Record<string, { title: string; body: string }> = {
-  progression:       { title: '🏅 עלית לרמה 5! [טסט]',              body: 'המשיכו כך — כל אימון מקדם אתכם!' },
-  retention:         { title: '💪 דוד, 7 ימים בלי אימון [טסט]',      body: 'הגוף שלך מחכה לך. אפילו 15 דקות ישנו את מצב הרוח שלך.' },
-  training_reminder: { title: '📅 אימון כוח ב-09:00 [טסט]',          body: 'האימון שלך מחכה — פתח את האפליקציה ותתחיל.' },
-  social:            { title: 'ברוך הבא לקבוצה! [טסט]',              body: 'הקבוצה מחכה לך. פתח את האפליקציה לראות.' },
-  encouragement:     { title: '💪 הודעת עידוד [טסט]',                 body: 'שומרים על הרצף — ביחד.' },
-  chat:              { title: 'הודעה חדשה מדוד [טסט]',               body: 'פתח את הצ\'אט לקריאה.' },
+  progression:        { title: '🏅 עלית לרמה 5! [טסט]',              body: 'המשיכו כך — כל אימון מקדם אתכם!' },
+  retention:          { title: '💪 דוד, 7 ימים בלי אימון [טסט]',      body: 'הגוף שלך מחכה לך. אפילו 15 דקות ישנו את מצב הרוח שלך.' },
+  onboarding_dropoff: { title: '👋 עוד לא סיימת להירשם [טסט]',        body: 'חזרו להשלים את ההרשמה — זה לוקח רק דקה.' },
+  training_reminder:  { title: '📅 אימון כוח ב-09:00 [טסט]',          body: 'האימון שלך מחכה — פתח את האפליקציה ותתחיל.' },
+  social:             { title: 'ברוך הבא לקבוצה! [טסט]',              body: 'הקבוצה מחכה לך. פתח את האפליקציה לראות.' },
+  encouragement:      { title: '💪 הודעת עידוד [טסט]',                 body: 'שומרים על הרצף — ביחד.' },
+  chat:               { title: 'הודעה חדשה מדוד [טסט]',               body: 'פתח את הצ\'אט לקריאה.' },
+  health_milestone:   { title: '🚶 עוד קצת ליעד הצעדים [טסט]',        body: 'נשארו לך עוד כמה צעדים היום — אפשר לסגור את זה.' },
+  community:          { title: 'מישהו מתאמן לידך [טסט]',              body: 'דני יצא עכשיו לאימון בפארק הקרוב — הצטרפו אליו.' },
 };
 
 export async function POST(request: NextRequest) {

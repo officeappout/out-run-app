@@ -19,8 +19,11 @@
  * One `pushId` correlates all events for a single logical send. It is
  * ALSO stamped as `data.messageId` in the FCM payload (push.service.ts),
  * reusing the field the native tap handler already reads
- * (`src/lib/native/push.ts`) for its pre-existing `notification_clicks` CTR
- * write — no new client-side correlation field needed.
+ * (`src/lib/native/push.ts`) for its `push_opened` CTR write — no new
+ * client-side correlation field needed. (A second, separate
+ * `notification_clicks` write used to read this same field; removed
+ * 06.10.2026, see the push tidy-up PR — `push_events` was always the
+ * richer, non-duplicated source.)
  *
  * ── Attribution window anchor: OPEN, not SEND (fixed 04.10.2026) ──────────
  * `push_sent` no longer carries a ready-to-fire `checkAfter` — a push that

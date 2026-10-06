@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MessageCircle, Lock } from 'lucide-react';
+import { X, MessageCircle, Lock, UserCircle2 } from 'lucide-react';
 import { resolvePersonaImage } from '@/features/parks/core/hooks/useGroupPresence';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -36,6 +37,7 @@ const ACTIVITY_LABELS: Record<string, string> = {
 };
 
 export default function UserProfileSheet({ isOpen, onClose, user }: UserProfileSheetProps) {
+  const router = useRouter();
   const [enriched, setEnriched] = useState<ProfileUser | null>(null);
   const { profile: currentProfile } = useUserStore();
 
@@ -180,36 +182,54 @@ export default function UserProfileSheet({ isOpen, onClose, user }: UserProfileS
                   </div>
                 )}
 
-                {/* Send message button — hidden when DM is blocked
-                    (current user is a minor, target is a minor, or self).
-                    Replaced by an explanatory locked tile so the user
-                    understands why messaging is unavailable. */}
-                {canDirectMessage ? (
+                {/* View-profile action — always available (even when DM is
+                    blocked or this is the viewer's own card); opens the
+                    same public profile route PartnerCard/FeedPostCard use
+                    elsewhere (`/profile/[userId]`). Shares the row with
+                    "שלח הודעה" when that's available, full-width otherwise. */}
+                <div className={`mt-3 w-full flex gap-2 ${canDirectMessage ? '' : 'flex-col'}`}>
                   <button
                     onClick={() => {
-                      if (!currentProfile?.id) return;
                       onClose();
-                      void useChatStore.getState().openDM(
-                        currentProfile.id,
-                        currentProfile.core?.name ?? 'אווטיר',
-                        display.uid,
-                        display.name,
-                      );
+                      router.push(`/profile/${display.uid}`);
                     }}
-                    className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl text-gray-500 text-sm font-bold active:scale-[0.97] transition-all border border-gray-100"
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl text-gray-500 text-sm font-bold active:scale-[0.97] transition-all border border-gray-100"
                   >
-                    <MessageCircle size={15} />
-                    שלח הודעה
+                    <UserCircle2 size={15} />
+                    צפה בפרופיל
                   </button>
-                ) : (currentIsMinor || targetIsMinor) ? (
-                  <div
-                    className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 bg-gray-50 rounded-xl text-gray-400 text-xs font-bold border border-gray-100"
-                    aria-disabled="true"
-                  >
-                    <Lock size={13} />
-                    הודעות ישירות זמינות רק לבני 18+
-                  </div>
-                ) : null}
+
+                  {/* Send message button — hidden when DM is blocked
+                      (current user is a minor, target is a minor, or self).
+                      Replaced by an explanatory locked tile so the user
+                      understands why messaging is unavailable. */}
+                  {canDirectMessage ? (
+                    <button
+                      onClick={() => {
+                        if (!currentProfile?.id) return;
+                        onClose();
+                        void useChatStore.getState().openDM(
+                          currentProfile.id,
+                          currentProfile.core?.name ?? 'אווטיר',
+                          display.uid,
+                          display.name,
+                        );
+                      }}
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl text-gray-500 text-sm font-bold active:scale-[0.97] transition-all border border-gray-100"
+                    >
+                      <MessageCircle size={15} />
+                      שלח הודעה
+                    </button>
+                  ) : (currentIsMinor || targetIsMinor) ? (
+                    <div
+                      className="w-full flex items-center justify-center gap-2 py-2.5 bg-gray-50 rounded-xl text-gray-400 text-xs font-bold border border-gray-100"
+                      aria-disabled="true"
+                    >
+                      <Lock size={13} />
+                      הודעות ישירות זמינות רק לבני 18+
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </div>
           </motion.div>

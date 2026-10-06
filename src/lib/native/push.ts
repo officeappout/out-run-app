@@ -13,8 +13,13 @@
  *   5. Forward foreground incoming notifications to `usePushToastStore`
  *      so the `PushForegroundToast` overlay renders a visible banner
  *      (native OS suppresses system tray when the app is in the foreground).
- *   6. Track notification click-through events by writing to the user's
- *      `users/{uid}/notification_clicks` sub-collection for CTR analytics.
+ *   6. Track notification click-through (open) events by writing to the
+ *      `push_events` collection (`push_opened` doc) — the admin CTR
+ *      dashboard (`workout-settings/page.tsx`) reads from there now. A
+ *      second, independent mechanism (`users/{uid}/notification_clicks`)
+ *      used to write the same tap event to a different collection;
+ *      consolidated onto `push_events` alone (06.10.2026 push tidy-up) —
+ *      see `installTapListener()`'s FIX 4 note below, now updated to match.
  *
  * The module is **native-only** on the full permission-request path. On the
  * pure-web Vercel build `isNativePlatform()` is false and the web path is
@@ -51,10 +56,12 @@
  *
  * FIX 4 — click-tracking:
  *   `notificationActionPerformed` (now in `installTapListener()`, see above)
- *   writes a click event to `users/{uid}/notification_clicks` for CTR /
- *   open-rate reporting. Requires `notification_clicks` to be readable by
- *   admin queries in `firestore.rules` (add `allow read: if isAdmin();` on
- *   that sub-path).
+ *   writes a `push_opened` event to `push_events` for CTR / open-rate
+ *   reporting (06.10.2026: this used to ALSO write a duplicate click event
+ *   to `users/{uid}/notification_clicks` — removed; `push_events` already
+ *   carried the same tap, gated on the same `messageId` condition, so
+ *   nothing lost its coverage, see the push-tidy-up PR for the admin
+ *   dashboard's matching read-side migration).
  *
  * FIX 5 — tap listener registered early, decoupled from permission/token:
  *   see `installTapListener()`'s own doc comment for the full cold-launch
@@ -63,10 +70,8 @@
  */
 
 import {
-  addDoc,
   arrayRemove,
   arrayUnion,
-  collection,
   doc,
   serverTimestamp,
   setDoc,
@@ -293,17 +298,12 @@ export async function installTapListener(): Promise<void> {
   try {
     const { FirebaseMessaging } = await import('@capacitor-firebase/messaging');
 
-    // ── Click-tracking / CTR analytics + notification-engine measurement +
-    // deep-link navigation. Fires when the user taps the OS notification
-    // banner (background/lock-screen delivery) or when a cold launch was
-    // triggered by tapping one (buffered by the native plugin and replayed
-    // to the first listener registered, per platform convention).
-    //
-    // NOTE: Firestore rules must allow the authenticated user to write to
-    // their own `notification_clicks` sub-collection. Example rule:
-    //   match /users/{uid}/notification_clicks/{docId} {
-    //     allow create: if request.auth.uid == uid;
-    //   }
+    // ── Click-tracking / CTR analytics (push_events.push_opened) +
+    // notification-engine measurement + deep-link navigation. Fires when
+    // the user taps the OS notification banner (background/lock-screen
+    // delivery) or when a cold launch was triggered by tapping one
+    // (buffered by the native plugin and replayed to the first listener
+    // registered, per platform convention).
     await FirebaseMessaging.addListener('notificationActionPerformed', async (event) => {
       if (process.env.NODE_ENV !== 'production') {
         console.debug('[push] notificationActionPerformed:', event);
@@ -328,18 +328,6 @@ export async function installTapListener(): Promise<void> {
 
         const data = (event?.notification as any)?.data ?? {};
         const messageId = data.messageId as string | undefined;
-
-        // CTR write — only when the queue stamped a `messageId`.
-        if (messageId) {
-          // Non-blocking Firestore write — errors are caught below and
-          // never propagate to the caller.
-          await addDoc(collection(db, 'users', uid, 'notification_clicks'), {
-            messageId,
-            channel:     (data.channel     as string) || 'unknown',
-            authorityId: (data.authorityId as string) || null,
-            clickedAt:   serverTimestamp(),
-          });
-        }
 
         // ── Notification-engine measurement (Wave 1): push_opened ──
         // `messageId` doubles as the `pushId` push.service.ts's sendPush()
