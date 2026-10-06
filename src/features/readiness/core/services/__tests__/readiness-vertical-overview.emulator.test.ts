@@ -25,6 +25,9 @@ import { initializeApp, deleteApp, type App } from 'firebase-admin/app';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import { computeReadinessVerticalOverview } from '../readiness-vertical-overview.service';
 import { computeBrigadeDashboard } from '../readiness-dashboard.service';
+import { computeUnitRoster } from '../readiness-read.service';
+import { computeReadinessTrends } from '../readiness-trends.service';
+import { computeUnitDetail } from '../readiness-unit-detail.service';
 import {
   computeRecordResult,
   computeRecordResultWithCorrectionChoice,
@@ -117,9 +120,14 @@ describe('computeReadinessVerticalOverview — authorization', () => {
     expect(result.status).toBe(403);
   });
 
-  it('root is ALSO denied here — this screen has exactly one door, not a root bypass', async () => {
+  it('06.10.2026 (David\'s explicit review) — root now sees the SAME list a chief officer sees: every military tenant, never municipal/educational. This screen has two doors now, not one — root is no longer refused here.', async () => {
+    await seedSoldierAndResult(TENANT_MIL_1, 's1', 'pass');
     const result = await computeReadinessVerticalOverview(db, { kind: 'root' });
-    expect(result.status).toBe(403);
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    expect(result.body.rows.length).toBe(2); // TENANT_MIL_1 + TENANT_MIL_2 only
+    expect(result.body.rows.some((r) => r.tenantId === TENANT_SCHOOL)).toBe(false);
+    expect(result.body.rows.some((r) => r.tenantId === TENANT_MUNICIPAL)).toBe(false);
   });
 
   it('a regular tenantOwner is denied here too — this is not an alternate route into the same data', async () => {
@@ -278,5 +286,97 @@ describe('every write path refuses a vertical scope — explicit, in-code, not "
   it('יצירת יחידה (computeCreateUnit) → 403, via isMemberWithinScope — zero code change to that gate', async () => {
     const result = await computeCreateUnit(db, VERTICAL_SCOPE, { tenantId: TENANT_MIL_1, name: 'יחידה חדשה', parentUnitId: null });
     expect(result.status).toBe(403);
+  });
+});
+
+describe('root and a chief officer get IDENTICAL results for the same brigade (06.10.2026, David\'s explicit test)', () => {
+  it('computeBrigadeDashboard: root vs vertical scope, same tenantId → same numbers', async () => {
+    await seedSoldierAndResult(TENANT_MIL_1, 's1', 'pass');
+    await seedSoldierAndResult(TENANT_MIL_1, 's2', 'fail');
+    const rootResult = await computeBrigadeDashboard(db, { kind: 'root' }, { tenantId: TENANT_MIL_1 });
+    const verticalResult = await computeBrigadeDashboard(db, VERTICAL_SCOPE, { tenantId: TENANT_MIL_1 });
+    expect(rootResult.status).toBe(200);
+    expect(verticalResult.status).toBe(200);
+    if (rootResult.status !== 200 || verticalResult.status !== 200) return;
+    expect(rootResult.body.overall).toEqual(verticalResult.body.overall);
+    expect(rootResult.body.units).toEqual(verticalResult.body.units);
+  });
+
+  it('computeReadinessVerticalOverview: root vs vertical scope → same rows (same brigades, same numbers)', async () => {
+    await seedSoldierAndResult(TENANT_MIL_1, 's1', 'pass');
+    const rootResult = await computeReadinessVerticalOverview(db, { kind: 'root' });
+    const verticalResult = await computeReadinessVerticalOverview(db, VERTICAL_SCOPE);
+    expect(rootResult.status).toBe(200);
+    expect(verticalResult.status).toBe(200);
+    if (rootResult.status !== 200 || verticalResult.status !== 200) return;
+    const byId = (rows: typeof rootResult.body.rows) => [...rows].sort((a, b) => a.tenantId.localeCompare(b.tenantId));
+    expect(byId(rootResult.body.rows)).toEqual(byId(verticalResult.body.rows));
+  });
+});
+
+describe('root with no tenantId yet — the server-side half of "pick a brigade" (06.10.2026)', () => {
+  /**
+   * This 400 is UNCHANGED by this round — computeBrigadeDashboard's own
+   * root branch already required an explicit tenantId before today
+   * (readiness-dashboard.service.ts's pre-existing root/vertical shared
+   * branch). The actual fix for "root sees a raw English server error"
+   * is entirely CLIENT-side (never issue this call before a brigade is
+   * picked, per useMilitaryTenantSelection + each screen's own empty
+   * state) — untestable here (no jsdom in this vitest config, see
+   * vitest-node-only-no-jsdom). This test anchors the one thing that
+   * IS testable at this layer: the 400 the client must avoid triggering
+   * still fires exactly where expected, so the client-side guard has a
+   * real, unchanged condition to guard against.
+   */
+  it('computeBrigadeDashboard: root with no tenantId → 400 "tenantId is required"', async () => {
+    const result = await computeBrigadeDashboard(db, { kind: 'root' }, {});
+    expect(result.status).toBe(400);
+  });
+  it('computeUnitRoster: root with no tenantId → 400, same reasoning', async () => {
+    const result = await computeUnitRoster(db, { kind: 'root' }, {});
+    expect(result.status).toBe(400);
+  });
+  it('computeReadinessTrends: root with no tenantId → 400, same reasoning', async () => {
+    const result = await computeReadinessTrends(db, { kind: 'root' }, {});
+    expect(result.status).toBe(400);
+  });
+});
+
+describe('the full click-through chain works for root — list, then a brigade, then a battalion (06.10.2026, David\'s explicit test)', () => {
+  it('list → brigade dashboard → unit detail, all as root, all consistent', async () => {
+    await seedSoldierAndResult(TENANT_MIL_1, 's1', 'pass');
+
+    const listResult = await computeReadinessVerticalOverview(db, { kind: 'root' });
+    expect(listResult.status).toBe(200);
+    if (listResult.status !== 200) return;
+    expect(listResult.body.rows.some((r) => r.tenantId === TENANT_MIL_1)).toBe(true);
+
+    const dashboardResult = await computeBrigadeDashboard(db, { kind: 'root' }, { tenantId: TENANT_MIL_1 });
+    expect(dashboardResult.status).toBe(200);
+    if (dashboardResult.status !== 200) return;
+    const unitRow = dashboardResult.body.units.find((u) => u.unitId === UNIT_ID);
+    expect(unitRow).toBeDefined();
+
+    const detailResult = await computeUnitDetail(db, { kind: 'root' }, { unitId: UNIT_ID, tenantId: TENANT_MIL_1 });
+    expect(detailResult.status).toBe(200);
+    if (detailResult.status !== 200) return;
+    expect(detailResult.body.unitId).toBe(UNIT_ID);
+    expect(detailResult.body.ownSoldierCount).toBe(1);
+  });
+});
+
+describe('a real brigade officer — tenant_owner/unit_admin — is completely unaffected by any of this round\'s changes (06.10.2026)', () => {
+  it('computeReadinessVerticalOverview still refuses a tenantOwner — not a new door opened by the root branch', async () => {
+    const result = await computeReadinessVerticalOverview(db, { kind: 'tenantOwner', tenantId: TENANT_MIL_1 });
+    expect(result.status).toBe(403);
+  });
+
+  it('computeBrigadeDashboard: a tenantOwner with NO query.tenantId (exactly how every real screen has always called it) still resolves their own brigade, unchanged', async () => {
+    await seedSoldierAndResult(TENANT_MIL_1, 's1', 'pass');
+    const result = await computeBrigadeDashboard(db, { kind: 'tenantOwner', tenantId: TENANT_MIL_1 }, {});
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    expect(result.body.tenantId).toBe(TENANT_MIL_1);
+    expect(result.body.overall.totalCount).toBe(1);
   });
 });

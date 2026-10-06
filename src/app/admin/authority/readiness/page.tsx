@@ -18,7 +18,9 @@ import type {
 import type { ReadinessMatchSuggestionsBody } from '@/features/readiness/core/services/readiness-match.service';
 import DeclaredNotInRosterSection from '@/features/admin/components/readiness-roster/DeclaredNotInRosterSection';
 import Link from 'next/link';
-import { Loader2, ShieldCheck, AlertCircle, ClipboardList, LayoutDashboard, UploadCloud } from 'lucide-react';
+import SearchableSelect from '@/features/admin/components/SearchableSelect';
+import { useMilitaryTenantSelection } from '@/features/admin/hooks/useMilitaryTenantSelection';
+import { Loader2, ShieldCheck, AlertCircle, ClipboardList, LayoutDashboard, UploadCloud, Building2 } from 'lucide-react';
 
 /**
  * Round 1 of the "unit soldiers" screen (02.10.2026, locked spec). ONE
@@ -31,6 +33,11 @@ export default function ReadinessPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retrySeq, setRetrySeq] = useState(0);
+
+  // 06.10.2026 — root/chief-officer have no own brigade; every tenant_owner/
+  // unit_admin never sees selection.needsSelection===true, so their own
+  // path below is byte-for-byte what it was before this hook existed.
+  const selection = useMilitaryTenantSelection();
 
   const [soldiers, setSoldiers] = useState<RosterSoldierEntry[]>([]);
   const [pending, setPending] = useState<RosterPendingEntry[]>([]);
@@ -47,10 +54,11 @@ export default function ReadinessPage() {
   const [addPrefill, setAddPrefill] = useState<{ uid: string; name: string; gender: 'male' | 'female' | null } | undefined>(undefined);
   const [linkTarget, setLinkTarget] = useState<RosterPendingEntry | null>(null);
 
-  const loadRoster = useCallback(async () => {
+  const loadRoster = useCallback(async (tenantId: string | null) => {
     const token = await auth.currentUser?.getIdToken();
     if (!token) throw new Error('משתמש לא מחובר. רענן את הדף ונסה שוב.');
-    const res = await fetch('/api/units/readiness/roster', {
+    const qs = tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : '';
+    const res = await fetch(`/api/units/readiness/roster${qs}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     const body = await res.json().catch(() => ({}));
@@ -61,7 +69,8 @@ export default function ReadinessPage() {
     setUnapprovedPendingCount(body.unapprovedPendingCount ?? 0);
 
     try {
-      const matchRes = await fetch('/api/units/readiness/match-suggestions', {
+      const matchQs = tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : '';
+      const matchRes = await fetch(`/api/units/readiness/match-suggestions${matchQs}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const matchBody = await matchRes.json().catch(() => ({}));
@@ -77,25 +86,69 @@ export default function ReadinessPage() {
     }
   }, []);
 
+  // Ready to fetch once role resolution is done AND (this caller has its
+  // own tenant OR has explicitly picked one). A tenant_owner/unit_admin
+  // is ready the instant role resolution finishes, same as always.
+  const ready = !selection.roleLoading && (!selection.needsSelection || !!selection.tenantId);
+
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) { setLoading(false); return; }
-      try {
-        await loadRoster();
-        setLoadError(null);
-      } catch (err: any) {
-        console.error('[Readiness] load error:', err);
-        setLoadError(err?.message ?? 'שגיאה בטעינת נתוני היחידה.');
-      } finally {
-        setLoading(false);
-      }
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (!user) { setLoading(false); }
     });
     return () => unsub();
-  }, [retrySeq, loadRoster]);
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    let cancelled = false;
+    setLoading(true);
+    loadRoster(selection.needsSelection ? selection.tenantId : null)
+      .then(() => { if (!cancelled) setLoadError(null); })
+      .catch((err) => {
+        console.error('[Readiness] load error:', err);
+        if (!cancelled) setLoadError(err?.message ?? 'שגיאה בטעינת נתוני היחידה.');
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [ready, selection.needsSelection, selection.tenantId, retrySeq, loadRoster]);
 
   const refresh = useCallback(() => {
-    loadRoster().catch((err) => console.error('[Readiness] refresh error:', err));
-  }, [loadRoster]);
+    loadRoster(selection.needsSelection ? selection.tenantId : null).catch((err) => console.error('[Readiness] refresh error:', err));
+  }, [loadRoster, selection.needsSelection, selection.tenantId]);
+
+  if (selection.roleLoading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+      </div>
+    );
+  }
+
+  // 06.10.2026 — root/chief-officer with no brigade picked yet: a Hebrew
+  // empty state pointing at the overview list, never the raw "tenantId is
+  // required" server error. A real tenant_owner/unit_admin never reaches
+  // this branch (selection.needsSelection is false for them).
+  if (selection.needsSelection && !selection.tenantId) {
+    return (
+      <div dir="rtl" className="max-w-4xl mx-auto px-4 pt-6 space-y-4">
+        <AdminBreadcrumb items={[
+          { label: 'ארגונים', href: '/admin/organizations' },
+          { label: 'מד כשירות' },
+        ]} />
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center space-y-3">
+          <Building2 size={40} className="mx-auto text-slate-300" />
+          <p className="text-lg font-bold text-gray-900">בחר חטיבה להצגה</p>
+          <p className="text-sm text-gray-500">כדי לצפות בחיילי היחידה, בחר חטיבה מתוך רשימת כל החטיבות.</p>
+          <Link
+            href="/admin/authority/readiness/vertical-overview"
+            className="inline-flex items-center gap-2 bg-lime-700 hover:bg-lime-800 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-all"
+          >
+            לרשימת כל החטיבות
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -111,6 +164,26 @@ export default function ReadinessPage() {
         { label: 'ארגונים', href: '/admin/organizations' },
         { label: 'מד כשירות' },
       ]} />
+
+      {/* 06.10.2026 — root/chief-officer only; reuses the SAME
+          SearchableSelect component the units ("team") screen's own
+          super-admin switcher already uses, never a new control. A real
+          tenant_owner/unit_admin never sees this (selection.needsSelection
+          is false for them) — zero diff to their screen. */}
+      {selection.needsSelection && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4">
+          <Building2 size={20} className="text-lime-700 flex-shrink-0" />
+          <div className="flex-1" style={{ position: 'relative', zIndex: 20 }}>
+            <label className="text-xs font-bold text-slate-500 block mb-1">חטיבה</label>
+            <SearchableSelect
+              options={selection.options.map((o) => ({ id: o.id, label: o.name }))}
+              value={selection.tenantId ?? ''}
+              onChange={(newId) => { if (newId) selection.selectTenant(newId); }}
+              placeholder="בחר חטיבה..."
+            />
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">

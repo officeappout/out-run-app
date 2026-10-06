@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import AdminBreadcrumb, { type BreadcrumbItem } from '@/features/admin/components/AdminBreadcrumb';
@@ -14,6 +15,7 @@ import UnitDetailChildCard from '@/features/admin/components/readiness-unit-deta
 import UnitDetailSoldiersTable from '@/features/admin/components/readiness-unit-detail/UnitDetailSoldiersTable';
 import type { UnitDetailBody } from '@/features/readiness/core/services/readiness-unit-detail.service';
 import type { ReadinessCurrentStatus } from '@/features/readiness/core/services/readiness-write.service';
+import { useMilitaryTenantSelection } from '@/features/admin/hooks/useMilitaryTenantSelection';
 import { Loader2, ClipboardList } from 'lucide-react';
 
 /**
@@ -39,10 +41,21 @@ export default function ReadinessUnitDetailPage() {
   const [data, setData] = useState<UnitDetailBody | null>(null);
   const [soldiersFilter, setSoldiersFilter] = useState<'all' | ReadinessCurrentStatus | 'near_threshold'>('all');
 
-  const load = useCallback(async () => {
+  // 06.10.2026 — root/chief-officer only: by the time this page is
+  // reached (from the dashboard's own switcher, or a drill-down from an
+  // already-visited unit-detail page), `admin_selected_authority_id` is
+  // already set — the SAME localStorage key every other readiness
+  // screen in this round reads via this hook. A real tenant_owner/
+  // unit_admin never sees needsSelection===true; their own fetch below
+  // is byte-for-byte unchanged.
+  const selection = useMilitaryTenantSelection();
+
+  const load = useCallback(async (tenantId: string | null) => {
     const token = await auth.currentUser?.getIdToken();
     if (!token) throw new Error('משתמש לא מחובר. רענן את הדף ונסה שוב.');
-    const res = await fetch(`/api/units/readiness/unit-detail?unitId=${encodeURIComponent(unitId)}`, {
+    const qs = new URLSearchParams({ unitId });
+    if (tenantId) qs.set('tenantId', tenantId);
+    const res = await fetch(`/api/units/readiness/unit-detail?${qs.toString()}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     const body = await res.json().catch(() => ({}));
@@ -50,21 +63,53 @@ export default function ReadinessUnitDetailPage() {
     setData(body);
   }, [unitId]);
 
+  const ready = unitId !== '' && !selection.roleLoading && (!selection.needsSelection || !!selection.tenantId);
+
   useEffect(() => {
-    if (!unitId) return;
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) { setLoading(false); return; }
-      try {
-        await load();
-        setLoadError(null);
-      } catch (err: any) {
-        setLoadError(err?.message ?? 'שגיאה בטעינת היחידה.');
-      } finally {
-        setLoading(false);
-      }
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (!user) setLoading(false);
     });
     return () => unsub();
-  }, [load, unitId]);
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    let cancelled = false;
+    setLoading(true);
+    load(selection.needsSelection ? selection.tenantId : null)
+      .then(() => { if (!cancelled) setLoadError(null); })
+      .catch((err: any) => { if (!cancelled) setLoadError(err?.message ?? 'שגיאה בטעינת היחידה.'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [ready, selection.needsSelection, selection.tenantId, load]);
+
+  if (selection.roleLoading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+      </div>
+    );
+  }
+
+  // 06.10.2026 — root/chief-officer who somehow reached this URL directly
+  // with no brigade picked yet (bookmarked link, etc.) — a Hebrew empty
+  // state, never the raw "tenantId is required" server error.
+  if (selection.needsSelection && !selection.tenantId) {
+    return (
+      <div dir="rtl" className="max-w-5xl mx-auto px-4 pt-6 space-y-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center space-y-3">
+          <p className="text-lg font-bold text-gray-900">בחר חטיבה להצגה</p>
+          <p className="text-sm text-gray-500">כדי לצפות ביחידה, בחר חטיבה מתוך רשימת כל החטיבות.</p>
+          <Link
+            href="/admin/authority/readiness/vertical-overview"
+            className="inline-flex items-center gap-2 bg-lime-700 hover:bg-lime-800 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-all"
+          >
+            לרשימת כל החטיבות
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

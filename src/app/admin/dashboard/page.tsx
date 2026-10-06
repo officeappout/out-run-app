@@ -16,6 +16,7 @@ import UnitReadinessTable from '@/features/admin/components/readiness-dashboard/
 import NearThresholdCard from '@/features/admin/components/readiness-dashboard/NearThresholdCard';
 import AppActivityCard from '@/features/admin/components/readiness-dashboard/AppActivityCard';
 import FailToPassTransitionCard from '@/features/admin/components/readiness-dashboard/FailToPassTransitionCard';
+import SearchableSelect from '@/features/admin/components/SearchableSelect';
 import type {
   DashboardOverallBreakdown,
   DashboardComponentBreakdown,
@@ -33,6 +34,7 @@ import {
   Flag,
   ShieldCheck,
   Dumbbell,
+  Building2,
 } from 'lucide-react';
 
 /**
@@ -162,12 +164,22 @@ export default function AdminDashboardPage() {
   const [readinessError, setReadinessError] = useState<string | null>(null);
   const [readinessAppActivity, setReadinessAppActivity] = useState<Awaited<ReturnType<typeof fetchReadinessAppActivity>>>(null);
 
+  // 06.10.2026 — true for root OR a readiness chief officer: anyone with
+  // no own brigade who can switch between every military tenant from
+  // this same page, reusing the units ("team") screen's own
+  // SearchableSelect switcher. A real tenant_owner/unit_admin never sets
+  // this true — their own path below is unchanged.
+  const [brigadeSwitcherEnabled, setBrigadeSwitcherEnabled] = useState(false);
+  const [brigadeOptions, setBrigadeOptions] = useState<{ id: string; name: string }[]>([]);
+
   const resolveAuthority = useCallback(async (uid: string) => {
     try {
       const role = await checkUserRole(uid);
       let aId: string | null = role.authorityIds?.[0] || null;
       let aName = '';
       let resolvedTenantType: typeof tenantType = 'municipal';
+      const switcherEnabled = role.isSuperAdmin || role.isReadinessChiefOfficer;
+      setBrigadeSwitcherEnabled(switcherEnabled);
 
       if (role.isSuperAdmin) {
         const allAuths = await getAllAuthorities(undefined, true);
@@ -178,24 +190,29 @@ export default function AdminDashboardPage() {
           aName = typeof target.name === 'string' ? target.name : (target.name?.he || '');
           resolvedTenantType = authorityTypeToTenantType(target);
         }
-      } else if (role.isVerticalAdmin && role.managedVertical === 'military') {
-        // 06.10.2026 ("chief fitness officer") — same localStorage
-        // click-through convention as isSuperAdmin above, but resolving
-        // ONE specific authority by id rather than listing every
-        // authority client-side (a vertical admin has no reason to see
-        // an unscoped picker here). This id is purely a client-side
+      } else if (role.isReadinessChiefOfficer) {
+        // 06.10.2026 ("chief fitness officer" — rewired from the stale
+        // isVerticalAdmin/managedVertical check this branch used to read,
+        // never actually set by the real role; see axioms.md §32) — same
+        // localStorage click-through convention as isSuperAdmin above,
+        // but resolving ONE specific authority by id rather than listing
+        // every authority client-side. This id is purely a client-side
         // display convenience — the real authorization boundary is
         // server-side (computeBrigadeDashboard's own validated
         // 'vertical' branch, readiness-dashboard.service.ts), which
         // checks this SAME uid's real scope.authorityIds independently
-        // of whatever the client sends.
+        // of whatever the client sends. tenantType is forced to
+        // 'military' UNCONDITIONALLY (even with no saved pick yet) so
+        // the render below reaches the military branch's own "pick a
+        // brigade" empty state — a chief officer has no OTHER vertical
+        // to fall back to, unlike isSuperAdmin above.
+        resolvedTenantType = 'military';
         const savedId = typeof window !== 'undefined' ? localStorage.getItem(AUTHORITY_STORAGE_KEY) : null;
         if (savedId) {
           const target = await getAuthority(savedId);
           if (target) {
             aId = target.id;
             aName = typeof target.name === 'string' ? target.name : (target.name?.he || '');
-            resolvedTenantType = authorityTypeToTenantType(target);
           }
         }
       } else {
@@ -209,6 +226,25 @@ export default function AdminDashboardPage() {
       }
 
       setTenantType(resolvedTenantType);
+
+      // 06.10.2026 — populate the switcher's own options whenever it's
+      // visible, not just once an authority is already resolved: a
+      // chief officer with NOTHING saved yet still needs this list to
+      // make their first pick from the empty-state link's destination
+      // (vertical-overview) OR directly from this page's own switcher.
+      if (switcherEnabled && resolvedTenantType === 'military') {
+        try {
+          const token = await auth.currentUser?.getIdToken();
+          if (token) {
+            const res = await fetch('/api/units/readiness/vertical-overview', { headers: { Authorization: `Bearer ${token}` } });
+            const body = await res.json().catch(() => ({}));
+            if (res.ok) {
+              const rows = (body.rows ?? []) as { tenantId: string; tenantName: string }[];
+              setBrigadeOptions(rows.map((r) => ({ id: r.tenantId, name: r.tenantName })));
+            }
+          }
+        } catch { /* non-critical — switcher just shows empty options */ }
+      }
 
       if (!aId) { setLoading(false); return; }
       setAuthorityId(aId);
@@ -269,6 +305,18 @@ export default function AdminDashboardPage() {
     return () => unsubscribe();
   }, [resolveAuthority]);
 
+  // 06.10.2026 — root/chief-officer switching brigades directly from this
+  // page's own switcher (same as a vertical-overview row-click: save the
+  // pick, then re-resolve exactly as a fresh visit would).
+  const switchBrigade = useCallback((newId: string) => {
+    try { localStorage.setItem(AUTHORITY_STORAGE_KEY, newId); } catch { /* ditto as elsewhere in this file */ }
+    const uid = auth.currentUser?.uid;
+    if (uid) {
+      setLoading(true);
+      resolveAuthority(uid);
+    }
+  }, [resolveAuthority]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -279,6 +327,30 @@ export default function AdminDashboardPage() {
 
   if (tenantType === 'military') {
     if (!authorityId) {
+      // 06.10.2026 — root/chief-officer with no brigade picked yet: a
+      // Hebrew empty state pointing at the overview list, never a raw
+      // server error (there isn't one on THIS page either way — this is
+      // the "nothing resolved client-side yet" case). A real
+      // tenant_owner/unit_admin with a genuinely missing unit assignment
+      // (a separate, pre-existing situation) keeps the exact original
+      // message — brigadeSwitcherEnabled is false for them.
+      if (brigadeSwitcherEnabled) {
+        return (
+          <div dir="rtl" className="max-w-4xl mx-auto px-4 pt-6 space-y-4">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center space-y-3">
+              <Building2 size={40} className="mx-auto text-slate-300" />
+              <p className="text-lg font-bold text-gray-900">בחר חטיבה להצגה</p>
+              <p className="text-sm text-gray-500">כדי לצפות בלוח הכשירות, בחר חטיבה מתוך רשימת כל החטיבות.</p>
+              <Link
+                href="/admin/authority/readiness/vertical-overview"
+                className="inline-flex items-center gap-2 bg-lime-700 hover:bg-lime-800 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-all"
+              >
+                לרשימת כל החטיבות
+              </Link>
+            </div>
+          </div>
+        );
+      }
       return (
         <div className="flex items-center justify-center h-64 text-gray-400" dir="rtl">
           <p className="text-sm">לא נמצאה יחידה משויכת</p>
@@ -287,6 +359,25 @@ export default function AdminDashboardPage() {
     }
     return (
       <div dir="rtl" className="space-y-6 pb-12 max-w-5xl mx-auto">
+        {/* 06.10.2026 — root/chief-officer only; same SearchableSelect the
+            units ("team") screen's own super-admin switcher already uses.
+            A real tenant_owner/unit_admin never sees this
+            (brigadeSwitcherEnabled is false for them) — zero diff. */}
+        {brigadeSwitcherEnabled && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4">
+            <Building2 size={20} className="text-lime-700 flex-shrink-0" />
+            <div className="flex-1" style={{ position: 'relative', zIndex: 20 }}>
+              <label className="text-xs font-bold text-slate-500 block mb-1">חטיבה</label>
+              <SearchableSelect
+                options={brigadeOptions.map((o) => ({ id: o.id, label: o.name }))}
+                value={authorityId ?? ''}
+                onChange={(newId) => { if (newId) switchBrigade(newId); }}
+                placeholder="בחר חטיבה..."
+              />
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-lime-50 rounded-2xl flex items-center justify-center">

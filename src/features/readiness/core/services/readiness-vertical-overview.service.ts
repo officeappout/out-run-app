@@ -1,10 +1,14 @@
 /**
  * "Chief fitness officer" overview — read-only, 06.10.2026. David's
- * explicit model: a brigade officer's existing scope (root/tenantOwner/
+ * explicit model: a real brigade officer's existing scope (tenantOwner/
  * unitAdmin) is completely unaffected by this file — zero diff, zero
- * shared code path. This is a SEPARATE screen for a SEPARATE scope kind
- * (`UnitPermissionScope`'s new `'vertical'` variant, unitPermissionScope.ts)
- * that sees across every military tenant instead of one.
+ * shared code path. This is a SEPARATE screen for callers with no OWN
+ * single brigade who must pick one — originally just the new 'vertical'
+ * scope kind, extended same-day to ALSO admit root (David's review:
+ * root already sees at least as much as a chief officer everywhere
+ * else in the system; see the `isRoot` branch below for the one new
+ * door). Still never tenantOwner/unitAdmin — they keep their own single
+ * brigade, resolved server-side, with no reason to ever see this list.
  *
  * === Read-only, no exception ===
  * This file has no write function and never will — a vertical-scoped
@@ -74,24 +78,42 @@ export async function computeReadinessVerticalOverview(
   if (scope.kind === 'unknown') {
     return { status: 503, body: { error: UNIT_SCOPE_UNKNOWN_MESSAGE } };
   }
-  // Allowlist, not a denylist — every kind other than a real military
-  // 'vertical' grant is refused, including root/tenantOwner/unitAdmin/
-  // denied. This screen has exactly one door.
-  if (scope.kind !== 'vertical' || scope.vertical !== READINESS_VERTICAL) {
+
+  // 06.10.2026 (David's explicit review) — root sees at least as much as
+  // a chief fitness officer everywhere else in this codebase (every
+  // other admin/* screen); blocking it from this one read-only list
+  // screen only forces root to hold a second account. Not a bypass of
+  // anything below — root simply gets the SAME final row set a real
+  // vertical grant already gets (every military_unit tenant), computed
+  // the SAME way (inScopeIds === null means "don't filter," never "skip
+  // the military_unit type check" — that re-filter stays unconditional
+  // for every caller, root included).
+  const isRoot = scope.kind === 'root';
+
+  // Allowlist, not a denylist — every kind other than root or a real
+  // military 'vertical' grant is refused, including tenantOwner/
+  // unitAdmin/denied. This screen has exactly two doors now, not one.
+  if (!isRoot && (scope.kind !== 'vertical' || scope.vertical !== READINESS_VERTICAL)) {
     return { status: 403, body: { error: DENIED_MESSAGE } };
   }
 
-  const inScopeIds = new Set(scope.authorityIds);
+  // null (root) = no filtering: every military_unit tenant qualifies.
+  // Otherwise (a real vertical grant) intersect with scope.authorityIds,
+  // same as before this change — defensive even though that set is
+  // already every military_unit tenant as of today's single vertical.
+  const inScopeIds = scope.kind === 'vertical' ? new Set(scope.authorityIds) : null;
 
   // Defensive re-filter to military_unit specifically — never trust
   // scope.authorityIds' own upstream filtering alone as the ONLY thing
   // keeping a municipal/educational authority out of this list. Also
   // what makes a tenant NOT in scope.authorityIds (a vertical admin for
   // a DIFFERENT military sub-population, if that ever exists) correctly
-  // absent, since the intersection below requires both.
+  // absent, since the intersection below requires both. Unconditional
+  // for root too — root gets "every MILITARY tenant," never "every
+  // tenant of any type."
   const authoritiesSnap = await db.collection('authorities').where('type', '==', 'military_unit').get();
   const militaryAuthorities = authoritiesSnap.docs
-    .filter((d) => inScopeIds.has(d.id))
+    .filter((d) => inScopeIds === null || inScopeIds.has(d.id))
     .map((d) => ({ id: d.id, name: typeof d.data().name === 'string' ? (d.data().name as string) : d.id }));
 
   // 06.10.2026 (David's explicit review) — this literal is a scope

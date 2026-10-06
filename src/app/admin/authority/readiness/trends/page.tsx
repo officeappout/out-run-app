@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import AdminBreadcrumb from '@/features/admin/components/AdminBreadcrumb';
@@ -11,7 +11,10 @@ import ComponentAverageChart from '@/features/admin/components/readiness-trends/
 import type { TrendsBody, ComponentFilter, PopulationFilter } from '@/features/readiness/core/services/readiness-trends.service';
 import type { DashboardUnitRow } from '@/features/readiness/core/services/readiness-dashboard.service';
 import { READINESS_COLORS } from '@/features/admin/components/readiness-dashboard/colors';
-import { Loader2 } from 'lucide-react';
+import SearchableSelect from '@/features/admin/components/SearchableSelect';
+import { useMilitaryTenantSelection } from '@/features/admin/hooks/useMilitaryTenantSelection';
+import Link from 'next/link';
+import { Loader2, Building2 } from 'lucide-react';
 
 const COMPONENT_OPTIONS: { key: ComponentFilter; label: string }[] = [
   { key: 'all', label: 'הכל' },
@@ -42,39 +45,72 @@ export default function ReadinessTrendsPage() {
   const [componentFilter, setComponentFilter] = useState<ComponentFilter>('all');
   const [populationFilter, setPopulationFilter] = useState<PopulationFilter>('all');
 
-  const load = useCallback(async () => {
+  // 06.10.2026 — root/chief-officer have no own brigade; every real
+  // tenant_owner/unit_admin never sees selection.needsSelection===true,
+  // so their own path below is byte-for-byte what it was before.
+  const selection = useMilitaryTenantSelection();
+
+  // 06.10.2026 — keyed by tenantId, not bare "units.length===0": a
+  // tenant_owner/unit_admin only ever has one tenantId (null, in this
+  // param's terms) so this behaves exactly as before for them. For
+  // root/chief-officer switching brigades, this is what makes the units
+  // dropdown actually refetch for the NEWLY selected brigade instead of
+  // silently keeping the previous one's list.
+  const unitsFetchedForTenantRef = useRef<string | null | undefined>(undefined);
+
+  const load = useCallback(async (tenantId: string | null) => {
     const token = await auth.currentUser?.getIdToken();
     if (!token) throw new Error('משתמש לא מחובר. רענן את הדף ונסה שוב.');
 
-    if (units.length === 0) {
-      const dashboardRes = await fetch('/api/units/readiness/dashboard', { headers: { Authorization: `Bearer ${token}` } });
+    if (unitsFetchedForTenantRef.current !== tenantId) {
+      const dashboardParams = new URLSearchParams();
+      if (tenantId) dashboardParams.set('tenantId', tenantId);
+      const dashboardRes = await fetch(`/api/units/readiness/dashboard?${dashboardParams.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
       const dashboardBody = await dashboardRes.json().catch(() => ({}));
-      if (dashboardRes.ok) setUnits(dashboardBody.units ?? []);
+      if (dashboardRes.ok) {
+        setUnits(dashboardBody.units ?? []);
+        unitsFetchedForTenantRef.current = tenantId;
+      }
     }
 
     const params = new URLSearchParams({ componentFilter, populationFilter });
     if (selectedUnitId) params.set('unitId', selectedUnitId);
+    if (tenantId) params.set('tenantId', tenantId);
     const res = await fetch(`/api/units/readiness/trends?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(typeof body.error === 'string' ? body.error : `שגיאה בטעינה (${res.status})`);
     setData(body);
-  }, [componentFilter, populationFilter, selectedUnitId, units.length]);
+  }, [componentFilter, populationFilter, selectedUnitId]);
+
+  // Ready to fetch once role resolution is done AND (this caller has its
+  // own tenant OR has explicitly picked one).
+  const ready = !selection.roleLoading && (!selection.needsSelection || !!selection.tenantId);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) { setLoading(false); return; }
-      try {
-        await load();
-        setLoadError(null);
-      } catch (err: any) {
-        setLoadError(err?.message ?? 'שגיאה בטעינת המגמות.');
-      } finally {
-        setLoading(false);
-      }
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (!user) setLoading(false);
     });
     return () => unsub();
+  }, []);
+
+  // Switching brigades (root/chief-officer only) — the previously selected
+  // battalion/company belonged to the OLD brigade and must not silently
+  // carry over as a filter against the new one.
+  useEffect(() => {
+    if (selection.needsSelection) setSelectedUnitId('');
+  }, [selection.needsSelection, selection.tenantId]);
+
+  useEffect(() => {
+    if (!ready) return;
+    let cancelled = false;
+    setLoading(true);
+    load(selection.needsSelection ? selection.tenantId : null)
+      .then(() => { if (!cancelled) setLoadError(null); })
+      .catch((err: any) => { if (!cancelled) setLoadError(err?.message ?? 'שגיאה בטעינת המגמות.'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [componentFilter, populationFilter, selectedUnitId]);
+  }, [ready, selection.needsSelection, selection.tenantId, componentFilter, populationFilter, selectedUnitId]);
 
   const breadcrumbItems = [
     { label: 'כשירות', href: '/admin/dashboard' },
@@ -85,6 +121,37 @@ export default function ReadinessTrendsPage() {
     () => units.slice().sort((a, b) => a.unitName.localeCompare(b.unitName, 'he')),
     [units],
   );
+
+  if (selection.roleLoading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+      </div>
+    );
+  }
+
+  // 06.10.2026 — root/chief-officer with no brigade picked yet: a Hebrew
+  // empty state pointing at the overview list, never the raw "tenantId is
+  // required" server error. A real tenant_owner/unit_admin never reaches
+  // this branch.
+  if (selection.needsSelection && !selection.tenantId) {
+    return (
+      <div dir="rtl" className="max-w-5xl mx-auto px-4 pt-6 space-y-4">
+        <AdminBreadcrumb items={breadcrumbItems} />
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center space-y-3">
+          <Building2 size={40} className="mx-auto text-slate-300" />
+          <p className="text-lg font-bold text-gray-900">בחר חטיבה להצגה</p>
+          <p className="text-sm text-gray-500">כדי לצפות במגמות הכשירות, בחר חטיבה מתוך רשימת כל החטיבות.</p>
+          <Link
+            href="/admin/authority/readiness/vertical-overview"
+            className="inline-flex items-center gap-2 bg-lime-700 hover:bg-lime-800 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-all"
+          >
+            לרשימת כל החטיבות
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -116,6 +183,24 @@ export default function ReadinessTrendsPage() {
   return (
     <div dir="rtl" className="space-y-6 pb-12 max-w-5xl mx-auto">
       <AdminBreadcrumb items={breadcrumbItems} />
+
+      {/* 06.10.2026 — root/chief-officer only; same SearchableSelect the
+          units ("team") screen's super-admin switcher already uses. A real
+          tenant_owner/unit_admin never sees this. */}
+      {selection.needsSelection && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4">
+          <Building2 size={20} className="text-lime-700 flex-shrink-0" />
+          <div className="flex-1" style={{ position: 'relative', zIndex: 20 }}>
+            <label className="text-xs font-bold text-slate-500 block mb-1">חטיבה</label>
+            <SearchableSelect
+              options={selection.options.map((o) => ({ id: o.id, label: o.name }))}
+              value={selection.tenantId ?? ''}
+              onChange={(newId) => { if (newId) selection.selectTenant(newId); }}
+              placeholder="בחר חטיבה..."
+            />
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
