@@ -272,7 +272,8 @@ export default function JourneyHubPage() {
     cityAuthorityId: filters.cityAuthorityId,
     level: filters.level,
     program: filters.program,
-    age: filters.age,
+    ageFrom: filters.ageFrom,
+    ageTo: filters.ageTo,
   }), [filters]);
 
   const growthMetricsQuery = useMemo(() => {
@@ -285,7 +286,8 @@ export default function JourneyHubPage() {
     if (filters.sex) params.set('sex', filters.sex);
     if (filters.level != null) params.set('level', String(filters.level));
     if (filters.program) params.set('program', filters.program);
-    if (filters.age) params.set('age', filters.age);
+    if (filters.ageFrom != null) params.set('ageFrom', String(filters.ageFrom));
+    if (filters.ageTo != null) params.set('ageTo', String(filters.ageTo));
     const qs = params.toString();
     return qs ? `?${qs}` : '';
   }, [filters]);
