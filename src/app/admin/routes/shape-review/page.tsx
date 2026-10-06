@@ -25,7 +25,7 @@ import { checkUserRole } from '@/features/admin/services/auth.service';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { List, Map as MapIcon, Loader2, Search, Building2 } from 'lucide-react';
 import ApprovalDetailModal, { type ApprovalDetailItem } from '@/features/admin/components/approval/ApprovalDetailModal';
-import { SHAPE_TYPE_LABEL, SHAPE_TYPE_ICON } from '@/features/admin/components/routes/shape-review-chips';
+import { SHAPE_TYPE_LABEL, SHAPE_TYPE_ICON, SHAPE_TYPE_MISSING_LABEL, SHAPE_TYPE_MISSING_ICON } from '@/features/admin/components/routes/shape-review-chips';
 import { normalizeStoredRoutePath } from '@/features/parks/core/utils/routePath';
 import type { ReviewMapRoute, ReviewDecision } from '@/features/admin/components/routes/RouteShapeReviewMap';
 
@@ -192,10 +192,14 @@ export default function RouteShapeReviewPage() {
               className="w-full flex items-center gap-3 px-5 py-3 text-right hover:bg-gray-50 transition-colors"
             >
               {r.isReviewPriority && <span className="text-[10px] font-bold bg-red-50 text-red-500 px-2 py-0.5 rounded-full flex-shrink-0">עדיפות</span>}
-              <span className="text-lg flex-shrink-0">{SHAPE_TYPE_ICON[r.shapeType ?? ''] ?? '⚪'}</span>
+              <span className="text-lg flex-shrink-0">{r.shapeType ? SHAPE_TYPE_ICON[r.shapeType] : SHAPE_TYPE_MISSING_ICON}</span>
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-gray-900 text-sm truncate">{r.name}</p>
-                <p className="text-xs text-gray-400">{r.city} · {SHAPE_TYPE_LABEL[r.shapeType ?? ''] ?? 'לא מסווג'}</p>
+                {/* r.shapeType absent = never backfilled (no geometry computed yet) — distinct
+                    from shapeType==='unclassified' (measured, genuinely fits no category).
+                    Collapsing these into one ⚪ "לא מסווג" was the exact ambiguity flagged
+                    06.10.2026: a reviewer can't tell "no info" from "info says it's neither". */}
+                <p className="text-xs text-gray-400">{r.city} · {r.shapeType ? SHAPE_TYPE_LABEL[r.shapeType] : SHAPE_TYPE_MISSING_LABEL}</p>
               </div>
               {r.geometryMetrics?.compactness && (
                 <span className="text-[10px] font-mono text-gray-400 flex-shrink-0 hidden sm:inline">

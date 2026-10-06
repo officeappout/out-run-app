@@ -97,7 +97,7 @@ export default function RouteShapeReviewSection({
           </>
         )}
         {shapeType !== 'loop' && (
-          <div className="col-span-2 text-gray-400 text-[11px]">קומפקטיות לא רלוונטית — {shapeType === 'linear_corridor' ? 'פרוזדור לינארי' : 'לא מסווג'}</div>
+          <div className="col-span-2 text-gray-400 text-[11px]">קומפקטיות לא רלוונטית — {SHAPE_TYPE_LABEL[shapeType] ?? shapeType}</div>
         )}
       </div>
 
