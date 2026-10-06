@@ -272,7 +272,7 @@ export default function JourneyHubPage() {
     if (filters.source) params.set('source', filters.source);
     if (filters.cityAuthorityId) params.set('city', filters.cityAuthorityId);
     if (filters.sex) params.set('sex', filters.sex);
-    if (filters.level) params.set('level', filters.level);
+    if (filters.level != null) params.set('level', String(filters.level));
     if (filters.program) params.set('program', filters.program);
     if (filters.age) params.set('age', filters.age);
     const qs = params.toString();
