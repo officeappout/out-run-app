@@ -61,7 +61,7 @@ import { tenantTypeOf } from '@/lib/tenantType';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const SUPPORTED_ROLES = new Set(['authority_manager', 'platform_member', 'tenant_owner', 'unit_admin']);
+const SUPPORTED_ROLES = new Set(['authority_manager', 'platform_member', 'tenant_owner', 'unit_admin', 'readiness_chief_officer']);
 
 class HttpError extends Error {
   status: number;
@@ -301,6 +301,7 @@ export async function computeAcceptInvitation(db: Firestore, caller: Caller, inv
         for (const field of [
           'core.authorityId', 'core.tenantId', 'core.isTenantOwner', 'core.tenantType',
           'core.unitId', 'core.unitPath', 'core.allowedSections', 'core.teamRole',
+          'core.isReadinessChiefOfficer',
         ]) {
           update[field] = FieldValue.delete();
         }
@@ -318,6 +319,9 @@ export async function computeAcceptInvitation(db: Firestore, caller: Caller, inv
           update['core.unitId'] = unitId;
           update['core.unitPath'] = unitPath;
           update['core.authorityId'] = tenantId;
+        } else if (inv.role === 'readiness_chief_officer') {
+          // 06.10.2026 — no tenantId/unitId/authorityId at all, by design.
+          update['core.isReadinessChiefOfficer'] = true;
         }
         tx.update(userRef, update);
       } else {
@@ -340,6 +344,8 @@ export async function computeAcceptInvitation(db: Firestore, caller: Caller, inv
           core.unitId = unitId;
           core.unitPath = unitPath;
           core.authorityId = tenantId;
+        } else if (inv.role === 'readiness_chief_officer') {
+          core.isReadinessChiefOfficer = true;
         }
         tx.set(userRef, {
           id: caller.uid,

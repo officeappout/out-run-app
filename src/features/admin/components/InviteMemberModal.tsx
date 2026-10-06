@@ -71,6 +71,14 @@ const ROLE_OPTIONS_BY_CONTEXT: Record<TenantType | 'platform', RoleOption[]> = {
   platform: [
     { value: 'authority_manager', label: 'מנהל רשות (עיר)', requiresScope: 'allAuthorities' },
     { value: 'platform_member', label: 'חבר צוות — גישה לפי סקשנים' },
+    // 06.10.2026 ("chief fitness officer") — no scope picker, root-gated
+    // server-side (POST /api/admin/invitations), exactly like
+    // authority_manager/platform_member above. Deliberately NOT under
+    // `military:` above — this role is not tied to any one brigade's
+    // context.tenantId, so it doesn't belong on the per-authority team
+    // page at all; granted from here instead, same as every other
+    // not-tied-to-one-tenant role.
+    { value: 'readiness_chief_officer', label: 'קצין כושר ראשי (כל החטיבות)' },
   ],
 };
 

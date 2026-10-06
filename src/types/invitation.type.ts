@@ -1,7 +1,8 @@
 /**
  * Admin Invitation Types
  */
-export type InvitationRole = 'super_admin' | 'authority_manager' | 'unit_admin' | 'tenant_owner' | 'vertical_admin' | 'platform_member';
+/** 06.10.2026 ("chief fitness officer") — 'readiness_chief_officer' is a deliberately NEW name, not a reuse of 'vertical_admin' (that name is tied to core.isVerticalAdmin, a global-admin-adjacent flag — see axioms.md §32). No tenantId/unitId/authorityId required; see invitation.service.ts/the accept-invitation route for the grant it actually writes. */
+export type InvitationRole = 'super_admin' | 'authority_manager' | 'unit_admin' | 'tenant_owner' | 'vertical_admin' | 'platform_member' | 'readiness_chief_officer';
 
 export interface AdminInvitation {
   id: string;

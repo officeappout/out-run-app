@@ -180,8 +180,8 @@ describe('resolveUnitPermissionScope — "chief fitness officer" vertical branch
     state.throwOn = null;
   });
 
-  it('resolves vertical for core.isVerticalAdmin + managedVertical, filtered to that vertical only', async () => {
-    state.userDoc = { core: { email: 'x@y.com', isVerticalAdmin: true, managedVertical: 'military' } };
+  it('resolves vertical for core.isReadinessChiefOfficer, filtered to military_unit only — hardcoded, not read from any field', async () => {
+    state.userDoc = { core: { email: 'x@y.com', isReadinessChiefOfficer: true } };
     state.allAuthorityTypes = [
       { id: 'mil-1', type: 'military_unit' },
       { id: 'mil-2', type: 'military_unit' },
@@ -196,22 +196,28 @@ describe('resolveUnitPermissionScope — "chief fitness officer" vertical branch
     }
   });
 
-  it('a regular tenantOwner NEVER resolves to vertical, even if core.isVerticalAdmin is ALSO (incorrectly) set — brigade-officer precedence is unchanged', async () => {
-    state.userDoc = { core: { email: 'x@y.com', isVerticalAdmin: true, managedVertical: 'military' } };
+  it('a regular tenantOwner NEVER resolves to vertical, even if core.isReadinessChiefOfficer is ALSO (incorrectly) set — brigade-officer precedence is unchanged', async () => {
+    state.userDoc = { core: { email: 'x@y.com', isReadinessChiefOfficer: true } };
     state.ownedTenantDocs = [{ id: 'tenant-1' }];
     const scope = await resolveUnitPermissionScope('owner-uid');
     expect(scope).toEqual({ kind: 'tenantOwner', tenantId: 'tenant-1' }); // zero diff from the pre-vertical behavior
   });
 
   it('a regular unitAdmin NEVER resolves to vertical either, for the same reason', async () => {
-    state.userDoc = { core: { email: 'x@y.com', isVerticalAdmin: true, managedVertical: 'military' } };
+    state.userDoc = { core: { email: 'x@y.com', isReadinessChiefOfficer: true } };
     state.managedUnitDocs = [{ id: 'battalion-1', tenantId: 'tenant-1' }];
     const scope = await resolveUnitPermissionScope('commander-uid');
     expect(scope.kind).toBe('unitAdmin');
   });
 
-  it('isVerticalAdmin without a real managedVertical string resolves denied, not vertical — no silent "every authority" grant', async () => {
-    state.userDoc = { core: { email: 'x@y.com', isVerticalAdmin: true, managedVertical: '' } };
+  it('core.isVerticalAdmin alone (the old, now-abandoned flag) never resolves to vertical — this resolver reads ONLY core.isReadinessChiefOfficer', async () => {
+    state.userDoc = { core: { email: 'x@y.com', isVerticalAdmin: true, managedVertical: 'military' } };
+    const scope = await resolveUnitPermissionScope('stale-flag-uid');
+    expect(scope).toEqual({ kind: 'denied' });
+  });
+
+  it('isReadinessChiefOfficer === false resolves denied, not vertical', async () => {
+    state.userDoc = { core: { email: 'x@y.com', isReadinessChiefOfficer: false } };
     const scope = await resolveUnitPermissionScope('half-configured-uid');
     expect(scope).toEqual({ kind: 'denied' });
   });

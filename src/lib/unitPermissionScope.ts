@@ -247,26 +247,31 @@ export async function resolveUnitPermissionScope(uid: string): Promise<UnitPermi
       }
     }
 
-    // "Chief fitness officer" — same fields adminAnalyticsScope.ts
-    // already reads (core.isVerticalAdmin, core.managedVertical), same
-    // tenantTypeOf mapping, deliberately NOT importing
-    // resolveAdminAnalyticsScope itself (that resolver's precedence —
-    // platform wins over vertical — is a different policy for a
-    // different, broader surface; this file's own root→tenantOwner→
-    // unitAdmin precedence above is untouched and checked first, so an
-    // existing brigade officer's scope is byte-for-byte unchanged).
+    // "Chief fitness officer" — 06.10.2026, REWIRED from the original
+    // (frozen, never-live) design. Was: core.isVerticalAdmin +
+    // core.managedVertical — discovered to be a global-admin-adjacent
+    // flag (sets `admin=true` in computeAdminScope, bypasses hasSec(),
+    // reused as an admin-gate by 3 Cloud Functions — see axioms.md §32
+    // and parking-lot.md). Now reads a brand-new, dedicated field this
+    // feature owns outright: core.isReadinessChiefOfficer. Never
+    // core.isVerticalAdmin, never core.isAdmin, never a hasSec() input —
+    // confirmed by grep, not assumed. `vertical` is hardcoded to
+    // 'military' (not read from core.managedVertical) because this flag
+    // has exactly one meaning; if a second vertical ever needs this
+    // pattern, it gets its own dedicated field, not a shared one.
     //
-    // KNOWN TRAP (David, 06.10.2026, deliberately left as-is — the
-    // direction is safe and not being changed): because this check runs
-    // LAST, an account that is BOTH a real tenantOwner/unitAdmin for some
-    // brigade AND a chief-fitness-officer (core.isVerticalAdmin+
-    // managedVertical) will ALWAYS resolve to the narrower tenantOwner/
-    // unitAdmin scope — silently, with no error. The chief-officer
-    // feature simply will not work for that account, and nothing here
-    // will tell them why. If a real dual-role account ever needs both,
-    // this precedence is the reason to look at first. See parking-lot.md.
-    if (core.isVerticalAdmin === true && typeof core.managedVertical === 'string' && core.managedVertical) {
-      const vertical = core.managedVertical;
+    // This file's own root→tenantOwner→unitAdmin precedence above is
+    // untouched and checked first, so an existing brigade officer's scope
+    // is byte-for-byte unchanged. KNOWN TRAP (David, 06.10.2026,
+    // deliberately left as-is — the direction is safe and not being
+    // changed): because this check runs LAST, an account that is BOTH a
+    // real tenantOwner/unitAdmin for some brigade AND a chief-fitness-
+    // officer (core.isReadinessChiefOfficer) will ALWAYS resolve to the
+    // narrower tenantOwner/unitAdmin scope — silently, with no error. If
+    // a real dual-role account ever needs both, this precedence is the
+    // reason to look at first. See parking-lot.md.
+    if (core.isReadinessChiefOfficer === true) {
+      const vertical: 'military' = 'military';
       const authoritiesSnap = await db.collection('authorities').select('type').get();
       const authorityIds = authoritiesSnap.docs
         .filter((d) => tenantTypeOf((d.data().type as string) ?? '') === vertical)

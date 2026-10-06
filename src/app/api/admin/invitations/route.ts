@@ -88,7 +88,7 @@ import { resolveUnitPermissionScope, UNIT_SCOPE_UNKNOWN_MESSAGE } from '@/lib/un
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const SUPPORTED_ROLES = new Set(['authority_manager', 'platform_member', 'tenant_owner', 'unit_admin']);
+const SUPPORTED_ROLES = new Set(['authority_manager', 'platform_member', 'tenant_owner', 'unit_admin', 'readiness_chief_officer']);
 const TENANT_AUTHORITY_TYPES = ['military_unit', 'school'];
 const INVITE_VALIDITY_DAYS = 7;
 
@@ -170,6 +170,18 @@ export async function computeCreateInvitation(db: Firestore, caller: Caller, bod
       return { status: 400 as const, body: { error: 'tenantId must be a real military_unit or school authority' } };
     }
     tenantId = requestedTenantId;
+  } else if (role === 'readiness_chief_officer') {
+    // 06.10.2026 ("chief fitness officer") — root-only, same gate as
+    // tenant_owner/authority_manager above. No tenantId/unitId/
+    // authorityId at all: this role's whole point is NOT being tied to
+    // one brigade. This explicit branch (and the isRootAdmin check
+    // inside it) is MANDATORY — without it, this role string would fall
+    // through every branch above with zero authorization check at all,
+    // since there is no default-deny for an unmatched (but
+    // SUPPORTED_ROLES-listed) role in this function.
+    if (!isRootAdmin(caller.email)) {
+      return { status: 403 as const, body: { error: 'Only root admins can create a readiness chief officer' } };
+    }
   } else if (role === 'unit_admin') {
     if (isRootAdmin(caller.email)) {
       // root is the final key (SPEC §10's manager-departure decision) — no
