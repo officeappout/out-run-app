@@ -51,6 +51,7 @@ import type { Firestore } from 'firebase-admin/firestore';
 import { UNIT_SCOPE_UNKNOWN_MESSAGE, type UnitPermissionScope } from '@/lib/unitPermissionScope';
 import { computeBrigadeDashboard, type DashboardComponentBreakdown, type DashboardUnitStatusBreakdown } from './readiness-dashboard.service';
 import { computeReadinessAppActivity } from './readiness-app-activity.service';
+import { computeInternalGap } from './readiness-command.util';
 
 const DENIED_MESSAGE = 'אין לך הרשאה לצפות בתצוגה זו.';
 
@@ -85,6 +86,15 @@ export interface VerticalBrigadeRow {
   nearThresholdCount: number;
   /** From computeReadinessAppActivity, same synthetic-tenantOwner-scope reuse as the dashboard numbers above — not a second calculation of anything dashboard-related, a genuinely separate metric (app-engagement, not readiness status). */
   appActivity: { totalCount: number; linkedCount: number; activeCount: number; activePercent: number | null };
+  /**
+   * 06.10.2026 (command-screen round, insight card 2 — "הפער הגדול
+   * ביותר בין גדודים") — the spread among this brigade's OWN direct-
+   * child units (battalions), computed via computeInternalGap from the
+   * SAME `units` array computeBrigadeDashboard already returned for
+   * this tenant — zero extra reads. Null when fewer than 2 battalions
+   * meet the sample floor with a determinable passPercent.
+   */
+  unitPassPercentGap: number | null;
 }
 
 export type VerticalOverviewResult =
@@ -190,10 +200,12 @@ export async function computeReadinessVerticalOverview(
         return {
           tenantId: id, tenantName: name, totalCount: 0, passCount: 0, failCount: 0, notPerformedCount: 0,
           notYetTestedCount: 0, testedCount: 0, passPercent: null, hasData: false, logoUrl,
-          trainingOverall: EMPTY_BREAKDOWN, components: [], nearThresholdCount: 0, appActivity,
+          trainingOverall: EMPTY_BREAKDOWN, components: [], nearThresholdCount: 0, appActivity, unitPassPercentGap: null,
         };
       }
-      const { overall, trainingOverall, components, nearThresholdCount } = dashboardResult.body;
+      const { overall, trainingOverall, components, units, nearThresholdCount } = dashboardResult.body;
+      const topLevelUnits = units.filter((u) => u.parentUnitId === null);
+      const unitPassPercentGap = computeInternalGap(topLevelUnits.map((u) => ({ testedCount: u.views.all.testedCount, passPercent: u.views.all.passPercent })));
       return {
         tenantId: id,
         tenantName: name,
@@ -207,6 +219,7 @@ export async function computeReadinessVerticalOverview(
         hasData: overall.totalCount > 0,
         logoUrl,
         trainingOverall,
+        unitPassPercentGap,
         components,
         nearThresholdCount,
         appActivity,
