@@ -61,9 +61,13 @@ export default function CommandFilterBar({
           <button
             key={chip.key}
             onClick={() => onComponentChange(chip.key)}
+            // 07.10.2026 (David) — military-panel palette: amber for the
+            // active/selected state (was lime, this screen's own filter
+            // bar only — not a shared component other screens use).
             className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all ${
-              component === chip.key ? 'bg-lime-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              component === chip.key ? 'text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
+            style={component === chip.key ? { backgroundColor: '#D97706' } : undefined}
           >
             {chip.label}
           </button>

@@ -8,6 +8,9 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import AdminBreadcrumb from '@/features/admin/components/AdminBreadcrumb';
 import { Loader2 } from 'lucide-react';
+import { useUserRole } from '@/features/admin/services/auth.service';
+import { getTenantLabels } from '@/features/admin/config/tenantLabels';
+import CommandHeaderStrip from '@/features/admin/components/readiness-command/CommandHeaderStrip';
 import type { VerticalBrigadeRow } from '@/features/readiness/core/services/readiness-vertical-overview.service';
 import type { DashboardUnitRow, DashboardComponentBreakdown, DashboardUnitStatusBreakdown } from '@/features/readiness/core/services/readiness-dashboard.service';
 import type { AppActivityUnitBreakdown } from '@/features/readiness/core/services/readiness-app-activity.service';
@@ -31,6 +34,24 @@ import CommandInsightCards from '@/features/admin/components/readiness-command/C
 import CommandEntityCard from '@/features/admin/components/readiness-command/CommandEntityCard';
 
 const LEVEL_LABEL_BY_UNIT_LEVEL: Record<string, string> = { battalion: 'גדודים', company: 'פלוגות', platoon: 'מחלקות' };
+
+/**
+ * 07.10.2026 (David) — role label for the header strip's "ברוך שובך"
+ * line. tenant_owner/unit_admin labels are the EXISTING military-vertical
+ * terms (tenantLabels.ts, already used by InviteMemberModal) — reused,
+ * not reinvented. root/readiness_chief_officer have no established label
+ * anywhere in this codebase (confirmed by search) — these two strings
+ * are new wording for this round, flagged in the build report.
+ */
+function resolveViewerRoleLabel(roleInfo: { isRootAdmin: boolean; isReadinessChiefOfficer: boolean; isTenantOwner: boolean; isUnitAdmin: boolean } | null): string {
+  if (!roleInfo) return '';
+  const militaryLabels = getTenantLabels('military');
+  if (roleInfo.isRootAdmin) return 'מנהל מערכת';
+  if (roleInfo.isReadinessChiefOfficer) return 'קצין כושר ראשי';
+  if (roleInfo.isTenantOwner) return militaryLabels.tenantOwnerRoleLabel ?? 'קצין כושר קרבי חטיבתי';
+  if (roleInfo.isUnitAdmin) return militaryLabels.unitAdminRoleLabel ?? 'מדא״ג גדודי';
+  return '';
+}
 
 interface DisplayRow extends CommandRankableRow {
   name: string;
@@ -134,6 +155,16 @@ async function authedFetch(path: string): Promise<{ status: number; body: any }>
 export default function ReadinessVerticalOverviewPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { roleInfo: viewerRoleInfo } = useUserRole();
+
+  // David, verbatim: "לעולם לא 'ברוך שובך david.shachar'" — core.name is
+  // ONLY treated as a real name when it's present AND distinguishable
+  // from the same crude email-prefix fallback accept-invitation/route.ts
+  // writes when nothing better is known. Indistinguishable from that
+  // fallback → show the role alone, never a fabricated-looking greeting.
+  const viewerEmailPrefix = viewerRoleInfo?.email?.split('@')[0] ?? null;
+  const viewerRealName = viewerRoleInfo?.name && viewerRoleInfo.name !== viewerEmailPrefix ? viewerRoleInfo.name : null;
+  const viewerRoleLabel = resolveViewerRoleLabel(viewerRoleInfo);
 
   const urlTenantId = searchParams.get('tenantId');
   const urlUnitId = searchParams.get('unitId');
@@ -347,14 +378,26 @@ export default function ReadinessVerticalOverviewPage() {
   }
 
   return (
-    <div dir="rtl" className="space-y-4 pb-12 max-w-7xl mx-auto px-4">
-      <AdminBreadcrumb items={breadcrumbItems} />
-      <div>
-        <h1 className="text-2xl font-black text-gray-900">מסך הפיקוד — {entityLabel}</h1>
-        <p className="text-sm text-gray-500 mt-1">תמונת מצב משווה. לחיצה על כרטיס נכנסת לרמה הבאה.</p>
-      </div>
+    // 07.10.2026 (David) — sand background for the military panel, scoped
+    // to this screen only (not a layout-level change — this round touches
+    // this ONE screen, not the admin shell); READINESS_COLORS (pass/fail/
+    // not-tested/not-performed) are untouched everywhere — "הם נושאים משמעות."
+    // A plain contained block, not an edge-to-edge bleed — this screen's
+    // parent padding/margin isn't something this round can verify
+    // without a live browser (no npm run dev), so no negative-margin
+    // trick against an unknown shell; the conservative choice.
+    <div dir="rtl" className="rounded-2xl p-4" style={{ backgroundColor: '#FAF6EF' }}>
+      <div className="space-y-4 pb-8 max-w-7xl mx-auto">
+        {/* 07.10.2026 (David) — dark header strip at the very top of the screen. */}
+        <CommandHeaderStrip
+          userName={viewerRealName}
+          userRoleLabel={viewerRoleLabel}
+          screenName={`מסך הפיקוד — ${entityLabel}`}
+          screenDescription="תמונת מצב משווה. לחיצה על כרטיס נכנסת לרמה הבאה."
+        />
+        <AdminBreadcrumb items={breadcrumbItems} />
 
-      {/* 07.10.2026 (David) — filter row ABOVE the summary strip; was reversed. */}
+        {/* 07.10.2026 (David) — filter row ABOVE the summary strip; was reversed. */}
       <CommandFilterBar
         sortKey={sortKey}
         direction={direction}
@@ -407,6 +450,7 @@ export default function ReadinessVerticalOverviewPage() {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }
