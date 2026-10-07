@@ -985,3 +985,197 @@ export function prependWarmupExercises(
     );
   }
 }
+
+// ============================================================================
+// LATE PUSH/PULL COVERAGE BACKFILL (2026-10-07)
+// ============================================================================
+
+/**
+ * Generalizes the Mandatory Legs Guarantee above to push/pull — but called
+ * from a LATER point in the pipeline (home-workout.service.ts, after
+ * enforceVolumeCap's Phase D reserve top-up AND runSkillRepresentationGuarantee
+ * have both already run), so it sees the TRUE final main-exercise list.
+ *
+ * Root cause this closes (investigation, 2026-10-06): `prependWarmupExercises`
+ * decides which broad patterns to warm up from an EARLY main-exercise
+ * snapshot (home-workout.service.ts, before its own call). Two later
+ * mutations can still change which patterns end up in the FINAL main list
+ * without warmup ever re-checking: enforceVolumeCap's Phase D reserve-pool
+ * top-up, and runSkillRepresentationGuarantee (deliberately positioned late,
+ * "before the final sort, so nothing downstream can silently undo the
+ * injection" — its own comment). Reproduced live: a combined calisthenics_upper
+ * session (planche+front_lever) warmed up `[pull]` only — `prependWarmupExercises`
+ * ran while main was still pull-only; the push/planche exercise arrived after,
+ * via one of the two mutators above. The existing Mandatory Legs Guarantee
+ * (same file, above) already covers exactly this failure MODE for legs,
+ * because it happens to run early enough (before prependWarmupExercises'
+ * own time-aware trim) that a late legs gap doesn't apply to it — legs
+ * never moves after that point. Push/pull can, which is why they needed a
+ * SEPARATE, later-running check instead of just widening the existing one.
+ *
+ * Deliberately NOT a full re-run of `prependWarmupExercises` (that would
+ * re-add Part A's general-mobility slot and double it) and deliberately NOT
+ * a shared extraction of its Part-B closures (findCandidates/familyFirstPick/
+ * addToBlock all close over that function's own local state) — this mirrors
+ * the Mandatory Legs Guarantee's OWN mechanism (single forced activation
+ * slot, same three-tier candidate fallback, same `familyFirstPick`-shaped
+ * preference for a warmup-role/location-matched candidate) as a small,
+ * self-contained, independently-reviewable duplicate, scoped to push/pull
+ * only — legs is untouched and un-duplicated, still owned solely by the
+ * guarantee above.
+ *
+ * Time-budget care (explicit instruction: keep warmup's time-budget math
+ * intact): reuses `warmupSlotBudget` — the SAME slot ceiling
+ * `prependWarmupExercises`' own trim enforces — and skips the backfill
+ * entirely once that ceiling is already reached, rather than silently
+ * exceeding it. Unlike the Mandatory Legs Guarantee (which adds BEFORE the
+ * time-aware trim and so still gets swept into that check), this runs after
+ * everything else with no later trim to catch an over-budget add — so it
+ * checks the ceiling itself instead of relying on a downstream pass that no
+ * longer exists at this point in the pipeline.
+ */
+export function backfillMissingPatternWarmup(
+  workout: GeneratedWorkout,
+  allExercises: Exercise[],
+  userProgramLevels: Map<string, number>,
+  resolvedChildDomains: string[],
+  location: ExecutionLocation,
+  availableEquipment?: string[],
+  availableTimeMin?: number,
+  idToSlug?: Map<string, string>,
+): void {
+  if (idToSlug) {
+    allExercises = allExercises.filter((ex) => isExerciseSkillEligible(ex, userProgramLevels, idToSlug));
+  }
+
+  const mainExercises = workout.exercises.filter(
+    (ex) => ex.exerciseRole !== 'warmup' && ex.exerciseRole !== 'cooldown',
+  );
+  if (mainExercises.length === 0) return;
+
+  const activeBroadPatterns = new Set<string>();
+  for (const we of mainExercises) {
+    const p = MG_TO_BROAD_PATTERN[we.exercise.movementGroup ?? ''];
+    if (p) activeBroadPatterns.add(p);
+  }
+
+  const primedBroadPatterns = new Set<string>();
+  for (const we of workout.exercises) {
+    if (we.exerciseRole !== 'warmup') continue;
+    const p = MG_TO_BROAD_PATTERN[we.exercise.movementGroup ?? ''];
+    if (p) primedBroadPatterns.add(p);
+  }
+
+  // Scoped to push/pull only — legs is already owned by the Mandatory Legs
+  // Guarantee above, at its own (earlier) position; duplicating it here
+  // would double-fire.
+  const missing = (['push', 'pull'] as const).filter(
+    (p) => activeBroadPatterns.has(p) && !primedBroadPatterns.has(p),
+  );
+  if (missing.length === 0) return;
+
+  const maxSlots = warmupSlotBudget(availableTimeMin);
+  let currentSlotCount = workout.exercises.filter((ex) => ex.exerciseRole === 'warmup').length;
+  if (currentSlotCount >= maxSlots) {
+    console.warn(
+      `[Warmup] Late backfill skipped for [${missing.join(', ')}] — already at slot budget ` +
+      `(${currentSlotCount}/${maxSlots}) for ${availableTimeMin ?? '∞'}min`,
+    );
+    return;
+  }
+
+  const workoutIds = new Set(workout.exercises.map((e) => e.exercise.id));
+  const activeMainGear = buildActiveMainGear(mainExercises);
+  const maxUserLevel = userProgramLevels.size > 0
+    ? Math.max(...Array.from(userProgramLevels.values()))
+    : 1;
+
+  const passesEquipmentAndLocation = (ex: Exercise): boolean => {
+    const methods = ex.execution_methods || ex.executionMethods || [];
+    const method = CONTEXT_AWARE_SELECTION_ENABLED
+      ? selectMethodForContext(ex, location, availableEquipment ?? [])
+      : methods.find((m) => m.location === location || m.location === 'home' || m.locationMapping?.includes(location));
+    if (!method) return false;
+    return isGearContextuallyAllowed(method as ExecutionMethod, activeMainGear);
+  };
+
+  const getExDomainLevel = (ex: Exercise): number => {
+    if (!ex.targetPrograms?.length) return maxUserLevel;
+    for (const tp of ex.targetPrograms) {
+      const lvl = userProgramLevels.get(tp.programId) ?? userProgramLevels.get(resolveToSlug(tp.programId));
+      if (lvl !== undefined) return lvl;
+    }
+    return maxUserLevel;
+  };
+
+  for (const pattern of missing) {
+    if (currentSlotCount >= maxSlots) break;
+
+    const mgsForPattern = Object.entries(MG_TO_BROAD_PATTERN)
+      .filter(([, p]) => p === pattern)
+      .map(([mg]) => mg);
+
+    for (const mg of mgsForPattern) {
+      const basePool = allExercises.filter((ex) => !workoutIds.has(ex.id) && ex.movementGroup === mg);
+      const zone = getSlotZone(maxUserLevel, 1, 1) ?? { min: 1, max: 1 };
+
+      // Same three-tier fallback as findCandidates() above (strict zone →
+      // relaxed zone → warmup-role, location ignored), inlined rather than
+      // shared — see the function doc comment for why.
+      let pool = basePool.filter((ex) => {
+        const lvl = getExDomainLevel(ex);
+        const raw = ex.recommendedLevel ?? ex.targetPrograms?.[0]?.level ?? 0;
+        const num = typeof raw === 'number' ? raw : 0;
+        return num >= zone.min && num <= zone.max && num <= lvl && passesEquipmentAndLocation(ex);
+      });
+      if (pool.length === 0) {
+        pool = basePool.filter((ex) => isPotentiationCandidate(ex, maxUserLevel) && passesEquipmentAndLocation(ex));
+      }
+      if (pool.length === 0) {
+        pool = basePool.filter(
+          (ex) => ex.exerciseRole === 'warmup' && (ex.execution_methods ?? ex.executionMethods ?? []).length > 0,
+        );
+      }
+
+      const chosen = pickWithVariety(pool);
+      if (!chosen) continue;
+
+      const methods = chosen.execution_methods || chosen.executionMethods || [];
+      const method = CONTEXT_AWARE_SELECTION_ENABLED
+        ? selectMethodForContext(chosen, location, availableEquipment ?? [])
+        : (methods.find((m) => m.location === location || m.location === 'home' || m.locationMapping?.includes(location)) ?? methods[0]);
+      if (!method) continue;
+
+      const isTimeBased = isTimeBasedExercise(chosen);
+      const range = isTimeBased ? WARMUP_HOLD_SECONDS : ACTIVATION_REPS;
+      const reps = range.min + Math.floor(Math.random() * (range.max - range.min + 1));
+      const programLevel = resolveExerciseLevelForDomains(chosen, resolvedChildDomains).level;
+      const levelDelta = programLevel - getExDomainLevel(chosen);
+
+      workout.exercises.push({
+        exercise: { ...chosen, exerciseRole: 'warmup' as const },
+        method,
+        mechanicalType: (chosen.mechanicalType || 'none') as any,
+        sets: 1,
+        reps,
+        repsRange: isTimeBased ? WARMUP_HOLD_SECONDS : range,
+        isTimeBased,
+        restSeconds: WARMUP_REST_SECONDS,
+        priority: 'accessory' as const,
+        score: 0,
+        reasoning: [`warmup: activation (${pattern}) [mandatory-backfill, post-late-mutators]`],
+        exerciseRole: 'warmup' as const,
+        programLevel,
+        levelDelta,
+        tier: resolveTier(levelDelta),
+      });
+      recordWarmupPick(chosen.id);
+      workoutIds.add(chosen.id);
+      currentSlotCount++;
+      console.warn(
+        `[Warmup] Mandatory ${pattern} backfill fired (post-late-mutators) → "${chosen.name?.he ?? chosen.id}"`,
+      );
+      break; // one forced slot per missing pattern, same as Mandatory Legs
+    }
+  }
+}
