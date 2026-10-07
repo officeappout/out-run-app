@@ -489,13 +489,41 @@ const SKILL_NAME_PATTERNS = [
   /front[\s_-]?lever/i, /פרונט\s?לבר/i, /מנוף\s?קדמי/i,
   /human[\s_-]?flag/i, /דגל\s?אנושי/i, /דגל/i,
   /muscle[\s_-]?up/i, /מאסל\s?אפ/i, /מאסלאפ/i,
-  /planche/i, /פלאנש/i,
+  // Catalog consistently spells this "פלאנץ׳" (tsadi+geresh) -- the old
+  // /פלאנש/i (shin) never matched a single real exercise (confirmed live
+  // against all 25 planche-tagged catalog rows, 2026-10-06 investigation).
+  // Kept as a harmless no-op in case some future row uses that spelling;
+  // /פלאנץ/i is the pattern that actually matches today's data.
+  /planche/i, /פלאנש/i, /פלאנץ/i,
 ];
+
+// Source of truth for "which program IDs are a skill track" — the SAME map
+// every other domain-resolution function in the engine already uses
+// (resolveExerciseDomain, isDomainAncestorRelated, the admin audit page).
+// Reused here rather than introducing a second list: name-substring
+// matching alone was the root cause of classifyPriority() silently never
+// returning 'skill' for planche/muscle_up/one_arm_pullup/handstand/
+// handstand_pushup (0/25, 0/14, 0/27, 0/4, 0/8 respectively, confirmed live
+// 2026-10-06) -- planche because of the spelling gap above, the other four
+// because SKILL_NAME_PATTERNS never had an entry for them at all, and their
+// own accessory/progression exercises (e.g. muscle-up swing prep) aren't
+// named with the skill's name regardless. targetPrograms membership is
+// authoritative and catalog-data-driven; it can't miss on spelling or on an
+// accessory exercise that was correctly tagged but never literally named
+// after the skill.
+const SKILL_PROGRAM_SLUGS = new Set(Object.keys(DOMAIN_RESOLUTION_SKILL_PARENT_MAP));
 
 function isSkillExercise(exercise: Exercise): boolean {
   const tags = exercise.tags || [];
   if (tags.includes('skill')) return true;
 
+  if (exercise.targetPrograms?.some(tp => SKILL_PROGRAM_SLUGS.has(resolveToSlug(tp.programId)))) {
+    return true;
+  }
+
+  // Name-pattern matching kept as a secondary signal (e.g. a skill exercise
+  // not yet tagged with any targetPrograms entry) -- no longer the primary
+  // or sole gate.
   const nameHe = (exercise.name as any)?.he ?? '';
   const nameEn = (exercise.name as any)?.en ?? exercise.name ?? '';
 
