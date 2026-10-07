@@ -17,6 +17,7 @@ import UnitReadinessTable from '@/features/admin/components/readiness-dashboard/
 import NearThresholdCard from '@/features/admin/components/readiness-dashboard/NearThresholdCard';
 import AppActivityCard from '@/features/admin/components/readiness-dashboard/AppActivityCard';
 import FailToPassTransitionCard from '@/features/admin/components/readiness-dashboard/FailToPassTransitionCard';
+import TrainingWeeklyShiftStrip from '@/features/admin/components/readiness-dashboard/TrainingWeeklyShiftStrip';
 import SearchableSelect from '@/features/admin/components/SearchableSelect';
 import type {
   DashboardOverallBreakdown,
@@ -107,6 +108,37 @@ async function fetchReadinessAppActivity(
   }
 }
 
+/**
+ * 07.10.2026 — the training-derived weekly-shift strip. Fetched/failed
+ * independently of fetchReadinessDashboard/fetchReadinessAppActivity
+ * above, same reasoning: a failure here must never block the actual
+ * readiness numbers (or the app-activity strip) from rendering.
+ */
+async function fetchTrainingWeeklyShift(
+  tenantId: string,
+): Promise<{ becameFitCount: number; nearThresholdCount: number; stayedFitCount: number; droppedCount: number; determinableCount: number } | null> {
+  try {
+    const user = auth.currentUser;
+    if (!user) return null;
+    const idToken = await user.getIdToken();
+    const res = await fetch(`/api/units/readiness/training-weekly-shift?tenantId=${encodeURIComponent(tenantId)}`, {
+      headers: { Authorization: `Bearer ${idToken}` },
+    });
+    if (!res.ok) return null;
+    const body = await res.json().catch(() => null);
+    if (!body) return null;
+    return {
+      becameFitCount: body.becameFitCount ?? 0,
+      nearThresholdCount: body.nearThresholdCount ?? 0,
+      stayedFitCount: body.stayedFitCount ?? 0,
+      droppedCount: body.droppedCount ?? 0,
+      determinableCount: body.determinableCount ?? 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
 const ACTIVE_WINDOW_DAYS = 30;
 
 const AUTHORITY_STORAGE_KEY = 'admin_selected_authority_id';
@@ -164,6 +196,7 @@ export default function AdminDashboardPage() {
   const [readinessNearThresholdOnly, setReadinessNearThresholdOnly] = useState(false);
   const [readinessError, setReadinessError] = useState<string | null>(null);
   const [readinessAppActivity, setReadinessAppActivity] = useState<Awaited<ReturnType<typeof fetchReadinessAppActivity>>>(null);
+  const [trainingWeeklyShift, setTrainingWeeklyShift] = useState<Awaited<ReturnType<typeof fetchTrainingWeeklyShift>>>(null);
 
   // 06.10.2026 — true for root OR a readiness chief officer: anyone with
   // no own brigade who can switch between every military tenant from
@@ -260,9 +293,10 @@ export default function AdminDashboardPage() {
       setAuthorityName(aName);
 
       if (resolvedTenantType === 'military') {
-        const [result, appActivity] = await Promise.all([
+        const [result, appActivity, weeklyShift] = await Promise.all([
           fetchReadinessDashboard(aId),
           fetchReadinessAppActivity(aId),
+          fetchTrainingWeeklyShift(aId),
         ]);
         setReadinessOverall(result.overall);
         setReadinessComponents(result.components);
@@ -270,6 +304,7 @@ export default function AdminDashboardPage() {
         setReadinessNearThresholdCount(result.nearThresholdCount);
         setReadinessError(result.error);
         setReadinessAppActivity(appActivity);
+        setTrainingWeeklyShift(weeklyShift);
         return;
       }
 
@@ -431,6 +466,23 @@ export default function AdminDashboardPage() {
                   eligibleCount={readinessAppActivity.failToPassEligibleCount}
                 />
               </div>
+            )}
+
+            {/* 07.10.2026 — training-derived weekly shift, same "render
+                even on failure to load, never block the real readiness
+                numbers" rule as the app-activity row above. A SEPARATE
+                strip, not folded into the row above it — deliberately
+                distinct component/wording from NearThresholdCard/
+                FailToPassTransitionCard (both official-test-based), see
+                TrainingWeeklyShiftStrip.tsx's own header comment. */}
+            {trainingWeeklyShift && (
+              <TrainingWeeklyShiftStrip
+                becameFitCount={trainingWeeklyShift.becameFitCount}
+                nearThresholdCount={trainingWeeklyShift.nearThresholdCount}
+                stayedFitCount={trainingWeeklyShift.stayedFitCount}
+                droppedCount={trainingWeeklyShift.droppedCount}
+                determinableCount={trainingWeeklyShift.determinableCount}
+              />
             )}
 
             {/* 03.10.2026 — David's visual-fix round: one row, equal-
