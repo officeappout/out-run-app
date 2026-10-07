@@ -17,9 +17,10 @@
  *
  * Scope caveat, inherent to the data, not a bug here: only the senders
  * that call `sendPush()` with `measurement` write to `push_events` at
- * all (3 of 12 as of 04.10.2026 — stepGoalNudgeScheduler,
- * onPlannedActivityCreated, trainingReminderScheduler). This funnel can
- * only ever reflect those senders until more are measured.
+ * all (5 as of 07.10.2026 — stepGoalNudgeScheduler, onPlannedActivityCreated,
+ * trainingReminderScheduler, and both reminderSweepScheduler passes — see
+ * push-catalog.service.ts for the full, current catalog and count). This
+ * funnel can only ever reflect those senders until more are measured.
  *
  * `startedWorkout` matches `post_push_outcome` docs where
  * `outcomeType === 'workout_started' && goalCompleted === true` back to

@@ -117,6 +117,12 @@ import PushFunnelSection, {
   type PushFunnelSummaryResponse,
 } from '@/features/admin/components/cpo-dashboard/PushFunnelSection';
 
+// New this PR (07.10.2026, push-performance instrumentation Step 2) —
+// self-contained (owns its own filter state + fetch, see its own header
+// comment for why), sits alongside PushFunnelSection rather than inside
+// the page's lifted-state pattern.
+import PushPerformanceSection from '@/features/admin/components/cpo-dashboard/PushPerformanceSection';
+
 // New this PR — surfaces the scheduling/commitment surfaces mapped in
 // scheduling-capability-audit.md (reminders, schedule-entry times, map "+"
 // planned sessions, group check-ins). Same reuse-don't-rebuild rule as
@@ -671,6 +677,7 @@ export default function JourneyHubPage() {
           )}
 
           <PushFunnelSection data={pushFunnel} loading={staticLoading} denied={pushFunnelDenied} />
+          <PushPerformanceSection />
           <CommitmentSurfacesSection data={commitmentSurfaces} loading={staticLoading} denied={commitmentSurfacesDenied} />
         </div>
       )}

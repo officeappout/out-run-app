@@ -97,19 +97,39 @@ async function checkWalkingGoal(uid: string, openedAtMillis: number): Promise<bo
   return Number.isFinite(steps) && steps >= goal;
 }
 
-/** Generic check — did the user complete any workout inside the window of
+/**
+ * Generic check — did the user complete any workout inside the window of
  * open. Uses the existing `workouts` (userId ASC, date DESC) composite
- * index — no new index required. */
-async function checkWorkoutStartedWithinWindow(uid: string, openedAtMillis: number, windowHours: number): Promise<boolean> {
+ * index — `orderBy('date','asc')` reads the same index in the other
+ * direction, no new index required.
+ *
+ * Returns the matched workout's own `date` as `actionAt` (07.10.2026,
+ * push-performance instrumentation) instead of discarding it — this is the
+ * ONE piece previously missing to compute "time to action" for this
+ * outcome type; `writePostPushOutcomeEvent` used to persist only a boolean.
+ * `orderBy` added so a multi-match window returns the EARLIEST workout
+ * (first real action after open), not an arbitrary one.
+ */
+async function checkWorkoutStartedWithinWindow(
+  uid: string,
+  openedAtMillis: number,
+  windowHours: number,
+): Promise<{ achieved: boolean; actionAt: admin.firestore.Timestamp | null }> {
   const { startMillis, endMillis } = computeOutcomeWindowBounds(openedAtMillis, windowHours);
   const snap = await db
     .collection('workouts')
     .where('userId', '==', uid)
     .where('date', '>=', admin.firestore.Timestamp.fromMillis(startMillis))
     .where('date', '<=', admin.firestore.Timestamp.fromMillis(endMillis))
+    .orderBy('date', 'asc')
     .limit(1)
     .get();
-  return !snap.empty;
+  if (snap.empty) return { achieved: false, actionAt: null };
+  const matchedDate = (snap.docs[0].data() as Record<string, unknown>).date;
+  return {
+    achieved: true,
+    actionAt: matchedDate instanceof admin.firestore.Timestamp ? matchedDate : null,
+  };
 }
 
 /** Dispatch — the one place that decides which checker applies. */
@@ -119,15 +139,17 @@ async function resolveOutcome(opts: {
   activityType?: string;
   openedAtMillis: number;
   windowHours: number;
-}): Promise<{ achieved: boolean; outcomeType: OutcomeType }> {
+}): Promise<{ achieved: boolean; outcomeType: OutcomeType; actionAt: admin.firestore.Timestamp | null }> {
   const outcomeType = resolveOutcomeType(opts.category, opts.activityType);
   if (outcomeType === 'daily_step_goal') {
-    return { achieved: await checkWalkingGoal(opts.uid, opts.openedAtMillis), outcomeType };
+    // No actionAt here, by design, not an oversight: `dailyActivity.steps`
+    // is a running daily counter with no record of the instant it crossed
+    // the goal threshold — there is no real timestamp to report. Leaving
+    // this null is more honest than fabricating one (e.g. end-of-day).
+    return { achieved: await checkWalkingGoal(opts.uid, opts.openedAtMillis), outcomeType, actionAt: null };
   }
-  return {
-    achieved: await checkWorkoutStartedWithinWindow(opts.uid, opts.openedAtMillis, opts.windowHours),
-    outcomeType,
-  };
+  const result = await checkWorkoutStartedWithinWindow(opts.uid, opts.openedAtMillis, opts.windowHours);
+  return { achieved: result.achieved, outcomeType, actionAt: result.actionAt };
 }
 
 export const pushOutcomeSweeper = onSchedule(
@@ -190,7 +212,12 @@ export const pushOutcomeSweeper = onSchedule(
           openedAtMillis: openedAt.toMillis(),
           windowHours,
         });
-        await writePostPushOutcomeEvent({ pushSentDoc: doc, outcomeAchieved: result.achieved, outcomeType: result.outcomeType });
+        await writePostPushOutcomeEvent({
+          pushSentDoc: doc,
+          outcomeAchieved: result.achieved,
+          outcomeType: result.outcomeType,
+          actionAt: result.actionAt,
+        });
         checked++;
         if (result.achieved) achieved++;
         byType[result.outcomeType] = (byType[result.outcomeType] ?? 0) + 1;
