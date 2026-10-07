@@ -1423,6 +1423,22 @@ function AdminLayoutInner({
                             ONLY opt-out — do not invent a second one, and
                             do not patch around this by adding `!text-white`
                             at the component (it will still lose).
+
+                            07.10.2026 (David, round 2) — the opt-out does
+                            MORE than cancel the force: it also DECLARES a
+                            light default (`:where([data-dark-surface]) {
+                            color: #fff }`) on the marked element itself.
+                            Without that, a marked element's own text would
+                            still be fine, but a CHILD inside it with no
+                            color of its own would inherit black from
+                            OUTSIDE the marked surface, right past the
+                            opt-out, and go invisible again — same bug,
+                            one layer deeper. The declared white default is
+                            what a bare, colorless future element inherits
+                            INSTEAD. Any real color already on that exact
+                            element (a class, an inline style) still wins
+                            outright — this only fills the gap when nothing
+                            else does.
                         */}
                         <div
                             className={`min-w-0 text-slate-900 ${lightLockStyles.contentLightLock}`}
