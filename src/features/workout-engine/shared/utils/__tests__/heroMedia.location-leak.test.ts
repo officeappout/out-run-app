@@ -43,7 +43,13 @@ describe('resolveHeroMedia — no cross-location leak', () => {
     const ex = { exercise: homeOnlyExercise() } as any;
     const { videoUrl, thumbnailUrl } = resolveHeroMedia(ex, 'home');
     expect(videoUrl).toBe('');
-    expect(thumbnailUrl).toBeTruthy(); // generic fallback, not undefined/crash
+    // Rebased 07.10.2026 onto the 01.10.2026 resolveExerciseMedia migration,
+    // which deliberately removed this function's own generic stock-photo
+    // fallback (see the function's header comment) — the caller
+    // (HeroMediaBackground/HeroWorkoutCard) renders an on-brand gradient on
+    // an empty thumbnailUrl instead. '' is correct today, not a regression
+    // of this fix's own intent (no cross-location leak, still true here).
+    expect(thumbnailUrl).toBe('');
   });
 
   it('exact-location match with real media is unaffected (no false positive)', () => {
