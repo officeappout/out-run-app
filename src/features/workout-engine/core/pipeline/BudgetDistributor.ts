@@ -37,6 +37,7 @@ import {
 } from '../../logic/workout-budgeting.utils';
 import { resolveTierSubOrder } from '../../logic/workout-sorting.utils';
 import { MG_TO_DOMAIN } from '../../shared/constants/domain-mapping.constants';
+import { resolveToSlug } from '../../services/program-hierarchy.utils';
 import type { BudgetConstraints } from './pipeline.types';
 
 // ============================================================================
@@ -239,11 +240,15 @@ export class BudgetDistributor {
     // blast/AMRAP (floor 1), where a single set is legitimate.
     const structureFloor = context.availableTime > 10 && context.intentMode !== 'blast' ? 2 : 1;
 
+    // Resolved once, passed to every _pyramidAwareCap call below — see that
+    // method's own comment for why.
+    const targetSkillIds = new Set(context.selectedSkillIds ?? []);
+
     // ── Step 3: Hard absolute cap (context.maxSets) ──────────────────────────
     // Pyramid exercises are immune — only straight-set exercises are trimmed.
     if (constraints.maxSets != null && constraints.maxSets > 0) {
       const before = exercises.reduce((s, e) => s + e.sets, 0);
-      exercises = this._pyramidAwareCap(exercises, constraints.maxSets, safeDenominator, structureFloor);
+      exercises = this._pyramidAwareCap(exercises, constraints.maxSets, safeDenominator, structureFloor, targetSkillIds);
       const after = exercises.reduce((s, e) => s + e.sets, 0);
       if (after < before) {
         log.push(`max_sets_cap: ${before} → ${after} (cap=${constraints.maxSets})`);
@@ -253,7 +258,7 @@ export class BudgetDistributor {
     // ── Step 4: Weekly budget cap ────────────────────────────────────────────
     if (constraints.remainingWeeklyBudget != null && constraints.remainingWeeklyBudget > 0) {
       const before = exercises.reduce((s, e) => s + e.sets, 0);
-      exercises = this._pyramidAwareCap(exercises, constraints.remainingWeeklyBudget, safeDenominator, structureFloor);
+      exercises = this._pyramidAwareCap(exercises, constraints.remainingWeeklyBudget, safeDenominator, structureFloor, targetSkillIds);
       const after = exercises.reduce((s, e) => s + e.sets, 0);
       if (after < before) {
         log.push(`weekly_budget_cap: ${before} → ${after} (remaining=${constraints.remainingWeeklyBudget})`);
@@ -264,7 +269,7 @@ export class BudgetDistributor {
     if (constraints.dailySetBudget != null && constraints.dailySetBudget > 0) {
       const preCap = exercises.reduce((s, e) => s + e.sets, 0);
       if (preCap > constraints.dailySetBudget) {
-        exercises = this._pyramidAwareCap(exercises, constraints.dailySetBudget, safeDenominator, structureFloor);
+        exercises = this._pyramidAwareCap(exercises, constraints.dailySetBudget, safeDenominator, structureFloor, targetSkillIds);
         const postCap = exercises.reduce((s, e) => s + e.sets, 0);
         log.push(`daily_budget_cap: ${preCap} → ${postCap} (budget=${constraints.dailySetBudget})`);
       }
@@ -401,11 +406,28 @@ export class BudgetDistributor {
     cap: number,
     safeDenominator: number,
     structureFloor: number = 1,
+    targetSkillIds?: Set<string>,
   ): WorkoutExercise[] {
     // Identification is structural-only: the `appliedProtocol` string is NOT
     // reliable at budget time (it may be injected after this pass runs).
     const isPyramid = (e: WorkoutExercise): boolean =>
       e.pyramidSequence != null && e.pyramidSequence.length > 0;
+
+    // Skill-aware drop (2026-10-07 investigation — under-fill fix, 4th
+    // layer). `context.selectedSkillIds` is the user's actually-selected
+    // skills (same field PR #182's reservation and PR #179's — parked —
+    // diversity-pass fix already key off) — reused here, not re-derived.
+    // Undefined/empty when no caller passes it, or when the session has no
+    // skill selection at all (e.g. a plain full_body session) — the DROP
+    // branch below then degrades to its original pure-score order exactly.
+    const exerciseTargetSkill = (e: WorkoutExercise): string | undefined => {
+      if (!targetSkillIds || targetSkillIds.size === 0) return undefined;
+      for (const tp of e.exercise.targetPrograms ?? []) {
+        const slug = resolveToSlug(tp.programId);
+        if (targetSkillIds.has(slug)) return slug;
+      }
+      return undefined;
+    };
 
     const totalSets = exercises.reduce((s, e) => s + e.sets, 0);
     if (totalSets <= cap) return exercises;
@@ -453,9 +475,20 @@ export class BudgetDistributor {
       // Keep the highest-score exercises the budget can afford at the floor, DROP the
       // rest. Pin survivors UP to the floor so a pre-thinned 1-set input can never
       // survive below floor (keep×floor ≤ straightTarget, so this never overspends).
+      // Target-skill exercises sort first — a higher-scoring non-target
+      // exercise (e.g. a one_arm_pullup accessory riding the shared 'pull'
+      // budget) must not drop a planche/front_lever pick the user actually
+      // selected, just because it scored lower. Score remains the tiebreaker
+      // within each bucket, and the sole tiebreaker when no skill was
+      // selected at all.
       const keep = Math.max(1, Math.floor(straightTarget / structureFloor));
       finalStraight = [...mutable]
-        .sort((a, b) => b.score - a.score)
+        .sort((a, b) => {
+          const aTarget = exerciseTargetSkill(a) !== undefined ? 1 : 0;
+          const bTarget = exerciseTargetSkill(b) !== undefined ? 1 : 0;
+          if (aTarget !== bTarget) return bTarget - aTarget;
+          return b.score - a.score;
+        })
         .slice(0, keep)
         .map(e =>
           e.sets < structureFloor
@@ -471,12 +504,17 @@ export class BudgetDistributor {
     }
 
     // Merge pyramid (unchanged) + trimmed straight-set exercises, preserving
-    // the original insertion order from the input array.
+    // the original insertion order from the input array. Exercises excluded
+    // from `finalStraight` by the DROP branch above must stay excluded here —
+    // a `?? e` fallback to the original, untrimmed input would silently
+    // un-drop them at their full original `sets` (pre-existing bug, found
+    // 2026-10-07: the DROP branch never actually dropped anything, since
+    // every "dropped" exercise reappeared via this fallback).
     const byId = new Map<string, WorkoutExercise>();
     for (const e of [...pyramidExes, ...finalStraight]) {
       byId.set(e.exercise.id, e);
     }
-    return exercises.map(e => byId.get(e.exercise.id) ?? e);
+    return exercises.filter(e => byId.has(e.exercise.id)).map(e => byId.get(e.exercise.id)!);
   }
 
   /**
@@ -771,6 +809,10 @@ export class BudgetDistributor {
         ? 2
         : 1;
 
+    // Same as distribute() — undefined/empty when no context is passed,
+    // degrading the DROP branch to its original pure-score order.
+    const targetSkillIds = new Set(context?.selectedSkillIds ?? []);
+
     let result = [...exercises];
     const log: string[] = [];
 
@@ -794,7 +836,7 @@ export class BudgetDistributor {
     // ── Budget caps — pyramid-aware (never clip pyramid steps) ────────────
     if (constraints.maxSets != null && constraints.maxSets > 0) {
       const before = result.reduce((s, e) => s + e.sets, 0);
-      result = this._pyramidAwareCap(result, constraints.maxSets, safeDenominator, structureFloor);
+      result = this._pyramidAwareCap(result, constraints.maxSets, safeDenominator, structureFloor, targetSkillIds);
       const after = result.reduce((s, e) => s + e.sets, 0);
       if (after < before) log.push(`reapply_max_sets: ${before}→${after}`);
     }
@@ -806,7 +848,7 @@ export class BudgetDistributor {
       const total = result.reduce((s, e) => s + e.sets, 0);
       if (total > constraints.remainingWeeklyBudget) {
         const before = total;
-        result = this._pyramidAwareCap(result, constraints.remainingWeeklyBudget, safeDenominator, structureFloor);
+        result = this._pyramidAwareCap(result, constraints.remainingWeeklyBudget, safeDenominator, structureFloor, targetSkillIds);
         log.push(`reapply_weekly: ${before}→${result.reduce((s, e) => s + e.sets, 0)}`);
       }
     }
@@ -815,7 +857,7 @@ export class BudgetDistributor {
       const total = result.reduce((s, e) => s + e.sets, 0);
       if (total > constraints.dailySetBudget) {
         const before = total;
-        result = this._pyramidAwareCap(result, constraints.dailySetBudget, safeDenominator, structureFloor);
+        result = this._pyramidAwareCap(result, constraints.dailySetBudget, safeDenominator, structureFloor, targetSkillIds);
         log.push(`reapply_daily: ${before}→${result.reduce((s, e) => s + e.sets, 0)} (cap=${constraints.dailySetBudget})`);
       }
     }
