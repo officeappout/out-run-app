@@ -828,6 +828,58 @@ export class WorkoutGenerator {
     const diversePrimary: (typeof rawSelected)[number][] = [];
     const usedIdsDiversity = new Set<string>();
 
+    // ── Skill-aware diversity (2026-10-07 investigation — under-fill fix) ───
+    //
+    // The flat 1-per-movement-group cap below has no concept of "the user's
+    // OWN selected skill" vs "some other skill that happens to share a
+    // movement group" — a combined planche+front_lever session was found to
+    // cap at exactly 1 planche + 1 front_lever exercise, with the REMAINING
+    // capacity (confirmed live: unlimited even at 60min) going to whichever
+    // other skill (one_arm_pullup, muscle_up, handstand_pushup) scored well
+    // on the shared vertical_pull/horizontal_push bucket, not to more
+    // planche/front_lever variety. The ≤4-sets-per-exercise cap
+    // (workout-budgeting.utils.ts) is correct and untouched — a skill
+    // session should be MANY varied exercises × ~4 sets, not one overloaded
+    // exercise. This is the other half: exercises-per-skill must be driven
+    // by the skill's own volume budget ÷ ~4, not a flat 1.
+    //
+    // `context.selectedSkillIds` (straight from progression.skillFocusIds,
+    // already threaded in for runSkillRepresentationGuarantee) is the
+    // session's real target-skill list — reused here, not re-derived.
+    // `DOMAIN_RESOLUTION_SKILL_PARENT_MAP`'s keys are reused as "the known
+    // skill slugs" (same set resolveExerciseDomain/isDomainAncestorRelated
+    // already use) to tell a target skill's exercise apart from an
+    // incidentally-eligible OTHER skill's — no new list introduced.
+    const targetSkillIds = new Set(context.selectedSkillIds ?? []);
+    const SKILL_PROGRAM_SLUGS = new Set(Object.keys(DOMAIN_RESOLUTION_SKILL_PARENT_MAP));
+    const exerciseTargetSkill = (ex: Exercise): string | undefined => {
+      for (const tp of ex.targetPrograms ?? []) {
+        const slug = resolveToSlug(tp.programId);
+        if (targetSkillIds.has(slug)) return slug;
+      }
+      return undefined;
+    };
+    const exerciseIsOtherSkill = (ex: Exercise): boolean =>
+      (ex.targetPrograms ?? []).some((tp) => {
+        const slug = resolveToSlug(tp.programId);
+        return SKILL_PROGRAM_SLUGS.has(slug) && !targetSkillIds.has(slug);
+      });
+    // Per-target-skill exercise quota: daily volume budget ÷ the ≤4
+    // sets-per-exercise cap (≈2 exercises/skill to reach ~8 sets/day),
+    // minimum 1 so a skill with no resolvable budget degrades to today's
+    // behavior instead of zero. `domainBudgets` carries the real per-skill
+    // daily figure for a combined/master session (PR #168); a single-skill
+    // (non-master) session has no `domainBudgets` entry at all, so this
+    // falls back to `dailySetBudget` — that session's own real lead-program
+    // daily budget (resolveActiveProgramBudget → real PLS data, PR #154),
+    // not a guess.
+    const skillExerciseQuota = new Map<string, number>();
+    for (const skillId of Array.from(targetSkillIds)) {
+      const domainDaily = context.domainBudgets?.find((d) => d.domain === skillId)?.daily;
+      const fallbackDaily = domainDaily ?? context.dailySetBudget ?? 4;
+      skillExerciseQuota.set(skillId, Math.max(1, Math.ceil(fallbackDaily / 4)));
+    }
+
     if (isSingleDomain) {
       // Slug-based dedup only: allow multiple exercises from the same movement
       // group; only block the exact same exercise ID appearing more than once.
@@ -855,18 +907,49 @@ export class WorkoutGenerator {
         console.log(`[MGDiversity] Single-domain mode: slug-dedup only, all ${rawSelected.length} exercises kept`);
       }
     } else {
-      const mgUsage = new Map<string, number>();
+      const mgUsage = new Map<string, number>(); // non-target-skill usage only — see below
+      const skillUsage = new Map<string, number>();
 
-      // Process highest-scored first so top exercises claim their MG slot.
-      // Foundation exercises always win their MG slot over Skill exercises —
-      // a Muscle-up (skill) must not displace a Pull-up (foundation) from
-      // the vertical_pull slot.
-      for (const ex of [...rawSelected].sort((a, b) => {
+      // Tier 0: a user-selected target-skill exercise is exempt from the
+      // shared MG cap entirely — it draws against its OWN quota instead
+      // (skillExerciseQuota, above), so planche and front_lever each get
+      // their own budget-derived allowance instead of splitting one shared
+      // vertical_pull/horizontal_push slot between them and whatever OTHER
+      // skill also matches it.
+      // Tier 1 (unchanged): within the non-target pool, Foundation always
+      // wins its MG slot over Skill/accessory — a Muscle-up must not
+      // displace a Pull-up from the vertical_pull slot.
+      // Tier 2 (new): within the non-target, non-foundation pool, a generic
+      // accessory beats an incidentally-eligible OTHER skill — "same-family
+      // supporting accessories are desirable; a different, non-selected
+      // skill eating the slot is the actual problem" (David).
+      const diversityComparator = (a: typeof rawSelected[number], b: typeof rawSelected[number]) => {
+        const aTarget = exerciseTargetSkill(a.exercise) !== undefined ? 1 : 0;
+        const bTarget = exerciseTargetSkill(b.exercise) !== undefined ? 1 : 0;
+        if (aTarget !== bTarget) return bTarget - aTarget;
         const aIsFoundation = classifyPriority(a.exercise) === 'foundation' ? 1 : 0;
         const bIsFoundation = classifyPriority(b.exercise) === 'foundation' ? 1 : 0;
         if (aIsFoundation !== bIsFoundation) return bIsFoundation - aIsFoundation;
+        const aOther = exerciseIsOtherSkill(a.exercise) ? 1 : 0;
+        const bOther = exerciseIsOtherSkill(b.exercise) ? 1 : 0;
+        if (aOther !== bOther) return aOther - bOther;
         return b.score - a.score;
-      })) {
+      };
+
+      for (const ex of [...rawSelected].sort(diversityComparator)) {
+        const targetSkill = exerciseTargetSkill(ex.exercise);
+        if (targetSkill) {
+          const quota = skillExerciseQuota.get(targetSkill) ?? 1;
+          const used = skillUsage.get(targetSkill) ?? 0;
+          if (used < quota) {
+            diversePrimary.push(ex);
+            skillUsage.set(targetSkill, used + 1);
+            usedIdsDiversity.add(ex.exercise.id);
+          }
+          // else: this skill's own quota is full — displaced, backfilled below
+          continue;
+        }
+
         const mg = ex.exercise.movementGroup ?? 'none';
         const isStrict = STRICT_MG_GROUPS.has(mg);
         const used = mgUsage.get(mg) ?? 0;
@@ -878,24 +961,37 @@ export class WorkoutGenerator {
         // else: exercise displaced — backfilled below
       }
 
-      // Backfill displaced slots with highest-scored alternatives from filtered pool
+      // Backfill displaced slots with the best alternatives from the
+      // filtered pool, re-checked against the SAME per-skill-quota /
+      // shared-MG-cap rule (not score alone) so a backfilled exercise can't
+      // bypass either cap.
       const slotsNeeded = rawSelected.length - diversePrimary.length;
       if (slotsNeeded > 0) {
         const backfill = filteredExercises
           .filter(e => {
             if (usedIdsDiversity.has(e.exercise.id)) return false;
+            const targetSkill = exerciseTargetSkill(e.exercise);
+            if (targetSkill) {
+              const quota = skillExerciseQuota.get(targetSkill) ?? 1;
+              return (skillUsage.get(targetSkill) ?? 0) < quota;
+            }
             const mg = e.exercise.movementGroup ?? 'none';
             if (!STRICT_MG_GROUPS.has(mg)) return true;
             return (mgUsage.get(mg) ?? 0) < STRICT_MG_MAX;
           })
-          .sort((a, b) => b.score - a.score)
+          .sort(diversityComparator)
           .slice(0, slotsNeeded);
 
         for (const ex of backfill) {
           diversePrimary.push(ex);
           usedIdsDiversity.add(ex.exercise.id);
-          const mg = ex.exercise.movementGroup ?? 'none';
-          mgUsage.set(mg, (mgUsage.get(mg) ?? 0) + 1);
+          const targetSkill = exerciseTargetSkill(ex.exercise);
+          if (targetSkill) {
+            skillUsage.set(targetSkill, (skillUsage.get(targetSkill) ?? 0) + 1);
+          } else {
+            const mg = ex.exercise.movementGroup ?? 'none';
+            mgUsage.set(mg, (mgUsage.get(mg) ?? 0) + 1);
+          }
         }
 
         pipelineLog.push(`mg_diversity: displaced ${slotsNeeded} duplicate-group exercises, backfilled ${backfill.length}`);
@@ -941,11 +1037,27 @@ export class WorkoutGenerator {
     // domain-budget consolidation pass over just a handful of leftovers would
     // give them an arbitrarily inflated set count. domainBudgets stripped
     // from the context passed in for exactly that reason.
+    // Same skill-aware preference as the diversity pass above (target skill
+    // > foundation > generic accessory > incidentally-eligible OTHER skill)
+    // — otherwise Phase D's add-back would silently re-introduce exactly the
+    // "other skill eats the slot" pattern the diversity pass above was just
+    // fixed to avoid. Quota is NOT re-applied here deliberately: how many
+    // reserve candidates actually get added is enforceVolumeCap's own
+    // time-fill decision, not this function's — only the ORDER (which
+    // candidate it reaches for first) is this function's call.
     const RESERVE_POOL_SIZE = 5;
     const selectedIdsForReserve = new Set(workoutExercises.map(e => e.exercise.id));
     const reserveCandidates = filteredExercises
       .filter(e => !selectedIdsForReserve.has(e.exercise.id))
-      .sort((a, b) => b.score - a.score)
+      .sort((a, b) => {
+        const aTarget = exerciseTargetSkill(a.exercise) !== undefined ? 1 : 0;
+        const bTarget = exerciseTargetSkill(b.exercise) !== undefined ? 1 : 0;
+        if (aTarget !== bTarget) return bTarget - aTarget;
+        const aOther = exerciseIsOtherSkill(a.exercise) ? 1 : 0;
+        const bOther = exerciseIsOtherSkill(b.exercise) ? 1 : 0;
+        if (aOther !== bOther) return aOther - bOther;
+        return b.score - a.score;
+      })
       .slice(0, RESERVE_POOL_SIZE);
     const reserveContext = context.domainBudgets?.length
       ? { ...context, domainBudgets: undefined }
