@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import lightLockStyles from './admin-content-light-lock.module.css';
 import {
     LayoutDashboard,
     Dumbbell,
@@ -1404,8 +1405,27 @@ function AdminLayoutInner({
                             color: '#0f172a'
                         }}
                     >
-                        <div 
-                            className="min-w-0 text-slate-900 [&_*]:!text-slate-900 [&_input]:!text-slate-900 [&_textarea]:!text-slate-900 [&_select]:!text-slate-900 [&_label]:!text-slate-900 [&_p]:!text-slate-900 [&_span]:!text-slate-900 [&_td]:!text-slate-900 [&_th]:!text-slate-900 [&_h1]:!text-slate-900 [&_h2]:!text-slate-900 [&_h3]:!text-slate-900 [&_div]:!text-slate-900 [&_li]:!text-slate-900"
+                        {/*
+                            07.10.2026 — THIS DIV FORCES NEAR-BLACK TEXT ON
+                            EVERY DESCENDANT, ON PURPOSE (locks out OS/WebView
+                            auto-dark-mode inversion — see
+                            admin-content-light-lock.module.css's own header
+                            for the full why). It ALSO defeats a descendant's
+                            own explicit text-white or similar — it is
+                            !important and wins the cascade. This exact gap
+                            cost a full round: a new dark header strip's
+                            text was invisible, already had text-white, and
+                            nobody knew this div was the reason.
+
+                            THE OPT-OUT: give a genuinely dark-background
+                            element `data-dark-surface="true"` and this rule
+                            skips it and everything inside it. That is the
+                            ONLY opt-out — do not invent a second one, and
+                            do not patch around this by adding `!text-white`
+                            at the component (it will still lose).
+                        */}
+                        <div
+                            className={`min-w-0 text-slate-900 ${lightLockStyles.contentLightLock}`}
                             style={{ color: '#0f172a' }}
                         >
                             {children}

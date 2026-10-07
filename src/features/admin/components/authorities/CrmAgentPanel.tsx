@@ -341,7 +341,10 @@ export default function CrmAgentPanel() {
                   {showLog ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                 </button>
                 {showLog && (
-                  <pre className="mt-2 p-3 bg-gray-900 text-gray-100 text-xs rounded-xl overflow-x-auto leading-5 max-h-64 overflow-y-auto" dir="ltr">
+                  // data-dark-surface opts this out of admin/layout.tsx's
+                  // global forced-light-text rule — see
+                  // admin-content-light-lock.module.css.
+                  <pre data-dark-surface="true" className="mt-2 p-3 bg-gray-900 text-gray-100 text-xs rounded-xl overflow-x-auto leading-5 max-h-64 overflow-y-auto" dir="ltr">
                     {result.runLog.join('\n')}
                   </pre>
                 )}

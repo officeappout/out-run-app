@@ -582,7 +582,16 @@ export default function NotificationsPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-semibold text-white">{entry.label}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                    {/* 07.10.2026 — these three badges (and the "measured"
+                        one below) each carry their OWN real dark background
+                        (bg-indigo-900/bg-orange-900/bg-gray-800/bg-amber-900),
+                        unlike entry.label just above (text-white with no
+                        background of its own — left untouched, since it
+                        only reads correctly TODAY because the global
+                        override forces it to near-black on the page's
+                        actual white background; marking it dark-surface
+                        would make it invisible instead of fixing it). */}
+                    <span data-dark-surface="true" className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                       entry.type === 'auto'
                         ? 'bg-indigo-900/50 text-indigo-300'
                         : 'bg-orange-900/50 text-orange-300'
@@ -590,12 +599,13 @@ export default function NotificationsPage() {
                       {entry.type === 'auto' ? 'אוטומטי' : 'ידני'}
                     </span>
                     {!entry.deployed && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-400">
+                      <span data-dark-surface="true" className="text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-400">
                         בפיתוח
                       </span>
                     )}
                     {entry.bypassesPushService && (
                       <span
+                        data-dark-surface="true"
                         className="text-xs px-2 py-0.5 rounded-full bg-amber-900/40 text-amber-300"
                         title="עוקף את push.service.ts בנתיב ברירת המחדל היום — המתג כאן עשוי שלא לעצור שליחה בפועל (ר' pushRouting_* flags)"
                       >
@@ -613,7 +623,7 @@ export default function NotificationsPage() {
                           <span className="text-gray-300 font-medium">{src.label}</span>
                           {' — '}
                           <span className="truncate">{src.trigger}</span>
-                          <span className={`mr-1.5 inline-block px-1.5 py-0.5 rounded-full text-[10px] ${
+                          <span data-dark-surface="true" className={`mr-1.5 inline-block px-1.5 py-0.5 rounded-full text-[10px] ${
                             src.measured ? 'bg-emerald-900/40 text-emerald-300' : 'bg-gray-800 text-gray-500'
                           }`}>
                             {src.measured ? 'נמדד' : 'לא נמדד'}

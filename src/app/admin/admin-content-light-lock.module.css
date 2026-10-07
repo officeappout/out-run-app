@@ -1,0 +1,87 @@
+/**
+ * The admin panel's forced light-mode text color — narrowed, 07.10.2026.
+ * See admin/layout.tsx's own comment at the point this is applied for
+ * the full incident writeup (a real header strip's text was invisible
+ * for a full round before anyone knew this rule existed).
+ *
+ * === What this does and why ===
+ * `darkMode: 'manual'` (tailwind.config.ts) plus `colorScheme: 'light'`
+ * (the inline style on this same wrapper's parent, admin/layout.tsx)
+ * lock the admin panel to light mode regardless of the OS/WebView's own
+ * dark-mode preference — intentional, not an accident. Without an
+ * EXPLICIT, forced text color, an OS/WebView that auto-inverts or
+ * auto-recolors text for perceived dark-mode content (iOS Smart Invert,
+ * Android forced-dark, etc.) could silently repaint admin panel text
+ * to something illegible or wrong, in a way no component's own CSS
+ * can prevent — the inversion happens at the rendering engine level,
+ * above the page's own styles. Forcing one explicit color, `!important`,
+ * on every text-bearing descendant is the actual defense.
+ *
+ * === The opt-out: `data-dark-surface` ===
+ * A genuinely dark-background component (CommandHeaderStrip, a code/log
+ * console, etc.) needs its OWN explicit light text — which this global
+ * force was overriding even when the component already had one (the
+ * exact bug this round fixed). Wrap or mark that component's own root
+ * element with `data-dark-surface="true"` and this stylesheet skips it
+ * and all of its descendants entirely — the component's own text-color
+ * classes/styles then apply via ordinary cascade, same as anywhere
+ * outside the admin panel. This is the ONLY opt-out mechanism; do not
+ * invent a second one — grep for `data-dark-surface` before adding a
+ * new dark surface to confirm this is still the single source.
+ *
+ * === Why `:not(...)` at every selector, and why it still wins ===
+ * Every rule below ends in `:not([data-dark-surface], [data-dark-surface] *)`
+ * — "this selector, UNLESS it IS a marked element or a descendant of
+ * one." Per the CSS spec, :not()'s own specificity is replaced by the
+ * specificity of its most specific argument — here, the attribute
+ * selector `[data-dark-surface]` (0,1,0) — so adding it makes each
+ * rule's specificity strictly HIGHER than the original (unexempted)
+ * version, never lower. Nothing this already needed to beat stops
+ * being beaten; the only behavioral change is that marked elements
+ * (and their descendants) no longer match these rules AT ALL, so nothing
+ * here competes for their color — the element's own cascade decides it,
+ * uninvolved by this file.
+ *
+ * Two rule shapes, mirroring the ORIGINAL inline Tailwind classes this
+ * file replaces (same tags, same `!important`, same intent — this is a
+ * narrowing, not a behavior change for anything not marked):
+ *   1. `:where(*)` — the universal-selector catch-all. :where()'s
+ *      specificity is ALWAYS zero by definition, so this rule exists
+ *      purely as a low-priority safety net for any tag not explicitly
+ *      listed in rule 2 — it will LOSE to a same-element rule with
+ *      real specificity (including rule 2 below, for the 13 listed
+ *      tags), which is exactly why rule 2 exists at all: some of those
+ *      tags need to reliably beat a component's own same-tag selector
+ *      (e.g. a component's own `.foo p {...}`), and the zero-specificity
+ *      catch-all alone could lose that fight.
+ *   2. The 13 explicitly-listed tags (input/textarea/select/label/p/
+ *      span/td/th/h1/h2/h3/div/li) — each carries real tag-selector
+ *      specificity, deliberately higher than rule 1, so it wins against
+ *      more specific competing selectors for exactly those common
+ *      text-bearing tags.
+ * Both rules are `!important`, so either one individually already beats
+ * any NON-important competing rule regardless of specificity — the
+ * specificity difference between rule 1 and rule 2 only matters when
+ * TWO `!important` rules compete with each other (importance is checked
+ * before specificity in the cascade, specificity is the tiebreaker
+ * between rules of equal importance).
+ */
+.contentLightLock :where(*):not([data-dark-surface], [data-dark-surface] *) {
+  color: #0f172a !important;
+}
+
+.contentLightLock input:not([data-dark-surface], [data-dark-surface] *),
+.contentLightLock textarea:not([data-dark-surface], [data-dark-surface] *),
+.contentLightLock select:not([data-dark-surface], [data-dark-surface] *),
+.contentLightLock label:not([data-dark-surface], [data-dark-surface] *),
+.contentLightLock p:not([data-dark-surface], [data-dark-surface] *),
+.contentLightLock span:not([data-dark-surface], [data-dark-surface] *),
+.contentLightLock td:not([data-dark-surface], [data-dark-surface] *),
+.contentLightLock th:not([data-dark-surface], [data-dark-surface] *),
+.contentLightLock h1:not([data-dark-surface], [data-dark-surface] *),
+.contentLightLock h2:not([data-dark-surface], [data-dark-surface] *),
+.contentLightLock h3:not([data-dark-surface], [data-dark-surface] *),
+.contentLightLock div:not([data-dark-surface], [data-dark-surface] *),
+.contentLightLock li:not([data-dark-surface], [data-dark-surface] *) {
+  color: #0f172a !important;
+}

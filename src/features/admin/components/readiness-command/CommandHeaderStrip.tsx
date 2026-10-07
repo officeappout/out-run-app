@@ -24,7 +24,13 @@ export interface CommandHeaderStripProps {
  */
 export default function CommandHeaderStrip({ userName, userRoleLabel, screenName, screenDescription }: CommandHeaderStripProps) {
   return (
-    <div className="rounded-2xl px-5 py-4 flex items-center justify-between gap-4 flex-wrap" style={{ backgroundColor: '#0F1B2D' }}>
+    // data-dark-surface opts this out of admin/layout.tsx's global
+    // forced-light-text rule (admin-content-light-lock.module.css) —
+    // without it, every text-white below is silently overridden to
+    // near-black. This was the actual bug reported after the first
+    // build of this component; fixed here, not by changing the text
+    // classes (which were already correct).
+    <div data-dark-surface="true" className="rounded-2xl px-5 py-4 flex items-center justify-between gap-4 flex-wrap" style={{ backgroundColor: '#0F1B2D' }}>
       <div className="flex items-center gap-3 min-w-0">
         {/* Org logo slot — empty until David uploads one; no entity exists yet to wire an upload to. */}
         <div className="w-11 h-11 rounded-xl border-2 border-dashed border-white/25 flex-shrink-0" aria-hidden="true" />

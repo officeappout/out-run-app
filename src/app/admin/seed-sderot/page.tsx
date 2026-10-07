@@ -168,9 +168,13 @@ export default function SeedSderotPage() {
         </div>
       )}
 
-      {/* Live log */}
+      {/* Live log. data-dark-surface opts this out of admin/layout.tsx's
+          global forced-light-text rule — see
+          admin-content-light-lock.module.css. Without it, the <p> log
+          lines (which inherit text-green-400 from this div) were forced
+          to near-black instead. */}
       {log.length > 0 && (
-        <div className="bg-gray-950 rounded-xl p-4 font-mono text-xs text-green-400 space-y-1 max-h-80 overflow-y-auto">
+        <div data-dark-surface="true" className="bg-gray-950 rounded-xl p-4 font-mono text-xs text-green-400 space-y-1 max-h-80 overflow-y-auto">
           {log.map((line, i) => (
             <p key={i}>{line}</p>
           ))}
