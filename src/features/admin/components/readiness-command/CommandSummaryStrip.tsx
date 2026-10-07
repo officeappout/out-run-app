@@ -93,7 +93,7 @@ export default function CommandSummaryStrip({
       label: 'טרם נבדקו',
       value: String(notYetTestedCount),
       context: notYetTestedPercent !== null ? `${notYetTestedPercent}% מהחיילים` : '—',
-      extraLine: { text: hasTrainingData ? `מתוכם ${notYetTestedButTrainingPassingCount} כבר עומדים בסף באימון` : '— באימון', color: 'blue' },
+      extraLine: { text: hasTrainingData ? `מתוכם ${notYetTestedButTrainingPassingCount} כבר עומדים בסף באימון` : 'אין נתוני אימון', color: 'blue' },
     },
   ];
 
