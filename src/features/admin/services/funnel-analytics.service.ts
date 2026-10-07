@@ -401,7 +401,32 @@ function pct(numerator: number, denominator: number): number | null {
  * when the eligible-user query OR the `workouts` read threw. `activation`/
  * `retention` are always 0 in that case but, same as every other
  * stage, that 0 is NOT a real zero — see `FunnelStage.isUnavailable`.
+ *
+ * Session dedup (bug-fix round, 07.10.2026) — the strength "Finish"
+ * button had no double-tap guard (fixed separately, see active/
+ * page.tsx's handleSummaryFinish), so one real completion could write
+ * 2-3 independent `workouts` docs a few seconds apart. Counting raw
+ * qualifying DOCS let one tap-happy session masquerade as 3 real
+ * workouts, flipping that user into `retention` (count>=3) after a
+ * single session — this inherited straight into BUG 1's fix above,
+ * which moved off `progression.workoutCount` onto real docs but kept
+ * per-doc counting. Fixed here by counting distinct SESSIONS instead:
+ * qualifying docs from the same user, same workout type, within
+ * SESSION_DEDUP_WINDOW_MS of each other collapse into one session —
+ * wide enough to reliably absorb a double/triple-tap's few-second-to-
+ * low-minutes gap (network round-trips through the whole save chain),
+ * narrow enough that two genuinely separate real sessions (always many
+ * minutes to hours apart in practice) are never merged. This is a
+ * read-side aggregation change only — go-forward AND retroactive, since
+ * it re-derives the count from existing docs every call; no migration,
+ * no write, no backfill. `growth-metrics/route.ts`'s own
+ * `isRealWorkoutCompletion` consumer only ever checks a boolean `>=1`
+ * (activation-by-source, time-to-first-workout) — duplicates don't
+ * change a boolean threshold, so that file doesn't need this same fix
+ * (checked, not assumed).
  */
+const SESSION_DEDUP_WINDOW_MS = 5 * 60 * 1000;
+
 async function getActivationRetentionCounts(
   eligibleConstraints: QueryConstraint[],
   programFilter: FunnelFilters['program'],
@@ -422,19 +447,25 @@ async function getActivationRetentionCounts(
     const eligibleUserIds = new Set(eligibleDocs.map((d) => d.id));
 
     const workoutsSnap = await getDocs(collection(db, 'workouts'));
-    const qualifyingCountByUid = new Map<string, number>();
+    const sessionKeysByUid = new Map<string, Set<string>>();
     workoutsSnap.docs.forEach((d) => {
       const data = d.data();
       const uid = data?.userId;
       if (typeof uid !== 'string' || !eligibleUserIds.has(uid)) return;
       if (!isRealWorkoutCompletion(data)) return;
-      qualifyingCountByUid.set(uid, (qualifyingCountByUid.get(uid) ?? 0) + 1);
+      const timestampMs = typeof data?.date?.toMillis === 'function' ? data.date.toMillis() : 0;
+      const bucket = Math.floor(timestampMs / SESSION_DEDUP_WINDOW_MS);
+      const workoutType = typeof data?.workoutType === 'string' ? data.workoutType : (typeof data?.activityType === 'string' ? data.activityType : 'unknown');
+      const sessionKey = `${workoutType}:${bucket}`;
+      const existing = sessionKeysByUid.get(uid);
+      if (existing) existing.add(sessionKey);
+      else sessionKeysByUid.set(uid, new Set([sessionKey]));
     });
 
     let activation = 0;
     let retention = 0;
     eligibleUserIds.forEach((uid) => {
-      const count = qualifyingCountByUid.get(uid) ?? 0;
+      const count = sessionKeysByUid.get(uid)?.size ?? 0;
       if (count >= 1) activation++;
       if (count >= 3) retention++;
     });
