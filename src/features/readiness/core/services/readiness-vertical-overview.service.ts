@@ -204,6 +204,9 @@ export async function computeReadinessVerticalOverview(
         };
       }
       const { overall, trainingOverall, components, units, nearThresholdCount } = dashboardResult.body;
+      // Direct children (top-level units = battalions) ONLY — deliberately
+      // not every unit anywhere under this brigade. See computeInternalGap's
+      // own docstring before changing this to a full-depth filter.
       const topLevelUnits = units.filter((u) => u.parentUnitId === null);
       const unitPassPercentGap = computeInternalGap(topLevelUnits.map((u) => ({ testedCount: u.views.all.testedCount, passPercent: u.views.all.passPercent })));
       return {

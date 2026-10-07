@@ -123,11 +123,19 @@ export function pickMostNearThreshold<T extends CommandRankableRow>(rows: T[], f
 }
 
 /**
- * The internal spread among a set of direct children (battalions under
- * one brigade, or companies under one battalion) — max(passPercent) -
- * min(passPercent) among children with testedCount >= floor AND a
+ * The internal spread among a set of DIRECT children ONLY (battalions
+ * under one brigade, or companies under one battalion) — max(passPercent)
+ * - min(passPercent) among children with testedCount >= floor AND a
  * determinable passPercent. Null when fewer than 2 children qualify —
  * a "gap" needs at least two real points to mean anything.
+ *
+ * David, approved 06.10.2026 — deliberately NOT a full-depth walk of
+ * every descendant at any level below. "הפער הגדול ביותר בין גדודים"
+ * means battalion-vs-battalion WITHIN one brigade, not every company
+ * anywhere under it pooled together — the metric is about comparing
+ * SIBLINGS at the SAME level, one level down. If a caller ever needs a
+ * brigade's full-subtree spread, that is a DIFFERENT metric with a
+ * different name — do not deepen this function to produce it.
  */
 export function computeInternalGap(children: { testedCount: number; passPercent: number | null }[], floor: number = SAMPLE_FLOOR_DEFAULT): number | null {
   const qualifying = children.filter((c) => !isSmallSample(c.testedCount, floor) && c.passPercent !== null).map((c) => c.passPercent as number);

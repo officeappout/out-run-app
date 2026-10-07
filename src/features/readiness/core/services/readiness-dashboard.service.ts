@@ -195,6 +195,8 @@ export type BrigadeDashboardResult =
       body: {
         /** The resolved tenant this result is scoped to — added for computeUnitDetail (readiness-unit-detail.service.ts), which needs it to fetch the brigade's own unitDirectory entry without re-deriving scope-resolution logic a second time. */
         tenantId: string;
+        /** 07.10.2026 (command-screen round) — the authority's own display name, null only if the authorities doc is missing/malformed. Covers BOTH the own-tenant auto-resolve path and the explicit-tenantId path, since both go through this one function. */
+        tenantName: string | null;
         overall: DashboardOverallBreakdown;
         /** 06.10.2026 (command-screen round) — brigade-wide training-derived overall, same shape/meaning as DashboardUnitRow.trainingOverall, just summed across every soldier in scope instead of one unit's own. Added so a brigade-level card can show the SAME subordinate dashed training bar a per-unit row already shows — not previously exposed at this level. */
         trainingOverall: DashboardUnitStatusBreakdown;
@@ -339,13 +341,21 @@ export async function computeBrigadeDashboard(
         snaps.filter((s): s is FirebaseFirestore.QueryDocumentSnapshot => s.exists) as unknown as FirebaseFirestore.QueryDocumentSnapshot[],
       );
 
-  const [soldiersSnap, resultsSnap, thresholdsSnap, unitDocs, unitDirectorySnap] = await Promise.all([
+  const [soldiersSnap, resultsSnap, thresholdsSnap, unitDocs, unitDirectorySnap, authorityDoc] = await Promise.all([
     db.collection('readiness_soldiers').where('tenantId', '==', targetTenantId).get(),
     db.collection('readiness_results').where('tenantId', '==', targetTenantId).get(),
     db.collection('readiness_thresholds').doc('global').get(),
     unitDocsPromise,
     db.collection('unitDirectory').where('orgId', '==', targetTenantId).get(),
+    // 07.10.2026 (command-screen round, David — breadcrumb on a direct
+    // ?tenantId=X link) — one extra read, parallelized with everything
+    // else above, zero added latency. Added here (not re-fetched by the
+    // page separately) because EVERY caller of this function — the own-
+    // tenant auto-resolve path and the explicit-tenantId path alike —
+    // goes through this one function; fixing it here covers both.
+    db.collection('authorities').doc(targetTenantId).get(),
   ]);
+  const tenantName = authorityDoc.exists && typeof authorityDoc.data()?.name === 'string' ? (authorityDoc.data()!.name as string) : null;
 
   const unitNameById = new Map<string, string>();
   for (const d of unitDocs) {
@@ -625,5 +635,5 @@ export async function computeBrigadeDashboard(
   });
   units.sort((a, b) => a.unitName.localeCompare(b.unitName, 'he'));
 
-  return { status: 200, body: { tenantId: targetTenantId, overall, trainingOverall: toUnitBreakdown(brigadeTrainingOverallAcc), components, units, nearThresholdCount } };
+  return { status: 200, body: { tenantId: targetTenantId, tenantName, overall, trainingOverall: toUnitBreakdown(brigadeTrainingOverallAcc), components, units, nearThresholdCount } };
 }

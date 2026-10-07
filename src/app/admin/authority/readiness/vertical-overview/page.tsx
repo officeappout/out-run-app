@@ -142,13 +142,12 @@ export default function ReadinessVerticalOverviewPage() {
   // separately from brigadeRows (which resets to null on every drill)
   // so the breadcrumb stays correct no matter how deep the current drill is.
   const [hasLevelZero, setHasLevelZero] = useState<boolean | null>(null);
-  // Cached from the level-0 card's own row.name the moment it's clicked
-  // — the friendly brigade name for the breadcrumb. A fresh page load
-  // landing directly on a bookmarked ?tenantId=X URL (never having gone
-  // through a level-0 click) falls back to the raw tenantId instead —
-  // a cosmetic gap, not a correctness one; no dedicated single-authority
-  // name lookup exists to close it without a new endpoint.
-  const [drilledBrigadeName, setDrilledBrigadeName] = useState<string | null>(null);
+  // 07.10.2026 (David — direct-link fix) — the brigade's own display
+  // name, from computeBrigadeDashboard's own tenantName field (added
+  // specifically for this). Loaded on EVERY fetch into a tenant, not
+  // just on a level-0 click-through — a shared link with ?tenantId=X
+  // must show the real name, never the raw id, or it reads as broken.
+  const [brigadeName, setBrigadeName] = useState<string | null>(null);
   // Level 0 data
   const [brigadeRows, setBrigadeRows] = useState<VerticalBrigadeRow[] | null>(null);
   // Level 1+ data — the FULL tree for the resolved tenant, fetched once per tenant, filtered client-side by parentUnitId for the current drill depth.
@@ -192,6 +191,7 @@ export default function ReadinessVerticalOverviewPage() {
           if (overview.status !== 200) throw new Error(overview.body?.error ?? `שגיאה בטעינה (${overview.status})`);
           setBrigadeRows(overview.body.rows ?? []);
           setResolvedTenantId(null);
+          setBrigadeName(null);
           setUnitRows(null);
           return;
         }
@@ -208,6 +208,7 @@ export default function ReadinessVerticalOverviewPage() {
         if (dashboard.status !== 200) throw new Error(dashboard.body?.error ?? `שגיאה בטעינה (${dashboard.status})`);
         setBrigadeRows(null);
         setResolvedTenantId(dashboard.body.tenantId);
+        setBrigadeName(dashboard.body.tenantName ?? null);
         setTenantOverall({ overall: dashboard.body.overall, trainingOverall: dashboard.body.trainingOverall, components: dashboard.body.components, nearThresholdCount: dashboard.body.nearThresholdCount });
         setUnitRows(dashboard.body.units ?? []);
         setAppActivityByUnit(new Map((activity.status === 200 ? activity.body.units ?? [] : []).map((u: AppActivityUnitBreakdown) => [u.unitId, u.activeCount])));
@@ -242,6 +243,8 @@ export default function ReadinessVerticalOverviewPage() {
     const parentId = urlUnitId ?? null;
     const children = unitRows.filter((u) => u.parentUnitId === parentId);
     return children.map((u) => {
+      // u's DIRECT children only (one level down) — deliberately not a
+      // full-depth walk. See computeInternalGap's own docstring.
       const own = unitRows.filter((x) => x.parentUnitId === u.unitId);
       const gap = computeInternalGap(own.map((c) => ({ testedCount: c.views.all.testedCount, passPercent: c.views.all.passPercent })));
       return unitRowToDisplay(u, tenantOverall.components, appActivityByUnit.get(u.unitId) ?? 0, gap, component);
@@ -282,7 +285,7 @@ export default function ReadinessVerticalOverviewPage() {
   const withDataCount = displayRows.filter((r) => r.hasData).length;
 
   const drillInto = (row: DisplayRow) => {
-    if (isLevel0) { setDrilledBrigadeName(row.name); pushState({ tenantId: row.id, unitId: null }); return; }
+    if (isLevel0) { pushState({ tenantId: row.id, unitId: null }); return; }
     pushState({ unitId: row.id });
   };
 
@@ -294,8 +297,8 @@ export default function ReadinessVerticalOverviewPage() {
     // would just get 403 from that screen, so it's omitted entirely for
     // them rather than shown as a dead, unclickable label.
     if (hasLevelZero === true) items.push({ label: 'כל החטיבות', href: '/admin/authority/readiness/vertical-overview' });
-    const brigadeName = drilledBrigadeName ?? resolvedTenantId;
-    items.push({ label: brigadeName ?? '', href: urlUnitId ? `/admin/authority/readiness/vertical-overview?tenantId=${resolvedTenantId}` : undefined });
+    const brigadeLabel = brigadeName ?? resolvedTenantId;
+    items.push({ label: brigadeLabel ?? '', href: urlUnitId ? `/admin/authority/readiness/vertical-overview?tenantId=${resolvedTenantId}` : undefined });
     // Walk the REAL ancestor chain (parentUnitId, from the already-loaded
     // full tree) rather than showing only the immediate unit — correct
     // at any drill depth, not just 2 levels (brigade→battalion), with
@@ -313,7 +316,7 @@ export default function ReadinessVerticalOverviewPage() {
       items.push({ label: currentUnit.unitName });
     }
     return items;
-  }, [isLevel0, hasLevelZero, drilledBrigadeName, resolvedTenantId, urlUnitId, currentUnit, unitRows]);
+  }, [isLevel0, hasLevelZero, brigadeName, resolvedTenantId, urlUnitId, currentUnit, unitRows]);
 
   if (loading) {
     return (

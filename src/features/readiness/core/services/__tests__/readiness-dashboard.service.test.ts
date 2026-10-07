@@ -15,12 +15,15 @@ function makeFakeDb(seed: {
   thresholds?: Record<string, FakeDoc>;
   units?: Record<string, Record<string, FakeDoc>>; // units[tenantId][unitId]
   unitDirectory?: Record<string, FakeDoc>; // keyed by directoryId directly
+  /** 07.10.2026 (command-screen round) — computeBrigadeDashboard now also reads authorities/{tenantId} for its tenantName field. Unseeded is fine — docSnap reports exists:false, tenantName resolves to null, same as a real missing doc. */
+  authorities?: Record<string, FakeDoc>;
 }) {
   const stores: Record<string, Map<string, FakeDoc>> = {
     readiness_soldiers: new Map(Object.entries(seed.soldiers ?? {})),
     readiness_results: new Map(Object.entries(seed.results ?? {})),
     readiness_thresholds: new Map(Object.entries(seed.thresholds ?? {})),
     unitDirectory: new Map(Object.entries(seed.unitDirectory ?? {})),
+    authorities: new Map(Object.entries(seed.authorities ?? {})),
   };
   const unitsByTenant: Record<string, Map<string, FakeDoc>> = {};
   for (const [tenantId, units] of Object.entries(seed.units ?? {})) {
