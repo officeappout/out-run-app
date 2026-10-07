@@ -25,6 +25,19 @@ interface PushFunnelSectionProps {
   data: PushFunnelSummaryResponse | null;
   loading: boolean;
   denied: string | null;
+  /**
+   * The per-category breakdown table below the 4 summary tiles.
+   * Default `true` — preserves /admin/analytics' current behavior, the
+   * only other mount of this component, which has no replacement for it.
+   * /admin/journey passes `false` (07.10.2026): its own Push Performance
+   * tab (PushPerformanceSection) now supersedes this table there — same
+   * data source, split by copy variant too, with %s and time-to-action —
+   * so showing both was a duplicate. Confirmed via grep: no other view
+   * reads `data.byCategory` except this table and admin/notifications'
+   * own (unrelated) per-card stats fetch, which calls the API directly
+   * and isn't affected by this prop either way.
+   */
+  showCategoryBreakdown?: boolean;
 }
 
 /**
@@ -42,7 +55,7 @@ interface PushFunnelSectionProps {
  * today — see push-catalog.service.ts for the live count; this comment
  * used to hardcode "3 of 12", which was already stale before this fix).
  */
-export default function PushFunnelSection({ data, loading, denied }: PushFunnelSectionProps) {
+export default function PushFunnelSection({ data, loading, denied, showCategoryBreakdown = true }: PushFunnelSectionProps) {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
       <div className="px-6 py-4 border-b border-slate-200 flex items-center gap-3">
@@ -90,7 +103,7 @@ export default function PushFunnelSection({ data, loading, denied }: PushFunnelS
             })}
           </div>
 
-          {!loading && (data?.byCategory.length ?? 0) > 0 && (
+          {showCategoryBreakdown && !loading && (data?.byCategory.length ?? 0) > 0 && (
             <div className="overflow-x-auto border-t border-slate-200">
               <table className="w-full text-right">
                 <thead className="bg-slate-50 text-xs font-bold text-slate-600 uppercase tracking-wide">

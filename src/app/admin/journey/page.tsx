@@ -676,7 +676,13 @@ export default function JourneyHubPage() {
             </div>
           )}
 
-          <PushFunnelSection data={pushFunnel} loading={staticLoading} denied={pushFunnelDenied} />
+          {/* 07.10.2026 — category-breakdown table hidden here: superseded
+              by PushPerformanceSection below (same data, split by copy
+              variant too, with %s and time-to-action). The 4 summary tiles
+              above it stay — still the quickest top-level read. /admin/
+              analytics keeps the full table (its own, unaffected mount of
+              this same component, with no replacement there). */}
+          <PushFunnelSection data={pushFunnel} loading={staticLoading} denied={pushFunnelDenied} showCategoryBreakdown={false} />
           <PushPerformanceSection />
           <CommitmentSurfacesSection data={commitmentSurfaces} loading={staticLoading} denied={commitmentSurfacesDenied} />
         </div>
