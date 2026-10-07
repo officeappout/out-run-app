@@ -38,6 +38,18 @@
  * Filters (`channel`, `dateFrom`, `dateTo`) are applied in memory, same
  * "read all, filter in memory" pattern `push-funnel-summary/route.ts`
  * already uses at this data volume — no new Firestore index needed.
+ *
+ * 07.10.2026 follow-up — copy-text resolution: `variantId` alone is a raw
+ * id, not readable at a glance. Each measured row now also carries
+ * `copyTitle`/`copyBody` (both null if unresolved — never a crash, the
+ * client falls back to the raw variantId). Two resolution paths, both in
+ * push-copy-resolver.service.ts's own header comment:
+ *   - Synthetic (`title__bN`) variantIds — resolved purely in-memory.
+ *   - Content-library bundleIds (Daily_Goal, Future_Partner_Plan) — one
+ *     extra batched Firestore read against the SAME
+ *     workoutMetadata/notifications/notifications collection those
+ *     senders already read (notification-content.service.ts) — no new
+ *     collection.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
@@ -48,6 +60,15 @@ import {
   CATEGORY_TO_SOURCE,
   type ChannelKey,
 } from '@/features/admin/services/push-catalog.service';
+import {
+  resolveSyntheticVariant,
+  isContentLibraryCategory,
+  contentLibraryTitleFor,
+} from '@/features/admin/services/push-copy-resolver.service';
+
+const NOTIFICATION_LIBRARY_COLLECTION = 'workoutMetadata/notifications/notifications';
+/** Firestore 'in' query cap. */
+const IN_QUERY_CHUNK_SIZE = 30;
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -62,6 +83,9 @@ export interface PushPerformanceRow {
   funnelCategory: string | null;
   measured: boolean;
   variantId: string | null;
+  /** Resolved real message text — null if unresolved (client falls back to variantId), always null for unmeasured rows. */
+  copyTitle: string | null;
+  copyBody: string | null;
   sent: number | null;
   delivered: number | null;
   deliveredPct: number | null;
@@ -191,6 +215,8 @@ export async function computePushPerformanceSummary(
       funnelCategory: category,
       measured: true,
       variantId,
+      copyTitle: null, // filled in below, after this pass — resolution may need a live Firestore read
+      copyBody: null,
       sent: g.sent,
       delivered: g.delivered,
       deliveredPct: pct(g.delivered, g.sent),
@@ -202,7 +228,56 @@ export async function computePushPerformanceSummary(
         ? Math.round((g.timeToActionMinutesSum / g.timeToActionCount) * 10) / 10
         : null,
     };
-  }).sort((a, b) => (b.sent ?? 0) - (a.sent ?? 0));
+  });
+
+  // ── Copy-text resolution ────────────────────────────────────────────
+  // Pass 1 — synthetic (title__bN) variants resolve purely in-memory.
+  // Content-library rows (bundleId-keyed) are collected for a single
+  // batched Firestore lookup instead, rather than reading once per row.
+  const bundleIdsToResolve = new Set<string>();
+  for (const row of measuredRows) {
+    if (!row.funnelCategory || !row.variantId) continue;
+    const synthetic = resolveSyntheticVariant(row.funnelCategory, row.variantId);
+    if (synthetic) {
+      row.copyTitle = synthetic.title;
+      row.copyBody = synthetic.body;
+    } else if (isContentLibraryCategory(row.funnelCategory)) {
+      bundleIdsToResolve.add(row.variantId);
+    }
+  }
+
+  if (bundleIdsToResolve.size > 0) {
+    const bundleIds = Array.from(bundleIdsToResolve);
+    const bodyByBundleId = new Map<string, string>();
+    for (let i = 0; i < bundleIds.length; i += IN_QUERY_CHUNK_SIZE) {
+      const chunk = bundleIds.slice(i, i + IN_QUERY_CHUNK_SIZE);
+      try {
+        const snap = await db.collection(NOTIFICATION_LIBRARY_COLLECTION)
+          .where('bundleId', 'in', chunk)
+          .get();
+        snap.docs.forEach((d) => {
+          const data = d.data() as Record<string, unknown>;
+          if (typeof data.bundleId === 'string' && typeof data.text === 'string') {
+            bodyByBundleId.set(data.bundleId, data.text);
+          }
+        });
+      } catch (err) {
+        console.error('[/api/admin/push-performance-summary] notification-library lookup failed:', err);
+      }
+    }
+
+    for (const row of measuredRows) {
+      if (!row.funnelCategory || !row.variantId || !isContentLibraryCategory(row.funnelCategory)) continue;
+      const body = bodyByBundleId.get(row.variantId);
+      if (body) {
+        row.copyTitle = contentLibraryTitleFor(row.funnelCategory);
+        row.copyBody = body;
+      }
+      // else: left null — fallback to raw variantId on the client, not a crash.
+    }
+  }
+
+  measuredRows.sort((a, b) => (b.sent ?? 0) - (a.sent ?? 0));
 
   // Unmeasured catalog sources — real types with zero push_events data,
   // shown honestly rather than silently omitted (refinement #2).
@@ -216,6 +291,8 @@ export async function computePushPerformanceSummary(
       funnelCategory: null,
       measured: false,
       variantId: null,
+      copyTitle: null,
+      copyBody: null,
       sent: null,
       delivered: null,
       deliveredPct: null,
