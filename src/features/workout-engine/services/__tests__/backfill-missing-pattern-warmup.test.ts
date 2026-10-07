@@ -164,4 +164,59 @@ describe('backfillMissingPatternWarmup — generalizes Mandatory Legs Guarantee 
     )).not.toThrow();
     expect(workout.exercises).toHaveLength(0);
   });
+
+  // ── Isometric hold-duration safety cap (2026-10-07) ─────────────────────
+  // See warmup.service.ts's own comment at the fix site for the full
+  // root-cause writeup: WARMUP_HOLD_SECONDS (30-45s) had no mechanicalType/
+  // elite-skill check at all, so a straight-arm lever hold could be
+  // prescribed up to 45s here -- three times the 15s ceiling the SAME
+  // position gets as a main exercise. Fixed by reusing getIsometricTimeCap.
+  it('a straight-arm planche-named candidate is capped to 15s in warmup (was up to 45s before this fix)', () => {
+    // mechanicalType:'straight_arm' makes isTimeBasedExercise() return true
+    // unconditionally. The Hebrew name "פלאנץ'" hits getIsometricTimeCap's
+    // elite-skill name heuristic -> cap=15, regardless of level.
+    const plancheHold = makeExercise('planche-hold-1', "פלאנץ' בטאק", {
+      movementGroup: 'horizontal_push',
+      mechanicalType: 'straight_arm',
+    });
+    const workout = workoutWith([
+      mainExerciseFor('main-planche', 'horizontal_push', [{ programId: 'planche', level: 14 }]),
+      mainExerciseFor('main-front', 'horizontal_pull', [{ programId: 'front_lever', level: 7 }]),
+    ]);
+
+    backfillMissingPatternWarmup(
+      workout, [plancheHold], PLANCHE_FRONT_LEVELS, ['planche', 'front_lever'], 'park', [], 30,
+    );
+
+    const added = workout.exercises.find((ex) => ex.exercise.id === 'planche-hold-1');
+    expect(added).toBeDefined();
+    expect(added!.isTimeBased).toBe(true);
+    expect(added!.reps).toBeLessThanOrEqual(15);
+    expect(added!.repsRange).toEqual({ min: 15, max: 15 });
+  });
+
+  it('a straight-arm hold with no elite-skill signal keeps the original 30-45s warmup range (cap=45, not over-restricted)', () => {
+    // Deliberately generic name/movementGroup/level so none of
+    // getIsometricTimeCap's heuristics fire -> falls through to its Tier-3
+    // default (45s) -- same as WARMUP_HOLD_SECONDS.max already was, so this
+    // fix must not narrow a genuinely-45s-safe case.
+    const genericHold = makeExercise('generic-hold-1', 'החזקה כללית', {
+      movementGroup: 'horizontal_push',
+      mechanicalType: 'straight_arm',
+      recommendedLevel: 2,
+      targetPrograms: [{ programId: 'push', level: 2 }],
+    });
+    const workout = workoutWith([
+      mainExerciseFor('main-planche', 'horizontal_push', [{ programId: 'planche', level: 14 }]),
+      mainExerciseFor('main-front', 'horizontal_pull', [{ programId: 'front_lever', level: 7 }]),
+    ]);
+
+    backfillMissingPatternWarmup(
+      workout, [genericHold], PLANCHE_FRONT_LEVELS, ['planche', 'front_lever'], 'park', [], 30,
+    );
+
+    const added = workout.exercises.find((ex) => ex.exercise.id === 'generic-hold-1');
+    expect(added).toBeDefined();
+    expect(added!.repsRange).toEqual({ min: 30, max: 45 });
+  });
 });
