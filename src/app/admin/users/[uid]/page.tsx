@@ -94,7 +94,9 @@ const EVENT_TIMELINE_STYLE: Record<
   permission_location_status: { dot: 'bg-cyan-500', text: 'text-cyan-700' },
   error_occurred: { dot: 'bg-red-500', text: 'text-red-700' },
   recommendation_shown: { dot: 'bg-amber-300', text: 'text-amber-600' },
+  workout_detail_viewed: { dot: 'bg-teal-300', text: 'text-teal-600' },
   workout_play_pressed: { dot: 'bg-sky-400', text: 'text-sky-600' },
+  workout_start_pressed: { dot: 'bg-blue-400', text: 'text-blue-600' },
   reminder_set: { dot: 'bg-indigo-400', text: 'text-indigo-600' },
   reminder_updated: { dot: 'bg-indigo-300', text: 'text-indigo-500' },
   default: { dot: 'bg-gray-400', text: 'text-gray-600' },
@@ -895,6 +897,9 @@ export default function UserDetailPage() {
   // the same change — see AnalyticsService.ts's own comment for the
   // full list and the historical-data caveat for old docs with those
   // retired eventName values).
+  //
+  // Journey Hub Phase 2 (07.10.2026) — 2 more added as they go live:
+  // workout_detail_viewed, workout_start_pressed. 14 real values total now.
   const getEventLabel = (eventName: string): string => {
     const labels: Record<string, string> = {
       onboarding_start: 'תחילת תהליך הרשמה',
@@ -906,7 +911,9 @@ export default function UserDetailPage() {
       permission_location_status: 'הרשאת מיקום',
       error_occurred: 'שגיאה',
       recommendation_shown: 'הצעת אימון הוצגה',
+      workout_detail_viewed: 'צפייה בפרטי אימון',
       workout_play_pressed: 'לחיצה להתחלת אימון',
+      workout_start_pressed: 'לחיצה על "התחל אימון"',
       reminder_set: 'תזכורת נקבעה',
       reminder_updated: 'תזכורת עודכנה',
     };
@@ -1943,9 +1950,12 @@ export default function UserDetailPage() {
                                         {title}
                                       </div>
                                       <div className="text-[11px] text-gray-400 font-simpler whitespace-nowrap">
+                                        {/* Journey Hub Phase 2 (07.10.2026) — timeStyle 'medium'
+                                            adds seconds (HH:MM:SS) so same-minute events still
+                                            order correctly in this chronological timeline. */}
                                         {new Date(event.timestamp).toLocaleString('he-IL', {
                                           dateStyle: 'short',
-                                          timeStyle: 'short',
+                                          timeStyle: 'medium',
                                         })}
                                       </div>
                                     </div>

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { WorkoutPlan } from '@/features/parks';
 import type { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { buildRunnerWorkoutPlanFromGenerated } from '@/features/workout-engine/logic/buildRunnerWorkoutPlanFromGenerated';
+import { Analytics } from '@/features/analytics/AnalyticsService';
 import type { WorkoutData } from '../types';
 
 interface UseWorkoutSessionParams {
@@ -20,6 +21,17 @@ interface UseWorkoutSessionParams {
   isWarmupActive: boolean;
   workoutLocation: string | undefined;
   onStartWorkout?: (workoutId: string) => void;
+  /**
+   * Journey Hub Phase 2 (07.10.2026) — when supplied, `handleStartWorkout`
+   * fires a single `workout_start_pressed` event with this as its `surface`.
+   * Deliberately OPTIONAL and otherwise silent: this hook is also
+   * instantiated directly by home/page.tsx's two drawer-BYPASS starts
+   * (HOME_RECOVERY_START_SHORTCUT, post-workout-suggestion direct-start),
+   * which intentionally omit it so they stay uninstrumented this phase —
+   * see docs/analytics/event-taxonomy.md. Every real WorkoutPreviewDrawer
+   * render site supplies one.
+   */
+  surface?: string;
 }
 
 interface UseWorkoutSessionReturn {
@@ -58,11 +70,18 @@ export function useWorkoutSession({
   isWarmupActive,
   workoutLocation,
   onStartWorkout,
+  surface,
 }: UseWorkoutSessionParams): UseWorkoutSessionReturn {
   const router = useRouter();
 
   const handleStartWorkout = useCallback((overrideGeneratedWorkout?: GeneratedWorkout | null) => {
     const workoutId = workout?.id || 'favorites-workout';
+
+    if (surface) {
+      Analytics.logWorkoutStartPressed({ workoutId, surface }).catch((error) => {
+        console.error('[useWorkoutSession] Error logging workout_start_pressed:', error);
+      });
+    }
 
     // `overrideGeneratedWorkout` wins whenever explicitly passed (checked via
     // `!== undefined` so an explicit `null` override is honoured too) — see the
@@ -120,7 +139,7 @@ export function useWorkoutSession({
     } else {
       router.push(`/workouts/${workoutId}/active`);
     }
-  }, [workout?.id, workoutPlan, generatedWorkout, isWarmupActive, workoutLocation, onStartWorkout, router]);
+  }, [workout?.id, workoutPlan, generatedWorkout, isWarmupActive, workoutLocation, onStartWorkout, surface, router]);
 
   return { handleStartWorkout };
 }

@@ -92,6 +92,15 @@ export interface WorkoutPreviewDrawerProps {
   intensityOptions?: IntensityOption[];
   selectedIntensityIndex?: number;
   onSelectIntensity?: (index: number) => void;
+  /**
+   * Journey Hub Phase 2 (07.10.2026) — which UI entry point opened this
+   * drawer (e.g. 'home-primary', 'carousel', 'calendar', 'training-planner',
+   * 'favorites'). Required, not optional: every real render site knows
+   * what it is, even if only as a coarse fallback — see each call site's
+   * own comment. Powers both `workout_detail_viewed` (fired here on open)
+   * and `workout_start_pressed` (threaded into useWorkoutSession below).
+   */
+  surface: string;
 }
 
 // ── Section Grouping ─────────────────────────────────────────────────────

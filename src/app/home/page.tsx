@@ -332,6 +332,14 @@ export default function HomePage() {
   const { interceptWorkoutStart, jitState, dismissJIT, cancelJIT } = useRequiredSetup();
   const [showAlert, setShowAlert] = useState<string | null>(null);
   const [selectedWorkout, setSelectedWorkout] = useState<any | null>(null);
+  // Journey Hub Phase 2 (07.10.2026) — which entry point opened the
+  // shared drawer below, for workout_detail_viewed/workout_start_pressed's
+  // `surface`. Set alongside every setSelectedWorkout(...) open call;
+  // defaults to the coarse 'home-primary' bucket at the drawer render
+  // itself when a specific opener didn't set anything more precise —
+  // reliable firing over perfect per-caller granularity, same call this
+  // phase made for handleHeroPress's own ~6 shared callers below.
+  const [openSurface, setOpenSurface] = useState<string | null>(null);
   // True from the instant a new workout card is tapped until the engine
   // delivers fresh data — drives the skeleton shimmer inside the drawer.
   const [isWorkoutLoading, setIsWorkoutLoading] = useState(false);
@@ -550,6 +558,7 @@ export default function HomePage() {
     const title = cats.length > 0
       ? cats.map(c => c === 'strength' ? 'כוח' : c === 'cardio' ? 'ריצה' : c === 'walking' ? 'הליכה' : 'גמישות').join(' + ')
       : 'אימון מתוזמן';
+    setOpenSurface('calendar');
     setSelectedWorkout({
       id: entry.entryId ?? entry.date,
       title,
@@ -1614,6 +1623,7 @@ export default function HomePage() {
     // no separate loading screen. Only sets the placeholder on the FIRST
     // call (intensity re-selection reuses the already-open drawer).
     setIsWorkoutLoading(true);
+    setOpenSurface('map-park');
     setSelectedWorkout((prev: any) => prev ?? {
       id: `park-workout-${park.id}`,
       title: park.name ? `אימון ב${park.name}` : 'אימון בפארק',
@@ -1932,6 +1942,7 @@ export default function HomePage() {
       }
 
       handleWorkoutGenerated(workout);
+      setOpenSurface('carousel');
       setSelectedWorkout({
         id: `pre-workout-${suggestion.id}`,
         title: workout.title,
@@ -2007,7 +2018,8 @@ export default function HomePage() {
   // `targetDate` is the ISO date the user tapped — passed synchronously from
   // handleHeroPress so the workout ID and any downstream resolution use the
   // clicked date rather than the stale `selectedDate` state value.
-  const openWorkoutPreview = useCallback((targetDate?: string) => {
+  const openWorkoutPreview = useCallback((targetDate?: string, surface: string = 'home-primary') => {
+    setOpenSurface(surface);
     const today = targetDate ?? new Date().toISOString().split('T')[0];
     const uniqueWorkoutId = `workout-${today}-${profile?.id?.slice(0, 8) || 'guest'}-g${workoutGenerationRef.current}`;
     const gw = generatedWorkoutRef.current;
@@ -2299,7 +2311,20 @@ export default function HomePage() {
   // state-batching race: we resolve the target date immediately and call
   // setSelectedDate before React's next render cycle so StatsOverview starts
   // generating the correct workout trio in parallel with the preview opening.
-  const handleHeroPress = useCallback(async (explicitDate?: string, skipCompletedLookup?: boolean) => {
+  const handleHeroPress = useCallback(async (
+    explicitDate?: string,
+    skipCompletedLookup?: boolean,
+    // Journey Hub Phase 2 (07.10.2026) — this function is shared by ~6
+    // distinct UI triggers (StatsOverview's main anchor card, the
+    // week-strip assessment card, WelcomeDrawer, the missed/comeback
+    // alert, the onboarding-return effect, and — via an explicit
+    // override at its own call site — TrainingPlannerOverlay). Only
+    // TrainingPlannerOverlay passes a specific value; every other
+    // caller is a bare function reference with no way to supply one, so
+    // they all collapse into this coarse default — reliable firing over
+    // per-caller granularity, same call made for openWorkoutPreview below.
+    surface: string = 'home-primary',
+  ) => {
     const dateToUse = (typeof explicitDate === 'string') ? explicitDate : selectedDate;
 
     // F2.2 (19.08.2026): a day that already has a real completed workout
@@ -2502,7 +2527,7 @@ export default function HomePage() {
             return;
           }
         }
-        openWorkoutPreview(dateToUse);
+        openWorkoutPreview(dateToUse, surface);
       }, 'strength');
     } else {
       if (typeof window !== 'undefined') {
@@ -3409,7 +3434,7 @@ export default function HomePage() {
         programIconKey={programIconKey}
         selectedDate={selectedDate}
         onDaySelect={setSelectedDate}
-        onStartWorkout={handleHeroPress}
+        onStartWorkout={(date, skipCompletedLookup) => handleHeroPress(date, skipCompletedLookup, 'training-planner')}
         onScheduleChanged={() => {
           setScheduleVersion((v) => v + 1);
           // Fix (31.08.2026, "edit schedule to strength, home still recommends recovery
@@ -3467,6 +3492,7 @@ export default function HomePage() {
         isOpen={selectedWorkout !== null}
         onClose={() => {
           setSelectedWorkout(null);
+          setOpenSurface(null);
           setPreviewEntry(null);
           previewEntryRef.current = null;
           setIsWorkoutLoading(false);
@@ -3484,6 +3510,7 @@ export default function HomePage() {
         intensityOptions={trioSelector?.options}
         selectedIntensityIndex={trioSelector?.selectedIndex}
         onSelectIntensity={trioSelector?.onSelect}
+        surface={openSurface ?? 'home-primary'}
       />
 
       {/* Edit modal — opened by drawer pencil or directly from other entry points */}

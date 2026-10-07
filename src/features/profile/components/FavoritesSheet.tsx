@@ -103,6 +103,7 @@ export default function FavoritesSheet({ isOpen, onClose }: FavoritesSheetProps)
         generatedWorkout={previewWorkout}
         workoutLocation={previewLocation}
         onStartWorkout={handleStartWorkout}
+        surface="favorites"
       />
     </>
   );
