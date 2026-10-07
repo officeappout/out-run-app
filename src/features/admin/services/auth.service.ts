@@ -36,6 +36,8 @@ export interface UserRoleInfo {
   allowedSections: string[];
   /** Display label for the team role (e.g. "מנהל מכירות"), set for platform_member users */
   teamRole?: string;
+  /** 07.10.2026 (Command-screen round) — core.name, read-only display field, zero authorization meaning. */
+  name?: string;
 }
 
 /**
@@ -71,6 +73,7 @@ export async function checkUserRole(userId: string, userEmail?: string | null): 
     let emailFromProfile: string | null = null;
     let allowedSections: string[] = [];
     let teamRole: string | undefined;
+    let name: string | undefined;
 
     try {
       const { getUserFromFirestore } = await import('@/lib/firestore.service');
@@ -97,6 +100,7 @@ export async function checkUserRole(userId: string, userEmail?: string | null): 
         await logAdminLogin(userId);
         allowedSections = Array.isArray(core?.allowedSections) ? core.allowedSections : [];
         teamRole = core?.teamRole || undefined;
+        name = typeof core?.name === 'string' ? core.name : undefined;
       }
     } catch (error) {
       console.error('Error checking user profile:', error);
@@ -162,6 +166,7 @@ export async function checkUserRole(userId: string, userEmail?: string | null): 
       email: emailToCheck || undefined,
       allowedSections,
       teamRole,
+      name,
     };
   } catch (error) {
     console.error('Error in checkUserRole:', error);
