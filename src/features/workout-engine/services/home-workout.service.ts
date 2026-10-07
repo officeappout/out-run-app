@@ -110,7 +110,7 @@ import {
   buildIdToSlugMapFromPrograms,
   resolveToSlug,
 } from './program-hierarchy.utils';
-import { prependWarmupExercises } from './warmup.service';
+import { prependWarmupExercises, backfillMissingPatternWarmup } from './warmup.service';
 import { appendCooldownExercises } from './cooldown.service';
 import { resolveEffectiveBoltTime } from '../logic/bolt-time.utils';
 import {
@@ -1432,6 +1432,33 @@ export async function generateHomeWorkoutTrio(
           workout.pipelineLog,
         )
       : workout.exercises;
+
+    // ── Late push/pull warmup-coverage backfill (2026-10-07) ──────────────
+    //
+    // prependWarmupExercises (above) decided which broad patterns to warm up
+    // from the main-exercise snapshot taken BEFORE this point — but
+    // enforceVolumeCap's Phase D reserve top-up and runSkillRepresentationGuarantee
+    // (both already run by here) can still change which patterns end up in
+    // the FINAL main list. Generalizes the Mandatory Legs Guarantee
+    // (warmup.service.ts) to push/pull, checked here — after both late
+    // mutators — against the TRUE final main list. Legs is untouched: it's
+    // already covered by the earlier guarantee, which runs early enough
+    // (before its own time-aware trim) that a late legs gap doesn't apply.
+    // No-op (and no Firestore/state write) when nothing is missing or the
+    // warmup slot budget is already full — see the function's own doc
+    // comment for the time-budget reasoning.
+    if (!orchResult.usedEmptyPoolFallback) {
+      backfillMissingPatternWarmup(
+        workout,
+        pipeline.allExercises,
+        pipeline.userProgramLevels,
+        pipeline.resolvedChildDomains,
+        pipeline.effectiveFilterLocation,
+        pipeline.baseGeneratorContext.availableEquipment,
+        effectiveTime,
+        pipeline.idToSlug,
+      );
+    }
 
     // ── Locked Final Ordering: antagonist re-pair → domain-priority sort ──
     //
