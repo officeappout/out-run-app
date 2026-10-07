@@ -16,7 +16,7 @@ import {
 } from '../logic/WorkoutGenerator';
 import { type DifficultyLevel, resolveTier, type TierName } from '../logic/workout-generator.types';
 import { resolveExerciseLevelForDomains } from '../logic/workout-selection.utils';
-import { isTimeBasedExercise } from '../logic/workout-budgeting.utils';
+import { isTimeBasedExercise, getIsometricTimeCap } from '../logic/workout-budgeting.utils';
 import { resolveToSlug } from './program-hierarchy.utils';
 import {
   isEssentialGear,
@@ -528,7 +528,20 @@ export function prependWarmupExercises(
     // main-select as time-based, showing "6 חזרות" in one slot and "15 שניות"
     // in another for the identical exercise.
     const isTimeBased = isTimeBasedExercise(ex);
-    const range = isTimeBased ? WARMUP_HOLD_SECONDS : (repRange ?? { min: WARMUP_REPS, max: WARMUP_REPS });
+    // Isometric safety cap (2026-10-07 investigation — warmup hold-duration
+    // gap): WARMUP_HOLD_SECONDS (30-45s) had no mechanicalType/elite-skill
+    // check at all — a straight-arm lever hold (planche/front_lever/etc.)
+    // could be prescribed up to 45s here, three times the 15s ceiling the
+    // SAME position gets as a MAIN exercise (calculateHoldTimeTier,
+    // workout-budgeting.utils.ts). Reusing getIsometricTimeCap (the same cap
+    // main exercises already apply) rather than inventing a second one.
+    // Both ends of the range are clamped by the SAME ceiling so min can
+    // never exceed max (e.g. cap=15 -> {min:15,max:15}; cap=45 -> unchanged
+    // {min:30,max:45}).
+    const holdCapSeconds = isTimeBased ? getIsometricTimeCap(ex) : undefined;
+    const range = isTimeBased
+      ? { min: Math.min(WARMUP_HOLD_SECONDS.min, holdCapSeconds!), max: Math.min(WARMUP_HOLD_SECONDS.max, holdCapSeconds!) }
+      : (repRange ?? { min: WARMUP_REPS, max: WARMUP_REPS });
     const reps = range.min + Math.floor(Math.random() * (range.max - range.min + 1));
     const warmupExercise = { ...ex, exerciseRole: 'warmup' as const };
     warmupBlock.push({
@@ -537,7 +550,7 @@ export function prependWarmupExercises(
       mechanicalType: (ex.mechanicalType || 'none') as any,
       sets: 1,
       reps,
-      repsRange: isTimeBased ? WARMUP_HOLD_SECONDS : range,
+      repsRange: range,
       isTimeBased,
       restSeconds: WARMUP_REST_SECONDS,
       priority: 'accessory' as const,
@@ -1147,7 +1160,12 @@ export function backfillMissingPatternWarmup(
       if (!method) continue;
 
       const isTimeBased = isTimeBasedExercise(chosen);
-      const range = isTimeBased ? WARMUP_HOLD_SECONDS : ACTIVATION_REPS;
+      // Same isometric safety cap as addToBlock above — see its comment for
+      // the full writeup. Reused here rather than duplicated differently.
+      const holdCapSeconds = isTimeBased ? getIsometricTimeCap(chosen) : undefined;
+      const range = isTimeBased
+        ? { min: Math.min(WARMUP_HOLD_SECONDS.min, holdCapSeconds!), max: Math.min(WARMUP_HOLD_SECONDS.max, holdCapSeconds!) }
+        : ACTIVATION_REPS;
       const reps = range.min + Math.floor(Math.random() * (range.max - range.min + 1));
       const programLevel = resolveExerciseLevelForDomains(chosen, resolvedChildDomains).level;
       const levelDelta = programLevel - getExDomainLevel(chosen);
@@ -1158,7 +1176,7 @@ export function backfillMissingPatternWarmup(
         mechanicalType: (chosen.mechanicalType || 'none') as any,
         sets: 1,
         reps,
-        repsRange: isTimeBased ? WARMUP_HOLD_SECONDS : range,
+        repsRange: range,
         isTimeBased,
         restSeconds: WARMUP_REST_SECONDS,
         priority: 'accessory' as const,
