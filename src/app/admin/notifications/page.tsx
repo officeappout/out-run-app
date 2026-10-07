@@ -21,6 +21,7 @@ import {
   LogOut,
   Footprints,
   Radar,
+  MapPinCheck,
 } from 'lucide-react';
 import {
   collection,
@@ -89,6 +90,7 @@ const CHANNEL_UI: Record<ChannelKey, { icon: React.ElementType; iconBg: string }
   chat: { icon: MessageCircle, iconBg: 'bg-green-100 text-green-600' },
   health_milestone: { icon: Footprints, iconBg: 'bg-lime-100 text-lime-700' },
   community: { icon: Radar, iconBg: 'bg-sky-100 text-sky-700' },
+  contribution_status: { icon: MapPinCheck, iconBg: 'bg-teal-100 text-teal-700' },
 };
 
 const AUDIENCE_LABELS: Record<string, string> = {

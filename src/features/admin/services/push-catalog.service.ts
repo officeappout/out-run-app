@@ -17,11 +17,10 @@
  * components. Icon/color choices are presentation-only and stay local to
  * `admin/notifications/page.tsx`'s own `CHANNEL_UI` map.
  *
- * Known gap, not fixed here (separate, explicitly deferred cleanup): the
- * 15th real push type, `onContributionApproved.ts` (channel
- * `contribution_status`), is missing from this catalog — found during the
- * push-performance investigation, after PR #170 shipped. Adding it is
- * scoped as its own tiny follow-up, not bundled into this change.
+ * 07.10.2026 follow-up: added the 15th real push type,
+ * `onContributionApproved.ts` (channel `contribution_status`) — found
+ * during the push-performance investigation, missing from PR #170's
+ * original catalog. Catalog entry only, same as every other entry here.
  */
 
 export type ChannelKey =
@@ -33,7 +32,8 @@ export type ChannelKey =
   | 'social'
   | 'chat'
   | 'health_milestone'
-  | 'community';
+  | 'community'
+  | 'contribution_status';
 
 export interface CatalogSource {
   label: string;
@@ -197,6 +197,15 @@ export const PUSH_CATALOG: CatalogEntry[] = [
     measured: true,
     funnelCategory: 'Future_Partner_Plan',
     note: 'דגל feature_flags.socialActivityNearbyPushEnabled — ערך חי לא אומת בסשן האודיט האחרון',
+  },
+  {
+    channel: 'contribution_status',
+    label: 'אישור תרומת מיקום',
+    type: 'auto',
+    trigger: 'onUpdate user_contributions/{id} — status→approved, type:\'new_location\' בלבד (onContributionApproved)',
+    rateCapHours: 0,
+    deployed: true,
+    measured: false,
   },
 ];
 
