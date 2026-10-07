@@ -29,6 +29,19 @@
  * invent a second one — grep for `data-dark-surface` before adding a
  * new dark surface to confirm this is still the single source.
  *
+ * The opt-out alone only REMOVES the forced override — it does not, by
+ * itself, give a marked element any color of its own. A marked element
+ * with no explicit color, whose nearest marked ancestor ALSO has no
+ * explicit color, would fall through to normal inheritance and pick up
+ * #0f172a from OUTSIDE the marked surface — invisible on a dark
+ * background, with nothing here to catch it. The rule right below
+ * closes exactly that gap: `:where([data-dark-surface]) { color: #fff }`
+ * sets a LIGHT default on the marked element itself, at zero specificity
+ * — so any real color the element already declares (a class or inline
+ * style, e.g. a seed-log console's own `text-green-400`) still wins
+ * outright, unchanged, but an element that declares NOTHING now inherits
+ * white from its marked ancestor instead of black from outside it.
+ *
  * === Why `:not(...)` at every selector, and why it still wins ===
  * Every rule below ends in `:not([data-dark-surface], [data-dark-surface] *)`
  * — "this selector, UNLESS it IS a marked element or a descendant of
@@ -68,6 +81,50 @@
  */
 .contentLightLock :where(*):not([data-dark-surface], [data-dark-surface] *) {
   color: #0f172a !important;
+}
+
+/*
+ * 07.10.2026 (David) — closes the "declares nothing" gap above.
+ * :where() always carries ZERO specificity, by definition, regardless
+ * of what's inside it — so this is deliberately the WEAKEST possible
+ * rule: any explicit color on the SAME element (a plain Tailwind class
+ * is already (0,1,0), strictly higher) wins outright, unchanged. This
+ * only ever supplies a value when nothing else on that exact element
+ * does. It sets color on the MARKED element itself, not its descendants
+ * — descendants with no color of their own then inherit THIS value
+ * (white) through ordinary CSS inheritance, same mechanism that
+ * previously carried #0f172a in from outside the marked surface.
+ *
+ * 07.10.2026 (David) — fixed: the previous unscoped `:where([data-dark-
+ * surface])` failed `next build` outright. CSS Modules rejects a
+ * selector with no local class/id ANYWHERE in it ("pure selector"
+ * check, enforced by css-loader) — an attribute-only selector has none.
+ * Not caught by tsc or the (node-only, no jsdom/webpack) vitest suite —
+ * only `next build` itself runs css-loader. See axioms.md §34
+ * (companion PR — this fix is exactly the incident that rule cites).
+ *
+ * Fix: nest `.contentLightLock` INSIDE the :where() argument instead of
+ * outside it — `:where(.contentLightLock [data-dark-surface])`, not
+ * `.contentLightLock :where([data-dark-surface])`. This answers the
+ * previously-unverifiable question #2 below empirically: `next build`
+ * confirms CSS Modules' local-class hashing DOES still recognize
+ * `.contentLightLock` nested inside a :where() argument — it compiles
+ * and resolves to the module's real hashed class name. Both original
+ * reasons below are preserved exactly:
+ *   1. Specificity: :where()'s own specificity is ALWAYS zero
+ *      regardless of its argument's contents — nesting the class
+ *      inside it (rather than outside, as a separate compound) keeps
+ *      the WHOLE selector at true (0,0,0), identical to before. The
+ *      class contributes nothing to specificity by being inside :where().
+ *   2. Matching is unchanged: every real data-dark-surface element
+ *      (grep-confirmed, 8 elements / 4 locations, all under src/app/
+ *      admin/ or src/features/admin/) already renders inside
+ *      .contentLightLock's own wrapper in admin/layout.tsx — the
+ *      descendant relationship this selector now requires was already
+ *      true for every real case, so this is not a behavior change.
+ */
+:where(.contentLightLock [data-dark-surface]) {
+  color: #fff;
 }
 
 .contentLightLock input:not([data-dark-surface], [data-dark-surface] *),
