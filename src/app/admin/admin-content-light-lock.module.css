@@ -114,8 +114,20 @@
  *      outside the handful of elements marked with it is affected by
  *      being unscoped, regardless of where in the DOM they sit.
  * Net effect: true (0,0,0) specificity, no second open question.
+ *
+ * `:global(...)` wrapper (07.10.2026, hotfix) — this selector has no
+ * local class/id anywhere in it, which Next's CSS-Modules loader
+ * (css-loader) rejects outright as an "impure" selector, failing the
+ * production build with every commit on top of it since this rule was
+ * added (confirmed: `main`'s own Vercel deploy has been failing since
+ * this exact commit, not something introduced by a later PR).
+ * `:global(...)` is a CSS-Modules-only directive — it adds zero actual
+ * CSS specificity and changes no runtime behavior; it only tells the
+ * loader "this selector is intentionally unscoped," which is already
+ * true per the reasoning above (the custom `data-dark-surface`
+ * attribute is the real scope, not a local class).
  */
-:where([data-dark-surface]) {
+:global(:where([data-dark-surface])) {
   color: #fff;
 }
 
