@@ -7,6 +7,8 @@ export type InvitationRole = 'super_admin' | 'authority_manager' | 'unit_admin' 
 export interface AdminInvitation {
   id: string;
   email: string;
+  /** 07.10.2026 (Command-screen round) — the person's real name, entered by the inviting admin. Optional: pre-existing invitations have none, and the accept flow falls back to the invitee's own Firebase Auth name claim or their email's local part — see accept-invitation/route.ts. */
+  name?: string;
   role: InvitationRole;
   authorityId?: string;
   tenantId?: string;
@@ -28,6 +30,8 @@ export interface AdminInvitation {
 
 export interface InvitationData {
   email: string;
+  /** 07.10.2026 (Command-screen round) — see AdminInvitation.name's own comment. */
+  name?: string;
   role: InvitationRole;
   authorityId?: string;
   tenantId?: string;

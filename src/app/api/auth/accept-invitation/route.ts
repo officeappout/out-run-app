@@ -216,6 +216,15 @@ export async function computeAcceptInvitation(db: Firestore, caller: Caller, inv
       // All reads happen here, before any write below (Firestore
       // transaction requirement).
       const priorCore = (userSnap.data()?.core ?? {}) as Record<string, unknown>;
+      // 07.10.2026 (Command-screen round, David — "מי שמזמין לא משנה שמות
+      // של אחרים") — an admin-supplied name on THIS invitation only ever
+      // overwrites an existing user's core.name when it's currently empty
+      // or looks like the SAME crude email-derived fallback every new
+      // account gets by default (below) — never a real name someone
+      // already has, regardless of who's inviting.
+      const invName = typeof inv.name === 'string' && inv.name.trim() ? inv.name.trim() : null;
+      const priorName = typeof priorCore.name === 'string' ? priorCore.name : null;
+      const priorNameLooksLikeFallback = !priorName || priorName === inv.email.split('@')[0];
       const priorAuthorityId = typeof priorCore.authorityId === 'string' ? priorCore.authorityId : null;
       const priorTenantId = typeof priorCore.tenantId === 'string' ? priorCore.tenantId : null;
       const priorUnitId = typeof priorCore.unitId === 'string' ? priorCore.unitId : null;
@@ -288,6 +297,9 @@ export async function computeAcceptInvitation(db: Firestore, caller: Caller, inv
           'core.email': inv.email,
           updatedAt: FieldValue.serverTimestamp(),
         };
+        if (invName && priorNameLooksLikeFallback) {
+          update['core.name'] = invName;
+        }
         // P1-3 item 3 (00-MASTER-PLAN.md §13.49) — write the COMPLETE
         // role-defining field bundle every time, not just this role's own
         // subset. Before this, each branch below only ADDED its own
@@ -326,7 +338,7 @@ export async function computeAcceptInvitation(db: Firestore, caller: Caller, inv
         tx.update(userRef, update);
       } else {
         const core: Record<string, unknown> = {
-          name: caller.name || inv.email.split('@')[0],
+          name: invName || caller.name || inv.email.split('@')[0],
           email: inv.email,
           isApproved: true,
         };

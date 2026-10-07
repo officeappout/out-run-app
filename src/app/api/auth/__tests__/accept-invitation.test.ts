@@ -321,3 +321,75 @@ describe('computeAcceptInvitation — write-completeness + stale managerIds clea
     });
   });
 });
+
+describe('computeAcceptInvitation — core.name (Command-screen round, 07.10.2026)', () => {
+  beforeEach(() => {
+    store.clear();
+  });
+
+  it('a brand-new user whose invitation carries a name — core.name is the admin-supplied name, not the email-prefix fallback', async () => {
+    const db = makeFakeDb();
+    store.set('authorities/haifa', { managerIds: [] });
+    seedInvitation('inv-name-1', { role: 'authority_manager', email: CALLER.email, authorityId: 'haifa', name: 'קפטן דוד כהן' });
+
+    const result = await computeAcceptInvitation(db, CALLER, 'inv-name-1');
+
+    expect(result.status).toBe(200);
+    const core = (store.get(`users/${CALLER.uid}`)!.core) as Record<string, unknown>;
+    expect(core.name).toBe('קפטן דוד כהן');
+  });
+
+  it('a brand-new user whose invitation carries NO name — falls back to the email-prefix, unchanged from before this round', async () => {
+    const db = makeFakeDb();
+    store.set('authorities/haifa', { managerIds: [] });
+    seedInvitation('inv-name-2', { role: 'authority_manager', email: CALLER.email, authorityId: 'haifa' });
+
+    const result = await computeAcceptInvitation(db, CALLER, 'inv-name-2');
+
+    expect(result.status).toBe(200);
+    const core = (store.get(`users/${CALLER.uid}`)!.core) as Record<string, unknown>;
+    expect(core.name).toBe(CALLER.email.split('@')[0]);
+  });
+
+  it('an existing user whose core.name still looks like the email-prefix fallback — a new invitation WITH a real name updates it', async () => {
+    const db = makeFakeDb();
+    seedUser(CALLER.uid, { name: CALLER.email.split('@')[0], authorityId: 'tel-aviv', email: CALLER.email, isApproved: true });
+    store.set('authorities/tel-aviv', { managerIds: [CALLER.uid] });
+    store.set('authorities/haifa', { managerIds: [] });
+    seedInvitation('inv-name-3', { role: 'authority_manager', email: CALLER.email, authorityId: 'haifa', name: 'רב"ט שרה לוי' });
+
+    const result = await computeAcceptInvitation(db, CALLER, 'inv-name-3');
+
+    expect(result.status).toBe(200);
+    const core = (store.get(`users/${CALLER.uid}`)!.core) as Record<string, unknown>;
+    expect(core.name).toBe('רב"ט שרה לוי');
+  });
+
+  it('David\'s explicit rule — "מי שמזמין לא משנה שמות של אחרים": an existing user with a REAL name keeps it, even when a new invitation supplies a different one', async () => {
+    const db = makeFakeDb();
+    seedUser(CALLER.uid, { name: 'אלוף משנה רונן גבע', authorityId: 'tel-aviv', email: CALLER.email, isApproved: true });
+    store.set('authorities/tel-aviv', { managerIds: [CALLER.uid] });
+    store.set('authorities/haifa', { managerIds: [] });
+    seedInvitation('inv-name-4', { role: 'authority_manager', email: CALLER.email, authorityId: 'haifa', name: 'שם אחר לגמרי' });
+
+    const result = await computeAcceptInvitation(db, CALLER, 'inv-name-4');
+
+    expect(result.status).toBe(200);
+    const core = (store.get(`users/${CALLER.uid}`)!.core) as Record<string, unknown>;
+    expect(core.name).toBe('אלוף משנה רונן גבע');
+  });
+
+  it('an existing user with a REAL name, re-accepting an invitation with NO name supplied — core.name is left untouched entirely', async () => {
+    const db = makeFakeDb();
+    seedUser(CALLER.uid, { name: 'אלוף משנה רונן גבע', authorityId: 'tel-aviv', email: CALLER.email, isApproved: true });
+    store.set('authorities/tel-aviv', { managerIds: [CALLER.uid] });
+    store.set('authorities/haifa', { managerIds: [] });
+    seedInvitation('inv-name-5', { role: 'authority_manager', email: CALLER.email, authorityId: 'haifa' });
+
+    const result = await computeAcceptInvitation(db, CALLER, 'inv-name-5');
+
+    expect(result.status).toBe(200);
+    const core = (store.get(`users/${CALLER.uid}`)!.core) as Record<string, unknown>;
+    expect(core.name).toBe('אלוף משנה רונן גבע');
+  });
+});

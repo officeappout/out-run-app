@@ -73,3 +73,26 @@ describe('06.10.2026 ("chief fitness officer") — computeCreateInvitation, read
     expect(added[0].tenantId).toBeNull();
   });
 });
+
+describe('07.10.2026 (Command-screen round) — computeCreateInvitation, optional name field', () => {
+  it('a supplied name is trimmed and written onto the invitation doc', async () => {
+    const { db, added } = makeFakeDb();
+    const result = await computeCreateInvitation(db, { uid: 'root-uid', email: ROOT_EMAIL }, {
+      email: 'new-officer@example.com',
+      role: 'readiness_chief_officer',
+      name: '  קפטן דוד כהן  ',
+    });
+    expect(result.status).toBe(200);
+    expect(added[0].name).toBe('קפטן דוד כהן');
+  });
+
+  it('no name supplied — the key is absent from the written doc entirely, never present-with-undefined (axioms.md §24: Firestore rejects undefined field values outright)', async () => {
+    const { db, added } = makeFakeDb();
+    const result = await computeCreateInvitation(db, { uid: 'root-uid', email: ROOT_EMAIL }, {
+      email: 'new-officer@example.com',
+      role: 'readiness_chief_officer',
+    });
+    expect(result.status).toBe(200);
+    expect(Object.prototype.hasOwnProperty.call(added[0], 'name')).toBe(false);
+  });
+});

@@ -888,7 +888,15 @@ export default function AuthorityTeamPage() {
                     <Mail size={18} className="text-yellow-600" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 truncate" dir="ltr">{inv.email}</p>
+                    {/* 07.10.2026 (Command-screen round) — name is optional on older invitations; falls back to showing just the email as the primary line, same as before this change. */}
+                    {inv.name ? (
+                      <>
+                        <p className="font-bold text-gray-900 truncate">{inv.name}</p>
+                        <p className="text-xs text-gray-500 truncate" dir="ltr">{inv.email}</p>
+                      </>
+                    ) : (
+                      <p className="font-medium text-gray-900 truncate" dir="ltr">{inv.email}</p>
+                    )}
                     <p className="text-xs text-gray-500">
                       {targetName && <span>עבור {targetName} • </span>}
                       {isExpired ? (

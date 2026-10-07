@@ -151,6 +151,9 @@ export default function InviteMemberModal({
   const isEditMode = !!editTarget;
   const callerCanChangeRole = isRootAdmin(callerInfo.adminEmail);
   const [email, setEmail] = useState('');
+  // 07.10.2026 (Command-screen round) — optional, create-mode only (see
+  // the submit handler's own comment on why edit-mode doesn't send this).
+  const [name, setName] = useState('');
   const [selectedRole, setSelectedRole] = useState<InvitationRole | ''>('');
   const [selectedVertical, setSelectedVertical] = useState<'military' | 'municipal' | 'educational' | ''>('');
   const [selectedScopeId, setSelectedScopeId] = useState('');
@@ -201,6 +204,7 @@ export default function InviteMemberModal({
   useEffect(() => {
     if (!isOpen) {
       setEmail('');
+      setName('');
       setSelectedRole('');
       setSelectedVertical('');
       setSelectedScopeId('');
@@ -213,6 +217,7 @@ export default function InviteMemberModal({
       setAvatarPreview(null);
     } else if (editTarget) {
       setEmail(editTarget.email || '');
+      setName(editTarget.name || '');
       const roleVal: InvitationRole | '' = editTarget.isSuperAdmin
         ? 'super_admin'
         : editTarget.isVerticalAdmin
@@ -390,6 +395,7 @@ export default function InviteMemberModal({
         email: email.trim().toLowerCase(),
         role: selectedRole,
       };
+      if (name.trim()) invData.name = name.trim();
 
       // Upload avatar to Firebase Storage if provided
       if (avatarFile && modeKey === 'platform') {
@@ -559,6 +565,21 @@ export default function InviteMemberModal({
           </div>
         ) : (
           <div className="space-y-4 mt-4">
+            {/* 07.10.2026 (Command-screen round) — optional, create-mode
+                only: not sent via onEdit's updates, which is a separate
+                admin-management write path this round doesn't touch. */}
+            {!isEditMode && (
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1.5">שם (לא חובה)</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="לדוגמה: קפטן דוד כהן"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl outline-none transition-all text-sm focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
+                />
+              </div>
+            )}
             {/* Email */}
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1.5">כתובת אימייל</label>

@@ -115,6 +115,9 @@ interface Caller {
 export async function computeCreateInvitation(db: Firestore, caller: Caller, body: unknown) {
   const b = (body ?? {}) as Record<string, unknown>;
   const rawEmail = typeof b.email === 'string' ? b.email.trim().toLowerCase() : '';
+  // 07.10.2026 (Command-screen round) — optional; the "ברוך שובך"
+  // header and the team list both fall back gracefully when absent.
+  const rawName = typeof b.name === 'string' ? b.name.trim() : '';
   const role = typeof b.role === 'string' ? b.role : '';
 
   if (!rawEmail || !rawEmail.includes('@')) {
@@ -233,6 +236,7 @@ export async function computeCreateInvitation(db: Firestore, caller: Caller, bod
 
   const docRef = await db.collection('admin_invitations').add({
     email: rawEmail,
+    ...(rawName ? { name: rawName } : {}),
     role,
     authorityId,
     allowedSections,
