@@ -73,11 +73,24 @@
  * landmarks + neighboring city centers + Jerusalem control) before this
  * was wired in — see the task's dry-run report for those results.
  *
+ * ── BBOX SOURCE: authority boundary, falling back to routes (David,
+ * 06.10.2026, OSM-import Stage 2) ────────────────────────────────────────
+ * The bbox is now derived from authorities/{id}.boundaryGeoJSON (the city's
+ * REAL admin boundary — 248 authorities already have one backfilled) via
+ * parseBoundaryGeoJSON + @turf/bbox, falling back to the original
+ * official_routes-derived bbox (unchanged) only when that authority has no
+ * boundaryGeoJSON. This unblocks every city with a real boundary but zero
+ * official_routes (e.g. Ashkelon, Rishon LeZion) — they previously hard-
+ * failed at the routes query with zero fallback. A city's real admin
+ * boundary is also typically LARGER than wherever its routes happen to
+ * exist, so this can surface MORE real candidates than before for a city
+ * that already has routes (e.g. Tel Aviv) — that is the fix working
+ * correctly, not a regression to narrow back down.
+ *
  * ── CITY-PARAMETERIZED (Phase 0.2, 01.09.2026) ───────────────────────────
  * --city= and --relationId= both default to TLV's hardcoded values above,
- * so a bare invocation is byte-for-byte identical to before. The bbox
- * itself needs no separate parameter — it's already derived live from that
- * city's own official_routes geometry (see below), not a hardcoded constant.
+ * so a bare invocation is byte-for-byte identical to before (same bbox
+ * fallback rule above applies equally to a bare invocation).
  *
  * --relationId is NOT auto-resolved from --city by name, on purpose — this
  * mirrors the exact reason TLV's own relation id is hardcoded rather than
@@ -143,9 +156,10 @@ dotenv.config();
 import * as admin from 'firebase-admin';
 import { geohashForLocation } from 'geofire-common';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
+import turfBbox from '@turf/bbox';
 import { point as turfPoint } from '@turf/helpers';
 import { buildValidatedDoc } from '../src/lib/route-collections';
-import { findAuthorityByCityName } from '../src/lib/route-collections/authority-resolution';
+import { findAuthorityByCityName, parseBoundaryGeoJSON } from '../src/lib/route-collections/authority-resolution';
 import { fetchOverpassRaw, fetchCityBoundary, OVERPASS_QUERY_TIMEOUT_SEC, type OverpassElement } from './lib/osm-boundary-fetch.node';
 import { findNearestGardenMatch, GARDEN_DEDUP_RADIUS_METERS, type GardenCandidate } from '../src/features/parks/core/services/garden-dedup.service';
 import { boundingBoxWithMargin } from '../src/lib/dem-tile-cache/tile-math';
@@ -325,21 +339,43 @@ export async function runExtractOsmAmenities(opts: ExtractOsmAmenitiesOptions): 
   }
   console.log(`📍 Resolved ${CITY} authorityId: ${cityAuthorityId}`);
 
-  // ── Derive extraction bbox from the city's own real route geometry (same
-  // technique as Phase B, wider margin — see header comment) ──
-  const routesSnap = await db.collection('official_routes').where('city', '==', CITY).get();
-  const routePoints: Array<{ lat: number; lng: number }> = [];
-  for (const d of routesSnap.docs) {
-    const rawPath = d.data().path;
-    if (Array.isArray(rawPath)) {
-      for (const p of rawPath) routePoints.push({ lat: Number(p.lat) || 0, lng: Number(p.lng) || 0 });
+  // ── Derive extraction bbox — David's decision (06.10.2026): prefer the
+  // city's REAL admin boundary (authorities/{id}.boundaryGeoJSON, already
+  // backfilled for 248 authorities) over route geometry. A boundary covers
+  // the whole city; a route-derived bbox only covers wherever routes happen
+  // to exist — the boundary bbox can legitimately be LARGER and surface
+  // MORE real candidates than before. That is the fix working, not a
+  // regression to narrow back down. Falls back to the original
+  // official_routes-derived bbox (unchanged logic) only when the authority
+  // has no boundaryGeoJSON — so a city with neither still gets the same
+  // explicit, aborting throw as before, never a silent empty run. ──
+  const authorityDoc = await db.collection('authorities').doc(cityAuthorityId).get();
+  const parsedBoundary = parseBoundaryGeoJSON(authorityDoc.data()?.boundaryGeoJSON);
+
+  let bbox: ReturnType<typeof boundingBoxWithMargin>;
+  let bboxSource: 'authority_boundary' | 'official_routes';
+  if (parsedBoundary) {
+    const [lonMin, latMin, lonMax, latMax] = turfBbox(parsedBoundary);
+    bbox = boundingBoxWithMargin([{ lat: latMin, lng: lonMin }, { lat: latMax, lng: lonMax }], AMENITY_BBOX_MARGIN_METERS);
+    bboxSource = 'authority_boundary';
+    console.log(`📍 Extraction bbox (+${AMENITY_BBOX_MARGIN_METERS}m margin around ${CITY}'s REAL authority boundary):`);
+  } else {
+    const routesSnap = await db.collection('official_routes').where('city', '==', CITY).get();
+    const routePoints: Array<{ lat: number; lng: number }> = [];
+    for (const d of routesSnap.docs) {
+      const rawPath = d.data().path;
+      if (Array.isArray(rawPath)) {
+        for (const p of rawPath) routePoints.push({ lat: Number(p.lat) || 0, lng: Number(p.lng) || 0 });
+      }
     }
+    if (routePoints.length === 0) {
+      throw new Error(`No ${CITY} authorities.boundaryGeoJSON AND no official_routes geometry to derive a bbox from — aborting.`);
+    }
+    bbox = boundingBoxWithMargin(routePoints, AMENITY_BBOX_MARGIN_METERS);
+    bboxSource = 'official_routes';
+    console.log(`⚠️  No authorities.boundaryGeoJSON for ${CITY} — falling back to the legacy route-derived bbox (+${AMENITY_BBOX_MARGIN_METERS}m margin around real ${CITY} route geometry):`);
   }
-  if (routePoints.length === 0) {
-    throw new Error(`No ${CITY} route geometry found to derive a bbox from — aborting.`);
-  }
-  const bbox = boundingBoxWithMargin(routePoints, AMENITY_BBOX_MARGIN_METERS);
-  console.log(`📍 Extraction bbox (+${AMENITY_BBOX_MARGIN_METERS}m margin around real ${CITY} route geometry):`);
+  console.log(`   source: ${bboxSource}`);
   console.log(`   lat [${bbox.latMin.toFixed(4)}, ${bbox.latMax.toFixed(4)}]  lon [${bbox.lonMin.toFixed(4)}, ${bbox.lonMax.toFixed(4)}]`);
   console.log('   ⚠️  This bbox is a superset of the real city — spillover is expected and clipped below.');
 
