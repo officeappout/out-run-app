@@ -894,11 +894,20 @@ export default function StatsOverview({
           );
         }
         const loc = trio.meta?.location || effectiveLocation;
-        setCurrentWorkoutLocation(loc);
-        // Never let the engine echo erase an explicit user pick. This key is both the
-        // cross-surface channel (active page / preview drawer read it) AND the first
-        // link in the NEXT run's location chain, so overwriting it would revert the
-        // pin permanently. Unpinned → unchanged behaviour.
+        // Never let the engine echo erase an explicit user pick. This guard already
+        // existed below for the sessionStorage mirror but was missing here — the
+        // gap this closes: HeroWorkoutCard's video reads `currentWorkoutLocation`
+        // directly (not `pinnedLocation`), so an unguarded write here could silently
+        // repaint the video for a location the chip (pinned-first) still disagreed
+        // with, e.g. after a same-day schedule edit re-triggers generation and
+        // resolveWorkoutContext downgrades park->home while the user had pinned
+        // park (2026-10-07 toggle/video desync investigation).
+        if (!pinnedLocationRef.current) {
+          setCurrentWorkoutLocation(loc);
+        }
+        // This key is both the cross-surface channel (active page / preview drawer
+        // read it) AND the first link in the NEXT run's location chain, so
+        // overwriting it would revert the pin permanently. Unpinned → unchanged.
         if (typeof window !== 'undefined' && loc && !pinnedLocationRef.current) {
           sessionStorage.setItem('currentWorkoutLocation', loc);
         }
