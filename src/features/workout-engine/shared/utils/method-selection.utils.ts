@@ -183,12 +183,29 @@ export function selectMethodForContext(
 
     // No park-tagged methods at all → only pure bodyweight/surface methods survive.
     // Home-tagged methods are NOT used even if their gear happens to be available.
+    //
+    // 2026-10-07 fix: the comment above was already the intent, but the code
+    // never checked `m.location`/`locationMapping` at all — only gear. A
+    // method tagged `location:'home'` with no gearIds (e.g. a generic
+    // push-up method that happens to live on the "home" entry in the data)
+    // passed this filter for a park request, directly contradicting the
+    // comment. Real-catalog coverage measured before this change: 0 of 358
+    // exercises have zero park-tagged method today (every exercise has a
+    // literal `location:'park'` method) — so `parkCandidates` above is
+    // never empty for real data, meaning this branch is unreachable for the
+    // current catalog either way. The explicit check is kept (not collapsed
+    // to a bare `return null`) as a deliberate, defensive duplicate of
+    // `parkCandidates`'s own predicate — if that predicate's logic ever
+    // changes without this one being updated to match, bwCandidates must
+    // still correctly end up empty rather than silently re-opening the leak.
     const BODYWEIGHT_PASS = new Set(['bodyweight', 'none', ...Array.from(SURFACE_GEAR_AT_PARK)]);
     const bwCandidates = methods.filter(m => {
+      const isParkTagged = m.location === 'park' || m.locationMapping?.includes('park' as any);
+      if (!isParkTagged) return false;
       const ids = collectMethodGear(m);
       return ids.length === 0 || ids.every(id => BODYWEIGHT_PASS.has(id));
     });
-    return bwCandidates.length > 0 ? preferMedia(bwCandidates) : null;
+    return bwCandidates.length > 0 ? logMismatch('park-bodyweight-only', preferMedia(bwCandidates)) : null;
   }
 
   // ── Priority 1: Exact primary location match (non-park locations) ─────
