@@ -1,5 +1,6 @@
 'use client';
 
+import UnitIconBadge from '@/components/ui/UnitIconBadge';
 import { UnitStatusBar } from '../readiness-dashboard/StatusBar';
 import { READINESS_COLORS } from '../readiness-dashboard/colors';
 import type { DashboardUnitStatusBreakdown } from '@/features/readiness/core/services/readiness-dashboard.service';
@@ -14,6 +15,8 @@ export interface CommandComponentPercent {
 export interface CommandEntityCardProps {
   id: string;
   name: string;
+  /** 07.10.2026 (David) — authorities.logoUrl, same field/component (UnitIconBadge) the old selector already used. Null for every row this round doesn't have one for (battalion/company levels) — UnitIconBadge's own hash-colored fallback renders exactly as it already does everywhere else in this codebase for a null iconUrl, zero new component. */
+  logoUrl?: string | null;
   hasData: boolean;
   totalCount: number;
   testedCount: number;
@@ -34,7 +37,7 @@ export interface CommandEntityCardProps {
  * per-level reimplementation.
  */
 export default function CommandEntityCard({
-  id, name, hasData, totalCount, testedCount, bigBreakdown, trainingBreakdown, componentPercents, appActiveCount, onClick, sampleFloor = SAMPLE_FLOOR_DEFAULT,
+  id, name, logoUrl = null, hasData, totalCount, testedCount, bigBreakdown, trainingBreakdown, componentPercents, appActiveCount, onClick, sampleFloor = SAMPLE_FLOOR_DEFAULT,
 }: CommandEntityCardProps) {
   const smallSample = hasData && isSmallSample(testedCount, sampleFloor);
 
@@ -45,10 +48,11 @@ export default function CommandEntityCard({
       disabled={!onClick}
       className={`text-right bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col transition-shadow ${onClick ? 'hover:shadow-md cursor-pointer' : ''}`}
     >
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-black text-gray-900 truncate">{name}</h3>
+      <div className="flex items-center gap-2.5 mb-2">
+        <UnitIconBadge unitId={id} iconUrl={logoUrl} name={name} size={32} />
+        <h3 className="text-sm font-black text-gray-900 truncate flex-1">{name}</h3>
         {smallSample && (
-          <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-md whitespace-nowrap flex-shrink-0 mr-1">מדגם קטן</span>
+          <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-md whitespace-nowrap flex-shrink-0">מדגם קטן</span>
         )}
       </div>
 

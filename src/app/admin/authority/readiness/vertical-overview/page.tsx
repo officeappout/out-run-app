@@ -39,6 +39,14 @@ interface DisplayRow extends CommandRankableRow {
   componentPercents: { testId: string; label: string; passPercent: number | null }[];
   /** Present only for level-1+ rows (real units) — the raw unit, used to resolve children on drill. Null for level-0 (brigade) rows, which drill via tenantId instead. */
   rawUnit: DashboardUnitRow | null;
+  /**
+   * 07.10.2026 (David) — brigade's own authorities.logoUrl, same field
+   * the old selector already read. Null for level-1+ (battalion/
+   * company) rows — those live on a DIFFERENT field (tenants/{t}/units/{u}.iconUrl),
+   * not fetched this round; UnitIconBadge's own fallback (hash-colored
+   * badge) renders for them exactly as it would for any null iconUrl.
+   */
+  logoUrl: string | null;
 }
 
 const EMPTY_BREAKDOWN: DashboardUnitStatusBreakdown = { passCount: 0, failCount: 0, notPerformedCount: 0, notYetTestedCount: 0, testedCount: 0, passPercent: null };
@@ -72,6 +80,7 @@ function brigadeRowToDisplay(row: VerticalBrigadeRow, component: string): Displa
     bigBreakdown: resolved.big, trainingBreakdown: resolved.training,
     componentPercents: row.components.map((c) => ({ testId: c.testId, label: c.label, passPercent: c.passPercent })),
     rawUnit: null,
+    logoUrl: row.logoUrl,
   };
 }
 
@@ -92,6 +101,7 @@ function unitRowToDisplay(row: DashboardUnitRow, tenantComponents: DashboardComp
     bigBreakdown: resolved.big, trainingBreakdown: resolved.training,
     componentPercents: componentsList.map((c) => ({ testId: c.testId, label: c.label, passPercent: c.passPercent })),
     rawUnit: row,
+    logoUrl: null,
   };
 }
 
@@ -344,17 +354,7 @@ export default function ReadinessVerticalOverviewPage() {
         <p className="text-sm text-gray-500 mt-1">תמונת מצב משווה. לחיצה על כרטיס נכנסת לרמה הבאה.</p>
       </div>
 
-      <CommandSummaryStrip
-        entityLabel={entityLabel}
-        entityCount={dataFiltered.length}
-        totalSoldiers={totalSoldiers}
-        averagePassPercent={averagePassPercent}
-        appActiveCount={totalAppActive}
-        notYetTestedCount={notYetTestedSum}
-        entityWithDataCount={withDataCount}
-        entityTotalAtThisLevel={displayRows.length}
-      />
-
+      {/* 07.10.2026 (David) — filter row ABOVE the summary strip; was reversed. */}
       <CommandFilterBar
         sortKey={sortKey}
         direction={direction}
@@ -368,6 +368,18 @@ export default function ReadinessVerticalOverviewPage() {
         onSearchChange={(v) => pushState({ q: v || null })}
       />
 
+      <CommandSummaryStrip
+        entityLabel={entityLabel}
+        entityCount={dataFiltered.length}
+        totalSoldiers={totalSoldiers}
+        testedSoldiers={testedSum}
+        averagePassPercent={averagePassPercent}
+        appActiveCount={totalAppActive}
+        notYetTestedCount={notYetTestedSum}
+        entityWithDataCount={withDataCount}
+        entityTotalAtThisLevel={displayRows.length}
+      />
+
       <CommandInsightCards entityLabel={entityLabel} mostFit={mostFit && { name: mostFit.row.name, value: mostFit.value, unit: '%' }} biggestGap={biggestGap && { name: biggestGap.row.name, value: biggestGap.value, unit: '%' }} mostNearThreshold={mostNearThreshold && { name: mostNearThreshold.row.name, value: mostNearThreshold.value, unit: '' }} />
 
       {sortedRows.length === 0 ? (
@@ -375,12 +387,14 @@ export default function ReadinessVerticalOverviewPage() {
           <p className="text-sm text-gray-400">{displayRows.length === 0 ? 'אין תת-יחידות מתחת לרמה הזו.' : 'אין תוצאות לסינון הנוכחי.'}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        // 07.10.2026 (David) — three cards per row, never four.
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {sortedRows.map((row) => (
             <CommandEntityCard
               key={row.id}
               id={row.id}
               name={row.name}
+              logoUrl={row.logoUrl}
               hasData={row.hasData}
               totalCount={row.totalCount}
               testedCount={row.testedCount}
