@@ -311,6 +311,16 @@ export interface ExtractOsmAmenitiesResult {
 }
 
 export async function runExtractOsmAmenities(opts: ExtractOsmAmenitiesOptions): Promise<ExtractOsmAmenitiesResult> {
+  // Timing instrumentation (David, 07.10.2026) — total + the 3 buckets he
+  // asked for: fetchCityBoundary, fetchAmenityElements, local processing
+  // (clip + dedup + classify). Everything else (authorities/parks reads)
+  // falls out of totalMs - the three below, reported as "other" so the
+  // numbers are honest about what they do and don't cover.
+  const tRunStart = Date.now();
+  let boundaryFetchMs = 0;
+  let amenityFetchMs = 0;
+  let localProcessingMs = 0;
+
   const { db } = opts;
   const CITY = opts.city;
   const ADMIN_RELATION_ID = opts.adminRelationId;
@@ -383,7 +393,10 @@ export async function runExtractOsmAmenities(opts: ExtractOsmAmenitiesOptions): 
   // city-accuracy fix. Hard-fails the run if the boundary can't be
   // assembled, rather than silently degrading to bbox-only. ──
   console.log(`\n🗺️  Fetching ${CITY} admin boundary (OSM relation ${ADMIN_RELATION_ID})...`);
+  const tBoundaryStart = Date.now();
   const cityBoundary = await fetchCityBoundary(ADMIN_RELATION_ID, CITY);
+  boundaryFetchMs = Date.now() - tBoundaryStart;
+  console.log(`   ⏱  fetchCityBoundary took ${boundaryFetchMs}ms.`);
   const ringCount = cityBoundary.geometry.type === 'Polygon'
     ? cityBoundary.geometry.coordinates.length
     : cityBoundary.geometry.coordinates.reduce((n, poly) => n + poly.length, 0);
@@ -406,13 +419,17 @@ export async function runExtractOsmAmenities(opts: ExtractOsmAmenitiesOptions): 
 
   // ── Overpass fetch ──
   console.log('\n🗺️  Querying Overpass for amenities in bbox...');
+  const tAmenityStart = Date.now();
   const elements = await fetchAmenityElements(bbox);
+  amenityFetchMs = Date.now() - tAmenityStart;
   console.log(`   ${elements.length} raw element(s) returned.`);
+  console.log(`   ⏱  fetchAmenityElements took ${amenityFetchMs}ms.`);
 
   // ── Boundary-clip, then classify + dedup-gate every candidate. The
   // boundary check runs FIRST and unconditionally drops spillover — a
   // point outside the real city isn't a real amenity for this city at all,
   // so it never reaches the dedup gate and is never written in any status. ──
+  const tLocalStart = Date.now();
   const outcomes: CandidateOutcome[] = [];
   const spilloverByCategory: Record<AmenityCategory, number> = { court: 0, bench: 0, drinking_water: 0, fitness_station: 0, crossing: 0, dog_park: 0 };
   let spilloverCount = 0;
@@ -448,6 +465,8 @@ export async function runExtractOsmAmenities(opts: ExtractOsmAmenitiesOptions): 
     byCategory[o.category]++;
     if (o.suppressed) suppressedCount++;
   }
+  localProcessingMs = Date.now() - tLocalStart;
+  console.log(`   ⏱  local processing (boundary-clip + garden-dedup gate + classify, ${elements.length} elements against ${gardenCandidates.length} parks) took ${localProcessingMs}ms.`);
 
   console.log('\n╔══════════════════════════════════════════════════════════╗');
   console.log('║  BOUNDARY CLIP (spillover dropped BEFORE dedup gate)         ║');
@@ -531,6 +550,18 @@ export async function runExtractOsmAmenities(opts: ExtractOsmAmenitiesOptions): 
   console.log(`║  Candidates found (inside boundary): ${String(outcomes.length).padEnd(20)}║`);
   console.log(`║  Suppressed (dedup gate): ${String(suppressedCount).padEnd(31)}║`);
   console.log(`║  Would be 'pending':      ${String(outcomes.length - suppressedCount).padEnd(31)}║`);
+  console.log('╚══════════════════════════════════════════════════════════╝');
+
+  const totalMs = Date.now() - tRunStart;
+  const otherMs = totalMs - boundaryFetchMs - amenityFetchMs - localProcessingMs;
+  console.log('\n╔══════════════════════════════════════════════════════════╗');
+  console.log('║                        TIMING                               ║');
+  console.log('╠══════════════════════════════════════════════════════════╣');
+  console.log(`║  Total:                        ${String(totalMs + 'ms').padEnd(26)}║`);
+  console.log(`║  fetchCityBoundary:             ${String(boundaryFetchMs + 'ms').padEnd(25)}║`);
+  console.log(`║  fetchAmenityElements:          ${String(amenityFetchMs + 'ms').padEnd(25)}║`);
+  console.log(`║  local processing (clip+dedup+classify): ${String(localProcessingMs + 'ms').padEnd(16)}║`);
+  console.log(`║  other (authorities/parks Firestore reads): ${String(otherMs + 'ms').padEnd(12)}║`);
   console.log('╚══════════════════════════════════════════════════════════╝');
 
   return {
