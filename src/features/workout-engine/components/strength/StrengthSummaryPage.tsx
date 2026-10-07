@@ -191,6 +191,14 @@ export default function StrengthSummaryPage({
   // pendingProgramSuggestions from the profile, per the product decision
   // that "dismiss" defers rather than resolves.
   const [dismissedSuggestionIds, setDismissedSuggestionIds] = useState<Set<string>>(new Set());
+  // Bug-fix round, 07.10.2026 — the Finish button had no disabled state,
+  // so a double/triple-tap during handleSummaryFinish's multi-second
+  // async save chain wrote 2-3 independent `workouts` docs for one real
+  // session (that handler now also has its own module-level in-flight
+  // guard, mirroring useRunningPlayer.ts/useHybridRun.ts — this is the
+  // UI-level half of the same fix, giving the user visible feedback
+  // instead of a silently-ignored second tap).
+  const [isFinishing, setIsFinishing] = useState(false);
   const visibleSuggestions = (profile?.progression?.pendingProgramSuggestions ?? []).filter(
     (s) => !dismissedSuggestionIds.has(s.ruleId),
   );
@@ -410,12 +418,15 @@ export default function StrengthSummaryPage({
             if (isReadOnly) {
               onClose?.();
             } else {
+              if (isFinishing) return;
+              setIsFinishing(true);
               onFinish?.({ xpEarned: xp.xpEarnedAmount, xpStatus: xp.xpStatus });
             }
           }}
-          className="flex-1 bg-primary py-4 rounded-2xl text-white font-extrabold text-xl shadow-lg shadow-primary/25 active:scale-[0.98] transition-all"
+          disabled={!isReadOnly && isFinishing}
+          className="flex-1 bg-primary py-4 rounded-2xl text-white font-extrabold text-xl shadow-lg shadow-primary/25 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          {isReadOnly ? 'סגור' : 'תודה על האימון!'}
+          {isReadOnly ? 'סגור' : isFinishing ? 'שומר...' : 'תודה על האימון!'}
         </button>
       </div>
 

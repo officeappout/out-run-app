@@ -546,6 +546,16 @@ async function saveWorkoutToHistory({
   return { saved, detectedPark };
 }
 
+// handleSummaryFinish idempotency lock (07.10.2026) — same pattern as
+// useRunningPlayer.ts's `_finishInFlight` / useHybridRun.ts's `saving`:
+// the strength "Finish" button had no disabled state, so a double/
+// triple-tap during the multi-second async save chain wrote 2-3 fully
+// independent `workouts` docs for one real session, inflating the
+// activation/retention funnel (each duplicate independently passes
+// isRealWorkoutCompletion — see funnel-analytics.service.ts's own fix,
+// same date). Released in handleSummaryFinish's finally.
+let _summaryFinishInFlight = false;
+
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
@@ -1342,6 +1352,17 @@ export default function ActiveWorkoutPage() {
     xpEarned: number;
     xpStatus: 'pending' | 'awarded' | 'failed';
   }) => {
+    // ── Idempotency guard ──────────────────────────────────────────────────
+    // Mirrors useRunningPlayer.ts's finishWorkout / useHybridRun.ts's
+    // finishHybrid — a second invocation while one is already in flight
+    // (double-tap on Finish, no disabled state previously existed) must
+    // be a no-op, otherwise the workout doc is duplicated.
+    if (_summaryFinishInFlight) {
+      console.warn('[ActiveWorkoutPage] handleSummaryFinish ignored — already in flight');
+      return;
+    }
+    _summaryFinishInFlight = true;
+    try {
     const currentUser = auth.currentUser;
     const durationSec = workoutStats.duration;
     const durationMin = Math.max(1, Math.round(durationSec / 60));
@@ -1476,6 +1497,9 @@ export default function ActiveWorkoutPage() {
     // the next workout of any mode can startSession() cleanly.
     if (ownsSessionRef.current) useSessionStore.getState().clearSession();
     router.push('/home');
+    } finally {
+      _summaryFinishInFlight = false;
+    }
   }, [router, refreshProfile, workoutStats.duration, workoutStats.difficulty, workoutStats.completedExercises, workoutStats.totalReps, workoutStats.rawExerciseLog, workoutStats.domainSets, profile, stableWorkoutPlan, userProgression]);
 
   // Handle pause
