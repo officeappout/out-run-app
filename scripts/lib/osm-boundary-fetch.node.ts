@@ -80,24 +80,43 @@ async function fetchOverpassOnce(endpoint: string, body: string): Promise<{ elem
 
 /** Shared retry/mirror-fallback loop — used by every Overpass query in this
  *  codebase (amenity-element fetch, boundary-relation fetch, and any future
- *  caller) so the resilience logic has exactly one copy, not one per script. */
+ *  caller) so the resilience logic has exactly one copy, not one per script.
+ *
+ *  LOGGING (David, 07.10.2026): this loop used to be completely silent —
+ *  no way to tell "Overpass is healthy" from "Overpass is dying with 3
+ *  silent retries" from the console output alone (the same missing-
+ *  liveness-signal problem already found for Arad). Every attempt, every
+ *  retry (with the status code that triggered it), every mirror fallback,
+ *  and the endpoint that finally succeeded are now logged. */
 export async function fetchOverpassRaw(query: string): Promise<{ elements: OverpassElement[] }> {
   const body = 'data=' + encodeURIComponent(query);
   let lastError: unknown = null;
   for (let e = 0; e < OVERPASS_ENDPOINTS.length; e++) {
     const endpoint = OVERPASS_ENDPOINTS[e];
+    if (e > 0) {
+      console.log(`[overpass] falling through to next mirror: ${endpoint}`);
+    }
     for (let attempt = 1; attempt <= OVERPASS_ATTEMPTS_PER_ENDPOINT; attempt++) {
+      console.log(`[overpass] ${endpoint} — attempt ${attempt}/${OVERPASS_ATTEMPTS_PER_ENDPOINT}...`);
       try {
-        return await fetchOverpassOnce(endpoint, body);
+        const result = await fetchOverpassOnce(endpoint, body);
+        console.log(`[overpass] ✔ succeeded on ${endpoint} (attempt ${attempt}/${OVERPASS_ATTEMPTS_PER_ENDPOINT}).`);
+        return result;
       } catch (err) {
         lastError = err;
         const status = (err as Error & { status?: number }).status;
         const transient = status !== undefined && OVERPASS_RETRY_STATUSES.has(status);
-        if (!transient) throw err; // our bug, not worth retrying
-        if (attempt < OVERPASS_ATTEMPTS_PER_ENDPOINT) await sleep(OVERPASS_RETRY_DELAY_MS);
+        if (!transient) {
+          console.log(`[overpass] ✗ ${endpoint} failed with ${status ?? '(no status — network/abort error)'} — not a retryable status, aborting.`);
+          throw err; // our bug, not worth retrying
+        }
+        const willRetry = attempt < OVERPASS_ATTEMPTS_PER_ENDPOINT;
+        console.log(`[overpass] ✗ ${endpoint} attempt ${attempt}/${OVERPASS_ATTEMPTS_PER_ENDPOINT} failed with status ${status} — ${willRetry ? `retrying in ${OVERPASS_RETRY_DELAY_MS}ms` : 'exhausted retries on this mirror'}.`);
+        if (willRetry) await sleep(OVERPASS_RETRY_DELAY_MS);
       }
     }
   }
+  console.log('[overpass] ✗ all mirrors exhausted, giving up.');
   throw new Error(`Overpass fetch failed across all endpoints. Last error: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
 }
 
