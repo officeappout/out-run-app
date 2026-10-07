@@ -83,6 +83,29 @@ export const dynamic = 'force-dynamic';
  * focused on activation-specific deep-dive metrics (time-to-first-
  * workout, activation-by-source), while the Acquisition chart shows
  * the whole journey's drop-off shape in one place.
+ *
+ * Journey Hub Phase 3, items A/D/E (07.10.2026, approved design) —
+ * B/C (an onboarding sub-step funnel + avg time-per-step) are
+ * explicitly DEFERRED: the Step-1 investigation confirmed the strength
+ * track (the majority of signups) records no intermediate onboarding
+ * step at all today, only a jump straight to COMPLETED — a sub-step
+ * breakdown built on that would show 0 at every middle step for most
+ * users. A separate, additive-only prerequisite PR (app-side onboarding
+ * instrumentation) is required before B/C can be built honestly.
+ * - A: per-tab one-line explanation from the approved design, rendered
+ *   below the tab bar (`TABS`' new `subtitleHe` field) — replaces the
+ *   single generic H1 subtitle that used to apply to every tab alike.
+ * - D: `BlackBoxFunnelCard` — the finished-onboarding → first-workout
+ *   drill-down (opened → browsed → viewed workout → pressed Play →
+ *   completed), consuming #176's `workout_detail_viewed`/
+ *   `workout_start_pressed`. Structure-only: every stage shows the
+ *   literal "מתמלא" since those events only started firing when #176
+ *   merged — see that component's own header comment for what wiring
+ *   real counts later needs.
+ * - E: an explicit "הורדות (חנויות)" placeholder tile on Acquisition —
+ *   store download counts need a separate App Store/Play Store API
+ *   connection, not a DB query; shown as its own labeled card, not a
+ *   silent gap, per the approved design.
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -180,6 +203,10 @@ import CohortRetentionChart, {
   type CohortRetentionEntry,
 } from '@/features/admin/components/cpo-dashboard/CohortRetentionChart';
 
+// Journey Hub Phase 3, item D (07.10.2026) — the finished-onboarding →
+// first-workout drill-down, structure-only until #176's events accumulate.
+import BlackBoxFunnelCard from '@/features/admin/components/cpo-dashboard/BlackBoxFunnelCard';
+
 interface GrowthMetricsResponse {
   scope: 'platform' | 'vertical';
   vertical?: string;
@@ -219,10 +246,14 @@ interface StatisticsSummaryResponse {
 
 type JourneyTab = 'acquisition' | 'activation' | 'retention';
 
-const TABS: { id: JourneyTab; label: string }[] = [
-  { id: 'acquisition', label: 'רכישה' },
-  { id: 'activation', label: 'הפעלה' },
-  { id: 'retention', label: 'שימור ומעורבות' },
+// Journey Hub Phase 3, item A (07.10.2026) — the per-tab one-line
+// explanation from the approved design. Rendered just below the tab bar
+// for whichever tab is active, replacing the single generic subtitle
+// that used to sit under the page's own H1 for every tab alike.
+const TABS: { id: JourneyTab; label: string; subtitleHe: string }[] = [
+  { id: 'acquisition', label: 'רכישה', subtitleHe: 'איך מגיעים' },
+  { id: 'activation', label: 'הפעלה', subtitleHe: 'מהרשמה לאימון ראשון' },
+  { id: 'retention', label: 'שימור ומעורבות', subtitleHe: 'אחרי' },
 ];
 
 export default function JourneyHubPage() {
@@ -450,6 +481,9 @@ export default function JourneyHubPage() {
           </button>
         ))}
       </div>
+      <p className="text-sm text-gray-500 -mt-2">
+        {TABS.find((t) => t.id === activeTab)?.subtitleHe}
+      </p>
 
       {/* Acquisition — Wave 1 relocated the funnel/organic-split/city
           breakdown; Wave 2 added the real new-users-over-time trend
@@ -492,6 +526,21 @@ export default function JourneyHubPage() {
             <p className="text-gray-400 text-xs mt-2">
               פילוח מדויק לפי קמפיין/מקור ספציפי — באמצעות שורת הסינון שמעל הטאבים. "אורגני מול משיווק" כאן הוא תמיד תקציר דו-ערכי.
             </p>
+          </div>
+
+          {/* Journey Hub Phase 3, item E (07.10.2026) — explicit placeholder,
+              not a silent gap. Store download counts can't come from our own
+              DB at all (App Store Connect / Play Console are separate APIs,
+              a separate data-connection track, not this PR) — shown as its
+              own labeled tile rather than folded into the install/visit
+              footnote below, which is about a different thing (pre-signup
+              on-site visits, not store-level download counts). */}
+          <div className="bg-white rounded-xl border border-gray-200 border-dashed p-4 md:p-6">
+            <p className="text-xs md:text-sm text-gray-500 mb-1 flex items-center gap-1">
+              הורדות (חנויות)
+              <InfoHint text="מספר ההורדות בפועל מ-App Store / Google Play — דורש חיבור נפרד ל-API של כל חנות, לא נתון שקיים במסד הנתונים שלנו." />
+            </p>
+            <p className="text-lg font-black text-gray-400">ממתין לחיבור App Store/Play</p>
           </div>
 
           <NewUsersTrendChart data={growthMetrics?.newUsersTrend ?? []} loading={dataLoading} />
@@ -597,6 +646,8 @@ export default function JourneyHubPage() {
               </div>
             )}
           </div>
+
+          <BlackBoxFunnelCard />
         </div>
       )}
 
