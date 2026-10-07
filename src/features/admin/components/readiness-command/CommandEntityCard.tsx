@@ -70,8 +70,14 @@ export default function CommandEntityCard({
           <div className="mt-3">
             <UnitStatusBar breakdown={bigBreakdown} totalCount={totalCount} />
           </div>
-          <div className="mt-1.5">
-            <UnitStatusBar breakdown={trainingBreakdown} totalCount={totalCount} variant="training" />
+          <div className="mt-1.5 flex items-center gap-2">
+            <div className="flex-1">
+              <UnitStatusBar breakdown={trainingBreakdown} totalCount={totalCount} variant="training" />
+            </div>
+            {/* 07.10.2026 (David) — the number the dashed bar was missing next to it. Same rules as everywhere else training is shown: dash (never 0%) with no data, blue to match the dashed-bar language. */}
+            <span className="text-[11px] font-bold whitespace-nowrap" style={{ color: trainingBreakdown.passPercent !== null ? '#2563EB' : '#9CA3AF' }}>
+              {trainingBreakdown.passPercent !== null ? `${trainingBreakdown.passPercent}% באימון` : '— באימון'}
+            </span>
           </div>
 
           <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-gray-100">

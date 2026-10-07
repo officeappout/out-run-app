@@ -4,6 +4,31 @@ vi.mock('@/lib/firebase-admin', () => ({
   getAdminDb: () => { throw new Error('getAdminDb should never be called from compute*() functions — db is always injected'); },
 }));
 
+// 07.10.2026 (notYetTestedButTrainingPassingCount round) — every PRE-
+// EXISTING test here has no soldier with a `uid` set, so linkedUids is
+// always empty and these two real functions are never actually invoked
+// (computeBrigadeDashboard short-circuits to {} without calling them —
+// see its own `config && linkedUids.length > 0` guard). Testing the new
+// counter needs a real uid + controllable training-level data, so these
+// are mocked here, keyed by uid, same pattern as
+// readiness-training-weekly-shift.service.test.ts's own mocks.
+const strengthFixtureByUid = new Map<string, { pull: { level: number | null; reps: number | null }; push: { level: number | null; reps: number | null } }>();
+const runFixtureByUid = new Map<string, { normalizedTimeSeconds: number | null }>();
+vi.mock('../readiness-strength-level.service', () => ({
+  computeDemonstratedStrengthLevels: vi.fn(async (_db: unknown, uids: string[]) => {
+    const out: Record<string, { pull: { level: number | null; reps: number | null }; push: { level: number | null; reps: number | null } }> = {};
+    for (const uid of uids) out[uid] = strengthFixtureByUid.get(uid) ?? { pull: { level: null, reps: null }, push: { level: null, reps: null } };
+    return out;
+  }),
+}));
+vi.mock('../readiness-run-level.service', () => ({
+  computeDemonstratedRunLevels: vi.fn(async (_db: unknown, uids: string[]) => {
+    const out: Record<string, { normalizedTimeSeconds: number | null }> = {};
+    for (const uid of uids) out[uid] = runFixtureByUid.get(uid) ?? { normalizedTimeSeconds: null };
+    return out;
+  }),
+}));
+
 import { computeBrigadeDashboard } from '../readiness-dashboard.service';
 import type { UnitPermissionScope } from '@/lib/unitPermissionScope';
 
@@ -578,5 +603,78 @@ describe('computeBrigadeDashboard — nearThresholdCount (04.10.2026, §13.85, "
       expect(result.body.units.find((u) => u.unitId === 'battalion-1')?.nearThresholdCount).toBe(1);
       expect(result.body.units.find((u) => u.unitId === 'battalion-2')?.nearThresholdCount).toBe(1);
     }
+  });
+});
+
+describe('computeBrigadeDashboard — notYetTestedButTrainingPassingCount (07.10.2026, command-screen round)', () => {
+  // Unique uid per test (same convention as readiness-training-weekly-shift.service.test.ts) — no shared-fixture clearing needed.
+  it('officially not_yet_tested (no results at all) + training passes ALL THREE components → counted', async () => {
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', gender: 'male', uid: 'uid-counted' } },
+      thresholds: THREE_TESTS,
+    });
+    strengthFixtureByUid.set('uid-counted', { pull: { level: 11, reps: 5 }, push: { level: 10, reps: 6 } });
+    runFixtureByUid.set('uid-counted', { normalizedTimeSeconds: 1000 });
+    const result = await computeBrigadeDashboard(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    expect(result.body.notYetTestedButTrainingPassingCount).toBe(1);
+    // Same "each level counts only its own" rule as nearThresholdCount — the per-unit field must also be populated, not just the brigade-wide total.
+    expect(result.body.units.find((u) => u.unitId === 'battalion-1')?.notYetTestedButTrainingPassingCount).toBe(1);
+  });
+
+  it('training passes only 2 of 3 (push reps below threshold) → NOT counted — all three components required, not "any"', async () => {
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', gender: 'male', uid: 'uid-partial' } },
+      thresholds: THREE_TESTS,
+    });
+    strengthFixtureByUid.set('uid-partial', { pull: { level: 11, reps: 5 }, push: { level: 10, reps: 2 } }); // dips threshold is 5 — fails
+    runFixtureByUid.set('uid-partial', { normalizedTimeSeconds: 1000 });
+    const result = await computeBrigadeDashboard(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    expect(result.body.notYetTestedButTrainingPassingCount).toBe(0);
+  });
+
+  it('one component undeterminable (push level unknown) while the other two pass → NOT counted — "cannot be determined" never counts as pass', async () => {
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', gender: 'male', uid: 'uid-undeterminable' } },
+      thresholds: THREE_TESTS,
+    });
+    strengthFixtureByUid.set('uid-undeterminable', { pull: { level: 11, reps: 5 }, push: { level: null, reps: null } });
+    runFixtureByUid.set('uid-undeterminable', { normalizedTimeSeconds: 1000 });
+    const result = await computeBrigadeDashboard(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    expect(result.body.notYetTestedButTrainingPassingCount).toBe(0);
+  });
+
+  it('soldier is officially ALREADY pass (a real passing result exists) even though training also passes → NOT counted — only counts those officially not_yet_tested', async () => {
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', gender: 'male', uid: 'uid-already-pass' } },
+      results: {
+        r1: resultDoc('s1', 'run_3000m', 'pass', 1000),
+        r2: resultDoc('s1', 'pullups', 'pass', 5),
+        r3: resultDoc('s1', 'dips', 'pass', 6),
+      },
+      thresholds: THREE_TESTS,
+    });
+    strengthFixtureByUid.set('uid-already-pass', { pull: { level: 11, reps: 5 }, push: { level: 10, reps: 6 } });
+    runFixtureByUid.set('uid-already-pass', { normalizedTimeSeconds: 1000 });
+    const result = await computeBrigadeDashboard(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    expect(result.body.notYetTestedButTrainingPassingCount).toBe(0);
+  });
+
+  it('a soldier with no uid at all (never linked to the app) is never counted, even if officially not_yet_tested', async () => {
+    const db = makeFakeDb({
+      soldiers: { s1: { tenantId: 'tenant-1', unitId: 'battalion-1', gender: 'male' } },
+      thresholds: THREE_TESTS,
+    });
+    const result = await computeBrigadeDashboard(db, TENANT_OWNER_SCOPE, {});
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    expect(result.body.notYetTestedButTrainingPassingCount).toBe(0);
   });
 });

@@ -179,6 +179,8 @@ export interface DashboardUnitRow {
   trainingOverall: DashboardUnitStatusBreakdown;
   /** 04.10.2026 (§13.85) — this unit's OWN soldiers only (never descendants', same "each level counts only its own" rule everything else on this row already follows) who are overall 'fail' AND close on every component they failed. */
   nearThresholdCount: number;
+  /** 07.10.2026 (command-screen round) — same "this unit's own soldiers only" rule as nearThresholdCount above, see DashboardOverallBreakdown's (brigade-wide) field of the same name for the full definition. */
+  notYetTestedButTrainingPassingCount: number;
   /** ISO, the most recent testDate among this unit's soldiers' organized_test results. null if none. */
   lastTestDate: string | null;
   /** The REAL unitId (within this same tenant's unit list) this unit nests under — null for a top-level unit (its parent, if any in unitDirectory, is the brigade itself, not another unit in this list). Resolved via unitDirectory, see file header. */
@@ -204,6 +206,8 @@ export type BrigadeDashboardResult =
         units: DashboardUnitRow[];
         /** 04.10.2026 (§13.85) — brigade-wide count across every soldier in scope (not per-unit — see DashboardUnitRow.nearThresholdCount for that). */
         nearThresholdCount: number;
+        /** 07.10.2026 (command-screen round) — of the soldiers whose OFFICIAL overall status is 'not_yet_tested', how many already meet the threshold via training (all three components, via reduceOverallStatus — never counted from an undeterminable component). Turns "טרם נבדקו" from a dead number into an action item: these specific soldiers are worth testing. */
+        notYetTestedButTrainingPassingCount: number;
       };
     }
   | { status: 400 | 403 | 503; body: { error: string } };
@@ -431,6 +435,7 @@ export async function computeBrigadeDashboard(
     /** 06.10.2026 — this unit's own soldiers' training-derived overall (run+pull+push, all-must-pass) — see DashboardUnitRow.trainingOverall's own comment. */
     trainingOverall: ViewAcc;
     nearThresholdCount: number;
+    notYetTestedButTrainingPassingCount: number;
   }
   const unitAcc = new Map<string, UnitAcc>();
   const ensureUnitAcc = (unitId: string): UnitAcc => {
@@ -444,6 +449,7 @@ export async function computeBrigadeDashboard(
         views: { all: newViewAcc(), run: newViewAcc(), strength: newViewAcc() },
         trainingOverall: newViewAcc(),
         nearThresholdCount: 0,
+        notYetTestedButTrainingPassingCount: 0,
       };
       for (const testId of testIds) {
         acc.perComponent[testId] = { passCount: 0, failCount: 0 };
@@ -473,6 +479,15 @@ export async function computeBrigadeDashboard(
   let notPerformedCount = 0;
   let notYetTestedCount = 0;
   let nearThresholdCount = 0;
+  // 07.10.2026 (command-screen round) — of the OFFICIALLY not_yet_tested,
+  // how many already meet the threshold via training (run+pull+push,
+  // ALL must pass — reduceOverallStatus already enforces this, and
+  // already resolves to 'not_yet_tested' rather than 'pass' whenever any
+  // one component is undeterminable; nothing new to enforce here, just
+  // reusing both already-computed per-soldier statuses). Bumped below,
+  // right where trainingOverall already exists in this same loop — zero
+  // new Firestore reads, zero new calls to runMeetsStatus/strengthMeetsStatus.
+  let notYetTestedButTrainingPassingCount = 0;
 
   for (const doc of soldiersSnap.docs) {
     const data = doc.data() as Omit<ReadinessSoldier, 'id'>;
@@ -528,6 +543,10 @@ export async function computeBrigadeDashboard(
       const trainingOverall = testIds.length === 0 ? 'not_yet_tested' : reduceOverallStatus(trainingPerTestStatus);
       bumpViewAcc(unitRow.trainingOverall, trainingOverall);
       bumpViewAcc(brigadeTrainingOverallAcc, trainingOverall);
+      if (overall === 'not_yet_tested' && trainingOverall === 'pass') {
+        notYetTestedButTrainingPassingCount++;
+        unitRow.notYetTestedButTrainingPassingCount++;
+      }
 
       testIds.forEach((testId, i) => {
         const status = trainingPerTestStatus[i];
@@ -627,6 +646,7 @@ export async function computeBrigadeDashboard(
       perComponent,
       trainingOverall: toUnitBreakdown(acc.trainingOverall),
       nearThresholdCount: acc.nearThresholdCount,
+      notYetTestedButTrainingPassingCount: acc.notYetTestedButTrainingPassingCount,
       lastTestDate: acc.lastTestMs !== null ? new Date(acc.lastTestMs).toISOString() : null,
       parentUnitId: resolveParentUnitId(targetTenantId, unitId, dirByDirectoryId),
       breadcrumb: buildBreadcrumb(targetTenantId, unitId, dirByDirectoryId),
@@ -635,5 +655,5 @@ export async function computeBrigadeDashboard(
   });
   units.sort((a, b) => a.unitName.localeCompare(b.unitName, 'he'));
 
-  return { status: 200, body: { tenantId: targetTenantId, tenantName, overall, trainingOverall: toUnitBreakdown(brigadeTrainingOverallAcc), components, units, nearThresholdCount } };
+  return { status: 200, body: { tenantId: targetTenantId, tenantName, overall, trainingOverall: toUnitBreakdown(brigadeTrainingOverallAcc), components, units, nearThresholdCount, notYetTestedButTrainingPassingCount } };
 }

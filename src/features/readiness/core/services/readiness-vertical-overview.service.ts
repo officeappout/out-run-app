@@ -84,6 +84,8 @@ export interface VerticalBrigadeRow {
   trainingOverall: DashboardUnitStatusBreakdown;
   components: DashboardComponentBreakdown[];
   nearThresholdCount: number;
+  /** 07.10.2026 (command-screen round) — reused verbatim from computeBrigadeDashboard's own field of the same name, not recomputed. */
+  notYetTestedButTrainingPassingCount: number;
   /** From computeReadinessAppActivity, same synthetic-tenantOwner-scope reuse as the dashboard numbers above — not a second calculation of anything dashboard-related, a genuinely separate metric (app-engagement, not readiness status). */
   appActivity: { totalCount: number; linkedCount: number; activeCount: number; activePercent: number | null };
   /**
@@ -201,9 +203,10 @@ export async function computeReadinessVerticalOverview(
           tenantId: id, tenantName: name, totalCount: 0, passCount: 0, failCount: 0, notPerformedCount: 0,
           notYetTestedCount: 0, testedCount: 0, passPercent: null, hasData: false, logoUrl,
           trainingOverall: EMPTY_BREAKDOWN, components: [], nearThresholdCount: 0, appActivity, unitPassPercentGap: null,
+          notYetTestedButTrainingPassingCount: 0,
         };
       }
-      const { overall, trainingOverall, components, units, nearThresholdCount } = dashboardResult.body;
+      const { overall, trainingOverall, components, units, nearThresholdCount, notYetTestedButTrainingPassingCount } = dashboardResult.body;
       // Direct children (top-level units = battalions) ONLY — deliberately
       // not every unit anywhere under this brigade. See computeInternalGap's
       // own docstring before changing this to a full-depth filter.
@@ -222,6 +225,7 @@ export async function computeReadinessVerticalOverview(
         hasData: overall.totalCount > 0,
         logoUrl,
         trainingOverall,
+        notYetTestedButTrainingPassingCount,
         unitPassPercentGap,
         components,
         nearThresholdCount,

@@ -68,6 +68,10 @@ interface DisplayRow extends CommandRankableRow {
    * badge) renders for them exactly as it would for any null iconUrl.
    */
   logoUrl: string | null;
+  /** 07.10.2026 (David, item 2) — ever connected to the app, distinct from appActiveCount (active in the last 30 days). The primary number under "מחוברים לאפליקציה" — the label already meant this, the value didn't match it. */
+  linkedCount: number;
+  /** 07.10.2026 (David, item 3) — of THIS entity's own officially not_yet_tested soldiers, how many already meet the threshold via training (all 3 components). Reused verbatim from computeBrigadeDashboard, not recomputed. */
+  notYetTestedButTrainingPassingCount: number;
 }
 
 const EMPTY_BREAKDOWN: DashboardUnitStatusBreakdown = { passCount: 0, failCount: 0, notPerformedCount: 0, notYetTestedCount: 0, testedCount: 0, passPercent: null };
@@ -102,10 +106,12 @@ function brigadeRowToDisplay(row: VerticalBrigadeRow, component: string): Displa
     componentPercents: row.components.map((c) => ({ testId: c.testId, label: c.label, passPercent: c.passPercent })),
     rawUnit: null,
     logoUrl: row.logoUrl,
+    linkedCount: row.appActivity.linkedCount,
+    notYetTestedButTrainingPassingCount: row.notYetTestedButTrainingPassingCount,
   };
 }
 
-function unitRowToDisplay(row: DashboardUnitRow, tenantComponents: DashboardComponentBreakdown[], appActiveCount: number, gap: number | null, component: string): DisplayRow {
+function unitRowToDisplay(row: DashboardUnitRow, tenantComponents: DashboardComponentBreakdown[], appActivity: { activeCount: number; linkedCount: number }, gap: number | null, component: string): DisplayRow {
   // Labels/unit/thresholds come from the tenant-wide components list (the
   // real test definitions) — row.perComponent only carries this unit's
   // OWN numbers, keyed by testId, with no label of its own.
@@ -118,11 +124,13 @@ function unitRowToDisplay(row: DashboardUnitRow, tenantComponents: DashboardComp
   return {
     id: row.unitId, name: row.unitName, hasData, totalCount: row.totalCount,
     testedCount: row.views.all.testedCount, passPercent: resolved.big.passPercent, nearThresholdCount: row.nearThresholdCount,
-    appActiveCount, gap,
+    appActiveCount: appActivity.activeCount, gap,
     bigBreakdown: resolved.big, trainingBreakdown: resolved.training,
     componentPercents: componentsList.map((c) => ({ testId: c.testId, label: c.label, passPercent: c.passPercent })),
     rawUnit: row,
     logoUrl: null,
+    linkedCount: appActivity.linkedCount,
+    notYetTestedButTrainingPassingCount: row.notYetTestedButTrainingPassingCount,
   };
 }
 
@@ -195,7 +203,11 @@ export default function ReadinessVerticalOverviewPage() {
   const [resolvedTenantId, setResolvedTenantId] = useState<string | null>(null);
   const [tenantOverall, setTenantOverall] = useState<{ overall: DashboardUnitStatusBreakdown; trainingOverall: DashboardUnitStatusBreakdown; components: DashboardComponentBreakdown[]; nearThresholdCount: number } | null>(null);
   const [unitRows, setUnitRows] = useState<DashboardUnitRow[] | null>(null);
-  const [appActivityByUnit, setAppActivityByUnit] = useState<Map<string, number>>(new Map());
+  // 07.10.2026 (David, item 2 — "מחוברים לאפליקציה" name/number mismatch
+  // fix) — both linkedCount (ever connected — the real meaning of
+  // "מחוברים") and activeCount (active in the last 30 days, already
+  // available from the SAME computeReadinessAppActivity response) per unit.
+  const [appActivityByUnit, setAppActivityByUnit] = useState<Map<string, { activeCount: number; linkedCount: number }>>(new Map());
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, () => setAuthReady(true));
@@ -252,7 +264,7 @@ export default function ReadinessVerticalOverviewPage() {
         setBrigadeName(dashboard.body.tenantName ?? null);
         setTenantOverall({ overall: dashboard.body.overall, trainingOverall: dashboard.body.trainingOverall, components: dashboard.body.components, nearThresholdCount: dashboard.body.nearThresholdCount });
         setUnitRows(dashboard.body.units ?? []);
-        setAppActivityByUnit(new Map((activity.status === 200 ? activity.body.units ?? [] : []).map((u: AppActivityUnitBreakdown) => [u.unitId, u.activeCount])));
+        setAppActivityByUnit(new Map((activity.status === 200 ? activity.body.units ?? [] : []).map((u: AppActivityUnitBreakdown) => [u.unitId, { activeCount: u.activeCount, linkedCount: u.linkedCount }])));
       } catch (err: any) {
         if (!cancelled) setLoadError(err?.message ?? 'שגיאה בטעינת המסך.');
       } finally {
@@ -288,7 +300,7 @@ export default function ReadinessVerticalOverviewPage() {
       // full-depth walk. See computeInternalGap's own docstring.
       const own = unitRows.filter((x) => x.parentUnitId === u.unitId);
       const gap = computeInternalGap(own.map((c) => ({ testedCount: c.views.all.testedCount, passPercent: c.views.all.passPercent })));
-      return unitRowToDisplay(u, tenantOverall.components, appActivityByUnit.get(u.unitId) ?? 0, gap, component);
+      return unitRowToDisplay(u, tenantOverall.components, appActivityByUnit.get(u.unitId) ?? { activeCount: 0, linkedCount: 0 }, gap, component);
     });
   }, [isLevel0, brigadeRows, unitRows, tenantOverall, urlUnitId, appActivityByUnit, component]);
 
@@ -319,10 +331,22 @@ export default function ReadinessVerticalOverviewPage() {
 
   const totalSoldiers = displayRows.reduce((sum, r) => sum + r.totalCount, 0);
   const totalAppActive = displayRows.reduce((sum, r) => sum + r.appActiveCount, 0);
+  // 07.10.2026 (David, item 2) — the primary "מחוברים לאפליקציה" number.
+  const totalLinked = displayRows.reduce((sum, r) => sum + r.linkedCount, 0);
   const testedSum = displayRows.reduce((sum, r) => sum + r.testedCount, 0);
   const notYetTestedSum = displayRows.reduce((sum, r) => sum + Math.max(0, r.totalCount - r.testedCount), 0);
   const passSum = displayRows.reduce((sum, r) => sum + (r.passPercent !== null ? r.passPercent * r.testedCount / 100 : 0), 0);
   const averagePassPercent = testedSum > 0 ? Math.round((passSum / testedSum) * 1000) / 10 : null;
+  // 07.10.2026 (David, item 1) — the same weighted-average pattern as
+  // averagePassPercent above, fed trainingBreakdown instead of the
+  // official bigBreakdown — already respects the active component
+  // filter, since trainingBreakdown is resolved by the same
+  // resolveComponentBreakdown call that resolves bigBreakdown.
+  const trainingTestedSum = displayRows.reduce((sum, r) => sum + r.trainingBreakdown.testedCount, 0);
+  const trainingPassSum = displayRows.reduce((sum, r) => sum + (r.trainingBreakdown.passPercent !== null ? r.trainingBreakdown.passPercent * r.trainingBreakdown.testedCount / 100 : 0), 0);
+  const averageTrainingPassPercent = trainingTestedSum > 0 ? Math.round((trainingPassSum / trainingTestedSum) * 1000) / 10 : null;
+  // 07.10.2026 (David, item 3) — "מתוכם X כבר עומדים בסף באימון".
+  const notYetTestedButTrainingPassingSum = displayRows.reduce((sum, r) => sum + r.notYetTestedButTrainingPassingCount, 0);
   const withDataCount = displayRows.filter((r) => r.hasData).length;
 
   const drillInto = (row: DisplayRow) => {
@@ -417,8 +441,11 @@ export default function ReadinessVerticalOverviewPage() {
         totalSoldiers={totalSoldiers}
         testedSoldiers={testedSum}
         averagePassPercent={averagePassPercent}
+        averageTrainingPassPercent={averageTrainingPassPercent}
+        linkedCount={totalLinked}
         appActiveCount={totalAppActive}
         notYetTestedCount={notYetTestedSum}
+        notYetTestedButTrainingPassingCount={notYetTestedButTrainingPassingSum}
         entityWithDataCount={withDataCount}
         entityTotalAtThisLevel={displayRows.length}
       />
