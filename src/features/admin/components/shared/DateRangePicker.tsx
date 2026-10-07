@@ -59,6 +59,24 @@ export function resolveDateRangePreset(preset: DateRangePreset): DateRangeValue 
  * starting a fourth variant. All three locations are listed together
  * in this file so that future pass has a starting point.
  *
+ * 07.10.2026 (David) — NOT just consolidation debt: those other two
+ * have a LIVE DATA BUG, confirmed by tracing both consumers. Their
+ * shared `fromInputDate` locks "to" to midnight-start-of-day (same as
+ * this file's own `fromInputDate`) for BOTH dateFrom AND dateTo, with
+ * no end-of-day bump — unlike this file, which bumps a committed
+ * custom "to" to end-of-day (see commitCustomIfValid/endOfDay) for
+ * exactly this reason. Downstream, `funnel-analytics.service.ts:220`
+ * does `where(dateField, '<=', Timestamp.fromDate(filters.dateTo))` and
+ * `push-performance-summary/route.ts:169` does
+ * `if (dateToMillis != null && millis > dateToMillis) return false` —
+ * both compare against that midnight instant. Picking "to = today" (or
+ * any day) excludes essentially ALL of that day's real data, not a few
+ * edge-case hours. Both screens are showing data short by one day,
+ * right now, in production. Not fixed here — out of scope for this
+ * round, neither screen's own tests were touched or re-verified. A
+ * future fix: bump committed `dateTo` to end-of-day in both files,
+ * same pattern this file already uses.
+ *
  * A below-minimum custom range is never propagated via onChange — the
  * component holds the invalid draft internally and shows minGapMessage
  * instead. The caller's last valid value simply stays displayed; never
