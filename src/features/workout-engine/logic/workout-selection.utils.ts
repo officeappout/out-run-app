@@ -736,7 +736,7 @@ export function applyDifficultyFilter(
 export function selectExercisesForDifficulty(
   exercises: (ScoredExercise & { isOverLevel?: boolean; levelDiff?: number })[],
   count: number,
-  _context: WorkoutGenerationContext,
+  context: WorkoutGenerationContext,
   difficulty: DifficultyLevel,
 ): ScoredExercise[] {
   const targetFilter = (ex: { levelDiff?: number }): boolean => {
@@ -761,6 +761,72 @@ export function selectExercisesForDifficulty(
 
   if (pool.length < count * 2) {
     pool = exercises.filter(relaxedFilter).sort((a, b) => b.score - a.score);
+  }
+
+  // ── Domain-reserved headroom (2026-10-07 investigation — under-fill fix) ──
+  // This cut was otherwise pure score-ranking, with NO domain/skill
+  // awareness at all (`context` was received but never read). A thin skill
+  // (e.g. one real planche candidate sitting in a 21-candidate scored pool)
+  // can be wiped out ENTIRELY right here, before selectExercisesWithDomainQuotas'
+  // own per-domain logic ever runs — confirmed live: planche (1/21) and
+  // front_lever (7/21) both hit ZERO survivors after this exact cut in a
+  // combined planche+front_lever session, forcing every remaining main slot
+  // through the domain-BLIND last-resort fallback further down that
+  // function (where one_arm_pullup/muscle_up/handstand_pushup entered).
+  //
+  // Tops up each required domain to at least RESERVED_PER_DOMAIN candidates
+  // -- pulled from the FULL `exercises` array, not just the already-cut
+  // `pool` -- only when fewer than that already survived on pure score. A
+  // domain that's already well-represented (the common case: push/pull/legs/
+  // core in a full_body session) is untouched; this only intervenes for a
+  // domain at genuine risk of being erased. Reused `matchesDomainForSlot`
+  // (same gate the per-domain pick and takeFromPool already use) so "does
+  // this exercise count for this domain" can't drift between the reservation
+  // and the selection that consumes it. Does NOT change the ≤4-sets-per-
+  // exercise skill cap (workout-budgeting.utils.ts) — this only protects
+  // candidates from being discarded before any volume/set logic runs.
+  if (context.requiredDomains?.length) {
+    const RESERVED_PER_DOMAIN = 3;
+    // Check against what the UNMODIFIED cut would actually keep (`count`
+    // items), not the pre-cut `pool` — a domain already present in `pool`
+    // can still be wiped out the moment `pool.slice(0, count)` runs below,
+    // which is exactly the live bug (`pool` had 21 items including the 1
+    // planche/7 front_lever candidates; the cut to `count` is what erased
+    // them). Checking the pre-cut pool here would never see the problem.
+    const willSurvive = pool.slice(0, count);
+    const survivingIds = new Set(willSurvive.map((ex) => ex.exercise.id));
+    const reserved: typeof pool = [];
+    const reservedIds = new Set<string>();
+    for (const domain of context.requiredDomains) {
+      const existingCount = willSurvive.filter((ex) => matchesDomainForSlot(ex.exercise, domain)).length;
+      const needed = RESERVED_PER_DOMAIN - existingCount;
+      if (needed <= 0) continue;
+      // Sourced from `pool` (already difficulty-band-appropriate), NOT the
+      // raw `exercises` array — this promotes a real candidate that's
+      // sitting further down the SAME band-filtered pool (exactly planche-1
+      // and the front_lever candidates in the live trace), not a wrong-
+      // difficulty exercise the band filter correctly excluded for an
+      // unrelated reason.
+      const domainCandidates = pool
+        .filter((ex) => !survivingIds.has(ex.exercise.id) && !reservedIds.has(ex.exercise.id) && matchesDomainForSlot(ex.exercise, domain))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, needed);
+      for (const ex of domainCandidates) {
+        reserved.push(ex);
+        reservedIds.add(ex.exercise.id);
+      }
+    }
+    if (reserved.length > 0) {
+      // Prepended, not appended: `pool.slice(0, count)` below takes the
+      // FIRST `count` items, so reserved candidates must sit ahead of the
+      // generic score order to actually survive it — guaranteed inclusion,
+      // not an addition the same cut could immediately discard again.
+      pool = [...reserved, ...pool.filter((ex) => !reservedIds.has(ex.exercise.id))];
+      console.log(
+        `[DifficultyFilter] Domain-reserved headroom: topped up [${context.requiredDomains.join(', ')}] ` +
+        `with ${reserved.length} candidate(s) that the score cut would otherwise have discarded`,
+      );
+    }
   }
 
   if (pool.length >= count) return pool.slice(0, count);
