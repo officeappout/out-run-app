@@ -45,6 +45,17 @@ export type AnalyticsEventType =
   // Both WIRED (home-screen carousel, src/app/home/page.tsx).
   | 'recommendation_shown'
   | 'workout_play_pressed'
+  // ── Journey Hub Phase 2 (07.10.2026) — the missing middle of the funnel ──
+  // 'workout_detail_viewed' re-added here (removed as dead in the Phase 0
+  // cleanup above, now wired for real — see WorkoutPreviewDrawer.tsx's own
+  // isOpen-gated effect). 'workout_start_pressed' is new: a SINGLE event
+  // for every primary "start" tap, carrying `surface` the same way
+  // recommendation_shown/workout_play_pressed already do, rather than one
+  // event per entry point. 'workout_abandoned' is explicitly NOT added —
+  // see docs/analytics/event-taxonomy.md and the Phase 2 investigation:
+  // it can't be detected consistently with isRealWorkoutCompletion today.
+  | 'workout_detail_viewed'
+  | 'workout_start_pressed'
   // ── Reminder-schedule build (scheduling-capability-audit.md Part A) ──
   // 'reminder_set' fires the first time a user ever adds a reminder slot
   // (0 -> 1); 'reminder_updated' fires on every subsequent add or remove
@@ -139,6 +150,33 @@ export interface WorkoutPlayPressedEvent extends BaseAnalyticsEvent {
   surface: string;
 }
 
+/**
+ * Journey Hub Phase 2 (07.10.2026). Fired once per drawer open, from
+ * WorkoutPreviewDrawer.tsx's own isOpen-gated effect — the highest-
+ * priority event in this phase since the black-box drill-down's funnel
+ * depends on it.
+ */
+export interface WorkoutDetailViewedEvent extends BaseAnalyticsEvent {
+  eventName: 'workout_detail_viewed';
+  workout_id: string;
+  surface: string;
+}
+
+/**
+ * Journey Hub Phase 2 (07.10.2026). ONE event for the primary "start a
+ * workout" tap, with `surface` distinguishing which entry point fired it
+ * — NOT a separate event per surface. Fired from useWorkoutSession.ts's
+ * handleStartWorkout, conditionally on `surface` being supplied by the
+ * caller (the 2 drawer-bypass starts — HOME_RECOVERY_START_SHORTCUT,
+ * post-workout-suggestion direct-start — deliberately don't pass one,
+ * so they stay uninstrumented per this phase's scope).
+ */
+export interface WorkoutStartPressedEvent extends BaseAnalyticsEvent {
+  eventName: 'workout_start_pressed';
+  workout_id: string;
+  surface: string;
+}
+
 export interface ReminderScheduleEvent extends BaseAnalyticsEvent {
   eventName: 'reminder_set' | 'reminder_updated';
   day: string;
@@ -160,6 +198,8 @@ export type AnalyticsEvent =
   | ErrorEvent
   | RecommendationShownEvent
   | WorkoutPlayPressedEvent
+  | WorkoutDetailViewedEvent
+  | WorkoutStartPressedEvent
   | ReminderScheduleEvent;
 
 /**
@@ -473,6 +513,18 @@ export const Analytics = {
     logEvent('workout_play_pressed', {
       workout_id: opts.workoutId,
       generator_id: opts.generatorId,
+      surface: opts.surface,
+    }),
+
+  // Journey Hub Phase 2 (07.10.2026).
+  logWorkoutDetailViewed: (opts: { workoutId: string; surface: string }) =>
+    logEvent('workout_detail_viewed', {
+      workout_id: opts.workoutId,
+      surface: opts.surface,
+    }),
+  logWorkoutStartPressed: (opts: { workoutId: string; surface: string }) =>
+    logEvent('workout_start_pressed', {
+      workout_id: opts.workoutId,
       surface: opts.surface,
     }),
 

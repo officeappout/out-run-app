@@ -17,6 +17,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { usePartnerFilters } from '@/features/partners';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { PARK_FALLBACK_IMAGE } from '@/features/parks/core/hooks/useNearbyParks';
+import { Analytics } from '@/features/analytics/AnalyticsService';
 
 // ── Module-internal types + components + hooks ──
 import type { WorkoutPreviewDrawerProps } from './types';
@@ -85,6 +86,7 @@ export default function WorkoutPreviewDrawer({
   intensityOptions,
   selectedIntensityIndex,
   onSelectIntensity,
+  surface,
 }: WorkoutPreviewDrawerProps) {
   const router = useRouter();
   const { profile } = useUserStore();
@@ -373,6 +375,24 @@ export default function WorkoutPreviewDrawer({
     };
   }, [isOpen]);
 
+  // Journey Hub Phase 2 (07.10.2026) — workout_detail_viewed, the
+  // highest-priority event this phase: fires once per real "the user is
+  // actually looking at this workout's detail" moment. Keyed on
+  // workout?.id (not generatedWorkout, which has no stable id of its own
+  // — see useWorkoutSession.ts's own workoutId resolution) + isOpen, same
+  // gating condition the chart/skeleton rendering below already uses.
+  useEffect(() => {
+    if (isOpen && (workout || generatedWorkout)) {
+      Analytics.logWorkoutDetailViewed({
+        workoutId: workout?.id ?? 'unknown',
+        surface,
+      }).catch((error) => {
+        console.error('[WorkoutPreviewDrawer] Error logging workout_detail_viewed:', error);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workout?.id, isOpen]);
+
   const { handleStartWorkout } = useWorkoutSession({
     workout,
     workoutPlan,
@@ -380,6 +400,7 @@ export default function WorkoutPreviewDrawer({
     isWarmupActive,
     workoutLocation,
     onStartWorkout,
+    surface,
   });
 
   const SPRING = { type: 'spring', damping: 40, stiffness: 260, mass: 0.8 } as const;

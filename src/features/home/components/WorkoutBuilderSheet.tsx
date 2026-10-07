@@ -1313,6 +1313,7 @@ export default function WorkoutBuilderSheet({
           workout={workoutShell}
           generatedWorkout={generatedWorkout}
           workoutLocation={location}
+          surface="custom-builder"
         />
       )}
     </div>
