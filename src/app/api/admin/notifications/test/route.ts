@@ -14,6 +14,7 @@ const TEST_MESSAGES: Record<string, { title: string; body: string }> = {
   chat:               { title: 'הודעה חדשה מדוד [טסט]',               body: 'פתח את הצ\'אט לקריאה.' },
   health_milestone:   { title: '🚶 עוד קצת ליעד הצעדים [טסט]',        body: 'נשארו לך עוד כמה צעדים היום — אפשר לסגור את זה.' },
   community:          { title: 'מישהו מתאמן לידך [טסט]',              body: 'דני יצא עכשיו לאימון בפארק הקרוב — הצטרפו אליו.' },
+  contribution_status: { title: '📍 המיקום שלך אושר! [טסט]',           body: 'התרומה שלך עברה אישור והיא עכשיו חלק מהאפליקציה.' },
 };
 
 export async function POST(request: NextRequest) {

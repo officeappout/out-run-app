@@ -24,6 +24,13 @@
  * Unmeasured sources still appear, with every numeric cell reading "לא
  * נמדד" (never 0%) — see the API route's own header comment for the full
  * reasoning (refinement #2 of the approved plan).
+ *
+ * 07.10.2026 follow-up: the "גרסת תוכן" column shows the resolved real
+ * message (title + body, from `row.copyTitle`/`copyBody`) when the API
+ * could resolve it, with the raw `variantId` always available via a
+ * tooltip so it stays debuggable. Falls back to showing the raw
+ * variantId as the primary text when unresolved — never a crash, never a
+ * blank cell.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -46,6 +53,24 @@ function formatPct(value: number | null, measured: boolean): string {
   if (!measured) return 'לא נמדד';
   if (value == null) return '—';
   return `${value}%`;
+}
+
+/** The "גרסת תוכן" cell — real resolved copy when available (tooltip keeps
+ * the raw variantId reachable for debugging), raw variantId alone otherwise. */
+function CopyCell({ row }: { row: PushPerformanceRow }) {
+  if (row.copyTitle || row.copyBody) {
+    return (
+      <div title={row.variantId ?? ''} className="max-w-[260px]">
+        {row.copyTitle && <span className="block text-sm font-medium text-slate-800 truncate">{row.copyTitle}</span>}
+        {row.copyBody && <span className="block text-xs text-slate-500 truncate">{row.copyBody}</span>}
+      </div>
+    );
+  }
+  return (
+    <span className="text-xs text-slate-600 font-mono max-w-[220px] truncate block" title={row.variantId ?? ''}>
+      {row.variantId}
+    </span>
+  );
 }
 
 function formatMinutes(value: number | null, measured: boolean): string {
@@ -194,8 +219,8 @@ export default function PushPerformanceSection() {
                           <span className="block text-xs font-normal text-slate-400">{row.sourceLabel}</span>
                         )}
                       </td>
-                      <td className="px-6 py-3 text-xs text-slate-600 font-mono max-w-[220px] truncate" title={row.variantId ?? ''}>
-                        {row.variantId}
+                      <td className="px-6 py-3">
+                        <CopyCell row={row} />
                       </td>
                       <td className="px-6 py-3 text-sm text-slate-700">{formatCount(row.sent, row.measured)}</td>
                       <td className="px-6 py-3 text-sm text-slate-700">{formatPct(row.deliveredPct, row.measured)}</td>
