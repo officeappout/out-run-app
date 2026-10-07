@@ -19,13 +19,23 @@
  * silently decided.
  *
  * === The two-point comparison ===
- * "This week" means: today's training-derived overall status vs the
- * SAME derivation re-run with asOf = 7 days ago — both
+ * Default (no query.priorAsOf/nowAsOf given): today's training-derived
+ * overall status vs the SAME derivation re-run 7 days ago — both
  * computeDemonstratedStrengthLevels/computeDemonstratedRunLevels already
  * accept an `asOf` parameter (readiness-trends.service.ts's blue line
  * already re-runs them once per historical month on the exact same
  * precedent). Both calls run once each for the WHOLE linked-uid list
  * (never per-soldier in a loop), in parallel with their "now" counterparts.
+ *
+ * 07.10.2026 (David, range-picker round) — query.priorAsOf/nowAsOf let
+ * the caller pick ANY two points (week/month presets resolved
+ * client-side, or a free custom pair), not just "today vs 7 days ago."
+ * Gated by MIN_GAP_DAYS below: each point is itself derived from a
+ * 30-day lookback window (computeDemonstratedStrengthLevels/RunLevels'
+ * own default window), so two asOf points closer together than that
+ * have near-totally-overlapping windows — any delta between them is a
+ * technical artifact of the overlap, not a real training change.
+ * Rejected outright (400), never silently shown with a caveat.
  *
  * A soldier only lands in one of the four buckets when BOTH their prior
  * (7-days-ago) AND current overall status are determinable (pass or
@@ -45,6 +55,8 @@ import { computeNearThreshold, type FailedComponentInput } from './readiness-nea
 
 const DENIED_MESSAGE = 'אין לך הרשאה לצפות בנתון זה.';
 const SHIFT_WINDOW_DAYS = 7;
+const MIN_GAP_DAYS = 7;
+const RANGE_TOO_SHORT_MESSAGE = 'טווח קצר מ-7 ימים לא מאפשר להשוות — נתוני האימון מבוססים על 30 הימים שקדמו לכל נקודה.';
 
 export interface TrainingWeeklyShiftBody {
   becameFitCount: number;
@@ -86,7 +98,7 @@ function overallTrainingStatus(
 export async function computeTrainingWeeklyShift(
   db: Firestore,
   scope: UnitPermissionScope,
-  query: { tenantId?: string | null; unitId?: string | null },
+  query: { tenantId?: string | null; unitId?: string | null; priorAsOf?: Date; nowAsOf?: Date },
 ): Promise<TrainingWeeklyShiftResult> {
   if (scope.kind === 'unknown') {
     return { status: 503, body: { error: UNIT_SCOPE_UNKNOWN_MESSAGE } };
@@ -138,14 +150,18 @@ export async function computeTrainingWeeklyShift(
 
   const uids = linked.map((s) => s.uid as string);
   const genderByUid = new Map(linked.map((s) => [s.uid as string, s.gender]));
-  const now = new Date();
-  const weekAgo = new Date(now.getTime() - SHIFT_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  const nowAsOf = query.nowAsOf ?? new Date();
+  const priorAsOf = query.priorAsOf ?? new Date(nowAsOf.getTime() - SHIFT_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+
+  if (nowAsOf.getTime() - priorAsOf.getTime() < MIN_GAP_DAYS * 24 * 60 * 60 * 1000) {
+    return { status: 400, body: { error: RANGE_TOO_SHORT_MESSAGE } };
+  }
 
   const [strengthNow, runNow, strengthPrior, runPrior] = await Promise.all([
-    computeDemonstratedStrengthLevels(db, uids, now),
-    computeDemonstratedRunLevels(db, uids, now),
-    computeDemonstratedStrengthLevels(db, uids, weekAgo),
-    computeDemonstratedRunLevels(db, uids, weekAgo),
+    computeDemonstratedStrengthLevels(db, uids, nowAsOf),
+    computeDemonstratedRunLevels(db, uids, nowAsOf),
+    computeDemonstratedStrengthLevels(db, uids, priorAsOf),
+    computeDemonstratedRunLevels(db, uids, priorAsOf),
   ]);
 
   const body: TrainingWeeklyShiftBody = { ...empty };

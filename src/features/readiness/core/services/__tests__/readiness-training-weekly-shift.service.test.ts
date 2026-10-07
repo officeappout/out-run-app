@@ -245,4 +245,50 @@ describe('computeTrainingWeeklyShift', () => {
     const result = await computeTrainingWeeklyShift(db, scope, {});
     expect(result.status).toBe(400);
   });
+
+  // 07.10.2026 (range picker) — explicit priorAsOf/nowAsOf override the
+  // default "now vs 7 days ago" pair, and a too-short gap between them
+  // is rejected (400) rather than silently computed — each asOf point
+  // is itself derived from a 30-day lookback window, so two points
+  // closer together than MIN_GAP_DAYS would produce a technically-near-
+  // zero delta for a reason that has nothing to do with real training
+  // change.
+  describe('custom priorAsOf/nowAsOf (range picker)', () => {
+    it('explicit 30-day-apart points are used instead of the "now vs 7 days ago" default', async () => {
+      const uid = 'u-custom-month';
+      const nowAsOf = new Date();
+      const priorAsOf = new Date(nowAsOf.getTime() - 30 * 24 * 60 * 60 * 1000);
+      setFixture(keyFor(priorAsOf), uid, failingFit());
+      setFixture(keyFor(nowAsOf), uid, passingFit());
+      const db = makeFakeDb([{ id: 's1', uid, gender: 'male', tenantId: 'tenant-1', unitId: 'unit-1' }]);
+      const result = await computeTrainingWeeklyShift(db, TENANT_OWNER_SCOPE, { priorAsOf, nowAsOf });
+      expect(result.status).toBe(200);
+      if (result.status !== 200) return;
+      expect(result.body.becameFitCount).toBe(1);
+    });
+
+    it('a gap shorter than MIN_GAP_DAYS (e.g. 3 days) is rejected — 400, never a computed-but-caveated delta', async () => {
+      const nowAsOf = new Date();
+      const priorAsOf = new Date(nowAsOf.getTime() - 3 * 24 * 60 * 60 * 1000);
+      const db = makeFakeDb([{ id: 's1', uid: 'u-irrelevant', gender: 'male', tenantId: 'tenant-1', unitId: 'unit-1' }]);
+      const result = await computeTrainingWeeklyShift(db, TENANT_OWNER_SCOPE, { priorAsOf, nowAsOf });
+      expect(result.status).toBe(400);
+    });
+
+    it('a gap of EXACTLY MIN_GAP_DAYS (7 days) is accepted — the floor is inclusive', async () => {
+      const nowAsOf = new Date();
+      const priorAsOf = new Date(nowAsOf.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const db = makeFakeDb([]);
+      const result = await computeTrainingWeeklyShift(db, TENANT_OWNER_SCOPE, { priorAsOf, nowAsOf });
+      expect(result.status).toBe(200);
+    });
+
+    it('nowAsOf before priorAsOf (reversed) is also rejected — a negative gap is still "too short"', async () => {
+      const nowAsOf = new Date();
+      const priorAsOf = new Date(nowAsOf.getTime() + 30 * 24 * 60 * 60 * 1000); // later than "now"
+      const db = makeFakeDb([{ id: 's1', uid: 'u-irrelevant-2', gender: 'male', tenantId: 'tenant-1', unitId: 'unit-1' }]);
+      const result = await computeTrainingWeeklyShift(db, TENANT_OWNER_SCOPE, { priorAsOf, nowAsOf });
+      expect(result.status).toBe(400);
+    });
+  });
 });

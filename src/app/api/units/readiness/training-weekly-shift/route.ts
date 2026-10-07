@@ -33,9 +33,23 @@ export async function GET(request: NextRequest) {
 
     const scope = await resolveUnitPermissionScope(uid);
     const db = getAdminDb();
+
+    // 07.10.2026 (range picker) — both optional; computeTrainingWeeklyShift
+    // defaults to "now vs 7 days ago" when neither is given, and enforces
+    // the minimum-gap rule server-side regardless of what the client sent.
+    const priorAsOfParam = request.nextUrl.searchParams.get('priorAsOf');
+    const nowAsOfParam = request.nextUrl.searchParams.get('nowAsOf');
+    const priorAsOf = priorAsOfParam ? new Date(priorAsOfParam) : undefined;
+    const nowAsOf = nowAsOfParam ? new Date(nowAsOfParam) : undefined;
+    if ((priorAsOf && Number.isNaN(priorAsOf.getTime())) || (nowAsOf && Number.isNaN(nowAsOf.getTime()))) {
+      return NextResponse.json({ error: 'טווח תאריכים לא תקין.' }, { status: 400 });
+    }
+
     const query = {
       tenantId: request.nextUrl.searchParams.get('tenantId'),
       unitId: request.nextUrl.searchParams.get('unitId'),
+      priorAsOf,
+      nowAsOf,
     };
     const result = await computeTrainingWeeklyShift(db, scope, query);
     return NextResponse.json(result.body, { status: result.status });

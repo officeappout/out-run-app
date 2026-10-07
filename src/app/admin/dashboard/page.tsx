@@ -18,6 +18,7 @@ import NearThresholdCard from '@/features/admin/components/readiness-dashboard/N
 import AppActivityCard from '@/features/admin/components/readiness-dashboard/AppActivityCard';
 import FailToPassTransitionCard from '@/features/admin/components/readiness-dashboard/FailToPassTransitionCard';
 import TrainingWeeklyShiftStrip from '@/features/admin/components/readiness-dashboard/TrainingWeeklyShiftStrip';
+import DateRangePicker, { resolveDateRangePreset, type DateRangePreset, type DateRangeValue } from '@/features/admin/components/shared/DateRangePicker';
 import SearchableSelect from '@/features/admin/components/SearchableSelect';
 import type {
   DashboardOverallBreakdown,
@@ -116,12 +117,18 @@ async function fetchReadinessAppActivity(
  */
 async function fetchTrainingWeeklyShift(
   tenantId: string,
+  range: DateRangeValue,
 ): Promise<{ becameFitCount: number; nearThresholdCount: number; stayedFitCount: number; droppedCount: number; determinableCount: number } | null> {
   try {
     const user = auth.currentUser;
     if (!user) return null;
     const idToken = await user.getIdToken();
-    const res = await fetch(`/api/units/readiness/training-weekly-shift?tenantId=${encodeURIComponent(tenantId)}`, {
+    const params = new URLSearchParams({
+      tenantId,
+      priorAsOf: range.from.toISOString(),
+      nowAsOf: range.to.toISOString(),
+    });
+    const res = await fetch(`/api/units/readiness/training-weekly-shift?${params.toString()}`, {
       headers: { Authorization: `Bearer ${idToken}` },
     });
     if (!res.ok) return null;
@@ -142,6 +149,29 @@ async function fetchTrainingWeeklyShift(
 const ACTIVE_WINDOW_DAYS = 30;
 
 const AUTHORITY_STORAGE_KEY = 'admin_selected_authority_id';
+
+// 07.10.2026 (David, range-picker round) — "month" is rolling 30 days
+// back from today, same style as "week"'s rolling 7 — NOT calendar-
+// month-aligned like FilterBar.tsx's unrelated day/week/month/year
+// filter (that one starts-of-period; this one is a two-point delta,
+// where only the GAP between the points matters).
+const TRAINING_RANGE_PRESETS: DateRangePreset[] = [
+  { key: 'week', label: 'שבוע', days: 7 },
+  { key: 'month', label: 'חודש', days: 30 },
+];
+// Mirrors readiness-training-weekly-shift.service.ts's MIN_GAP_DAYS/
+// RANGE_TOO_SHORT_MESSAGE exactly — kept as a separate literal here
+// (not imported) because that service file pulls in server-only code
+// (computeDemonstratedStrengthLevels et al.) that must never reach a
+// 'use client' bundle.
+const TRAINING_RANGE_MIN_GAP_DAYS = 7;
+const TRAINING_RANGE_MIN_GAP_MESSAGE = 'טווח קצר מ-7 ימים לא מאפשר להשוות — נתוני האימון מבוססים על 30 הימים שקדמו לכל נקודה.';
+
+function trainingRangeLabel(range: DateRangeValue): string {
+  if (range.presetKey === 'week') return 'בשבוע האחרון';
+  if (range.presetKey === 'month') return 'בחודש האחרון';
+  return `בין ${range.from.toLocaleDateString('he-IL')} ל-${range.to.toLocaleDateString('he-IL')}`;
+}
 
 interface DashboardStats {
   totalParks: number;
@@ -197,6 +227,11 @@ export default function AdminDashboardPage() {
   const [readinessError, setReadinessError] = useState<string | null>(null);
   const [readinessAppActivity, setReadinessAppActivity] = useState<Awaited<ReturnType<typeof fetchReadinessAppActivity>>>(null);
   const [trainingWeeklyShift, setTrainingWeeklyShift] = useState<Awaited<ReturnType<typeof fetchTrainingWeeklyShift>>>(null);
+  // 07.10.2026 (range picker) — owned separately from the big
+  // resolveAuthority fetch-all below: changing the range must re-fetch
+  // ONLY this strip, never the readiness percentages/component cards/
+  // unit table (those are current-state, not a range comparison).
+  const [trainingRange, setTrainingRange] = useState<DateRangeValue>(() => resolveDateRangePreset(TRAINING_RANGE_PRESETS[0]));
 
   // 06.10.2026 — true for root OR a readiness chief officer: anyone with
   // no own brigade who can switch between every military tenant from
@@ -293,10 +328,16 @@ export default function AdminDashboardPage() {
       setAuthorityName(aName);
 
       if (resolvedTenantType === 'military') {
-        const [result, appActivity, weeklyShift] = await Promise.all([
+        // 07.10.2026 (range picker) — the training-weekly-shift strip is
+        // fetched by its OWN dedicated effect (keyed on
+        // [authorityId, trainingRange] below), not here. Reset to the
+        // default range on every fresh authority resolution (including a
+        // brigade switch) so a stale custom range from a PREVIOUS
+        // brigade never silently carries over.
+        setTrainingRange(resolveDateRangePreset(TRAINING_RANGE_PRESETS[0]));
+        const [result, appActivity] = await Promise.all([
           fetchReadinessDashboard(aId),
           fetchReadinessAppActivity(aId),
-          fetchTrainingWeeklyShift(aId),
         ]);
         setReadinessOverall(result.overall);
         setReadinessComponents(result.components);
@@ -304,7 +345,6 @@ export default function AdminDashboardPage() {
         setReadinessNearThresholdCount(result.nearThresholdCount);
         setReadinessError(result.error);
         setReadinessAppActivity(appActivity);
-        setTrainingWeeklyShift(weeklyShift);
         return;
       }
 
@@ -348,6 +388,21 @@ export default function AdminDashboardPage() {
     });
     return () => unsubscribe();
   }, [resolveAuthority]);
+
+  // 07.10.2026 (range picker) — the ONLY effect that fetches the
+  // training-weekly-shift strip. Fires on the initial authority
+  // resolution (authorityId transitions from null) AND on every range
+  // change — never on a readiness/app-activity refresh, since those are
+  // current-state, not a range comparison (David: "הבורר משפיע על
+  // הרצועה בלבד").
+  useEffect(() => {
+    if (!authorityId || tenantType !== 'military') return;
+    let cancelled = false;
+    fetchTrainingWeeklyShift(authorityId, trainingRange).then((result) => {
+      if (!cancelled) setTrainingWeeklyShift(result);
+    });
+    return () => { cancelled = true; };
+  }, [authorityId, tenantType, trainingRange]);
 
   // 06.10.2026 — root/chief-officer switching brigades directly from this
   // page's own switcher (same as a vertical-overview row-click: save the
@@ -474,16 +529,35 @@ export default function AdminDashboardPage() {
                 strip, not folded into the row above it — deliberately
                 distinct component/wording from NearThresholdCard/
                 FailToPassTransitionCard (both official-test-based), see
-                TrainingWeeklyShiftStrip.tsx's own header comment. */}
-            {trainingWeeklyShift && (
-              <TrainingWeeklyShiftStrip
-                becameFitCount={trainingWeeklyShift.becameFitCount}
-                nearThresholdCount={trainingWeeklyShift.nearThresholdCount}
-                stayedFitCount={trainingWeeklyShift.stayedFitCount}
-                droppedCount={trainingWeeklyShift.droppedCount}
-                determinableCount={trainingWeeklyShift.determinableCount}
+                TrainingWeeklyShiftStrip.tsx's own header comment.
+
+                07.10.2026 (range picker) — the picker is its OWN effect's
+                trigger (above), always rendered regardless of whether
+                the strip's data has loaded yet, so the officer can change
+                range before the first fetch even resolves. key={authorityId}
+                forces a clean remount (and local-state reset) on brigade
+                switch, instead of a stale custom range silently surviving
+                the switch. */}
+            <div className="space-y-2">
+              <DateRangePicker
+                key={authorityId ?? 'none'}
+                presets={TRAINING_RANGE_PRESETS}
+                value={trainingRange}
+                onChange={setTrainingRange}
+                minGapDays={TRAINING_RANGE_MIN_GAP_DAYS}
+                minGapMessage={TRAINING_RANGE_MIN_GAP_MESSAGE}
               />
-            )}
+              {trainingWeeklyShift && (
+                <TrainingWeeklyShiftStrip
+                  becameFitCount={trainingWeeklyShift.becameFitCount}
+                  nearThresholdCount={trainingWeeklyShift.nearThresholdCount}
+                  stayedFitCount={trainingWeeklyShift.stayedFitCount}
+                  droppedCount={trainingWeeklyShift.droppedCount}
+                  determinableCount={trainingWeeklyShift.determinableCount}
+                  rangeLabel={trainingRangeLabel(trainingRange)}
+                />
+              )}
+            </div>
 
             {/* 03.10.2026 — David's visual-fix round: one row, equal-
                 size cards. The overall card used to stand alone above a

@@ -8,6 +8,8 @@ export interface TrainingWeeklyShiftStripProps {
   stayedFitCount: number;
   droppedCount: number;
   determinableCount: number;
+  /** 07.10.2026 (range picker) — "בשבוע האחרון" / "בחודש האחרון" / "בין X ל-Y". A changed-number row with no stated range is meaningless (David). */
+  rangeLabel: string;
 }
 
 /**
@@ -28,9 +30,17 @@ export interface TrainingWeeklyShiftStripProps {
  * not a new ad-hoc disclaimer invented here. "כשיר+ עדיין מעל הקו" is
  * tightened to "נשארו מעל הסף" to read as the direct mirror of "ירדו
  * מהקו" (stayed above / fell below), which also sidesteps repeating
- * "כשיר" where it isn't the distinguishing word. "הפכו לכשירים השבוע"
- * is kept verbatim — no existing card uses this time-bounded phrasing,
- * so nothing to disambiguate.
+ * "כשיר" where it isn't the distinguishing word.
+ *
+ * === Range picker (David, 07.10.2026 follow-up round) ===
+ * The strip itself no longer assumes "week" — the comparison window
+ * is now whatever the caller's DateRangePicker resolved (week/month
+ * preset or a custom {from, to} pair), passed in via rangeLabel.
+ * "הפכו לכשירים השבוע" dropped its "השבוע" for exactly this reason — a
+ * fixed-week word baked into a metric label would lie the moment the
+ * caller picks "month" or a custom range. rangeLabel carries the real
+ * stated range instead ("בשבוע האחרון" / "בחודש האחרון" / "בין X ל-Y") —
+ * a changed number with no stated range is meaningless on its own.
  *
  * === Empty state (David, item ג) ===
  * determinableCount === 0 means no soldier has training evidence at
@@ -38,9 +48,9 @@ export interface TrainingWeeklyShiftStripProps {
  * Rendered as one unified message, never as 0/0/0/0 (which would read
  * as "nobody improved," a materially different claim).
  */
-export default function TrainingWeeklyShiftStrip({ becameFitCount, nearThresholdCount, stayedFitCount, droppedCount, determinableCount }: TrainingWeeklyShiftStripProps) {
+export default function TrainingWeeklyShiftStrip({ becameFitCount, nearThresholdCount, stayedFitCount, droppedCount, determinableCount, rangeLabel }: TrainingWeeklyShiftStripProps) {
   const metrics = [
-    { label: 'הפכו לכשירים השבוע', value: becameFitCount },
+    { label: 'הפכו לכשירים', value: becameFitCount },
     { label: 'קרובים לסף באימון', value: nearThresholdCount },
     { label: 'נשארו מעל הסף', value: stayedFitCount },
     { label: 'ירדו מהקו', value: droppedCount },
@@ -48,9 +58,10 @@ export default function TrainingWeeklyShiftStrip({ becameFitCount, nearThreshold
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
         <Dumbbell size={16} style={{ color: '#2563EB' }} />
-        <h3 className="text-sm font-black text-gray-900">מגמת אימון שבועית</h3>
+        <h3 className="text-sm font-black text-gray-900">מגמת אימון</h3>
+        <span className="text-[11px] font-bold" style={{ color: '#2563EB' }}>{rangeLabel}</span>
         <span className="text-[11px] text-gray-400">אפליקציה (אינדיקציה, לא קובע) — לא בוחן רשמי</span>
       </div>
 
