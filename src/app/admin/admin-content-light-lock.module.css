@@ -34,13 +34,11 @@
  * with no explicit color, whose nearest marked ancestor ALSO has no
  * explicit color, would fall through to normal inheritance and pick up
  * #0f172a from OUTSIDE the marked surface — invisible on a dark
- * background, with nothing here to catch it. The rule right below
- * closes exactly that gap: `:where([data-dark-surface]) { color: #fff }`
- * sets a LIGHT default on the marked element itself, at zero specificity
- * — so any real color the element already declares (a class or inline
- * style, e.g. a seed-log console's own `text-green-400`) still wins
- * outright, unchanged, but an element that declares NOTHING now inherits
- * white from its marked ancestor instead of black from outside it.
+ * background, with nothing to catch it. A same-day attempt to close
+ * that gap with a global `:where([data-dark-surface]) { color: #fff }`
+ * rule broke the production build and was removed (see the comment
+ * below, where that rule used to be) — this gap is OPEN again, tracked
+ * there, not fixed here.
  *
  * === Why `:not(...)` at every selector, and why it still wins ===
  * Every rule below ends in `:not([data-dark-surface], [data-dark-surface] *)`
@@ -84,52 +82,27 @@
 }
 
 /*
- * 07.10.2026 (David) — closes the "declares nothing" gap above.
- * :where() always carries ZERO specificity, by definition, regardless
- * of what's inside it — so this is deliberately the WEAKEST possible
- * rule: any explicit color on the SAME element (a plain Tailwind class
- * is already (0,1,0), strictly higher) wins outright, unchanged. This
- * only ever supplies a value when nothing else on that exact element
- * does. It sets color on the MARKED element itself, not its descendants
- * — descendants with no color of their own then inherit THIS value
- * (white) through ordinary CSS inheritance, same mechanism that
- * previously carried #0f172a in from outside the marked surface.
- *
- * Deliberately NOT scoped to .contentLightLock (unlike every other rule
- * in this file) — not an oversight. Two reasons:
- *   1. Specificity: `.contentLightLock :where([data-dark-surface])`
- *      would add the class's own (0,1,0) back into this rule's total,
- *      which would TIE (not lose to) a marked element's own same-
- *      specificity class (e.g. text-green-400, also (0,1,0)) — a tie
- *      resolved by source order, not a guaranteed loss. Wrapping the
- *      scope in :where() too (`:where(.contentLightLock) :where(...)`)
- *      would fix the specificity, but introduces a second question —
- *      whether CSS Modules' local-class-name hashing still correctly
- *      recognizes `.contentLightLock` nested inside a :where() argument
- *      — that neither this file nor tsc can confirm without a live
- *      build this round doesn't have.
- *   2. `data-dark-surface` is a custom attribute this project invented
- *      for exactly this purpose and uses nowhere else (grep confirms
- *      it) — the attribute itself is already the real scope; nothing
- *      outside the handful of elements marked with it is affected by
- *      being unscoped, regardless of where in the DOM they sit.
- * Net effect: true (0,0,0) specificity, no second open question.
- *
- * `:global(...)` wrapper (07.10.2026, hotfix) — this selector has no
- * local class/id anywhere in it, which Next's CSS-Modules loader
- * (css-loader) rejects outright as an "impure" selector, failing the
- * production build with every commit on top of it since this rule was
- * added (confirmed: `main`'s own Vercel deploy has been failing since
- * this exact commit, not something introduced by a later PR).
- * `:global(...)` is a CSS-Modules-only directive — it adds zero actual
- * CSS specificity and changes no runtime behavior; it only tells the
- * loader "this selector is intentionally unscoped," which is already
- * true per the reasoning above (the custom `data-dark-surface`
- * attribute is the real scope, not a local class).
+ * REMOVED (07.10.2026, hotfix) — the rule that stood here,
+ * `:where([data-dark-surface]) { color: #fff }` (added same day, "closes
+ * the declares-nothing gap"), broke the production build. Verified by
+ * direct bisection + isolated test deploys against this exact commit
+ * (not reasoned from syntax alone, after a first guess — wrapping it in
+ * `:global(...)` — was tried and ALSO failed the same way):
+ *   - This commit's parent deploys fine; this commit (adding only this
+ *     rule + an inert layout.tsx comment) fails.
+ *   - The layout.tsx comment alone, isolated, deploys fine.
+ *   - This rule alone (bare, or `:global()`-wrapped), isolated, fails
+ *     both times.
+ *   - Removing the rule, isolated on this same commit, deploys fine.
+ * Root mechanism unconfirmed (no build-log access) — the fix is the
+ * empirically-verified removal, not a diagnosed CSS cause.
+ * Safe to remove: the rule's own commit already verified every element
+ * in all 4 live `data-dark-surface` locations declares its own explicit
+ * color today — this was prophylactic for a future colorless element,
+ * "latent, not live." Re-adding this protection needs a different
+ * mechanism (e.g. a real local class, not a bare global selector) and a
+ * real Vercel deploy check before merge, not just `tsc --noEmit`.
  */
-:global(:where([data-dark-surface])) {
-  color: #fff;
-}
 
 .contentLightLock input:not([data-dark-surface], [data-dark-surface] *),
 .contentLightLock textarea:not([data-dark-surface], [data-dark-surface] *),
