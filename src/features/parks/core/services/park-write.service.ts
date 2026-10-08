@@ -78,6 +78,10 @@ const ALWAYS_SERVER_CONTROLLED_FIELDS = new Set<string>([
   // park-completeness.util.ts) — never settable directly, by anyone,
   // including root. Same pattern as published/contentStatus above.
   'needsFacilityDetails',
+  // 08.10.2026 — set purely from whether `authorityId` resolved below
+  // (ctx.allowUnresolvedAuthority's fallback), same "computed, never
+  // hand-written" precedent as needsFacilityDetails just above.
+  'needsAuthorityTagging',
 ]);
 
 /**
@@ -241,6 +245,18 @@ export type ParkCreateResult =
 export interface ParkCreateContext {
   tokenEmail: string | undefined;
   sourceIp: string;
+  /**
+   * 08.10.2026 — contribution-approval's one escape hatch (see
+   * contribution-write.service.ts's computeContributionApprove). When true
+   * AND caller is root AND no authorityId was resolved/supplied, create
+   * anyway with authorityId:null + needsAuthorityTagging:true instead of
+   * 400ing — restores the 23.09.2026 "never block on this, flag it"
+   * behavior (commit 0979cf2a) that the Stage 4 migration to this
+   * chokepoint silently dropped. Never set by the direct ParkForm-create
+   * route (src/app/api/admin/parks/route.ts) — that path keeps the hard
+   * axiom §23 requirement unchanged.
+   */
+  allowUnresolvedAuthority?: boolean;
 }
 
 export async function computeParkCreate(
@@ -253,19 +269,22 @@ export async function computeParkCreate(
     return { status: 403, body: { error: 'אין לך הרשאה ליצור פארק.' } };
   }
 
-  let authorityId: string;
+  let authorityId: string | null;
   if (caller.kind === 'root') {
     const requested = requestBody.authorityId;
-    if (typeof requested !== 'string' || !requested.trim()) {
+    if (typeof requested === 'string' && requested.trim()) {
+      // axiom §23's rule (route-collections) applied identically here — no
+      // CREATE without a resolved, real authority, whenever one IS given.
+      const authSnap = await db.collection('authorities').doc(requested).get();
+      if (!authSnap.exists) {
+        return { status: 400, body: { error: 'authorityId does not exist' } };
+      }
+      authorityId = requested;
+    } else if (ctx.allowUnresolvedAuthority) {
+      authorityId = null;
+    } else {
       return { status: 400, body: { error: 'authorityId is required' } };
     }
-    // axiom §23's rule (route-collections) applied identically here — no
-    // CREATE without a resolved, real authority.
-    const authSnap = await db.collection('authorities').doc(requested).get();
-    if (!authSnap.exists) {
-      return { status: 400, body: { error: 'authorityId does not exist' } };
-    }
-    authorityId = requested;
   } else {
     // authority_manager — their OWN resolved authority, never whatever
     // the request body claims. A client-supplied authorityId here is
@@ -284,6 +303,9 @@ export async function computeParkCreate(
 
   const doc: Record<string, unknown> = {
     authorityId,
+    // true only via the allowUnresolvedAuthority fallback above — every
+    // other path always has a real, validated authorityId by this point.
+    needsAuthorityTagging: authorityId === null,
     // David's decision, 30.09.2026: authority_manager's own creates
     // publish immediately — no pending_review gate. origin still
     // records WHO created it (existing field, unrelated meaning

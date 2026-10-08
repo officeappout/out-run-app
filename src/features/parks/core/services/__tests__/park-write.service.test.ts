@@ -207,6 +207,48 @@ describe('computeParkCreate', () => {
     expect(db.created.length).toBe(0);
   });
 
+  // 08.10.2026 — locks in that the DIRECT ParkForm-create route (the
+  // original Stage 2 use case this whole file was built for) is NOT
+  // weakened by adding ctx.allowUnresolvedAuthority for contribution
+  // approval. Without that flag, root still MUST supply a real
+  // authorityId — axiom §23's rule, unchanged.
+  it('root creates with NO authorityId and ctx.allowUnresolvedAuthority unset → still 400, nothing created', async () => {
+    const db = makeFakeDb({});
+    const result = await computeParkCreate(db, { kind: 'root', uid: 'root-uid' }, { name: 'New Park', location: { lat: 32.8, lng: 34.9 } }, CTX);
+    expect(result.status).toBe(400);
+    expect(db.created.length).toBe(0);
+  });
+
+  // The new fallback itself, tested in isolation from contribution-write.service.
+  it('root creates with NO authorityId but ctx.allowUnresolvedAuthority:true → 200, created with authorityId:null + needsAuthorityTagging:true', async () => {
+    const db = makeFakeDb({});
+    const result = await computeParkCreate(
+      db,
+      { kind: 'root', uid: 'root-uid' },
+      { name: 'New Park', location: { lat: 32.8, lng: 34.9 } },
+      { ...CTX, allowUnresolvedAuthority: true },
+    );
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    const created = db.created.find((c) => c.id === result.body.parkId);
+    expect(created?.data.authorityId).toBeNull();
+    expect(created?.data.needsAuthorityTagging).toBe(true);
+  });
+
+  it('root sends needsAuthorityTagging directly in the body → silently ignored, server-computed value wins (same precedent as needsFacilityDetails)', async () => {
+    const db = makeFakeDb({ authorities: [{ id: 'city-haifa' }] });
+    const result = await computeParkCreate(
+      db,
+      { kind: 'root', uid: 'root-uid' },
+      { name: 'New Park', location: { lat: 32.8, lng: 34.9 }, authorityId: 'city-haifa', needsAuthorityTagging: true },
+      CTX,
+    );
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    const created = db.created.find((c) => c.id === result.body.parkId);
+    expect(created?.data.needsAuthorityTagging).toBe(false); // a real authorityId resolved — the forged `true` is dropped
+  });
+
   it('a successful create writes an audit_logs row in the SAME call — not a separate step', async () => {
     const db = makeFakeDb({ authorities: [{ id: 'city-haifa', managerIds: ['am-uid'] }], users: [{ id: 'am-uid', core: { name: 'Officer Cohen' } }] });
     const caller: ParkWriteCaller = { kind: 'authority_manager', uid: 'am-uid', authorityId: 'city-haifa' };

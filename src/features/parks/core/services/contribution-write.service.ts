@@ -64,12 +64,22 @@
  *     helper is already the single source geometry coverage improves
  *     against.
  *
- * root: bypasses the scope-match entirely (same as park-write.service.ts),
- * but for new_location specifically still needs a real authorityId to
- * create the resulting park under — computeParkCreate's own existing
- * root-requires-authorityId-in-body requirement already enforces this; an
- * optional `authorityId` in the approve request body is root's one
- * explicit override, read nowhere else, by anyone else.
+ * root: bypasses the scope-match entirely (same as park-write.service.ts).
+ * For new_location specifically, the park's authorityId is resolved in
+ * this priority order (08.10.2026, closing a regression the Stage 4
+ * migration introduced — see below): (1) an explicit `authorityId` in the
+ * approve request body — root's one override, read nowhere else, by
+ * anyone else; (2) effectiveAuthorityId, the SAME geo-resolution already
+ * computed above to authorize this approval, reused rather than
+ * discarded; (3) neither resolves — computeParkCreate's
+ * allowUnresolvedAuthority fallback creates the park anyway with
+ * needsAuthorityTagging:true, never blocking. This restores commit
+ * 0979cf2a's (23.09.2026) "auto-resolve or flag, never block" behavior,
+ * which the Stage 4 rewrite below silently dropped by reusing
+ * computeParkCreate's root-requires-authorityId rule verbatim — correct
+ * for a direct ParkForm admin create (its original Stage 2 use case,
+ * 30.09.2026), but wrong for approving a geo-located citizen contribution
+ * where most authorities still lack boundary data.
  *
  * XP is NOT awarded by this chokepoint. David's decision, 30.09.2026:
  * "לא מטפלים בו עכשיו" — awardWorkoutXP (the Guardian) derives uid from
@@ -176,7 +186,7 @@ function isAuthorized(caller: ParkWriteCaller, effectiveAuthorityId: string | nu
 // ── Shared decision context — approve AND reject both start here ───────
 
 type DecisionContext =
-  | { ok: true; contribution: Record<string, unknown> }
+  | { ok: true; contribution: Record<string, unknown>; effectiveAuthorityId: string | null }
   | { ok: false; status: 403 | 404; error: string };
 
 async function resolveContributionDecisionContext(
@@ -199,7 +209,7 @@ async function resolveContributionDecisionContext(
     return { ok: false, status: 403, error: 'אין הרשאה לפעול על תרומה זו.' };
   }
 
-  return { ok: true, contribution };
+  return { ok: true, contribution, effectiveAuthorityId };
 }
 
 // ── Audit ────────────────────────────────────────────────────────────────
@@ -280,7 +290,7 @@ export async function computeContributionApprove(
   }
   const decision = await resolveContributionDecisionContext(db, caller, contributionId);
   if (!decision.ok) return { status: decision.status, body: { error: decision.error } };
-  const { contribution } = decision;
+  const { contribution, effectiveAuthorityId } = decision;
   const type = contribution.type;
 
   const contributionUpdate: Record<string, unknown> = {
@@ -302,18 +312,29 @@ export async function computeContributionApprove(
       status: 'open',
     };
     if (caller.kind === 'root') {
-      // root's one explicit override — read nowhere else, by anyone else.
-      // If absent, computeParkCreate's own existing requirement (root must
-      // supply a real authorityId) surfaces naturally as a 400 below.
+      // root's explicit override — read nowhere else, by anyone else —
+      // wins over auto-resolution when given.
       const override = requestBody.authorityId;
       if (typeof override === 'string' && override.trim()) {
         parkRequestBody.authorityId = override;
+      } else if (effectiveAuthorityId) {
+        // 08.10.2026 — reuse the SAME resolution already computed above to
+        // authorize this approval (resolveContributionScope), instead of
+        // discarding it. Restores commit 0979cf2a's auto-resolve-from-
+        // coordinates behavior, now through this chokepoint.
+        parkRequestBody.authorityId = effectiveAuthorityId;
       }
+      // else: left unset entirely — computeParkCreate's
+      // allowUnresolvedAuthority fallback below creates the park anyway,
+      // flagged needsAuthorityTagging for manual follow-up, never 400s.
     }
     // authority_manager: computeParkCreate uses caller.authorityId
     // directly regardless of parkRequestBody.authorityId — not set here.
 
-    const createResult = await computeParkCreate(db, caller, parkRequestBody, ctx);
+    const createResult = await computeParkCreate(db, caller, parkRequestBody, {
+      ...ctx,
+      allowUnresolvedAuthority: true,
+    });
     if (createResult.status !== 200) {
       return { status: createResult.status, body: createResult.body };
     }
