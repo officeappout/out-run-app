@@ -265,13 +265,33 @@ describe('computeContributionApprove', () => {
       expect(contribUpdate?.data.status).toBe('approved');
     });
 
-    it('root, new_location, point does not resolve and no explicit authorityId override → propagates computeParkCreate\'s own 400 (authorityId is required)', async () => {
+    it('root, new_location, point does not resolve and no explicit authorityId override → 200, flag-and-create fallback (08.10.2026 fix, restores commit 0979cf2a — never 400 here)', async () => {
       const db = makeFakeDb({
         contributions: [{ id: 'c1', type: 'new_location', status: 'pending', userId: 'citizen-1', location: OUTSIDE_ANY_BOUNDARY, parkName: 'New Spot' }],
       });
       const result = await computeContributionApprove(db, ROOT_CALLER, 'c1', {}, CTX);
-      expect(result.status).toBe(400);
-      expect(db.created.find((c) => c.collection === 'parks')).toBeUndefined();
+      expect(result.status).toBe(200);
+      if (result.status !== 200) return;
+      expect(result.body.approvedParkId).toBeDefined();
+      const createdPark = db.created.find((c) => c.collection === 'parks' && c.id === result.body.approvedParkId);
+      expect(createdPark?.data.authorityId).toBeNull();
+      expect(createdPark?.data.needsAuthorityTagging).toBe(true);
+      const contribUpdate = db.updates.find((u) => u.collection === 'user_contributions' && u.id === 'c1');
+      expect(contribUpdate?.data.status).toBe('approved');
+      expect(contribUpdate?.data.approvedParkId).toBe(result.body.approvedParkId);
+    });
+
+    it('root, new_location, point DOES resolve and no explicit override → 200, the SAME geo-resolution used to authorize the approval is reused as the park\'s authorityId, needsAuthorityTagging false', async () => {
+      const db = makeFakeDb({
+        authorities: [{ id: 'city-haifa', type: 'city', boundaryGeoJSON: HAIFA_BOUNDARY }],
+        contributions: [{ id: 'c1', type: 'new_location', status: 'pending', userId: 'citizen-1', location: INSIDE_HAIFA, parkName: 'New Spot' }],
+      });
+      const result = await computeContributionApprove(db, ROOT_CALLER, 'c1', {}, CTX);
+      expect(result.status).toBe(200);
+      if (result.status !== 200) return;
+      const createdPark = db.created.find((c) => c.collection === 'parks' && c.id === result.body.approvedParkId);
+      expect(createdPark?.data.authorityId).toBe('city-haifa');
+      expect(createdPark?.data.needsAuthorityTagging).toBe(false);
     });
 
     it('root, new_location, explicit authorityId override in the request body → 200, used regardless of geo-resolution', async () => {
