@@ -128,6 +128,28 @@ async function resolveTargetUids(
     } else {
       targetUnitIds = null;
     }
+  } else if (scope.kind === 'vertical') {
+    // 08.10.2026 (adversarial audit fix) — mirrors computeBrigadeDashboard's
+    // vertical branch exactly: query.tenantId is required (no single own
+    // tenant) but NOT trusted blindly — must be one of this caller's own
+    // grant. Same unitId-existence check as the tenantOwner branch above
+    // once the tenant itself is confirmed in scope.
+    if (!query.tenantId) {
+      return { status: 400, body: { error: 'tenantId is required' } };
+    }
+    if (!scope.authorityIds.includes(query.tenantId)) {
+      return { status: 403, body: { error: DENIED_MESSAGE } };
+    }
+    targetTenantId = query.tenantId;
+    if (query.unitId) {
+      const unitSnap = await db.collection('tenants').doc(targetTenantId).collection('units').doc(query.unitId).get();
+      if (!unitSnap.exists) {
+        return { status: 403, body: { error: DENIED_MESSAGE } };
+      }
+      targetUnitIds = [query.unitId];
+    } else {
+      targetUnitIds = null;
+    }
   } else {
     // scope.kind === 'root' — no "own" domain to default to.
     if (!query.tenantId) {

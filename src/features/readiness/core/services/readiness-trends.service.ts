@@ -301,6 +301,19 @@ export async function computeReadinessTrends(
   } else if (scope.kind === 'tenantOwner') {
     targetTenantId = scope.tenantId;
     targetUnitIds = query.unitId ? [query.unitId] : null;
+  } else if (scope.kind === 'vertical') {
+    // 08.10.2026 (adversarial audit fix) — mirrors computeBrigadeDashboard's
+    // vertical branch exactly: query.tenantId is required (no single own
+    // tenant) but NOT trusted blindly — must be one of this caller's own
+    // grant.
+    if (!query.tenantId) {
+      return { status: 400, body: { error: 'tenantId is required' } };
+    }
+    if (!scope.authorityIds.includes(query.tenantId)) {
+      return { status: 403, body: { error: DENIED_MESSAGE } };
+    }
+    targetTenantId = query.tenantId;
+    targetUnitIds = query.unitId ? [query.unitId] : null;
   } else {
     if (!query.tenantId) {
       return { status: 400, body: { error: 'tenantId is required' } };

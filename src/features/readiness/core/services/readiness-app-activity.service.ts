@@ -161,6 +161,19 @@ export async function computeReadinessAppActivity(
   } else if (scope.kind === 'tenantOwner') {
     targetTenantId = scope.tenantId;
     targetUnitIds = null;
+  } else if (scope.kind === 'vertical') {
+    // 08.10.2026 (adversarial audit fix) — mirrors computeBrigadeDashboard's
+    // vertical branch exactly: a vertical-scoped caller has no single own
+    // tenant, so query.tenantId is required, but (unlike root) it is NOT
+    // trusted blindly — it must be one of this caller's own grant.
+    if (!query.tenantId) {
+      return { status: 400, body: { error: 'tenantId is required' } };
+    }
+    if (!scope.authorityIds.includes(query.tenantId)) {
+      return { status: 403, body: { error: DENIED_MESSAGE } };
+    }
+    targetTenantId = query.tenantId;
+    targetUnitIds = query.unitId ? [query.unitId] : null;
   } else {
     if (!query.tenantId) {
       return { status: 400, body: { error: 'tenantId is required' } };
