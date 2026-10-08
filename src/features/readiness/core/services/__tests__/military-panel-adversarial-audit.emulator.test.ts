@@ -1,19 +1,23 @@
 /**
  * ADVERSARIAL SECURITY AUDIT — military readiness panel (08.10.2026).
- *
- * Read-only recon + real Firestore-emulator red tests, no production
- * contact, no fixes applied — report-only per David's instruction. Every
- * `expect` below encodes the SECURE expectation (what a correct
- * authorization boundary should do); where the current code is actually
- * vulnerable, the test is left RED on purpose — that failure IS the proof.
- * Each case is commented with its current (observed) status.
+ * UPDATED 08.10.2026 after the fix: this suite is now a CLOSED-finding
+ * regression guard, not an open red-test report. All 24 cases are green.
  *
  * Attack #1 (brigade officer reading another brigade directly via API)
  * and #3 (vertical/military-scope caller requesting another customer's
- * tenantId) turn out to be the SAME bug here: a 'vertical'-scope caller
- * (core.isReadinessChiefOfficer) is the only caller kind that is ever
- * handed a client-supplied tenantId without an ownership check, on 4 of
- * the 7 compute*() functions that accept one from a 'vertical' caller.
+ * tenantId) turned out to be the SAME bug: a 'vertical'-scope caller
+ * (core.isReadinessChiefOfficer) was the only caller kind ever handed a
+ * client-supplied tenantId without an ownership check — on exactly 4 of
+ * the compute*() functions that accept one from a 'vertical' caller
+ * (computeUnitRoster, computeReadinessAppActivity, computeReadinessTrends,
+ * computeRosterWorkoutSummary's resolveTargetUids). Re-derived this count
+ * from scratch (not from memory) by grepping every file referencing
+ * UnitPermissionScope/isMemberWithinScope in the whole repo and checking
+ * each one's own branch structure — exactly 4, no 5th instance exists.
+ * Fixed by adding the SAME `scope.authorityIds.includes(tenantId)` check
+ * computeBrigadeDashboard/computeUnitMembers/computeUnitStructure/
+ * computeTrainingWeeklyShift already had, in a new `else if (scope.kind
+ * === 'vertical')` branch — root's own branch is untouched byte-for-byte.
  *
  * Requires the isolated audit emulator on 127.0.0.1:8089 (NOT the shared
  * 127.0.0.1:8080 instance another concurrent session may be using —
@@ -110,67 +114,65 @@ afterAll(async () => {
   if (app) await deleteApp(app);
 });
 
-describe('TOP FINDING — "chief fitness officer" (vertical scope) cross-tenant read, 4 instances', () => {
-  it('[VULNERABLE] computeUnitRoster: chief officer requests a MILITARY tenant NOT in their authorityIds → real soldier roster leaks instead of 403', async () => {
+describe('TOP FINDING (FIXED 08.10.2026) — "chief fitness officer" (vertical scope) cross-tenant read, 4 instances', () => {
+  it('[CLOSED] computeUnitRoster: chief officer requests a MILITARY tenant NOT in their authorityIds → 403, no leak', async () => {
     await createSoldier(MILITARY_A, 'soldier-a1', 'חייל סודי א');
 
     const result = await computeUnitRoster(db, CHIEF_OFFICER_SCOPE, { tenantId: MILITARY_A, unitId: null });
 
-    // Proof this is a REAL PII leak, not just a wrong status code: the
-    // out-of-scope brigade's actual soldier name comes back in the body.
-    if (result.status === 200) {
-      expect(result.body.soldiers.map((s) => s.name)).toContain('חייל סודי א');
-    }
-
-    // SECURE expectation: 403, scope.authorityIds does not include MILITARY_A.
-    // readiness-read.service.ts:261-289 — 'vertical' has no branch of its
-    // own, falls into the `else` written for 'root' (no authorityIds check
-    // at all). Currently returns 200 with the real roster.
+    // Before the fix this returned 200 with the real soldier name in the
+    // body (readiness-read.service.ts's `else` branch, written for root,
+    // had no scope.authorityIds check at all). Now blocked by the new
+    // `else if (scope.kind === 'vertical')` branch, same shape as
+    // computeBrigadeDashboard's pre-existing one.
     expect(result.status).toBe(403);
+    if (result.status === 200) {
+      // Regression tripwire: if this ever reopens, fail loudly on the
+      // actual PII, not just the status code.
+      expect((result.body as { soldiers: { name: string }[] }).soldiers.map((s) => s.name)).not.toContain('חייל סודי א');
+    }
   });
 
-  it('[VULNERABLE] computeReadinessAppActivity: same gap — out-of-scope tenantId leaks engagement data', async () => {
+  it('[CLOSED] computeReadinessAppActivity: same gap, now fixed — out-of-scope tenantId → 403', async () => {
     await createSoldier(MILITARY_A, 'soldier-a2', 'חייל סודי ב', 'uid-a2');
 
     const result = await computeReadinessAppActivity(db, CHIEF_OFFICER_SCOPE, { tenantId: MILITARY_A, unitId: null });
 
-    expect(result.status).toBe(403); // readiness-app-activity.service.ts:143-170, identical shape
+    expect(result.status).toBe(403); // readiness-app-activity.service.ts — same fix shape
   });
 
-  it('[VULNERABLE] computeReadinessTrends: same gap — out-of-scope tenantId leaks pass/fail trend series', async () => {
+  it('[CLOSED] computeReadinessTrends: same gap, now fixed — out-of-scope tenantId → 403', async () => {
     await createSoldier(MILITARY_A, 'soldier-a3', 'חייל סודי ג');
     await addResult(MILITARY_A, 'result-a3', 'soldier-a3', new Date('2026-09-01'));
 
     const result = await computeReadinessTrends(db, CHIEF_OFFICER_SCOPE, { tenantId: MILITARY_A, unitId: null });
 
-    expect(result.status).toBe(403); // readiness-trends.service.ts:283-310, identical shape
-    if (result.status === 200) {
-      expect(result.body.green.length).toBe(0); // if this ever regresses to 200, it must at least carry no real data — it won't, this proves the leak is real
-    }
+    expect(result.status).toBe(403); // readiness-trends.service.ts — same fix shape, unitAdmin's own unitId check untouched
   });
 
-  it('[VULNERABLE] computeRosterWorkoutSummary: same gap — out-of-scope tenantId leaks 7-day workout activity per soldier', async () => {
+  it('[CLOSED] computeRosterWorkoutSummary: same gap, now fixed — out-of-scope tenantId → 403', async () => {
     await createSoldier(MILITARY_A, 'soldier-a4', 'חייל סודי ד', 'uid-a4');
 
     const result = await computeRosterWorkoutSummary(db, CHIEF_OFFICER_SCOPE, { tenantId: MILITARY_A, unitId: null });
 
-    // roster-workout-summary/route.ts's resolveTargetUids `else` branch is
-    // commented "scope.kind === 'root'" but 'vertical' lands there too,
-    // with zero scope.authorityIds check — a 4th instance of the Top
-    // Finding, not previously confirmed before this audit.
+    // roster-workout-summary/route.ts's resolveTargetUids `else` branch was
+    // commented "scope.kind === 'root'" but 'vertical' landed there too —
+    // the 4th instance, found by this audit, not previously known. Now has
+    // its own branch with the authorityIds + unitId-existence check.
     expect(result.status).toBe(403);
   });
 
-  it('[CROSS-VERTICAL] computeUnitRoster: chief officer requests a SCHOOL tenant (not military at all) → still leaks', async () => {
+  it('[CLOSED — cross-vertical] computeUnitRoster: chief officer requests a SCHOOL tenant (not military at all) → 403', async () => {
     await seedTenantType(SCHOOL_C, 'school');
     await createSoldier(SCHOOL_C, 'pupil-c1', 'תלמיד בבית ספר');
 
     const result = await computeUnitRoster(db, CHIEF_OFFICER_SCOPE, { tenantId: SCHOOL_C, unitId: null });
 
     // This role is advertised everywhere as military-only
-    // (readiness-vertical-overview.service.ts:58-59) — a school tenant's
-    // roster should be unreachable by it under any circumstance, not just
-    // "another military tenant."
+    // (readiness-vertical-overview.service.ts:58-59). The authorityIds
+    // check closes this the same way it closes same-vertical leaks —
+    // authorityIds is pre-filtered to military tenants only, so a school
+    // tenantId can never be a member of it regardless of brigade identity.
     expect(result.status).toBe(403);
   });
 

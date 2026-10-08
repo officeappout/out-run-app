@@ -279,6 +279,22 @@ export async function computeUnitRoster(
   } else if (scope.kind === 'tenantOwner') {
     targetTenantId = scope.tenantId;
     targetUnitIds = null;
+  } else if (scope.kind === 'vertical') {
+    // 08.10.2026 (adversarial audit fix) — a vertical-scoped caller has
+    // no SINGLE own tenant, unlike tenantOwner/unitAdmin above, so (same
+    // as root) this must come from query.tenantId — but unlike root, it
+    // is NOT trusted blindly: it must be one of the tenants this
+    // specific caller's own vertical grant actually covers. Mirrors
+    // computeBrigadeDashboard's own vertical branch exactly (same fix,
+    // same shape). Zero change to the root branch below.
+    if (!query.tenantId) {
+      return { status: 400, body: { error: 'tenantId is required' } };
+    }
+    if (!scope.authorityIds.includes(query.tenantId)) {
+      return { status: 403, body: { error: DENIED_MESSAGE } };
+    }
+    targetTenantId = query.tenantId;
+    targetUnitIds = query.unitId ? [query.unitId] : null;
   } else {
     // root — no "own" domain to default to, same as computeUnitMembers.
     if (!query.tenantId) {
