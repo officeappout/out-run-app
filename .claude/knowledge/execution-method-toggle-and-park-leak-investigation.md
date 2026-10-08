@@ -241,3 +241,39 @@ downgrade path).
 - **Left deferred, not touched:** general Priority-2.5/3 leak, `applyHomeGating`,
   `handleSingleMethodChange`/identity-plan stages 2-5, the two location-default mechanisms.
   Cooldown nuke-placeholder (§2b): keep its tripwire, flagged as lower-priority, not fixed here.
+
+**Outcome (08.10.2026):** all 4 — this doc, FIX 1, FIX 2, FIX 3 — approved and merged in order
+(#189→#190→#191→#192), each gated on green preview + green production deploy before the next.
+FIX 3's own coverage measurement (0 of 358 exercises missing a park-tagged method) confirmed a
+true no-op on current data.
+
+---
+
+## 7. FUTURE item — the general Priority-2.5/3 leak's "don't fix yet" premise may now be stale
+
+**Not fixed this round — explicitly deferred, per David's instruction (08.10.2026).** Recorded
+here so it isn't lost, not acted on.
+
+`parking-lot.md:981-991` ("הדליפה של Priority-3 היא נושאת-משקל", 16.09.2026) forbids closing the
+general Priority-2.5/3 location-blind leak (`method-selection.utils.ts:209-234`, the non-park
+analogue of §2a's park-branch leak) specifically because, at the time of that measurement, **56
+exercises had zero park-tagged method** and real tagged content existed for almost no location
+other than `park` — closing the leak before content exists for `home`/`office`/`school`/
+`library`/`desk`/`airport`/`service`/`street`/`gym` would have collapsed those 9 locations'
+pools to near-empty.
+
+**FIX 3's coverage measurement (07.10.2026) found that premise's park-side half no longer
+holds**: 0 of 358 real exercises are missing a park-tagged method today — full coverage, up from
+the 56-exercise gap measured three weeks earlier. This says nothing directly about whether the
+*other 9* locations' content gap has also closed in the same window — that would need its own
+measurement, not an inference from park's number — but it does mean the specific fact the
+16.09.2026 "don't fix yet" ruling leaned on is now out of date, and the ruling itself was never
+re-checked against fresher data before today.
+
+**Recommendation for whenever this gets picked up:** re-run the same kind of real-catalog
+measurement this doc used for FIX 3 (§2a), but for each of the 9 non-park locations individually
+— how many exercises would flip from "silently substituted" to "excluded" if Priority 2.5/3
+required a real location/mapping match, broken out per location (since content coverage almost
+certainly differs location-to-location, not just park-vs-everyone-else). Only once per-location
+numbers are in hand is "is this still load-bearing" an answerable question rather than a
+three-week-old assumption.
