@@ -79,6 +79,7 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import {
   UNIT_SCOPE_UNKNOWN_MESSAGE,
+  resolveReadinessTargetScope,
   type UnitPermissionScope,
 } from '@/lib/unitPermissionScope';
 import {
@@ -298,84 +299,16 @@ export async function computeBrigadeDashboard(
     return { status: 403, body: { error: DENIED_MESSAGE } };
   }
 
-  let targetTenantId: string;
-  let targetUnitIds: string[] | null; // null = every unit under targetTenantId
-
-  if (scope.kind === 'unitAdmin') {
-    // BEHAVIOR CHANGE A (09.10.2026, consolidation inconsistency A) — was:
-    // query.unitId silently ignored, always the full scope.unitIds. Now
-    // honors it like every other unitAdmin branch in this codebase
-    // already does: narrow to it if it's in scope, 403 if not — no DB
-    // read needed, scope.unitIds is already a real, existence-confirmed
-    // list.
-    targetTenantId = scope.tenantId;
-    if (query.unitId) {
-      if (!scope.unitIds.includes(query.unitId)) {
-        return { status: 403, body: { error: DENIED_MESSAGE } };
-      }
-      targetUnitIds = [query.unitId];
-    } else {
-      targetUnitIds = scope.unitIds;
-    }
-  } else if (scope.kind === 'tenantOwner') {
-    // BEHAVIOR CHANGE B (09.10.2026, consolidation inconsistency B) — was:
-    // query.unitId silently ignored, always the full tenant. Now honors
-    // it with an existence check against tenants/{tenantId}/units/{unitId}
-    // — 403 if it doesn't exist (this is the caller's OWN tenant, so a
-    // bogus unitId here reads as "not yours"). Confirmed by the
-    // adversarial audit (08-09.10.2026) that the pre-fix "relies on an
-    // empty query" pattern was robustness-only, never a leak: targetTenantId
-    // is always the caller's own real tenant, resolved before any unitId
-    // is looked at.
-    targetTenantId = scope.tenantId;
-    if (query.unitId) {
-      const unitSnap = await db.collection('tenants').doc(scope.tenantId).collection('units').doc(query.unitId).get();
-      if (!unitSnap.exists) {
-        return { status: 403, body: { error: DENIED_MESSAGE } };
-      }
-      targetUnitIds = [query.unitId];
-    } else {
-      targetUnitIds = null;
-    }
-  } else if (scope.kind === 'vertical') {
-    // 06.10.2026 ("chief fitness officer") — a vertical-scoped caller
-    // has no SINGLE own tenant, unlike tenantOwner/unitAdmin above, so
-    // (same as root) this must come from query.tenantId — but unlike
-    // root, it is NOT trusted blindly: it must be one of the tenants
-    // this specific caller's own vertical grant actually covers. Zero
-    // change to the root branch below (still the exact same blind-trust
-    // behavior it always had) — this is a NEW branch, not a
-    // modification of an existing one.
-    if (!query.tenantId) {
-      return { status: 400, body: { error: 'tenantId is required' } };
-    }
-    if (!scope.authorityIds.includes(query.tenantId)) {
-      return { status: 403, body: { error: DENIED_MESSAGE } };
-    }
-    // BEHAVIOR CHANGE C (09.10.2026, consolidation inconsistency C) — was:
-    // query.unitId honored but never existence-checked. Now checked
-    // against tenants/{tenantId}/units/{unitId} — 400 "unit not found"
-    // (not 403: unlike tenantOwner, a vertical caller has no inherent
-    // ownership claim over the selected tenant, matching
-    // computeUnitStructure's existing precedent for this exact branch).
-    targetTenantId = query.tenantId;
-    if (query.unitId) {
-      const unitSnap = await db.collection('tenants').doc(query.tenantId).collection('units').doc(query.unitId).get();
-      if (!unitSnap.exists) {
-        return { status: 400, body: { error: 'unit not found' } };
-      }
-      targetUnitIds = [query.unitId];
-    } else {
-      targetUnitIds = null;
-    }
-  } else {
-    // root — no "own" domain to default to, same as computeUnitRoster/computeUnitMembers.
-    if (!query.tenantId) {
-      return { status: 400, body: { error: 'tenantId is required' } };
-    }
-    targetTenantId = query.tenantId;
-    targetUnitIds = query.unitId ? [query.unitId] : null;
-  }
+  // 09.10.2026 (consolidation) — replaces the inline unitAdmin/tenantOwner/
+  // vertical/root branching this function used to carry on its own (this
+  // file's own vertical branch, added 06.10.2026, was the ORIGINAL
+  // template every other function's vertical fix mirrored — now folded
+  // into the shared chokepoint instead of staying the copy-source). See
+  // resolveReadinessTargetScope's own header comment for the full
+  // contract — pure mechanical swap, zero behavior change.
+  const scopeResult = await resolveReadinessTargetScope(db, scope, query);
+  if (scopeResult.status !== 200) return scopeResult;
+  const { targetTenantId, targetUnitIds } = scopeResult;
 
   const inScope = (unitId: unknown): boolean => {
     if (targetUnitIds === null) return true;
