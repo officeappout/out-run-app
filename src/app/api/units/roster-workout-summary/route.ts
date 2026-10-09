@@ -60,7 +60,7 @@ import type { Firestore, QueryDocumentSnapshot } from 'firebase-admin/firestore'
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { isRateLimited } from '@/lib/rateLimit';
 import { RATE_LIMITS } from '@/lib/rateLimitConfig';
-import { resolveUnitPermissionScope, UNIT_SCOPE_UNKNOWN_MESSAGE, type UnitPermissionScope } from '@/lib/unitPermissionScope';
+import { resolveUnitPermissionScope, resolveReadinessTargetScope, UNIT_SCOPE_UNKNOWN_MESSAGE, type UnitPermissionScope } from '@/lib/unitPermissionScope';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -104,74 +104,13 @@ async function resolveTargetUids(
     return { status: 403, body: { error: DENIED_MESSAGE } };
   }
 
-  let targetTenantId: string;
-  let targetUnitIds: string[] | null; // null = "every unit under targetTenantId"
-
-  if (scope.kind === 'unitAdmin') {
-    targetTenantId = scope.tenantId;
-    if (query.unitId) {
-      if (!scope.unitIds.includes(query.unitId)) {
-        return { status: 403, body: { error: DENIED_MESSAGE } };
-      }
-      targetUnitIds = [query.unitId];
-    } else {
-      targetUnitIds = scope.unitIds;
-    }
-  } else if (scope.kind === 'tenantOwner') {
-    targetTenantId = scope.tenantId;
-    if (query.unitId) {
-      const unitSnap = await db.collection('tenants').doc(targetTenantId).collection('units').doc(query.unitId).get();
-      if (!unitSnap.exists) {
-        return { status: 403, body: { error: DENIED_MESSAGE } };
-      }
-      targetUnitIds = [query.unitId];
-    } else {
-      targetUnitIds = null;
-    }
-  } else if (scope.kind === 'vertical') {
-    // 08.10.2026 (adversarial audit fix) — mirrors computeBrigadeDashboard's
-    // vertical branch exactly: query.tenantId is required (no single own
-    // tenant) but NOT trusted blindly — must be one of this caller's own
-    // grant.
-    if (!query.tenantId) {
-      return { status: 400, body: { error: 'tenantId is required' } };
-    }
-    if (!scope.authorityIds.includes(query.tenantId)) {
-      return { status: 403, body: { error: DENIED_MESSAGE } };
-    }
-    targetTenantId = query.tenantId;
-    if (query.unitId) {
-      const unitSnap = await db.collection('tenants').doc(targetTenantId).collection('units').doc(query.unitId).get();
-      if (!unitSnap.exists) {
-        // BEHAVIOR CHANGE C (09.10.2026, consolidation inconsistency C) —
-        // was 403 here; unified to 400 "unit not found", matching
-        // computeUnitStructure's precedent for this exact branch (a
-        // vertical caller has no inherent ownership claim over the
-        // selected tenant the way tenantOwner does, so "not found" reads
-        // more accurately than "not yours"). The check itself already
-        // existed — only the status code changes.
-        return { status: 400, body: { error: 'unit not found' } };
-      }
-      targetUnitIds = [query.unitId];
-    } else {
-      targetUnitIds = null;
-    }
-  } else {
-    // scope.kind === 'root' — no "own" domain to default to.
-    if (!query.tenantId) {
-      return { status: 400, body: { error: 'tenantId is required' } };
-    }
-    targetTenantId = query.tenantId;
-    if (query.unitId) {
-      const unitSnap = await db.collection('tenants').doc(targetTenantId).collection('units').doc(query.unitId).get();
-      if (!unitSnap.exists) {
-        return { status: 400, body: { error: 'unit not found' } };
-      }
-      targetUnitIds = [query.unitId];
-    } else {
-      targetUnitIds = null;
-    }
-  }
+  // 09.10.2026 (consolidation) — replaces the inline unitAdmin/tenantOwner/
+  // vertical/root branching this function used to carry on its own. See
+  // resolveReadinessTargetScope's own header comment for the full
+  // contract — pure mechanical swap, zero behavior change.
+  const scopeResult = await resolveReadinessTargetScope(db, scope, query);
+  if (scopeResult.status !== 200) return scopeResult;
+  const { targetTenantId, targetUnitIds } = scopeResult;
 
   const usersSnap = await db.collection('users').where('core.tenantId', '==', targetTenantId).get();
   const uids: string[] = [];
