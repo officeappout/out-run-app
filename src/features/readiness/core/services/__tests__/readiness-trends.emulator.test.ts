@@ -373,6 +373,12 @@ describe('computeReadinessTrends — cumulative scope fallback (fix #3) and popu
     await db.collection('unitDirectory').doc('dir-1').set({
       orgId: TENANT_ID, unitId: BATTALION_ID, parentId: `${TENANT_ID}__${BRIGADE_ID}`,
     });
+    // BEHAVIOR CHANGE B follow-up (09.10.2026) — tenantOwner's query.unitId
+    // is now existence-checked against tenants/{tenantId}/units/{unitId}
+    // (previously ignored entirely by this branch); a real brigade like
+    // this one always has this doc in production (computeCreateUnit's
+    // own write path), the original fixture just never needed it before.
+    await db.collection('tenants').doc(TENANT_ID).collection('units').doc(BRIGADE_ID).set({ name: 'Brigade 1' });
     await createSoldierInUnit('s1', BATTALION_ID, 'male', null);
     await addResult('r1', 's1', 'run_3000m', 'pass', 1000, new Date('2026-02-01'), null, { unitId: BATTALION_ID });
 
@@ -396,6 +402,9 @@ describe('computeReadinessTrends — cumulative scope fallback (fix #3) and popu
   it('a selected unit WITH its own soldiers never gets a cumulativeNote', async () => {
     await createSoldier('s1', 'חייל', 'male', null); // unitId = UNIT_ID (the default)
     await addResult('r1', 's1', 'run_3000m', 'pass', 1000, new Date('2026-02-01'));
+    // BEHAVIOR CHANGE B follow-up (09.10.2026) — see the brigade-1 test
+    // above for why this doc is now required.
+    await db.collection('tenants').doc(TENANT_ID).collection('units').doc(UNIT_ID).set({ name: 'Emulator Test Unit' });
 
     const result = await computeReadinessTrends(db, TENANT_OWNER_SCOPE, { unitId: UNIT_ID });
     expect(result.status).toBe(200);

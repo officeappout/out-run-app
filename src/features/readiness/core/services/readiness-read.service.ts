@@ -291,8 +291,25 @@ export async function computeUnitRoster(
       targetUnitIds = scope.unitIds;
     }
   } else if (scope.kind === 'tenantOwner') {
+    // BEHAVIOR CHANGE B (09.10.2026, consolidation inconsistency B) — was:
+    // query.unitId silently ignored, always the full tenant. Now honors
+    // it with an existence check against tenants/{tenantId}/units/{unitId}
+    // — 403 if it doesn't exist (this is the caller's OWN tenant, so a
+    // bogus unitId here reads as "not yours"). Confirmed by the
+    // adversarial audit (08-09.10.2026) that the pre-fix "relies on an
+    // empty query" pattern was robustness-only, never a leak: targetTenantId
+    // is always the caller's own real tenant, resolved before any unitId
+    // is looked at.
     targetTenantId = scope.tenantId;
-    targetUnitIds = null;
+    if (query.unitId) {
+      const unitSnap = await db.collection('tenants').doc(scope.tenantId).collection('units').doc(query.unitId).get();
+      if (!unitSnap.exists) {
+        return { status: 403, body: { error: DENIED_MESSAGE } };
+      }
+      targetUnitIds = [query.unitId];
+    } else {
+      targetUnitIds = null;
+    }
   } else if (scope.kind === 'vertical') {
     // 08.10.2026 (adversarial audit fix) — a vertical-scoped caller has
     // no SINGLE own tenant, unlike tenantOwner/unitAdmin above, so (same

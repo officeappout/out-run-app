@@ -299,8 +299,24 @@ export async function computeReadinessTrends(
     targetTenantId = scope.tenantId;
     targetUnitIds = query.unitId ? [query.unitId] : scope.unitIds;
   } else if (scope.kind === 'tenantOwner') {
+    // BEHAVIOR CHANGE B (09.10.2026, consolidation inconsistency B) — was:
+    // query.unitId honored but never existence-checked. Now checked
+    // against tenants/{tenantId}/units/{unitId} — 403 if it doesn't
+    // exist. Confirmed by the adversarial audit (08-09.10.2026) that
+    // this was robustness-only, never a leak: targetTenantId is always
+    // the caller's own real tenant, resolved before any unitId is
+    // looked at (the base query below is always .where('tenantId','==',
+    // targetTenantId) first).
     targetTenantId = scope.tenantId;
-    targetUnitIds = query.unitId ? [query.unitId] : null;
+    if (query.unitId) {
+      const unitSnap = await db.collection('tenants').doc(scope.tenantId).collection('units').doc(query.unitId).get();
+      if (!unitSnap.exists) {
+        return { status: 403, body: { error: DENIED_MESSAGE } };
+      }
+      targetUnitIds = [query.unitId];
+    } else {
+      targetUnitIds = null;
+    }
   } else if (scope.kind === 'vertical') {
     // 08.10.2026 (adversarial audit fix) — mirrors computeBrigadeDashboard's
     // vertical branch exactly: query.tenantId is required (no single own
