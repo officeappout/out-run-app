@@ -62,6 +62,7 @@ import type { Firestore } from 'firebase-admin/firestore';
 import {
   UNIT_SCOPE_UNKNOWN_MESSAGE,
   isMemberWithinScope,
+  resolveReadinessTargetScope,
   type UnitPermissionScope,
 } from '@/lib/unitPermissionScope';
 import {
@@ -292,68 +293,17 @@ export async function computeReadinessTrends(
     return { status: 403, body: { error: DENIED_MESSAGE } };
   }
 
-  let targetTenantId: string;
-  let targetUnitIds: string[] | null;
-
-  if (scope.kind === 'unitAdmin') {
-    targetTenantId = scope.tenantId;
-    targetUnitIds = query.unitId ? [query.unitId] : scope.unitIds;
-  } else if (scope.kind === 'tenantOwner') {
-    // BEHAVIOR CHANGE B (09.10.2026, consolidation inconsistency B) — was:
-    // query.unitId honored but never existence-checked. Now checked
-    // against tenants/{tenantId}/units/{unitId} — 403 if it doesn't
-    // exist. Confirmed by the adversarial audit (08-09.10.2026) that
-    // this was robustness-only, never a leak: targetTenantId is always
-    // the caller's own real tenant, resolved before any unitId is
-    // looked at (the base query below is always .where('tenantId','==',
-    // targetTenantId) first).
-    targetTenantId = scope.tenantId;
-    if (query.unitId) {
-      const unitSnap = await db.collection('tenants').doc(scope.tenantId).collection('units').doc(query.unitId).get();
-      if (!unitSnap.exists) {
-        return { status: 403, body: { error: DENIED_MESSAGE } };
-      }
-      targetUnitIds = [query.unitId];
-    } else {
-      targetUnitIds = null;
-    }
-  } else if (scope.kind === 'vertical') {
-    // 08.10.2026 (adversarial audit fix) — mirrors computeBrigadeDashboard's
-    // vertical branch exactly: query.tenantId is required (no single own
-    // tenant) but NOT trusted blindly — must be one of this caller's own
-    // grant.
-    if (!query.tenantId) {
-      return { status: 400, body: { error: 'tenantId is required' } };
-    }
-    if (!scope.authorityIds.includes(query.tenantId)) {
-      return { status: 403, body: { error: DENIED_MESSAGE } };
-    }
-    // BEHAVIOR CHANGE C (09.10.2026, consolidation inconsistency C) — was:
-    // query.unitId honored but never existence-checked. Now checked
-    // against tenants/{tenantId}/units/{unitId} — 400 "unit not found"
-    // (not 403: unlike tenantOwner, a vertical caller has no inherent
-    // ownership claim over the selected tenant, matching
-    // computeUnitStructure's existing precedent for this exact branch).
-    targetTenantId = query.tenantId;
-    if (query.unitId) {
-      const unitSnap = await db.collection('tenants').doc(query.tenantId).collection('units').doc(query.unitId).get();
-      if (!unitSnap.exists) {
-        return { status: 400, body: { error: 'unit not found' } };
-      }
-      targetUnitIds = [query.unitId];
-    } else {
-      targetUnitIds = null;
-    }
-  } else {
-    if (!query.tenantId) {
-      return { status: 400, body: { error: 'tenantId is required' } };
-    }
-    targetTenantId = query.tenantId;
-    targetUnitIds = query.unitId ? [query.unitId] : null;
-  }
-  if (query.unitId && scope.kind === 'unitAdmin' && !scope.unitIds.includes(query.unitId)) {
-    return { status: 403, body: { error: DENIED_MESSAGE } };
-  }
+  // 09.10.2026 (consolidation) — replaces the inline unitAdmin/tenantOwner/
+  // vertical/root branching (plus this function's own separate post-hoc
+  // unitAdmin narrow+403 check, now folded into the chokepoint itself).
+  // See resolveReadinessTargetScope's own header comment for the full
+  // contract — pure mechanical swap, zero behavior change.
+  const scopeResult = await resolveReadinessTargetScope(db, scope, query);
+  if (scopeResult.status !== 200) return scopeResult;
+  // let, not const — targetUnitIds is reassigned below for the cumulative
+  // subtree fallback (a selected unit with no soldiers of its own expands
+  // to include its descendants).
+  let { targetTenantId, targetUnitIds } = scopeResult;
 
   const componentFilter = query.componentFilter ?? 'all';
   const populationFilter = query.populationFilter ?? 'all';
