@@ -352,8 +352,22 @@ export async function computeBrigadeDashboard(
     if (!scope.authorityIds.includes(query.tenantId)) {
       return { status: 403, body: { error: DENIED_MESSAGE } };
     }
+    // BEHAVIOR CHANGE C (09.10.2026, consolidation inconsistency C) — was:
+    // query.unitId honored but never existence-checked. Now checked
+    // against tenants/{tenantId}/units/{unitId} — 400 "unit not found"
+    // (not 403: unlike tenantOwner, a vertical caller has no inherent
+    // ownership claim over the selected tenant, matching
+    // computeUnitStructure's existing precedent for this exact branch).
     targetTenantId = query.tenantId;
-    targetUnitIds = query.unitId ? [query.unitId] : null;
+    if (query.unitId) {
+      const unitSnap = await db.collection('tenants').doc(query.tenantId).collection('units').doc(query.unitId).get();
+      if (!unitSnap.exists) {
+        return { status: 400, body: { error: 'unit not found' } };
+      }
+      targetUnitIds = [query.unitId];
+    } else {
+      targetUnitIds = null;
+    }
   } else {
     // root — no "own" domain to default to, same as computeUnitRoster/computeUnitMembers.
     if (!query.tenantId) {

@@ -132,8 +132,7 @@ async function resolveTargetUids(
     // 08.10.2026 (adversarial audit fix) — mirrors computeBrigadeDashboard's
     // vertical branch exactly: query.tenantId is required (no single own
     // tenant) but NOT trusted blindly — must be one of this caller's own
-    // grant. Same unitId-existence check as the tenantOwner branch above
-    // once the tenant itself is confirmed in scope.
+    // grant.
     if (!query.tenantId) {
       return { status: 400, body: { error: 'tenantId is required' } };
     }
@@ -144,7 +143,14 @@ async function resolveTargetUids(
     if (query.unitId) {
       const unitSnap = await db.collection('tenants').doc(targetTenantId).collection('units').doc(query.unitId).get();
       if (!unitSnap.exists) {
-        return { status: 403, body: { error: DENIED_MESSAGE } };
+        // BEHAVIOR CHANGE C (09.10.2026, consolidation inconsistency C) —
+        // was 403 here; unified to 400 "unit not found", matching
+        // computeUnitStructure's precedent for this exact branch (a
+        // vertical caller has no inherent ownership claim over the
+        // selected tenant the way tenantOwner does, so "not found" reads
+        // more accurately than "not yours"). The check itself already
+        // existed — only the status code changes.
+        return { status: 400, body: { error: 'unit not found' } };
       }
       targetUnitIds = [query.unitId];
     } else {
