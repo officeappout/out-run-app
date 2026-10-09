@@ -302,8 +302,21 @@ export async function computeBrigadeDashboard(
   let targetUnitIds: string[] | null; // null = every unit under targetTenantId
 
   if (scope.kind === 'unitAdmin') {
+    // BEHAVIOR CHANGE A (09.10.2026, consolidation inconsistency A) — was:
+    // query.unitId silently ignored, always the full scope.unitIds. Now
+    // honors it like every other unitAdmin branch in this codebase
+    // already does: narrow to it if it's in scope, 403 if not — no DB
+    // read needed, scope.unitIds is already a real, existence-confirmed
+    // list.
     targetTenantId = scope.tenantId;
-    targetUnitIds = scope.unitIds;
+    if (query.unitId) {
+      if (!scope.unitIds.includes(query.unitId)) {
+        return { status: 403, body: { error: DENIED_MESSAGE } };
+      }
+      targetUnitIds = [query.unitId];
+    } else {
+      targetUnitIds = scope.unitIds;
+    }
   } else if (scope.kind === 'tenantOwner') {
     targetTenantId = scope.tenantId;
     targetUnitIds = null;
