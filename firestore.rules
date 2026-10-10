@@ -798,7 +798,13 @@ service cloud.firestore {
     // ============================================================
     match /sharedWorkouts/{docId} {
       allow read: if true;
-      allow create: if isAuthenticated();
+      // 10.10.2026 (adversarial audit fix) — was `isAuthenticated()` alone:
+      // zero check that the new doc's creatorId actually matched the
+      // caller, so anyone could forge a share attributed to a different
+      // user's uid. Now requires self-attribution, same shape as every
+      // other create rule in this file that owns a creatorId/authorUid/
+      // userId field.
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.creatorId;
       allow update, delete: if isAuthenticated() && request.auth.uid == resource.data.creatorId;
       allow write: if isRootAdmin() || isAdmin();
     }
@@ -1634,7 +1640,26 @@ service cloud.firestore {
         // SPEC-03 Wave C: liking a post requires a real account — the
         // author (and everyone else who can see reaction counts) would
         // otherwise see a guest's like.
-        allow write: if isAuthenticated() && !isAnonymous();
+        //
+        // 10.10.2026 (adversarial audit fix) — was `write: if
+        // isAuthenticated() && !isAnonymous()` with NO ownership check at
+        // all: any signed-in non-anonymous user could create a reaction
+        // forging a different reactionId (impersonating another user's
+        // reaction), or update/delete an EXISTING reaction that belonged
+        // to someone else. The app's own convention
+        // (reactions.service.ts: `doc(db,'feed_posts',postId,'reactions',
+        // uid)`) always keys the doc id to the reacting user's own uid and
+        // sets the same value on the `uid` field — now actually enforced,
+        // not just assumed. Split by verb since `request.resource` does
+        // not exist on delete.
+        allow create: if isAuthenticated() && !isAnonymous()
+          && reactionId == request.auth.uid
+          && request.resource.data.uid == request.auth.uid;
+        allow update: if isAuthenticated() && !isAnonymous()
+          && reactionId == request.auth.uid
+          && request.resource.data.uid == request.auth.uid;
+        allow delete: if isAuthenticated() && !isAnonymous()
+          && reactionId == request.auth.uid;
       }
     }
 
