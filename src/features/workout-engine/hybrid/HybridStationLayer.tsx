@@ -27,7 +27,7 @@
  * (axiom §8) before production. It is inert in normal runs (flag-gated).
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import StrengthRunner from '@/features/workout-engine/players/strength/StrengthRunner';
 import { useHybridRun } from './useHybridRun';
@@ -35,8 +35,13 @@ import { isApproachingStation } from './hybrid-orchestrator';
 import { toSegmentExerciseDetail } from '@/features/workout-engine/core/services/storage.service';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { hapticMedium } from '@/lib/haptics';
+import { haversineMeters } from '@/features/parks/core/services/geoUtils';
+import { formatApproxDistance } from './hybrid-intro-format';
 
 const ACCENT = '#00ADEF';
+// G3.1 fix: how long the start-of-walk intro stays up before auto-dismissing
+// on its own (it also hides immediately once the approach CTA takes over).
+const INTRO_AUTO_HIDE_MS = 6000;
 
 export default function HybridStationLayer() {
   const active = useHybridRun((s) => s.active);
@@ -70,6 +75,36 @@ export default function HybridStationLayer() {
   useEffect(() => {
     if (approaching && !wasApproachingRef.current) hapticMedium();
     wasApproachingRef.current = approaching;
+  }, [approaching]);
+
+  // G3.1 fix (Sderot field test, 10.10.2026): first-timers dropped straight
+  // into the live map with no orientation found it confusing — nothing told
+  // them to start walking or where they were headed (the approach CTA below
+  // is correctly gated to only appear once actually near the station; before
+  // that gate fires there was no feedback of any kind). One-time toast, fires
+  // once per session on the FIRST render where there's a real walk ahead and
+  // we're not already in the approach window — `showIntroRef` makes it a
+  // true one-shot (not re-shown on a later leg after a station), mirroring
+  // wasApproachingRef's rising-edge pattern above. Component unmounts between
+  // sessions (FreeRunLayer only mounts this while isWorkoutActive), so a
+  // plain useState(false) is already correctly scoped per-session.
+  const [showIntro, setShowIntro] = useState(false);
+  const introShownRef = useRef(false);
+  const distanceToStationM =
+    upcomingStation != null && lastPosition != null
+      ? haversineMeters(lastPosition.lat, lastPosition.lng, upcomingStation.lat, upcomingStation.lng)
+      : null;
+  useEffect(() => {
+    if (introShownRef.current) return;
+    if (phase !== 'aerobic' || isFinalLeg || approaching || upcomingStation == null) return;
+    introShownRef.current = true;
+    setShowIntro(true);
+    const t = setTimeout(() => setShowIntro(false), INTRO_AUTO_HIDE_MS);
+    return () => clearTimeout(t);
+  }, [phase, isFinalLeg, approaching, upcomingStation]);
+  // Hide immediately once the real approach CTA takes over — never show both.
+  useEffect(() => {
+    if (approaching) setShowIntro(false);
   }, [approaching]);
 
   if (!active) return null; // normal run → nothing rendered
@@ -151,6 +186,28 @@ export default function HybridStationLayer() {
       </div>
     );
     return typeof document !== 'undefined' ? createPortal(cta, document.body) : null;
+  }
+
+  // G3.1 fix: start-of-walk intro, shown exactly once per session on the
+  // aerobic leg BEFORE the approach CTA above has anything to say.
+  if (showIntro) {
+    const intro = (
+      <div
+        className="fixed left-0 right-0 z-[110] flex justify-center pointer-events-none px-6"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 150px)' }}
+      >
+        <div
+          className="pointer-events-none rounded-2xl px-4 py-3 text-center text-white text-[14px] font-bold shadow-xl"
+          style={{ backgroundColor: 'rgba(5,8,18,0.82)', backdropFilter: 'blur(10px)' }}
+        >
+          🚶 התחל ללכת
+          {distanceToStationM != null && (
+            <> — בעוד {formatApproxDistance(distanceToStationM)} יש גינת כושר</>
+          )}
+        </div>
+      </div>
+    );
+    return typeof document !== 'undefined' ? createPortal(intro, document.body) : null;
   }
 
   return null;
