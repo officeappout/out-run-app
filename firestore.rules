@@ -2039,9 +2039,17 @@ service cloud.firestore {
                       && request.auth.uid in
                          get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
         // Update: only to add uid to readBy
+        // 10.10.2026 (adversarial audit fix) — the comment above always
+        // said "only to add uid to readBy," but the rule enforced nothing
+        // of the sort: any participant could overwrite ANY field,
+        // including another participant's `text`/`senderUid`. Now
+        // enforced for real — a participant may ONLY touch `readBy`,
+        // never any other field on someone else's (or their own)
+        // message.
         allow update: if isAuthenticated()
                       && request.auth.uid in
-                         get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+                         get(/databases/$(database)/documents/chats/$(chatId)).data.participants
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']);
       }
     }
 
