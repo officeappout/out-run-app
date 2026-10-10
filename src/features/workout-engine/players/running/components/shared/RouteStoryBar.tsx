@@ -26,6 +26,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { easeFillTowards } from './route-story-bar-ease';
 
 interface RouteStoryBarProps {
   /** 0–1, clamped by useSessionGoalProgress before it reaches here. */
@@ -99,9 +100,19 @@ export default function RouteStoryBar({
   const maxFillRef = useRef(maxFill);
   maxFillRef.current = maxFill;
 
+  // G3.4 fix (Sderot field test, 10.10.2026): this used to SNAP fillPct straight
+  // to the latest target every frame. The upstream distance value is only
+  // written when accumulated GPS displacement exceeds a 4-5m threshold
+  // (useRunningPlayer.ts's DISTANCE_THRESHOLD_WALKING/RUNNING — intentionally
+  // gated there to reject GPS noise, not something this bar should touch), so
+  // `progress` itself only changes in discrete steps every few meters. Snapping
+  // to each step read as visible lag/jumpiness — the bar sat static, then
+  // jumped. Easing toward the target every frame instead turns those discrete
+  // upstream steps into a continuous glide, purely in the presentation layer —
+  // the authoritative distance/threshold logic is untouched.
   const tick = useCallback(() => {
-    const next = Math.max(0, Math.min(maxFillRef.current, targetRef.current)) * 100;
-    setFillPct((prev) => (prev === next ? prev : next));
+    const target = Math.max(0, Math.min(maxFillRef.current, targetRef.current)) * 100;
+    setFillPct((prev) => easeFillTowards(prev, target));
     rafRef.current = requestAnimationFrame(tick);
   }, []);
 
