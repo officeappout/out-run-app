@@ -89,6 +89,8 @@ interface DashboardSummaryFallback {
   mau: number;
   genderDistribution: GenderDistribution;
   ageDistribution: AgeDistribution;
+  personaDistribution: PersonaCount[];
+  entryRouteDistribution: EntryRouteDistribution;
 }
 
 let _dashboardSummaryAuthorityId: string | null = null;
@@ -115,6 +117,141 @@ async function fetchDashboardSummaryFallback(authorityId: string): Promise<Dashb
     }
   })();
   return _dashboardSummaryPromise;
+}
+
+// ── Authority-manager fallback: /api/authority-manager/city-aggregates ────────
+// Same reasoning as fetchDashboardSummaryFallback, for getPopularParks/
+// getActivityTrend/getCityStepsTotals — grouped into one route+fetch since
+// all three always fire together inside loadAll()'s Promise.all. Dedup key
+// includes days+parksLimit (not just authorityId) since those vary by caller.
+interface CityAggregatesFallback {
+  popularParks: PopularPark[];
+  activityTrend: ActivityTrend[];
+  cityStepsTotals: CityStepsTotals;
+}
+
+let _cityAggregatesKey: string | null = null;
+let _cityAggregatesPromise: Promise<CityAggregatesFallback | null> | null = null;
+
+async function fetchCityAggregatesFallback(
+  authorityId: string,
+  days: number,
+  parksLimit: number,
+): Promise<CityAggregatesFallback | null> {
+  const key = `${authorityId}:${days}:${parksLimit}`;
+  if (_cityAggregatesPromise && _cityAggregatesKey === key) {
+    return _cityAggregatesPromise;
+  }
+  _cityAggregatesKey = key;
+  _cityAggregatesPromise = (async () => {
+    try {
+      const { auth } = await import('@/lib/firebase');
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) return null;
+      const res = await fetch(
+        `/api/authority-manager/city-aggregates?days=${days}&parksLimit=${parksLimit}`,
+        { headers: { Authorization: `Bearer ${idToken}` } },
+      );
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (err) {
+      console.error('[analytics.service] city-aggregates fallback failed:', err);
+      return null;
+    }
+  })();
+  return _cityAggregatesPromise;
+}
+
+// ── Authority-manager fallback: /api/authority-manager/neighborhood-breakdown ─
+// Dedup key includes ageMin/ageMax (not just authorityId) — this metric is
+// re-requested with a DIFFERENT age range on every KPI age-slider move
+// (handleAgeRangeChange), unlike the other fallbacks which are only ever
+// called once per page load with a fixed shape. A cache keyed on authorityId
+// alone would return a stale breakdown for a different age window — see
+// this repo's own axioms.md §28 for exactly this failure class.
+let _neighborhoodBreakdownKey: string | null = null;
+let _neighborhoodBreakdownPromise: Promise<NeighborhoodBreakdownRow[] | null> | null = null;
+
+async function fetchNeighborhoodBreakdownFallback(
+  authorityId: string,
+  ageMin: number,
+  ageMax: number,
+): Promise<NeighborhoodBreakdownRow[] | null> {
+  const key = `${authorityId}:${ageMin}:${ageMax}`;
+  if (_neighborhoodBreakdownPromise && _neighborhoodBreakdownKey === key) {
+    return _neighborhoodBreakdownPromise;
+  }
+  _neighborhoodBreakdownKey = key;
+  _neighborhoodBreakdownPromise = (async () => {
+    try {
+      const { auth } = await import('@/lib/firebase');
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) return null;
+      const res = await fetch(
+        `/api/authority-manager/neighborhood-breakdown?ageMin=${ageMin}&ageMax=${ageMax}`,
+        { headers: { Authorization: `Bearer ${idToken}` } },
+      );
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (err) {
+      console.error('[analytics.service] neighborhood-breakdown fallback failed:', err);
+      return null;
+    }
+  })();
+  return _neighborhoodBreakdownPromise;
+}
+
+// ── Authority-manager fallback: /api/authority-manager/filtered-dashboard ─────
+// Backs getActivityByHour + getRunningStats, which (unlike every other
+// function in this file) no longer accept a caller-resolved userIds array —
+// see both functions' own comments for why. Dedup key covers every input
+// that changes the result: authorityId + the 3 filter fields + the date
+// range (ISO strings) — loadAll calls this once with DEFAULT_FILTERS/the
+// month range, loadFiltered calls it with live filters/range, and may call
+// getActivityByHour twice (primary + compare neighborhoodId) in the same
+// Promise.all, all of which must be distinguished, not collapsed together.
+interface FilteredDashboardFallback {
+  hourlyBuckets: HourlyBucket[];
+  runningStats: RunningStats;
+}
+
+let _filteredDashboardKey: string | null = null;
+let _filteredDashboardPromise: Promise<FilteredDashboardFallback | null> | null = null;
+
+async function fetchFilteredDashboardFallback(
+  authorityId: string,
+  filters: Pick<DashboardFilters, 'gender' | 'persona' | 'neighborhoodId'>,
+  dateRange: { start: Date; end: Date },
+): Promise<FilteredDashboardFallback | null> {
+  const key = `${authorityId}:${filters.gender}:${filters.persona}:${filters.neighborhoodId}:${dateRange.start.toISOString()}:${dateRange.end.toISOString()}`;
+  if (_filteredDashboardPromise && _filteredDashboardKey === key) {
+    return _filteredDashboardPromise;
+  }
+  _filteredDashboardKey = key;
+  _filteredDashboardPromise = (async () => {
+    try {
+      const { auth } = await import('@/lib/firebase');
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) return null;
+      const params = new URLSearchParams({
+        gender: filters.gender,
+        persona: filters.persona,
+        neighborhoodId: filters.neighborhoodId,
+        start: dateRange.start.toISOString(),
+        end: dateRange.end.toISOString(),
+      });
+      const res = await fetch(
+        `/api/authority-manager/filtered-dashboard?${params.toString()}`,
+        { headers: { Authorization: `Bearer ${idToken}` } },
+      );
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (err) {
+      console.error('[analytics.service] filtered-dashboard fallback failed:', err);
+      return null;
+    }
+  })();
+  return _filteredDashboardPromise;
 }
 
 // ── Rollup helper ─────────────────────────────────────────────────────────────
@@ -513,6 +650,13 @@ export async function getPopularParks(
       completedSessionCount: count,
     }));
   } catch (error) {
+    // Authority manager — the direct `sessions` read above is denied by
+    // firestore.rules (same gap DAU/MAU/gender/age had — see
+    // fetchDashboardSummaryFallback's own comment).
+    if (isPermissionDeniedError(error)) {
+      const fallback = await fetchCityAggregatesFallback(authorityId, 30, limit);
+      if (fallback) return fallback.popularParks;
+    }
     console.error('Error calculating popular parks:', error);
     return [];
   }
@@ -586,6 +730,14 @@ export async function getActivityTrend(
 
     return Array.from(dateMap.entries()).map(([date, users]) => ({ date, dau: users.size }));
   } catch (error) {
+    // Authority manager — getUserIdsForAuthority's `users` read above
+    // (outside the inner per-batch try) is what actually throws
+    // permission-denied for a real manager; the `workouts` query is never
+    // reached. Same fallback family as getPopularParks/getCityStepsTotals.
+    if (isPermissionDeniedError(error)) {
+      const fallback = await fetchCityAggregatesFallback(authorityId, days, 5);
+      if (fallback) return fallback.activityTrend;
+    }
     console.error('Error calculating activity trend:', error);
     return [];
   }
@@ -679,6 +831,13 @@ export async function getCityStepsTotals(
     cacheSet(cacheKey, result);
     return result;
   } catch (error) {
+    // Authority manager — the direct `dailyActivity` read above is denied
+    // by firestore.rules. Same fallback family as getPopularParks/
+    // getActivityTrend (one combined route+fetch for all three).
+    if (isPermissionDeniedError(error)) {
+      const fallback = await fetchCityAggregatesFallback(authorityId, days, 5);
+      if (fallback) return fallback.cityStepsTotals;
+    }
     console.error('Error calculating city steps totals:', error);
     return empty;
   }
@@ -859,6 +1018,17 @@ export async function getNeighborhoodBreakdown(
       })
       .sort((a, b) => b.activeUsers - a.activeUsers);
   } catch (error) {
+    // Authority manager — the `users` read (step 1 above) is denied by
+    // firestore.rules; `getChildrenByParent` (public `authorities` read)
+    // already succeeded, but its result is discarded along with everything
+    // else once this catch fires. Recompute the same ageMin/ageMax defaults
+    // used above (not hoisted — they're block-scoped inside the try).
+    if (isPermissionDeniedError(error)) {
+      const ageMin = ageRange?.min ?? 35;
+      const ageMax = ageRange?.max ?? 55;
+      const fallback = await fetchNeighborhoodBreakdownFallback(cityId, ageMin, ageMax);
+      if (fallback) return fallback;
+    }
     console.error('Error calculating neighborhood breakdown:', error);
     return [];
   }
@@ -938,6 +1108,16 @@ export function getDateRangeForFilter(
 }
 
 // ── Filtered user IDs (in-memory, zero Firestore reads on cache hit) ─────────
+//
+// No longer called directly from AnalyticsDashboard.tsx as of 07.10.2026 —
+// getActivityByHour/getRunningStats (the only two consumers of a filtered
+// uid list) now call this themselves, wrapped in their own try/catch, so a
+// permission-denied on the underlying `users` read surfaces where their
+// fallback can see it. Kept exported (unchanged signature/behavior) in
+// case another caller ever needs a raw filtered uid list for in-memory use
+// — just never send its result over the network (see
+// fetchFilteredDashboardFallback's "no uid ever leaves this route family"
+// rule).
 
 export async function getFilteredUserIds(
   authorityId: string,
@@ -977,8 +1157,20 @@ export interface HourlyBucket {
   walking: number;
 }
 
+/**
+ * Takes `authorityId` + the filter fields (NOT a pre-resolved `userIds`
+ * array, unlike before 07.10.2026) and resolves the uid scope itself via
+ * getFilteredUserIds — so a permission-denied on the underlying `users`
+ * read surfaces HERE, where this function's own catch can see it, instead
+ * of one layer upstream in a caller's silently-swallowed `.catch(() => [])`
+ * (the actual reason this metric was permanently blank for a real authority
+ * manager: by the time the old userIds-array version ran, the id list was
+ * already empty and there was no exception left to catch). See
+ * fetchFilteredDashboardFallback's own comment for the full mechanism.
+ */
 export async function getActivityByHour(
-  userIds: string[],
+  authorityId: string,
+  filters: Pick<DashboardFilters, 'gender' | 'persona' | 'neighborhoodId'>,
   dateRange: { start: Date; end: Date }
 ): Promise<HourlyBucket[]> {
   const buckets = new Map<number, HourlyBucket>();
@@ -990,39 +1182,54 @@ export async function getActivityByHour(
     });
   }
 
-  if (userIds.length === 0) return Array.from(buckets.values());
+  try {
+    const userIds = await getFilteredUserIds(authorityId, filters);
+    if (userIds.length === 0) return Array.from(buckets.values());
 
-  const startTs = Timestamp.fromDate(dateRange.start);
-  const endTs   = Timestamp.fromDate(dateRange.end);
+    const startTs = Timestamp.fromDate(dateRange.start);
+    const endTs   = Timestamp.fromDate(dateRange.end);
 
-  await Promise.all(chunk(userIds, 30).map(async (batch) => {
-    try {
-      const q = query(
-        collection(db, WORKOUTS_COLLECTION),
-        where('userId', 'in', batch),
-        where('date', '>=', startTs),
-        where('date', '<=', endTs)
-      );
-      const snap = await getDocs(q);
-      snap.docs.forEach(d => {
-        const raw = d.data();
-        const ts = raw.date as Timestamp | undefined;
-        if (!ts) return;
-        const hour = ts.toDate().getHours();
-        const bucket = buckets.get(hour)!;
-        bucket.total++;
-        const type = (raw.activityType ?? raw.workoutType ?? 'strength') as string;
-        if (type === 'running') bucket.running++;
-        else if (type === 'walking') bucket.walking++;
-        else bucket.strength++;
-      });
-    } catch (err) {
-      if (isIndexBuildingError(err)) _workoutsIndexBuilding = true;
-      else console.error('[HourlyActivity] batch error:', err);
+    await Promise.all(chunk(userIds, 30).map(async (batch) => {
+      try {
+        const q = query(
+          collection(db, WORKOUTS_COLLECTION),
+          where('userId', 'in', batch),
+          where('date', '>=', startTs),
+          where('date', '<=', endTs)
+        );
+        const snap = await getDocs(q);
+        snap.docs.forEach(d => {
+          const raw = d.data();
+          const ts = raw.date as Timestamp | undefined;
+          if (!ts) return;
+          const hour = ts.toDate().getHours();
+          const bucket = buckets.get(hour)!;
+          bucket.total++;
+          const type = (raw.activityType ?? raw.workoutType ?? 'strength') as string;
+          if (type === 'running') bucket.running++;
+          else if (type === 'walking') bucket.walking++;
+          else bucket.strength++;
+        });
+      } catch (err) {
+        // Permission-denied must propagate to the OUTER catch (below) so
+        // the fallback can fire — only index-building/other errors stay
+        // swallowed per-batch, same as every other batched query in this
+        // file.
+        if (isPermissionDeniedError(err)) throw err;
+        if (isIndexBuildingError(err)) _workoutsIndexBuilding = true;
+        else console.error('[HourlyActivity] batch error:', err);
+      }
+    }));
+
+    return Array.from(buckets.values());
+  } catch (error) {
+    if (isPermissionDeniedError(error)) {
+      const fallback = await fetchFilteredDashboardFallback(authorityId, filters, dateRange);
+      if (fallback) return fallback.hourlyBuckets;
     }
-  }));
-
-  return Array.from(buckets.values());
+    console.error('[HourlyActivity] error:', error);
+    return Array.from(buckets.values());
+  }
 }
 
 // ── Persona Distribution ──────────────────────────────────────────────────────
@@ -1055,6 +1262,13 @@ export async function getPersonaDistribution(authorityId: string): Promise<Perso
       .map(([personaId, count]) => ({ personaId, label: PERSONA_LABELS[personaId] ?? personaId, count }))
       .sort((a, b) => b.count - a.count);
   } catch (error) {
+    // Authority manager — same gap as DAU/MAU/gender/age; dashboard-summary
+    // already computes this from the exact same usersSnap it fetches for
+    // gender/age, so this shares that route+fetch rather than a new one.
+    if (isPermissionDeniedError(error)) {
+      const summary = await fetchDashboardSummaryFallback(authorityId);
+      if (summary) return summary.personaDistribution;
+    }
     console.error('Error calculating persona distribution:', error);
     return [];
   }
@@ -1086,6 +1300,12 @@ export async function getEntryRouteDistribution(authorityId: string): Promise<En
 
     return dist;
   } catch (error) {
+    // Authority manager — same gap + same shared route as
+    // getPersonaDistribution above.
+    if (isPermissionDeniedError(error)) {
+      const summary = await fetchDashboardSummaryFallback(authorityId);
+      if (summary) return summary.entryRouteDistribution;
+    }
     console.error('Error calculating entry route distribution:', error);
     return { FULL_PROGRAM: 0, MAP_ONLY: 0, RUNNING: 0, unknown: 0 };
   }
@@ -1098,12 +1318,19 @@ export interface RunningStats {
   targetDistribution: { label: string; count: number }[];
 }
 
+/**
+ * Takes `authorityId` + the filter fields (NOT a pre-resolved `userIds`
+ * array, unlike before 07.10.2026) — same reasoning as getActivityByHour's
+ * own comment above; both share the same fallback route for the same
+ * reason (fetchFilteredDashboardFallback).
+ */
 export async function getRunningStats(
   authorityId: string,
-  userIds: string[],
+  filters: Pick<DashboardFilters, 'gender' | 'persona' | 'neighborhoodId'>,
   dateRange: { start: Date; end: Date }
 ): Promise<RunningStats> {
   try {
+    const userIds = await getFilteredUserIds(authorityId, filters);
     let totalCityKm = 0;
 
     if (userIds.length > 0) {
@@ -1127,12 +1354,17 @@ export async function getRunningStats(
             }
           });
         } catch (err) {
+          // Same rethrow-on-permission-denied rule as getActivityByHour.
+          if (isPermissionDeniedError(err)) throw err;
           if (!isIndexBuildingError(err)) console.error('[RunningStats] batch error:', err);
         }
       }));
     }
 
-    // Target distance from user docs (cached, zero Firestore reads on hit)
+    // Target distance from user docs (cached, zero Firestore reads on hit).
+    // This call alone is enough to surface permission-denied for a manager
+    // even when userIds was already empty above (it was the original,
+    // already-reachable throw point before this function took `filters`).
     const allDocs = await getUserDocsForAuthority(authorityId);
     const uidSet = new Set(userIds);
     const targetTally = new Map<string, number>();
@@ -1151,12 +1383,23 @@ export async function getRunningStats(
 
     return { totalCityKm: Math.round(totalCityKm * 10) / 10, targetDistribution };
   } catch (error) {
+    if (isPermissionDeniedError(error)) {
+      const fallback = await fetchFilteredDashboardFallback(authorityId, filters, dateRange);
+      if (fallback) return fallback.runningStats;
+    }
     console.error('Error calculating running stats:', error);
     return { totalCityKm: 0, targetDistribution: [] };
   }
 }
 
 // ── Neighborhood list helper (for filter dropdowns) ──────────────────────────
+//
+// Deliberately has NO permission-denied fallback, unlike every other
+// function in this file (07.10.2026 wave) — getChildrenByParent's only read
+// is `authorities` (`allow read: if true` in firestore.rules — fully
+// public, list included), which a real authority manager already succeeds
+// against today. Verified directly, not assumed: adding a fallback route
+// for this one would be solving a problem that doesn't exist.
 
 export async function getNeighborhoodList(
   cityId: string

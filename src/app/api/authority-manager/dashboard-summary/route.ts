@@ -1,23 +1,37 @@
 /**
  * GET /api/authority-manager/dashboard-summary
  *
- * Aggregate-only DAU/MAU/gender/age numbers for an authority manager's own
- * city. Same shape and reasoning as /api/authority-manager/city-summary
- * (see that route's header) — built to close a second instance of the same
- * gap: AnalyticsDashboard.tsx's client-side analytics.service.ts functions
- * (getDailyActiveUsers, getMonthlyActiveUsers, getGenderDistribution,
- * getAgeDistribution) read `users` and `workouts` directly from the
- * browser, both denied by firestore.rules for a real authority manager
- * (neither collection's read rule recognizes managerIds-based access —
- * only isRootAdmin()/isAdmin()). Because AnalyticsDashboard.loadAll() runs
- * every metric through one Promise.all, THIS ONE denial rejects the whole
- * batch — every KPI card, including ones with no relation to `users` or
- * `workouts` at all, renders at its zero-value initial state. Confirmed at
- * the emulator (00-MASTER-PLAN.md §13.11) before writing this route.
+ * Aggregate-only DAU/MAU/gender/age/persona/entry-route numbers for an
+ * authority manager's own city. Same shape and reasoning as
+ * /api/authority-manager/city-summary (see that route's header) — built to
+ * close a second instance of the same gap: AnalyticsDashboard.tsx's
+ * client-side analytics.service.ts functions (getDailyActiveUsers,
+ * getMonthlyActiveUsers, getGenderDistribution, getAgeDistribution,
+ * getPersonaDistribution, getEntryRouteDistribution) read `users` and
+ * `workouts` directly from the browser, both denied by firestore.rules for
+ * a real authority manager (neither collection's read rule recognizes
+ * managerIds-based access — only isRootAdmin()/isAdmin()). Because
+ * AnalyticsDashboard.loadAll() runs every metric through one Promise.all,
+ * THIS ONE denial rejects the whole batch — every KPI card, including ones
+ * with no relation to `users` or `workouts` at all, renders at its
+ * zero-value initial state. Confirmed at the emulator (00-MASTER-PLAN.md
+ * §13.11) before writing this route.
+ *
+ * persona/entry-route distribution added in the same wave as
+ * city-aggregates/route.ts, neighborhood-breakdown/route.ts, and
+ * filtered-dashboard/route.ts (07.10.2026 follow-up) — folded into THIS
+ * route rather than a new one specifically because both need nothing this
+ * route doesn't already fetch: they're one more forEach pass each over the
+ * exact same non-mock/test usersSnap already read for gender/age, zero
+ * extra Firestore reads.
  *
  * Hard requirements (all enforced below, identical to city-summary):
  *   - Real Firebase ID token required. No token → 401.
- *   - authorityId is resolved SERVER-SIDE from managerIds. Never trusts a
+ *   - authorityId is resolved SERVER-SIDE from managerIds (via the shared
+ *     resolveAuthorityManagerScope helper — extracted 30.09.2026 for
+ *     exactly this lookup; this route and city-summary/route.ts each used
+ *     to inline their own copy of it independently, see
+ *     src/lib/authorityManagerScope.ts's own header). Never trusts a
  *     client-supplied authorityId — there isn't even a place to send one.
  *   - uid not present in any authority's managerIds → 403.
  *   - Response is aggregate numbers only — no resident name, email, uid,
@@ -35,12 +49,32 @@
  * analytics.service.ts does (getAuthorityWithChildrenIds) — city-summary,
  * the pattern this route follows, doesn't either. A level-1 manager's own
  * authority is what's resolved and used, full stop; documented as a scope
- * limitation, not silently different behavior.
+ * limitation, not silently different behavior. This now applies uniformly
+ * to all 6 metrics in this route's response, not just the original 4 — kept
+ * deliberately consistent rather than rolling up only the 2 new ones, which
+ * would make them MORE accurate than their siblings in the same payload
+ * for no stated reason.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
+import { resolveAuthorityManagerScope } from '@/lib/authorityManagerScope';
 import { isTestOrMockUser } from '@/lib/testAccountFilter';
 import { Timestamp } from 'firebase-admin/firestore';
+
+// Canonical (01.09.2026+) + legacy persona label map — verbatim copy of
+// analytics.service.ts's PERSONA_LABELS. Duplicated, not imported: that
+// file is a 'use client' module pulling in the Firestore CLIENT SDK, which
+// must never load into a Node serverless route. Keep both in sync by hand
+// if a new persona id is ever added — same trade-off already accepted for
+// this route's other duplicated pieces (chunk, the managerIds query before
+// this edit).
+const PERSONA_LABELS: Record<string, string> = {
+  parent: 'הורים', student: 'סטודנטים', pupil: 'תלמידים', office_worker: 'עובדי משרד',
+  military: 'צה"ל', vatikim: 'גיל הזהב', pro_athlete: 'ספורטאי קצה',
+  mothers: 'אמהות פעילות', seniors: 'גיל הזהב', soldiers: 'חיילים/משוחררים',
+  students: 'סטודנטים', runners: 'רצים', gym_goers: 'מתאמנים בחדר כושר',
+  wellness_seekers: 'מחפשי בריאות', dog_walkers: 'מטיילי כלבים', general: 'כללי',
+};
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -70,17 +104,11 @@ export async function GET(request: NextRequest) {
 
     const db = getAdminDb();
 
-    const managedSnap = await db
-      .collection('authorities')
-      .where('managerIds', 'array-contains', uid)
-      .limit(1)
-      .get();
-
-    if (managedSnap.empty) {
+    const scope = await resolveAuthorityManagerScope(db, uid);
+    if (!scope) {
       return NextResponse.json({ error: 'Not an authority manager' }, { status: 403 });
     }
-
-    const authorityId = managedSnap.docs[0].id;
+    const { authorityId } = scope;
 
     // One fetch of all real (non-mock) resident docs for this authority —
     // reused for gender/age distribution AND to build the uid list DAU/MAU
@@ -93,6 +121,8 @@ export async function GET(request: NextRequest) {
 
     const genderDistribution = { male: 0, female: 0, other: 0, unknown: 0, total: 0 };
     const ageDistribution = { '18-25': 0, '26-35': 0, '36-45': 0, '46-55': 0, '56+': 0, unknown: 0, total: 0 };
+    const personaTally = new Map<string, number>();
+    const entryRouteDistribution = { FULL_PROGRAM: 0, MAP_ONLY: 0, RUNNING: 0, unknown: 0 };
     const residentUids: string[] = [];
     const currentYear = new Date().getFullYear();
 
@@ -134,7 +164,26 @@ export async function GET(request: NextRequest) {
         else ageDistribution.unknown++; // age < 18
       }
       ageDistribution.total++;
+
+      // Persona tally — same canonical+legacy ids as getPersonaDistribution.
+      const personaEntries = (data?.personas ?? []) as Array<{ id?: string }>;
+      personaEntries.forEach((p) => {
+        if (p?.id) personaTally.set(p.id, (personaTally.get(p.id) ?? 0) + 1);
+      });
+
+      // Entry-route distribution — same field precedence as
+      // getEntryRouteDistribution (RUNNING wins if either field says so).
+      const onboardingPath = data?.onboardingPath as string | undefined;
+      const dashboardMode = (data?.lifestyle as Record<string, unknown> | undefined)?.dashboardMode as string | undefined;
+      if (onboardingPath === 'RUNNING' || dashboardMode === 'RUNNING') entryRouteDistribution.RUNNING++;
+      else if (onboardingPath === 'MAP_ONLY') entryRouteDistribution.MAP_ONLY++;
+      else if (onboardingPath === 'FULL_PROGRAM') entryRouteDistribution.FULL_PROGRAM++;
+      else entryRouteDistribution.unknown++;
     });
+
+    const personaDistribution = Array.from(personaTally.entries())
+      .map(([personaId, count]) => ({ personaId, label: PERSONA_LABELS[personaId] ?? personaId, count }))
+      .sort((a, b) => b.count - a.count);
 
     // DAU/MAU — one pass over the current month's workouts covers both
     // (DAU's day is a subset of MAU's month), instead of two separate
@@ -174,6 +223,8 @@ export async function GET(request: NextRequest) {
       mau: monthlyActive.size,
       genderDistribution,
       ageDistribution,
+      personaDistribution,
+      entryRouteDistribution,
     });
   } catch (err: any) {
     console.error('[/api/authority-manager/dashboard-summary] error:', err?.message ?? err);
