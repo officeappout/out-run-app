@@ -158,6 +158,17 @@ export default function HybridJourneyAxis({
   let aerIdx = 0, strIdx = 0;
   const firstColor = segments[0]?.kind === 'strength' ? STR : AER;
 
+  // G2.1 fix (Sderot field test, 10.10.2026): this used to render the amber
+  // equipment-tabata nudge INSIDE the segments.map() below, once per qualifying
+  // strength station — stacking a warning-styled banner down the whole axis for a
+  // no-questionnaire user, even though doing ad-hoc station work here is legitimate,
+  // not a problem. Hoisted to one route-level, softer prompt instead (styling matches
+  // ProgramsSection.tsx's "טרם הוערך" dashed-border nudge, not the locked-card warning).
+  const assessmentNudgeDomains = Array.from(new Set(
+    segments.flatMap((s) => s.content?.assessmentNudge?.assessmentDomains ?? []),
+  ));
+  const hasAssessmentNudge = assessmentNudgeDomains.length > 0;
+
   // Station super-collapse (point 20): per-station-card. Keyed by segment index;
   // default expanded (absent = open). Collapsed → a summary card instead of the
   // warmup+strength sections. Independent per station.
@@ -175,6 +186,19 @@ export default function HybridJourneyAxis({
         </div>
         <span className="text-[11px] font-bold" style={{ color: '#6B7280' }}>נקודת התחלה</span>
       </div>
+
+      {hasAssessmentNudge && (
+        <button
+          type="button"
+          onClick={() => onSegmentAssessmentLink?.(assessmentNudgeDomains)}
+          className="w-full flex items-center gap-2 mb-3 rounded-xl text-[12px] font-bold text-start active:scale-[0.98] transition-transform"
+          style={{ background: '#fff', border: '1px dashed #CBD5E1', color: '#00C9F2', padding: '9px 12px' }}
+        >
+          <Info size={15} className="flex-shrink-0" style={{ color: '#9CA3AF' }} />
+          <span className="flex-1 underline underline-offset-2">רוצים אימון מותאם יותר? השלימו שאלון כוח</span>
+          <ChevronLeft size={15} className="flex-shrink-0" style={{ color: '#9CA3AF' }} />
+        </button>
+      )}
 
       {segments.map((seg, i) => {
         const last = i === segments.length - 1;
@@ -304,22 +328,6 @@ export default function HybridJourneyAxis({
                   )}
                   <span className="text-[10.5px] font-extrabold rounded-full whitespace-nowrap" style={{ padding: '3px 9px', background: STR_TINT, color: STR_TEXT }}>עצור ואמן</span>
                 </div>
-                {/* Equipment-tabata nudge (domain-assessment gate, David 23-24.09.2026):
-                    real content DID render here (unlike the locked-card branch above) —
-                    a real machine covered an otherwise-unassessed domain. Additive only,
-                    never blocks the real content below it. */}
-                {seg.content?.assessmentNudge && (
-                  <button
-                    type="button"
-                    onClick={() => onSegmentAssessmentLink?.(seg.content!.assessmentNudge!.assessmentDomains)}
-                    className="w-full flex items-center gap-2 mt-2 rounded-xl text-[11.5px] font-bold text-start active:scale-[0.98] transition-transform"
-                    style={{ background: '#FFFBEB', border: '0.5px solid #FDE68A', color: '#B45309', padding: '7px 10px' }}
-                  >
-                    <Info size={13} className="flex-shrink-0" />
-                    <span className="flex-1 underline underline-offset-2">{seg.content.assessmentNudge.message}</span>
-                    <ChevronLeft size={13} className="flex-shrink-0" />
-                  </button>
-                )}
                 {stationName ? (
                   collapsedStations[i] ? (
                     /* point 20: collapsed — summary card (not an empty header) */
