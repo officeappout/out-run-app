@@ -1501,9 +1501,7 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow write: if isOwner(userId);
 
-      // SPEC-02 SEC-01 — PARTIAL, see stop-C report (not fully closed
-      // here; the remaining piece is a product decision, not implemented
-      // without one). What the old rule actually allowed: ANY
+      // SPEC-02 SEC-01 — what the old rule actually allowed: ANY
       // authenticated user could overwrite followers/following/counts on
       // ANY OTHER user's doc to ANYTHING, as long as they touched only
       // these field names — arbitrary array replacement, injecting a
@@ -1513,20 +1511,6 @@ service cloud.firestore {
       // in `followers`, verified as an exact set-equality diff, never
       // touch `following`/`followingCount`, never touch anyone else's
       // entry.
-      //
-      // NOT closed: self-insertion (attacker adds their OWN uid to
-      // anyone's followers) is still allowed here, unchanged, because
-      // it's how the live useSocialStore.followUser feature works today —
-      // instant, one-sided, no approval. But per the spec's own framing,
-      // THAT is the actual named exploit (self-follow -> passes
-      // presence's mode='squad' followers-list check at ~line 1094 ->
-      // live GPS + real name of anyone, with zero interaction from them).
-      // Closing it for real means either converting follow to
-      // request+approval (changes the follow feature's UX) or decoupling
-      // squad-mode presence trust from one-sided `followers` entirely
-      // (changes who can currently see whose live location) — both are
-      // product decisions, not a rule tweak, so this is reported
-      // separately rather than silently narrowed on my own judgment.
       allow update: if isOwner(userId) &&
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['followers', 'following', 'followerCount', 'followingCount', 'updatedAt']);
@@ -1540,44 +1524,43 @@ service cloud.firestore {
       // SPEC-03 Wave C: following someone requires a real account — the
       // followed user (and their followers list) would otherwise show a
       // guest.
+      //
+      // 10.10.2026 (adversarial audit root-cause fix) — CLOSED: self-
+      // insertion (a non-owner adding their OWN uid to someone else's
+      // followers) used to be allowed here, unchanged since SEC-01,
+      // because it's how useSocialStore.followUser worked — instant,
+      // one-sided, no approval. That was the actual named exploit:
+      // self-follow -> passes presence's mode='squad' followers-list
+      // check (hasAny request.auth.uid in connections/{userId}.followers)
+      // -> live GPS + real name of anyone, with zero interaction from
+      // them. Fixed at the root, in this rule: a non-owner may ONLY
+      // remove their own uid (unfollow — never required consent, stays
+      // unchanged below); ADDING your own uid is owner-only now, same as
+      // every other field on this doc. This means the live "Follow"
+      // button's instant, one-sided self-insert no longer works via this
+      // client-side path — a real consented-follow mechanism (request +
+      // accept, written by the Admin SDK or by the target's own write)
+      // is layer 2/3 and is explicitly NOT built in this change; until it
+      // ships, no client-side path exists to add a new follower at all.
+      // That tradeoff (temporarily no "Follow" feature over a live GPS
+      // leak) was an explicit, deliberate instruction, not an oversight.
       allow update: if isAuthenticated() && !isAnonymous() && request.auth.uid != userId &&
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['followers', 'updatedAt']) &&
-        (
-          // Follow: add exactly my own uid to followers, nothing else.
-          (
-            !resource.data.get('followers', []).hasAny([request.auth.uid]) &&
-            request.resource.data.followers.hasOnly(resource.data.get('followers', []).concat([request.auth.uid])) &&
-            request.resource.data.followers.hasAll(resource.data.get('followers', []).concat([request.auth.uid]))
-          )
-          ||
-          // Unfollow: remove exactly my own uid from followers, nothing else.
-          (
-            resource.data.get('followers', []).hasAny([request.auth.uid]) &&
-            request.resource.data.followers.hasOnly(resource.data.get('followers', []).removeAll([request.auth.uid])) &&
-            request.resource.data.followers.hasAll(resource.data.get('followers', []).removeAll([request.auth.uid]))
-          )
-        );
+        // Unfollow: remove exactly my own uid from followers, nothing
+        // else. Removing yourself never required anyone's consent.
+        resource.data.get('followers', []).hasAny([request.auth.uid]) &&
+        request.resource.data.followers.hasOnly(resource.data.get('followers', []).removeAll([request.auth.uid])) &&
+        request.resource.data.followers.hasAll(resource.data.get('followers', []).removeAll([request.auth.uid]));
 
-      // First-follow CREATE gap (public-profile investigation, 03.10.2026):
-      // the `allow update` branch above only ever fires when the target's
-      // connections/{userId} doc already EXISTS — Firestore classifies a
-      // write as create/update by document existence, not by which client
-      // method was called. A target who has never visited any screen that
-      // self-creates their own doc (search, community, the map's presence
-      // layer) has no doc yet, so the FIRST person to follow them hits only
-      // the owner-only `allow write` above and is rejected with
-      // "Missing or insufficient permissions" — reproduced live via
-      // useSocialStore.followUser's own fallback path
-      // (setDoc(targetRef, {following:[], followers:[myUid]}, {merge:true})
-      // after the initial updateDoc throws). Same self-insertion shape as
-      // the non-owner update branch above, just for the create case —
-      // permits exactly that one fallback payload and nothing wider.
-      allow create: if isAuthenticated() && !isAnonymous() && request.auth.uid != userId &&
-        request.resource.data.keys().hasOnly(['followers', 'following', 'updatedAt']) &&
-        request.resource.data.get('following', []).size() == 0 &&
-        request.resource.data.followers.hasOnly([request.auth.uid]) &&
-        request.resource.data.followers.hasAll([request.auth.uid]);
+      // 10.10.2026 — REMOVED (was the "first-follow CREATE gap" fallback,
+      // added 03.10.2026 so useSocialStore.followUser's self-insert still
+      // worked against a target with no connections/{userId} doc yet).
+      // Same self-insertion shape as the update branch above, just for
+      // the create case — removed for the identical reason. No
+      // create-side consequence: a target who has never had anyone
+      // follow them simply still has no doc, same as before any follow
+      // feature existed.
     }
 
     // ============================================================
@@ -2056,9 +2039,17 @@ service cloud.firestore {
                       && request.auth.uid in
                          get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
         // Update: only to add uid to readBy
+        // 10.10.2026 (adversarial audit fix) — the comment above always
+        // said "only to add uid to readBy," but the rule enforced nothing
+        // of the sort: any participant could overwrite ANY field,
+        // including another participant's `text`/`senderUid`. Now
+        // enforced for real — a participant may ONLY touch `readBy`,
+        // never any other field on someone else's (or their own)
+        // message.
         allow update: if isAuthenticated()
                       && request.auth.uid in
-                         get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+                         get(/databases/$(database)/documents/chats/$(chatId)).data.participants
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']);
       }
     }
 

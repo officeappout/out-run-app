@@ -1748,9 +1748,9 @@ async function testConnectionsSec01() {
     });
   });
 
-  await it('CN1 — a non-owner adds their OWN uid to someone else\'s followers → ALLOW (unchanged — the live one-sided follow feature; NOT a fix, a preserved regression)', async () => {
+  await it('CN1 — a non-owner adds their OWN uid to someone else\'s followers → DENY (10.10.2026 fix — this WAS the live one-sided follow feature, explicitly closed at the root because it chained into presence\'s squad-mode live-GPS read with zero interaction from the target; see firestore-fix-connections-selffollow.rules.test.ts for the paired deny+control proof)', async () => {
     const ctx = env.authenticatedContext('conn_attacker');
-    await assertSucceeds(updateDoc(doc(ctx.firestore(), 'connections', 'conn_victim'), {
+    await assertFails(updateDoc(doc(ctx.firestore(), 'connections', 'conn_victim'), {
       followers: ['conn_real_follower', 'conn_attacker'],
     }));
   });
@@ -1957,9 +1957,9 @@ async function testWaveCAnonymousGate() {
       followers: arrayUnion('wc_anon'),
     }));
   });
-  await it('WC12 — real authenticated user follows someone → ALLOW (regression)', async () => {
+  await it('WC12 — real authenticated user follows someone → DENY (10.10.2026 fix — self-insertion into another user\'s followers is now closed regardless of anonymity; see CN1 and firestore-fix-connections-selffollow.rules.test.ts)', async () => {
     const ctx = env.authenticatedContext('wc_real');
-    await assertSucceeds(updateDoc(doc(ctx.firestore(), 'connections', 'wc_target'), {
+    await assertFails(updateDoc(doc(ctx.firestore(), 'connections', 'wc_target'), {
       followers: arrayUnion('wc_real'),
     }));
   });
