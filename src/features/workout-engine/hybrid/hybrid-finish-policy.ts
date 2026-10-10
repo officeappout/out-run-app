@@ -15,3 +15,24 @@
 export function runnerShouldSelfSave(hybridMode: boolean): boolean {
   return !hybridMode;
 }
+
+/**
+ * G7.1 fix (Sderot field test, 10.10.2026): the complementary half of the
+ * single-save invariant above. 8 generic UI "Stop"/"Finish" buttons call
+ * finishWorkout() directly with no idea a hybrid session might be active.
+ * Before this, a direct call during an active hybrid session hit
+ * runnerShouldSelfSave's suppression branch straight away — 0 docs, no XP,
+ * no history, the entire workout silently discarded. True means
+ * finishWorkout must redirect to useHybridRun.finishHybrid() (the only
+ * path that actually saves a hybrid session) instead of running its own
+ * logic. `calledFromHybridTeardown` is the one flag that distinguishes
+ * finishHybrid's own internal post-save teardown call into finishWorkout
+ * (false → proceed normally, same as always) from every other caller
+ * (true → redirect).
+ */
+export function shouldRedirectToHybridFinish(
+  hybridMode: boolean,
+  calledFromHybridTeardown: boolean | undefined,
+): boolean {
+  return hybridMode && !calledFromHybridTeardown;
+}

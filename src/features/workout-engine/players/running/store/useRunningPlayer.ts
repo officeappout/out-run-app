@@ -12,7 +12,7 @@ import type RunWorkout from '../types/run-workout.type';
 import { crossTrackDistanceMeters, type RouteTurn } from '@/features/parks/core/services/geoUtils';
 import type { WorkoutHistoryEntry } from '../../../core/services/storage.service';
 import { rdpSimplify, truncatePrecision } from '@/utils/pathSimplify';
-import { runnerShouldSelfSave } from '@/features/workout-engine/hybrid/hybrid-finish-policy';
+import { runnerShouldSelfSave, shouldRedirectToHybridFinish } from '@/features/workout-engine/hybrid/hybrid-finish-policy';
 import { RUNNING_NATIVE_KEEP_AWAKE_ENABLED } from '@/config/feature-flags';
 // Direct sibling import — both stores live under workout-engine/* with no
 // circular concern (core never imports from players). Using a static import
@@ -348,7 +348,12 @@ interface RunningPlayerState {
   
   initializeRunningData: () => void;
   clearRunningData: () => void;
-  finishWorkout: () => Promise<void>;
+  /**
+   * `opts.calledFromHybridTeardown` is INTERNAL — only useHybridRun.finishHybrid()
+   * itself passes `true`, for its own post-save teardown call. Every other
+   * caller must omit it (see finishWorkout's own doc comment, G7.1 fix).
+   */
+  finishWorkout: (opts?: { calledFromHybridTeardown?: boolean }) => Promise<void>;
   deleteLastWorkout: () => Promise<boolean>;
   /**
    * B.2 — uploads the raw pre-filter GPS trace of the current/last session to
@@ -1460,7 +1465,30 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   // SINGLE source-of-truth save. All data (laps, elevation, XP, park tag,
   // social feed post) is written here. FreeRunSummary and WorkoutSummaryPage
   // must NOT call saveWorkout() — they are display-only after this runs.
-  finishWorkout: async () => {
+  finishWorkout: async (opts) => {
+    // ── Hybrid redirect (G7.1 fix, Sderot field test, 10.10.2026) ──────────
+    // 8 generic UI call sites (WorkoutControlCluster/FreeRunOverlay/
+    // FreeRunActive/FreeRunPaused/PlannedRunActive/PlannedRunPaused/
+    // SessionControlBar) call finishWorkout() directly with no idea a hybrid
+    // session might be active. The hybrid-suppression branch further down
+    // (runnerShouldSelfSave) is CORRECT in isolation — it exists so
+    // useHybridRun.finishHybrid()'s own post-save teardown call into this
+    // function doesn't write a second doc — but nothing ever redirected a
+    // call that didn't come from finishHybrid itself. Net effect: tapping
+    // any generic Stop/Finish button during a hybrid session hit that
+    // suppression branch directly and silently discarded the ENTIRE
+    // workout — 0 docs, no XP, no history, no error. calledFromHybridTeardown
+    // is the one flag that distinguishes finishHybrid's own internal
+    // teardown call (proceeds below, unchanged) from everyone else (redirected
+    // to the real save path instead). Dynamic import avoids a load-time
+    // circular dependency with useHybridRun.ts, which already dynamically
+    // imports this store for the same reason.
+    if (shouldRedirectToHybridFinish(get().hybridMode, opts?.calledFromHybridTeardown)) {
+      const { useHybridRun } = await import('@/features/workout-engine/hybrid/useHybridRun');
+      await useHybridRun.getState().finishHybrid();
+      return;
+    }
+
     // ── Idempotency guard ──────────────────────────────────────────────────
     // A second invocation while one is in flight (double-tap on finish) or
     // after the session already finished (two mounted controls both firing)

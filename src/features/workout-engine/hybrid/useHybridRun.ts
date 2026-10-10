@@ -352,11 +352,15 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
     }
 
     // ── Tear down the runner (finishWorkout suppressed → no second doc) ───────
+    // calledFromHybridTeardown:true (G7.1 fix) — the one flag that tells
+    // finishWorkout this IS the legitimate internal teardown call, so it
+    // proceeds with its own hybrid-suppression branch instead of redirecting
+    // back here (which would otherwise recurse).
     try {
       const { useRunningPlayer } = await import(
         '@/features/workout-engine/players/running/store/useRunningPlayer'
       );
-      await useRunningPlayer.getState().finishWorkout();
+      await useRunningPlayer.getState().finishWorkout({ calledFromHybridTeardown: true });
     } catch (e) {
       console.error('[useHybridRun] runner teardown failed', e);
     }
