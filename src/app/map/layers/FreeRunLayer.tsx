@@ -57,13 +57,9 @@ interface FreeRunLayerProps {
   logic: MapLogic;
   /** GPS position (devSim.effectiveLocation applied) from MapShellInner. */
   effectivePos: { lat: number; lng: number } | null;
-  /** Center the camera on the best-available fix (live GPS or fallback dot). */
-  onRecenter?: () => void;
 }
 
-const BRAND_COLOR = '#00E5FF';
-
-export default function FreeRunLayer({ logic, effectivePos, onRecenter }: FreeRunLayerProps) {
+export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps) {
   const { setMode, activityType } = useMapMode();
   const { isWorkoutActive } = logic;
 
@@ -334,21 +330,6 @@ export default function FreeRunLayer({ logic, effectivePos, onRecenter }: FreeRu
                       </div>
                     </div>
                   )}
-                  {/* Fix #3 — center-me button.
-                      Gated by !isMinimized so it never leaks onto the laps list
-                      when the TOP LAYER is at minimizedY. */}
-                  <div className="absolute right-4 bottom-40 z-[55] pointer-events-auto">
-                    <button
-                      onClick={() => { logic.handleLocationClick(); onRecenter?.(); }}
-                      className="w-12 h-12 rounded-full shadow-xl flex items-center justify-center bg-white active:scale-95 transition-all"
-                    >
-                      <Navigation
-                        size={20}
-                        fill={logic.isFollowing ? BRAND_COLOR : 'none'}
-                        color={logic.isFollowing ? BRAND_COLOR : '#6B7280'}
-                      />
-                    </button>
-                  </div>
                 </>
               )}
             </div>
@@ -370,20 +351,6 @@ export default function FreeRunLayer({ logic, effectivePos, onRecenter }: FreeRu
                     <span>חופשי</span>
                   </button>
                 </div>
-              </div>
-
-              {/* Location button */}
-              <div className="absolute right-4 z-40 bottom-40 pointer-events-auto">
-                <button
-                  onClick={() => { logic.handleLocationClick(); onRecenter?.(); }}
-                  className="w-12 h-12 rounded-full shadow-xl flex items-center justify-center bg-white active:scale-95 transition-all"
-                >
-                  <Navigation
-                    size={20}
-                    fill={logic.isFollowing ? BRAND_COLOR : 'none'}
-                    color={logic.isFollowing ? BRAND_COLOR : '#6B7280'}
-                  />
-                </button>
               </div>
 
               {/* Start Free Run button */}
