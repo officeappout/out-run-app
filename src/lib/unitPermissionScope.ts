@@ -213,6 +213,141 @@ export function isMemberWithinScope(
   return false;
 }
 
+/**
+ * 09.10.2026 (adversarial-audit consolidation, built in isolation — zero
+ * existing call site touched by this commit) — the chokepoint 8 readiness/
+ * units read functions (computeUnitRoster, computeReadinessAppActivity,
+ * computeReadinessTrends, computeRosterWorkoutSummary, computeBrigadeDashboard,
+ * computeUnitMembers, computeUnitStructure, computeTrainingWeeklyShift) each
+ * independently re-implemented: turning an already-resolved `scope` plus a
+ * client-supplied `{tenantId, unitId}` into a concrete, in-scope
+ * (targetTenantId, targetUnitIds) to query against. That duplication is
+ * exactly how the 08.10.2026 cross-tenant leak happened — 4 of the 8 copies
+ * were missing the `scope.authorityIds.includes(tenantId)` check the other
+ * 4 already had, because there was no single template to copy that was
+ * guaranteed correct. This function replaces all 8 copies with one.
+ *
+ * Does NOT replace isMemberWithinScope above — that answers a different
+ * question ("is this ALREADY-KNOWN tenantId/unitId, read from a specific
+ * target record, within scope" — a boolean membership check used by WRITE
+ * paths that already have a record in hand). This function answers "what
+ * IS the target tenant/unit domain for a LISTING/read-all operation,
+ * resolved from the caller's scope and their own query" — a routing
+ * decision, not a membership check, which is why it returns concrete IDs
+ * (or a rejection) instead of a boolean.
+ *
+ * Contract (status codes are picked from whichever of the 8 existing call
+ * sites already had the strictest version for that branch — this function
+ * does not invent new status-code semantics):
+ *   - 'unknown' → 503 (verification failed, not a checked "no")
+ *   - 'denied'  → 403
+ *   - 'unitAdmin': own tenant (scope.tenantId). If query.unitId is given,
+ *     it MUST be in scope.unitIds (403 if not) — no extra DB read needed,
+ *     scope.unitIds is already a real, existence-confirmed list
+ *     (resolveUnitPermissionScope's expandUnitIdsDownward). If omitted,
+ *     every unit in scope.unitIds.
+ *   - 'tenantOwner': own tenant (scope.tenantId) — never the client's
+ *     tenantId, which is ALWAYS ignored for this scope kind (if a caller
+ *     sends a different tenantId it is silently irrelevant, not a
+ *     bypass — confirmed by the adversarial audit's own control test).
+ *     If query.unitId is given, it is existence-checked against
+ *     tenants/{tenantId}/units/{unitId} — 403 if it doesn't exist, since
+ *     this is the caller's OWN tenant and a bogus unitId here reads as
+ *     "not yours" (matches the existing majority precedent —
+ *     computeUnitMembers, computeRosterWorkoutSummary). If omitted, every
+ *     unit under the tenant (targetUnitIds: null).
+ *   - 'vertical': query.tenantId is REQUIRED (400 if missing — no single
+ *     own tenant to default to) and MUST be in scope.authorityIds (403 if
+ *     not — this is the exact check the 08.10.2026 security fix added).
+ *     If query.unitId is given, it is existence-checked the same way —
+ *     400 "unit not found" (not 403: the caller has no inherent ownership
+ *     claim over the selected tenant the way tenantOwner does, matching
+ *     computeUnitStructure's existing precedent for this branch).
+ *   - 'root': query.tenantId is REQUIRED (400 if missing) and trusted
+ *     blindly — root has no scope boundary of its own. query.unitId (if
+ *     given) is existence-checked the same way as vertical's — 400 "unit
+ *     not found".
+ *
+ * A bogus/foreign unitId can NEVER cause a cross-tenant leak through this
+ * function even where no existence check fires: targetTenantId is always
+ * resolved FIRST and is always either the caller's own real tenant
+ * (unitAdmin/tenantOwner) or a tenantId already confirmed in scope
+ * (vertical) or root's trusted input — every downstream query a caller
+ * builds from this function's result is expected to filter by
+ * targetTenantId before ever looking at targetUnitIds (confirmed true for
+ * all 8 existing call sites as of this audit — see the adversarial-audit
+ * commit's "אי-התאמה B" verification).
+ */
+export type ReadinessTargetScopeResult =
+  | { status: 200; targetTenantId: string; targetUnitIds: string[] | null }
+  | { status: 400 | 403 | 503; body: { error: string } };
+
+const READINESS_TARGET_SCOPE_DENIED_MESSAGE = 'אין לך הרשאה לצפות בנתון זה.';
+
+export async function resolveReadinessTargetScope(
+  db: Firestore,
+  scope: UnitPermissionScope,
+  query: { tenantId?: string | null; unitId?: string | null },
+): Promise<ReadinessTargetScopeResult> {
+  if (scope.kind === 'unknown') {
+    return { status: 503, body: { error: UNIT_SCOPE_UNKNOWN_MESSAGE } };
+  }
+  if (scope.kind === 'denied') {
+    return { status: 403, body: { error: READINESS_TARGET_SCOPE_DENIED_MESSAGE } };
+  }
+
+  if (scope.kind === 'unitAdmin') {
+    if (query.unitId) {
+      if (!scope.unitIds.includes(query.unitId)) {
+        return { status: 403, body: { error: READINESS_TARGET_SCOPE_DENIED_MESSAGE } };
+      }
+      return { status: 200, targetTenantId: scope.tenantId, targetUnitIds: [query.unitId] };
+    }
+    return { status: 200, targetTenantId: scope.tenantId, targetUnitIds: scope.unitIds };
+  }
+
+  if (scope.kind === 'tenantOwner') {
+    if (query.unitId) {
+      const unitSnap = await db.collection('tenants').doc(scope.tenantId).collection('units').doc(query.unitId).get();
+      if (!unitSnap.exists) {
+        return { status: 403, body: { error: READINESS_TARGET_SCOPE_DENIED_MESSAGE } };
+      }
+      return { status: 200, targetTenantId: scope.tenantId, targetUnitIds: [query.unitId] };
+    }
+    return { status: 200, targetTenantId: scope.tenantId, targetUnitIds: null };
+  }
+
+  if (scope.kind === 'vertical') {
+    if (!query.tenantId) {
+      return { status: 400, body: { error: 'tenantId is required' } };
+    }
+    if (!scope.authorityIds.includes(query.tenantId)) {
+      return { status: 403, body: { error: READINESS_TARGET_SCOPE_DENIED_MESSAGE } };
+    }
+    if (query.unitId) {
+      const unitSnap = await db.collection('tenants').doc(query.tenantId).collection('units').doc(query.unitId).get();
+      if (!unitSnap.exists) {
+        return { status: 400, body: { error: 'unit not found' } };
+      }
+      return { status: 200, targetTenantId: query.tenantId, targetUnitIds: [query.unitId] };
+    }
+    return { status: 200, targetTenantId: query.tenantId, targetUnitIds: null };
+  }
+
+  // scope.kind === 'root' — no "own" domain to default to.
+  if (!query.tenantId) {
+    return { status: 400, body: { error: 'tenantId is required' } };
+  }
+  if (query.unitId) {
+    const unitSnap = await db.collection('tenants').doc(query.tenantId).collection('units').doc(query.unitId).get();
+    if (!unitSnap.exists) {
+      return { status: 400, body: { error: 'unit not found' } };
+    }
+    return { status: 200, targetTenantId: query.tenantId, targetUnitIds: [query.unitId] };
+  }
+  return { status: 200, targetTenantId: query.tenantId, targetUnitIds: null };
+}
+
 export async function resolveUnitPermissionScope(uid: string): Promise<UnitPermissionScope> {
   try {
     const db = getAdminDb();

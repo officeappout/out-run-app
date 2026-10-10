@@ -46,7 +46,7 @@
  * already follows for the official-test transition count.
  */
 import type { Firestore } from 'firebase-admin/firestore';
-import { UNIT_SCOPE_UNKNOWN_MESSAGE, type UnitPermissionScope } from '@/lib/unitPermissionScope';
+import { resolveReadinessTargetScope, UNIT_SCOPE_UNKNOWN_MESSAGE, type UnitPermissionScope } from '@/lib/unitPermissionScope';
 import type { ReadinessSoldier, ReadinessThresholdsConfig, ReadinessCurrentStatus } from './readiness-write.service';
 import { computeDemonstratedStrengthLevels, type BaseProgramSlug } from './readiness-strength-level.service';
 import { computeDemonstratedRunLevels } from './readiness-run-level.service';
@@ -107,26 +107,13 @@ export async function computeTrainingWeeklyShift(
     return { status: 403, body: { error: DENIED_MESSAGE } };
   }
 
-  // Same scope-resolution shape as computeBrigadeDashboard — see that
-  // file's own comments for why each branch resolves the way it does.
-  let targetTenantId: string;
-  let targetUnitIds: string[] | null;
-  if (scope.kind === 'unitAdmin') {
-    targetTenantId = scope.tenantId;
-    targetUnitIds = scope.unitIds;
-  } else if (scope.kind === 'tenantOwner') {
-    targetTenantId = scope.tenantId;
-    targetUnitIds = null;
-  } else if (scope.kind === 'vertical') {
-    if (!query.tenantId) return { status: 400, body: { error: 'tenantId is required' } };
-    if (!scope.authorityIds.includes(query.tenantId)) return { status: 403, body: { error: DENIED_MESSAGE } };
-    targetTenantId = query.tenantId;
-    targetUnitIds = query.unitId ? [query.unitId] : null;
-  } else {
-    if (!query.tenantId) return { status: 400, body: { error: 'tenantId is required' } };
-    targetTenantId = query.tenantId;
-    targetUnitIds = query.unitId ? [query.unitId] : null;
-  }
+  // 09.10.2026 (consolidation) — replaces the inline unitAdmin/tenantOwner/
+  // vertical/root branching this function used to carry on its own. See
+  // resolveReadinessTargetScope's own header comment for the full
+  // contract — pure mechanical swap, zero behavior change.
+  const scopeResult = await resolveReadinessTargetScope(db, scope, query);
+  if (scopeResult.status !== 200) return scopeResult;
+  const { targetTenantId, targetUnitIds } = scopeResult;
 
   const inScope = (unitId: unknown): boolean => {
     if (targetUnitIds === null) return true;

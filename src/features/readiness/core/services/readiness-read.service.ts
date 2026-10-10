@@ -48,6 +48,7 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import {
   isMemberWithinScope,
+  resolveReadinessTargetScope,
   UNIT_SCOPE_UNKNOWN_MESSAGE,
   type UnitPermissionScope,
 } from '@/lib/unitPermissionScope';
@@ -270,39 +271,18 @@ export async function computeUnitRoster(
     return { status: 403, body: { error: DENIED_MESSAGE } };
   }
 
-  let targetTenantId: string;
-  let targetUnitIds: string[] | null; // null = every unit under targetTenantId
-
-  if (scope.kind === 'unitAdmin') {
-    targetTenantId = scope.tenantId;
-    targetUnitIds = scope.unitIds;
-  } else if (scope.kind === 'tenantOwner') {
-    targetTenantId = scope.tenantId;
-    targetUnitIds = null;
-  } else if (scope.kind === 'vertical') {
-    // 08.10.2026 (adversarial audit fix) — a vertical-scoped caller has
-    // no SINGLE own tenant, unlike tenantOwner/unitAdmin above, so (same
-    // as root) this must come from query.tenantId — but unlike root, it
-    // is NOT trusted blindly: it must be one of the tenants this
-    // specific caller's own vertical grant actually covers. Mirrors
-    // computeBrigadeDashboard's own vertical branch exactly (same fix,
-    // same shape). Zero change to the root branch below.
-    if (!query.tenantId) {
-      return { status: 400, body: { error: 'tenantId is required' } };
-    }
-    if (!scope.authorityIds.includes(query.tenantId)) {
-      return { status: 403, body: { error: DENIED_MESSAGE } };
-    }
-    targetTenantId = query.tenantId;
-    targetUnitIds = query.unitId ? [query.unitId] : null;
-  } else {
-    // root — no "own" domain to default to, same as computeUnitMembers.
-    if (!query.tenantId) {
-      return { status: 400, body: { error: 'tenantId is required' } };
-    }
-    targetTenantId = query.tenantId;
-    targetUnitIds = query.unitId ? [query.unitId] : null;
-  }
+  // 09.10.2026 (consolidation) — replaces the inline unitAdmin/tenantOwner/
+  // vertical/root branching this function used to carry on its own (the
+  // exact duplication that let the 08.10.2026 cross-tenant leak happen:
+  // 4 of 8 independent copies missing a check the other 4 had). See
+  // resolveReadinessTargetScope's own header comment for the full
+  // contract — this is a pure mechanical swap, zero behavior change
+  // (confirmed: this file's own inline logic already matched the
+  // chokepoint's contract exactly after the A/B/C behavior-change
+  // commits that preceded this one).
+  const scopeResult = await resolveReadinessTargetScope(db, scope, query);
+  if (scopeResult.status !== 200) return scopeResult;
+  const { targetTenantId, targetUnitIds } = scopeResult;
 
   const inScope = (unitId: unknown): boolean => {
     if (targetUnitIds === null) return true;

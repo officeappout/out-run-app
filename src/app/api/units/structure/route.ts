@@ -35,7 +35,7 @@ import type { Firestore, QueryDocumentSnapshot } from 'firebase-admin/firestore'
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { isRateLimited } from '@/lib/rateLimit';
 import { RATE_LIMITS } from '@/lib/rateLimitConfig';
-import { resolveUnitPermissionScope, UNIT_SCOPE_UNKNOWN_MESSAGE, type UnitPermissionScope } from '@/lib/unitPermissionScope';
+import { resolveUnitPermissionScope, resolveReadinessTargetScope, UNIT_SCOPE_UNKNOWN_MESSAGE, type UnitPermissionScope } from '@/lib/unitPermissionScope';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -128,78 +128,17 @@ export async function computeUnitStructure(
     return { status: 403, body: { error: DENIED_MESSAGE } };
   }
 
-  let targetTenantId: string;
-  let targetUnitIds: string[] | null; // null = "every unit under targetTenantId"
-
-  if (scope.kind === 'unitAdmin') {
-    targetTenantId = scope.tenantId;
-    if (query.unitId) {
-      // scope.unitIds already includes every descendant of the caller's
-      // directly-managed units (resolveUnitPermissionScope, §13.28) — a
-      // flat membership check is enough, no local ancestor-walk needed.
-      if (!scope.unitIds.includes(query.unitId)) {
-        return { status: 403, body: { error: DENIED_MESSAGE } };
-      }
-      targetUnitIds = [query.unitId];
-    } else {
-      targetUnitIds = scope.unitIds;
-    }
-  } else if (scope.kind === 'tenantOwner') {
-    targetTenantId = scope.tenantId;
-    if (query.unitId) {
-      const unitSnap = await db.collection('tenants').doc(targetTenantId).collection('units').doc(query.unitId).get();
-      if (!unitSnap.exists) {
-        return { status: 403, body: { error: DENIED_MESSAGE } };
-      }
-      targetUnitIds = [query.unitId];
-    } else {
-      targetUnitIds = null;
-    }
-  } else if (scope.kind === 'vertical') {
-    // 06.10.2026 (David's correction, 07.10.2026) — this branch used to
-    // fall through to the 'root' one below, which blindly trusts
-    // query.tenantId with NO authorityIds check at all. This is a real
-    // cross-CUSTOMER data leak, not a narrower in-military one: nothing
-    // here ever constrained query.tenantId to military_unit tenants —
-    // a 'vertical' caller could request a MUNICIPAL tenant's id and get
-    // its real unit structure back, the same way root can reach any
-    // tenant. That it happened to be unexploited so far is a fact about
-    // who holds the role today, not about what the code allowed. Fixed
-    // to match the real pattern every OTHER readiness route already
-    // uses (axioms.md §29/§32) — 'vertical' is NOT root and must never
-    // be treated as root.
-    if (!query.tenantId) {
-      return { status: 400, body: { error: 'tenantId is required' } };
-    }
-    if (!scope.authorityIds.includes(query.tenantId)) {
-      return { status: 403, body: { error: DENIED_MESSAGE } };
-    }
-    targetTenantId = query.tenantId;
-    if (query.unitId) {
-      const unitSnap = await db.collection('tenants').doc(targetTenantId).collection('units').doc(query.unitId).get();
-      if (!unitSnap.exists) {
-        return { status: 400, body: { error: 'unit not found' } };
-      }
-      targetUnitIds = [query.unitId];
-    } else {
-      targetUnitIds = null;
-    }
-  } else {
-    // scope.kind === 'root' — no "own" domain to default to.
-    if (!query.tenantId) {
-      return { status: 400, body: { error: 'tenantId is required' } };
-    }
-    targetTenantId = query.tenantId;
-    if (query.unitId) {
-      const unitSnap = await db.collection('tenants').doc(targetTenantId).collection('units').doc(query.unitId).get();
-      if (!unitSnap.exists) {
-        return { status: 400, body: { error: 'unit not found' } };
-      }
-      targetUnitIds = [query.unitId];
-    } else {
-      targetUnitIds = null;
-    }
-  }
+  // 09.10.2026 (consolidation) — replaces the inline unitAdmin/tenantOwner/
+  // vertical/root branching this function used to carry on its own (this
+  // file's own vertical branch, added 06.10.2026, was one of the original
+  // fixed precedents every other function's unitId-existence-check/400
+  // status code mirrored — now folded into the shared chokepoint instead
+  // of staying a copy-source). See resolveReadinessTargetScope's own
+  // header comment for the full contract — pure mechanical swap, zero
+  // behavior change.
+  const scopeResult = await resolveReadinessTargetScope(db, scope, query);
+  if (scopeResult.status !== 200) return scopeResult;
+  const { targetTenantId, targetUnitIds } = scopeResult;
 
   const unitsCollection = db.collection('tenants').doc(targetTenantId).collection('units');
 

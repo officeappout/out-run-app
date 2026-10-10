@@ -43,7 +43,7 @@
  */
 import type { Firestore } from 'firebase-admin/firestore';
 import { Timestamp } from 'firebase-admin/firestore';
-import { UNIT_SCOPE_UNKNOWN_MESSAGE, type UnitPermissionScope } from '@/lib/unitPermissionScope';
+import { resolveReadinessTargetScope, UNIT_SCOPE_UNKNOWN_MESSAGE, type UnitPermissionScope } from '@/lib/unitPermissionScope';
 import type { ReadinessSoldier, ReadinessResult, ReadinessThresholdsConfig, ReadinessCurrentStatus } from './readiness-write.service';
 import { reduceOverallStatus, toDate } from './readiness-read.service';
 
@@ -152,35 +152,13 @@ export async function computeReadinessAppActivity(
     return { status: 403, body: { error: DENIED_MESSAGE } };
   }
 
-  let targetTenantId: string;
-  let targetUnitIds: string[] | null; // null = every unit under targetTenantId
-
-  if (scope.kind === 'unitAdmin') {
-    targetTenantId = scope.tenantId;
-    targetUnitIds = scope.unitIds;
-  } else if (scope.kind === 'tenantOwner') {
-    targetTenantId = scope.tenantId;
-    targetUnitIds = null;
-  } else if (scope.kind === 'vertical') {
-    // 08.10.2026 (adversarial audit fix) — mirrors computeBrigadeDashboard's
-    // vertical branch exactly: a vertical-scoped caller has no single own
-    // tenant, so query.tenantId is required, but (unlike root) it is NOT
-    // trusted blindly — it must be one of this caller's own grant.
-    if (!query.tenantId) {
-      return { status: 400, body: { error: 'tenantId is required' } };
-    }
-    if (!scope.authorityIds.includes(query.tenantId)) {
-      return { status: 403, body: { error: DENIED_MESSAGE } };
-    }
-    targetTenantId = query.tenantId;
-    targetUnitIds = query.unitId ? [query.unitId] : null;
-  } else {
-    if (!query.tenantId) {
-      return { status: 400, body: { error: 'tenantId is required' } };
-    }
-    targetTenantId = query.tenantId;
-    targetUnitIds = query.unitId ? [query.unitId] : null;
-  }
+  // 09.10.2026 (consolidation) — replaces the inline unitAdmin/tenantOwner/
+  // vertical/root branching this function used to carry on its own. See
+  // resolveReadinessTargetScope's own header comment for the full
+  // contract — pure mechanical swap, zero behavior change.
+  const scopeResult = await resolveReadinessTargetScope(db, scope, query);
+  if (scopeResult.status !== 200) return scopeResult;
+  const { targetTenantId, targetUnitIds } = scopeResult;
 
   const inScope = (unitId: unknown): boolean => {
     if (targetUnitIds === null) return true;

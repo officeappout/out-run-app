@@ -79,6 +79,7 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import {
   UNIT_SCOPE_UNKNOWN_MESSAGE,
+  resolveReadinessTargetScope,
   type UnitPermissionScope,
 } from '@/lib/unitPermissionScope';
 import {
@@ -298,40 +299,16 @@ export async function computeBrigadeDashboard(
     return { status: 403, body: { error: DENIED_MESSAGE } };
   }
 
-  let targetTenantId: string;
-  let targetUnitIds: string[] | null; // null = every unit under targetTenantId
-
-  if (scope.kind === 'unitAdmin') {
-    targetTenantId = scope.tenantId;
-    targetUnitIds = scope.unitIds;
-  } else if (scope.kind === 'tenantOwner') {
-    targetTenantId = scope.tenantId;
-    targetUnitIds = null;
-  } else if (scope.kind === 'vertical') {
-    // 06.10.2026 ("chief fitness officer") — a vertical-scoped caller
-    // has no SINGLE own tenant, unlike tenantOwner/unitAdmin above, so
-    // (same as root) this must come from query.tenantId — but unlike
-    // root, it is NOT trusted blindly: it must be one of the tenants
-    // this specific caller's own vertical grant actually covers. Zero
-    // change to the root branch below (still the exact same blind-trust
-    // behavior it always had) — this is a NEW branch, not a
-    // modification of an existing one.
-    if (!query.tenantId) {
-      return { status: 400, body: { error: 'tenantId is required' } };
-    }
-    if (!scope.authorityIds.includes(query.tenantId)) {
-      return { status: 403, body: { error: DENIED_MESSAGE } };
-    }
-    targetTenantId = query.tenantId;
-    targetUnitIds = query.unitId ? [query.unitId] : null;
-  } else {
-    // root — no "own" domain to default to, same as computeUnitRoster/computeUnitMembers.
-    if (!query.tenantId) {
-      return { status: 400, body: { error: 'tenantId is required' } };
-    }
-    targetTenantId = query.tenantId;
-    targetUnitIds = query.unitId ? [query.unitId] : null;
-  }
+  // 09.10.2026 (consolidation) — replaces the inline unitAdmin/tenantOwner/
+  // vertical/root branching this function used to carry on its own (this
+  // file's own vertical branch, added 06.10.2026, was the ORIGINAL
+  // template every other function's vertical fix mirrored — now folded
+  // into the shared chokepoint instead of staying the copy-source). See
+  // resolveReadinessTargetScope's own header comment for the full
+  // contract — pure mechanical swap, zero behavior change.
+  const scopeResult = await resolveReadinessTargetScope(db, scope, query);
+  if (scopeResult.status !== 200) return scopeResult;
+  const { targetTenantId, targetUnitIds } = scopeResult;
 
   const inScope = (unitId: unknown): boolean => {
     if (targetUnitIds === null) return true;

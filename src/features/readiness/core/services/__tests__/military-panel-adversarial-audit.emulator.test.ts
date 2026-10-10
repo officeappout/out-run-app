@@ -198,7 +198,7 @@ describe('Attack #1 control — tenantOwner/unitAdmin CANNOT override their own 
     // silently irrelevant, not a bypass.
     expect(result.status).toBe(200);
     if (result.status === 200) {
-      const ids = result.body.soldiers.map((s: { id: string }) => s.id).concat(result.body.pending.map((s: { id: string }) => s.id));
+      const ids = result.body.soldiers.map((s) => s.id).concat(result.body.pending.map((s) => s.uid));
       expect(ids).not.toContain('soldier-a5'); // brigade A's soldier never appears
     }
   });
