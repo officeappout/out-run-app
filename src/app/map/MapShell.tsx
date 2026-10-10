@@ -660,7 +660,18 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
       {/* ══════ RECENTER BUTTON ══════
            Shown when user manually panned the map during an active workout.
            Tapping re-enables auto-follow, which triggers the nav camera effect
-           to snap back (because isAutoFollowEnabled is in the effect's dep array). */}
+           to snap back (because isAutoFollowEnabled is in the effect's dep array).
+           G2.6 consolidation (10.10.2026): this is now the ONE visible centering
+           affordance for the free_run/active screens — FreeRunLayer used to render
+           its own, separate "triangle" button (Navigation icon, toggled by a blind
+           isFollowing flag unrelated to real camera state, recentering via a
+           padding-BLIND centerOnUser() that ignored the metrics drawer's height).
+           Folded in logic.handleLocationClick() (below) so a tap is still never a
+           silent no-op when there's no GPS fix yet / permission was never granted —
+           the same guarantee the old triangle provided — while the actual camera
+           move now goes exclusively through useCameraController's padding-aware
+           follow effect (isAutoFollowEnabled), which already reads live drawer
+           height via metricsCardPosition/wazePadding. */}
       <AnimatePresence>
         {isActiveMode && !isMapFollowEnabled && !isLapsOpen && !hybridStationLive && (
           <motion.button
@@ -669,7 +680,7 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-            onClick={() => setMapFollowEnabled(true)}
+            onClick={() => { logic.handleLocationClick(); setMapFollowEnabled(true); }}
             className="absolute z-40 pointer-events-auto flex items-center gap-2 px-4 py-2.5 rounded-2xl font-bold text-sm"
             dir="rtl"
             style={{
@@ -701,7 +712,7 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
       {mode === 'discover' && <DiscoverLayer logic={logic} flyoverComplete={flyover.flyoverComplete} devSim={devSim} initialOpenRun={initialOpenRun} targetSteps={targetSteps} initialOpenHybridSlots={initialOpenHybridSlots} initialOpenDiscover={initialOpenDiscover} onRecenter={handleRecenter} />}
       {mode === 'builder' && <BuilderLayer logic={logic} />}
       {mode === 'navigate' && <NavigateLayer logic={logic} />}
-      {mode === 'free_run' && <FreeRunLayer logic={logic} effectivePos={effectivePos} onRecenter={handleRecenter} />}
+      {mode === 'free_run' && <FreeRunLayer logic={logic} effectivePos={effectivePos} />}
       {mode === 'planned_preview' && <PlannedPreviewLayer logic={logic} />}
       {mode === 'active' && <ActiveWorkoutLayer logic={logic} />}
       {mode === 'summary' && <SummaryLayer logic={logic} />}
