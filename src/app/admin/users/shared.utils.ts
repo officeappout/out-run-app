@@ -12,9 +12,16 @@
  * context.
  */
 
-import type { Program } from '@/features/content/programs';
+// Import directly from the defining modules, not the `@/features/content/
+// programs` barrel — that barrel re-exports `program-icon.util.tsx` (JSX),
+// which transitively defeats this file's own "No JSX here on purpose"
+// intent above and makes it unloadable by vitest's node-only config (no
+// jsdom/.tsx support). Same runtime values either way; only the import path
+// changes (2026-10-10, while adding regression coverage for the
+// movementPattern/slug collision fix below).
+import type { Program } from '@/features/content/programs/core/program.types';
 import type { UserFullProfile } from '@/types/user-profile';
-import { MASTER_PROGRAM_ID_TO_SLUG } from '@/features/content/programs';
+import { MASTER_PROGRAM_ID_TO_SLUG } from '@/features/content/programs/core/program.service';
 import {
   resolveToSlug,
   ensureIdSlugMapWarm,
@@ -233,7 +240,18 @@ export async function resolveTrackSlug(programId: string): Promise<string> {
  */
 export function resolveProgramByIdOrSlug(idOrSlug: string | undefined, programs: Program[]): Program | undefined {
   if (!idOrSlug) return undefined;
-  return programs.find((p) => p.id === idOrSlug || p.slug === idOrSlug || p.movementPattern === idOrSlug);
+  // 2026-10-10 fix: the bare `p.movementPattern === idOrSlug` clause used to
+  // match ANY program sharing that pattern — after PR #160 (08.10.2026) wrote
+  // movementPattern onto 7 skill programs too (via
+  // DOMAIN_RESOLUTION_SKILL_PARENT_MAP), a push/pull child-domain lookup
+  // could resolve to a skill program instead of the generic one (whichever
+  // sorted first in `programs`, e.g. "דגל אנושי" before "דחיפה" — this is
+  // what made a user's full_body hierarchy's "push" node display "דגל
+  // אנושי"). Require slug===movementPattern too: true only for the program
+  // that genuinely IS the generic pattern, never one merely inheriting it.
+  return programs.find(
+    (p) => p.id === idOrSlug || p.slug === idOrSlug || (p.movementPattern === idOrSlug && p.slug === idOrSlug),
+  );
 }
 
 /** Never returns a raw id/slug as the name — a miss is explicitly flagged,

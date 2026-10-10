@@ -339,8 +339,23 @@ export async function resolveAggregateFullBodyBudget(
   const domainBudgets: DomainBudgetEntry[] = [];
 
   for (const pattern of patterns) {
+    // 2026-10-10 fix: movementPattern alone is no longer unique per pattern.
+    // PR #160 (08.10.2026) wrote movementPattern onto 7 SKILL programs too
+    // (planche/handstand/handstand_pushup/human_flag -> 'push';
+    // front_lever/one_arm_pullup/muscle_up -> 'pull'), via
+    // DOMAIN_RESOLUTION_SKILL_PARENT_MAP -- they inherit their PARENT's
+    // pattern for budget-curve purposes, but are not themselves "the"
+    // generic program for that pattern. `candidates[0]` (from
+    // getAllPrograms()'s orderBy('name','asc')) silently picked whichever
+    // one sorts first alphabetically -- "דגל אנושי" (Human Flag) before
+    // "דחיפה" (Push) in Hebrew -- so every full-body user's push-domain
+    // budget was being resolved against Human Flag's volume curve instead
+    // of Push's. The real generic program is the one whose OWN `slug`
+    // equals the pattern itself (confirmed live: push/pull/legs/core all
+    // have slug===movementPattern; every skill has slug===its own name,
+    // e.g. 'human_flag', even though movementPattern is its parent's).
     const candidates = programs.filter(
-      (p) => p.movementPattern === pattern && !p.isMaster
+      (p) => p.movementPattern === pattern && p.slug === pattern && !p.isMaster
     );
     const program = candidates[0];
 
