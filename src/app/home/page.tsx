@@ -2544,25 +2544,40 @@ export default function HomePage() {
         openWorkoutPreview(dateToUse, surface);
       }, 'strength');
     } else {
-      if (typeof window !== 'undefined') {
-        // onboarding_path persists via onboardingPrefs so a hard close
-        // mid-onboarding resumes on the correct path branch.
-        setOnboardingPref('onboarding_path', isMapOnlyUser ? 'UPGRADE_FROM_MAP' : 'FULL_PROGRAM');
-        if (profile?.core?.name && !sessionStorage.getItem('onboarding_personal_name')) {
-          sessionStorage.setItem('onboarding_personal_name', profile.core.name);
+      // Health declaration hard-block (G8.1 fix, Sderot field test,
+      // 10.10.2026): this branch used to route straight into the strength
+      // assessment with NO interceptWorkoutStart call at all — the hard
+      // block (useRequiredSetup.ts: "the only requirement that gates
+      // workout start, regardless of activity type") was only ever wired on
+      // the `hasStrengthProgram` branch above. A user who never had a
+      // strength program could tap the hero card, bounce into the
+      // assessment, back out of it (no save, no health screen), and loop
+      // forever — never once reaching the health declaration. Wrapping this
+      // branch in the SAME interceptWorkoutStart call the other branch
+      // already uses closes that gap without touching the hard-block logic
+      // itself. 'strength' activityType: this leads toward the strength
+      // assessment, same as the sibling branch.
+      interceptWorkoutStart(() => {
+        if (typeof window !== 'undefined') {
+          // onboarding_path persists via onboardingPrefs so a hard close
+          // mid-onboarding resumes on the correct path branch.
+          setOnboardingPref('onboarding_path', isMapOnlyUser ? 'UPGRADE_FROM_MAP' : 'FULL_PROGRAM');
+          if (profile?.core?.name && !sessionStorage.getItem('onboarding_personal_name')) {
+            sessionStorage.setItem('onboarding_personal_name', profile.core.name);
+          }
+          if (profile?.core?.gender && !sessionStorage.getItem('onboarding_personal_gender')) {
+            sessionStorage.setItem('onboarding_personal_gender', profile.core.gender);
+          }
+          if (profile?.core?.birthDate && !sessionStorage.getItem('onboarding_personal_dob')) {
+            const bd = profile.core.birthDate;
+            const dobStr = bd instanceof Date ? bd.toISOString().split('T')[0] : String(bd);
+            sessionStorage.setItem('onboarding_personal_dob', dobStr);
+          }
         }
-        if (profile?.core?.gender && !sessionStorage.getItem('onboarding_personal_gender')) {
-          sessionStorage.setItem('onboarding_personal_gender', profile.core.gender);
-        }
-        if (profile?.core?.birthDate && !sessionStorage.getItem('onboarding_personal_dob')) {
-          const bd = profile.core.birthDate;
-          const dobStr = bd instanceof Date ? bd.toISOString().split('T')[0] : String(bd);
-          sessionStorage.setItem('onboarding_personal_dob', dobStr);
-        }
-      }
-      router.push('/onboarding-new/assessment-visual');
+        router.push('/onboarding-new/assessment-visual');
+      }, 'strength');
     }
-  }, [hasStrengthProgram, handleWorkoutGenerated, isMapOnlyUser, openWorkoutPreview, profile, router, selectedDate, tryOpenCompletedWorkout]);
+  }, [hasStrengthProgram, handleWorkoutGenerated, interceptWorkoutStart, isMapOnlyUser, openWorkoutPreview, profile, router, selectedDate, tryOpenCompletedWorkout]);
 
   const handleBuildCustom = useCallback((ctx?: BuilderContext) => {
     const props: Omit<WorkoutBuilderSheetProps, 'onClose'> = {};
@@ -3119,7 +3134,10 @@ export default function HomePage() {
                       }}
                       renderCard={(s) =>
                         isStrengthInviteCarouselItem(s) ? (
-                          <AddStrengthProgramCard profile={profile} />
+                          <AddStrengthProgramCard
+                            profile={profile}
+                            onNavigate={(navigate) => interceptWorkoutStart(navigate, 'strength')}
+                          />
                         ) : (
                           <PreWorkoutCardRenderer
                             suggestion={s}
@@ -3307,7 +3325,10 @@ export default function HomePage() {
                 cardHeight={330}
                 renderCard={(s) =>
                   isStrengthInviteCarouselItem(s) ? (
-                    <AddStrengthProgramCard profile={profile} />
+                    <AddStrengthProgramCard
+                      profile={profile}
+                      onNavigate={(navigate) => interceptWorkoutStart(navigate, 'strength')}
+                    />
                   ) : (
                     <PostWorkoutCardRenderer
                       suggestion={s}
