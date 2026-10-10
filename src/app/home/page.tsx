@@ -1539,6 +1539,20 @@ export default function HomePage() {
   // that let a SECOND, buggy local computation (hasCompletedAssessment, removed here) exist
   // right next to this one for months.
   const hasStrengthProgram = hasAssessedStrengthDomain(profile as any);
+  // Strength-invite carousel slide — sentinel item prepended to a carousel's own
+  // items array, NOT a real Suggestion, NOT produced by the suggestion engine.
+  // id is a fixed string the real engine's generators never produce (their ids
+  // are always generator-scoped, e.g. `full-strength-cheap-${userId}`/`safety-net-...`),
+  // so it can never collide with a real suggestion's id. Hoisted to component scope
+  // (G8.2 fix, 10.10.2026) — originally lived only inside the pre-workout carousel's
+  // block (19.09.2026, "move strength-invite card into the pre-workout carousel");
+  // that refactor dropped the equivalent for the post-workout carousel, so the card
+  // vanished for the rest of the day the instant any workout completed. Shared here
+  // so both carousels use the exact same sentinel.
+  const STRENGTH_INVITE_CARD_ID = 'strength-invite-card';
+  const isStrengthInviteCarouselItem = (
+    item: Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID },
+  ): item is { id: typeof STRENGTH_INVITE_CARD_ID } => item.id === STRENGTH_INVITE_CARD_ID;
   const isMapOnlyUser = profile?.onboardingPath === 'MAP_ONLY' && !hasProgram;
   // Health declaration check
   const isHealthMissing = (() => {
@@ -3033,20 +3047,14 @@ export default function HomePage() {
                   || activePreWorkoutSuggestion?.subtitle
                   || 'מוכן להתחיל?';
 
-                // Strength-invite carousel slide (placement change, 19.09.2026): a sentinel
-                // item prepended to the pre-workout carousel's own items array — NOT a new
-                // Suggestion, NOT produced by the suggestion engine, and PreWorkoutCardRenderer
-                // is never touched. The branch lives entirely in this file's own renderCard/
-                // onSettle closures below, so every other slide (hero/route/steps) renders
-                // through the exact same, unmodified path as before. id is a fixed string the
-                // real suggestion engine's generators never produce (their ids are always
-                // generator-scoped, e.g. `full-strength-cheap-${userId}`/`safety-net-...`), so
-                // it can never collide with a real suggestion's id.
-                const STRENGTH_INVITE_CARD_ID = 'strength-invite-card';
-                const isStrengthInviteCarouselItem = (
-                  item: Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID },
-                ): item is { id: typeof STRENGTH_INVITE_CARD_ID } => item.id === STRENGTH_INVITE_CARD_ID;
-
+                // Strength-invite carousel slide (placement change, 19.09.2026): the
+                // sentinel (STRENGTH_INVITE_CARD_ID/isStrengthInviteCarouselItem, hoisted to
+                // component scope — see hasStrengthProgram above) is prepended to the
+                // pre-workout carousel's own items array — NOT a new Suggestion, NOT produced
+                // by the suggestion engine, and PreWorkoutCardRenderer is never touched. The
+                // branch lives entirely in this file's own renderCard/onSettle closures below,
+                // so every other slide (hero/route/steps) renders through the exact same,
+                // unmodified path as before.
                 const content = readyPreWorkoutSuggestions ? (
                   <div>
                     {/* Header + chip + description — parity fix (27.08.2026), mirrors
@@ -3289,20 +3297,28 @@ export default function HomePage() {
               <h3 className="text-right text-[16px] font-bold text-gray-900 mb-3" dir="rtl">
                 {allGoalsMet ? 'סיימת הכל, מגיע לך מנוחה' : 'המשך הפעילות של היום'}
               </h3>
-              <SuggestionCarousel<Suggestion>
-                items={postWorkoutSuggestions}
+              <SuggestionCarousel<Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID }>
+                items={
+                  !hasStrengthProgram
+                    ? [{ id: STRENGTH_INVITE_CARD_ID }, ...postWorkoutSuggestions]
+                    : postWorkoutSuggestions
+                }
                 keyExtractor={(s) => s.id}
                 cardHeight={330}
-                renderCard={(s) => (
-                  <PostWorkoutCardRenderer
-                    suggestion={s}
-                    onStart={() => handlePostWorkoutSuggestionStart(s)}
-                    isStarting={startingSuggestionId === s.id}
-                    userGender={profile?.core?.gender}
-                    healthConnected={healthConnected}
-                    onConnectSteps={triggerHealthPermission}
-                  />
-                )}
+                renderCard={(s) =>
+                  isStrengthInviteCarouselItem(s) ? (
+                    <AddStrengthProgramCard profile={profile} />
+                  ) : (
+                    <PostWorkoutCardRenderer
+                      suggestion={s}
+                      onStart={() => handlePostWorkoutSuggestionStart(s)}
+                      isStarting={startingSuggestionId === s.id}
+                      userGender={profile?.core?.gender}
+                      healthConnected={healthConnected}
+                      onConnectSteps={triggerHealthPermission}
+                    />
+                  )
+                }
               />
             </motion.div>
           ) : null;
