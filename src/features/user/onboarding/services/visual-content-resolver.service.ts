@@ -46,8 +46,17 @@ async function loadCategoryMap(): Promise<Map<string, string>> {
     const map = new Map<string, string>();
     for (const p of programs) {
       if (p.isMaster) continue;
-      // Index by movementPattern (primary key for standard programs)
-      if (p.movementPattern && !map.has(p.movementPattern)) {
+      // Index by movementPattern (primary key for standard programs) — ONLY
+      // for the program that IS the generic pattern itself (slug===pattern),
+      // never a skill that merely inherits the pattern from its parent.
+      // 2026-10-10 fix: PR #160 (08.10.2026) wrote movementPattern onto 7
+      // skill programs too (e.g. human_flag -> 'push', via
+      // DOMAIN_RESOLUTION_SKILL_PARENT_MAP) — without this guard, whichever
+      // skill happened to be iterated first (getAllPrograms() sorts by
+      // name; "דגל אנושי" sorts before "דחיפה") claimed the 'push' slot via
+      // !map.has(...) before the real push program was ever reached, so
+      // the onboarding "push" assessment slider showed Human Flag content.
+      if (p.movementPattern && p.slug === p.movementPattern && !map.has(p.movementPattern)) {
         map.set(p.movementPattern, p.id);
       }
       // Also index by canonical slug — skill programs (planche, front_lever, etc.)
@@ -66,7 +75,7 @@ async function loadCategoryMap(): Promise<Map<string, string>> {
   return categoryProgramMap;
 }
 
-async function resolveCategoryToProgramId(category: string): Promise<string> {
+export async function resolveCategoryToProgramId(category: string): Promise<string> {
   // Master programs (e.g. muscle_up) are absent from loadCategoryMap because
   // loadCategoryMap skips isMaster=true entries. Check the static table first.
   const masterHash = MASTER_PROGRAM_SLUG_TO_ID[category];
