@@ -307,9 +307,20 @@ class FlusherImpl {
       try {
         // Lazy import keeps bundle slim and avoids a circular import via
         // storage.service → outbox → storage.service.
-        const { addDoc, collection, serverTimestamp } = await import('firebase/firestore');
+        const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
         const { db } = await import('@/lib/firebase');
-        await addDoc(collection(db, 'workouts'), {
+        // Bug fix (Sderot field test, 10.10.2026): this used to be
+        // `addDoc(collection(db,'workouts'), ...)` — a fresh auto-generated
+        // doc ID on every call. If awardWorkoutXP (below) throws AFTER the
+        // write already succeeded, the catch block bumps attempts but never
+        // deletes this queue entry, so the NEXT flush (reconnect / app
+        // resume) re-ran the same addDoc and created a genuine duplicate
+        // `workouts` doc — repeated retries on a flaky field connection
+        // produced ~3x saves for one real aerobic session. `setDoc` keyed on
+        // the outbox's own stable `localWorkoutId` makes a retried flush of
+        // the SAME queued item idempotent: it overwrites the one doc instead
+        // of creating another.
+        await setDoc(doc(db, 'workouts', w.localWorkoutId), {
           ...w.payload,
           date: serverTimestamp(),
           localWorkoutId: w.localWorkoutId,
