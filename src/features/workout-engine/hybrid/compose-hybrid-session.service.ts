@@ -503,7 +503,17 @@ function buildDomainGateFallback(
       return {
         exercises: result.exercises,
         estimatedDurationSec,
-        totalPlannedSets: 0,
+        // Bug fix (Sderot field test, 10.10.2026): this was hardcoded 0 —
+        // real machine-tabata content IS generated and completed here (the
+        // no-questionnaire combined-route path), but the summary's
+        // totalStrengthSets (finalizeHybridRun → HybridSummary "סטים")
+        // read it as if nothing happened. `rounds` is the real number of
+        // completed work intervals across the selected machines (already
+        // baked into result.block.config by buildStationEquipmentTabataBlock),
+        // the closest existing field to "sets" for this content shape —
+        // reuses the untouched sets pipeline end-to-end instead of adding a
+        // new rounds-tracking field.
+        totalPlannedSets: result.block.config.rounds,
         domainFocus: undefined,
         isEmpty: false,
         log: [],
