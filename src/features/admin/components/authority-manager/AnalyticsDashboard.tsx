@@ -10,7 +10,6 @@ import {
   getActivityTrend,
   getNeighborhoodBreakdown,
   getNeighborhoodList,
-  getFilteredUserIds,
   getDateRangeForFilter,
   getActivityByHour,
   getPersonaDistribution,
@@ -191,18 +190,15 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
       const currentYear  = today.getFullYear();
 
       const defaultDateRange = getDateRangeForFilter('month');
-      // Several of the calls below still read `users`/`workouts`/`sessions`
-      // directly and are denied for a genuine authority manager
-      // (00-MASTER-PLAN.md §13.11 maps which — DAU/MAU/gender/age are
-      // fixed above via the dashboard-summary fallback; the rest are not,
-      // in this pass). Promise.all is all-or-nothing: ONE rejection here
-      // used to zero out every card, including ones with no relation to
-      // the blocked collections at all. Each call is now individually
-      // caught with the same safe default its own internal catch already
-      // uses, so a still-broken metric degrades to its empty state instead
-      // of taking the whole dashboard down with it.
-      const initialUserIds = await getFilteredUserIds(authorityId, DEFAULT_FILTERS).catch(() => [] as string[]);
-
+      // Every call below that reads `users`/`workouts`/`sessions`/
+      // `dailyActivity` directly now has its own internal permission-denied
+      // fallback (07.10.2026 — all 9 of the previously-unguarded metrics;
+      // DAU/MAU/gender/age already had this since an earlier pass). Each
+      // call is ALSO still individually caught here with the same safe
+      // default its own internal catch already uses, so a still-broken
+      // metric (or an unexpected non-permission error) degrades to its
+      // empty state instead of taking the whole dashboard down with it —
+      // Promise.all is all-or-nothing on a bare rejection.
       const [
         dailyActive, monthlyActive, gender, age,
         popularParksData, trend, parksData, breakdown,
@@ -223,10 +219,10 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
         getHealthSavings(authorityId).catch(() => null),
         getSavingsOverTime(authorityId, 12).catch(() => []),
         getNeighborhoodList(authorityId).catch(() => []),
-        getActivityByHour(initialUserIds, defaultDateRange).catch(() => []),
+        getActivityByHour(authorityId, DEFAULT_FILTERS, defaultDateRange).catch(() => []),
         getPersonaDistribution(authorityId).catch(() => []),
         getEntryRouteDistribution(authorityId).catch(() => null),
-        getRunningStats(authorityId, initialUserIds, defaultDateRange).catch(() => null),
+        getRunningStats(authorityId, DEFAULT_FILTERS, defaultDateRange).catch(() => null),
         getCityStepsTotals(authorityId, 30).catch(() => null),
         getWHOComplianceBreakdown(authorityId).catch(() => null),
         getWHOComplianceOverTime(authorityId, 8).catch(() => []),
@@ -274,15 +270,15 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
     try {
       const dateRange = getDateRangeForFilter(f.timeRange);
 
-      const primaryIds = await getFilteredUserIds(authorityId, f);
-      const compareIds = f.compareNeighborhoodId
-        ? await getFilteredUserIds(authorityId, { ...f, neighborhoodId: f.compareNeighborhoodId })
-        : null;
-
+      // getActivityByHour/getRunningStats resolve their own filtered uid
+      // scope internally now (07.10.2026) — f (+ the compare variant) is
+      // passed directly, no separate getFilteredUserIds call needed here.
       const [hourly, hourlyCompare, filteredRunning] = await Promise.all([
-        getActivityByHour(primaryIds, dateRange),
-        compareIds ? getActivityByHour(compareIds, dateRange) : Promise.resolve(null),
-        getRunningStats(authorityId, primaryIds, dateRange),
+        getActivityByHour(authorityId, f, dateRange),
+        f.compareNeighborhoodId
+          ? getActivityByHour(authorityId, { ...f, neighborhoodId: f.compareNeighborhoodId }, dateRange)
+          : Promise.resolve(null),
+        getRunningStats(authorityId, f, dateRange),
       ]);
 
       setHourlyData(hourly);
