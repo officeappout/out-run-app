@@ -46,6 +46,25 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
+    // 11.10.2026 (write-layer-2, feed_posts scope-field fix) — getUserDoc()
+    // itself throws a "Null value error" the moment ANY .get(key, default)
+    // is chained onto its result if users/{uid} does not exist AT ALL (not
+    // just missing a field — the whole doc absent). Confirmed empirically:
+    // this is real, not theoretical — it broke the existing WC6 cumulative
+    // regression test, whose fixture authenticates as a uid with no
+    // users/{uid} doc at all. isAdmin()'s own existing comment on
+    // getUserDoc() only ever documented the MISSING-FIELD case (a role key
+    // absent on an existing doc), not the missing-document case — a
+    // narrower problem than this one. Deliberately a NEW, separate helper
+    // rather than changing getUserDoc() itself — isAdmin()/isSuperAdminOnly()
+    // /leaderboard_shards already call getUserDoc() directly and are not
+    // being touched or re-verified by this fix.
+    function getUserDocSafe() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? getUserDoc()
+        : {};
+    }
+
     function isAdmin() {
       return isRootAdmin() ||
         (request.auth != null && (
@@ -1605,7 +1624,40 @@ service cloud.firestore {
       // Create: only for own posts. SPEC-03 Wave C: posting to the feed
       // requires a real account — a guest's post would be visible to
       // everyone.
-      allow create: if isAuthenticated() && !isAnonymous() && request.auth.uid == request.resource.data.authorUid;
+      //
+      // 11.10.2026 (write-layer-2 adversarial audit, feed_posts #2 —
+      // partial fix, create only): feed.service.ts stamps `groupIds`,
+      // `authorityId`, `neighborhoodId`, `schoolId`, `parkId`, `ageGroup`,
+      // `gender`, `programId` for leaderboard/scope queries, but NONE of
+      // them were ever checked against the caller's own profile — any
+      // authenticated non-anonymous user could forge group membership or
+      // demographic scope on their own post. Fixing only the 4 that are
+      // provable in pure rules against a value already sitting flat on
+      // the caller's own users/{uid} doc:
+      //   groupIds       — every claimed id must be in the caller's own
+      //                     social.groupIds (hasAll, same denormalized
+      //                     array §17 already relies on).
+      //   neighborhoodId — must equal the caller's own core.neighborhoodId.
+      //   ageGroup       — must equal the caller's own core.ageGroup.
+      //   gender         — must equal the caller's own core.gender.
+      // NOT fixed here (see the write-up for why): authorityId (the real
+      // client derives it from core.affiliations, not core.authorityId —
+      // open product-semantics question, not just a rules gap);
+      // schoolId/programId (only live inside an array-of-maps on the
+      // user doc — Rules has no way to extract a sub-field from an
+      // arbitrary array element, needs either a new flat field or a
+      // server route); parkId (a real-time location claim, not a
+      // membership fact — nothing on a static profile to check it
+      // against). update is NOT touched by this fix — the existing
+      // update rule already lets the author rewrite any of these 8
+      // fields freely post-creation; that is a separate, wider gap than
+      // the 4 fields this round scoped in.
+      allow create: if isAuthenticated() && !isAnonymous()
+        && request.auth.uid == request.resource.data.authorUid
+        && getUserDocSafe().get('social', {}).get('groupIds', []).hasAll(request.resource.data.get('groupIds', []))
+        && request.resource.data.get('neighborhoodId', null) == getUserDocSafe().get('core', {}).get('neighborhoodId', null)
+        && request.resource.data.get('ageGroup', null) == getUserDocSafe().get('core', {}).get('ageGroup', null)
+        && request.resource.data.get('gender', null) == getUserDocSafe().get('core', {}).get('gender', null);
 
       // SECURITY (H1 — Feed Integrity):
       //   Update is restricted to the original author. The previous rule
