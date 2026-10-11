@@ -26,9 +26,31 @@ import { IS_COMMUNITY_FEED_ENABLED } from '@/config/feature-flags';
 // Accumulate GPS samples in a flat buffer and flush to Zustand every
 // FLUSH_EVERY points. This replaces the per-sample [...state.routeCoords, coord]
 // spread that caused O(n²) allocations on long runs.
+//
+// Cadence fix (11.10.2026, field feedback: "the map feels dead while
+// walking"): FLUSH_EVERY was 10 — on top of the already-kept
+// DISTANCE_THRESHOLD_WALKING/RUNNING noise filter (one accepted sample every
+// ~4-5m), that meant the drawn line only grew every ~10 accepted samples —
+// roughly every 30-40s, in ~40m jumps, at a normal walking pace. The
+// distance threshold is a legitimate GPS-noise filter and stays untouched;
+// this batching layer was pure render-delay stacked on top of it, with no
+// noise-filtering purpose of its own (the comment above describes an
+// allocation-cost optimisation, not a smoothing one).
+//
+// Dropped to 1 — every ACCEPTED sample now flushes immediately, so the line
+// grows as often as the (unchanged) distance threshold accepts a new point,
+// not 10x less often. Tradeoff considered and accepted: this reintroduces
+// the O(n²) spread cost the original comment flagged, but at the arrival
+// rate the distance threshold already caps (roughly one accepted sample
+// every 3-4s at walking pace), a multi-hour session accumulates on the
+// order of a few thousand points — the cumulative cost of that many
+// incremental array spreads is microseconds-scale on any current device,
+// not a real perf/battery concern. The corresponding Mapbox setData() call
+// (AppMap.tsx) is bounded by the same already-throttled rate, so redraw
+// frequency is likewise capped by the kept noise filter, not uncapped.
 let _coordBuffer: number[][] = [];
 let _zoneBuffer: (string | null)[] = [];
-const FLUSH_EVERY = 10;
+const FLUSH_EVERY = 1;
 
 // Cleanup handle for the useGPSStore subscription opened by startGPSTracking.
 // Stored at module level (not Zustand state) so stopGPSTracking can reach it

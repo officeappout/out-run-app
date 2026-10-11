@@ -3,12 +3,14 @@
  * suite (yet). Proves by EXECUTION, not by reading, two bugs found in
  * docs/field-test/01-walking-flow-map.md:
  *
- *   1. useRunningPlayer.ts:1831,1835 sends workoutType:'running' /
+ *   1. useRunningPlayer.ts:1881,1885 sends workoutType:'running' /
  *      displayIcon:'run-fast' UNCONDITIONALLY on session finish — including
- *      for a completed WALKING session. (Line numbers shifted from
- *      1848/1852 by the 24.09.2026 deviation-mechanism removal, which
- *      deleted ~17 unrelated lines earlier in this same file — the bug
- *      itself is untouched, still unfixed, same literals, same behavior.)
+ *      for a completed WALKING session. (Line numbers shifted again from
+ *      1831/1835 — once by the 24.09.2026 deviation-mechanism removal, and
+ *      again by the 11.10.2026 route-trace-cadence fix + the earlier G7.1
+ *      hybrid-redirect fix, both of which added comment/logic lines earlier
+ *      in this same file. The bug itself is untouched, still unfixed, same
+ *      literals, same behavior — only the line numbers move.)
  *   2. That literal survives, unmodified, all the way into the REAL
  *      (unmocked) markTodayAsCompleted() action's Firestore write —
  *      confirmed by running the actual production code with only the true
@@ -76,17 +78,17 @@ describe('Source-fact check (mechanical, not eyeballed): the two literals really
       'src/features/workout-engine/players/running/store/useRunningPlayer.ts',
     );
     const lines = fs.readFileSync(filePath, 'utf-8').split('\n');
-    // Lines are 1-indexed in the editor; array is 0-indexed. (Shifted from
-    // 1848/1852 — see file header comment; the bug itself is unchanged.)
-    const line1831 = lines[1830];
-    const line1835 = lines[1834];
-    expect(line1831).toContain(`workoutType: 'running'`);
-    expect(line1835).toContain(`displayIcon: 'run-fast'`);
+    // Lines are 1-indexed in the editor; array is 0-indexed. (Shifted again
+    // from 1831/1835 — see file header comment; the bug itself is unchanged.)
+    const line1881 = lines[1880];
+    const line1885 = lines[1884];
+    expect(line1881).toContain(`workoutType: 'running'`);
+    expect(line1885).toContain(`displayIcon: 'run-fast'`);
     // The bug's precondition: neither line references the real activityType
     // variable that holds 'walking' — if it did, this assertion would fail
     // the moment someone "fixes" it by accident without updating this test.
-    expect(line1831).not.toContain('activityType');
-    expect(line1835).not.toContain('activityType');
+    expect(line1881).not.toContain('activityType');
+    expect(line1885).not.toContain('activityType');
   });
 
   it('FreeRunSummary.tsx:179 share text is a bare template literal with zero activity-type interpolation', () => {

@@ -1302,11 +1302,17 @@ export default function AppMap({
   }, [focusedRoute?.id, focusedRoute?.path, focusedRoute?.displayPath, focusedIsStrength]);
 
   // ── Imperative live-path update ────────────────────────────────────────────
-  // Fires only when the number of accepted GPS samples grows (every 5 m /
-  // DISTANCE_THRESHOLD). Calling setData() directly on the Mapbox GeoJSON
-  // source bypasses React reconciliation entirely — zero re-renders per GPS
-  // tick. The source is kept always-mounted while isActiveWorkout is true
-  // (see the JSX below) so the source handle is always available here.
+  // Fires whenever the number of accepted GPS samples grows — i.e. every
+  // DISTANCE_THRESHOLD_WALKING/RUNNING (4m/5m), the real noise filter in
+  // useRunningPlayer.ts. (Corrected 11.10.2026: this used to also say "every
+  // 5m," which described only that filter — it omitted a since-removed
+  // FLUSH_EVERY=10 batching layer in useRunningPlayer.ts that used to delay
+  // this further by 10x, to ~30-40s/~40m jumps. That extra delay is gone;
+  // this effect now genuinely fires at the rate the comment describes.)
+  // Calling setData() directly on the Mapbox GeoJSON source bypasses React
+  // reconciliation entirely — zero re-renders per GPS tick. The source is
+  // kept always-mounted while isActiveWorkout is true (see the JSX below)
+  // so the source handle is always available here.
   useEffect(() => {
     if (!isActiveWorkout) return;
     const rawMap = mapRef.current?.getMap?.() as (mapboxgl.Map | undefined);
@@ -1353,7 +1359,10 @@ export default function AppMap({
     };
   // Dep on livePath?.length instead of currentLocation: recomputes only when
   // the user walks far enough to add a new GPS coord (every DISTANCE_THRESHOLD
-  // metres), not on every raw GPS tick.
+  // metres — see the live-path effect above for the 11.10.2026 correction to
+  // this cadence claim), not on every raw GPS tick. Shares the identical
+  // livePath?.length dependency as the live-path effect above, so this
+  // smooths in lockstep with it — confirmed, not assumed.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActiveWorkout, focusedRoute?.id, focusedRoute?.path, livePath?.length]);
 
