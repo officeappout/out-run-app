@@ -1930,9 +1930,15 @@ async function testWaveCAnonymousGate() {
     }));
   });
   await it('WC8 — real authenticated user likes a post → ALLOW (regression)', async () => {
+    // 10.10.2026 fix follow-up — the reactions ownership fix now requires
+    // the `uid` field to match the caller (reactions.service.ts's own
+    // real write shape always sets it; this fixture never did). Added it
+    // here to match what a real reaction write actually looks like —
+    // this is a fixture gap, not a behavior change for this test's own
+    // intent (a real authenticated user liking a post still works).
     const ctx = env.authenticatedContext('wc_real');
     await assertSucceeds(setDoc(doc(ctx.firestore(), 'feed_posts', 'wc_post', 'reactions', 'wc_real'), {
-      type: 'like',
+      uid: 'wc_real', type: 'like',
     }));
   });
 
