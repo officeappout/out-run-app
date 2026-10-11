@@ -73,6 +73,30 @@ function chunk<T>(arr: T[], size: number): T[][] {
 
 const DIST_LABELS: Record<string, string> = { '3k': '3K', '5k': '5K', '10k': '10K', '2k': '2K', maintenance: 'מינטננס' };
 
+/**
+ * 11.10.2026 (authority-manager report-only audit round 2, finding #2) —
+ * start/end were the one param pair in this whole route family with no
+ * input guard at all: every numeric param elsewhere (days, months, weeks,
+ * ageMin/ageMax, parksLimit) is Number()-coerced with a Math.max/min clamp
+ * or a NaN-safe `|| default` fallback, degrading gracefully on garbage
+ * input. A malformed start/end string instead produced an Invalid Date,
+ * which Timestamp.fromDate() downstream throws on — caught by this route's
+ * own top-level catch and surfaced as a generic 500, not a clean 400.
+ * Exported for its own unit test (pure logic, no Firestore needed).
+ */
+export function parseDateParam(
+  paramName: string,
+  raw: string | null,
+  fallback: () => Date,
+): { ok: true; date: Date } | { ok: false; error: string } {
+  if (!raw) return { ok: true, date: fallback() };
+  const parsed = new Date(raw);
+  if (isNaN(parsed.getTime())) {
+    return { ok: false, error: `Invalid "${paramName}" date: "${raw}"` };
+  }
+  return { ok: true, date: parsed };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('Authorization') ?? '';
@@ -101,10 +125,16 @@ export async function GET(request: NextRequest) {
     const gender = url.searchParams.get('gender') ?? 'all';
     const persona = url.searchParams.get('persona') ?? 'all';
     const neighborhoodId = url.searchParams.get('neighborhoodId') ?? 'all';
-    const startParam = url.searchParams.get('start');
-    const endParam = url.searchParams.get('end');
-    const start = startParam ? new Date(startParam) : new Date(new Date().setDate(1));
-    const end = endParam ? new Date(endParam) : new Date();
+    const startResult = parseDateParam('start', url.searchParams.get('start'), () => new Date(new Date().setDate(1)));
+    if (!startResult.ok) {
+      return NextResponse.json({ error: startResult.error }, { status: 400 });
+    }
+    const endResult = parseDateParam('end', url.searchParams.get('end'), () => new Date());
+    if (!endResult.ok) {
+      return NextResponse.json({ error: endResult.error }, { status: 400 });
+    }
+    const start = startResult.date;
+    const end = endResult.date;
 
     const emptyBuckets = Array.from({ length: 24 }, (_, h) => ({
       hour: h, label: `${String(h).padStart(2, '0')}:00`, total: 0, strength: 0, running: 0, walking: 0,
