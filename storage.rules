@@ -171,6 +171,14 @@ service firebase.storage {
     match /communities/{userId}/{allPaths=**} {
       allow read: if true;
       allow write: if isAdmin() || (isOwner(userId) && isImage() && isImageSize());
+      // 11.10.2026 (write-layer-4 audit) — the OWNER half of `write`
+      // above never actually permitted delete (request.resource is null
+      // on delete, failing isImage()/isImageSize()) — isAdmin() alone
+      // doesn't reference request.resource, so an admin could already
+      // delete here; only a non-admin owner couldn't. Explicit delete
+      // rule closes that gap for parity with the owner's own write
+      // access, same shape as contribution-photos/profiles above.
+      allow delete: if isAdmin() || isOwner(userId);
     }
 
     // ── 2. Admin Avatars (Admin Write, Public Read) ──────────────────────
@@ -195,6 +203,21 @@ service firebase.storage {
     match /contribution-photos/{userId}/{allPaths=**} {
       allow read: if true;
       allow write: if isOwner(userId) && isImage() && isImageSize();
+      // 11.10.2026 (write-layer-4 audit) — confirmed empirically (real
+      // emulator, real upload then deleteObject): `write` above NEVER
+      // actually permitted delete at all, for anyone, owner included.
+      // `request.resource` is null on a delete operation, so isImage()/
+      // isImageSize() (both read request.resource.contentType/size)
+      // evaluate false, denying every delete unconditionally. Confirmed
+      // live impact: Step3Photo.tsx's deleteStorageObject() (the
+      // contribution-wizard's own "retake/remove photo" step) has been
+      // silently swallowing this exact failure in its own try/catch
+      // (logs a warning, always clears local UI state regardless) —
+      // every real user who retakes a contribution photo mid-wizard
+      // leaves an orphaned file in Storage forever, with the UI showing
+      // success either way. No content-type/size check needed here —
+      // there is no request.resource to validate on a delete.
+      allow delete: if isOwner(userId);
     }
 
     // ── 4. User Private: Health Declarations (Owner + Admin Read) ────
@@ -208,6 +231,22 @@ service firebase.storage {
     match /health-declarations/{userId}/{allPaths=**} {
       allow read:  if isOwner(userId) || isAdmin();
       allow write: if isOwner(userId) && isPdf() && isPdfSize();
+      // 11.10.2026 (write-layer-4 audit) — EXPLICIT `if false`, not an
+      // omission. Unlike the other owner-write paths in this file, delete
+      // here was ALREADY denied (confirmed empirically: request.resource
+      // is null on delete, so isPdf()/isPdfSize() evaluate false) — but
+      // that was an accident of the content-type guard's shape, not a
+      // deliberate decision (the same "accidental protection is not
+      // protection" trap this codebase's own firestore.rules axioms §26
+      // already documents for a different collection). This PDF is
+      // retained for 7 years under the Legal Hold archive (Israeli
+      // Limitation Law 5718-1958, referenced by legal_hold/{uid} docs) —
+      // the owner must never be able to delete it, full stop. Written
+      // explicitly so a future edit to the write rule's shape (e.g.
+      // loosening isPdf()/isPdfSize() for some unrelated reason) can't
+      // silently reopen delete as a side effect the way it was silently
+      // closed.
+      allow delete: if false;
     }
 
     // ── 5. User Private: Profile Photos (Owner Write, Public Read) ──────
@@ -229,6 +268,15 @@ service firebase.storage {
     match /profiles/{userId}/{allPaths=**} {
       allow read: if true;
       allow write: if isOwner(userId) && isImage() && isAvatarSize();
+      // 11.10.2026 (write-layer-4 audit) — same gap as contribution-photos
+      // above: `write` never actually permitted delete (request.resource
+      // is null on delete, failing isImage()/isAvatarSize()). No known
+      // live caller depends on deleting this path today (avatar.jpg is
+      // always overwritten in place, never removed — see this match
+      // block's own header comment), but closing the gap for
+      // consistency and so a future "remove my photo" feature doesn't
+      // silently inherit the same accidental lockout.
+      allow delete: if isOwner(userId);
     }
 
     // ── 6. Catch-all: Deny everything else ───────────────────────────
