@@ -21,6 +21,7 @@ import {
   getDocs,
   limit,
   Timestamp,
+  type Query,
   type Unsubscribe,
 } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
@@ -207,6 +208,46 @@ function expandSlotForWeek(slot: RawSlot): Date[] {
   return results;
 }
 
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+/**
+ * Subscribes to one query as part of a multi-query merge (write-layer-4
+ * audit, planned_sessions self/public/squad split — see the listener
+ * below). Docs from every subscribed query land in the SAME shared map,
+ * keyed by doc id, so overlapping results (e.g. a doc that is somehow
+ * both "own" and "public") collapse to one entry rather than duplicating.
+ * `onSnapshot`'s docChanges() keeps the map correct across add/modify/
+ * remove without ever refetching the other queries' slices.
+ */
+function subscribeMerged(
+  q: Query,
+  merged: Map<string, any>,
+  flush: () => void,
+  setLoading: (v: boolean) => void,
+  errorLabel: string,
+): Unsubscribe {
+  return onSnapshot(
+    q,
+    (snap) => {
+      snap.docChanges().forEach((change) => {
+        const id = change.doc.id;
+        if (change.type === 'removed') merged.delete(id);
+        else merged.set(id, { id, ...change.doc.data() });
+      });
+      flush();
+      setLoading(false);
+    },
+    (err) => {
+      console.error(`[usePartnerData] ${errorLabel} listener error:`, err);
+      setLoading(false);
+    },
+  );
+}
+
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
 export function usePartnerData(
@@ -253,6 +294,25 @@ export function usePartnerData(
   const unsubLive = useRef<Unsubscribe | null>(null);
 
   // ── 1. Planned sessions listener ──
+  // write-layer-4 audit (11.10.2026): was ONE unscoped query
+  // (status in [...] + expiresAt >=, no userId/groupId/privacyMode filter
+  // at all) with every privacy boundary enforced client-side only in the
+  // fromPlanned filter below — any direct Firestore call bypassing this
+  // hook saw every user's name/photo/plan/meeting-point regardless of
+  // privacyMode, including explicitly 'squad'-scoped ones. The firestore
+  // rule this is being paired with (held separately, deployed only after
+  // this code has shipped and propagated — see that PR) requires a
+  // per-document ownership/membership check that this single broad query
+  // can never satisfy for `list` (not provable without inspecting data,
+  // same class of issue the attendance fix hit). Split into up to 3
+  // parallel queries, each independently provable under that rule:
+  //   - public: privacyMode == 'verified_global'
+  //   - own:    userId == me (any privacyMode, including ghost/squad)
+  //   - squad:  privacyMode == 'squad' AND groupId in (my own groups)
+  // Firestore allows only one `in`-type clause per query, so the squad
+  // slice does NOT also filter by status here — status is cheap to
+  // re-check client-side (see the merge handler) and carries no privacy
+  // weight, only a display one.
   useEffect(() => {
     unsubScheduled.current?.();
     if (!isForeground || isPressureCritical) return; // backgrounded, or shed-paused under critical pressure — torn down above, no resubscribe
@@ -266,31 +326,60 @@ export function usePartnerData(
     }
 
     const now = Timestamp.now();
-    const q = query(
-      collection(db, 'planned_sessions'),
-      where('expiresAt', '>=', now),
-      where('status', 'in', ['planned', 'active']),
+    const merged = new Map<string, any>();
+    // The squad slice below can't also filter by status (Firestore allows
+    // only one `in`-type clause per query, and groupId already uses it) —
+    // re-applied here so a cancelled squad session doesn't leak through
+    // uniformly with the public/own slices, which already filter it
+    // server-side.
+    const flush = () => setRawScheduled(
+      Array.from(merged.values()).filter((s) => ['planned', 'active'].includes(s.status)),
     );
+    const unsubs: Unsubscribe[] = [];
 
-    unsubScheduled.current = onSnapshot(
-      q,
-      (snap) => {
-        setRawScheduled(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        setIsLoading(false);
-      },
-      (err) => {
-        // SPEC-02 PERF-00: this used to swallow the error completely (not
-        // even a console line) — a missing composite index on this exact
-        // query shape (status in [...] + expiresAt >=) silently meant the
-        // Partner Finder's scheduled tab always showed empty, forever,
-        // with zero signal anywhere that anything was wrong.
-        console.error('[usePartnerData] scheduled sessions listener error:', err);
-        setIsLoading(false);
-      },
-    );
+    // Public slice.
+    unsubs.push(subscribeMerged(
+      query(
+        collection(db, 'planned_sessions'),
+        where('privacyMode', '==', 'verified_global'),
+        where('status', 'in', ['planned', 'active']),
+        where('expiresAt', '>=', now),
+      ),
+      merged, flush, setIsLoading, 'public scheduled sessions',
+    ));
 
+    // Own slice — any privacyMode, so the publisher always sees their own
+    // announcement regardless of visibility choice (matches the pre-fix
+    // behavior's "own arrivals bypass every filter" guarantee).
+    if (currentUid) {
+      unsubs.push(subscribeMerged(
+        query(
+          collection(db, 'planned_sessions'),
+          where('userId', '==', currentUid),
+          where('status', 'in', ['planned', 'active']),
+          where('expiresAt', '>=', now),
+        ),
+        merged, flush, setIsLoading, 'own scheduled sessions',
+      ));
+    }
+
+    // Squad slice — chunked into groups of 30 (Firestore's `in` cap),
+    // one query per chunk. Skipped entirely for a caller in zero groups.
+    chunk(myGroupIds, 30).forEach((batch) => {
+      unsubs.push(subscribeMerged(
+        query(
+          collection(db, 'planned_sessions'),
+          where('privacyMode', '==', 'squad'),
+          where('groupId', 'in', batch),
+          where('expiresAt', '>=', now),
+        ),
+        merged, flush, setIsLoading, 'squad scheduled sessions',
+      ));
+    });
+
+    unsubScheduled.current = () => unsubs.forEach((u) => u());
     return () => unsubScheduled.current?.();
-  }, [myMode, isForeground, isPressureCritical]);
+  }, [myMode, isForeground, isPressureCritical, currentUid, myGroupIds.join(',')]);
 
   // ── 2. Community events listener ──
   useEffect(() => {
