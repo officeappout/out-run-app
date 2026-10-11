@@ -26,7 +26,7 @@ import RouteCardUnified from '@/features/parks/core/components/RouteCardUnified'
 import { UNIFIED_ROUTE_CARDS_ENABLED, MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
 import type { HybridSlot } from '@/features/workout-engine/hybrid/hybrid-slots';
 import type { AerobicKind } from '@/features/workout-engine/hybrid/compose-hybrid-session.service';
-import { setOnboardingPref } from '@/lib/onboardingPrefs';
+import { getOnboardingPref, setOnboardingPref } from '@/lib/onboardingPrefs';
 import {
   ROUTE_STOPS_DURATION_KEY,
   ROUTE_STOPS_DURATION_CHOICES,
@@ -35,8 +35,14 @@ import {
 
 // When the unified-cards flag is on, the slot card matches ROUTE_CARD_WIDTH
 // (85vw / max 340px) and is content-height; otherwise the legacy slot dims.
+// G1.1 fix (Sderot field test, 10.10.2026): 85vw left only ~29px of the next
+// card peeking in on a typical ~390px phone — too thin to register as "more
+// cards exist," so first-time users didn't realize the carousel was
+// swipeable and tapped the wrong card. Narrowed to 78vw (the SAME value the
+// legacy, non-unified path already used) to widen the peek to ~43px —
+// reusing an existing, already-tuned constant rather than inventing a new one.
 const CARD_MAX_W = UNIFIED_ROUTE_CARDS_ENABLED ? 340 : 300;
-const CARD_VW = UNIFIED_ROUTE_CARDS_ENABLED ? 85 : 78;
+const CARD_VW = 78;
 const CARD_HEIGHT = 190; // legacy slot-card height (flag off); unified = content-height
 const GAP = 12;
 const ACTIVE_SCALE = 1.0;
@@ -44,6 +50,11 @@ const SIDE_SCALE = 0.9;
 
 const BRAND = '#00ADEF';
 const CTA_GRADIENT = 'linear-gradient(to left, #0CF2E3, #00BAF7)';
+
+// G1.1 fix: one-time "swipe me" nudge on first view — same durable-pref
+// pattern this file already uses for ROUTE_STOPS_DURATION_KEY (sync
+// getOnboardingPref read on init, setOnboardingPref once consumed).
+const SWIPE_HINT_SEEN_KEY = 'hybrid_slot_carousel_swipe_hint_seen';
 
 // ── Route-stops duration chips (15/30/45 min) ───────────────────────────────
 // Constants + durable "remember my last pick" logic live in route-stops-duration.util.ts
@@ -233,7 +244,12 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, extraContent 
         ctaContent={
           <>
             {slot.kind === 'aerobic_quick' ? <Play size={16} /> : null}
-            {slot.kind === 'aerobic_quick' ? 'יוצאים מיד' : 'צא לדרך'}
+            {/* G1.3 fix (Sderot field test, 10.10.2026): tapping this does not start
+                the workout — it opens the overview (HybridOverviewScreen), same as
+                every other non-aerobic_quick slot. "צא לדרך" ("head out") implied an
+                immediate start; "צפה במסלול" is the same phrase this app already uses
+                for the identical "view before starting" case (PreWorkoutCardRenderer.tsx). */}
+            {slot.kind === 'aerobic_quick' ? 'יוצאים מיד' : 'צפה במסלול'}
           </>
         }
       />
@@ -287,7 +303,7 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, extraContent 
         style={{ height: 44, background: CTA_GRADIENT }}
       >
         {slot.kind === 'aerobic_quick' ? <Play size={16} /> : null}
-        {slot.kind === 'aerobic_quick' ? 'יוצאים מיד' : 'צא לדרך'}
+        {slot.kind === 'aerobic_quick' ? 'יוצאים מיד' : 'צפה במסלול'}
       </button>
     </div>
   );
@@ -343,6 +359,10 @@ export default function HybridSlotCarousel({
   // Which card's CTA received the most recent pointerdown (by slot.id, or null).
   // Single source of truth for "armed" — matched per card, cleared on drag-start.
   const armedSlotIdRef = useRef<string | null>(null);
+  // G1.1 fix: has the one-time swipe-hint nudge already played THIS session (or a
+  // previous one)? Lazy-init from the durable pref so a returning user never sees
+  // it again. Flips true (and persists) the instant the one nudge animation completes.
+  const [swipeHintPlayed, setSwipeHintPlayed] = useState(() => getOnboardingPref(SWIPE_HINT_SEEN_KEY) != null);
 
   useEffect(() => {
     const sync = () => {
@@ -429,8 +449,25 @@ export default function HybridSlotCarousel({
           <motion.div
             className="flex flex-row items-center"
             style={{ gap: GAP, paddingTop: 8, paddingBottom: 8, direction: 'ltr' }}
-            animate={{ x: trackX }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            // G1.1 fix: a brief left-then-back nudge on the very first view (only
+            // when there's a second card worth revealing), so a first-time user
+            // sees the carousel move and realizes more cards exist — instead of
+            // tapping the first thing in front of them. Reverts to the normal
+            // position-tracking animation forever after (onAnimationComplete).
+            animate={!swipeHintPlayed && slots.length > 1 ? { x: [trackX, trackX - 18, trackX] } : { x: trackX }}
+            onAnimationComplete={() => {
+              if (swipeHintPlayed) return;
+              setSwipeHintPlayed(true);
+              setOnboardingPref(SWIPE_HINT_SEEN_KEY, '1');
+            }}
+            // Keyframe arrays need a tween (duration-based), not a spring — a spring
+            // targets one value, it can't animate through a 3-point sequence. The
+            // normal single-target tracking case keeps the original spring feel.
+            transition={
+              !swipeHintPlayed && slots.length > 1
+                ? { duration: 0.6, ease: 'easeInOut' }
+                : { type: 'spring', stiffness: 300, damping: 30 }
+            }
             drag="x"
             dragConstraints={{ left: centerX - lastIndex * stride, right: centerX }}
             dragElastic={0.1}
