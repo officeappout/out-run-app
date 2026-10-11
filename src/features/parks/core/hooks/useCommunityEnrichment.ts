@@ -14,7 +14,7 @@ import {
   Timestamp,
   type Unsubscribe,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { haversineKm } from '../services/geoUtils';
 import type { Route } from '../types/route.types';
 import { getMyPersonaKeys, personaCollectionName } from '@/features/arena/services/group.service';
@@ -297,6 +297,12 @@ function groupDocToEnrichments(
 
 export type DayFilter = 'today' | 'tomorrow' | 'week';
 
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
 export function matchesDayFilter(nextStartTime: string, filter: DayFilter): boolean {
   if (filter === 'week') return true;
   const d = new Date(nextStartTime);
@@ -312,11 +318,12 @@ export function matchesDayFilter(nextStartTime: string, filter: DayFilter): bool
 //  useCommunityEnrichment — routes
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function useCommunityEnrichment(routeIds: string[], routes?: Route[]) {
+export function useCommunityEnrichment(routeIds: string[], routes?: Route[], myGroupIds: string[] = []) {
   const [eventMap, setEventMap] = useState<Map<string, SessionEnrichment>>(new Map());
   const [eventAllMap, setEventAllMap] = useState<Map<string, SessionEnrichment[]>>(new Map());
   const [groupAllMap, setGroupAllMap] = useState<Map<string, SessionEnrichment[]>>(new Map());
   const [arrivalAllMap, setArrivalAllMap] = useState<Map<string, SessionEnrichment[]>>(new Map());
+  const myGroupIdsKey = myGroupIds.join(',');
 
   const unsubEventsRef = useRef<Unsubscribe | null>(null);
   const unsubGroupsRef = useRef<Unsubscribe | null>(null);
@@ -337,7 +344,9 @@ export function useCommunityEnrichment(routeIds: string[], routes?: Route[]) {
   }, [routes]);
 
   useEffect(() => {
-    const idsKey = [...routeIds].sort().join(',');
+    // myGroupIdsKey included so joining/leaving a group re-subscribes the
+    // squad slice below even when routeIds itself hasn't changed.
+    const idsKey = `${[...routeIds].sort().join(',')}|${myGroupIdsKey}`;
     if (idsKey === prevIdsRef.current) return;
     prevIdsRef.current = idsKey;
 
@@ -363,49 +372,96 @@ export function useCommunityEnrichment(routeIds: string[], routes?: Route[]) {
     // arrivals listener below — without this, a published route arrival
     // never re-surfaces after the optimistic local entry is gone (e.g. on
     // remount), the same bug the park listener was added to fix.
-    const arrQ = query(
+    //
+    // write-layer-4 audit (11.10.2026): was ONE query (routeId in capped +
+    // expiresAt >=) with zero userId/groupId/privacyMode filter — any
+    // direct Firestore call bypassing this hook saw every publisher's
+    // name/photo/plan for these routes regardless of privacyMode. Split
+    // into up to 3 parallel queries, each provable under the paired
+    // firestore rule (held separately, deployed only after this ships and
+    // propagates): public (privacyMode == 'verified_global'), own
+    // (userId == me, any privacyMode), squad (privacyMode == 'squad' AND
+    // groupId in my own groups). The squad slice can't also filter by
+    // routeId — Firestore allows only one `in`-type clause per query, and
+    // groupId already uses it — so it's filtered to `capped` inside
+    // rebuildArrivals below instead; squad-mode docs are rare and scoped
+    // to the caller's own groups regardless, so this never over-fetches
+    // across users, only across this caller's own routes.
+    const arrivalRaw = new Map<string, any>();
+    const rebuildArrivals = () => {
+      const all = new Map<string, SessionEnrichment[]>();
+
+      arrivalRaw.forEach((data, docId) => {
+        if (data.status === 'cancelled') return;
+        const routeId = data.routeId as string | undefined;
+        if (!routeId || !capped.includes(routeId)) return;
+        const start = safeDate(data.startTime);
+        if (!start) return;
+
+        const displayName = data.displayName ?? 'משתמש';
+        const list = all.get(routeId) ?? [];
+        list.push({
+          eventId: `arrival_${docId}`,
+          eventLabel: displayName,
+          nextStartTime: start.toISOString(),
+          currentRegistrations: 1,
+          plannedCount: 1,
+          avatars: [{
+            uid: data.userId ?? '',
+            name: displayName,
+            photoURL: data.photoURL ?? undefined,
+          }],
+          isPersonalArrival: true,
+          privacyMode: data.privacyMode as PrivacyMode | undefined,
+        });
+        all.set(routeId, list);
+      });
+
+      console.log('[useCommunityEnrichment] Arrivals resolved:', all.size, 'routes with personal arrivals');
+      setArrivalAllMap(all);
+    };
+
+    const subscribeArrivals = (q: ReturnType<typeof query>, label: string) => onSnapshot(
+      q,
+      (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'removed') arrivalRaw.delete(change.doc.id);
+          else arrivalRaw.set(change.doc.id, change.doc.data());
+        });
+        rebuildArrivals();
+      },
+      (err) => console.warn(`[useCommunityEnrichment] ${label} arrivals error:`, err),
+    );
+
+    const arrivalUnsubs: Unsubscribe[] = [];
+    const currentUid = auth.currentUser?.uid;
+
+    arrivalUnsubs.push(subscribeArrivals(query(
       collection(db, 'planned_sessions'),
       where('routeId', 'in', capped),
+      where('privacyMode', '==', 'verified_global'),
       where('expiresAt', '>=', Timestamp.now()),
-    );
+    ), 'public'));
 
-    const unsubArr = onSnapshot(
-      arrQ,
-      (snapshot) => {
-        const all = new Map<string, SessionEnrichment[]>();
+    if (currentUid) {
+      arrivalUnsubs.push(subscribeArrivals(query(
+        collection(db, 'planned_sessions'),
+        where('routeId', 'in', capped),
+        where('userId', '==', currentUid),
+        where('expiresAt', '>=', Timestamp.now()),
+      ), 'own'));
+    }
 
-        for (const docSnap of snapshot.docs) {
-          const data = docSnap.data();
-          if (data.status === 'cancelled') continue;
-          const routeId = data.routeId as string | undefined;
-          if (!routeId) continue;
-          const start = safeDate(data.startTime);
-          if (!start) continue;
+    chunk(myGroupIds, 30).forEach((batch) => {
+      arrivalUnsubs.push(subscribeArrivals(query(
+        collection(db, 'planned_sessions'),
+        where('privacyMode', '==', 'squad'),
+        where('groupId', 'in', batch),
+        where('expiresAt', '>=', Timestamp.now()),
+      ), 'squad'));
+    });
 
-          const displayName = data.displayName ?? 'משתמש';
-          const list = all.get(routeId) ?? [];
-          list.push({
-            eventId: `arrival_${docSnap.id}`,
-            eventLabel: displayName,
-            nextStartTime: start.toISOString(),
-            currentRegistrations: 1,
-            plannedCount: 1,
-            avatars: [{
-              uid: data.userId ?? '',
-              name: displayName,
-              photoURL: data.photoURL ?? undefined,
-            }],
-            isPersonalArrival: true,
-            privacyMode: data.privacyMode as PrivacyMode | undefined,
-          });
-          all.set(routeId, list);
-        }
-
-        console.log('[useCommunityEnrichment] Arrivals resolved:', all.size, 'routes with personal arrivals');
-        setArrivalAllMap(all);
-      },
-      (err) => console.warn('[useCommunityEnrichment] arrivals error:', err),
-    );
+    const unsubArr = () => arrivalUnsubs.forEach((u) => u());
 
     // ── Real events subscription ──
     const evQ = query(
@@ -553,7 +609,7 @@ export function useCommunityEnrichment(routeIds: string[], routes?: Route[]) {
       unsubGroupsRef.current = null;
       unsubArrivalsRef.current = null;
     };
-  }, [routeIds, routeStartMap]);
+  }, [routeIds, routeStartMap, myGroupIdsKey]);
 
   // Merged closest-session map: real events take priority over group-virtual
   const enrichmentMap = useMemo(() => {
@@ -645,7 +701,7 @@ export function useCommunityEnrichment(routeIds: string[], routes?: Route[]) {
 //  useParkEvents — parks
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function useParkEvents(parkId: string | null | undefined) {
+export function useParkEvents(parkId: string | null | undefined, myGroupIds: string[] = []) {
   const [eventSessions, setEventSessions] = useState<SessionEnrichment[]>([]);
   const [groupSessions, setGroupSessions] = useState<SessionEnrichment[]>([]);
   const [arrivalSessions, setArrivalSessions] = useState<SessionEnrichment[]>([]);
@@ -653,6 +709,7 @@ export function useParkEvents(parkId: string | null | undefined) {
   const unsubEvRef = useRef<Unsubscribe | null>(null);
   const unsubGrpRef = useRef<Unsubscribe | null>(null);
   const unsubArrRef = useRef<Unsubscribe | null>(null);
+  const myGroupIdsKey = myGroupIds.join(',');
 
   useEffect(() => {
     if (unsubEvRef.current) { unsubEvRef.current(); unsubEvRef.current = null; }
@@ -777,44 +834,85 @@ export function useParkEvents(parkId: string | null | undefined) {
     // listener the published doc never re-surfaces in the same UI list,
     // which is exactly the bug that left users staring at "אף אחד עוד לא
     // פרסם..." after publishing their own arrival.
-    const arrQ = query(
+    // write-layer-4 audit (11.10.2026): was ONE query (parkId == X +
+    // expiresAt >=) with zero userId/groupId/privacyMode filter — same
+    // shape as useCommunityEnrichment's route listener above, same fix:
+    // split into public/own/squad, each provable under the paired
+    // firestore rule (held separately — see that PR). The squad slice
+    // can't also filter by parkId (one `in`-type clause per query, groupId
+    // already uses it), so it's filtered to this parkId inside
+    // rebuildParkArrivals below instead.
+    const parkArrivalRaw = new Map<string, any>();
+    const rebuildParkArrivals = () => {
+      const results: SessionEnrichment[] = [];
+      parkArrivalRaw.forEach((data, docId) => {
+        if (data.status === 'cancelled') return;
+        if (data.parkId !== parkId) return;
+        const start = safeDate(data.startTime);
+        if (!start) return;
+
+        const displayName = data.displayName ?? 'משתמש';
+        results.push({
+          eventId: `arrival_${docId}`,
+          eventLabel: displayName,
+          nextStartTime: start.toISOString(),
+          currentRegistrations: 1,
+          plannedCount: 1,
+          avatars: [{
+            uid: data.userId ?? '',
+            name: displayName,
+            photoURL: data.photoURL ?? undefined,
+          }],
+          isPersonalArrival: true,
+          privacyMode: data.privacyMode as PrivacyMode | undefined,
+        });
+      });
+      results.sort((a, b) => a.nextStartTime.localeCompare(b.nextStartTime));
+      console.log('[useParkEvents] Arrivals resolved:', results.length, 'personal arrivals for park', parkId);
+      setArrivalSessions(results);
+    };
+
+    const subscribeParkArrivals = (q: ReturnType<typeof query>, label: string) => onSnapshot(
+      q,
+      (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'removed') parkArrivalRaw.delete(change.doc.id);
+          else parkArrivalRaw.set(change.doc.id, change.doc.data());
+        });
+        rebuildParkArrivals();
+      },
+      (err) => console.warn(`[useParkEvents] ${label} arrivals error:`, err),
+    );
+
+    const parkArrivalUnsubs: Unsubscribe[] = [];
+    const currentParkUid = auth.currentUser?.uid;
+
+    parkArrivalUnsubs.push(subscribeParkArrivals(query(
       collection(db, 'planned_sessions'),
       where('parkId', '==', parkId),
+      where('privacyMode', '==', 'verified_global'),
       where('expiresAt', '>=', Timestamp.now()),
-    );
+    ), 'public'));
 
-    const unsubArr = onSnapshot(
-      arrQ,
-      (snapshot) => {
-        const results: SessionEnrichment[] = [];
-        for (const docSnap of snapshot.docs) {
-          const data = docSnap.data();
-          if (data.status === 'cancelled') continue;
-          const start = safeDate(data.startTime);
-          if (!start) continue;
+    if (currentParkUid) {
+      parkArrivalUnsubs.push(subscribeParkArrivals(query(
+        collection(db, 'planned_sessions'),
+        where('parkId', '==', parkId),
+        where('userId', '==', currentParkUid),
+        where('expiresAt', '>=', Timestamp.now()),
+      ), 'own'));
+    }
 
-          const displayName = data.displayName ?? 'משתמש';
-          results.push({
-            eventId: `arrival_${docSnap.id}`,
-            eventLabel: displayName,
-            nextStartTime: start.toISOString(),
-            currentRegistrations: 1,
-            plannedCount: 1,
-            avatars: [{
-              uid: data.userId ?? '',
-              name: displayName,
-              photoURL: data.photoURL ?? undefined,
-            }],
-            isPersonalArrival: true,
-            privacyMode: data.privacyMode as PrivacyMode | undefined,
-          });
-        }
-        results.sort((a, b) => a.nextStartTime.localeCompare(b.nextStartTime));
-        console.log('[useParkEvents] Arrivals resolved:', results.length, 'personal arrivals for park', parkId);
-        setArrivalSessions(results);
-      },
-      (err) => console.warn('[useParkEvents] arrivals error:', err),
-    );
+    chunk(myGroupIds, 30).forEach((batch) => {
+      parkArrivalUnsubs.push(subscribeParkArrivals(query(
+        collection(db, 'planned_sessions'),
+        where('privacyMode', '==', 'squad'),
+        where('groupId', 'in', batch),
+        where('expiresAt', '>=', Timestamp.now()),
+      ), 'squad'));
+    });
+
+    const unsubArr = () => parkArrivalUnsubs.forEach((u) => u());
 
     unsubEvRef.current = unsubEv;
     unsubGrpRef.current = unsubGrp;
@@ -830,7 +928,7 @@ export function useParkEvents(parkId: string | null | undefined) {
       unsubGrpRef.current = null;
       unsubArrRef.current = null;
     };
-  }, [parkId]);
+  }, [parkId, myGroupIdsKey]);
 
   const events = useMemo(() => {
     // Group/event dedup uses date+hour keys; personal arrivals are

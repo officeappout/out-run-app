@@ -386,8 +386,12 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
     logParkDetailTripwireIfIncomplete(park, 'point-fetch not yet resolved or failed');
   }, [isOpen, park, fetchedPark]);
 
+  // write-layer-4 audit — needed so useParkEvents' squad-mode arrivals
+  // slice can scope to groups this viewer is actually in.
+  const myGroupIds = profile?.social?.groupIds ?? [];
   const { events: parkEvents, loading: eventsLoading } = useParkEvents(
     isOpen ? park?.id : null,
+    myGroupIds,
   );
 
   // Merge live snapshot results with optimistic local arrivals; drop

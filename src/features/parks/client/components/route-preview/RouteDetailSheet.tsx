@@ -245,7 +245,10 @@ export default function RouteDetailSheet({
 
   const routeIds = useMemo(() => (route ? [route.id] : []), [route?.id]);
   const routeArr = useMemo(() => (route ? [route] : []), [route]);
-  const { enrichRoutes, allSessionsMap } = useCommunityEnrichment(routeIds, routeArr);
+  // write-layer-4 audit — needed so useCommunityEnrichment's squad-mode
+  // arrivals slice can scope to groups this viewer is actually in.
+  const myGroupIds = useUserStore((s) => s.profile?.social?.groupIds ?? []);
+  const { enrichRoutes, allSessionsMap } = useCommunityEnrichment(routeIds, routeArr, myGroupIds);
 
   const enrichedRoute = useMemo(() => {
     if (!route) return null;
