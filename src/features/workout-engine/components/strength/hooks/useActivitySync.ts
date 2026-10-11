@@ -6,8 +6,9 @@ import { useProgressionStore } from '@/features/user/progression/store/useProgre
 import { useWeeklyVolumeStore } from '@/features/workout-engine/core/store/useWeeklyVolumeStore';
 import { syncWorkoutCompletion, type StrengthCompletionSnapshot } from '@/features/workout-engine/services/completion-sync.service';
 import { trackMuscleUsage } from '@/features/workout-engine/services/split-decision';
+import { deriveSessionFocus } from '@/features/workout-engine/services/split-decision/session-focus.utils';
 import { getExercise } from '@/features/content/exercises/core/exercise.service';
-import type { MuscleGroup } from '@/features/content/exercises/core/exercise.types';
+import type { Exercise, MuscleGroup } from '@/features/content/exercises/core/exercise.types';
 import { resolveActiveProgramBudget } from '@/features/workout-engine/services/lead-program.service';
 import { getCachedPrograms } from '@/features/workout-engine/services/program-hierarchy.utils';
 import {
@@ -57,14 +58,6 @@ import type { CompletedExercise, Difficulty } from '../utils/summary.utils';
  * While the flag is off (default) this resolution never runs — zero extra
  * Firestore reads, byte-identical to today.
  */
-
-const LEG_MUSCLES: ReadonlySet<MuscleGroup> = new Set<MuscleGroup>([
-  'quads',
-  'hamstrings',
-  'glutes',
-  'calves',
-  'hip_flexors',
-]);
 
 export interface UseActivitySyncParams {
   /** Source program training type (cardio / strength) — picks the activity ring. */
@@ -264,19 +257,8 @@ export async function runActivitySync(params: UseActivitySyncParams): Promise<vo
 
       if (muscles.size > 0) {
         const today = new Date().toISOString().split('T')[0];
-        const pid = programId?.toLowerCase() ?? '';
         const muscleList = Array.from(muscles);
-        const legMuscleCount = muscleList.filter((m) => LEG_MUSCLES.has(m)).length;
-        const isLegsDominant = legMuscleCount >= muscles.size / 2;
-
-        const sessionFocus: string | undefined =
-          pid.includes('legs') || pid.includes('lower_body') || isLegsDominant
-            ? 'legs'
-            : pid.includes('push')
-              ? 'push'
-              : pid.includes('pull')
-                ? 'pull'
-                : undefined;
+        const sessionFocus = deriveSessionFocus(programId, exercises.filter((ex): ex is Exercise => !!ex), muscleList);
 
         await trackMuscleUsage({
           userId: uid,

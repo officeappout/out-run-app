@@ -148,12 +148,29 @@ export function resolvePrioritySkillIds(
     // The calendar-static Dominance Day path (below) produces "day 2 always
     // repeats skillFocusIds[1]" when scheduleDays.length === 3 and skillCount
     // === 2.  The Pendulum replaces that with an adaptive lastSessionFocus-
-    // driven alternation so every third-day session is a hybrid blend:
+    // driven alternation:
     //
     //   lastSessionFocus undefined → hybrid_blend (50/50, bootstrap session)
     //   lastSessionFocus 'push'    → pull_focus   (pull-vector skill P1 65%)
     //   lastSessionFocus 'pull'    → push_focus   (push-vector skill P1 65%)
-    //   lastSessionFocus 'hybrid'  → push_focus   (restart the cycle)
+    //
+    // Fix (11.10.2026, domain-balance audit): lastSessionFocus is written by
+    // ONE place only — useActivitySync.ts's trackMusclesForShield, which used
+    // to derive it from a push/pull/legs substring match on `programId`.  A
+    // calisthenics_upper session's programId is always the generic master id
+    // 'calisthenics_upper' (never the day's dominant skill), so that writer
+    // never matched and lastSessionFocus stayed undefined forever — the
+    // branch below was permanently trapped in hybrid_blend and never
+    // actually alternated for any real calisthenics_upper user. Also fixed
+    // there: a movement-group-majority fallback (push_mg vs pull_mg across
+    // the session's real exercises) now classifies skill-track sessions too,
+    // so this alternation finally fires in production. Separately confirmed
+    // (grep across every lastSessionFocus writer): the literal value
+    // 'hybrid' below is never actually written by any real caller today —
+    // the `lastSessionFocus === 'hybrid'` branch is unreachable in practice,
+    // kept only as an explicit, documented safe default (treat an unknown
+    // "this was a blend" signal the same as bootstrap) in case a future
+    // writer ever sets it, not because anything currently depends on it.
     if (scheduleDays.length === 3 && skillCount === 2) {
       // Classify each skill ID by biomechanical domain (push-vector vs pull-vector).
       const PUSH_PATTERNS = ['planche', 'handstand', 'hspu'];
@@ -194,7 +211,15 @@ export function resolvePrioritySkillIds(
 
     // Dominance Day: scheduleDays >= skillCount — each skill gets its own day (65% / 35% maintenance)
     if (scheduleDays.length >= skillCount) {
-      const dominantSkill = skillFocusIds[Math.min(dayIndex, skillCount - 1)];
+      // Fix (11.10.2026, domain-balance audit): Math.min(dayIndex, skillCount - 1)
+      // clamps instead of rotating — once dayIndex reaches skillCount - 1 it
+      // stays there for every later training day that week, so the LAST skill
+      // in skillFocusIds got dominant status on every day past its first
+      // appearance (e.g. skillCount=2, scheduleDays=4: skill0 dominant 1/4
+      // days, skill1 dominant 3/4 days) instead of the "each skill gets its
+      // own day" rotation the comment above already promises. Modulo cycles
+      // fairly across the week instead of clamping to the last skill.
+      const dominantSkill = skillFocusIds[dayIndex % skillCount];
       const maintenanceSkills = skillFocusIds.filter((s) => s !== dominantSkill);
       return {
         priority1SkillIds: [dominantSkill],
