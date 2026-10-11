@@ -175,6 +175,22 @@ async function testNoProfileDoc() {
       authorUid: 'no_profile_user', audience: 'public', createdAt: new Date(),
     }));
   });
+
+  await it('[FAIL-CLOSED] a caller with NO users/{uid} doc at all tries to CLAIM a group affiliation on the post → DENIED (getUserDocSafe()\'s {} default has no groupIds, so hasAll() against any real claimed id is false — never silently treated as "unscoped, anything goes")', async () => {
+    const ctx = env.authenticatedContext('no_profile_user_claims_group');
+    await assertFails(setDoc(doc(ctx.firestore(), 'feed_posts', 'post_no_profile_claims_group'), {
+      authorUid: 'no_profile_user_claims_group', audience: 'public', createdAt: new Date(),
+      groupIds: ['someGroup'],
+    }));
+  });
+
+  await it('[FAIL-CLOSED] a caller with NO users/{uid} doc at all tries to CLAIM a neighborhoodId on the post → DENIED', async () => {
+    const ctx = env.authenticatedContext('no_profile_user_claims_neigh');
+    await assertFails(setDoc(doc(ctx.firestore(), 'feed_posts', 'post_no_profile_claims_neigh'), {
+      authorUid: 'no_profile_user_claims_neigh', audience: 'public', createdAt: new Date(),
+      neighborhoodId: 'someNeighborhood',
+    }));
+  });
 }
 
 async function testUnaffectedFields() {
