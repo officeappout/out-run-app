@@ -244,37 +244,61 @@ export class PipelineOrchestrator {
         // reject every foundation-tagged exercise outright because of this
         // one-directional gap — see PoolFactory.ts's filterForDomain header
         // for the full bug writeup.
-        const activeDomains = [domain];
+        //
+        // 2026-10-11 fix: the widening above only ever covered `domain`
+        // (the single primary block's domain) and its OWN parent/children —
+        // never a second, co-equal, UNRELATED domain. StructureDirector's
+        // own _detectStrategy comment admits this directly: "2-domain combo
+        // that isn't push+pull (e.g. legs+core) — treat as single-focus" —
+        // so blueprint.strategy comes back 'single_domain' for push+legs,
+        // pull+legs, or any 2-skill pair that isn't literally push+pull,
+        // and this gate then only ever widened around ONE of the two
+        // requested domains. The second domain's exercises were rejected
+        // outright (e.g. every legs exercise stripped from a push+legs
+        // request), even though context.requiredDomains correctly carried
+        // both all along. Fix: apply the SAME per-domain widening to EVERY
+        // domain in context.requiredDomains, not just the primary block's
+        // domain — this is additive only (requiredDomains defaults to
+        // [domain] when the caller only ever requested one, so the N=1 case
+        // is byte-identical to before).
+        const baseDomains = context.requiredDomains?.length ? context.requiredDomains : [domain];
+        const activeDomainSet = new Set<string>(baseDomains);
 
-        // Skill→foundation: domain itself is a skill key in the canonical
-        // map — admit its resolved parent too, evaluated at the PARENT's own
-        // level (resolveExerciseDomain + resolveUserLevelForProgram inside
-        // filterForDomain do this correctly per-exercise, not a blanket
-        // level substitution here).
-        const parentDomain = DOMAIN_RESOLUTION_SKILL_PARENT_MAP[domain];
-        if (parentDomain) activeDomains.push(parentDomain);
-
-        // Foundation→skill: domain is itself someone's parent — admit the
-        // user's OWN prioritized skill children (replaces the old
-        // PUSH_SKILL_SLUGS/PULL_SKILL_SLUGS hardcoded lists, sourced from the
-        // same canonical map everywhere else in the engine uses — this also
-        // fixes an independent drift bug: the old PULL_SKILL_SLUGS list was
-        // missing 'one_arm_pullup', which the canonical map has always had).
         const focusIds = [
           ...(context.priority1SkillIds ?? []),
           ...(context.priority2SkillIds ?? []),
         ];
-        const skillChildrenOfDomain = Object.entries(DOMAIN_RESOLUTION_SKILL_PARENT_MAP)
-          .filter(([, parent]) => parent === domain)
-          .map(([skill]) => skill);
-        const matchedSkillChildren = focusIds.filter(id => skillChildrenOfDomain.includes(id));
-        if (matchedSkillChildren.length > 0) {
-          activeDomains.push(...matchedSkillChildren);
-          console.log(
-            `[PipelineOrchestrator] 🔓 Multi-skill: domain=${domain} ` +
-            `additionalSlugs=[${matchedSkillChildren.join(', ')}]`,
-          );
+
+        for (const baseDomain of baseDomains) {
+          // Skill→foundation: baseDomain itself is a skill key in the canonical
+          // map — admit its resolved parent too, evaluated at the PARENT's own
+          // level (resolveExerciseDomain + resolveUserLevelForProgram inside
+          // filterForDomain do this correctly per-exercise, not a blanket
+          // level substitution here).
+          const parentDomain = DOMAIN_RESOLUTION_SKILL_PARENT_MAP[baseDomain];
+          if (parentDomain) activeDomainSet.add(parentDomain);
+
+          // Foundation→skill: baseDomain is itself someone's parent — admit
+          // the user's OWN prioritized skill children (replaces the old
+          // PUSH_SKILL_SLUGS/PULL_SKILL_SLUGS hardcoded lists, sourced from
+          // the same canonical map everywhere else in the engine uses — this
+          // also fixes an independent drift bug: the old PULL_SKILL_SLUGS
+          // list was missing 'one_arm_pullup', which the canonical map has
+          // always had).
+          const skillChildrenOfDomain = Object.entries(DOMAIN_RESOLUTION_SKILL_PARENT_MAP)
+            .filter(([, parent]) => parent === baseDomain)
+            .map(([skill]) => skill);
+          const matchedSkillChildren = focusIds.filter(id => skillChildrenOfDomain.includes(id));
+          for (const skill of matchedSkillChildren) activeDomainSet.add(skill);
+          if (matchedSkillChildren.length > 0) {
+            console.log(
+              `[PipelineOrchestrator] 🔓 Multi-skill: domain=${baseDomain} ` +
+              `additionalSlugs=[${matchedSkillChildren.join(', ')}]`,
+            );
+          }
         }
+
+        const activeDomains = Array.from(activeDomainSet);
 
         const before = filteredPool.length;
         filteredPool = filterForDomain(

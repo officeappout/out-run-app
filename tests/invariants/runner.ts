@@ -45,6 +45,7 @@ const BANNED_WARMUP_GEAR_IDS = new Set(['I1K30JehaxSx8dlBOZyd', '7gLOFEfgSvInu7l
 const DUR_TOL = 3;
 const PUSH_MG = new Set(['horizontal_push', 'vertical_push']);
 const PULL_MG = new Set(['horizontal_pull', 'vertical_pull']);
+const LEGS_MG = new Set(['squat', 'hinge']);
 
 // ── Harness (firestore-rules.test.ts style — no Jest/Vitest) ────────────────
 interface Finding { cell: string; group: string; label: string; ok: boolean; detail: string; xfail?: boolean }
@@ -63,6 +64,7 @@ interface CellMeta {
   fullBody: boolean;
   expectPush: boolean;       // require push coverage only if the user HAS a push domain
   expectPull: boolean;       // require pull coverage only if user HAS pull domain AND it's achievable (bar/park)
+  expectLegs?: boolean;      // require legs coverage for a 2-domain (non-full-body) combo cell — see C1c
   substantial: boolean;      // enables B1 xfail (geared full-body cell that should honor time)
   restDay?: boolean;
   detraining?: boolean;
@@ -137,6 +139,27 @@ function checkWorkout(cell: CellMeta, w: GeneratedWorkout, bolt: number) {
     // with no pull movement (e.g. quick option drops pull). Tracked in builder-stability.
     const hasPull = main.some(e => PULL_MG.has(e.exercise?.movementGroup as string));
     assert(c, 'C', 'C1b full-body has pull (user trains pull)', hasPull, 'no pull movement', /* xfail */ true);
+  }
+  // C1c — 2-domain (non-full-body) combo cells, e.g. push+legs / pull+legs via
+  // scheduledProgramIds. NOT gated on cell.fullBody (these cells deliberately
+  // aren't). HARD invariant, not xfail: this is exactly the starvation bug
+  // fixed 2026-10-11 (PipelineOrchestrator's domain-strict filter widened to
+  // every domain in context.requiredDomains, not just the primary block's
+  // domain) — it should pass now, and loudly fail again if it ever regresses.
+  if (cell.expectLegs) {
+    const hasLegs = main.some(e => LEGS_MG.has(e.exercise?.movementGroup as string));
+    assert(c, 'C', 'C1c 2-domain combo has legs (user trains legs)', hasLegs, 'no legs movement');
+    // C1d/C1e — same combo cell's OTHER requested domain must also survive.
+    // Scoped independently from C1a/C1b (which require cell.fullBody) so
+    // this can't change behavior for any existing full-body cell.
+    if (cell.expectPush) {
+      const hasPush = main.some(e => PUSH_MG.has(e.exercise?.movementGroup as string));
+      assert(c, 'C', 'C1d 2-domain combo has push (user trains push)', hasPush, 'no push movement');
+    }
+    if (cell.expectPull) {
+      const hasPull = main.some(e => PULL_MG.has(e.exercise?.movementGroup as string));
+      assert(c, 'C', 'C1e 2-domain combo has pull (user trains pull)', hasPull, 'no pull movement');
+    }
   }
 
   // ── D · Equipment ─────────────────────────────────────────────────────────
@@ -234,6 +257,20 @@ pushCell('edge/detraining-5d', { difficulty: 3, daysInactiveOverride: 5 }, { sub
 pushCell('edge/office', { location: 'office', testLocation: 'office' }, { location: 'office', availGear: [], fullBody: false, expectPush: false, expectPull: false });
 pushCell('edge/field', { intentMode: 'field' }, { gearConstrained: false });
 pushCell('edge/rest-day', { isScheduledRestDay: true }, { gearConstrained: false, fullBody: false, expectPush: false, expectPull: false, restDay: true });
+
+// ── 2-domain combo cells (2026-10-11, domain-balance audit) ─────────────────
+// Reproduces the exact starvation bug fixed in PipelineOrchestrator.ts: a
+// 2-domain, non-push+pull combo (StructureDirector._detectStrategy falls
+// back to 'single_domain' for anything that isn't literally push+pull) used
+// to strip the second domain's exercises entirely. 'mid' profile tracks
+// push=12/pull=19/legs=8 — all real, so expectPush/expectPull/expectLegs
+// below reflect what THIS cell actually requests, not the profile's full
+// domain set (pushCell's default expectPush/expectPull would both be true
+// here regardless of scheduledProgramIds — explicitly overridden).
+pushCell('edge/push-legs-combo', { scheduledProgramIds: ['push', 'legs'] },
+  { fullBody: false, expectPush: true, expectPull: false, expectLegs: true });
+pushCell('edge/pull-legs-combo', { scheduledProgramIds: ['pull', 'legs'] },
+  { fullBody: false, expectPush: false, expectPull: true, expectLegs: true });
 
 // ── Run (parallel) ──────────────────────────────────────────────────────────
 async function main() {
