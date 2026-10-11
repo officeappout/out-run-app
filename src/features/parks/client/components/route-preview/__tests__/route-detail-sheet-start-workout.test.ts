@@ -25,13 +25,32 @@ const parkDetailSheetPath = path.resolve(
 describe('RouteDetailSheet — "התחל אימון" closes the sheet before starting the workout', () => {
   it('calls onClose() before onStartWorkout in the start-workout handler', () => {
     const src = readFileSync(routeDetailSheetPath, 'utf8');
-    const match = src.match(/onClick=\{\(\)\s*=>\s*\{([^}]*)\}\}\s*\n\s*className="flex-1 text-white font-extrabold/);
+    // Not `[^}]*` — the handler body now contains a nested `if (...) { ... }`
+    // block (the start-experience too-far guard, 11.10.2026), so the capture
+    // must tolerate inner braces. Anchored on `aria-disabled={isTooFarToStart}`
+    // immediately following this button's own onClick close, which is unique
+    // to this handler.
+    const match = src.match(/onClick=\{\(\)\s*=>\s*\{([\s\S]*?)\n\s*\}\}\s*\n\s*aria-disabled=\{isTooFarToStart\}/);
     expect(match, 'start-workout button onClick handler not found — RouteDetailSheet structure changed').toBeTruthy();
     const handlerBody = match![1];
     expect(handlerBody).toContain('onClose()');
     expect(handlerBody).toContain('onStartWorkout?.(route)');
     // onClose() must run BEFORE onStartWorkout — order, not just presence.
     expect(handlerBody.indexOf('onClose()')).toBeLessThan(handlerBody.indexOf('onStartWorkout?.(route)'));
+  });
+
+  it('the too-far guard returns BEFORE onClose/onStartWorkout — a blocked tap never closes the sheet or starts the workout', () => {
+    const src = readFileSync(routeDetailSheetPath, 'utf8');
+    const match = src.match(/onClick=\{\(\)\s*=>\s*\{([\s\S]*?)\n\s*\}\}\s*\n\s*aria-disabled=\{isTooFarToStart\}/);
+    expect(match, 'start-workout button onClick handler not found').toBeTruthy();
+    const handlerBody = match![1];
+    expect(handlerBody).toContain('if (isTooFarToStart) {');
+    expect(handlerBody).toContain('return;');
+    const guardIdx = handlerBody.indexOf('if (isTooFarToStart) {');
+    const returnIdx = handlerBody.indexOf('return;');
+    const onCloseIdx = handlerBody.indexOf('onClose()');
+    expect(guardIdx).toBeLessThan(returnIdx);
+    expect(returnIdx).toBeLessThan(onCloseIdx);
   });
 
   it('matches the same onClose-then-onStartWorkout pattern already used by ParkDetailSheet', () => {

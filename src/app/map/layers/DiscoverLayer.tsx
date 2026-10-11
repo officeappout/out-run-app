@@ -1658,6 +1658,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                   logic.setSelectedRoute(r);
                   logic.setFocusedRoute(r);
                 }}
+                userPosition={userLocation}
               />
             )}
 

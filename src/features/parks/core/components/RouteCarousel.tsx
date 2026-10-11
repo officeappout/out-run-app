@@ -108,6 +108,9 @@ import { ROUTE_CARD_WIDTH } from '../constants/routeCardSize';
 import RouteCardUnified from './RouteCardUnified';
 import RouteQualityBadges from './RouteQualityBadges';
 import { UNIFIED_ROUTE_CARDS_ENABLED } from '@/config/feature-flags';
+import { haversineKm } from '../services/geoUtils';
+import { computeStartExperienceState, estimateWalkMinutesFromKm } from '../services/start-experience-state';
+import { useToast } from '@/components/ui/Toast';
 
 const ACCENT = '#00ADEF';
 const BRAND_CYAN = '#00E5FF';
@@ -463,6 +466,7 @@ export default function RouteCarousel({
             onActivityChange={onActivityChange}
             destinationLabel={destinationLabel}
             focusedRouteId={focusedRouteId ?? null}
+            userPosition={userPosition}
             onSelect={onSelect}
             onBack={onBack}
             onFocusChange={onFocusChange}
@@ -745,6 +749,7 @@ function CardsState({
   onActivityChange,
   destinationLabel,
   focusedRouteId,
+  userPosition,
   onSelect,
   onBack,
   onFocusChange,
@@ -755,6 +760,7 @@ function CardsState({
   onActivityChange?: (activity: ActivityType) => void;
   destinationLabel?: string;
   focusedRouteId: string | null;
+  userPosition: { lat: number; lng: number };
   onSelect: (route: Route) => void;
   onBack: () => void;
   onFocusChange?: (route: Route) => void;
@@ -1006,6 +1012,7 @@ function CardsState({
               route={route}
               activity={activity}
               isActive={isActive}
+              userPosition={userPosition}
               onStart={() => onSelect(route)}
             />
           );
@@ -1043,11 +1050,13 @@ function RouteCard({
   route,
   activity,
   isActive,
+  userPosition,
   onStart,
 }: {
   route: Route;
   activity: ActivityType;
   isActive: boolean;
+  userPosition: { lat: number; lng: number };
   onStart: () => void;
 }) {
   const stars = scoreToStars(route.score);
@@ -1055,6 +1064,22 @@ function RouteCard({
   const displayName = route.name?.trim() || 'סיבוב מעגלי';
   const distanceText = `${route.distance.toFixed(1)} ק״מ`;
   const durationText = `~${route.duration} דק׳`;
+  // Start-experience state map (11.10.2026): FreeRun's generated routes
+  // are anchored AT userPosition by construction (loop mode returns to
+  // start, commute mode starts there), so this resolves to 'at_start' in
+  // practice today — wired anyway for consistency with the other two
+  // entry points (discover CTA, hybrid overview) and as a defensive
+  // guard if that construction ever changes. Fails open to 'on_route'
+  // when data's missing — never blocks a start that works today.
+  const cardWalkMinutes = estimateWalkMinutesFromKm(
+    haversineKm(userPosition.lat, userPosition.lng, route.path[0][1], route.path[0][0]),
+  );
+  const startState = computeStartExperienceState(userPosition, route.path, cardWalkMinutes);
+  const isTooFar = startState === 'off_route_too_far';
+  const blockedReason = isTooFar
+    ? `התקרבו למסלול — נותרו עוד כ-${cardWalkMinutes} דק' הליכה`
+    : null;
+  const { showToast } = useToast();
   const activityEmoji =
     activity === 'cycling' ? '🚴' : activity === 'running' ? '🏃' : '🚶';
   const variantMeta = route.variant ? VARIANT_CHIP_META[route.variant] : null;
@@ -1085,10 +1110,12 @@ function RouteCard({
         className="snap-center snap-always"
         extraContent={<RouteQualityBadges qualitySignals={route.qualitySignals} />}
         onCta={onStart}
+        ctaBlockedReason={blockedReason}
+        onCtaBlocked={(reason) => showToast('error', reason)}
         ctaContent={
           <>
             <Play size={14} fill="currentColor" />
-            התחל אימון
+            {isTooFar ? `עוד כ-${cardWalkMinutes} דק' הליכה` : 'התחל אימון'}
             <ChevronLeft size={14} strokeWidth={3} />
           </>
         }
