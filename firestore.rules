@@ -1906,14 +1906,17 @@ service cloud.firestore {
         //       waitlistProfiles restricted to the caller's own map key.
         //   (c) non-member — denied by omission, no branch matches.
         //
-        // KNOWN, NOT YET RESOLVED: cancelBooking's waitlist
-        // auto-promotion (booking.service.ts ~261-267) has a canceling
-        // member's OWN write move a DIFFERENT uid (the next person in
-        // line) from waitlist into attendees in the same update. That
-        // write touches a uid that is not request.auth.uid, so no
-        // branch below admits it — this contract does not yet have a
-        // branch for it. See the paired test file for the proof and the
-        // options being presented for a decision before this ships.
+        // RESOLVED (David's decision, 11.10.2026): cancelBooking's waitlist
+        // auto-promotion used to have a canceling member's OWN write move a
+        // DIFFERENT uid (the next person in line) from waitlist into
+        // attendees in the same update — that write touches a uid that is
+        // not request.auth.uid, so no branch below could ever admit it
+        // (proven by a dedicated red test). Moved server-side instead
+        // (Admin SDK, same "cross-ownership write → server route" shape as
+        // /api/join/*): POST /api/social/promote-waitlist
+        // (src/app/api/social/promote-waitlist/route.ts) now does that
+        // promotion; cancelBooking (booking.service.ts) only ever touches
+        // its own uid via the client SDK, matching this contract exactly.
         allow create, update, delete: if isGroupAdmin(docId) || isAdmin();
 
         // (b) First RSVP — creates the doc. Caller must be the sole

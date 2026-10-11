@@ -19,15 +19,15 @@
  * a non-member write (denied); a member overwriting someone ELSE's uid
  * (denied).
  *
- * ALSO INCLUDED — a known, NOT YET RESOLVED tension found while
- * verifying this against the real booking.service.ts code:
- * cancelBooking's waitlist auto-promotion (~lines 261-267) has the
- * CANCELING member's own write move a DIFFERENT uid (the next person in
- * the waitlist queue) from waitlist into attendees, in the same update.
- * No branch in this contract admits a write that touches a uid other
- * than the caller's own — this is deliberately left as a RED test
- * (see "KNOWN TENSION" below), not silently patched around, pending a
- * decision on how to handle it (see the written report for options).
+ * ALSO INCLUDED — a regression guard for a tension found while verifying
+ * this against the real booking.service.ts code, RESOLVED 11.10.2026:
+ * cancelBooking's waitlist auto-promotion used to have the CANCELING
+ * member's own write move a DIFFERENT uid (the next person in the
+ * waitlist queue) from waitlist into attendees, in the same update. No
+ * branch in this contract admits a write that touches a uid other than
+ * the caller's own (by design) — so that promotion moved server-side
+ * (POST /api/social/promote-waitlist, Admin SDK). The case below proves
+ * the OLD client-side shape stays denied, as a regression guard.
  *
  * Run: isolated emulator on 127.0.0.1:8089 (NOT the shared 8080 instance
  * another concurrent session may be using) — start with:
@@ -194,9 +194,9 @@ async function testMemberSelfToggleOnly() {
 }
 
 async function testKnownTensionWaitlistPromotion() {
-  console.log('\nKNOWN TENSION — cancelBooking\'s real waitlist auto-promotion write');
+  console.log('\nRegression guard — client SDK can no longer cross-promote the waitlist (moved server-side, 11.10.2026)');
 
-  await it('[KNOWN TENSION — RED by design, not a bug in the test] a canceling member\'s own write also promotes a DIFFERENT uid from waitlist to attendees, in one update (booking.service.ts\'s real shape) → now DENIED under this contract; see the written report for the 3 options on how to handle this before shipping', async () => {
+  await it('[REGRESSION GUARD, RED by design] a canceling member\'s own CLIENT-SDK write also promoting a DIFFERENT uid from waitlist to attendees, in one update (the OLD booking.service.ts shape, before the fix) → still DENIED under this contract. Real promotion now happens via POST /api/social/promote-waitlist (Admin SDK, bypasses rules by design) — this test exists to catch a regression if anyone ever re-adds a client-side cross-uid write here.', async () => {
     await seedFreshSession('sessionPromo1', ['memberA'], 1, { waitlist: ['memberB'], waitlistProfiles: { memberB: { name: 'B' } } });
     const ctx = env.authenticatedContext('memberA');
     // The exact real-code shape: remove self from attendees AND promote
