@@ -107,6 +107,72 @@ describe('computePromoteWaitlist — write shape (real Firestore)', () => {
     expect(snap.data()!.attendeeProfiles.memberX).toEqual({ name: 'User', photoURL: null });
   });
 
+  it('at capacity (currentCount == maxParticipants) with a non-empty waitlist: NO promotion — no-op, waitlist unchanged (the capacity check this review added)', async () => {
+    await seedSession('2026-11-11_10-00', {
+      groupId: GROUP_ID, date: '2026-11-11', time: '10:00',
+      attendees: ['memberA', 'memberB'], currentCount: 2, maxParticipants: 2,
+      waitlist: ['memberC'], waitlistProfiles: { memberC: { name: 'C', photoURL: null } },
+    });
+
+    const result = await computePromoteWaitlist(db, { groupId: GROUP_ID, date: '2026-11-11', time: '10:00' });
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    expect(result.body.promoted).toBeNull();
+
+    const snap = await db.collection('community_groups').doc(GROUP_ID).collection('attendance').doc('2026-11-11_10-00').get();
+    expect(snap.data()!.attendees).toEqual(['memberA', 'memberB']);
+    expect(snap.data()!.waitlist).toEqual(['memberC']);
+    expect(snap.data()!.currentCount).toBe(2);
+  });
+
+  it('room available (currentCount < maxParticipants): promotes normally', async () => {
+    await seedSession('2026-11-11_11-00', {
+      groupId: GROUP_ID, date: '2026-11-11', time: '11:00',
+      attendees: ['memberA'], currentCount: 1, maxParticipants: 2,
+      waitlist: ['memberB'], waitlistProfiles: { memberB: { name: 'B', photoURL: null } },
+    });
+
+    const result = await computePromoteWaitlist(db, { groupId: GROUP_ID, date: '2026-11-11', time: '11:00' });
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    expect(result.body.promoted).toBe('memberB');
+  });
+
+  it('no maxParticipants set at all (uncapped session): always promotes regardless of currentCount', async () => {
+    await seedSession('2026-11-11_12-00', {
+      groupId: GROUP_ID, date: '2026-11-11', time: '12:00',
+      attendees: ['memberA', 'memberB', 'memberC'], currentCount: 3,
+      waitlist: ['memberD'], waitlistProfiles: { memberD: { name: 'D', photoURL: null } },
+    });
+
+    const result = await computePromoteWaitlist(db, { groupId: GROUP_ID, date: '2026-11-11', time: '12:00' });
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    expect(result.body.promoted).toBe('memberD');
+  });
+
+  it('FIFO, single call: a 3-person waitlist promotes EXACTLY the front entry, never the 2nd or 3rd', async () => {
+    await seedSession('2026-11-11_13-00', {
+      groupId: GROUP_ID, date: '2026-11-11', time: '13:00',
+      attendees: [], currentCount: 0, maxParticipants: 5,
+      waitlist: ['memberFirst', 'memberSecond', 'memberThird'],
+      waitlistProfiles: {
+        memberFirst: { name: 'First', photoURL: null },
+        memberSecond: { name: 'Second', photoURL: null },
+        memberThird: { name: 'Third', photoURL: null },
+      },
+    });
+
+    const result = await computePromoteWaitlist(db, { groupId: GROUP_ID, date: '2026-11-11', time: '13:00' });
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    expect(result.body.promoted).toBe('memberFirst');
+
+    const snap = await db.collection('community_groups').doc(GROUP_ID).collection('attendance').doc('2026-11-11_13-00').get();
+    expect(snap.data()!.waitlist).toEqual(['memberSecond', 'memberThird']);
+    expect(snap.data()!.attendees).toEqual(['memberFirst']);
+  });
+
   it('waitlist empty: no-op, returns promoted: null, document unchanged', async () => {
     await seedSession('2026-11-12_07-00', {
       groupId: GROUP_ID, date: '2026-11-12', time: '07:00',

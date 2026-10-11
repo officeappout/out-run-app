@@ -27,11 +27,19 @@ function attendanceDocId(date: string, time: string): string {
 }
 
 /**
- * Pops the front of the waitlist into attendees, if the waitlist is
- * non-empty. Mirrors cancelBooking's OLD second updateDoc exactly (same
- * field shapes, same `null`-to-clear convention) — only the write location
- * moved, not the semantics. Transactional so two concurrent calls for the
- * same session can never promote the same waitlisted uid twice.
+ * Pops the FRONT of the waitlist (FIFO — waitlist[0], never an arbitrary
+ * entry) into attendees, but ONLY when there is actually room: skips the
+ * promotion (no-op) when maxParticipants is set and currentCount is
+ * already at or above it. 11.10.2026 — added on review: the OLD client
+ * code this replaces (cancelBooking's second updateDoc) popped the front
+ * of the waitlist unconditionally whenever it was non-empty, with no
+ * capacity check at all; moving the write server-side was a deliberate
+ * moment to also close that pre-existing gap, not just relocate the old
+ * behavior verbatim. maxParticipants == null means uncapped — always
+ * promote in that case. Transactional so two concurrent calls for the
+ * same session can never promote the same waitlisted uid twice, and so
+ * the capacity check is read-and-written atomically (no race between
+ * "checked count" and "wrote count").
  *
  * db is injected (never calls getAdminDb() itself) so this can be exercised
  * directly against a real Firestore emulator in tests, same DI shape as
@@ -60,6 +68,12 @@ export async function computePromoteWaitlist(
     const data = snap.data() as SessionAttendance;
     const waitlist = data.waitlist ?? [];
     if (waitlist.length === 0) {
+      return { status: 200 as const, body: { promoted: null } };
+    }
+
+    const currentCount = data.currentCount ?? 0;
+    const hasRoom = data.maxParticipants == null || currentCount < data.maxParticipants;
+    if (!hasRoom) {
       return { status: 200 as const, body: { promoted: null } };
     }
 
