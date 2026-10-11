@@ -36,3 +36,27 @@ export function shouldRedirectToHybridFinish(
 ): boolean {
   return hybridMode && !calledFromHybridTeardown;
 }
+
+/**
+ * G7.1 follow-up (11.10.2026 — caught before merge): the solo-run save has
+ * an explicit minimum-activity guard (safeDuration < 60 && safeDistance <
+ * 0.1 → "test taps / accidental starts", skip save entirely) so trivial/
+ * empty sessions don't pollute history or activation/retention metrics.
+ * finishHybrid/saveHybridWorkout never had an equivalent — harmless before
+ * G7.1 (a trivial hybrid tap-test that hit the generic Stop button was
+ * discarded entirely by the very bug G7.1 fixed), but G7.1's redirect above
+ * now routes every generic Stop tap through this unconditional save path —
+ * without this guard, a trivial/empty hybrid session would now ALWAYS be
+ * saved, re-introducing the exact pollution the solo-run guard exists to
+ * prevent. Also checks totalStrengthSets (the solo guard doesn't need to) —
+ * a hybrid session's real activity can be strength-only (a completed
+ * station with almost no aerobic distance), and distance/duration alone
+ * would wrongly discard that.
+ */
+export function isNegligibleHybridSession(
+  totalDurationSec: number,
+  totalActualDistanceKm: number,
+  totalStrengthSets: number,
+): boolean {
+  return totalDurationSec < 60 && totalActualDistanceKm < 0.1 && totalStrengthSets === 0;
+}

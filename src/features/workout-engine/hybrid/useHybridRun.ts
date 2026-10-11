@@ -20,6 +20,7 @@ import type { HybridPhase, HybridRunState, HybridFinalizeResult } from './hybrid
 import { createHybridSessionController } from './hybrid-session-controller';
 import { strengthBlockToWorkoutPlan } from './strength-block-to-plan';
 import { HYBRID_SUMMARY_ENABLED } from '@/config/feature-flags';
+import { isNegligibleHybridSession } from './hybrid-finish-policy';
 import type { SegmentExerciseDetail } from '../core/services/storage.service';
 
 // Non-reactive handles (a controller closure can't live in reactive state).
@@ -263,6 +264,21 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
     controllerRef.finish(s.totalDistance || 0, s.totalDuration || 0, Date.now());
     const result = controllerRef.finalize();
 
+    // Minimum-activity guard (follow-up, 11.10.2026 — David caught this
+    // before merging G7.1) — see isNegligibleHybridSession's own doc comment
+    // in hybrid-finish-policy.ts for the full rationale.
+    const totalDurationSec = result.segments.reduce(
+      (acc, seg) => acc + (seg.actual?.durationSec ?? 0), 0,
+    );
+    const isNegligibleSession = isNegligibleHybridSession(
+      totalDurationSec,
+      result.summary.totalActualDistanceKm,
+      result.summary.totalStrengthSets,
+    );
+
+    if (isNegligibleSession) {
+      console.log('[useHybridRun] negligible session (< 60s, < 0.1km, 0 sets) — skipping save, same guard the solo-run path already applies');
+    } else {
     // Stage 3: stash the finalize result for HybridSummary BEFORE the awaits
     // below — endSession() inside finishWorkout (further down) raises the summary
     // via MapShell, so stash first to avoid a mount-before-stash race. Gated →
@@ -289,9 +305,7 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
         // streak, daily-goal checkmark, weekly volume and HealthKit write-back
         // all live behind syncWorkoutCompletion (which the suppressed runner
         // teardown below never reaches). This is the single sync point.
-        const totalDurationSec = result.segments.reduce(
-          (acc, s) => acc + (s.actual?.durationSec ?? 0), 0,
-        );
+        // totalDurationSec computed above (minimum-activity guard) — reused here.
         const aerobicSec = result.summary.totalActualAerobicSec;
         const strengthSec = Math.max(0, totalDurationSec - aerobicSec);
 
@@ -349,6 +363,7 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
       }
     } catch (e) {
       console.error('[useHybridRun] hybrid save failed', e);
+    }
     }
 
     // ── Tear down the runner (finishWorkout suppressed → no second doc) ───────
