@@ -52,11 +52,28 @@ const EXPIRY_MS = 2 * 60 * 60 * 1000; // 2 hours after session start
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function generateToken(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I ambiguity
+// 11.10.2026 (write-layer-3 adversarial audit) — was Math.random() over 6
+// chars (~1.07e9 combinations), while firestore.rules' own comment on this
+// collection claimed "tokens are cryptographic random — unguessable ID is
+// the primary security layer." Math.random() is NOT cryptographically
+// secure and 6 chars isn't "unguessable" by any real standard — the claim
+// was false. Now crypto.getRandomValues() (real CSPRNG) over 20 chars from
+// a 32-character alphabet (exactly 2^5 — `% 32` on a uniform 32-bit int has
+// zero modulo bias) — chars.length^20 ≈ 1.27e30 combinations. Same alphabet
+// (no 0/O/1/I ambiguity) and `si_` prefix as before — existing tokens stay
+// valid (get-by-string-match doesn't care about length), only newly
+// generated ones are longer.
+const TOKEN_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const TOKEN_RANDOM_LENGTH = 20;
+
+// Exported for its own unit test (token format/entropy) — every real caller
+// still goes through createSessionInvitation below, unchanged.
+export function generateToken(): string {
+  const randomValues = new Uint32Array(TOKEN_RANDOM_LENGTH);
+  crypto.getRandomValues(randomValues);
   let code = 'si_';
-  for (let i = 0; i < 6; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < TOKEN_RANDOM_LENGTH; i++) {
+    code += TOKEN_CHARS[randomValues[i] % TOKEN_CHARS.length];
   }
   return code;
 }

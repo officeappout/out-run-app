@@ -79,12 +79,14 @@ export async function POST(request: NextRequest) {
           err.code === 'target-not-found' || err.code === 'token-group-mismatch' ? 403 :
           err.code === 'target-expired' ? 403 :
           err.code === 'max-uses-reached' ? 403 :
+          err.code === 'host-not-member' ? 403 :
           400;
         const errorKey =
           err.code === 'target-not-found' ? 'invalid-token' :
           err.code === 'token-group-mismatch' ? 'token-group-mismatch' :
           err.code === 'target-expired' ? 'token-expired' :
           err.code === 'max-uses-reached' ? 'token-max-uses' :
+          err.code === 'host-not-member' ? 'invalid-token' :
           err.code;
         return NextResponse.json({ error: errorKey }, { status });
       }

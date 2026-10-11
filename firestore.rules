@@ -2190,9 +2190,29 @@ service cloud.firestore {
       // group-invitation.service.ts, join/session-token route) only ever
       // does .doc(token).get() — never a query — so narrowing to `get`
       // costs nothing. Same fix shape as admin_invitations in SPEC-01.
+      //
+      // 11.10.2026 — the "cryptographic random" claim above was FALSE
+      // until today: the generator used Math.random() over a 6-char
+      // alphabet (~1.07e9 combinations), not a CSPRNG. Fixed in
+      // group-invitation.service.ts / run-session/route.ts (crypto-sourced,
+      // 20+ chars) — the claim is accurate again as of this commit.
       allow get: if isAuthenticated();
+      // 11.10.2026 (write-layer-3 adversarial audit — live-location
+      // exposure, HIGH, defense-in-depth only): was hostUid==self alone —
+      // no check that the caller has ANY relationship to groupId. Any
+      // authenticated user could self-issue an invitation naming
+      // themselves as host for a locked/institutional group they were
+      // never a member of, then consume it via /api/join/session-token to
+      // join for real (group-mode presence + attendance become readable —
+      // see joinEngine.ts's own comment on the real fix). The REAL gate is
+      // in joinEngine.ts (re-verifies hostUid is a member at CONSUME time,
+      // server-side, Admin SDK) — this rule-layer check only stops a
+      // client-SDK CREATE of a forged doc; it cannot stop an Admin-SDK
+      // writer (run-session/route.ts) by design, which is exactly why the
+      // joinEngine check is the one that actually matters end-to-end.
       allow create: if isAuthenticated()
-        && request.auth.uid == request.resource.data.hostUid;
+        && request.auth.uid == request.resource.data.hostUid
+        && exists(/databases/$(database)/documents/community_groups/$(request.resource.data.groupId)/members/$(request.auth.uid));
       allow delete: if isAuthenticated()
         && request.auth.uid == resource.data.hostUid;
       // Only useCount may be incremented by authenticated users (token consumption).

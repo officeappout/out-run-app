@@ -47,7 +47,8 @@ export type JoinEngineErrorCode =
   | 'target-not-found'
   | 'target-expired'
   | 'max-uses-reached'
-  | 'token-group-mismatch';
+  | 'token-group-mismatch'
+  | 'host-not-member';
 
 export class JoinEngineError extends Error {
   constructor(
@@ -147,6 +148,7 @@ export async function joinEngine(input: JoinEngineInput): Promise<JoinResult> {
         expiresAt: Timestamp;
         maxUses?: number;
         useCount: number;
+        hostUid: string;
       };
       // Security: verify the client-supplied groupId matches the token's groupId.
       if (inv.groupId !== input.target.claimedGroupId) {
@@ -165,6 +167,30 @@ export async function joinEngine(input: JoinEngineInput): Promise<JoinResult> {
         throw new JoinEngineError(
           'max-uses-reached',
           `[joinEngine] session token "${input.target.token}" max-uses reached`,
+        );
+      }
+      // 11.10.2026 (write-layer-3 adversarial audit — live-location exposure,
+      // HIGH): this is the REAL gate. Nothing before this line ever checked
+      // that hostUid is an actual member/admin of groupId — any authenticated
+      // user could self-create a group_invitations doc naming themselves as
+      // hostUid for ANY groupId (firestore.rules' create rule only checked
+      // request.auth.uid == hostUid, never the group relationship), then
+      // consume their own forged token here to join a locked/institutional
+      // group they were never invited to. Once joined via the real triple-
+      // write below, group-mode presence (memberGroupIds().hasAny(...)) and
+      // this group's attendance docs become readable — live GPS + name of
+      // any real member broadcasting to this group, not just stored content.
+      // This is the end-to-end fix; firestore.rules' own create-time check
+      // (added alongside this) is defense-in-depth only — Admin SDK routes
+      // like run-session/route.ts bypass rules entirely and rely on THIS
+      // check being here.
+      const hostMemberSnap = await db
+        .doc(`community_groups/${inv.groupId}/members/${inv.hostUid}`)
+        .get();
+      if (!hostMemberSnap.exists) {
+        throw new JoinEngineError(
+          'host-not-member',
+          `[joinEngine] session token "${input.target.token}": host "${inv.hostUid}" is not a member of group "${inv.groupId}" — refusing to honor`,
         );
       }
       groupId = inv.groupId;

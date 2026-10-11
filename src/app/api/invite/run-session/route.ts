@@ -27,6 +27,13 @@ export const dynamic = 'force-dynamic';
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const TOKEN_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I ambiguity
+// 11.10.2026 (write-layer-3 adversarial audit) — this generator already used
+// crypto.randomInt (a real CSPRNG, unlike group-invitation.service.ts's
+// client-side sibling) but was still only 6 chars — same ~1.07e9-combination
+// shortness, same collection, same guessability exposure. Extended to match
+// (20 chars, same alphabet) for consistency; existing shorter tokens already
+// issued stay valid.
+const TOKEN_RANDOM_LENGTH = 20;
 const EXPIRY_MS   = 2 * 60 * 60 * 1000; // 2 hours, matches existing session invites
 const WEB_BASE    = 'https://outrun.co.il';
 
@@ -34,7 +41,7 @@ const WEB_BASE    = 'https://outrun.co.il';
 
 function generateToken(): string {
   let token = 'si_';
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < TOKEN_RANDOM_LENGTH; i++) {
     token += TOKEN_CHARS[crypto.randomInt(TOKEN_CHARS.length)];
   }
   return token;
