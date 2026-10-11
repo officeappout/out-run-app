@@ -147,6 +147,17 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/community_groups/$(groupId)/members/$(request.auth.uid));
     }
 
+    // 10.10.2026 (write-layer-2 adversarial audit, attendance fix) — is
+    // `newArr` exactly `oldArr` with ONE uid added, or exactly `oldArr`
+    // with that same uid removed, and nothing else changed? Same
+    // set-equality shape as connections/{userId}'s own self-toggle fix
+    // (08.10.2026) — extracted here as a reusable helper since attendance
+    // needs the identical pattern twice (attendees, waitlist).
+    function isSelfOnlyArrayToggle(oldArr, newArr, uid) {
+      return (!oldArr.hasAny([uid]) && newArr.hasOnly(oldArr.concat([uid])) && newArr.hasAll(oldArr.concat([uid])))
+          || (oldArr.hasAny([uid]) && newArr.hasOnly(oldArr.removeAll([uid])) && newArr.hasAll(oldArr.removeAll([uid])));
+    }
+
     // SPEC-01 (docs/audit-2026-09/SPEC-01-close-guest-leaks.md) task 2: the
     // static invite code used to live as a plain field on the (world-
     // readable) community_groups/{groupId} doc. It now lives here instead —
@@ -1879,22 +1890,77 @@ service cloud.firestore {
         // cross-group collectionGroup query.
         allow read: if isGroupMember(docId) || isGroupAdmin(docId) || isAdmin();
 
-        // RSVP: create initial doc (booking.service.ts first RSVP)
-        allow create: if isAuthenticated()
+        // 10.10.2026 (write-layer-2 adversarial audit fix) — was: ANY
+        // authenticated user, not even required to be a group member,
+        // could write literally any shape into attendees/waitlist/
+        // currentCount as long as the 4 phase-fields were untouched —
+        // full membership forgery (inject/remove arbitrary uids),
+        // arbitrary currentCount, zero tie to the caller's own identity.
+        // New contract:
+        //   (a) group admin (or OUT admin) — full write, any shape.
+        //   (b) group member, non-admin — RSVP only: add/remove EXACTLY
+        //       their own uid from attendees OR waitlist (one array per
+        //       write, set-equality — same shape as connections'
+        //       self-toggle fix), currentCount locked to the attendees
+        //       delta (never independently forgeable), attendeeProfiles/
+        //       waitlistProfiles restricted to the caller's own map key.
+        //   (c) non-member — denied by omission, no branch matches.
+        //
+        // RESOLVED (David's decision, 11.10.2026): cancelBooking's waitlist
+        // auto-promotion used to have a canceling member's OWN write move a
+        // DIFFERENT uid (the next person in line) from waitlist into
+        // attendees in the same update — that write touches a uid that is
+        // not request.auth.uid, so no branch below could ever admit it
+        // (proven by a dedicated red test). Moved server-side instead
+        // (Admin SDK, same "cross-ownership write → server route" shape as
+        // /api/join/*): POST /api/social/promote-waitlist
+        // (src/app/api/social/promote-waitlist/route.ts) now does that
+        // promotion; cancelBooking (booking.service.ts) only ever touches
+        // its own uid via the client SDK, matching this contract exactly.
+        allow create, update, delete: if isGroupAdmin(docId) || isAdmin();
+
+        // (b) First RSVP — creates the doc. Caller must be the sole
+        // attendee, count exactly 1, no waitlist field yet.
+        allow create: if isGroupMember(docId)
+          && request.resource.data.attendees == [request.auth.uid]
+          && request.resource.data.currentCount == 1
+          && !('waitlist' in request.resource.data)
           && !request.resource.data.keys().hasAny([
                'sessionPhase', 'sessionPhaseUpdatedAt', 'sessionPhaseUpdatedBy', 'lobbyExtendedUntil'
              ]);
 
-        // RSVP: update attendance arrays / counters (booking.service.ts)
-        allow update: if isAuthenticated()
+        // (b) Subsequent RSVP — self-toggle on exactly one of attendees/
+        // waitlist, currentCount locked to the attendees delta, profile
+        // maps restricted to the caller's own key, phase/schedule fields
+        // untouchable by a non-admin.
+        allow update: if isGroupMember(docId)
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-               'sessionPhase', 'sessionPhaseUpdatedAt', 'sessionPhaseUpdatedBy', 'lobbyExtendedUntil'
-             ]);
+               'sessionPhase', 'sessionPhaseUpdatedAt', 'sessionPhaseUpdatedBy', 'lobbyExtendedUntil',
+               'groupId', 'date', 'time', 'maxParticipants', 'sessionGoal'
+             ])
+          && request.resource.data.get('attendeeProfiles', {}).diff(resource.data.get('attendeeProfiles', {})).affectedKeys().hasOnly([request.auth.uid])
+          && request.resource.data.get('waitlistProfiles', {}).diff(resource.data.get('waitlistProfiles', {})).affectedKeys().hasOnly([request.auth.uid])
+          && (
+            (
+              isSelfOnlyArrayToggle(resource.data.get('attendees', []), request.resource.data.attendees, request.auth.uid)
+              && request.resource.data.get('waitlist', []) == resource.data.get('waitlist', [])
+              && request.resource.data.currentCount == resource.data.get('currentCount', 0)
+                   + (request.resource.data.attendees.size() - resource.data.get('attendees', []).size())
+            )
+            ||
+            (
+              isSelfOnlyArrayToggle(resource.data.get('waitlist', []), request.resource.data.get('waitlist', []), request.auth.uid)
+              && request.resource.data.attendees == resource.data.get('attendees', [])
+              && request.resource.data.currentCount == resource.data.get('currentCount', 0)
+            )
+          );
 
-        // Phase: group admin (or OUT admin) writes phase + lobby-extension fields only
-        allow update: if isGroupAdmin(docId)
-          && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['sessionPhase', 'sessionPhaseUpdatedAt', 'sessionPhaseUpdatedBy', 'lobbyExtendedUntil']);
+        // Phase writes (sessionPhase/lobbyExtendedUntil) no longer need
+        // their own statement — the general admin branch above
+        // (isGroupAdmin(docId) || isAdmin(), unrestricted shape) is a
+        // strict superset of what this used to grant (isGroupAdmin(docId)
+        // only, restricted to exactly these 4 fields). Removed rather
+        // than kept as dead/redundant text.
 
         // member_statuses sub-collection: each member writes only her own document
         match /member_statuses/{uid} {
