@@ -67,6 +67,19 @@ interface RouteCardUnifiedProps {
   onCtaPointerDown?: () => void;
   /** Loading state → shows a neutral pill instead of the CTA. */
   ctaLoading?: boolean;
+  /**
+   * Start-experience state map (11.10.2026): when set, the CTA renders in a
+   * greyed/muted style and tapping it calls `onCtaBlocked` INSTEAD of
+   * `onCta` — deliberately NOT a literal HTML `disabled` attribute (which
+   * would swallow the tap event entirely and give no feedback). Mirrors the
+   * existing "locked card, tap explains why" idiom elsewhere in this
+   * codebase (HybridJourneyAxis.tsx's locked station card; WorkoutBuilderSheet.tsx's
+   * gated program pill) rather than inventing a new pattern. Omitted by
+   * every existing caller → byte-identical to before this prop existed.
+   */
+  ctaBlockedReason?: string | null;
+  /** Called instead of `onCta` when `ctaBlockedReason` is set. */
+  onCtaBlocked?: (reason: string) => void;
 }
 
 export default function RouteCardUnified({
@@ -84,6 +97,8 @@ export default function RouteCardUnified({
   onCtaPointerDown,
   ctaLoading = false,
   recommended = false,
+  ctaBlockedReason = null,
+  onCtaBlocked,
 }: RouteCardUnifiedProps) {
   const hasStats = !!distanceText && !!durationText;
   const handleClick = onClick
@@ -93,6 +108,11 @@ export default function RouteCardUnified({
       }
     : undefined;
   const handleCta = (e: React.MouseEvent) => {
+    if (ctaBlockedReason) {
+      hapticLight();
+      onCtaBlocked?.(ctaBlockedReason);
+      return;
+    }
     hapticMedium();
     onCta(e);
   };
@@ -168,8 +188,11 @@ export default function RouteCardUnified({
           type="button"
           onPointerDown={onCtaPointerDown}
           onClick={handleCta}
-          className="w-full py-3 rounded-full text-black font-semibold text-sm shadow-md shadow-cyan-400/25 flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
-          style={{ background: HOME_CTA_GRADIENT }}
+          aria-disabled={!!ctaBlockedReason}
+          className={`w-full py-3 rounded-full font-semibold text-sm flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform ${
+            ctaBlockedReason ? 'text-gray-500' : 'text-black shadow-md shadow-cyan-400/25'
+          }`}
+          style={ctaBlockedReason ? { background: '#E5E7EB' } : { background: HOME_CTA_GRADIENT }}
         >
           {ctaContent}
         </button>

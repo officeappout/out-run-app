@@ -9,6 +9,8 @@ import RouteCardUnified from './RouteCardUnified';
 import RouteQualityBadges from './RouteQualityBadges';
 import { UNIFIED_ROUTE_CARDS_ENABLED } from '@/config/feature-flags';
 import { bunnyImg } from '@/lib/bunny-image';
+import { computeStartExperienceState, estimateWalkMinutesFromKm } from '../services/start-experience-state';
+import { useToast } from '@/components/ui/Toast';
 
 // How many cards on either side of the centered one get a real cover photo
 // mounted (SPEC-05 image-memory #2). This carousel is an unvirtualized
@@ -78,6 +80,14 @@ interface BottomJourneyContainerProps {
   /** Opens the full RouteDetailSheet for a route */
   onShowRouteDetail?: (route: Route) => void;
   loadingRouteIds?: Set<string>;
+  /**
+   * Start-experience state map (11.10.2026): live GPS position, used to
+   * classify each card as at-start/on-route/off-route-walkable/off-route-
+   * too-far. Optional — omitted (or null), every card falls back to
+   * 'on_route' (no gate), the SAME byte-identical "just start" behavior as
+   * before this prop existed. Never a reason a working start gets blocked.
+   */
+  userPosition?: { lat: number; lng: number } | null;
 }
 
 export default function BottomJourneyContainer({
@@ -88,11 +98,15 @@ export default function BottomJourneyContainer({
   onShowDetails,
   onShowRouteDetail,
   loadingRouteIds,
+  userPosition = null,
 }: BottomJourneyContainerProps) {
   const [activeRouteIndex, setActiveRouteIndex] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
+  const { showToast } = useToast();
 
   // Walk-time from useWalkToRoute (synced via useMapStore — no prop drilling needed).
+  // Real for the currently-focused route only — see estimateWalkMinutesFromKm's
+  // own doc comment for the non-focused-card fallback.
   const walkToRouteMinutes = useMapStore((s) => s.walkToRouteMinutes);
 
   // ── Scroll-engine refs (mirrors RouteCarousel "no-jitter" contract) ──────
@@ -253,6 +267,21 @@ export default function BottomJourneyContainer({
             const sourceName     = route.source?.name || (isGenerated ? 'מותאם אישית' : 'מסלול רשמי');
 
             const isFocused = focusedRouteId === route.id;
+            // Start-experience state map (11.10.2026): real Mapbox-fetched
+            // walk-minutes for the focused card (useWalkToRoute only computes
+            // one route at a time); a distance-based estimate for every other
+            // visible card — see estimateWalkMinutesFromKm's own doc comment.
+            // isReachableWithoutCar (the OLD gate this replaces) stays
+            // UNTOUCHED as a field — route-candidate filtering elsewhere
+            // still reads it; only THIS card's CTA decision stops using it.
+            const cardWalkMinutes = isFocused && walkToRouteMinutes != null
+              ? walkToRouteMinutes
+              : estimateWalkMinutesFromKm(distFromUser);
+            const startState = computeStartExperienceState(userPosition, route.path, cardWalkMinutes);
+            const isTooFar = startState === 'off_route_too_far';
+            const blockedReason = isTooFar
+              ? `התקרבו למסלול — נותרו עוד כ-${cardWalkMinutes} דק' הליכה`
+              : null;
             // Unified text-only card (flag-gated). The CTA + all handlers are
             // passed through unchanged; only the shell/layout is unified.
             if (UNIFIED_ROUTE_CARDS_ENABLED) {
@@ -274,13 +303,18 @@ export default function BottomJourneyContainer({
                   className="snap-center snap-always"
                   ctaLoading={isLoading}
                   extraContent={<RouteQualityBadges qualitySignals={route.qualitySignals} />}
+                  ctaBlockedReason={blockedReason}
+                  onCtaBlocked={(reason) => showToast('error', reason)}
                   onCta={(e) => {
                     e.stopPropagation();
                     if (onRouteFocus) onRouteFocus(route);
-                    if (!isReachable) {
-                      const [startLng, startLat] = route.path[0];
-                      window.open(`https://waze.com/ul?ll=${startLat},${startLng}&navigate=yes`, '_blank');
-                    } else if (isGenerated && onShowDetails) {
+                    // "On route, not at start" -> start from current point,
+                    // no navigate-to-official-start prompt (the old !isReachable
+                    // branch used to open Waze here instead of starting).
+                    // "Off route, walkable" -> also starts directly; the
+                    // already-existing useWalkToRoute dotted-guide persists
+                    // through the walk once the session is active.
+                    if (isGenerated && onShowDetails) {
                       onShowDetails();
                     } else if (onStartWorkout) {
                       onStartWorkout();
@@ -289,7 +323,7 @@ export default function BottomJourneyContainer({
                   ctaContent={
                     <>
                       <Play size={14} fill="currentColor" />
-                      {isReachable ? 'צא לדרך' : 'נווט להתחלה'}
+                      {isTooFar ? `עוד כ-${cardWalkMinutes} דק' הליכה` : 'צא לדרך'}
                       <ChevronLeft size={14} />
                     </>
                   }

@@ -28,6 +28,8 @@ import { bunnyImg } from '@/lib/bunny-image';
 import UserProfileSheet, { type ProfileUser } from '../UserProfileSheet';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
 import { computeQualityBadges } from '@/features/parks/core/services/route-quality-badges.service';
+import { computeStartExperienceState } from '@/features/parks/core/services/start-experience-state';
+import { useToast } from '@/components/ui/Toast';
 import ShareAsLiveToggle from '@/features/workout-engine/components/ShareAsLiveToggle';
 import type { WorkoutActivityStatus } from '@/features/safecity/services/presence.service';
 
@@ -360,6 +362,14 @@ export default function RouteDetailSheet({
   }, [userLocation, route?.path]);
 
   const walkToRouteMinutes = useMapStore((s) => s.walkToRouteMinutes);
+
+  // Start-experience state map (11.10.2026): this sheet is always shown for
+  // the single currently-focused route, so walkToRouteMinutes above is
+  // already the real Mapbox-fetched value for THIS route — no per-card
+  // estimate fallback needed here, unlike the carousel.
+  const startState = computeStartExperienceState(userLocation ?? null, route?.path ?? null, walkToRouteMinutes);
+  const isTooFarToStart = startState === 'off_route_too_far';
+  const { showToast } = useToast();
   const walkSteps          = useMapStore((s) => s.walkSteps);
 
   // Pre-compute the route maneuver list once per route (cheap; pure
@@ -1126,12 +1136,30 @@ export default function RouteDetailSheet({
 
                 <div className="flex items-center gap-2" dir="rtl">
                   <button
-                    onClick={() => { onClose(); onStartWorkout?.(route); }}
-                    className="flex-1 text-white font-extrabold rounded-full active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-[15px]"
-                    style={{ background: 'linear-gradient(to left, #0CF2E3, #00BAF7)', height: 44 }}
+                    onClick={() => {
+                      // Start-experience state map: tapping while too far
+                      // never calls onClose/onStartWorkout — a toast
+                      // instead, mirroring the same "conditional onClick,
+                      // never a literal disabled attribute" idiom used on
+                      // the discover carousel's own CTA (RouteCardUnified).
+                      if (isTooFarToStart) {
+                        showToast('error', `התקרבו למסלול — נותרו עוד כ-${walkToRouteMinutes} דק' הליכה`);
+                        return;
+                      }
+                      onClose();
+                      onStartWorkout?.(route);
+                    }}
+                    aria-disabled={isTooFarToStart}
+                    className={`flex-1 font-extrabold rounded-full active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-[15px] ${
+                      isTooFarToStart ? 'text-gray-500' : 'text-white'
+                    }`}
+                    style={{
+                      background: isTooFarToStart ? '#E5E7EB' : 'linear-gradient(to left, #0CF2E3, #00BAF7)',
+                      height: 44,
+                    }}
                   >
                     <Play size={18} fill="currentColor" />
-                    <span>התחל אימון</span>
+                    <span>{isTooFarToStart ? `עוד כ-${walkToRouteMinutes} דק' הליכה` : 'התחל אימון'}</span>
                   </button>
                   <button
                     onClick={() => onNavigate ? onNavigate(route) : handleNavigate()}

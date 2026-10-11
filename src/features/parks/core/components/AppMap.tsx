@@ -178,6 +178,31 @@ const PRESENCE_DOTS_LAYER: mapboxgl.CircleLayer = {
   },
 };
 
+/**
+ * Start-experience radius ring (11.10.2026) — a cheap, purely decorative
+ * visual cue around the user's own position for "routes roughly this
+ * close are walkable." Deliberately NOT geo-accurate: `circle-radius` in
+ * Mapbox GL is pixels by default (same as PRESENCE_DOTS_LAYER above), so
+ * this does not scale with real-world distance or zoom — a real
+ * meter-radius polygon (turf.circle() etc.) was explicitly out of scope
+ * for this pass. This layer renders no gate of its own;
+ * computeStartExperienceState (start-experience-state.ts) is the actual
+ * decision, this is only the on-map hint.
+ */
+const START_RADIUS_RING_LAYER: mapboxgl.CircleLayer = {
+  id: 'start-radius-ring',
+  type: 'circle',
+  source: 'start-radius-ring',
+  paint: {
+    'circle-radius': 70,
+    'circle-color': '#00ADEF',
+    'circle-opacity': 0.08,
+    'circle-stroke-width': 1.5,
+    'circle-stroke-color': '#00ADEF',
+    'circle-stroke-opacity': 0.3,
+  },
+};
+
 interface AppMapProps {
   routes?: Route[];
   currentLocation?: { lat: number; lng: number } | null;
@@ -1809,6 +1834,22 @@ export default function AppMap({
                 'line-opacity': 0.9,
               }}
             />
+          </Source>
+        )}
+
+        {/* ── Start-experience radius ring — see START_RADIUS_RING_LAYER's
+            doc comment above for why this is fixed-pixel, not geo-accurate. */}
+        {isFiniteLatLng(currentLocation) && (
+          <Source
+            id="start-radius-ring"
+            type="geojson"
+            data={{
+              type: 'Feature',
+              properties: {},
+              geometry: { type: 'Point', coordinates: [currentLocation.lng, currentLocation.lat] },
+            } as any}
+          >
+            <Layer {...START_RADIUS_RING_LAYER} />
           </Source>
         )}
 

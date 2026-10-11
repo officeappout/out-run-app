@@ -18,7 +18,13 @@ export interface WalkToRouteState {
   geoJSON: GeoJSON.FeatureCollection | null;
   /** [lng, lat] midpoint along the walking path. */
   midpoint: [number, number] | null;
-  /** Estimated walking minutes (distance / 80 m per min, minimum 1). */
+  /**
+   * Real walking minutes from Mapbox Directions' own `duration` field
+   * (seconds, rounded up to whole minutes, minimum 1). Fix (11.10.2026,
+   * start-experience state map): this used to be a client-side distance/80
+   * guess — Mapbox's real duration was already being fetched in the exact
+   * same request and silently discarded. No new network cost.
+   */
   walkMinutes: number | null;
   /**
    * The route endpoint (start or end) that was chosen as the walk target.
@@ -103,8 +109,10 @@ function transformWalkSteps(rawSteps: any[]): WalkStep[] {
     .filter((s) => s.distanceMeters >= 10);
 }
 
-/** Distance threshold (metres) at which we consider the user to have "arrived" at the route. */
-const ARRIVAL_RADIUS_M = 30;
+/** Distance threshold (metres) at which we consider the user to have "arrived" at the route.
+ *  Exported (11.10.2026, start-experience state map) so start-experience-state.ts can reuse
+ *  this exact value for its own "at start" check instead of duplicating the number. */
+export const ARRIVAL_RADIUS_M = 30;
 /** Time (ms) after workout starts before the dotted line auto-clears regardless of position. */
 const MAX_APPROACH_MS = 60_000;
 
@@ -281,7 +289,9 @@ export function useWalkToRoute(
         const coords = result.path;
         const midIdx  = Math.floor(coords.length / 2);
         const midpoint: [number, number] = coords[midIdx];
-        const walkMinutes = Math.max(1, Math.round(result.distance / 80));
+        // Real Mapbox duration (seconds), not a distance/80 guess — see the
+        // WalkToRouteState.walkMinutes doc comment above.
+        const walkMinutes = Math.max(1, Math.round(result.duration / 60));
         const walkSteps   = transformWalkSteps((result as any).steps ?? []);
 
         const geoJSON: GeoJSON.FeatureCollection = {
