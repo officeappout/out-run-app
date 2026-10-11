@@ -30,6 +30,7 @@ export default defineConfig({
       'tests/military-panel-adversarial-audit.rules.test.ts',
       'tests/firestore-fix-write-layer2-batch-a.rules.test.ts',
       'tests/firestore-fix-feed-posts-scope-fields.rules.test.ts',
+      'tests/firestore-fix-group-invitations-hostuid.rules.test.ts',
       'tests/firestore-fix-connections-selffollow.rules.test.ts',
       'tests/firestore-fix-chats-messages-fieldguard.rules.test.ts',
       // functions/ is a separate package (own tsconfig, not installed in
