@@ -24,7 +24,7 @@ import {
   getDocs,
   orderBy,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import type { SessionAttendance, ScheduleSlot, SessionGoalSpec } from '@/types/community.types';
 
 function attendanceDocId(date: string, time: string): string {
@@ -231,8 +231,35 @@ export async function leaveWaitlist(
 }
 
 /**
+ * Ask the server to promote the front of the waitlist into attendees, if
+ * any. Moved server-side (10.10.2026, write-layer-2 batch B follow-up) —
+ * firestore.rules' attendance self-toggle contract correctly denies a
+ * canceling member's own write from also touching a DIFFERENT uid's
+ * entries, so this cross-uid step can no longer happen from the client at
+ * all. Best-effort: a failure here (network, server error) does not fail
+ * the cancellation itself — the caller's own self-removal already
+ * succeeded by the time this runs, same "non-blocking side effect" shape
+ * as upsertBookingPresence/removeBookingPresence above.
+ */
+async function promoteWaitlist(groupId: string, date: string, time: string): Promise<void> {
+  try {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) return;
+    await fetch('/api/social/promote-waitlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ groupId, date, time }),
+    });
+  } catch (err) {
+    console.warn('[cancelBooking] promote-waitlist call failed (non-fatal):', err);
+  }
+}
+
+/**
  * Cancel a booking for the current user.
- * If there's a waitlist, auto-promotes the first person in line.
+ * If there's a waitlist, the server auto-promotes the first person in line
+ * (see promoteWaitlist above) — this function only ever touches the
+ * caller's own uid.
  */
 export async function cancelBooking(
   groupId: string,
@@ -246,7 +273,6 @@ export async function cancelBooking(
   try {
     const snap = await getDoc(ref);
     if (!snap.exists()) return true;
-    const data = snap.data() as SessionAttendance;
 
     await updateDoc(ref, {
       attendees: arrayRemove(uid),
@@ -254,18 +280,7 @@ export async function cancelBooking(
       [`attendeeProfiles.${uid}`]: null,
     });
 
-    const waitlist = data.waitlist ?? [];
-    if (waitlist.length > 0) {
-      const promoted = waitlist[0];
-      const promotedProfile = data.waitlistProfiles?.[promoted];
-      await updateDoc(ref, {
-        waitlist: arrayRemove(promoted),
-        [`waitlistProfiles.${promoted}`]: null,
-        attendees: arrayUnion(promoted),
-        currentCount: increment(1),
-        [`attendeeProfiles.${promoted}`]: promotedProfile ?? { name: 'User', photoURL: null },
-      });
-    }
+    await promoteWaitlist(groupId, date, time);
 
     // Remove the booking presence doc — user no longer appears in "מי מתכנן"
     await removeBookingPresence(uid, groupId, date, time);
