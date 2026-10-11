@@ -607,37 +607,55 @@ export class WorkoutGenerator {
         }
         bolt2FallbackLevel = Math.max(...context.domainBudgets.map(d => d.level)) + 1;
       } else if (context.activeProgramId) {
-        const activeProgramSlug = resolveToSlug(context.activeProgramId);
-        const skillLevel =
-          context.userProgramLevels?.get(context.activeProgramId) ??
-          context.userProgramLevels?.get(context.activeProgramId.toLowerCase()) ??
-          context.userProgramLevels?.get(activeProgramSlug);
-        const resolvedSkillLevel = skillLevel != null && skillLevel > 0 ? skillLevel : (context.userLevel ?? 1);
-        bolt2FallbackLevel = resolvedSkillLevel + 1;
+        // 2026-10-11 fix: same generalization as Bolt1Cap below — this
+        // branch used to resolve ONLY context.activeProgramId (+ its own
+        // skill-parent). For a generic 2-co-equal-domain request (e.g.
+        // push+legs, neither the other's parent/child), the second domain
+        // never got its own ceiling entry and fell to the global fallback
+        // (the FIRST domain's level+1) instead of its own. Resolve EVERY
+        // domain in context.requiredDomains the same way, not just the
+        // primary one. Additive-only — requiredDomains defaults to
+        // [activeProgramId] when only one domain was requested.
+        const baseDomainsForCeiling = context.requiredDomains?.length
+          ? context.requiredDomains
+          : [context.activeProgramId];
+        const resolvedLevelsForCeilingFallback: number[] = [];
 
-        // Symmetric skill↔foundation ceiling (skill-foundation unification,
-        // 2026-10-01 — mirrors PipelineOrchestrator's domain-strict filter
-        // fix, same root cause). A bare single-skill session (no master
-        // wrapper, so domainBudgets above stays empty) used to leave this
-        // map at size 0, which made the skill's own bare level the BLANKET
-        // ceiling for every exercise via the `size === 0` branch below —
-        // including foundation-tagged exercises (e.g. a real pull L10
-        // exercise) that should be judged against the user's OWN pull
-        // level, not front_lever+1. Adding both entries here mirrors
-        // exactly how a master session's domainBudgets already carries
-        // both the skill's and its parent's level as separate entries —
-        // for a non-skill activeProgramId (parentDomain undefined), this
-        // adds exactly one entry whose value equals bolt2FallbackLevel, so
-        // behavior for every existing non-skill single-domain session is
-        // unchanged (same ceiling value, reached via a different branch).
-        bolt2DomainCeilingMap.set(activeProgramSlug, resolvedSkillLevel + 1);
-        const parentDomain = DOMAIN_RESOLUTION_SKILL_PARENT_MAP[activeProgramSlug];
-        if (parentDomain) {
-          const parentLevel = context.userProgramLevels?.get(parentDomain);
-          if (parentLevel != null && parentLevel > 0) {
-            bolt2DomainCeilingMap.set(parentDomain, parentLevel + 1);
+        for (const rawDomain of baseDomainsForCeiling) {
+          const domainSlug = resolveToSlug(rawDomain);
+          const skillLevel =
+            context.userProgramLevels?.get(rawDomain) ??
+            context.userProgramLevels?.get(rawDomain.toLowerCase()) ??
+            context.userProgramLevels?.get(domainSlug);
+          const resolvedSkillLevel = skillLevel != null && skillLevel > 0 ? skillLevel : (context.userLevel ?? 1);
+
+          // Symmetric skill↔foundation ceiling (skill-foundation unification,
+          // 2026-10-01 — mirrors PipelineOrchestrator's domain-strict filter
+          // fix, same root cause). A bare single-skill session (no master
+          // wrapper, so domainBudgets above stays empty) used to leave this
+          // map at size 0, which made the skill's own bare level the BLANKET
+          // ceiling for every exercise via the `size === 0` branch below —
+          // including foundation-tagged exercises (e.g. a real pull L10
+          // exercise) that should be judged against the user's OWN pull
+          // level, not front_lever+1. Adding both entries here mirrors
+          // exactly how a master session's domainBudgets already carries
+          // both the skill's and its parent's level as separate entries —
+          // for a non-skill domain (parentDomain undefined), this adds
+          // exactly one entry whose value equals this domain's own ceiling.
+          bolt2DomainCeilingMap.set(domainSlug, resolvedSkillLevel + 1);
+          resolvedLevelsForCeilingFallback.push(resolvedSkillLevel + 1);
+
+          const parentDomain = DOMAIN_RESOLUTION_SKILL_PARENT_MAP[domainSlug];
+          if (parentDomain) {
+            const parentLevel = context.userProgramLevels?.get(parentDomain);
+            if (parentLevel != null && parentLevel > 0) {
+              bolt2DomainCeilingMap.set(parentDomain, parentLevel + 1);
+              resolvedLevelsForCeilingFallback.push(parentLevel + 1);
+            }
           }
         }
+
+        bolt2FallbackLevel = Math.max(...resolvedLevelsForCeilingFallback);
       } else {
         bolt2FallbackLevel = (context.userLevel ?? 1) + 1;
       }
@@ -709,38 +727,65 @@ export class WorkoutGenerator {
       }
       bolt1FallbackRef = Math.max(...context.domainBudgets.map(d => d.level));
     } else if (context.activeProgramId) {
-      const activeProgramSlug = resolveToSlug(context.activeProgramId);
-      const skillLevel =
-        context.userProgramLevels?.get(context.activeProgramId) ??
-        context.userProgramLevels?.get(context.activeProgramId.toLowerCase()) ??
-        context.userProgramLevels?.get(activeProgramSlug);
-      const resolvedSkillLevel = (skillLevel != null && skillLevel > 0) ? skillLevel : (context.userLevel ?? 1);
+      // 2026-10-11 fix: this branch used to resolve ONLY context.activeProgramId
+      // (+ its own skill-parent) — for a GENERIC 2-co-equal-domain request
+      // (e.g. pull+legs via scheduledProgramIds, no master wrapper) neither
+      // domain is the other's parent/child, so legs never got an entry in
+      // bolt1DomainRefMap at all. Every legs exercise then fell through to
+      // "No domain match → use fallback reference" below and got evaluated
+      // against PULL's recovery window instead of its own — wrongly
+      // admitting/rejecting legs exercises based on an unrelated domain's
+      // level. Confirmed live via the Workout Invariants Gate's new
+      // edge/pull-legs-combo cell (bolt 1 only — Bolt2Cap/this same fix
+      // immediately above was NOT affected, it already generalizes via
+      // context.domainBudgets for master sessions; this branch is the
+      // non-master fallback those sessions skip entirely).
+      //
+      // Fix: resolve EVERY domain in context.requiredDomains the same way
+      // activeProgramId alone used to be resolved (symmetric skill↔
+      // foundation reference per domain), not just the primary one.
+      // Additive-only — requiredDomains defaults to [activeProgramId] when
+      // only one domain was ever requested, so the N=1 case (bare single-
+      // skill/single-domain session) is unchanged.
+      const baseDomainsForRef = context.requiredDomains?.length
+        ? context.requiredDomains
+        : [context.activeProgramId];
+      const resolvedLevelsForFallback: number[] = [];
 
-      // Symmetric skill↔foundation reference (skill-foundation unification,
-      // 2026-10-01 — mirrors Bolt2Cap's fix immediately above, same root
-      // cause). Populates BOTH the per-domain window map (so a foundation-
-      // tagged exercise gets its own domain's reference, not the skill's)
-      // AND bolt1FallbackRef itself — used below as bolt1ReferenceLevel,
-      // the guard that decides whether this block fires at all. Without
-      // the latter, a bare-skill session whose assessed FOUNDATION level
-      // genuinely warrants a recovery window would skip it entirely
-      // whenever the skill's own level happens to be ≤ 4 — correct by
-      // design now, not by that threshold's incidental accident. For a
-      // non-skill activeProgramId (parentDomain undefined), this is a
-      // no-op: one map entry whose value equals the unchanged fallback.
-      bolt1DomainRefMap.set(activeProgramSlug, resolvedSkillLevel);
-      const parentDomain = DOMAIN_RESOLUTION_SKILL_PARENT_MAP[activeProgramSlug];
-      let parentLevelForRef: number | undefined;
-      if (parentDomain) {
-        const parentLevel = context.userProgramLevels?.get(parentDomain);
-        if (parentLevel != null && parentLevel > 0) {
-          bolt1DomainRefMap.set(parentDomain, parentLevel);
-          parentLevelForRef = parentLevel;
+      for (const rawDomain of baseDomainsForRef) {
+        const domainSlug = resolveToSlug(rawDomain);
+        const domainLevel =
+          context.userProgramLevels?.get(rawDomain) ??
+          context.userProgramLevels?.get(rawDomain.toLowerCase()) ??
+          context.userProgramLevels?.get(domainSlug);
+        const resolvedLevel = (domainLevel != null && domainLevel > 0) ? domainLevel : (context.userLevel ?? 1);
+
+        // Symmetric skill↔foundation reference (skill-foundation unification,
+        // 2026-10-01 — mirrors Bolt2Cap's fix immediately above, same root
+        // cause). Populates BOTH the per-domain window map (so a foundation-
+        // tagged exercise gets its own domain's reference, not the skill's)
+        // AND the fallback-level pool below — used as bolt1ReferenceLevel,
+        // the guard that decides whether this block fires at all. Without
+        // the latter, a bare-skill session whose assessed FOUNDATION level
+        // genuinely warrants a recovery window would skip it entirely
+        // whenever the skill's own level happens to be ≤ 4 — correct by
+        // design now, not by that threshold's incidental accident. For a
+        // non-skill domain (parentDomain undefined), this is a no-op: one
+        // map entry whose value equals this domain's own resolved level.
+        bolt1DomainRefMap.set(domainSlug, resolvedLevel);
+        resolvedLevelsForFallback.push(resolvedLevel);
+
+        const parentDomain = DOMAIN_RESOLUTION_SKILL_PARENT_MAP[domainSlug];
+        if (parentDomain) {
+          const parentLevel = context.userProgramLevels?.get(parentDomain);
+          if (parentLevel != null && parentLevel > 0) {
+            bolt1DomainRefMap.set(parentDomain, parentLevel);
+            resolvedLevelsForFallback.push(parentLevel);
+          }
         }
       }
-      bolt1FallbackRef = parentLevelForRef != null
-        ? Math.max(resolvedSkillLevel, parentLevelForRef)
-        : resolvedSkillLevel;
+
+      bolt1FallbackRef = Math.max(...resolvedLevelsForFallback);
     } else {
       bolt1FallbackRef = context.userLevel ?? 1;
     }
