@@ -975,6 +975,75 @@
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
+    // ── write-layer-4 audit (11.10.2026): planned_sessions query split ──
+    // usePartnerData/useCommunityEnrichment's 3 planned_sessions listeners
+    // were split from one unscoped query each into public/own/squad slices
+    // (see those files' own comments) so a per-document ownership/
+    // membership firestore.rule — held separately, deployed only after
+    // this code has shipped and propagated — is provable for `list`.
+    // Every new shape below pairs the pre-existing range filter
+    // (expiresAt >=) with another field — per the PERF-00 finding
+    // immediately above this block, that combination is NEVER covered by
+    // Firestore's automatic single-field zigzag-merge (that optimization
+    // only covers equality+in pairs, not range+anything), so each one
+    // genuinely needs its own explicit composite index, same reasoning,
+    // not assumed. UNLIKE the PERF-00 entries above, these were NOT
+    // independently confirmed against live production (no Firestore
+    // Admin SDK credentials available to probe from here) — inferred from
+    // this exact file's own documented rule two paragraphs up. Deploy
+    // (`firebase deploy --only firestore:indexes`) and confirm status
+    // ENABLED before relying on these, same discipline as the entries
+    // above were originally built with.
+    { "collectionGroup": "planned_sessions", "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "privacyMode", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "expiresAt", "order": "ASCENDING" }
+      ]
+    },
+    { "collectionGroup": "planned_sessions", "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "expiresAt", "order": "ASCENDING" }
+      ]
+    },
+    { "collectionGroup": "planned_sessions", "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "privacyMode", "order": "ASCENDING" },
+        { "fieldPath": "groupId", "order": "ASCENDING" },
+        { "fieldPath": "expiresAt", "order": "ASCENDING" }
+      ]
+    },
+    { "collectionGroup": "planned_sessions", "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "routeId", "order": "ASCENDING" },
+        { "fieldPath": "privacyMode", "order": "ASCENDING" },
+        { "fieldPath": "expiresAt", "order": "ASCENDING" }
+      ]
+    },
+    { "collectionGroup": "planned_sessions", "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "routeId", "order": "ASCENDING" },
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "expiresAt", "order": "ASCENDING" }
+      ]
+    },
+    { "collectionGroup": "planned_sessions", "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "parkId", "order": "ASCENDING" },
+        { "fieldPath": "privacyMode", "order": "ASCENDING" },
+        { "fieldPath": "expiresAt", "order": "ASCENDING" }
+      ]
+    },
+    { "collectionGroup": "planned_sessions", "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "parkId", "order": "ASCENDING" },
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "expiresAt", "order": "ASCENDING" }
+      ]
+    },
+
     // Drift correction — these 3 already exist live in production
     // (confirmed via `firebase firestore:indexes --project appout-1`) but
     // were never recorded here. No new deploy needed for these; recorded
