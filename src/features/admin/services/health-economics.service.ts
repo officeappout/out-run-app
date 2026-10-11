@@ -22,6 +22,123 @@ const WORKOUTS_COLLECTION = 'workouts';
 export const AVERAGE_HEALTH_SAVINGS_PER_ACTIVE_PERSON = 500; // ₪500/active person/month
 const WHO_WEEKLY_TARGET_MINUTES = 150;
 
+// ── Authority-manager fallback detection + fetchers ──────────────────────────
+//
+// 07.10.2026 fast-follow to PR #206 (dashboard-summary/city-aggregates/etc.,
+// src/app/api/authority-manager/) — this file has the exact same gap: every
+// exported function below resolves its user scope via getAuthorityUsers,
+// which reads `users` directly from the browser and is denied by
+// firestore.rules for a real authority manager (only isRootAdmin()/
+// isAdmin() recognized — no managerIds-based access on `users`/`workouts`/
+// `dailyActivity`, same as analytics.service.ts's gap). See
+// src/app/api/authority-manager/health-savings-summary/route.ts's header
+// for the full shape.
+function isPermissionDeniedError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  return (err as { code?: string }).code === 'permission-denied';
+}
+
+interface HealthSavingsSummaryFallback {
+  who150Tracker: WHO150TrackerResult;
+  healthSavings: HealthSavingsResult;
+  savingsOverTime: SavingsOverTimeData[];
+}
+
+let _healthSavingsSummaryKey: string | null = null;
+let _healthSavingsSummaryPromise: Promise<HealthSavingsSummaryFallback | null> | null = null;
+
+async function fetchHealthSavingsSummaryFallback(
+  authorityId: string,
+  months: number,
+): Promise<HealthSavingsSummaryFallback | null> {
+  const key = `${authorityId}:${months}`;
+  if (_healthSavingsSummaryPromise && _healthSavingsSummaryKey === key) {
+    return _healthSavingsSummaryPromise;
+  }
+  _healthSavingsSummaryKey = key;
+  _healthSavingsSummaryPromise = (async () => {
+    try {
+      const { auth } = await import('@/lib/firebase');
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) return null;
+      const res = await fetch(
+        `/api/authority-manager/health-savings-summary?months=${months}`,
+        { headers: { Authorization: `Bearer ${idToken}` } },
+      );
+      if (!res.ok) return null;
+      const json = await res.json();
+      // JSON.stringify serializes Date fields to ISO strings; WHO150TrackerResult's
+      // currentWeek: {start: Date, end: Date} contract must hold for the fallback
+      // path too, or any future caller of .start/.end's Date methods crashes (a
+      // real, confirmed bug this exact shape caused in the sibling compliance
+      // route below — see WHOComplianceResult's own reconstruction here).
+      if (json?.who150Tracker?.currentWeek) {
+        json.who150Tracker.currentWeek = {
+          start: new Date(json.who150Tracker.currentWeek.start),
+          end: new Date(json.who150Tracker.currentWeek.end),
+        };
+      }
+      return json;
+    } catch (err) {
+      console.error('[health-economics.service] health-savings-summary fallback failed:', err);
+      return null;
+    }
+  })();
+  return _healthSavingsSummaryPromise;
+}
+
+interface WhoComplianceSummaryFallback {
+  breakdown: WHOComplianceResult;
+  trend: WHOComplianceWeekPoint[];
+}
+
+let _whoComplianceSummaryKey: string | null = null;
+let _whoComplianceSummaryPromise: Promise<WhoComplianceSummaryFallback | null> | null = null;
+
+async function fetchWhoComplianceSummaryFallback(
+  authorityId: string,
+  weeks: number,
+): Promise<WhoComplianceSummaryFallback | null> {
+  const key = `${authorityId}:${weeks}`;
+  if (_whoComplianceSummaryPromise && _whoComplianceSummaryKey === key) {
+    return _whoComplianceSummaryPromise;
+  }
+  _whoComplianceSummaryKey = key;
+  _whoComplianceSummaryPromise = (async () => {
+    try {
+      const { auth } = await import('@/lib/firebase');
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) return null;
+      const res = await fetch(
+        `/api/authority-manager/who-compliance-summary?weeks=${weeks}`,
+        { headers: { Authorization: `Bearer ${idToken}` } },
+      );
+      if (!res.ok) return null;
+      const json = await res.json();
+      // Confirmed real bug (adversarial review before this PR shipped, not
+      // caught by tsc): JSON.stringify serializes WHOComplianceResult's
+      // currentWeek: {start: Date, end: Date} to ISO strings. The
+      // TypeScript return type lies about this unless reconstructed here —
+      // AnalyticsDashboard.tsx:661 calls .toLocaleDateString() directly on
+      // currentWeek.start/.end, which throws "not a function" on a plain
+      // string. Only reachable via THIS fallback path — i.e. only for a
+      // real authority manager, never for an admin testing the happy path,
+      // which is exactly why it wasn't caught by hand-testing.
+      if (json?.breakdown?.currentWeek) {
+        json.breakdown.currentWeek = {
+          start: new Date(json.breakdown.currentWeek.start),
+          end: new Date(json.breakdown.currentWeek.end),
+        };
+      }
+      return json;
+    } catch (err) {
+      console.error('[health-economics.service] who-compliance-summary fallback failed:', err);
+      return null;
+    }
+  })();
+  return _whoComplianceSummaryPromise;
+}
+
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
 function toDate(timestamp: unknown): Date | undefined {
@@ -133,6 +250,14 @@ async function getAuthorityUsers(authorityId: string): Promise<string[]> {
 
     return userIds;
   } catch (error) {
+    // permission-denied (a real authority manager) must propagate to the
+    // CALLER's own catch — every exported function below already has one —
+    // so its fallback can fire. Swallowing it here (the old behavior) meant
+    // every caller saw userIds.length === 0 and took its own "no users"
+    // early-return default, with no exception left for a fallback to ever
+    // catch — the same upstream-swallow trap PR #206 fixed for
+    // getActivityByHour/getRunningStats in analytics.service.ts.
+    if (isPermissionDeniedError(error)) throw error;
     console.error('Error fetching authority users:', error);
     return [];
   }
@@ -181,6 +306,10 @@ export async function getWHO150Tracker(authorityId: string): Promise<WHO150Track
       currentWeek: weekRange,
     };
   } catch (error) {
+    if (isPermissionDeniedError(error)) {
+      const fallback = await fetchHealthSavingsSummaryFallback(authorityId, 12);
+      if (fallback) return fallback.who150Tracker;
+    }
     console.error('Error calculating WHO 150 tracker:', error);
     return { totalUsers: 0, usersReachingGoal: 0, percentageReachingGoal: 0, averageMinutesPerUser: 0, currentWeek: weekRange };
   }
@@ -306,6 +435,10 @@ export async function getWHOComplianceBreakdown(authorityId: string): Promise<WH
       currentWeek: weekRange,
     };
   } catch (error) {
+    if (isPermissionDeniedError(error)) {
+      const fallback = await fetchWhoComplianceSummaryFallback(authorityId, 8);
+      if (fallback) return fallback.breakdown;
+    }
     console.error('Error calculating WHO compliance breakdown:', error);
     return empty;
   }
@@ -365,6 +498,10 @@ export async function getWHOComplianceOverTime(
 
     return results;
   } catch (error) {
+    if (isPermissionDeniedError(error)) {
+      const fallback = await fetchWhoComplianceSummaryFallback(authorityId, boundedWeeks);
+      if (fallback) return fallback.trend;
+    }
     console.error('Error calculating WHO compliance over time:', error);
     return [];
   }
@@ -411,6 +548,10 @@ export async function getHealthSavings(authorityId: string): Promise<HealthSavin
       currentMonth: { year: now.getFullYear(), month: now.getMonth() },
     };
   } catch (error) {
+    if (isPermissionDeniedError(error)) {
+      const fallback = await fetchHealthSavingsSummaryFallback(authorityId, 12);
+      if (fallback) return fallback.healthSavings;
+    }
     console.error('Error calculating health savings:', error);
     return {
       totalUsers: 0, activeUsers: 0,
@@ -469,6 +610,10 @@ export async function getSavingsOverTime(
 
     return results;
   } catch (error) {
+    if (isPermissionDeniedError(error)) {
+      const fallback = await fetchHealthSavingsSummaryFallback(authorityId, months);
+      if (fallback) return fallback.savingsOverTime;
+    }
     console.error('Error calculating savings over time:', error);
     return [];
   }
