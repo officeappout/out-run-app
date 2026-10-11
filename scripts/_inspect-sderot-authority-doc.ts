@@ -4,10 +4,15 @@
  * any docs tagged to this authorityId, to locate where "city mapping" data
  * for Sderot actually landed.
  */
+import * as dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+dotenv.config();
 import * as admin from 'firebase-admin';
 
-const key = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY ?? '');
-if (!key?.project_id) { console.error('❌ FIREBASE_SERVICE_ACCOUNT_KEY missing'); process.exit(1); }
+const rawKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+if (!rawKey) { console.error('❌ FIREBASE_SERVICE_ACCOUNT_KEY not set (checked .env.local via dotenv, then process.env).'); process.exit(1); }
+const key = JSON.parse(rawKey);
+if (!key?.project_id) { console.error('❌ FIREBASE_SERVICE_ACCOUNT_KEY present but missing project_id — check the JSON value.'); process.exit(1); }
 if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.cert(key as admin.ServiceAccount) });
 const db = admin.firestore();
 
