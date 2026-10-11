@@ -41,7 +41,9 @@ describe('home/page.tsx — strength-invite sentinel is shared by both carousels
   });
 
   it('the post-workout carousel renders AddStrengthProgramCard for the sentinel item, same as pre-workout', () => {
-    const occurrences = pageSrc.split('<AddStrengthProgramCard profile={profile} />').length - 1;
+    // G8.1 (10.10.2026) added an onNavigate prop, so the tag no longer fits on
+    // one line — match the opening tag instead of a byte-exact single line.
+    const occurrences = pageSrc.split('<AddStrengthProgramCard').length - 1;
     // One for the pre-workout branch, one for the post-workout branch.
     expect(occurrences).toBe(2);
   });

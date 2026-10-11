@@ -9,6 +9,18 @@ import { resolveOnboardingEntryHref } from '@/features/user/onboarding/utils/onb
 
 interface AddStrengthProgramCardProps {
   profile: UserFullProfile | null | undefined;
+  /**
+   * G8.1 fix (Sderot field test, 10.10.2026): wraps the navigation in the
+   * health-declaration hard block (home/page.tsx's `interceptWorkoutStart`)
+   * when the caller is in a workout-start context. Before this, tapping this
+   * card routed straight to the strength assessment with no health-gate
+   * check at all — a user who never had a strength program could never reach
+   * the health declaration through this entry point. Optional: a caller
+   * outside the workout-start flow (e.g. TrackedProgramsSection, a profile/
+   * stats screen — not about to start anything) omits it and navigation
+   * stays direct, byte-identical to before.
+   */
+  onNavigate?: (navigate: () => void) => void;
 }
 
 /**
@@ -29,14 +41,16 @@ interface AddStrengthProgramCardProps {
  * this exact purpose — identity-known vs identity-unknown users both land in
  * the right place without any new branching here.
  */
-export default function AddStrengthProgramCard({ profile }: AddStrengthProgramCardProps) {
+export default function AddStrengthProgramCard({ profile, onNavigate }: AddStrengthProgramCardProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   const handleTap = () => {
     if (loading) return;
     setLoading(true);
-    router.push(resolveOnboardingEntryHref(profile, 'STRENGTH'));
+    const navigate = () => router.push(resolveOnboardingEntryHref(profile, 'STRENGTH'));
+    if (onNavigate) onNavigate(navigate);
+    else navigate();
   };
 
   return (
