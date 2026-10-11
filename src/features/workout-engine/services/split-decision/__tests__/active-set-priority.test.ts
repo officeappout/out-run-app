@@ -150,4 +150,67 @@ describe('resolvePrioritySkillIds — calisthenics_upper path stays fully unchan
     expect(result.priority1SkillIds).toEqual(['front_lever']);
     expect(result.priority2SkillIds).toEqual(['planche']);
   });
+
+  // Fix (11.10.2026, domain-balance audit): Math.min(dayIndex, skillCount - 1)
+  // clamped to the LAST skill forever once dayIndex reached skillCount - 1,
+  // instead of rotating. scheduleDays=4, skillCount=2 is the clamp's own
+  // minimal reproduction: dayIndex 2 and 3 both used to resolve to
+  // skillFocusIds[1] (clamp), vs. skillFocusIds[0]/[1] alternating (rotation).
+  it('Dominance Day rotates through all skills across the week, not just the first skillCount days', () => {
+    const profile = {
+      progression: {
+        activePrograms: [activeProgram('calisthenics_upper')],
+        skillFocusIds: ['planche', 'front_lever'],
+        domains: {},
+        tracks: {},
+      },
+    } as unknown as UserFullProfile;
+    const scheduleDays = ['א', 'ב', 'ג', 'ד']; // 4 days, 2 skills
+    // 2026-10-11 = Sunday (א, dayIndex 0), 2026-10-12 = Monday (ב, dayIndex 1),
+    // 2026-10-13 = Tuesday (ג, dayIndex 2), 2026-10-14 = Wednesday (ד, dayIndex 3).
+    const dominantByDate = (date: string) =>
+      resolvePrioritySkillIds(profile, 'skill_dominance', undefined, date, scheduleDays).priority1SkillIds;
+
+    expect(dominantByDate('2026-10-11')).toEqual(['planche']);     // dayIndex 0
+    expect(dominantByDate('2026-10-12')).toEqual(['front_lever']); // dayIndex 1
+    expect(dominantByDate('2026-10-13')).toEqual(['planche']);     // dayIndex 2 — would be 'front_lever' under the old clamp
+    expect(dominantByDate('2026-10-14')).toEqual(['front_lever']); // dayIndex 3 — would be 'front_lever' under the old clamp too
+  });
+});
+
+describe('resolvePrioritySkillIds — Pendulum split (3 days, 2 skills)', () => {
+  const profile = {
+    progression: {
+      activePrograms: [activeProgram('calisthenics_upper')],
+      skillFocusIds: ['planche', 'front_lever'],
+      domains: {},
+      tracks: {},
+    },
+  } as unknown as UserFullProfile;
+  const scheduleDays = ['א', 'ג', 'ה'];
+
+  it('bootstrap session (lastSessionFocus undefined) is a 50/50 hybrid blend', () => {
+    const result = resolvePrioritySkillIds(profile, 'skill_dominance', undefined, '2026-10-11', scheduleDays);
+    expect(result.pendulumFocus).toBe('hybrid_blend');
+  });
+
+  it('lastSessionFocus "push" alternates to pull_focus', () => {
+    const result = resolvePrioritySkillIds(profile, 'skill_dominance', 'push', '2026-10-11', scheduleDays);
+    expect(result.pendulumFocus).toBe('pull_focus');
+    expect(result.priority1SkillIds).toEqual(['front_lever']);
+  });
+
+  it('lastSessionFocus "pull" alternates to push_focus', () => {
+    const result = resolvePrioritySkillIds(profile, 'skill_dominance', 'pull', '2026-10-11', scheduleDays);
+    expect(result.pendulumFocus).toBe('push_focus');
+    expect(result.priority1SkillIds).toEqual(['planche']);
+  });
+
+  // Fix (11.10.2026): 'hybrid' was never written by any real caller — treating
+  // it as a bootstrap-equivalent (hybrid_blend) rather than a literal restart
+  // condition is the documented, intentional fallback, not a special case.
+  it('an unrecognized lastSessionFocus value (e.g. a stale "hybrid" literal) falls back to hybrid_blend', () => {
+    const result = resolvePrioritySkillIds(profile, 'skill_dominance', 'hybrid', '2026-10-11', scheduleDays);
+    expect(result.pendulumFocus).toBe('hybrid_blend');
+  });
 });
