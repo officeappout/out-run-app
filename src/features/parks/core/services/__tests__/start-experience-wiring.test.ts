@@ -33,6 +33,45 @@ describe('useWalkToRoute.ts — real Mapbox duration, not the distance/80 guess'
   });
 });
 
+describe('useWalkToRoute.ts — true nearest-point targeting + 15-min line gate (start-experience-v2 Phase 1, 12.10.2026)', () => {
+  const src = read('../../hooks/useWalkToRoute.ts');
+
+  it('targets the true nearest point on the polyline, not "whichever endpoint is closer"', () => {
+    expect(src).toContain('const nearest = nearestPointOnPath({ lat: userLat, lng: userLng }, path!);');
+    expect(src).not.toContain('Pick whichever endpoint is closer');
+    expect(src).not.toContain('const dStart = haversineKm(userLat, userLng, routeStartLat, routeStartLng);');
+  });
+
+  it('gates the pre-fetch call on a straight-line estimate, with a margin over the real threshold', () => {
+    const match = src.match(/const WALK_LEG_THRESHOLD_MIN = (\d+);/);
+    expect(match, 'WALK_LEG_THRESHOLD_MIN not found').toBeTruthy();
+    expect(Number(match![1])).toBe(15);
+    expect(src).toContain('const PRE_FETCH_SKIP_MULTIPLIER = 1.5;');
+    expect(src).toContain('estimateMinutes > WALK_LEG_THRESHOLD_MIN * PRE_FETCH_SKIP_MULTIPLIER');
+  });
+
+  it('gates the FINAL draw decision on the real fetched duration, regardless of the pre-fetch estimate', () => {
+    expect(src).toContain('if (walkMinutes > WALK_LEG_THRESHOLD_MIN) {');
+  });
+
+  it('never suppresses walkMinutes itself when gated — only the line geometry — so off_route_too_far keeps a real number to message with', () => {
+    // Both gated-state constructions (pre-fetch estimate skip, post-fetch real-value gate)
+    // must set walkMinutes to the real/estimated value, geoJSON/targetEndpoint to null.
+    const gatedBlocks = Array.from(src.matchAll(/const gatedState: WalkToRouteState = \{([\s\S]*?)\};/g));
+    expect(gatedBlocks.length).toBe(2);
+    for (const block of gatedBlocks) {
+      expect(block[1]).toMatch(/geoJSON:\s*null/);
+      expect(block[1]).toMatch(/targetEndpoint:\s*null/);
+      expect(block[1]).not.toMatch(/walkMinutes:\s*null/);
+    }
+  });
+
+  it('the arrival check during active workout tracks the cached targetEndpoint, not "either endpoint"', () => {
+    expect(src).toContain('const target = cacheRef.current.get(routeId)?.targetEndpoint;');
+    expect(src).not.toContain('near(routeStartLat, routeStartLng) || near(routeEndLat, routeEndLng)');
+  });
+});
+
 describe('RouteCardUnified.tsx — shared blocked-CTA affordance (3 carousels reuse this)', () => {
   const src = read('../../components/RouteCardUnified.tsx');
 
