@@ -18,6 +18,7 @@ import type { WorkoutGenerationContext, GeneratedWorkout } from '../logic/workou
 import type { ActivityType } from '@/features/parks/core/types/route.types';
 import { MAP_ROUTE_STOPS_V1 } from '@/config/feature-flags';
 import { deriveAerobicTargetKm } from './hybrid-aerobic.util';
+import { bucketTopology, composeRoundTripLegs, fetchMapboxWalkSeconds, type RoundTripLegs } from './round-trip';
 import { hasAssessedStrengthDomain } from '@/features/user/identity/services/access-control.service';
 import { buildStepContext } from '../core/context/build-step-context';
 import { useActivityStore } from '@/features/activity/store/useActivityStore';
@@ -76,6 +77,13 @@ export interface ComposedHybridSession {
    * Omitted → runHybridPlan falls back to `!!bolts` (full_park stays byte-identical).
    */
   fullParkRun?: boolean;
+  /**
+   * route_stops + 'existing_route' backbone only (Phase 2, round-trip): real walking minutes
+   * user→route entry and route end→user. ADDED ON TOP of `plan.totals` for display only — the
+   * plan/engine are untouched. Always fetched when present; the overview's durable toggle
+   * decides whether they are shown/counted. Absent for generated_loop (entry = user, ~0).
+   */
+  roundTrip?: RoundTripLegs;
 }
 
 /** A dense square loop around a point, ~`km` perimeter — the no-route fallback. */
@@ -877,7 +885,8 @@ async function composeRouteStopsWorkout(
     canonical: { path: routePath },
     entry: { position: ctx.userPosition },
     direction: 'forward',
-    topology: detectTopology(routePath),
+    // out_and_back → LINEAR bucket (defensive; detectTopology only returns loop/one_way today).
+    topology: bucketTopology(detectTopology(routePath)),
     stops: coredStops,
   });
   const traversalPath = plan.traversal;
@@ -1029,8 +1038,20 @@ async function composeRouteStopsWorkout(
     ? await buildNeedsAssessmentFallback()
     : null;
 
+  // Round-trip walk legs (Phase 2) — published-route backbone only. A generated_loop is built
+  // FROM the user's position (entry = user), so its legs would be ~0 → left as-is.
+  const roundTrip = backbone.routeId !== 'generated_loop' && traversalPath.length >= 2
+    ? await composeRoundTripLegs(
+        ctx.userPosition,
+        { lng: traversalPath[0][0], lat: traversalPath[0][1] },
+        { lng: traversalPath[traversalPath.length - 1][0], lat: traversalPath[traversalPath.length - 1][1] },
+        fetchMapboxWalkSeconds,
+      )
+    : null;
+
   return {
     plan: plans[selectedIndex],
+    ...(roundTrip ? { roundTrip } : {}),
     // Return the TRAVERSAL (entry-relative, rotated/clipped) — the same frame the plan geometry &
     // stops were built in, so the drawn/run route matches the ordering (not the canonical wp0 path).
     routePath: traversalPath,
