@@ -148,10 +148,23 @@ describe('AppMap.tsx — cheap fixed-pixel start-experience radius ring (v1.1)',
     expect(match![1]).toContain("source: 'start-radius-ring'");
   });
 
-  it('only renders when currentLocation is a finite lat/lng (fails open — no ring, no crash, on bad/missing data)', () => {
-    const match = src.match(/\{isFiniteLatLng\(currentLocation\) && \(([\s\S]*?)\n {8}\)\}/);
+  it('only renders when startRadiusRingGeoJSON is non-null (fails open — no ring, no crash, on bad/missing data)', () => {
+    const match = src.match(/\{startRadiusRingGeoJSON && \(([\s\S]*?)\n {8}\)\}/);
     expect(match, 'guarded radius-ring block not found').toBeTruthy();
     expect(match![1]).toContain('id="start-radius-ring"');
     expect(match![1]).toContain('<Layer {...START_RADIUS_RING_LAYER} />');
+  });
+
+  it('startRadiusRingGeoJSON itself fails open to null on a non-finite currentLocation (12.10.2026 memoization fix)', () => {
+    const match = src.match(/const startRadiusRingGeoJSON = useMemo\(\(\) => \{([\s\S]*?)\n {2}\}, \[/);
+    expect(match, 'startRadiusRingGeoJSON memo not found').toBeTruthy();
+    expect(match![1]).toContain('if (!isFiniteLatLng(currentLocation)) return null;');
+  });
+
+  it('startRadiusRingGeoJSON is keyed on coordinates rounded to 4 decimal degrees — removes the per-GPS-tick setData() churn without changing the rendered position meaningfully', () => {
+    const match = src.match(/const startRadiusRingGeoJSON = useMemo\(\(\) => \{[\s\S]*?\n {2}\}, \[([\s\S]*?)\]\);/);
+    expect(match, 'startRadiusRingGeoJSON memo dependency array not found').toBeTruthy();
+    expect(match![1]).toContain('Math.round(currentLocation.lng * 10_000)');
+    expect(match![1]).toContain('Math.round(currentLocation.lat * 10_000)');
   });
 });

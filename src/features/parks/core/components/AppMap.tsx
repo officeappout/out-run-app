@@ -1416,6 +1416,26 @@ export default function AppMap({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActiveWorkout, hasZoneSegments, focusedRoute?.id, focusedRoute?.path, ghostPathGeoJSON]);
 
+  // ── Start-experience radius ring GeoJSON ──────────────────────────────────
+  // Rounded to 4 decimal degrees (~11 m) so this only recomputes — and the
+  // Source only calls setData() — once the user has actually moved a
+  // visually-meaningful distance, instead of on every raw GPS tick (up to
+  // 2 Hz per useGPS.ts's GPS_MIN_INTERVAL_MS). The ring itself is a 70px
+  // fixed-pixel visual hint, not a precision gate, so this rounding changes
+  // nothing the user can see — it only removes the per-tick setData() churn
+  // introduced when this ring shipped.
+  const startRadiusRingGeoJSON = useMemo(() => {
+    if (!isFiniteLatLng(currentLocation)) return null;
+    const lng = Math.round(currentLocation.lng * 10_000) / 10_000;
+    const lat = Math.round(currentLocation.lat * 10_000) / 10_000;
+    return {
+      type: 'Feature' as const,
+      properties: {},
+      geometry: { type: 'Point' as const, coordinates: [lng, lat] },
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentLocation && Math.round(currentLocation.lng * 10_000), currentLocation && Math.round(currentLocation.lat * 10_000)]);
+
   // ── Off-route connector REMOVED BY PRODUCT DECISION, NOT AN OVERSIGHT
   // (David, 24.09.2026) — used to draw a dashed line from the user back to
   // the route while off-route ("no dashed line from the user to the route"
@@ -1838,17 +1858,11 @@ export default function AppMap({
         )}
 
         {/* ── Start-experience radius ring — see START_RADIUS_RING_LAYER's
-            doc comment above for why this is fixed-pixel, not geo-accurate. */}
-        {isFiniteLatLng(currentLocation) && (
-          <Source
-            id="start-radius-ring"
-            type="geojson"
-            data={{
-              type: 'Feature',
-              properties: {},
-              geometry: { type: 'Point', coordinates: [currentLocation.lng, currentLocation.lat] },
-            } as any}
-          >
+            doc comment above for why this is fixed-pixel, not geo-accurate,
+            and startRadiusRingGeoJSON's doc comment for why its coordinates
+            are rounded. */}
+        {startRadiusRingGeoJSON && (
+          <Source id="start-radius-ring" type="geojson" data={startRadiusRingGeoJSON as any}>
             <Layer {...START_RADIUS_RING_LAYER} />
           </Source>
         )}
