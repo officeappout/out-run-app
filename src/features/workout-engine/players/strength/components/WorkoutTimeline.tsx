@@ -40,7 +40,7 @@ export default function WorkoutTimeline({
                                 <div className="bg-white rounded-xl p-4 shadow-subtle border border-gray-100 opacity-80">
                                     <div className="flex justify-between items-start mb-1">
                                         <h4 className="font-bold text-gray-900">{segment.title}</h4>
-                                        <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">
+                                        <span className="text-xs font-bold text-[#007E78] bg-primary/10 px-2 py-0.5 rounded-md">
                                             {segment.target.value} {segment.target.unit}
                                         </span>
                                     </div>
