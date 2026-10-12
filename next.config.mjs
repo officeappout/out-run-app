@@ -1,3 +1,5 @@
+import { withSentryConfig } from '@sentry/nextjs';
+
 // Marketing site (the appout-website repo — a SEPARATE Next deployment) is
 // served under /web of this domain via Next.js multi-zones. Set
 // MARKETING_SITE_URL in the environment to that deployment's origin
@@ -83,4 +85,16 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+// Only touches build-time source-map upload (via @sentry/nextjs's own webpack
+// plugin entry) — does not touch the webpack `cache` settings axiom #13 bans
+// touching. For Next.js < 15 (this project is 14.2) the SDK also sets
+// `experimental.instrumentationHook: true` on the returned config itself —
+// confirmed by reading node_modules/@sentry/nextjs's own source for the
+// installed version, not assumed from docs — so no manual flag is needed here.
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: true,
+  widenClientFileUpload: false,
+});
