@@ -1,0 +1,954 @@
+[
+  {
+    "file": "src/app/arena/create/page.tsx",
+    "line": 278,
+    "col": 11,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/app/arena/create/page.tsx",
+    "line": 288,
+    "col": 11,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/app/arena/create/page.tsx",
+    "line": 307,
+    "col": 11,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/app/arena/create/page.tsx",
+    "line": 355,
+    "col": 11,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/app/arena/create/page.tsx",
+    "line": 374,
+    "col": 11,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/app/arena/create/page.tsx",
+    "line": 384,
+    "col": 11,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/app/arena/create/page.tsx",
+    "line": 405,
+    "col": 11,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/app/map/layers/FreeRunLayer.tsx",
+    "line": 256,
+    "col": 9,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/app/map/layers/FreeRunLayer.tsx",
+    "line": 256,
+    "col": 9,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/app/onboarding-new/profile/page.tsx",
+    "line": 566,
+    "col": 13,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/app/onboarding-new/profile/page.tsx",
+    "line": 607,
+    "col": 13,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/app/onboarding-new/profile/page.tsx",
+    "line": 730,
+    "col": 13,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/app/profile/page.tsx",
+    "line": 473,
+    "col": 21,
+    "rule": "jsx-a11y/no-autofocus",
+    "severity": "error",
+    "message": "The autoFocus prop should not be used, as it can reduce usability and accessibility for users."
+  },
+  {
+    "file": "src/app/profile/page.tsx",
+    "line": 489,
+    "col": 23,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/app/profile/page.tsx",
+    "line": 491,
+    "col": 25,
+    "rule": "jsx-a11y/no-autofocus",
+    "severity": "error",
+    "message": "The autoFocus prop should not be used, as it can reduce usability and accessibility for users."
+  },
+  {
+    "file": "src/app/profile/page.tsx",
+    "line": 506,
+    "col": 23,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/app/profile/page.tsx",
+    "line": 523,
+    "col": 23,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/components/AuthModal.tsx",
+    "line": 173,
+    "col": 15,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/components/AuthModal.tsx",
+    "line": 187,
+    "col": 13,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/components/AuthModal.tsx",
+    "line": 201,
+    "col": 13,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/components/admin/ExerciseAutocomplete.tsx",
+    "line": 175,
+    "col": 17,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/components/admin/ExerciseAutocomplete.tsx",
+    "line": 175,
+    "col": 17,
+    "rule": "jsx-a11y/no-noninteractive-element-interactions",
+    "severity": "error",
+    "message": "Non-interactive elements should not be assigned mouse or keyboard event listeners."
+  },
+  {
+    "file": "src/components/admin/ProgramAutocomplete.tsx",
+    "line": 188,
+    "col": 17,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/components/admin/ProgramAutocomplete.tsx",
+    "line": 188,
+    "col": 17,
+    "rule": "jsx-a11y/no-noninteractive-element-interactions",
+    "severity": "error",
+    "message": "Non-interactive elements should not be assigned mouse or keyboard event listeners."
+  },
+  {
+    "file": "src/components/ui/WheelPicker.tsx",
+    "line": 103,
+    "col": 7,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/components/ui/WheelPicker.tsx",
+    "line": 105,
+    "col": 9,
+    "rule": "jsx-a11y/no-noninteractive-tabindex",
+    "severity": "error",
+    "message": "`tabIndex` should only be declared on interactive elements."
+  },
+  {
+    "file": "src/components/ui/WheelPicker.tsx",
+    "line": 133,
+    "col": 15,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/components/ui/WheelPicker.tsx",
+    "line": 133,
+    "col": 15,
+    "rule": "jsx-a11y/interactive-supports-focus",
+    "severity": "error",
+    "message": "Elements with the 'option' interactive role must be focusable."
+  },
+  {
+    "file": "src/features/content/exercises/client/components/ExerciseVideoPlayer.tsx",
+    "line": 329,
+    "col": 9,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/content/exercises/client/components/ExerciseVideoPlayer.tsx",
+    "line": 329,
+    "col": 9,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/content/exercises/client/components/ExerciseVideoPlayer.tsx",
+    "line": 456,
+    "col": 9,
+    "rule": "jsx-a11y/media-has-caption",
+    "severity": "error",
+    "message": "Media elements such as <audio> and <video> must have a <track> for captions."
+  },
+  {
+    "file": "src/features/home/components/AddWorkoutModal.tsx",
+    "line": 360,
+    "col": 17,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/features/home/components/AddWorkoutModal.tsx",
+    "line": 368,
+    "col": 17,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/features/home/components/AddWorkoutModal.tsx",
+    "line": 382,
+    "col": 17,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/features/home/components/AnchorLocationChip.tsx",
+    "line": 53,
+    "col": 11,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/home/components/AnchorLocationChip.tsx",
+    "line": 53,
+    "col": 11,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/home/components/HeroWorkoutCard.tsx",
+    "line": 546,
+    "col": 5,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/home/components/HeroWorkoutCard.tsx",
+    "line": 546,
+    "col": 5,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/home/components/SettingsModal.tsx",
+    "line": 154,
+    "col": 5,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/home/components/SettingsModal.tsx",
+    "line": 154,
+    "col": 5,
+    "rule": "jsx-a11y/interactive-supports-focus",
+    "severity": "error",
+    "message": "Elements with the 'switch' interactive role must be tabbable."
+  },
+  {
+    "file": "src/features/home/components/StatsWidgets.tsx",
+    "line": 33,
+    "col": 9,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/home/components/StatsWidgets.tsx",
+    "line": 33,
+    "col": 9,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/home/components/UserWorkoutAdjuster.tsx",
+    "line": 351,
+    "col": 17,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/home/components/UserWorkoutAdjuster.tsx",
+    "line": 351,
+    "col": 17,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/home/components/WorkoutBuilderSheet.tsx",
+    "line": 837,
+    "col": 15,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/features/home/components/WorkoutBuilderSheet.tsx",
+    "line": 1246,
+    "col": 9,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/home/components/WorkoutBuilderSheet.tsx",
+    "line": 1246,
+    "col": 9,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/home/components/WorkoutBuilderSheet.tsx",
+    "line": 1250,
+    "col": 11,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/home/components/WorkoutBuilderSheet.tsx",
+    "line": 1250,
+    "col": 11,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/home/components/WorkoutSelectionCarousel.tsx",
+    "line": 348,
+    "col": 5,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/home/components/WorkoutSelectionCarousel.tsx",
+    "line": 348,
+    "col": 5,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/home/components/settings/MyPersonasSection.tsx",
+    "line": 202,
+    "col": 9,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/home/components/settings/MyPersonasSection.tsx",
+    "line": 202,
+    "col": 9,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/home/components/settings/MyPersonasSection.tsx",
+    "line": 204,
+    "col": 11,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/home/components/settings/MyPersonasSection.tsx",
+    "line": 204,
+    "col": 11,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/home/components/settings/MyPersonasSection.tsx",
+    "line": 234,
+    "col": 9,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/home/components/settings/MyPersonasSection.tsx",
+    "line": 234,
+    "col": 9,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/home/components/settings/MyPersonasSection.tsx",
+    "line": 236,
+    "col": 11,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/home/components/settings/MyPersonasSection.tsx",
+    "line": 236,
+    "col": 11,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/home/components/widgets/RunProgressCircle.tsx",
+    "line": 168,
+    "col": 7,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/home/components/widgets/RunProgressCircle.tsx",
+    "line": 168,
+    "col": 7,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/parks/client/components/contribution-wizard/Step2Details.tsx",
+    "line": 52,
+    "col": 9,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/features/parks/client/components/contribution-wizard/Step2Details.tsx",
+    "line": 65,
+    "col": 11,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/features/parks/client/components/contribution-wizard/Step2Details.tsx",
+    "line": 87,
+    "col": 9,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/features/parks/client/components/contribution-wizard/StepEquipment.tsx",
+    "line": 104,
+    "col": 9,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/features/parks/client/components/park-drawer/index.tsx",
+    "line": 23,
+    "col": 9,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/parks/client/components/park-drawer/index.tsx",
+    "line": 23,
+    "col": 9,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/parks/client/components/park-preview/index.tsx",
+    "line": 105,
+    "col": 7,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/parks/client/components/park-preview/index.tsx",
+    "line": 105,
+    "col": 7,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/parks/client/components/planned-activity/PlannedActivityComposeSheet.tsx",
+    "line": 404,
+    "col": 17,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/features/parks/client/components/planned-activity/PlannedActivityComposeSheet.tsx",
+    "line": 532,
+    "col": 17,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/features/parks/client/components/planned-activity/PlannedActivityComposeSheet.tsx",
+    "line": 574,
+    "col": 17,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/features/parks/core/components/BottomJourneyContainer.tsx",
+    "line": 335,
+    "col": 15,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/parks/core/components/BottomJourneyContainer.tsx",
+    "line": 335,
+    "col": 15,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/parks/core/components/FreeRunDrawer.tsx",
+    "line": 1244,
+    "col": 9,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/parks/core/components/FreeRunDrawer.tsx",
+    "line": 1244,
+    "col": 9,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/parks/core/components/MapLayersControl.tsx",
+    "line": 87,
+    "col": 21,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/parks/core/components/MapLayersControl.tsx",
+    "line": 87,
+    "col": 21,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/parks/core/components/NavigationHub.tsx",
+    "line": 196,
+    "col": 29,
+    "rule": "jsx-a11y/no-autofocus",
+    "severity": "error",
+    "message": "The autoFocus prop should not be used, as it can reduce usability and accessibility for users."
+  },
+  {
+    "file": "src/features/parks/core/components/RouteCardUnified.tsx",
+    "line": 120,
+    "col": 5,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/parks/core/components/RouteCardUnified.tsx",
+    "line": 120,
+    "col": 5,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/parks/core/components/SavedPlacesQuickRow.tsx",
+    "line": 154,
+    "col": 11,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/parks/core/components/SavedPlacesQuickRow.tsx",
+    "line": 154,
+    "col": 11,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/parks/core/components/WorkoutPreferencesModal.tsx",
+    "line": 85,
+    "col": 13,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/features/parks/core/components/WorkoutPreferencesModal.tsx",
+    "line": 109,
+    "col": 13,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/features/parks/core/components/WorkoutPreferencesModal.tsx",
+    "line": 131,
+    "col": 11,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/parks/core/components/WorkoutPreferencesModal.tsx",
+    "line": 131,
+    "col": 11,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/user/onboarding/components/ChoiceCard.tsx",
+    "line": 54,
+    "col": 7,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/user/onboarding/components/ChoiceCard.tsx",
+    "line": 54,
+    "col": 7,
+    "rule": "jsx-a11y/no-noninteractive-element-interactions",
+    "severity": "error",
+    "message": "Non-interactive elements should not be assigned mouse or keyboard event listeners."
+  },
+  {
+    "file": "src/features/user/onboarding/components/ChoiceCard.tsx",
+    "line": 119,
+    "col": 5,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/user/onboarding/components/ChoiceCard.tsx",
+    "line": 119,
+    "col": 5,
+    "rule": "jsx-a11y/no-noninteractive-element-interactions",
+    "severity": "error",
+    "message": "Non-interactive elements should not be assigned mouse or keyboard event listeners."
+  },
+  {
+    "file": "src/features/user/onboarding/components/DatePicker.tsx",
+    "line": 76,
+    "col": 11,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/features/user/onboarding/components/DatePicker.tsx",
+    "line": 98,
+    "col": 11,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/features/user/onboarding/components/DatePicker.tsx",
+    "line": 123,
+    "col": 11,
+    "rule": "jsx-a11y/label-has-associated-control",
+    "severity": "error",
+    "message": "A form label must be associated with a control."
+  },
+  {
+    "file": "src/features/user/onboarding/components/LifestyleWizard.tsx",
+    "line": 435,
+    "col": 13,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/user/onboarding/components/LifestyleWizard.tsx",
+    "line": 435,
+    "col": 13,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/user/onboarding/components/persona-questions-drawer/HierarchySearchStep.tsx",
+    "line": 404,
+    "col": 13,
+    "rule": "jsx-a11y/no-autofocus",
+    "severity": "error",
+    "message": "The autoFocus prop should not be used, as it can reduce usability and accessibility for users."
+  },
+  {
+    "file": "src/features/user/onboarding/components/steps/AccessCodeStep.tsx",
+    "line": 123,
+    "col": 11,
+    "rule": "jsx-a11y/no-autofocus",
+    "severity": "error",
+    "message": "The autoFocus prop should not be used, as it can reduce usability and accessibility for users."
+  },
+  {
+    "file": "src/features/workout-engine/players/running/components/PlanAlignmentPopup.tsx",
+    "line": 33,
+    "col": 11,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/workout-engine/players/running/components/PlanAlignmentPopup.tsx",
+    "line": 33,
+    "col": 11,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/workout-engine/players/running/components/PlanAlignmentPopup.tsx",
+    "line": 118,
+    "col": 11,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/workout-engine/players/running/components/PlanAlignmentPopup.tsx",
+    "line": 118,
+    "col": 11,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/workout-engine/players/running/components/PlannedRun/PlannedRunActive.tsx",
+    "line": 293,
+    "col": 11,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/workout-engine/players/running/components/PlannedRun/PlannedRunActive.tsx",
+    "line": 293,
+    "col": 11,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/workout-engine/players/running/components/PlannedRun/RunBlockPlaylist.tsx",
+    "line": 106,
+    "col": 13,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/workout-engine/players/running/components/RunBlockBriefingCard.tsx",
+    "line": 29,
+    "col": 5,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/workout-engine/players/strength/components/ExerciseDetailContent.tsx",
+    "line": 189,
+    "col": 17,
+    "rule": "jsx-a11y/iframe-has-title",
+    "severity": "error",
+    "message": "<iframe> elements must have a unique title property."
+  },
+  {
+    "file": "src/features/workout-engine/players/strength/components/ExerciseVideoPlayer.tsx",
+    "line": 297,
+    "col": 15,
+    "rule": "jsx-a11y/iframe-has-title",
+    "severity": "error",
+    "message": "<iframe> elements must have a unique title property."
+  },
+  {
+    "file": "src/features/workout-engine/players/strength/components/ExerciseVideoPlayer.tsx",
+    "line": 376,
+    "col": 13,
+    "rule": "jsx-a11y/media-has-caption",
+    "severity": "error",
+    "message": "Media elements such as <audio> and <video> must have a <track> for captions."
+  },
+  {
+    "file": "src/features/workout-engine/players/strength/components/HorizontalPicker.tsx",
+    "line": 456,
+    "col": 7,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/workout-engine/players/strength/components/LiveWorkoutOverlay.tsx",
+    "line": 185,
+    "col": 21,
+    "rule": "jsx-a11y/media-has-caption",
+    "severity": "error",
+    "message": "Media elements such as <audio> and <video> must have a <track> for captions."
+  },
+  {
+    "file": "src/features/workout-engine/players/strength/components/MiniPlayerBar.tsx",
+    "line": 52,
+    "col": 5,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/workout-engine/players/strength/components/MiniPlayerBar.tsx",
+    "line": 52,
+    "col": 5,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/workout-engine/players/strength/components/SegmentCard.tsx",
+    "line": 40,
+    "col": 13,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/workout-engine/players/strength/components/SegmentCard.tsx",
+    "line": 40,
+    "col": 13,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/workout-engine/players/strength/components/WorkoutStickyNav.tsx",
+    "line": 92,
+    "col": 29,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/workout-engine/players/strength/components/WorkoutStickyNav.tsx",
+    "line": 92,
+    "col": 29,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  },
+  {
+    "file": "src/features/workout-engine/shared/components/MiniDock.tsx",
+    "line": 29,
+    "col": 5,
+    "rule": "jsx-a11y/click-events-have-key-events",
+    "severity": "error",
+    "message": "Visible, non-interactive elements with click handlers must have at least one keyboard listener."
+  },
+  {
+    "file": "src/features/workout-engine/shared/components/MiniDock.tsx",
+    "line": 29,
+    "col": 5,
+    "rule": "jsx-a11y/no-static-element-interactions",
+    "severity": "error",
+    "message": "Avoid non-native interactive elements. If using native HTML is not possible, add an appropriate role and support for tabbing, mouse, keyboard, and touch inputs to an interactive content element."
+  }
+]
