@@ -38,6 +38,7 @@ import {
 import { resolveTierSubOrder } from '../../logic/workout-sorting.utils';
 import { MG_TO_DOMAIN } from '../../shared/constants/domain-mapping.constants';
 import { resolveToSlug } from '../../services/program-hierarchy.utils';
+import { exerciseMatchesProgram } from '../../services/shadow-level.utils';
 import type { BudgetConstraints } from './pipeline.types';
 
 // ============================================================================
@@ -53,6 +54,74 @@ const TIER_MAX_SETS: Record<TierName, number> = (Object.keys(TIER_TABLE) as Tier
     acc[tier] = TIER_TABLE[tier].sets.max;
     return acc;
   }, {} as Record<TierName, number>);
+
+/**
+ * Shared survivor-selection for every main-exercise culling step in this
+ * file that can drop a whole exercise under a tight budget:
+ * `_pyramidAwareCap`'s DROP branch (maxSets/weeklyBudget/dailySetBudget,
+ * all three difficulties) and the two cluster caps (`_balancedClusterCap`
+ * D2, `_skillClusterCap` D3).
+ *
+ * Fix (11.10.2026, domain-balance audit): all three used to rank candidates
+ * by their own quality metric alone (tier+score for the cluster caps,
+ * target-skill+score for `_pyramidAwareCap`) and keep the top N — domain-
+ * blind. For a 2-domain request that isn't push+pull (e.g. legs+push),
+ * `_balancedClusterCap`'s own diversity check can never unlock the wider
+ * cap (distinctDomains tops out at 2, below BALANCED_DIVERSITY_THRESHOLD=3)
+ * and `_skillClusterCap` has no domain check at all — but the FIRST place
+ * a whole exercise can actually be dropped is `_pyramidAwareCap`, which
+ * runs earlier in the SAME `distribute()` call, for every difficulty, not
+ * just D2/D3. Confirmed live: legs (squat/hinge) scores lower than push
+ * candidates on average, so a legs+push session lost its ENTIRE legs
+ * representation inside `_pyramidAwareCap` itself — by the time the
+ * cluster caps ran, there was no legs candidate left for THEM to protect
+ * either, which is why fixing only the cluster caps' own survivor
+ * selection was not sufficient on its own.
+ *
+ * Guarantees up to 1 survivor per domain in `requiredDomains` (the best
+ * remaining candidate for that domain, per the caller's own comparator)
+ * before filling the rest by that comparator as before. Domain-blind
+ * (falls through to the original behavior) whenever requiredDomains has
+ * 0-1 entries — a single-domain session has nothing to protect against.
+ */
+function selectClusterSurvivors(
+  candidates: WorkoutExercise[],
+  maxAllowed: number,
+  requiredDomains: string[] | undefined,
+  compare: (a: WorkoutExercise, b: WorkoutExercise) => number = (a, b) => {
+    const ta = resolveTierSubOrder(a);
+    const tb = resolveTierSubOrder(b);
+    if (ta !== tb) return ta - tb;
+    return (b.score ?? 0) - (a.score ?? 0);
+  },
+): WorkoutExercise[] {
+  const sorted = [...candidates].sort(compare);
+
+  if (!requiredDomains || requiredDomains.length < 2) {
+    return sorted.slice(0, maxAllowed);
+  }
+
+  const kept: WorkoutExercise[] = [];
+  const keptIds = new Set<string>();
+  for (const domain of requiredDomains) {
+    if (kept.length >= maxAllowed) break;
+    const best = sorted.find(
+      (e) => !keptIds.has(e.exercise.id) && exerciseMatchesProgram(e.exercise, domain),
+    );
+    if (best) {
+      kept.push(best);
+      keptIds.add(best.exercise.id);
+    }
+  }
+  for (const e of sorted) {
+    if (kept.length >= maxAllowed) break;
+    if (!keptIds.has(e.exercise.id)) {
+      kept.push(e);
+      keptIds.add(e.exercise.id);
+    }
+  }
+  return kept;
+}
 
 // Skill / Strength Cluster — when difficulty=3 collapses a thin-spread plan
 // onto a small set of high-quality exercises, we cap the unique main count
@@ -248,7 +317,7 @@ export class BudgetDistributor {
     // Pyramid exercises are immune — only straight-set exercises are trimmed.
     if (constraints.maxSets != null && constraints.maxSets > 0) {
       const before = exercises.reduce((s, e) => s + e.sets, 0);
-      exercises = this._pyramidAwareCap(exercises, constraints.maxSets, safeDenominator, structureFloor, targetSkillIds);
+      exercises = this._pyramidAwareCap(exercises, constraints.maxSets, safeDenominator, structureFloor, targetSkillIds, context.requiredDomains);
       const after = exercises.reduce((s, e) => s + e.sets, 0);
       if (after < before) {
         log.push(`max_sets_cap: ${before} → ${after} (cap=${constraints.maxSets})`);
@@ -258,7 +327,7 @@ export class BudgetDistributor {
     // ── Step 4: Weekly budget cap ────────────────────────────────────────────
     if (constraints.remainingWeeklyBudget != null && constraints.remainingWeeklyBudget > 0) {
       const before = exercises.reduce((s, e) => s + e.sets, 0);
-      exercises = this._pyramidAwareCap(exercises, constraints.remainingWeeklyBudget, safeDenominator, structureFloor, targetSkillIds);
+      exercises = this._pyramidAwareCap(exercises, constraints.remainingWeeklyBudget, safeDenominator, structureFloor, targetSkillIds, context.requiredDomains);
       const after = exercises.reduce((s, e) => s + e.sets, 0);
       if (after < before) {
         log.push(`weekly_budget_cap: ${before} → ${after} (remaining=${constraints.remainingWeeklyBudget})`);
@@ -269,7 +338,7 @@ export class BudgetDistributor {
     if (constraints.dailySetBudget != null && constraints.dailySetBudget > 0) {
       const preCap = exercises.reduce((s, e) => s + e.sets, 0);
       if (preCap > constraints.dailySetBudget) {
-        exercises = this._pyramidAwareCap(exercises, constraints.dailySetBudget, safeDenominator, structureFloor, targetSkillIds);
+        exercises = this._pyramidAwareCap(exercises, constraints.dailySetBudget, safeDenominator, structureFloor, targetSkillIds, context.requiredDomains);
         const postCap = exercises.reduce((s, e) => s + e.sets, 0);
         log.push(`daily_budget_cap: ${preCap} → ${postCap} (budget=${constraints.dailySetBudget})`);
       }
@@ -407,6 +476,7 @@ export class BudgetDistributor {
     safeDenominator: number,
     structureFloor: number = 1,
     targetSkillIds?: Set<string>,
+    requiredDomains?: string[],
   ): WorkoutExercise[] {
     // Identification is structural-only: the `appliedProtocol` string is NOT
     // reliable at budget time (it may be injected after this pass runs).
@@ -480,16 +550,17 @@ export class BudgetDistributor {
       // budget) must not drop a planche/front_lever pick the user actually
       // selected, just because it scored lower. Score remains the tiebreaker
       // within each bucket, and the sole tiebreaker when no skill was
-      // selected at all.
+      // selected at all. Domain floor (see selectClusterSurvivors's own doc
+      // comment) applies on top of this same ranking — this is the actual
+      // drop point for the legs+push starvation bug, not the cluster caps
+      // downstream, which never see a dropped domain's candidates at all.
       const keep = Math.max(1, Math.floor(straightTarget / structureFloor));
-      finalStraight = [...mutable]
-        .sort((a, b) => {
-          const aTarget = exerciseTargetSkill(a) !== undefined ? 1 : 0;
-          const bTarget = exerciseTargetSkill(b) !== undefined ? 1 : 0;
-          if (aTarget !== bTarget) return bTarget - aTarget;
-          return b.score - a.score;
-        })
-        .slice(0, keep)
+      finalStraight = selectClusterSurvivors(mutable, keep, requiredDomains, (a, b) => {
+        const aTarget = exerciseTargetSkill(a) !== undefined ? 1 : 0;
+        const bTarget = exerciseTargetSkill(b) !== undefined ? 1 : 0;
+        if (aTarget !== bTarget) return bTarget - aTarget;
+        return b.score - a.score;
+      })
         .map(e =>
           e.sets < structureFloor
             ? {
@@ -569,19 +640,15 @@ export class BudgetDistributor {
     // Slots available for straight-set exercises after reserving pyramid slots.
     const slotsForStraight = Math.max(0, SKILL_CLUSTER_MAX_MAIN - pyramidMainIds.size);
 
-    // Tier sub-order priority is the canonical `resolveTierSubOrder` from
-    // workout-sorting.utils (elite → hard → skill/compound → foundation →
-    // match → flow).  No local duplicate is kept here.
-    const sortedMain = [...straightMainExes].sort((a, b) => {
-      const ta = resolveTierSubOrder(a);
-      const tb = resolveTierSubOrder(b);
-      if (ta !== tb) return ta - tb;
-      return (b.score ?? 0) - (a.score ?? 0);
-    });
+    // Survivor ranking: tier sub-order (elite → hard → skill/compound →
+    // foundation → match → flow) then score, with a per-domain floor
+    // (selectClusterSurvivors) so a required domain isn't fully dropped
+    // just because its candidates tier/score lower than another domain's.
+    const survivors = selectClusterSurvivors(straightMainExes, slotsForStraight, context.requiredDomains);
 
     const keepIds = new Set<string>([
       ...pyramidMainIds,
-      ...sortedMain.slice(0, slotsForStraight).map(e => e.exercise.id),
+      ...survivors.map(e => e.exercise.id),
     ]);
     const removedCount = mainExes.length - keepIds.size;
     let next = exercises.filter(
@@ -712,19 +779,16 @@ export class BudgetDistributor {
     // Slots available for straight-set exercises after reserving pyramid slots.
     const slotsForStraight = Math.max(0, maxAllowed - pyramidMainIds.size);
 
-    // Rank survivors by canonical tier sub-order (elite → hard → skill/compound
-    // → foundation → match → flow), score descending as tiebreak — same
-    // contract as `_skillClusterCap` so both clusters use ONE quality scale.
-    const sortedMain = [...straightMainExes].sort((a, b) => {
-      const ta = resolveTierSubOrder(a);
-      const tb = resolveTierSubOrder(b);
-      if (ta !== tb) return ta - tb;
-      return (b.score ?? 0) - (a.score ?? 0);
-    });
+    // Survivor ranking: tier sub-order (elite → hard → skill/compound →
+    // foundation → match → flow) then score — same contract as
+    // `_skillClusterCap`, including the per-domain floor (see
+    // selectClusterSurvivors) so a required domain isn't fully dropped
+    // just because its candidates tier/score lower than another domain's.
+    const survivors = selectClusterSurvivors(straightMainExes, slotsForStraight, context.requiredDomains);
 
     const keepIds = new Set<string>([
       ...pyramidMainIds,
-      ...sortedMain.slice(0, slotsForStraight).map(e => e.exercise.id),
+      ...survivors.map(e => e.exercise.id),
     ]);
     const removedCount = mainExes.length - keepIds.size;
     let next = exercises.filter(
@@ -836,7 +900,7 @@ export class BudgetDistributor {
     // ── Budget caps — pyramid-aware (never clip pyramid steps) ────────────
     if (constraints.maxSets != null && constraints.maxSets > 0) {
       const before = result.reduce((s, e) => s + e.sets, 0);
-      result = this._pyramidAwareCap(result, constraints.maxSets, safeDenominator, structureFloor, targetSkillIds);
+      result = this._pyramidAwareCap(result, constraints.maxSets, safeDenominator, structureFloor, targetSkillIds, context?.requiredDomains);
       const after = result.reduce((s, e) => s + e.sets, 0);
       if (after < before) log.push(`reapply_max_sets: ${before}→${after}`);
     }
@@ -848,7 +912,7 @@ export class BudgetDistributor {
       const total = result.reduce((s, e) => s + e.sets, 0);
       if (total > constraints.remainingWeeklyBudget) {
         const before = total;
-        result = this._pyramidAwareCap(result, constraints.remainingWeeklyBudget, safeDenominator, structureFloor, targetSkillIds);
+        result = this._pyramidAwareCap(result, constraints.remainingWeeklyBudget, safeDenominator, structureFloor, targetSkillIds, context?.requiredDomains);
         log.push(`reapply_weekly: ${before}→${result.reduce((s, e) => s + e.sets, 0)}`);
       }
     }
@@ -857,7 +921,7 @@ export class BudgetDistributor {
       const total = result.reduce((s, e) => s + e.sets, 0);
       if (total > constraints.dailySetBudget) {
         const before = total;
-        result = this._pyramidAwareCap(result, constraints.dailySetBudget, safeDenominator, structureFloor, targetSkillIds);
+        result = this._pyramidAwareCap(result, constraints.dailySetBudget, safeDenominator, structureFloor, targetSkillIds, context?.requiredDomains);
         log.push(`reapply_daily: ${before}→${result.reduce((s, e) => s + e.sets, 0)} (cap=${constraints.dailySetBudget})`);
       }
     }

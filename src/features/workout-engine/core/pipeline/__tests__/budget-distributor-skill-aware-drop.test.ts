@@ -54,8 +54,8 @@ function makeWorkoutExercise(
   } as any;
 }
 
-function ctx(selectedSkillIds: string[]): WorkoutGenerationContext {
-  return { availableTime: 30, intentMode: undefined, selectedSkillIds } as any;
+function ctx(selectedSkillIds: string[], requiredDomains?: string[]): WorkoutGenerationContext {
+  return { availableTime: 30, intentMode: undefined, selectedSkillIds, requiredDomains } as any;
 }
 
 const TIGHT_CAP: BudgetConstraints = {
@@ -130,6 +130,32 @@ describe('BudgetDistributor._pyramidAwareCap — skill-aware drop', () => {
     const survivingIds = result.map((e) => e.exercise.id);
     expect(survivingIds).toContain('high-1');
     expect(survivingIds).toContain('high-2');
+  });
+
+  it('domain-balance audit (11.10.2026): a required domain survives the DROP even when all its candidates score lower than another required domain\'s', () => {
+    // 2 legs (low score) + 3 push (high score), all at 4 sets -- same
+    // "greedy hits the floor, still over cap" shape as the skill-aware
+    // test above, but here NOTHING is a user-selected skill (selectedSkillIds
+    // is empty) -- the only thing protecting legs is requiredDomains. Before
+    // this fix, legs would have been dropped entirely (pure score order),
+    // which is exactly the live legs+push starvation this fix closes.
+    const legs1 = makeWorkoutExercise('legs-1', 30, 4, [{ programId: 'legs', level: 10 }]);
+    const legs2 = makeWorkoutExercise('legs-2', 25, 4, [{ programId: 'legs', level: 10 }]);
+    const push1 = makeWorkoutExercise('push-1', 90, 4, [{ programId: 'push', level: 15 }]);
+    const push2 = makeWorkoutExercise('push-2', 80, 4, [{ programId: 'push', level: 15 }]);
+    const push3 = makeWorkoutExercise('push-3', 70, 4, [{ programId: 'push', level: 15 }]);
+
+    const distributor = createBudgetDistributor();
+    const result = distributor.reapplyCaps(
+      [legs1, legs2, push1, push2, push3],
+      TIGHT_CAP,
+      ctx([], ['legs', 'push']),
+    );
+
+    const survivingIds = result.map((e) => e.exercise.id);
+    expect(survivingIds.some((id) => id.startsWith('legs-'))).toBe(true);
+    expect(survivingIds.some((id) => id.startsWith('push-'))).toBe(true);
+    expect(survivingIds).not.toContain('legs-2'); // keep=2 -- only the better-scoring legs pick survives
   });
 
   it('the ≤4-sets-per-exercise skill cap (a different function entirely) is untouched by this fix', () => {
