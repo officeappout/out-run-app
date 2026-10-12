@@ -18,7 +18,7 @@
  * Pure — no React, no Firebase, no Date.now().
  */
 
-import { haversineMeters, crossTrackDistanceMeters } from './geoUtils';
+import { nearestPointOnPath } from './geoUtils';
 import { ARRIVAL_RADIUS_M } from '../hooks/useWalkToRoute';
 
 export { ARRIVAL_RADIUS_M };
@@ -63,14 +63,18 @@ export function computeStartExperienceState(
   if (!userPos || !Number.isFinite(userPos.lat) || !Number.isFinite(userPos.lng)) return 'on_route';
   if (!routePath || routePath.length < 2) return 'on_route';
 
-  const [startLng, startLat] = routePath[0];
-  if (Number.isFinite(startLat) && Number.isFinite(startLng)) {
-    const distToStart = haversineMeters(userPos.lat, userPos.lng, startLat, startLng);
-    if (Number.isFinite(distToStart) && distToStart <= ARRIVAL_RADIUS_M) return 'at_start';
-  }
+  // Single nearest-point projection feeds BOTH checks below — the TRUE
+  // nearest point on the polyline (start-experience-v2 Phase 1, 12.10.2026),
+  // not just routePath[0] (the pre-fix behavior here, inconsistent with
+  // useWalkToRoute.ts's own walk-leg target, which this same fix changed
+  // from "the nearer endpoint" to this identical projection). Fails open
+  // to 'on_route' when the path is degenerate — nearestPointOnPath already
+  // returns null in that case.
+  const nearest = nearestPointOnPath(userPos, routePath);
+  if (!nearest) return 'on_route';
 
-  const crossTrack = crossTrackDistanceMeters(userPos, routePath);
-  if (Number.isFinite(crossTrack) && crossTrack <= ON_ROUTE_CROSS_TRACK_M) return 'on_route';
+  if (nearest.crossTrackM <= ARRIVAL_RADIUS_M) return 'at_start';
+  if (nearest.crossTrackM <= ON_ROUTE_CROSS_TRACK_M) return 'on_route';
 
   if (walkMinutes == null || !Number.isFinite(walkMinutes)) return 'on_route';
   return walkMinutes <= WALK_TO_ROUTE_THRESHOLD_MIN ? 'off_route_walkable' : 'off_route_too_far';
