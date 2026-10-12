@@ -96,5 +96,13 @@ export default withSentryConfig(nextConfig, {
   project: process.env.SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,
   silent: true,
-  widenClientFileUpload: false,
+  // true: client source-map upload also covers React/Next.js runtime +
+  // third-party (node_modules) chunks, not just this app's own pages/app
+  // code — the app-code chunks are de-minified either way, this only
+  // widens the vendor-chunk coverage. Worth it here: the WebView bundle
+  // carries more first-party-adjacent vendor code than a typical web app
+  // (Mapbox GL, Firebase client SDK, Capacitor bridge shims), so a crash
+  // inside one of those is a real, not hypothetical, case. Costs build
+  // time + upload size; revisit if that becomes a real problem.
+  widenClientFileUpload: true,
 });
