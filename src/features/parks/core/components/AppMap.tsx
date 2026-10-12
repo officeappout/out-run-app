@@ -23,7 +23,7 @@ import { resolveParkImage } from '@/lib/park-image';
 
 import { registerPinImage, registerArrowTipImage, registerArrowImage, drawPullUpBarIcon, drawDumbbellIcon, drawDotIcon, MINOR_URBAN_TYPES } from './mapPinIcons';
 import { hapticLight } from '@/lib/haptics';
-import { applyFitnessMapStyle, resetFitnessMapStyle } from './mapStyleConfig';
+import { applyFitnessMapStyle, resetFitnessMapStyle, WALK_LEG_LINE_PAINT } from './mapStyleConfig';
 import { IS_PERF_BATCH1_ENABLED } from '@/config/feature-flags';
 import MapLoadingSkeleton from '@/components/MapLoadingSkeleton';
 import { segmentPathByZone, bearingBetween, buildLaneOffsetPath, buildDirectionMarkers, isOutAndBackPath, pathLengthMeters, isSameCoord } from '../services/geoUtils';
@@ -501,6 +501,7 @@ export default function AppMap({
   // cyan glow is neutralized to green so it doesn't fight the gradient. Null →
   // non-hybrid route → the modality-colored flat paint below.
   const hybridRouteStations = useMapStore((s) => s.hybridRouteStations);
+  const hybridWalkLegs = useMapStore((s) => s.hybridWalkLegs);
   const isHybridRoute = !!hybridRouteStations && hybridRouteStations.length > 0;
   // 15.08.2026 route-styling batch: non-hybrid focused routes now color by
   // MODALITY instead of a flat cyan — aerobic (walking/running/cycling, the
@@ -1847,12 +1848,20 @@ export default function AppMap({
               id="walk-to-route-line"
               type="line"
               layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-              paint={{
-                'line-color': '#00E5FF',
-                'line-width': 4,
-                'line-dasharray': [3, 3],
-                'line-opacity': 0.9,
-              }}
+              paint={WALK_LEG_LINE_PAINT as any}
+            />
+          </Source>
+        )}
+
+        {/* ── Hybrid round-trip walk legs (route_stops): walk-there + walk-back, same dashed
+            style as walk-to-route above. Fed by HybridOverviewScreen via useMapStore. ── */}
+        {hybridWalkLegs && (
+          <Source id="walk-to-route-hybrid" type="geojson" data={hybridWalkLegs as any}>
+            <Layer
+              id="walk-to-route-hybrid-line"
+              type="line"
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+              paint={WALK_LEG_LINE_PAINT as any}
             />
           </Source>
         )}

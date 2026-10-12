@@ -191,6 +191,14 @@ interface MapStore {
   hybridRouteStations: number[] | null;
   setHybridRouteStations: (fracs: number[] | null) => void;
   /**
+   * Round-trip walk legs (route_stops hybrid, Phase 2b): dashed-line overlay for walk-there /
+   * walk-back. Written by HybridOverviewScreen (null when the round-trip toggle is off or the
+   * overview unmounts), read by AppMap. Deliberately separate from the curated-route walk-to-route
+   * state (useWalkToRoute) — same paint, independent data.
+   */
+  hybridWalkLegs: GeoJSON.FeatureCollection | null;
+  setHybridWalkLegs: (fc: GeoJSON.FeatureCollection | null) => void;
+  /**
    * Rendered height (px) of TurnCarousel. Written by TurnCarousel via a
    * ResizeObserver and reset to 0 on unmount. Used by useDraggableMetrics
    * to position the metrics card's top snap dynamically below the nav card.
@@ -459,6 +467,8 @@ export const useMapStore = create<MapStore>((set, get) => ({
   setIsOverviewActive: (v) => set({ isOverviewActive: v }),
   hybridRouteStations: null,
   setHybridRouteStations: (fracs) => set({ hybridRouteStations: fracs }),
+  hybridWalkLegs: null,
+  setHybridWalkLegs: (fc) => set({ hybridWalkLegs: fc }),
   navCardHeight: 0,
   setNavCardHeight: (h) => set({ navCardHeight: h }),
   isLapsOpen: false,

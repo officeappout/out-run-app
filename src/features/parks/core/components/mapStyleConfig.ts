@@ -313,3 +313,15 @@ export function applyFitnessMapStyle(map: mapboxgl.Map, source = 'unknown') {
     console.warn(`[FitnessMapStyle] Failed to apply (source=${source}):`, err);
   }
 }
+
+/**
+ * Dashed walk-leg line paint — the single source for BOTH the curated-route walk-to-route line
+ * (useWalkToRoute → AppMap `walk-to-route-line`) and the hybrid round-trip walk legs
+ * (`walk-to-route-hybrid-line`). Layer ids must keep the `walk-to-route` prefix (CUSTOM_LAYER_PREFIXES).
+ */
+export const WALK_LEG_LINE_PAINT = {
+  'line-color': '#00E5FF',
+  'line-width': 4,
+  'line-dasharray': [3, 3],
+  'line-opacity': 0.9,
+} as const;

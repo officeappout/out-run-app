@@ -22,7 +22,7 @@ import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/med
 import { findMethodForLocation } from '@/features/content/exercises/core/exercise.types';
 import { ActivityGlyph } from './activity-icons'; // single source for both axes (points 13/17)
 import { formatMinutes } from './hybrid-format'; // shared duration formatter (point 19)
-import { HYBRID_AER as AER, HYBRID_STR as STR } from './hybrid-colors'; // single source (point 15)
+import { HYBRID_AER as AER, HYBRID_STR as STR, HYBRID_WALK as WALK } from './hybrid-colors'; // single source (point 15)
 
 const FINISH = '#EF4444'; // journey end (matches the finish dot); the spine blends to it on the last leg
 const AER_TINT = '#ECFDF5', AER_TEXT = '#047857';
@@ -92,6 +92,44 @@ function Node({ kind, nextColor, subtype }: { kind: 'aerobic' | 'strength'; next
     </div>
   );
 }
+/**
+ * Round-trip walk leg (Phase 2b) — DISPLAY-ONLY, rendered from `walkLegs`, NOT from
+ * `segments`. HybridPlannedSegment.kind stays 'aerobic' | 'strength' on purpose: that union
+ * feeds the run (orchestrator, useHybridRun), history, weekly load and the summary, and a
+ * 'walk' segment there would be RUN and credited. Hollow node + dashed spine = distinct from both.
+ */
+function WalkNode() {
+  return (
+    <div className="relative flex flex-col items-center flex-shrink-0" style={{ width: 44 }}>
+      <span aria-hidden style={{
+        position: 'absolute', zIndex: 0, left: '50%', transform: 'translateX(-50%)',
+        top: 22, bottom: -20, width: 0,
+        borderLeft: `4px dashed ${WALK}`, borderRadius: 2,
+        opacity: 0.9,
+      }} />
+      <div className="relative rounded-full flex items-center justify-center"
+        style={{ zIndex: 1, width: 44, height: 44, background: '#fff', color: WALK, border: `3px dashed ${WALK}` }}>
+        <ActivityGlyph kind="aerobic" subtype="walking" className="w-[26px] h-[26px]" />
+      </div>
+    </div>
+  );
+}
+function WalkRow({ title, minutes }: { title: string; minutes: number }) {
+  return (
+    <div className="flex gap-3 items-stretch">
+      <WalkNode />
+      <div className="relative flex-1 min-w-0 bg-white rounded-2xl overflow-hidden mb-3"
+        style={{ border: '0.5px dashed #BAE6FD', boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>
+        <div style={{ padding: '11px 15px 12px 12px' }}>
+          <span className="text-[14px] font-black block" style={{ color: '#111827' }}>{title}</span>
+          <div className="flex items-center gap-2 flex-wrap mt-2">
+            <Meta icon={<Clock size={14} />}>{formatMinutes(minutes * 60)}</Meta>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 function Meta({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
   return <span className="inline-flex items-center gap-1 text-[12px] font-bold" style={{ color: '#374151' }}>
     <span style={{ color: '#9CA3AF' }}>{icon}</span>{children}</span>;
@@ -141,6 +179,11 @@ interface AxisProps {
    * segment's own assessmentDomains instead of falling back to the session's.
    */
   onSegmentAssessmentLink?: (domains?: string[]) => void;
+  /**
+   * Round-trip walk legs (route_stops, Phase 2b), minutes. Display-only rows before the first and
+   * after the last plan segment; never part of `segments` (see WalkNode). Omit/0 → no row.
+   */
+  walkLegs?: { thereMin: number; backMin: number } | null;
 }
 
 export default function HybridJourneyAxis({
@@ -153,10 +196,15 @@ export default function HybridJourneyAxis({
   onExerciseTap,
   onSwapExercise,
   onSegmentAssessmentLink,
+  walkLegs,
 }: AxisProps) {
   const aerCount = segments.filter((s) => s.kind === 'aerobic').length;
   let aerIdx = 0, strIdx = 0;
-  const firstColor = segments[0]?.kind === 'strength' ? STR : AER;
+  const walkThere = walkLegs && walkLegs.thereMin > 0 ? walkLegs.thereMin : 0;
+  const walkBack = walkLegs && walkLegs.backMin > 0 ? walkLegs.backMin : 0;
+  const firstSegColor = segments[0]?.kind === 'strength' ? STR : AER;
+  // The spine head blends into whatever row comes first (the walk-there row when present).
+  const firstColor = walkThere > 0 ? WALK : firstSegColor;
 
   // G2.1 fix (Sderot field test, 10.10.2026): this used to render the amber
   // equipment-tabata nudge INSIDE the segments.map() below, once per qualifying
@@ -200,10 +248,12 @@ export default function HybridJourneyAxis({
         </button>
       )}
 
+      {walkThere > 0 && <WalkRow title="הליכה אל המסלול" minutes={walkThere} />}
+
       {segments.map((seg, i) => {
         const last = i === segments.length - 1;
-        // Spine colour continues to the NEXT node (or the finish dot on the last leg).
-        const nextColor = last ? FINISH : (segments[i + 1].kind === 'aerobic' ? AER : STR);
+        // Spine colour continues to the NEXT node (the walk-back row, or the finish dot, on the last leg).
+        const nextColor = last ? (walkBack > 0 ? WALK : FINISH) : (segments[i + 1].kind === 'aerobic' ? AER : STR);
         if (seg.kind === 'aerobic') {
           aerIdx += 1;
           const legLabel = aerIdx === 1 ? 'יציאה' : aerIdx === aerCount ? 'חזרה' : `${aerIdx}`;
@@ -454,6 +504,8 @@ export default function HybridJourneyAxis({
           </div>
         );
       })}
+
+      {walkBack > 0 && <WalkRow title="הליכה חזרה לנקודת ההתחלה" minutes={walkBack} />}
 
       {/* finish dot */}
       <div className="flex items-center gap-2" style={{ margin: '3px 2px 0' }}>
