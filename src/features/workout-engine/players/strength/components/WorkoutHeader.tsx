@@ -21,11 +21,15 @@ export default function WorkoutHeader() {
 
             {/* Top Controls */}
             <div className="absolute top-0 left-0 right-0 p-4 pt-14 flex justify-between items-start z-10">
-                <button className="w-10 h-10 bg-white/95 backdrop-blur-md rounded-full flex items-center justify-center shadow-sm text-gray-700 active:scale-90 transition-transform">
+                <button
+                    aria-label="שיתוף אימון"
+                    className="w-10 h-10 bg-white/95 backdrop-blur-md rounded-full flex items-center justify-center shadow-sm text-gray-700 active:scale-90 transition-transform"
+                >
                     <Share2 size={20} />
                 </button>
                 <button
                     onClick={() => router.back()}
+                    aria-label="חזרה"
                     className="w-10 h-10 bg-white/95 backdrop-blur-md rounded-full flex items-center justify-center shadow-sm text-gray-700 active:scale-90 transition-transform"
                 >
                     <ArrowRight size={20} />

@@ -111,7 +111,7 @@ export default function BottomNavigation() {
               href={item.href}
               tabIndex={isSuppressed ? -1 : 0}
               className={`flex flex-col items-center justify-center gap-0.5 min-h-[44px] min-w-[44px] px-3 rounded-xl transition-all ${
-                isActive ? 'text-[#00C9F2]' : 'text-gray-900'
+                isActive ? 'text-[#007EA8]' : 'text-gray-900'
               }`}
             >
               <Icon size={26} strokeWidth={isActive ? 2.5 : 2} />

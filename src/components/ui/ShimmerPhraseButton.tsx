@@ -121,13 +121,13 @@ export default function ShimmerPhraseButton({
             direction: 'rtl',
           }}
         >
-          {icon ?? <Sparkles size={18} color="#00BAF7" strokeWidth={2} style={{ flexShrink: 0 }} />}
+          {icon ?? <Sparkles size={18} color="#007EA8" strokeWidth={2} style={{ flexShrink: 0 }} />}
           <span
             style={{
               flex: 1,
               fontSize: 15,
               fontWeight: 500,
-              color: '#00BAF7',
+              color: '#007EA8',
               textAlign: 'center',
               opacity: visible ? 1 : 0,
               transform: visible ? 'translateY(0)' : 'translateY(5px)',

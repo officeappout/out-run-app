@@ -74,7 +74,7 @@ export function InitialCard({ gender, t, locationError, onFindLocation, onSearch
 
           <button
             onClick={onSearchManually}
-            className="w-full mt-4 text-[#5BC2F2] hover:text-[#4AADE3] text-sm py-2 transition-colors underline underline-offset-2 font-medium"
+            className="w-full mt-4 text-[#007EA8] hover:text-[#4AADE3] text-sm py-2 transition-colors underline underline-offset-2 font-medium"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
             בחירת עיר ושכונה באופן ידני

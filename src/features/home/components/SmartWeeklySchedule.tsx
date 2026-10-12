@@ -188,6 +188,13 @@ interface DayActivityData {
 
 const HEBREW_DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const;
 
+// Full day names for the day-cell button's aria-label — HEBREW_DAYS is a
+// single letter, not enough for a screen reader to identify which day a
+// button represents. Same index/order (Sunday-first, matches Date#getDay()).
+const FULL_HEBREW_DAY_NAMES = [
+  'יום ראשון', 'יום שני', 'יום שלישי', 'יום רביעי', 'יום חמישי', 'יום שישי', 'יום שבת',
+] as const;
+
 // Dot colors from activity.types.ts
 const DOT_COLORS = {
   strength: ACTIVITY_COLORS.strength.hex,    // #06B6D4 (Cyan)
@@ -1677,6 +1684,7 @@ export default function SmartWeeklySchedule({
                             only. */}
                         <motion.button
                           onClick={() => handleDayClick(day, index)}
+                          aria-label={`${FULL_HEBREW_DAY_NAMES[index]}${isToday ? ', היום' : ''}${planned ? ', אימון מתוכנן' : ', יום מנוחה'}`}
                           whileTap={{ scale: 0.92 }}
                           transition={{ type: 'spring', stiffness: 400, damping: 20 }}
                           className="flex items-center justify-center relative"

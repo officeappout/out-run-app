@@ -173,6 +173,7 @@ export default function RunnerHeader({
 
           <button
             onClick={onTogglePause}
+            aria-label={isPaused ? 'המשך אימון' : 'הפסק אימון'}
             className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
           >
             {isPaused ? (
@@ -194,7 +195,7 @@ export default function RunnerHeader({
         {tabataInterval && !isMachineTabata && (
           <div className="flex justify-center mb-2">
             <span
-              className="text-[11px] font-bold text-[#00BAF7] uppercase tracking-wider tabular-nums"
+              className="text-[11px] font-bold text-[#007EA8] bg-white rounded-full px-2.5 py-0.5 uppercase tracking-wider tabular-nums"
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
               אינטרוול {isResting

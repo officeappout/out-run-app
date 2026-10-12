@@ -248,7 +248,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
                   <span className="text-[11px] font-bold text-gray-500 tabular-nums">
                     {globalXP.toLocaleString()} / {nextLevelXP.toLocaleString()} XP
                   </span>
-                  <span className="text-[11px] font-bold text-[#00ADEF]">
+                  <span className="text-[11px] font-bold text-[#007EA8]">
                     שלב {globalLevel + 1} →
                   </span>
                 </div>
