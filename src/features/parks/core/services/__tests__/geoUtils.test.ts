@@ -13,6 +13,8 @@ import {
   haversineMeters,
   isSameCoord,
   sliceFlowPathToDistance,
+  nearestPointOnPath,
+  crossTrackDistanceMeters,
 } from '../geoUtils';
 
 describe('destinationPoint — inverse of bearingBetween (15.08.2026, route-styling batch)', () => {
@@ -498,5 +500,61 @@ describe('pathSelfIntersects — clean-geometry check (16.08.2026)', () => {
       [34.773, 32.048],
     ];
     expect(pathSelfIntersects(path)).toBe(true);
+  });
+});
+
+describe('nearestPointOnPath — true nearest-point projection (start-experience-v2 Phase 1, 12.10.2026)', () => {
+  // Two collinear segments along a fixed latitude: [34.0,32.0] -> [34.01,32.0]
+  // -> [34.02,32.0], each leg ~930m east.
+  const PATH: number[][] = [[34.0, 32.0], [34.01, 32.0], [34.02, 32.0]];
+
+  it('projects to a point strictly BETWEEN two vertices on the second segment — not a path endpoint', () => {
+    // ~20m due north of [34.015, 32.0], which sits in the middle of the SECOND
+    // leg (path[1] -> path[2]), nowhere near either of the path's own endpoints.
+    const pos = { lat: 32.0 + 20 / 111_320, lng: 34.015 };
+    const nearest = nearestPointOnPath(pos, PATH);
+    expect(nearest).not.toBeNull();
+    expect(nearest!.segmentIndex).toBe(1);
+    expect(nearest!.point[0]).toBeCloseTo(34.015, 3);
+    expect(nearest!.point[1]).toBeCloseTo(32.0, 4);
+    expect(nearest!.crossTrackM).toBeCloseTo(20, 0);
+    // The whole point of this fix: the result is NOT either endpoint.
+    expect(nearest!.point).not.toEqual(PATH[0]);
+    expect(nearest!.point).not.toEqual(PATH[PATH.length - 1]);
+  });
+
+  it('projects to the shared vertex when the point sits exactly above it — picks the first segment on an exact tie', () => {
+    const pos = { lat: 32.0, lng: 34.01 }; // exactly at the middle vertex
+    const nearest = nearestPointOnPath(pos, PATH);
+    expect(nearest).not.toBeNull();
+    expect(nearest!.segmentIndex).toBe(0);
+    expect(nearest!.point[0]).toBeCloseTo(34.01, 5);
+    expect(nearest!.point[1]).toBeCloseTo(32.0, 5);
+    expect(nearest!.crossTrackM).toBeCloseTo(0, 0);
+  });
+
+  it('finds the correct segment across a multi-segment path, not just the first one checked', () => {
+    // ~15m north of [34.0, 32.0] (the FIRST vertex) and ~15m north of
+    // [34.02, 32.0] (the LAST vertex) would both be closer to an endpoint
+    // than anything near the middle — confirm each resolves to its own
+    // nearest segment, not a bias toward segment 0.
+    const nearStart = nearestPointOnPath({ lat: 32.0 + 15 / 111_320, lng: 34.0 }, PATH);
+    const nearEnd = nearestPointOnPath({ lat: 32.0 + 15 / 111_320, lng: 34.02 }, PATH);
+    expect(nearStart!.segmentIndex).toBe(0);
+    expect(nearEnd!.segmentIndex).toBe(1);
+  });
+
+  it('crossTrackM agrees with crossTrackDistanceMeters for the same inputs (both duplicate the same projection math)', () => {
+    const pos = { lat: 32.0 + 20 / 111_320, lng: 34.015 };
+    const nearest = nearestPointOnPath(pos, PATH);
+    const crossTrack = crossTrackDistanceMeters(pos, PATH);
+    expect(nearest!.crossTrackM).toBeCloseTo(crossTrack, 3);
+  });
+
+  it('fails open to null — degenerate path, non-finite position', () => {
+    expect(nearestPointOnPath({ lat: 32, lng: 34 }, [])).toBeNull();
+    expect(nearestPointOnPath({ lat: 32, lng: 34 }, [[34, 32]])).toBeNull();
+    expect(nearestPointOnPath({ lat: NaN, lng: 34 }, PATH)).toBeNull();
+    expect(nearestPointOnPath({ lat: 32, lng: Infinity }, PATH)).toBeNull();
   });
 });
