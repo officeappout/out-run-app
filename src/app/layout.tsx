@@ -4,6 +4,7 @@ import "./globals.css";
 import ClientLayout from "./ClientLayout";
 import NativeBootstrap from "@/components/system/NativeBootstrap";
 import MarketingAttributionBootstrap from "@/components/system/MarketingAttributionBootstrap";
+import AccessibilityWidgetLoader from "@/components/system/AccessibilityWidgetLoader";
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -54,6 +55,8 @@ export default function RootLayout({
         <NativeBootstrap />
         <MarketingAttributionBootstrap />
         <ClientLayout>{children}</ClientLayout>
+        {/* Opt-in only (Settings toggle, default OFF) — renders nothing until enabled. */}
+        <AccessibilityWidgetLoader />
       </body>
     </html>
   );
