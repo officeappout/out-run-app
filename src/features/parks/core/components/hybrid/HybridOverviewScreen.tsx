@@ -26,6 +26,8 @@ import { HYBRID_AER as AER, HYBRID_STR as STR } from './hybrid-colors'; // singl
 import { ActivityGlyph } from './activity-icons'; // single source for both axes (points 13/17)
 import { formatMinutes } from './hybrid-format'; // shared duration formatter (point 19)
 import type { ComposedHybridSession } from '@/features/workout-engine/hybrid/start-hybrid-session';
+import { ROUTE_STOPS_ROUND_TRIP_KEY, readRoundTripPref, displayTotalMin } from '@/features/workout-engine/hybrid/round-trip';
+import { setOnboardingPref } from '@/lib/onboardingPrefs';
 
 const ACCENT = '#00ADEF';
 const STR_TINT = '#ECFEFF', STR_TEXT = '#0E7490'; // cyan tint/text from color-system.md (no new hex)
@@ -109,7 +111,17 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
     }
   };
   const t = plan.totals;
-  const totalMin = Math.round((t.aerobicMin ?? 0) + (t.strengthMin ?? 0));
+  // Round-trip (Phase 2, route_stops + published-route backbone only): walk-there + walk-back
+  // are ADDED ON TOP of the workout minutes, for display. Default ON; durable pref.
+  const roundTripLegs = composed.roundTrip ?? null;
+  const [roundTripOn, setRoundTripOn] = useState<boolean>(readRoundTripPref);
+  const toggleRoundTrip = () => {
+    const next = !roundTripOn;
+    setRoundTripOn(next);
+    setOnboardingPref(ROUTE_STOPS_ROUND_TRIP_KEY, next ? '1' : '0');
+  };
+  const workoutMin = Math.round((t.aerobicMin ?? 0) + (t.strengthMin ?? 0));
+  const totalMin = displayTotalMin(workoutMin, roundTripLegs, roundTripOn);
 
   // Route description (point 11). ⚠️ TEMPORARY placeholder copy, generated from the
   // composed plan. The real per-route descriptions will come from the ADMIN PANEL —
@@ -440,6 +452,26 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
               <span style={{ color: '#D1D5DB' }}>·</span>
               <span className="font-bold" style={{ color: '#6B7280' }}>מסיים ~{finishClock}</span>
             </div>
+            {roundTripLegs && (
+              <button
+                type="button"
+                dir="rtl"
+                onClick={toggleRoundTrip}
+                aria-pressed={roundTripOn}
+                className="mt-1.5 inline-flex items-center gap-1.5 rounded-full text-[11.5px] font-bold active:scale-[0.97] transition-transform"
+                style={{
+                  padding: '4px 10px',
+                  background: roundTripOn ? `${ACCENT}14` : '#F3F4F6',
+                  border: `1px solid ${roundTripOn ? ACCENT : 'transparent'}`,
+                  color: roundTripOn ? '#0E7490' : '#6B7280',
+                }}
+              >
+                <span aria-hidden>🚶</span>
+                {roundTripOn
+                  ? `הלוך וחזור · כולל ${roundTripLegs.walkThereMin + roundTripLegs.walkBackMin} דק׳ הליכה אל המסלול וממנו`
+                  : 'הוסף הליכה הלוך וחזור'}
+              </button>
+            )}
           </div>
 
           {/* Moovit strip — the enlarged primary nav element (point 10). Shown at
