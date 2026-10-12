@@ -112,5 +112,9 @@ export default withSentryConfig(nextConfig, {
   // (Mapbox GL, Firebase client SDK, Capacitor bridge shims), so a crash
   // inside one of those is a real, not hypothetical, case. Costs build
   // time + upload size; revisit if that becomes a real problem.
-  widenClientFileUpload: true,
+  //
+  // REVERTED to false (12.10.2026): with true, the Vercel Preview build hung
+  // 28+ min (source-map processing on the Hobby plan). Vendor-chunk frames
+  // stay minified in Sentry; app-code frames are still de-minified.
+  widenClientFileUpload: false,
 });
