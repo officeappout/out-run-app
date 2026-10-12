@@ -117,4 +117,11 @@ export default withSentryConfig(nextConfig, {
   // 28+ min (source-map processing on the Hobby plan). Vendor-chunk frames
   // stay minified in Sentry; app-code frames are still de-minified.
   widenClientFileUpload: false,
+  // Source maps OFF at build (12.10.2026): the Vercel Hobby build hit OOM
+  // (SIGKILL) when Sentry's map generation ran on top of the normal build.
+  // `disable: true` stops the SDK from forcing map generation AND from
+  // uploading, so runtime init + error capture (DSN) are unaffected — events
+  // just arrive with minified stacks. Re-enable (flip to false, and consider
+  // widenClientFileUpload) once the build has memory headroom (Pro plan).
+  sourcemaps: { disable: true },
 });
