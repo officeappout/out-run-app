@@ -31,9 +31,9 @@ function MidnightClock() {
 // Routes where BottomNavigation should be completely hidden.
 // '/profile' intentionally removed — the profile page's tabs sit at the top
 // of the screen, so the global BottomNavbar can coexist at the bottom.
-// '/privacy' and '/terms' are standalone public compliance pages that must
+// '/privacy', '/terms' and '/accessibility' are standalone public compliance pages that must
 // render as clean web documents without any mobile app chrome.
-const HIDDEN_NAV_ROUTES = ['/explorer', '/library', '/onboarding-new', '/gateway', '/privacy', '/terms', '/public', '/join', '/challenge', '/booth'];
+const HIDDEN_NAV_ROUTES = ['/explorer', '/library', '/onboarding-new', '/gateway', '/privacy', '/terms', '/accessibility', '/public', '/join', '/challenge', '/booth'];
 
 // THE RULE: a route belongs on this list if some element of its own screen
 // (a header bar, a hero image) is deliberately edge-to-edge — its own
