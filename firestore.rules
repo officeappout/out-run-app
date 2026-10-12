@@ -2008,14 +2008,63 @@ service cloud.firestore {
     //   • RouteDetailSheet & ParkDetailSheet "אני מגיע ב..." buttons
     //   • Partner-finder hub (usePartnerData)
     //   • useParkEvents personal-arrival stream
-    // Reads are open to any authenticated user; the upstream queries
-    // are bounded by parkId / routeId / userId / status / expiresAt
-    // so this is not an unbounded firehose. Writes are scoped to the
-    // doc owner — matched against `userId` on the resource (existing
-    // doc for update/delete, request payload for create).
-    // ============================================================
+    //
+    // 11.10.2026 (write-layer-4 audit) — was `if isAuthenticated()`, no
+    // per-document check at all. The comment this replaces claimed "the
+    // upstream queries are bounded... so this is not an unbounded
+    // firehose" — true about which FIELDS the client happens to filter
+    // by, false as a security boundary: a direct Firestore call (or any
+    // future caller that forgets the client-side filter) saw every
+    // user's name/photo/plan/meeting-point regardless of privacyMode,
+    // including docs the data itself marks 'squad' (private-group-only)
+    // or 'ghost' (owner-only) via the ONLY filter that was ever meant to
+    // gate this: the privacyMode field, enforced in application code
+    // (usePartnerData.ts's fromPlanned filter), never at this layer.
+    //
+    // New contract: owner always sees their own (any privacyMode,
+    // including ghost/squad — matches the pre-fix "own arrivals bypass
+    // every filter" guarantee); 'verified_global' is visible to anyone
+    // authenticated; 'squad' is visible only to a member of that specific
+    // group; 'ghost' (or anything else) is owner-only by omission — no
+    // branch admits a non-owner for it.
+    //
+    // DELIBERATELY uses memberGroupIds(request.auth.uid) (one cached
+    // read of the CALLER's own user_memberships mirror, same pattern
+    // presence/{userId}'s existing group-mode rule already uses for a
+    // `list` query) rather than isGroupMember(groupId) (a get() whose
+    // PATH depends on the candidate document's own groupId field). The
+    // latter is NOT provable for `list` — Firestore cannot verify a
+    // per-candidate-document dynamic sub-path exists() without
+    // inspecting the actual query results first, which is exactly the
+    // unprovable shape axiom §25 already warns about, just one level
+    // removed (through a helper function instead of a bare isOwner
+    // check). Caught before shipping, not after — proven by a dedicated
+    // `list`-query test, not just a single-doc get() test, which would
+    // never have caught this at all.
+    //
+    // A missing privacyMode field (pre-dating this field's existence, if
+    // any such doc somehow outlives the hourly cleanupEphemeralDocs
+    // sweep) defaults to 'verified_global' here via .get(key, default) —
+    // deliberately matching the client's own existing fail-open fallback
+    // (usePartnerData.ts's filter: anything that isn't explicitly 'ghost'
+    // or 'squad' is treated as visible to everyone) rather than assuming
+    // no such doc can exist.
+    //
+    // Sequencing: this rule must NOT deploy until the paired query-split
+    // code (already shipped separately) has had hours to propagate —
+    // every real caller's query must already be scoped (privacyMode/
+    // userId/groupId in the where() clause) before this rule goes live,
+    // or `list` is rejected outright for the OLD unscoped query shape,
+    // same lesson as the attendance fix.
     match /planned_sessions/{sessionId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && (
+        isOwner(resource.data.userId)
+        || resource.data.get('privacyMode', 'verified_global') == 'verified_global'
+        || (
+          resource.data.get('privacyMode', 'verified_global') == 'squad'
+          && memberGroupIds(request.auth.uid).hasAny([resource.data.get('groupId', '')])
+        )
+      );
       allow create: if isAuthenticated()
                     && request.auth.uid == request.resource.data.userId;
       allow update, delete: if isAuthenticated()
