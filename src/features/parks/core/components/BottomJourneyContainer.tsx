@@ -11,6 +11,7 @@ import { UNIFIED_ROUTE_CARDS_ENABLED } from '@/config/feature-flags';
 import { bunnyImg } from '@/lib/bunny-image';
 import { computeStartExperienceState, estimateWalkMinutesFromKm } from '../services/start-experience-state';
 import { useToast } from '@/components/ui/Toast';
+import { clampedScrollTarget, registerCorrection, type CorrectionPair } from './carousel-scroll-sync.util';
 
 // How many cards on either side of the centered one get a real cover photo
 // mounted (SPEC-05 image-memory #2). This carousel is an unvirtualized
@@ -118,6 +119,8 @@ export default function BottomJourneyContainer({
   const isProgrammaticScrollRef = useRef(false);
   // Debounce timer for the scroll-idle focus emit.
   const scrollIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // rAF handle for the scroll-settle poll (see waitForScrollSettle below).
+  const scrollSettleRafRef = useRef<number | null>(null);
 
   // ── Helper: which card is currently centred? ─────────────────────────────
   // Reads each card's actual offsetLeft from the DOM rather than a derived
@@ -126,34 +129,113 @@ export default function BottomJourneyContainer({
   // was the root cause of "snap drifts off the second card" on wide screens.
   // In flex-row-reverse with dir="ltr": DOM child 0 = routes[0] = rightmost.
   // The routes array index equals the DOM child index directly.
+  //
+  // Compares the CLAMPED per-card target (clampedScrollTarget — same
+  // formula scrollCardToCentre uses) against the real scrollLeft, not a raw
+  // geometric "card center vs viewport center" — for an interior card this
+  // is algebraically identical to the old formula (the clamp is a no-op),
+  // but for an EDGE card whose ideal center is unreachable, both functions
+  // now agree that "scrolled all the way to the edge" IS that edge card
+  // being centered, instead of one side wanting the true center and the
+  // other reading back whatever the clamped scrollLeft actually produced.
   const findCenteredIndex = useCallback((): number => {
     const container = carouselRef.current;
     if (!container) return -1;
     const cards = Array.from(container.children) as HTMLElement[];
     if (cards.length === 0) return -1;
-    const containerCenter = container.scrollLeft + container.offsetWidth / 2;
+    const scrollLeft = container.scrollLeft;
     let closestIdx = 0;
     let minDist = Infinity;
     cards.forEach((card, i) => {
-      const cardCenter = card.offsetLeft + card.offsetWidth / 2;
-      const dist = Math.abs(cardCenter - containerCenter);
+      const target = clampedScrollTarget(container, card);
+      const dist = Math.abs(target - scrollLeft);
       if (dist < minDist) { minDist = dist; closestIdx = i; }
     });
     return closestIdx;
   }, []);
 
+  // ── Helper: wait for a scroll to actually settle (not a fixed timer) ─────
+  // rAF-polls scrollLeft until it hasn't moved for STABLE_FRAMES_NEEDED
+  // consecutive frames, then fires onSettled. Covers the case a fixed
+  // timer can't: if the target was unreachable (clamped), scrollLeft never
+  // moves at all and this resolves almost immediately; if the animation
+  // genuinely takes longer than expected, this waits for the REAL end
+  // instead of guessing a duration. MAX_WAIT_MS is a safety backstop so a
+  // pathological case (something external keeps nudging scrollLeft) can
+  // never suppress handleScroll's read-back forever.
+  const waitForScrollSettle = useCallback((onSettled: () => void) => {
+    const container = carouselRef.current;
+    if (!container) { onSettled(); return; }
+    const STABLE_FRAMES_NEEDED = 3;
+    const MAX_WAIT_MS = 2000;
+    const startTime = Date.now();
+    let lastLeft = container.scrollLeft;
+    let stableFrames = 0;
+    const tick = () => {
+      const c = carouselRef.current;
+      if (!c) { onSettled(); return; }
+      if (Date.now() - startTime > MAX_WAIT_MS) { onSettled(); return; }
+      if (c.scrollLeft === lastLeft) {
+        stableFrames += 1;
+        if (stableFrames >= STABLE_FRAMES_NEEDED) { onSettled(); return; }
+      } else {
+        stableFrames = 0;
+        lastLeft = c.scrollLeft;
+      }
+      scrollSettleRafRef.current = requestAnimationFrame(tick);
+    };
+    scrollSettleRafRef.current = requestAnimationFrame(tick);
+  }, []);
+
   // ── Helper: scroll a card to centre programmatically ─────────────────────
+  // Clamps to the container's REAL scrollable range (clampedScrollTarget)
+  // instead of asking for a geometric center that may be unreachable, and
+  // keeps isProgrammaticScrollRef true until the scroll genuinely settles
+  // (waitForScrollSettle) rather than a fixed 600ms guess — so an explicit
+  // external focus (e.g. a map-marker tap) is never overridden by
+  // handleScroll's read-back before the programmatic scroll has actually
+  // finished (or, for an edge card, never started moving at all).
   const scrollCardToCentre = useCallback((domIdx: number) => {
     const container = carouselRef.current;
     if (!container) return;
     const card = container.children[domIdx] as HTMLElement | undefined;
     if (!card) return;
+    if (scrollSettleRafRef.current != null) {
+      cancelAnimationFrame(scrollSettleRafRef.current);
+      scrollSettleRafRef.current = null;
+    }
     isProgrammaticScrollRef.current = true;
-    container.scrollTo({
-      left: card.offsetLeft + card.offsetWidth / 2 - container.offsetWidth / 2,
-      behavior: 'smooth',
-    });
-    setTimeout(() => { isProgrammaticScrollRef.current = false; }, 600);
+    container.scrollTo({ left: clampedScrollTarget(container, card), behavior: 'smooth' });
+    waitForScrollSettle(() => { isProgrammaticScrollRef.current = false; });
+  }, [waitForScrollSettle]);
+
+  // ── Backstop: bounded correction-retry guard (MANDATORY) ─────────────────
+  // Last line of defense against React's "Maximum update depth exceeded"
+  // (error #185) — confirmed live, 12.10.2026: a route-marker tap could
+  // trip the map error boundary via an unbounded external-focus ↔
+  // read-back-refocus cycle between the SAME two routes. Fixes 1+2 above
+  // target the actual geometric mismatch that cycle depends on, but this
+  // guard GUARANTEES the limit can never be hit again even if some other,
+  // not-yet-seen mismatch produces the same shape of cycle: once the SAME
+  // unordered pair of route ids has corrected back and forth more than
+  // MAX_CORRECTIONS_PER_PAIR times in a row, stop re-emitting and warn
+  // instead of continuing. Resets whenever a genuinely different pair is
+  // involved, or on real user interaction (handleManualInteractionStart).
+  // The pure counting logic lives in carousel-scroll-sync.util.ts
+  // (registerCorrection) so it's directly unit-testable; this callback only
+  // threads the ref state through it and owns the one side effect (the
+  // warning log).
+  const MAX_CORRECTIONS_PER_PAIR = 3;
+  const correctionPairRef = useRef<CorrectionPair | null>(null);
+  const checkCorrectionAllowed = useCallback((fromId: string | null, toId: string): boolean => {
+    const { allowed, pair } = registerCorrection(correctionPairRef.current, fromId, toId, MAX_CORRECTIONS_PER_PAIR);
+    correctionPairRef.current = pair;
+    if (!allowed) {
+      console.warn(
+        `[BottomJourneyContainer] Bounded-retry guard: stopped after ${MAX_CORRECTIONS_PER_PAIR} corrections between routes "${pair?.a}" <-> "${pair?.b}" — likely an edge-card scroll mismatch. Not re-emitting further.`,
+      );
+    }
+    return allowed;
   }, []);
 
   // ── External focus → scroll the matching card into centre ────────────────
@@ -186,19 +268,30 @@ export default function BottomJourneyContainer({
       const route = routes[idx];
       if (!route) return;
       if (route.id === lastEmittedRouteIdRef.current) return; // no echo
+      if (!checkCorrectionAllowed(lastEmittedRouteIdRef.current, route.id)) return; // bounded-retry backstop
       lastEmittedRouteIdRef.current = route.id;
       if (onRouteFocus) onRouteFocus(route);
     }, 150);
-  }, [activeRouteIndex, findCenteredIndex, routes, onRouteFocus]);
+  }, [activeRouteIndex, findCenteredIndex, routes, onRouteFocus, checkCorrectionAllowed]);
 
   // Drop the programmatic-scroll lockout the instant the user touches the
-  // carousel so a swipe that interrupts an in-flight smooth-scroll wins.
+  // carousel so a swipe that interrupts an in-flight smooth-scroll wins —
+  // and cancel any pending settle-poll + reset the correction backstop,
+  // since a real user gesture is always trusted over either mechanism.
   const handleManualInteractionStart = useCallback(() => {
     isProgrammaticScrollRef.current = false;
+    if (scrollSettleRafRef.current != null) {
+      cancelAnimationFrame(scrollSettleRafRef.current);
+      scrollSettleRafRef.current = null;
+    }
+    correctionPairRef.current = null;
   }, []);
 
   useEffect(() => {
-    return () => { if (scrollIdleTimerRef.current) clearTimeout(scrollIdleTimerRef.current); };
+    return () => {
+      if (scrollIdleTimerRef.current) clearTimeout(scrollIdleTimerRef.current);
+      if (scrollSettleRafRef.current != null) cancelAnimationFrame(scrollSettleRafRef.current);
+    };
   }, []);
 
   // ── Initial scroll — show routes[0] on the RIGHT (RTL UX) ───────────────
