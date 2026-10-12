@@ -34,6 +34,7 @@ export default defineConfig({
       'tests/firestore-fix-group-invitations-hostuid.rules.test.ts',
       'tests/storage-fix-delete-rules.rules.test.ts',
       'tests/firestore-fix-planned-sessions-privacy.rules.test.ts',
+      'tests/firestore-fix-membercount-streaks-clamp.rules.test.ts',
       'tests/firestore-fix-connections-selffollow.rules.test.ts',
       'tests/firestore-fix-chats-messages-fieldguard.rules.test.ts',
       // functions/ is a separate package (own tsconfig, not installed in

@@ -1263,6 +1263,23 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   const { enrichRoutes } = useCommunityEnrichment(routeIds, rawDisplayRoutes);
   const allDisplayRoutes = useMemo(() => enrichRoutes(rawDisplayRoutes), [enrichRoutes, rawDisplayRoutes]);
   const hasNearbyRoutes = allDisplayRoutes.length > 0;
+  // Route-marker-click crash fix (12.10.2026): BottomJourneyContainer's own
+  // echo-guard effect depends on `routes` by reference — if anything
+  // upstream (enrichRoutes/enrichmentMap, a Firestore listener re-firing,
+  // etc.) ever hands back a NEW array identity for the SAME route ids, that
+  // effect re-runs on every such parent render, not only on a genuine
+  // focusedRouteId change. Re-keying on the route-id signature here
+  // guarantees BottomJourneyContainer sees a referentially stable `routes`
+  // array whenever the actual route SET hasn't changed, regardless of how
+  // many intermediate hooks recompute their own output. Trade-off, accepted
+  // deliberately: if a route's own CONTENT changes (e.g. enrichRoutes
+  // attaching a new linkedSessions value) without the id list itself
+  // changing, the carousel keeps the previous object until the id list next
+  // changes — acceptable staleness for a live-session-count field, not
+  // worth reintroducing the reference churn this exists to eliminate.
+  const carouselRoutesKey = allDisplayRoutes.map((r) => r.id).join(',');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stableCarouselRoutes = useMemo(() => allDisplayRoutes, [carouselRoutesKey]);
 
   // ── Initial discover fit + auto-focus ──
   // The first time the user lands in discover mode with routes loaded we
@@ -1646,7 +1663,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
             {/* ── Bottom content: single premium carousel for ALL route types ── */}
             {mapMode === 'discover' && allDisplayRoutes.length > 0 && (
               <BottomJourneyContainer
-                routes={allDisplayRoutes}
+                routes={stableCarouselRoutes}
                 onRouteFocus={(r) => {
                   logic.setFocusedRoute(r);
                 }}
