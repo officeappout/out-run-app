@@ -106,7 +106,7 @@ export default function DeleteDataPage() {
           </p>
           <a
             href={MAILTO}
-            className="inline-flex items-center justify-center gap-2.5 bg-rose-500 hover:bg-rose-600 active:bg-rose-700 text-white font-bold text-sm px-6 py-3.5 rounded-xl transition-colors shadow-sm"
+            className="inline-flex items-center justify-center gap-2.5 bg-rose-700 hover:bg-rose-800 active:bg-rose-900 text-white font-bold text-sm px-6 py-3.5 rounded-xl transition-colors shadow-sm"
           >
             <svg
               width="16"

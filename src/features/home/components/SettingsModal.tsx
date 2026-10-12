@@ -8,7 +8,7 @@ import {
   ChevronLeft, ArrowRight, Loader2, AlertTriangle, Globe, Users, EyeOff,
   Heart, Ruler, Camera, MapPin, Dumbbell, Eye,
   BarChart3, Mail, Pencil, Check, Tag, CreditCard, MessageSquare, Calendar,
-  Clock, Plus,
+  Clock, Plus, Accessibility,
 } from 'lucide-react';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { doc, updateDoc, setDoc } from 'firebase/firestore';
@@ -2010,6 +2010,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     icon={<Shield size={20} className="text-gray-700" />}
                     label="מדיניות פרטיות"
                     onClick={() => setShowPrivacyModal(true)}
+                  />
+                  <SettingsRow
+                    icon={<Accessibility size={20} className="text-gray-700" />}
+                    label="הצהרת נגישות"
+                    onClick={() => { onClose(); router.push('/accessibility'); }}
                   />
                   <SettingsRow
                     icon={<Mail size={20} className="text-gray-700" />}
