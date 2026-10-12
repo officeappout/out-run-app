@@ -178,8 +178,10 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   // both icons come from the shared program-icon map — no new icon logic.
   const journeyStrip: JSX.Element[] = [];
   const walkChip = (key: string, min: number) => (
-    <span key={key} className="inline-flex items-center gap-1.5 text-[14px] font-bold whitespace-nowrap" style={{ color: '#374151' }}>
-      <span className="inline-flex" style={{ color: WALK_LEG_COLOR }}><ActivityGlyph kind="aerobic" subtype="walking" className="w-[23px] h-[23px]" /></span>
+    // Transport (getting to/from the route): dashed + faded, vs the solid route-walk / station chips.
+    <span key={key} className="inline-flex items-center gap-1.5 text-[13px] font-bold whitespace-nowrap rounded-full"
+      style={{ color: '#9CA3AF', border: '1px dashed #BAE6FD', padding: '2px 9px', opacity: 0.8 }}>
+      <span className="inline-flex" style={{ color: WALK_LEG_COLOR }}><ActivityGlyph kind="aerobic" subtype="walking" className="w-[19px] h-[19px]" /></span>
       {formatMinutes(min * 60)}
     </span>
   );
