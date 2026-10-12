@@ -1,10 +1,12 @@
-// Named import breaks on Vercel's build (Node resolves @sentry/nextjs's
-// `exports` map to its CJS build here, and static named-export detection
-// doesn't see `withSentryConfig` on it) even though it works under local
-// Node. Default-import + destructure instead — the full CJS module.exports
-// is always available that way, named-export detection or not.
-import SentryModule from '@sentry/nextjs';
-const { withSentryConfig } = SentryModule;
+// withSentryConfig is NOT exported from @sentry/nextjs's main entry in v11 —
+// it lives on the dedicated `@sentry/nextjs/config` subpath (see the package's
+// `exports` map). That is why both the named import and the default-import
+// attempts failed on Vercel ("not found" / "not a function"). createRequire
+// on the subpath asks Node's CJS loader directly, so no ESM/CJS interop
+// guessing is involved.
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { withSentryConfig } = require('@sentry/nextjs/config');
 
 // Marketing site (the appout-website repo — a SEPARATE Next deployment) is
 // served under /web of this domain via Next.js multi-zones. Set
