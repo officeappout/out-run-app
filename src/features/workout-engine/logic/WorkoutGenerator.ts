@@ -1581,7 +1581,11 @@ export class WorkoutGenerator {
 
   // ── MASTER SYNERGY SCORING (Phase 4B) ──────────────────────────────────
 
-  private applySynergyBonuses(
+  // Not private: pure function of its own params (no `this` usage) — kept
+  // testable directly (new WorkoutGenerator().applySynergyBonuses(...)),
+  // same rationale as the standalone exported selection helpers in
+  // workout-selection.utils.ts.
+  applySynergyBonuses(
     exercises: (ScoredExercise & { isOverLevel?: boolean; levelDiff?: number })[],
     context: WorkoutGenerationContext,
   ): (ScoredExercise & { isOverLevel?: boolean; levelDiff?: number })[] {
@@ -1677,17 +1681,43 @@ export class WorkoutGenerator {
     }
 
     // 3b. Push-Pull Vertical Symmetry (+100):
-    // When vertical_pull dominates the pool (e.g., Pull L19), vertical_push
-    // receives a dominant bonus that guarantees it outscores any horizontal_push
-    // or other upper-body exercise, ensuring the Antagonist Pair (Superset) is
-    // always a vertical compound pair (Pull-up × Dip / HSPU).
+    // Whichever vertical movement (pull or push) dominates the pool (e.g.,
+    // Pull L19), the OTHER side receives a matching dominant bonus that
+    // guarantees it outscores any horizontal exercise on its own side,
+    // ensuring the Antagonist Pair (Superset) is always a vertical compound
+    // pair (Pull-up × Dip / HSPU) regardless of which domain happens to
+    // score higher on its own.
+    //
+    // Fix (11.10.2026, domain-balance audit): this used to be one-directional
+    // — only `topVerticalIsPull` boosted vertical_push, with no mirror case
+    // for `topVerticalIsPush` boosting vertical_pull. Confirmed live via a
+    // direct push+pull 2-day/week generation trace against the real
+    // invariants fixture: because the catalog has MORE pull candidates near
+    // common user levels (not a data-thinness issue), vertical_pull is the
+    // more frequent natural winner of verticalCandidates[0] — so this bonus
+    // fired almost every time, flatly boosting EVERY vertical_push candidate
+    // (not just one) by +100, dwarfing every other scoring term (level
+    // proximity ≤3, equip/modality ±8-10, hierarchical vertical pref +15/+8).
+    // Under a tight exercise budget (the easiest trio option) the truncation
+    // step keeps the highest-`.score` survivors, so this one-sided inflation
+    // reproducibly starved pull down to 0 of 3-4 main slots. Both directions
+    // now apply the identical bonus — domain-neutral, same magnitude either
+    // way, only the winning side's identity changed.
     const VPUSH_SYMMETRY_BONUS = 100;
-    const topVerticalIsPull = verticalCandidates[0]?.exercise.movementGroup === 'vertical_pull';
-    const verticalPushSymmetryIds = new Set<string>();
+    const topVerticalMg = verticalCandidates[0]?.exercise.movementGroup;
+    const topVerticalIsPull = topVerticalMg === 'vertical_pull';
+    const topVerticalIsPush = topVerticalMg === 'vertical_push';
+    const verticalSymmetryIds = new Set<string>();
     if (topVerticalIsPull) {
       for (const ex of exercises) {
         if (ex.exercise.movementGroup === 'vertical_push') {
-          verticalPushSymmetryIds.add(ex.exercise.id);
+          verticalSymmetryIds.add(ex.exercise.id);
+        }
+      }
+    } else if (topVerticalIsPush) {
+      for (const ex of exercises) {
+        if (ex.exercise.movementGroup === 'vertical_pull') {
+          verticalSymmetryIds.add(ex.exercise.id);
         }
       }
     }
@@ -1705,11 +1735,15 @@ export class WorkoutGenerator {
         reasoning.push(`vertical_pref:+${vBonus}(${ex.exercise.movementGroup})`);
       }
 
-      // Push-Pull Vertical Symmetry (+15): boost vertical_push when pull dominates
-      if (verticalPushSymmetryIds.has(ex.exercise.id)) {
+      // Push-Pull Vertical Symmetry (+100): boost the non-dominant vertical
+      // side so it still outscores horizontal alternatives, regardless of
+      // which side (pull or push) happened to score higher on its own.
+      if (verticalSymmetryIds.has(ex.exercise.id)) {
         bonus += VPUSH_SYMMETRY_BONUS;
         verticalCount++;
-        reasoning.push(`vpush_symmetry:+${VPUSH_SYMMETRY_BONUS}(vpull_dominant)`);
+        reasoning.push(
+          `vertical_symmetry:+${VPUSH_SYMMETRY_BONUS}(${topVerticalIsPull ? 'vpull_dominant' : 'vpush_dominant'})`,
+        );
       }
 
       // Variety Guard (-40): penalize exercises used in last 2 sessions
