@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
+import * as Sentry from '@sentry/nextjs';
+import { isChunkLoadError } from '@/lib/sentry-shared';
 
 /**
  * Root-level error boundary for the Next.js App Router.
@@ -14,15 +16,6 @@ import { useEffect } from 'react';
  *
  * Any other error shows the normal "try again" UI.
  */
-function isChunkLoadError(error: Error): boolean {
-  return (
-    error.name === 'ChunkLoadError' ||
-    error.message.includes('Loading chunk') ||
-    error.message.includes('ChunkLoadError') ||
-    error.message.includes('Loading CSS chunk') ||
-    error.message.includes('Unexpected token')
-  );
-}
 
 export default function GlobalError({
   error,
@@ -33,6 +26,7 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     console.error('[global-error]', error.message, '\nstack:', error.stack, '\ndigest:', error.digest);
+    Sentry.captureException(error);
 
     if (isChunkLoadError(error)) {
       // Hard-reload fetches fresh HTML + fresh chunks from the current deploy.

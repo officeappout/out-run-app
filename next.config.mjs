@@ -1,3 +1,13 @@
+// withSentryConfig is NOT exported from @sentry/nextjs's main entry in v11 —
+// it lives on the dedicated `@sentry/nextjs/config` subpath (see the package's
+// `exports` map). That is why both the named import and the default-import
+// attempts failed on Vercel ("not found" / "not a function"). createRequire
+// on the subpath asks Node's CJS loader directly, so no ESM/CJS interop
+// guessing is involved.
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { withSentryConfig } = require('@sentry/nextjs/config');
+
 // Marketing site (the appout-website repo — a SEPARATE Next deployment) is
 // served under /web of this domain via Next.js multi-zones. Set
 // MARKETING_SITE_URL in the environment to that deployment's origin
@@ -83,4 +93,35 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+// Only touches build-time source-map upload (via @sentry/nextjs's own webpack
+// plugin entry) — does not touch the webpack `cache` settings axiom #13 bans
+// touching. For Next.js < 15 (this project is 14.2) the SDK also sets
+// `experimental.instrumentationHook: true` on the returned config itself —
+// confirmed by reading node_modules/@sentry/nextjs's own source for the
+// installed version, not assumed from docs — so no manual flag is needed here.
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: true,
+  // true: client source-map upload also covers React/Next.js runtime +
+  // third-party (node_modules) chunks, not just this app's own pages/app
+  // code — the app-code chunks are de-minified either way, this only
+  // widens the vendor-chunk coverage. Worth it here: the WebView bundle
+  // carries more first-party-adjacent vendor code than a typical web app
+  // (Mapbox GL, Firebase client SDK, Capacitor bridge shims), so a crash
+  // inside one of those is a real, not hypothetical, case. Costs build
+  // time + upload size; revisit if that becomes a real problem.
+  //
+  // REVERTED to false (12.10.2026): with true, the Vercel Preview build hung
+  // 28+ min (source-map processing on the Hobby plan). Vendor-chunk frames
+  // stay minified in Sentry; app-code frames are still de-minified.
+  widenClientFileUpload: false,
+  // Source maps OFF at build (12.10.2026): the Vercel Hobby build hit OOM
+  // (SIGKILL) when Sentry's map generation ran on top of the normal build.
+  // `disable: true` stops the SDK from forcing map generation AND from
+  // uploading, so runtime init + error capture (DSN) are unaffected — events
+  // just arrive with minified stacks. Re-enable (flip to false, and consider
+  // widenClientFileUpload) once the build has memory headroom (Pro plan).
+  sourcemaps: { disable: true },
+});
