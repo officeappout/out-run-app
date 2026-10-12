@@ -1,4 +1,10 @@
-import { withSentryConfig } from '@sentry/nextjs';
+// Named import breaks on Vercel's build (Node resolves @sentry/nextjs's
+// `exports` map to its CJS build here, and static named-export detection
+// doesn't see `withSentryConfig` on it) even though it works under local
+// Node. Default-import + destructure instead — the full CJS module.exports
+// is always available that way, named-export detection or not.
+import SentryModule from '@sentry/nextjs';
+const { withSentryConfig } = SentryModule;
 
 // Marketing site (the appout-website repo — a SEPARATE Next deployment) is
 // served under /web of this domain via Next.js multi-zones. Set
