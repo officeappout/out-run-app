@@ -27,11 +27,6 @@ import { UNIFIED_ROUTE_CARDS_ENABLED, MAP_OVERVIEW_CHROME_V1 } from '@/config/fe
 import type { HybridSlot } from '@/features/workout-engine/hybrid/hybrid-slots';
 import type { AerobicKind } from '@/features/workout-engine/hybrid/compose-hybrid-session.service';
 import { getOnboardingPref, setOnboardingPref } from '@/lib/onboardingPrefs';
-import {
-  ROUTE_STOPS_DURATION_KEY,
-  ROUTE_STOPS_DURATION_CHOICES,
-  readRememberedRouteStopsDuration,
-} from './route-stops-duration.util';
 
 // When the unified-cards flag is on, the slot card matches ROUTE_CARD_WIDTH
 // (85vw / max 340px) and is content-height; otherwise the legacy slot dims.
@@ -52,51 +47,9 @@ const BRAND = '#00ADEF';
 const CTA_GRADIENT = 'linear-gradient(to left, #0CF2E3, #00BAF7)';
 
 // G1.1 fix: one-time "swipe me" nudge on first view — same durable-pref
-// pattern this file already uses for ROUTE_STOPS_DURATION_KEY (sync
-// getOnboardingPref read on init, setOnboardingPref once consumed).
+// durable-pref pattern (sync getOnboardingPref read on init,
+// setOnboardingPref once consumed).
 const SWIPE_HINT_SEEN_KEY = 'hybrid_slot_carousel_swipe_hint_seen';
-
-// ── Route-stops duration chips (15/30/45 min) ───────────────────────────────
-// Constants + durable "remember my last pick" logic live in route-stops-duration.util.ts
-// (a pure .ts file, unit-testable — this file has no JSX-test precedent to rely on).
-
-/** Local, unexported — same "one-off pill, no shared component" pattern as FreeRunDrawer's Pill. */
-function DurationChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onPointerDown={(e) => e.stopPropagation()}
-      onClick={(e) => { e.stopPropagation(); onClick(); }}
-      className="text-[12px] font-bold rounded-full transition-colors"
-      style={{
-        padding: '4px 12px',
-        border: active ? 'none' : '1px solid #E0E9FF',
-        background: active ? BRAND : '#FFFFFF',
-        color: active ? '#FFFFFF' : '#6B7280',
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-function RouteStopsDurationChips({ valueMin, onChange }: { valueMin: number; onChange: (min: number) => void }) {
-  // Renders inside the card's own content now (RouteCardUnified's extraContent, between
-  // subtitle and the difficulty pill) — the wrapping container supplies vertical spacing, so
-  // no margin of its own here (was marginTop:8 for the old floating-below-the-card position).
-  return (
-    <div
-      className="flex items-center justify-center gap-2 pointer-events-auto"
-      dir="rtl"
-    >
-      {ROUTE_STOPS_DURATION_CHOICES.map((min) => (
-        <DurationChip key={min} active={valueMin === min} onClick={() => onChange(min)}>
-          {min} דק׳
-        </DurationChip>
-      ))}
-    </div>
-  );
-}
 
 const ENTRY_PHRASES = [
   'מה עושים היום? ✨',
@@ -155,7 +108,7 @@ function ActivityToggle({
 // button = the main hero CTA (:709-714, "text-black font-semibold" + the same cyan→
 // turquoise gradient RouteCardUnified's own CTA already reuses). Same onArm/
 // consumeArmed anti-ghost-click pattern as every other slot's CTA — one-off, unexported,
-// same "no shared component" precedent as DurationChip above.
+// same "no shared component" precedent as the other local one-off pills here.
 function AssessmentPromptCard({ onSelect, onArm, consumeArmed }: {
   onSelect: () => void;
   onArm: () => void;
@@ -206,15 +159,12 @@ function AssessmentPromptCard({ onSelect, onArm, consumeArmed }: {
 // — pointerdown on card A must not let a click on card B fire (id match); (c) stale
 // arms from a carousel drag — the track's onDragStart clears the armed id. The card
 // body is NOT clickable (compose is a deliberate CTA action, never a body/auto tap).
-function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, extraContent }: {
+function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive }: {
   slot: HybridSlot;
   onSelect: () => void;
   onArm: () => void;
   consumeArmed: () => boolean;
   isActive: boolean;
-  /** route_stops duration chips, forwarded into the card's own content (between subtitle and
-   *  the difficulty pill) — see RouteCardUnified's extraContent. */
-  extraContent?: React.ReactNode;
 }) {
   if (slot.kind === 'assessment_prompt') {
     return <AssessmentPromptCard onSelect={onSelect} onArm={onArm} consumeArmed={consumeArmed} />;
@@ -230,7 +180,6 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, extraContent 
         subtitle={slot.subtitle}
         difficulty={slot.bolts}
         recommended={slot.recommended}
-        extraContent={extraContent}
         isActive={isActive}
         onCtaPointerDown={onArm}
         onCta={(e) => {
@@ -277,8 +226,6 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, extraContent 
           )}
         </div>
         <div className="text-[13px] font-semibold mt-1" style={{ color: '#6B7280' }}>{slot.subtitle}</div>
-
-        {extraContent && <div className="mt-2">{extraContent}</div>}
 
         {/* Cosmetic-only rounded-full restyle — same pill language as the duration chips
             above; DifficultyBolts itself and what it displays are untouched. */}
@@ -352,10 +299,6 @@ export default function HybridSlotCarousel({
   const viewportRef = useRef<HTMLDivElement>(null);
   const [cardW, setCardW] = useState(CARD_MAX_W);
   const [viewportW, setViewportW] = useState(390);
-  // route_stops duration chips (15/30/45): lazy-init from the durable "last pick" pref,
-  // defaulting to 30min on first-ever use. Read once on mount — the initializer runs
-  // synchronously (localStorage), so the FIRST render already reflects the remembered choice.
-  const [routeStopsDurationMin, setRouteStopsDurationMin] = useState<number>(readRememberedRouteStopsDuration);
   // Which card's CTA received the most recent pointerdown (by slot.id, or null).
   // Single source of truth for "armed" — matched per card, cleared on drag-start.
   const armedSlotIdRef = useRef<string | null>(null);
@@ -506,37 +449,13 @@ export default function HybridSlotCarousel({
                   <SlotCard
                     slot={slot}
                     isActive={isActive}
-                    onSelect={() => {
-                      // route_stops only: inject the CURRENT chip-selected duration (not the
-                      // resolveSlots-time default) so this session's targetKm reflects the
-                      // user's live pick, all the way through deriveAerobicTargetKm →
-                      // resolveRouteStopsBackbone → idealWaypointDistanceKm (P6, unchanged).
-                      const finalSlot = (slot.kind === 'hybrid' && slot.id === 'route_stops')
-                        ? { ...slot, timeBudgetMin: routeStopsDurationMin }
-                        : slot;
-                      onSelectSlot(finalSlot);
-                    }}
+                    onSelect={() => onSelectSlot(slot)}
                     onArm={() => { armedSlotIdRef.current = slot.id; }}
                     consumeArmed={() => {
                       const ok = armedSlotIdRef.current === slot.id;
                       armedSlotIdRef.current = null;
                       return ok;
                     }}
-                    extraContent={
-                      slot.id === 'route_stops' ? (
-                        // UX (David, approved): rendered INSIDE the card content now (between
-                        // subtitle and the difficulty pill), not floating below it. Wiring
-                        // unchanged — local state + durable pref only; compose still fires
-                        // exclusively from the CTA (onSelect above), never from a chip tap.
-                        <RouteStopsDurationChips
-                          valueMin={routeStopsDurationMin}
-                          onChange={(min) => {
-                            setRouteStopsDurationMin(min);
-                            setOnboardingPref(ROUTE_STOPS_DURATION_KEY, String(min));
-                          }}
-                        />
-                      ) : undefined
-                    }
                   />
                 </motion.div>
               );
