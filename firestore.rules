@@ -769,10 +769,80 @@ service cloud.firestore {
     // Reads are open to all authenticated users so that leaderboard queries
     // (ranking.service.ts streak mode: WHERE authorityId == scopeId) can
     // aggregate across multiple users' streak docs without permission errors.
-    // Writes remain owner-only (isOwner checks uid == docId) plus admins.
+    //
+    // 12.10.2026 (write-layer-5 audit) — writes used to be a blanket
+    // `isOwner(docId) || isRootAdmin() || isAdmin()` with NO per-field check
+    // at all: the owner could set currentStreak/longestStreak to any value
+    // (e.g. 99999), inflating their own XP multiplier / leaderboard rank.
+    // Clamped below to the only transition shapes the real write path
+    // (useActivityStore.ts's syncToServer — the ONLY non-admin writer,
+    // confirmed via grep) ever produces: unchanged (routine sync of
+    // unrelated today-state, e.g. steps/floors), +1 advance, gap-reset to
+    // 1, and the reverseStreakForToday() undo (-1, floored at 0, date
+    // UNCHANGED — confirmed by tracing the real code: the write always
+    // sends `lastActivityDate: state.today.date`, which does not move
+    // backward even though the separate in-memory `lastStreakDate` field
+    // does). Create is clamped to the only two real first-ever-sync
+    // values (0 or 1) with longestStreak equal to currentStreak — the
+    // same forgery vector, just via upsert-as-create instead of
+    // upsert-as-update.
+    //
+    // lastActivityDate is a 'YYYY-MM-DD' LOCAL-calendar-day string (see
+    // toLocalDayString()), not a Timestamp — streakDateTs() parses it for
+    // comparison. streakDateNotFuture() anchors it against request.time
+    // (generous 2-day slack for timezone skew — Israel is UTC+2/+3 and
+    // this is a client-local date) so a forged far-future date can't be
+    // chained across repeated "+1 advance" writes to blow past any real
+    // pacing constraint: the +1-per-write limit alone only bounds the
+    // NUMBER written, not how fast successive writes can happen, since
+    // nothing else ties the date field to actual elapsed wall-clock time.
+    function streakDateTs(s) {
+      return timestamp.date(int(s[0:4]), int(s[5:7]), int(s[8:10]));
+    }
+    function streakDateNotFuture(s) {
+      return streakDateTs(s) <= request.time + duration.value(2, 'd');
+    }
     match /streaks/{docId} {
       allow read: if isAuthenticated();
-      allow write: if isOwner(docId) || isRootAdmin() || isAdmin();
+      allow write: if isRootAdmin() || isAdmin();
+      allow delete: if isOwner(docId);
+
+      allow create: if isOwner(docId)
+                    && request.resource.data.currentStreak <= 1
+                    && request.resource.data.longestStreak == request.resource.data.currentStreak
+                    && streakDateNotFuture(request.resource.data.lastActivityDate);
+
+      allow update: if isOwner(docId)
+                    && streakDateNotFuture(request.resource.data.lastActivityDate)
+                    && (
+                      // unchanged — routine sync untouched by any streak event
+                      (request.resource.data.currentStreak == resource.data.currentStreak
+                       && request.resource.data.longestStreak == resource.data.longestStreak
+                       && request.resource.data.lastActivityDate == resource.data.lastActivityDate)
+                      ||
+                      // +1 advance — date moves forward by exactly one calendar day
+                      (request.resource.data.currentStreak == resource.data.currentStreak + 1
+                       && request.resource.data.longestStreak ==
+                          (resource.data.longestStreak > request.resource.data.currentStreak
+                           ? resource.data.longestStreak : request.resource.data.currentStreak)
+                       && streakDateTs(request.resource.data.lastActivityDate) ==
+                          streakDateTs(resource.data.lastActivityDate) + duration.value(1, 'd'))
+                      ||
+                      // gap reset — restarts at 1 after more than one day's silence
+                      (request.resource.data.currentStreak == 1
+                       && request.resource.data.longestStreak ==
+                          (resource.data.longestStreak > 1 ? resource.data.longestStreak : 1)
+                       && streakDateTs(request.resource.data.lastActivityDate) >
+                          streakDateTs(resource.data.lastActivityDate) + duration.value(1, 'd'))
+                      ||
+                      // reverseStreakForToday() undo — decrements by 1 (floored at 0);
+                      // longestStreak and lastActivityDate both stay unchanged (see
+                      // comment above — the real write never moves the date backward)
+                      (request.resource.data.currentStreak ==
+                         (resource.data.currentStreak > 0 ? resource.data.currentStreak - 1 : 0)
+                       && request.resource.data.longestStreak == resource.data.longestStreak
+                       && request.resource.data.lastActivityDate == resource.data.lastActivityDate)
+                    );
     }
 
     // ============================================================
@@ -1757,20 +1827,31 @@ service cloud.firestore {
       //   - isLocked != true               →  cannot self-create an access-code-gated
       //                                        (institutional) group; only admins/authorities
       //                                        may lock a group (they bypass via isAdmin())
+      //   - memberCount/currentParticipants must be exactly 1 (or absent) — the creator
+      //     is always the sole first member at creation time (group.service.ts's
+      //     createGroup hardcodes both to 1); any other client-supplied value is the
+      //     same forgery vector as the open counter-update rule removed below, just at
+      //     create time instead of update time (write-layer-5 audit, 12.10.2026).
       // Note: social groups (friends/family) intentionally omit authorityId — this
       //       rule does not require it, so those creates are explicitly permitted.
       allow create: if isAuthenticated()
                     && request.auth.uid == request.resource.data.createdBy
                     && request.resource.data.source == 'user'
                     && request.resource.data.isOfficial == false
-                    && request.resource.data.get('isLocked', false) == false;
+                    && request.resource.data.get('isLocked', false) == false
+                    && request.resource.data.get('memberCount', 1) == 1
+                    && request.resource.data.get('currentParticipants', 1) == 1;
 
       // Creator can update their group (name, description, schedule, rules, images, etc.)
       // but may NOT flip the access-code lock — isLocked must stay unchanged so a
-      // user cannot create an open group and then lock it. Admins bypass via isAdmin().
+      // user cannot create an open group and then lock it — and may NOT touch the
+      // membership counters, which are server-owned (see note on the removed
+      // counter-update rule below). Admins bypass via isAdmin().
       allow update: if isAuthenticated()
                     && request.auth.uid == resource.data.createdBy
-                    && request.resource.data.get('isLocked', false) == resource.data.get('isLocked', false);
+                    && request.resource.data.get('isLocked', false) == resource.data.get('isLocked', false)
+                    && request.resource.data.get('memberCount', 0) == resource.data.get('memberCount', 0)
+                    && request.resource.data.get('currentParticipants', 0) == resource.data.get('currentParticipants', 0);
 
       // Group owner OR admin may patch schedule + location fields only.
       // Scoped to exactly these keys so a group admin cannot rename the group,
@@ -1779,11 +1860,20 @@ service cloud.firestore {
                     && request.resource.data.diff(resource.data).affectedKeys()
                        .hasOnly(['scheduleSlots', 'meetingLocation', 'updatedAt']);
 
-      // Any authenticated user can update only the membership counters when joining/leaving.
-      // 'updatedAt' is included because group.service.ts writes it alongside the counters.
-      allow update: if isAuthenticated()
-                    && request.resource.data.diff(resource.data).affectedKeys()
-                       .hasOnly(['memberCount', 'currentParticipants', 'updatedAt']);
+      // 12.10.2026 (write-layer-5 audit) — REMOVED: "any authenticated user can
+      // update only the membership counters when joining/leaving." That rule had
+      // NO ownership check at all — any signed-in user, member or not, could set
+      // memberCount/currentParticipants to an arbitrary value via a direct write
+      // (e.g. 99999), independent of group.service.ts's intended
+      // increment(1)/increment(-1) shape. These two fields are fully server-owned:
+      // `onGroupMemberWrite` (functions/src/onGroupMemberWrite.ts, confirmed live
+      // in production) re-derives the real count from the `members` subcollection
+      // on every membership write via the Admin SDK, which bypasses these rules
+      // entirely — so no client `allow` is needed for the real join/leave flow to
+      // keep working, only for a client to forge the value out-of-band. See
+      // tests/firestore-fix-membercount-streaks-clamp.rules.test.ts for the deny
+      // (stranger writes 99999) and control (real join still succeeds, counters
+      // come out right via the trigger) proof.
 
       // group_members sub-collection
       // create:  public groups open; private groups require inviteCode or creator privilege.
