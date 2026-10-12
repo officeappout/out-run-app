@@ -118,6 +118,7 @@ export default function PushForegroundToast() {
   return (
     <div
       className="fixed top-0 inset-x-0 z-[190] flex flex-col items-center gap-2 pointer-events-none px-4 pt-14"
+      role="status"
       aria-live="polite"
       aria-label="התראות פוש בזמן אמת"
     >
