@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { MapboxService } from '../services/mapbox.service';
-import { haversineKm, haversineMeters, nearestPointOnPath } from '../services/geoUtils';
+import { haversineKm, haversineMeters } from '../services/geoUtils';
 import { useMapStore } from '../store/useMapStore';
 import { withCancelPrevious } from '@/lib/requestGovernor';
 import type { Route } from '../types/route.types';
@@ -27,15 +27,9 @@ export interface WalkToRouteState {
    */
   walkMinutes: number | null;
   /**
-   * The TRUE nearest point on the route's polyline (start-experience-v2
-   * Phase 1, 12.10.2026) — not "whichever endpoint is closer" (the pre-fix
-   * behavior), which could target the far end of a long route when the
-   * nearest point is actually somewhere in the middle. Exposed so the
-   * camera controller can compute bearing-to-target when the user taps
-   * recenter while still approaching the route, and so this hook's own
-   * arrival check (below) tracks the SAME point the line is drawn to.
-   * `null` when no walk-leg is being drawn, including when one was
-   * computed but gated out for exceeding WALK_LEG_THRESHOLD_MIN.
+   * The route endpoint (start or end) that was chosen as the walk target.
+   * Exposed so the camera controller can compute bearing-to-target when
+   * the user taps recenter while still approaching the route.
    */
   targetEndpoint: { lat: number; lng: number } | null;
   /**
@@ -123,42 +117,16 @@ export const ARRIVAL_RADIUS_M = 30;
 const MAX_APPROACH_MS = 60_000;
 
 /**
- * Walking-time threshold (minutes) above which the walk-leg LINE itself is
- * never drawn (start-experience-v2 Phase 1, 12.10.2026). Mirrors
- * start-experience-state.ts's WALK_TO_ROUTE_THRESHOLD_MIN — duplicated as a
- * literal (not imported) because that file already imports ARRIVAL_RADIUS_M
- * from THIS one; importing back would be a circular dependency. Keep both
- * in sync if the threshold ever changes.
- */
-const WALK_LEG_THRESHOLD_MIN = 15;
-/**
- * Pre-fetch skip margin, as a multiple of WALK_LEG_THRESHOLD_MIN: a
- * straight-line estimate comfortably over threshold skips the real Mapbox
- * request entirely, since real walking distance only ever EXCEEDS the
- * straight-line one (roads aren't straight) — an estimate already this bad
- * can only get worse with real road geometry. A borderline estimate still
- * gets a real fetch; only the REAL fetched duration below is authoritative
- * for the final draw/no-draw decision.
- */
-const PRE_FETCH_SKIP_MULTIPLIER = 1.5;
-
-/**
- * Fetches a walking path from the user's current position to the TRUE
- * nearest point on the focused route's polyline (start-experience-v2 Phase
- * 1, 12.10.2026 — previously "whichever endpoint is closer").
+ * Fetches a walking path from the user's current position to whichever
+ * endpoint of the focused route is closer (start OR end).
  *
  * Lifecycle:
  *  - Loaded in discover mode (pre-workout).
  *  - Persists after workout starts so the user can follow the dotted line
  *    to reach the route.
  *  - Clears automatically when:
- *      a) User steps within 30 m of the walk-leg's target (arrived), OR
+ *      a) User steps within 30 m of either route endpoint (arrived), OR
  *      b) 60 seconds have elapsed since the workout started (fallback).
- *  - Never draws the line at all above WALK_LEG_THRESHOLD_MIN minutes —
- *    walkMinutes is still recorded (real fetched value, or a straight-line
- *    estimate when the pre-fetch gate skipped the real request) so
- *    computeStartExperienceState can still correctly classify and message
- *    off_route_too_far with a real number; only the geometry is withheld.
  *  - Debounced 500 ms so carousel scrolling doesn't fire per card.
  *  - Results cached per routeId — revisiting the same card is free.
  *  - Syncs walkMinutes to useMapStore for BottomJourneyContainer.
@@ -195,16 +163,14 @@ export function useWalkToRoute(
   }, [isActiveWorkout]);
 
   // Flatten to primitives so the main effect only re-runs on meaningful changes.
-  // path itself is deliberately NOT in this list (an array reference isn't a
-  // stable dep) — routeId already captures "the path changed" for route
-  // objects in this app (a given Route's path never mutates in place; a
-  // different path always comes with a different id), so the effect below
-  // still re-runs whenever path's shape actually changes.
   const userLat      = currentUserPos?.lat;
   const userLng      = currentUserPos?.lng;
   const routeId      = focusedRoute?.id;
   const path         = focusedRoute?.path;
-  const hasValidPath = !!path && path.length >= 2;
+  const routeStartLng = path?.[0]?.[0];
+  const routeStartLat = path?.[0]?.[1];
+  const routeEndLng   = path?.[path.length - 1]?.[0];
+  const routeEndLat   = path?.[path.length - 1]?.[1];
 
   useEffect(() => {
     if (debounceRef.current) {
@@ -243,16 +209,13 @@ export function useWalkToRoute(
         return;
       }
 
-      // Proximity check: within 30 m of the walk-leg's ACTUAL target (the
-      // true nearest point on the route, Phase 1) — not "either endpoint",
-      // which could be far from where the dashed line was really pointing.
-      // Read from the cache (not state) since this branch doesn't recompute
-      // anything; `targetEndpoint` is null when the line was gated out for
-      // exceeding WALK_LEG_THRESHOLD_MIN, in which case there's nothing to
-      // track arrival against here.
-      const target = cacheRef.current.get(routeId)?.targetEndpoint;
-      if (target && userLat != null && userLng != null) {
-        if (haversineMeters(userLat, userLng, target.lat, target.lng) <= ARRIVAL_RADIUS_M) {
+      // Proximity check: within 30 m of either endpoint → arrived.
+      if (userLat != null && userLng != null) {
+        const near = (lat: number | undefined, lng: number | undefined) =>
+          lat != null && lng != null &&
+          haversineMeters(userLat, userLng, lat, lng) <= ARRIVAL_RADIUS_M;
+
+        if (near(routeStartLat, routeStartLng) || near(routeEndLat, routeEndLng)) {
           arrivedRouteIdRef.current = routeId;
           clearAll();
           return;
@@ -274,7 +237,7 @@ export function useWalkToRoute(
     if (
       userLat == null || userLng == null ||
       !routeId ||
-      !hasValidPath
+      routeStartLng == null || routeStartLat == null
     ) {
       clearAll();
       return;
@@ -291,42 +254,17 @@ export function useWalkToRoute(
 
     // Debounce: wait 500 ms after the last carousel snap before fetching.
     debounceRef.current = setTimeout(async () => {
-      // TRUE nearest point on the route's polyline (Phase 1) — not
-      // "whichever endpoint is closer". path is captured via closure;
-      // hasValidPath (checked above, in the effect's own dep array) already
-      // guarantees it has ≥2 points by the time this timer fires for the
-      // same routeId (a path change always comes with a routeId change,
-      // which clears/recreates this timer — see the comment on userLat's
-      // destructuring above).
-      const nearest = nearestPointOnPath({ lat: userLat, lng: userLng }, path!);
-      if (!nearest) { clearAll(); return; }
-      const [targetLng, targetLat] = nearest.point;
+      // Pick whichever endpoint is closer to the user.
+      let targetLng = routeStartLng;
+      let targetLat = routeStartLat;
 
-      // Straight-line pre-fetch estimate — same formula as
-      // start-experience-state.ts's estimateWalkMinutesFromKm, duplicated as
-      // a literal for the circular-import reason noted on
-      // WALK_LEG_THRESHOLD_MIN above.
-      const estimateKm = haversineKm(userLat, userLng, targetLat, targetLng);
-      const estimateMinutes = Number.isFinite(estimateKm) && estimateKm >= 0
-        ? Math.max(1, Math.round((estimateKm * 1000) / 80))
-        : null;
-
-      // Pre-fetch gate: skip the real Mapbox request when the estimate is
-      // CLEARLY over threshold (see PRE_FETCH_SKIP_MULTIPLIER's doc comment).
-      // walkMinutes is still recorded as the estimate — never silently
-      // nulled — so computeStartExperienceState keeps a real number to
-      // classify and message off_route_too_far with; only the line itself
-      // (geoJSON/midpoint/walkSteps/targetEndpoint) is withheld.
-      if (estimateMinutes != null && estimateMinutes > WALK_LEG_THRESHOLD_MIN * PRE_FETCH_SKIP_MULTIPLIER) {
-        const gatedState: WalkToRouteState = {
-          geoJSON: null, midpoint: null, walkMinutes: estimateMinutes,
-          targetEndpoint: null, walkSteps: null,
-        };
-        cacheRef.current.set(routeId, gatedState);
-        setState(gatedState);
-        setWalkToRouteMinutes(estimateMinutes);
-        setWalkSteps(null);
-        return;
+      if (routeEndLng != null && routeEndLat != null) {
+        const dStart = haversineKm(userLat, userLng, routeStartLat, routeStartLng);
+        const dEnd   = haversineKm(userLat, userLng, routeEndLat,   routeEndLng);
+        if (dEnd < dStart) {
+          targetLng = routeEndLng;
+          targetLat = routeEndLat;
+        }
       }
 
       try {
@@ -348,31 +286,13 @@ export function useWalkToRoute(
 
         if (!result || result.path.length < 2) return;
 
-        // Real Mapbox duration (seconds), not a distance/80 guess — see the
-        // WalkToRouteState.walkMinutes doc comment above.
-        const walkMinutes = Math.max(1, Math.round(result.duration / 60));
-
-        // The REAL fetched duration is authoritative for the final
-        // draw/no-draw decision, regardless of what the pre-fetch estimate
-        // said — an estimate that looked promising can still come back over
-        // threshold once real road geometry is known. Same gated shape as
-        // the pre-fetch branch above; walkMinutes is still the real value.
-        if (walkMinutes > WALK_LEG_THRESHOLD_MIN) {
-          const gatedState: WalkToRouteState = {
-            geoJSON: null, midpoint: null, walkMinutes,
-            targetEndpoint: null, walkSteps: null,
-          };
-          cacheRef.current.set(routeId, gatedState);
-          setState(gatedState);
-          setWalkToRouteMinutes(walkMinutes);
-          setWalkSteps(null);
-          return;
-        }
-
         const coords = result.path;
         const midIdx  = Math.floor(coords.length / 2);
         const midpoint: [number, number] = coords[midIdx];
-        const walkSteps = transformWalkSteps((result as any).steps ?? []);
+        // Real Mapbox duration (seconds), not a distance/80 guess — see the
+        // WalkToRouteState.walkMinutes doc comment above.
+        const walkMinutes = Math.max(1, Math.round(result.duration / 60));
+        const walkSteps   = transformWalkSteps((result as any).steps ?? []);
 
         const geoJSON: GeoJSON.FeatureCollection = {
           type: 'FeatureCollection',
@@ -407,7 +327,9 @@ export function useWalkToRoute(
     };
   }, [
     userLat, userLng,
-    routeId, hasValidPath,
+    routeId,
+    routeStartLng, routeStartLat,
+    routeEndLng, routeEndLat,
     isActiveWorkout, mapMode,
     setWalkToRouteMinutes, setWalkSteps,
   ]);

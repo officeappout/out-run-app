@@ -29,26 +29,12 @@ describe('computeStartExperienceState — the 4 branches', () => {
     expect(computeStartExperienceState(pos, ROUTE_PATH, null)).toBe('at_start');
   });
 
-  it('on_route: user within ON_ROUTE_CROSS_TRACK_M of the NEAREST point on the route, but beyond ARRIVAL_RADIUS_M of it', () => {
-    // ~35m perpendicular off the route's midpoint — since at_start (Phase 1,
-    // 12.10.2026) now checks distance to the TRUE nearest point on the
-    // whole polyline, not just routePath[0], this must be further than
-    // ARRIVAL_RADIUS_M (30m) from that nearest point (the midpoint itself
-    // here) to land on_route instead of at_start, while staying within the
-    // 40m on-route threshold.
-    const pos = { lat: 32.0 + 35 / 111_320, lng: 34.005 };
+  it('on_route: user within ON_ROUTE_CROSS_TRACK_M of the route path, not at the start', () => {
+    // ~10m perpendicular off a midpoint of the route, further than ARRIVAL_RADIUS_M
+    // from the start point but well inside the 40m on-route threshold.
+    const pos = { lat: 32.0 + 10 / 111_320, lng: 34.005 };
     const state = computeStartExperienceState(pos, ROUTE_PATH, null);
     expect(state).toBe('on_route');
-  });
-
-  it('at_start now fires anywhere within ARRIVAL_RADIUS_M of the route, not just near routePath[0] (Phase 1 fix)', () => {
-    // ~10m perpendicular off the route's MIDPOINT — nowhere near routePath[0]
-    // or routePath[routePath.length-1] — must still resolve at_start, since
-    // the walk-leg (useWalkToRoute.ts) now targets the true nearest point,
-    // which here IS the midpoint. Before this fix, only proximity to
-    // routePath[0] specifically could produce at_start.
-    const pos = { lat: 32.0 + 10 / 111_320, lng: 34.005 };
-    expect(computeStartExperienceState(pos, ROUTE_PATH, null)).toBe('at_start');
   });
 
   it('off_route_walkable: off the route, walk time at/under the 15-min threshold', () => {
