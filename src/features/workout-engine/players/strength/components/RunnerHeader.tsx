@@ -173,6 +173,7 @@ export default function RunnerHeader({
 
           <button
             onClick={onTogglePause}
+            aria-label={isPaused ? 'המשך אימון' : 'הפסק אימון'}
             className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
           >
             {isPaused ? (
