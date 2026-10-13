@@ -1,0 +1,92 @@
+name: CI
+
+# Stage A of the Ops roadmap: PR gates on main. Deliberately NO `next build`
+# here — Vercel already builds every PR as a Preview (and a second build on a
+# GitHub runner would just be a second place to hit the OOM seen on Hobby).
+#
+# Required-vs-advisory is decided in GitHub branch protection (Stage C), not
+# here. Intended split: `unit-tests` and `safety-check` BLOCKING; `typecheck`
+# and `lint` ADVISORY for the first weeks.
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  unit-tests:
+    name: unit-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund --ignore-scripts
+      # Pure-logic suites only. Emulator-backed suites and one known-red test
+      # are excluded in vitest.ci.config.ts, each with its reason.
+      - run: npx vitest run -c vitest.ci.config.ts
+
+  safety-check:
+    name: safety-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Depth 2 so the merge commit's first parent (HEAD^1, the base tip)
+          # is present — a depth-1 checkout would fail the reset below.
+          fetch-depth: 2
+      # scripts/safety-check.sh inspects STAGED changes (`git diff --cached`).
+      # For a pull_request event, HEAD is a merge commit whose first parent is
+      # the base branch tip; a soft reset to it leaves exactly the PR's
+      # changes staged, so the script runs unmodified.
+      - run: git reset --soft HEAD^1
+      - run: bash scripts/safety-check.sh
+
+  typecheck:
+    name: typecheck (no new errors vs baseline)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund --ignore-scripts
+      - run: bash scripts/ci/tsc-baseline.sh check
+
+  lint:
+    name: lint (changed files, advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # The repo has ~4,350 pre-existing ESLint errors, so a full-repo lint can't
+    # gate. Lint only the files this PR touches; never fails the check run
+    # until the backlog is dealt with (annotations still show in the log).
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund --ignore-scripts
+      - name: ESLint on changed files
+        run: |
+          FILES=$(git diff --name-only --diff-filter=ACMR HEAD^1 HEAD -- 'src/**/*.ts' 'src/**/*.tsx' 'src/**/*.js' 'src/**/*.jsx')
+          if [ -z "$FILES" ]; then echo "No lintable files changed."; exit 0; fi
+          echo "$FILES" | xargs npx eslint --no-eslintrc -c .eslintrc.json

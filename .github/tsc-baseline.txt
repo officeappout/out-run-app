@@ -1,0 +1,450 @@
+functions/src/auditLogger.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+functions/src/auditLogger.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+functions/src/cleanupEphemeralDocs.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+functions/src/geoDiscoveryWorker.ts: TS2307: Cannot find module './_vendor/scripts/geo-discovery-routes' or its corresponding type declarations.
+functions/src/leaderboard.ts: TS18046: 'a' is of type 'unknown'.
+functions/src/leaderboard.ts: TS18046: 'b' is of type 'unknown'.
+functions/src/leaderboard.ts: TS2345: Argument of type '([uid, agg]: [any, any], index: number) => { uid: any; rank: number; xp: any; posts: any; }' is not assignable to parameter of type '(value: unknown, index: number, array: unknown[]) => { uid: any; rank: number; xp: any; posts: any; }'.
+functions/src/leaderboard.ts: TS2802: Type 'MapIterator<[string, Map<string, UserAgg>]>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+functions/src/lib/detectFileSignature.ts: TS2322: Type 'Set<string>' is not assignable to type 'ReadonlySet<DetectedFileType>'.
+functions/src/reminderSweepScheduler.ts: TS2802: Type 'Map<string, { uids: string[]; title: string; body: string; bodyIndex: number; }>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+functions/src/sendPushFromQueue.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+functions/src/services/push.service.ts: TS2322: Type 'Set<string>' is not assignable to type 'ReadonlySet<PushChannel>'.
+functions/src/validateAccessCode.ts: TS1252: Function declarations are not allowed inside blocks in strict mode when targeting 'ES5'. Modules are automatically in strict mode.
+plugins/health-bridge/src/web.ts: TS2420: Class 'HealthBridgeWeb' incorrectly implements interface 'HealthBridgePlugin'.
+scripts/_count-authority-types.ts: TS2802: Type 'MapIterator<[string, number]>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+scripts/_verify-denylist-fix.ts: TS2802: Type 'MapIterator<[string, number]>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+scripts/_verify-kalaniyot-route-identity.ts: TS18047: 'a' is possibly 'null'.
+scripts/_verify-kalaniyot-route-identity.ts: TS18047: 'b' is possibly 'null'.
+scripts/_verify-kalaniyot-route-identity.ts: TS18047: 'r' is possibly 'null'.
+scripts/_verify-kalaniyot-route-identity.ts: TS18047: 'r' is possibly 'null'.
+scripts/_verify-kalaniyot-route-identity.ts: TS18047: 'r' is possibly 'null'.
+scripts/_verify-kalaniyot-route-identity.ts: TS2677: A type predicate's type must be assignable to its parameter's type.
+scripts/_verify-station-pin-dedup.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+scripts/audit/exercise-catalog-audit.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+scripts/audit/exercise-catalog-audit.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+scripts/backfill-needs-facility-details.ts: TS2802: Type 'MapIterator<[string, CityStat]>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+scripts/backfill-user-memberships.ts: TS2802: Type 'Map<string, Set<string>>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+scripts/backfill-user-memberships.ts: TS2802: Type 'MapIterator<Set<string>>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+scripts/backfill-user-memberships.ts: TS2802: Type 'MapIterator<Set<string>>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+scripts/backfill-user-memberships.ts: TS2802: Type 'MapIterator<Set<string>>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+scripts/backfill-user-memberships.ts: TS2802: Type 'MapIterator<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+scripts/backfill-user-memberships.ts: TS2802: Type 'MapIterator<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+scripts/backfill-user-memberships.ts: TS2802: Type 'Set<any>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+scripts/backfill-user-memberships.ts: TS2802: Type 'never[] | Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+scripts/backfill-user-memberships.ts: TS2802: Type 'never[] | Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+scripts/delete-legacy-test-and-junk-groups.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+scripts/drive-park-dry-run.ts: TS2769: No overload matches this call.
+scripts/drive-park-dry-run.ts: TS2802: Type 'Map<string, ExRow>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+scripts/export-park-exercises-need-fullTutorial.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+scripts/fix-brand-inversion.ts: TS2802: Type 'Set<any>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+scripts/fix-brand-inversion.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+scripts/fix-corrupt-program-id.ts: TS2802: Type 'Map<string, QueryDocumentSnapshot<DocumentData, DocumentData>>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+scripts/import-settlements-gan-raveh.ts: TS2802: Type 'Set<any>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+scripts/sheet-to-exercise-match.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/app/admin/audit-equipment/page.tsx: TS2322: Type 'LocalizedText | ExecutionLocation' is not assignable to type 'string'.
+src/app/admin/audit-equipment/page.tsx: TS2322: Type 'LocalizedText | ExecutionLocation' is not assignable to type 'string'.
+src/app/admin/authority-manager/page.tsx: TS2339: Property 'en' does not exist on type 'never'.
+src/app/admin/authority-manager/page.tsx: TS2339: Property 'en' does not exist on type 'never'.
+src/app/admin/authority-manager/page.tsx: TS2339: Property 'he' does not exist on type 'never'.
+src/app/admin/authority-manager/page.tsx: TS2339: Property 'he' does not exist on type 'never'.
+src/app/admin/authority/locations/[id]/edit/page.tsx: TS2339: Property 'en' does not exist on type 'never'.
+src/app/admin/authority/locations/[id]/edit/page.tsx: TS2339: Property 'he' does not exist on type 'never'.
+src/app/admin/authority/locations/[id]/edit/page.tsx: TS2339: Property 'he' does not exist on type 'never'.
+src/app/admin/authority/locations/new/page.tsx: TS2339: Property 'en' does not exist on type 'never'.
+src/app/admin/authority/locations/new/page.tsx: TS2339: Property 'he' does not exist on type 'never'.
+src/app/admin/authority/locations/new/page.tsx: TS2339: Property 'he' does not exist on type 'never'.
+src/app/admin/authority/locations/page.tsx: TS2339: Property 'en' does not exist on type 'never'.
+src/app/admin/authority/locations/page.tsx: TS2339: Property 'he' does not exist on type 'never'.
+src/app/admin/authority/locations/page.tsx: TS2339: Property 'id' does not exist on type '"" | Authority'.
+src/app/admin/authority/locations/page.tsx: TS2339: Property 'name' does not exist on type '"" | Authority'.
+src/app/admin/authority/locations/page.tsx: TS2339: Property 'name' does not exist on type '"" | Authority'.
+src/app/admin/authority/locations/page.tsx: TS2339: Property 'name' does not exist on type '"" | Authority'.
+src/app/admin/authority/neighborhoods/[id]/page.tsx: TS2322: Type '(v: number) => [number, string]' is not assignable to type 'Formatter<ValueType, NameType> & ((value: ValueType, name: NameType, item: TooltipPayloadEntry, index: number, payload: TooltipPayload) => ReactNode | [...])'.
+src/app/admin/authority/neighborhoods/[id]/page.tsx: TS2339: Property 'he' does not exist on type 'never'.
+src/app/admin/authority/routes/new/page.tsx: TS2339: Property 'en' does not exist on type 'never'.
+src/app/admin/authority/routes/new/page.tsx: TS2339: Property 'he' does not exist on type 'never'.
+src/app/admin/authority/routes/new/page.tsx: TS2339: Property 'he' does not exist on type 'never'.
+src/app/admin/authority/team/page.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/app/admin/content-status/components/StatusGrid.tsx: TS2322: Type '{ size: number; className: string; title: string; }' is not assignable to type 'IntrinsicAttributes & Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>'.
+src/app/admin/content-status/components/constants.tsx: TS2739: Type '{ chest: string; back: string; shoulders: string; abs: string; obliques: string; forearms: string; biceps: string; triceps: string; quads: string; hamstrings: string; glutes: string; calves: string; ... 4 more ...; legs: string; }' is missing the following properties from type 'Record<MuscleGroup, string>': middle_back, rear_delt, serratus, adductors, hip_flexors
+src/app/admin/content-status/components/constants.tsx: TS2739: Type '{ warmup: string; main: string; cooldown: string; }' is missing the following properties from type 'Record<ExerciseRole, string>': recovery, reinforcement
+src/app/admin/dashboard/page.tsx: TS2339: Property 'en' does not exist on type 'never'.
+src/app/admin/dashboard/page.tsx: TS2339: Property 'he' does not exist on type 'never'.
+src/app/admin/dashboard/page.tsx: TS2339: Property 'he' does not exist on type 'never'.
+src/app/admin/dashboard/page.tsx: TS2339: Property 'he' does not exist on type 'never'.
+src/app/admin/heatmap/page.tsx: TS2339: Property 'he' does not exist on type 'never'.
+src/app/admin/heatmap/page.tsx: TS2339: Property 'location' does not exist on type 'Authority'.
+src/app/admin/heatmap/page.tsx: TS2339: Property 'location' does not exist on type 'Authority'.
+src/app/admin/layout.tsx: TS2339: Property 'en' does not exist on type 'never'.
+src/app/admin/layout.tsx: TS2339: Property 'en' does not exist on type 'never'.
+src/app/admin/layout.tsx: TS2339: Property 'he' does not exist on type 'never'.
+src/app/admin/layout.tsx: TS2339: Property 'he' does not exist on type 'never'.
+src/app/admin/layout.tsx: TS2345: Argument of type 'Set<string>' is not assignable to parameter of type 'Set<SectionId> | (() => Set<SectionId>)'.
+src/app/admin/layout.tsx: TS2802: Type 'Set<SectionId>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/app/admin/locations/page.tsx: TS2352: Conversion of type 'Park' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/app/admin/locations/page.tsx: TS2352: Conversion of type 'Park' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/app/admin/locations/page.tsx: TS2352: Conversion of type 'Park' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/app/admin/locations/page.tsx: TS2352: Conversion of type 'Park' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/app/admin/locations/page.tsx: TS2352: Conversion of type 'Park' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/app/admin/locations/page.tsx: TS2558: Expected 0 type arguments, but got 2.
+src/app/admin/locations/page.tsx: TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
+src/app/admin/marketing-hub/page.tsx: TS2322: Type '{ className: string; title: string; "aria-hidden": true; }' is not assignable to type 'IntrinsicAttributes & Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>'.
+src/app/admin/parks/import/page.tsx: TS2322: Type 'RefObject<HTMLInputElement | null>' is not assignable to type 'LegacyRef<HTMLInputElement> | undefined'.
+src/app/admin/parks/page.tsx: TS2339: Property 'en' does not exist on type 'never'.
+src/app/admin/parks/page.tsx: TS2339: Property 'he' does not exist on type 'never'.
+src/app/admin/programs/page.tsx: TS2339: Property 'thumbnail' does not exist on type 'Program'.
+src/app/admin/programs/page.tsx: TS2339: Property 'thumbnail' does not exist on type 'Program'.
+src/app/admin/progression-manager/page.tsx: TS2802: Type 'Set<number>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/app/admin/questionnaire/page.tsx: TS2322: Type '"arrowclosed"' is not assignable to type 'MarkerType'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type '"arrowclosed"' is not assignable to type 'MarkerType'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type '"arrowclosed"' is not assignable to type 'MarkerType'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type '"smoothstep"' is not assignable to type 'ConnectionLineType | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'AnswerResult[] | null' is not assignable to type 'AnswerResult[] | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'Record<string, number> | null' is not assignable to type 'Record<string, number> | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'Record<string, number> | null' is not assignable to type 'Record<string, number> | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'Record<string, number> | null' is not assignable to type 'Record<string, number> | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'null' is not assignable to type 'AnswerResult[] | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'null' is not assignable to type 'AnswerResult[] | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'null' is not assignable to type 'AnswerResult[] | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'null' is not assignable to type 'AnswerResult[] | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'null' is not assignable to type 'AnswerResult[] | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'null' is not assignable to type 'AnswerResult[] | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'null' is not assignable to type 'AnswerResult[] | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'null' is not assignable to type 'AnswerResult[] | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'null' is not assignable to type 'AnswerResult[] | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'null' is not assignable to type 'Record<string, number> | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'null' is not assignable to type 'Record<string, number> | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'null' is not assignable to type 'Record<string, number> | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'null' is not assignable to type 'Record<string, number> | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'null' is not assignable to type 'Record<string, number> | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'null' is not assignable to type 'Record<string, number> | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'null' is not assignable to type 'Record<string, number> | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'null' is not assignable to type 'Record<string, number> | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'null' is not assignable to type 'string | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'null' is not assignable to type 'string | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'null' is not assignable to type 'string | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'null' is not assignable to type 'string | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type 'string | undefined' is not assignable to type 'boolean'.
+src/app/admin/questionnaire/page.tsx: TS2322: Type '{ visibility?: VisibilityCondition[] | undefined; category?: string | undefined; } | null' is not assignable to type 'QuestionLogic | undefined'.
+src/app/admin/questionnaire/page.tsx: TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/app/admin/questionnaire/page.tsx: TS2724: '"lucide-react"' has no exported member named 'UserRoundDown'. Did you mean 'UserRound'?
+src/app/admin/running/import/programs/page.tsx: TS2322: Type '{ size: number; className: string; title: string; }' is not assignable to type 'IntrinsicAttributes & Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>'.
+src/app/admin/running/import/programs/page.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/app/admin/running/import/rank-hills/page.tsx: TS2367: This comparison appears to be unintentional because the types '"warmup" | "cooldown" | "recovery" | "walk"' and '"float"' have no overlap.
+src/app/admin/running/import/rank-hills/page.tsx: TS2367: This comparison appears to be unintentional because the types '"warmup" | "cooldown" | "recovery" | "walk"' and '"float"' have no overlap.
+src/app/admin/running/import/rank-hills/page.tsx: TS2367: This comparison appears to be unintentional because the types '"warmup" | "cooldown" | "recovery" | "walk"' and '"sprint"' have no overlap.
+src/app/admin/running/import/rank-hills/page.tsx: TS2367: This comparison appears to be unintentional because the types '"warmup" | "cooldown" | "recovery" | "walk"' and '"sprint"' have no overlap.
+src/app/admin/running/import/rank-hills/page.tsx: TS2367: This comparison appears to be unintentional because the types '"warmup" | "cooldown" | "recovery" | "walk"' and '"sprint"' have no overlap.
+src/app/admin/running/import/rank-hills/page.tsx: TS2367: This comparison appears to be unintentional because the types '"warmup" | "cooldown" | "recovery" | "walk"' and '"sprint"' have no overlap.
+src/app/admin/running/import/tag-beginners/page.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/app/admin/running/import/tag-beginners/page.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/app/admin/running/programs/[id]/page.tsx: TS2339: Property 'everyWeeks' does not exist on type 'ProgressionRule'.
+src/app/admin/running/programs/[id]/page.tsx: TS2345: Argument of type '(r: ProgressionRule[]) => (AddSetsRule | IncreaseBaseValueRule | IncreaseDistanceRule | RestReductionRule | TaperRule | { ...; } | { ...; } | { ...; })[]' is not assignable to parameter of type 'SetStateAction<ProgressionRule[]>'.
+src/app/admin/running/programs/[id]/page.tsx: TS2345: Argument of type '(r: ProgressionRule[]) => ({ type: "add_sets" | "increase_base_value_percent" | "increase_distance" | "adjust_walk_run_ratio" | "reduce_rest" | "deload_week" | "taper"; value: number; everyWeeks: number; appliesTo: string[] | "all"; } | { ...; } | { ...; } | { ...; } | { ...; })[]' is not assignable to parameter of type 'SetStateAction<ProgressionRule[]>'.
+src/app/admin/running/programs/new/page.tsx: TS2339: Property 'everyWeeks' does not exist on type 'ProgressionRule'.
+src/app/admin/running/programs/new/page.tsx: TS2345: Argument of type '(r: ProgressionRule[]) => (AddSetsRule | IncreaseBaseValueRule | IncreaseDistanceRule | RestReductionRule | TaperRule | { ...; } | { ...; } | { ...; })[]' is not assignable to parameter of type 'SetStateAction<ProgressionRule[]>'.
+src/app/admin/running/programs/new/page.tsx: TS2345: Argument of type '(r: ProgressionRule[]) => ({ type: "add_sets" | "increase_base_value_percent" | "increase_distance" | "adjust_walk_run_ratio" | "reduce_rest" | "deload_week" | "taper"; value: number; everyWeeks: number; appliesTo: string[] | "all"; } | { ...; } | { ...; } | { ...; } | { ...; })[]' is not assignable to parameter of type 'SetStateAction<ProgressionRule[]>'.
+src/app/admin/running/workouts/[id]/page.tsx: TS2352: Conversion of type 'RunBlockTemplate' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/app/admin/running/workouts/[id]/page.tsx: TS2352: Conversion of type 'RunBlockTemplate' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/app/admin/running/workouts/[id]/page.tsx: TS2353: Object literal may only specify known properties, and 'restLabel' does not exist in type 'Partial<RunBlockTemplate>'.
+src/app/admin/running/workouts/[id]/page.tsx: TS2561: Object literal may only specify known properties, but 'restZoneType' does not exist in type 'Partial<RunBlockTemplate>'. Did you mean to write 'zoneType'?
+src/app/admin/running/workouts/new/page.tsx: TS2352: Conversion of type 'RunBlockTemplate' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/app/admin/running/workouts/new/page.tsx: TS2352: Conversion of type 'RunBlockTemplate' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/app/admin/running/workouts/new/page.tsx: TS2353: Object literal may only specify known properties, and 'restLabel' does not exist in type 'Partial<RunBlockTemplate>'.
+src/app/admin/running/workouts/new/page.tsx: TS2561: Object literal may only specify known properties, but 'restZoneType' does not exist in type 'Partial<RunBlockTemplate>'. Did you mean to write 'zoneType'?
+src/app/admin/simulator/page.tsx: TS2345: Argument of type '(prev: GlobalSimulatorContext) => { persona: PersonaId; additionalLifestyles: PersonaId[]; location: ExecutionLocation; ... 12 more ...; allLifestyles: PersonaId[]; }' is not assignable to parameter of type 'SetStateAction<GlobalSimulatorContext>'.
+src/app/admin/simulator/page.tsx: TS2724: '"@/features/content/equipment/gym/core/gym-equipment.service"' has no exported member named 'GymEquipment'. Did you mean 'getGymEquipment'?
+src/app/admin/simulator/page.tsx: TS2741: Property 'desk' is missing in type '{ home: { sweatLimit: 2; noiseLimit: 2; }; park: { sweatLimit: 3; noiseLimit: 3; }; office: { sweatLimit: 1; noiseLimit: 1; }; street: { sweatLimit: 3; noiseLimit: 3; }; gym: { sweatLimit: 3; noiseLimit: 3; }; airport: { ...; }; school: { ...; }; library: { ...; }; service: { ...; }; }' but required in type 'Record<ExecutionLocation, { sweatLimit: SweatLevel; noiseLimit: NoiseLevel; }>'.
+src/app/admin/users/[uid]/page.tsx: TS2339: Property 'hasGymAccess' does not exist on type '{ name: string; email?: string | undefined; initialFitnessTier: 2 | 1 | 3; trackingMode: "performance" | "wellness"; mainGoal: "healthy_lifestyle" | "performance_boost" | "weight_loss" | "skill_mastery"; ... 26 more ...; discoverable?: boolean | undefined; }'.
+src/app/admin/users/[uid]/page.tsx: TS2339: Property 'hasGymAccess' does not exist on type '{ name: string; email?: string | undefined; initialFitnessTier: 2 | 1 | 3; trackingMode: "performance" | "wellness"; mainGoal: "healthy_lifestyle" | "performance_boost" | "weight_loss" | "skill_mastery"; ... 26 more ...; discoverable?: boolean | undefined; }'.
+src/app/admin/users/[uid]/page.tsx: TS2339: Property 'isAnonymous' does not exist on type '{ name: string; email?: string | undefined; initialFitnessTier: 2 | 1 | 3; trackingMode: "performance" | "wellness"; mainGoal: "healthy_lifestyle" | "performance_boost" | "weight_loss" | "skill_mastery"; ... 26 more ...; discoverable?: boolean | undefined; }'.
+src/app/admin/users/[uid]/page.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/app/admin/users/[uid]/page.tsx: TS2872: This kind of expression is always truthy.
+src/app/admin/users/[uid]/page.tsx: TS2872: This kind of expression is always truthy.
+src/app/admin/visual-assessment/page.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/app/admin/workout-settings/page.tsx: TS2345: Argument of type 'WorkoutTitle[] | MotivationalPhrase[] | Notification[] | SmartDescription[] | LogicCue[]' is not assignable to parameter of type 'WorkoutTitle[]'.
+src/app/admin/workout-settings/page.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/app/admin/workout-settings/page.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/app/admin/workout-settings/page.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/app/admin/workout-settings/page.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/app/admin/workout-settings/page.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/app/admin/workout-settings/page.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/app/api/admin/drive/authority-folder/route.ts: TS2339: Property 'files' does not exist on type 'Schema$FileList'.
+src/app/authority-portal/login/page.tsx: TS2339: Property 'en' does not exist on type 'never'.
+src/app/authority-portal/login/page.tsx: TS2339: Property 'he' does not exist on type 'never'.
+src/app/authority-portal/login/page.tsx: TS2339: Property 'he' does not exist on type 'never'.
+src/app/community/page.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/app/community/page.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/app/community/page.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/app/community/page.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/app/community/page.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/app/profile/page.tsx: TS2339: Property 'currentLevel' does not exist on type 'UserProgression'.
+src/app/search/page.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/app/search/page.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/app/workouts/[id]/active/page.tsx: TS2322: Type 'string | null' is not assignable to type 'boolean'.
+src/app/workouts/[id]/active/page.tsx: TS2339: Property 'globalStreak' does not exist on type 'UserProgression'.
+src/app/workouts/[id]/active/page.tsx: TS2345: Argument of type '{ type: "distance" | "time" | "reps"; value: number; unit?: string | undefined; }' is not assignable to parameter of type '{ type: "time" | "reps"; value: number; }'.
+src/app/workouts/[id]/active/page.tsx: TS2352: Conversion of type 'UserProgression' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/contexts/LanguageContext.tsx: TS2367: This comparison appears to be unintentional because the types 'Language' and '"es"' have no overlap.
+src/features/activity/components/StepsAnalyticsPage.tsx: TS2322: Type '(dotProps: { cx: number; cy: number; index: number; }) => React.JSX.Element' is not assignable to type 'DotType | undefined'.
+src/features/activity/components/StepsAnalyticsPage.tsx: TS2322: Type '(props: { x?: number; y?: number; width?: number; index?: number; }) => React.JSX.Element | null' is not assignable to type 'ImplicitLabelListType | undefined'.
+src/features/activity/components/StepsAnalyticsPage.tsx: TS2322: Type '(value: number) => [string, string]' is not assignable to type 'Formatter<ValueType, NameType> & ((value: ValueType, name: NameType, item: TooltipPayloadEntry, index: number, payload: TooltipPayload) => ReactNode | [...])'.
+src/features/activity/components/StepsAnalyticsPage.tsx: TS2322: Type '(value: number) => [string, string]' is not assignable to type 'Formatter<ValueType, NameType> & ((value: ValueType, name: NameType, item: TooltipPayloadEntry, index: number, payload: TooltipPayload) => ReactNode | [...])'.
+src/features/activity/store/__tests__/logMultiCategoryWorkout.smoke.test.ts: TS2556: A spread argument must either have a tuple type or be passed to a rest parameter.
+src/features/activity/store/__tests__/logMultiCategoryWorkout.smoke.test.ts: TS2556: A spread argument must either have a tuple type or be passed to a rest parameter.
+src/features/admin/actions/importExcelAction.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/admin/actions/importExcelAction.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/admin/components/GymEquipmentEditorForm.tsx: TS2307: Cannot find module '@/types/exercise.type' or its corresponding type declarations.
+src/features/admin/components/GymEquipmentEditorForm.tsx: TS2307: Cannot find module '@/types/exercise.type' or its corresponding type declarations.
+src/features/admin/components/GymEquipmentEditorForm.tsx: TS2307: Cannot find module '@/types/gym-equipment.type' or its corresponding type declarations.
+src/features/admin/components/GymEquipmentEditorForm.tsx: TS7006: Parameter '_' implicitly has an 'any' type.
+src/features/admin/components/GymEquipmentEditorForm.tsx: TS7006: Parameter 'brand' implicitly has an 'any' type.
+src/features/admin/components/GymEquipmentEditorForm.tsx: TS7006: Parameter 'i' implicitly has an 'any' type.
+src/features/admin/components/GymEquipmentEditorForm.tsx: TS7006: Parameter 'index' implicitly has an 'any' type.
+src/features/admin/components/authorities/AuthoritiesStatsDashboard.tsx: TS2339: Property 'activeLeads' does not exist on type '{ pipelineValue: string; contractGap: string; annualRevenue: string; activeClients: string; }'.
+src/features/admin/components/authorities/AuthoritiesStatsDashboard.tsx: TS2339: Property 'closingSoon' does not exist on type '{ pipelineValue: string; contractGap: string; annualRevenue: string; activeClients: string; }'.
+src/features/admin/components/authorities/AuthoritiesStatsDashboard.tsx: TS2339: Property 'openTasks' does not exist on type '{ pipelineValue: string; contractGap: string; annualRevenue: string; activeClients: string; }'.
+src/features/admin/components/authorities/AuthoritiesStatsDashboard.tsx: TS2339: Property 'overdueInstallments' does not exist on type '{ pipelineValue: string; contractGap: string; annualRevenue: string; activeClients: string; }'.
+src/features/admin/components/authorities/AuthoritiesStatsDashboard.tsx: TS2339: Property 'overdueTasks' does not exist on type '{ pipelineValue: string; contractGap: string; annualRevenue: string; activeClients: string; }'.
+src/features/admin/components/authorities/AuthoritiesStatsDashboard.tsx: TS2802: Type 'MapIterator<MonthForecast>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/admin/components/authorities/AuthoritiesStatsDashboard.tsx: TS2802: Type 'MapIterator<YearForecast>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/admin/components/authorities/AuthoritiesStatsDashboard.tsx: TS7006: Parameter 'a' implicitly has an 'any' type.
+src/features/admin/components/authorities/AuthoritiesStatsDashboard.tsx: TS7006: Parameter 'b' implicitly has an 'any' type.
+src/features/admin/components/authorities/AuthoritiesStatsDashboard.tsx: TS7006: Parameter 'c' implicitly has an 'any' type.
+src/features/admin/components/authorities/AuthoritiesStatsDashboard.tsx: TS7006: Parameter 'm' implicitly has an 'any' type.
+src/features/admin/components/authority-manager/ActivityByHourChart.tsx: TS2322: Type '(value: number, name: string) => [number, string]' is not assignable to type 'Formatter<ValueType, NameType> & ((value: ValueType, name: NameType, item: TooltipPayloadEntry, index: number, payload: TooltipPayload) => ReactNode | [...])'.
+src/features/admin/components/authority-manager/AnalyticsDashboard.tsx: TS18048: 'percent' is possibly 'undefined'.
+src/features/admin/components/authority-manager/AnalyticsDashboard.tsx: TS18048: 'percent' is possibly 'undefined'.
+src/features/admin/components/authority-manager/AnalyticsDashboard.tsx: TS2322: Type '(v: number) => [number, string]' is not assignable to type 'Formatter<ValueType, NameType> & ((value: ValueType, name: NameType, item: TooltipPayloadEntry, index: number, payload: TooltipPayload) => ReactNode | [...])'.
+src/features/admin/components/authority-manager/AnalyticsDashboard.tsx: TS2322: Type '(v: number) => [number, string]' is not assignable to type 'Formatter<ValueType, NameType> & ((value: ValueType, name: NameType, item: TooltipPayloadEntry, index: number, payload: TooltipPayload) => ReactNode | [...])'.
+src/features/admin/components/authority-manager/AnalyticsDashboard.tsx: TS2322: Type '(value: number) => [string, string]' is not assignable to type 'Formatter<ValueType, NameType> & ((value: ValueType, name: NameType, item: TooltipPayloadEntry, index: number, payload: TooltipPayload) => ReactNode | [...])'.
+src/features/admin/components/authority-manager/AnalyticsDashboard.tsx: TS2322: Type '(value: number) => [string, string]' is not assignable to type 'Formatter<ValueType, NameType> & ((value: ValueType, name: NameType, item: TooltipPayloadEntry, index: number, payload: TooltipPayload) => ReactNode | [...])'.
+src/features/admin/components/cpo-dashboard/ProductInsights.tsx: TS2339: Property 'location' does not exist on type 'PieLabelRenderProps'.
+src/features/admin/components/cpo-dashboard/ProductInsights.tsx: TS2339: Property 'percentage' does not exist on type 'PieLabelRenderProps'.
+src/features/admin/services/analytics.service.ts: TS2802: Type 'MapIterator<number>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/admin/services/authority.service.ts: TS2322: Type '"AuthorityDocument"' is not assignable to type 'AuditTargetEntity'.
+src/features/admin/services/authority.service.ts: TS2802: Type 'Map<string, number>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/admin/services/authority.service.ts: TS2802: Type 'MapIterator<[string, number]>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/admin/services/park-import.service.ts: TS2802: Type 'Map<string, { docId: string; brands?: { imageUrl?: string | undefined; videoUrl?: string | undefined; brandName?: string | undefined; }[] | undefined; }>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/admin/services/park-import.service.ts: TS2802: Type 'Map<string, { docId: string; image?: string | undefined; images?: string[] | undefined; }>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/admin/services/park-import.service.ts: TS2802: Type 'Set<ParkFeatureTag>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/admin/services/park-import.service.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/admin/services/seed-military-school-demo.ts: TS2345: Argument of type 'readonly ["strength", "cardio", "maintenance"]' is not assignable to parameter of type 'unknown[]'.
+src/features/admin/services/seed-military-school-demo.ts: TS2345: Argument of type 'readonly ["strength", "cardio", "maintenance"]' is not assignable to parameter of type 'unknown[]'.
+src/features/admin/services/seed-military-school-demo.ts: TS2538: Type 'unknown' cannot be used as an index type.
+src/features/admin/services/seed-military-school-demo.ts: TS2538: Type 'unknown' cannot be used as an index type.
+src/features/app/exercises/components/ExerciseDetailView.tsx: TS2339: Property 'instructionalVideos' does not exist on type 'ExerciseMedia'.
+src/features/app/exercises/components/ExerciseDetailView.tsx: TS2739: Type '{ chest: string; back: string; shoulders: string; abs: string; obliques: string; forearms: string; biceps: string; triceps: string; quads: string; hamstrings: string; glutes: string; calves: string; ... 4 more ...; legs: string; }' is missing the following properties from type 'Record<MuscleGroup, string>': middle_back, rear_delt, serratus, adductors, hip_flexors
+src/features/app/home/components/DailyPhrase.tsx: TS2339: Property 'persona' does not exist on type '{ hasDog: boolean; commute: { method: "walk" | "bus" | "car" | "bike"; workLocation?: { lat: number; lng: number; } | undefined; enableChallenges: boolean; }; scheduleDays?: string[] | undefined; ... 6 more ...; reminders?: { ...; } | undefined; }'.
+src/features/app/home/components/DailyPhrase.tsx: TS2339: Property 'preferredLocation' does not exist on type '{ hasDog: boolean; commute: { method: "walk" | "bus" | "car" | "bike"; workLocation?: { lat: number; lng: number; } | undefined; enableChallenges: boolean; }; scheduleDays?: string[] | undefined; ... 6 more ...; reminders?: { ...; } | undefined; }'.
+src/features/arena/components/CreateGroupWizard.tsx: TS2322: Type 'RefObject<HTMLInputElement | null>' is not assignable to type 'LegacyRef<HTMLInputElement> | undefined'.
+src/features/content/exercises/admin/ExerciseEditorForm.tsx: TS2322: Type 'string' is not assignable to type 'LocalizedText'.
+src/features/content/exercises/admin/ExerciseEditorForm.tsx: TS2339: Property 'female' does not exist on type 'LocalizedText'.
+src/features/content/exercises/admin/ExerciseEditorForm.tsx: TS2339: Property 'female' does not exist on type 'LocalizedText'.
+src/features/content/exercises/admin/ExerciseEditorForm.tsx: TS2339: Property 'male' does not exist on type 'LocalizedText'.
+src/features/content/exercises/admin/ExerciseEditorForm.tsx: TS2339: Property 'male' does not exist on type 'LocalizedText'.
+src/features/content/exercises/admin/ExerciseEditorForm.tsx: TS2339: Property 'trim' does not exist on type 'never'.
+src/features/content/exercises/admin/ExerciseEditorForm.tsx: TS2339: Property 'trim' does not exist on type 'never'.
+src/features/content/exercises/admin/components/exercise-editor/BasicsSection.tsx: TS7006: Parameter 'id' implicitly has an 'any' type.
+src/features/content/exercises/admin/components/exercise-editor/ExecutionMethodCard.tsx: TS2739: Type '{ home: { label: string; icon: Element; }; park: { label: string; icon: Element; }; street: { label: string; icon: Element; }; office: { label: string; icon: Element; }; school: { ...; }; gym: { ...; }; airport: { ...; }; service: { ...; }; }' is missing the following properties from type 'Record<ExecutionLocation, { label: string; icon: ReactNode; }>': library, desk
+src/features/content/exercises/admin/components/exercise-editor/MethodsSection.tsx: TS2322: Type 'string | LocalizedText' is not assignable to type 'ReactNode'.
+src/features/content/exercises/admin/components/exercise-editor/MethodsSection.tsx: TS2322: Type 'string' is not assignable to type 'LocalizedText'.
+src/features/content/exercises/admin/components/exercise-editor/MethodsSection.tsx: TS2322: Type 'string' is not assignable to type 'LocalizedText'.
+src/features/content/exercises/admin/components/exercise-editor/MethodsSection.tsx: TS2739: Type '{ home: { label: string; icon: Element; }; park: { label: string; icon: Element; }; street: { label: string; icon: Element; }; office: { label: string; icon: Element; }; school: { ...; }; gym: { ...; }; airport: { ...; }; service: { ...; }; }' is missing the following properties from type 'Record<ExecutionLocation, { label: string; icon: ReactNode; }>': library, desk
+src/features/content/exercises/admin/components/exercise-editor/MobilePreview.tsx: TS2339: Property 'he' does not exist on type 'string'.
+src/features/content/exercises/admin/components/exercise-editor/shared/GenderedTextInput.tsx: TS2345: Argument of type 'string | LocalizedText | GenderedText' is not assignable to parameter of type 'string | GenderedText'.
+src/features/content/exercises/admin/components/exercise-editor/shared/constants.tsx: TS2307: Cannot find module '../../../core/exercise.types' or its corresponding type declarations.
+src/features/content/exercises/admin/components/exercise-editor/shared/types.ts: TS2307: Cannot find module '../../../../programs/core/program.types' or its corresponding type declarations.
+src/features/content/exercises/admin/components/exercise-editor/shared/types.ts: TS2307: Cannot find module '../../../core/exercise.types' or its corresponding type declarations.
+src/features/content/exercises/admin/hooks/useMethodsAutosave.ts: TS2307: Cannot find module '../../../core/exercise.types' or its corresponding type declarations.
+src/features/content/exercises/client/components/EquipmentFilterSheet.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/content/exercises/client/components/EquipmentFilterSheet.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/content/exercises/client/components/EquipmentFilterSheet.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/content/exercises/client/components/EquipmentFilterSheet.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/content/exercises/services/exercise-mapping.utils.ts: TS2352: Conversion of type 'Record<string, unknown>' to type 'Timestamp' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/features/content/exercises/services/exercise-translation.utils.ts: TS2802: Type 'ArrayIterator<[number, unknown]>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/content/index.ts: TS2308: Module './exercises' has already exported a member named 'ContentTier'. Consider explicitly re-exporting to resolve the ambiguity.
+src/features/favorites/components/FavoritesTab.tsx: TS2741: Property 'isBalanced' is missing in type '{ straightArm: number; bentArm: number; hybrid: number; ratio: string; }' but required in type 'MechanicalBalanceSummary'.
+src/features/favorites/services/favorites.service.ts: TS2322: Type '{ exerciseId: any; name: any; sets: number; reps: number; repsRange: { min: number; max: number; } | null; isTimeBased: boolean; restSeconds: number; imageUrl: string | null; videoUrl: string | null; ... 14 more ...; notificationText: string | null; }[]' is not assignable to type 'SharedExercise[]'.
+src/features/favorites/services/media-downloader.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/favorites/store/useFavoritesStore.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/home/components/DaySummarySheet.tsx: TS2322: Type '{ className: string; style: { color: string; }; }' is not assignable to type 'IntrinsicAttributes & { className?: string | undefined; }'.
+src/features/home/components/HeroCard.tsx: TS2345: Argument of type 'number' is not assignable to parameter of type 'string'.
+src/features/home/components/HeroCard.tsx: TS2345: Argument of type 'number' is not assignable to parameter of type 'string'.
+src/features/home/components/HeroCard.tsx: TS2345: Argument of type 'number' is not assignable to parameter of type 'string'.
+src/features/home/components/SmartWeeklySchedule.tsx: TS2345: Argument of type 'boolean | undefined' is not assignable to parameter of type 'boolean'.
+src/features/home/components/StatsOverview.tsx: TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ core?: DomainProgress | undefined; running?: DomainProgress | undefined; upper_body?: DomainProgress | undefined; full_body?: DomainProgress | undefined; flexibility?: DomainProgress | undefined; handstand?: DomainProgress | undefined; lower_body?: DomainProgress | undefined; pull_up_pro?: DomainProgress | undefin...'.
+src/features/home/components/UserHeaderPill.tsx: TS2304: Cannot find name 'isHydrated'.
+src/features/home/components/UserWorkoutAdjuster.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/home/components/WorkoutBuilderSheet.tsx: TS2367: This comparison appears to be unintentional because the types '"home" | "gym" | "service"' and '"street"' have no overlap.
+src/features/home/components/WorkoutBuilderSheet.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/home/components/WorkoutBuilderSheet.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/home/components/WorkoutSelectionCarousel.tsx: TS2367: This comparison appears to be unintentional because the types '"main" | undefined' and '"recovery"' have no overlap.
+src/features/home/components/agenda/RollingAgenda.tsx: TS2802: Type 'Map<string, HTMLDivElement>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/home/components/carousel/DashedGoalCarousel.tsx: TS2353: Object literal may only specify known properties, and 'ringColor' does not exist in type 'MotionStyle'.
+src/features/home/components/widgets/NextRunWorkoutCard.tsx: TS2322: Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'FC<{ size?: number | undefined; className?: string | undefined; }>'.
+src/features/home/components/widgets/NextRunWorkoutCard.tsx: TS2322: Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'FC<{ size?: number | undefined; className?: string | undefined; }>'.
+src/features/home/components/widgets/NextRunWorkoutCard.tsx: TS2322: Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'FC<{ size?: number | undefined; className?: string | undefined; }>'.
+src/features/home/components/widgets/NextRunWorkoutCard.tsx: TS2322: Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'FC<{ size?: number | undefined; className?: string | undefined; }>'.
+src/features/home/components/widgets/NextRunWorkoutCard.tsx: TS2322: Type '{ size: number; style: { color: string; }; }' is not assignable to type 'IntrinsicAttributes & { size?: number | undefined; className?: string | undefined; }'.
+src/features/home/components/widgets/NextRunWorkoutCard.tsx: TS2339: Property 'identity' does not exist on type 'UserFullProfile'.
+src/features/home/hooks/useMuscleChipSelection.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/home/hooks/useMuscleChipSelection.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/home/hooks/useProgramProgress.ts: TS2339: Property 'profile' does not exist on type 'unknown'.
+src/features/home/hooks/useProgramProgress.ts: TS2339: Property 'profile' does not exist on type 'unknown'.
+src/features/home/hooks/useProgramProgress.ts: TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ core?: DomainProgress | undefined; running?: DomainProgress | undefined; upper_body?: DomainProgress | undefined; full_body?: DomainProgress | undefined; flexibility?: DomainProgress | undefined; handstand?: DomainProgress | undefined; lower_body?: DomainProgress | undefined; pull_up_pro?: DomainProgress | undefin...'.
+src/features/home/hooks/useSmartSchedule.ts: TS2345: Argument of type '2 | 1 | 3' is not assignable to parameter of type '"medium" | "easy" | "hard"'.
+src/features/home/utils/__tests__/todayStrengthVolume.test.ts: TS2322: Type 'string' is not assignable to type 'Date | (Date & string)'.
+src/features/home/utils/__tests__/todayStrengthVolume.test.ts: TS2322: Type 'string' is not assignable to type 'Date | (Date & string)'.
+src/features/home/utils/__tests__/todayStrengthVolume.test.ts: TS2322: Type 'string' is not assignable to type 'Date | (Date & string)'.
+src/features/messages/components/SmartGreeting.tsx: TS2739: Type '{ post_workout: Element; partial_workout: Element; re_engagement: Element; pr_record: Element; streak_milestone: Element; level_up: Element; first_workout: Element; default: Element; }' is missing the following properties from type 'Record<MessageType, ReactNode>': community_session, missed_workout
+src/features/messages/components/SmartGreeting.tsx: TS2739: Type '{ post_workout: string; partial_workout: string; re_engagement: string; pr_record: string; streak_milestone: string; level_up: string; first_workout: string; default: string; }' is missing the following properties from type 'Record<MessageType, string>': community_session, missed_workout
+src/features/messages/services/MessageService.ts: TS2352: Conversion of type '{ [k: string]: string | number | boolean; }' to type 'SmartMessageInput' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/features/parks/core/components/ActiveWorkoutOverlay.tsx: TS2322: Type '{ mode: ActivityType; startTime: number; distance: number; averagePace: number; calories: number; nextStation: string | undefined; }' is not assignable to type 'IntrinsicAttributes & ActiveDashboardProps'.
+src/features/parks/core/data/mock-locations.ts: TS2353: Object literal may only specify known properties, and 'devices' does not exist in type 'Park'.
+src/features/parks/core/data/mock-locations.ts: TS2353: Object literal may only specify known properties, and 'devices' does not exist in type 'Park'.
+src/features/parks/core/hooks/useCommunityEnrichment.ts: TS2347: Untyped function calls may not accept type arguments.
+src/features/parks/core/hooks/useCommunityEnrichment.ts: TS2802: Type 'Map<string, SessionEnrichment>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/parks/core/hooks/useCommunityEnrichment.ts: TS2802: Type 'Map<string, SessionEnrichment[]>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/parks/core/hooks/useCommunityEnrichment.ts: TS2802: Type 'Map<string, SessionEnrichment[]>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/parks/core/hooks/useCommunityEnrichment.ts: TS2802: Type 'Map<string, SessionEnrichment[]>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/parks/core/hooks/useCommunityEnrichment.ts: TS2802: Type 'Map<string, SessionEnrichment[]>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/parks/core/hooks/useCommunityEnrichment.ts: TS2802: Type 'Map<string, SessionEnrichment[]>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/parks/core/hooks/useCommunityEnrichment.ts: TS2802: Type 'Map<string, SessionEnrichment[]>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/parks/core/hooks/useCommunityEnrichment.ts: TS2802: Type 'Map<string, SessionEnrichment[]>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/parks/core/hooks/useCommunityEnrichment.ts: TS2802: Type 'Map<string, { lat: number; lng: number; }>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/parks/core/hooks/useCommunityEnrichment.ts: TS7006: Parameter 'a' implicitly has an 'any' type.
+src/features/parks/core/hooks/useCommunityEnrichment.ts: TS7006: Parameter 'b' implicitly has an 'any' type.
+src/features/parks/core/hooks/useCommunityEnrichment.ts: TS7006: Parameter 'best' implicitly has an 'any' type.
+src/features/parks/core/hooks/useCommunityEnrichment.ts: TS7006: Parameter 's' implicitly has an 'any' type.
+src/features/parks/core/hooks/useCommunityEnrichment.ts: TS7006: Parameter 's' implicitly has an 'any' type.
+src/features/parks/core/hooks/useMapLogic.ts: TS2551: Property 'setLivePath' does not exist on type 'WorkoutSessionState'. Did you mean 'livePath'?
+src/features/parks/core/hooks/useRouteFilter.ts: TS18047: 'a' is possibly 'null'.
+src/features/parks/core/hooks/useRouteFilter.ts: TS18047: 'b' is possibly 'null'.
+src/features/parks/core/hooks/useRouteFilter.ts: TS18047: 'r' is possibly 'null'.
+src/features/parks/core/hooks/useRouteFilter.ts: TS2677: A type predicate's type must be assignable to its parameter's type.
+src/features/parks/core/hooks/useRouteGeneration.ts: TS18047: 'r' is possibly 'null'.
+src/features/parks/core/hooks/useRouteGeneration.ts: TS2322: Type '(Route | null)[]' is not assignable to type 'Route[]'.
+src/features/parks/core/hooks/useRouteGeneration.ts: TS2345: Argument of type 'Route | null' is not assignable to parameter of type 'Route'.
+src/features/parks/core/hooks/useRouteGeneration.ts: TS2345: Argument of type 'Route | null' is not assignable to parameter of type 'Route'.
+src/features/parks/core/hooks/useUserCityName.ts: TS1501: This regular expression flag is only available when targeting 'es6' or later.
+src/features/parks/core/services/route-generator.service.ts: TS2339: Property 'devices' does not exist on type 'Park'.
+src/features/parks/core/services/route-generator.service.ts: TS2339: Property 'devices' does not exist on type 'Park'.
+src/features/parks/core/services/route-generator.service.ts: TS2339: Property 'devices' does not exist on type 'Park'.
+src/features/parks/core/services/route-generator.service.ts: TS2339: Property 'devices' does not exist on type 'Park'.
+src/features/parks/core/services/route-stitching.service.ts: TS2339: Property 'category' does not exist on type 'Park'.
+src/features/parks/core/services/route-stitching.service.ts: TS2339: Property 'category' does not exist on type 'Park'.
+src/features/parks/core/services/route-stitching.service.ts: TS2339: Property 'category' does not exist on type 'Park'.
+src/features/parks/core/services/route-stitching.service.ts: TS2339: Property 'category' does not exist on type 'Park'.
+src/features/parks/core/services/route-stitching.service.ts: TS2367: This comparison appears to be unintentional because the types '"bench" | "skatepark" | "water_fountain" | "toilets" | "parking" | "bike_rack" | undefined' and '"public_steps"' have no overlap.
+src/features/parks/core/services/route-stitching.service.ts: TS2367: This comparison appears to be unintentional because the types 'RouteEnvironment | undefined' and '"plaza"' have no overlap.
+src/features/parks/core/services/route-stitching.service.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/profile/components/ExerciseAnalyticsPage.tsx: TS2322: Type '(value: number) => [string, string]' is not assignable to type 'Formatter<ValueType, NameType> & ((value: ValueType, name: NameType, item: TooltipPayloadEntry, index: number, payload: TooltipPayload) => ReactNode | [...])'.
+src/features/profile/components/widgets/ExerciseTrendChart.tsx: TS2322: Type '(value: number) => [string, string]' is not assignable to type 'Formatter<ValueType, NameType> & ((value: ValueType, name: NameType, item: TooltipPayloadEntry, index: number, payload: TooltipPayload) => ReactNode | [...])'.
+src/features/profile/components/widgets/RecentActivityList.tsx: TS2678: Type '"STRENGTH"' is not comparable to type '"running" | "strength" | "walking" | "cycling" | "hybrid" | "recovery"'.
+src/features/profile/components/widgets/RunningTrendChart.tsx: TS2322: Type '(value: number) => [string, string]' is not assignable to type 'Formatter<ValueType, NameType> & ((value: ValueType, name: NameType, item: TooltipPayloadEntry, index: number, payload: TooltipPayload) => ReactNode | [...])'.
+src/features/safecity/components/ViralUnlockSheet.tsx: TS2339: Property 'profile' does not exist on type 'unknown'.
+src/features/safecity/components/ViralUnlockSheet.tsx: TS7006: Parameter 'a' implicitly has an 'any' type.
+src/features/safecity/hooks/useSafeCityMap.ts: TS2367: This comparison appears to be unintentional because the types '"squad" | "verified_global"' and '"group"' have no overlap.
+src/features/user/index.ts: TS2308: Module './identity' has already exported a member named 'OnboardingAnswers'. Consider explicitly re-exporting to resolve the ambiguity.
+src/features/user/onboarding/components/DynamicQuestionRenderer.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/user/onboarding/components/LifestyleWizard.tsx: TS2739: Type '{ encouragement: boolean; health_milestone: boolean; training_reminder: boolean; system: true; }' is missing the following properties from type 'Record<PushChannel, boolean>': chat, social, progression, community, retention
+src/features/user/onboarding/components/OnboardingLayout.tsx: TS2322: Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'ComponentType<{ size?: number | undefined; strokeWidth?: number | undefined; className?: string | undefined; }>'.
+src/features/user/onboarding/components/OnboardingLayout.tsx: TS2322: Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'ComponentType<{ size?: number | undefined; strokeWidth?: number | undefined; className?: string | undefined; }>'.
+src/features/user/onboarding/components/OnboardingLayout.tsx: TS2322: Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'ComponentType<{ size?: number | undefined; strokeWidth?: number | undefined; className?: string | undefined; }>'.
+src/features/user/onboarding/components/OnboardingLayout.tsx: TS2322: Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'ComponentType<{ size?: number | undefined; strokeWidth?: number | undefined; className?: string | undefined; }>'.
+src/features/user/onboarding/components/OnboardingLayout.tsx: TS2322: Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'ComponentType<{ size?: number | undefined; strokeWidth?: number | undefined; className?: string | undefined; }>'.
+src/features/user/onboarding/components/OnboardingLayout.tsx: TS2322: Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'ComponentType<{ size?: number | undefined; strokeWidth?: number | undefined; className?: string | undefined; }>'.
+src/features/user/onboarding/components/OnboardingLayout.tsx: TS2345: Argument of type '"ru" | Language' is not assignable to parameter of type '"he" | "en" | undefined'.
+src/features/user/onboarding/components/ProgramResult.tsx: TS2322: Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'ComponentType<{ size?: number | undefined; color?: string | undefined; strokeWidth?: number | undefined; className?: string | undefined; }> | undefined'.
+src/features/user/onboarding/components/steps/SummaryStep.tsx: TS2345: Argument of type 'Partial<OnboardingData>' is not assignable to parameter of type 'OnboardingData'.
+src/features/user/onboarding/engine/DynamicOnboardingEngine.ts: TS2322: Type 'string | MultilingualText | undefined' is not assignable to type 'string | undefined'.
+src/features/user/onboarding/engine/DynamicOnboardingEngine.ts: TS2322: Type 'string | MultilingualText' is not assignable to type 'string'.
+src/features/user/onboarding/engine/DynamicOnboardingEngine.ts: TS2322: Type '{ id: string; text: string | MultilingualText; imageUrl: any; nextQuestionId: string | undefined; conditionalRoutes: any; chainTrigger: any; assignedLevel: number | null | undefined; ... 4 more ...; metadata: any; }[]' is not assignable to type '{ id: string; text: string; imageUrl?: string | undefined; nextQuestionId?: string | null | undefined; conditionalRoutes?: ConditionalRoute[] | undefined; chainTrigger?: WorkflowChainTrigger | undefined; ... 5 more ...; metadata?: Record<...> | undefined; }[]'.
+src/features/user/onboarding/engine/DynamicOnboardingEngine.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/user/onboarding/engine/DynamicOnboardingEngine.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/user/onboarding/engine/DynamicOnboardingEngine.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/user/onboarding/services/branching-logic.service.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/user/onboarding/services/branching-logic.service.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/user/onboarding/services/onboarding-sync.service.ts: TS2339: Property 'gender' does not exist on type 'Partial<OnboardingData>'.
+src/features/user/onboarding/services/running-onboarding-bridge.service.ts: TS2322: Type '"none" | "5_15" | "15_30" | "30_45" | "45_plus" | "runner"' is not assignable to type '"none" | "5_15" | "15_30" | "30_45" | "45_plus" | undefined'.
+src/features/user/onboarding/services/running-onboarding-bridge.service.ts: TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+src/features/user/onboarding/services/visual-assessment-content.service.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/user/onboarding/services/visual-content-resolver.service.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/user/progression/services/progression.service.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/user/progression/services/progression.service.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/user/progression/store/useProgressionStore.ts: TS2322: Type '{ [programId: string]: DomainTrackProgress; }' is not assignable to type '{ [domain: string]: { level: number; percent: number; }; }'.
+src/features/workout-engine/components/strength/components/XpStatusRow.tsx: TS2724: '"framer-motion"' has no exported member named 'AnimationControls'. Did you mean 'animationControls'?
+src/features/workout-engine/components/strength/hooks/useXpAward.ts: TS2724: '"framer-motion"' has no exported member named 'AnimationControls'. Did you mean 'animationControls'?
+src/features/workout-engine/core/middleware/InputSanitizerMiddleware.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/workout-engine/core/middleware/InputSanitizerMiddleware.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/workout-engine/core/pipeline/BudgetDistributor.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/workout-engine/core/pipeline/BudgetDistributor.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/workout-engine/core/services/running-engine.service.ts: TS2322: Type '"maintenance" | "2k" | "3k" | "5k" | "10k"' is not assignable to type '"maintenance" | "3k" | "5k" | "10k"'.
+src/features/workout-engine/core/services/running-engine.service.ts: TS2339: Property 'everyWeeks' does not exist on type 'ProgressionRule'.
+src/features/workout-engine/core/services/running-engine.service.ts: TS2345: Argument of type '"2k" | "3k" | "5k" | "10k"' is not assignable to parameter of type '"maintenance" | "3k" | "5k" | "10k"'.
+src/features/workout-engine/core/services/running-engine.service.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/workout-engine/hybrid/__tests__/domain-gate-fallback-sets.test.ts: TS2345: Argument of type 'undefined' is not assignable to parameter of type 'BlockDomainFocus'.
+src/features/workout-engine/hybrid/__tests__/domain-gate-fallback-sets.test.ts: TS2345: Argument of type 'undefined' is not assignable to parameter of type 'BlockDomainFocus'.
+src/features/workout-engine/hybrid/__tests__/domain-gate-fallback-sets.test.ts: TS2345: Argument of type 'undefined' is not assignable to parameter of type 'BlockDomainFocus'.
+src/features/workout-engine/logic/contextual-engine.types.ts: TS2741: Property 'desk' is missing in type '{ office: { sweatLimit: 1; noiseLimit: 1; methodPriority: 3; bypassLimits: false; }; airport: { sweatLimit: 1; noiseLimit: 1; methodPriority: 3; bypassLimits: false; }; school: { sweatLimit: 1; noiseLimit: 1; methodPriority: 3; bypassLimits: false; }; ... 5 more ...; service: { ...; }; }' but required in type 'Record<ExecutionLocation, LocationConstraints>'.
+src/features/workout-engine/logic/workout-budgeting.utils.ts: TS2367: This comparison appears to be unintentional because the types '"" | MovementGroup' and '"handstand"' have no overlap.
+src/features/workout-engine/logic/workout-budgeting.utils.ts: TS2367: This comparison appears to be unintentional because the types '"" | MovementGroup' and '"hang"' have no overlap.
+src/features/workout-engine/logic/workout-selection.utils.ts: TS2345: Argument of type '"foundation"' is not assignable to parameter of type 'ExerciseTag'.
+src/features/workout-engine/logic/workout-selection.utils.ts: TS2345: Argument of type 'string' is not assignable to parameter of type 'ExecutionLocation'.
+src/features/workout-engine/players/running/components/PlannedRun/BlockTransitionOverlay.tsx: TS2783: 'className' is specified more than once, so this usage will be overwritten.
+src/features/workout-engine/players/running/components/PlannedRun/index.tsx: TS2339: Property 'totalDistance' does not exist on type 'RunWorkout'.
+src/features/workout-engine/players/running/store/useRunningPlayer.ts: TS2322: Type 'DetectedPark | null' is not assignable to type '{ parkId: string; parkName: string; authorityId?: string | undefined; } | null'.
+src/features/workout-engine/players/strength/components/ActiveExerciseView.tsx: TS2322: Type 'RefObject<HTMLDivElement | null>' is not assignable to type 'LegacyRef<HTMLDivElement> | undefined'.
+src/features/workout-engine/players/strength/components/ActiveExerciseView.tsx: TS2322: Type 'string | string[] | undefined' is not assignable to type 'string[] | undefined'.
+src/features/workout-engine/players/strength/components/ActiveExerciseView.tsx: TS2322: Type 'string' is not assignable to type '"time" | "reps" | "follow-along"'.
+src/features/workout-engine/players/strength/components/InputStateView.tsx: TS2322: Type 'string' is not assignable to type '"time" | "reps" | "follow-along"'.
+src/features/workout-engine/players/strength/logic/summary-mapping.ts: TS2802: Type 'Map<string, { name: string; category: "warmup" | "main" | "stretch" | "superset"; }>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/workout-engine/services/home-workout.service.ts: TS2339: Property 'level' does not exist on type 'DomainTrackProgress'.
+src/features/workout-engine/services/home-workout.service.ts: TS2339: Property 'sportType' does not exist on type 'DomainTrackProgress'.
+src/features/workout-engine/services/home-workout.service.ts: TS2345: Argument of type '"mobility"' is not assignable to parameter of type 'ExerciseTag'.
+src/features/workout-engine/services/home-workout.service.ts: TS2345: Argument of type '"mobility"' is not assignable to parameter of type 'ExerciseTag'.
+src/features/workout-engine/services/lead-program.service.ts: TS2339: Property 'overall' does not exist on type '{ core?: DomainProgress | undefined; running?: DomainProgress | undefined; upper_body?: DomainProgress | undefined; full_body?: DomainProgress | undefined; flexibility?: DomainProgress | undefined; handstand?: DomainProgress | undefined; lower_body?: DomainProgress | undefined; pull_up_pro?: DomainProgress | undefin...'.
+src/features/workout-engine/services/share.service.ts: TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+src/features/workout-engine/services/share.service.ts: TS2322: Type '{ exerciseId: any; name: any; sets: number; reps: number; repsRange: { min: number; max: number; } | null; isTimeBased: boolean; restSeconds: number; imageUrl: string | null; videoUrl: string | null; ... 14 more ...; notificationText: string | null; }[]' is not assignable to type 'SharedExercise[]'.
+src/features/workout-engine/services/share.service.ts: TS2339: Property 'videoUrl' does not exist on type '{ mainVideoUrl?: string | null | undefined; videoDurationSeconds?: number | null | undefined; instructionalVideos?: InstructionalVideo[] | undefined; imageUrl?: string | ... 1 more ... | undefined; previewVideo?: Partial<...> | undefined; fullTutorial?: Partial<...> | undefined; }'.
+src/features/workout-engine/services/share.service.ts: TS2551: Property 'mainVideoUrl' does not exist on type 'ExerciseMedia'. Did you mean 'videoUrl'?
+src/features/workout-engine/services/trio-modifiers.service.ts: TS2802: Type 'Set<"push" | "legs" | "pull">' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/workout-engine/services/trio-modifiers.service.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/workout-engine/services/warmup.service.ts: TS2802: Type 'Map<string, { count: number; broadPattern: "push" | "other" | "legs" | "pull"; }>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/workout-engine/services/workout-metadata.service.ts: TS2367: This comparison appears to be unintentional because the types 'PersonaId' and '""' have no overlap.
+src/features/workout-engine/services/workout-metadata.service.ts: TS2367: This comparison appears to be unintentional because the types 'PersonaId' and '""' have no overlap.
+src/features/workout-engine/utils/classification.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/workout-engine/utils/messageGenerator.ts: TS2345: Argument of type 'WorkoutData' is not assignable to parameter of type 'WorkoutData'.
+src/features/workout-engine/utils/messageGenerator.ts: TS2345: Argument of type 'WorkoutData' is not assignable to parameter of type 'WorkoutData'.
+src/features/workouts/data/mock-workouts.ts: TS2322: Type 'null' is not assignable to type 'number[][] | { lat: number; lng: number; }[] | undefined'.
+src/features/workouts/data/mock-workouts.ts: TS2322: Type 'null' is not assignable to type 'number[][] | { lat: number; lng: number; }[] | undefined'.
+src/hooks/useTranslation.ts: TS2345: Argument of type 'AppLanguage' is not assignable to parameter of type '"he" | "en" | undefined'.
+src/lib/firebase.ts: TS1252: Function declarations are not allowed inside blocks in strict mode when targeting 'ES5'. Modules are automatically in strict mode.
+src/lib/firebase.ts: TS1252: Function declarations are not allowed inside blocks in strict mode when targeting 'ES5'. Modules are automatically in strict mode.
+src/lib/firebase.ts: TS1252: Function declarations are not allowed inside blocks in strict mode when targeting 'ES5'. Modules are automatically in strict mode.
+src/lib/google-service-account.ts: TS2769: No overload matches this call.
+src/lib/google-service-account.ts: TS2769: No overload matches this call.
+src/lib/google-service-account.ts: TS2769: No overload matches this call.
+src/lib/google-service-account.ts: TS2769: No overload matches this call.
+src/lib/healthBridge/eventEmitter.ts: TS2802: Type 'Set<Listener>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/lib/muscle-chips.const.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/lib/native/init.ts: TS2339: Property 'url' does not exist on type 'AppLaunchUrl | undefined'.
+src/lib/outbox/OutboxFlusher.ts: TS2802: Type 'Map<string, OutboxHealthSample[]>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/lib/outbox/OutboxFlusher.ts: TS7006: Parameter 'c' implicitly has an 'any' type.
+src/lib/outbox/OutboxFlusher.ts: TS7006: Parameter 'c' implicitly has an 'any' type.
+src/lib/outbox/OutboxFlusher.ts: TS7006: Parameter 'c' implicitly has an 'any' type.
+src/lib/outbox/OutboxFlusher.ts: TS7006: Parameter 'c' implicitly has an 'any' type.
+src/lib/outbox/OutboxFlusher.ts: TS7006: Parameter 's' implicitly has an 'any' type.
+src/types/gear-definition.type.ts: TS2307: Cannot find module './exercise.type' or its corresponding type declarations.
+tailwind.config.ts: TS2322: Type '"manual"' is not assignable to type 'Partial<DarkModeConfig> | undefined'.
