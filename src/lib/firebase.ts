@@ -29,6 +29,7 @@ import type {
   AppCheckFailureEvent,
 } from './native-auth-validation';
 import { isAppCheckDebugAllowed } from './appCheckDebugGate';
+import { shouldForceRefresh, reportedExpiry } from './appCheckTokenExpiry';
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -212,6 +213,9 @@ if (typeof window !== "undefined") {
     /** Timestamp of the most recent getToken() failure, or null if healthy. */
     let appCheckFailedAt: number | null = null;
 
+    /** When we last force-refreshed the native token (rate-limit guard). */
+    let lastForcedRefreshAt: number | null = null;
+
     /**
      * Classify a raw App Check error into a discrete AppCheckFailureReason.
      * Keeps the catch blocks free of ad-hoc string matching and makes the
@@ -329,7 +333,22 @@ if (typeof window !== "undefined") {
             // If the native bridge hangs (DeviceCheck unreachable, retry
             // loop inside the iOS SDK), this ensures the promise resolves
             // within 10 s instead of blocking forever.
-            const tokenPromise = FirebaseAppCheck.getToken({ forceRefresh: false });
+            // Cached native token first; if it is nearly dead, fetch ONE fresh
+            // token (rate-limited, see appCheckTokenExpiry.ts). A failed forced
+            // refresh falls back to the cached token — never worse than before.
+            const fetchNativeToken = async () => {
+              const cached = await FirebaseAppCheck.getToken({ forceRefresh: false });
+              if (!shouldForceRefresh(Date.now(), cached.expireTimeMillis, lastForcedRefreshAt)) {
+                return cached;
+              }
+              lastForcedRefreshAt = Date.now();
+              try {
+                return await FirebaseAppCheck.getToken({ forceRefresh: true });
+              } catch {
+                return cached;
+              }
+            };
+            const tokenPromise = fetchNativeToken();
             const timeoutPromise = new Promise<never>((_, reject) =>
               setTimeout(
                 () => reject(new Error('APP_CHECK_TOKEN_TIMEOUT')),
@@ -337,15 +356,18 @@ if (typeof window !== "undefined") {
               ),
             );
 
-            const { token } = await Promise.race([tokenPromise, timeoutPromise]);
+            const { token, expireTimeMillis: nativeExpireTimeMillis } =
+              await Promise.race([tokenPromise, timeoutPromise]);
 
             // Success — clear any previous backoff marker.
             appCheckFailedAt = null;
-            // The web SDK needs an expiry timestamp. The capacitor-firebase
-            // plugin returns an opaque token; we conservatively report a
-            // 50-minute TTL (App Check tokens are 1 h) so the SDK requests
-            // a fresh one well before expiry.
-            return { token, expireTimeMillis: Date.now() + 50 * 60 * 1_000 };
+            // The web SDK needs an expiry timestamp. Report the token's REAL
+            // expiry (minus a safety margin, floored so the SDK can't enter an
+            // immediate-refresh loop) — NOT a fixed 50 min, which outlived the
+            // cached native token and made the SDK keep sending expired
+            // tokens (Firestore console: "Invalid"). See appCheckTokenExpiry.ts.
+            // No usable expiry from the plugin => the old 50-min fallback.
+            return { token, expireTimeMillis: reportedExpiry(Date.now(), nativeExpireTimeMillis) };
 
           } catch (err) {
             // Record failure time for the circuit breaker, then throw so
