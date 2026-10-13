@@ -60,7 +60,7 @@ describe('composeRoundTripLegs + displayTotalMin', () => {
   });
   it('user standing on the route → both legs 0 → total unchanged', async () => {
     const legs = await composeRoundTripLegs(NEAR, NEAR, NEAR, leg(999));
-    expect(legs).toEqual({ walkThereMin: 0, walkBackMin: 0, walkTherePath: null, walkBackPath: null });
+    expect(legs).toMatchObject({ walkThereMin: 0, walkBackMin: 0, walkTherePath: null, walkBackPath: null });
     expect(displayTotalMin(30, legs, true)).toBe(30);
   });
 });
@@ -73,6 +73,21 @@ describe('buildWalkLegsGeoJSON', () => {
     expect(buildWalkLegsGeoJSON(legs, false)).toBeNull();
     expect(buildWalkLegsGeoJSON(null, true)).toBeNull();
     expect(buildWalkLegsGeoJSON({ ...legs, walkTherePath: null, walkBackPath: null }, true)).toBeNull();
+  });
+  it('LOOP (walkBackOverlapsThere): ONE line drawn, time still counts both legs', () => {
+    const loop = { ...legs, walkBackOverlapsThere: true };
+    const fc = buildWalkLegsGeoJSON(loop, true)!;
+    expect(fc.features.map((f) => f.properties!.leg)).toEqual(['there']);
+    expect(displayTotalMin(40, loop, true)).toBe(51);
+  });
+  it('loop but walk-there not drawable → keep the walk-back line (only line we have)', () => {
+    const fc = buildWalkLegsGeoJSON({ ...legs, walkTherePath: null, walkBackOverlapsThere: true }, true)!;
+    expect(fc.features.map((f) => f.properties!.leg)).toEqual(['back']);
+  });
+  it('composeRoundTripLegs flags a loop (end == entry) and not a linear route', async () => {
+    const f = async () => ({ seconds: 600, path: PATH });
+    expect((await composeRoundTripLegs(NEAR, FAR, FAR, f)).walkBackOverlapsThere).toBe(true);
+    expect((await composeRoundTripLegs(NEAR, FAR, { lat: FAR.lat + 0.01, lng: FAR.lng }, f)).walkBackOverlapsThere).toBeUndefined();
   });
   it('draws only the leg that has geometry', () => {
     const fc = buildWalkLegsGeoJSON({ ...legs, walkBackPath: null }, true)!;
