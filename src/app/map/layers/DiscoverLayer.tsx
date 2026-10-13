@@ -909,6 +909,31 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userLocation, userCityName, keyFor]);
 
+  // PERF (13.10.2026): compose route_stops the moment the slots carousel is up — not on the CTA tap
+  // and not 300ms after settle — so its ~1.3s runs while the user is still looking at the map. The
+  // compose itself starts with warm / parks / published routes / exercises / equipment, so those are
+  // warmed by the same call. Runs once per (user, location bucket, activity, step-gap) key: the effect
+  // depends on the key STRING (not the GPS object), and it bails when the module cache already holds
+  // the plan or a compose for that key is in flight — so it never duplicates the settle-preview
+  // compose (which awaits the same in-flight promise via composeTrioDeduped) or the CTA's. The
+  // result is also mirrored into the card's total so the pill can appear before the user settles.
+  const routeStopsSlot = useMemo(
+    () => slots.find((s) => s.kind === 'hybrid' && s.id === 'route_stops') ?? null,
+    [slots],
+  );
+  const carouselUp = mapFeatureFlags.enableHybridSlots && mapMode === 'freeRun' && freeRunStep === 'slots';
+  const routeStopsKey = keyFor('route_stops');
+  useEffect(() => {
+    if (!HYBRID_SLOT_PREVIEW_ENABLED || !carouselUp || !routeStopsSlot || routeStopsSlot.kind !== 'hybrid' || !userLocation) return;
+    const cached = hybridPlanCache.get(routeStopsKey);
+    if (cached) { noteRouteStopsTotal('route_stops', cached); return; }
+    if (hybridTrioInflight.has(routeStopsKey)) return; // someone else (settle-preview) is already composing it
+    composeTrioDeduped(presetToIntent(routeStopsSlot.preset, routeStopsSlot.timeBudgetMin), 'route_stops')
+      .then((composed) => { if (composed) noteRouteStopsTotal('route_stops', composed); })
+      .catch(() => { /* a failed warm compose is silent; the settle/CTA path retries on demand */ });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carouselUp, routeStopsSlot, routeStopsKey]);
+
   // READ-ONLY preview: when the carousel SETTLES on a hybrid card, compose its
   // plan (cached per slot.id) and draw the route on the map — the SAME compose
   // the CTA runs, minus ANY save/run. This path NEVER calls runHybridPlan /

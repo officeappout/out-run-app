@@ -757,10 +757,10 @@ async function composeRouteStopsWorkout(
   // PERF (13.10.2026): every module this compose needs is loaded in ONE parallel batch (the later
   // levels/context/store imports used to be awaited one after another, mid-compose).
   const [
-    { useUserStore }, { getAllExercises },
+    { useUserStore }, { getAllExercisesCached },
     { composeHybridSession }, { resolveRouteStops }, { resolveHybridUserLevels },
     { warmHybridCaches },
-    { planFromPoint, detectTopology }, { getAllGymEquipment },
+    { planFromPoint, detectTopology }, { getAllGymEquipmentCached },
     { useWeeklyVolumeStore },
     { resolveChildDomainsForParent }, { filterExercisesContextually }, { getWorkoutContext },
   ] = await tm.time('imports', Promise.all([
@@ -815,7 +815,7 @@ async function composeRouteStopsWorkout(
   // rejection still surfaces there (the .catch below only prevents an unhandled-rejection warning
   // on the early-return paths). The routes prefetch only fills the cache the backbone reads; on
   // failure the backbone's own read runs and behaves exactly as before.
-  const exercisesP = tm.time('exercises', getAllExercises());
+  const exercisesP = tm.time('exercises', getAllExercisesCached());
   exercisesP.catch(() => { /* surfaced where awaited */ });
   const officialRoutesP = tm.time('officialRoutes',
     import('@/features/parks/core/services/inventory.service')
@@ -874,7 +874,7 @@ async function composeRouteStopsWorkout(
   // stops below) starts now instead of after them. A rejection surfaces only where it is awaited,
   // i.e. only if an equipped stop actually needs it — same as before.
   const equipmentCatalogP = rawStops.some((s) => s.activityType === 'strength')
-    ? tm.time('equipmentCatalog', getAllGymEquipment())
+    ? tm.time('equipmentCatalog', getAllGymEquipmentCached())
     : null;
   equipmentCatalogP?.catch(() => { /* surfaced at the await below, if actually needed */ });
   if (strengthStopsNeedingEquipment.length > 0) {
@@ -911,7 +911,7 @@ async function composeRouteStopsWorkout(
   // user assessed in only ONE domain can still hit an unassessed-domain station.
   const equippedStops = rawStops.filter((s) => s.activityType === 'strength' && s.availableEquipment.length > 0);
   if (equippedStops.length > 0) {
-    const equipmentCatalog = await (equipmentCatalogP ?? getAllGymEquipment());
+    const equipmentCatalog = await (equipmentCatalogP ?? getAllGymEquipmentCached());
     await tm.time('hydraulicMatch', Promise.all(equippedStops.map(async (s) => {
       const stopPark = parks.find((p: any) => p.id === s.parkId);
       if (!stopPark) return;

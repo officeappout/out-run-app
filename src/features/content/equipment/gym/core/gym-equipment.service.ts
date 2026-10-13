@@ -16,6 +16,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { createTtlAsyncCache } from '@/lib/ttlAsyncCache';
 import { GymEquipment, GymEquipmentFormData } from './gym-equipment.types';
 import { registerGearAlias } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { ExerciseType } from '../../../exercises/core/exercise.types';
@@ -71,6 +72,23 @@ export async function getAllGymEquipment(): Promise<GymEquipment[]> {
     console.error('Error fetching gym equipment:', error);
     throw error;
   }
+}
+
+/**
+ * getAllGymEquipment behind a short in-memory TTL cache + in-flight dedupe (route_stops compose
+ * perf, 13.10.2026: a ~430ms full-collection read on every compose). `getAllGymEquipment` itself is
+ * UNCHANGED (admin screens still read live). Opt-in callers may see data up to
+ * GYM_EQUIPMENT_CACHE_TTL_MS stale. The alias registration inside the live read is idempotent and
+ * persists, so it does not need to re-run on a cache hit. Fresh array per call; treat items as
+ * read-only.
+ */
+export const GYM_EQUIPMENT_CACHE_TTL_MS = 5 * 60 * 1000;
+const gymEquipmentCache = createTtlAsyncCache(getAllGymEquipment, GYM_EQUIPMENT_CACHE_TTL_MS);
+export async function getAllGymEquipmentCached(): Promise<GymEquipment[]> {
+  return [...(await gymEquipmentCache.get())];
+}
+export function invalidateGymEquipmentCache(): void {
+  gymEquipmentCache.invalidate();
 }
 
 /**

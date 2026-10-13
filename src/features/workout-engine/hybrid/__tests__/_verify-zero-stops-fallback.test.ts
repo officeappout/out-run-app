@@ -39,10 +39,12 @@ vi.mock('@/features/user/identity/services/access-control.service', () => ({
 
 vi.mock('@/features/content/exercises/core/exercise.service', () => ({
   getAllExercises: vi.fn(async () => []),
+  getAllExercisesCached: vi.fn(async () => []),
 }));
 
 vi.mock('@/features/content/equipment/gym/core/gym-equipment.service', () => ({
   getAllGymEquipment: vi.fn(async () => []),
+  getAllGymEquipmentCached: vi.fn(async () => []),
 }));
 
 vi.mock('@/features/parks/core/services/parks.service', () => ({
