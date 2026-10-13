@@ -7,7 +7,6 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { checkUserRole } from '@/features/admin/services/auth.service';
 import {
   getAllAdmins,
   getPendingUsers,
@@ -71,9 +70,10 @@ export default function AdminsManagementPage() {
       }
 
       try {
-        const roleInfo = await checkUserRole(user.uid);
-        if (!roleInfo.isSuperAdmin) {
-          // Not a super admin, redirect to dashboard
+        // Root admins only (page-level): this page lists admin_invitations
+        // (emails, roles, live tokens), which firestore.rules restricts to
+        // isRootAdmin(). A non-root super-admin would get a silently empty list.
+        if (!isRootAdmin(user.email)) {
           router.push('/admin');
           return;
         }
