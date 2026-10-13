@@ -26,6 +26,7 @@ import RouteCardUnified from '@/features/parks/core/components/RouteCardUnified'
 import { UNIFIED_ROUTE_CARDS_ENABLED, MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
 import type { HybridSlot } from '@/features/workout-engine/hybrid/hybrid-slots';
 import type { CardTotal } from '@/features/workout-engine/hybrid/round-trip';
+import { ActivityGlyph } from './activity-icons';
 import type { AerobicKind } from '@/features/workout-engine/hybrid/compose-hybrid-session.service';
 import { getOnboardingPref, setOnboardingPref } from '@/lib/onboardingPrefs';
 
@@ -170,10 +171,25 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
    *  compose lands → the line is blank, never a placeholder). */
   routeStopsTotal?: CardTotal | null;
 }) {
-  // route_stops only: a fixed-height line so the card doesn't jump when the real total arrives.
+  // route_stops only: the real total as a compact framed pill (same border/shadow language as the
+  // overview's calorie/distance chips). The wrapper keeps a fixed height so the card doesn't jump
+  // when the number arrives; the pill is rendered only once a real total exists. A small walk glyph
+  // (instead of a sentence) implies the walk legs are included.
   const totalLine = slot.id === 'route_stops' ? (
-    <div className="text-center text-[13px] font-extrabold" style={{ minHeight: 20, color: '#374151' }} aria-live="polite">
-      {routeStopsTotal ? `${routeStopsTotal.min} דק׳ בסך הכל${routeStopsTotal.includesWalk ? ' · כולל הליכה' : ''}` : null}
+    <div className="flex justify-center" style={{ minHeight: 22 }} aria-live="polite">
+      {routeStopsTotal && (
+        <span
+          className="inline-flex items-center gap-1 bg-white rounded-lg text-[12.5px] font-bold"
+          style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: '1px 10px', lineHeight: '18px', color: '#374151' }}
+        >
+          {routeStopsTotal.includesWalk && (
+            <span aria-hidden style={{ color: '#00E5FF', display: 'inline-flex' }}>
+              <ActivityGlyph kind="aerobic" subtype="walking" className="w-[14px] h-[14px]" />
+            </span>
+          )}
+          {routeStopsTotal.min} דק׳
+        </span>
+      )}
     </div>
   ) : undefined;
   if (slot.kind === 'assessment_prompt') {
