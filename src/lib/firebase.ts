@@ -35,6 +35,7 @@ import {
   reportAppCheckFailure,
   reportAppCheckHandoff,
   reportAppCheckWebError,
+  isAppCheckTelemetrySampled,
 } from './appCheckTelemetry';
 
 // Your web app's Firebase configuration
@@ -402,13 +403,17 @@ if (typeof window !== "undefined") {
           (self as unknown as Record<string, unknown>).FIREBASE_APPCHECK_DEBUG_TOKEN,
         );
         reportAppCheckInit('web', webDebugActive ? 'web-debug' : 'web-recaptcha');
-        // One-time token probe (measurement only): the SDK fetches this token
-        // for its first Firestore request anyway, so this adds no extra
-        // exchange; it only surfaces the error code if reCAPTCHA fails.
-        getAppCheckToken(appCheck, false).catch((probeErr: unknown) => {
-          const e = probeErr as { code?: string; customData?: { httpStatus?: number } };
-          reportAppCheckWebError(e?.code ?? 'unknown', e?.customData?.httpStatus);
-        });
+        // One-time token probe (measurement only), behind the SAME per-launch
+        // sample gate as the reports — it does not run for most launches. The
+        // SDK fetches this token for its first Firestore request anyway, so a
+        // sampled launch adds no extra exchange; it only surfaces the error
+        // code if reCAPTCHA fails.
+        if (isAppCheckTelemetrySampled()) {
+          getAppCheckToken(appCheck, false).catch((probeErr: unknown) => {
+            const e = probeErr as { code?: string; customData?: { httpStatus?: number } };
+            reportAppCheckWebError(e?.code ?? 'unknown', e?.customData?.httpStatus);
+          });
+        }
       } catch (err) {
         console.warn("[firebase] App Check initialization failed:", err);
       }

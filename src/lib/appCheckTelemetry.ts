@@ -61,7 +61,8 @@ export function reportedTtlOutlivesToken(remainingMs: number | undefined): boole
 let sampled: boolean | null = null;
 const sent = new Set<string>();
 
-function isSampled(): boolean {
+/** Per-launch sample gate. Also used to gate the one-time web token probe. */
+export function isAppCheckTelemetrySampled(): boolean {
   if (typeof window === 'undefined') return false;
   if (process.env.NODE_ENV !== 'production') return false;
   if (sampled === null) sampled = Math.random() < SAMPLE_RATE;
@@ -73,7 +74,7 @@ async function send(
   tags: Record<string, string>,
 ): Promise<void> {
   const key = `${message}|${Object.entries(tags).sort().join(',')}`;
-  if (!isSampled() || sent.has(key)) return;
+  if (!isAppCheckTelemetrySampled() || sent.has(key)) return;
   sent.add(key);
   try {
     // Dynamic import: keeps Sentry out of firebase.ts's static graph.
