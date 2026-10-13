@@ -967,22 +967,42 @@ export default function SmartWeeklySchedule({
     setCalendarFeedPath(null);
     if (!userId) return;
     let cancelled = false;
+    const RETRY_DELAYS_MS = [1000, 3000]; // 3 attempts total
     (async () => {
+      // Wait for Firebase to restore the persisted session — on a cold start
+      // currentUser is null until this resolves, which would otherwise leave
+      // the button disabled until the next remount.
       try {
-        const idToken = await auth.currentUser?.getIdToken();
-        if (!idToken) return;
-        const res = await fetch('/api/calendar/token', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${idToken}` },
-        });
-        if (!res.ok) return;
-        const data = (await res.json()) as { path?: unknown };
-        if (!cancelled && typeof data.path === 'string' && data.path.startsWith('/api/calendar/t/')) {
-          setCalendarFeedPath(data.path);
-        }
+        await auth.authStateReady();
       } catch {
-        // non-critical — the sync button simply stays disabled
+        return;
       }
+      for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+        if (cancelled) return;
+        try {
+          const idToken = await auth.currentUser?.getIdToken();
+          if (!idToken) return; // signed out — nothing to retry
+          const res = await fetch('/api/calendar/token', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${idToken}` },
+          });
+          if (res.ok) {
+            const data = (await res.json()) as { path?: unknown };
+            if (!cancelled && typeof data.path === 'string' && data.path.startsWith('/api/calendar/t/')) {
+              setCalendarFeedPath(data.path);
+            }
+            return;
+          }
+          // 4xx (401/403 incl. anonymous) is final; only 5xx is retried.
+          if (res.status < 500) return;
+        } catch {
+          // network failure — fall through to retry
+        }
+        if (attempt < RETRY_DELAYS_MS.length) {
+          await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
+        }
+      }
+      // non-critical — the sync button simply stays disabled
     })();
     return () => { cancelled = true; };
   }, [userId]);
