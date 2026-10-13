@@ -1246,8 +1246,15 @@ async function testPersonaGatedMembershipBlock() {
     }));
   });
 
-  await it('PG5 — admin joins/adds a member to the gated group despite no persona declared → ALLOW (panel/moderation access, via isAdmin())', async () => {
+  await it('PG5 — a NON-ROOT super-admin (core.isSuperAdmin, tenant_admin_user) adds a member to the gated group → DENY (the global catch-all is isRootAdmin()-only; no group-scoped admin clause admits a DB-flagged admin who is not a group member)', async () => {
     const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertFails(setDoc(doc(ctx.firestore(), 'community_groups', 'pg_group_public', 'members', 'some_other_uid'), {
+      uid: 'some_other_uid', role: 'member', joinedAt: new Date(),
+    }));
+  });
+
+  await it('PG5b — ROOT admin (david@) adds a member to the gated group → ALLOW (control for PG5)', async () => {
+    const ctx = env.authenticatedContext('root_admin_david', { email: 'david@appout.co.il' });
     await assertSucceeds(setDoc(doc(ctx.firestore(), 'community_groups', 'pg_group_public', 'members', 'some_other_uid'), {
       uid: 'some_other_uid', role: 'member', joinedAt: new Date(),
     }));
@@ -1291,8 +1298,13 @@ async function testChatLeakClosed() {
     await assertSucceeds(getDoc(doc(ctx.firestore(), 'chats', 'group_cl_group')));
   });
 
-  await it('CL3 — admin reads the group chat despite not being a member → ALLOW (global isAdmin() catch-all, unaffected by this change)', async () => {
+  await it('CL3 — a NON-ROOT super-admin (tenant_admin_user) reads a group chat they are not a member of → DENY (catch-all is isRootAdmin()-only)', async () => {
     const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertFails(getDoc(doc(ctx.firestore(), 'chats', 'group_cl_group')));
+  });
+
+  await it('CL3b — ROOT admin (office@) reads the same group chat → ALLOW (control for CL3, via the isRootAdmin() catch-all)', async () => {
+    const ctx = env.authenticatedContext('root_admin_office', { email: 'office@appout.co.il' });
     await assertSucceeds(getDoc(doc(ctx.firestore(), 'chats', 'group_cl_group')));
   });
 
@@ -1329,8 +1341,13 @@ async function testChatLeakClosed() {
     await assertFails(getDocs(collection(ctx.firestore(), 'chats')));
   });
 
-  await it('CL8 — an ADMIN attempts the SAME unfiltered list() (the real subscribeToAllChats shape) → ALLOW, returns every chat including ones they are not a participant of', async () => {
+  await it('CL8 — a NON-ROOT super-admin (tenant_admin_user) attempts the SAME unfiltered list() (the real subscribeToAllChats shape) → DENY (this is the platform-wide chat firehose, incl. minors\' chats; root-only)', async () => {
     const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertFails(getDocs(collection(ctx.firestore(), 'chats')));
+  });
+
+  await it('CL8b — ROOT admin (david@) does the unfiltered list() → ALLOW, returns every chat including ones they are not a participant of (control for CL8)', async () => {
+    const ctx = env.authenticatedContext('root_admin_david', { email: 'david@appout.co.il' });
     const snap = await assertSucceeds(getDocs(collection(ctx.firestore(), 'chats')));
     if (!snap.docs.some((d) => d.id === 'cl_dm') || !snap.docs.some((d) => d.id === 'group_cl_group')) {
       throw new Error(`admin unfiltered list missing expected docs, got: ${snap.docs.map((d) => d.id).join(',')}`);
@@ -1550,13 +1567,23 @@ async function testAdminInvitationsLockdown() {
     )));
   });
 
-  await it('AI5 — an admin GETs the same doc by id → ALLOW (real admins are unaffected)', async () => {
+  await it('AI5 — a NON-ROOT super-admin (tenant_admin_user) GETs an invitation by id → DENY (read is isRootAdmin()-only; invitations carry emails, roles and live tokens)', async () => {
     const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertFails(getDoc(doc(ctx.firestore(), 'admin_invitations', 'ai_test_1')));
+  });
+
+  await it('AI5b — ROOT admin (david@) GETs the same doc by id → ALLOW (control for AI5)', async () => {
+    const ctx = env.authenticatedContext('root_admin_david', { email: 'david@appout.co.il' });
     await assertSucceeds(getDoc(doc(ctx.firestore(), 'admin_invitations', 'ai_test_1')));
   });
 
-  await it('AI6 — an admin LISTS admin_invitations with no filter → ALLOW (admin panel management pages)', async () => {
+  await it('AI6 — a NON-ROOT super-admin LISTS admin_invitations with no filter → DENY', async () => {
     const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertFails(getDocs(collection(ctx.firestore(), 'admin_invitations')));
+  });
+
+  await it('AI6b — ROOT admin (office@) LISTS admin_invitations with no filter → ALLOW (admin-management pages; control for AI6)', async () => {
+    const ctx = env.authenticatedContext('root_admin_office', { email: 'office@appout.co.il' });
     const snap = await assertSucceeds(getDocs(collection(ctx.firestore(), 'admin_invitations')));
     if (!snap.docs.some((d) => d.id === 'ai_test_1')) {
       throw new Error('admin list is missing the fixture doc — admin read must still see real invitations');
@@ -2072,8 +2099,13 @@ async function testWaveASpec02() {
     const ctx = env.authenticatedContext('authority_b_user');
     await assertFails(getDoc(doc(ctx.firestore(), 'leaderboard_shards', 'city_a_unit1_2026-09_u1_0')));
   });
-  await it('WA10 — an OUT admin reads the shard despite a different/no authorityId → ALLOW', async () => {
+  await it('WA10 — a NON-ROOT super-admin (tenant_admin_user, no matching authorityId) reads the shard → DENY (no admin clause on this rule; the catch-all is isRootAdmin()-only)', async () => {
     const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertFails(getDoc(doc(ctx.firestore(), 'leaderboard_shards', 'city_a_unit1_2026-09_u1_0')));
+  });
+
+  await it('WA10b — ROOT admin (david@) reads the same shard → ALLOW (control for WA10)', async () => {
+    const ctx = env.authenticatedContext('root_admin_david', { email: 'david@appout.co.il' });
     await assertSucceeds(getDoc(doc(ctx.firestore(), 'leaderboard_shards', 'city_a_unit1_2026-09_u1_0')));
   });
 
