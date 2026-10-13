@@ -175,6 +175,14 @@ when the env var is unset.
 
 ---
 
+## 5b. Android RELEASE build — checklist
+
+- [ ] **Build from the checkout that has `android/app/google-services.json`, not from a worktree.** The file is gitignored; a release built without it used to silently ship with no Firebase and no Crashlytics. The Gradle build now fails loudly on release if the file is missing, empty, malformed, or has no client for the release `applicationId` (debug/sync stay soft).
+- [ ] `npm run build:android:release` — runs `node scripts/preflight-native-check.mjs --android` (same file/applicationId check, fast) and then `./gradlew bundleRelease`.
+- [ ] After upload: Firebase Console → Crashlytics shows the new `versionName` for the Android app.
+
+---
+
 ## 6. Device QA Checklist
 
 Before pushing to TestFlight / Internal Track, verify on a real device:
