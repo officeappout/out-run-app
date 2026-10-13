@@ -34,6 +34,11 @@ import ShareAsLiveToggle from '@/features/workout-engine/components/ShareAsLiveT
 import type { WorkoutActivityStatus } from '@/features/safecity/services/presence.service';
 
 const DRAWER_HEIGHT = '85vh';
+// Stable fallback for the zustand selector below. zustand v5 re-runs the selector on every
+// store read and compares by identity: an inline `?? []` returns a NEW array each call, which
+// loops forever ("Maximum update depth exceeded" / React #185) for any user with no groupIds.
+const EMPTY_GROUP_IDS: string[] = [];
+
 const CLOSE_THRESHOLD = 180;
 
 /** Slider step for the arrival-window range, in minutes. */
@@ -249,7 +254,7 @@ export default function RouteDetailSheet({
   const routeArr = useMemo(() => (route ? [route] : []), [route]);
   // write-layer-4 audit — needed so useCommunityEnrichment's squad-mode
   // arrivals slice can scope to groups this viewer is actually in.
-  const myGroupIds = useUserStore((s) => s.profile?.social?.groupIds ?? []);
+  const myGroupIds = useUserStore((s) => s.profile?.social?.groupIds ?? EMPTY_GROUP_IDS);
   const { enrichRoutes, allSessionsMap } = useCommunityEnrichment(routeIds, routeArr, myGroupIds);
 
   const enrichedRoute = useMemo(() => {
