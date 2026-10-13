@@ -117,7 +117,7 @@ function GuestTransitionOverlay({ status, onRetry, onExit }: GuestTransitionOver
           >
             החיבור לא הצליח
           </p>
-          <p className="text-slate-400 text-sm font-medium mb-8 max-w-xs">
+          <p className="text-slate-600 text-sm font-medium mb-8 max-w-xs">
             משהו השתבש בהתחברות. בדקו את החיבור לאינטרנט ונסו שוב, או חזרו למסך הראשי.
           </p>
           <div className="w-full max-w-xs flex flex-col gap-3">
@@ -381,7 +381,7 @@ export default function GatewayPage() {
             className="h-12 object-contain"
           />
           <p
-            className="text-slate-400 text-sm font-medium"
+            className="text-slate-600 text-sm font-medium"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
             מה מתאים לך?

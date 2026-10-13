@@ -290,7 +290,7 @@ export function EquipmentBadgeRow({
           style={badgeBase}
           title="ללא ציוד – משקל גוף"
         >
-          <PersonStanding className="text-slate-400" style={{ width: iconSize, height: iconSize }} />
+          <PersonStanding className="text-slate-500" style={{ width: iconSize, height: iconSize }} />
         </div>
       </div>
     );

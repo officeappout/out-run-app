@@ -351,7 +351,7 @@ export default function NextRunWorkoutCard() {
               <p className="text-base font-extrabold text-slate-900 dark:text-white">
                 {rebuildFailedOnce ? 'עדיין לא מצליח.' : 'לא הצלחנו להכין את תוכנית הריצה שלך.'}
               </p>
-              <p className="text-sm text-slate-400 mt-0.5">
+              <p className="text-sm text-slate-600 mt-0.5">
                 {rebuildFailedOnce
                   ? 'בדוק את החיבור לאינטרנט ונסה שוב.'
                   : 'כל מה שמילאת שמור. לחיצה אחת ונבנה אותה.'}
@@ -419,7 +419,7 @@ export default function NextRunWorkoutCard() {
               <p className="text-base font-extrabold text-slate-900 dark:text-white">
                 משהו חסר בהגדרת הריצה שלך.
               </p>
-              <p className="text-sm text-slate-400 mt-0.5">
+              <p className="text-sm text-slate-600 mt-0.5">
                 נעבור שוב על ההגדרה — זה ייקח דקה.
               </p>
             </div>
@@ -443,7 +443,7 @@ export default function NextRunWorkoutCard() {
             <p className="text-base font-extrabold text-slate-900 dark:text-white">
               {hasTemplate ? 'התוכנית שלך בהכנה' : 'אין תוכנית ריצה'}
             </p>
-            <p className="text-sm text-slate-400 mt-0.5">
+            <p className="text-sm text-slate-600 mt-0.5">
               {hasTemplate
                 ? 'לוח האימונים ייווצר בכניסה הבאה'
                 : 'השלם/י את ההרשמה כדי ליצור תוכנית'}
@@ -492,7 +492,7 @@ export default function NextRunWorkoutCard() {
               היום זה להתאושש 🧘
             </p>
             {nextRun && (
-              <p className="text-sm text-slate-400 mt-0.5">
+              <p className="text-sm text-slate-600 mt-0.5">
                 {dayState.nextEntryDaysAway === 1
                   ? `מחר מחכה לך: ${nextWorkoutDisplayName || 'אימון ריצה'}`
                   : dayState.nextEntryDaysAway != null
@@ -517,8 +517,8 @@ export default function NextRunWorkoutCard() {
   return (
     <div className="bg-white dark:bg-[#1E2A28] rounded-2xl p-5" style={CARD_STYLE} dir="rtl">
       <div className="flex items-center justify-between mb-1">
-        <p className="text-xs font-bold text-slate-400">האימון שלך היום</p>
-        <span className="text-[11px] font-medium text-slate-400 tabular-nums">
+        <p className="text-xs font-bold text-slate-600">האימון שלך היום</p>
+        <span className="text-[11px] font-medium text-slate-600 tabular-nums">
           {formatDate()}
         </span>
       </div>
@@ -535,7 +535,7 @@ export default function NextRunWorkoutCard() {
             {workoutLabel || labels[workout]}
           </p>
           {estimatedMinutes && (
-            <p className="text-sm text-slate-400 mt-0.5">~{estimatedMinutes} דקות</p>
+            <p className="text-sm text-slate-600 mt-0.5">~{estimatedMinutes} דקות</p>
           )}
         </div>
       </div>
@@ -551,7 +551,7 @@ export default function NextRunWorkoutCard() {
 
       <button
         onClick={() => setSkippedToday(true)}
-        className="w-full mt-2 py-2 text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors"
+        className="w-full mt-2 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 transition-colors"
       >
         אין לי כוח היום — דלג לעוד
       </button>

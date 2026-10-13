@@ -603,7 +603,7 @@ export default function SearchPage() {
                   className={`flex-1 py-3 text-center text-xs font-bold border-b-2 transition-colors min-h-[44px] ${
                     active
                       ? 'text-[#00ADEF] border-[#00ADEF]'
-                      : 'text-slate-400 dark:text-slate-500 border-transparent'
+                      : 'text-slate-600 dark:text-slate-500 border-transparent'
                   }`}
                 >
                   <span className="inline-flex items-center gap-1 justify-center">

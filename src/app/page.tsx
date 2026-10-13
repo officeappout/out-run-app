@@ -204,7 +204,7 @@ function LoginDrawer({
             {/* Close button */}
             <button
               onClick={onClose}
-              className="absolute top-4 left-4 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-200 transition-colors"
+              className="absolute top-4 left-4 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors"
             >
               <X size={16} />
             </button>

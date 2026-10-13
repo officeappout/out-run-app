@@ -53,7 +53,7 @@ export default function WeeklyExecutionCard({
       style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
       dir="rtl"
     >
-      <p className="text-xs font-bold text-slate-400 mb-3">ביצוע שבועי</p>
+      <p className="text-xs font-bold text-slate-600 mb-3">ביצוע שבועי</p>
 
       <div className="space-y-3">
         {/* Running row */}

@@ -141,7 +141,7 @@ export default function PrivacyPage() {
             <h1 className="text-base font-black text-slate-900 leading-none">
               {doc.title}
             </h1>
-            <p className="text-[11px] text-slate-400 mt-0.5">
+            <p className="text-[11px] text-slate-600 mt-0.5">
               גרסה {LEGAL_VERSION} · עודכן: {LEGAL_LAST_UPDATED_HE}
             </p>
           </div>
@@ -283,10 +283,10 @@ export default function PrivacyPage() {
 
         {/* ── Footer ── */}
         <footer className="mt-10 text-center space-y-2">
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-600">
             מדיניות זו נכנסה לתוקף ב-1 בינואר 2026 · עודכנה: {LEGAL_LAST_UPDATED_HE}
           </p>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-600">
             © 2026 קליסטניקס בע"מ, ח.פ 516841806. כל הזכויות שמורות.
           </p>
           <a
