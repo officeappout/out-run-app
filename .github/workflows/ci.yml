@@ -38,6 +38,31 @@ jobs:
       # are excluded in vitest.ci.config.ts, each with its reason.
       - run: npx vitest run -c vitest.ci.config.ts
 
+  # ADVISORY (Ops Stage B, PR 1). Runs the Firestore-emulator suites that
+  # unit-tests excludes. `continue-on-error` keeps a red result from failing
+  # the PR, but every file's PASS/FAIL is listed in the job summary — a red
+  # suite is a finding to report, not something to exclude. Becomes blocking
+  # in Stage C only after the mutation check proves the job catches regressions.
+  emulator-tests:
+    name: emulator-tests (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci --no-audit --no-fund --ignore-scripts
+      # Same CLI version used for the local dry-run checks (see CLAUDE.md).
+      - run: npm install -g firebase-tools@15.13.0
+      - run: bash scripts/ci/run-emulator-suites.sh
+
   safety-check:
     name: safety-check
     runs-on: ubuntu-latest
