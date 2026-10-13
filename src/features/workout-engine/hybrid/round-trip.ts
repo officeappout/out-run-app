@@ -88,6 +88,9 @@ export interface RoundTripLegs {
   /** Street geometry for the map line; null → leg not drawn. */
   walkTherePath: [number, number][] | null;
   walkBackPath: [number, number][] | null;
+  /** LOOP: the traversal end is (within WALK_LEG_SKIP_M of) the entry, so walk-back retraces
+   *  walk-there. Display-only — the map draws ONE line; both legs still count in the time. */
+  walkBackOverlapsThere?: boolean;
 }
 
 /**
@@ -107,6 +110,7 @@ export async function composeRoundTripLegs(
   return {
     walkThereMin: there.minutes, walkBackMin: back.minutes,
     walkTherePath: there.path, walkBackPath: back.path,
+    ...(haversineMeters(entry.lat, entry.lng, end.lat, end.lng) <= WALK_LEG_SKIP_M ? { walkBackOverlapsThere: true } : {}),
   };
 }
 
@@ -121,7 +125,7 @@ export function displayTotalMin(
 }
 
 /**
- * PURE: the map overlay for the walk legs — a FeatureCollection of up to two LineStrings, or null
+ * PURE: the map overlay for the walk legs — a FeatureCollection of up to two LineStrings (ONE on a loop, where back overlaps there), or null
  * when round-trip is off / nothing is drawable. Rendered by AppMap with the SAME paint as the
  * walk-to-route line (WALK_LEG_LINE_PAINT).
  */
@@ -132,7 +136,10 @@ export function buildWalkLegsGeoJSON(
   if (!legs || !roundTripOn) return null;
   const features: GeoJSON.Feature[] = [];
   if (legs.walkTherePath) features.push({ type: 'Feature', properties: { leg: 'there' }, geometry: { type: 'LineString', coordinates: legs.walkTherePath } });
-  if (legs.walkBackPath) features.push({ type: 'Feature', properties: { leg: 'back' }, geometry: { type: 'LineString', coordinates: legs.walkBackPath } });
+  // Loop: walk-back overlaps walk-there — draw one line (their dot phases would interleave).
+  // Only dedupe when walk-there IS drawn; otherwise walk-back is the only line we have.
+  const dedupeBack = !!legs.walkBackOverlapsThere && !!legs.walkTherePath;
+  if (legs.walkBackPath && !dedupeBack) features.push({ type: 'Feature', properties: { leg: 'back' }, geometry: { type: 'LineString', coordinates: legs.walkBackPath } });
   return features.length > 0 ? { type: 'FeatureCollection', features } : null;
 }
 
