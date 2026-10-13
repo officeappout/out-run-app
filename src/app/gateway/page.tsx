@@ -14,6 +14,7 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure';
 import { useToast } from '@/components/ui/Toast';
+import BrandCtaButton from '@/components/ui/BrandCtaButton';
 import {
   runExploreMapFlow,
   resolveUser,
@@ -120,12 +121,12 @@ function GuestTransitionOverlay({ status, onRetry, onExit }: GuestTransitionOver
             משהו השתבש בהתחברות. בדקו את החיבור לאינטרנט ונסו שוב, או חזרו למסך הראשי.
           </p>
           <div className="w-full max-w-xs flex flex-col gap-3">
-            <button
+            <BrandCtaButton
               onClick={onRetry}
-              className="w-full py-3.5 rounded-2xl bg-[#5BC2F2] text-on-brand font-bold text-sm"
+              className="w-full py-3.5 text-sm"
             >
               נסה שוב
-            </button>
+            </BrandCtaButton>
             <button
               onClick={onExit}
               className="w-full py-3.5 rounded-2xl bg-slate-100 text-slate-600 font-bold text-sm"

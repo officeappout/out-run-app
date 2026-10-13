@@ -1264,7 +1264,7 @@ export default function WorkoutBuilderSheet({
                 setShowUnlockModal(false);
                 startMiniDomainAssessment(router, domain);
               }}
-              className="w-full py-3 rounded-2xl bg-[#00BAF7] text-on-brand text-sm font-bold"
+              className="w-full py-3 rounded-2xl bg-brand-cta hover:brightness-105 text-on-brand text-sm font-bold"
             >
               בצע/י מבדק קצר
             </button>

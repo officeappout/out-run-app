@@ -647,7 +647,7 @@ export default function DynamicOnboardingPage() {
           <div className="text-gray-600">{error}</div>
           <button
             onClick={() => window.location.reload()}
-            className="px-6 py-3 bg-cyan-500 text-on-brand rounded-xl font-bold"
+            className="px-6 py-3 bg-brand-cta hover:brightness-105 text-on-brand rounded-xl font-bold"
           >
             נסה שוב
           </button>

@@ -15,9 +15,13 @@ import { motion, type HTMLMotionProps } from 'framer-motion';
  * Layout (width / padding / font size) is the caller's via `className`, so a
  * full-width landing CTA and a compact in-card pill can share one look.
  */
+/** Visual identity only (fill + label colour + pill + glow) — for NON-interactive lookalikes (e.g. the
+ *  decorative CTA pill inside a clickable card, where a nested <button> would be invalid HTML). */
+export const BRAND_CTA_FILL_CLASS =
+  'bg-brand-cta text-on-brand font-semibold rounded-full shadow-md shadow-cyan-400/25';
+
 export const BRAND_CTA_CLASS =
-  'bg-brand-cta text-on-brand font-semibold rounded-full shadow-md shadow-cyan-400/25 ' +
-  'transition-all hover:brightness-105 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed';
+  `${BRAND_CTA_FILL_CLASS} transition-all hover:brightness-105 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed`;
 
 export default function BrandCtaButton({
   className = '',

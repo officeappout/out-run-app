@@ -42,6 +42,7 @@ import { resolveProgressionMapDestination } from '@/lib/progression-map-config';
 import { resolveAdditionalProgramSlugs, domainTypeForSlug } from './program-groups.utils';
 import { resolveOnboardingEntryHref } from '@/features/user/onboarding/utils/onboarding-entry';
 
+import BrandCtaButton from '@/components/ui/BrandCtaButton';
 // ── Types ──────────────────────────────────────────────────────────
 
 interface ChildCardData {
@@ -268,13 +269,13 @@ export default function ProgramsSection() {
           <p className="text-sm font-bold text-gray-500 text-center leading-snug">
             עדיין לא בחרת תוכנית אימון.
           </p>
-          <button
+          <BrandCtaButton
             type="button"
             onClick={() => router.push(resolveOnboardingEntryHref(profile, 'STRENGTH'))}
-            className="mt-1 px-5 py-2 bg-[#00C9F2] text-on-brand text-sm font-bold rounded-full active:scale-95 transition-transform"
+            className="mt-1 px-5 py-2 text-sm"
           >
             בחר תוכנית
-          </button>
+          </BrandCtaButton>
         </div>
       </div>
     );

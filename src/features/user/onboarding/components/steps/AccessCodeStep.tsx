@@ -80,7 +80,7 @@ export default function AccessCodeStep({ onNext }: AccessCodeStepProps) {
         </div>
         <button
           onClick={onNext}
-          className="w-full max-w-xs py-3.5 rounded-xl font-semibold text-on-brand bg-primary transition-opacity"
+          className="w-full max-w-xs py-3.5 rounded-xl font-semibold text-on-brand bg-brand-cta hover:brightness-105 transition-opacity"
         >
           המשך
         </button>

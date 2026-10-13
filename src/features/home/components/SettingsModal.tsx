@@ -1774,7 +1774,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                     type="button"
                                     onClick={() => { void handleAddReminder(); }}
                                     disabled={remindersSaving}
-                                    className="flex-1 py-2 text-sm font-bold text-on-brand bg-cyan-500 rounded-xl hover:bg-cyan-600 font-simpler disabled:opacity-50"
+                                    className="flex-1 py-2 text-sm font-bold text-on-brand bg-brand-cta hover:brightness-105 rounded-xl font-simpler disabled:opacity-50"
                                   >
                                     הוסף
                                   </button>

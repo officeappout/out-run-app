@@ -536,7 +536,7 @@ export default function HealthDeclarationStep({
             <button
               onClick={handleFastTrack}
               disabled={allAnswered && !usedFastTrack}
-              className="w-full bg-[#5BC2F2] hover:bg-[#4AADE3] disabled:bg-slate-200 disabled:cursor-not-allowed text-on-brand font-bold py-3.5 rounded-xl shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+              className="w-full bg-brand-cta hover:brightness-105 disabled:bg-none disabled:bg-slate-200 disabled:cursor-not-allowed text-on-brand font-bold py-3.5 rounded-xl shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2"
             >
               <Zap size={20} className="flex-shrink-0" />
               <span>
@@ -871,7 +871,7 @@ export default function HealthDeclarationStep({
               <div className="px-5 pb-5">
                 <button
                   onClick={() => setShowSafetyInfoModal(false)}
-                  className="w-full bg-[#5BC2F2] hover:bg-[#4AADE3] text-on-brand font-bold py-3 rounded-xl transition-all text-sm"
+                  className="w-full bg-brand-cta hover:brightness-105 text-on-brand font-bold py-3 rounded-xl transition-all text-sm"
                   style={{ fontFamily: 'var(--font-simpler)' }}
                 >
                   הבנתי

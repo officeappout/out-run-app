@@ -283,7 +283,7 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete }
             </p>
             <button
               onClick={handleRetryAfterFailure}
-              className="w-full max-w-xs text-on-brand font-black text-base py-3.5 rounded-2xl bg-[#00BAF7] shadow-lg active:scale-[0.97] transition-transform"
+              className="w-full max-w-xs text-on-brand font-black text-base py-3.5 rounded-2xl bg-brand-cta hover:brightness-105 shadow-lg active:scale-[0.97] transition-transform"
             >
               נסה שוב
             </button>
