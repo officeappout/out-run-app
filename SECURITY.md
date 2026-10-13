@@ -289,7 +289,7 @@ without it, audited streak claims would not match recorded activity.
 
 | Secret                              | Where                            | Acceptable to expose? | Notes                                                                              |
 | ----------------------------------- | -------------------------------- | --------------------- | ---------------------------------------------------------------------------------- |
-| Firebase Web API key                | `src/lib/firebase.ts`            | **Yes**               | Public by design — all enforcement is in rules and App Check.                      |
+| Firebase Web API key                | `src/lib/firebase.ts`            | **Yes**               | Public by design — enforcement is in Firestore/Storage rules and auth; App Check **enforces on callable Cloud Functions only** (Firestore/Storage are Monitoring — §12.4). |
 | Mapbox public token (`pk.…`)        | `.env.local`                     | **Yes**               | Domain-locked at Mapbox dashboard.                                                 |
 | `NEXT_PUBLIC_RECAPTCHA_SITE_KEY`    | `.env.local`                     | **Yes**               | Public reCAPTCHA Enterprise site key for App Check (prod-required).                |
 | `NEXT_PUBLIC_APP_CHECK_DEBUG_TOKEN` | `.env.local` (dev only)          | No                    | Per-developer debug token; never set in prod.                                      |
@@ -313,7 +313,7 @@ why the variable went away.
 - [x] **Server-only audit writes:** `audit_logs` collection is write-locked at the rules level; only the `logAuditAction` Cloud Function (Admin SDK) can insert rows.
 - [x] **Audit trail:** every admin mutation captures `oldValue / newValue / sourceIp / uid / timestamp` server-side.
 - [x] **Server-side admin gating:** `/admin/*` is gated by Edge middleware checking an HMAC session cookie minted after Admin-SDK ID-token verification.
-- [x] **Firebase App Check:** reCAPTCHA Enterprise on the client + `enforceAppCheck: true` on every callable function — all 7 (`awardWorkoutXP`, `reverseWorkoutXP`, `validateAccessCode`, `logAuditAction`, `ingestHealthSamples`, `requestAccountDeletion`, `previewNotificationContent`).
+- [x] **Firebase App Check:** reCAPTCHA Enterprise on the client + `enforceAppCheck: true` on every callable function — all 7 (`awardWorkoutXP`, `reverseWorkoutXP`, `validateAccessCode`, `logAuditAction`, `ingestHealthSamples`, `requestAccountDeletion`, `previewNotificationContent`). **Firestore and Storage App Check are in *Monitoring* mode, NOT Enforced** (console-verified 13.10.2026; ~29% of Firestore requests Verified) — see §12.4.
 - [x] **Long-lived log retention:** `cleanupOldLogs` deletes `audit_logs` older than 24 months and terminal-state `push_messages` older than 90 days on the 1st of each month.
 - [x] **Ephemeral retention:** `cleanupEphemeralDocs` deletes `presence` > 24 h and `active_workouts` > 2 h every hour, guaranteeing the privacy-policy retention windows even when the client cleanup path fails (crash / kill-from-tray).
 - [x] **Push notification consent:** push permission is requested only after sign-in via the Capacitor lifecycle bridge; sends are filtered server-side by `settings.pushEnabled` (master) and `settings.notificationPrefs.{channel}` (per-channel) before any token is harvested. See §13.
@@ -361,7 +361,8 @@ why the variable went away.
 5. **App Check enforcement:** Strip the App Check header from a
    `httpsCallable` request (e.g. `curl` directly to the function URL
    with a valid ID token) → must return `failed-precondition: missing
-   app check token`.
+   app check token`. (Callable functions only — this does NOT hold for
+   direct Firestore/Storage access, which is in Monitoring mode, §12.4.)
 
 6. **Server-side admin gate:** From an unauthenticated browser, navigate
    to `/admin/users` → must 302 to `/admin/login?next=/admin/users`
@@ -506,10 +507,24 @@ reviewer.
   All 7 `onCall` functions in `functions/src` enforce it (verified against
   the code 13.10.2026). `runDataMigration.ts` previously listed here was
   deleted entirely on 06.10.2026.
-- **Effect:** a `curl` request with a valid ID token but no App Check
-  token is rejected with `failed-precondition`. Automated bots
-  attempting credential stuffing or quota exhaustion fail the
-  reCAPTCHA Enterprise scoring.
+- **Effect (callable Cloud Functions only):** a `curl` request with a
+  valid ID token but no App Check token is rejected with
+  `failed-precondition`. Automated bots attempting credential stuffing or
+  quota exhaustion against the callables fail the reCAPTCHA Enterprise
+  scoring.
+- **Firestore / Storage — NOT enforced (status 13.10.2026):** the Firebase
+  console (Build → App Check → APIs) shows Cloud Firestore in
+  **Monitoring**, not Enforced, with roughly 29% of requests Verified and
+  71% Unverified. `firestore.rules` contains no App Check condition. A
+  script holding a valid ID token can therefore read/write Firestore
+  within its rules *without* an App Check token; the only thing standing
+  between such a client and the data is the rules + auth. Enforcement
+  must not be switched on until Verified is high and the Unverified
+  sources are understood (otherwise real users are locked out). Rollout
+  plan: tracked separately (Ops roadmap).
+- Stale in-code claim: comments in `src/lib/firebase.ts` say the
+  `presence` collection's rules "require an App Check token". They do
+  not — see above.
 
 ### 12.5 Data Retention — Long-Lived Logs (Audit + Push)
 
@@ -592,7 +607,7 @@ reviewer.
 | MFA on admin (Ashkelon 14.1)               | **PASS** (inherited from Google Workspace) | §12.2 |
 | Password rotation 180d (Ashkelon 14.1)     | **PASS** (inherited from Google Workspace) | §12.2 |
 | Server-side admin gating (Ashkelon 17.1)   | **PASS**    | `middleware.ts`, `admin-session.ts` |
-| App Check / DDoS defence (Ashkelon 22.1)   | **PASS**    | `firebase.ts`, all callable functions |
+| App Check / DDoS defence (Ashkelon 22.1)   | **PARTIAL** — enforced on all 7 callables; Firestore/Storage in Monitoring (§12.4) | `firebase.ts`, all callable functions |
 | Audit-log retention 24 months              | **PASS**    | `cleanupOldLogs.ts` (`audit_logs` branch) |
 | Push-log retention 90 days (privacy §11)   | **PASS**    | `cleanupOldLogs.ts` (`push_messages` branch — terminal-state only) |
 | Presence retention 24 h (privacy §11)      | **PASS**    | `cleanupEphemeralDocs.ts` (`presence` branch) |
