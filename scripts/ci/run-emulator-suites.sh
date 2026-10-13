@@ -9,7 +9,7 @@
 #
 # NEVER stops at the first red file and NEVER silently skips one: every file's
 # result is listed, and the script exits non-zero if any failed. Whether that
-# blocks a merge is decided by the workflow (advisory in PR 1), not here.
+# blocks a merge is decided by the workflow (blocking since Stage C — see ci.yml), not here.
 #
 # Out of scope for now (listed so the gap is explicit, not silently dropped):
 #   - tests/storage-fix-delete-rules.rules.test.ts  Storage emulator (:9199),
@@ -84,6 +84,6 @@ echo
 echo "===== Emulator suites summary ====="
 cat "$RESULTS"
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-  { echo "### Emulator suites (advisory)"; echo '```'; cat "$RESULTS"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+  { echo "### Emulator suites"; echo '```'; cat "$RESULTS"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 fi
 ! grep -q '^FAIL' "$RESULTS"
