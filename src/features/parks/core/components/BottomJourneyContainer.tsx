@@ -384,6 +384,7 @@ export default function BottomJourneyContainer({
                   name={route.name}
                   distanceText={`${totalDistKm.toFixed(1)} ק״מ`}
                   durationText={`${durationMin} דק׳`}
+                  variant="slim"
                   difficulty={route.difficulty}
                   isActive={isActive || isFocused}
                   onClick={() => {

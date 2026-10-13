@@ -40,6 +40,10 @@ import { getOnboardingPref, setOnboardingPref } from '@/lib/onboardingPrefs';
 // reusing an existing, already-tuned constant rather than inventing a new one.
 const CARD_MAX_W = UNIFIED_ROUTE_CARDS_ENABLED ? 340 : 300;
 const CARD_VW = 78;
+// Focused-suggestions state: the slim card FILLS its wrapper (see SlotCard) at 80vw (~312px on a 390px
+// phone) → symmetric ~39px side margins and ~27px of the neighbour peeking (was: the card itself was
+// 85vw inside a 78vw wrapper, so it overflowed one side and bled toward the screen edge).
+const CARD_VW_FOCUSED = 80;
 const CARD_HEIGHT = 190; // legacy slot-card height (flag off); unified = content-height
 const GAP = 12;
 const ACTIVE_SCALE = 1.0;
@@ -210,6 +214,8 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
         recommended={slot.recommended}
         extraContent={totalLine}
         variant={slim ? 'slim' : 'default'}
+        // slim: fill the carousel wrapper (cardW) instead of the 85vw token, so the card can't overflow it
+        className={slim ? '!w-full !max-w-none' : undefined}
         isActive={isActive}
         onCtaPointerDown={onArm}
         onCta={(e) => {
@@ -352,14 +358,14 @@ export default function HybridSlotCarousel({
 
   useEffect(() => {
     const sync = () => {
-      setCardW(Math.min(CARD_MAX_W, (window.innerWidth * CARD_VW) / 100));
+      setCardW(Math.min(CARD_MAX_W, (window.innerWidth * (focused ? CARD_VW_FOCUSED : CARD_VW)) / 100));
       if (viewportRef.current) setViewportW(viewportRef.current.offsetWidth);
     };
     sync();
     const ro = new ResizeObserver(sync);
     if (viewportRef.current) ro.observe(viewportRef.current);
     return () => ro.disconnect();
-  }, []);
+  }, [focused]);
 
   // Keep the active index valid when the slot set changes (activity toggle).
   useEffect(() => {
