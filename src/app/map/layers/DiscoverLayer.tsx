@@ -20,6 +20,7 @@ import ExerciseReplacementModal from '@/features/workout-engine/players/strength
 import { useProgramMap } from '@/features/workouts/components/workout-preview-drawer/hooks/useProgramMap';
 import type { ExecutionLocation } from '@/features/content/exercises';
 import type { ComposedHybridSession, HybridRoutePreview } from '@/features/workout-engine/hybrid/start-hybrid-session';
+import { scheduleIdle } from '@/lib/scheduleIdle';
 import HybridSlotCarousel, { ENTRY_PHRASES } from '@/features/parks/core/components/hybrid/HybridSlotCarousel';
 import { composedWorkoutMin, cardTotalFor, readRoundTripPref, type RoundTripLegs } from '@/features/workout-engine/hybrid/round-trip';
 import ShimmerPhraseButton from '@/components/ui/ShimmerPhraseButton';
@@ -908,6 +909,39 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     return p;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userLocation, userCityName, keyFor]);
+
+  // PERF (13.10.2026): compose route_stops in the background once the slots carousel is up AND the
+  // main thread is idle — not on the CTA tap, not 300ms after settle, and not on raw mount — so its
+  // ~1.3s runs while the user is still looking at the map without competing with first paint. The
+  // compose itself starts with warm / parks / published routes / exercises / equipment, so those are
+  // warmed by the same call. Runs once per (user, location bucket, activity, step-gap) key: the effect
+  // depends on the key STRING (not the GPS object), and it bails when the module cache already holds
+  // the plan or a compose for that key is in flight — so it never duplicates the settle-preview
+  // compose (which awaits the same in-flight promise via composeTrioDeduped) or the CTA's. The
+  // result is also mirrored into the card's total so the pill can appear before the user settles.
+  const routeStopsSlot = useMemo(
+    () => slots.find((s) => s.kind === 'hybrid' && s.id === 'route_stops') ?? null,
+    [slots],
+  );
+  const carouselUp = mapFeatureFlags.enableHybridSlots && mapMode === 'freeRun' && freeRunStep === 'slots';
+  const routeStopsKey = keyFor('route_stops');
+  useEffect(() => {
+    if (!HYBRID_SLOT_PREVIEW_ENABLED || !carouselUp || !routeStopsSlot || routeStopsSlot.kind !== 'hybrid' || !userLocation) return;
+    // Deferred to browser IDLE (requestIdleCallback, ≤3s ceiling; ~600ms timer on iOS WKWebView which
+    // has no rIC) so the compose yields to the map's first paint + GPS init instead of competing with
+    // them. A GPS fix is required above (userLocation) — no fix, no compose. The guards are re-checked
+    // when the idle callback actually fires, since the settle-preview / CTA may have started or finished
+    // the same compose in the meantime. Cleanup cancels a pending run if the key/carousel changes first.
+    return scheduleIdle(() => {
+      const cached = hybridPlanCache.get(routeStopsKey);
+      if (cached) { noteRouteStopsTotal('route_stops', cached); return; }
+      if (hybridTrioInflight.has(routeStopsKey)) return; // someone else (settle-preview) is already composing it
+      composeTrioDeduped(presetToIntent(routeStopsSlot.preset, routeStopsSlot.timeBudgetMin), 'route_stops')
+        .then((composed) => { if (composed) noteRouteStopsTotal('route_stops', composed); })
+        .catch(() => { /* a failed warm compose is silent; the settle/CTA path retries on demand */ });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carouselUp, routeStopsSlot, routeStopsKey]);
 
   // READ-ONLY preview: when the carousel SETTLES on a hybrid card, compose its
   // plan (cached per slot.id) and draw the route on the map — the SAME compose

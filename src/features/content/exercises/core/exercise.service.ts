@@ -21,6 +21,7 @@ import {
 import { db } from '@/lib/firebase';
 import { Exercise, ExerciseFormData, getLocalizedText } from './exercise.types';
 import { logAction } from '@/features/admin/services/audit.service';
+import { createTtlAsyncCache } from '@/lib/ttlAsyncCache';
 
 // Import sanitization and normalization utilities
 import {
@@ -83,6 +84,23 @@ export async function getAllExercises(): Promise<Exercise[]> {
     console.error('Error fetching exercises:', error);
     throw error;
   }
+}
+
+/**
+ * getAllExercises behind a short in-memory TTL cache + in-flight dedupe (route_stops compose perf,
+ * 13.10.2026: this full-collection read was ~470ms on every compose). `getAllExercises` itself is
+ * UNCHANGED (admin editors and every other caller still read live); only callers that opt in get
+ * the cached copy, which can be up to EXERCISES_CACHE_TTL_MS stale. Returns a fresh array each
+ * call so a caller that sorts/splices can't corrupt the shared copy (the exercise objects are
+ * shared — treat them as read-only).
+ */
+export const EXERCISES_CACHE_TTL_MS = 5 * 60 * 1000;
+const exercisesCache = createTtlAsyncCache(getAllExercises, EXERCISES_CACHE_TTL_MS);
+export async function getAllExercisesCached(): Promise<Exercise[]> {
+  return [...(await exercisesCache.get())];
+}
+export function invalidateExercisesCache(): void {
+  exercisesCache.invalidate();
 }
 
 /**
