@@ -8,8 +8,8 @@
  * — renders a composed HybridPlan; no engine calls.
  */
 
-import { useState } from 'react';
-import { Clock, Ruler, Repeat, MapPin, ChevronDown, Lock, Info, ChevronLeft } from 'lucide-react';
+import { useState, type CSSProperties } from 'react';
+import { Clock, Ruler, Repeat, ChevronDown, Lock, Info, ChevronLeft, LocateFixed } from 'lucide-react';
 import type { HybridPlannedSegment } from '@/features/workout-engine/hybrid/compose-hybrid-session.service';
 import type { WorkoutExercise as EngineWorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import ExerciseCard from '@/features/workouts/components/workout-preview-drawer/components/exercise-list/ExerciseCard';
@@ -22,9 +22,9 @@ import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/med
 import { findMethodForLocation } from '@/features/content/exercises/core/exercise.types';
 import { ActivityGlyph } from './activity-icons'; // single source for both axes (points 13/17)
 import { formatMinutes } from './hybrid-format'; // shared duration formatter (point 19)
-import { HYBRID_AER as AER, HYBRID_STR as STR } from './hybrid-colors'; // single source (point 15)
+import { HYBRID_AER as AER, HYBRID_STR as STR, HYBRID_WALK as WALK } from './hybrid-colors'; // single source (point 15)
 
-const FINISH = '#EF4444'; // journey end (matches the finish dot); the spine blends to it on the last leg
+const ACCENT = '#00ADEF'; // "המיקום שלך" origin / return nodes
 const AER_TINT = '#ECFDF5', AER_TEXT = '#047857';
 const STR_TINT = '#ECFEFF', STR_TEXT = '#0E7490'; // cyan tint/text (same hue as STR)
 
@@ -92,6 +92,88 @@ function Node({ kind, nextColor, subtype }: { kind: 'aerobic' | 'strength'; next
     </div>
   );
 }
+/**
+ * Round-trip structure (Phase 2b) — all DISPLAY-ONLY, rendered from `walkLegs`, NOT from
+ * `segments`. HybridPlannedSegment.kind stays 'aerobic' | 'strength' on purpose: that union
+ * feeds the run (orchestrator, useHybridRun), history, weekly load and the summary, and a
+ * 'walk' segment there would be RUN and credited.
+ *
+ * Axis order: המיקום שלך › [transport: הליכה אל המסלול] › תחילת המסלול › …route segments… ›
+ * סיום המסלול › [transport: הליכה חזרה] › המיקום שלך. Transport legs are a dotted connector + a small
+ * walk icon (not a node) so they read as getting-there, apart from the route's solid legs.
+ */
+function Rail({ kind = 'solid', from, to, top = 0, bottom = 0 }: {
+  kind?: 'solid' | 'dotted'; from: string; to?: string; top?: number | string; bottom?: number | string;
+}) {
+  const base: CSSProperties = { position: 'absolute', zIndex: 0, left: '50%', transform: 'translateX(-50%)', top, bottom };
+  if (kind === 'dotted') {
+    return <span aria-hidden style={{ ...base, width: 0, borderLeft: `3px dotted ${from}`, opacity: 0.55 }} />;
+  }
+  const end = to ?? from;
+  return <span aria-hidden style={{ ...base, width: 6, borderRadius: 3, background: `linear-gradient(to bottom, ${from} 0%, ${from} 45%, ${end} 100%)` }} />;
+}
+
+/** "המיקום שלך" — origin (first) / return (last) node: filled, accent. */
+function YourLocationRow({ variant, railBelowDotted, railAboveDotted, firstColorBelow }: {
+  variant: 'origin' | 'return';
+  railBelowDotted?: boolean;
+  railAboveDotted?: boolean;
+  firstColorBelow?: string;
+}) {
+  return (
+    <div className="flex items-center gap-3" style={{ minHeight: 40 }}>
+      <div className="relative flex-shrink-0 flex items-center justify-center" style={{ width: 44, alignSelf: 'stretch' }}>
+        {variant === 'origin'
+          ? (railBelowDotted
+              ? <Rail kind="dotted" from={WALK} top="50%" bottom={0} />
+              : <Rail from={ACCENT} to={firstColorBelow ?? AER} top="50%" bottom={0} />)
+          : (railAboveDotted
+              ? <Rail kind="dotted" from={WALK} top={0} bottom="50%" />
+              : <Rail from={AER} to={ACCENT} top={0} bottom="50%" />)}
+        <div className="relative rounded-full flex items-center justify-center text-white"
+          style={{ zIndex: 1, width: 28, height: 28, background: ACCENT, border: '3px solid #fff', boxShadow: `0 0 0 1.5px ${ACCENT}` }}>
+          <LocateFixed size={14} />
+        </div>
+      </div>
+      <span className="text-[12.5px] font-black" style={{ color: '#0369A1' }}>המיקום שלך</span>
+    </div>
+  );
+}
+
+/** "תחילת המסלול" / "סיום המסלול" — thin labelled divider, rail continues through it. */
+function RouteDivider({ label, from, to }: { label: string; from: string; to: string }) {
+  return (
+    <div className="flex items-center gap-3" style={{ minHeight: 30 }}>
+      <div className="relative flex-shrink-0" style={{ width: 44, alignSelf: 'stretch' }}>
+        <Rail from={from} to={to} top={0} bottom={0} />
+      </div>
+      <div className="flex-1 flex items-center gap-2">
+        <span aria-hidden style={{ flex: 1, height: 1, background: '#E5E7EB' }} />
+        <span className="text-[10.5px] font-extrabold whitespace-nowrap" style={{ color: '#6B7280' }}>{label}</span>
+        <span aria-hidden style={{ flex: 1, height: 1, background: '#E5E7EB' }} />
+      </div>
+    </div>
+  );
+}
+
+/** Transport leg: dotted connector + small walk icon (no node), faded, with a muted tag. */
+function TransportRow({ label, minutes }: { label: string; minutes: number }) {
+  return (
+    <div className="flex items-center gap-3" style={{ minHeight: 46 }}>
+      <div className="relative flex-shrink-0 flex items-center justify-center" style={{ width: 44, alignSelf: 'stretch' }}>
+        <Rail kind="dotted" from={WALK} top={0} bottom={0} />
+        <span className="relative rounded-full flex items-center justify-center bg-white" style={{ zIndex: 1, width: 26, height: 26, color: WALK }}>
+          <span className="inline-flex" style={{ opacity: 0.7 }}><ActivityGlyph kind="aerobic" subtype="walking" className="w-[17px] h-[17px]" /></span>
+        </span>
+      </div>
+      <div className="flex items-center gap-2 flex-wrap" style={{ opacity: 0.75 }}>
+        <span className="text-[12.5px] font-bold" style={{ color: '#6B7280' }}>{label}</span>
+        <span className="text-[11px] font-bold" style={{ color: '#9CA3AF' }}>{formatMinutes(minutes * 60)}</span>
+        <span className="text-[10px] font-extrabold rounded-full" style={{ padding: '1px 7px', background: '#F3F4F6', color: '#9CA3AF' }}>מעבר</span>
+      </div>
+    </div>
+  );
+}
 function Meta({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
   return <span className="inline-flex items-center gap-1 text-[12px] font-bold" style={{ color: '#374151' }}>
     <span style={{ color: '#9CA3AF' }}>{icon}</span>{children}</span>;
@@ -141,6 +223,11 @@ interface AxisProps {
    * segment's own assessmentDomains instead of falling back to the session's.
    */
   onSegmentAssessmentLink?: (domains?: string[]) => void;
+  /**
+   * Round-trip walk legs (route_stops, Phase 2b), minutes. Display-only rows before the first and
+   * after the last plan segment; never part of `segments` (see the round-trip rows above). Omit/0 → no row.
+   */
+  walkLegs?: { thereMin: number; backMin: number } | null;
 }
 
 export default function HybridJourneyAxis({
@@ -153,10 +240,13 @@ export default function HybridJourneyAxis({
   onExerciseTap,
   onSwapExercise,
   onSegmentAssessmentLink,
+  walkLegs,
 }: AxisProps) {
   const aerCount = segments.filter((s) => s.kind === 'aerobic').length;
   let aerIdx = 0, strIdx = 0;
-  const firstColor = segments[0]?.kind === 'strength' ? STR : AER;
+  const walkThere = walkLegs && walkLegs.thereMin > 0 ? walkLegs.thereMin : 0;
+  const walkBack = walkLegs && walkLegs.backMin > 0 ? walkLegs.backMin : 0;
+  const firstSegColor = segments[0]?.kind === 'strength' ? STR : AER;
 
   // G2.1 fix (Sderot field test, 10.10.2026): this used to render the amber
   // equipment-tabata nudge INSIDE the segments.map() below, once per qualifying
@@ -177,16 +267,6 @@ export default function HybridJourneyAxis({
     setCollapsedStations((m) => ({ ...m, [idx]: !m[idx] }));
   return (
     <div dir="rtl">
-      {/* start dot + spine head */}
-      <div className="flex items-center gap-2" style={{ margin: '0 2px 3px' }}>
-        <div className="relative flex justify-center" style={{ width: 44 }}>
-          {/* spine head — green, blends into the first segment's color */}
-          <span aria-hidden style={{ position: 'absolute', zIndex: 0, left: '50%', transform: 'translateX(-50%)', top: 6, bottom: -14, width: 6, borderRadius: 3, background: `linear-gradient(to bottom, ${AER} 0%, ${AER} 45%, ${firstColor} 100%)` }} />
-          <div style={{ position: 'relative', zIndex: 1, width: 12, height: 12, borderRadius: '50%', background: AER, border: '3px solid #fff', boxShadow: `0 0 0 1.5px ${AER}` }} />
-        </div>
-        <span className="text-[11px] font-bold" style={{ color: '#6B7280' }}>נקודת התחלה</span>
-      </div>
-
       {hasAssessmentNudge && (
         <button
           type="button"
@@ -200,13 +280,16 @@ export default function HybridJourneyAxis({
         </button>
       )}
 
+      <YourLocationRow variant="origin" railBelowDotted={walkThere > 0} firstColorBelow={AER} />
+      {walkThere > 0 && <TransportRow label="הליכה אל המסלול" minutes={walkThere} />}
+      <RouteDivider label="תחילת המסלול" from={AER} to={firstSegColor} />
+
       {segments.map((seg, i) => {
         const last = i === segments.length - 1;
-        // Spine colour continues to the NEXT node (or the finish dot on the last leg).
-        const nextColor = last ? FINISH : (segments[i + 1].kind === 'aerobic' ? AER : STR);
+        // Spine colour continues to the NEXT node (the "סיום המסלול" divider on the last leg).
+        const nextColor = last ? AER : (segments[i + 1].kind === 'aerobic' ? AER : STR);
         if (seg.kind === 'aerobic') {
           aerIdx += 1;
-          const legLabel = aerIdx === 1 ? 'יציאה' : aerIdx === aerCount ? 'חזרה' : `${aerIdx}`;
           const pace = seg.targetPaceSecPerKm ? (seg.targetPaceSecPerKm.min + seg.targetPaceSecPerKm.max) / 2 : 0;
           // Moovit-style (full-park): the verb is the ACTIVITY (walk/run) — kills the
           // "רגל ריצה" vs "הליכה" contradiction — and the title is the DESTINATION.
@@ -215,7 +298,7 @@ export default function HybridJourneyAxis({
             ? (aerIdx === 1 ? `אל ${stationName}` : aerIdx === aerCount ? 'חזרה לנקודת ההתחלה' : 'המשך')
             // David, 23.09.2026, bug #4: was hardcoded "רגל ריצה" even for a
             // walking leg — `action` (above) already resolves the real activity.
-            : `רגל ${action} ${aerIdx} — ${legLabel}`;
+            : `${action} · מקטע ${aerIdx}`;
           return (
             <div key={i} className="flex gap-3 items-stretch">
               <Node kind="aerobic" nextColor={nextColor} subtype={seg.aerobicType} />
@@ -236,7 +319,7 @@ export default function HybridJourneyAxis({
                   ) : (
                     <>
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[14px] font-black" style={{ color: '#111827' }}>רגל {action} {aerIdx} — {legLabel}</span>
+                        <span className="text-[14px] font-black" style={{ color: '#111827' }}>{action} · מקטע {aerIdx}</span>
                         <span className="text-[10.5px] font-extrabold rounded-full whitespace-nowrap" style={{ padding: '3px 9px', background: AER_TINT, color: AER_TEXT }}>
                           {ZONE_LABEL[String(seg.zone)] ?? 'אירובי'}
                         </span>
@@ -455,13 +538,9 @@ export default function HybridJourneyAxis({
         );
       })}
 
-      {/* finish dot */}
-      <div className="flex items-center gap-2" style={{ margin: '3px 2px 0' }}>
-        <div className="flex justify-center" style={{ width: 44 }}>
-          <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#EF4444', border: '3px solid #fff', boxShadow: '0 0 0 1.5px #EF4444' }} />
-        </div>
-        <span className="flex items-center gap-1 text-[11px] font-bold" style={{ color: '#b91c1c' }}><MapPin size={13} /> סיום · חזרה לנקודת ההתחלה</span>
-      </div>
+      <RouteDivider label="סיום המסלול" from={AER} to={walkBack > 0 ? AER : ACCENT} />
+      {walkBack > 0 && <TransportRow label="הליכה חזרה" minutes={walkBack} />}
+      <YourLocationRow variant="return" railAboveDotted={walkBack > 0} />
     </div>
   );
 }

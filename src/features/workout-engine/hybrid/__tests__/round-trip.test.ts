@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
-  parseRoundTripPref, bucketTopology, walkLegMinutes, composeRoundTripLegs, displayTotalMin,
+  parseRoundTripPref, bucketTopology, walkLeg, composeRoundTripLegs, displayTotalMin, buildWalkLegsGeoJSON,
   WALK_LEG_SKIP_M, ROUTE_STOPS_ROUND_TRIP_KEY,
 } from '../round-trip';
 
@@ -29,19 +29,22 @@ describe('bucketTopology', () => {
   });
 });
 
-describe('walkLegMinutes', () => {
-  it('is 0 (and does not fetch) when already at the point', async () => {
+const PATH: [number, number][] = [[34.0, 32.0], [34.0, 32.004], [34.0, 32.0072]];
+const leg = (seconds: number) => async () => ({ seconds, path: PATH });
+
+describe('walkLeg', () => {
+  it('is 0 min, no path (and does not fetch) when already at the point', async () => {
     const f = vi.fn();
-    expect(await walkLegMinutes(NEAR, P(32.0 + (WALK_LEG_SKIP_M - 5) / 111_320, 34.0), f)).toBe(0);
+    expect(await walkLeg(NEAR, P(32.0 + (WALK_LEG_SKIP_M - 5) / 111_320, 34.0), f)).toEqual({ minutes: 0, path: null });
     expect(f).not.toHaveBeenCalled();
   });
-  it('uses the real Mapbox duration, rounded, minimum 1 min', async () => {
-    expect(await walkLegMinutes(NEAR, FAR, async () => 540)).toBe(9);
-    expect(await walkLegMinutes(NEAR, FAR, async () => 10)).toBe(1);
+  it('uses the real Mapbox duration (min 1) and keeps the street geometry', async () => {
+    expect(await walkLeg(NEAR, FAR, leg(540))).toEqual({ minutes: 9, path: PATH });
+    expect((await walkLeg(NEAR, FAR, leg(10))).minutes).toBe(1);
   });
-  it('falls back to a straight-line estimate on null or throw — never drops the leg', async () => {
-    expect(await walkLegMinutes(NEAR, FAR, async () => null)).toBe(10); // 800m / 80
-    expect(await walkLegMinutes(NEAR, FAR, async () => { throw new Error('net'); })).toBe(10);
+  it('falls back to a straight-line time on null or throw — leg kept in the total, but NO guessed line', async () => {
+    expect(await walkLeg(NEAR, FAR, async () => null)).toEqual({ minutes: 10, path: null }); // 800m / 80
+    expect(await walkLeg(NEAR, FAR, async () => { throw new Error('net'); })).toEqual({ minutes: 10, path: null });
   });
 });
 
@@ -49,15 +52,30 @@ describe('composeRoundTripLegs + displayTotalMin', () => {
   it('there = user→entry, back = end→user; total is ADDED ON TOP', async () => {
     // user=NEAR, entry=FAR, end=FAR: "there" is called from NEAR, "back" from FAR.
     const legs = await composeRoundTripLegs(NEAR, FAR, FAR, async (from) =>
-      from.lat === NEAR.lat ? 360 : 600);
-    expect(legs).toEqual({ walkThereMin: 6, walkBackMin: 10 });
+      ({ seconds: from.lat === NEAR.lat ? 360 : 600, path: PATH }));
+    expect(legs).toMatchObject({ walkThereMin: 6, walkBackMin: 10 });
     expect(displayTotalMin(40, legs, true)).toBe(56);
     expect(displayTotalMin(40, legs, false)).toBe(40);
     expect(displayTotalMin(40, null, true)).toBe(40);
   });
   it('user standing on the route → both legs 0 → total unchanged', async () => {
-    const legs = await composeRoundTripLegs(NEAR, NEAR, NEAR, async () => 999);
-    expect(legs).toEqual({ walkThereMin: 0, walkBackMin: 0 });
+    const legs = await composeRoundTripLegs(NEAR, NEAR, NEAR, leg(999));
+    expect(legs).toEqual({ walkThereMin: 0, walkBackMin: 0, walkTherePath: null, walkBackPath: null });
     expect(displayTotalMin(30, legs, true)).toBe(30);
+  });
+});
+
+describe('buildWalkLegsGeoJSON', () => {
+  const legs = { walkThereMin: 5, walkBackMin: 6, walkTherePath: PATH, walkBackPath: PATH };
+  it('two LineStrings when on; null when off / no legs / nothing drawable', () => {
+    const fc = buildWalkLegsGeoJSON(legs, true)!;
+    expect(fc.features.map((f) => f.properties!.leg)).toEqual(['there', 'back']);
+    expect(buildWalkLegsGeoJSON(legs, false)).toBeNull();
+    expect(buildWalkLegsGeoJSON(null, true)).toBeNull();
+    expect(buildWalkLegsGeoJSON({ ...legs, walkTherePath: null, walkBackPath: null }, true)).toBeNull();
+  });
+  it('draws only the leg that has geometry', () => {
+    const fc = buildWalkLegsGeoJSON({ ...legs, walkBackPath: null }, true)!;
+    expect(fc.features).toHaveLength(1);
   });
 });

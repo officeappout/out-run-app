@@ -22,11 +22,11 @@ import HybridJourneyAxis from './HybridJourneyAxis';
 import { useSheetDrag, type SheetAnchor, type SheetMeasurements } from '@/features/workout-engine/shared/hooks/useSheetDrag';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
-import { HYBRID_AER as AER, HYBRID_STR as STR } from './hybrid-colors'; // single source (point 15)
+import { HYBRID_AER as AER, HYBRID_STR as STR, HYBRID_WALK as WALK_LEG_COLOR } from './hybrid-colors'; // single source (point 15)
 import { ActivityGlyph } from './activity-icons'; // single source for both axes (points 13/17)
 import { formatMinutes } from './hybrid-format'; // shared duration formatter (point 19)
 import type { ComposedHybridSession } from '@/features/workout-engine/hybrid/start-hybrid-session';
-import { ROUTE_STOPS_ROUND_TRIP_KEY, readRoundTripPref, displayTotalMin } from '@/features/workout-engine/hybrid/round-trip';
+import { ROUTE_STOPS_ROUND_TRIP_KEY, readRoundTripPref, displayTotalMin, buildWalkLegsGeoJSON } from '@/features/workout-engine/hybrid/round-trip';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 
 const ACCENT = '#00ADEF';
@@ -177,6 +177,16 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   // + "כוח") › walk-leg … Built from the SAME composed segments the axis renders, and
   // both icons come from the shared program-icon map — no new icon logic.
   const journeyStrip: JSX.Element[] = [];
+  const walkChip = (key: string, min: number) => (
+    // Transport (getting to/from the route): dashed + faded, vs the solid route-walk / station chips.
+    <span key={key} className="inline-flex items-center gap-1.5 text-[13px] font-bold whitespace-nowrap rounded-full"
+      style={{ color: '#9CA3AF', border: '1px dashed #BAE6FD', padding: '2px 9px', opacity: 0.8 }}>
+      <span className="inline-flex" style={{ color: WALK_LEG_COLOR }}><ActivityGlyph kind="aerobic" subtype="walking" className="w-[19px] h-[19px]" /></span>
+      {formatMinutes(min * 60)}
+    </span>
+  );
+  const showWalkLegs = roundTripOn && roundTripLegs != null;
+  if (showWalkLegs && roundTripLegs!.walkThereMin > 0) journeyStrip.push(walkChip('walk-there', roundTripLegs!.walkThereMin));
   plan.segments.forEach((seg, i) => {
     if (journeyStrip.length > 0) {
       journeyStrip.push(<ChevronLeft key={`sep${i}`} size={16} style={{ color: '#CBD5E1', flexShrink: 0 }} />);
@@ -200,6 +210,10 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
       );
     }
   });
+  if (showWalkLegs && roundTripLegs!.walkBackMin > 0) {
+    if (journeyStrip.length > 0) journeyStrip.push(<ChevronLeft key="sep-walk-back" size={16} style={{ color: '#CBD5E1', flexShrink: 0 }} />);
+    journeyStrip.push(walkChip('walk-back', roundTripLegs!.walkBackMin));
+  }
 
   const dragControls = useDragControls();
   const { cardRef, currentAnchor, controls, setAnchor, dragConstraints, viewportH } =
@@ -291,6 +305,13 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
     setHybridRouteStations(routeStationFracs);
   }, [routeStationFracs, setHybridRouteStations]);
   useEffect(() => () => setHybridRouteStations(null), [setHybridRouteStations]);
+
+  // Round-trip walk legs → dashed map overlay (null when the toggle is off / nothing drawable).
+  const setHybridWalkLegs = useMapStore((s) => s.setHybridWalkLegs);
+  useEffect(() => {
+    setHybridWalkLegs(buildWalkLegsGeoJSON(roundTripLegs, roundTripOn));
+  }, [roundTripLegs, roundTripOn, setHybridWalkLegs]);
+  useEffect(() => () => setHybridWalkLegs(null), [setHybridWalkLegs]);
 
   // ── Point 2: content-scroll ↔ sheet-drag arbitration ──────────────────────
   // DELIBERATE local implementation — the shared useSheetScrollChain hook can't
@@ -603,6 +624,7 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
               // this still correctly falls through to the legacy rendering — same as it
               // already does for full-park's own (rare) unnamed-station case.
               stationName={composed.station?.name}
+              walkLegs={roundTripOn && roundTripLegs ? { thereMin: roundTripLegs.walkThereMin, backMin: roundTripLegs.walkBackMin } : null}
               isWarmupActive={isWarmupActive}
               isWarmupExpanded={isWarmupExpanded}
               onToggleWarmupActive={toggleWarmupActive}

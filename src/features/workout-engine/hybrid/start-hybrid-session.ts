@@ -18,7 +18,7 @@ import type { WorkoutGenerationContext, GeneratedWorkout } from '../logic/workou
 import type { ActivityType } from '@/features/parks/core/types/route.types';
 import { MAP_ROUTE_STOPS_V1 } from '@/config/feature-flags';
 import { deriveAerobicTargetKm } from './hybrid-aerobic.util';
-import { bucketTopology, composeRoundTripLegs, fetchMapboxWalkSeconds, type RoundTripLegs } from './round-trip';
+import { bucketTopology, composeRoundTripLegs, fetchMapboxWalkLeg, type RoundTripLegs } from './round-trip';
 import { hasAssessedStrengthDomain } from '@/features/user/identity/services/access-control.service';
 import { buildStepContext } from '../core/context/build-step-context';
 import { useActivityStore } from '@/features/activity/store/useActivityStore';
@@ -79,7 +79,7 @@ export interface ComposedHybridSession {
   fullParkRun?: boolean;
   /**
    * route_stops + 'existing_route' backbone only (Phase 2, round-trip): real walking minutes
-   * user→route entry and route end→user. ADDED ON TOP of `plan.totals` for display only — the
+   * (+ street geometry for the map) user→route entry and route end→user. ADDED ON TOP of `plan.totals` for display only — the
    * plan/engine are untouched. Always fetched when present; the overview's durable toggle
    * decides whether they are shown/counted. Absent for generated_loop (entry = user, ~0).
    */
@@ -1045,7 +1045,7 @@ async function composeRouteStopsWorkout(
         ctx.userPosition,
         { lng: traversalPath[0][0], lat: traversalPath[0][1] },
         { lng: traversalPath[traversalPath.length - 1][0], lat: traversalPath[traversalPath.length - 1][1] },
-        fetchMapboxWalkSeconds,
+        fetchMapboxWalkLeg,
       )
     : null;
 

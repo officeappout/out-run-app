@@ -43,40 +43,51 @@ export function bucketTopology(topology: Topology): 'loop' | 'one_way' {
 export const WALK_LEG_SKIP_M = 30;
 const FALLBACK_WALK_M_PER_MIN = 80; // same straight-line pace useWalkToRoute's pre-fetch estimate uses
 
-/** One walking leg. `fetchWalkSeconds` returns the real Mapbox duration, or null on failure. */
-export type WalkSecondsFetcher = (from: LatLng, to: LatLng) => Promise<number | null>;
+/** A fetched walking leg: Mapbox duration (s) + its street geometry ([lng,lat][]). */
+export interface FetchedWalkLeg { seconds: number; path: [number, number][]; }
+/** Returns null on failure (the caller then falls back to a straight-line time estimate). */
+export type WalkLegFetcher = (from: LatLng, to: LatLng) => Promise<FetchedWalkLeg | null>;
 
-/** PURE+async: whole walking minutes between two points (0 when already there). */
-export async function walkLegMinutes(
-  from: LatLng,
-  to: LatLng,
-  fetchWalkSeconds: WalkSecondsFetcher,
-): Promise<number> {
-  const m = haversineMeters(from.lat, from.lng, to.lat, to.lng);
-  if (!Number.isFinite(m) || m <= WALK_LEG_SKIP_M) return 0;
-  let seconds: number | null = null;
-  try { seconds = await fetchWalkSeconds(from, to); } catch { seconds = null; }
-  if (seconds != null && Number.isFinite(seconds) && seconds >= 0) {
-    return Math.max(1, Math.round(seconds / 60));
-  }
-  // Network / API failure: never silently drop the leg from the total — straight-line estimate.
-  return Math.max(1, Math.round(m / FALLBACK_WALK_M_PER_MIN));
+export interface WalkLeg {
+  minutes: number;
+  /** Real street geometry for drawing; null when already there OR the fetch failed (no guessed line). */
+  path: [number, number][] | null;
 }
 
-/** The real fetch — same Mapbox walking Directions call useWalkToRoute makes (duration in s). */
-export const fetchMapboxWalkSeconds: WalkSecondsFetcher = async (from, to) => {
+/** PURE+async: one walking leg (0 min, no path when already there). */
+export async function walkLeg(from: LatLng, to: LatLng, fetchLeg: WalkLegFetcher): Promise<WalkLeg> {
+  const m = haversineMeters(from.lat, from.lng, to.lat, to.lng);
+  if (!Number.isFinite(m) || m <= WALK_LEG_SKIP_M) return { minutes: 0, path: null };
+  let fetched: FetchedWalkLeg | null = null;
+  try { fetched = await fetchLeg(from, to); } catch { fetched = null; }
+  if (fetched && Number.isFinite(fetched.seconds) && fetched.seconds >= 0) {
+    return {
+      minutes: Math.max(1, Math.round(fetched.seconds / 60)),
+      path: fetched.path && fetched.path.length >= 2 ? fetched.path : null,
+    };
+  }
+  // Network / API failure: never silently drop the leg from the total — straight-line estimate.
+  return { minutes: Math.max(1, Math.round(m / FALLBACK_WALK_M_PER_MIN)), path: null };
+}
+
+/** The real fetch — same Mapbox walking Directions call useWalkToRoute makes. */
+export const fetchMapboxWalkLeg: WalkLegFetcher = async (from, to) => {
   const { MapboxService } = await import('@/features/parks/core/services/mapbox.service');
   const result = await MapboxService.getSmartPath(
     { lng: from.lng, lat: from.lat },
     { lng: to.lng, lat: to.lat },
     'walking',
   );
-  return result && Number.isFinite(result.duration) ? result.duration : null;
+  if (!result || !Number.isFinite(result.duration)) return null;
+  return { seconds: result.duration, path: result.path };
 };
 
 export interface RoundTripLegs {
   walkThereMin: number;
   walkBackMin: number;
+  /** Street geometry for the map line; null → leg not drawn. */
+  walkTherePath: [number, number][] | null;
+  walkBackPath: [number, number][] | null;
 }
 
 /**
@@ -87,13 +98,16 @@ export async function composeRoundTripLegs(
   user: LatLng,
   entry: LatLng,
   end: LatLng,
-  fetchWalkSeconds: WalkSecondsFetcher,
+  fetchLeg: WalkLegFetcher,
 ): Promise<RoundTripLegs> {
-  const [walkThereMin, walkBackMin] = await Promise.all([
-    walkLegMinutes(user, entry, fetchWalkSeconds),
-    walkLegMinutes(end, user, fetchWalkSeconds),
+  const [there, back] = await Promise.all([
+    walkLeg(user, entry, fetchLeg),
+    walkLeg(end, user, fetchLeg),
   ]);
-  return { walkThereMin, walkBackMin };
+  return {
+    walkThereMin: there.minutes, walkBackMin: back.minutes,
+    walkTherePath: there.path, walkBackPath: back.path,
+  };
 }
 
 /** PURE: the displayed total — workout minutes, plus both walk legs when round-trip is on. */
@@ -104,4 +118,20 @@ export function displayTotalMin(
 ): number {
   if (!legs || !roundTripOn) return workoutMin;
   return workoutMin + legs.walkThereMin + legs.walkBackMin;
+}
+
+/**
+ * PURE: the map overlay for the walk legs — a FeatureCollection of up to two LineStrings, or null
+ * when round-trip is off / nothing is drawable. Rendered by AppMap with the SAME paint as the
+ * walk-to-route line (WALK_LEG_LINE_PAINT).
+ */
+export function buildWalkLegsGeoJSON(
+  legs: RoundTripLegs | null | undefined,
+  roundTripOn: boolean,
+): GeoJSON.FeatureCollection | null {
+  if (!legs || !roundTripOn) return null;
+  const features: GeoJSON.Feature[] = [];
+  if (legs.walkTherePath) features.push({ type: 'Feature', properties: { leg: 'there' }, geometry: { type: 'LineString', coordinates: legs.walkTherePath } });
+  if (legs.walkBackPath) features.push({ type: 'Feature', properties: { leg: 'back' }, geometry: { type: 'LineString', coordinates: legs.walkBackPath } });
+  return features.length > 0 ? { type: 'FeatureCollection', features } : null;
 }
