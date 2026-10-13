@@ -993,8 +993,9 @@ export default function SmartWeeklySchedule({
             }
             return;
           }
-          // 4xx (401/403 incl. anonymous) is final; only 5xx is retried.
-          if (res.status < 500) return;
+          // 4xx (401/403 incl. anonymous) and 503 (secret not configured —
+          // deterministic) are final; only transient 500/502/504 is retried.
+          if (![500, 502, 504].includes(res.status)) return;
         } catch {
           // network failure — fall through to retry
         }
