@@ -71,6 +71,7 @@ ${MATCHED}
    Allowed only in:
      src/app/api/social/group-membership/route.ts
      src/app/api/social/reconcile-group-membership/route.ts
+     src/app/api/admin/community-groups/delete/route.ts
    Use updateSocialGroupIds() from group.service — never write the field directly."
     fi
   done <<< "$STAGED_TS"

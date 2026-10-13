@@ -156,6 +156,7 @@ export default function ReportsPage() {
   const [chatModal, setChatModal] = useState<{ targetId: string; targetName: string } | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
+  const [chatError, setChatError] = useState(false);
 
   // Park Detail Drawer
   const [detailParkId, setDetailParkId] = useState<string | null>(null);
@@ -287,16 +288,23 @@ export default function ReportsPage() {
     setChatModal({ targetId: report.targetId, targetName: report.targetName });
     setChatLoading(true);
     setChatMessages([]);
+    setChatError(false);
     try {
-      const chatId = `group_${report.targetId}`;
-      const q = query(collection(db, 'chats', chatId, 'messages'), orderBy('sentAt', 'desc'), limit(50));
-      const snap = await getDocs(q);
-      setChatMessages(snap.docs.map(d => ({
-        id: d.id, senderName: d.data().senderName ?? 'משתמש', text: d.data().text ?? '',
-        sentAt: d.data().sentAt, type: d.data().type,
-      })).reverse());
+      // Scoped, audited server route (the chats collection is root-only for
+      // direct client reads). Only the reportId is sent — the server decides
+      // which group's chat that report refers to and whether this caller may
+      // see it. Every successful read is written to audit_logs.
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error('not signed in');
+      const res = await fetch(`/api/admin/reports/${encodeURIComponent(report.id)}/chat`, {
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      if (!res.ok) throw new Error(`chat fetch failed (${res.status})`);
+      const body = (await res.json()) as { messages?: ChatMsg[] };
+      setChatMessages(body.messages ?? []);
     } catch (err) {
-      console.error('[ReportsPage] chat load failed:', err);
+      console.error('[ReportsPage] chat load failed:', err instanceof Error ? err.message : 'unknown');
+      setChatError(true);
     } finally {
       setChatLoading(false);
     }
@@ -520,6 +528,10 @@ export default function ReportsPage() {
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
               {chatLoading ? (
                 <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-300" /></div>
+              ) : chatError ? (
+                <div className="text-center py-16">
+                  <p className="text-sm text-red-500 font-bold">אין הרשאה או שגיאה בטעינת הצ'אט — ההודעות לא נטענו</p>
+                </div>
               ) : chatMessages.length === 0 ? (
                 <div className="text-center py-16">
                   <MessageCircle className="w-10 h-10 text-gray-200 mx-auto mb-2" />
