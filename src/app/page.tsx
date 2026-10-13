@@ -23,6 +23,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import BrandedSplashScreen from '@/components/BrandedSplashScreen';
 import { useToast } from '@/components/ui/Toast';
+import BrandCtaButton from '@/components/ui/BrandCtaButton';
 
 // localStorage key written by `auth.service.ts` on every positive auth
 // emission and cleared in `signOutUser`. Read here on first paint to
@@ -859,18 +860,18 @@ export default function LandingPage() {
             </AnimatePresence>
 
             {/* Primary Button: הרשמה מהירה */}
-            <motion.button
+            <BrandCtaButton
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.35 }}
               whileTap={{ scale: 0.97 }}
               onClick={handleQuickSignup}
-              className="w-full bg-[#5BC2F2] hover:bg-[#4AADE3] text-on-brand font-bold py-4 rounded-2xl shadow-xl shadow-[#5BC2F2]/20 transition-all active:scale-[0.98] text-base"
+              className="w-full py-4 text-base"
               style={{ fontFamily: 'var(--font-simpler)' }}
               dir="rtl"
             >
               הרשמה מהירה
-            </motion.button>
+            </BrandCtaButton>
 
             {/* Secondary Button: התחברות */}
             <motion.button

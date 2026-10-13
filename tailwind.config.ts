@@ -32,6 +32,10 @@ const config: Config = {
         "card-dark": "#1E293B",
         "background-dark": "#0F172A",
       },
+      backgroundImage: {
+        // Primary brand CTA fill (BrandCtaButton). Pair with `text-on-brand`.
+        "brand-cta": "linear-gradient(135deg, #00BAF7 0%, #0CF2E3 100%)",
+      },
       boxShadow: {
         // Premium OUT design system - subtle, professional shadows
         subtle: '0 1px 3px rgba(0,0,0,0.05)',

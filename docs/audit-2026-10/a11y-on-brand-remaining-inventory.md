@@ -94,3 +94,16 @@ Generated 13.10.2026 by a regex pass over consumer .tsx (admin/authority/wedding
 | src/features/workout-engine/players/strength/components/WorkoutTimeline.tsx | 36? |
 | src/features/workout-engine/players/strength/playlist/WorkoutBlockCard.tsx | 297? |
 | src/features/workout-engine/players/strength/playlist/blocks/StrengthExerciseCard.tsx | 241? |
+
+---
+
+## Follow-up (flagged, NOT fixed in PR 2): CTAs that don't use `BrandCtaButton`
+
+`BrandCtaButton` (src/components/ui/BrandCtaButton.tsx; gradient #00BAF7→#0CF2E3, `text-on-brand`, pill) now backs only the landing "הרשמה מהירה". Candidates to migrate for visual consistency (David to decide per screen):
+
+**Flat single-colour brand fills (pale/flat look, now with dark text):**
+app/page.tsx:333 (existing-account modal), roadmap/page.tsx:63, onboarding-new/health:285, onboarding-new/dynamic:650, arena/create:341,416, gateway:125, WorkoutBuilderSheet:1267, EquipmentEditorSheet:301, SettingsModal:1777, AddWorkoutModal:533, SaveProgressScreen:55, HealthDeclarationStep:539,874, PersonaQuestionsDrawer:286, SummaryReveal:287, HistoryStep:363, PersonaStep:734, AccessCodeStep:83, InitialCard:68, ConfirmationCard:440, ActiveProgramsCarousel:50, ProgramDrawer:113, ProgramsSection:274, AccessCodeGate:127, AuthModal:224, HealthConnectDisclosureModal:167.
+
+**Other gradient variants (not the canonical brand gradient):** `from-[#00C9F2] to-[#5BC2F2]` (profile page ×2, StatsOverview, StickyActionButton default), `from-[#00ADEF] to-[#5BC2F2]` (SettingsModal, EditProfileModal), `from-[#00E5FF] to-[#00B8D4]` (AlertModal, HeroCard ×2), `from-[#5BC2F2] to-[#3BA4D8]`.
+
+**Duplicates of the exact canonical gradient written inline** (candidates to dedupe onto `bg-brand-cta`): HeroWorkoutCard (CTA pill), StickyActionButton (premium), WorkoutBuilderSheet, StatsOverview, SmartWeeklySchedule, WorkoutSelectionCarousel, StepsAnalyticsPage, ExerciseReplacementModal, BlurredHowStep, onboarding-new/profile, public/forms/photo-release.
