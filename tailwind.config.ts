@@ -22,6 +22,10 @@ const config: Config = {
         // token so the dozens of one-off `#00ADEF` / `#00BAF7` /
         // `#00E5FF` literals can collapse to a single source of truth.
         "out-cyan": "#00ADEF",
+        // Text/icon colour for anything drawn ON a brand-cyan fill (#5BC2F2/#00BAF7/#00C9F2/#0CF2E3
+        // gradients, bg-cyan-*, bg-primary). White on those fills is 1.4-2.4:1 (fails WCAG AA);
+        // slate-900 gives 6.9-12.5:1. Use `text-on-brand`, never `text-white`, on a brand fill.
+        "on-brand": "#0F172A",
         "card-light": "#ffffff",
         "background-light": "#f5f5f7",
         // Dark mode colors (for StrengthDopamineScreen & future dark mode)

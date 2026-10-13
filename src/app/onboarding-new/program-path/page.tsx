@@ -600,7 +600,7 @@ export default function ProgramPathPage() {
                   </span>
                 )}
                 <div className="w-6 h-6 rounded-full bg-[#5BC2F2] flex items-center justify-center">
-                  <Check size={14} className="text-white" strokeWidth={3} />
+                  <Check size={14} className="text-on-brand" strokeWidth={3} />
                 </div>
               </motion.div>
             )}
@@ -698,7 +698,7 @@ export default function ProgramPathPage() {
                   </span>
                 )}
                 <div className="w-6 h-6 rounded-full bg-[#5BC2F2] flex items-center justify-center">
-                  <Check size={14} className="text-white" strokeWidth={3} />
+                  <Check size={14} className="text-on-brand" strokeWidth={3} />
                 </div>
               </motion.div>
             )}
@@ -790,7 +790,7 @@ export default function ProgramPathPage() {
                                     : 'bg-white border-[#E0E9FF]'
                               }`}
                             >
-                              {fullySelected && <Check size={13} className="text-white" strokeWidth={3} />}
+                              {fullySelected && <Check size={13} className="text-on-brand" strokeWidth={3} />}
                             </button>
                           </div>
 
@@ -972,7 +972,7 @@ export default function ProgramPathPage() {
                   </span>
                 )}
                 <div className="w-6 h-6 rounded-full bg-[#5BC2F2] flex items-center justify-center">
-                  <Check size={14} className="text-white" strokeWidth={3} />
+                  <Check size={14} className="text-on-brand" strokeWidth={3} />
                 </div>
               </motion.div>
             )}

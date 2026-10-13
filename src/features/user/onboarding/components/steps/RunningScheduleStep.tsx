@@ -558,7 +558,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
                         is the separate strength marker next to it). */}
                     {isStrength && (
                       <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-[#5BC2F2] flex items-center justify-center pointer-events-none">
-                        <span className="text-[7px] text-white font-bold leading-none">כ</span>
+                        <span className="text-[7px] text-on-brand font-bold leading-none">כ</span>
                       </div>
                     )}
                   </div>

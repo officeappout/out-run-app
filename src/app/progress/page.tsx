@@ -137,7 +137,7 @@ export default function ProgressPage() {
           </div>
           <button
             onClick={() => setShowAddModal(true)}
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-[#00C9F2] text-white shadow-lg shadow-cyan-500/30 active:scale-90 transition-all"
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-[#00C9F2] text-on-brand shadow-lg shadow-cyan-500/30 active:scale-90 transition-all"
             aria-label="הוסף אימון"
           >
             <Plus className="w-5 h-5" strokeWidth={2.5} />

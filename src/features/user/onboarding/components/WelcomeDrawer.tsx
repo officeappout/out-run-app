@@ -90,7 +90,7 @@ export default function WelcomeDrawer({
         <div className="flex flex-col gap-3">
           <button
             onClick={onStrengthProgram}
-            className="w-full flex items-center gap-4 p-4 rounded-2xl bg-gradient-to-l from-[#5BC2F2] to-[#3BA4D8] text-white shadow-lg shadow-cyan-500/30 active:scale-[0.98] transition-transform"
+            className="w-full flex items-center gap-4 p-4 rounded-2xl bg-gradient-to-l from-[#5BC2F2] to-[#3BA4D8] text-on-brand shadow-lg shadow-cyan-500/30 active:scale-[0.98] transition-transform"
           >
             <span className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
               <Dumbbell size={22} />

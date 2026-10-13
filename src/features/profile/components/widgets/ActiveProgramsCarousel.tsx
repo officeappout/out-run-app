@@ -47,7 +47,7 @@ export default function ActiveProgramsCarousel() {
           <button
             type="button"
             onClick={() => router.push('/home')}
-            className="mt-1 px-5 py-2 bg-[#00C9F2] text-white text-sm font-bold rounded-full active:scale-95 transition-transform"
+            className="mt-1 px-5 py-2 bg-[#00C9F2] text-on-brand text-sm font-bold rounded-full active:scale-95 transition-transform"
           >
             בחר תוכנית
           </button>

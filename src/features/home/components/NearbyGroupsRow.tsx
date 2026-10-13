@@ -289,7 +289,7 @@ export default function NearbyGroupsRow() {
                 aria-expanded={filterOpen}
                 className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
                   filterOpen || categoryFilter !== 'all'
-                    ? 'bg-cyan-500 text-white'
+                    ? 'bg-cyan-500 text-on-brand'
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
                 }`}
               >
@@ -318,7 +318,7 @@ export default function NearbyGroupsRow() {
                 onClick={() => { setCategoryFilter(chip.key); if (chip.key !== 'all') setFilterOpen(false); }}
                 className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-colors min-h-[36px] ${
                   categoryFilter === chip.key
-                    ? 'bg-cyan-500 text-white shadow-sm shadow-cyan-500/30'
+                    ? 'bg-cyan-500 text-on-brand shadow-sm shadow-cyan-500/30'
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
                 }`}
               >

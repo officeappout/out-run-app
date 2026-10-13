@@ -284,7 +284,7 @@ export default function ExerciseAnalyticsPage({ exerciseId, exerciseNameHint }: 
                 className={[
                   'flex-1 py-2 text-xs font-black rounded-xl border transition-all',
                   metric === key
-                    ? 'bg-[#00ADEF] text-white border-[#00ADEF] shadow-subtle'
+                    ? 'bg-[#00ADEF] text-on-brand border-[#00ADEF] shadow-subtle'
                     : 'bg-white text-gray-500 border-gray-200',
                 ].join(' ')}
               >

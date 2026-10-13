@@ -1675,7 +1675,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                 selected ? 'border-cyan-500 bg-cyan-500' : 'border-gray-300'
                               }`}
                             >
-                              {selected && <Check size={12} className="text-white" />}
+                              {selected && <Check size={12} className="text-on-brand" />}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1.5">
@@ -1774,7 +1774,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                     type="button"
                                     onClick={() => { void handleAddReminder(); }}
                                     disabled={remindersSaving}
-                                    className="flex-1 py-2 text-sm font-bold text-white bg-cyan-500 rounded-xl hover:bg-cyan-600 font-simpler disabled:opacity-50"
+                                    className="flex-1 py-2 text-sm font-bold text-on-brand bg-cyan-500 rounded-xl hover:bg-cyan-600 font-simpler disabled:opacity-50"
                                   >
                                     הוסף
                                   </button>
@@ -2250,7 +2250,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     type="button"
                     onClick={savePersonalEdit}
                     disabled={editSaving}
-                    className="w-full py-3.5 rounded-2xl bg-gradient-to-l from-[#00ADEF] to-[#5BC2F2] text-white font-bold text-sm shadow-lg shadow-cyan-500/20 active:scale-[0.98] transition-transform flex items-center justify-center gap-2 disabled:opacity-60"
+                    className="w-full py-3.5 rounded-2xl bg-gradient-to-l from-[#00ADEF] to-[#5BC2F2] text-on-brand font-bold text-sm shadow-lg shadow-cyan-500/20 active:scale-[0.98] transition-transform flex items-center justify-center gap-2 disabled:opacity-60"
                   >
                     {editSaving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={3} />}
                     שמירה

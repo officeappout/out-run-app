@@ -612,7 +612,7 @@ export default function SearchPage() {
                       <span
                         className={`inline-flex items-center justify-center min-w-[17px] h-[17px] px-1 rounded-full text-[10px] font-bold leading-none ${
                           active
-                            ? 'bg-[#00ADEF] text-white'
+                            ? 'bg-[#00ADEF] text-on-brand'
                             : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
                         }`}
                       >
@@ -674,7 +674,7 @@ export default function SearchPage() {
                 aria-expanded={filterPanelOpen}
                 className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors flex-shrink-0 ${
                   filterPanelOpen || groupCategoryFilter !== 'all'
-                    ? 'bg-[#00ADEF] text-white'
+                    ? 'bg-[#00ADEF] text-on-brand'
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
                 }`}
               >
@@ -698,7 +698,7 @@ export default function SearchPage() {
                   }}
                   className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-colors min-h-[36px] ${
                     groupCategoryFilter === chip.key
-                      ? 'bg-[#00ADEF] text-white'
+                      ? 'bg-[#00ADEF] text-on-brand'
                       : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
                   }`}
                 >

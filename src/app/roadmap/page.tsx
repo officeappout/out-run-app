@@ -60,7 +60,7 @@ export default function RoadmapPage() {
           <div className="space-y-3 pt-6">
             <button
               onClick={() => router.push('/home')}
-              className="w-full bg-[#5BC2F2] text-white py-4 rounded-2xl font-bold text-lg hover:bg-[#4ab0e0] transition-colors shadow-lg"
+              className="w-full bg-[#5BC2F2] text-on-brand py-4 rounded-2xl font-bold text-lg hover:bg-[#4ab0e0] transition-colors shadow-lg"
             >
               לך לדף הבית
             </button>

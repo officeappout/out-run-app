@@ -48,7 +48,7 @@ export default function TrainingTimePicker({
                 onClick={() => onTimeChange({ hours: displayHour })}
                 className={`w-14 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${
                   isSelected
-                    ? 'bg-[#5BC2F2] text-white text-lg shadow-[0_4px_12px_rgba(91,194,242,0.2)]'
+                    ? 'bg-[#5BC2F2] text-on-brand text-lg shadow-[0_4px_12px_rgba(91,194,242,0.2)]'
                     : 'bg-white text-slate-400 text-sm border border-slate-200 hover:border-slate-300'
                 }`}
                 style={{ fontFamily: 'var(--font-simpler)', fontWeight: isSelected ? 700 : 500 }}
@@ -80,7 +80,7 @@ export default function TrainingTimePicker({
                 onClick={() => onTimeChange({ minutes: displayMinute })}
                 className={`w-14 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${
                   isSelected
-                    ? 'bg-[#5BC2F2] text-white text-lg shadow-[0_4px_12px_rgba(91,194,242,0.2)]'
+                    ? 'bg-[#5BC2F2] text-on-brand text-lg shadow-[0_4px_12px_rgba(91,194,242,0.2)]'
                     : 'bg-white text-slate-400 text-sm border border-slate-200 hover:border-slate-300'
                 }`}
                 style={{ fontFamily: 'var(--font-simpler)', fontWeight: isSelected ? 700 : 500 }}

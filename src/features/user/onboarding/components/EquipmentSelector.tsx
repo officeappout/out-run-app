@@ -133,7 +133,7 @@ export default function EquipmentSelector({
                       transition-all duration-200
                       active:scale-95
                       ${isSelected
-                        ? 'bg-[#00C9F2] text-white shadow-md shadow-[#00C9F2]/30'
+                        ? 'bg-[#00C9F2] text-on-brand shadow-md shadow-[#00C9F2]/30'
                         : 'bg-gray-50 text-gray-700 border-2 border-gray-200 hover:border-gray-300'
                       }
                     `}

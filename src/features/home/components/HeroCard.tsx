@@ -101,7 +101,7 @@ export default function HeroCard({
         <div className="px-6 pb-6">
           <button
             onClick={onStart}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#00E5FF] to-[#00B8D4] text-white font-bold text-lg shadow-lg shadow-[#00E5FF]/30 active:scale-95 transition-transform"
+            className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#00E5FF] to-[#00B8D4] text-on-brand font-bold text-lg shadow-lg shadow-[#00E5FF]/30 active:scale-95 transition-transform"
           >
             אני על הגל, תציעו לי עוד אימון!
           </button>
@@ -175,7 +175,7 @@ export default function HeroCard({
         {/* CTA Button */}
         <button
           onClick={onStart}
-          className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#00E5FF] to-[#00B8D4] text-white font-bold text-lg shadow-lg shadow-[#00E5FF]/30 active:scale-95 transition-transform"
+          className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#00E5FF] to-[#00B8D4] text-on-brand font-bold text-lg shadow-lg shadow-[#00E5FF]/30 active:scale-95 transition-transform"
         >
           יאללה, אפשר להתחיל!
         </button>

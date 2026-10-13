@@ -36,7 +36,7 @@ export default function BlurryBridgeOverlay({
           {/* Icon */}
           <div className="flex justify-center mb-4">
             <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#5BC2F2] to-[#3BA4D8] flex items-center justify-center shadow-lg">
-              <Calendar size={32} className="text-white" />
+              <Calendar size={32} className="text-on-brand" />
             </div>
           </div>
 
@@ -65,7 +65,7 @@ export default function BlurryBridgeOverlay({
           <motion.button
             onClick={onStartWizard}
             whileTap={{ scale: 0.97 }}
-            className="w-full py-4 bg-gradient-to-r from-[#5BC2F2] to-[#3BA4D8] text-white font-bold text-lg rounded-2xl shadow-lg shadow-cyan-500/30 active:shadow-xl transition-all mb-3"
+            className="w-full py-4 bg-gradient-to-r from-[#5BC2F2] to-[#3BA4D8] text-on-brand font-bold text-lg rounded-2xl shadow-lg shadow-cyan-500/30 active:shadow-xl transition-all mb-3"
           >
             בואו נתחיל
           </motion.button>

@@ -78,7 +78,7 @@ export default function ScheduleDayBand({
                     isRest
                       ? 'bg-slate-100 text-slate-500'
                       : 'bg-[#5BC2F2]/15 text-[#5BC2F2]'
-                  } ${isPopoverOpen ? 'bg-[#5BC2F2] text-white' : ''}`}
+                  } ${isPopoverOpen ? 'bg-[#5BC2F2] text-on-brand' : ''}`}
                   style={{ fontFamily: 'var(--font-simpler)' }}
                 >
                   {dayLabel}

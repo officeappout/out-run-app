@@ -104,7 +104,7 @@ export default function DayPopover({
                   isPicked ? 'bg-[#5BC2F2]' : 'bg-slate-100 border border-slate-200'
                 }`}
               >
-                {isPicked && <Check size={12} className="text-white" strokeWidth={3} />}
+                {isPicked && <Check size={12} className="text-on-brand" strokeWidth={3} />}
               </div>
             </button>
           );

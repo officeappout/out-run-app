@@ -122,7 +122,7 @@ function GuestTransitionOverlay({ status, onRetry, onExit }: GuestTransitionOver
           <div className="w-full max-w-xs flex flex-col gap-3">
             <button
               onClick={onRetry}
-              className="w-full py-3.5 rounded-2xl bg-[#5BC2F2] text-white font-bold text-sm"
+              className="w-full py-3.5 rounded-2xl bg-[#5BC2F2] text-on-brand font-bold text-sm"
             >
               נסה שוב
             </button>

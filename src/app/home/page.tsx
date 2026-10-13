@@ -3431,7 +3431,7 @@ export default function HomePage() {
       {SOCIAL_COMPOSE_UI_ENABLED && !showPlanner && !showLifestyleWizard && !builderOpen && !editEntry && !selectedWorkout && (
         <button
           onClick={() => setPlusDrawerOpen(true)}
-          className="fixed z-[55] w-14 h-14 rounded-full shadow-xl flex items-center justify-center bg-[#00E5FF] text-white active:scale-95 transition-all"
+          className="fixed z-[55] w-14 h-14 rounded-full shadow-xl flex items-center justify-center bg-[#00E5FF] text-on-brand active:scale-95 transition-all"
           style={{ bottom: 'calc(84px + env(safe-area-inset-bottom, 0px))', right: '16px' }}
           title="הוסף"
         >

@@ -376,7 +376,7 @@ export default function PublicProfilePage() {
                     className={`flex-1 py-2.5 rounded-full text-sm font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${
                       followed
                         ? 'bg-gray-100 text-gray-600 border border-gray-200'
-                        : 'bg-[#00ADEF] text-white'
+                        : 'bg-[#00ADEF] text-on-brand'
                     }`}
                   >
                     {followed ? (

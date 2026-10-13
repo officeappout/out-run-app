@@ -62,12 +62,12 @@ export default function StickyActionButton({
                     ? 'bg-slate-300 text-slate-400 shadow-none cursor-not-allowed'
                     : 'text-black shadow-md shadow-cyan-400/25 hover:brightness-105 active:scale-95'
               }`
-            : `rounded-2xl font-black text-lg text-white ${
+            : `rounded-2xl font-black text-lg ${
                 state === 'success'
-                  ? 'bg-[#10B981] shadow-lg shadow-emerald-500/30'
+                  ? 'text-white bg-[#10B981] shadow-lg shadow-emerald-500/30'
                   : disabled
-                    ? 'bg-slate-300 shadow-none cursor-not-allowed'
-                    : 'bg-gradient-to-l from-[#00C9F2] to-[#5BC2F2] shadow-xl shadow-[#5BC2F2]/30 hover:shadow-2xl active:scale-[0.97]'
+                    ? 'text-white bg-slate-300 shadow-none cursor-not-allowed'
+                    : 'text-on-brand bg-gradient-to-l from-[#00C9F2] to-[#5BC2F2] shadow-xl shadow-[#5BC2F2]/30 hover:shadow-2xl active:scale-[0.97]'
               }`
         }`}
         style={{

@@ -123,7 +123,7 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false }: 
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-cyan-400 to-blue-500 text-white text-xs font-bold">
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-cyan-400 to-blue-500 text-on-brand text-xs font-bold">
               {userName.charAt(0).toUpperCase() || (
                 <Users className="w-4 h-4" />
               )}
@@ -184,7 +184,7 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false }: 
         >
           <MessageCircle className="w-5 h-5 text-gray-600" />
           {chatUnread > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-cyan-500 text-white text-[9px] font-black flex items-center justify-center px-1 shadow-sm">
+            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-cyan-500 text-on-brand text-[9px] font-black flex items-center justify-center px-1 shadow-sm">
               {chatUnread > 99 ? '99+' : chatUnread}
             </span>
           )}

@@ -49,7 +49,7 @@ export default function AlertModal({ type, onClose, onAction }: AlertModalProps)
           {/* CTA Button */}
           <button
             onClick={onAction}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#00E5FF] to-[#00B8D4] text-white font-bold text-lg shadow-lg shadow-[#00E5FF]/30 active:scale-95 transition-transform mt-6"
+            className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#00E5FF] to-[#00B8D4] text-on-brand font-bold text-lg shadow-lg shadow-[#00E5FF]/30 active:scale-95 transition-transform mt-6"
           >
             {currentContent.button}
           </button>

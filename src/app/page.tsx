@@ -329,7 +329,7 @@ function ExistingAccountModal({
           <button
             onClick={onConfirm}
             disabled={loading}
-            className="w-full bg-[#00C9F2] text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-[#00B4D8] active:scale-[0.98] transition-all disabled:opacity-50"
+            className="w-full bg-[#00C9F2] text-on-brand py-3.5 rounded-2xl font-bold text-sm hover:bg-[#00B4D8] active:scale-[0.98] transition-all disabled:opacity-50"
           >
             {loading ? 'מתחבר...' : `כניסה לחשבון ה-${providerLabel} הקיים`}
           </button>
@@ -865,7 +865,7 @@ export default function LandingPage() {
               transition={{ duration: 0.5, delay: 0.35 }}
               whileTap={{ scale: 0.97 }}
               onClick={handleQuickSignup}
-              className="w-full bg-[#5BC2F2] hover:bg-[#4AADE3] text-white font-bold py-4 rounded-2xl shadow-xl shadow-[#5BC2F2]/20 transition-all active:scale-[0.98] text-base"
+              className="w-full bg-[#5BC2F2] hover:bg-[#4AADE3] text-on-brand font-bold py-4 rounded-2xl shadow-xl shadow-[#5BC2F2]/20 transition-all active:scale-[0.98] text-base"
               style={{ fontFamily: 'var(--font-simpler)' }}
               dir="rtl"
             >

@@ -80,7 +80,7 @@ export default function AccessCodeStep({ onNext }: AccessCodeStepProps) {
         </div>
         <button
           onClick={onNext}
-          className="w-full max-w-xs py-3.5 rounded-xl font-semibold text-white bg-primary transition-opacity"
+          className="w-full max-w-xs py-3.5 rounded-xl font-semibold text-on-brand bg-primary transition-opacity"
         >
           המשך
         </button>
@@ -138,7 +138,7 @@ export default function AccessCodeStep({ onNext }: AccessCodeStepProps) {
       <button
         onClick={handleSubmit}
         disabled={loading || !code.trim()}
-        className="w-full max-w-xs py-3.5 rounded-xl font-semibold text-white
+        className="w-full max-w-xs py-3.5 rounded-xl font-semibold text-on-brand
                    bg-primary disabled:opacity-40 transition-opacity"
       >
         {loading ? 'בודק...' : 'אישור'}

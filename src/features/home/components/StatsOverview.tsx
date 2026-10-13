@@ -1498,7 +1498,7 @@ export default function StatsOverview({
                   setShowNudge(false);
                   onStartWorkout?.();
                 }}
-                className="w-full h-14 rounded-2xl font-bold text-white text-base mb-4 bg-gradient-to-l from-[#00C9F2] to-[#00AEEF] shadow-lg shadow-cyan-500/20 active:scale-[0.98] transition-transform"
+                className="w-full h-14 rounded-2xl font-bold text-on-brand text-base mb-4 bg-gradient-to-l from-[#00C9F2] to-[#00AEEF] shadow-lg shadow-cyan-500/20 active:scale-[0.98] transition-transform"
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
                 התחל אבחון רמה

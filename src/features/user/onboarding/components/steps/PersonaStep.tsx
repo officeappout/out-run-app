@@ -648,7 +648,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
                   onClick={() => handleGoalToggle(goal)}
                   className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
                     isSelected
-                      ? 'bg-[#5BC2F2] text-white shadow-[0_4px_16px_rgba(91,194,242,0.25)]'
+                      ? 'bg-[#5BC2F2] text-on-brand shadow-[0_4px_16px_rgba(91,194,242,0.25)]'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
@@ -658,7 +658,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
                       animate={{ scale: 1, width: 'auto' }}
                       className="flex items-center justify-center w-4 h-4 bg-white/25 rounded-full"
                     >
-                      <Check size={10} className="text-white" strokeWidth={3} />
+                      <Check size={10} className="text-on-brand" strokeWidth={3} />
                     </motion.span>
                   )}
                   <span>{isHebrew ? goal.shortTitleHe : goal.shortTitleEn}</span>
@@ -731,7 +731,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
                   </div>
                   <button
                     onClick={handleCodeSuccessContinue}
-                    className="w-full py-3 rounded-xl font-semibold text-white bg-primary"
+                    className="w-full py-3 rounded-xl font-semibold text-on-brand bg-primary"
                   >
                     המשך
                   </button>
