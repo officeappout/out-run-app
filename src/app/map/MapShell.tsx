@@ -185,6 +185,7 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
   // Route-preview chrome (MAP_OVERVIEW_CHROME_V1): true while the hybrid overview
   // drawer is up → fold the AppHeader nav-bar (DiscoverLayer folds the rest).
   const isOverviewActive = useMapStore((s) => s.isOverviewActive);
+  const isSuggestionsFocused = useMapStore((s) => s.isSuggestionsFocused);
 
   // Presence heartbeat ONLY — disabled in demo mode so no writes reach Firestore.
   // heartbeatOnly=true skips this hook's onSnapshot marker listener + 60s heatmap
@@ -521,7 +522,7 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
         // wrapper would be a no-op). AnimatePresence initial={false} → no intro on
         // first map load; slide only on open/close.
         <AnimatePresence initial={false}>
-          {!isActiveMode && !isOverviewActive && (
+          {!isActiveMode && !isOverviewActive && !isSuggestionsFocused && (
             <motion.div
               key="app-header-overlay"
               className="absolute inset-x-0 top-0 z-[75] pointer-events-none"

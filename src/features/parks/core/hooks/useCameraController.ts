@@ -362,6 +362,11 @@ export function useCameraController(params: CameraControllerParams): CameraContr
   // cancel the pending timer and restart it, so only the final resting card
   // ever drives a camera move.
   const lastFocusedRouteIdRef = useRef<string | null>(null);
+  // Focused-suggestions state (DiscoverLayer): frame the user avatar TOGETHER with the suggested route.
+  // Read via the store (like overviewSheetHeightPx below) so no prop has to thread through AppMap. Kept in
+  // a ref so toggling it never re-runs the main camera effect on its own.
+  const suggestionsFocusedRef = useRef(false);
+  suggestionsFocusedRef.current = useMapStore((s) => s.isSuggestionsFocused);
   const fitBoundsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── One-shot fit-all on entering discover mode ──
@@ -844,8 +849,15 @@ export function useCameraController(params: CameraControllerParams): CameraContr
         // fit with a dynamic bottom padding; skip the static bottom:280 preview fit
         // so the two never fight. (Still update the ref + return so we don't fall
         // through to other camera branches.)
-        if (focusedRoute.id !== lastFocusedRouteIdRef.current && !overviewActiveRef.current) {
-          lastFocusedRouteIdRef.current = focusedRoute.id;
+        // Focused suggestions: every suggestion previews under the SAME synthetic id ('hybrid-route'),
+        // so the id alone would fit only the first card. Key the fit on the path itself so swiping to
+        // another suggestion re-frames (user + that route). Other modes keep the plain id key.
+        const suggestionsFocused = suggestionsFocusedRef.current;
+        const fitKey = suggestionsFocused
+          ? `${focusedRoute.id}|${previewPath.length}|${previewPath[0]?.join(',')}|${previewPath[previewPath.length - 1]?.join(',')}|${currentLocation ? 'u' : ''}`
+          : focusedRoute.id;
+        if (fitKey !== lastFocusedRouteIdRef.current && !overviewActiveRef.current) {
+          lastFocusedRouteIdRef.current = fitKey;
           if (fitBoundsDebounceRef.current) {
             clearTimeout(fitBoundsDebounceRef.current);
           }
@@ -862,16 +874,23 @@ export function useCameraController(params: CameraControllerParams): CameraContr
                 (c) => Array.isArray(c) && c.length === 2 && Number.isFinite(c[0]) && Number.isFinite(c[1]),
               );
               if (valid.length < 2) return;
-              const bounds = valid.reduce(
+              // Focused suggestions: include the user's own position so the avatar is in frame too.
+              const fitCoords = suggestionsFocused && currentLocation
+                && Number.isFinite(currentLocation.lat) && Number.isFinite(currentLocation.lng)
+                ? [...valid, [currentLocation.lng, currentLocation.lat] as [number, number]]
+                : valid;
+              const bounds = fitCoords.reduce(
                 (b, [lng, lat]) => [
                   Math.min(b[0], lng), Math.min(b[1], lat),
                   Math.max(b[2], lng), Math.max(b[3], lat),
                 ],
-                [valid[0][0], valid[0][1], valid[0][0], valid[0][1]],
+                [fitCoords[0][0], fitCoords[0][1], fitCoords[0][0], fitCoords[0][1]],
               );
               if (process.env.NODE_ENV !== 'production') console.log('[Cam] preview-fitBounds (debounced):', focusedRoute.name);
               m.fitBounds(bounds as [number, number, number, number], {
-                padding: { top: 120, bottom: 280, left: 60, right: 60 },
+                // Focused suggestions: the title bar (~52px + safe area) replaces the top chrome, so the
+                // top pad clears it; the slim card sits lower than the legacy bottom:280 reserve.
+                padding: { top: suggestionsFocused ? 130 : 120, bottom: suggestionsFocused ? 260 : 280, left: 60, right: 60 },
                 maxZoom: 16,
                 duration: 600,
               });

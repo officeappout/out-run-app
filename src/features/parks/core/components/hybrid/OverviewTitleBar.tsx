@@ -21,11 +21,14 @@ const OVERVIEW_BLUE = '#00ADEF';
 interface Props {
   /** Workout name shown next to the eyebrow (the selected slot title, e.g. "ריצה + כוח"). */
   title: string;
+  /** Small line above the title. Default "מבט על אימון"; pass null to show the title alone
+   *  (e.g. the "הצעות מסלולים" focused-suggestions state). */
+  eyebrow?: string | null;
   /** Back / close — reuse the SAME handler DiscoverLayer passes to HybridOverviewScreen.onBack. */
   onBack: () => void;
 }
 
-export default function OverviewTitleBar({ title, onBack }: Props) {
+export default function OverviewTitleBar({ title, onBack, eyebrow = 'מבט על אימון' }: Props) {
   return (
     <div
       className="absolute left-0 right-0 z-[70] pointer-events-auto"
@@ -47,7 +50,7 @@ export default function OverviewTitleBar({ title, onBack }: Props) {
           <ArrowRight size={24} />
         </button>
         <div className="min-w-0 flex flex-col justify-center leading-tight">
-          <span className="text-white/85 text-[11px] font-semibold">מבט על אימון</span>
+          {eyebrow ? <span className="text-white/85 text-[11px] font-semibold">{eyebrow}</span> : null}
           {title ? (
             <span className="text-white text-[15px] font-extrabold truncate">{title}</span>
           ) : null}
