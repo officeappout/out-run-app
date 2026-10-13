@@ -61,6 +61,8 @@ export const RATE_LIMITS = {
     ipHourly: () => envWindow('RL_ADMIN_INVITATIONS_IP_HOURLY', HOUR, 30),
     adminShort: () => envWindow('RL_ADMIN_INVITATIONS_ADMIN_SHORT', 15 * MIN, 10),
     adminHourly: () => envWindow('RL_ADMIN_INVITATIONS_ADMIN_HOURLY', HOUR, 20),
+    // GET (scoped list for the authority team page) — per caller uid.
+    list: () => envWindow('RL_ADMIN_INVITATIONS_LIST', MIN, 30),
   },
   // Priority 5 — public Firestore-reading endpoints (survey findings).
   linkClick: {
@@ -71,6 +73,14 @@ export const RATE_LIMITS = {
     ip: () => envWindow('RL_CALENDAR_IP', MIN, 10),
     // Token feed route (keyed per uid, after the MAC verifies).
     token: () => envWindow('RL_CALENDAR_TOKEN', MIN, 30),
+  },
+  // GET /api/admin/reports/[reportId]/chat — reported-chat viewer, per caller uid.
+  reportedChat: {
+    uid: () => envWindow('RL_REPORTED_CHAT_UID', MIN, 30),
+  },
+  // POST /api/admin/community-groups/delete — per caller uid.
+  communityGroupDelete: {
+    uid: () => envWindow('RL_COMMUNITY_GROUP_DELETE_UID', MIN, 30),
   },
   leaderboard: {
     ip: () => envWindow('RL_LEADERBOARD_IP', MIN, 30),

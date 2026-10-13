@@ -84,6 +84,7 @@ import { getRequestIp } from '@/lib/requestIp';
 import { RATE_LIMITS, isBlockedByAny } from '@/lib/rateLimitConfig';
 import { logRateLimitBlock } from '@/lib/rateLimitLog';
 import { resolveUnitPermissionScope, UNIT_SCOPE_UNKNOWN_MESSAGE } from '@/lib/unitPermissionScope';
+import { resolveAuthorityManagerScope } from '@/lib/authorityManagerScope';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -351,5 +352,160 @@ export async function POST(request: NextRequest) {
   } catch (err: any) {
     console.error('[/api/admin/invitations] error:', err?.message ?? err);
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+  }
+}
+
+// ── GET: list invitations for the caller's OWN authority ───────────────────
+//
+// 13.10.2026. firestore.rules restricts `admin_invitations` reads to root
+// (deployed, confirmed live). /admin/authority/team used to query the
+// collection from the browser, so for a real authority manager the call was
+// permission-denied, swallowed into `[]`, and rendered as "no pending
+// invitations" — a false zero. This is the scoped server replacement.
+//
+//   - Scope is derived SERVER-SIDE from authorities.managerIds
+//     (resolveAuthorityManagerScope). The client sends no authority id. Root
+//     may pass ?authorityId=; nobody else's query string is read.
+//   - Covers the caller's authority + its direct children (parentAuthorityId),
+//     matching what the team page showed before, plus tenantId == own.
+//   - Anything that is not (root | authority/tenant manager) — including a
+//     unit_admin and an unknown uid — gets the same generic 403.
+//   - `token` is returned ONLY for unused, unexpired invitations (the page
+//     builds a copy-link from it); used/expired rows carry an empty token.
+//     Tokens, emails and names are never logged.
+
+const GENERIC_FORBIDDEN = 'אין לך הרשאה לצפות בהזמנות.';
+
+export interface ListedInvitation {
+  id: string;
+  email: string;
+  name?: string;
+  role: string;
+  authorityId?: string;
+  tenantId?: string;
+  unitId?: string;
+  teamRole?: string;
+  token: string;
+  isUsed: boolean;
+  expiresAt: string;
+  createdAt: string;
+  usedAt?: string;
+}
+
+function tsToDate(v: unknown): Date | undefined {
+  if (!v) return undefined;
+  if (v instanceof Date) return v;
+  if (typeof v === 'object' && typeof (v as { toDate?: unknown }).toDate === 'function') {
+    return (v as { toDate: () => Date }).toDate();
+  }
+  const d = new Date(v as string | number);
+  return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
+export async function computeListInvitations(
+  db: Firestore,
+  caller: Caller,
+  requestedAuthorityId: string | null,
+  now: Date = new Date(),
+): Promise<{ status: number; body: { invitations: ListedInvitation[] } | { error: string } }> {
+  const forbidden = { status: 403, body: { error: GENERIC_FORBIDDEN } };
+
+  let authorityId: string;
+  if (isRootAdmin(caller.email)) {
+    if (!requestedAuthorityId) return { status: 400, body: { error: 'authorityId required for root' } };
+    authorityId = requestedAuthorityId;
+  } else {
+    const scope = await resolveAuthorityManagerScope(db, caller.uid);
+    if (!scope) return forbidden;
+    authorityId = scope.authorityId;
+  }
+
+  const childSnap = await db.collection('authorities').where('parentAuthorityId', '==', authorityId).get();
+  const authorityIds = [authorityId, ...childSnap.docs.map((d) => d.id)];
+
+  // Firestore `in` caps at 30 values — chunk so a wide parent never throws.
+  const chunks: string[][] = [];
+  for (let i = 0; i < authorityIds.length; i += 30) chunks.push(authorityIds.slice(i, i + 30));
+
+  const snaps = await Promise.all([
+    ...chunks.map((ids) => db.collection('admin_invitations').where('authorityId', 'in', ids).get()),
+    db.collection('admin_invitations').where('tenantId', '==', authorityId).get(),
+  ]);
+
+  const byId = new Map<string, ListedInvitation & { _created: number }>();
+  for (const snap of snaps) {
+    for (const d of snap.docs) {
+      const data = d.data() as Record<string, unknown>;
+      const expiresAt = tsToDate(data.expiresAt) ?? new Date(0);
+      const createdAt = tsToDate(data.createdAt) ?? new Date(0);
+      const usedAt = tsToDate(data.usedAt);
+      const isUsed = data.isUsed === true;
+      const live = !isUsed && expiresAt.getTime() > now.getTime();
+      byId.set(d.id, {
+        id: d.id,
+        email: typeof data.email === 'string' ? data.email : '',
+        name: typeof data.name === 'string' ? data.name : undefined,
+        role: typeof data.role === 'string' ? data.role : 'authority_manager',
+        authorityId: typeof data.authorityId === 'string' ? data.authorityId : undefined,
+        tenantId: typeof data.tenantId === 'string' ? data.tenantId : undefined,
+        unitId: typeof data.unitId === 'string' ? data.unitId : undefined,
+        teamRole: typeof data.teamRole === 'string' ? data.teamRole : undefined,
+        token: live && typeof data.token === 'string' ? data.token : '',
+        isUsed,
+        expiresAt: expiresAt.toISOString(),
+        createdAt: createdAt.toISOString(),
+        usedAt: usedAt?.toISOString(),
+        _created: createdAt.getTime(),
+      });
+    }
+  }
+
+  const invitations = Array.from(byId.values())
+    .sort((a, b) => b._created - a._created)
+    .map(({ _created, ...rest }) => rest);
+  return { status: 200, body: { invitations } };
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get('Authorization') ?? '';
+    const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    if (!idToken) {
+      return NextResponse.json({ error: 'Missing auth token' }, { status: 401 });
+    }
+
+    let uid: string;
+    let email: string | null;
+    try {
+      const decoded = await getAdminAuth().verifyIdToken(idToken, true);
+      uid = decoded.uid;
+      email = (decoded.email as string | undefined) ?? null;
+    } catch {
+      return NextResponse.json({ error: 'Invalid auth token' }, { status: 401 });
+    }
+
+    const db = getAdminDb();
+    const ip = getRequestIp(request);
+    const rl = await isBlockedByAny(db, [
+      { key: `admin-invitations-list:uid:${uid}`, window: RATE_LIMITS.adminInvitations.list() },
+    ]);
+    if (rl.blocked) {
+      logRateLimitBlock({ route: 'admin-invitations-list', dimension: 'uid', ip, identifier: uid });
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.window?.windowMs ?? 60_000) / 1000)) } },
+      );
+    }
+
+    const result = await computeListInvitations(
+      db,
+      { uid, email },
+      request.nextUrl.searchParams.get('authorityId'),
+    );
+    return NextResponse.json(result.body, { status: result.status, headers: { 'Cache-Control': 'no-store' } });
+  } catch (err) {
+    // No uid / email / token / invitation data in the log line.
+    console.error('[api/admin/invitations GET] failed', err instanceof Error ? err.name : 'unknown');
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

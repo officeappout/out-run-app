@@ -27,7 +27,6 @@ import { AdminInvitation, InvitationData } from '@/types/invitation.type';
 import { logAction } from './audit.service';
 import { updateAuthority, getAuthority, getChildrenByParent } from './authority.service';
 import { isRootAdmin } from '@/config/feature-flags';
-import { mergeAndSortInvitations } from './mergeInvitations';
 
 const INVITATIONS_COLLECTION = 'admin_invitations';
 
@@ -659,45 +658,42 @@ export async function removeManagerFromAuthority(
 }
 
 /**
- * Get invitations filtered by authorityId (for team management pages).
+ * Invitations for the signed-in authority/tenant manager's OWN authority
+ * (+ its child authorities), for the team-management page.
  *
- * A `tenant_owner`/`unit_admin` invitation (military/educational, added
- * 27.09.2026 — §13.34/§13.37) never sets `authorityId` — it only sets
- * `tenantId`, which for these org types is the SAME id as the org's
- * `authorities/{id}` document (confirmed: /api/admin/invitations verifies
- * `tenantId` against a real `authorities` doc of type military_unit/school,
- * and team/page.tsx already queries `users` by `core.tenantId == authorityId`
- * for the same org). Without this second query, such an invitation would
- * never show as "pending" here. Municipal `authority_manager` invitations
- * never set `tenantId`, so the second query is always empty for them —
- * existing municipal behavior is unchanged.
+ * Replaces the former direct client query: `admin_invitations` is root-only
+ * at the rules layer (deployed), so that query was permission-denied for a
+ * real authority manager and its catch-all turned the failure into `[]` —
+ * rendered as "no pending invitations" (a false zero). This goes through the
+ * scoped server route GET /api/admin/invitations, which derives the scope
+ * from the verified token server-side. `rootAuthorityId` is sent only for a
+ * root admin viewing a specific authority (the server ignores it otherwise).
  *
- * The `tenantId` branch has NO `orderBy` — a composite index
- * (tenantId, createdAt) does not exist and was confirmed (empirically,
- * against production — see scripts/_check-invitations-tenantid-query-index.ts)
- * to be REQUIRED if orderBy were added to that query. Sorting after
- * merging avoids needing a new index at all.
+ * THROWS on any failure (never returns a fake empty list) so the caller can
+ * show an honest error state.
  */
-export async function getInvitationsByAuthority(authorityId: string): Promise<AdminInvitation[]> {
-  try {
-    const [byAuthority, byTenant] = await Promise.all([
-      getDocs(query(
-        collection(db, INVITATIONS_COLLECTION),
-        where('authorityId', '==', authorityId),
-        orderBy('createdAt', 'desc')
-      )),
-      getDocs(query(
-        collection(db, INVITATIONS_COLLECTION),
-        where('tenantId', '==', authorityId)
-      )),
-    ]);
-
-    return mergeAndSortInvitations(
-      byAuthority.docs.map((docSnap) => normalizeInvitation(docSnap)),
-      byTenant.docs.map((docSnap) => normalizeInvitation(docSnap))
-    );
-  } catch (error) {
-    console.error('Error fetching invitations by authority:', error);
-    return [];
-  }
+export async function getScopedTeamInvitations(rootAuthorityId?: string): Promise<AdminInvitation[]> {
+  const { auth } = await import('@/lib/firebase');
+  const idToken = await auth.currentUser?.getIdToken();
+  if (!idToken) throw new Error('not signed in');
+  const qs = rootAuthorityId ? `?authorityId=${encodeURIComponent(rootAuthorityId)}` : '';
+  const res = await fetch(`/api/admin/invitations${qs}`, { headers: { Authorization: `Bearer ${idToken}` } });
+  if (!res.ok) throw new Error(`invitations fetch failed (${res.status})`);
+  const body = (await res.json()) as { invitations?: Array<Record<string, unknown>> };
+  return (body.invitations ?? []).map((r) => ({
+    id: String(r.id),
+    email: String(r.email ?? ''),
+    name: typeof r.name === 'string' ? r.name : undefined,
+    role: (r.role as AdminInvitation['role']) ?? 'authority_manager',
+    authorityId: typeof r.authorityId === 'string' ? r.authorityId : undefined,
+    tenantId: typeof r.tenantId === 'string' ? r.tenantId : undefined,
+    unitId: typeof r.unitId === 'string' ? r.unitId : undefined,
+    teamRole: typeof r.teamRole === 'string' ? r.teamRole : undefined,
+    token: typeof r.token === 'string' ? r.token : '',
+    isUsed: r.isUsed === true,
+    expiresAt: new Date(String(r.expiresAt)),
+    createdAt: new Date(String(r.createdAt)),
+    createdBy: '',
+    usedAt: typeof r.usedAt === 'string' ? new Date(r.usedAt) : undefined,
+  }));
 }

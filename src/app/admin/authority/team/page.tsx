@@ -13,7 +13,7 @@ import { authorityTypeToTenantType, orgTypeDisplayName, getTenantLabels } from '
 import { shouldAutoLoadAuthority } from '@/features/admin/services/authorityUrlContextGuard';
 import SearchableSelect from '@/features/admin/components/SearchableSelect';
 import {
-  getInvitationsByAuthority,
+  getScopedTeamInvitations,
   removeManagerFromAuthority,
 } from '@/features/admin/services/invitation.service';
 import { getUserFromFirestore } from '@/lib/firestore.service';
@@ -75,6 +75,7 @@ export default function AuthorityTeamPage() {
   // true empty/small roster. Drives the "קצינים פעילים" card's
   // failure-vs-real-0 rendering, same principle as CountOrError above.
   const [teamMembersLoadFailed, setTeamMembersLoadFailed] = useState(false);
+  const [invitationsLoadFailed, setInvitationsLoadFailed] = useState(false);
   const [invitations, setInvitations] = useState<AdminInvitation[]>([]);
 
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -207,14 +208,21 @@ export default function AuthorityTeamPage() {
       // "קצינים פעילים" as if this were the true, complete count.
       setTeamMembersLoadFailed(structureLoadFailed);
 
-      // Load invitations for this authority + children
-      const invs = await getInvitationsByAuthority(authId);
-      const childInvs: AdminInvitation[] = [];
-      for (const child of children) {
-        const ci = await getInvitationsByAuthority(child.id);
-        childInvs.push(...ci);
+      // Invitations: scoped server route (the collection is root-only for
+      // direct client reads). The server derives the authority + children
+      // from the caller's token — authId is only sent for a root admin.
+      // A failure is surfaced, never rendered as "no invitations".
+      try {
+        const invs = await getScopedTeamInvitations(
+          isRootAdmin(auth.currentUser?.email) ? authId : undefined,
+        );
+        setInvitations(invs);
+        setInvitationsLoadFailed(false);
+      } catch (err) {
+        console.error('[TeamPage] Failed to load invitations:', err);
+        setInvitations([]);
+        setInvitationsLoadFailed(true);
       }
-      setInvitations([...invs, ...childInvs]);
 
       // Summary stats
       setTotalSubUnits(structureLoadFailed ? 'error' : (derivedTenantType !== 'municipal' ? scopedUnitCount : children.length));
@@ -864,6 +872,11 @@ export default function AuthorityTeamPage() {
       </div>
 
       {/* Pending Invitations */}
+      {invitationsLoadFailed && (
+        <div className="bg-red-50 border border-red-100 text-red-700 text-sm rounded-2xl px-6 py-3">
+          שגיאה בטעינת ההזמנות — הרשימה אינה מלאה. נסה לרענן את הדף.
+        </div>
+      )}
       {pendingInvitations.length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 bg-yellow-50/50">

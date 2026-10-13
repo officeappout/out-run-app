@@ -33,6 +33,11 @@ AUTHORIZED_SOCIAL=(
   "src/app/api/social/group-membership/route.ts"
   "src/app/api/social/reconcile-group-membership/route.ts"
   "src/lib/joinEngine.ts"
+  # 13.10.2026 — server-side group delete: the REVERSE of joinEngine's write
+  # (arrayRemove of the deleted groupId from every member's social.groupIds),
+  # in the same batch as user_memberships (axiom 17). Needs David's sign-off
+  # on the PR; it replaces the former client-side deleteGroup batch.
+  "src/app/api/admin/community-groups/delete/route.ts"
 )
 
 VIOLATIONS=""
@@ -66,6 +71,7 @@ ${MATCHED}
    Allowed only in:
      src/app/api/social/group-membership/route.ts
      src/app/api/social/reconcile-group-membership/route.ts
+     src/app/api/admin/community-groups/delete/route.ts
    Use updateSocialGroupIds() from group.service — never write the field directly."
     fi
   done <<< "$STAGED_TS"

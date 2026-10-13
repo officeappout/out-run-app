@@ -147,9 +147,10 @@ Every write to `users/{uid}.social.groupIds` **must** include `user_memberships/
 All three must succeed in one batch. Missing any one breaks a different subsystem: (1) group roster, (2) presence authorization, (3) client membership reads.
 The `memberCount` increment (`community_groups/{groupId}`) is a **non-fatal** fourth write — counter drift is acceptable.
 
-Only two routes are authorized to write `social.groupIds` as a Firestore field key (enforced by `scripts/safety-check.sh`):
+Only three routes are authorized to write `social.groupIds` as a Firestore field key (enforced by `scripts/safety-check.sh`; `src/lib/joinEngine.ts` — the shared join library — is also on that allowlist):
 - `src/app/api/social/group-membership/route.ts`
 - `src/app/api/social/reconcile-group-membership/route.ts`
+- `src/app/api/admin/community-groups/delete/route.ts` — added 13.10.2026 (David-approved): the REVERSE of a join (`arrayRemove` of the deleted groupId from every member's `social.groupIds`), in the same single Admin batch as the `user_memberships` mirror cleanup, the deletes and the audit row. Replaced the client-side `deleteGroup` batch, which failed for every non-root caller.
 
 ---
 

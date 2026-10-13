@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { collection, getDocs, query, where, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { checkUserRole } from '@/features/admin/services/auth.service';
+import { isRootAdmin } from '@/config/feature-flags';
 import { getAllInvitations } from '@/features/admin/services/invitation.service';
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
 import type { AdminInvitation } from '@/types/invitation.type';
@@ -78,8 +78,9 @@ export default function AdminDirectoryPage() {
       if (!user) { setLoading(false); return; }
 
       try {
-        const role = await checkUserRole(user.uid);
-        if (!role.isSuperAdmin) { setLoading(false); return; }
+        // Root admins only (page-level): getAllInvitations() reads
+        // admin_invitations, which firestore.rules restricts to isRootAdmin().
+        if (!isRootAdmin(user.email)) { setLoading(false); return; }
 
         const [usersSnap, invitations, authorities] = await Promise.all([
           getDocs(query(collection(db, 'users'), where('role', '==', 'admin'))),

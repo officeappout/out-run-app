@@ -13,7 +13,6 @@ import {
   deleteDoc,
   writeBatch,
   deleteField,
-  arrayRemove,
   query,
   where,
   orderBy,
@@ -22,7 +21,7 @@ import {
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore';
-import { db, storage } from '@/lib/firebase';
+import { db, storage, auth } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { CommunityGroup, CommunityEvent, EventRegistration, PersonaKey, PERSONA_KEYS, AUDIENCE_SENSITIVE_FIELDS } from '@/types/community.types';
 import { addMemberToGroupChat, createGroupChat } from '@/features/social/services/chat.service';
@@ -552,7 +551,6 @@ export async function updateGroup(
   }
 }
 
-const DELETE_BATCH_OP_LIMIT = 500;
 
 /**
  * Full delete contract (agreed with David, 08.09.2026, after two group
@@ -584,105 +582,23 @@ const DELETE_BATCH_OP_LIMIT = 500;
  * failure mode the write rules forbid elsewhere (axioms.md §4).
  */
 export async function deleteGroup(groupId: string): Promise<void> {
-  try {
-    const groupRef = doc(db, GROUPS_COLLECTION, groupId);
-
-    const membersSnap = await getDocs(collection(db, GROUPS_COLLECTION, groupId, 'members'));
-    const memberUids = membersSnap.docs.map((d) => d.id);
-
-    const chatId = `group_${groupId}`;
-    const chatRef = doc(db, 'chats', chatId);
-    const chatSnap = await getDoc(chatRef);
-    const messagesSnap = chatSnap.exists()
-      ? await getDocs(collection(db, 'chats', chatId, 'messages'))
-      : null;
-    const messageCount = messagesSnap?.size ?? 0;
-
-    const inviteRef = doc(db, GROUPS_COLLECTION, groupId, 'private', 'invite');
-    const inviteSnap = await getDoc(inviteRef);
-
-    const attendanceSnap = await getDocs(collection(db, GROUPS_COLLECTION, groupId, 'attendance'));
-    // member_statuses is a third-level subcollection under each attendance
-    // doc (session-phase.service.ts) — read all of them up front so their
-    // count is known before the op-count/size-guard check below.
-    const memberStatusesSnaps = await Promise.all(
-      attendanceSnap.docs.map((a) => getDocs(collection(a.ref, 'member_statuses'))),
-    );
-    const memberStatusesCount = memberStatusesSnaps.reduce((sum, s) => sum + s.size, 0);
-
-    const opCount =
-      2 /* group doc + its one persona-collection copy, via applyGroupAudienceBatch */ +
-      membersSnap.size /* member doc deletes */ +
-      memberUids.length * 2 /* user_memberships set + users set, per member */ +
-      (chatSnap.exists() ? 1 : 0) /* chat doc delete */ +
-      messageCount /* message doc deletes */ +
-      (inviteSnap.exists() ? 1 : 0) /* private/invite doc delete */ +
-      attendanceSnap.size /* attendance doc deletes */ +
-      memberStatusesCount; /* member_statuses doc deletes */
-
-    if (opCount > DELETE_BATCH_OP_LIMIT) {
-      throw new Error(
-        `[deleteGroup] ${groupId} needs ${opCount} write ops (limit ${DELETE_BATCH_OP_LIMIT}) — ` +
-        `refusing to split into multiple non-atomic batches. ` +
-        `members=${memberUids.length}, messages=${messageCount}, attendance=${attendanceSnap.size}, memberStatuses=${memberStatusesCount}.`
-      );
-    }
-
-    const batch = writeBatch(db);
-    // publicData=null → applyGroupAudienceBatch deletes the group doc AND
-    // unconditionally deletes every persona-collection copy (idempotent
-    // no-op for personas that never had one).
-    applyGroupAudienceBatch(batch, groupRef, null, [], {});
-
-    for (const memberDoc of membersSnap.docs) {
-      batch.delete(memberDoc.ref);
-    }
-    for (const uid of memberUids) {
-      // Mirrors joinEngine.ts's 4b/4c write shape exactly, reversed.
-      batch.set(
-        doc(db, 'user_memberships', uid),
-        { groupIds: arrayRemove(groupId), updatedAt: serverTimestamp() },
-        { merge: true },
-      );
-      // batch.update(), not batch.set(..., {merge:true}) — verified by an
-      // isolated synthetic-doc test (08.09.2026): setDoc/batch.set treats a
-      // dotted string key like 'social.groupIds' as a LITERAL top-level
-      // field name (creating a decoy field with a dot in its name) rather
-      // than a nested path, so the real nested field was silently left
-      // untouched. Only update()/batch.update() parses dotted keys as
-      // nested paths. The nested-object + mergeFields form joinEngine.ts
-      // uses for the reverse (arrayUnion) write was tried first and found
-      // to wipe the entire array instead of removing one element — a real
-      // user's social.groupIds was corrupted by it before this was caught.
-      batch.update(doc(db, 'users', uid), {
-        'social.groupIds': arrayRemove(groupId),
-        updatedAt: serverTimestamp(),
-      });
-    }
-    if (messagesSnap) {
-      for (const msgDoc of messagesSnap.docs) {
-        batch.delete(msgDoc.ref);
-      }
-    }
-    if (chatSnap.exists()) {
-      batch.delete(chatRef);
-    }
-    if (inviteSnap.exists()) {
-      batch.delete(inviteRef);
-    }
-    for (const statusesSnap of memberStatusesSnaps) {
-      for (const statusDoc of statusesSnap.docs) {
-        batch.delete(statusDoc.ref);
-      }
-    }
-    for (const attendanceDoc of attendanceSnap.docs) {
-      batch.delete(attendanceDoc.ref);
-    }
-
-    await batch.commit();
-  } catch (error) {
-    console.error('Error deleting group:', error);
-    throw error;
+  // 13.10.2026 — the delete itself now runs server-side (Admin SDK) in
+  // POST /api/admin/community-groups/delete: the former client batch needed
+  // to delete chats/messages, which firestore.rules only allows root to do,
+  // so it failed for every authority manager. The server route re-derives the
+  // caller's scope from the verified token + the group document (the only
+  // thing sent is the groupId), does everything above in ONE batch (with the
+  // 500-op refusal and the member-mirror cleanup) and writes the audit row.
+  const idToken = await auth.currentUser?.getIdToken();
+  if (!idToken) throw new Error('[deleteGroup] not signed in');
+  const res = await fetch('/api/admin/community-groups/delete', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ groupId }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(`[deleteGroup] ${res.status} ${body?.error ?? ''}`.trim());
   }
 }
 

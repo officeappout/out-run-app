@@ -13,9 +13,8 @@ import ChatThread from './ChatThread';
 import type { ChatThread as ChatThreadType } from '../types/chat.types';
 import { getGroupById } from '@/features/arena/services/group.service';
 import { KELLY_UID, KELLY_NAME } from '../services/kelly-welcome-bot.service';
+import { isRootAdmin } from '@/config/feature-flags';
 
-/** Hardcoded coach/admin who sees the platform-wide master inbox (Phase 1). */
-const ADMIN_EMAIL = 'david@appout.co.il';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -47,10 +46,13 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
   const myUid = profile?.id ?? null;
   const myName = profile?.core?.name ?? 'אווטיר';
 
-  // Admin/coach interception: david@appout.co.il sees a platform-wide master
-  // inbox of every active chat instead of a personal thread list.
-  const isAdmin =
-    profile?.core?.email === ADMIN_EMAIL || profile?.core?.isSuperAdmin === true;
+  // Admin/coach interception: ROOT admins only (david@/office@) see the
+  // platform-wide master inbox of every chat — including minors' chats —
+  // instead of a personal thread list. Was also `core.isSuperAdmin`, but
+  // firestore.rules only lets root list the `chats` firehose, so a non-root
+  // super-admin got permission-denied and an empty inbox. Keep this gate in
+  // step with the rules' isRootAdmin().
+  const isAdmin = isRootAdmin(profile?.core?.email);
 
   // Personal inbox is disabled (myUid → null) for admins so we don't open the
   // per-user listener; admins read the firehose via useAllChats instead.
