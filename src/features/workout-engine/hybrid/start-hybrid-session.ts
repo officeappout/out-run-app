@@ -578,6 +578,34 @@ const ROUTE_STOPS_MAX_START_M = 800;
 const ROUTE_STOPS_LEVEL_TOLERANCE = 6;
 
 /**
+ * Per-step wall-clock timing for one compose (route_stops perf, 13.10.2026). LOG ONLY — never
+ * changes control flow or output. Steps that run in parallel each report their own elapsed time
+ * (measured from when the step was started), so the line shows the real dominant step; `total` is
+ * the whole compose.
+ */
+function createComposeTimer() {
+  const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+  const t0 = now();
+  const steps: Record<string, number> = {};
+  return {
+    time<T>(label: string, p: Promise<T>): Promise<T> {
+      const start = now();
+      return p.finally(() => { steps[label] = Math.round(now() - start); });
+    },
+    sync<T>(label: string, fn: () => T): T {
+      const start = now();
+      try { return fn(); } finally { steps[label] = Math.round(now() - start); }
+    },
+    report(tag: string): void {
+      console.log(
+        `[${tag}:timing] total=${Math.round(now() - t0)}ms ` +
+        Object.entries(steps).map(([k, v]) => `${k}=${v}ms`).join(' '),
+      );
+    },
+  };
+}
+
+/**
  * Resolve the ROUTE BACKBONE for a route-stops session (clarification §1). Two modes, so
  * neither is hard-coded:
  *   (א) 'existing_route'          — the PUBLISHED official_route nearest the user (pilot).
@@ -724,13 +752,18 @@ async function composeRouteStopsWorkout(
   ctx: HybridSessionContext,
 ): Promise<ComposedHybridSession | null> {
   if (!ctx.userPosition) { console.warn('[composeRouteStopsWorkout] no user position'); return null; }
+  const tm = createComposeTimer();
 
+  // PERF (13.10.2026): every module this compose needs is loaded in ONE parallel batch (the later
+  // levels/context/store imports used to be awaited one after another, mid-compose).
   const [
     { useUserStore }, { getAllExercises },
     { composeHybridSession }, { resolveRouteStops }, { resolveHybridUserLevels },
     { warmHybridCaches },
     { planFromPoint, detectTopology }, { getAllGymEquipment },
-  ] = await Promise.all([
+    { useWeeklyVolumeStore },
+    { resolveChildDomainsForParent }, { filterExercisesContextually }, { getWorkoutContext },
+  ] = await tm.time('imports', Promise.all([
     import('@/features/user/identity/store/useUserStore'),
     import('@/features/content/exercises/core/exercise.service'),
     import('./compose-hybrid-session.service'),
@@ -739,7 +772,11 @@ async function composeRouteStopsWorkout(
     import('./hybrid-warmup'),
     import('./plan-from-point'),
     import('@/features/content/equipment/gym/core/gym-equipment.service'),
-  ]);
+    import('@/features/workout-engine/core/store/useWeeklyVolumeStore'),
+    import('../services/program-hierarchy.utils'),
+    import('../logic/ContextualEngine'),
+    import('../services/split-decision/SplitDecisionService'),
+  ]));
 
   const profile = useUserStore.getState().profile;
   // home-generator-v2 plan, step 3: same treatment as composeFullParkWorkout's !profile
@@ -771,8 +808,25 @@ async function composeRouteStopsWorkout(
 
   // Warm caches + fetch parks FIRST — the generated-loop backbone biases the loop toward equipped
   // parks (findFitnessAnchor), and gear translation reads the warm cache downstream.
-  await warmHybridCaches();
-  let parks: any[] = await safeFetchRealParks();
+  //
+  // PERF (13.10.2026): warm, parks, the published-routes cache and the exercise catalog are
+  // independent I/O — started together instead of one after another. The exercise read (always
+  // needed once a backbone exists) just begins early; its result is awaited further down, and a
+  // rejection still surfaces there (the .catch below only prevents an unhandled-rejection warning
+  // on the early-return paths). The routes prefetch only fills the cache the backbone reads; on
+  // failure the backbone's own read runs and behaves exactly as before.
+  const exercisesP = tm.time('exercises', getAllExercises());
+  exercisesP.catch(() => { /* surfaced where awaited */ });
+  const officialRoutesP = tm.time('officialRoutes',
+    import('@/features/parks/core/services/inventory.service')
+      .then((m) => m.getCachedOfficialRoutes())
+      .then(() => undefined, () => undefined));
+  const [, fetchedParks] = await Promise.all([
+    tm.time('warm', warmHybridCaches()),
+    tm.time('parks', safeFetchRealParks()),
+    officialRoutesP,
+  ]);
+  let parks: any[] = fetchedParks;
   // Part A: open_field (grass, no equipment, legs+core only) is gated on the assessment —
   // without it, exclude these parks from stop-matching entirely (mapParkToStop stays pure/
   // profile-agnostic; the gate lives here, at the one caller that has the profile).
@@ -792,19 +846,19 @@ async function composeRouteStopsWorkout(
   // function itself stays pure (LAW 0).
   const stepContext = buildStepContext(useActivityStore.getState().today);
   const targetKm = deriveAerobicTargetKm(intent, paceProfile.basePace, stepContext);
-  let backbone = await resolveRouteStopsBackbone('existing_route', {
+  let backbone = await tm.time('backbone.existing', resolveRouteStopsBackbone('existing_route', {
     userPosition: ctx.userPosition, parks, targetKm,
     cityName: ctx.cityName, activity: intent.aerobicKind as ActivityType,
-  });
+  }));
   if (!backbone) {
-    backbone = await resolveRouteStopsBackbone('generated_loop', {
+    backbone = await tm.time('backbone.generatedLoop', resolveRouteStopsBackbone('generated_loop', {
       userPosition: ctx.userPosition, parks, targetKm,
       cityName: ctx.cityName, activity: intent.aerobicKind as ActivityType,
-    });
+    }));
   }
   if (!backbone) return null;
   const routePath = backbone.routePath;
-  const rawStops = resolveRouteStops(routePath, parks as any);
+  const rawStops = tm.sync('resolveStops', () => resolveRouteStops(routePath, parks as any));
 
   // SPEC-07 production-bug fix: resolveRouteStops is pure/sync (no I/O), so a stop
   // correctly classified `activityType: 'strength'` by mapParkToStop's
@@ -814,14 +868,23 @@ async function composeRouteStopsWorkout(
   // filter below, so a correctly-identified strength stop stops silently degrading to
   // bodyweight. See scheduling-capability-audit.md.
   const strengthStopsNeedingEquipment = rawStops.filter((s) => s.activityType === 'strength' && s.availableEquipment.length === 0);
+  //
+  // PERF (13.10.2026): the per-stop getPark reads now run in parallel (each stop is an independent
+  // object), and the equipment catalog (a full-collection read, only USED for equipped strength
+  // stops below) starts now instead of after them. A rejection surfaces only where it is awaited,
+  // i.e. only if an equipped stop actually needs it — same as before.
+  const equipmentCatalogP = rawStops.some((s) => s.activityType === 'strength')
+    ? tm.time('equipmentCatalog', getAllGymEquipment())
+    : null;
+  equipmentCatalogP?.catch(() => { /* surfaced at the await below, if actually needed */ });
   if (strengthStopsNeedingEquipment.length > 0) {
     const [{ getPark }, { parkGymEquipmentToGearIds }, { normalizeGearIds }] = await Promise.all([
       import('@/features/parks/core/services/parks.service'),
       import('./park-equipment.util'),
       import('@/features/workout-engine/shared/utils/gear-mapping.utils'),
     ]);
-    for (const s of strengthStopsNeedingEquipment) {
-      if (!s.parkId) continue;
+    await tm.time('getPark', Promise.all(strengthStopsNeedingEquipment.map(async (s) => {
+      if (!s.parkId) return;
       try {
         const fullPark = await getPark(s.parkId);
         if (fullPark?.gymEquipment) {
@@ -830,7 +893,7 @@ async function composeRouteStopsWorkout(
       } catch {
         /* leave availableEquipment as [] — falls through to bodyweight, never throws */
       }
-    }
+    })));
   }
 
   // Domain-assessment gate (David, 23-24.09.2026, field-test doc TBD): replaces the
@@ -848,13 +911,13 @@ async function composeRouteStopsWorkout(
   // user assessed in only ONE domain can still hit an unassessed-domain station.
   const equippedStops = rawStops.filter((s) => s.activityType === 'strength' && s.availableEquipment.length > 0);
   if (equippedStops.length > 0) {
-    const equipmentCatalog = await getAllGymEquipment();
-    for (const s of equippedStops) {
+    const equipmentCatalog = await (equipmentCatalogP ?? getAllGymEquipment());
+    await tm.time('hydraulicMatch', Promise.all(equippedStops.map(async (s) => {
       const stopPark = parks.find((p: any) => p.id === s.parkId);
-      if (!stopPark) continue;
+      if (!stopPark) return;
       const matched = await findHydraulicEquipment(stopPark, equipmentCatalog);
       if (matched.length > 0) (s as any).parkEquipment = matched;
-    }
+    })));
   }
 
   // Recommendation-path DEFAULT (not a cap): when the weekly STRENGTH set-budget is spent, a
@@ -864,7 +927,6 @@ async function composeRouteStopsWorkout(
   // allow a 1–2 set sliver). getRemainingBudget() is STRENGTH-ONLY (useWeeklyVolumeStore:
   // strength.weeklyBudget − strength.totalSetsCompleted), NOT the aggregate active-minutes.
   // Scoped to this fn → the manual combined generator (composeHybridPlan) is untouched.
-  const { useWeeklyVolumeStore } = await import('@/features/workout-engine/core/store/useWeeklyVolumeStore');
   const remainingStrengthBudget = useWeeklyVolumeStore.getState().getRemainingBudget();
   const strengthSpent = remainingStrengthBudget < 4;
   const coredStops = strengthSpent
@@ -894,6 +956,20 @@ async function composeRouteStopsWorkout(
   // (byte-identical) becomes entry-relative. Stops arrive already in traversal order.
   const stops = plan.stops.map((p) => ({ ...p.stop, waypointIndex: p.traversalIndex }));
 
+  // Round-trip walk legs (Phase 2) — published-route backbone only. A generated_loop is built
+  // FROM the user's position (entry = user), so its legs would be ~0 → left as-is.
+  // PERF (13.10.2026): the two Mapbox walking fetches need only the traversal, so they start HERE and
+  // run in parallel with levels/exercises/plan building; the result is awaited just before return.
+  const roundTripP = backbone.routeId !== 'generated_loop' && traversalPath.length >= 2
+    ? tm.time('walkLegs', composeRoundTripLegs(
+        ctx.userPosition,
+        { lng: traversalPath[0][0], lat: traversalPath[0][1] },
+        { lng: traversalPath[traversalPath.length - 1][0], lat: traversalPath[traversalPath.length - 1][1] },
+        fetchMapboxWalkLeg,
+      ))
+    : null;
+  roundTripP?.catch(() => { /* composeRoundTripLegs does not throw; guard against an unhandled rejection on early returns */ });
+
   console.log(
     `[route-stops] route="${backbone.routeName}" stops=${stops.length}` +
     ` [${stops.map((s) => `${s.activityType}@wp${s.waypointIndex}(${s.distToPathM}m)`).join(', ')}]`,
@@ -906,11 +982,12 @@ async function composeRouteStopsWorkout(
   }
 
   // Levels + contexts (shared resolver — same real per-domain levels as the budget-split path).
-  const { userProgramLevels, baseUserLevel, resolveUserLevelForExercise } =
-    await resolveHybridUserLevels(profile as any, '[RouteStops]');
-  const weeklyGaps = await safeGetWeeklyGaps();
-
-  const masterExercises = await getAllExercises();
+  const [{ userProgramLevels, baseUserLevel, resolveUserLevelForExercise }, weeklyGaps, masterExercises] =
+    await Promise.all([
+      tm.time('levels', resolveHybridUserLevels(profile as any, '[RouteStops]')),
+      tm.time('weeklyGaps', safeGetWeeklyGaps()),
+      exercisesP, // already in flight since the top of the compose
+    ]);
   const filterContext: ContextualFilterContext = {
     location: 'park', lifestyles: [], injuryShield: [], intentMode: 'normal', availableEquipment: [],
     getUserLevelForExercise: resolveUserLevelForExercise,
@@ -926,16 +1003,11 @@ async function composeRouteStopsWorkout(
   //  • globalExercisePool = a bodyweight FIELD pool so the domain-quota / FullBodyDomainGuarantee
   //    can fall back to BODYWEIGHT (squat/lunge) for a TARGET domain the park has no equipment for.
   // Both scoped to route-stops via generationContext → byte-identical everywhere else.
-  const [{ resolveChildDomainsForParent }, { filterExercisesContextually }, { getWorkoutContext }] = await Promise.all([
-    import('../services/program-hierarchy.utils'),
-    import('../logic/ContextualEngine'),
-    import('../services/split-decision/SplitDecisionService'),
-  ]);
   const activeProgramId = (profile as any)?.progression?.activePrograms?.[0]?.templateId;
   const targetDomains = resolveChildDomainsForParent(activeProgramId, profile as any);
-  const bodyweightGuaranteePool = filterExercisesContextually(masterExercises, {
+  const bodyweightGuaranteePool = tm.sync('bodyweightPool', () => filterExercisesContextually(masterExercises, {
     ...filterContext, availableEquipment: [], intentMode: 'field',
-  }).exercises.map((e) => e.exercise);
+  }).exercises.map((e) => e.exercise));
 
   // Bug 5c — REUSE Path A's skill source (no parallel list). getWorkoutContext derives
   // priority1/2SkillIds from profile.progression.skillFocusIds — the exact input the home
@@ -982,7 +1054,7 @@ async function composeRouteStopsWorkout(
       masterExercises, filterContext, generationContext, weeklyGaps, userWeightKg,
     });
   };
-  const plans = [1, 2, 3].map((d) => buildForBolt(d as 1 | 2 | 3));
+  const plans = tm.sync('buildPlans', () => [1, 2, 3].map((d) => buildForBolt(d as 1 | 2 | 3)));
   const selectedIndex = 1; // balanced default (bolt 2)
 
   // Part B gate: the field fallback fired AND the level-banded pool (standard-park-gear
@@ -1006,6 +1078,7 @@ async function composeRouteStopsWorkout(
   // Live today: MAP_ROUTE_STOPS_V1=true (comment corrected — was stale, said "Dark today").
   if (plans[selectedIndex].meta.insufficientHomeContent) {
     console.warn('[composeRouteStopsWorkout] gated: field-fallback pool (standard-park-gear) still too thin for this level → insufficient_home_content');
+    tm.report('route-stops');
     return {
       plan: {
         segments: [],
@@ -1038,16 +1111,9 @@ async function composeRouteStopsWorkout(
     ? await buildNeedsAssessmentFallback()
     : null;
 
-  // Round-trip walk legs (Phase 2) — published-route backbone only. A generated_loop is built
-  // FROM the user's position (entry = user), so its legs would be ~0 → left as-is.
-  const roundTrip = backbone.routeId !== 'generated_loop' && traversalPath.length >= 2
-    ? await composeRoundTripLegs(
-        ctx.userPosition,
-        { lng: traversalPath[0][0], lat: traversalPath[0][1] },
-        { lng: traversalPath[traversalPath.length - 1][0], lat: traversalPath[traversalPath.length - 1][1] },
-        fetchMapboxWalkLeg,
-      )
-    : null;
+  // Walk legs were started right after planFromPoint (above) — usually already done by now.
+  const roundTrip = roundTripP ? await roundTripP : null;
+  tm.report('route-stops');
 
   return {
     plan: plans[selectedIndex],
