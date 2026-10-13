@@ -17,7 +17,7 @@ import {
   persistentLocalCache,
   persistentMultipleTabManager,
 } from "firebase/firestore";
-import { getStorage, FirebaseStorage } from "firebase/storage";
+import { getStorage } from "firebase/storage";
 import {
   initializeAppCheck,
   ReCaptchaEnterpriseProvider,
