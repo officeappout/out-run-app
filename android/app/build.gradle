@@ -85,12 +85,49 @@ dependencies {
 
 apply from: 'capacitor.build.gradle'
 
-try {
-    def servicesJSON = file('google-services.json')
-    if (servicesJSON.text) {
-        apply plugin: 'com.google.gms.google-services'
-        apply plugin: 'com.google.firebase.crashlytics'
+// ── google-services.json guard ──────────────────────────────────────────────
+// The file is gitignored, so a build from a checkout without it (a worktree, CI,
+// another machine) used to SILENTLY skip Firebase + Crashlytics (an info log in a
+// catch) and ship an app with no crash reporting, push or auth.
+//   • RELEASE builds (any requested task naming a release variant, or the
+//     variant-spanning build/assemble/bundle) FAIL if the file is missing, empty,
+//     malformed, or has no client for this module's applicationId.
+//   • debug / sync / everything else keeps the old soft behaviour (warn, skip).
+// Matching by applicationId, not clients[0]: the file also holds the .dev app.
+def requestedTasks = gradle.startParameter.taskNames.collect { it.tokenize(':').last().toLowerCase() }
+def isReleaseBuild = requestedTasks.any {
+    it.contains('release') || it in ['build', 'assemble', 'bundle']
+}
+def servicesJSON = file('google-services.json')
+def servicesProblem = null
+if (!servicesJSON.exists()) {
+    servicesProblem = 'file not found'
+} else if (servicesJSON.text.trim().isEmpty()) {
+    servicesProblem = 'file is empty'
+} else {
+    try {
+        def parsed = new groovy.json.JsonSlurper().parseText(servicesJSON.text)
+        def appId = android.defaultConfig.applicationId
+        def hasClient = parsed.client?.any {
+            it.client_info?.android_client_info?.package_name == appId
+        }
+        if (!hasClient) {
+            servicesProblem = "no client for applicationId '${appId}'"
+        }
+    } catch (Exception e) {
+        servicesProblem = "malformed JSON (${e.message})"
     }
-} catch(Exception e) {
-    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}
+if (servicesProblem == null) {
+    apply plugin: 'com.google.gms.google-services'
+    apply plugin: 'com.google.firebase.crashlytics'
+} else if (isReleaseBuild) {
+    throw new GradleException(
+        "android/app/google-services.json: ${servicesProblem}. Refusing to build a RELEASE without " +
+        "Firebase/Crashlytics. Build from the main checkout that has the file (not a worktree), or " +
+        "download it from Firebase Console → Project Settings → Android app. " +
+        "Check with: node scripts/preflight-native-check.mjs --android")
+} else {
+    logger.warn("google-services.json: ${servicesProblem} — google-services/Crashlytics NOT applied " +
+        "(non-release build). Push, Auth and Crash reporting will not work in this build.")
 }

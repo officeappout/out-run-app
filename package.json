@@ -31,6 +31,8 @@
     "ship": "next build && vercel --prod && npx cap sync",
     "_comment_preflight": "── Pre-flight ── Run before every TestFlight / release build to catch missing native config (GoogleService-Info.plist, REVERSED_CLIENT_ID, SHA fingerprints, etc.).",
     "preflight": "node scripts/preflight-native-check.mjs",
+    "preflight:android": "node scripts/preflight-native-check.mjs --android",
+    "build:android:release": "node scripts/preflight-native-check.mjs --android && ./android/gradlew -p android bundleRelease",
     "preflight:testflight": "node scripts/preflight-native-check.mjs && npm run cap:sync:ios",
     "postinstall": "patch-package",
     "test": "vitest run",

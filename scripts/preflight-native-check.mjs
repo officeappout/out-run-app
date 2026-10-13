@@ -11,6 +11,7 @@
  * Usage:
  *   node scripts/preflight-native-check.mjs    # direct
  *   npm run preflight                          # via npm script
+ *   node scripts/preflight-native-check.mjs --android   # Android release inputs only
  *
  * Exit codes:
  *   0  — all checks passed (warnings are informational only)
@@ -49,6 +50,10 @@ const result = {
 };
 
 let hasCritical = false;
+
+// --android: validate ONLY the Android release inputs (used by build:android:release),
+// so an unrelated iOS / capacitor-config problem cannot block an Android build.
+const ONLY_ANDROID = process.argv.includes("--android");
 
 // ─── Reporting helpers ────────────────────────────────────────────────────────
 function pass(label, detail = '') {
@@ -118,6 +123,7 @@ function escapeRx(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+if (!ONLY_ANDROID) {
 // ─── Check: iOS GoogleService-Info.plist ──────────────────────────────────────
 section('iOS — Firebase config');
 
@@ -253,16 +259,35 @@ if (capConfig) {
       );
 }
 
+} // end !ONLY_ANDROID
+
 // ─── Check: Android google-services.json ─────────────────────────────────────
 section('Android — Firebase config');
 
 const gsJsonRaw = readFile('android/app/google-services.json');
 
-if (!gsJsonRaw) {
+// The release applicationId is the source of truth for which google-services.json
+// `client` entry the Gradle plugin will use — NOT clients[0]. (The committed-style
+// file holds both co.il.appout.out.dev and co.il.appout.outrun; clients[0] is dev.)
+const gradleRaw = readFile('android/app/build.gradle');
+const applicationId = gradleRaw?.match(/applicationId\s+["']([^"']+)["']/)?.[1] ?? null;
+
+if (!applicationId) {
   fail(
-    'android/app/google-services.json not found',
-    'Download it from Firebase Console → Project Settings → Android app\n' +
-    '     and place it at android/app/google-services.json.',
+    'could not read applicationId from android/app/build.gradle',
+    'The google-services.json client match cannot be verified without it.',
+  );
+}
+
+if (!gsJsonRaw || gsJsonRaw.trim() === '') {
+  fail(
+    gsJsonRaw === null
+      ? 'android/app/google-services.json not found'
+      : 'android/app/google-services.json is EMPTY',
+    'Without it the Gradle build silently skips Firebase AND Crashlytics.\n' +
+    '     Download it from Firebase Console → Project Settings → Android app\n' +
+    '     and place it at android/app/google-services.json. Build from the main\n' +
+    '     checkout that has it — not from a worktree.',
   );
 } else {
   let parsed;
@@ -275,9 +300,26 @@ if (!gsJsonRaw) {
 
   if (parsed) {
     result.isAndroidConfigPresent = true;
-    const clients     = parsed?.client ?? [];
-    const packageName = clients[0]?.client_info?.android_client_info?.package_name ?? '?';
-    pass('google-services.json found and valid JSON', `package=${packageName}`);
+    const clients = parsed?.client ?? [];
+    const packages = clients.map((c) => c?.client_info?.android_client_info?.package_name ?? '?');
+    pass('google-services.json found and valid JSON', `packages=${packages.join(', ')}`);
+
+    if (applicationId) {
+      const match = clients.find(
+        (c) => c?.client_info?.android_client_info?.package_name === applicationId,
+      );
+      if (!match) {
+        fail(
+          `google-services.json has NO client for applicationId "${applicationId}"`,
+          `Found: ${packages.join(', ') || '(none)'}. The google-services plugin would fail or\n` +
+          '     pick no config. Re-download the file for the release Android app in Firebase Console.',
+        );
+      } else if (!match?.client_info?.mobilesdk_app_id) {
+        fail(`client for "${applicationId}" has no mobilesdk_app_id`);
+      } else {
+        pass(`client for release applicationId present`, applicationId);
+      }
+    }
 
     // Detect SHA certificate hashes (the field name in google-services.json)
     const certHashes = [...gsJsonRaw.matchAll(/"certificate_hash"\s*:\s*"([^"]+)"/g)]
@@ -303,6 +345,7 @@ section('Result');
 console.log('\nNativeAuthValidation:');
 console.log(
   Object.entries(result)
+    .filter(([k]) => !ONLY_ANDROID || k === "isAndroidConfigPresent" || k === "isSha1Present")
     .map(([k, v]) => `  ${v ? G + '✔' : Y + '○'} ${k}: ${v}${X}`)
     .join('\n'),
 );
