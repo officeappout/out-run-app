@@ -59,9 +59,12 @@ if (getApps().length === 0) {
 // accessing any Firebase services, initialize App Check."
 //
 // Every callable Cloud Function in this project sets `enforceAppCheck:
-// true`, and the `presence` collection's Firestore rules require an
-// App Check token. Without one, every read/write returns
-// permission-denied and partners / live map silently render empty.
+// true`. Firestore and Storage are NOT enforced: as of 13.10.2026 the
+// console has Cloud Firestore App Check in Monitoring mode (~29% of
+// requests Verified), and firestore.rules has no App Check condition.
+// If enforcement is later switched on in the console, a client without a
+// token would get permission-denied on every read/write — which is why
+// the rollout is gated on the Verified rate (SECURITY.md §12.4).
 //
 // Environment variables (set in Vercel / firebase functions:config):
 //   • NEXT_PUBLIC_RECAPTCHA_SITE_KEY      — reCAPTCHA Enterprise site key
@@ -185,8 +188,9 @@ if (typeof window !== "undefined") {
     //     back-off when getToken() rejects, so no tight retry loop occurs.
     //     The caller (Firebase Auth, Firestore) treats a missing App Check
     //     token as a soft error and proceeds; App-Check-enforced Cloud
-    //     Functions / Firestore rules may return permission-denied until
-    //     attestation recovers, but the UI stays responsive.
+    //     Functions (and Firestore, if console enforcement is ever turned
+    //     on) reject the call until attestation recovers, but the UI
+    //     stays responsive.
     //
     // Guards inside getToken():
     //   1. Hard 10-second timeout — guarantees the call always resolves.
@@ -387,17 +391,16 @@ if (typeof window !== "undefined") {
       // Fail loud in production so a missing site key is caught in CI/CD.
       console.error(
         "[firebase] NEXT_PUBLIC_RECAPTCHA_SITE_KEY is missing in production. " +
-          "All callable Cloud Functions will reject this client, AND any " +
-          "Firestore collection with App Check enforcement (e.g. `presence`) " +
-          "will return permission-denied for every read/write. " +
+          "All callable Cloud Functions will reject this client (and " +
+          "Firestore too, if App Check enforcement is ever enabled for it " +
+          "in the console — currently Monitoring only). " +
           "Add the key in Vercel → Project Settings → Environment Variables.",
       );
     } else if (!debugToken) {
       console.warn(
         "[firebase] App Check is INERT (no NEXT_PUBLIC_RECAPTCHA_SITE_KEY and " +
-          "no NEXT_PUBLIC_APP_CHECK_DEBUG_TOKEN). If Firestore rules enforce " +
-          "App Check on the `presence` collection, partner sync will return " +
-          "permission-denied. Either set a site key or register a debug " +
+          "no NEXT_PUBLIC_APP_CHECK_DEBUG_TOKEN). Callable Cloud Functions " +
+          "will reject this client. Either set a site key or register a debug " +
           "token (Firebase Console → App Check → Apps → Manage debug tokens).",
       );
     }

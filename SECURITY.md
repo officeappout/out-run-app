@@ -607,7 +607,7 @@ reviewer.
 | MFA on admin (Ashkelon 14.1)               | **PASS** (inherited from Google Workspace) | §12.2 |
 | Password rotation 180d (Ashkelon 14.1)     | **PASS** (inherited from Google Workspace) | §12.2 |
 | Server-side admin gating (Ashkelon 17.1)   | **PASS**    | `middleware.ts`, `admin-session.ts` |
-| App Check / DDoS defence (Ashkelon 22.1)   | **PARTIAL** — enforced on all 7 callables; Firestore/Storage in Monitoring (§12.4) | `firebase.ts`, all callable functions |
+| App Check / DDoS defence (Ashkelon 22.1)   | **PARTIAL** — enforced on all 7 callables; Firestore/Storage in Monitoring (§12.4). **Remediation:** staged rollout to enforcement — measure the Unverified split (console), fix/instrument the sources (server-side REST/SDK calls, native token failures), force-update outdated native builds, then enforce once Verified is sustained at the agreed threshold (proposed ≥95% for a week). No target date; owner: David. | `firebase.ts`, all callable functions |
 | Audit-log retention 24 months              | **PASS**    | `cleanupOldLogs.ts` (`audit_logs` branch) |
 | Push-log retention 90 days (privacy §11)   | **PASS**    | `cleanupOldLogs.ts` (`push_messages` branch — terminal-state only) |
 | Presence retention 24 h (privacy §11)      | **PASS**    | `cleanupEphemeralDocs.ts` (`presence` branch) |
