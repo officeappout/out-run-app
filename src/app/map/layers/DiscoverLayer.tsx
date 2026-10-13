@@ -924,6 +924,17 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     [slots],
   );
   const carouselUp = mapFeatureFlags.enableHybridSlots && mapMode === 'freeRun' && freeRunStep === 'slots';
+  // "Focused suggestions" (MAP_OVERVIEW_CHROME_V1): while the slot-suggestion carousel is up, the top
+  // chrome (mode pills, search bar, layers control, "+" FAB, AppHeader) is HIDDEN — not removed — and the
+  // OverviewTitleBar ("הצעות מסלולים") takes its place; its → is BACK to the full map, which restores
+  // everything. Derived from the same state as the carousel (no new state machine). Flag off → false.
+  const suggestionsFocused = MAP_OVERVIEW_CHROME_V1 && carouselUp;
+  const topChromeFolded = overviewChromeActive || suggestionsFocused;
+  const setIsSuggestionsFocused = useMapStore((s) => s.setIsSuggestionsFocused);
+  useEffect(() => {
+    setIsSuggestionsFocused(suggestionsFocused);
+    return () => setIsSuggestionsFocused(false);
+  }, [suggestionsFocused, setIsSuggestionsFocused]);
   const routeStopsKey = keyFor('route_stops');
   useEffect(() => {
     if (!HYBRID_SLOT_PREVIEW_ENABLED || !carouselUp || !routeStopsSlot || routeStopsSlot.kind !== 'hybrid' || !userLocation) return;
@@ -1517,7 +1528,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
           <>
             {/* route-preview: the top chrome must never show while the hybrid overview
                 drawer is up, in ANY screen state (MAP_OVERVIEW_CHROME_V1). */}
-            {!overviewChromeActive && renderTopBar()}
+            {!topChromeFolded && renderTopBar()}
 
             <RouteDetailSheet
               isOpen
@@ -1560,7 +1571,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
           <>
             {/* route-preview: the top chrome must never show while the hybrid overview
                 drawer is up, in ANY screen state (MAP_OVERVIEW_CHROME_V1). */}
-            {!overviewChromeActive && renderTopBar()}
+            {!topChromeFolded && renderTopBar()}
             <ParkPreview userLocation={logic.currentUserPos ?? null} />
           </>
         );
@@ -1574,7 +1585,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
           <>
             {/* route-preview: the top chrome must never show while the hybrid overview
                 drawer is up, in ANY screen state (MAP_OVERVIEW_CHROME_V1). */}
-            {!overviewChromeActive && renderTopBar()}
+            {!topChromeFolded && renderTopBar()}
 
             <RouteCarousel
               userPosition={userLocation}
@@ -1647,7 +1658,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 which simply don't render `renderTopBar()`. Keeps the map
                 surface clean so the partner overlay owns the top of the
                 screen. */}
-            {partnerTab === null && !overviewChromeActive && renderTopBar()}
+            {partnerTab === null && !topChromeFolded && renderTopBar()}
 
             {/* Layers button — top-right, below header (search bar 48px + gap 8px + mode pills 48px + 12px margin = 116px).
                 Hidden while the partner overlay is open so the layers icon
@@ -1660,7 +1671,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 button's "below the 2-row header" anchor is correct again
                 without needing to react to showSearchAreaButton (the 14.08
                 fix that made it reactive is reverted along with that reorder). */}
-            {partnerTab === null && isMapVisuallyReady && !overviewChromeActive && (
+            {partnerTab === null && isMapVisuallyReady && !topChromeFolded && (
               <div
                 className="absolute right-4 z-[50] pointer-events-none"
                 style={{ top: 'calc(52px + env(safe-area-inset-top, 0px) + 116px)' }}
@@ -1674,7 +1685,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 rest, rather than sitting hidden behind the skeleton during load. */}
             {isMapVisuallyReady && (
             <div className="absolute right-4 z-[40] flex flex-col gap-3" style={{ bottom: 'calc(max(340px, env(safe-area-inset-bottom, 0px) + 310px))' }}>
-              {SOCIAL_COMPOSE_UI_ENABLED ? (
+              {suggestionsFocused ? null : SOCIAL_COMPOSE_UI_ENABLED ? (
                 <PlusFab onOpen={() => setPlusDrawerOpen(true)} />
               ) : (
                 <ActionSpeedDial
@@ -1862,12 +1873,14 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 loading={hybridComposing}
                 aerobicKind={slotActivity}
                 onActivityChange={setSlotActivity}
+                focused={suggestionsFocused}
                 onSelectSlot={handleSelectSlot}
                 onSettleSlot={handleSettleSlot}
                 computingPreview={hybridPreviewComposing}
                 routeStopsTotal={routeStopsTotal}
                 onBuildYourself={() => resetHybridFlow('config')}
-                onClose={() => { resetHybridFlow(); setMapMode('idle'); }}
+                // Focused state: the title bar's → is the back control — no second, floating close button.
+                onClose={suggestionsFocused ? undefined : () => { resetHybridFlow(); setMapMode('idle'); }}
               />
             )}
 
@@ -1948,6 +1961,23 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 guard keeps the tree byte-identical when the feature is off. */}
             {MAP_OVERVIEW_CHROME_V1 && (
               <AnimatePresence>
+                {suggestionsFocused && isMapVisuallyReady && (
+                  <motion.div
+                    key="suggestions-title-bar"
+                    className="absolute inset-x-0 top-0 z-[70] pointer-events-none"
+                    initial={{ y: -160, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: -160, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: 'easeInOut' }}
+                  >
+                    <OverviewTitleBar
+                      title="הצעות מסלולים"
+                      eyebrow={null}
+                      // Same closure the carousel's own close button used: reset + back to the full map.
+                      onBack={() => { resetHybridFlow(); setMapMode('idle'); }}
+                    />
+                  </motion.div>
+                )}
                 {overviewChromeActive && (
                   <motion.div
                     key="overview-title-bar"

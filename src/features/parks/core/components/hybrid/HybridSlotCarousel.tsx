@@ -161,7 +161,7 @@ function AssessmentPromptCard({ onSelect, onArm, consumeArmed }: {
 // — pointerdown on card A must not let a click on card B fire (id match); (c) stale
 // arms from a carousel drag — the track's onDragStart clears the armed id. The card
 // body is NOT clickable (compose is a deliberate CTA action, never a body/auto tap).
-function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTotal }: {
+function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTotal, slim = false }: {
   slot: HybridSlot;
   onSelect: () => void;
   onArm: () => void;
@@ -170,6 +170,8 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
   /** route_stops only: the composed session's real total (null until the settle-preview
    *  compose lands → the line is blank, never a placeholder). */
   routeStopsTotal?: CardTotal | null;
+  /** Focused-suggestions state → RouteCardUnified's slim variant (this carousel only). */
+  slim?: boolean;
 }) {
   // route_stops only: the real total as a compact framed pill (same border/shadow language as the
   // overview's calorie/distance chips). The wrapper keeps a fixed height so the card doesn't jump
@@ -207,6 +209,7 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
         difficulty={slot.bolts}
         recommended={slot.recommended}
         extraContent={totalLine}
+        variant={slim ? 'slim' : 'default'}
         isActive={isActive}
         onCtaPointerDown={onArm}
         onCta={(e) => {
@@ -313,6 +316,13 @@ interface HybridSlotCarouselProps {
   computingPreview?: boolean;
   /** route_stops card only: real total from the settle-preview cache; null/omitted → no time shown. */
   routeStopsTotal?: CardTotal | null;
+  /**
+   * Focused-suggestions state (MAP_OVERVIEW_CHROME_V1): the parent shows the "הצעות מסלולים"
+   * title bar (its → is the back control), so here we drop the activity toggle (UI only — the
+   * parent's slotActivity stays 'walking'; run/aerobicKind support in the engine is untouched)
+   * and render the slim card variant. false/omitted → byte-identical to before.
+   */
+  focused?: boolean;
 }
 
 export default function HybridSlotCarousel({
@@ -326,6 +336,7 @@ export default function HybridSlotCarousel({
   onSettleSlot,
   computingPreview = false,
   routeStopsTotal = null,
+  focused = false,
 }: HybridSlotCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -402,7 +413,7 @@ export default function HybridSlotCarousel({
         </div>
       )}
 
-      <ActivityToggle activity={aerobicKind} onChange={onActivityChange} />
+      {!focused && <ActivityToggle activity={aerobicKind} onChange={onActivityChange} />}
 
       {/* computing-preview chip — subtle, non-blocking (cards stay interactive) */}
       {computingPreview && (
@@ -482,6 +493,7 @@ export default function HybridSlotCarousel({
                     slot={slot}
                     isActive={isActive}
                     routeStopsTotal={routeStopsTotal}
+                    slim={focused}
                     onSelect={() => onSelectSlot(slot)}
                     onArm={() => { armedSlotIdRef.current = slot.id; }}
                     consumeArmed={() => {
