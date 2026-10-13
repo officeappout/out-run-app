@@ -313,7 +313,7 @@ why the variable went away.
 - [x] **Server-only audit writes:** `audit_logs` collection is write-locked at the rules level; only the `logAuditAction` Cloud Function (Admin SDK) can insert rows.
 - [x] **Audit trail:** every admin mutation captures `oldValue / newValue / sourceIp / uid / timestamp` server-side.
 - [x] **Server-side admin gating:** `/admin/*` is gated by Edge middleware checking an HMAC session cookie minted after Admin-SDK ID-token verification.
-- [x] **Firebase App Check:** reCAPTCHA Enterprise on the client + `enforceAppCheck: true` on every callable function (`awardWorkoutXP`, `validateAccessCode`, `runDataMigration`, `logAuditAction`).
+- [x] **Firebase App Check:** reCAPTCHA Enterprise on the client + `enforceAppCheck: true` on every callable function — all 7 (`awardWorkoutXP`, `reverseWorkoutXP`, `validateAccessCode`, `logAuditAction`, `ingestHealthSamples`, `requestAccountDeletion`, `previewNotificationContent`).
 - [x] **Long-lived log retention:** `cleanupOldLogs` deletes `audit_logs` older than 24 months and terminal-state `push_messages` older than 90 days on the 1st of each month.
 - [x] **Ephemeral retention:** `cleanupEphemeralDocs` deletes `presence` > 24 h and `active_workouts` > 2 h every hour, guaranteeing the privacy-policy retention windows even when the client cleanup path fails (crash / kill-from-tray).
 - [x] **Push notification consent:** push permission is requested only after sign-in via the Capacitor lifecycle bridge; sends are filtered server-side by `settings.pushEnabled` (master) and `settings.notificationPrefs.{channel}` (per-channel) before any token is harvested. See §13.
@@ -496,9 +496,16 @@ reviewer.
 - **Function enforcement:** every callable function sets
   `enforceAppCheck: true`:
   - `functions/src/awardWorkoutXP.ts` (the Guardian)
+  - `functions/src/reverseWorkoutXP.ts`
   - `functions/src/validateAccessCode.ts`
-  - `functions/src/runDataMigration.ts`
-  - `functions/src/auditLogger.ts`
+  - `functions/src/auditLogger.ts` (`logAuditAction`)
+  - `functions/src/ingestHealthSamples.ts`
+  - `functions/src/onUserDelete.ts` (`requestAccountDeletion`)
+  - `functions/src/previewNotificationContent.ts`
+
+  All 7 `onCall` functions in `functions/src` enforce it (verified against
+  the code 13.10.2026). `runDataMigration.ts` previously listed here was
+  deleted entirely on 06.10.2026.
 - **Effect:** a `curl` request with a valid ID token but no App Check
   token is rejected with `failed-precondition`. Automated bots
   attempting credential stuffing or quota exhaustion fail the
