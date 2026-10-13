@@ -27,6 +27,9 @@ export default function AccessibilityStatementPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white" dir="rtl" lang="he">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 pb-20">
+        <a href="/home" className={`${LINK} inline-block mb-4 text-sm`}>
+          ← חזרה לאפליקציה
+        </a>
         <header className="mb-6">
           <h1 className="text-2xl font-black text-slate-900">הצהרת נגישות</h1>
           <p className="text-xs text-slate-600 mt-1">עודכן לאחרונה: {ACCESSIBILITY_LAST_UPDATED_HE}</p>

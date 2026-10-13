@@ -2044,6 +2044,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     onClick={() => setShowPrivacyModal(true)}
                   />
                   <SettingsRow
+                    icon={<Accessibility size={20} className="text-gray-700" />}
+                    label="הצהרת נגישות"
+                    onClick={() => { onClose(); router.push('/accessibility'); }}
+                  />
+                  <SettingsRow
                     icon={<Mail size={20} className="text-gray-700" />}
                     label="יצירת קשר"
                     sublabel="office@appout.co.il"

@@ -107,8 +107,27 @@ export default function ClientLayout({
             than the full bundle). Files that already use motion.* continue to
             work unchanged; new code using m.* will benefit from tree-shaking. */}
         <LazyMotion features={domAnimation}>
+          {/* Accessibility entry points — visually hidden until a keyboard / switch /
+              screen-reader user focuses them (WCAG 2.4.1 bypass blocks). Reachable
+              from every page without adding a global footer over the map / player. */}
+          <div className="sr-only focus-within:not-sr-only focus-within:fixed focus-within:top-2 focus-within:inset-x-2 focus-within:z-[200] focus-within:flex focus-within:flex-wrap focus-within:gap-2 focus-within:justify-center" dir="rtl">
+            <a
+              href="#main-content"
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            >
+              דלג לתוכן הראשי
+            </a>
+            <a
+              href="/accessibility"
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            >
+              הצהרת נגישות
+            </a>
+          </div>
           <main
-            className="h-[100dvh] overflow-y-auto overflow-x-hidden overscroll-none"
+            id="main-content"
+            tabIndex={-1}
+            className="h-[100dvh] overflow-y-auto overflow-x-hidden overscroll-none focus:outline-none"
             style={{
               // Matches BottomNavbar's actual height: pt-0.5 (2px) +
               // min-h-[44px] = 46px, rounded up to 3rem (48px) for breathing
