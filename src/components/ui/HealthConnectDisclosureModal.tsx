@@ -164,7 +164,7 @@ export default function HealthConnectDisclosureModal({
                   <button
                     type="button"
                     onClick={onConfirm}
-                    className="w-full bg-[#5BC2F2] hover:bg-[#4AADE3] active:scale-[0.98] text-on-brand font-bold py-3.5 rounded-2xl shadow-md shadow-[#5BC2F2]/20 transition-all text-sm"
+                    className="w-full bg-brand-cta hover:brightness-105 active:scale-[0.98] text-on-brand font-bold py-3.5 rounded-2xl shadow-md shadow-[#5BC2F2]/20 transition-all text-sm"
                   >
                     אפשר גישה
                   </button>

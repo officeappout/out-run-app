@@ -360,7 +360,7 @@ export default function HistoryStep({ onNext }: HistoryStepProps) {
         <button
           onClick={handleContinue}
           disabled={!canContinue}
-          className={`w-full bg-[#5BC2F2] hover:bg-[#4AADE3] text-on-brand font-bold py-4 rounded-2xl text-lg shadow-xl shadow-[#5BC2F2]/25 transition-all active:scale-[0.98] ${
+          className={`w-full bg-brand-cta hover:brightness-105 text-on-brand font-bold py-4 rounded-2xl text-lg shadow-xl shadow-[#5BC2F2]/25 transition-all active:scale-[0.98] ${
             !canContinue ? 'opacity-50 cursor-not-allowed' : ''
           }`}
         >

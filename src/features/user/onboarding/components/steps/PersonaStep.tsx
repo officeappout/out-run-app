@@ -731,7 +731,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
                   </div>
                   <button
                     onClick={handleCodeSuccessContinue}
-                    className="w-full py-3 rounded-xl font-semibold text-on-brand bg-primary"
+                    className="w-full py-3 rounded-xl font-semibold text-on-brand bg-brand-cta hover:brightness-105"
                   >
                     המשך
                   </button>

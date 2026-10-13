@@ -124,7 +124,7 @@ export default function AccessCodeGate({
         <button
           onClick={handleSubmit}
           disabled={loading || !code.trim()}
-          className="px-4 py-2.5 rounded-xl font-black text-sm text-on-brand bg-[#5BC2F2] disabled:opacity-40 transition-opacity flex items-center gap-1.5"
+          className="px-4 py-2.5 rounded-xl font-black text-sm text-on-brand bg-brand-cta hover:brightness-105 disabled:opacity-40 transition-opacity flex items-center gap-1.5"
         >
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'אישור'}
         </button>

@@ -437,7 +437,7 @@ export function ConfirmationCard({
             disabled={isLoadingParks}
             animate={{ scale: [1, 1.01, 1] }}
             transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-            className="w-full bg-[#5BC2F2] hover:bg-[#4AADE3] text-on-brand font-bold py-4 rounded-2xl shadow-xl shadow-[#5BC2F2]/30 transition-all active:scale-[0.98] disabled:opacity-60"
+            className="w-full bg-brand-cta hover:brightness-105 text-on-brand font-bold py-4 rounded-2xl shadow-xl shadow-[#5BC2F2]/30 transition-all active:scale-[0.98] disabled:opacity-60"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
             כן, זה הבית שלי!

@@ -338,7 +338,7 @@ export default function CreateGroupPage() {
         <button
           disabled={!state.name.trim()}
           onClick={() => setStep('schedule')}
-          className="w-full py-3.5 rounded-2xl bg-cyan-500 text-on-brand font-black text-sm disabled:opacity-40 transition-opacity"
+          className="w-full py-3.5 rounded-2xl bg-brand-cta hover:brightness-105 text-on-brand font-black text-sm disabled:opacity-40 transition-opacity"
         >
           הבא — לוח זמנים
         </button>
@@ -413,7 +413,7 @@ export default function CreateGroupPage() {
 
         <button
           onClick={() => setStep('invite')}
-          className="w-full py-3.5 rounded-2xl bg-cyan-500 text-on-brand font-black text-sm"
+          className="w-full py-3.5 rounded-2xl bg-brand-cta hover:brightness-105 text-on-brand font-black text-sm"
         >
           הבא — הזמן שותפים
         </button>

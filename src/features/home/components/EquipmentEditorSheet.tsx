@@ -298,7 +298,7 @@ export default function EquipmentEditorSheet({ isOpen, onClose }: Props) {
                 type="button"
                 onClick={handleSave}
                 disabled={saving || gearLoading}
-                className="w-full flex items-center justify-center gap-2 py-3.5 bg-cyan-500 hover:bg-cyan-600 disabled:opacity-50 text-on-brand rounded-2xl text-sm font-bold font-simpler transition-colors active:scale-[0.98]"
+                className="w-full flex items-center justify-center gap-2 py-3.5 bg-brand-cta hover:brightness-105 disabled:opacity-50 text-on-brand rounded-2xl text-sm font-bold font-simpler transition-colors active:scale-[0.98]"
               >
                 {saving ? (
                   <><Loader2 size={16} className="animate-spin" /><span>שומר...</span></>

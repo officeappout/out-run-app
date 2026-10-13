@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { CheckCircle2, Target, Footprints } from 'lucide-react';
 
+import BrandCtaButton from '@/components/ui/BrandCtaButton';
 /**
  * Roadmap Page - Final destination after onboarding completion
  * This is a placeholder that will be replaced with the actual roadmap implementation
@@ -58,12 +59,12 @@ export default function RoadmapPage() {
 
           {/* Action Buttons */}
           <div className="space-y-3 pt-6">
-            <button
+            <BrandCtaButton
               onClick={() => router.push('/home')}
-              className="w-full bg-[#5BC2F2] text-on-brand py-4 rounded-2xl font-bold text-lg hover:bg-[#4ab0e0] transition-colors shadow-lg"
+              className="w-full py-4 text-lg"
             >
               לך לדף הבית
-            </button>
+            </BrandCtaButton>
             <button
               onClick={() => router.push('/map')}
               className="w-full bg-white border-2 border-[#5BC2F2] text-[#5BC2F2] py-4 rounded-2xl font-bold text-lg hover:bg-blue-50 transition-colors"

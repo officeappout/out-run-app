@@ -16,6 +16,7 @@ import {
 import type { SmartMessage } from '@/features/messages/services/MessageService';
 import { useEquipmentIconsReady } from '../hooks/useEquipmentIconsReady';
 import { hapticMedium } from '@/lib/haptics';
+import { BRAND_CTA_FILL_CLASS } from '@/components/ui/BrandCtaButton';
 
 // Hero-media selection + resolution moved to a shared util so the map/workout
 // preview drawer can compute the hero from its OWN generatedWorkout (no more
@@ -607,12 +608,11 @@ export default function HeroWorkoutCard({
 
         {/* 3c. CTA button — gender-aware curiosity text */}
         <div
-          className="text-black font-semibold rounded-full shadow-md shadow-cyan-400/25 flex items-center justify-center pointer-events-none"
+          className={`${BRAND_CTA_FILL_CLASS} flex items-center justify-center pointer-events-none`}
           style={{
             width: isSide ? Math.min(CTA_WIDTH, dims.width - 32) : CTA_WIDTH,
             height: CTA_HEIGHT,
             fontSize: isSide ? 13 : 14,
-            background: 'linear-gradient(135deg, #00BAF7 0%, #0CF2E3 100%)',
           }}
         >
           {ctaText}

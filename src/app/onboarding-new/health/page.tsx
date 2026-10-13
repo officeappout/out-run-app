@@ -16,6 +16,7 @@ import { isMiniAssessmentActive, consumeMiniAssessmentState } from '@/features/u
 import { createSkipAttemptGuard } from '@/features/user/onboarding/utils/skip-attempt-guard';
 import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure';
 
+import BrandCtaButton from '@/components/ui/BrandCtaButton';
 export default function HealthDeclarationPage() {
   const router = useRouter();
   const { profile, _hasHydrated, refreshProfile } = useUserStore();
@@ -279,13 +280,13 @@ export default function HealthDeclarationPage() {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col items-center justify-center gap-4 px-6 text-center">
         <div className="text-slate-500">לא הצלחנו לשמור את ההמשך. בדקו את החיבור ונסו שוב.</div>
-        <button
+        <BrandCtaButton
           type="button"
           onClick={runAutoSkip}
-          className="px-5 py-2 bg-[#00C9F2] text-on-brand text-sm font-bold rounded-full active:scale-95 transition-transform"
+          className="px-5 py-2 text-sm"
         >
           נסה שוב
-        </button>
+        </BrandCtaButton>
       </div>
     );
   }

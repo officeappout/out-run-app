@@ -110,7 +110,7 @@ export default function ProgramDrawer({ program, onClose }: ProgramDrawerProps) 
                       onClose();
                       startMiniDomainAssessment(router, program.templateId, undefined, program.domainType);
                     }}
-                    className="w-full py-3 rounded-xl bg-[#00C9F2] text-on-brand text-sm font-bold active:opacity-80 transition-opacity"
+                    className="w-full py-3 rounded-xl bg-brand-cta hover:brightness-105 text-on-brand text-sm font-bold active:opacity-80 transition-opacity"
                   >
                     עדכן רמה
                   </button>

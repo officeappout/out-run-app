@@ -330,7 +330,7 @@ function ExistingAccountModal({
           <button
             onClick={onConfirm}
             disabled={loading}
-            className="w-full bg-[#00C9F2] text-on-brand py-3.5 rounded-2xl font-bold text-sm hover:bg-[#00B4D8] active:scale-[0.98] transition-all disabled:opacity-50"
+            className="w-full bg-brand-cta hover:brightness-105 text-on-brand py-3.5 rounded-2xl font-bold text-sm active:scale-[0.98] transition-all disabled:opacity-50"
           >
             {loading ? 'מתחבר...' : `כניסה לחשבון ה-${providerLabel} הקיים`}
           </button>

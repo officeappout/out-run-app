@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { ProgramProgressCard } from '@/features/home/components/widgets/ProgramProgressCard';
 import { useProgramProgress } from '@/features/home/hooks/useProgramProgress';
 
+import BrandCtaButton from '@/components/ui/BrandCtaButton';
 /**
  * Active Programs section on the Profile page.
  *
@@ -44,13 +45,13 @@ export default function ActiveProgramsCarousel() {
           <p className="text-sm font-bold text-gray-500 text-center leading-snug">
             עדיין לא בחרת תוכנית אימון.
           </p>
-          <button
+          <BrandCtaButton
             type="button"
             onClick={() => router.push('/home')}
-            className="mt-1 px-5 py-2 bg-[#00C9F2] text-on-brand text-sm font-bold rounded-full active:scale-95 transition-transform"
+            className="mt-1 px-5 py-2 text-sm"
           >
             בחר תוכנית
-          </button>
+          </BrandCtaButton>
         </div>
       )}
     </div>
