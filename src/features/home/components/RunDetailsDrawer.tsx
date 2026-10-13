@@ -111,7 +111,7 @@ export default function RunDetailsDrawer({ isOpen, onClose }: RunDetailsDrawerPr
 
             {predictions.length > 0 && (
               <div className="px-5 pb-4">
-                <p className="text-xs font-bold text-slate-400 mb-3 flex items-center gap-1.5">
+                <p className="text-xs font-bold text-slate-600 mb-3 flex items-center gap-1.5">
                   <Trophy size={13} style={{ color: '#00BAF7' }} />
                   תחזית מירוצים
                 </p>
@@ -121,7 +121,7 @@ export default function RunDetailsDrawer({ isOpen, onClose }: RunDetailsDrawerPr
                       key={p.label}
                       className="bg-slate-50 dark:bg-slate-800 rounded-xl p-3 text-center"
                     >
-                      <p className="text-[11px] font-bold text-slate-400 mb-1">{p.label}</p>
+                      <p className="text-[11px] font-bold text-slate-600 mb-1">{p.label}</p>
                       <p className="text-lg font-black text-slate-900 dark:text-white tabular-nums">
                         {p.time}
                       </p>
@@ -133,7 +133,7 @@ export default function RunDetailsDrawer({ isOpen, onClose }: RunDetailsDrawerPr
 
             <div className="px-5 pb-8">
               <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-bold text-slate-400 flex items-center gap-1.5">
+                <p className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
                   <Edit3 size={13} style={{ color: '#0AC2B6' }} />
                   קצב בסיס (דק׳/ק״מ)
                 </p>
@@ -162,7 +162,7 @@ export default function RunDetailsDrawer({ isOpen, onClose }: RunDetailsDrawerPr
                       onChange={(e) => setPaceMin(Math.max(0, parseInt(e.target.value) || 0))}
                       className="w-10 text-center text-xl font-black bg-transparent text-slate-900 dark:text-white outline-none tabular-nums"
                     />
-                    <span className="text-slate-400 font-bold">:</span>
+                    <span className="text-slate-600 font-bold">:</span>
                     <input
                       type="number"
                       min={0} max={59}
@@ -171,11 +171,11 @@ export default function RunDetailsDrawer({ isOpen, onClose }: RunDetailsDrawerPr
                       className="w-10 text-center text-xl font-black bg-transparent text-slate-900 dark:text-white outline-none tabular-nums"
                     />
                   </div>
-                  <span className="text-xs text-slate-400">דק׳/ק״מ</span>
+                  <span className="text-xs text-slate-600">דק׳/ק״מ</span>
                   <div className="flex-1" />
                   <button
                     onClick={() => setEditMode(false)}
-                    className="text-xs font-bold text-slate-400 px-3 py-2"
+                    className="text-xs font-bold text-slate-600 px-3 py-2"
                   >
                     ביטול
                   </button>
@@ -193,7 +193,7 @@ export default function RunDetailsDrawer({ isOpen, onClose }: RunDetailsDrawerPr
                   {basePace > 0
                     ? `${Math.floor(basePace / 60)}:${String(Math.round(basePace % 60)).padStart(2, '0')}`
                     : '—'}
-                  <span className="text-sm font-bold text-slate-400 mr-2">דק׳/ק״מ</span>
+                  <span className="text-sm font-bold text-slate-600 mr-2">דק׳/ק״מ</span>
                 </p>
               )}
               {editMode && (paceMin * 60 + paceSec) < 180 && (paceMin * 60 + paceSec) > 0 && (

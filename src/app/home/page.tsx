@@ -190,7 +190,7 @@ function ProfileProgressBar({ profile }: { profile: UserFullProfile }) {
           animate={{ rotate: isOpen ? 180 : 0 }}
           transition={{ duration: 0.2 }}
         >
-          <ChevronDown size={16} className="text-slate-400" />
+          <ChevronDown size={16} className="text-slate-500" />
         </motion.div>
       </button>
 
@@ -209,9 +209,9 @@ function ProfileProgressBar({ profile }: { profile: UserFullProfile }) {
                   {item.completed ? (
                     <CheckCircle2 size={16} className="text-emerald-500 flex-shrink-0" />
                   ) : (
-                    <Circle size={16} className="text-slate-300 flex-shrink-0" />
+                    <Circle size={16} className="text-slate-500 flex-shrink-0" />
                   )}
-                  <span className={`flex-1 text-xs ${item.completed ? 'text-slate-400 line-through' : 'text-slate-700 font-medium'}`}>
+                  <span className={`flex-1 text-xs ${item.completed ? 'text-slate-500 line-through' : 'text-slate-700 font-medium'}`}>
                     {item.label}
                   </span>
                   {!item.completed && (item.step || item.jitPath) && (
@@ -2664,7 +2664,7 @@ export default function HomePage() {
   if (!_hasHydrated) {
     return (
       <div className="h-[100dvh] flex items-center justify-center bg-[#F8FAFC]">
-        <p className="text-slate-400 animate-pulse text-sm">טוען...</p>
+        <p className="text-slate-600 animate-pulse text-sm">טוען...</p>
       </div>
     );
   }
@@ -2672,7 +2672,7 @@ export default function HomePage() {
   if (!profile) {
     return (
       <div className="h-[100dvh] flex items-center justify-center bg-[#F8FAFC]">
-        <p className="text-slate-400 text-sm">{isCheckingFirestore ? 'בודק פרופיל...' : 'מעביר להרשמה...'}</p>
+        <p className="text-slate-600 text-sm">{isCheckingFirestore ? 'בודק פרופיל...' : 'מעביר להרשמה...'}</p>
       </div>
     );
   }

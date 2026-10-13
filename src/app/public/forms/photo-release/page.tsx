@@ -286,7 +286,7 @@ export default function PhotoReleaseFormPage() {
               <h2 className="text-base font-bold text-slate-900">חתימת ההורה/אפוטרופוס</h2>
               <span
                 className={`text-xs font-bold transition-colors ${
-                  signatureData ? 'text-emerald-600' : 'text-slate-400'
+                  signatureData ? 'text-emerald-600' : 'text-slate-600'
                 }`}
               >
                 {signatureData ? '✓ נחתם' : 'ממתין לחתימה'}
@@ -347,7 +347,7 @@ export default function PhotoReleaseFormPage() {
             )}
           </button>
 
-          <p className="text-center text-xs text-slate-400 pb-4">
+          <p className="text-center text-xs text-slate-600 pb-4">
             הפרטים והחתימה נשמרים באופן מאובטח לצורך תיעוד ההסכמה בלבד.
           </p>
         </form>

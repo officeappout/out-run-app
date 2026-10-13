@@ -105,7 +105,7 @@ export default function ProgressPage() {
   if (!_hasHydrated) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-[#F8FAFC]">
-        <p className="text-slate-400 animate-pulse text-sm">טוען...</p>
+        <p className="text-slate-600 animate-pulse text-sm">טוען...</p>
       </div>
     );
   }
@@ -113,7 +113,7 @@ export default function ProgressPage() {
   if (!profile) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-[#F8FAFC]">
-        <p className="text-slate-400 text-sm">לא נמצא פרופיל</p>
+        <p className="text-slate-600 text-sm">לא נמצא פרופיל</p>
       </div>
     );
   }

@@ -99,7 +99,7 @@ function PushToastCard({ toast }: { toast: ForegroundPushToast }) {
           `}
           aria-label="סגור התראה"
         >
-          <X className={`w-4 h-4 ${isSystem ? 'text-slate-400' : 'text-slate-400'}`} />
+          <X className={`w-4 h-4 ${isSystem ? 'text-slate-400' : 'text-slate-500'}`} />
         </button>
       </div>
     </motion.div>

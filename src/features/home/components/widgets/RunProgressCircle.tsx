@@ -152,7 +152,7 @@ export default function RunProgressCircle() {
                 {hasTemplate ? planName : 'ממתין לתוכנית'}
               </h3>
             </div>
-            <p className="text-[12px] text-slate-400 mt-0.5">
+            <p className="text-[12px] text-slate-600 mt-0.5">
               {hasTemplate ? 'לוח אימונים בהכנה' : 'השלם/י הרשמה'}
             </p>
           </div>
@@ -187,7 +187,7 @@ export default function RunProgressCircle() {
                 transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                 className="flex-shrink-0"
               >
-                <ChevronDown size={14} className="text-slate-400" />
+                <ChevronDown size={14} className="text-slate-500" />
               </motion.div>
             </div>
 
@@ -199,11 +199,11 @@ export default function RunProgressCircle() {
 
             {basePace > 0 && (
               <p className="text-[12px] mt-0.5">
-                <span className="text-slate-400">קצב </span>
+                <span className="text-slate-600">קצב </span>
                 <span className="font-bold tabular-nums" style={{ color: '#00BAF7' }}>
                   {formatPace(basePace)}
                 </span>
-                <span className="text-slate-400"> דק׳/ק״מ</span>
+                <span className="text-slate-600"> דק׳/ק״מ</span>
               </p>
             )}
           </div>
@@ -248,7 +248,7 @@ export default function RunProgressCircle() {
                     transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                     className="flex-shrink-0"
                   >
-                    <ChevronDown size={14} className="text-slate-400" />
+                    <ChevronDown size={14} className="text-slate-500" />
                   </motion.div>
                 </div>
 
@@ -260,11 +260,11 @@ export default function RunProgressCircle() {
 
                 {basePace > 0 && (
                   <p className="text-[12px] mt-0.5">
-                    <span className="text-slate-400">קצב </span>
+                    <span className="text-slate-600">קצב </span>
                     <span className="font-bold tabular-nums" style={{ color: '#00BAF7' }}>
                       {formatPace(basePace)}
                     </span>
-                    <span className="text-slate-400"> דק׳/ק״מ</span>
+                    <span className="text-slate-600"> דק׳/ק״מ</span>
                   </p>
                 )}
               </div>
@@ -306,7 +306,7 @@ export default function RunProgressCircle() {
 
               <div className="flex justify-center pt-0.5">
                 <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-                  <ChevronDown size={14} className="text-slate-400 rotate-180" />
+                  <ChevronDown size={14} className="text-slate-500 rotate-180" />
                 </div>
               </div>
             </div>

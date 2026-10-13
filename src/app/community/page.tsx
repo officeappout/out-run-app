@@ -558,7 +558,7 @@ export default function CommunityPage() {
                 className={`flex-1 py-3 text-center font-bold border-b-2 transition-colors ${
                   topTab === 'feed'
                     ? 'text-[#00ADEF] border-[#00ADEF]'
-                    : 'text-slate-400 dark:text-slate-500 border-transparent'
+                    : 'text-slate-600 dark:text-slate-500 border-transparent'
                 }`}
               >
                 פיד
@@ -573,7 +573,7 @@ export default function CommunityPage() {
                 className={`flex-1 py-3 text-center font-bold border-b-2 transition-colors ${
                   topTab === 'leagues'
                     ? 'text-[#00ADEF] border-[#00ADEF]'
-                    : 'text-slate-400 dark:text-slate-500 border-transparent'
+                    : 'text-slate-600 dark:text-slate-500 border-transparent'
                 }`}
               >
                 ליגות

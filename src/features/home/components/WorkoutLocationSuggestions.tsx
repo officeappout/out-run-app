@@ -207,13 +207,13 @@ export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocat
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-slate-800">הפעל גישת מיקום</p>
-            <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+            <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
               {isStrength
                 ? 'כדי למצוא גינות כושר קרובות, נדרשת גישה למיקומך'
                 : 'כדי למצוא מסלולים קרובים, נדרשת גישה למיקומך'}
             </p>
           </div>
-          <ChevronLeft size={16} className="text-slate-400 flex-shrink-0" />
+          <ChevronLeft size={16} className="text-slate-500 flex-shrink-0" />
         </button>
       </motion.div>
     );

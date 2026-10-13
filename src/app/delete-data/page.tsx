@@ -79,7 +79,7 @@ export default function DeleteDataPage() {
             <h1 className="text-base font-black text-slate-900 leading-none">
               מחיקת נתונים אישיים
             </h1>
-            <p className="text-[11px] text-slate-400 mt-0.5">
+            <p className="text-[11px] text-slate-600 mt-0.5">
               OUT · קליסטניקס בע&quot;מ
             </p>
           </div>
@@ -127,7 +127,7 @@ export default function DeleteDataPage() {
           <p className="text-xs text-rose-500 mt-3">
             הנושא &quot;{SUBJECT}&quot; ימולא אוטומטית
           </p>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-600 mt-1">
             או שלחו ישירות ל־{' '}
             <a
               href={`mailto:${EMAIL}`}
@@ -236,7 +236,7 @@ export default function DeleteDataPage() {
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4 flex items-center justify-between gap-3">
           <div>
             <p className="text-sm font-bold text-slate-800">מדיניות פרטיות מלאה</p>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-600 mt-0.5">
               לפרטים על כל הנתונים שאנחנו אוספים ואיך אנחנו מגנים עליהם
             </p>
           </div>
@@ -264,7 +264,7 @@ export default function DeleteDataPage() {
 
         {/* ── Footer ── */}
         <footer className="text-center space-y-1.5 pt-2">
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-600">
             © 2026 קליסטניקס בע&quot;מ, ח.פ 516841806. כל הזכויות שמורות.
           </p>
           <a

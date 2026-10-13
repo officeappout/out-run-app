@@ -434,7 +434,7 @@ function TrioCard({
               style={{ width: 30, height: 30, borderRadius: 6 }}
               title="ללא ציוד – משקל גוף"
             >
-              <PersonStanding className="text-slate-400" style={{ width: 17, height: 17 }} />
+              <PersonStanding className="text-slate-500" style={{ width: 17, height: 17 }} />
             </div>
           </div>
         ) : null}
