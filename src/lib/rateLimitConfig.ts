@@ -61,6 +61,8 @@ export const RATE_LIMITS = {
     ipHourly: () => envWindow('RL_ADMIN_INVITATIONS_IP_HOURLY', HOUR, 30),
     adminShort: () => envWindow('RL_ADMIN_INVITATIONS_ADMIN_SHORT', 15 * MIN, 10),
     adminHourly: () => envWindow('RL_ADMIN_INVITATIONS_ADMIN_HOURLY', HOUR, 20),
+    // GET (scoped list for the authority team page) — per caller uid.
+    list: () => envWindow('RL_ADMIN_INVITATIONS_LIST', MIN, 30),
   },
   // Priority 5 — public Firestore-reading endpoints (survey findings).
   linkClick: {
