@@ -26,6 +26,7 @@ import type { RecurringTemplate, UserScheduleEntry, ScheduleActivityCategory } f
 import { getWeekEntries } from '@/features/user/scheduling/services/userSchedule.service';
 import { getSundayWeekStart, toISODate } from '@/features/user/scheduling/utils/dateUtils';
 import { APP_CONFIG_LINKS } from '@/lib/config/app-urls';
+import { auth } from '@/lib/firebase';
 import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/utils/running-current-week.utils';
 import { resolveTodayRunningWorkout } from '@/lib/running-today-workout';
 import { RUNNING_WORKOUT_CATEGORY_LABELS_HE } from '@/lib/running-workout-labels';
@@ -957,6 +958,35 @@ export default function SmartWeeklySchedule({
     return () => { cancelled = true; };
   }, [userId, scheduleVersion]);
 
+  // Calendar-feed token path (SEC-04). Fetched once per user on mount so the
+  // sync button's onClick can stay synchronous — an await before
+  // window.open/location.href loses the user-gesture on iOS Safari. Stays null
+  // (button disabled) while loading or on 401/403/503/network failure.
+  const [calendarFeedPath, setCalendarFeedPath] = useState<string | null>(null);
+  useEffect(() => {
+    setCalendarFeedPath(null);
+    if (!userId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const idToken = await auth.currentUser?.getIdToken();
+        if (!idToken) return;
+        const res = await fetch('/api/calendar/token', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as { path?: unknown };
+        if (!cancelled && typeof data.path === 'string' && data.path.startsWith('/api/calendar/t/')) {
+          setCalendarFeedPath(data.path);
+        }
+      } catch {
+        // non-critical — the sync button simply stays disabled
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [userId]);
+
   // Past-day workout completion (S8 dailyProgress) for this week — shared hook,
   // single source with the month grid. Feeds workoutDone for PAST days so a past
   // flame lights on a real completed OUT workout, not the S7 scheduleCompleted flag.
@@ -1544,14 +1574,15 @@ export default function SmartWeeklySchedule({
             is the correct cross-platform Capacitor API for firing external URL intents. */}
         <button
           type="button"
+          disabled={!calendarFeedPath}
           onClick={() => {
-            if (!userId) return;
+            if (!calendarFeedPath) return;
             const w = window as unknown as { Capacitor?: { getPlatform?: () => string } };
             const platform = w.Capacitor?.getPlatform?.() ?? 'web'; // 'ios' | 'android' | 'web'
             const feedHost = platform !== 'web'
               ? APP_CONFIG_LINKS.WEB_BASE_URL.replace('https://', '')
               : (typeof window !== 'undefined' ? window.location.host : 'outrun.co.il');
-            const webcalUrl = `webcal://${feedHost}/api/calendar/${userId}`;
+            const webcalUrl = `webcal://${feedHost}${calendarFeedPath}`;
             if (platform === 'android') {
               // Android has no built-in webcal:// handler. Pass the Google Calendar
               // subscribe URL to window.open(_system) — Capacitor fires ACTION_VIEW,
@@ -1565,7 +1596,7 @@ export default function SmartWeeklySchedule({
               window.location.href = webcalUrl;
             }
           }}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:pointer-events-none"
         >
           <img src="/icons/schedule/sync-calendar.svg" alt="" className="w-4 h-4" />
           <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
