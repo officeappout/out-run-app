@@ -8,7 +8,7 @@ afterEach(() => {
 
 describe('scheduleIdle', () => {
   it('uses requestIdleCallback (with the timeout ceiling) when available, and does NOT run synchronously', () => {
-    const ric = vi.fn((_cb: () => void, _o?: { timeout: number }) => 7);
+    const ric = vi.fn<(cb: () => void, o?: { timeout: number }) => number>(() => 7);
     const cic = vi.fn();
     vi.stubGlobal('window', { requestIdleCallback: ric, cancelIdleCallback: cic });
     const cb = vi.fn();
