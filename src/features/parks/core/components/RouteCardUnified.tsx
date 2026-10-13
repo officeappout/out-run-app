@@ -80,6 +80,12 @@ interface RouteCardUnifiedProps {
   ctaBlockedReason?: string | null;
   /** Called instead of `onCta` when `ctaBlockedReason` is set. */
   onCtaBlocked?: (reason: string) => void;
+  /**
+   * 'slim' — scoped to the discover "focused suggestions" carousel only (HybridSlotCarousel):
+   * tighter padding/gaps and the difficulty bolts share ONE row with `extraContent` (the time
+   * pill). Default keeps the shared spacing byte-identical for BottomJourneyContainer + RouteCarousel.
+   */
+  variant?: 'default' | 'slim';
 }
 
 export default function RouteCardUnified({
@@ -99,7 +105,9 @@ export default function RouteCardUnified({
   recommended = false,
   ctaBlockedReason = null,
   onCtaBlocked,
+  variant = 'default',
 }: RouteCardUnifiedProps) {
+  const slim = variant === 'slim';
   const hasStats = !!distanceText && !!durationText;
   const handleClick = onClick
     ? () => {
@@ -120,7 +128,7 @@ export default function RouteCardUnified({
     <div
       dir="rtl"
       onClick={handleClick}
-      className={`${ROUTE_CARD_WIDTH} shrink-0 bg-white rounded-3xl p-5 transition-all duration-300 ${
+      className={`${ROUTE_CARD_WIDTH} shrink-0 bg-white rounded-3xl ${slim ? 'px-4 py-3' : 'p-5'} transition-all duration-300 ${
         isActive
           ? 'shadow-[0_0_0_2.5px_rgba(0,229,255,0.85),0_14px_32px_rgba(0,0,0,0.18)] scale-[1.02]'
           : 'shadow-[0_10px_28px_rgba(0,0,0,0.14)] opacity-90 scale-[0.97]'
@@ -144,7 +152,7 @@ export default function RouteCardUnified({
 
       {/* Meta — distance + time on ONE inline row (· separated), or subtitle (slots) */}
       {hasStats ? (
-        <div className="flex items-center gap-1.5 mt-1.5 mb-3 text-[13px] font-black text-gray-800" dir="ltr">
+        <div className={`flex items-center gap-1.5 mt-1.5 ${slim ? 'mb-2' : 'mb-3'} text-[13px] font-black text-gray-800`} dir="ltr">
           <MapPin size={13} style={{ color: BRAND }} className="shrink-0" />
           <span>{distanceText}</span>
           <span className="mx-1 text-gray-300 font-normal">·</span>
@@ -152,13 +160,25 @@ export default function RouteCardUnified({
           <span>{durationText}</span>
         </div>
       ) : subtitle ? (
-        <p className="text-[13px] font-semibold text-gray-500 mt-1.5 mb-3 leading-snug truncate">
+        <p className={`text-[13px] font-semibold text-gray-500 ${slim ? 'mt-0.5 mb-2' : 'mt-1.5 mb-3'} leading-snug truncate`}>
           {subtitle}
         </p>
       ) : null}
 
       {/* Extra content (e.g. route_stops duration chips) — between subtitle and difficulty,
           with reasonable distance from the CTA below (the difficulty pill sits between them). */}
+      {slim ? (
+        // SLIM: the time pill (extraContent) and the difficulty bolts share ONE row.
+        <div className="flex items-center justify-between gap-2 mb-2.5">
+          <div className="min-w-0">{extraContent}</div>
+          <div
+            className="inline-flex items-center rounded-full shrink-0"
+            style={{ border: '0.5px solid #E0E9FF', padding: '3px 9px' }}
+          >
+            <DifficultyBolts difficulty={difficulty} size="sm" />
+          </div>
+        </div>
+      ) : (<>
       {extraContent && <div className="mb-3">{extraContent}</div>}
 
       {/* DifficultyBolts pill — cosmetic-only rounded-full restyle (was rounded-lg + shadow) so
@@ -177,6 +197,7 @@ export default function RouteCardUnified({
             see the route-enrichment plan's final activation checklist. */}
         <DifficultyBolts difficulty={difficulty} size="sm" />
       </div>
+      </>)}
 
       {/* CTA — home strength-card style (rounded-full + cyan→turquoise gradient) */}
       {ctaLoading ? (
@@ -189,7 +210,7 @@ export default function RouteCardUnified({
           onPointerDown={onCtaPointerDown}
           onClick={handleCta}
           aria-disabled={!!ctaBlockedReason}
-          className={`w-full py-3 rounded-full font-semibold text-sm flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform ${
+          className={`w-full ${slim ? 'py-2.5' : 'py-3'} rounded-full font-semibold text-sm flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform ${
             ctaBlockedReason ? 'text-gray-500' : 'text-black shadow-md shadow-cyan-400/25'
           }`}
           style={ctaBlockedReason ? { background: '#E5E7EB' } : { background: HOME_CTA_GRADIENT }}

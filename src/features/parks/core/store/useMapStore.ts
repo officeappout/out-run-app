@@ -182,6 +182,14 @@ interface MapStore {
   isOverviewActive: boolean;
   setIsOverviewActive: (v: boolean) => void;
   /**
+   * TRUE while the discover "focused suggestions" state is up (the slot-suggestion carousel,
+   * MAP_OVERVIEW_CHROME_V1): top chrome folded, "הצעות מסלולים" title bar shown. Written by
+   * DiscoverLayer; read by MapShell (fold the AppHeader nav-bar) and useCameraController
+   * (frame the user avatar together with the suggested route).
+   */
+  isSuggestionsFocused: boolean;
+  setIsSuggestionsFocused: (v: boolean) => void;
+  /**
    * Strength-station positions as fractions (0..1) along the focused hybrid route.
    * Single channel for map route coloring (point 15): written by HybridOverviewScreen
    * from the composed plan (cursorKm/totalKm per station), read by AppMap to build the
@@ -465,6 +473,8 @@ export const useMapStore = create<MapStore>((set, get) => ({
   setOverviewSheetHeightPx: (px) => set({ overviewSheetHeightPx: px }),
   isOverviewActive: false,
   setIsOverviewActive: (v) => set({ isOverviewActive: v }),
+  isSuggestionsFocused: false,
+  setIsSuggestionsFocused: (v) => set({ isSuggestionsFocused: v }),
   hybridRouteStations: null,
   setHybridRouteStations: (fracs) => set({ hybridRouteStations: fracs }),
   hybridWalkLegs: null,

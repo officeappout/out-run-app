@@ -1,5 +1,6 @@
 import mapboxgl from 'mapbox-gl';
 import { IS_PERF_BATCH1_ENABLED } from '@/config/feature-flags';
+import { HYBRID_WALK } from './hybrid/hybrid-colors';
 
 // ── Fitness-relevant POI classes to preserve ─────────────────────────────────
 // All other POI layers are hidden. Water fountains and toilets are rendered as
@@ -315,13 +316,14 @@ export function applyFitnessMapStyle(map: mapboxgl.Map, source = 'unknown') {
 }
 
 /**
- * Dashed walk-leg line paint — the single source for BOTH the curated-route walk-to-route line
+ * Dotted walk-leg line paint (navigation-style small round dots, muted blue) — the single source for BOTH the curated-route walk-to-route line
  * (useWalkToRoute → AppMap `walk-to-route-line`) and the hybrid round-trip walk legs
  * (`walk-to-route-hybrid-line`). Layer ids must keep the `walk-to-route` prefix (CUSTOM_LAYER_PREFIXES).
  */
 export const WALK_LEG_LINE_PAINT = {
-  'line-color': '#00E5FF',
+  'line-color': HYBRID_WALK,
   'line-width': 4,
-  'line-dasharray': [3, 3],
-  'line-opacity': 0.9,
+  // Zero-length dash + round line-cap (set on the Layer's layout) = round dots, ~2 widths apart.
+  'line-dasharray': [0, 2],
+  'line-opacity': 0.95,
 } as const;
