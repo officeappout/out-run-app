@@ -17,11 +17,12 @@ import {
   persistentLocalCache,
   persistentMultipleTabManager,
 } from "firebase/firestore";
-import { getStorage, FirebaseStorage } from "firebase/storage";
+import { getStorage } from "firebase/storage";
 import {
   initializeAppCheck,
   ReCaptchaEnterpriseProvider,
   CustomProvider,
+  getToken as getAppCheckToken,
   AppCheck,
 } from "firebase/app-check";
 import type {
@@ -29,6 +30,13 @@ import type {
   AppCheckFailureEvent,
 } from './native-auth-validation';
 import { isAppCheckDebugAllowed } from './appCheckDebugGate';
+import {
+  reportAppCheckInit,
+  reportAppCheckFailure,
+  reportAppCheckHandoff,
+  reportAppCheckWebError,
+  isAppCheckTelemetrySampled,
+} from './appCheckTelemetry';
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -249,7 +257,10 @@ if (typeof window !== "undefined") {
       } else {
         console.warn(`${prefix}: ${event.message}`);
       }
-      // Future hook: analytics.logEvent('app_check_failure', { reason: event.reason, platform: event.platform });
+      // Sampled, PII-free report so the failure mix per platform is visible
+      // in production (appCheckTelemetry.ts). BACKOFF is a consequence of an
+      // earlier failure, not a cause — skip it.
+      if (event.reason !== 'BACKOFF') reportAppCheckFailure(event.platform, event.reason);
     }
 
     /** Detect iOS vs Android for structured event metadata. */
@@ -298,6 +309,7 @@ if (typeof window !== "undefined") {
                   isAppCheckDebugAllowed(process.env.NODE_ENV);
                 await FAC.initialize({ debug: isDebug, isTokenAutoRefreshEnabled: true });
                 console.info(`[firebase] Native App Check initialized — provider: ${isDebug ? 'debug' : 'deviceCheck/appAttest'}`);
+                reportAppCheckInit(nativePlatformName(), isDebug ? 'native-debug' : 'native-attested');
               } catch (initErr) {
                 console.warn('[firebase] Native App Check initialize() failed (may already be initialized):', initErr);
               }
@@ -337,7 +349,14 @@ if (typeof window !== "undefined") {
               ),
             );
 
-            const { token } = await Promise.race([tokenPromise, timeoutPromise]);
+            const { token, expireTimeMillis: nativeExpireTimeMillis } =
+              await Promise.race([tokenPromise, timeoutPromise]);
+            // Measurement only: how much real life the native token has left
+            // vs the fixed 50-min TTL reported below (appCheckTelemetry.ts).
+            reportAppCheckHandoff(
+              nativePlatformName(),
+              nativeExpireTimeMillis ? nativeExpireTimeMillis - Date.now() : undefined,
+            );
 
             // Success — clear any previous backoff marker.
             appCheckFailedAt = null;
@@ -384,6 +403,21 @@ if (typeof window !== "undefined") {
           provider: new ReCaptchaEnterpriseProvider(siteKey),
           isTokenAutoRefreshEnabled: true,
         });
+        const webDebugActive = Boolean(
+          (self as unknown as Record<string, unknown>).FIREBASE_APPCHECK_DEBUG_TOKEN,
+        );
+        reportAppCheckInit('web', webDebugActive ? 'web-debug' : 'web-recaptcha');
+        // One-time token probe (measurement only), behind the SAME per-launch
+        // sample gate as the reports — it does not run for most launches. The
+        // SDK fetches this token for its first Firestore request anyway, so a
+        // sampled launch adds no extra exchange; it only surfaces the error
+        // code if reCAPTCHA fails.
+        if (isAppCheckTelemetrySampled()) {
+          getAppCheckToken(appCheck, false).catch((probeErr: unknown) => {
+            const e = probeErr as { code?: string; customData?: { httpStatus?: number } };
+            reportAppCheckWebError(e?.code ?? 'unknown', e?.customData?.httpStatus);
+          });
+        }
       } catch (err) {
         console.warn("[firebase] App Check initialization failed:", err);
       }
