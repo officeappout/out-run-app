@@ -69,6 +69,8 @@ export const RATE_LIMITS = {
   },
   calendar: {
     ip: () => envWindow('RL_CALENDAR_IP', MIN, 10),
+    // Token feed route (keyed per uid, after the MAC verifies).
+    token: () => envWindow('RL_CALENDAR_TOKEN', MIN, 30),
   },
   leaderboard: {
     ip: () => envWindow('RL_LEADERBOARD_IP', MIN, 30),
