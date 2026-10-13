@@ -5,8 +5,8 @@ name: CI
 # GitHub runner would just be a second place to hit the OOM seen on Hobby).
 #
 # Required-vs-advisory is decided in GitHub branch protection (Stage C), not
-# here. Intended split: `unit-tests` and `safety-check` BLOCKING; `typecheck`
-# and `lint` ADVISORY for the first weeks.
+# here. Intended split: `unit-tests`, `safety-check` and `emulator-tests`
+# BLOCKING; `typecheck` and `lint` ADVISORY for the first weeks.
 
 on:
   pull_request:
@@ -38,16 +38,16 @@ jobs:
       # are excluded in vitest.ci.config.ts, each with its reason.
       - run: npx vitest run -c vitest.ci.config.ts
 
-  # ADVISORY (Ops Stage B, PR 1). Runs the Firestore-emulator suites that
-  # unit-tests excludes. `continue-on-error` keeps a red result from failing
-  # the PR, but every file's PASS/FAIL is listed in the job summary — a red
-  # suite is a finding to report, not something to exclude. Becomes blocking
-  # in Stage C only after the mutation check proves the job catches regressions.
+  # BLOCKING (Ops Stage C). Runs the Firestore-emulator suites that
+  # unit-tests excludes, one file at a time; any red file fails the job (and
+  # every file's PASS/FAIL is listed in the job summary). The job name is the
+  # required-status-check name in branch protection — renaming it here means
+  # updating the protection rule too. Proven to catch a planted regression by
+  # scripts/ci/mutation-check-rules.sh (manual run, 13.10.2026).
   emulator-tests:
-    name: emulator-tests (advisory)
+    name: emulator-tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
