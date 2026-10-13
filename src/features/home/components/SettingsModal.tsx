@@ -14,6 +14,7 @@ import { sendPasswordResetEmail } from 'firebase/auth';
 import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { signOutUser } from '@/lib/auth.service';
+import { readA11yWidgetEnabled, writeA11yWidgetEnabled } from '@/lib/accessibilityWidgetPref';
 import { useUserStore } from '@/features/user';
 import { useOnboardingStore } from '@/features/user/onboarding/store/useOnboardingStore';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
@@ -145,15 +146,21 @@ function Toggle({
   checked,
   onChange,
   disabled = false,
+  label,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   disabled?: boolean;
+  /** Accessible name for the switch (pass it for any switch whose row text isn't programmatically associated). */
+  label?: string;
 }) {
   return (
-    <div
+    <button
+      type="button"
       role="switch"
       aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
       onClick={() => { if (!disabled) { hapticSelection(); onChange(!checked); } }}
       className={`w-12 h-6 rounded-full relative flex-shrink-0 transition-colors ${
         disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
@@ -164,7 +171,7 @@ function Toggle({
         transition={{ type: 'spring', stiffness: 500, damping: 30 }}
         className="absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow-md"
       />
-    </div>
+    </button>
   );
 }
 
@@ -300,6 +307,19 @@ function PermissionStatusBadge({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
+  // Opt-in third-party accessibility toolbar (UserWay). Default OFF; the actual
+  // script load lives in AccessibilityWidgetLoader, driven by this preference.
+  const [a11yWidgetOn, setA11yWidgetOn] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void readA11yWidgetEnabled().then((v) => { if (alive) setA11yWidgetOn(v); });
+    return () => { alive = false; };
+  }, []);
+  const handleA11yWidgetToggle = useCallback((v: boolean) => {
+    setA11yWidgetOn(v);
+    writeA11yWidgetEnabled(v);
+  }, []);
+
   const router = useRouter();
   const { profile, resetProfile } = useUserStore();
   const { reset: resetOnboarding } = useOnboardingStore();
@@ -2001,6 +2021,18 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     7. כללי
                    ══════════════════════════════════════════════════════════ */}
                 <Section title="כללי">
+                  <SettingsRow
+                    icon={<Accessibility size={20} className="text-gray-700" />}
+                    label="הפעלת סרגל נגישות"
+                    sublabel="סרגל של צד שלישי (UserWay) להתאמת גודל טקסט, ניגודיות ותנועה. כבוי כברירת מחדל; כיבוי נכנס לתוקף בהפעלה הבאה."
+                    right={
+                      <Toggle
+                        checked={a11yWidgetOn}
+                        onChange={handleA11yWidgetToggle}
+                        label="הפעלת סרגל נגישות"
+                      />
+                    }
+                  />
                   <SettingsRow
                     icon={<FileText size={20} className="text-gray-700" />}
                     label="תנאי שימוש ופרטיות"
