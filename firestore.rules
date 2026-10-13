@@ -1409,15 +1409,15 @@ service cloud.firestore {
       // through the client are no longer a legitimate path for ANYONE,
       // including root, so `write: if false` unconditionally. `read`
       // narrowed from isAdmin() to isRootAdmin() to match: only root ever
-      // needs to read this collection directly (the admins-management /
-      // admin-directory screens that call getAllInvitations() client-side
-      // are root-gated at the UI layer already; a non-root super_admin
-      // visiting them will now get permission-denied on that read — see
-      // this branch's task report for the full list of affected screens).
+      // needs to read this collection directly. The admins-management /
+      // admin-directory pages (which call getAllInvitations() client-side)
+      // are gated to root at PAGE level (isRootAdmin(user.email)), matching
+      // this rule. The authority/team page does NOT read this collection
+      // from the browser any more — it goes through the scoped
+      // GET /api/admin/invitations (Admin SDK, caller's own authority).
       //
-      // PREPARED, NOT DEPLOYED as of this commit — see the branch's task
-      // report for required deploy order (code must merge/deploy before
-      // this rule, not after).
+      // DEPLOYED: confirmed live against the Firebase Console 13.10.2026 —
+      // `read` is root-only, `write` is false in production.
       allow read: if isRootAdmin();
       allow write: if false;
     }
@@ -2215,9 +2215,13 @@ service cloud.firestore {
       // already-persona-gated source blockedByGroupPersonaGate protects —
       // so a persona-gated group's chat inherits that protection for free,
       // with no separate persona check needed here.
-      // isAdmin()/isRootAdmin() still reach every chat via the global
-      // catch-all match block below — no admin-specific clause needed here
-      // (subscribeToAllChats' platform-wide inbox is unaffected).
+      // Only isRootAdmin() reaches every chat, via the global catch-all
+      // match block below (it is `isRootAdmin()`-only — a DB-flagged
+      // isAdmin()/core.isSuperAdmin user who is not root does NOT reach
+      // other people's chats). No admin-specific clause is needed here;
+      // subscribeToAllChats' platform-wide inbox is therefore root-only,
+      // and ChatInbox gates it on isRootAdmin() to match. Verified by
+      // tests/firestore-rules.test.ts CL3/CL3b/CL8/CL8b.
       allow read: if isAuthenticated()
                   && resource.data.type == 'group'
                   && exists(/databases/$(database)/documents/community_groups/$(resource.data.groupId)/members/$(request.auth.uid));
