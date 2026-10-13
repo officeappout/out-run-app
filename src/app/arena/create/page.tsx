@@ -293,7 +293,7 @@ export default function CreateGroupPage() {
                 onClick={() => update('category', opt.value)}
                 className={`py-2.5 rounded-xl text-xs font-bold transition-all ${
                   state.category === opt.value
-                    ? 'bg-cyan-500 text-white'
+                    ? 'bg-cyan-500 text-on-brand'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
@@ -338,7 +338,7 @@ export default function CreateGroupPage() {
         <button
           disabled={!state.name.trim()}
           onClick={() => setStep('schedule')}
-          className="w-full py-3.5 rounded-2xl bg-cyan-500 text-white font-black text-sm disabled:opacity-40 transition-opacity"
+          className="w-full py-3.5 rounded-2xl bg-cyan-500 text-on-brand font-black text-sm disabled:opacity-40 transition-opacity"
         >
           הבא — לוח זמנים
         </button>
@@ -360,7 +360,7 @@ export default function CreateGroupPage() {
                 onClick={() => update('dayOfWeek', i)}
                 className={`py-2.5 rounded-xl text-xs font-bold transition-all ${
                   state.dayOfWeek === i
-                    ? 'bg-cyan-500 text-white'
+                    ? 'bg-cyan-500 text-on-brand'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
@@ -390,7 +390,7 @@ export default function CreateGroupPage() {
                   onClick={() => update('frequency', val)}
                   className={`py-2.5 rounded-xl text-xs font-bold transition-all ${
                     state.frequency === val
-                      ? 'bg-cyan-500 text-white'
+                      ? 'bg-cyan-500 text-on-brand'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
                 >
@@ -413,7 +413,7 @@ export default function CreateGroupPage() {
 
         <button
           onClick={() => setStep('invite')}
-          className="w-full py-3.5 rounded-2xl bg-cyan-500 text-white font-black text-sm"
+          className="w-full py-3.5 rounded-2xl bg-cyan-500 text-on-brand font-black text-sm"
         >
           הבא — הזמן שותפים
         </button>

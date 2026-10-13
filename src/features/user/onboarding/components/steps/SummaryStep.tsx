@@ -417,7 +417,7 @@ export default function SummaryStep({ onNext }: SummaryStepProps) {
           className={`w-full py-5 rounded-2xl font-black text-xl transition-all duration-300 flex items-center justify-center gap-3 ${
             isButtonPressed
               ? 'bg-[#10B981] text-white'
-              : 'bg-gradient-to-r from-[#5BC2F2] to-[#3B82F6] text-white'
+              : 'bg-gradient-to-r from-[#5BC2F2] to-[#3B82F6] text-on-brand'
           }`}
         >
           {isButtonPressed ? (

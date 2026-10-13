@@ -405,7 +405,7 @@ export default function ProfilePage() {
                         key="btn"
                         onClick={handleSendFeedback}
                         disabled={!feedbackText.trim() || feedbackSending}
-                        className="w-full h-12 rounded-xl font-bold text-sm text-white bg-gradient-to-l from-[#00C9F2] to-[#5BC2F2] shadow-md shadow-cyan-500/20 active:scale-[0.97] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
+                        className="w-full h-12 rounded-xl font-bold text-sm text-on-brand bg-gradient-to-l from-[#00C9F2] to-[#5BC2F2] shadow-md shadow-cyan-500/20 active:scale-[0.97] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
                       >
                         {feedbackSending ? (
                           <Loader2 size={18} className="animate-spin" />
@@ -545,7 +545,7 @@ export default function ProfilePage() {
                 <button
                   onClick={saveInlineEdit}
                   disabled={editSaving}
-                  className="flex-1 h-12 rounded-2xl font-bold text-white text-sm bg-gradient-to-l from-[#00C9F2] to-[#5BC2F2] shadow-lg shadow-cyan-500/20 active:scale-[0.97] transition-transform flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="flex-1 h-12 rounded-2xl font-bold text-on-brand text-sm bg-gradient-to-l from-[#00C9F2] to-[#5BC2F2] shadow-lg shadow-cyan-500/20 active:scale-[0.97] transition-transform flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {editSaving ? (
                     <Loader2 size={18} className="animate-spin" />

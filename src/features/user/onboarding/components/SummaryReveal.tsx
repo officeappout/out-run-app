@@ -120,7 +120,7 @@ export default function SummaryReveal({
                   w-12 h-12 rounded-2xl flex items-center justify-center
                   font-bold text-lg transition-colors
                   ${isSelected
-                    ? 'bg-[#00E5FF] text-white shadow-lg shadow-[#00E5FF]/30'
+                    ? 'bg-[#00E5FF] text-on-brand shadow-lg shadow-[#00E5FF]/30'
                     : 'bg-slate-200 text-slate-500'
                   }
                 `}
@@ -284,7 +284,7 @@ export default function SummaryReveal({
       {/* כפתור המשך */}
       <button
         onClick={handleContinue}
-        className="w-full py-4 rounded-2xl bg-[#00E5FF] text-white font-bold text-lg shadow-lg shadow-[#00E5FF]/30 active:scale-95 transition-transform hover:bg-cyan-400"
+        className="w-full py-4 rounded-2xl bg-[#00E5FF] text-on-brand font-bold text-lg shadow-lg shadow-[#00E5FF]/30 active:scale-95 transition-transform hover:bg-cyan-400"
       >
         {getTranslation('onboarding.summary.startButton', language)}
       </button>

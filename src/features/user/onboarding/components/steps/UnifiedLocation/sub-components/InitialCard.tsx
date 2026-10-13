@@ -65,7 +65,7 @@ export function InitialCard({ gender, t, locationError, onFindLocation, onSearch
 
           <button
             onClick={onFindLocation}
-            className="w-full bg-[#5BC2F2] hover:bg-[#4AADE3] text-white font-bold py-4 rounded-2xl shadow-xl shadow-[#5BC2F2]/30 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+            className="w-full bg-[#5BC2F2] hover:bg-[#4AADE3] text-on-brand font-bold py-4 rounded-2xl shadow-xl shadow-[#5BC2F2]/30 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
             <MapPin size={20} />

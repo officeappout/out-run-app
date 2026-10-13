@@ -265,7 +265,7 @@ export function ConfirmationCard({
                       </div>
                     </div>
                     <div className="flex-shrink-0">
-                      <div className="bg-[#5BC2F2] text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">
+                      <div className="bg-[#5BC2F2] text-on-brand text-xs font-bold px-3 py-1 rounded-full shadow-sm">
                         #1
                       </div>
                     </div>
@@ -298,7 +298,7 @@ export function ConfirmationCard({
                       </div>
                     </div>
                     <div className="flex-shrink-0">
-                      <div className="bg-[#5BC2F2] text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">
+                      <div className="bg-[#5BC2F2] text-on-brand text-xs font-bold px-3 py-1 rounded-full shadow-sm">
                         #1
                       </div>
                     </div>
@@ -437,7 +437,7 @@ export function ConfirmationCard({
             disabled={isLoadingParks}
             animate={{ scale: [1, 1.01, 1] }}
             transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-            className="w-full bg-[#5BC2F2] hover:bg-[#4AADE3] text-white font-bold py-4 rounded-2xl shadow-xl shadow-[#5BC2F2]/30 transition-all active:scale-[0.98] disabled:opacity-60"
+            className="w-full bg-[#5BC2F2] hover:bg-[#4AADE3] text-on-brand font-bold py-4 rounded-2xl shadow-xl shadow-[#5BC2F2]/30 transition-all active:scale-[0.98] disabled:opacity-60"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
             כן, זה הבית שלי!

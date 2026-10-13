@@ -142,7 +142,7 @@ export default function UserHeaderPill({
               className="w-full h-full object-cover" 
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary to-cyan-600 text-white font-bold">
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary to-cyan-600 text-on-brand font-bold">
               {avatarInitial}
             </div>
           )}

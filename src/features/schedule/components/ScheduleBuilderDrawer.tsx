@@ -317,7 +317,7 @@ function ChipButton({
         locked
           ? 'opacity-40 cursor-not-allowed bg-white text-gray-400 border border-slate-200'
           : active
-            ? 'bg-[#00C9F2] text-white'
+            ? 'bg-[#00C9F2] text-on-brand'
             : 'bg-white text-gray-600 border border-slate-200'
       }`}
     >

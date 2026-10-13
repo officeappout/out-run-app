@@ -599,7 +599,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                     {opt.label}
                   </span>
                   <div className={`w-4 h-4 rounded-full flex items-center justify-center ${sel ? 'bg-[#00C9F2]' : 'bg-slate-100'}`}>
-                    {sel && <Check size={10} className="text-white" strokeWidth={3} />}
+                    {sel && <Check size={10} className="text-on-brand" strokeWidth={3} />}
                   </div>
                 </motion.button>
               );
@@ -767,7 +767,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                 ? 'bg-[#5BC2F2]' 
                 : 'bg-slate-200'
             }`}>
-              {calendarSyncEnabled && <Check size={7} className="text-white" strokeWidth={2.5} />}
+              {calendarSyncEnabled && <Check size={7} className="text-on-brand" strokeWidth={2.5} />}
             </div>
           </button>
         </div>

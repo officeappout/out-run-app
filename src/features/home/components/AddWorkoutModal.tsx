@@ -530,7 +530,7 @@ export default function AddWorkoutModal({
               <button
                 onClick={handleSave}
                 disabled={!startTime || saving}
-                className="w-full py-3 bg-[#00C9F2] hover:bg-[#00B4D8] text-white font-bold rounded-xl shadow-lg shadow-cyan-500/25 transition-all active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none"
+                className="w-full py-3 bg-[#00C9F2] hover:bg-[#00B4D8] text-on-brand font-bold rounded-xl shadow-lg shadow-cyan-500/25 transition-all active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none"
               >
                 {saving ? 'שומר...' : isEditMode ? 'עדכן' : 'שמור'}
               </button>

@@ -99,7 +99,7 @@ const BOLT_FILTER_FILLED_ACTIVE = 'brightness(0) invert(1)';
 const BOLT_FILTER_EMPTY_ACTIVE   = 'brightness(0) invert(1) opacity(0.35)';
 
 // Shared pill styles (exact match to UserWorkoutAdjuster)
-const ACTIVE_PILL   = 'bg-[#00BAF7] border-[#00BAF7] text-white shadow-md shadow-cyan-400/30';
+const ACTIVE_PILL   = 'bg-[#00BAF7] border-[#00BAF7] text-on-brand shadow-md shadow-cyan-400/30';
 const INACTIVE_PILL = 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300';
 
 // ── Leaf-program slug allowlist for enrollment detection ─────────────────────
@@ -1264,7 +1264,7 @@ export default function WorkoutBuilderSheet({
                 setShowUnlockModal(false);
                 startMiniDomainAssessment(router, domain);
               }}
-              className="w-full py-3 rounded-2xl bg-[#00BAF7] text-white text-sm font-bold"
+              className="w-full py-3 rounded-2xl bg-[#00BAF7] text-on-brand text-sm font-bold"
             >
               בצע/י מבדק קצר
             </button>

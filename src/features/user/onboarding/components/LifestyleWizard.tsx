@@ -462,7 +462,7 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
               <div className="space-y-3.5 mb-6">
                 <div className="flex items-start gap-3 bg-slate-50 rounded-2xl px-4 py-3">
                   <span
-                    className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-white"
+                    className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-on-brand"
                     style={{ background: 'linear-gradient(135deg,#00BAF7,#0CF2E3)' }}
                   >
                     1
@@ -476,7 +476,7 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
 
                 <div className="flex items-start gap-3 bg-slate-50 rounded-2xl px-4 py-3">
                   <span
-                    className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-white"
+                    className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-on-brand"
                     style={{ background: 'linear-gradient(135deg,#00BAF7,#0CF2E3)' }}
                   >
                     2
@@ -489,7 +489,7 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
 
                 <div className="flex items-start gap-3 bg-slate-50 rounded-2xl px-4 py-3">
                   <span
-                    className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-white"
+                    className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-on-brand"
                     style={{ background: 'linear-gradient(135deg,#00BAF7,#0CF2E3)' }}
                   >
                     3

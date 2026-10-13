@@ -372,7 +372,7 @@ export default function CommunityHubPage() {
                       className="w-12 h-12 rounded-full object-cover ring-2 ring-gray-100"
                     />
                   ) : (
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white text-sm font-black ring-2 ring-gray-100">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-on-brand text-sm font-black ring-2 ring-gray-100">
                       {m.name.charAt(0)}
                     </div>
                   )}

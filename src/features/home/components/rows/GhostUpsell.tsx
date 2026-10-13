@@ -93,7 +93,7 @@ export function GhostUpsell({
           aria-label={label}
         >
           {/* Tiny corner affordance — no copy, no big overlay. */}
-          <span className="absolute bottom-0 left-0 w-6 h-6 rounded-full bg-[#5BC2F2] text-white flex items-center justify-center shadow-md">
+          <span className="absolute bottom-0 left-0 w-6 h-6 rounded-full bg-[#5BC2F2] text-on-brand flex items-center justify-center shadow-md">
             {icon ?? <Plus size={14} strokeWidth={3} />}
           </span>
         </button>

@@ -113,8 +113,8 @@ export default function RunningPlanSummary({ onGenerate }: RunningPlanSummaryPro
           className="absolute bottom-16 right-4 flex items-center gap-2 rounded-full px-3 py-1.5 shadow-lg"
           style={{ background: '#00BAF7' }}
         >
-          <Footprints size={16} className="text-white" />
-          <span className="text-sm font-bold text-white">{summary.distLabel}</span>
+          <Footprints size={16} className="text-on-brand" />
+          <span className="text-sm font-bold text-on-brand">{summary.distLabel}</span>
         </motion.div>
 
         {/* Title */}
@@ -239,7 +239,7 @@ export default function RunningPlanSummary({ onGenerate }: RunningPlanSummaryPro
           whileTap={{ scale: 0.98 }}
           onClick={onGenerate}
           className="w-full py-4 rounded-xl text-lg font-bold transition-colors shadow-xl"
-          style={{ background: '#00BAF7', color: '#fff' }}
+          style={{ background: '#00BAF7', color: '#0F172A' }}
         >
           צרו לי את התוכנית!
         </motion.button>

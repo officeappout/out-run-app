@@ -282,7 +282,7 @@ export default function HealthDeclarationPage() {
         <button
           type="button"
           onClick={runAutoSkip}
-          className="px-5 py-2 bg-[#00C9F2] text-white text-sm font-bold rounded-full active:scale-95 transition-transform"
+          className="px-5 py-2 bg-[#00C9F2] text-on-brand text-sm font-bold rounded-full active:scale-95 transition-transform"
         >
           נסה שוב
         </button>

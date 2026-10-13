@@ -188,7 +188,7 @@ export function JITSetupModal({
           {/* Primary CTA — Brand Cyan gradient pill */}
           <button
             onClick={handleCompleteNow}
-            className="w-full h-14 rounded-full font-bold text-white text-base mb-4 bg-gradient-to-l from-[#00C9F2] to-[#00AEEF] border border-white/20 active:scale-[0.98] transition-transform"
+            className="w-full h-14 rounded-full font-bold text-on-brand text-base mb-4 bg-gradient-to-l from-[#00C9F2] to-[#00AEEF] border border-white/20 active:scale-[0.98] transition-transform"
             style={{
               fontFamily: 'var(--font-simpler)',
               boxShadow: '0 4px 18px rgba(0, 185, 242, 0.38)',

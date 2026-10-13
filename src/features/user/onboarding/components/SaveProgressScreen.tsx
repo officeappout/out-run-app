@@ -52,7 +52,7 @@ export default function SaveProgressScreen({
       {/* כפתור המשך */}
       <button
         onClick={onContinue}
-        className="w-full py-4 rounded-2xl bg-[#00E5FF] text-white font-bold text-lg shadow-lg shadow-[#00E5FF]/30 active:scale-95 transition-transform mt-8"
+        className="w-full py-4 rounded-2xl bg-[#00E5FF] text-on-brand font-bold text-lg shadow-lg shadow-[#00E5FF]/30 active:scale-95 transition-transform mt-8"
       >
         {continueLabel}
       </button>

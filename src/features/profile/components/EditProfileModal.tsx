@@ -177,7 +177,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                         onClick={() => toggleTrainingTag(tag.id)}
                         className={`px-3.5 py-2 rounded-full text-sm font-bold border transition-colors ${
                           selected
-                            ? 'bg-[#00ADEF] text-white border-[#00ADEF]'
+                            ? 'bg-[#00ADEF] text-on-brand border-[#00ADEF]'
                             : 'bg-gray-50 text-gray-600 border-gray-200'
                         }`}
                       >
@@ -201,7 +201,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
                 type="button"
                 onClick={handleSave}
                 disabled={editSaving}
-                className="w-full py-3.5 rounded-2xl bg-gradient-to-l from-[#00ADEF] to-[#5BC2F2] text-white font-bold text-sm shadow-lg shadow-cyan-500/20 active:scale-[0.98] transition-transform flex items-center justify-center gap-2 disabled:opacity-60"
+                className="w-full py-3.5 rounded-2xl bg-gradient-to-l from-[#00ADEF] to-[#5BC2F2] text-on-brand font-bold text-sm shadow-lg shadow-cyan-500/20 active:scale-[0.98] transition-transform flex items-center justify-center gap-2 disabled:opacity-60"
               >
                 {editSaving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={3} />}
                 שמור שינויים

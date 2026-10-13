@@ -37,7 +37,7 @@ export default function ScheduleFrequencyPicker({
                 onClick={() => onSelect(num)}
                 className={`w-11 h-11 flex items-center justify-center rounded-2xl text-lg transition-all duration-200 ${
                   isSelected
-                    ? 'bg-[#5BC2F2] text-white shadow-[0_4px_12px_rgba(91,194,242,0.2)]'
+                    ? 'bg-[#5BC2F2] text-on-brand shadow-[0_4px_12px_rgba(91,194,242,0.2)]'
                     : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
                 }`}
                 style={{ fontFamily: 'var(--font-simpler)', fontWeight: isSelected ? 700 : 500 }}

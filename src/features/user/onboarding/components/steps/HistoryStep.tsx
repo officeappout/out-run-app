@@ -259,7 +259,7 @@ export default function HistoryStep({ onNext }: HistoryStepProps) {
                   <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-all ${
                     isSelected ? 'bg-[#5BC2F2]' : 'bg-slate-100'
                   }`}>
-                    {isSelected && <Check size={12} className="text-white" strokeWidth={3} />}
+                    {isSelected && <Check size={12} className="text-on-brand" strokeWidth={3} />}
                   </div>
                 </motion.button>
               );
@@ -360,7 +360,7 @@ export default function HistoryStep({ onNext }: HistoryStepProps) {
         <button
           onClick={handleContinue}
           disabled={!canContinue}
-          className={`w-full bg-[#5BC2F2] hover:bg-[#4AADE3] text-white font-bold py-4 rounded-2xl text-lg shadow-xl shadow-[#5BC2F2]/25 transition-all active:scale-[0.98] ${
+          className={`w-full bg-[#5BC2F2] hover:bg-[#4AADE3] text-on-brand font-bold py-4 rounded-2xl text-lg shadow-xl shadow-[#5BC2F2]/25 transition-all active:scale-[0.98] ${
             !canContinue ? 'opacity-50 cursor-not-allowed' : ''
           }`}
         >

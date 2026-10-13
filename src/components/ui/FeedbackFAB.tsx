@@ -296,7 +296,7 @@ export default function FeedbackFAB({
                   <button
                     onClick={handleSubmit}
                     disabled={!message.trim() || loading}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-black text-white
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-black text-on-brand
                       bg-[#5BC2F2] disabled:opacity-40 active:scale-[0.98] transition-all shadow-sm shadow-sky-200"
                   >
                     {loading

@@ -50,7 +50,7 @@ export default function MultiDaySelector({
                 transition-all duration-200
                 active:scale-95
                 ${isSelected
-                  ? 'bg-[#00E5FF] text-white shadow-md shadow-[#00E5FF]/30'
+                  ? 'bg-[#00E5FF] text-on-brand shadow-md shadow-[#00E5FF]/30'
                   : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-gray-300'
                 }
               `}

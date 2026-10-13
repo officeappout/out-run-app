@@ -232,7 +232,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
               </div>
             ) : isMaxLevel ? (
               <div className="bg-gradient-to-l from-[#00ADEF] to-[#5BC2F2] rounded-full py-2 px-4 text-center">
-                <span className="text-white text-xs font-black">הגעת לשיא!</span>
+                <span className="text-on-brand text-xs font-black">הגעת לשיא!</span>
               </div>
             ) : (
               <>

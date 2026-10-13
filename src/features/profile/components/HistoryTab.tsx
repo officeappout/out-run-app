@@ -123,7 +123,7 @@ export default function HistoryTab({ onWorkoutClick, workouts, isLoading, remove
             onClick={() => setActiveFilter(filter.key)}
             className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${
               activeFilter === filter.key
-                ? 'bg-[#00ADEF] text-white shadow-sm'
+                ? 'bg-[#00ADEF] text-on-brand shadow-sm'
                 : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
             }`}
           >

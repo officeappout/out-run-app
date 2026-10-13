@@ -221,7 +221,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#00C9F2] text-white py-3 rounded-xl font-bold text-lg hover:bg-[#00B4D8] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-[#00C9F2] text-on-brand py-3 rounded-xl font-bold text-lg hover:bg-[#00B4D8] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'מתחבר...' : isSignUp ? 'הרשמה' : 'התחברות'}
           </button>
