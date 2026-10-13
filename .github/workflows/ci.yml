@@ -45,7 +45,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          # Depth 2 so the merge commit's first parent (HEAD^1, the base tip)
+          # is present — a depth-1 checkout would fail the reset below.
+          fetch-depth: 2
       # scripts/safety-check.sh inspects STAGED changes (`git diff --cached`).
       # For a pull_request event, HEAD is a merge commit whose first parent is
       # the base branch tip; a soft reset to it leaves exactly the PR's
