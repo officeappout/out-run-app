@@ -25,6 +25,7 @@ import ShimmerPhraseButton from '@/components/ui/ShimmerPhraseButton';
 import RouteCardUnified from '@/features/parks/core/components/RouteCardUnified';
 import { UNIFIED_ROUTE_CARDS_ENABLED, MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
 import type { HybridSlot } from '@/features/workout-engine/hybrid/hybrid-slots';
+import type { CardTotal } from '@/features/workout-engine/hybrid/round-trip';
 import type { AerobicKind } from '@/features/workout-engine/hybrid/compose-hybrid-session.service';
 import { getOnboardingPref, setOnboardingPref } from '@/lib/onboardingPrefs';
 
@@ -159,13 +160,22 @@ function AssessmentPromptCard({ onSelect, onArm, consumeArmed }: {
 // — pointerdown on card A must not let a click on card B fire (id match); (c) stale
 // arms from a carousel drag — the track's onDragStart clears the armed id. The card
 // body is NOT clickable (compose is a deliberate CTA action, never a body/auto tap).
-function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive }: {
+function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTotal }: {
   slot: HybridSlot;
   onSelect: () => void;
   onArm: () => void;
   consumeArmed: () => boolean;
   isActive: boolean;
+  /** route_stops only: the composed session's real total (null until the settle-preview
+   *  compose lands → the line is blank, never a placeholder). */
+  routeStopsTotal?: CardTotal | null;
 }) {
+  // route_stops only: a fixed-height line so the card doesn't jump when the real total arrives.
+  const totalLine = slot.id === 'route_stops' ? (
+    <div className="text-center text-[13px] font-extrabold" style={{ minHeight: 20, color: '#374151' }} aria-live="polite">
+      {routeStopsTotal ? `${routeStopsTotal.min} דק׳ בסך הכל${routeStopsTotal.includesWalk ? ' · כולל הליכה' : ''}` : null}
+    </div>
+  ) : undefined;
   if (slot.kind === 'assessment_prompt') {
     return <AssessmentPromptCard onSelect={onSelect} onArm={onArm} consumeArmed={consumeArmed} />;
   }
@@ -180,6 +190,7 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive }: {
         subtitle={slot.subtitle}
         difficulty={slot.bolts}
         recommended={slot.recommended}
+        extraContent={totalLine}
         isActive={isActive}
         onCtaPointerDown={onArm}
         onCta={(e) => {
@@ -226,6 +237,8 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive }: {
           )}
         </div>
         <div className="text-[13px] font-semibold mt-1" style={{ color: '#6B7280' }}>{slot.subtitle}</div>
+
+        {totalLine && <div className="mt-2">{totalLine}</div>}
 
         {/* Cosmetic-only rounded-full restyle — same pill language as the duration chips
             above; DifficultyBolts itself and what it displays are untouched. */}
@@ -282,6 +295,8 @@ interface HybridSlotCarouselProps {
   onSettleSlot?: (slot: HybridSlot) => void;
   /** Subtle "computing route…" chip above the cards (cards stay interactive). */
   computingPreview?: boolean;
+  /** route_stops card only: real total from the settle-preview cache; null/omitted → no time shown. */
+  routeStopsTotal?: CardTotal | null;
 }
 
 export default function HybridSlotCarousel({
@@ -294,6 +309,7 @@ export default function HybridSlotCarousel({
   onClose,
   onSettleSlot,
   computingPreview = false,
+  routeStopsTotal = null,
 }: HybridSlotCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -449,6 +465,7 @@ export default function HybridSlotCarousel({
                   <SlotCard
                     slot={slot}
                     isActive={isActive}
+                    routeStopsTotal={routeStopsTotal}
                     onSelect={() => onSelectSlot(slot)}
                     onArm={() => { armedSlotIdRef.current = slot.id; }}
                     consumeArmed={() => {

@@ -21,6 +21,7 @@ import { useProgramMap } from '@/features/workouts/components/workout-preview-dr
 import type { ExecutionLocation } from '@/features/content/exercises';
 import type { ComposedHybridSession, HybridRoutePreview } from '@/features/workout-engine/hybrid/start-hybrid-session';
 import HybridSlotCarousel, { ENTRY_PHRASES } from '@/features/parks/core/components/hybrid/HybridSlotCarousel';
+import { composedWorkoutMin, cardTotalFor, readRoundTripPref, type RoundTripLegs } from '@/features/workout-engine/hybrid/round-trip';
 import ShimmerPhraseButton from '@/components/ui/ShimmerPhraseButton';
 import type { HybridStartIntent } from '@/features/workout-engine/hybrid/build-hybrid-input';
 import { resolveSlots, presetToIntent, type HybridSlot } from '@/features/workout-engine/hybrid/hybrid-slots';
@@ -682,6 +683,21 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     [userLocation, slotActivity],
   );
 
+  // route_stops carousel card: the composed session's REAL total, read from the settle-preview
+  // compose (module cache is not reactive, so the settle handler mirrors the figure here). Keyed by
+  // the same warm key, so a location/activity change can never surface a stale number; null until a
+  // real session exists → the card shows no time at all.
+  const [routeStopsCardTotal, setRouteStopsCardTotal] =
+    useState<{ key: string; workoutMin: number; legs: RoundTripLegs | null } | null>(null);
+  const noteRouteStopsTotal = useCallback((slotId: string, composed: ComposedHybridSession) => {
+    if (slotId !== 'route_stops') return;
+    const workoutMin = composedWorkoutMin(composed.plan);
+    setRouteStopsCardTotal(workoutMin == null ? null : { key: keyFor(slotId), workoutMin, legs: composed.roundTrip ?? null });
+  }, [keyFor]);
+  const routeStopsTotal = routeStopsCardTotal && routeStopsCardTotal.key === keyFor('route_stops')
+    ? cardTotalFor(routeStopsCardTotal.workoutMin, routeStopsCardTotal.legs, readRoundTripPref())
+    : null;
+
   const { profile } = useUserStore();
   const myGroupIds = profile?.social?.groupIds ?? [];
 
@@ -956,6 +972,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     if (cached) {
       setHybridPreviewComposing(false);
       drawComposedRoute(cached);
+      noteRouteStopsTotal(slot.id, cached);
       return;
     }
     setHybridPreviewComposing(true);
@@ -967,9 +984,10 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
       setHybridPreviewComposing(false);
       if (!composed) return; // compose failed → leave the map as-is (never crash)
       drawComposedRoute(composed);
+      noteRouteStopsTotal(slot.id, composed);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userLocation, userCityName, logic, drawComposedRoute, drawRoutePreview, composeTrioDeduped, keyFor]);
+  }, [userLocation, userCityName, logic, drawComposedRoute, drawRoutePreview, composeTrioDeduped, keyFor, noteRouteStopsTotal]);
 
   // Slot selection: hybrid → compose→overview; aerobic_quick → start now (skip overview).
   const handleSelectSlot = useCallback((slot: HybridSlot) => {
@@ -1813,6 +1831,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 onSelectSlot={handleSelectSlot}
                 onSettleSlot={handleSettleSlot}
                 computingPreview={hybridPreviewComposing}
+                routeStopsTotal={routeStopsTotal}
                 onBuildYourself={() => resetHybridFlow('config')}
                 onClose={() => { resetHybridFlow(); setMapMode('idle'); }}
               />
