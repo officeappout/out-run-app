@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
-  parseRoundTripPref, bucketTopology, walkLeg, composeRoundTripLegs, displayTotalMin, buildWalkLegsGeoJSON,
+  parseRoundTripPref, bucketTopology, walkLeg, composeRoundTripLegs, displayTotalMin, buildWalkLegsGeoJSON, composedWorkoutMin, cardTotalFor,
   WALK_LEG_SKIP_M, ROUTE_STOPS_ROUND_TRIP_KEY,
 } from '../round-trip';
 
@@ -77,5 +77,27 @@ describe('buildWalkLegsGeoJSON', () => {
   it('draws only the leg that has geometry', () => {
     const fc = buildWalkLegsGeoJSON({ ...legs, walkBackPath: null }, true)!;
     expect(fc.features).toHaveLength(1);
+  });
+});
+
+describe('card total (Phase 2c) — shows the overview\'s number, or nothing', () => {
+  const seg = [{}];
+  it('composedWorkoutMin = round(aerobic + strength), same as the overview', () => {
+    expect(composedWorkoutMin({ segments: seg, totals: { aerobicMin: 21.4, strengthMin: 9.2 } })).toBe(31);
+  });
+  it('null for stub/gated plans (no segments) and zero totals — the card then shows NO time', () => {
+    expect(composedWorkoutMin({ segments: [], totals: { aerobicMin: 20, strengthMin: 10 } })).toBeNull();
+    expect(composedWorkoutMin({ segments: seg, totals: { aerobicMin: 0, strengthMin: 0 } })).toBeNull();
+    expect(composedWorkoutMin({ segments: seg, totals: {} })).toBeNull();
+  });
+  const legs = { walkThereMin: 11, walkBackMin: 11, walkTherePath: null, walkBackPath: null };
+  it('cardTotalFor adds both walk legs when round-trip is on, flags includesWalk', () => {
+    expect(cardTotalFor(31, legs, true)).toEqual({ min: 53, includesWalk: true });
+    expect(cardTotalFor(31, legs, false)).toEqual({ min: 31, includesWalk: false });
+    expect(cardTotalFor(31, null, true)).toEqual({ min: 31, includesWalk: false });
+    expect(cardTotalFor(31, { ...legs, walkThereMin: 0, walkBackMin: 0 }, true)).toEqual({ min: 31, includesWalk: false });
+  });
+  it('cardTotalFor(null) → null (no placeholder)', () => {
+    expect(cardTotalFor(null, legs, true)).toBeNull();
   });
 });

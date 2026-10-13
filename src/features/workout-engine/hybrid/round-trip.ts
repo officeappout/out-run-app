@@ -135,3 +135,30 @@ export function buildWalkLegsGeoJSON(
   if (legs.walkBackPath) features.push({ type: 'Feature', properties: { leg: 'back' }, geometry: { type: 'LineString', coordinates: legs.walkBackPath } });
   return features.length > 0 ? { type: 'FeatureCollection', features } : null;
 }
+
+/**
+ * PURE: the workout-only minutes of a composed plan (aerobic + strength, same rounding the
+ * overview uses), or null when there is nothing real to show (stub/gated plans with no segments,
+ * or a zero total). null → the carousel card shows NO time (never a guessed number).
+ */
+export function composedWorkoutMin(plan: {
+  segments: readonly unknown[];
+  totals: { aerobicMin?: number; strengthMin?: number };
+}): number | null {
+  if (!plan.segments || plan.segments.length === 0) return null;
+  const m = Math.round((plan.totals.aerobicMin ?? 0) + (plan.totals.strengthMin ?? 0));
+  return Number.isFinite(m) && m > 0 ? m : null;
+}
+
+/** What the route_stops carousel card shows: the overview's total (same inputs), or null. */
+export interface CardTotal { min: number; includesWalk: boolean; }
+export function cardTotalFor(
+  workoutMin: number | null,
+  legs: RoundTripLegs | null | undefined,
+  roundTripOn: boolean,
+): CardTotal | null {
+  if (workoutMin == null) return null;
+  const min = displayTotalMin(workoutMin, legs, roundTripOn);
+  const includesWalk = !!legs && roundTripOn && legs.walkThereMin + legs.walkBackMin > 0;
+  return { min, includesWalk };
+}
