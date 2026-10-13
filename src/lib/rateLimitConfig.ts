@@ -74,6 +74,10 @@ export const RATE_LIMITS = {
     // Token feed route (keyed per uid, after the MAC verifies).
     token: () => envWindow('RL_CALENDAR_TOKEN', MIN, 30),
   },
+  // POST /api/admin/community-groups/delete — per caller uid.
+  communityGroupDelete: {
+    uid: () => envWindow('RL_COMMUNITY_GROUP_DELETE_UID', MIN, 30),
+  },
   leaderboard: {
     ip: () => envWindow('RL_LEADERBOARD_IP', MIN, 30),
   },
