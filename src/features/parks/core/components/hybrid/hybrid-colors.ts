@@ -17,10 +17,11 @@ export const HYBRID_AER = '#10B981'; // walking / aerobic — green
 // against the light Mapbox basemap; the deeper value keeps enough contrast
 // for both the line itself and the white casing around it to read clearly.
 export const HYBRID_STR = '#06B6D4'; // strength — deep cyan
-/** Round-trip walk-to/from-route legs (Phase 2b) — the SAME #00E5FF as the dashed map line
- *  (WALK_LEG_LINE_PAINT). On the axis a walk leg is told apart from aerobic/strength by its
- *  dashed spine + hollow node, not by hue alone. Display-only: NOT a plan segment kind. */
-export const HYBRID_WALK = '#00E5FF';
+/** Round-trip walk-to/from-route legs — a muted blue (the existing `#93C5FD` dashed-line accent,
+ *  design-language.md), the SAME color as the dotted map line (WALK_LEG_LINE_PAINT), clearly apart
+ *  from the route's solid green. On the axis a walk leg is also told apart by its dotted spine +
+ *  hollow node. Display-only: NOT a plan segment kind. */
+export const HYBRID_WALK = '#93C5FD';
 
 /** Fraction of the route (each side of a station) that blends to the strength
  *  color. Big enough to read the station, small enough not to swallow the route. */

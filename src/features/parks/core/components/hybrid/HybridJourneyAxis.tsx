@@ -156,7 +156,7 @@ function RouteDivider({ label, from, to }: { label: string; from: string; to: st
   );
 }
 
-/** Transport leg: dotted connector + small walk icon (no node), faded, with a muted tag. */
+/** Transport leg: dotted connector + small walk icon (no node), faded. */
 function TransportRow({ label, minutes }: { label: string; minutes: number }) {
   return (
     <div className="flex items-center gap-3" style={{ minHeight: 46 }}>
@@ -169,7 +169,6 @@ function TransportRow({ label, minutes }: { label: string; minutes: number }) {
       <div className="flex items-center gap-2 flex-wrap" style={{ opacity: 0.75 }}>
         <span className="text-[12.5px] font-bold" style={{ color: '#6B7280' }}>{label}</span>
         <span className="text-[11px] font-bold" style={{ color: '#9CA3AF' }}>{formatMinutes(minutes * 60)}</span>
-        <span className="text-[10px] font-extrabold rounded-full" style={{ padding: '1px 7px', background: '#F3F4F6', color: '#9CA3AF' }}>מעבר</span>
       </div>
     </div>
   );
