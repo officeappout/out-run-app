@@ -646,7 +646,8 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     useMapStore.getState().setSelectedPark(null);
     logic.setSelectedRoute(null);
     logic.setFocusedRoute(route);
-    logic.startActiveWorkout();
+    // Explicit route: startActiveWorkout() would read the PREVIOUS focusedRoute from its render closure.
+    logic.startActiveWorkoutForRoute(route);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingRouteStart]);
 
@@ -1537,7 +1538,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
               onClose={() => { logic.setSelectedRoute(null); logic.setFocusedRoute(null); }}
               onStartWorkout={(r) => {
                 logic.setFocusedRoute(r);
-                logic.startActiveWorkout();
+                logic.startActiveWorkoutForRoute(r);
               }}
               onNavigate={(r) => {
                 // "Navigate to" on an entity card funnels into the
@@ -1643,7 +1644,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 logic.setFocusedRoute(route);
                 setMapMode('idle');
                 setCommuteRouteConfig(null);
-                logic.startActiveWorkout();
+                logic.startActiveWorkoutForRoute(route);
               }}
             />
           </>
@@ -1719,7 +1720,9 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 focusedRouteId={logic.focusedRoute?.id || null}
                 loadingRouteIds={logic.loadingRouteIds}
                 onShowDetails={() => logic.setShowDetailsDrawer(true)}
-                onStartWorkout={logic.startActiveWorkout}
+                // Start the card's OWN route: the CTA calls onRouteFocus(route) then this in the same tick,
+                // and startActiveWorkout() would still see the previously focused route (stale closure).
+                onStartWorkout={(r) => { logic.setFocusedRoute(r); logic.startActiveWorkoutForRoute(r); }}
                 onShowRouteDetail={(r) => {
                   logic.setSelectedRoute(r);
                   logic.setFocusedRoute(r);
@@ -2082,7 +2085,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                     // mode and kick off the same start path as discover.
                     logic.setFocusedRoute(route);
                     setMapMode('idle');
-                    logic.startActiveWorkout();
+                    logic.startActiveWorkoutForRoute(route);
                   }}
                 />
               )}

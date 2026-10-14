@@ -214,6 +214,7 @@ export const useMapLogic = (
     userWeight: session.userWeight,
     status: session.status,
     startActiveWorkout: session.startActiveWorkout,
+    startActiveWorkoutForRoute: session.startActiveWorkoutForRoute,
     pauseSession: session.pauseSession,
     resumeSession: session.resumeSession,
     endSession: session.endSession,
