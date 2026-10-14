@@ -2343,14 +2343,24 @@ service cloud.firestore {
     // REPORTS — user-submitted content reports
     // create: any signed-in user (no helper functions — avoids get()
     //   evaluation side-effects from the catch-all isAdmin() rule)
-    // read/manage: root admins + users whose role is admin/authority/root
+    // read / update / delete: ROOT ONLY (isRootAdmin()).
+    //
+    // 14.10.2026 — was: root email OR users/{uid}.role in
+    // ['admin','authority','root']. Proven at the emulator that this admitted
+    // any user carrying that top-level field to LIST the whole collection
+    // (every authority's reports, with reporterId + reason) and to dismiss or
+    // delete any report; the browser-side reports page did exactly that
+    // unscoped. Tightened as a fail-safe that does NOT depend on how any user
+    // document is shaped. Authority-scoped list/dismiss/delete now run in
+    // Admin-SDK server routes (/api/admin/reports*), which bypass these rules
+    // and check scope server-side. NOT DEPLOYED until `firebase deploy --only
+    // firestore:rules` is run from main after merge (David) — deploy AFTER the
+    // code that stops reading `reports` from the browser is live.
+    // Tests: tests/firestore-rules.test.ts RP-*.
     // ============================================================
     match /reports/{reportId} {
       allow create: if request.auth != null;
-      allow read, update, delete: if request.auth != null && (
-        request.auth.token.email.matches('(?i)^(david|office)@appout\\.co\\.il$') ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'authority', 'root']
-      );
+      allow read, update, delete: if isRootAdmin();
     }
 
     // ============================================================

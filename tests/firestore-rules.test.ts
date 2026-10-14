@@ -2396,6 +2396,85 @@ async function testSpec04MinorsAndRadius() {
   });
 }
 
+// ─── reports — read/update/delete root only (14.10.2026) ────────────────────
+//
+// reports/{id} read/update/delete used to admit root OR any user whose
+// top-level users/{uid}.role is admin|authority|root. The reports page (a
+// browser-side getDocs over the WHOLE collection) therefore showed every
+// authority's reports — with reporterId and reason — to anyone holding that
+// field, and let them dismiss/delete any report. Tightened to isRootAdmin()
+// as a fail-safe that does not depend on how any user doc is shaped; the
+// authority-scoped list/dismiss/delete now go through Admin-SDK server routes
+// (bypass rules). `create` is unchanged (any signed-in user files a report).
+async function testReportsRootOnly() {
+  console.log('\nreports — root only (read/update/delete); create unchanged');
+
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    // The EXACT shapes the old rule admitted via users/{uid}.role.
+    await setDoc(doc(db, 'users', 'rp_role_authority'), { role: 'authority', core: { name: 'AuthorityRole' } });
+    await setDoc(doc(db, 'users', 'rp_role_admin'), { role: 'admin', core: { name: 'AdminRole' } });
+    await setDoc(doc(db, 'users', 'rp_role_root'), { role: 'root', core: { name: 'RootRole' } });
+    await setDoc(doc(db, 'users', 'rp_plain'), { core: { name: 'Plain' } });
+    for (const id of ['rp_r1', 'rp_r2', 'rp_r3', 'rp_r4', 'rp_r5']) {
+      await setDoc(doc(db, 'reports', id), {
+        targetType: 'group', targetId: 'rp_group', targetName: 'synthetic', reporterId: 'rp_reporter',
+        reason: 'synthetic reason', status: 'pending',
+      });
+    }
+  });
+
+  for (const [label, uid] of [
+    ['role=authority', 'rp_role_authority'],
+    ['role=admin', 'rp_role_admin'],
+    ['role=root (field, not email)', 'rp_role_root'],
+    ['core.isSuperAdmin non-root (tenant_admin_user)', 'tenant_admin_user'],
+    ['plain user', 'rp_plain'],
+  ] as const) {
+    await it(`RP-${label} — GET a report by id → DENY`, async () => {
+      const ctx = env.authenticatedContext(uid);
+      await assertFails(getDoc(doc(ctx.firestore(), 'reports', 'rp_r1')));
+    });
+    await it(`RP-${label} — LIST all reports (the reports page's unfiltered query) → DENY`, async () => {
+      const ctx = env.authenticatedContext(uid);
+      await assertFails(getDocs(collection(ctx.firestore(), 'reports')));
+    });
+    await it(`RP-${label} — dismiss (update) a report → DENY`, async () => {
+      const ctx = env.authenticatedContext(uid);
+      await assertFails(updateDoc(doc(ctx.firestore(), 'reports', 'rp_r2'), { status: 'dismissed' }));
+    });
+    await it(`RP-${label} — delete a report → DENY`, async () => {
+      const ctx = env.authenticatedContext(uid);
+      await assertFails(deleteDoc(doc(ctx.firestore(), 'reports', 'rp_r3')));
+    });
+  }
+
+  const rootCtx = () => env.authenticatedContext('rp_root_david', { email: 'david@appout.co.il' });
+  await it('RP-root — GET, LIST, update and delete → ALLOW (control for every DENY above)', async () => {
+    const ctx = rootCtx();
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'reports', 'rp_r1')));
+    const snap = await assertSucceeds(getDocs(collection(ctx.firestore(), 'reports')));
+    if (snap.size < 5) throw new Error(`root list returned ${snap.size} reports, expected the 5 fixtures`);
+    await assertSucceeds(updateDoc(doc(ctx.firestore(), 'reports', 'rp_r4'), { status: 'dismissed' }));
+    await assertSucceeds(deleteDoc(doc(ctx.firestore(), 'reports', 'rp_r5')));
+  });
+
+  await it('RP-create — any signed-in user (incl. a plain one) files a report → ALLOW (unchanged: reporting must keep working)', async () => {
+    const ctx = env.authenticatedContext('rp_plain');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'reports', 'rp_new'), {
+      targetType: 'group', targetId: 'rp_group', targetName: 'synthetic', reporterId: 'rp_plain',
+      reason: 'synthetic', status: 'pending',
+    }));
+  });
+
+  await it('RP-create — unauthenticated report → DENY (unchanged)', async () => {
+    const ctx = env.unauthenticatedContext();
+    await assertFails(setDoc(doc(ctx.firestore(), 'reports', 'rp_anon'), {
+      targetType: 'group', targetId: 'rp_group', reporterId: 'x', reason: 'x', status: 'pending',
+    }));
+  });
+}
+
 // ─── Unit deletion — root only (30.09.2026, David) ─────────────────────────
 //
 // tenants/{t}/units/{u}'s write was a single `allow write: if isAdmin()`.
@@ -2535,4 +2614,5 @@ describe('Firestore Rules — Cumulative Integration Test Suite', () => {
   vitestIt('F-18 forgery (SPEC-02)', wrapSuite(testF18Forgery));
   vitestIt('SPEC-04 Wave A (presence age-scoped read) + Wave E (referrals lockdown)', wrapSuite(testSpec04MinorsAndRadius));
   vitestIt('unit-deletion — root only (30.09.2026)', wrapSuite(testUnitDeletion));
+  vitestIt('reports — root only (14.10.2026)', wrapSuite(testReportsRootOnly));
 });
