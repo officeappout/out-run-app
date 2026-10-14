@@ -3012,6 +3012,25 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // AGENTS PANEL — agents/{agentId} + agents/{agentId}/findings/{id}
+    // ============================================================
+    // 14.10.2026 (Ops stage 3, on-call agent). Written only by Cloud
+    // Functions (Admin SDK) and read/marked-read only through the root-only
+    // /api/admin/agents/** routes (Admin SDK) — no client path exists.
+    //
+    // ⚠️ This block can NOT lock out root: Firestore ORs every matching
+    // rule, and the ROOT ADMIN FALLBACK below also matches agents/**, so
+    // isRootAdmin() still passes there. For everyone else it adds nothing
+    // the fallback doesn't already deny. It documents intent; the real
+    // guard is tests/firestore-fix-agents-lockdown.rules.test.ts, which
+    // fails if the fallback is ever widened beyond root.
+    //
+    // NOT YET DEPLOYED as of this commit — deploy from main after merge.
+    match /agents/{document=**} {
+      allow read, write: if false;
+    }
+
+    // ============================================================
     // ROOT ADMIN FALLBACK — david@/office@appout.co.il only.
     // ============================================================
     // 20.09.2026 — was `isRootAdmin() || isAdmin()`. isAdmin() is DB-backed
