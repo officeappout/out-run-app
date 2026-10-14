@@ -64,7 +64,10 @@ export interface QualityBadgeInfo {
  * shows, say, dog_park ahead of lighting just because dog_park happened to
  * be checked first.
  */
-export function computeQualityBadges(qualitySignals: Route['qualitySignals'] | undefined): QualityBadgeInfo[] {
+export function computeQualityBadges(
+  qualitySignals: Route['qualitySignals'] | undefined,
+  cap: number = CARD_BADGE_CAP,
+): QualityBadgeInfo[] {
   const candidates: QualityBadgeInfo[] = [];
   const amenities = qualitySignals?.amenities;
   const amenitiesComputed = amenities?.status === 'computed';
@@ -109,5 +112,5 @@ export function computeQualityBadges(qualitySignals: Route['qualitySignals'] | u
     candidates.push({ key: 'dog_park', label: 'ידידותי לכלבים 🐕' });
   }
 
-  return candidates.slice(0, CARD_BADGE_CAP);
+  return candidates.slice(0, cap);
 }

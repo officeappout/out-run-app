@@ -90,6 +90,8 @@ interface BottomJourneyContainerProps {
    * before this prop existed. Never a reason a working start gets blocked.
    */
   userPosition?: { lat: number; lng: number } | null;
+  /** Current activity (slotActivity) — shown as a glyph next to each card's duration. */
+  durationActivity?: 'walking' | 'running';
 }
 
 // The carousel track is `flex-row-reverse` (routes[0] rightmost) → scrollLeft runs in negative space.
@@ -104,6 +106,7 @@ export default function BottomJourneyContainer({
   onShowRouteDetail,
   loadingRouteIds,
   userPosition = null,
+  durationActivity,
 }: BottomJourneyContainerProps) {
   const [activeRouteIndex, setActiveRouteIndex] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
@@ -334,7 +337,7 @@ export default function BottomJourneyContainer({
           onTouchStart={handleManualInteractionStart}
           onPointerDown={handleManualInteractionStart}
           onWheel={handleManualInteractionStart}
-          className="w-full overflow-x-auto snap-x snap-mandatory flex flex-row-reverse gap-3 pb-2 scrollbar-hide"
+          className="w-full overflow-x-auto snap-x snap-mandatory flex flex-row-reverse gap-3 pt-2 pb-2 scrollbar-hide"
           style={{ paddingInlineStart: '16px', paddingInlineEnd: '40px', scrollBehavior: 'smooth' }}
         >
           {routes.map((route, index) => {
@@ -389,6 +392,7 @@ export default function BottomJourneyContainer({
                   distanceText={`${totalDistKm.toFixed(1)} ק״מ`}
                   durationText={`${durationMin} דק׳`}
                   variant="slim"
+                  durationActivity={durationActivity}
                   difficulty={route.difficulty}
                   isActive={isActive || isFocused}
                   onClick={() => {
@@ -400,7 +404,7 @@ export default function BottomJourneyContainer({
                   }}
                   className="snap-center snap-always"
                   ctaLoading={isLoading}
-                  extraContent={<RouteQualityBadges qualitySignals={route.qualitySignals} />}
+                  extraContent={<RouteQualityBadges qualitySignals={route.qualitySignals} scrollable />}
                   ctaBlockedReason={blockedReason}
                   onCtaBlocked={(reason) => showToast('error', reason)}
                   onCta={(e) => {

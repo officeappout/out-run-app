@@ -885,9 +885,12 @@ export function useCameraController(params: CameraControllerParams): CameraContr
         // Focused suggestions: every suggestion previews under the SAME synthetic id ('hybrid-route'),
         // so the id alone would fit only the first card. Key the fit on the path itself so swiping to
         // another suggestion re-frames (user + that route). Other modes keep the plain id key.
-        const suggestionsFocused = suggestionsFocusedRef.current;
+        // The store flag now covers hybrid focused suggestions AND curated discover (one chrome-fold mechanism).
+        const chromeFocused = suggestionsFocusedRef.current;
+        // Path-keyed fit is for the hybrid carousel only (all its previews share the id 'hybrid-route').
+        const suggestionsFocused = chromeFocused && mapMode !== 'discover';
         // Curated discover carousel gets the same avatar-inclusive fit (swiping a card → that route + you).
-        const includeUser = suggestionsFocused || mapMode === 'discover';
+        const includeUser = chromeFocused || mapMode === 'discover';
         // Discover keeps the plain id key: route ids are distinct per card, and P2.0's fit-all pre-marks that id.
         const fitKey = suggestionsFocused
           ? `${focusedRoute.id}|${previewPath.length}|${previewPath[0]?.join(',')}|${previewPath[previewPath.length - 1]?.join(',')}|${currentLocation ? 'u' : ''}`
@@ -924,10 +927,14 @@ export function useCameraController(params: CameraControllerParams): CameraContr
               );
               if (process.env.NODE_ENV !== 'production') console.log('[Cam] preview-fitBounds (debounced):', focusedRoute.name);
               m.fitBounds(bounds as [number, number, number, number], {
-                // Focused suggestions: the title bar (~52px + safe area) replaces the top chrome, so the
-                // top pad clears it; the slim card sits lower than the legacy bottom:280 reserve.
-                padding: { top: suggestionsFocused ? 130 : 120, bottom: suggestionsFocused ? 260 : 280, left: 60, right: 60 },
-                maxZoom: 16,
+                // Focused/curated (avatar-inclusive) framing: the title bar (~52px + safe area) replaces the top
+                // chrome, so the top pad clears it, and the slim card sits low. Padding is a modest bump over the
+                // first pass (130/260/60 → 150/290/80) + maxZoom 16 → 15.5, for a bit more context around
+                // you + the route without over-zooming. Other previews keep 120/280/60 @ 16.
+                padding: includeUser
+                  ? { top: 150, bottom: 290, left: 80, right: 80 }
+                  : { top: 120, bottom: 280, left: 60, right: 60 },
+                maxZoom: includeUser ? 15.5 : 16,
                 duration: 600,
               });
             } catch { /* ignore */ }
