@@ -22,6 +22,12 @@ import { strengthBlockToWorkoutPlan } from './strength-block-to-plan';
 import { HYBRID_SUMMARY_ENABLED } from '@/config/feature-flags';
 import { isNegligibleHybridSession } from './hybrid-finish-policy';
 import type { SegmentExerciseDetail } from '../core/services/storage.service';
+import type { StrengthBlockResult } from '../core/pipeline/strength-block.service';
+import {
+  computeStationContext, countStationExercises, stationMinutes, swapExerciseInStationContent,
+  locateStationContentIndex,
+  type StationContext,
+} from './station-flow';
 
 // Non-reactive handles (a controller closure can't live in reactive state).
 let controllerRef: HybridControllerHandle | null = null;
@@ -35,6 +41,44 @@ let planAerobicKind: 'running' | 'walking' = 'running';
 let planFullPark = false;
 let planWarmupActive = true;
 let saving = false;
+// G2.4 station flow: park names for the end-of-station screen (parkId → name, from the
+// composed stations list), the LIVE block content of the station being run (an in-station
+// swap rewrites it), and when the station started (minutes on the completion screen).
+let stationNames: Record<string, string> = {};
+let activeStationContent: StrengthBlockResult | null = null;
+let stationStartedAtMs: number | null = null;
+
+/** Block content → the WorkoutPlan StrengthRunner plays. Shared by arrive() and an in-station
+ *  swap so both produce the identical shape (incl. the full-park warmup strip). */
+function buildStationPlan(content: StrengthBlockResult): WorkoutPlan {
+  const stationPlan = strengthBlockToWorkoutPlan(content, {
+    name: 'תחנת כוח', location: 'park', fullPark: planFullPark, isWarmupActive: planWarmupActive,
+  });
+  // Full-park + user skipped the warmup → strip the warmup segment BEFORE StrengthRunner
+  // (same predicate as app/workouts/[id]/active/page.tsx). Budget-split (planFullPark=false)
+  // never enters this branch, so its plan stays byte-identical.
+  if (planFullPark && !planWarmupActive) {
+    return {
+      ...stationPlan,
+      segments: stationPlan.segments.filter(
+        (seg) =>
+          seg.id !== 'warmup-segment' &&
+          seg.id !== 'joints-segment' &&
+          !seg.title?.includes('חימום') &&
+          !seg.title?.includes('מפרקים'),
+      ),
+    };
+  }
+  return stationPlan;
+}
+
+/** End-of-station summary held while the completion screen is up (run clock still paused). */
+export interface PendingStationComplete {
+  exerciseLog: SegmentExerciseDetail[];
+  completedAtMs: number;
+  exercises: number;
+  minutes: number;
+}
 
 /** True on an aerobic leg with NO station still ahead (the final leg → finish). */
 function isFinalLeg(s: HybridRunState): boolean {
@@ -95,6 +139,10 @@ export interface HybridRunStore {
   finishedHybrid: boolean;
   lastResult: HybridFinalizeResult | null;
   lastCalories: number;
+  /** G2.4: context of the station being run (is it the last one? what's next?) — set on arrive. */
+  stationContext: StationContext | null;
+  /** G2.4: set when a NON-final station's block is done → the completion screen is showing. */
+  pendingStationComplete: PendingStationComplete | null;
   startHybrid: (
     plan: HybridPlan,
     aerobicKind: 'running' | 'walking',
@@ -102,11 +150,26 @@ export interface HybridRunStore {
     fullPark?: boolean,
     /** Full-park only: false = the user skipped the warmup in the overview. */
     warmupActive?: boolean,
+    /** parkId → display name, for the end-of-station screen's "next station". */
+    names?: Record<string, string>,
   ) => void;
   /** "הגעתי לתחנה" / distance threshold — close the leg, open the station. */
   arrive: () => void;
-  /** StrengthRunner.onComplete — close the station, resume the next leg. */
-  completeStation: (exerciseLog?: SegmentExerciseDetail[]) => void;
+  /** Close the station, resume the next leg. `completedAtMs` (G2.4) = when the block actually
+   *  ended, so time on the completion screen doesn't inflate the station's measured duration. */
+  completeStation: (exerciseLog?: SegmentExerciseDetail[], completedAtMs?: number) => void;
+  /**
+   * G2.4 — StrengthRunner.onComplete. Final station → completeStation immediately (existing
+   * finish/summary path, unchanged). Otherwise hold the result for the completion screen; the
+   * run clock stays paused until continueAfterStation().
+   */
+  finishStationWork: (exerciseLog?: SegmentExerciseDetail[]) => void;
+  /** G2.4 — "המשך במסלול": close the held station and resume walking (run clock starts NOW). */
+  continueAfterStation: () => void;
+  /** G2.4 — in-station swap: write the replacement into the live station plan. False = unmapped. */
+  swapStationExercise: (segIdx: number, exIdx: number, newExercise: unknown, method: unknown) => boolean;
+  /** G2.4 — the content exercise (full Exercise doc) + level behind a plan position, for the swap modal. */
+  getStationSwapCandidate: (segIdx: number, exIdx: number) => { exercise: unknown; level: number } | null;
   /**
    * "דלג על התחנה" — close the station unrecorded, resume the next leg.
    * Also callable from the aerobic phase, during the approach window
@@ -118,7 +181,7 @@ export interface HybridRunStore {
   reset: () => void;
 }
 
-export const useHybridRun = create<HybridRunStore>((set) => ({
+export const useHybridRun = create<HybridRunStore>((set, get) => ({
   active: false,
   phase: 'idle',
   stationPlan: null,
@@ -127,8 +190,13 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
   finishedHybrid: false,
   lastResult: null,
   lastCalories: 0,
+  stationContext: null,
+  pendingStationComplete: null,
 
-  startHybrid: (plan, aerobicKind, fullPark = false, warmupActive = true) => {
+  startHybrid: (plan, aerobicKind, fullPark = false, warmupActive = true, names = {}) => {
+    stationNames = names;
+    activeStationContent = null;
+    stationStartedAtMs = null;
     controllerRef = createHybridSessionController(plan.segments);
     planCalories = plan.totals?.estCalories ?? 0;
     planAerobicCalories = plan.segments
@@ -152,6 +220,8 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
       finishedHybrid: false,
       lastResult: null,
       lastCalories: 0,
+      stationContext: null,
+      pendingStationComplete: null,
     });
   },
 
@@ -161,26 +231,11 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
     controllerRef.arrive(s.totalDistance || 0, s.totalDuration || 0, Date.now());
     useSessionStore.getState().pauseSession(); // freeze the run clock during the station
     const station = controllerRef.getActiveStation();
-    let stationPlan = station?.content
-      ? strengthBlockToWorkoutPlan(station.content, {
-          name: 'תחנת כוח', location: 'park', fullPark: planFullPark, isWarmupActive: planWarmupActive,
-        })
-      : null;
-    // Full-park + user skipped the warmup → strip the warmup segment BEFORE StrengthRunner
-    // (same predicate as app/workouts/[id]/active/page.tsx). Budget-split (planFullPark=false)
-    // never enters this branch, so its plan stays byte-identical.
-    if (stationPlan && planFullPark && !planWarmupActive) {
-      stationPlan = {
-        ...stationPlan,
-        segments: stationPlan.segments.filter(
-          (seg) =>
-            seg.id !== 'warmup-segment' &&
-            seg.id !== 'joints-segment' &&
-            !seg.title?.includes('חימום') &&
-            !seg.title?.includes('מפרקים'),
-        ),
-      };
-    }
+    activeStationContent = station?.content ?? null;
+    stationStartedAtMs = Date.now();
+    const stationPlan = activeStationContent ? buildStationPlan(activeStationContent) : null;
+    const runState = controllerRef.getState();
+    const stationContext = computeStationContext(runState.plan, runState.cursor, stationNames);
     // [TEMP DIAG — remove after debugging] media fields that reach StrengthRunner on the hybrid path
     if (stationPlan) {
       const rows = stationPlan.segments.flatMap((seg: any) =>
@@ -190,10 +245,10 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
       );
       console.log('[hybrid-media-diag] plan → StrengthRunner:', JSON.stringify(rows, null, 2));
     }
-    set({ phase: controllerRef.getPhase(), stationPlan, isFinalLeg: false, upcomingStation: null });
+    set({ phase: controllerRef.getPhase(), stationPlan, isFinalLeg: false, upcomingStation: null, stationContext, pendingStationComplete: null });
   },
 
-  completeStation: (exerciseLog) => {
+  completeStation: (exerciseLog, completedAtMs) => {
     if (!controllerRef) return;
     const station = controllerRef.getActiveStation();
     // F1 (19.08.2026): `sets` here is still the PLANNED total, not derived
@@ -213,14 +268,65 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
     // this value if a timestamp is ever missing — kept as that fallback,
     // renamed to make the "planned, not measured" nature explicit.
     const plannedDurationSecFallback = station?.content?.estimatedDurationSec ?? 0;
-    controllerRef.completeStation(sets, plannedDurationSecFallback, Date.now(), exerciseLog);
+    controllerRef.completeStation(sets, plannedDurationSecFallback, completedAtMs ?? Date.now(), exerciseLog);
     useSessionStore.getState().resumeSession(); // resume the run clock for the next leg
+    activeStationContent = null;
+    stationStartedAtMs = null;
     set({
       phase: controllerRef.getPhase(),
       stationPlan: null,
       isFinalLeg: isFinalLeg(controllerRef.getState()),
       upcomingStation: computeUpcomingStation(controllerRef.getState()),
+      stationContext: null,
+      pendingStationComplete: null,
     });
+  },
+
+  finishStationWork: (exerciseLog) => {
+    if (!controllerRef || controllerRef.getPhase() !== 'station') return;
+    const ctx = get().stationContext;
+    if (!ctx || ctx.isFinalStation) {
+      // Final station (or unknown context): the existing path, byte-identical.
+      get().completeStation(exerciseLog);
+      return;
+    }
+    const completedAtMs = Date.now();
+    const log = exerciseLog ?? [];
+    set({
+      pendingStationComplete: {
+        exerciseLog: log,
+        completedAtMs,
+        exercises: countStationExercises(log),
+        minutes: stationMinutes(stationStartedAtMs, completedAtMs),
+      },
+    });
+  },
+
+  continueAfterStation: () => {
+    const pending = get().pendingStationComplete;
+    if (!pending) return;
+    get().completeStation(pending.exerciseLog, pending.completedAtMs);
+  },
+
+  swapStationExercise: (segIdx, exIdx, newExercise, method) => {
+    const plan = get().stationPlan;
+    if (!activeStationContent || !plan) return false;
+    const next = swapExerciseInStationContent(activeStationContent, plan, segIdx, exIdx, newExercise, method);
+    if (!next) return false;
+    activeStationContent = next;
+    set({ stationPlan: buildStationPlan(next) });
+    return true;
+  },
+
+  getStationSwapCandidate: (segIdx, exIdx) => {
+    const plan = get().stationPlan;
+    if (!activeStationContent || !plan) return null;
+    const idx = locateStationContentIndex(activeStationContent, plan, segIdx, exIdx);
+    if (idx === -1) return null;
+    const we = activeStationContent.exercises[idx];
+    // Same level fallback the overview swap uses (DiscoverLayer's hybrid swap).
+    const level = we.programLevel ?? (we.exercise as { level?: number })?.level ?? 1;
+    return { exercise: we.exercise, level };
   },
 
   skipStation: () => {
@@ -249,11 +355,15 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
     }
     controllerRef.skipStation(Date.now());
     useSessionStore.getState().resumeSession(); // resume the run clock for the next leg
+    activeStationContent = null;
+    stationStartedAtMs = null;
     set({
       phase: controllerRef.getPhase(),
       stationPlan: null,
       isFinalLeg: isFinalLeg(controllerRef.getState()),
       upcomingStation: computeUpcomingStation(controllerRef.getState()),
+      stationContext: null,
+      pendingStationComplete: null,
     });
   },
 
@@ -387,6 +497,9 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
   reset: () => {
     controllerRef = null;
     saving = false;
+    stationNames = {};
+    activeStationContent = null;
+    stationStartedAtMs = null;
     set({
       active: false,
       phase: 'idle',
@@ -396,6 +509,8 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
       finishedHybrid: false,
       lastResult: null,
       lastCalories: 0,
+      stationContext: null,
+      pendingStationComplete: null,
     });
   },
 }));

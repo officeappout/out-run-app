@@ -10,7 +10,7 @@ import { hapticLight, hapticMedium } from '@/lib/haptics';
  *
  * Sits above ALL workout states (ACTIVE / INPUT / RESTING) at z-100.
  * Shows a "הפסקה" headline plus two CTAs:
- *   • Resume — orange "התחילו שוב" returns to live training
+ *   • Resume — orange "המשך אימון" returns to live training (G2.4 copy)
  *   • Open exit modal — white "סיום אימון" triggers the ExitConfirmModal
  *
  * Pure presentational — the orchestrator owns the conditional visibility
@@ -25,9 +25,12 @@ export interface PauseOverlayProps {
   onResume: () => void;
   /** End-workout button → opens the early-exit confirmation modal. */
   onOpenExitModal: () => void;
+  /** Label of the end button. Default "סיום אימון"; inside a hybrid station it ends only the
+   *  station, so the caller passes "סיים את התחנה" (copy only — same action). */
+  endLabel?: string;
 }
 
-export default function PauseOverlay({ onResume, onOpenExitModal }: PauseOverlayProps) {
+export default function PauseOverlay({ onResume, onOpenExitModal, endLabel = 'סיום אימון' }: PauseOverlayProps) {
   const handleResume = () => {
     hapticLight();
     onResume();
@@ -61,14 +64,14 @@ export default function PauseOverlay({ onResume, onOpenExitModal }: PauseOverlay
           style={{ fontFamily: 'var(--font-simpler)' }}
         >
           <Play size={22} fill="white" />
-          התחילו שוב
+          המשך אימון
         </button>
         <button
           onClick={handleOpenExitModal}
           className="w-full h-16 bg-white rounded-2xl font-bold text-slate-800 text-lg active:scale-[0.98] transition-transform shadow-lg"
           style={{ fontFamily: 'var(--font-simpler)' }}
         >
-          סיום אימון
+          {endLabel}
         </button>
       </div>
     </motion.div>

@@ -220,6 +220,7 @@ export default function ActiveExerciseView({
           isTabata={!!blockWorkSec}
           machineTabataLabel={machineTabataLabel}
           prepSeconds={timerPrepSeconds}
+          externalPaused={isPaused}
         />
       )}
 

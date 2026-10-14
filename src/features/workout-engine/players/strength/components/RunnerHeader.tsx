@@ -3,6 +3,7 @@
 import React from 'react';
 import { Play, Check, PersonStanding } from 'lucide-react';
 import WorkoutStoryBars from './WorkoutStoryBars';
+import { setCounterLabel } from '../logic/player-controls.utils';
 import {
   resolveEquipmentLabel,
   resolveEquipmentSvgPathList,
@@ -147,16 +148,20 @@ export default function RunnerHeader({
           {/* B2: minimize collapses to the mini-player bar — meaningless inside a
               hybrid station, so hide it there. The invisible spacer keeps the
               centered title balanced against the pause button on the right. */}
-          {hideMinimize ? (
-            <div className="w-10 h-10" aria-hidden />
-          ) : (
-            <button
-              onClick={onMinimize}
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-            >
-              <img src="/assets/icons/ui/list.svg" className="w-5 h-5 dark:invert" alt="List" />
-            </button>
-          )}
+          {/* Fixed-width side slots (G2.4): the pause control now carries a text label, so
+              both sides reserve the same width and the centered title stays centered. */}
+          <div className="w-[92px] flex justify-start">
+            {hideMinimize ? (
+              <div className="w-10 h-10" aria-hidden />
+            ) : (
+              <button
+                onClick={onMinimize}
+                className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+              >
+                <img src="/assets/icons/ui/list.svg" className="w-5 h-5 dark:invert" alt="List" />
+              </button>
+            )}
+          </div>
 
           <div
             className="flex-1 text-center text-slate-900 dark:text-white font-bold text-xl tracking-wider tabular-nums"
@@ -171,17 +176,22 @@ export default function RunnerHeader({
                   : formatTime(elapsedTime)}
           </div>
 
-          <button
-            onClick={onTogglePause}
-            aria-label={isPaused ? 'המשך אימון' : 'הפסק אימון'}
-            className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-          >
-            {isPaused ? (
-              <Play size={18} className="text-slate-800" fill="currentColor" />
-            ) : (
-              <img src="/assets/icons/ui/pause.svg" className="w-5 h-5 dark:invert" alt="Pause" />
-            )}
-          </button>
+          <div className="w-[92px] flex justify-end">
+            <button
+              onClick={onTogglePause}
+              aria-label={isPaused ? 'המשך אימון' : 'הפסק אימון'}
+              className="h-10 px-2.5 flex items-center justify-center gap-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+            >
+              {isPaused ? (
+                <Play size={16} className="text-slate-800" fill="currentColor" />
+              ) : (
+                <img src="/assets/icons/ui/pause.svg" className="w-4 h-4 dark:invert" alt="" />
+              )}
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-200" style={{ fontFamily: 'var(--font-simpler)' }}>
+                {isPaused ? 'המשך' : 'השהייה'}
+              </span>
+            </button>
+          </div>
         </div>
 
         {/* Tabata interval counter — replaces the (misleading) set pills inside a
@@ -205,9 +215,22 @@ export default function RunnerHeader({
           </div>
         )}
 
-        {/* Set Pills — reactive to exerciseLogSnapshot */}
+        {/* Set Pills — reactive to exerciseLogSnapshot. G2.4: a "סט X מתוך Y" text label
+            beside them (rep + time exercises; tabata never reaches this block — its own
+            interval counter above replaces the pills). */}
         {!isResting && !tabataInterval && totalRounds > 1 && !isWarmupSegment && !isCooldownSegment && (
-          <div className="flex justify-end gap-1.5 mb-2">
+          <div className="flex justify-end items-center gap-1.5 mb-2">
+            {(() => {
+              const label = setCounterLabel(firstIncompleteSetIdx, currentRound, currentExLoggedReps.length || totalRounds);
+              return label ? (
+                <span
+                  className="text-[11px] font-bold text-[#007EA8] me-1 tabular-nums"
+                  style={{ fontFamily: 'var(--font-simpler)' }}
+                >
+                  {label}
+                </span>
+              ) : null;
+            })()}
             {currentExLoggedReps.map((reps, i) => {
               const isLogged = reps !== null;
               const isCurrentActive = i === (firstIncompleteSetIdx >= 0 ? firstIncompleteSetIdx : currentRound - 1);

@@ -8,6 +8,8 @@ import ExerciseVideoPlayer from './ExerciseVideoPlayer';
 import type { NextExerciseInfo } from '../hooks/useWorkoutStateMachine';
 import { useNetworkAwareStreamUrl } from '@/features/content/exercises/client/hooks/useNetworkAwareStreamUrl';
 import { buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
+import { usePlayerAudioMute } from '../logic/player-audio-mute';
+import { REST_EXTEND_SECONDS } from '../logic/player-controls.utils';
 
 /**
  * RestScreen — unified REST-phase card, shared by every workout type
@@ -74,8 +76,10 @@ export interface RestScreenProps {
   isPaused: boolean;
   /** Remount key for the expanded preview video. */
   videoKey: string;
-  /** Skip-rest action. Omit entirely to hide the button (tabata rest — machine-timed, no manual skip). */
+  /** Skip-rest action. Omit entirely to hide the button. (Tabata rest now passes it too — G2.4.) */
   onSkip?: () => void;
+  /** "+15 שנ׳" — extend the current rest. Omit to hide (tabata keeps its fixed protocol rest). */
+  onExtend?: () => void;
   /** Pre-rendered log-drawer slot. Omit entirely for tabata (no rep logging mid-block). */
   logDrawerNode?: React.ReactNode;
   /** Whether the bottom log drawer is currently open. */
@@ -90,11 +94,15 @@ export default function RestScreen({
   isPaused,
   videoKey,
   onSkip,
+  onExtend,
   logDrawerNode,
   isLogDrawerOpen = false,
 }: RestScreenProps) {
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
   const [posterFailed, setPosterFailed] = useState(false);
+  // Session-wide mute for countdown beeps (and later voice) — see player-audio-mute.ts.
+  const audioMuted = usePlayerAudioMute((st) => st.muted);
+  const toggleAudioMuted = usePlayerAudioMute((st) => st.toggleMuted);
 
   // Same Bunny-aware resolution the old RestWithPreview used — byte-identical
   // fallback when there's no bunnyVideoId (legacy URL untouched).
@@ -221,7 +229,36 @@ export default function RestScreen({
             <DotLottieReact src={REST_ANIMATION_SRC} loop autoplay style={{ width: 180, height: 180 }} />
           </div>
 
-          {/* Skip rest — only when the caller provides onSkip (non-tabata) */}
+          {/* Secondary rest controls (G2.4) — mute (every rest, incl. tabata) + "+15 שנ׳"
+              (when the caller provides onExtend). Text + icon, above the skip button. */}
+          <div
+            className="absolute z-20 left-1/2 -translate-x-1/2 flex items-center justify-center gap-2"
+            style={{ bottom: onSkip ? 'calc(max(2rem, env(safe-area-inset-bottom, 24px)) + 48px)' : 'max(2rem, env(safe-area-inset-bottom, 24px))' }}
+          >
+            <button
+              type="button"
+              onClick={toggleAudioMuted}
+              aria-pressed={audioMuted}
+              className="flex items-center gap-1.5 py-2 px-4 border border-slate-200 dark:border-zinc-700 rounded-xl text-xs font-semibold text-slate-500 dark:text-zinc-400 bg-white dark:bg-[#0F172A] active:scale-[0.98] transition-all"
+              style={{ fontFamily: 'var(--font-simpler)' }}
+            >
+              <span aria-hidden>{audioMuted ? '🔇' : '🔊'}</span>
+              {audioMuted ? 'מושתק' : 'השתקה'}
+            </button>
+            {onExtend && (
+              <button
+                type="button"
+                onClick={onExtend}
+                className="flex items-center gap-1.5 py-2 px-4 border border-slate-200 dark:border-zinc-700 rounded-xl text-xs font-semibold text-slate-500 dark:text-zinc-400 bg-white dark:bg-[#0F172A] active:scale-[0.98] transition-all"
+                style={{ fontFamily: 'var(--font-simpler)' }}
+              >
+                <span aria-hidden>⏱️</span>
+                <bdi dir="ltr">+{REST_EXTEND_SECONDS}</bdi> שנ׳
+              </button>
+            )}
+          </div>
+
+          {/* Skip rest — whenever the caller provides onSkip (incl. tabata since G2.4) */}
           {onSkip && (
             <button
               onClick={onSkip}
