@@ -52,6 +52,7 @@ import {
     UsersRound,
     AlertCircle,
     Compass,
+    Bot,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -120,6 +121,7 @@ const sectionContainsPath = (sectionId: SectionId, pathname: string | null, orgT
             '/admin/assessment-rules', '/admin/program-thresholds', '/admin/demo-seed', '/admin/schools',
             '/admin/running',
             '/admin/admins-management', '/admin/users', '/admin/audit-logs', '/admin/system-settings', '/admin/access-codes',
+            '/admin/agents',
         ],
         finance: ['/admin/finance'],
         municipal: ['/admin/authorities', '/admin/approval-center', '/admin/authority-manager', '/admin/pressure-messages', '/admin/authority/reports', '/admin/heatmap'],
@@ -1352,6 +1354,11 @@ function AdminLayoutInner({
                                                 <SidebarLink href="/admin/users" icon={Shield} label="אישורים ממתינים" />
                                                 <SidebarLink href="/admin/access-codes" icon={KeyRound} label="קודי גישה" />
                                                 <SidebarLink href="/admin/audit-logs" icon={FileText} label="יומן ביקורת" />
+                                                {/* Root only — UX gate; the real boundary is
+                                                    /api/admin/agents/** (generic 403 for non-root). */}
+                                                {roleInfo?.isRootAdmin && (
+                                                    <SidebarLink href="/admin/agents" icon={Bot} label="פאנל סוכנים" />
+                                                )}
                                                 {isSuperAdmin && (
                                                     <SidebarLink href="/admin/system-settings" icon={Settings} label="הגדרות מערכת" />
                                                 )}
