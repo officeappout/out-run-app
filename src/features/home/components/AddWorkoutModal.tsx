@@ -373,7 +373,7 @@ export default function AddWorkoutModal({
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="לדוגמא: אימון גב + חזה"
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 focus:border-cyan-300 transition-all"
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 focus:border-cyan-300 transition-all"
                 />
               </div>
 

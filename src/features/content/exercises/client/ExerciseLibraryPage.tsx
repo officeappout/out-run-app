@@ -294,7 +294,7 @@ export default function ExerciseLibraryPage() {
               value={query}
               onChange={handleQueryChange}
               placeholder="חפש תרגיל..."
-              className="w-full ps-10 pe-10 py-2.5 text-sm bg-gray-100 border border-transparent rounded-2xl focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-gray-400"
+              className="w-full ps-10 pe-10 py-2.5 text-sm bg-gray-100 border border-transparent rounded-2xl focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-gray-600"
             />
             {query && (
               <button

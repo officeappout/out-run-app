@@ -130,7 +130,7 @@ export default function QuickReportSheet({ isOpen, onClose, userLocation }: Quic
           onChange={(e) => setDescription(e.target.value)}
           placeholder="פרטים נוספים (לא חובה)..."
           rows={2}
-          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 outline-none focus:border-[#00E5FF] transition-colors resize-none mb-4"
+          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-500 outline-none focus:border-[#00E5FF] transition-colors resize-none mb-4"
         />
 
         {/* Submit */}

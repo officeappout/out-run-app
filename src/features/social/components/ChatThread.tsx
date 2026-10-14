@@ -449,7 +449,7 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="כתוב הודעה..."
-            className="flex-1 bg-gray-100 rounded-full px-4 py-2.5 text-sm outline-none text-right text-gray-900 placeholder:text-gray-400"
+            className="flex-1 bg-gray-100 rounded-full px-4 py-2.5 text-sm outline-none text-right text-gray-900 placeholder:text-gray-600"
             style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
           />
           <button

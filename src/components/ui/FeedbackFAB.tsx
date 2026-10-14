@@ -269,7 +269,7 @@ export default function FeedbackFAB({
                       placeholder={selectedOption.placeholder}
                       rows={4}
                       disabled={loading}
-                      className="w-full resize-none text-sm text-gray-700 placeholder:text-gray-300 border-2 border-gray-200 rounded-xl px-3 py-2.5 focus:border-[#5BC2F2] focus:outline-none transition-colors leading-relaxed disabled:opacity-60"
+                      className="w-full resize-none text-sm text-gray-700 placeholder:text-gray-500 border-2 border-gray-200 rounded-xl px-3 py-2.5 focus:border-[#5BC2F2] focus:outline-none transition-colors leading-relaxed disabled:opacity-60"
                     />
                     <span className={`absolute bottom-2 left-2 text-[10px] font-medium transition-colors
                       ${message.length > MAX_LENGTH * 0.9 ? 'text-red-400' : 'text-gray-300'}`}>

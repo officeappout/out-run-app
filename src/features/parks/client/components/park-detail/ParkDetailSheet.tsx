@@ -1124,7 +1124,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                                   value={ratingComment}
                                   onChange={e => setRatingComment(e.target.value)}
                                   placeholder="תגובה (לא חובה)..."
-                                  className="flex-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl px-3 py-2 text-sm text-gray-700 dark:text-gray-200 placeholder:text-gray-400 outline-none"
+                                  className="flex-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl px-3 py-2 text-sm text-gray-700 dark:text-gray-200 placeholder:text-gray-500 dark:placeholder:text-gray-400 outline-none"
                                 />
                                 <button
                                   onClick={handleRatingSubmit}

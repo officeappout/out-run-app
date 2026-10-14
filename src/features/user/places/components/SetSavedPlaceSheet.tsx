@@ -191,7 +191,7 @@ export default function SetSavedPlaceSheet({ openKind, onClose }: SetSavedPlaceS
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={`כתובת ה${kindLabel} שלך...`}
-                  className="flex-1 bg-transparent border-none outline-none text-sm font-medium text-gray-900 placeholder:text-gray-400 text-right"
+                  className="flex-1 bg-transparent border-none outline-none text-sm font-medium text-gray-900 placeholder:text-gray-600 text-right"
                 />
                 {isSearching && (
                   <Loader2 size={14} className="text-cyan-500 animate-spin shrink-0" />

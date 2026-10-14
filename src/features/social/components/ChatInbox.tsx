@@ -271,7 +271,7 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       placeholder="חיפוש שיחות..."
-                      className="flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none"
+                      className="flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-600 outline-none"
                     />
                     {searchTerm && (
                       <button onClick={() => setSearchTerm('')} className="p-0.5 rounded-full hover:bg-gray-200">

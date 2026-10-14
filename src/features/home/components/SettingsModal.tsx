@@ -2164,7 +2164,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         placeholder="70"
                         min="20"
                         max="300"
-                        className="w-20 bg-transparent outline-none text-right text-base text-gray-900 placeholder:text-gray-400"
+                        className="w-20 bg-transparent outline-none text-right text-base text-gray-900 placeholder:text-gray-500"
                         style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
                         dir="ltr"
                       />
@@ -2184,7 +2184,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                             readOnly
                             value={editDob.day}
                             placeholder="DD"
-                            className="w-10 bg-transparent outline-none text-center text-base text-gray-900 placeholder:text-gray-400 cursor-default"
+                            className="w-10 bg-transparent outline-none text-center text-base text-gray-900 placeholder:text-gray-500 cursor-default"
                             style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
                           />
                           <input
@@ -2193,7 +2193,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                             readOnly
                             value={editDob.month}
                             placeholder="MM"
-                            className="w-10 bg-transparent outline-none text-center text-base text-gray-900 placeholder:text-gray-400 cursor-default"
+                            className="w-10 bg-transparent outline-none text-center text-base text-gray-900 placeholder:text-gray-500 cursor-default"
                             style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
                           />
                           <input
@@ -2202,7 +2202,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                             readOnly
                             value={editDob.year}
                             placeholder="YYYY"
-                            className="w-14 bg-transparent outline-none text-center text-base text-gray-900 placeholder:text-gray-400 cursor-default"
+                            className="w-14 bg-transparent outline-none text-center text-base text-gray-900 placeholder:text-gray-500 cursor-default"
                             style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
                           />
                         </div>

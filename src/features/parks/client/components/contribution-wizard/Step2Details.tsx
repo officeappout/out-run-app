@@ -55,7 +55,7 @@ export default function Step2Details({ data, updateData, onNext, onBack }: Props
           value={data.parkName}
           onChange={(e) => updateData({ parkName: e.target.value })}
           placeholder="למשל: גינת כושר שנקין"
-          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 outline-none focus:border-[#00E5FF] transition-colors"
+          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-500 outline-none focus:border-[#00E5FF] transition-colors"
         />
       </div>
 

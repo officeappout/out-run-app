@@ -231,7 +231,7 @@ export default function PhotoReleaseFormPage() {
                       value={form[field.key]}
                       onChange={(e) => handleChange(field.key, e.target.value)}
                       placeholder={field.placeholder}
-                      className={`w-full rounded-lg border bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-300 transition-colors outline-none focus:ring-2 focus:ring-out-blue/30 ${
+                      className={`w-full rounded-lg border bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-500 transition-colors outline-none focus:ring-2 focus:ring-out-blue/30 ${
                         error
                           ? 'border-red-300 focus:border-red-400'
                           : 'border-slate-200 focus:border-out-blue'
