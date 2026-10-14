@@ -275,8 +275,9 @@ export default function CreateGroupPage() {
     return (
       <div className="space-y-4" dir="rtl">
         <div>
-          <label className="block text-xs font-bold text-gray-700 mb-1.5">שם הקבוצה</label>
+          <label htmlFor="arena-create-name" className="block text-xs font-bold text-gray-700 mb-1.5">שם הקבוצה</label>
           <input
+            id="arena-create-name"
             value={state.name}
             onChange={(e) => update('name', e.target.value)}
             placeholder="למשל: ריצת בוקר הרצליה"
@@ -285,8 +286,8 @@ export default function CreateGroupPage() {
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-gray-700 mb-1.5">קטגוריה</label>
-          <div className="grid grid-cols-3 gap-2">
+          <span id="arena-create-category-label" className="block text-xs font-bold text-gray-700 mb-1.5">קטגוריה</span>
+          <div role="group" aria-labelledby="arena-create-category-label" className="grid grid-cols-3 gap-2">
             {CATEGORY_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
@@ -304,8 +305,9 @@ export default function CreateGroupPage() {
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-gray-700 mb-1.5">תיאור קצר</label>
+          <label htmlFor="arena-create-description" className="block text-xs font-bold text-gray-700 mb-1.5">תיאור קצר</label>
           <textarea
+            id="arena-create-description"
             value={state.description}
             onChange={(e) => update('description', e.target.value)}
             placeholder="ספר בקצרה על הקבוצה..."
@@ -352,8 +354,8 @@ export default function CreateGroupPage() {
     return (
       <div className="space-y-4" dir="rtl">
         <div>
-          <label className="block text-xs font-bold text-gray-700 mb-1.5">יום בשבוע</label>
-          <div className="grid grid-cols-4 gap-2">
+          <span id="arena-create-day-label" className="block text-xs font-bold text-gray-700 mb-1.5">יום בשבוע</span>
+          <div role="group" aria-labelledby="arena-create-day-label" className="grid grid-cols-4 gap-2">
             {DAYS_HEB.map((day, i) => (
               <button
                 key={i}
@@ -371,8 +373,9 @@ export default function CreateGroupPage() {
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-gray-700 mb-1.5">שעת התחלה</label>
+          <label htmlFor="arena-create-time" className="block text-xs font-bold text-gray-700 mb-1.5">שעת התחלה</label>
           <input
+            id="arena-create-time"
             type="time"
             value={state.time}
             onChange={(e) => update('time', e.target.value)}
@@ -381,8 +384,8 @@ export default function CreateGroupPage() {
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-gray-700 mb-1.5">תדירות</label>
-          <div className="grid grid-cols-3 gap-2">
+          <span id="arena-create-frequency-label" className="block text-xs font-bold text-gray-700 mb-1.5">תדירות</span>
+          <div role="group" aria-labelledby="arena-create-frequency-label" className="grid grid-cols-3 gap-2">
             {([['weekly', 'שבועי'], ['biweekly', 'דו-שבועי'], ['monthly', 'חודשי']] as const).map(
               ([val, label]) => (
                 <button
@@ -402,8 +405,9 @@ export default function CreateGroupPage() {
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-gray-700 mb-1.5">מיקום (אופציונלי)</label>
+          <label htmlFor="arena-create-address" className="block text-xs font-bold text-gray-700 mb-1.5">מיקום (אופציונלי)</label>
           <input
+            id="arena-create-address"
             value={state.meetingAddress}
             onChange={(e) => update('meetingAddress', e.target.value)}
             placeholder="כתובת נקודת מפגש..."
