@@ -165,9 +165,16 @@ describe('computeListReports', () => {
     for (const leak of ['Group A', 'grp_A', 'reporter_uid_1', 'Jane']) expect(json).not.toContain(leak);
   });
 
-  it('audit failure → fails closed (throws, no data returned)', async () => {
+  it('audit failure is BEST-EFFORT: the list is still returned, the failure is logged by error name only', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     state.auditFails = true;
-    await expect(computeListReports(makeDb(), mgrA, 'ip')).rejects.toThrow();
+    const r = await computeListReports(makeDb(), mgrA, 'ip');
+    expect(r.status).toBe(200);
+    expect((r.body as any).reports.length).toBe(4);
+    const logged = JSON.stringify(spy.mock.calls);
+    expect(logged).toContain('audit write failed');
+    for (const leak of ['mgr_A', 'grp_A', 'Group A', 'audit_logs']) expect(logged).not.toContain(leak);
+    spy.mockRestore();
   });
 
   it('pagination: own report older than the first page is still found', async () => {
@@ -233,7 +240,7 @@ describe('GET /api/admin/reports', () => {
   it('internal error → 500 and the log carries no uid / email / report data / header token', async () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     state.verifyIdToken.mockResolvedValue({ uid: 'mgr_A', email: 'secret-mail@example.test' });
-    state.auditFails = true;
+    state.docs = null as any; // force a throw inside the compute path
     const res = await GET(req('Bearer TOKEN_IN_HEADER'));
     expect(res.status).toBe(500);
     const logged = JSON.stringify(spy.mock.calls);

@@ -24,7 +24,7 @@
  * otherwise 'other' (the rules let any signed-in user write any string there).
  *
  * Every call writes an audit_logs row (READ / ReportsList; counts only,
- * fail-closed). Non-manager / unit_admin: the same generic 403 as every other
+ * best-effort — a failed audit write is logged, never blocks the list). Non-manager / unit_admin: the same generic 403 as every other
  * denial. 30/min per caller. Nothing about reports, names or ids is logged.
  */
 
@@ -155,19 +155,26 @@ export async function computeListReports(
     }
   }
 
-  // Audit every call BEFORE returning; failure → throw → 500, no data.
-  await db.collection('audit_logs').add({
-    adminId: caller.uid,
-    adminName: caller.email || 'Admin',
-    actionType: 'READ',
-    targetEntity: 'ReportsList',
-    targetId: root ? 'root' : authorityId,
-    details: `Listed community reports via /api/admin/reports (returned=${results.length}, scanned=${scanned}, truncated=${truncated})`,
-    oldValue: null,
-    newValue: null,
-    sourceIp,
-    timestamp: new Date(),
-  });
+  // Audit every call — BEST-EFFORT. This is a read of metadata (no message
+  // content, no reporter identity), and a transient audit_logs failure must not
+  // blank the moderation panel; the failure is logged (error name only) so it
+  // is still visible. The writes (dismiss / delete) keep audit fail-closed.
+  try {
+    await db.collection('audit_logs').add({
+      adminId: caller.uid,
+      adminName: caller.email || 'Admin',
+      actionType: 'READ',
+      targetEntity: 'ReportsList',
+      targetId: root ? 'root' : authorityId,
+      details: `Listed community reports via /api/admin/reports (returned=${results.length}, scanned=${scanned}, truncated=${truncated})`,
+      oldValue: null,
+      newValue: null,
+      sourceIp,
+      timestamp: new Date(),
+    });
+  } catch (err) {
+    console.error('[api/admin/reports GET] audit write failed', err instanceof Error ? err.name : 'unknown');
+  }
 
   return { status: 200, body: { reports: results, truncated } };
 }
