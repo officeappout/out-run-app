@@ -59,6 +59,8 @@ import { useInputPickerState } from './hooks/useInputPickerState';
 import { usePlayerLifecycle } from './hooks/usePlayerLifecycle';
 import { usePlayerMediaSession } from './hooks/usePlayerMediaSession';
 import { hapticMedium } from '@/lib/haptics';
+import { useUserStore } from '@/features/user';
+import { g } from '@/lib/utils/gendered-text';
 
 export type { ExerciseResultLog };
 
@@ -328,6 +330,7 @@ export default function StrengthRunner({
   // ── Phase 4.6: Pause Overlay & Early Exit ───────────────────────────────
 
   const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
+  const userGender = useUserStore((s) => s.profile?.core?.gender ?? 'male');
 
   const handleEarlyExit = useCallback(() => {
     setShowExitConfirmModal(false);
@@ -644,6 +647,9 @@ export default function StrengthRunner({
           <PauseOverlay
             onResume={sm.togglePause}
             onOpenExitModal={() => setShowExitConfirmModal(true)}
+            // Inside a hybrid station (embedded) this ends only the STATION (→ the station-complete
+            // screen), not the workout. Copy only; the action is unchanged.
+            endLabel={embedded ? g(userGender, 'סיים את התחנה', 'סיימי את התחנה') : undefined}
           />
         )}
       </AnimatePresence>

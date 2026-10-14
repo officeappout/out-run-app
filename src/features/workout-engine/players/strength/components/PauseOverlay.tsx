@@ -25,9 +25,12 @@ export interface PauseOverlayProps {
   onResume: () => void;
   /** End-workout button → opens the early-exit confirmation modal. */
   onOpenExitModal: () => void;
+  /** Label of the end button. Default "סיום אימון"; inside a hybrid station it ends only the
+   *  station, so the caller passes "סיים את התחנה" (copy only — same action). */
+  endLabel?: string;
 }
 
-export default function PauseOverlay({ onResume, onOpenExitModal }: PauseOverlayProps) {
+export default function PauseOverlay({ onResume, onOpenExitModal, endLabel = 'סיום אימון' }: PauseOverlayProps) {
   const handleResume = () => {
     hapticLight();
     onResume();
@@ -68,7 +71,7 @@ export default function PauseOverlay({ onResume, onOpenExitModal }: PauseOverlay
           className="w-full h-16 bg-white rounded-2xl font-bold text-slate-800 text-lg active:scale-[0.98] transition-transform shadow-lg"
           style={{ fontFamily: 'var(--font-simpler)' }}
         >
-          סיום אימון
+          {endLabel}
         </button>
       </div>
     </motion.div>

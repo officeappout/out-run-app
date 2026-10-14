@@ -98,6 +98,15 @@ describe('skip rest during tabata', () => {
     expect(read('../../components/IsometricTimerCard.tsx')).toContain('if (isPlayerAudioMuted()) return;');
   });
 
+  it('pause overlay end button: "סיים את התחנה" inside a hybrid station, "סיום אימון" everywhere else', () => {
+    const overlay = read('../../components/PauseOverlay.tsx');
+    expect(overlay).toContain("endLabel = 'סיום אימון'"); // default for standalone workouts
+    expect(overlay).toContain('{endLabel}');
+    const runner = read('../../StrengthRunner.tsx');
+    // only the hybrid-station mount (embedded) overrides it, via the shared gendered-text helper
+    expect(runner).toContain("endLabel={embedded ? g(userGender, 'סיים את התחנה', 'סיימי את התחנה') : undefined}");
+  });
+
   it('the work timer card freezes on the player-level pause (this is what makes tabata pausable)', () => {
     const card = read('../../components/IsometricTimerCard.tsx');
     expect(card).toContain('if (isPaused || externalPaused) {');
