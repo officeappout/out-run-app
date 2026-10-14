@@ -24,6 +24,7 @@ import { MapPin, Timer } from 'lucide-react';
 import DifficultyBolts, { type DifficultyValue } from '@/features/workout-engine/components/DifficultyBolts';
 import { ROUTE_CARD_WIDTH } from '../constants/routeCardSize';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
+import { ActivityGlyph } from './hybrid/activity-icons';
 
 // Aerobic-card accent — the single stat-icon colour shared by all three cards.
 const BRAND = '#00ADEF';
@@ -86,6 +87,11 @@ interface RouteCardUnifiedProps {
    * pill). Default keeps the shared spacing byte-identical for BottomJourneyContainer + RouteCarousel.
    */
   variant?: 'default' | 'slim';
+  /**
+   * When set, the duration shows this activity's glyph (🚶/🏃) instead of the clock — so the number reads as
+   * "this route takes N min (walking/running)", not an unlabeled time. Curated cards only.
+   */
+  durationActivity?: 'walking' | 'running';
 }
 
 export default function RouteCardUnified({
@@ -106,6 +112,7 @@ export default function RouteCardUnified({
   ctaBlockedReason = null,
   onCtaBlocked,
   variant = 'default',
+  durationActivity,
 }: RouteCardUnifiedProps) {
   const slim = variant === 'slim';
   const hasStats = !!distanceText && !!durationText;
@@ -156,7 +163,13 @@ export default function RouteCardUnified({
           <MapPin size={13} style={{ color: BRAND }} className="shrink-0" />
           <span>{distanceText}</span>
           <span className="mx-1 text-gray-300 font-normal">·</span>
-          <Timer size={13} style={{ color: BRAND }} className="shrink-0" />
+          {durationActivity ? (
+            <span className="inline-flex shrink-0" style={{ color: BRAND }}>
+              <ActivityGlyph kind="aerobic" subtype={durationActivity} className="w-[15px] h-[15px]" />
+            </span>
+          ) : (
+            <Timer size={13} style={{ color: BRAND }} className="shrink-0" />
+          )}
           <span>{durationText}</span>
           {/* SLIM + stats (curated cards): the bolts sit beside distance·time, so the quality tags
               (up to 3 pills) get their own row below instead of crowding a shared one. */}

@@ -162,4 +162,15 @@ describe('computeQualityBadges', () => {
       { key: 'composition', label: 'מסלול טבעי' },
     ]);
   });
+
+  it('an explicit cap (Infinity) returns ALL badges in priority order — the curated card scrolls them', () => {
+    const sig = signals({
+      lighting: { status: 'computed', litCoveragePct: 90, isLit: true },
+      amenities: computedAmenities({ drinking_water: true, fitness_station: true, bench: true, court: true, dog_park: true }),
+      composition: { genuinePct: 95 },
+    });
+    const all = computeQualityBadges(sig, Infinity);
+    expect(all.map((b) => b.key)).toEqual(['lighting', 'drinking_water', 'composition', 'fitness_station', 'bench', 'court', 'dog_park']);
+    expect(computeQualityBadges(sig)).toHaveLength(CARD_BADGE_CAP); // default unchanged
+  });
 });

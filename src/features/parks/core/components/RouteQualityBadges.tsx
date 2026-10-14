@@ -17,11 +17,28 @@ export const QUALITY_BADGE_CLASS = 'text-[10px] font-bold rounded-full bg-gray-1
 interface RouteQualityBadgesProps {
   qualitySignals: Route['qualitySignals'] | undefined;
   className?: string;
+  /**
+   * Curated slim card: render ALL badges (no CARD_BADGE_CAP) in a single horizontally-scrollable row
+   * instead of a wrapping, capped one. The card stays one row tall; the user scrolls for the rest.
+   */
+  scrollable?: boolean;
 }
 
-export default function RouteQualityBadges({ qualitySignals, className }: RouteQualityBadgesProps) {
-  const badges = computeQualityBadges(qualitySignals);
+export default function RouteQualityBadges({ qualitySignals, className, scrollable = false }: RouteQualityBadgesProps) {
+  const badges = computeQualityBadges(qualitySignals, scrollable ? Infinity : undefined);
   if (badges.length === 0) return null;
+  if (scrollable) {
+    return (
+      <div
+        className={`flex items-center gap-1.5 flex-nowrap overflow-x-auto overscroll-x-contain ${className || ''}`}
+        style={{ touchAction: 'pan-x', scrollbarWidth: 'none' }}
+      >
+        {badges.map((b) => (
+          <span key={b.key} className={`${QUALITY_BADGE_CLASS} shrink-0 whitespace-nowrap`}>{b.label}</span>
+        ))}
+      </div>
+    );
+  }
   return (
     <div className={`flex items-center gap-1.5 flex-wrap ${className || ''}`}>
       {badges.map((b) => (

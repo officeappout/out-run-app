@@ -930,12 +930,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // OverviewTitleBar ("הצעות מסלולים") takes its place; its → is BACK to the full map, which restores
   // everything. Derived from the same state as the carousel (no new state machine). Flag off → false.
   const suggestionsFocused = MAP_OVERVIEW_CHROME_V1 && carouselUp;
-  const topChromeFolded = overviewChromeActive || suggestionsFocused;
-  const setIsSuggestionsFocused = useMapStore((s) => s.setIsSuggestionsFocused);
-  useEffect(() => {
-    setIsSuggestionsFocused(suggestionsFocused);
-    return () => setIsSuggestionsFocused(false);
-  }, [suggestionsFocused, setIsSuggestionsFocused]);
+  // (curatedFocused / chromeFocused / topChromeFolded are derived below, once allDisplayRoutes exists.)
   const routeStopsKey = keyFor('route_stops');
   useEffect(() => {
     if (!HYBRID_SLOT_PREVIEW_ENABLED || !carouselUp || !routeStopsSlot || routeStopsSlot.kind !== 'hybrid' || !userLocation) return;
@@ -1313,6 +1308,19 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   const { enrichRoutes } = useCommunityEnrichment(routeIds, rawDisplayRoutes);
   const allDisplayRoutes = useMemo(() => enrichRoutes(rawDisplayRoutes), [enrichRoutes, rawDisplayRoutes]);
   const hasNearbyRoutes = allDisplayRoutes.length > 0;
+  // Curated "גלה מסלולים" focused state — SAME mechanism as the hybrid focused suggestions above (one
+  // `chromeFocused` flag drives: top chrome folded, "+" FAB hidden, MapShell AppHeader folded via the store
+  // flag, the "הצעות מסלולים" back title bar). Derived, not a new state machine: discover mode with the
+  // carousel up (routes loaded) and a focused route. Back = handleMapModeChange('idle') (the existing
+  // mode-chip dismiss), which restores everything.
+  const curatedFocused = MAP_OVERVIEW_CHROME_V1 && mapMode === 'discover' && allDisplayRoutes.length > 0 && !!logic.focusedRoute;
+  const chromeFocused = suggestionsFocused || curatedFocused;
+  const topChromeFolded = overviewChromeActive || chromeFocused;
+  const setIsSuggestionsFocused = useMapStore((s) => s.setIsSuggestionsFocused);
+  useEffect(() => {
+    setIsSuggestionsFocused(chromeFocused);
+    return () => setIsSuggestionsFocused(false);
+  }, [chromeFocused, setIsSuggestionsFocused]);
   // Route-marker-click crash fix (12.10.2026): BottomJourneyContainer's own
   // echo-guard effect depends on `routes` by reference — if anything
   // upstream (enrichRoutes/enrichmentMap, a Firestore listener re-firing,
@@ -1686,7 +1694,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 rest, rather than sitting hidden behind the skeleton during load. */}
             {isMapVisuallyReady && (
             <div className="absolute right-4 z-[40] flex flex-col gap-3" style={{ bottom: 'calc(max(340px, env(safe-area-inset-bottom, 0px) + 310px))' }}>
-              {suggestionsFocused ? null : SOCIAL_COMPOSE_UI_ENABLED ? (
+              {chromeFocused ? null : SOCIAL_COMPOSE_UI_ENABLED ? (
                 <PlusFab onOpen={() => setPlusDrawerOpen(true)} />
               ) : (
                 <ActionSpeedDial
@@ -1728,6 +1736,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                   logic.setFocusedRoute(r);
                 }}
                 userPosition={userLocation}
+                durationActivity={slotActivity}
               />
             )}
 
@@ -1964,7 +1973,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 guard keeps the tree byte-identical when the feature is off. */}
             {MAP_OVERVIEW_CHROME_V1 && (
               <AnimatePresence>
-                {suggestionsFocused && isMapVisuallyReady && (
+                {chromeFocused && isMapVisuallyReady && (
                   <motion.div
                     key="suggestions-title-bar"
                     className="absolute inset-x-0 top-0 z-[70] pointer-events-none"
@@ -1976,8 +1985,12 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                     <OverviewTitleBar
                       title="הצעות מסלולים"
                       eyebrow={null}
-                      // Same closure the carousel's own close button used: reset + back to the full map.
-                      onBack={() => { resetHybridFlow(); setMapMode('idle'); }}
+                      // Hybrid: the closure the carousel's own close button used (reset + idle). Curated: the
+                      // existing mode-chip dismiss (clears focus/selection, → idle). Both restore all chrome.
+                      onBack={() => {
+                        if (suggestionsFocused) { resetHybridFlow(); setMapMode('idle'); }
+                        else handleMapModeChange('idle');
+                      }}
                     />
                   </motion.div>
                 )}
