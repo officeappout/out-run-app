@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
-  parseRoundTripPref, bucketTopology, walkLeg, composeRoundTripLegs, displayTotalMin, buildWalkLegsGeoJSON, composedWorkoutMin, cardTotalFor,
+  parseRoundTripPref, bucketTopology, walkLeg, composeRoundTripLegs, displayTotalMin, buildWalkLegsGeoJSON, composedWorkoutMin, cardTotalFor, composedCardStats,
   WALK_LEG_SKIP_M, ROUTE_STOPS_ROUND_TRIP_KEY,
 } from '../round-trip';
 
@@ -111,6 +111,16 @@ describe('card total (Phase 2c) — shows the overview\'s number, or nothing', (
     expect(cardTotalFor(31, legs, false)).toEqual({ min: 31, includesWalk: false });
     expect(cardTotalFor(31, null, true)).toEqual({ min: 31, includesWalk: false });
     expect(cardTotalFor(31, { ...legs, walkThereMin: 0, walkBackMin: 0 }, true)).toEqual({ min: 31, includesWalk: false });
+  });
+  it('cardTotalFor carries calories + stations only when given (existing shape unchanged otherwise)', () => {
+    expect(cardTotalFor(31, legs, true, { calories: 320, stations: 3 })).toEqual({ min: 53, includesWalk: true, calories: 320, stations: 3 });
+    expect(cardTotalFor(31, legs, true, {})).toEqual({ min: 53, includesWalk: true });
+  });
+  it('composedCardStats: rounds real positives, drops zero/NaN/missing (never a placeholder)', () => {
+    expect(composedCardStats({ totals: { estCalories: 319.6, stations: 3 } })).toEqual({ calories: 320, stations: 3 });
+    expect(composedCardStats({ totals: { estCalories: 0, stations: 0 } })).toEqual({});
+    expect(composedCardStats({ totals: { estCalories: NaN } })).toEqual({});
+    expect(composedCardStats({ totals: {} })).toEqual({});
   });
   it('cardTotalFor(null) → null (no placeholder)', () => {
     expect(cardTotalFor(null, legs, true)).toBeNull();

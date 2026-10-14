@@ -158,14 +158,40 @@ export function composedWorkoutMin(plan: {
 }
 
 /** What the route_stops carousel card shows: the overview's total (same inputs), or null. */
-export interface CardTotal { min: number; includesWalk: boolean; }
+export interface CardTotal {
+  min: number;
+  includesWalk: boolean;
+  /** ~kcal of the composed workout (plan.totals.estCalories, excludes the walk legs). Absent → not shown. */
+  calories?: number;
+  /** Strength stops on the route (plan.totals.stations). Absent → not shown. */
+  stations?: number;
+}
+
+/** PURE: the card's secondary outcome stats from a composed plan's totals — only real, positive numbers. */
+export function composedCardStats(plan: {
+  totals: { estCalories?: number; stations?: number };
+}): { calories?: number; stations?: number } {
+  const out: { calories?: number; stations?: number } = {};
+  const kcal = plan.totals?.estCalories;
+  if (typeof kcal === 'number' && Number.isFinite(kcal) && Math.round(kcal) > 0) out.calories = Math.round(kcal);
+  const st = plan.totals?.stations;
+  if (typeof st === 'number' && Number.isFinite(st) && st > 0) out.stations = Math.round(st);
+  return out;
+}
+
 export function cardTotalFor(
   workoutMin: number | null,
   legs: RoundTripLegs | null | undefined,
   roundTripOn: boolean,
+  extras?: { calories?: number; stations?: number },
 ): CardTotal | null {
   if (workoutMin == null) return null;
   const min = displayTotalMin(workoutMin, legs, roundTripOn);
   const includesWalk = !!legs && roundTripOn && legs.walkThereMin + legs.walkBackMin > 0;
-  return { min, includesWalk };
+  return {
+    min,
+    includesWalk,
+    ...(extras?.calories != null ? { calories: extras.calories } : {}),
+    ...(extras?.stations != null ? { stations: extras.stations } : {}),
+  };
 }

@@ -182,7 +182,7 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
   // when the number arrives; the pill is rendered only once a real total exists. A small walk glyph
   // (instead of a sentence) implies the walk legs are included.
   const totalLine = slot.id === 'route_stops' ? (
-    <div className="flex justify-center" style={{ minHeight: 22 }} aria-live="polite">
+    <div className="flex flex-col items-center gap-1" style={{ minHeight: 22 }} aria-live="polite">
       {routeStopsTotal && (
         <span
           className="inline-flex items-center gap-1 bg-white rounded-lg text-[12.5px] font-bold"
@@ -194,6 +194,19 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
             </span>
           )}
           {routeStopsTotal.min} דק׳
+        </span>
+      )}
+      {/* Secondary outcome stats (only once the compose landed — same moment as the pill). Calories are an
+          estimate → "~". No weight nudge here (that stays in the overview). */}
+      {routeStopsTotal && (routeStopsTotal.calories != null || routeStopsTotal.stations != null) && (
+        <span className="text-[11.5px] font-bold whitespace-nowrap" style={{ color: '#6B7280' }}>
+          {routeStopsTotal.calories != null && (
+            <><bdi dir="ltr">~{routeStopsTotal.calories}</bdi> קק״ל</>
+          )}
+          {routeStopsTotal.calories != null && routeStopsTotal.stations != null && (
+            <span aria-hidden style={{ margin: '0 5px', color: '#CBD5E1' }}>·</span>
+          )}
+          {routeStopsTotal.stations != null && <>{routeStopsTotal.stations} עצירות</>}
         </span>
       )}
     </div>
