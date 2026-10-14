@@ -2396,6 +2396,97 @@ async function testSpec04MinorsAndRadius() {
   });
 }
 
+// ─── chat of a QUARANTINED group/event — members cut off (14.10.2026) ───────
+//
+// POST /api/admin/reports/[reportId]/quarantine sets moderationState:'removed'
+// on chats/group_<id> (Admin SDK, same batch as the target). A member reads and
+// sends in chats via the client SDK + these rules (no server route), so the
+// cutoff is a rules guard. Deny on the removed chat, control on an ordinary
+// one, and the flag itself can never be written (or cleared) by a member.
+async function testChatQuarantine() {
+  console.log('\nchat quarantine — members cut off on a removed chat');
+
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'community_groups', 'cq_gone'), { name: 'cq gone', isActive: false, moderationState: 'removed' });
+    await setDoc(doc(db, 'community_groups', 'cq_gone', 'members', 'cq_member'), { uid: 'cq_member', role: 'member' });
+    await setDoc(doc(db, 'community_groups', 'cq_ok'), { name: 'cq ok', isActive: true });
+    await setDoc(doc(db, 'community_groups', 'cq_ok', 'members', 'cq_member'), { uid: 'cq_member', role: 'member' });
+    await setDoc(doc(db, 'chats', 'group_cq_gone'), {
+      type: 'group', groupId: 'cq_gone', participants: ['cq_member'], participantNames: {},
+      lastMessage: '\u05d4\u05ea\u05d5\u05db\u05df \u05d4\u05d5\u05e1\u05e8', lastMessageAt: new Date(), moderationState: 'removed',
+    });
+    await setDoc(doc(db, 'chats', 'group_cq_gone', 'messages', 'm1'), { senderUid: 'cq_member', text: 'synthetic', sentAt: new Date(), readBy: [] });
+    await setDoc(doc(db, 'chats', 'group_cq_ok'), {
+      type: 'group', groupId: 'cq_ok', participants: ['cq_member'], participantNames: {},
+      lastMessage: 'hi', lastMessageAt: new Date(),
+    });
+    await setDoc(doc(db, 'chats', 'group_cq_ok', 'messages', 'm1'), { senderUid: 'cq_member', text: 'synthetic', sentAt: new Date(), readBy: [] });
+  });
+
+  const member = () => env.authenticatedContext('cq_member');
+
+  // ── DENY on the removed chat ──
+  await it('CQ1 — member GETs a message in a REMOVED chat → DENY', async () => {
+    await assertFails(getDoc(doc(member().firestore(), 'chats', 'group_cq_gone', 'messages', 'm1')));
+  });
+  await it('CQ2 — member LISTS messages of a REMOVED chat (the real chat-thread query shape) → DENY', async () => {
+    await assertFails(getDocs(collection(member().firestore(), 'chats', 'group_cq_gone', 'messages')));
+  });
+  await it('CQ3 — member SENDS a message into a REMOVED chat → DENY', async () => {
+    await assertFails(setDoc(doc(collection(member().firestore(), 'chats', 'group_cq_gone', 'messages')), {
+      senderUid: 'cq_member', text: 'hello', sentAt: new Date(),
+    }));
+  });
+  await it('CQ4 — member marks a message read (readBy update) in a REMOVED chat → DENY', async () => {
+    await assertFails(updateDoc(doc(member().firestore(), 'chats', 'group_cq_gone', 'messages', 'm1'), { readBy: ['cq_member'] }));
+  });
+  await it('CQ5 — member updates the REMOVED chat doc (lastMessage / unread counters, what sendMessage does) → DENY', async () => {
+    await assertFails(updateDoc(doc(member().firestore(), 'chats', 'group_cq_gone'), { lastMessage: 'x' }));
+  });
+  await it('CQ6 — member tries to CLEAR the moderation flag on the removed chat → DENY', async () => {
+    await assertFails(updateDoc(doc(member().firestore(), 'chats', 'group_cq_gone'), { moderationState: 'active' }));
+  });
+  await it('CQ7 — a group member who is not yet in participants tries to add themselves to the REMOVED chat → DENY', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'community_groups', 'cq_gone', 'members', 'cq_joiner'), { uid: 'cq_joiner', role: 'member' });
+    });
+    const ctx = env.authenticatedContext('cq_joiner');
+    await assertFails(updateDoc(doc(ctx.firestore(), 'chats', 'group_cq_gone'), { participants: ['cq_member', 'cq_joiner'] }));
+  });
+
+  // ── CONTROLS: an ordinary chat is untouched ──
+  await it('CQ8 — CONTROL: the same member LISTS messages of an ordinary chat → ALLOW', async () => {
+    const snap = await assertSucceeds(getDocs(collection(member().firestore(), 'chats', 'group_cq_ok', 'messages')));
+    if (snap.size !== 1) throw new Error(`expected 1 message, got ${snap.size}`);
+  });
+  await it('CQ9 — CONTROL: the same member SENDS a message into an ordinary chat → ALLOW', async () => {
+    await assertSucceeds(setDoc(doc(collection(member().firestore(), 'chats', 'group_cq_ok', 'messages')), {
+      senderUid: 'cq_member', text: 'hello', sentAt: new Date(),
+    }));
+  });
+  await it('CQ10 — CONTROL: readBy update and a lastMessage update on an ordinary chat → ALLOW', async () => {
+    await assertSucceeds(updateDoc(doc(member().firestore(), 'chats', 'group_cq_ok', 'messages', 'm1'), { readBy: ['cq_member'] }));
+    await assertSucceeds(updateDoc(doc(member().firestore(), 'chats', 'group_cq_ok'), { lastMessage: 'x', lastSenderId: 'cq_member' }));
+  });
+  await it('CQ11 — a member can NOT set the moderation flag on an ordinary chat either (flag is Admin-SDK-only) → DENY', async () => {
+    await assertFails(updateDoc(doc(member().firestore(), 'chats', 'group_cq_ok'), { moderationState: 'removed' }));
+    await assertFails(updateDoc(doc(member().firestore(), 'chats', 'group_cq_ok'), { removedBy: 'cq_member' }));
+  });
+
+  // ── Documented residual + admin control ──
+  await it('CQ12 — the REMOVED chat DOC stays readable to its participants (inbox query keeps working; preview is the tombstone) → ALLOW', async () => {
+    const snap = await assertSucceeds(getDoc(doc(member().firestore(), 'chats', 'group_cq_gone')));
+    if (snap.data()?.moderationState !== 'removed') throw new Error('fixture should carry the flag');
+    const inbox = await assertSucceeds(getDocs(query(collection(member().firestore(), 'chats'), where('participants', 'array-contains', 'cq_member'))));
+    if (inbox.size < 2) throw new Error(`inbox list should still return both chats, got ${inbox.size}`);
+  });
+  await it('CQ13 — ROOT admin still reads the removed chat\'s messages through rules (catch-all; the Admin-SDK moderation route bypasses rules entirely) → ALLOW', async () => {
+    const ctx = env.authenticatedContext('cq_root', { email: 'david@appout.co.il' });
+    await assertSucceeds(getDocs(collection(ctx.firestore(), 'chats', 'group_cq_gone', 'messages')));
+  });
+}
+
 // ─── reports — read/update/delete root only (14.10.2026) ────────────────────
 //
 // reports/{id} read/update/delete used to admit root OR any user whose
@@ -2615,4 +2706,5 @@ describe('Firestore Rules — Cumulative Integration Test Suite', () => {
   vitestIt('SPEC-04 Wave A (presence age-scoped read) + Wave E (referrals lockdown)', wrapSuite(testSpec04MinorsAndRadius));
   vitestIt('unit-deletion — root only (30.09.2026)', wrapSuite(testUnitDeletion));
   vitestIt('reports — root only (14.10.2026)', wrapSuite(testReportsRootOnly));
+  vitestIt('chat quarantine — members cut off (14.10.2026)', wrapSuite(testChatQuarantine));
 });

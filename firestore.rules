@@ -28,6 +28,15 @@ service cloud.firestore {
 
     // Root admin — hardcoded emails, case-insensitive.
     // Uses auth token directly (no Firestore read), so it never fails.
+    // 14.10.2026 — a chat whose group/event was quarantined by moderation
+    // (POST /api/admin/reports/[reportId]/quarantine sets moderationState:
+    // 'removed' on the chat doc in the same Admin batch as the target) is
+    // closed to members for reading AND sending. Admin-SDK access (the
+    // reported-chat route, restore) bypasses rules and is unaffected.
+    function chatNotRemoved(chatId) {
+      return get(/databases/$(database)/documents/chats/$(chatId)).data.get('moderationState', '') != 'removed';
+    }
+
     function isRootAdmin() {
       return isAuthenticated() &&
         request.auth.token.email.matches('(?i)^(david|office)@appout\\.co\\.il$');
@@ -2279,8 +2288,14 @@ service cloud.firestore {
                     && request.resource.data.type == 'group';
 
       // Existing participants can update (send message metadata, mark read, etc.)
+      // 14.10.2026 — no member update on a quarantined chat, and moderationState/
+      // removedBy/removedAt are never writable from the client (otherwise any
+      // participant could simply clear the flag).
       allow update: if isAuthenticated()
-                    && request.auth.uid in resource.data.participants;
+                    && request.auth.uid in resource.data.participants
+                    && resource.data.get('moderationState', '') != 'removed'
+                    && !request.resource.data.diff(resource.data).affectedKeys()
+                         .hasAny(['moderationState', 'removedBy', 'removedAt']);
       // Group chat JOIN: SPEC-02 SEC-03 (part 2) — this used to let ANY
       // authenticated user self-add to a group chat's `participants` via
       // arrayUnion(uid), with only `type == 'group'` checked. chatId is
@@ -2305,6 +2320,9 @@ service cloud.firestore {
       // attacker who skipped both.
       allow update: if isAuthenticated()
                     && resource.data.type == 'group'
+                    && resource.data.get('moderationState', '') != 'removed'
+                    && !request.resource.data.diff(resource.data).affectedKeys()
+                         .hasAny(['moderationState', 'removedBy', 'removedAt'])
                     && request.auth.uid in request.resource.data.participants
                     && (
                       exists(/databases/$(database)/documents/community_groups/$(resource.data.groupId)/members/$(request.auth.uid)) ||
@@ -2314,6 +2332,7 @@ service cloud.firestore {
       match /messages/{messageId} {
         // Read: participant of the parent chat
         allow read: if isAuthenticated()
+                    && chatNotRemoved(chatId)
                     && request.auth.uid in
                        get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
         // Create: sender must be themselves and be a participant.
@@ -2321,6 +2340,7 @@ service cloud.firestore {
         // reading a chat you're already a participant of is unaffected.
         allow create: if isAuthenticated()
                       && !isAnonymous()
+                      && chatNotRemoved(chatId)
                       && request.auth.uid == request.resource.data.senderUid
                       && request.auth.uid in
                          get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
@@ -2333,6 +2353,7 @@ service cloud.firestore {
         // never any other field on someone else's (or their own)
         // message.
         allow update: if isAuthenticated()
+                      && chatNotRemoved(chatId)
                       && request.auth.uid in
                          get(/databases/$(database)/documents/chats/$(chatId)).data.participants
                       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']);

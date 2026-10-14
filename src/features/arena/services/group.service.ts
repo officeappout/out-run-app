@@ -43,6 +43,7 @@ import {
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { removeGroupFromPresence } from '@/features/safecity/services/presence.service';
 import { auth } from '@/lib/firebase';
+import { isContentRemoved } from '@/lib/moderation';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -619,6 +620,9 @@ export async function getGroupMembers(groupId: string): Promise<GroupMember[]> {
 export async function getGroupById(groupId: string): Promise<CommunityGroup | null> {
   const snap = await getDoc(doc(db, 'community_groups', groupId));
   if (!snap.exists()) return null;
+  // Quarantined by moderation: not-found for every user-facing detail view /
+  // deep link (admin tooling reads the doc through community.service instead).
+  if (isContentRemoved(snap.data())) return null;
   const group: CommunityGroup = {
     id: snap.id,
     ...(snap.data() as Omit<CommunityGroup, 'id' | 'createdAt' | 'updatedAt'>),

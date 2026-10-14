@@ -93,6 +93,7 @@ beforeEach(() => {
   d.set('community_groups/grp_B', { authorityId: 'auth_B', isActive: true });
   d.set('community_groups/grp_gone', { authorityId: 'auth_A', isActive: false, moderationState: 'removed' });
   d.set('community_events/ev_A', { tenantId: 'auth_A', isActive: true });
+  d.set('chats/group_grp_A', { type: 'group', groupId: 'grp_A', participants: ['member_1'], lastMessage: 'OFFENSIVE SNIPPET' });
   d.set('reports/r1', { targetType: 'group', targetId: 'grp_A', reporterId: 'reporter_uid', reason: 'harassment', status: 'pending' });
   d.set('reports/r2', { targetType: 'group', targetId: 'grp_A', reporterId: 'reporter_uid_2', status: 'pending' });
   d.set('reports/r_other_type', { targetType: 'event', targetId: 'grp_A', status: 'pending' }); // same id, different type: must NOT be touched
@@ -113,6 +114,39 @@ describe('isContentRemoved', () => {
 });
 
 describe('computeQuarantineTarget', () => {
+  it('the chat doc is closed in the SAME first batch as the target + audit (atomic): flag + neutral tombstone, snippet gone', async () => {
+    await computeQuarantineTarget(makeDb(), mgrA, 'r1', 'ip');
+    const first = state.commits[0];
+    const chatOp = first.find((o) => o.path === 'chats/group_grp_A')!;
+    expect(chatOp).toBeTruthy();
+    expect(chatOp.kind).toBe('update');
+    expect(chatOp.data).toEqual({ moderationState: 'removed', lastMessage: 'התוכן הוסר' });
+    // same batch as the target update and the audit row
+    expect(first.some((o) => o.path === 'community_groups/grp_A')).toBe(true);
+    expect(first.some((o) => o.path.startsWith('audit_logs/'))).toBe(true);
+    // never in a later (best-effort) batch
+    expect(state.commits.slice(1).flat().some((o) => o.path === 'chats/group_grp_A')).toBe(false);
+    expect(JSON.stringify(chatOp.data)).not.toContain('OFFENSIVE');
+  });
+
+  it('first batch failing leaves the chat un-closed too (all-or-nothing)', async () => {
+    state.failCommitNumber = 1;
+    await expect(computeQuarantineTarget(makeDb(), mgrA, 'r1', 'ip')).rejects.toThrow();
+    expect(state.commits.length).toBe(0);
+  });
+
+  it('target with no chat doc → no chat op (no invented doc)', async () => {
+    state.docs.delete('chats/group_grp_A');
+    await computeQuarantineTarget(makeDb(), mgrA, 'r1', 'ip');
+    expect(state.commits[0].some((o) => o.path.startsWith('chats/'))).toBe(false);
+  });
+
+  it('event target closes chats/group_<eventId> the same way', async () => {
+    state.docs.set('chats/group_ev_A', { type: 'group', groupId: 'ev_A', participants: ['member_1'] });
+    await computeQuarantineTarget(makeDb(), mgrA, 'r_ev', 'ip');
+    expect(state.commits[0].some((o) => o.path === 'chats/group_ev_A' && o.data.moderationState === 'removed')).toBe(true);
+  });
+
   it('own authority → target quarantined + audit in ONE first batch; nothing hard-deleted', async () => {
     const r = await computeQuarantineTarget(makeDb(), mgrA, 'r1', '203.0.113.9');
     expect(r).toEqual({ status: 200, body: { ok: true, alreadyRemoved: false, reportsUpdated: 2, reportsFailed: 0 } });

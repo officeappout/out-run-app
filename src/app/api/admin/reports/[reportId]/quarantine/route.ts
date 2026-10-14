@@ -15,7 +15,11 @@
  * non-group-event report: the same generic 403 (zero report reads for a
  * non-manager, no writes, no audit row).
  *
- * Atomicity: the target quarantine + its audit_logs row
+ * The target's chat doc (chats/group_<id>) is closed in the SAME batch
+ * (moderationState 'removed' + lastMessage tombstone); firestore.rules then
+ * denies members reading/sending/updating there.
+ *
+ * Atomicity: the target quarantine (+ chat close) + its audit_logs row
  * (UPDATE / ContentQuarantine / <targetId>) are ONE Admin batch, fail-closed —
  * no removal without an audit row. The audit row carries adminId, IP,
  * authority, the target type and the NUMBER of matching reports — never names,
@@ -46,6 +50,7 @@ export const dynamic = 'force-dynamic';
 
 const GENERIC_FORBIDDEN = 'אין לך הרשאה לטפל בדיווח זה.';
 const REPORT_UPDATE_CHUNK = 500;
+const CHAT_TOMBSTONE = 'התוכן הוסר';
 
 export type QuarantineResult =
   | {
@@ -83,7 +88,15 @@ export async function computeQuarantineTarget(
     .filter((d) => (d.data() as { targetType?: unknown }).targetType === targetType)
     .map((d) => d.ref);
 
-  // Quarantine + audit: ONE batch, fail-closed.
+  // The target's group/event chat (chats/group_<id>; same id pattern for both).
+  // It is closed to members by firestore.rules via this same flag, and its
+  // inbox preview is replaced with a neutral tombstone so no offending snippet
+  // (possibly written by/for minors) stays visible in participants' inboxes.
+  // A restore recomputes lastMessage from the latest message.
+  const chatRef = db.collection('chats').doc(`group_${targetId}`);
+  const chatSnap = await chatRef.get();
+
+  // Quarantine (+ chat close) + audit: ONE batch, fail-closed.
   const batch = db.batch();
   batch.update(targetRef, {
     moderationState: MODERATION_REMOVED,
@@ -92,6 +105,9 @@ export async function computeQuarantineTarget(
     removedAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   });
+  if (chatSnap.exists) {
+    batch.update(chatRef, { moderationState: MODERATION_REMOVED, lastMessage: CHAT_TOMBSTONE });
+  }
   batch.set(db.collection('audit_logs').doc(), {
     adminId: caller.uid,
     adminName: caller.email || 'Admin',
