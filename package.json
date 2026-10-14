@@ -75,6 +75,7 @@
     "@turf/helpers": "^7.3.1",
     "@turf/kinks": "^7.4.0",
     "@turf/length": "^7.4.0",
+    "@xyflow/react": "^12.12.0",
     "axios": "^1.13.2",
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
