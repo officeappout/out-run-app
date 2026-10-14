@@ -28,6 +28,15 @@ service cloud.firestore {
 
     // Root admin — hardcoded emails, case-insensitive.
     // Uses auth token directly (no Firestore read), so it never fails.
+    // 14.10.2026 — a chat whose group/event was quarantined by moderation
+    // (POST /api/admin/reports/[reportId]/quarantine sets moderationState:
+    // 'removed' on the chat doc in the same Admin batch as the target) is
+    // closed to members for reading AND sending. Admin-SDK access (the
+    // reported-chat route, restore) bypasses rules and is unaffected.
+    function chatNotRemoved(chatId) {
+      return get(/databases/$(database)/documents/chats/$(chatId)).data.get('moderationState', '') != 'removed';
+    }
+
     function isRootAdmin() {
       return isAuthenticated() &&
         request.auth.token.email.matches('(?i)^(david|office)@appout\\.co\\.il$');
@@ -142,6 +151,14 @@ service cloud.firestore {
     function isReserveLeagueGroup(groupId) {
       return groupId == 'military_reserve_general';
     }
+    // 14.10.2026 — a group quarantined by moderation (moderationState 'removed')
+    // takes no new member bookings / waitlist toggles. Member attendance rules
+    // require this; group-admin / root / Admin-SDK paths are unaffected. The
+    // group doc always exists for a real member, so get() is safe here.
+    function groupNotRemoved(groupId) {
+      return get(/databases/$(database)/documents/community_groups/$(groupId)).data.get('moderationState', '') != 'removed';
+    }
+
     function isGroupMember(groupId) {
       return isAuthenticated() &&
         exists(/databases/$(database)/documents/community_groups/$(groupId)/members/$(request.auth.uid));
@@ -2012,6 +2029,7 @@ service cloud.firestore {
         // (b) First RSVP — creates the doc. Caller must be the sole
         // attendee, count exactly 1, no waitlist field yet.
         allow create: if isGroupMember(docId)
+          && groupNotRemoved(docId)
           && request.resource.data.attendees == [request.auth.uid]
           && request.resource.data.currentCount == 1
           && !('waitlist' in request.resource.data)
@@ -2024,6 +2042,7 @@ service cloud.firestore {
         // maps restricted to the caller's own key, phase/schedule fields
         // untouchable by a non-admin.
         allow update: if isGroupMember(docId)
+          && groupNotRemoved(docId)
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
                'sessionPhase', 'sessionPhaseUpdatedAt', 'sessionPhaseUpdatedBy', 'lobbyExtendedUntil',
                'groupId', 'date', 'time', 'maxParticipants', 'sessionGoal'
@@ -2279,8 +2298,14 @@ service cloud.firestore {
                     && request.resource.data.type == 'group';
 
       // Existing participants can update (send message metadata, mark read, etc.)
+      // 14.10.2026 — no member update on a quarantined chat, and moderationState/
+      // removedBy/removedAt are never writable from the client (otherwise any
+      // participant could simply clear the flag).
       allow update: if isAuthenticated()
-                    && request.auth.uid in resource.data.participants;
+                    && request.auth.uid in resource.data.participants
+                    && resource.data.get('moderationState', '') != 'removed'
+                    && !request.resource.data.diff(resource.data).affectedKeys()
+                         .hasAny(['moderationState', 'removedBy', 'removedAt']);
       // Group chat JOIN: SPEC-02 SEC-03 (part 2) — this used to let ANY
       // authenticated user self-add to a group chat's `participants` via
       // arrayUnion(uid), with only `type == 'group'` checked. chatId is
@@ -2305,6 +2330,9 @@ service cloud.firestore {
       // attacker who skipped both.
       allow update: if isAuthenticated()
                     && resource.data.type == 'group'
+                    && resource.data.get('moderationState', '') != 'removed'
+                    && !request.resource.data.diff(resource.data).affectedKeys()
+                         .hasAny(['moderationState', 'removedBy', 'removedAt'])
                     && request.auth.uid in request.resource.data.participants
                     && (
                       exists(/databases/$(database)/documents/community_groups/$(resource.data.groupId)/members/$(request.auth.uid)) ||
@@ -2314,6 +2342,7 @@ service cloud.firestore {
       match /messages/{messageId} {
         // Read: participant of the parent chat
         allow read: if isAuthenticated()
+                    && chatNotRemoved(chatId)
                     && request.auth.uid in
                        get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
         // Create: sender must be themselves and be a participant.
@@ -2321,6 +2350,7 @@ service cloud.firestore {
         // reading a chat you're already a participant of is unaffected.
         allow create: if isAuthenticated()
                       && !isAnonymous()
+                      && chatNotRemoved(chatId)
                       && request.auth.uid == request.resource.data.senderUid
                       && request.auth.uid in
                          get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
@@ -2333,6 +2363,7 @@ service cloud.firestore {
         // never any other field on someone else's (or their own)
         // message.
         allow update: if isAuthenticated()
+                      && chatNotRemoved(chatId)
                       && request.auth.uid in
                          get(/databases/$(database)/documents/chats/$(chatId)).data.participants
                       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']);
@@ -2343,14 +2374,24 @@ service cloud.firestore {
     // REPORTS — user-submitted content reports
     // create: any signed-in user (no helper functions — avoids get()
     //   evaluation side-effects from the catch-all isAdmin() rule)
-    // read/manage: root admins + users whose role is admin/authority/root
+    // read / update / delete: ROOT ONLY (isRootAdmin()).
+    //
+    // 14.10.2026 — was: root email OR users/{uid}.role in
+    // ['admin','authority','root']. Proven at the emulator that this admitted
+    // any user carrying that top-level field to LIST the whole collection
+    // (every authority's reports, with reporterId + reason) and to dismiss or
+    // delete any report; the browser-side reports page did exactly that
+    // unscoped. Tightened as a fail-safe that does NOT depend on how any user
+    // document is shaped. Authority-scoped list/dismiss/delete now run in
+    // Admin-SDK server routes (/api/admin/reports*), which bypass these rules
+    // and check scope server-side. NOT DEPLOYED until `firebase deploy --only
+    // firestore:rules` is run from main after merge (David) — deploy AFTER the
+    // code that stops reading `reports` from the browser is live.
+    // Tests: tests/firestore-rules.test.ts RP-*.
     // ============================================================
     match /reports/{reportId} {
       allow create: if request.auth != null;
-      allow read, update, delete: if request.auth != null && (
-        request.auth.token.email.matches('(?i)^(david|office)@appout\\.co\\.il$') ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'authority', 'root']
-      );
+      allow read, update, delete: if isRootAdmin();
     }
 
     // ============================================================

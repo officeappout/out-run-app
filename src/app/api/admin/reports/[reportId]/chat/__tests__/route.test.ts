@@ -164,6 +164,13 @@ describe('computeReportedChat', () => {
     expect(state.messageReads).toBe(0);
   });
 
+  it('the admin route STILL reads a chat that moderation has closed to members (Admin SDK path is unaffected by the quarantine flag)', async () => {
+    state.docs.set('chats/group_grp_1', { type: 'group', moderationState: 'removed', lastMessage: 'התוכן הוסר' });
+    const r = await computeReportedChat(makeDb(), mgrA, 'rep_group', 'ip');
+    expect(r.status).toBe(200);
+    expect((r.body as any).messages.length).toBe(50);
+  });
+
   it('tenantId match authorises; root may read any group\'s reported chat', async () => {
     state.docs.set('community_groups/grp_1', { tenantId: 'auth_A' });
     expect((await computeReportedChat(makeDb(), mgrA, 'rep_group', 'ip')).status).toBe(200);

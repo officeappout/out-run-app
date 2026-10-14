@@ -12,17 +12,13 @@ import {
   collection,
   getDocs,
   doc,
-  deleteDoc,
-  updateDoc,
   query,
   orderBy,
   limit,
-  serverTimestamp,
 } from 'firebase/firestore';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import { getAuthoritiesByManager, getAllAuthorities } from '@/features/admin/services/authority.service';
 import { getReportsByAuthority, updateReportStatus } from '@/features/admin/services/maintenance.service';
-import { deleteGroup, deleteEvent } from '@/features/admin/services/community.service';
 import type { MaintenanceReport, MaintenanceStatus, MaintenanceIssueType } from '@/types/maintenance.types';
 import ParkDetailDrawer from '@/features/admin/components/parks/ParkDetailDrawer';
 import {
@@ -61,9 +57,9 @@ interface CommunityReport {
   targetId: string;
   targetType: 'group' | 'event';
   targetName: string;
-  reporterId: string;
-  reason: string;
-  status: 'pending' | 'reviewed' | 'dismissed';
+  /** Fixed UI category key (spam / inappropriate / …) — never free text. The reporter's id and the raw reason are deliberately not sent to this page. */
+  category: string;
+  status: 'pending' | 'reviewed' | 'dismissed' | 'actioned';
   createdAt: any;
 }
 
@@ -149,6 +145,8 @@ export default function ReportsPage() {
   // Community state
   const [communityReports, setCommunityReports] = useState<CommunityReport[]>([]);
   const [communityLoading, setCommunityLoading] = useState(false);
+  const [communityLoadFailed, setCommunityLoadFailed] = useState(false);
+  const [communityTruncated, setCommunityTruncated] = useState(false);
   const [actionId, setActionId] = useState<string | null>(null);
 
 
@@ -213,11 +211,28 @@ export default function ReportsPage() {
   const loadCommunityReports = useCallback(async () => {
     setCommunityLoading(true);
     try {
-      const q = query(collection(db, 'reports'), orderBy('createdAt', 'desc'));
-      const snap = await getDocs(q);
-      setCommunityReports(snap.docs.map((d) => ({ id: d.id, ...d.data() } as CommunityReport)));
+      // Scoped server route: the `reports` collection is root-only for direct
+      // client reads, and a report has no authorityId — the server resolves
+      // each report's target group/event and keeps only this caller's.
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error('not signed in');
+      const res = await fetch('/api/admin/reports', { headers: { Authorization: `Bearer ${idToken}` } });
+      if (!res.ok) throw new Error(`reports fetch failed (${res.status})`);
+      const body = (await res.json()) as {
+        reports?: Array<Omit<CommunityReport, 'targetType'> & { targetType: string }>;
+        truncated?: boolean;
+      };
+      // This page only handles group/event reports; other types (e.g. DM
+      // reports) are root-only and never shown here.
+      setCommunityReports(
+        (body.reports ?? []).filter((r) => r.targetType === 'group' || r.targetType === 'event') as CommunityReport[],
+      );
+      setCommunityLoadFailed(false);
+      setCommunityTruncated(body.truncated === true);
     } catch (err) {
-      console.error('[ReportsPage] community load failed:', err);
+      console.error('[ReportsPage] community load failed:', err instanceof Error ? err.message : 'unknown');
+      setCommunityReports([]);
+      setCommunityLoadFailed(true);
     } finally {
       setCommunityLoading(false);
     }
@@ -248,27 +263,44 @@ export default function ReportsPage() {
   const handleDismiss = async (reportId: string) => {
     setActionId(reportId);
     try {
-      await updateDoc(doc(db, 'reports', reportId), { status: 'dismissed', reviewedAt: serverTimestamp() });
+      // Scoped, audited server route — `reports` is root-only for direct client
+      // writes. The server re-derives that this report belongs to the caller's
+      // authority; the id alone is not trusted.
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error('not signed in');
+      const res = await fetch(`/api/admin/reports/${encodeURIComponent(reportId)}/dismiss`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      if (!res.ok) throw new Error(`dismiss failed (${res.status})`);
       setCommunityReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'dismissed' } : r));
     } catch (err) {
-      console.error('[ReportsPage] dismiss failed:', err);
+      console.error('[ReportsPage] dismiss failed:', err instanceof Error ? err.message : 'unknown');
     } finally {
       setActionId(null);
     }
   };
 
   const handleDeleteContent = async (report: CommunityReport) => {
-    if (!confirm(`האם למחוק לצמיתות את "${report.targetName}"?\nפעולה זו אינה ניתנת לביטול.`)) return;
+    if (!confirm(`להסיר את "${report.targetName}" מהתצוגה למשתמשים?\nהתוכן לא נמחק פיזית ואפשר לשחזר אותו.`)) return;
     setActionId(report.id);
     try {
-      if (report.targetType === 'group') await deleteGroup(report.targetId);
-      else await deleteEvent(report.targetId);
-      await Promise.all(
-        communityReports.filter(r => r.targetId === report.targetId).map(r => deleteDoc(doc(db, 'reports', r.id)))
+      // Scoped, audited server route: quarantines the target (moderationState
+      // 'removed' + isActive false) and marks its reports 'actioned'. The
+      // server re-derives that this report's target belongs to the caller's
+      // authority. Nothing is hard-deleted.
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error('not signed in');
+      const res = await fetch(`/api/admin/reports/${encodeURIComponent(report.id)}/quarantine`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      if (!res.ok) throw new Error(`quarantine failed (${res.status})`);
+      setCommunityReports(prev =>
+        prev.map(r => (r.targetId === report.targetId && r.targetType === report.targetType ? { ...r, status: 'actioned' } : r)),
       );
-      setCommunityReports(prev => prev.filter(r => r.targetId !== report.targetId));
     } catch (err) {
-      console.error('[ReportsPage] delete failed:', err);
+      console.error('[ReportsPage] quarantine failed:', err instanceof Error ? err.message : 'unknown');
     } finally {
       setActionId(null);
     }
@@ -466,7 +498,18 @@ export default function ReportsPage() {
         <div>
           {communityLoading && <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>}
 
-          {!communityLoading && communityReports.length === 0 && (
+          {!communityLoading && communityLoadFailed && (
+            <div className="text-center py-10 bg-red-50 border border-red-100 rounded-2xl mb-4">
+              <p className="text-sm font-bold text-red-600">שגיאה בטעינת הדיווחים — הרשימה לא נטענה. נסה לרענן.</p>
+            </div>
+          )}
+          {!communityLoading && !communityLoadFailed && communityTruncated && (
+            <div className="text-center py-3 bg-amber-50 border border-amber-100 rounded-2xl mb-4">
+              <p className="text-xs font-bold text-amber-700">מוצגים הדיווחים האחרונים בלבד — ייתכנו דיווחים ישנים שלא נטענו.</p>
+            </div>
+          )}
+
+          {!communityLoading && !communityLoadFailed && communityReports.length === 0 && (
             <div className="text-center py-20">
               <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
               <p className="text-lg font-bold text-slate-700">אין דיווחים פעילים</p>
@@ -725,10 +768,9 @@ function CommunityReportCard({
         </span>
       </div>
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-xs bg-red-50 text-red-600 font-bold px-2.5 py-1 rounded-full">{REASON_LABELS[report.reason] ?? report.reason}</span>
+        <span className="text-xs bg-red-50 text-red-600 font-bold px-2.5 py-1 rounded-full">{REASON_LABELS[report.category] ?? REASON_LABELS.other}</span>
         <span className="text-[11px] text-slate-400">{formatDate(report.createdAt)}</span>
       </div>
-      <p className="text-[11px] text-slate-400 mb-3">מדווח: <span className="font-mono">{report.reporterId.slice(0, 12)}…</span></p>
       <div className="flex items-center gap-1.5 flex-wrap mb-3">
         <button onClick={() => onInspect(report)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-cyan-50 text-cyan-700 text-[11px] font-bold hover:bg-cyan-100 transition-colors"><Search className="w-3 h-3" />צפה בפריט</button>
         {report.targetType === 'group' && (

@@ -16,6 +16,7 @@
  *     via a separate authenticated endpoint after sign-in.
  */
 
+import { isContentRemoved } from '@/lib/moderation';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { resolveGroupIdByInviteCode } from '@/lib/joinEngine';
@@ -80,6 +81,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
     const raw = doc.data() ?? {};
+    // Quarantined (removed) groups are not joinable/previewable — same 404 as a bad code.
+    if (isContentRemoved(raw)) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
 
     // 3. Apply whitelist — copy only allowed fields.
     const preview: Partial<Record<SafeField, unknown>> & { id: string } = {

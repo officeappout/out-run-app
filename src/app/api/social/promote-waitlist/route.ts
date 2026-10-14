@@ -14,6 +14,7 @@
  * Caller must be a real member of groupId (membership doc existence) —
  * same member-check shape as group-membership/route.ts.
  */
+import { isContentRemoved } from '@/lib/moderation';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue, type Firestore } from 'firebase-admin/firestore';
@@ -60,6 +61,13 @@ export async function computePromoteWaitlist(
     .doc(attendanceDocId(date, time));
 
   return db.runTransaction(async (tx) => {
+    // Quarantined (moderation-removed) group: no promotions — same 404 as a
+    // missing session, so nothing distinguishes the two to a caller.
+    const groupSnap = await tx.get(db.collection('community_groups').doc(groupId));
+    if (groupSnap.exists && isContentRemoved(groupSnap.data())) {
+      return { status: 404 as const, body: { error: 'session-not-found' } };
+    }
+
     const snap = await tx.get(ref);
     if (!snap.exists) {
       return { status: 404 as const, body: { error: 'session-not-found' } };

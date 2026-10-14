@@ -74,6 +74,14 @@ export const RATE_LIMITS = {
     // Token feed route (keyed per uid, after the MAC verifies).
     token: () => envWindow('RL_CALENDAR_TOKEN', MIN, 30),
   },
+  // POST /api/admin/reports/[reportId]/dismiss and …/delete-content — per caller uid.
+  reportActions: {
+    uid: () => envWindow('RL_REPORT_ACTIONS_UID', MIN, 30),
+  },
+  // GET /api/admin/reports — scoped reports list, per caller uid.
+  reportsList: {
+    uid: () => envWindow('RL_REPORTS_LIST_UID', MIN, 30),
+  },
   // GET /api/admin/reports/[reportId]/chat — reported-chat viewer, per caller uid.
   reportedChat: {
     uid: () => envWindow('RL_REPORTED_CHAT_UID', MIN, 30),
