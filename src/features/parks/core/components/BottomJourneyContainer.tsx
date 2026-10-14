@@ -76,7 +76,8 @@ interface BottomJourneyContainerProps {
   routes: Route[];
   onRouteFocus?: (route: Route) => void;
   focusedRouteId?: string | null;
-  onStartWorkout?: () => void;
+  /** Receives the tapped card's route — the parent must start THAT route, not whatever is focused. */
+  onStartWorkout?: (route: Route) => void;
   onShowDetails?: () => void;
   /** Opens the full RouteDetailSheet for a route */
   onShowRouteDetail?: (route: Route) => void;
@@ -411,7 +412,7 @@ export default function BottomJourneyContainer({
                     if (isGenerated && onShowDetails) {
                       onShowDetails();
                     } else if (onStartWorkout) {
-                      onStartWorkout();
+                      onStartWorkout(route);
                     }
                   }}
                   ctaContent={
@@ -557,7 +558,7 @@ export default function BottomJourneyContainer({
                         } else if (isGenerated && onShowDetails) {
                           onShowDetails();
                         } else if (onStartWorkout) {
-                          onStartWorkout();
+                          onStartWorkout(route);
                         }
                       }}
                       className="w-full py-2.5 rounded-xl font-black text-sm text-[#0f172a] active:scale-[0.97] transition-all flex items-center justify-center gap-2 shadow-md shadow-cyan-400/20"

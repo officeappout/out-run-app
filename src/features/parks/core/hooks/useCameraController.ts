@@ -366,7 +366,8 @@ export function useCameraController(params: CameraControllerParams): CameraContr
   // Read via the store (like overviewSheetHeightPx below) so no prop has to thread through AppMap. Kept in
   // a ref so toggling it never re-runs the main camera effect on its own.
   const suggestionsFocusedRef = useRef(false);
-  suggestionsFocusedRef.current = useMapStore((s) => s.isSuggestionsFocused);
+  const isSuggestionsFocused = useMapStore((s) => s.isSuggestionsFocused);
+  suggestionsFocusedRef.current = isSuggestionsFocused;
   const fitBoundsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── One-shot fit-all on entering discover mode ──
@@ -389,6 +390,25 @@ export function useCameraController(params: CameraControllerParams): CameraContr
       }
     }
   }, [mapMode]);
+
+  // ── Per-entry re-fit ──
+  // The route fit (P2) only runs while ownerRef is 'preview'/'follow'. Any map touch/pan sets it to
+  // 'user' (breakFollow), and the idle-recenter that would release it returns early outside an active
+  // workout/nav — so in discover/idle it stuck on 'user' forever and exit → re-enter skipped the fit.
+  // On EVERY entry into the focused-suggestions state or discover mode: hand the camera back to
+  // 'preview' and forget the last-fitted key, so the fit runs again. Never touches an active workout.
+  const wasSuggestionsFocusedRef = useRef(false);
+  const wasDiscoverRef = useRef(false);
+  useEffect(() => {
+    const enteredFocused = isSuggestionsFocused && !wasSuggestionsFocusedRef.current;
+    const enteredDiscover = mapMode === 'discover' && !wasDiscoverRef.current;
+    wasSuggestionsFocusedRef.current = isSuggestionsFocused;
+    wasDiscoverRef.current = mapMode === 'discover';
+    if (!enteredFocused && !enteredDiscover) return;
+    if (isActiveWorkoutRef.current || isNavigationModeRef.current) return;
+    ownerRef.current = 'preview';
+    lastFocusedRouteIdRef.current = null;
+  }, [isSuggestionsFocused, mapMode]);
 
   // Cleanup debounce timers AND map listeners on unmount.
   //
@@ -853,6 +873,9 @@ export function useCameraController(params: CameraControllerParams): CameraContr
         // so the id alone would fit only the first card. Key the fit on the path itself so swiping to
         // another suggestion re-frames (user + that route). Other modes keep the plain id key.
         const suggestionsFocused = suggestionsFocusedRef.current;
+        // Curated discover carousel gets the same avatar-inclusive fit (swiping a card → that route + you).
+        const includeUser = suggestionsFocused || mapMode === 'discover';
+        // Discover keeps the plain id key: route ids are distinct per card, and P2.0's fit-all pre-marks that id.
         const fitKey = suggestionsFocused
           ? `${focusedRoute.id}|${previewPath.length}|${previewPath[0]?.join(',')}|${previewPath[previewPath.length - 1]?.join(',')}|${currentLocation ? 'u' : ''}`
           : focusedRoute.id;
@@ -875,7 +898,7 @@ export function useCameraController(params: CameraControllerParams): CameraContr
               );
               if (valid.length < 2) return;
               // Focused suggestions: include the user's own position so the avatar is in frame too.
-              const fitCoords = suggestionsFocused && currentLocation
+              const fitCoords = includeUser && currentLocation
                 && Number.isFinite(currentLocation.lat) && Number.isFinite(currentLocation.lng)
                 ? [...valid, [currentLocation.lng, currentLocation.lat] as [number, number]]
                 : valid;

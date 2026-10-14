@@ -49,6 +49,13 @@ export interface WorkoutSessionState {
   userWeight: number;
   status: string;
   startActiveWorkout: () => void;
+  /**
+   * Start a workout on an EXPLICIT route. Use this wherever a call site does
+   * `setFocusedRoute(r)` and then starts in the same tick: `startActiveWorkout` reads `focusedRoute`
+   * from its render closure, which is still the PREVIOUS route at that point (React state is async),
+   * so it would start whichever route was focused before the tap.
+   */
+  startActiveWorkoutForRoute: (route: Route | null) => void;
   pauseSession: () => void;
   resumeSession: () => void;
   endSession: () => void;
@@ -201,7 +208,7 @@ export function useWorkoutSession(
     useRunningPlayer.getState().checkRouteDeviation(pos);
   }, [isWorkoutActive, isWorkoutPaused, addCoord, updateDistance, updateRunData, setCurrentUserPos]);
 
-  const _doStartActiveWorkout = useCallback(() => {
+  const _doStartActiveWorkout = useCallback((route: Route | null) => {
     const rp = useRunningPlayer.getState();
     const planned = rp.currentWorkout;
     // Preserve any sessionGoal set by FreeRunDrawer before the clear so it
@@ -222,11 +229,11 @@ export function useWorkoutSession(
     // The id is persisted onto the saved workout document and bumps route analytics
     // on completion. Name + distance feed the GuidedRouteView progress strip so the
     // active-workout UI can show "מסלול X • Y%" without re-reading focusedRoute.
-    rp.setGuidedRouteId(focusedRoute?.id ?? null);
-    rp.setGuidedRouteName(focusedRoute?.name ?? null);
+    rp.setGuidedRouteId(route?.id ?? null);
+    rp.setGuidedRouteName(route?.name ?? null);
     rp.setGuidedRouteDistanceKm(
-      typeof focusedRoute?.distance === 'number' && focusedRoute.distance > 0
-        ? focusedRoute.distance
+      typeof route?.distance === 'number' && route.distance > 0
+        ? route.distance
         : null,
     );
     // Loop-rotation-at-start (David, 24.09.2026, scoped to loops ONLY after
@@ -258,7 +265,7 @@ export function useWorkoutSession(
     // ONE path computed here, reused for BOTH guidedRouteTurns and
     // setActiveRoutePath below — never two parallel versions of "the route"
     // for the same session.
-    const rawPath = focusedRoute?.path;
+    const rawPath = route?.path;
     const isLoop = !!rawPath && rawPath.length >= 3 && classifyRouteShape(rawPath) === 'loop';
     const sessionPath = isLoop && currentUserPos
       ? planFromPoint({
@@ -294,7 +301,7 @@ export function useWorkoutSession(
     setIsNavigationMode(true);
     setElapsedTime(0);
     // livePath is now computed from routeCoords — no seed needed here.
-  }, [focusedRoute, workoutMode, currentUserPos, startSession]);
+  }, [workoutMode, currentUserPos, startSession]);
 
   /**
    * Pre-flight chain for an active workout start:
@@ -312,7 +319,12 @@ export function useWorkoutSession(
    */
   const startActiveWorkout = useCallback(() => {
     if (beforeStartWorkout && !beforeStartWorkout()) return;
-    interceptWorkoutStart(() => _doStartActiveWorkout(), 'running');
+    interceptWorkoutStart(() => _doStartActiveWorkout(focusedRoute), 'running');
+  }, [interceptWorkoutStart, _doStartActiveWorkout, beforeStartWorkout, focusedRoute]);
+
+  const startActiveWorkoutForRoute = useCallback((route: Route | null) => {
+    if (beforeStartWorkout && !beforeStartWorkout()) return;
+    interceptWorkoutStart(() => _doStartActiveWorkout(route), 'running');
   }, [interceptWorkoutStart, _doStartActiveWorkout, beforeStartWorkout]);
 
   return {
@@ -327,6 +339,7 @@ export function useWorkoutSession(
     elapsedTime, runDistance, runPace, userWeight,
     status,
     startActiveWorkout,
+    startActiveWorkoutForRoute,
     pauseSession, resumeSession, endSession,
     triggerLap, addCoord,
     injectSimPosition,

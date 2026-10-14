@@ -54,7 +54,8 @@ describe('SmartwatchPromptModal removal', () => {
     const useWorkoutSessionPath = path.join(repoSrc, 'features/parks/core/hooks/useWorkoutSession.ts');
     const content = readFileSync(useWorkoutSessionPath, 'utf8');
     expect(content).not.toContain('openIfFirstRunner');
-    expect(content).toContain('_doStartActiveWorkout()');
+    // The start chain still ends in _doStartActiveWorkout (now takes the route explicitly — wrong-card fix).
+    expect(content).toContain('_doStartActiveWorkout(');
   });
 
   it('MapShell no longer mounts the smartwatch modal', () => {
