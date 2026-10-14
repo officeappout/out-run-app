@@ -151,6 +151,14 @@ service cloud.firestore {
     function isReserveLeagueGroup(groupId) {
       return groupId == 'military_reserve_general';
     }
+    // 14.10.2026 — a group quarantined by moderation (moderationState 'removed')
+    // takes no new member bookings / waitlist toggles. Member attendance rules
+    // require this; group-admin / root / Admin-SDK paths are unaffected. The
+    // group doc always exists for a real member, so get() is safe here.
+    function groupNotRemoved(groupId) {
+      return get(/databases/$(database)/documents/community_groups/$(groupId)).data.get('moderationState', '') != 'removed';
+    }
+
     function isGroupMember(groupId) {
       return isAuthenticated() &&
         exists(/databases/$(database)/documents/community_groups/$(groupId)/members/$(request.auth.uid));
@@ -2021,6 +2029,7 @@ service cloud.firestore {
         // (b) First RSVP — creates the doc. Caller must be the sole
         // attendee, count exactly 1, no waitlist field yet.
         allow create: if isGroupMember(docId)
+          && groupNotRemoved(docId)
           && request.resource.data.attendees == [request.auth.uid]
           && request.resource.data.currentCount == 1
           && !('waitlist' in request.resource.data)
@@ -2033,6 +2042,7 @@ service cloud.firestore {
         // maps restricted to the caller's own key, phase/schedule fields
         // untouchable by a non-admin.
         allow update: if isGroupMember(docId)
+          && groupNotRemoved(docId)
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
                'sessionPhase', 'sessionPhaseUpdatedAt', 'sessionPhaseUpdatedBy', 'lobbyExtendedUntil',
                'groupId', 'date', 'time', 'maxParticipants', 'sessionGoal'

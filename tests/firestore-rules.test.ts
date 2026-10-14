@@ -2487,6 +2487,64 @@ async function testChatQuarantine() {
   });
 }
 
+// ─── booking on a QUARANTINED group — member attendance writes closed (14.10.2026) ──
+//
+// booking.service writes community_groups/{g}/attendance/{session} with the
+// client SDK; the only thing that can stop it is these rules. A removed group
+// takes no new bookings, and (same rule) no cancel / waitlist-leave either —
+// intended: the group is gone from every user-facing surface. Group-admin /
+// root / Admin SDK (promote-waitlist) are separate paths.
+async function testBookingQuarantine() {
+  console.log('\nbooking quarantine — member attendance writes closed on a removed group');
+
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    for (const g of ['bq_gone', 'bq_ok']) {
+      await setDoc(doc(db, 'community_groups', g), g === 'bq_gone'
+        ? { name: 'gone', isActive: false, moderationState: 'removed' }
+        : { name: 'ok', isActive: true });
+      await setDoc(doc(db, 'community_groups', g, 'members', 'bq_member'), { uid: 'bq_member', role: 'member' });
+      await setDoc(doc(db, 'community_groups', g, 'members', 'bq_group_admin'), { uid: 'bq_group_admin', role: 'admin' });
+      // an existing, empty session (to join) and one the member is already in (to cancel)
+      await setDoc(doc(db, 'community_groups', g, 'attendance', 's_join'), {
+        groupId: g, date: '2026-11-20', time: '18:00', attendees: [], currentCount: 0, waitlist: [],
+      });
+      await setDoc(doc(db, 'community_groups', g, 'attendance', 's_cancel'), {
+        groupId: g, date: '2026-11-21', time: '18:00', attendees: ['bq_member'], currentCount: 1, waitlist: [],
+      });
+    }
+  });
+
+  const member = () => env.authenticatedContext('bq_member');
+  const newSession = { groupId: 'x', date: '2026-11-22', time: '18:00', attendees: ['bq_member'], currentCount: 1 };
+
+  await it('BQ1 — member creates a NEW booking session on a REMOVED group → DENY', async () => {
+    await assertFails(setDoc(doc(member().firestore(), 'community_groups', 'bq_gone', 'attendance', 's_new'), { ...newSession, groupId: 'bq_gone' }));
+  });
+  await it('BQ2 — member books (joins) an existing session on a REMOVED group → DENY', async () => {
+    await assertFails(updateDoc(doc(member().firestore(), 'community_groups', 'bq_gone', 'attendance', 's_join'), { attendees: ['bq_member'], currentCount: 1 }));
+  });
+  await it('BQ3 — member cancels / leaves on a REMOVED group → DENY (accepted: the group is invisible; cancel is frozen with it)', async () => {
+    await assertFails(updateDoc(doc(member().firestore(), 'community_groups', 'bq_gone', 'attendance', 's_cancel'), { attendees: [], currentCount: 0 }));
+  });
+
+  await it('BQ4 — CONTROL: the same member creates a new booking session on an ordinary group → ALLOW', async () => {
+    await assertSucceeds(setDoc(doc(member().firestore(), 'community_groups', 'bq_ok', 'attendance', 's_new'), { ...newSession, groupId: 'bq_ok' }));
+  });
+  await it('BQ5 — CONTROL: the same member books an existing session on an ordinary group → ALLOW', async () => {
+    await assertSucceeds(updateDoc(doc(member().firestore(), 'community_groups', 'bq_ok', 'attendance', 's_join'), { attendees: ['bq_member'], currentCount: 1 }));
+  });
+  await it('BQ6 — CONTROL: the same member cancels on an ordinary group → ALLOW', async () => {
+    await assertSucceeds(updateDoc(doc(member().firestore(), 'community_groups', 'bq_ok', 'attendance', 's_cancel'), { attendees: [], currentCount: 0 }));
+  });
+  await it('BQ7 — CONTROL: a GROUP ADMIN and ROOT are not affected by the member-rule guard (admin paths unchanged) → ALLOW', async () => {
+    const ga = env.authenticatedContext('bq_group_admin');
+    await assertSucceeds(updateDoc(doc(ga.firestore(), 'community_groups', 'bq_gone', 'attendance', 's_join'), { currentCount: 0 }));
+    const root = env.authenticatedContext('bq_root', { email: 'office@appout.co.il' });
+    await assertSucceeds(getDoc(doc(root.firestore(), 'community_groups', 'bq_gone', 'attendance', 's_join')));
+  });
+}
+
 // ─── reports — read/update/delete root only (14.10.2026) ────────────────────
 //
 // reports/{id} read/update/delete used to admit root OR any user whose
@@ -2707,4 +2765,5 @@ describe('Firestore Rules — Cumulative Integration Test Suite', () => {
   vitestIt('unit-deletion — root only (30.09.2026)', wrapSuite(testUnitDeletion));
   vitestIt('reports — root only (14.10.2026)', wrapSuite(testReportsRootOnly));
   vitestIt('chat quarantine — members cut off (14.10.2026)', wrapSuite(testChatQuarantine));
+  vitestIt('booking quarantine — member attendance writes closed (14.10.2026)', wrapSuite(testBookingQuarantine));
 });

@@ -231,3 +231,35 @@ describe('computePromoteWaitlist — write shape (real Firestore)', () => {
     expect(data.currentCount).toBe(4);
   });
 });
+
+// 14.10.2026 — a quarantined (moderation-removed) group takes no promotions.
+describe('computePromoteWaitlist — quarantined group (real Firestore)', () => {
+  const SESSION = '2026-11-12_18-00';
+  const session = {
+    groupId: GROUP_ID, date: '2026-11-12', time: '18:00',
+    attendees: [], currentCount: 0, waitlist: ['memberQ'],
+  };
+
+  it('[DENY] group is moderationState:"removed" -> 404 session-not-found, waitlist and attendees UNCHANGED', async () => {
+    await db.collection('community_groups').doc(GROUP_ID).set({ name: 'removed', isActive: false, moderationState: 'removed' });
+    await seedSession(SESSION, session);
+
+    const result = await computePromoteWaitlist(db, { groupId: GROUP_ID, date: '2026-11-12', time: '18:00' });
+    expect(result).toEqual({ status: 404, body: { error: 'session-not-found' } });
+
+    const snap = await db.collection('community_groups').doc(GROUP_ID).collection('attendance').doc(SESSION).get();
+    expect(snap.data()!.waitlist).toEqual(['memberQ']);
+    expect(snap.data()!.attendees).toEqual([]);
+    expect(snap.data()!.currentCount).toBe(0);
+  });
+
+  it('[CONTROL] the SAME session in an ordinary (non-removed) group still promotes', async () => {
+    await db.collection('community_groups').doc(GROUP_ID).set({ name: 'ok', isActive: true });
+    await seedSession(SESSION, session);
+
+    const result = await computePromoteWaitlist(db, { groupId: GROUP_ID, date: '2026-11-12', time: '18:00' });
+    expect(result.status).toBe(200);
+    if (result.status !== 200) return;
+    expect(result.body.promoted).toBe('memberQ');
+  });
+});
