@@ -22,7 +22,7 @@ import type { ExecutionLocation } from '@/features/content/exercises';
 import type { ComposedHybridSession, HybridRoutePreview } from '@/features/workout-engine/hybrid/start-hybrid-session';
 import { scheduleIdle } from '@/lib/scheduleIdle';
 import HybridSlotCarousel, { ENTRY_PHRASES } from '@/features/parks/core/components/hybrid/HybridSlotCarousel';
-import { composedWorkoutMin, cardTotalFor, readRoundTripPref, type RoundTripLegs } from '@/features/workout-engine/hybrid/round-trip';
+import { composedWorkoutMin, composedCardStats, cardTotalFor, readRoundTripPref, type RoundTripLegs } from '@/features/workout-engine/hybrid/round-trip';
 import ShimmerPhraseButton from '@/components/ui/ShimmerPhraseButton';
 import type { HybridStartIntent } from '@/features/workout-engine/hybrid/build-hybrid-input';
 import { resolveSlots, presetToIntent, type HybridSlot } from '@/features/workout-engine/hybrid/hybrid-slots';
@@ -690,14 +690,18 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // the same warm key, so a location/activity change can never surface a stale number; null until a
   // real session exists → the card shows no time at all.
   const [routeStopsCardTotal, setRouteStopsCardTotal] =
-    useState<{ key: string; workoutMin: number; legs: RoundTripLegs | null } | null>(null);
+    useState<{ key: string; workoutMin: number; legs: RoundTripLegs | null; calories?: number; stations?: number } | null>(null);
   const noteRouteStopsTotal = useCallback((slotId: string, composed: ComposedHybridSession) => {
     if (slotId !== 'route_stops') return;
     const workoutMin = composedWorkoutMin(composed.plan);
-    setRouteStopsCardTotal(workoutMin == null ? null : { key: keyFor(slotId), workoutMin, legs: composed.roundTrip ?? null });
+    // Same compose, same moment as the time: calories + stations come from the SAME plan.totals (no new compute).
+    setRouteStopsCardTotal(workoutMin == null ? null : { key: keyFor(slotId), workoutMin, legs: composed.roundTrip ?? null, ...composedCardStats(composed.plan) });
   }, [keyFor]);
   const routeStopsTotal = routeStopsCardTotal && routeStopsCardTotal.key === keyFor('route_stops')
-    ? cardTotalFor(routeStopsCardTotal.workoutMin, routeStopsCardTotal.legs, readRoundTripPref())
+    ? cardTotalFor(routeStopsCardTotal.workoutMin, routeStopsCardTotal.legs, readRoundTripPref(), {
+        calories: routeStopsCardTotal.calories,
+        stations: routeStopsCardTotal.stations,
+      })
     : null;
 
   const { profile } = useUserStore();
