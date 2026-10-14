@@ -119,7 +119,7 @@ export default function AccessCodeStep({ onNext }: AccessCodeStepProps) {
           className="w-full text-center text-2xl font-mono tracking-widest
                      border-2 border-gray-200 rounded-2xl px-4 py-4
                      focus:border-primary focus:outline-none
-                     transition-colors placeholder:text-gray-300"
+                     transition-colors placeholder:text-gray-500"
           autoFocus
           disabled={loading}
         />

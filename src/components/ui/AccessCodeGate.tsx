@@ -119,7 +119,7 @@ export default function AccessCodeGate({
           onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
           placeholder="UNIT-X79"
           disabled={loading}
-          className="flex-1 text-center text-lg font-mono tracking-widest border-2 border-gray-200 rounded-xl px-3 py-2.5 focus:border-[#5BC2F2] focus:outline-none transition-colors placeholder:text-gray-300"
+          className="flex-1 text-center text-lg font-mono tracking-widest border-2 border-gray-200 rounded-xl px-3 py-2.5 focus:border-[#5BC2F2] focus:outline-none transition-colors placeholder:text-gray-500"
         />
         <button
           onClick={handleSubmit}

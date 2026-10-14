@@ -900,7 +900,7 @@ function StepBasics({
             'לדוגמה: קבוצת ריצה שכונתית'
           }
           maxLength={60}
-          className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+          className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-400"
         />
         <p className="text-[10px] text-gray-400 mt-1 text-left">{form.name.length}/60</p>
       </div>
@@ -934,7 +934,7 @@ function StepBasics({
           placeholder="ספר על הקבוצה שלך — מה עושים, מי מוזמן, מה האווירה..."
           rows={3}
           maxLength={300}
-          className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 resize-none leading-relaxed"
+          className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-400 resize-none leading-relaxed"
         />
         <p className="text-[10px] text-gray-400 mt-1 text-left">{form.description.length}/300</p>
       </div>
@@ -1294,7 +1294,7 @@ function StepPrivacy({
           placeholder={'לדוגמה:\n• נא להגיע עם מים\n• כבוד הדדי\n• מוזמן לשתף חברים'}
           rows={5}
           maxLength={500}
-          className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 resize-none leading-relaxed"
+          className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-400 resize-none leading-relaxed"
         />
         <p className="text-[10px] text-gray-400 mt-1 text-left">{form.rules.length}/500</p>
       </div>

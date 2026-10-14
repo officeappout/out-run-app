@@ -127,7 +127,7 @@ export default function StepEquipment({ data, updateData, onNext, onBack }: Prop
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="חיפוש מתקן..."
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl pr-9 pl-4 py-2.5 text-slate-900 text-sm placeholder:text-slate-400 outline-none focus:border-[#00E5FF] transition-colors"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl pr-9 pl-4 py-2.5 text-slate-900 text-sm placeholder:text-slate-500 outline-none focus:border-[#00E5FF] transition-colors"
           />
         </div>
       </div>

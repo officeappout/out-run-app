@@ -563,7 +563,7 @@ export default function SearchPage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder={getPlaceholder(topTab, discoverMode)}
-              className="flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none"
+              className="flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-600 outline-none"
               aria-label="חיפוש"
             />
             {searchTerm && (

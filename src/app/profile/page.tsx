@@ -385,7 +385,7 @@ export default function ProfilePage() {
                     onChange={(e) => setFeedbackText(e.target.value)}
                     placeholder="כתוב כאן את המשוב, הבאג, או הרעיון שלך..."
                     rows={4}
-                    className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:border-[#00C9F2] focus:ring-2 focus:ring-[#00C9F2]/20 transition-all leading-relaxed"
+                    className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-500 outline-none focus:border-[#00C9F2] focus:ring-2 focus:ring-[#00C9F2]/20 transition-all leading-relaxed"
                   />
 
                   <AnimatePresence mode="wait">

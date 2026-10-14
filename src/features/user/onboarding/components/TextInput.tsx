@@ -37,7 +37,7 @@ export default function TextInput({
       // שימוש במשתנה הנכון שחישבנו למעלה
       placeholder={String(finalPlaceholder)} 
       maxLength={maxLength}
-      className={`w-full px-4 py-4 rounded-2xl border-2 border-gray-200 focus:border-[#5BC2F2] focus:outline-none text-lg bg-white text-black placeholder-gray-400 font-medium font-simpler ${direction === 'rtl' ? 'text-right' : 'text-left'}`}
+      className={`w-full px-4 py-4 rounded-2xl border-2 border-gray-200 focus:border-[#5BC2F2] focus:outline-none text-lg bg-white text-black placeholder-gray-500 font-medium font-simpler ${direction === 'rtl' ? 'text-right' : 'text-left'}`}
       dir={direction}
     />
   );

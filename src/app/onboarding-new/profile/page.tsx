@@ -407,7 +407,7 @@ export default function IdentityProfilePage() {
 
   // Shared input class builders
   const dateInputClass = (hasError: boolean) =>
-    `bg-white text-black text-center rounded-xl border-2 py-3.5 px-2 shadow-sm focus:ring-4 focus:ring-[#5BC2F2]/10 outline-none transition-all font-semibold font-simpler placeholder:text-slate-300 placeholder:font-normal ${
+    `bg-white text-black text-center rounded-xl border-2 py-3.5 px-2 shadow-sm focus:ring-4 focus:ring-[#5BC2F2]/10 outline-none transition-all font-semibold font-simpler placeholder:text-slate-500 placeholder:font-normal ${
       hasError ? 'border-red-300 focus:border-red-400' : 'border-slate-200 focus:border-[#5BC2F2]'
     }`;
 
@@ -747,7 +747,7 @@ export default function IdentityProfilePage() {
                   nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }, 150);
               }}
-              className="w-full bg-white text-black placeholder-slate-400 rounded-2xl border-2 border-slate-200 py-4 px-5 shadow-sm focus:border-[#5BC2F2] focus:ring-4 focus:ring-[#5BC2F2]/10 outline-none transition-all font-medium font-simpler text-right"
+              className="w-full bg-white text-black placeholder-slate-500 rounded-2xl border-2 border-slate-200 py-4 px-5 shadow-sm focus:border-[#5BC2F2] focus:ring-4 focus:ring-[#5BC2F2]/10 outline-none transition-all font-medium font-simpler text-right"
               placeholder="השם שלך כאן..."
             />
           </div>

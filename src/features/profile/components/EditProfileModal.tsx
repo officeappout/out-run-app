@@ -56,7 +56,7 @@ const INPUT_TEXT_FIX: React.CSSProperties = { color: '#111827', WebkitTextFillCo
 // be touched to suppress this, since that breaks pinch-zoom accessibility
 // for everyone, not just this one screen. Applied here (not per-input) so
 // every consumer of INPUT_TEXT_CLASS gets it uniformly.
-const INPUT_TEXT_CLASS = 'text-base text-gray-900 placeholder:text-gray-400';
+const INPUT_TEXT_CLASS = 'text-base text-gray-900 placeholder:text-gray-500';
 
 export default function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
   const { profile } = useUserStore();

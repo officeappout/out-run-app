@@ -129,7 +129,7 @@ export default function AIChatOverlay({ isOpen, onClose, onSendMessage, initialM
                             onChange={(e) => setInputValue(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                             placeholder="שאל את המאמן..."
-                            className="flex-1 bg-transparent border-none outline-none text-sm text-gray-800 text-right font-medium placeholder:text-gray-400"
+                            className="flex-1 bg-transparent border-none outline-none text-sm text-gray-800 text-right font-medium placeholder:text-gray-600"
                             dir="rtl"
                         />
                         <button

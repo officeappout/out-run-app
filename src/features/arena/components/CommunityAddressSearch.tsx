@@ -140,7 +140,7 @@ export default function CommunityAddressSearch({
           onKeyDown={handleKeyDown}
           onFocus={() => { if (suggestions.length > 0 && !selected) setShowDropdown(true); }}
           placeholder={placeholder}
-          className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 bg-white"
+          className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-400 bg-white"
         />
 
         {/* Icon: spinner or search */}
