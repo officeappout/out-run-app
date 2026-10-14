@@ -48,10 +48,20 @@ export interface CardBox {
  * actually reach) lets the two sides permanently disagree about which card
  * is "centered."
  */
-export function clampedScrollTarget(container: ScrollBox, card: CardBox): number {
-  const maxScrollLeft = Math.max(0, container.scrollWidth - container.clientWidth);
+export function clampedScrollTarget(
+  container: ScrollBox,
+  card: CardBox,
+  opts: { reverse?: boolean } = {},
+): number {
+  const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
   const rawTarget = card.offsetLeft + card.offsetWidth / 2 - container.offsetWidth / 2;
-  return Math.min(Math.max(rawTarget, 0), maxScrollLeft);
+  // A `flex-direction: row-reverse` (LTR) container scrolls in NEGATIVE space: scrollLeft runs from 0
+  // (right edge = first card) down to -maxScroll, and the cards' offsetLeft are negative to match. Clamping
+  // that to [0, +max] (what #234 did) collapses EVERY card's target to 0 — so the "which card is centered?"
+  // read-back always answered card 0 and swiping never changed focus (and a marker-tap scrolled to card 0).
+  const lo = opts.reverse ? -maxScroll : 0;
+  const hi = opts.reverse ? 0 : maxScroll;
+  return Math.min(Math.max(rawTarget, lo), hi);
 }
 
 export interface CorrectionPair {

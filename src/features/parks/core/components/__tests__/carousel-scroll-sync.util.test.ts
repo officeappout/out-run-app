@@ -49,6 +49,38 @@ describe('clampedScrollTarget — both the scroll-to call and the read-back use 
   });
 });
 
+describe('clampedScrollTarget — row-reverse track (the curated carousel) scrolls in NEGATIVE space', () => {
+  // Live measurement, outrun.co.il @ 390px (14.10.2026): flex-direction:row-reverse, dir=ltr,
+  // scrollWidth 1075, clientWidth/offsetWidth 390, scrollLeft ∈ [-685, 0]; card offsetLefts 19 / -325 / -668.
+  const container = { scrollWidth: 1075, clientWidth: 390, offsetWidth: 390 };
+  const cards = [
+    { offsetLeft: 19, offsetWidth: 332 },
+    { offsetLeft: -325, offsetWidth: 332 },
+    { offsetLeft: -668, offsetWidth: 332 },
+  ];
+
+  it('REGRESSION: each card gets its OWN target (distinct), centering it — not all collapsed to 0', () => {
+    const targets = cards.map((c) => clampedScrollTarget(container, c, { reverse: true }));
+    expect(targets).toEqual([-10, -354, -685]); // card 2's ideal (-697) is past the real range → clamped to -max
+    expect(new Set(targets).size).toBe(3);
+  });
+
+  it('the old positive clamp (reverse omitted) collapses every card to 0 — why swipes never changed focus', () => {
+    const targets = cards.map((c) => clampedScrollTarget(container, c));
+    expect(targets).toEqual([0, 0, 0]);
+  });
+
+  it('read-back picks the card whose target is nearest the live scrollLeft', () => {
+    const nearest = (scrollLeft: number) =>
+      cards
+        .map((c, i) => ({ i, d: Math.abs(clampedScrollTarget(container, c, { reverse: true }) - scrollLeft) }))
+        .sort((a, b) => a.d - b.d)[0].i;
+    expect(nearest(-10)).toBe(0);
+    expect(nearest(-354)).toBe(1);
+    expect(nearest(-684)).toBe(2);
+  });
+});
+
 describe('registerCorrection — MANDATORY bounded-retry backstop', () => {
   const MAX_PER_PAIR = 3;
 

@@ -92,6 +92,9 @@ interface BottomJourneyContainerProps {
   userPosition?: { lat: number; lng: number } | null;
 }
 
+// The carousel track is `flex-row-reverse` (routes[0] rightmost) → scrollLeft runs in negative space.
+const SCROLL_OPTS = { reverse: true } as const;
+
 export default function BottomJourneyContainer({
   routes,
   onRouteFocus,
@@ -148,7 +151,7 @@ export default function BottomJourneyContainer({
     let closestIdx = 0;
     let minDist = Infinity;
     cards.forEach((card, i) => {
-      const target = clampedScrollTarget(container, card);
+      const target = clampedScrollTarget(container, card, SCROLL_OPTS);
       const dist = Math.abs(target - scrollLeft);
       if (dist < minDist) { minDist = dist; closestIdx = i; }
     });
@@ -206,7 +209,7 @@ export default function BottomJourneyContainer({
       scrollSettleRafRef.current = null;
     }
     isProgrammaticScrollRef.current = true;
-    container.scrollTo({ left: clampedScrollTarget(container, card), behavior: 'smooth' });
+    container.scrollTo({ left: clampedScrollTarget(container, card, SCROLL_OPTS), behavior: 'smooth' });
     waitForScrollSettle(() => { isProgrammaticScrollRef.current = false; });
   }, [waitForScrollSettle]);
 
