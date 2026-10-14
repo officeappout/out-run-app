@@ -55,6 +55,8 @@ export interface RestingStateViewProps {
   totalRounds: number;
   /** Skip-rest action (fired by the timer's skip button). */
   onSkipRest: () => void;
+  /** "+15 שנ׳" — extend the current rest. */
+  onExtendRest?: () => void;
   /** Dismiss-hint action (close × button + always fires before onSwap). */
   onDismissHint: () => void;
   /** Optional swap-exercise CTA (only shown alongside "fail" coach hint). */
@@ -75,6 +77,7 @@ export default function RestingStateView({
   currentRound,
   totalRounds,
   onSkipRest,
+  onExtendRest,
   onDismissHint,
   onSwap,
 }: RestingStateViewProps) {
@@ -95,6 +98,7 @@ export default function RestingStateView({
         logDrawerNode={logDrawerNode}
         isLogDrawerOpen={isLogDrawerOpen}
         onSkip={onSkipRest}
+        onExtend={onExtendRest}
         isPaused={isPaused}
         videoKey={videoKey}
         fadeIn={fadeIn}

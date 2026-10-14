@@ -22,6 +22,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { RotateCcw, Pause, Play, Timer, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { isPlayerAudioMuted } from '../logic/player-audio-mute';
 
 interface IsometricTimerCardProps {
   duration: number;
@@ -66,6 +67,13 @@ interface IsometricTimerCardProps {
    * so the block stays exactly (workSec+restSec)×rounds. 0 = skip prep entirely.
    */
   prepSeconds?: number;
+  /**
+   * The PLAYER-level pause (RunnerHeader's pause → PauseOverlay). G2.4: the card used to keep
+   * counting underneath the pause overlay because it only knew its own local pause — which is
+   * also why tabata (whose local controls are hidden) had no working pause at all. Now the
+   * prep and work clocks freeze while this is true and continue from the same second on resume.
+   */
+  externalPaused?: boolean;
 }
 
 type Phase = 'idle' | 'preparing' | 'counting' | 'overtime';
@@ -98,6 +106,7 @@ function getAudioContext(): AudioContext | null {
 }
 
 function playTone(frequency: number, durationMs: number, volume = 0.5) {
+  if (isPlayerAudioMuted()) return; // session-wide player mute (G2.4)
   const ctx = getAudioContext();
   if (!ctx) return;
   try {
@@ -134,6 +143,7 @@ export default function IsometricTimerCard({
   isTabata = false,
   machineTabataLabel = null,
   prepSeconds = PREP_SECONDS,
+  externalPaused = false,
 }: IsometricTimerCardProps) {
   const sideLabel = side === 'right' ? 'צד ימין' : side === 'left' ? 'צד שמאל' : null;
   const [phase, setPhase] = useState<Phase>('idle');
@@ -192,6 +202,11 @@ export default function IsometricTimerCard({
 
   useEffect(() => {
     if (phase !== 'preparing') return;
+    if (externalPaused) {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      intervalRef.current = null;
+      return;
+    }
 
     intervalRef.current = setInterval(() => {
       setPrepCountdown((prev) => {
@@ -214,7 +229,7 @@ export default function IsometricTimerCard({
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [phase]);
+  }, [phase, externalPaused]);
 
   // ── Counting / overtime tick ──────────────────────────────────────────
 
@@ -226,7 +241,7 @@ export default function IsometricTimerCard({
       }
       return;
     }
-    if (isPaused) {
+    if (isPaused || externalPaused) {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
@@ -268,7 +283,7 @@ export default function IsometricTimerCard({
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [phase, isPaused, duration, autoCompleteAtTarget]);
+  }, [phase, isPaused, externalPaused, duration, autoCompleteAtTarget]);
 
   // ── Handlers ──────────────────────────────────────────────────────────
 
@@ -478,7 +493,7 @@ export default function IsometricTimerCard({
             </div>
 
             {/* Pause overlay */}
-            {isPaused && isActive && (
+            {(isPaused || externalPaused) && isActive && (
               <div className="absolute inset-0 flex items-center justify-center rounded-[14px] bg-black/10 backdrop-blur-[1px]">
                 <span
                   className="text-sm font-bold text-slate-600 dark:text-white/70"
@@ -511,22 +526,25 @@ export default function IsometricTimerCard({
             desync the block's fixed work+rest×rounds clock. */}
         {isActive && !hideControls && !isTabata && (
           <div className="flex justify-center gap-4 mb-4">
+            {/* G2.4: text + icon on both controls (were icon-only). */}
             <button
               onClick={resetTimer}
-              className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center active:scale-95 transition-transform shadow-sm"
-              aria-label="איפוס"
+              className="h-10 px-4 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center gap-1.5 active:scale-95 transition-transform shadow-sm"
             >
-              <RotateCcw size={18} className="text-slate-500" />
+              <RotateCcw size={16} className="text-slate-500" />
+              <span className="text-sm font-bold text-slate-600 dark:text-slate-300" style={{ fontFamily: 'var(--font-simpler)' }}>איפוס</span>
             </button>
             <button
               onClick={() => setIsPaused(p => !p)}
-              className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center active:scale-95 transition-transform shadow-sm"
-              aria-label={isPaused ? 'המשך' : 'השהייה'}
+              className="h-10 px-4 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center gap-1.5 active:scale-95 transition-transform shadow-sm"
             >
               {isPaused
-                ? <Play size={18} className="text-slate-500" fill="currentColor" />
-                : <Pause size={18} className="text-slate-500" />
+                ? <Play size={16} className="text-slate-500" fill="currentColor" />
+                : <Pause size={16} className="text-slate-500" />
               }
+              <span className="text-sm font-bold text-slate-600 dark:text-slate-300" style={{ fontFamily: 'var(--font-simpler)' }}>
+                {isPaused ? 'המשך' : 'השהייה'}
+              </span>
             </button>
           </div>
         )}

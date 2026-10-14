@@ -1417,7 +1417,12 @@ export async function runHybridPlan(composed: ComposedHybridSession, startRun: (
   // route-stops ALSO carries a trio but flattens as budget-split → it sets fullParkRun:false
   // explicitly. Fallback to `!!bolts` keeps full-park + budget-split byte-identical.
   const fullPark = composed.fullParkRun ?? !!composed.bolts;
-  useHybridRun.getState().startHybrid(runPlan, composed.aerobicKind, fullPark, composed.isWarmupActive ?? true);
+  // G2.4: parkId → display name for the end-of-station screen ("next station: X").
+  const stationNames: Record<string, string> = {};
+  for (const st of composed.stations ?? (composed.station ? [composed.station] : [])) {
+    if (st.parkId && st.name) stationNames[st.parkId] = st.name;
+  }
+  useHybridRun.getState().startHybrid(runPlan, composed.aerobicKind, fullPark, composed.isWarmupActive ?? true, stationNames);
   startRun();
 }
 

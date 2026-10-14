@@ -11,6 +11,7 @@ import type { AdvanceContext } from '../protocols/advance-strategy.types';
 import { resolveBlockProtocol, type BlockProtocolInfo } from '../protocols/block-protocol';
 import { tabataIntervalInfo, tabataMemberCosts, tabataRoundsPerMember } from '../protocols/tabata.advance';
 import { computeTabataStep } from '../protocols/tabata.step';
+import { extendRestSeconds } from '../logic/player-controls.utils';
 import { useSupersetPredicates } from './useSupersetPredicates';
 import { useExerciseDerivedValues } from './useExerciseDerivedValues';
 import { useExerciseLog } from './useExerciseLog';
@@ -183,6 +184,8 @@ export interface WorkoutStateMachineResult {
   /** Saves reps AND closes the drawer. Pass forceSkipRest to bypass RESTING entirely. Pass editSetIndex to update a specific set in-place (re-edit). */
   handleRepetitionSave: (reps: number, sideData?: { left: number; right: number }, forceSkipRest?: boolean, editSetIndex?: number) => void;
   skipRest: () => void;
+  /** "+15 שנ׳" — extend the CURRENT rest countdown (no-op outside RESTING). */
+  extendRest: (seconds?: number) => void;
   togglePause: () => void;
   setCompletedReps: React.Dispatch<React.SetStateAction<number | null>>;
   setVideoProgress: React.Dispatch<React.SetStateAction<number>>;
@@ -1037,6 +1040,11 @@ export function useWorkoutStateMachine(
     }, 150);
   }, []);
 
+  const extendRest = useCallback((seconds?: number) => {
+    if (workoutState !== 'RESTING') return;
+    setRestTimeLeft((t) => extendRestSeconds(t, seconds));
+  }, [workoutState, setRestTimeLeft]);
+
   const togglePause = useCallback(() => {
     if (isPaused) {
       setIsPaused(false);
@@ -1128,6 +1136,7 @@ export function useWorkoutStateMachine(
     handleExerciseComplete,
     handleRepetitionSave,
     skipRest,
+    extendRest,
     togglePause,
     setCompletedReps,
     setVideoProgress,

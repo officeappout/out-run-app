@@ -14,3 +14,9 @@ export function formatApproxDistance(meters: number): string {
   if (meters < 1000) return `${Math.round(meters / 10) * 10} מ׳`;
   return `${(meters / 1000).toFixed(1)} ק"מ`;
 }
+
+/** End-of-station screen (G2.4): planned leg to the next station as whole minutes (≥1). */
+export function formatApproxWalkMinutes(seconds: number, kind: 'walking' | 'running' = 'walking'): string {
+  const min = Number.isFinite(seconds) ? Math.max(1, Math.round(seconds / 60)) : 1;
+  return `${min} דק׳ ${kind === 'running' ? 'ריצה' : 'הליכה'}`;
+}

@@ -10,7 +10,7 @@ import { hapticLight, hapticMedium } from '@/lib/haptics';
  *
  * Sits above ALL workout states (ACTIVE / INPUT / RESTING) at z-100.
  * Shows a "הפסקה" headline plus two CTAs:
- *   • Resume — orange "התחילו שוב" returns to live training
+ *   • Resume — orange "המשך אימון" returns to live training (G2.4 copy)
  *   • Open exit modal — white "סיום אימון" triggers the ExitConfirmModal
  *
  * Pure presentational — the orchestrator owns the conditional visibility
@@ -61,7 +61,7 @@ export default function PauseOverlay({ onResume, onOpenExitModal }: PauseOverlay
           style={{ fontFamily: 'var(--font-simpler)' }}
         >
           <Play size={22} fill="white" />
-          התחילו שוב
+          המשך אימון
         </button>
         <button
           onClick={handleOpenExitModal}

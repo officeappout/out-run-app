@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { TIMER_AUTO_ADVANCE_ENABLED } from '@/config/feature-flags';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
+import { isPlayerAudioMuted } from '../logic/player-audio-mute';
+import { restBeepForSecond } from '../logic/player-controls.utils';
 
 // ============================================================================
 // TYPES
@@ -150,13 +152,20 @@ export function useWorkoutTimers({
       setRestTimeLeft((prev) => {
         const next = prev - 1;
 
-        if (next === 3 || next === 2) {
-          if ((shortBeepRef as any).playBeep) (shortBeepRef as any).playBeep();
-          else shortBeepRef.current?.play().catch(() => {});
+        // Countdown cues: an early warning at 5s, then the existing 3-2-1. Sound respects the
+        // session-wide mute (player-audio-mute); the haptic still fires when muted.
+        const cue = restBeepForSecond(next);
+        if (cue === 'short') {
+          if (!isPlayerAudioMuted()) {
+            if ((shortBeepRef as any).playBeep) (shortBeepRef as any).playBeep();
+            else shortBeepRef.current?.play().catch(() => {});
+          }
           hapticLight();
-        } else if (next === 1) {
-          if ((longBeepRef as any).playBeep) (longBeepRef as any).playBeep();
-          else longBeepRef.current?.play().catch(() => {});
+        } else if (cue === 'long') {
+          if (!isPlayerAudioMuted()) {
+            if ((longBeepRef as any).playBeep) (longBeepRef as any).playBeep();
+            else longBeepRef.current?.play().catch(() => {});
+          }
           hapticMedium();
         }
 

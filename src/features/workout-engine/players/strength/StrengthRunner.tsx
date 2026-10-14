@@ -448,10 +448,13 @@ export default function StrengthRunner({
     if (sm.workoutState === 'RESTING') {
       // Tabata: same shared RestScreen as every other exercise type now
       // (16.09.2026 rest-screen unification). Fed by the machine's rest clock
-      // (restTimeLeft), which owns the 3/2/1 beeps + auto-advance — purely
-      // presentational, no timer of its own here. No onSkip/logDrawerNode —
-      // tabata rest has no manual skip and no rep-logging mid-block, same as
-      // before the unification.
+      // (restTimeLeft), which owns the countdown beeps + auto-advance — purely
+      // presentational, no timer of its own here. No logDrawerNode — no
+      // rep-logging mid-block. G2.4: onSkip IS passed now — sm.skipRest runs the
+      // exact transition the rest timer runs at 0 (handleRestTimerDone →
+      // moveToNext, incl. the unilateral side-rest branch), the interval was
+      // already logged before RESTING, so skipping only moves that transition
+      // earlier. No "+15" here: tabata keeps its fixed protocol rest.
       if (sm.blockProtocol?.id === 'tabata') {
         return (
           <RestScreen
@@ -461,6 +464,7 @@ export default function StrengthRunner({
             fadeIn={sm.fadeIn}
             isPaused={sm.isPaused}
             videoKey={`tabata-next-${sm.currentSegmentIndex}-${sm.currentExerciseIndex}`}
+            onSkip={sm.skipRest}
           />
         );
       }
@@ -479,6 +483,7 @@ export default function StrengthRunner({
           currentRound={sm.currentRound}
           totalRounds={sm.totalRounds}
           onSkipRest={sm.skipRest}
+          onExtendRest={() => sm.extendRest()}
           onDismissHint={() => setCoachHint(null)}
           onSwap={handleSwap}
         />

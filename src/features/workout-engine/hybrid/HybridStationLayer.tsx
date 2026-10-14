@@ -37,6 +37,10 @@ import { useRunningPlayer } from '@/features/workout-engine/players/running/stor
 import { hapticMedium } from '@/lib/haptics';
 import { haversineMeters } from '@/features/parks/core/services/geoUtils';
 import { formatApproxDistance } from './hybrid-intro-format';
+import StationCompleteScreen from './StationCompleteScreen';
+import ExerciseReplacementModal from '@/features/workout-engine/players/strength/components/ExerciseReplacementModal';
+import { useUserStore } from '@/features/user';
+import type { Park } from '@/features/parks/core/types/park.types';
 
 const ACCENT = '#00ADEF';
 // G3.1 fix: how long the start-of-walk intro stays up before auto-dismissing
@@ -50,8 +54,18 @@ export default function HybridStationLayer() {
   const isFinalLeg = useHybridRun((s) => s.isFinalLeg);
   const upcomingStation = useHybridRun((s) => s.upcomingStation);
   const arrive = useHybridRun((s) => s.arrive);
-  const completeStation = useHybridRun((s) => s.completeStation);
+  const finishStationWork = useHybridRun((s) => s.finishStationWork);
+  const continueAfterStation = useHybridRun((s) => s.continueAfterStation);
+  const pendingStationComplete = useHybridRun((s) => s.pendingStationComplete);
+  const stationContext = useHybridRun((s) => s.stationContext);
+  const swapStationExercise = useHybridRun((s) => s.swapStationExercise);
+  const getStationSwapCandidate = useHybridRun((s) => s.getStationSwapCandidate);
   const skipStation = useHybridRun((s) => s.skipStation);
+  const profile = useUserStore((s) => s.profile);
+  // G2.4 in-station swap: which plan position is being replaced + the modal's inputs.
+  const [swapTarget, setSwapTarget] = useState<{
+    segIdx: number; exIdx: number; exercise: unknown; level: number; park: Park | null;
+  } | null>(null);
   const finishHybrid = useHybridRun((s) => s.finishHybrid);
   const lastPosition = useRunningPlayer((s) => s.lastPosition);
 
@@ -113,19 +127,68 @@ export default function HybridStationLayer() {
   if (phase === 'station' && stationPlan) {
     return (
       <div className="fixed inset-0 z-[120] bg-white pointer-events-auto" dir="rtl">
+        {pendingStationComplete ? (
+          // G2.4: non-final station done → short completion screen; the run clock stays
+          // paused until "המשך במסלול" (continueAfterStation).
+          <StationCompleteScreen
+            summary={pendingStationComplete}
+            context={stationContext}
+            onContinue={continueAfterStation}
+          />
+        ) : (
         <StrengthRunner
           workout={stationPlan}
           // F1 (19.08.2026): StrengthRunner's real exerciseLog was previously
           // discarded here (onComplete={() => completeStation()}) — the root
           // cause of hybrid's strength segments having zero per-set detail.
           // Mapped through the same toSegmentExerciseDetail() solo strength
-          // uses, so both paths persist an identical shape.
-          onComplete={(exerciseLog) => completeStation(toSegmentExerciseDetail(exerciseLog ?? []))}
+          // uses, so both paths persist an identical shape. G2.4: routed via
+          // finishStationWork — final station → completeStation (unchanged),
+          // otherwise the completion screen first.
+          onComplete={(exerciseLog) => finishStationWork(toSegmentExerciseDetail(exerciseLog ?? []))}
+          // G2.4: in-station swap — same modal as the overview / standalone player; the
+          // replacement is written into the live station plan (useHybridRun), so it is what
+          // StrengthRunner plays and logs from here on.
+          onSwapExercise={(_exerciseId, segIdx, exIdx) => {
+            const candidate = getStationSwapCandidate(segIdx, exIdx);
+            if (!candidate) return;
+            setSwapTarget({ segIdx, exIdx, exercise: candidate.exercise, level: candidate.level, park: null });
+            // Prefer methods that fit THIS park's equipment: the modal's method selector
+            // matches against park.gymEquipment (full record — the catalog park lacks it).
+            const parkId = stationContext?.parkId;
+            if (parkId) {
+              import('@/features/parks/core/services/parks.service')
+                .then(({ getPark }) => getPark(parkId))
+                .then((park) => {
+                  if (park) setSwapTarget((t) => (t && t.segIdx === segIdx && t.exIdx === exIdx ? { ...t, park } : t));
+                })
+                .catch(() => { /* no park → generic park methods */ });
+            }
+          }}
           embedded
         />
+        )}
+        {swapTarget && profile && (
+          <ExerciseReplacementModal
+            isOpen
+            onClose={() => setSwapTarget(null)}
+            currentExercise={swapTarget.exercise as any}
+            currentLevel={swapTarget.level}
+            location="park"
+            park={swapTarget.park}
+            userProfile={profile as any}
+            onReplace={(newExercise, executionMethod) => {
+              swapStationExercise(swapTarget.segIdx, swapTarget.exIdx, newExercise, executionMethod);
+              setSwapTarget(null);
+            }}
+          />
+        )}
         {/* Secondary, de-emphasized — top corner, away from StrengthRunner's
             own bottom-of-screen primary actions (set-complete / next
-            exercise), so a user can't hit it reaching for those. */}
+            exercise), so a user can't hit it reaching for those. Hidden on the
+            completion screen (the station is already done there) and while the swap
+            modal is open (it sits above the modal's z-[110] backdrop otherwise). */}
+        {!pendingStationComplete && !swapTarget && (
         <button
           type="button"
           onClick={() => skipStation()}
@@ -134,6 +197,7 @@ export default function HybridStationLayer() {
         >
           דלג על התחנה
         </button>
+        )}
       </div>
     );
   }
@@ -176,11 +240,11 @@ export default function HybridStationLayer() {
           <button
             type="button"
             onClick={() => skipStation()}
-            aria-label="דלג על התחנה"
-            className="pointer-events-auto fixed left-4 z-[121] w-8 h-8 flex items-center justify-center rounded-full text-gray-500 bg-white/90 border border-gray-200 shadow-sm active:scale-95 transition-transform"
+            // G2.4: was an icon-only "✕" — now the same labelled ghost pill as at the station.
+            className="pointer-events-auto fixed left-4 z-[121] rounded-full px-3 py-1.5 text-[12px] font-bold text-gray-500 bg-white/90 border border-gray-200 shadow-sm active:scale-95 transition-transform"
             style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
           >
-            ✕
+            דלג על התחנה
           </button>
         )}
       </div>
