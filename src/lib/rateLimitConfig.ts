@@ -82,6 +82,11 @@ export const RATE_LIMITS = {
   communityGroupDelete: {
     uid: () => envWindow('RL_COMMUNITY_GROUP_DELETE_UID', MIN, 30),
   },
+  // /api/admin/agents/** (14.10.2026, agents panel) — root-only, per caller
+  // uid, one budget shared by the overview, findings list and mark-read.
+  agentsPanel: {
+    uid: () => envWindow('RL_AGENTS_PANEL_UID', MIN, 60),
+  },
   leaderboard: {
     ip: () => envWindow('RL_LEADERBOARD_IP', MIN, 30),
   },
