@@ -3,6 +3,9 @@
 import { create } from 'zustand';
 
 export interface SettingsData {
+  /** "ליווי צעד-אחר-צעד" — guided hybrid-station layer. Mirrors `users/{uid}.settings.guidedStation`;
+   *  unset in Firestore = ON (the default for everyone). See hybrid/guided-station.ts. */
+  guidedStation: boolean;
   inactivityAlerts: boolean;
   achievementAlerts: boolean;
   tipsAlerts: boolean;
@@ -37,6 +40,7 @@ interface SettingsState extends SettingsData {
 }
 
 const DEFAULTS: SettingsData = {
+  guidedStation: true,
   inactivityAlerts: true,
   achievementAlerts: true,
   tipsAlerts: true,

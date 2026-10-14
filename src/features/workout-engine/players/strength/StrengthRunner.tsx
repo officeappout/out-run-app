@@ -61,6 +61,7 @@ import { usePlayerMediaSession } from './hooks/usePlayerMediaSession';
 import { hapticMedium } from '@/lib/haptics';
 import { useUserStore } from '@/features/user';
 import { g } from '@/lib/utils/gendered-text';
+import { guidanceLine } from '@/features/workout-engine/hybrid/guided-station';
 
 export type { ExerciseResultLog };
 
@@ -76,6 +77,10 @@ interface StrengthRunnerProps {
    *  minimize button (no mini-player bar in the hybrid flow). Default false → the
    *  standalone strength session is unchanged. */
   embedded?: boolean;
+  /** PR-B1: the guided ("ליווי צעד-אחר-צעד") layer is on for this hybrid station → short
+   *  guidance line under the exercise + the rest screen's next-exercise tile starts expanded.
+   *  Default false → standalone strength and fast-mode stations are unchanged. */
+  guided?: boolean;
   /**
    * Crash-recovery: seed values from a restored WorkoutCheckpoint, passed
    * down once the page-level resume-offer dialog resolves to "Resume".
@@ -93,6 +98,7 @@ export default function StrengthRunner({
   onSwapExercise,
   exerciseHistoryMap,
   embedded = false,
+  guided = false,
   initialCheckpoint,
 }: StrengthRunnerProps) {
   const sm = useWorkoutStateMachine(workout, onComplete, onPause, onResume, undefined, exerciseHistoryMap, initialCheckpoint);
@@ -468,6 +474,7 @@ export default function StrengthRunner({
             isPaused={sm.isPaused}
             videoKey={`tabata-next-${sm.currentSegmentIndex}-${sm.currentExerciseIndex}`}
             onSkip={sm.skipRest}
+            autoExpandPreview={guided}
           />
         );
       }
@@ -487,6 +494,7 @@ export default function StrengthRunner({
           totalRounds={sm.totalRounds}
           onSkipRest={sm.skipRest}
           onExtendRest={() => sm.extendRest()}
+          autoExpandPreview={guided}
           onDismissHint={() => setCoachHint(null)}
           onSwap={handleSwap}
         />
@@ -548,6 +556,15 @@ export default function StrengthRunner({
         onComplete={sm.handleExerciseComplete}
         onSwap={handleSwap}
         onSetVideoProgress={sm.setVideoProgress}
+        // PR-B1 guided only: one short line under the exercise. Timed (incl. tabata) → neutral
+        // "ממשיכים עד שהטיימר נגמר"; reps → gendered "עשה/י X חזרות…". Follow-along: none.
+        guidanceLine={
+          !guided || sm.exerciseType === 'follow-along'
+            ? undefined
+            : isTimeExercise
+              ? guidanceLine('time', userGender)
+              : guidanceLine('reps', userGender, pickerTargetValue > 0 ? pickerTargetValue : undefined)
+        }
       />
     );
   };

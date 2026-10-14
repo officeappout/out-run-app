@@ -8,7 +8,7 @@ import {
   ChevronLeft, ArrowRight, Loader2, AlertTriangle, Globe, Users, EyeOff,
   Heart, Ruler, Camera, MapPin, Dumbbell, Eye,
   BarChart3, Mail, Pencil, Check, Tag, CreditCard, MessageSquare, Calendar,
-  Clock, Plus, Accessibility,
+  Clock, Plus, Accessibility, ListChecks,
 } from 'lucide-react';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { doc, updateDoc, setDoc } from 'firebase/firestore';
@@ -16,6 +16,7 @@ import { auth, db } from '@/lib/firebase';
 import { signOutUser } from '@/lib/auth.service';
 import { readA11yWidgetEnabled, writeA11yWidgetEnabled } from '@/lib/accessibilityWidgetPref';
 import { useUserStore } from '@/features/user';
+import { readGuidedSettings, GUIDED_SETTING_KEY } from '@/features/workout-engine/hybrid/guided-station';
 import { useOnboardingStore } from '@/features/user/onboarding/store/useOnboardingStore';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useSettingsStore } from '../store/useSettingsStore';
@@ -538,6 +539,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       tipsAlerts: (notifs?.tips as boolean | undefined) ?? true,
       units: ((settings?.units as 'km' | 'miles') ?? 'km'),
       healthBridgeEnabled: false,
+      // Unset = ON (default for everyone); an explicit choice wins. Same rule as the station.
+      guidedStation: readGuidedSettings(raw).guidedStation ?? true,
     });
 
     // Load HealthKit/Health Connect state (Capacitor Preferences — native only)
@@ -885,6 +888,17 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const handleUnitsChange = useCallback((v: 'km' | 'miles') => {
     store.patch({ units: v });
     scheduleSave({ 'settings.units': v });
+  }, [store, scheduleSave]);
+
+  // ── Training experience — guided station (debounced Firestore) ───────────
+  const handleGuidedStationToggle = useCallback((v: boolean) => {
+    store.patch({ guidedStation: v });
+    scheduleSave({ [GUIDED_SETTING_KEY]: v });
+    // Mirror into the local profile so the next station reads it without a profile refresh.
+    const current = useUserStore.getState().profile as unknown as { settings?: Record<string, unknown> } | null;
+    if (current) {
+      useUserStore.getState().updateProfile({ settings: { ...(current.settings ?? {}), guidedStation: v } } as never);
+    }
   }, [store, scheduleSave]);
 
   // ── HealthKit disconnect (connect path is handled by useHealthWithDisclosure) ──
@@ -2012,6 +2026,24 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       <PermissionStatusBadge
                         status={locationStatus}
                         requesting={locationRequesting}
+                      />
+                    }
+                  />
+                </Section>
+
+                {/* ══════════════════════════════════════════════════════════
+                    חוויית אימון — guided hybrid-station layer (PR-B1)
+                   ══════════════════════════════════════════════════════════ */}
+                <Section title="חוויית אימון">
+                  <SettingsRow
+                    icon={<ListChecks size={20} className="text-gray-700" />}
+                    label="ליווי צעד-אחר-צעד"
+                    sublabel="מסך פתיחה, הדרכה, 'מצא את המתקן' וסרטון לפני כל תרגיל"
+                    right={
+                      <Toggle
+                        checked={store.guidedStation}
+                        onChange={handleGuidedStationToggle}
+                        label="ליווי צעד-אחר-צעד"
                       />
                     }
                   />
