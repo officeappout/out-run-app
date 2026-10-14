@@ -410,6 +410,19 @@ export function useCameraController(params: CameraControllerParams): CameraContr
     lastFocusedRouteIdRef.current = null;
   }, [isSuggestionsFocused, mapMode]);
 
+  // ── Focus change in discover / focused suggestions → reclaim the camera ──
+  // Swiping the carousel (or tapping a marker) focuses another route; the user wants the map re-framed
+  // (that route + the avatar). But a prior map pan/touch leaves ownerRef on 'user', which gates the route
+  // fit off — so after ANY earlier pan, swiping never moved the camera. A deliberate route-focus change
+  // hands it back to 'preview'. Never during an active workout/nav.
+  const focusedRouteId = focusedRoute?.id ?? null;
+  useEffect(() => {
+    if (!focusedRouteId) return;
+    if (mapMode !== 'discover' && !suggestionsFocusedRef.current) return;
+    if (isActiveWorkoutRef.current || isNavigationModeRef.current) return;
+    ownerRef.current = 'preview';
+  }, [focusedRouteId, mapMode]);
+
   // Cleanup debounce timers AND map listeners on unmount.
   //
   // Listener disposal is the OOM-critical part: every DOM listener wired
