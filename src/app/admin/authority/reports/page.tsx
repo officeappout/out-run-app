@@ -12,17 +12,13 @@ import {
   collection,
   getDocs,
   doc,
-  deleteDoc,
-  updateDoc,
   query,
   orderBy,
   limit,
-  serverTimestamp,
 } from 'firebase/firestore';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import { getAuthoritiesByManager, getAllAuthorities } from '@/features/admin/services/authority.service';
 import { getReportsByAuthority, updateReportStatus } from '@/features/admin/services/maintenance.service';
-import { deleteGroup, deleteEvent } from '@/features/admin/services/community.service';
 import type { MaintenanceReport, MaintenanceStatus, MaintenanceIssueType } from '@/types/maintenance.types';
 import ParkDetailDrawer from '@/features/admin/components/parks/ParkDetailDrawer';
 import {
@@ -63,7 +59,7 @@ interface CommunityReport {
   targetName: string;
   /** Fixed UI category key (spam / inappropriate / …) — never free text. The reporter's id and the raw reason are deliberately not sent to this page. */
   category: string;
-  status: 'pending' | 'reviewed' | 'dismissed';
+  status: 'pending' | 'reviewed' | 'dismissed' | 'actioned';
   createdAt: any;
 }
 
@@ -286,17 +282,25 @@ export default function ReportsPage() {
   };
 
   const handleDeleteContent = async (report: CommunityReport) => {
-    if (!confirm(`האם למחוק לצמיתות את "${report.targetName}"?\nפעולה זו אינה ניתנת לביטול.`)) return;
+    if (!confirm(`להסיר את "${report.targetName}" מהתצוגה למשתמשים?\nהתוכן לא נמחק פיזית ואפשר לשחזר אותו.`)) return;
     setActionId(report.id);
     try {
-      if (report.targetType === 'group') await deleteGroup(report.targetId);
-      else await deleteEvent(report.targetId);
-      await Promise.all(
-        communityReports.filter(r => r.targetId === report.targetId).map(r => deleteDoc(doc(db, 'reports', r.id)))
+      // Scoped, audited server route: quarantines the target (moderationState
+      // 'removed' + isActive false) and marks its reports 'actioned'. The
+      // server re-derives that this report's target belongs to the caller's
+      // authority. Nothing is hard-deleted.
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error('not signed in');
+      const res = await fetch(`/api/admin/reports/${encodeURIComponent(report.id)}/quarantine`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      if (!res.ok) throw new Error(`quarantine failed (${res.status})`);
+      setCommunityReports(prev =>
+        prev.map(r => (r.targetId === report.targetId && r.targetType === report.targetType ? { ...r, status: 'actioned' } : r)),
       );
-      setCommunityReports(prev => prev.filter(r => r.targetId !== report.targetId));
     } catch (err) {
-      console.error('[ReportsPage] delete failed:', err);
+      console.error('[ReportsPage] quarantine failed:', err instanceof Error ? err.message : 'unknown');
     } finally {
       setActionId(null);
     }

@@ -175,3 +175,24 @@ describe('joinEngine — session-token host-membership gate (real Firestore)', (
     expect(result.membershipConfirmed).toBe(true);
   });
 });
+
+// 14.10.2026 — quarantined (moderation-removed) groups are never joinable.
+describe('joinEngine — quarantined group (real Firestore)', () => {
+  it('[DENY] direct join into a moderationState:"removed" group → throws JoinEngineError(target-not-found), no member / mirror written', async () => {
+    await emulatorDb.doc('community_groups/removedGrp').set({
+      name: 'Removed', isActive: false, moderationState: 'removed', createdBy: 'someAdmin',
+    });
+    await expect(
+      joinEngine({ target: { type: 'direct', groupId: 'removedGrp' }, uid: 'joinerUid', displayName: 'Joiner' }),
+    ).rejects.toMatchObject({ name: 'JoinEngineError', code: 'target-not-found' });
+    expect((await emulatorDb.doc('community_groups/removedGrp/members/joinerUid').get()).exists).toBe(false);
+    expect((await emulatorDb.doc('user_memberships/joinerUid').get()).exists).toBe(false);
+  });
+
+  it('[CONTROL] the SAME join into an ordinary (non-removed) group still succeeds', async () => {
+    await emulatorDb.doc('community_groups/okGrp').set({ name: 'Ok', isActive: true, createdBy: 'someAdmin' });
+    await joinEngine({ target: { type: 'direct', groupId: 'okGrp' }, uid: 'joinerUid', displayName: 'Joiner' });
+    expect((await emulatorDb.doc('community_groups/okGrp/members/joinerUid').get()).exists).toBe(true);
+    expect((await emulatorDb.doc('user_memberships/joinerUid').get()).exists).toBe(true);
+  });
+});

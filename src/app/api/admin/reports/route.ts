@@ -34,6 +34,7 @@ import type { Firestore, QueryDocumentSnapshot } from 'firebase-admin/firestore'
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { isRootAdmin } from '@/config/feature-flags';
 import { resolveAuthorityManagerScope } from '@/lib/authorityManagerScope';
+import { isContentRemoved } from '@/lib/moderation';
 import { getRequestIp } from '@/lib/requestIp';
 import { RATE_LIMITS, isBlockedByAny } from '@/lib/rateLimitConfig';
 import { logRateLimitBlock } from '@/lib/rateLimitLog';
@@ -110,6 +111,7 @@ export async function computeListReports(
 
     // One batched lookup of this page's group/event targets (deduped).
     const inScopeTargets = new Set<string>();
+    const removedTargets = new Set<string>(); // quarantined targets: their reports read as 'actioned' even if the status update lagged
     if (!root) {
       const wanted = new Map<string, { type: string; id: string }>();
       for (const d of page.docs) {
@@ -127,7 +129,10 @@ export async function computeListReports(
         snaps.forEach((snap, idx) => {
           if (!snap.exists) return;
           const t = snap.data() as { authorityId?: unknown; tenantId?: unknown } | undefined;
-          if (t?.authorityId === authorityId || t?.tenantId === authorityId) inScopeTargets.add(chunk[idx][0]);
+          if (t?.authorityId === authorityId || t?.tenantId === authorityId) {
+            inScopeTargets.add(chunk[idx][0]);
+            if (isContentRemoved(t)) removedTargets.add(chunk[idx][0]);
+          }
         });
       }
     }
@@ -140,7 +145,9 @@ export async function computeListReports(
         targetType: typeof r.targetType === 'string' ? r.targetType : 'unknown',
         targetId: typeof r.targetId === 'string' ? r.targetId : '',
         targetName: typeof r.targetName === 'string' ? r.targetName.slice(0, 200) : '',
-        status: typeof r.status === 'string' ? r.status : 'pending',
+        status: removedTargets.has(`${r.targetType}:${r.targetId}`)
+          ? 'actioned'
+          : typeof r.status === 'string' ? r.status : 'pending',
         category: typeof r.reason === 'string' && KNOWN_CATEGORIES.has(r.reason) ? r.reason : 'other',
         createdAt: toIso(r.createdAt),
         reviewedAt: toIso(r.reviewedAt),

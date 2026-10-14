@@ -17,6 +17,7 @@
  * axiom §6: progression fields are server-owned; never overwrite with seeded defaults.
  */
 
+import { isContentRemoved } from '@/lib/moderation';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue, Timestamp, Firestore } from 'firebase-admin/firestore';
 
@@ -205,6 +206,15 @@ export async function joinEngine(input: JoinEngineInput): Promise<JoinResult> {
       // repair path where the user is already a member but social.groupIds is stale).
       groupId = input.target.groupId;
       break;
+    }
+  }
+
+  // Quarantined (moderation-removed) group: never joinable — covers invite-code,
+  // session-token and direct (repair) targets alike. Same error as a missing target.
+  {
+    const groupSnapForModeration = await db.doc(`community_groups/${groupId}`).get();
+    if (groupSnapForModeration.exists && isContentRemoved(groupSnapForModeration.data())) {
+      throw new JoinEngineError('target-not-found', `[joinEngine] group "${groupId}" is not available`);
     }
   }
 

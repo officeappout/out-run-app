@@ -155,6 +155,13 @@ describe('computeListReports', () => {
     expect(JSON.stringify(r.body)).not.toContain('reporter_uid_1');
   });
 
+  it('a report on a QUARANTINED target reads as actioned even if its own status update lagged', async () => {
+    state.docs.set('community_groups/grp_A', { authorityId: 'auth_A', moderationState: 'removed', isActive: false });
+    const r = await computeListReports(makeDb(), mgrA, 'ip');
+    const rep = (r.body as any).reports.find((x: any) => x.id === 'r_own_group');
+    expect(rep.status).toBe('actioned');
+  });
+
   it('every call writes a READ/ReportsList audit row with counts only', async () => {
     await computeListReports(makeDb(), mgrA, '203.0.113.9');
     expect(state.audits.length).toBe(1);

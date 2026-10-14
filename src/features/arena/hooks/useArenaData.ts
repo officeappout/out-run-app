@@ -12,6 +12,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { isContentRemoved } from '@/lib/moderation';
 import type { CommunityGroup, CommunityEvent } from '@/types/community.types';
 import type { Authority } from '@/types/admin-types';
 
@@ -154,7 +155,9 @@ export function useArenaData(authorityId: string | null): ArenaData {
     const unsubGroups = onSnapshot(
       groupsQ,
       (snap) => {
-        setGroups(snap.docs.map((d) => normalizeGroup(d.id, d.data())));
+        // Quarantined (moderationState 'removed') groups must not reach users; this
+        // listener has no isActive filter, so drop them explicitly.
+        setGroups(snap.docs.filter((d) => !isContentRemoved(d.data())).map((d) => normalizeGroup(d.id, d.data())));
         setIsLoading(false);
       },
       (err) => {
