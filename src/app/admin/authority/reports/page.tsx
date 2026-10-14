@@ -267,10 +267,19 @@ export default function ReportsPage() {
   const handleDismiss = async (reportId: string) => {
     setActionId(reportId);
     try {
-      await updateDoc(doc(db, 'reports', reportId), { status: 'dismissed', reviewedAt: serverTimestamp() });
+      // Scoped, audited server route — `reports` is root-only for direct client
+      // writes. The server re-derives that this report belongs to the caller's
+      // authority; the id alone is not trusted.
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error('not signed in');
+      const res = await fetch(`/api/admin/reports/${encodeURIComponent(reportId)}/dismiss`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      if (!res.ok) throw new Error(`dismiss failed (${res.status})`);
       setCommunityReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'dismissed' } : r));
     } catch (err) {
-      console.error('[ReportsPage] dismiss failed:', err);
+      console.error('[ReportsPage] dismiss failed:', err instanceof Error ? err.message : 'unknown');
     } finally {
       setActionId(null);
     }
