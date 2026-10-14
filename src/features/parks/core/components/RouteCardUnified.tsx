@@ -158,6 +158,16 @@ export default function RouteCardUnified({
           <span className="mx-1 text-gray-300 font-normal">·</span>
           <Timer size={13} style={{ color: BRAND }} className="shrink-0" />
           <span>{durationText}</span>
+          {/* SLIM + stats (curated cards): the bolts sit beside distance·time, so the quality tags
+              (up to 3 pills) get their own row below instead of crowding a shared one. */}
+          {slim && (
+            <span
+              className="ml-auto inline-flex items-center rounded-full shrink-0"
+              style={{ border: '0.5px solid #E0E9FF', padding: '3px 9px' }}
+            >
+              <DifficultyBolts difficulty={difficulty} size="sm" />
+            </span>
+          )}
         </div>
       ) : subtitle ? (
         <p className={`text-[13px] font-semibold text-gray-500 ${slim ? 'mt-0.5 mb-2' : 'mt-1.5 mb-3'} leading-snug truncate`}>
@@ -167,8 +177,11 @@ export default function RouteCardUnified({
 
       {/* Extra content (e.g. route_stops duration chips) — between subtitle and difficulty,
           with reasonable distance from the CTA below (the difficulty pill sits between them). */}
-      {slim ? (
-        // SLIM: the time pill (extraContent) and the difficulty bolts share ONE row.
+      {slim && hasStats ? (
+        // SLIM + stats: bolts already rendered beside distance·time above; tags (if any) on their own row.
+        extraContent ? <div className="mb-2.5">{extraContent}</div> : <div className="mb-1" />
+      ) : slim ? (
+        // SLIM (slots): the time pill (extraContent) and the difficulty bolts share ONE row.
         <div className="flex items-center justify-between gap-2 mb-2.5">
           <div className="min-w-0">{extraContent}</div>
           <div
