@@ -30,6 +30,9 @@ function getActivityMeta(workout: WorkoutHistoryEntry): {
       return { Icon: Bike, label: 'רכיבה', tileGradient: 'from-amber-500 to-amber-400' };
     case 'recovery':
       return { Icon: Moon, label: 'אימון התאוששות', tileGradient: 'from-slate-500 to-slate-400' };
+    // G7.3: hybrid used to fall through to the default "ריצה" tile.
+    case 'hybrid':
+      return { Icon: Activity, label: 'אימון משולב', tileGradient: 'from-orange-500 to-amber-400' };
     case 'running':
     default:
       return { Icon: Activity, label: 'ריצה', tileGradient: 'from-[#00ADEF] to-[#5BC2F2]' };

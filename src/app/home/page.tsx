@@ -61,6 +61,7 @@ import { useWeeklyProgress, useDailyActivity } from '@/features/activity';
 import type { ActivityCategory } from '@/features/activity/types/activity.types';
 import TodayActivityStrip from '@/features/home/components/TodayActivityStrip';
 import type { TodayActivityCardData } from '@/features/home/components/TodayActivityCard';
+import { todayCardFallbackTitle } from '@/features/home/utils/today-activity-labels';
 import StepsSummaryCard from '@/features/home/components/widgets/StepsSummaryCard';
 import TrainingPlannerOverlay from '@/features/home/components/TrainingPlannerOverlay';
 import AddWorkoutModal from '@/features/home/components/AddWorkoutModal';
@@ -248,14 +249,8 @@ const HEALTH_CARD_STYLE: React.CSSProperties = {
 
 const WHO_WEEKLY_TARGET = 150;
 
-// Stage D+E (19.08.2026) — Hebrew label for a today-activity card representing
-// a category with no richer per-completion data available (see
-// buildTodayActivityCards' isRich distinction below).
-const TODAY_ACTIVITY_CATEGORY_LABEL: Record<ActivityCategory, string> = {
-  strength: 'אימון כוח',
-  cardio: 'אימון אירובי',
-  maintenance: 'גמישות ותנועתיות',
-};
+// Stage D+E (19.08.2026) — the Hebrew fallback title for a today-activity card with no
+// richer per-completion data lives in today-activity-labels.ts (G7.3: hybrid-aware).
 
 /** Weekly activity minutes card */
 function ActivityCard() {
@@ -853,9 +848,11 @@ export default function HomePage() {
       // only a generic fallback).
       const displayCategory: ActivityCategory =
         w.category === 'hybrid' || w.category === 'recovery' ? 'strength' : w.category;
+      // G7.3: a hybrid card's fallback text is "אימון משולב", never the strength label it's styled as.
+      const fallbackTitle = todayCardFallbackTitle(displayCategory, w.category, w.workoutType);
       const label = isRich
-        ? (completionData!.workoutTitle || TODAY_ACTIVITY_CATEGORY_LABEL[displayCategory])
-        : TODAY_ACTIVITY_CATEGORY_LABEL[displayCategory];
+        ? (completionData!.workoutTitle || fallbackTitle)
+        : fallbackTitle;
       return {
         key: w.id ?? `${w.category}-${w.date.getTime()}-${i}`,
         category: displayCategory,
@@ -874,7 +871,8 @@ export default function HomePage() {
         // Real workoutType for every card now (not just the rich one) — lets
         // icon resolution distinguish walking/running/cycling for older
         // same-day cards too, not only the just-finished one.
-        workoutType: isRich ? completionData!.workoutType : w.workoutType,
+        // G7.3: a hybrid doc always reports 'hybrid' so the card's short label says "משולב".
+        workoutType: w.category === 'hybrid' ? 'hybrid' : (isRich ? completionData!.workoutType : w.workoutType),
       };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see the primitive-deps note above
@@ -992,10 +990,10 @@ export default function HomePage() {
       return {
         key: w.id ?? `${w.category}-${w.date.getTime()}-${i}`,
         category: displayCategory,
-        title: TODAY_ACTIVITY_CATEGORY_LABEL[displayCategory],
+        title: todayCardFallbackTitle(displayCategory, w.category, w.workoutType),
         minutes: Math.round(w.duration / 60),
         streak: 1,
-        workoutType: w.workoutType,
+        workoutType: w.category === 'hybrid' ? 'hybrid' : w.workoutType,
       };
     });
   }, [isViewingPastDate, pastDayWorkouts]);
