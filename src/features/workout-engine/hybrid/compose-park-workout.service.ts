@@ -196,6 +196,11 @@ export function composeParkWorkoutPlan(input: ParkWorkoutComposeInput): HybridPl
         parkId: input.station.parkId,
         locationKind: input.station.locationKind,
         activityType: 'strength',
+        // The park's real coordinates — the live layer's approach window ("📍 הגעתי לתחנה")
+        // needs them (useHybridRun.computeUpcomingStation). Without them the full-park run had
+        // no arrive CTA at all since the CTA became approach-gated (d38c2f1c, 24.09.2026).
+        lat: input.station.lat,
+        lng: input.station.lng,
         ...(input.station.availableEquipment ? { availableEquipment: input.station.availableEquipment } : {}),
         domainFocus: block.domainFocus,
         content: block,
