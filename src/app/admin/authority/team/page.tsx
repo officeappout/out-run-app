@@ -682,7 +682,7 @@ export default function AuthorityTeamPage() {
       })()}
 
       <AdminBreadcrumb items={[
-        { label: isMunicipal ? 'ארגונים' : labels.orgPlural, href: '/admin/organizations' },
+        { label: 'דשבורד', href: '/admin/dashboard' }, // (was /admin/organizations — blocked for city managers and officers, so the crumb bounced)
         { label: authorityDisplayName || orgPickerLabel },
         { label: isMunicipal ? 'ניהול צוות' : labels.teamTitle },
       ]} />

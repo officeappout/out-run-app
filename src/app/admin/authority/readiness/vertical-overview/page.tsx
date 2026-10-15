@@ -350,7 +350,14 @@ export default function ReadinessVerticalOverviewPage() {
   const withDataCount = displayRows.filter((r) => r.hasData).length;
 
   const drillInto = (row: DisplayRow) => {
-    if (isLevel0) { pushState({ tenantId: row.id, unitId: null }); return; }
+    if (isLevel0) {
+      // also remember the brigade the way /admin/dashboard reads it — it only
+      // looks at localStorage, so after drilling in, "דשבורד כשירות" asked
+      // to "בחר חטיבה" and sent the chief officer back here, in a loop
+      try { localStorage.setItem('admin_selected_authority_id', row.id); } catch { /* storage blocked: dashboard falls back to its own picker */ }
+      pushState({ tenantId: row.id, unitId: null });
+      return;
+    }
     pushState({ unitId: row.id });
   };
 

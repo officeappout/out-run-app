@@ -133,7 +133,7 @@ export default function ReadinessEntryPage() {
     return (
       <div dir="rtl" className="max-w-5xl mx-auto px-4 pt-6 space-y-4">
         <AdminBreadcrumb items={[
-          { label: 'ארגונים', href: '/admin/organizations' },
+          { label: 'כשירות', href: '/admin/dashboard' },
           { label: 'חיילים ותוצאות', href: '/admin/authority/readiness' },
           { label: 'רישום תוצאות בוחן' },
         ]} />
@@ -165,7 +165,7 @@ export default function ReadinessEntryPage() {
   return (
     <div dir="rtl" className="space-y-6 pb-12 max-w-5xl mx-auto">
       <AdminBreadcrumb items={[
-        { label: 'ארגונים', href: '/admin/organizations' },
+        { label: 'כשירות', href: '/admin/dashboard' },
         { label: 'חיילים ותוצאות', href: '/admin/authority/readiness' },
         { label: 'רישום תוצאות בוחן' },
       ]} />

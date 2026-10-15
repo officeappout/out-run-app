@@ -70,6 +70,15 @@ export default function UnitDrilldownPage() {
   const urlOrgId = searchParams?.get('org') as string | null;
 
   const [loading, setLoading] = useState(true);
+  // a unit admin may open ONLY this page (middleware); the units list behind
+  // the breadcrumb root and "חזור" sent them to the portal login screen
+  const [isUnitAdminViewer, setIsUnitAdminViewer] = useState(false);
+  useEffect(() => onAuthStateChanged(auth, (u) => {
+    if (!u) return;
+    checkUserRole(u.uid)
+      .then((r) => setIsUnitAdminViewer(r.isUnitAdmin && !r.isSuperAdmin))
+      .catch(() => { /* keep the links; the server gate still applies */ });
+  }), []);
   // Slice C (25.09.2026, §13.27) — the military-members fetch now goes
   // through /api/units/members (an authenticated HTTP call, unlike the
   // rest of this page's still-client-SDK reads), which can fail in ways
@@ -688,9 +697,13 @@ export default function UnitDrilldownPage() {
     <div dir="rtl" className="space-y-6 pb-12 max-w-5xl mx-auto">
       {/* ═══ Breadcrumbs (uses hierarchyLabels for educational/military context) ═══ */}
       <nav className="flex items-center gap-1.5 text-sm text-slate-500 flex-wrap">
-        <Link href={`/admin/authority/units${urlTenantType ? `?type=${urlTenantType}` : ''}`} className="hover:text-cyan-600 font-bold">
-          {labels.subUnitsTitle}
-        </Link>
+        {isUnitAdminViewer ? (
+          <span className="font-bold">{labels.subUnitsTitle}</span>
+        ) : (
+          <Link href={`/admin/authority/units${urlTenantType ? `?type=${urlTenantType}` : ''}`} className="hover:text-cyan-600 font-bold">
+            {labels.subUnitsTitle}
+          </Link>
+        )}
         {unitPath.map((segment, i) => {
           const hierarchyLabel = labels.hierarchyLabels[i + 1] ?? '';
           const isLast = i === unitPath.length - 1;
@@ -812,6 +825,7 @@ export default function UnitDrilldownPage() {
             <Plus size={14} />
             הוסף {nextHierarchyLabel}
           </button>
+          {!isUnitAdminViewer && (
           <Link
             href={`/admin/authority/units${urlTenantType ? `?type=${urlTenantType}` : ''}`}
             className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold px-4 py-2.5 rounded-xl transition-all"
@@ -819,6 +833,7 @@ export default function UnitDrilldownPage() {
             <ArrowRight size={14} />
             חזור
           </Link>
+          )}
         </div>
       </div>
 

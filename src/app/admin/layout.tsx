@@ -69,7 +69,7 @@ import AppLogoLoader from '@/components/AppLogoLoader';
 import { authorityTypeToTenantType, getTenantLabels, orgTypeDisplayName, VERTICAL_THEMES } from '@/features/admin/config/tenantLabels';
 import type { Authority } from '@/types/admin-types';
 import { getSidebarConfig, type LucideIconName } from '@/features/admin/config/sidebarConfigs';
-import { MILITARY_ROOT_NAV_ITEMS, type MilitaryNavIconName } from '@/features/admin/config/militaryNavItems';
+import { MILITARY_ROOT_NAV_ITEMS, CHIEF_OFFICER_NAV_HREFS, type MilitaryNavIconName } from '@/features/admin/config/militaryNavItems';
 import { resolveLoginDoorForPath } from '@/features/admin/services/loginDoorForPath';
 import { OrgSelectorProvider, useOrgSelector } from '@/features/admin/context/OrgSelectorContext';
 import { AdminSessionSync } from '@/features/admin/components/AdminSessionSync';
@@ -134,6 +134,11 @@ const sectionContainsPath = (sectionId: SectionId, pathname: string | null, orgT
     return paths.some(path => {
         if (path === '/admin') {
             return pathname === '/admin';
+        }
+        // '/admin/users' (pending approvals, dev) must not claim
+        // '/admin/users/all' and '/admin/users/[uid]' (product)
+        if (path === '/admin/users') {
+            return pathname === '/admin/users';
         }
         return pathname.startsWith(path);
     });
@@ -816,7 +821,7 @@ function AdminLayoutInner({
 
     // Helper component for sidebar links
     const SidebarLink = ({ href, icon: Icon, label, isActive }: { href: string; icon: React.ElementType; label: string; isActive?: boolean }) => {
-        const active = isActive ?? (href === '/admin' ? pathname === '/admin' : pathname?.startsWith(href));
+        const active = isActive ?? (href === '/admin' || href === '/admin/users' ? pathname === href : pathname?.startsWith(href));
         return (
             <Link
                 href={href}
@@ -1047,7 +1052,7 @@ function AdminLayoutInner({
                                 brigade officer never sees this branch at
                                 all — simpler isActive here (no sibling
                                 verticals to disambiguate against). */}
-                            {MILITARY_ROOT_NAV_ITEMS.map((item) => {
+                            {MILITARY_ROOT_NAV_ITEMS.filter((item) => CHIEF_OFFICER_NAV_HREFS.includes(item.href)).map((item) => {
                                 const path = item.href.split('?')[0];
                                 const isActive = (path === '/admin/dashboard' || path === '/admin/authority/readiness')
                                     ? pathname === path
@@ -1239,10 +1244,9 @@ function AdminLayoutInner({
                                             <SidebarLink href="/admin/simulator" icon={Bell} label="סימולטור התראות" />
                                             <SidebarLink href="/admin/notifications" icon={Bell} label="מרכז התראות" />
                                             <SidebarLink href="/admin/workout-simulator" icon={FlaskConical} label="סימולטור אימונים" />
-                                            {/* Shortcut — canonical location is ניהול מוצר */}
-                                            {!isSystemAdminOnly && (
-                                                <SidebarLink href="/admin/analytics" icon={BarChart3} label="↗ משפך המרות" />
-                                            )}
+                                            {/* (the "↗ משפך המרות" shortcut was removed: it duplicated the ניהול
+                                                מוצר link, lit up together with it, and bounced marketing-only
+                                                members — /admin/analytics is in the product allowlist only) */}
                                         </div>
                                     )}
                                 </>

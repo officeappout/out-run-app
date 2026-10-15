@@ -287,7 +287,7 @@ export default function ReadinessBulkImportPage() {
     return (
       <div dir="rtl" className="max-w-6xl mx-auto px-4 pt-6 space-y-4">
         <AdminBreadcrumb items={[
-          { label: 'ארגונים', href: '/admin/organizations' },
+          { label: 'כשירות', href: '/admin/dashboard' },
           { label: 'חיילים ותוצאות', href: '/admin/authority/readiness' },
           { label: 'ייבוא תוצאות' },
         ]} />
@@ -317,7 +317,7 @@ export default function ReadinessBulkImportPage() {
   return (
     <div dir="rtl" className="space-y-6 pb-12 max-w-6xl mx-auto">
       <AdminBreadcrumb items={[
-        { label: 'ארגונים', href: '/admin/organizations' },
+        { label: 'כשירות', href: '/admin/dashboard' },
         { label: 'חיילים ותוצאות', href: '/admin/authority/readiness' },
         { label: 'ייבוא תוצאות' },
       ]} />
