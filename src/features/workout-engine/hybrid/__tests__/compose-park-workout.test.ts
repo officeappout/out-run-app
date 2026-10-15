@@ -144,3 +144,10 @@ describe('composeHomeOnlyPlan (scenarios 15/16, no-GPS fallback — no route/sta
     expect(plan.meta.emphasisResolved).toBe('strength');
   });
 });
+
+describe('full-park station carries its coordinates (approach CTA)', () => {
+  it('the strength segment has the park lat/lng — computeUpcomingStation needs them for "הגעתי לתחנה"', () => {
+    const seg = composeParkWorkoutPlan(baseInput()).segments.find((s) => s.kind === 'strength')!;
+    expect(seg).toMatchObject({ lat: 32.0, lng: 34.01 });
+  });
+});
