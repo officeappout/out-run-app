@@ -1284,7 +1284,8 @@ function LevelGoalsPanel({ program, allPrograms }: { program: Program; allProgra
                               { key: 'allowEMOM' as const, label: 'EMOM', desc: 'Every Minute On the Minute' },
                               { key: 'allowSupersets' as const, label: 'Supersets', desc: 'סופר-סטים (Push + Pull)' },
                               { key: 'allowPyramid' as const, label: 'Pyramid', desc: 'סטים עולים/יורדים' },
-                              { key: 'allowRestPause' as const, label: 'Rest-Pause', desc: 'הפסקה קצרה באמצע סט' },
+                              // (no Rest-Pause toggle: the engine has no rest-pause protocol, and the
+                              // toggle was never saved — it only mirrored Pyramid on reload)
                               { key: 'allowTabata' as const, label: 'Tabata', desc: 'בלוק 20/10 × 8 סבבים (פיניש)' },
                             ]).map((item) => (
                               <label

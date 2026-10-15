@@ -536,11 +536,16 @@ export default function AssessmentRulesAdmin() {
             <input type="text" value={newRuleDraft.description ?? ''} onChange={e => setNewRuleDraft(prev => ({ ...prev, description: e.target.value }))}
               className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm" dir="rtl" />
           </div>
-          <ConditionEditor conditions={newRuleDraft.conditions}
-            onChange={(idx, patch) => { setNewRuleDraft(prev => { const c = [...prev.conditions]; c[idx] = { ...c[idx], ...patch }; return { ...prev, conditions: c }; }); }}
-            onAdd={() => setNewRuleDraft(prev => ({ ...prev, conditions: [...prev.conditions, emptyCondition()] }))}
-            onRemove={idx => setNewRuleDraft(prev => ({ ...prev, conditions: prev.conditions.filter((_, i) => i !== idx) }))} />
-          <ActionEditor action={newRuleDraft.action} onChange={patch => setNewRuleDraft(prev => ({ ...prev, action: { ...prev.action, ...patch } }))} />
+          {/* called as functions, not <Components/>: they're declared inside
+              this render, so as JSX they'd be new types each render and
+              remount — inputs lost focus after every keystroke */}
+          {ConditionEditor({
+            conditions: newRuleDraft.conditions,
+            onChange: (idx, patch) => { setNewRuleDraft(prev => { const c = [...prev.conditions]; c[idx] = { ...c[idx], ...patch }; return { ...prev, conditions: c }; }); },
+            onAdd: () => setNewRuleDraft(prev => ({ ...prev, conditions: [...prev.conditions, emptyCondition()] })),
+            onRemove: idx => setNewRuleDraft(prev => ({ ...prev, conditions: prev.conditions.filter((_, i) => i !== idx) })),
+          })}
+          {ActionEditor({ action: newRuleDraft.action, onChange: patch => setNewRuleDraft(prev => ({ ...prev, action: { ...prev.action, ...patch } })) })}
           <div className="flex gap-2 pt-2">
             <button onClick={handleSaveNew} disabled={saving === 'new'}
               className="flex items-center gap-2 px-5 py-2 bg-cyan-600 !text-white rounded-xl text-sm font-bold hover:bg-cyan-700 transition-all disabled:opacity-50">
@@ -630,11 +635,13 @@ export default function AssessmentRulesAdmin() {
                       <input type="text" value={rule.description ?? ''} onChange={e => updateRuleLocal(rule.id, { description: e.target.value })}
                         className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm" dir="rtl" />
                     </div>
-                    <ConditionEditor conditions={rule.conditions}
-                      onChange={(idx, patch) => updateConditionInRule(rule.id, idx, patch)}
-                      onAdd={() => addConditionToRule(rule.id)}
-                      onRemove={idx => removeConditionFromRule(rule.id, idx)} />
-                    <ActionEditor action={rule.action} onChange={patch => updateActionInRule(rule.id, patch)} />
+                    {ConditionEditor({
+                      conditions: rule.conditions,
+                      onChange: (idx, patch) => updateConditionInRule(rule.id, idx, patch),
+                      onAdd: () => addConditionToRule(rule.id),
+                      onRemove: idx => removeConditionFromRule(rule.id, idx),
+                    })}
+                    {ActionEditor({ action: rule.action, onChange: patch => updateActionInRule(rule.id, patch) })}
                     <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
                       <button onClick={() => handleUpdate(rule)} disabled={isSavingThis}
                         className="flex items-center gap-2 px-4 py-2 bg-cyan-600 !text-white rounded-xl text-sm font-bold hover:bg-cyan-700 transition-all disabled:opacity-50">

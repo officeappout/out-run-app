@@ -366,6 +366,8 @@ export async function saveProgramLevelSettings(
         targetValue: g.targetValue,
         unit: g.unit,
         ...(g.progressBonus != null ? { progressBonus: g.progressBonus } : {}),
+        // the goal editor's "בונוס XP" was dropped here, so it never persisted
+        ...(g.xpBonus != null ? { xpBonus: g.xpBonus } : {}),
       })),
     };
 

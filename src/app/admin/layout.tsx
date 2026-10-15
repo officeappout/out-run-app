@@ -1297,7 +1297,9 @@ function AdminLayoutInner({
                                             <SidebarLink href="/admin/program-thresholds" icon={BarChart3} label="סיפי תוכנית" />
                                             <SidebarLink href="/admin/progression-manager" icon={TrendingUp} label="מנהל התקדמות" />
                                             <SidebarLink href="/admin/level-equivalence" icon={Zap} label="שקילות רמות" />
-                                            <SidebarLink href="/admin/schools" icon={GraduationCap} label="בתי ספר וארגונים" />
+                                            {/* "בתי ספר וארגונים" (/admin/schools) removed from the menu: its codes
+                                                were written where the app never reads them (test data only), and the
+                                                access-codes topic is frozen. The real system is /admin/access-codes. */}
                                             <div className="pt-1 pr-2">
                                                 <p className="text-xs font-medium text-slate-500 px-4 py-1">ניהול מתקנים וכושר</p>
                                                 <SidebarLink href="/admin/gym-equipment" icon={Dumbbell} label="מתקני כושר" />
