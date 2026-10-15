@@ -80,6 +80,12 @@ export const FLAG_DEFS = [
   // reason: a kill-switch must not itself switch the feature off just because the document
   // is missing the key or a read failed. superAdminValue: true so admins see what users see.
   { key: 'enableGuidedStation', firestoreKey: 'enable_guided_station', defaultValue: true, superAdminValue: true },
+  // Sderot pilot G3.1 (15.10.2026) — walk-to-first-stop: a persistent walking card with live
+  // distance + secondary "הגעתי"; the big "הגעתי לתחנה" CTA only after the user walked INTO the
+  // approach radius (never on the first fix at a park-start). Normal fail-closed launch gate;
+  // superAdminValue false because HybridStationLayer reads flags without the super-admin
+  // override anyway (useFeatureFlags() with no arg) — off = today's behaviour for everyone.
+  { key: 'enableWalkToFirstStop', firestoreKey: 'enable_walk_to_first_stop', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];
