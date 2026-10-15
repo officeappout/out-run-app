@@ -154,7 +154,6 @@ import CommitmentSurfacesSection, {
 //     split is derived from. See that function's own doc comment.
 import {
   getFunnelCounts,
-  getAttributedCount,
   DEFAULT_FUNNEL_FILTERS,
   type FunnelFilters,
   type FunnelStage,
@@ -165,6 +164,8 @@ import FunnelStagesSection, {
 import AuthorityPerformanceTable from '@/features/admin/components/cpo-dashboard/AuthorityPerformanceTable';
 import type { AuthorityPerformance } from '@/features/admin/services/cpo-analytics.service';
 import InfoHint from '@/features/admin/components/cpo-dashboard/InfoHint';
+import SourcesSection from '@/features/admin/components/journey/SourcesSection';
+import type { JourneySourcesResponse } from '@/features/admin/services/journey-sources';
 
 // Journey Hub Wave 2 — the shared filter row + its 4 segmentation
 // dimensions, mounted once above the tabs.
@@ -172,7 +173,6 @@ import JourneyFilterBar, {
   DEFAULT_JOURNEY_FILTERS,
   type JourneyFilters,
 } from '@/features/admin/components/cpo-dashboard/JourneyFilterBar';
-import NewUsersTrendChart from '@/features/admin/components/cpo-dashboard/NewUsersTrendChart';
 
 // Journey Hub Wave 3 — the 3 defer-until-scale Retention elements, via
 // a new dedicated route (see that route's own header comment).
@@ -219,16 +219,23 @@ interface StatisticsSummaryResponse {
 
 type JourneyTab = 'acquisition' | 'activation' | 'retention';
 
+// 15.10.2026 (owner): acquisition shows SOURCES (where users came from),
+// the funnel lives in activation, retention answers "what makes them stay"
 const TABS: { id: JourneyTab; label: string }[] = [
-  { id: 'acquisition', label: 'רכישה' },
-  { id: 'activation', label: 'הפעלה' },
-  { id: 'retention', label: 'שימור ומעורבות' },
+  { id: 'acquisition', label: 'מקורות הגעה' },
+  { id: 'activation', label: 'הצטרפות והפעלה' },
+  { id: 'retention', label: 'מעורבות ושימור' },
 ];
 
 export default function JourneyHubPage() {
   const [authLoading, setAuthLoading] = useState(true);
   const [dataLoading, setDataLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<JourneyTab>('activation');
+  const [activeTab, setActiveTab] = useState<JourneyTab>('acquisition');
+
+  const [sources, setSources] = useState<JourneySourcesResponse | null>(null);
+  const [sourcesLoading, setSourcesLoading] = useState(true);
+  const [sourcesError, setSourcesError] = useState<string | null>(null);
+  const [sourcesReload, setSourcesReload] = useState(0);
 
   const [growthMetrics, setGrowthMetrics] = useState<GrowthMetricsResponse | null>(null);
   const [growthMetricsDenied, setGrowthMetricsDenied] = useState<string | null>(null);
@@ -255,7 +262,6 @@ export default function JourneyHubPage() {
   const [statisticsSummary, setStatisticsSummary] = useState<StatisticsSummaryResponse | null>(null);
   const [statisticsDenied, setStatisticsDenied] = useState<string | null>(null);
 
-  const [attributedCount, setAttributedCount] = useState<number | null>(null);
 
   // Wave 2 — the shared filter row's state. Drives getFunnelCounts and
   // /api/admin/growth-metrics (see the two conversion helpers below).
@@ -342,6 +348,25 @@ export default function JourneyHubPage() {
     return () => { cancelled = true; };
   }, [authLoading]);
 
+  // "מקורות הגעה" — server-aggregated sources for the filter row's date
+  // range (default: the route's last 30 days)
+  useEffect(() => {
+    if (authLoading) return;
+    let cancelled = false;
+    const params = new URLSearchParams();
+    if (filters.dateFrom) params.set('from', filters.dateFrom.toISOString());
+    if (filters.dateTo) params.set('to', filters.dateTo.toISOString());
+    const qs = params.toString();
+    setSourcesLoading(true);
+    adminAuthedFetch<JourneySourcesResponse>(`/api/admin/journey-sources${qs ? `?${qs}` : ''}`).then((r) => {
+      if (cancelled) return;
+      if (r.ok) { setSources(r.data); setSourcesError(null); }
+      else { setSources(null); setSourcesError(r.message || 'לא הצלחנו לטעון את מקורות ההגעה.'); }
+      setSourcesLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [authLoading, filters.dateFrom, filters.dateTo, sourcesReload]);
+
   // Filter-dependent data (growth-metrics + the client-side funnel calls)
   // — debounced 300ms on `filters` (same pattern /admin/analytics
   // already uses) so rapid filter changes don't pile up redundant
@@ -362,10 +387,9 @@ export default function JourneyHubPage() {
       // pattern /admin/analytics already uses for the funnel — not
       // every data source here is a server route, and that's an
       // existing, working split, not something new).
-      const [growthResult, funnelResult, attributedResult] = await Promise.all([
+      const [growthResult, funnelResult] = await Promise.all([
         adminAuthedFetch<GrowthMetricsResponse>(`/api/admin/growth-metrics${growthMetricsQuery}`),
         getFunnelCounts(funnelFilters),
-        getAttributedCount(funnelFilters),
       ]);
 
       if (cancelled) return;
@@ -375,7 +399,6 @@ export default function JourneyHubPage() {
 
       setFunnelStages(funnelResult);
       setFunnelLoading(false);
-      setAttributedCount(attributedResult);
 
       setDataLoading(false);
     }
@@ -400,11 +423,9 @@ export default function JourneyHubPage() {
   // file header comment above.
   const acquisitionStages = funnelStages.filter((s) => s.id !== 'revenue');
   const activationStage = funnelStages.find((s) => s.id === 'activation') ?? null;
-  const registeredCount = funnelStages.find((s) => s.id === 'registered')?.count ?? null;
-  const organicCount = registeredCount != null && attributedCount != null ? Math.max(0, registeredCount - attributedCount) : null;
-  const attributedPct = registeredCount != null && registeredCount > 0 && attributedCount != null
-    ? Math.round((attributedCount / registeredCount) * 1000) / 10
-    : null;
+  // the joining funnel ends at the first workout; "3+ workouts" is a habit
+  // and belongs to engagement (owner, 15.10.2026)
+  const joiningStages = acquisitionStages.filter((s) => s.id !== 'retention');
 
   return (
     <div className="space-y-6" dir="rtl">
@@ -414,7 +435,7 @@ export default function JourneyHubPage() {
         </div>
         <div>
           <h1 className="text-3xl font-black text-gray-900">מסע משתמש</h1>
-          <p className="text-gray-500 mt-1">רכישה ← הפעלה ← שימור, במקום אחד</p>
+          <p className="text-gray-500 mt-1">מאיפה הגיעו ← איך התחילו ← מה גורם להם להישאר</p>
         </div>
       </div>
 
@@ -456,58 +477,12 @@ export default function JourneyHubPage() {
           (`NewUsersTrendChart`) and made the whole tab respond to the
           shared filter row above (source/campaign/city/segmentation). */}
       {activeTab === 'acquisition' && (
-        <div className="space-y-6">
-          <FunnelStagesSection
-            stages={acquisitionStages}
-            loading={funnelLoading}
-            title="משפך הרשמה עד שימור"
-            subtitle="נרשמו במערכת ← אמצע אונבורדינג ← סיימו אונבורדינג ← אימון ראשון ← 3 אימונים"
-          />
-
-          <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
-            <p className="text-xs md:text-sm text-gray-500 mb-1 flex items-center gap-1">
-              רכישה לפי מקור
-              <InfoHint text="כמה מהנרשמים הגיעו דרך קמפיין/קישור/QR (״משיווק״) מול כל השאר (״אורגני״)." />
-            </p>
-            {funnelLoading ? (
-              <div className="h-8 bg-gray-200 rounded w-32 animate-pulse" />
-            ) : (
-              <div className="flex flex-wrap items-baseline gap-4">
-                <div>
-                  <span className="text-2xl md:text-3xl font-black text-gray-900">
-                    {organicCount != null ? organicCount.toLocaleString('he-IL') : '—'}
-                  </span>
-                  <span className="text-xs text-gray-500 mr-1.5">אורגני</span>
-                </div>
-                <div>
-                  <span className="text-2xl md:text-3xl font-black text-gray-900">
-                    {attributedCount != null ? attributedCount.toLocaleString('he-IL') : '—'}
-                  </span>
-                  <span className="text-xs text-gray-500 mr-1.5">
-                    משיווק (קמפיין / קישור / QR){attributedPct != null && ` — ${attributedPct}%`}
-                  </span>
-                </div>
-              </div>
-            )}
-            <p className="text-gray-400 text-xs mt-2">
-              פילוח מדויק לפי קמפיין/מקור ספציפי — באמצעות שורת הסינון שמעל הטאבים. "אורגני מול משיווק" כאן הוא תמיד תקציר דו-ערכי.
-            </p>
-          </div>
-
-          <NewUsersTrendChart data={growthMetrics?.newUsersTrend ?? []} loading={dataLoading} />
-
-          <AuthorityPerformanceTable data={statisticsSummary?.authorityPerformance ?? []} loading={staticLoading} />
-          {statisticsDenied && !staticLoading && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-              <AlertCircle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-amber-800">{statisticsDenied}</p>
-            </div>
-          )}
-
-          <p className="text-gray-400 text-xs">
-            install/visit (לפני הרשמה) אינו נמדד באף מקום היום — פער-תוכן אמיתי, לא רק לא-מחובר, ונשאר כך גם אחרי Wave 2.
-          </p>
-        </div>
+        <SourcesSection
+          data={sources}
+          loading={sourcesLoading}
+          error={sourcesError}
+          onRetry={() => setSourcesReload((n) => n + 1)}
+        />
       )}
 
       {/* Activation — Wave 1 relocated first-workout-rate + onboarding-
@@ -517,6 +492,13 @@ export default function JourneyHubPage() {
           both respond to the shared filter row above. */}
       {activeTab === 'activation' && (
         <div className="space-y-6">
+          <FunnelStagesSection
+            stages={joiningStages}
+            loading={funnelLoading}
+            title="משפך הצטרפות"
+            subtitle="נרשמו ← אמצע אונבורדינג ← סיימו אונבורדינג ← אימון ראשון"
+          />
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
             {activationStage ? (
               <FunnelStageCard stage={activationStage} loading={funnelLoading} />
@@ -561,42 +543,14 @@ export default function JourneyHubPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
-            <p className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-1">
-              הפעלה לפי מקור
-              <InfoHint text="שיעור ההפעלה (אימון אמיתי ראשון) מפולח לפי מקור ההרשמה — לאיזה מקור יש את ההפעלה הטובה ביותר." />
-            </p>
-            {dataLoading ? (
-              <div className="space-y-2">
-                {[1, 2, 3].map((i) => <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />)}
-              </div>
-            ) : !growthMetrics || growthMetrics.activationBySource.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-4">אין נתונים להצגה</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-right">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="py-2 px-3 text-xs font-bold text-gray-600">מקור</th>
-                      <th className="py-2 px-3 text-xs font-bold text-gray-600">נרשמו</th>
-                      <th className="py-2 px-3 text-xs font-bold text-gray-600">הופעלו</th>
-                      <th className="py-2 px-3 text-xs font-bold text-gray-600">שיעור הפעלה</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {growthMetrics.activationBySource.map((row) => (
-                      <tr key={row.source}>
-                        <td className="py-2 px-3 text-sm font-bold text-gray-900">{row.source}</td>
-                        <td className="py-2 px-3 text-sm text-gray-700">{row.totalUsers.toLocaleString('he-IL')}</td>
-                        <td className="py-2 px-3 text-sm text-gray-700">{row.activatedUsers.toLocaleString('he-IL')}</td>
-                        <td className="py-2 px-3 text-sm font-bold text-cyan-600">{row.activationRate != null ? `${row.activationRate}%` : '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+          {/* (activation by source moved to "מקורות הגעה", with the 7-day definition) */}
+          <AuthorityPerformanceTable data={statisticsSummary?.authorityPerformance ?? []} loading={staticLoading} />
+          {statisticsDenied && !staticLoading && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+              <AlertCircle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-800">{statisticsDenied}</p>
+            </div>
+          )}
         </div>
       )}
 
