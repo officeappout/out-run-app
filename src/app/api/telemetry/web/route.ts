@@ -58,8 +58,8 @@ export async function POST(request: NextRequest) {
     });
     await db.collection('web_daily_stats').doc(docId).set(data, { merge: true });
     return NO_CONTENT();
-  } catch (err: any) {
-    console.error('[/api/telemetry/web] error:', err?.message ?? err);
+  } catch (err) {
+    console.error('[/api/telemetry/web] error:', err instanceof Error ? err.message : err);
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 }

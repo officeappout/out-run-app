@@ -118,8 +118,8 @@ export async function GET(request: NextRequest) {
       scroll: cur.maps.scrollByDepth,
       hours: cur.maps.byHour,
     });
-  } catch (err: any) {
-    console.error('[/api/admin/web-traffic] error:', err?.message ?? err);
+  } catch (err) {
+    console.error('[/api/admin/web-traffic] error:', err instanceof Error ? err.message : err);
     return NextResponse.json({ error: 'שגיאה בטעינת הנתונים.' }, { status: 500 });
   }
 }
