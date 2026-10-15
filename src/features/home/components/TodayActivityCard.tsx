@@ -58,6 +58,7 @@ import React from 'react';
 import { CATEGORY_COLORS } from '@/features/home/utils/day-display.utils';
 import { resolveIconKey, getProgramIcon, CheckMarkBadge } from '@/features/content/programs/core/program-icon.util';
 import type { ActivityCategory } from '@/features/activity/types/activity.types';
+import { todayCardShortLabel } from '@/features/home/utils/today-activity-labels';
 
 export interface TodayActivityCardData {
   key: string;
@@ -96,11 +97,6 @@ export interface TodayActivityCardData {
 
 export const TODAY_ACTIVITY_CARD_HEIGHT = 64;
 
-const CATEGORY_LABEL: Record<ActivityCategory, string> = {
-  strength: 'כוח',
-  cardio: 'אירובי',
-  maintenance: 'גמישות',
-};
 
 export default function TodayActivityCard({
   category,
@@ -160,7 +156,7 @@ export default function TodayActivityCard({
         >
           {category === 'steps'
             ? `${(stepsAchieved ?? 0).toLocaleString('he-IL')} צעדים`
-            : `${minutes} דק' · ${CATEGORY_LABEL[category]}`}
+            : `${minutes} דק' · ${todayCardShortLabel(category, workoutType)}`}
         </span>
       </div>
     </div>
