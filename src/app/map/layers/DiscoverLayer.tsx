@@ -712,7 +712,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // constants. Super admins (this hook's own bypass) always see every card, matching the
   // pre-existing compile-time behaviour of always being `true`.
   const isSuperAdmin = profile?.core?.isSuperAdmin === true;
-  const { flags: mapFeatureFlags } = useFeatureFlags(isSuperAdmin);
+  const { flags: mapFeatureFlags, loading: mapFlagsLoading } = useFeatureFlags(isSuperAdmin);
 
   // ── openHybridSlots / openDiscover deep-links (tutorial entry-mechanism
   // fast-follow, 06.10.2026) ─────────────────────────────────────────────────
@@ -1890,6 +1890,9 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 aerobicKind={slotActivity}
                 onActivityChange={setSlotActivity}
                 focused={suggestionsFocused}
+                // G1.1 (flag enable_carousel_swipe_hint, fail-closed): only once the flags have
+                // loaded, so the hint/width never switch mid-view.
+                swipeHint={!mapFlagsLoading && mapFeatureFlags.enableCarouselSwipeHint}
                 onSelectSlot={handleSelectSlot}
                 onSettleSlot={handleSettleSlot}
                 computingPreview={hybridPreviewComposing}

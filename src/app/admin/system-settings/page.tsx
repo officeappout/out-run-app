@@ -35,6 +35,7 @@ interface FlagState {
   enable_mock_location_panel: boolean;
   enable_guided_station: boolean;
   enable_walk_to_first_stop: boolean;
+  enable_carousel_swipe_hint: boolean;
 }
 
 // ============================================================================
@@ -137,6 +138,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-sky-500',
     title: 'הליכה לתחנה (מסלול + עצירות)',
     description: 'כרטיס הליכה קבוע עם מרחק חי לתחנה הבאה + כפתור "הגעתי" משני. כפתור "הגעתי לתחנה" הגדול רק אחרי שנכנסים לרדיוס התחנה בהליכה — לא מיד בהתחלה ליד גינה. כבוי = ההתנהגות של היום.',
+    parentKey: 'enable_hybrid_slots',
+  },
+  {
+    key: 'enable_carousel_swipe_hint',
+    icon: MapIcon,
+    iconBg: 'bg-sky-50',
+    iconColor: 'text-sky-500',
+    title: 'רמז החלקה בקרוסלה',
+    description: 'קרוסלת "מה עושים היום?": הכרטיס הבא מציץ יותר, תנועת רמז חד-פעמית למשתמש, ולחיצה על כרטיס שמציץ רק ממרכזת אותו (לא מתחילה "יוצאים מיד" בטעות). כבוי = כמו היום.',
     parentKey: 'enable_hybrid_slots',
   },
 ];

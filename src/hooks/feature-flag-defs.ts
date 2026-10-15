@@ -80,6 +80,12 @@ export const FLAG_DEFS = [
   // reason: a kill-switch must not itself switch the feature off just because the document
   // is missing the key or a read failed. superAdminValue: true so admins see what users see.
   { key: 'enableGuidedStation', firestoreKey: 'enable_guided_station', defaultValue: true, superAdminValue: true },
+  // Sderot pilot G1.1 (15.10.2026) — map carousel ("מה עושים היום?") swipe affordance v2: wider
+  // peek, a delayed once-per-user nudge, and a peeking card's button only centres it (never
+  // starts "יוצאים מיד" by accident). Fail-closed launch gate; superAdminValue false on purpose
+  // (like enableOnboardingTutorialV1) — the panel toggle is the ONE switch, David's own account
+  // included, so the flag-off regression pass shows exactly what users get (today's #207 hint).
+  { key: 'enableCarouselSwipeHint', firestoreKey: 'enable_carousel_swipe_hint', defaultValue: false, superAdminValue: false },
   // Sderot pilot G3.1 (15.10.2026) — walk-to-first-stop: a persistent walking card with live
   // distance + secondary "הגעתי"; the big "הגעתי לתחנה" CTA only after the user walked INTO the
   // approach radius (never on the first fix at a park-start). Normal fail-closed launch gate;
