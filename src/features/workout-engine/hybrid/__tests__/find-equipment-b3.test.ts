@@ -7,7 +7,7 @@ import type { HybridPlannedSegment } from '../compose-hybrid-session.service';
 import { composeParkWorkoutPlan, type ParkWorkoutComposeInput } from '../compose-park-workout.service';
 import { strengthBlockToWorkoutPlan } from '../strength-block-to-plan';
 import { computeStationContext, swapExerciseInStationContent } from '../station-flow';
-import { findEquipmentScreen, idsToMarkFound, type FindInput } from '../../players/strength/logic/find-equipment';
+import { findEquipmentScreen, idsToMarkFound, scopedFoundStore, type FindInput } from '../../players/strength/logic/find-equipment';
 import { filterAlternativesByEquipment, pickFittingParkMethod } from '../../players/strength/logic/equipment-filter';
 import { createDemoSeenStore } from '../../players/strength/logic/demo-gate';
 import { normalizeGearId } from '../../shared/utils/gear-mapping.utils';
@@ -59,6 +59,18 @@ describe('data pass-through (additive)', () => {
     const seg = { index: 1, kind: 'strength', parkId: 'p1', availableEquipment: ['pullup_bar'], durationSec: 600, estCalories: 0 } as HybridPlannedSegment;
     expect(computeStationContext([seg], 0).availableEquipment).toEqual(['pullup_bar']);
   });
+
+  it('missing equipment data (key absent) → context null → the swap list is today\'s full list, unfiltered', () => {
+    const seg = { index: 1, kind: 'strength', parkId: 'p1', durationSec: 600, estCalories: 0 } as HybridPlannedSegment;
+    const allowed = computeStationContext([seg], 0).availableEquipment;
+    expect(allowed).toBeNull();
+    const options = [
+      { exercise: { id: 'rows-on-bar', execution_methods: [{ location: 'park', equipmentIds: ['pullup_bar'] }] } },
+      { exercise: { id: 'home-only', execution_methods: [{ location: 'home' }] } },
+    ];
+    expect(filterAlternativesByEquipment(options, allowed).map((o) => o.exercise.id)).toEqual(['rows-on-bar', 'home-only']);
+    expect(filterAlternativesByEquipment(options, undefined).map((o) => o.exercise.id)).toEqual(['rows-on-bar', 'home-only']);
+  });
 });
 
 const seg = (exs: Array<{ id: string; equipment?: string[] }>) => ({ exercises: exs.map((e) => ({ ...e, name: e.id })) });
@@ -83,12 +95,40 @@ describe('find-the-equipment screen', () => {
   it('machine exercises only — bodyweight never', () => {
     expect(findEquipmentScreen(findIn({ exIdx: 1 }))).toBeNull();
   });
-  it('once per exercise per session', () => {
-    const seen = createDemoSeenStore();
-    const screen = findEquipmentScreen(findIn({ seen }))!;
+  it('once per exercise per station location: repeated sets at the same place don\'t show it again', () => {
+    const session = createDemoSeenStore();
+    const here = scopedFoundStore(session, 'park:p1');
+    const screen = findEquipmentScreen(findIn({ seen: here }))!;
     expect(screen.kind).toBe('single');
-    idsToMarkFound(screen).forEach((id) => seen.add(id));
-    expect(findEquipmentScreen(findIn({ seen }))).toBeNull();
+    idsToMarkFound(screen).forEach((id) => here.add(id));
+    expect(findEquipmentScreen(findIn({ seen: here }))).toBeNull(); // set 2, 3… same station
+  });
+  it('the same machine exercise at a LATER station (another park) shows the screen again', () => {
+    const session = createDemoSeenStore();
+    scopedFoundStore(session, 'park:p1').add('pullups');
+    expect(findEquipmentScreen(findIn({ seen: scopedFoundStore(session, 'park:p2') }))).not.toBeNull();
+  });
+  it('several station segments in the SAME park are one location (full-park flow)', () => {
+    const plan = [
+      { index: 0, kind: 'strength', parkId: 'p1', stopId: 'park:A', durationSec: 600, estCalories: 0 },
+      { index: 1, kind: 'aerobic', durationSec: 300, estCalories: 0 },
+      { index: 2, kind: 'strength', parkId: 'p1', stopId: 'park:A', durationSec: 600, estCalories: 0 },
+      { index: 3, kind: 'strength', parkId: 'p2', durationSec: 600, estCalories: 0 },
+      { index: 4, kind: 'strength', stopId: 'street-1', durationSec: 600, estCalories: 0 },
+    ] as HybridPlannedSegment[];
+    const keys = [0, 2, 3, 4].map((c) => computeStationContext(plan, c).locationKey);
+    expect(keys[0]).toBe(keys[1]);
+    expect(keys[2]).not.toBe(keys[0]);
+    expect(keys[3]).toBe('stop:street-1'); // no park → the stop identity
+    const session = createDemoSeenStore();
+    scopedFoundStore(session, keys[0]).add('pullups');
+    expect(findEquipmentScreen(findIn({ seen: scopedFoundStore(session, keys[1]) }))).toBeNull();
+  });
+  it('the demo gate stays once per session; only the find store is scoped per location', () => {
+    const layer = readFileSync(fileURLToPath(new URL('../HybridStationLayer.tsx', import.meta.url)), 'utf8');
+    expect(layer).toContain('demoGate={guided ? hybridDemoSeen : undefined}');
+    expect(layer).toContain('scopedFoundStore(hybridEquipmentFound, stationContext.locationKey)');
+    expect(layer).toContain('findEquipment={guided && foundAtThisLocation ? foundAtThisLocation : undefined}');
   });
   it('tabata: ONE combined screen before the first interval listing the block\'s machines, never mid-block', () => {
     const block2 = seg([{ id: 'm1', equipment: ['a'] }, { id: 'bw' }, { id: 'm2', equipment: ['b'] }]);

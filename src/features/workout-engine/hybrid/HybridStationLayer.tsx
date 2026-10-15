@@ -27,10 +27,11 @@
  * (axiom §8) before production. It is inert in normal runs (flag-gated).
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import StrengthRunner from '@/features/workout-engine/players/strength/StrengthRunner';
 import { useHybridRun, hybridDemoSeen, hybridEquipmentFound } from './useHybridRun';
+import { scopedFoundStore } from '@/features/workout-engine/players/strength/logic/find-equipment';
 import { isApproachingStation } from './hybrid-orchestrator';
 import { toSegmentExerciseDetail } from '@/features/workout-engine/core/services/storage.service';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
@@ -88,6 +89,12 @@ export default function HybridStationLayer() {
   const [welcomeDoneFor, setWelcomeDoneFor] = useState<number | null>(null);
   // Station number whose completion screen should carry the one-time switch-to-fast prompt.
   const [fastPromptFor, setFastPromptFor] = useState<number | null>(null);
+
+  // PR-B3: the "found" store scoped to this station's place (stable per location).
+  const foundAtThisLocation = useMemo(
+    () => (stationContext ? scopedFoundStore(hybridEquipmentFound, stationContext.locationKey) : null),
+    [stationContext?.locationKey],
+  );
 
   const handleStationWorkDone = (exerciseLog: ReturnType<typeof toSegmentExerciseDetail>) => {
     // Count only COMPLETED guided stations (≥1 logged set) — never skipped / empty exits.
@@ -200,8 +207,9 @@ export default function HybridStationLayer() {
           guided={guided}
           // PR-B2: watch-the-demo gate (guided only — omitted in fast mode → PREPARING unchanged).
           demoGate={guided ? hybridDemoSeen : undefined}
-          // PR-B3: find-the-equipment before the gate (guided only — omitted in fast mode).
-          findEquipment={guided ? hybridEquipmentFound : undefined}
+          // PR-B3: find-the-equipment before the gate (guided only — omitted in fast mode), once per
+          // exercise per station LOCATION (a later park needs it again; the demo gate doesn't).
+          findEquipment={guided && foundAtThisLocation ? foundAtThisLocation : undefined}
           // G2.4: in-station swap — same modal as the overview / standalone player; the
           // replacement is written into the live station plan (useHybridRun), so it is what
           // StrengthRunner plays and logs from here on.

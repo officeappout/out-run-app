@@ -71,6 +71,16 @@ export function findEquipmentScreen(input: FindInput): FindScreen | null {
   };
 }
 
+/**
+ * Finding equipment depends on WHERE the user is: the same machine exercise at a later station
+ * (a different park) needs the screen again. Scope a session-wide store to one station location
+ * (StationContext.locationKey) — repeated sets / exercises at the same place stay "found".
+ */
+export function scopedFoundStore(store: DemoSeenStore, locationKey: string): DemoSeenStore {
+  const key = (id: string) => `${locationKey}::${id}`;
+  return { has: (id) => store.has(key(id)), add: (id) => store.add(key(id)) };
+}
+
 /** Exercise ids to mark as found on "מצאתי ✓" — the screen's items (a tabata block: all of them). */
 export function idsToMarkFound(screen: FindScreen): string[] {
   return screen.items.map((i) => i.exerciseId);
