@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import lightLockStyles from './admin-content-light-lock.module.css';
+import './admin-theme.css';
 import shell from './admin-shell.module.css';
 import { ViewingAsBar } from '@/features/admin/components/authorities/ViewAsCity';
 import { allowedPathsFor, isPathAllowed, sectionOwnsPath } from '@/features/admin/config/adminSections';
@@ -1391,26 +1392,24 @@ function AdminLayoutInner({
                         }}
                     >
                         {/*
-                            07.10.2026 — THIS DIV FORCES NEAR-BLACK TEXT ON
-                            EVERY DESCENDANT, ON PURPOSE (locks out OS/WebView
-                            auto-dark-mode inversion — see
-                            admin-content-light-lock.module.css's own header
-                            for the full why). It ALSO defeats a descendant's
-                            own explicit text-white or similar — it is
-                            !important and wins the cascade. This exact gap
-                            cost a full round: a new dark header strip's
-                            text was invisible, already had text-white, and
-                            nobody knew this div was the reason.
+                            15.10.2026 (design pass, owner-approved) — this div
+                            used to force near-black text on EVERY descendant
+                            (!important), which also erased every author's own
+                            color (grays, brand accents, statuses). Now it sets
+                            `color-scheme: only light` (the standard opt-out
+                            from OS/WebView auto-dark) and a default ink color;
+                            only white / near-white text on the light sheet is
+                            still forced to ink (admin-theme.css), unless it
+                            sits on a dark or saturated surface. The panel-wide
+                            theme (cards, primary buttons, tables, inputs) also
+                            lives in admin-theme.css, scoped to `.admin-content`.
 
-                            THE OPT-OUT: give a genuinely dark-background
-                            element `data-dark-surface="true"` and this rule
-                            skips it and everything inside it. That is the
-                            ONLY opt-out — do not invent a second one, and
-                            do not patch around this by adding `!text-white`
-                            at the component (it will still lose).
+                            THE OPT-OUT (unchanged): give a genuinely dark-
+                            background element `data-dark-surface="true"` and
+                            the white-text rule skips it and everything inside.
                         */}
                         <div
-                            className={`min-w-0 text-slate-900 ${lightLockStyles.contentLightLock}`}
+                            className={`admin-content min-w-0 text-slate-900 ${lightLockStyles.contentLightLock}`}
                             style={{ color: '#0f172a' }}
                         >
                             {/* OUT staff on a city's portal: always show which city */}
