@@ -166,6 +166,8 @@ import type { AuthorityPerformance } from '@/features/admin/services/cpo-analyti
 import InfoHint from '@/features/admin/components/cpo-dashboard/InfoHint';
 import SourcesSection from '@/features/admin/components/journey/SourcesSection';
 import ActivationInsights from '@/features/admin/components/journey/ActivationInsights';
+import RetentionDrivers from '@/features/admin/components/journey/RetentionDrivers';
+import type { RetentionDriversResponse } from '@/features/admin/services/journey-retention-drivers';
 import type { JourneyActivationResponse } from '@/features/admin/services/journey-activation';
 import type { JourneySourcesResponse } from '@/features/admin/services/journey-sources';
 
@@ -243,6 +245,12 @@ export default function JourneyHubPage() {
   const [activationLoading, setActivationLoading] = useState(true);
   const [activationError, setActivationError] = useState<string | null>(null);
   const [activationReload, setActivationReload] = useState(0);
+
+  // "מה גורם להישאר" — a fixed cohort (not filter-driven), loaded with the tab
+  const [drivers, setDrivers] = useState<RetentionDriversResponse | null>(null);
+  const [driversLoading, setDriversLoading] = useState(true);
+  const [driversError, setDriversError] = useState<string | null>(null);
+  const [driversReload, setDriversReload] = useState(0);
 
   const [growthMetrics, setGrowthMetrics] = useState<GrowthMetricsResponse | null>(null);
   const [growthMetricsDenied, setGrowthMetricsDenied] = useState<string | null>(null);
@@ -391,6 +399,21 @@ export default function JourneyHubPage() {
     });
     return () => { cancelled = true; };
   }, [authLoading, filters.dateFrom, filters.dateTo, activationReload]);
+
+  useEffect(() => {
+    if (authLoading || activeTab !== 'retention') return;
+    if (drivers && driversReload === 0) return; // loaded once already
+    let cancelled = false;
+    setDriversLoading(true);
+    adminAuthedFetch<RetentionDriversResponse>('/api/admin/journey-retention-drivers').then((r) => {
+      if (cancelled) return;
+      if (r.ok) { setDrivers(r.data); setDriversError(null); }
+      else { setDrivers(null); setDriversError(r.message || 'לא הצלחנו לחשב מה גורם להישאר.'); }
+      setDriversLoading(false);
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, activeTab, driversReload]);
 
   // Filter-dependent data (growth-metrics + the client-side funnel calls)
   // — debounced 300ms on `filters` (same pattern /admin/analytics
@@ -596,6 +619,12 @@ export default function JourneyHubPage() {
           see retention-depth/route.ts. */}
       {activeTab === 'retention' && (
         <div className="space-y-6">
+          <RetentionDrivers
+            data={drivers}
+            loading={driversLoading}
+            error={driversError}
+            onRetry={() => setDriversReload((n) => n + 1)}
+          />
           <StickinessRow data={growthMetrics?.northStar ?? null} loading={dataLoading} />
           <NorthStarRow data={growthMetrics?.northStar ?? null} loading={dataLoading} />
           <ActiveUsersHeroChart
