@@ -43,6 +43,7 @@ import ExerciseReplacementModal from '@/features/workout-engine/players/strength
 import { useUserStore } from '@/features/user';
 import type { Park } from '@/features/parks/core/types/park.types';
 import StationWelcomeScreen from './StationWelcomeScreen';
+import { COACH_TARGET_SKIP } from './station-tutorial';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import {
   readGuidedSettings, resolveGuidedMode, isCompletedStation, shouldShowFastPrompt,
@@ -191,6 +192,8 @@ export default function HybridStationLayer() {
             context={stationContext}
             gender={userGender}
             onStart={() => setWelcomeDoneFor(stationContext.stationNumber)}
+            guided={guided}
+            uid={profile?.id}
           />
         ) : (
         <StrengthRunner
@@ -259,6 +262,8 @@ export default function HybridStationLayer() {
         <button
           type="button"
           onClick={() => skipStation()}
+          // PR-B4: the tutorial's pause/skip bubble points here.
+          data-coach={COACH_TARGET_SKIP}
           className="fixed left-4 z-[121] pointer-events-auto rounded-full px-3 py-1.5 text-[12px] font-bold text-gray-500 bg-white/90 border border-gray-200 shadow-sm active:scale-95 transition-transform"
           style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
         >
