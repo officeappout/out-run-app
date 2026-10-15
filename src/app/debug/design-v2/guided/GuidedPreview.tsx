@@ -13,6 +13,7 @@ import FindEquipmentOverlay from '@/features/workout-engine/players/strength/com
 import DemoGateOverlay from '@/features/workout-engine/players/strength/components/DemoGateOverlay';
 import { stationTutorialSeenKey } from '@/features/workout-engine/hybrid/station-tutorial';
 import { removeOnboardingPref, setOnboardingPref } from '@/lib/onboardingPrefs';
+import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import type { StationContext } from '@/features/workout-engine/hybrid/station-flow';
 import type { FindScreen } from '@/features/workout-engine/players/strength/logic/find-equipment';
 
@@ -74,6 +75,13 @@ export default function GuidedPreview() {
   const step = Number(params.get('step') ?? 0);
   const uid = state === 'coach' ? 'preview-coach' : 'preview-seen';
   const [ready, setReady] = useState(false);
+
+  // In the app these screens run with the tab bar hidden (live workout) — mirror that here so the
+  // bottom CTA (and the coach-mark finger on it) isn't covered by the preview's tab bar.
+  useEffect(() => {
+    useMapStore.getState().suppressBottomNav();
+    return () => useMapStore.getState().releaseBottomNav();
+  }, []);
 
   // The welcome screen reads the seen-once tutorial flag on mount — set/clear it first.
   useEffect(() => {
