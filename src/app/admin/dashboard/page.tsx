@@ -713,13 +713,8 @@ export default function AdminDashboardPage() {
           description="דיווחי תשתית וקהילה, מעקב סטטוסים"
           color="amber"
         />
-        <QuickLink
-          href="/admin/community-groups-overview"
-          icon={UsersIcon}
-          title="כל הקבוצות במערכת"
-          description="חוצה-רשויות — רשמי מול משתמשים, סינון וסטטוס, בלי כניסה לכל עירייה בנפרד"
-          color="emerald"
-        />
+        {/* (no "כל הקבוצות במערכת" link: it's a cross-city OUT screen a city
+            manager can't open — the middleware bounced the click) */}
       </div>
 
       {/* ═══ Today's Sessions — Compact Summary ═══ */}

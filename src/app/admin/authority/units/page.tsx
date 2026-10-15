@@ -664,7 +664,7 @@ export default function UnitsListPage() {
       {(selectedOrgId || (!isSuperAdmin && !isReadinessChiefOfficer)) && (
       <>
       <AdminBreadcrumb items={[
-        { label: isMunicipal ? 'ארגונים' : labels.orgPlural, href: '/admin/organizations' },
+        { label: 'דשבורד', href: '/admin/dashboard' }, // (was /admin/organizations — blocked for city managers and officers, so the crumb bounced)
         ...(orgDisplayName ? [{ label: orgDisplayName }] : []),
         { label: labels.subUnitsTitle },
       ]} />
@@ -725,7 +725,8 @@ export default function UnitsListPage() {
               <Plus size={16} />
               {isMunicipal ? `הוסף ${childLabel}` : 'הוסף יחידה'}
             </button>
-            {!isMunicipal && (
+            {/* raw-JSON import is an OUT tool, not for brigade officers / school staff */}
+            {!isMunicipal && isSuperAdmin && (
               <button
                 onClick={() => { setShowImportModal(true); setImportJson(''); setImportParseError(''); }}
                 className="flex items-center gap-2 bg-violet-50 hover:bg-violet-100 text-violet-700 px-4 py-2.5 rounded-xl font-bold text-sm transition-all border border-violet-200"
