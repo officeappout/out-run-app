@@ -21,6 +21,7 @@ import { isTestOrMockUser } from '@/lib/testAccountFilter';
 import { isRealWorkoutCompletion } from '@/lib/workout-completion-kpi';
 import {
   aggregateJourneySources,
+  parseRange,
   type SourceLink,
   type SourceUser,
   type WebDay,
@@ -31,8 +32,6 @@ export const dynamic = 'force-dynamic';
 
 const NO_ACCESS_MESSAGE = 'אין לך הרשאה לנתונים אלה. פנה למנהל המערכת אם לדעתך זו טעות.';
 const NOT_APPLICABLE_MESSAGE = 'מקורות ההגעה משקפים את כל הפלטפורמה — זמין לצוות OUT בלבד.';
-const DEFAULT_DAYS = 30;
-const MAX_DAYS = 366;
 
 function toDateSafe(v: unknown): Date | null {
   if (!v) return null;
@@ -57,16 +56,6 @@ const sumMatching = (m: unknown, test: (k: string) => boolean) =>
     ? Object.entries(m as Record<string, unknown>).reduce((s, [k, v]) => (test(k) ? s + num(v) : s), 0)
     : 0;
 
-export function parseRange(fromRaw: string | null, toRaw: string | null, now = new Date()): { from: Date; to: Date } {
-  const to = toRaw ? new Date(toRaw) : now;
-  const safeTo = Number.isNaN(to.getTime()) ? now : to;
-  const fallbackFrom = new Date(safeTo.getTime() - DEFAULT_DAYS * 24 * 60 * 60 * 1000);
-  const from = fromRaw ? new Date(fromRaw) : fallbackFrom;
-  let safeFrom = Number.isNaN(from.getTime()) || from > safeTo ? fallbackFrom : from;
-  const minFrom = new Date(safeTo.getTime() - MAX_DAYS * 24 * 60 * 60 * 1000);
-  if (safeFrom < minFrom) safeFrom = minFrom;
-  return { from: safeFrom, to: safeTo };
-}
 
 export async function computeJourneySources(
   db: FirebaseFirestore.Firestore,

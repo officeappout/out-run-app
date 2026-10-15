@@ -165,6 +165,8 @@ import AuthorityPerformanceTable from '@/features/admin/components/cpo-dashboard
 import type { AuthorityPerformance } from '@/features/admin/services/cpo-analytics.service';
 import InfoHint from '@/features/admin/components/cpo-dashboard/InfoHint';
 import SourcesSection from '@/features/admin/components/journey/SourcesSection';
+import ActivationInsights from '@/features/admin/components/journey/ActivationInsights';
+import type { JourneyActivationResponse } from '@/features/admin/services/journey-activation';
 import type { JourneySourcesResponse } from '@/features/admin/services/journey-sources';
 
 // Journey Hub Wave 2 — the shared filter row + its 4 segmentation
@@ -236,6 +238,11 @@ export default function JourneyHubPage() {
   const [sourcesLoading, setSourcesLoading] = useState(true);
   const [sourcesError, setSourcesError] = useState<string | null>(null);
   const [sourcesReload, setSourcesReload] = useState(0);
+
+  const [activationData, setActivationData] = useState<JourneyActivationResponse | null>(null);
+  const [activationLoading, setActivationLoading] = useState(true);
+  const [activationError, setActivationError] = useState<string | null>(null);
+  const [activationReload, setActivationReload] = useState(0);
 
   const [growthMetrics, setGrowthMetrics] = useState<GrowthMetricsResponse | null>(null);
   const [growthMetricsDenied, setGrowthMetricsDenied] = useState<string | null>(null);
@@ -366,6 +373,24 @@ export default function JourneyHubPage() {
     });
     return () => { cancelled = true; };
   }, [authLoading, filters.dateFrom, filters.dateTo, sourcesReload]);
+
+  // "הצטרפות והפעלה" — stalls, the first-week road, who to nudge
+  useEffect(() => {
+    if (authLoading) return;
+    let cancelled = false;
+    const params = new URLSearchParams();
+    if (filters.dateFrom) params.set('from', filters.dateFrom.toISOString());
+    if (filters.dateTo) params.set('to', filters.dateTo.toISOString());
+    const qs = params.toString();
+    setActivationLoading(true);
+    adminAuthedFetch<JourneyActivationResponse>(`/api/admin/journey-activation${qs ? `?${qs}` : ''}`).then((r) => {
+      if (cancelled) return;
+      if (r.ok) { setActivationData(r.data); setActivationError(null); }
+      else { setActivationData(null); setActivationError(r.message || 'לא הצלחנו לטעון את נתוני ההצטרפות.'); }
+      setActivationLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [authLoading, filters.dateFrom, filters.dateTo, activationReload]);
 
   // Filter-dependent data (growth-metrics + the client-side funnel calls)
   // — debounced 300ms on `filters` (same pattern /admin/analytics
@@ -542,6 +567,13 @@ export default function JourneyHubPage() {
               )}
             </div>
           </div>
+
+          <ActivationInsights
+            data={activationData}
+            loading={activationLoading}
+            error={activationError}
+            onRetry={() => setActivationReload((n) => n + 1)}
+          />
 
           {/* (activation by source moved to "מקורות הגעה", with the 7-day definition) */}
           <AuthorityPerformanceTable data={statisticsSummary?.authorityPerformance ?? []} loading={staticLoading} />
