@@ -381,6 +381,22 @@ export default function StepsAnalyticsView({
     () => chartData.map((d) => ({ key: d.key, label: d.label, value: d.value })),
     [chartData],
   );
+  // Month view: 30 bars are too narrow for per-bar labels (the primitive
+  // truncates them to one character) — show a date tick every 7 days instead,
+  // anchored on today, positioned over the bar centres (time runs left → right,
+  // oldest first, like the pre-v2 charts and the day carousel).
+  const isMonth = timeRange === 'month';
+  const monthTicks = useMemo(() => {
+    if (!isMonth || chartData.length === 0) return [];
+    const n = chartData.length;
+    const ticks: { key: string; label: string; leftPct: number }[] = [];
+    for (let i = n - 1; i >= 0; i -= 7) {
+      const d = new Date(chartData[i].key + 'T00:00:00');
+      if (Number.isNaN(d.getTime())) continue;
+      ticks.push({ key: chartData[i].key, label: `${d.getDate()}/${d.getMonth() + 1}`, leftPct: ((i + 0.5) / n) * 100 });
+    }
+    return ticks;
+  }, [isMonth, chartData]);
   const dayBarData: BarDatum[] = useMemo(
     () => dayWeekData.map((d) => ({ key: d.key, label: d.label, value: d.value })),
     [dayWeekData],
@@ -707,12 +723,20 @@ export default function StepsAnalyticsView({
                     );
                   })}
                 </div>
+                {stats.dailyGoal > 0 && (
+                  <div className="flex justify-end mb-2">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-v2-muted">
+                      <span className="w-4 border-t-[1.5px] border-dashed border-v2-ink/30" />
+                      יעד יומי <span className="tabular-nums" dir="ltr">{fmtNumber(stats.dailyGoal)}</span>
+                    </span>
+                  </div>
+                )}
                 <BarChart
                   data={dayBarData}
                   goal={stats.dailyGoal > 0 ? stats.dailyGoal : null}
-                  goalLabel={`יעד ${fmtNumber(stats.dailyGoal)}`}
                   highlightKey={selectedDaySnap?.date ?? null}
                   color={STEPS_COLOR}
+                  dir="ltr"
                   height={170}
                   datasetKey="day"
                   renderTooltip={renderTooltip}
@@ -751,22 +775,38 @@ export default function StepsAnalyticsView({
                   {showGoalLine && (
                     <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-v2-muted">
                       <span className="w-4 border-t-[1.5px] border-dashed border-v2-ink/30" />
-                      יעד יומי
+                      יעד יומי <span className="tabular-nums" dir="ltr">{fmtNumber(stats.dailyGoal)}</span>
                     </span>
                   )}
                 </div>
                 <BarChart
                   data={barData}
                   goal={showGoalLine ? stats.dailyGoal : null}
-                  goalLabel={showGoalLine ? `יעד ${fmtNumber(stats.dailyGoal)}` : undefined}
                   highlightKey={todayKey}
                   color={STEPS_COLOR}
+                  dir="ltr"
                   height={220}
                   labelEvery={isYear ? 2 : undefined}
+                  className={isMonth ? '[&>div:nth-child(2)]:invisible' : ''}
                   datasetKey={timeRange}
                   renderTooltip={renderTooltip}
                   ariaLabel={isYear ? 'צעדים לפי חודש' : 'צעדים לפי יום'}
                 />
+                {isMonth && monthTicks.length > 0 && (
+                  <div className="relative h-4 -mt-[18px]" aria-hidden>
+                    {monthTicks.map((t) => (
+                      <span
+                        key={t.key}
+                        className={`absolute top-0 -translate-x-1/2 text-[10px] leading-4 tabular-nums whitespace-nowrap ${
+                          t.key === todayKey ? 'font-black text-v2-ink' : 'font-semibold text-v2-muted'
+                        }`}
+                        style={{ left: `${t.leftPct}%` }}
+                      >
+                        {t.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <p className="mt-3 text-[11px] font-semibold text-v2-muted text-center">
                   הקש/י על עמודה לפרטים
                 </p>
