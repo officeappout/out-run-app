@@ -434,3 +434,83 @@ video.tutorial-player::-webkit-media-controls-overlay-enclosure,
 video.tutorial-player::-webkit-media-controls-start-playback-button {
   display: none !important;
 }
+/* ============================================
+   Design language v2 — tokens + glass recipes
+   Source: .claude/knowledge/design-language.md (v2), extracted from the
+   marketing site (appout-website). Additive only — nothing above changes.
+   Mirrors tailwind.config.ts (v2-*, activity-*) and
+   src/components/ui/v2/tokens.ts.
+   ============================================ */
+:root {
+  --v2-accent: #00baf7;
+  --v2-cyan: #00c9f2;
+  --v2-teal: #00dcd0;
+  --v2-cta-from: #00baf7;
+  --v2-cta-to: #0cf2e3;
+  --v2-on-cta: #04222b;
+  --v2-deep: #0284c7;
+  --v2-ink: #0e1419;
+  --v2-ink-2: #4b5a66;
+  --v2-muted: #64748b;
+  --v2-surface: #f6fbfd;
+  --v2-tint: #eef8fc;
+  --v2-hairline: #e6edf2;
+  --v2-pill-border: #dfe7ed;
+  --v2-gold: #ffc83d;
+  --v2-on-gold: #7a4a00;
+  --activity-steps: #00c07a;
+  --activity-run: #00c9f2;
+  --activity-bike: #39d98a;
+  --v2-cta: linear-gradient(135deg, var(--v2-cta-from), var(--v2-cta-to));
+  --v2-shadow-cta: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 10px 26px -12px rgba(0, 186, 247, 0.7);
+  --v2-shadow-card: 0 24px 50px -36px rgba(9, 30, 50, 0.45), 0 0 0 1px rgba(14, 27, 42, 0.06);
+  --v2-shadow-float: 0 28px 56px -24px rgba(9, 30, 50, 0.45), 0 0 0 1px rgba(14, 27, 42, 0.06);
+  --v2-ease: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* Light glass bar (site header pill). */
+.v2-glass-bar {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.4));
+  -webkit-backdrop-filter: blur(22px) saturate(185%);
+  backdrop-filter: blur(22px) saturate(185%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.35),
+    0 0 0 0.5px rgba(14, 27, 42, 0.1),
+    0 12px 32px -14px rgba(9, 30, 50, 0.35);
+}
+
+/* Floating glass card (site .float / notification glass). */
+.v2-glass-card {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  backdrop-filter: blur(16px) saturate(180%);
+  box-shadow: var(--v2-shadow-float);
+}
+
+/* Dark glass chip (site HeroDive .skip). */
+.v2-glass-chip {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+/* Solid fallback where backdrop-filter is unsupported (old Android WebView). */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .v2-glass-bar { background: rgba(255, 255, 255, 0.94); }
+  .v2-glass-card { background: #ffffff; }
+  .v2-glass-chip { background: rgba(14, 20, 25, 0.78); }
+}
+
+/* Step numerals ("01") — brand gradient clipped to text. */
+.v2-step-numeral {
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  background: var(--v2-cta);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
