@@ -827,3 +827,39 @@ describe('computeSoldierCurrentStatus (point 10 — expiry reverts to not_yet_te
     expect(computeSoldierCurrentStatus(results, 't1', new Date('2026-03-01'))).toBe('not_yet_tested');
   });
 });
+
+// 15.10.2026 (owner, explicit) — the chief fitness officer ('vertical'
+// scope) may do what a brigade officer does, in any brigade of his scope
+// and nowhere else; root-only actions stay root-only.
+describe('chief fitness officer (vertical scope)', () => {
+  const CHIEF_SCOPE: UnitPermissionScope = { kind: 'vertical', vertical: 'military', authorityIds: ['tenant-1', 'tenant-2'] };
+
+  it('creates a soldier in a brigade of his scope (he names the brigade)', async () => {
+    const db = makeFakeDb({ units: { 'tenant-2': { 'battalion-7': {} } } });
+    const result = await computeCreateSoldier(db, CHIEF_SCOPE, { name: 'Soldier C', tenantId: 'tenant-2', unitId: 'battalion-7', gender: 'female' }, CTX);
+    expect(result.status).toBe(200);
+    if (result.status === 200) {
+      expect(db._stores.readiness_soldiers.get(result.body.soldierId).tenantId).toBe('tenant-2');
+    }
+  });
+
+  it('cannot create outside his scope, or without naming a brigade', async () => {
+    const db = makeFakeDb({ units: { 'school-1': { 'class-1': {} } } });
+    const outside = await computeCreateSoldier(db, CHIEF_SCOPE, { name: 'X', tenantId: 'school-1', unitId: 'class-1', gender: 'male' }, CTX);
+    const unnamed = await computeCreateSoldier(db, CHIEF_SCOPE, { name: 'X', unitId: 'class-1', gender: 'male' }, CTX);
+    expect(outside.status).toBe(400);
+    expect(unnamed.status).toBe(400);
+    expect(db._stores.readiness_soldiers.size).toBe(0);
+  });
+
+  it('merging soldiers stays root-only', async () => {
+    const db = makeFakeDb({
+      soldiers: {
+        survivor: { tenantId: 'tenant-1', unitId: 'battalion-1', uid: null, mergedInto: null },
+        dup: { tenantId: 'tenant-1', unitId: 'battalion-1', uid: null, mergedInto: null },
+      },
+    });
+    const result = await computeMergeSoldiers(db, CHIEF_SCOPE, { survivorId: 'survivor', mergedId: 'dup' }, CTX);
+    expect(result.status).toBe(403);
+  });
+});

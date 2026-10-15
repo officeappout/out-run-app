@@ -205,6 +205,10 @@ export function isMemberWithinScope(
   if (scope.kind === 'unitAdmin') {
     return memberTenantId === scope.tenantId && typeof memberUnitId === 'string' && scope.unitIds.includes(memberUnitId);
   }
+  // chief fitness officer: any brigade (tenant) of his vertical
+  if (scope.kind === 'vertical') {
+    return typeof memberTenantId === 'string' && scope.authorityIds.includes(memberTenantId);
+  }
   // 'denied' and 'unknown' both fall through to false here — correct for
   // fail-closed AUTHORIZATION either way. Callers that want to report the
   // two differently (P1-3 item 1) must check scope.kind BEFORE calling

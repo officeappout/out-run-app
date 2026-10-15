@@ -218,9 +218,18 @@ const UNIT_ADMIN_PATH_PATTERN = /^\/admin\/authority\/units\/[^/]+/;
 // building a second one. Nothing wider than these two. Deliberately NOT
 // isVerticalAdminOnly's pattern (admin/layout.tsx's hasSec() unconditional
 // bypass) — this scope value never touches hasSec() at all.
+// 15.10.2026 (owner, explicit): the chief fitness officer outranks every
+// brigade officer and may do whatever they can, in any brigade of his
+// vertical — so he gets the whole military readiness area, the unit
+// hierarchy and team management. The data itself stays scoped server-side:
+// every readiness/units/invitation API checks his 'vertical' scope's
+// authorityIds (src/lib/unitPermissionScope.ts), and root-only actions
+// (merge soldiers, set thresholds) stay root-only.
 const READINESS_CHIEF_OFFICER_ALLOWED_PATHS = [
-  '/admin/authority/readiness/vertical-overview',
+  '/admin/authority/readiness', // vertical-overview, roster, entry, import, trends, unit/[id]
   '/admin/dashboard',
+  '/admin/authority/units',
+  '/admin/authority/team',
 ];
 
 export interface GateSessionInfo {

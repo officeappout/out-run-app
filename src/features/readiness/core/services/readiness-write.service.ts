@@ -295,6 +295,14 @@ function resolveCallerTenantId(scope: UnitPermissionScope, requestedTenantId: un
   if (scope.kind === 'root') {
     return typeof requestedTenantId === 'string' && requestedTenantId.trim() ? requestedTenantId.trim() : null;
   }
+  // 15.10.2026 (owner): the chief fitness officer outranks every brigade
+  // officer, so he may do whatever they can — in ANY brigade of his vertical,
+  // and only there. Like root he names the brigade explicitly; unlike root,
+  // it must be one of his scope's authorityIds.
+  if (scope.kind === 'vertical') {
+    const t = typeof requestedTenantId === 'string' ? requestedTenantId.trim() : '';
+    return t && scope.authorityIds.includes(t) ? t : null;
+  }
   return null;
 }
 
@@ -373,7 +381,7 @@ export async function computeCreateSoldier(
   if (scope.kind === 'unknown') {
     return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע.' } };
   }
-  if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin') {
+  if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin' && scope.kind !== 'vertical') {
     return { status: 403, body: { error: DENIED_MESSAGE } };
   }
 
@@ -535,7 +543,7 @@ export async function computeBulkCreateSoldiers(
   if (scope.kind === 'unknown') {
     return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע.' } };
   }
-  if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin') {
+  if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin' && scope.kind !== 'vertical') {
     return { status: 403, body: { error: DENIED_MESSAGE } };
   }
 
@@ -781,7 +789,7 @@ export async function computeBulkImportResults(
   if (scope.kind === 'unknown') {
     return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע.' } };
   }
-  if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin') {
+  if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin' && scope.kind !== 'vertical') {
     return { status: 403, body: { error: DENIED_MESSAGE } };
   }
 
@@ -1048,7 +1056,7 @@ export async function computeBulkImportResultsWithCorrectionChoice(
   if (scope.kind === 'unknown') {
     return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע.' } };
   }
-  if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin') {
+  if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin' && scope.kind !== 'vertical') {
     return { status: 403, body: { error: DENIED_MESSAGE } };
   }
 
@@ -1334,7 +1342,7 @@ export async function computeLinkSoldier(
   if (scope.kind === 'unknown') {
     return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע.' } };
   }
-  if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin') {
+  if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin' && scope.kind !== 'vertical') {
     return { status: 403, body: { error: DENIED_MESSAGE } };
   }
 
@@ -1455,7 +1463,7 @@ export async function computeRejectReadinessMatch(
   if (scope.kind === 'unknown') {
     return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע.' } };
   }
-  if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin') {
+  if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin' && scope.kind !== 'vertical') {
     return { status: 403, body: { error: DENIED_MESSAGE } };
   }
 
@@ -1542,7 +1550,7 @@ export async function computeBulkApproveReadinessMatches(
   if (scope.kind === 'unknown') {
     return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע.' } };
   }
-  if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin') {
+  if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin' && scope.kind !== 'vertical') {
     return { status: 403, body: { error: DENIED_MESSAGE } };
   }
 
@@ -1600,7 +1608,7 @@ export async function computeUnlinkSoldier(
   if (scope.kind === 'unknown') {
     return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע.' } };
   }
-  if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin') {
+  if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin' && scope.kind !== 'vertical') {
     return { status: 403, body: { error: DENIED_MESSAGE } };
   }
 
@@ -1769,7 +1777,7 @@ export async function computeGetThresholds(
   if (scope.kind === 'unknown') {
     return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע.' } };
   }
-  if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin') {
+  if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin' && scope.kind !== 'vertical') {
     return { status: 403, body: { error: DENIED_MESSAGE } };
   }
   const snap = await db.collection('readiness_thresholds').doc(THRESHOLDS_DOC_ID).get();
@@ -1935,7 +1943,7 @@ export async function computeRecordResult(
   // all; that's expected, not a reason to block self-reporting.
   const isSelf = soldier.uid !== null && soldier.uid === ctx.callerUid;
   const isOfficerInScope =
-    (scope.kind === 'root' || scope.kind === 'tenantOwner' || scope.kind === 'unitAdmin') &&
+    (scope.kind === 'root' || scope.kind === 'tenantOwner' || scope.kind === 'unitAdmin' || scope.kind === 'vertical') &&
     isMemberWithinScope(scope, soldier.tenantId, soldier.unitId);
   if (!isSelf && !isOfficerInScope) {
     return { status: 403, body: { error: DENIED_MESSAGE } };
@@ -2130,7 +2138,7 @@ export async function computeRecordResultWithCorrectionChoice(
 
   const isSelf = soldier.uid !== null && soldier.uid === ctx.callerUid;
   const isOfficerInScope =
-    (scope.kind === 'root' || scope.kind === 'tenantOwner' || scope.kind === 'unitAdmin') &&
+    (scope.kind === 'root' || scope.kind === 'tenantOwner' || scope.kind === 'unitAdmin' || scope.kind === 'vertical') &&
     isMemberWithinScope(scope, soldier.tenantId, soldier.unitId);
   if (!isSelf && !isOfficerInScope) {
     return { status: 403, body: { error: DENIED_MESSAGE } };
