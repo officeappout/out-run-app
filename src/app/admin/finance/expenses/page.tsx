@@ -19,6 +19,9 @@ import {
 export default function FinanceExpensesPage() {
   const router = useRouter();
   const [checkingAuth, setCheckingAuth] = useState(true);
+  // no redirect when access is missing: /admin sends a finance-only member
+  // straight back here, which looped forever
+  const [denied, setDenied] = useState(false);
   const [authorized, setAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<Transaction[]>([]);
@@ -40,7 +43,7 @@ export default function FinanceExpensesPage() {
       if (!user) { router.push('/admin/authority-login'); return; }
       try {
         const role = await checkUserRole(user.uid);
-        if (!role.isSuperAdmin && !role.isSystemAdmin) { router.push('/admin'); return; }
+        if (!role.isSuperAdmin && !role.isSystemAdmin) { setDenied(true); return; }
         await getUserFromFirestore(user.uid, { allowSelfHeal: false });
         setAuthorized(true);
         void load();
@@ -82,6 +85,14 @@ export default function FinanceExpensesPage() {
   }, [filtered]);
 
   if (checkingAuth) return <FullLoader />;
+  if (denied) {
+    return (
+      <div className="max-w-xl rounded-2xl border border-slate-200 bg-white p-6 text-slate-700" dir="rtl">
+        <h1 className="mb-2 text-xl font-black text-slate-900">אין גישה לכספים</h1>
+        <p>המסך הזה זמין כרגע למנהלי מערכת בלבד. אם אתה צריך גישה, פנה למנהל המערכת.</p>
+      </div>
+    );
+  }
   if (!authorized) return null;
 
   return (

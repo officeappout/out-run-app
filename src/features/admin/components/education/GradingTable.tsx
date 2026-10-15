@@ -21,6 +21,7 @@ export default function GradingTable({
 }: GradingTableProps) {
   const [localGrades, setLocalGrades] = useState<StudentGradeRow[]>(grades);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortAsc, setSortAsc] = useState(true);
@@ -46,6 +47,7 @@ export default function GradingTable({
 
   const handleSave = async () => {
     setSaving(true);
+    setSaveError(false);
     try {
       await saveManualGrades(
         localGrades.map(g => ({ uid: g.uid, autoScore: g.autoScore, manualGrade: g.manualGrade })),
@@ -55,6 +57,8 @@ export default function GradingTable({
       onSaved();
     } catch (err) {
       console.error('[GradingTable] save failed:', err);
+      // the teacher used to get no feedback at all — the grades looked saved
+      setSaveError(true);
     } finally {
       setSaving(false);
     }
@@ -134,6 +138,11 @@ export default function GradingTable({
           {saving ? 'שומר...' : 'שמור ציונים'}
         </button>
       </div>
+      {saveError && (
+        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700" role="alert">
+          הציונים לא נשמרו. בדוק את החיבור ונסה שוב — אם זה חוזר, ייתכן שאין לך הרשאה לשמור ציונים לכיתה הזו.
+        </p>
+      )}
 
       {/* Table */}
       <div className="bg-slate-50 rounded-xl overflow-hidden">

@@ -224,14 +224,18 @@ export async function saveManualGrades(
 
 export function getCurrentTerm(): string {
   const now = new Date();
-  const year = now.getFullYear();
   const month = now.getMonth();
-  // Sep-Jan = semester A, Feb-Jun = semester B
+  // Sep-Jan = semester A, Feb-Jun = semester B. Semester A is keyed by the
+  // year it STARTED in: January belongs to the previous September's
+  // semester (it used to become `${year}_A` of the new year, splitting one
+  // semester's grades across two keys). Semester B keeps the calendar year,
+  // as before, so existing keys don't move.
+  const year = month === 0 ? now.getFullYear() - 1 : now.getFullYear();
   const semester = month >= 8 || month <= 0 ? 'A' : 'B';
   return `${year}_${semester}`;
 }
 
 export function getTermLabel(term: string): string {
   const [year, sem] = term.split('_');
-  return `${sem === 'A' ? 'סמסטר א׳' : 'סמסטר ב׳'} ${year}`;
+  return `${sem === 'A' ? 'מחצית א׳' : 'מחצית ב׳'} ${year}`;
 }

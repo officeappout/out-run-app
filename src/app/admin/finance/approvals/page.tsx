@@ -22,6 +22,9 @@ import { TruncationWarning } from '@/features/admin/components/finance/Truncatio
 export default function FinanceApprovalsPage() {
   const router = useRouter();
   const [checkingAuth, setCheckingAuth] = useState(true);
+  // no redirect when access is missing: /admin sends a finance-only member
+  // straight back here, which looped forever
+  const [denied, setDenied] = useState(false);
   const [authorized, setAuthorized] = useState(false);
   const [adminName, setAdminName] = useState('');
   const [loading, setLoading] = useState(true);
@@ -36,7 +39,7 @@ export default function FinanceApprovalsPage() {
       if (!user) { router.push('/admin/authority-login'); return; }
       try {
         const role = await checkUserRole(user.uid);
-        if (!role.isSuperAdmin && !role.isSystemAdmin) { router.push('/admin'); return; }
+        if (!role.isSuperAdmin && !role.isSystemAdmin) { setDenied(true); return; }
         const profile = await getUserFromFirestore(user.uid, { allowSelfHeal: false });
         setAdminName((profile as any)?.core?.name || user.email || '');
         setAuthorized(true);
@@ -92,6 +95,14 @@ export default function FinanceApprovalsPage() {
   };
 
   if (checkingAuth) return <FullLoader />;
+  if (denied) {
+    return (
+      <div className="max-w-xl rounded-2xl border border-slate-200 bg-white p-6 text-slate-700" dir="rtl">
+        <h1 className="mb-2 text-xl font-black text-slate-900">אין גישה לכספים</h1>
+        <p>המסך הזה זמין כרגע למנהלי מערכת בלבד. אם אתה צריך גישה, פנה למנהל המערכת.</p>
+      </div>
+    );
+  }
   if (!authorized) return null;
 
   return (
