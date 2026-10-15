@@ -2537,6 +2537,16 @@ service cloud.firestore {
     //   • The Admin SDK route is the only path that bumps clicksCount,
     //     ensuring counter integrity without exposing a write surface.
     // ============================================================
+    // The marketing site's anonymous traffic rollups (one doc per Israel day:
+    // page views, sessions, sources, CTA clicks, scroll depth — no PII).
+    // Written EXCLUSIVELY by the Admin SDK from /api/telemetry/web; read by
+    // admins through /api/admin/web-traffic (Admin SDK) — client reads are
+    // allowed for admins only, client writes never.
+    match /web_daily_stats/{dateKey} {
+      allow read: if isRootAdmin() || isAdmin();
+      allow write: if false;
+    }
+
     match /marketing_links/{docId} {
       allow read, write: if isRootAdmin() || isAdmin();
 

@@ -112,7 +112,7 @@ const sectionContainsPath = (sectionId: SectionId, pathname: string | null, orgT
     const sectionPaths: Record<SectionId, string[]> = {
         strategy: ['/admin', '/admin/roadmap', '/admin/master-roadmap'],
         crm: ['/admin/authorities', '/admin/organizations', '/admin/admin-directory'],
-        marketing: ['/admin/marketing-hub', '/admin/messages', '/admin/workout-settings', '/admin/simulator', '/admin/workout-simulator', '/admin/links', '/admin/content-matrix', '/admin/unreachable-exercises', '/admin/content-status', '/admin/media-library', '/admin/notifications'],
+        marketing: ['/admin/marketing-hub', '/admin/web-traffic', '/admin/messages', '/admin/workout-settings', '/admin/simulator', '/admin/workout-simulator', '/admin/links', '/admin/content-matrix', '/admin/unreachable-exercises', '/admin/content-status', '/admin/media-library', '/admin/notifications'],
         product: ['/admin/journey', '/admin/analytics', '/admin/statistics', '/admin/insights', '/admin/users/all', '/admin/community-groups-overview'],
         dev: [
             '/admin/locations', '/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs',
@@ -767,7 +767,7 @@ function AdminLayoutInner({
                     // ── New 5-centre IDs ──────────────────────────────────
                     strategy: ['/admin', '/admin/roadmap', '/admin/master-roadmap'],
                     crm:      ['/admin/authorities', '/admin/organizations', '/admin/admin-directory'],
-                    marketing: ['/admin/marketing-hub', '/admin/messages', '/admin/workout-settings', '/admin/simulator', '/admin/workout-simulator', '/admin/links', '/admin/content-matrix', '/admin/unreachable-exercises', '/admin/content-status', '/admin/media-library', '/admin/notifications'],
+                    marketing: ['/admin/marketing-hub', '/admin/web-traffic', '/admin/messages', '/admin/workout-settings', '/admin/simulator', '/admin/workout-simulator', '/admin/links', '/admin/content-matrix', '/admin/unreachable-exercises', '/admin/content-status', '/admin/media-library', '/admin/notifications'],
                     product:  ['/admin/journey', '/admin/analytics', '/admin/statistics', '/admin/insights', '/admin/users/all'],
                     dev:      ['/admin/locations', '/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs', '/admin/levels', '/admin/progression-manager', '/admin/level-equivalence', '/admin/gym-equipment', '/admin/brands', '/admin/gear-definitions', '/admin/questionnaire', '/admin/visual-assessment', '/admin/assessment-rules', '/admin/program-thresholds', '/admin/demo-seed', '/admin/schools', '/admin/running', '/admin/admins-management', '/admin/users', '/admin/audit-logs', '/admin/system-settings', '/admin/access-codes'],
                     finance: ['/admin/finance'],
@@ -1261,6 +1261,7 @@ function AdminLayoutInner({
                                     {expandedSections.has('marketing') && (
                                         <div className="pr-2 space-y-0.5 pb-2">
                                             <SidebarLink href="/admin/marketing-hub" icon={LayoutGrid} label="תור תוכן" />
+                                            <SidebarLink href="/admin/web-traffic" icon={Globe} label="תנועה באתר" />
                                             <SidebarLink href="/admin/links" icon={Link2} label="מרכז קישורים שיווקיים" />
                                             <SidebarLink href="/admin/content-matrix" icon={Video} label="ניהול ימי צילום" />
                                             <SidebarLink href="/admin/unreachable-exercises" icon={SearchX} label="תרגילים לא נשלפים" />
