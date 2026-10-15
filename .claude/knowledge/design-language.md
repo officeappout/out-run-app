@@ -1,278 +1,214 @@
-# design-language.md — OUT Design System
+# design-language.md — OUT Design Language v2
 
-> כל הערכים חולצו מהקוד בפועל ומצוינת הפניה לקובץ+שורה.
-> ערכים חסרים מסומנים ⚠️ PLACEHOLDER — יש להשלים ידנית.
-> עדכן קובץ זה בלבד — אל תשכפל טוקנים ב-CLAUDE.md.
+> **v2 (15.10.2026)** — the app adopts the visual language of the marketing site
+> (`~/Development/appout-website`, read-only source). Every site value below was
+> extracted from the site's CSS with a file:line citation; app values cite the app.
+> v1 (the pre-v2 token inventory) is preserved in git history
+> (`git log -- .claude/knowledge/design-language.md`) and §8 below still lists the
+> legacy tokens, which keep working.
+>
+> Code: tokens in `tailwind.config.ts` (`v2-*`, `activity-*`), `src/app/globals.css`
+> (`--v2-*`, `.v2-glass-*`), `src/components/ui/v2/tokens.ts` (JS side);
+> primitives in `src/components/ui/v2/`.
 
 ---
 
-## 1. צבעים
+## 1. Colour
 
-### צבעי Brand ראשיים
-| Token (Tailwind) | HEX | תפקיד | מקור |
+One brand accent family (cyan → turquoise), ink, one secondary-text grey, a
+tinted surface, a hairline. Semantic **activity** colours are the only other
+hues allowed as accents.
+
+| Token (Tailwind / CSS var) | Value | Role | Site source |
 |---|---|---|---|
-| `primary` | `#00dcd0` | Cyan ראשי — CTA, אלמנטים אקטיביים | `tailwind.config.ts:17` |
-| `secondary` | `#ea1d24` | אדום — warning, danger, badge חשוב | `tailwind.config.ts:18` |
-| `out-blue` | `#007aff` | כחול iOS — כפתורים משניים, לינקים | `tailwind.config.ts:19` |
-| `out-cyan` | `#00ADEF` | Sky-blue — running player, lap circles, אקסנט | `tailwind.config.ts:24` |
+| `v2-accent` / `--v2-accent` | `#00baf7` | Accent: gradient start, chart strokes, active underline | 123 uses; `SiteHeader.module.css:146`, `Strength.module.css:489` |
+| gradient end `--v2-cta-to` | `#0cf2e3` | Brand gradient end | 67 uses |
+| `v2-cyan` | `#00c9f2` | Brand cyan var (`--brand-cyan`), app's historical primary | `globals.css:11` |
+| `v2-teal` | `#00dcd0` | Brand turquoise var (defined, rarely used) | `globals.css:12` |
+| `v2-on-cta` | `#04222b` | Text on the gradient (never white — contrast) | `SiteHeader.module.css:147` |
+| `v2-deep` | `#0284c7` | Eyebrows, links, icon colour on a cyan tint | `Social.module.css:25,574` |
+| `v2-ink` | `#0e1419` | Primary text, dark cards, dark pills | 105 uses; `Social.module.css:8` |
+| `v2-ink-2` | `#4b5a66` | Secondary text (marketing voice) | `Social.module.css:41` |
+| `v2-muted` | `#64748b` | Secondary text in app-replica UI, captions | `Strength.module.css:183` |
+| `v2-surface` | `#f6fbfd` | Tinted page/section surface | `Social.module.css:55,445` |
+| `v2-tint` | `#eef8fc` | Icon-tile / chip tint | `Social.module.css:171,573` |
+| `v2-hairline` | `#e6edf2` | Hairline border (most common) | 13 uses; `Running.module.css:834` |
+| `v2-hairline-cool` | `#e6f0f4` | Hairline on league/battle cards | `Social.module.css:56,542` |
+| `v2-pill-border` | `#dfe7ed` | 1.5px ghost-pill border | `Strength.module.css:86` |
+| `v2-gold` / `v2-on-gold` | `#ffc83d` / `#7a4a00` | Rank #1 crown tile | `Social.module.css:511-514` |
+| `v2-amber` | `#f59e0b` | VS lightning, stars | `Social.module.css` `.vs` |
+| `v2-up` / `v2-down` | `#10b981` / `#e5484d` | Delta ▲/▼ | green 16 uses on site |
+| `activity-steps` / `--activity-steps` | `#00c07a` | Steps (semantic) | site `Steps.tsx:25,35`; app steps widgets |
+| `activity-run` | `#00c9f2` | Running (semantic) | site `--activity-run` `globals.css:19` |
+| `activity-bike` | `#39d98a` | Cycling (semantic) | site `--activity-bike` `globals.css:18` |
 
-**הערה:** עשרות שימושים inline (`bg-[#00C9F2]`, `text-[#5BC2F2]`) עוד לא קובצו לטוקנים. הצבעים הנפוצים ביותר: `#00C9F2`, `#5BC2F2`, `#4AADE3`, `#00E5FF`.
+**Brief vs. site, corrected on extraction:** the brief named `#00c9f2` as the
+accent; the site CSS actually uses `#00baf7` 123× and `#00c9f2` only inside
+app-replica components. Both are tokens; `v2-accent` follows the site. The
+brief's hairline `#e6f0f4` is real but rare — `#e6edf2` is the common one.
 
-### צבעי רקע וכרטיסים
-| Token (Tailwind) | HEX | תפקיד | מקור |
+**Shadow colour** is always navy `rgba(9,30,50,…)` (or ring `rgba(14,27,42,…)`),
+never black.
+
+## 2. Surfaces, radii, shadows
+
+| | Value | Token |
+|---|---|---|
+| Pills (buttons, chips, tracks) | `999px` | `rounded-full` |
+| Cards | 22–28px (28 top-level tiles, 22 nested/side) | `rounded-v2-card` (24), `rounded-v2-card-lg` (28) |
+| Inner tiles | 12–18px | `rounded-v2-tile` (14) |
+| Card lift | `0 24px 50px -36px rgba(9,30,50,.45)` + ring `0 0 0 1px rgba(14,27,42,.06)` | `shadow-v2-card` |
+| Hairline ring alone | `0 0 0 1px rgba(14,27,42,.08)` | `shadow-v2-ring` |
+| Floating (glass) card | `0 28px 56px -24px rgba(9,30,50,.45)` + ring | `shadow-v2-float` |
+| Bottom sheet | `0 -18px 40px -24px rgba(9,30,50,.45)` + ring | `shadow-v2-sheet` |
+| Primary CTA | `inset 0 1px 0 rgba(255,255,255,.5), 0 10px 26px -12px rgba(0,186,247,.7)` | `shadow-v2-cta` |
+
+Site sources: radii frequency table (999px ×118, 22px ×16, 28px ×13, 14px ×15,
+12px ×20); shadows `Social.module.css:84`, `Strength.module.css:173`,
+`SiteHeader.module.css:149`. **No heavy dark shadows** (`shadow-2xl`, black
+0.2+ alphas) in v2.
+
+**Dark accent card** (league board, `Social.module.css:463-528`): `#0e1419`,
+radius 28, padding 26, no border/gradient. Inner rows `rgba(255,255,255,.06)`
+radius 16, padding 14×16; tiles `rgba(255,255,255,.1)`. First row:
+`linear-gradient(135deg, rgba(0,186,247,.35), rgba(12,242,227,.2))`. Rank tile:
+30px circle `rgba(255,255,255,.1)`, 14/900; #1 = gold `#ffc83d` with a filled
+crown in `#7a4a00`. Points 16/900 + unit 12/700 at .7 opacity.
+→ `<Card variant="dark">` + `<CardTile tone="dark">`.
+
+**Battle / head-to-head card** (`Social.module.css:533-595`): radius 22,
+`linear-gradient(135deg,#e8f9fe,#e9fdfb)`, 1px `#e6f0f4`, white 42/14 icon
+tile, two white pills around an amber lightning.
+
+## 3. Buttons
+
+| Variant | Spec | Primitive |
+|---|---|---|
+| Primary | gradient 135° `#00baf7→#0cf2e3`, text `#04222b`, 800 weight, pill, `shadow-v2-cta`, `:active scale(.97)` 160ms v2 curve. Heights: 44 (header) / 52 (hero) | `<Button variant="primary">` |
+| Dark | `#0e1419` pill, white 800 | `<Button variant="dark">` |
+| Ghost | white pill, `1.5px solid #dfe7ed`, ink text | `<Button variant="ghost">` |
+
+Sizes in the primitive: `sm` 36px, `md` 44px, `lg` 56px. Site source:
+`SiteHeader.module.css:138-157`, `Strength.module.css:65-88`, `Social.module.css:389-404`.
+
+## 4. Glass
+
+Three recipes, all in `globals.css` as `.v2-glass-bar | -card | -chip`, exposed
+through `<GlassSurface recipe=…>` and `<Card variant="glass">`:
+
+| Recipe | Background | Filter | Site source |
 |---|---|---|---|
-| `card-light` | `#ffffff` | רקע כרטיסים — light mode | `tailwind.config.ts:25` |
-| `background-light` | `#f5f5f7` | רקע עמוד — light mode | `tailwind.config.ts:26` |
-| `card-dark` | `#1E293B` | רקע כרטיסים — dark mode (StrengthDopamine + עתידי) | `tailwind.config.ts:28` |
-| `background-dark` | `#0F172A` | רקע עמוד — dark mode | `tailwind.config.ts:29` |
+| Light glass bar | `linear-gradient(180deg, rgba(255,255,255,.62), rgba(255,255,255,.4))` + inset highlights | `blur(22px) saturate(185%)` | `SiteHeader.module.css:44-62` |
+| Floating glass card | `rgba(255,255,255,.88)`, border `1px rgba(255,255,255,.9)`, `shadow-v2-float` | `blur(16px) saturate(180%)` | `Strength.module.css:162-175`, `HabitRoute.module.css:107-126` |
+| Dark glass chip | `rgba(0,0,0,.35)`, border `1px rgba(255,255,255,.35)` | `blur(10px)` | `HeroDive.module.css:201-221` |
 
-**הערה:** `darkMode: 'manual'` — מצב כהה לא מופעל אוטומטית. (`tailwind.config.ts:4`)
+**Rules**
+1. Glass only over rich content — map, video, imagery, colour gradients. Over
+   flat white it's invisible and still costs a compositing layer.
+2. Always ship `-webkit-backdrop-filter` (the CSS classes do).
+3. Solid fallback via `@supports not (backdrop-filter…)` — the site has none;
+   the app adds one because older Android WebViews lack the property.
+4. Never stack blurred layers (a glass card inside a glass sheet) — Android
+   WebView scroll cost. One blurred layer per scroll container.
+5. Test scroll performance on a mid-range Android before merging a glass screen.
 
-### CSS Custom Properties (`:root`)
-| משתנה | ערך | מקור |
+## 5. Type
+
+- **Family:** Simpler Pro — the same face on site and app. The site ships a
+  real 900 Black; the app maps 800/900 to Bold (`globals.css` @font-face) —
+  `font-black` renders as Bold in the app until the Black OTF is added (open item).
+- **Headlines:** heavy (900), short, tight tracking `-0.02em` (`tracking-v2-tight`),
+  hero `-0.03em` (`tracking-v2-tighter`), line-height 1.02–1.08.
+- **⚠ RTL override:** `globals.css` sets `[dir=rtl] h1…h6 { letter-spacing: .02em }`
+  (specificity 0,1,1), which beats a single tracking class on an `h*`. Put v2
+  tracking on a `span`/`div`, or use the `!` modifier.
+- **Big stats:** 900 weight, `tabular-nums`, `line-height: 1`, tracking −0.03em
+  → `<StatNumber>`; count-up 0.9s on the v2 ease-out (site `CountUp`,
+  `authorities/motion.tsx:38-82`).
+- **Step numerals "01":** `padStart(2,'0')`, brand gradient clipped to text,
+  900 → `.v2-step-numeral` (`Journey.module.css:87-96`).
+- **Eyebrows:** 14/800 `v2-deep`. **Body:** 15–16px, lead `v2-ink-2`.
+
+## 6. Icons
+
+- **Site:** `@phosphor-icons/react`, weight `bold` default, `fill` for emphasis
+  (crown, lightning), inside a rounded-square tile: 42×42, radius 14,
+  `#eef8fc` background, `#0284c7` icon (`Social.module.css:565-579`).
+- **App decision (proposed): keep lucide, style it the same way.** The app
+  imports lucide in hundreds of files (see the audit); a Phosphor migration is
+  a large, low-value churn and would ship two icon sets during the transition.
+  `<IconTile>` takes a lucide icon at `strokeWidth 2.4` to match Phosphor bold,
+  in the site's tinted rounded square. If David later prefers Phosphor,
+  `IconTile` is the single swap point for new code.
+- **No emoji as UI icons.** Copy strings may keep a symbol only where it's part
+  of the sentence.
+
+## 7. Motion
+
+| | Value | Token |
 |---|---|---|
-| `--background` | `#ffffff` | `globals.css:66` |
-| `--foreground` | `#171717` | `globals.css:67` |
-| `html` fallback bg | `#F8FAFC` | `globals.css:104` |
+| Curve (everywhere) | `cubic-bezier(0.23, 1, 0.32, 1)` | `ease-v2`, `--v2-ease`, `EASE_V2` |
+| Press | `scale(.97)`, 160–180ms | `PRESS_SCALE` (Button does it) |
+| Chip/badge pop-in | spring stiffness 400, damping 15, from scale .6 | `SPRING_POP` (`Chip pop`) |
+| Reveal | 0.7s, y 26→0 | — |
+| Bars | `scaleY` 0→1, 0.5–0.6s, stagger 25–35ms | `BarChart` |
+| Sheet settle | 0.42s on the v2 curve | `DraggableSheet` |
 
-### צבעי סטטוס (inline — לא טוקנים רשמיים)
-| HEX | תפקיד | הערה |
-|---|---|---|
-| `#10B981` / `#00A86A` / `#00C07A` | הצלחה / פעיל | שמות שונים, תפקיד זהה |
-| `#F59E0B` | אזהרה / amber | |
-| `#EF4444` / `#FF6B00` | שגיאה / danger | |
-| `#CBD5E1` | disabled / muted | |
-| `#93C5FD` | dashed-line accent | `globals.css:323` |
-| `#EAFBF4` | רקע badge הצלחה | |
+`prefers-reduced-motion`: every primitive reads `useReducedMotion()` — no press
+scale, no pop, no stagger, count-up jumps to the value. Animate transform and
+opacity only (no height/width per frame).
 
-⚠️ PLACEHOLDER — צבעי הסטטוס אינם טוקנים מוגדרים ב-Tailwind. יש לאחד ל-tokens ולרשום כאן.
+## 8. Mapping — current app patterns → v2
 
----
-
-## 2. טיפוגרפיה
-
-### פונטים
-| שם | Stack | תפקיד | מקור |
-|---|---|---|---|
-| `font-sans` (default) | `'Simpler Pro', Heebo, sans-serif` | ברירת מחדל | `tailwind.config.ts:50` |
-| `font-simpler` | `'Simpler Pro', sans-serif` | utility class | `tailwind.config.ts:52` |
-| `font-hebrew` | `'Simpler Pro', Assistant, Rubik, Arial Hebrew, sans-serif` | עברית מועצמת | `tailwind.config.ts:54` |
-
-**קבצי פונט (OTF):**
-| משקל | קובץ | מקור |
-|---|---|---|
-| 400 Regular | `src/app/fonts/SimplerPro-Regular.otf` | `globals.css:23` |
-| 600 Semibold | `src/app/fonts/SimplerPro-Semibold.otf` | `globals.css:31` |
-| 700 Bold | `src/app/fonts/SimplerPro-Bold.otf` | `globals.css:47` |
-
-**מיפוי משקלים (CSS):**
-| `font-weight` | ממופה ל | מקור |
-|---|---|---|
-| 300 (light) | Regular | `globals.css:36` |
-| 500 (medium) | Semibold | `globals.css:44` |
-| 800 (extra-bold) | Bold | `globals.css:52` |
-| 900 (black) | Bold | `globals.css:60` |
-
-### Utility Classes לטיפוגרפיה
-| Class | תפקיד | מקור |
-|---|---|---|
-| `.font-simpler` | Simpler Pro + RTL אופטימל | `globals.css:175` |
-| `.font-simpler-regular` | weight 400 | `globals.css:181` |
-| `.font-simpler-semibold` | weight 600 | `globals.css:186` |
-| `.font-simpler-bold` | weight 700 | `globals.css:191` |
-
-### גדלי טקסט בשימוש נפוץ
-| Tailwind class | גודל | שימוש טיפוסי |
-|---|---|---|
-| `text-[9px]`–`text-[11px]` | 9–11px | מיקרו-badges, indicators |
-| `text-[12px]`–`text-[13px]` | 12–13px | labels, meta text |
-| `text-sm` | 14px | גוף ראשי |
-| `text-base` | 16px | טקסט סטנדרטי |
-| `text-lg`–`text-xl` | 18–20px | כותרות משנה |
-| `text-2xl`–`text-3xl` | 24–30px | כותרות סקשן |
-| `text-4xl` | 36px | hero / כותרות ראשיות |
-
-**RTL:** line-height `1.6`, letter-spacing `0.01em` לכל טקסט עברי. (`globals.css:160`)
-
----
-
-## 3. מרווחים, Radius וצללים
-
-### Border Radius (Custom — Tailwind Override)
-| Token | ערך | שימוש | מקור |
-|---|---|---|---|
-| `rounded-lg` | `10px` | כפתורים, chips | `tailwind.config.ts:42` |
-| `rounded-xl` | `12px` | שדות קלט, כרטיסים קטנים | `tailwind.config.ts:43` |
-| `rounded-2xl` | `14px` | כרטיסים סטנדרטיים | `tailwind.config.ts:44` |
-| `rounded-3xl` | `20px` | containers גדולים, bottom sheets | `tailwind.config.ts:45` |
-| `rounded-4xl` | `28px` | hero cards — בשימוש מועט | `tailwind.config.ts:46` |
-
-### Box Shadows
-| Token | ערך | שימוש | מקור |
-|---|---|---|---|
-| `shadow-subtle` | `0 1px 3px rgba(0,0,0,0.05)` | עומק עדין, עיטורים | `tailwind.config.ts:33` |
-| `shadow-card` | `0 2px 12px rgba(0,0,0,0.04)` | lift לכרטיסים | `tailwind.config.ts:38` |
-| `shadow-floating` | `0 4px 12px rgba(0,0,0,0.15)` | elevation בינוני — floating UI | `tailwind.config.ts:34` |
-| `shadow-drawer` | `0 -4px 24px rgba(0,0,0,0.08)` | bottom sheet / drawer מלמטה | `tailwind.config.ts:35` |
-| `shadow-premium` | `0 4px 20px rgba(91,194,242,0.06)` | אקסנט premium עם גוון cyan | `tailwind.config.ts:36` |
-| `shadow-premium-hover` | `0 8px 30px rgba(91,194,242,0.10)` | hover state premium | `tailwind.config.ts:37` |
-
-### מרווחים
-גריד 4px סטנדרטי של Tailwind — אין overrides מותאמים. (`gap-1` = 4px, `p-4` = 16px, וכו'.)
-
----
-
-## 4. Utility Classes מיוחדות
-
-| Class | תיאור | מקור |
-|---|---|---|
-| `.premium-card` | `bg-white`, `rounded-3xl` (20px), `shadow-premium` | `globals.css:199` |
-| `.premium-card-sm` | `bg-white`, `rounded-2xl` (14px), `shadow-card` | `globals.css:211` |
-| `.premium-sheet` | bottom sheet + premium shadow | `globals.css:219` |
-| `.premium-btn` | כפתור base עם hover/active states | `globals.css:228` |
-| `.no-scrollbar` / `.scrollbar-hide` | הסתרת scrollbar cross-browser | `globals.css:239` |
-| `.scrollbar-thin` | scrollbar דק — Kanban boards | `globals.css:259` |
-| `.dashed-line` | linear-gradient dashed (`#93C5FD`) | `globals.css:323` |
-| `.progress-segment` | segment 4px לסרגלי התקדמות | `globals.css:298` |
-| `.time-picker-mask` | gradient mask top/bottom לtime picker | `globals.css:305` |
-
----
-
-## 5. אנימציות ומעברים
-
-### Keyframes מוגדרים
-| שם | תפקיד | מקור |
-|---|---|---|
-| `heroMarkerPulse` | טבעת פולס על marker ראשי במפה | `globals.css:332` |
-| `fadeIn` | fade-in כניסה | `globals.css:356` |
-| `fadeInUp` | fade + slide-up | `globals.css:365` |
-| `swapSpin` | סיבוב רציף 360° | `globals.css:376` |
-
-### Transition classes נפוצים
-`transition-all`, `transition-colors`, `transition-opacity`, `transition-transform`
-Durations: `duration-100`, `duration-200`, `duration-300`
-
----
-
-## 6. Z-Index Budget
-
-> מלא — אסור להוסיף ערך חדש בלי עדכון `.cursorrules`. (axioms.md §8)
-
-| ערך | קומפוננטה | מקור |
-|---|---|---|
-| `z-[-1]` | ParticleBackground | `.cursorrules:31` |
-| `z-0` | AppMap (Mapbox canvas) | `.cursorrules:32` |
-| `z-20` | Active workout overlay | `.cursorrules:33` |
-| `z-30` | ParkPreview card | `.cursorrules:34` |
-| `z-40` | BottomJourneyContainer, HUD controls, RunStoryBar | `.cursorrules:36` |
-| `z-50` | Mapbox facility popups | `.cursorrules:36` |
-| `z-[60]` | WorkoutDrawer, NavigationHub, RoutePreviewCard | `.cursorrules:37` |
-| `z-[70]` | Search bars (discover mode) | `.cursorrules:38` |
-| `z-[90]` | JITSetupModal | `.cursorrules:39` |
-| `z-[95]` | Referral toast | `.cursorrules:40` |
-| `z-[100]` | Full-screen overlays (search, sheets, wizards) | `.cursorrules:41` |
-| `z-[120]` | Dev-only banners | `.cursorrules:42` |
-| `z-[200]` | RunSummary nested UI | `.cursorrules:43` |
-
----
-
-## 7. קומפוננטות UI — רשימה
-
-### src/components/ (shared)
-| שם | נתיב | סוג |
-|---|---|---|
-| `CircularProgress` | `src/components/CircularProgress.tsx` | Progress |
-| `AppLogoLoader` | `src/components/AppLogoLoader.tsx` | Loading |
-| `BrandedSplashScreen` | `src/components/BrandedSplashScreen.tsx` | Splash |
-| `AuthModal` | `src/components/AuthModal.tsx` | Modal |
-| `BottomNavigation` | `src/components/BottomNavigation.tsx` | Nav |
-| `ParticleBackground` | `src/components/ParticleBackground.tsx` | Background |
-| `ErrorBoundary` | `src/components/ErrorBoundary.tsx` | System |
-
-### src/components/ui/ (primitives)
-| שם | נתיב | סוג |
-|---|---|---|
-| `CollapsingHeader` | `src/components/ui/CollapsingHeader.tsx` | Header |
-| `StickyActionButton` | `src/components/ui/StickyActionButton.tsx` | Button |
-| `Toast` | `src/components/ui/Toast.tsx` | Notification |
-| `WheelPicker` | `src/components/ui/WheelPicker.tsx` | Input |
-| `DrumTimePicker` | `src/components/ui/DrumTimePicker.tsx` | Input |
-| `AppHeader` | `src/components/ui/AppHeader.tsx` | Header |
-| `FeedbackFAB` | `src/components/ui/FeedbackFAB.tsx` | FAB |
-| `ProfilePhotoUploader` | `src/components/ui/ProfilePhotoUploader.tsx` | Input |
-| `OfflineBanner` | `src/components/ui/OfflineBanner.tsx` | Banner |
-| `AnimatedFlame` | `src/components/ui/AnimatedFlame.tsx` | Icon/Animation |
-| `AccessCodeGate` | `src/components/ui/AccessCodeGate.tsx` | Gate |
-| `HealthConnectDisclosureModal` | `src/components/ui/HealthConnectDisclosureModal.tsx` | Modal |
-
-### פיצ'רים — Drawers, Cards, Badges (דגימה)
-| שם | נתיב | סוג |
-|---|---|---|
-| `WorkoutPreviewDrawer` | `src/features/workouts/components/workout-preview-drawer/` | Drawer |
-| `RunDetailsDrawer` | `src/features/home/components/RunDetailsDrawer.tsx` | Drawer |
-| `GroupDetailsDrawer` | `src/features/arena/components/GroupDetailsDrawer.tsx` | Drawer |
-| `SessionDrawer` | `src/features/arena/components/SessionDrawer.tsx` | Drawer |
-| `HeroCard` | `src/features/home/components/HeroCard.tsx` | Card |
-| `HeroWorkoutCard` | `src/features/home/components/HeroWorkoutCard.tsx` | Card |
-| `ProgressCard` | `src/features/home/components/ProgressCard.tsx` | Card |
-| `EventCard` | `src/features/arena/components/EventCard.tsx` | Card |
-| `GroupCard` | `src/features/arena/components/GroupCard.tsx` | Card |
-| `MapCard` | `src/features/parks/core/components/MapCard.tsx` | Card |
-| `PersonaBadge` | `src/app/admin/content-status/components/PersonaBadge.tsx` | Badge |
-| `DrawerMuscleBadge` | `src/features/workouts/components/workout-preview-drawer/components/DrawerMuscleBadge.tsx` | Badge |
-
-**סה"כ קומפוננטות בפרויקט:** 442+ (across features/)
-
----
-
-## 8. נכסים ויזואליים
-
-### לוגו
-| נכס | נתיב | פורמט |
-|---|---|---|
-| Logotype ראשי | `public/assets/logo/Kind=logotype.svg` | SVG |
-| PNG variant | `public/assets/logo/logo-mark.png` | PNG |
-
-### מסקוט — Lemur
-| נכס | נתיב |
+| Current app pattern | v2 replacement |
 |---|---|
-| King Lemur (ראשי) | `public/assets/lemur/king-lemur.png` |
-| Lemur Doctor | `public/assets/lemur/lemur-doctor.png` |
-| Lemur Curious | `public/assets/lemur/lemur_curious_peek.png` |
-| Lemur Rest | `public/assets/lemur/lemur-rest.svg` |
-| Lemur Avatar | `public/assets/lemur/lemur-avatar.png` |
-| Lemur Notepad | `public/assets/lemur/lemur_notepad.png` |
+| `BrandCtaButton` / `bg-brand-cta text-on-brand shadow-md shadow-cyan-400/25` | `<Button variant="primary">` (same gradient, adds the site inset+glow shadow and 800 weight) |
+| `bg-[#00E5FF] text-black rounded-xl` CTAs (e.g. `WorkoutSummaryPage` footer) | `<Button variant="primary" size="lg" block>` |
+| `bg-black`/`bg-slate-900 rounded-full` pills | `<Button variant="dark">` |
+| White bordered buttons `border border-gray-200 rounded-xl` | `<Button variant="ghost">` |
+| `.premium-card`, `bg-white rounded-2xl shadow-card` / `shadow-sm` | `<Card>` (`rounded-v2-card shadow-v2-card`) |
+| `shadow-lg` / `shadow-xl` / `shadow-2xl` on cards | `shadow-v2-card` (light) or `shadow-v2-float` (floating) |
+| `rounded-2xl` (14px) as a card radius | `rounded-v2-card` (24px); keep 14 for inner tiles (`rounded-v2-tile`) |
+| `card-dark` `#1E293B` / `bg-slate-800` dark cards | `<Card variant="dark">` (`#0e1419`) + `bg-white/10` tiles |
+| `backdrop-blur-md bg-white/80` ad-hoc glass | `<GlassSurface recipe="card">` (prefixed + fallback) |
+| `bg-black/40 backdrop-blur` chips over map/video | `<GlassSurface recipe="chip">` / `<Chip tone="glass-dark">` |
+| Emoji icons (⏱ 🔁 📍 ✓ 🔥 🏆 …) | `<IconTile icon={Timer}>` etc. (lucide) |
+| `text-[#00C9F2]` / `#5BC2F2` / `#4AADE3` / `#00E5FF` one-offs | `text-v2-accent` (chart/active) or `text-v2-deep` (text on tint) |
+| Steps green `#00C07A` literals | `activity-steps` |
+| Hand-rolled bottom sheets with no drag (summary drawer) | `<DraggableSheet>` — drag collapses/snaps, actions are explicit footer buttons |
+| Recharts/hand-rolled bars | `<BarChart>` |
+| Big numbers `text-4xl font-bold` | `<StatNumber size="lg|hero">` |
+| `ease-out`/`ease-in-out` Tailwind transitions | `ease-v2` |
+| `active:scale-95` / `0.98` | `0.97` (Button default) |
 
-### תמונות Landing
-| נכס | נתיב |
-|---|---|
-| bg-1 | `public/images/landing/bg-1.jpg` |
-| bg-2 | `public/images/landing/bg-2.jpg` |
-| bg-3 | `public/images/landing/bg-3.jpg` |
+## 9. Rules (checklist for every v2 screen PR)
 
-### Gateway Cards
-| נכס | נתיב |
-|---|---|
-| card-strength | `public/images/gateway/card-strength.png` |
-| card-map | `public/images/gateway/card-map.png` |
+1. One accent family per screen + at most one semantic activity colour.
+2. Cards 24/28 radius, tiles 14; pills for every button and chip.
+3. Shadows from the v2 set only; no black shadows.
+4. Glass only over rich content, max one blurred layer per scroll container,
+   with the CSS-class recipes (never hand-rolled `backdrop-blur`).
+5. Headlines heavy + tight; numbers tabular via `StatNumber`.
+6. Icons: lucide inside `IconTile`; no emoji UI icons.
+7. Motion: v2 curve, press .97, reduced-motion respected, transform/opacity only.
+8. Z-index: only registered values (`.cursorrules`, axioms §8).
+9. Screen PRs: before/after screenshots at 390px (RTL; dark surfaces where
+   relevant), no logic changes beyond the stated scope, no map-owned files
+   (`AppMap`, `MapShell`, `DiscoverLayer`, `TurnCarousel`), HOLD for David's
+   visual approval.
 
-### אייקונים (SVG)
-| קטגוריה | נתיב |
-|---|---|
-| UI כלליים | `public/icons/ui/` |
-| Running | `public/icons/running/` (speed, endurance, start) |
-| Schedule | `public/icons/schedule/` |
-| שרירים | `public/icons/muscles/` (shoulders, chest, forearms, abs, calves, etc.) |
-| מפה | `public/icons/park-pin.svg`, `public/icons/user-marker.svg` |
+## 10. Legacy tokens (still valid, not v2)
 
----
+`primary #00dcd0`, `secondary #ea1d24`, `out-blue #007aff`, `out-cyan #00ADEF`,
+`on-brand #0F172A`, `card-light`, `background-light #f5f5f7`, `card-dark #1E293B`,
+`background-dark #0F172A`; shadows `subtle | floating | drawer | premium |
+premium-hover | card`; radii `lg 10 | xl 12 | 2xl 14 | 3xl 20 | 4xl 28`;
+`.premium-card*`, `.premium-btn`; keyframes `heroMarkerPulse | fadeIn |
+fadeInUp | swapSpin`. Z-index budget unchanged — see `.cursorrules` lines 31–45.
 
-## 9. PLACEHOLDERs — להשלמה ידנית
+## 11. Open items
 
-| נושא | מה חסר |
-|---|---|
-| ⚠️ צבעי סטטוס | אין טוקנים רשמיים — רק שימושים inline. יש לאחד ל-Tailwind tokens |
-| ⚠️ Cyan variants | `#00C9F2`, `#5BC2F2`, `#4AADE3`, `#00BAF7` — נפוצים מאוד אך לא מוגדרים כ-tokens |
-| ⚠️ Brand Kit Canva | תבניות פוסטים לרשתות — לא קיים בקוד |
-| ⚠️ צבעי אדמין | panel הניהול משתמש ב-ShadCN — צבעים ב-CSS variables שונים, לא נכנסו לטבלה |
-| ⚠️ Motion system | אין velocity/easing מוגדרים כ-tokens; רק class names כלליים |
+- Simpler Pro **Black (900)** OTF isn't bundled in the app — `font-black` falls
+  back to Bold. Copying `SimplerPro-Black.otf` from the site is a one-line
+  follow-up (visual change → screenshot approval).
+- `.v2-glass-*` fallback is untested on a real pre-`backdrop-filter` WebView.

@@ -23,9 +23,16 @@ export default defineConfig({
   resolve: {
     alias: { '@': path.resolve(__dirname, 'src') },
   },
+  // tsconfig's "jsx": "preserve" (Next owns the JSX transform) would otherwise
+  // leave JSX untouched and vitest can't parse .tsx. Compile it with the
+  // automatic runtime for tests only. Needed by the v2 primitives' render
+  // tests below — still node environment, no jsdom (SSR via react-dom/server).
+  oxc: { jsx: { runtime: 'automatic' } },
   test: {
     include: [
       'src/**/__tests__/**/*.test.ts',
+      // Design language v2 primitives — static-markup render tests (node env).
+      'src/components/ui/v2/__tests__/**/*.test.tsx',
       'tests/firestore-rules.test.ts',
       'tests/military-panel-adversarial-audit.rules.test.ts',
       'tests/firestore-fix-write-layer2-batch-a.rules.test.ts',
