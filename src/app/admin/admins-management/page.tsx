@@ -13,7 +13,7 @@ import {
   getPendingUsers,
   approveUser,
   rejectAdminRequest,
-  revokeSuperAdmin,
+  revokeAllAdminAccess,
   updateAdminProfile,
   AdminUser,
 } from '@/features/admin/services/admin-management.service';
@@ -26,8 +26,6 @@ import { getAllAuthorities, getAuthoritiesGrouped } from '@/features/admin/servi
 import InviteMemberModal from '@/features/admin/components/InviteMemberModal';
 import { Shield, UserPlus, Mail, AlertCircle, Trash2, Ban, Pencil, Copy, Check, Clock, ExternalLink } from 'lucide-react';
 import { Authority } from '@/types/admin-types';
-import { deleteUser } from '@/features/admin/services/users.service';
-import { logAction } from '@/features/admin/services/audit.service';
 import { usePagination } from '@/features/admin/hooks/usePagination';
 import Pagination from '@/features/admin/components/shared/Pagination';
 
@@ -227,65 +225,35 @@ export default function AdminsManagementPage() {
     }
   };
 
-  const handleRevoke = async (userId: string) => {
-    if (!confirm('האם אתה בטוח שברצונך להסיר הרשאות מנהל מערכת מהמשתמש?')) {
-      return;
-    }
-
-    try {
-      const adminInfo = await getCurrentAdminInfo();
-      await revokeSuperAdmin(userId, adminInfo);
-      setSuccess('הרשאות מנהל מערכת הוסרו בהצלחה');
-      await loadAdmins();
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (error) {
-      console.error('Error revoking admin:', error);
-      setError('שגיאה בהסרת הרשאות');
-    }
-  };
-
-  const handleDelete = async (adminId: string, adminName: string) => {
-    // Safety check: Prevent deleting yourself
-    if (adminId === currentUserId) {
-      setError('לא ניתן למחוק את עצמך');
+  // one honest action: remove EVERY admin role (revokeAllAdminAccess). Was two
+  // buttons: "הסר הרשאות" only cleared super-admin, "מחק מנהל" deleted the
+  // person's whole app profile. Typed confirmation: it's hard to undo.
+  const handleRevoke = async (userId: string, userName: string) => {
+    if (userId === currentUserId) {
+      setError('לא ניתן להסיר הרשאות מעצמך');
       setTimeout(() => setError(''), 3000);
       return;
     }
-
-    if (!confirm(`האם אתה בטוח שברצונך למחוק את המנהל "${adminName}"? פעולה זו אינה ניתנת לביטול.`)) {
-      return;
-    }
+    const typed = window.prompt(
+      `להסיר את כל הרשאות הניהול של "${userName}"? המשתמש יישאר באפליקציה, אבל לא יוכל להיכנס לפאנל.\nכדי לאשר, הקלד את השם: ${userName}`,
+    );
+    if (typed?.trim() !== userName.trim()) return;
 
     try {
-      setDeletingAdminId(adminId);
+      setDeletingAdminId(userId);
       setError('');
-      
       const adminInfo = await getCurrentAdminInfo();
-      if (!adminInfo) {
-        setError('שגיאה: לא ניתן לזהות את המנהל');
-        return;
-      }
-
-      // Delete admin user
-      await deleteUser(adminId);
-
-      // Log audit action
-      await logAction({
-        adminId: adminInfo.adminId,
-        adminName: adminInfo.adminName,
-        actionType: 'DELETE',
-        targetEntity: 'Admin',
-        targetId: adminId,
-        details: `Deleted admin: ${adminName}`,
-      });
-
-      // Reload admins
+      const { authoritiesUpdated } = await revokeAllAdminAccess(userId, adminInfo ?? undefined);
+      setSuccess(
+        authoritiesUpdated > 0
+          ? `כל ההרשאות של "${userName}" הוסרו, כולל ניהול של ${authoritiesUpdated} רשויות`
+          : `כל ההרשאות של "${userName}" הוסרו`,
+      );
       await loadAdmins();
-      setSuccess(`המנהל "${adminName}" נמחק בהצלחה`);
-      setTimeout(() => setSuccess(''), 3000);
+      setTimeout(() => setSuccess(''), 4000);
     } catch (error) {
-      console.error('Error deleting admin:', error);
-      setError('שגיאה במחיקת המנהל');
+      console.error('Error revoking admin access:', error);
+      setError('שגיאה בהסרת ההרשאות — שום דבר לא נמחק. נסה שוב.');
     } finally {
       setDeletingAdminId(null);
     }
@@ -686,23 +654,13 @@ export default function AdminsManagementPage() {
                                 </button>
                               )}
                               <button
-                                onClick={() => handleRevoke(admin.id)}
-                                disabled={isCurrentUser}
+                                onClick={() => handleRevoke(admin.id, admin.name)}
+                                disabled={isCurrentUser || deletingAdminId === admin.id}
                                 className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-sm font-bold hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                title={isCurrentUser ? 'לא ניתן להסיר הרשאות מעצמך' : 'הסר הרשאות'}
+                                title={isCurrentUser ? 'לא ניתן להסיר הרשאות מעצמך' : 'מסיר את כל תפקידי הניהול. המשתמש נשאר באפליקציה.'}
                               >
-                                הסר הרשאות
+                                {deletingAdminId === admin.id ? 'מסיר…' : 'הסר את כל ההרשאות'}
                               </button>
-                              {!isCurrentUser && (
-                                <button
-                                  onClick={() => handleDelete(admin.id, admin.name)}
-                                  disabled={deletingAdminId === admin.id}
-                                  className="p-2 hover:bg-red-100 rounded-lg transition-colors text-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  title="מחק מנהל"
-                                >
-                                  <Trash2 size={18} />
-                                </button>
-                              )}
                             </div>
                           </td>
                         </tr>
