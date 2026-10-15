@@ -147,14 +147,46 @@ export default function ReadinessUnitDetailPage() {
 
   return (
     <div dir="rtl" className="space-y-6 pb-12 max-w-5xl mx-auto">
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <AdminBreadcrumb items={breadcrumbItems} />
+        <div className="flex items-center gap-2">
+        {/* reporting up the chain (owner: Excel today) — the unit's own soldiers, as on screen */}
+        <button
+          onClick={() => {
+            const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+            const testIds = Array.from(new Set(data.soldiers.flatMap((sd) => sd.tests.map((t) => t.testId))));
+            const labelOf = (id: string) => data.own.components.find((c) => c.testId === id)?.label ?? id;
+            const header = ['שם', 'סטטוס', ...testIds.flatMap((id) => [`${labelOf(id)} — תוצאה`, `${labelOf(id)} — סף`, `${labelOf(id)} — תאריך`]), 'בדיקה אחרונה', 'קרוב לסף'];
+            const rows = data.soldiers.map((sd) => [
+              sd.name,
+              sd.statusLabel,
+              ...testIds.flatMap((id) => {
+                const t = sd.tests.find((x) => x.testId === id);
+                return [t?.value ?? '', t?.thresholdValue ?? '', t?.testDate ? new Date(t.testDate).toLocaleDateString('he-IL') : ''];
+              }),
+              sd.latestTestDate ? new Date(sd.latestTestDate).toLocaleDateString('he-IL') : '',
+              sd.nearThreshold?.isNear ? (sd.nearThreshold.note ?? 'כן') : '',
+            ]);
+            const csv = '\uFEFF' + [header, ...rows].map((r) => r.map(esc).join(',')).join('\n');
+            const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `כשירות-${data.unitName}-${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+          disabled={data.soldiers.length === 0}
+          className="flex items-center gap-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 text-sm font-bold px-4 py-2.5 rounded-xl transition-all disabled:opacity-40"
+        >
+          ייצוא לאקסל
+        </button>
         <button
           onClick={() => router.push(`/admin/authority/readiness/entry?unitId=${encodeURIComponent(data.unitId)}`)}
           className="flex items-center gap-2 bg-lime-700 hover:bg-lime-800 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-all"
         >
           <ClipboardList size={16} /> רישום תוצאות בוחן
         </button>
+        </div>
       </div>
 
       <div>
