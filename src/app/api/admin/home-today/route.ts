@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
     const pulse = computeWeekPulse(users, workouts, now);
 
     // ── needs attention ──
-    const [parks, routes, staleReports, invoices, failures] = await Promise.all([
+    const [parks, staleReports, invoices, failures] = await Promise.all([
       count('pending parks', async () => {
         const s = await db.collection('parks').where('published', '==', false).get();
         return s.docs.filter((d) => {
@@ -106,7 +106,9 @@ export async function GET(request: NextRequest) {
           return cs !== 'draft' && cs !== 'rejected';
         }).length;
       }),
-      count('pending routes', async () => (await db.collection('official_routes').where('published', '==', false).count().get()).data().count),
+      // (no pending-routes count here: route collections are read/written only
+      // through the approved route-collection files — scripts/safety-check.sh.
+      // The approval center the parks row links to lists routes too.)
       count('stale reports', async () => {
         const s = await db.collection('maintenance_reports').where('status', 'in', OPEN_REPORT_STATUSES).get();
         const weekAgo = now.getTime() - 7 * DAY;
@@ -122,8 +124,7 @@ export async function GET(request: NextRequest) {
     ]);
 
     const attention: Attention[] = [
-      { key: 'parks', label: 'מיקומים ממתינים לאישור', count: parks, href: '/admin/approval-center', tone: 'warn' },
-      { key: 'routes', label: 'מסלולים ממתינים לאישור', count: routes, href: '/admin/approval-center', tone: 'warn' },
+      { key: 'parks', label: 'מיקומים ממתינים לאישור (וגם מסלולים במרכז האישורים)', count: parks, href: '/admin/approval-center', tone: 'warn' },
       { key: 'reports', label: 'דיווחי תקלה פתוחים יותר משבוע', count: staleReports, href: '/admin/authority/reports', tone: 'bad' },
       { key: 'invoices', label: 'חשבוניות ממתינות לאישור', count: invoices, href: '/admin/finance/approvals', tone: 'info' },
       { key: 'nudge', label: 'סיימו אונבורדינג ולא התאמנו', count: pulse.toNudge, href: '/admin/journey', tone: 'info' },
