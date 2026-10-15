@@ -1,5 +1,7 @@
 'use client';
 
+import CityWeekSection from '@/features/admin/components/authority-manager/CityWeekSection';
+import { PageHeader } from '@/features/admin/components/ui';
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -27,7 +29,6 @@ import type {
 } from '@/features/readiness/core/services/readiness-dashboard.service';
 import {
   Loader2,
-  LayoutDashboard,
   MapPin,
   Users as UsersIcon,
   CalendarHeart,
@@ -629,20 +630,16 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="space-y-6 pb-12 max-w-5xl mx-auto" dir="rtl">
-      {/* Header */}
-      <div className="flex items-center gap-3 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-        <div className="w-12 h-12 bg-cyan-50 rounded-2xl flex items-center justify-center">
-          <LayoutDashboard size={24} className="text-cyan-600" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-black text-gray-900">דשבורד</h1>
-          {authorityName && (
-            <p className="text-sm text-gray-500 mt-0.5">
-              מבט על · <span className="font-bold text-cyan-600">{authorityName}</span>
-            </p>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="דשבורד עירוני"
+        title="השבוע ב"
+        strong={authorityName || 'עיר'}
+        subtitle="האם מתאמנים, איפה, ומה מחכה לטיפול."
+      />
+
+      {/* "השבוע בעיר" first (audit 15.10.2026): usage vs last week, busy and
+          quiet parks, how long reports have been open */}
+      <CityWeekSection authorityId={authorityId} />
 
       {/* ═══ Quick Stats Grid ═══ */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
