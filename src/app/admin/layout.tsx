@@ -54,6 +54,8 @@ import {
     AlertCircle,
     Compass,
     Bot,
+    Menu,
+    X,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -154,6 +156,18 @@ function AdminLayoutInner({
 }) {
     const router = useRouter();
     const pathname = usePathname();
+    // phones: the sidebar opens as a drawer from a top bar (it was simply
+    // hidden below md — no way to change screens or log out on a phone)
+    const [mobileNavOpen, setMobileNavOpen] = useState(false);
+    useEffect(() => { setMobileNavOpen(false); }, [pathname]);
+    useEffect(() => {
+        if (!mobileNavOpen) return;
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMobileNavOpen(false); };
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        window.addEventListener('keydown', onKey);
+        return () => { document.body.style.overflow = prevOverflow; window.removeEventListener('keydown', onKey); };
+    }, [mobileNavOpen]);
     const searchParamsRaw = useSearchParams();
     const orgCtx = useOrgSelector();
 
@@ -910,8 +924,19 @@ function AdminLayoutInner({
         <div className={shell.shell} dir="rtl" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
             <AdminSessionSync />
             <SessionHealthBanner />
-            {/* Sidebar — floating liquid glass (admin-shell.module.css) */}
-            <aside className={`${shell.sidebar} flex-shrink-0 hidden md:flex flex-col`}>
+            {/* phones: scrim behind the open drawer */}
+            {mobileNavOpen && (
+                <button type="button" aria-label="סגור תפריט" className={shell.scrim} onClick={() => setMobileNavOpen(false)} />
+            )}
+            {/* Sidebar — floating liquid glass (admin-shell.module.css); on phones a drawer */}
+            <aside
+                id="admin-sidebar"
+                className={`${shell.sidebar} ${mobileNavOpen ? shell.sidebarOpen : ''} flex-shrink-0 md:flex flex-col`}
+                aria-label="תפריט ניהול"
+            >
+                <button type="button" aria-label="סגור תפריט" className={shell.drawerClose} onClick={() => setMobileNavOpen(false)}>
+                    <X size={20} />
+                </button>
                 <BrandBlock meta={isLocalManager && authorityName ? `פורטל ניהול: ${authorityName}` : undefined} />
 
                 <nav className="p-2 md:p-3 flex flex-col flex-1 min-h-0 overflow-y-auto scrollbar-thin">
@@ -1369,10 +1394,20 @@ function AdminLayoutInner({
                 break Mapbox's height resolution, rendering a blank canvas. */}
             {pathname === '/admin/routes/new' || pathname === '/admin/authority/routes/new' ? (
                 <main className={shell.mainFull}>
+                    <MobileBar
+                        open={mobileNavOpen}
+                        onOpen={() => setMobileNavOpen(true)}
+                        meta={isLocalManager && authorityName ? authorityName : undefined}
+                    />
                     {children}
                 </main>
             ) : (
                 <main className={shell.main}>
+                    <MobileBar
+                        open={mobileNavOpen}
+                        onOpen={() => setMobileNavOpen(true)}
+                        meta={isLocalManager && authorityName ? authorityName : undefined}
+                    />
                     <div
                         className={`${shell.sheet} p-4 md:p-8 pb-16 text-slate-900`}
                         style={{ 
@@ -1421,6 +1456,28 @@ function BrandBlock({ meta }: { meta?: string }) {
                 <span className={shell.brandSub}>ניהול</span>
             </h1>
             {meta && <p className={shell.brandMeta}>{meta}</p>}
+        </div>
+    );
+}
+
+/** phones only (hidden from md up): the wordmark + the button that opens the sidebar drawer */
+function MobileBar({ open, onOpen, meta }: { open: boolean; onOpen: () => void; meta?: string }) {
+    return (
+        <div className={shell.mobileBar}>
+            <span className={shell.brand}>
+                <span className={shell.brandMark}>OUT</span>
+                <span className={shell.brandSub}>{meta ?? 'ניהול'}</span>
+            </span>
+            <button
+                type="button"
+                className={shell.menuButton}
+                aria-label="פתח תפריט"
+                aria-expanded={open}
+                aria-controls="admin-sidebar"
+                onClick={onOpen}
+            >
+                <Menu size={22} />
+            </button>
         </div>
     );
 }
