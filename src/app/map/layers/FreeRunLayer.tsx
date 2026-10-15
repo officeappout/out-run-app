@@ -75,7 +75,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
   // G3.2 (flag enable_route_direction_adapt, fail-closed): adapt a loop to the walked direction.
   const { flags: runFlags } = useFeatureFlags();
   const runnerGender = useUserStore((s) => s.profile?.core?.gender) as 'male' | 'female' | 'other' | undefined;
-  const { showStartArrow } = useRouteDirectionAdapt({
+  const { startArrow } = useRouteDirectionAdapt({
     enabled: runFlags.enableRouteDirectionAdapt,
     focusedRoute: logic.focusedRoute,
     setFocusedRoute: logic.setFocusedRoute,
@@ -307,7 +307,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
               headingMode={mapHeadingMode}
               onFollowRestored={() => setMapFollowEnabled(true)}
               mapMode="free_run"
-              startDirectionArrow={showStartArrow}
+              startDirectionArrow={startArrow}
               activityType={activityType}
               isNavigationMode={logic.isNavigationMode}
               partnerPositions={partnerPositions}

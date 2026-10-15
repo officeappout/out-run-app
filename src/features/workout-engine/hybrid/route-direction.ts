@@ -87,3 +87,59 @@ export function detectWalkDirection(path: readonly LngLat[], pos: { lat: number;
   }
   return 'undecided';
 }
+
+/** Where a point sits along the path: nearest point on any segment, with its along-path distance. */
+export function projectOnPath(path: readonly LngLat[], pos: { lat: number; lng: number }): { alongM: number; distM: number } {
+  const kx = Math.cos(toRad(pos.lat)) * 111_320;
+  const ky = 110_540;
+  let best = { alongM: 0, distM: Infinity };
+  let walked = 0;
+  for (let i = 1; i < path.length; i++) {
+    const ax = (path[i - 1][0] - pos.lng) * kx, ay = (path[i - 1][1] - pos.lat) * ky;
+    const bx = (path[i][0] - pos.lng) * kx, by = (path[i][1] - pos.lat) * ky;
+    const dx = bx - ax, dy = by - ay;
+    const len2 = dx * dx + dy * dy;
+    const t = len2 > 0 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2)) : 0;
+    const d = Math.hypot(ax + dx * t, ay + dy * t);
+    const seg = Math.sqrt(len2);
+    // Strictly closer wins → on a loop's closing point (start ≈ end) the START is kept.
+    if (d < best.distM) best = { alongM: walked + seg * t, distM: d };
+    walked += seg;
+  }
+  return best;
+}
+
+function bearingDeg(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const y = Math.sin(toRad(b.lng - a.lng)) * Math.cos(toRad(b.lat));
+  const x = Math.cos(toRad(a.lat)) * Math.sin(toRad(b.lat))
+    - Math.sin(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.cos(toRad(b.lng - a.lng));
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
+
+/** Look-ahead for the start arrow's bearing (m) — a net direction, not one jittery micro-segment. */
+const START_ARROW_WINDOW_M = 25;
+
+/**
+ * G3.2 start arrow, for EVERY route shape (one_way included — those are never flipped): anchored
+ * where the user joins the line (their start position projected onto it; path[0] when unknown),
+ * pointing along the line TOWARD THE FIRST STOP. Stop behind the anchor (a one_way joined past
+ * it) → the arrow points back along the line; no stop coordinates (full-park) → forward.
+ */
+export function computeStartArrow(
+  path: readonly LngLat[],
+  start: { lat: number; lng: number } | null | undefined,
+  firstStop: { lat: number; lng: number } | null | undefined,
+): { lat: number; lng: number; bearing: number } | null {
+  if (path.length < 2) return null;
+  const total = pathLengthM(path);
+  if (total <= 0) return null;
+  const anchorM = start ? projectOnPath(path, start).alongM : 0;
+  const stopM = firstStop ? projectOnPath(path, firstStop).alongM : null;
+  const forward = stopM == null || stopM >= anchorM;
+  const anchor = pointAlong(path, anchorM);
+  const aheadM = forward
+    ? Math.min(total, anchorM + START_ARROW_WINDOW_M)
+    : Math.max(0, anchorM - START_ARROW_WINDOW_M);
+  if (Math.abs(aheadM - anchorM) < 1) return null;
+  return { ...anchor, bearing: bearingDeg(anchor, pointAlong(path, aheadM)) };
+}
