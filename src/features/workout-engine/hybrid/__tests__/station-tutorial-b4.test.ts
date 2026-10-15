@@ -62,10 +62,17 @@ describe('the three bubbles', () => {
     expect(chips.target).toBe(COACH_TARGET_CHIPS);
     expect(chips.text).toBe('⏱ = על זמן, אנחנו סופרים · 🔁 = על חזרות, אתה סופר ולוחץ סיימתי');
     expect(stationTutorialSteps('female')[1].text).toBe('⏱ = על זמן, אנחנו סופרים · 🔁 = על חזרות, את סופרת ולוחצת סיימתי');
-    expect(stationTutorialSteps('other')[1].text).toContain('את/ה סופר/ת ולוחץ/ת סיימתי');
+    expect(stationTutorialSteps('other')[1].text).toBe('⏱ = על זמן, אנחנו סופרים · 🔁 = על חזרות, סופרים ולוחצים סיימתי');
     expect(skip.target).toBe(COACH_TARGET_SKIP);
-    expect(skip.text).toContain('⏸');
-    expect(skip.text).toContain('⏭');
+    // Gender-neutral, identical for everyone.
+    for (const gen of ['male', 'female', 'other', null] as const) {
+      expect(stationTutorialSteps(gen)[2].text).toBe('בכל רגע אפשר לעצור ⏸ או לדלג על תרגיל או על כל התחנה ⏭');
+    }
+  });
+  it('no slash forms (/י, /ת, את/ה) in any bubble, any gender', () => {
+    for (const gen of ['male', 'female', 'other', null] as const) {
+      for (const step of stationTutorialSteps(gen)) expect(step.text).not.toMatch(/[א-ת]\/[א-ת]/);
+    }
   });
   it('every target exists on screen', () => {
     const screen = src('../StationWelcomeScreen.tsx');

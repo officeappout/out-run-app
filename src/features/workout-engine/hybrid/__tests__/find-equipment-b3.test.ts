@@ -42,7 +42,28 @@ describe('data pass-through (additive)', () => {
 
   it('route-stops composer copies the stop candidate\'s availableEquipment onto the station segment', () => {
     const src = readFileSync(fileURLToPath(new URL('../compose-hybrid-session.service.ts', import.meta.url)), 'utf8');
-    expect(src).toContain('availableEquipment: stop.candidate.availableEquipment,');
+    expect(src).toContain('...(stop.candidate.equipmentUnknown ? {} : { availableEquipment: stop.candidate.availableEquipment }),');
+  });
+
+  it('failed equipment lookup → "unknown", not "none": the segment omits availableEquipment → no filter', () => {
+    // The lookup marks the stop unknown on every failure path (no park id, park not found, read throws);
+    // a successful read keeps the translated list ([] only when the park genuinely has none).
+    const start = readFileSync(fileURLToPath(new URL('../start-hybrid-session.ts', import.meta.url)), 'utf8');
+    const lookup = start.slice(start.indexOf("await tm.time('getPark'"), start.indexOf('const equippedStops'));
+    expect(lookup).toContain("if (!s.parkId) { s.equipmentUnknown = true; return; }");
+    expect(lookup).toContain('if (!fullPark) s.equipmentUnknown = true;');
+    expect(lookup.slice(lookup.indexOf('} catch {'))).toContain('s.equipmentUnknown = true;');
+    // …and a station segment built that way (no key) → context null → today's full list.
+    const seg = { index: 1, kind: 'strength', parkId: 'p1', durationSec: 600, estCalories: 0 } as HybridPlannedSegment;
+    const allowed = computeStationContext([seg], 0).availableEquipment;
+    expect(allowed).toBeNull();
+    const options = [
+      { exercise: { id: 'rows-on-bar', execution_methods: [{ location: 'park', equipmentIds: ['pullup_bar'] }] } },
+      { exercise: { id: 'home-only', execution_methods: [{ location: 'home' }] } },
+    ];
+    expect(filterAlternativesByEquipment(options, allowed).map((o) => o.exercise.id)).toEqual(['rows-on-bar', 'home-only']);
+    // Contrast: a park that genuinely has no equipment ([]) → bodyweight park methods only.
+    expect(filterAlternativesByEquipment(options, []).map((o) => o.exercise.id)).toEqual([]);
   });
 
   it('plan adapter: each exercise\'s equipment survives (normalized); bodyweight stays without the key', () => {

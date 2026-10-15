@@ -38,17 +38,11 @@ export function stationTutorialSteps(gender: AppGender | null | undefined): Stat
         gender,
         '⏱ = על זמן, אנחנו סופרים · 🔁 = על חזרות, אתה סופר ולוחץ סיימתי',
         '⏱ = על זמן, אנחנו סופרים · 🔁 = על חזרות, את סופרת ולוחצת סיימתי',
-        '⏱ = על זמן, אנחנו סופרים · 🔁 = על חזרות, את/ה סופר/ת ולוחץ/ת סיימתי',
+        // No slash forms ("את/ה") — the unspecified gender gets neutral wording.
+        '⏱ = על זמן, אנחנו סופרים · 🔁 = על חזרות, סופרים ולוחצים סיימתי',
       ),
     },
-    {
-      target: COACH_TARGET_SKIP,
-      text: g(
-        gender,
-        '⏸ בכל רגע תוכל לעצור, ⏭ ולדלג על תרגיל או על כל התחנה',
-        '⏸ בכל רגע תוכלי לעצור, ⏭ ולדלג על תרגיל או על כל התחנה',
-        '⏸ בכל רגע אפשר לעצור, ⏭ ולדלג על תרגיל או על כל התחנה',
-      ),
-    },
+    // Gender-neutral for everyone (David, 15.10.2026).
+    { target: COACH_TARGET_SKIP, text: 'בכל רגע אפשר לעצור ⏸ או לדלג על תרגיל או על כל התחנה ⏭' },
   ];
 }
