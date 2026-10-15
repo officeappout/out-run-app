@@ -29,6 +29,7 @@ import type { CardTotal } from '@/features/workout-engine/hybrid/round-trip';
 import { ActivityGlyph } from './activity-icons';
 import type { AerobicKind } from '@/features/workout-engine/hybrid/compose-hybrid-session.service';
 import { getOnboardingPref, setOnboardingPref } from '@/lib/onboardingPrefs';
+import { resolveSwipeNudge, SWIPE_HINT_V2 } from './swipe-hint';
 
 // When the unified-cards flag is on, the slot card matches ROUTE_CARD_WIDTH
 // (85vw / max 340px) and is content-height; otherwise the legacy slot dims.
@@ -44,6 +45,9 @@ const CARD_VW = 78;
 // phone) → symmetric ~39px side margins and ~27px of the neighbour peeking (was: the card itself was
 // 85vw inside a 78vw wrapper, so it overflowed one side and bled toward the screen edge).
 const CARD_VW_FOCUSED = 80;
+// G1.1 v2 (flag `enable_carousel_swipe_hint`): 80vw left only ~27px of the next card visible
+// (less than the 29px #207 called too thin). 72vw → ~42px on a 390px phone.
+const CARD_VW_FOCUSED_HINT = 72;
 const CARD_HEIGHT = 190; // legacy slot-card height (flag off); unified = content-height
 const GAP = 12;
 const ACTIVE_SCALE = 1.0;
@@ -56,6 +60,8 @@ const CTA_GRADIENT = 'linear-gradient(to left, #0CF2E3, #00BAF7)';
 // durable-pref pattern (sync getOnboardingPref read on init,
 // setOnboardingPref once consumed).
 const SWIPE_HINT_SEEN_KEY = 'hybrid_slot_carousel_swipe_hint_seen';
+// G1.1 v2 (flag on): its own seen-key, so users who got #207's quick nudge get the clearer one once.
+const SWIPE_HINT_V2_SEEN_KEY = 'hybrid_slot_carousel_swipe_hint_v2_seen';
 
 const ENTRY_PHRASES = [
   'מה עושים היום? ✨',
@@ -165,12 +171,15 @@ function AssessmentPromptCard({ onSelect, onArm, consumeArmed }: {
 // — pointerdown on card A must not let a click on card B fire (id match); (c) stale
 // arms from a carousel drag — the track's onDragStart clears the armed id. The card
 // body is NOT clickable (compose is a deliberate CTA action, never a body/auto tap).
-function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTotal, slim = false }: {
+function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTotal, slim = false, guardInactiveCta = false, onFocusCard }: {
   slot: HybridSlot;
   onSelect: () => void;
   onArm: () => void;
   consumeArmed: () => boolean;
   isActive: boolean;
+  /** G1.1 v2: a peeking (non-centred) card's CTA only centres the card — never starts/opens. */
+  guardInactiveCta?: boolean;
+  onFocusCard?: () => void;
   /** route_stops only: the composed session's real total (null until the settle-preview
    *  compose lands → the line is blank, never a placeholder). */
   routeStopsTotal?: CardTotal | null;
@@ -237,6 +246,7 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
           // eslint-disable-next-line no-console
           console.log('[compose-trigger]', 'cta', slot.kind, slot.id, 'armed=', armed);
           if (!armed) return;
+          if (guardInactiveCta && !isActive) { onFocusCard?.(); return; }
           onSelect();
         }}
         ctaContent={
@@ -295,6 +305,7 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
           // eslint-disable-next-line no-console
           console.log('[compose-trigger]', 'cta', slot.kind, slot.id, 'armed=', armed);
           if (!armed) return; // ghost / cross-card / stale-drag click → ignore
+          if (guardInactiveCta && !isActive) { onFocusCard?.(); return; }
           onSelect();
         }}
         className="w-full flex items-center justify-center gap-2 text-white text-[14px] font-black rounded-full active:scale-[0.97] transition-transform"
@@ -342,6 +353,12 @@ interface HybridSlotCarouselProps {
    * and render the slim card variant. false/omitted → byte-identical to before.
    */
   focused?: boolean;
+  /**
+   * G1.1 v2 (remote flag `enable_carousel_swipe_hint`, fail-closed): wider peek, a delayed
+   * once-per-user nudge (own seen-key, burned even if interrupted), and a peeking card's CTA only
+   * centres it. false/omitted → today's #207 behaviour, byte-identical.
+   */
+  swipeHint?: boolean;
 }
 
 export default function HybridSlotCarousel({
@@ -356,6 +373,7 @@ export default function HybridSlotCarousel({
   computingPreview = false,
   routeStopsTotal = null,
   focused = false,
+  swipeHint = false,
 }: HybridSlotCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -368,17 +386,23 @@ export default function HybridSlotCarousel({
   // previous one)? Lazy-init from the durable pref so a returning user never sees
   // it again. Flips true (and persists) the instant the one nudge animation completes.
   const [swipeHintPlayed, setSwipeHintPlayed] = useState(() => getOnboardingPref(SWIPE_HINT_SEEN_KEY) != null);
+  // G1.1 v2 — read once; only consulted when `swipeHint` is on.
+  const [hintV2Played, setHintV2Played] = useState(() => getOnboardingPref(SWIPE_HINT_V2_SEEN_KEY) != null);
+  const markHintV2Seen = useCallback(() => {
+    setHintV2Played(true);
+    setOnboardingPref(SWIPE_HINT_V2_SEEN_KEY, '1');
+  }, []);
 
   useEffect(() => {
     const sync = () => {
-      setCardW(Math.min(CARD_MAX_W, (window.innerWidth * (focused ? CARD_VW_FOCUSED : CARD_VW)) / 100));
+      setCardW(Math.min(CARD_MAX_W, (window.innerWidth * (focused ? (swipeHint ? CARD_VW_FOCUSED_HINT : CARD_VW_FOCUSED) : CARD_VW)) / 100));
       if (viewportRef.current) setViewportW(viewportRef.current.offsetWidth);
     };
     sync();
     const ro = new ResizeObserver(sync);
     if (viewportRef.current) ro.observe(viewportRef.current);
     return () => ro.disconnect();
-  }, [focused]);
+  }, [focused, swipeHint]);
 
   // Keep the active index valid when the slot set changes (activity toggle).
   useEffect(() => {
@@ -415,6 +439,11 @@ export default function HybridSlotCarousel({
     if (info.offset.x < -40) handleSelect(activeIndex + 1);
     else if (info.offset.x > 40) handleSelect(activeIndex - 1);
   }, [activeIndex, handleSelect]);
+
+  // Which nudge (if any) plays now. Flag off → #207's original rule, unchanged.
+  const nudge = resolveSwipeNudge({
+    swipeHint, slotCount: slots.length, v1Played: swipeHintPlayed, v2Played: hintV2Played,
+  });
 
   return (
     <div className="absolute inset-0 z-[100] pointer-events-none flex flex-col justify-end" dir="rtl">
@@ -459,8 +488,17 @@ export default function HybridSlotCarousel({
             // sees the carousel move and realizes more cards exist — instead of
             // tapping the first thing in front of them. Reverts to the normal
             // position-tracking animation forever after (onAnimationComplete).
-            animate={!swipeHintPlayed && slots.length > 1 ? { x: [trackX, trackX - 18, trackX] } : { x: trackX }}
+            animate={
+              nudge === 'v2'
+                ? { x: [trackX, trackX - SWIPE_HINT_V2.offsetPx, trackX] }
+                : !swipeHint && !swipeHintPlayed && slots.length > 1 ? { x: [trackX, trackX - 18, trackX] } : { x: trackX }
+            }
             onAnimationComplete={() => {
+              if (swipeHint) {
+                // v2: burn only when the nudge really played (never on a 1-card carousel).
+                if (nudge === 'v2') markHintV2Seen();
+                return;
+              }
               if (swipeHintPlayed) return;
               setSwipeHintPlayed(true);
               setOnboardingPref(SWIPE_HINT_SEEN_KEY, '1');
@@ -469,9 +507,11 @@ export default function HybridSlotCarousel({
             // targets one value, it can't animate through a 3-point sequence. The
             // normal single-target tracking case keeps the original spring feel.
             transition={
-              !swipeHintPlayed && slots.length > 1
-                ? { duration: 0.6, ease: 'easeInOut' }
-                : { type: 'spring', stiffness: 300, damping: 30 }
+              nudge === 'v2'
+                ? { duration: SWIPE_HINT_V2.durationS, delay: SWIPE_HINT_V2.delayS, ease: 'easeInOut' }
+                : !swipeHint && !swipeHintPlayed && slots.length > 1
+                  ? { duration: 0.6, ease: 'easeInOut' }
+                  : { type: 'spring', stiffness: 300, damping: 30 }
             }
             drag="x"
             dragConstraints={{ left: centerX - lastIndex * stride, right: centerX }}
@@ -481,7 +521,13 @@ export default function HybridSlotCarousel({
             // non-first cards (e.g. full_park) that need a swipe to reach. Disarm ONLY past
             // a ~10px REAL-drag threshold; a tap stays armed → onSelect fires. Paging is
             // untouched (onDragEnd still pages at >40px). Flag OFF = the original behaviour.
-            onDragStart={MAP_OVERVIEW_CHROME_V1 ? undefined : () => { armedSlotIdRef.current = null; }}
+            onDragStart={
+              swipeHint
+                // v2: the user found the swipe on their own → the nudge is no longer needed (and an
+                // interrupted keyframe animation must not replay later from a new position).
+                ? () => { if (nudge === 'v2') markHintV2Seen(); if (!MAP_OVERVIEW_CHROME_V1) armedSlotIdRef.current = null; }
+                : MAP_OVERVIEW_CHROME_V1 ? undefined : () => { armedSlotIdRef.current = null; }
+            }
             onDrag={
               MAP_OVERVIEW_CHROME_V1
                 ? (_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
@@ -513,6 +559,8 @@ export default function HybridSlotCarousel({
                     isActive={isActive}
                     routeStopsTotal={routeStopsTotal}
                     slim={focused}
+                    guardInactiveCta={swipeHint}
+                    onFocusCard={() => handleSelect(i)}
                     onSelect={() => onSelectSlot(slot)}
                     onArm={() => { armedSlotIdRef.current = slot.id; }}
                     consumeArmed={() => {
