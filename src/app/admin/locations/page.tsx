@@ -1722,8 +1722,17 @@ export default function LocationsPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('האם אתה בטוח שברצונך למחוק מיקום זה?')) return;
+        // the routes tab lists official_routes docs (shaped like parks) — they
+        // must be deleted from their own collection (this used to delete
+        // parks/{routeId}, i.e. nothing, while the row stayed)
+        const isRoute = officialRoutes.some(r => r.id === id);
+        if (!confirm(isRoute ? 'האם אתה בטוח שברצונך למחוק מסלול זה?' : 'האם אתה בטוח שברצונך למחוק מיקום זה?')) return;
         try {
+            if (isRoute) {
+                await deleteDoc(doc(db, 'official_routes', id));
+                setOfficialRoutes(prev => prev.filter(r => r.id !== id));
+                return;
+            }
             await deleteDoc(doc(db, 'parks', id));
             setParks(prev => prev.filter(park => park.id !== id));
         } catch (error) {

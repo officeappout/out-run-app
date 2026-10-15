@@ -24,6 +24,7 @@ import { Park } from '@/types/admin-types';
 import { Plus, Edit2, Trash2, Users, Calendar, MapPin, ShieldCheck, Dumbbell, Target, DollarSign, Clock, CalendarPlus, ImagePlus, X, Building2, MapPinned, Search, ChevronDown, ImageOff, Route as RouteIcon, HeartPulse, Link2, Check, Crown, Power } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { isRootAdmin } from '@/config/feature-flags';
 import { ISRAEL_GENERAL_MAP_CENTER } from '@/lib/map-defaults';
 import { MediaAsset } from '@/features/admin/services/media-assets.service';
 import CommunityEvents from './CommunityEvents';
@@ -415,6 +416,9 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900">קבוצות קהילה</h2>
         <div className="flex items-center gap-2">
+          {/* maintenance tools (bulk delete / one-off migration) — OUT root
+              admins only; city staff saw and could run them */}
+          {isRootAdmin(auth.currentUser?.email) && (<>
           {/* Database Health: delete stale materialized events */}
           <button
             onClick={async () => {
@@ -451,6 +455,7 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
           >
             תקן נתונים ישנים
           </button>
+          </>)}
           <button
             onClick={() => {
               setShowForm(true);

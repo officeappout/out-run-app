@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { isRootAdmin } from '@/config/feature-flags';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import { collection, getDocs, doc, updateDoc, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -129,7 +130,13 @@ export default function UsersManagementPage() {
   };
 
   const toggleSuperAdmin = async (userId: string, currentValue: boolean) => {
-    if (!confirm(`האם אתה בטוח שברצונך ${currentValue ? 'להסיר' : 'להוסיף'} הרשאות מנהל מערכת למשתמש זה?`)) {
+    // granting/removing super-admin is for OUT root admins only
+    if (!isRootAdmin(auth.currentUser?.email)) return;
+    if (!currentValue) {
+      // granting is full control of the system — make it a typed decision
+      const typed = window.prompt('מנהל־על מקבל שליטה מלאה במערכת. כדי לאשר, הקלד: מנהל על');
+      if (typed?.trim() !== 'מנהל על') return;
+    } else if (!confirm('להסיר הרשאות מנהל־על ממשתמש זה?')) {
       return;
     }
 
@@ -313,6 +320,7 @@ export default function UsersManagementPage() {
                     </td>
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-2">
+                        {isRootAdmin(auth.currentUser?.email) && (
                         <button
                           onClick={() => toggleSuperAdmin(user.id, user.isSuperAdmin)}
                           disabled={updating === user.id}
@@ -328,6 +336,7 @@ export default function UsersManagementPage() {
                             ? 'הסר הרשאות'
                             : 'הפוך למנהל'}
                         </button>
+                        )}
                         <button
                           onClick={() => toggleApproval(user.id, user.isApproved)}
                           disabled={updating === user.id}
