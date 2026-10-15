@@ -1,308 +1,178 @@
 'use client';
 
-// Force dynamic rendering to prevent SSR issues with window/localStorage
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
+/**
+ * The panel home — "מה קורה היום ומה מחכה לי" (audit 15.10.2026). Was a wall
+ * of quick-link tiles plus dashboards that duplicated statistics/insights
+ * (since folded into the Journey hub). Now: the week's pulse (signups,
+ * 7-day activation, weekly active, at-risk, top source), a "needs attention"
+ * list where every row links to the screen that resolves it, and a few
+ * shortcuts. Built from the admin UI kit. Data: GET /api/admin/home-today.
+ *
+ * Authority-manager-only users are still sent to /admin/dashboard.
+ */
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Dumbbell, Users, Signal, ClipboardList, Building2, TrendingUp, BarChart3, Lightbulb, Shield, FileText, Map, Clock, ArrowUpRight } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
+import { ArrowLeft, CheckCircle2, Compass, Dumbbell, Link2, Map, Users } from 'lucide-react';
 import { auth } from '@/lib/firebase';
-import { isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
+import { adminAuthedFetch } from '@/lib/adminAuthedFetch';
+import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
 import {
-  getTopBaseMovements,
-  getLocationDistribution,
-  getGlobalMaintenanceReports,
-  type AuthorityPerformance,
-} from '@/features/admin/services/cpo-analytics.service';
-import ExecutiveSummary, { type ExecutiveSummaryData } from '@/features/admin/components/cpo-dashboard/ExecutiveSummary';
-import AuthorityPerformanceTable from '@/features/admin/components/cpo-dashboard/AuthorityPerformanceTable';
-import MaintenanceOverview from '@/features/admin/components/cpo-dashboard/MaintenanceOverview';
-import OnboardingFunnel from '@/features/admin/components/cpo-dashboard/OnboardingFunnel';
+  EmptyState,
+  ErrorState,
+  KpiCard,
+  KpiGrid,
+  PageHeader,
+  Panel,
+  Skeleton,
+  StatusPill,
+} from '@/features/admin/components/ui';
+import type { HomeTodayResponse } from '@/features/admin/services/home-today';
 
-/**
- * 00-MASTER-PLAN.md §13.11 P1 — see src/lib/adminAnalyticsScope.ts. This
- * page already redirects authority-manager-only users to /admin/dashboard
- * before loading any of this (line below), so the only scopes it can ever
- * see are 'platform' and 'vertical' — matching what
- * /api/admin/statistics-summary supports.
- */
-interface StatisticsSummaryResponse {
-    scope: 'platform' | 'vertical';
-    executiveSummary: ExecutiveSummaryData;
-    authorityPerformance: AuthorityPerformance[];
-    notApplicable: string[];
+const fmt = (n: number) => n.toLocaleString('he-IL');
+
+function delta(now: number, before: number): string | undefined {
+  if (before === 0) return now > 0 ? 'שבוע שעבר: 0' : undefined;
+  const pct = Math.round(((now - before) / before) * 100);
+  return `${pct >= 0 ? '▲' : '▼'} ${Math.abs(pct)}% משבוע שעבר (${fmt(before)})`;
 }
 
-export default function AdminDashboardPage() {
-    const router = useRouter();
-    const [loading, setLoading] = useState(true);
-    const [authLoading, setAuthLoading] = useState(true);
-    
-    // CPO Dashboard Data
-    const [executiveSummary, setExecutiveSummary] = useState<ExecutiveSummaryData | null>(null);
-    const [executiveSummaryNotApplicable, setExecutiveSummaryNotApplicable] = useState<string[]>([]);
-    const [authorityPerformance, setAuthorityPerformance] = useState<AuthorityPerformance[]>([]);
-    const [topMovements, setTopMovements] = useState<any[]>([]);
-    const [locationDistribution, setLocationDistribution] = useState<any[]>([]);
-    const [maintenanceReports, setMaintenanceReports] = useState<any[]>([]);
-    const [statsDeniedMessage, setStatsDeniedMessage] = useState<string | null>(null);
-    const [dataLoading, setDataLoading] = useState(true);
+function greeting(d = new Date()): string {
+  const h = d.getHours();
+  if (h < 5) return 'לילה טוב';
+  if (h < 12) return 'בוקר טוב';
+  if (h < 17) return 'צהריים טובים';
+  if (h < 21) return 'ערב טוב';
+  return 'לילה טוב';
+}
 
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                try {
-                    // Check if user is ONLY an authority manager (not super admin)
-                    const isOnly = await isOnlyAuthorityManager(user.uid);
-                    if (isOnly) {
-                        router.replace('/admin/dashboard');
-                        return;
-                    }
-                } catch (error) {
-                    console.error('Error checking user role:', error);
-                }
-            }
-            setAuthLoading(false);
-        });
-        return () => unsubscribe();
-    }, [router]);
+const SHORTCUTS = [
+  { href: '/admin/journey', label: 'מסע משתמש', icon: Compass },
+  { href: '/admin/users/all', label: 'כל המשתמשים', icon: Users },
+  { href: '/admin/locations', label: 'מיקומים ומסלולים', icon: Map },
+  { href: '/admin/exercises', label: 'בנק תרגילים', icon: Dumbbell },
+  { href: '/admin/links', label: 'קישורים שיווקיים', icon: Link2 },
+];
 
-    // Load CPO Dashboard Data
-    useEffect(() => {
-        if (authLoading) return;
+export default function AdminHomePage() {
+  const router = useRouter();
+  const [ready, setReady] = useState(false);
+  const [name, setName] = useState('');
+  const [data, setData] = useState<HomeTodayResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-        async function loadData() {
-            try {
-                setDataLoading(true);
-
-                const user = auth.currentUser;
-                let statsResult: StatisticsSummaryResponse | null = null;
-                if (user) {
-                    const idToken = await user.getIdToken();
-                    const res = await fetch('/api/admin/statistics-summary', { headers: { Authorization: `Bearer ${idToken}` } });
-                    if (res.ok) {
-                        statsResult = await res.json();
-                    } else {
-                        const body = await res.json().catch(() => ({}));
-                        setStatsDeniedMessage(body?.error ?? 'שגיאה בטעינת הנתונים.');
-                    }
-                }
-
-                const [movements, locations, maintenance] = await Promise.all([
-                    getTopBaseMovements(5),
-                    getLocationDistribution(),
-                    getGlobalMaintenanceReports(),
-                ]);
-
-                if (statsResult) {
-                    setStatsDeniedMessage(null);
-                    setExecutiveSummary(statsResult.executiveSummary);
-                    setExecutiveSummaryNotApplicable(statsResult.notApplicable);
-                    setAuthorityPerformance(statsResult.authorityPerformance);
-                }
-                setTopMovements(movements);
-                setLocationDistribution(locations);
-                setMaintenanceReports(maintenance);
-            } catch (error) {
-                console.error('Error loading CPO dashboard data:', error);
-            } finally {
-                setDataLoading(false);
-                setLoading(false);
-            }
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          if (await isOnlyAuthorityManager(user.uid)) {
+            router.replace('/admin/dashboard');
+            return;
+          }
+          const role = await checkUserRole(user.uid, user.email);
+          setName(role.name?.split(' ')[0] ?? '');
+        } catch (err) {
+          console.error('[admin home] role check failed:', err);
         }
+      }
+      setReady(true);
+    });
+    return () => unsubscribe();
+  }, [router]);
 
-        loadData();
-    }, [authLoading]);
-    const cards = [
-        {
-            title: "ניהול מיקומים",
-            icon: Map,
-            href: "/admin/locations",
-        },
-        {
-            title: "תרגילים",
-            icon: Dumbbell,
-            href: "/admin/exercises",
-        },
-        {
-            title: "רמות",
-            icon: Signal,
-            href: "/admin/levels",
-        },
-        {
-            title: "תוכניות",
-            icon: ClipboardList,
-            href: "/admin/programs",
-        },
-        {
-            title: "רשויות",
-            icon: Building2,
-            href: "/admin/authorities",
-        },
-        {
-            title: "משתמשים",
-            icon: Users,
-            href: "/admin/users",
-        },
-        {
-            title: "סטטיסטיקה",
-            icon: BarChart3,
-            href: "/admin/statistics",
-        },
-        {
-            title: "תובנות",
-            icon: Lightbulb,
-            href: "/admin/insights",
-        },
-        {
-            title: "ניהול מנהלים",
-            icon: Shield,
-            href: "/admin/admins-management",
-        },
-        {
-            title: "יומן ביקורת",
-            icon: FileText,
-            href: "/admin/audit-logs",
-        },
-        {
-            title: "צפה כפורטל רשות",
-            icon: Building2,
-            href: "/admin/authority-manager",
-            highlight: true,
-        },
-    ];
-
-    if (loading || authLoading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <div className="text-gray-500">טוען...</div>
-            </div>
-        );
+  const load = useCallback(async () => {
+    setLoading(true);
+    const r = await adminAuthedFetch<HomeTodayResponse>('/api/admin/home-today');
+    if (r.ok) {
+      setData(r.data);
+      setError(null);
+    } else {
+      setData(null);
+      setError(r.message || 'לא הצלחנו לטעון את הנתונים של היום.');
     }
+    setLoading(false);
+  }, []);
 
-    return (
-        <div className="space-y-6">
-            <div>
-                <h1 className="text-3xl font-black text-gray-900">דשבורד מנהל מערכת</h1>
-                <p className="text-gray-500 mt-2">מבט כולל על ביצועי הפלטפורמה והמוצר</p>
-            </div>
+  useEffect(() => {
+    if (ready) void load();
+  }, [ready, load]);
 
-            {/* Quick Navigation Links */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-                <div className="flex items-center gap-2">
-                    <Link
-                        href="/admin/statistics"
-                        className="flex items-center gap-2 px-6 py-3 rounded-lg font-bold text-sm transition-all bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    >
-                        <TrendingUp size={18} />
-                        <span>סטטיסטיקה</span>
+  const today = new Date().toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' });
+  const p = data?.pulse;
+  const attention = (data?.attention ?? []).filter((a) => a.count === null || a.count > 0);
+
+  return (
+    <div className="space-y-6" dir="rtl">
+      <PageHeader eyebrow={today} title={`${greeting()}${name ? ',' : ''}`} strong={name || undefined} subtitle="מה קרה השבוע, ומה מחכה לטיפול שלך." />
+
+      {loading ? (
+        <Skeleton height={120} count={2} />
+      ) : error ? (
+        <ErrorState message={error} onRetry={load} />
+      ) : p ? (
+        <>
+          <KpiGrid>
+            <KpiCard label="נרשמים השבוע" value={fmt(p.signupsThisWeek)} sub={delta(p.signupsThisWeek, p.signupsLastWeek)} />
+            <KpiCard
+              label="התחילו להתאמן תוך 7 ימים"
+              value={p.activationPct != null ? `${p.activationPct}%` : '—'}
+              sub={p.activationSample > 0 ? `מתוך ${fmt(p.activationSample)} שנרשמו לפני 8–14 ימים` : 'אין עדיין מספיק נרשמים'}
+            />
+            <KpiCard label="התאמנו השבוע" value={fmt(p.activeThisWeek)} sub={delta(p.activeThisWeek, p.activeLastWeek)} />
+            <KpiCard label="בסיכון לעזוב" value={fmt(p.atRisk)} sub="התאמנו לפני 2–4 שבועות, ומאז לא" />
+            <KpiCard
+              label="המקור המוביל השבוע"
+              value={p.topChannel ? p.topChannel.label : '—'}
+              sub={p.topChannel ? `${fmt(p.topChannel.signups)} נרשמים` : 'אין נרשמים עם מקור ידוע'}
+            />
+          </KpiGrid>
+
+          <Panel title="דורש תשומת לב">
+            {attention.length === 0 ? (
+              <EmptyState title="הכל מטופל">
+                <span className="inline-flex items-center gap-1.5"><CheckCircle2 size={16} className="text-emerald-600" /> אין כרגע אישורים, תקלות או חשבוניות שמחכים לך.</span>
+              </EmptyState>
+            ) : (
+              <ul className="divide-y divide-gray-100">
+                {attention.map((a) => (
+                  <li key={a.key}>
+                    <Link href={a.href} className="flex items-center justify-between gap-3 py-3 group">
+                      <span className="text-[15px] font-semibold text-gray-900">{a.label}</span>
+                      <span className="flex items-center gap-2 shrink-0">
+                        {a.count === null ? (
+                          <StatusPill tone="neutral">לא נטען</StatusPill>
+                        ) : (
+                          <StatusPill tone={a.tone}>{fmt(a.count)}</StatusPill>
+                        )}
+                        <ArrowLeft size={16} className="text-gray-400 group-hover:text-cyan-700 transition-colors" aria-hidden />
+                      </span>
                     </Link>
-                    <Link
-                        href="/admin/insights"
-                        className="flex items-center gap-2 px-6 py-3 rounded-lg font-bold text-sm transition-all bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    >
-                        <TrendingUp size={18} />
-                        <span>תובנות אסטרטגיות</span>
-                    </Link>
-                </div>
-            </div>
-
-            {statsDeniedMessage && !dataLoading && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-                    {statsDeniedMessage}
-                </div>
+                  </li>
+                ))}
+              </ul>
             )}
+          </Panel>
+        </>
+      ) : null}
 
-            {/* Executive Summary */}
-            {executiveSummary && (
-                <ExecutiveSummary data={executiveSummary} loading={dataLoading} notApplicable={executiveSummaryNotApplicable} />
-            )}
-
-            {/* Authority Performance Table */}
-            {authorityPerformance.length > 0 && (
-                <AuthorityPerformanceTable data={authorityPerformance} loading={dataLoading} />
-            )}
-
-            {/* Analytics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <OnboardingFunnel />
-                {/* Funnel link card — full analytics in product section */}
-                <Link href="/admin/analytics" className="group block bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg hover:border-cyan-200 transition-all">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="p-3 rounded-lg bg-cyan-50">
-                            <BarChart3 size={20} className="text-cyan-500" />
-                        </div>
-                        <ArrowUpRight size={16} className="text-gray-400 group-hover:text-cyan-500 transition-colors" />
-                    </div>
-                    <p className="text-sm text-gray-500 mb-1">ניהול מוצר / צמיחה</p>
-                    <p className="text-xl font-black text-gray-900 mb-3">משפך המרות מלא</p>
-                    <p className="text-sm text-gray-500">נרשמו → אונבורדינג → הפעלה → שימור — עם פילטרים לפי מקור, קמפיין וג׳נדר</p>
-                    <div className="mt-4 flex gap-2 flex-wrap">
-                        {['מקור UTM', 'קמפיין', 'תאריך', 'ג׳נדר'].map(f => (
-                            <span key={f} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{f}</span>
-                        ))}
-                    </div>
-                </Link>
-            </div>
-
-            {/* Coming Soon metrics */}
-            <div className="bg-gray-50 rounded-xl border border-gray-200 p-4">
-                <div className="flex items-center gap-2 mb-3">
-                    <Clock size={14} className="text-gray-400" />
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">בקרוב</p>
-                </div>
-                <div className="flex gap-4 flex-wrap">
-                    {[
-                        { label: 'שעות שיא פעילות', detail: 'Peak Hours — ממתין לאינדקס workouts.createdAt' },
-                        { label: 'CAC ממוצע', detail: 'עלות רכישה — ממתין לחיבור הוצאות פרסום' },
-                        { label: 'הכנסה (שלב 6 במשפך)', detail: 'Revenue stage — ממתין ל-payment integration' },
-                    ].map(item => (
-                        <div key={item.label} className="flex-1 min-w-[180px] bg-white rounded-lg border border-gray-200 p-3 opacity-60">
-                            <p className="text-xs font-bold text-gray-500">{item.label}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">{item.detail}</p>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Maintenance Overview */}
-            {maintenanceReports.length > 0 && (
-                <MaintenanceOverview reports={maintenanceReports} loading={dataLoading} />
-            )}
-
-            {/* Quick Access Cards */}
-                <div className="space-y-6">
-                    <div>
-                        <h3 className="text-xl font-black text-gray-900 mb-4">גישה מהירה</h3>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                            {cards.map((card) => (
-                                <Link
-                                    key={card.title}
-                                    href={card.href}
-                                className={`group relative overflow-hidden rounded-3xl p-8 shadow-premium transition-all hover:scale-[1.02] hover:shadow-premium-hover ${
-                                    (card as any).highlight 
-                                        ? 'bg-gradient-to-br from-purple-400 to-purple-600' 
-                                        : 'bg-gradient-to-br from-cyan-400 to-cyan-600'
-                                }`}
-                                >
-                                    <div className="absolute inset-0 bg-white/10 opacity-0 transition-opacity group-hover:opacity-100" />
-
-                                    <div className="relative z-10 flex flex-col items-center justify-center text-center space-y-4">
-                                        <div className="p-4 bg-white/20 rounded-full backdrop-blur-sm">
-                                            <card.icon size={32} className="text-white" strokeWidth={2.5} />
-                                        </div>
-                                        <h3 className="text-xl font-black text-white">{card.title}</h3>
-                                    </div>
-
-                                    {/* Decorative decorative circle */}
-                                    <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl transition-transform group-hover:scale-150" />
-                                </Link>
-                            ))}
-                        </div>
-                    </div>
-                </div>
+      <Panel title="קיצורי דרך">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+          {SHORTCUTS.map(({ href, label, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              className="flex items-center gap-2 rounded-2xl px-3 py-3 text-sm font-bold text-gray-800 bg-gray-50 hover:bg-cyan-50 hover:text-cyan-800 transition-colors"
+            >
+              <Icon size={18} className="text-cyan-700 shrink-0" aria-hidden />
+              {label}
+            </Link>
+          ))}
         </div>
-    );
+      </Panel>
+    </div>
+  );
 }
