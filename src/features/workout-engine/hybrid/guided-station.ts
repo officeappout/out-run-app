@@ -77,7 +77,7 @@ export function welcomeCta(gender: AppGender | null | undefined): string {
   return g(gender, 'בוא נתחיל', 'בואי נתחיל');
 }
 
-/** Welcome-screen type chip: ⏱ for time-based / tabata exercises, 🔁 for rep-counted ones. */
+/** Welcome-screen type chip: Timer ("זמן") for time-based / tabata exercises, Repeat ("חזרות") for rep-counted ones. */
 export function exerciseTypeChip(
   ex: { exerciseType?: 'reps' | 'time'; isTimeBased?: boolean },
   inTabata: boolean,

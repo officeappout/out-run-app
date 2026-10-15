@@ -122,7 +122,7 @@ describe('copy', () => {
     expect(welcomeCta('male')).toBe('בוא נתחיל');
     expect(welcomeCta('female')).toBe('בואי נתחיל');
   });
-  it('type chip: ⏱ for timed and tabata, 🔁 for reps', () => {
+  it('type chip: time (Timer) for timed and tabata, reps (Repeat) for reps', () => {
     expect(exerciseTypeChip({ exerciseType: 'time' }, false)).toBe('time');
     expect(exerciseTypeChip({ isTimeBased: true }, false)).toBe('time');
     expect(exerciseTypeChip({ exerciseType: 'reps' }, true)).toBe('time');
