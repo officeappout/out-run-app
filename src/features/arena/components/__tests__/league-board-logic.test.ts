@@ -73,8 +73,10 @@ describe('computeNextRankTarget', () => {
   });
 
   it('handles a tie (needs one step)', () => {
-    const tie = [row(1, 10), row(2, 10, true)];
-    expect(computeNextRankTarget(tie, tie[1], 'steps')?.needed).toBe(1);
+    const tie = [row(1, 10, false, 'נועה'), row(2, 10, true)];
+    const t = computeNextRankTarget(tie, tie[1], 'general')!;
+    expect(t.needed).toBe(1);
+    expect(formatNextRankLine(t, 'general')).toBe('עוד יום אחד כדי לעקוף את נועה');
   });
 
   it('returns null at #1, without an entry, in pace mode, or when the row above was not fetched', () => {

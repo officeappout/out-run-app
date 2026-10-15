@@ -134,7 +134,7 @@ export function BoardRow({
       {...(onClick ? { type: 'button' as const, onClick } : {})}
       data-board-row={isMe ? 'me' : rank}
       className={[
-        'w-full flex items-center gap-3 rounded-2xl px-4 py-3.5 text-right',
+        'w-full min-w-0 flex items-center gap-3 rounded-2xl px-4 py-3.5 text-right',
         onClick ? 'active:scale-[0.97] transition-transform ease-v2' : '',
         first ? '' : 'bg-white/[0.06]',
         isMe ? 'ring-[1.5px] ring-inset ring-v2-accent' : '',

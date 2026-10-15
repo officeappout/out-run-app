@@ -199,7 +199,8 @@ interface HowRow {
  *    getWindowStart(timeWindow).
  *  - Group / neighborhood / city battles = summed activityCredit:
  *    durationMinutes × CREDIT_MULTIPLIER (strength 2, cardio 1,
- *    maintenance 1) — feed.service.ts.
+ *    maintenance 1) — feed.service.ts. Groups rank by avgScore per active
+ *    member (getGroupCompetitionLeaderboard); scopes by summed totalScore.
  * XP is NOT part of any league score.
  */
 export function HowPointsContent({ isTenant }: { isTenant: boolean }) {
@@ -228,7 +229,7 @@ export function HowPointsContent({ isTenant }: { isTenant: boolean }) {
       icon: Swords,
       tone: 'accent',
       title: 'קבוצות, שכונות וערים',
-      body: 'נקודות פעילות: כל דקת אימון כוח שווה 2 נקודות, וכל דקת אימון אירובי או תחזוקה שווה נקודה אחת. הניקוד של כל חברי הקבוצה מצטבר.',
+      body: 'נקודות פעילות: כל דקת אימון כוח שווה 2 נקודות, וכל דקת אימון אירובי או תחזוקה שווה נקודה אחת. קבוצות מדורגות לפי ממוצע לחבר פעיל; שכונות וערים — לפי סכום הנקודות של כל החברים.',
     },
   ];
   return (

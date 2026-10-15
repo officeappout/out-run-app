@@ -125,13 +125,13 @@ export function UnitLeagueTableView({
 
         {/* Body */}
         {isLoading ? (
-          <div className="grid gap-2">
+          <div className="grid grid-cols-1 gap-2">
             {Array.from({ length: 4 }).map((_, i) => (
               <BoardRowSkeleton key={i} />
             ))}
           </div>
         ) : result && result.entries.length > 0 ? (
-          <div className="grid gap-2">
+          <div className="grid grid-cols-1 gap-2">
             {result.entries.map((entry, idx) => (
               <BoardRow
                 key={entry.directoryId}

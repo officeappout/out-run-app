@@ -759,7 +759,7 @@ export function NeighborhoodLeaderboardView({
 
         {/* ── Rows ─────────────────────────────────────────────────────── */}
         {isLoading ? (
-          <div className="grid gap-2 mt-4">
+          <div className="grid grid-cols-1 gap-2 mt-4">
             {Array.from({ length: 6 }).map((_, i) => (
               <BoardRowSkeleton key={i} />
             ))}
@@ -767,7 +767,7 @@ export function NeighborhoodLeaderboardView({
         ) : entries.length === 0 ? (
           // 3-step activation guide — orients the very first user in an empty league
           <div className="mt-4">
-            <div className="grid gap-2">
+            <div className="grid grid-cols-1 gap-2">
               {[
                 { icon: Plus, label: 'אמן כאן את האימון הראשון' },
                 { icon: UserPlus, label: 'הזמן שותף לליגה' },
@@ -797,13 +797,13 @@ export function NeighborhoodLeaderboardView({
           </div>
         ) : (
           <>
-            <div className="grid gap-2 mt-4">
+            <div className="grid grid-cols-1 gap-2 mt-4">
               {visibleRows.slice(0, lockedFromIndex).map((e) => renderRow(e))}
             </div>
 
             {visibleRows.length > lockedFromIndex && (
               <div className="relative">
-                <div className="grid gap-2 mt-2">
+                <div className="grid grid-cols-1 gap-2 mt-2">
                   {visibleRows.slice(lockedFromIndex).map((e) => renderRow(e, shouldBlur))}
                 </div>
 
@@ -869,7 +869,7 @@ export function NeighborhoodLeaderboardView({
                 <div className="flex-1 min-w-0">
                   <p className="text-[15px] font-black">הליגה רק מתחילה</p>
                   <p className="text-[12.5px] text-white/70 leading-snug mt-0.5">
-                    {entries.length === 1 ? 'יש כאן משתתף אחד בלבד' : `יש כאן רק ${entries.length} משתתפים`} — הזמינו חברים כדי שיהיה עם מי להתחרות
+                    {entries.length === 1 ? 'משתתף אחד עד עכשיו' : `רק ${entries.length} משתתפים עד עכשיו`} — הזמינו חברים להתחרות איתכם
                   </p>
                 </div>
                 <Button variant="primary" size="sm" onClick={() => setShowInvite(true)} aria-label="הזמן חברים לליגה">

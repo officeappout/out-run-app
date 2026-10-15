@@ -98,7 +98,7 @@ export function GroupLeaderboardView({
       actions={<BoardIconButton icon={RefreshCw} label="רענן" onClick={fetch} spinning={isLoading} />}
     >
       {isLoading ? (
-        <div className="grid gap-2">
+        <div className="grid grid-cols-1 gap-2">
           {Array.from({ length: 4 }).map((_, i) => (
             <BoardRowSkeleton key={i} />
           ))}
@@ -120,7 +120,7 @@ export function GroupLeaderboardView({
           body="כשחברי קהילה יסיימו אימונים כחלק מקבוצה, היא תופיע כאן"
         />
       ) : (
-        <div className="grid gap-2">
+        <div className="grid grid-cols-1 gap-2">
           {entries.map((entry) => (
             <BoardRow
               key={entry.groupId}

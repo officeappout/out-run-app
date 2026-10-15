@@ -136,7 +136,7 @@ export function ScopeCompetitionLeaderboardView({
       actions={<BoardIconButton icon={RefreshCw} label="רענן" onClick={fetch} spinning={isLoading} />}
     >
       {isLoading ? (
-        <div className="grid gap-2">
+        <div className="grid grid-cols-1 gap-2">
           {Array.from({ length: 4 }).map((_, i) => (
             <BoardRowSkeleton key={i} />
           ))}
@@ -158,7 +158,7 @@ export function ScopeCompetitionLeaderboardView({
           body={EMPTY_STATE_COPY[granularity].subtitle}
         />
       ) : (
-        <div className="grid gap-2">
+        <div className="grid grid-cols-1 gap-2">
           {entries.map((entry) => (
             // Total score label is metric-qualified, never a bare "נקודות" —
             // getScopeCompetitionLeaderboard sums activityCredit filtered by

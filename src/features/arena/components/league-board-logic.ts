@@ -98,6 +98,7 @@ export function computeNextRankTarget(
 
 /** "עוד 3 ימים כדי לעקוף את נועה" — unit follows the metric. */
 export function formatNextRankLine(target: NextRankTarget, mode: LeaderboardMode): string {
+  if (mode === 'general' && target.needed === 1) return `עוד יום אחד כדי לעקוף את ${target.targetName}`;
   return `עוד ${formatLeaderboardScore(target.needed, mode)} כדי לעקוף את ${target.targetName}`;
 }
 
