@@ -219,3 +219,18 @@ export function aggregateJourneySources(input: JourneySourcesInput): JourneySour
     daily: Array.from(daily.values()),
   };
 }
+
+const DEFAULT_DAYS = 30;
+const MAX_DAYS = 366;
+
+/** ?from/?to → a sane range (default: the last 30 days, at most a year) */
+export function parseRange(fromRaw: string | null, toRaw: string | null, now = new Date()): { from: Date; to: Date } {
+  const to = toRaw ? new Date(toRaw) : now;
+  const safeTo = Number.isNaN(to.getTime()) ? now : to;
+  const fallbackFrom = new Date(safeTo.getTime() - DEFAULT_DAYS * 24 * 60 * 60 * 1000);
+  const from = fromRaw ? new Date(fromRaw) : fallbackFrom;
+  let safeFrom = Number.isNaN(from.getTime()) || from > safeTo ? fallbackFrom : from;
+  const minFrom = new Date(safeTo.getTime() - MAX_DAYS * 24 * 60 * 60 * 1000);
+  if (safeFrom < minFrom) safeFrom = minFrom;
+  return { from: safeFrom, to: safeTo };
+}
