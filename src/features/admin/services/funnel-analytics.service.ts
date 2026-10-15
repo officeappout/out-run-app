@@ -636,13 +636,14 @@ export async function getFunnelCounts(
  * builder. With `DEFAULT_FUNNEL_FILTERS`, this returns the identical
  * number `getMarketingAttributedCount` would.
  */
-export async function getAttributedCount(filters: FunnelFilters): Promise<number> {
+export async function getAttributedCount(filters: FunnelFilters): Promise<number | null> {
   const constraints: QueryConstraint[] = [
     ...buildBaseConstraints(filters, 'createdAt'),
     where('marketingAttribution.source', '!=', 'organic'),
   ];
   const result = await countStage(constraints, 'attributed', filters.program);
-  return result.count;
+  // a failed count is "unknown", not 0 — 0 rendered as "100% organic"
+  return result.failed ? null : result.count;
 }
 
 /** Centralised drop-warning rule so both service and UI agree. */

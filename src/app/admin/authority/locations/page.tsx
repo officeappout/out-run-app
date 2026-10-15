@@ -429,10 +429,10 @@ export default function AuthorityLocationsPage() {
               <currentTabConfig.icon size={32} style={{ color: currentTabConfig.color }} />
             </div>
             <h3 className="text-lg font-bold text-gray-900">
-              {searchQuery ? 'לא נמצאו תוצאות' : `אין ${currentTabConfig.label} במערכת`}
+              {searchQuery ? 'לא נמצאו תוצאות' : activeTab === 'all' ? 'אין עדיין מיקומים' : `אין ${currentTabConfig.label} במערכת`}
             </h3>
             <p className="text-gray-500 mt-2">
-              {searchQuery ? 'נסו חיפוש אחר' : 'התחל על ידי הוספת הראשון'}
+              {searchQuery ? 'נסו חיפוש אחר' : isRoot ? 'התחל על ידי הוספת הראשון' : 'צוות OUT ממפה את המיקומים של הרשות. הם יופיעו כאן אחרי הפרסום.'}
             </p>
             {!searchQuery && isRoot && (
               <Link

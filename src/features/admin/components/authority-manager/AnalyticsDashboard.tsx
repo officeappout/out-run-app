@@ -91,6 +91,9 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
   const [parks, setParks] = useState<Park[]>([]);
   const [neighborhoodBreakdown, setNeighborhoodBreakdown] = useState<NeighborhoodBreakdownRow[]>([]);
   const [loading, setLoading] = useState(true);
+  // names of the metrics that failed on the last load — shown as a banner,
+  // so a failure never passes for a real 0 in front of the city
+  const [failedMetrics, setFailedMetrics] = useState<string[]>([]);
   const [indexBuilding, setIndexBuilding] = useState(false);
 
   // Cross-Reference Filter State
@@ -184,6 +187,14 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
   const loadAll = async () => {
     console.time('DashboardLoad');
     setLoading(true);
+    const failed: string[] = [];
+    /** keep the safe default, but remember that this metric didn't load */
+    const safe = <T,>(label: string, p: Promise<T>, fallback: T): Promise<T> =>
+      p.catch((err) => {
+        console.error(`[AnalyticsDashboard] ${label} failed:`, err);
+        failed.push(label);
+        return fallback;
+      });
     try {
       const today = new Date();
       const currentMonth = today.getMonth() + 1;
@@ -207,25 +218,25 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
         personas, entryRoutes, running, steps,
         whoComplianceData, whoComplianceHistory,
       ] = await Promise.all([
-        getDailyActiveUsers(authorityId, today).catch(() => 0),
-        getMonthlyActiveUsers(authorityId, currentYear, currentMonth).catch(() => 0),
-        getGenderDistribution(authorityId).catch(() => ({ male: 0, female: 0, other: 0, unknown: 0, total: 0 })),
-        getAgeDistribution(authorityId).catch(() => ({ '18-25': 0, '26-35': 0, '36-45': 0, '46-55': 0, '56+': 0, unknown: 0, total: 0 })),
-        getPopularParks(authorityId, 5).catch(() => []),
-        getActivityTrend(authorityId, 30).catch(() => []),
-        getParksByAuthority(authorityId).catch(() => []),
-        getNeighborhoodBreakdown(authorityId, { min: kpiSettings.targetAgeMin, max: kpiSettings.targetAgeMax }).catch(() => []),
-        getWHO150Tracker(authorityId).catch(() => null),
-        getHealthSavings(authorityId).catch(() => null),
-        getSavingsOverTime(authorityId, 12).catch(() => []),
-        getNeighborhoodList(authorityId).catch(() => []),
-        getActivityByHour(authorityId, DEFAULT_FILTERS, defaultDateRange).catch(() => []),
-        getPersonaDistribution(authorityId).catch(() => []),
-        getEntryRouteDistribution(authorityId).catch(() => null),
-        getRunningStats(authorityId, DEFAULT_FILTERS, defaultDateRange).catch(() => null),
-        getCityStepsTotals(authorityId, 30).catch(() => null),
-        getWHOComplianceBreakdown(authorityId).catch(() => null),
-        getWHOComplianceOverTime(authorityId, 8).catch(() => []),
+        safe('משתמשים פעילים היום', getDailyActiveUsers(authorityId, today), 0),
+        safe('משתמשים פעילים בחודש', getMonthlyActiveUsers(authorityId, currentYear, currentMonth), 0),
+        safe('מגדר', getGenderDistribution(authorityId), ({ male: 0, female: 0, other: 0, unknown: 0, total: 0 })),
+        safe('גילאים', getAgeDistribution(authorityId), ({ '18-25': 0, '26-35': 0, '36-45': 0, '46-55': 0, '56+': 0, unknown: 0, total: 0 })),
+        safe('פארקים פופולריים', getPopularParks(authorityId, 5), []),
+        safe('מגמת פעילות', getActivityTrend(authorityId, 30), []),
+        safe('פארקים', getParksByAuthority(authorityId), []),
+        safe('שכונות', getNeighborhoodBreakdown(authorityId, { min: kpiSettings.targetAgeMin, max: kpiSettings.targetAgeMax }), []),
+        safe('מדד ארגון הבריאות העולמי', getWHO150Tracker(authorityId), null),
+        safe('חיסכון בריאותי', getHealthSavings(authorityId), null),
+        safe('חיסכון לאורך זמן', getSavingsOverTime(authorityId, 12), []),
+        safe('רשימת שכונות', getNeighborhoodList(authorityId), []),
+        safe('פעילות לפי שעה', getActivityByHour(authorityId, DEFAULT_FILTERS, defaultDateRange), []),
+        safe('פרסונות', getPersonaDistribution(authorityId), []),
+        safe('נתיב כניסה', getEntryRouteDistribution(authorityId), null),
+        safe('ריצה והליכה', getRunningStats(authorityId, DEFAULT_FILTERS, defaultDateRange), null),
+        safe('צעדים', getCityStepsTotals(authorityId, 30), null),
+        safe('עמידה ביעד ארגון הבריאות', getWHOComplianceBreakdown(authorityId), null),
+        safe('מגמת עמידה ביעד', getWHOComplianceOverTime(authorityId, 8), []),
       ]);
 
       setDau(dailyActive);
@@ -254,7 +265,9 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
       setWhoComplianceTrend(whoComplianceHistory);
     } catch (error) {
       console.error('Error loading dashboard:', error);
+      failed.push('כל הנתונים');
     } finally {
+      setFailedMetrics(failed);
       setLoading(false);
       console.timeEnd('DashboardLoad');
     }
@@ -479,6 +492,17 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
   return (
     <div className="space-y-6">
 
+      {failedMetrics.length > 0 && !loading && (
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" role="alert">
+          <span>
+            חלק מהנתונים לא נטענו, ולכן הם עלולים להופיע כאפס: {failedMetrics.join(', ')}.
+          </span>
+          <button onClick={() => void loadAll()} className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1.5 font-bold text-amber-800 hover:bg-amber-100">
+            נסה שוב
+          </button>
+        </div>
+      )}
+
       {/* ── City Steps Strip (passive HealthKit / Health Connect sync,
            last 30 days) — same shape as the Health ROI strip above,
            reads dailyActivity directly via authorityId (denormalized at
@@ -522,10 +546,11 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
           </div>
         </div>
       ) : (
-        <div className="bg-gradient-to-r from-cyan-700 via-sky-600 to-blue-500 rounded-xl px-5 py-3 text-white shadow-md animate-pulse">
+        <div className={`bg-gradient-to-r from-cyan-700 via-sky-600 to-blue-500 rounded-xl px-5 py-3 text-white shadow-md ${loading ? 'animate-pulse' : ''}`}>
           <div className="flex items-center gap-3">
             <Footprints size={18} className="text-white/80" />
-            <span className="text-xs font-bold text-white/70">מחשב נתוני צעדים...</span>
+            {/* after loading, no data means unavailable — not "still computing" forever */}
+            <span className="text-xs font-bold text-white/70">{loading ? 'מחשב נתוני צעדים...' : 'נתוני צעדים לא זמינים כרגע'}</span>
             <div className="h-5 bg-white/20 rounded w-32" />
           </div>
         </div>

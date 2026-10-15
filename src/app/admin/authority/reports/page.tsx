@@ -140,6 +140,7 @@ export default function ReportsPage() {
   // Infrastructure state
   const [infraReports, setInfraReports] = useState<MaintenanceReport[]>([]);
   const [infraLoading, setInfraLoading] = useState(false);
+  const [infraError, setInfraError] = useState(false);
   const [infraFilter, setInfraFilter] = useState<MaintenanceStatus | 'all'>('all');
 
   // Community state
@@ -197,11 +198,14 @@ export default function ReportsPage() {
   const loadInfraReports = useCallback(async () => {
     if (!authorityId) return;
     setInfraLoading(true);
+    setInfraError(false);
     try {
       const reports = await getReportsByAuthority(authorityId);
       setInfraReports(reports);
     } catch (err) {
       console.error('[ReportsPage] infra load failed:', err);
+      // was swallowed, and the page then showed a green "no reports" — a false all-clear
+      setInfraError(true);
     } finally {
       setInfraLoading(false);
     }
@@ -462,7 +466,14 @@ export default function ReportsPage() {
 
           {infraLoading && <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>}
 
-          {!infraLoading && filteredInfraReports.length === 0 && (
+          {!infraLoading && infraError && (
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+              <span>לא הצלחנו לטעון את דיווחי התשתית. ייתכן שיש דיווחים פתוחים שלא מוצגים.</span>
+              <button onClick={() => void loadInfraReports()} className="shrink-0 rounded-lg border border-red-200 bg-white px-3 py-1.5 font-bold text-red-700 hover:bg-red-100">נסה שוב</button>
+            </div>
+          )}
+
+          {!infraLoading && !infraError && filteredInfraReports.length === 0 && (
             <div className="text-center py-16">
               <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
               <p className="text-lg font-bold text-slate-700">{infraFilter === 'all' ? 'אין דיווחי תשתית' : 'אין דיווחים בסטטוס זה'}</p>
