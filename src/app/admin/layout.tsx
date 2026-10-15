@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import lightLockStyles from './admin-content-light-lock.module.css';
+import shell from './admin-shell.module.css';
 import {
     LayoutDashboard,
     Dumbbell,
@@ -819,11 +820,8 @@ function AdminLayoutInner({
         return (
             <Link
                 href={href}
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium transition-all text-sm ${
-                    active
-                        ? 'bg-slate-800/50 text-cyan-400 font-bold'
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                }`}
+                className={`${shell.link} ${active ? shell.linkActive : ''}`}
+                aria-current={active ? 'page' : undefined}
             >
                 <Icon size={18} />
                 <span>{label}</span>
@@ -834,12 +832,12 @@ function AdminLayoutInner({
     const SectionHeader = ({ sectionId, icon: Icon, label, colorClass }: { sectionId: SectionId; icon: React.ElementType; label: string; colorClass?: string }) => {
         const isExpanded = expandedSections.has(sectionId);
         const hasActiveChild = sectionContainsPath(sectionId, pathname, orgCtx.selectedOrgType);
-        const activeColor = colorClass && hasActiveChild ? colorClass : hasActiveChild ? 'text-cyan-400' : 'text-slate-400 hover:text-slate-200';
         
         return (
             <button
                 onClick={() => toggleSection(sectionId)}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${activeColor}`}
+                className={`${shell.section} ${hasActiveChild ? shell.sectionActive : ''}`}
+                aria-expanded={isExpanded}
             >
                 <Icon size={18} className={colorClass ?? ''} />
                 <span className="flex-1 text-right">{label}</span>
@@ -885,35 +883,20 @@ function AdminLayoutInner({
 
     if (loading) {
         return (
-            <div className="flex min-h-[100dvh] bg-gray-100 overflow-hidden" dir="rtl" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+            <div className={shell.shell} dir="rtl" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
                 <AdminSessionSync />
                 <SessionHealthBanner />
-                <aside className="w-64 bg-slate-900 text-white flex-shrink-0 hidden md:flex flex-col relative min-h-[100dvh] overflow-y-auto">
-                    <div className="p-4 md:p-6 border-b border-slate-800">
-                        {onlyAuthorityManager && authorityName ? (
-                            <div>
-                                <h1 className="text-lg md:text-xl font-black tracking-tight text-white mb-1">
-                                    OUT RUN <span className="text-cyan-400">Admin</span>
-                                </h1>
-                                <p className="text-xs md:text-sm text-slate-300 font-medium">
-                                    פורטל ניהול: {authorityName || ''}
-                                </p>
-                            </div>
-                        ) : (
-                            <h1 className="text-xl md:text-2xl font-black tracking-tight text-white">
-                                OUT RUN <span className="text-cyan-400">Admin</span>
-                            </h1>
-                        )}
-                    </div>
-                    <div className="p-4 md:p-8">
+                <aside className={`${shell.sidebar} flex-shrink-0 hidden md:flex flex-col overflow-y-auto`}>
+                    <BrandBlock meta={onlyAuthorityManager && authorityName ? `פורטל ניהול: ${authorityName}` : undefined} />
+                    <div className="p-4 md:p-6">
                         <div className="animate-pulse space-y-4">
                             <div className="h-4 bg-slate-700 rounded w-3/4"></div>
                             <div className="h-4 bg-slate-700 rounded w-1/2"></div>
                         </div>
                     </div>
                 </aside>
-                <main className="flex-1 overflow-y-auto min-h-[100dvh] bg-white">
-                    <div className="p-4 md:p-8 min-h-full bg-white text-slate-900" style={{ colorScheme: 'light' }}>
+                <main className={shell.main}>
+                    <div className={`${shell.sheet} p-4 md:p-8 text-slate-900`} style={{ colorScheme: 'light' }}>
                         <div className="flex items-center justify-center h-64">
                             <AppLogoLoader caption="בודק הרשאות..." className="flex flex-col items-center justify-center gap-4" />
                         </div>
@@ -924,27 +907,12 @@ function AdminLayoutInner({
     }
 
     return (
-        <div className="flex min-h-[100dvh] bg-gray-100 overflow-hidden" dir="rtl" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <div className={shell.shell} dir="rtl" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
             <AdminSessionSync />
             <SessionHealthBanner />
-            {/* Sidebar */}
-            <aside className="w-64 bg-slate-900 text-white flex-shrink-0 hidden md:flex flex-col relative min-h-[100dvh]">
-                <div className="p-4 md:p-6 border-b border-slate-800 flex-shrink-0">
-                    {isLocalManager && authorityName ? (
-                        <div>
-                            <h1 className="text-lg md:text-xl font-black tracking-tight text-white">
-                                OUT RUN <span className="text-cyan-400">Admin</span>
-                            </h1>
-                            <p className="text-xs text-slate-400 font-medium mt-0.5">
-                                פורטל ניהול: {authorityName}
-                            </p>
-                        </div>
-                    ) : (
-                        <h1 className="text-xl md:text-2xl font-black tracking-tight text-white">
-                            OUT RUN <span className="text-cyan-400">Admin</span>
-                        </h1>
-                    )}
-                </div>
+            {/* Sidebar — floating liquid glass (admin-shell.module.css) */}
+            <aside className={`${shell.sidebar} flex-shrink-0 hidden md:flex flex-col`}>
+                <BrandBlock meta={isLocalManager && authorityName ? `פורטל ניהול: ${authorityName}` : undefined} />
 
                 <nav className="p-2 md:p-3 flex flex-col flex-1 min-h-0 overflow-y-auto scrollbar-thin">
                     {showSimplifiedSidebar ? (
@@ -1384,12 +1352,9 @@ function AdminLayoutInner({
                     )}
 
                     {/* Logout Button */}
-                    <div className="mt-auto pt-4 border-t border-slate-800">
-                        <button
-                            onClick={handleLogout}
-                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 font-medium transition-all hover:bg-red-900/20 hover:text-red-400"
-                        >
-                            <LogOut size={20} />
+                    <div className={shell.logoutRow}>
+                        <button onClick={handleLogout} className={shell.logout}>
+                            <LogOut size={18} />
                             <span>התנתק</span>
                         </button>
                     </div>
@@ -1401,13 +1366,13 @@ function AdminLayoutInner({
                 prose container: percentage heights inside a scroll container with padding
                 break Mapbox's height resolution, rendering a blank canvas. */}
             {pathname === '/admin/routes/new' || pathname === '/admin/authority/routes/new' ? (
-                <main className="flex-1 min-w-0 overflow-hidden min-h-[100dvh] bg-white flex flex-col">
+                <main className={shell.mainFull}>
                     {children}
                 </main>
             ) : (
-                <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden min-h-[100dvh] bg-white">
-                    <div 
-                        className="p-4 md:p-8 pb-16 min-h-full min-w-0 bg-white text-slate-900" 
+                <main className={shell.main}>
+                    <div
+                        className={`${shell.sheet} p-4 md:p-8 pb-16 text-slate-900`}
                         style={{ 
                             colorScheme: 'light',
                             color: '#0f172a'
@@ -1441,6 +1406,19 @@ function AdminLayoutInner({
                     </div>
                 </main>
             )}
+        </div>
+    );
+}
+
+/** the sidebar's wordmark: the gradient OUT (as on the site) + "ניהול" */
+function BrandBlock({ meta }: { meta?: string }) {
+    return (
+        <div className={shell.brandBlock}>
+            <h1 className={shell.brand}>
+                <span className={shell.brandMark}>OUT</span>
+                <span className={shell.brandSub}>ניהול</span>
+            </h1>
+            {meta && <p className={shell.brandMeta}>{meta}</p>}
         </div>
     );
 }
