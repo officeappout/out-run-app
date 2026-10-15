@@ -1090,7 +1090,7 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
         <div className="bg-white rounded-2xl border border-gray-200 p-6" dir="rtl">
           <div className="flex items-center gap-2 mb-4">
             <Target size={20} className="text-indigo-600" />
-            <h3 className="text-lg font-black text-gray-900">מגמת עמידה בתקן WHO — {whoComplianceTrend.length} שבועות אחרונים</h3>
+            <h3 className="text-lg font-black text-gray-900">מגמת עמידה בהמלצת ארגון הבריאות העולמי — {whoComplianceTrend.length} שבועות אחרונים</h3>
           </div>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={whoComplianceTrend}>
