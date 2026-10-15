@@ -253,6 +253,8 @@ interface RunningPlayerState {
 
   // Map follow (Pillar 6)
   isMapFollowEnabled: boolean;
+  /** G2.6: follow-camera orientation — 'course' = heading-up (default), 'north' = north-up. */
+  mapHeadingMode: 'course' | 'north';
   
   // Workout Settings
   settings: WorkoutSettings;
@@ -387,6 +389,7 @@ interface RunningPlayerState {
 
   // Map follow (Pillar 6)
   setMapFollowEnabled: (v: boolean) => void;
+  setMapHeadingMode: (m: 'course' | 'north') => void;
 
   // Simulation control — when active, real GPS is bypassed entirely
   setSimulationActive: (active: boolean) => void;
@@ -426,6 +429,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   lastCompletedLap: null,
   paceHistory: [],
   isMapFollowEnabled: true,
+  mapHeadingMode: 'course',
   elevationGain: 0,
   lastAltitude: null,
   savedWorkoutSnapshot: null,
@@ -1442,6 +1446,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       totalCalories: 0,
       lastFilterAction: null,
       isMapFollowEnabled: true,
+      mapHeadingMode: 'course',
       currentWorkout: null,
       currentBlockIndex: 0,
       blockElapsedSeconds: 0,
@@ -1976,6 +1981,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   },
 
   setMapFollowEnabled: (v) => set({ isMapFollowEnabled: v }),
+  setMapHeadingMode: (m) => set({ mapHeadingMode: m }),
 
   // When devSim enables mock: kill any live real GPS watcher + mark status as simulated.
   // When devSim disables mock: clear the flag; next startGPSTracking call uses real GPS.

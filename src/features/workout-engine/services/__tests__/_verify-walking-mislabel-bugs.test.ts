@@ -78,10 +78,15 @@ describe('Source-fact check (mechanical, not eyeballed): the two literals really
       'src/features/workout-engine/players/running/store/useRunningPlayer.ts',
     );
     const lines = fs.readFileSync(filePath, 'utf-8').split('\n');
-    // Lines are 1-indexed in the editor; array is 0-indexed. (Shifted again
-    // from 1831/1835 — see file header comment; the bug itself is unchanged.)
-    const line1881 = lines[1880];
-    const line1885 = lines[1884];
+    // Located by CONTENT, not a fixed line number: the pair (workoutType literal, then the
+    // displayIcon literal 4 lines below) drifted 3 times as unrelated edits landed earlier in the
+    // file (last: G2.6's map heading-mode fields, 15.10.2026). Same two literals, same assertions.
+    const idx = lines.findIndex(
+      (l, i) => l.includes(`workoutType: 'running'`) && (lines[i + 4] ?? '').includes(`displayIcon: 'run-fast'`),
+    );
+    expect(idx).toBeGreaterThan(-1);
+    const line1881 = lines[idx];
+    const line1885 = lines[idx + 4];
     expect(line1881).toContain(`workoutType: 'running'`);
     expect(line1885).toContain(`displayIcon: 'run-fast'`);
     // The bug's precondition: neither line references the real activityType

@@ -70,6 +70,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
   }, []);
 
   const isMapFollowEnabled = useRunningPlayer((s) => s.isMapFollowEnabled);
+  const mapHeadingMode = useRunningPlayer((s) => s.mapHeadingMode);
   const setMapFollowEnabled = useRunningPlayer((s) => s.setMapFollowEnabled);
   const routeZones = useRunningPlayer((s) => s.routeZones);
   const setGuidedRouteId = useRunningPlayer((s) => s.setGuidedRouteId);
@@ -290,6 +291,8 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
               userBearing={logic.userBearing ?? 0}
               isAutoFollowEnabled={isMapFollowEnabled}
               onUserPanDetected={() => setMapFollowEnabled(false)}
+              headingMode={mapHeadingMode}
+              onFollowRestored={() => setMapFollowEnabled(true)}
               mapMode="free_run"
               activityType={activityType}
               isNavigationMode={logic.isNavigationMode}

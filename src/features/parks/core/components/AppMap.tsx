@@ -252,6 +252,10 @@ interface AppMapProps {
   skipInitialZoom?: boolean;
   isAutoFollowEnabled?: boolean;
   onUserPanDetected?: () => void;
+  /** G2.6: follow-camera orientation (heading-up default / north-up). */
+  headingMode?: 'course' | 'north';
+  /** G2.6: the camera's idle timer re-claimed follow on its own. */
+  onFollowRestored?: () => void;
   onLongPress?: (pos: { lat: number; lng: number }) => void;
   /** When true, easeTo duration drops to 80 ms to match 100 ms sim ticks — eliminates jitter */
   simulationActive?: boolean;
@@ -391,6 +395,8 @@ export default function AppMap({
   skipInitialZoom = false,
   isAutoFollowEnabled = true,
   onUserPanDetected,
+  headingMode,
+  onFollowRestored,
   onLongPress,
   simulationActive = false,
   speedKmH = 6,
@@ -746,6 +752,8 @@ export default function AppMap({
     mapMode,
     walkToRouteTarget: walkToRoute.targetEndpoint ?? null,
     navigationTurns: navigationTurns ?? null,
+    headingMode,
+    onFollowRestored,
   });
 
   // Recenter tap (from the layers) → ease straight to the best-available fix. In
