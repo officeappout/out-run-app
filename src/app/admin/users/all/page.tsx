@@ -3,6 +3,7 @@
 // Force dynamic rendering to prevent SSR issues with window/localStorage
 export const dynamic = 'force-dynamic';
 
+import { PageHeader } from '@/features/admin/components/ui';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -495,10 +496,7 @@ export default function AllUsersPage() {
 
   return (
     <div className="space-y-6" dir="rtl">
-      <div>
-        <h1 className="text-3xl font-black text-gray-900">כל המשתמשים</h1>
-        <p className="text-gray-500 mt-2">ניהול וצפייה בכל המשתמשים הרשומים במערכת</p>
-      </div>
+      <PageHeader eyebrow="ניהול מוצר / צמיחה" title="כל" strong="המשתמשים" subtitle="צפייה וניהול של כל המשתמשים הרשומים." />
 
       {/* Search and Refresh */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
