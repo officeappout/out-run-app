@@ -137,6 +137,12 @@ export interface VolumeBreakdown {
  */
 export interface WorkoutCompletionResult {
   success: boolean;
+  /**
+   * G8.2 (flag enable_no_auto_strength_level): set when the user has no questionnaire result, so
+   * no level/track was written (gains all zero). The summary screen should hide its level card
+   * for this case — follow-up after design-v2 4a merges (LevelRingCard, StrengthSummaryView.tsx).
+   */
+  skipped?: 'no_questionnaire';
   activeProgramGain: {
     programId: string;
     baseGain: number;

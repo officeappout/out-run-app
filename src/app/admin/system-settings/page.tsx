@@ -37,6 +37,7 @@ interface FlagState {
   enable_walk_to_first_stop: boolean;
   enable_carousel_swipe_hint: boolean;
   enable_route_direction_adapt: boolean;
+  enable_no_auto_strength_level: boolean;
 }
 
 // ============================================================================
@@ -158,6 +159,14 @@ const FLAG_CARDS: FlagCardConfig[] = [
     title: 'התאמת כיוון המסלול',
     description: 'מסלול מעגלי: אם בתחילת ההליכה (60–150 מ׳) הולכים בכיוון ההפוך — סדר העצירות מתהפך + הודעה קצרה. חץ כיוון בנקודת ההתחלה עד שמתחילים ללכת. מסלול חד-כיווני לא מתהפך. כבוי = כמו היום.',
     parentKey: 'enable_hybrid_slots',
+  },
+  {
+    key: 'enable_no_auto_strength_level',
+    icon: Dumbbell,
+    iconBg: 'bg-rose-50',
+    iconColor: 'text-rose-500',
+    title: 'אין רמת כוח בלי שאלון',
+    description: 'משתמש שלא מילא את שאלון הכוח לא מקבל רמה או תוכנית: לא באונבורדינג (גם לא מתשובת "רמת כושר" או בחירת שרירים), ולא אחרי אימון כוח (היסטוריה ו-XP נשמרים כרגיל). משתמשים קיימים לא משתנים. ⚠️ להשאיר כבוי עד שמסך הסיכום יוסתר כרטיס הרמה למשתמשים בלי שאלון (אחרי מיזוג עיצוב 4a). כבוי = כמו היום.',
   },
 ];
 

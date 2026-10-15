@@ -97,6 +97,13 @@ export const FLAG_DEFS = [
   // re-compose) + toast; "which way" arrow at the start until settled. one_way / out-and-back are
   // never flipped. Fail-closed; superAdminValue false — the panel toggle is the one switch.
   { key: 'enableRouteDirectionAdapt', firestoreKey: 'enable_route_direction_adapt', defaultValue: false, superAdminValue: false },
+  // G8.2 (15.10.2026, David: "never a strength level without the questionnaire") — when ON, nothing
+  // writes a strength level/program for a user with no questionnaire result: onboarding's
+  // GOAL_TO_PROGRAM fallback and Path B's synthesized results are skipped, and a strength workout
+  // by an unassessed user skips the level/track writes (history + XP untouched). Read one-shot via
+  // readFeatureFlagOnce. Fail-closed; superAdminValue false. KEEP OFF until the summary-screen
+  // guard lands (follow-up after design-v2 4a merges — LevelRingCard in StrengthSummaryView.tsx).
+  { key: 'enableNoAutoStrengthLevel', firestoreKey: 'enable_no_auto_strength_level', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];
