@@ -27,7 +27,8 @@ const PREF_KEY_PERMISSIONS = 'outrun.healthBridge.permissionsGranted';
 
 function isNativeApp(): boolean {
   if (typeof window === 'undefined') return false;
-  return Boolean((window as any).Capacitor?.isNativePlatform?.());
+  const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
+  return Boolean(cap?.isNativePlatform?.());
 }
 
 export default function StepsAnalyticsPage() {

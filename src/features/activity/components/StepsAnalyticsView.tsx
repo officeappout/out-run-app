@@ -7,6 +7,12 @@
  * from `StepsAnalyticsPage` (the container that owns routing, the health
  * permission flow and `useStepsAnalytics`). Split out so the design-v2 preview
  * route can render the page from fixtures.
+ *
+ * Design language v2 (glass): a soft steps-green / cyan tinted backdrop with
+ * floating glass cards (`Card variant="glass"`). The cards are siblings — no
+ * blurred layer is nested in another. The sticky header is deliberately NOT
+ * glass (a solid translucent bar, no backdrop-filter) so the page never blurs
+ * a blurred card scrolling under it — the cheaper of the two options.
  */
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -15,34 +21,43 @@ import {
   AnimatePresence,
   useMotionValue,
   useTransform,
+  useReducedMotion,
 } from 'framer-motion';
-import {
-  BarChart,
-  Bar,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  ReferenceLine,
-  Cell,
-} from 'recharts';
 import {
   ChevronRight,
   Footprints,
   TrendingUp,
-  ShieldCheck,
   HeartPulse,
+  Trophy,
+  Target,
+  Flame,
+  Route,
+  CalendarDays,
+  Check,
+  type LucideIcon,
 } from 'lucide-react';
-import type {
-  StepsTimeRange,
-  StepsChartPoint,
-  StepsAnalyticsStats,
+import {
+  BarChart,
+  Button,
+  Card,
+  DeltaBadge,
+  IconTile,
+  StatNumber,
+  EASE_V2,
+  type BarDatum,
+  type IconTileTone,
+} from '@/components/ui/v2';
+import {
+  bucketTooltipLabel,
+  currentBucketKey,
+  sameDayLastWeekSteps,
+  type StepsTimeRange,
+  type StepsChartPoint,
+  type StepsAnalyticsStats,
 } from '../lib/steps-analytics.logic';
 import type { DailyStepsSnapshot } from '../services/activity-history.service';
 import { STEPS_COLOR } from '@/config/health-goals';
+
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const TIME_RANGES: { key: StepsTimeRange; label: string }[] = [
@@ -52,10 +67,14 @@ const TIME_RANGES: { key: StepsTimeRange; label: string }[] = [
   { key: 'year', label: 'שנה' },
 ];
 
-const PRIMARY = STEPS_COLOR;     // #00C07A — canonical steps green (goal met)
-const PRIMARY_DIM = '#9BE3CD';   // lighter steps green (below goal)
-const GOAL_LINE = '#F59E0B';     // amber dashed goal reference (semantic, unchanged)
 const HEBREW_DAYS_SHORT = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const;
+
+/** Soft tinted backdrop the glass cards float over (steps green + v2 cyan). */
+const PAGE_BACKDROP =
+  'radial-gradient(120% 55% at 100% 0%, rgba(0,192,122,0.20) 0%, rgba(0,192,122,0) 60%),' +
+  'radial-gradient(90% 45% at 0% 18%, rgba(0,186,247,0.16) 0%, rgba(0,186,247,0) 62%),' +
+  'radial-gradient(110% 50% at 50% 100%, rgba(12,242,227,0.12) 0%, rgba(12,242,227,0) 65%),' +
+  'linear-gradient(180deg, #f2fbf7 0%, #f6fbfd 55%, #f3fafb 100%)';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -63,13 +82,12 @@ function fmtNumber(n: number): string {
   return n.toLocaleString('he-IL');
 }
 
-function fmtCompact(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 10_000) return `${Math.round(n / 1000)}k`;
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
-  return String(n);
+function shortDate(dateKey: string | undefined | null): string | null {
+  if (!dateKey) return null;
+  const d = new Date(dateKey + 'T00:00:00');
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getDate()}/${d.getMonth() + 1}`;
 }
-
 
 // ── Carousel constants ───────────────────────────────────────────────────────
 const RING_SIZE = 200;
@@ -109,7 +127,7 @@ function StepsRing({ percentage, size = 160, strokeWidth = 12, gradId, children 
           </linearGradient>
         </defs>
         {/* Track */}
-        <circle cx={cx} cy={cx} r={r} fill="transparent" stroke="#F1F5F9" strokeWidth={strokeWidth} />
+        <circle cx={cx} cy={cx} r={r} fill="transparent" stroke="rgba(0,192,122,0.12)" strokeWidth={strokeWidth} />
         {/* Progress arc */}
         <circle
           cx={cx} cy={cx} r={r}
@@ -119,7 +137,7 @@ function StepsRing({ percentage, size = 160, strokeWidth = 12, gradId, children 
           strokeDasharray={circ}
           strokeDashoffset={mainOffset}
           strokeLinecap="round"
-          style={{ transition: 'stroke-dashoffset 600ms ease-out' }}
+          style={{ transition: 'stroke-dashoffset 600ms cubic-bezier(0.23, 1, 0.32, 1)' }}
         />
         {/* Overrun arc — same gradient at reduced opacity */}
         {overflow > 0 && (
@@ -132,7 +150,7 @@ function StepsRing({ percentage, size = 160, strokeWidth = 12, gradId, children 
             strokeDashoffset={overOffset}
             strokeLinecap="round"
             opacity={0.35}
-            style={{ transition: 'stroke-dashoffset 600ms ease-out' }}
+            style={{ transition: 'stroke-dashoffset 600ms cubic-bezier(0.23, 1, 0.32, 1)' }}
           />
         )}
       </svg>
@@ -140,6 +158,77 @@ function StepsRing({ percentage, size = 160, strokeWidth = 12, gradId, children 
         {children}
       </div>
     </div>
+  );
+}
+
+// ── GoalProgressBar ──────────────────────────────────────────────────────────
+// Steps-green bar toward the daily goal. The fill animates with scaleX
+// (transform only); the overrun past 100% is not drawn — the copy says it.
+function GoalProgressBar({ steps, goal }: { steps: number; goal: number }) {
+  const reduce = useReducedMotion();
+  const ratio = goal > 0 ? Math.min(1, Math.max(0, steps / goal)) : 0;
+  const pct = goal > 0 ? Math.round((steps / goal) * 100) : 0;
+  const reached = goal > 0 && steps >= goal;
+  return (
+    <div className="space-y-2">
+      <div
+        className="h-3 rounded-full bg-activity-steps/15 overflow-hidden"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.min(100, pct)}
+        aria-label="התקדמות ליעד היומי"
+      >
+        <motion.div
+          className="h-full w-full rounded-full origin-right"
+          style={{ background: 'linear-gradient(270deg, #00C07A 0%, #00D4AA 70%, #00E8E0 100%)' }}
+          initial={reduce ? false : { scaleX: 0 }}
+          animate={{ scaleX: ratio }}
+          transition={{ duration: 0.9, ease: EASE_V2 }}
+        />
+      </div>
+      <div className="flex items-center justify-between text-[12px] font-semibold text-v2-muted">
+        <span className="inline-flex items-center gap-1">
+          {reached ? (
+            <>
+              <Check className="w-3.5 h-3.5 text-activity-steps" strokeWidth={3} aria-hidden />
+              <span className="font-extrabold text-[#00865a]">היעד הושג</span>
+            </>
+          ) : (
+            <span>
+              <span className="font-extrabold text-v2-ink tabular-nums" dir="ltr">{pct}%</span> מהיעד
+            </span>
+          )}
+        </span>
+        <span>
+          יעד <span className="tabular-nums" dir="ltr">{fmtNumber(goal)}</span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ── StatTile — one secondary stat as its own glass card ──────────────────────
+interface StatTileProps {
+  icon: LucideIcon;
+  tone?: IconTileTone;
+  label: string;
+  value: number;
+  unit?: string;
+  decimals?: number;
+  format?: (v: number) => string;
+  className?: string;
+}
+
+function StatTile({ icon, tone = 'steps', label, value, unit, decimals, format, className = '' }: StatTileProps) {
+  return (
+    <Card variant="glass" padding="sm" className={`flex flex-col gap-3 ${className}`}>
+      <div className="flex items-center gap-2 min-w-0">
+        <IconTile icon={icon} tone={tone} size="sm" />
+        <span className="text-[12px] font-bold text-v2-muted truncate">{label}</span>
+      </div>
+      <StatNumber value={value} unit={unit} decimals={decimals} format={format} size="sm" countUp />
+    </Card>
   );
 }
 
@@ -230,12 +319,7 @@ export default function StepsAnalyticsView({
     requestAnimationFrame(() => dragX.set(0));
   }, [dragX, snapshots.length]);
 
-  const yMax = chartData.length > 0 ? Math.max(...chartData.map((d) => d.value)) : 0;
   const showGoalLine = !isYear && stats.dailyGoal > 0;
-  const yDomainMax = Math.max(
-    Math.ceil((showGoalLine ? Math.max(yMax, stats.dailyGoal) : yMax) * 1.2),
-    showGoalLine ? stats.dailyGoal : 100,
-  );
 
   const isEmpty = !loading && chartData.every((d) => d.value === 0);
 
@@ -243,24 +327,19 @@ export default function StepsAnalyticsView({
   const MAX_DAY_OFFSET = Math.max(0, snapshots.length - 1);
   const selectedDaySnap = snapshots[snapshots.length - 1 - selectedDayOffset];
   const selectedDaySteps = selectedDaySnap?.steps ?? 0;
-  const selectedDayGoal = selectedDaySnap?.stepsGoal ?? stats.dailyGoal;
 
   const dayRingLabel =
     selectedDayOffset === 0 ? 'היום'
     : selectedDayOffset === 1 ? 'אתמול'
-    : selectedDaySnap?.date
-      ? (() => {
-          const d = new Date(selectedDaySnap.date + 'T00:00:00');
-          return `${d.getDate()}/${d.getMonth() + 1}`;
-        })()
-      : `לפני ${selectedDayOffset}`;
+    : shortDate(selectedDaySnap?.date) ?? `לפני ${selectedDayOffset}`;
 
-  // 7-day area chart data — always last 7 snapshots; selected day gets a larger dot
-  const dayAreaData = useMemo(() => {
+  // 7-day chart data for the day tab — always the last 7 snapshots.
+  const dayWeekData = useMemo(() => {
     const last7 = snapshots.slice(-7);
     return last7.map((s, i, arr) => {
       const d = s.date ? new Date(s.date + 'T00:00:00') : new Date();
       return {
+        key: s.date,
         label: `${d.getDate()}/${d.getMonth() + 1}`,
         dayName: HEBREW_DAYS_SHORT[d.getDay()],
         value: s.steps,
@@ -269,24 +348,23 @@ export default function StepsAnalyticsView({
     });
   }, [snapshots, selectedDayOffset]);
 
-  // ── Active ring values (overridden per day when isDay) ────────────────────
-  const activeRingValue = isDay ? selectedDaySteps : stats.averageDaily;
-  const activeRingLabel = isDay ? dayRingLabel : 'ממוצע';
-  const activeRingGoal = isDay ? selectedDayGoal : stats.dailyGoal;
-  const activeRingPercentage =
-    activeRingGoal > 0
-      ? Math.min(100, Math.round((activeRingValue / activeRingGoal) * 100))
-      : 0;
-
-
-  // legacy alias (used by km pill)
-  const ringValue = activeRingValue;
+  // ── Hero values ───────────────────────────────────────────────────────────
+  // Day tab → the selected day (carousel); other tabs → today (latest snapshot).
+  const todaySnap = snapshots[snapshots.length - 1];
+  const todaySteps = todaySnap?.steps ?? 0;
+  const todayGoal = todaySnap?.stepsGoal ?? stats.dailyGoal;
+  const heroDateKey = isDay ? selectedDaySnap?.date : todaySnap?.date;
+  const heroSteps = isDay ? selectedDaySteps : todaySteps;
+  // Same weekday last week — looked up by date in the already-loaded history.
+  // null (not loaded / no doc that day) → DeltaBadge hides itself.
+  const lastWeekSameDay = sameDayLastWeekSteps(snapshots, heroDateKey);
 
   // Distance pill: prefer the real synced distanceMeters (HealthKit
   // distanceWalkingRunning / Health Connect DistanceRecord) over the old
   // steps-based estimate (~1300 steps/km) whenever real data exists for
   // this window. Falls back silently to the estimate for users/days with
   // no synced distance yet (pre-sync history, Android <14, etc).
+  const ringValue = isDay ? selectedDaySteps : stats.averageDaily;
   const realDistanceKm = isDay
     ? (selectedDaySnap?.distanceMeters ?? 0) / 1000
     : stats.daysWithData > 0
@@ -297,84 +375,73 @@ export default function StepsAnalyticsView({
     : stats.totalDistanceMeters > 0;
   const distanceKm = hasRealDistance ? realDistanceKm : ringValue / 1300;
 
-  // Index of the single best-day bar (non-year ranges only) → gets a ★.
-  const bestDayIndex =
-    !isYear && stats.bestDay > 0
-      ? chartData.findIndex((d) => d.value === stats.bestDay)
-      : -1;
+  // ── Chart (v2 BarChart) ───────────────────────────────────────────────────
+  const todayKey = currentBucketKey(timeRange);
+  const barData: BarDatum[] = useMemo(
+    () => chartData.map((d) => ({ key: d.key, label: d.label, value: d.value })),
+    [chartData],
+  );
+  const dayBarData: BarDatum[] = useMemo(
+    () => dayWeekData.map((d) => ({ key: d.key, label: d.label, value: d.value })),
+    [dayWeekData],
+  );
 
-  const renderBestDayStar = (props: {
-    x?: number;
-    y?: number;
-    width?: number;
-    index?: number;
-  }) => {
-    const { x = 0, y = 0, width = 0, index } = props;
-    if (index !== bestDayIndex) return null;
-    return (
-      <text
-        x={x + width / 2}
-        y={y - 6}
-        textAnchor="middle"
-        fontSize={14}
-        fill={GOAL_LINE}
-      >
-        ★
-      </text>
-    );
-  };
-
-  // ── "Connect Health" empty-state (no data / bridge off) ──────────────────
-  // Uses hasPermissions (read from Capacitor Preferences on mount) so the
-  // teaser renders correctly on first load without SettingsModal being opened.
+  const renderTooltip = (d: BarDatum) => (
+    <div className="text-center">
+      <div className="text-[18px] font-black tabular-nums tracking-[-0.02em] text-v2-ink leading-tight" dir="ltr">
+        {fmtNumber(d.value)}
+      </div>
+      <div className="text-[10px] font-bold text-v2-muted leading-tight">צעדים</div>
+      <div className="mt-0.5 text-[11px] font-semibold text-v2-ink-2 leading-tight">
+        {bucketTooltipLabel(d.key)}
+      </div>
+    </div>
+  );
 
   // Stable per-mount mock series (3,000–9,000 steps × 7 days) for the blurred
   // teaser shown behind the connect CTA. useMemo([]) so it doesn't reshuffle.
-  const mockChartData = useMemo<StepsChartPoint[]>(() => {
+  const mockBarData = useMemo<BarDatum[]>(() => {
     const labels = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - (6 - i));
-      const value = 3000 + Math.floor(Math.random() * 6000);
       return {
-        label: `${labels[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}`,
-        value,
-        goalMet: value >= 8000,
         key: `mock-${i}`,
+        label: `${labels[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}`,
+        value: 3000 + Math.floor(Math.random() * 6000),
       };
     });
   }, []);
 
+  const firstStatLabel = isDay ? dayRingLabel : isYear ? 'סה״כ' : 'ממוצע יומי';
+  const firstStatValue = isDay ? selectedDaySteps : isYear ? stats.totalSteps : stats.averageDaily;
+
   return (
-    <div className="min-h-[100dvh] bg-[#F8FAFC]" dir="rtl">
+    <div className="min-h-[100dvh]" dir="rtl" style={{ background: PAGE_BACKDROP }}>
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.28, ease: 'easeOut' }}
+        transition={{ duration: 0.28, ease: EASE_V2 }}
       >
-        {/* ── Header ── */}
+        {/* ── Header — solid translucent bar, no backdrop-filter (see file doc) ── */}
         <div
-          className="sticky top-0 z-10 flex items-center gap-2 px-4 pb-3 bg-white/90 backdrop-blur-sm border-b border-gray-100"
+          className="sticky top-0 z-10 flex items-center gap-2 px-4 pb-3 bg-[#f4fbf8]/95 shadow-[0_1px_0_rgba(14,27,42,0.06)]"
           style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
         >
           <button
             onClick={onBack}
-            className="w-9 h-9 flex items-center justify-center rounded-xl text-gray-600 active:bg-gray-100 transition-colors"
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-white text-v2-ink shadow-v2-ring active:scale-[0.97] transition-transform duration-150 ease-v2"
             aria-label="חזור"
           >
-            <ChevronRight className="w-5 h-5" />
+            <ChevronRight className="w-5 h-5" strokeWidth={2.4} />
           </button>
           <div className="flex-1 min-w-0 text-center">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-              ניתוח פעילות
-            </p>
-            <h1 className="text-[15px] font-black text-gray-900 truncate leading-tight">
-              צעדים
+            <p className="text-[11px] font-extrabold text-[#00865a]">ניתוח פעילות</p>
+            <h1 className="text-[17px] font-black text-v2-ink truncate leading-tight">
+              <span className="tracking-v2-tight">צעדים</span>
             </h1>
           </div>
-          <div className="w-9 h-9 flex items-center justify-center rounded-xl text-[#00C07A]">
-            <Footprints className="w-5 h-5 -scale-x-100" />
-          </div>
+          <IconTile icon={Footprints} tone="steps" size="md" className="[&>svg]:-scale-x-100" />
         </div>
 
         {/* Debug entry point removed from production UI (Aug 2026, backfill
@@ -383,41 +450,58 @@ export default function StepsAnalyticsView({
             directly if ever needed again; just no visible link to it now. */}
 
         {/* ── Body ── */}
-        <div className="px-4 py-4 space-y-3 max-w-lg mx-auto">
-            {/* Time range selector — above ring, underline style matching home tabs */}
-            <div className="flex border-b border-gray-100">
-              {TIME_RANGES.map(({ key, label }) => (
+        <div className="px-4 pt-3 pb-4 space-y-3 max-w-lg mx-auto">
+          {/* Time range selector — segmented pill */}
+          <div
+            role="tablist"
+            aria-label="טווח זמן"
+            className="flex p-1 rounded-full bg-white/70 shadow-v2-ring"
+          >
+            {TIME_RANGES.map(({ key, label }) => {
+              const active = timeRange === key;
+              return (
                 <button
                   key={key}
                   type="button"
+                  role="tab"
+                  aria-selected={active}
                   onClick={() => setTimeRange(key)}
                   className={[
-                    'flex-1 py-2.5 text-sm font-bold transition-colors',
-                    timeRange === key
-                      ? 'text-[#00C07A] border-b-2 border-[#00C07A] -mb-px'
-                      : 'text-gray-400',
+                    'relative flex-1 h-9 rounded-full text-[14px] font-extrabold transition-colors duration-200 ease-v2',
+                    active ? 'text-white' : 'text-v2-muted',
                   ].join(' ')}
                 >
-                  {label}
+                  {active && (
+                    <motion.span
+                      layoutId="steps-range-pill"
+                      className="absolute inset-0 rounded-full bg-v2-ink"
+                      transition={{ duration: 0.32, ease: EASE_V2 }}
+                    />
+                  )}
+                  <span className="relative">{label}</span>
                 </button>
-              ))}
-            </div>
+              );
+            })}
+          </div>
 
-            {/* Hero ring */}
-            {loading ? (
-              <div className="flex justify-center py-6">
-                <div className="w-40 h-40 rounded-full bg-gray-100 animate-pulse" />
-              </div>
-            ) : isDay ? (
-              /* ── Day tab: gesture-driven carousel ──
-                 useMotionValue(dragX) drives all transforms in real-time.
-                 Pointer events update dragX directly — no Framer Motion drag prop
-                 so the container itself never moves. On release: commit day change
-                 + spring dragX back to 0. Stable slot keys (left/center/right)
-                 so rings never unmount during swipe. */
+          {/* ── Hero ── */}
+          {loading ? (
+            <Card variant="glass" padding="lg" className="space-y-4">
+              <div className="h-4 w-24 rounded-full bg-v2-hairline animate-pulse" />
+              <div className="h-14 w-48 rounded-v2-tile bg-v2-hairline animate-pulse" />
+              <div className="h-3 w-full rounded-full bg-v2-hairline animate-pulse" />
+            </Card>
+          ) : isDay ? (
+            /* ── Day tab: gesture-driven carousel ──
+               useMotionValue(dragX) drives all transforms in real-time.
+               Pointer events update dragX directly — no Framer Motion drag prop
+               so the container itself never moves. On release: commit day change
+               + spring dragX back to 0. Stable slot keys (left/center/right)
+               so rings never unmount during swipe. */
+            <Card variant="glass" padding="none" className="overflow-hidden">
               <div
-                className="-mx-4 overflow-hidden relative select-none touch-pan-y"
-                style={{ height: RING_SIZE + 56 }}
+                className="overflow-hidden relative select-none touch-pan-y"
+                style={{ height: RING_SIZE + 40 }}
                 onPointerDown={handleCarouselPointerDown}
                 onPointerMove={handleCarouselPointerMove}
                 onPointerUp={handleCarouselCommit}
@@ -446,12 +530,10 @@ export default function StepsAnalyticsView({
                     >
                       <StepsRing percentage={pct} size={RING_SIZE} strokeWidth={10} gradId="stepsGrad-left">
                         <div className="flex flex-col items-center leading-none pointer-events-none">
-                          <span className="text-[9px] font-bold text-gray-400">
-                            {offset === 1 ? 'אתמול' : snap?.date
-                              ? (() => { const d = new Date(snap.date + 'T00:00:00'); return `${d.getDate()}/${d.getMonth() + 1}`; })()
-                              : `לפני ${offset}`}
+                          <span className="text-[11px] font-bold text-v2-muted">
+                            {offset === 1 ? 'אתמול' : shortDate(snap?.date) ?? `לפני ${offset}`}
                           </span>
-                          <span className="text-[22px] font-black text-gray-700 tabular-nums" dir="ltr">
+                          <span className="text-[24px] font-black text-v2-ink-2 tabular-nums" dir="ltr">
                             {fmtNumber(steps)}
                           </span>
                         </div>
@@ -470,9 +552,7 @@ export default function StepsAnalyticsView({
                   const label  =
                     offset === 0 ? 'היום'
                     : offset === 1 ? 'אתמול'
-                    : snap?.date
-                      ? (() => { const d = new Date(snap.date + 'T00:00:00'); return `${d.getDate()}/${d.getMonth() + 1}`; })()
-                      : `לפני ${offset}`;
+                    : shortDate(snap?.date) ?? `לפני ${offset}`;
                   return (
                     <motion.div
                       className="absolute"
@@ -490,14 +570,12 @@ export default function StepsAnalyticsView({
                             initial={{ opacity: 0, scale: 0.85, y: 10 }}
                             animate={{ opacity: 1, scale: 1,    y: 0  }}
                             exit={{    opacity: 0, scale: 0.85, y: -10 }}
-                            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                            transition={{ duration: 0.2, ease: EASE_V2 }}
                             className="flex flex-col items-center leading-none"
                           >
-                            <span className="text-[12px] font-black text-[#00C07A] mb-1">{label}</span>
-                            <span className="text-[36px] font-black text-gray-900 tabular-nums" dir="ltr">
-                              {fmtNumber(steps)}
-                            </span>
-                            <span className="text-[12px] font-semibold text-gray-400 mt-1.5">
+                            <span className="text-[12px] font-extrabold text-[#00865a] mb-1.5">{label}</span>
+                            <StatNumber value={steps} size="lg" countUp align="center" />
+                            <span className="text-[12px] font-semibold text-v2-muted mt-1.5">
                               מתוך {fmtNumber(goal)} צעדים
                             </span>
                           </motion.div>
@@ -528,13 +606,10 @@ export default function StepsAnalyticsView({
                       <StepsRing percentage={pct} size={RING_SIZE} strokeWidth={10} gradId="stepsGrad-right">
                         {inRange && (
                           <div className="flex flex-col items-center leading-none pointer-events-none">
-                            <span className="text-[9px] font-bold text-gray-400">
-                              {offset === 0 ? 'היום' : offset === 1 ? 'אתמול'
-                                : snap?.date
-                                  ? (() => { const d = new Date(snap.date + 'T00:00:00'); return `${d.getDate()}/${d.getMonth() + 1}`; })()
-                                  : `לפני ${offset}`}
+                            <span className="text-[11px] font-bold text-v2-muted">
+                              {offset === 0 ? 'היום' : offset === 1 ? 'אתמול' : shortDate(snap?.date) ?? `לפני ${offset}`}
                             </span>
-                            <span className="text-[22px] font-black text-gray-700 tabular-nums" dir="ltr">
+                            <span className="text-[24px] font-black text-v2-ink-2 tabular-nums" dir="ltr">
                               {fmtNumber(steps)}
                             </span>
                           </div>
@@ -544,533 +619,178 @@ export default function StepsAnalyticsView({
                   );
                 })()}
               </div>
-            ) : (
-              /* ── Week / month / year: single gradient ring ── */
-              <div className="flex justify-center py-4">
-                <StepsRing
-                  percentage={activeRingPercentage}
-                  size={RING_SIZE}
-                  strokeWidth={12}
-                  gradId="stepsGrad-single"
-                >
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={timeRange}
-                      initial={{ opacity: 0, scale: 0.85, y: 10 }}
-                      animate={{ opacity: 1, scale: 1,    y: 0  }}
-                      exit={{    opacity: 0, scale: 0.85, y: -10 }}
-                      transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-                      className="flex flex-col items-center leading-none"
-                    >
-                      <span className="text-[12px] font-black text-[#00C07A] mb-1">{activeRingLabel}</span>
-                      <span className="text-[36px] font-black text-gray-900 tabular-nums" dir="ltr">
-                        {fmtNumber(activeRingValue)}
-                      </span>
-                      <span className="text-[12px] font-semibold text-gray-400 mt-1.5">
-                        מתוך {fmtNumber(activeRingGoal)} צעדים
-                      </span>
-                    </motion.div>
-                  </AnimatePresence>
-                </StepsRing>
+              <div className="flex justify-center pb-4 -mt-1 min-h-[24px]">
+                <DeltaBadge current={heroSteps} previous={lastWeekSameDay} suffix="מול שבוע שעבר" />
               </div>
-            )}
-
-            {/* Stat pills */}
-            {loading ? (
-              <div className="grid grid-cols-5 gap-1.5">
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <div key={i} className="bg-white rounded-xl h-14 animate-pulse border border-gray-100" />
-                ))}
+            </Card>
+          ) : (
+            /* ── Week / month / year: today's steps ── */
+            <Card variant="glass" padding="lg" className="space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5">
+                  <IconTile icon={Footprints} tone="steps" size="md" className="[&>svg]:-scale-x-100" />
+                  <span className="text-[14px] font-extrabold text-[#00865a]">היום</span>
+                </div>
+                <DeltaBadge current={todaySteps} previous={lastWeekSameDay} suffix="מול שבוע שעבר" />
               </div>
-            ) : (
-              <div className="grid grid-cols-5 gap-1.5">
-                {/* ממוצע יומי / today */}
-                <div className="bg-white rounded-xl p-2 text-center border border-gray-100 shadow-subtle">
-                  <p className="text-[13px] font-black text-gray-900 leading-none tabular-nums" dir="ltr">
-                    {fmtCompact(isDay ? selectedDaySteps : isYear ? stats.totalSteps : stats.averageDaily)}
-                  </p>
-                  <p className="text-[9px] font-semibold text-gray-400 mt-0.5 leading-none">צעדים</p>
-                  <p className="text-[8px] font-bold text-gray-400 mt-1 leading-none">
-                    {isDay ? activeRingLabel : isYear ? 'סה״כ' : 'ממוצע'}
-                  </p>
-                </div>
-                {/* שיא */}
-                <div className="bg-white rounded-xl p-2 text-center border border-gray-100 shadow-subtle">
-                  <p className="text-[13px] font-black text-gray-900 leading-none tabular-nums" dir="ltr">
-                    {stats.bestDay > 0 ? fmtCompact(stats.bestDay) : '—'}
-                  </p>
-                  <p className="text-[9px] font-semibold text-gray-400 mt-0.5 leading-none">צעדים</p>
-                  <p className="text-[8px] font-bold text-gray-400 mt-1 leading-none">שיא</p>
-                </div>
-                {/* ימים ביעד */}
-                <div className="bg-white rounded-xl p-2 text-center border border-gray-100 shadow-subtle">
-                  <p className="text-[13px] font-black text-gray-900 leading-none tabular-nums" dir="ltr">
-                    {stats.daysAtGoal}
-                    <span className="text-[10px] font-semibold text-gray-400">/{stats.daysWithData}</span>
-                  </p>
-                  <p className="text-[9px] font-semibold text-gray-400 mt-0.5 leading-none">ימים</p>
-                  <p className="text-[8px] font-bold text-gray-400 mt-1 leading-none">ביעד</p>
-                </div>
-                {/* רצף */}
-                <div className="bg-white rounded-xl p-2 text-center border border-gray-100 shadow-subtle">
-                  <p className="text-[13px] font-black text-gray-900 leading-none tabular-nums" dir="ltr">
-                    {stats.streak}
-                  </p>
-                  <p className="text-[9px] font-semibold text-gray-400 mt-0.5 leading-none">ימים</p>
-                  <p className="text-[8px] font-bold text-gray-400 mt-1 leading-none">רצף 🔥</p>
-                </div>
-                {/* ק"מ — real synced distance when available, steps-estimate fallback otherwise */}
-                <div className="bg-white rounded-xl p-2 text-center border border-gray-100 shadow-subtle">
-                  <p className="text-[13px] font-black text-gray-900 leading-none tabular-nums" dir="ltr">
-                    {distanceKm.toFixed(1)}
-                  </p>
-                  <p className="text-[9px] font-semibold text-gray-400 mt-0.5 leading-none">ק״מ</p>
-                  <p className="text-[8px] font-bold text-gray-400 mt-1 leading-none">מרחק</p>
-                </div>
-              </div>
-            )}
+              <StatNumber value={todaySteps} unit="צעדים" size="hero" countUp />
+              <GoalProgressBar steps={todaySteps} goal={todayGoal} />
+            </Card>
+          )}
 
-            {/* Chart — area for day tab, bars for week/month/year */}
-            <div className="bg-white rounded-2xl p-4 shadow-subtle border border-gray-100 outline-none focus-within:outline-none" style={{ WebkitTapHighlightColor: 'transparent' }}>
-              {loading ? (
-                <div className="h-56 bg-gray-50 rounded-xl animate-pulse" />
-              ) : error ? (
-                <ErrorState />
-              ) : isDay ? (
-                /* ── Day tab: 7-day area chart ── */
-                <>
-                  {/* Day-name selectors above chart — tap = same as tapping dot */}
-                  <div className="flex border-b border-gray-100 mb-1" dir="rtl">
-                    {[...dayAreaData].reverse().map((pt, ri) => {
-                      const fwdIndex = dayAreaData.length - 1 - ri;
-                      const offset = dayAreaData.length - 1 - fwdIndex;
-                      return (
-                        <button
-                          key={ri}
-                          type="button"
-                          onClick={() => setSelectedDayOffset(offset)}
-                          className={[
-                            'flex-1 py-1.5 text-xs font-bold transition-colors outline-none',
-                            pt.isSelected
-                              ? 'text-[#00C07A] border-b-2 border-[#00C07A] -mb-px'
-                              : 'text-gray-400',
-                          ].join(' ')}
-                        >
-                          {pt.dayName}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div style={{ width: '100%' }} dir="ltr">
-                    <ResponsiveContainer width="100%" height={150}>
-                      <AreaChart data={dayAreaData} margin={{ top: 10, right: 4, left: -24, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="stepsAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#00C07A" stopOpacity={0.28} />
-                            <stop offset="95%" stopColor="#00C07A" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 6" stroke="#F1F5F9" vertical={false} />
-                        <XAxis dataKey="label" hide />
-                        <YAxis
-                          tick={{ fontSize: 9, fill: '#9CA3AF' }}
-                          axisLine={false}
-                          tickLine={false}
-                          width={36}
-                          tickFormatter={(v: number) => fmtCompact(v)}
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            background: '#1E293B',
-                            border: 'none',
-                            borderRadius: 10,
-                            fontSize: 11,
-                            fontWeight: 700,
-                            color: '#fff',
-                            padding: '6px 10px',
-                          }}
-                          formatter={(value: number) => [`${fmtNumber(value)} צעדים`, '']}
-                          labelFormatter={(_, payload) => {
-                            const idx = payload?.[0]?.payload ? dayAreaData.findIndex(p => p === payload[0].payload) : -1;
-                            const pt = idx >= 0 ? dayAreaData[idx] : null;
-                            if (!pt) return '';
-                            const offset = dayAreaData.length - 1 - idx;
-                            if (offset === 0) return 'היום';
-                            if (offset === 1) return 'אתמול';
-                            const dayNamesFull = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
-                            const d = new Date();
-                            d.setDate(d.getDate() - offset);
-                            return `יום ${dayNamesFull[d.getDay()]}`;
-                          }}
-                          cursor={{ stroke: 'rgba(0,192,122,0.15)', strokeWidth: 1 }}
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="value"
-                          stroke="#00C07A"
-                          strokeWidth={2}
-                          fill="url(#stepsAreaGrad)"
-                          dot={(dotProps: { cx: number; cy: number; index: number }) => {
-                            const pt = dayAreaData[dotProps.index];
-                            const sel = pt?.isSelected;
-                            return (
-                              <circle
-                                key={`dot-${dotProps.index}`}
-                                cx={dotProps.cx}
-                                cy={dotProps.cy}
-                                r={sel ? 6 : 3}
-                                fill="white"
-                                stroke="#00C07A"
-                                strokeWidth={sel ? 2.5 : 1.5}
-                                style={{ cursor: 'pointer', outline: 'none' }}
-                                tabIndex={-1}
-                                onClick={() =>
-                                  setSelectedDayOffset(dayAreaData.length - 1 - dotProps.index)
-                                }
-                              />
-                            );
-                          }}
-                          activeDot={false}
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </>
-              ) : (isEmpty || !hasPermissions) ? (
-                  <div className="relative">
-                    {/* Decorative blurred mock chart behind the CTA */}
-                    <div
-                      className="pointer-events-none select-none"
-                      style={{ filter: 'blur(4px)' }}
-                      aria-hidden="true"
-                    >
-                      <div style={{ width: '100%', minWidth: 0 }} dir="ltr">
-                        <ResponsiveContainer width="100%" height={228}>
-                          <BarChart
-                            data={mockChartData}
-                            margin={{ top: 10, right: 4, left: -8, bottom: 0 }}
-                            barCategoryGap="20%"
-                          >
-                            <CartesianGrid strokeDasharray="3 6" stroke="#F1F5F9" vertical={false} />
-                            <XAxis
-                              dataKey="label"
-                              tick={{ fontSize: 9, fill: '#9CA3AF' }}
-                              axisLine={false}
-                              tickLine={false}
-                            />
-                            <YAxis
-                              tick={{ fontSize: 9, fill: '#9CA3AF' }}
-                              axisLine={false}
-                              tickLine={false}
-                              width={36}
-                              tickFormatter={(v: number) => fmtCompact(v)}
-                            />
-                            <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={18}>
-                              {mockChartData.map((entry, index) => (
-                                <Cell
-                                  key={`mock-${index}`}
-                                  fill={entry.goalMet ? PRIMARY : PRIMARY_DIM}
-                                />
-                              ))}
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </div>
-
-                    {/* CTA overlay */}
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center px-4">
-                      <p className="text-[13px] font-black text-gray-800 max-w-[240px] leading-snug">
-                        חבר/י את נתוני הבריאות כדי לראות את הצעדים האמיתיים שלך
-                      </p>
-                      <button
-                        type="button"
-                        onClick={openDisclosure}
-                        className="inline-flex items-center gap-2 px-7 py-2 text-black text-sm font-semibold rounded-full shadow-md shadow-cyan-400/25 transition-all duration-200 hover:brightness-105 active:scale-95"
-                        style={{ background: 'linear-gradient(135deg, #00BAF7 0%, #0CF2E3 100%)' }}
-                      >
-                        <HeartPulse className="w-4 h-4" />
-                        התחבר לאפליקציית הבריאות
-                      </button>
-                    </div>
-                  </div>
-              ) : (
-                <>
-                  <div style={{ width: '100%', minWidth: 0 }} dir="ltr">
-                    <ResponsiveContainer width="100%" height={228}>
-                      <BarChart
-                        data={chartData}
-                        margin={{ top: 10, right: 4, left: -8, bottom: 0 }}
-                        barCategoryGap="20%"
-                      >
-                        <CartesianGrid
-                          strokeDasharray="3 6"
-                          stroke="#F1F5F9"
-                          vertical={false}
-                        />
-                        <XAxis
-                          dataKey="label"
-                          tick={{ fontSize: 9, fill: '#9CA3AF' }}
-                          axisLine={false}
-                          tickLine={false}
-                          interval="preserveStartEnd"
-                        />
-                        <YAxis
-                          tick={{ fontSize: 9, fill: '#9CA3AF' }}
-                          axisLine={false}
-                          tickLine={false}
-                          width={36}
-                          domain={[0, yDomainMax]}
-                          tickFormatter={(v: number) => fmtCompact(v)}
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            background: '#1E293B',
-                            border: 'none',
-                            borderRadius: 10,
-                            fontSize: 11,
-                            fontWeight: 700,
-                            color: '#fff',
-                            padding: '6px 10px',
-                          }}
-                          formatter={(value: number) => [
-                            `${fmtNumber(value)} צעדים`,
-                            '',
-                          ]}
-                          labelFormatter={(label) => String(label)}
-                          cursor={{ fill: 'rgba(0, 192, 122, 0.08)' }}
-                        />
-
-                        {showGoalLine && (
-                          <ReferenceLine
-                            y={stats.dailyGoal}
-                            stroke={GOAL_LINE}
-                            strokeDasharray="6 3"
-                            strokeWidth={1.5}
-                            label={{
-                              value: `יעד ${fmtCompact(stats.dailyGoal)}`,
-                              position: 'insideTopRight',
-                              fontSize: 9,
-                              fill: GOAL_LINE,
-                              fontWeight: 700,
-                            }}
-                          />
-                        )}
-
-                        <Bar
-                          dataKey="value"
-                          radius={[6, 6, 0, 0]}
-                          maxBarSize={isYear ? 22 : 18}
-                          label={renderBestDayStar}
-                        >
-                          {chartData.map((entry, index) => (
-                            <Cell
-                              key={`bar-${index}`}
-                              fill={entry.goalMet ? PRIMARY : PRIMARY_DIM}
-                            />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-
-                  {/* Legend */}
-                  <div className="flex items-center justify-between mt-2 px-0.5">
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1.5">
-                        <div
-                          className="w-2.5 h-2.5 rounded-sm"
-                          style={{ background: PRIMARY }}
-                        />
-                        <span className="text-[10px] font-bold text-gray-500">
-                          יעד הושג
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <div
-                          className="w-2.5 h-2.5 rounded-sm"
-                          style={{ background: PRIMARY_DIM }}
-                        />
-                        <span className="text-[10px] font-bold text-gray-400">
-                          מתחת ליעד
-                        </span>
-                      </div>
-                    </div>
-                    {showGoalLine && (
-                      <div className="flex items-center gap-1.5">
-                        <div
-                          className="w-5 border-t border-dashed"
-                          style={{ borderColor: GOAL_LINE }}
-                        />
-                        <span className="text-[10px] font-bold text-gray-400">
-                          יעד יומי
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
+          {/* ── Secondary stats ── */}
+          {loading ? (
+            <div className="grid grid-cols-2 gap-3">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-[88px] rounded-v2-card bg-white/60 animate-pulse" />
+              ))}
             </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <StatTile icon={CalendarDays} label={firstStatLabel} value={firstStatValue} unit="צעדים" />
+              <StatTile
+                icon={Trophy}
+                label="שיא"
+                value={stats.bestDay}
+                unit={stats.bestDay > 0 ? 'צעדים' : undefined}
+                format={stats.bestDay > 0 ? undefined : () => '—'}
+              />
+              <StatTile
+                icon={Target}
+                label="ימים ביעד"
+                value={stats.daysAtGoal}
+                format={(v) => `${Math.round(v)}/${stats.daysWithData}`}
+              />
+              <StatTile icon={Flame} tone="neutral" label="רצף" value={stats.streak} unit="ימים" />
+              {/* ק"מ — real synced distance when available, steps-estimate fallback otherwise */}
+              <StatTile
+                icon={Route}
+                tone="neutral"
+                label="מרחק"
+                value={distanceKm}
+                decimals={1}
+                unit="ק״מ"
+                className="col-span-2 !flex-row items-center justify-between"
+              />
+            </div>
+          )}
 
-            <div className="h-4" />
+          {/* ── Chart ── */}
+          <Card variant="glass" padding="md" className="outline-none" style={{ WebkitTapHighlightColor: 'transparent' }}>
+            {loading ? (
+              <div className="h-56 rounded-v2-tile bg-v2-hairline/60 animate-pulse" />
+            ) : error ? (
+              <ErrorState />
+            ) : isDay ? (
+              /* ── Day tab: the last 7 days, selected day highlighted ── */
+              <>
+                {/* Day-name selectors — tap = select that day in the carousel */}
+                <div className="flex gap-1 mb-3" dir="rtl">
+                  {[...dayWeekData].reverse().map((pt, ri) => {
+                    const fwdIndex = dayWeekData.length - 1 - ri;
+                    const offset = dayWeekData.length - 1 - fwdIndex;
+                    return (
+                      <button
+                        key={ri}
+                        type="button"
+                        onClick={() => setSelectedDayOffset(offset)}
+                        aria-pressed={pt.isSelected}
+                        className={[
+                          'flex-1 h-8 rounded-full text-[13px] font-extrabold transition-colors duration-200 ease-v2 outline-none',
+                          pt.isSelected
+                            ? 'bg-activity-steps text-white'
+                            : 'text-v2-muted bg-v2-surface',
+                        ].join(' ')}
+                      >
+                        {pt.dayName}
+                      </button>
+                    );
+                  })}
+                </div>
+                <BarChart
+                  data={dayBarData}
+                  goal={stats.dailyGoal > 0 ? stats.dailyGoal : null}
+                  goalLabel={`יעד ${fmtNumber(stats.dailyGoal)}`}
+                  highlightKey={selectedDaySnap?.date ?? null}
+                  color={STEPS_COLOR}
+                  height={170}
+                  datasetKey="day"
+                  renderTooltip={renderTooltip}
+                  ariaLabel="צעדים בשבעת הימים האחרונים"
+                />
+              </>
+            ) : (isEmpty || !hasPermissions) ? (
+              <div className="relative">
+                {/* Decorative blurred mock chart behind the CTA (CSS filter, not backdrop) */}
+                <div
+                  className="pointer-events-none select-none"
+                  style={{ filter: 'blur(4px)' }}
+                  aria-hidden="true"
+                >
+                  <BarChart data={mockBarData} color={STEPS_COLOR} height={228} datasetKey="mock" />
+                </div>
 
-            {footer}
-          </div>
+                {/* CTA overlay */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-center px-4">
+                  <IconTile icon={HeartPulse} tone="steps" size="lg" />
+                  <p className="text-[15px] font-black text-v2-ink max-w-[250px] leading-snug">
+                    חבר/י את נתוני הבריאות כדי לראות את הצעדים האמיתיים שלך
+                  </p>
+                  <Button variant="primary" size="md" onClick={openDisclosure} className="gap-2">
+                    <HeartPulse className="w-4 h-4" strokeWidth={2.4} aria-hidden />
+                    התחבר לאפליקציית הבריאות
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-[14px] font-extrabold text-v2-ink">
+                    {isYear ? 'צעדים לפי חודש' : 'צעדים לפי יום'}
+                  </span>
+                  {showGoalLine && (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-v2-muted">
+                      <span className="w-4 border-t-[1.5px] border-dashed border-v2-ink/30" />
+                      יעד יומי
+                    </span>
+                  )}
+                </div>
+                <BarChart
+                  data={barData}
+                  goal={showGoalLine ? stats.dailyGoal : null}
+                  goalLabel={showGoalLine ? `יעד ${fmtNumber(stats.dailyGoal)}` : undefined}
+                  highlightKey={todayKey}
+                  color={STEPS_COLOR}
+                  height={220}
+                  labelEvery={isYear ? 2 : undefined}
+                  datasetKey={timeRange}
+                  renderTooltip={renderTooltip}
+                  ariaLabel={isYear ? 'צעדים לפי חודש' : 'צעדים לפי יום'}
+                />
+                <p className="mt-3 text-[11px] font-semibold text-v2-muted text-center">
+                  הקש/י על עמודה לפרטים
+                </p>
+              </>
+            )}
+          </Card>
+
+          <div className="h-4" />
+
+          {footer}
+        </div>
       </motion.div>
     </div>
   );
 }
 
-// ── StatCard ─────────────────────────────────────────────────────────────────
-
-type AccentColor = 'amber' | 'blue' | 'green' | 'gray';
-
-const ACCENT_TEXT: Record<AccentColor, string> = {
-  amber: 'text-amber-500',
-  blue: 'text-[#00C07A]',
-  green: 'text-emerald-500',
-  gray: 'text-gray-800',
-};
-
-const ACCENT_BG: Record<AccentColor, string> = {
-  amber: 'bg-amber-50 border-amber-100',
-  blue: 'bg-[#EAFBF4] border-[#CBF2E4]',
-  green: 'bg-emerald-50 border-emerald-100',
-  gray: 'bg-white border-gray-100',
-};
-
-interface StatCardProps {
-  label: string;
-  value: string;
-  unit: string;
-  icon: React.ReactNode;
-  accent: AccentColor;
-}
-
-function StatCard({ label, value, unit, icon, accent }: StatCardProps) {
-  return (
-    <div
-      className={[
-        'rounded-2xl p-3 flex flex-col gap-1.5 border',
-        ACCENT_BG[accent],
-      ].join(' ')}
-    >
-      <div className="flex items-center gap-1 min-w-0">
-        {icon}
-        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide truncate">
-          {label}
-        </span>
-      </div>
-      <p
-        className={[
-          'text-[17px] font-black tabular-nums leading-none',
-          ACCENT_TEXT[accent],
-        ].join(' ')}
-      >
-        {value}
-        {unit && (
-          <span className="text-[9px] font-bold text-gray-400 ms-0.5">{unit}</span>
-        )}
-      </p>
-    </div>
-  );
-}
-
-// ── Health Connect Gate ──────────────────────────────────────────────────────
-
-interface HealthConnectGateProps {
-  onConnect: () => void;
-  isRequesting: boolean;
-}
-
-function HealthConnectGate({ onConnect, isRequesting }: HealthConnectGateProps) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
-      className="flex flex-col items-center justify-center px-8 py-20 text-center gap-6"
-      dir="rtl"
-    >
-      <div className="relative">
-        <div
-          className="w-24 h-24 rounded-full flex items-center justify-center"
-          style={{
-            background: 'linear-gradient(135deg, #E0F7EF 0%, #EAFBF4 100%)',
-            boxShadow: '0 0 0 12px rgba(0,192,122,0.08)',
-          }}
-        >
-          <Footprints className="w-10 h-10 text-[#00C07A] -scale-x-100" aria-hidden="true" />
-        </div>
-        <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-md">
-          <ShieldCheck className="w-[18px] h-[18px] text-emerald-500" aria-hidden="true" />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <h2 className="text-xl font-black text-gray-900">חבר/י נתוני בריאות</h2>
-        <p className="text-sm text-gray-500 leading-relaxed max-w-xs">
-          כדי לצפות בהיסטוריית הצעדים שלך, OUT צריכה גישה לנתוני הבריאות מהמכשיר שלך.
-        </p>
-      </div>
-
-      <div className="flex flex-wrap justify-center gap-2">
-        {['צעדים יומיים', 'קלוריות פעילות', 'דקות אימון'].map((label) => (
-          <span
-            key={label}
-            className="text-[11px] font-bold text-[#00C07A] bg-[#EAFBF4] border border-[#CBF2E4] rounded-full px-3 py-1"
-          >
-            {label}
-          </span>
-        ))}
-      </div>
-
-      <button
-        type="button"
-        onClick={onConnect}
-        disabled={isRequesting}
-        className="w-full max-w-xs bg-[#00C07A] hover:bg-[#00A86A] active:scale-[0.98] disabled:opacity-60 text-white font-black py-4 rounded-2xl shadow-lg shadow-[#00C07A]/25 transition-all text-[15px]"
-      >
-        {isRequesting ? 'מחכה לאישור...' : 'חבר/י נתוני בריאות'}
-      </button>
-
-      <p className="text-[11px] text-gray-400 leading-relaxed max-w-[260px]">
-        הנתונים משמשים אך ורק להצגה אישית ולא מועברים לצדדים שלישיים
-      </p>
-    </motion.div>
-  );
-}
-
-
-// ── Empty / error states ────────────────────────────────────────────────────
-
-function EmptyState({ range }: { range: StepsTimeRange }) {
-  const labelByRange: Record<StepsTimeRange, string> = {
-    day: 'היום',
-    week: 'בשבוע האחרון',
-    month: 'בחודש האחרון',
-    year: 'בשנה האחרונה',
-  };
-  return (
-    <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
-      <Footprints className="w-10 h-10 text-gray-200 -scale-x-100" />
-      <p className="text-sm font-black text-gray-500">
-        אין נתוני צעדים {labelByRange[range]}
-      </p>
-      <p className="text-xs text-gray-400">
-        הצעדים יופיעו כאן ברגע שהמכשיר יסנכרן
-      </p>
-    </div>
-  );
-}
+// ── Error state ─────────────────────────────────────────────────────────────
 
 function ErrorState() {
   return (
-    <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
-      <TrendingUp className="w-10 h-10 text-gray-200" />
-      <p className="text-sm font-black text-gray-500">שגיאה בטעינת הנתונים</p>
-      <p className="text-xs text-gray-400">נסה שוב מאוחר יותר</p>
+    <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
+      <IconTile icon={TrendingUp} tone="neutral" size="lg" />
+      <p className="text-[15px] font-black text-v2-ink">שגיאה בטעינת הנתונים</p>
+      <p className="text-[13px] font-semibold text-v2-muted">נסה שוב מאוחר יותר</p>
     </div>
   );
 }

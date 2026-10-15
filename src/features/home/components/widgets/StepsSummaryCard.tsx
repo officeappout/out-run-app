@@ -83,7 +83,7 @@ export default function StepsSummaryCard({ className = '', variant = 'default' }
     }
   }, [percentage]);
 
-  const { triggerHealthPermission, disclosureProps, unavailableReason } = useHealthWithDisclosure({
+  const { triggerHealthPermission, disclosureProps } = useHealthWithDisclosure({
     onGranted: () => router.push('/activity/steps'),
   });
   // Ground truth (native PREF_KEY_PERMISSIONS), not useSettingsStore
@@ -110,6 +110,7 @@ export default function StepsSummaryCard({ className = '', variant = 'default' }
         variant={variant}
         className={className}
         displaySteps={displaySteps}
+        steps={showPlaceholder ? null : stepsToday}
         goal={goal}
         percentage={percentage}
         connectPromptLabel={connectPromptLabel}

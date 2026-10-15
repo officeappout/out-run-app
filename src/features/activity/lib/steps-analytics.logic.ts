@@ -183,3 +183,54 @@ export function deriveStepsStats(
     totalDistanceMeters,
   };
 }
+
+// ── Design-v2 presentation helpers (pure, no new data) ─────────────────────
+
+const HEBREW_DAY_NAMES_FULL = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+
+/** 'YYYY-MM-DD' shifted by `days` (local calendar arithmetic, DST-safe). */
+export function shiftDateKey(dateKey: string, days: number): string | null {
+  const d = new Date(dateKey + 'T00:00:00');
+  if (Number.isNaN(d.getTime())) return null;
+  return toDateKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() + days));
+}
+
+/**
+ * Steps on the same weekday one week before `dateKey`, looked up BY DATE in
+ * the snapshots the page already loaded (snapshots can have gaps — a day with
+ * no dailyActivity doc — so an index offset of 7 would be wrong).
+ * Returns null when that day isn't in the loaded history; the DeltaBadge then
+ * hides itself.
+ */
+export function sameDayLastWeekSteps(
+  snapshots: DailyStepsSnapshot[],
+  dateKey: string | null | undefined,
+): number | null {
+  if (!dateKey) return null;
+  const target = shiftDateKey(dateKey, -7);
+  if (!target) return null;
+  const hit = snapshots.find((s) => s.date === target);
+  return hit ? hit.steps : null;
+}
+
+/**
+ * Tooltip heading for a chart bucket key: 'YYYY-MM-DD' → "יום חמישי · 15/10",
+ * 'YYYY-MM' (year view) → "אוק׳ 2026".
+ */
+export function bucketTooltipLabel(key: string): string {
+  if (/^\d{4}-\d{2}$/.test(key)) {
+    const [y, m] = key.split('-').map(Number);
+    return `${HEBREW_MONTHS[m - 1] ?? m} ${y}`;
+  }
+  const d = new Date(key + 'T00:00:00');
+  if (Number.isNaN(d.getTime())) return key;
+  return `יום ${HEBREW_DAY_NAMES_FULL[d.getDay()]} · ${d.getDate()}/${d.getMonth() + 1}`;
+}
+
+/** Highlight key for "today/current" in the active range's chart. */
+export function currentBucketKey(timeRange: StepsTimeRange, now: Date = new Date()): string {
+  if (timeRange === 'year') {
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }
+  return toDateKey(now);
+}

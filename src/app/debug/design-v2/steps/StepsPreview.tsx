@@ -36,6 +36,7 @@ function WidgetsPreview() {
         <StepsSummaryCardView
           variant="default"
           displaySteps={(6420).toLocaleString('he-IL')}
+          steps={6420}
           goal={8000}
           percentage={80}
           connectPromptLabel={null}
@@ -45,6 +46,7 @@ function WidgetsPreview() {
         <StepsSummaryCardView
           variant="default"
           displaySteps="—"
+          steps={null}
           goal={8000}
           percentage={0}
           connectPromptLabel="עוד לא חובר"
@@ -58,6 +60,7 @@ function WidgetsPreview() {
           <StepsSummaryCardView
             variant="compact"
             displaySteps={(9120).toLocaleString('he-IL')}
+            steps={9120}
             goal={8000}
             percentage={100}
             connectPromptLabel={null}
@@ -67,6 +70,7 @@ function WidgetsPreview() {
           <StepsSummaryCardView
             variant="compact"
             displaySteps={(3240).toLocaleString('he-IL')}
+            steps={3240}
             goal={8000}
             percentage={41}
             connectPromptLabel={null}

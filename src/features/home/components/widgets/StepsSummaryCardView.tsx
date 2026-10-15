@@ -7,17 +7,23 @@
  * read, the goal celebration and the health-permission flow, and passes the
  * already-derived display values in. Split out so the design-v2 preview route
  * can render the card from fixtures.
+ *
+ * Design language v2: light Card surface (24px radius, v2 lift), steps-green
+ * progress ring, StatNumber for the count.
  */
 
 import React from 'react';
 import { Footprints, ChevronLeft } from 'lucide-react';
 import CircularProgress from '@/components/CircularProgress';
+import { IconTile, StatNumber } from '@/components/ui/v2';
 
 export interface StepsSummaryCardViewProps {
   variant: 'default' | 'compact';
   className?: string;
   /** Formatted step count, or '—' while loading / stale. */
   displaySteps: string;
+  /** Raw step count, or null while loading / stale (renders '—'). */
+  steps: number | null;
   goal: number;
   /** 0–100. */
   percentage: number;
@@ -27,10 +33,24 @@ export interface StepsSummaryCardViewProps {
   onOpen: () => void;
 }
 
+const CARD = 'bg-white text-v2-ink rounded-v2-card shadow-v2-card active:scale-[0.97] transition-transform duration-150 ease-v2';
+
+function Count({ steps, displaySteps, size }: { steps: number | null; displaySteps: string; size: 'sm' | 'md' }) {
+  if (steps == null) {
+    return (
+      <span className={`font-black text-v2-ink leading-none ${size === 'sm' ? 'text-[20px]' : 'text-[28px]'}`}>
+        {displaySteps}
+      </span>
+    );
+  }
+  return <StatNumber value={steps} size={size} countUp align="center" />;
+}
+
 export default function StepsSummaryCardView({
   variant,
   className = '',
   displaySteps,
+  steps,
   goal,
   percentage,
   connectPromptLabel,
@@ -45,28 +65,22 @@ export default function StepsSummaryCardView({
         aria-label={ariaLabel}
         dir="rtl"
         className={[
-          'w-full h-full text-center',
-          'bg-white dark:bg-[#1E1E1E]',
+          'w-full h-full text-center p-4',
+          CARD,
           'flex flex-col items-center justify-center gap-2',
-          'active:scale-[0.99] transition-transform',
           className,
         ].join(' ')}
-        style={{
-          borderRadius: 12,
-          padding: 16,
-          border: '0.5px solid #E0E9FF',
-          boxShadow: '0 1px 4px 0 rgba(0,0,0,0.04)',
-        }}
       >
-        <CircularProgress percentage={percentage} size={100} strokeWidth={7} colorClass="text-[#00C07A]">
-          <div className="flex flex-col items-center leading-none">
-            <span
-              className="text-[20px] font-black text-gray-900 dark:text-white tabular-nums"
-              dir="ltr"
-            >
-              {displaySteps}
-            </span>
-            <span className="text-[9px] font-semibold text-gray-400 dark:text-gray-500 mt-0.5">
+        <CircularProgress
+          percentage={percentage}
+          size={100}
+          strokeWidth={8}
+          colorClass="text-activity-steps"
+          trackClass="text-activity-steps/15"
+        >
+          <div className="flex flex-col items-center leading-none" dir="ltr">
+            <Count steps={steps} displaySteps={displaySteps} size="sm" />
+            <span className="text-[10px] font-semibold text-v2-muted mt-1" dir="rtl">
               {connectPromptLabel ?? `מתוך ${goal.toLocaleString('he-IL')}`}
             </span>
           </div>
@@ -82,52 +96,39 @@ export default function StepsSummaryCardView({
       aria-label={ariaLabel}
       dir="rtl"
       className={[
-        'w-full text-start',
-        'bg-white dark:bg-[#1E1E1E]',
-        'rounded-2xl shadow-card border border-gray-100 dark:border-gray-800',
-        'px-4 py-3.5',
+        'w-full text-start px-4 py-4',
+        CARD,
         'flex items-center gap-4',
-        'active:scale-[0.99] transition-transform',
-        'hover:shadow-floating',
         className,
       ].join(' ')}
     >
       <div className="shrink-0">
         <CircularProgress
           percentage={percentage}
-          size={56}
-          strokeWidth={5}
-          colorClass="text-[#00C07A]"
+          size={60}
+          strokeWidth={6}
+          colorClass="text-activity-steps"
+          trackClass="text-activity-steps/15"
         >
-          <Footprints
-            className="w-5 h-5 text-[#00C07A] -scale-x-100"
-            aria-hidden="true"
-          />
+          <IconTile icon={Footprints} tone="steps" size="sm" className="[&>svg]:-scale-x-100" />
         </CircularProgress>
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">
+        <p className="text-[12px] font-extrabold text-[#00865a] leading-none mb-1.5">
           {connectPromptLabel ?? 'צעדים היום'}
         </p>
-        <p
-          className="text-[22px] font-black text-gray-900 dark:text-white leading-none tabular-nums"
-          dir="ltr"
-        >
-          {displaySteps}
-        </p>
-        <p
-          className="mt-1 text-[11px] font-semibold text-gray-500 dark:text-gray-400 leading-none"
-          dir="ltr"
-        >
-          / {goal.toLocaleString('he-IL')} steps
-        </p>
+        <div className="flex items-baseline gap-1.5" dir="ltr">
+          <Count steps={steps} displaySteps={displaySteps} size="md" />
+          <span className="text-[12px] font-semibold text-v2-muted leading-none">
+            / {goal.toLocaleString('he-IL')} steps
+          </span>
+        </div>
       </div>
 
-      <ChevronLeft
-        className="w-5 h-5 text-gray-300 dark:text-gray-600 shrink-0"
-        aria-hidden="true"
-      />
+      <span className="w-9 h-9 rounded-full bg-v2-surface flex items-center justify-center shrink-0">
+        <ChevronLeft className="w-5 h-5 text-v2-muted" strokeWidth={2.4} aria-hidden="true" />
+      </span>
     </button>
   );
 }
