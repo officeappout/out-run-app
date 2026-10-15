@@ -30,7 +30,7 @@
  *   usePlayerMediaSession — OS lock-screen / headphone controls bridge
  */
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { WorkoutPlan } from '@/features/parks';
 
@@ -62,6 +62,11 @@ import { hapticMedium } from '@/lib/haptics';
 import { useUserStore } from '@/features/user';
 import { g } from '@/lib/utils/gendered-text';
 import { guidanceLine } from '@/features/workout-engine/hybrid/guided-station';
+import DemoGateOverlay from './components/DemoGateOverlay';
+import {
+  shouldGateExercise, timerLeadInSeconds, gateClipMuted, type DemoSeenStore,
+} from './logic/demo-gate';
+import { isPlayerAudioMuted } from './logic/player-audio-mute';
 
 export type { ExerciseResultLog };
 
@@ -81,6 +86,11 @@ interface StrengthRunnerProps {
    *  guidance line under the exercise + the rest screen's next-exercise tile starts expanded.
    *  Default false → standalone strength and fast-mode stations are unchanged. */
   guided?: boolean;
+  /** PR-B2: guided "watch the demo first" gate. When provided (guided mode + kill-switch on —
+   *  only HybridStationLayer passes it), the player is held paused before the first set of each
+   *  exercise not yet in this session-wide seen-store; the gate replaces the PREPARING countdown
+   *  for the first exercise. Omitted → fast mode, byte-identical (PREPARING unchanged). */
+  demoGate?: DemoSeenStore;
   /**
    * Crash-recovery: seed values from a restored WorkoutCheckpoint, passed
    * down once the page-level resume-offer dialog resolves to "Resume".
@@ -99,6 +109,7 @@ export default function StrengthRunner({
   exerciseHistoryMap,
   embedded = false,
   guided = false,
+  demoGate,
   initialCheckpoint,
 }: StrengthRunnerProps) {
   const sm = useWorkoutStateMachine(workout, onComplete, onPause, onResume, undefined, exerciseHistoryMap, initialCheckpoint);
@@ -338,6 +349,59 @@ export default function StrengthRunner({
   const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
   const userGender = useUserStore((s) => s.profile?.core?.gender ?? 'male');
 
+  // ── PR-B2 demo gate (guided only) ───────────────────────────────────────
+  // Held in the player's EXISTING pause — every clock already honours isPaused (elapsed +
+  // PREPARING countdown, rest countdown, the rep CTA's auto-fill, and since PR-A the timer
+  // card). The gate sheet replaces the pause overlay; the demo clip keeps looping behind it.
+  const isTabataBlock = sm.blockProtocol?.id === 'tabata';
+  const isFirstTabataInterval =
+    isTabataBlock && sm.currentRound === 1 && sm.currentExerciseIndex === 0 && sm.currentSide !== 'left';
+  const gateActiveKey = `active-${sm.currentSegmentIndex}-${sm.currentExerciseIndex}-set-${sm.currentRound}`;
+  const [, setGateTick] = useState(0); // re-render after the (non-reactive) seen-store changes
+  const [gatePassedKey, setGatePassedKey] = useState<string | null>(null);
+  const gateVideoElRef = useRef<HTMLVideoElement | null>(null);
+  const gateTransitionKeyRef = useRef<string | null>(null);
+  const needsGate = shouldGateExercise({
+    enabled: !!demoGate,
+    exerciseId: sm.activeExercise?.id,
+    exerciseType: sm.exerciseType,
+    workoutState: sm.workoutState,
+    seen: demoGate,
+    isTabataBlock,
+    isFirstTabataInterval,
+  });
+  const gateActive = needsGate && sm.workoutState === 'ACTIVE';
+  // Layout effect → the hold lands before paint, so no clock gets a tick in.
+  useLayoutEffect(() => {
+    if (!needsGate) return;
+    // First exercise: the gate REPLACES the 3-2-1 countdown (straight to ACTIVE, held).
+    if (sm.workoutState === 'PREPARING' && gateTransitionKeyRef.current !== gateActiveKey) {
+      gateTransitionKeyRef.current = gateActiveKey;
+      sm.forceTransition('ACTIVE', { reason: 'demo-gate' });
+    }
+    if (!sm.isPaused) sm.togglePause();
+  }, [needsGate, sm.workoutState, sm.isPaused, gateActiveKey]);
+
+  const handleGateStart = useCallback(() => {
+    // Inside the tap (a user gesture): unmute + play the demo clip — unless the session mute is on.
+    const el = gateVideoElRef.current;
+    if (el) {
+      el.muted = gateClipMuted(isPlayerAudioMuted());
+      const attempt = el.play();
+      if (attempt && typeof attempt.catch === 'function') {
+        attempt.catch(() => { el.muted = true; el.play().catch(() => {}); });
+      }
+    }
+    // Mark seen (a tabata block's one gate covers every member of the block).
+    const ids = isTabataBlock
+      ? (workout.segments[sm.currentSegmentIndex]?.exercises ?? []).map((e) => e.id).filter(Boolean)
+      : [sm.activeExercise?.id].filter(Boolean);
+    ids.forEach((id) => demoGate?.add(id as string));
+    setGatePassedKey(gateActiveKey);
+    setGateTick((t) => t + 1);
+    if (sm.isPaused) sm.togglePause(); // release the hold → the timer / rep set starts now
+  }, [isTabataBlock, workout.segments, sm, demoGate, gateActiveKey]);
+
   const handleEarlyExit = useCallback(() => {
     setShowExitConfirmModal(false);
     onComplete?.(sm.getExerciseLog());
@@ -411,6 +475,8 @@ export default function StrengthRunner({
   const renderStateContent = () => {
     // PREPARING — centered countdown (extracted to PreparingStateView, R-9)
     if (sm.workoutState === 'PREPARING') {
+      // PR-B2: the gate replaces the countdown — show nothing for the ~150ms hand-off to ACTIVE.
+      if (needsGate) return <div className="absolute inset-0 bg-black" />;
       return (
         <PreparingStateView
           count={sm.preparationCountdown}
@@ -512,12 +578,9 @@ export default function StrengthRunner({
     // Tabata prep: ONE get-ready before the block's very first interval only
     // (cycle 0, position 0, not the unilateral left side). Every later interval
     // gets 0 — the 10s rest is the get-ready — so the block stays exactly 240s.
-    const TABATA_LEAD_IN_SECONDS = 5;
-    const isFirstTabataInterval =
-      !!blockWorkSec && sm.currentRound === 1 && sm.currentExerciseIndex === 0 && sm.currentSide !== 'left';
-    const timerPrepSeconds = blockWorkSec
-      ? (isFirstTabataInterval ? TABATA_LEAD_IN_SECONDS : 0)
-      : undefined;
+    // PR-B2: when the demo gate fronts that first interval, the gate IS the get-ready → 0.
+    const gatedThisInterval = !!demoGate && (needsGate || gatePassedKey === activeKey);
+    const timerPrepSeconds = timerLeadInSeconds(!!blockWorkSec, isFirstTabataInterval, gatedThisInterval);
 
     return (
       <ActiveExerciseView
@@ -556,6 +619,12 @@ export default function StrengthRunner({
         onComplete={sm.handleExerciseComplete}
         onSwap={handleSwap}
         onSetVideoProgress={sm.setVideoProgress}
+        // PR-B2: the demo keeps looping behind the gate while the player is held paused, and the
+        // gate needs the <video> element to unmute it inside the tap. A timed (non-tabata) card
+        // starts on its own after "צפיתי, התחל" — that tap was the start.
+        videoPaused={gateActive ? false : sm.isPaused}
+        onVideoElement={(el) => { gateVideoElRef.current = el; }}
+        autoStartTimer={!blockWorkSec && isTimeExercise && gatePassedKey === activeKey}
         // PR-B1 guided only: one short line under the exercise. Timed (incl. tabata) → neutral
         // "ממשיכים עד שהטיימר נגמר"; reps → gendered "עשה/י X חזרות…". Follow-along: none.
         guidanceLine={
@@ -624,8 +693,18 @@ export default function StrengthRunner({
             {/* State content */}
             {renderStateContent()}
 
+            {/* PR-B2 guided demo gate — over the live ACTIVE view, player held paused. */}
+            {gateActive && (
+              <DemoGateOverlay
+                exerciseName={sm.exerciseName}
+                cue={sm.executionSteps?.[0] ?? null}
+                ctaLabel={g(userGender, 'צפיתי, התחל', 'צפיתי, התחילי')}
+                onStart={handleGateStart}
+              />
+            )}
+
             {/* Header overlay — also the drag handle for minimize */}
-            {showHeader && (
+            {showHeader && !gateActive && (
               <RunnerHeader
                 progressBars={sm.progressBars}
                 autoCompleteTime={sm.autoCompleteTime}
@@ -660,7 +739,7 @@ export default function StrengthRunner({
       {/* Sits above ALL states (ACTIVE / INPUT / RESTING).  Visibility owned
           by the orchestrator since it depends on three cross-state flags. */}
       <AnimatePresence>
-        {sm.isPaused && !showExitConfirmModal && sm.workoutState !== 'PREPARING' && (
+        {sm.isPaused && !showExitConfirmModal && sm.workoutState !== 'PREPARING' && !needsGate && (
           <PauseOverlay
             onResume={sm.togglePause}
             onOpenExitModal={() => setShowExitConfirmModal(true)}

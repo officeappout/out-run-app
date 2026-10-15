@@ -121,6 +121,14 @@ export interface ActiveExerciseViewProps {
   onSwap?: () => void;
   /** PR-B1 guided mode: one short guidance line (reps card / timer card). Omitted → none. */
   guidanceLine?: string;
+  /** PR-B2 demo gate: the clip's own paused state. While the gate holds the PLAYER paused the
+   *  demo keeps looping behind it, so this can be false while isPaused is true. Default = isPaused. */
+  videoPaused?: boolean;
+  /** PR-B2: receives the direct <video> element (see ExerciseVideoPlayer.onVideoElement). */
+  onVideoElement?: (el: HTMLVideoElement | null) => void;
+  /** PR-B2: start the timed card without its "התחלה" tap (the gate's "צפיתי, התחל" was the tap).
+   *  Its normal get-ready still runs; tabata keeps its own autoStart. */
+  autoStartTimer?: boolean;
   /** Video-progress callback piped to ExerciseVideoPlayer. */
   onSetVideoProgress?: (progress: number) => void;
 }
@@ -161,6 +169,9 @@ export default function ActiveExerciseView({
   onComplete,
   onSwap,
   guidanceLine,
+  videoPaused,
+  onVideoElement,
+  autoStartTimer = false,
   onSetVideoProgress,
 }: ActiveExerciseViewProps) {
   // Gate the hidden prefetch <video> until the main video has started loading.
@@ -192,8 +203,9 @@ export default function ActiveExerciseView({
         exerciseName={exerciseName}
         exerciseType={exerciseType}
         isFollowAlong={isFollowAlong}
-        isPaused={isPaused}
+        isPaused={videoPaused ?? isPaused}
         hasAudio={false}
+        onVideoElement={onVideoElement}
         fullTutorial={exerciseFullTutorial ?? null}
         onVideoProgress={onSetVideoProgress}
         onVideoEnded={(isTimeExercise || !TIMER_AUTO_ADVANCE_ENABLED) ? undefined : () => onComplete()}
@@ -218,7 +230,7 @@ export default function ActiveExerciseView({
           repsOrDurationText={repsOrDurationText}
           onComplete={(elapsed) => onComplete(elapsed)}
           side={currentSide}
-          autoStart={!!blockWorkSec}
+          autoStart={!!blockWorkSec || autoStartTimer}
           autoCompleteAtTarget={!!blockWorkSec}
           isTabata={!!blockWorkSec}
           machineTabataLabel={machineTabataLabel}

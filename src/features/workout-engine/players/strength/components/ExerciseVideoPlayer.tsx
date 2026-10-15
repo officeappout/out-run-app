@@ -36,6 +36,10 @@ interface ExerciseVideoPlayerProps {
   onVideoProgress?: (progress: number) => void;
   onVideoEnded?: () => void;
   onLoadingChange?: (loading: boolean) => void;
+  /** PR-B2: exposes the DIRECT <video> element (null for YouTube / Bunny-embed iframes, which
+   *  can't be unmuted from the parent) so the guided demo gate can unmute + play it inside the
+   *  user's tap. Omitted → unchanged. */
+  onVideoElement?: (el: HTMLVideoElement | null) => void;
 }
 
 // Fallback video URL
@@ -78,11 +82,12 @@ export default function ExerciseVideoPlayer({
   onVideoProgress,
   onVideoEnded,
   onLoadingChange,
+  onVideoElement,
 }: ExerciseVideoPlayerProps) {
   const [videoLoading, setVideoLoading] = useState(true);
   const [iframeError, setIframeError] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   // ── Landscape / fullscreen support (follow-along clips only) ───────────
   // Recovery follow-along clips are shot 16:9 (verified: Bunny renditions are
@@ -380,7 +385,7 @@ export default function ExerciseVideoPlayer({
               // load() — every set played step 1's video. URL in the key
               // forces a clean remount per step variant.
               key={`video-${exerciseId}-${effectiveVideoUrl ?? 'none'}`}
-              ref={videoRef}
+              ref={(el) => { videoRef.current = el; onVideoElement?.(el); }}
               src={effectiveVideoUrl}
               className="absolute inset-0 w-full h-full object-contain"
               autoPlay={!isPaused}

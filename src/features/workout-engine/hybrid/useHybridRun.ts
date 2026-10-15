@@ -23,6 +23,7 @@ import { HYBRID_SUMMARY_ENABLED } from '@/config/feature-flags';
 import { isNegligibleHybridSession } from './hybrid-finish-policy';
 import type { SegmentExerciseDetail } from '../core/services/storage.service';
 import type { StrengthBlockResult } from '../core/pipeline/strength-block.service';
+import { createDemoSeenStore, type DemoSeenStore } from '../players/strength/logic/demo-gate';
 import {
   computeStationContext, countStationExercises, stationMinutes, swapExerciseInStationContent,
   locateStationContentIndex,
@@ -47,6 +48,11 @@ let saving = false;
 let stationNames: Record<string, string> = {};
 let activeStationContent: StrengthBlockResult | null = null;
 let stationStartedAtMs: number | null = null;
+// PR-B2: exercises whose demo was watched in THIS hybrid session (the guided demo gate skips
+// them). Session-scoped: cleared on startHybrid / reset, shared by every station's player.
+const demoSeen = createDemoSeenStore();
+/** The session's demo seen-store, handed to StrengthRunner (guided mode only). */
+export const hybridDemoSeen: DemoSeenStore = { has: (id) => demoSeen.has(id), add: (id) => demoSeen.add(id) };
 
 /** Block content → the WorkoutPlan StrengthRunner plays. Shared by arrive() and an in-station
  *  swap so both produce the identical shape (incl. the full-park warmup strip). */
@@ -195,6 +201,7 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
 
   startHybrid: (plan, aerobicKind, fullPark = false, warmupActive = true, names = {}) => {
     stationNames = names;
+    demoSeen.clear();
     activeStationContent = null;
     stationStartedAtMs = null;
     controllerRef = createHybridSessionController(plan.segments);
@@ -498,6 +505,7 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
     controllerRef = null;
     saving = false;
     stationNames = {};
+    demoSeen.clear();
     activeStationContent = null;
     stationStartedAtMs = null;
     set({
