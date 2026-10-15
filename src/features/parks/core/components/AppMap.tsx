@@ -256,6 +256,8 @@ interface AppMapProps {
   headingMode?: 'course' | 'north';
   /** G2.6: the camera's idle timer re-claimed follow on its own. */
   onFollowRestored?: () => void;
+  /** G3.2: during an active workout, show the route's "which way to set off" start arrow. */
+  startDirectionArrow?: boolean;
   onLongPress?: (pos: { lat: number; lng: number }) => void;
   /** When true, easeTo duration drops to 80 ms to match 100 ms sim ticks — eliminates jitter */
   simulationActive?: boolean;
@@ -397,6 +399,7 @@ export default function AppMap({
   onUserPanDetected,
   headingMode,
   onFollowRestored,
+  startDirectionArrow = false,
   onLongPress,
   simulationActive = false,
   speedKmH = 6,
@@ -1351,6 +1354,13 @@ export default function AppMap({
     };
   }, [focusedRoute?.id, focusedRoute?.path, focusedRoute?.displayPath, focusedIsStrength]);
 
+  // G3.2: the FIRST direction marker (buildDirectionMarkers' start anchor) — shown during an
+  // active workout only while the owner asks (until the walking direction is settled).
+  const startArrowGeoJSON = useMemo<GeoJSON.FeatureCollection | null>(() => {
+    const first = (routeDirectionArrowsGeoJSON as GeoJSON.FeatureCollection | null)?.features?.[0];
+    return first ? { type: 'FeatureCollection', features: [first] } : null;
+  }, [routeDirectionArrowsGeoJSON]);
+
   // ── Imperative live-path update ────────────────────────────────────────────
   // Fires whenever the number of accepted GPS samples grows — i.e. every
   // DISTANCE_THRESHOLD_WALKING/RUNNING (4m/5m), the real noise filter in
@@ -1803,6 +1813,24 @@ export default function AppMap({
             once the user zooms in — see DIRECTION_ARROW_MIN_ZOOM above. The
             route line and start/finish marker are separate layers and stay
             visible at every zoom. ── */}
+        {/* G3.2: start-direction arrow during the live walk (until the direction is settled). */}
+        {isActiveWorkout && startDirectionArrow && startArrowGeoJSON && (
+          <Source id="route-start-arrow" type="geojson" data={startArrowGeoJSON as any}>
+            <Layer
+              id="route-start-arrow"
+              type="symbol"
+              layout={{
+                'icon-image': ['get', 'iconImage'],
+                'icon-rotate': ['get', 'bearing'],
+                'icon-size': ['interpolate', ['linear'], ['zoom'], 13, 0.45, 17, 0.8],
+                'icon-rotation-alignment': 'map',
+                'icon-allow-overlap': true,
+                'icon-ignore-placement': true,
+              }}
+            />
+          </Source>
+        )}
+
         {!isActiveWorkout && visibleLayers?.includes('routes') && routeDirectionArrowsGeoJSON && (
           <Source id="route-direction-arrows" type="geojson" data={routeDirectionArrowsGeoJSON as any}>
             <Layer

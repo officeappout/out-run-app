@@ -36,6 +36,7 @@ interface FlagState {
   enable_guided_station: boolean;
   enable_walk_to_first_stop: boolean;
   enable_carousel_swipe_hint: boolean;
+  enable_route_direction_adapt: boolean;
 }
 
 // ============================================================================
@@ -147,6 +148,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-sky-500',
     title: 'רמז החלקה בקרוסלה',
     description: 'קרוסלת "מה עושים היום?": הכרטיס הבא מציץ יותר, תנועת רמז חד-פעמית למשתמש, ולחיצה על כרטיס שמציץ רק ממרכזת אותו (לא מתחילה "יוצאים מיד" בטעות). כבוי = כמו היום.',
+    parentKey: 'enable_hybrid_slots',
+  },
+  {
+    key: 'enable_route_direction_adapt',
+    icon: RouteIcon,
+    iconBg: 'bg-sky-50',
+    iconColor: 'text-sky-500',
+    title: 'התאמת כיוון המסלול',
+    description: 'מסלול מעגלי: אם בתחילת ההליכה (60–150 מ׳) הולכים בכיוון ההפוך — סדר העצירות מתהפך + הודעה קצרה. חץ כיוון בנקודת ההתחלה עד שמתחילים ללכת. מסלול חד-כיווני לא מתהפך. כבוי = כמו היום.',
     parentKey: 'enable_hybrid_slots',
   },
 ];
