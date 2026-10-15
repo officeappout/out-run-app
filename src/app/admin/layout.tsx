@@ -7,6 +7,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import lightLockStyles from './admin-content-light-lock.module.css';
 import shell from './admin-shell.module.css';
+import { ViewingAsBar } from '@/features/admin/components/authorities/ViewAsCity';
 import { allowedPathsFor, isPathAllowed, sectionOwnsPath } from '@/features/admin/config/adminSections';
 import {
     LayoutDashboard,
@@ -1412,6 +1413,8 @@ function AdminLayoutInner({
                             className={`min-w-0 text-slate-900 ${lightLockStyles.contentLightLock}`}
                             style={{ color: '#0f172a' }}
                         >
+                            {/* OUT staff on a city's portal: always show which city */}
+                            {(isSuperAdmin || isSystemAdmin) && <ViewingAsBar />}
                             {children}
                         </div>
                     </div>
