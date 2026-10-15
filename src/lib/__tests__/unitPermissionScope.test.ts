@@ -223,9 +223,19 @@ describe('resolveUnitPermissionScope — "chief fitness officer" vertical branch
   });
 });
 
-describe('isMemberWithinScope — a vertical scope is rejected, same as denied (06.10.2026)', () => {
-  it('returns false for vertical — the gate behind unit creation and member approve/remove must refuse it, with zero code change to this function', () => {
-    expect(isMemberWithinScope({ kind: 'vertical', vertical: 'military', authorityIds: ['mil-1'] }, 'mil-1', null)).toBe(false);
+// 15.10.2026 (owner, explicit) — REVERSES the 06.10.2026 "vertical is
+// rejected" rule: the chief fitness officer outranks every brigade officer
+// and may act in any brigade of his vertical — and only there.
+describe('isMemberWithinScope — a vertical scope covers exactly its own brigades (15.10.2026)', () => {
+  const chief = { kind: 'vertical' as const, vertical: 'military' as const, authorityIds: ['mil-1', 'mil-2'] };
+  it('returns true for a member of any brigade in the scope (unit or no unit)', () => {
+    expect(isMemberWithinScope(chief, 'mil-1', null)).toBe(true);
+    expect(isMemberWithinScope(chief, 'mil-2', 'unit-9')).toBe(true);
+  });
+  it('returns false outside the scope — another vertical\'s tenant, or a malformed id', () => {
+    expect(isMemberWithinScope(chief, 'school-1', 'unit-1')).toBe(false);
+    expect(isMemberWithinScope(chief, undefined, null)).toBe(false);
+    expect(isMemberWithinScope({ ...chief, authorityIds: [] }, 'mil-1', null)).toBe(false);
   });
 });
 

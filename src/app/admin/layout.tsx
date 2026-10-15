@@ -71,7 +71,7 @@ import AppLogoLoader from '@/components/AppLogoLoader';
 import { authorityTypeToTenantType, getTenantLabels, orgTypeDisplayName, VERTICAL_THEMES } from '@/features/admin/config/tenantLabels';
 import type { Authority } from '@/types/admin-types';
 import { getSidebarConfig, type LucideIconName } from '@/features/admin/config/sidebarConfigs';
-import { MILITARY_ROOT_NAV_ITEMS, CHIEF_OFFICER_NAV_HREFS, type MilitaryNavIconName } from '@/features/admin/config/militaryNavItems';
+import { MILITARY_ROOT_NAV_ITEMS, type MilitaryNavIconName } from '@/features/admin/config/militaryNavItems';
 import { resolveLoginDoorForPath } from '@/features/admin/services/loginDoorForPath';
 import { OrgSelectorProvider, useOrgSelector } from '@/features/admin/context/OrgSelectorContext';
 import { AdminSessionSync } from '@/features/admin/components/AdminSessionSync';
@@ -1077,7 +1077,7 @@ function AdminLayoutInner({
                                 brigade officer never sees this branch at
                                 all — simpler isActive here (no sibling
                                 verticals to disambiguate against). */}
-                            {MILITARY_ROOT_NAV_ITEMS.filter((item) => CHIEF_OFFICER_NAV_HREFS.includes(item.href)).map((item) => {
+                            {MILITARY_ROOT_NAV_ITEMS.map((item) => {
                                 const path = item.href.split('?')[0];
                                 const isActive = (path === '/admin/dashboard' || path === '/admin/authority/readiness')
                                     ? pathname === path

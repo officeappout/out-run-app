@@ -33,16 +33,3 @@ export const MILITARY_ROOT_NAV_ITEMS: MilitaryNavItem[] = [
   { href: '/admin/authority/units?type=military', icon: 'Shield', label: 'היררכיית יחידות' },
   { href: '/admin/authority/team?type=military', icon: 'Shield', label: 'ניהול צוות צבאי' },
 ];
-
-/**
- * The chief fitness officer's server allowlist (middleware.ts
- * READINESS_CHIEF_OFFICER_ALLOWED_PATHS) admits only these two screens; the
- * other five items silently bounced back to "כל החטיבות". Until that scope
- * is deliberately widened (owner wants the chief to manage too — that needs
- * an API-side review first), the chief's sidebar shows only what opens.
- * Keep in sync with the middleware list.
- */
-export const CHIEF_OFFICER_NAV_HREFS = [
-  '/admin/authority/readiness/vertical-overview',
-  '/admin/dashboard',
-];
