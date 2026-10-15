@@ -40,6 +40,8 @@ function isAuthorizedForRequest(scope: UnitPermissionScope, tenantId: string, un
   if (scope.kind === 'root') return true;
   if (scope.kind === 'tenantOwner') return scope.tenantId === tenantId;
   if (scope.kind === 'unitAdmin') return scope.tenantId === tenantId && scope.unitIds.includes(unitId);
+  // chief fitness officer: any brigade of his vertical (owner, 15.10.2026)
+  if (scope.kind === 'vertical') return scope.authorityIds.includes(tenantId);
   return false;
 }
 

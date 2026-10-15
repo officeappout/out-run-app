@@ -161,10 +161,19 @@ export async function computeCreateInvitation(db: Firestore, caller: Caller, bod
   } else if (role === 'tenant_owner') {
     // Deliberately the SAME root-only gate as authority_manager — SPEC §3's
     // "root creates any level-1 role" row, applied to this vertical.
-    if (!isRootAdmin(caller.email)) {
-      return { status: 403 as const, body: { error: 'Only root admins can create a tenant owner' } };
-    }
+    // 15.10.2026 (owner, explicit): the chief fitness officer outranks
+    // brigade officers, so he may also appoint one — only for a brigade
+    // inside his own vertical scope.
     const requestedTenantId = typeof b.tenantId === 'string' ? b.tenantId : '';
+    if (!isRootAdmin(caller.email)) {
+      const chiefScope = await resolveUnitPermissionScope(caller.uid);
+      if (chiefScope.kind === 'unknown') {
+        return { status: 503 as const, body: { error: UNIT_SCOPE_UNKNOWN_MESSAGE } };
+      }
+      if (chiefScope.kind !== 'vertical' || !chiefScope.authorityIds.includes(requestedTenantId)) {
+        return { status: 403 as const, body: { error: 'Only root admins can create a tenant owner' } };
+      }
+    }
     if (!requestedTenantId) {
       return { status: 400 as const, body: { error: 'tenantId is required for tenant_owner' } };
     }
@@ -215,18 +224,29 @@ export async function computeCreateInvitation(db: Firestore, caller: Caller, bod
         // UNIT_ADMIN_INVITE_DENIED_MESSAGE.
         return { status: 503 as const, body: { error: UNIT_SCOPE_UNKNOWN_MESSAGE } };
       }
-      if (scope.kind !== 'tenantOwner') {
+      // tenant owner: units of their own brigade. Chief fitness officer
+      // (15.10.2026, owner): units of any brigade in his scope — he names it.
+      let callerTenantId: string;
+      if (scope.kind === 'tenantOwner') {
+        callerTenantId = scope.tenantId;
+      } else if (scope.kind === 'vertical') {
+        const requestedTenantId = typeof b.tenantId === 'string' ? b.tenantId : '';
+        if (!scope.authorityIds.includes(requestedTenantId)) {
+          return { status: 403 as const, body: { error: UNIT_ADMIN_INVITE_DENIED_MESSAGE } };
+        }
+        callerTenantId = requestedTenantId;
+      } else {
         return { status: 403 as const, body: { error: UNIT_ADMIN_INVITE_DENIED_MESSAGE } };
       }
       const requestedUnitId = typeof b.unitId === 'string' ? b.unitId : '';
       if (!requestedUnitId) {
         return { status: 403 as const, body: { error: UNIT_ADMIN_INVITE_DENIED_MESSAGE } };
       }
-      const unitSnap = await db.collection('tenants').doc(scope.tenantId).collection('units').doc(requestedUnitId).get();
+      const unitSnap = await db.collection('tenants').doc(callerTenantId).collection('units').doc(requestedUnitId).get();
       if (!unitSnap.exists) {
         return { status: 403 as const, body: { error: UNIT_ADMIN_INVITE_DENIED_MESSAGE } };
       }
-      tenantId = scope.tenantId;
+      tenantId = callerTenantId;
       unitId = requestedUnitId;
     }
   }
