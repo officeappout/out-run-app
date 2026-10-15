@@ -38,14 +38,20 @@ describe('useRunningPlayer.ts — route-trace batching', () => {
   });
 });
 
-describe('AppMap.tsx — live-path + ghost-path cadence comments corrected, dependency unchanged', () => {
-  it('the live-path effect and ghost-path memo still share the identical livePath?.length dependency (confirmed, not assumed, that they smooth in lockstep)', () => {
+describe('AppMap.tsx — live-path cadence (trail) + route split (G3.4)', () => {
+  it('the recorded trail (live-path) still grows on accepted points — livePath?.length dependency unchanged', () => {
     expect(appMapSrc).toContain('}, [livePath?.length, isActiveWorkout]);');
-    expect(appMapSrc).toContain('}, [isActiveWorkout, focusedRoute?.id, focusedRoute?.path, livePath?.length]);');
+  });
+
+  it('the planned-route walked/ahead split no longer waits for trail growth — it advances on every position fix (G3.4, route-progress.ts)', () => {
+    // Was: a ghost-path memo keyed on livePath?.length (stepped 4–5 m at a time, froze at poor
+    // accuracy). Sderot pilot G3.4 replaced it with per-fix, eased, monotonic progress.
+    expect(appMapSrc).not.toContain('}, [isActiveWorkout, focusedRoute?.id, focusedRoute?.path, livePath?.length]);');
+    expect(appMapSrc).toContain('}, [currentLocation?.lat, currentLocation?.lng, progressCum]);');
   });
 
   it('the misleading "every 5m" framing is corrected with the 11.10.2026 note, not silently deleted', () => {
     const correctionMentions = appMapSrc.split('11.10.2026').length - 1;
-    expect(correctionMentions).toBeGreaterThanOrEqual(2);
+    expect(correctionMentions).toBeGreaterThanOrEqual(1);
   });
 });
