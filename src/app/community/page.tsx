@@ -53,7 +53,7 @@ import GroupLeaderboard from '@/features/arena/components/GroupLeaderboard';
 import ScopeCompetitionLeaderboard from '@/features/arena/components/ScopeCompetitionLeaderboard';
 import ScopeBattleCard from '@/features/arena/components/ScopeBattleCard';
 import LeagueFilterSheet from '@/features/arena/components/LeagueFilterSheet';
-import { LeagueSelectorButton, MyRankStickyBar } from '@/features/arena/components/LeaguesTabChrome';
+import { LeagueSelectorButton } from '@/features/arena/components/LeaguesTabChrome';
 import MunicipalPressureCard from '@/features/arena/components/MunicipalPressureCard';
 import SchoolOutreachCard from '@/features/arena/components/SchoolOutreachCard';
 import LeagueCarousel, {
@@ -740,39 +740,10 @@ export default function CommunityPage() {
     const cards = buildLeagueCards();
     const activeCard = cards.find((c) => c.key === selectedLeague);
 
-    // Sticky my-rank footer — shown only when:
-    //   1. The user has an entry in the currently-active leaderboard, AND
-    //   2. They're outside the top 3 (top 3 are already on the podium).
-    // The bar floats just above the BottomNavbar by matching the same
-    // `3rem + safe-area-inset-bottom` offset that ClientLayout uses for
-    // the main scroll container's paddingBottom.
-    const showStickyMyRank = !!activeMyEntry && activeMyEntry.rank > 3;
-
-    const handleShareMyRank = () => {
-      if (!activeMyEntry) return;
-      const scopeName = activeCard?.name || 'הליגה';
-      const windowHe = leaderboardTimeWindow === 'daily' ? 'היום' : leaderboardTimeWindow === 'weekly' ? 'השבוע' : 'החודש';
-      const text = `אני במקום #${activeMyEntry.rank} ב${scopeName} ${windowHe} על Out! 🔥`;
-      if (navigator.share) {
-        navigator.share({ text }).catch(() => {});
-      } else if (navigator.clipboard) {
-        navigator.clipboard.writeText(text);
-      }
-    };
-
-    // Stage B: "הזמן חברים" alongside "שתף" on the hero — same lightweight
-    // native-share/clipboard mechanism as handleShareMyRank, invite-oriented
-    // copy instead of a rank announcement. Reuses the existing pattern
-    // rather than pulling in a heavier sheet component for a compact bar.
-    const handleInviteFromMyRank = () => {
-      const scopeName = activeCard?.name || 'הליגה';
-      const text = `בוא תצטרף אליי ב${scopeName} על Out! 🔥`;
-      if (navigator.share) {
-        navigator.share({ text }).catch(() => {});
-      } else if (navigator.clipboard) {
-        navigator.clipboard.writeText(text);
-      }
-    };
+    // Design v2 (David, 15.10.2026): the page-level sticky "my rank" bar is
+    // gone — exactly one "you" surface besides the hero tile: the board's own
+    // sticky row (NeighborhoodLeaderboardView), shown only when your real row
+    // is off-screen. Share/invite live on the hero tile.
 
     return (
       <>
@@ -853,27 +824,6 @@ export default function CommunityPage() {
           </motion.div>
         </AnimatePresence>
 
-        {/* Sticky "my rank" footer — replaces the old per-leaderboard inline
-            "you" card. Sits inside the page's max-w-md column, sticks to the
-            bottom of the scroll container with a `bottom` offset that matches
-            the BottomNavbar's exact rendered height:
-              pt-0.5 (2px) + min-h-[44px] (44px) + safe-area-inset-bottom
-              = calc(46px + env(safe-area-inset-bottom, 0px))
-            so the bar sits flush on top of the nav with no visible gap.
-            A 32px transparent→white gradient cap above the bar fades the
-            scroll content into the white surface so the row underneath
-            doesn't visually clip into the bar's top border.
-            Hidden when the user is on the podium (top 3) since they're
-            already visible there. */}
-        {showStickyMyRank && activeMyEntry && (
-          <MyRankStickyBar
-            myEntry={activeMyEntry}
-            scoreLabel={formatLeaderboardScore(activeMyEntry.totalCredit, activeMyMode, activeMyIsSegment)}
-            streak={profile?.progression?.currentStreak}
-            onInvite={handleInviteFromMyRank}
-            onShare={handleShareMyRank}
-          />
-        )}
       </>
     );
   }

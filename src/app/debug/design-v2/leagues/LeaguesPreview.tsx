@@ -22,8 +22,8 @@ import { ScopeBattleCardView } from '@/features/arena/components/ScopeBattleCard
 import { ScopeCompetitionLeaderboardView } from '@/features/arena/components/ScopeCompetitionLeaderboard';
 import { GroupLeaderboardView } from '@/features/arena/components/GroupLeaderboard';
 import { UnitLeagueTableView } from '@/features/arena/components/UnitLeagueTable';
-import { LeagueSelectorButton, MyRankStickyBar } from '@/features/arena/components/LeaguesTabChrome';
-import { formatLeaderboardScore, type LeaderboardMode } from '@/features/arena/components/format-leaderboard-score';
+import { LeagueSelectorButton } from '@/features/arena/components/LeaguesTabChrome';
+import type { LeaderboardMode } from '@/features/arena/components/format-leaderboard-score';
 import type {
   LeaderboardEntry,
   LeaderboardTimeWindow,
@@ -201,15 +201,6 @@ export default function LeaguesPreview() {
           <UnitLeagueTableView range={range} onRangeChange={setRange} isLoading={false} result={UNITS} onRefresh={noop} />
         )}
 
-        {showBoard && myEntry && myEntry.rank > 3 && (
-          <MyRankStickyBar
-            myEntry={myEntry}
-            scoreLabel={formatLeaderboardScore(myEntry.totalCredit, localMode, false)}
-            streak={6}
-            onInvite={noop}
-            onShare={noop}
-          />
-        )}
       </div>
     </div>
   );

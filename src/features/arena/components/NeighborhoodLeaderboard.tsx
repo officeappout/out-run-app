@@ -510,9 +510,31 @@ export function NeighborhoodLeaderboardView({
   // Social gate: rows from rank 4 down stay blurred until unlocked (unchanged).
   const lockedFromIndex = 3;
 
-  function renderRow(entry: LeaderboardEntry, blurred = false) {
+  // ONE sticky "you" row (David, 15.10.2026): shown at the bottom of the
+  // board only while your real row is off-screen — or not in the visible
+  // list at all (below the top-10 cut / past the fetched top-N).
+  const myRowRef = useRef<HTMLDivElement>(null);
+  const [myRowOnScreen, setMyRowOnScreen] = useState(false);
+  useEffect(() => {
+    const el = myRowRef.current;
+    if (pinMyRow || !el || typeof IntersectionObserver === 'undefined') {
+      setMyRowOnScreen(false);
+      return;
+    }
+    // Bottom margin ≈ BottomNavbar + the sticky row itself, so a row hidden
+    // behind them counts as off-screen.
+    const io = new IntersectionObserver(
+      ([e]) => setMyRowOnScreen(e.isIntersecting),
+      { rootMargin: '0px 0px -120px 0px', threshold: 0.6 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [pinMyRow, expanded, isLoading, entries]);
+  const showStickyMe = !!myEntry && !shouldBlur && !isLoading && (pinMyRow || !myRowOnScreen);
+
+  function renderRow(entry: LeaderboardEntry, blurred = false, sticky = false) {
     const s = splitScore(entry.totalCredit, localMode, isSegmentMode);
-    return (
+    const row = (
       <BoardRow
         key={entry.uid}
         rank={entry.rank}
@@ -526,6 +548,10 @@ export function NeighborhoodLeaderboardView({
         onClick={() => setPeekUid(entry.uid)}
       />
     );
+    if (entry.isCurrentUser && !sticky) {
+      return <div key={entry.uid} ref={myRowRef}>{row}</div>;
+    }
+    return row;
   }
 
   const ActiveCatIcon = activeCatOpt.icon;
@@ -801,18 +827,19 @@ export function NeighborhoodLeaderboardView({
               </div>
             )}
 
-            {/* Your row, pinned to the bottom of the board when you're
-                outside the visible range (below the cut, or past the
-                fetched top-N — the services return your entry separately). */}
-            {pinMyRow && myEntry && !shouldBlur && (
-              <>
-                <div className="flex justify-center gap-1 py-2" aria-hidden>
-                  <span className="w-1 h-1 rounded-full bg-white/30" />
-                  <span className="w-1 h-1 rounded-full bg-white/30" />
-                  <span className="w-1 h-1 rounded-full bg-white/30" />
-                </div>
-                {renderRow(myEntry)}
-              </>
+            {/* The single sticky "you" row — sticks just above the
+                BottomNavbar (46px + safe area, same offset the old page
+                bar used) while your real row is off-screen, and rests at
+                the bottom of the board when the board ends. Opaque ink
+                backing so rows scrolling under it don't show through. */}
+            {showStickyMe && myEntry && (
+              <div
+                data-board-sticky-me
+                className="sticky z-10 -mx-2 mt-2 rounded-[20px] bg-v2-ink p-2 shadow-v2-card-dark"
+                style={{ bottom: 'calc(54px + env(safe-area-inset-bottom, 0px))' }}
+              >
+                {renderRow(myEntry, false, true)}
+              </div>
             )}
 
             {entries.length > BOARD_VISIBLE_ROWS && !shouldBlur && (

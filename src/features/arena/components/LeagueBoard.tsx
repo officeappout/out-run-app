@@ -65,6 +65,13 @@ export function BoardIconButton({
 
 // ── Rank tile ────────────────────────────────────────────────────────────────
 
+/** Ranks 2–3 get a subtle silver / bronze tint (David, 15.10.2026); #1 is the
+ *  solid gold tile with the crown — the only crown on the board. */
+const PODIUM_TILE: Record<2 | 3, string> = {
+  2: 'bg-[#c7d2dc]/25 text-[#e4ebf1] ring-1 ring-inset ring-[#c7d2dc]/40',
+  3: 'bg-[#d08a4e]/25 text-[#f3c49b] ring-1 ring-inset ring-[#d08a4e]/40',
+};
+
 export function RankTile({ rank }: { rank: number }) {
   if (rank === 1) {
     return (
@@ -77,8 +84,9 @@ export function RankTile({ rank }: { rank: number }) {
       </span>
     );
   }
+  const tint = rank === 2 || rank === 3 ? PODIUM_TILE[rank] : 'bg-white/10';
   return (
-    <span className="w-[30px] h-[30px] rounded-full bg-white/10 flex items-center justify-center shrink-0 text-[14px] font-black tabular-nums">
+    <span className={`w-[30px] h-[30px] rounded-full flex items-center justify-center shrink-0 text-[14px] font-black tabular-nums ${tint}`}>
       {rank}
     </span>
   );
