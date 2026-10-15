@@ -99,10 +99,10 @@ export default function CoachMarks({
           />
           <span
             className="absolute block"
-            style={{ top: 6, animation: 'coachTap 1.2s ease-in-out infinite' }}
+            style={{ top: -10, animation: 'coachTap 1.2s ease-in-out infinite' }}
             aria-hidden
           >
-            <IconTile icon={Pointer} tone="accent" size="lg" className="shadow-v2-float" />
+            <IconTile icon={Pointer} tone="accent" size="md" className="shadow-v2-float" />
           </span>
         </div>
       )}
