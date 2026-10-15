@@ -256,8 +256,9 @@ interface AppMapProps {
   headingMode?: 'course' | 'north';
   /** G2.6: the camera's idle timer re-claimed follow on its own. */
   onFollowRestored?: () => void;
-  /** G3.2: during an active workout, show the route's "which way to set off" start arrow. */
-  startDirectionArrow?: boolean;
+  /** G3.2: during an active workout, the "which way to set off" arrow (where the user joins the
+   *  line, pointing toward the first stop — useRouteDirectionAdapt). null = hidden. */
+  startDirectionArrow?: { lat: number; lng: number; bearing: number } | null;
   onLongPress?: (pos: { lat: number; lng: number }) => void;
   /** When true, easeTo duration drops to 80 ms to match 100 ms sim ticks — eliminates jitter */
   simulationActive?: boolean;
@@ -399,7 +400,7 @@ export default function AppMap({
   onUserPanDetected,
   headingMode,
   onFollowRestored,
-  startDirectionArrow = false,
+  startDirectionArrow = null,
   onLongPress,
   simulationActive = false,
   speedKmH = 6,
@@ -1354,12 +1355,22 @@ export default function AppMap({
     };
   }, [focusedRoute?.id, focusedRoute?.path, focusedRoute?.displayPath, focusedIsStrength]);
 
-  // G3.2: the FIRST direction marker (buildDirectionMarkers' start anchor) — shown during an
-  // active workout only while the owner asks (until the walking direction is settled).
+  // G3.2: the start arrow the owner computed (any route shape, one_way included), drawn with the
+  // same direction-marker icon as the overview arrows.
   const startArrowGeoJSON = useMemo<GeoJSON.FeatureCollection | null>(() => {
-    const first = (routeDirectionArrowsGeoJSON as GeoJSON.FeatureCollection | null)?.features?.[0];
-    return first ? { type: 'FeatureCollection', features: [first] } : null;
-  }, [routeDirectionArrowsGeoJSON]);
+    if (!startDirectionArrow) return null;
+    return {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        properties: {
+          bearing: startDirectionArrow.bearing,
+          iconImage: focusedIsStrength ? 'route-direction-marker-strength' : 'route-direction-marker-aerobic',
+        },
+        geometry: { type: 'Point', coordinates: [startDirectionArrow.lng, startDirectionArrow.lat] },
+      }],
+    };
+  }, [startDirectionArrow?.lat, startDirectionArrow?.lng, startDirectionArrow?.bearing, focusedIsStrength]);
 
   // ── Imperative live-path update ────────────────────────────────────────────
   // Fires whenever the number of accepted GPS samples grows — i.e. every
@@ -1814,7 +1825,7 @@ export default function AppMap({
             route line and start/finish marker are separate layers and stay
             visible at every zoom. ── */}
         {/* G3.2: start-direction arrow during the live walk (until the direction is settled). */}
-        {isActiveWorkout && startDirectionArrow && startArrowGeoJSON && (
+        {isActiveWorkout && startArrowGeoJSON && (
           <Source id="route-start-arrow" type="geojson" data={startArrowGeoJSON as any}>
             <Layer
               id="route-start-arrow"
