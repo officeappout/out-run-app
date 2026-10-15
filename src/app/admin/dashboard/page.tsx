@@ -212,6 +212,8 @@ export default function AdminDashboardPage() {
   const [authorityId, setAuthorityId] = useState<string | null>(null);
   const [authorityName, setAuthorityName] = useState('');
   const [loading, setLoading] = useState(true);
+  // a failed load used to read as "no authority assigned"
+  const [loadFailed, setLoadFailed] = useState(false);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   // 01.10.2026 (00-MASTER-PLAN.md §13.61) — which vertical this authority
   // belongs to, derived from the same authority object already resolved
@@ -376,6 +378,7 @@ export default function AdminDashboardPage() {
       });
     } catch (err) {
       console.error('[DashboardPage] authority resolution failed:', err);
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -603,6 +606,15 @@ export default function AdminDashboardPage() {
             <p className="text-lg font-bold text-gray-900">אין נתוני כשירות להצגה</p>
           </div>
         )}
+      </div>
+    );
+  }
+
+  if (loadFailed) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 h-64 text-slate-600" dir="rtl">
+        <p className="text-sm font-semibold">לא הצלחנו לטעון את נתוני הדשבורד.</p>
+        <button onClick={() => window.location.reload()} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold hover:bg-slate-50">נסה שוב</button>
       </div>
     );
   }

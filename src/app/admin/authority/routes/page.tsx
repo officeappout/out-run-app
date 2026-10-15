@@ -184,7 +184,7 @@ export default function AuthorityRoutesPage() {
                         ניהול מסלולים
                     </h1>
                     <p className="text-gray-400 mt-1 text-sm">
-                        הוסף וניהל מסלולי הליכה וריצה עבור הרשות שלך
+                        {isRoot ? 'הוסף ונהל מסלולי הליכה וריצה עבור הרשות' : 'מסלולי ההליכה והריצה שמופו עבור הרשות שלך'}
                     </p>
                 </div>
 
@@ -249,7 +249,7 @@ export default function AuthorityRoutesPage() {
                         </div>
                         <div>
                             <p className="text-lg font-black text-gray-700">אין מסלולים עדיין</p>
-                            <p className="text-sm text-gray-400 mt-1">לחץ על &ldquo;הוסף מסלול חדש&rdquo; כדי לצייר את המסלול הראשון שלך</p>
+                            <p className="text-sm text-gray-400 mt-1">{isRoot ? <>לחץ על &ldquo;הוסף מסלול חדש&rdquo; כדי לצייר את המסלול הראשון</> : 'צוות OUT ממפה את המסלולים של הרשות. הם יופיעו כאן אחרי הפרסום.'}</p>
                         </div>
                         {isRoot && (
                             <Link href="/admin/authority/routes/new"
