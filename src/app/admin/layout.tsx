@@ -941,6 +941,24 @@ function AdminLayoutInner({
                                 label="היחידה שלי"
                                 isActive={pathname?.startsWith('/admin/authority/units')}
                             />
+                            {/* 15.10.2026 (owner): the unit fitness officer also sees his
+                                unit's readiness and records its test results (military) */}
+                            {tenantTypeForLink === 'military' && (
+                                <>
+                                    <SidebarLink
+                                        href={`/admin/authority/readiness/unit/${roleInfo.unitId}`}
+                                        icon={ShieldCheck}
+                                        label="כשירות היחידה"
+                                        isActive={pathname?.startsWith('/admin/authority/readiness/unit')}
+                                    />
+                                    <SidebarLink
+                                        href={`/admin/authority/readiness/entry?unitId=${roleInfo.unitId}`}
+                                        icon={ClipboardList}
+                                        label="רישום תוצאות בוחן"
+                                        isActive={pathname?.startsWith('/admin/authority/readiness/entry')}
+                                    />
+                                </>
+                            )}
                         </div>
                         );
                         })() : isUnitAdminOnly ? (

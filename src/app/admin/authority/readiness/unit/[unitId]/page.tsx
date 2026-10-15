@@ -16,6 +16,7 @@ import UnitDetailSoldiersTable from '@/features/admin/components/readiness-unit-
 import type { UnitDetailBody } from '@/features/readiness/core/services/readiness-unit-detail.service';
 import type { ReadinessCurrentStatus } from '@/features/readiness/core/services/readiness-write.service';
 import { useMilitaryTenantSelection } from '@/features/admin/hooks/useMilitaryTenantSelection';
+import { useIsUnitAdminViewer } from '@/features/admin/hooks/useIsUnitAdminViewer';
 import { Loader2, ClipboardList } from 'lucide-react';
 
 /**
@@ -49,6 +50,7 @@ export default function ReadinessUnitDetailPage() {
   // unit_admin never sees needsSelection===true; their own fetch below
   // is byte-for-byte unchanged.
   const selection = useMilitaryTenantSelection();
+  const isUnitAdminViewer = useIsUnitAdminViewer();
 
   const load = useCallback(async (tenantId: string | null) => {
     const token = await auth.currentUser?.getIdToken();
@@ -129,14 +131,17 @@ export default function ReadinessUnitDetailPage() {
     );
   }
 
-  const breadcrumbItems: BreadcrumbItem[] = [
-    { label: 'כשירות', href: '/admin/dashboard' },
-    ...data.breadcrumbChain.map((seg) => ({
-      label: seg.name,
-      href: seg.unitId ? `/admin/authority/readiness/unit/${seg.unitId}` : '/admin/dashboard',
-    })),
-    { label: data.unitName },
-  ];
+  // a unit officer may open only his own unit's screens — no links up the chain
+  const breadcrumbItems: BreadcrumbItem[] = isUnitAdminViewer
+    ? [{ label: 'כשירות' }, ...data.breadcrumbChain.map((seg) => ({ label: seg.name })), { label: data.unitName }]
+    : [
+        { label: 'כשירות', href: '/admin/dashboard' },
+        ...data.breadcrumbChain.map((seg) => ({
+          label: seg.name,
+          href: seg.unitId ? `/admin/authority/readiness/unit/${seg.unitId}` : '/admin/dashboard',
+        })),
+        { label: data.unitName },
+      ];
 
   const lastUpdatedText = data.lastUpdated ? new Date(data.lastUpdated).toLocaleDateString('he-IL') : '—';
 
