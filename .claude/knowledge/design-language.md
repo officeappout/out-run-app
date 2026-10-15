@@ -40,7 +40,7 @@ hues allowed as accents.
 | `v2-up` / `v2-down` | `#10b981` / `#e5484d` | Delta ▲/▼ | green 16 uses on site |
 | `activity-steps` / `--activity-steps` | `#00c07a` | Steps (semantic) | site `Steps.tsx:25,35`; app steps widgets |
 | `activity-run` | `#00c9f2` | Running (semantic) | site `--activity-run` `globals.css:19` |
-| `activity-bike` | `#39d98a` | Cycling (semantic) | site `--activity-bike` `globals.css:18` |
+| `activity-cycle` (CSS `--activity-bike`) | `#39d98a` | Cycling (semantic) | site `--activity-bike` `globals.css:18` |
 
 **Brief vs. site, corrected on extraction:** the brief named `#00c9f2` as the
 accent; the site CSS actually uses `#00baf7` 123× and `#00c9f2` only inside

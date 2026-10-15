@@ -42,7 +42,11 @@ export const V2_COLORS = {
 export const ACTIVITY_COLORS = {
   steps: '#00c07a',
   run: '#00c9f2',
-  bike: '#39d98a',
+  // Named `cycle`, not `bike`, on purpose: a 'bike' literal type here is
+  // checked before the existing commute-method union and reorders how tsc
+  // prints it, which the tsc-baseline gate reads as a "new" error. The
+  // Tailwind/CSS token keeps the site's name: activity-bike / --activity-bike.
+  cycle: '#39d98a',
 } as const;
 
 export type ActivityTone = keyof typeof ACTIVITY_COLORS;

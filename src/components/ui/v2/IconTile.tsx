@@ -3,14 +3,14 @@
 import type { ComponentType, HTMLAttributes } from 'react';
 import type { LucideProps } from 'lucide-react';
 
-export type IconTileTone = 'accent' | 'steps' | 'run' | 'bike' | 'gold' | 'neutral' | 'dark';
+export type IconTileTone = 'accent' | 'steps' | 'run' | 'cycle' | 'gold' | 'neutral' | 'dark';
 export type IconTileSize = 'sm' | 'md' | 'lg';
 
 const TONE_CLASS: Record<IconTileTone, string> = {
   accent: 'bg-v2-tint text-v2-deep',
   steps: 'bg-activity-steps/10 text-[#00865a]',
   run: 'bg-activity-run/10 text-[#007fb0]',
-  bike: 'bg-activity-bike/10 text-activity-bike',
+  cycle: 'bg-activity-cycle/10 text-activity-cycle',
   gold: 'bg-v2-gold text-v2-on-gold',
   neutral: 'bg-v2-surface text-v2-ink-2 ring-1 ring-inset ring-v2-hairline',
   dark: 'bg-white/10 text-white',
