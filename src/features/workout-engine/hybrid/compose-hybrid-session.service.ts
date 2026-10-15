@@ -187,6 +187,13 @@ export interface HybridStopCandidate {
    * pool, to try real machine-tabata content before falling back to a locked card.
    */
   parkEquipment?: GymEquipment[];
+  /**
+   * The park's equipment could NOT be read (point-fetch failed / park not found), so the `[]`
+   * above means "unknown", not "this park has none". Composition is unchanged (still falls
+   * through to bodyweight); only the station segment omits `availableEquipment`, so the guided
+   * swap list stays unfiltered (PR-B3 follow-up). Absent = the list above is real.
+   */
+  equipmentUnknown?: boolean;
 }
 
 /** WHO-gap snapshot — produced by weekly-load.service (impure, caller side). */
@@ -1025,7 +1032,9 @@ export function composeHybridSession(input: HybridComposeInput): HybridPlan {
         activityType: stop.candidate.activityType ?? 'strength',
         lat: stop.candidate.lat,
         lng: stop.candidate.lng,
-        availableEquipment: stop.candidate.availableEquipment,
+        // Unknown equipment (failed lookup) → key omitted → no swap filter; [] only when the
+        // park genuinely has none.
+        ...(stop.candidate.equipmentUnknown ? {} : { availableEquipment: stop.candidate.availableEquipment }),
         // 'multi' (Bug 2a): the station is full-body → no single-domain label/icon (UI
         // falls back to the generic "כוח" glyph). Else keep the cycling domain.
         domainFocus: input.stationDomainMode === 'multi' ? undefined : stop.focus,

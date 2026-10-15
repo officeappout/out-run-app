@@ -886,14 +886,18 @@ async function composeRouteStopsWorkout(
       import('@/features/workout-engine/shared/utils/gear-mapping.utils'),
     ]);
     await tm.time('getPark', Promise.all(strengthStopsNeedingEquipment.map(async (s) => {
-      if (!s.parkId) return;
+      // Lookup failed / impossible → the [] below is "unknown", not "none": flag it so the
+      // station's guided swap list isn't limited to bodyweight (PR-B3 follow-up).
+      if (!s.parkId) { s.equipmentUnknown = true; return; }
       try {
         const fullPark = await getPark(s.parkId);
-        if (fullPark?.gymEquipment) {
+        if (!fullPark) s.equipmentUnknown = true;
+        else if (fullPark.gymEquipment) {
           s.availableEquipment = parkGymEquipmentToGearIds(fullPark.gymEquipment, normalizeGearIds);
         }
       } catch {
         /* leave availableEquipment as [] — falls through to bodyweight, never throws */
+        s.equipmentUnknown = true;
       }
     })));
   }
