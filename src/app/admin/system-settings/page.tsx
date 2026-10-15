@@ -34,6 +34,7 @@ interface FlagState {
   enable_recommended_hybrid: boolean;
   enable_mock_location_panel: boolean;
   enable_guided_station: boolean;
+  enable_walk_to_first_stop: boolean;
 }
 
 // ============================================================================
@@ -128,6 +129,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-500',
     title: 'ליווי צעד-אחר-צעד בתחנה',
     description: 'מתג חירום: כבוי = כל המשתמשים במצב מהיר (תחנה כמו היום). דלוק = לפי הבחירה של כל משתמש בהגדרות (ברירת מחדל דלוק).',
+  },
+  {
+    key: 'enable_walk_to_first_stop',
+    icon: Footprints,
+    iconBg: 'bg-sky-50',
+    iconColor: 'text-sky-500',
+    title: 'הליכה לתחנה (מסלול + עצירות)',
+    description: 'כרטיס הליכה קבוע עם מרחק חי לתחנה הבאה + כפתור "הגעתי" משני. כפתור "הגעתי לתחנה" הגדול רק אחרי שנכנסים לרדיוס התחנה בהליכה — לא מיד בהתחלה ליד גינה. כבוי = ההתנהגות של היום.',
+    parentKey: 'enable_hybrid_slots',
   },
 ];
 

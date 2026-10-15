@@ -127,6 +127,18 @@ function computeUpcomingStation(s: HybridRunState): UpcomingStationInfo | null {
   };
 }
 
+/**
+ * G3.1 (walk-to-first-stop): 1-based number of the station the CURRENT aerobic leg leads to, or
+ * null when no station is next. Independent of coordinates (a full-park station has none), so
+ * the walking card can still say "תחנה ראשונה" / "התחנה הבאה".
+ */
+function computeNextStationNumber(s: HybridRunState): number | null {
+  if (s.phase !== 'aerobic') return null;
+  const next = s.plan[s.cursor + 1];
+  if (!next || next.kind !== 'strength') return null;
+  return s.plan.slice(0, s.cursor + 2).filter((seg) => seg.kind === 'strength').length;
+}
+
 /** See computeUpcomingStation. */
 export interface UpcomingStationInfo {
   lat: number;
@@ -142,6 +154,8 @@ export interface HybridRunStore {
   isFinalLeg: boolean;
   /** See computeUpcomingStation. */
   upcomingStation: UpcomingStationInfo | null;
+  /** See computeNextStationNumber (G3.1). */
+  nextStationNumber: number | null;
   /**
    * Stage 3 (HYBRID_SUMMARY_ENABLED): the just-finished hybrid's finalize result
    * + calories, stashed for HybridSummary to read at render time. Set in
@@ -198,6 +212,7 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
   stationPlan: null,
   isFinalLeg: false,
   upcomingStation: null,
+  nextStationNumber: null,
   finishedHybrid: false,
   lastResult: null,
   lastCalories: 0,
@@ -229,6 +244,7 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
       stationPlan: null,
       isFinalLeg: isFinalLeg(controllerRef.getState()),
       upcomingStation: computeUpcomingStation(controllerRef.getState()),
+      nextStationNumber: computeNextStationNumber(controllerRef.getState()),
       // Clear any stale HybridSummary stash from a prior session.
       finishedHybrid: false,
       lastResult: null,
@@ -258,7 +274,7 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
       );
       console.log('[hybrid-media-diag] plan → StrengthRunner:', JSON.stringify(rows, null, 2));
     }
-    set({ phase: controllerRef.getPhase(), stationPlan, isFinalLeg: false, upcomingStation: null, stationContext, pendingStationComplete: null });
+    set({ phase: controllerRef.getPhase(), stationPlan, isFinalLeg: false, upcomingStation: null, nextStationNumber: null, stationContext, pendingStationComplete: null });
   },
 
   completeStation: (exerciseLog, completedAtMs) => {
@@ -290,6 +306,7 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
       stationPlan: null,
       isFinalLeg: isFinalLeg(controllerRef.getState()),
       upcomingStation: computeUpcomingStation(controllerRef.getState()),
+      nextStationNumber: computeNextStationNumber(controllerRef.getState()),
       stationContext: null,
       pendingStationComplete: null,
     });
@@ -375,6 +392,7 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
       stationPlan: null,
       isFinalLeg: isFinalLeg(controllerRef.getState()),
       upcomingStation: computeUpcomingStation(controllerRef.getState()),
+      nextStationNumber: computeNextStationNumber(controllerRef.getState()),
       stationContext: null,
       pendingStationComplete: null,
     });
@@ -504,7 +522,7 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
     }
 
     controllerRef = null;
-    set({ active: false, phase: 'done', stationPlan: null, isFinalLeg: false, upcomingStation: null });
+    set({ active: false, phase: 'done', stationPlan: null, isFinalLeg: false, upcomingStation: null, nextStationNumber: null });
   },
 
   reset: () => {
@@ -521,6 +539,7 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
       stationPlan: null,
       isFinalLeg: false,
       upcomingStation: null,
+      nextStationNumber: null,
       finishedHybrid: false,
       lastResult: null,
       lastCalories: 0,

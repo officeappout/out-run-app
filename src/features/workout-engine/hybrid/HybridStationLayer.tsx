@@ -38,6 +38,7 @@ import { useRunningPlayer } from '@/features/workout-engine/players/running/stor
 import { hapticMedium } from '@/lib/haptics';
 import { haversineMeters } from '@/features/parks/core/services/geoUtils';
 import { formatApproxDistance } from './hybrid-intro-format';
+import { resolveWalkUiState, nextArmed, walkingLine } from './hybrid-walk-state';
 import StationCompleteScreen from './StationCompleteScreen';
 import ExerciseReplacementModal from '@/features/workout-engine/players/strength/components/ExerciseReplacementModal';
 import { useUserStore } from '@/features/user';
@@ -78,6 +79,7 @@ export default function HybridStationLayer() {
   } | null>(null);
   const finishHybrid = useHybridRun((s) => s.finishHybrid);
   const lastPosition = useRunningPlayer((s) => s.lastPosition);
+  const nextStationNumber = useHybridRun((s) => s.nextStationNumber);
 
   // ── PR-B1 guided layer ("ליווי צעד-אחר-צעד") ─────────────────────────────
   // Kill-switch (remote flag, fail-open) off → fast mode for everyone. Otherwise the user's
@@ -118,7 +120,7 @@ export default function HybridStationLayer() {
   // constant (not live pace — see isApproachingStation's doc comment).
   // False whenever there's no upcoming station (final leg, already at/past
   // one) or no GPS fix yet.
-  const approaching =
+  const withinApproachRadius =
     phase === 'aerobic' && !isFinalLeg && upcomingStation != null && lastPosition != null
       ? isApproachingStation(
           lastPosition.lat, lastPosition.lng,
@@ -126,6 +128,23 @@ export default function HybridStationLayer() {
           upcomingStation.aerobicType,
         )
       : false;
+
+  // G3.1 walk-to-first-stop (Sderot pilot, flag `enable_walk_to_first_stop`, fail-closed). Off →
+  // `approaching` is exactly the proximity check above (today's behaviour). On → the big CTA
+  // needs the leg ARMED: a fix OUTSIDE the radius seen on this leg, so a park at the drop-in
+  // point no longer shows "הגעתי לתחנה" on the first fix (hybrid-walk-state.ts). Until then the
+  // walking card below shows live distance + a secondary "הגעתי".
+  const walkFlag = flags.enableWalkToFirstStop;
+  const legKey = `${phase}:${nextStationNumber ?? 'none'}`;
+  const [armedFor, setArmedFor] = useState<string | null>(null);
+  const legArmed = armedFor === legKey;
+  const walkUi = walkFlag
+    ? resolveWalkUiState({
+        phase, isFinalLeg, hasNextStation: nextStationNumber != null,
+        withinRadius: withinApproachRadius, armed: legArmed,
+      })
+    : null;
+  const approaching = walkFlag ? walkUi === 'approach' : withinApproachRadius;
 
   // Haptic fires once on the rising edge (entering the approach window),
   // never on every render while already inside it.
@@ -152,14 +171,21 @@ export default function HybridStationLayer() {
     upcomingStation != null && lastPosition != null
       ? haversineMeters(lastPosition.lat, lastPosition.lng, upcomingStation.lat, upcomingStation.lng)
       : null;
+  // G3.1: arm the leg on the first fix outside the approach radius (re-keyed per leg).
   useEffect(() => {
+    if (!walkFlag || legArmed) return;
+    if (nextArmed(false, distanceToStationM, withinApproachRadius)) setArmedFor(legKey);
+  }, [walkFlag, legArmed, legKey, distanceToStationM, withinApproachRadius]);
+  useEffect(() => {
+    // G3.1: the persistent walking card replaces the one-shot intro when the flag is on.
+    if (walkFlag) return;
     if (introShownRef.current) return;
     if (phase !== 'aerobic' || isFinalLeg || approaching || upcomingStation == null) return;
     introShownRef.current = true;
     setShowIntro(true);
     const t = setTimeout(() => setShowIntro(false), INTRO_AUTO_HIDE_MS);
     return () => clearTimeout(t);
-  }, [phase, isFinalLeg, approaching, upcomingStation]);
+  }, [phase, isFinalLeg, approaching, upcomingStation, walkFlag]);
   // Hide immediately once the real approach CTA takes over — never show both.
   useEffect(() => {
     if (approaching) setShowIntro(false);
@@ -322,6 +348,37 @@ export default function HybridStationLayer() {
       </div>
     );
     return typeof document !== 'undefined' ? createPortal(cta, document.body) : null;
+  }
+
+  // G3.1 walk-to-first-stop (flag on): persistent walking card on every leg until the user walks
+  // into the station's radius — live distance + a SECONDARY "הגעתי" (the user may genuinely start
+  // at the park, or the station may have no coordinates). Same z-[110] bottom slot as the CTA
+  // above (never both — walkUi is either 'walking' or 'approach').
+  if (walkFlag && walkUi === 'walking') {
+    const card = (
+      <div
+        className="fixed left-0 right-0 z-[110] flex justify-center pointer-events-none px-6"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 150px)' }}
+        dir="rtl"
+      >
+        <div
+          className="pointer-events-auto flex items-center gap-3 rounded-2xl ps-4 pe-2 py-2 text-white shadow-xl"
+          style={{ backgroundColor: 'rgba(5,8,18,0.82)', backdropFilter: 'blur(10px)' }}
+        >
+          <span className="text-[14px] font-bold">
+            🚶 {walkingLine(userGender, nextStationNumber, distanceToStationM)}
+          </span>
+          <button
+            type="button"
+            onClick={() => arrive()}
+            className="rounded-full border border-white/40 px-3 py-1.5 text-[12px] font-bold text-white/90 active:scale-95 transition-transform"
+          >
+            הגעתי
+          </button>
+        </div>
+      </div>
+    );
+    return typeof document !== 'undefined' ? createPortal(card, document.body) : null;
   }
 
   // G3.1 fix: start-of-walk intro, shown exactly once per session on the
