@@ -51,6 +51,7 @@ describe('computeStationContext', () => {
       isFinalStation: false, nextStationName: 'פארק המסילה', nextWalkSec: 420, nextLegKind: 'walking', parkId: 'p1',
       // B1 welcome screen: "תחנה N מתוך M", park name, planned minutes
       parkName: 'גינת הדקל', stationNumber: 1, stationTotal: 2, estimatedMin: 10,
+      availableEquipment: null, // B3: none on these fixture segments
     });
     expect(computeStationContext(plan, 3, names)).toMatchObject({ stationNumber: 2, stationTotal: 2, parkName: 'פארק המסילה' });
   });

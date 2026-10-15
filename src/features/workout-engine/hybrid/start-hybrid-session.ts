@@ -373,6 +373,7 @@ async function composeFullParkWorkout(
         lat: oab.station.lat,
         lng: oab.station.lng,
         waypointIndex: oab.station.waypointIndex,
+        availableEquipment: oab.station.availableEquipment, // PR-B3: onto the station segment
       };
       const plan = composeParkWorkoutPlan({
         routePath: oab.routePath,
@@ -411,6 +412,7 @@ async function composeFullParkWorkout(
       lat: oab.station.lat,
       lng: oab.station.lng,
       waypointIndex: oab.station.waypointIndex,
+      availableEquipment: oab.station.availableEquipment, // PR-B3: onto the station segment
     };
 
     // One plan per bolt option — same park + route, only the strength content differs.

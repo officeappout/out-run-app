@@ -125,6 +125,8 @@ export interface ParkWorkoutStation {
   lng: number;
   /** Turnaround vertex index on routePath (Phase 1.1 sets this to the park). */
   waypointIndex: number;
+  /** PR-B3: the park's normalized gear ids — copied onto the station segment when present. */
+  availableEquipment?: string[];
 }
 
 export interface ParkWorkoutComposeInput {
@@ -194,6 +196,7 @@ export function composeParkWorkoutPlan(input: ParkWorkoutComposeInput): HybridPl
         parkId: input.station.parkId,
         locationKind: input.station.locationKind,
         activityType: 'strength',
+        ...(input.station.availableEquipment ? { availableEquipment: input.station.availableEquipment } : {}),
         domainFocus: block.domainFocus,
         content: block,
         durationSec: block.estimatedDurationSec,

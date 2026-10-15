@@ -267,6 +267,12 @@ export interface HybridPlannedSegment {
   content?: StrengthBlockResult;
   estCalories: number;
   /**
+   * PR-B3: the stop's normalized gear ids (HybridStopCandidate.availableEquipment), carried onto
+   * the planned station so the live station can limit exercise swaps to what this park has.
+   * Transferring an existing field — no new computation. Absent on legacy/home-only plans.
+   */
+  availableEquipment?: string[];
+  /**
    * Station-approach moment (David, 25.09.2026): the real GPS coordinates of
    * this stop, carried straight through from HybridStopCandidate.lat/lng
    * (already resolved at selection time, see selection.chosen below) —
@@ -1019,6 +1025,7 @@ export function composeHybridSession(input: HybridComposeInput): HybridPlan {
         activityType: stop.candidate.activityType ?? 'strength',
         lat: stop.candidate.lat,
         lng: stop.candidate.lng,
+        availableEquipment: stop.candidate.availableEquipment,
         // 'multi' (Bug 2a): the station is full-body → no single-domain label/icon (UI
         // falls back to the generic "כוח" glyph). Else keep the cycling domain.
         domainFocus: input.stationDomainMode === 'multi' ? undefined : stop.focus,

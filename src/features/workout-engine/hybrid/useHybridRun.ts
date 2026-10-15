@@ -53,6 +53,10 @@ let stationStartedAtMs: number | null = null;
 const demoSeen = createDemoSeenStore();
 /** The session's demo seen-store, handed to StrengthRunner (guided mode only). */
 export const hybridDemoSeen: DemoSeenStore = { has: (id) => demoSeen.has(id), add: (id) => demoSeen.add(id) };
+// PR-B3: machine exercises already "found" (מצאתי ✓) this session — same scope as demoSeen.
+const equipmentFound = createDemoSeenStore();
+/** The session's find-the-equipment store, handed to StrengthRunner (guided mode only). */
+export const hybridEquipmentFound: DemoSeenStore = { has: (id) => equipmentFound.has(id), add: (id) => equipmentFound.add(id) };
 
 /** Block content → the WorkoutPlan StrengthRunner plays. Shared by arrive() and an in-station
  *  swap so both produce the identical shape (incl. the full-park warmup strip). */
@@ -202,6 +206,7 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
   startHybrid: (plan, aerobicKind, fullPark = false, warmupActive = true, names = {}) => {
     stationNames = names;
     demoSeen.clear();
+    equipmentFound.clear();
     activeStationContent = null;
     stationStartedAtMs = null;
     controllerRef = createHybridSessionController(plan.segments);
@@ -506,6 +511,7 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
     saving = false;
     stationNames = {};
     demoSeen.clear();
+    equipmentFound.clear();
     activeStationContent = null;
     stationStartedAtMs = null;
     set({

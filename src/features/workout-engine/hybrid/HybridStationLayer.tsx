@@ -30,7 +30,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import StrengthRunner from '@/features/workout-engine/players/strength/StrengthRunner';
-import { useHybridRun, hybridDemoSeen } from './useHybridRun';
+import { useHybridRun, hybridDemoSeen, hybridEquipmentFound } from './useHybridRun';
 import { isApproachingStation } from './hybrid-orchestrator';
 import { toSegmentExerciseDetail } from '@/features/workout-engine/core/services/storage.service';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
@@ -200,6 +200,8 @@ export default function HybridStationLayer() {
           guided={guided}
           // PR-B2: watch-the-demo gate (guided only — omitted in fast mode → PREPARING unchanged).
           demoGate={guided ? hybridDemoSeen : undefined}
+          // PR-B3: find-the-equipment before the gate (guided only — omitted in fast mode).
+          findEquipment={guided ? hybridEquipmentFound : undefined}
           // G2.4: in-station swap — same modal as the overview / standalone player; the
           // replacement is written into the live station plan (useHybridRun), so it is what
           // StrengthRunner plays and logs from here on.
@@ -231,6 +233,9 @@ export default function HybridStationLayer() {
             location="park"
             park={swapTarget.park}
             userProfile={profile as any}
+            // PR-B3 (guided only): limit alternatives to this park's equipment + bodyweight.
+            // Fast mode / every other caller: unchanged (null = no filter).
+            allowedEquipmentIds={guided ? stationContext?.availableEquipment ?? null : null}
             onReplace={(newExercise, executionMethod) => {
               swapStationExercise(swapTarget.segIdx, swapTarget.exIdx, newExercise, executionMethod);
               setSwapTarget(null);
