@@ -23,6 +23,8 @@ import { findMethodForLocation } from '@/features/content/exercises/core/exercis
 import { ActivityGlyph } from './activity-icons'; // single source for both axes (points 13/17)
 import { formatMinutes } from './hybrid-format'; // shared duration formatter (point 19)
 import { HYBRID_AER as AER, HYBRID_STR as STR, HYBRID_WALK as WALK } from './hybrid-colors'; // single source (point 15)
+import { routeQuestionnaireLine } from './route-questionnaire-line';
+import { useUserStore } from '@/features/user';
 
 const ACCENT = '#00ADEF'; // "המיקום שלך" origin / return nodes
 const AER_TINT = '#ECFDF5', AER_TEXT = '#047857';
@@ -247,16 +249,14 @@ export default function HybridJourneyAxis({
   const walkBack = walkLegs && walkLegs.backMin > 0 ? walkLegs.backMin : 0;
   const firstSegColor = segments[0]?.kind === 'strength' ? STR : AER;
 
-  // G2.1 fix (Sderot field test, 10.10.2026): this used to render the amber
-  // equipment-tabata nudge INSIDE the segments.map() below, once per qualifying
-  // strength station — stacking a warning-styled banner down the whole axis for a
-  // no-questionnaire user, even though doing ad-hoc station work here is legitimate,
-  // not a problem. Hoisted to one route-level, softer prompt instead (styling matches
-  // ProgramsSection.tsx's "טרם הוערך" dashed-border nudge, not the locked-card warning).
-  const assessmentNudgeDomains = Array.from(new Set(
-    segments.flatMap((s) => s.content?.assessmentNudge?.assessmentDomains ?? []),
-  ));
-  const hasAssessmentNudge = assessmentNudgeDomains.length > 0;
+  // G2.1 (Sderot pilot): ONE neutral, gendered questionnaire line for the whole route — the
+  // union of every station's assessmentNudge AND needsAssessment domains (route-questionnaire-
+  // line.ts). Wave 1 (#202) hoisted only the nudge; the locked-station card still repeated an
+  // amber "השלימו שאלון" warning on every locked stop. Locked stations now show only a neutral
+  // locked state below; the questionnaire link lives here, once. Styling matches
+  // ProgramsSection.tsx's "טרם הוערך" dashed-border nudge.
+  const userGender = useUserStore((s) => s.profile?.core?.gender) as 'male' | 'female' | 'other' | undefined;
+  const questionnaireLine = routeQuestionnaireLine(segments, userGender);
 
   // Station super-collapse (point 20): per-station-card. Keyed by segment index;
   // default expanded (absent = open). Collapsed → a summary card instead of the
@@ -266,15 +266,15 @@ export default function HybridJourneyAxis({
     setCollapsedStations((m) => ({ ...m, [idx]: !m[idx] }));
   return (
     <div dir="rtl">
-      {hasAssessmentNudge && (
+      {questionnaireLine && (
         <button
           type="button"
-          onClick={() => onSegmentAssessmentLink?.(assessmentNudgeDomains)}
+          onClick={() => onSegmentAssessmentLink?.(questionnaireLine.domains)}
           className="w-full flex items-center gap-2 mb-3 rounded-xl text-[12px] font-bold text-start active:scale-[0.98] transition-transform"
           style={{ background: '#fff', border: '1px dashed #CBD5E1', color: '#00C9F2', padding: '9px 12px' }}
         >
           <Info size={15} className="flex-shrink-0" style={{ color: '#9CA3AF' }} />
-          <span className="flex-1 underline underline-offset-2">רוצים אימון מותאם יותר? השלימו שאלון כוח</span>
+          <span className="flex-1 underline underline-offset-2">{questionnaireLine.text}</span>
           <ChevronLeft size={15} className="flex-shrink-0" style={{ color: '#9CA3AF' }} />
         </button>
       )}
@@ -348,7 +348,7 @@ export default function HybridJourneyAxis({
         // a lock card instead of exercise content, tapping through to the SAME
         // mini-assessment mechanism the session-level A3 banner already uses.
         if (seg.content?.needsAssessment) {
-          const { fallbackHint, assessmentDomains } = seg.content.needsAssessment;
+          // G2.1: neutral locked state only — the questionnaire line is shown ONCE, above.
           return (
             <div key={i} className="flex gap-3 items-stretch">
               <Node kind="strength" nextColor={nextColor} subtype={seg.domainFocus} />
@@ -361,16 +361,9 @@ export default function HybridJourneyAxis({
                       {stationName ? `${stationName} — כוח` : `תחנה ${strIdx} — כוח`}
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => onSegmentAssessmentLink?.(assessmentDomains)}
-                    className="w-full flex items-center gap-2 mt-2 rounded-xl text-[12px] font-bold text-start active:scale-[0.98] transition-transform"
-                    style={{ background: '#FFFBEB', border: '0.5px solid #FDE68A', color: '#B45309', padding: '9px 12px' }}
-                  >
-                    <Info size={15} className="flex-shrink-0" />
-                    <span className="flex-1 underline underline-offset-2">{fallbackHint}</span>
-                    <ChevronLeft size={15} className="flex-shrink-0" />
-                  </button>
+                  <span className="block mt-1.5 text-[12px] font-bold" style={{ color: '#6B7280' }}>
+                    תחנה נעולה
+                  </span>
                 </div>
               </div>
             </div>
