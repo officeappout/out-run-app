@@ -92,6 +92,11 @@ export const FLAG_DEFS = [
   // superAdminValue false because HybridStationLayer reads flags without the super-admin
   // override anyway (useFeatureFlags() with no arg) — off = today's behaviour for everyone.
   { key: 'enableWalkToFirstStop', firestoreKey: 'enable_walk_to_first_stop', defaultValue: false, superAdminValue: false },
+  // Sderot pilot G3.2 (15.10.2026) — adapt a LOOP route to the direction the user actually walks
+  // (first ~60–150 m): flip the live stop order (list reversal of the composed plan, never a
+  // re-compose) + toast; "which way" arrow at the start until settled. one_way / out-and-back are
+  // never flipped. Fail-closed; superAdminValue false — the panel toggle is the one switch.
+  { key: 'enableRouteDirectionAdapt', firestoreKey: 'enable_route_direction_adapt', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

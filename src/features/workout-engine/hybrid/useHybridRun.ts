@@ -18,6 +18,7 @@ import type { HybridPlan } from './compose-hybrid-session.service';
 import type { HybridControllerHandle } from './hybrid-session-controller';
 import type { HybridPhase, HybridRunState, HybridFinalizeResult } from './hybrid-orchestrator';
 import { createHybridSessionController } from './hybrid-session-controller';
+import { reverseHybridSegments } from './reverse-plan';
 import { strengthBlockToWorkoutPlan } from './strength-block-to-plan';
 import { HYBRID_SUMMARY_ENABLED } from '@/config/feature-flags';
 import { isNegligibleHybridSession } from './hybrid-finish-policy';
@@ -204,6 +205,12 @@ export interface HybridRunStore {
   /** "סיים אימון משולב" — finalize, write the single doc, tear down the run. */
   finishHybrid: () => Promise<void>;
   reset: () => void;
+  /**
+   * G3.2 (flag enable_route_direction_adapt): walk the LOOP the other way round. Only on the
+   * first leg (cursor 0, aerobic, nothing done yet): rebuilds the controller from the reversed
+   * already-composed segments (reverse-plan.ts — no re-compose), same start time. false = refused.
+   */
+  reverseRoute: () => boolean;
 }
 
 export const useHybridRun = create<HybridRunStore>((set, get) => ({
@@ -523,6 +530,26 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
 
     controllerRef = null;
     set({ active: false, phase: 'done', stationPlan: null, isFinalLeg: false, upcomingStation: null, nextStationNumber: null });
+  },
+
+  reverseRoute: () => {
+    if (!controllerRef) return false;
+    const st = controllerRef.getState();
+    if (st.phase !== 'aerobic' || st.cursor !== 0) return false;
+    const startMs = st.currentStartMs ?? Date.now();
+    controllerRef = createHybridSessionController(reverseHybridSegments(st.plan));
+    controllerRef.start(startMs);
+    const next = controllerRef.getState();
+    set({
+      phase: controllerRef.getPhase(),
+      stationPlan: null,
+      isFinalLeg: isFinalLeg(next),
+      upcomingStation: computeUpcomingStation(next),
+      nextStationNumber: computeNextStationNumber(next),
+      stationContext: null,
+      pendingStationComplete: null,
+    });
+    return true;
   },
 
   reset: () => {

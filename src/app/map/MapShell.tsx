@@ -640,6 +640,9 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
         (logic.isNavigationMode || (isActiveMode && logic.focusedRoute)) &&
         effectivePos && logic.focusedRoute?.path && (
           <TurnCarousel
+            // G3.2: remount when the route's content changes (a direction flip reverses the path —
+            // the carousel's internal turn selection must not carry over).
+            key={`${logic.focusedRoute.path.length}:${String(logic.focusedRoute.path[1])}`}
             // Prefer the store's pre-computed list (set in
             // useWorkoutSession._doStartActiveWorkout for guided routes).
             // Fall back to inline computation for nav-mode walks that don't

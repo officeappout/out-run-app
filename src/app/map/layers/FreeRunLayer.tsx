@@ -29,6 +29,9 @@ import { useRunningPlayer } from '@/features/workout-engine/players/running/stor
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import HybridStationLayer from '@/features/workout-engine/hybrid/HybridStationLayer';
 import { useHybridRun } from '@/features/workout-engine/hybrid/useHybridRun';
+import { useRouteDirectionAdapt } from './useRouteDirectionAdapt';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
 import { isApproachingStation } from '@/features/workout-engine/hybrid/hybrid-orchestrator';
 import GpsDebugHud from '@/features/workout-engine/players/running/components/FreeRun/GpsDebugHud';
 import LiveSessionShell from '@/features/workout-engine/shared/components/LiveSessionShell';
@@ -68,6 +71,16 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
     if (typeof window === 'undefined') return false;
     return new URLSearchParams(window.location.search).get('debug') === 'gps';
   }, []);
+
+  // G3.2 (flag enable_route_direction_adapt, fail-closed): adapt a loop to the walked direction.
+  const { flags: runFlags } = useFeatureFlags();
+  const runnerGender = useUserStore((s) => s.profile?.core?.gender) as 'male' | 'female' | 'other' | undefined;
+  const { showStartArrow } = useRouteDirectionAdapt({
+    enabled: runFlags.enableRouteDirectionAdapt,
+    focusedRoute: logic.focusedRoute,
+    setFocusedRoute: logic.setFocusedRoute,
+    gender: runnerGender,
+  });
 
   const isMapFollowEnabled = useRunningPlayer((s) => s.isMapFollowEnabled);
   const mapHeadingMode = useRunningPlayer((s) => s.mapHeadingMode);
@@ -294,6 +307,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
               headingMode={mapHeadingMode}
               onFollowRestored={() => setMapFollowEnabled(true)}
               mapMode="free_run"
+              startDirectionArrow={showStartArrow}
               activityType={activityType}
               isNavigationMode={logic.isNavigationMode}
               partnerPositions={partnerPositions}
