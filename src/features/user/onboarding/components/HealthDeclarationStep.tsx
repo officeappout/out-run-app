@@ -9,9 +9,10 @@ import { useOnboardingStore } from '../store/useOnboardingStore';
 // Keeping it out of the static import graph prevents pdf-lib (~600 KB) from being
 // bundled into this page's initial JS chunk, eliminating the main-thread freeze
 // that occurred when the browser first evaluated the chunk during navigation.
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { doc, setDoc } from 'firebase/firestore';
-import { storage, db, auth } from '@/lib/firebase';
+import { auth } from '@/lib/firebase';
+import {
+  submitHealthDeclaration, signatureFits, SIGNATURE_WIDTHS,
+} from '../services/health-declaration-record';
 import LegalDocModal from '@/features/legal/components/LegalDocModal';
 import { LEGAL_VERSION } from '@/features/legal/legal-content';
 
@@ -22,11 +23,31 @@ interface HealthDeclarationStepProps {
   onContinue?: (value: boolean) => void;
 }
 
-// Module-level cache so the preloaded `generateHealthDeclarationPdf` function
-// survives across re-renders. We store the resolved function directly rather
-// than the module promise so `handleSubmit` can call it synchronously once
-// the background import has completed.
-let _cachedGeneratePdf: ((name: string, sig: string) => Promise<Uint8Array>) | null = null;
+/**
+ * Compact the signature for storage in the declaration record: redraw the pad canvas at
+ * ~2× the PDF signature box width (canvas→canvas draw is synchronous, no image decode), falling
+ * back to 1× if ever needed to stay under MAX_SIGNATURE_CHARS. The full-DPR original is ~3–9×
+ * larger and buys nothing in a 260pt-wide PDF box.
+ */
+function compactSignature(source: HTMLCanvasElement | null, fallback: string): string {
+  if (!source || !source.width || !source.height) return fallback;
+  for (const width of SIGNATURE_WIDTHS) {
+    try {
+      const scale = Math.min(1, width / source.width);
+      const out = document.createElement('canvas');
+      out.width = Math.max(1, Math.round(source.width * scale));
+      out.height = Math.max(1, Math.round(source.height * scale));
+      const ctx = out.getContext('2d');
+      if (!ctx) break;
+      ctx.drawImage(source, 0, 0, out.width, out.height);
+      const url = out.toDataURL('image/png');
+      if (signatureFits(url)) return url;
+    } catch {
+      break;
+    }
+  }
+  return fallback;
+}
 
 export default function HealthDeclarationStep({
     title,
@@ -57,8 +78,7 @@ export default function HealthDeclarationStep({
   // parsed and cached — zero JS evaluation cost on button press.
   useEffect(() => {
     import('../services/pdf-service')
-      .then((mod) => {
-        _cachedGeneratePdf = mod.generateHealthDeclarationPdf;
+      .then(() => {
         console.log('[HealthDeclaration] pdf-service preloaded in background.');
       })
       .catch((err) => {
@@ -228,74 +248,50 @@ export default function HealthDeclarationStep({
   }, []);
 
 
-  const handleSubmit = useCallback(async () => {
+  // 15.10.2026 hang fix: NOTHING here waits on the network. The signature record is written to
+  // users/{uid}/private/legal (queued locally by Firestore's persistent cache — not awaited), the
+  // flow continues immediately, and the signed PDF is built from that record in the background
+  // (health-declaration-record.ts — with timeouts, 'failed' status, and a once-per-session
+  // self-heal that regenerates a missing PDF). Same handler for onboarding, the JIT pop-up and
+  // the setup wizard.
+  const handleSubmit = useCallback(() => {
     if (!canSubmit || !signatureData || isSubmitting) return;
 
     setIsSubmitting(true);
 
     try {
-      // ── 1. Generate the signed PDF ──
-      let pdfDownloadUrl: string | null = null;
+      const signedAt = new Date().toISOString();
+      submitHealthDeclaration(
+        auth.currentUser?.uid,
+        {
+          answers,
+          signature: compactSignature(canvasRef.current, signatureData),
+          signerName: userName,
+          signedAt,
+          termsVersion: LEGAL_VERSION,
+          usedFastTrack,
+        },
+        () => {
+          // ── Persist to onboarding store with all metadata ──
+          // (healthDeclarationPdfUrl is written to private/legal by the background job itself.)
+          updateData({
+            healthDeclarationAccepted: true,
+            healthTermsAccepted: termsAccepted,
+            healthAnswers: answers,
+            healthSignature: signatureData,
+            healthUsedFastTrack: usedFastTrack,
+            healthTimestamp: signedAt,
+            healthUserName: userName,
+            healthGender: gender,
+            termsVersion: LEGAL_VERSION,
+          } as any);
 
-      try {
-        // Use the module-level cached function from the background preload.
-        // If the user clicks before the preload finishes (rare — they must fill
-        // all questions, sign, and tick the checkbox first), fall back to a fresh
-        // dynamic import which will resolve immediately from the browser cache.
-        const generatePdf = _cachedGeneratePdf
-          ?? (await import('../services/pdf-service')).generateHealthDeclarationPdf;
-
-        const pdfBytes = await generatePdf(userName, signatureData);
-
-        // ── 2. Upload to Firebase Storage ──
-        const userId = auth.currentUser?.uid;
-        if (userId) {
-          const timestamp = Date.now();
-          const storagePath = `health-declarations/${userId}/health-declaration-${timestamp}.pdf`;
-          const storageRef = ref(storage, storagePath);
-          const pdfBlob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
-          const snapshot = await uploadBytes(storageRef, pdfBlob, {
-            contentType: 'application/pdf',
-            customMetadata: {
-              userName,
-              generatedAt: new Date().toISOString(),
-            },
-          });
-          pdfDownloadUrl = await getDownloadURL(snapshot.ref);
-
-          // ── 3. Save download URL — SPEC-02 SEC-06: private/legal, not
-          // the user doc itself (world-readable to any signed-in guest
-          // whenever the profile is discoverable) ──
-          await setDoc(
-            doc(db, 'users', userId, 'private', 'legal'),
-            { healthDeclarationPdfUrl: pdfDownloadUrl, updatedAt: new Date() },
-            { merge: true },
-          );
-        }
-      } catch (pdfError) {
-        // PDF generation/upload failure should NOT block onboarding flow.
-        // Log the error but continue with the rest of the submission.
-        console.error('[HealthDeclaration] PDF generation/upload failed:', pdfError);
-      }
-
-      // ── 4. Persist to onboarding store with all metadata ──
-      updateData({
-        healthDeclarationAccepted: true,
-        healthTermsAccepted: termsAccepted,
-        healthAnswers: answers,
-        healthSignature: signatureData,
-        healthUsedFastTrack: usedFastTrack,
-        healthTimestamp: new Date().toISOString(),
-        healthUserName: userName,
-        healthGender: gender,
-        termsVersion: LEGAL_VERSION,
-        ...(pdfDownloadUrl ? { healthDeclarationPdfUrl: pdfDownloadUrl } : {}),
-      } as any);
-
-      // ── 5. Trigger next step ──
-      if (onContinue) {
-        onContinue(true);
-      }
+          // ── Trigger next step ──
+          if (onContinue) {
+            onContinue(true);
+          }
+        },
+      );
     } catch (error) {
       console.error('[HealthDeclaration] Submission error:', error);
       // Allow retry

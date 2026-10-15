@@ -108,11 +108,15 @@ async function loadFontBytes(url: string, cache: 'regular' | 'bold'): Promise<Ar
  *
  * @param userName      — The user's full name (Hebrew)
  * @param signatureB64  — Base64-encoded PNG of the signature pad (`data:image/png;base64,...`)
+ * @param signedAt      — When the user signed (stamped as the date). Defaults to now; a PDF
+ *                        regenerated later (health-declaration-record self-heal) passes the
+ *                        ORIGINAL signing date so the document doesn't show the retry date.
  * @returns Uint8Array of the final PDF ready to upload
  */
 export async function generateHealthDeclarationPdf(
   userName: string,
   signatureB64: string,
+  signedAt: Date = new Date(),
 ): Promise<Uint8Array> {
   // ── 1. Fetch the template ──
   const templateResponse = await fetch(TEMPLATE_URL);
@@ -170,8 +174,8 @@ export async function generateHealthDeclarationPdf(
     color: textColor,
   });
 
-  // ── 7. Draw current date (DD/MM/YYYY — Israeli format) ──
-  const now = new Date();
+  // ── 7. Draw the signing date (DD/MM/YYYY — Israeli format) ──
+  const now = Number.isNaN(signedAt.getTime()) ? new Date() : signedAt;
   const dateStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
   // Date is pure numbers/slashes — no Hebrew reversal needed
   page.drawText(dateStr, {

@@ -16,6 +16,7 @@ import OfflineBanner from "@/components/ui/OfflineBanner";
 import GlobalErrorOverlay from "@/components/system/GlobalErrorOverlay";
 import OnboardingSyncErrorToast from "@/components/system/OnboardingSyncErrorToast";
 import { useMidnightRefresh } from "@/features/activity";
+import HealthDeclarationSelfHeal from "@/features/user/onboarding/components/HealthDeclarationSelfHeal";
 
 /**
  * Mounts the global midnight clock once. Bumps the dateKey atom at 00:00
@@ -175,6 +176,9 @@ export default function ClientLayout({
           <OfflineBanner />
           <GlobalErrorOverlay />
           <MidnightClock />
+          {/* Regenerates a signed health-declaration PDF that never reached Storage — once per
+              session, in the background (renders nothing). */}
+          <HealthDeclarationSelfHeal />
           <OnboardingSyncErrorToast />
         </LazyMotion>
       </ToastProvider>
