@@ -1,0 +1,231 @@
+/* Admin UI kit — the marketing site's design language (appout-website
+   docs/design-language.md) for the panel's page CONTENT: page header, KPI
+   tiles, panels, the gradient-pill tabs, buttons, status pills and the
+   loading / empty / error states. The frame lives in admin-shell.module.css. */
+
+.root {
+  --ink: #0e1419;
+  --muted: #5b6b78;
+  --line: #e6edf2;
+  --accent-ink: #0284c7;
+  --grad: linear-gradient(135deg, #00baf7, #0cf2e3);
+  --on-grad: #04222b;
+  --ease: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* ── page header ─────────────────────────────────────────────────────── */
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.headerText {
+  min-width: 0;
+}
+.eyebrow {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--accent-ink);
+}
+.title {
+  margin: 0;
+  font-size: clamp(26px, 3.4vw, 36px);
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--ink);
+  text-wrap: balance;
+}
+.title b {
+  font-weight: 900;
+}
+.subtitle {
+  margin: 8px 0 0;
+  max-width: 64ch;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ── tabs (current = the solid gradient pill, like the site's nav) ───── */
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 20px;
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border-radius: 999px;
+  background: #f1f5f8;
+  box-shadow: inset 0 0 0 1px rgba(14, 27, 42, 0.05);
+  scrollbar-width: none;
+}
+.tab {
+  flex: none;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  transition: background 200ms var(--ease), color 200ms ease;
+}
+.tab:hover {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.8);
+}
+.tabCurrent,
+.tabCurrent:hover {
+  background: var(--grad);
+  color: var(--on-grad);
+  font-weight: 800;
+  box-shadow: 0 6px 16px -8px rgba(0, 160, 220, 0.7);
+}
+
+/* ── panels & KPI tiles ──────────────────────────────────────────────── */
+.panel {
+  min-width: 0;
+  padding: 18px 20px;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(14, 27, 42, 0.06), 0 18px 40px -30px rgba(9, 20, 50, 0.3);
+}
+.panelTitle {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+.kpiLabel {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.kpiValue {
+  display: block;
+  margin-top: 6px;
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.kpiSub {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #8a98a4;
+}
+
+/* ── buttons ─────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 800;
+  transition: transform 160ms var(--ease), box-shadow 200ms var(--ease), background 200ms ease;
+}
+.btn:active {
+  transform: scale(0.97);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btnPrimary {
+  background: var(--grad);
+  color: var(--on-grad);
+  box-shadow: 0 8px 20px -10px rgba(0, 160, 220, 0.7);
+}
+.btnSecondary {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px rgba(14, 27, 42, 0.12);
+}
+.btnSecondary:hover {
+  background: #f6f9fb;
+}
+.btnDanger {
+  background: #fff;
+  color: #b42318;
+  box-shadow: inset 0 0 0 1px rgba(180, 35, 24, 0.3);
+}
+.btnDanger:hover {
+  background: #fdecea;
+}
+
+/* ── status pills ────────────────────────────────────────────────────── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.pillNeutral { background: #f1f5f8; color: #475569; }
+.pillGood { background: #e7f6ee; color: #0f7a4a; }
+.pillWarn { background: #fdf3e1; color: #9a5b00; }
+.pillBad { background: #fdecea; color: #b42318; }
+.pillInfo { background: #e3f4fb; color: #0277a8; }
+
+/* ── loading / empty / error ─────────────────────────────────────────── */
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 15px;
+}
+.stateTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.stateError {
+  border-radius: 18px;
+  background: #fdf3f2;
+  box-shadow: inset 0 0 0 1px rgba(180, 35, 24, 0.15);
+}
+.skeleton {
+  border-radius: 18px;
+  background: linear-gradient(90deg, #f1f5f8 25%, #f8fafc 50%, #f1f5f8 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+  .tab, .btn { transition: none; }
+}

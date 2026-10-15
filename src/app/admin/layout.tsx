@@ -1101,7 +1101,7 @@ function AdminLayoutInner({
                                         <div className="pr-2 space-y-0.5 pb-2">
                                             <SidebarLink href="/admin/authorities" icon={Building2} label="ניהול רשויות" />
                                             <SidebarLink href="/admin/organizations" icon={Globe} label="ארגונים" />
-                                            <SidebarLink href="/admin/admin-directory" icon={Users} label="ספריית מנהלים" />
+                                            {/* (ספריית מנהלים → a tab of "אנשים והרשאות") */}
                                         </div>
                                     )}
                                 </>
@@ -1279,9 +1279,13 @@ function AdminLayoutInner({
                                             <NavGroup label="תוכן אימונים">
                                                 <SidebarLink href="/admin/exercises" icon={Dumbbell} label="בנק תרגילים" />
                                                 <SidebarLink href="/admin/programs" icon={ClipboardList} label="תוכניות אימון" />
-                                                <SidebarLink href="/admin/gym-equipment" icon={Dumbbell} label="מתקני כושר" />
-                                                <SidebarLink href="/admin/brands" icon={Package} label="מותגי מתקנים" />
-                                                <SidebarLink href="/admin/gear-definitions" icon={Package} label="ציוד אישי" />
+                                                {/* one area, tabs inside (EquipmentTabs): machines, brands, gear, audit */}
+                                                <SidebarLink
+                                                    href="/admin/gym-equipment"
+                                                    icon={Package}
+                                                    label="ציוד ומתקנים"
+                                                    isActive={['/admin/gym-equipment', '/admin/brands', '/admin/gear-definitions', '/admin/audit-equipment'].some((p) => pathname?.startsWith(p))}
+                                                />
                                             </NavGroup>
                                             <NavGroup label="רמות והערכה (לפי סדר הזרימה)">
                                                 <SidebarLink href="/admin/questionnaire" icon={ClipboardList} label="שאלון אונבורדינג" />
@@ -1302,10 +1306,14 @@ function AdminLayoutInner({
                                                 <SidebarLink href="/admin/running/programs" icon={GitMerge} label="תוכניות ריצה" />
                                             </NavGroup>
                                             <NavGroup label="מערכת והרשאות">
-                                                {!isSystemAdminOnly && (
-                                                    <SidebarLink href="/admin/admins-management" icon={Shield} label="מנהלי מערכת" />
-                                                )}
-                                                <SidebarLink href="/admin/users" icon={Shield} label="משתמשים והרשאות מנהל" />
+                                                {/* one area, tabs inside (PeopleTabs): users & admin rights,
+                                                    system admins, the admin directory + invitations */}
+                                                <SidebarLink
+                                                    href="/admin/users"
+                                                    icon={Shield}
+                                                    label="אנשים והרשאות"
+                                                    isActive={pathname === '/admin/users' || ['/admin/admins-management', '/admin/admin-directory'].some((p) => pathname?.startsWith(p))}
+                                                />
                                                 <SidebarLink href="/admin/access-codes" icon={KeyRound} label="קודי גישה" />
                                                 <SidebarLink href="/admin/audit-logs" icon={FileText} label="יומן ביקורת" />
                                                 {/* Root only — UX gate; the real boundary is
