@@ -357,6 +357,14 @@ async function resolveTenantAndUnit(
   if (!tenantId) {
     return { ok: false, status: 400, error: 'tenantId is required' };
   }
+  // defense in depth for the chief fitness officer: only ever a MILITARY
+  // brigade, even if a malformed scope listed another kind of tenant
+  if (scope.kind === 'vertical') {
+    const authSnap = await db.collection('authorities').doc(tenantId).get();
+    if (!authSnap.exists || authSnap.data()?.type !== 'military_unit') {
+      return { ok: false, status: 403, error: DENIED_MESSAGE };
+    }
+  }
 
   const unitId = requestBody.unitId;
   if (typeof unitId !== 'string' || !unitId.trim()) {

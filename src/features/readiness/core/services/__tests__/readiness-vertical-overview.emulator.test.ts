@@ -34,6 +34,7 @@ import {
   computeBulkImportResults,
   computeBulkImportResultsWithCorrectionChoice,
   computeLinkSoldier,
+  computeCreateSoldier,
   type ReadinessThresholdsConfig,
 } from '../readiness-write.service';
 import { computeCreateUnit } from '@/app/api/units/create/route';
@@ -62,8 +63,8 @@ async function clearEmulator(): Promise<void> {
 const THRESHOLDS_CONFIG: ReadinessThresholdsConfig = {
   id: 'global', version: 1, updatedBy: 'test', updatedAt: new Date(),
   tests: [
-    { id: 'run_3000m', label: 'ריצת 3,000 מ', metric: 'time', unit: 'seconds', lowerIsBetter: true, threshold: { male: 1080, female: 1200 } },
-    { id: 'pullups', label: 'עליות מתח', metric: 'reps', unit: 'reps', lowerIsBetter: false, threshold: { male: 5, female: 1 } },
+    { id: 'run_3000m', label: 'ריצת 3,000 מ', metric: 'time', unit: 'seconds', lowerIsBetter: true, threshold: { male: 1080, female: 1200 }, validityDays: 365 },
+    { id: 'pullups', label: 'עליות מתח', metric: 'reps', unit: 'reps', lowerIsBetter: false, threshold: { male: 5, female: 1 }, validityDays: 365 },
   ],
 } as ReadinessThresholdsConfig;
 
@@ -207,85 +208,56 @@ describe('computeBrigadeDashboard — the new validated vertical branch (click-t
   });
 });
 
-describe('the synthetic scope cannot leak into a later write (David\'s explicit review, 06.10.2026)', () => {
-  it('the FULL click-through sequence — list, then that brigade\'s dashboard, then a write attempt — a write is STILL 403, using the real vertical scope throughout', async () => {
-    await seedSoldierAndResult(TENANT_MIL_1, 's1', 'pass');
-    await db.collection('readiness_soldiers').doc('leak-test-s1').set({
-      tenantId: TENANT_MIL_1, unitId: UNIT_ID, name: 'חייל', gender: 'male', uid: null, linkedAt: null, mergedInto: null,
+// 15.10.2026 (owner, explicit) — REPLACES the 06.10.2026 "every write path
+// refuses a vertical scope" rule: the chief fitness officer outranks every
+// brigade officer and may do whatever they can, in any MILITARY brigade of
+// his scope — and nowhere else. These tests pin both halves.
+describe('the chief officer writes in his own brigades, and only there (15.10.2026)', () => {
+  async function seedSoldier(tenantId: string, soldierId: string): Promise<void> {
+    await db.collection('readiness_soldiers').doc(soldierId).set({
+      tenantId, unitId: UNIT_ID, name: 'חייל', gender: 'male', uid: null, linkedAt: null, mergedInto: null,
       createdBy: 'test', createdAt: new Date(), updatedAt: new Date(),
     });
-
-    // Step 1 — the list screen. Internally constructs-and-discards a
-    // synthetic {kind:'tenantOwner'} scope per row, once per call; never
-    // returned (the result body below is plain strings/numbers, not a
-    // scope object) and never stored anywhere this test — or any real
-    // caller — could later read back.
-    const listResult = await computeReadinessVerticalOverview(db, VERTICAL_SCOPE);
-    expect(listResult.status).toBe(200);
-
-    // Step 2 — "clicking" TENANT_MIL_1's row: a SEPARATE call, using the
-    // REAL vertical scope (not anything step 1 produced) — this is
-    // exactly what the real /api/units/readiness/dashboard route does,
-    // since it re-resolves scope fresh from Firestore on every request.
-    const dashboardResult = await computeBrigadeDashboard(db, VERTICAL_SCOPE, { tenantId: TENANT_MIL_1 });
-    expect(dashboardResult.status).toBe(200);
-    if (dashboardResult.status === 200) expect(dashboardResult.body.tenantId).toBe(TENANT_MIL_1);
-
-    // Step 3 — a write attempt, same real vertical scope, same uid,
-    // immediately after "landing" on that brigade's dashboard. If the
-    // synthetic from step 1 had leaked or elevated anything, this would
-    // be the place it would show up as an unexpected 200. It does not.
-    const writeResult = await computeRecordResult(
-      db, VERTICAL_SCOPE,
-      { soldierId: 'leak-test-s1', testId: 'run_3000m', source: 'organized_test', testDate: new Date().toISOString(), value: 1000 },
-      CTX,
-    );
-    expect(writeResult.status).toBe(403);
-  });
-});
-
-describe('every write path refuses a vertical scope — explicit, in-code, not "we just won\'t add a button" (06.10.2026)', () => {
-  /** computeRecordResult/computeRecordResultWithCorrectionChoice fetch a REAL soldier doc before checking scope at all (they need soldier.tenantId/unitId to check isMemberWithinScope against) — an empty requestBody 400s on `soldierId is required` before ever reaching that check, which would prove nothing about the vertical-rejection itself. A minimally valid body against a real soldier is required to actually exercise the scope gate. */
-  async function validRecordResultBody(soldierId: string): Promise<Record<string, unknown>> {
+  }
+  function recordBody(soldierId: string): Record<string, unknown> {
     return { soldierId, testId: 'run_3000m', source: 'organized_test', testDate: new Date().toISOString(), value: 1000 };
   }
 
-  it('רישום תוצאה (computeRecordResult) → 403', async () => {
-    await db.collection('readiness_soldiers').doc('write-test-s1').set({
-      tenantId: TENANT_MIL_1, unitId: UNIT_ID, name: 'חייל', gender: 'male', uid: null, linkedAt: null, mergedInto: null,
-      createdBy: 'test', createdAt: new Date(), updatedAt: new Date(),
-    });
-    const result = await computeRecordResult(db, VERTICAL_SCOPE, await validRecordResultBody('write-test-s1'), CTX);
-    expect(result.status).toBe(403);
+  it('click-through then write: list → brigade dashboard → recording a result in that brigade succeeds', async () => {
+    await seedSoldier(TENANT_MIL_1, 'chief-s1');
+    expect((await computeReadinessVerticalOverview(db, VERTICAL_SCOPE)).status).toBe(200);
+    expect((await computeBrigadeDashboard(db, VERTICAL_SCOPE, { tenantId: TENANT_MIL_1 })).status).toBe(200);
+    const writeResult = await computeRecordResult(db, VERTICAL_SCOPE, recordBody('chief-s1'), CTX);
+    expect(writeResult.status).toBe(200);
   });
 
-  it('תיקון (computeRecordResultWithCorrectionChoice) → 403', async () => {
-    await db.collection('readiness_soldiers').doc('write-test-s2').set({
-      tenantId: TENANT_MIL_1, unitId: UNIT_ID, name: 'חייל', gender: 'male', uid: null, linkedAt: null, mergedInto: null,
-      createdBy: 'test', createdAt: new Date(), updatedAt: new Date(),
-    });
-    const result = await computeRecordResultWithCorrectionChoice(db, VERTICAL_SCOPE, await validRecordResultBody('write-test-s2'), CTX);
-    expect(result.status).toBe(403);
+  it('recording a result for a soldier OUTSIDE his scope (a city tenant) → 403', async () => {
+    await seedSoldier(TENANT_MUNICIPAL, 'chief-out-1');
+    expect((await computeRecordResult(db, VERTICAL_SCOPE, recordBody('chief-out-1'), CTX)).status).toBe(403);
+    expect((await computeRecordResultWithCorrectionChoice(db, VERTICAL_SCOPE, recordBody('chief-out-1'), CTX)).status).toBe(403);
   });
 
-  it('ייבוא (computeBulkImportResults) → 403', async () => {
-    const result = await computeBulkImportResults(db, VERTICAL_SCOPE, {}, CTX);
-    expect(result.status).toBe(403);
+  it('bulk import / link name the brigade explicitly — empty or out-of-scope requests are refused, never root-like', async () => {
+    expect((await computeBulkImportResults(db, VERTICAL_SCOPE, {}, CTX)).status).not.toBe(200);
+    expect((await computeBulkImportResultsWithCorrectionChoice(db, VERTICAL_SCOPE, { tenantId: TENANT_MUNICIPAL, unitId: UNIT_ID }, CTX)).status).not.toBe(200);
+    expect((await computeLinkSoldier(db, VERTICAL_SCOPE, {}, CTX)).status).not.toBe(200);
   });
 
-  it('ייבוא עם תיקון (computeBulkImportResultsWithCorrectionChoice) → 403', async () => {
-    const result = await computeBulkImportResultsWithCorrectionChoice(db, VERTICAL_SCOPE, {}, CTX);
-    expect(result.status).toBe(403);
+  it('a school listed in a (malformed) scope is still refused for writes — military brigades only', async () => {
+    await db.collection('tenants').doc(TENANT_SCHOOL).collection('units').doc(UNIT_ID).set({ name: 'כיתה' });
+    const r = await computeCreateSoldier(db, VERTICAL_SCOPE, { name: 'תלמיד', gender: 'male', tenantId: TENANT_SCHOOL, unitId: UNIT_ID }, CTX);
+    expect(r.status).toBe(403);
+    // and the same call in his real brigade goes through
+    await db.collection('tenants').doc(TENANT_MIL_1).collection('units').doc(UNIT_ID).set({ name: 'פלוגה' });
+    const ok = await computeCreateSoldier(db, VERTICAL_SCOPE, { name: 'חייל', gender: 'male', tenantId: TENANT_MIL_1, unitId: UNIT_ID }, CTX);
+    expect(ok.status).toBe(200);
   });
 
-  it('קישור חשבון (computeLinkSoldier) → 403', async () => {
-    const result = await computeLinkSoldier(db, VERTICAL_SCOPE, {}, CTX);
-    expect(result.status).toBe(403);
-  });
-
-  it('יצירת יחידה (computeCreateUnit) → 403, via isMemberWithinScope — zero code change to that gate', async () => {
-    const result = await computeCreateUnit(db, VERTICAL_SCOPE, { tenantId: TENANT_MIL_1, name: 'יחידה חדשה', parentUnitId: null });
-    expect(result.status).toBe(403);
+  it('creating a unit: allowed in his brigade, refused in a city tenant (isMemberWithinScope)', async () => {
+    const own = await computeCreateUnit(db, VERTICAL_SCOPE, { tenantId: TENANT_MIL_1, name: 'יחידה חדשה', parentUnitId: null });
+    expect(own.status).toBe(200);
+    const other = await computeCreateUnit(db, VERTICAL_SCOPE, { tenantId: TENANT_MUNICIPAL, name: 'יחידה', parentUnitId: null });
+    expect(other.status).toBe(403);
   });
 });
 
