@@ -121,6 +121,13 @@ export const RATE_LIMITS = {
   signupFailureTelemetry: {
     ip: () => envWindow('RL_SIGNUP_FAILURE_TELEMETRY_IP', 15 * MIN, 30),
   },
+  // POST /api/telemetry/web (15.10.2026) — the marketing site's anonymous
+  // traffic events (page views, CTA clicks, scroll depth). IP-only, no
+  // auth by design (visitors aren't users). Generous: one browsing session
+  // sends a few events per page; this only stops floods.
+  webTelemetry: {
+    ip: () => envWindow('RL_WEB_TELEMETRY_IP', 15 * MIN, 240),
+  },
   // POST /api/units/declare (25.09.2026) — persona-flow self-declaration of
   // a military/educational unit. uid-keyed (authenticated route, matches
   // unitJoinRequest's own precedent above) — generous, since this is
