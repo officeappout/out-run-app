@@ -1,6 +1,10 @@
 'use client';
 
 import React, { useState, type ReactNode } from 'react';
+import { Activity, Footprints, Maximize2, Sparkles, Star, Users, X } from 'lucide-react';
+import { Button, Card, CardTile, Chip, IconTile, StatNumber } from '@/components/ui/v2';
+import SummaryDrawerShell, { type DrawerTab } from '../../blocks/SummaryDrawerShell';
+import type { SummarySnap } from '../../blocks/summary-sheet.util';
 import type { GroupSummaryCtx } from '@/features/workout-engine/summary/hooks/useGroupSummaryCtx';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import DopamineStreakBlock from '../shared/DopamineStreakBlock';
@@ -45,11 +49,13 @@ export interface AerobicSummaryViewProps {
   deleteLastWorkout: () => Promise<unknown>;
   /** Expanded (flag-on) delete path. */
   deleteWorkoutWithReversal: (workoutId: string) => Promise<unknown>;
+  /** Snap the drawer opens at — 'full' (default) or 'peek' (dev preview). */
+  initialSnap?: SummarySnap;
 }
 
 type TabId = 'overview' | 'stats' | 'segments' | 'map';
 
-const TABS: { id: TabId; label: string }[] = [
+const TABS: DrawerTab[] = [
   { id: 'overview', label: 'סקירה' },
   { id: 'stats', label: 'סטטיסטיקה' },
   { id: 'segments', label: 'מקטעים' },
@@ -80,6 +86,7 @@ export default function AerobicSummaryView({
   submitRating,
   deleteLastWorkout,
   deleteWorkoutWithReversal,
+  initialSnap = 'full',
 }: AerobicSummaryViewProps) {
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [expandedMap, setExpandedMap] = useState(false);
@@ -99,42 +106,50 @@ export default function AerobicSummaryView({
   const dateLabel = formatDate(workout.date);
   const distanceKm = workout.distance ?? 0;
 
-  // ── Shared sub-blocks ─────────────────────────────────────────────────────
+  // ── Hero (drag zone) ──────────────────────────────────────────────────────
+  // Distance is the one number that matters for a run/walk. It sits in the
+  // drawer's drag zone so it stays visible when the drawer is collapsed.
 
-  const distanceHero = (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'baseline',
-        gap: 6,
-        marginBottom: 4,
-        marginTop: effectiveVariant !== 'group' ? 8 : 0,
-      }}
-    >
-      <span style={{ fontSize: 42, fontWeight: 500, color: '#0F6E56', lineHeight: 1 }}>
-        {distanceKm > 0 ? distanceKm.toFixed(2) : '--'}
-      </span>
-      <span style={{ fontSize: 15, color: '#5b6664' }}>ק״מ</span>
-      <span style={{ fontSize: 13, color: '#9aa3a1', marginRight: 'auto' }}>{dateLabel}</span>
+  const hero = (
+    <div className="flex items-end justify-between gap-3 px-4 pt-1 pb-3">
+      <div className="min-w-0">
+        <div className="text-[13px] font-extrabold text-v2-deep">
+          {activityType === 'walking' ? 'הליכה' : 'ריצה'}
+          <span className="font-semibold text-v2-muted"> · {dateLabel}</span>
+        </div>
+        <StatNumber
+          value={distanceKm}
+          decimals={2}
+          format={distanceKm > 0 ? undefined : () => '--'}
+          unit="ק״מ"
+          size="lg"
+          className="mt-1"
+        />
+      </div>
+      <div className="flex flex-col items-end gap-1.5 shrink-0">
+        <IconTile icon={activityType === 'walking' ? Footprints : Activity} tone="run" size="md" />
+        {/* XP chip — solo only */}
+        {effectiveVariant === 'solo' && xpEarned > 0 && (
+          <Chip tone="accent" icon={<Sparkles size={13} strokeWidth={2.4} aria-hidden />}>
+            {`+${xpEarned} XP`}
+          </Chip>
+        )}
+      </div>
     </div>
   );
 
   // Framed route map: always shows a map (route line when coords exist; location-centered
   // Israel map when coords are empty). displayCoords substitutes a mock route in dev mode.
   const frameMapBlock = (
-    <div style={{ position: 'relative', borderRadius: 14, overflow: 'hidden', height: '100%' }}>
+    <div className="relative h-full overflow-hidden rounded-v2-card shadow-v2-ring">
       {renderMap()}
       <button
+        type="button"
         onClick={() => setExpandedMap(true)}
         aria-label="הגדל מפה"
-        style={{
-          position: 'absolute', top: 10, left: 10,
-          background: 'rgba(255,255,255,0.9)', border: 'none', cursor: 'pointer',
-          borderRadius: 20, padding: '4px 8px', fontSize: 14, lineHeight: 1,
-          boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
-        }}
+        className="absolute top-2.5 left-2.5 rounded-[12px] shadow-v2-ring active:scale-[0.97] transition-transform duration-200 ease-v2"
       >
-        ⛶
+        <IconTile icon={Maximize2} tone="neutral" size="sm" className="!bg-white" />
       </button>
     </div>
   );
@@ -142,53 +157,30 @@ export default function AerobicSummaryView({
   // ── Overview content ──────────────────────────────────────────────────────
 
   const overviewContent = (
-    <div style={{ padding: '0 14px 80px' }}>
+    <div className="px-4 pt-4 pb-6 space-y-3">
 
       {/* Hero: map for solo, avatars for group/pair */}
-      {effectiveVariant === 'solo' && (
-        <div style={{ height: 180, marginBottom: 10 }}>
-          {frameMapBlock}
-        </div>
-      )}
+      {effectiveVariant === 'solo' && <div className="h-[180px]">{frameMapBlock}</div>}
       {(effectiveVariant === 'group' || effectiveVariant === 'pair') && (
-        <div style={{ marginBottom: 12 }}>
-          <AerobicHeroBlock
-            variant={effectiveVariant}
-            groupCtx={groupCtx}
-            dateLabel={dateLabel}
-          />
-        </div>
-      )}
-
-      {distanceHero}
-
-      {/* XP Pill — solo only */}
-      {effectiveVariant === 'solo' && xpEarned > 0 && (
-        <div
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 4,
-            background: '#E1F5EE', borderRadius: 20, padding: '4px 12px',
-            fontSize: 13, color: '#0F6E56', fontWeight: 500, marginBottom: 8,
-          }}
-        >
-          ✦ +{xpEarned} XP
-        </div>
+        <AerobicHeroBlock
+          variant={effectiveVariant}
+          groupCtx={groupCtx}
+          dateLabel={dateLabel}
+        />
       )}
 
       {/* Together block — group / pair (emotional anchor) */}
       {(effectiveVariant === 'group' || effectiveVariant === 'pair') && groupCtx && !groupLoading && (
-        <div style={{ marginBottom: 10 }}>
-          <TogetherBlock
-            collectiveDistanceKm={groupCtx.collectiveDistanceKm}
-            participantCount={groupCtx.participantCount}
-          />
-        </div>
+        <TogetherBlock
+          collectiveDistanceKm={groupCtx.collectiveDistanceKm}
+          participantCount={groupCtx.participantCount}
+        />
       )}
 
       {/* Proximity line — pair only */}
       {effectiveVariant === 'pair' && groupCtx && (
-        <div style={{ fontSize: 13, color: '#5b6664', marginBottom: 10, textAlign: 'center' }}>
-          {`רצתם ${groupCtx.collectiveDistanceKm.toFixed(1)} ק״מ יחד 🏃`}
+        <div className="text-center text-[13px] font-semibold text-v2-ink-2">
+          {`רצתם ${groupCtx.collectiveDistanceKm.toFixed(1)} ק״מ יחד`}
         </div>
       )}
 
@@ -197,70 +189,62 @@ export default function AerobicSummaryView({
       <MomentSentence />
 
       {/* Streak */}
-      {streakDays > 1 && (
-        <div style={{ marginBottom: 10 }}>
-          <DopamineStreakBlock streakDays={streakDays} />
-        </div>
-      )}
+      {streakDays > 1 && <DopamineStreakBlock streakDays={streakDays} />}
 
       {/* Stat rings */}
-      <AerobicStatRingsBlock
-        activityType={activityType}
-        pace={workout.pace ?? 0}
-        duration={workout.duration ?? 0}
-        calories={workout.calories ?? 0}
-      />
+      <Card padding="sm">
+        <AerobicStatRingsBlock
+          activityType={activityType}
+          pace={workout.pace ?? 0}
+          duration={workout.duration ?? 0}
+          calories={workout.calories ?? 0}
+        />
+      </Card>
 
       {/* Participants compact list — group only (3+) */}
       {effectiveVariant === 'group' && groupCtx && groupCtx.participants.length > 0 && (
-        <div
-          style={{
-            marginTop: 14,
-            background: '#f3f5f4',
-            borderRadius: 12,
-            padding: '8px 12px',
-          }}
-        >
-          <div style={{ fontSize: 11, color: '#9aa3a1', marginBottom: 6 }}>משתתפים</div>
+        <Card padding="md">
+          <div className="mb-2 flex items-center gap-2">
+            <IconTile icon={Users} tone="accent" size="sm" />
+            <span className="text-[14px] font-extrabold text-v2-ink">משתתפים</span>
+          </div>
           <ParticipantsBlock
             participants={groupCtx.participants}
             currentUid={currentUid}
             compact
             onShowAll={() => setActiveTab('stats')}
           />
-        </div>
+        </Card>
       )}
 
       {/* Route Rating CTA — shown whenever there is a park or route to aggregate against */}
       {!!(workout.parkId || workout.routeId) && (
-        <div
-          style={{
-            background: '#EFF8FF', borderRadius: 16,
-            padding: '16px 14px', marginTop: 10, marginBottom: 10,
-          }}
-          dir="rtl"
-        >
+        <Card padding="md" dir="rtl">
           {ratingSubmitted ? (
-            <div style={{ textAlign: 'center', color: '#0F6E56', fontSize: 13, fontWeight: 600 }}>
+            <div className="text-center text-[14px] font-extrabold text-v2-deep">
               {`תודה על הדירוג! +${XP_REWARDS.review} XP`}
             </div>
           ) : (
             <>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#1b2220', marginBottom: 10 }}>
-                דרגו את המסלול
+              <div className="flex items-center gap-2">
+                <IconTile icon={Star} tone="accent" size="sm" />
+                <span className="text-[14px] font-extrabold text-v2-ink">דרגו את המסלול</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 4, marginBottom: 10 }}>
+              <div className="my-3 flex justify-center gap-1">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
                     key={star}
+                    type="button"
                     onClick={() => setRouteQuality(star)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
+                    aria-label={`${star} כוכבים`}
+                    className="p-1 active:scale-[0.97] transition-transform duration-200 ease-v2"
                   >
                     <svg
-                      width="28" height="28" viewBox="0 0 24 24"
-                      fill={star <= routeQuality ? '#E0A33E' : 'none'}
-                      stroke={star <= routeQuality ? '#E0A33E' : '#d1d5db'}
+                      width="30" height="30" viewBox="0 0 24 24"
+                      fill={star <= routeQuality ? '#f59e0b' : 'none'}
+                      stroke={star <= routeQuality ? '#f59e0b' : '#dfe7ed'}
                       strokeWidth="2"
+                      strokeLinejoin="round"
                     >
                       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                     </svg>
@@ -268,7 +252,10 @@ export default function AerobicSummaryView({
                 ))}
               </div>
               {routeQuality > 0 && (
-                <button
+                <Button
+                  variant="dark"
+                  size="md"
+                  block
                   onClick={async () => {
                     if (!currentUid) return;
                     try {
@@ -278,26 +265,19 @@ export default function AerobicSummaryView({
                       console.error('[AerobicSummaryShell] Rating failed:', err);
                     }
                   }}
-                  style={{
-                    width: '100%', padding: '10px 0', borderRadius: 12,
-                    background: '#1D9E75', color: '#fff', fontSize: 13,
-                    fontWeight: 600, border: 'none', cursor: 'pointer',
-                  }}
                 >
-                  שלח דירוג ⭐
-                </button>
+                  שלח דירוג
+                </Button>
               )}
             </>
           )}
-        </div>
+        </Card>
       )}
 
-      {/* Share / Save */}
+      {/* Share (the finish/save action is the drawer's pinned footer) */}
       <AerobicShareBlock
         distanceKm={distanceKm}
         groupCtx={groupCtx}
-        onSave={onSave}
-        onClose={onClose}
         wasSaved={savedWorkoutId !== null}
       />
 
@@ -305,13 +285,11 @@ export default function AerobicSummaryView({
       {savedWorkoutId && (
         WORKOUT_DELETE_EXPANDED_ENABLED ? (
           // ── Flag ON: shared DeleteWorkoutConfirmModal + deleteWorkoutWithReversal ──
-          <div style={{ textAlign: 'center', paddingBottom: 12 }}>
+          <div className="text-center">
             <button
+              type="button"
               onClick={() => setExpandedDeleteModalOpen(true)}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: 13, color: '#9aa3a1', textDecoration: 'underline', padding: '4px 8px',
-              }}
+              className="px-2 py-1 text-[13px] font-semibold text-v2-muted underline underline-offset-2"
             >
               בטל / מחק אימון
             </button>
@@ -319,43 +297,29 @@ export default function AerobicSummaryView({
         ) : (
           // ── Flag OFF: today's exact existing inline confirm + deleteLastWorkout() ──
           !deleteConfirm ? (
-            <div style={{ textAlign: 'center', paddingBottom: 12 }}>
+            <div className="text-center">
               <button
+                type="button"
                 onClick={() => setDeleteConfirm(true)}
-                style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  fontSize: 13, color: '#9aa3a1', textDecoration: 'underline', padding: '4px 8px',
-                }}
+                className="px-2 py-1 text-[13px] font-semibold text-v2-muted underline underline-offset-2"
               >
                 בטל / מחק אימון
               </button>
             </div>
           ) : (
-            <div
-              style={{
-                background: '#FEF2F2', borderRadius: 14, padding: '14px 16px',
-                marginBottom: 12, textAlign: 'center',
-              }}
-            >
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#B91C1C', marginBottom: 10 }}>
-                למחוק את האימון?
-              </div>
-              <div style={{ fontSize: 12, color: '#5b6664', marginBottom: 14 }}>
+            <Card padding="md" className="text-center">
+              <div className="mb-1.5 text-[15px] font-extrabold text-v2-down">למחוק את האימון?</div>
+              <div className="mb-3.5 text-[13px] text-v2-ink-2">
                 האימון יימחק, ה-XP והרצף יוחזרו לאחור.
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  onClick={() => setDeleteConfirm(false)}
-                  style={{
-                    flex: 1, padding: '10px 0', borderRadius: 12, fontSize: 13,
-                    fontWeight: 600, cursor: 'pointer', border: 'none',
-                    background: '#fff', color: '#5b6664',
-                    boxShadow: '0 0 0 0.5px #e8ebea',
-                  }}
-                >
+              <div className="flex gap-2">
+                <Button variant="ghost" size="md" className="flex-1" onClick={() => setDeleteConfirm(false)}>
                   בטל
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="dark"
+                  size="md"
+                  className="flex-1 !bg-v2-down"
                   disabled={deleting}
                   onClick={async () => {
                     setDeleting(true);
@@ -366,16 +330,11 @@ export default function AerobicSummaryView({
                       onClose();
                     }
                   }}
-                  style={{
-                    flex: 1, padding: '10px 0', borderRadius: 12, fontSize: 13,
-                    fontWeight: 600, cursor: deleting ? 'wait' : 'pointer', border: 'none',
-                    background: '#B91C1C', color: '#fff', opacity: deleting ? 0.7 : 1,
-                  }}
                 >
                   {deleting ? 'מוחק...' : 'מחק אימון'}
-                </button>
+                </Button>
               </div>
-            </div>
+            </Card>
           )
         )
       )}
@@ -406,16 +365,16 @@ export default function AerobicSummaryView({
   // ── Segments tab ──────────────────────────────────────────────────────────
 
   const segmentsContent = (
-    <div style={{ padding: '12px 14px 80px' }}>
+    <div className="px-4 pt-4 pb-6">
       {workout.laps && workout.laps.length > 0 ? (
         <>
           <LapPaceChart laps={workout.laps} />
-          <div style={{ marginTop: 12 }}>
+          <div className="mt-3">
             <RunLapsList laps={workout.laps} />
           </div>
         </>
       ) : (
-        <div style={{ textAlign: 'center', color: '#9aa3a1', fontSize: 14, padding: '32px 0' }}>
+        <div className="py-8 text-center text-[14px] font-semibold text-v2-muted">
           אין הקפות מוגדרות לאימון זה
         </div>
       )}
@@ -425,21 +384,19 @@ export default function AerobicSummaryView({
   // ── Map tab ───────────────────────────────────────────────────────────────
 
   const mapContent = (
-    <div style={{ margin: '12px 14px', paddingBottom: 80 }}>
-      <div style={{ height: 360 }}>
-        {frameMapBlock}
-      </div>
+    <div className="px-4 pt-4 pb-6">
+      <div className="h-[360px]">{frameMapBlock}</div>
     </div>
   );
 
   // ── Stats tab ─────────────────────────────────────────────────────────────
 
   const statsContent = (
-    <div style={{ padding: '12px 14px 80px' }}>
+    <div className="px-4 pt-4 pb-6">
       {/* Full participants list — group only (3+) */}
       {effectiveVariant === 'group' && groupCtx && groupCtx.participants.length > 0 && (
-        <div style={{ marginBottom: 18 }}>
-          <div style={{ fontSize: 12, color: '#9aa3a1', marginBottom: 8 }}>כל המשתתפים</div>
+        <div className="mb-4">
+          <div className="mb-2 text-[14px] font-extrabold text-v2-ink">כל המשתתפים</div>
           <ParticipantsBlock
             participants={groupCtx.participants}
             currentUid={currentUid}
@@ -447,13 +404,13 @@ export default function AerobicSummaryView({
           />
         </div>
       )}
-      <div style={{ background: '#f3f5f4', borderRadius: 12, padding: '8px 12px' }}>
-        <StatRow label="מרחק" value={`${distanceKm.toFixed(2)} ק״מ`} />
-        <StatRow label="זמן" value={formatDuration(workout.duration ?? 0)} />
-        <StatRow label="קצב ממוצע" value={formatPaceLocal(workout.pace ?? 0)} />
-        <StatRow label="קלוריות" value={`${Math.round(workout.calories ?? 0)} קק״ל`} />
+      <div className="grid grid-cols-2 gap-2">
+        <StatTile label="מרחק" value={`${distanceKm.toFixed(2)} ק״מ`} />
+        <StatTile label="זמן" value={formatDuration(workout.duration ?? 0)} />
+        <StatTile label="קצב ממוצע" value={formatPaceLocal(workout.pace ?? 0)} />
+        <StatTile label="קלוריות" value={`${Math.round(workout.calories ?? 0)} קק״ל`} />
         {(workout.elevationGain ?? 0) > 0 && (
-          <StatRow label="עלייה מצטברת" value={`${workout.elevationGain} מ׳`} />
+          <StatTile label="עלייה מצטברת" value={`${workout.elevationGain} מ׳`} />
         )}
       </div>
     </div>
@@ -469,129 +426,56 @@ export default function AerobicSummaryView({
   // ── Shell render ──────────────────────────────────────────────────────────
 
   return (
-    <div
-      dir="rtl"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 100,
-        display: 'flex',
-        flexDirection: 'column',
-        background: 'transparent',
-        fontFamily: 'var(--font-simpler, system-ui, sans-serif)',
-      }}
-    >
+    <>
       {/* Full-screen expanded map — z-[200], within z-index budget */}
       {expandedMap && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: '#000' }}>
+        <div dir="rtl" style={{ position: 'fixed', inset: 0, zIndex: 200, background: '#000' }}>
           {renderMap()}
           <button
+            type="button"
             onClick={() => setExpandedMap(false)}
             aria-label="סגור מפה"
-            style={{
-              position: 'absolute',
-              top: 'calc(16px + env(safe-area-inset-top, 0px))',
-              right: 16,
-              background: 'rgba(255,255,255,0.9)',
-              border: 'none',
-              cursor: 'pointer',
-              borderRadius: 20,
-              padding: '6px 12px',
-              fontSize: 16,
-              fontWeight: 700,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
-            }}
+            className="absolute right-4 rounded-[12px] shadow-v2-float active:scale-[0.97] transition-transform duration-200 ease-v2"
+            style={{ top: 'calc(16px + env(safe-area-inset-top, 0px))' }}
           >
-            ✕
+            <IconTile icon={X} tone="neutral" size="md" className="!bg-white" />
           </button>
         </div>
       )}
 
-      {/* Transparent peek — live Mapbox map shows behind */}
-      <div style={{ flex: '0 0 110px', background: 'transparent' }} />
-
-      {/* White card */}
-      <div
-        style={{
-          flex: 1,
-          background: '#ffffff',
-          borderRadius: '22px 22px 0 0',
-          boxShadow: '0 -8px 24px rgba(0,0,0,0.18)',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-        }}
+      {/* v2 draggable drawer — live Mapbox map shows behind (and through the
+          peek when collapsed). Dragging never exits; finishing is the footer. */}
+      <SummaryDrawerShell
+        tabs={TABS}
+        activeTab={activeTab}
+        onTabChange={(id) => setActiveTab(id as TabId)}
+        header={hero}
+        peekHeight={110}
+        initialSnap={initialSnap}
+        footer={
+          <div className="px-4 py-3">
+            <Button variant="primary" size="lg" block onClick={onSave}>
+              {savedWorkoutId !== null ? 'סיום ושמור' : 'סיום'}
+            </Button>
+          </div>
+        }
       >
-        {/* Drag handle */}
-        <div
-          style={{
-            width: 38,
-            height: 4,
-            borderRadius: 999,
-            background: '#d3d8d6',
-            margin: '10px auto 6px',
-            flexShrink: 0,
-          }}
-        />
-
-        {/* Tab row */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-around',
-            alignItems: 'center',
-            padding: '0 4px',
-            borderBottom: '0.5px solid #e8ebea',
-            flexShrink: 0,
-          }}
-        >
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                padding: '0 4px 10px',
-                fontSize: 12,
-                fontWeight: activeTab === tab.id ? 500 : 400,
-                color: activeTab === tab.id ? '#1D9E75' : '#9aa3a1',
-                borderBottom: activeTab === tab.id ? '2px solid #1D9E75' : '2px solid transparent',
-                lineHeight: '32px',
-                transition: 'color 150ms',
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Tab content */}
-        <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
-          {tabContent[activeTab]}
-        </div>
-      </div>
-    </div>
+        {tabContent[activeTab]}
+      </SummaryDrawerShell>
+    </>
   );
 }
 
 // ── Local helpers ─────────────────────────────────────────────────────────
 
-function StatRow({ label, value }: { label: string; value: string }) {
+function StatTile({ label, value }: { label: string; value: string }) {
   return (
-    <div
-      style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        padding: '8px 0',
-        borderBottom: '0.5px solid #e8ebea',
-        fontSize: 13,
-      }}
-    >
-      <span style={{ color: '#5b6664' }}>{label}</span>
-      <span style={{ color: '#1b2220', fontWeight: 500 }}>{value}</span>
-    </div>
+    <CardTile className="px-3 py-3 ring-1 ring-inset ring-v2-hairline">
+      <div className="text-[20px] font-black leading-none tabular-nums tracking-[-0.03em] text-v2-ink">
+        {value}
+      </div>
+      <div className="mt-1 text-[12px] font-semibold text-v2-muted">{label}</div>
+    </CardTile>
   );
 }
 

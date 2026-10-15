@@ -8,11 +8,12 @@
  */
 
 import React from 'react';
-import { Trophy, Trash2 } from 'lucide-react';
-import { ProgramProgressCard } from '@/features/home/components/widgets/ProgramProgressCard';
+import { Trophy, Trash2, Flame, Layers, Flag } from 'lucide-react';
+import AnimatedFlame from '@/components/ui/AnimatedFlame';
+import { Button, Card, CardTile, IconTile, StatNumber } from '@/components/ui/v2';
+import LevelRingCard from './components/LevelRingCard';
 import type { CompletedExercise } from './utils/summary.utils';
 import { PersonalRecords } from './components/summary-atoms';
-import SummaryStatsRow from './components/SummaryStatsRow';
 import GainBreakdownCard from './components/GainBreakdownCard';
 import LevelGoalsChecklist, { type LevelGoalsChecklistProps } from './components/LevelGoalsChecklist';
 import WeeklyAchievementsGrid from './components/WeeklyAchievementsGrid';
@@ -32,6 +33,7 @@ type Xp = ReturnType<typeof useXpAward>;
 
 export interface StrengthSummaryViewProps {
   programName: string;
+  /** Kept for the container contract (ProgramProgressCard icon key); the v2 level ring doesn't use it. */
   programId?: string;
   maxLevel: number;
   isReadOnly: boolean;
@@ -71,7 +73,6 @@ export interface StrengthSummaryViewProps {
 
 export default function StrengthSummaryView({
   programName,
-  programId,
   maxLevel,
   isReadOnly,
   completedExercises,
@@ -90,36 +91,63 @@ export default function StrengthSummaryView({
   isFinishing,
   onPrimaryAction,
 }: StrengthSummaryViewProps) {
+  // Secondary stat derived from data the screen already shows (exercise breakdown).
+  const totalSets = completedExercises.reduce((acc, ex) => acc + (ex.sets?.length ?? 0), 0);
+
   return (
     <div
-      className="fixed inset-0 z-[100] w-full h-full bg-slate-50 dark:bg-card-dark flex flex-col overflow-hidden"
+      className="fixed inset-0 z-[100] w-full h-full bg-v2-surface dark:bg-card-dark flex flex-col overflow-hidden"
       dir="rtl"
     >
       {/* Sticky Summary Header */}
       <div
-        className="shrink-0 flex items-center gap-3 px-5 bg-white dark:bg-card-dark border-b border-slate-100 dark:border-slate-800"
+        className="shrink-0 flex items-center gap-3 px-5 bg-white dark:bg-card-dark border-b border-v2-hairline dark:border-slate-800"
         style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingBottom: '0.75rem' }}
       >
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-sm flex-shrink-0">
-          <Trophy className="w-5 h-5 text-white" />
-        </div>
+        <IconTile icon={Trophy} tone="accent" size="md" />
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-0.5">סיכום אימון</p>
-          <h1 className="text-xl font-black text-slate-900 dark:text-white line-clamp-3 break-words leading-snug">
+          <p className="text-[13px] font-extrabold text-v2-deep mb-0.5">סיכום אימון</p>
+          <h1 className="text-[20px] font-black !tracking-v2-tight text-v2-ink dark:text-white line-clamp-3 break-words leading-snug">
             {programName}
           </h1>
         </div>
       </div>
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar px-5 py-4 space-y-4">
-        <SummaryStatsRow
-          calories={analytics.calories}
-          formattedDuration={analytics.formattedDuration}
-          streak={analytics.streak}
-          streakFlameType={analytics.streakFlameType}
-          streakChainReady={xp.streakChainReady}
-        />
+      <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-4 space-y-3">
+        {/* Hero — duration is this session's headline number; calories / sets
+            / streak are the secondary stats (same data SummaryStatsRow showed,
+            plus the set count from the exercise breakdown below). */}
+        <Card padding="lg">
+          <StatNumber
+            value={0}
+            format={() => analytics.formattedDuration}
+            size="hero"
+            label="זמן אימון"
+          />
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <CardTile className="px-3 py-3">
+              <IconTile icon={Flame} tone="accent" size="sm" className="mb-2" />
+              <StatNumber value={analytics.calories} size="sm" label="קלוריות" />
+            </CardTile>
+            <CardTile className="px-3 py-3">
+              <IconTile icon={Layers} tone="accent" size="sm" className="mb-2" />
+              <StatNumber value={totalSets} size="sm" label="סטים" />
+            </CardTile>
+            <CardTile className="px-3 py-3">
+              {/* Dopamine chain step 3: the static flag swaps for the animated
+                  flame once the XP pulse settles (streakChainReady). */}
+              <span className="mb-2 flex h-8 items-center">
+                {xp.streakChainReady ? (
+                  <AnimatedFlame activityType={analytics.streakFlameType} previousType="none" />
+                ) : (
+                  <IconTile icon={Flag} tone="accent" size="sm" />
+                )}
+              </span>
+              <StatNumber value={analytics.streak} size="sm" label="אימונים ברצף" />
+            </CardTile>
+          </div>
+        </Card>
 
         {/* Program-level progression display — hidden in isReadOnly mode.
             None of currentLevel/maxLevel/progressToNextLevel/levelGoals are
@@ -131,13 +159,11 @@ export default function StrengthSummaryView({
             "no data" guards, so the hide is robust regardless of how those
             guards evolve. */}
         {!isReadOnly && (
-          <ProgramProgressCard
+          <LevelRingCard
             programName={programName ?? 'תוכנית אימון'}
-            iconKey={programId ?? ''}
             currentLevel={analytics.liveLevel}
             maxLevel={maxLevel ?? 25}
             progressPercent={analytics.livePercent ?? 0}
-            className="!max-w-none"
           />
         )}
 
@@ -187,8 +213,8 @@ export default function StrengthSummaryView({
 
       {/* Footer button — pinned outside scroll */}
       <div
-        className="shrink-0 z-[100] relative p-5 bg-white dark:bg-card-dark flex gap-3"
-        style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
+        className="shrink-0 z-[100] relative px-4 pt-3 bg-white dark:bg-card-dark border-t border-v2-hairline flex gap-2.5"
+        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
         {/* Delete trigger — isReadOnly history view only, and only when the
             caller wired an onDelete (WORKOUT_DELETE_EXPANDED_ENABLED at the
@@ -196,22 +222,25 @@ export default function StrengthSummaryView({
             tapping just calls the caller's onDelete(), same contract as
             FreeRunSummary's onDelete prop. */}
         {isReadOnly && onDelete && (
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="lg"
             onClick={onDelete}
             aria-label="מחק אימון"
-            className="px-5 py-4 rounded-2xl font-bold bg-red-50 text-red-500 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-400 transition-all shadow-sm flex items-center justify-center"
+            className="!px-5 !text-v2-down"
           >
-            <Trash2 className="w-5 h-5" />
-          </button>
+            <Trash2 size={20} strokeWidth={2.4} aria-hidden />
+          </Button>
         )}
-        <button
+        <Button
+          variant="primary"
+          size="lg"
           onClick={onPrimaryAction}
           disabled={!isReadOnly && isFinishing}
-          className="flex-1 bg-primary py-4 rounded-2xl text-white font-extrabold text-xl shadow-lg shadow-primary/25 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+          className="flex-1"
         >
           {isReadOnly ? 'סגור' : isFinishing ? 'שומר...' : 'תודה על האימון!'}
-        </button>
+        </Button>
       </div>
 
       {/* Custom Scrollbar Styles */}

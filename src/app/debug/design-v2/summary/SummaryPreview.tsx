@@ -114,7 +114,7 @@ function StrengthPreview() {
 }
 
 export default function SummaryPreview({ variant, snap }: { variant: string; snap?: string }) {
-  void snap; // wired once the drawer becomes a DraggableSheet
+  const initialSnap = snap === 'collapsed' ? ('peek' as const) : ('full' as const);
 
   if (variant === 'strength') return <StrengthPreview />;
 
@@ -127,6 +127,7 @@ export default function SummaryPreview({ variant, snap }: { variant: string; sna
           calories={318}
           streakDays={4}
           onFinish={noop}
+          initialSnap={initialSnap}
         />
       </>
     );
@@ -153,6 +154,7 @@ export default function SummaryPreview({ variant, snap }: { variant: string; sna
         submitRating={noopAsync}
         deleteLastWorkout={noopAsync}
         deleteWorkoutWithReversal={noopAsync}
+        initialSnap={initialSnap}
       />
     </>
   );

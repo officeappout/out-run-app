@@ -1,7 +1,8 @@
 'use client';
 
-import { ChevronDown } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { DraggableSheet } from '@/components/ui/v2';
+import { summarySheetSnaps, type SummarySnap } from './summary-sheet.util';
 
 export interface DrawerTab {
   id: string;
@@ -12,128 +13,101 @@ interface SummaryDrawerShellProps {
   tabs: DrawerTab[];
   activeTab: string;
   onTabChange: (id: string) => void;
-  /** Chevron/dismiss → finish. The caller owns the teardown (clearSession + navigate). */
-  onDismiss: () => void;
-  /** Transparent gap at the top so the live map behind SummaryLayer peeks through. */
+  /**
+   * Hero row rendered in the drag zone above the tabs — stays visible when the
+   * drawer is collapsed to its peek.
+   */
+  header?: ReactNode;
+  /** Transparent gap above the OPEN drawer so the live map behind SummaryLayer peeks through. */
   peekHeight?: number;
-  /** Pinned footer (share / finish) — stays below the scroll area. */
+  /** Snap the drawer opens at (previews / screenshots use 'peek'). Default 'full'. */
+  initialSnap?: SummarySnap;
+  /**
+   * Pinned footer — the ONLY place an exit/save action lives. Dragging the
+   * drawer never dismisses, finishes or saves.
+   */
   footer?: ReactNode;
   children: ReactNode;
 }
 
 /**
- * Drawer-over-map chassis — the single source of truth for the summary drawer,
- * matching AerobicSummaryShell's inline drawer (design spec v0.9): a transparent
- * fixed container so the live Mapbox behind SummaryLayer peeks at the top, a
- * white rounded card below, a drag handle + dismiss chevron, an underline tab
- * row, a scroll area, and an optional pinned footer.
+ * Drawer-over-map chassis for the post-workout summaries (aerobic + hybrid),
+ * built on the v2 DraggableSheet: pull the handle/hero down and the drawer
+ * collapses to a peek (map visible behind), pull up and it snaps open again.
+ * Unlike the previous chassis there is no dismiss chevron — a stray tap used
+ * to exit AND save the workout; finishing is now one explicit footer button.
  *
- * z-100 container = the registered post-workout-summary band (.cursorrules) — no
- * new z values. Currently used only by HybridSummary (behind HYBRID_SUMMARY_
- * ENABLED); AerobicSummaryShell can migrate to it in the aerobic-V2 follow-up.
+ * z-100 = the registered post-workout-summary band (.cursorrules); the
+ * sheet's pinned footer sits one step above it (DraggableSheet), no new values.
  */
 export default function SummaryDrawerShell({
   tabs,
   activeTab,
   onTabChange,
-  onDismiss,
+  header,
   peekHeight = 150,
+  initialSnap = 'full',
   footer,
   children,
 }: SummaryDrawerShellProps) {
-  return (
+  const [vh, setVh] = useState(800);
+  useEffect(() => {
+    const update = () => setVh(window.innerHeight || 800);
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
+  const { snapPoints, initialIndex } = summarySheetSnaps(vh, peekHeight, initialSnap);
+
+  const tabRow = (
     <div
-      dir="rtl"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 100,
-        display: 'flex',
-        flexDirection: 'column',
-        background: 'transparent',
-        fontFamily: 'var(--font-simpler, system-ui, sans-serif)',
-      }}
+      role="tablist"
+      className="flex items-center justify-around px-1 border-b border-v2-hairline"
     >
-      {/* Transparent peek — live Mapbox map shows behind */}
-      <div style={{ flex: `0 0 ${peekHeight}px`, background: 'transparent' }} />
-
-      {/* White card */}
-      <div
-        style={{
-          flex: 1,
-          background: '#ffffff',
-          borderRadius: '22px 22px 0 0',
-          boxShadow: '0 -8px 24px rgba(0,0,0,0.18)',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-        }}
-      >
-        {/* Drag handle + dismiss chevron */}
-        <div style={{ position: 'relative', flexShrink: 0 }}>
-          <div style={{ width: 38, height: 4, borderRadius: 999, background: '#d3d8d6', margin: '10px auto 6px' }} />
+      {tabs.map((tab) => {
+        const active = activeTab === tab.id;
+        return (
           <button
-            onClick={onDismiss}
-            aria-label="סגור"
-            style={{
-              position: 'absolute',
-              top: 4,
-              insetInlineStart: 10,
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: '#9aa3a1',
-              padding: 4,
-              lineHeight: 0,
-            }}
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onTabChange(tab.id)}
+            className={`relative h-10 px-2 text-[13px] transition-colors duration-200 ease-v2 ${
+              active ? 'font-extrabold text-v2-ink' : 'font-semibold text-v2-muted'
+            }`}
           >
-            <ChevronDown size={20} />
+            {tab.label}
+            <span
+              aria-hidden
+              className={`absolute inset-x-1 bottom-0 h-[3px] rounded-full bg-v2-accent transition-opacity duration-200 ease-v2 ${
+                active ? 'opacity-100' : 'opacity-0'
+              }`}
+            />
           </button>
-        </div>
+        );
+      })}
+    </div>
+  );
 
-        {/* Underline tab row */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-around',
-            alignItems: 'center',
-            padding: '0 4px',
-            borderBottom: '0.5px solid #e8ebea',
-            flexShrink: 0,
-          }}
-        >
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => onTabChange(tab.id)}
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                padding: '0 4px 10px',
-                fontSize: 12,
-                fontWeight: activeTab === tab.id ? 500 : 400,
-                color: activeTab === tab.id ? '#1D9E75' : '#9aa3a1',
-                borderBottom: activeTab === tab.id ? '2px solid #1D9E75' : '2px solid transparent',
-                lineHeight: '32px',
-                transition: 'color 150ms',
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Scroll content */}
-        <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>{children}</div>
-
-        {/* Pinned footer */}
-        {footer && (
-          <div style={{ flexShrink: 0, borderTop: '0.5px solid #e8ebea', paddingBottom: 'env(safe-area-inset-bottom)' }}>
-            {footer}
-          </div>
-        )}
-      </div>
+  return (
+    <div dir="rtl" style={{ fontFamily: 'var(--font-simpler, system-ui, sans-serif)' }}>
+      <DraggableSheet
+        snapPoints={snapPoints}
+        initialSnap={initialIndex}
+        zIndex={100}
+        ariaLabel="סיכום אימון"
+        header={
+          <>
+            {header}
+            {tabRow}
+          </>
+        }
+        footer={footer}
+      >
+        {children}
+      </DraggableSheet>
     </div>
   );
 }

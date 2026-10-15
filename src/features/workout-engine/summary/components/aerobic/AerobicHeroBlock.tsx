@@ -11,8 +11,8 @@ interface Props {
   dateLabel: string;
 }
 
-/** First-letter avatar circle, using OUT teal palette */
-const AVATAR_COLORS = ['#1D9E75', '#0F6E56', '#E0A33E', '#C77B2A', '#5DCAA5'];
+/** First-letter avatar circle, using the v2 accent family */
+const AVATAR_COLORS = ['#00baf7', '#0284c7', '#00c9f2', '#0e1419', '#00dcd0'];
 
 function AvatarCircle({
   name,
@@ -55,7 +55,7 @@ function AvatarCircle({
   );
 }
 
-const GRADIENT_BG = 'linear-gradient(160deg, #C8E8DD 0%, #A2D4C4 40%, #6BAF9A 70%, #3D8A74 100%)';
+const GRADIENT_BG = 'linear-gradient(135deg, #00baf7 0%, #0cf2e3 100%)';
 
 export default function AerobicHeroBlock({ variant, groupCtx, groupName, dateLabel }: Props) {
   if (!groupCtx || (variant !== 'group' && variant !== 'pair')) return null;
