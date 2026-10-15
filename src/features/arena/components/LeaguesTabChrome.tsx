@@ -8,7 +8,10 @@
  */
 
 import React from 'react';
-import { ChevronDown, Share2, UserPlus } from 'lucide-react';
+import { ChevronDown, Flame, Share2, UserPlus } from 'lucide-react';
+import IconTile from '@/components/ui/v2/IconTile';
+import Button from '@/components/ui/v2/Button';
+import { leagueIconFor } from './league-icons';
 import type { LeagueCardData } from './LeagueCarousel';
 import type { LeaderboardEntry } from '@/features/arena/services/ranking.service';
 
@@ -33,18 +36,17 @@ export function LeagueSelectorButton({
 }: LeagueSelectorButtonProps) {
   if (isLoading) {
     return (
-      <div
-        className="w-full flex items-center gap-3 rounded-2xl px-3 py-3 bg-white border border-gray-200 mb-3"
-        dir="rtl"
-      >
-        <div className="w-11 h-11 rounded-full bg-gray-200 animate-pulse flex-shrink-0" />
+      <div className="w-full flex items-center gap-3 rounded-v2-card px-3.5 py-3 bg-white shadow-v2-card mb-3" dir="rtl">
+        <div className="w-11 h-11 rounded-[14px] bg-v2-surface animate-pulse flex-shrink-0" />
         <div className="flex-1 min-w-0 space-y-1.5">
-          <div className="h-3.5 w-32 rounded bg-gray-200 animate-pulse" />
-          <div className="h-2.5 w-24 rounded bg-gray-200 animate-pulse" />
+          <div className="h-3.5 w-32 rounded bg-v2-surface animate-pulse" />
+          <div className="h-2.5 w-24 rounded bg-v2-surface animate-pulse" />
         </div>
       </div>
     );
   }
+
+  const LeagueIcon = leagueIconFor(activeCard?.key ?? '');
 
   return (
     <button
@@ -52,38 +54,31 @@ export function LeagueSelectorButton({
       onClick={onOpen}
       aria-haspopup="dialog"
       aria-expanded={expanded}
-      className="w-full flex items-center gap-3 rounded-2xl px-3 py-3 bg-white border border-gray-200 shadow-subtle active:scale-[0.98] transition-transform mb-3"
+      className="w-full flex items-center gap-3 rounded-v2-card px-3.5 py-3 bg-white shadow-v2-card active:scale-[0.97] transition-transform ease-v2 mb-3"
       dir="rtl"
     >
-      <div
-        className="w-11 h-11 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0"
-        style={activeCard?.logoUrl ? undefined : { background: 'linear-gradient(135deg, #00ADEF, #00dcd0)' }}
-      >
-        {activeCard?.logoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
+      {activeCard?.logoUrl ? (
+        <span className="w-11 h-11 rounded-[14px] overflow-hidden flex-shrink-0 ring-1 ring-inset ring-v2-hairline">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={activeCard.logoUrl} alt="" className="w-full h-full object-cover" />
-        ) : (
-          <span className="text-xl leading-none text-white">{activeCard?.emoji ?? '🏆'}</span>
-        )}
-      </div>
+        </span>
+      ) : (
+        <IconTile icon={LeagueIcon} tone="accent" size="lg" className="!w-11 !h-11" />
+      )}
       <div className="flex-1 min-w-0 text-right">
         <div className="flex items-center gap-1.5">
-          <span className="font-black text-gray-900 text-sm truncate">{activeCard?.name ?? 'בחר ליגה'}</span>
-          <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
+          <span className="text-[16px] font-black text-v2-ink truncate tracking-v2-tight">{activeCard?.name ?? 'בחר ליגה'}</span>
+          <ChevronDown size={16} strokeWidth={2.4} className="text-v2-muted flex-shrink-0" />
         </div>
-        <div className="text-xs text-gray-500 truncate">
+        <div className="text-[12.5px] font-semibold text-v2-muted truncate">
           {activeCard?.subtitle ? `${activeCard.subtitle} • ` : ''}
           {filterLabel}
         </div>
       </div>
       {rank != null && (
-        <div className="flex flex-col items-center flex-shrink-0 leading-none">
-          <span className="font-black tabular-nums text-sm" style={{ color: '#10B981' }}>
-            #{rank}
-          </span>
-          <span className="text-gray-400 mt-0.5" style={{ fontSize: 9 }}>
-            דירוג
-          </span>
+        <div className="flex flex-col items-center flex-shrink-0 leading-none rounded-v2-tile bg-v2-tint px-2.5 py-1.5">
+          <span className="font-black tabular-nums text-[15px] text-v2-deep">#{rank}</span>
+          <span className="text-[10px] font-bold text-v2-deep/70 mt-0.5">דירוג</span>
         </div>
       )}
     </button>
@@ -111,73 +106,50 @@ export function MyRankStickyBar({ myEntry, scoreLabel, streak, onInvite, onShare
       }}
       dir="rtl"
     >
-      {/* Gradient fade — purely decorative, pointer-events:none via
-          the wrapper. Sits flush above the white bar (no margin) so
-          the fade meets the bar's top edge cleanly. */}
+      {/* Gradient fade — purely decorative, pointer-events:none via the
+          wrapper; fades the scroll content into the bar's top edge. */}
       <div
         aria-hidden
         style={{
-          height: 32,
-          background: 'linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,1))',
+          height: 24,
+          background: 'linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.9))',
         }}
       />
 
-      <div
-        className="pointer-events-auto flex items-center gap-3 rounded-2xl shadow-floating"
-        style={{
-          background: 'rgba(255,255,255,0.82)',
-          backdropFilter: 'blur(14px) saturate(160%)',
-          WebkitBackdropFilter: 'blur(14px) saturate(160%)',
-          border: '0.5px solid rgba(229,231,235,0.9)',
-          padding: '8px 12px 8px 8px',
-        }}
-      >
-        <div
-          className="w-10 h-10 rounded-xl flex flex-col items-center justify-center flex-shrink-0 text-white"
-          style={{
-            background: 'linear-gradient(135deg, #00ADEF, #00dcd0)',
-            boxShadow: '0 4px 12px rgba(0,173,239,0.35)',
-          }}
-        >
-          <span className="text-[8px] font-bold leading-none opacity-80">דירוג</span>
-          <span className="text-sm font-black tabular-nums leading-tight">{myEntry.rank}</span>
+      {/* v2 floating glass card — the one blurred layer in this scroll
+          container; sits over the dark board / content as it scrolls. */}
+      <div className="pointer-events-auto v2-glass-card shadow-v2-float rounded-v2-card flex items-center gap-3 py-2 pr-2 pl-2.5">
+        <div className="w-11 h-11 rounded-[14px] flex flex-col items-center justify-center flex-shrink-0 bg-v2-cta text-v2-on-cta">
+          <span className="text-[9px] font-bold leading-none opacity-80">דירוג</span>
+          <span className="text-[16px] font-black tabular-nums leading-tight">{myEntry.rank}</span>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-black text-gray-900 truncate leading-tight flex items-center gap-1">
-            {myEntry.name}
+          <p className="text-[14px] font-black text-v2-ink truncate leading-tight flex items-center gap-1.5">
+            <span className="truncate">{myEntry.name}</span>
             {/* Streak badge — secondary to the metric-first score below
                 (Stage B). profile.progression.currentStreak is already
-                loaded client-side (no new fetch) and reflects the
-                current user regardless of which metric is selected. */}
+                loaded client-side (no new fetch). */}
             {!!streak && (
-              <span className="text-[10px] font-bold flex-shrink-0" style={{ color: '#f4b400' }} aria-hidden>
-                {streak}🔥
+              <span className="inline-flex items-center gap-0.5 text-[11px] font-black text-[#b37400] flex-shrink-0">
+                <Flame size={12} strokeWidth={2.6} fill="#ffc83d" aria-hidden />
+                {streak}
               </span>
             )}
           </p>
-          <p className="text-[11px] text-[#00ADEF] font-bold tabular-nums leading-tight">{scoreLabel}</p>
+          <p className="text-[12px] text-v2-deep font-bold tabular-nums leading-tight mt-0.5 truncate">{scoreLabel}</p>
         </div>
         <button
           type="button"
           onClick={onInvite}
           aria-label="הזמן חברים"
-          className="flex items-center justify-center w-9 h-9 rounded-xl text-[#00ADEF] active:scale-95 transition-transform flex-shrink-0"
-          style={{ background: 'rgba(0,173,239,0.1)' }}
+          className="flex items-center justify-center w-9 h-9 rounded-full bg-v2-tint text-v2-deep active:scale-[0.97] transition-transform ease-v2 flex-shrink-0"
         >
-          <UserPlus className="w-4 h-4" />
+          <UserPlus size={16} strokeWidth={2.4} />
         </button>
-        <button
-          type="button"
-          onClick={onShare}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-white text-xs font-black active:scale-95 transition-transform flex-shrink-0"
-          style={{
-            background: 'linear-gradient(135deg, #00ADEF, #00dcd0)',
-            boxShadow: '0 4px 12px rgba(0,173,239,0.3)',
-          }}
-        >
-          <Share2 className="w-3.5 h-3.5" />
+        <Button variant="primary" size="sm" onClick={onShare} className="flex-shrink-0 !px-3.5">
+          <Share2 size={14} strokeWidth={2.4} aria-hidden />
           שתף
-        </button>
+        </Button>
       </div>
     </div>
   );

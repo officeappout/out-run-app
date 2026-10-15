@@ -111,7 +111,6 @@ export default function LeaguesPreview() {
   const mode = (params.get('mode') as LeaderboardMode | null) ?? 'general';
   const peek = params.get('peek') === '1';
   const how = params.get('how') === '1';
-  void peek; void how; // wired to the sheets in the redesign step
 
   const [localMode, setLocalMode] = useState<LeaderboardMode>(mode);
   const [timeWindow, setTimeWindow] = useState<LeaderboardTimeWindow>('weekly');
@@ -166,6 +165,8 @@ export default function LeaguesPreview() {
             shouldBlur={false}
             socialUnlocked
             myStreak={6}
+            initialPeekUid={peek ? 'u3' : undefined}
+            initialHowOpen={how}
           />
         )}
 
@@ -178,6 +179,7 @@ export default function LeaguesPreview() {
               opponentScopeId={opponent}
               onSelectOpponent={setOpponent}
               category="overall"
+              timeWindow={timeWindow}
             />
             <ScopeCompetitionLeaderboardView
               granularity="neighborhood"

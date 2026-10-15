@@ -26,7 +26,9 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { m, AnimatePresence, motion } from 'framer-motion';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Users, RefreshCw, ChevronDown, SlidersHorizontal } from 'lucide-react';
+import { Users, RefreshCw, ChevronDown, SlidersHorizontal, MapPin, Trees } from 'lucide-react';
+import IconTile from '@/components/ui/v2/IconTile';
+import Button from '@/components/ui/v2/Button';
 import { useUserStore } from '@/features/user';
 import { useSocialStore } from '@/features/social/store/useSocialStore';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
@@ -1019,7 +1021,7 @@ export default function CommunityPage() {
   function renderCompetitionToggle() {
     return (
       <div
-        className="flex border-b border-slate-100"
+        className="flex p-1 rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline"
         dir="rtl"
         role="tablist"
         aria-label="מצב תחרות"
@@ -1031,10 +1033,10 @@ export default function CommunityPage() {
             role="tab"
             aria-selected={competitionMode === mode}
             onClick={() => setCompetitionMode(mode)}
-            className={`flex-1 py-2.5 text-sm font-bold text-center border-b-2 transition-colors ${
+            className={`flex-1 h-9 rounded-full text-[14px] font-extrabold text-center transition-colors ease-v2 ${
               competitionMode === mode
-                ? 'text-[#00ADEF] border-[#00ADEF]'
-                : 'text-slate-400 border-transparent'
+                ? 'bg-white text-v2-ink shadow-v2-ring'
+                : 'text-v2-muted'
             }`}
           >
             {mode === 'individual' ? 'יחידים' : 'קבוצות'}
@@ -1057,11 +1059,8 @@ export default function CommunityPage() {
             onClick={() => setAxisMenuOpen((o) => !o)}
             aria-haspopup="listbox"
             aria-expanded={axisMenuOpen}
-            className="w-full flex items-center justify-between rounded-2xl px-4 py-3 active:scale-[0.98] transition-transform"
-            style={{
-              background: 'linear-gradient(90deg, rgba(0,173,239,0.10), rgba(16,185,129,0.10))',
-              border: '1px solid #cdeafe',
-            }}
+            className="w-full flex items-center justify-between rounded-v2-tile px-4 py-3 active:scale-[0.97] transition-transform ease-v2 border border-v2-hairline-cool"
+            style={{ background: 'linear-gradient(135deg, #e8f9fe, #e9fdfb)' }}
           >
             <div className="text-right">
               <span className="text-sm font-black text-gray-900">
@@ -1078,7 +1077,7 @@ export default function CommunityPage() {
           {axisMenuOpen && (
             <div
               role="listbox"
-              className="absolute z-20 top-full mt-1 w-full rounded-2xl bg-white border border-gray-100 shadow-lg overflow-hidden"
+              className="absolute z-20 top-full mt-1.5 w-full rounded-v2-tile bg-white shadow-v2-float overflow-hidden py-1"
             >
               {options.map((opt) => (
                 <button
@@ -1088,7 +1087,7 @@ export default function CommunityPage() {
                   aria-selected={axis === opt}
                   onClick={() => { setAxis(opt); setAxisMenuOpen(false); }}
                   className={`w-full text-right px-4 py-3 text-sm font-bold transition-colors ${
-                    axis === opt ? 'text-[#10B981] bg-[#EAF9F3]' : 'text-gray-700 hover:bg-gray-50'
+                    axis === opt ? 'text-v2-deep bg-v2-tint' : 'text-v2-ink hover:bg-v2-surface'
                   }`}
                 >
                   {AXIS_LABEL[opt]}
@@ -1099,14 +1098,12 @@ export default function CommunityPage() {
         </div>
 
         <span
-          className="flex-shrink-0 whitespace-nowrap rounded-full px-3 py-2 text-[12.5px] font-bold text-gray-500"
-          style={{ background: '#f1f4f8', border: '1px solid #e3e8ef' }}
+          className="flex-shrink-0 whitespace-nowrap rounded-full px-3 py-2 text-[12.5px] font-bold text-v2-muted bg-v2-surface ring-1 ring-inset ring-v2-hairline"
         >
           מדד: <b className="text-gray-900">{GROUP_CATEGORY_LABEL[leaderboardCategory]}</b>
         </span>
         <span
-          className="flex-shrink-0 whitespace-nowrap rounded-full px-3 py-2 text-[12.5px] font-bold text-gray-900"
-          style={{ background: '#f1f4f8', border: '1px solid #e3e8ef' }}
+          className="flex-shrink-0 whitespace-nowrap rounded-full px-3 py-2 text-[12.5px] font-bold text-v2-ink bg-v2-surface ring-1 ring-inset ring-v2-hairline"
         >
           {leaderboardTimeWindow === 'daily' ? 'יומי' : leaderboardTimeWindow === 'weekly' ? 'שבועי' : 'חודשי'}
         </span>
@@ -1118,15 +1115,9 @@ export default function CommunityPage() {
           type="button"
           onClick={() => setLeagueFilterSheetOpen(true)}
           aria-label="פילטרים"
-          className="flex items-center justify-center flex-shrink-0 transition-colors"
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 20,
-            border: leaderboardGender !== 'all' ? '1px solid #10B981' : '0.5px solid #D1D5DB',
-            backgroundColor: leaderboardGender !== 'all' ? '#E1F5EE' : '#FFFFFF',
-            color: leaderboardGender !== 'all' ? '#10B981' : '#374151',
-          }}
+          className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ease-v2 ${
+            leaderboardGender !== 'all' ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent' : 'bg-white text-v2-ink-2 ring-1 ring-inset ring-v2-pill-border'
+          }`}
         >
           <SlidersHorizontal className="w-3.5 h-3.5" />
         </button>
@@ -1148,31 +1139,29 @@ export default function CommunityPage() {
     const windowPhrase = leaderboardTimeWindow === 'daily' ? 'היום' : leaderboardTimeWindow === 'weekly' ? 'השבוע' : 'החודש';
     return (
       <div
-        className="rounded-2xl p-4 text-white relative overflow-hidden mb-3"
-        style={{ background: '#0f172a' }}
+        className="rounded-v2-card p-4 text-white relative overflow-hidden mb-3 bg-v2-ink shadow-v2-card-dark"
         dir="rtl"
       >
         <div
           aria-hidden
           className="absolute -top-8 -left-8 w-36 h-36 rounded-full pointer-events-none"
-          style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.45), transparent 70%)' }}
+          style={{ background: 'radial-gradient(circle, rgba(0,186,247,0.4), transparent 70%)' }}
         />
         <div className="relative z-10 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[11px]" style={{ color: '#9fb3c8' }}>
               התרומה שלך {windowPhrase} · {activeScopeEntry.scopeName}
             </p>
-            <p className="text-lg font-black mt-0.5 truncate" style={{ color: '#10B981' }}>
+            <p className="text-lg font-black mt-0.5 truncate text-v2-accent tabular-nums">
               {activeMyEntry
                 ? formatLeaderboardScore(activeMyEntry.totalCredit, activeMyMode, activeMyIsSegment)
                 : CATEGORY_UNIT_LABEL[leaderboardCategory]}
             </p>
           </div>
           <div
-            className="text-center rounded-xl px-3 py-1.5 flex-shrink-0"
-            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)' }}
+            className="text-center rounded-v2-tile px-3 py-1.5 flex-shrink-0 bg-white/10"
           >
-            <p className="text-lg font-black leading-none" style={{ color: '#00ADEF' }}>#{activeScopeEntry.rank}</p>
+            <p className="text-lg font-black leading-none tabular-nums">#{activeScopeEntry.rank}</p>
             <p className="text-[9px] mt-0.5" style={{ color: '#9fb3c8' }}>{scopeTypeLabel}</p>
           </div>
         </div>
@@ -1199,16 +1188,15 @@ export default function CommunityPage() {
       <button
         type="button"
         onClick={handleInviteNeighbors}
-        className="w-full flex items-center gap-2.5 rounded-2xl px-3.5 py-3 text-white text-right active:scale-[0.98] transition-transform"
-        style={{ background: 'linear-gradient(90deg, #00ADEF, #00dcd0)' }}
+        className="w-full flex items-center gap-3 rounded-v2-card px-4 py-3.5 bg-v2-cta text-v2-on-cta shadow-v2-cta text-right active:scale-[0.97] transition-transform ease-v2"
         dir="rtl"
       >
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,255,255,0.2)' }}>
+        <div className="w-10 h-10 rounded-[14px] flex items-center justify-center flex-shrink-0 bg-white/40">
           <Users className="w-[18px] h-[18px]" />
         </div>
         <div className="min-w-0">
           <p className="text-sm font-black">הזמן שכנים ל{activeScopeEntry.scopeName}</p>
-          <p className="text-[11px] opacity-90">יותר חברים = יותר פעילות = יותר סיכוי לנצח</p>
+          <p className="text-[12px] font-semibold opacity-80">יותר חברים = יותר פעילות = יותר סיכוי לנצח</p>
         </div>
       </button>
     );
@@ -1223,18 +1211,13 @@ export default function CommunityPage() {
   // having a neighborhood set.
   function renderNeighborhoodSetupCTA() {
     return (
-      <div className="rounded-2xl bg-white p-4 mb-3 text-center" style={{ border: '0.5px solid #E5E7EB' }} dir="rtl">
-        <span className="text-2xl">🏘️</span>
-        <p className="text-sm font-black text-gray-900 mt-2">בחר שכונה כדי להצטרף לליגת השכונה</p>
-        <p className="text-xs text-gray-500 mt-1">עדיין לא הגדרת שכונה בפרופיל שלך</p>
-        <button
-          type="button"
-          onClick={() => router.push('/profile')}
-          className="mt-3 mx-auto flex items-center gap-1.5 px-4 py-2 rounded-full text-white text-xs font-black active:scale-95 transition-transform"
-          style={{ background: 'linear-gradient(90deg, #00ADEF, #00dcd0)' }}
-        >
+      <div className="rounded-v2-card bg-white shadow-v2-card p-5 mb-3 text-center flex flex-col items-center" dir="rtl">
+        <IconTile icon={MapPin} tone="accent" size="lg" />
+        <p className="text-[16px] font-black text-v2-ink mt-3">בחר שכונה כדי להצטרף לליגת השכונה</p>
+        <p className="text-[13px] text-v2-muted mt-1">עדיין לא הגדרת שכונה בפרופיל שלך</p>
+        <Button variant="primary" size="sm" className="mt-3.5" onClick={() => router.push('/profile')}>
           בחר שכונה בפרופיל
-        </button>
+        </Button>
       </div>
     );
   }
@@ -1382,8 +1365,7 @@ export default function CommunityPage() {
                 3-participant floor). */}
             <div className="flex items-center gap-2 mb-3" dir="rtl">
               <span
-                className="whitespace-nowrap rounded-full px-3 py-2 text-[12.5px] font-bold text-gray-500"
-                style={{ background: '#f1f4f8', border: '1px solid #e3e8ef' }}
+                className="whitespace-nowrap rounded-full px-3 py-2 text-[12.5px] font-bold text-v2-muted bg-v2-surface ring-1 ring-inset ring-v2-hairline"
               >
                 מדד: <b className="text-gray-900">ממוצע צעדים יומי</b>
               </span>
@@ -1571,7 +1553,7 @@ export default function CommunityPage() {
     if (!access.preferredParkId) {
       return (
         <div className="flex flex-col items-center justify-center py-16 text-center" dir="rtl">
-          <span className="text-3xl mb-3">🌳</span>
+          <IconTile icon={Trees} tone="accent" size="lg" className="mb-3" />
           <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
             עוד לא התאמנת בפארק
           </p>

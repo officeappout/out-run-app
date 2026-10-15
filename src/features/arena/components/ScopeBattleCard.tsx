@@ -12,7 +12,9 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { RefreshCw, UserPlus } from 'lucide-react';
+import { RefreshCw, UserPlus, Swords, Zap } from 'lucide-react';
+import Button from '@/components/ui/v2/Button';
+import { battleSplit, formatTimeLeft, getPeriodEnd } from './league-board-logic';
 import {
   getScopeCompetitionLeaderboard,
   type ScopeCompetitionResult,
@@ -97,6 +99,7 @@ export default function ScopeBattleCard({ granularity, timeWindow, myScopeId, ci
       opponentScopeId={opponentScopeId}
       onSelectOpponent={setOpponentScopeId}
       category={category}
+      timeWindow={timeWindow}
     />
   );
 }
@@ -110,6 +113,28 @@ export interface ScopeBattleCardViewProps {
   opponentScopeId: string | null;
   onSelectOpponent: (scopeId: string) => void;
   category: LeaderboardCategory;
+  /** Drives the "time left" line — the scope totals reset on
+   *  getWindowStart(timeWindow). Omitted → no countdown. */
+  timeWindow?: LeaderboardTimeWindow;
+}
+
+/** Site battle-card surface (Social.module.css .battle). */
+const BATTLE_SURFACE = 'rounded-[22px] border border-v2-hairline-cool p-[18px]';
+const BATTLE_BG = { background: 'linear-gradient(135deg, #e8f9fe, #e9fdfb)' };
+
+function BattleHeader({ subtitle, action }: { subtitle?: string; action?: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-[42px] h-[42px] rounded-[14px] bg-white flex items-center justify-center text-v2-deep shrink-0">
+        <Swords size={20} strokeWidth={2.4} aria-hidden />
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="text-[17px] font-black text-v2-ink tracking-v2-tight">קרב השבוע</div>
+        {subtitle && <div className="text-[12.5px] font-semibold text-v2-ink-2 tabular-nums truncate">{subtitle}</div>}
+      </div>
+      {action}
+    </div>
+  );
 }
 
 export function ScopeBattleCardView({
@@ -119,8 +144,11 @@ export function ScopeBattleCardView({
   opponentScopeId,
   onSelectOpponent,
   category,
+  timeWindow,
 }: ScopeBattleCardViewProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const now = new Date();
+  const timeLeft = timeWindow ? formatTimeLeft(getPeriodEnd(timeWindow, now), now) : undefined;
 
   // 16.08.2026 design review: friendly empty state instead of silently
   // rendering nothing — you exist in the ranking, but there's no second
@@ -133,18 +161,12 @@ export function ScopeBattleCardView({
       else if (navigator.clipboard) navigator.clipboard.writeText(text);
     };
     return (
-      <div className="rounded-2xl bg-white p-4 mb-3 text-center" style={{ border: '0.5px solid #E5E7EB' }} dir="rtl">
-        <span className="text-sm font-black text-gray-900">🔥 קרב השבוע</span>
-        <p className="text-xs text-gray-500 mt-2">עדיין אין יריב ל{myEntry.scopeName}</p>
-        <button
-          type="button"
-          onClick={handleInvite}
-          className="mt-3 mx-auto flex items-center gap-1.5 px-4 py-2 rounded-full text-white text-xs font-black active:scale-95 transition-transform"
-          style={{ background: 'linear-gradient(90deg, #00ADEF, #00dcd0)' }}
-        >
-          <UserPlus className="w-3.5 h-3.5" />
+      <div className={`${BATTLE_SURFACE} mb-3`} style={BATTLE_BG} dir="rtl">
+        <BattleHeader subtitle={`עדיין אין יריב ל${myEntry.scopeName}`} />
+        <Button variant="primary" size="sm" className="mt-3.5" onClick={handleInvite}>
+          <UserPlus size={14} strokeWidth={2.4} aria-hidden />
           הזמן חברים
-        </button>
+        </Button>
       </div>
     );
   }
@@ -153,55 +175,53 @@ export function ScopeBattleCardView({
   if (!opponent) return null;
 
   const leader = myEntry.totalScore >= opponent.totalScore ? myEntry : opponent;
-  const trailer = leader === myEntry ? opponent : myEntry;
-  const gap = leader.totalScore - trailer.totalScore;
+  const gap = leader.totalScore - (leader === myEntry ? opponent : myEntry).totalScore;
   const iAmLeading = leader === myEntry;
-  const maxScore = Math.max(myEntry.totalScore, opponent.totalScore, 1);
+  const split = battleSplit(myEntry.totalScore, opponent.totalScore);
 
   const candidates = entries.filter((e) => e.scopeId !== myScopeId);
 
   return (
-    <div className="rounded-2xl bg-white p-4 mb-3" style={{ border: '0.5px solid #E5E7EB' }} dir="rtl">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-black text-gray-900">🔥 קרב השבוע</span>
-        <button
-          type="button"
-          onClick={() => setPickerOpen(true)}
-          className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full"
-          style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}
-        >
-          <RefreshCw className="w-3 h-3" />
-          החלף יריבה
-        </button>
+    <div className={`${BATTLE_SURFACE} mb-3`} style={BATTLE_BG} dir="rtl">
+      <BattleHeader
+        subtitle={timeLeft}
+        action={
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            className="h-8 px-3 rounded-full bg-white text-v2-ink text-[12px] font-bold flex items-center gap-1 shrink-0 active:scale-[0.97] transition-transform ease-v2"
+          >
+            <RefreshCw size={12} strokeWidth={2.6} aria-hidden />
+            החלף יריבה
+          </button>
+        }
+      />
+
+      {/* VS — two white pills around the amber lightning (site .vs). Your
+          scope on the start (right, RTL) side. */}
+      <div className="flex items-center gap-2.5 mt-3.5">
+        <span className="flex-1 min-w-0 h-9 px-3 rounded-full bg-white flex items-center justify-center text-[14px] font-extrabold text-v2-ink truncate">
+          {myEntry.scopeName}
+        </span>
+        <Zap size={20} strokeWidth={2.4} className="text-v2-amber shrink-0" fill="currentColor" aria-label="נגד" />
+        <span className="flex-1 min-w-0 h-9 px-3 rounded-full bg-white flex items-center justify-center text-[14px] font-extrabold text-v2-ink truncate">
+          {opponent.scopeName}
+        </span>
       </div>
 
-      <div className="space-y-2">
-        {[leader, trailer].map((entity) => {
-          const isMe = entity.scopeId === myScopeId;
-          const widthPct = Math.max(4, Math.round((entity.totalScore / maxScore) * 100));
-          return (
-            <div key={entity.scopeId} className="flex items-center gap-2">
-              <span className="text-[13px] font-black text-gray-900 truncate flex-shrink-0" style={{ maxWidth: 84 }}>
-                {entity.scopeName}
-              </span>
-              <div className="h-3 rounded-full bg-gray-100 overflow-hidden flex-1">
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{
-                    width: `${widthPct}%`,
-                    background: isMe ? 'linear-gradient(90deg, #00ADEF, #00dcd0)' : OPPONENT_COLOR,
-                  }}
-                />
-              </div>
-              <span className="text-[13px] font-black text-gray-900 tabular-nums flex-shrink-0">
-                {entity.totalScore.toLocaleString('he-IL')}
-              </span>
-            </div>
-          );
-        })}
+      {/* Split bar — your share of the two totals (same two rows the card
+          already had; league-board-logic.battleSplit). */}
+      <div className="mt-3 flex h-3 rounded-full overflow-hidden bg-white" aria-hidden>
+        <div className="h-full bg-v2-cta" style={{ width: `${split.minePct}%` }} />
+        <div className="h-full" style={{ width: `${split.theirsPct}%`, background: OPPONENT_COLOR }} />
+      </div>
+      <div className="mt-1.5 flex items-center justify-between text-[13px] font-black text-v2-ink tabular-nums">
+        <span>{myEntry.totalScore.toLocaleString('he-IL')}</span>
+        <span className="text-[11px] font-bold text-v2-muted">{CATEGORY_UNIT_LABEL[category]}</span>
+        <span>{opponent.totalScore.toLocaleString('he-IL')}</span>
       </div>
 
-      <p className="text-[11px] text-gray-500 font-medium mt-2.5 text-center">
+      <p className="text-[12.5px] text-v2-ink-2 font-semibold mt-2.5 text-center">
         {iAmLeading
           ? `אתה מוביל על ${opponent.scopeName} 🔥`
           : `רק ${gap.toLocaleString('he-IL')} ${CATEGORY_UNIT_LABEL[category]} מ${leader.scopeName}!`}
