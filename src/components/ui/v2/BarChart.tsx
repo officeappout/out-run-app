@@ -73,9 +73,6 @@ export default function BarChart({
       aria-label={ariaLabel}
       className={`relative select-none ${className}`}
       style={{ height }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) setSelected(null);
-      }}
     >
       {/* Plot */}
       <div className="absolute inset-x-0 top-0" style={{ height: plotH }}>
