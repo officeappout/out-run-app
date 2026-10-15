@@ -30,7 +30,6 @@ import {
   ArrowUpLeft,
   CornerUpRight,
   CornerUpLeft,
-  Navigation,
   Flag,
   ChevronDown,
   ChevronUp,
@@ -697,6 +696,16 @@ export default function TurnCarousel({
     scrollToCard(currentGpsTurnIdx);
   }, [currentGpsTurnIdx, scrollToCard, setCameraMode]);
 
+  // G2.6: the map's single recenter control ("מרכז אותי", MapShell) releases the turn-preview
+  // lock by setting cameraMode back to 'follow_user'. Follow that from here: drop the manual
+  // selection and snap back to the GPS turn card (what this carousel's own "חזור למיקומי" pill
+  // used to do — removed so there is ONE recenter control).
+  const cameraModeNow = useMapStore((s) => s.cameraMode);
+  useEffect(() => {
+    if (cameraModeNow === 'follow_user' && userHasManuallySelected) handleResumeFollow();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cameraModeNow]);
+
   // ── Cleanup ───────────────────────────────────────────────────────────────
   useEffect(() => {
     return () => {
@@ -1064,21 +1073,8 @@ export default function TurnCarousel({
           מזעור
         </button>
 
-        {/* GPS follow pill — only while peeking */}
-        {userHasManuallySelected && (
-          <button
-            onClick={handleResumeFollow}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold pointer-events-auto bg-white"
-            style={{
-              border: `1px solid ${ACTIVE_BORDER}`,
-              color: PRIMARY_DARK,
-              boxShadow: SOFT_SHADOW,
-            }}
-          >
-            <Navigation size={11} />
-            חזור למיקומי
-          </button>
-        )}
+        {/* G2.6: the "חזור למיקומי" pill lived here — removed; while a turn card is peeked the
+            map's single "מרכז אותי" control (MapShell) is shown instead and resumes follow. */}
       </div>
     </div>
   );

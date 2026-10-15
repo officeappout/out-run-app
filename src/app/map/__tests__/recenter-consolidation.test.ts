@@ -56,8 +56,18 @@ describe('FreeRunLayer — no longer has its own separate centering button', () 
 });
 
 describe('MapShell — the single recenter pill is the one source of truth', () => {
-  it('the recenter button calls handleLocationClick() before re-enabling follow (never a silent no-op with no GPS fix)', () => {
-    expect(mapShellSrc).toContain('onClick={() => { logic.handleLocationClick(); setMapFollowEnabled(true); }}');
+  it('the recenter branch releases the turn-preview lock, calls handleLocationClick(), then re-enables follow', () => {
+    // G2.6 (Sderot pilot): one control — recenter when not following, heading toggle when following.
+    const click = mapShellSrc.slice(mapShellSrc.indexOf('onClick={() => {\n              if (!isFollowingNow('));
+    const recenter = click.slice(0, click.indexOf('} else {'));
+    expect(recenter).toContain("setCameraMode('follow_user');");
+    expect(recenter.indexOf('logic.handleLocationClick();')).toBeLessThan(recenter.indexOf('setMapFollowEnabled(true);'));
+    expect(click.slice(0, click.indexOf('}}'))).toContain("setMapHeadingMode(mapHeadingMode === 'course' ? 'north' : 'course');");
+  });
+
+  it('is visible for the whole active session (not only after a pan) — except laps/station', () => {
+    expect(mapShellSrc).toContain('{isActiveMode && !isLapsOpen && !hybridStationLive && (');
+    expect(mapShellSrc).not.toContain('{isActiveMode && !isMapFollowEnabled && !isLapsOpen');
   });
 
   it('no longer passes onRecenter to FreeRunLayer (that mechanism is retired there)', () => {

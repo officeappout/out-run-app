@@ -22,7 +22,7 @@ import React, { useState, useEffect, useLayoutEffect, useCallback, useRef, useMe
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamicImport from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LocateFixed } from 'lucide-react';
+import { LocateFixed, Navigation, Compass } from 'lucide-react';
 import { useMapLogic } from '@/features/parks';
 import type { Route } from '@/features/parks/core/types/route.types';
 import { useUserStore } from '@/features/user';
@@ -42,6 +42,7 @@ import type { MapPurpose } from '@/features/user/onboarding/components/steps/Uni
 import { useMapMode, MapModeProvider } from '@/features/parks/core/context/MapModeContext';
 import { useDevSimulation } from '@/features/parks/core/hooks/useDevSimulation';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
+import { isFollowingNow, recenterControlLabel } from './recenter-control';
 import { getPark } from '@/features/parks/core/services/parks.service';
 import { InventoryService } from '@/features/parks/core/services/inventory.service';
 import { useLegPlanStore } from '@/features/parks/core/store/useLegPlanStore';
@@ -148,6 +149,11 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
   const routeZones = useRunningPlayer((s) => s.routeZones);
   const isMapFollowEnabled = useRunningPlayer((s) => s.isMapFollowEnabled);
   const setMapFollowEnabled = useRunningPlayer((s) => s.setMapFollowEnabled);
+  const mapHeadingMode = useRunningPlayer((s) => s.mapHeadingMode);
+  const setMapHeadingMode = useRunningPlayer((s) => s.setMapHeadingMode);
+  // G2.6: TurnCarousel's turn-preview lock ('preview_step') also means "not following".
+  const cameraMode = useMapStore((s) => s.cameraMode);
+  const setCameraMode = useMapStore((s) => s.setCameraMode);
   const guidedRouteTurns = useRunningPlayer((s) => s.guidedRouteTurns);
   const runMode = useRunningPlayer((s) => s.runMode);
   // Free-run leg-plan stop markers (ג' Phase 3, 08.08) — read directly off
@@ -588,6 +594,8 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
           skipInitialZoom={flyover.flyoverActive || !!spotFocus}
           isAutoFollowEnabled={isMapFollowEnabled}
           onUserPanDetected={() => setMapFollowEnabled(false)}
+          headingMode={mapHeadingMode}
+          onFollowRestored={() => setMapFollowEnabled(true)}
           onLongPress={devSim.isMockEnabled ? devSim.setMockLocation : undefined}
           simulationActive={devSim.isMockEnabled && devSim.isSimulating}
           speedKmH={devSim.isMockEnabled && devSim.isSimulating ? devSim.simulatedSpeedKmH : undefined}
@@ -673,15 +681,29 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
            move now goes exclusively through useCameraController's padding-aware
            follow effect (isAutoFollowEnabled), which already reads live drawer
            height via metricsCardPosition/wazePadding. */}
+      {/* G2.6 (Sderot pilot): ONE control for centering + orientation, visible for the whole
+          active session (not only after a pan). Not following (map panned, or a turn card
+          previewed — cameraMode 'preview_step') → "מרכז אותי": releases the turn-preview lock,
+          re-enables follow (TurnCarousel snaps back to the GPS card on its own). Following → the
+          same pill toggles heading-up ⇄ north-up. TurnCarousel's own "חזור למיקומי" is gone. */}
       <AnimatePresence>
-        {isActiveMode && !isMapFollowEnabled && !isLapsOpen && !hybridStationLive && (
+        {isActiveMode && !isLapsOpen && !hybridStationLive && (
           <motion.button
             key="recenter"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-            onClick={() => { logic.handleLocationClick(); setMapFollowEnabled(true); }}
+            aria-label={recenterControlLabel(isFollowingNow(isMapFollowEnabled, cameraMode), mapHeadingMode)}
+            onClick={() => {
+              if (!isFollowingNow(isMapFollowEnabled, cameraMode)) {
+                setCameraMode('follow_user');
+                logic.handleLocationClick();
+                setMapFollowEnabled(true);
+              } else {
+                setMapHeadingMode(mapHeadingMode === 'course' ? 'north' : 'course');
+              }
+            }}
             className="absolute z-40 pointer-events-auto flex items-center gap-2 px-4 py-2.5 rounded-2xl font-bold text-sm"
             dir="rtl"
             style={{
@@ -703,8 +725,10 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
               boxShadow: '0 4px 20px rgba(0,173,239,0.2), 0 2px 8px rgba(0,0,0,0.4)',
             }}
           >
-            <LocateFixed size={16} />
-            מרכז אותי
+            {!isFollowingNow(isMapFollowEnabled, cameraMode)
+              ? <LocateFixed size={16} />
+              : mapHeadingMode === 'course' ? <Navigation size={16} /> : <Compass size={16} />}
+            {recenterControlLabel(isFollowingNow(isMapFollowEnabled, cameraMode), mapHeadingMode)}
           </motion.button>
         )}
       </AnimatePresence>

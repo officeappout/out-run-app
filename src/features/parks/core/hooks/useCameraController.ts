@@ -77,6 +77,16 @@ export interface CameraControllerParams {
    * Pass null / undefined when no guided route is active.
    */
   navigationTurns?: RouteTurn[] | null;
+  /**
+   * G2.6: follow-camera orientation. 'course' (default) = heading-up (smoothed GPS course /
+   * walk-to-route target, unchanged); 'north' = north-up (bearing 0) while following.
+   */
+  headingMode?: 'course' | 'north';
+  /**
+   * G2.6: called when the 15 s idle timer re-claims 'follow' on its own, so the owner's
+   * follow flag (and the single recenter control) matches the camera again.
+   */
+  onFollowRestored?: () => void;
 }
 
 export interface CameraControllerAPI {
@@ -258,7 +268,16 @@ export function useCameraController(params: CameraControllerParams): CameraContr
     focusedRoute, routes, destinationMarker,
     skipInitialZoom, isAutoFollowEnabled, onUserPanDetected,
     mapMode, walkToRouteTarget, navigationTurns,
+    headingMode = 'course', onFollowRestored,
   } = params;
+  // G2.6: the camera re-runs when TurnCarousel's turn-preview lock is released ('preview_step' →
+  // 'follow_user') — previously not a dep, so a recenter tap while previewing a turn card
+  // re-enabled follow without moving the camera (the effect returned early on the lock).
+  const cameraModeDep = useMapStore((s) => s.cameraMode);
+  const headingModeRef = useRef(headingMode);
+  headingModeRef.current = headingMode;
+  const onFollowRestoredRef = useRef(onFollowRestored);
+  onFollowRestoredRef.current = onFollowRestored;
 
   // Session status: distinguishes 'paused' from 'active' so the camera can
   // flatten to NAV_PITCH_STOPPED when the runner stops. Cross-feature read
@@ -514,6 +533,9 @@ export function useCameraController(params: CameraControllerParams): CameraContr
         console.log(`[Cam] Idle ${IDLE_RECENTER_MS / 1000}s — auto-recentering for runner safety.`);
       }
       ownerRef.current = 'follow';
+      // G2.6: tell the owner the camera follows again (its follow flag stayed false before,
+      // so "מרכז אותי" kept showing while already centered).
+      onFollowRestoredRef.current?.();
       // Force the camera effect to re-run so the easeTo dispatches even
       // when GPS isn't producing new samples (stationary runner).
       setRecenterTick((t) => t + 1);
@@ -682,9 +704,12 @@ export function useCameraController(params: CameraControllerParams): CameraContr
         targetIsFinite && isFiniteLatLng(currentLocation)
           ? bearingBetween(currentLocation.lat, currentLocation.lng, targetLat, targetLng)
           : safeSmoothedBearing;
-      const bearing = Number.isFinite(computedBearing)
-        ? computedBearing
-        : safeSmoothedBearing;
+      // G2.6: north-up mode pins the follow bearing to 0 (heading-up stays the default).
+      const bearing = headingModeRef.current === 'north'
+        ? 0
+        : Number.isFinite(computedBearing)
+          ? computedBearing
+          : safeSmoothedBearing;
 
       // ── P1: Follow (workout / navigation / sim-in-discover) ──
       // `isFiniteLatLng` is the SINGLE source of truth for "do I have a
@@ -1099,6 +1124,9 @@ export function useCameraController(params: CameraControllerParams): CameraContr
     // and dispatches a follow-mode easeTo even when no other dep changed
     // (e.g. stationary runner whose GPS samples have stopped flowing).
     recenterTick,
+    // G2.6: re-run on the turn-preview lock release and on a heading-mode toggle.
+    cameraModeDep,
+    headingMode,
   ]);
 
   // ── Point 1: hybrid overview map↔drawer sync ───────────────────────────────
