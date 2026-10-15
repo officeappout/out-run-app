@@ -73,6 +73,14 @@ const nextConfig = {
         destination: '/gateway',
         permanent: true,
       },
+      // Admin consolidation (owner, 15.10.2026): the old growth screens folded
+      // into the Journey hub — "מקורות הגעה" / "הצטרפות והפעלה" / "מעורבות
+      // ושימור" cover the funnel, sources, link/QR conversions and retention.
+      // Nobody used statistics/insights (owner). Not permanent, in case a
+      // screen comes back.
+      { source: '/admin/analytics', destination: '/admin/journey', permanent: false },
+      { source: '/admin/statistics', destination: '/admin/journey', permanent: false },
+      { source: '/admin/insights', destination: '/admin/journey', permanent: false },
       // Marketing zone: bare /web → default locale (the marketing site serves
       // under basePath '/web' and its own middleware locale-gates to /web/he).
       // Added only when the zone is wired (MARKETING_SITE_URL set), so the live
