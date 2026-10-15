@@ -29,6 +29,9 @@ import MapLoadingSkeleton from '@/components/MapLoadingSkeleton';
 import { segmentPathByZone, bearingBetween, buildLaneOffsetPath, buildDirectionMarkers, isOutAndBackPath, pathLengthMeters, isSameCoord } from '../services/geoUtils';
 import type { RouteTurn } from '../services/geoUtils';
 import {
+  buildCumulativeMeters, advanceRouteProgress, splitPathAtMeters, easeAlong, type LngLat,
+} from '../services/route-progress';
+import {
   isFiniteNum,
   isFiniteLngLat,
   // Object-shape `{ lat, lng }` guard. Distinct from `isFiniteLngLat`
@@ -128,6 +131,19 @@ function buildLivePathGeoJSON(
 }
 
 const EMPTY_FEATURE_COLLECTION: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
+
+/** One-LineString FeatureCollection (or empty when it can't be a line). */
+function lineFC(coords: readonly LngLat[]): GeoJSON.FeatureCollection {
+  if (coords.length < 2) return EMPTY_FEATURE_COLLECTION;
+  return {
+    type: 'FeatureCollection',
+    features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords as LngLat[] } }],
+  };
+}
+
+// G3.4: route progress survives an AppMap remount mid-workout (switching tabs unmounts the map);
+// keyed by route so a different route starts at 0. Cleared when no workout is active.
+let persistedRouteProgress: { key: string; alongM: number } | null = null;
 
 // All coordinate-finiteness rules live in `src/utils/geoValidation.ts`
 // so AppMap, TurnCarousel, and any future map consumer apply the same
@@ -1349,48 +1365,33 @@ export default function AppMap({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [livePath?.length, isActiveWorkout]);
 
-  // ── Ghost path: segment AHEAD of the user ─────────────────────────────────
-  // Caches the scan start index in a ref so the path-ahead slice only
-  // recomputes when the route changes OR when a new GPS coord is accepted
-  // (livePath.length tick) — NOT on every raw GPS position update.
-  const ghostStartIdxRef = useRef(0);
-  const ghostPathGeoJSON = useMemo(() => {
-    if (!isActiveWorkout || !focusedRoute?.path || focusedRoute.path.length < 2) {
-      ghostStartIdxRef.current = 0;
-      return null;
-    }
+  // ── Planned route split: walked (gray) behind / ahead (cyan) — G3.4 ──────
+  // Was: snap to the nearest route VERTEX, recomputed only when a GPS point was added to the
+  // trail (4–5 m filter, accuracy ≤ 40 m) → on RDP-thinned routes the split jumped whole
+  // segments, ran ahead of the user, froze in poor accuracy, and could lock onto a later pass.
+  // Now (services/route-progress.ts): arc-length projection onto segments, forward-only window,
+  // off-route fixes ignored, never decreases — advanced on EVERY position fix, then eased between
+  // fixes and pushed to the two sources imperatively (setData, ~12 fps max while easing), so
+  // AppMap never re-renders per frame. The sources' `data` props stay constant per route.
+  const progressPath: LngLat[] | null =
+    isActiveWorkout && focusedRoute?.path && focusedRoute.path.length >= 2 ? (focusedRoute.path as LngLat[]) : null;
+  // Content signature, not the array reference: a parent re-render that hands over a new but
+  // identical path array must NOT rebuild the sources' data (that would overwrite the live split).
+  const progressRouteKey = progressPath
+    ? `${focusedRoute?.id ?? 'route'}:${progressPath.length}:${progressPath[1]}:${progressPath[progressPath.length - 2]}`
+    : null;
+  const progressCum = useMemo(
+    () => (progressPath ? buildCumulativeMeters(progressPath) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [progressRouteKey],
+  );
 
-    // Scan forward-only from last cached position so we never regress backward.
-    if (currentLocation) {
-      const path = focusedRoute.path;
-      const fromIdx = ghostStartIdxRef.current;
-      let minDist = Infinity;
-      let bestIdx  = fromIdx;
-      for (let i = fromIdx; i < path.length; i++) {
-        const [lng, lat] = path[i];
-        const d = Math.abs(lat - currentLocation.lat) + Math.abs(lng - currentLocation.lng);
-        if (d < minDist) { minDist = d; bestIdx = i; }
-        // Early exit: once we're past the nearest point and moving away, stop scanning.
-        else if (i > fromIdx + 5 && d > minDist * 4) break;
-      }
-      ghostStartIdxRef.current = bestIdx;
-    }
-
-    const aheadPath = focusedRoute.path.slice(ghostStartIdxRef.current);
-    if (aheadPath.length < 2) return null;
-
-    return {
-      type: 'FeatureCollection',
-      features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: aheadPath } }],
-    };
-  // Dep on livePath?.length instead of currentLocation: recomputes only when
-  // the user walks far enough to add a new GPS coord (every DISTANCE_THRESHOLD
-  // metres — see the live-path effect above for the 11.10.2026 correction to
-  // this cadence claim), not on every raw GPS tick. Shares the identical
-  // livePath?.length dependency as the live-path effect above, so this
-  // smooths in lockstep with it — confirmed, not assumed.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActiveWorkout, focusedRoute?.id, focusedRoute?.path, livePath?.length]);
+  // Initial source data — the whole route ahead; live updates are imperative (below).
+  const ghostPathGeoJSON = useMemo<GeoJSON.FeatureCollection | null>(
+    () => (progressPath ? lineFC(progressPath) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [progressRouteKey],
+  );
 
   // ── Zone-segment gate for ALL trail additions ──────────────────────────────
   // A zone-coloured planned run (livePathZones non-null) must render exactly
@@ -1400,22 +1401,95 @@ export default function AppMap({
   // interval runs that carry a guided route).
   const hasZoneSegments = !!livePathZones?.some((z) => z != null);
 
-  // ── Passed path: the route slice BEHIND the user ──────────────────────────
-  // Complements the ghost path (ahead slice): together they draw the full
-  // planned route split at the user's position — gray behind, cyan ahead.
-  // Depends on ghostPathGeoJSON so it always reads ghostStartIdxRef AFTER the
-  // ghost memo (declared above) advanced it this render. +1 keeps the split
-  // vertex shared, so the two slices connect without a gap.
-  const passedPathGeoJSON = useMemo<GeoJSON.FeatureCollection | null>(() => {
-    if (!isActiveWorkout || hasZoneSegments || !ghostPathGeoJSON || !focusedRoute?.path) return null;
-    const passed = focusedRoute.path.slice(0, ghostStartIdxRef.current + 1);
-    if (passed.length < 2) return null;
-    return {
-      type: 'FeatureCollection',
-      features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: passed } }],
+  // Passed slice source — mounted (empty) whenever there's a route, so the imperative
+  // updates always have a target.
+  const passedPathGeoJSON = useMemo<GeoJSON.FeatureCollection | null>(
+    () => (progressPath && !hasZoneSegments ? EMPTY_FEATURE_COLLECTION : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [progressRouteKey, hasZoneSegments],
+  );
+
+  const targetAlongRef = useRef<number | null>(null);
+  const shownAlongRef = useRef<number | null>(null);
+  const progressRafRef = useRef<number | null>(null);
+
+  /** Push the split at `alongM` to both sources; false when they aren't mounted yet. */
+  const applyProgressSplit = (alongM: number): boolean => {
+    const rawMap = mapRef.current?.getMap?.() as (mapboxgl.Map | undefined);
+    if (!rawMap || !progressPath || !progressCum) return false;
+    const ghostSrc = rawMap.getSource('ghost-path') as mapboxgl.GeoJSONSource | undefined;
+    if (!ghostSrc) return false;
+    const { passed, ahead } = splitPathAtMeters(progressPath, progressCum, alongM);
+    ghostSrc.setData(lineFC(ahead));
+    if (!hasZoneSegments) {
+      (rawMap.getSource('route-passed') as mapboxgl.GeoJSONSource | undefined)?.setData(lineFC(passed));
+    }
+    return true;
+  };
+  const applyProgressSplitRef = useRef(applyProgressSplit);
+  applyProgressSplitRef.current = applyProgressSplit;
+
+  const kickProgressAnim = () => {
+    if (progressRafRef.current != null) return;
+    let last = performance.now();
+    let lastApplied = 0;
+    let frames = 0;
+    const step = (now: number) => {
+      frames += 1;
+      const target = targetAlongRef.current;
+      if (target == null || frames > 600) { progressRafRef.current = null; return; }
+      const shown = shownAlongRef.current;
+      const next = shown == null ? target : easeAlong(shown, target, now - last);
+      last = now;
+      const settled = next === target;
+      if (settled || now - lastApplied >= 80) {
+        if (!applyProgressSplitRef.current(next)) {
+          // Sources not mounted yet — retry next frame without advancing.
+          progressRafRef.current = requestAnimationFrame(step);
+          return;
+        }
+        lastApplied = now;
+        shownAlongRef.current = next;
+        if (settled) { progressRafRef.current = null; return; }
+      } else {
+        shownAlongRef.current = next;
+      }
+      progressRafRef.current = requestAnimationFrame(step);
     };
+    progressRafRef.current = requestAnimationFrame(step);
+  };
+
+  // Route change / workout start or end: restore (remount mid-workout) or reset.
+  useEffect(() => {
+    if (progressRafRef.current != null) cancelAnimationFrame(progressRafRef.current);
+    progressRafRef.current = null;
+    if (!progressRouteKey) {
+      targetAlongRef.current = null;
+      shownAlongRef.current = null;
+      if (!isActiveWorkout) persistedRouteProgress = null;
+      return;
+    }
+    const saved = persistedRouteProgress?.key === progressRouteKey ? persistedRouteProgress.alongM : null;
+    targetAlongRef.current = saved;
+    shownAlongRef.current = null; // first apply jumps straight to the restored value
+    if (saved != null) kickProgressAnim();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActiveWorkout, hasZoneSegments, focusedRoute?.id, focusedRoute?.path, ghostPathGeoJSON]);
+  }, [progressRouteKey, isActiveWorkout]);
+
+  // Every position fix advances the target (monotonic); the RAF loop eases the line to it.
+  useEffect(() => {
+    if (!progressPath || !progressCum || !progressRouteKey || !isFiniteLatLng(currentLocation)) return;
+    const next = advanceRouteProgress(targetAlongRef.current, currentLocation!, progressPath, progressCum);
+    if (next == null || next === targetAlongRef.current) return;
+    targetAlongRef.current = next;
+    persistedRouteProgress = { key: progressRouteKey, alongM: next };
+    kickProgressAnim();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentLocation?.lat, currentLocation?.lng, progressCum]);
+
+  useEffect(() => () => {
+    if (progressRafRef.current != null) cancelAnimationFrame(progressRafRef.current);
+  }, []);
 
   // ── Start-experience radius ring GeoJSON ──────────────────────────────────
   // Rounded to 4 decimal degrees (~11 m) so this only recomputes — and the
