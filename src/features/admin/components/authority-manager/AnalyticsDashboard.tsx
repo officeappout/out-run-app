@@ -653,7 +653,7 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
         {/* WHO 150-Min Tracker */}
         <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-bold text-gray-600">יעד WHO 150 דק'/שבוע</span>
+            <span className="text-sm font-bold text-gray-600">יעד ארגון הבריאות העולמי: 150 דק׳ בשבוע</span>
             <Target size={20} className="text-blue-600" />
           </div>
           {whoTracker ? (
@@ -682,7 +682,7 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
           <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <Target size={20} className="text-indigo-600" />
-              <h3 className="text-lg font-black text-gray-900">עמידה בתקן WHO הרשמי (2 תנאים)</h3>
+              <h3 className="text-lg font-black text-gray-900">עמידה בהמלצת ארגון הבריאות העולמי (2 תנאים)</h3>
             </div>
             <span className="text-xs text-gray-400 font-semibold">
               שבוע נוכחי · {whoCompliance.currentWeek.start.toLocaleDateString('he-IL')}–{whoCompliance.currentWeek.end.toLocaleDateString('he-IL')}
@@ -1090,7 +1090,7 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
         <div className="bg-white rounded-2xl border border-gray-200 p-6" dir="rtl">
           <div className="flex items-center gap-2 mb-4">
             <Target size={20} className="text-indigo-600" />
-            <h3 className="text-lg font-black text-gray-900">מגמת עמידה בתקן WHO — {whoComplianceTrend.length} שבועות אחרונים</h3>
+            <h3 className="text-lg font-black text-gray-900">מגמת עמידה בהמלצת ארגון הבריאות העולמי — {whoComplianceTrend.length} שבועות אחרונים</h3>
           </div>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={whoComplianceTrend}>
@@ -1107,7 +1107,7 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
                 dataKey="percentageCompliant"
                 stroke="#4F46E5"
                 strokeWidth={3}
-                name="עומדים בתקן WHO (%)"
+                name="עומדים בהמלצת ארגון הבריאות העולמי (%)"
                 dot={{ fill: '#4F46E5', r: 4 }}
               />
             </LineChart>

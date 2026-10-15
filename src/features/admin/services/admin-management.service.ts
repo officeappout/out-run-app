@@ -11,6 +11,8 @@ import {
   query,
   where,
   orderBy,
+  arrayRemove,
+  deleteField,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getUserFromFirestore, saveUserToFirestore } from '@/lib/firestore.service';
@@ -306,6 +308,77 @@ export async function promoteToSuperAdmin(
     console.error('Error promoting user to super admin:', error);
     throw error;
   }
+}
+
+/**
+ * Remove EVERY panel-admin role from a user — the replacement for both
+ * "הסר הרשאות" (which only cleared isSuperAdmin, so vertical admins, system
+ * admins, chief officers, tenant owners and team members kept their access
+ * while the screen showed success) and "מחק מנהל" (which deleted the whole
+ * users/{uid} document — the person's app profile — and orphaned the Auth
+ * account). Audit 15.10.2026.
+ *
+ * Clears: isSuperAdmin, isSystemAdmin (+ role 'system_admin'), isVerticalAdmin
+ * + managedVertical, isReadinessChiefOfficer, isTenantOwner, allowedSections,
+ * teamRole, isApproved; and removes the uid from every authority's managerIds.
+ * Deliberately NOT touched: core.tenantId / core.unitId — regular members
+ * carry them too (unit membership, /api/units/declare); a unit admin's role is
+ * removed from that unit's page. The app profile and the account stay intact.
+ * Root admins (email-based) can't be revoked here — the UI never offers it.
+ */
+export async function revokeAllAdminAccess(
+  userId: string,
+  adminInfo?: { adminId: string; adminName: string }
+): Promise<{ authoritiesUpdated: number }> {
+  const userDocRef = doc(db, USERS_COLLECTION, userId);
+  const userDoc = await getDoc(userDocRef);
+  if (!userDoc.exists()) throw new Error('User not found');
+
+  const core = (userDoc.data()?.core ?? {}) as Record<string, unknown>;
+  const userName = (core.name as string) || userId;
+  const before = {
+    isSuperAdmin: core.isSuperAdmin === true,
+    isSystemAdmin: core.isSystemAdmin === true || core.role === 'system_admin',
+    isVerticalAdmin: core.isVerticalAdmin === true,
+    managedVertical: core.managedVertical ?? null,
+    isReadinessChiefOfficer: core.isReadinessChiefOfficer === true,
+    isTenantOwner: core.isTenantOwner === true,
+    allowedSections: Array.isArray(core.allowedSections) ? core.allowedSections : [],
+    teamRole: core.teamRole ?? null,
+    isApproved: core.isApproved === true,
+  };
+
+  await updateDoc(userDocRef, {
+    'core.isSuperAdmin': false,
+    'core.isSystemAdmin': false,
+    ...(core.role === 'system_admin' ? { 'core.role': deleteField() } : {}),
+    'core.isVerticalAdmin': false,
+    'core.managedVertical': deleteField(),
+    'core.isReadinessChiefOfficer': false,
+    'core.isTenantOwner': false,
+    'core.allowedSections': [],
+    'core.teamRole': deleteField(),
+    'core.isApproved': false,
+    updatedAt: new Date(),
+  });
+
+  // authority manager = being listed on an authority
+  const managed = await getDocs(query(collection(db, 'authorities'), where('managerIds', 'array-contains', userId)));
+  await Promise.all(managed.docs.map((a) => updateDoc(a.ref, { managerIds: arrayRemove(userId) })));
+
+  if (adminInfo) {
+    await logAction({
+      adminId: adminInfo.adminId,
+      adminName: adminInfo.adminName,
+      actionType: 'UPDATE',
+      targetEntity: 'Admin',
+      targetId: userId,
+      details: `Removed all admin access from "${userName}" (and from ${managed.size} authorit${managed.size === 1 ? 'y' : 'ies'} as manager)`,
+      oldValue: { ...before, managerOf: managed.docs.map((a) => a.id) },
+      newValue: { allAdminRoles: false },
+    });
+  }
+  return { authoritiesUpdated: managed.size };
 }
 
 /**

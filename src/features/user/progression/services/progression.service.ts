@@ -77,7 +77,8 @@ import { getProgramLevelSetting } from '@/features/content/programs/core/program
 import { getExercise, getAllExercisesNoOrder } from '@/features/content/exercises/core/exercise.service';
 import type { Exercise } from '@/features/content/exercises/core/exercise.types';
 import type { LevelGoal } from '@/types/workout';
-import { getUserAccessLevel } from '../../identity/services/access-control.service';
+import { getUserAccessLevel, hasAssessedStrengthDomain } from '../../identity/services/access-control.service';
+import { readFeatureFlagOnce } from '@/lib/feature-flag-once';
 /**
  * Progression v2 Phase 2 — deliberate cross-domain reuse of progression-map's
  * gating logic, NOT a Law 7 violation-by-oversight: Phase 1 built
@@ -2088,6 +2089,34 @@ async function processBottomUpMasterCompletion(
  * @param data - Workout completion data
  * @returns Promise<WorkoutCompletionResult>
  */
+/**
+ * G8.2: the result for a strength workout by a user with no questionnaire result. success is
+ * true (nothing failed — a false here would make the summary's fallback retry), zero gains,
+ * nothing written.
+ */
+function skippedNoQuestionnaireResult(programId: string): WorkoutCompletionResult {
+  return {
+    success: true,
+    skipped: 'no_questionnaire',
+    activeProgramGain: {
+      programId,
+      baseGain: 0,
+      bonusGain: 0,
+      goalBonusGain: 0,
+      masteryBonusGain: 0,
+      totalGain: 0,
+      newPercent: 0,
+      leveledUp: false,
+    },
+    linkedProgramGains: [],
+    volumeBreakdown: { setsPerformed: 0, requiredSets: 0, volumeRatio: 0, isFullVolume: false },
+    sessionCompletionPercent: 0,
+    goalProgress: [],
+    muscleGroupProgress: [],
+    trackWriteSucceeded: true,
+  };
+}
+
 export async function processWorkoutCompletion(
   data: WorkoutCompletionData
 ): Promise<WorkoutCompletionResult> {
@@ -2104,7 +2133,18 @@ export async function processWorkoutCompletion(
     
     const userData = userDoc.data() as UserFullProfile;
     const progression = userData.progression;
-    
+
+    // G8.2 (flag enable_no_auto_strength_level, fail-closed): a user with no questionnaire result
+    // never gets a strength level. Without this, a missing track defaults to level 1
+    // (getDefaultTrackProgress) and — via the callers' 'full_body' default — the bottom-up master
+    // flow writes full_body + push/pull/legs/core at L1, which hasAssessedStrengthDomain then
+    // reads as "assessed". Skip every level/track write; workout history (saveExerciseHistory)
+    // and XP (awardWorkoutXP) are separate calls and stay untouched.
+    if (!hasAssessedStrengthDomain(userData) && (await readFeatureFlagOnce('enable_no_auto_strength_level'))) {
+      console.log('[Progression] G8.2: no questionnaire result — level/track writes skipped (enable_no_auto_strength_level).');
+      return skippedNoQuestionnaireResult(activeProgramId);
+    }
+
     // Ensure tracks are initialized
     ensureTracksInitialized(progression);
 
