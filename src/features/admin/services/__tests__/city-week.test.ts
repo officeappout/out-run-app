@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeCityWeek } from '../city-week';
+import { computeCityWeek, computeParkActivity } from '../city-week';
 
 const NOW = new Date('2026-10-15T12:00:00Z');
 const daysAgo = (n: number) => new Date(NOW.getTime() - n * 24 * 60 * 60 * 1000);
@@ -43,5 +43,22 @@ describe('computeCityWeek', () => {
   });
   it('open reports, how many over a week, and the oldest', () => {
     expect(r.reports).toEqual({ open: 2, olderThanWeek: 1, oldestDays: 12 });
+  });
+});
+
+describe('computeParkActivity', () => {
+  it('visits in 30 days, the latest visit ever, open reports per park', () => {
+    const a = computeParkActivity(
+      [
+        { parkId: 'p1', at: daysAgo(2) }, { parkId: 'p1', at: daysAgo(40) },
+        { parkId: 'p2', at: daysAgo(45) },
+      ],
+      [{ parkId: 'p2' }, { parkId: 'p2' }, { parkId: 'p3' }, { parkId: '' }],
+      NOW,
+    );
+    expect(a.p1).toEqual({ visits30d: 1, lastVisit: daysAgo(2).toISOString(), openReports: 0 });
+    expect(a.p2).toEqual({ visits30d: 0, lastVisit: daysAgo(45).toISOString(), openReports: 2 });
+    expect(a.p3).toEqual({ visits30d: 0, lastVisit: null, openReports: 1 });
+    expect(a['']).toBeUndefined();
   });
 });
