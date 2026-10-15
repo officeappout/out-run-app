@@ -2,6 +2,8 @@
 
 export const dynamic = 'force-dynamic';
 
+import { adminAuthedFetch } from '@/lib/adminAuthedFetch';
+import type { ParkActivity } from '@/features/admin/services/city-week';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -97,7 +99,7 @@ const URBAN_TYPE_LABELS: Record<string, string> = {
   water_fountain: 'ברזייה', toilets: 'שירותים', parking: 'חנייה', bike_rack: 'אופניים',
 };
 
-type SortKey = 'name' | 'facilityType' | 'status';
+type SortKey = 'name' | 'facilityType' | 'status' | 'attention' | 'activity';
 
 function statusBadge(park: Park, isSuperView = false) {
   const isPublished = park.published === true || park.contentStatus === 'published';
@@ -137,9 +139,24 @@ export default function AuthorityLocationsPage() {
 
   const [activeTab, setActiveTab]     = useState<LocationTab>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortKey, setSortKey]         = useState<SortKey>('name');
+  // operational view first (audit 15.10.2026): broken, then quiet parks on top
+  const [sortKey, setSortKey]         = useState<SortKey>('attention');
+  const [activity, setActivity]       = useState<Record<string, ParkActivity> | null>(null);
+  const [activityError, setActivityError] = useState(false);
   const [sortAsc, setSortAsc]         = useState(true);
   const [detailParkId, setDetailParkId] = useState<string | null>(null);
+
+  // per-park activity + open reports (server — managers can't read sessions directly)
+  useEffect(() => {
+    if (!authorityId) return;
+    let cancelled = false;
+    adminAuthedFetch<{ byPark: Record<string, ParkActivity> }>(`/api/authority-manager/parks-activity?authorityId=${encodeURIComponent(authorityId)}`).then((r) => {
+      if (cancelled) return;
+      if (r.ok) { setActivity(r.data.byPark); setActivityError(false); }
+      else { setActivity(null); setActivityError(true); }
+    });
+    return () => { cancelled = true; };
+  }, [authorityId]);
 
   // ── Load authority + parks ─────────────────────────────────────────
   const loadParks = useCallback(async (aId: string) => {
@@ -253,6 +270,16 @@ export default function AuthorityLocationsPage() {
         case 'facilityType':
           cmp = (a.facilityType || '').localeCompare(b.facilityType || '');
           break;
+        case 'attention': {
+          // more open reports first, then fewer workouts in 30 days (quiet first)
+          const ra = activity?.[a.id]?.openReports ?? 0;
+          const rb = activity?.[b.id]?.openReports ?? 0;
+          cmp = rb - ra || (activity?.[a.id]?.visits30d ?? 0) - (activity?.[b.id]?.visits30d ?? 0);
+          break;
+        }
+        case 'activity':
+          cmp = (activity?.[b.id]?.visits30d ?? 0) - (activity?.[a.id]?.visits30d ?? 0);
+          break;
         case 'status': {
           const aPublished = a.published === true || a.contentStatus === 'published';
           const bPublished = b.published === true || b.contentStatus === 'published';
@@ -264,7 +291,7 @@ export default function AuthorityLocationsPage() {
     });
 
     return list;
-  }, [parks, activeTab, searchQuery, sortKey, sortAsc]);
+  }, [parks, activeTab, searchQuery, sortKey, sortAsc, activity]);
 
   // ── Category counts for summary cards ──────────────────────────────
   const counts = useMemo(() => {
@@ -463,6 +490,18 @@ export default function AuthorityLocationsPage() {
                       <ArrowUpDown size={12} className={sortKey === 'facilityType' ? 'text-cyan-500' : 'text-gray-300'} />
                     </button>
                   </th>
+                  <th className="px-5 py-4">
+                    <button onClick={() => handleSort('activity')} className="flex items-center gap-1 hover:text-gray-700 transition-colors">
+                      אימונים · 30 יום
+                      <ArrowUpDown size={12} className={sortKey === 'activity' ? 'text-cyan-500' : 'text-gray-300'} />
+                    </button>
+                  </th>
+                  <th className="px-5 py-4">
+                    <button onClick={() => handleSort('attention')} className="flex items-center gap-1 hover:text-gray-700 transition-colors">
+                      תקלות פתוחות
+                      <ArrowUpDown size={12} className={sortKey === 'attention' ? 'text-cyan-500' : 'text-gray-300'} />
+                    </button>
+                  </th>
                   <th className="px-5 py-4">תגיות / פרטים</th>
                   <th className="px-5 py-4">
                     <button onClick={() => handleSort('status')} className="flex items-center gap-1 hover:text-gray-700 transition-colors">
@@ -540,6 +579,39 @@ export default function AuthorityLocationsPage() {
                           </span>
                         ) : (
                           <span className="text-xs text-gray-400">לא מסווג</span>
+                        )}
+                      </td>
+
+                      {/* Activity in 30 days (+ last visit) */}
+                      <td className="px-5 py-4 tabular-nums">
+                        {activity ? (() => {
+                          const act = activity[park.id];
+                          const v = act?.visits30d ?? 0;
+                          return (
+                            <div className="flex flex-col">
+                              <span className={`text-sm font-bold ${v === 0 ? 'text-amber-600' : 'text-gray-900'}`}>{v === 0 ? 'אין פעילות' : v.toLocaleString('he-IL')}</span>
+                              {act?.lastVisit && (
+                                <span className="text-[11px] text-gray-400">אחרון: {new Date(act.lastVisit).toLocaleDateString('he-IL')}</span>
+                              )}
+                            </div>
+                          );
+                        })() : (
+                          <span className="text-xs text-gray-400">{activityError ? 'לא נטען' : '…'}</span>
+                        )}
+                      </td>
+
+                      {/* Open maintenance reports */}
+                      <td className="px-5 py-4 tabular-nums">
+                        {activity ? (
+                          (activity[park.id]?.openReports ?? 0) > 0 ? (
+                            <a href="/admin/authority/reports" className="text-xs font-bold px-2.5 py-1 rounded-full bg-red-50 text-red-700 hover:bg-red-100">
+                              {activity[park.id].openReports} פתוחות
+                            </a>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )
+                        ) : (
+                          <span className="text-xs text-gray-400">{activityError ? 'לא נטען' : '…'}</span>
                         )}
                       </td>
 
