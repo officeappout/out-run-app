@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Dumbbell } from 'lucide-react';
 import { DotLottieReact, setWasmUrl } from '@lottiefiles/dotlottie-react';
@@ -57,6 +57,8 @@ import { REST_EXTEND_SECONDS } from '../logic/player-controls.utils';
  */
 
 const REST_ANIMATION_SRC = '/assets/animations/sloth-rest.lottie';
+/** PR-B1 guided: how long the auto-expanded next-exercise tile stays open. */
+export const REST_PREVIEW_AUTO_COLLAPSE_MS = 4000;
 
 // Self-hosted WASM engine — same file AnimatedFlame.tsx points at. Idempotent
 // and cheap; must be called from this module's own top level too since the
@@ -80,6 +82,9 @@ export interface RestScreenProps {
   onSkip?: () => void;
   /** "+15 שנ׳" — extend the current rest. Omit to hide (tabata keeps its fixed protocol rest). */
   onExtend?: () => void;
+  /** PR-B1 guided: the next-exercise tile starts EXPANDED and collapses after
+   *  REST_PREVIEW_AUTO_COLLAPSE_MS, through the same toggle the user taps. Omitted → unchanged. */
+  autoExpandPreview?: boolean;
   /** Pre-rendered log-drawer slot. Omit entirely for tabata (no rep logging mid-block). */
   logDrawerNode?: React.ReactNode;
   /** Whether the bottom log drawer is currently open. */
@@ -95,10 +100,19 @@ export default function RestScreen({
   videoKey,
   onSkip,
   onExtend,
+  autoExpandPreview = false,
   logDrawerNode,
   isLogDrawerOpen = false,
 }: RestScreenProps) {
-  const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
+  const [isPreviewExpanded, setIsPreviewExpanded] = useState(autoExpandPreview);
+  // Guided: expand on every new rest (videoKey changes per next exercise), collapse after ~4s.
+  // A user tap in between still toggles freely; the timer only ever collapses.
+  useEffect(() => {
+    if (!autoExpandPreview) return;
+    setIsPreviewExpanded(true);
+    const t = setTimeout(() => setIsPreviewExpanded(false), REST_PREVIEW_AUTO_COLLAPSE_MS);
+    return () => clearTimeout(t);
+  }, [autoExpandPreview, videoKey]);
   const [posterFailed, setPosterFailed] = useState(false);
   // Session-wide mute for countdown beeps (and later voice) — see player-audio-mute.ts.
   const audioMuted = usePlayerAudioMute((st) => st.muted);

@@ -41,6 +41,14 @@ import StationCompleteScreen from './StationCompleteScreen';
 import ExerciseReplacementModal from '@/features/workout-engine/players/strength/components/ExerciseReplacementModal';
 import { useUserStore } from '@/features/user';
 import type { Park } from '@/features/parks/core/types/park.types';
+import StationWelcomeScreen from './StationWelcomeScreen';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import {
+  readGuidedSettings, resolveGuidedMode, isCompletedStation, shouldShowFastPrompt,
+} from './guided-station';
+import {
+  recordGuidedStationCompleted, markFastPromptAsked, setGuidedStationChoice,
+} from './guided-station.service';
 
 const ACCENT = '#00ADEF';
 // G3.1 fix: how long the start-of-walk intro stays up before auto-dismissing
@@ -68,6 +76,34 @@ export default function HybridStationLayer() {
   } | null>(null);
   const finishHybrid = useHybridRun((s) => s.finishHybrid);
   const lastPosition = useRunningPlayer((s) => s.lastPosition);
+
+  // ── PR-B1 guided layer ("ליווי צעד-אחר-צעד") ─────────────────────────────
+  // Kill-switch (remote flag, fail-open) off → fast mode for everyone. Otherwise the user's
+  // explicit setting wins; unset → ON. Fast mode = exactly today's station (PR-A).
+  const { flags } = useFeatureFlags();
+  const guidedSettings = readGuidedSettings(profile);
+  const guided = resolveGuidedMode(guidedSettings.guidedStation, flags.enableGuidedStation);
+  const userGender = (profile?.core?.gender ?? 'male') as 'male' | 'female' | 'other';
+  // Welcome screen dismissed for station N (keyed by station number so it re-shows per station).
+  const [welcomeDoneFor, setWelcomeDoneFor] = useState<number | null>(null);
+  // Station number whose completion screen should carry the one-time switch-to-fast prompt.
+  const [fastPromptFor, setFastPromptFor] = useState<number | null>(null);
+
+  const handleStationWorkDone = (exerciseLog: ReturnType<typeof toSegmentExerciseDetail>) => {
+    // Count only COMPLETED guided stations (≥1 logged set) — never skipped / empty exits.
+    if (guided && isCompletedStation(exerciseLog)) {
+      const count = recordGuidedStationCompleted();
+      // The prompt lives on the station-complete screen, which only non-final stations get.
+      // Mark "asked" only when it's really shown, so a final-station 2nd completion still
+      // gets the offer at the next opportunity.
+      if (stationContext && !stationContext.isFinalStation
+          && shouldShowFastPrompt(true, count, guidedSettings.guidedFastPromptAsked)) {
+        markFastPromptAsked();
+        setFastPromptFor(stationContext.stationNumber);
+      }
+    }
+    finishStationWork(exerciseLog);
+  };
 
   // Station-approach moment (David, 25.09.2026): real GPS distance to the
   // upcoming station's actual coordinates, gated by an activity-type speed
@@ -134,6 +170,20 @@ export default function HybridStationLayer() {
             summary={pendingStationComplete}
             context={stationContext}
             onContinue={continueAfterStation}
+            fastPrompt={
+              stationContext && fastPromptFor === stationContext.stationNumber
+                ? { onAccept: () => setGuidedStationChoice(false) }
+                : undefined
+            }
+          />
+        ) : guided && stationContext && welcomeDoneFor !== stationContext.stationNumber ? (
+          // PR-B1 guided: welcome-to-the-station BEFORE StrengthRunner mounts (i.e. before
+          // its PREPARING countdown). Fast mode never takes this branch.
+          <StationWelcomeScreen
+            plan={stationPlan}
+            context={stationContext}
+            gender={userGender}
+            onStart={() => setWelcomeDoneFor(stationContext.stationNumber)}
           />
         ) : (
         <StrengthRunner
@@ -145,7 +195,9 @@ export default function HybridStationLayer() {
           // uses, so both paths persist an identical shape. G2.4: routed via
           // finishStationWork — final station → completeStation (unchanged),
           // otherwise the completion screen first.
-          onComplete={(exerciseLog) => finishStationWork(toSegmentExerciseDetail(exerciseLog ?? []))}
+          onComplete={(exerciseLog) => handleStationWorkDone(toSegmentExerciseDetail(exerciseLog ?? []))}
+          // PR-B1: guidance lines + rest-tile auto-expand (guided only; fast = unchanged).
+          guided={guided}
           // G2.4: in-station swap — same modal as the overview / standalone player; the
           // replacement is written into the live station plan (useHybridRun), so it is what
           // StrengthRunner plays and logs from here on.

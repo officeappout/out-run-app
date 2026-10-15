@@ -74,6 +74,8 @@ interface IsometricTimerCardProps {
    * prep and work clocks freeze while this is true and continue from the same second on resume.
    */
   externalPaused?: boolean;
+  /** PR-B1 guided mode: one short line under the exercise name ("ממשיכים עד שהטיימר נגמר"). */
+  guidanceLine?: string;
 }
 
 type Phase = 'idle' | 'preparing' | 'counting' | 'overtime';
@@ -144,6 +146,7 @@ export default function IsometricTimerCard({
   machineTabataLabel = null,
   prepSeconds = PREP_SECONDS,
   externalPaused = false,
+  guidanceLine,
 }: IsometricTimerCardProps) {
   const sideLabel = side === 'right' ? 'צד ימין' : side === 'left' ? 'צד שמאל' : null;
   const [phase, setPhase] = useState<Phase>('idle');
@@ -521,6 +524,14 @@ export default function IsometricTimerCard({
         >
           {exerciseName}
         </p>
+        {guidanceLine && (
+          <p
+            className="text-[13px] font-semibold text-center text-[#007EA8] -mt-3 mb-4"
+            style={{ fontFamily: 'var(--font-simpler)' }}
+          >
+            {guidanceLine}
+          </p>
+        )}
 
         {/* Pause / Reset controls — hidden for tabata: pausing here would
             desync the block's fixed work+rest×rounds clock. */}

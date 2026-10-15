@@ -33,6 +33,7 @@ interface FlagState {
   enable_route_stops: boolean;
   enable_recommended_hybrid: boolean;
   enable_mock_location_panel: boolean;
+  enable_guided_station: boolean;
 }
 
 // ============================================================================
@@ -119,6 +120,14 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-orange-500',
     title: 'כלי מיקום מדומה (🧪)',
     description: 'כרטיס/פאנל override מיקום במפה (בחירת עיר או קואורדינטות ידניות) — פתוח לבדיקות זמנית, כיבוי מיידי מכאן ללא deploy. הבאנר וחסימת ההפעלה בזמן אימון תמיד פעילים, ללא קשר לדגל זה.',
+  },
+  {
+    key: 'enable_guided_station',
+    icon: ListChecks,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-500',
+    title: 'ליווי צעד-אחר-צעד בתחנה',
+    description: 'מתג חירום: כבוי = כל המשתמשים במצב מהיר (תחנה כמו היום). דלוק = לפי הבחירה של כל משתמש בהגדרות (ברירת מחדל דלוק).',
   },
 ];
 

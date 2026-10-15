@@ -57,6 +57,8 @@ export interface RestingStateViewProps {
   onSkipRest: () => void;
   /** "+15 שנ׳" — extend the current rest. */
   onExtendRest?: () => void;
+  /** PR-B1 guided: next-exercise tile starts expanded, collapses after ~4s. */
+  autoExpandPreview?: boolean;
   /** Dismiss-hint action (close × button + always fires before onSwap). */
   onDismissHint: () => void;
   /** Optional swap-exercise CTA (only shown alongside "fail" coach hint). */
@@ -78,6 +80,7 @@ export default function RestingStateView({
   totalRounds,
   onSkipRest,
   onExtendRest,
+  autoExpandPreview,
   onDismissHint,
   onSwap,
 }: RestingStateViewProps) {
@@ -99,6 +102,7 @@ export default function RestingStateView({
         isLogDrawerOpen={isLogDrawerOpen}
         onSkip={onSkipRest}
         onExtend={onExtendRest}
+        autoExpandPreview={autoExpandPreview}
         isPaused={isPaused}
         videoKey={videoKey}
         fadeIn={fadeIn}

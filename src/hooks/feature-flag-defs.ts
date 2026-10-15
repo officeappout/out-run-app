@@ -72,6 +72,14 @@ export const FLAG_DEFS = [
   // must hold for his own account too, not just everyone else's. Normal
   // fail-closed pattern otherwise — this is not a wave-1-style exception.
   { key: 'enableOnboardingTutorialV1', firestoreKey: 'enable_onboarding_tutorial_v1', defaultValue: false, superAdminValue: false },
+  // Guided station layer (PR-B1, 15.10.2026) — KILL-SWITCH, not a launch gate. The guided
+  // "ליווי צעד-אחר-צעד" layer is the default for every user (David's decision); this flag
+  // exists only to turn it OFF globally without a deploy (off = everyone gets fast mode,
+  // i.e. today's production station). Fails OPEN (defaultValue: true) — a deliberate
+  // exception to the fail-closed norm, like the hybrid-slot flags above, for a different
+  // reason: a kill-switch must not itself switch the feature off just because the document
+  // is missing the key or a read failed. superAdminValue: true so admins see what users see.
+  { key: 'enableGuidedStation', firestoreKey: 'enable_guided_station', defaultValue: true, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

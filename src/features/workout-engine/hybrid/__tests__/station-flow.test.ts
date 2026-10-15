@@ -47,7 +47,12 @@ describe('computeStationContext', () => {
 
   it('a station with another station ahead is NOT final, and knows the next park + leg minutes', () => {
     const ctx = computeStationContext(plan, 1, names);
-    expect(ctx).toEqual({ isFinalStation: false, nextStationName: 'פארק המסילה', nextWalkSec: 420, nextLegKind: 'walking', parkId: 'p1' });
+    expect(ctx).toEqual({
+      isFinalStation: false, nextStationName: 'פארק המסילה', nextWalkSec: 420, nextLegKind: 'walking', parkId: 'p1',
+      // B1 welcome screen: "תחנה N מתוך M", park name, planned minutes
+      parkName: 'גינת הדקל', stationNumber: 1, stationTotal: 2, estimatedMin: 10,
+    });
+    expect(computeStationContext(plan, 3, names)).toMatchObject({ stationNumber: 2, stationTotal: 2, parkName: 'פארק המסילה' });
   });
 
   it('the LAST station is final (only a closing leg follows) → no completion screen', () => {

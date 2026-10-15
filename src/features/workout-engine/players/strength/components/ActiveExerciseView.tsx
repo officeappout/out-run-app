@@ -119,6 +119,8 @@ export interface ActiveExerciseViewProps {
   onComplete: (elapsed?: number) => void;
   /** Optional swap-exercise action (renders the "החלפת תרגיל" CTA only when defined). */
   onSwap?: () => void;
+  /** PR-B1 guided mode: one short guidance line (reps card / timer card). Omitted → none. */
+  guidanceLine?: string;
   /** Video-progress callback piped to ExerciseVideoPlayer. */
   onSetVideoProgress?: (progress: number) => void;
 }
@@ -158,6 +160,7 @@ export default function ActiveExerciseView({
   scrollRef,
   onComplete,
   onSwap,
+  guidanceLine,
   onSetVideoProgress,
 }: ActiveExerciseViewProps) {
   // Gate the hidden prefetch <video> until the main video has started loading.
@@ -221,6 +224,7 @@ export default function ActiveExerciseView({
           machineTabataLabel={machineTabataLabel}
           prepSeconds={timerPrepSeconds}
           externalPaused={isPaused}
+          guidanceLine={guidanceLine}
         />
       )}
 
@@ -310,6 +314,16 @@ export default function ActiveExerciseView({
             >
               {exerciseName}
             </p>
+
+            {/* PR-B1 guided: one short guidance line */}
+            {guidanceLine && (
+              <p
+                className="text-[13px] font-semibold text-center text-[#007EA8] mb-2"
+                style={{ fontFamily: 'var(--font-simpler)' }}
+              >
+                {guidanceLine}
+              </p>
+            )}
 
             {/* Superset badge + round counter */}
             {isSupersetActive && supersetPartnerName && (
