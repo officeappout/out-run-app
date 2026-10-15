@@ -191,9 +191,10 @@ export default function DemoSeedPage() {
       setGatingModes(
         Object.fromEntries(results.map((a) => [a.id, a.gatingMode])),
       );
-      // Safety default: only pre-select live-deployment accounts to prevent
-      // accidental writes to all 362 entries on first load.
-      setSelectedAuthorityIds(results.filter((a) => a.isActiveClient).map((a) => a.id));
+      // Safety default: nothing pre-selected. (It used to pre-select every
+      // active client — i.e. exactly the live, paying cities — so one click on
+      // "הפעל דמו מלא" wrote mock users/posts/notifications into them.)
+      setSelectedAuthorityIds([]);
     } catch (err: unknown) {
       setAuthError(err instanceof Error ? err.message : 'שגיאה בטעינת רשויות');
     } finally {
@@ -265,6 +266,9 @@ export default function DemoSeedPage() {
   // ── Gating mode live sync to Firestore ────────────────────────────────────
   const handleGatingModeChange = useCallback(
     async (authorityId: string, newMode: GatingMode) => {
+      // this writes straight to production — confirm first
+      const name = authorities.find((a) => a.id === authorityId)?.name ?? authorityId;
+      if (!window.confirm(`לשנות את מצב הגישה של "${name}" ל-${newMode}? השינוי חל מיד על המשתמשים האמיתיים.`)) return;
       // Optimistic UI update
       setGatingModes((prev) => ({ ...prev, [authorityId]: newMode }));
       setGatingSaveStates((prev) => ({ ...prev, [authorityId]: 'saving' }));
@@ -325,6 +329,15 @@ export default function DemoSeedPage() {
   // ── Seed selected authorities sequentially ────────────────────────────────
   const handleSeed = useCallback(async () => {
     if (selectedAuthorities.length === 0) return;
+    // live cities need an explicit, typed confirmation
+    const live = selectedAuthorities.filter((a) => a.isActiveClient);
+    if (live.length > 0) {
+      const names = live.map((a) => a.name).join(', ');
+      const typed = window.prompt(
+        `נבחרו ${live.length} לקוחות פעילים (${names}). הדמו יכתוב בהם משתמשים, פוסטים והתראות מדומים.\nכדי להמשיך, הקלד: דמו בלקוח פעיל`,
+      );
+      if (typed?.trim() !== 'דמו בלקוח פעיל') return;
+    }
     setSeedPhase('running');
     setCityResults([]);
     setErrorMsg('');
@@ -431,7 +444,7 @@ export default function DemoSeedPage() {
           <code className="text-xs bg-gray-100 px-1 rounded">[דמו]</code>{' '}
           עם{' '}
           <code className="text-xs bg-gray-100 px-1 rounded">isMockData: true</code>.{' '}
-          ברירת המחדל בוחרת רק לקוחות פעילים — הגנה מפני הצפת כלל הרשויות במערכת.
+          שום רשות לא נבחרת מראש. הרצה על לקוח פעיל דורשת אישור מוקלד.
         </p>
       </div>
 

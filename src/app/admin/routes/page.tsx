@@ -658,6 +658,8 @@ export default function AdminRouteManager() {
     // ── Inventory: Bulk approve/reject/tag selected (Stage 2.3) ──────────
     const handleBulkApproveSelected = useCallback(async () => {
         if (selectedRouteIds.size === 0) return;
+        // publishing is visible to every user — ask, like the (reversible) reject does
+        if (!confirm(`לאשר ולפרסם ${selectedRouteIds.size} מסלולים? הם יופיעו מיד באפליקציה לכל המשתמשים.`)) return;
         setIsBulkApproving(true);
         try {
             const count = await InventoryService.bulkApproveRoutes(Array.from(selectedRouteIds));

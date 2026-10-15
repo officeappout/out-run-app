@@ -397,6 +397,8 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
     if (!selectedNotification || !currentUserId || !encouragementTitle || !encouragementMessage) {
       return;
     }
+    // a push to every resident of the city can't be taken back — show what goes out first
+    if (!confirm(`לשלוח התראה לכל התושבים הרשומים ברשות?\n\n${encouragementTitle}\n${encouragementMessage}`)) return;
 
     setSendingPush(true);
     try {

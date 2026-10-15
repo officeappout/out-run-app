@@ -20,7 +20,8 @@ import {
   limit,
   getCountFromServer,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
+import { isRootAdmin } from '@/config/feature-flags';
 import {
   Plus, Edit2, Trash2, Save, X, MessageSquareQuote, Target, Heart, BarChart3,
   Bell, Eye, Upload, Download, AlertTriangle, ShieldAlert,
@@ -3373,7 +3374,9 @@ export default function WorkoutSettingsPage() {
 
       {/* ================================================================== */}
       {/* DANGER ZONE — Clean Slate                                          */}
+      {/* (OUT root admins only — any marketing-section member could open it) */}
       {/* ================================================================== */}
+      {isRootAdmin(auth.currentUser?.email) && (
       <div className="mt-12 border-2 border-red-200 rounded-2xl bg-red-50/50 p-6">
         <div className="flex items-center gap-3 mb-4">
           <ShieldAlert size={24} className="text-red-600" />
@@ -3407,6 +3410,7 @@ export default function WorkoutSettingsPage() {
           </button>
         </div>
       </div>
+      )}
 
       {/* ================================================================== */}
       {/* GLOBAL NOTIFICATION SETTINGS                                        */}

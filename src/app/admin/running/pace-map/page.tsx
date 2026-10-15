@@ -35,6 +35,9 @@ export default function PaceMapConfigPage() {
   const [config, setConfig] = useState<PaceMapConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  // the live config couldn't be read: we show defaults for reference only and
+  // block saving, so the defaults can never overwrite the real global map
+  const [loadFailed, setLoadFailed] = useState(false);
   const [previewBasePace, setPreviewBasePace] = useState(330); // 5:30
   const [activeTab, setActiveTab] = useState<typeof PROFILE_KEYS[number]>('profileFast');
 
@@ -43,9 +46,11 @@ export default function PaceMapConfigPage() {
     try {
       const c = await getPaceMapConfig();
       setConfig(c);
+      setLoadFailed(false);
     } catch (err) {
       console.error(err);
       setConfig(DEFAULT_PACE_MAP_CONFIG);
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -71,7 +76,8 @@ export default function PaceMapConfigPage() {
   };
 
   const handleSave = async () => {
-    if (!config) return;
+    if (!config || loadFailed) return;
+    if (!confirm('לשמור את מפת הקצבים? השינוי חל מיד על כל הרצים באפליקציה.')) return;
     setSaving(true);
     try {
       const ok = await savePaceMapConfig(config);
@@ -116,13 +122,25 @@ export default function PaceMapConfigPage() {
         </div>
         <button
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || loadFailed}
+          title={loadFailed ? 'המפה הנוכחית לא נטענה — אי אפשר לשמור' : undefined}
           className="flex items-center gap-2 px-6 py-3 bg-cyan-500 text-white rounded-xl font-bold hover:bg-cyan-600 disabled:opacity-50"
         >
           {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
           {saving ? 'שומר...' : 'שמור'}
         </button>
       </div>
+
+      {loadFailed && (
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <span>
+            לא הצלחנו לטעון את מפת הקצבים הנוכחית. מוצגים ערכי ברירת מחדל לעיון בלבד, והשמירה חסומה כדי לא לדרוס את המפה האמיתית.
+          </span>
+          <button onClick={loadConfig} className="shrink-0 rounded-lg bg-white px-3 py-1.5 font-bold text-red-700 border border-red-200 hover:bg-red-100">
+            נסה שוב
+          </button>
+        </div>
+      )}
 
       {/* Preview base pace input */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
