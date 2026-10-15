@@ -110,7 +110,8 @@ describe('order: find → gate → set', () => {
 });
 
 describe('replacement modal filtering — stations only', () => {
-  const ex = (id: string, methods: Array<Record<string, unknown>>) => ({ exercise: { id, execution_methods: methods } });
+  const ex = (id: string, methods: Array<Record<string, unknown>>): { exercise: { id: string; execution_methods: Array<Record<string, unknown>> }; selectedExecutionMethod?: unknown } =>
+    ({ exercise: { id, execution_methods: methods } });
   const options = [
     ex('rows-on-bar', [{ location: 'park', equipmentIds: ['pullup_bar'] }]),
     ex('ring-rows', [{ location: 'park', equipmentIds: ['rings'] }]),
