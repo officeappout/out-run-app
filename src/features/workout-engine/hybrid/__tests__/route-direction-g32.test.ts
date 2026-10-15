@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
-import { detectWalkDirection, isFlippableLoop, pointAlong, type LngLat } from '../route-direction';
+import { computeStartArrow, detectWalkDirection, isFlippableLoop, pointAlong, type LngLat } from '../route-direction';
 import { reverseHybridSegments } from '../reverse-plan';
 import type { HybridPlannedSegment } from '../compose-hybrid-session.service';
 import { FLAG_DEFS } from '@/hooks/feature-flag-defs';
@@ -48,6 +48,39 @@ describe('only a real loop is flipped', () => {
   });
 });
 
+describe('start arrow → toward the first stop (every route shape)', () => {
+  // one_way, straight north 0 → 600 m. North = bearing 0, south = 180.
+  const oneWay: LngLat[] = [pt(0), pt(200), pt(400), pt(600)];
+  const near = (b: number, want: number) => Math.min(Math.abs(b - want), 360 - Math.abs(b - want)) < 5;
+
+  it('joined mid-line, first stop ahead → anchored at the user, pointing along the line to it', () => {
+    const a = computeStartArrow(oneWay, at(300, 15), at(500))!;
+    expect(a.lat).toBeCloseTo(at(300).lat, 4);
+    expect(a.lng).toBeCloseTo(at(300).lng, 4);
+    expect(near(a.bearing, 0)).toBe(true);
+  });
+  it('joined past the first stop (one_way, never flipped) → arrow points back along the line', () => {
+    const a = computeStartArrow(oneWay, at(300), at(100))!;
+    expect(near(a.bearing, 180)).toBe(true);
+  });
+  it('no start fix yet → anchored at the route start', () => {
+    const a = computeStartArrow(oneWay, null, at(500))!;
+    expect(a.lat).toBeCloseTo(at(0).lat, 5);
+    expect(near(a.bearing, 0)).toBe(true);
+  });
+  it('first stop without coordinates (full-park) → forward along the route', () => {
+    expect(near(computeStartArrow(oneWay, at(300), null)!.bearing, 0)).toBe(true);
+  });
+  it('loop: start at the closing point → the START is kept, pointing to the first stop', () => {
+    const a = computeStartArrow(loop, at(0), at(200, 100))!; // first stop on the 2nd side
+    expect(a.lat).toBeCloseTo(at(0).lat, 4);
+    expect(near(a.bearing, 0)).toBe(true);
+  });
+  it('degenerate path → no arrow', () => {
+    expect(computeStartArrow([pt(0)], null, null)).toBeNull();
+  });
+});
+
 describe('plan reversal = pure list reversal', () => {
   const seg = (o: Partial<HybridPlannedSegment>) => ({ estCalories: 10, ...o } as HybridPlannedSegment);
   const plan = [
@@ -91,8 +124,8 @@ describe('wiring', () => {
     expect(hook).toContain("showToast('success', routeFlippedToast(gender));");
   });
   it('start arrow during the live walk + TurnCarousel remounts on a flip', () => {
-    expect(src('../../../parks/core/components/AppMap.tsx')).toContain('{isActiveWorkout && startDirectionArrow && startArrowGeoJSON && (');
-    expect(src('../../../../app/map/layers/FreeRunLayer.tsx')).toContain('startDirectionArrow={showStartArrow}');
+    expect(src('../../../parks/core/components/AppMap.tsx')).toContain('{isActiveWorkout && startArrowGeoJSON && (');
+    expect(src('../../../../app/map/layers/FreeRunLayer.tsx')).toContain('startDirectionArrow={startArrow}');
     expect(src('../../../../app/map/MapShell.tsx')).toContain('key={`${logic.focusedRoute.path.length}:${String(logic.focusedRoute.path[1])}`}');
   });
   it('fail-closed flag', () => {
