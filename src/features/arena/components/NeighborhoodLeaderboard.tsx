@@ -471,11 +471,7 @@ export default function NeighborhoodLeaderboard({
   const [localMode, setLocalMode]               = useState<LeaderboardMode>('general');
   const [runSegment, setRunSegment]             = useState<RunSegment>('all');
   const [strengthProgramId, setStrengthProgram] = useState<string | null>(null);
-  const [openDropdown, setOpenDropdown]         = useState<OpenDropdown>(null);
   const [programs, setPrograms]                 = useState<Program[]>([]);
-  const [showInvite, setShowInvite]             = useState(false);
-  const [filterSheetOpen, setFilterSheetOpen]   = useState(false);
-  const filterRef = useRef<HTMLDivElement>(null);
 
   // Load non-master strength programs (only once)
   useEffect(() => {
@@ -490,22 +486,10 @@ export default function NeighborhoodLeaderboard({
     return () => { cancelled = true; };
   }, []);
 
-  // Click outside collapses any open dropdown
-  useEffect(() => {
-    function onMouseDown(e: MouseEvent) {
-      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
-        setOpenDropdown(null);
-      }
-    }
-    document.addEventListener('mousedown', onMouseDown);
-    return () => document.removeEventListener('mousedown', onMouseDown);
-  }, []);
-
   // ── Category change handler ───────────────────────────────────────────────
   function handleSetMode(mode: LeaderboardMode) {
     setLocalMode(mode);
     setCategory(MODE_TO_CATEGORY[mode]);
-    setOpenDropdown(null);
     if (mode !== 'running')  setRunSegment('all');
     if (mode !== 'strength') setStrengthProgram(null);
   }
@@ -535,6 +519,117 @@ export default function NeighborhoodLeaderboard({
     runSegment: isSegmentMode ? (runSegment as RunSegmentFilter) : undefined,
   });
 
+  useEffect(() => {
+    onMyEntryChange?.(myEntry);
+  }, [myEntry, onMyEntryChange]);
+
+  useEffect(() => {
+    onMyModeChange?.(localMode, isSegmentMode);
+  }, [localMode, isSegmentMode, onMyModeChange]);
+
+  return (
+    <NeighborhoodLeaderboardView
+      scope={scope}
+      scopeLabel={scopeLabel}
+      isGlobal={isGlobal}
+      entries={entries}
+      myEntry={myEntry}
+      totalParticipants={totalParticipants}
+      isLoading={isLoading}
+      onRefresh={refresh}
+      localMode={localMode}
+      onSetMode={handleSetMode}
+      runSegment={runSegment}
+      setRunSegment={setRunSegment}
+      strengthProgramId={strengthProgramId}
+      setStrengthProgram={setStrengthProgram}
+      programs={programs}
+      timeWindow={timeWindow}
+      setTimeWindow={setTimeWindow}
+      genderFilter={genderFilter}
+      setGenderFilter={setGenderFilter}
+      shouldBlur={shouldBlur}
+      socialUnlocked={socialUnlocked}
+      myStreak={profile?.progression?.currentStreak}
+    />
+  );
+}
+
+// ── Presentational view (hook-free data; UI-only state) ──────────────────────
+// Split out of the container above so the board can render with fixture data
+// (dev preview route) — same props/data the container already had.
+
+export interface NeighborhoodLeaderboardViewProps {
+  scope: LeaderboardScope;
+  scopeLabel?: string;
+  isGlobal?: boolean;
+  entries: LeaderboardEntry[];
+  myEntry: LeaderboardEntry | null;
+  totalParticipants: number;
+  isLoading: boolean;
+  onRefresh: () => void;
+  localMode: LeaderboardMode;
+  onSetMode: (mode: LeaderboardMode) => void;
+  runSegment: RunSegment;
+  setRunSegment: (v: RunSegment) => void;
+  strengthProgramId: string | null;
+  setStrengthProgram: (id: string | null) => void;
+  programs: Program[];
+  timeWindow: LeaderboardTimeWindow;
+  setTimeWindow: (value: LeaderboardTimeWindow) => void;
+  genderFilter: LeaderboardGenderFilter;
+  setGenderFilter: (value: LeaderboardGenderFilter) => void;
+  shouldBlur: boolean;
+  socialUnlocked: boolean;
+  myStreak?: number;
+}
+
+export function NeighborhoodLeaderboardView({
+  scope,
+  scopeLabel,
+  isGlobal = false,
+  entries,
+  myEntry,
+  totalParticipants,
+  isLoading,
+  onRefresh: refresh,
+  localMode,
+  onSetMode,
+  runSegment,
+  setRunSegment,
+  strengthProgramId,
+  setStrengthProgram,
+  programs,
+  timeWindow,
+  setTimeWindow,
+  genderFilter,
+  setGenderFilter,
+  shouldBlur,
+  socialUnlocked,
+  myStreak,
+}: NeighborhoodLeaderboardViewProps) {
+  const [openDropdown, setOpenDropdown]         = useState<OpenDropdown>(null);
+  const [showInvite, setShowInvite]             = useState(false);
+  const [filterSheetOpen, setFilterSheetOpen]   = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
+  const isSegmentMode = localMode === 'running' && runSegment !== 'all';
+
+  // Click outside collapses any open dropdown
+  useEffect(() => {
+    function onMouseDown(e: MouseEvent) {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setOpenDropdown(null);
+      }
+    }
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, []);
+
+  function handleSetMode(mode: LeaderboardMode) {
+    onSetMode(mode);
+    setOpenDropdown(null);
+  }
+
   // ── Hero card (mockup alignment, 16.08.2026) ─────────────────────────────
   // Share/invite use the same lightweight native-share/clipboard mechanism
   // as the page-level sticky "my rank" footer (community/page.tsx), scoped
@@ -556,14 +651,6 @@ export default function NeighborhoodLeaderboard({
     if (navigator.share) navigator.share({ text }).catch(() => {});
     else if (navigator.clipboard) navigator.clipboard.writeText(text);
   }
-
-  useEffect(() => {
-    onMyEntryChange?.(myEntry);
-  }, [myEntry, onMyEntryChange]);
-
-  useEffect(() => {
-    onMyModeChange?.(localMode, isSegmentMode);
-  }, [localMode, isSegmentMode, onMyModeChange]);
 
   const top3 = entries.slice(0, 3);
   const rest  = entries.slice(3);
@@ -847,9 +934,9 @@ export default function NeighborhoodLeaderboard({
             <div className="px-5 pt-6 pb-3">
               <div className="grid grid-cols-3 items-end gap-2">
                 {/* DOM order [2,1,3] → 1st place lands in the centre column */}
-                <PodiumColumn entry={top3[1] ?? null} rank={2} mode={localMode} isSegmentMode={isSegmentMode} onInvite={() => setShowInvite(true)} myStreak={profile?.progression?.currentStreak} />
-                <PodiumColumn entry={top3[0] ?? null} rank={1} mode={localMode} isSegmentMode={isSegmentMode} onInvite={() => setShowInvite(true)} myStreak={profile?.progression?.currentStreak} />
-                <PodiumColumn entry={top3[2] ?? null} rank={3} mode={localMode} isSegmentMode={isSegmentMode} onInvite={() => setShowInvite(true)} myStreak={profile?.progression?.currentStreak} />
+                <PodiumColumn entry={top3[1] ?? null} rank={2} mode={localMode} isSegmentMode={isSegmentMode} onInvite={() => setShowInvite(true)} myStreak={myStreak} />
+                <PodiumColumn entry={top3[0] ?? null} rank={1} mode={localMode} isSegmentMode={isSegmentMode} onInvite={() => setShowInvite(true)} myStreak={myStreak} />
+                <PodiumColumn entry={top3[2] ?? null} rank={3} mode={localMode} isSegmentMode={isSegmentMode} onInvite={() => setShowInvite(true)} myStreak={myStreak} />
               </div>
             </div>
 

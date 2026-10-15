@@ -57,8 +57,6 @@ export default function ScopeBattleCard({ granularity, timeWindow, myScopeId, ci
   const [result, setResult] = useState<ScopeCompetitionResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [opponentScopeId, setOpponentScopeId] = useState<string | null>(null);
-  const [pickerOpen, setPickerOpen] = useState(false);
-
   useEffect(() => {
     if (!myScopeId) { setResult(null); setIsLoading(false); return; }
     let cancelled = false;
@@ -90,6 +88,39 @@ export default function ScopeBattleCard({ granularity, timeWindow, myScopeId, ci
 
   if (!myScopeId || isLoading) return null;
   if (!myEntry) return null; // no "you" to anchor a battle to (zero activity this window)
+
+  return (
+    <ScopeBattleCardView
+      myScopeId={myScopeId}
+      myEntry={myEntry}
+      entries={entries}
+      opponentScopeId={opponentScopeId}
+      onSelectOpponent={setOpponentScopeId}
+      category={category}
+    />
+  );
+}
+
+// ── Presentational view — split out so the card renders with fixture data ──
+
+export interface ScopeBattleCardViewProps {
+  myScopeId: string;
+  myEntry: ScopeCompetitionEntry;
+  entries: ScopeCompetitionEntry[];
+  opponentScopeId: string | null;
+  onSelectOpponent: (scopeId: string) => void;
+  category: LeaderboardCategory;
+}
+
+export function ScopeBattleCardView({
+  myScopeId,
+  myEntry,
+  entries,
+  opponentScopeId,
+  onSelectOpponent,
+  category,
+}: ScopeBattleCardViewProps) {
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   // 16.08.2026 design review: friendly empty state instead of silently
   // rendering nothing — you exist in the ranking, but there's no second
@@ -182,7 +213,7 @@ export default function ScopeBattleCard({ granularity, timeWindow, myScopeId, ci
         myEntry={myEntry}
         candidates={candidates}
         selectedOpponentId={opponentScopeId}
-        onSelect={setOpponentScopeId}
+        onSelect={onSelectOpponent}
       />
     </div>
   );

@@ -37,7 +37,6 @@ interface UnitLeagueTableProps {
  */
 export default function UnitLeagueTable({ myOrgId, myUnitPathIds }: UnitLeagueTableProps) {
   const [range, setRange] = useState<UnitLeagueRange>('my_brigade_battalions');
-  const [isOpen, setIsOpen] = useState(false);
   const [result, setResult] = useState<UnitLeagueResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -52,6 +51,35 @@ export default function UnitLeagueTable({ myOrgId, myUnitPathIds }: UnitLeagueTa
   // eslint-disable-next-line react-hooks/exhaustive-deps -- myUnitPathIds is a fresh array each render; length+join below is the stable dep
   useEffect(fetchData, [range, myOrgId, myUnitPathIds.join(',')]);
 
+  return (
+    <UnitLeagueTableView
+      range={range}
+      onRangeChange={setRange}
+      isLoading={isLoading}
+      result={result}
+      onRefresh={fetchData}
+    />
+  );
+}
+
+// ── Presentational view — split out so the table renders with fixture data ──
+
+export interface UnitLeagueTableViewProps {
+  range: UnitLeagueRange;
+  onRangeChange: (range: UnitLeagueRange) => void;
+  isLoading: boolean;
+  result: UnitLeagueResult | null;
+  onRefresh: () => void;
+}
+
+export function UnitLeagueTableView({
+  range,
+  onRangeChange: setRange,
+  isLoading,
+  result,
+  onRefresh: fetchData,
+}: UnitLeagueTableViewProps) {
+  const [isOpen, setIsOpen] = useState(false);
   const activeOpt = RANGE_OPTIONS.find((o) => o.value === range) ?? RANGE_OPTIONS[0];
 
   return (

@@ -88,6 +88,35 @@ export default function GroupLeaderboard({
 
   useEffect(() => { fetch(); }, [scope, scopeId, timeWindow, genderFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  return (
+    <GroupLeaderboardView
+      timeWindow={timeWindow}
+      isLoading={isLoading}
+      error={error}
+      entries={result?.entries ?? []}
+      onRefresh={fetch}
+    />
+  );
+}
+
+// ── Presentational view — split out so the list renders with fixture data ──
+
+export interface GroupLeaderboardViewProps {
+  timeWindow: LeaderboardTimeWindow;
+  isLoading: boolean;
+  error: string | null;
+  entries: GroupCompetitionEntry[];
+  onRefresh: () => void;
+}
+
+export function GroupLeaderboardView({
+  timeWindow,
+  isLoading,
+  error,
+  entries,
+  onRefresh: fetch,
+}: GroupLeaderboardViewProps) {
+
   if (isLoading) {
     return (
       <div className="space-y-2" dir="rtl">
@@ -115,8 +144,6 @@ export default function GroupLeaderboard({
       </div>
     );
   }
-
-  const entries = result?.entries ?? [];
 
   if (entries.length === 0) {
     return (

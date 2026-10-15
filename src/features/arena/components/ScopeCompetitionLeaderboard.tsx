@@ -116,6 +116,41 @@ export default function ScopeCompetitionLeaderboard({
 
   useEffect(() => { fetch(); }, [granularity, timeWindow, cityAuthorityId, category, genderFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  return (
+    <ScopeCompetitionLeaderboardView
+      granularity={granularity}
+      timeWindow={timeWindow}
+      category={category}
+      isLoading={isLoading}
+      error={error}
+      entries={result?.entries ?? []}
+      onRefresh={fetch}
+    />
+  );
+}
+
+// ── Presentational view — split out so the list renders with fixture data ──
+
+export interface ScopeCompetitionLeaderboardViewProps {
+  granularity: ScopeCompetitionGranularity;
+  timeWindow: LeaderboardTimeWindow;
+  category: LeaderboardCategory;
+  isLoading: boolean;
+  error: string | null;
+  entries: ScopeCompetitionEntry[];
+  onRefresh: () => void;
+}
+
+export function ScopeCompetitionLeaderboardView({
+  granularity,
+  timeWindow,
+  category,
+  isLoading,
+  error,
+  entries,
+  onRefresh: fetch,
+}: ScopeCompetitionLeaderboardViewProps) {
+
   if (isLoading) {
     return (
       <div className="space-y-2" dir="rtl">
@@ -143,8 +178,6 @@ export default function ScopeCompetitionLeaderboard({
       </div>
     );
   }
-
-  const entries = result?.entries ?? [];
 
   if (entries.length === 0) {
     const copy = EMPTY_STATE_COPY[granularity];
