@@ -41,12 +41,14 @@ function makeFakeDb(seed: {
   thresholds?: Record<string, FakeDoc>;
   users?: Record<string, FakeDoc>;
   units?: Record<string, Record<string, FakeDoc>>; // units[tenantId][unitId]
+  authorities?: Record<string, FakeDoc>;
 }) {
   const stores: Record<string, Map<string, FakeDoc>> = {
     readiness_soldiers: new Map(Object.entries(seed.soldiers ?? {})),
     readiness_results: new Map(Object.entries(seed.results ?? {})),
     readiness_thresholds: new Map(Object.entries(seed.thresholds ?? {})),
     users: new Map(Object.entries(seed.users ?? {})),
+    authorities: new Map(Object.entries(seed.authorities ?? {})),
     audit_logs: new Map(),
   };
   const unitsByTenant: Record<string, Map<string, FakeDoc>> = {};
@@ -835,7 +837,7 @@ describe('chief fitness officer (vertical scope)', () => {
   const CHIEF_SCOPE: UnitPermissionScope = { kind: 'vertical', vertical: 'military', authorityIds: ['tenant-1', 'tenant-2'] };
 
   it('creates a soldier in a brigade of his scope (he names the brigade)', async () => {
-    const db = makeFakeDb({ units: { 'tenant-2': { 'battalion-7': {} } } });
+    const db = makeFakeDb({ units: { 'tenant-2': { 'battalion-7': {} } }, authorities: { 'tenant-2': { type: 'military_unit' } } });
     const result = await computeCreateSoldier(db, CHIEF_SCOPE, { name: 'Soldier C', tenantId: 'tenant-2', unitId: 'battalion-7', gender: 'female' }, CTX);
     expect(result.status).toBe(200);
     if (result.status === 200) {
