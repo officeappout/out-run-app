@@ -8,13 +8,24 @@
  * park name, the planned duration, and the station's exercise list — rendered with the SAME
  * row component StationCard uses (StationExerciseRow) plus a ⏱ זמן / 🔁 חזרות chip per
  * exercise. The existing "דלג על התחנה" pill stays rendered by the layer above this screen.
+ *
+ * PR-B4: the first time a user ever reaches a guided welcome screen, three coach-mark bubbles
+ * explain the start CTA, the ⏱/🔁 chips and pause/skip (station-tutorial.ts). Seen-once flag in
+ * onboardingPrefs, keyed by uid; "דלג" counts as seen.
  */
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import CoachMarks from '@/components/ui/CoachMarks';
+import { getOnboardingPrefAsync, setOnboardingPref } from '@/lib/onboardingPrefs';
 import type { WorkoutPlan } from '@/features/parks';
 import BrandCtaButton from '@/components/ui/BrandCtaButton';
 import StationExerciseRow from '@/features/workout-engine/players/strength/components/StationExerciseRow';
 import type { StationContext } from './station-flow';
 import { WELCOME_GREETING, welcomeCta, exerciseTypeChip } from './guided-station';
+import {
+  COACH_TARGET_CHIPS, COACH_TARGET_START,
+  shouldShowStationTutorial, stationTutorialSeenKey, stationTutorialSteps,
+} from './station-tutorial';
 import type { AppGender } from '@/lib/utils/gendered-text';
 
 interface Props {
@@ -22,9 +33,28 @@ interface Props {
   context: StationContext;
   gender: AppGender | null | undefined;
   onStart: () => void;
+  /** PR-B4: guided mode on (the layer only renders this screen in guided mode). */
+  guided: boolean;
+  /** PR-B4: whose seen-once tutorial flag to read/write. */
+  uid: string | null | undefined;
 }
 
-export default function StationWelcomeScreen({ plan, context, gender, onStart }: Props) {
+export default function StationWelcomeScreen({ plan, context, gender, onStart, guided, uid }: Props) {
+  // PR-B4: first-time tutorial — resolved async (native cold start may have evicted localStorage).
+  const [showTutorial, setShowTutorial] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    if (!guided) { setShowTutorial(false); return; }
+    void getOnboardingPrefAsync(stationTutorialSeenKey(uid)).then((seen) => {
+      if (alive) setShowTutorial(shouldShowStationTutorial(guided, seen));
+    });
+    return () => { alive = false; };
+  }, [guided, uid]);
+  const finishTutorial = (reason: 'done' | 'skip') => {
+    setOnboardingPref(stationTutorialSeenKey(uid), reason); // skip = seen too
+    setShowTutorial(false);
+  };
+
   const rows = plan.segments.flatMap((seg) =>
     (seg.exercises ?? []).map((ex) => ({ ex, inTabata: seg.protocol === 'tabata' })),
   );
@@ -61,6 +91,7 @@ export default function StationWelcomeScreen({ plan, context, gender, onStart }:
                 ex={ex}
                 trailing={
                   <span
+                    data-coach={idx === 0 ? COACH_TARGET_CHIPS : undefined}
                     className="flex-shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold"
                     style={chip === 'time'
                       ? { background: '#E0F7FF', color: '#007EA8' }
@@ -76,10 +107,14 @@ export default function StationWelcomeScreen({ plan, context, gender, onStart }:
       </div>
 
       <div className="px-5 pt-2" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom, 20px))' }}>
-        <BrandCtaButton onClick={onStart} className="w-full h-14 rounded-full text-[16px] font-bold">
-          {welcomeCta(gender)}
-        </BrandCtaButton>
+        <div data-coach={COACH_TARGET_START}>
+          <BrandCtaButton onClick={onStart} className="w-full h-14 rounded-full text-[16px] font-bold">
+            {welcomeCta(gender)}
+          </BrandCtaButton>
+        </div>
       </div>
+
+      {showTutorial && <CoachMarks steps={stationTutorialSteps(gender)} onFinish={finishTutorial} />}
     </motion.div>
   );
 }
