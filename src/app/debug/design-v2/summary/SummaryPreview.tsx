@@ -97,7 +97,7 @@ function StrengthPreview() {
         showEmailDrawer: false,
         showInlineAccount: false,
         setShowInlineAccount: noop,
-        handleEmailCaptured: noop,
+        handleEmailCaptured: noopAsync,
         dismissEmailDrawer: noop,
       }}
       evaluatedGoals={STRENGTH_GOALS}
