@@ -2,6 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
+import { EquipmentTabs } from '@/features/admin/components/ui/AreaTabs';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import {
@@ -452,9 +453,10 @@ export default function AuditEquipmentPage() {
 
   return (
     <div className="max-w-[1400px] mx-auto p-4 sm:p-6" dir="rtl">
+      <EquipmentTabs />
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">ביקורת ציוד — Equipment Audit</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-1">ביקורת ציוד בתרגילים</h1>
         <p className="text-sm text-gray-500">
           סריקת כל התרגילים מול משפחות הציוד. זיהוי אי-התאמות ולינקים שבורים.
         </p>

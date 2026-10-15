@@ -2,6 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
+import { PeopleTabs } from '@/features/admin/components/ui/AreaTabs';
 import { useState, useEffect, useMemo } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
@@ -386,6 +387,7 @@ export default function AdminDirectoryPage() {
 
   return (
     <div dir="rtl" className="space-y-6">
+      <PeopleTabs />
       {/* Header */}
       <div className="flex items-center gap-4">
         <div className="w-14 h-14 bg-cyan-50 rounded-2xl flex items-center justify-center">

@@ -3,6 +3,7 @@
 // Force dynamic rendering to prevent SSR issues with window/localStorage
 export const dynamic = 'force-dynamic';
 
+import { EquipmentTabs } from '@/features/admin/components/ui/AreaTabs';
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
@@ -116,6 +117,7 @@ export default function GymEquipmentAdminPage() {
 
   return (
     <div className="space-y-6" dir="rtl">
+      <EquipmentTabs />
       {/* Header */}
       <div className="flex items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
         <div>

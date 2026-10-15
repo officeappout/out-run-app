@@ -3,6 +3,7 @@
 // Force dynamic rendering to prevent SSR issues with window/localStorage
 export const dynamic = 'force-dynamic';
 
+import { PeopleTabs } from '@/features/admin/components/ui/AreaTabs';
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -227,8 +228,9 @@ export default function UsersManagementPage() {
 
   return (
     <div className="space-y-6">
+      <PeopleTabs />
       <div>
-        <h1 className="text-3xl font-black text-gray-900">ניהול משתמשים</h1>
+        <h1 className="text-3xl font-black text-gray-900">משתמשים והרשאות מנהל</h1>
         <p className="text-gray-500 mt-2">ניהול הרשאות ואישורים למשתמשי המערכת</p>
       </div>
 
