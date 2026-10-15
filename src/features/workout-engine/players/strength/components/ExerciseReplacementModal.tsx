@@ -16,6 +16,7 @@ import { ExecutionLocation } from '@/features/content/exercises';
 import { UserFullProfile } from '@/types/user-profile';
 import { Park } from '@/types/admin-types';
 import { Dumbbell, X } from 'lucide-react';
+import { filterAlternativesByEquipment } from '../logic/equipment-filter';
 
 interface ExerciseReplacementModalProps {
   isOpen: boolean;
@@ -26,6 +27,12 @@ interface ExerciseReplacementModalProps {
   park: Park | null;
   userProfile: UserFullProfile;
   onReplace: (newExercise: Exercise, executionMethod: ExecutionMethod, levelComparison: 'lower' | 'same' | 'higher') => void;
+  /**
+   * PR-B3 — at a hybrid STATION only: the park's normalized gear ids. When given, both tabs list
+   * only exercises with a park method that fits this equipment (or needs none), and picking one
+   * uses that fitting method. Omitted / null → the modal is exactly as before (every other caller).
+   */
+  allowedEquipmentIds?: readonly string[] | null;
 }
 
 type TabType = 'adaptation' | 'alternative';
@@ -118,6 +125,7 @@ export default function ExerciseReplacementModal({
   park,
   userProfile,
   onReplace,
+  allowedEquipmentIds = null,
 }: ExerciseReplacementModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('adaptation');
   const [adaptationExercises, setAdaptationExercises] = useState<AlternativeExerciseOption[]>([]);
@@ -151,7 +159,7 @@ export default function ExerciseReplacementModal({
           currentExercise, currentLevel, location, park, userProfile, activeProgramId,
         );
         if (id !== fetchId.current) return;
-        setAdaptationExercises(variations);
+        setAdaptationExercises(filterAlternativesByEquipment(variations, allowedEquipmentIds));
         setLoadingAdaptation(false);
 
         const tab1Ids = new Set(variations.map((v) => v.exercise.id));
@@ -159,7 +167,7 @@ export default function ExerciseReplacementModal({
           currentExercise, currentLevel, location, park, userProfile, activeProgramId, tab1Ids,
         );
         if (id !== fetchId.current) return;
-        setAlternativeExercises(alternatives);
+        setAlternativeExercises(filterAlternativesByEquipment(alternatives, allowedEquipmentIds));
         setLoadingAlternative(false);
       } catch (err) {
         console.error('[ExerciseReplacement] Error:', err);
@@ -171,7 +179,7 @@ export default function ExerciseReplacementModal({
     })();
 
     return () => { fetchId.current++; };
-  }, [isOpen, currentExercise, currentLevel, location, park, userProfile, activeProgramId]);
+  }, [isOpen, currentExercise, currentLevel, location, park, userProfile, activeProgramId, allowedEquipmentIds]);
 
   useEffect(() => { setSelectedExercise(null); }, [activeTab]);
 
@@ -179,7 +187,10 @@ export default function ExerciseReplacementModal({
   const handleReplace = useCallback(async () => {
     if (!selectedExercise) return;
     let method: ExecutionMethod | undefined;
-    if (activeTab === 'adaptation') {
+    if (allowedEquipmentIds) {
+      // Station: the method the filter found doable with this park's equipment.
+      method = selectedExercise.selectedExecutionMethod;
+    } else if (activeTab === 'adaptation') {
       method = await selectExecutionMethodWithBrand(selectedExercise.exercise, location, park, userProfile);
     } else {
       method = selectedExercise.selectedExecutionMethod;
@@ -188,7 +199,7 @@ export default function ExerciseReplacementModal({
       onReplace(selectedExercise.exercise, method, selectedExercise.levelComparison);
       onClose();
     }
-  }, [selectedExercise, activeTab, location, park, userProfile, onReplace, onClose]);
+  }, [selectedExercise, activeTab, location, park, userProfile, onReplace, onClose, allowedEquipmentIds]);
 
   // ── Helpers ──
   const getImage = (ex: Exercise): string => {

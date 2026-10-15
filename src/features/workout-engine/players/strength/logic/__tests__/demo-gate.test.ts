@@ -83,7 +83,8 @@ const runner = read('../../StrengthRunner.tsx');
 
 describe('no timer advances while the gate is up', () => {
   it('the gate holds the player in its existing pause (before paint)', () => {
-    expect(runner).toContain('useLayoutEffect(() => {\n    if (!needsGate) return;');
+    // B3: the same hold now covers the find-equipment screen too (needsHold = find || gate).
+    expect(runner).toContain('useLayoutEffect(() => {\n    if (!needsHold) return;');
     expect(runner).toContain('if (!sm.isPaused) sm.togglePause();');
   });
   it('every clock honours that pause', () => {
@@ -102,7 +103,7 @@ describe('no timer advances while the gate is up', () => {
 
 describe('fast mode unchanged (incl. PREPARING)', () => {
   it('PREPARING is only bypassed when the gate is needed', () => {
-    expect(runner).toContain('if (needsGate) return <div className="absolute inset-0 bg-black" />;');
+    expect(runner).toContain('if (needsHold) return <div className="absolute inset-0 bg-black" />;');
     expect(runner).toContain('enabled: !!demoGate,');
   });
   it('the station passes the seen-store only in guided mode', () => {

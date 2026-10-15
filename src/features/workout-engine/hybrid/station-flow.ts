@@ -26,6 +26,13 @@ export interface StationContext {
   stationTotal: number;
   /** Planned station duration in whole minutes (≥1), or null when the plan has none. */
   estimatedMin: number | null;
+  /** PR-B3: this park's normalized gear ids (station segment), or null when unknown. A station
+   *  swap is limited to these + bodyweight; null = no limit (legacy plans / missing data). */
+  availableEquipment: string[] | null;
+  /** PR-B3: identity of this station's PLACE — the park when known (several station segments in
+   *  the same park are one location), else the stop, else the station's position. The
+   *  find-the-equipment screen is shown once per exercise per location. */
+  locationKey: string;
 }
 
 /** Context for the station at `cursor` (the one currently running). */
@@ -43,6 +50,8 @@ export function computeStationContext(
     stationNumber: Math.max(1, strengthIdx.indexOf(cursor) + 1),
     stationTotal: Math.max(1, strengthIdx.length),
     estimatedMin: current?.durationSec ? Math.max(1, Math.round(current.durationSec / 60)) : null,
+    availableEquipment: current?.availableEquipment ?? null,
+    locationKey: parkId ? `park:${parkId}` : current?.stopId ? `stop:${current.stopId}` : `station:${cursor}`,
   };
   const nextLeg = plan.slice(cursor + 1).find((seg) => seg.kind === 'aerobic');
   const nextLegKind: 'walking' | 'running' = nextLeg?.aerobicType === 'running' ? 'running' : 'walking';

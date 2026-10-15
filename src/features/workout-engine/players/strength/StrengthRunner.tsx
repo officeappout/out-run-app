@@ -63,6 +63,8 @@ import { useUserStore } from '@/features/user';
 import { g } from '@/lib/utils/gendered-text';
 import { guidanceLine } from '@/features/workout-engine/hybrid/guided-station';
 import DemoGateOverlay from './components/DemoGateOverlay';
+import FindEquipmentOverlay from './components/FindEquipmentOverlay';
+import { findEquipmentScreen, idsToMarkFound } from './logic/find-equipment';
 import {
   shouldGateExercise, timerLeadInSeconds, gateClipMuted, type DemoSeenStore,
 } from './logic/demo-gate';
@@ -91,6 +93,9 @@ interface StrengthRunnerProps {
    *  exercise not yet in this session-wide seen-store; the gate replaces the PREPARING countdown
    *  for the first exercise. Omitted → fast mode, byte-identical (PREPARING unchanged). */
   demoGate?: DemoSeenStore;
+  /** PR-B3: guided "מצא את המתקן" screen for machine exercises — a session-wide "found" store.
+   *  Omitted → never shown (fast mode). Shown BEFORE the demo gate (welcome → find → gate → set). */
+  findEquipment?: DemoSeenStore;
   /**
    * Crash-recovery: seed values from a restored WorkoutCheckpoint, passed
    * down once the page-level resume-offer dialog resolves to "Resume".
@@ -110,6 +115,7 @@ export default function StrengthRunner({
   embedded = false,
   guided = false,
   demoGate,
+  findEquipment,
   initialCheckpoint,
 }: StrengthRunnerProps) {
   const sm = useWorkoutStateMachine(workout, onComplete, onPause, onResume, undefined, exerciseHistoryMap, initialCheckpoint);
@@ -361,7 +367,20 @@ export default function StrengthRunner({
   const [gatePassedKey, setGatePassedKey] = useState<string | null>(null);
   const gateVideoElRef = useRef<HTMLVideoElement | null>(null);
   const gateTransitionKeyRef = useRef<string | null>(null);
-  const needsGate = shouldGateExercise({
+  // PR-B3: find-the-equipment comes first; the demo gate is only considered once no find screen
+  // is pending for this exercise → welcome → find → gate → set. Both use the same hold.
+  const findScreen = findEquipmentScreen({
+    enabled: !!findEquipment,
+    seen: findEquipment,
+    workoutState: sm.workoutState,
+    exerciseType: sm.exerciseType,
+    segment: workout.segments[sm.currentSegmentIndex],
+    exIdx: sm.currentExerciseIndex,
+    isTabataBlock,
+    isFirstTabataInterval,
+  });
+  const needsFind = findScreen != null;
+  const gateInput = {
     enabled: !!demoGate,
     exerciseId: sm.activeExercise?.id,
     exerciseType: sm.exerciseType,
@@ -369,18 +388,31 @@ export default function StrengthRunner({
     seen: demoGate,
     isTabataBlock,
     isFirstTabataInterval,
-  });
+  };
+  const needsGate = !needsFind && shouldGateExercise(gateInput);
+  const needsHold = needsFind || needsGate;
   const gateActive = needsGate && sm.workoutState === 'ACTIVE';
+  const findActive = needsFind && sm.workoutState === 'ACTIVE';
   // Layout effect → the hold lands before paint, so no clock gets a tick in.
   useLayoutEffect(() => {
-    if (!needsGate) return;
+    if (!needsHold) return;
     // First exercise: the gate REPLACES the 3-2-1 countdown (straight to ACTIVE, held).
     if (sm.workoutState === 'PREPARING' && gateTransitionKeyRef.current !== gateActiveKey) {
       gateTransitionKeyRef.current = gateActiveKey;
       sm.forceTransition('ACTIVE', { reason: 'demo-gate' });
     }
     if (!sm.isPaused) sm.togglePause();
-  }, [needsGate, sm.workoutState, sm.isPaused, gateActiveKey]);
+  }, [needsHold, sm.workoutState, sm.isPaused, gateActiveKey]);
+
+  const handleEquipmentFound = useCallback(() => {
+    if (!findScreen) return;
+    idsToMarkFound(findScreen).forEach((id) => findEquipment?.add(id));
+    setGatePassedKey(gateActiveKey);
+    setGateTick((t) => t + 1);
+    // Next: the demo gate if this exercise's demo wasn't watched yet (stay held), else the set.
+    const gateNext = shouldGateExercise({ ...gateInput, workoutState: 'ACTIVE' });
+    if (!gateNext && sm.isPaused) sm.togglePause();
+  }, [findScreen, findEquipment, gateActiveKey, gateInput, sm]);
 
   const handleGateStart = useCallback(() => {
     // Inside the tap (a user gesture): unmute + play the demo clip — unless the session mute is on.
@@ -476,7 +508,7 @@ export default function StrengthRunner({
     // PREPARING — centered countdown (extracted to PreparingStateView, R-9)
     if (sm.workoutState === 'PREPARING') {
       // PR-B2: the gate replaces the countdown — show nothing for the ~150ms hand-off to ACTIVE.
-      if (needsGate) return <div className="absolute inset-0 bg-black" />;
+      if (needsHold) return <div className="absolute inset-0 bg-black" />;
       return (
         <PreparingStateView
           count={sm.preparationCountdown}
@@ -578,8 +610,9 @@ export default function StrengthRunner({
     // Tabata prep: ONE get-ready before the block's very first interval only
     // (cycle 0, position 0, not the unilateral left side). Every later interval
     // gets 0 — the 10s rest is the get-ready — so the block stays exactly 240s.
-    // PR-B2: when the demo gate fronts that first interval, the gate IS the get-ready → 0.
-    const gatedThisInterval = !!demoGate && (needsGate || gatePassedKey === activeKey);
+    // PR-B2/B3: when a guided hold (find screen and/or demo gate) fronts that first interval,
+    // the hold IS the get-ready → 0 (decided before the card mounts, so it never starts at 5).
+    const gatedThisInterval = (!!demoGate || !!findEquipment) && (needsHold || gatePassedKey === activeKey);
     const timerPrepSeconds = timerLeadInSeconds(!!blockWorkSec, isFirstTabataInterval, gatedThisInterval);
 
     return (
@@ -693,6 +726,18 @@ export default function StrengthRunner({
             {/* State content */}
             {renderStateContent()}
 
+            {/* PR-B3 guided find-the-equipment — before the demo gate, player held paused. */}
+            {findActive && findScreen && (
+              <FindEquipmentOverlay
+                screen={findScreen}
+                gender={userGender}
+                onFound={handleEquipmentFound}
+                onSwap={onSwapExercise
+                  ? (item) => onSwapExercise(item.exerciseId, sm.currentSegmentIndex, item.exIdx)
+                  : undefined}
+              />
+            )}
+
             {/* PR-B2 guided demo gate — over the live ACTIVE view, player held paused. */}
             {gateActive && (
               <DemoGateOverlay
@@ -704,7 +749,7 @@ export default function StrengthRunner({
             )}
 
             {/* Header overlay — also the drag handle for minimize */}
-            {showHeader && !gateActive && (
+            {showHeader && !gateActive && !findActive && (
               <RunnerHeader
                 progressBars={sm.progressBars}
                 autoCompleteTime={sm.autoCompleteTime}
@@ -739,7 +784,7 @@ export default function StrengthRunner({
       {/* Sits above ALL states (ACTIVE / INPUT / RESTING).  Visibility owned
           by the orchestrator since it depends on three cross-state flags. */}
       <AnimatePresence>
-        {sm.isPaused && !showExitConfirmModal && sm.workoutState !== 'PREPARING' && !needsGate && (
+        {sm.isPaused && !showExitConfirmModal && sm.workoutState !== 'PREPARING' && !needsHold && (
           <PauseOverlay
             onResume={sm.togglePause}
             onOpenExitModal={() => setShowExitConfirmModal(true)}

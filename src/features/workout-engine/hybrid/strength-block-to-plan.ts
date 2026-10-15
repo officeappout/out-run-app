@@ -19,6 +19,7 @@ import type {
   Exercise as PlanExercise,
 } from '@/features/parks/core/types/route.types';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
+import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
 
 /** Localized name off the content exercise (Firestore doc shape — dynamic access). */
@@ -41,6 +42,27 @@ function exMedia(we: GeneratedExercise): { videoUrl?: string; imageUrl?: string;
     ...(bunnyVideoId ? { bunnyVideoId } : {}),
     ...(fullTutorial ? { fullTutorial } : {}),
   };
+}
+
+/**
+ * PR-B3: the exercise's equipment from the engine-selected method — normalized, de-duplicated,
+ * bodyweight/none dropped. Same rule as buildRunnerWorkoutPlanFromGenerated, which the regular
+ * strength path already uses; the hybrid adapter used to drop it entirely. [] = bodyweight.
+ */
+function exEquipment(we: GeneratedExercise): string[] {
+  const m = we.method as any;
+  const raw = [
+    ...(m?.equipmentIds || []),
+    ...(m?.gearIds || []),
+    ...(m?.gearId ? [m.gearId] : []),
+    ...(m?.equipmentId ? [m.equipmentId] : []),
+  ].filter(Boolean) as string[];
+  const out: string[] = [];
+  for (const id of raw) {
+    const norm = normalizeGearId(id);
+    if (norm !== 'none' && norm !== 'bodyweight' && !out.includes(norm)) out.push(norm);
+  }
+  return out;
 }
 
 /** Display "3×8-12 חזרות" / "3×45 שניות" from the prescription. */
@@ -73,6 +95,7 @@ function toPlanExercise(we: GeneratedExercise, preserveRole: boolean): PlanExerc
     ...(duration ? { duration } : {}),
     ...(we.isGoalExercise ? { isGoalExercise: true } : {}),
     ...(we.rampedTarget != null ? { rampedTarget: we.rampedTarget } : {}),
+    ...(exEquipment(we).length > 0 ? { equipment: exEquipment(we) } : {}),
     ...exMedia(we),
   };
 }
