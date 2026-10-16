@@ -13,6 +13,7 @@
  */
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { BicepsFlexed, Check } from 'lucide-react';
 import { formatApproxWalkMinutes } from './hybrid-intro-format';
 import type { PendingStationComplete } from './useHybridRun';
 import type { StationContext } from './station-flow';
@@ -42,7 +43,10 @@ export default function StationCompleteScreen({ summary, context, onContinue, fa
       style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 24px))' }}
       dir="rtl"
     >
-      <div className="text-6xl mb-4" aria-hidden>💪</div>
+      {/* Hero icon tile — IconTile's accent recipe (v2-tint / v2-deep, bold stroke) at hero size. */}
+      <div className="w-20 h-20 mb-4 rounded-v2-card bg-v2-tint text-v2-deep flex items-center justify-center" aria-hidden>
+        <BicepsFlexed size={40} strokeWidth={2.4} />
+      </div>
       <h1 className="text-[28px] font-black text-gray-900 mb-2" style={{ fontFamily: 'var(--font-simpler)' }}>
         סיימת את התחנה!
       </h1>
@@ -74,7 +78,12 @@ export default function StationCompleteScreen({ summary, context, onContinue, fa
           style={{ border: '1px solid #E0E9FF', background: '#FFFFFF', boxShadow: '0 4px 16px rgba(0,0,0,0.06)' }}
         >
           {fastPromptState === 'accepted' ? (
-            <div className="text-[14px] font-bold text-gray-700">עברנו למצב מהיר ✓ אפשר לשנות בהגדרות</div>
+            <div className="flex items-center justify-center gap-2 text-[14px] font-bold text-gray-700">
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-v2-tint text-v2-deep shrink-0" aria-hidden>
+                <Check size={13} strokeWidth={3} />
+              </span>
+              <span>עברנו למצב מהיר · אפשר לשנות בהגדרות</span>
+            </div>
           ) : (
             <>
               <div className="text-[15px] font-black text-gray-900 mb-2">כבר הבנת? לעבור למצב מהיר</div>

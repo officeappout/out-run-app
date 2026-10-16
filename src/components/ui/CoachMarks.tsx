@@ -13,12 +13,16 @@
  * show it and records the result in `onFinish`.
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Pointer, type LucideIcon } from 'lucide-react';
+import { IconTile, type IconTileTone } from '@/components/ui/v2';
 
 export interface CoachMarkStep {
   /** `data-coach` value of the element to point at. Missing → the bubble is centered. */
   target: string;
   text: string;
   finger?: boolean;
+  /** Optional icon + text rows under the text (real icons — never emoji glyphs in copy). */
+  legend?: { icon: LucideIcon; text: string; tone?: IconTileTone }[];
 }
 
 interface Props {
@@ -94,17 +98,17 @@ export default function CoachMarks({
             style={{ animation: 'coachRipple 1.2s ease-out infinite' }}
           />
           <span
-            className="absolute block text-[34px] leading-none"
-            style={{ top: 6, animation: 'coachTap 1.2s ease-in-out infinite' }}
+            className="absolute block"
+            style={{ top: -10, animation: 'coachTap 1.2s ease-in-out infinite' }}
             aria-hidden
           >
-            👆
+            <IconTile icon={Pointer} tone="accent" size="md" className="shadow-v2-float" />
           </span>
         </div>
       )}
 
       <div
-        className="absolute left-5 right-5 rounded-2xl bg-white p-4 shadow-xl"
+        className="absolute left-5 right-5 rounded-v2-card bg-white p-4 shadow-v2-float"
         style={
           !box
             ? { top: '40%' }
@@ -113,9 +117,19 @@ export default function CoachMarks({
               : { bottom: rootH - box.top + 12 }
         }
       >
-        <p className="text-[15px] font-bold text-gray-900 leading-snug">{step.text}</p>
+        <p className="text-[15px] font-bold text-v2-ink leading-snug">{step.text}</p>
+        {step.legend && step.legend.length > 0 && (
+          <ul className="mt-3 space-y-2">
+            {step.legend.map((row) => (
+              <li key={row.text} className="flex items-center gap-2.5">
+                <IconTile icon={row.icon} tone={row.tone ?? 'accent'} size="sm" />
+                <span className="text-[14px] font-bold text-v2-ink-2 leading-snug">{row.text}</span>
+              </li>
+            ))}
+          </ul>
+        )}
         <div className="mt-3 flex items-center justify-between">
-          <span className="text-[12px] font-bold text-gray-400">{idx + 1}/{steps.length}</span>
+          <span className="text-[12px] font-bold text-v2-muted tabular-nums">{idx + 1}/{steps.length}</span>
           <button
             type="button"
             onClick={() => (isLast ? onFinish('done') : setIdx(idx + 1))}

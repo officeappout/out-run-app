@@ -6,16 +6,18 @@
  * Shown by HybridStationLayer after "📍 הגעתי לתחנה" and BEFORE StrengthRunner mounts (so
  * before its PREPARING countdown). Fast mode never renders it. Content: "תחנה N מתוך M", the
  * park name, the planned duration, and the station's exercise list — rendered with the SAME
- * row component StationCard uses (StationExerciseRow) plus a ⏱ זמן / 🔁 חזרות chip per
- * exercise. The existing "דלג על התחנה" pill stays rendered by the layer above this screen.
+ * row component StationCard uses (StationExerciseRow) plus a "זמן" (Timer) / "חזרות" (Repeat)
+ * chip per exercise. The existing "דלג על התחנה" pill stays rendered by the layer above this screen.
  *
  * PR-B4: the first time a user ever reaches a guided welcome screen, three coach-mark bubbles
- * explain the start CTA, the ⏱/🔁 chips and pause/skip (station-tutorial.ts). Seen-once flag in
+ * explain the start CTA, the זמן/חזרות chips and pause/skip (station-tutorial.ts). Seen-once flag in
  * onboardingPrefs, keyed by uid; "דלג" counts as seen.
  */
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import CoachMarks from '@/components/ui/CoachMarks';
+import { Pause, Repeat, SkipForward, Timer, type LucideIcon } from 'lucide-react';
+import { Chip } from '@/components/ui/v2';
+import CoachMarks, { type CoachMarkStep } from '@/components/ui/CoachMarks';
 import { getOnboardingPrefAsync, setOnboardingPref } from '@/lib/onboardingPrefs';
 import type { WorkoutPlan } from '@/features/parks';
 import BrandCtaButton from '@/components/ui/BrandCtaButton';
@@ -25,8 +27,23 @@ import { WELCOME_GREETING, welcomeCta, exerciseTypeChip } from './guided-station
 import {
   COACH_TARGET_CHIPS, COACH_TARGET_START,
   shouldShowStationTutorial, stationTutorialSeenKey, stationTutorialSteps,
+  type StationTutorialIcon, type StationTutorialStep,
 } from './station-tutorial';
 import type { AppGender } from '@/lib/utils/gendered-text';
+
+/** The same lucide icons the chips / player use — the coach-mark legend shows them, not emoji. */
+const TUTORIAL_ICON: Record<StationTutorialIcon, { icon: LucideIcon; tone: 'accent' | 'neutral' }> = {
+  time: { icon: Timer, tone: 'accent' },
+  reps: { icon: Repeat, tone: 'neutral' },
+  pause: { icon: Pause, tone: 'neutral' },
+  skip: { icon: SkipForward, tone: 'neutral' },
+};
+
+function toCoachMarkStep({ legend, ...step }: StationTutorialStep): CoachMarkStep {
+  return legend
+    ? { ...step, legend: legend.map((l) => ({ ...TUTORIAL_ICON[l.icon], text: l.text })) }
+    : step;
+}
 
 interface Props {
   plan: WorkoutPlan;
@@ -90,15 +107,16 @@ export default function StationWelcomeScreen({ plan, context, gender, onStart, g
                 key={`${ex.id || 'ex'}-${idx}`}
                 ex={ex}
                 trailing={
-                  <span
+                  <Chip
                     data-coach={idx === 0 ? COACH_TARGET_CHIPS : undefined}
-                    className="flex-shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold"
-                    style={chip === 'time'
-                      ? { background: '#E0F7FF', color: '#007EA8' }
-                      : { background: '#F1F5F9', color: '#475569' }}
+                    tone={chip === 'time' ? 'accent' : 'neutral'}
+                    className="flex-shrink-0"
+                    icon={chip === 'time'
+                      ? <Timer size={14} strokeWidth={2.4} aria-hidden />
+                      : <Repeat size={14} strokeWidth={2.4} aria-hidden />}
                   >
-                    {chip === 'time' ? '⏱ זמן' : '🔁 חזרות'}
-                  </span>
+                    {chip === 'time' ? 'זמן' : 'חזרות'}
+                  </Chip>
                 }
               />
             );
@@ -114,7 +132,7 @@ export default function StationWelcomeScreen({ plan, context, gender, onStart, g
         </div>
       </div>
 
-      {showTutorial && <CoachMarks steps={stationTutorialSteps(gender)} onFinish={finishTutorial} />}
+      {showTutorial && <CoachMarks steps={stationTutorialSteps(gender).map(toCoachMarkStep)} onFinish={finishTutorial} />}
     </motion.div>
   );
 }

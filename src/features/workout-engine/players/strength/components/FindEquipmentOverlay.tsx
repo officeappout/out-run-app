@@ -5,12 +5,12 @@
  * while it is held paused (see logic/find-equipment.ts). Order: welcome → this → demo gate → set.
  *
  * Media = the same equipment icon RunnerHeader shows (resolveEquipmentSvgPathList, park variant
- * first), label via resolveEquipmentLabel. 'single': one machine exercise with "מצאתי ✓" and the
+ * first), label via resolveEquipmentLabel. 'single': one machine exercise with "מצאתי" (+ Check icon) and the
  * "לא מוצא, החלף תרגיל" pill. 'tabata': every machine of the block on one screen, each with its
- * own "החלף", and one "מצאתי ✓" for the block (the intervals are never interrupted).
+ * own "החלף", and one "מצאתי" for the block (the intervals are never interrupted).
  */
 import { motion } from 'framer-motion';
-import { PersonStanding } from 'lucide-react';
+import { Check, PersonStanding } from 'lucide-react';
 import BrandCtaButton from '@/components/ui/BrandCtaButton';
 import { g, type AppGender } from '@/lib/utils/gendered-text';
 import {
@@ -113,8 +113,9 @@ export default function FindEquipmentOverlay({ screen, gender, onFound, onSwap }
       </div>
 
       <div className="px-5 pt-2 space-y-2" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom, 20px))' }}>
-        <BrandCtaButton onClick={onFound} className="w-full h-14 rounded-full text-[16px] font-bold">
-          מצאתי ✓
+        <BrandCtaButton onClick={onFound} className="w-full h-14 rounded-full text-[16px] font-bold inline-flex items-center justify-center gap-2">
+          מצאתי
+          <Check size={20} strokeWidth={2.6} aria-hidden />
         </BrandCtaButton>
         {!isTabata && onSwap && (
           <div className="flex justify-center">

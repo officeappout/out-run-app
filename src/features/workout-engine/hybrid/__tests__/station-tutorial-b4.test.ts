@@ -56,22 +56,48 @@ describe('guided only', () => {
 });
 
 describe('the three bubbles', () => {
-  it('start CTA with the tapping finger, ⏱/🔁 chips gendered, pause & skip', () => {
+  it('start CTA with the tapping finger, time/reps chip legend gendered, pause & skip', () => {
     const [start, chips, skip] = stationTutorialSteps('male');
     expect(start).toEqual({ target: COACH_TARGET_START, text: 'כשמוכנים, לוחצים כאן', finger: true });
     expect(chips.target).toBe(COACH_TARGET_CHIPS);
-    expect(chips.text).toBe('⏱ = על זמן, אנחנו סופרים · 🔁 = על חזרות, אתה סופר ולוחץ סיימתי');
-    expect(stationTutorialSteps('female')[1].text).toBe('⏱ = על זמן, אנחנו סופרים · 🔁 = על חזרות, את סופרת ולוחצת סיימתי');
-    expect(stationTutorialSteps('other')[1].text).toBe('⏱ = על זמן, אנחנו סופרים · 🔁 = על חזרות, סופרים ולוחצים סיימתי');
+    expect(chips.text).toBe('כל תרגיל מסומן לפי הסוג שלו');
+    expect(chips.legend).toEqual([
+      { icon: 'time', text: 'זמן: אנחנו סופרים' },
+      { icon: 'reps', text: 'חזרות: אתה סופר ולוחץ סיימתי' },
+    ]);
+    expect(stationTutorialSteps('female')[1].legend?.[1].text).toBe('חזרות: את סופרת ולוחצת סיימתי');
+    expect(stationTutorialSteps('other')[1].legend?.[1].text).toBe('חזרות: סופרים ולוחצים סיימתי');
     expect(skip.target).toBe(COACH_TARGET_SKIP);
     // Gender-neutral, identical for everyone.
     for (const gen of ['male', 'female', 'other', null] as const) {
-      expect(stationTutorialSteps(gen)[2].text).toBe('בכל רגע אפשר לעצור ⏸ או לדלג על תרגיל או על כל התחנה ⏭');
+      expect(stationTutorialSteps(gen)[2].text).toBe('בכל רגע אפשר לעצור או לדלג על תרגיל או על כל התחנה');
+      expect(stationTutorialSteps(gen)[2].legend).toEqual([
+        { icon: 'pause', text: 'עצירה' },
+        { icon: 'skip', text: 'דילוג' },
+      ]);
     }
+  });
+  it('no emoji glyphs in any bubble copy — icons are rendered, not typed (design v2 §6)', () => {
+    // Misc symbols (\u23F1 \u23F8 \u23ED \u2026) + astral emoji (\uD83D\uDD01 \uD83D\uDC46 \u2026) as surrogate pairs (no `u` flag: es5 target).
+    const glyph = /[\u2300-\u23FF\u2600-\u27BF]|[\uD83C-\uD83E][\uDC00-\uDFFF]/;
+    for (const gen of ['male', 'female', 'other', null] as const) {
+      for (const step of stationTutorialSteps(gen)) {
+        expect(step.text).not.toMatch(glyph);
+        for (const row of step.legend ?? []) expect(row.text).not.toMatch(glyph);
+      }
+    }
+    const screen = src('../StationWelcomeScreen.tsx');
+    expect(screen).toContain('time: { icon: Timer');
+    expect(screen).toContain('reps: { icon: Repeat');
+    expect(screen).toContain('pause: { icon: Pause');
+    expect(screen).toContain('skip: { icon: SkipForward');
   });
   it('no slash forms (/י, /ת, את/ה) in any bubble, any gender', () => {
     for (const gen of ['male', 'female', 'other', null] as const) {
-      for (const step of stationTutorialSteps(gen)) expect(step.text).not.toMatch(/[א-ת]\/[א-ת]/);
+      for (const step of stationTutorialSteps(gen)) {
+        expect(step.text).not.toMatch(/[א-ת]\/[א-ת]/);
+        for (const row of step.legend ?? []) expect(row.text).not.toMatch(/[א-ת]\/[א-ת]/);
+      }
     }
   });
   it('every target exists on screen', () => {
