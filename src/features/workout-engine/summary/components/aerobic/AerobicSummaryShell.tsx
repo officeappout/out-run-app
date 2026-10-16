@@ -19,6 +19,16 @@ interface Props {
   onClose: () => void;
   /** XP earned this session; pill hidden when 0 or undefined */
   xpEarned?: number;
+  /**
+   * History (read-only) mode — see AerobicSummaryView. The container also
+   * skips the group-context Firestore reads and ignores the running store's
+   * savedWorkoutId (it belongs to the last live run, not this doc).
+   */
+  isReadOnly?: boolean;
+  /** History delete trigger (caller owns confirm + delete). */
+  onDelete?: () => void;
+  /** Gap above the open drawer; history passes 0 (no map behind). */
+  peekHeight?: number;
 }
 
 /**
@@ -27,13 +37,14 @@ interface Props {
  * rating, workout delete); AerobicSummaryView renders it.
  */
 export default function AerobicSummaryShell(props: Props) {
-  const { workout, currentUid } = props;
+  const { workout, currentUid, isReadOnly = false } = props;
 
-  const savedWorkoutId = useRunningPlayer((s) => s.savedWorkoutId);
+  const storeSavedWorkoutId = useRunningPlayer((s) => s.savedWorkoutId);
+  const savedWorkoutId = isReadOnly ? null : storeSavedWorkoutId;
 
   const { ctx: groupCtx, loading: groupLoading } = useGroupSummaryCtx(
-    workout.groupId,
-    workout.attendanceId,
+    isReadOnly ? undefined : workout.groupId,
+    isReadOnly ? undefined : workout.attendanceId,
     currentUid,
   );
 

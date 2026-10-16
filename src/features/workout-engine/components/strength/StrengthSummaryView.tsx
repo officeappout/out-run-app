@@ -12,6 +12,7 @@ import { Trophy, Trash2, Flame, Layers, Flag } from 'lucide-react';
 import AnimatedFlame from '@/components/ui/AnimatedFlame';
 import { Button, Card, CardTile, IconTile, StatNumber } from '@/components/ui/v2';
 import LevelRingCard from './components/LevelRingCard';
+import { shouldShowLevelRing } from './utils/level-ring-visibility';
 import type { CompletedExercise } from './utils/summary.utils';
 import { PersonalRecords } from './components/summary-atoms';
 import GainBreakdownCard from './components/GainBreakdownCard';
@@ -157,8 +158,11 @@ export default function StrengthSummaryView({
             workout instead of nothing. Gated explicitly here rather than
             relying on GainBreakdownCard/LevelGoalsChecklist's own internal
             "no data" guards, so the hide is robust regardless of how those
-            guards evolve. */}
-        {!isReadOnly && (
+            guards evolve.
+            G8.2: also hidden when progression was skipped because the user has
+            no strength questionnaire (enable_no_auto_strength_level) — the ring
+            would otherwise show a made-up fallback level. */}
+        {shouldShowLevelRing({ isReadOnly, progressionResult: progression.progressionResult }) && (
           <LevelRingCard
             programName={programName ?? 'תוכנית אימון'}
             currentLevel={analytics.liveLevel}
@@ -220,7 +224,7 @@ export default function StrengthSummaryView({
             caller wired an onDelete (WORKOUT_DELETE_EXPANDED_ENABLED at the
             call site). This component doesn't own the confirm/delete flow —
             tapping just calls the caller's onDelete(), same contract as
-            FreeRunSummary's onDelete prop. */}
+            AerobicSummaryView's / HybridSummary's onDelete prop. */}
         {isReadOnly && onDelete && (
           <Button
             variant="ghost"

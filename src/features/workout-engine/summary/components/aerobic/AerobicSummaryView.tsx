@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, type ReactNode } from 'react';
-import { Activity, Footprints, Maximize2, Sparkles, Star, Users, X } from 'lucide-react';
+import { Activity, Footprints, Maximize2, Sparkles, Star, Trash2, Users, X } from 'lucide-react';
 import { Button, Card, CardTile, Chip, IconTile, StatNumber } from '@/components/ui/v2';
 import SummaryDrawerShell, { type DrawerTab } from '../../blocks/SummaryDrawerShell';
 import type { SummarySnap } from '../../blocks/summary-sheet.util';
@@ -51,6 +51,25 @@ export interface AerobicSummaryViewProps {
   deleteWorkoutWithReversal: (workoutId: string) => Promise<unknown>;
   /** Snap the drawer opens at — 'full' (default) or 'peek' (dev preview). */
   initialSnap?: SummarySnap;
+  /**
+   * History (read-only) mode — /workouts/[id]/history re-opening a saved
+   * walk/run. Nothing is written: the route-rating card is hidden, the
+   * this-session delete (savedWorkoutId) is never shown, the "too short — not
+   * saved" notice is suppressed, and the footer is a plain "סגור" → onClose.
+   * Default false = the live post-finish flow, unchanged.
+   */
+  isReadOnly?: boolean;
+  /**
+   * History delete trigger — rendered only when `isReadOnly && onDelete`.
+   * This view doesn't own the confirm/delete flow; tapping just calls the
+   * caller's onDelete() (same contract as HybridSummary / StrengthSummaryPage).
+   */
+  onDelete?: () => void;
+  /**
+   * Transparent gap above the open drawer (live Mapbox peeks through on /map).
+   * No map is mounted behind the history route, so it passes 0. Default 110.
+   */
+  peekHeight?: number;
 }
 
 type TabId = 'overview' | 'stats' | 'segments' | 'map';
@@ -87,6 +106,9 @@ export default function AerobicSummaryView({
   deleteLastWorkout,
   deleteWorkoutWithReversal,
   initialSnap = 'full',
+  isReadOnly = false,
+  onDelete,
+  peekHeight = 110,
 }: AerobicSummaryViewProps) {
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [expandedMap, setExpandedMap] = useState(false);
@@ -218,7 +240,7 @@ export default function AerobicSummaryView({
       )}
 
       {/* Route Rating CTA — shown whenever there is a park or route to aggregate against */}
-      {!!(workout.parkId || workout.routeId) && (
+      {!isReadOnly && !!(workout.parkId || workout.routeId) && (
         <Card padding="md" dir="rtl">
           {ratingSubmitted ? (
             <div className="text-center text-[14px] font-extrabold text-v2-deep">
@@ -278,11 +300,11 @@ export default function AerobicSummaryView({
       <AerobicShareBlock
         distanceKm={distanceKm}
         groupCtx={groupCtx}
-        wasSaved={savedWorkoutId !== null}
+        wasSaved={isReadOnly || savedWorkoutId !== null}
       />
 
       {/* Delete workout — only shown when a workout was actually saved this session */}
-      {savedWorkoutId && (
+      {!isReadOnly && savedWorkoutId && (
         WORKOUT_DELETE_EXPANDED_ENABLED ? (
           // ── Flag ON: shared DeleteWorkoutConfirmModal + deleteWorkoutWithReversal ──
           <div className="text-center">
@@ -341,7 +363,7 @@ export default function AerobicSummaryView({
 
       {/* WORKOUT_DELETE_EXPANDED_ENABLED-only: shared confirm modal, mounted regardless
           of tab so it can be triggered from the overview tab's trigger above. */}
-      {WORKOUT_DELETE_EXPANDED_ENABLED && (
+      {!isReadOnly && WORKOUT_DELETE_EXPANDED_ENABLED && (
         <DeleteWorkoutConfirmModal
           isOpen={expandedDeleteModalOpen}
           activityLabel={activityType === 'walking' ? 'הליכה' : 'ריצה'}
@@ -450,14 +472,34 @@ export default function AerobicSummaryView({
         activeTab={activeTab}
         onTabChange={(id) => setActiveTab(id as TabId)}
         header={hero}
-        peekHeight={110}
+        peekHeight={peekHeight}
         initialSnap={initialSnap}
         footer={
-          <div className="px-4 py-3">
-            <Button variant="primary" size="lg" block onClick={onSave}>
-              {savedWorkoutId !== null ? 'סיום ושמור' : 'סיום'}
-            </Button>
-          </div>
+          isReadOnly ? (
+            // History: optional delete (caller-owned confirm) + close. No save.
+            <div className="flex items-center gap-2.5 px-4 py-3">
+              {onDelete && (
+                <Button
+                  variant="ghost"
+                  size="lg"
+                  onClick={onDelete}
+                  aria-label="מחק אימון"
+                  className="!px-4 !text-v2-down"
+                >
+                  <Trash2 size={18} strokeWidth={2.4} aria-hidden />
+                </Button>
+              )}
+              <Button variant="primary" size="lg" onClick={onClose} className="flex-1">
+                סגור
+              </Button>
+            </div>
+          ) : (
+            <div className="px-4 py-3">
+              <Button variant="primary" size="lg" block onClick={onSave}>
+                {savedWorkoutId !== null ? 'סיום ושמור' : 'סיום'}
+              </Button>
+            </div>
+          )
         }
       >
         {tabContent[activeTab]}
