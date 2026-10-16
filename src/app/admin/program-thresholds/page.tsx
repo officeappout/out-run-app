@@ -333,7 +333,7 @@ export default function ProgramThresholdsAdmin() {
       {/* Header + Context */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black !text-slate-900">מיפוי סיפי תוכנית</h1>
+          <h1 className="text-2xl font-black !text-slate-900">סיפי תוכנית</h1>
           <p className="text-sm !text-slate-500 mt-1">
             ממפה ציוני ממוצע מההערכה הוויזואלית לתוכניות אימון. כל סף מגדיר טווח ממוצע ומקצה תוכנית ורמה ספציפיים. פערים מסומנים אוטומטית.
           </p>

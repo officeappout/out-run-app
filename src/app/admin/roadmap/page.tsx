@@ -431,7 +431,7 @@ export default function ProductRoadmapPage() {
       {/* Header - Fixed */}
       <div className="flex-shrink-0 flex items-center justify-between px-1">
         <div>
-          <h1 className="text-2xl font-black text-gray-900">Product Roadmap</h1>
+          <h1 className="text-2xl font-black text-gray-900">מפת דרכים — פיתוח</h1>
           <p className="text-gray-500 mt-1">ניהול משימות פיתוח, משוב משתמשים ומודולים</p>
         </div>
         <div className="flex items-center gap-3">

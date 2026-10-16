@@ -125,7 +125,7 @@ export default function WebTrafficPage() {
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <span className="text-[13px] font-extrabold text-[#0284c7]">שיווק · outrun.co.il/web</span>
-          <h1 className="mt-1 text-[34px] font-black leading-[1.05] tracking-[-0.025em]">תנועה באתר.</h1>
+          <h1 className="mt-1 text-[34px] font-black leading-[1.05] tracking-[-0.025em]">תנועה באתר</h1>
           <p className="mt-2 text-[15px] text-[#4b5a66]">מי מגיע, מאיפה, ועל מה לוחצים. בלי עוגיות ובלי מידע אישי.</p>
         </div>
         {/* range: a segmented pill; the current one is the solid brand gradient */}

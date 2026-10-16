@@ -148,7 +148,7 @@ export default function TagBeginnersPage() {
         <Link href="/admin/running/programs" className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-2">
           <ArrowRight size={18} /> חזרה
         </Link>
-        <h1 className="text-3xl font-black text-gray-900">Beginner Firewall — תיוג אימונים</h1>
+        <h1 className="text-3xl font-black text-gray-900">תיוג אימונים למתחילים</h1>
         <p className="text-gray-500 mt-1">
           סורק את תוכניות המתחילים (<strong>{BEGINNER_PROGRAM_NAMES.join(', ')}</strong>) ומוסיף תג
           <code className="mx-1 px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-xs font-bold">{BEGINNER_TAG}</code>

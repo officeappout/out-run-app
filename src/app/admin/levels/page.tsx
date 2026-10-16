@@ -299,7 +299,7 @@ export default function LevelsPage() {
         <div className="flex items-center gap-3">
           <Signal className="w-8 h-8 text-cyan-600" />
           <div>
-            <h1 className="text-2xl font-black text-gray-900">רמות למור (Lemur Levels)</h1>
+            <h1 className="text-2xl font-black text-gray-900">רמות ו־XP</h1>
             <p className="text-sm text-gray-500">רמות עבור מערכת ההישגים והגיימיפיקציה (התפתחות דמות, מטבעות, Widgets). מנותק מהתקדמות בתוכניות.</p>
           </div>
         </div>

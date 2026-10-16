@@ -596,7 +596,7 @@ export default function ExercisesAdminPage() {
       {/* Header */}
       <div className="flex items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
         <div>
-          <h1 className="text-3xl font-black text-gray-900">ניהול תרגילים</h1>
+          <h1 className="text-3xl font-black text-gray-900">בנק תרגילים</h1>
           <p className="text-gray-500 mt-2">
             {allExercises.length > 0
               ? `${allExercises.length} תרגילים במערכת`

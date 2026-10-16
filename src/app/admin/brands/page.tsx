@@ -95,7 +95,7 @@ export default function BrandsAdminPage() {
       {/* Header */}
       <div className="flex items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
         <div>
-          <h1 className="text-3xl font-black text-gray-900">ניהול מותגי ציוד חוץ</h1>
+          <h1 className="text-3xl font-black text-gray-900">מותגי מתקנים</h1>
           <p className="text-gray-500 mt-2">צור וערוך מותגי ציוד חוץ (Saly, Ludos, וכו')</p>
         </div>
         <div className="flex items-center gap-3">

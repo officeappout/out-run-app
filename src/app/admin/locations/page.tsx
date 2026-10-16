@@ -2007,7 +2007,7 @@ export default function LocationsPage() {
                         <Map size={24} className="text-cyan-600" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-black text-gray-900">ניהול מיקומים על המפה</h1>
+                        <h1 className="text-2xl font-black text-gray-900">מיקומים ומסלולים</h1>
                         <p className="text-sm text-gray-500 mt-0.5">
                             {activeTab === 'routes'
                                 ? debouncedSearch

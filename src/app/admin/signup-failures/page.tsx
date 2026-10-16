@@ -100,7 +100,7 @@ export default function SignupFailuresPage() {
   return (
     <div className="max-w-4xl mx-auto py-8 space-y-4" dir="rtl">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-black text-slate-900">כשלי הרשמה — 100 האחרונים</h1>
+        <h1 className="text-xl font-black text-slate-900">כשלי הרשמה</h1>
         <button
           onClick={load}
           disabled={loading}

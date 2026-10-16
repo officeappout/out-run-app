@@ -472,7 +472,7 @@ export default function WorkoutSimulatorPage() {
               <Zap size={20} className="text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-black tracking-tight text-gray-900">Master Workout Simulator</h1>
+              <h1 className="text-xl font-black tracking-tight text-gray-900">סימולטור אימונים</h1>
               <p className="text-xs text-gray-500">Full-pipeline trio generation with reasoning log</p>
             </div>
           </div>

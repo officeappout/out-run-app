@@ -729,7 +729,7 @@ export default function ContentMatrixPage() {
       {/* Header */}
       <div className="flex items-center justify-between bg-gradient-to-r from-indigo-600 to-purple-600 p-6 rounded-2xl shadow-lg text-white">
         <div>
-          <h1 className="text-3xl font-black">OUT Master Production Hub</h1>
+          <h1 className="text-3xl font-black">ימי צילום</h1>
           <p className="text-indigo-100 mt-1">ניהול תהליך הפקה מלא: צילום → קול → עריכה → העלאה</p>
         </div>
         <div className="flex items-center gap-3">
