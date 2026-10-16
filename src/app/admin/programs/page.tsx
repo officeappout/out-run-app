@@ -169,7 +169,7 @@ export default function ProgramsAdminPage() {
     <div className="space-y-6" dir="rtl">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-black text-gray-900">ניהול תוכניות</h1>
+          <h1 className="text-3xl font-black text-gray-900">תוכניות אימון</h1>
           <p className="text-gray-500 mt-2">צור וערוך תוכניות אימון (Full Body, Upper Body, Lower Body, etc.)</p>
         </div>
         <button

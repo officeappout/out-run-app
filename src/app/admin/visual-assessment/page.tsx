@@ -757,7 +757,7 @@ export default function VisualAssessmentAdminPage() {
       {/* Header + Context */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-4">
         <div>
-          <h1 className="text-2xl font-black !text-slate-900">ניהול תוכן הערכה ויזואלית</h1>
+          <h1 className="text-2xl font-black !text-slate-900">הערכה ויזואלית</h1>
           <p className="text-sm !text-slate-500 mt-1">
             ניהול וריאנטי וידאו שקוף לכל קטגוריה ורמה בהערכה. העלאת HEVC (.mov) ל-iOS ו-VP9 (.webm) לאנדרואיד/ווב. קישור תוכן לתוכניות אימון לשם עקיבות מלאה.
           </p>

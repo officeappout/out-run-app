@@ -302,7 +302,7 @@ export default function QuestionnaireAdminPage() {
     <div className="space-y-6" dir="rtl">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-black text-gray-900">ניהול שאלון Onboarding</h1>
+          <h1 className="text-3xl font-black text-gray-900">שאלון אונבורדינג</h1>
           <p className="text-gray-500 mt-2">צור וערוך שאלות ותשובות עם לוגיקת הסתעפות</p>
         </div>
         <div className="flex items-center gap-3">

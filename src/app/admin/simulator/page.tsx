@@ -526,7 +526,7 @@ export default function SimulatorPage() {
                 <Smartphone size={24} className="text-white" />
         </div>
               <div>
-                <h1 className="text-2xl font-black text-gray-900">User Journey Simulator</h1>
+                <h1 className="text-2xl font-black text-gray-900">סימולטור התראה ← אימון</h1>
                 <p className="text-sm text-gray-500">סימולציה מלאה: התראה → בית → אימון</p>
                 </div>
                 </div>

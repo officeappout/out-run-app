@@ -253,7 +253,7 @@ export default function PullGapAnalysisPage() {
     <div className="space-y-6 p-6 text-slate-900" dir="rtl">
       <div className="flex items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
         <div>
-          <h1 className="text-2xl font-black text-gray-900">Movement Gap Analysis — Level-Aware Engine</h1>
+          <h1 className="text-2xl font-black text-gray-900">פערי תרגילי משיכה לפי רמה</h1>
           <p className="text-gray-500 mt-1">ניתוח פערי רמות עבור Pull ו-Push (horizontal + vertical)</p>
         </div>
         <Link href="/admin/exercises" className="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-300">

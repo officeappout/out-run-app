@@ -995,7 +995,7 @@ export default function WorkoutSettingsPage() {
       {/* Header */}
       <div className="flex items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
         <div>
-          <h1 className="text-3xl font-black text-gray-900">ניהול שפה ומיתוג</h1>
+          <h1 className="text-3xl font-black text-gray-900">שפה ותיאורי אימונים</h1>
           <p className="text-gray-500 mt-2">נהל כותרות אימון, משפטים מוטיבציוניים והתראות</p>
         </div>
       </div>
