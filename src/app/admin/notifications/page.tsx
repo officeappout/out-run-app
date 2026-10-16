@@ -491,7 +491,9 @@ export default function NotificationsPage() {
     );
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-8" dir="rtl">
+    // designed as a dark screen (white/5 panels, gray-300/400 text): it gets the
+    // dark surface it was built for, instead of light text on the white sheet
+    <div className="p-6 max-w-5xl mx-auto space-y-8 bg-slate-950 rounded-[22px] text-gray-100" dir="rtl" data-dark-surface="true">
       {/* ── Header */}
       <div className="flex items-center justify-between">
         <div>

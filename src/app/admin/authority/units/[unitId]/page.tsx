@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -106,7 +106,7 @@ export default function UnitDrilldownPage() {
   // is shown via rosterSummaryLoadError, never silently rendered as
   // "0 אימונים" for every row (David, explicit requirement) — see the
   // render below and rosterSummaryByUid's own lookup.
-  const [rosterSummaryByUid, setRosterSummaryByUid] = useState<Record<string, { workoutsLast7Days: number; lastWorkoutDateThisWeek: string | null }>>({});
+  const [rosterSummaryByUid, setRosterSummaryByUid] = useState<Record<string, { workoutsLast7Days: number; lastWorkoutDateThisWeek: string | null; lastWorkoutDate30Days?: string | null }>>({});
   const [rosterSummaryLoadError, setRosterSummaryLoadError] = useState<string | null>(null);
   // Slice G (26.09.2026, §13.32) — the two per-member officer actions.
   // approvingUid/removingUid guard against double-submission (disable the
@@ -123,6 +123,8 @@ export default function UnitDrilldownPage() {
   const [tenantType, setTenantType] = useState<string>('municipal');
   const [searchTerm, setSearchTerm] = useState('');
   const [showAllMembers, setShowAllMembers] = useState(false);
+  // "who hasn't trained" (audit 15.10.2026): 0 = everyone; N = no workout in N days
+  const [inactiveDays, setInactiveDays] = useState<0 | 7 | 14 | 30>(0);
   const [selectedMember, setSelectedMember] = useState<UnitMember | null>(null);
   const [memberWorkouts, setMemberWorkouts] = useState<any[]>([]);
   const [loadingWorkouts, setLoadingWorkouts] = useState(false);
@@ -397,10 +399,10 @@ export default function UnitDrilldownPage() {
             if (!res.ok) {
               throw new Error(typeof body.error === 'string' ? body.error : `שגיאה בטעינת נתוני האימונים (${res.status})`);
             }
-            const summaries: Array<{ uid: string; workoutsLast7Days: number; lastWorkoutDateThisWeek: string | null }> =
+            const summaries: Array<{ uid: string; workoutsLast7Days: number; lastWorkoutDateThisWeek: string | null; lastWorkoutDate30Days?: string | null }> =
               Array.isArray(body.summaries) ? body.summaries : [];
-            const byUid: Record<string, { workoutsLast7Days: number; lastWorkoutDateThisWeek: string | null }> = {};
-            summaries.forEach((s) => { byUid[s.uid] = { workoutsLast7Days: s.workoutsLast7Days, lastWorkoutDateThisWeek: s.lastWorkoutDateThisWeek }; });
+            const byUid: Record<string, { workoutsLast7Days: number; lastWorkoutDateThisWeek: string | null; lastWorkoutDate30Days?: string | null }> = {};
+            summaries.forEach((s) => { byUid[s.uid] = { workoutsLast7Days: s.workoutsLast7Days, lastWorkoutDateThisWeek: s.lastWorkoutDateThisWeek, lastWorkoutDate30Days: s.lastWorkoutDate30Days ?? null }; });
             setRosterSummaryByUid(byUid);
           } catch (fetchErr) {
             console.error('[UnitDrilldown] /api/units/roster-workout-summary failed:', fetchErr);
@@ -440,15 +442,26 @@ export default function UnitDrilldownPage() {
     ? (tenantType as 'municipal' | 'educational' | 'military' | 'company' | 'youth_movement')
     : null;
 
+  /** days since the member's last workout within 30 days; Infinity = none in 30 days */
+  const daysSinceWorkout = useCallback((uid: string) => {
+    const last = rosterSummaryByUid[uid]?.lastWorkoutDate30Days;
+    return last ? Math.floor((Date.now() - new Date(last).getTime()) / 86400000) : Infinity;
+  }, [rosterSummaryByUid]);
+
   const filteredMembers = useMemo(() => {
     let list = members;
     if (searchTerm.trim()) {
       const q = searchTerm.trim().toLowerCase();
       list = list.filter(m => m.name.toLowerCase().includes(q));
     }
-    if (!showAllMembers && list.length > 20) return list.slice(0, 20);
+    if (inactiveDays > 0) {
+      // the longest-inactive first — the officer's call list
+      list = list.filter(m => daysSinceWorkout(m.uid) >= inactiveDays)
+        .sort((a, b) => daysSinceWorkout(b.uid) - daysSinceWorkout(a.uid));
+    }
+    if (!showAllMembers && inactiveDays === 0 && list.length > 20) return list.slice(0, 20);
     return list;
-  }, [members, searchTerm, showAllMembers]);
+  }, [members, searchTerm, showAllMembers, inactiveDays, daysSinceWorkout]);
 
   // 24.09.2026 — routed through a server endpoint (GET /api/units/member-
   // workouts) instead of a direct client-SDK Firestore read. The old query
@@ -963,6 +976,26 @@ export default function UnitDrilldownPage() {
           />
         </div>
 
+        {Object.keys(rosterSummaryByUid).length > 0 && (
+          <div className="flex items-center gap-2 mb-3 flex-wrap" role="group" aria-label="סינון לפי פעילות">
+            <span className="text-xs text-slate-400 font-bold">לא התאמנו:</span>
+            {([[0, 'הכל'], [7, '7 ימים'], [14, '14 ימים'], [30, '30 ימים']] as const).map(([d, label]) => {
+              const count = d === 0 ? members.length : members.filter(m => daysSinceWorkout(m.uid) >= d).length;
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setInactiveDays(d)}
+                  aria-pressed={inactiveDays === d}
+                  className={`text-[11px] font-bold px-3 py-1.5 rounded-full transition-all ${inactiveDays === d ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                >
+                  {label}{d > 0 ? ` (${count})` : ''}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {filteredMembers.length === 0 ? (
           <div className="text-center py-8 text-slate-400">
             <Users className="w-8 h-8 mx-auto mb-2 text-slate-200" />
@@ -1038,9 +1071,11 @@ export default function UnitDrilldownPage() {
                   )}
                   {filteredMembers.map((m, i) => {
                     const summary = rosterSummaryByUid[m.uid];
-                    const lastActiveStr = summary?.lastWorkoutDateThisWeek
-                      ? new Date(summary.lastWorkoutDateThisWeek).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })
-                      : null;
+                    // last workout within 30 days (was this-week only: 8 days ago looked like never)
+                    const lastIso = summary?.lastWorkoutDate30Days ?? summary?.lastWorkoutDateThisWeek ?? null;
+                    const lastActiveStr = lastIso
+                      ? new Date(lastIso).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })
+                      : summary ? 'לא ב־30 יום' : null;
                     return (
                     <tr
                       key={m.uid}
@@ -1122,7 +1157,7 @@ export default function UnitDrilldownPage() {
                 </tbody>
               </table>
             </div>
-            {members.length > 20 && !showAllMembers && !searchTerm && (
+            {members.length > 20 && !showAllMembers && !searchTerm && inactiveDays === 0 && (
               <button
                 onClick={() => setShowAllMembers(true)}
                 className="mt-3 text-xs font-bold text-cyan-600 hover:text-cyan-800 flex items-center gap-1"

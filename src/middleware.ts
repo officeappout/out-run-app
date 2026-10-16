@@ -208,7 +208,12 @@ const TENANT_OWNER_ALLOWED_PATHS = [
 // reaching (a `startsWith('/admin/authority/units')` prefix check, which
 // AUTHORITY_MANAGER_ALLOWED_PATHS still correctly uses for authority_manager/
 // tenant_owner, cannot make that distinction).
-const UNIT_ADMIN_PATH_PATTERN = /^\/admin\/authority\/units\/[^/]+/;
+// 15.10.2026 (owner, explicit): the unit fitness officer — the one who runs
+// the test — also sees his unit's readiness and records its results. Two
+// more screens, both exact-shaped: readiness/unit/[unitId] and
+// readiness/entry. The data stays his: the readiness APIs scope a unitAdmin
+// to scope.unitIds (unitPermissionScope.ts) and 403 any other unit.
+const UNIT_ADMIN_PATH_PATTERN = /^\/admin\/authority\/(units\/[^/]+|readiness\/unit\/[^/]+|readiness\/entry\/?$)/;
 
 // 06.10.2026 ("chief fitness officer") — two destinations, not one: the
 // cross-brigade list itself, AND /admin/dashboard, which the list's own

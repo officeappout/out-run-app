@@ -13,6 +13,7 @@ import type { RosterSoldierEntry, RosterUnitEntry } from '@/features/readiness/c
 import type { ReadinessThresholdsConfig } from '@/features/readiness/core/services/readiness-write.service';
 import SearchableSelect from '@/features/admin/components/SearchableSelect';
 import { useMilitaryTenantSelection } from '@/features/admin/hooks/useMilitaryTenantSelection';
+import { useIsUnitAdminViewer } from '@/features/admin/hooks/useIsUnitAdminViewer';
 import { Loader2, ClipboardList, ArrowRight, AlertTriangle, Building2 } from 'lucide-react';
 
 type ComponentsMode = 'both' | 'run_only' | 'strength_only';
@@ -70,6 +71,7 @@ export default function ReadinessEntryPage() {
   // tenant_owner/unit_admin never sees selection.needsSelection===true,
   // so their own path below is byte-for-byte what it was before.
   const selection = useMilitaryTenantSelection();
+  const isUnitAdminViewer = useIsUnitAdminViewer();
 
   const load = useCallback(async (tenantId: string | null) => {
     const token = await auth.currentUser?.getIdToken();
@@ -164,11 +166,13 @@ export default function ReadinessEntryPage() {
 
   return (
     <div dir="rtl" className="space-y-6 pb-12 max-w-5xl mx-auto">
-      <AdminBreadcrumb items={[
-        { label: 'כשירות', href: '/admin/dashboard' },
-        { label: 'חיילים ותוצאות', href: '/admin/authority/readiness' },
-        { label: 'רישום תוצאות בוחן' },
-      ]} />
+      <AdminBreadcrumb items={isUnitAdminViewer
+        ? [{ label: 'כשירות' }, { label: 'רישום תוצאות בוחן' }]
+        : [
+            { label: 'כשירות', href: '/admin/dashboard' },
+            { label: 'חיילים ותוצאות', href: '/admin/authority/readiness' },
+            { label: 'רישום תוצאות בוחן' },
+          ]} />
 
       {/* 06.10.2026 — root/chief-officer only; same SearchableSelect the
           units ("team") screen's own super-admin switcher already uses. */}

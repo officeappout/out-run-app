@@ -60,7 +60,8 @@ export default function CommandEntityCard({
         <p className="text-sm text-gray-400 py-3">טרם הוזנו נתונים</p>
       ) : (
         <>
-          <p className="text-3xl font-black" style={{ color: bigBreakdown.passPercent !== null ? READINESS_COLORS.pass : '#9CA3AF' }}>
+          {/* neutral ink, not the pass green: with no official target, a green 22% read as success (audit 15.10.2026) */}
+          <p className="text-3xl font-black" style={{ color: bigBreakdown.passPercent !== null ? '#0e1419' : READINESS_COLORS.notYetTested }}>
             {bigBreakdown.passPercent !== null ? `${bigBreakdown.passPercent}%` : 'טרם נבדקה'}
           </p>
           {bigBreakdown.passPercent !== null && (

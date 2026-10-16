@@ -56,6 +56,31 @@ export function AreaTabs({ tabs, current }: { tabs: { href: string; label: strin
   );
 }
 
+/** in-page tabs (buttons, not links); the current one is the gradient pill */
+export function SegmentTabs<T extends string>({ tabs, value, onChange, label }: {
+  tabs: { id: T; label: string }[];
+  value: T;
+  onChange: (id: T) => void;
+  label: string;
+}) {
+  return (
+    <div className={cx(ui.root, ui.tabs)} role="tablist" aria-label={label}>
+      {tabs.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          role="tab"
+          aria-selected={t.id === value}
+          onClick={() => onChange(t.id)}
+          className={cx(ui.tab, t.id === value && ui.tabCurrent)}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function Panel({ title, children, className }: { title?: ReactNode; children: ReactNode; className?: string }) {
   return (
     <section className={cx(ui.root, ui.panel, className)}>
