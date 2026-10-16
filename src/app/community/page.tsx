@@ -26,7 +26,9 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { m, AnimatePresence, motion } from 'framer-motion';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Users, RefreshCw, Share2, ChevronDown, UserPlus, SlidersHorizontal } from 'lucide-react';
+import { Users, RefreshCw, ChevronDown, SlidersHorizontal, MapPin, Trees } from 'lucide-react';
+import IconTile from '@/components/ui/v2/IconTile';
+import Button from '@/components/ui/v2/Button';
 import { useUserStore } from '@/features/user';
 import { useSocialStore } from '@/features/social/store/useSocialStore';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
@@ -51,6 +53,7 @@ import GroupLeaderboard from '@/features/arena/components/GroupLeaderboard';
 import ScopeCompetitionLeaderboard from '@/features/arena/components/ScopeCompetitionLeaderboard';
 import ScopeBattleCard from '@/features/arena/components/ScopeBattleCard';
 import LeagueFilterSheet from '@/features/arena/components/LeagueFilterSheet';
+import { LeagueSelectorButton } from '@/features/arena/components/LeaguesTabChrome';
 import MunicipalPressureCard from '@/features/arena/components/MunicipalPressureCard';
 import SchoolOutreachCard from '@/features/arena/components/SchoolOutreachCard';
 import LeagueCarousel, {
@@ -737,109 +740,24 @@ export default function CommunityPage() {
     const cards = buildLeagueCards();
     const activeCard = cards.find((c) => c.key === selectedLeague);
 
-    // Sticky my-rank footer — shown only when:
-    //   1. The user has an entry in the currently-active leaderboard, AND
-    //   2. They're outside the top 3 (top 3 are already on the podium).
-    // The bar floats just above the BottomNavbar by matching the same
-    // `3rem + safe-area-inset-bottom` offset that ClientLayout uses for
-    // the main scroll container's paddingBottom.
-    const showStickyMyRank = !!activeMyEntry && activeMyEntry.rank > 3;
-
-    const handleShareMyRank = () => {
-      if (!activeMyEntry) return;
-      const scopeName = activeCard?.name || 'הליגה';
-      const windowHe = leaderboardTimeWindow === 'daily' ? 'היום' : leaderboardTimeWindow === 'weekly' ? 'השבוע' : 'החודש';
-      const text = `אני במקום #${activeMyEntry.rank} ב${scopeName} ${windowHe} על Out! 🔥`;
-      if (navigator.share) {
-        navigator.share({ text }).catch(() => {});
-      } else if (navigator.clipboard) {
-        navigator.clipboard.writeText(text);
-      }
-    };
-
-    // Stage B: "הזמן חברים" alongside "שתף" on the hero — same lightweight
-    // native-share/clipboard mechanism as handleShareMyRank, invite-oriented
-    // copy instead of a rank announcement. Reuses the existing pattern
-    // rather than pulling in a heavier sheet component for a compact bar.
-    const handleInviteFromMyRank = () => {
-      const scopeName = activeCard?.name || 'הליגה';
-      const text = `בוא תצטרף אליי ב${scopeName} על Out! 🔥`;
-      if (navigator.share) {
-        navigator.share({ text }).catch(() => {});
-      } else if (navigator.clipboard) {
-        navigator.clipboard.writeText(text);
-      }
-    };
+    // Design v2 (David, 15.10.2026): the page-level sticky "my rank" bar is
+    // gone — exactly one "you" surface besides the hero tile: the board's own
+    // sticky row (NeighborhoodLeaderboardView), shown only when your real row
+    // is off-screen. Share/invite live on the hero tile.
 
     return (
       <>
         {/* League selector — a single summary button showing the active league.
             Tapping it opens the bottom-sheet selector (replaces the old inline
             horizontal carousel). The "+" create CTA now lives inside the sheet. */}
-        {arenaLoading ? (
-          <div
-            className="w-full flex items-center gap-3 rounded-2xl px-3 py-3 bg-white border border-gray-200 mb-3"
-            dir="rtl"
-          >
-            <div className="w-11 h-11 rounded-full bg-gray-200 animate-pulse flex-shrink-0" />
-            <div className="flex-1 min-w-0 space-y-1.5">
-              <div className="h-3.5 w-32 rounded bg-gray-200 animate-pulse" />
-              <div className="h-2.5 w-24 rounded bg-gray-200 animate-pulse" />
-            </div>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setLeagueSheetOpen(true)}
-            aria-haspopup="dialog"
-            aria-expanded={leagueSheetOpen}
-            className="w-full flex items-center gap-3 rounded-2xl px-3 py-3 bg-white border border-gray-200 shadow-subtle active:scale-[0.98] transition-transform mb-3"
-            dir="rtl"
-          >
-            <div
-              className="w-11 h-11 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0"
-              style={activeCard?.logoUrl ? undefined : { background: 'linear-gradient(135deg, #00ADEF, #00dcd0)' }}
-            >
-              {activeCard?.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={activeCard.logoUrl}
-                  alt=""
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span className="text-xl leading-none text-white">
-                  {activeCard?.emoji ?? '🏆'}
-                </span>
-              )}
-            </div>
-            <div className="flex-1 min-w-0 text-right">
-              <div className="flex items-center gap-1.5">
-                <span className="font-black text-gray-900 text-sm truncate">
-                  {activeCard?.name ?? 'בחר ליגה'}
-                </span>
-                <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
-              </div>
-              <div className="text-xs text-gray-500 truncate">
-                {activeCard?.subtitle ? `${activeCard.subtitle} • ` : ''}
-                {getFilterLabel()}
-              </div>
-            </div>
-            {activeMyEntry?.rank != null && (
-              <div className="flex flex-col items-center flex-shrink-0 leading-none">
-                <span
-                  className="font-black tabular-nums text-sm"
-                  style={{ color: '#10B981' }}
-                >
-                  #{activeMyEntry.rank}
-                </span>
-                <span className="text-gray-400 mt-0.5" style={{ fontSize: 9 }}>
-                  דירוג
-                </span>
-              </div>
-            )}
-          </button>
-        )}
+        <LeagueSelectorButton
+          isLoading={arenaLoading}
+          activeCard={activeCard}
+          filterLabel={getFilterLabel()}
+          rank={activeMyEntry?.rank}
+          expanded={leagueSheetOpen}
+          onOpen={() => setLeagueSheetOpen(true)}
+        />
 
         {/* Bottom-sheet league selector */}
         <AnimatePresence>
@@ -906,103 +824,6 @@ export default function CommunityPage() {
           </motion.div>
         </AnimatePresence>
 
-        {/* Sticky "my rank" footer — replaces the old per-leaderboard inline
-            "you" card. Sits inside the page's max-w-md column, sticks to the
-            bottom of the scroll container with a `bottom` offset that matches
-            the BottomNavbar's exact rendered height:
-              pt-0.5 (2px) + min-h-[44px] (44px) + safe-area-inset-bottom
-              = calc(46px + env(safe-area-inset-bottom, 0px))
-            so the bar sits flush on top of the nav with no visible gap.
-            A 32px transparent→white gradient cap above the bar fades the
-            scroll content into the white surface so the row underneath
-            doesn't visually clip into the bar's top border.
-            Hidden when the user is on the podium (top 3) since they're
-            already visible there. */}
-        {showStickyMyRank && activeMyEntry && (
-          <div
-            className="sticky z-10 -mx-4 px-4 pointer-events-none"
-            style={{
-              bottom: 'calc(46px + env(safe-area-inset-bottom, 0px))',
-            }}
-            dir="rtl"
-          >
-            {/* Gradient fade — purely decorative, pointer-events:none via
-                the wrapper. Sits flush above the white bar (no margin) so
-                the fade meets the bar's top edge cleanly. */}
-            <div
-              aria-hidden
-              style={{
-                height: 32,
-                background:
-                  'linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,1))',
-              }}
-            />
-
-            <div
-              className="pointer-events-auto flex items-center gap-3 rounded-2xl shadow-floating"
-              style={{
-                background: 'rgba(255,255,255,0.82)',
-                backdropFilter: 'blur(14px) saturate(160%)',
-                WebkitBackdropFilter: 'blur(14px) saturate(160%)',
-                border: '0.5px solid rgba(229,231,235,0.9)',
-                padding: '8px 12px 8px 8px',
-              }}
-            >
-              <div
-                className="w-10 h-10 rounded-xl flex flex-col items-center justify-center flex-shrink-0 text-white"
-                style={{
-                  background: 'linear-gradient(135deg, #00ADEF, #00dcd0)',
-                  boxShadow: '0 4px 12px rgba(0,173,239,0.35)',
-                }}
-              >
-                <span className="text-[8px] font-bold leading-none opacity-80">דירוג</span>
-                <span className="text-sm font-black tabular-nums leading-tight">
-                  {activeMyEntry.rank}
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-black text-gray-900 truncate leading-tight flex items-center gap-1">
-                  {activeMyEntry.name}
-                  {/* Streak badge — secondary to the metric-first score below
-                      (Stage B). profile.progression.currentStreak is already
-                      loaded client-side (no new fetch) and reflects the
-                      current user regardless of which metric is selected. */}
-                  {!!profile?.progression?.currentStreak && (
-                    <span className="text-[10px] font-bold flex-shrink-0" style={{ color: '#f4b400' }} aria-hidden>
-                      {profile.progression.currentStreak}🔥
-                    </span>
-                  )}
-                </p>
-                <p className="text-[11px] text-[#00ADEF] font-bold tabular-nums leading-tight">
-                  {formatLeaderboardScore(activeMyEntry.totalCredit, activeMyMode, activeMyIsSegment)}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleInviteFromMyRank}
-                aria-label="הזמן חברים"
-                className="flex items-center justify-center w-9 h-9 rounded-xl text-[#00ADEF] active:scale-95 transition-transform flex-shrink-0"
-                style={{
-                  background: 'rgba(0,173,239,0.1)',
-                }}
-              >
-                <UserPlus className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={handleShareMyRank}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-white text-xs font-black active:scale-95 transition-transform flex-shrink-0"
-                style={{
-                  background: 'linear-gradient(135deg, #00ADEF, #00dcd0)',
-                  boxShadow: '0 4px 12px rgba(0,173,239,0.3)',
-                }}
-              >
-                <Share2 className="w-3.5 h-3.5" />
-                שתף
-              </button>
-            </div>
-          </div>
-        )}
       </>
     );
   }
@@ -1150,7 +971,7 @@ export default function CommunityPage() {
   function renderCompetitionToggle() {
     return (
       <div
-        className="flex border-b border-slate-100"
+        className="flex p-1 rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline"
         dir="rtl"
         role="tablist"
         aria-label="מצב תחרות"
@@ -1162,10 +983,10 @@ export default function CommunityPage() {
             role="tab"
             aria-selected={competitionMode === mode}
             onClick={() => setCompetitionMode(mode)}
-            className={`flex-1 py-2.5 text-sm font-bold text-center border-b-2 transition-colors ${
+            className={`flex-1 h-9 rounded-full text-[14px] font-extrabold text-center transition-colors ease-v2 ${
               competitionMode === mode
-                ? 'text-[#00ADEF] border-[#00ADEF]'
-                : 'text-slate-400 border-transparent'
+                ? 'bg-white text-v2-ink shadow-v2-ring'
+                : 'text-v2-muted'
             }`}
           >
             {mode === 'individual' ? 'יחידים' : 'קבוצות'}
@@ -1188,11 +1009,8 @@ export default function CommunityPage() {
             onClick={() => setAxisMenuOpen((o) => !o)}
             aria-haspopup="listbox"
             aria-expanded={axisMenuOpen}
-            className="w-full flex items-center justify-between rounded-2xl px-4 py-3 active:scale-[0.98] transition-transform"
-            style={{
-              background: 'linear-gradient(90deg, rgba(0,173,239,0.10), rgba(16,185,129,0.10))',
-              border: '1px solid #cdeafe',
-            }}
+            className="w-full flex items-center justify-between rounded-v2-tile px-4 py-3 active:scale-[0.97] transition-transform ease-v2 border border-v2-hairline-cool"
+            style={{ background: 'linear-gradient(135deg, #e8f9fe, #e9fdfb)' }}
           >
             <div className="text-right">
               <span className="text-sm font-black text-gray-900">
@@ -1209,7 +1027,7 @@ export default function CommunityPage() {
           {axisMenuOpen && (
             <div
               role="listbox"
-              className="absolute z-20 top-full mt-1 w-full rounded-2xl bg-white border border-gray-100 shadow-lg overflow-hidden"
+              className="absolute z-20 top-full mt-1.5 w-full rounded-v2-tile bg-white shadow-v2-float overflow-hidden py-1"
             >
               {options.map((opt) => (
                 <button
@@ -1219,7 +1037,7 @@ export default function CommunityPage() {
                   aria-selected={axis === opt}
                   onClick={() => { setAxis(opt); setAxisMenuOpen(false); }}
                   className={`w-full text-right px-4 py-3 text-sm font-bold transition-colors ${
-                    axis === opt ? 'text-[#10B981] bg-[#EAF9F3]' : 'text-gray-700 hover:bg-gray-50'
+                    axis === opt ? 'text-v2-deep bg-v2-tint' : 'text-v2-ink hover:bg-v2-surface'
                   }`}
                 >
                   {AXIS_LABEL[opt]}
@@ -1230,14 +1048,12 @@ export default function CommunityPage() {
         </div>
 
         <span
-          className="flex-shrink-0 whitespace-nowrap rounded-full px-3 py-2 text-[12.5px] font-bold text-gray-500"
-          style={{ background: '#f1f4f8', border: '1px solid #e3e8ef' }}
+          className="flex-shrink-0 whitespace-nowrap rounded-full px-3 py-2 text-[12.5px] font-bold text-v2-muted bg-v2-surface ring-1 ring-inset ring-v2-hairline"
         >
           מדד: <b className="text-gray-900">{GROUP_CATEGORY_LABEL[leaderboardCategory]}</b>
         </span>
         <span
-          className="flex-shrink-0 whitespace-nowrap rounded-full px-3 py-2 text-[12.5px] font-bold text-gray-900"
-          style={{ background: '#f1f4f8', border: '1px solid #e3e8ef' }}
+          className="flex-shrink-0 whitespace-nowrap rounded-full px-3 py-2 text-[12.5px] font-bold text-v2-ink bg-v2-surface ring-1 ring-inset ring-v2-hairline"
         >
           {leaderboardTimeWindow === 'daily' ? 'יומי' : leaderboardTimeWindow === 'weekly' ? 'שבועי' : 'חודשי'}
         </span>
@@ -1249,15 +1065,9 @@ export default function CommunityPage() {
           type="button"
           onClick={() => setLeagueFilterSheetOpen(true)}
           aria-label="פילטרים"
-          className="flex items-center justify-center flex-shrink-0 transition-colors"
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 20,
-            border: leaderboardGender !== 'all' ? '1px solid #10B981' : '0.5px solid #D1D5DB',
-            backgroundColor: leaderboardGender !== 'all' ? '#E1F5EE' : '#FFFFFF',
-            color: leaderboardGender !== 'all' ? '#10B981' : '#374151',
-          }}
+          className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ease-v2 ${
+            leaderboardGender !== 'all' ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent' : 'bg-white text-v2-ink-2 ring-1 ring-inset ring-v2-pill-border'
+          }`}
         >
           <SlidersHorizontal className="w-3.5 h-3.5" />
         </button>
@@ -1279,31 +1089,29 @@ export default function CommunityPage() {
     const windowPhrase = leaderboardTimeWindow === 'daily' ? 'היום' : leaderboardTimeWindow === 'weekly' ? 'השבוע' : 'החודש';
     return (
       <div
-        className="rounded-2xl p-4 text-white relative overflow-hidden mb-3"
-        style={{ background: '#0f172a' }}
+        className="rounded-v2-card p-4 text-white relative overflow-hidden mb-3 bg-v2-ink shadow-v2-card-dark"
         dir="rtl"
       >
         <div
           aria-hidden
           className="absolute -top-8 -left-8 w-36 h-36 rounded-full pointer-events-none"
-          style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.45), transparent 70%)' }}
+          style={{ background: 'radial-gradient(circle, rgba(0,186,247,0.4), transparent 70%)' }}
         />
         <div className="relative z-10 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[11px]" style={{ color: '#9fb3c8' }}>
               התרומה שלך {windowPhrase} · {activeScopeEntry.scopeName}
             </p>
-            <p className="text-lg font-black mt-0.5 truncate" style={{ color: '#10B981' }}>
+            <p className="text-lg font-black mt-0.5 truncate text-v2-accent tabular-nums">
               {activeMyEntry
                 ? formatLeaderboardScore(activeMyEntry.totalCredit, activeMyMode, activeMyIsSegment)
                 : CATEGORY_UNIT_LABEL[leaderboardCategory]}
             </p>
           </div>
           <div
-            className="text-center rounded-xl px-3 py-1.5 flex-shrink-0"
-            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)' }}
+            className="text-center rounded-v2-tile px-3 py-1.5 flex-shrink-0 bg-white/10"
           >
-            <p className="text-lg font-black leading-none" style={{ color: '#00ADEF' }}>#{activeScopeEntry.rank}</p>
+            <p className="text-lg font-black leading-none tabular-nums">#{activeScopeEntry.rank}</p>
             <p className="text-[9px] mt-0.5" style={{ color: '#9fb3c8' }}>{scopeTypeLabel}</p>
           </div>
         </div>
@@ -1330,16 +1138,15 @@ export default function CommunityPage() {
       <button
         type="button"
         onClick={handleInviteNeighbors}
-        className="w-full flex items-center gap-2.5 rounded-2xl px-3.5 py-3 text-white text-right active:scale-[0.98] transition-transform"
-        style={{ background: 'linear-gradient(90deg, #00ADEF, #00dcd0)' }}
+        className="w-full flex items-center gap-3 rounded-v2-card px-4 py-3.5 bg-v2-cta text-v2-on-cta shadow-v2-cta text-right active:scale-[0.97] transition-transform ease-v2"
         dir="rtl"
       >
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,255,255,0.2)' }}>
+        <div className="w-10 h-10 rounded-[14px] flex items-center justify-center flex-shrink-0 bg-white/40">
           <Users className="w-[18px] h-[18px]" />
         </div>
         <div className="min-w-0">
           <p className="text-sm font-black">הזמן שכנים ל{activeScopeEntry.scopeName}</p>
-          <p className="text-[11px] opacity-90">יותר חברים = יותר פעילות = יותר סיכוי לנצח</p>
+          <p className="text-[12px] font-semibold opacity-80">יותר חברים = יותר פעילות = יותר סיכוי לנצח</p>
         </div>
       </button>
     );
@@ -1354,18 +1161,13 @@ export default function CommunityPage() {
   // having a neighborhood set.
   function renderNeighborhoodSetupCTA() {
     return (
-      <div className="rounded-2xl bg-white p-4 mb-3 text-center" style={{ border: '0.5px solid #E5E7EB' }} dir="rtl">
-        <span className="text-2xl">🏘️</span>
-        <p className="text-sm font-black text-gray-900 mt-2">בחר שכונה כדי להצטרף לליגת השכונה</p>
-        <p className="text-xs text-gray-500 mt-1">עדיין לא הגדרת שכונה בפרופיל שלך</p>
-        <button
-          type="button"
-          onClick={() => router.push('/profile')}
-          className="mt-3 mx-auto flex items-center gap-1.5 px-4 py-2 rounded-full text-white text-xs font-black active:scale-95 transition-transform"
-          style={{ background: 'linear-gradient(90deg, #00ADEF, #00dcd0)' }}
-        >
+      <div className="rounded-v2-card bg-white shadow-v2-card p-5 mb-3 text-center flex flex-col items-center" dir="rtl">
+        <IconTile icon={MapPin} tone="accent" size="lg" />
+        <p className="text-[16px] font-black text-v2-ink mt-3">בחר שכונה כדי להצטרף לליגת השכונה</p>
+        <p className="text-[13px] text-v2-muted mt-1">עדיין לא הגדרת שכונה בפרופיל שלך</p>
+        <Button variant="primary" size="sm" className="mt-3.5" onClick={() => router.push('/profile')}>
           בחר שכונה בפרופיל
-        </button>
+        </Button>
       </div>
     );
   }
@@ -1513,8 +1315,7 @@ export default function CommunityPage() {
                 3-participant floor). */}
             <div className="flex items-center gap-2 mb-3" dir="rtl">
               <span
-                className="whitespace-nowrap rounded-full px-3 py-2 text-[12.5px] font-bold text-gray-500"
-                style={{ background: '#f1f4f8', border: '1px solid #e3e8ef' }}
+                className="whitespace-nowrap rounded-full px-3 py-2 text-[12.5px] font-bold text-v2-muted bg-v2-surface ring-1 ring-inset ring-v2-hairline"
               >
                 מדד: <b className="text-gray-900">ממוצע צעדים יומי</b>
               </span>
@@ -1702,7 +1503,7 @@ export default function CommunityPage() {
     if (!access.preferredParkId) {
       return (
         <div className="flex flex-col items-center justify-center py-16 text-center" dir="rtl">
-          <span className="text-3xl mb-3">🌳</span>
+          <IconTile icon={Trees} tone="accent" size="lg" className="mb-3" />
           <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
             עוד לא התאמנת בפארק
           </p>

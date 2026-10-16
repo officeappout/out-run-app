@@ -19,6 +19,13 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Plus } from 'lucide-react';
+import { leagueIconFor } from './league-icons';
+
+/** Design v2: lucide icon per league key instead of the card's emoji. */
+function LeagueIcon({ leagueKey, size }: { leagueKey: string; size: number }) {
+  const Icon = leagueIconFor(leagueKey);
+  return <Icon size={size} strokeWidth={2.4} className="text-v2-deep" aria-hidden />;
+}
 
 export type LeagueCardKey = string;
 
@@ -67,8 +74,9 @@ interface LeagueCarouselProps {
   mode?: 'carousel' | 'sheet';
 }
 
-const ACTIVE_BORDER = '#1D9E75';
-const ACTIVE_RING = '#E1F5EE';
+// Design v2: the leagues' green accent → the v2 cyan family (v2-deep / v2-tint).
+const ACTIVE_BORDER = '#0284c7';
+const ACTIVE_RING = '#eef8fc';
 
 /** A single 110×110 shimmer card — matches the exact geometry of a real card. */
 function LeagueCardSkeleton({ isFirst }: { isFirst?: boolean }) {
@@ -156,7 +164,7 @@ function LeagueSheetList({
               onClick={() => onSelect(league.key)}
               aria-selected={active}
               role="tab"
-              className="flex items-center gap-3 w-full text-right rounded-2xl px-3 py-3 transition-all active:scale-[0.98]"
+              className="flex items-center gap-3 w-full text-right rounded-v2-tile px-3 py-3 transition-all ease-v2 active:scale-[0.97]"
               style={{
                 border: active
                   ? `2px solid ${ACTIVE_BORDER}`
@@ -165,7 +173,7 @@ function LeagueSheetList({
               }}
             >
               <div
-                className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0"
+                className="w-11 h-11 rounded-[14px] bg-v2-tint flex items-center justify-center overflow-hidden flex-shrink-0"
                 aria-hidden="true"
               >
                 {league.logoUrl ? (
@@ -178,9 +186,7 @@ function LeagueSheetList({
                     unoptimized
                   />
                 ) : (
-                  <span className="text-xl leading-none">
-                    {league.emoji ?? '🏆'}
-                  </span>
+                  <LeagueIcon leagueKey={league.key} size={20} />
                 )}
               </div>
 
@@ -308,7 +314,7 @@ export default function LeagueCarousel({
               {/* Top: icon + names */}
               <div className="flex flex-col items-center w-full min-w-0">
                 <div
-                  className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden"
+                  className="w-9 h-9 rounded-[12px] bg-v2-tint flex items-center justify-center overflow-hidden"
                   aria-hidden="true"
                 >
                   {league.logoUrl ? (
@@ -321,9 +327,7 @@ export default function LeagueCarousel({
                       unoptimized
                     />
                   ) : (
-                    <span className="text-base leading-none">
-                      {league.emoji ?? '🏆'}
-                    </span>
+                    <LeagueIcon leagueKey={league.key} size={17} />
                   )}
                 </div>
                 <div
