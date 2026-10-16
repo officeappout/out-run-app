@@ -36,11 +36,23 @@ export const MY_DIVISION = {
   ],
 };
 
+/** Leagues the viewer is in — the season division plus leagues people open themselves. */
+export const MY_LEAGUES = [
+  { id: 'division', name: 'ליגת כסף', sub: 'העונה · 20 מתאמנים', rank: 7, members: 20, kind: 'division' as const },
+  { id: 'city', name: 'ליגת העיר', sub: 'תל אביב־יפו · כללי', rank: 41, members: 9870, kind: 'city' as const },
+  { id: 'work', name: 'החבר׳ה מהמשרד', sub: 'ליגה פרטית · צעדים', rank: 2, members: 12, kind: 'private' as const },
+  { id: 'family', name: 'משפחת כהן', sub: 'ליגה פרטית · דקות פעילות', rank: 1, members: 6, kind: 'private' as const },
+];
+
+/** Bonus for bringing friends in: points land in every league you're in. */
+export const INVITES = { joined: 2, pending: 1, perFriend: 50, cap: 5 };
+
 export const POINTS_RULES = [
   { label: 'דקת אימון כוח', pts: '2' },
   { label: 'דקת ריצה או הליכה מהירה', pts: '1' },
   { label: '1,000 צעדים', pts: '3' },
   { label: 'אימון בקבוצה', pts: '×1.5' },
+  { label: 'חבר שהצטרף בהזמנה שלך', pts: '+50' },
 ];
 
 export const BATTLE = {

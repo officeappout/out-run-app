@@ -4,31 +4,36 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   Bell,
-  ChevronUp,
+  Briefcase,
+  Building2,
+  Check,
   ChevronDown,
+  ChevronUp,
+  Copy,
   Crown,
-  Dumbbell,
-  Footprints,
+  Globe,
   Home,
   Info,
-  Map as MapIcon,
+  Plus,
   Shield,
   Swords,
   Timer,
-  User,
   UserPlus,
   Users,
-  Wind,
+  X,
   Zap,
 } from 'lucide-react';
-import { Button, Card, Chip, IconTile, EASE_V2 } from '@/components/ui/v2';
+import { Button, Card, Chip, EASE_V2 } from '@/components/ui/v2';
 import LabFrame, { LabStates } from '../_shared/LabFrame';
+import { BottomNav } from '../_app/parts';
 import {
   BATTLE,
   CITIES,
   CITY_CHALLENGE,
   DIVISIONS,
+  INVITES,
   MY_DIVISION,
+  MY_LEAGUES,
   NEIGHBORHOODS,
   POINTS_RULES,
   SEASON,
@@ -43,13 +48,20 @@ const TABS: { id: LeagueTab; label: string }[] = [
   { id: 'units', label: 'חטיבות' },
 ];
 
+type Sheet = null | 'pick' | 'create';
+
 export default function LeaguesLab() {
   const [tab, setTab] = useState<LeagueTab>('people');
+  const [sheet, setSheet] = useState<Sheet>(null);
+  const [leagueId, setLeagueId] = useState(MY_LEAGUES[0].id);
   const reduce = useReducedMotion();
 
   useEffect(() => {
-    const t = new URLSearchParams(window.location.search).get('tab');
+    const q = new URLSearchParams(window.location.search);
+    const t = q.get('tab');
     if (TABS.some((x) => x.id === t)) setTab(t as LeagueTab);
+    const s = q.get('sheet');
+    if (s === 'pick' || s === 'create') setSheet(s);
   }, []);
 
   return (
@@ -58,9 +70,17 @@ export default function LeaguesLab() {
         <div>
           <div className="mb-1 text-[22px] font-black tracking-v2-tight">Design lab · ליגות</div>
           <p className="mb-6 text-[14px] leading-relaxed text-v2-ink-2">
-            תחרות בין אנשים, שכונות, ערים וחטיבות. הניקוד הוא ממוצע למשתתף פעיל, כך שגם קבוצה קטנה יכולה לנצח. נתוני דמו בלבד.
+            תחרות בין אנשים, שכונות, ערים וחטיבות. ליגות שפותחים לבד, פודיום, ונקודות על הזמנת חברים. נתוני דמו בלבד.
           </p>
           <LabStates title="ליגה" value={tab} options={TABS} onChange={setTab} />
+          <div className="flex flex-wrap gap-2">
+            <Button variant="dark" size="sm" onClick={() => setSheet('pick')}>
+              בחירת ליגה
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setSheet('create')}>
+              פתיחת ליגה חדשה
+            </Button>
+          </div>
         </div>
       }
     >
@@ -97,12 +117,12 @@ export default function LeaguesLab() {
                   role="tab"
                   aria-selected={on}
                   onClick={() => setTab(t.id)}
-                  className={`relative h-10 rounded-full text-[14px] font-extrabold transition-colors duration-200 ${on ? 'text-white' : 'text-v2-ink-2'}`}
+                  className={`relative h-10 rounded-full text-[14px] font-extrabold transition-colors duration-200 ${on ? 'text-v2-on-cta' : 'text-v2-ink-2'}`}
                 >
                   {on && (
                     <motion.span
                       layoutId="lab-league-tab"
-                      className="absolute inset-0 rounded-full bg-v2-ink"
+                      className="absolute inset-0 rounded-full bg-v2-cta shadow-v2-cta"
                       transition={{ duration: reduce ? 0 : 0.32, ease: EASE_V2 }}
                     />
                   )}
@@ -122,44 +142,65 @@ export default function LeaguesLab() {
             exit={reduce ? undefined : { opacity: 0, y: -6 }}
             transition={{ duration: 0.24, ease: EASE_V2 }}
           >
-            {tab === 'people' && <PeopleLeague />}
+            {tab === 'people' && <PeopleLeague leagueId={leagueId} onPick={() => setSheet('pick')} />}
             {tab === 'neighborhoods' && <NeighborhoodLeague />}
             {tab === 'cities' && <CityLeague />}
             {tab === 'units' && <UnitLeague />}
           </motion.div>
         </AnimatePresence>
       </div>
-      <BottomNav />
+      <BottomNav active="friends" />
+      <LeagueSheets
+        sheet={sheet}
+        leagueId={leagueId}
+        onPick={(id) => {
+          setLeagueId(id);
+          setTab('people');
+          setSheet(null);
+        }}
+        onCreate={() => setSheet('create')}
+        onClose={() => setSheet(null)}
+      />
     </LabFrame>
   );
 }
 
 /* ── shared pieces ──────────────────────────────────────────────────────── */
 
-function Delta({ value, inverted = false }: { value: number; inverted?: boolean }) {
-  if (value === 0) return <span className={`w-7 text-center text-[12px] font-extrabold ${inverted ? 'text-white/40' : 'text-v2-muted'}`}>–</span>;
+const AVATAR_TINTS = ['#bae6fd', '#c7f9e9', '#fde68a', '#e9d5ff', '#fecdd3', '#d9f99d'];
+
+function Avatar({ name, size = 36, ring }: { name: string; size?: number; ring?: string }) {
+  const tint = AVATAR_TINTS[name.charCodeAt(0) % AVATAR_TINTS.length];
+  return (
+    <span
+      className="grid shrink-0 place-items-center rounded-full font-black text-v2-ink"
+      style={{ width: size, height: size, background: tint, fontSize: size * 0.4, boxShadow: ring ? `0 0 0 3px ${ring}` : undefined }}
+    >
+      {name[0]}
+    </span>
+  );
+}
+
+function Delta({ value }: { value: number }) {
+  if (value === 0) return <span className="w-7 text-center text-[12px] font-extrabold text-v2-muted">–</span>;
   const up = value > 0;
   const Icon = up ? ChevronUp : ChevronDown;
-  const color = up ? (inverted ? 'text-[#5ff0b6]' : 'text-[#00845a]') : inverted ? 'text-[#ff9b9e]' : 'text-[#c8353a]';
   return (
-    <span className={`flex w-7 items-center justify-center text-[12px] font-extrabold tabular-nums ${color}`} aria-label={up ? `עלה ${value}` : `ירד ${-value}`}>
+    <span
+      className={`flex w-7 items-center justify-center text-[12px] font-extrabold tabular-nums ${up ? 'text-[#00845a]' : 'text-[#c8353a]'}`}
+      aria-label={up ? `עלה ${value}` : `ירד ${-value}`}
+    >
       <Icon size={14} strokeWidth={3} aria-hidden />
       {Math.abs(value)}
     </span>
   );
 }
 
-function RankTile({ rank, inverted = false, me = false }: { rank: number; inverted?: boolean; me?: boolean }) {
-  if (rank === 1)
-    return (
-      <span className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full bg-v2-gold text-v2-on-gold">
-        <Crown size={15} strokeWidth={2.4} className="fill-current" aria-label="מקום ראשון" />
-      </span>
-    );
+function RankTile({ rank, me = false }: { rank: number; me?: boolean }) {
   return (
     <span
       className={`grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full text-[14px] font-black tabular-nums ${
-        inverted ? 'bg-white/10' : me ? 'bg-white text-v2-ink' : 'bg-v2-surface text-v2-ink-2'
+        me ? 'bg-v2-cta text-v2-on-cta' : 'bg-v2-surface text-v2-ink-2 ring-1 ring-inset ring-v2-hairline'
       }`}
     >
       {rank}
@@ -167,7 +208,78 @@ function RankTile({ rank, inverted = false, me = false }: { rank: number; invert
   );
 }
 
-/** Light table row — neighborhoods, cities, units. */
+interface PodiumItem {
+  name: string;
+  value: string;
+  unit: string;
+  me?: boolean;
+  sub?: string;
+}
+
+const MEDAL = {
+  1: { block: 'bg-v2-cta text-v2-on-cta shadow-v2-cta', h: 'h-[92px]', ring: '#ffc83d' },
+  2: { block: 'bg-[#eaf1f5] text-v2-ink', h: 'h-[68px]', ring: '#c5d2db' },
+  3: { block: 'bg-[#f7ebe0] text-[#7a4a1c]', h: 'h-[52px]', ring: '#e2b48d' },
+} as const;
+
+/** Top three on pedestals — second, first, third from the right. */
+function Podium({ items, avatars = true }: { items: PodiumItem[]; avatars?: boolean }) {
+  const reduce = useReducedMotion();
+  const order: (1 | 2 | 3)[] = [2, 1, 3];
+  return (
+    <ol className="grid grid-cols-3 items-end gap-2 px-1 pt-2" aria-label="שלושת הראשונים">
+      {order.map((rank, i) => {
+        const it = items[rank - 1];
+        const m = MEDAL[rank];
+        return (
+          <li key={it.name} className="flex min-w-0 flex-col items-center text-center">
+            <span className="relative mb-2">
+              {rank === 1 && (
+                <Crown
+                  size={20}
+                  strokeWidth={2.4}
+                  className="absolute -top-5 left-1/2 -translate-x-1/2 fill-v2-gold text-v2-gold"
+                  aria-hidden
+                />
+              )}
+              {avatars ? (
+                <Avatar name={it.name} size={rank === 1 ? 54 : 44} ring={m.ring} />
+              ) : (
+                <span
+                  className="grid place-items-center rounded-[14px] bg-v2-tint text-v2-deep"
+                  style={{ width: rank === 1 ? 50 : 42, height: rank === 1 ? 50 : 42, boxShadow: `0 0 0 3px ${m.ring}` }}
+                >
+                  <Building2 size={rank === 1 ? 22 : 18} strokeWidth={2.4} aria-hidden />
+                </span>
+              )}
+            </span>
+            <span className="flex max-w-full items-center gap-1">
+              <span className="truncate text-[13.5px] font-extrabold">{it.name}</span>
+            </span>
+            {it.me ? (
+              <span className="mb-1 rounded-full bg-v2-ink px-2 py-0.5 text-[10px] font-extrabold text-white">שלך</span>
+            ) : (
+              it.sub && <span className="mb-1 truncate text-[11px] font-bold text-v2-muted">{it.sub}</span>
+            )}
+            <motion.div
+              className={`flex w-full origin-bottom flex-col items-center justify-start rounded-t-[16px] pt-2 ${m.block} ${m.h}`}
+              initial={reduce ? false : { scaleY: 0.2, opacity: 0 }}
+              animate={{ scaleY: 1, opacity: 1 }}
+              transition={{ duration: 0.55, ease: EASE_V2, delay: reduce ? 0 : i * 0.06 }}
+            >
+              <span className="text-[20px] font-black leading-none">{rank}</span>
+              <span className="mt-1 text-[12.5px] font-black tabular-nums">
+                {it.value} <small className="text-[10px] font-bold opacity-70">{it.unit}</small>
+              </span>
+            </motion.div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+/** Table row from 4th place down. */
 function Row({
   rank,
   name,
@@ -177,6 +289,7 @@ function Row({
   delta,
   me = false,
   extra,
+  avatar = false,
 }: {
   rank: number;
   name: string;
@@ -186,10 +299,12 @@ function Row({
   delta: number;
   me?: boolean;
   extra?: ReactNode;
+  avatar?: boolean;
 }) {
   return (
-    <li className={`flex items-center gap-3 rounded-[16px] px-3 py-3 ${me ? 'bg-v2-tint ring-1 ring-inset ring-v2-accent/30' : ''}`}>
+    <li className={`flex items-center gap-3 rounded-[16px] px-3 py-2.5 ${me ? 'bg-v2-tint ring-1 ring-inset ring-v2-accent/40' : ''}`}>
       <RankTile rank={rank} me={me} />
+      {avatar && <Avatar name={name} size={34} />}
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5">
           <span className="truncate text-[15px] font-extrabold">{name}</span>
@@ -198,11 +313,23 @@ function Row({
         {sub && <span className="block truncate text-[12.5px] font-bold text-v2-muted">{sub}</span>}
         {extra}
       </span>
-      <span className="text-end">
-        <span className="block text-[16px] font-black leading-none tabular-nums">{value}</span>
-        <span className="text-[11px] font-bold text-v2-muted">{unit}</span>
+      <span className="shrink-0 text-end">
+        <span className="block whitespace-nowrap text-[16px] font-black leading-none tabular-nums">{value}</span>
+        <span className="block whitespace-nowrap text-[11px] font-bold text-v2-muted">{unit}</span>
       </span>
       <Delta value={delta} />
+    </li>
+  );
+}
+
+function ZoneLine({ up, label }: { up: boolean; label: string }) {
+  const color = up ? 'text-[#00845a] border-[#00a86a]/40' : 'text-[#c8353a] border-[#e5484d]/40';
+  const Icon = up ? ChevronUp : ChevronDown;
+  return (
+    <li className={`flex items-center gap-2 px-3 py-1.5 text-[11.5px] font-extrabold ${color}`}>
+      <Icon size={14} strokeWidth={3} aria-hidden />
+      {label}
+      <span className={`h-px flex-1 border-t border-dashed ${color}`} />
     </li>
   );
 }
@@ -216,117 +343,168 @@ function FairNote({ children }: { children: ReactNode }) {
   );
 }
 
-/* ── personal league: divisions with promotion and relegation ───────────── */
+function BoardHead({ title, period }: { title: string; period: string }) {
+  return (
+    <div className="flex items-baseline justify-between px-2 pb-1 pt-1">
+      <span className="text-[17px] font-black">{title}</span>
+      <span className="text-[12px] font-bold text-v2-muted">{period}</span>
+    </div>
+  );
+}
 
-function PeopleLeague() {
+function ProgressBar({ pct, className = '' }: { pct: number; className?: string }) {
+  return (
+    <div className={`h-2 overflow-hidden rounded-full bg-v2-tint ${className}`}>
+      <motion.div
+        className="h-full origin-right rounded-full bg-v2-cta"
+        initial={{ scaleX: 0 }}
+        animate={{ scaleX: pct / 100 }}
+        transition={{ duration: 0.8, ease: EASE_V2 }}
+      />
+    </div>
+  );
+}
+
+/* ── personal leagues ───────────────────────────────────────────────────── */
+
+const LEAGUE_ICON = { division: Shield, city: Building2, private: Users, national: Globe } as const;
+
+function LeagueSwitcher({ leagueId, onPick }: { leagueId: string; onPick: () => void }) {
+  const l = MY_LEAGUES.find((x) => x.id === leagueId) ?? MY_LEAGUES[0];
+  const Icon = LEAGUE_ICON[l.kind];
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      className="flex w-full items-center gap-3 rounded-[22px] bg-white p-3 text-start shadow-v2-card transition-transform duration-150 ease-v2 active:scale-[0.98]"
+    >
+      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-[14px] bg-v2-tint text-v2-deep">
+        <Icon size={22} strokeWidth={2.4} aria-hidden />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-1 text-[17px] font-black">
+          {l.name}
+          <ChevronDown size={16} strokeWidth={2.6} className="text-v2-muted" aria-hidden />
+        </span>
+        <span className="block truncate text-[13px] font-bold text-v2-muted">
+          {l.sub} · {MY_LEAGUES.length} ליגות שלי
+        </span>
+      </span>
+      <span className="rounded-[14px] bg-v2-tint px-3 py-1.5 text-center">
+        <span className="block text-[18px] font-black leading-none tabular-nums text-v2-deep">#{l.rank}</span>
+        <span className="text-[11px] font-bold text-v2-muted">דירוג</span>
+      </span>
+    </button>
+  );
+}
+
+function InviteCard() {
+  const i = INVITES;
+  return (
+    <div className="rounded-v2-card border border-v2-hairline-cool bg-gradient-to-br from-[#e8f9fe] to-[#e9fdfb] p-4">
+      <div className="flex items-start gap-3">
+        <span className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[14px] bg-white text-v2-deep">
+          <UserPlus size={20} strokeWidth={2.4} aria-hidden />
+        </span>
+        <div className="flex-1">
+          <div className="text-[16px] font-black">חבר שמצטרף = +{i.perFriend} נק׳</div>
+          <p className="mt-0.5 text-[13.5px] leading-snug text-v2-ink-2">
+            הנקודות נכנסות לכל הליגות שלך, עד {i.cap} חברים בעונה.
+          </p>
+        </div>
+      </div>
+      <ol className="mt-3 flex gap-1.5" aria-label={`${i.joined} מתוך ${i.cap} חברים הצטרפו`}>
+        {Array.from({ length: i.cap }, (_, n) => (
+          <li
+            key={n}
+            className={`grid h-9 flex-1 place-items-center rounded-full text-[12px] font-extrabold ${
+              n < i.joined
+                ? 'bg-v2-cta text-v2-on-cta'
+                : n < i.joined + i.pending
+                  ? 'border-2 border-dashed border-v2-accent/60 bg-white text-v2-deep'
+                  : 'bg-white/70 text-v2-muted'
+            }`}
+          >
+            {n < i.joined ? <Check size={15} strokeWidth={3} aria-hidden /> : n < i.joined + i.pending ? 'ממתין' : `+${i.perFriend}`}
+          </li>
+        ))}
+      </ol>
+      <Button variant="primary" block className="mt-3">
+        <UserPlus size={17} strokeWidth={2.6} aria-hidden />
+        הזמנת חבר
+      </Button>
+    </div>
+  );
+}
+
+function PeopleLeague({ leagueId, onPick }: { leagueId: string; onPick: () => void }) {
   const d = MY_DIVISION;
   const current = DIVISIONS.findIndex((x) => x.id === d.division);
   const next = DIVISIONS[current + 1];
+  const prev = DIVISIONS[current - 1];
   const promoLine = d.rows[d.promoteTop - 1].points;
   const pct = Math.min(100, Math.round((d.me.points / promoLine) * 100));
+  const top: PodiumItem[] = d.rows.slice(0, 3).map((r) => ({ name: r.name, value: String(r.points), unit: 'נק׳', me: r.me }));
   return (
     <>
-      <Card variant="dark" padding="none" className="overflow-hidden !rounded-v2-card-lg">
-        <div className="relative p-5 pb-4">
-          <div className="pointer-events-none absolute -end-12 -top-20 h-52 w-52 rounded-full bg-v2-cta opacity-20 blur-2xl" />
-          <div className="relative flex items-center gap-3">
-            <span
-              className="grid h-12 w-12 place-items-center rounded-[14px]"
-              style={{ background: `${DIVISIONS[current].color}33`, color: DIVISIONS[current].color }}
-            >
-              <Shield size={24} strokeWidth={2.4} className="fill-current" aria-hidden />
+      <LeagueSwitcher leagueId={leagueId} onPick={onPick} />
+
+      <Card padding="none" className="overflow-hidden !rounded-v2-card-lg">
+        <div className="bg-gradient-to-b from-[#e8f9fe] to-white p-4 pb-2">
+          <div className="flex items-baseline justify-between">
+            <span className="text-[13px] font-extrabold text-v2-deep">
+              {d.size} מתאמנים ברמה שלך
             </span>
-            <div className="flex-1">
-              <div className="text-[20px] font-black leading-tight">ליגת {DIVISIONS[current].label}</div>
-              <div className="text-[13px] font-bold text-white/60">{d.size} מתאמנים ברמה שלך · מתעדכן כל שעה</div>
-            </div>
-            <div className="text-end">
-              <div className="text-[28px] font-black leading-none tabular-nums tracking-v2-tighter">#{d.me.rank}</div>
-              <div className="text-[12px] font-bold text-white/60">{d.me.points} נק׳</div>
-            </div>
+            <span className="text-[12px] font-bold text-v2-muted">מתעדכן כל שעה</span>
           </div>
-          <div className="relative mt-4">
-            <div className="mb-1.5 flex justify-between text-[12.5px] font-bold">
-              <span className="text-white/80">עוד {d.me.toPromotion} נק׳ לאזור העלייה</span>
-              {next && <span className="text-white/50">ליגת {next.label}</span>}
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-white/10">
-              <motion.div
-                className="h-full origin-right rounded-full bg-v2-cta"
-                initial={{ scaleX: 0 }}
-                animate={{ scaleX: pct / 100 }}
-                transition={{ duration: 0.8, ease: EASE_V2 }}
-              />
-            </div>
+          <div className="mt-2 flex justify-between text-[12.5px] font-bold">
+            <span className="text-v2-ink-2">עוד {d.me.toPromotion} נק׳ לאזור העלייה</span>
+            {next && <span className="text-v2-muted">ליגת {next.label}</span>}
           </div>
-          <ol className="relative mt-4 flex items-center gap-1.5" aria-label="דרגות הליגה">
+          <ProgressBar pct={pct} className="mt-1.5" />
+          <ol className="mt-3 flex items-center gap-1.5" aria-label="דרגות הליגה">
             {DIVISIONS.map((x, i) => (
               <li
                 key={x.id}
                 className={`flex-1 rounded-full py-1 text-center text-[12px] font-extrabold ${
-                  i === current ? 'bg-white text-v2-ink' : i < current ? 'bg-white/10 text-white/60' : 'bg-white/[0.04] text-white/35'
+                  i === current ? 'bg-v2-ink text-white' : i < current ? 'bg-v2-tint text-v2-deep' : 'bg-v2-surface text-v2-muted'
                 }`}
               >
                 {x.label}
               </li>
             ))}
           </ol>
+          <div className="mt-4">
+            <Podium items={top} />
+          </div>
         </div>
-
-        <ol className="space-y-1.5 px-3 pb-3">
-          {d.rows.map((r, i) => {
-            const rank = i + 1;
+        <ol className="px-2 pb-2">
+          {d.rows.slice(3).map((r, i) => {
+            const rank = i + 4;
             return (
-              <li key={r.name}>
-                <div
-                  className={`flex items-center gap-3 rounded-[16px] px-3.5 py-3 ${
-                    r.me ? 'bg-gradient-to-l from-[#00baf7]/40 to-[#0cf2e3]/20' : 'bg-white/[0.06]'
-                  }`}
-                >
-                  <RankTile rank={rank} inverted />
-                  <span className="flex-1 text-[15px] font-extrabold">{r.name}</span>
-                  <span className="text-[15px] font-black tabular-nums">
-                    {r.points} <small className="text-[11px] font-bold text-white/60">נק׳</small>
-                  </span>
-                  <Delta value={r.delta} inverted />
-                </div>
-                {rank === d.promoteTop && (
-                  <div className="flex items-center gap-2 px-2 py-2 text-[11.5px] font-extrabold text-[#5ff0b6]">
-                    <ChevronUp size={14} strokeWidth={3} aria-hidden />
-                    עולים לליגת {next?.label}
-                    <span className="h-px flex-1 border-t border-dashed border-[#5ff0b6]/40" />
-                  </div>
-                )}
-              </li>
+              <div key={r.name}>
+                <Row rank={rank} name={r.name} value={String(r.points)} unit="נק׳" delta={r.delta} me={r.me} avatar />
+                {rank === d.promoteTop && next && <ZoneLine up label={`עולים לליגת ${next.label}`} />}
+              </div>
             );
           })}
-          <li className="py-1 text-center text-[13px] font-black tracking-[0.3em] text-white/30">···</li>
-          <li className="flex items-center gap-2 px-2 pb-1 text-[11.5px] font-extrabold text-[#ff9b9e]">
-            <ChevronDown size={14} strokeWidth={3} aria-hidden />
-            יורדים לליגת {DIVISIONS[current - 1]?.label}
-            <span className="h-px flex-1 border-t border-dashed border-[#ff9b9e]/40" />
-          </li>
+          <li className="py-1 text-center text-[13px] font-black tracking-[0.3em] text-v2-muted/60">···</li>
+          {prev && <ZoneLine up={false} label={`יורדים לליגת ${prev.label}`} />}
           {d.bottom.map((r) => (
-            <li key={r.name} className="flex items-center gap-3 rounded-[16px] bg-[#e5484d]/[0.10] px-3.5 py-3">
-              <RankTile rank={r.rank} inverted />
-              <span className="flex-1 text-[15px] font-extrabold text-white/80">{r.name}</span>
-              <span className="text-[15px] font-black tabular-nums text-white/80">
-                {r.points} <small className="text-[11px] font-bold text-white/50">נק׳</small>
-              </span>
-              <Delta value={r.delta} inverted />
-            </li>
+            <Row key={r.name} rank={r.rank} name={r.name} value={String(r.points)} unit="נק׳" delta={r.delta} avatar />
           ))}
         </ol>
       </Card>
 
+      <InviteCard />
+
       <Card padding="lg">
         <div className="mb-3 text-[17px] font-black">איך צוברים נקודות</div>
-        <ul className="space-y-2">
-          {POINTS_RULES.map((r, i) => (
-            <li key={r.label} className="flex items-center gap-3">
-              <IconTile icon={[Dumbbell, Wind, Footprints, Users][i]} tone={i === 2 ? 'steps' : i === 1 ? 'run' : 'accent'} size="sm" />
-              <span className="flex-1 text-[14.5px] font-bold text-v2-ink-2">{r.label}</span>
-              <span className="text-[15px] font-black tabular-nums">{r.pts}</span>
+        <ul className="divide-y divide-v2-hairline">
+          {POINTS_RULES.map((r) => (
+            <li key={r.label} className="flex items-center justify-between py-2">
+              <span className="text-[14.5px] font-bold text-v2-ink-2">{r.label}</span>
+              <span className="rounded-full bg-v2-tint px-2.5 py-0.5 text-[14px] font-black tabular-nums text-v2-deep">{r.pts}</span>
             </li>
           ))}
         </ul>
@@ -334,36 +512,23 @@ function PeopleLeague() {
           מתחרים מול אנשים ברמה דומה, לא מול כל העיר. כל סוג פעילות נחשב.
         </p>
       </Card>
-
-      <Button variant="ghost" size="lg" block>
-        <UserPlus size={18} strokeWidth={2.4} aria-hidden />
-        אתגר חבר לשבוע הזה
-      </Button>
     </>
   );
 }
 
-/* ── neighborhoods: weekly head-to-head + the city table ────────────────── */
-
-function TugBar({ a, b, aLabel, bLabel }: { a: number; b: number; aLabel: string; bLabel: string }) {
-  const pct = Math.round((a / (a + b)) * 100);
-  return (
-    <div>
-      <div className="flex h-3 overflow-hidden rounded-full bg-v2-ink/90" aria-label={`${aLabel} ${pct}% מול ${bLabel}`}>
-        <motion.div
-          className="h-full rounded-full bg-v2-cta"
-          initial={{ width: '50%' }}
-          animate={{ width: `${pct}%` }}
-          transition={{ duration: 0.9, ease: EASE_V2 }}
-        />
-      </div>
-    </div>
-  );
-}
+/* ── neighborhoods ──────────────────────────────────────────────────────── */
 
 function NeighborhoodLeague() {
   const b = BATTLE;
   const lead = b.mine.perMember - b.rival.perMember;
+  const pct = Math.round((b.mine.perMember / (b.mine.perMember + b.rival.perMember)) * 100);
+  const top: PodiumItem[] = NEIGHBORHOODS.slice(0, 3).map((n) => ({
+    name: n.name,
+    value: String(n.perMember),
+    unit: 'נק׳',
+    me: n.me,
+    sub: `${n.active} פעילים`,
+  }));
   return (
     <>
       <div className="rounded-v2-card-lg border border-v2-hairline-cool bg-gradient-to-br from-[#e8f9fe] to-[#e9fdfb] p-5">
@@ -377,11 +542,10 @@ function NeighborhoodLeague() {
           </div>
           <Chip tone="accent">מובילים ב־{lead} נק׳</Chip>
         </div>
-
         <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-end gap-2">
           <div>
             <div className="text-[14px] font-extrabold">{b.mine.name}</div>
-            <div className="text-[34px] font-black leading-none tabular-nums tracking-v2-tighter">{b.mine.perMember}</div>
+            <div className="text-[34px] font-black leading-none tabular-nums tracking-v2-tighter text-v2-deep">{b.mine.perMember}</div>
             <div className="text-[12px] font-bold text-v2-muted">{b.mine.active} פעילים</div>
           </div>
           <span className="mb-5 grid h-9 w-9 place-items-center rounded-full bg-white text-v2-amber shadow-v2-ring">
@@ -393,16 +557,22 @@ function NeighborhoodLeague() {
             <div className="text-[12px] font-bold text-v2-muted">{b.rival.active} פעילים</div>
           </div>
         </div>
-        <div className="mt-3">
-          <TugBar a={b.mine.perMember} b={b.rival.perMember} aLabel={b.mine.name} bLabel={b.rival.name} />
+        <div className="mt-3 flex h-3 overflow-hidden rounded-full bg-white" aria-label={`${pct}% מול ${100 - pct}%`}>
+          <motion.div
+            className="h-full rounded-full bg-v2-cta"
+            initial={{ width: '50%' }}
+            animate={{ width: `${pct}%` }}
+            transition={{ duration: 0.9, ease: EASE_V2 }}
+          />
         </div>
         <p className="mt-2 text-[12px] font-bold text-v2-muted">נקודות בממוצע למשתתף פעיל</p>
-
         <div className="mt-4 flex items-center gap-3 rounded-[18px] bg-white px-4 py-3">
-          <IconTile icon={User} size="sm" />
+          <Avatar name="אתה" size={34} />
           <div className="flex-1">
             <div className="text-[13px] font-bold text-v2-muted">התרומה שלך השבוע</div>
-            <div className="text-[15px] font-extrabold">{b.myContribution.minutes} דק׳ · {b.myContribution.share}% מהשכונה</div>
+            <div className="text-[15px] font-extrabold">
+              {b.myContribution.minutes} דק׳ · {b.myContribution.share}% מהשכונה
+            </div>
           </div>
         </div>
         <Button variant="primary" size="lg" block className="mt-3">
@@ -411,15 +581,13 @@ function NeighborhoodLeague() {
       </div>
 
       <Card padding="sm">
-        <div className="flex items-baseline justify-between px-2 pb-1 pt-1">
-          <span className="text-[17px] font-black">שכונות תל אביב־יפו</span>
-          <span className="text-[12px] font-bold text-v2-muted">השבוע</span>
-        </div>
-        <ol>
-          {NEIGHBORHOODS.map((n, i) => (
+        <BoardHead title="שכונות תל אביב־יפו" period="השבוע" />
+        <Podium items={top} avatars={false} />
+        <ol className="mt-2">
+          {NEIGHBORHOODS.slice(3).map((n, i) => (
             <Row
               key={n.name}
-              rank={i + 1}
+              rank={i + 4}
               name={n.name}
               sub={`${n.active} פעילים`}
               value={String(n.perMember)}
@@ -448,10 +616,17 @@ function CityLeague() {
   const [size, setSize] = useState<(typeof SIZE_FILTERS)[number]['id']>('all');
   const rows = CITIES.filter((c) => size === 'all' || c.size === size);
   const c = CITY_CHALLENGE;
+  const top: PodiumItem[] = rows.slice(0, 3).map((r) => ({
+    name: r.name,
+    value: String(r.perMember),
+    unit: 'נק׳',
+    me: r.me,
+    sub: `${r.active.toLocaleString('he-IL')} פעילים`,
+  }));
   return (
     <>
-      <Card variant="dark" padding="lg" className="!rounded-v2-card-lg">
-        <div className="flex items-center gap-2 text-[13px] font-extrabold text-white/60">
+      <Card padding="lg" className="!rounded-v2-card-lg">
+        <div className="flex items-center gap-2 text-[13px] font-extrabold text-v2-deep">
           <Zap size={14} className="fill-v2-amber text-v2-amber" aria-hidden />
           אתגר הערים · אוקטובר
         </div>
@@ -465,13 +640,13 @@ function CityLeague() {
               <div className="mb-1.5 flex justify-between text-[14px] font-extrabold">
                 <span>
                   {x.name}
-                  {x.me && <span className="ms-1.5 rounded-full bg-white/15 px-2 py-0.5 text-[10.5px]">שלך</span>}
+                  {x.me && <span className="ms-1.5 rounded-full bg-v2-ink px-2 py-0.5 text-[10.5px] text-white">שלך</span>}
                 </span>
                 <span className="tabular-nums">{x.pct}%</span>
               </div>
-              <div className="h-2.5 overflow-hidden rounded-full bg-white/10">
+              <div className="h-2.5 overflow-hidden rounded-full bg-v2-tint">
                 <motion.div
-                  className={`h-full origin-right rounded-full ${x.me ? 'bg-v2-cta' : 'bg-white/50'}`}
+                  className={`h-full origin-right rounded-full ${x.me ? 'bg-v2-cta' : 'bg-v2-ink-2/40'}`}
                   initial={{ scaleX: 0 }}
                   animate={{ scaleX: x.pct / 100 }}
                   transition={{ duration: 0.9, ease: EASE_V2 }}
@@ -490,7 +665,7 @@ function CityLeague() {
             onClick={() => setSize(f.id)}
             aria-pressed={size === f.id}
             className={`h-9 shrink-0 rounded-full px-4 text-[13px] font-extrabold transition-[transform,background-color] duration-150 ease-v2 active:scale-[0.97] ${
-              size === f.id ? 'bg-v2-ink text-white' : 'bg-white text-v2-ink-2 shadow-v2-ring'
+              size === f.id ? 'bg-v2-cta text-v2-on-cta' : 'bg-white text-v2-ink-2 shadow-v2-ring'
             }`}
           >
             {f.label}
@@ -499,15 +674,13 @@ function CityLeague() {
       </div>
 
       <Card padding="sm">
-        <div className="flex items-baseline justify-between px-2 pb-1 pt-1">
-          <span className="text-[17px] font-black">ליגת הערים</span>
-          <span className="text-[12px] font-bold text-v2-muted">החודש</span>
-        </div>
-        <ol>
-          {rows.map((r, i) => (
+        <BoardHead title="ליגת הערים" period="החודש" />
+        {top.length === 3 && <Podium items={top} avatars={false} />}
+        <ol className="mt-2">
+          {rows.slice(top.length === 3 ? 3 : 0).map((r, i) => (
             <Row
               key={r.name}
-              rank={i + 1}
+              rank={i + (top.length === 3 ? 4 : 1)}
               name={r.name}
               sub={`${r.active.toLocaleString('he-IL')} פעילים`}
               value={String(r.perMember)}
@@ -523,46 +696,24 @@ function CityLeague() {
   );
 }
 
-/* ── units: battalions within the brigade, brigades across the corps ────── */
+/* ── units ──────────────────────────────────────────────────────────────── */
 
 function UnitLeague() {
   const u = UNITS;
+  const brigadeTop: PodiumItem[] = u.brigades.map((b) => ({ name: b.name, value: String(b.score), unit: 'ציון', me: b.me }));
   return (
     <>
-      <div className="flex items-center gap-2">
-        <Chip tone="neutral" icon={<Shield size={13} strokeWidth={2.6} aria-hidden />}>
-          מוצג רק למשרתים ביחידה
-        </Chip>
-      </div>
+      <Chip tone="neutral" icon={<Shield size={13} strokeWidth={2.6} aria-hidden />}>
+        מוצג רק למשרתים ביחידה
+      </Chip>
 
-      <Card variant="dark" padding="lg" className="!rounded-v2-card-lg">
-        <div className="text-[13px] font-extrabold text-white/60">דירוג החטיבות</div>
-        <ol className="mt-3 grid grid-cols-3 items-end gap-2">
-          {[u.brigades[1], u.brigades[0], u.brigades[2]].map((b) => {
-            const rank = u.brigades.indexOf(b) + 1;
-            const h = rank === 1 ? 'h-[92px]' : rank === 2 ? 'h-[70px]' : 'h-[56px]';
-            return (
-              <li key={b.name} className="flex flex-col items-center gap-2 text-center">
-                <span className="text-[13px] font-extrabold leading-tight">{b.name}</span>
-                <div
-                  className={`flex w-full flex-col items-center justify-start gap-1 rounded-t-[16px] pt-2.5 ${h} ${
-                    b.me ? 'bg-gradient-to-b from-[#00baf7]/50 to-[#0cf2e3]/15' : 'bg-white/[0.07]'
-                  }`}
-                >
-                  <RankTile rank={rank} inverted />
-                  <span className="text-[13px] font-black tabular-nums">{b.score}</span>
-                </div>
-              </li>
-            );
-          })}
-        </ol>
+      <Card padding="sm" className="!rounded-v2-card-lg">
+        <BoardHead title="דירוג החטיבות" period="החודש" />
+        <Podium items={brigadeTop} avatars={false} />
       </Card>
 
       <Card padding="sm">
-        <div className="flex items-baseline justify-between px-2 pb-1 pt-1">
-          <span className="text-[17px] font-black">גדודי {u.brigade}</span>
-          <span className="text-[12px] font-bold text-v2-muted">השבוע</span>
-        </div>
+        <BoardHead title={`גדודי ${u.brigade}`} period="השבוע" />
         <ol>
           {u.rows.map((r, i) => (
             <Row
@@ -575,7 +726,7 @@ function UnitLeague() {
               me={r.me}
               extra={
                 <span className="mt-1.5 flex items-center gap-2">
-                  <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-v2-surface">
+                  <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-v2-tint">
                     <span className="block h-full rounded-full bg-v2-cta" style={{ width: `${r.participation}%` }} />
                   </span>
                   <span className="text-[11.5px] font-bold tabular-nums text-v2-muted">{r.avgMinutes} דק׳ ממוצע</span>
@@ -591,7 +742,7 @@ function UnitLeague() {
         <p className="mt-1 text-[14px] leading-snug text-v2-ink-2">
           עוד {u.myCompany.toTop} לוחמים שמתאמנים השבוע, והגדוד עולה למקום הראשון בחטיבה.
         </p>
-        <Button variant="dark" size="sm" className="mt-3">
+        <Button variant="primary" size="sm" className="mt-3">
           שלח תזכורת לפלוגה
         </Button>
       </div>
@@ -600,34 +751,179 @@ function UnitLeague() {
   );
 }
 
-/* ── bottom nav ─────────────────────────────────────────────────────────── */
+/* ── sheets: pick a league / open a new one ─────────────────────────────── */
 
-function BottomNav() {
-  const items = [
-    { label: 'בית', icon: Home },
-    { label: 'מפה', icon: MapIcon },
-    { label: 'קהילה', icon: Users, active: true },
-    { label: 'פרופיל', icon: User },
-  ];
+const CREATE_TYPES = [
+  { id: 'friends', label: 'חברים', icon: Users },
+  { id: 'work', label: 'עבודה', icon: Briefcase },
+  { id: 'family', label: 'משפחה', icon: Home },
+];
+const CREATE_METRICS = ['כל הפעילות', 'צעדים', 'דקות כוח', 'ריצה'];
+
+function LeagueSheets({
+  sheet,
+  leagueId,
+  onPick,
+  onCreate,
+  onClose,
+}: {
+  sheet: Sheet;
+  leagueId: string;
+  onPick: (id: string) => void;
+  onCreate: () => void;
+  onClose: () => void;
+}) {
+  const reduce = useReducedMotion();
+  const [type, setType] = useState('friends');
+  const [metric, setMetric] = useState(CREATE_METRICS[0]);
   return (
-    <nav
-      aria-label="ניווט ראשי"
-      className="v2-glass-bar fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+14px)] z-[5] flex h-16 items-center justify-around rounded-full shadow-v2-float"
-    >
-      {items.map(({ label, icon: Icon, active }) => (
-        <button
-          key={label}
-          type="button"
-          aria-current={active ? 'page' : undefined}
-          className={`flex h-12 min-w-[64px] flex-col items-center justify-center gap-0.5 rounded-full text-[11px] font-extrabold transition-transform duration-150 ease-v2 active:scale-[0.97] ${
-            active ? 'text-v2-ink' : 'text-v2-muted'
-          }`}
-        >
-          <Icon size={21} strokeWidth={active ? 2.6 : 2.2} aria-hidden />
-          {label}
-          <span className={`h-1 w-4 rounded-full ${active ? 'bg-v2-cta' : 'bg-transparent'}`} />
-        </button>
-      ))}
-    </nav>
+    <AnimatePresence>
+      {sheet && (
+        <div className="fixed inset-0 z-[10]" role="dialog" aria-modal="true" aria-label={sheet === 'pick' ? 'בחירת ליגה' : 'פתיחת ליגה חדשה'}>
+          <motion.button
+            type="button"
+            aria-label="סגירה"
+            className="absolute inset-0 bg-[#0e1419]/40"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+          />
+          <motion.div
+            key={sheet}
+            className="absolute inset-x-0 bottom-0 max-h-[88%] overflow-y-auto rounded-t-[28px] bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+20px)] pt-2.5 shadow-v2-sheet"
+            initial={reduce ? { opacity: 0 } : { y: '100%' }}
+            animate={reduce ? { opacity: 1 } : { y: 0 }}
+            exit={reduce ? { opacity: 0 } : { y: '100%' }}
+            transition={{ duration: 0.42, ease: [0.32, 0.72, 0, 1] }}
+          >
+            <div className="mb-3 flex justify-center">
+              <span className="h-1.5 w-10 rounded-full bg-v2-pill-border" />
+            </div>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-[22px] font-black !tracking-[-0.02em]">{sheet === 'pick' ? 'הליגות שלי' : 'ליגה חדשה'}</h2>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="סגירה"
+                className="grid h-9 w-9 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline"
+              >
+                <X size={17} strokeWidth={2.6} />
+              </button>
+            </div>
+
+            {sheet === 'pick' ? (
+              <ul className="space-y-2">
+                {MY_LEAGUES.map((l) => {
+                  const Icon = LEAGUE_ICON[l.kind];
+                  const on = l.id === leagueId;
+                  return (
+                    <li key={l.id}>
+                      <button
+                        type="button"
+                        onClick={() => onPick(l.id)}
+                        className={`flex w-full items-center gap-3 rounded-[20px] p-3 text-start transition-transform duration-150 ease-v2 active:scale-[0.98] ${
+                          on ? 'bg-v2-tint ring-2 ring-v2-accent' : 'bg-white shadow-v2-ring'
+                        }`}
+                      >
+                        <span className={`grid h-11 w-11 place-items-center rounded-[14px] ${on ? 'bg-white' : 'bg-v2-tint'} text-v2-deep`}>
+                          <Icon size={20} strokeWidth={2.4} aria-hidden />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[16px] font-black">{l.name}</span>
+                          <span className="block truncate text-[12.5px] font-bold text-v2-muted">{l.sub}</span>
+                        </span>
+                        <span className="text-center">
+                          <span className="block text-[16px] font-black tabular-nums text-v2-deep">#{l.rank}</span>
+                          <span className="text-[11px] font-bold text-v2-muted">{l.members.toLocaleString('he-IL')} חברים</span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+                <li>
+                  <button
+                    type="button"
+                    onClick={onCreate}
+                    className="flex w-full items-center gap-3 rounded-[20px] border-2 border-dashed border-v2-pill-border p-3 text-start text-v2-ink-2 transition-colors duration-150 hover:bg-v2-surface"
+                  >
+                    <span className="grid h-11 w-11 place-items-center rounded-full border-2 border-dashed border-v2-pill-border">
+                      <Plus size={20} strokeWidth={2.4} aria-hidden />
+                    </span>
+                    <span>
+                      <span className="block text-[16px] font-black text-v2-ink">פתיחת ליגה חדשה</span>
+                      <span className="block text-[12.5px] font-bold">חברים, עבודה, משפחה, או הצטרפות עם קוד</span>
+                    </span>
+                  </button>
+                </li>
+              </ul>
+            ) : (
+              <div className="space-y-5">
+                <label className="block">
+                  <span className="mb-1.5 block text-[13px] font-extrabold text-v2-muted">שם הליגה</span>
+                  <input
+                    defaultValue="החבר׳ה מהשכונה"
+                    className="h-12 w-full rounded-[14px] border border-v2-hairline bg-v2-surface px-4 text-[16px] font-extrabold outline-none focus:border-v2-accent focus:ring-[3px] focus:ring-v2-accent/20"
+                  />
+                </label>
+                <div>
+                  <span className="mb-1.5 block text-[13px] font-extrabold text-v2-muted">סוג</span>
+                  <div className="grid grid-cols-3 gap-2">
+                    {CREATE_TYPES.map(({ id, label, icon: Icon }) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setType(id)}
+                        aria-pressed={type === id}
+                        className={`flex h-16 flex-col items-center justify-center gap-1 rounded-[16px] text-[13px] font-extrabold transition-[transform,background-color] duration-150 ease-v2 active:scale-[0.97] ${
+                          type === id ? 'bg-v2-tint text-v2-deep ring-2 ring-v2-accent' : 'bg-white text-v2-ink-2 shadow-v2-ring'
+                        }`}
+                      >
+                        <Icon size={20} strokeWidth={2.4} aria-hidden />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <span className="mb-1.5 block text-[13px] font-extrabold text-v2-muted">על מה מתחרים</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {CREATE_METRICS.map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setMetric(m)}
+                        aria-pressed={metric === m}
+                        className={`h-9 rounded-full px-4 text-[13px] font-extrabold transition-[transform,background-color] duration-150 ease-v2 active:scale-[0.97] ${
+                          metric === m ? 'bg-v2-cta text-v2-on-cta' : 'bg-white text-v2-ink-2 shadow-v2-ring'
+                        }`}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 rounded-[18px] bg-v2-surface px-4 py-3 ring-1 ring-inset ring-v2-hairline">
+                  <div className="flex-1">
+                    <div className="text-[12.5px] font-bold text-v2-muted">קוד הצטרפות</div>
+                    <div dir="ltr" className="text-start text-[20px] font-black tracking-[0.2em]">OUT-4K7Q</div>
+                  </div>
+                  <button type="button" aria-label="העתקת הקוד" className="grid h-10 w-10 place-items-center rounded-full bg-white text-v2-deep shadow-v2-ring">
+                    <Copy size={17} strokeWidth={2.4} />
+                  </button>
+                </div>
+                <p className="text-[12.5px] font-bold leading-snug text-v2-muted">
+                  כל חבר שמצטרף לאפליקציה דרך ההזמנה שלך מוסיף לך +{INVITES.perFriend} נק׳.
+                </p>
+                <Button variant="primary" size="lg" block>
+                  <UserPlus size={18} strokeWidth={2.6} aria-hidden />
+                  פתיחה והזמנת חברים
+                </Button>
+              </div>
+            )}
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
   );
 }
