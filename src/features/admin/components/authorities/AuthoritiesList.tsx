@@ -11,6 +11,7 @@ import {
 } from '@/types/admin-types';
 import { AuthorityWithSubLocations, SubLocationStats } from '@/features/admin/hooks/useAuthorities';
 import { safeRenderText } from '@/utils/render-helpers';
+import { ViewAsCityButton } from './ViewAsCity';
 
 interface AuthoritiesListProps {
   // Data
@@ -400,6 +401,7 @@ export default function AuthoritiesList({
                       <span className="text-sm text-gray-700 font-medium">לקוח פעיל</span>
                     </label>
                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                      <ViewAsCityButton authorityId={city.id} name={safeRenderText(city.name)} />
                       <Link
                         href={`/admin/authorities/${city.id}`}
                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -563,6 +565,7 @@ export default function AuthoritiesList({
                       <span className="text-sm text-gray-700 font-medium">לקוח פעיל</span>
                     </label>
                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                      <ViewAsCityButton authorityId={council.id} name={safeRenderText(council.name)} />
                       <Link
                         href={`/admin/authorities/${council.id}`}
                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"

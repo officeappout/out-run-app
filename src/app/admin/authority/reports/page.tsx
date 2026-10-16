@@ -142,6 +142,9 @@ export default function ReportsPage() {
   const [infraLoading, setInfraLoading] = useState(false);
   const [infraError, setInfraError] = useState(false);
   const [infraFilter, setInfraFilter] = useState<MaintenanceStatus | 'all'>('all');
+  // audit 15.10.2026: which faults have waited longest, per park, exportable
+  const [infraSort, setInfraSort] = useState<'oldest' | 'newest' | 'priority'>('oldest');
+  const [infraPark, setInfraPark] = useState<string>('all');
 
   // Community state
   const [communityReports, setCommunityReports] = useState<CommunityReport[]>([]);
@@ -250,10 +253,44 @@ export default function ReportsPage() {
   }, [authorityId, loadInfraReports, loadCommunityReports]);
 
   // ── Filtered data ──────────────────────────────────────────────────
+  const infraParks = useMemo(() => {
+    const m = new Map<string, string>();
+    infraReports.forEach(r => { if (r.parkId) m.set(r.parkId, r.parkName || r.parkId); });
+    return Array.from(m.entries()).sort((a, b) => a[1].localeCompare(b[1], 'he'));
+  }, [infraReports]);
+
   const filteredInfraReports = useMemo(() => {
-    if (infraFilter === 'all') return infraReports;
-    return infraReports.filter(r => r.status === infraFilter);
-  }, [infraReports, infraFilter]);
+    const PRIORITY_RANK: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
+    const list = infraReports.filter(r =>
+      (infraFilter === 'all' || r.status === infraFilter) && (infraPark === 'all' || r.parkId === infraPark));
+    const ts = (r: MaintenanceReport) => new Date(r.reportedAt as unknown as string | number | Date).getTime();
+    return [...list].sort((a, b) =>
+      infraSort === 'newest' ? ts(b) - ts(a)
+      : infraSort === 'priority' ? (PRIORITY_RANK[a.priority] ?? 9) - (PRIORITY_RANK[b.priority] ?? 9) || ts(a) - ts(b)
+      : ts(a) - ts(b));
+  }, [infraReports, infraFilter, infraPark, infraSort]);
+
+  /** the filtered list as a CSV the city can open in Excel (UTF-8 BOM for Hebrew) */
+  const exportInfraCsv = () => {
+    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const rows = [
+      ['פארק', 'מתקן', 'סוג תקלה', 'תיאור', 'סטטוס', 'עדיפות', 'דווח בתאריך', 'פתוח (ימים)'],
+      ...filteredInfraReports.map(r => {
+        const at = new Date(r.reportedAt as unknown as string | number | Date);
+        const open = r.status !== 'resolved' && r.status !== 'dismissed';
+        return [r.parkName || r.parkId, r.equipmentName ?? '', ISSUE_TYPE_LABELS[r.issueType] ?? r.issueType, r.description ?? '',
+          STATUS_CONFIG[r.status]?.label ?? r.status, r.priority, at.toLocaleDateString('he-IL'),
+          open ? Math.floor((Date.now() - at.getTime()) / 86400000) : ''];
+      }),
+    ];
+    const blob = new Blob(['\uFEFF' + rows.map(r => r.map(esc).join(',')).join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `תקלות-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const pendingCommunity = communityReports.filter(r => r.status === 'pending');
   const reviewedCommunity = communityReports.filter(r => r.status !== 'pending');
@@ -443,6 +480,27 @@ export default function ReportsPage() {
               <p className="text-2xl font-black text-emerald-700">{infraResolved}</p>
               <p className="text-[11px] text-emerald-500 font-bold">טופלו</p>
             </div>
+          </div>
+
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            <label htmlFor="infra-sort" className="text-xs text-slate-400 font-bold">מיון:</label>
+            <select id="infra-sort" value={infraSort} onChange={(e) => setInfraSort(e.target.value as typeof infraSort)} className="text-xs font-bold rounded-full border border-slate-200 bg-white px-3 py-1.5">
+              <option value="oldest">הוותיקות ביותר קודם</option>
+              <option value="newest">החדשות ביותר קודם</option>
+              <option value="priority">לפי עדיפות</option>
+            </select>
+            {infraParks.length > 1 && (
+              <>
+                <label htmlFor="infra-park" className="text-xs text-slate-400 font-bold mr-2">פארק:</label>
+                <select id="infra-park" value={infraPark} onChange={(e) => setInfraPark(e.target.value)} className="text-xs font-bold rounded-full border border-slate-200 bg-white px-3 py-1.5 max-w-[14rem]">
+                  <option value="all">כל הפארקים</option>
+                  {infraParks.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+                </select>
+              </>
+            )}
+            <button onClick={exportInfraCsv} disabled={filteredInfraReports.length === 0} className="mr-auto text-xs font-bold rounded-full border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-50 disabled:opacity-40">
+              ייצוא לאקסל
+            </button>
           </div>
 
           <div className="flex items-center gap-2 mb-4 flex-wrap">
@@ -689,6 +747,14 @@ function InfraReportCard({
           <div className="flex items-center gap-2 flex-wrap">
             <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${ISSUE_TYPE_COLORS[report.issueType]}`}>{ISSUE_TYPE_LABELS[report.issueType]}</span>
             <span className="text-[11px] text-slate-400 flex items-center gap-1"><Clock className="w-3 h-3" />{formatDate(report.reportedAt)}</span>
+            {!isTerminal && (() => {
+              const days = Math.floor((Date.now() - new Date(report.reportedAt as unknown as string | number | Date).getTime()) / 86400000);
+              return (
+                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${days >= 7 ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-500'}`}>
+                  {days <= 0 ? 'נפתחה היום' : `פתוחה ${days} ימים`}
+                </span>
+              );
+            })()}
             {report.photoUrl && <span className="text-[11px] text-violet-500 font-bold flex items-center gap-1"><Camera className="w-3 h-3" />תמונה</span>}
           </div>
         </div>
@@ -795,7 +861,7 @@ function CommunityReportCard({
         <div className="flex items-center gap-2 border-t border-gray-100 pt-3">
           <button disabled={!!actionId} onClick={() => onDeleteContent(report)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-500 text-white text-xs font-black hover:bg-red-600 disabled:opacity-50 active:scale-95 transition-all">
-            {isActing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}מחק פריט
+            {isActing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}הסתר מהאפליקציה
           </button>
           <button disabled={!!actionId} onClick={() => onDismiss(report.id)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 text-slate-600 text-xs font-bold hover:bg-slate-200 disabled:opacity-50 active:scale-95 transition-all">

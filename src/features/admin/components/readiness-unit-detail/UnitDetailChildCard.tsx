@@ -8,7 +8,7 @@ import { READINESS_COLORS } from '../readiness-dashboard/colors';
 /**
  * One sub-unit card under "יחידות תחתיו" — clickable, navigates to that
  * unit's own detail page (same screen, one level down). A unit with
- * zero tested soldiers shows "טרם נבדקה" in red, never "0%" (point 3,
+ * zero tested soldiers shows "טרם נבדקה" in the not-yet-tested gray (was red — untested is not failed), never "0%" (point 3,
  * carried over from the dashboard's own locked rule).
  */
 export default function UnitDetailChildCard({ child }: { child: UnitDetailChildSummary }) {
@@ -23,10 +23,10 @@ export default function UnitDetailChildCard({ child }: { child: UnitDetailChildS
       </div>
 
       {child.passPercent === null ? (
-        <p className="text-sm font-bold" style={{ color: READINESS_COLORS.fail }}>טרם נבדקה</p>
+        <p className="text-sm font-bold" style={{ color: READINESS_COLORS.notYetTested }}>טרם נבדקה</p>
       ) : (
         <>
-          <p className="text-2xl font-black" style={{ color: READINESS_COLORS.pass }}>{child.passPercent}%</p>
+          <p className="text-2xl font-black text-gray-900">{child.passPercent}% <span className="text-xs font-bold text-slate-400">כשירים</span></p>
           <div className="flex h-1.5 rounded-full overflow-hidden bg-gray-100 mt-2 mb-1">
             <div style={{ width: `${child.passPercent}%`, backgroundColor: READINESS_COLORS.pass }} />
           </div>

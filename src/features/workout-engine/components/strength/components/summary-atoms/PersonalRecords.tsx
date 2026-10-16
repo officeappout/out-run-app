@@ -28,7 +28,7 @@ export default function PersonalRecords({ exercises }: PersonalRecordsProps) {
   if (records.length === 0) return null;
 
   return (
-    <div className="bg-sky-100 dark:bg-sky-900/30 rounded-2xl p-4 border border-sky-200 dark:border-sky-800/50">
+    <div className="bg-v2-tint dark:bg-sky-900/30 rounded-v2-card p-4">
       <div className="flex items-center justify-between mb-3">
         <Sparkles className="w-5 h-5 text-sky-600 dark:text-sky-400" />
         <h3 className="text-sky-600 dark:text-sky-400 font-bold text-base">שיא חדש!</h3>
