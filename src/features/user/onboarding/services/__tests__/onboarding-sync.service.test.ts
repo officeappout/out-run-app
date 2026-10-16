@@ -164,6 +164,14 @@ vi.mock('@/lib/firestore.service', () => ({
   updateUserAuthority: vi.fn(async () => true),
 }));
 
+// G8.2: enable_no_auto_strength_level — OFF for every pre-existing test (today's behaviour),
+// switched ON only inside the G8.2 describe block below.
+const flagState = vi.hoisted(() => ({ noAutoStrengthLevel: false }));
+vi.mock('@/lib/feature-flag-once', () => ({
+  readFeatureFlagOnce: vi.fn(async (key: string) =>
+    key === 'enable_no_auto_strength_level' ? flagState.noAutoStrengthLevel : false),
+}));
+
 vi.mock('@/features/workout-engine/core/services/running-admin.service', () => ({
   getPaceMapConfig: vi.fn(async () => ({})),
   getRunWorkoutTemplates: vi.fn(async () => [
@@ -187,6 +195,7 @@ vi.mock('@/features/workout-engine/core/services/running-engine.service', async 
 });
 
 import { syncOnboardingToFirestore } from '../onboarding-sync.service';
+import { hasAssessedStrengthDomain } from '@/features/user/identity/services/access-control.service';
 import { generatePlan } from '@/features/workout-engine/core/services/running-engine.service';
 import { getRunWorkoutTemplates } from '@/features/workout-engine/core/services/running-admin.service';
 
@@ -209,6 +218,7 @@ beforeEach(() => {
   pathConfigState.skillFocus = [];
   pathConfigState.muscleFocus = [];
   pathConfigState.exerciseWishlist = [];
+  flagState.noAutoStrengthLevel = false;
   vi.spyOn(console, 'log').mockImplementation(() => {});
 });
 
@@ -1294,5 +1304,78 @@ describe('syncOnboardingToFirestore — P0-2: onboardingStatus/onboardingStep ra
     Object.assign(finalDoc, payload);
 
     expect(finalDoc.onboardingStatus).toBe('ONBOARDING'); // reverted — this is the bug, pinned
+  });
+});
+
+// ── G8.2 (15.10.2026): enable_no_auto_strength_level — "never a strength level without the
+// questionnaire". W1 = the GOAL_TO_PROGRAM fallback, W2 = Path B's fabricated results.
+describe('syncOnboardingToFirestore — G8.2: no strength level without the questionnaire', () => {
+  const hasAnyStrengthLevel = (written: any) =>
+    hasAssessedStrengthDomain({ progression: written.progression ?? {} } as any);
+
+  describe('flag ON', () => {
+    beforeEach(() => { flagState.noAutoStrengthLevel = true; });
+
+    it('W1: no questionnaire, no running, no program → no level and no program written', async () => {
+      stubBrowserStorage();
+      const ok = await syncOnboardingToFirestore('COMPLETED', { selectedGoalIds: ['fitness'] } as any);
+      expect(ok).toBe(true);
+      const written = setDocMock.mock.calls[0][1] as any;
+      expect(hasAnyStrengthLevel(written)).toBe(false);
+      expect(written.progression?.activePrograms ?? []).toEqual([]);
+      expect(written.currentProgramId).toBeUndefined();
+      expect(Object.keys(written.progression?.tracks ?? {})).not.toContain('full_body');
+    });
+
+    it('W1: the empty-goals default (healthy_lifestyle → full_body) is skipped too', async () => {
+      stubBrowserStorage();
+      await syncOnboardingToFirestore('COMPLETED', {} as any);
+      const written = setDocMock.mock.calls[0][1] as any;
+      expect(hasAnyStrengthLevel(written)).toBe(false);
+      expect(written.currentProgramId).toBeUndefined();
+    });
+
+    it('W2: body-focus muscle choice without questionnaire results → Path B fabricates nothing', async () => {
+      pathConfigState.programPath = 'body_focus';
+      pathConfigState.cardOrder = ['body_focus'];
+      pathConfigState.muscleFocus = ['chest'];
+      stubBrowserStorage({ onboarding_fitness_level: '3' }); // a fitness-level answer is NOT the questionnaire
+      await syncOnboardingToFirestore('COMPLETED', {} as any);
+      const written = setDocMock.mock.calls[0][1] as any;
+      expect(written.assignedResults).toBeUndefined();
+      expect(hasAnyStrengthLevel(written)).toBe(false);
+      expect(written.progression?.activePrograms ?? []).toEqual([]);
+    });
+
+    it('real questionnaire results are still written as before (the flag only removes made-up levels)', async () => {
+      stubBrowserStorage();
+      await syncOnboardingToFirestore('COMPLETED', {
+        assignedResults: [{ programId: 'full_body', levelId: 'full_body_level_5' }],
+      } as any);
+      const written = setDocMock.mock.calls[0][1] as any;
+      expect(written.progression.tracks.full_body.currentLevel).toBe(5);
+      expect(hasAnyStrengthLevel(written)).toBe(true);
+    });
+  });
+
+  describe('flag OFF — today\'s behaviour, unchanged', () => {
+    it('W1: no questionnaire → the GOAL_TO_PROGRAM fallback still assigns full_body with a level', async () => {
+      stubBrowserStorage();
+      await syncOnboardingToFirestore('COMPLETED', { selectedGoalIds: ['fitness'] } as any);
+      const written = setDocMock.mock.calls[0][1] as any;
+      expect(written.currentProgramId).toBe('full_body');
+      expect(written.progression.tracks.full_body.currentLevel).toBeGreaterThan(0);
+    });
+
+    it('W2: body-focus without results → Path B still synthesises results', async () => {
+      pathConfigState.programPath = 'body_focus';
+      pathConfigState.cardOrder = ['body_focus'];
+      pathConfigState.muscleFocus = ['chest'];
+      stubBrowserStorage();
+      await syncOnboardingToFirestore('COMPLETED', {} as any);
+      const written = setDocMock.mock.calls[0][1] as any;
+      expect(written.assignedResults?.[0]).toMatchObject({ programId: 'push' });
+      expect(hasAnyStrengthLevel(written)).toBe(true);
+    });
   });
 });

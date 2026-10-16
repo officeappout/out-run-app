@@ -38,6 +38,7 @@ import { getProgramByTemplateId } from '@/features/content/programs';
 import { buildAttributionPayload } from '@/lib/marketingAttribution';
 import { triggerKellyWelcomeBot } from '@/features/social/services/kelly-welcome-bot.service';
 import { updateUserAuthority } from '@/lib/firestore.service';
+import { readFeatureFlagOnce } from '@/lib/feature-flag-once';
 
 // ── Canonical program slug allow-list ──────────────────────────────
 //
@@ -1199,7 +1200,13 @@ export async function syncOnboardingToFirestore(
       // program is never silently reassigned to the GOAL_TO_PROGRAM table.
       // The synthesised level is initialLevel (derived from the fitness-tier answer);
       // this is equivalent to what the quiz would have returned had results been present.
-      if (hasBodyFocusMuscles && (!effectiveResults || effectiveResults.length === 0)) {
+      //
+      // G8.2 (flag enable_no_auto_strength_level, fail-closed): a fitness-level answer is NOT
+      // the questionnaire (David, 15.10.2026). With the flag ON, Path B fabricates nothing — the
+      // user stays unassessed (no level, no program), and the GOAL_TO_PROGRAM fallback below is
+      // skipped too, so no strength level is ever written without real questionnaire results.
+      const noAutoStrengthLevel = await readFeatureFlagOnce('enable_no_auto_strength_level');
+      if (!noAutoStrengthLevel && hasBodyFocusMuscles && (!effectiveResults || effectiveResults.length === 0)) {
         const syntheticProgramId = deriveActiveProgramFromMuscleFocus(muscleIds);
         const syntheticFocusDomains = getFocusDomainsForMuscleFocus(muscleIds);
         const syntheticMasterSub: Record<string, number> = {
@@ -1617,7 +1624,12 @@ export async function syncOnboardingToFirestore(
         const hasGoalSignal = !!((data as any).selectedGoalIds?.length || (data as any).selectedGoal);
         const alreadyHasProgram = !!(existingRaw as any)?.currentProgramId;
 
-        if (!hasGoalSignal && alreadyHasProgram) {
+        if (noAutoStrengthLevel) {
+          // G8.2: no questionnaire results → no strength level and no program (same skip the
+          // running-only users get above). The user stays unassessed; home invites them to the
+          // questionnaire.
+          console.log('[OnboardingSync] G8.2: no questionnaire results — GOAL_TO_PROGRAM fallback skipped (enable_no_auto_strength_level). No level/program written.');
+        } else if (!hasGoalSignal && alreadyHasProgram) {
           console.log(
             '[OnboardingSync] GOAL_TO_PROGRAM fallback skipped — no goal signal and currentProgramId already set:',
             (existingRaw as any)?.currentProgramId,

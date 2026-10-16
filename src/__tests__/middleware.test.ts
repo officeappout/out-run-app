@@ -139,6 +139,25 @@ describe('decideAdminGateAction', () => {
       expect(decideAdminGateAction('/admin/authority/units/9307/sub-page', unitAdmin)).toEqual({ action: 'allow' });
     });
 
+    it('15.10.2026 — also allowed on their unit\'s readiness and on result entry (the APIs scope the data to their own units)', () => {
+      expect(decideAdminGateAction('/admin/authority/readiness/unit/9307', unitAdmin)).toEqual({ action: 'allow' });
+      expect(decideAdminGateAction('/admin/authority/readiness/entry', unitAdmin)).toEqual({ action: 'allow' });
+      expect(decideAdminGateAction('/admin/authority/readiness/entry/', unitAdmin)).toEqual({ action: 'allow' });
+    });
+
+    it('still blocked on every other readiness screen — the brigade roster, import, trends, the command screen', () => {
+      for (const p of [
+        '/admin/authority/readiness',
+        '/admin/authority/readiness/import',
+        '/admin/authority/readiness/trends',
+        '/admin/authority/readiness/vertical-overview',
+        '/admin/authority/readiness/unit',
+        '/admin/authority/readiness/entry-something-else',
+      ]) {
+        expect(decideAdminGateAction(p, unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login', preserveNext: false });
+      }
+    });
+
     it('blocked on the BARE units list — the exact page David\'s live test caught (delete-all/bulk-import/create battalion)', () => {
       expect(decideAdminGateAction('/admin/authority/units', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login', preserveNext: false });
       expect(decideAdminGateAction('/admin/authority/units/', unitAdmin)).toEqual({ action: 'redirect', to: '/authority-portal/login', preserveNext: false });

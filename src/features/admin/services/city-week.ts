@@ -79,3 +79,28 @@ export function computeCityWeek(
     },
   };
 }
+
+// ── per-park activity for the city's park list ──────────────────────────────
+
+export interface ParkActivity {
+  visits30d: number;
+  /** ISO date of the most recent visit (any age), null if never */
+  lastVisit: string | null;
+  openReports: number;
+}
+
+export function computeParkActivity(
+  visits: CityParkVisit[],
+  openReports: { parkId: string }[],
+  now = new Date(),
+): Record<string, ParkActivity> {
+  const out: Record<string, ParkActivity> = {};
+  const get = (id: string) => (out[id] ??= { visits30d: 0, lastVisit: null, openReports: 0 });
+  for (const v of visits) {
+    const p = get(v.parkId);
+    if (now.getTime() - v.at.getTime() < 30 * DAY) p.visits30d += 1;
+    if (!p.lastVisit || v.at.toISOString() > p.lastVisit) p.lastVisit = v.at.toISOString();
+  }
+  for (const r of openReports) if (r.parkId) get(r.parkId).openReports += 1;
+  return out;
+}

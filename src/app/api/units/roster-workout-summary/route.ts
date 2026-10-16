@@ -67,6 +67,10 @@ export const dynamic = 'force-dynamic';
 
 const DENIED_MESSAGE = 'אין לך הרשאה לצפות ברשימה זו.';
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+// 15.10.2026 — "who hasn't trained": a this-week-only date made someone who
+// trained 8 days ago look the same as someone who never did. The window is
+// now 30 days (same indexed query, wider range); still never a 'last ever'.
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 interface RosterWorkoutSummaryEntry {
   uid: string;
@@ -75,6 +79,9 @@ interface RosterWorkoutSummaryEntry {
    *  null when workoutsLast7Days is 0. Never a "last ever" date — see
    *  this file's own header comment for why that source was dropped. */
   lastWorkoutDateThisWeek: string | null;
+  /** ISO date of the most recent workout in the last 30 days, or null —
+   *  null means "not in 30 days", not "never". */
+  lastWorkoutDate30Days: string | null;
 }
 
 function chunk<T>(arr: T[], size: number): T[][] {
@@ -147,6 +154,7 @@ export async function computeRosterWorkoutSummary(
   }
 
   const sevenDaysAgo = new Date(Date.now() - SEVEN_DAYS_MS);
+  const thirtyDaysAgo = new Date(Date.now() - THIRTY_DAYS_MS);
   const uidChunks = chunk(uids, 30); // Firestore 'in' operator cap
 
   // Fail-closed on the WHOLE request — a single chunk's query failure
@@ -157,25 +165,28 @@ export async function computeRosterWorkoutSummary(
     uidChunks.map((uidChunk) =>
       db.collection('workouts')
         .where('userId', 'in', uidChunk)
-        .where('date', '>=', sevenDaysAgo)
+        .where('date', '>=', thirtyDaysAgo)
         .select('userId', 'date')
         .get(),
     ),
   );
 
-  const countByUid = new Map<string, number>();
-  const lastDateMsByUid = new Map<string, number>();
+  const countByUid = new Map<string, number>(); // last 7 days
+  const lastDateMsByUid = new Map<string, number>(); // last 7 days
+  const last30MsByUid = new Map<string, number>(); // last 30 days
   chunkSnaps.forEach((snap) => {
     snap.docs.forEach((d: QueryDocumentSnapshot) => {
       const data = d.data();
       const uid = data.userId;
       if (typeof uid !== 'string') return;
-      countByUid.set(uid, (countByUid.get(uid) ?? 0) + 1);
       const dateMs = typeof data.date?.toMillis === 'function' ? data.date.toMillis() : null;
-      if (dateMs !== null) {
-        const current = lastDateMsByUid.get(uid);
-        if (current === undefined || dateMs > current) lastDateMsByUid.set(uid, dateMs);
-      }
+      if (dateMs === null) return;
+      const prev30 = last30MsByUid.get(uid);
+      if (prev30 === undefined || dateMs > prev30) last30MsByUid.set(uid, dateMs);
+      if (dateMs < sevenDaysAgo.getTime()) return; // the 7-day fields keep their meaning
+      countByUid.set(uid, (countByUid.get(uid) ?? 0) + 1);
+      const current = lastDateMsByUid.get(uid);
+      if (current === undefined || dateMs > current) lastDateMsByUid.set(uid, dateMs);
     });
   });
 
@@ -186,6 +197,7 @@ export async function computeRosterWorkoutSummary(
       uid,
       workoutsLast7Days,
       lastWorkoutDateThisWeek: lastMs !== undefined ? new Date(lastMs).toISOString() : null,
+      lastWorkoutDate30Days: last30MsByUid.has(uid) ? new Date(last30MsByUid.get(uid)!).toISOString() : null,
     };
   });
 
