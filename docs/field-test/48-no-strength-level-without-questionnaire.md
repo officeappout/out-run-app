@@ -4,7 +4,8 @@
 without the strength questionnaire. Shipped behind `enable_no_auto_strength_level`
 (fail-closed, admin card "אין רמת כוח בלי שאלון").
 
-> ⚠️ **Status: the flag stays OFF** until the summary-screen guard below lands.
+> **Status (16.10.2026):** onboarding/workout fix #307 and the summary guard (below) are both
+> merged. The flag is still **OFF**; David turns it on himself after field-testing.
 
 ## Why it kept coming back
 
@@ -35,16 +36,23 @@ them touched these writers.
 - **Existing users** who already have a made-up level are left as they are (David: no repair
   script).
 
-## Pending follow-up: the summary-screen guard (do after design-v2 4a merges)
+## Summary-screen guard (done after design-v2 4a, #305)
 
 When progression is skipped, the strength summary would still show a program-level ring built
-from the fallback level (`currentLevel ?? 1`, prop default 5).
+from the fallback level (`currentLevel ?? 1`, prop default 5): a made-up level.
 
-**After `feat/design-v2-summary` (4a) merges**, hide the level ring when the progression result
-has `skipped === 'no_questionnaire'`, or when the user has no assessed strength domain:
+Design-v2 4a (**#305**, `d0213dea`, merged 16.10.2026) split the summary into
+`StrengthSummaryPage.tsx` (data only) and `StrengthSummaryView.tsx` (markup), and replaced
+`ProgramProgressCard` with `LevelRingCard`. The guard sits on `LevelRingCard`'s render site in
+`StrengthSummaryView.tsx`, through `shouldShowLevelRing`
+(`strength/utils/level-ring-visibility.ts`). The ring is hidden when the progression result
+has `skipped === 'no_questionnaire'`. The history view hides it as before.
 
-- **Where:** the render site of `components/LevelRingCard.tsx` in
-  `src/features/workout-engine/components/strength/StrengthSummaryView.tsx` (per the design
-  session; 4a replaces `ProgramProgressCard` with `LevelRingCard`).
-- **Also check** `GainBreakdownCard`, which would show all-zero gains.
-- **Then** David can turn the flag on.
+- **Flag OFF:** `skipped` is never set, so the ring is unchanged.
+- **Tests:** `level-ring-visibility.test.ts` (the rule) and
+  `strength-summary-level-ring-guard.test.ts`, which server-renders the real
+  `StrengthSummaryView`: ring shown normally, hidden when skipped, hidden in history.
+
+**Open for the field test:** `GainBreakdownCard` hides only when `success` is false. A skipped
+result has `success: true`, so it still renders with "+0.0%" gains. It was left as-is; the
+scope was the level ring. Decide on device whether it should hide too.

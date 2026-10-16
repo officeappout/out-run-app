@@ -101,8 +101,9 @@ export const FLAG_DEFS = [
   // writes a strength level/program for a user with no questionnaire result: onboarding's
   // GOAL_TO_PROGRAM fallback and Path B's synthesized results are skipped, and a strength workout
   // by an unassessed user skips the level/track writes (history + XP untouched). Read one-shot via
-  // readFeatureFlagOnce. Fail-closed; superAdminValue false. KEEP OFF until the summary-screen
-  // guard lands (follow-up after design-v2 4a merges — LevelRingCard in StrengthSummaryView.tsx).
+  // readFeatureFlagOnce. Fail-closed; superAdminValue false. Summary guard in place
+  // (LevelRingCard hidden when skipped, StrengthSummaryView.tsx, after #305). David turns it on
+  // himself after field-testing.
   { key: 'enableNoAutoStrengthLevel', firestoreKey: 'enable_no_auto_strength_level', defaultValue: false, superAdminValue: false },
 ] as const;
 
