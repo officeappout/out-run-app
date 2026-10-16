@@ -35,7 +35,7 @@ export default function ExerciseBreakdownCard({
   completedExercises,
 }: ExerciseBreakdownCardProps) {
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-sm border border-slate-50 dark:border-slate-700">
+    <div className="bg-white dark:bg-slate-800 rounded-v2-card overflow-hidden shadow-v2-card">
       {/* Header */}
       <div className="p-4 border-b border-slate-50 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
         <span className="text-xs font-bold text-slate-400">סה״כ</span>

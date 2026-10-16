@@ -44,7 +44,7 @@ export default function WeeklyAchievementsGrid({
   xpStatusSlot,
 }: WeeklyAchievementsGridProps) {
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-50 dark:border-slate-700">
+    <div className="bg-white dark:bg-slate-800 rounded-v2-card p-4 shadow-v2-card">
       <div className="flex items-center justify-between mb-4">
         <Medal className="w-5 h-5 text-slate-700 dark:text-slate-300" />
         <h3 className="text-slate-800 dark:text-white font-bold text-base">הישגים שבועיים</h3>
