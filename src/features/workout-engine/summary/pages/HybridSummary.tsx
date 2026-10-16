@@ -21,7 +21,7 @@ export interface HybridSummaryProps {
   onFinish: () => void;
   /**
    * Delete trigger — shown only when the caller wires it (the history view;
-   * the live post-finish flow never passes this). Mirrors FreeRunSummary's
+   * the live post-finish flow never passes this). Mirrors AerobicSummaryView's
    * onDelete contract: this component doesn't own the confirm/delete flow,
    * tapping just calls the caller's onDelete().
    */

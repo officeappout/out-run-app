@@ -71,7 +71,7 @@ vi.mock('@/lib/healthBridge/init', () => ({
 
 const REPO_ROOT = path.resolve(__dirname, '../../../../..');
 
-describe('Source-fact check (mechanical, not eyeballed): the two literals really are unconditional', () => {
+describe('Source-fact check (mechanical, not eyeballed): the useRunningPlayer literals really are unconditional; the share text is fixed', () => {
   it('useRunningPlayer.ts:1831 and :1835 are bare string literals with zero reference to activityType', () => {
     const filePath = path.join(
       REPO_ROOT,
@@ -96,16 +96,34 @@ describe('Source-fact check (mechanical, not eyeballed): the two literals really
     expect(line1885).not.toContain('activityType');
   });
 
-  it('FreeRunSummary.tsx:179 share text is a bare template literal with zero activity-type interpolation', () => {
-    const filePath = path.join(
+  // FIXED (16.10.2026): the share-text half of this bug is gone. The old proof
+  // asserted FreeRunSummary.tsx:179's hardcoded "🏃 סיימתי אימון ריצה חופשית! …
+  // #ריצה" literal, which a finished WALK also shared. FreeRunSummary was
+  // retired (history now renders AerobicSummaryView too, so every walk/run
+  // summary — live and history — shares via AerobicShareBlock). Promoted to a
+  // regression test of the FIXED behaviour: the one remaining share text is
+  // activity-neutral, so a walk can no longer be shared as a run.
+  it('FIXED — summary share text no longer hardcodes "running" (FreeRunSummary retired; AerobicShareBlock is activity-neutral)', () => {
+    const legacyPath = path.join(
       REPO_ROOT,
       'src/features/workout-engine/players/running/components/FreeRun/FreeRunSummary.tsx',
     );
-    const lines = fs.readFileSync(filePath, 'utf-8').split('\n');
-    const line179 = lines[178];
-    expect(line179).toContain('ריצה חופשית');
-    expect(line179).toContain('#ריצה');
-    expect(line179).not.toMatch(/activityType|sessionActivityType/);
+    expect(fs.existsSync(legacyPath)).toBe(false);
+
+    const sharePath = path.join(
+      REPO_ROOT,
+      'src/features/workout-engine/summary/components/aerobic/AerobicShareBlock.tsx',
+    );
+    const lines = fs.readFileSync(sharePath, 'utf-8').split('\n');
+    // Located by CONTENT, not line number.
+    const shareLines = lines.filter((l) => l.includes('סיימתי אימון'));
+    expect(shareLines).toHaveLength(1);
+    const shareLine = shareLines[0];
+    // No running-specific wording (the bug): not "ריצה", not "#ריצה", no 🏃.
+    expect(shareLine).not.toContain('ריצה');
+    expect(shareLine).not.toContain('🏃');
+    // Still the generic workout message with the distance interpolated.
+    expect(shareLine).toContain('${distanceStr}');
   });
 });
 

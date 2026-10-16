@@ -203,7 +203,7 @@ export default function WorkoutSummaryPage({
   }
 
   // Solo walking/running summary — behind AEROBIC_SOLO_ENABLED flag (default: false)
-  // Flip to true only after verifying on device. FreeRunSummary stays as fallback.
+  // Flip to true only after verifying on device. SummaryOrchestrator (below) stays as fallback.
   if (AEROBIC_SOLO_ENABLED) {
     const currentUser = auth.currentUser;
     const effectiveActivityType =

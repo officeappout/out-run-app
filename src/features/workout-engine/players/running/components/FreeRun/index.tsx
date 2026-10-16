@@ -7,12 +7,11 @@ import { useRunningPlayer } from '@/features/workout-engine/players/running/stor
 import { audioService } from '@/features/workout-engine/core/services/AudioService';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import FreeRunActive from './FreeRunActive';
-import FreeRunSummary from './FreeRunSummary';
 
 export default function FreeRun() {
   const router = useRouter();
-  const { status, endSession, clearSession } = useSessionStore();
-  const { startGPSTracking, stopGPSTracking, clearRunningData } = useRunningPlayer();
+  const { status, endSession } = useSessionStore();
+  const { startGPSTracking, stopGPSTracking } = useRunningPlayer();
 
   // Unlock audio engine on mount (for iOS Safari)
   useEffect(() => {
@@ -48,21 +47,6 @@ export default function FreeRun() {
     router.push('/map');
   };
 
-  const handleDelete = () => {
-    // Clear all data and go back to map
-    clearRunningData();
-    clearSession();
-    router.push('/map');
-  };
-
-  const handleSave = () => {
-    // Workout is already saved in useRunningPlayer.ts finishWorkout()
-    // Just clear state and navigate home
-    clearRunningData();
-    clearSession();
-    router.push('/home');
-  };
-
   // Switch between views based on status.
   //
   // The previous build swapped between FreeRunActive (running) and
@@ -74,8 +58,14 @@ export default function FreeRun() {
   // AdaptiveMetricsWrapper paints an orange border + orange numbers
   // when `useSessionStore.status === 'paused'`. FreeRunPaused (the old
   // dark-glass view) is intentionally no longer rendered here.
+  // 'finished': render nothing. The post-run summary is owned by MapShell —
+  // its finished→showSummary bridge flips mode to 'summary' on the very next
+  // effect pass, unmounting this layer and mounting SummaryLayer →
+  // WorkoutSummaryPage → AerobicSummaryShell (AEROBIC_SOLO_ENABLED). The legacy
+  // FreeRunSummary that used to render here was only ever visible for that
+  // 1–2 frame gap (no tap could reach its buttons) and was retired 16.10.2026.
   if (status === 'finished') {
-    return <FreeRunSummary onDelete={handleDelete} onSave={handleSave} />;
+    return null;
   }
 
   return <FreeRunActive onBack={handleBack} />;

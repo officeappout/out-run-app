@@ -220,7 +220,7 @@ export default function StrengthSummaryView({
             caller wired an onDelete (WORKOUT_DELETE_EXPANDED_ENABLED at the
             call site). This component doesn't own the confirm/delete flow —
             tapping just calls the caller's onDelete(), same contract as
-            FreeRunSummary's onDelete prop. */}
+            AerobicSummaryView's / HybridSummary's onDelete prop. */}
         {isReadOnly && onDelete && (
           <Button
             variant="ghost"
