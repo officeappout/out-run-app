@@ -44,9 +44,9 @@ describe('enable_no_auto_strength_level wiring', () => {
     expect(FLAG_DEFS.find((d) => d.firestoreKey === 'enable_no_auto_strength_level'))
       .toMatchObject({ key: 'enableNoAutoStrengthLevel', defaultValue: false, superAdminValue: false });
   });
-  it('admin card exists and says to keep it off until the summary guard lands', () => {
+  it('admin card exists and says to turn it on only after the field test', () => {
     const page = readFileSync(fileURLToPath(new URL('../../app/admin/system-settings/page.tsx', import.meta.url)), 'utf8');
     expect(page).toContain("key: 'enable_no_auto_strength_level'");
-    expect(page).toContain('להשאיר כבוי עד שמסך הסיכום');
+    expect(page).toContain('להפעיל רק אחרי בדיקת שטח');
   });
 });
