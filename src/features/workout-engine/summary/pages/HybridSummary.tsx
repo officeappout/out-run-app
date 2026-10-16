@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { Share2, Trash2 } from 'lucide-react';
+import { Share2, Trash2, Target, Sparkles } from 'lucide-react';
+import { Button, CardTile, Chip, IconTile, StatNumber } from '@/components/ui/v2';
 import type { HybridFinalizeResult } from '@/features/workout-engine/hybrid/hybrid-orchestrator';
 import SummaryDrawerShell, { type DrawerTab } from '../blocks/SummaryDrawerShell';
+import type { SummarySnap } from '../blocks/summary-sheet.util';
 import SegmentRail, { type SegmentRailItem } from '../blocks/SegmentRail';
-import IdentityUnitsRow from '../blocks/IdentityUnitsRow';
 import { railTypeFromKind, segmentLabel, type SegmentRailType } from '../blocks/segment-rail.util';
 import { formatDuration } from '../format';
 
@@ -33,6 +34,8 @@ export interface HybridSummaryProps {
    * post-finish flow's existing behavior).
    */
   peekHeight?: number;
+  /** Snap the drawer opens at — 'full' (default) or 'peek' (dev preview). */
+  initialSnap?: SummarySnap;
 }
 
 const HYBRID_TABS: DrawerTab[] = [
@@ -71,8 +74,9 @@ function buildRailItems(segments: Segments, only?: SegmentRailType): SegmentRail
  * Behind HYBRID_SUMMARY_ENABLED (default false). Stage-3 data comes from the
  * stashed HybridFinalizeResult.
  *
- * MVP-now: drawer chrome, tabs, segment rail (pill+chevron), inline identity
- * units, aggregates, both-halves banner, share + dismiss. Fast-follow (shared
+ * MVP-now: v2 draggable drawer (drag collapses to a peek, never exits), tabs,
+ * hero (total time), segment rail, aggregate tiles, both-halves banner, share +
+ * one explicit "סיום" footer action. Fast-follow (shared
  * blocks): lemur/weekly streak, weekly+program progress, per-exercise strength
  * tab, pace-chart sheets. XP display-only (0) per the single-save gate.
  */
@@ -84,85 +88,115 @@ export default function HybridSummary({
   onFinish,
   onDelete,
   peekHeight = 150,
+  initialSnap = 'full',
 }: HybridSummaryProps) {
   const [tab, setTab] = useState<string>('overview');
   const { summary, segments } = result;
   const totalDurationSec = segments.reduce((acc, s) => acc + (s.actual?.durationSec ?? 0), 0);
   const aerobicSec = summary.totalActualAerobicSec;
+  const completedSegments = summary.completedAerobicSegments + summary.completedStrengthSegments;
+  const xpVal = Math.round(xpEarned || 0);
+  void streakDays;
 
-  const titleRow = (
-    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '12px 14px 2px' }}>
-      <span style={{ fontSize: 15, fontWeight: 600, color: '#1b2220' }}>אימון משולב</span>
-      <IdentityUnitsRow variant="inline" durationSeconds={totalDurationSec} calories={calories} xp={xpEarned} />
-    </div>
-  );
-
-  const aggregates = (
-    <div style={{ marginTop: 4, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-      <MiniStat label="ק״מ" value={summary.totalActualDistanceKm.toFixed(2)} />
-      <MiniStat label="סטים" value={String(summary.totalStrengthSets)} />
-      <MiniStat
-        label="מקטעים"
-        value={`${summary.completedAerobicSegments + summary.completedStrengthSegments}/${summary.segmentCount}`}
-      />
+  // Hero (drag zone): the combined number — total session time — with the two
+  // halves as chips. Stays visible when the drawer is collapsed to its peek.
+  const hero = (
+    <div className="flex items-end justify-between gap-3 px-4 pt-1 pb-3">
+      <div className="min-w-0">
+        <div className="text-[13px] font-extrabold text-v2-deep">אימון משולב</div>
+        <StatNumber
+          value={totalDurationSec}
+          format={(v) => formatDuration(Math.round(v))}
+          size="lg"
+          label="זמן כולל"
+          className="mt-1"
+        />
+      </div>
+      <div className="flex flex-col items-end gap-1.5 shrink-0">
+        <Chip tone="accent">{`${summary.totalActualDistanceKm.toFixed(2)} ק״מ`}</Chip>
+        <Chip tone="neutral">{`${summary.totalStrengthSets} סטים`}</Chip>
+        {xpVal > 0 && (
+          <Chip tone="accent" icon={<Sparkles size={13} strokeWidth={2.4} aria-hidden />}>
+            {`+${xpVal} XP`}
+          </Chip>
+        )}
+      </div>
     </div>
   );
 
   const banner = summary.bothHalvesCompleted ? (
-    <div
-      style={{
-        marginTop: 12,
-        borderRadius: 12,
-        background: '#E1F5EE',
-        padding: '10px 14px',
-        textAlign: 'center',
-        fontSize: 13,
-        fontWeight: 700,
-        color: '#0F6E56',
-      }}
-    >
-      אימון משולב מלא — גם ריצה וגם כוח! 🎯
+    <div className="mt-4 flex items-center gap-3 rounded-v2-card bg-v2-tint px-4 py-3">
+      <IconTile icon={Target} tone="accent" size="sm" className="!bg-white" />
+      <span className="text-[14px] font-extrabold text-v2-deep">
+        אימון משולב מלא — גם ריצה וגם כוח!
+      </span>
     </div>
   ) : null;
 
   const tabBody: Record<string, ReactNode> = {
     overview: (
-      <div style={{ padding: '0 0 12px' }}>
-        {titleRow}
-        <div style={{ padding: '0 14px' }}>
-          <SectionLabel>מהלך האימון</SectionLabel>
-          <SegmentRail items={buildRailItems(segments)} />
-          {aggregates}
-          {banner}
+      <div className="px-4 pt-4 pb-6">
+        <div className="grid grid-cols-2 gap-2">
+          <StatTile value={summary.totalActualDistanceKm} decimals={2} unit="ק״מ" label="מרחק" />
+          <StatTile value={summary.totalStrengthSets} label="סטים" />
+          <StatTile
+            value={completedSegments}
+            format={() => `${completedSegments}/${summary.segmentCount}`}
+            label="מקטעים"
+          />
+          <StatTile value={Math.round(calories || 0)} unit="קק״ל" label="קלוריות" />
         </div>
+        {banner}
+        <SectionLabel>מהלך האימון</SectionLabel>
+        <SegmentRail items={buildRailItems(segments)} />
       </div>
     ),
     aerobic: (
-      <div style={{ padding: '12px 14px' }}>
-        <StatLine label="מרחק ריצה" value={`${summary.totalActualDistanceKm.toFixed(2)} ק״מ`} />
-        <StatLine label="זמן ריצה" value={aerobicSec > 0 ? formatDuration(aerobicSec) : '--'} />
+      <div className="px-4 pt-4 pb-6">
+        <div className="grid grid-cols-2 gap-2">
+          <StatTile value={summary.totalActualDistanceKm} decimals={2} unit="ק״מ" label="מרחק ריצה" />
+          <StatTile
+            value={aerobicSec}
+            format={() => (aerobicSec > 0 ? formatDuration(aerobicSec) : '--')}
+            label="זמן ריצה"
+          />
+        </div>
         <SectionLabel>מקטעי ריצה</SectionLabel>
         <SegmentRail items={buildRailItems(segments, 'aerobic')} />
       </div>
     ),
     strength: (
-      <div style={{ padding: '12px 14px' }}>
-        <StatLine label="סטים שהושלמו" value={String(summary.totalStrengthSets)} />
-        <StatLine label="תחנות כוח" value={String(summary.completedStrengthSegments)} />
+      <div className="px-4 pt-4 pb-6">
+        <div className="grid grid-cols-2 gap-2">
+          <StatTile value={summary.totalStrengthSets} label="סטים שהושלמו" />
+          <StatTile value={summary.completedStrengthSegments} label="תחנות כוח" />
+        </div>
         <SectionLabel>תחנות כוח</SectionLabel>
         <SegmentRail items={buildRailItems(segments, 'strength')} />
-        <div style={{ marginTop: 10, fontSize: 12, color: '#9aa3a1', textAlign: 'center' }}>
+        <div className="mt-3 text-center text-[12px] font-semibold text-v2-muted">
           פירוט תרגילים (מתוכנן/בפועל) — בקרוב
         </div>
       </div>
     ),
     stats: (
-      <div style={{ padding: '12px 14px' }}>
-        <IdentityUnitsRow durationSeconds={totalDurationSec} calories={calories} xp={xpEarned} />
-        <div style={{ marginTop: 12 }}>
-          <StatLine label="מקטעים שהושלמו" value={`${summary.completedAerobicSegments + summary.completedStrengthSegments}/${summary.segmentCount}`} />
-          <StatLine label="ריצה" value={`${summary.completedAerobicSegments} מקטעים`} />
-          <StatLine label="כוח" value={`${summary.completedStrengthSegments} תחנות`} />
+      <div className="px-4 pt-4 pb-6">
+        <div className="grid grid-cols-3 gap-2">
+          <StatTile
+            value={totalDurationSec}
+            format={() => formatDuration(totalDurationSec)}
+            label="זמן"
+          />
+          <StatTile value={Math.round(calories || 0)} label="קק״ל" />
+          <StatTile value={xpVal} label="XP" />
+        </div>
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          <StatTile
+            value={completedSegments}
+            format={() => `${completedSegments}/${summary.segmentCount}`}
+            label="מקטעים"
+          />
+          <StatTile value={summary.completedAerobicSegments} label="מקטעי ריצה" />
+          <StatTile value={summary.completedStrengthSegments} label="תחנות כוח" />
         </div>
         {banner}
       </div>
@@ -176,64 +210,28 @@ export default function HybridSummary({
     }
   };
 
+  // Pinned footer — share (where it was), optional delete (history only) and
+  // the ONE explicit exit action. The drawer itself never finishes on drag/tap.
   const footer = (
-    <div style={{ display: 'flex', gap: 9, padding: '10px 14px 14px', fontFamily: 'var(--font-simpler)' }}>
-      <button
-        onClick={handleShare}
-        style={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 6,
-          padding: 12,
-          borderRadius: 16,
-          border: 'none',
-          cursor: 'pointer',
-          background: '#1D9E75',
-          color: '#fff',
-          fontSize: 14,
-          fontWeight: 600,
-        }}
-      >
-        <Share2 size={16} /> שתפו
-      </button>
+    <div className="flex items-center gap-2.5 px-4 py-3">
+      <Button variant="ghost" size="lg" onClick={handleShare} className="flex-1">
+        <Share2 size={18} strokeWidth={2.4} aria-hidden />
+        שתפו
+      </Button>
       {onDelete && (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="lg"
           onClick={onDelete}
           aria-label="מחק אימון"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 12,
-            borderRadius: 16,
-            border: 'none',
-            cursor: 'pointer',
-            background: '#FEF2F2',
-            color: '#EF4444',
-          }}
+          className="!px-4 !text-v2-down"
         >
-          <Trash2 size={16} />
-        </button>
+          <Trash2 size={18} strokeWidth={2.4} aria-hidden />
+        </Button>
       )}
-      <button
-        onClick={onFinish}
-        style={{
-          flex: 1,
-          padding: 12,
-          borderRadius: 16,
-          border: '0.5px solid #d3d8d6',
-          cursor: 'pointer',
-          background: '#ffffff',
-          color: '#1b2220',
-          fontSize: 14,
-          fontWeight: 600,
-        }}
-      >
+      <Button variant="primary" size="lg" onClick={onFinish} className="flex-[1.4]">
         סיום
-      </button>
+      </Button>
     </div>
   );
 
@@ -242,8 +240,9 @@ export default function HybridSummary({
       tabs={HYBRID_TABS}
       activeTab={tab}
       onTabChange={setTab}
-      onDismiss={onFinish}
+      header={hero}
       peekHeight={peekHeight}
+      initialSnap={initialSnap}
       footer={footer}
     >
       {tabBody[tab] ?? tabBody.overview}
@@ -251,32 +250,26 @@ export default function HybridSummary({
   );
 }
 
-function MiniStat({ label, value }: { label: string; value: string }) {
+function StatTile({
+  value,
+  label,
+  unit,
+  decimals = 0,
+  format,
+}: {
+  value: number;
+  label: string;
+  unit?: string;
+  decimals?: number;
+  format?: (v: number) => string;
+}) {
   return (
-    <div style={{ borderRadius: 12, background: '#f4f7f6', padding: 12, textAlign: 'center' }}>
-      <div style={{ fontSize: 18, fontWeight: 800, color: '#1b2220' }}>{value}</div>
-      <div style={{ fontSize: 12, color: '#6b7472' }}>{label}</div>
-    </div>
+    <CardTile className="px-3 py-3 ring-1 ring-inset ring-v2-hairline">
+      <StatNumber value={value} decimals={decimals} unit={unit} label={label} format={format} size="sm" />
+    </CardTile>
   );
 }
 
 function SectionLabel({ children }: { children: ReactNode }) {
-  return <div style={{ fontSize: 12, color: '#9aa3a1', margin: '12px 2px 8px' }}>{children}</div>;
-}
-
-function StatLine({ label, value }: { label: string; value: string }) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        padding: '8px 0',
-        borderBottom: '0.5px solid #e8ebea',
-        fontSize: 13,
-      }}
-    >
-      <span style={{ color: '#5b6664' }}>{label}</span>
-      <span style={{ color: '#1b2220', fontWeight: 500 }}>{value}</span>
-    </div>
-  );
+  return <div className="mt-5 mb-2.5 text-[14px] font-extrabold text-v2-ink">{children}</div>;
 }

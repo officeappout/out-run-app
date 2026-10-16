@@ -37,42 +37,43 @@ interface RingProps {
   size?: number;
 }
 
-function Ring({ value, label, pct, stroke, track, size = 68 }: RingProps) {
+function Ring({ value, label, pct, stroke, track, size = 78 }: RingProps) {
   const r = size / 2 - 6;
   const circumference = 2 * Math.PI * r;
   const offset = circumference * (1 - Math.min(100, Math.max(0, pct)) / 100);
   const cx = size / 2;
-  const fontSize = value.length > 5 ? 10 : 12;
+  const fontSize = value.length > 5 ? 12 : 15;
 
   return (
     <div style={{ textAlign: 'center' }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <circle cx={cx} cy={cx} r={r} fill="none" stroke={track} strokeWidth={6} />
+        <circle cx={cx} cy={cx} r={r} fill="none" stroke={track} strokeWidth={7} />
         <circle
           cx={cx}
           cy={cx}
           r={r}
           fill="none"
           stroke={stroke}
-          strokeWidth={6}
+          strokeWidth={7}
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           transform={`rotate(-90 ${cx} ${cx})`}
-          style={{ transition: 'stroke-dashoffset 700ms ease-out' }}
+          style={{ transition: 'stroke-dashoffset 700ms cubic-bezier(0.23, 1, 0.32, 1)' }}
         />
         <text
           x={cx}
           y={cx + fontSize * 0.4}
           textAnchor="middle"
           fontSize={fontSize}
-          fontWeight={500}
-          fill="#1b2220"
+          fontWeight={800}
+          fill="#0e1419"
+          style={{ fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}
         >
           {value}
         </text>
       </svg>
-      <div style={{ fontSize: 11, color: '#5b6664', marginTop: 2 }}>{label}</div>
+      <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', marginTop: 4 }}>{label}</div>
     </div>
   );
 }
@@ -88,9 +89,10 @@ export default function AerobicStatRingsBlock({ activityType, pace, duration, ca
 
   return (
     <div style={{ display: 'flex', justifyContent: 'space-around', padding: '8px 0' }}>
-      <Ring value={formatPace(pace)} label={paceLabel} pct={pacePct} stroke="#1D9E75" track="#EAF4F0" />
-      <Ring value={formatDuration(duration)} label="זמן" pct={durationPct} stroke="#0F6E56" track="#E8F0EC" />
-      <Ring value={calories > 0 ? `${Math.round(calories)}` : '--'} label="קק״ל" pct={caloriesPct} stroke="#E0A33E" track="#FAEEDA" />
+      {/* v2: one accent family (accent / deep / turquoise) on the tint track */}
+      <Ring value={formatPace(pace)} label={paceLabel} pct={pacePct} stroke="#00baf7" track="#eef8fc" />
+      <Ring value={formatDuration(duration)} label="זמן" pct={durationPct} stroke="#0284c7" track="#eef8fc" />
+      <Ring value={calories > 0 ? `${Math.round(calories)}` : '--'} label="קק״ל" pct={caloriesPct} stroke="#00dcd0" track="#eef8fc" />
     </div>
   );
 }
