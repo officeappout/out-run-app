@@ -89,7 +89,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { adminAuthedFetch } from '@/lib/adminAuthedFetch';
-import { Compass, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 
 // Reused as-is from PR #123 — same components /admin/statistics already
 // mounts, just repositioned into this hub's tabs.
@@ -165,6 +165,7 @@ import AuthorityPerformanceTable from '@/features/admin/components/cpo-dashboard
 import type { AuthorityPerformance } from '@/features/admin/services/cpo-analytics.service';
 import InfoHint from '@/features/admin/components/cpo-dashboard/InfoHint';
 import SourcesSection from '@/features/admin/components/journey/SourcesSection';
+import { PageHeader, SegmentTabs } from '@/features/admin/components/ui';
 import ActivationInsights from '@/features/admin/components/journey/ActivationInsights';
 import RetentionDrivers from '@/features/admin/components/journey/RetentionDrivers';
 import type { RetentionDriversResponse } from '@/features/admin/services/journey-retention-drivers';
@@ -477,15 +478,12 @@ export default function JourneyHubPage() {
 
   return (
     <div className="space-y-6" dir="rtl">
-      <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-md shrink-0">
-          <Compass size={24} className="text-white" />
-        </div>
-        <div>
-          <h1 className="text-3xl font-black text-gray-900">מסע משתמש</h1>
-          <p className="text-gray-500 mt-1">מאיפה הגיעו ← איך התחילו ← מה גורם להם להישאר</p>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="ניהול מוצר / צמיחה"
+        title="מסע"
+        strong="משתמש"
+        subtitle="מאיפה הגיעו ← איך התחילו להתאמן ← מה גורם להם להישאר."
+      />
 
       {growthMetricsDenied && !dataLoading && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
@@ -502,23 +500,7 @@ export default function JourneyHubPage() {
           yet, and that's out of this wave's approved scope). */}
       <JourneyFilterBar filters={filters} onChange={updateFilters} />
 
-      {/* Tabs */}
-      <div className="flex gap-2 border-b border-gray-200">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 font-bold transition-colors relative ${
-              activeTab === tab.id ? 'text-cyan-600' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {tab.label}
-            {activeTab === tab.id && (
-              <div className="absolute bottom-0 right-0 left-0 h-0.5 bg-cyan-600" />
-            )}
-          </button>
-        ))}
-      </div>
+      <SegmentTabs tabs={TABS} value={activeTab} onChange={setActiveTab} label="שלבי המסע" />
 
       {/* Acquisition — Wave 1 relocated the funnel/organic-split/city
           breakdown; Wave 2 added the real new-users-over-time trend
