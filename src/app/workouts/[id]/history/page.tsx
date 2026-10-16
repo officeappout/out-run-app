@@ -32,13 +32,14 @@
  *   expects. hybrid-history-adapter.ts rebuilds it (segments are a
  *   byte-compatible passthrough; summary is recomputed from them).
  *
- * - cardio → FreeRunSummary in its existing isReadOnly mode (F2.1 fix,
- *   19.08.2026 — the initial F1.3 cut built a smaller custom view here
- *   instead of reusing FreeRunSummary, which silently dropped delete
- *   capability for cardio workouts and diverged from what the plan's own
- *   investigation identified as the correct destination; caught while
- *   wiring real navigation to this route in F2.1, before that gap could
- *   reach production).
+ * - cardio → AerobicSummaryShell (the same v2 view a just-finished walk/run
+ *   shows) in its isReadOnly mode (16.10.2026). aerobic-history-adapter.ts
+ *   maps the saved doc (route → [lng,lat], average pace) with the same
+ *   values the retired FreeRunSummary read-only mode showed. Read-only = no
+ *   XP, no save, no rating write, no group-context reads; delete goes
+ *   through this page's own confirm below, exactly as before. (History:
+ *   F2.1, 19.08.2026, first routed cardio here via FreeRunSummary so delete
+ *   kept working — that contract is unchanged.)
  *
  * Every branch's own component owns its rendering (map/stats/laps for
  * cardio, exercise breakdown for strength, rail items for hybrid); this
@@ -54,13 +55,18 @@ import { auth } from '@/lib/firebase';
 import { getWorkoutById, type WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import StrengthSummaryPage from '@/features/workout-engine/components/strength/StrengthSummaryPage';
 import { workoutHistoryEntryToStrengthSummaryProps } from '@/features/workout-engine/components/strength/strength-history-adapter';
-import FreeRunSummary from '@/features/workout-engine/players/running/components/FreeRun/FreeRunSummary';
+import AerobicSummaryShell from '@/features/workout-engine/summary/components/aerobic/AerobicSummaryShell';
+import AerobicSummary from '@/features/workout-engine/summary/pages/AerobicSummary';
+import {
+  aerobicHistoryActivityType,
+  workoutHistoryEntryToAerobicWorkout,
+} from '@/features/workout-engine/summary/aerobic-history-adapter';
 import HybridSummary from '@/features/workout-engine/summary/pages/HybridSummary';
 import { workoutHistoryEntryToHybridFinalizeResult } from '@/features/workout-engine/hybrid/hybrid-history-adapter';
 import { useProgressionStore } from '@/features/user/progression/store/useProgressionStore';
 import DeleteWorkoutConfirmModal from '@/components/ui/DeleteWorkoutConfirmModal';
 import { deleteWorkoutWithReversal } from '@/lib/workoutDeletion';
-import { WORKOUT_DELETE_EXPANDED_ENABLED } from '@/config/feature-flags';
+import { WORKOUT_DELETE_EXPANDED_ENABLED, AEROBIC_SUMMARY_V2_ENABLED } from '@/config/feature-flags';
 import { workoutActivityLabel, workoutDateLabel } from '@/features/workout-engine/core/utils/workoutLabels';
 
 type LoadStatus = 'loading' | 'ready' | 'not-found';
@@ -79,9 +85,9 @@ export default function WorkoutHistoryPage() {
   // pre-F2.1 handleConfirmDeleteWorkout, just relocated here now that this
   // route (not the old in-page overlay) owns viewing these workouts.
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  // Hybrid's streakDays isn't persisted on the workout doc (it's a "current
-  // streak" display value, not a historical fact) — same convention
-  // FreeRunSummary already uses internally for its own streakDays.
+  // streakDays isn't persisted on the workout doc (it's a "current streak"
+  // display value, not a historical fact) — hybrid and cardio both show the
+  // current streak, same convention the live summaries use.
   const currentStreak = useProgressionStore((s) => s.currentStreak);
 
   useEffect(() => {
@@ -202,17 +208,25 @@ export default function WorkoutHistoryPage() {
     );
   }
 
-  // Cardio — FreeRunSummary already owns the exact read-only rendering this
-  // needs (map/stats/laps + share/save chrome hidden via isReadOnly); this
-  // route only owns the delete-confirm flow around it, same split
-  // profile/page.tsx's pre-F2.1 overlay used.
+  // Cardio — the same AerobicSummary view a just-finished walk/run renders
+  // (incl. the AEROBIC_SUMMARY_V2 seam), in read-only mode; this route only
+  // owns the delete-confirm flow around it, same split as the other branches.
+  const AerobicView = AEROBIC_SUMMARY_V2_ENABLED ? AerobicSummary : AerobicSummaryShell;
   return (
     <>
-      <FreeRunSummary
-        workout={workout}
-        isReadOnly
+      <AerobicView
+        variant="solo"
+        activityType={aerobicHistoryActivityType(workout)}
+        workout={workoutHistoryEntryToAerobicWorkout(workout)}
+        currentUid={auth.currentUser?.uid}
+        streakDays={currentStreak}
+        xpEarned={workout.xpEarned ?? 0}
+        onSave={handleClose}
         onClose={handleClose}
+        isReadOnly
         onDelete={WORKOUT_DELETE_EXPANDED_ENABLED ? () => setShowDeleteConfirm(true) : undefined}
+        // No live Mapbox mounted behind this route (unlike /map).
+        peekHeight={0}
       />
       {WORKOUT_DELETE_EXPANDED_ENABLED && (
         <DeleteWorkoutConfirmModal

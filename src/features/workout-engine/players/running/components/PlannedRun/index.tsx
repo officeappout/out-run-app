@@ -4,29 +4,19 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
-import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { audioService } from '@/features/workout-engine/core/services/AudioService';
-import {
-  markSessionComplete,
-  getCurrentUid,
-  type SessionSummary,
-} from '@/features/workout-engine/core/services/workout-completion.service';
 import WorkoutPreviewScreen from './WorkoutPreviewScreen';
 import PlannedRunActive from './PlannedRunActive';
-import FreeRunSummary from '../FreeRun/FreeRunSummary';
 
 export default function PlannedRun() {
   const router = useRouter();
-  const { status, startSession, endSession, clearSession, totalDistance, totalDuration } = useSessionStore();
+  const { status, startSession, endSession } = useSessionStore();
   const {
     currentWorkout,
     startGPSTracking,
     stopGPSTracking,
-    clearRunningData,
     initializeRunningData,
-    currentPace,
   } = useRunningPlayer();
-  const profile = useUserStore((s) => s.profile);
 
   // Unlock audio for iOS on mount
   useEffect(() => {
@@ -57,43 +47,6 @@ export default function PlannedRun() {
     router.push('/map');
   };
 
-  const handleDelete = () => {
-    clearRunningData();
-    clearSession();
-    router.push('/map');
-  };
-
-  const handleSave = async () => {
-    const uid = getCurrentUid();
-    const activeProgram = profile?.running?.activeProgram;
-    const weekStr = typeof window !== 'undefined' ? sessionStorage.getItem('planned_run_week') : null;
-    const dayStr = typeof window !== 'undefined' ? sessionStorage.getItem('planned_run_day') : null;
-
-    if (uid && activeProgram && weekStr && dayStr) {
-      const week = parseInt(weekStr, 10);
-      const day = parseInt(dayStr, 10);
-      const avgPace = currentPace || 0;
-      const targetDist = currentWorkout?.totalDistance || 0;
-      const completionRate = targetDist > 0 ? Math.min(1, totalDistance / targetDist) : 1;
-
-      const summary: SessionSummary = {
-        avgPace,
-        completionRate,
-        distanceKm: totalDistance,
-        durationSeconds: totalDuration,
-      };
-
-      await markSessionComplete(uid, week, day, summary, activeProgram);
-
-      sessionStorage.removeItem('planned_run_week');
-      sessionStorage.removeItem('planned_run_day');
-    }
-
-    clearRunningData();
-    clearSession();
-    router.push('/home');
-  };
-
   // ── State machine ────────────────────────────────────────────────
 
   if (!currentWorkout) {
@@ -110,8 +63,23 @@ export default function PlannedRun() {
     );
   }
 
+  // 'finished': render nothing. The post-run summary is owned by MapShell —
+  // its finished→showSummary bridge flips mode to 'summary' on the very next
+  // effect pass, unmounting this layer and mounting SummaryLayer →
+  // WorkoutSummaryPage → AerobicSummaryShell (AEROBIC_SOLO_ENABLED). The legacy
+  // FreeRunSummary that used to render here was only ever visible for that
+  // 1–2 frame gap (no tap could reach its buttons) and was retired 16.10.2026.
+  //
+  // KNOWN GAP (pre-existing, not introduced here): the "save" handler that
+  // FreeRunSummary used to call from this file was the ONLY caller of
+  // markSessionComplete (workout-completion.service.ts — marks the running
+  // program's week/day done from the planned_run_week/_day sessionStorage keys
+  // PlannedPreviewLayer sets). Because that button was never reachable, the
+  // live planned-run finish has not been marking program sessions complete.
+  // The removed handler is in this file's pre-16.10.2026 history for whoever
+  // wires it into the live finish path.
   if (status === 'finished') {
-    return <FreeRunSummary onDelete={handleDelete} onSave={handleSave} />;
+    return null;
   }
 
   // Both 'active' and 'paused' are handled inside PlannedRunActive

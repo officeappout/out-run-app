@@ -542,8 +542,8 @@ export default function CommunityPage() {
             the AppHeader's children slot so they collapse together as one
             sticky unit. ─────────────────────────────────────────────────── */}
       <AppHeader zIndex={30}>
-        {/* Top-level tabs — underline style (matches ExerciseReplacementModal
-            + FreeRunSummary). No pill chrome, no background fill — just text
+        {/* Top-level tabs — underline style (matches ExerciseReplacementModal).
+            No pill chrome, no background fill — just text
             with a 2px bottom accent on the active item and a hairline rule
             below the row. */}
         <div className="max-w-md mx-auto px-5" dir="rtl">

@@ -92,7 +92,7 @@ export interface StrengthSummaryPageProps {
   /** Close callback for `isReadOnly` mode (replaces `onFinish`). */
   onClose?: () => void;
   /**
-   * Delete-trigger callback for `isReadOnly` mode — mirrors FreeRunSummary's
+   * Delete-trigger callback for `isReadOnly` mode — mirrors AerobicSummaryView's
    * contract exactly. This component doesn't own the confirm/delete flow;
    * tapping the trigger just calls the caller's `onDelete()`. Only rendered
    * when `isReadOnly && onDelete` are both present.

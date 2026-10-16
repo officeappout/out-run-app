@@ -9,7 +9,7 @@
 export const IS_COIN_SYSTEM_ENABLED = false;
 
 // AEROBIC_SOLO: Ready for device verification. Shell is TSC-clean + fully wired.
-// While false, solo workouts use SummaryOrchestrator (FreeRunSummary) as fallback.
+// While false, solo workouts use SummaryOrchestrator as fallback.
 export const AEROBIC_SOLO_ENABLED = true;
 
 // COMMUNITY_FEED_PAUSED: Social feed is hidden for the MVP.

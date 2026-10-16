@@ -13,6 +13,12 @@ export interface AerobicSummaryProps {
   onClose: () => void;
   /** XP earned this session; pill hidden when 0 or undefined. */
   xpEarned?: number;
+  /** History (read-only) mode — forwarded to AerobicSummaryShell. */
+  isReadOnly?: boolean;
+  /** History delete trigger — forwarded to AerobicSummaryShell. */
+  onDelete?: () => void;
+  /** Gap above the open drawer — forwarded to AerobicSummaryShell. */
+  peekHeight?: number;
 }
 
 /**
