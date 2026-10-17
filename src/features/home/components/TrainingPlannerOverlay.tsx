@@ -25,6 +25,8 @@ import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/util
 import { isDateWithinRunningPlan } from '@/lib/running-plan-date-range';
 import ScheduleBuilderDrawer, { isScheduleBuilderDrawerEnabled } from '@/features/schedule/components/ScheduleBuilderDrawer';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import { useHomeV2 } from '@/features/home/context/HomeV2Context';
+import { DayCellV2Context } from '@/features/home/utils/day-display.utils';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -124,6 +126,7 @@ export default function TrainingPlannerOverlay({
   const [editEntry, setEditEntry]                 = useState<UserScheduleEntry | null>(null);
   const [refreshKey, setRefreshKey]               = useState(0);
   const [isCalendarCollapsed, setIsCalendarCollapsed] = useState(true);
+  const v2 = useHomeV2();
 
   // ── Week navigation state (collapsed / week-strip mode only) ─────────────
   const { profile } = useUserStore();
@@ -145,7 +148,14 @@ export default function TrainingPlannerOverlay({
     return () => clearTimeout(t);
   }, [weekStart]);
 
-  const weekDateRange = useMemo(() => getWeekDateRange(weekStart), [weekStart]);
+  // v2: the strip follows the selected day (tap or list scroll), so its
+  // label does too; classic keeps the swiped week.
+  const selectedSunday = useMemo(() => {
+    const d = new Date(selectedDate + 'T00:00:00');
+    d.setDate(d.getDate() - d.getDay());
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }, [selectedDate]);
+  const weekDateRange = useMemo(() => getWeekDateRange(v2 ? selectedSunday : weekStart), [v2, selectedSunday, weekStart]);
 
   // Gated by RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED (via resolveRunningCurrentWeek):
   // while false, stays `null` exactly as today (this hand-rolled version was
@@ -229,17 +239,67 @@ export default function TrainingPlannerOverlay({
       const { x, y } = info.offset;
       // Only act on clearly horizontal gestures (avoids conflict with vertical drag handle)
       if (Math.abs(x) <= Math.abs(y) || Math.abs(x) < 50) return;
+      if (v2) {
+        // v2: the strip shows the selected day's week — a swipe moves the
+        // selection a week (same weekday), never before the current week.
+        const d = new Date(selectedDate + 'T00:00:00');
+        d.setDate(d.getDate() + (x < 0 ? 7 : -7));
+        const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        if (x > 0 && iso < currentWeekSunday) return;
+        jumpingAt.current = Date.now();
+        setScrollPicked(null);
+        onDaySelect(iso);
+        return;
+      }
       if (x < 0) goToNextWeek();
       else       goToPrevWeek();
     },
-    [goToNextWeek, goToPrevWeek],
+    // jumpingAt / setScrollPicked are a ref and a state setter (stable).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [goToNextWeek, goToPrevWeek, v2, selectedDate, currentWeekSunday, onDaySelect],
   );
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
+  // ── Calendar ↔ list link (home v2) ─────────────────────────────────────
+  // A tap jumps the list to the day (RollingAgenda already does that); in v2
+  // scrolling the list also moves the selected day, so the two stay linked
+  // both ways. A tap's own smooth scroll is ignored for a moment, and a
+  // scroll-made selection doesn't make the list scroll itself back.
+  const jumpingAt = useRef(0);
+  const scrollRaf = useRef<number | null>(null);
+  const [scrollPicked, setScrollPicked] = useState<string | null>(null);
+
   const handleDaySelect = useCallback((iso: string) => {
+    jumpingAt.current = Date.now();
+    setScrollPicked(null);
     onDaySelect(iso);
   }, [onDaySelect]);
+
+  const handleAgendaScroll = useCallback(
+    (e: React.UIEvent<HTMLDivElement>) => {
+      if (!v2 || Date.now() - jumpingAt.current < 800) return;
+      const box = e.currentTarget;
+      if (scrollRaf.current != null) return;
+      scrollRaf.current = requestAnimationFrame(() => {
+        scrollRaf.current = null;
+        const line = box.getBoundingClientRect().top + 24;
+        let current: string | null = null;
+        box.querySelectorAll<HTMLElement>('[data-agenda-date]').forEach((el) => {
+          if (el.getBoundingClientRect().top <= line) current = el.dataset.agendaDate ?? current;
+        });
+        if (current && current !== selectedDate) {
+          setScrollPicked(current);
+          onDaySelect(current);
+        }
+      });
+    },
+    [v2, selectedDate, onDaySelect],
+  );
+
+  useEffect(() => () => {
+    if (scrollRaf.current != null) cancelAnimationFrame(scrollRaf.current);
+  }, []);
 
   const handleInlineAdd = useCallback((date: string) => {
     setAddModalDate(date);
@@ -267,18 +327,18 @@ export default function TrainingPlannerOverlay({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={SLIDE_SPRING}
-            className="fixed inset-0 z-50 flex flex-col bg-[#F8FAFC]"
+            className={`fixed inset-0 z-50 flex flex-col ${v2 ? 'bg-v2-surface text-v2-ink' : 'bg-[#F8FAFC]'}`}
             style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
           >
             {/* ── Header ── */}
             <div
-              className="flex-shrink-0 bg-white/95 backdrop-blur-md border-b border-slate-100"
+              className={v2 ? 'flex-shrink-0 bg-white' : 'flex-shrink-0 bg-white/95 backdrop-blur-md border-b border-slate-100'}
               style={{ paddingTop: 'max(1rem, env(safe-area-inset-top, 24px))' }}
             >
               <div className="max-w-md mx-auto px-4 pb-3 flex items-center justify-between" dir="rtl">
                 <div className="flex items-center gap-2">
-                  <CalendarDays className="w-5 h-5 text-[#00C9F2]" />
-                  <h2 className="text-base font-black text-gray-900">תכנון אימונים</h2>
+                  {!v2 && <CalendarDays className="w-5 h-5 text-[#00C9F2]" />}
+                  <h2 className={v2 ? 'text-[22px] font-black !tracking-[-0.02em] text-v2-ink' : 'text-base font-black text-gray-900'}>תכנון אימונים</h2>
                 </div>
                 <div className="flex items-center gap-2">
                   {isScheduleBuilderDrawerEnabled() && (
@@ -290,7 +350,11 @@ export default function TrainingPlannerOverlay({
                       <button
                         type="button"
                         onClick={() => setShowScheduleBuilder(true)}
-                        className="w-9 h-9 rounded-full bg-white flex items-center justify-center border border-slate-200 text-gray-900 active:scale-90 transition-all shadow-sm"
+                        className={
+                          v2
+                            ? 'grid h-10 w-10 place-items-center rounded-full bg-white text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]'
+                            : 'w-9 h-9 rounded-full bg-white flex items-center justify-center border border-slate-200 text-gray-900 active:scale-90 transition-all shadow-sm'
+                        }
                         aria-label="בנה לוז אימונים"
                       >
                         <CalendarDays className="w-4 h-4 stroke-[2.5] text-[#00C9F2]" />
@@ -300,7 +364,11 @@ export default function TrainingPlannerOverlay({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="w-9 h-9 rounded-full bg-white flex items-center justify-center border border-slate-200 text-gray-900 active:scale-90 transition-all shadow-sm"
+                    className={
+                          v2
+                            ? 'grid h-10 w-10 place-items-center rounded-full bg-white text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]'
+                            : 'w-9 h-9 rounded-full bg-white flex items-center justify-center border border-slate-200 text-gray-900 active:scale-90 transition-all shadow-sm'
+                        }
                     aria-label="סגור"
                   >
                     <X className="w-4 h-4 stroke-[2.5]" />
@@ -327,7 +395,7 @@ export default function TrainingPlannerOverlay({
                 instead of letting later DOM siblings paint over it.
               */}
               <div
-                className="flex-shrink-0 bg-white overflow-hidden rounded-b-3xl shadow-[0_10px_30px_rgba(0,0,0,0.08)] relative z-[1]"
+                className={`flex-shrink-0 bg-white overflow-hidden relative z-[1] ${v2 ? 'rounded-b-[28px] shadow-v2-card' : 'rounded-b-3xl shadow-[0_10px_30px_rgba(0,0,0,0.08)]'}`}
                 style={{
                   height: isCalendarCollapsed ? CAL_HEIGHT_COLLAPSED : CAL_HEIGHT_EXPANDED,
                   transition: 'height 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -359,11 +427,16 @@ export default function TrainingPlannerOverlay({
                       dir="rtl"
                     >
                       <span
-                        style={{
-                          fontSize:   14,
-                          fontWeight: 500,
-                          color:      'var(--color-text-primary, #111827)',
-                        }}
+                        className={v2 ? 'text-[15px] font-black text-v2-ink' : undefined}
+                        style={
+                          v2
+                            ? undefined
+                            : {
+                                fontSize:   14,
+                                fontWeight: 500,
+                                color:      'var(--color-text-primary, #111827)',
+                              }
+                        }
                       >
                         {weekDateRange}
                       </span>
@@ -385,6 +458,7 @@ export default function TrainingPlannerOverlay({
                     </div>
                   )}
 
+                  <DayCellV2Context.Provider value={v2}>
                   <MonthlyCalendarGrid
                     selectedDate={selectedDate}
                     onDaySelect={handleDaySelect}
@@ -397,7 +471,9 @@ export default function TrainingPlannerOverlay({
                     cellHeight={isCalendarCollapsed ? CELL_HEIGHT_COLLAPSED : CELL_HEIGHT_EXPANDED}
                     refreshKey={refreshKey}
                     collapsed={isCalendarCollapsed}
+                    weekOf={v2 ? selectedDate : undefined}
                   />
+                  </DayCellV2Context.Provider>
                 </motion.div>
               </div>
 
@@ -410,7 +486,7 @@ export default function TrainingPlannerOverlay({
                 physical placement and visual chrome changed.
               */}
               <div
-                className="flex-shrink-0 flex justify-center items-start pt-3 pb-2 bg-white select-none cursor-pointer"
+                className={`flex-shrink-0 flex justify-center items-start pt-3 pb-2 select-none cursor-pointer ${v2 ? 'bg-v2-surface' : 'bg-white'}`}
                 onPointerDown={handleHandlePointerDown}
                 onPointerMove={handleHandlePointerMove}
                 onPointerUp={handleHandlePointerUp}
@@ -419,11 +495,11 @@ export default function TrainingPlannerOverlay({
                 aria-label={isCalendarCollapsed ? 'הרחב לוח שנה' : 'כווץ לוח שנה'}
                 role="button"
               >
-                <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full mx-auto" />
+                <div className={`w-12 h-1.5 rounded-full mx-auto ${v2 ? 'bg-v2-pill-border' : 'bg-gray-300 dark:bg-gray-700'}`} />
               </div>
 
               {/* Ultra-thin hairline divider between handle row and agenda */}
-              <div className="flex-shrink-0 h-[1px] bg-gray-100/70" />
+              {!v2 && <div className="flex-shrink-0 h-[1px] bg-gray-100/70" />}
 
               {/*
                 ── Agenda list ────────────────────────────────────────────
@@ -432,9 +508,10 @@ export default function TrainingPlannerOverlay({
                 visual elevation now lives on the calendar above (rounded
                 bottom + downward shadow), so the agenda just receives it.
               */}
-              <div className="flex-1 flex flex-col overflow-hidden bg-white">
+              <div className={`flex-1 flex flex-col overflow-hidden ${v2 ? 'bg-v2-surface' : 'bg-white'}`}>
                 {/* ── Scrollable agenda ── */}
                 <div
+                  onScroll={handleAgendaScroll}
                   className="flex-1 overflow-y-auto pb-6"
                   style={{
                     opacity:    agendaFade ? 0.65 : 1,
@@ -455,6 +532,7 @@ export default function TrainingPlannerOverlay({
                     onEditEntry={handleEditEntry}
                     onPreviewEntry={onPreviewEntry}
                     onCommunityTap={onCommunityTap}
+                    scrollPickedDate={scrollPicked}
                   />
                 </div>
               </div>

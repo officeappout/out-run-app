@@ -88,6 +88,12 @@ interface RollingAgendaProps {
   onEditEntry?: (entry: UserScheduleEntry) => void;
   /** Called when a personal card is tapped — fires before onStartWorkout. */
   onPreviewEntry?: (entry: UserScheduleEntry) => void;
+  /**
+   * Home v2 planner: a selection that came FROM scrolling the list. The
+   * scroll-to-selected effect skips it, so the list never yanks itself back
+   * while the user is scrolling it.
+   */
+  scrollPickedDate?: string | null;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -165,6 +171,7 @@ export default function RollingAgenda({
   weekStart,
   onEditEntry,
   onPreviewEntry,
+  scrollPickedDate,
 }: RollingAgendaProps) {
   const { profile } = useUserStore();
   const runScheduleDays = profile?.running?.scheduleDays;
@@ -214,6 +221,7 @@ export default function RollingAgenda({
 
   // Scroll to selected date
   useEffect(() => {
+    if (scrollPickedDate && scrollPickedDate === selectedDate) return;
     const el = cardRefs.current.get(selectedDate);
     if (!el) return;
     if (!didInitialScroll.current) {
@@ -222,6 +230,8 @@ export default function RollingAgenda({
     } else {
       el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
+    // scrollPickedDate is read, not watched: it only vetoes this one run.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
 
   useEffect(() => { didInitialScroll.current = false; }, [filterMode]);
@@ -254,7 +264,11 @@ export default function RollingAgenda({
   }, [filterMode]); // re-run if the user switches modes, not on every render
 
   const setCardRef = useCallback((date: string, el: HTMLDivElement | null) => {
-    if (el) cardRefs.current.set(date, el);
+    if (el) {
+      cardRefs.current.set(date, el);
+      // Lets the planner find which day is at the top while scrolling.
+      el.dataset.agendaDate = date;
+    }
     else cardRefs.current.delete(date);
   }, []);
 
