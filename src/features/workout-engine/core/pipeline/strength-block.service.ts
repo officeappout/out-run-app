@@ -61,6 +61,14 @@ export interface StrengthBlockRequest {
   /** Optional station focus. Omit for a mixed block. */
   domainFocus?: BlockDomainFocus;
   /**
+   * Optional explicit domain set for the block (e.g. ['pull','core']) — the
+   * route-stops station planner splits ONE full-body session across stations
+   * with combinations the 3-value `domainFocus` can't express. Same mechanism
+   * as `domainFocus` (requiredDomains + strictDomains + narrowed
+   * domainBudgets). Ignored when `domainFocus` is set. Omitted → unchanged.
+   */
+  domains?: string[];
+  /**
    * Rest post-pass (decision 5). Hybrid stations pass
    * `{ multiplier: 0.5, exemptSkillAndIsometric: true }` — the run to the
    * next station is the recovery. "צור אימון" typically omits (full rests).
@@ -120,6 +128,13 @@ export interface StrengthBlockResult {
    * real exercises, this is additive UI, never a lock.
    */
   assessmentNudge?: { message: string; assessmentDomains: string[] };
+  /**
+   * Route-stops station warm-up (17.10.2026): true when the leading warmup-role
+   * exercises were prepended because the station comes before a real warm-up
+   * walk. strength-block-to-plan.ts gives them their own 'חימום' segment.
+   * Absent = no station warm-up (every other block, unchanged).
+   */
+  stationWarmup?: boolean;
 }
 
 /** Rest-exemption rule (decision 5) — one implementation for all consumers. */
@@ -138,7 +153,10 @@ const MIN_REST_MULTIPLIER = 0.25;
  */
 export function generateStrengthBlock(request: StrengthBlockRequest): StrengthBlockResult {
   const { blockMinutes, scoredPool, domainFocus } = request;
-  const log: string[] = [`block: budget=${blockMinutes}min focus=${domainFocus ?? 'mixed'}`];
+  const focusDomains: string[] | undefined = domainFocus
+    ? FOCUS_TO_DOMAINS[domainFocus]
+    : (request.domains && request.domains.length > 0 ? request.domains : undefined);
+  const log: string[] = [`block: budget=${blockMinutes}min focus=${domainFocus ?? (focusDomains ? focusDomains.join('+') : 'mixed')}`];
 
   // Clone — never mutate the caller's context.
   const blockContext: WorkoutGenerationContext = {
@@ -148,14 +166,14 @@ export function generateStrengthBlock(request: StrengthBlockRequest): StrengthBl
     // selectProtocol's straight-sets path (belt and suspenders).
     protocolProbability: 0,
     preferredProtocols: [],
-    ...(domainFocus
+    ...(focusDomains
       ? {
-          requiredDomains: FOCUS_TO_DOMAINS[domainFocus],
+          requiredDomains: focusDomains,
           strictDomains: true,
           // Narrow existing domainBudgets to the focus domains (if provided
           // upstream) so set-distribution math stays budget-aware.
           domainBudgets: request.context.domainBudgets?.filter((b) =>
-            FOCUS_TO_DOMAINS[domainFocus].includes(b.domain),
+            focusDomains.includes(b.domain),
           ),
         }
       : {}),

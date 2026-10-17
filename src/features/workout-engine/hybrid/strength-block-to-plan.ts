@@ -111,6 +111,8 @@ function toPlanExercise(we: GeneratedExercise, preserveRole: boolean): PlanExerc
 
 /** Warmup segment id — matches the strip predicate the runner (active/page) uses. */
 const WARMUP_SEGMENT_ID = 'warmup-segment';
+/** Route-stops station warm-up segment — deliberately distinct from WARMUP_SEGMENT_ID. */
+const STATION_WARMUP_SEGMENT_ID = 'hybrid-station-warmup';
 
 export interface StrengthBlockPlanOptions {
   id?: string;
@@ -163,6 +165,25 @@ export function strengthBlockToWorkoutPlan(
     };
   }
 
+  // Station warm-up (route-stops planner, 17.10.2026): a station the user reaches before a
+  // real warm-up walk carries a few warmup-role exercises. They get their own 'חימום' segment
+  // (StrengthRunner's follow-along handling keys on that title / role). Its id is NOT
+  // WARMUP_SEGMENT_ID, so the full-park "skipped warmup" strip never touches it. Empty for
+  // every block without `stationWarmup` set → byte-identical for all other plans.
+  const stationWarmup = block.stationWarmup && !options.fullPark
+    ? block.exercises.filter((we) => we.exerciseRole === 'warmup')
+    : [];
+  const warmupSegments: WorkoutSegment[] = stationWarmup.length > 0
+    ? [{
+        id: STATION_WARMUP_SEGMENT_ID, type: 'station', title: 'חימום', icon: '🤸',
+        target: { type: 'reps', value: 12 }, exercises: stationWarmup.map((we) => toPlanExercise(we, true)),
+        isCompleted: false, restBetweenExercises: 10,
+      }]
+    : [];
+  const mainExercises = stationWarmup.length > 0
+    ? block.exercises.filter((we) => we.exerciseRole !== 'warmup')
+    : block.exercises;
+
   // ── Tabata blocks (core-station wiring, 22.09.2026) — one segment per
   // block, each scoped to its own exerciseIds slice, in play order. Rest
   // between blocks (station-core-tabata.ts's
@@ -175,6 +196,7 @@ export function strengthBlockToWorkoutPlan(
   // dispatchStopContent's 'core' branch at all).
   if (block.tabataBlocks && block.tabataBlocks.length > 0) {
     const byId = new Map(block.exercises.map((we) => [we.exercise.id, we]));
+    const inTabata = new Set(block.tabataBlocks.flatMap((b) => b.exerciseIds));
     const segments: WorkoutSegment[] = block.tabataBlocks.map((spec, i) => {
       const members = spec.exerciseIds
         .map((id) => byId.get(id))
@@ -198,8 +220,19 @@ export function strengthBlockToWorkoutPlan(
         ...(block.assessmentNudge ? { assessmentNudge: block.assessmentNudge } : {}),
       };
     });
+    // Machine-tabata + bodyweight station (machine-share ladder, 17.10.2026): exercises that
+    // belong to no tabata block are the station's straight-sets part — played after the
+    // machines. Absent for every pre-existing tabata station (all exercises are block members).
+    const straight = mainExercises.filter((we) => !inTabata.has(we.exercise.id));
+    if (straight.length > 0) {
+      segments.push({
+        id: 'hybrid-station', type: 'station', title: name, icon: '💪',
+        target: { type: 'reps', value: 12 }, exercises: straight.map((we) => toPlanExercise(we, false)),
+        isCompleted: false, restBetweenExercises: 10,
+      });
+    }
     return {
-      id: options.id ?? 'hybrid-station-plan', name, segments,
+      id: options.id ?? 'hybrid-station-plan', name, segments: [...warmupSegments, ...segments],
       totalDuration, difficulty: 'medium', trainingType: 'strength',
       workoutLocation: options.location ?? 'park', isWarmupActive: false,
     };
@@ -207,13 +240,13 @@ export function strengthBlockToWorkoutPlan(
 
   // ── Budget-split + legacy callers: historical single-segment plan (byte-identical). ──
   if (!options.fullPark) {
-    const exercises = block.exercises.map((we) => toPlanExercise(we, false));
+    const exercises = mainExercises.map((we) => toPlanExercise(we, false));
     const segment: WorkoutSegment = {
       id: 'hybrid-station', type: 'station', title: name, icon: '💪',
       target: { type: 'reps', value: 12 }, exercises, isCompleted: false, restBetweenExercises: 10,
     };
     return {
-      id: options.id ?? 'hybrid-station-plan', name, segments: [segment],
+      id: options.id ?? 'hybrid-station-plan', name, segments: [...warmupSegments, segment],
       totalDuration, difficulty: 'medium', trainingType: 'strength',
       workoutLocation: options.location ?? 'park', isWarmupActive: false,
     };
