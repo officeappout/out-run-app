@@ -27,10 +27,31 @@ const FLAME_SRC: Record<FlameTone, string> = {
  * The app's streak flame (flame-orange.lottie from LottieFiles), recoloured
  * per activity: strength = brand cyan→turquoise, cardio = lime, steps = amber.
  */
-export function BrandFlame({ size = 28, still = false, tone = 'strength' }: { size?: number; still?: boolean; tone?: FlameTone }) {
+const ORDER: FlameTone[] = ['strength', 'cardio', 'steps'];
+
+/** A day with several activities gets one flame blending their colours. */
+function flameSrc(tones: FlameTone[]): string {
+  const uniq = ORDER.filter((t) => tones.includes(t));
+  if (uniq.length <= 1) return FLAME_SRC[uniq[0] ?? 'strength'];
+  return `/design-lab/flame-${uniq.join('-')}.lottie`;
+}
+
+export function BrandFlame({
+  size = 28,
+  still = false,
+  tone = 'strength',
+  tones,
+}: {
+  size?: number;
+  still?: boolean;
+  tone?: FlameTone;
+  /** Several activities on one day — overrides `tone`. */
+  tones?: FlameTone[];
+}) {
+  const src = tones && tones.length > 1 ? flameSrc(tones) : FLAME_SRC[tones?.[0] ?? tone];
   return (
     <span className="inline-block shrink-0" style={{ width: size, height: size }} aria-hidden>
-      <DotLottieReact src={FLAME_SRC[tone]} loop={!still} autoplay={!still} style={{ width: size, height: size }} />
+      <DotLottieReact src={src} loop={!still} autoplay={!still} style={{ width: size, height: size }} />
     </span>
   );
 }

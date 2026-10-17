@@ -94,11 +94,17 @@ export const PARKS = [
 export type DayStatus = 'done' | 'today' | 'planned' | 'rest' | 'missed';
 
 /** Sunday → Saturday; the RTL row draws Sunday on the right. */
-export const WEEK: { short: string; date: number; status: DayStatus; kind?: 'strength' | 'walk' | 'run' | 'steps' }[] = [
+export const WEEK: {
+  short: string;
+  date: number;
+  status: DayStatus;
+  kind?: 'strength' | 'walk' | 'run' | 'steps';
+  kinds?: ('strength' | 'walk' | 'run' | 'steps')[];
+}[] = [
   { short: 'א׳', date: 11, status: 'done', kind: 'strength' },
   { short: 'ב׳', date: 12, status: 'done', kind: 'steps' },
   { short: 'ג׳', date: 13, status: 'done', kind: 'run' },
-  { short: 'ד׳', date: 14, status: 'done', kind: 'strength' },
+  { short: 'ד׳', date: 14, status: 'done', kind: 'strength', kinds: ['strength', 'steps'] },
   { short: 'ה׳', date: 15, status: 'rest' },
   { short: 'ו׳', date: 16, status: 'today', kind: 'strength' },
   { short: 'ש׳', date: 17, status: 'planned', kind: 'walk' },

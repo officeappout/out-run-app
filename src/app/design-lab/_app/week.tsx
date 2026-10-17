@@ -13,6 +13,8 @@ export interface StreakDay {
   date?: number;
   status: DayStatus;
   kind?: DayKind;
+  /** Several activities on the same day (e.g. strength + steps). */
+  kinds?: DayKind[];
   /** Outside the shown month (month grid only). */
   muted?: boolean;
 }
@@ -20,6 +22,13 @@ export interface StreakDay {
 /** Which flame a day earns: strength, cardio (run / walk workout) or steps. */
 export function toneOf(kind?: DayKind): FlameTone {
   return kind === 'run' || kind === 'walk' ? 'cardio' : kind === 'steps' ? 'steps' : 'strength';
+}
+
+const TONE_ORDER: FlameTone[] = ['strength', 'cardio', 'steps'];
+/** All the flame tones a day earned, in a stable order. */
+export function tonesOf(d: Pick<StreakDay, 'kind' | 'kinds'>): FlameTone[] {
+  const ts = (d.kinds?.length ? d.kinds : [d.kind]).map(toneOf);
+  return TONE_ORDER.filter((t) => ts.includes(t));
 }
 
 const PROGRAM: Record<DayKind, string> = {
@@ -92,7 +101,7 @@ export function StreakRow({
           cell={cell}
           style={style}
           reduce={!!reduce}
-          tones={days.slice(l.from, l.to + 1).map((d, k, arr) => toneOf((d.status === 'rest' ? arr[k - 1] ?? arr[k + 1] : d).kind))}
+          tones={days.slice(l.from, l.to + 1).map((d, k, arr) => tonesOf(d.status === 'rest' ? arr[k - 1] ?? arr[k + 1] : d)[0])}
         />
       ))}
       {style === 'flow' && (
@@ -141,7 +150,14 @@ function DayCell({ day, isToday, size, animate, scale = 1 }: { day: StreakDay; i
   if (day.status === 'done')
     return (
       <span className="relative grid place-items-center" style={style}>
-        <BrandFlame size={Math.round(size * 1.05 * scale)} still={!(isToday && animate)} tone={toneOf(day.kind)} />
+        <BrandFlame size={Math.round(size * 1.05 * scale)} still={!(isToday && animate)} tones={tonesOf(day)} />
+        {tonesOf(day).length > 1 && (
+          <span className="absolute -bottom-1.5 flex gap-[3px]" aria-label={tonesOf(day).map((t) => FLAME_TONE[t].label).join(' + ')}>
+            {tonesOf(day).map((t) => (
+              <span key={t} className="h-[5px] w-[5px] rounded-full ring-1 ring-white" style={{ background: FLAME_TONE[t].hex }} />
+            ))}
+          </span>
+        )}
       </span>
     );
   if (day.status === 'today')

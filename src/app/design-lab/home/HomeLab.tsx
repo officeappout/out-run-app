@@ -179,7 +179,14 @@ function DoneToday() {
 function WeekSchedule({ state }: { state: TodayState }) {
   const todayIndex = WEEK.findIndex((d) => d.status === 'today');
   const days: StreakDay[] = WEEK.map((d) =>
-    d.status === 'today' ? { ...d, status: state === 'done' ? 'done' : state === 'rest' ? 'rest' : 'today' } : d,
+    d.status === 'today'
+      ? {
+          ...d,
+          status: state === 'done' ? 'done' : state === 'rest' ? 'rest' : 'today',
+          // done today: the park workout, a run home and the step goal
+          kinds: state === 'done' ? ['strength', 'run', 'steps'] : undefined,
+        }
+      : d,
   );
   const streak = USER.streakDays + (state === 'done' ? 1 : 0);
   const d = useDensity();
