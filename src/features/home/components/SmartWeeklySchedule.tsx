@@ -1634,6 +1634,8 @@ export default function SmartWeeklySchedule({
             - Web: webcal:// href (desktop calendar clients)
             Note: App.openUrl does not exist in @capacitor/app v6 — window.open(_system)
             is the correct cross-platform Capacitor API for firing external URL intents. */}
+        {/* v2: calendar sync lives in Settings now (owner's review). */}
+        {v2 ? <span /> : (
         <button
           type="button"
           disabled={!calendarFeedPath}
@@ -1665,6 +1667,7 @@ export default function SmartWeeklySchedule({
             סנכרון ליומן
           </span>
         </button>
+        )}
         <button
           onClick={onOpenPlanner ?? toggleCalendarMode}
           className="inline-flex items-center gap-1 font-medium hover:underline"

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, createContext, useContext } from 'react';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { FeedPrivacySheet } from '@/features/social/components/FeedPublishSheets';
+import { openCalendarSubscription, useCalendarFeedPath } from '@/features/home/hooks/useCalendarFeed';
 import { feedPrefsFrom, saveFeedPrefs, type FeedPrefs } from '@/features/social/services/feed-prefs';
 
 /** Home v2 (enable_home_v2) for the row primitives below — set once by the modal. */
@@ -13,7 +14,7 @@ import {
   X, User, Lock, Bell, Shield, Wrench, FileText, LogOut, Trash2,
   ChevronLeft, ArrowRight, Loader2, AlertTriangle, Globe, Users, EyeOff,
   Heart, Ruler, Camera, MapPin, Dumbbell, Eye,
-  BarChart3, Mail, Pencil, Check, Tag, CreditCard, MessageSquare, Calendar,
+  BarChart3, Mail, Pencil, Check, Tag, CreditCard, MessageSquare, Calendar, CalendarDays,
   Clock, Plus, Accessibility, ListChecks,
 } from 'lucide-react';
 import { sendPasswordResetEmail } from 'firebase/auth';
@@ -389,6 +390,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { profile, resetProfile } = useUserStore();
   const v2Flags = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin).flags;
   const v2 = v2Flags.enableHomeV2;
+  // Calendar sync — moved here from the home schedule in v2.
+  const calendarFeedPath = useCalendarFeedPath(v2 ? profile?.id : null);
   // "מי רואה את הפוסטים שלי" — the feed's opt-in publishing prefs, here too.
   const [feedPrivacyOpen, setFeedPrivacyOpen] = useState(false);
   const [feedPrivacyBusy, setFeedPrivacyBusy] = useState(false);
@@ -2070,6 +2073,16 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     </AnimatePresence>
                   </div>
 
+                  {/* Calendar sync (home v2 moved it here from the schedule) */}
+                  {v2 && (
+                    <SettingsRow
+                      icon={<CalendarDays size={20} className="text-gray-700" />}
+                      label="סנכרון ליומן"
+                      sublabel={calendarFeedPath ? 'האימונים שלך ביומן של הטלפון' : 'טוען…'}
+                      onClick={calendarFeedPath ? () => openCalendarSubscription(calendarFeedPath) : undefined}
+                      disabled={!calendarFeedPath}
+                    />
+                  )}
                   {/* Equipment */}
                   <SettingsRow
                     icon={<Dumbbell size={20} className="text-gray-700" />}

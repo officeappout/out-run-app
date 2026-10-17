@@ -123,11 +123,18 @@ function ActionSpeedDial({ onAdd, onReport }: { onAdd: () => void; onReport: () 
 // organized options, not more FAB buttons ("מגירה מאוחדת אחת עם אופציות
 // מסודרות" — see .claude/plans/new-chat-investigation-stateful-fern.md).
 // Rendered only while SOCIAL_COMPOSE_UI_ENABLED is true.
-function PlusFab({ onOpen }: { onOpen: () => void }) {
+function PlusFab({ onOpen, v2 = false }: { onOpen: () => void; v2?: boolean }) {
   return (
     <button
       onClick={onOpen}
-      className="w-14 h-14 rounded-full shadow-xl flex items-center justify-center bg-[#00E5FF] text-white active:scale-95 transition-all"
+      aria-label="הוסף"
+      // v2: the white floating "+" from home (one filled gradient per screen).
+      className={
+        v2
+          ? 'w-14 h-14 rounded-full flex items-center justify-center bg-white text-[#0284c7] active:scale-95 transition-transform'
+          : 'w-14 h-14 rounded-full shadow-xl flex items-center justify-center bg-[#00E5FF] text-white active:scale-95 transition-all'
+      }
+      style={v2 ? { boxShadow: '0 28px 56px -24px rgba(9,30,50,0.45), 0 0 0 1px rgba(14,27,42,0.08)' } : undefined}
     >
       <Plus size={22} />
     </button>
@@ -1697,9 +1704,13 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 Splash-gated so the FAB (+) and recenter button reveal with the
                 rest, rather than sitting hidden behind the skeleton during load. */}
             {isMapVisuallyReady && (
-            <div className="absolute right-4 z-[40] flex flex-col gap-3" style={{ bottom: 'calc(max(340px, env(safe-area-inset-bottom, 0px) + 310px))' }}>
+            <div
+              className="absolute right-4 z-[40] flex flex-col gap-3"
+              // v2: lower, nearer the bottom like home's "+" (owner's review).
+              style={{ bottom: mapFeatureFlags.enableHomeV2 ? 'calc(max(270px, env(safe-area-inset-bottom, 0px) + 240px))' : 'calc(max(340px, env(safe-area-inset-bottom, 0px) + 310px))' }}
+            >
               {chromeFocused ? null : SOCIAL_COMPOSE_UI_ENABLED ? (
-                <PlusFab onOpen={() => setPlusDrawerOpen(true)} />
+                <PlusFab onOpen={() => setPlusDrawerOpen(true)} v2={mapFeatureFlags.enableHomeV2} />
               ) : (
                 <ActionSpeedDial
                   onAdd={() => setWizardOpen(true)}
