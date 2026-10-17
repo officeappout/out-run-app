@@ -13,6 +13,7 @@ import DashboardTab from '@/features/profile/components/DashboardTab';
 import HistorySheet from '@/features/profile/components/HistorySheet';
 import SettingsModal from '@/features/home/components/SettingsModal';
 import AppHeader from '@/components/ui/AppHeader';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
 const CreatorManagementDrawer = nextDynamic(
   () => import('@/features/arena/components/CreatorManagementDrawer'),
@@ -89,6 +90,9 @@ export default function ProfilePage() {
   const { groups: myGroups } = useMyGroups();
   const managedGroups = myGroups.filter((g) => g.createdBy === profile?.id);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Home v2 (enable_home_v2): the profile wears the same look as home.
+  const { flags: profileFlags } = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = profileFlags.enableHomeV2;
   const [historySheetOpen, setHistorySheetOpen] = useState(false);
 
   // ── Creator Hub drawers ──
@@ -333,9 +337,9 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className={`min-h-screen ${v2 ? 'bg-v2-surface' : 'bg-white'}`}>
       {/* Shared AppHeader — avatar pill + OUT logo + bell/chat/search. */}
-      <AppHeader />
+      <AppHeader v2={v2} />
 
       {/* Content — DashboardTab is the only view. History opens as a bottom
           sheet from the workout-count tap inside DashboardTab. */}
