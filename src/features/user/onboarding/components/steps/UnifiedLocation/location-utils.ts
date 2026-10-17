@@ -92,15 +92,25 @@ export function formatDistance(distanceMeters: number): string {
 }
 
 /** Reverse geocoding using Mapbox API */
-export async function reverseGeocode(lat: number, lng: number): Promise<{
+export async function reverseGeocode(
+  lat: number,
+  lng: number,
+  options?: { timeoutMs?: number },
+): Promise<{
   city: string | null;
   neighborhood: string | null;
   displayName: string;
 }> {
+  // Optional hard cap (used by the v2 GPS path) — a stalled Mapbox request
+  // must not hold the whole "where am I" chain hostage. On timeout the abort
+  // lands in the catch below → same "unknown location" result as any failure.
+  const controller =
+    options?.timeoutMs && typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), options!.timeoutMs) : null;
   try {
     const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_TOKEN}&language=he&types=place,locality,neighborhood`;
     
-    const response = await fetch(url);
+    const response = await fetch(url, controller ? { signal: controller.signal } : undefined);
     const data = await response.json();
     
     if (!data.features || data.features.length === 0) {
@@ -147,6 +157,8 @@ export async function reverseGeocode(lat: number, lng: number): Promise<{
   } catch (error) {
     console.error('Reverse geocoding failed:', error);
     return { city: null, neighborhood: null, displayName: 'מיקום לא ידוע' };
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 
@@ -350,10 +362,37 @@ export function getSettlementNaming(settlementType: SettlementType, cityName: st
  * closeness tie-break below removes the remaining dependency on iteration
  * order for any leftover multi-match among top-level authorities.
  */
+// In-flight dedupe for the top-level authorities list. getAllAuthorities
+// already caches the RESULT for 5 minutes, but two calls racing before the
+// first one lands would each scan Firestore — which is exactly what happens
+// when prewarmLocationLookups() (step mount) is still in flight when the
+// GPS fix + reverse geocode finish. Cleared on settle, so a failure is never
+// cached and every later call goes through getAllAuthorities' own cache.
+let topLevelAuthoritiesInFlight: ReturnType<typeof getAllAuthorities> | null = null;
+
+function loadTopLevelAuthorities(): ReturnType<typeof getAllAuthorities> {
+  if (!topLevelAuthoritiesInFlight) {
+    topLevelAuthoritiesInFlight = getAllAuthorities(undefined, true).finally(() => {
+      topLevelAuthoritiesInFlight = null;
+    });
+  }
+  return topLevelAuthoritiesInFlight;
+}
+
+/**
+ * Perf: start the cold Firestore read that findAuthorityIdByCity needs as
+ * soon as the location step mounts — in parallel with the permission prompt,
+ * the GPS fix and the reverse geocode — instead of only after them.
+ * Fire-and-forget; errors are swallowed (the real lookup retries normally).
+ */
+export function prewarmLocationLookups(): void {
+  loadTopLevelAuthorities().catch(() => {});
+}
+
 export async function findAuthorityIdByCity(cityName: string): Promise<string | null> {
   if (!cityName) return null;
   try {
-    const cities = await getAllAuthorities(undefined, true);
+    const cities = await loadTopLevelAuthorities();
     const normalised = (s: string) => s.replace(/[\s\-]/g, '').toLowerCase();
     const target = normalised(cityName);
 
@@ -377,6 +416,73 @@ export async function findAuthorityIdByCity(cityName: string): Promise<string | 
   } catch {
     return null;
   }
+}
+
+type NeighborhoodCandidate = {
+  id: string;
+  name: string;
+  parentAuthorityId?: string | null;
+  coordinates?: { lat?: number; lng?: number } | null;
+};
+
+/**
+ * Pure: name match of a neighborhood among a city's children (exact, then
+ * substring with a length-closeness tie-break). Every candidate is re-checked
+ * against its OWN parentAuthorityId — see findNeighborhoodIdByCity.
+ */
+export function matchNeighborhoodByName(
+  allChildren: NeighborhoodCandidate[],
+  cityAuthorityId: string,
+  neighborhoodName: string,
+): string | null {
+  if (!cityAuthorityId || !neighborhoodName) return null;
+  const children = allChildren.filter((c) => c.parentAuthorityId === cityAuthorityId);
+  const normalised = (s: string) => s.replace(/[\s\-]/g, '').toLowerCase();
+  const target = normalised(neighborhoodName);
+
+  for (const c of children) {
+    if (normalised(c.name) === target) return c.id;
+  }
+
+  // Substring fallback — same deterministic length-closeness tie-break as
+  // findAuthorityIdByCity above, so a neighborhood name that's a substring
+  // of a sibling's longer name (e.g. "הצפון הישן" vs "הצפון הישן –
+  // החלק הצפוני") can't win purely by iteration order.
+  let best: { id: string; diff: number } | null = null;
+  for (const c of children) {
+    const n = normalised(c.name);
+    if (target.includes(n) || n.includes(target)) {
+      const diff = Math.abs(n.length - target.length);
+      if (!best || diff < best.diff) best = { id: c.id, diff };
+    }
+  }
+  return best?.id ?? null;
+}
+
+/**
+ * Pure: nearest child-neighborhood centroid to a coordinate, scoped to the
+ * city and capped by NEAREST_NEIGHBORHOOD_MAX_DISTANCE_METERS.
+ * See findNearestNeighborhoodByCoordinates.
+ */
+export function matchNearestNeighborhood(
+  allChildren: NeighborhoodCandidate[],
+  cityAuthorityId: string,
+  lat: number,
+  lng: number,
+): string | null {
+  if (!cityAuthorityId || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const children = allChildren.filter((c) => c.parentAuthorityId === cityAuthorityId);
+
+  let best: { id: string; distanceMeters: number } | null = null;
+  for (const c of children) {
+    const coords = c.coordinates;
+    if (!coords || typeof coords.lat !== 'number' || typeof coords.lng !== 'number') continue;
+    const distanceMeters = calculateDistance(lat, lng, coords.lat, coords.lng);
+    if (!best || distanceMeters < best.distanceMeters) best = { id: c.id, distanceMeters };
+  }
+
+  if (!best || best.distanceMeters > NEAREST_NEIGHBORHOOD_MAX_DISTANCE_METERS) return null;
+  return best.id;
 }
 
 /**
@@ -406,27 +512,7 @@ export async function findNeighborhoodIdByCity(
   if (!cityAuthorityId || !neighborhoodName) return null;
   try {
     const allChildren = await getChildrenByParent(cityAuthorityId);
-    const children = allChildren.filter((c) => c.parentAuthorityId === cityAuthorityId);
-    const normalised = (s: string) => s.replace(/[\s\-]/g, '').toLowerCase();
-    const target = normalised(neighborhoodName);
-
-    for (const c of children) {
-      if (normalised(c.name) === target) return c.id;
-    }
-
-    // Substring fallback — same deterministic length-closeness tie-break as
-    // findAuthorityIdByCity above, so a neighborhood name that's a substring
-    // of a sibling's longer name (e.g. "הצפון הישן" vs "הצפון הישן –
-    // החלק הצפוני") can't win purely by iteration order.
-    let best: { id: string; diff: number } | null = null;
-    for (const c of children) {
-      const n = normalised(c.name);
-      if (target.includes(n) || n.includes(target)) {
-        const diff = Math.abs(n.length - target.length);
-        if (!best || diff < best.diff) best = { id: c.id, diff };
-      }
-    }
-    return best?.id ?? null;
+    return matchNeighborhoodByName(allChildren, cityAuthorityId, neighborhoodName);
   } catch {
     return null;
   }
@@ -460,18 +546,32 @@ export async function findNearestNeighborhoodByCoordinates(
   if (!cityAuthorityId || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   try {
     const allChildren = await getChildrenByParent(cityAuthorityId);
-    const children = allChildren.filter((c) => c.parentAuthorityId === cityAuthorityId);
+    return matchNearestNeighborhood(allChildren, cityAuthorityId, lat, lng);
+  } catch {
+    return null;
+  }
+}
 
-    let best: { id: string; distanceMeters: number } | null = null;
-    for (const c of children) {
-      const coords = (c as { coordinates?: { lat?: number; lng?: number } }).coordinates;
-      if (!coords || typeof coords.lat !== 'number' || typeof coords.lng !== 'number') continue;
-      const distanceMeters = calculateDistance(lat, lng, coords.lat, coords.lng);
-      if (!best || distanceMeters < best.distanceMeters) best = { id: c.id, distanceMeters };
-    }
-
-    if (!best || best.distanceMeters > NEAREST_NEIGHBORHOOD_MAX_DISTANCE_METERS) return null;
-    return best.id;
+/**
+ * GPS-button path, one Firestore read instead of two: the name match
+ * (preferred) and, only when it misses, the nearest-centroid fallback —
+ * exactly the findNeighborhoodIdByCity → findNearestNeighborhoodByCoordinates
+ * sequence the legacy handler runs, but sharing a single
+ * getChildrenByParent(cityAuthorityId) result.
+ */
+export async function resolveNeighborhoodIdForGps(
+  cityAuthorityId: string | null,
+  neighborhoodName: string | null,
+  lat: number,
+  lng: number,
+): Promise<string | null> {
+  if (!cityAuthorityId) return null;
+  try {
+    const allChildren = await getChildrenByParent(cityAuthorityId);
+    return (
+      (neighborhoodName ? matchNeighborhoodByName(allChildren, cityAuthorityId, neighborhoodName) : null) ??
+      matchNearestNeighborhood(allChildren, cityAuthorityId, lat, lng)
+    );
   } catch {
     return null;
   }

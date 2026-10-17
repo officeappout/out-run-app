@@ -52,7 +52,15 @@ import {
   applyStrengthTierFilter,
   flattenLocations,
   getDefaultCoordinates,
+  prewarmLocationLookups,
+  resolveNeighborhoodIdForGps,
 } from './UnifiedLocation/location-utils';
+import {
+  getFirstFix,
+  shouldApplyRefinedFix,
+  PRECISE_REFINE_OPTIONS,
+  REVERSE_GEOCODE_TIMEOUT_MS,
+} from './UnifiedLocation/fast-locate';
 
 // ── Sub-Components ───────────────────────────────────────
 import { InitialCard } from './UnifiedLocation/sub-components/InitialCard';
@@ -168,6 +176,26 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
   // not an error; the city-level authorityId still resolves normally.
   const [resolvedNeighborhoodId, setResolvedNeighborhoodId] = useState<string | null>(null);
 
+  // ── v2 fast-locate bookkeeping (enable_home_v2) ──
+  // lookupRunRef: ticket for every location → lookups pipeline (GPS run,
+  // refinement, drag). A pipeline whose ticket is no longer current stops
+  // writing state, so an older/slower run can never overwrite a newer one.
+  const lookupRunRef = useRef(0);
+  // gpsSessionRef: bumped by each GPS tap and by any manual pick/search, so a
+  // late GPS answer (first fix or background refinement) is dropped once the
+  // user has moved on.
+  const gpsSessionRef = useRef(0);
+  // True once the user dragged the map / picked a place themselves — a later
+  // precise refinement must never yank the map away from their choice.
+  const userTookOverRef = useRef(false);
+  // While the v2 GPS pipeline is still resolving, the map stays
+  // non-interactive and programmatic camera moves (fitBounds) don't start
+  // the drag pipeline.
+  const [isResolvingGps, setIsResolvingGps] = useState(false);
+  const isResolvingGpsRef = useRef(false);
+  const stageRef = useRef(stage);
+  stageRef.current = stage;
+
   // ══════════════════════════════════════════════════════════════════
   // EFFECTS
   // ══════════════════════════════════════════════════════════════════
@@ -192,6 +220,10 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
   // See .claude/knowledge/onboarding-map-location-perf-audit.md finding #1.
   useEffect(() => {
     fetchRealParks().catch(() => {});
+    // UNGATED perf: same idea for the top-level authorities list that
+    // findAuthorityIdByCity reads (deduped + cached in location-utils), so
+    // it's no longer a cold Firestore scan sitting after the GPS fix.
+    prewarmLocationLookups();
   }, []);
 
   // Load cities on mount
@@ -306,7 +338,10 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
   // HANDLERS
   // ══════════════════════════════════════════════════════════════════
 
-  const handleDragStart = useCallback(() => {
+  const handleDragStart = useCallback((evt?: { originalEvent?: unknown }) => {
+    // A real gesture (not a programmatic fitBounds/jump) — the user is now
+    // placing the pin themselves; a late GPS refinement must not override it.
+    if (evt?.originalEvent) userTookOverRef.current = true;
     setIsDragging(true);
     if (dragTimeoutRef.current) {
       clearTimeout(dragTimeoutRef.current);
@@ -316,6 +351,10 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
   const handleDragEnd = useCallback(async () => {
     setIsDragging(false);
     if (stage !== LocationStage.CONFIRMING) return;
+    // v2: a programmatic camera move (fitBounds on the hero route) landing
+    // while the GPS pipeline is still resolving must not start a second,
+    // competing pipeline — the GPS one is about to set everything.
+    if (v2 && isResolvingGpsRef.current) return;
     
     // ── IMMEDIATE: Sync coords right away so the marker doesn't feel "stuck" ──
     const centerLat = viewState.latitude;
@@ -328,9 +367,14 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
     }
     
     dragTimeoutRef.current = setTimeout(async () => {
+      // v2: take a pipeline ticket; bail after each await if a newer one
+      // (e.g. a GPS refinement) started meanwhile.
+      const runId = ++lookupRunRef.current;
+      const stale = () => v2 && lookupRunRef.current !== runId;
       setIsUpdatingLocation(true);
       
       const result = await reverseGeocode(centerLat, centerLng);
+      if (stale()) return;
       setDetectedCity(result.city);
       setDetectedNeighborhood(result.neighborhood);
 
@@ -344,11 +388,13 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
       let displayNameToShow = result.displayName;
       if (!result.city && !result.neighborhood) {
         const street = await reverseGeocodeStreet(centerLat, centerLng);
+        if (stale()) return;
         if (street) displayNameToShow = street;
       }
       setDisplayName(displayNameToShow);
 
       const authId = await findAuthorityIdByCity(result.city || '');
+      if (stale()) return;
       setResolvedAuthorityId(authId);
       if (authId && typeof window !== 'undefined') {
         sessionStorage.setItem('selected_authority_id', authId);
@@ -358,6 +404,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
       const neighborhoodId = authId && result.neighborhood
         ? await findNeighborhoodIdByCity(authId, result.neighborhood)
         : null;
+      if (stale()) return;
       setResolvedNeighborhoodId(neighborhoodId);
       if (typeof window !== 'undefined') {
         if (neighborhoodId) sessionStorage.setItem('selected_neighborhood_id', neighborhoodId);
@@ -369,11 +416,13 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
       if (!isExplorer) {
         setIsLoadingCurated(true);
         hero = await fetchHeroRoute(centerLat, centerLng, authId, sportContext, selectedSportId);
+        if (stale()) return;
         setHeroRoute(hero);
         setIsLoadingCurated(false);
       }
       const heroArr: RouteWithDistance[] = hero ? [hero] : [];
       const rawFacilities = await fetchNearbyFacilities(centerLat, centerLng, 1600, selectedSportId, heroArr, sportContext);
+      if (stale()) return;
       const filtered = applyStrengthTierFilter(rawFacilities, selectedSportId, trainingContext);
       // Explorer: strictly parks — drop any route items that slipped in
       const facilities = isExplorer ? filtered.filter(f => f.kind === 'park') : filtered;
@@ -391,9 +440,164 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
       
       setIsUpdatingLocation(false);
     }, 500);
-  }, [stage, viewState.latitude, viewState.longitude, updateData, selectedSportId, isExplorer]);
+  }, [stage, viewState.latitude, viewState.longitude, updateData, selectedSportId, isExplorer, v2]);
+
+  // ── v2: location → lookups, shown progressively ─────────────────────
+  // Same lookups and the same state/sessionStorage/onboarding writes as the
+  // legacy GPS handler below, but:
+  //   • the sheet is already on CONFIRMING (map flown to the user), each
+  //     piece fills in as it lands (name → route/badges → best park);
+  //   • neighborhood resolution and the hero-route fetch run IN PARALLEL
+  //     (both only need the authority) and share one children read;
+  //   • the Mapbox reverse geocode is capped (REVERSE_GEOCODE_TIMEOUT_MS).
+  // Returns false when a newer pipeline superseded this one.
+  const runGpsLookupsV2 = async (latitude: number, longitude: number): Promise<boolean> => {
+    const runId = ++lookupRunRef.current;
+    const stale = () => lookupRunRef.current !== runId;
+
+    setViewState({ longitude, latitude, zoom: 14 });
+    setUserLocation({ lat: latitude, lng: longitude });
+    setIsResolvingGps(true);
+    isResolvingGpsRef.current = true;
+    setIsUpdatingLocation(true);
+    setIsLoadingParks(true);
+
+    try {
+      const result = await reverseGeocode(latitude, longitude, { timeoutMs: REVERSE_GEOCODE_TIMEOUT_MS });
+      if (stale()) return false;
+      setDetectedCity(result.city);
+      setDetectedNeighborhood(result.neighborhood);
+      setDisplayName(result.displayName);
+      setIsUpdatingLocation(false);
+
+      const authId = await findAuthorityIdByCity(result.city || '');
+      if (stale()) return false;
+      setResolvedAuthorityId(authId);
+      if (authId && typeof window !== 'undefined') {
+        sessionStorage.setItem('selected_authority_id', authId);
+      }
+
+      // Explorer mode: parks only — skip all route fetching
+      if (!isExplorer) setIsLoadingCurated(true);
+      const [neighborhoodId, hero] = await Promise.all([
+        resolveNeighborhoodIdForGps(authId, result.neighborhood, latitude, longitude),
+        isExplorer
+          ? Promise.resolve<RouteWithDistance | null>(null)
+          : fetchHeroRoute(latitude, longitude, authId, sportContext, selectedSportId),
+      ]);
+      if (stale()) return false;
+      setResolvedNeighborhoodId(neighborhoodId);
+      if (typeof window !== 'undefined') {
+        if (neighborhoodId) sessionStorage.setItem('selected_neighborhood_id', neighborhoodId);
+        else sessionStorage.removeItem('selected_neighborhood_id');
+      }
+      if (!isExplorer) {
+        setHeroRoute(hero);
+        setIsLoadingCurated(false);
+      }
+
+      const heroArr: RouteWithDistance[] = hero ? [hero] : [];
+      const rawFacilities = await fetchNearbyFacilities(latitude, longitude, 1600, selectedSportId, heroArr, sportContext);
+      if (stale()) return false;
+      const filtered = applyStrengthTierFilter(rawFacilities, selectedSportId, trainingContext);
+      const facilities = isExplorer ? filtered.filter(f => f.kind === 'park') : filtered;
+      setNearbyFacilities(facilities.slice(0, 5));
+      setBestMatchIndex(0);
+
+      if (!isExplorer) {
+        loadInfrastructureContext(result.city, authId);
+        updateData({
+          locationAllowed: true,
+          city: result.displayName,
+          location: { lat: latitude, lng: longitude, city: result.displayName },
+        });
+        setMajorRoadmapStep(2);
+      }
+      return true;
+    } finally {
+      if (!stale()) {
+        setIsUpdatingLocation(false);
+        setIsLoadingParks(false);
+        setIsLoadingCurated(false);
+        setIsResolvingGps(false);
+        isResolvingGpsRef.current = false;
+      }
+    }
+  };
+
+  /** v2: drop any in-flight GPS work (first fix, refinement, lookups). */
+  const cancelGpsV2 = () => {
+    gpsSessionRef.current++;
+    userTookOverRef.current = true;
+    if (isResolvingGpsRef.current) {
+      lookupRunRef.current++;
+      isResolvingGpsRef.current = false;
+      setIsResolvingGps(false);
+      setIsUpdatingLocation(false);
+      setIsLoadingParks(false);
+      setIsLoadingCurated(false);
+    }
+  };
+
+  const handleFindLocationV2 = async () => {
+    const session = ++gpsSessionRef.current;
+    userTookOverRef.current = false;
+    setStage(LocationStage.LOCATING);
+    setLocationError(null);
+
+    // Coarse (fast, cached-OK) fix first; precise fallback only on timeout.
+    const first = await getFirstFix((opts) => useGPSStore.getState().requestFix(opts));
+    // The user tapped "search manually" while we were waiting — drop it.
+    if (gpsSessionRef.current !== session) return;
+
+    if (first.status !== 'ok') {
+      setLocationError('לא הצלחנו לאתר את המיקום שלך. נסה שוב או חפש ידנית.');
+      setStage(LocationStage.INITIAL);
+      if (!isExplorer) {
+        try {
+          const { Analytics } = await import('@/features/analytics/AnalyticsService');
+          Analytics.logPermissionLocationStatus(first.status === 'denied' ? 'denied' : 'prompt', 'onboarding_unified_location');
+        } catch {}
+      }
+      return;
+    }
+
+    const { coords, needsRefine } = first.fix;
+    // Start the precise refinement right away, in parallel with the lookups.
+    const refinePromise = needsRefine
+      ? useGPSStore.getState().requestFix(PRECISE_REFINE_OPTIONS)
+      : null;
+
+    setShowRadar(true);
+    setTimeout(() => setShowRadar(false), 3000);
+    setStage(LocationStage.CONFIRMING);
+
+    if (!isExplorer) {
+      import('@/features/analytics/AnalyticsService')
+        .then(({ Analytics }) => Analytics.logPermissionLocationStatus('granted', 'onboarding_unified_location'))
+        .catch(() => {});
+    }
+
+    void runGpsLookupsV2(coords.lat, coords.lng);
+    if (!refinePromise) return;
+
+    const refined = await refinePromise;
+    if (
+      gpsSessionRef.current !== session ||
+      userTookOverRef.current ||
+      stageRef.current !== LocationStage.CONFIRMING ||
+      !shouldApplyRefinedFix(coords, refined.coords)
+    ) {
+      return;
+    }
+    // Moved meaningfully — re-centre and re-run (supersedes the first run if
+    // it is still in flight).
+    await runGpsLookupsV2(refined.coords!.lat, refined.coords!.lng);
+  };
 
   const handleFindLocation = async () => {
+    if (v2) return handleFindLocationV2();
+
     setStage(LocationStage.LOCATING);
     setLocationError(null);
 
@@ -620,6 +824,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
   };
 
   const handleCitySelect = async (city: CityData) => {
+    if (v2) cancelGpsV2();
     setSearchQuery('');
 
     // Clear any previous selection so stale data from an earlier pick in the
@@ -727,6 +932,13 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
     setSearchQuery('');
   };
 
+  // v2: "search manually instead" from the locating sheet — abandons the
+  // pending GPS request (its late answer is ignored) and opens search.
+  const handleSearchInsteadOfLocating = () => {
+    cancelGpsV2();
+    handleSearchManually();
+  };
+
   // ══════════════════════════════════════════════════════════════════
   // RENDER
   // ══════════════════════════════════════════════════════════════════
@@ -777,12 +989,12 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
             mapboxAccessToken={MAPBOX_TOKEN}
             mapStyle={MAPBOX_STYLE}
             style={{ width: '100%', height: '100%' }}
-            interactive={stage === LocationStage.CONFIRMING}
-            scrollZoom={stage === LocationStage.CONFIRMING}
-            dragPan={stage === LocationStage.CONFIRMING}
+            interactive={stage === LocationStage.CONFIRMING && !isResolvingGps}
+            scrollZoom={stage === LocationStage.CONFIRMING && !isResolvingGps}
+            dragPan={stage === LocationStage.CONFIRMING && !isResolvingGps}
             dragRotate={false}
             pitchWithRotate={false}
-            touchZoomRotate={stage === LocationStage.CONFIRMING}
+            touchZoomRotate={stage === LocationStage.CONFIRMING && !isResolvingGps}
           >
             {/* Radar Pulse */}
             {showRadar && userLocation && (
@@ -1080,7 +1292,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
         )}
 
         {stage === LocationStage.LOCATING && (
-          <LocatingCard key="locating" v2={v2} />
+          <LocatingCard key="locating" v2={v2} onSearchManually={handleSearchInsteadOfLocating} />
         )}
 
         {stage === LocationStage.CONFIRMING && (
