@@ -70,6 +70,8 @@ export interface AerobicSummaryViewProps {
    * No map is mounted behind the history route, so it passes 0. Default 110.
    */
   peekHeight?: number;
+  /** enable_home_v2 live flow — the "לשתף את האימון בפיד?" card (owned by the shell). */
+  feedShareSlot?: ReactNode;
 }
 
 type TabId = 'overview' | 'stats' | 'segments' | 'map';
@@ -109,6 +111,7 @@ export default function AerobicSummaryView({
   isReadOnly = false,
   onDelete,
   peekHeight = 110,
+  feedShareSlot,
 }: AerobicSummaryViewProps) {
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [expandedMap, setExpandedMap] = useState(false);
@@ -295,6 +298,8 @@ export default function AerobicSummaryView({
           )}
         </Card>
       )}
+
+      {feedShareSlot}
 
       {/* Share (the finish/save action is the drawer's pinned footer) */}
       <AerobicShareBlock

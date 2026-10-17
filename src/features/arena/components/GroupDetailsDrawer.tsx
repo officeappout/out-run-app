@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls, animate } from 'framer-motion';
 import { useSheetScrollChain } from '@/hooks/useSheetScrollChain';
+import { useRouter } from 'next/navigation';
 import {
   X,
   MapPin,
@@ -30,6 +31,7 @@ import {
   Trash2,
   ChevronLeft,
   Plus,
+  Play,
 } from 'lucide-react';
 import { getDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -56,6 +58,7 @@ import {
 import { getGroupMembers, getGroupInviteCode, joinGroup, leaveGroup, makeGroupAdmin, removeGroupAdmin, removeGroupMember, updateGroup } from '@/features/arena/services/group.service';
 import AccessCodeGate from '@/components/ui/AccessCodeGate';
 import { useToast } from '@/components/ui/Toast';
+import { stashPendingPlannedRun } from '@/lib/planned-run';
 import type { AccessCodeResult } from '@/features/user/onboarding/services/access-code.service';
 
 const CATEGORY_CONFIG: Record<string, { label: string; icon: string; gradient: string }> = {
@@ -244,6 +247,7 @@ export default function GroupDetailsDrawer({
   const dragControls = useDragControls();
   const { scrollRef } = useSheetScrollChain({ isOpen, y, onClose, snapBackY: PEEK_Y_PX });
   const { showToast } = useToast();
+  const router = useRouter();
   const profile = useUserStore((s) => s.profile);
   // Home v2 (enable_home_v2): the design-lab group page.
   const v2 = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin).flags.enableHomeV2;
@@ -548,6 +552,23 @@ export default function GroupDetailsDrawer({
   );
 
   const catConfig = CATEGORY_CONFIG[group.category] ?? CATEGORY_CONFIG.other;
+
+  // v2 (enable_home_v2): a scheduled solo run ("ריצה/הליכה מתוזמנת" — the
+  // ephemeral group /api/invite/run-session creates) gets a start action that
+  // opens the free-run drawer pre-filled with the settings saved with it
+  // (`plannedRun` on the group doc; re-validated, invalid → plain defaults).
+  const groupExtra = group as CommunityGroup & { type?: string; plannedRun?: unknown };
+  const scheduledRunActivity: 'running' | 'walking' | null =
+    groupExtra.type === 'ephemeral' && (group.category === 'running' || group.category === 'walking')
+      ? group.category
+      : null;
+  const showStartScheduledRun = v2 && !!scheduledRunActivity && (!!isJoined || isCreator);
+  const handleStartScheduledRun = () => {
+    if (!scheduledRunActivity) return;
+    stashPendingPlannedRun(scheduledRunActivity, groupExtra.plannedRun);
+    onClose();
+    router.push(`/map?openRun=${scheduledRunActivity}`);
+  };
   const effectiveImages = (nextSlot?.images?.length ? nextSlot.images : group.images) ?? [];
   const coverImage = effectiveImages[0] ?? null;
   const effectiveTags = (nextSlot?.tags?.length ? nextSlot.tags : []) as string[];
@@ -1333,6 +1354,17 @@ export default function GroupDetailsDrawer({
                   />
                 )}
 
+                {showStartScheduledRun && (
+                  <button
+                    type="button"
+                    onClick={handleStartScheduledRun}
+                    className="flex h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]"
+                  >
+                    <Play className="h-[18px] w-[18px]" fill="currentColor" />
+                    {scheduledRunActivity === 'walking' ? 'צא להליכה' : 'צא לריצה'}
+                  </button>
+                )}
+
                 {/* ── Secondary actions row — icon + word, not full-width
                     stacked buttons (07.09.2026: the old stack of full-width
                     CTAs ate half the screen). Share is always visible;
@@ -1430,7 +1462,12 @@ export default function GroupDetailsDrawer({
                 {isJoined && (
                   <button
                     onClick={onOpenChat ?? onClose}
-                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/25 transition-all active:scale-[0.97]"
+                    className={
+                      showStartScheduledRun
+                        // The start CTA above is this screen's one gradient.
+                        ? 'flex h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-full bg-white text-[15px] font-extrabold text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]'
+                        : 'w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/25 transition-all active:scale-[0.97]'
+                    }
                   >
                     <MessageCircle className="w-4 h-4" />
                     כנס לצ&apos;אט הקהילה

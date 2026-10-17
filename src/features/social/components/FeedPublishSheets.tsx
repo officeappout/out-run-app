@@ -9,7 +9,7 @@
  */
 import { useEffect, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Globe, Lock, Settings2, Users, X } from 'lucide-react';
+import { Check, Globe, Lock, Settings2, Users, X } from 'lucide-react';
 import { Button } from '@/components/ui/v2';
 import type { FeedActivity, FeedPrefs, FeedPrefsAudience } from '../services/feed-prefs';
 import { routeShapeToSvg } from '../services/feed-route';
@@ -64,6 +64,65 @@ export function SharePromptCard({ workout, onShare }: { workout: ShareableWorkou
       <Button size="sm" onClick={onShare}>
         שיתוף
       </Button>
+    </div>
+  );
+}
+
+/**
+ * The workout summary's share card (home v2): "לשתף את האימון בפיד?".
+ * Secondary styling on purpose — the summary's own finish button is the
+ * screen's one filled CTA. `status` swaps the ask for a quiet confirmation.
+ */
+export function SummaryShareCard({
+  workout,
+  status,
+  onShare,
+  onDismiss,
+}: {
+  workout: ShareableWorkout;
+  status: 'ask' | 'published' | 'queued';
+  onShare: () => void;
+  onDismiss: () => void;
+}) {
+  if (status !== 'ask') {
+    return (
+      <div className="flex items-center gap-3 rounded-v2-card bg-white p-3 shadow-v2-card" dir="rtl" aria-live="polite">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-v2-tint text-v2-deep" aria-hidden>
+          <Check size={20} strokeWidth={2.8} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[15px] font-black text-v2-ink">
+            {status === 'published' ? 'האימון פורסם בפיד' : 'האימון יפורסם בפיד'}
+          </div>
+          <div className="truncate text-[12.5px] font-bold text-v2-muted">
+            {status === 'published' ? summary(workout) : 'ברגע שתסיים/י את הסיכום'}
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-3 rounded-v2-card bg-white p-3 shadow-v2-card" dir="rtl">
+      <ActivityBadge activity={workout.activityCategory} size={44} />
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[15px] font-black text-v2-ink">לשתף את האימון בפיד?</div>
+        <div className="truncate text-[12.5px] font-bold text-v2-muted">{summary(workout)}</div>
+      </div>
+      <button
+        type="button"
+        onClick={onShare}
+        className="h-9 shrink-0 whitespace-nowrap rounded-full bg-white px-4 text-[13.5px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
+      >
+        שיתוף
+      </button>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="לא הפעם"
+        className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-v2-surface text-v2-muted ring-1 ring-inset ring-v2-hairline transition-transform duration-150 ease-v2 active:scale-[0.97]"
+      >
+        <X size={16} strokeWidth={2.6} aria-hidden />
+      </button>
     </div>
   );
 }

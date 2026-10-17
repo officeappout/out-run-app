@@ -23,6 +23,8 @@ interface CommunityAddressSearchProps {
   placeholder?: string;
   /** Bias results toward this location (user's current map center) */
   proximity?: { lat: number; lng: number };
+  /** Home v2 (enable_home_v2) look — passed by CreateGroupWizard. Same behaviour. */
+  v2?: boolean;
 }
 
 export default function CommunityAddressSearch({
@@ -30,6 +32,7 @@ export default function CommunityAddressSearch({
   onChange,
   placeholder = 'חפש כתובת, פארק או אתר...',
   proximity,
+  v2 = false,
 }: CommunityAddressSearchProps) {
   const [query, setQuery] = useState(value);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -140,21 +143,25 @@ export default function CommunityAddressSearch({
           onKeyDown={handleKeyDown}
           onFocus={() => { if (suggestions.length > 0 && !selected) setShowDropdown(true); }}
           placeholder={placeholder}
-          className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 bg-white"
+          className={
+            v2
+              ? `h-12 w-full rounded-[16px] bg-white pl-11 ${selected ? 'pr-11' : 'pr-4'} text-[15px] font-semibold text-v2-ink shadow-v2-ring outline-none placeholder:text-v2-muted focus:ring-2 focus:ring-v2-accent`
+              : 'w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 bg-white'
+          }
         />
 
         {/* Icon: spinner or search */}
-        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+        <div className={`absolute top-1/2 -translate-y-1/2 pointer-events-none ${v2 ? 'left-4 text-v2-muted' : 'left-3 text-gray-400'}`}>
           {loading
-            ? <Loader2 className="w-4 h-4 animate-spin text-cyan-500" />
-            : <Search className="w-4 h-4" />}
+            ? <Loader2 className={`w-4 h-4 animate-spin ${v2 ? 'text-v2-deep' : 'text-cyan-500'}`} />
+            : <Search className="w-4 h-4" strokeWidth={v2 ? 2.6 : 2} />}
         </div>
 
         {/* Confirmed-selection checkmark */}
         {selected && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2">
-            <div className="w-5 h-5 rounded-full bg-cyan-500 flex items-center justify-center">
-              <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
+          <div className={`absolute top-1/2 -translate-y-1/2 ${v2 ? 'right-3.5' : 'right-3'}`}>
+            <div className={v2 ? 'grid h-6 w-6 place-items-center rounded-full bg-v2-tint text-v2-deep' : 'w-5 h-5 rounded-full bg-cyan-500 flex items-center justify-center'}>
+              <svg className={v2 ? 'h-3 w-3' : 'w-3 h-3 text-white'} viewBox="0 0 12 12" fill="none">
                 <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
@@ -165,7 +172,11 @@ export default function CommunityAddressSearch({
       {/* Dropdown */}
       {showDropdown && suggestions.length > 0 && (
         <div
-          className="absolute z-50 top-full mt-1.5 left-0 right-0 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden"
+          className={
+            v2
+              ? 'absolute z-50 top-full mt-2 left-0 right-0 overflow-hidden rounded-[20px] bg-white shadow-v2-card ring-1 ring-v2-hairline'
+              : 'absolute z-50 top-full mt-1.5 left-0 right-0 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden'
+          }
           dir="rtl"
         >
           {suggestions.map((s, i) => {
@@ -179,15 +190,19 @@ export default function CommunityAddressSearch({
                 key={i}
                 type="button"
                 onMouseDown={(e) => { e.preventDefault(); handleSelect(s); }}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 active:bg-cyan-50 transition-colors text-right border-b border-gray-50 last:border-0"
+                className={
+                  v2
+                    ? 'flex w-full items-center gap-3 border-b border-v2-hairline px-4 py-3 text-right transition-colors last:border-0 active:bg-v2-tint'
+                    : 'w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 active:bg-cyan-50 transition-colors text-right border-b border-gray-50 last:border-0'
+                }
               >
-                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center">
-                  <MapPin className="w-3.5 h-3.5 text-cyan-500" />
+                <div className={v2 ? 'grid h-8 w-8 flex-shrink-0 place-items-center rounded-full bg-v2-tint' : 'flex-shrink-0 w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center'}>
+                  <MapPin className={v2 ? 'h-4 w-4 text-v2-deep' : 'w-3.5 h-3.5 text-cyan-500'} strokeWidth={v2 ? 2.6 : 2} />
                 </div>
                 <div className="flex-1 min-w-0 text-right">
-                  <p className="text-sm font-bold text-gray-900 truncate">{primary}</p>
+                  <p className={v2 ? 'truncate text-[14px] font-black text-v2-ink' : 'text-sm font-bold text-gray-900 truncate'}>{primary}</p>
                   {secondary && (
-                    <p className="text-[11px] text-gray-500 truncate">{secondary}</p>
+                    <p className={v2 ? 'truncate text-[12px] font-bold text-v2-muted' : 'text-[11px] text-gray-500 truncate'}>{secondary}</p>
                   )}
                 </div>
               </button>
@@ -198,7 +213,13 @@ export default function CommunityAddressSearch({
 
       {/* Empty result hint */}
       {showDropdown && !loading && suggestions.length === 0 && query.trim().length >= 2 && (
-        <div className="absolute z-50 top-full mt-1.5 left-0 right-0 bg-white rounded-2xl shadow-xl border border-gray-100 px-4 py-3 text-sm text-gray-500 text-center">
+        <div
+          className={
+            v2
+              ? 'absolute z-50 top-full mt-2 left-0 right-0 rounded-[20px] bg-white px-4 py-3 text-center text-[13px] font-bold text-v2-muted shadow-v2-card ring-1 ring-v2-hairline'
+              : 'absolute z-50 top-full mt-1.5 left-0 right-0 bg-white rounded-2xl shadow-xl border border-gray-100 px-4 py-3 text-sm text-gray-500 text-center'
+          }
+        >
           לא נמצאו תוצאות
         </div>
       )}

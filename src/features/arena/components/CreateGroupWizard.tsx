@@ -20,6 +20,8 @@ import {
   Copy,
   Share2,
   Trophy,
+  PartyPopper,
+  Send,
 } from 'lucide-react';
 import { useUserStore } from '@/features/user';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
@@ -440,6 +442,44 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
     onClose();
   };
 
+  // ── Success-screen actions (shared by the old and the v2 look) ────────────
+
+  const copySuccessCode = () => {
+    if (!successInfo) return;
+    const origin = typeof window !== 'undefined'
+      ? window.location.origin
+      : 'https://out-run-app.vercel.app';
+    navigator.clipboard
+      ?.writeText(`${origin}/join/${successInfo.inviteCode}`)
+      .catch(() => {});
+    setCodeCopied(true);
+    setTimeout(() => setCodeCopied(false), 2000);
+  };
+
+  const shareSuccessCode = () => {
+    if (!successInfo) return;
+    const origin = typeof window !== 'undefined'
+      ? window.location.origin
+      : 'https://out-run-app.vercel.app';
+    const link = `${origin}/join/${successInfo.inviteCode}`;
+    const text = `היי! הקמתי קהילה חדשה "${successInfo.name}" — בוא להצטרף! 🏃\nקוד הצטרפות: ${successInfo.inviteCode}\n${link}`;
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      navigator.share({ title: successInfo.name, text, url: link }).catch(() => {});
+    } else {
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    }
+  };
+
+  const enterCreatedCommunity = () => {
+    if (!successInfo) return;
+    const gid = successInfo.groupId;
+    setSuccessInfo(null);
+    setCodeCopied(false);
+    setStep(0);
+    setForm(BLANK_FORM);
+    onSuccess(gid);
+  };
+
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
@@ -475,7 +515,7 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
               <div className="flex items-center justify-between mb-4">
                 <h2 className={v2 ? 'text-[22px] font-black !tracking-[-0.02em] text-v2-ink' : 'text-lg font-black text-gray-900'}>
                   {successInfo
-                    ? 'הקהילה שלך באוויר! 🚀'
+                    ? (v2 ? 'הקהילה שלך באוויר!' : 'הקהילה שלך באוויר! 🚀')
                     : isEditMode
                       ? t('ערוך קהילה', 'ערכי קהילה', myGender)
                       : t('צור קהילה חדשה', 'צורי קהילה חדשה', myGender)}
@@ -532,8 +572,63 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
               </div>
             )}
 
+            {/* ── Success screen (post-creation) — v2 look ─────────── */}
+            {!loadingEdit && successInfo && v2 && (
+              <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 pb-6 pt-2" dir="rtl">
+                <div className="flex flex-col items-center gap-3 rounded-v2-card bg-v2-tint px-5 py-6 text-center">
+                  <span className="grid h-14 w-14 place-items-center rounded-full bg-white text-v2-deep shadow-v2-ring" aria-hidden>
+                    <PartyPopper size={26} strokeWidth={2.4} />
+                  </span>
+                  <p className="max-w-[290px] text-[15px] font-bold leading-relaxed text-v2-ink-2">
+                    {successInfo.isPrivate
+                      ? 'שתף את קוד ההצטרפות הסודי עם המתאמנים שלך:'
+                      : 'הקהילה שלך פתוחה וממתינה לחברים הראשונים!'}
+                  </p>
+                </div>
+
+                {successInfo.isPrivate && (
+                  <div className="space-y-4 rounded-v2-card bg-white p-5 shadow-v2-card">
+                    <div className="text-center">
+                      <p className="text-[13px] font-extrabold text-v2-deep">קוד הצטרפות</p>
+                      <div className="select-all py-2 font-mono text-[34px] font-black tracking-[0.3em] text-v2-ink" dir="ltr">
+                        {successInfo.inviteCode}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={copySuccessCode}
+                        className={`flex h-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full text-[14px] font-extrabold ${V2C.press} ${codeCopied ? V2C.chipOn : 'bg-white text-v2-ink shadow-v2-ring'}`}
+                      >
+                        {codeCopied
+                          ? <><Check className="h-4 w-4" strokeWidth={2.8} />הועתק!</>
+                          : <><Copy className="h-4 w-4" />העתק קוד</>}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={shareSuccessCode}
+                        className={`flex h-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-white text-[14px] font-extrabold text-v2-deep shadow-v2-ring ${V2C.press}`}
+                      >
+                        <Share2 className="h-4 w-4" />
+                        שתף בוואטסאפ
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={enterCreatedCommunity}
+                  className="flex h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]"
+                >
+                  <Check className="h-[18px] w-[18px]" strokeWidth={2.8} />
+                  כניסה לקהילה
+                </button>
+              </div>
+            )}
+
             {/* ── Success screen (post-creation) ──────────────────── */}
-            {!loadingEdit && successInfo && (
+            {!loadingEdit && successInfo && !v2 && (
               <div className="flex-1 overflow-y-auto px-5 pb-6 flex flex-col gap-5 pt-2" dir="rtl">
                 <div className="text-center space-y-1">
                   <p className="text-4xl select-none">🎉</p>
@@ -559,16 +654,7 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                     {/* Action buttons */}
                     <div className="flex gap-2">
                       <button
-                        onClick={() => {
-                          const origin = typeof window !== 'undefined'
-                            ? window.location.origin
-                            : 'https://out-run-app.vercel.app';
-                          navigator.clipboard
-                            ?.writeText(`${origin}/join/${successInfo.inviteCode}`)
-                            .catch(() => {});
-                          setCodeCopied(true);
-                          setTimeout(() => setCodeCopied(false), 2000);
-                        }}
+                        onClick={copySuccessCode}
                         className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-white border border-gray-200 text-gray-700 text-sm font-black transition-all active:scale-95 shadow-sm"
                       >
                         {codeCopied
@@ -576,18 +662,7 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                           : <><Copy className="w-4 h-4" />העתק קוד</>}
                       </button>
                       <button
-                        onClick={() => {
-                          const origin = typeof window !== 'undefined'
-                            ? window.location.origin
-                            : 'https://out-run-app.vercel.app';
-                          const link = `${origin}/join/${successInfo.inviteCode}`;
-                          const text = `היי! הקמתי קהילה חדשה "${successInfo.name}" — בוא להצטרף! 🏃\nקוד הצטרפות: ${successInfo.inviteCode}\n${link}`;
-                          if (typeof navigator !== 'undefined' && navigator.share) {
-                            navigator.share({ title: successInfo.name, text, url: link }).catch(() => {});
-                          } else {
-                            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-                          }
-                        }}
+                        onClick={shareSuccessCode}
                         className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-emerald-500 text-white text-sm font-black transition-all active:scale-95 shadow-lg shadow-emerald-500/25"
                       >
                         <Share2 className="w-4 h-4" />
@@ -599,14 +674,7 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
 
                 {/* Enter community CTA */}
                 <button
-                  onClick={() => {
-                    const gid = successInfo.groupId;
-                    setSuccessInfo(null);
-                    setCodeCopied(false);
-                    setStep(0);
-                    setForm(BLANK_FORM);
-                    onSuccess(gid);
-                  }}
+                  onClick={enterCreatedCommunity}
                   className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/30 transition-all active:scale-[0.97]"
                 >
                   <Check className="w-4 h-4" />
@@ -773,6 +841,63 @@ function StepOutreach({
   const shareText =
     `היי, אני מתאמן/ת עם Out ורוצה להביא את הפלטפורמה ל${label} שלנו! Out זו ליגת כושר עירונית שמחברת אנשים לאימונים חכמים בחוץ. בואו נדבר!\n\nhttps://appout.co.il/`;
 
+  const sendOutreach = () => {
+    window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
+    onSend();
+  };
+
+  const v2 = React.useContext(WizardV2);
+  if (v2) {
+    const OrgIcon = isWork ? Briefcase : GraduationCap;
+    const howSteps = [`שלחו את ההודעה ל${recipient}`, 'הם יצרו קשר עם Out', `הליגה הרשמית של ${orgLabel} נפתחת!`];
+    return (
+      <div className="space-y-4 pt-4 text-right" dir="rtl">
+        <div className="rounded-v2-card bg-v2-tint px-5 py-6 text-center">
+          <span className="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-full bg-white text-v2-deep shadow-v2-ring" aria-hidden>
+            <OrgIcon size={26} strokeWidth={2.4} />
+          </span>
+          <h3 className="text-[17px] font-black text-v2-ink">רוצים ליגה רשמית ל{label}?</h3>
+          <p className="mx-auto mt-1.5 max-w-[290px] text-[14px] font-semibold leading-relaxed text-v2-ink-2">
+            פנו ל{recipient} ובקשו שישתפו פעולה עם Out — ואנחנו נפתח את הליגה הרשמית!
+          </p>
+        </div>
+
+        <div className="rounded-[20px] bg-white p-4 shadow-v2-ring">
+          <p className="mb-3 text-[15px] font-black text-v2-ink">איך זה עובד?</p>
+          <ol className="space-y-2.5">
+            {howSteps.map((txt, i) => (
+              <li key={i} className="flex items-center gap-2.5">
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-v2-tint text-[12px] font-black text-v2-deep">{i + 1}</span>
+                <span className="text-[14px] font-semibold text-v2-ink-2">{txt}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+
+        <button
+          type="button"
+          onClick={sendOutreach}
+          disabled={outreachSent}
+          className={`flex h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-full text-[15px] font-extrabold ${V2C.press} ${
+            outreachSent ? V2C.chipOn : 'bg-white text-v2-deep shadow-v2-ring'
+          }`}
+        >
+          {outreachSent
+            ? <><Check className="h-4 w-4" strokeWidth={2.8} />נשלח! תודה</>
+            : <><Send className="h-4 w-4" />שלח הודעה ל{recipient}</>}
+        </button>
+
+        <button
+          type="button"
+          onClick={onContinue}
+          className="h-11 w-full whitespace-nowrap rounded-full text-[14px] font-extrabold text-v2-muted transition-transform duration-150 ease-v2 active:scale-[0.97]"
+        >
+          {outreachSent ? 'המשך ליצירת הקבוצה' : 'המשך בלי לשלוח'}
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5 pt-4 text-right" dir="rtl">
       <div className="bg-gradient-to-b from-amber-50 to-white rounded-3xl p-6 border border-amber-200/60 text-center">
@@ -795,10 +920,7 @@ function StepOutreach({
       </div>
 
       <button
-        onClick={() => {
-          window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
-          onSend();
-        }}
+        onClick={sendOutreach}
         disabled={outreachSent}
         className={`w-full py-4 rounded-2xl font-black text-sm shadow-md active:scale-[0.98] transition-all ${
           outreachSent
@@ -1213,6 +1335,7 @@ function StepWhenWhere({
           value={form.address}
           onChange={handleAddressSelect}
           proximity={form.coords}
+          v2={v2}
         />
       </div>
 
@@ -1271,6 +1394,7 @@ function StepWhenWhere({
           <MiniLocationPicker
             value={form.coords}
             onChange={handleMapPinChange}
+            v2={v2}
           />
         </div>
         <p className={v2 ? `${V2C.hint} mt-1.5` : 'text-[10px] text-gray-400 mt-1.5'}>

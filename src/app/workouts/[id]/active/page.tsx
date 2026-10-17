@@ -37,6 +37,7 @@ import { useSessionStore } from '@/features/workout-engine/core/store/useSession
 import { calculateStrengthWorkoutXP } from '@/features/user/progression/services/xp.service';
 import { createWorkoutPost } from '@/features/social/services/feed.service';
 import { extractFeedScope, extractGroupIds } from '@/features/social/services/feed-scope.utils';
+import { postPlanForDecision, type SummaryShareDecision } from '@/features/social/services/feed-prefs';
 import { IS_COMMUNITY_FEED_ENABLED, STRENGTH_SUMMARY_V2_ENABLED, STRENGTH_RESUME_CHECKPOINT_ENABLED, RECOVERY_WORKOUT_CATEGORIZATION_ENABLED, RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED, RECOVERY_VIDEO_EXIT_BUTTON_ENABLED, RECOVERY_VIDEO_DEFAULT_AUDIO_ENABLED } from '@/config/feature-flags';
 import { isPureRecoveryVideoTrioWorkout } from '@/features/workout-engine/shared/utils/recovery-video-trio.utils';
 import { detectNearbyPark } from '@/features/workout-engine/services/park-detection.service';
@@ -1348,9 +1349,12 @@ export default function ActiveWorkoutPage() {
   const handleSummaryFinish = useCallback(async ({
     xpEarned: awardedXP,
     xpStatus: xpAwardStatus,
+    feedShare,
   }: {
     xpEarned: number;
     xpStatus: 'pending' | 'awarded' | 'failed';
+    /** enable_home_v2 summary share card — see postPlanForDecision. */
+    feedShare?: SummaryShareDecision | null;
   }) => {
     // ── Idempotency guard ──────────────────────────────────────────────────
     // Mirrors useRunningPlayer.ts's finishWorkout / useHybridRun.ts's
@@ -1458,10 +1462,13 @@ export default function ActiveWorkoutPage() {
         (profile?.progression as Record<string, unknown>)?.currentProgram as string | undefined ||
         undefined;
 
-      createWorkoutPost({
+      // No card choice → exactly as before. "לא הפעם" on the summary card →
+      // no post (and no pending share); "פרסום" → a manual post with the
+      // sheet's audience / park / title.
+      const postPlan = postPlanForDecision({
         authorUid: currentUser.uid,
         authorName: profile.core.name,
-        activityCategory: 'strength',
+        activityCategory: 'strength' as const,
         durationMinutes: durationMin,
         intensityLevel: diffLabel,
         title: stableWorkoutPlan?.name || undefined,
@@ -1471,7 +1478,11 @@ export default function ActiveWorkoutPage() {
         ...(detectedPark
           ? { parkId: detectedPark.parkId, parkName: detectedPark.parkName }
           : {}),
-      }).catch((err) => console.warn('[ActiveWorkoutPage] Feed post failed:', err));
+      }, feedShare);
+      if (postPlan.post) {
+        createWorkoutPost(postPlan.params, postPlan.manual ? { manual: true } : undefined)
+          .catch((err) => console.warn('[ActiveWorkoutPage] Feed post failed:', err));
+      }
     }
 
     // 3. Clean up stored workout data

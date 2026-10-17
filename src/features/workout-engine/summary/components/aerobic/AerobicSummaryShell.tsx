@@ -8,6 +8,9 @@ import { createContribution } from '@/features/parks/core/services/contribution.
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { deleteWorkoutWithReversal } from '@/lib/workoutDeletion';
 import AerobicSummaryView from './AerobicSummaryView';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
+import { PendingSummaryFeedShare } from '@/features/social/components/SummaryFeedShare';
 
 interface Props {
   variant: 'group' | 'solo' | 'pair';
@@ -38,6 +41,10 @@ interface Props {
  */
 export default function AerobicSummaryShell(props: Props) {
   const { workout, currentUid, isReadOnly = false } = props;
+
+  // Home v2 (enable_home_v2): offer this run's pending feed share here too.
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
 
   const storeSavedWorkoutId = useRunningPlayer((s) => s.savedWorkoutId);
   const savedWorkoutId = isReadOnly ? null : storeSavedWorkoutId;
@@ -117,6 +124,7 @@ export default function AerobicSummaryShell(props: Props) {
       submitRating={submitRating}
       deleteLastWorkout={() => useRunningPlayer.getState().deleteLastWorkout()}
       deleteWorkoutWithReversal={deleteWorkoutWithReversal}
+      feedShareSlot={v2 && !isReadOnly ? <PendingSummaryFeedShare activity="cardio" /> : undefined}
     />
   );
 }

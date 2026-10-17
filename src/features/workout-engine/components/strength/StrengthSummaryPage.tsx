@@ -24,6 +24,13 @@ import { startMiniDomainAssessment } from '@/features/user/onboarding/services/m
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { WHO_COMPLIANCE_BASELINE } from '@/features/activity/types/activity.types';
 import { buildPhaseSummary, sessionTotals, type PlanSegment } from './utils/phase-summary';
+import { IS_COMMUNITY_FEED_ENABLED } from '@/config/feature-flags';
+import SummaryFeedShare from '@/features/social/components/SummaryFeedShare';
+import {
+  clearPendingShare,
+  feedPrefsFrom,
+  type SummaryShareDecision,
+} from '@/features/social/services/feed-prefs';
 
 // ── Shared types + helpers (re-exported at the bottom for back-compat) ──
 import {
@@ -79,7 +86,16 @@ export interface StrengthSummaryPageProps {
    * workout Firestore document can store the real value (not the base estimate).
    * Not called in `isReadOnly` mode — use `onClose` instead.
    */
-  onFinish?: (xpData: { xpEarned: number; xpStatus: 'pending' | 'awarded' | 'failed' }) => void;
+  onFinish?: (xpData: {
+    xpEarned: number;
+    xpStatus: 'pending' | 'awarded' | 'failed';
+    /**
+     * enable_home_v2: the summary's "לשתף את האימון בפיד?" card choice.
+     * Absent/null = the card was ignored → the feed post is decided exactly
+     * as before (auto-publish or a pending share).
+     */
+    feedShare?: SummaryShareDecision | null;
+  }) => void;
 
   // ── Read-only history view ─────────────────────────────────────────────
   /**
@@ -186,7 +202,20 @@ export default function StrengthSummaryPage({
   const { profile } = useUserStore();
   const router = useRouter();
   const isSuperAdmin = !!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin;
-  const homeV2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
+  const { flags } = useFeatureFlags(isSuperAdmin);
+  const homeV2 = flags.enableHomeV2;
+
+  // ── Feed share card (enable_home_v2, live flow only) ──
+  // Offered only when the post would otherwise wait as a share prompt (auto-
+  // publish off for strength) and the feed is on. The choice is handed to
+  // onFinish — the post itself is still made by the finish handler's
+  // createWorkoutPost (no new write path).
+  const [feedShare, setFeedShare] = useState<SummaryShareDecision | null>(null);
+  const strengthAutoPublish = feedPrefsFrom(
+    (profile?.social as { feedPrefs?: unknown } | undefined)?.feedPrefs,
+  ).autoPublish.strength;
+  const showFeedShare =
+    homeV2 && !isReadOnly && !!onFinish && IS_COMMUNITY_FEED_ENABLED && flags.enableCommunityFeed && !strengthAutoPublish;
 
   // ── Program suggestions (Level Equivalence, mode:'suggest') ──
   // Dismissal is local-only (component state, no Firestore write) — a
@@ -342,7 +371,11 @@ export default function StrengthSummaryPage({
     } else {
       if (isFinishing) return;
       setIsFinishing(true);
-      onFinish?.({ xpEarned: xp.xpEarnedAmount, xpStatus: xp.xpStatus });
+      onFinish?.({
+        xpEarned: xp.xpEarnedAmount,
+        xpStatus: xp.xpStatus,
+        ...(showFeedShare && feedShare ? { feedShare } : {}),
+      });
     }
   };
 
@@ -368,6 +401,22 @@ export default function StrengthSummaryPage({
       isFinishing={isFinishing}
       onPrimaryAction={handlePrimaryAction}
       v2={v2}
+      feedShareSlot={
+        showFeedShare ? (
+          <SummaryFeedShare
+            workout={{ activityCategory: 'strength', durationMinutes: analytics.durationMinutes, title: programName }}
+            onPublish={async (choice) => {
+              setFeedShare({ kind: 'publish', choice });
+              clearPendingShare();
+              return 'queued';
+            }}
+            onSkip={() => {
+              setFeedShare({ kind: 'skip' });
+              clearPendingShare();
+            }}
+          />
+        ) : undefined
+      }
     />
   );
 }

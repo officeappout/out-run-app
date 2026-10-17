@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useContext } from 'react';
+import React, { useState, useRef, useContext, useEffect } from 'react';
 
 import { motion, AnimatePresence, useDragControls, Reorder } from 'framer-motion';
 import {
@@ -24,7 +24,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import RunShareBar, { shareRunInviteNow } from '@/features/workout-engine/components/RunShareBar';
 import { createRunInvite } from '@/lib/workoutInvite';
 import type { RunInviteResult } from '@/lib/workoutInvite';
-import { buildPlannedRun } from '@/lib/planned-run';
+import { buildPlannedRun, plannedRunToDrawerState, type PlannedRunSettings } from '@/lib/planned-run';
 import { buildRouteGenRequest } from '../services/route-request.utils';
 import type { DrawerGoal, DrawerActivity } from '../services/route-request.utils';
 import { useLegPlanStore } from '../store/useLegPlanStore';
@@ -171,6 +171,13 @@ interface FreeRunDrawerProps {
    * When omitted, the "🏁 התחל ריצה" button is not rendered.
    */
   onStartLegPlanRun?: (compiled: CompiledLegPlanRoute) => void;
+  /**
+   * v2 (enable_home_v2): settings saved with a scheduled run (`plannedRun`),
+   * handed over when the user starts that run. Seeds the goal, the hybrid
+   * split and the route extras once on mount; re-validated here — invalid
+   * data is ignored and the drawer opens on its normal defaults.
+   */
+  initialPlannedRun?: PlannedRunSettings | null;
 }
 
 // ── Activity data ──────────────────────────────────────────────────────────────
@@ -1399,6 +1406,7 @@ export default function FreeRunDrawer({
   onConfirmAddressDestination,
   onRequestAddLeg,
   onStartLegPlanRun,
+  initialPlannedRun,
 }: FreeRunDrawerProps) {
   const dragControls = useDragControls();
   // Home v2 (enable_home_v2) — this drawer is a map layer, outside HomeV2Context.
@@ -1415,10 +1423,26 @@ export default function FreeRunDrawer({
 
   // Goal state — seeded from smart defaults per activity.
   const defaults = ACTIVITY_DEFAULTS[initialActivity];
-  const [goalType,      setGoalType]      = useState<GoalType>(defaults.goalType);
-  const [timeValue,     setTimeValue]     = useState(defaults.time);
-  const [distanceValue, setDistanceValue] = useState(defaults.distance);
-  const [caloriesValue, setCaloriesValue] = useState(defaults.calories);
+  // v2: a scheduled run's saved settings seed the drawer (once, on mount).
+  // null → today's defaults, exactly as before.
+  const prefillFrom = (raw: PlannedRunSettings) =>
+    plannedRunToDrawerState(raw, {
+      goalType: defaults.goalType,
+      timeValue: defaults.time,
+      distanceValue: defaults.distance,
+      caloriesValue: defaults.calories,
+      hybridEnabled: false,
+      aerobicShare: RECOMMENDED_AEROBIC_SHARE,
+      extras: { gymParks: false, trail: false },
+    });
+  const [prefill] = useState(() => (initialPlannedRun ? prefillFrom(initialPlannedRun) : null));
+  // The prop can arrive a render late (feature flags still loading at mount) —
+  // apply it once then too. Never re-applied over the user's own edits.
+  const prefillAppliedRef = useRef(!!initialPlannedRun);
+  const [goalType,      setGoalType]      = useState<GoalType>(prefill?.goalType ?? defaults.goalType);
+  const [timeValue,     setTimeValue]     = useState(prefill?.timeValue ?? defaults.time);
+  const [distanceValue, setDistanceValue] = useState(prefill?.distanceValue ?? defaults.distance);
+  const [caloriesValue, setCaloriesValue] = useState(prefill?.caloriesValue ?? defaults.calories);
 
   // Lazy-seeded from BOTH cross-remount stores (not always false) —
   // FreeRunDrawer remounts after every "add stop" / address-pick
@@ -1437,12 +1461,33 @@ export default function FreeRunDrawer({
   const legPlanCount = useLegPlanStore((s) => s.legs.length);
   const pendingAddress = usePendingAddressStore((s) => s.pending);
   const [extras, setExtras] = useState<ExtrasState>({
-    circular: false, gymParks: false, benches: false, stairs: false, trail: false,
+    circular: false,
+    gymParks: prefill?.extras.gymParks ?? false,
+    benches: false,
+    stairs: false,
+    trail: prefill?.extras.trail ?? false,
   });
 
   // ── Hybrid (aerobic + strength) state — additive, defaults OFF ─────────────
-  const [hybridEnabled, setHybridEnabled] = useState(false);
-  const [aerobicShare,  setAerobicShare]  = useState(RECOMMENDED_AEROBIC_SHARE);
+  // (A scheduled run's saved split turns it on; it's still only applied when
+  // enableHybridSlots is on — same `enableHybridSlots && hybridEnabled` gate.)
+  const [hybridEnabled, setHybridEnabled] = useState(prefill?.hybridEnabled ?? false);
+  const [aerobicShare,  setAerobicShare]  = useState(prefill?.aerobicShare ?? RECOMMENDED_AEROBIC_SHARE);
+
+  useEffect(() => {
+    if (prefillAppliedRef.current || !initialPlannedRun) return;
+    prefillAppliedRef.current = true;
+    const p = prefillFrom(initialPlannedRun);
+    if (!p) return;
+    setGoalType(p.goalType);
+    setTimeValue(p.timeValue);
+    setDistanceValue(p.distanceValue);
+    setCaloriesValue(p.caloriesValue);
+    setHybridEnabled(p.hybridEnabled);
+    setAerobicShare(p.aerobicShare);
+    setExtras((prev) => ({ ...prev, gymParks: p.extras.gymParks, trail: p.extras.trail }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPlannedRun]);
 
   // ── Scheduled run state ────────────────────────────────────────────────────
   const [timing,    setTiming]    = useState<'now' | 'later'>('now');

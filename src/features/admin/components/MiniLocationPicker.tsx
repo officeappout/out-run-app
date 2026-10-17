@@ -9,6 +9,8 @@ import { MapPin } from 'lucide-react';
 interface MiniLocationPickerProps {
   value: { lat: number; lng: number };
   onChange: (value: { lat: number; lng: number }) => void;
+  /** Home v2 (enable_home_v2) look — passed by CreateGroupWizard. Same behaviour. */
+  v2?: boolean;
 }
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
@@ -23,7 +25,7 @@ function setMapHebrew(map: mapboxgl.Map) {
   }
 }
 
-export default function MiniLocationPicker({ value, onChange }: MiniLocationPickerProps) {
+export default function MiniLocationPicker({ value, onChange, v2 = false }: MiniLocationPickerProps) {
   const mapRef = React.useRef<MapRef>(null);
 
   const handleMapClick = (event: MapLayerMouseEvent) => {
@@ -42,14 +44,26 @@ export default function MiniLocationPicker({ value, onChange }: MiniLocationPick
 
   if (!MAPBOX_TOKEN) {
     return (
-      <div className="h-40 w-full rounded-xl bg-gray-100 border border-gray-300 flex items-center justify-center text-sm text-gray-400 font-bold">
+      <div
+        className={
+          v2
+            ? 'flex h-44 w-full items-center justify-center rounded-[20px] bg-v2-surface text-[13px] font-bold text-v2-muted ring-1 ring-inset ring-v2-hairline'
+            : 'h-40 w-full rounded-xl bg-gray-100 border border-gray-300 flex items-center justify-center text-sm text-gray-400 font-bold'
+        }
+      >
         חסר טוקן Mapbox
       </div>
     );
   }
 
   return (
-    <div className="h-40 w-full rounded-xl overflow-hidden border border-gray-300 relative cursor-crosshair">
+    <div
+      className={
+        v2
+          ? 'relative h-44 w-full cursor-crosshair overflow-hidden rounded-[20px]'
+          : 'h-40 w-full rounded-xl overflow-hidden border border-gray-300 relative cursor-crosshair'
+      }
+    >
       <Map
         ref={mapRef}
         initialViewState={{
@@ -65,12 +79,19 @@ export default function MiniLocationPicker({ value, onChange }: MiniLocationPick
         cursor="crosshair"
       >
         <Marker longitude={value.lng} latitude={value.lat} anchor="bottom">
-          <div className="text-cyan-500 drop-shadow-md">
+          <div className={v2 ? 'text-v2-deep drop-shadow-md' : 'text-cyan-500 drop-shadow-md'}>
             <MapPin size={28} fill="currentColor" />
           </div>
         </Marker>
       </Map>
-      <div className="absolute bottom-1.5 left-1.5 bg-white/80 backdrop-blur-sm text-[10px] text-gray-500 font-mono px-2 py-0.5 rounded-md">
+      <div
+        className={
+          v2
+            ? 'absolute bottom-2 left-2 whitespace-nowrap rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-bold tabular-nums text-v2-ink-2 shadow-v2-ring backdrop-blur-sm'
+            : 'absolute bottom-1.5 left-1.5 bg-white/80 backdrop-blur-sm text-[10px] text-gray-500 font-mono px-2 py-0.5 rounded-md'
+        }
+        dir="ltr"
+      >
         {value.lat.toFixed(5)}, {value.lng.toFixed(5)}
       </div>
     </div>
