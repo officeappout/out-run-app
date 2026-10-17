@@ -90,3 +90,62 @@ export const UNITS = {
   ],
   myCompany: { name: 'פלוגה ב׳', toTop: 3 },
 };
+
+export type Region = 'north' | 'haifa' | 'sharon' | 'center' | 'jerusalem' | 'south';
+export const REGIONS: { id: Region; label: string }[] = [
+  { id: 'north', label: 'צפון' },
+  { id: 'haifa', label: 'חיפה והקריות' },
+  { id: 'sharon', label: 'שרון' },
+  { id: 'center', label: 'מרכז' },
+  { id: 'jerusalem', label: 'ירושלים' },
+  { id: 'south', label: 'דרום' },
+];
+
+export type SettlementKind = 'city' | 'local' | 'kibbutz' | 'moshav';
+export const SETTLEMENT_KINDS: { id: SettlementKind; label: string }[] = [
+  { id: 'city', label: 'ערים' },
+  { id: 'local', label: 'מועצות מקומיות' },
+  { id: 'kibbutz', label: 'קיבוצים' },
+  { id: 'moshav', label: 'מושבים' },
+];
+
+/** Every kind of settlement — names are real places, numbers are demo. */
+export const SETTLEMENTS: {
+  name: string;
+  kind: SettlementKind;
+  region: Region;
+  size: 'small' | 'medium' | 'large';
+  perMember: number;
+  active: number;
+  totalSteps: number;
+  improve: number;
+  delta: number;
+  me?: boolean;
+}[] = [
+  { name: 'קיבוץ סעד', kind: 'kibbutz', region: 'south', size: 'small', perMember: 232, active: 140, totalSteps: 1900000, improve: 18, delta: 3 },
+  { name: 'שדרות', kind: 'city', region: 'south', size: 'small', perMember: 211, active: 1240, totalSteps: 14200000, improve: 9, delta: 2 },
+  { name: 'מושב נהלל', kind: 'moshav', region: 'north', size: 'small', perMember: 204, active: 95, totalSteps: 1200000, improve: 22, delta: 4 },
+  { name: 'קיבוץ יגור', kind: 'kibbutz', region: 'haifa', size: 'small', perMember: 189, active: 160, totalSteps: 1700000, improve: 4, delta: 0 },
+  { name: 'תל אביב־יפו', kind: 'city', region: 'center', size: 'large', perMember: 174, active: 9870, totalSteps: 98400000, improve: 3, delta: 0, me: true },
+  { name: 'חיפה', kind: 'city', region: 'haifa', size: 'large', perMember: 169, active: 6120, totalSteps: 60100000, improve: 6, delta: 1 },
+  { name: 'כפר ורדים', kind: 'local', region: 'north', size: 'small', perMember: 166, active: 310, totalSteps: 3100000, improve: 12, delta: 2 },
+  { name: 'קריית ים', kind: 'city', region: 'haifa', size: 'small', perMember: 158, active: 830, totalSteps: 7600000, improve: -2, delta: -1 },
+  { name: 'אבן יהודה', kind: 'local', region: 'sharon', size: 'small', perMember: 155, active: 420, totalSteps: 4100000, improve: 7, delta: 1 },
+  { name: 'אשקלון', kind: 'city', region: 'south', size: 'medium', perMember: 151, active: 2210, totalSteps: 19800000, improve: -4, delta: -2 },
+  { name: 'ירושלים', kind: 'city', region: 'jerusalem', size: 'large', perMember: 146, active: 7350, totalSteps: 64800000, improve: 5, delta: 0 },
+  { name: 'באר שבע', kind: 'city', region: 'south', size: 'large', perMember: 140, active: 3460, totalSteps: 30500000, improve: 11, delta: 1 },
+];
+
+/** Neighborhoods across the country, for the "כל הארץ" / "קרובות אליי" scopes. */
+export const NEIGHBORHOODS_ALL = [
+  { name: 'נווה שאנן', city: 'חיפה', perMember: 197, active: 180, totalSteps: 2050000, improve: 14, delta: 2, near: false },
+  { name: 'הצפון הישן', city: 'תל אביב־יפו', perMember: 186, active: 214, totalSteps: 2410000, improve: 6, delta: 1, me: true, near: true },
+  { name: 'רמת השרון — מרכז', city: 'רמת השרון', perMember: 181, active: 150, totalSteps: 1600000, improve: 3, delta: 0, near: true },
+  { name: 'פלורנטין', city: 'תל אביב־יפו', perMember: 171, active: 388, totalSteps: 3980000, improve: -3, delta: -1, near: true },
+  { name: 'רחביה', city: 'ירושלים', perMember: 168, active: 260, totalSteps: 2600000, improve: 8, delta: 1, near: false },
+  { name: 'נווה צדק', city: 'תל אביב־יפו', perMember: 164, active: 97, totalSteps: 890000, improve: 10, delta: 2, near: true },
+  { name: 'רמת אביב', city: 'תל אביב־יפו', perMember: 152, active: 301, totalSteps: 2870000, improve: 1, delta: 0, near: true },
+  { name: 'נאות אשכול', city: 'שדרות', perMember: 149, active: 120, totalSteps: 1100000, improve: 19, delta: 3, near: false },
+  { name: 'יד אליהו', city: 'תל אביב־יפו', perMember: 139, active: 176, totalSteps: 1530000, improve: 12, delta: 3, near: true },
+  { name: 'יפו', city: 'תל אביב־יפו', perMember: 128, active: 242, totalSteps: 2110000, improve: -5, delta: -2, near: true },
+];

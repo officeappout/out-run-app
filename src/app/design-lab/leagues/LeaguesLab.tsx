@@ -18,6 +18,7 @@ import {
   Info,
   Plus,
   Shield,
+  SlidersHorizontal,
   Swords,
   Timer,
   UserPlus,
@@ -30,12 +31,16 @@ import LabFrame, { LabStates } from '../_shared/LabFrame';
 import { BottomNav } from '../_app/parts';
 import {
   BATTLE,
-  CITIES,
   CITY_CHALLENGE,
   INVITES,
   PEOPLE_BOARD,
   MY_LEAGUES,
-  NEIGHBORHOODS,
+  NEIGHBORHOODS_ALL,
+  REGIONS,
+  SETTLEMENTS,
+  SETTLEMENT_KINDS,
+  type Region,
+  type SettlementKind,
   POINTS_RULES,
   SEASON,
   UNITS,
@@ -45,7 +50,7 @@ import {
 const TABS: { id: LeagueTab; label: string }[] = [
   { id: 'people', label: 'אישי' },
   { id: 'neighborhoods', label: 'שכונות' },
-  { id: 'cities', label: 'ערים' },
+  { id: 'cities', label: 'יישובים' },
   { id: 'units', label: 'חטיבות' },
 ];
 
@@ -526,23 +531,337 @@ function PeopleLeague({ leagueId, onPick }: { leagueId: string; onPick: () => vo
   );
 }
 
+/* ── board controls: activity, ranking mode, filters ───────────────────── */
+
+type Activity = 'all' | 'steps' | 'strength' | 'run';
+type RankMode = 'avg' | 'total' | 'improve';
+const ACTIVITIES: { id: Activity; label: string }[] = [
+  { id: 'all', label: 'כל הפעילות' },
+  { id: 'steps', label: 'צעדים' },
+  { id: 'strength', label: 'כוח' },
+  { id: 'run', label: 'ריצה' },
+];
+const RANK_MODES: { id: RankMode; label: string }[] = [
+  { id: 'avg', label: 'ממוצע' },
+  { id: 'total', label: 'סה״כ' },
+  { id: 'improve', label: 'הכי משתפרים' },
+];
+
+/** Demo only: a stable per-name factor so each activity reorders the board a bit. */
+function actFactor(name: string, a: Activity): number {
+  if (a === 'all') return 1;
+  let h = 7;
+  for (const c of name + a) h = (h * 31 + c.charCodeAt(0)) % 997;
+  return 0.7 + (h % 60) / 100;
+}
+
+interface Scored {
+  name: string;
+  perMember: number;
+  totalSteps: number;
+  improve: number;
+}
+
+function score(x: Scored, a: Activity, m: RankMode): number {
+  const f = actFactor(x.name, a);
+  if (m === 'improve') return x.improve * f;
+  if (m === 'total') return x.totalSteps * f;
+  return x.perMember * f;
+}
+
+function display(x: Scored, a: Activity, m: RankMode): { value: string; unit: string; short: string } {
+  const f = actFactor(x.name, a);
+  if (m === 'improve') {
+    const v = Math.round(x.improve * f);
+    const t = `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v)}%`;
+    return { value: t, unit: 'מהשבוע שעבר', short: t };
+  }
+  if (m === 'total') {
+    if (a === 'strength') {
+      const v = big(Math.round((x.totalSteps / 400) * f));
+      return { value: v, unit: 'דק׳ כוח', short: v };
+    }
+    if (a === 'run') {
+      const v = big(Math.round((x.totalSteps / 1300) * f));
+      return { value: v, unit: 'ק״מ', short: v };
+    }
+    const v = big(Math.round(x.totalSteps * f));
+    return { value: v, unit: 'צעדים', short: v };
+  }
+  const v = String(Math.round(x.perMember * f));
+  return { value: v, unit: 'נק׳ למשתתף', short: v };
+}
+
+function PillToggle<T extends string>({ value, onChange, options, id }: { value: T; onChange: (v: T) => void; options: { id: T; label: string }[]; id: string }) {
+  const reduce = useReducedMotion();
+  return (
+    <div
+      className="grid rounded-full bg-v2-surface p-1 ring-1 ring-inset ring-v2-hairline"
+      style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
+      role="radiogroup"
+    >
+      {options.map((o) => {
+        const on = o.id === value;
+        return (
+          <button
+            key={o.id}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            onClick={() => onChange(o.id)}
+            className={`relative h-9 rounded-full text-[13px] font-extrabold transition-colors duration-200 ${on ? 'text-v2-ink' : 'text-v2-muted'}`}
+          >
+            {on && (
+              <motion.span
+                layoutId={`pill-${id}`}
+                className="absolute inset-0 rounded-full bg-white shadow-v2-ring"
+                transition={{ duration: reduce ? 0 : 0.28, ease: EASE_V2 }}
+              />
+            )}
+            <span className="relative">{o.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ChipRow<T extends string>({ value, onChange, options }: { value: T; onChange: (v: T) => void; options: { id: T; label: string }[] }) {
+  return (
+    <div className="-mx-2 flex gap-1.5 overflow-x-auto px-2 [scrollbar-width:none]">
+      {options.map((o) => (
+        <button
+          key={o.id}
+          type="button"
+          onClick={() => onChange(o.id)}
+          aria-pressed={value === o.id}
+          className={`h-8 shrink-0 rounded-full px-3.5 text-[12.5px] font-extrabold transition-[transform,background-color] duration-150 ease-v2 active:scale-[0.97] ${
+            value === o.id ? 'bg-v2-cta text-v2-on-cta' : 'bg-white text-v2-ink-2 ring-1 ring-inset ring-v2-hairline'
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function FilterButton({ count, onClick }: { count: number; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="relative flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-white px-3 text-[12.5px] font-extrabold text-v2-ink ring-1 ring-inset ring-v2-hairline transition-transform duration-150 ease-v2 active:scale-[0.97]"
+    >
+      <SlidersHorizontal size={14} strokeWidth={2.6} aria-hidden />
+      סינון
+      {count > 0 && (
+        <span className="grid h-5 min-w-5 place-items-center rounded-full bg-v2-cta px-1 text-[11px] font-black text-v2-on-cta">{count}</span>
+      )}
+    </button>
+  );
+}
+
+interface Filters {
+  regions: Region[];
+  size: 'all' | 'small' | 'medium' | 'large';
+  age: 'all' | 'youth' | 'adults' | 'golden';
+  period: 'week' | 'month' | 'season';
+}
+const EMPTY_FILTERS: Filters = { regions: [], size: 'all', age: 'all', period: 'week' };
+const filterCount = (f: Filters) =>
+  f.regions.length + (f.size !== 'all' ? 1 : 0) + (f.age !== 'all' ? 1 : 0) + (f.period !== 'week' ? 1 : 0);
+
+function FilterSheet({
+  open,
+  value,
+  onApply,
+  onClose,
+  showSize,
+}: {
+  open: boolean;
+  value: Filters;
+  onApply: (f: Filters) => void;
+  onClose: () => void;
+  showSize: boolean;
+}) {
+  const reduce = useReducedMotion();
+  const [f, setF] = useState<Filters>(value);
+  useEffect(() => {
+    if (open) setF(value);
+  }, [open, value]);
+  const toggleRegion = (r: Region) =>
+    setF((x) => ({ ...x, regions: x.regions.includes(r) ? x.regions.filter((y) => y !== r) : [...x.regions, r] }));
+  const chip = (on: boolean) =>
+    `h-9 rounded-full px-4 text-[13px] font-extrabold transition-[transform,background-color] duration-150 ease-v2 active:scale-[0.97] ${
+      on ? 'bg-v2-cta text-v2-on-cta' : 'bg-white text-v2-ink-2 shadow-v2-ring'
+    }`;
+  const Section = ({ title, children }: { title: string; children: ReactNode }) => (
+    <div>
+      <div className="mb-2 text-[13px] font-extrabold text-v2-muted">{title}</div>
+      <div className="flex flex-wrap gap-1.5">{children}</div>
+    </div>
+  );
+  return (
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-[10]" role="dialog" aria-modal="true" aria-label="סינון">
+          <motion.button
+            type="button"
+            aria-label="סגירה"
+            className="absolute inset-0 bg-[#0e1419]/40"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+          />
+          <motion.div
+            className="absolute inset-x-0 bottom-0 max-h-[85%] overflow-y-auto rounded-t-[28px] bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+20px)] pt-2.5 shadow-v2-sheet"
+            initial={reduce ? { opacity: 0 } : { y: '100%' }}
+            animate={reduce ? { opacity: 1 } : { y: 0 }}
+            exit={reduce ? { opacity: 0 } : { y: '100%' }}
+            transition={{ duration: 0.42, ease: [0.32, 0.72, 0, 1] }}
+          >
+            <div className="mb-3 flex justify-center">
+              <span className="h-1.5 w-10 rounded-full bg-v2-pill-border" />
+            </div>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-[22px] font-black !tracking-[-0.02em]">סינון</h2>
+              <button type="button" onClick={() => setF(EMPTY_FILTERS)} className="text-[14px] font-extrabold text-v2-deep">
+                ניקוי
+              </button>
+            </div>
+            <div className="space-y-5">
+              <Section title="אזור">
+                {REGIONS.map((r) => (
+                  <button key={r.id} type="button" aria-pressed={f.regions.includes(r.id)} onClick={() => toggleRegion(r.id)} className={chip(f.regions.includes(r.id))}>
+                    {r.label}
+                  </button>
+                ))}
+              </Section>
+              {showSize && (
+                <Section title="גודל">
+                  {(
+                    [
+                      ['all', 'הכל'],
+                      ['small', 'קטנים'],
+                      ['medium', 'בינוניים'],
+                      ['large', 'גדולים'],
+                    ] as const
+                  ).map(([id, label]) => (
+                    <button key={id} type="button" aria-pressed={f.size === id} onClick={() => setF((x) => ({ ...x, size: id }))} className={chip(f.size === id)}>
+                      {label}
+                    </button>
+                  ))}
+                </Section>
+              )}
+              <Section title="קבוצת גיל">
+                {(
+                  [
+                    ['all', 'כל הגילים'],
+                    ['youth', 'נוער'],
+                    ['adults', 'מבוגרים'],
+                    ['golden', 'גיל הזהב 65+'],
+                  ] as const
+                ).map(([id, label]) => (
+                  <button key={id} type="button" aria-pressed={f.age === id} onClick={() => setF((x) => ({ ...x, age: id }))} className={chip(f.age === id)}>
+                    {label}
+                  </button>
+                ))}
+              </Section>
+              <Section title="תקופה">
+                {(
+                  [
+                    ['week', 'השבוע'],
+                    ['month', 'החודש'],
+                    ['season', 'העונה'],
+                  ] as const
+                ).map(([id, label]) => (
+                  <button key={id} type="button" aria-pressed={f.period === id} onClick={() => setF((x) => ({ ...x, period: id }))} className={chip(f.period === id)}>
+                    {label}
+                  </button>
+                ))}
+              </Section>
+              <Button
+                variant="primary"
+                size="lg"
+                block
+                onClick={() => {
+                  onApply(f);
+                  onClose();
+                }}
+              >
+                הצגת תוצאות
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+const AGE_LABEL = { youth: 'נוער', adults: 'מבוגרים', golden: 'גיל הזהב' } as const;
+const PERIOD_LABEL = { week: 'השבוע', month: 'החודש', season: 'העונה' } as const;
+
+/** Activity chips + filter button, then the ranking-mode toggle. */
+function BoardControls({
+  activity,
+  setActivity,
+  mode,
+  setMode,
+  filters,
+  onFilter,
+  id,
+}: {
+  activity: Activity;
+  setActivity: (a: Activity) => void;
+  mode: RankMode;
+  setMode: (m: RankMode) => void;
+  filters: Filters;
+  onFilter: () => void;
+  id: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-1.5">
+        <div className="min-w-0 flex-1">
+          <ChipRow value={activity} onChange={setActivity} options={ACTIVITIES} />
+        </div>
+        <FilterButton count={filterCount(filters)} onClick={onFilter} />
+      </div>
+      <PillToggle id={id} value={mode} onChange={setMode} options={RANK_MODES} />
+    </div>
+  );
+}
+
 /* ── neighborhoods ──────────────────────────────────────────────────────── */
 
+type HoodScope = 'city' | 'near' | 'all';
+const HOOD_SCOPES: { id: HoodScope; label: string }[] = [
+  { id: 'city', label: 'בעיר שלי' },
+  { id: 'near', label: 'קרובות אליי' },
+  { id: 'all', label: 'כל הארץ' },
+];
+
 function NeighborhoodLeague() {
-  const [measure, setMeasure] = useState<Measure>('avg');
+  const [scope, setScope] = useState<HoodScope>('city');
+  const [activity, setActivity] = useState<Activity>('all');
+  const [mode, setMode] = useState<RankMode>('avg');
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const [filterOpen, setFilterOpen] = useState(false);
   const b = BATTLE;
   const lead = b.mine.perMember - b.rival.perMember;
   const pct = Math.round((b.mine.perMember / (b.mine.perMember + b.rival.perMember)) * 100);
-  const sorted = [...NEIGHBORHOODS].sort((x, y) => (measure === 'avg' ? y.perMember - x.perMember : y.totalSteps - x.totalSteps));
-  const val = (n: (typeof NEIGHBORHOODS)[number]) => (measure === 'avg' ? String(n.perMember) : big(n.totalSteps));
-  const unit = measure === 'avg' ? 'נק׳ למשתתף' : 'צעדים';
-  const top: PodiumItem[] = sorted.slice(0, 3).map((n) => ({
-    name: n.name,
-    value: val(n),
-    unit: measure === 'avg' ? 'נק׳' : '',
-    me: n.me,
-    sub: `${n.active} פעילים`,
-  }));
+  const pool = NEIGHBORHOODS_ALL.filter((n) => (scope === 'city' ? n.city === 'תל אביב־יפו' : scope === 'near' ? n.near : true));
+  const sorted = [...pool].sort((x, y) => score(y, activity, mode) - score(x, activity, mode));
+  const title = scope === 'city' ? 'שכונות תל אביב־יפו' : scope === 'near' ? 'שכונות קרובות אליי' : 'השכונות בכל הארץ';
+  const sub = (n: (typeof NEIGHBORHOODS_ALL)[number]) => (scope === 'city' ? `${n.active} פעילים` : `${n.city} · ${n.active} פעילים`);
+  const top: PodiumItem[] = sorted.slice(0, 3).map((n) => {
+    const d = display(n, activity, mode);
+    return { name: n.name, value: d.short, unit: mode === 'avg' ? 'נק׳' : '', me: n.me, sub: scope === 'city' ? `${n.active} פעילים` : n.city };
+  });
+  const period = PERIOD_LABEL[filters.period];
   return (
     <>
       <div className="rounded-v2-card-lg border border-v2-hairline-cool bg-gradient-to-br from-[#e8f9fe] to-[#e9fdfb] p-5">
@@ -603,58 +922,62 @@ function NeighborhoodLeague() {
       </div>
 
       <Card padding="sm">
-        <BoardHead title="שכונות תל אביב־יפו" period="השבוע">
-          <MeasureToggle value={measure} onChange={setMeasure} avgLabel="ממוצע למשתתף" totalLabel="סה״כ צעדים" />
-        </BoardHead>
-        <Podium key={measure} items={top} avatars={false} />
-        <ol className="mt-2">
-          {sorted.slice(3).map((n, i) => (
-            <Row
-              key={n.name}
-              rank={i + 4}
-              name={n.name}
-              sub={`${n.active} פעילים`}
-              value={val(n)}
-              unit={unit}
-              delta={n.delta}
-              me={n.me}
+        <BoardHead title={title} period={period + (filters.age !== 'all' ? ` · ${AGE_LABEL[filters.age]}` : '')}>
+          <div className="space-y-2">
+            <PillToggle id="hood-scope" value={scope} onChange={setScope} options={HOOD_SCOPES} />
+            <BoardControls
+              id="hood-mode"
+              activity={activity}
+              setActivity={setActivity}
+              mode={mode}
+              setMode={setMode}
+              filters={filters}
+              onFilter={() => setFilterOpen(true)}
             />
-          ))}
+          </div>
+        </BoardHead>
+        <Podium key={scope + activity + mode} items={top} avatars={false} />
+        <ol className="mt-2">
+          {sorted.slice(3).map((n, i) => {
+            const d = display(n, activity, mode);
+            return <Row key={n.name} rank={i + 4} name={n.name} sub={sub(n)} value={d.value} unit={d.unit} delta={n.delta} me={n.me} />;
+          })}
         </ol>
       </Card>
       <FairNote>
-        {measure === 'avg'
-          ? 'בממוצע למשתתף, גודל השכונה לא קובע: נווה צדק במקום השלישי עם 97 פעילים בלבד.'
-          : 'בסה״כ, שכונות גדולות מובילות. הדירוג הרשמי של הליגה הוא לפי ממוצע למשתתף.'}
+        {mode === 'avg'
+          ? 'בממוצע למשתתף, גודל השכונה לא קובע: גם שכונה עם 97 פעילים יכולה לנצח.'
+          : mode === 'total'
+            ? 'בסה״כ, שכונות גדולות מובילות. הדירוג הרשמי של הליגה הוא לפי ממוצע למשתתף.'
+            : 'הכי משתפרים: מי שהוסיף הכי הרבה מהשבוע שעבר. כל שכונה יכולה להגיע לראש.'}
       </FairNote>
+      <FilterSheet open={filterOpen} value={filters} onApply={setFilters} onClose={() => setFilterOpen(false)} showSize={false} />
     </>
   );
 }
 
-/* ── cities ─────────────────────────────────────────────────────────────── */
+/* ── settlements: cities, local councils, kibbutzim, moshavim ───────────── */
 
-const SIZE_FILTERS = [
-  { id: 'all', label: 'כל הערים' },
-  { id: 'small', label: 'קטנות' },
-  { id: 'medium', label: 'בינוניות' },
-  { id: 'large', label: 'גדולות' },
-] as const;
+const KIND_ONE: Record<SettlementKind, string> = { city: 'עיר', local: 'מועצה מקומית', kibbutz: 'קיבוץ', moshav: 'מושב' };
 
 function CityLeague() {
-  const [size, setSize] = useState<(typeof SIZE_FILTERS)[number]['id']>('all');
-  const [measure, setMeasure] = useState<Measure>('avg');
-  const rows = CITIES.filter((c) => size === 'all' || c.size === size).sort((x, y) =>
-    measure === 'avg' ? y.perMember - x.perMember : y.totalSteps - x.totalSteps,
-  );
-  const val = (r: (typeof CITIES)[number]) => (measure === 'avg' ? String(r.perMember) : big(r.totalSteps));
+  const [kind, setKind] = useState<'all' | SettlementKind>('all');
+  const [activity, setActivity] = useState<Activity>('all');
+  const [mode, setMode] = useState<RankMode>('avg');
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const rows = SETTLEMENTS.filter(
+    (c) =>
+      (kind === 'all' || c.kind === kind) &&
+      (filters.regions.length === 0 || filters.regions.includes(c.region)) &&
+      (filters.size === 'all' || c.size === filters.size),
+  ).sort((x, y) => score(y, activity, mode) - score(x, activity, mode));
   const c = CITY_CHALLENGE;
-  const top: PodiumItem[] = rows.slice(0, 3).map((r) => ({
-    name: r.name,
-    value: val(r),
-    unit: measure === 'avg' ? 'נק׳' : '',
-    me: r.me,
-    sub: `${r.active.toLocaleString('he-IL')} פעילים`,
-  }));
+  const regionLabel = (r: Region) => REGIONS.find((x) => x.id === r)!.label;
+  const top: PodiumItem[] = rows.slice(0, 3).map((r) => {
+    const d = display(r, activity, mode);
+    return { name: r.name, value: d.short, unit: mode === 'avg' ? 'נק׳' : '', me: r.me, sub: `${r.active.toLocaleString('he-IL')} פעילים` };
+  });
   const podium = top.length === 3;
   return (
     <>
@@ -690,47 +1013,52 @@ function CityLeague() {
         </div>
       </Card>
 
-      <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none]">
-        {SIZE_FILTERS.map((f) => (
-          <button
-            key={f.id}
-            type="button"
-            onClick={() => setSize(f.id)}
-            aria-pressed={size === f.id}
-            className={`h-9 shrink-0 rounded-full px-4 text-[13px] font-extrabold transition-[transform,background-color] duration-150 ease-v2 active:scale-[0.97] ${
-              size === f.id ? 'bg-v2-cta text-v2-on-cta' : 'bg-white text-v2-ink-2 shadow-v2-ring'
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
-
       <Card padding="sm">
-        <BoardHead title="ליגת הערים" period="החודש">
-          <MeasureToggle value={measure} onChange={setMeasure} avgLabel="ממוצע לתושב פעיל" totalLabel="סה״כ צעדים" />
-        </BoardHead>
-        {podium && <Podium key={measure + size} items={top} avatars={false} />}
-        <ol className="mt-2">
-          {rows.slice(podium ? 3 : 0).map((r, i) => (
-            <Row
-              key={r.name}
-              rank={i + (podium ? 4 : 1)}
-              name={r.name}
-              sub={`${r.active.toLocaleString('he-IL')} פעילים`}
-              value={val(r)}
-              unit={measure === 'avg' ? 'נק׳ למשתתף' : 'צעדים'}
-              delta={r.delta}
-              me={r.me}
+        <BoardHead
+          title="ליגת היישובים"
+          period={PERIOD_LABEL[filters.period] + (filters.age !== 'all' ? ` · ${AGE_LABEL[filters.age]}` : '')}
+        >
+          <div className="space-y-2">
+            <ChipRow value={kind} onChange={setKind} options={[{ id: 'all' as const, label: 'כל היישובים' }, ...SETTLEMENT_KINDS]} />
+            <BoardControls
+              id="city-mode"
+              activity={activity}
+              setActivity={setActivity}
+              mode={mode}
+              setMode={setMode}
+              filters={filters}
+              onFilter={() => setFilterOpen(true)}
             />
-          ))}
+          </div>
+        </BoardHead>
+        {podium && <Podium key={kind + activity + mode + filterCount(filters)} items={top} avatars={false} />}
+        <ol className="mt-2">
+          {rows.slice(podium ? 3 : 0).map((r, i) => {
+            const d = display(r, activity, mode);
+            return (
+              <Row
+                key={r.name}
+                rank={i + (podium ? 4 : 1)}
+                name={r.name}
+                sub={`${KIND_ONE[r.kind]} · ${regionLabel(r.region)}`}
+                value={d.value}
+                unit={d.unit}
+                delta={r.delta}
+                me={r.me}
+              />
+            );
+          })}
+          {rows.length === 0 && <li className="px-3 py-6 text-center text-[14px] font-bold text-v2-muted">אין יישובים שמתאימים לסינון</li>}
         </ol>
       </Card>
       <FairNote>
-        {measure === 'avg'
-          ? 'בממוצע לתושב פעיל, עיר קטנה עם תושבים פעילים מנצחת עיר גדולה.'
-          : 'בסה״כ צעדים הערים הגדולות מובילות. אפשר לסנן לפי גודל העיר להשוואה הוגנת.'}
+        {mode === 'avg'
+          ? 'בממוצע לתושב פעיל, קיבוץ קטן יכול לנצח עיר גדולה.'
+          : mode === 'total'
+            ? 'בסה״כ, ערים גדולות מובילות. אפשר לסנן לפי גודל או סוג יישוב להשוואה הוגנת.'
+            : 'הכי משתפרים: מי שהוסיף הכי הרבה מהשבוע שעבר.'}
       </FairNote>
+      <FilterSheet open={filterOpen} value={filters} onApply={setFilters} onClose={() => setFilterOpen(false)} showSize />
     </>
   );
 }
