@@ -52,6 +52,12 @@ interface ExerciseVideoPlayerProps {
    * 'contain' shows the full frame — letterboxes into the container bg.
    */
   objectFit?: 'cover' | 'contain';
+  /**
+   * Tutorial mode only: start the Bunny HLS tutorial WITH SOUND (G5.5 — the strength player's
+   * guided demo gate). A rejected unmuted play falls back to muted (the native controls let the
+   * user unmute). Omitted → muted autoplay, unchanged for every other caller.
+   */
+  startUnmuted?: boolean;
 }
 
 /** Detect a YouTube video ID from a raw URL (youtube.com/* or youtu.be/*). */
@@ -81,11 +87,15 @@ export default function ExerciseVideoPlayer({
   lazyPlay = false,
   posterUrl,
   objectFit = 'cover',
+  startUnmuted = false,
 }: ExerciseVideoPlayerProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const videoRef     = useRef<HTMLVideoElement | null>(null); // preview / internal / legacy
   const tutorialRef  = useRef<HTMLVideoElement | null>(null); // Bunny tutorial HLS player
   const touchStart   = useRef<{ x: number; y: number } | null>(null);
+  // G5.5: read inside the HLS effect without re-attaching the stream when it changes.
+  const startUnmutedRef = useRef(startUnmuted);
+  startUnmutedRef.current = startUnmuted;
 
   // `iframeLoaded` is only needed for YouTube iframes (Bunny no longer uses iframes).
   // Resets whenever the video source changes so the poster re-shows on navigation.
@@ -170,6 +180,16 @@ export default function ExerciseVideoPlayer({
     let cancelled = false;
     let hlsInstance: { destroy: () => void } | null = null;
 
+    // Muted autoplay (unchanged default) — or, with startUnmuted, with sound + muted fallback.
+    const playTutorial = (v: HTMLVideoElement) => {
+      if (!startUnmutedRef.current) { v.play().catch(() => {}); return; }
+      v.muted = false;
+      v.play().catch(() => {
+        v.muted = true;
+        v.play().catch(() => {});
+      });
+    };
+
     const hlsUrl = buildBunnyHlsUrl(tutorialVideoId);
     const mp4Url = buildBunnyStreamUrl(tutorialVideoId, 720);
 
@@ -177,7 +197,7 @@ export default function ExerciseVideoPlayer({
     if (vid.canPlayType('application/vnd.apple.mpegurl')) {
       vid.src = hlsUrl;
       vid.load();
-      vid.play().catch(() => {});
+      playTutorial(vid);
       return () => { cancelled = true; };
     }
 
@@ -192,7 +212,7 @@ export default function ExerciseVideoPlayer({
           // Browser cannot play HLS at all — progressive MP4 fallback
           v.src = mp4Url;
           v.load();
-          v.play().catch(() => {});
+          playTutorial(v);
           return;
         }
 
@@ -204,7 +224,7 @@ export default function ExerciseVideoPlayer({
         hls.loadSource(hlsUrl);
         hls.attachMedia(v);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          if (!cancelled) v.play().catch(() => {});
+          if (!cancelled) playTutorial(v);
         });
         hlsInstance = hls;
       })
@@ -212,7 +232,7 @@ export default function ExerciseVideoPlayer({
         // hls.js chunk failed to load — fall back to 720p MP4
         if (cancelled) return;
         const v = tutorialRef.current;
-        if (v) { v.src = mp4Url; v.load(); v.play().catch(() => {}); }
+        if (v) { v.src = mp4Url; v.load(); playTutorial(v); }
       });
 
     return () => {

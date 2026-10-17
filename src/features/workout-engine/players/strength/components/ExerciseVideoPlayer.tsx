@@ -18,6 +18,7 @@ import type { ExternalVideo } from '@/features/content/exercises/core/exercise.t
 import { FOLLOW_ALONG_TUTORIAL_CTA_DEDUP_ENABLED } from '@/config/feature-flags';
 import { extractBunnyVideoId } from '@/lib/bunny/bunny.config';
 import BunnyVideoPlayer from '@/lib/bunny/BunnyVideoPlayer';
+import { isPlayerAudioMuted } from '../logic/player-audio-mute';
 
 interface ExerciseVideoPlayerProps {
   exerciseId: string;
@@ -40,6 +41,11 @@ interface ExerciseVideoPlayerProps {
    *  can't be unmuted from the parent) so the guided demo gate can unmute + play it inside the
    *  user's tap. Omitted → unchanged. */
   onVideoElement?: (el: HTMLVideoElement | null) => void;
+  /** G5.5 guided demo gate, first-time view: the FULL narrated tutorial to play inline WITH SOUND
+   *  instead of the short preview loop (see logic/demo-gate.ts gateFullTutorial). While set, the
+   *  preview element is not mounted (one decoder on iOS; nothing for the gate tap to unmute) and
+   *  the "צפה בהסבר המלא" CTA is hidden. Omitted / null → unchanged. */
+  gateFullTutorial?: ExternalVideo | null;
 }
 
 // Fallback video URL
@@ -83,6 +89,7 @@ export default function ExerciseVideoPlayer({
   onVideoEnded,
   onLoadingChange,
   onVideoElement,
+  gateFullTutorial = null,
 }: ExerciseVideoPlayerProps) {
   const [videoLoading, setVideoLoading] = useState(true);
   const [iframeError, setIframeError] = useState(false);
@@ -239,6 +246,7 @@ export default function ExerciseVideoPlayer({
   // image" symptom. Only follow-along mode (a full guided clip the user opted
   // into) honours the global audio toggle.
   const shouldMuteVideo = exerciseType === 'follow-along' ? !isAudioEnabled : true;
+  const showingGateTutorial = !!gateFullTutorial;
 
   // ── Imperative playback driver ─────────────────────────────────────────
   // The `autoPlay` attribute alone is unreliable on WKWebView, and React does
@@ -268,7 +276,9 @@ export default function ExerciseVideoPlayer({
         v.play().catch(() => {});
       });
     }
-  }, [effectiveVideoUrl, hasValidDirectVideoUrl, isYouTubeVideo, isPaused, shouldMuteVideo]);
+    // G5.5: `showingGateTutorial` re-runs this when the preview <video> remounts after the gate's
+    // full tutorial (its paused/mute inputs didn't change, but the element is new).
+  }, [effectiveVideoUrl, hasValidDirectVideoUrl, isYouTubeVideo, isPaused, shouldMuteVideo, showingGateTutorial]);
 
   // Handle loading state changes
   const handleLoadingChange = useCallback((loading: boolean) => {
@@ -294,7 +304,7 @@ export default function ExerciseVideoPlayer({
   return (
     <div className="absolute inset-0 bg-black overflow-hidden" key={exerciseId}>
       {/* Main Video Content - Centered on solid black background */}
-      {effectiveVideoUrl && typeof effectiveVideoUrl === 'string' && effectiveVideoUrl.trim() !== '' && (
+      {!gateFullTutorial && effectiveVideoUrl && typeof effectiveVideoUrl === 'string' && effectiveVideoUrl.trim() !== '' && (
         <div className="absolute inset-0 flex items-center justify-center">
           {/* YouTube Video */}
           {isYouTubeVideo && youtubeVideoId && youtubeEmbedUrl && !iframeError && (
@@ -463,7 +473,25 @@ export default function ExerciseVideoPlayer({
           full guided video, so fullscreen is enough. Reps/time exercises (no
           Maximize button) and the YouTube/image-fallback follow-along edge
           case (no Maximize button either) both keep the CTA untouched. */}
-      {fullTutorial?.videoId && !showTutorial &&
+      {/* G5.5: the guided demo gate is already playing the full tutorial inline (below). */}
+      {gateFullTutorial && (
+        <div
+          className="absolute inset-x-0 top-0 bottom-[220px] bg-black"
+          style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+        >
+          <TutorialVideoPlayer
+            key={`gate-tutorial-${exerciseId}-${gateFullTutorial.videoId}`}
+            video={gateFullTutorial}
+            mode="tutorial"
+            posterUrl={gateFullTutorial.thumbnailUrl ?? null}
+            objectFit="contain"
+            className="w-full h-full"
+            startUnmuted={!isPlayerAudioMuted()}
+          />
+        </div>
+      )}
+
+      {fullTutorial?.videoId && !showTutorial && !gateFullTutorial &&
         !(FOLLOW_ALONG_TUTORIAL_CTA_DEDUP_ENABLED && isGuidedFollowAlong && hasValidDirectVideoUrl) && (
         <button
           onClick={() => setShowTutorial(true)}
@@ -580,7 +608,9 @@ export default function ExerciseVideoPlayer({
       )}
 
       {/* Bottom-up Gradient - Melting into white card */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+      {!gateFullTutorial && (
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+      )}
 
       {/* Video Progress Bar for Follow-along Mode */}
       {exerciseType === 'follow-along' && (
