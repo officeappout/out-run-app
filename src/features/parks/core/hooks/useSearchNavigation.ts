@@ -77,7 +77,7 @@ export function useSearchNavigation(
   const [navActivity, setNavActivity] = useState<ActivityType>('walking');
 
   useEffect(() => {
-    if (searchQuery.length < 3) { setSuggestions([]); setIsSearching(false); return; }
+    if (searchQuery.length < 2) { setSuggestions([]); setIsSearching(false); return; }
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {
@@ -89,7 +89,11 @@ export function useSearchNavigation(
         // setSuggestions. Now the older fetch is actually aborted.
         const [mapboxResults, parks, routes] = await Promise.all([
           withCancelPrevious('address-search-typeahead', (signal) =>
-            MapboxService.searchAddress(searchQuery, { signal }),
+            MapboxService.searchAddress(searchQuery, {
+              signal,
+              // bias to where the user is (lng, lat)
+              proximity: currentUserPos ? [currentUserPos.lng, currentUserPos.lat] : null,
+            }),
           ),
           getCachedParks(),
           getCachedOfficialRoutes(),

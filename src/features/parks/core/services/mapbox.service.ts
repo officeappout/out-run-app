@@ -241,24 +241,84 @@ const getSmartPathAlternatives = async (
 };
 
 // פונקציה לחיפוש כתובות (Geocoding)
+//
+// 17.10.2026 (owner: "when I type it doesn't find all the addresses"): the
+// old call was Geocoding v5 only, 5 results, no proximity — v5's Israeli
+// street/house-number coverage in Hebrew is thin. Now two calls in parallel:
+//   • Geocoding v6 forward — the newer address index (streets, house
+//     numbers, neighborhoods, localities), autocomplete, biased to the user;
+//   • Geocoding v5 — kept for points of interest (v6 has no POIs).
+// Merged (v6 first), de-duplicated by name + ~50m, up to 8.
+type GeoHit = { text: string; coords: [number, number] };
+
+function toQuery(params: Record<string, string | undefined>): string {
+  return Object.entries(params)
+    .filter(([, v]) => v != null && v !== '')
+    .map(([k, v]) => `${k}=${encodeURIComponent(v as string)}`)
+    .join('&');
+}
+
 const searchAddress = async (
   query: string,
-  opts?: { signal?: AbortSignal },
-): Promise<Array<{ text: string; coords: [number, number] }>> => {
-  if (!query || query.length < 3) return [];
+  opts?: { signal?: AbortSignal; proximity?: [number, number] | null },
+): Promise<GeoHit[]> => {
+  if (!query || query.length < 2) return [];
+  const proximity = opts?.proximity ? `${opts.proximity[0]},${opts.proximity[1]}` : undefined;
+
+  const v6 = async (): Promise<GeoHit[]> => {
+    const url = `https://api.mapbox.com/search/geocode/v6/forward?${toQuery({
+      q: query,
+      country: 'il',
+      language: 'he',
+      limit: '8',
+      autocomplete: 'true',
+      proximity,
+      access_token: MAPBOX_TOKEN,
+    })}`;
+    const res = await fetch(url, { signal: opts?.signal });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.features ?? [])
+      .map((f: any) => {
+        const p = f.properties ?? {};
+        const coords = (f.geometry?.coordinates ?? [p.coordinates?.longitude, p.coordinates?.latitude]) as [number, number];
+        const text = p.full_address || [p.name, p.place_formatted].filter(Boolean).join(', ');
+        return text && Number.isFinite(coords?.[0]) ? { text, coords } : null;
+      })
+      .filter(Boolean) as GeoHit[];
+  };
+
+  const v5 = async (): Promise<GeoHit[]> => {
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?${toQuery({
+      access_token: MAPBOX_TOKEN,
+      language: 'he',
+      country: 'il',
+      limit: '6',
+      autocomplete: 'true',
+      fuzzyMatch: 'true',
+      proximity,
+    })}`;
+    const res = await fetch(url, { signal: opts?.signal });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.features ?? []).map((f: any) => ({ text: f.place_name as string, coords: f.center as [number, number] }));
+  };
 
   try {
-    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${MAPBOX_TOKEN}&language=he&country=il&limit=5`;
-    const response = await fetch(url, { signal: opts?.signal });
-    const data = await response.json();
-
-    if (data.features) {
-      return data.features.map((f: any) => ({
-        text: f.place_name,
-        coords: f.center as [number, number] // [lng, lat]
-      }));
+    const [a, b] = await Promise.allSettled([v6(), v5()]);
+    const merged = [...(a.status === 'fulfilled' ? a.value : []), ...(b.status === 'fulfilled' ? b.value : [])];
+    const out: GeoHit[] = [];
+    for (const h of merged) {
+      const dup = out.some(
+        (o) =>
+          o.text === h.text ||
+          (Math.abs(o.coords[0] - h.coords[0]) < 0.0005 && Math.abs(o.coords[1] - h.coords[1]) < 0.0005 && o.text.split(',')[0] === h.text.split(',')[0]),
+      );
+      if (!dup) out.push(h);
+      if (out.length >= 8) break;
     }
-    return [];
+    if (!out.length && (a.status === 'rejected' && (a.reason as Error)?.name === 'AbortError')) throw a.reason;
+    return out;
   } catch (error: any) {
     if (error?.name !== 'AbortError') {
       console.error("❌ Geocoding Error:", error);
