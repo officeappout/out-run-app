@@ -1269,6 +1269,10 @@ function AdminLayoutInner({
                                             {isSuperAdmin && (
                                                 <SidebarLink href="/admin/community-groups-overview" icon={UsersRound} label="כל הקבוצות במערכת" />
                                             )}
+                                            {/* onboarding goal notes — super admins only (API: requireSuperAdminApi) */}
+                                            {isSuperAdmin && (
+                                                <SidebarLink href="/admin/goal-notes" icon={MessageCircle} label="מה עוד חשוב למשתמשים" />
+                                            )}
                                         </div>
                                     )}
                                 </>
