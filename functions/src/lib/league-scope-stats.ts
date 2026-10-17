@@ -100,3 +100,15 @@ export function scopeTargetsFor(core: { authorityId?: unknown; neighborhoodId?: 
 export function statsDocId(window: LeagueWindow, periodKey: string, t: Pick<ScopeTarget, 'granularity' | 'scopeId'>): string {
   return `${window}_${periodKey}_${t.granularity}_${t.scopeId}`;
 }
+
+/**
+ * Steps → league points (design lab rule, owner 17.10.2026): 3 points per
+ * full 1,000 steps in a day. Counted under its own 'steps' bucket, so the
+ * per-activity boards (strength / cardio) are unchanged and "overall" adds it.
+ */
+export const STEPS_PER_UNIT = 1000;
+export const POINTS_PER_STEPS_UNIT = 3;
+export function stepsCreditOf(steps: unknown): number {
+  const n = typeof steps === 'number' && Number.isFinite(steps) ? steps : 0;
+  return Math.max(0, Math.floor(n / STEPS_PER_UNIT)) * POINTS_PER_STEPS_UNIT;
+}
