@@ -1114,6 +1114,7 @@ export default function VisualAssessmentPage() {
                 exerciseCount={exerciseCount}
                 onNext={handleWhyNext}
                 onBack={() => router.back()}
+                v2={v2}
               />
             </motion.div>
           )}
@@ -1132,6 +1133,8 @@ export default function VisualAssessmentPage() {
               <TierSelectionCard
                 onSelect={handleTierSelect}
                 clampTierLevel={pathConfig.clampTierLevel}
+                v2={v2}
+                isFemale={introGender === 'female'}
               />
             </motion.div>
           )}
@@ -1256,6 +1259,7 @@ export default function VisualAssessmentPage() {
                 targetLevel={result.average}
                 onComplete={() => setStep('result')}
                 language="he"
+                v2={v2}
               />
             </motion.div>
           )}

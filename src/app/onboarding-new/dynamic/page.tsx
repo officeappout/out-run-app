@@ -24,6 +24,8 @@ import { syncOnboardingToFirestore } from '@/features/user/onboarding/services/o
 import { firePhaseConfetti } from '@/features/user/onboarding/utils/onboarding-confetti';
 import { generateFirstWorkout } from '@/features/workout-engine/services/first-workout.service';
 import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure';
+import { useOnboardingV2 } from '@/features/user/onboarding/hooks/useOnboardingV2';
+import { Loader2 } from 'lucide-react';
 
 /**
  * Dynamic Onboarding Page
@@ -34,6 +36,9 @@ export default function DynamicOnboardingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { hasCompletedOnboarding, initializeProfile, refreshProfile } = useUserStore();
+  // enable_home_v2 — styling only (loading/error states, welcome line, and
+  // the v2 look of ResultLoading/ProgramResult). Same flow and handlers.
+  const v2 = useOnboardingV2();
 
   // Claim params (from Guest Mode)
   const claimCoins = searchParams.get('coins');
@@ -609,6 +614,7 @@ export default function DynamicOnboardingPage() {
         targetLevel={finalLevelNumber}
         onComplete={handleResultLoadingComplete}
         language={savedLanguage}
+        v2={v2}
       />
     );
   }
@@ -625,11 +631,20 @@ export default function DynamicOnboardingPage() {
         userName={savedName || (savedLanguage === 'he' ? 'חבר/ה' : savedLanguage === 'ru' ? 'друг' : 'friend')}
         language={savedLanguage}
         onContinue={handleProgramResultContinue}
+        v2={v2}
       />
     );
   }
 
   // Loading state
+  if (loading && v2) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 bg-v2-surface" dir="rtl">
+        <Loader2 size={32} className="animate-spin text-v2-accent" aria-hidden />
+        <p className="text-[13px] font-bold text-v2-muted">טוען שאלון...</p>
+      </div>
+    );
+  }
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center">
@@ -639,6 +654,23 @@ export default function DynamicOnboardingPage() {
   }
 
   // Error state
+  if (error && v2) {
+    return (
+      <div className="flex h-full items-center justify-center bg-v2-surface px-6" dir="rtl">
+        <div className="w-full max-w-sm rounded-v2-card bg-white p-6 text-center shadow-v2-card">
+          <p className="text-[20px] font-black !tracking-[-0.02em] text-v2-ink">שגיאה</p>
+          <p className="mt-1 text-[14px] font-medium text-v2-ink-2">{error}</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-5 h-12 w-full whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]"
+          >
+            {sessionStorage.getItem('onboarding_personal_gender') === 'female' ? 'נסי שוב' : 'נסה שוב'}
+          </button>
+        </div>
+      </div>
+    );
+  }
   if (error) {
     return (
       <div className="h-screen flex items-center justify-center">
@@ -727,9 +759,13 @@ export default function DynamicOnboardingPage() {
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2, duration: 0.5 }}
-                className={`mb-6 text-center ${direction === 'rtl' ? 'text-right' : 'text-left'}`}
+                className={v2
+                  ? `mb-3 px-1 ${direction === 'rtl' ? 'text-right' : 'text-left'}`
+                  : `mb-6 text-center ${direction === 'rtl' ? 'text-right' : 'text-left'}`}
               >
-                <h2 className="text-xl font-black text-slate-900 leading-tight font-simpler">
+                <h2 className={v2
+                  ? 'text-[13px] font-extrabold text-v2-deep leading-snug font-simpler'
+                  : 'text-xl font-black text-slate-900 leading-tight font-simpler'}>
                   {welcomeMessage}
                 </h2>
               </motion.div>
@@ -748,6 +784,13 @@ export default function DynamicOnboardingPage() {
 
   // Part 2 is now skipped - if we reach here, something went wrong
   // This should not happen, but provide a fallback
+  if (v2) {
+    return (
+      <div className="flex h-full items-center justify-center bg-v2-surface" dir="rtl">
+        <p className="text-[13px] font-bold text-v2-muted">טוען תוצאות...</p>
+      </div>
+    );
+  }
   return (
     <div className="h-screen flex items-center justify-center">
       <div className="text-gray-500">טוען תוצאות...</div>

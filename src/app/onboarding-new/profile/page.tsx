@@ -16,6 +16,7 @@ import { getOnboardingPref, getOnboardingPrefAsync } from '@/lib/onboardingPrefs
 import { resolveJoinLanding } from '@/lib/resolveJoinLanding';
 import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure';
 import { isMiniAssessmentActive } from '@/features/user/onboarding/services/mini-domain-assessment';
+import { useOnboardingV2 } from '@/features/user/onboarding/hooks/useOnboardingV2';
 
 /**
  * Resolve uid from multiple sources (in priority order):
@@ -47,6 +48,10 @@ export default function IdentityProfilePage() {
   const isExpress = searchParams.get('context') === 'express';
   const { profile, updateProfile, refreshProfile } = useUserStore();
   const direction = 'rtl';
+  // enable_home_v2 — styling only. This route is top-padding exempt (the
+  // header pads the notch itself) but <main> still pads the bottom inset,
+  // so the v2 CTA adds only its own 12px.
+  const v2 = useOnboardingV2();
 
   // Auth state — always start null so SSR and first client render match
   const [authUser, setAuthUser] = useState<User | null>(null);
@@ -394,11 +399,13 @@ export default function IdentityProfilePage() {
   if (!resolvedUid) {
     return (
       <div
-        className="h-full bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col items-center justify-center overflow-hidden"
+        className={v2
+          ? 'h-full bg-v2-surface flex flex-col items-center justify-center overflow-hidden'
+          : 'h-full bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col items-center justify-center overflow-hidden'}
         dir={direction}
       >
-        <Loader2 size={36} className="text-[#5BC2F2] animate-spin mb-4" />
-        <p className="text-slate-400 text-sm font-medium" style={{ fontFamily: 'var(--font-simpler)' }}>
+        <Loader2 size={36} className={v2 ? 'text-v2-accent animate-spin mb-4' : 'text-[#5BC2F2] animate-spin mb-4'} />
+        <p className={v2 ? 'text-v2-muted text-[13px] font-bold' : 'text-slate-400 text-sm font-medium'} style={{ fontFamily: 'var(--font-simpler)' }}>
           מאמת זהות...
         </p>
       </div>
@@ -406,21 +413,28 @@ export default function IdentityProfilePage() {
   }
 
   // Shared input class builders
-  const dateInputClass = (hasError: boolean) =>
-    `bg-white text-black text-center rounded-xl border-2 py-3.5 px-2 shadow-sm focus:ring-4 focus:ring-[#5BC2F2]/10 outline-none transition-all font-semibold font-simpler placeholder:text-slate-300 placeholder:font-normal ${
+  const dateInputClass = (hasError: boolean) => v2
+    ? `h-[52px] bg-white text-v2-ink text-center text-[17px] rounded-2xl border-0 px-2 outline-none transition-shadow font-extrabold font-simpler tabular-nums placeholder:text-v2-muted placeholder:font-semibold placeholder:text-[15px] ${
+        hasError ? 'ring-2 ring-inset ring-[#e5484d]/60' : 'shadow-v2-ring focus:ring-2 focus:ring-inset focus:ring-v2-accent/60'
+      }`
+    : `bg-white text-black text-center rounded-xl border-2 py-3.5 px-2 shadow-sm focus:ring-4 focus:ring-[#5BC2F2]/10 outline-none transition-all font-semibold font-simpler placeholder:text-slate-300 placeholder:font-normal ${
       hasError ? 'border-red-300 focus:border-red-400' : 'border-slate-200 focus:border-[#5BC2F2]'
     }`;
 
   return (
     <div
-      className="h-full bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col overflow-hidden"
+      className={v2
+        ? 'h-full bg-v2-surface text-v2-ink flex flex-col overflow-hidden'
+        : 'h-full bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col overflow-hidden'}
       dir={direction}
     >
       {/* Navigation header — in-flow flex row, never absolutely positioned */}
       {!isProfileOnly && (
         <header
-          className="flex-shrink-0 bg-white z-10 flex items-center gap-2 px-3 pb-2.5"
-          style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+          className={v2
+            ? 'flex-shrink-0 bg-v2-surface/90 backdrop-blur-xl z-10 flex items-center gap-2 px-3 pt-1 pb-2.5'
+            : 'flex-shrink-0 bg-white z-10 flex items-center gap-2 px-3 pb-2.5'}
+          style={{ paddingTop: v2 ? 'calc(env(safe-area-inset-top, 0px) + 4px)' : 'env(safe-area-inset-top, 0px)' }}
         >
           <button
             onClick={() => {
@@ -428,10 +442,12 @@ export default function IdentityProfilePage() {
               if (hasHistory) router.back();
               else router.push('/gateway');
             }}
-            className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-full bg-slate-100/80 active:bg-slate-200 transition-colors touch-manipulation"
+            className={v2
+              ? 'flex-shrink-0 grid h-10 w-10 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] touch-manipulation'
+              : 'flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-full bg-slate-100/80 active:bg-slate-200 transition-colors touch-manipulation'}
             aria-label="חזרה"
           >
-            <ChevronRight size={22} className="text-slate-600" />
+            <ChevronRight size={v2 ? 20 : 22} className={v2 ? 'text-v2-ink' : 'text-slate-600'} />
           </button>
 
           <div className="flex-1 min-h-[36px] flex flex-col justify-center">
@@ -443,12 +459,14 @@ export default function IdentityProfilePage() {
             />
           </div>
 
-          <div className="flex-shrink-0 w-9" aria-hidden />
+          <div className={v2 ? 'flex-shrink-0 w-10' : 'flex-shrink-0 w-9'} aria-hidden />
         </header>
       )}
 
       {/* Scrollable content */}
-      <div className="flex-1 min-h-0 overflow-y-auto w-full max-w-md mx-auto px-6 pt-4 pb-2">
+      <div className={v2
+        ? 'flex-1 min-h-0 overflow-y-auto overscroll-contain w-full max-w-md mx-auto px-5 pt-2 pb-2'
+        : 'flex-1 min-h-0 overflow-y-auto w-full max-w-md mx-auto px-6 pt-4 pb-2'}>
         {/* ── Page entry animation ── */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -457,7 +475,7 @@ export default function IdentityProfilePage() {
         >
 
         {/* Mascot + intro */}
-        <div className="mb-6">
+        <div className={v2 ? 'mb-5' : 'mb-6'}>
           {/* Top row: character (pop-in) + heading */}
           <div className="flex flex-row items-center gap-3">
             <motion.div
@@ -470,16 +488,24 @@ export default function IdentityProfilePage() {
               <img
                 src="/assets/lemur/lemur_notepad.png"
                 alt=""
-                className="w-32 h-32 object-contain drop-shadow-md pointer-events-none -scale-x-100"
+                className={v2
+                  ? 'w-24 h-24 object-contain pointer-events-none -scale-x-100'
+                  : 'w-32 h-32 object-contain drop-shadow-md pointer-events-none -scale-x-100'}
                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
               />
             </motion.div>
-            <h2 className="text-2xl font-black text-slate-900 text-right">נעים להכיר! 👋</h2>
+            {v2 ? (
+              <h2 className="whitespace-nowrap text-[26px] font-black !tracking-[-0.02em] text-v2-ink text-right">נעים להכיר!</h2>
+            ) : (
+              <h2 className="text-2xl font-black text-slate-900 text-right">נעים להכיר! 👋</h2>
+            )}
           </div>
 
           {/* Speech bubble — full width, tail points up-right toward the lemur */}
           <motion.div
-            className="relative mt-3 bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-sm"
+            className={v2
+              ? 'relative mt-2 bg-white rounded-[20px] px-4 py-3 shadow-v2-card'
+              : 'relative mt-3 bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-sm'}
             initial={{ opacity: 0, scale: 0.94 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.28, delay: 0.2, ease: 'easeOut' }}
@@ -495,7 +521,7 @@ export default function IdentityProfilePage() {
                 height: 0,
                 borderLeft: '9px solid transparent',
                 borderRight: '9px solid transparent',
-                borderBottom: '9px solid #e2e8f0',
+                borderBottom: v2 ? '9px solid rgba(14,27,42,0.06)' : '9px solid #e2e8f0',
               }}
             />
             {/* Tail — white fill layer */}
@@ -516,17 +542,17 @@ export default function IdentityProfilePage() {
             {isJoinContext ? (
               /* Join-context two-line layout — group name prominent, no word animation */
               <div className="text-right" dir="rtl">
-                <p className="text-base font-black text-slate-900 mb-1">
+                <p className={v2 ? 'text-[15px] font-black text-v2-ink mb-1' : 'text-base font-black text-slate-900 mb-1'}>
                   מצטרפים לקבוצת {pendingGroupName}
                 </p>
-                <p className="text-sm font-medium text-slate-600">
-                  היי, אני קלי 👋 עוד כמה פרטים קטנים ומצטרפים.
+                <p className={v2 ? 'text-[14px] font-medium text-v2-ink-2' : 'text-sm font-medium text-slate-600'}>
+                  {v2 ? 'היי, אני קלי. עוד כמה פרטים קטנים ומצטרפים.' : 'היי, אני קלי 👋 עוד כמה פרטים קטנים ומצטרפים.'}
                 </p>
               </div>
             ) : (
               /* Word-by-word mist-in animation for non-join contexts */
               <motion.p
-                className="text-sm font-medium text-slate-600 leading-relaxed text-right"
+                className={v2 ? 'text-[14px] font-medium text-v2-ink-2 leading-relaxed text-right' : 'text-sm font-medium text-slate-600 leading-relaxed text-right'}
                 dir="rtl"
                 variants={{
                   hidden: {},
@@ -557,21 +583,23 @@ export default function IdentityProfilePage() {
           </motion.div>
         </div>
 
-        <form className="space-y-8 px-1" onSubmit={(e) => e.preventDefault()}>
+        <form className={v2 ? 'space-y-6' : 'space-y-8 px-1'} onSubmit={(e) => e.preventDefault()}>
 
           {/* ── Step 1: Gender ──────────────────────────────────────────────── */}
           {/* No keyboard opens on mount — user taps a gender button first.     */}
           {/* Tapping auto-advances focus to the Day field (Step 2).            */}
           <div className="space-y-2">
-            <label className="block text-slate-900 font-black text-lg text-right pr-1">
+            <label className={v2 ? 'block text-v2-ink font-black text-[17px] !tracking-[-0.01em] text-right' : 'block text-slate-900 font-black text-lg text-right pr-1'}>
               איך היית רוצה שנפנה אלייך?
             </label>
-            <p className="text-sm text-gray-400 text-right pr-1">
+            <p className={v2 ? 'text-[12.5px] font-bold leading-snug text-v2-muted text-right' : 'text-sm text-gray-400 text-right pr-1'}>
               {isJoinContext
                 ? 'רק כדי לדעת איך לפנות.'
-                : 'רק כדי שנדע מתי לפרגן לך ב\'כל הכבוד מלך!\' ומתי ב\'אלופה, שברת את המסך!\' 👑 (ובשביל דיוק המדדים הפיזיולוגיים שלך, כמובן).'}
+                : v2
+                  ? 'רק כדי שנדע מתי לפרגן לך ב\'כל הכבוד מלך!\' ומתי ב\'אלופה, שברת את המסך!\' (ובשביל דיוק המדדים הפיזיולוגיים שלך, כמובן).'
+                  : 'רק כדי שנדע מתי לפרגן לך ב\'כל הכבוד מלך!\' ומתי ב\'אלופה, שברת את המסך!\' 👑 (ובשביל דיוק המדדים הפיזיולוגיים שלך, כמובן).'}
             </p>
-            <div className="flex gap-3">
+            <div className={v2 ? 'flex gap-2 pt-1' : 'flex gap-3'}>
               {GENDER_OPTIONS.map(({ value, label, emoji }) => (
                 <motion.button
                   key={value}
@@ -585,7 +613,14 @@ export default function IdentityProfilePage() {
                     // handler so iOS treats it as a user-gesture focus.
                     dayInputRef.current?.focus();
                   }}
-                  className={`flex-1 py-3 rounded-full font-semibold transition-colors border-2 flex items-center justify-center gap-2 ${
+                  aria-pressed={formData.gender === value}
+                  className={v2
+                    ? `flex-1 h-12 rounded-full whitespace-nowrap text-[15px] font-extrabold flex items-center justify-center transition-colors duration-150 ${
+                        formData.gender === value
+                          ? 'bg-v2-tint text-v2-deep ring-[1.5px] ring-inset ring-v2-accent/50'
+                          : 'bg-white text-v2-ink-2 shadow-v2-ring'
+                      }`
+                    : `flex-1 py-3 rounded-full font-semibold transition-colors border-2 flex items-center justify-center gap-2 ${
                     value === 'other' ? 'text-sm gap-1.5' : ''
                   } ${
                     formData.gender === value
@@ -593,7 +628,7 @@ export default function IdentityProfilePage() {
                       : 'border-slate-200 bg-white text-slate-700'
                   }`}
                 >
-                  <span className={value === 'other' ? 'text-lg' : 'text-xl'}>{emoji}</span>
+                  {!v2 && <span className={value === 'other' ? 'text-lg' : 'text-xl'}>{emoji}</span>}
                   <span>{label}</span>
                 </motion.button>
               ))}
@@ -604,14 +639,14 @@ export default function IdentityProfilePage() {
           {/* Day→Month→Year auto-tab on 2/2/4 digits.                         */}
           {/* Year complete → auto-advance focus to the Name field (Step 3).   */}
           <div className="space-y-2">
-            <label className="block text-slate-900 font-black text-lg text-right pr-1">
-              מתי חוגגים לך יום הולדת? 🎂
+            <label className={v2 ? 'block text-v2-ink font-black text-[17px] !tracking-[-0.01em] text-right' : 'block text-slate-900 font-black text-lg text-right pr-1'}>
+              {v2 ? 'מתי חוגגים לך יום הולדת?' : 'מתי חוגגים לך יום הולדת? 🎂'}
             </label>
-            <p className="text-sm text-gray-400 text-right pr-1">
+            <p className={v2 ? 'text-[12.5px] font-bold leading-snug text-v2-muted text-right' : 'text-sm text-gray-400 text-right pr-1'}>
               {isJoinContext ? 'כדי שנתאים את החוויה לגיל.' : 'עוזר לנו להתאים את עצימות האימון לגילך.'}
             </p>
 
-            <div className="flex gap-3 flex-row">
+            <div className={v2 ? 'flex gap-2 flex-row items-center pt-1' : 'flex gap-3 flex-row'}>
               {/* Day */}
               <input
                 ref={dayInputRef}
@@ -638,7 +673,7 @@ export default function IdentityProfilePage() {
                 className={`w-16 ${dateInputClass(hasDobError)}`}
               />
 
-              <span className="text-slate-300 self-center text-lg font-light">/</span>
+              <span className={v2 ? 'text-v2-pill-border self-center text-lg font-bold' : 'text-slate-300 self-center text-lg font-light'}>/</span>
 
               {/* Month */}
               <input
@@ -673,7 +708,7 @@ export default function IdentityProfilePage() {
                 className={`w-16 ${dateInputClass(hasDobError)}`}
               />
 
-              <span className="text-slate-300 self-center text-lg font-light">/</span>
+              <span className={v2 ? 'text-v2-pill-border self-center text-lg font-bold' : 'text-slate-300 self-center text-lg font-light'}>/</span>
 
               {/* Year */}
               <input
@@ -712,12 +747,12 @@ export default function IdentityProfilePage() {
             </div>
 
             {isUnder14 && (
-              <p className="text-red-500 text-sm font-medium text-right">
+              <p className={v2 ? 'text-[#b4232a] text-[12.5px] font-bold text-right' : 'text-red-500 text-sm font-medium text-right'}>
                 השימוש באפליקציה מותר מגיל 14 ומעלה
               </p>
             )}
             {isDobInvalid && (
-              <p className="text-red-500 text-sm font-medium text-right">
+              <p className={v2 ? 'text-[#b4232a] text-[12.5px] font-bold text-right' : 'text-red-500 text-sm font-medium text-right'}>
                 תאריך לא תקין
               </p>
             )}
@@ -727,7 +762,7 @@ export default function IdentityProfilePage() {
           {/* No autoFocus — keyboard arrives only after Year is filled.        */}
           {/* Enter key submits the form if all fields are complete.            */}
           <div className="space-y-2">
-            <label className="block text-slate-900 font-black text-lg text-right pr-1">
+            <label className={v2 ? 'block text-v2-ink font-black text-[17px] !tracking-[-0.01em] text-right' : 'block text-slate-900 font-black text-lg text-right pr-1'}>
               איך קוראים לך?
             </label>
             <input
@@ -747,7 +782,9 @@ export default function IdentityProfilePage() {
                   nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }, 150);
               }}
-              className="w-full bg-white text-black placeholder-slate-400 rounded-2xl border-2 border-slate-200 py-4 px-5 shadow-sm focus:border-[#5BC2F2] focus:ring-4 focus:ring-[#5BC2F2]/10 outline-none transition-all font-medium font-simpler text-right"
+              className={v2
+                ? 'w-full h-[52px] bg-white text-v2-ink placeholder:text-v2-muted rounded-2xl border-0 px-4 text-[16px] font-semibold shadow-v2-ring focus:ring-2 focus:ring-inset focus:ring-v2-accent/60 outline-none transition-shadow font-simpler text-right'
+                : 'w-full bg-white text-black placeholder-slate-400 rounded-2xl border-2 border-slate-200 py-4 px-5 shadow-sm focus:border-[#5BC2F2] focus:ring-4 focus:ring-[#5BC2F2]/10 outline-none transition-all font-medium font-simpler text-right'}
               placeholder="השם שלך כאן..."
             />
           </div>
@@ -758,9 +795,33 @@ export default function IdentityProfilePage() {
 
       {/* Continue button — pinned outside the scroll area */}
       <div
-        className="flex-shrink-0 w-full max-w-md mx-auto px-6"
-        style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
+        className={v2 ? 'flex-shrink-0 w-full max-w-md mx-auto px-4 pt-2 pb-3' : 'flex-shrink-0 w-full max-w-md mx-auto px-6'}
+        style={v2 ? undefined : { paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
       >
+        {v2 ? (
+          <button
+            type="button"
+            onClick={handleContinue}
+            disabled={!canSubmit || loading}
+            aria-disabled={!canSubmit || loading}
+            className={`flex h-[52px] w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-full text-[16.5px] font-extrabold transition-transform duration-150 ease-v2 ${
+              canSubmit && !loading
+                ? 'bg-v2-cta text-v2-on-cta shadow-v2-cta active:scale-[0.97]'
+                : 'cursor-not-allowed bg-v2-hairline text-v2-muted'
+            }`}
+          >
+            {loading ? (
+              <span>שומר...</span>
+            ) : (
+              <>
+                <span className="truncate">
+                  {isProfileOnly ? 'שמור וחזור ליצירת הקהילה' : formData.gender === 'female' ? 'המשיכי' : 'המשך'}
+                </span>
+                <ChevronLeft size={18} className="shrink-0" />
+              </>
+            )}
+          </button>
+        ) : (
         <motion.button
           onClick={handleContinue}
           disabled={!canSubmit || loading}
@@ -790,6 +851,7 @@ export default function IdentityProfilePage() {
             </>
           )}
         </motion.button>
+        )}
       </div>
     </div>
   );

@@ -316,6 +316,8 @@ interface BlurredWhyStepProps {
   exerciseCount: number;
   onNext: () => void;
   onBack?: () => void;
+  /** enable_home_v2 — v2 look; CTA adds no second bottom inset. */
+  v2?: boolean;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -341,10 +343,113 @@ export default function BlurredWhyStep({
   exerciseCount,
   onNext,
   onBack,
+  v2 = false,
 }: BlurredWhyStepProps) {
   const [imgFailed, setImgFailed] = useState(false);
   const intro = getOnboardingIntroText(gender, ageGroup, goal, targetArea, exerciseCount);
   const sentences = splitSentences(intro.body);
+
+  // ── v2 (enable_home_v2) ────────────────────────────────────────
+  // Same copy, same handlers. <main> already pads the top and bottom
+  // safe-area insets on this route, so the CTA only adds its own 12px
+  // (the legacy max(inset,16px) doubled the bottom gap).
+  if (v2) {
+    return (
+      <div className="relative flex h-full min-h-0 flex-col bg-v2-surface text-v2-ink" dir="rtl">
+        <header className="flex flex-shrink-0 items-center gap-2 px-3 pb-1 pt-1">
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] touch-manipulation"
+              aria-label="חזרה"
+            >
+              <ChevronRight size={20} className="text-v2-ink" />
+            </button>
+          ) : (
+            <div className="w-10 flex-shrink-0" aria-hidden />
+          )}
+          <div className="flex min-h-[40px] flex-1 flex-col justify-center">
+            <OnboardingStoryBar
+              totalPhases={STRENGTH_PHASES.TOTAL}
+              currentPhase={STRENGTH_PHASES.ASSESSMENT}
+              phaseFillPercent={0}
+              phaseLabel={STRENGTH_PHASES.labels[STRENGTH_PHASES.ASSESSMENT]}
+              noPadding
+            />
+          </div>
+          <div className="w-10 flex-shrink-0" aria-hidden />
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <div className="flex flex-col px-4 pb-4 pt-3">
+            <motion.h2
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1, duration: 0.45, ease: EASE_OUT }}
+              className="text-[26px] font-black leading-[1.15] !tracking-[-0.02em]"
+            >
+              {intro.title}
+            </motion.h2>
+
+            {!imgFailed && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.92, y: 8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ delay: 0.2, duration: 0.5, ease: EASE_OUT }}
+                className="mt-2 flex w-full justify-start select-none"
+                aria-hidden
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/assets/lemur/lemur_curious_peek.png"
+                  alt=""
+                  className="h-auto w-20 object-contain"
+                  onError={() => setImgFailed(true)}
+                />
+              </motion.div>
+            )}
+
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.28, duration: 0.45, ease: EASE_OUT }}
+              className={`relative w-full ${imgFailed ? 'mt-4' : 'mt-2'}`}
+            >
+              {!imgFailed && (
+                <div
+                  className="pointer-events-none absolute -top-[9px] right-7 z-10 h-[18px] w-[18px] rotate-45 rounded-[4px] bg-white"
+                  aria-hidden
+                />
+              )}
+              <div className="w-full space-y-3 rounded-v2-card bg-white p-5 shadow-v2-card">
+                {sentences.map((sentence, i) => (
+                  <p key={i} className="text-right text-[16px] font-medium leading-relaxed text-v2-ink-2">
+                    {sentence}
+                  </p>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.45, duration: 0.45, ease: EASE_OUT }}
+          className="flex-shrink-0 px-4 pb-3 pt-2"
+        >
+          <button
+            type="button"
+            onClick={onNext}
+            className="flex h-[52px] w-full items-center justify-center whitespace-nowrap rounded-full bg-v2-cta text-[16.5px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]"
+          >
+            <span className="truncate">{intro.cta}</span>
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex flex-col h-full bg-slate-50" dir="rtl">

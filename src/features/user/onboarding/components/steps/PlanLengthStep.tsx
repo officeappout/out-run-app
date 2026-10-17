@@ -2,10 +2,11 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { SlidersHorizontal, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { SlidersHorizontal, Calendar, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { WEEKS_LOOKUP } from '../../data/running-improvement-branch.draft';
 import { DEFAULT_PLAN_WEEKS, type GeneratorTargetDistance } from '@/features/workout-engine/core/services/plan-generator.service';
 import StickyActionButton from '@/components/ui/StickyActionButton';
+import { useOnboardingV2 } from '../../hooks/useOnboardingV2';
 
 interface PlanLengthStepProps {
   onNext: () => void;
@@ -74,10 +75,13 @@ function MiniCalendar({
   selected,
   onChange,
   minDate,
+  v2 = false,
 }: {
   selected: Date | null;
   onChange: (d: Date) => void;
   minDate: Date;
+  /** enable_home_v2 — light calendar (white card, tint selected day). */
+  v2?: boolean;
 }) {
   const [viewYear, setViewYear] = useState(
     selected?.getFullYear() ?? minDate.getFullYear(),
@@ -116,6 +120,67 @@ function MiniCalendar({
   };
 
   const formatHeader = () => `${HE_MONTHS[viewMonth]} ${viewYear}`;
+
+  if (v2) {
+    return (
+      <div className="flex flex-col rounded-[18px] bg-v2-surface p-3 ring-1 ring-inset ring-v2-hairline">
+        <div className="mb-3 flex items-center justify-between px-1" dir="ltr">
+          <button
+            type="button"
+            onClick={prevMonth}
+            aria-label="החודש הקודם"
+            className="grid h-9 w-9 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
+          >
+            <ChevronLeft size={18} className="text-v2-deep" />
+          </button>
+          <span className="whitespace-nowrap text-[16px] font-black text-v2-ink">{formatHeader()}</span>
+          <button
+            type="button"
+            onClick={nextMonth}
+            aria-label="החודש הבא"
+            className="grid h-9 w-9 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
+          >
+            <ChevronRight size={18} className="text-v2-deep" />
+          </button>
+        </div>
+        <div className="mb-1.5 grid grid-cols-7 text-center">
+          {HE_WEEKDAYS.map((d) => (
+            <span key={d} className="text-[11px] font-extrabold text-v2-muted">{d}</span>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-y-1 text-center">
+          {blanks.map((_, i) => (
+            <span key={`b-${i}`} />
+          ))}
+          {days.map((d) => {
+            const sel = isSameDay(d);
+            const past = isPast(d);
+            return (
+              <button
+                key={d}
+                type="button"
+                disabled={past}
+                onClick={() => onChange(new Date(viewYear, viewMonth, d))}
+                className="flex h-9 items-center justify-center"
+              >
+                <span
+                  className={`grid h-9 w-9 place-items-center rounded-full text-[14px] tabular-nums ${
+                    past
+                      ? 'text-v2-pill-border'
+                      : sel
+                        ? 'bg-v2-tint font-black text-v2-deep ring-1 ring-inset ring-v2-accent/40'
+                        : 'font-bold text-v2-ink'
+                  }`}
+                >
+                  {d}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col rounded-xl p-4" style={{ background: '#1a2b29' }}>
@@ -181,6 +246,7 @@ function MiniCalendar({
 // ─── Main Component ────────────────────────────────────────────────
 
 export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
+  const v2 = useOnboardingV2();
   const recommended = useMemo(() => computeRecommendedWeeks(), []);
 
   const [mode, setMode] = useState<SelectionMode>('preset');
@@ -223,6 +289,173 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
     if (!calendarDate) return 'בחרו תאריך סיום';
     return calendarDate.toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric' });
   };
+
+  // ── v2 (enable_home_v2) ──────────────────────────────────────
+  // Same state and handlers. Fills OnboardingLayout's scroll area (flex-1)
+  // instead of min-h-[100dvh] — <main> already pads both safe-area insets.
+  if (v2) {
+    const isFemale =
+      typeof window !== 'undefined' && sessionStorage.getItem('onboarding_personal_gender') === 'female';
+    const radio = (on: boolean) => (
+      <span
+        aria-hidden
+        className={`grid h-[26px] w-[26px] shrink-0 place-items-center rounded-full transition-colors duration-150 ${
+          on ? 'bg-v2-cta' : 'bg-v2-surface ring-[1.5px] ring-inset ring-v2-pill-border'
+        }`}
+      >
+        {on && <Check size={14} strokeWidth={3.2} className="text-v2-on-cta" />}
+      </span>
+    );
+    const cardCls = (on: boolean) =>
+      `rounded-[20px] bg-white transition-shadow duration-200 ease-v2 ${on ? 'shadow-v2-card ring-2 ring-v2-accent' : 'shadow-v2-ring'}`;
+
+    return (
+      <div dir="rtl" className="relative mx-auto flex w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
+        <div className="px-4 pb-2 pt-1">
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
+            <h1 className="text-[24px] font-black leading-[1.15] !tracking-[-0.02em]">
+              {isFemale ? 'לכמה שבועות תרצי את התוכנית?' : 'לכמה שבועות תרצה את התוכנית?'}
+            </h1>
+            <p className="mt-1 text-[14px] font-medium text-v2-ink-2">
+              {isFemale ? 'בחרי את משך התוכנית המועדף עלייך' : 'בחר את משך התוכנית המועדף עליך'}
+            </p>
+          </motion.div>
+
+          <div role="radiogroup" aria-label="משך התוכנית" className="flex flex-col gap-2.5">
+            {PRESET_WEEKS.map((weeks) => {
+              const on = mode === 'preset' && selectedPreset === weeks;
+              const isRecommended = weeks === recommended;
+              return (
+                <button
+                  key={weeks}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => handlePresetSelect(weeks)}
+                  className={`${cardCls(on)} flex w-full items-center gap-3 px-4 py-3 text-right transition-transform duration-150 ease-v2 active:scale-[0.97]`}
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2">
+                      <span className="whitespace-nowrap text-[17px] font-black !tracking-[-0.01em]">{weeks} שבועות</span>
+                      {isRecommended && (
+                        <span className="whitespace-nowrap rounded-full bg-v2-tint px-2 py-0.5 text-[11px] font-extrabold text-v2-deep">
+                          מומלץ
+                        </span>
+                      )}
+                    </span>
+                    <span className="mt-0.5 block truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">
+                      {PRESET_LABELS[weeks]} · עד {formatEndDate(weeks)}
+                    </span>
+                  </span>
+                  {radio(on)}
+                </button>
+              );
+            })}
+
+            {/* Custom length (slider) */}
+            <div className={cardCls(mode === 'slider')}>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={mode === 'slider'}
+                onClick={() => setMode('slider')}
+                className="flex w-full items-center gap-3 px-4 py-3 text-right"
+              >
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-v2-tint" aria-hidden>
+                  <SlidersHorizontal size={17} className="text-v2-deep" />
+                </span>
+                <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[16px] font-black">בחירה מותאמת אישית</span>
+                {radio(mode === 'slider')}
+              </button>
+              <AnimatePresence initial={false}>
+                {mode === 'slider' && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
+                    className="overflow-hidden"
+                  >
+                    <div className="flex flex-col items-center gap-1 px-4 pb-4">
+                      <span className="whitespace-nowrap text-[30px] font-black tabular-nums !tracking-[-0.02em] text-v2-deep">
+                        {sliderWeeks} שבועות
+                      </span>
+                      <p className="whitespace-nowrap text-[12.5px] font-bold text-v2-muted">עד {formatEndDate(sliderWeeks)}</p>
+                      <div className="relative mt-2 flex h-10 w-full items-center" dir="ltr">
+                        <input
+                          type="range"
+                          min={4}
+                          max={52}
+                          value={sliderWeeks}
+                          onChange={(e) => setSliderWeeks(Number(e.target.value))}
+                          aria-label="מספר שבועות"
+                          className="h-1.5 w-full cursor-pointer appearance-none rounded-full"
+                          style={{
+                            background: `linear-gradient(to right, #00baf7 ${((sliderWeeks - 4) / 48) * 100}%, #e6edf2 ${((sliderWeeks - 4) / 48) * 100}%)`,
+                            accentColor: '#00baf7',
+                          }}
+                        />
+                      </div>
+                      <div className="flex w-full justify-between px-1 text-[12px] font-bold text-v2-muted" dir="ltr">
+                        <span>4</span>
+                        <span>52</span>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Custom end date (calendar) */}
+            <div className={cardCls(mode === 'calendar')}>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={mode === 'calendar'}
+                onClick={() => setMode('calendar')}
+                className="flex w-full items-center gap-3 px-4 py-3 text-right"
+              >
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-v2-tint" aria-hidden>
+                  <Calendar size={17} className="text-v2-deep" />
+                </span>
+                <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[16px] font-black">בחירת תאריך סיום</span>
+                {radio(mode === 'calendar')}
+              </button>
+              <AnimatePresence initial={false}>
+                {mode === 'calendar' && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-3 pb-3">
+                      {calendarDate && (
+                        <p className="mb-2 truncate whitespace-nowrap px-1 text-[13px] font-extrabold text-v2-deep">
+                          {formatCalendarDisplay()} ({weeksFromDate(calendarDate)} שבועות)
+                        </p>
+                      )}
+                      <MiniCalendar selected={calendarDate} onChange={setCalendarDate} minDate={minCalendarDate} v2 />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-grow" />
+
+        <StickyActionButton
+          variant="v2"
+          label="המשך"
+          disabled={mode === 'calendar' && !calendarDate}
+          onPress={handleContinue}
+        />
+      </div>
+    );
+  }
 
   return (
     <div dir="rtl" className="w-full max-w-md mx-auto px-4 py-4 flex flex-col min-h-[100dvh] relative font-simpler">

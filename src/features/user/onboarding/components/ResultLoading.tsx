@@ -9,6 +9,8 @@ interface ResultLoadingProps {
   targetLevel: number;
   onComplete: () => void;
   language?: 'he' | 'en' | 'ru';
+  /** enable_home_v2 — v2 surface + text colours (same animation, same timing). */
+  v2?: boolean;
 }
 
 // Dynamic analysis phrases
@@ -33,7 +35,7 @@ const ANALYSIS_PHRASES = {
   ],
 };
 
-export default function ResultLoading({ targetLevel, onComplete, language = 'he' }: ResultLoadingProps) {
+export default function ResultLoading({ targetLevel, onComplete, language = 'he', v2 = false }: ResultLoadingProps) {
   const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
   const [progress, setProgress] = useState(30); // Start at 30% (personal details done)
   
@@ -79,8 +81,8 @@ export default function ResultLoading({ targetLevel, onComplete, language = 'he'
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center font-simpler overflow-hidden"
-      style={{
+      className={`fixed inset-0 z-50 flex flex-col items-center justify-center font-simpler overflow-hidden${v2 ? ' bg-v2-surface' : ''}`}
+      style={v2 ? undefined : {
         background: 'linear-gradient(to bottom, #D8F3FF, #F8FDFF, white)',
       }}
       dir={direction}
@@ -147,7 +149,7 @@ export default function ResultLoading({ targetLevel, onComplete, language = 'he'
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.3 }}
-            className="text-lg font-medium text-slate-600 text-center"
+            className={v2 ? 'text-[16px] font-bold text-v2-ink-2 text-center whitespace-nowrap' : 'text-lg font-medium text-slate-600 text-center'}
           >
             {phrases[currentPhraseIndex]}
           </motion.p>
@@ -158,7 +160,7 @@ export default function ResultLoading({ targetLevel, onComplete, language = 'he'
           {[0, 1, 2, 3].map((i) => (
             <motion.div
               key={i}
-              className="w-2 h-2 rounded-full bg-[#5BC2F2]"
+              className={v2 ? 'w-2 h-2 rounded-full bg-v2-accent' : 'w-2 h-2 rounded-full bg-[#5BC2F2]'}
               animate={{
                 opacity: [0.3, 1, 0.3],
                 scale: [1, 1.3, 1],

@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Calendar, RotateCw, Timer, MapPin, Footprints } from 'lucide-react';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import StickyActionButton from '@/components/ui/StickyActionButton';
+import { useOnboardingV2 } from '../../hooks/useOnboardingV2';
 
 interface RunningPlanSummaryProps {
   onGenerate: () => void;
@@ -56,7 +57,123 @@ function formatTotalTime(totalSeconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+type Summary = {
+  distLabel: string;
+  distKm: number;
+  weeks: number;
+  pace: string;
+  totalTime: string;
+  paceInputSeconds: number;
+  startDate: string;
+  endDate: string;
+  daysDisplay: string;
+  frequency: number;
+};
+
+/**
+ * enable_home_v2 — same summary, light v2 look. Lives inside
+ * OnboardingLayout's scroll area, so it fills that area (flex-1) instead of
+ * the legacy min-h-[100dvh], which — on top of the header and <main>'s own
+ * top/bottom insets — made the page taller than the screen. The CTA is a
+ * sticky in-flow bar (not fixed with its own safe-area padding).
+ */
+function RunningPlanSummaryV2({ summary, onGenerate }: { summary: Summary; onGenerate: () => void }) {
+  const isFemale =
+    typeof window !== 'undefined' && sessionStorage.getItem('onboarding_personal_gender') === 'female';
+  const rows: { Icon: typeof RotateCw; text: string }[] = [
+    { Icon: RotateCw, text: `${summary.weeks} שבועות · ${summary.distKm} ק״מ` },
+    { Icon: Timer, text: `קצב: ${summary.pace} דק׳/ק״מ` },
+    { Icon: Calendar, text: summary.endDate },
+  ];
+  const details: React.ReactNode[] = [
+    summary.paceInputSeconds > 0 ? (
+      <>הזמן המשוער שלך ל-{summary.distLabel} הוא{' '}<span className="font-extrabold text-v2-ink">{summary.totalTime}</span></>
+    ) : null,
+    <>ימי אימון:{' '}<span className="font-extrabold text-v2-ink">{summary.daysDisplay}</span></>,
+    <>{summary.frequency} אימונים בשבוע למשך{' '}<span className="font-extrabold text-v2-ink">{summary.weeks} שבועות</span></>,
+    <>התוכנית מתחילה ב-<span className="font-extrabold text-v2-ink">{summary.startDate}</span></>,
+    <>התוכנית מסתיימת ב-<span className="font-extrabold text-v2-ink">{summary.endDate}</span></>,
+  ].filter(Boolean);
+
+  return (
+    <div dir="rtl" className="relative mx-auto flex w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
+      <div className="flex flex-col gap-3 px-4 pb-2 pt-1">
+        {/* Hero */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+          className="relative overflow-hidden rounded-v2-card-lg bg-[linear-gradient(160deg,#eef8fc,#d9f1fb)] px-5 pb-5 pt-4 shadow-v2-card"
+        >
+          <Footprints
+            size={120}
+            strokeWidth={1.4}
+            className="pointer-events-none absolute -bottom-4 -left-3 text-v2-deep/10"
+            aria-hidden
+          />
+          <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3 py-1.5 text-[13px] font-extrabold text-v2-deep shadow-v2-ring">
+            <Footprints size={15} strokeWidth={2.2} aria-hidden />
+            {summary.distLabel}
+          </span>
+          <h1 className="mt-3 truncate whitespace-nowrap text-[26px] font-black leading-[1.15] !tracking-[-0.02em]">
+            תוכנית ל-{summary.distLabel}
+          </h1>
+        </motion.div>
+
+        {/* Quick stats */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.1 }}
+          className="rounded-[20px] bg-white px-4 py-1 shadow-v2-ring"
+        >
+          {rows.map(({ Icon, text }, i) => (
+            <div
+              key={i}
+              className={`flex items-center gap-3 py-3 ${i < rows.length - 1 ? 'border-b border-v2-hairline' : ''}`}
+            >
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-v2-tint" aria-hidden>
+                <Icon size={19} strokeWidth={2.2} className="text-v2-deep" />
+              </span>
+              <p className="min-w-0 flex-1 truncate whitespace-nowrap text-[15px] font-extrabold text-v2-ink">{text}</p>
+            </div>
+          ))}
+        </motion.div>
+
+        {/* Details */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.18 }}
+          className="rounded-[20px] bg-white px-4 py-4 shadow-v2-ring"
+        >
+          <h3 className="mb-3 text-[13px] font-extrabold text-v2-deep">
+            התוכנית שלך מותאמת על בסיס הפרטים הבאים
+          </h3>
+          <ul className="space-y-2.5">
+            {details.map((node, i) => (
+              <li key={i} className="flex items-start gap-2.5">
+                <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-v2-accent" aria-hidden />
+                <p className="text-[14px] font-medium leading-relaxed text-v2-ink-2">{node}</p>
+              </li>
+            ))}
+          </ul>
+        </motion.div>
+      </div>
+
+      <div className="flex-grow" />
+
+      <StickyActionButton
+        variant="v2"
+        label={isFemale ? 'צרי לי את התוכנית!' : 'צור לי את התוכנית!'}
+        onPress={onGenerate}
+      />
+    </div>
+  );
+}
+
 export default function RunningPlanSummary({ onGenerate }: RunningPlanSummaryProps) {
+  const v2 = useOnboardingV2();
   const { data } = useOnboardingStore();
 
   const summary = useMemo(() => {
@@ -91,6 +208,8 @@ export default function RunningPlanSummary({ onGenerate }: RunningPlanSummaryPro
       frequency: (data as any).runningWeeklyFrequency ?? scheduleDays.length,
     };
   }, [data]);
+
+  if (v2) return <RunningPlanSummaryV2 summary={summary} onGenerate={onGenerate} />;
 
   return (
     <div className="w-full max-w-md mx-auto flex flex-col min-h-[100dvh] relative font-simpler bg-[#12201e]">
