@@ -321,7 +321,7 @@ export default function HomePage() {
   const router = useRouter();
   const { profile, _hasHydrated, refreshProfile } = useUserStore();
   const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
-  const { flags: featureFlags } = useFeatureFlags(isSuperAdmin);
+  const { flags: featureFlags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
   const { classification: entryRouterClassification, dismiss: dismissWelcomeDrawer } = useEntryRouter();
   const resolvedDashboardMode = useDashboardMode(profile, featureFlags.enableRunningPrograms);
   const scheduleState = useSmartSchedule();
@@ -2659,8 +2659,10 @@ export default function HomePage() {
     checkFirestore();
   }, [_hasHydrated, profile, router, isCheckingFirestore]);
 
-  // Loading states
-  if (!_hasHydrated) {
+  // Loading states. flagsLoading too: without it a user with home v2 on saw
+  // the old home for a moment until the flags arrived (cached after the
+  // first visit, so this is normally already false).
+  if (!_hasHydrated || flagsLoading) {
     return (
       <div className="h-[100dvh] flex items-center justify-center bg-[#F8FAFC]">
         <p className="text-slate-600 animate-pulse text-sm">טוען...</p>

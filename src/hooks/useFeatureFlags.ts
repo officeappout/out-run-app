@@ -19,7 +19,7 @@
  *   const { flags, loading } = useFeatureFlags(profile?.core?.isSuperAdmin);
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useLayoutEffect } from 'react';
 import { doc, onSnapshot, type DocumentData } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { FLAG_DEFS } from './feature-flag-defs';
@@ -45,6 +45,48 @@ function flagsFromFirestoreData(data: DocumentData): FeatureFlags {
 }
 
 // ============================================================================
+// LAST-KNOWN CACHE
+// ============================================================================
+
+/**
+ * Last flags this device saw (David, 17.10.2026: "every page shows the old
+ * design for a second, then switches"). Until the Firestore snapshot lands
+ * the hook used to return SAFE_DEFAULTS — every v2 screen rendered its old
+ * look first. Now the last-known values are applied before the first paint
+ * and the snapshot only corrects them. UI gating only: nothing that matters
+ * for security reads flags from here.
+ */
+export const FLAGS_CACHE_KEY = 'out-feature-flags-v1';
+
+export function readCachedFlags(): FeatureFlags | null {
+  try {
+    if (typeof window === 'undefined') return null;
+    const raw = window.localStorage.getItem(FLAGS_CACHE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw) as Record<string, unknown>;
+    return Object.fromEntries(
+      FLAG_DEFS.map((d) => [d.key, typeof data[d.key] === 'boolean' ? data[d.key] : d.defaultValue]),
+    ) as FeatureFlags;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedFlags(flags: FeatureFlags) {
+  try {
+    window.localStorage.setItem(FLAGS_CACHE_KEY, JSON.stringify(flags));
+  } catch {
+    /* private mode / quota — the cache is only a speed-up */
+  }
+}
+
+// Layout effect on the client (before paint), plain effect on the server.
+const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+
+/** Never hold a screen on "loading" longer than this if Firestore is slow/offline. */
+const LOADING_CAP_MS = 2500;
+
+// ============================================================================
 // HOOK
 // ============================================================================
 
@@ -55,13 +97,27 @@ export function useFeatureFlags(isSuperAdmin?: boolean): {
   const [flags, setFlags] = useState<FeatureFlags>(SAFE_DEFAULTS);
   const [loading, setLoading] = useState(true);
 
+  // Before the first paint: the last-known flags, so the right design shows
+  // straight away. (Not in useState's initializer — the server render has no
+  // localStorage, and the first client render must match it.)
+  useIsomorphicLayoutEffect(() => {
+    const cached = readCachedFlags();
+    if (cached) {
+      setFlags(cached);
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
+    const cap = setTimeout(() => setLoading(false), LOADING_CAP_MS);
     // system_config is publicly readable — subscribe immediately, no auth gate needed.
     const unsubscribe = onSnapshot(
       doc(db, 'system_config', 'feature_flags'),
       (snap) => {
-        setFlags(snap.exists() ? flagsFromFirestoreData(snap.data()) : SAFE_DEFAULTS);
+        const next = snap.exists() ? flagsFromFirestoreData(snap.data()) : SAFE_DEFAULTS;
+        setFlags(next);
         setLoading(false);
+        writeCachedFlags(next);
       },
       () => {
         // Silently fall back to safe defaults on any unexpected error.
@@ -71,7 +127,10 @@ export function useFeatureFlags(isSuperAdmin?: boolean): {
       },
     );
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(cap);
+      unsubscribe();
+    };
   }, []);
 
   // Super Admins bypass all flags — they always see every feature enabled
