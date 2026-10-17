@@ -803,22 +803,26 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                   <section className="mb-6">
                     <div className="flex items-center justify-between mb-2">
                       <h3 className={v2 ? 'flex items-center gap-1.5 text-[17px] font-black text-v2-ink' : 'text-[15px] font-bold text-gray-900 dark:text-white flex items-center gap-1.5'}>
-                        <Calendar size={14} className="text-emerald-500" />
-                        <span>מתאמנים</span>
+                        {v2 ? <Users size={18} strokeWidth={2.4} className="text-v2-deep" /> : <Calendar size={14} className="text-emerald-500" />}
+                        <span>{v2 ? 'מתאמנים כאן' : 'מתאמנים'}</span>
                         {parkEvents.length > 0 && (
                           <span className="bg-emerald-500 text-white text-[9px] font-black rounded-full w-[18px] h-[18px] flex items-center justify-center ms-0.5">
                             {parkEvents.reduce((s, e) => s + Math.max(1, e.currentRegistrations ?? 0), 0)}
                           </span>
                         )}
                       </h3>
-                      <div className="flex gap-0.5 bg-gray-100 rounded-lg p-0.5">
+                      <div className={v2 ? 'flex gap-0.5 rounded-full bg-v2-surface p-1 ring-1 ring-inset ring-v2-hairline' : 'flex gap-0.5 bg-gray-100 rounded-lg p-0.5'}>
                         {(['today', 'tomorrow', 'week'] as DayFilter[]).map((f) => (
                           <button
                             key={f}
                             onClick={() => setDayFilter(f)}
-                            className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
-                              dayFilter === f ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-500'
-                            }`}
+                            className={
+                              v2
+                                ? `h-8 whitespace-nowrap rounded-full px-3 text-[13px] font-extrabold transition-colors ${dayFilter === f ? 'bg-white text-v2-ink shadow-v2-ring' : 'text-v2-muted'}`
+                                : `px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
+                                    dayFilter === f ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-500'
+                                  }`
+                            }
                           >
                             {DAY_FILTER_LABELS[f]}
                           </button>
@@ -836,19 +840,23 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                           • week           → date input + dual-range
                             slider so the user can pick any day +
                             window this week. */}
-                    <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl overflow-hidden mb-2">
-                      <div className="flex items-center gap-3 py-2.5 px-3">
-                        <Users size={16} className="text-emerald-500 flex-shrink-0" />
-                        <span className="text-xs text-emerald-700 font-bold flex-1">
+                    <div className={v2 ? 'mb-2 overflow-hidden rounded-[20px] bg-v2-surface ring-1 ring-inset ring-v2-hairline' : 'bg-emerald-50/50 border border-emerald-100 rounded-xl overflow-hidden mb-2'}>
+                      <div className={v2 ? 'flex items-center gap-3 px-3.5 py-3' : 'flex items-center gap-3 py-2.5 px-3'}>
+                        <Users size={16} className={v2 ? 'flex-shrink-0 text-v2-deep' : 'text-emerald-500 flex-shrink-0'} />
+                        <span className={v2 ? 'flex-1 text-[14px] font-bold text-v2-ink-2' : 'text-xs text-emerald-700 font-bold flex-1'}>
                           {filteredParkEvents.length === 0
                             ? 'אף אחד עוד לא פרסם שהוא מגיע...'
                             : 'גם אתה מתכנן להגיע?'}
                         </span>
                         <button
                           onClick={() => setShowTimePicker((v) => !v)}
-                          className="flex-shrink-0 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[11px] font-bold active:scale-[0.97] transition-transform"
+                          className={
+                            v2
+                              ? 'h-9 flex-shrink-0 whitespace-nowrap rounded-full bg-v2-cta px-4 text-[13px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]'
+                              : 'flex-shrink-0 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[11px] font-bold active:scale-[0.97] transition-transform'
+                          }
                         >
-                          אני מגיע ב...
+                          {v2 ? 'אני מגיע…' : 'אני מגיע ב...'}
                         </button>
                       </div>
                       {showTimePicker && (
@@ -949,9 +957,12 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                             ev.isPersonalArrival && ev.avatars?.[0]?.uid === currentUid;
 
                           return (
-                            <div key={`park_${ev.eventId}_${idx}`} className="flex items-center gap-2 py-1.5 px-2.5 bg-emerald-50/70 rounded-lg hover:bg-emerald-50 transition-colors">
-                              <span className="text-[11px] font-black text-emerald-700 min-w-[40px] text-center" dir="ltr">{timeLabel}</span>
-                              <span className="flex-1 text-xs font-bold text-emerald-800 truncate">
+                            <div
+                              key={`park_${ev.eventId}_${idx}`}
+                              className={v2 ? 'flex items-center gap-3 rounded-[16px] bg-white px-3 py-2.5 shadow-v2-ring' : 'flex items-center gap-2 py-1.5 px-2.5 bg-emerald-50/70 rounded-lg hover:bg-emerald-50 transition-colors'}
+                            >
+                              <span className={v2 ? 'min-w-[48px] text-[13px] font-extrabold tabular-nums text-v2-muted' : 'text-[11px] font-black text-emerald-700 min-w-[40px] text-center'} dir="ltr">{timeLabel}</span>
+                              <span className={v2 ? 'flex-1 truncate text-[14.5px] font-extrabold text-v2-ink' : 'flex-1 text-xs font-bold text-emerald-800 truncate'}>
                                 {ev.isRecurring ? 'קבוצתי' : ev.eventLabel}
                               </span>
                               {ev.isRecurring && <RefreshCw size={10} className="text-emerald-400 flex-shrink-0" />}
