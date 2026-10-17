@@ -2827,6 +2827,24 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // LEAGUE_SCOPE_STATS — per window × period × scope sums for the
+    // neighborhood / city / group boards (David, 17.10.2026). Written ONLY by
+    // the onWorkoutCreateLeagueStats Cloud Function (Admin SDK). Signed-in
+    // users read the sums + member counts; the per-user members/ subcollection
+    // and the processed-markers collection are server-only.
+    // ============================================================
+    match /league_scope_stats/{statId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+      match /members/{uid} {
+        allow read, write: if false;
+      }
+    }
+    match /league_scope_stats_processed/{workoutId} {
+      allow read, write: if false;
+    }
+
+    // ============================================================
     // MILITARY_DECLARATIONS — self-declared, unverified military
     // persona answers (Phase 3a). Deliberately NOT a field on
     // users/{uid} — that doc's read rule (line ~260) is a whole-

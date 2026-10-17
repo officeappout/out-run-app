@@ -29,6 +29,7 @@ import UserProfileSheet, { type ProfileUser } from '../UserProfileSheet';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
 import { computeQualityBadges } from '@/features/parks/core/services/route-quality-badges.service';
 import { computeStartExperienceState } from '@/features/parks/core/services/start-experience-state';
+import { formatTooFarLabels } from '@/features/parks/core/services/start-experience-state';
 import { useToast } from '@/components/ui/Toast';
 import ShareAsLiveToggle from '@/features/workout-engine/components/ShareAsLiveToggle';
 import type { WorkoutActivityStatus } from '@/features/safecity/services/presence.service';
@@ -377,6 +378,12 @@ export default function RouteDetailSheet({
   // estimate fallback needed here, unlike the carousel.
   const startState = computeStartExperienceState(userLocation ?? null, route?.path ?? null, walkToRouteMinutes);
   const isTooFarToStart = startState === 'off_route_too_far';
+  // G1.4: walk-time wording only within WALK_TIME_DISPLAY_MAX_KM (2 km); farther → distance.
+  const tooFarLabels = useMemo(() => {
+    const start = route?.path?.[0];
+    const km = userLocation && start ? haversineKm(userLocation.lat, userLocation.lng, start[1], start[0]) : null;
+    return formatTooFarLabels(km, walkToRouteMinutes);
+  }, [userLocation, route?.path, walkToRouteMinutes]);
   const { showToast } = useToast();
   const walkSteps          = useMapStore((s) => s.walkSteps);
 
@@ -1151,7 +1158,7 @@ export default function RouteDetailSheet({
                       // never a literal disabled attribute" idiom used on
                       // the discover carousel's own CTA (RouteCardUnified).
                       if (isTooFarToStart) {
-                        showToast('error', `התקרבו למסלול — נותרו עוד כ-${walkToRouteMinutes} דק' הליכה`);
+                        showToast('error', tooFarLabels.toast);
                         return;
                       }
                       onClose();
@@ -1167,7 +1174,7 @@ export default function RouteDetailSheet({
                     }}
                   >
                     <Play size={18} fill="currentColor" />
-                    <span>{isTooFarToStart ? `עוד כ-${walkToRouteMinutes} דק' הליכה` : 'התחל אימון'}</span>
+                    <span>{isTooFarToStart ? tooFarLabels.cta : 'התחל אימון'}</span>
                   </button>
                   <button
                     onClick={() => onNavigate ? onNavigate(route) : handleNavigate()}

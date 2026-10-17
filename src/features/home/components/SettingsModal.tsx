@@ -1,13 +1,20 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, createContext, useContext } from 'react';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { FeedPrivacySheet } from '@/features/social/components/FeedPublishSheets';
+import { openCalendarSubscription, useCalendarFeedPath } from '@/features/home/hooks/useCalendarFeed';
+import { feedPrefsFrom, saveFeedPrefs, type FeedPrefs } from '@/features/social/services/feed-prefs';
+
+/** Home v2 (enable_home_v2) for the row primitives below — set once by the modal. */
+const SettingsV2 = createContext(false);
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, User, Lock, Bell, Shield, Wrench, FileText, LogOut, Trash2,
   ChevronLeft, ArrowRight, Loader2, AlertTriangle, Globe, Users, EyeOff,
   Heart, Ruler, Camera, MapPin, Dumbbell, Eye,
-  BarChart3, Mail, Pencil, Check, Tag, CreditCard, MessageSquare, Calendar,
+  BarChart3, Mail, Pencil, Check, Tag, CreditCard, MessageSquare, Calendar, CalendarDays,
   Clock, Plus, Accessibility, ListChecks,
 } from 'lucide-react';
 import { sendPasswordResetEmail } from 'firebase/auth';
@@ -155,6 +162,27 @@ function Toggle({
   /** Accessible name for the switch (pass it for any switch whose row text isn't programmatically associated). */
   label?: string;
 }) {
+  const v2 = useContext(SettingsV2);
+  if (v2) {
+    return (
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        disabled={disabled}
+        onClick={() => { if (!disabled) { hapticSelection(); onChange(!checked); } }}
+        className={`relative h-7 w-12 flex-shrink-0 rounded-full transition-colors duration-200 ${
+          disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+        } ${checked ? 'bg-v2-ink' : 'bg-v2-pill-border'}`}
+      >
+        <span
+          className="absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-[inset-inline-start] duration-200 ease-v2"
+          style={{ insetInlineStart: checked ? 'calc(100% - 26px)' : '2px' }}
+        />
+      </button>
+    );
+  }
   return (
     <button
       type="button"
@@ -203,6 +231,34 @@ function SettingsRow({
   // Text size bumped slightly (chrome polish): label text-sm→text-base,
   // sublabel text-xs→text-sm, applied once here so it cascades to every
   // row in the file.
+  const v2 = useContext(SettingsV2);
+  if (v2) {
+    const body = (
+      <>
+        <span className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-[12px] bg-v2-surface text-v2-ink [&_svg]:!text-v2-ink">{icon}</span>
+        <span className="min-w-0 flex-1 text-right">
+          <span className="block text-[14.5px] font-extrabold text-v2-ink">{label}</span>
+          {sublabel && <span className="mt-0.5 block text-[12px] font-bold leading-snug text-v2-muted">{sublabel}</span>}
+        </span>
+      </>
+    );
+    return onClick ? (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className={`flex w-full items-center gap-3 px-3.5 py-3 text-start transition-colors ${disabled ? 'cursor-not-allowed opacity-50' : 'active:bg-v2-surface'}`}
+      >
+        {body}
+        {right ?? <ChevronLeft size={16} strokeWidth={2.6} className="flex-shrink-0 text-v2-muted" />}
+      </button>
+    ) : (
+      <div className="flex items-center gap-3 px-3.5 py-3">
+        {body}
+        {right}
+      </div>
+    );
+  }
   if (onClick) {
     return (
       <button
@@ -243,6 +299,15 @@ function SettingsRow({
 // of space-y-2 gaps between individually-boxed rows; small gray uppercase
 // label stays as-is (already matched the "flat section header" language).
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  const v2 = useContext(SettingsV2);
+  if (v2) {
+    return (
+      <div className="px-4 pt-5">
+        <p className="mb-1.5 px-1 text-[13px] font-extrabold text-v2-deep">{title}</p>
+        <div className="divide-y divide-v2-hairline overflow-hidden rounded-[20px] bg-white shadow-v2-ring">{children}</div>
+      </div>
+    );
+  }
   return (
     <div className="px-5 pt-5">
       <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1 font-simpler px-1">
@@ -323,6 +388,28 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   const router = useRouter();
   const { profile, resetProfile } = useUserStore();
+  const v2Flags = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin).flags;
+  const v2 = v2Flags.enableHomeV2;
+  // Calendar sync — moved here from the home schedule in v2.
+  const calendarFeedPath = useCalendarFeedPath(v2 ? profile?.id : null);
+  // "מי רואה את הפוסטים שלי" — the feed's opt-in publishing prefs, here too.
+  const [feedPrivacyOpen, setFeedPrivacyOpen] = useState(false);
+  const [feedPrivacyBusy, setFeedPrivacyBusy] = useState(false);
+  const feedPrefs = feedPrefsFrom((profile?.social as { feedPrefs?: unknown } | undefined)?.feedPrefs);
+  const handleSaveFeedPrefs = async (next: FeedPrefs) => {
+    if (!profile?.id) return;
+    setFeedPrivacyBusy(true);
+    try {
+      await saveFeedPrefs(profile.id, next);
+      useUserStore.getState().updateProfile({ social: { ...(profile.social ?? {}), feedPrefs: next } } as never);
+      setFeedPrivacyOpen(false);
+    } catch (err) {
+      console.error('[Settings] saveFeedPrefs failed:', err);
+      showToast('error', 'שגיאה בשמירת ההגדרה');
+    } finally {
+      setFeedPrivacyBusy(false);
+    }
+  };
   const { reset: resetOnboarding } = useOnboardingStore();
   const { showToast } = useToast();
   const store = useSettingsStore();
@@ -1229,16 +1316,23 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             // test 03.09.2026). z-[101] matches the table's own precedent
             // for full-screen sheets that also need to clear OfflineBanner
             // (z-[100], fixed bottom-0, same ClientLayout).
-            className="fixed inset-0 z-[101] bg-white flex flex-col"
+            className={`fixed inset-0 z-[101] flex flex-col ${v2 ? 'bg-v2-surface text-v2-ink' : 'bg-white'}`}
             dir="rtl"
           >
+            <SettingsV2.Provider value={v2}>
               {/* Sticky header — screen-aware ("פרופיל חלק" Part 3): a
                   back-chevron appears on every sub-screen (ArrowRight, the
                   established RTL "back" convention in this codebase — see
                   ExerciseLibraryPage's identical back button), title is
                   dynamic per screen, X always closes the whole modal
                   regardless of which screen is showing. */}
-              <div className="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-100 px-5 py-3 flex items-center gap-2 z-10 flex-shrink-0">
+              <div
+                className={
+                  v2
+                    ? 'v2-glass-bar sticky top-0 z-10 flex flex-shrink-0 items-center gap-2 px-4 pb-2 pt-[calc(env(safe-area-inset-top,0px)+4px)]'
+                    : 'sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-100 px-5 py-3 flex items-center gap-2 z-10 flex-shrink-0'
+                }
+              >
                 {screen !== 'main' && (
                   <button
                     type="button"
@@ -1249,7 +1343,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     <ArrowRight size={20} />
                   </button>
                 )}
-                <h2 className="flex-1 text-xl font-black text-gray-900 font-simpler">
+                <h2 className={v2 ? 'flex-1 text-[22px] font-black !tracking-[-0.02em] text-v2-ink' : 'flex-1 text-xl font-black text-gray-900 font-simpler'}>
                   {screen === 'main' ? 'הגדרות'
                     : screen === 'personal' ? 'פרטים אישיים'
                     : screen === 'notifications' ? 'התראות'
@@ -1276,8 +1370,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     edit is the dedicated פרטים אישיים screen below (private,
                     reached via the חשבון row or this hero's own pencil).
                    ══════════════════════════════════════════════════════════ */}
-                <div className="px-5 pt-5 pb-2">
-                  <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
+                <div className={v2 ? 'px-4 pt-4' : 'px-5 pt-5 pb-2'}>
+                  <div className={v2 ? 'flex items-center gap-3 rounded-[20px] bg-white p-3 shadow-v2-ring' : 'flex items-center gap-3 pb-4 border-b border-gray-100'}>
                     {/* Avatar — tap the camera badge to upload from native
                         camera/gallery (native only; web shows a toast). */}
                     <ProfilePhotoUploader
@@ -1852,6 +1946,16 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   </div>
 
                   <div className="mt-5 divide-y divide-gray-100">
+                    {/* Feed posts — who sees them, auto-publish per activity
+                        (only once the community feed is on). */}
+                    {v2Flags.enableCommunityFeed && (
+                      <SettingsRow
+                        icon={<Users size={20} className="text-gray-700" />}
+                        label="מי רואה את הפוסטים שלי"
+                        sublabel="פרסום אוטומטי, קהל ברירת מחדל, שם הפארק"
+                        onClick={() => setFeedPrivacyOpen(true)}
+                      />
+                    )}
                     {/* Profile discoverability */}
                     <SettingsRow
                       icon={discoverable ? <Eye size={20} className="text-gray-700" /> : <EyeOff size={20} className="text-gray-700" />}
@@ -1969,6 +2073,16 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     </AnimatePresence>
                   </div>
 
+                  {/* Calendar sync (home v2 moved it here from the schedule) */}
+                  {v2 && (
+                    <SettingsRow
+                      icon={<CalendarDays size={20} className="text-gray-700" />}
+                      label="סנכרון ליומן"
+                      sublabel={calendarFeedPath ? 'האימונים שלך ביומן של הטלפון' : 'טוען…'}
+                      onClick={calendarFeedPath ? () => openCalendarSubscription(calendarFeedPath) : undefined}
+                      disabled={!calendarFeedPath}
+                    />
+                  )}
                   {/* Equipment */}
                   <SettingsRow
                     icon={<Dumbbell size={20} className="text-gray-700" />}
@@ -2289,6 +2403,14 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   </button>
                 </div>
               )}
+              <FeedPrivacySheet
+                open={feedPrivacyOpen}
+                prefs={feedPrefs}
+                busy={feedPrivacyBusy}
+                onSave={(n) => void handleSaveFeedPrefs(n)}
+                onClose={() => setFeedPrivacyOpen(false)}
+              />
+            </SettingsV2.Provider>
           </motion.div>
         )}
       </AnimatePresence>

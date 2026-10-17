@@ -86,6 +86,7 @@ import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import WorkoutLocationSuggestions from '@/features/home/components/WorkoutLocationSuggestions';
 import NearbyGroupsRow from '@/features/home/components/NearbyGroupsRow';
+import { HomeV2Context, useHomeV2 } from '@/features/home/context/HomeV2Context';
 import AppHeader from '@/components/ui/AppHeader';
 import { useRequiredSetup } from '@/features/user/onboarding/hooks/useRequiredSetup';
 import { JITSetupModal } from '@/features/user/onboarding/components/JITSetupModal';
@@ -253,7 +254,24 @@ const WHO_WEEKLY_TARGET = 150;
 // richer per-completion data lives in today-activity-labels.ts (G7.3: hybrid-aware).
 
 /** Weekly activity minutes card */
+/** Home v2 — the greeting by the hour (Israel time on the device) + today's date. */
+function HomeGreeting({ name }: { name: string }) {
+  const now = new Date();
+  const h = now.getHours();
+  const hello = h >= 5 && h < 12 ? 'בוקר טוב' : h >= 12 && h < 17 ? 'צהריים טובים' : h >= 17 && h < 21 ? 'ערב טוב' : 'לילה טוב';
+  const first = name.trim().split(/\s+/)[0] ?? '';
+  return (
+    <div className="pb-2 pt-2" dir="rtl">
+      <h1 className="text-[22px] font-black leading-tight tracking-v2-tight text-v2-ink">
+        {hello}
+        {first ? `, ${first}` : ''}
+      </h1>
+    </div>
+  );
+}
+
 function ActivityCard() {
+  const v2 = useHomeV2();
   const { summary } = useWeeklyProgress();
   const weeklyMinutes = Math.round(
     (summary?.categoryTotals?.strength ?? 0) +
@@ -261,6 +279,24 @@ function ActivityCard() {
     (summary?.categoryTotals?.maintenance ?? 0),
   );
   const barPct = Math.min(100, (weeklyMinutes / WHO_WEEKLY_TARGET) * 100);
+
+  if (v2) {
+    return (
+      <div className="flex h-full w-full flex-col rounded-v2-card bg-white p-4 shadow-v2-card" dir="rtl">
+        <p className="text-[13px] font-extrabold text-v2-muted">פעילות שבועית</p>
+        <p className="mt-2 text-[30px] font-black leading-none tabular-nums tracking-v2-tighter text-v2-ink">
+          {weeklyMinutes} <span className="text-[14px] font-bold text-v2-muted">דק׳</span>
+        </p>
+        <p className="mt-1 text-[12.5px] font-bold text-v2-muted">מתוך {WHO_WEEKLY_TARGET} דק׳</p>
+        <div className="mt-auto pt-3">
+          <div className="h-2 overflow-hidden rounded-full bg-v2-tint">
+            <div className="h-full rounded-full bg-v2-cta transition-[width] duration-500" style={{ width: `${barPct}%` }} />
+          </div>
+          <p className="mt-2 text-[11px] font-bold leading-snug text-v2-muted">המלצת ארגון הבריאות העולמי</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -320,7 +356,7 @@ export default function HomePage() {
   const router = useRouter();
   const { profile, _hasHydrated, refreshProfile } = useUserStore();
   const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
-  const { flags: featureFlags } = useFeatureFlags(isSuperAdmin);
+  const { flags: featureFlags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
   const { classification: entryRouterClassification, dismiss: dismissWelcomeDrawer } = useEntryRouter();
   const resolvedDashboardMode = useDashboardMode(profile, featureFlags.enableRunningPrograms);
   const scheduleState = useSmartSchedule();
@@ -2658,8 +2694,10 @@ export default function HomePage() {
     checkFirestore();
   }, [_hasHydrated, profile, router, isCheckingFirestore]);
 
-  // Loading states
-  if (!_hasHydrated) {
+  // Loading states. flagsLoading too: without it a user with home v2 on saw
+  // the old home for a moment until the flags arrived (cached after the
+  // first visit, so this is normally already false).
+  if (!_hasHydrated || flagsLoading) {
     return (
       <div className="h-[100dvh] flex items-center justify-center bg-[#F8FAFC]">
         <p className="text-slate-600 animate-pulse text-sm">טוען...</p>
@@ -2717,12 +2755,14 @@ export default function HomePage() {
   const primaryTrack = (profile?.lifestyle as any)?.primaryTrack;
 
   return (
+    <HomeV2Context.Provider value={featureFlags.enableHomeV2}>
     <div className="min-h-[100dvh] bg-[#F8FAFC]">
       {/* ── Shared App Header (avatar + flame, logo, bell + chat + search) ── */}
-      <AppHeader />
+      <AppHeader v2={featureFlags.enableHomeV2} />
 
       {/* ── Profile Progress Bar ── */}
-      <ProfileProgressBar profile={profile} />
+      {/* v2: hidden for now (owner's review — takes space at the top). */}
+      {!featureFlags.enableHomeV2 && <ProfileProgressBar profile={profile} />}
 
       {/* ── Global Motivation Banner (post-workout) ── */}
       <AnimatePresence>
@@ -2777,6 +2817,9 @@ export default function HomePage() {
       {/* ── Main Content: Clean Execution Zone ── */}
       <div className="max-w-md mx-auto px-4 pt-2 space-y-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 16px) + 1.5rem)' }}>
 
+        {/* Home v2 greeting (design lab): "בוקר טוב, דוד" + today's date. */}
+        {featureFlags.enableHomeV2 && <HomeGreeting name={profile?.core?.name ?? ''} />}
+
         {/* Today Activity Strip — Stage D+E (19.08.2026, "completion-loop" plan),
             relocated to the very top of the page (21.08.2026, "ארכיטקטורת הבית
             ומנוע-ההמלצות" doc — compact top-of-page carousel redesign): first
@@ -2827,6 +2870,7 @@ export default function HomePage() {
             className="relative overflow-hidden rounded-3xl"
           >
             <SmartWeeklySchedule
+              v2={featureFlags.enableHomeV2}
               schedule={realSchedule}
               currentTrack={isRunningMode ? 'running' : (primaryTrack === 'performance' ? 'performance' : 'wellness')}
               scheduleDays={userScheduleDays}
@@ -2924,7 +2968,7 @@ export default function HomePage() {
             <div className="flex flex-col gap-4 mt-0">
               {/* ── Tabs bar ─────────────────────────────────────────── */}
               <div
-                className="w-full max-w-[358px] mx-auto flex border-b border-gray-100"
+                className={featureFlags.enableHomeV2 ? 'w-full mx-auto flex border-b border-v2-hairline' : 'w-full max-w-[358px] mx-auto flex border-b border-gray-100'}
                 dir="rtl"
               >
                 {tabs.map((tab) => {
@@ -2934,14 +2978,21 @@ export default function HomePage() {
                       key={tab}
                       type="button"
                       onClick={() => setHomeTab(tab)}
-                      className={[
-                        'flex-1 py-2.5 text-sm font-bold transition-colors',
-                        isActive
-                          ? 'text-[#00C9F2] border-b-2 border-[#00C9F2] -mb-px'
-                          : 'text-gray-400',
-                      ].join(' ')}
+                      className={
+                        featureFlags.enableHomeV2
+                          ? `relative flex-1 pb-3 pt-1 text-[16px] font-black transition-colors duration-200 ${isActive ? 'text-v2-deep' : 'text-v2-muted'}`
+                          : [
+                              'flex-1 py-2.5 text-sm font-bold transition-colors',
+                              isActive
+                                ? 'text-[#00C9F2] border-b-2 border-[#00C9F2] -mb-px'
+                                : 'text-gray-400',
+                            ].join(' ')
+                      }
                     >
                       {TAB_LABELS[tab]}
+                      {featureFlags.enableHomeV2 && isActive && (
+                        <span className="absolute inset-x-0 -bottom-px h-[3px] rounded-full bg-v2-cta" />
+                      )}
                     </button>
                   );
                 })}
@@ -3084,7 +3135,13 @@ export default function HomePage() {
                         it to control. */}
                     <div className="px-5" dir="rtl">
                       <div className="relative mb-1 flex items-center justify-between gap-2">
-                        <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white">
+                        <h3
+                          className={
+                            featureFlags.enableHomeV2
+                              ? 'text-[19px] font-black text-[#0e1419] dark:text-white'
+                              : 'text-2xl font-extrabold text-gray-900 dark:text-white'
+                          }
+                        >
                           האימון היומי שלך
                         </h3>
                         {isActiveSuggestionHeroTreated && (
@@ -3429,8 +3486,20 @@ export default function HomePage() {
       {SOCIAL_COMPOSE_UI_ENABLED && !showPlanner && !showLifestyleWizard && !builderOpen && !editEntry && !selectedWorkout && (
         <button
           onClick={() => setPlusDrawerOpen(true)}
-          className="fixed z-[55] w-14 h-14 rounded-full shadow-xl flex items-center justify-center bg-[#00E5FF] text-on-brand active:scale-95 transition-all"
-          style={{ bottom: 'calc(84px + env(safe-area-inset-bottom, 0px))', right: '16px' }}
+          className={
+            featureFlags.enableHomeV2
+              ? 'fixed z-[55] w-14 h-14 rounded-full flex items-center justify-center bg-white text-[#0284c7] active:scale-95 transition-transform'
+              : 'fixed z-[55] w-14 h-14 rounded-full shadow-xl flex items-center justify-center bg-[#00E5FF] text-on-brand active:scale-95 transition-all'
+          }
+          style={{
+            // v2: a bit higher, clear of the floating bar's raised map circle.
+            bottom: featureFlags.enableHomeV2 ? 'calc(104px + env(safe-area-inset-bottom, 0px))' : 'calc(84px + env(safe-area-inset-bottom, 0px))',
+            right: '16px',
+            // v2: one filled gradient per screen — the "+" floats white (design-language §9.11)
+            ...(featureFlags.enableHomeV2
+              ? { boxShadow: '0 28px 56px -24px rgba(9,30,50,0.45), 0 0 0 1px rgba(14,27,42,0.08)' }
+              : {}),
+          }}
           title="הוסף"
         >
           <Plus size={22} />
@@ -3701,5 +3770,6 @@ export default function HomePage() {
         onCancel={cancelJIT}
       />
     </div>
+    </HomeV2Context.Provider>
   );
 }

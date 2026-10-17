@@ -269,6 +269,8 @@ interface AgendaDayCardProps {
    * keeps its current fallback behavior unchanged; this is opt-in.
    */
   suppressScheduleDaysFallback?: boolean;
+  /** Home v2 planner look (enable_home_v2) — passed only by the planner list. */
+  v2?: boolean;
 }
 
 export interface ResolvedRunningWorkout {
@@ -493,6 +495,8 @@ interface StrengthCardProps {
   onPreviewEntry?: (entry: UserScheduleEntry) => void;
   /** Called when a community entry is tapped — opens a drawer instead of navigating. */
   onCommunityTap?: (groupId: string, groupName: string) => void;
+  /** Home v2 planner look. */
+  v2?: boolean;
 }
 
 const DRAG_LONG_PRESS_MS = 500;
@@ -515,6 +519,7 @@ function StrengthCard({
   onDeleteRequest,
   onEditRequest,
   onPreviewEntry,
+  v2 = false,
 }: StrengthCardProps) {
   const router = useRouter();
   const dragControls = useDragControls();
@@ -678,7 +683,9 @@ function StrengthCard({
       style={{
         position: 'relative',
         minWidth: 0,
-        ...(isShared ? { flex: 1 } : { width: '50%' }),
+        // v2: the pill takes the row's free width (it used to stop at 50%
+        // and cut the workout name).
+        ...(isShared || v2 ? { flex: 1 } : { width: '50%' }),
       }}
       whileDrag={{
         scale: 1.02,
@@ -689,7 +696,9 @@ function StrengthCard({
       }}
     >
       {/* Swipe-and-reveal container — clips the sliding card and exposes the action panel */}
-      <div ref={swipeContainerRef} style={{ position: 'relative', overflow: 'hidden', borderRadius: 8 }}>
+      {/* Same radius as the card on top — otherwise the edit/delete panel
+          underneath shows at the corners (the v2 pill is rounder). */}
+      <div ref={swipeContainerRef} style={{ position: 'relative', overflow: 'hidden', borderRadius: v2 ? 14 : 8 }}>
 
         {/* Action panel — revealed on swipe-left: edit (blue) + delete (red) */}
         {canSwipe && (
@@ -763,17 +772,29 @@ function StrengthCard({
               // Stage C (18.08.2026): a completed entry fills the whole card solid
               // (barColor as background) instead of a white card + 4px stripe — the
               // border becomes redundant on a solid-fill card, so it's dropped too.
-              border: isCompleted ? 'none' : `0.5px solid ${isToday ? '#00C9F240' : '#E0E9FF'}`,
-              background: isCompleted ? barColor : 'var(--color-background-primary, #ffffff)',
-              borderRadius: 8,
+              ...(v2
+                ? {
+                    // v2: a white pill on the ring shadow; done = soft surface + a
+                    // check in the completion colour (the fill colour still says
+                    // strength vs aerobic, just smaller).
+                    background: isCompleted ? '#f4f8fa' : '#ffffff',
+                    boxShadow: isCompleted ? 'inset 0 0 0 1px #e6edf2' : '0 0 0 1px rgba(14,27,42,0.06), 0 1px 2px rgba(14,27,42,0.06)',
+                    borderRadius: 14,
+                    minHeight: 40,
+                  }
+                : {
+                    border: isCompleted ? 'none' : `0.5px solid ${isToday ? '#00C9F240' : '#E0E9FF'}`,
+                    background: isCompleted ? barColor : 'var(--color-background-primary, #ffffff)',
+                    borderRadius: 8,
+                    minHeight: 36,
+                  }),
               overflow: 'hidden',
-              minHeight: 36,
             }}
           >
             {/* 4px accent bar — only for not-yet-completed entries. A completed card
                 is filled solid with this same color, so a same-color stripe would be
                 invisible against it — the fill itself is now the completion signal. */}
-            {!isCompleted && (
+            {!isCompleted && !v2 && (
               <div
                 className="flex-shrink-0"
                 style={{ width: 4, backgroundColor: barColor }}
@@ -782,7 +803,10 @@ function StrengthCard({
 
             {/* Card body — icon/text color inverts to white once the card is filled
                 solid (barColor), matching the same fill. */}
-            <div className="flex items-center gap-1.5 flex-1 min-w-0" style={{ padding: '6px 8px', color: isCompleted ? '#FFFFFF' : barColor }}>
+            <div
+              className={`flex items-center flex-1 min-w-0 ${v2 ? 'gap-2' : 'gap-1.5'}`}
+              style={{ padding: v2 ? '6px 10px' : '6px 8px', color: v2 ? (isCompleted ? '#64748b' : barColor) : isCompleted ? '#FFFFFF' : barColor }}
+            >
               {isCommunity
                 ? (CommunityIcon && <CommunityIcon className="w-4 h-4 flex-shrink-0" />)
                 : (() => {
@@ -799,7 +823,7 @@ function StrengthCard({
                     // SVG (program-icon.util.tsx's own doc comment confirms this) that
                     // correctly renders white here. Not-completed cards are unaffected —
                     // the raster's white background already matches the white card bg.
-                    const skillDisplay = !isCompleted && primaryId
+                    const skillDisplay = (!isCompleted || v2) && primaryId
                       ? SKILL_DISPLAY[primaryId as keyof typeof SKILL_DISPLAY]
                       : null;
                     return skillDisplay
@@ -807,24 +831,34 @@ function StrengthCard({
                         <img
                           src={skillDisplay.iconPath}
                           alt={skillDisplay.shortName}
-                          className="w-4 h-4 object-contain flex-shrink-0"
+                          className={`${v2 ? 'w-5 h-5' : 'w-4 h-4'} object-contain flex-shrink-0`}
                           onError={(e) => { e.currentTarget.style.display = 'none'; }}
                         />
                       )
-                      : getProgramIcon(personalIconKey, 'w-4 h-4 flex-shrink-0');
+                      : getProgramIcon(personalIconKey, v2 ? 'w-5 h-5 flex-shrink-0' : 'w-4 h-4 flex-shrink-0');
                   })()
               }
-              <p className={`text-[13px] font-medium leading-tight truncate ${
-                isCompleted ? 'text-white line-through' : 'text-gray-900 dark:text-white'
-              }`}>
+              <p className={
+                v2
+                  ? `text-[13.5px] font-extrabold leading-tight truncate ${isCompleted ? 'text-v2-ink-2' : 'text-v2-ink'}`
+                  : `text-[13px] font-medium leading-tight truncate ${isCompleted ? 'text-white line-through' : 'text-gray-900 dark:text-white'}`
+              }>
                 {title}
               </p>
+              {v2 && isCompleted && (
+                <span
+                  className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full text-white"
+                  style={{ background: barColor }}
+                >
+                  <Check className="h-3 w-3" strokeWidth={3.2} aria-label="בוצע" />
+                </span>
+              )}
             </div>
 
             {/* Grip handle */}
             {isDraggable && (
               <div
-                className="text-gray-300 dark:text-gray-600 cursor-grab active:cursor-grabbing flex items-center flex-shrink-0"
+                className={`${v2 ? 'text-v2-muted/60' : 'text-gray-300 dark:text-gray-600'} cursor-grab active:cursor-grabbing flex items-center flex-shrink-0`}
                 style={{ touchAction: 'none', padding: '4px 2px' }}
                 onPointerDown={handleGripDown}
                 onPointerUp={handleGripUp}
@@ -881,6 +915,7 @@ export default function AgendaDayCard({
   rowRef,
   runningOverride,
   suppressScheduleDaysFallback,
+  v2 = false,
 }: AgendaDayCardProps) {
   const { profile } = useUserStore();
   /**
@@ -1124,15 +1159,33 @@ export default function AgendaDayCard({
         tabIndex={0}
         onClick={onSelect}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSelect(); }}
-        className={`
+        className={
+          v2
+            ? `w-full flex items-center gap-3 px-3 text-right transition-colors duration-200 cursor-pointer ${
+                (isRest || isEmpty) ? 'min-h-[56px]' : 'min-h-[64px]'
+              } py-2 ${isSelected ? 'bg-v2-tint/70' : 'bg-transparent'}`
+            : `
           w-full flex items-center gap-1.5 px-1 text-right transition-colors cursor-pointer
           ${(isRest || isEmpty) ? 'h-[46px]' : 'h-[56px]'}
           ${isSelected ? 'bg-cyan-50/60 dark:bg-cyan-950/20' : 'bg-transparent'}
           active:bg-gray-50 dark:active:bg-gray-800/40
-        `}
+        `
+        }
         dir="rtl"
       >
         {/* ── RIGHT: Day label + date number ── */}
+        {v2 ? (
+          <div className="w-10 flex-shrink-0 text-center">
+            <span className={`block text-[12px] font-extrabold ${isToday ? 'text-v2-deep' : 'text-v2-muted'}`}>{dayShort}</span>
+            <span
+              className={`mx-auto mt-0.5 grid h-8 w-8 place-items-center rounded-full text-[16px] font-black tabular-nums ${
+                isToday ? 'bg-v2-cta text-v2-on-cta' : isSelected ? 'bg-v2-ink text-white' : (isRest || isEmpty) ? 'text-v2-muted' : 'text-v2-ink'
+              }`}
+            >
+              {dayNum}
+            </span>
+          </div>
+        ) : (
         <div className="w-9 flex-shrink-0 flex flex-col items-center justify-center">
           <span className={`text-[9px] font-bold uppercase leading-none ${
             isToday ? 'text-cyan-500' : 'text-gray-500 dark:text-gray-400'
@@ -1151,8 +1204,12 @@ export default function AgendaDayCard({
             {dayNum}
           </span>
         </div>
+        )}
 
         {/* ── Timeline dot ── */}
+        {v2 ? (
+          <span className="h-9 w-px flex-shrink-0 bg-v2-hairline" aria-hidden />
+        ) : (
         <div className="flex flex-col items-center self-stretch py-2 flex-shrink-0">
           {(isFutureRest || isPastRest || isEmpty) ? (
             <div className="w-1.5 h-1.5 flex-shrink-0" />
@@ -1165,10 +1222,26 @@ export default function AgendaDayCard({
           )}
           <div className="w-px flex-1 mt-0.5" style={{ backgroundColor: 'rgba(100,116,139,0.4)' }} />
         </div>
+        )}
 
         {/* ── CENTER: Activity content ── */}
         <div className="flex-1 min-w-0 flex items-center gap-1.5">
-          {isLoading ? (
+          {v2 && !isLoading && (isEmpty || mode === 'rest') ? (
+            /* ── v2: rest / empty — a quiet label and a round "+" at the end ── */
+            <span className="flex flex-1 items-center justify-between gap-2">
+              <span className="text-[13.5px] font-bold text-v2-muted/80">{isEmpty ? 'אין אימון מתוכנן' : 'מנוחה'}</span>
+              {(isEmpty || (baseMode !== 'past' && !!onAddWorkout)) && (
+                <button
+                  type="button"
+                  onClick={handleAddClick}
+                  className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-full text-v2-deep ring-1 ring-inset ring-v2-pill-border transition-transform duration-150 ease-v2 active:scale-[0.97]"
+                  aria-label="הוסף אימון ליום זה"
+                >
+                  <Plus className="h-4 w-4" strokeWidth={2.6} />
+                </button>
+              )}
+            </span>
+          ) : isLoading ? (
             /* Loading skeleton */
             <div className="h-2.5 w-16 bg-gray-100 dark:bg-gray-800 rounded-full animate-pulse" />
 
@@ -1224,30 +1297,45 @@ export default function AgendaDayCard({
                     // Stage C (18.08.2026): same full-color-fill treatment as StrengthCard
                     // above — completed fills solid instead of white+stripe, so the border
                     // (only meaningful against a white/tinted bg) is dropped too.
-                    border: isCompleted ? 'none' : `0.5px solid ${runColor}26`,
-                    background: isCompleted ? '#1D9E75' : `${runColor}0D`,
-                    borderRadius: 8,
+                    ...(v2
+                      ? {
+                          background: isCompleted ? '#f4f8fa' : '#ffffff',
+                          boxShadow: isCompleted ? 'inset 0 0 0 1px #e6edf2' : '0 0 0 1px rgba(14,27,42,0.06), 0 1px 2px rgba(14,27,42,0.06)',
+                          borderRadius: 14,
+                          minHeight: 40,
+                        }
+                      : {
+                          border: isCompleted ? 'none' : `0.5px solid ${runColor}26`,
+                          background: isCompleted ? '#1D9E75' : `${runColor}0D`,
+                          borderRadius: 8,
+                          minHeight: 36,
+                        }),
                     overflow: 'hidden',
-                    minHeight: 36,
                   }}
                 >
                   {/* Accent bar — only for not-yet-completed; see StrengthCard's identical
                       reasoning above (same-color stripe on a same-color fill is invisible). */}
-                  {!isCompleted && (
+                  {!isCompleted && !v2 && (
                     <div className="flex-shrink-0" style={{ width: 4, backgroundColor: runColor }} />
                   )}
 
                   {/* Card body */}
                   <div className="flex items-center gap-1.5 flex-1 min-w-0" style={{ padding: '5px 10px' }}>
-                    <span style={{ color: isCompleted ? '#FFFFFF' : runColor, flexShrink: 0 }}>
+                    <span style={{ color: isCompleted ? (v2 ? '#64748b' : '#FFFFFF') : runColor, flexShrink: 0 }}>
                       {getCategoryIcon(runningWorkout?.category)}
                     </span>
-                    <span className={`text-[11px] font-semibold truncate flex-1 min-w-0 ${
-                      isCompleted ? 'text-white line-through' : 'text-gray-900 dark:text-white'
-                    }`}>
+                    <span className={
+                      v2
+                        ? `text-[14px] font-extrabold truncate flex-1 min-w-0 ${isCompleted ? 'text-v2-ink-2' : 'text-v2-ink'}`
+                        : `text-[11px] font-semibold truncate flex-1 min-w-0 ${isCompleted ? 'text-white line-through' : 'text-gray-900 dark:text-white'}`
+                    }>
                       {runningWorkout!.name}
                     </span>
-                    {isCompleted ? (
+                    {isCompleted && v2 ? (
+                      <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-[#1D9E75] text-white">
+                        <Check className="h-3 w-3" strokeWidth={3.2} aria-label="בוצע" />
+                      </span>
+                    ) : isCompleted ? (
                       // Colors inverted (white pill, green text/icon) from the previous
                       // light-emerald-on-white treatment — that combination would have
                       // very poor contrast against the new solid #1D9E75 fill. Keeping the
@@ -1305,6 +1393,7 @@ export default function AgendaDayCard({
                     if (found) onEditEntry(found);
                   } : undefined}
                   onPreviewEntry={onPreviewEntry}
+                  v2={v2}
                 />
               ))}
 
@@ -1312,11 +1401,15 @@ export default function AgendaDayCard({
               {showAddButton && (
                 <button
                   onClick={handleAddClick}
-                  className="flex items-center justify-center flex-shrink-0 active:scale-90 transition-all"
-                  style={{ color: '#64748B' }}
+                  className={
+                    v2
+                      ? 'ms-auto grid h-9 w-9 flex-shrink-0 place-items-center rounded-full text-v2-deep ring-1 ring-inset ring-v2-pill-border transition-transform duration-150 ease-v2 active:scale-[0.97]'
+                      : 'flex items-center justify-center flex-shrink-0 active:scale-90 transition-all'
+                  }
+                  style={v2 ? undefined : { color: '#64748B' }}
                   aria-label="הוסף אימון ליום זה"
                 >
-                  <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+                  <Plus className={v2 ? 'h-4 w-4' : 'w-3.5 h-3.5'} strokeWidth={v2 ? 2.6 : 2.5} />
                 </button>
               )}
             </div>

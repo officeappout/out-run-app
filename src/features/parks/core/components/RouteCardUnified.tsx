@@ -116,6 +116,10 @@ export default function RouteCardUnified({
 }: RouteCardUnifiedProps) {
   const slim = variant === 'slim';
   const hasStats = !!distanceText && !!durationText;
+  // G1.4 (Sderot pilot): the curated discover card (slim + stats — BottomJourneyContainer is the only
+  // caller with that combination) read as too thick on the map. Visual-only tightening, scoped to it;
+  // the slot card (slim, no stats) and the default variant keep their spacing byte-identical.
+  const compact = slim && hasStats;
   const handleClick = onClick
     ? () => {
         hapticLight();
@@ -135,7 +139,7 @@ export default function RouteCardUnified({
     <div
       dir="rtl"
       onClick={handleClick}
-      className={`${ROUTE_CARD_WIDTH} shrink-0 bg-white rounded-3xl ${slim ? 'px-4 py-3' : 'p-5'} transition-all duration-300 ${
+      className={`${ROUTE_CARD_WIDTH} shrink-0 bg-white rounded-3xl ${compact ? 'px-4 pt-2.5 pb-2.5' : slim ? 'px-4 py-3' : 'p-5'} transition-all duration-300 ${
         isActive
           ? 'shadow-[0_0_0_2.5px_rgba(0,229,255,0.85),0_14px_32px_rgba(0,0,0,0.18)] scale-[1.02]'
           : 'shadow-[0_10px_28px_rgba(0,0,0,0.14)] opacity-90 scale-[0.97]'
@@ -159,7 +163,7 @@ export default function RouteCardUnified({
 
       {/* Meta — distance + time on ONE inline row (· separated), or subtitle (slots) */}
       {hasStats ? (
-        <div className={`flex items-center gap-1.5 mt-1.5 ${slim ? 'mb-2' : 'mb-3'} text-[13px] font-black text-gray-800`} dir="ltr">
+        <div className={`flex items-center gap-1.5 ${compact ? 'mt-1 mb-1.5' : slim ? 'mt-1.5 mb-2' : 'mt-1.5 mb-3'} text-[13px] font-black text-gray-800`} dir="ltr">
           <MapPin size={13} style={{ color: BRAND }} className="shrink-0" />
           <span>{distanceText}</span>
           <span className="mx-1 text-gray-300 font-normal">·</span>
@@ -192,7 +196,7 @@ export default function RouteCardUnified({
           with reasonable distance from the CTA below (the difficulty pill sits between them). */}
       {slim && hasStats ? (
         // SLIM + stats: bolts already rendered beside distance·time above; tags (if any) on their own row.
-        extraContent ? <div className="mb-2.5">{extraContent}</div> : <div className="mb-1" />
+        extraContent ? <div className="mb-2">{extraContent}</div> : <div className="mb-0.5" />
       ) : slim ? (
         // SLIM (slots): the time pill (extraContent) and the difficulty bolts share ONE row.
         <div className="flex items-center justify-between gap-2 mb-2.5">

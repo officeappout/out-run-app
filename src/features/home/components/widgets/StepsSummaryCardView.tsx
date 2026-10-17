@@ -31,6 +31,8 @@ export interface StepsSummaryCardViewProps {
   connectPromptLabel: string | null;
   ariaLabel: string;
   onOpen: () => void;
+  /** Home v2: the thicker, larger ring from the design lab. */
+  thickRing?: boolean;
 }
 
 const CARD = 'bg-white text-v2-ink rounded-v2-card shadow-v2-card active:scale-[0.97] transition-transform duration-150 ease-v2';
@@ -56,6 +58,7 @@ export default function StepsSummaryCardView({
   connectPromptLabel,
   ariaLabel,
   onOpen: handleOpen,
+  thickRing = false,
 }: StepsSummaryCardViewProps) {
   if (variant === 'compact') {
     return (
@@ -73,8 +76,8 @@ export default function StepsSummaryCardView({
       >
         <CircularProgress
           percentage={percentage}
-          size={100}
-          strokeWidth={8}
+          size={thickRing ? 116 : 100}
+          strokeWidth={thickRing ? 14 : 8}
           colorClass="text-activity-steps"
           trackClass="text-activity-steps/15"
         >
@@ -105,8 +108,8 @@ export default function StepsSummaryCardView({
       <div className="shrink-0">
         <CircularProgress
           percentage={percentage}
-          size={60}
-          strokeWidth={6}
+          size={thickRing ? 64 : 60}
+          strokeWidth={thickRing ? 9 : 6}
           colorClass="text-activity-steps"
           trackClass="text-activity-steps/15"
         >

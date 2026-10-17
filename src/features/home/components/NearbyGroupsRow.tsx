@@ -1,5 +1,6 @@
 'use client';
 
+import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Users, SlidersHorizontal } from 'lucide-react';
@@ -82,6 +83,7 @@ function computeNearby(
 }
 
 export default function NearbyGroupsRow() {
+  const v2 = useHomeV2();
   const router = useRouter();
   const profile = useUserStore((s) => s.profile);
   const userId = profile?.id ?? null;
@@ -271,8 +273,10 @@ export default function NearbyGroupsRow() {
       <section dir="rtl" className="space-y-2">
         {/* Header row: title + count + filter icon + "all" link */}
         <div className="flex items-center justify-between">
-          <h3 className="text-[15px] font-bold text-gray-800 dark:text-gray-100 flex items-center gap-1.5">
-            <Users size={15} className="text-cyan-500" />
+          <h3
+            className={`${v2 ? 'text-[19px] font-black text-[#0e1419]' : 'text-[15px] font-bold text-gray-800'} dark:text-gray-100 flex items-center gap-1.5`}
+          >
+            {!v2 && <Users size={15} className="text-cyan-500" />}
             קבוצות קרובות אליך
             {!loading && (
               <span className="text-[13px] font-semibold text-gray-400 dark:text-gray-500">
@@ -289,8 +293,12 @@ export default function NearbyGroupsRow() {
                 aria-expanded={filterOpen}
                 className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
                   filterOpen || categoryFilter !== 'all'
-                    ? 'bg-cyan-500 text-on-brand'
-                    : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                    ? v2
+                      ? 'bg-[#0e1419] text-white'
+                      : 'bg-cyan-500 text-on-brand'
+                    : v2
+                      ? 'bg-white text-[#4b5a66] shadow-[0_0_0_1px_rgba(14,27,42,0.08)]'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
                 }`}
               >
                 <SlidersHorizontal size={15} />
@@ -316,10 +324,14 @@ export default function NearbyGroupsRow() {
                 key={chip.key}
                 type="button"
                 onClick={() => { setCategoryFilter(chip.key); if (chip.key !== 'all') setFilterOpen(false); }}
-                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-colors min-h-[36px] ${
+                className={`flex-shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold transition-colors min-h-[36px] ${
                   categoryFilter === chip.key
-                    ? 'bg-cyan-500 text-on-brand shadow-sm shadow-cyan-500/30'
-                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                    ? v2
+                      ? 'bg-[#0e1419] text-white'
+                      : 'bg-cyan-500 text-on-brand shadow-sm shadow-cyan-500/30'
+                    : v2
+                      ? 'bg-white text-[#4b5a66] shadow-[0_0_0_1px_rgba(14,27,42,0.08)]'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
                 }`}
               >
                 {chip.label}

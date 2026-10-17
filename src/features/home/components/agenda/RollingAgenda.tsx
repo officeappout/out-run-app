@@ -15,6 +15,7 @@
  */
 
 import React, { useRef, useEffect, useMemo, useState, useCallback } from 'react';
+import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import { createPortal } from 'react-dom';
 import { motion, Reorder } from 'framer-motion';
 import AgendaDayCard from './AgendaDayCard';
@@ -88,6 +89,12 @@ interface RollingAgendaProps {
   onEditEntry?: (entry: UserScheduleEntry) => void;
   /** Called when a personal card is tapped — fires before onStartWorkout. */
   onPreviewEntry?: (entry: UserScheduleEntry) => void;
+  /**
+   * Home v2 planner: a selection that came FROM scrolling the list. The
+   * scroll-to-selected effect skips it, so the list never yanks itself back
+   * while the user is scrolling it.
+   */
+  scrollPickedDate?: string | null;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -165,9 +172,11 @@ export default function RollingAgenda({
   weekStart,
   onEditEntry,
   onPreviewEntry,
+  scrollPickedDate,
 }: RollingAgendaProps) {
   const { profile } = useUserStore();
   const runScheduleDays = profile?.running?.scheduleDays;
+  const v2 = useHomeV2();
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -214,6 +223,7 @@ export default function RollingAgenda({
 
   // Scroll to selected date
   useEffect(() => {
+    if (scrollPickedDate && scrollPickedDate === selectedDate) return;
     const el = cardRefs.current.get(selectedDate);
     if (!el) return;
     if (!didInitialScroll.current) {
@@ -222,6 +232,8 @@ export default function RollingAgenda({
     } else {
       el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
+    // scrollPickedDate is read, not watched: it only vetoes this one run.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
 
   useEffect(() => { didInitialScroll.current = false; }, [filterMode]);
@@ -254,7 +266,11 @@ export default function RollingAgenda({
   }, [filterMode]); // re-run if the user switches modes, not on every render
 
   const setCardRef = useCallback((date: string, el: HTMLDivElement | null) => {
-    if (el) cardRefs.current.set(date, el);
+    if (el) {
+      cardRefs.current.set(date, el);
+      // Lets the planner find which day is at the top while scrolling.
+      el.dataset.agendaDate = date;
+    }
     else cardRefs.current.delete(date);
   }, []);
 
@@ -544,22 +560,30 @@ export default function RollingAgenda({
 
               {/* Sticky week label */}
               <div
-                className="sticky top-0 z-[1] flex items-center justify-between"
+                className={`sticky top-0 z-[1] flex items-center justify-between ${v2 ? 'bg-v2-surface/95 px-5 pb-2 pt-3 backdrop-blur' : ''}`}
                 dir="rtl"
                 data-current-week={group.isCurrentWeek ? 'true' : undefined}
                 data-week-sunday={group.weekSunday}
-                style={{
-                  background:  'var(--color-background-tertiary, #F8FAFC)',
-                  padding:     '4px 14px 3px',
-                  fontSize:    12,
-                  color:       'var(--color-text-secondary, #64748B)',
-                  fontWeight:  500,
-                }}
+                style={
+                  v2
+                    ? undefined
+                    : {
+                        background:  'var(--color-background-tertiary, #F8FAFC)',
+                        padding:     '4px 14px 3px',
+                        fontSize:    12,
+                        color:       'var(--color-text-secondary, #64748B)',
+                        fontWeight:  500,
+                      }
+                }
               >
-                <span>{group.dateRange}</span>
+                <span className={v2 ? 'text-[16px] font-black text-v2-ink' : undefined}>
+                  {group.dateRange}
+                  {v2 && group.isCurrentWeek && <span className="text-[12.5px] font-bold text-v2-muted"> · השבוע</span>}
+                </span>
                 {group.weekNumber !== null && (
                   <span
-                    style={{
+                    className={v2 ? 'rounded-full bg-v2-tint px-2.5 py-0.5 text-[12px] font-extrabold text-v2-deep' : undefined}
+                    style={v2 ? undefined : {
                       fontSize:     11,
                       fontWeight:   700,
                       padding:      '3px 10px',
@@ -576,21 +600,28 @@ export default function RollingAgenda({
 
               {/* Week card — overflow:visible while dragging so the card can escape the bounds */}
               <div
-                style={{
-                  margin:       '0 10px 12px',
-                  border:       group.isCurrentWeek
-                    ? '1.5px solid #00C9F2'
-                    : '0.5px solid var(--color-border-tertiary, #E2E8F0)',
-                  borderRadius: 10,
-                  background:   'var(--color-background-primary, #ffffff)',
-                  opacity:      group.isPastWeek ? 0.6 : 1,
-                  overflow:     draggingFromISO ? 'visible' : 'hidden',
-                }}
+                className={v2 ? `mx-4 mb-5 rounded-v2-card bg-white shadow-v2-card ${group.isCurrentWeek ? 'ring-1 ring-v2-accent/40' : ''}` : undefined}
+                style={
+                  v2
+                    ? { opacity: group.isPastWeek ? 0.6 : 1, overflow: draggingFromISO ? 'visible' : 'hidden' }
+                    : {
+                        margin:       '0 10px 12px',
+                        border:       group.isCurrentWeek
+                          ? '1.5px solid #00C9F2'
+                          : '0.5px solid var(--color-border-tertiary, #E2E8F0)',
+                        borderRadius: 10,
+                        background:   'var(--color-background-primary, #ffffff)',
+                        opacity:      group.isPastWeek ? 0.6 : 1,
+                        overflow:     draggingFromISO ? 'visible' : 'hidden',
+                      }
+                }
               >
                 {group.dates.map((iso, idx) => (
                   <div key={iso}>
                     {idx > 0 && (
-                      <div style={{ height: 1, background: 'rgba(100,116,139,0.15)', margin: '0 16px' }} />
+                      v2
+                        ? <div className="h-px bg-v2-hairline" />
+                        : <div style={{ height: 1, background: 'rgba(100,116,139,0.15)', margin: '0 16px' }} />
                     )}
                     <AgendaDayCard
                       date={iso}
@@ -610,6 +641,7 @@ export default function RollingAgenda({
                       scheduleMap={scheduleMap}
                       actualWorkoutsMap={actualWorkoutsMap}
                       rowRef={(el) => setCardRef(iso, el)}
+                      v2={v2}
                     />
                   </div>
                 ))}

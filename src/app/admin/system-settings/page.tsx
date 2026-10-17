@@ -38,6 +38,8 @@ interface FlagState {
   enable_carousel_swipe_hint: boolean;
   enable_route_direction_adapt: boolean;
   enable_no_auto_strength_level: boolean;
+  enable_league_aggregates: boolean;
+  enable_home_v2: boolean;
 }
 
 // ============================================================================
@@ -81,6 +83,23 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-amber-500',
     title: 'ליגות וארנה',
     description: 'טאב ״הליגה״ ב/community, דירוגי עיר/ארגון/פארק, ליגות חברתיות — בלתי תלוי בפיד',
+  },
+  {
+    key: 'enable_league_aggregates',
+    icon: Trophy,
+    iconBg: 'bg-amber-50',
+    iconColor: 'text-amber-500',
+    title: 'ליגות מהאימונים עצמם',
+    description: 'טבלאות שכונות/ערים/יישובים מהסיכומים בשרת במקום מהפוסטים בפיד, כולל השכונות בכל הארץ, היישובים ו״הכי משתפרים״',
+    parentKey: 'enable_leagues',
+  },
+  {
+    key: 'enable_home_v2',
+    icon: Users,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-500',
+    title: 'העיצוב החדש (v2)',
+    description: 'דף הבית, הבר התחתון, מחולל ותכנון אימונים, צעדים, פארק, קבוצה, פרופיל, הגדרות, ליגות ופיד בעיצוב החדש. מנהלי־על רואים אותו תמיד',
   },
   {
     key: 'enable_hybrid_slots',

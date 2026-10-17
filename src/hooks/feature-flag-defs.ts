@@ -105,6 +105,17 @@ export const FLAG_DEFS = [
   // (LevelRingCard hidden when skipped, StrengthSummaryView.tsx, after #305). David turns it on
   // himself after field-testing.
   { key: 'enableNoAutoStrengthLevel', firestoreKey: 'enable_no_auto_strength_level', defaultValue: false, superAdminValue: false },
+  // League aggregates (17.10.2026, David) — the neighborhood / city boards read the
+  // league_scope_stats sums (written by onWorkoutCreateLeagueStats from the workouts
+  // record) instead of summing feed_posts on the client. Fail-closed: turn it on once the
+  // function is deployed and the current week/month is backfilled. Read one-shot in
+  // ranking.service (readFeatureFlagOnce), so no superAdmin override is needed.
+  { key: 'enableLeagueAggregates', firestoreKey: 'enable_league_aggregates', defaultValue: false, superAdminValue: false },
+  // Home v2 (17.10.2026, design lab approved by David) — the home screen in the site's design
+  // language: streak flames per activity (brand Lottie), the connected streak capsule, the
+  // day bubble, the v2 header. Fail-closed launch gate; superAdminValue true so David sees it
+  // on his account while every other user keeps today's home until he flips it.
+  { key: 'enableHomeV2', firestoreKey: 'enable_home_v2', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

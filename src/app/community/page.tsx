@@ -26,14 +26,22 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { m, AnimatePresence, motion } from 'framer-motion';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Users, RefreshCw, ChevronDown, SlidersHorizontal, MapPin, Trees } from 'lucide-react';
+import { Users, RefreshCw, ChevronDown, SlidersHorizontal, MapPin, Trees, Lock, UserPlus } from 'lucide-react';
 import IconTile from '@/components/ui/v2/IconTile';
 import Button from '@/components/ui/v2/Button';
 import { useUserStore } from '@/features/user';
 import { useSocialStore } from '@/features/social/store/useSocialStore';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { IS_COMMUNITY_FEED_ENABLED } from '@/config/feature-flags';
-import { getFeedPosts, type FeedPost } from '@/features/social/services/feed.service';
+import { createWorkoutPost, getFeedPosts, type FeedPost } from '@/features/social/services/feed.service';
+import {
+  clearPendingShare,
+  feedPrefsFrom,
+  readPendingShare,
+  saveFeedPrefs,
+  type FeedPrefs,
+} from '@/features/social/services/feed-prefs';
+import { FeedPrivacySheet, FeedShareSheet, SharePromptCard, type ShareableWorkout } from '@/features/social/components/FeedPublishSheets';
 import { useArenaAccess } from '@/features/arena/hooks/useArenaAccess';
 import { useMyMilitaryDeclaration } from '@/features/arena/hooks/useHasDeclaredReserveStatus';
 import { usePendingUnitSelfHeal } from '@/features/arena/hooks/usePendingUnitSelfHeal';
@@ -52,6 +60,9 @@ import UnitLeagueTable from '@/features/arena/components/UnitLeagueTable';
 import GroupLeaderboard from '@/features/arena/components/GroupLeaderboard';
 import ScopeCompetitionLeaderboard from '@/features/arena/components/ScopeCompetitionLeaderboard';
 import ScopeBattleCard from '@/features/arena/components/ScopeBattleCard';
+import NationalLeagueBoard from '@/features/arena/components/NationalLeagueBoard';
+import InviteBonusCard from '@/features/arena/components/InviteBonusCard';
+import { BoardToggle } from '@/features/arena/components/LeagueBoard';
 import LeagueFilterSheet from '@/features/arena/components/LeagueFilterSheet';
 import { LeagueSelectorButton } from '@/features/arena/components/LeaguesTabChrome';
 import MunicipalPressureCard from '@/features/arena/components/MunicipalPressureCard';
@@ -106,12 +117,35 @@ const EVENT_VERB: Record<string, string> = {
 // getStreakLeaderboard/getStepsLeaderboard park-scope handling) is untouched.
 const SHOW_PARK_LEAGUE = false;
 
+type FeedFilter = 'all' | 'partners' | 'neighborhood' | 'groups';
+const FEED_FILTERS: { id: FeedFilter; label: string }[] = [
+  { id: 'all', label: 'הכל' },
+  { id: 'partners', label: 'שותפים' },
+  { id: 'neighborhood', label: 'השכונה' },
+  { id: 'groups', label: 'קבוצות' },
+];
+
 export default function CommunityPage() {
   // ── Shared hooks (called ONCE for both sub-views) ────────────────────────
   const { profile, _hasHydrated, refreshProfile } = useUserStore();
   const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
   const { flags: featureFlags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
   const { following, isLoaded: socialLoaded, loadConnections, isPartner } = useSocialStore();
+  // Home v2 feed filter (all / partners / my neighborhood / my groups).
+  const [feedFilter, setFeedFilter] = useState<FeedFilter>('all');
+  // Opt-in publishing (feed-prefs.ts): the last unshared workout + the sheets.
+  type PendingParams = Parameters<typeof createWorkoutPost>[0];
+  const [pendingShare, setPendingShare] = useState<PendingParams | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [publishBusy, setPublishBusy] = useState(false);
+  useEffect(() => {
+    setPendingShare(readPendingShare<PendingParams>()?.params ?? null);
+  }, []);
+  // Above the component's return: the render helpers below are function
+  // declarations called from that return, so a const declared after it is
+  // still in its TDZ when they run (the 17.10.2026 /community crash).
+  const feedPrefs: FeedPrefs = feedPrefsFrom((profile?.social as { feedPrefs?: unknown } | undefined)?.feedPrefs);
   const myDeclaration = useMyMilitaryDeclaration();
   usePendingUnitSelfHeal();
   const access = useArenaAccess(myDeclaration.isReserve, !!myDeclaration.orgId);
@@ -248,6 +282,12 @@ export default function CommunityPage() {
 
   // ── Individual vs group competition toggle ────────────────────────────────
   const [competitionMode, setCompetitionMode] = useState<'individual' | 'group'>('individual');
+  // Home v2 leagues (design lab, stage 2): four tabs on top — אישי / שכונות /
+  // יישובים / חטיבות. The tab decides individual vs groups, so the old
+  // יחידים/קבוצות toggle is hidden in v2.
+  type LeagueTabV2 = 'people' | 'neighborhoods' | 'settlements' | 'units';
+  const [leagueTabV2, setLeagueTabV2] = useState<LeagueTabV2>('people');
+  const [hoodScopeV2, setHoodScopeV2] = useState<'city' | 'national'>('city');
 
   // ── Groups-tab axis chooser. 'פלוגות' stays out (Stage G — needs the
   // leaderboard_shards data source, not feed_posts).
@@ -653,7 +693,7 @@ export default function CommunityPage() {
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.2 }}
             >
-              {renderLeaguesTab()}
+              {featureFlags.enableHomeV2 ? renderLeaguesTabV2() : renderLeaguesTab()}
             </m.div>
           )}
         </AnimatePresence>
@@ -663,7 +703,90 @@ export default function CommunityPage() {
 
   // ─── Feed tab ───────────────────────────────────────────────────────────
 
+
+  async function handlePublishPending(choice: { audience: FeedPrefs['audience']; showPark: boolean; title?: string }) {
+    if (!pendingShare || publishBusy) return;
+    setPublishBusy(true);
+    const params = { ...pendingShare, audience: choice.audience, title: choice.title ?? pendingShare.title };
+    if (!choice.showPark) {
+      delete params.parkId;
+      delete params.parkName;
+    }
+    const id = await createWorkoutPost(params, { manual: true });
+    setPublishBusy(false);
+    if (id) {
+      clearPendingShare();
+      setPendingShare(null);
+      setShareOpen(false);
+      void fetchPosts();
+    }
+  }
+
+  async function handleSavePrefs(next: FeedPrefs) {
+    if (!userId) return;
+    setPublishBusy(true);
+    try {
+      await saveFeedPrefs(userId, next);
+      await refreshProfile?.();
+      setPrivacyOpen(false);
+    } catch (err) {
+      console.error('[CommunityPage] saveFeedPrefs failed:', err);
+    } finally {
+      setPublishBusy(false);
+    }
+  }
+
   function renderFeedTab() {
+    const v2 = featureFlags.enableHomeV2;
+    const shareable: ShareableWorkout | null = pendingShare
+      ? {
+          activityCategory: pendingShare.activityCategory,
+          durationMinutes: pendingShare.durationMinutes,
+          distanceKm: pendingShare.distanceKm,
+          title: pendingShare.title,
+          parkName: pendingShare.parkName,
+        }
+      : null;
+    const shareBlock = v2 ? (
+      <div className="space-y-3 px-4" dir="rtl">
+        {shareable && <SharePromptCard workout={shareable} onShare={() => setShareOpen(true)} />}
+        <FeedShareSheet
+          open={shareOpen}
+          workout={shareable}
+          defaults={feedPrefs}
+          busy={publishBusy}
+          onPublish={(c) => void handlePublishPending(c)}
+          onSkip={() => {
+            clearPendingShare();
+            setPendingShare(null);
+            setShareOpen(false);
+          }}
+          onClose={() => setShareOpen(false)}
+          onOpenPrivacy={() => {
+            setShareOpen(false);
+            setPrivacyOpen(true);
+          }}
+        />
+        <FeedPrivacySheet
+          open={privacyOpen}
+          prefs={feedPrefs}
+          busy={publishBusy}
+          onSave={(n) => void handleSavePrefs(n)}
+          onClose={() => setPrivacyOpen(false)}
+        />
+      </div>
+    ) : null;
+    const myHood = profile?.core?.neighborhoodId ?? null;
+    const myGroups = new Set(profile?.social?.groupIds ?? []);
+    const shown = !v2 || feedFilter === 'all'
+      ? posts
+      : posts.filter((p) =>
+          feedFilter === 'partners'
+            ? isPartner(p.authorUid)
+            : feedFilter === 'neighborhood'
+              ? !!myHood && p.neighborhoodId === myHood
+              : (p.groupIds ?? []).some((g) => myGroups.has(g)),
+        );
     const circles = (
       <CommunityCircles
         onGroupClick={(group) => setSelectedGroup(group)}
@@ -686,6 +809,7 @@ export default function CommunityPage() {
       return (
         <div className="space-y-4 -mx-4">
           {circles}
+          {shareBlock}
           <div className="flex flex-col items-center justify-center py-16 text-center px-4" dir="rtl">
             <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
               <Users className="w-7 h-7 text-gray-400" />
@@ -694,6 +818,16 @@ export default function CommunityPage() {
             <p className="text-xs text-gray-600 mt-1 max-w-[240px]">
               סיים אימון כדי לפרסם את הפוסט הראשון שלך, או חפש שותפים ועקוב אחריהם
             </p>
+            {featureFlags.enableHomeV2 && (
+              <button
+                type="button"
+                onClick={() => router.push('/search?tab=people')}
+                className="mt-4 flex h-11 items-center gap-1.5 rounded-full bg-v2-cta px-5 text-[14.5px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]"
+              >
+                <UserPlus size={17} strokeWidth={2.6} aria-hidden />
+                מצא שותפים
+              </button>
+            )}
           </div>
         </div>
       );
@@ -702,6 +836,7 @@ export default function CommunityPage() {
     return (
       <div className="space-y-3 -mx-4">
         {circles}
+        {shareBlock}
         <div className="px-4 space-y-3">
           <div className="flex items-center justify-between px-1 pt-2" dir="rtl">
             <span className="text-[11px] text-gray-500">
@@ -716,7 +851,45 @@ export default function CommunityPage() {
             </button>
           </div>
 
-          {posts.map((post) => (
+          {v2 && (
+            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]" role="tablist" aria-label="סינון הפיד" dir="rtl">
+              <button
+                type="button"
+                onClick={() => setPrivacyOpen(true)}
+                aria-label="מי רואה את הפוסטים שלי"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
+              >
+                <Lock size={15} strokeWidth={2.6} aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push('/search?tab=people')}
+                className="flex h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-v2-tint px-3.5 text-[13.5px] font-extrabold text-v2-deep transition-transform duration-150 ease-v2 active:scale-[0.97]"
+              >
+                <UserPlus size={15} strokeWidth={2.6} aria-hidden />
+                שותפים
+              </button>
+              {FEED_FILTERS.map((f) => {
+                const on = f.id === feedFilter;
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={on}
+                    onClick={() => setFeedFilter(f.id)}
+                    className={`h-9 shrink-0 whitespace-nowrap rounded-full px-4 text-[13.5px] font-extrabold transition-transform duration-150 ease-v2 active:scale-[0.97] ${
+                      on ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'bg-white text-v2-ink-2 shadow-v2-ring'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {shown.map((post) => (
             <m.div
               key={post.id}
               initial={{ opacity: 0, y: 8 }}
@@ -726,15 +899,156 @@ export default function CommunityPage() {
                 post={post}
                 currentUid={userId}
                 onDeleted={(id) => setPosts((prev) => prev.filter((p) => p.id !== id))}
+                v2={v2}
               />
             </m.div>
           ))}
+          {v2 && shown.length === 0 && (
+            <p className="py-10 text-center text-[14px] font-bold text-v2-muted" dir="rtl">אין כאן עדיין פוסטים</p>
+          )}
         </div>
       </div>
     );
   }
 
   // ─── Leagues tab (was /arena) ───────────────────────────────────────────
+
+  function renderLeaguesTabV2() {
+    const tabs: { id: LeagueTabV2; label: string }[] = [
+      { id: 'people', label: 'אישי' },
+      { id: 'neighborhoods', label: 'שכונות' },
+      { id: 'settlements', label: 'יישובים' },
+      ...(access.hasUnitLeagueAccess ? [{ id: 'units' as const, label: 'חטיבות' }] : []),
+    ];
+    const now = new Date();
+    const daysLeft = 6 - now.getDay(); // the Israeli week ends on Saturday
+    const month = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'][now.getMonth()];
+    const pick = (t: LeagueTabV2) => {
+      setLeagueTabV2(t);
+      if (t === 'people') setCompetitionMode('individual');
+      if (t === 'units') setCompetitionMode('group');
+    };
+    return (
+      <div className="space-y-4" dir="rtl">
+        <div className="flex flex-wrap gap-1.5">
+          <span className="inline-flex h-8 items-center rounded-full bg-v2-tint px-3 text-[12.5px] font-extrabold text-v2-deep">
+            ליגת {month}
+          </span>
+          <span className="inline-flex h-8 items-center rounded-full bg-white px-3 text-[12.5px] font-extrabold text-v2-ink-2 shadow-v2-ring">
+            {daysLeft === 0 ? 'השבוע נסגר הלילה' : `השבוע נסגר בעוד ${daysLeft === 1 ? 'יום' : `${daysLeft} ימים`}`}
+          </span>
+        </div>
+
+        <div
+          className="sticky top-0 z-[3] -mx-4 bg-v2-surface/95 px-4 pb-1 pt-1 backdrop-blur-sm"
+          role="tablist"
+          aria-label="ליגות"
+        >
+          <div className="grid rounded-full bg-white p-1 shadow-v2-ring" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
+            {tabs.map((t) => {
+              const on = t.id === leagueTabV2;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={on}
+                  onClick={() => pick(t.id)}
+                  className={`h-10 whitespace-nowrap rounded-full text-[14px] font-extrabold transition-colors duration-200 ease-v2 ${
+                    on ? 'bg-v2-cta text-v2-on-cta shadow-v2-cta' : 'text-v2-ink-2'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {leagueTabV2 === 'people' && renderLeaguesTab()}
+
+        {leagueTabV2 === 'neighborhoods' && (
+          <div className="space-y-4">
+            <BoardToggle
+              label="איפה"
+              value={hoodScopeV2}
+              onChange={setHoodScopeV2}
+              options={[
+                { id: 'city', label: access.cityName ? `ב${access.cityName}` : 'בעיר שלי' },
+                { id: 'national', label: 'בכל הארץ' },
+              ]}
+            />
+            {hoodScopeV2 === 'city' ? (
+              authority ? (
+                <>
+                  {access.hasNeighborhoodAccess && renderScopeContribution('השכונה שלך')}
+                  {access.hasNeighborhoodAccess ? (
+                    <ScopeBattleCard
+                      granularity="neighborhood"
+                      timeWindow={leaderboardTimeWindow}
+                      myScopeId={access.neighborhoodAuthorityId}
+                      cityAuthorityId={authority.id}
+                      category={leaderboardCategory}
+                      genderFilter={leaderboardGender}
+                      onMyScopeEntryChange={setActiveScopeEntry}
+                    />
+                  ) : (
+                    renderNeighborhoodSetupCTA()
+                  )}
+                  <ScopeCompetitionLeaderboard
+                    granularity="neighborhood"
+                    timeWindow={leaderboardTimeWindow}
+                    cityAuthorityId={authority.id}
+                    category={leaderboardCategory}
+                    onCategoryChange={setLeaderboardCategory}
+                    genderFilter={leaderboardGender}
+                  />
+                  <InviteBonusCard scopeName={activeScopeEntry?.scopeName ?? null} />
+                </>
+              ) : (
+                renderNeighborhoodSetupCTA()
+              )
+            ) : (
+              <NationalLeagueBoard
+                mode="neighborhoods"
+                timeWindow={leaderboardTimeWindow}
+                category={leaderboardCategory}
+                onCategoryChange={setLeaderboardCategory}
+                genderFilter={leaderboardGender}
+                myScopeIds={[access.neighborhoodAuthorityId]}
+              />
+            )}
+          </div>
+        )}
+
+        {leagueTabV2 === 'settlements' && (
+          <div className="space-y-4">
+            {authority && renderScopeContribution('העיר שלך')}
+            {authority && (
+              <ScopeBattleCard
+                granularity="city"
+                timeWindow={leaderboardTimeWindow}
+                myScopeId={authority.id}
+                category={leaderboardCategory}
+                genderFilter={leaderboardGender}
+                onMyScopeEntryChange={setActiveScopeEntry}
+              />
+            )}
+            <NationalLeagueBoard
+              mode="settlements"
+              timeWindow={leaderboardTimeWindow}
+              category={leaderboardCategory}
+              onCategoryChange={setLeaderboardCategory}
+              genderFilter={leaderboardGender}
+              myScopeIds={[authority?.id, access.neighborhoodAuthorityId]}
+            />
+          </div>
+        )}
+
+        {leagueTabV2 === 'units' && renderReserveSegment()}
+      </div>
+    );
+  }
 
   function renderLeaguesTab() {
     const cards = buildLeagueCards();
@@ -786,8 +1100,8 @@ export default function CommunityPage() {
                   className="px-5 pb-8 pt-2 overflow-y-auto"
                   style={{ maxHeight: 'calc(85vh - 40px)' }}
                 >
-                  <h3 className="text-base font-black text-gray-900 mb-3 text-right">
-                    בחר ליגה
+                  <h3 className="text-[22px] font-black text-v2-ink tracking-v2-tight mb-4 text-right">
+                    הליגות שלי
                   </h3>
                   <LeagueCarousel
                     mode="sheet"
@@ -969,6 +1283,7 @@ export default function CommunityPage() {
   }
 
   function renderCompetitionToggle() {
+    if (featureFlags.enableHomeV2) return null;
     return (
       <div
         className="flex p-1 rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline"
@@ -1089,30 +1404,30 @@ export default function CommunityPage() {
     const windowPhrase = leaderboardTimeWindow === 'daily' ? 'היום' : leaderboardTimeWindow === 'weekly' ? 'השבוע' : 'החודש';
     return (
       <div
-        className="rounded-v2-card p-4 text-white relative overflow-hidden mb-3 bg-v2-ink shadow-v2-card-dark"
+        className="rounded-v2-card p-4 text-v2-ink relative overflow-hidden mb-3 border border-v2-hairline-cool bg-gradient-to-br from-[#e8f9fe] to-[#e9fdfb]"
         dir="rtl"
       >
         <div
           aria-hidden
           className="absolute -top-8 -left-8 w-36 h-36 rounded-full pointer-events-none"
-          style={{ background: 'radial-gradient(circle, rgba(0,186,247,0.4), transparent 70%)' }}
+          style={{ background: 'radial-gradient(circle, rgba(0,186,247,0.14), transparent 70%)' }}
         />
         <div className="relative z-10 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px]" style={{ color: '#9fb3c8' }}>
+            <p className="text-[11px]" style={{ color: '#64748b' }}>
               התרומה שלך {windowPhrase} · {activeScopeEntry.scopeName}
             </p>
-            <p className="text-lg font-black mt-0.5 truncate text-v2-accent tabular-nums">
+            <p className="text-lg font-black mt-0.5 truncate text-v2-deep tabular-nums">
               {activeMyEntry
                 ? formatLeaderboardScore(activeMyEntry.totalCredit, activeMyMode, activeMyIsSegment)
                 : CATEGORY_UNIT_LABEL[leaderboardCategory]}
             </p>
           </div>
           <div
-            className="text-center rounded-v2-tile px-3 py-1.5 flex-shrink-0 bg-white/10"
+            className="text-center rounded-v2-tile px-3 py-1.5 flex-shrink-0 bg-white shadow-v2-ring"
           >
             <p className="text-lg font-black leading-none tabular-nums">#{activeScopeEntry.rank}</p>
-            <p className="text-[9px] mt-0.5" style={{ color: '#9fb3c8' }}>{scopeTypeLabel}</p>
+            <p className="text-[9px] mt-0.5" style={{ color: '#64748b' }}>{scopeTypeLabel}</p>
           </div>
         </div>
       </div>
@@ -1135,20 +1450,25 @@ export default function CommunityPage() {
       else if (navigator.clipboard) navigator.clipboard.writeText(text);
     };
     return (
-      <button
-        type="button"
-        onClick={handleInviteNeighbors}
-        className="w-full flex items-center gap-3 rounded-v2-card px-4 py-3.5 bg-v2-cta text-v2-on-cta shadow-v2-cta text-right active:scale-[0.97] transition-transform ease-v2"
+      // 17.10.2026 (design lab #321): the invite card on the light battle
+      // gradient with one primary button — not a second full-gradient card.
+      <div
+        className="w-full rounded-v2-card border border-v2-hairline-cool bg-gradient-to-br from-[#e8f9fe] to-[#e9fdfb] p-4 text-right"
         dir="rtl"
       >
-        <div className="w-10 h-10 rounded-[14px] flex items-center justify-center flex-shrink-0 bg-white/40">
-          <Users className="w-[18px] h-[18px]" />
+        <div className="flex items-start gap-3">
+          <div className="w-[42px] h-[42px] rounded-[14px] flex items-center justify-center flex-shrink-0 bg-white text-v2-deep">
+            <Users className="w-5 h-5" strokeWidth={2.4} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[16px] font-black text-v2-ink">הזמן שכנים ל{activeScopeEntry.scopeName}</p>
+            <p className="text-[13.5px] text-v2-ink-2 leading-snug mt-0.5">יותר חברים = יותר פעילות = יותר סיכוי לנצח</p>
+          </div>
         </div>
-        <div className="min-w-0">
-          <p className="text-sm font-black">הזמן שכנים ל{activeScopeEntry.scopeName}</p>
-          <p className="text-[12px] font-semibold opacity-80">יותר חברים = יותר פעילות = יותר סיכוי לנצח</p>
-        </div>
-      </button>
+        <Button variant="primary" size="md" block className="mt-3" onClick={handleInviteNeighbors}>
+          הזמנת שכנים
+        </Button>
+      </div>
     );
   }
 
@@ -1217,6 +1537,7 @@ export default function CommunityPage() {
                   granularity="city"
                   timeWindow={leaderboardTimeWindow}
                   category={leaderboardCategory}
+                  onCategoryChange={setLeaderboardCategory}
                   genderFilter={leaderboardGender}
                 />
               </>
@@ -1405,6 +1726,7 @@ export default function CommunityPage() {
                       timeWindow={leaderboardTimeWindow}
                       cityAuthorityId={authority.id}
                       category={leaderboardCategory}
+                      onCategoryChange={setLeaderboardCategory}
                       genderFilter={leaderboardGender}
                     />
                     {access.hasNeighborhoodAccess && renderNeighborhoodInviteCTA()}

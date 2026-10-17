@@ -5,6 +5,7 @@
  * grouped by author, filtered by scope, category, time window, and age group.
  */
 
+import { readFeatureFlagOnce } from '@/lib/feature-flag-once';
 import {
   collection,
   query,
@@ -16,7 +17,7 @@ import {
   doc,
   Timestamp,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { RESERVE_SCOPE_FIELD } from '@/lib/military-reserve-league';
 
 // ── Types ──────────────────────────────────────────────────────────────
@@ -1075,6 +1076,90 @@ export interface ScopeCompetitionResult {
   generatedAt: Date;
 }
 
+/**
+ * The board from the server-side aggregates, via /api/leagues/scope-stats
+ * (Admin SDK read — no client rules needed). null when the filter can't be
+ * answered from the sums (category AND gender) → legacy path.
+ */
+async function getScopeCompetitionFromStats(p: {
+  granularity: 'city' | 'neighborhood';
+  timeWindow: 'weekly' | 'monthly';
+  cityAuthorityId?: string | null;
+  category: LeaderboardCategory;
+  genderFilter: LeaderboardGenderFilter;
+  maxEntries: number;
+}): Promise<ScopeCompetitionResult | null> {
+  if (p.category !== 'overall' && p.genderFilter !== 'all') return null;
+  const idToken = await auth.currentUser?.getIdToken().catch(() => null);
+  if (!idToken) return null;
+  const qs = new URLSearchParams({
+    granularity: p.granularity,
+    window: p.timeWindow,
+    category: p.category,
+    gender: p.genderFilter,
+    max: String(p.maxEntries),
+  });
+  if (p.cityAuthorityId) qs.set('parentId', p.cityAuthorityId);
+  const res = await fetch(`/api/leagues/scope-stats?${qs}`, { headers: { Authorization: `Bearer ${idToken}` } });
+  if (!res.ok) throw new Error(`scope-stats ${res.status}`);
+  const body = (await res.json()) as { entries: ScopeCompetitionEntry[] };
+  return { entries: body.entries ?? [], generatedAt: new Date() };
+}
+
+/** A national / filtered league board (home v2 leagues, stage 2). */
+export type LeagueBoardKind = 'city' | 'neighborhood-national' | 'settlement';
+
+export interface LeagueBoardEntry extends ScopeCompetitionEntry {
+  parentId: string | null;
+  parentName: string | null;
+  kind: string;
+  previousScore?: number;
+  delta?: number;
+}
+
+export interface LeagueBoardResult {
+  entries: LeagueBoardEntry[];
+  regions?: { id: string; name: string }[];
+  /** The boards run only on the server aggregates (enable_league_aggregates). */
+  unavailable?: boolean;
+}
+
+/**
+ * Nationwide neighborhoods, settlements (kibbutzim / moshavim) and "most
+ * improved" — boards that only exist on the server aggregates, so there is no
+ * feed_posts fallback: with enable_league_aggregates off (or a daily window)
+ * the result says `unavailable`.
+ */
+export async function getLeagueBoard(p: {
+  board: LeagueBoardKind;
+  timeWindow: LeaderboardTimeWindow;
+  measure?: 'total' | 'improved';
+  region?: string | null;
+  kind?: 'all' | 'city' | 'council';
+  category?: LeaderboardCategory;
+  genderFilter?: LeaderboardGenderFilter;
+  maxEntries?: number;
+}): Promise<LeagueBoardResult> {
+  if (p.timeWindow === 'daily' || !(await readFeatureFlagOnce('enable_league_aggregates'))) {
+    return { entries: [], unavailable: true };
+  }
+  const idToken = await auth.currentUser?.getIdToken().catch(() => null);
+  if (!idToken) return { entries: [] };
+  const qs = new URLSearchParams({
+    board: p.board,
+    window: p.timeWindow,
+    measure: p.measure ?? 'total',
+    category: p.category ?? 'overall',
+    gender: p.genderFilter ?? 'all',
+    max: String(p.maxEntries ?? 30),
+  });
+  if (p.region) qs.set('region', p.region);
+  if (p.kind && p.kind !== 'all') qs.set('kind', p.kind);
+  const res = await fetch(`/api/leagues/scope-stats?${qs}`, { headers: { Authorization: `Bearer ${idToken}` } });
+  if (!res.ok) throw new Error(`league board ${res.status}`);
+  return (await res.json()) as LeagueBoardResult;
+}
+
 export async function getScopeCompetitionLeaderboard(params: {
   granularity: 'city' | 'neighborhood';
   timeWindow: LeaderboardTimeWindow;
@@ -1090,6 +1175,20 @@ export async function getScopeCompetitionLeaderboard(params: {
 
   if (granularity === 'neighborhood' && !cityAuthorityId) {
     return { entries: [], generatedAt: new Date() };
+  }
+
+  // League aggregates (enable_league_aggregates, 17.10.2026): read the
+  // per-scope sums written by onWorkoutCreateLeagueStats instead of scanning
+  // feed_posts. Weekly / monthly only (calendar week from Sunday, calendar
+  // month, Asia/Jerusalem); daily and category+gender together stay on the
+  // legacy path below. Any failure falls back to the legacy path too.
+  if (timeWindow !== 'daily' && (await readFeatureFlagOnce('enable_league_aggregates'))) {
+    try {
+      const fromStats = await getScopeCompetitionFromStats({ granularity, timeWindow, cityAuthorityId, category, genderFilter, maxEntries });
+      if (fromStats) return fromStats;
+    } catch (err) {
+      console.warn('[getScopeCompetitionLeaderboard] stats read failed — legacy path', err);
+    }
   }
 
   const groupField = scopeToField(granularity) as string; // 'authorityId' | 'neighborhoodId' — always non-null for these two

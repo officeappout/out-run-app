@@ -8,6 +8,7 @@ import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { getPark } from '@/features/parks/core/services/parks.service';
 import { logParkDetailTripwireIfIncomplete } from '@/features/parks/core/services/park-detail-completeness';
 import { useUserStore } from '@/features/user';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { getReviewsForPark } from '@/features/parks/core/services/contribution.service';
 import type { Park } from '@/features/parks/core/types/park.types';
 import { bunnyImg } from '@/lib/bunny-image';
@@ -113,6 +114,8 @@ interface ParkDetailSheetProps {
 export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userLocation }: ParkDetailSheetProps) {
   const { selectedPark } = useMapStore();
   const { profile } = useUserStore();
+  // Home v2 (enable_home_v2): the design-lab park page.
+  const v2 = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin).flags.enableHomeV2;
   const y = useMotionValue(0);
   // Opacity fades only as the user drags past the resting (85vh) anchor.
   const opacity = useTransform(y, [PEEK_Y_PX, PEEK_Y_PX + 220], [1, 0]);
@@ -746,11 +749,17 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                     hero, with `-mt-14` to overlap the hero gradient visually. */}
                 <div className="relative z-20 -mt-14 px-5 pb-2">
                   {park.facilityType && (
-                    <span className="inline-block mb-2 px-3 py-1 bg-cyan-500/90 backdrop-blur-sm text-white text-[10px] font-black rounded-full shadow-sm">
+                    <span
+                      className={
+                        v2
+                          ? 'mb-2 inline-flex rounded-full bg-v2-cta px-3 py-1 text-[12.5px] font-extrabold text-v2-on-cta shadow-v2-cta'
+                          : 'inline-block mb-2 px-3 py-1 bg-cyan-500/90 backdrop-blur-sm text-white text-[10px] font-black rounded-full shadow-sm'
+                      }
+                    >
                       {FACILITY_LABELS[park.facilityType] || park.facilityType}
                     </span>
                   )}
-                  <h1 className="text-[22px] font-black text-gray-900 dark:text-white leading-tight whitespace-normal">
+                  <h1 className={v2 ? 'whitespace-normal text-[26px] font-black leading-[1.08] !tracking-[-0.02em] text-v2-ink' : 'text-[22px] font-black text-gray-900 dark:text-white leading-tight whitespace-normal'}>
                     {park.name}
                   </h1>
                 </div>
@@ -769,12 +778,12 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                       </div>
                     )}
                     {distText && (
-                      <span className="text-xs text-gray-400 flex items-center gap-1">
+                      <span className={v2 ? 'flex items-center gap-1 text-[13.5px] font-bold text-v2-muted' : 'text-xs text-gray-400 flex items-center gap-1'}>
                         <Navigation size={12} />{distText}
                       </span>
                     )}
                     {park.city && (
-                      <span className="text-xs text-gray-400 flex items-center gap-1">
+                      <span className={v2 ? 'flex items-center gap-1 text-[13.5px] font-bold text-v2-muted' : 'text-xs text-gray-400 flex items-center gap-1'}>
                         <MapPin size={12} />{park.city}
                       </span>
                     )}
@@ -793,23 +802,27 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                       sees after the hero/metadata row. */}
                   <section className="mb-6">
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-[15px] font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                        <Calendar size={14} className="text-emerald-500" />
-                        <span>מתאמנים</span>
+                      <h3 className={v2 ? 'flex items-center gap-1.5 text-[17px] font-black text-v2-ink' : 'text-[15px] font-bold text-gray-900 dark:text-white flex items-center gap-1.5'}>
+                        {v2 ? <Users size={18} strokeWidth={2.4} className="text-v2-deep" /> : <Calendar size={14} className="text-emerald-500" />}
+                        <span>{v2 ? 'מתאמנים כאן' : 'מתאמנים'}</span>
                         {parkEvents.length > 0 && (
                           <span className="bg-emerald-500 text-white text-[9px] font-black rounded-full w-[18px] h-[18px] flex items-center justify-center ms-0.5">
                             {parkEvents.reduce((s, e) => s + Math.max(1, e.currentRegistrations ?? 0), 0)}
                           </span>
                         )}
                       </h3>
-                      <div className="flex gap-0.5 bg-gray-100 rounded-lg p-0.5">
+                      <div className={v2 ? 'flex gap-0.5 rounded-full bg-v2-surface p-1 ring-1 ring-inset ring-v2-hairline' : 'flex gap-0.5 bg-gray-100 rounded-lg p-0.5'}>
                         {(['today', 'tomorrow', 'week'] as DayFilter[]).map((f) => (
                           <button
                             key={f}
                             onClick={() => setDayFilter(f)}
-                            className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
-                              dayFilter === f ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-500'
-                            }`}
+                            className={
+                              v2
+                                ? `h-8 whitespace-nowrap rounded-full px-3 text-[13px] font-extrabold transition-colors ${dayFilter === f ? 'bg-white text-v2-ink shadow-v2-ring' : 'text-v2-muted'}`
+                                : `px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
+                                    dayFilter === f ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-500'
+                                  }`
+                            }
                           >
                             {DAY_FILTER_LABELS[f]}
                           </button>
@@ -827,19 +840,23 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                           • week           → date input + dual-range
                             slider so the user can pick any day +
                             window this week. */}
-                    <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl overflow-hidden mb-2">
-                      <div className="flex items-center gap-3 py-2.5 px-3">
-                        <Users size={16} className="text-emerald-500 flex-shrink-0" />
-                        <span className="text-xs text-emerald-700 font-bold flex-1">
+                    <div className={v2 ? 'mb-2 overflow-hidden rounded-[20px] bg-v2-surface ring-1 ring-inset ring-v2-hairline' : 'bg-emerald-50/50 border border-emerald-100 rounded-xl overflow-hidden mb-2'}>
+                      <div className={v2 ? 'flex items-center gap-3 px-3.5 py-3' : 'flex items-center gap-3 py-2.5 px-3'}>
+                        <Users size={16} className={v2 ? 'flex-shrink-0 text-v2-deep' : 'text-emerald-500 flex-shrink-0'} />
+                        <span className={v2 ? 'flex-1 text-[14px] font-bold text-v2-ink-2' : 'text-xs text-emerald-700 font-bold flex-1'}>
                           {filteredParkEvents.length === 0
                             ? 'אף אחד עוד לא פרסם שהוא מגיע...'
                             : 'גם אתה מתכנן להגיע?'}
                         </span>
                         <button
                           onClick={() => setShowTimePicker((v) => !v)}
-                          className="flex-shrink-0 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[11px] font-bold active:scale-[0.97] transition-transform"
+                          className={
+                            v2
+                              ? 'h-9 flex-shrink-0 whitespace-nowrap rounded-full bg-v2-cta px-4 text-[13px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]'
+                              : 'flex-shrink-0 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[11px] font-bold active:scale-[0.97] transition-transform'
+                          }
                         >
-                          אני מגיע ב...
+                          {v2 ? 'אני מגיע…' : 'אני מגיע ב...'}
                         </button>
                       </div>
                       {showTimePicker && (
@@ -940,9 +957,12 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                             ev.isPersonalArrival && ev.avatars?.[0]?.uid === currentUid;
 
                           return (
-                            <div key={`park_${ev.eventId}_${idx}`} className="flex items-center gap-2 py-1.5 px-2.5 bg-emerald-50/70 rounded-lg hover:bg-emerald-50 transition-colors">
-                              <span className="text-[11px] font-black text-emerald-700 min-w-[40px] text-center" dir="ltr">{timeLabel}</span>
-                              <span className="flex-1 text-xs font-bold text-emerald-800 truncate">
+                            <div
+                              key={`park_${ev.eventId}_${idx}`}
+                              className={v2 ? 'flex items-center gap-3 rounded-[16px] bg-white px-3 py-2.5 shadow-v2-ring' : 'flex items-center gap-2 py-1.5 px-2.5 bg-emerald-50/70 rounded-lg hover:bg-emerald-50 transition-colors'}
+                            >
+                              <span className={v2 ? 'min-w-[48px] text-[13px] font-extrabold tabular-nums text-v2-muted' : 'text-[11px] font-black text-emerald-700 min-w-[40px] text-center'} dir="ltr">{timeLabel}</span>
+                              <span className={v2 ? 'flex-1 truncate text-[14.5px] font-extrabold text-v2-ink' : 'flex-1 text-xs font-bold text-emerald-800 truncate'}>
                                 {ev.isRecurring ? 'קבוצתי' : ev.eventLabel}
                               </span>
                               {ev.isRecurring && <RefreshCw size={10} className="text-emerald-400 flex-shrink-0" />}
@@ -997,7 +1017,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                       asset → lucide vector → emoji placeholder
                       (see `amenity-icons.ts`). */}
                   <section className="mb-6">
-                    <h3 className="text-[16px] font-bold text-gray-900 dark:text-white mb-3">פירוט על הפארק</h3>
+                    <h3 className={v2 ? 'mb-3 text-[17px] font-black text-v2-ink' : 'text-[16px] font-bold text-gray-900 dark:text-white mb-3'}>פירוט על הפארק</h3>
                     {park.featureTags && park.featureTags.length > 0 ? (
                       <div className="flex flex-wrap gap-2">
                         {AMENITY_DISPLAY_ORDER
@@ -1011,6 +1031,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                                 label={cfg.label}
                                 iconSrc={cfg.iconSrc}
                                 IconComponent={cfg.IconComponent}
+                                v2={v2}
                               />
                             );
                           })}
@@ -1044,7 +1065,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                       lands on the right brand variant out of the gate. */}
                   {parkEquipment.length > 0 && (
                     <section className="mb-6">
-                      <h3 className="text-[16px] font-bold text-gray-900 dark:text-white mb-3">
+                      <h3 className={v2 ? 'mb-3 text-[17px] font-black text-v2-ink' : 'text-[16px] font-bold text-gray-900 dark:text-white mb-3'}>
                         מתקנים
                         <span className="text-gray-400 dark:text-gray-500 font-medium"> ({park.gymEquipment?.length ?? 0})</span>
                       </h3>
@@ -1084,7 +1105,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                       + review snapshots). Stays at the bottom. */}
                   {photoGallery.length > 1 && (
                     <section className="mb-6">
-                      <h3 className="text-[16px] font-bold text-gray-900 dark:text-white mb-3">תמונות</h3>
+                      <h3 className={v2 ? 'mb-3 text-[17px] font-black text-v2-ink' : 'text-[16px] font-bold text-gray-900 dark:text-white mb-3'}>תמונות</h3>
                       <div className="flex gap-2 overflow-x-auto -mx-5 px-5 pb-1 scrollbar-hide">
                         {photoGallery.map((url, i) => (
                           <button
@@ -1150,7 +1171,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                       never the raw uid. */}
                   {ratedReviews.length > 0 && (
                     <section className="mb-4">
-                      <h3 className="text-[16px] font-bold text-gray-900 dark:text-white mb-3">ביקורות</h3>
+                      <h3 className={v2 ? 'mb-3 text-[17px] font-black text-v2-ink' : 'text-[16px] font-bold text-gray-900 dark:text-white mb-3'}>ביקורות</h3>
                       <div className="divide-y divide-gray-100 dark:divide-slate-800">
                         {visibleReviews.map(review => {
                           const reviewerName = (review.userId && reviewerNames[review.userId]) || 'משתמש';
@@ -1201,8 +1222,12 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                       icon buttons, which stay tight to each other. */}
                   <button
                     onClick={() => { onClose(); onStartWorkout?.(); }}
-                    className="flex-1 me-2 text-white font-extrabold rounded-full active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-[15px]"
-                    style={{ background: 'linear-gradient(to left, #0CF2E3, #00BAF7)', height: 44 }}
+                    className={
+                      v2
+                        ? 'me-2 flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-v2-cta text-[15.5px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.98]'
+                        : 'flex-1 me-2 text-white font-extrabold rounded-full active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-[15px]'
+                    }
+                    style={v2 ? undefined : { background: 'linear-gradient(to left, #0CF2E3, #00BAF7)', height: 44 }}
                   >
                     <Play size={18} fill="currentColor" />
                     <span>{startWorkoutCta}</span>
@@ -1211,21 +1236,29 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                   {/* Suggest Edit */}
                   <button
                     onClick={() => setSuggestEditOpen(true)}
-                    className="flex-shrink-0 w-[44px] h-[44px] rounded-full flex items-center justify-center bg-white dark:bg-slate-800 shadow-sm active:scale-90 transition-transform"
-                    style={{ border: '0.5px solid #E0E9FF' }}
+                    className={
+                      v2
+                        ? 'grid h-12 w-12 flex-shrink-0 place-items-center rounded-full bg-white ring-1 ring-inset ring-v2-pill-border transition-transform duration-150 ease-v2 active:scale-[0.96]'
+                        : 'flex-shrink-0 w-[44px] h-[44px] rounded-full flex items-center justify-center bg-white dark:bg-slate-800 shadow-sm active:scale-90 transition-transform'
+                    }
+                    style={v2 ? undefined : { border: '0.5px solid #E0E9FF' }}
                     title="עדכן פרטים"
                   >
-                    <Pencil size={18} className="text-cyan-500" />
+                    <Pencil size={18} className={v2 ? 'text-v2-ink' : 'text-cyan-500'} />
                   </button>
 
                   {/* Navigate */}
                   <button
                     onClick={handleNavigate}
-                    className="flex-shrink-0 w-[44px] h-[44px] rounded-full flex items-center justify-center bg-white dark:bg-slate-800 shadow-sm active:scale-90 transition-transform"
-                    style={{ border: '0.5px solid #E0E9FF' }}
+                    className={
+                      v2
+                        ? 'grid h-12 w-12 flex-shrink-0 place-items-center rounded-full bg-white ring-1 ring-inset ring-v2-pill-border transition-transform duration-150 ease-v2 active:scale-[0.96]'
+                        : 'flex-shrink-0 w-[44px] h-[44px] rounded-full flex items-center justify-center bg-white dark:bg-slate-800 shadow-sm active:scale-90 transition-transform'
+                    }
+                    style={v2 ? undefined : { border: '0.5px solid #E0E9FF' }}
                     title="ניווט"
                   >
-                    <Navigation size={18} className="text-emerald-500" />
+                    <Navigation size={18} className={v2 ? 'text-v2-deep' : 'text-emerald-500'} />
                   </button>
                 </div>
               </div>

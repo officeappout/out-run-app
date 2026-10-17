@@ -22,7 +22,7 @@ import type { RunSegmentFilter } from '@/features/arena/services/ranking.service
 import type { LeaderboardMode } from './format-leaderboard-score';
 import { CardTile } from '@/components/ui/v2/Card';
 import Button from '@/components/ui/v2/Button';
-import { BoardCard, BoardIconButton, BoardRow, BoardRowSkeleton } from './LeagueBoard';
+import { BoardCard, BoardIconButton, BoardRow, BoardRowSkeleton, BoardPodium, type PodiumEntry } from './LeagueBoard';
 import { BoardSheet, ParticipantPeek, HowPointsContent } from './LeagueBoardSheets';
 import {
   BOARD_VISIBLE_ROWS,
@@ -111,7 +111,7 @@ function getContextLabel(
 }
 
 // ── FilterDropdown — module-level component (NOT nested) ─────────────────────
-// v2 on the dark board: translucent pills, white when a non-default value is
+// v2 on the white board (17.10.2026): white pills, ink when a non-default value is
 // set; the menu itself is a light floating tile.
 
 interface FilterDropdownProps {
@@ -136,7 +136,7 @@ function FilterDropdown({
         onClick={onToggle}
         aria-expanded={isOpen}
         className={`h-8 px-3 rounded-full flex items-center gap-1.5 whitespace-nowrap text-[12.5px] font-bold transition-colors ease-v2 ${
-          isActive ? 'bg-white text-v2-ink' : 'bg-white/10 text-white'
+          isActive ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'bg-white text-v2-ink-2 shadow-v2-ring'
         }`}
       >
         {label}
@@ -554,6 +554,25 @@ export function NeighborhoodLeaderboardView({
     return row;
   }
 
+  // Top three on the podium (17.10.2026) — only when the first three rows are
+  // really ranks 1–3 (a full board); otherwise the plain rows, as before.
+  const top3 = visibleRows.slice(0, 3);
+  const podium: [PodiumEntry, PodiumEntry, PodiumEntry] | null =
+    top3.length === 3 && top3.every((e, i) => e.rank === i + 1)
+      ? (top3.map((e) => {
+          const sc = splitScore(e.totalCredit, localMode, isSegmentMode);
+          return {
+            key: e.uid,
+            name: e.name,
+            value: sc.value,
+            unit: sc.unit,
+            isMe: e.isCurrentUser,
+            initial: e.name?.trim().charAt(0) || '?',
+            onClick: () => setPeekUid(e.uid),
+          };
+        }) as [PodiumEntry, PodiumEntry, PodiumEntry])
+      : null;
+
   const ActiveCatIcon = activeCatOpt.icon;
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -663,7 +682,7 @@ export function NeighborhoodLeaderboardView({
             onClick={() => setFilterSheetOpen(true)}
             aria-label="פילטרים"
             className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ease-v2 ${
-              genderActive ? 'bg-white text-v2-ink' : 'bg-white/10 text-white'
+              genderActive ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'bg-white text-v2-ink-2 shadow-v2-ring'
             }`}
           >
             <SlidersHorizontal size={14} strokeWidth={2.4} />
@@ -672,9 +691,9 @@ export function NeighborhoodLeaderboardView({
 
         {/* Context label (+ the old per-row mode badge, once, here) */}
         {contextLabel && (
-          <p className="mt-2.5 text-[12px] font-semibold text-white/60 flex items-center gap-1.5">
+          <p className="mt-2.5 text-[12px] font-semibold text-v2-muted flex items-center gap-1.5">
             {localMode === 'general' && (
-              <span className="inline-flex items-center gap-1 h-5 px-2 rounded-full bg-white/10 text-white/80 text-[11px] font-bold">
+              <span className="inline-flex items-center gap-1 h-5 px-2 rounded-full bg-v2-tint text-v2-deep text-[11px] font-bold">
                 <Flame size={11} strokeWidth={2.6} aria-hidden />
                 {scope === 'tenant' ? 'ימים פעילים' : 'רצף'}
               </span>
@@ -687,24 +706,24 @@ export function NeighborhoodLeaderboardView({
             label — formatLeaderboardScore), rank pill, streak line,
             distance-to-next-rank, share/invite CTAs. */}
         {!isLoading && myEntry && (
-          <CardTile tone="dark" className="mt-4 p-4">
+          <CardTile tone="light" className="mt-4 p-4 bg-gradient-to-b from-[#e8f9fe] to-v2-surface">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-[12px] text-white/60 truncate">
+                <p className="text-[12px] text-v2-muted truncate">
                   המיקום שלך {heroWindowPhrase} · {scopeLabel ?? 'הליגה'}
                 </p>
                 <p className="mt-1 truncate tabular-nums">
-                  <span className="text-[26px] font-black leading-none tracking-v2-tighter text-v2-accent">
+                  <span className="text-[26px] font-black leading-none tracking-v2-tighter text-v2-deep">
                     {splitScore(myEntry.totalCredit, localMode, isSegmentMode).value}
                   </span>
-                  <span className="text-[13px] font-bold text-white/70 mr-1">
+                  <span className="text-[13px] font-bold text-v2-ink-2 mr-1">
                     {splitScore(myEntry.totalCredit, localMode, isSegmentMode).unit}
                   </span>
                 </p>
               </div>
-              <div className="text-center rounded-v2-tile px-3 py-2 shrink-0 bg-white/10">
+              <div className="text-center rounded-v2-tile px-3 py-2 shrink-0 bg-white shadow-v2-ring">
                 <p className="text-[20px] font-black leading-none tabular-nums">#{myEntry.rank}</p>
-                <p className="text-[10px] mt-1 text-white/60 tabular-nums">מתוך {totalParticipants}</p>
+                <p className="text-[10px] mt-1 text-v2-muted tabular-nums">מתוך {totalParticipants}</p>
               </div>
             </div>
 
@@ -712,7 +731,7 @@ export function NeighborhoodLeaderboardView({
                 currentStreak count (getStreakLeaderboard). No "עוד N לשיא
                 שלך" — no longestStreak/bestStreak field exists. */}
             {localMode === 'general' && myEntry.totalCredit > 0 && (
-              <p className="mt-2 text-[12px] font-bold text-[#ffd9a8] flex items-center gap-1">
+              <p className="mt-2 text-[12px] font-bold text-[#c2410c] flex items-center gap-1">
                 <Flame size={13} strokeWidth={2.6} fill="currentColor" aria-hidden />
                 {myEntry.totalCredit} ימי אימון ברצף
               </p>
@@ -723,11 +742,11 @@ export function NeighborhoodLeaderboardView({
                 when that row wasn't fetched. */}
             {nextTarget && (
               <div className="mt-3">
-                <p className="text-[12.5px] font-bold text-white/85 truncate">
+                <p className="text-[12.5px] font-bold text-v2-ink truncate">
                   {formatNextRankLine(nextTarget, localMode)}
                 </p>
                 <div
-                  className="mt-1.5 h-1.5 rounded-full bg-white/10 overflow-hidden"
+                  className="mt-1.5 h-1.5 rounded-full bg-v2-tint overflow-hidden"
                   role="progressbar"
                   aria-valuemin={0}
                   aria-valuemax={100}
@@ -748,7 +767,7 @@ export function NeighborhoodLeaderboardView({
               <button
                 type="button"
                 onClick={handleHeroInvite}
-                className="flex-1 h-9 rounded-full inline-flex items-center justify-center gap-1.5 bg-white/10 text-white text-[13px] font-extrabold active:scale-[0.97] transition-transform ease-v2"
+                className="flex-1 h-9 rounded-full inline-flex items-center justify-center gap-1.5 bg-v2-surface text-v2-ink ring-1 ring-inset ring-v2-hairline text-[13px] font-extrabold active:scale-[0.97] transition-transform ease-v2"
               >
                 <UserPlus size={14} strokeWidth={2.4} aria-hidden />
                 הזמן חברים
@@ -775,8 +794,8 @@ export function NeighborhoodLeaderboardView({
               ].map((step, i) => {
                 const StepIcon = step.icon;
                 return (
-                  <div key={i} className="flex items-center gap-3 rounded-2xl bg-white/[0.06] px-4 py-3">
-                    <span className="w-[30px] h-[30px] rounded-full bg-white/10 flex items-center justify-center text-[13px] font-black tabular-nums shrink-0">
+                  <div key={i} className="flex items-center gap-3 rounded-2xl bg-v2-surface px-4 py-3">
+                    <span className="w-[30px] h-[30px] rounded-full bg-v2-surface flex items-center justify-center text-[13px] font-black tabular-nums shrink-0">
                       {i + 1}
                     </span>
                     <span className="flex-1 text-[14px] font-bold">{step.label}</span>
@@ -785,7 +804,7 @@ export function NeighborhoodLeaderboardView({
                 );
               })}
             </div>
-            <p className="text-[13px] text-white/70 text-center mt-4 leading-relaxed">
+            <p className="text-[13px] text-v2-ink-2 text-center mt-4 leading-relaxed">
               היו הראשונים בליגה! הזמינו חברים והתחילו להתאמן כדי לתפוס את הפודיום
             </p>
             <div className="flex justify-center mt-3">
@@ -797,9 +816,15 @@ export function NeighborhoodLeaderboardView({
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-2 mt-4">
-              {visibleRows.slice(0, lockedFromIndex).map((e) => renderRow(e))}
-            </div>
+            {podium ? (
+              <div className="mt-2" ref={podium.some((e) => e.isMe) ? myRowRef : undefined}>
+                <BoardPodium entries={podium} />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-2 mt-4">
+                {visibleRows.slice(0, lockedFromIndex).map((e) => renderRow(e))}
+              </div>
+            )}
 
             {visibleRows.length > lockedFromIndex && (
               <div className="relative">
@@ -808,10 +833,10 @@ export function NeighborhoodLeaderboardView({
                 </div>
 
                 {shouldBlur && (
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-v2-ink via-v2-ink/90 to-transparent flex flex-col items-center justify-center px-5 text-center">
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-white via-white/90 to-transparent flex flex-col items-center justify-center px-5 text-center">
                     <Lock size={20} strokeWidth={2.4} className="text-v2-accent mb-2" aria-hidden />
                     <p className="text-[15px] font-black">הטבלה נעולה</p>
-                    <p className="text-[12.5px] text-white/70 mt-1 mb-3 max-w-[240px]">
+                    <p className="text-[12.5px] text-v2-ink-2 mt-1 mb-3 max-w-[240px]">
                       {!socialUnlocked
                         ? 'הזמן שותף אחד כדי לפתוח את הטבלה המלאה'
                         : 'לחץ על העירייה כדי לפתוח את הליגה הרשמית'}
@@ -835,7 +860,7 @@ export function NeighborhoodLeaderboardView({
             {showStickyMe && myEntry && (
               <div
                 data-board-sticky-me
-                className="sticky z-10 -mx-2 mt-2 rounded-[20px] bg-v2-ink p-2 shadow-v2-card-dark"
+                className="sticky z-10 -mx-2 mt-2 rounded-[20px] bg-white p-2 shadow-v2-float"
                 style={{ bottom: 'calc(54px + env(safe-area-inset-bottom, 0px))' }}
               >
                 {renderRow(myEntry, false, true)}
@@ -846,7 +871,7 @@ export function NeighborhoodLeaderboardView({
               <button
                 type="button"
                 onClick={() => setExpanded((v) => !v)}
-                className="mt-3 w-full h-10 rounded-full bg-white/[0.06] text-[13px] font-extrabold text-white/85 flex items-center justify-center gap-1.5 active:scale-[0.97] transition-transform ease-v2"
+                className="mt-3 w-full h-10 rounded-full bg-v2-surface text-[13px] font-extrabold text-v2-ink flex items-center justify-center gap-1.5 active:scale-[0.97] transition-transform ease-v2"
               >
                 {expanded ? 'הצג פחות' : `הצג את כל ${entries.length} המשתתפים`}
                 <ChevronDown
@@ -862,13 +887,13 @@ export function NeighborhoodLeaderboardView({
             {/* Sparse board → invite/encourage instead of a near-empty table.
                 Reuses the existing invite sheet (ViralUnlockSheet). */}
             {sparse && (
-              <div className="mt-3 rounded-2xl border border-dashed border-white/20 px-4 py-4 flex items-center gap-3">
-                <span className="w-[42px] h-[42px] rounded-[14px] bg-white/10 flex items-center justify-center text-v2-accent shrink-0">
+              <div className="mt-3 rounded-2xl border border-dashed border-v2-pill-border px-4 py-4 flex items-center gap-3">
+                <span className="w-[42px] h-[42px] rounded-[14px] bg-v2-surface flex items-center justify-center text-v2-accent shrink-0">
                   <UserPlus size={20} strokeWidth={2.4} aria-hidden />
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="text-[15px] font-black">הליגה רק מתחילה</p>
-                  <p className="text-[12.5px] text-white/70 leading-snug mt-0.5">
+                  <p className="text-[12.5px] text-v2-ink-2 leading-snug mt-0.5">
                     {entries.length === 1 ? 'משתתף אחד עד עכשיו' : `רק ${entries.length} משתתפים עד עכשיו`} — הזמינו חברים להתחרות איתכם
                   </p>
                 </div>
