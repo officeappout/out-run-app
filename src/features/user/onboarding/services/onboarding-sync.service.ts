@@ -12,6 +12,7 @@ import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { recalculateAncestorMasters } from '@/features/user/progression/services/progression.service';
 import { derivePrimaryTrack, trackToDashboardMode } from './track-mapper.service';
 import { isRunningBranchCompleted, bridgeRunningOnboarding } from './running-onboarding-bridge.service';
+import { GOAL_NOTE_STORAGE_KEY, parseGoalNoteHandoff } from '../utils/goal-note';
 import { loadAssessmentContext } from './branching-logic.service';
 import { mergeDayItems } from '@/features/schedule/services/mergeDayItems';
 import { generatePlan } from '@/features/workout-engine/core/services/running-engine.service';
@@ -1936,6 +1937,30 @@ export async function syncOnboardingToFirestore(
         } catch (err) {
           console.warn('[OnboardingSync] Running bridge failed (non-critical):', err);
         }
+      }
+    }
+
+    // ── Program-path goal note (enable_home_v2) ──────────────────────
+    // Optional free text from the v2 goal picker ("יש עוד משהו שחשוב לך?").
+    // Only the v2 screen ever writes this sessionStorage key, so for everyone
+    // else this block is a no-op. Written on the real completion only;
+    // goalNoteAt is an ISO string (sortable, survives sanitizeObject below)
+    // and is kept as-is when a second COMPLETED sync carries the same text.
+    if (step === 'COMPLETED' && !isJitEdit && typeof window !== 'undefined') {
+      const goalNote = parseGoalNoteHandoff(sessionStorage.getItem(GOAL_NOTE_STORAGE_KEY));
+      if (goalNote) {
+        const prevOnboarding = (existingRaw as { onboarding?: { goalNote?: unknown; goalNoteAt?: unknown } })?.onboarding;
+        const unchanged =
+          prevOnboarding?.goalNote === goalNote.text && typeof prevOnboarding?.goalNoteAt === 'string';
+        updateData.onboarding = {
+          goalNote: goalNote.text,
+          goalNoteAt: unchanged ? prevOnboarding.goalNoteAt : new Date().toISOString(),
+          goalNoteContext: {
+            goal: goalNote.goal,
+            ageBracket: goalNote.ageBracket,
+            gender: goalNote.gender,
+          },
+        };
       }
     }
 

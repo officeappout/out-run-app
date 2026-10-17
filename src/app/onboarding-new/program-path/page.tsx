@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { doc, getDoc } from 'firebase/firestore';
@@ -17,9 +17,34 @@ import { getLocalizedText } from '@/features/content/shared/localized-text.types
 import type { ExerciseWishlistEntry } from '@/features/user/core/types/user.types';
 import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLayout';
 import ProgramPathV2View from '@/features/user/onboarding/components/program-path/ProgramPathV2View';
+import ProgramPathSkillsStepV2 from '@/features/user/onboarding/components/program-path/ProgramPathSkillsStepV2';
 import { useOnboardingV2 } from '@/features/user/onboarding/hooks/useOnboardingV2';
 import { STRENGTH_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
 import { getOnboardingPref } from '@/lib/onboardingPrefs';
+import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import {
+  toggleMuscleSelection,
+  toPersistedMuscleFocus,
+  toggleAreaTile,
+  areaTilesToMuscles,
+  recommendedAreaTiles,
+  type AreaTileId,
+} from '@/features/user/onboarding/utils/muscle-selection';
+import {
+  GOAL_NOTE_STORAGE_KEY,
+  ageBracketFor,
+  ageFromBirthDate,
+  goalNoteExamples,
+  parseIsoDay,
+  sanitizeGoalNote,
+  type GoalNoteHandoff,
+} from '@/features/user/onboarding/utils/goal-note';
+import {
+  GOAL_IMAGE_CONFIG,
+  initialGoalImage,
+  type ResolvedGoalImage,
+} from '@/features/user/onboarding/constants/program-path-goal-images';
+import { resolveLibraryGoalImage } from '@/features/user/onboarding/services/goal-image-resolver.service';
 import {
   type ProgramCardId,
   toggleCard,
@@ -39,7 +64,6 @@ import {
   PUSH_SKILLS,
   PULL_SKILLS,
   SKILL_ICON_PATHS,
-  MUSCLE_FOCUS_IDS,
   MUSCLE_PACKAGES,
   type MusclePackageKey,
 } from '@/features/user/onboarding/constants/program-path.constants';
@@ -77,6 +101,9 @@ export default function ProgramPathPage() {
   // flashes for one frame before the useEffect redirect fires.
   const [isReady, setIsReady] = useState(false);
   const [gender, setGender] = useState<'male' | 'female' | 'other' | null>(null);
+  // enable_home_v2 — birth date for the goal-note examples (age bracket).
+  const [dobDay, setDobDay] = useState<string | null>(null);
+  const profileBirthDate = useUserStore((st) => (st.profile?.core as { birthDate?: unknown } | undefined)?.birthDate);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -101,6 +128,7 @@ export default function ProgramPathPage() {
     }
     const g = sessionStorage.getItem('onboarding_personal_gender') as 'male' | 'female' | 'other' | null;
     setGender(g);
+    setDobDay(sessionStorage.getItem('onboarding_personal_dob'));
     setIsReady(true);
   }, [router]);
 
@@ -149,30 +177,11 @@ export default function ProgramPathPage() {
 
   const FULL_BODY_ID = 'full_body';
 
+  // Reducer moved verbatim to utils/muscle-selection.ts (unit-tested there,
+  // and reused by the v2 area tiles) — same behaviour.
   const toggleMuscle = useCallback(
     (id: string) => {
-      setSelectedMuscles((prev) => {
-        if (id === FULL_BODY_ID) {
-          // ON  → include the full_body tag plus every individual muscle so each
-          //       chip renders in its active/selected visual state.
-          // OFF → clear everything.
-          return prev.includes(FULL_BODY_ID)
-            ? []
-            : [FULL_BODY_ID, ...MUSCLE_FOCUS_IDS];
-        }
-
-        // Individual chip tapped — always strip the full_body tag first so the
-        // "כל הגוף" button deactivates when the set is no longer complete.
-        const withoutFullBody = prev.filter((m) => m !== FULL_BODY_ID);
-        const next = withoutFullBody.includes(id)
-          ? withoutFullBody.filter((m) => m !== id)
-          : [...withoutFullBody, id];
-
-        // Auto-upgrade: if the user has now manually selected every individual
-        // muscle, flip the full_body tag back on so the UI stays in sync.
-        const allSelected = MUSCLE_FOCUS_IDS.every((m) => next.includes(m));
-        return allSelected ? [FULL_BODY_ID, ...MUSCLE_FOCUS_IDS] : next;
-      });
+      setSelectedMuscles((prev) => toggleMuscleSelection(prev, id));
     },
     []
   );
@@ -379,6 +388,89 @@ export default function ProgramPathPage() {
 
   const canContinue = canContinueWithCards(selectedCards, selectedMuscles, selectedSkills);
 
+  // ── v2 (enable_home_v2): single goal, area tiles, goal note, photos ──
+  // Only the v2 view calls these; the legacy markup below never does.
+  const [areaTiles, setAreaTiles] = useState<AreaTileId[]>([]);
+  const [goalNote, setGoalNote] = useState('');
+  // The skills goal continues to its own in-page step; back returns to the
+  // goal picker with every choice kept.
+  const [v2Step, setV2Step] = useState<'goal' | 'skills'>('goal');
+
+  const selectGoalV2 = useCallback((id: ProgramCardId) => {
+    if (selectedCards.length === 1 && selectedCards[0] === id) return;
+    // ONE goal: cardOrder is a one-item array (assessment-path-config's
+    // union logic is untouched — a union of one). The other goals' own
+    // follow-up picks are cleared so only the chosen goal's is saved.
+    setSelectedCards([id]);
+    const tiles: AreaTileId[] = id === 'body_focus' ? ['full'] : [];
+    setAreaTiles(tiles);
+    setSelectedMuscles(areaTilesToMuscles(tiles));
+    if (id !== 'skills') setSelectedSkills([]);
+  }, [selectedCards]);
+
+  const pickAreaTile = useCallback((id: AreaTileId) => {
+    const next = toggleAreaTile(areaTiles, id);
+    setAreaTiles(next);
+    setSelectedMuscles(areaTilesToMuscles(next));
+  }, [areaTiles]);
+
+  const recommendedTiles = useMemo(
+    () => recommendedAreaTiles(recommendedMuscles, areaTiles),
+    [recommendedMuscles, areaTiles],
+  );
+
+  const ageBracket = useMemo(() => {
+    let bd: Date | null = parseIsoDay(dobDay);
+    if (!bd && profileBirthDate) {
+      const raw = profileBirthDate as Date | string | { toDate?: () => Date };
+      if (raw instanceof Date) bd = raw;
+      else if (typeof raw === 'string') bd = new Date(raw);
+      else if (typeof raw?.toDate === 'function') bd = raw.toDate();
+    }
+    return ageBracketFor(ageFromBirthDate(bd));
+  }, [dobDay, profileBirthDate]);
+  const noteExamples = useMemo(() => goalNoteExamples(ageBracket, gender), [ageBracket, gender]);
+
+  const genderKey: 'male' | 'female' = isFemale ? 'female' : 'male';
+  const [libraryImages, setLibraryImages] = useState<Partial<Record<ProgramCardId, string>>>({});
+  useEffect(() => {
+    if (!v2 || !isReady) return;
+    let cancelled = false;
+    setLibraryImages({});
+    const cfg = GOAL_IMAGE_CONFIG[genderKey];
+    (Object.keys(cfg) as ProgramCardId[]).forEach(async (id) => {
+      const source = cfg[id];
+      if (source.kind !== 'library') return;
+      const url = await resolveLibraryGoalImage(source);
+      if (!cancelled && url) setLibraryImages((prev) => ({ ...prev, [id]: url }));
+    });
+    return () => { cancelled = true; };
+  }, [v2, isReady, genderKey]);
+  const goalImages = useMemo(() => {
+    const cfg = GOAL_IMAGE_CONFIG[genderKey];
+    const out = {} as Record<ProgramCardId, ResolvedGoalImage>;
+    (Object.keys(cfg) as ProgramCardId[]).forEach((id) => {
+      const lib = libraryImages[id];
+      const source = cfg[id];
+      out[id] = lib && source.kind === 'library'
+        ? { src: lib, alt: source.alt, heroPosition: '50% 40%', thumbPosition: '50% 45%' }
+        : initialGoalImage(source);
+    });
+    return out;
+  }, [genderKey, libraryImages]);
+
+  /** v2 only — the note travels to onboarding-sync via sessionStorage, like every other answer on this screen. */
+  const persistGoalNote = () => {
+    if (typeof window === 'undefined') return;
+    const text = sanitizeGoalNote(goalNote);
+    if (!text) {
+      sessionStorage.removeItem(GOAL_NOTE_STORAGE_KEY);
+      return;
+    }
+    const handoff: GoalNoteHandoff = { text, goal: selectedCards[0] ?? null, ageBracket, gender };
+    sessionStorage.setItem(GOAL_NOTE_STORAGE_KEY, JSON.stringify(handoff));
+  };
+
   const handleContinue = () => {
     if (!canContinue) return;
 
@@ -416,11 +508,9 @@ export default function ProgramPathPage() {
       setShowMuscleRecommendation(false);
     }
 
-    const toPersist =
-      selectedMuscles.includes(FULL_BODY_ID)
-        ? ['push', 'pull', 'legs', 'core']
-        : selectedMuscles;
+    const toPersist = toPersistedMuscleFocus(selectedMuscles);
     persistToStorage(selectedCards, toPersist, selectedSkills, wishlist);
+    if (v2) persistGoalNote();
     router.push('/onboarding-new/assessment-visual');
   };
 
@@ -435,16 +525,70 @@ export default function ProgramPathPage() {
     );
   }
 
+  const handleBack = () => {
+    const hasHistory = typeof window !== 'undefined' && window.history.length > 1;
+    if (hasHistory) router.back();
+    else router.push('/onboarding-new/profile');
+  };
+
+  // enable_home_v2 — the sketch's own full-bleed screen (hero carries the
+  // back button + story bar, one CTA), so it doesn't sit inside
+  // OnboardingLayout's header/footer chrome.
+  if (v2 && v2Step === 'skills') {
+    return (
+      <ProgramPathSkillsStepV2
+        isFemale={isFemale}
+        selectedSkills={selectedSkills}
+        toggleSkill={toggleSkill}
+        readySkillIds={readySkillIds}
+        showRecommendation={showRecommendation}
+        missingCategory={missingCategory}
+        totalSegments={STRENGTH_PHASES.TOTAL}
+        currentSegment={STRENGTH_PHASES.PROGRAM_PATH}
+        onBack={() => setV2Step('goal')}
+        onContinue={handleContinue}
+        canContinue={canContinue}
+        continueLabel={showRecommendation ? (isFemale ? 'המשיכי בכל זאת' : 'המשך בכל זאת') : 'המשך למבחן הרמה'}
+      />
+    );
+  }
+
+  if (v2) {
+    const goal = selectedCards[0] ?? null;
+    return (
+      <ProgramPathV2View
+        isFemale={isFemale}
+        selectedGoal={goal}
+        onSelectGoal={selectGoalV2}
+        images={goalImages}
+        areaTiles={areaTiles}
+        onPickAreaTile={pickAreaTile}
+        showMuscleRecommendation={showMuscleRecommendation}
+        muscleBalanceCase={muscleBalanceCase}
+        recommendedTiles={recommendedTiles}
+        goalNote={goalNote}
+        onGoalNoteChange={setGoalNote}
+        noteExamples={noteExamples}
+        totalSegments={STRENGTH_PHASES.TOTAL}
+        currentSegment={STRENGTH_PHASES.PROGRAM_PATH}
+        onBack={handleBack}
+        onContinue={goal === 'skills' ? () => setV2Step('skills') : handleContinue}
+        canContinue={goal === 'skills' ? true : canContinue}
+        continueLabel={
+          showMuscleRecommendation
+            ? (isFemale ? 'המשיכי בכל זאת' : 'המשך בכל זאת')
+            : 'המשך למבחן הרמה'
+        }
+      />
+    );
+  }
+
   return (
     <OnboardingLayout
       totalSegments={STRENGTH_PHASES.TOTAL}
       currentSegment={STRENGTH_PHASES.PROGRAM_PATH}
       phaseLabel={STRENGTH_PHASES.labels[STRENGTH_PHASES.PROGRAM_PATH]}
-      onBack={() => {
-        const hasHistory = typeof window !== 'undefined' && window.history.length > 1;
-        if (hasHistory) router.back();
-        else router.push('/onboarding-new/profile');
-      }}
+      onBack={handleBack}
       onContinue={handleContinue}
       canContinue={canContinue}
       continueLabel={
@@ -453,37 +597,6 @@ export default function ProgramPathPage() {
           : (isFemale ? 'המשכי' : 'המשך')
       }
     >
-      {v2 ? (
-        <ProgramPathV2View
-          isFemale={isFemale}
-          selectedCards={selectedCards}
-          getCardOrder={getCardOrder}
-          toggleProgramCard={toggleProgramCard}
-          healthCardRef={healthCardRef}
-          muscleCardRef={muscleCardRef}
-          skillsCardRef={skillsCardRef}
-          selectedMuscles={selectedMuscles}
-          isFullBodySelected={isFullBodySelected}
-          toggleMuscle={toggleMuscle}
-          selectPackage={selectPackage}
-          showMuscleRecommendation={showMuscleRecommendation}
-          muscleBalanceCase={muscleBalanceCase}
-          recommendedMuscles={recommendedMuscles}
-          foundationExercises={foundationExercises}
-          exerciseNames={exerciseNames}
-          exerciseThumbnails={exerciseThumbnails}
-          expandedWishlist={expandedWishlist}
-          toggleWishlistDrawer={toggleWishlistDrawer}
-          wishlist={wishlist}
-          toggleWishlistExercise={toggleWishlistExercise}
-          selectedSkills={selectedSkills}
-          toggleSkill={toggleSkill}
-          getSkillOrder={getSkillOrder}
-          readySkillIds={readySkillIds}
-          showRecommendation={showRecommendation}
-          missingCategory={missingCategory}
-        />
-      ) : (
       <div className="w-full max-w-md mx-auto px-4 py-6 flex flex-col">
         {/* Header */}
         <motion.div
@@ -1052,7 +1165,6 @@ export default function ProgramPathPage() {
         </motion.div>
 
       </div>
-      )}
     </OnboardingLayout>
   );
 }

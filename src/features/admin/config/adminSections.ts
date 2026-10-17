@@ -52,7 +52,7 @@ export const SECTION_PATHS: Record<AdminSectionId, string[]> = {
  * there for super/root admins, never granted to a platform member.
  */
 const HIGHLIGHT_ONLY: Partial<Record<AdminSectionId, string[]>> = {
-  product: ['/admin/community-groups-overview'],
+  product: ['/admin/community-groups-overview', '/admin/goal-notes'],
   dev: ['/admin/agents', '/admin/signup-failures'],
 };
 

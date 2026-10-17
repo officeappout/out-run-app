@@ -1,79 +1,60 @@
 'use client';
 
 /**
- * Program-path picker — home-v2 look (enable_home_v2).
+ * Program-path goal picker — home-v2 look (enable_home_v2).
  *
- * Pure view: every piece of state and every handler comes from
- * src/app/onboarding-new/program-path/page.tsx, exactly the ones the legacy
- * markup uses (toggleProgramCard / toggleMuscle / selectPackage /
- * toggleSkill / toggleWishlist*), so what gets saved to sessionStorage on
- * Continue is identical. Only the layout and copy around it change:
- *   • 3 choice cards with a checkbox-style indicator (multi-select is now
- *     visible), tint selection, priority number in a tint badge (never black).
- *   • The muscle step gets a title that says WHY it's asked, "כל הגוף" as
- *     the recommended one-tap answer, then grouped chips with an explicit
- *     "בחר הכל" text button instead of the old unlabeled circle.
- *   • An inline hint explains a disabled Continue (card picked, nothing
- *     chosen inside it).
+ * Owner-approved sketch ("מה הכי חשוב לך?"): one screen, a hero photo that
+ * crossfades to the selected goal with a glass chip saying what the level
+ * test will be, 3 compact goal cards (single choice), the goal's own
+ * follow-up (body areas) inside the selected card — the skills goal gets
+ * its own step after Continue (ProgramPathSkillsStepV2) — an
+ * optional free-text note, and one gradient CTA.
+ *
+ * Pure view — every piece of state and every handler comes from
+ * src/app/onboarding-new/program-path/page.tsx. The area tiles map onto the legacy muscle packages (utils/muscle-selection.ts), so
+ * what gets saved on Continue is what the legacy UI would save.
  */
 
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, CheckCircle2, ChevronDown, Info, Star, UserCircle } from 'lucide-react';
-import type { ExerciseWishlistEntry } from '@/features/user/core/types/user.types';
+import { Activity, Check, ChevronRight, Dumbbell, Info } from 'lucide-react';
 import type { ProgramCardId } from '../../utils/program-card-selection';
 import { MUSCLE_BALANCE_MESSAGES_HE, type MuscleBalanceCase } from '../../utils/muscle-balance';
-import {
-  MUSCLE_ICON_PATHS,
-  MUSCLE_CHIP_LABELS,
-  SKILL_MASTER_ID,
-  SKILL_PROGRAMS,
-  PUSH_SKILLS,
-  PULL_SKILLS,
-  SKILL_ICON_PATHS,
-  MUSCLE_PACKAGES,
-  type MusclePackageKey,
-} from '../../constants/program-path.constants';
-import type { MuscleGroup } from '@/features/content/exercises/core/exercise.types';
-
-const FULL_BODY_ID = 'full_body';
+import { AREA_TILES, type AreaTileId } from '../../utils/muscle-selection';
+import { GOAL_NOTE_MAX_LENGTH, goalNotePlaceholder } from '../../utils/goal-note';
+import type { ResolvedGoalImage } from '../../constants/program-path-goal-images';
 
 export interface ProgramPathV2ViewProps {
   isFemale: boolean;
+  /** The single chosen goal (cardOrder[0]), null until the user picks one. */
+  selectedGoal: ProgramCardId | null;
+  onSelectGoal: (id: ProgramCardId) => void;
+  images: Record<ProgramCardId, ResolvedGoalImage>;
 
-  selectedCards: ProgramCardId[];
-  getCardOrder: (cards: ProgramCardId[], id: ProgramCardId) => number | null;
-  toggleProgramCard: (id: ProgramCardId, ref: React.RefObject<HTMLDivElement>) => void;
-  healthCardRef: React.RefObject<HTMLDivElement>;
-  muscleCardRef: React.RefObject<HTMLDivElement>;
-  skillsCardRef: React.RefObject<HTMLDivElement>;
-
-  selectedMuscles: string[];
-  isFullBodySelected: boolean;
-  toggleMuscle: (id: string) => void;
-  selectPackage: (muscles: MuscleGroup[]) => void;
+  areaTiles: AreaTileId[];
+  onPickAreaTile: (id: AreaTileId) => void;
   showMuscleRecommendation: boolean;
   muscleBalanceCase: MuscleBalanceCase | null;
-  recommendedMuscles: ReadonlySet<string>;
+  recommendedTiles: ReadonlySet<AreaTileId>;
 
-  foundationExercises: Record<MusclePackageKey, string[]>;
-  exerciseNames: Record<string, string>;
-  exerciseThumbnails: Record<string, string>;
-  expandedWishlist: Set<MusclePackageKey>;
-  toggleWishlistDrawer: (pkg: MusclePackageKey) => void;
-  wishlist: ExerciseWishlistEntry[];
-  toggleWishlistExercise: (pkg: MusclePackageKey, exerciseId: string) => void;
+  goalNote: string;
+  onGoalNoteChange: (value: string) => void;
+  noteExamples: string[];
 
-  selectedSkills: string[];
-  toggleSkill: (id: string) => void;
-  getSkillOrder: (id: string) => number | null;
-  readySkillIds: Set<string> | null;
-  showRecommendation: boolean;
-  missingCategory: 'push' | 'pull' | null;
+  totalSegments: number;
+  currentSegment: number;
+  onBack: () => void;
+  onContinue: () => void;
+  canContinue: boolean;
+  continueLabel: string;
 }
 
-const hideOnError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-  e.currentTarget.style.display = 'none';
+const GOAL_ORDER: ProgramCardId[] = ['health', 'body_focus', 'skills'];
+
+const TEST_LINE: Record<ProgramCardId, string> = {
+  health: 'מבחן קצר: 4 תרגילים לכל הגוף',
+  body_focus: 'המבחן: רק האזורים שבחרת',
+  skills: 'המבחן: סולם לכל אלמנט + ליבה',
 };
 
 const EXPAND = {
@@ -83,84 +64,156 @@ const EXPAND = {
   transition: { duration: 0.28, ease: [0.23, 1, 0.32, 1] },
 } as const;
 
+const SAFE_TOP = 'env(safe-area-inset-top, 0px)';
+const SAFE_BOTTOM = 'env(safe-area-inset-bottom, 0px)';
+
+function goalCopy(id: ProgramCardId, isFemale: boolean) {
+  const g = (m: string, f: string) => (isFemale ? f : m);
+  switch (id) {
+    case 'health':
+      return {
+        title: g('להרגיש טוב וחזק', 'להרגיש טובה וחזקה'),
+        sub: g(
+          'למי שמתחיל, חוזר אחרי הפסקה או רוצה בסיס בריא לכל הגוף',
+          'למי שמתחילה, חוזרת אחרי הפסקה או רוצה בסיס בריא לכל הגוף',
+        ),
+        level: g('מתחילים', 'מתחילות'),
+        bars: 1,
+      };
+    case 'body_focus':
+      return {
+        title: 'לחטב ולבנות שריר',
+        sub: g(
+          'למי שכבר מתאמן ורוצה לעלות רמה, לחזור לכושר או למקד אזורים',
+          'למי שכבר מתאמנת ורוצה לעלות רמה, לחזור לכושר או למקד אזורים',
+        ),
+        level: 'לכל רמה',
+        bars: 2,
+      };
+    case 'skills':
+      return {
+        title: 'קליסטניקס: לפתוח אלמנטים',
+        sub: 'למי שעושה כבר כמה מתח ומקבילים ורוצה לפתוח עליית כוח, עמידת ידיים ופלאנץ׳',
+        level: g('מתקדמים', 'מתקדמות'),
+        bars: 3,
+      };
+  }
+}
+
 // ── Building blocks ────────────────────────────────────────────────
 
-function SelectIndicator({ selected, order }: { selected: boolean; order: number | null }) {
+function TintPanel({ iconSize = 28 }: { iconSize?: number }) {
   return (
-    <span
-      aria-hidden
-      className={`grid h-7 w-7 shrink-0 place-items-center rounded-full transition-colors duration-150 ${
-        selected
-          ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40'
-          : 'bg-white ring-1 ring-inset ring-v2-pill-border'
-      }`}
-    >
-      {selected && (order !== null
-        ? <span className="text-[13px] font-black tabular-nums">{order}</span>
-        : <Check size={15} strokeWidth={3} />)}
+    <span className="grid h-full w-full place-items-center bg-[linear-gradient(160deg,#eef8fc,#d9f1fb)]">
+      <Dumbbell size={iconSize} strokeWidth={1.8} className="text-v2-deep/60" aria-hidden />
     </span>
   );
 }
 
-function ChoiceCard({
-  cardRef, selected, order, onToggle, imgSrc, tag, title, desc, note, children,
+function Hero({
+  images, activeGoal, selectedGoal, totalSegments, currentSegment, onBack,
 }: {
-  cardRef: React.RefObject<HTMLDivElement>;
-  selected: boolean;
-  order: number | null;
-  onToggle: () => void;
-  imgSrc: string;
-  tag: string;
-  title: string;
-  desc: string;
-  note?: string;
-  children?: React.ReactNode;
+  images: Record<ProgramCardId, ResolvedGoalImage>;
+  activeGoal: ProgramCardId;
+  selectedGoal: ProgramCardId | null;
+  totalSegments: number;
+  currentSegment: number;
+  onBack: () => void;
 }) {
   return (
     <div
-      ref={cardRef}
-      className={`scroll-mt-24 rounded-v2-card bg-white transition-shadow duration-200 ease-v2 ${
-        selected ? 'shadow-v2-card ring-2 ring-v2-accent' : 'shadow-v2-ring'
-      }`}
+      className="relative shrink overflow-hidden"
+      style={{
+        flex: '1 1 0px',
+        minHeight: `calc(108px + ${SAFE_TOP})`,
+        maxHeight: `calc(248px + ${SAFE_TOP})`,
+      }}
     >
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-pressed={selected}
-        className="w-full flex items-center gap-3 p-4 text-right active:scale-[0.98] transition-transform duration-150 ease-v2"
+      {GOAL_ORDER.map((id) => {
+        const img = images[id];
+        const on = id === activeGoal;
+        return (
+          <div
+            key={id}
+            aria-hidden={!on}
+            className="absolute inset-0 transition-[opacity,transform] duration-[420ms,900ms] ease-v2 motion-reduce:transition-none"
+            style={{ opacity: on ? 1 : 0, transform: on ? 'scale(1)' : 'scale(1.06)' }}
+          >
+            {img.src ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={img.src}
+                alt={on ? img.alt : ''}
+                className="h-full w-full object-cover"
+                style={{ objectPosition: img.heroPosition }}
+                draggable={false}
+              />
+            ) : (
+              <TintPanel iconSize={40} />
+            )}
+          </div>
+        );
+      })}
+
+      {/* Scrim: a touch of shade under the top controls, fade into the page at the bottom. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'linear-gradient(180deg, rgba(14,20,25,0.22) 0%, rgba(14,20,25,0) 26%, rgba(14,20,25,0) 40%, rgba(14,20,25,0.14) 64%, #f6fbfd 100%)',
+        }}
+      />
+
+      {/* Back + story bar */}
+      <div
+        className="absolute inset-x-4 top-0 flex items-center gap-3"
+        style={{ paddingTop: `calc(${SAFE_TOP} + 10px)` }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={imgSrc} alt="" className="h-16 w-16 shrink-0 rounded-2xl bg-v2-tint object-contain p-1" />
-        <div className="flex-1 min-w-0">
-          <span className="inline-block whitespace-nowrap rounded-full bg-v2-tint px-2 py-0.5 text-[11px] font-extrabold text-v2-deep">
-            {tag}
-          </span>
-          <p className="mt-1 truncate whitespace-nowrap text-[16px] font-black !tracking-[-0.02em] text-v2-ink">{title}</p>
-          <p className="mt-0.5 line-clamp-2 text-[13px] font-bold leading-snug text-v2-muted">{desc}</p>
-          {note && <p className="mt-0.5 truncate text-[12px] font-bold text-v2-deep">{note}</p>}
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="חזרה"
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/70 shadow-v2-ring backdrop-blur-[14px] transition-transform duration-150 ease-v2 active:scale-[0.97]"
+        >
+          <ChevronRight size={18} strokeWidth={2.4} className="text-v2-ink" />
+        </button>
+        <div className="flex flex-1 gap-[5px]" aria-hidden>
+          {Array.from({ length: totalSegments }, (_, i) => (
+            <span
+              key={i}
+              className={`h-[5px] flex-1 rounded-full ${i + 1 <= currentSegment ? 'bg-white' : 'bg-white/45'}`}
+            />
+          ))}
         </div>
-        <SelectIndicator selected={selected} order={order} />
-      </button>
-      <AnimatePresence initial={false}>
-        {selected && children && (
-          <motion.div {...EXPAND} style={{ overflow: 'hidden' }}>
-            <div className="px-4 pb-4">
-              <div className="mb-3 h-px bg-v2-hairline" />
-              {children}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      </div>
+
+      {/* What the level test will be */}
+      <div
+        className="absolute bottom-[26px] right-4 flex items-center gap-2 rounded-full bg-white/75 py-2 pl-3 pr-3.5 shadow-v2-ring backdrop-blur-[14px] transition-opacity duration-300 ease-v2"
+        style={{ opacity: selectedGoal ? 1 : 0 }}
+        aria-live="polite"
+      >
+        <Activity size={16} strokeWidth={2.2} className="shrink-0 text-v2-deep" aria-hidden />
+        <span className="whitespace-nowrap text-[13px] font-extrabold text-v2-ink">
+          {selectedGoal ? TEST_LINE[selectedGoal] : ''}
+        </span>
+      </div>
     </div>
   );
 }
 
-function SectionTitle({ title, hint }: { title: string; hint: string }) {
+function LevelBars({ n }: { n: number }) {
   return (
-    <div className="mb-3 text-right">
-      <p className="whitespace-nowrap text-[15px] font-black text-v2-ink">{title}</p>
-      <p className="mt-0.5 text-[12.5px] font-bold leading-snug text-v2-muted">{hint}</p>
-    </div>
+    <span className="flex items-end gap-[3px]" aria-hidden>
+      {[1, 2, 3].map((i) => (
+        <span
+          key={i}
+          className={`block w-[5px] rounded-[2px] ${i <= n ? 'bg-v2-accent' : 'bg-v2-pill-border'}`}
+          style={{ height: 4 + i * 3 }}
+        />
+      ))}
+    </span>
   );
 }
 
@@ -171,328 +224,289 @@ function CoachNote({ text }: { text: string }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -6 }}
       transition={{ duration: 0.22 }}
-      className="mb-3 flex items-start gap-2 rounded-[16px] bg-amber-50 px-3 py-2.5 text-right ring-1 ring-inset ring-amber-300/70"
+      className="mb-2 flex items-start gap-2 rounded-[14px] bg-amber-50 px-3 py-2 text-right ring-1 ring-inset ring-amber-300/70"
       role="status"
       aria-live="polite"
     >
-      <Info size={16} className="mt-0.5 shrink-0 text-v2-amber" strokeWidth={2.5} />
-      <p className="text-[13px] font-bold leading-snug text-amber-900">{text}</p>
+      <Info size={15} className="mt-0.5 shrink-0 text-v2-amber" strokeWidth={2.5} />
+      <p className="text-[12.5px] font-bold leading-snug text-amber-900">{text}</p>
     </motion.div>
   );
 }
 
-function MissingPickHint({ text }: { text: string }) {
-  return <p className="mt-3 text-center text-[12px] font-bold text-v2-muted">{text}</p>;
+function GoalCard({
+  id, isFemale, selected, image, onSelect, children,
+}: {
+  id: ProgramCardId;
+  isFemale: boolean;
+  selected: boolean;
+  image: ResolvedGoalImage;
+  onSelect: () => void;
+  children?: React.ReactNode;
+}) {
+  const c = goalCopy(id, isFemale);
+  return (
+    <div
+      className={`overflow-hidden rounded-[22px] bg-white transition-shadow duration-200 ease-v2 ${
+        selected ? 'shadow-v2-card ring-2 ring-v2-accent' : 'shadow-v2-ring'
+      }`}
+    >
+      <button
+        type="button"
+        role="radio"
+        aria-checked={selected}
+        onClick={onSelect}
+        className="flex w-full items-center gap-3 py-2.5 pl-2.5 pr-3.5 text-right text-v2-ink transition-transform duration-150 ease-v2 active:scale-[0.97] [@media(max-height:720px)]:py-2"
+      >
+        <span className="relative h-[52px] w-[52px] shrink-0 overflow-hidden rounded-2xl bg-v2-tint [@media(max-height:720px)]:h-11 [@media(max-height:720px)]:w-11">
+          {image.src ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={image.src}
+              alt=""
+              className="h-full w-full object-cover"
+              style={{
+                objectPosition: image.thumbPosition,
+                transform: image.thumbZoom ? `scale(${image.thumbZoom})` : undefined,
+                transformOrigin: '50% 35%',
+              }}
+              draggable={false}
+            />
+          ) : (
+            <TintPanel iconSize={22} />
+          )}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate whitespace-nowrap text-[16px] font-black !tracking-[-0.01em]">{c.title}</span>
+          <span
+            className={`mt-0.5 block text-[12.5px] font-semibold leading-[1.35] text-v2-ink-2 line-clamp-2 ${
+              selected ? '' : '[@media(max-height:720px)]:line-clamp-1'
+            }`}
+          >
+            {c.sub}
+          </span>
+          <span className="mt-1 flex items-center gap-1.5">
+            <LevelBars n={c.bars} />
+            <span className="whitespace-nowrap text-[11.5px] font-extrabold text-v2-deep">{c.level}</span>
+          </span>
+        </span>
+        <span
+          aria-hidden
+          className={`grid h-[26px] w-[26px] shrink-0 place-items-center rounded-full transition-colors duration-150 ${
+            selected ? 'bg-v2-cta' : 'bg-v2-surface ring-[1.5px] ring-inset ring-v2-pill-border'
+          }`}
+        >
+          {selected && <Check size={14} strokeWidth={3.2} className="text-v2-on-cta" />}
+        </span>
+      </button>
+      <AnimatePresence initial={false}>
+        {selected && children && (
+          <motion.div {...EXPAND} style={{ overflow: 'hidden' }}>
+            <div className="px-3 pb-3">{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
-/** Chip — tint when selected, amber ring when it's the coach's suggestion. */
-function Chip({
-  selected, recommended = false, disabled = false, onClick, iconSrc, iconClass = 'h-6 w-6', label, trailing, wide = false,
+const TINT_ON = 'bg-v2-tint text-v2-deep ring-[1.5px] ring-inset ring-v2-accent/50';
+const TINT_OFF = 'bg-white text-v2-ink-2 shadow-v2-ring';
+const TINT_REC = 'bg-white text-v2-ink-2 ring-2 ring-inset ring-v2-amber/70';
+
+function GoalNoteField({
+  value, onChange, examples,
 }: {
-  selected: boolean;
-  recommended?: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-  iconSrc?: string;
-  iconClass?: string;
-  label: string;
-  trailing?: React.ReactNode;
-  wide?: boolean;
+  value: string;
+  onChange: (v: string) => void;
+  examples: string[];
 }) {
-  const tone = disabled
-    ? 'bg-v2-surface text-v2-muted ring-1 ring-inset ring-v2-hairline cursor-not-allowed'
-    : selected
-      ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40'
-      : recommended
-        ? 'bg-white text-v2-ink-2 ring-2 ring-inset ring-v2-amber/70'
-        : 'bg-white text-v2-ink-2 shadow-v2-ring';
+  const [idx, setIdx] = useState(0);
+  const [shown, setShown] = useState(true);
+  const [focused, setFocused] = useState(false);
+  const swapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Rotate the example every ~3.5s with a short fade; stop once focused.
+  useEffect(() => {
+    if (focused || examples.length < 2) return;
+    const reduce =
+      typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const t = setInterval(() => {
+      if (reduce) { setIdx((i) => (i + 1) % examples.length); return; }
+      setShown(false);
+      swapTimer.current = setTimeout(() => {
+        setIdx((i) => (i + 1) % examples.length);
+        setShown(true);
+      }, 260);
+    }, 3500);
+    return () => {
+      clearInterval(t);
+      if (swapTimer.current) clearTimeout(swapTimer.current);
+      setShown(true);
+    };
+  }, [focused, examples.length]);
+
+  const example = examples.length > 0 ? examples[idx % examples.length] : '';
+
   return (
-    <button
-      type="button"
-      onClick={disabled ? undefined : onClick}
-      disabled={disabled}
-      aria-disabled={disabled}
-      aria-pressed={selected}
-      className={`${wide ? 'w-full justify-start' : ''} flex h-11 items-center gap-1.5 rounded-full pl-3.5 pr-2 text-[14px] font-extrabold whitespace-nowrap transition-transform duration-150 ease-v2 ${
-        disabled ? '' : 'active:scale-[0.97]'
-      } ${tone}`}
-    >
-      {iconSrc && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={iconSrc}
-          alt=""
-          className={`${iconClass} shrink-0 object-contain ${disabled ? 'opacity-30 grayscale' : selected ? '' : 'opacity-60'}`}
-          onError={hideOnError}
+    <label className="mt-3 block [@media(max-height:720px)]:mt-2.5">
+      <span className="mb-1.5 flex items-baseline gap-1.5">
+        <span className="whitespace-nowrap text-[13px] font-extrabold text-v2-deep">יש עוד משהו שחשוב לך?</span>
+        <span className="whitespace-nowrap text-[11.5px] font-semibold text-v2-muted">לא חובה</span>
+      </span>
+      <span className="relative block">
+        <textarea
+          rows={2}
+          value={value}
+          maxLength={GOAL_NOTE_MAX_LENGTH}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          className="block w-full resize-none rounded-2xl border-0 bg-white px-3.5 py-2.5 text-[16px] font-medium leading-[1.4] text-v2-ink shadow-v2-ring outline-none focus:ring-2 focus:ring-inset focus:ring-v2-accent/60"
+          dir="rtl"
+          enterKeyHint="done"
         />
-      )}
-      <span className="truncate">{label}</span>
-      {trailing}
-    </button>
+        {!value && example && (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-x-3.5 top-2.5 line-clamp-2 text-[16px] font-medium leading-[1.4] text-v2-muted transition-opacity duration-200 ease-v2 motion-reduce:transition-none"
+            style={{ opacity: shown ? 1 : 0 }}
+          >
+            {goalNotePlaceholder(example)}
+          </span>
+        )}
+      </span>
+    </label>
   );
 }
 
 // ── View ───────────────────────────────────────────────────────────
 
 export default function ProgramPathV2View(p: ProgramPathV2ViewProps) {
-  const { isFemale, selectedCards } = p;
-  const order = (id: ProgramCardId) =>
-    selectedCards.length > 1 ? p.getCardOrder(selectedCards, id) : null;
-  const pick = (m: string, f: string) => (isFemale ? f : m);
+  const { isFemale, selectedGoal } = p;
+  const g = (m: string, f: string) => (isFemale ? f : m);
+  const activeGoal: ProgramCardId = selectedGoal ?? 'health';
 
   return (
-    <div className="w-full max-w-md mx-auto px-4 pt-2 pb-6 flex flex-col gap-3" dir="rtl">
-      <motion.div
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-1 text-center"
-      >
-        <h1 className="text-[24px] font-black !tracking-[-0.02em] text-v2-ink">מה הכי בא לך להשיג?</h1>
-        <p className="mt-1 text-[14px] font-bold text-v2-muted">
-          {pick('אפשר לבחור יותר מאחד — מה שתבחר ראשון יקבל עדיפות', 'אפשר לבחור יותר מאחד — מה שתבחרי ראשון יקבל עדיפות')}
-        </p>
-      </motion.div>
-
-      {/* ── A: Health & lifestyle ── */}
-      <ChoiceCard
-        cardRef={p.healthCardRef}
-        selected={selectedCards.includes('health')}
-        order={order('health')}
-        onToggle={() => p.toggleProgramCard('health', p.healthCardRef)}
-        imgSrc="/assets/lemur/lemur-avatar.png"
-        tag="מתחילים"
-        title="בריאות, כוח ואנרגיה"
-        desc="למי שרק מתחיל, חוזר אחרי הפסקה או רוצה בסיס בריא לכל הגוף."
-      >
-        <ul className="space-y-2">
-          {[
-            'אימוני כוח לכל הגוף לבניית בסיס איתן',
-            'מסלולי הליכה מותאמים ויעד צעדים יומי',
-            'שיפור טווחי תנועה, גמישות ויציבה',
-          ].map((item) => (
-            <li key={item} className="flex items-start gap-2 text-right">
-              <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-v2-accent" strokeWidth={2.5} />
-              <span className="flex-1 text-[13.5px] font-bold leading-snug text-v2-ink-2">{item}</span>
-            </li>
-          ))}
-        </ul>
-      </ChoiceCard>
-
-      {/* ── B: Body focus (the muscle step) ── */}
-      <ChoiceCard
-        cardRef={p.muscleCardRef}
-        selected={selectedCards.includes('body_focus')}
-        order={order('body_focus')}
-        onToggle={() => p.toggleProgramCard('body_focus', p.muscleCardRef)}
-        imgSrc="/assets/lemur/lemur-avatar.png"
-        tag="לכל רמה"
-        title="עיצוב ושרירים"
-        desc="למי שכבר זז ורוצה למקד אזורים ולראות שינוי בגוף."
-      >
-        <SectionTitle
-          title="על אילו אזורים נעבוד?"
-          hint={pick(
-            'לפי מה שתבחר נבנה את מבחן הרמה הקצר ואת האימונים. לא בטוח? "כל הגוף" זו בחירה מצוינת.',
-            'לפי מה שתבחרי נבנה את מבחן הרמה הקצר ואת האימונים. לא בטוחה? "כל הגוף" זו בחירה מצוינת.',
-          )}
+    <div
+      dir="rtl"
+      className="relative flex flex-col overflow-hidden bg-v2-surface text-v2-ink"
+      style={{
+        // Bleed under the notch and the home indicator: <main> already pads
+        // both insets on this route, the hero/CTA re-apply them themselves.
+        marginTop: `calc(-1 * ${SAFE_TOP})`,
+        marginBottom: `calc(-1 * ${SAFE_BOTTOM})`,
+        height: `calc(100% + ${SAFE_TOP} + ${SAFE_BOTTOM})`,
+      }}
+    >
+      {/* Everything above the CTA. Fits without scrolling on 667–932px
+          phones (the hero absorbs the slack); scrolls only as a fallback
+          (very short screens, keyboard open). */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-contain">
+        <Hero
+          images={p.images}
+          activeGoal={activeGoal}
+          selectedGoal={selectedGoal}
+          totalSegments={p.totalSegments}
+          currentSegment={p.currentSegment}
+          onBack={p.onBack}
         />
 
-        <AnimatePresence>
-          {p.showMuscleRecommendation && p.muscleBalanceCase && (
-            <CoachNote key="muscle-note" text={MUSCLE_BALANCE_MESSAGES_HE[p.muscleBalanceCase]} />
-          )}
-        </AnimatePresence>
+        <div className="relative -mt-2.5 flex shrink-0 flex-col px-4 pb-1">
+          <h1 className="text-[26px] font-black leading-[1.15] !tracking-[-0.02em] [@media(max-height:720px)]:text-[23px]">
+            מה הכי חשוב לך?
+          </h1>
+          <p className="mb-3 mt-1 text-[14px] font-medium text-v2-ink-2 [@media(max-height:720px)]:mb-2.5">
+            {g('בחר מטרה אחת. את הרמה המדויקת נמדוד במבחן הקצר.', 'בחרי מטרה אחת. את הרמה המדויקת נמדוד במבחן הקצר.')}
+          </p>
 
-        {/* Recommended one-tap answer */}
+          <div role="radiogroup" aria-label="מה הכי חשוב לך?" className="flex flex-col gap-2.5 [@media(max-height:720px)]:gap-2">
+            {/* ── Health ── */}
+            <GoalCard
+              id="health"
+              isFemale={isFemale}
+              selected={selectedGoal === 'health'}
+              image={p.images.health}
+              onSelect={() => p.onSelectGoal('health')}
+            />
+
+            {/* ── Body focus → area tiles ── */}
+            <GoalCard
+              id="body_focus"
+              isFemale={isFemale}
+              selected={selectedGoal === 'body_focus'}
+              image={p.images.body_focus}
+              onSelect={() => p.onSelectGoal('body_focus')}
+            >
+              <p className="mb-[7px] text-[12.5px] font-extrabold text-v2-deep">על מה נתמקד?</p>
+              <AnimatePresence>
+                {p.showMuscleRecommendation && p.muscleBalanceCase && (
+                  <CoachNote key="muscle-note" text={MUSCLE_BALANCE_MESSAGES_HE[p.muscleBalanceCase]} />
+                )}
+              </AnimatePresence>
+              <div className="grid grid-cols-2 gap-[7px]">
+                {AREA_TILES.map((t) => {
+                  const on = p.areaTiles.includes(t.id);
+                  const rec = p.showMuscleRecommendation && !on && p.recommendedTiles.has(t.id);
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => p.onPickAreaTile(t.id)}
+                      className={`flex h-10 items-center justify-center gap-1.5 rounded-[14px] text-[13.5px] font-extrabold transition-transform duration-150 ease-v2 active:scale-[0.97] ${
+                        on ? TINT_ON : rec ? TINT_REC : TINT_OFF
+                      }`}
+                    >
+                      <span className="whitespace-nowrap">{t.label}</span>
+                      {t.recommended && (
+                        <span className="whitespace-nowrap rounded-full bg-white px-1.5 py-px text-[11px] font-extrabold text-v2-deep">
+                          מומלץ
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </GoalCard>
+
+            {/* ── Skills → its own step (ProgramPathSkillsStepV2) after Continue ── */}
+            <GoalCard
+              id="skills"
+              isFemale={isFemale}
+              selected={selectedGoal === 'skills'}
+              image={p.images.skills}
+              onSelect={() => p.onSelectGoal('skills')}
+            />
+          </div>
+
+          <GoalNoteField
+            value={p.goalNote}
+            onChange={p.onGoalNoteChange}
+            examples={p.noteExamples}
+          />
+        </div>
+      </div>
+
+      {/* The one gradient on the screen */}
+      <div
+        className="shrink-0 px-4 pt-2.5"
+        style={{ paddingBottom: `calc(${SAFE_BOTTOM} + 14px)` }}
+      >
         <button
           type="button"
-          onClick={() => p.toggleMuscle(FULL_BODY_ID)}
-          aria-pressed={p.isFullBodySelected}
-          className={`flex h-12 w-full items-center gap-2 rounded-[16px] px-3 text-right transition-transform duration-150 ease-v2 active:scale-[0.98] ${
-            p.isFullBodySelected
-              ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40'
-              : 'bg-white text-v2-ink shadow-v2-ring'
+          onClick={p.onContinue}
+          disabled={!p.canContinue}
+          aria-disabled={!p.canContinue}
+          className={`flex h-[52px] w-full items-center justify-center rounded-full text-[16.5px] font-extrabold whitespace-nowrap transition-transform duration-150 ease-v2 ${
+            p.canContinue
+              ? 'bg-v2-cta text-v2-on-cta shadow-v2-cta active:scale-[0.97]'
+              : 'cursor-not-allowed bg-v2-hairline text-v2-muted'
           }`}
         >
-          <UserCircle size={22} strokeWidth={1.75} className={p.isFullBodySelected ? 'text-v2-deep' : 'text-v2-muted'} />
-          <span className="flex-1 whitespace-nowrap text-[15px] font-black">כל הגוף</span>
-          <span className="whitespace-nowrap rounded-full bg-v2-tint px-2 py-0.5 text-[11px] font-extrabold text-v2-deep">מומלץ</span>
-          {p.isFullBodySelected && <Check size={16} strokeWidth={3} className="text-v2-deep" />}
+          <span className="truncate">{p.continueLabel}</span>
         </button>
-
-        <div className="my-3 flex items-center gap-2" aria-hidden>
-          <span className="h-px flex-1 bg-v2-hairline" />
-          <span className="whitespace-nowrap text-[12px] font-bold text-v2-muted">או לפי אזורים</span>
-          <span className="h-px flex-1 bg-v2-hairline" />
-        </div>
-
-        <div className="space-y-3">
-          {MUSCLE_PACKAGES.map((pkg) => {
-            const fullySelected = pkg.muscles.every((m) => p.selectedMuscles.includes(m));
-            const exercises = p.foundationExercises[pkg.key];
-            const wishlistOpen = p.expandedWishlist.has(pkg.key);
-            return (
-              <div key={pkg.key}>
-                <div className="mb-2 flex h-7 items-center justify-between">
-                  <p className="whitespace-nowrap text-[13px] font-extrabold text-v2-deep">{pkg.nameHe}</p>
-                  {/* A 1-muscle group's "select all" is just its chip — hidden. */}
-                  {pkg.muscles.length > 1 && !fullySelected && (
-                    <button
-                      type="button"
-                      onClick={() => p.selectPackage(pkg.muscles)}
-                      aria-label={`בחר את כל השרירים בקבוצת ${pkg.nameHe}`}
-                      className="h-7 whitespace-nowrap rounded-full bg-white px-2.5 text-[12px] font-extrabold text-v2-deep shadow-v2-ring active:scale-[0.97] transition-transform duration-150 ease-v2"
-                    >
-                      {pick('בחר הכל', 'בחרי הכל')}
-                    </button>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {pkg.muscles.map((id) => {
-                    const selected = p.selectedMuscles.includes(id);
-                    return (
-                      <Chip
-                        key={id}
-                        selected={selected}
-                        recommended={p.showMuscleRecommendation && !selected && p.recommendedMuscles.has(id)}
-                        onClick={() => p.toggleMuscle(id)}
-                        iconSrc={MUSCLE_ICON_PATHS[id]}
-                        label={MUSCLE_CHIP_LABELS[id] ?? id}
-                      />
-                    );
-                  })}
-                </div>
-
-                {exercises.length > 0 && (
-                  <div className="mt-2">
-                    <button
-                      type="button"
-                      onClick={() => p.toggleWishlistDrawer(pkg.key)}
-                      aria-expanded={wishlistOpen}
-                      className="flex h-8 items-center gap-1 text-right"
-                    >
-                      <span className="whitespace-nowrap text-[12.5px] font-bold text-v2-muted">
-                        תרגילים שרוצים לשפר (לא חובה)
-                      </span>
-                      <ChevronDown
-                        size={15}
-                        className={`shrink-0 text-v2-muted transition-transform duration-200 ${wishlistOpen ? 'rotate-180' : ''}`}
-                      />
-                    </button>
-                    <AnimatePresence initial={false}>
-                      {wishlistOpen && (
-                        <motion.div {...EXPAND} style={{ overflow: 'hidden' }}>
-                          <div className="flex flex-wrap gap-2 pt-1">
-                            {exercises.map((exerciseId) => {
-                              const starred = p.wishlist.some(
-                                (e) => e.exerciseId === exerciseId && e.packageKey === pkg.key,
-                              );
-                              const thumb = p.exerciseThumbnails[exerciseId];
-                              return (
-                                <button
-                                  key={exerciseId}
-                                  type="button"
-                                  onClick={() => p.toggleWishlistExercise(pkg.key, exerciseId)}
-                                  aria-pressed={starred}
-                                  className={`flex h-9 max-w-full items-center gap-1.5 rounded-full pl-3 pr-1.5 text-[13px] font-extrabold transition-transform duration-150 ease-v2 active:scale-[0.97] ${
-                                    starred
-                                      ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40'
-                                      : 'bg-white text-v2-ink-2 shadow-v2-ring'
-                                  }`}
-                                >
-                                  {thumb && (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={thumb} alt="" className="h-6 w-6 shrink-0 rounded-full object-cover" onError={hideOnError} />
-                                  )}
-                                  <Star
-                                    size={14}
-                                    className={starred ? 'shrink-0 fill-v2-gold text-v2-gold' : 'shrink-0 text-v2-pill-border'}
-                                  />
-                                  <span className="truncate">{p.exerciseNames[exerciseId] ?? exerciseId}</span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {p.selectedMuscles.length === 0 && (
-          <MissingPickHint text={pick('בחר לפחות אזור אחד כדי להמשיך', 'בחרי לפחות אזור אחד כדי להמשיך')} />
-        )}
-      </ChoiceCard>
-
-      {/* ── C: Calisthenics skills ── */}
-      <ChoiceCard
-        cardRef={p.skillsCardRef}
-        selected={selectedCards.includes('skills')}
-        order={order('skills')}
-        onToggle={() => p.toggleProgramCard('skills', p.skillsCardRef)}
-        imgSrc="/assets/lemur/king-lemur.png"
-        tag="מתקדמים"
-        title="קליסטניקס מתקדם"
-        desc="למי שכבר עושה כמה מתח ומקבילים ורוצה לאתגר את עצמו לרמה הבאה."
-        note="עוד לא שם? נבנה לך את הבסיס עד לשם."
-      >
-        <SectionTitle
-          title="אילו אלמנטים?"
-          hint={pick('הסדר שבו תבחר הוא סדר העדיפות (ראשון = 1)', 'הסדר שבו תבחרי הוא סדר העדיפות (ראשון = 1)')}
-        />
-
-        <AnimatePresence>
-          {p.showRecommendation && (
-            <CoachNote
-              key="skills-note"
-              text="בחרת סקיל עוצמתי! כדי למנוע פציעות כתפיים ולפתח כוח סימטרי, קלי המאמן הווירטואלי ממליץ לך לסמן לפחות אלמנט משלים אחד מהקבוצה המודגשת (דחיפה/משיכה)."
-            />
-          )}
-        </AnimatePresence>
-
-        <div className="flex flex-wrap gap-2">
-          {SKILL_PROGRAMS.map((skill) => {
-            const isMaster = skill.id === SKILL_MASTER_ID;
-            const selected = p.selectedSkills.includes(skill.id);
-            const skillOrder = !isMaster ? p.getSkillOrder(skill.id) : null;
-            const notReady = !isMaster && p.readySkillIds !== null && !p.readySkillIds.has(skill.id);
-            const recommended =
-              p.showRecommendation && !selected && !isMaster && !notReady &&
-              ((p.missingCategory === 'push' && PUSH_SKILLS.has(skill.id)) ||
-                (p.missingCategory === 'pull' && PULL_SKILLS.has(skill.id)));
-            return (
-              <Chip
-                key={skill.id}
-                wide={isMaster}
-                selected={selected}
-                recommended={recommended}
-                disabled={notReady}
-                onClick={() => p.toggleSkill(skill.id)}
-                iconSrc={SKILL_ICON_PATHS[skill.id]}
-                iconClass="h-7 w-7"
-                label={skill.nameHe}
-                trailing={
-                  notReady ? (
-                    <span className="shrink-0 rounded-full bg-v2-hairline px-1.5 py-0.5 text-[11px] font-extrabold text-v2-muted">בקרוב</span>
-                  ) : skillOrder !== null ? (
-                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white text-[11px] font-black tabular-nums text-v2-deep ring-1 ring-inset ring-v2-accent/40">
-                      {skillOrder}
-                    </span>
-                  ) : null
-                }
-              />
-            );
-          })}
-        </div>
-
-        {p.selectedSkills.length === 0 && (
-          <MissingPickHint text={pick('בחר לפחות אלמנט אחד כדי להמשיך', 'בחרי לפחות אלמנט אחד כדי להמשיך')} />
-        )}
-      </ChoiceCard>
+      </div>
     </div>
   );
 }
