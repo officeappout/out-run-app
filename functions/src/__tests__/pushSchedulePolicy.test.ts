@@ -53,7 +53,7 @@ describe('retentionScheduler — per-user message', () => {
       if (!seen.has(v)) seen.set(v, uid);
     }
     expect(seen.size).toBe(4);
-    for (const [variant, uid] of seen) {
+    for (const [variant, uid] of Array.from(seen)) {
       const { title } = buildRetentionMessage({ uid, name: 'מיכל', daysSince: 7 });
       if (variant !== 3) expect(title).toContain('מיכל'); // variant 3's title has no {name}
     }

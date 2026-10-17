@@ -65,7 +65,7 @@ describe('isShabbatOrYomTov — yom tov', () => {
   });
 
   it('ICU Hebrew calendar and the hardcoded fallback table agree, day by day, 5787–5789', () => {
-    for (const d of YOM_TOV_FALLBACK_DATES) {
+    for (const d of Array.from(YOM_TOV_FALLBACK_DATES)) {
       expect(isYomTovDate(d, true), d).toBe(true);
     }
     const start = Date.UTC(2026, 8, 1, 12);
