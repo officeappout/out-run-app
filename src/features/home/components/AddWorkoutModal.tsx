@@ -14,6 +14,7 @@
  */
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Dumbbell, Timer, Tag, Clock, CalendarDays, Users } from 'lucide-react';
@@ -313,6 +314,9 @@ export default function AddWorkoutModal({
     setTimeout(() => { onSaved?.(); }, writeOk ? 80 : 300);
   }, [saving, title, type, duration, startTime, selectedProgramId, onClose, logWorkout, userId, targetDate, onSaved, profile, shareWithCommunity]);
 
+  const v2 = useHomeV2();
+  // v2 look (design lab): label / control styles shared across the sheet.
+  const LBL = v2 ? 'flex items-center gap-1.5 text-[13px] font-extrabold text-v2-deep mb-2' : 'flex items-center gap-1.5 text-xs font-bold text-gray-500 mb-1.5';
   return (
     <AnimatePresence>
       {isOpen && (
@@ -329,35 +333,36 @@ export default function AddWorkoutModal({
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 340, damping: 34 }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md bg-white rounded-t-3xl shadow-2xl overflow-hidden"
+            className={v2 ? 'w-full max-w-md overflow-hidden rounded-t-[28px] bg-white shadow-v2-sheet' : 'w-full max-w-md bg-white rounded-t-3xl shadow-2xl overflow-hidden'}
             style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
             dir="rtl"
           >
             <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 rounded-full bg-gray-200" />
+              <div className={v2 ? 'h-1.5 w-10 rounded-full bg-v2-pill-border' : 'w-10 h-1 rounded-full bg-gray-200'} />
             </div>
 
             <div className="flex items-center justify-between px-5 pb-2">
-              <h3 className="text-base font-black text-gray-900">{isEditMode ? 'ערוך אימון' : 'הוסף אימון'}</h3>
+              <h3 className={v2 ? 'text-[22px] font-black !tracking-[-0.02em] text-v2-ink' : 'text-base font-black text-gray-900'}>{isEditMode ? 'ערוך אימון' : 'הוסף אימון'}</h3>
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-lg bg-gray-100 text-gray-400 hover:bg-gray-200 active:scale-90 transition-all"
+                aria-label="סגירה"
+                className={v2 ? 'grid h-9 w-9 place-items-center rounded-full bg-v2-surface text-v2-ink ring-1 ring-inset ring-v2-hairline' : 'p-1.5 rounded-lg bg-gray-100 text-gray-400 hover:bg-gray-200 active:scale-90 transition-all'}
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {targetDate && (
-              <div className="mx-5 mb-3 flex items-center gap-2 px-3 py-2 bg-cyan-50 dark:bg-cyan-900/20 rounded-xl">
-                <CalendarDays className="w-4 h-4 text-cyan-500" />
-                <span className="text-xs font-bold text-cyan-700 dark:text-cyan-300">{formatTargetDate(targetDate)}</span>
+              <div className={v2 ? 'mx-5 mb-3 flex items-center gap-2 rounded-[16px] bg-v2-tint px-3.5 py-2.5' : 'mx-5 mb-3 flex items-center gap-2 px-3 py-2 bg-cyan-50 dark:bg-cyan-900/20 rounded-xl'}>
+                <CalendarDays className={v2 ? 'h-4 w-4 text-v2-deep' : 'w-4 h-4 text-cyan-500'} />
+                <span className={v2 ? 'text-[14px] font-extrabold text-v2-deep' : 'text-xs font-bold text-cyan-700 dark:text-cyan-300'}>{formatTargetDate(targetDate)}</span>
               </div>
             )}
 
             <div className="px-5 space-y-4 pb-4">
               {/* Time — drum / scroll picker */}
               <div>
-                <label className="flex items-center gap-1.5 text-xs font-bold text-gray-500 mb-1.5">
+                <label className={LBL}>
                   <Clock className="w-3.5 h-3.5" /> שעה <span className="text-red-400">*</span>
                 </label>
                 <DrumTimePicker value={startTime} onChange={setStartTime} />
@@ -365,7 +370,7 @@ export default function AddWorkoutModal({
 
               {/* Title */}
               <div>
-                <label className="flex items-center gap-1.5 text-xs font-bold text-gray-500 mb-1.5">
+                <label className={LBL}>
                   <Tag className="w-3.5 h-3.5" /> שם
                 </label>
                 <input
@@ -373,13 +378,17 @@ export default function AddWorkoutModal({
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="לדוגמא: אימון גב + חזה"
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 focus:border-cyan-300 transition-all"
+                  className={
+                    v2
+                      ? 'h-12 w-full rounded-[16px] bg-white px-4 text-[15px] font-semibold text-v2-ink shadow-v2-ring placeholder:text-v2-muted focus:outline-none focus:ring-2 focus:ring-v2-accent'
+                      : 'w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 focus:border-cyan-300 transition-all'
+                  }
                 />
               </div>
 
               {/* Type */}
               <div>
-                <label className="flex items-center gap-1.5 text-xs font-bold text-gray-500 mb-1.5">
+                <label className={LBL}>
                   <Dumbbell className="w-3.5 h-3.5" /> סוג
                 </label>
                 <div className="flex gap-2">
@@ -387,14 +396,21 @@ export default function AddWorkoutModal({
                     <button
                       key={opt.value}
                       onClick={() => setType(opt.value)}
-                      className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all active:scale-95 flex flex-col items-center gap-0.5 ${
-                        type === opt.value
-                          ? 'bg-[#00C9F2]/10 text-[#00C9F2] ring-2 ring-[#00C9F2]/30'
-                          : 'bg-gray-50 text-gray-500 border border-gray-100'
-                      }`}
+                      aria-pressed={type === opt.value}
+                      className={
+                        v2
+                          ? `flex h-[66px] flex-1 flex-col items-center justify-center gap-1 rounded-[18px] transition-[transform,box-shadow] duration-150 ease-v2 active:scale-[0.97] ${
+                              type === opt.value ? 'bg-white text-v2-deep shadow-v2-card ring-2 ring-v2-accent' : 'bg-white/70 text-v2-ink-2 shadow-v2-ring'
+                            }`
+                          : `flex-1 py-2 rounded-xl text-sm font-bold transition-all active:scale-95 flex flex-col items-center gap-0.5 ${
+                              type === opt.value
+                                ? 'bg-[#00C9F2]/10 text-[#00C9F2] ring-2 ring-[#00C9F2]/30'
+                                : 'bg-gray-50 text-gray-500 border border-gray-100'
+                            }`
+                      }
                     >
                       {opt.icon}
-                      <span className="text-[10px]">{opt.label}</span>
+                      <span className={v2 ? 'text-[13.5px] font-extrabold' : 'text-[10px]'}>{opt.label}</span>
                     </button>
                   ))}
                 </div>
@@ -422,17 +438,26 @@ export default function AddWorkoutModal({
                     // which checks ICON_MAP first — the exact drift this
                     // shared cascade exists to remove.
                     const resolvedIconKey = resolveIconKey(track.id);
-                    const label = resolveProgramLabel(track.id);
+                    // An id the icon/label cascade doesn't know came out raw
+                    // (e.g. "…yCZF") — show a neutral name instead.
+                    const resolvedLabel = resolveProgramLabel(track.id);
+                    const label = resolvedLabel && resolvedLabel !== track.id ? resolvedLabel : 'תוכנית';
                     const isSelected = selectedProgramId === track.id;
                     return (
                       <button
                         key={track.id}
                         onClick={() => setSelectedProgramId(track.id)}
-                        className={`flex-shrink-0 flex items-center px-3 py-1.5 rounded-xl text-xs transition-all active:scale-95 ${
-                          isSelected
-                            ? 'bg-[#00C9F2]/10 ring-2 ring-[#00C9F2]/30'
-                            : 'bg-gray-50 border border-gray-100'
-                        }`}
+                        className={
+                          v2
+                            ? `flex h-10 flex-shrink-0 items-center rounded-full px-3.5 text-[13.5px] transition-transform duration-150 ease-v2 active:scale-[0.97] ${
+                                isSelected ? 'bg-v2-tint ring-1 ring-inset ring-v2-accent/40' : 'bg-white shadow-v2-ring'
+                              }`
+                            : `flex-shrink-0 flex items-center px-3 py-1.5 rounded-xl text-xs transition-all active:scale-95 ${
+                                isSelected
+                                  ? 'bg-[#00C9F2]/10 ring-2 ring-[#00C9F2]/30'
+                                  : 'bg-gray-50 border border-gray-100'
+                              }`
+                        }
                       >
                         <span
                           className="flex items-center gap-1.5"
@@ -451,7 +476,7 @@ export default function AddWorkoutModal({
 
               {/* Duration — continuous range slider */}
               <div>
-                <label className="flex items-center justify-between gap-1.5 text-xs font-bold text-gray-500 mb-2">
+                <label className={v2 ? 'mb-2 flex items-center justify-between gap-1.5 text-[13px] font-extrabold text-v2-deep' : 'flex items-center justify-between gap-1.5 text-xs font-bold text-gray-500 mb-2'}>
                   <span className="flex items-center gap-1.5">
                     <Timer className="w-3.5 h-3.5" /> משך
                   </span>
@@ -495,17 +520,21 @@ export default function AddWorkoutModal({
               <button
                 type="button"
                 onClick={() => setShareWithCommunity((v) => !v)}
-                className="w-full flex items-center gap-3 px-3 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-right active:scale-[0.99] transition-all"
+                className={
+                  v2
+                    ? 'flex w-full items-center gap-3 rounded-[18px] bg-v2-surface px-3.5 py-3 text-right ring-1 ring-inset ring-v2-hairline transition-transform active:scale-[0.99]'
+                    : 'w-full flex items-center gap-3 px-3 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-right active:scale-[0.99] transition-all'
+                }
                 aria-pressed={shareWithCommunity}
               >
                 <div className="flex-shrink-0">
                   <Users size={16} color="#00ADEF" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-bold text-gray-900 leading-tight">
+                  <div className={v2 ? 'text-[14px] font-extrabold leading-tight text-v2-ink' : 'text-xs font-bold text-gray-900 leading-tight'}>
                     {g(gender, 'שתף עם הקהילה', 'שתפי עם הקהילה')} — חפש שותף לאימון
                   </div>
-                  <div className="text-[10px] text-gray-500 mt-0.5 leading-tight">
+                  <div className={v2 ? 'mt-0.5 text-[12px] font-bold leading-tight text-v2-muted' : 'text-[10px] text-gray-500 mt-0.5 leading-tight'}>
                     {g(
                       gender,
                       'תופיע לאחרים שמחפשים שותף',
@@ -515,7 +544,7 @@ export default function AddWorkoutModal({
                 </div>
                 <div
                   className={`flex-shrink-0 w-9 h-5 rounded-full transition-colors relative ${
-                    shareWithCommunity ? 'bg-[#0CF2E3]' : 'bg-gray-300'
+                    shareWithCommunity ? (v2 ? 'bg-v2-ink' : 'bg-[#0CF2E3]') : 'bg-gray-300'
                   }`}
                 >
                   <div
@@ -530,7 +559,11 @@ export default function AddWorkoutModal({
               <button
                 onClick={handleSave}
                 disabled={!startTime || saving}
-                className="w-full py-3 bg-brand-cta hover:brightness-105 text-on-brand font-bold rounded-xl shadow-lg shadow-cyan-500/25 transition-all active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none"
+                className={
+                  v2
+                    ? 'h-12 w-full rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40'
+                    : 'w-full py-3 bg-brand-cta hover:brightness-105 text-on-brand font-bold rounded-xl shadow-lg shadow-cyan-500/25 transition-all active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none'
+                }
               >
                 {saving ? 'שומר...' : isEditMode ? 'עדכן' : 'שמור'}
               </button>
@@ -559,7 +592,11 @@ export default function AddWorkoutModal({
                       router.push(`/workout-builder?${params.toString()}`);
                     }
                   }}
-                  className="w-full py-2.5 text-sm font-bold text-[#0284c7] bg-cyan-50 hover:bg-cyan-100 rounded-xl border border-cyan-200 transition-all active:scale-[0.98]"
+                  className={
+                    v2
+                      ? 'h-11 w-full rounded-full bg-white text-[14.5px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.98]'
+                      : 'w-full py-2.5 text-sm font-bold text-[#0284c7] bg-cyan-50 hover:bg-cyan-100 rounded-xl border border-cyan-200 transition-all active:scale-[0.98]'
+                  }
                 >
                   בנה אימון מותאם ←
                 </button>

@@ -21,6 +21,22 @@ import {
   Share2,
 } from 'lucide-react';
 import { useUserStore } from '@/features/user';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { Home as HomeIcon, Users as UsersIcon, Heart as HeartIcon, Briefcase, GraduationCap, School } from 'lucide-react';
+
+/** Home v2 (enable_home_v2) for the wizard's step components. */
+const WizardV2 = React.createContext(false);
+
+/** v2: the app's line icons instead of emoji for the community types. */
+const GROUP_TYPE_ICON: Record<string, React.ElementType> = {
+  neighborhood: HomeIcon,
+  friends: UsersIcon,
+  family: HeartIcon,
+  work: Briefcase,
+  university: GraduationCap,
+  park: Trees,
+  school: School,
+};
 import { useArenaAccess } from '@/features/arena/hooks/useArenaAccess';
 import { createGroup, updateGroup, getGroupById } from '@/features/arena/services/group.service';
 import { uploadCommunityImage } from '@/features/admin/services/community.service';
@@ -132,6 +148,8 @@ const BLANK_FORM: WizardForm = {
 };
 
 export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGroupId }: CreateGroupWizardProps) {
+  const wizardSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(wizardSuperAdmin).flags.enableHomeV2;
   const { profile } = useUserStore();
   const access = useArenaAccess();
   const isEditMode = !!editGroupId;
@@ -429,16 +447,17 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 300, damping: 32, mass: 0.9 }}
-            className="fixed bottom-0 left-0 right-0 z-[93] max-w-md mx-auto bg-white rounded-t-3xl shadow-2xl flex flex-col"
+            className={`fixed bottom-0 left-0 right-0 z-[93] max-w-md mx-auto bg-white flex flex-col ${v2 ? 'rounded-t-[28px] shadow-v2-sheet' : 'rounded-t-3xl shadow-2xl'}`}
             style={{ height: '92dvh' }}
           >
+            <WizardV2.Provider value={v2}>
             {/* ── Header ─────────────────────────────────────────── */}
             <div className="flex-shrink-0 px-5 pt-4 pb-3" dir="rtl">
               {/* Drag handle */}
-              <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
+              <div className={`mx-auto mb-4 rounded-full ${v2 ? 'h-1.5 w-10 bg-v2-pill-border' : 'w-10 h-1 bg-gray-200'}`} />
 
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-black text-gray-900">
+                <h2 className={v2 ? 'text-[22px] font-black !tracking-[-0.02em] text-v2-ink' : 'text-lg font-black text-gray-900'}>
                   {successInfo
                     ? 'הקהילה שלך באוויר! 🚀'
                     : isEditMode
@@ -447,9 +466,10 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                 </h2>
                 <button
                   onClick={handleClose}
-                  className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center active:scale-90 transition-transform"
+                  aria-label="סגירה"
+                  className={v2 ? 'grid h-9 w-9 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline' : 'w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center active:scale-90 transition-transform'}
                 >
-                  <X className="w-4 h-4 text-gray-500" />
+                  <X className={v2 ? 'h-4 w-4 text-v2-ink' : 'w-4 h-4 text-gray-500'} />
                 </button>
               </div>
 
@@ -461,7 +481,13 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                       <React.Fragment key={i}>
                         <div
                           className={`flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black transition-all ${
-                            i < step
+                            v2
+                              ? i < step
+                                ? 'bg-v2-tint text-v2-deep'
+                                : i === step
+                                ? 'bg-v2-cta text-v2-on-cta shadow-v2-cta'
+                                : 'bg-v2-surface text-v2-muted ring-1 ring-inset ring-v2-hairline'
+                              : i < step
                               ? 'bg-cyan-500 text-white'
                               : i === step
                               ? 'bg-gray-900 text-white'
@@ -471,7 +497,7 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                           {i < step ? <Check className="w-3 h-3" /> : i + 1}
                         </div>
                         {i < STEPS.length - 1 && (
-                          <div className={`flex-1 h-0.5 rounded ${i < step ? 'bg-cyan-500' : 'bg-gray-100'}`} />
+                          <div className={`flex-1 h-0.5 rounded ${i < step ? (v2 ? 'bg-v2-accent' : 'bg-cyan-500') : (v2 ? 'bg-v2-hairline' : 'bg-gray-100')}`} />
                         )}
                       </React.Fragment>
                     ))}
@@ -632,16 +658,21 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                     {/* Back */}
                     <button
                       onClick={handleBack}
-                      className="w-11 h-11 rounded-xl bg-gray-100 flex items-center justify-center active:scale-90 transition-transform flex-shrink-0"
+                      aria-label="חזרה"
+                      className={v2 ? 'grid h-12 w-12 flex-shrink-0 place-items-center rounded-full bg-white shadow-v2-ring transition-transform active:scale-90' : 'w-11 h-11 rounded-xl bg-gray-100 flex items-center justify-center active:scale-90 transition-transform flex-shrink-0'}
                     >
-                      <ChevronRight className="w-5 h-5 text-gray-600" />
+                      <ChevronRight className={v2 ? 'h-5 w-5 text-v2-ink' : 'w-5 h-5 text-gray-600'} />
                     </button>
 
                     {(outreachMode || step < 5) ? (
                       <button
                         onClick={handleNext}
                         disabled={!outreachMode && !canAdvance()}
-                        className="flex-1 h-11 rounded-xl bg-gray-900 text-white text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed"
+                        className={
+                          v2
+                            ? 'flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40'
+                            : 'flex-1 h-11 rounded-xl bg-gray-900 text-white text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed'
+                        }
                       >
                         {outreachMode ? 'המשך ליצירה' : 'המשך'}
                         <ChevronLeft className="w-4 h-4" />
@@ -650,7 +681,11 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                       <button
                         onClick={handleCreate}
                         disabled={submitting || form.name.trim().length < 2}
-                        className="flex-1 h-11 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/30 transition-all active:scale-[0.97] disabled:opacity-50"
+                        className={
+                          v2
+                            ? 'flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform active:scale-[0.97] disabled:opacity-50'
+                            : 'flex-1 h-11 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/30 transition-all active:scale-[0.97] disabled:opacity-50'
+                        }
                       >
                         {submitting ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -676,6 +711,7 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                 </div>
               </>
             )}
+            </WizardV2.Provider>
           </motion.div>
         </>
       )}
@@ -836,6 +872,43 @@ function StepType({
     // Always-private types (+ military, default-only — see DEFAULT_PRIVATE_TYPES's own comment) start isPublic=false
     updateForm('isPublic', DEFAULT_PRIVATE_TYPES.has(value) ? false : true);
   };
+  const v2 = React.useContext(WizardV2);
+
+  if (v2) {
+    return (
+      <div className="space-y-4 pt-4">
+        <p className="text-[14px] font-bold leading-relaxed text-v2-ink-2">איזו קהילה פותחים?</p>
+        <div className="grid grid-cols-2 gap-2.5">
+          {GROUP_TYPES.map((gt) => {
+            const Icon = GROUP_TYPE_ICON[gt.value] ?? UsersIcon;
+            const on = form.groupType === gt.value;
+            return (
+              <button
+                key={gt.value}
+                type="button"
+                onClick={() => handleTypeChange(gt.value)}
+                aria-pressed={on}
+                className={`flex items-center gap-3 rounded-[20px] p-3 text-start transition-[transform,box-shadow] duration-150 ease-v2 active:scale-[0.98] ${
+                  on ? 'bg-white shadow-v2-card ring-2 ring-v2-accent' : 'bg-white shadow-v2-ring'
+                }`}
+              >
+                <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-[14px] ${on ? 'bg-v2-cta text-v2-on-cta' : 'bg-v2-tint text-v2-deep'}`}>
+                  <Icon size={20} strokeWidth={2.4} aria-hidden />
+                </span>
+                <span className="min-w-0">
+                  <span className="block whitespace-nowrap text-[15px] font-black text-v2-ink">{gt.label}</span>
+                  <span className="block text-[12px] font-bold leading-snug text-v2-muted">{gt.sub}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        {DEFAULT_PRIVATE_TYPES.has(form.groupType) && (
+          <p className="text-[12.5px] font-bold text-v2-deep">פרטית כברירת מחדל — אפשר לשנות בשלב הפרטיות</p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 pt-4">
