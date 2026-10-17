@@ -93,3 +93,35 @@ export function estimateWalkMinutesFromKm(distanceKm: number | null | undefined)
   if (distanceKm == null || !Number.isFinite(distanceKm) || distanceKm < 0) return null;
   return Math.max(1, Math.round((distanceKm * 1000) / 80));
 }
+
+/**
+ * Sderot pilot G1.4 (17.10.2026): a walk TIME is only meaningful when the route is reasonably close.
+ * "עוד כ-140 דק' הליכה" for a route 11 km away reads as nonsense — past this straight-line distance the
+ * card shows the distance instead. Display-only: the start gate above (WALK_TO_ROUTE_THRESHOLD_MIN) is
+ * untouched — this only decides which words the already-blocked CTA / toast use.
+ */
+export const WALK_TIME_DISPLAY_MAX_KM = 2;
+
+/**
+ * The too-far CTA label + toast text for a route card.
+ * @param distanceKm straight-line km from the user to the route (null/0/non-finite → unknown).
+ * @param walkMinutes the same walk-minutes value the gate used.
+ * Unknown distance keeps today's walk-time wording (fail-safe: never invents a distance).
+ */
+export function formatTooFarLabels(
+  distanceKm: number | null | undefined,
+  walkMinutes: number | null | undefined,
+): { cta: string; toast: string } {
+  const km = distanceKm != null && Number.isFinite(distanceKm) && distanceKm > 0 ? distanceKm : null;
+  if (km != null && km > WALK_TIME_DISPLAY_MAX_KM) {
+    const kmText = km.toFixed(1);
+    return {
+      cta: `המסלול במרחק ${kmText} ק״מ`,
+      toast: `התקרבו למסלול — הוא במרחק כ-${kmText} ק״מ ממך`,
+    };
+  }
+  return {
+    cta: `עוד כ-${walkMinutes} דק' הליכה`,
+    toast: `התקרבו למסלול — נותרו עוד כ-${walkMinutes} דק' הליכה`,
+  };
+}

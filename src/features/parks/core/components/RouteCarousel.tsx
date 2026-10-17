@@ -110,6 +110,7 @@ import RouteQualityBadges from './RouteQualityBadges';
 import { UNIFIED_ROUTE_CARDS_ENABLED } from '@/config/feature-flags';
 import { haversineKm } from '../services/geoUtils';
 import { computeStartExperienceState, estimateWalkMinutesFromKm } from '../services/start-experience-state';
+import { formatTooFarLabels } from '../services/start-experience-state';
 import { useToast } from '@/components/ui/Toast';
 
 const ACCENT = '#00ADEF';
@@ -1071,14 +1072,13 @@ function RouteCard({
   // entry points (discover CTA, hybrid overview) and as a defensive
   // guard if that construction ever changes. Fails open to 'on_route'
   // when data's missing — never blocks a start that works today.
-  const cardWalkMinutes = estimateWalkMinutesFromKm(
-    haversineKm(userPosition.lat, userPosition.lng, route.path[0][1], route.path[0][0]),
-  );
+  const startKm = haversineKm(userPosition.lat, userPosition.lng, route.path[0][1], route.path[0][0]);
+  const cardWalkMinutes = estimateWalkMinutesFromKm(startKm);
   const startState = computeStartExperienceState(userPosition, route.path, cardWalkMinutes);
   const isTooFar = startState === 'off_route_too_far';
-  const blockedReason = isTooFar
-    ? `התקרבו למסלול — נותרו עוד כ-${cardWalkMinutes} דק' הליכה`
-    : null;
+  // G1.4: walk-time wording only within WALK_TIME_DISPLAY_MAX_KM (2 km); farther → distance.
+  const tooFarLabels = formatTooFarLabels(startKm, cardWalkMinutes);
+  const blockedReason = isTooFar ? tooFarLabels.toast : null;
   const { showToast } = useToast();
   const activityEmoji =
     activity === 'cycling' ? '🚴' : activity === 'running' ? '🏃' : '🚶';
@@ -1115,7 +1115,7 @@ function RouteCard({
         ctaContent={
           <>
             <Play size={14} fill="currentColor" />
-            {isTooFar ? `עוד כ-${cardWalkMinutes} דק' הליכה` : 'התחל אימון'}
+            {isTooFar ? tooFarLabels.cta : 'התחל אימון'}
             <ChevronLeft size={14} strokeWidth={3} />
           </>
         }
