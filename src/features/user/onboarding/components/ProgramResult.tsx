@@ -7,6 +7,7 @@ import { getOnboardingLocale, type OnboardingLanguage } from '@/lib/i18n/onboard
 import { useOnboardingStore } from '../store/useOnboardingStore';
 import OnboardingStoryBar from './OnboardingStoryBar';
 import { TOTAL_PHASES, STRENGTH_PHASES, STRENGTH_LABELS } from '../constants/onboarding-phases';
+import { SKILL_ICON_PATHS } from '../constants/program-path.constants';
 
 // ── Real progression data (Progression Manager — מנהל התקדמות) ──────
 // Source of truth: src/features/user/core/types/progression.types.ts
@@ -104,6 +105,8 @@ interface ProgramResultProps {
    * backup before the failing write, and the next screen re-syncs from it.
    */
   onSkip?: () => void;
+  /** enable_home_v2 — v2 look + the clipped-top fixes (see render). */
+  v2?: boolean;
 }
 
 // ── Confetti particle ──────────────────────────────────────────────
@@ -255,7 +258,7 @@ const CircularGauge = ({
 // Visually identical across categories; brand gradient accent stripe on top.
 const SummaryCard = ({
   emoji, label, levelValue, delay,
-  Icon, iconColor,
+  Icon, iconColor, v2 = false, iconSrc,
 }: {
   emoji: string;
   label: string;
@@ -263,7 +266,35 @@ const SummaryCard = ({
   delay: number;
   Icon?: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number; className?: string }>;
   iconColor?: string;
-}) => (
+  v2?: boolean;
+  /** v2 skills path: the skill's own SVG instead of an emoji. */
+  iconSrc?: string;
+}) => v2 ? (
+  // v2: no overflow-hidden + 3px top stripe — the rounded corners clipped
+  // that stripe into a thin arc, which read as the card's top edge being
+  // cut off. Plain ring card, never below 11px text, no emoji.
+  <motion.div
+    className="min-w-0 flex flex-col items-center gap-1 rounded-[20px] bg-white px-2 py-3 shadow-v2-ring"
+    initial={{ opacity: 0, scale: 0.85, y: 16 }}
+    animate={{ opacity: 1, scale: 1, y: 0 }}
+    transition={{ delay, type: 'spring', stiffness: 280, damping: 24 }}
+  >
+    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-v2-tint" aria-hidden>
+      {Icon ? (
+        <Icon size={19} color={iconColor} strokeWidth={2} />
+      ) : iconSrc ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={iconSrc} alt="" className="h-6 w-6 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+      ) : (
+        <Sparkles size={18} className="text-v2-deep" />
+      )}
+    </div>
+    <span className="w-full truncate whitespace-nowrap text-center text-[11px] font-extrabold text-v2-muted">{label}</span>
+    <span className="whitespace-nowrap text-[14px] font-black leading-none text-v2-deep">
+      {levelValue != null && levelValue > 0 ? `רמה ${levelValue}` : '—'}
+    </span>
+  </motion.div>
+) : (
   <motion.div
     className="flex-1 min-w-0 flex flex-col bg-white rounded-2xl overflow-hidden"
     style={{
@@ -313,6 +344,7 @@ export default function ProgramResult({
   assessedCategories,
   saveError,
   onSkip,
+  v2 = false,
 }: ProgramResultProps) {
   void getOnboardingLocale(language); // keep import used
 
@@ -468,13 +500,17 @@ export default function ProgramResult({
   // ── Render ────────────────────────────────────────────────────
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col font-simpler overflow-y-auto"
-      style={{ background: 'linear-gradient(to bottom, #D8F3FF 0%, #F8FDFF 40%, white 100%)' }}
+      className={v2
+        ? 'fixed inset-0 z-50 flex flex-col font-simpler overflow-y-auto bg-v2-surface'
+        : 'fixed inset-0 z-50 flex flex-col font-simpler overflow-y-auto'}
+      style={v2 ? undefined : { background: 'linear-gradient(to bottom, #D8F3FF 0%, #F8FDFF 40%, white 100%)' }}
       dir={direction}
     >
-      {/* Story bar */}
+      {/* Story bar — v2 gives it a surface: it's sticky, and with a
+          transparent background the cards scrolled up underneath it into
+          the status-bar / notch area, so their top edges looked cut off. */}
       <div
-        className="sticky top-0 left-0 right-0 z-20"
+        className={v2 ? 'sticky top-0 left-0 right-0 z-20 bg-v2-surface/90 backdrop-blur-xl' : 'sticky top-0 left-0 right-0 z-20'}
         style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
         <OnboardingStoryBar
@@ -523,18 +559,20 @@ export default function ProgramResult({
               {visibleCategoryDisplay.map((cat, i) => (
                 <motion.div
                   key={cat.key}
-                  className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl"
-                  style={{ backgroundColor: `${cat.color}20`, border: `1.5px solid ${cat.color}50` }}
+                  className={v2
+                    ? 'w-12 h-12 rounded-2xl grid place-items-center bg-white shadow-v2-ring'
+                    : 'w-12 h-12 rounded-2xl flex items-center justify-center text-xl'}
+                  style={v2 ? undefined : { backgroundColor: `${cat.color}20`, border: `1.5px solid ${cat.color}50` }}
                   animate={{ y: [0, -8, 0], opacity: [0.6, 1, 0.6] }}
                   transition={{ duration: 1.2, delay: i * 0.2, repeat: Infinity, ease: 'easeInOut' }}
                 >
-                  {cat.emoji}
+                  {v2 ? <cat.Icon size={22} color={cat.color} strokeWidth={2} /> : cat.emoji}
                 </motion.div>
               ))}
             </div>
             <div className="text-center" dir="rtl">
               <motion.p
-                className="text-xl font-black text-slate-700"
+                className={v2 ? 'text-[20px] font-black text-v2-ink' : 'text-xl font-black text-slate-700'}
                 animate={{ opacity: [0.6, 1, 0.6] }}
                 transition={{ duration: 1.4, repeat: Infinity }}
               >
@@ -549,13 +587,20 @@ export default function ProgramResult({
       </AnimatePresence>
 
       {/* ── MAIN CONTENT (cards → gauge → insights) ───────────────── */}
-      <div className="flex flex-col items-center px-5 pt-4 pb-10 gap-4 relative z-10">
+      <div
+        className={v2
+          ? 'flex flex-col items-center px-5 pt-3 gap-4 relative z-10'
+          : 'flex flex-col items-center px-5 pt-4 pb-10 gap-4 relative z-10'}
+        style={v2 ? { paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)' } : undefined}
+      >
 
         {/* ── Category / Skill Cards — appear first, stagger in ──────── */}
         <AnimatePresence>
           {revealPhase !== 'calculating' && (
             <motion.div
-              className="w-full max-w-sm flex gap-2"
+              className={v2
+                ? 'w-full max-w-sm grid gap-2 grid-cols-[repeat(auto-fit,minmax(76px,1fr))]'
+                : 'w-full max-w-sm flex gap-2'}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.2 }}
@@ -576,6 +621,8 @@ export default function ProgramResult({
                         label={meta.he}
                         levelValue={lvl}
                         delay={i * 0.18}
+                        v2={v2}
+                        iconSrc={SKILL_ICON_PATHS[skillId]}
                       />
                     );
                   })
@@ -590,14 +637,15 @@ export default function ProgramResult({
                         delay={i * 0.18}
                         Icon={cat.Icon}
                         iconColor={cat.color}
+                        v2={v2}
                       />
                     ))
                   // No data yet — render skeletons only for assessed categories
                   : visibleCategoryDisplay.map((cat, i) => (
                       <motion.div
                         key={cat.key}
-                        className="flex-1 rounded-2xl h-20 bg-slate-100"
-                        style={{ border: `2px solid ${cat.color}30` }}
+                        className={v2 ? 'h-20 rounded-[20px] bg-white shadow-v2-ring' : 'flex-1 rounded-2xl h-20 bg-slate-100'}
+                        style={v2 ? undefined : { border: `2px solid ${cat.color}30` }}
                         initial={{ opacity: 0, scale: 0.7, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         transition={{ delay: i * 0.18, type: 'spring', stiffness: 280, damping: 22 }}
@@ -629,11 +677,11 @@ export default function ProgramResult({
               </AnimatePresence>
 
               <div
-                className="bg-white rounded-[40px] p-7 text-center"
-                style={{ boxShadow: '0 20px 50px rgba(91,194,242,0.22), 0 6px 18px rgba(0,0,0,0.07)' }}
+                className={v2 ? 'bg-white rounded-v2-card-lg shadow-v2-card p-6 text-center' : 'bg-white rounded-[40px] p-7 text-center'}
+                style={v2 ? undefined : { boxShadow: '0 20px 50px rgba(91,194,242,0.22), 0 6px 18px rgba(0,0,0,0.07)' }}
               >
                 {/* Program name */}
-                <h2 className="text-xl font-black text-slate-800 mb-5" dir="rtl">
+                <h2 className={v2 ? 'text-[20px] font-black !tracking-[-0.02em] text-v2-ink mb-4' : 'text-xl font-black text-slate-800 mb-5'} dir="rtl">
                   {getProgramName()}
                 </h2>
 
@@ -651,7 +699,7 @@ export default function ProgramResult({
                 </div>
 
                 {/* Achievement / social-proof text */}
-                <p className="text-sm text-slate-500 leading-relaxed px-2" dir="rtl">
+                <p className={v2 ? 'text-[13.5px] font-bold text-v2-muted leading-relaxed px-1' : 'text-sm text-slate-500 leading-relaxed px-2'} dir="rtl">
                   {achievementText}
                 </p>
               </div>
@@ -670,12 +718,14 @@ export default function ProgramResult({
             >
               {/* Progression education copy — gender-conjugated */}
               <p
-                className="text-center text-base text-slate-500 leading-relaxed px-2 font-medium"
+                className={v2
+                  ? 'text-center text-[15px] font-bold text-v2-ink-2 leading-relaxed px-2'
+                  : 'text-center text-base text-slate-500 leading-relaxed px-2 font-medium'}
                 dir="rtl"
               >
                 {gender === 'female'
-                  ? 'המסע שלך מתחיל עכשיו! כל אימון בתוכנית יעלה אותך באחוזים, עד שתגיעי לרמה הבאה. 🚀'
-                  : 'המסע שלך מתחיל עכשיו! כל אימון בתוכנית יעלה אותך באחוזים, עד שתגיע לרמה הבאה. 🚀'}
+                  ? `המסע שלך מתחיל עכשיו! כל אימון בתוכנית יעלה אותך באחוזים, עד שתגיעי לרמה הבאה.${v2 ? '' : ' 🚀'}`
+                  : `המסע שלך מתחיל עכשיו! כל אימון בתוכנית יעלה אותך באחוזים, עד שתגיע לרמה הבאה.${v2 ? '' : ' 🚀'}`}
               </p>
 
               {/* Save-failure banner — inline, specific, never a native alert. */}
@@ -690,6 +740,16 @@ export default function ProgramResult({
                 </div>
               )}
 
+              {v2 ? (
+                <button
+                  type="button"
+                  onClick={handleContinueClick}
+                  className="w-full h-12 rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta whitespace-nowrap transition-transform duration-150 ease-v2 active:scale-[0.97]"
+                  dir="rtl"
+                >
+                  {saveError ? (gender === 'female' ? 'נסי שוב' : 'נסה שוב') : continueLabel}
+                </button>
+              ) : (
               <button
                 onClick={handleContinueClick}
                 className="w-full text-white font-black text-lg py-4 rounded-2xl
@@ -699,6 +759,7 @@ export default function ProgramResult({
               >
                 {saveError ? 'נסה שוב' : continueLabel}
               </button>
+              )}
 
               {/* Escape hatch — only appears after a real failure, never on
                   the happy path. See onSkip's doc comment on ProgramResultProps. */}

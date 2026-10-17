@@ -40,6 +40,9 @@ import { haversineMeters } from '../services/geoUtils';
 import { useMapStore } from '../store/useMapStore';
 import { isFiniteLatLng, isFiniteNum, isFiniteLngLat, isFiniteBounds, safeNumber } from '@/utils/geoValidation';
 import { reverseGeocodeStreet } from '@/features/user/onboarding/components/steps/UnifiedLocation/location-utils';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
+import NavBannerV2 from './NavBannerV2';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -323,6 +326,9 @@ export default function TurnCarousel({
   // Adaptive state (block 3+4)
   const isLapsOpen = useMapStore((s) => s.isLapsOpen);
   const navCarouselMinimized = useMapStore((s) => s.navCarouselMinimized);
+  // Home v2 (enable_home_v2): THIN becomes the combined NavBannerV2 (turn + route progress).
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
 
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -411,9 +417,13 @@ export default function TurnCarousel({
   //
   // Note: FULL from rule 2 does NOT mutate navCarouselMinimized; when
   // proximity passes > 80 m the state falls back to rule 3 automatically.
+  //
+  // v2: the THIN banner already carries the maneuver at full size, so
+  // proximity keeps (or brings back) the banner — highlighted — instead of
+  // jumping to the swipe carousel; a manual tap still opens FULL.
   const carouselState: 'hidden' | 'bubble' | 'full' | 'thin' =
     isLapsOpen             ? 'hidden'
-    : proximityExpand      ? 'full'
+    : proximityExpand      ? (v2 ? 'thin' : 'full')
     : navCarouselMinimized ? 'bubble'
     : isExpanded           ? 'full'
                            : 'thin';
@@ -770,6 +780,29 @@ export default function TurnCarousel({
       ? DEST_INSTRUCTION
       : resolvedStreet
       ?? (turn.instruction === STRAIGHT_INSTRUCTION ? FALLBACK_HEADLINE : turn.instruction);
+
+    if (v2) {
+      return (
+        <div
+          ref={rootRef}
+          className="absolute left-0 right-0 z-30 px-3"
+          style={{ top: stackedTop }}
+        >
+          <NavBannerV2
+            icon={IconComp}
+            actionLine={!isDestination && resolvedStreet ? turn.instruction : null}
+            headline={headline}
+            distanceM={Number.isFinite(liveDistM) ? liveDistM : null}
+            isDestination={isDestination}
+            imminent={proximityExpand}
+            routePath={routePath}
+            currentLocation={currentLocation}
+            onExpand={() => setIsExpanded(true)}
+            onMinimize={() => useMapStore.getState().setNavCarouselMinimized(true)}
+          />
+        </div>
+      );
+    }
 
     return (
       <div

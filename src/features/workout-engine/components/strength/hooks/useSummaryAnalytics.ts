@@ -74,6 +74,14 @@ export interface SummaryAnalytics {
   weeklyMinutes: number;
   /** Number of distinct active days this week. */
   daysWithActivity: number;
+  /**
+   * Real discrete sessions logged this week per ring category (activity
+   * store `categorySessions`) — BEFORE this session's sync (which runs at
+   * Finish). Used by the home-v2 week card instead of `minutes / 30`.
+   */
+  weeklyCategorySessions: { strength: number; cardio: number };
+  /** Strength + cardio minutes this week (WHO aerobic-baseline basis), before this session. */
+  weeklyAerobicMinutes: number;
 
   // ── Streak ─────────────────────────────────────────────────────────────
   /** Resolved current streak (activity-store > prop when > 0). */
@@ -122,6 +130,12 @@ export function useSummaryAnalytics({
   const weeklyStrengthMinutes = weeklySummary?.categoryTotals?.strength || 0;
   const weeklyStrengthSessions = Math.floor(weeklyStrengthMinutes / 30);
   const weeklyGoalSessions = 3;
+  const weeklyCategorySessions = {
+    strength: weeklySummary?.categorySessions?.strength ?? 0,
+    cardio: weeklySummary?.categorySessions?.cardio ?? 0,
+  };
+  const weeklyAerobicMinutes =
+    (weeklySummary?.categoryTotals?.strength ?? 0) + (weeklySummary?.categoryTotals?.cardio ?? 0);
 
   // ── Live progression overlay ──
   const liveLevel =
@@ -143,6 +157,8 @@ export function useSummaryAnalytics({
     weeklyGoalSessions,
     weeklyMinutes,
     daysWithActivity,
+    weeklyCategorySessions,
+    weeklyAerobicMinutes,
     streak,
     streakFlameType,
     liveLevel,

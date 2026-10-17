@@ -13,11 +13,17 @@
  */
 import SwapIcon from '@/features/workout-engine/components/SwapIcon';
 
-export function SwapPill({ count, onTap }: { count: number; onTap: () => void }) {
+export function SwapPill({ count, onTap, v2 = false }: { count: number; onTap: () => void; v2?: boolean }) {
   return (
-    <div className="flex items-center gap-1 bg-white shadow-sm border border-slate-200 rounded-full pl-2 pr-0.5 py-0.5">
+    <div
+      className={
+        v2
+          ? 'flex items-center gap-1 rounded-full bg-white py-0.5 pl-2 pr-0.5 shadow-v2-ring'
+          : 'flex items-center gap-1 bg-white shadow-sm border border-slate-200 rounded-full pl-2 pr-0.5 py-0.5'
+      }
+    >
       <SwapIcon size={16} onClick={onTap} />
-      <span className="text-[11px] font-bold text-slate-600">+{count}</span>
+      <span className={v2 ? 'text-[11px] font-extrabold text-v2-ink-2' : 'text-[11px] font-bold text-slate-600'}>+{count}</span>
     </div>
   );
 }

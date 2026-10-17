@@ -17,6 +17,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { applyFeedPrefs, feedPrefsFrom, savePendingShare } from './feed-prefs';
+import { alignScopeWithAuthorDoc } from './feed-scope.utils';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Types
@@ -56,6 +57,12 @@ export interface FeedPost {
   /** IDs of community_groups the author belongs to at post time.
    *  Used by array-contains queries for group/league leaderboards. */
   groupIds?: string[];
+  /**
+   * Cardio only, optional: the run's line as a location-free shape —
+   * flat [x0, y0, x1, y1, …] integers in a 0..1000 box, first/last 200 m
+   * cut (feed-route.ts buildRouteShape). Never coordinates.
+   */
+  routeShape?: number[];
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -95,6 +102,8 @@ export async function createWorkoutPost(params: {
   programId?: string;
   /** Snapshot of the author's joined group IDs at post time. */
   groupIds?: string[];
+  /** Location-free route line (feed-route.ts) — cardio, home v2 only. */
+  routeShape?: number[];
 }, opts: {
   /**
    * The user tapped "share" (the feed's share prompt). Without it a post is
@@ -105,36 +114,47 @@ export async function createWorkoutPost(params: {
 } = {}): Promise<string | null> {
   try {
     // Feature flag guard — skip post creation when community feed is disabled
+    let flags: Record<string, unknown>;
     try {
       const flagsSnap = await getDoc(doc(db, 'system_config', 'feature_flags'));
-      const feedEnabled = flagsSnap.exists()
-        ? (flagsSnap.data().enable_community_feed ?? false)
-        : false;
-      if (!feedEnabled) {
-        console.log('[FeedService] Community feed disabled — skipping post creation');
-        return null;
-      }
+      flags = flagsSnap.exists() ? flagsSnap.data() : {};
     } catch (flagErr) {
       // If we can't read the flag doc, default to NOT posting (safe default)
       console.warn('[FeedService] Could not read feature flags — skipping post:', flagErr);
       return null;
     }
-    // Opt-in publishing (feed-prefs.ts). Can't read the prefs → treat as
-    // "not opted in": hold it as a share prompt rather than publish.
-    let prefsRaw: unknown = undefined;
+    // The author's own doc: feed prefs, the super-admin bit, and the scope
+    // values the create rule checks against. Can't read it → treat as "not
+    // opted in": hold it as a share prompt rather than publish.
+    let me: Record<string, unknown> | undefined;
     try {
-      const me = await getDoc(doc(db, 'users', params.authorUid));
-      prefsRaw = (me.data()?.social as { feedPrefs?: unknown } | undefined)?.feedPrefs;
+      me = (await getDoc(doc(db, 'users', params.authorUid))).data();
     } catch (prefsErr) {
       console.warn('[FeedService] Could not read feed prefs — holding as a share prompt:', prefsErr);
     }
+    // Super admins see the feed even while the admin toggle is off
+    // (useFeatureFlags superAdminValue) — so they must be able to post to it
+    // too; before, their workouts were dropped here without even a prompt.
+    const isSuperAdmin = (me?.core as { isSuperAdmin?: unknown } | undefined)?.isSuperAdmin === true;
+    if (!(flags.enable_community_feed ?? false) && !isSuperAdmin) {
+      console.log('[FeedService] Community feed disabled — skipping post creation');
+      return null;
+    }
+    // The route line is a home v2 post (enable_home_v2, super admins always).
+    if (params.routeShape && !(flags.enable_home_v2 === true || isSuperAdmin)) {
+      params = { ...params };
+      delete params.routeShape;
+    }
+    // Opt-in publishing (feed-prefs.ts).
+    const prefsRaw = (me?.social as { feedPrefs?: unknown } | undefined)?.feedPrefs;
     const decision = applyFeedPrefs(params, feedPrefsFrom(prefsRaw), !!opts.manual);
     if (!decision.publish) {
       savePendingShare(params);
       console.log('[FeedService] Auto-publish off for', params.activityCategory, '— kept as a share prompt');
       return null;
     }
-    params = decision.params;
+    // Rule-checked scope fields must equal the author's doc (feed-scope.utils).
+    params = alignScopeWithAuthorDoc(decision.params, me);
 
     const multiplier = CREDIT_MULTIPLIER[params.activityCategory] ?? 1;
     const activityCredit = params.durationMinutes * multiplier;
@@ -162,6 +182,9 @@ export async function createWorkoutPost(params: {
       gender: params.gender ?? null,
       programId: params.programId ?? null,
       groupIds: params.groupIds ?? [],
+      ...(params.activityCategory === 'cardio' && params.routeShape && params.routeShape.length >= 6
+        ? { routeShape: params.routeShape }
+        : {}),
       createdAt: serverTimestamp(),
     });
 

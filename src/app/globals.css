@@ -514,3 +514,17 @@ video.tutorial-player::-webkit-media-controls-start-playback-button {
   background-clip: text;
   color: transparent;
 }
+
+/* Skill Tree (home v2): gentle expanding ring around the current node.
+   Static (no motion) for users who prefer reduced motion. */
+@keyframes v2NodePulse {
+  0% { transform: scale(1); opacity: 0.75; }
+  70% { transform: scale(1.14); opacity: 0; }
+  100% { transform: scale(1.14); opacity: 0; }
+}
+.v2-node-pulse {
+  animation: v2NodePulse 2.4s cubic-bezier(0.23, 1, 0.32, 1) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .v2-node-pulse { animation: none; opacity: 0.5; }
+}

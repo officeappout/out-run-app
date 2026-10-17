@@ -15,7 +15,7 @@
  */
 
 import { useState } from 'react';
-import { UserPlus, Loader2 } from 'lucide-react';
+import { UserPlus, Loader2, Check } from 'lucide-react';
 import ShareAsLiveToggle from './ShareAsLiveToggle';
 import { createRunInvite } from '@/lib/workoutInvite';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
@@ -43,6 +43,14 @@ interface RunShareBarProps {
   onShareScheduled?: () => Promise<void>;
   /** Home v2 (enable_home_v2) styling. Default false = today's UI. */
   v2?: boolean;
+  /**
+   * Deferred "now" invite (FreeRunDrawer, enable_home_v2). When provided, the
+   * "עכשיו" invite button only marks the intent — no group / token is created
+   * here. The parent calls `shareRunInviteNow` when the user actually starts,
+   * so an abandoned drawer leaves no ephemeral group behind. Omitted = today's
+   * create-on-tap behaviour.
+   */
+  nowInvite?: { pending: boolean; onChange: (pending: boolean) => void };
 }
 
 const ACCENT = '#0EA5E9';
@@ -59,6 +67,39 @@ function defaultDate(): string {
 /** Returns 'YYYY-MM-DD' for today (min date for picker). */
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * "עכשיו" invite: create (or re-use) the live session, enter group mode, then
+ * open the share sheet. Shared by RunShareBar's create-on-tap path and the
+ * deferred path FreeRunDrawer runs at start time.
+ */
+export async function shareRunInviteNow(activityType: 'running' | 'walking'): Promise<void> {
+  const { shareUrl, groupId, attendanceId, isNewGroup } = await createRunInvite(activityType);
+
+  if (isNewGroup) {
+    const user     = auth.currentUser;
+    const uid      = user?.uid ?? '';
+    const name     = user?.displayName ?? 'אני';
+    const profiles = uid ? { [uid]: { name } } : {};
+    useSharedSession
+      .getState()
+      .startGroupSession(groupId, attendanceId, uid ? [uid] : [], profiles, '');
+    // Host explicitly converted a solo run to a group run via the share bar.
+    useRunningPlayer.getState().setIsGroupRun(true);
+  }
+
+  const text = activityType === 'walking'
+    ? `בוא/י ללכת איתי עכשיו 🚶 ${shareUrl}`
+    : `בוא/י לרוץ איתי עכשיו 🏃 ${shareUrl}`;
+
+  if (typeof navigator !== 'undefined' && navigator.share) {
+    await navigator.share({ text }).catch(() => {
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    });
+  } else {
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  }
 }
 
 // ── NowLaterToggle ────────────────────────────────────────────────────────────
@@ -200,6 +241,7 @@ export default function RunShareBar({
   onTimeChange,
   onShareScheduled,
   v2 = false,
+  nowInvite,
 }: RunShareBarProps) {
   const [busy,           setBusy]          = useState(false);
   const [internalTiming, setInternalTiming] = useState<'now' | 'later'>('now');
@@ -231,8 +273,16 @@ export default function RunShareBar({
         .format(new Date(`${schedDate}T${schedTime}`))
     : '';
 
+  // Deferred "now" invite — the tap only toggles the intent (see prop doc).
+  const deferNow = timing === 'now' && !!nowInvite;
+  const nowPending = deferNow && nowInvite!.pending;
+
   const handleInvite = async () => {
     if (busy) return;
+    if (deferNow) {
+      nowInvite!.onChange(!nowInvite!.pending);
+      return;
+    }
     setBusy(true);
     try {
       // "אחר כך" with parent-controlled commit: delegate entirely to parent so both
@@ -304,9 +354,12 @@ export default function RunShareBar({
         type="button"
         onClick={handleInvite}
         disabled={busy}
+        aria-pressed={deferNow ? nowPending : undefined}
         className={
           v2
-            ? 'w-full h-11 flex items-center justify-center gap-2 whitespace-nowrap rounded-full bg-white text-v2-deep shadow-v2-ring active:scale-[0.97] transition-transform duration-150 ease-v2 disabled:opacity-60'
+            ? `w-full h-11 flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-v2-deep active:scale-[0.97] transition-transform duration-150 ease-v2 disabled:opacity-60 ${
+                nowPending ? 'bg-v2-tint ring-1 ring-inset ring-v2-accent/40' : 'bg-white shadow-v2-ring'
+              }`
             : 'w-full flex items-center justify-center gap-2 rounded-2xl active:scale-[0.98] transition-transform disabled:opacity-60'
         }
         style={v2 ? undefined : {
@@ -318,11 +371,15 @@ export default function RunShareBar({
       >
         {busy
           ? <Loader2 size={16} className="animate-spin" />
+          : nowPending
+          ? <Check size={16} strokeWidth={2.6} />
           : <UserPlus size={16} strokeWidth={2.5} />
         }
         <span className={v2 ? 'text-[14px] font-extrabold' : 'text-[13px] font-black'}>
           {busy
             ? 'שותף...'
+            : nowPending
+            ? 'הקישור יישלח כשתתחיל'
             : timing === 'later'
             ? 'שתף אימון מתוזמן'
             : 'הזמן חבר לאימון'}
@@ -335,6 +392,7 @@ export default function RunShareBar({
           activityType={activityType}
           workoutTitle={workoutTitle}
           userLocation={userLocation}
+          v2={v2}
         />
       )}
     </div>

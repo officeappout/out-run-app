@@ -7,6 +7,8 @@
  *  - Week standard:     Sunday = 0 = 'א' (matches all Hebrew day arrays in the codebase)
  */
 
+import type { PlannedRunSettings } from '@/lib/planned-run';
+
 // ── Hebrew Day ─────────────────────────────────────────────────────────────
 // Index 0='א'(Sun) … 6='ש'(Sat) — matches JS Date.getDay() directly.
 export type HebrewDayLetter = 'א' | 'ב' | 'ג' | 'ד' | 'ה' | 'ו' | 'ש';
@@ -93,6 +95,11 @@ export interface UserScheduleEntry {
    * NOT set for guest entries or real recurring group sessions.
    */
   isSoloScheduled?: boolean;
+  /**
+   * Goal + settings chosen in the free-run drawer when this run was scheduled
+   * for later (/api/invite/run-session). Absent on every other entry.
+   */
+  plannedRun?: PlannedRunSettings;
   /**
    * Tombstone flag written by `removeScheduleEntry` when the last entry on a
    * recurring-template day is deleted.  When `true`, `hydrateFromTemplate`

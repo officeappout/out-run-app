@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   Coins, ChevronRight, ChevronLeft, Check,
@@ -11,6 +11,8 @@ import { useOnboardingStore } from '../store/useOnboardingStore';
 import { DictionaryKey, getTranslation } from '@/lib/i18n/dictionaries';
 import { useAppStore } from '@/store/useAppStore';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
+import { isTopPaddingExemptRoute } from '@/lib/top-padding-exempt-routes';
+import { useOnboardingV2 } from '../hooks/useOnboardingV2';
 
 interface OnboardingLayoutProps {
   /** 'stepper' = deprecated roadmap header; 'progress' = all current screens */
@@ -85,6 +87,13 @@ export default function OnboardingLayout({
   hideBack = false,
 }: OnboardingLayoutProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  // enable_home_v2 — v2 chrome (round back button, v2 CTA) and single
+  // safe-area handling: <main> (ClientLayout) already pads the top/bottom
+  // insets on every non-exempt route, so the v2 header/footer don't add
+  // them a second time (the legacy branch keeps its doubled inset as-is).
+  const v2 = useOnboardingV2();
+  const mainPadsTop = !!pathname && !pathname.startsWith('/map') && !isTopPaddingExemptRoute(pathname);
   const coins = useOnboardingStore((state) => state.coins);
   const [coinBounce, setCoinBounce] = React.useState(false);
 
@@ -249,10 +258,12 @@ export default function OnboardingLayout({
           <motion.button
             onClick={handleBackClick}
             whileTap={{ scale: 0.88 }}
-            className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-full bg-slate-100/80 active:bg-slate-200 transition-colors touch-manipulation"
+            className={v2
+              ? 'flex-shrink-0 grid h-10 w-10 place-items-center rounded-full bg-white shadow-v2-ring touch-manipulation'
+              : 'flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-full bg-slate-100/80 active:bg-slate-200 transition-colors touch-manipulation'}
             aria-label={direction === 'rtl' ? 'חזרה' : 'Back'}
           >
-            <ChevronRight size={20} className="text-slate-600" />
+            <ChevronRight size={20} className={v2 ? 'text-v2-ink' : 'text-slate-600'} />
           </motion.button>
         ) : (
           // Spacer preserves bar alignment when no back button is present
@@ -281,8 +292,12 @@ export default function OnboardingLayout({
       </div>
     );
 
-    const sharedClass = 'flex-shrink-0 z-50 bg-white/85 backdrop-blur-xl';
-    const sharedStyle = { paddingTop: 'env(safe-area-inset-top, 0px)' };
+    const sharedClass = v2
+      ? 'flex-shrink-0 z-50 bg-v2-surface/85 backdrop-blur-xl'
+      : 'flex-shrink-0 z-50 bg-white/85 backdrop-blur-xl';
+    const sharedStyle = v2 && mainPadsTop
+      ? undefined
+      : { paddingTop: 'env(safe-area-inset-top, 0px)' };
 
     if (animated) {
       return (
@@ -324,6 +339,27 @@ export default function OnboardingLayout({
       }
     } else {
       label = currentLanguage === 'he' ? 'המשך' : currentLanguage === 'ru' ? 'Далее' : 'Continue';
+    }
+
+    if (v2) {
+      return (
+        <div className="flex-shrink-0 px-5 pt-2 pb-3 bg-v2-surface/90 backdrop-blur-sm">
+          <button
+            type="button"
+            onClick={onContinue}
+            disabled={!canContinue}
+            aria-disabled={!canContinue}
+            className={`w-full h-12 rounded-full text-[16px] font-extrabold whitespace-nowrap flex items-center justify-center gap-1.5 transition-transform duration-150 ease-v2 ${
+              canContinue
+                ? 'bg-v2-cta text-v2-on-cta shadow-v2-cta active:scale-[0.97]'
+                : 'bg-v2-hairline text-v2-muted cursor-not-allowed'
+            }`}
+          >
+            <span className="truncate">{label}</span>
+            <ChevronLeft size={18} className="shrink-0" />
+          </button>
+        </div>
+      );
     }
 
     return (
@@ -479,7 +515,7 @@ export default function OnboardingLayout({
     return (
       <div
         dir={direction}
-        className="h-full flex flex-col overflow-hidden"
+        className={`h-full flex flex-col overflow-hidden${v2 ? ' bg-v2-surface' : ''}`}
       >
         {renderUnifiedHeader(false)}
 

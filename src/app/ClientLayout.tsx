@@ -18,6 +18,7 @@ import OnboardingSyncErrorToast from "@/components/system/OnboardingSyncErrorToa
 import { useMidnightRefresh } from "@/features/activity";
 import HealthDeclarationSelfHeal from "@/features/user/onboarding/components/HealthDeclarationSelfHeal";
 import EdgeSwipeBack from "@/components/system/EdgeSwipeBack";
+import { isTopPaddingExemptRoute } from "@/lib/top-padding-exempt-routes";
 
 /**
  * Mounts the global midnight clock once. Bumps the dateKey atom at 00:00
@@ -36,37 +37,6 @@ function MidnightClock() {
 // '/privacy', '/terms' and '/accessibility' are standalone public compliance pages that must
 // render as clean web documents without any mobile app chrome.
 const HIDDEN_NAV_ROUTES = ['/explorer', '/library', '/onboarding-new', '/gateway', '/privacy', '/terms', '/accessibility', '/public', '/join', '/challenge', '/booth'];
-
-// THE RULE: a route belongs on this list if some element of its own screen
-// (a header bar, a hero image) is deliberately edge-to-edge — its own
-// background/photo already reaches the TRUE top of the screen, with only
-// its inner content/controls pushed down via that element's own
-// env(safe-area-inset-top) padding. <main>'s global top padding (below)
-// must NOT also apply to such a route — it would push the whole
-// header/image down, leaving an empty gap above it that never reaches the
-// true edge, which looks worse than having no padding at all. A route
-// belongs here because of what ITS OWN top-most visual element does, not
-// because of anything about the route's purpose or nesting.
-//
-//   /arena/create, /onboarding-new/profile, /progress, /debug/health-sync
-//     — exact routes, no nested pages underneath.
-//   /community/[id] — every community detail page; bare /community (the
-//     list/tabs page) is unaffected and does NOT need the exemption.
-//   /profile/[userId] — every user-profile page EXCEPT /profile/exercise/*,
-//     which is a different, unrelated route nested under /profile/.
-//   /workouts/[id]/overview — full-bleed hero photo, not a header bar; the
-//     other 3 routes nested under /workouts/[id]/ (bare, /history, /active)
-//     are NOT edge-to-edge and must stay off this list.
-// /activity/steps: StepsAnalyticsView's sticky header pads the safe area itself
-// (the doubled inset made it visibly thick).
-const TOP_PADDING_EXEMPT_EXACT_ROUTES = ['/arena/create', '/onboarding-new/profile', '/progress', '/debug/health-sync', '/activity/steps'];
-function isTopPaddingExemptRoute(pathname: string): boolean {
-  if (TOP_PADDING_EXEMPT_EXACT_ROUTES.includes(pathname)) return true;
-  if (pathname.startsWith('/community/')) return true;
-  if (pathname.startsWith('/profile/') && !pathname.startsWith('/profile/exercise/')) return true;
-  if (pathname.startsWith('/workouts/') && pathname.endsWith('/overview')) return true;
-  return false;
-}
 
 export default function ClientLayout({
   children,

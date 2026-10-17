@@ -54,6 +54,25 @@ const AppMap = dynamicImport(() => import('@/features/parks/core/components/AppM
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Publishes "the laps list (BASE layer) is showing" to useMapStore.isLapsOpen.
+ *
+ * Active-run-map fix (17.10.2026): TurnCarousel and the "מרכז אותי" recenter
+ * pill render at MapShell's ROOT (z-30 / z-40), above this whole layer's z-10
+ * stacking context, and both already hide on isLapsOpen. Only the legacy
+ * FreeRunActive path ever published it — so dragging this layer's TOP down to
+ * the laps list left the turn card + recenter pill floating over the laps.
+ * Rendered inside the shell's render-prop because that's where the drag state lives.
+ */
+function LapsOpenPublisher({ open }: { open: boolean }) {
+  const setIsLapsOpen = useMapStore((s) => s.setIsLapsOpen);
+  useEffect(() => {
+    setIsLapsOpen(open);
+  }, [open, setIsLapsOpen]);
+  useEffect(() => () => setIsLapsOpen(false), [setIsLapsOpen]);
+  return null;
+}
+
 type MapLogic = ReturnType<typeof useMapLogic>;
 
 interface FreeRunLayerProps {
@@ -185,6 +204,15 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
 
   const { setSelectedParticipantUid, setActiveStoryIndex, setGroupParticipants, selectedParticipantUid } =
     useMapStore();
+  // Group badge sits below the story bar, the turn card (when a route is
+  // navigated) AND the recenter pill's row (storyBar + navCard + 16, ~40 px
+  // tall) — those render at MapShell's root, above this layer, and used to
+  // cover the badge at its fixed 68 px.
+  const storyBarH = useMapStore((s) => s.storyBarHeight);
+  const navCardH = useMapStore((s) => s.navCardHeight);
+  const groupBadgeTop = storyBarH > 0
+    ? `calc(env(safe-area-inset-top, 0px) + ${storyBarH + navCardH + 64}px)`
+    : 'calc(env(safe-area-inset-top, 0px) + 68px)';
 
   // Group presence — must be above the policy object so participants can be wired in.
   const { partnerPositions } = useGroupPresenceListener(effectivePos);
@@ -287,8 +315,9 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
         </div>
       )}
     >
-      {({ dragControls, isMinimized, onExpand }) => (
+      {({ dragControls, isMinimized, onExpand, isDragging }) => (
         <>
+          <LapsOpenPublisher open={isWorkoutActive && (isMinimized || isDragging)} />
           {/* AppMap — always mounted here; never remounts between browse and workout */}
           <div className="absolute inset-0 z-0">
             <AppMap
@@ -332,11 +361,11 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
                     onSelectParticipant={handleSelectParticipant}
                   />
                   <InviteRunButton activityType={logic.preferences.activity === 'walking' ? 'walking' : 'running'} />
-                  {/* Group count badge — below RouteStoryBar (~68px from top). */}
+                  {/* Group count badge — below the story bar / turn card / recenter row (groupBadgeTop). */}
                   {sideRailParticipants.length > 0 && (
                     <div
                       className="absolute left-0 right-0 z-[60] flex justify-center pointer-events-none"
-                      style={{ top: 'calc(env(safe-area-inset-top, 0px) + 68px)' }}
+                      style={{ top: groupBadgeTop }}
                     >
                       <div
                         className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold text-white"

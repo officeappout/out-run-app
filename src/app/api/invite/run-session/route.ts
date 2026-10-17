@@ -20,6 +20,7 @@ import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import crypto from 'crypto';
 import { addScheduleEntryAdmin } from '@/lib/addScheduleEntryAdmin';
+import { sanitizePlannedRun } from '@/lib/planned-run';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -112,6 +113,8 @@ export async function POST(request: NextRequest) {
     existingAttendanceId?: string;
     /** ISO local datetime for a scheduled future run: 'YYYY-MM-DDTHH:mm'. Omit for immediate ("now"). */
     scheduledFor?: string;
+    /** Scheduled only: the drawer's goal + settings (re-validated below). */
+    plannedRun?: unknown;
   };
   try {
     body = await request.json();
@@ -123,6 +126,10 @@ export async function POST(request: NextRequest) {
   if (activityType !== 'running' && activityType !== 'walking') {
     return NextResponse.json({ error: 'activityType must be running or walking' }, { status: 400 });
   }
+
+  // Scheduled runs only — a live "now" invite has no use for it. Invalid → null
+  // → the run is saved exactly as before (field omitted).
+  const plannedRun = scheduledFor ? sanitizePlannedRun(body.plannedRun) : null;
 
   const activityLabel = activityType === 'walking' ? 'הליכה' : 'ריצה';
   const sessionTitle = `${activityLabel} מתוזמנת`;
@@ -166,6 +173,7 @@ export async function POST(request: NextRequest) {
       currentParticipants: 1,
       isActive:            true,
       isPublic:            false,
+      ...(plannedRun ? { plannedRun } : {}),
       createdAt:           FieldValue.serverTimestamp(),
       updatedAt:           FieldValue.serverTimestamp(),
     });
@@ -252,6 +260,7 @@ export async function POST(request: NextRequest) {
         groupId,
         groupName:           sessionTitle,
         isSoloScheduled:     true,
+        ...(plannedRun ? { plannedRun } : {}),
       });
     } catch (err) {
       console.error('[run-session] host schedule entry FAILED — non-fatal:', err);

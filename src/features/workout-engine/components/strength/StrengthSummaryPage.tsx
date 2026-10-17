@@ -16,11 +16,14 @@
  * for back-compat with `./index.ts` and direct importers.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import type { WorkoutCompletionResult } from '@/features/user/core/types/progression.types';
 import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { WHO_COMPLIANCE_BASELINE } from '@/features/activity/types/activity.types';
+import { buildPhaseSummary, sessionTotals, type PlanSegment } from './utils/phase-summary';
 
 // ── Shared types + helpers (re-exported at the bottom for back-compat) ──
 import {
@@ -36,7 +39,7 @@ import {
 } from './utils/summary.utils';
 
 // ── Presentational view (hook-free; renders from props/fixtures) ──
-import StrengthSummaryView from './StrengthSummaryView';
+import StrengthSummaryView, { type StrengthSummaryV2Data } from './StrengthSummaryView';
 
 // ── Hooks (S-2 … S-7) ──
 import { useSummaryAnalytics } from './hooks/useSummaryAnalytics';
@@ -136,6 +139,16 @@ export interface StrengthSummaryPageProps {
 
   /** Per-domain set counts for weekly volume tracking (Phase 3). */
   domainSets?: Record<string, number>;
+
+  // ── Home v2 (enable_home_v2) — display-only inputs ────────────────────
+  /**
+   * The workout plan's real segments (phase / block / planned sets / targets).
+   * Only read by the v2 exercise breakdown; absent (history) ⇒ phases fall
+   * back to each exercise's category and planned counts stay unknown.
+   */
+  workoutSegments?: PlanSegment[];
+  /** exerciseId → last session's per-set values (Progression Memory), for "improved vs last time". */
+  previousSets?: Record<string, number[]>;
 }
 
 // ============================================================================
@@ -162,6 +175,8 @@ export default function StrengthSummaryPage({
   rawExerciseLog,
   precomputedProgression,
   domainSets,
+  workoutSegments,
+  previousSets,
   isReadOnly = false,
   savedXpEarned = 0,
   onClose,
@@ -170,6 +185,8 @@ export default function StrengthSummaryPage({
   // ── User profile (for lifestyle CTA gate) ──
   const { profile } = useUserStore();
   const router = useRouter();
+  const isSuperAdmin = !!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin;
+  const homeV2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
 
   // ── Program suggestions (Level Equivalence, mode:'suggest') ──
   // Dismissal is local-only (component state, no Firestore write) — a
@@ -270,6 +287,41 @@ export default function StrengthSummaryPage({
     savedXpEarned,
   });
 
+  // ── Home v2 data (display-only; flag OFF ⇒ undefined ⇒ today's view) ──
+  const v2Phases = useMemo(
+    () =>
+      homeV2
+        ? buildPhaseSummary({
+            completedExercises,
+            rawLog: rawExerciseLog,
+            segments: workoutSegments,
+            previousSets,
+          })
+        : null,
+    [homeV2, completedExercises, rawExerciseLog, workoutSegments, previousSets],
+  );
+  let v2: StrengthSummaryV2Data | undefined;
+  if (v2Phases) {
+    // Activity-store weekly numbers are read BEFORE this session's sync (it
+    // runs at Finish — see the hook-stack note above), so the live view adds
+    // this one session exactly as runActivitySync will.
+    const isCardio = trainingType === 'cardio';
+    const scheduled = profile?.lifestyle?.scheduleDays?.length ?? 0;
+    v2 = {
+      phases: v2Phases,
+      totals: sessionTotals(v2Phases),
+      week: isReadOnly
+        ? null
+        : {
+            categoryLabel: isCardio ? 'אימוני אירובי השבוע' : 'אימוני כוח השבוע',
+            sessions: analytics.weeklyCategorySessions[isCardio ? 'cardio' : 'strength'] + 1,
+            plannedSessions: !isCardio && scheduled > 0 ? scheduled : null,
+            minutes: analytics.weeklyAerobicMinutes + analytics.durationMinutes,
+            whoMinutes: WHO_COMPLIANCE_BASELINE.weeklyAerobicMinutes,
+          },
+    };
+  }
+
   // ── Lifestyle CTA handlers (inline — pure navigation/storage) ──
   const handleScheduleLifestyle = () => {
     if (typeof window !== 'undefined') {
@@ -315,6 +367,7 @@ export default function StrengthSummaryPage({
       onDelete={onDelete}
       isFinishing={isFinishing}
       onPrimaryAction={handlePrimaryAction}
+      v2={v2}
     />
   );
 }

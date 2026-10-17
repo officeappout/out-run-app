@@ -75,7 +75,17 @@ export interface TreeNodeProps {
   onSwapTap?: () => void;
   /** Left/right alternation for the winding path — purely presentational. */
   align: 'start' | 'end';
+  /** Home v2 (enable_home_v2) styling — bigger photo, name pill, tint states, gentle pulse. */
+  v2?: boolean;
 }
+
+// ── Home v2 node states (tint/brand, never black) ─────────────────────────
+const V2_STATE_RING: Record<TreeNodeState, string> = {
+  done: 'ring-[3px] ring-v2-accent/70 shadow-v2-card',
+  current: 'ring-[4px] ring-v2-accent shadow-v2-float',
+  locked: 'ring-[3px] ring-white shadow-v2-ring',
+  target: 'ring-[4px] ring-v2-gold shadow-v2-float',
+};
 
 function TreeNodeImpl({
   exercise,
@@ -85,6 +95,7 @@ function TreeNodeImpl({
   onTap,
   onSwapTap,
   align,
+  v2 = false,
 }: TreeNodeProps) {
   const locked = state === 'locked';
   const isTarget = state === 'target';
@@ -99,6 +110,93 @@ function TreeNodeImpl({
 
   const resolvedUrl = resolveTreeNodeImage(exercise);
   const imageUrl = imgFailed || !resolvedUrl ? IMAGE_PLACEHOLDER : resolvedUrl;
+
+  if (v2) {
+    const size = isCurrent || isTarget ? 104 : 88;
+    return (
+      <div className="flex w-[124px] flex-col items-center gap-1.5">
+        <div className="relative">
+          {/* Soft halo — keeps the photo legible over the park background */}
+          <div className="pointer-events-none absolute rounded-full bg-white/70 blur-xl" style={{ inset: -14 }} />
+
+          {/* Current node: a gentle expanding ring (off under reduced motion — see .v2-node-pulse) */}
+          {isCurrent && (
+            <span aria-hidden className="v2-node-pulse pointer-events-none absolute -inset-1 rounded-[26px] ring-[3px] ring-v2-accent/60" />
+          )}
+
+          {/* "אתה כאן" — visual label only, not a button, no tap action */}
+          {isCurrent && (
+            <div className="pointer-events-none absolute -top-9 left-1/2 flex -translate-x-1/2 flex-col items-center">
+              <span className="whitespace-nowrap rounded-full bg-v2-deep px-3 py-1 text-[11px] font-black text-white shadow-v2-card">
+                אתה כאן
+              </span>
+              <div className="-mt-1 h-2 w-2 rotate-45 bg-v2-deep" />
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={onTap}
+            aria-label={name}
+            className={`relative flex-shrink-0 overflow-hidden rounded-[24px] transition-transform duration-150 ease-v2 active:scale-[0.97] ${locked ? 'bg-v2-tint' : 'bg-white'} ${V2_STATE_RING[state]}`}
+            style={{ width: size, height: size }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={imageUrl}
+              alt={name}
+              className="h-full w-full object-cover"
+              loading="lazy"
+              decoding="async"
+              style={locked ? { filter: 'grayscale(70%) saturate(0.8)', opacity: 0.72 } : undefined}
+              onError={() => setImgFailed(true)}
+            />
+
+            {/* On-photo level badge (top corner) */}
+            <span
+              className={`absolute top-1.5 ${align === 'start' ? 'right-1.5' : 'left-1.5'} flex h-[22px] min-w-[22px] items-center justify-center rounded-full px-1.5 text-[11px] font-black tabular-nums shadow-v2-ring ${
+                isTarget ? 'bg-v2-gold text-v2-on-gold' : isCurrent ? 'bg-v2-accent text-white' : locked ? 'bg-white text-v2-muted' : 'bg-white text-v2-deep'
+              }`}
+            >
+              {level}
+            </span>
+
+            {locked && (
+              <div className="absolute bottom-1.5 left-1/2 grid h-7 w-7 -translate-x-1/2 place-items-center rounded-full bg-white/95 text-v2-muted shadow-v2-ring">
+                <Lock size={13} strokeWidth={2.5} />
+              </div>
+            )}
+          </button>
+
+          {isDone && (
+            <div className="absolute -right-1.5 -top-1.5 grid h-6 w-6 place-items-center rounded-full bg-v2-accent text-white shadow-v2-card ring-2 ring-white">
+              <Check size={13} strokeWidth={3} />
+            </div>
+          )}
+          {isTarget && (
+            <div className="absolute -top-3 left-1/2 grid h-7 w-7 -translate-x-1/2 place-items-center rounded-full bg-v2-gold text-v2-on-gold shadow-v2-card ring-2 ring-white">
+              <Crown size={14} strokeWidth={2.5} />
+            </div>
+          )}
+        </div>
+
+        {/* Name — always visible, one line, pill for legibility over the scenery */}
+        <span
+          dir="rtl"
+          className={`max-w-full truncate whitespace-nowrap rounded-full bg-white/90 px-2.5 py-0.5 text-[12px] font-extrabold leading-[18px] shadow-v2-ring ${
+            isTarget ? 'text-v2-on-gold' : locked ? 'text-v2-muted' : 'text-v2-ink'
+          }`}
+          title={name}
+        >
+          {isTarget ? `היעד · ${name}` : name}
+        </span>
+
+        {siblingCount > 0 && onSwapTap && (
+          <SwapPill count={siblingCount} onTap={onSwapTap} v2 />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className={`flex flex-col items-${align === 'start' ? 'start' : 'end'} gap-1 max-w-[120px]`}>
@@ -196,7 +294,8 @@ function treeNodePropsEqual(prev: TreeNodeProps, next: TreeNodeProps): boolean {
     prev.level === next.level &&
     prev.state === next.state &&
     prev.siblingCount === next.siblingCount &&
-    prev.align === next.align
+    prev.align === next.align &&
+    prev.v2 === next.v2
   );
 }
 

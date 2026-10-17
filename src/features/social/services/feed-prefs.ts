@@ -19,12 +19,18 @@ export interface FeedPrefs {
   audience: FeedPrefsAudience;
   /** Show the park's name on the post (never a map or an address). */
   showPark: boolean;
+  /**
+   * Draw the run's line on a cardio post (feed-route.ts: a shape with the
+   * first/last 200 m cut — no map, no coordinates). Missing → on.
+   */
+  showRoute: boolean;
 }
 
 export const DEFAULT_FEED_PREFS: FeedPrefs = {
   autoPublish: { strength: false, cardio: false, maintenance: false },
   audience: 'partners',
   showPark: true,
+  showRoute: true,
 };
 
 const AUDIENCES: FeedPrefsAudience[] = ['partners', 'public', 'private'];
@@ -41,6 +47,7 @@ export function feedPrefsFrom(raw: unknown): FeedPrefs {
     },
     audience: AUDIENCES.includes(r.audience as FeedPrefsAudience) ? (r.audience as FeedPrefsAudience) : DEFAULT_FEED_PREFS.audience,
     showPark: r.showPark !== false,
+    showRoute: r.showRoute !== false,
   };
 }
 
@@ -48,9 +55,13 @@ export function feedPrefsFrom(raw: unknown): FeedPrefs {
  * Publish now, or hold as a pending share? A manual share always publishes
  * (with the audience the user just picked, if any); otherwise only when
  * auto-publish is on for this activity. The audience defaults to the user's
- * own choice, and the park is dropped when they hid it.
+ * own choice, and the park / route line are dropped when they hid them —
+ * for an automatic post only: on a manual share the sheet's own choice was
+ * already applied by the caller and must win over the saved default.
  */
-export function applyFeedPrefs<P extends { activityCategory: FeedActivity; audience?: string; parkId?: string; parkName?: string }>(
+export function applyFeedPrefs<
+  P extends { activityCategory: FeedActivity; audience?: string; parkId?: string; parkName?: string; routeShape?: number[] },
+>(
   params: P,
   prefs: FeedPrefs,
   manual: boolean,
@@ -58,10 +69,11 @@ export function applyFeedPrefs<P extends { activityCategory: FeedActivity; audie
   const publish = manual || prefs.autoPublish[params.activityCategory];
   const audience = manual && params.audience ? params.audience : prefs.audience;
   const out = { ...params, audience } as P;
-  if (!prefs.showPark) {
+  if (!manual && !prefs.showPark) {
     delete out.parkId;
     delete out.parkName;
   }
+  if (!manual && !prefs.showRoute) delete out.routeShape;
   return { publish, params: out };
 }
 

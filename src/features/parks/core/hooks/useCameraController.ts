@@ -31,6 +31,17 @@ import { bearingBetween, haversineMeters } from '../services/geoUtils';
 import { previewFitDelayMs, overviewFitBounds, overviewFitPadding } from './camera-fit';
 import { IS_PERF_BATCH2_ENABLED, MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
 import { isFiniteLatLng, isFiniteNum } from '@/utils/geoValidation';
+import {
+  type EntryCameraPlan,
+  type LatLng,
+  pickGlobeIntroTarget,
+  entryCorrection,
+  easeInOutCubic,
+  markGlobeIntroSeen,
+  ENTRY_TARGET_ZOOM,
+  GLOBE_INTRO_DURATION_MS,
+  GLOBE_INTRO_MAX_WAIT_MS,
+} from './entry-camera';
 import { useMapStore } from '../store/useMapStore';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 
@@ -88,6 +99,15 @@ export interface CameraControllerParams {
    * follow flag (and the single recenter control) matches the camera again.
    */
   onFollowRestored?: () => void;
+  /**
+   * Which entry camera to run on mount (see entry-camera.ts). Latched by the
+   * caller for the life of the mount. Default 'dive' = the legacy initial dive.
+   */
+  entryPlan?: EntryCameraPlan;
+  /** Location seeds for the v2 entry plans (globe target fallbacks). */
+  entrySeed?: { accurate: LatLng | null; coarse: LatLng | null };
+  /** False while the loading skeleton still covers the map. */
+  isMapRevealed?: boolean;
 }
 
 export interface CameraControllerAPI {
@@ -270,6 +290,7 @@ export function useCameraController(params: CameraControllerParams): CameraContr
     skipInitialZoom, isAutoFollowEnabled, onUserPanDetected,
     mapMode, walkToRouteTarget, navigationTurns,
     headingMode = 'course', onFollowRestored,
+    entryPlan = 'dive', entrySeed, isMapRevealed = true,
   } = params;
   // G2.6: the camera re-runs when TurnCarousel's turn-preview lock is released ('preview_step' →
   // 'follow_user') — previously not a dep, so a recenter tap while previewing a turn card
@@ -1044,6 +1065,7 @@ export function useCameraController(params: CameraControllerParams): CameraContr
       // retarget fires alone into dead air. See INITIAL_DIVE_DURATION_*
       // constants above for the full reasoning.
       if (
+        entryPlan === 'dive' &&
         !skipInitialZoom &&
         !hasInitialZoomed.current &&
         !focusedRoute &&
@@ -1088,6 +1110,7 @@ export function useCameraController(params: CameraControllerParams): CameraContr
       // settled) when this fires, so it still reads as one continuous
       // motion, never a hard snap.
       if (
+        entryPlan === 'dive' &&
         hasInitialZoomed.current &&
         !hasRetargetedInitialZoom.current &&
         isFiniteLatLng(currentLocation) &&
@@ -1096,15 +1119,22 @@ export function useCameraController(params: CameraControllerParams): CameraContr
         !destinationMarker
       ) {
         hasRetargetedInitialZoom.current = true;
-        try {
-          if (process.env.NODE_ENV !== 'production') console.log('[Cam] initial dive — retargeting to real GPS fix (ease)');
-          m.easeTo({
-            center: [currentLocation.lng, currentLocation.lat],
-            zoom: 15, pitch: 0,
-            duration: RETARGET_EASE_DURATION_MS, essential: true,
-          });
-        } catch (err) {
-          console.error('[Cam] initial dive retarget easeTo threw — ignored.', err);
+        // 17.10.2026: skip the correction when the fix is within a few dozen
+        // metres of where the dive is headed — a no-op ease still re-arms the
+        // camera and could read as a second "by itself" move.
+        const dc = m.getCenter();
+        const needsRetarget = entryCorrection({ lat: dc.lat, lng: dc.lng }, currentLocation) !== 'none';
+        if (needsRetarget) {
+          try {
+            if (process.env.NODE_ENV !== 'production') console.log('[Cam] initial dive — retargeting to real GPS fix (ease)');
+            m.easeTo({
+              center: [currentLocation.lng, currentLocation.lat],
+              zoom: 15, pitch: 0,
+              duration: RETARGET_EASE_DURATION_MS, essential: true,
+            });
+          } catch (err) {
+            console.error('[Cam] initial dive retarget easeTo threw — ignored.', err);
+          }
         }
       }
       }
@@ -1129,6 +1159,8 @@ export function useCameraController(params: CameraControllerParams): CameraContr
     mapMode,
     // sessionStatus drives the STOPPED camera state (paused workout → flatten).
     sessionStatus,
+    // Latched per mount by AppMap — listed for completeness, never changes.
+    entryPlan,
     // recenterTick: bumps when the idle-recenter timer fires OR when
     // recenter() is called manually. Listed here so the effect re-runs
     // and dispatches a follow-mode easeTo even when no other dep changed
@@ -1137,6 +1169,142 @@ export function useCameraController(params: CameraControllerParams): CameraContr
     // G2.6: re-run on the turn-preview lock release and on a heading-mode toggle.
     cameraModeDep,
     headingMode,
+  ]);
+
+  // ═══════════════════════════════════════════════════════
+  // HOME V2 ENTRY CAMERA ('settle' / 'globe_intro')
+  // ═══════════════════════════════════════════════════════
+  // The legacy 'dive' lives in the main effect above. These two plans are the
+  // ONLY entry movers when chosen: exactly one deliberate move on entry (the
+  // globe flight, or nothing for 'settle'), plus at most one correction when a
+  // better fix lands after the camera has already landed.
+  const entryStartedRef = useRef(false);
+  const entryCorrectedRef = useRef(false);
+  const entryLandedAtRef = useRef<LatLng | null>(null);
+  const introFlyingRef = useRef(false);
+  const introWaitStartRef = useRef<number | null>(null);
+  const [introWaitExpired, setIntroWaitExpired] = useState(false);
+  const [introLandedTick, setIntroLandedTick] = useState(0);
+  const isMapRevealedRef = useRef(isMapRevealed);
+  isMapRevealedRef.current = isMapRevealed;
+  const entrySeedRef = useRef(entrySeed);
+  entrySeedRef.current = entrySeed;
+
+  // Globe intro: bounded wait for a location before flying to the best fallback.
+  useEffect(() => {
+    if (entryPlan !== 'globe_intro' || !isMapLoaded || introWaitExpired) return;
+    if (introWaitStartRef.current == null) introWaitStartRef.current = Date.now();
+    const t = setTimeout(() => setIntroWaitExpired(true), GLOBE_INTRO_MAX_WAIT_MS);
+    return () => clearTimeout(t);
+  }, [entryPlan, isMapLoaded, introWaitExpired]);
+
+  useEffect(() => {
+    if (entryPlan === 'dive') return;
+    if (!isMapLoaded || !mapRef.current) return;
+    const m = mapRef.current;
+    const rm = m.getMap();
+    if (!rm) return;
+    // Another deliberate camera owner (deep-linked spot, focused route, workout,
+    // sim) — the entry camera never fights it.
+    const otherOwner =
+      skipInitialZoom || !!focusedRoute || isActiveWorkout || isNavigationMode ||
+      !!destinationMarker || simulationActive || ownerRef.current === 'user';
+
+    const restoreProjection = () => {
+      try { rm.setProjection('mercator'); } catch { /* ignore */ }
+      try { rm.setFog(null); } catch { /* ignore */ }
+    };
+
+    if (!entryStartedRef.current) {
+      if (otherOwner) {
+        entryStartedRef.current = true;
+        entryCorrectedRef.current = true;
+        // Leave the globe once whatever the other owner does settles.
+        if (entryPlan === 'globe_intro') rm.once('moveend', restoreProjection);
+        return;
+      }
+
+      if (entryPlan === 'settle') {
+        // Straight to the location: the map already opened on the seed at the
+        // landing zoom (AppMap's initialViewState), so there's nothing to animate.
+        entryStartedRef.current = true;
+        const c = rm.getCenter();
+        entryLandedAtRef.current = { lat: c.lat, lng: c.lng };
+        // fall through to the correction below (a fix may already be known)
+      } else {
+        const waitStart = introWaitStartRef.current ?? Date.now();
+        const target = pickGlobeIntroTarget({
+          currentLocation: isFiniteLatLng(currentLocation) ? currentLocation : null,
+          accurateSeed: entrySeedRef.current?.accurate ?? null,
+          coarseFallback: entrySeedRef.current?.coarse ?? null,
+          waitedMs: introWaitExpired ? Number.POSITIVE_INFINITY : Date.now() - waitStart,
+        });
+        if (!target) return; // keep the globe up until a location (or the wait cap)
+        entryStartedRef.current = true;
+        entryLandedAtRef.current = target;
+        introFlyingRef.current = true;
+        markGlobeIntroSeen();
+        try {
+          // Same space look as the marketing site's "from space" hero.
+          rm.setFog({
+            color: 'rgb(186, 210, 235)',
+            'high-color': 'rgb(36, 92, 223)',
+            'horizon-blend': 0.02,
+            'space-color': 'rgb(6, 10, 20)',
+            'star-intensity': 0.5,
+          });
+        } catch { /* fog is cosmetic */ }
+        try {
+          if (process.env.NODE_ENV !== 'production') console.log('[Cam] entry — globe intro flight');
+          // Pitch stays 0 the whole way: tilting at globe zoom breaks the
+          // globe projection's matrix inversion (seen on the marketing hero).
+          m.flyTo({
+            center: [target.lng, target.lat],
+            zoom: ENTRY_TARGET_ZOOM, pitch: 0, bearing: 0,
+            duration: GLOBE_INTRO_DURATION_MS,
+            easing: easeInOutCubic,
+            essential: true,
+          });
+          // Registered AFTER flyTo so a stop() inside flyTo can't fire it early.
+          // Fires on landing, or where a touch/recenter interrupts the flight.
+          rm.once('moveend', () => {
+            introFlyingRef.current = false;
+            restoreProjection();
+            setIntroLandedTick((n) => n + 1); // re-run for the one correction
+          });
+        } catch (err) {
+          console.error('[Cam] globe intro flyTo threw — ignored.', err);
+          introFlyingRef.current = false;
+          restoreProjection();
+        }
+        return;
+      }
+    }
+
+    // ── One correction, after landing, when a better fix arrives ──
+    if (entryCorrectedRef.current || introFlyingRef.current) return;
+    if (otherOwner) { entryCorrectedRef.current = true; return; }
+    if (!isFiniteLatLng(currentLocation)) return;
+    entryCorrectedRef.current = true;
+    const kind = entryCorrection(entryLandedAtRef.current, currentLocation, {
+      mapHidden: !isMapRevealedRef.current,
+    });
+    if (kind === 'none') return;
+    try {
+      if (process.env.NODE_ENV !== 'production') console.log(`[Cam] entry — correction (${kind})`);
+      const center: [number, number] = [currentLocation.lng, currentLocation.lat];
+      if (kind === 'jump') {
+        rm.jumpTo({ center, zoom: ENTRY_TARGET_ZOOM, pitch: 0, bearing: 0 });
+      } else {
+        m.easeTo({ center, duration: RETARGET_EASE_DURATION_MS, essential: true });
+      }
+    } catch (err) {
+      console.error('[Cam] entry correction threw — ignored.', err);
+    }
+  }, [
+    entryPlan, isMapLoaded, mapRef, currentLocation, skipInitialZoom, focusedRoute,
+    isActiveWorkout, isNavigationMode, destinationMarker, simulationActive,
+    introWaitExpired, introLandedTick,
   ]);
 
   // ── Point 1: hybrid overview map↔drawer sync ───────────────────────────────

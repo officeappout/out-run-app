@@ -28,6 +28,23 @@ import type { useSummaryAnalytics } from './hooks/useSummaryAnalytics';
 import type { useXpAward } from './hooks/useXpAward';
 import type { useProgressionSync } from './hooks/useProgressionSync';
 import type { useEmailCapture } from './hooks/useEmailCapture';
+import {
+  SummaryHeroV2,
+  WeekCardV2,
+  GainCardV2,
+  ImprovementsCardV2,
+  PhaseBreakdownV2,
+  type WeekCardV2Props,
+} from './components/v2/StrengthSummaryV2Sections';
+import type { PhaseSummary, SessionTotals } from './utils/phase-summary';
+
+/** Home-v2 (enable_home_v2) data. Absent ⇒ today's summary, unchanged. */
+export interface StrengthSummaryV2Data {
+  phases: PhaseSummary[];
+  totals: SessionTotals;
+  /** Null in the read-only history view (the week card describes "now", not that past workout). */
+  week: WeekCardV2Props | null;
+}
 
 type Analytics = ReturnType<typeof useSummaryAnalytics>;
 type Xp = ReturnType<typeof useXpAward>;
@@ -70,6 +87,8 @@ export interface StrengthSummaryViewProps {
   isFinishing: boolean;
   /** Footer primary: close (read-only) or finish (live). Owned by the page. */
   onPrimaryAction: () => void;
+  /** enable_home_v2 only — see StrengthSummaryV2Data. */
+  v2?: StrengthSummaryV2Data;
 }
 
 export default function StrengthSummaryView({
@@ -91,6 +110,7 @@ export default function StrengthSummaryView({
   onDelete,
   isFinishing,
   onPrimaryAction,
+  v2,
 }: StrengthSummaryViewProps) {
   // Secondary stat derived from data the screen already shows (exercise breakdown).
   const totalSets = completedExercises.reduce((acc, ex) => acc + (ex.sets?.length ?? 0), 0);
@@ -115,6 +135,54 @@ export default function StrengthSummaryView({
       </div>
 
       {/* Scrollable content */}
+      {v2 ? (
+        <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-4 space-y-3">
+          <SummaryHeroV2
+            formattedDuration={analytics.formattedDuration}
+            calories={analytics.calories}
+            totals={v2.totals}
+            streak={analytics.streak}
+            streakFlameType={analytics.streakFlameType}
+            streakChainReady={xp.streakChainReady}
+            xpSlot={
+              <XpStatusRow
+                xpStatus={xp.xpStatus}
+                xpEarnedAmount={xp.xpEarnedAmount}
+                xpControls={xp.xpControls}
+                onRetry={xp.runAwardXP}
+              />
+            }
+          />
+
+          {shouldShowLevelRing({ isReadOnly, progressionResult: progression.progressionResult }) && (
+            <LevelRingCard
+              programName={programName ?? 'תוכנית אימון'}
+              currentLevel={analytics.liveLevel}
+              maxLevel={maxLevel ?? 25}
+              progressPercent={analytics.livePercent ?? 0}
+            />
+          )}
+
+          {shouldShowLevelRing({ isReadOnly, progressionResult: progression.progressionResult }) && (
+            <GainCardV2 progressionResult={progression.progressionResult} />
+          )}
+
+          <ProgramSuggestionCard
+            suggestions={visibleSuggestions}
+            onAccept={onAcceptSuggestion}
+            onDismiss={onDismissSuggestion}
+          />
+
+          {!isReadOnly && <LevelGoalsChecklist evaluatedGoals={evaluatedGoals} />}
+
+          <ImprovementsCardV2 phases={v2.phases} />
+
+          <h2 className="px-1 pt-2 text-[17px] font-black text-v2-ink">פירוט התרגילים</h2>
+          <PhaseBreakdownV2 phases={v2.phases} />
+
+          {v2.week && <WeekCardV2 {...v2.week} />}
+        </div>
+      ) : (
       <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-4 space-y-3">
         {/* Hero — duration is this session's headline number; calories / sets
             / streak are the secondary stats (same data SummaryStatsRow showed,
@@ -212,6 +280,7 @@ export default function StrengthSummaryView({
           completedExercises={completedExercises}
         />
       </div>
+      )}
 
       {showLifestyleCTA && (
         <LifestyleCTA onSchedule={onScheduleLifestyle} onDismiss={onDismissLifestyle} />

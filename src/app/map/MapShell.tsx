@@ -31,7 +31,6 @@ import { getOnboardingPref, getOnboardingPrefAsync } from '@/lib/onboardingPrefs
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { JITSetupModal } from '@/features/user/onboarding/components/JITSetupModal';
-import { useFlyoverEntrance } from '@/features/safecity/hooks/useFlyoverEntrance';
 import { usePresenceLayer } from '@/features/safecity/hooks/usePresenceLayer';
 import { useGoalCelebration } from '@/features/home/hooks/useGoalCelebration';
 import { useActiveWorkoutHeartbeat } from '@/features/heatmap/hooks/useActiveWorkoutHeartbeat';
@@ -133,7 +132,7 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
   // hook's own super-admin bypass (useFeatureFlags.ts) already forces this
   // true for a super admin regardless of the real flag value, matching
   // "super-admin רואה תמיד, בלי קשר לדגל" without any extra logic here.
-  const { flags: devToolFlags } = useFeatureFlags(isSuperAdmin);
+  const { flags: devToolFlags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
 
   const confirmStartWithMockLocation = useCallback((): boolean => {
     if (!devSim.isMockEnabled) return true;
@@ -199,7 +198,12 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
   // useGroupPresenceListener/usePartnerData below), removing pure wasted load.
   usePresenceLayer(effectivePos ?? null, !isDemoMode, /* heartbeatOnly */ true);
 
-  const flyover = useFlyoverEntrance(effectivePos ?? null);
+  // Entry camera (17.10.2026): the old session-scoped 3-step flyover
+  // (useFlyoverEntrance) was removed — on every session's first entry it waited
+  // for the first GPS fix, then jumpTo'd OUT to a country view and flew back in,
+  // seconds after the map had already opened on the user's seeded location (the
+  // reported "zooms out and in again by itself"). The camera controller is now
+  // the single owner of the entry move; see features/parks/core/hooks/entry-camera.ts.
   const sharedSession = useSharedSession();
   const { partnerPositions: groupPartnerPositions, totalDistanceKm, milestones } =
     useGroupPresenceListener(effectivePos ?? null);
@@ -590,8 +594,8 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
           destinationMarker={spotFocus ?? undefined}
           hybridStations={(logic.focusedRoute as any)?.stationMarkers ?? null}
           legPlanStops={legPlanStops.length > 0 ? legPlanStops : null}
-          onMapRef={flyover.handleMapRef}
-          skipInitialZoom={flyover.flyoverActive || !!spotFocus}
+          skipInitialZoom={!!spotFocus}
+          homeV2Entry={!isDemoMode && !flagsLoading && devToolFlags.enableHomeV2}
           isAutoFollowEnabled={isMapFollowEnabled}
           onUserPanDetected={() => setMapFollowEnabled(false)}
           headingMode={mapHeadingMode}
@@ -737,7 +741,7 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
       </AnimatePresence>
 
       {/* ══════ LAYER ROUTER ══════ */}
-      {mode === 'discover' && <DiscoverLayer logic={logic} flyoverComplete={flyover.flyoverComplete} devSim={devSim} initialOpenRun={initialOpenRun} targetSteps={targetSteps} initialOpenHybridSlots={initialOpenHybridSlots} initialOpenDiscover={initialOpenDiscover} onRecenter={handleRecenter} />}
+      {mode === 'discover' && <DiscoverLayer logic={logic} devSim={devSim} initialOpenRun={initialOpenRun} targetSteps={targetSteps} initialOpenHybridSlots={initialOpenHybridSlots} initialOpenDiscover={initialOpenDiscover} onRecenter={handleRecenter} />}
       {mode === 'builder' && <BuilderLayer logic={logic} />}
       {mode === 'navigate' && <NavigateLayer logic={logic} />}
       {mode === 'free_run' && <FreeRunLayer logic={logic} effectivePos={effectivePos} />}

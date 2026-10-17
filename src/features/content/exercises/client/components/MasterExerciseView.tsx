@@ -19,11 +19,11 @@
  *     so no existing library content is lost.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import {
   Target, PersonStanding, Lock, Check,
-  Home,
+  Home, Dumbbell, BarChart3, ChevronLeft,
 } from 'lucide-react';
 import {
   Exercise,
@@ -91,6 +91,7 @@ function methodHasVideo(m: ExecutionMethod): boolean {
 
 import { MUSCLE_ICON_PATHS, MUSCLE_FALLBACK_ICON } from '@/lib/muscle-icons.const';
 import { useUserStore } from '@/features/user';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { hasPersona } from '@/features/workout-engine/services/user-profile.utils';
 
 // ── Difficulty trend icons (identical to ExerciseReplacementModal) ─────────
@@ -101,6 +102,47 @@ const LEVEL_ICONS: Record<'lower' | 'same' | 'higher', { src: string; color: str
 };
 
 const IMAGE_PLACEHOLDER = '/images/park-placeholder.svg';
+
+/**
+ * Home v2 (enable_home_v2) styling switch for this file's sub-components —
+ * provided by MasterExerciseView. false → today's UI, byte-identical.
+ */
+const MevV2 = createContext(false);
+
+/** Splits free-text instructions into steps (one per non-empty line). */
+function splitSteps(text: string): string[] {
+  return text
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^\s*(?:\d+[.)]|[-•*])\s*/, '').trim())
+    .filter(Boolean);
+}
+
+/** One numbered step row (v2) — tint numeral, never a filled black/brand disc. */
+function V2Step({ n, children }: { n: number; children: ReactNode }) {
+  return (
+    <li className="flex items-start gap-3">
+      <span className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-full bg-v2-tint text-[13px] font-black tabular-nums text-v2-deep ring-1 ring-inset ring-v2-accent/40">
+        {n}
+      </span>
+      <span className="flex-1 pt-[3px] text-[14.5px] leading-relaxed text-v2-ink-2" style={SECTION_FONT}>
+        {children}
+      </span>
+    </li>
+  );
+}
+
+/** v2 key-fact tile (muscle / equipment / level). */
+function V2FactTile({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex min-w-0 flex-col items-start gap-1.5 rounded-[18px] bg-white px-3 py-2.5 shadow-v2-ring">
+      <span className="grid h-8 w-8 place-items-center rounded-full bg-v2-tint text-v2-deep">{icon}</span>
+      <span className="whitespace-nowrap text-[11.5px] font-bold text-v2-muted">{label}</span>
+      <span className="w-full truncate whitespace-nowrap text-[13.5px] font-extrabold text-v2-ink" style={SECTION_FONT}>
+        {value}
+      </span>
+    </div>
+  );
+}
 
 export interface MasterExerciseViewProps {
   exercise: Exercise;
@@ -270,11 +312,65 @@ function ChainNode({
   /** Feature #5: show this node's level in the switcher's currently-selected path when it's tagged to it; falls back to the legacy targetPrograms[0] pick otherwise. */
   activeProgramId?: string | null;
 }) {
+  const v2 = useContext(MevV2);
   const cfg = LEVEL_ICONS[variant];
   const isCurrent = variant === 'same';
   const thumb = resolveThumbnail(exercise, location);
   const level = getExerciseLevelForProgram(exercise, activeProgramId);
   const name = getLocalizedText(exercise.name, 'he');
+
+  if (v2) {
+    const size = isCurrent ? 88 : 72;
+    const caption = variant === 'lower' ? 'קודם' : variant === 'same' ? 'עכשיו' : 'הבא';
+    return (
+      <div className="relative z-10 flex min-w-0 flex-1 flex-col items-center gap-1.5">
+        <div className="grid h-[88px] place-items-center">
+        <div className="relative" style={{ width: size, height: size }}>
+          <div
+            className={`h-full w-full overflow-hidden rounded-[22px] ${locked ? 'bg-v2-tint' : 'bg-white'} ${
+              isCurrent
+                ? 'shadow-v2-float ring-[3px] ring-v2-accent'
+                : completed
+                  ? 'shadow-v2-card ring-2 ring-v2-accent/50'
+                  : 'shadow-v2-ring ring-[3px] ring-white'
+            }`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={thumb}
+              alt={name}
+              className="h-full w-full object-cover"
+              loading="lazy"
+              decoding="async"
+              style={locked ? { filter: 'grayscale(70%) saturate(0.8)', opacity: 0.72 } : undefined}
+              onError={(e) => { (e.target as HTMLImageElement).src = IMAGE_PLACEHOLDER; }}
+            />
+          </div>
+          {locked && (
+            <div className="absolute bottom-1.5 left-1/2 grid h-6 w-6 -translate-x-1/2 place-items-center rounded-full bg-white/95 text-v2-muted shadow-v2-ring">
+              <Lock size={12} strokeWidth={2.5} />
+            </div>
+          )}
+          {completed && !locked && (
+            <div className="absolute -right-1.5 -top-1.5 grid h-6 w-6 place-items-center rounded-full bg-v2-accent text-white shadow-v2-card ring-2 ring-white">
+              <Check size={12} strokeWidth={3} />
+            </div>
+          )}
+        </div>
+        </div>
+        <span className={`whitespace-nowrap text-[11.5px] font-extrabold ${isCurrent ? 'text-v2-deep' : 'text-v2-muted'}`}>
+          {caption} · רמה {level}
+        </span>
+        <span
+          className={`w-full truncate whitespace-nowrap text-center text-[12.5px] font-extrabold ${locked ? 'text-v2-muted' : 'text-v2-ink'}`}
+          style={SECTION_FONT}
+          title={name}
+        >
+          {name}
+        </span>
+      </div>
+    );
+  }
 
   // Only locked (un-reached) nodes get dimmed. Completed/current stay vivid.
   const ringClass = isCurrent
@@ -345,6 +441,7 @@ function ProgressionChainRow({
   onNavigateToRoadmap?: (baseMovementId: string) => void;
   exercise: Exercise;
 }) {
+  const v2 = useContext(MevV2);
   // SAFETY GATE: only render when there is a real progression lineage
   // (a prev OR a next variation). No fake/single-node chains.
   if (!chain.current || (!chain.prev && !chain.next)) return null;
@@ -355,6 +452,45 @@ function ProgressionChainRow({
     userLevelInTrack < getExerciseLevelForProgram(chain.next, activeProgramId);
 
   const baseMovementId = exercise.base_movement_id ?? null;
+
+  if (v2) {
+    return (
+      <section className="mb-6" dir="rtl">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h3 className="whitespace-nowrap text-right text-[17px] font-black text-v2-ink" style={SECTION_FONT}>
+            מסלול ההתקדמות
+          </h3>
+          {baseMovementId && onNavigateToRoadmap && (
+            <button
+              type="button"
+              onClick={() => onNavigateToRoadmap(baseMovementId)}
+              className="flex h-8 items-center gap-0.5 whitespace-nowrap rounded-full bg-white pe-2 ps-3 text-[13px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
+            >
+              מפה מלאה
+              <ChevronLeft size={15} strokeWidth={2.5} />
+            </button>
+          )}
+        </div>
+
+        {/* Visual strip: prev · current · next on one dashed trail */}
+        <div className="relative rounded-v2-card bg-white px-3 pb-3.5 pt-4 shadow-v2-card">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-10 top-[60px] border-t-[3px] border-dashed border-v2-accent/40"
+          />
+          <div className="flex items-start justify-center gap-2">
+            {chain.prev && (
+              <ChainNode exercise={chain.prev} variant="lower" location={location} locked={false} completed activeProgramId={activeProgramId} />
+            )}
+            <ChainNode exercise={chain.current} variant="same" location={location} locked={false} activeProgramId={activeProgramId} />
+            {chain.next && (
+              <ChainNode exercise={chain.next} variant="higher" location={location} locked={nextLocked} activeProgramId={activeProgramId} />
+            )}
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="mb-6" dir="rtl">
@@ -426,6 +562,10 @@ export default function MasterExerciseView({
   }
 
   const mevProfile = useUserStore((s) => s.profile);
+  // Home v2 (enable_home_v2): styling only — every handler/data path below is shared.
+  const v2 = useFeatureFlags(
+    !!(mevProfile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin,
+  ).flags.enableHomeV2;
   const isMilitaryPersona = mevProfile ? hasPersona(mevProfile, 'military') : false;
 
   const methodOptions = useMemo<MethodOption[]>(() => {
@@ -728,17 +868,82 @@ export default function MasterExerciseView({
   const tutorialAsHero = !!heroAssets.full || !!heroLegacyForPlayer;
   const heroMode   = tutorialAsHero ? 'tutorial' : 'preview';
 
+  // ── v2 key facts (muscle · equipment · level) — read-only summary of data
+  // already resolved above; the full switchers stay below.
+  const v2Facts: { key: string; icon: ReactNode; label: string; value: string }[] = [];
+  if (v2) {
+    if (primaryMuscle) {
+      v2Facts.push({
+        key: 'muscle',
+        icon: (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={MUSCLE_ICON_PATHS[primaryMuscle] ?? MUSCLE_FALLBACK_ICON}
+            alt=""
+            className="h-5 w-5 object-contain"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+        ),
+        label: 'שריר',
+        value: getMuscleGroupLabel(primaryMuscle),
+      });
+    }
+    v2Facts.push({
+      key: 'gear',
+      icon: equipmentBadges[0]?.icon ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={equipmentBadges[0].icon}
+          alt=""
+          className="h-5 w-5 object-contain"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+        />
+      ) : equipmentBadges.length > 0 ? (
+        <Dumbbell size={16} strokeWidth={2.5} />
+      ) : (
+        <PersonStanding size={16} strokeWidth={2.5} />
+      ),
+      label: 'ציוד',
+      value:
+        equipmentBadges.length === 0
+          ? 'משקל גוף'
+          : equipmentBadges.length === 1
+            ? equipmentBadges[0].label
+            : `${equipmentBadges[0].label} +${equipmentBadges.length - 1}`,
+    });
+    if (activeProgramOption && activeProgramOption.level != null) {
+      v2Facts.push({
+        key: 'level',
+        icon: <BarChart3 size={16} strokeWidth={2.5} />,
+        label: 'רמה',
+        value: `רמה ${activeProgramOption.level}`,
+      });
+    }
+  }
+  const v2InstructionSteps =
+    v2 && sheetData.instructions && sheetData.instructions !== sheetData.description
+      ? splitSteps(sheetData.instructions)
+      : [];
+  const v2H3 = 'text-right text-[17px] font-black text-v2-ink whitespace-nowrap';
+
   return (
-    <div dir="rtl">
+    <MevV2.Provider value={v2}>
+    <div dir="rtl" className={v2 ? 'bg-v2-surface' : undefined}>
       {notice && (
-        <div className="px-4 py-2.5 bg-slate-100 text-slate-500 text-[13px] font-semibold text-center">
+        <div
+          className={
+            v2
+              ? 'mx-4 mb-2 mt-1 rounded-[14px] bg-v2-tint px-4 py-2.5 text-center text-[13px] font-extrabold text-v2-deep ring-1 ring-inset ring-v2-accent/30'
+              : 'px-4 py-2.5 bg-slate-100 text-slate-500 text-[13px] font-semibold text-center'
+          }
+        >
           {notice}
         </div>
       )}
 
       {/* ── Section 1: Hero video ──────────────────────────────────────────── */}
       <div
-        className={`relative w-full overflow-hidden ${tutorialAsHero ? 'bg-[#F8FAFC]' : 'bg-slate-900'}`}
+        className={`relative w-full overflow-hidden ${tutorialAsHero ? 'bg-[#F8FAFC]' : 'bg-slate-900'} ${v2 ? 'rounded-b-[28px] shadow-v2-card' : ''}`}
         style={{ aspectRatio: '9 / 16', maxHeight: '55vh' }}
       >
         <ExerciseVideoPlayer
@@ -750,14 +955,31 @@ export default function MasterExerciseView({
         />
         {/* Soft gradient fade at the bottom of the video — always visible.
             pointer-events: none keeps controls and taps fully working. */}
-        <div className="absolute inset-x-0 bottom-0 h-12 z-10 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+        {!v2 && (
+          <div className="absolute inset-x-0 bottom-0 h-12 z-10 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+        )}
       </div>
 
-      <div className="px-4 pt-4 pb-6">
+      <div className={v2 ? 'px-4 pt-5 pb-6' : 'px-4 pt-4 pb-6'}>
         {/* Title */}
-        <h2 className="text-xl font-bold text-slate-900 mb-4 text-right" style={SECTION_FONT}>
+        <h2
+          className={v2 ? 'mb-4 text-right text-[24px] font-black leading-tight !tracking-[-0.02em] text-v2-ink' : 'text-xl font-bold text-slate-900 mb-4 text-right'}
+          style={SECTION_FONT}
+        >
           {sheetData.name}
         </h2>
+
+        {/* v2: key facts row */}
+        {v2 && v2Facts.length > 0 && (
+          <div
+            className="mb-6 grid gap-2"
+            style={{ gridTemplateColumns: `repeat(${v2Facts.length}, minmax(0, 1fr))` }}
+          >
+            {v2Facts.map((f) => (
+              <V2FactTile key={f.key} icon={f.icon} label={f.label} value={f.value} />
+            ))}
+          </div>
+        )}
 
         {/* ── Programs (right) + Equipment (left) — symmetrical 2-col grid ──
             Each column owns its header + an independently horizontally-scrolling
@@ -792,7 +1014,7 @@ export default function MasterExerciseView({
                   the two headers are simply never on the same row anymore. */}
               {programs.length > 0 && activeProgramOption && (
                 <section className={`min-w-0 ${!showEquipmentCol ? 'col-span-2' : ''}`}>
-                  <h3 className="text-right text-[16px] font-semibold text-slate-800 mb-2 leading-[30px]" style={SECTION_FONT}>
+                  <h3 className={v2 ? `${v2H3} mb-2 leading-[30px]` : 'text-right text-[16px] font-semibold text-slate-800 mb-2 leading-[30px]'} style={SECTION_FONT}>
                     תוכניות
                   </h3>
                   <ProgramPathSwitcher
@@ -815,7 +1037,7 @@ export default function MasterExerciseView({
                 <section className={`min-w-0 ${programs.length === 0 ? 'col-span-2' : ''}`}>
                   {/* Header row: "ציוד" + (left) the location switcher badge */}
                   <div className="flex items-center justify-between gap-2 mb-2">
-                    <h3 className="text-right text-[16px] font-semibold text-slate-800 leading-[30px]" style={SECTION_FONT}>
+                    <h3 className={v2 ? `${v2H3} leading-[30px]` : 'text-right text-[16px] font-semibold text-slate-800 leading-[30px]'} style={SECTION_FONT}>
                       ציוד
                     </h3>
                     {hasSwitcher && selectedOption && (
@@ -849,8 +1071,8 @@ export default function MasterExerciseView({
                       {equipmentBadges.map((b) => (
                         <div
                           key={b.id}
-                          className="flex-shrink-0 flex items-center gap-2 bg-white shadow-sm rounded-lg px-3"
-                          style={{ border: PILL_BORDER, height: 30 }}
+                          className={v2 ? 'flex h-[30px] flex-shrink-0 items-center gap-2 rounded-full bg-white px-3 shadow-v2-ring' : 'flex-shrink-0 flex items-center gap-2 bg-white shadow-sm rounded-lg px-3'}
+                          style={v2 ? undefined : { border: PILL_BORDER, height: 30 }}
                         >
                           {b.icon ? (
                             // eslint-disable-next-line @next/next/no-img-element
@@ -865,7 +1087,7 @@ export default function MasterExerciseView({
                           ) : (
                             <PersonStanding size={16} className="text-slate-400 flex-shrink-0" />
                           )}
-                          <span className="text-xs font-normal text-gray-800 whitespace-nowrap" style={SECTION_FONT}>
+                          <span className={v2 ? 'whitespace-nowrap text-[12.5px] font-bold text-v2-ink-2' : 'text-xs font-normal text-gray-800 whitespace-nowrap'} style={SECTION_FONT}>
                             {b.label}
                           </span>
                         </div>
@@ -875,8 +1097,8 @@ export default function MasterExerciseView({
                     // Bodyweight variant — show a placeholder only when the user
                     // CAN switch (keeps the layout balanced below the badge).
                     <span
-                      className="inline-flex items-center gap-1.5 bg-white shadow-sm rounded-lg px-3 text-xs font-normal text-gray-800"
-                      style={{ border: PILL_BORDER, height: 30 }}
+                      className={v2 ? 'inline-flex h-[30px] items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3 text-[12.5px] font-bold text-v2-ink-2 shadow-v2-ring' : 'inline-flex items-center gap-1.5 bg-white shadow-sm rounded-lg px-3 text-xs font-normal text-gray-800'}
+                      style={v2 ? undefined : { border: PILL_BORDER, height: 30 }}
                     >
                       <PersonStanding size={16} className="text-slate-400 flex-shrink-0" />
                       משקל גוף
@@ -901,7 +1123,7 @@ export default function MasterExerciseView({
         {/* ── Section 4: Personal performance dashboard ─────────────────── */}
         {isLoadingTrend ? (
           <section className="mb-6 animate-pulse">
-            <div className="rounded-2xl bg-white border border-slate-100 p-4 shadow-sm">
+            <div className={v2 ? 'rounded-v2-card bg-white p-4 shadow-v2-card' : 'rounded-2xl bg-white border border-slate-100 p-4 shadow-sm'}>
               <div className="h-5 w-1/3 bg-slate-100 rounded mb-3" />
               <div className="h-16 w-full bg-slate-50 rounded" />
             </div>
@@ -911,18 +1133,18 @@ export default function MasterExerciseView({
             <button
               type="button"
               onClick={() => onNavigateToAnalytics?.(exercise.id, sheetData.name)}
-              className="w-full text-right rounded-2xl bg-white border border-slate-100 p-4 shadow-subtle cursor-pointer active:scale-[0.98] transition-transform"
+              className={v2 ? 'w-full cursor-pointer rounded-v2-card bg-white p-4 text-right shadow-v2-card transition-transform duration-150 ease-v2 active:scale-[0.97]' : 'w-full text-right rounded-2xl bg-white border border-slate-100 p-4 shadow-subtle cursor-pointer active:scale-[0.98] transition-transform'}
               aria-label="לצפייה בהתקדמות המלאה"
             >
               <div className="flex items-baseline gap-1.5 mb-1">
-                <span className="text-2xl font-black text-slate-900 tabular-nums">{perf.pb}</span>
-                <span className="text-xs font-bold text-slate-400">שיא חזרות ברצף</span>
-                <span className="text-[10px] font-bold text-slate-400 ms-auto">
+                <span className={v2 ? 'text-[28px] font-black tabular-nums text-v2-ink' : 'text-2xl font-black text-slate-900 tabular-nums'}>{perf.pb}</span>
+                <span className={v2 ? 'whitespace-nowrap text-[13px] font-extrabold text-v2-deep' : 'text-xs font-bold text-slate-400'}>שיא חזרות ברצף</span>
+                <span className={v2 ? 'ms-auto whitespace-nowrap text-[12px] font-bold text-v2-muted' : 'text-[10px] font-bold text-slate-400 ms-auto'}>
                   {perf.count} אימונים
                 </span>
               </div>
 
-              <p className="text-[11px] text-slate-500 mb-2" style={SECTION_FONT}>
+              <p className={v2 ? 'mb-2 text-[12.5px] font-bold text-v2-muted' : 'text-[11px] text-slate-500 mb-2'} style={SECTION_FONT}>
                 {perf.lastSets > 0
                   ? `ביצעת ${perf.lastSets} סטים ${perf.lastLabel}`
                   : `אימון אחרון ${perf.lastLabel}`}
@@ -961,6 +1183,118 @@ export default function MasterExerciseView({
         {/* Section 5 (tutorial embed) was here — tutorial is now shown directly
             as the hero video when fullTutorial exists, so no button needed. */}
 
+        {v2 ? (
+          <>
+            {/* ── v2 Anatomy — primary (tint) + secondary tiles in one strip ── */}
+            {(primaryMuscle || secondaryMuscles.length > 0) && (
+              <section className="mb-6">
+                <h3 className={`${v2H3} mb-3`} style={SECTION_FONT}>שרירים</h3>
+                <div className="-mx-4 flex flex-row items-stretch gap-2 overflow-x-auto px-4 pb-1 no-scrollbar">
+                  {[...(primaryMuscle ? [primaryMuscle] : []), ...secondaryMuscles].map((m, i) => {
+                    const isPrimary = !!primaryMuscle && i === 0;
+                    return (
+                      <div
+                        key={m}
+                        className={`flex w-[84px] flex-shrink-0 flex-col items-center gap-1.5 rounded-[18px] px-2 py-2.5 ${
+                          isPrimary ? 'bg-v2-tint ring-1 ring-inset ring-v2-accent/40' : 'bg-white shadow-v2-ring'
+                        }`}
+                      >
+                        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={MUSCLE_ICON_PATHS[m] ?? MUSCLE_FALLBACK_ICON}
+                            alt=""
+                            className="max-h-full max-w-full object-contain"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                        </div>
+                        <span
+                          className={`w-full truncate whitespace-nowrap text-center text-[12px] font-extrabold ${isPrimary ? 'text-v2-deep' : 'text-v2-ink-2'}`}
+                          style={SECTION_FONT}
+                        >
+                          {getMuscleGroupLabel(m)}
+                        </span>
+                        <span className="whitespace-nowrap text-[11px] font-bold text-v2-muted">
+                          {isPrimary ? 'ראשי' : 'משני'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* ── v2 Instructions — numbered steps ── */}
+            {v2InstructionSteps.length > 0 && (
+              <section className="mb-6">
+                <h3 className={`${v2H3} mb-3`} style={SECTION_FONT}>הוראות ביצוע</h3>
+                {v2InstructionSteps.length > 1 ? (
+                  <ol className="space-y-3 rounded-v2-card bg-white p-4 shadow-v2-card">
+                    {v2InstructionSteps.map((step, i) => (
+                      <V2Step key={i} n={i + 1}>{step}</V2Step>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="rounded-v2-card bg-white p-4 text-[14.5px] leading-relaxed text-v2-ink-2 shadow-v2-card" style={SECTION_FONT}>
+                    {v2InstructionSteps[0]}
+                  </p>
+                )}
+              </section>
+            )}
+
+            {/* ── v2 Execution cues ── */}
+            {sheetData.cues.length > 0 && (
+              <section className="mb-6">
+                <h3 className={`${v2H3} mb-3`} style={SECTION_FONT}>דגשים</h3>
+                <ol className="space-y-3 rounded-v2-card bg-white p-4 shadow-v2-card">
+                  {sheetData.cues.map((cue, i) => (
+                    <V2Step key={i} n={i + 1}>{cue}</V2Step>
+                  ))}
+                </ol>
+              </section>
+            )}
+
+            {sheetData.description && (
+              <section className="mb-6">
+                <h3 className={`${v2H3} mb-3`} style={SECTION_FONT}>תיאור</h3>
+                <p className="text-[14.5px] leading-relaxed text-v2-ink-2" style={SECTION_FONT}>
+                  {sheetData.description}
+                </p>
+              </section>
+            )}
+
+            {sheetData.goal && (
+              <section className="mb-6">
+                <h3 className={`${v2H3} mb-3`} style={SECTION_FONT}>מטרות</h3>
+                <div className="flex items-start gap-3 rounded-[20px] bg-white p-4 shadow-v2-ring">
+                  <span className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-full bg-v2-tint text-v2-deep">
+                    <Target size={16} strokeWidth={2.5} />
+                  </span>
+                  <p className="flex-1 pt-1 text-[14.5px] leading-relaxed text-v2-ink-2" style={SECTION_FONT}>
+                    {sheetData.goal}
+                  </p>
+                </div>
+              </section>
+            )}
+
+            {sheetData.tips.length > 0 && (
+              <section className="mb-6">
+                <h3 className={`${v2H3} mb-3`} style={SECTION_FONT}>טיפים</h3>
+                <ul className="space-y-2.5">
+                  {sheetData.tips.map((tip, i) => (
+                    <li key={i} className="flex items-start gap-2.5">
+                      <span className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-v2-accent" />
+                      <span className="flex-1 text-[14.5px] leading-relaxed text-v2-ink-2" style={SECTION_FONT}>
+                        {tip}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          </>
+        ) : (
+          <>
         {/* ── Section 6: Anatomy — primary (right) + secondary slider (left) ──
             Both sides share identical icon bounding boxes (44×44), line-heights
             and `items-start` baseline alignment so the rows line up exactly. */}
@@ -1095,7 +1429,10 @@ export default function MasterExerciseView({
             </ul>
           </section>
         )}
+          </>
+        )}
       </div>
     </div>
+    </MevV2.Provider>
   );
 }

@@ -21,12 +21,14 @@ import { useRunningPlayer } from '@/features/workout-engine/players/running/stor
 import { useUserStore } from '@/features/user';
 import { db, auth } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import RunShareBar from '@/features/workout-engine/components/RunShareBar';
+import RunShareBar, { shareRunInviteNow } from '@/features/workout-engine/components/RunShareBar';
 import { createRunInvite } from '@/lib/workoutInvite';
 import type { RunInviteResult } from '@/lib/workoutInvite';
+import { buildPlannedRun } from '@/lib/planned-run';
 import { buildRouteGenRequest } from '../services/route-request.utils';
 import type { DrawerGoal, DrawerActivity } from '../services/route-request.utils';
 import { useLegPlanStore } from '../store/useLegPlanStore';
+import { isWeightMissing } from '@/features/user/core/utils/weight-status';
 import { usePendingAddressStore } from '../store/usePendingAddressStore';
 import {
   compileLegPlan,
@@ -711,7 +713,7 @@ function GoalSheet({
   distanceValue, setDistanceValue,
   caloriesValue, setCaloriesValue,
   onOpenExtras,
-  userWeight,
+  weightMissing,
   genderDefault,
   onSaveWeight,
   onRequestAddressDestination,
@@ -731,7 +733,7 @@ function GoalSheet({
   caloriesValue: number;
   setCaloriesValue: (v: number) => void;
   onOpenExtras: () => void;
-  userWeight: number | null;
+  weightMissing: boolean;
   genderDefault: number;
   onSaveWeight: (w: number) => Promise<void>;
   onRequestAddressDestination?: () => void;
@@ -779,7 +781,7 @@ function GoalSheet({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className={`fixed bottom-0 left-0 right-0 z-[103] pointer-events-auto ${v2 ? V2_SHEET : 'bg-white rounded-t-3xl shadow-2xl'}`}
+            className={`fixed bottom-0 left-0 right-0 z-[103] pointer-events-auto ${v2 ? `${V2_SHEET} max-h-[90dvh] overflow-y-auto overscroll-contain` : 'bg-white rounded-t-3xl shadow-2xl'}`}
             dir="rtl"
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
           >
@@ -850,7 +852,7 @@ function GoalSheet({
                     <span className={v2 ? 'whitespace-nowrap text-[17px] font-black tabular-nums text-v2-deep' : 'text-[13px] font-black'} style={v2 ? undefined : { color: ACCENT }}>{caloriesValue} קק״ל</span>
                   </div>
                   <GoalSlider min={50} max={800} step={50} value={caloriesValue} onChange={setCaloriesValue} formatLabel={(v) => `${v} קק״ל`} />
-                  {(!userWeight || userWeight === 70) && (
+                  {weightMissing && (
                     <WeightInlineRow
                       genderDefault={genderDefault}
                       onSave={onSaveWeight}
@@ -1450,8 +1452,13 @@ export default function FreeRunDrawer({
   // Ref-based cache: invalidated inline by key comparison so React re-renders
   // between "שתף" and "שמור" cannot spuriously reset it via useEffect.
   const savedInviteRef = useRef<{ key: string; result: RunInviteResult } | null>(null);
+  // v2: "הזמן חבר" in "עכשיו" mode only marks the intent; the ephemeral group
+  // is created by runPendingInvite() when the user actually starts, so closing
+  // the drawer without starting leaves nothing behind in Firestore.
+  const [inviteOnStart, setInviteOnStart] = useState(false);
 
-  const userWeight = useUserStore((s) => s.profile?.core?.weight ?? null);
+  // Real absence, not `=== 70` (signup's placeholder) — see weight-status.ts.
+  const weightMissing = useUserStore((s) => isWeightMissing(s.profile?.core));
   const gender     = useUserStore((s) => s.profile?.core?.gender);
   const genderDefault =
     gender === 'female' ? 60 :
@@ -1461,12 +1468,15 @@ export default function FreeRunDrawer({
   const saveWeightInline = async (w: number) => {
     const currentCore = useUserStore.getState().profile?.core;
     if (currentCore) {
-      useUserStore.getState().updateProfile({ core: { ...currentCore, weight: w } });
+      // weightSetByUser: see core/utils/weight-status.ts. Kept off the core type on
+      // purpose (a bare variable, not a literal, so no excess-property check).
+      const nextCore = { ...currentCore, weight: w, weightSetByUser: true };
+      useUserStore.getState().updateProfile({ core: nextCore });
     }
     const uid = auth.currentUser?.uid;
     if (uid) {
       try {
-        await updateDoc(doc(db, 'users', uid), { 'core.weight': w });
+        await updateDoc(doc(db, 'users', uid), { 'core.weight': w, 'core.weightSetByUser': true });
       } catch {
         // Non-blocking — local store already updated.
       }
@@ -1516,13 +1526,26 @@ export default function FreeRunDrawer({
     }
   };
 
+  /** v2 deferred "now" invite — create the group + open the share sheet at
+      start time. Failure never blocks the start (same as a failed invite tap). */
+  const runPendingInvite = async () => {
+    if (!v2 || timing !== 'now' || !inviteOnStart) return;
+    try {
+      await shareRunInviteNow(selectedActivity === 'walking' ? 'walking' : 'running');
+    } catch (err) {
+      console.error('[FreeRunDrawer] invite on start:', err);
+    }
+  };
+
   const handleStartFree = async () => {
     await applyGoalToPlayer();
+    await runPendingInvite();
     onStartWorkout();
   };
 
   const handleStartWithRoute = async () => {
     await applyGoalToPlayer();
+    await runPendingInvite();
     if (!userPosition || !onRequestRouteGeneration) {
       // Degrade gracefully when route props are absent.
       onStartWorkout();
@@ -1538,6 +1561,7 @@ export default function FreeRunDrawer({
    */
   const handleStartHybrid = async () => {
     await applyGoalToPlayer();
+    await runPendingInvite();
     const speedKmh =
       selectedActivity === 'cycling' ? 20 :
       selectedActivity === 'running' ? 10 : 5;
@@ -1570,7 +1594,17 @@ export default function FreeRunDrawer({
     const cacheKey = `${schedDate}T${schedTime}|${selectedActivity}`;
     if (savedInviteRef.current?.key === cacheKey) return savedInviteRef.current.result;
     const actType = selectedActivity === 'walking' ? 'walking' : 'running';
-    const result = await createRunInvite(actType, { scheduledFor });
+    // v2: carry the chosen goal + hybrid split + route extras into the
+    // scheduled run (they used to be dropped — only date/time/activity went).
+    const plannedRun = v2
+      ? buildPlannedRun({
+          goalType, timeValue, distanceValue, caloriesValue,
+          hybridEnabled: enableHybridSlots && hybridEnabled,
+          aerobicShare,
+          extras: { gymParks: extras.gymParks, trail: extras.trail },
+        })
+      : undefined;
+    const result = await createRunInvite(actType, { scheduledFor, ...(plannedRun ? { plannedRun } : {}) });
     savedInviteRef.current = { key: cacheKey, result };
     return result;
   };
@@ -1631,8 +1665,12 @@ export default function FreeRunDrawer({
           transition={{ type: 'spring', damping: 28, stiffness: 300 }}
           className="absolute bottom-0 left-0 right-0 pointer-events-auto"
         >
+          {/* v2: capped at 90dvh and scrollable — with strength stations on +
+              "אחר כך" (date/time row) the stack is ~700px, taller than a small
+              phone, and the sheet had no max-height, so its header was pushed
+              off-screen. Drag stays on the handle only (dragListener=false). */}
           <div
-            className={v2 ? V2_SHEET : 'bg-white rounded-t-3xl shadow-2xl'}
+            className={v2 ? `${V2_SHEET} max-h-[90dvh] overflow-y-auto overscroll-contain` : 'bg-white rounded-t-3xl shadow-2xl'}
             dir="rtl"
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
           >
@@ -1706,6 +1744,7 @@ export default function FreeRunDrawer({
               onTimeChange={setSchedTime}
               onShareScheduled={handleShareScheduled}
               v2={v2}
+              nowInvite={v2 ? { pending: inviteOnStart, onChange: setInviteOnStart } : undefined}
             />
 
             {/* ── Block 3: Entry buttons / Save ───────────────────────────── */}
@@ -1773,7 +1812,7 @@ export default function FreeRunDrawer({
         caloriesValue={caloriesValue}
         setCaloriesValue={setCaloriesValue}
         onOpenExtras={() => { setGoalSheetOpen(false); setExtrasOpen(true); }}
-        userWeight={userWeight}
+        weightMissing={weightMissing}
         genderDefault={genderDefault}
         onSaveWeight={saveWeightInline}
         onRequestAddressDestination={onRequestAddressDestination}

@@ -67,6 +67,7 @@ export function feedPostJson(id: string, data: Record<string, unknown>): Record<
     gender: pick('gender'),
     programId: pick('programId'),
     groupIds: Array.isArray(data.groupIds) ? data.groupIds : undefined,
+    routeShape: Array.isArray(data.routeShape) ? data.routeShape : undefined,
     createdAt,
   };
 }

@@ -6,6 +6,7 @@ import { MoreHorizontal, Trash2, Flag, Loader2, Flame, Users, Globe, Lock, MapPi
 import { toggleReaction, hasUserReacted } from '../services/reactions.service';
 import { deleteFeedPost, type FeedPost } from '../services/feed.service';
 import ReportContentSheet from '@/features/arena/components/ReportContentSheet';
+import RouteLine from './RouteLine';
 
 const CATEGORY_EMOJI: Record<string, string> = {
   strength: '💪',
@@ -309,6 +310,12 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
           </div>
           {post.title && <h3 className="mt-2 text-[17px] font-black leading-snug text-v2-ink">{post.title}</h3>}
         </div>
+
+        {isCardio && post.routeShape && (
+          <div className="px-4 pt-2">
+            <RouteLine shape={post.routeShape} label={`קו המסלול של ${post.authorName}`} />
+          </div>
+        )}
 
         <div className="grid grid-cols-3 gap-2 px-4 py-3">
           {isCardio ? (
