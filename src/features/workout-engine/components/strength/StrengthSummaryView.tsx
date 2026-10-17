@@ -89,6 +89,8 @@ export interface StrengthSummaryViewProps {
   onPrimaryAction: () => void;
   /** enable_home_v2 only — see StrengthSummaryV2Data. */
   v2?: StrengthSummaryV2Data;
+  /** enable_home_v2 only — the "לשתף את האימון בפיד?" card (owned by the page). */
+  feedShareSlot?: React.ReactNode;
 }
 
 export default function StrengthSummaryView({
@@ -111,6 +113,7 @@ export default function StrengthSummaryView({
   isFinishing,
   onPrimaryAction,
   v2,
+  feedShareSlot,
 }: StrengthSummaryViewProps) {
   // Secondary stat derived from data the screen already shows (exercise breakdown).
   const totalSets = completedExercises.reduce((acc, ex) => acc + (ex.sets?.length ?? 0), 0);
@@ -153,6 +156,8 @@ export default function StrengthSummaryView({
               />
             }
           />
+
+          {feedShareSlot}
 
           {shouldShowLevelRing({ isReadOnly, progressionResult: progression.progressionResult }) && (
             <LevelRingCard

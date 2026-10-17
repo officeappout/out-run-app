@@ -77,6 +77,56 @@ export function applyFeedPrefs<
   return { publish, params: out };
 }
 
+/** What the share sheet (FeedShareSheet) hands back. */
+export interface ShareChoice {
+  audience: FeedPrefsAudience;
+  showPark: boolean;
+  showRoute: boolean;
+  title?: string;
+}
+
+/**
+ * The share sheet's choice applied to a workout's post params — the user's
+ * audience + optional title, the park and the route line dropped when they
+ * switched them off. Used with createWorkoutPost(…, { manual: true }) by every
+ * share surface (the feed prompt and the workout summaries).
+ */
+export function applyShareChoice<
+  P extends { audience?: string; title?: string; parkId?: string; parkName?: string; routeShape?: number[] },
+>(params: P, choice: ShareChoice): P {
+  const out = { ...params, audience: choice.audience, title: choice.title ?? params.title } as P;
+  if (!choice.showPark) {
+    delete out.parkId;
+    delete out.parkName;
+  }
+  if (!choice.showRoute) delete out.routeShape;
+  return out;
+}
+
+/**
+ * A choice made on a workout summary's share card before the post exists
+ * (strength: the post is decided at "סיום"). Absent = the user ignored the
+ * card → today's behaviour (auto-publish or a pending share).
+ */
+export type SummaryShareDecision = { kind: 'publish'; choice: ShareChoice } | { kind: 'skip' };
+
+/** What the finish handler does with its post params given that decision. */
+export function postPlanForDecision<
+  P extends { audience?: string; title?: string; parkId?: string; parkName?: string; routeShape?: number[] },
+>(params: P, decision: SummaryShareDecision | null | undefined): { post: false } | { post: true; params: P; manual: boolean } {
+  if (!decision) return { post: true, params, manual: false };
+  if (decision.kind === 'skip') return { post: false };
+  return { post: true, params: applyShareChoice(params, decision.choice), manual: true };
+}
+
+/**
+ * A pending share belongs to the workout on screen only if it was saved after
+ * that screen opened (with a little slack) — never an older, unrelated one.
+ */
+export function isPendingShareFor(pending: { at: number } | null | undefined, screenOpenedAt: number, slackMs = 2 * 60 * 1000): boolean {
+  return !!pending && pending.at >= screenOpenedAt - slackMs;
+}
+
 export async function saveFeedPrefs(uid: string, prefs: FeedPrefs): Promise<void> {
   await updateDoc(doc(db, 'users', uid), { 'social.feedPrefs': prefs });
 }
@@ -92,11 +142,24 @@ export interface PendingShare<P = Record<string, unknown>> {
   at: number;
 }
 
+/**
+ * Fired on window after a pending share is saved, so a screen that is already
+ * open (the run summary — the post decision lands a moment after it mounts)
+ * can offer it without polling.
+ */
+export const PENDING_SHARE_EVENT = 'out-pending-share';
+
 export function savePendingShare<P>(params: P, now = Date.now()): void {
   try {
     window.localStorage.setItem(PENDING_KEY, JSON.stringify({ params, at: now }));
   } catch {
     /* private mode — the prompt is a convenience */
+    return;
+  }
+  try {
+    window.dispatchEvent(new Event(PENDING_SHARE_EVENT));
+  } catch {
+    /* no window events (tests / SSR) */
   }
 }
 

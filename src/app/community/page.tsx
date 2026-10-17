@@ -35,6 +35,7 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { IS_COMMUNITY_FEED_ENABLED } from '@/config/feature-flags';
 import { createWorkoutPost, getFeedPosts, type FeedPost } from '@/features/social/services/feed.service';
 import {
+  applyShareChoice,
   clearPendingShare,
   feedPrefsFrom,
   readPendingShare,
@@ -744,12 +745,7 @@ export default function CommunityPage() {
   async function handlePublishPending(choice: { audience: FeedPrefs['audience']; showPark: boolean; showRoute: boolean; title?: string }) {
     if (!pendingShare || publishBusy) return;
     setPublishBusy(true);
-    const params = { ...pendingShare, audience: choice.audience, title: choice.title ?? pendingShare.title };
-    if (!choice.showPark) {
-      delete params.parkId;
-      delete params.parkName;
-    }
-    if (!choice.showRoute) delete params.routeShape;
+    const params = applyShareChoice(pendingShare, choice);
     const id = await createWorkoutPost(params, { manual: true });
     setPublishBusy(false);
     if (id) {

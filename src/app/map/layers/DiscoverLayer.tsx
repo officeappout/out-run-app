@@ -76,6 +76,7 @@ import { SOCIAL_COMPOSE_UI_ENABLED } from '@/config/feature-flags';
 import { useUserLocationSync } from '@/features/parks/core/hooks/useUserLocationSync';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ViewportBounds } from '@/features/parks/core/store/useMapStore';
+import { consumePendingPlannedRun, type PlannedRunSettings } from '@/lib/planned-run';
 
 type MapLogic = ReturnType<typeof useMapLogic>;
 
@@ -428,6 +429,16 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   // needs userLocation, which may not be ready yet on mount; the setup below
   // doesn't). See IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED in config/feature-flags.ts.
   const openRunRoutePreviewFiredRef = useRef(false);
+  // v2 (enable_home_v2): a scheduled run started from its group drawer
+  // ("צא לריצה") stashes its saved plannedRun for this one navigation; the
+  // drawer is pre-filled with it. Kept for the whole free-run visit (the
+  // drawer remounts on address/leg round-trips) and dropped when it ends.
+  const [scheduledPlannedRun, setScheduledPlannedRun] = useState<PlannedRunSettings | null>(null);
+  const prevMapModeRef = useRef(mapMode);
+  useEffect(() => {
+    if (prevMapModeRef.current === 'freeRun' && mapMode !== 'freeRun') setScheduledPlannedRun(null);
+    prevMapModeRef.current = mapMode;
+  }, [mapMode]);
   useEffect(() => {
     if (!initialOpenRun) return;
 
@@ -457,6 +468,10 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
 
     if (openRunConsumedRef.current) return;
     openRunConsumedRef.current = true;
+
+    // Read-once (also clears a stale/mismatched stash). Only the v2 start
+    // action writes it; the drawer prop below is v2-gated as well.
+    setScheduledPlannedRun(consumePendingPlannedRun(initialOpenRun));
 
     // Pre-select host's activity type (default, not locked — user can change it)
     logic.handleActivityChange(initialOpenRun as ActivityType);
@@ -1801,6 +1816,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                 userPosition={userLocation}
                 cityName={userCityName}
                 enableHybridSlots={mapFeatureFlags.enableHybridSlots}
+                initialPlannedRun={mapFeatureFlags.enableHomeV2 ? scheduledPlannedRun : null}
                 onRequestRouteGeneration={({ targetKm, includeStrength, surface }) => {
                   // Phase "1.5" — manual free-run generator, David-only testing
                   // convenience toward Phase 2 (see IS_SHORT_ROUTE_MANUAL_TEST_EMAIL
