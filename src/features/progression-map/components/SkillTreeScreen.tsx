@@ -424,6 +424,7 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
               <TreePath
                 tree={displayTree}
                 currentLevel={currentLevel}
+                v2={v2}
                 onNodeTap={(rung: SkillTreeRung, _state: TreeNodeState, isAboveCurrentLevel: boolean) => {
                   if (!rung.representative) return;
                   setDetailExercise(rung.representative);
