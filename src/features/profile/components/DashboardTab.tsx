@@ -414,7 +414,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
           animate={{ y: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.06 }}
         >
-          <ProgramsSection />
+          <ProgramsSection v2={v2} />
         </motion.div>
       </div>
 
@@ -426,14 +426,18 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
           transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.06 }}
         >
           <div className="flex items-center justify-between mb-3">
+            {v2 ? (
+              <h3 className="text-[15px] font-black text-v2-ink">הישגים</h3>
+            ) : (
             <div className="flex items-center gap-2">
               <Trophy className="w-4 h-4 text-amber-500" />
               <h3 className="text-sm font-bold text-gray-800">הישגים</h3>
             </div>
+            )}
             <button
               type="button"
               onClick={() => setIsAchievementSheetOpen(true)}
-              className="text-xs font-semibold text-[#00ADEF]"
+              className={v2 ? 'text-[13px] font-extrabold text-v2-deep' : 'text-xs font-semibold text-[#00ADEF]'}
             >
               כל ההישגים
             </button>
@@ -443,6 +447,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
             unlockedAchievements={unlockedAchievements}
             onViewAll={() => setIsAchievementSheetOpen(true)}
             maxVisible={6}
+            v2={v2}
           />
         </motion.div>
       </div>
@@ -465,30 +470,30 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
           initial={{ y: 16, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.06 }}
-          className="pb-5 border-b border-gray-100"
+          className={v2 ? 'pb-6' : 'pb-5 border-b border-gray-100'}
         >
-          <GoalCarousel />
+          <GoalCarousel v2={v2} />
         </motion.div>
 
         <motion.div
           initial={{ y: 16, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.1 }}
-          className="pt-5 pb-5 border-b border-gray-100"
+          className={v2 ? 'pb-6' : 'pt-5 pb-5 border-b border-gray-100'}
         >
-          <ExerciseWishlistStrip />
+          <ExerciseWishlistStrip v2={v2} />
         </motion.div>
 
         <motion.div
           initial={{ y: 16, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.14 }}
-          className="pt-5 pb-5 border-b border-gray-100"
+          className={v2 ? 'pb-6' : 'pt-5 pb-5 border-b border-gray-100'}
         >
           {isRunningMode ? (
-            <RunningWidgets workouts={workouts} />
+            <RunningWidgets workouts={workouts} v2={v2} />
           ) : (
-            <StrengthWidgets workouts={workouts} />
+            <StrengthWidgets workouts={workouts} v2={v2} />
           )}
         </motion.div>
 
@@ -496,9 +501,9 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
           initial={{ y: 16, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.18 }}
-          className="pt-5"
+          className={v2 ? '' : 'pt-5'}
         >
-          <PrioritiesSection />
+          <PrioritiesSection v2={v2} />
         </motion.div>
       </div>
 
@@ -513,6 +518,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
       <FavoritesSheet
         isOpen={isFavoritesSheetOpen}
         onClose={() => setIsFavoritesSheetOpen(false)}
+        v2={v2}
       />
 
       {/* ── Edit Profile — opened by the "עריכת פרופיל" button (round 5) ── */}

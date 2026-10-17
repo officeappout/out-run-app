@@ -18,7 +18,9 @@ import type { LevelGoal } from '@/types/workout';
  * The carousel is NEVER empty — it always renders data or a skeleton.
  * Cards navigate to ExerciseAnalyticsPage on tap.
  */
-export default function GoalCarousel() {
+import { Target } from 'lucide-react';
+
+export default function GoalCarousel({ v2 = false }: { v2?: boolean } = {}) {
   const { goals: programGoals, loading: goalsLoading } = useActiveProgramGoals();
 
   // ── Reliable userId from persisted store, not auth singleton ─────────────
@@ -80,6 +82,45 @@ export default function GoalCarousel() {
       `/profile/exercise/${encodeURIComponent(goal.exerciseId)}?name=${encodeURIComponent(goal.exerciseName)}`,
     );
   };
+
+  if (v2) {
+    return (
+      <div dir="rtl">
+        <h3 className="mb-3 text-[15px] font-black text-v2-ink">יעדי תרגילים</h3>
+        {isLoading ? (
+          <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 scrollbar-hide">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-44 w-40 flex-shrink-0 animate-pulse rounded-[20px] bg-white shadow-v2-ring" />
+            ))}
+          </div>
+        ) : displayGoals.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 rounded-v2-card bg-white px-5 py-6 text-center shadow-v2-card">
+            <span className="grid h-11 w-11 place-items-center rounded-full bg-v2-tint text-v2-deep">
+              <Target className="h-5 w-5" aria-hidden />
+            </span>
+            <p className="text-[14px] font-bold leading-snug text-v2-ink-2">
+              עדיין לא התאמנת.
+              <br />
+              התחל אימון כדי לראות יעדים כאן.
+            </p>
+          </div>
+        ) : (
+          <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2 scrollbar-hide">
+            {displayGoals.map((goal) => (
+              <GoalCard
+                key={goal.exerciseId}
+                goal={goal}
+                userId={userId}
+                isFallback={programGoals.length === 0}
+                onClick={() => handleCardClick(goal)}
+                v2
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div dir="rtl">

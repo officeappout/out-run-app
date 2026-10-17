@@ -24,7 +24,7 @@
  * program with no tree of its own falls back to /profile, same as there).
  */
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { getProgramByTemplateId } from '@/features/content/programs/core/program.service';
@@ -43,6 +43,9 @@ import { resolveAdditionalProgramSlugs, domainTypeForSlug } from './program-grou
 import { resolveOnboardingEntryHref } from '@/features/user/onboarding/utils/onboarding-entry';
 
 import BrandCtaButton from '@/components/ui/BrandCtaButton';
+import CircularProgress from '@/components/CircularProgress';
+import { getProgramIcon } from '@/features/content/programs';
+import { ChevronLeft, Target } from 'lucide-react';
 // ── Types ──────────────────────────────────────────────────────────
 
 interface ChildCardData {
@@ -77,7 +80,30 @@ async function fetchProgramMeta(templateId: string): Promise<Program | null> {
 
 // ── Component ──────────────────────────────────────────────────────
 
-export default function ProgramsSection() {
+interface ProgramsSectionProps {
+  /** Home v2 (enable_home_v2) look — passed down by DashboardTab. */
+  v2?: boolean;
+}
+
+const V2_PRESS = 'transition-transform duration-150 ease-v2 active:scale-[0.97]';
+
+/** v2 progress ring — brand arc on a hairline track. */
+function V2Ring({ percent, size, stroke, children }: { percent: number; size: number; stroke: number; children: React.ReactNode }) {
+  return (
+    <CircularProgress
+      percentage={percent}
+      size={size}
+      strokeWidth={stroke}
+      colorClass="text-v2-accent"
+      trackClass="text-v2-hairline"
+      className="shrink-0"
+    >
+      {children}
+    </CircularProgress>
+  );
+}
+
+export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {}) {
   const router = useRouter();
   const profile = useUserStore((s) => s.profile);
   const progressData = useProgramProgress();
@@ -253,6 +279,131 @@ export default function ProgramsSection() {
         </div>
       </button>
     );
+
+  // ── v2 row (shared by children + additional programs) — same two
+  // handlers as renderCardTile above, only the look differs. ──
+  const renderRowV2 = (card: ChildCardData, domainType: MiniAssessmentDomainType) =>
+    card.isAssessed ? (
+      <button
+        key={card.slug}
+        type="button"
+        onClick={() => goToProgram(card.slug)}
+        className={`flex w-full items-center gap-3 rounded-[20px] bg-white p-3 text-right shadow-v2-ring ${V2_PRESS}`}
+      >
+        <V2Ring percent={Math.round(card.percent)} size={44} stroke={4}>
+          <span className="text-v2-deep">{getProgramIcon(card.iconKey, 'w-4 h-4')}</span>
+        </V2Ring>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[15px] font-extrabold text-v2-ink">{card.name}</p>
+          <p className="mt-0.5 whitespace-nowrap text-[12.5px] font-bold text-v2-muted tabular-nums">
+            שלב {card.currentLevel}/{card.maxLevel}
+          </p>
+        </div>
+        <span className="whitespace-nowrap text-[13px] font-extrabold text-v2-deep tabular-nums">
+          {Math.round(card.percent)}%
+        </span>
+        <ChevronLeft className="h-4 w-4 shrink-0 text-v2-muted" aria-hidden />
+      </button>
+    ) : (
+      <button
+        key={card.slug}
+        type="button"
+        onClick={() => startMiniDomainAssessment(router, card.slug, undefined, domainType)}
+        className={`flex w-full items-center gap-3 rounded-[20px] bg-white p-3 text-right shadow-v2-ring ${V2_PRESS}`}
+      >
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-v2-surface text-v2-muted ring-1 ring-inset ring-v2-hairline">
+          {getProgramIcon(card.iconKey, 'w-4 h-4')}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[15px] font-extrabold text-v2-ink-2">{card.name}</p>
+          <p className="mt-0.5 truncate text-[12.5px] font-bold text-v2-deep">טרם הוערך — לחצו לבדיקה</p>
+        </div>
+        <ChevronLeft className="h-4 w-4 shrink-0 text-v2-muted" aria-hidden />
+      </button>
+    );
+
+  const hasAnyProgram = !(!masterTemplateId && childSlugs.length === 0 && additionalCards.length === 0);
+
+  if (v2 && !hasAnyProgram) {
+    return (
+      <div dir="rtl">
+        <h3 className="mb-3 text-[15px] font-black text-v2-ink">התוכניות שלי</h3>
+        <div className="flex flex-col items-center gap-3 rounded-v2-card bg-white px-5 py-7 text-center shadow-v2-card">
+          <span className="grid h-12 w-12 place-items-center rounded-full bg-v2-tint text-v2-deep">
+            <Target className="h-6 w-6" aria-hidden />
+          </span>
+          <p className="text-[15px] font-extrabold text-v2-ink">עדיין לא בחרת תוכנית אימון.</p>
+          <button
+            type="button"
+            onClick={() => router.push(resolveOnboardingEntryHref(profile, 'STRENGTH'))}
+            className={`mt-1 h-12 rounded-full bg-v2-cta px-8 text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta ${V2_PRESS}`}
+          >
+            בחר תוכנית
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (v2) {
+    return (
+      <div className="space-y-5" dir="rtl">
+        <div className="flex items-center justify-between">
+          <h3 className="text-[15px] font-black text-v2-ink">התוכניות שלי</h3>
+          <button
+            type="button"
+            onClick={() => router.push('/home')}
+            className="text-[13px] font-extrabold text-v2-deep active:opacity-70"
+          >
+            ניהול
+          </button>
+        </div>
+
+        {masterTemplateId && progressData && (
+          <div className="space-y-2">
+            <p className="text-[13px] font-extrabold text-v2-deep">תוכנית פעילה</p>
+            <button
+              type="button"
+              onClick={goToMasterProgram}
+              className={`flex w-full items-center gap-4 rounded-v2-card bg-white p-4 text-right shadow-v2-card ${V2_PRESS}`}
+            >
+              <V2Ring percent={masterPercent} size={68} stroke={6}>
+                <span className="text-[15px] font-black text-v2-ink tabular-nums">{Math.round(masterPercent)}%</span>
+              </V2Ring>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 text-v2-deep">
+                  {getProgramIcon(masterIconKey, 'w-4 h-4')}
+                  <p className="truncate text-[17px] font-black text-v2-ink">{masterName}</p>
+                </div>
+                <p className="mt-1 whitespace-nowrap text-[13px] font-bold text-v2-muted tabular-nums">
+                  שלב {masterLevel}/{masterMaxLevel}
+                </p>
+              </div>
+              <ChevronLeft className="h-4 w-4 shrink-0 text-v2-muted" aria-hidden />
+            </button>
+          </div>
+        )}
+
+        {childCards.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[13px] font-extrabold text-v2-deep">תוכניות בנות</p>
+            <div className="flex flex-col gap-2">
+              {childCards.map((card) => renderRowV2(card, 'category'))}
+            </div>
+          </div>
+        )}
+
+        {additionalCards.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[13px] font-extrabold text-v2-deep">תוכניות נוספות</p>
+            <div className="flex flex-col gap-2">
+              {additionalCards.map((card) => renderRowV2(card, domainTypeForSlug(card.slug)))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // Don't render if no program at all. additionalCards is included defensively —
   // structurally it's empty whenever masterTemplateId is null (that only happens

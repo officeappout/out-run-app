@@ -45,7 +45,28 @@ function WishlistCard({ item }: { item: ResolvedWishlistItem }) {
   );
 }
 
-export default function ExerciseWishlistStrip() {
+function WishlistPillV2({ item }: { item: ResolvedWishlistItem }) {
+  return (
+    <div className="flex h-10 max-w-full items-center gap-2 rounded-full bg-white pe-4 ps-1 shadow-v2-ring">
+      <span className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-v2-tint text-v2-deep">
+        {item.thumbnailUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={item.thumbnailUrl}
+            alt=""
+            className="h-full w-full object-cover"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          />
+        ) : (
+          <Star size={14} aria-hidden />
+        )}
+      </span>
+      <span className="truncate whitespace-nowrap text-[13px] font-extrabold text-v2-ink">{item.name}</span>
+    </div>
+  );
+}
+
+export default function ExerciseWishlistStrip({ v2 = false }: { v2?: boolean } = {}) {
   const { profile } = useUserStore();
   const entries = profile?.progression?.exerciseWishlist ?? [];
   const [resolved, setResolved] = useState<ResolvedWishlistItem[]>([]);
@@ -72,6 +93,28 @@ export default function ExerciseWishlistStrip() {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(entries.map((e) => e.exerciseId))]);
+
+  if (v2) {
+    return (
+      <div dir="rtl">
+        <h3 className="mb-3 text-[15px] font-black text-v2-ink">תרגילים שאני רוצה ללמוד</h3>
+        {entries.length === 0 ? (
+          <div className="flex items-center gap-3 rounded-[20px] bg-white p-3.5 shadow-v2-ring">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-v2-tint text-v2-deep">
+              <Star className="h-[18px] w-[18px]" aria-hidden />
+            </span>
+            <p className="text-[14px] font-bold text-v2-ink-2">עדיין לא סימנת תרגילים</p>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {resolved.map((item) => (
+              <WishlistPillV2 key={item.exerciseId} item={item} />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (entries.length === 0) {
     return (

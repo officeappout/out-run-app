@@ -13,7 +13,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { Footprints, Gauge, Activity, Route } from 'lucide-react';
+import { Footprints, Gauge, Activity, Route, Medal } from 'lucide-react';
 import { useWeeklyVolumeStore } from '@/features/workout-engine/core/store/useWeeklyVolumeStore';
 import { useDailyActivity } from '@/features/activity';
 import { useProgramProgress } from '@/features/home/hooks/useProgramProgress';
@@ -67,6 +67,34 @@ function WidgetCard({ Icon, iconColor, label, value, progressPct, sub }: WidgetP
   );
 }
 
+/** v2 (enable_home_v2) cell — same data as WidgetCard, white-card language. */
+function WidgetCardV2({ Icon, iconColor, label, value, progressPct, sub }: WidgetProps) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5 rounded-[20px] bg-white p-3.5 shadow-v2-ring">
+      <div className="flex items-center gap-1.5">
+        <Icon className="h-4 w-4 shrink-0" style={{ color: iconColor }} aria-hidden />
+        <span className="truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">{label}</span>
+      </div>
+      <span className="truncate text-[24px] font-black leading-none text-v2-ink tabular-nums !tracking-[-0.02em]">
+        {value}
+      </span>
+      {sub && <span className="truncate text-[12px] font-bold text-v2-muted">{sub}</span>}
+      {typeof progressPct === 'number' && (
+        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-v2-hairline">
+          <div
+            className="h-full rounded-full bg-v2-accent transition-all duration-500"
+            style={{ width: `${Math.min(100, Math.max(0, progressPct))}%` }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SectionLabelV2({ children }: { children: React.ReactNode }) {
+  return <h3 className="mb-3 text-[15px] font-black text-v2-ink">{children}</h3>;
+}
+
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <h3 className="text-sm font-black text-gray-800 mb-2.5 px-1">{children}</h3>
@@ -79,6 +107,8 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 interface StrengthWidgetsProps {
   workouts: WorkoutHistoryEntry[];
+  /** Home v2 (enable_home_v2) look. */
+  v2?: boolean;
 }
 
 const HEBREW_DOMAIN_LABEL: Record<string, string> = {
@@ -96,7 +126,7 @@ const HEBREW_DOMAIN_LABEL: Record<string, string> = {
 
 const WEEKDAY_LABELS_SUN_FIRST = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 
-export function StrengthWidgets({}: StrengthWidgetsProps) {
+export function StrengthWidgets({ v2 = false }: StrengthWidgetsProps) {
   const strength = useWeeklyVolumeStore((s) => s.strength);
   const activeMinutes = useWeeklyVolumeStore((s) => s.activeMinutes);
   const sessionLogs = useWeeklyVolumeStore((s) => s.sessionLogs);
@@ -131,6 +161,85 @@ export function StrengthWidgets({}: StrengthWidgetsProps) {
   const maxDailyLoad = Math.max(1, ...dailyLoad);
 
   const hasPR = !!progressData && !progressData.programNameLoading && progressData.currentLevel > 0;
+
+  if (v2) {
+    return (
+      <div>
+        <SectionLabelV2>השבוע שלך</SectionLabelV2>
+        <div className="rounded-v2-card bg-white p-4 shadow-v2-card">
+          <div className="flex items-center gap-4">
+            <CircularProgress
+              percentage={minutesPct}
+              size={76}
+              strokeWidth={7}
+              colorClass="text-v2-accent"
+              trackClass="text-v2-hairline"
+            >
+              <div className="flex flex-col items-center">
+                <span className="text-[17px] font-black leading-none text-v2-ink tabular-nums">
+                  {activeMinutes.totalMinutes}
+                </span>
+                <span className="mt-0.5 whitespace-nowrap text-[11px] font-bold text-v2-muted">
+                  מתוך {activeMinutes.weeklyGoal}&apos;
+                </span>
+              </div>
+            </CircularProgress>
+
+            <div className="flex flex-1 items-center justify-around gap-2">
+              <div className="flex flex-col items-center text-center">
+                <span className="text-[22px] font-black leading-none text-v2-ink tabular-nums">
+                  {strength.totalSetsCompleted}
+                </span>
+                <span className="mt-1 whitespace-nowrap text-[12px] font-bold text-v2-muted">סטים השבוע</span>
+              </div>
+              <div className="flex max-w-[110px] flex-col items-center text-center">
+                <span className="text-[22px] font-black leading-none text-v2-ink tabular-nums">
+                  {domainList.length}
+                </span>
+                <span className="mt-1 w-full truncate whitespace-nowrap text-[12px] font-bold text-v2-muted">
+                  {domainList.length > 0 ? domainList.slice(0, 2).join(' · ') : 'קבוצות שרירים'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <p className="mb-2 text-[13px] font-extrabold text-v2-deep">עומס יומי</p>
+            <div className="flex items-end gap-1.5" style={{ height: 40 }}>
+              {WEEKDAY_LABELS_SUN_FIRST.map((label, i) => (
+                <div key={label} className="flex h-full flex-1 flex-col items-center justify-end">
+                  <div
+                    className={`w-full rounded-md ${dailyLoad[i] > 0 ? 'bg-v2-accent' : 'bg-v2-hairline'}`}
+                    style={{ height: `${Math.max(10, (dailyLoad[i] / maxDailyLoad) * 100)}%` }}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="mt-1.5 flex gap-1.5">
+              {WEEKDAY_LABELS_SUN_FIRST.map((label) => (
+                <span key={label} className="flex-1 text-center text-[11px] font-bold text-v2-muted">
+                  {label}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4 flex items-center justify-center gap-1.5 border-t border-v2-hairline pt-3">
+            {hasPR ? (
+              <>
+                <Medal className="h-4 w-4 shrink-0 text-v2-deep" aria-hidden />
+                <p className="truncate text-[13px] font-extrabold text-v2-ink-2">
+                  שיא · {progressData!.programName} · רמה {progressData!.currentLevel}
+                </p>
+              </>
+            ) : (
+              <p className="text-[12.5px] font-bold text-v2-muted">עוד לא נקבע שיא — תתחיל להתאמן</p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -221,6 +330,8 @@ export function StrengthWidgets({}: StrengthWidgetsProps) {
 
 interface RunningWidgetsProps {
   workouts: WorkoutHistoryEntry[];
+  /** Home v2 (enable_home_v2) look. */
+  v2?: boolean;
 }
 
 const STEPS_GOAL_FALLBACK = DAILY_STEP_GOAL;
@@ -233,7 +344,7 @@ function formatPace(minPerKm: number): string {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
-export function RunningWidgets({ workouts }: RunningWidgetsProps) {
+export function RunningWidgets({ workouts, v2 = false }: RunningWidgetsProps) {
   const running = useWeeklyVolumeStore((s) => s.running);
   const { stepsToday, todayActivity } = useDailyActivity();
 
@@ -259,6 +370,50 @@ export function RunningWidgets({ workouts }: RunningWidgetsProps) {
     ? Math.round((running.totalDistance / running.weeklyTargetDistance) * 100)
     : 0;
   const stepsPct = Math.round((stepsToday / stepsGoal) * 100);
+
+  if (v2) {
+    return (
+      <div>
+        <SectionLabelV2>ריצה</SectionLabelV2>
+        <div className="grid grid-cols-2 gap-2.5">
+          <WidgetCardV2
+            Icon={Route}
+            iconColor="#00baf7"
+            label='ק"מ השבוע'
+            value={
+              running.weeklyTargetDistance > 0
+                ? `${running.totalDistance.toFixed(1)} / ${running.weeklyTargetDistance.toFixed(0)}`
+                : `${running.totalDistance.toFixed(1)}`
+            }
+            sub='ק"מ'
+            progressPct={kmPct}
+          />
+          <WidgetCardV2
+            Icon={Gauge}
+            iconColor="#65a30d"
+            label="קצב ממוצע"
+            value={formatPace(avgPaceMinPerKm)}
+            sub='דק׳ לק"מ'
+          />
+          <WidgetCardV2
+            Icon={Footprints}
+            iconColor="#f59e0b"
+            label="צעדים היום"
+            value={stepsToday.toLocaleString()}
+            sub={`מתוך ${stepsGoal.toLocaleString()}`}
+            progressPct={stepsPct}
+          />
+          <WidgetCardV2
+            Icon={Activity}
+            iconColor="#8b5cf6"
+            label="ריצה ארוכה"
+            value={longRunKm > 0 ? `${longRunKm.toFixed(1)}` : '—'}
+            sub={longRunKm > 0 ? 'ק"מ' : 'אין נתונים עדיין'}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
