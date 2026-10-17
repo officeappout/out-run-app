@@ -80,6 +80,30 @@ function writeCachedFlags(flags: FeatureFlags) {
   }
 }
 
+/**
+ * In-memory twin of the cache for this JS session: the newest flags any hook
+ * instance received. Lets a hook that mounts after hydration start from them
+ * in useState's initializer (see the hook below).
+ */
+let lastKnownFlags: FeatureFlags | null = null;
+/** True once the first hook instance has committed on the client. */
+let clientHydrated = false;
+
+/**
+ * Flags to start a NEW hook instance from, or null when unknown. Always null
+ * until the app has hydrated, so the hydration render matches the server's.
+ */
+export function initialFlags(): FeatureFlags | null {
+  if (!clientHydrated || typeof window === 'undefined') return null;
+  return lastKnownFlags ?? readCachedFlags();
+}
+
+/** Test-only: mark the app hydrated / seed the in-memory flags. */
+export function __setFlagsMemoryForTests(flags: FeatureFlags | null, hydrated: boolean) {
+  lastKnownFlags = flags;
+  clientHydrated = hydrated;
+}
+
 // Layout effect on the client (before paint), plain effect on the server.
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
@@ -94,16 +118,23 @@ export function useFeatureFlags(isSuperAdmin?: boolean): {
   flags: FeatureFlags;
   loading: boolean;
 } {
-  const [flags, setFlags] = useState<FeatureFlags>(SAFE_DEFAULTS);
-  const [loading, setLoading] = useState(true);
+  // After the app's first hydration, a hook that mounts later (a client-side
+  // navigation, a sheet, the bottom bar) starts straight from the best flags
+  // this device knows — no render with SAFE_DEFAULTS at all. During the
+  // hydration render itself it must still match the server (SAFE_DEFAULTS);
+  // the layout effect below corrects that before the first paint.
+  const [flags, setFlags] = useState<FeatureFlags>(() => initialFlags() ?? SAFE_DEFAULTS);
+  const [loading, setLoading] = useState(() => initialFlags() === null);
 
   // Before the first paint: the last-known flags, so the right design shows
-  // straight away. (Not in useState's initializer — the server render has no
-  // localStorage, and the first client render must match it.)
+  // straight away. (Not in useState's initializer on the hydration render —
+  // the server render has no localStorage, and the first client render must
+  // match it.)
   useIsomorphicLayoutEffect(() => {
-    const cached = readCachedFlags();
-    if (cached) {
-      setFlags(cached);
+    clientHydrated = true;
+    const known = lastKnownFlags ?? readCachedFlags();
+    if (known) {
+      setFlags(known);
       setLoading(false);
     }
   }, []);
@@ -115,6 +146,7 @@ export function useFeatureFlags(isSuperAdmin?: boolean): {
       doc(db, 'system_config', 'feature_flags'),
       (snap) => {
         const next = snap.exists() ? flagsFromFirestoreData(snap.data()) : SAFE_DEFAULTS;
+        lastKnownFlags = next;
         setFlags(next);
         setLoading(false);
         writeCachedFlags(next);
@@ -124,7 +156,7 @@ export function useFeatureFlags(isSuperAdmin?: boolean): {
         // back to safe defaults only when there are none) — wiping them here
         // would bring the old-design flash right back. In production this
         // should never fire since the rule is public.
-        setFlags(readCachedFlags() ?? SAFE_DEFAULTS);
+        setFlags(lastKnownFlags ?? readCachedFlags() ?? SAFE_DEFAULTS);
         setLoading(false);
       },
     );

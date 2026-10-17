@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 // `m` is the tree-shakeable variant; the root <LazyMotion> in ClientLayout
 // supplies the dom-animation features. Reduces JS payload on the feed tab.
 import { m, AnimatePresence } from 'framer-motion';
@@ -8,6 +8,7 @@ import { X, HandMetal, Users, Trophy } from 'lucide-react';
 import { useUserStore } from '@/features/user';
 import { useActivityFeed } from '../hooks/useActivityFeed';
 import { sendKudo } from '@/features/safecity/services/kudos.service';
+import { markActivitySeen } from '../utils/activity-seen';
 import type { ActivityFeedItem, ActivityEventType } from '@/types/community.types';
 
 // ─── Time formatting ─────────────────────────────────────────────────────────
@@ -62,6 +63,12 @@ export default function ActivityPanel({ isOpen, onClose }: ActivityPanelProps) {
   const myUid = profile?.id ?? null;
   const myName = profile?.core?.name ?? 'אווטיר';
   const { items, isLoading } = useActivityFeed(myUid);
+
+  // Opening the panel = everything in it is seen (clears the v2 avatar dot).
+  // Device-local only; the Firestore items are not modified.
+  useEffect(() => {
+    if (isOpen) markActivitySeen(myUid);
+  }, [isOpen, myUid]);
 
   async function handleHighFiveBack(item: ActivityFeedItem) {
     if (!myUid || !item.fromUid) return;

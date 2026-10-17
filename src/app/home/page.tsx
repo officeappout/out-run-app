@@ -60,6 +60,8 @@ import AddStrengthProgramCard from '@/features/home/components/AddStrengthProgra
 import { useWeeklyProgress, useDailyActivity } from '@/features/activity';
 import type { ActivityCategory } from '@/features/activity/types/activity.types';
 import TodayActivityStrip from '@/features/home/components/TodayActivityStrip';
+import DoneTodayCard from '@/features/home/components/DoneTodayCard';
+import { nextPlannedDay, totalMinutes as sumMinutes, totalXp } from '@/features/home/utils/done-today';
 import type { TodayActivityCardData } from '@/features/home/components/TodayActivityCard';
 import { todayCardFallbackTitle } from '@/features/home/utils/today-activity-labels';
 import StepsSummaryCard from '@/features/home/components/widgets/StepsSummaryCard';
@@ -678,7 +680,7 @@ export default function HomePage() {
   // StatsOverview already call it), each mounting its own onSnapshot pair.
   // Consistent with this page's existing convention (not a new pattern this
   // diff introduces), but a real modest listener cost, not a free read.
-  const { allGoalsMet, todayActivity } = useDailyActivity();
+  const { allGoalsMet, todayActivity, streak: activityStreak } = useDailyActivity();
   // Real-steps-connect plan (04.09.2026, staleness fix): reactive stepsRemaining, computed
   // via the SAME buildStepContext gate (healthConnected===false -> 0) the resolve side uses —
   // NOT a second, independently-invented computation. Reuses this file's own existing
@@ -2854,10 +2856,23 @@ export default function HomePage() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4, ease: 'easeOut' }}
           >
-            <TodayActivityStrip
-              cards={todayStepGoalCard ? [...todayActivityCards, todayStepGoalCard] : todayActivityCards}
-              onCardTap={handleTodayActivityCardTap}
-            />
+            {/* v2: the design lab's DoneToday card replaces the strip once a real
+                workout doc exists today (a steps-only day keeps the strip). */}
+            {featureFlags.enableHomeV2 && todayActivityCards.length > 0 ? (
+              <DoneTodayCard
+                cards={todayStepGoalCard ? [...todayActivityCards, todayStepGoalCard] : todayActivityCards}
+                totalMinutes={sumMinutes(todayActivityCards.map((c) => c.minutes))}
+                xp={totalXp(todaysWorkouts ?? [])}
+                streak={activityStreak}
+                nextPlannedLabel={hasSchedule ? (nextPlannedDay(userScheduleDays, todayIndex)?.label ?? null) : null}
+                onCardTap={handleTodayActivityCardTap}
+              />
+            ) : (
+              <TodayActivityStrip
+                cards={todayStepGoalCard ? [...todayActivityCards, todayStepGoalCard] : todayActivityCards}
+                onCardTap={handleTodayActivityCardTap}
+              />
+            )}
           </motion.div>
         )}
 

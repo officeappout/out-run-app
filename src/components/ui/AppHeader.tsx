@@ -32,6 +32,7 @@ import { useDailyActivity } from '@/features/activity';
 import { useChatStore } from '@/features/social/store/useChatStore';
 import { useActivityPanelStore } from '@/features/social/store/useActivityPanelStore';
 import { useActivityFeed } from '@/features/social/hooks/useActivityFeed';
+import { ACTIVITY_SEEN_EVENT, countUnseenActivity, readActivitySeenAt } from '@/features/social/utils/activity-seen';
 import { useChatInbox } from '@/features/social/hooks/useChatInbox';
 import { isUserVerified } from '@/features/user/identity/services/access-control.service';
 import type { ActivityType } from '@/features/activity/types/activity.types';
@@ -90,7 +91,20 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false, v2
   }, [activityType]);
 
   // Unread badges
-  const { unreadCount: activityUnread } = useActivityFeed(userId);
+  const { unreadCount: activityUnreadLegacy, items: activityItems } = useActivityFeed(userId);
+  // v2: the dot only for someone else's activity the user hasn't opened yet
+  // (the legacy count includes the user's own event-join entries, which can
+  // never be marked read — see activity-seen.ts).
+  const [activitySeenAt, setActivitySeenAt] = useState(0);
+  useEffect(() => {
+    const sync = () => setActivitySeenAt(readActivitySeenAt(userId));
+    sync();
+    window.addEventListener(ACTIVITY_SEEN_EVENT, sync);
+    return () => window.removeEventListener(ACTIVITY_SEEN_EVENT, sync);
+  }, [userId]);
+  const activityUnread = v2
+    ? countUnseenActivity(activityItems, userId, activitySeenAt)
+    : activityUnreadLegacy;
   const { totalUnread: chatUnread } = useChatInbox(userId);
 
   // Sheet openers
@@ -147,7 +161,7 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false, v2
             type="button"
             onClick={(e) => { e.stopPropagation(); openActivity(); }}
             aria-label={`התראות — ${activityUnread > 99 ? '99+' : activityUnread} חדשות`}
-            className="absolute -top-0.5 -left-0.5 w-3 h-3 rounded-full bg-red-500 border-2 border-white"
+            className="absolute -top-0.5 -left-0.5 w-3 h-3 rounded-full bg-v2-accent border-2 border-white"
           />
         )}
         {streak > 0 && !activityLoading && (
