@@ -49,6 +49,8 @@ export default defineConfig({
       // this root's node_modules) — only files with zero external
       // imports (pure logic, like accessCodeRateLimit.ts) can run here.
       'functions/src/**/__tests__/**/*.test.ts',
+      // CI tooling — the tsc baseline gate's normalizer + compare mode (17.10.2026).
+      'scripts/ci/__tests__/**/*.test.ts',
     ],
     // hybrid-runtime.test.ts + hybrid-orchestrator.test.ts (22.09.2026,
     // field-test doc 12/13): both predate this vitest setup — plain
