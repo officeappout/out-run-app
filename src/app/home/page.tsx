@@ -86,6 +86,7 @@ import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import WorkoutLocationSuggestions from '@/features/home/components/WorkoutLocationSuggestions';
 import NearbyGroupsRow from '@/features/home/components/NearbyGroupsRow';
+import { HomeV2Context } from '@/features/home/context/HomeV2Context';
 import AppHeader from '@/components/ui/AppHeader';
 import { useRequiredSetup } from '@/features/user/onboarding/hooks/useRequiredSetup';
 import { JITSetupModal } from '@/features/user/onboarding/components/JITSetupModal';
@@ -2717,6 +2718,7 @@ export default function HomePage() {
   const primaryTrack = (profile?.lifestyle as any)?.primaryTrack;
 
   return (
+    <HomeV2Context.Provider value={featureFlags.enableHomeV2}>
     <div className="min-h-[100dvh] bg-[#F8FAFC]">
       {/* ── Shared App Header (avatar + flame, logo, bell + chat + search) ── */}
       <AppHeader v2={featureFlags.enableHomeV2} />
@@ -3085,7 +3087,13 @@ export default function HomePage() {
                         it to control. */}
                     <div className="px-5" dir="rtl">
                       <div className="relative mb-1 flex items-center justify-between gap-2">
-                        <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white">
+                        <h3
+                          className={
+                            featureFlags.enableHomeV2
+                              ? 'text-[19px] font-black text-[#0e1419] dark:text-white'
+                              : 'text-2xl font-extrabold text-gray-900 dark:text-white'
+                          }
+                        >
                           האימון היומי שלך
                         </h3>
                         {isActiveSuggestionHeroTreated && (
@@ -3430,8 +3438,19 @@ export default function HomePage() {
       {SOCIAL_COMPOSE_UI_ENABLED && !showPlanner && !showLifestyleWizard && !builderOpen && !editEntry && !selectedWorkout && (
         <button
           onClick={() => setPlusDrawerOpen(true)}
-          className="fixed z-[55] w-14 h-14 rounded-full shadow-xl flex items-center justify-center bg-[#00E5FF] text-on-brand active:scale-95 transition-all"
-          style={{ bottom: 'calc(84px + env(safe-area-inset-bottom, 0px))', right: '16px' }}
+          className={
+            featureFlags.enableHomeV2
+              ? 'fixed z-[55] w-14 h-14 rounded-full flex items-center justify-center bg-white text-[#0284c7] active:scale-95 transition-transform'
+              : 'fixed z-[55] w-14 h-14 rounded-full shadow-xl flex items-center justify-center bg-[#00E5FF] text-on-brand active:scale-95 transition-all'
+          }
+          style={{
+            bottom: 'calc(84px + env(safe-area-inset-bottom, 0px))',
+            right: '16px',
+            // v2: one filled gradient per screen — the "+" floats white (design-language §9.11)
+            ...(featureFlags.enableHomeV2
+              ? { boxShadow: '0 28px 56px -24px rgba(9,30,50,0.45), 0 0 0 1px rgba(14,27,42,0.08)' }
+              : {}),
+          }}
           title="הוסף"
         >
           <Plus size={22} />
@@ -3702,5 +3721,6 @@ export default function HomePage() {
         onCancel={cancelJIT}
       />
     </div>
+    </HomeV2Context.Provider>
   );
 }

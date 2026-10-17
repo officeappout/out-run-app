@@ -1,5 +1,7 @@
 "use client";
 
+import { Play } from 'lucide-react';
+import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { MockWorkout } from '../data/mock-schedule-data';
 import { Dumbbell, PersonStanding } from 'lucide-react';
@@ -525,6 +527,9 @@ export default function HeroWorkoutCard({
     : null;
 
   const ctaText = useMemo(() => getGenderedCtaText(userGender, workout.title), [userGender, workout.title]);
+  // Home v2 (enable_home_v2): softer card (v2 radius + navy shadow, no hard border),
+  // heavier title, the CTA as the screen's one filled gradient with a play glyph.
+  const v2 = useHomeV2();
 
   // ── Normal (pre-workout) Mode ──
   // Stage D+E (19.08.2026, "completion-loop" plan): the celebration-mode branch
@@ -550,9 +555,11 @@ export default function HeroWorkoutCard({
       style={{
         width: dims.width,
         height: dims.height,
-        borderRadius: CARD_RADIUS,
-        border: CARD_BORDER,
-        boxShadow: '0 8px 30px rgba(15,23,42,0.18)',
+        borderRadius: v2 ? 24 : CARD_RADIUS,
+        border: v2 ? undefined : CARD_BORDER,
+        boxShadow: v2
+          ? '0 24px 50px -36px rgba(9,30,50,0.45), 0 0 0 1px rgba(14,27,42,0.06)'
+          : '0 8px 30px rgba(15,23,42,0.18)',
       }}
     >
       {/* 1. Dynamic Background */}
@@ -599,8 +606,8 @@ export default function HeroWorkoutCard({
             <img src={programIconSrc} alt="" width={isSide ? 18 : 22} height={isSide ? 18 : 22} className="flex-shrink-0 opacity-80" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           )}
           <h4
-            className="font-semibold text-gray-800 dark:text-white leading-snug"
-            style={{ fontSize: isSide ? 14 : 16 }}
+            className={`${v2 ? 'font-black text-[#0e1419]' : 'font-semibold text-gray-800'} dark:text-white leading-snug`}
+            style={{ fontSize: isSide ? 14 : v2 ? 18 : 16, letterSpacing: v2 ? '-0.02em' : undefined }}
           >
             {workout.title}
           </h4>
@@ -608,13 +615,20 @@ export default function HeroWorkoutCard({
 
         {/* 3c. CTA button — gender-aware curiosity text */}
         <div
-          className={`${BRAND_CTA_FILL_CLASS} flex items-center justify-center pointer-events-none`}
+          className={`${BRAND_CTA_FILL_CLASS} flex items-center justify-center gap-1.5 whitespace-nowrap pointer-events-none ${v2 ? 'font-extrabold' : ''}`}
           style={{
             width: isSide ? Math.min(CTA_WIDTH, dims.width - 32) : CTA_WIDTH,
-            height: CTA_HEIGHT,
+            height: v2 && !isSide ? 40 : CTA_HEIGHT,
             fontSize: isSide ? 13 : 14,
+            ...(v2
+              ? {
+                  borderRadius: 999,
+                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5), 0 10px 26px -12px rgba(0,186,247,0.7)',
+                }
+              : {}),
           }}
         >
+          {v2 && <Play size={14} strokeWidth={2.6} className="fill-current" aria-hidden />}
           {ctaText}
         </div>
       </div>
