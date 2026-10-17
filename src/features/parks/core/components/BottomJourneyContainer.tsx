@@ -10,6 +10,7 @@ import RouteQualityBadges from './RouteQualityBadges';
 import { UNIFIED_ROUTE_CARDS_ENABLED } from '@/config/feature-flags';
 import { bunnyImg } from '@/lib/bunny-image';
 import { computeStartExperienceState, estimateWalkMinutesFromKm } from '../services/start-experience-state';
+import { formatTooFarLabels } from '../services/start-experience-state';
 import { useToast } from '@/components/ui/Toast';
 import { clampedScrollTarget, registerCorrection, type CorrectionPair } from './carousel-scroll-sync.util';
 
@@ -379,9 +380,9 @@ export default function BottomJourneyContainer({
               : estimateWalkMinutesFromKm(distFromUser);
             const startState = computeStartExperienceState(userPosition, route.path, cardWalkMinutes);
             const isTooFar = startState === 'off_route_too_far';
-            const blockedReason = isTooFar
-              ? `התקרבו למסלול — נותרו עוד כ-${cardWalkMinutes} דק' הליכה`
-              : null;
+            // G1.4: walk-time wording only within WALK_TIME_DISPLAY_MAX_KM (2 km); farther → distance.
+            const tooFarLabels = formatTooFarLabels(distFromUser, cardWalkMinutes);
+            const blockedReason = isTooFar ? tooFarLabels.toast : null;
             // Unified text-only card (flag-gated). The CTA + all handlers are
             // passed through unchanged; only the shell/layout is unified.
             if (UNIFIED_ROUTE_CARDS_ENABLED) {
@@ -425,7 +426,7 @@ export default function BottomJourneyContainer({
                   ctaContent={
                     <>
                       <Play size={14} fill="currentColor" />
-                      {isTooFar ? `עוד כ-${cardWalkMinutes} דק' הליכה` : 'צא לדרך'}
+                      {isTooFar ? tooFarLabels.cta : 'צא לדרך'}
                       <ChevronLeft size={14} />
                     </>
                   }
