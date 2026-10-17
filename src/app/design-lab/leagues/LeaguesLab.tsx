@@ -837,10 +837,9 @@ function BoardControls({
 
 /* ── neighborhoods ──────────────────────────────────────────────────────── */
 
-type HoodScope = 'city' | 'near' | 'all';
+type HoodScope = 'city' | 'all';
 const HOOD_SCOPES: { id: HoodScope; label: string }[] = [
   { id: 'city', label: 'בעיר שלי' },
-  { id: 'near', label: 'קרובות אליי' },
   { id: 'all', label: 'כל הארץ' },
 ];
 
@@ -853,9 +852,9 @@ function NeighborhoodLeague() {
   const b = BATTLE;
   const lead = b.mine.perMember - b.rival.perMember;
   const pct = Math.round((b.mine.perMember / (b.mine.perMember + b.rival.perMember)) * 100);
-  const pool = NEIGHBORHOODS_ALL.filter((n) => (scope === 'city' ? n.city === 'תל אביב־יפו' : scope === 'near' ? n.near : true));
+  const pool = NEIGHBORHOODS_ALL.filter((n) => (scope === 'city' ? n.city === 'תל אביב־יפו' : true));
   const sorted = [...pool].sort((x, y) => score(y, activity, mode) - score(x, activity, mode));
-  const title = scope === 'city' ? 'שכונות תל אביב־יפו' : scope === 'near' ? 'שכונות קרובות אליי' : 'השכונות בכל הארץ';
+  const title = scope === 'city' ? 'שכונות תל אביב־יפו' : 'השכונות בכל הארץ';
   const sub = (n: (typeof NEIGHBORHOODS_ALL)[number]) => (scope === 'city' ? `${n.active} פעילים` : `${n.city} · ${n.active} פעילים`);
   const top: PodiumItem[] = sorted.slice(0, 3).map((n) => {
     const d = display(n, activity, mode);
