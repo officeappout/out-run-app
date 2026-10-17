@@ -78,6 +78,12 @@ export interface ProgramInfoPanelProps {
   /** Only meaningful when hasGoals is true. */
   goalsCompleted: boolean;
   onReassess: () => void;
+  /**
+   * Home v2: rendered INSIDE the sticky AppHeader (so the strip moves with
+   * the header instead of scrolling away from it — owner: "the top part is
+   * detached"), as a game-like card. No absolute positioning, no scrim.
+   */
+  docked?: boolean;
 }
 
 export function ProgramInfoPanel({
@@ -93,6 +99,7 @@ export function ProgramInfoPanel({
   hasGoals,
   goalsCompleted,
   onReassess,
+  docked = false,
 }: ProgramInfoPanelProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -100,6 +107,94 @@ export function ProgramInfoPanel({
   const nextLevel = Math.min(safeMaxLevel, currentLevel + 1);
   const hasRealProgress = progressPercent != null;
   const clampedPercent = hasRealProgress ? Math.max(0, Math.min(100, Math.round(progressPercent))) : 0;
+
+  if (docked) {
+    const pct = hasRealProgress ? clampedPercent : 0;
+    const R = 21;
+    const C = 2 * Math.PI * R;
+    return (
+      <div className="mx-3 mb-2 overflow-hidden rounded-[20px] bg-white shadow-v2-card" dir="rtl">
+        <button type="button" onClick={() => setExpanded((v) => !v)} className="flex w-full items-center gap-3 px-3.5 pb-2 pt-3 text-right" aria-expanded={expanded}>
+          {/* Level badge — a ring that fills toward the next level */}
+          <span className="relative grid h-[52px] w-[52px] shrink-0 place-items-center">
+            <svg width="52" height="52" className="absolute inset-0 -rotate-90" aria-hidden>
+              <defs>
+                <linearGradient id="lvl-ring" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stopColor="#00baf7" />
+                  <stop offset="1" stopColor="#0cf2e3" />
+                </linearGradient>
+              </defs>
+              <circle cx="26" cy="26" r={R} fill="none" stroke="#e6f4fa" strokeWidth="5" />
+              <circle cx="26" cy="26" r={R} fill="none" stroke="url(#lvl-ring)" strokeWidth="5" strokeLinecap="round" strokeDasharray={`${(C * pct) / 100} ${C}`} />
+            </svg>
+            <span className="relative text-center leading-none">
+              <span className="block text-[18px] font-black text-v2-ink tabular-nums">{currentLevel}</span>
+              <span className="block text-[9.5px] font-extrabold text-v2-muted">רמה</span>
+            </span>
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-1.5">
+              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-[8px] bg-v2-tint text-v2-deep">{getProgramIcon(iconKey, 'w-[14px] h-[14px]')}</span>
+              <span className="truncate text-[16px] font-black text-v2-ink">{programName}</span>
+            </span>
+            <span className="mt-0.5 block whitespace-nowrap text-[12.5px] font-bold text-v2-muted">
+              {currentLevel >= safeMaxLevel ? 'הגעת לרמה הגבוהה ביותר' : `עוד ${100 - pct}% לרמה ${nextLevel} · מתוך ${safeMaxLevel}`}
+            </span>
+          </span>
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-v2-surface text-v2-ink-2 ring-1 ring-inset ring-v2-hairline">
+            {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </span>
+        </button>
+        {hasRealProgress && (
+          <div className="px-3.5 pb-3">
+            <div className="h-2.5 w-full overflow-hidden rounded-full bg-v2-tint">
+              <div className="h-full rounded-full bg-v2-cta transition-[width] duration-700" style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+        )}
+        <AnimatePresence initial={false}>
+          {expanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.22, ease: 'easeInOut' }}
+              className="overflow-hidden"
+            >
+              <div className="max-h-[55vh] space-y-2.5 overflow-y-auto px-3.5 pb-4 pt-1">
+                {programDescription && (
+                  <p className="rounded-[14px] bg-v2-surface px-3 py-2 text-[13px] font-semibold leading-relaxed text-v2-ink-2">{programDescription}</p>
+                )}
+                {levelDescription && (
+                  <p className="rounded-[14px] bg-v2-surface px-3 py-2 text-[13px] font-semibold leading-relaxed text-v2-ink-2">
+                    <b className="text-v2-ink">הרמה שלך · {currentLevel}: </b>
+                    {levelDescription}
+                  </p>
+                )}
+                {matchingGoal && (
+                  <div className="flex items-center justify-between rounded-[14px] bg-v2-surface px-3 py-2.5">
+                    <p className="truncate text-[13px] font-extrabold text-v2-ink">{currentLevelExerciseName}</p>
+                    <p className="flex-shrink-0 text-[12px] font-bold text-v2-muted">
+                      יעד: {matchingGoal.targetValue} {matchingGoal.unit === 'seconds' ? 'שניות' : 'חזרות'}
+                    </p>
+                  </div>
+                )}
+                {hasGoals && (
+                  <div className="flex items-center justify-between px-1 text-[13px]">
+                    <span className="font-bold text-v2-muted">סטטוס</span>
+                    <span className={`font-extrabold ${goalsCompleted ? 'text-v2-deep' : 'text-v2-ink'}`}>{goalsCompleted ? 'הושלם' : 'בתהליך'}</span>
+                  </div>
+                )}
+                <button type="button" onClick={onReassess} className="h-10 w-full rounded-full bg-white text-[13.5px] font-extrabold text-v2-deep shadow-v2-ring">
+                  עדכון הרמה שלי
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
 
   return (
     <>

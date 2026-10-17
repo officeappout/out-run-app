@@ -118,6 +118,7 @@ import { ChevronRight } from 'lucide-react';
 import AppHeader from '@/components/ui/AppHeader';
 import type { Exercise } from '@/features/content/exercises';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { getProgramByTemplateId } from '@/features/content/programs/core/program.service';
 import type { Program } from '@/features/content/programs/core/program.types';
 import { getProgramLevelSetting } from '@/features/content/programs/core/programLevelSettings.service';
@@ -148,6 +149,8 @@ export interface SkillTreeScreenProps {
 export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
   const router = useRouter();
   const profile = useUserStore((s) => s.profile);
+  // Home v2 (enable_home_v2): the program strip docks in the header.
+  const v2 = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin).flags.enableHomeV2;
   const { tree, currentLevel, isLoading } = useSkillTree(programId);
   // Progression v2 Phase 4a-fix: viewing is never gated (see the file
   // header — no such guard exists, by design), but an unassessed or
@@ -288,12 +291,33 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
           <button
             type="button"
             onClick={handleBack}
-            className="flex items-center gap-1 text-xs text-gray-400"
+            className={v2 ? 'flex h-8 items-center gap-1 rounded-full bg-white pe-3 ps-2 text-[13px] font-extrabold text-v2-ink-2 shadow-v2-ring' : 'flex items-center gap-1 text-xs text-gray-400'}
           >
             <ChevronRight size={14} />
             חזרה
           </button>
         </div>
+        {/* v2: the program strip lives in the sticky header so it never
+            detaches from it while scrolling (owner's review). */}
+        {v2 && !isLoading && currentLevel != null && (
+          <div className="mx-auto max-w-md">
+            <ProgramInfoPanel
+              docked
+              programName={skillName}
+              iconKey={programMeta?.iconKey ?? programId}
+              currentLevel={currentLevel}
+              maxLevel={displayTree?.maxLevel ?? currentLevel}
+              progressPercent={trackData?.percent ?? null}
+              programDescription={programMeta?.description}
+              levelDescription={levelSummary?.realDescription ?? null}
+              matchingGoal={levelSummary?.matchingGoal ?? null}
+              currentLevelExerciseName={currentLevelExerciseName}
+              hasGoals={levelSummary?.hasGoals ?? false}
+              goalsCompleted={levelSummary?.goalsCompleted ?? false}
+              onReassess={() => startMiniDomainAssessment(router, slug, `/progression-map/${programId}`, domainTypeForSlug(slug))}
+            />
+          </div>
+        )}
       </AppHeader>
 
       <main className="pb-16">
@@ -361,7 +385,7 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
           {/* Progression v2 Phase 4b round 2: ONE collapsible overlay panel,
               replacing round 1's static header title + always-expanded
               inline card. Assessed state ONLY — see file header. */}
-          {!isLoading && currentLevel != null && (
+          {!v2 && !isLoading && currentLevel != null && (
             <ProgramInfoPanel
               programName={skillName}
               iconKey={programMeta?.iconKey ?? programId}
@@ -380,7 +404,7 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
 
           <div
             className="px-4"
-            style={{ paddingTop: !isLoading && currentLevel != null ? PROGRAM_INFO_PANEL_COLLAPSED_HEIGHT : 0 }}
+            style={{ paddingTop: !v2 && !isLoading && currentLevel != null ? PROGRAM_INFO_PANEL_COLLAPSED_HEIGHT : v2 ? 12 : 0 }}
           >
             {isLoading && (
               <div className="flex flex-col items-center gap-3 py-20">
