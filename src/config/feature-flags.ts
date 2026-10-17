@@ -12,9 +12,12 @@ export const IS_COIN_SYSTEM_ENABLED = false;
 // While false, solo workouts use SummaryOrchestrator as fallback.
 export const AEROBIC_SOLO_ENABLED = true;
 
-// COMMUNITY_FEED_PAUSED: Social feed is hidden for the MVP.
-// Set to true to re-enable automatic post creation on workout completion.
-export const IS_COMMUNITY_FEED_ENABLED = false;
+// COMMUNITY_FEED: un-paused 17.10.2026 (owner approved the feed). The code no
+// longer hides it; who actually sees it is the admin toggle
+// system_config/feature_flags.enable_community_feed (super admins always).
+// Publishing is opt-in (feed-prefs.ts) and only while that toggle is on —
+// createWorkoutPost reads it first. Set back to false to hard-hide the feed.
+export const IS_COMMUNITY_FEED_ENABLED = true;
 
 // XP_SYSTEM_PAUSED: single source of truth for showing/hiding the XP +
 // gamification-character (lemur) system in the UI. Hides, does NOT stop,
