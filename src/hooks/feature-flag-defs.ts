@@ -116,6 +116,12 @@ export const FLAG_DEFS = [
   // day bubble, the v2 header. Fail-closed launch gate; superAdminValue true so David sees it
   // on his account while every other user keeps today's home until he flips it.
   { key: 'enableHomeV2', firestoreKey: 'enable_home_v2', defaultValue: false, superAdminValue: true },
+  // Sderot pilot G6.1 (17.10.2026) — guided "merged start": the station welcome screen's start
+  // tap is the audio unlock, so the demo gate opens with the demo already playing WITH SOUND
+  // (today the clip loops muted until "צפיתי, התחל"). The set still starts only on that tap.
+  // Read in HybridStationLayer (useFeatureFlags() without the super-admin override) →
+  // superAdminValue false; fail-closed — off = today's muted gate for everyone.
+  { key: 'enableGuidedMergedStart', firestoreKey: 'enable_guided_merged_start', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

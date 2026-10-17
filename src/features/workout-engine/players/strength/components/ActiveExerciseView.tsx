@@ -8,6 +8,8 @@ import ExerciseDetailContent from './ExerciseDetailContent';
 import type { PyramidStep } from '@/features/workout-engine/logic/workout-generator.types';
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
 import { TIMER_AUTO_ADVANCE_ENABLED } from '@/config/feature-flags';
+import { isDemoGateView, gateDemoAudible } from '../logic/demo-gate';
+import { useGateAudio } from '../logic/gate-audio';
 
 /**
  * ActiveExerciseView — the live ACTIVE-phase player surface.
@@ -179,6 +181,10 @@ export default function ActiveExerciseView({
   // media budget and cause the primary video to fail. Waiting for the main
   // video's `loadeddata` event before mounting the prefetch avoids this race.
   const [mainVideoReady, setMainVideoReady] = useState(false);
+  // G6.1 merged start (flag enable_guided_merged_start, armed by the guided welcome tap): the
+  // demo gate's clip plays WITH SOUND while the gate is up. Not armed → today's muted loop.
+  const gateAudioArmed = useGateAudio((s) => s.armed);
+  const gateAudible = gateDemoAudible(isDemoGateView(isPaused, videoPaused), gateAudioArmed);
 
   // Reset the gate on every set remount so the prefetch is re-deferred.
   useEffect(() => {
@@ -206,6 +212,7 @@ export default function ActiveExerciseView({
         isPaused={videoPaused ?? isPaused}
         hasAudio={false}
         onVideoElement={onVideoElement}
+        playWithSound={gateAudible}
         fullTutorial={exerciseFullTutorial ?? null}
         onVideoProgress={onSetVideoProgress}
         onVideoEnded={(isTimeExercise || !TIMER_AUTO_ADVANCE_ENABLED) ? undefined : () => onComplete()}

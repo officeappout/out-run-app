@@ -18,6 +18,7 @@ import type { ExternalVideo } from '@/features/content/exercises/core/exercise.t
 import { FOLLOW_ALONG_TUTORIAL_CTA_DEDUP_ENABLED } from '@/config/feature-flags';
 import { extractBunnyVideoId } from '@/lib/bunny/bunny.config';
 import BunnyVideoPlayer from '@/lib/bunny/BunnyVideoPlayer';
+import { isPlayerAudioMuted } from '../logic/player-audio-mute';
 
 interface ExerciseVideoPlayerProps {
   exerciseId: string;
@@ -40,6 +41,11 @@ interface ExerciseVideoPlayerProps {
    *  can't be unmuted from the parent) so the guided demo gate can unmute + play it inside the
    *  user's tap. Omitted → unchanged. */
   onVideoElement?: (el: HTMLVideoElement | null) => void;
+  /** G6.1 merged start: the guided demo gate is up and the welcome tap armed its audio → play the
+   *  DIRECT clip unmuted (session mute still wins; a rejected play falls back to muted). Never
+   *  re-mutes on its own when it turns false — the gate's "צפיתי, התחל" tap owns the mute state
+   *  from there, exactly as today. Omitted / false → unchanged. */
+  playWithSound?: boolean;
 }
 
 // Fallback video URL
@@ -83,6 +89,7 @@ export default function ExerciseVideoPlayer({
   onVideoEnded,
   onLoadingChange,
   onVideoElement,
+  playWithSound = false,
 }: ExerciseVideoPlayerProps) {
   const [videoLoading, setVideoLoading] = useState(true);
   const [iframeError, setIframeError] = useState(false);
@@ -269,6 +276,22 @@ export default function ExerciseVideoPlayer({
       });
     }
   }, [effectiveVideoUrl, hasValidDirectVideoUrl, isYouTubeVideo, isPaused, shouldMuteVideo]);
+
+  // G6.1: the guided demo gate opens with sound. Declared AFTER the mute-policy driver above so
+  // on the same commit it runs second and wins (that one sets muted=true for reps/time loops).
+  useEffect(() => {
+    if (!playWithSound) return;
+    const v = videoRef.current;
+    if (!v || isYouTubeVideo || !hasValidDirectVideoUrl) return;
+    v.muted = isPlayerAudioMuted();
+    const attempt = v.play();
+    if (attempt && typeof attempt.catch === 'function') {
+      attempt.catch(() => {
+        v.muted = true;
+        v.play().catch(() => {});
+      });
+    }
+  }, [playWithSound, effectiveVideoUrl, hasValidDirectVideoUrl, isYouTubeVideo]);
 
   // Handle loading state changes
   const handleLoadingChange = useCallback((loading: boolean) => {

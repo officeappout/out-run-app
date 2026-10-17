@@ -79,3 +79,23 @@ export function timerLeadInSeconds(
 export function gateClipMuted(sessionMuted: boolean): boolean {
   return sessionMuted;
 }
+
+/**
+ * Is the ACTIVE view currently the demo gate's view? StrengthRunner holds the PLAYER paused
+ * while the gate is up but keeps the demo clip playing behind it — it passes
+ * `videoPaused={gateActive ? false : sm.isPaused}` to ActiveExerciseView (PR-B2). So the clip
+ * running while the player is paused happens exactly while the gate is shown (the find screen
+ * keeps both paused; a normal pause pauses both). Pinned by demo-gate-view.test.ts against
+ * StrengthRunner's source, so a change there fails loudly instead of silently.
+ */
+export function isDemoGateView(isPaused: boolean, videoPaused: boolean | undefined): boolean {
+  return isPaused === true && videoPaused === false;
+}
+
+/**
+ * G6.1 merged start: the gate's demo clip opens WITH SOUND when the guided welcome tap armed it
+ * (flag on). Only while the gate is shown — sets / rest / repeats keep today's muted loop.
+ */
+export function gateDemoAudible(gateView: boolean, gateAudioArmed: boolean): boolean {
+  return gateView && gateAudioArmed;
+}

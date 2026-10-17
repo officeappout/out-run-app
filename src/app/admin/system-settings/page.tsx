@@ -38,6 +38,7 @@ interface FlagState {
   enable_carousel_swipe_hint: boolean;
   enable_route_direction_adapt: boolean;
   enable_no_auto_strength_level: boolean;
+  enable_guided_merged_start: boolean;
 }
 
 // ============================================================================
@@ -132,6 +133,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-500',
     title: 'ליווי צעד-אחר-צעד בתחנה',
     description: 'מתג חירום: כבוי = כל המשתמשים במצב מהיר (תחנה כמו היום). דלוק = לפי הבחירה של כל משתמש בהגדרות (ברירת מחדל דלוק).',
+  },
+  {
+    key: 'enable_guided_merged_start',
+    icon: ListChecks,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-500',
+    title: 'התחלה מאוחדת בתחנה (ליווי)',
+    description: 'במצב ליווי: הלחיצה על "התחל" במסך הפתיחה של התחנה פותחת את סרטון ההדגמה כשהוא כבר מתנגן עם קול (היום הוא מתנגן בלי קול עד "צפיתי, התחל"). הסט עצמו מתחיל רק בלחיצה על "צפיתי, התחל". כבוי = כמו היום.',
+    parentKey: 'enable_guided_station',
   },
   {
     key: 'enable_walk_to_first_stop',

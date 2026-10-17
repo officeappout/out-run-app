@@ -32,6 +32,7 @@ import { createPortal } from 'react-dom';
 import StrengthRunner from '@/features/workout-engine/players/strength/StrengthRunner';
 import { useHybridRun, hybridDemoSeen, hybridEquipmentFound } from './useHybridRun';
 import { scopedFoundStore } from '@/features/workout-engine/players/strength/logic/find-equipment';
+import { armGateAudioOnWelcomeTap } from '@/features/workout-engine/players/strength/logic/gate-audio';
 import { isApproachingStation } from './hybrid-orchestrator';
 import { toSegmentExerciseDetail } from '@/features/workout-engine/core/services/storage.service';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
@@ -217,7 +218,12 @@ export default function HybridStationLayer() {
             plan={stationPlan}
             context={stationContext}
             gender={userGender}
-            onStart={() => setWelcomeDoneFor(stationContext.stationNumber)}
+            onStart={() => {
+              // G6.1 merged start (flag enable_guided_merged_start, fail-closed): this tap is the
+              // user gesture — it arms the demo gate to open WITH SOUND. Off → writes false → today.
+              armGateAudioOnWelcomeTap(flags.enableGuidedMergedStart);
+              setWelcomeDoneFor(stationContext.stationNumber);
+            }}
             guided={guided}
             uid={profile?.id}
           />
