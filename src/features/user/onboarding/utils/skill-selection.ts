@@ -5,9 +5,12 @@
  * persisted onboarding_skill_focus shape is unchanged.
  */
 import { SKILL_MASTER_ID } from '../constants/program-path.constants';
+import { HIDDEN_PROGRAM_SLUGS } from '@/lib/hidden-programs';
 
-/** Hidden in the v2 step for now (owner's request) — still in SKILL_PROGRAMS / the legacy UI. */
-export const V2_HIDDEN_SKILLS: ReadonlySet<string> = new Set(['muscle_up', 'handstand']);
+/** Hidden in the v2 step for now (owner's request) — the shared
+ *  HIDDEN_PROGRAM_SLUGS, the same set the legacy picker (SKILL_PROGRAMS)
+ *  now filters by. */
+export const V2_HIDDEN_SKILLS: ReadonlySet<string> = HIDDEN_PROGRAM_SLUGS;
 
 export const V2_SKILL_GROUPS: { key: 'pull' | 'push'; name: string; hint: string; items: { id: string; label: string }[] }[] = [
   {

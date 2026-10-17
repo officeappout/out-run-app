@@ -21,6 +21,11 @@
 import { getAllPrograms } from '@/features/content/programs/core/program.service';
 import { getProgramLevelSettingsByProgram } from '@/features/content/programs/core/programLevelSettings.service';
 import { SKILL_TO_FOUNDATION_DOMAIN } from '../constants/skill-foundation-domain.constants';
+import {
+  findProgramForAssessmentKey,
+  getAssessmentCap,
+  getEffectiveAssessmentMax,
+} from '../utils/assessment-level-caps';
 import type { ExerciseWishlistEntry } from '@/features/user/core/types/user.types';
 
 // Mirrors mini-domain-assessment.ts's MINI_ASSESSMENT_ACTIVE_KEY. Not imported
@@ -359,37 +364,29 @@ export async function loadPathConfigAsync(): Promise<AssessmentPathConfig> {
   const baseConfig = getPathConfigSync();
   const programs = await getAllPrograms();
 
-  // Build a movementPattern/programId → maxLevels map from child programs.
-  // This already covers BOTH literal category names (via movementPattern,
-  // e.g. 'push') AND skill program IDs (via p.id, e.g. 'planche') uniformly.
-  const patternMaxMap: Record<string, number> = {};
-  for (const p of programs) {
-    if (!p.isMaster && p.movementPattern && p.maxLevels) {
-      patternMaxMap[p.movementPattern] = p.maxLevels;
-    }
-    if (p.maxLevels) {
-      patternMaxMap[p.id] = p.maxLevels;
-    }
-  }
-
+  // Resolve each category / skill to its Program doc BY SLUG (onboarding
+  // holds slugs: 'push', 'planche'), then raw id. The old pass keyed a map
+  // by movementPattern, so every skill program (movementPattern push/pull)
+  // overwrote the real push/pull domain's maxLevels — last by name won
+  // (B1) — and skills were keyed by their hash doc id, which never matched
+  // the slug. The questionnaire cap (assessmentMaxLevel ?? code default) is
+  // then applied on top: effective max = min(maxLevels, cap).
   const skillIdSet = new Set(baseConfig.skillIds);
   const skillMaxLevels: Record<string, number> = {};
 
   for (const cat of baseConfig.categories) {
-    if (patternMaxMap[cat] != null) {
-      skillMaxLevels[cat] = patternMaxMap[cat];
-      continue;
-    }
-    // Skill IDs not covered by patternMaxMap fall back to the program's own
+    const program = findProgramForAssessmentKey(programs, cat);
+    let max = program?.maxLevels && program.maxLevels > 0 ? program.maxLevels : undefined;
+    // Skill IDs with no program maxLevels fall back to the program's own
     // level-settings docs (mirrors the old skills-only branch's fallback).
-    if (skillIdSet.has(cat)) {
+    if (max == null && skillIdSet.has(cat)) {
       const settings = await getProgramLevelSettingsByProgram(cat).catch(() => []);
-      const maxFromSettings =
-        settings.length > 0 ? Math.max(...settings.map((s) => s.levelNumber)) : 15;
-      skillMaxLevels[cat] = maxFromSettings;
+      max = settings.length > 0 ? Math.max(...settings.map((s) => s.levelNumber)) : 15;
     }
-    // Literal categories with no CMS data are left out — getMaxLevelForCategory
-    // falls back to config.maxLevel (25) for them.
+    const effective = getEffectiveAssessmentMax(program, cat, max);
+    if (effective != null) skillMaxLevels[cat] = effective;
+    // Literal categories with no CMS data and no cap are left out —
+    // getMaxLevelForCategory falls back to config.maxLevel (25) for them.
   }
 
   return {
@@ -408,5 +405,22 @@ export function getMaxLevelForCategory(
   if (config.skillMaxLevels && config.skillMaxLevels[category] != null) {
     return config.skillMaxLevels[category];
   }
-  return config.maxLevel;
+  // Sync config (async CMS load pending or failed): still honour the code
+  // default questionnaire cap, so the slider never opens above it.
+  const cap = getAssessmentCap(undefined, category);
+  return cap != null ? Math.min(config.maxLevel, cap) : config.maxLevel;
+}
+
+/**
+ * Max level for a rule-triggered follow-up slider. Follow-up categories come
+ * from the rule engine, not the path config, so the config may be missing
+ * (or not list the category) — the questionnaire cap still applies.
+ */
+export function getFollowUpMaxLevel(
+  config: AssessmentPathConfig | null | undefined,
+  category: string,
+): number {
+  if (config) return getMaxLevelForCategory(config, category);
+  const cap = getAssessmentCap(undefined, category);
+  return cap != null ? Math.min(25, cap) : 25;
 }

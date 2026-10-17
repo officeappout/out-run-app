@@ -26,6 +26,7 @@ import {
   Settings2, Percent, Award,
 } from 'lucide-react';
 import { useUserRole } from '@/features/admin/services/auth.service';
+import { ASSESSMENT_MAX_LEVEL_DEFAULTS } from '@/features/user/onboarding/utils/assessment-level-caps';
 // GlobalLevelsManager moved to standalone /admin/levels page
 
 // ── Types ───────────────────────────────────────────────────────────
@@ -84,6 +85,13 @@ export default function ProgramsAdminPage() {
         trainingType: programForm.trainingType || 'strength',
         iconKey: programForm.iconKey || 'muscle',
       };
+      // Questionnaire cap: an emptied field on a program that had one is
+      // written as null (cleared → code default); otherwise left unwritten.
+      if (sanitizedForm.assessmentMaxLevel == null) {
+        const hadCap = programs.find((p) => p.id === editingProgram)?.assessmentMaxLevel != null;
+        if (editingProgram && hadCap) sanitizedForm.assessmentMaxLevel = null;
+        else delete sanitizedForm.assessmentMaxLevel;
+      }
 
       if (editingProgram) {
         await updateProgram(editingProgram, sanitizedForm);
@@ -125,6 +133,7 @@ export default function ProgramsAdminPage() {
       movementPattern: program.movementPattern,
       trainingType: program.trainingType || 'strength',
       iconKey: program.iconKey || 'muscle',
+      assessmentMaxLevel: program.assessmentMaxLevel ?? undefined,
     });
     setShowNewForm(false);
   };
@@ -224,6 +233,7 @@ export default function ProgramsAdminPage() {
                     onSave={handleSaveProgram}
                     onCancel={handleCancelEdit}
                     allPrograms={programs.filter(p => p.id !== program.id)}
+                    assessmentCapDefault={program.slug ? ASSESSMENT_MAX_LEVEL_DEFAULTS[program.slug] : undefined}
                   />
                 ) : (
                   <div className="flex items-start justify-between">
@@ -548,12 +558,15 @@ function ProgramForm({
   onSave,
   onCancel,
   allPrograms,
+  assessmentCapDefault,
 }: {
   form: Partial<Program>;
   onChange: (form: Partial<Program>) => void;
   onSave: () => void;
   onCancel: () => void;
   allPrograms: Program[];
+  /** Code default questionnaire cap for this program's slug, if any. */
+  assessmentCapDefault?: number;
 }) {
   return (
     <div className="space-y-4">
@@ -603,6 +616,27 @@ function ProgramForm({
           />
         </div>
       </div>
+
+      {!form.isMaster && (
+        <div>
+          <label className="block text-sm font-bold text-gray-700 mb-2">רמה מקסימלית בשאלון</label>
+          <input
+            type="number"
+            min="1"
+            max={form.maxLevels || 25}
+            value={form.assessmentMaxLevel ?? ''}
+            onChange={(e) => {
+              const n = parseInt(e.target.value);
+              onChange({ ...form, assessmentMaxLevel: Number.isFinite(n) && n > 0 ? n : undefined });
+            }}
+            placeholder={assessmentCapDefault != null ? `ברירת מחדל: ${assessmentCapDefault}` : 'ללא הגבלה'}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            הרמה הגבוהה ביותר ששאלון הרמה יכול לתת למשתמש חדש (עד שיהיה תוכן לרמות הגבוהות). לא משנה משתמשים קיימים. ריק = ברירת המחדל.
+          </p>
+        </div>
+      )}
 
       <div className="flex items-center gap-4 flex-wrap">
         <label className="flex items-center gap-2">

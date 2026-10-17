@@ -45,6 +45,7 @@ import {
   getPathConfigSync,
   loadPathConfigAsync,
   getMaxLevelForCategory,
+  getFollowUpMaxLevel,
   getSkillFocusFromStorage,
   getProgramPathListFromStorage,
   getMuscleFocusFromStorage,
@@ -63,6 +64,7 @@ import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
 import { writeSingleDomainAssessment } from '@/features/user/onboarding/services/single-domain-assessment.service';
 import { baselineSkillMasterSubLevels } from '@/features/user/onboarding/utils/skill-result-levels';
 import { SKILL_TO_FOUNDATION_DOMAIN } from '@/features/user/onboarding/constants/skill-foundation-domain.constants';
+import { getFoundationAssessmentMax } from '@/features/user/onboarding/utils/assessment-level-caps';
 import { useOnboardingV2 } from '@/features/user/onboarding/hooks/useOnboardingV2';
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -568,18 +570,20 @@ export default function VisualAssessmentPage() {
         );
         const parentMapping = settings?.parentLevelMapping;
         if (parentMapping && typeof parentMapping === 'object') {
-          const program = programs.find((p) => p.id === skillId);
+          const program = programs.find((p) => p.id === skillId || p.slug === skillId);
           const pattern = program?.movementPattern;
+          // Clamped to the questionnaire cap for that domain (same cap as
+          // the +9 skill→foundation offset in onboarding-sync).
           if (pattern === 'push' && parentMapping[String(level)] != null) {
             masterSubLevels.push = Math.max(
               masterSubLevels.push,
-              parentMapping[String(level)],
+              Math.min(parentMapping[String(level)], getFoundationAssessmentMax(programs, 'push')),
             );
           }
           if (pattern === 'pull' && parentMapping[String(level)] != null) {
             masterSubLevels.pull = Math.max(
               masterSubLevels.pull,
-              parentMapping[String(level)],
+              Math.min(parentMapping[String(level)], getFoundationAssessmentMax(programs, 'pull')),
             );
           }
         }
@@ -1236,6 +1240,7 @@ export default function VisualAssessmentPage() {
                 onBack={() => { handleStepBack(); }}
                 stepIndex={followUpIndex}
                 totalSteps={followUpCategories.length}
+                maxLevel={getFollowUpMaxLevel(pathConfig, followUpCategories[followUpIndex])}
                 mode="simple"
                 v2={v2}
               />
