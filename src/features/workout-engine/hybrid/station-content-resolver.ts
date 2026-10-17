@@ -32,6 +32,7 @@ import type { Exercise, ExecutionMethod } from '@/features/content/exercises/cor
 import type { WorkoutExercise } from '../logic/workout-generator.types';
 import type { StrengthBlockResult } from '../core/pipeline/strength-block.service';
 import { buildBunnyStreamUrl } from '@/lib/bunny/bunny.config';
+import { buildEquipmentMethodText } from '@/features/content/equipment/gym/core/gym-equipment-text.utils';
 
 export type StationContentMode = 'hydraulic-content-if-available';
 
@@ -76,9 +77,7 @@ function buildHydraulicExercise(eq: GymEquipment): WorkoutExercise | null {
   // §4: normalize a Bunny iframe-embed url to a real playable stream url; falls back
   // to the raw brand url unchanged for every other format (YouTube, direct mp4, etc).
   const videoUrl = resolveBunnyStreamUrl(brand?.videoUrl) ?? brand?.videoUrl;
-  // `description` isn't on the GymEquipment TS type today (confirmed live in Firestore
-  // data, 04.08.2026 audit) — read defensively via `any`.
-  const description = (eq as any).description as string | undefined;
+  const description = eq.description ?? undefined;
   if (!videoUrl && !description) return null; // no real content → caller falls back
 
   const isTimeBased = eq.type === 'time';
@@ -89,6 +88,7 @@ function buildHydraulicExercise(eq: GymEquipment): WorkoutExercise | null {
     requiredGearType: 'fixed_equipment',
     equipmentIds: [eq.id],
     media: { mainVideoUrl: videoUrl, imageUrl: brand?.imageUrl },
+    ...buildEquipmentMethodText(eq),
   };
 
   const syntheticExercise: Exercise = {
