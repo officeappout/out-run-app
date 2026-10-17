@@ -105,6 +105,11 @@ export const FLAG_DEFS = [
   // (LevelRingCard hidden when skipped, StrengthSummaryView.tsx, after #305). David turns it on
   // himself after field-testing.
   { key: 'enableNoAutoStrengthLevel', firestoreKey: 'enable_no_auto_strength_level', defaultValue: false, superAdminValue: false },
+  // Home v2 (17.10.2026, design lab approved by David) — the home screen in the site's design
+  // language: streak flames per activity (brand Lottie), the connected streak capsule, the
+  // day bubble, the v2 header. Fail-closed launch gate; superAdminValue true so David sees it
+  // on his account while every other user keeps today's home until he flips it.
+  { key: 'enableHomeV2', firestoreKey: 'enable_home_v2', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

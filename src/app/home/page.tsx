@@ -2719,7 +2719,7 @@ export default function HomePage() {
   return (
     <div className="min-h-[100dvh] bg-[#F8FAFC]">
       {/* ── Shared App Header (avatar + flame, logo, bell + chat + search) ── */}
-      <AppHeader />
+      <AppHeader v2={featureFlags.enableHomeV2} />
 
       {/* ── Profile Progress Bar ── */}
       <ProfileProgressBar profile={profile} />
@@ -2827,6 +2827,7 @@ export default function HomePage() {
             className="relative overflow-hidden rounded-3xl"
           >
             <SmartWeeklySchedule
+              v2={featureFlags.enableHomeV2}
               schedule={realSchedule}
               currentTrack={isRunningMode ? 'running' : (primaryTrack === 'performance' ? 'performance' : 'wellness')}
               scheduleDays={userScheduleDays}
