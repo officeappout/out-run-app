@@ -51,3 +51,46 @@ export function useCompact(): boolean {
 export function pick<T>(d: Density, regular: T, compact: T, dense: T): T {
   return d === 'dense' ? dense : d === 'compact' ? compact : regular;
 }
+
+/* ── streak style (lab switch, same storage pattern) ───────────────────── */
+
+/**
+ * capsule — faint wash behind the run (round 5)
+ * thread  — a glowing gradient line through the flames, brighter toward today
+ * heat    — a soft gradient glow behind the run; flames grow along it
+ * flow    — a dotted line that flows toward today
+ */
+export type StreakStyle = 'capsule' | 'thread' | 'heat' | 'flow';
+const SKEY = 'design-lab-streak';
+let smem: StreakStyle = 'thread';
+const slisteners = new Set<() => void>();
+
+function sread(): StreakStyle {
+  try {
+    const v = localStorage.getItem(SKEY);
+    return v === 'capsule' || v === 'thread' || v === 'heat' || v === 'flow' ? v : smem;
+  } catch {
+    return smem;
+  }
+}
+
+export function setStreakStyle(s: StreakStyle) {
+  smem = s;
+  try {
+    localStorage.setItem(SKEY, s);
+  } catch {
+    /* private mode */
+  }
+  slisteners.forEach((l) => l());
+}
+
+export function useStreakStyle(): StreakStyle {
+  return useSyncExternalStore(
+    (l) => {
+      slisteners.add(l);
+      return () => slisteners.delete(l);
+    },
+    sread,
+    () => 'thread',
+  );
+}

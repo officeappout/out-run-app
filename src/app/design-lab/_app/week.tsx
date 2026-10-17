@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { EASE_V2 } from '@/components/ui/v2';
 import { BrandFlame } from './brand';
 import { AppIcon, ICON } from './parts';
+import { useStreakStyle, type StreakStyle } from './density';
 
 export type DayKind = 'strength' | 'walk' | 'run' | 'steps';
 export type DayStatus = 'done' | 'today' | 'planned' | 'rest' | 'missed';
@@ -66,28 +67,22 @@ export function StreakRow({
   onSelect?: (i: number) => void;
 }) {
   const reduce = useReducedMotion();
+  const style = useStreakStyle();
   const n = days.length;
   const centerY = (showDates ? 24 : 0) + cell / 2;
+  // heat: flames grow along a run, the newest is the biggest
+  const heat = new Map<number, number>();
+  if (style === 'heat')
+    for (const r of runs(days))
+      for (let i = r.from; i <= r.to; i++) heat.set(i, 0.82 + (0.3 * (i - r.from)) / Math.max(1, r.to - r.from));
   return (
     <div className="relative">
       {runs(days).map((l) => (
-        <motion.span
-          key={`${l.from}-${l.to}`}
-          aria-hidden
-          className="absolute rounded-[18px]"
-          style={{
-            insetInlineStart: `calc(${(l.from / n) * 100}% + 2px)`,
-            width: `calc(${((l.to - l.from + 1) / n) * 100}% - 4px)`,
-            top: centerY - cell / 2 - 4,
-            height: cell + 8,
-            background: 'linear-gradient(270deg, rgba(0,186,247,.07), rgba(12,242,227,.10))',
-            transformOrigin: 'right',
-          }}
-          initial={reduce ? false : { scaleX: 0.2, opacity: 0 }}
-          animate={{ scaleX: 1, opacity: 1 }}
-          transition={{ duration: 0.55, ease: EASE_V2, delay: reduce ? 0 : 0.1 }}
-        />
+        <RunConnector key={`${l.from}-${l.to}-${style}`} from={l.from} to={l.to} n={n} centerY={centerY} cell={cell} style={style} reduce={!!reduce} />
       ))}
+      {style === 'flow' && (
+        <style>{'@keyframes labFlow{from{background-position:0 0}to{background-position:-24px 0}}'}</style>
+      )}
       <ol className="relative grid" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}>
         {days.map((d, i) => {
           const isToday = i === todayIndex;
@@ -103,7 +98,7 @@ export function StreakRow({
                   {d.date}
                 </span>
               )}
-              <DayCell day={d} isToday={isToday} size={cell} animate={animateToday && isToday} />
+              <DayCell day={d} isToday={isToday} size={cell} animate={animateToday && isToday} scale={heat.get(i) ?? 1} />
             </>
           );
           return (
@@ -123,7 +118,7 @@ export function StreakRow({
   );
 }
 
-function DayCell({ day, isToday, size, animate }: { day: StreakDay; isToday: boolean; size: number; animate: boolean }) {
+function DayCell({ day, isToday, size, animate, scale = 1 }: { day: StreakDay; isToday: boolean; size: number; animate: boolean; scale?: number }) {
   const icon = Math.round(size * 0.56);
   const box = 'relative grid place-items-center rounded-[14px]';
   const style = { width: size, height: size };
@@ -131,7 +126,7 @@ function DayCell({ day, isToday, size, animate }: { day: StreakDay; isToday: boo
   if (day.status === 'done')
     return (
       <span className="relative grid place-items-center" style={style}>
-        <BrandFlame size={Math.round(size * 1.05)} still={!(isToday && animate)} />
+        <BrandFlame size={Math.round(size * 1.05 * scale)} still={!(isToday && animate)} />
       </span>
     );
   if (day.status === 'today')
@@ -165,5 +160,101 @@ export function DayLetters({ days, todayIndex }: { days: { short: string }[]; to
         </li>
       ))}
     </ol>
+  );
+}
+
+/** What joins the flames of one streak run — four styles to compare. */
+function RunConnector({
+  from,
+  to,
+  n,
+  centerY,
+  cell,
+  style,
+  reduce,
+}: {
+  from: number;
+  to: number;
+  n: number;
+  centerY: number;
+  cell: number;
+  style: StreakStyle;
+  reduce: boolean;
+}) {
+  // centre of the first flame → centre of the last (inline-start = the older day)
+  const line = {
+    insetInlineStart: `${((from + 0.5) / n) * 100}%`,
+    width: `${((to - from) / n) * 100}%`,
+  };
+  const grow = {
+    initial: reduce ? false : ({ scaleX: 0, opacity: 0 } as const),
+    animate: { scaleX: 1, opacity: 1 },
+    transition: { duration: 0.6, ease: EASE_V2, delay: reduce ? 0 : 0.15 },
+  };
+  if (style === 'thread')
+    return (
+      <motion.span
+        aria-hidden
+        className="absolute rounded-full"
+        style={{
+          ...line,
+          top: centerY + cell * 0.38,
+          height: 4,
+          transformOrigin: 'right',
+          background: 'linear-gradient(270deg, rgba(0,186,247,.25), #00baf7 55%, #0cf2e3)',
+          boxShadow: '0 0 10px rgba(12,242,227,.55)',
+        }}
+        {...grow}
+      />
+    );
+  if (style === 'heat')
+    return (
+      <motion.span
+        aria-hidden
+        className="absolute rounded-full"
+        style={{
+          insetInlineStart: `${(from / n) * 100}%`,
+          width: `${((to - from + 1) / n) * 100}%`,
+          top: centerY - cell * 0.32,
+          height: cell * 0.64,
+          transformOrigin: 'right',
+          background: 'linear-gradient(270deg, rgba(0,186,247,.10), rgba(0,186,247,.30) 60%, rgba(12,242,227,.55))',
+          filter: 'blur(7px)',
+        }}
+        {...grow}
+      />
+    );
+  if (style === 'flow')
+    return (
+      <motion.span
+        aria-hidden
+        className="absolute"
+        style={{
+          ...line,
+          top: centerY + cell * 0.38,
+          height: 4,
+          transformOrigin: 'right',
+          backgroundImage: 'radial-gradient(circle, #00baf7 1.6px, transparent 2px)',
+          backgroundSize: '8px 4px',
+          animation: reduce ? undefined : 'labFlow 0.9s linear infinite',
+        }}
+        {...grow}
+      />
+    );
+  // capsule
+  return (
+    <motion.span
+      aria-hidden
+      className="absolute rounded-[18px]"
+      style={{
+        insetInlineStart: `calc(${(from / n) * 100}% + 2px)`,
+        width: `calc(${((to - from + 1) / n) * 100}% - 4px)`,
+        top: centerY - cell / 2 - 4,
+        height: cell + 8,
+        transformOrigin: 'right',
+        background: 'linear-gradient(270deg, rgba(0,186,247,.07), rgba(12,242,227,.10))',
+      }}
+      {...grow}
+    />
   );
 }

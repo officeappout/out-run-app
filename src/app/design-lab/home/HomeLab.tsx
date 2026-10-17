@@ -9,7 +9,7 @@ import LabFrame, { LabStates } from '../_shared/LabFrame';
 import { AppIcon, Bolts, BottomNav, ICON, Ring, photo, type NavVariant } from '../_app/parts';
 import { AppHeader, BrandFlame, type LogoMode } from '../_app/brand';
 import { DayLetters, StreakRow, type StreakDay } from '../_app/week';
-import { pick, setDensity, useDensity, type Density } from '../_app/density';
+import { pick, setDensity, setStreakStyle, useDensity, useStreakStyle, type Density, type StreakStyle } from '../_app/density';
 import WorkoutDrawer from './WorkoutDrawer';
 import BuilderSheet from './BuilderSheet';
 import {
@@ -50,6 +50,13 @@ const DENSITIES: { id: Density; label: string }[] = [
   { id: 'compact', label: 'קומפקטי' },
 ];
 
+const STREAKS: { id: StreakStyle; label: string }[] = [
+  { id: 'thread', label: 'חוט אש' },
+  { id: 'heat', label: 'זוהר מתחמם' },
+  { id: 'flow', label: 'זרימה' },
+  { id: 'capsule', label: 'קפסולה' },
+];
+
 const LAB_LINKS = [
   { href: '/design-lab/schedule', label: 'תכנון אימונים' },
   { href: '/design-lab/steps', label: 'צעדים' },
@@ -62,6 +69,7 @@ export default function HomeLab() {
   const [logo, setLogo] = useState<LogoMode>('out');
   const [nav, setNav] = useState<NavVariant>('equal');
   const density = useDensity();
+  const streakStyle = useStreakStyle();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [builderOpen, setBuilderOpen] = useState(false);
 
@@ -86,6 +94,7 @@ export default function HomeLab() {
             סבב 3: לוגו (גם של עירייה), להבת הרצף על הפרופיל, לו״ז עם רצף מחובר, מחולל אימונים מתחת לכרטיס. נתוני דמו בלבד.
           </p>
           <LabStates title="גודל" value={density} options={DENSITIES} onChange={setDensity} />
+          <LabStates title="סגנון הרצף" value={streakStyle} options={STREAKS} onChange={setStreakStyle} />
           <LabStates title="מצב היום" value={state} options={STATES} onChange={setState} />
           <LabStates title="לוגו בראש המסך" value={logo} options={LOGOS} onChange={setLogo} />
           <LabStates title="הבר התחתון" value={nav} options={NAVS} onChange={setNav} />
