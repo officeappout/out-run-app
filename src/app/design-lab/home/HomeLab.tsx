@@ -9,7 +9,18 @@ import LabFrame, { LabStates } from '../_shared/LabFrame';
 import { AppIcon, Bolts, BottomNav, ICON, Ring, photo, type NavVariant } from '../_app/parts';
 import { AppHeader, BrandFlame, FLAME_TONE, type LogoMode } from '../_app/brand';
 import { DayLetters, StreakRow, type StreakDay } from '../_app/week';
-import { pick, setDensity, setStreakStyle, useDensity, useStreakStyle, type Density, type StreakStyle } from '../_app/density';
+import {
+  pick,
+  setDensity,
+  setMultiStyle,
+  setStreakStyle,
+  useDensity,
+  useMultiStyle,
+  useStreakStyle,
+  type Density,
+  type MultiStyle,
+  type StreakStyle,
+} from '../_app/density';
 import WorkoutDrawer from './WorkoutDrawer';
 import BuilderSheet from './BuilderSheet';
 import {
@@ -57,6 +68,11 @@ const STREAKS: { id: StreakStyle; label: string }[] = [
   { id: 'flow', label: 'זרימה' },
 ];
 
+const MULTIS: { id: MultiStyle; label: string }[] = [
+  { id: 'blend', label: 'להבה משולבת' },
+  { id: 'cycle', label: 'להבה מתחלפת' },
+];
+
 const LAB_LINKS = [
   { href: '/design-lab/schedule', label: 'תכנון אימונים' },
   { href: '/design-lab/steps', label: 'צעדים' },
@@ -70,6 +86,7 @@ export default function HomeLab() {
   const [nav, setNav] = useState<NavVariant>('equal');
   const density = useDensity();
   const streakStyle = useStreakStyle();
+  const multiStyle = useMultiStyle();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [builderOpen, setBuilderOpen] = useState(false);
 
@@ -95,6 +112,7 @@ export default function HomeLab() {
           </p>
           <LabStates title="גודל" value={density} options={DENSITIES} onChange={setDensity} />
           <LabStates title="סגנון הרצף" value={streakStyle} options={STREAKS} onChange={setStreakStyle} />
+          <LabStates title="יום עם כמה פעילויות" value={multiStyle} options={MULTIS} onChange={setMultiStyle} />
           <LabStates title="מצב היום" value={state} options={STATES} onChange={setState} />
           <LabStates title="לוגו בראש המסך" value={logo} options={LOGOS} onChange={setLogo} />
           <LabStates title="הבר התחתון" value={nav} options={NAVS} onChange={setNav} />

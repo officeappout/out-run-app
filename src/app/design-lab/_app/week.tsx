@@ -1,10 +1,11 @@
 'use client';
 
-import { motion, useReducedMotion } from 'framer-motion';
+import { useEffect, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { EASE_V2 } from '@/components/ui/v2';
 import { BrandFlame, FLAME_TONE, type FlameTone } from './brand';
 import { AppIcon, ICON } from './parts';
-import { useStreakStyle, type StreakStyle } from './density';
+import { useMultiStyle, useStreakStyle, type StreakStyle } from './density';
 
 export type DayKind = 'strength' | 'walk' | 'run' | 'steps';
 export type DayStatus = 'done' | 'today' | 'planned' | 'rest' | 'missed';
@@ -149,16 +150,7 @@ function DayCell({ day, isToday, size, animate, scale = 1 }: { day: StreakDay; i
   // A done day is just the streak flame — no frame around it.
   if (day.status === 'done')
     return (
-      <span className="relative grid place-items-center" style={style}>
-        <BrandFlame size={Math.round(size * 1.05 * scale)} still={!(isToday && animate)} tones={tonesOf(day)} />
-        {tonesOf(day).length > 1 && (
-          <span className="absolute -bottom-1.5 flex gap-[3px]" aria-label={tonesOf(day).map((t) => FLAME_TONE[t].label).join(' + ')}>
-            {tonesOf(day).map((t) => (
-              <span key={t} className="h-[5px] w-[5px] rounded-full ring-1 ring-white" style={{ background: FLAME_TONE[t].hex }} />
-            ))}
-          </span>
-        )}
-      </span>
+      <MultiFlame tones={tonesOf(day)} size={Math.round(size * 1.05 * scale)} box={size} still={!(isToday && animate)} />
     );
   if (day.status === 'today')
     return (
@@ -297,5 +289,61 @@ function RunConnector({
       }}
       {...grow}
     />
+  );
+}
+
+/**
+ * A done day's flame. One activity → one colour. Several → either one flame
+ * blending their colours ("blend"), or a single-colour flame that cross-fades
+ * from one activity to the next every 2s ("cycle", like the app's
+ * multi-session days today). Dots under it name the activities; in "cycle"
+ * the current one is the larger dot.
+ */
+function MultiFlame({ tones, size, box, still }: { tones: FlameTone[]; size: number; box: number; still: boolean }) {
+  const mode = useMultiStyle();
+  const reduce = useReducedMotion();
+  const multi = tones.length > 1;
+  const cycling = multi && mode === 'cycle' && !reduce;
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    if (!cycling) return;
+    const t = setInterval(() => setI((v) => (v + 1) % tones.length), 2000);
+    return () => clearInterval(t);
+  }, [cycling, tones.length]);
+  const current = tones[i % tones.length];
+  return (
+    <span className="relative grid place-items-center" style={{ width: box, height: box }}>
+      {cycling ? (
+        <AnimatePresence initial={false}>
+          <motion.span
+            key={current}
+            className="absolute inset-0 grid place-items-center"
+            initial={{ opacity: 0, scale: 0.85, filter: 'blur(2px)' }}
+            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, scale: 1.08, filter: 'blur(2px)' }}
+            transition={{ duration: 0.45, ease: EASE_V2 }}
+          >
+            <BrandFlame size={size} still={still} tone={current} />
+          </motion.span>
+        </AnimatePresence>
+      ) : (
+        <BrandFlame size={size} still={still} tones={mode === 'blend' ? tones : [tones[0]]} />
+      )}
+      {multi && (
+        <span className="absolute -bottom-1.5 flex items-center gap-[3px]" aria-label={tones.map((t) => FLAME_TONE[t].label).join(' + ')}>
+          {tones.map((t) => (
+            <span
+              key={t}
+              className="rounded-full ring-1 ring-white transition-[width,height] duration-300 ease-v2"
+              style={{
+                background: FLAME_TONE[t].hex,
+                width: cycling && t === current ? 7 : 5,
+                height: cycling && t === current ? 7 : 5,
+              }}
+            />
+          ))}
+        </span>
+      )}
+    </span>
   );
 }

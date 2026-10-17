@@ -94,3 +94,40 @@ export function useStreakStyle(): StreakStyle {
     () => 'capsule',
   );
 }
+
+/* ── multi-activity days: one blended flame, or a flame that cycles ────── */
+
+export type MultiStyle = 'blend' | 'cycle';
+const MKEY = 'design-lab-multi';
+let mmem: MultiStyle = 'blend';
+const mlisteners = new Set<() => void>();
+
+function mread(): MultiStyle {
+  try {
+    const v = localStorage.getItem(MKEY);
+    return v === 'blend' || v === 'cycle' ? v : mmem;
+  } catch {
+    return mmem;
+  }
+}
+
+export function setMultiStyle(s: MultiStyle) {
+  mmem = s;
+  try {
+    localStorage.setItem(MKEY, s);
+  } catch {
+    /* private mode */
+  }
+  mlisteners.forEach((l) => l());
+}
+
+export function useMultiStyle(): MultiStyle {
+  return useSyncExternalStore(
+    (l) => {
+      mlisteners.add(l);
+      return () => mlisteners.delete(l);
+    },
+    mread,
+    () => 'blend',
+  );
+}
