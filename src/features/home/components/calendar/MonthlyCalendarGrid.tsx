@@ -59,6 +59,11 @@ interface MonthlyCalendarGridProps {
    */
   collapsed?: boolean;
   /**
+   * Home v2 planner: in collapsed mode show the week of this ISO date instead
+   * of today's, so the strip follows the day the list is scrolled to.
+   */
+  weekOf?: string;
+  /**
    * ACTIVITY schedule view (Stage 2). When true each cell renders the S10
    * activity RING (via the shared buildActivityRingData) instead of the S8
    * flame — same separate-schedule concept as the week strip. Flame untouched.
@@ -224,6 +229,7 @@ export default function MonthlyCalendarGrid({
   ringStroke: _ringStroke,
   refreshKey,
   collapsed = false,
+  weekOf,
   activityView = false,
 }: MonthlyCalendarGridProps) {
   // Cell height is still configurable (TrainingPlannerOverlay passes 56px).
@@ -274,21 +280,23 @@ export default function MonthlyCalendarGrid({
 
   // When collapsing, snap back to today's month so the week strip
   // always shows the current week and not some navigated-away month.
+  // (v2: or to weekOf's month, when the planner follows a scrolled-to day.)
   useEffect(() => {
     if (collapsed) {
-      setDisplayMonth(todayDate.getMonth());
-      setDisplayYear(todayDate.getFullYear());
+      const anchor = weekOf ? new Date(weekOf + 'T00:00:00') : todayDate;
+      setDisplayMonth(anchor.getMonth());
+      setDisplayYear(anchor.getFullYear());
     }
-  }, [collapsed, todayDate]);
+  }, [collapsed, todayDate, weekOf]);
 
   // In collapsed mode only render the 7-cell row that contains today.
   const displayCells = useMemo(() => {
     if (!collapsed) return cells;
-    const todayISO = toISODate(new Date());
+    const todayISO = weekOf ?? toISODate(new Date());
     const todayIdx = cells.findIndex((c) => c.iso === todayISO);
     const rowStart = todayIdx >= 0 ? Math.floor(todayIdx / 7) * 7 : 0;
     return cells.slice(rowStart, rowStart + 7);
-  }, [cells, collapsed]);
+  }, [cells, collapsed, weekOf]);
 
   useEffect(() => {
     if (!userId) return;

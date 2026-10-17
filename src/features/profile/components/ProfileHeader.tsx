@@ -52,6 +52,8 @@ export interface ProfileHeaderProps {
   /** Rendered directly under the tags — self's "עריכת פרופיל" button,
    * public's follow/message buttons. */
   actions?: React.ReactNode;
+  /** Home v2 look (enable_home_v2): centred header, stats on a white card. */
+  v2?: boolean;
 }
 
 export default function ProfileHeader({
@@ -64,7 +66,78 @@ export default function ProfileHeader({
   roleLine,
   tagIds,
   actions,
+  v2 = false,
 }: ProfileHeaderProps) {
+  const avatarInner = photoURL ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={photoURL} alt={name || 'תמונת פרופיל'} width={88} height={88} className="w-full h-full object-cover" />
+  ) : IS_XP_ENABLED ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={LEMUR_IMG} alt="Lemur" width={88} height={88} className="w-full h-full object-cover" />
+  ) : (
+    <div
+      className="w-full h-full flex items-center justify-center text-white font-black text-3xl"
+      style={{ background: avatarBackground(name) }}
+    >
+      {firstGrapheme(name)}
+    </div>
+  );
+
+  if (v2) {
+    return (
+      <div dir="rtl">
+        <div className="flex flex-col items-center text-center">
+          <div className="relative" style={{ width: 88, height: 88 }}>
+            <div className="h-full w-full overflow-hidden rounded-full bg-white shadow-v2-card ring-4 ring-white">{avatarInner}</div>
+            {cornerBadge && (
+              <div className="absolute -bottom-1 -start-2 flex h-7 items-center gap-0.5 rounded-full bg-white pe-2 ps-1 shadow-v2-ring">
+                {cornerBadge}
+              </div>
+            )}
+          </div>
+          {name && <p className="mt-3 text-[26px] font-black leading-none !tracking-[-0.03em] text-v2-ink">{name}</p>}
+          {roleLine}
+          <p className="mt-1.5 text-[13.5px] font-bold leading-relaxed text-v2-muted">{bio?.trim() || bioPlaceholder}</p>
+          {tagIds.length > 0 && (
+            <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+              {tagIds.map((tagId) => {
+                const tag = TRAINING_TAG_OPTIONS.find((t) => t.id === tagId);
+                return (
+                  <span
+                    key={tagId}
+                    className="whitespace-nowrap rounded-full bg-white px-2.5 py-1 text-[12px] font-extrabold text-v2-ink-2 shadow-v2-ring"
+                  >
+                    {tag?.label ?? tagId}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div
+          className="mt-4 grid divide-x divide-x-reverse divide-v2-hairline rounded-v2-card bg-white py-3 shadow-v2-ring"
+          style={{ gridTemplateColumns: `repeat(${stats.length}, 1fr)` }}
+        >
+          {stats.map((stat) => (
+            <button
+              key={stat.key}
+              type="button"
+              onClick={stat.onClick}
+              disabled={!stat.onClick}
+              className="text-center transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:cursor-default"
+            >
+              <span className="block text-[20px] font-black leading-none !tracking-[-0.02em] tabular-nums text-v2-ink">{stat.value}</span>
+              <span className="mt-1 block whitespace-nowrap text-[12px] font-bold text-v2-muted">{stat.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {actions}
+      </div>
+    );
+  }
+
   return (
     <div dir="rtl">
       <div className="flex items-center gap-4">

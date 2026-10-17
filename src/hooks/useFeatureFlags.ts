@@ -120,9 +120,11 @@ export function useFeatureFlags(isSuperAdmin?: boolean): {
         writeCachedFlags(next);
       },
       () => {
-        // Silently fall back to safe defaults on any unexpected error.
-        // In production this should never fire since the rule is now public.
-        setFlags(SAFE_DEFAULTS);
+        // On an unexpected error keep the device's last-known flags (falling
+        // back to safe defaults only when there are none) — wiping them here
+        // would bring the old-design flash right back. In production this
+        // should never fire since the rule is public.
+        setFlags(readCachedFlags() ?? SAFE_DEFAULTS);
         setLoading(false);
       },
     );

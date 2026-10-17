@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Trees, Home, Dumbbell, Shield, Plus, ChevronDown, ChevronUp, Lock, CalendarDays, Clock, Wrench, type LucideIcon } from 'lucide-react';
+import { ArrowRight, Trees, Home, Dumbbell, Shield, Plus, ChevronDown, ChevronUp, Lock, CalendarDays, Clock, Wrench, Sparkles, Settings2, type LucideIcon } from 'lucide-react';
 import { getAllGearDefinitions } from '@/features/content/equipment/gear';
 import type { GearDefinition } from '@/features/content/equipment/gear';
 import { useUserStore } from '@/features/user';
@@ -21,6 +21,8 @@ import { BODYWEIGHT_SENTINEL } from '@/features/content/exercises/client/store/u
 import { resolveEquipmentSvgPathList } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { DrumTimePicker } from '@/components/ui/DrumTimePicker';
 import MuscleFilterChip from '@/components/ui/MuscleFilterChip';
+import { Button } from '@/components/ui/v2';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { upsertScheduleEntry } from '@/features/user/scheduling/services/userSchedule.service';
 import { MUSCLE_CHIPS } from '@/features/home/constants/muscle-chips';
 import { useMuscleChipSelection } from '@/features/home/hooks/useMuscleChipSelection';
@@ -100,6 +102,12 @@ const BOLT_FILTER_EMPTY_ACTIVE   = 'brightness(0) invert(1) opacity(0.35)';
 
 // Shared pill styles (exact match to UserWorkoutAdjuster)
 const ACTIVE_PILL   = 'bg-[#00BAF7] border-[#00BAF7] text-on-brand shadow-md shadow-cyan-400/30';
+// Home v2 (enable_home_v2): the brand gradient only on a selected pill and the
+// CTA; cards/tiles select with a brand ring instead (design-language rule 9).
+const V2_PILL_ON = 'border-transparent bg-v2-cta text-v2-on-cta shadow-v2-cta';
+const V2_PILL_OFF = 'border-transparent bg-white/80 text-v2-ink-2 shadow-v2-ring';
+const V2_CARD_ON = 'border-transparent bg-white shadow-v2-card ring-2 ring-v2-accent';
+const V2_CARD_OFF = 'border-transparent bg-white/70 shadow-v2-ring';
 const INACTIVE_PILL = 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300';
 
 // ── Leaf-program slug allowlist for enrollment detection ─────────────────────
@@ -140,12 +148,12 @@ function paramToDifficulty(s: string | null | undefined): DifficultyLevel {
 }
 
 // ─── Section wrapper ─────────────────────────────────────────────────────────
-function Section({ title, sub, children }: { title: string; sub?: string; children: React.ReactNode }) {
+function Section({ title, sub, v2 = false, children }: { title: string; sub?: string; v2?: boolean; children: React.ReactNode }) {
   return (
     <div>
-      <div className="flex items-baseline gap-2 mb-3">
-        <h2 className="text-base font-bold text-gray-900 dark:text-white">{title}</h2>
-        {sub && <span className="text-xs text-gray-400">{sub}</span>}
+      <div className={`flex items-baseline gap-2 ${v2 ? 'mb-2.5' : 'mb-3'}`}>
+        <h2 className={v2 ? 'text-[17px] font-black text-v2-ink' : 'text-base font-bold text-gray-900 dark:text-white'}>{title}</h2>
+        {sub && <span className={v2 ? 'text-[12.5px] font-bold text-v2-muted' : 'text-xs text-gray-400'}>{sub}</span>}
       </div>
       {children}
     </div>
@@ -157,12 +165,38 @@ function ProgramPill({
   prog,
   isSelected,
   onSelect,
+  v2 = false,
 }: {
   prog: DisplayProgram;
   isSelected: boolean;
   onSelect: () => void;
+  v2?: boolean;
 }) {
   const { IconComp } = prog;
+  if (v2) {
+    const muted = prog.isLocked || prog.isUnenrolled;
+    return (
+      <button
+        type="button"
+        onClick={prog.isLocked ? undefined : onSelect}
+        aria-pressed={isSelected}
+        className={`relative flex h-12 flex-shrink-0 items-center gap-2 rounded-full border pe-4 ps-3 transition-[transform,background-color,box-shadow] duration-150 ease-v2 active:scale-[0.97] ${
+          muted ? `${V2_PILL_OFF} opacity-45 ${prog.isUnenrolled ? 'grayscale' : 'cursor-not-allowed'}` : isSelected ? V2_PILL_ON : V2_PILL_OFF
+        }`}
+      >
+        {prog.isLocked && <Lock size={11} className="absolute -top-0.5 end-1 text-v2-muted" aria-hidden />}
+        <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center">
+          {IconComp ? <IconComp className="h-full w-full" /> : <Dumbbell size={17} aria-hidden />}
+        </span>
+        <span className="text-start leading-tight">
+          <span className="block whitespace-nowrap text-[14px] font-extrabold">{prog.label}</span>
+          <span className="block whitespace-nowrap text-[11px] font-bold opacity-75">
+            {prog.isMaster ? `${prog.children.length} תוכניות` : `רמה ${prog.level}`}
+          </span>
+        </span>
+      </button>
+    );
+  }
   const pillStyle = prog.isLocked
     ? 'opacity-40 cursor-not-allowed bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400'
     : prog.isUnenrolled
@@ -226,6 +260,8 @@ export default function WorkoutBuilderSheet({
   onClose,
 }: WorkoutBuilderSheetProps) {
   const { profile } = useUserStore();
+  const { flags: builderFlags } = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = builderFlags.enableHomeV2;
   const gender = useUserStore((s) => (s.profile?.core as any)?.gender === 'female' ? 'female' : 'male') as 'male' | 'female';
   const router = useRouter();
 
@@ -734,39 +770,55 @@ export default function WorkoutBuilderSheet({
   // ─── Render ──────────────────────────────────────────────────────────────
   return (
     <div
-      className="fixed inset-0 z-[60] flex flex-col"
+      className={`fixed inset-0 z-[60] flex flex-col ${v2 ? 'bg-v2-surface text-v2-ink' : ''}`}
       dir="rtl"
-      style={{
-        backgroundColor: 'rgba(255,255,255,0.45)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-      }}
+      style={
+        v2
+          ? undefined
+          : {
+              backgroundColor: 'rgba(255,255,255,0.45)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+            }
+      }
     >
+      {/* v2: a soft brand wash behind the glass header */}
+      {v2 && (
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[260px] bg-gradient-to-b from-[#d9f6fd] via-[#eefcfb] to-transparent" />
+      )}
 
       {/* ── Header ── */}
       <div
-        className="flex items-center gap-3 px-4 pb-4 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800"
-        style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top, 24px))' }}
+        className={
+          v2
+            ? 'v2-glass-bar relative z-[2] flex items-center gap-3 px-4 pb-3'
+            : 'flex items-center gap-3 px-4 pb-4 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800'
+        }
+        style={{ paddingTop: v2 ? 'calc(env(safe-area-inset-top, 0px) + 14px)' : 'max(1.25rem, env(safe-area-inset-top, 24px))' }}
       >
         <button
           onClick={onClose}
-          className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 active:bg-gray-200 dark:active:bg-gray-700"
+          className={
+            v2
+              ? 'grid h-11 w-11 place-items-center rounded-full bg-white/80 shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]'
+              : 'p-2 rounded-full bg-gray-100 dark:bg-gray-800 active:bg-gray-200 dark:active:bg-gray-700'
+          }
           aria-label="חזור"
         >
-          <ArrowRight size={20} className="text-gray-700 dark:text-gray-300" />
+          <ArrowRight size={v2 ? 19 : 20} strokeWidth={v2 ? 2.4 : 2} className={v2 ? 'text-v2-ink' : 'text-gray-700 dark:text-gray-300'} />
         </button>
         <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+          <h1 className={v2 ? 'text-[19px] font-black leading-tight text-v2-ink' : 'text-xl font-bold text-gray-900 dark:text-white'}>
             {isScheduleMode ? 'תזמן אימון' : 'בנה אימון משלך'}
           </h1>
-          <p className="text-xs text-gray-400">
+          <p className={v2 ? 'text-[12.5px] font-bold text-v2-muted' : 'text-xs text-gray-400'}>
             {isScheduleMode ? 'בחר תוכנית ושעה לשמירה בלוז' : 'מותאם אישית לפי הבחירות שלך'}
           </p>
         </div>
       </div>
 
       {/* ── Scrollable form ── */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-7">
+      <div className={v2 ? 'relative flex-1 space-y-6 overflow-y-auto overscroll-contain px-4 pb-6 pt-4' : 'flex-1 overflow-y-auto px-4 py-6 space-y-7'}>
 
         {/* ── Gear nudge banner ─────────────────────────────────────────────
             Shown only when the user has no equipment configured in their
@@ -784,15 +836,25 @@ export default function WorkoutBuilderSheet({
             <button
               type="button"
               onClick={() => setShowGearNudgeSheet(true)}
-              className="w-full flex items-start gap-3 px-4 py-3.5 bg-cyan-50 rounded-2xl border border-cyan-100 text-right active:scale-[0.99] transition-transform"
+              className={
+                v2
+                  ? 'w-full flex items-start gap-3 rounded-[18px] bg-white/70 p-3 text-right shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.99]'
+                  : 'w-full flex items-start gap-3 px-4 py-3.5 bg-cyan-50 rounded-2xl border border-cyan-100 text-right active:scale-[0.99] transition-transform'
+              }
               aria-label="הגדר ציוד לאימון מותאם"
             >
-              <Wrench size={18} className="flex-shrink-0 mt-0.5 text-cyan-500" />
+              {v2 ? (
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] bg-v2-tint text-v2-deep">
+                  <Wrench size={17} strokeWidth={2.4} aria-hidden />
+                </span>
+              ) : (
+                <Wrench size={18} className="flex-shrink-0 mt-0.5 text-cyan-500" />
+              )}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-cyan-700 leading-snug">
+                <p className={v2 ? 'text-[13.5px] font-black leading-snug text-v2-ink' : 'text-sm font-semibold text-cyan-700 leading-snug'}>
                   רוצים אימון מותאם ב-100% לציוד שלכם?
                 </p>
-                <p className="text-xs text-cyan-500 mt-0.5">
+                <p className={v2 ? 'mt-0.5 text-[12.5px] font-bold text-v2-ink-2' : 'text-xs text-cyan-500 mt-0.5'}>
                   לחצו כאן כדי לסמן מה יש לכם בסביבה
                 </p>
               </div>
@@ -808,13 +870,25 @@ export default function WorkoutBuilderSheet({
             silently pre-checked chips. Disappears the moment any control is
             touched, and reappears on an explicit "אוטו" tap. */}
         {!isScheduleMode && isUsingRecommendedDefaults && recommendedProgramIds.length > 0 && (
-          <div className="flex items-start gap-2.5 px-4 py-3 bg-sky-50 dark:bg-sky-900/20 rounded-2xl border border-sky-100 dark:border-sky-800">
-            <span className="text-base leading-none mt-0.5" aria-hidden>✨</span>
+          <div
+            className={
+              v2
+                ? 'flex items-start gap-3 rounded-[18px] bg-white/70 p-3 shadow-v2-ring'
+                : 'flex items-start gap-2.5 px-4 py-3 bg-sky-50 dark:bg-sky-900/20 rounded-2xl border border-sky-100 dark:border-sky-800'
+            }
+          >
+            {v2 ? (
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] bg-v2-tint text-v2-deep">
+                <Sparkles size={17} strokeWidth={2.4} aria-hidden />
+              </span>
+            ) : (
+              <span className="text-base leading-none mt-0.5" aria-hidden>✨</span>
+            )}
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-sky-700 dark:text-sky-300 leading-snug">
+              <p className={v2 ? 'text-[13.5px] font-black leading-snug text-v2-ink' : 'text-sm font-semibold text-sky-700 dark:text-sky-300 leading-snug'}>
                 מילאנו עבורכם הגדרות מומלצות
               </p>
-              <p className="text-xs text-sky-500 dark:text-sky-400 mt-0.5">
+              <p className={v2 ? 'mt-0.5 text-[12.5px] font-bold text-v2-ink-2' : 'text-xs text-sky-500 dark:text-sky-400 mt-0.5'}>
                 תוכנית, משך, עצימות ואזורי אימון — אפשר לשנות כל דבר למטה
               </p>
             </div>
@@ -833,7 +907,7 @@ export default function WorkoutBuilderSheet({
             </div>
 
             {/* Time picker */}
-            <Section title="שעה" sub="מתי?">
+            <Section v2={v2} title="שעה" sub="מתי?">
               <label className="flex items-center gap-1.5 text-xs font-bold text-gray-500 mb-2">
                 <Clock className="w-3.5 h-3.5" />
                 שעת התחלה
@@ -844,11 +918,29 @@ export default function WorkoutBuilderSheet({
         )}
 
         {/* 1. מיקום וציוד — merged section */}
-        <Section title="מיקום וציוד">
+        <Section v2={v2} title="מיקום וציוד">
           {/* Location grid — 2 options since חדר כושר was removed */}
-          <div className="grid grid-cols-2 gap-2 mb-3">
+          <div className={`grid grid-cols-2 mb-3 ${v2 ? 'gap-2.5' : 'gap-2'}`}>
             {LOCATION_OPTIONS.filter((o) => o.id !== 'service').map(({ id, label, sub, Icon }) => {
               const active = location === id;
+              if (v2)
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => handleSetLocation(id)}
+                    aria-pressed={active}
+                    className={`flex items-center gap-3 rounded-[20px] border p-3 text-start transition-[transform,box-shadow] duration-150 ease-v2 active:scale-[0.98] ${active ? V2_CARD_ON : V2_CARD_OFF}`}
+                  >
+                    <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-[14px] ${active ? 'bg-v2-cta text-v2-on-cta' : 'bg-v2-tint text-v2-deep'}`}>
+                      <Icon size={20} strokeWidth={2.4} aria-hidden />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block whitespace-nowrap text-[16px] font-black text-v2-ink">{label}</span>
+                      <span className="block whitespace-nowrap text-[12.5px] font-bold text-v2-muted">{sub}</span>
+                    </span>
+                  </button>
+                );
               return (
                 <button
                   key={id}
@@ -873,7 +965,11 @@ export default function WorkoutBuilderSheet({
             {equipmentChips.map(chip => (
               <span
                 key={chip.id}
-                className="flex-shrink-0 flex items-center gap-1.5 ps-2.5 pe-3 py-1.5 rounded-full border text-xs font-bold bg-white border-gray-200 text-gray-700 whitespace-nowrap"
+                className={
+                  v2
+                    ? 'flex-shrink-0 flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white/80 py-1.5 pe-3 ps-2.5 text-[12.5px] font-extrabold text-v2-ink-2 shadow-v2-ring'
+                    : 'flex-shrink-0 flex items-center gap-1.5 ps-2.5 pe-3 py-1.5 rounded-full border text-xs font-bold bg-white border-gray-200 text-gray-700 whitespace-nowrap'
+                }
               >
                 {chip.iconSrc ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -899,17 +995,28 @@ export default function WorkoutBuilderSheet({
             )}
             <button
               onClick={() => setShowEquipmentSheet(true)}
-              className="flex-shrink-0 w-8 h-8 rounded-full border border-dashed border-gray-300 flex items-center justify-center text-gray-400 active:bg-gray-100 transition-colors"
+              className={
+                v2
+                  ? 'flex-shrink-0 flex h-8 items-center gap-1 whitespace-nowrap rounded-full px-3 text-[12.5px] font-extrabold text-v2-deep ring-1 ring-inset ring-v2-hairline transition-transform duration-150 ease-v2 active:scale-[0.97]'
+                  : 'flex-shrink-0 w-8 h-8 rounded-full border border-dashed border-gray-300 flex items-center justify-center text-gray-400 active:bg-gray-100 transition-colors'
+              }
               aria-label="ערוך ציוד"
             >
-              <Plus size={14} />
+              {v2 ? (
+                <>
+                  <Settings2 size={13} strokeWidth={2.6} aria-hidden />
+                  עריכה
+                </>
+              ) : (
+                <Plus size={14} />
+              )}
             </button>
           </div>
         </Section>
 
         {/* 2. זמן (hidden in schedule mode) */}
         {!isScheduleMode && (
-          <Section title="משך זמן">
+          <Section v2={v2} title="משך זמן">
             {/* Fixed time buttons + "אחר" */}
             <div className="grid grid-cols-5 gap-2">
               {TIME_OPTIONS.map(t => {
@@ -923,10 +1030,15 @@ export default function WorkoutBuilderSheet({
                       setTimeMotivation(TIME_MOTIVATION[t][gender]);
                       setIsUsingRecommendedDefaults(false);
                     }}
-                    className={`flex flex-col items-center gap-0.5 py-3 rounded-2xl border text-xs font-bold transition-all active:scale-95 ${active ? ACTIVE_PILL : INACTIVE_PILL}`}
+                    aria-pressed={active}
+                    className={
+                      v2
+                        ? `flex h-[58px] flex-col items-center justify-center rounded-[16px] border transition-[transform,background-color,box-shadow] duration-150 ease-v2 active:scale-[0.97] ${active ? V2_PILL_ON : V2_PILL_OFF}`
+                        : `flex flex-col items-center gap-0.5 py-3 rounded-2xl border text-xs font-bold transition-all active:scale-95 ${active ? ACTIVE_PILL : INACTIVE_PILL}`
+                    }
                   >
-                    <span className="text-sm font-bold">{t}</span>
-                    <span className={`text-[10px] font-medium ${active ? 'text-blue-100' : 'text-gray-400'}`}>דק&apos;</span>
+                    <span className={v2 ? 'text-[19px] font-black leading-none tabular-nums' : 'text-sm font-bold'}>{t}</span>
+                    <span className={v2 ? 'mt-0.5 text-[11px] font-bold opacity-75' : `text-[10px] font-medium ${active ? 'text-blue-100' : 'text-gray-400'}`}>דק&apos;</span>
                   </button>
                 );
               })}
@@ -938,23 +1050,34 @@ export default function WorkoutBuilderSheet({
                   setTimeMotivation(TIME_MOTIVATION['other'][gender]);
                   setIsUsingRecommendedDefaults(false);
                 }}
-                className={`flex flex-col items-center gap-0.5 py-3 rounded-2xl border text-xs font-bold transition-all active:scale-95 ${showCustomTime ? ACTIVE_PILL : INACTIVE_PILL}`}
+                aria-pressed={showCustomTime}
+                className={
+                  v2
+                    ? `flex h-[58px] items-center justify-center rounded-[16px] border text-[14px] font-extrabold transition-[transform,background-color,box-shadow] duration-150 ease-v2 active:scale-[0.97] ${showCustomTime ? V2_PILL_ON : V2_PILL_OFF}`
+                    : `flex flex-col items-center gap-0.5 py-3 rounded-2xl border text-xs font-bold transition-all active:scale-95 ${showCustomTime ? ACTIVE_PILL : INACTIVE_PILL}`
+                }
               >
-                <span className="text-sm font-bold">✦</span>
-                <span className={`text-[10px] font-medium ${showCustomTime ? 'text-blue-100' : 'text-gray-400'}`}>אחר</span>
+                {v2 ? (
+                  'אחר'
+                ) : (
+                  <>
+                    <span className="text-sm font-bold">✦</span>
+                    <span className={`text-[10px] font-medium ${showCustomTime ? 'text-blue-100' : 'text-gray-400'}`}>אחר</span>
+                  </>
+                )}
               </button>
             </div>
 
             {/* Motivational text */}
             {timeMotivation && (
-              <p className="mt-2 text-xs text-gray-500 text-center italic">{timeMotivation}</p>
+              <p className={v2 ? 'mt-2 text-[13px] font-bold text-v2-deep' : 'mt-2 text-xs text-gray-500 text-center italic'}>{timeMotivation}</p>
             )}
 
             {/* Custom slider (shown when "אחר" is active) */}
             {showCustomTime && (
               <div className="mt-3 space-y-2" dir="rtl">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-gray-700">{customTime} דק׳</span>
+                  <span className={v2 ? 'text-[15px] font-black text-v2-ink' : 'text-sm font-bold text-gray-700'}>{customTime} דק׳</span>
                   <span className="text-xs text-gray-400">
                     {gender === 'female' ? 'תבחרי את הזמן שלך' : 'תבחר את הזמן שלך'}
                   </span>
@@ -985,7 +1108,7 @@ export default function WorkoutBuilderSheet({
 
         {/* 3. תוכנית */}
         {displayPrograms.length > 0 && (
-          <Section title="תוכנית">
+          <Section v2={v2} title="תוכנית">
             <div className="overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
               <div className="flex gap-2 pb-1" style={{ direction: 'rtl' }}>
                 <button
@@ -999,20 +1122,38 @@ export default function WorkoutBuilderSheet({
                     setIsUsingRecommendedDefaults(true);
                     setMuscleExpanded(true);
                   }}
-                  className={`flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2.5 rounded-2xl border text-xs font-bold transition-all active:scale-95 ${isAutoActive ? ACTIVE_PILL : INACTIVE_PILL}`}
-                  style={{ minWidth: 68 }}
+                  aria-pressed={isAutoActive}
+                  className={
+                    v2
+                      ? `flex h-12 flex-shrink-0 items-center gap-2 rounded-full border pe-4 ps-3 transition-[transform,background-color,box-shadow] duration-150 ease-v2 active:scale-[0.97] ${isAutoActive ? V2_PILL_ON : V2_PILL_OFF}`
+                      : `flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2.5 rounded-2xl border text-xs font-bold transition-all active:scale-95 ${isAutoActive ? ACTIVE_PILL : INACTIVE_PILL}`
+                  }
+                  style={v2 ? undefined : { minWidth: 68 }}
                 >
-                  <span className="text-base leading-none">✨</span>
-                  <span>אוטו</span>
-                  <span className={`text-[10px] font-medium ${isAutoActive ? 'text-blue-100' : 'text-gray-400'}`}>
-                    מומלץ
-                  </span>
+                  {v2 ? (
+                    <>
+                      <Sparkles size={17} strokeWidth={2.4} aria-hidden />
+                      <span className="text-start leading-tight">
+                        <span className="block whitespace-nowrap text-[14px] font-extrabold">אוטו</span>
+                        <span className="block whitespace-nowrap text-[11px] font-bold opacity-75">מומלץ</span>
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-base leading-none">✨</span>
+                      <span>אוטו</span>
+                      <span className={`text-[10px] font-medium ${isAutoActive ? 'text-blue-100' : 'text-gray-400'}`}>
+                        מומלץ
+                      </span>
+                    </>
+                  )}
                 </button>
                 {displayPrograms.map(prog => (
                   <ProgramPill
                     key={prog.id}
                     prog={prog}
                     isSelected={selectedProgramIds.includes(prog.slug)}
+                    v2={v2}
                     onSelect={prog.isUnenrolled
                       ? () => { setUnlockDomain(resolveBaseCategoryForThisProgram(prog.id)); setShowUnlockModal(true); }
                       : () => {
@@ -1051,8 +1192,14 @@ export default function WorkoutBuilderSheet({
                 will train by this program — say so instead of deciding
                 silently. Tapping a pill above overrides it. */}
             {autoAppliedProgram && (
-              <div className="mt-2 flex items-center gap-1.5 text-[11px] text-blue-600 bg-blue-50 rounded-xl px-3 py-2">
-                <span className="text-sm leading-none">✦</span>
+              <div
+                className={
+                  v2
+                    ? 'mt-2 flex items-center gap-1.5 text-[13px] font-bold text-v2-ink-2'
+                    : 'mt-2 flex items-center gap-1.5 text-[11px] text-blue-600 bg-blue-50 rounded-xl px-3 py-2'
+                }
+              >
+                {!v2 && <span className="text-sm leading-none">✦</span>}
                 <span>
                   יאומן לפי <b>{autoAppliedProgram.label}</b> — הותאם אוטומטית לשרירים שבחרת.
                   אפשר לבחור תוכנית אחרת למעלה.
@@ -1076,18 +1223,22 @@ export default function WorkoutBuilderSheet({
                 );
               }).join(' · ');
               return (
-                <p className="mt-2 text-xs text-[#2b6cb0] font-medium">כולל: {allChildLabels}</p>
+                <p className={v2 ? 'mt-2 text-[13px] font-bold text-v2-deep' : 'mt-2 text-xs text-[#2b6cb0] font-medium'}>כולל: {allChildLabels}</p>
               );
             })()}
           </Section>
         )}
 
         {/* 4. שרירים */}
-        <Section title="אזור אימון" sub="(ריק = כל הגוף)">
+        <Section v2={v2} title="אזור אימון" sub="(ריק = כל הגוף)">
           {!muscleExpanded ? (
             <button
               onClick={() => setMuscleExpanded(true)}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl border text-sm font-medium transition-all active:scale-[0.98] ${effectiveChips.length > 0 ? 'bg-sky-50 border-sky-200 text-sky-700' : INACTIVE_PILL}`}
+              className={
+                v2
+                  ? `w-full flex h-12 items-center justify-between rounded-[16px] px-4 text-[14.5px] font-extrabold transition-transform duration-150 ease-v2 active:scale-[0.98] ${effectiveChips.length > 0 ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'bg-white/80 text-v2-ink shadow-v2-ring'}`
+                  : `w-full flex items-center justify-between px-4 py-3 rounded-2xl border text-sm font-medium transition-all active:scale-[0.98] ${effectiveChips.length > 0 ? 'bg-sky-50 border-sky-200 text-sky-700' : INACTIVE_PILL}`
+              }
             >
               <span>
                 {effectiveChips.length > 0
@@ -1100,7 +1251,7 @@ export default function WorkoutBuilderSheet({
             <div className="space-y-4">
               {/* ── Primary row ── */}
               <div>
-                <p className="text-[11px] font-semibold text-gray-400 mb-2">שרירים ראשיים</p>
+                <p className={v2 ? 'mb-2 text-[12.5px] font-extrabold text-v2-muted' : 'text-[11px] font-semibold text-gray-400 mb-2'}>שרירים ראשיים</p>
                 <div
                   className="flex flex-nowrap gap-3 overflow-x-auto pb-1"
                   style={{ scrollbarWidth: 'none' }}
@@ -1113,6 +1264,7 @@ export default function WorkoutBuilderSheet({
                       selected={isChipSelected(chip)}
                       locked={!isChipAssessed(chip)}
                       recommended={isUsingRecommendedDefaults}
+                      v2={v2}
                       size="md"
                       onClick={() => toggleChip(chip)}
                     />
@@ -1122,7 +1274,7 @@ export default function WorkoutBuilderSheet({
 
               {/* ── Secondary row ── */}
               <div>
-                <p className="text-[11px] font-semibold text-gray-400 mb-2">שרירים משניים</p>
+                <p className={v2 ? 'mb-2 text-[12.5px] font-extrabold text-v2-muted' : 'text-[11px] font-semibold text-gray-400 mb-2'}>שרירים משניים</p>
                 <div
                   className="flex flex-nowrap gap-3 overflow-x-auto pb-1"
                   style={{ scrollbarWidth: 'none' }}
@@ -1135,6 +1287,7 @@ export default function WorkoutBuilderSheet({
                       selected={isChipSelected(chip)}
                       locked={!isChipAssessed(chip)}
                       recommended={isUsingRecommendedDefaults}
+                      v2={v2}
                       size="sm"
                       onClick={() => toggleChip(chip)}
                     />
@@ -1154,7 +1307,7 @@ export default function WorkoutBuilderSheet({
         </Section>
 
         {/* 5. עצימות — bolt selector */}
-        <Section title="עוצמה">
+        <Section v2={v2} title="עוצמה">
           <div className="flex gap-2">
             {([1, 2, 3] as DifficultyLevel[]).map(level => {
               const active = difficulty === level;
@@ -1162,7 +1315,12 @@ export default function WorkoutBuilderSheet({
                 <button
                   key={level}
                   onClick={() => { setDifficulty(level); setIsUsingRecommendedDefaults(false); }}
-                  className={`flex-1 flex flex-col items-center gap-2 py-3 rounded-2xl border transition-all active:scale-95 ${active ? ACTIVE_PILL : INACTIVE_PILL}`}
+                  aria-pressed={active}
+                  className={
+                    v2
+                      ? `flex h-[66px] flex-1 flex-col items-center justify-center gap-1 rounded-[18px] border transition-[transform,box-shadow] duration-150 ease-v2 active:scale-[0.97] ${active ? V2_CARD_ON : V2_CARD_OFF}`
+                      : `flex-1 flex flex-col items-center gap-2 py-3 rounded-2xl border transition-all active:scale-95 ${active ? ACTIVE_PILL : INACTIVE_PILL}`
+                  }
                 >
                   <span className="flex items-center gap-0.5">
                     {[0, 1, 2].map(i => (
@@ -1174,14 +1332,21 @@ export default function WorkoutBuilderSheet({
                         width={16}
                         height={16}
                         style={{
+                          // v2 selects with a ring, not a fill — the bolts keep their colour.
                           filter: i < level
-                            ? (active ? BOLT_FILTER_FILLED_ACTIVE : BOLT_FILTER_FILLED_INACTIVE)
-                            : (active ? BOLT_FILTER_EMPTY_ACTIVE  : BOLT_FILTER_EMPTY_INACTIVE),
+                            ? (active && !v2 ? BOLT_FILTER_FILLED_ACTIVE : BOLT_FILTER_FILLED_INACTIVE)
+                            : (active && !v2 ? BOLT_FILTER_EMPTY_ACTIVE  : BOLT_FILTER_EMPTY_INACTIVE),
                         }}
                       />
                     ))}
                   </span>
-                  <span className={`text-xs font-bold ${active ? 'text-white' : 'text-gray-700 dark:text-gray-300'}`}>
+                  <span
+                    className={
+                      v2
+                        ? `text-[14px] font-extrabold ${active ? 'text-v2-deep' : 'text-v2-ink-2'}`
+                        : `text-xs font-bold ${active ? 'text-white' : 'text-gray-700 dark:text-gray-300'}`
+                    }
+                  >
                     {BOLT_LABELS[level]}
                   </span>
                 </button>
@@ -1190,8 +1355,8 @@ export default function WorkoutBuilderSheet({
           </div>
           {/* Auto-blast hint when כוח + short time */}
           {difficulty === 3 && availableTime <= 20 && (
-            <p className="mt-2 text-xs text-center text-amber-600 font-medium">
-              ⚡ אימון קצר + עצימות גבוהה → בלאסט אוטומטי
+            <p className={v2 ? 'mt-2 text-[13px] font-bold text-v2-deep' : 'mt-2 text-xs text-center text-amber-600 font-medium'}>
+              {v2 ? '' : '⚡ '}אימון קצר + עצימות גבוהה → בלאסט אוטומטי
             </p>
           )}
         </Section>
@@ -1207,10 +1372,30 @@ export default function WorkoutBuilderSheet({
 
       {/* ── CTA ── */}
       <div
-        className="px-4 pt-3 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800"
+        className={v2 ? 'v2-glass-bar relative z-[2] px-4 pt-3' : 'px-4 pt-3 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800'}
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}
       >
-        {isScheduleMode ? (
+        {v2 ? (
+          <Button
+            variant="primary"
+            size="lg"
+            block
+            onClick={isScheduleMode ? handleScheduleSave : handleGenerate}
+            disabled={(isScheduleMode ? isSaving : isLoading) || !profile}
+            className="!h-12 !text-[16px]"
+          >
+            {isScheduleMode ? (
+              isSaving ? 'שומר…' : 'שמירה בלו״ז'
+            ) : isLoading ? (
+              'מייצר אימון…'
+            ) : (
+              <>
+                <Sparkles size={18} strokeWidth={2.6} aria-hidden />
+                צור אימון · {availableTime} דק׳
+              </>
+            )}
+          </Button>
+        ) : isScheduleMode ? (
           <button
             onClick={handleScheduleSave}
             disabled={isSaving || !profile}
