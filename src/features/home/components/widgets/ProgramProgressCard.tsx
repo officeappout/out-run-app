@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import { getProgramIcon, CheckMarkBadge, BRAND_CYAN } from '@/features/content/programs';
@@ -158,6 +159,9 @@ export function ProgramProgressCard({
   const completedCount = goals.filter(g => g.isCompleted).length;
   const hasGoals = goals.length > 0;
   const isCarousel = programCount > 1;
+  // Home v2: the design-lab card (white, v2 lift, bolder type). Home only —
+  // HomeV2Context is false everywhere else (e.g. the profile's programs).
+  const v2 = useHomeV2();
 
   const cardStyle: React.CSSProperties = isCarousel
     ? { minHeight: 107 }
@@ -235,14 +239,18 @@ export function ProgramProgressCard({
 
   return (
     <div
-      className={`bg-white dark:bg-slate-800 overflow-hidden w-full ${className}`}
-      style={{
-        ...cardStyle,
-        borderRadius: 12,
-        border: '0.5px solid #E0E9FF',
-        boxShadow: '0 1px 4px 0 rgba(0,0,0,0.04)',
-        isolation: 'isolate',
-      }}
+      className={`${v2 ? 'rounded-v2-card bg-white shadow-v2-card' : 'bg-white dark:bg-slate-800'} overflow-hidden w-full ${className}`}
+      style={
+        v2
+          ? { ...cardStyle, isolation: 'isolate' }
+          : {
+              ...cardStyle,
+              borderRadius: 12,
+              border: '0.5px solid #E0E9FF',
+              boxShadow: '0 1px 4px 0 rgba(0,0,0,0.04)',
+              isolation: 'isolate',
+            }
+      }
       dir="rtl"
     >
       {/* ── Top section: clickable to expand ──────────────────── */}
@@ -268,7 +276,7 @@ export function ProgramProgressCard({
               <div className="h-[40px] w-full max-w-[120px] rounded-md bg-gray-200 dark:bg-zinc-700 animate-pulse" />
             ) : (
               <div className="flex items-center gap-1.5 flex-wrap">
-                <h3 className="text-[15px] font-bold text-gray-900 dark:text-white line-clamp-2 break-words leading-snug">
+                <h3 className={v2 ? 'text-[15px] font-black text-v2-ink line-clamp-2 break-words leading-snug' : 'text-[15px] font-bold text-gray-900 dark:text-white line-clamp-2 break-words leading-snug'}>
                   {programName}
                 </h3>
                 {badge && (
@@ -283,17 +291,17 @@ export function ProgramProgressCard({
             )}
           </div>
 
-          <p className="text-sm text-gray-600 dark:text-gray-300 font-semibold mb-0.5">
-            רמה {currentLevel}/{maxLevel}
+          <p className={v2 ? 'mb-0.5 text-[14px] font-extrabold text-v2-ink' : 'text-sm text-gray-600 dark:text-gray-300 font-semibold mb-0.5'}>
+            {v2 ? `רמה ${currentLevel} מתוך ${maxLevel}` : `רמה ${currentLevel}/${maxLevel}`}
           </p>
 
           {nextLevel <= maxLevel && (
-            <div className="flex items-start gap-1 min-w-0 overflow-hidden min-h-[28px]" style={{ color: '#374151' }}>
+            <div className="flex items-start gap-1 min-w-0 overflow-hidden min-h-[28px]" style={{ color: v2 ? '#64748b' : '#374151' }}>
               {programNameLoading ? (
                 <div className="h-[28px] w-full max-w-[100px] rounded-md bg-gray-100 dark:bg-zinc-700 animate-pulse" />
               ) : (
                 <>
-                  <span className="text-xs whitespace-normal break-words min-w-0">
+                  <span className={v2 ? 'text-[12.5px] font-bold whitespace-normal break-words min-w-0' : 'text-xs whitespace-normal break-words min-w-0'}>
                     עוד {remainingPercent}% לרמה {nextLevel}
                   </span>
                   <ChevronUp className="w-3 h-3 flex-shrink-0 mt-0.5" />
