@@ -11,6 +11,8 @@ import {
   formatTimeLeft,
   battleSplit,
   BOARD_VISIBLE_ROWS,
+  perMember,
+  rankByMeasure,
 } from '../league-board-logic';
 
 function row(rank: number, totalCredit: number, isCurrentUser = false, name = `p${rank}`) {
@@ -131,5 +133,27 @@ describe('battleSplit', () => {
   });
   it('is even when both are zero', () => {
     expect(battleSplit(0, 0)).toEqual({ minePct: 50, theirsPct: 50 });
+  });
+});
+
+describe('rankByMeasure (average vs total)', () => {
+  const scopes = [
+    { name: 'גדולה', totalScore: 1000, activeMemberCount: 20 }, // 50 per member
+    { name: 'קטנה', totalScore: 300, activeMemberCount: 4 }, // 75 per member
+    { name: 'בינונית', totalScore: 600, activeMemberCount: 10 }, // 60 per member
+  ];
+  it('average: a small active neighborhood wins', () => {
+    expect(rankByMeasure(scopes, 'avg').map((s) => [s.name, s.rank])).toEqual([
+      ['קטנה', 1],
+      ['בינונית', 2],
+      ['גדולה', 3],
+    ]);
+  });
+  it('total: the sum wins', () => {
+    expect(rankByMeasure(scopes, 'total').map((s) => s.name)).toEqual(['גדולה', 'בינונית', 'קטנה']);
+  });
+  it('perMember is 0 with no active members', () => {
+    expect(perMember({ totalScore: 50, activeMemberCount: 0 })).toBe(0);
+    expect(perMember({ totalScore: 100, activeMemberCount: 3 })).toBe(33);
   });
 });

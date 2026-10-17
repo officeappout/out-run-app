@@ -14,7 +14,7 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, Users } from 'lucide-react';
 import Button from '@/components/ui/v2/Button';
-import { BoardCard, BoardIconButton, BoardMessage, BoardRow, BoardRowSkeleton } from './LeagueBoard';
+import { BoardCard, BoardIconButton, BoardMessage, BoardRow, BoardRowSkeleton, BoardPodium, type PodiumEntry } from './LeagueBoard';
 import {
   getGroupCompetitionLeaderboard,
   type GroupCompetitionEntry,
@@ -120,8 +120,21 @@ export function GroupLeaderboardView({
           body="כשחברי קהילה יסיימו אימונים כחלק מקבוצה, היא תופיע כאן"
         />
       ) : (
-        <div className="grid grid-cols-1 gap-2">
-          {entries.map((entry) => (
+        <>
+        {entries.length >= 3 && (
+          <BoardPodium
+            entries={
+              entries.slice(0, 3).map((e) => ({
+                key: e.groupId,
+                name: e.groupName,
+                value: e.avgScore.toLocaleString('he-IL'),
+                sub: `${e.activeMemberCount} פעילים`,
+              })) as [PodiumEntry, PodiumEntry, PodiumEntry]
+            }
+          />
+        )}
+        <div className="grid grid-cols-1 gap-1 mt-1">
+          {entries.slice(entries.length >= 3 ? 3 : 0).map((entry) => (
             <BoardRow
               key={entry.groupId}
               rank={entry.rank}
@@ -132,6 +145,7 @@ export function GroupLeaderboardView({
             />
           ))}
         </div>
+        </>
       )}
     </BoardCard>
   );

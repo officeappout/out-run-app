@@ -14,7 +14,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { RefreshCw, UserPlus, Swords, Zap } from 'lucide-react';
 import Button from '@/components/ui/v2/Button';
-import { battleSplit, formatTimeLeft, getPeriodEnd } from './league-board-logic';
+import { battleSplit, formatTimeLeft, getPeriodEnd, perMember } from './league-board-logic';
 import {
   getScopeCompetitionLeaderboard,
   type ScopeCompetitionResult,
@@ -174,10 +174,14 @@ export function ScopeBattleCardView({
   const opponent = entries.find((e) => e.scopeId === opponentScopeId) ?? null;
   if (!opponent) return null;
 
-  const leader = myEntry.totalScore >= opponent.totalScore ? myEntry : opponent;
-  const gap = leader.totalScore - (leader === myEntry ? opponent : myEntry).totalScore;
-  const iAmLeading = leader === myEntry;
-  const split = battleSplit(myEntry.totalScore, opponent.totalScore);
+  // 17.10.2026 (David): the battle is decided per active member — the same
+  // fair measure as the board's default — with each side's total shown too.
+  const mine = perMember(myEntry);
+  const theirs = perMember(opponent);
+  const iAmLeading = mine >= theirs;
+  const leader = iAmLeading ? myEntry : opponent;
+  const gap = Math.abs(mine - theirs);
+  const split = battleSplit(mine, theirs);
 
   const candidates = entries.filter((e) => e.scopeId !== myScopeId);
 
@@ -197,34 +201,49 @@ export function ScopeBattleCardView({
         }
       />
 
-      {/* VS — two white pills around the amber lightning (site .vs). Your
-          scope on the start (right, RTL) side. */}
-      <div className="flex items-center gap-2.5 mt-3.5">
-        <span className="flex-1 min-w-0 h-9 px-3 rounded-full bg-white flex items-center justify-center text-[14px] font-extrabold text-v2-ink truncate">
-          {myEntry.scopeName}
+      {/* VS — per-member score, big, on each side of the amber lightning;
+          your scope on the start (right, RTL) side. */}
+      <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-end gap-2">
+        <div className="min-w-0">
+          <div className="text-[14px] font-extrabold text-v2-ink truncate">{myEntry.scopeName}</div>
+          <div className="text-[32px] font-black leading-none tabular-nums tracking-v2-tighter text-v2-deep">
+            {mine.toLocaleString('he-IL')}
+          </div>
+          <div className="text-[12px] font-bold text-v2-muted">{myEntry.activeMemberCount} פעילים</div>
+        </div>
+        <span className="mb-5 w-9 h-9 rounded-full bg-white flex items-center justify-center text-v2-amber shadow-v2-ring">
+          <Zap size={18} strokeWidth={2.4} fill="currentColor" aria-label="נגד" />
         </span>
-        <Zap size={20} strokeWidth={2.4} className="text-v2-amber shrink-0" fill="currentColor" aria-label="נגד" />
-        <span className="flex-1 min-w-0 h-9 px-3 rounded-full bg-white flex items-center justify-center text-[14px] font-extrabold text-v2-ink truncate">
-          {opponent.scopeName}
-        </span>
+        <div className="min-w-0 text-left">
+          <div className="text-[14px] font-extrabold text-v2-ink truncate">{opponent.scopeName}</div>
+          <div className="text-[32px] font-black leading-none tabular-nums tracking-v2-tighter text-v2-ink-2">
+            {theirs.toLocaleString('he-IL')}
+          </div>
+          <div className="text-[12px] font-bold text-v2-muted">{opponent.activeMemberCount} פעילים</div>
+        </div>
       </div>
 
-      {/* Split bar — your share of the two totals (same two rows the card
-          already had; league-board-logic.battleSplit). */}
+      {/* Split bar — your share of the two per-member scores. */}
       <div className="mt-3 flex h-3 rounded-full overflow-hidden bg-white" aria-hidden>
         <div className="h-full bg-v2-cta" style={{ width: `${split.minePct}%` }} />
         <div className="h-full" style={{ width: `${split.theirsPct}%`, background: OPPONENT_COLOR }} />
       </div>
-      <div className="mt-1.5 flex items-center justify-between text-[13px] font-black text-v2-ink tabular-nums">
-        <span>{myEntry.totalScore.toLocaleString('he-IL')}</span>
-        <span className="text-[11px] font-bold text-v2-muted">{CATEGORY_UNIT_LABEL[category]}</span>
-        <span>{opponent.totalScore.toLocaleString('he-IL')}</span>
+      <p className="mt-1.5 text-[11.5px] font-bold text-v2-muted text-center">{CATEGORY_UNIT_LABEL[category]} בממוצע למשתתף פעיל</p>
+
+      {/* Each side's total — the bigger, prouder number. */}
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        {[myEntry, opponent].map((e) => (
+          <div key={e.scopeId} className="rounded-[16px] bg-white/80 px-3 py-2 min-w-0">
+            <div className="text-[17px] font-black leading-tight tabular-nums text-v2-ink">{e.totalScore.toLocaleString('he-IL')}</div>
+            <div className="text-[11.5px] font-bold text-v2-muted truncate">סה״כ {CATEGORY_UNIT_LABEL[category]} · {e.scopeName}</div>
+          </div>
+        ))}
       </div>
 
       <p className="text-[12.5px] text-v2-ink-2 font-semibold mt-2.5 text-center">
         {iAmLeading
-          ? `אתה מוביל על ${opponent.scopeName} 🔥`
-          : `רק ${gap.toLocaleString('he-IL')} ${CATEGORY_UNIT_LABEL[category]} מ${leader.scopeName}!`}
+          ? `מובילים ב־${gap.toLocaleString('he-IL')} למשתתף על ${opponent.scopeName}`
+          : `רק ${gap.toLocaleString('he-IL')} למשתתף מ${leader.scopeName}!`}
       </p>
 
       <OpponentPickerSheet
