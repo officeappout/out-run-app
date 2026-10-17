@@ -879,7 +879,7 @@ export default function CommunityPage() {
                     aria-selected={on}
                     onClick={() => setFeedFilter(f.id)}
                     className={`h-9 shrink-0 whitespace-nowrap rounded-full px-4 text-[13.5px] font-extrabold transition-transform duration-150 ease-v2 active:scale-[0.97] ${
-                      on ? 'bg-v2-ink text-white' : 'bg-white text-v2-ink-2 shadow-v2-ring'
+                      on ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'bg-white text-v2-ink-2 shadow-v2-ring'
                     }`}
                   >
                     {f.label}
