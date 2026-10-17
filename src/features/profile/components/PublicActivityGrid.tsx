@@ -48,16 +48,29 @@ function tileStat(post: FeedPost): string {
   return `${post.durationMinutes} דק'`;
 }
 
+/** v2 tile colours — the same as the home flames. */
+const V2_TONE: Record<string, { rgb: string; iconSrc: string }> = {
+  strength: { rgb: '0,186,247', iconSrc: '/icons/programs/muscle.svg' },
+  cardio: { rgb: '132,204,22', iconSrc: '/icons/programs/Run.svg' },
+  maintenance: { rgb: '139,92,246', iconSrc: '/icons/programs/walking.svg' },
+};
+
 export default function PublicActivityGrid({
   posts,
   isLoading,
+  v2 = false,
 }: {
   posts: FeedPost[];
   isLoading: boolean;
+  /** Home v2 look (enable_home_v2). */
+  v2?: boolean;
 }) {
   const tiles: ActivityTile[] = posts.map((post) => {
     const { Icon, label, tileGradient } = getActivityMeta(post);
+    const tone = V2_TONE[post.activityCategory] ?? V2_TONE.cardio;
+    const [value, unit] = tileStat(post).split(' ');
     return {
+      v2: { ...tone, value, unit: unit ?? '', caption: post.title || label },
       id: post.id,
       Icon,
       label,
@@ -70,6 +83,7 @@ export default function PublicActivityGrid({
     <ActivityTileGrid
       tiles={tiles}
       isLoading={isLoading}
+      v2={v2}
       emptyMessage={<>אין פעילות אחרונה</>}
     />
   );
