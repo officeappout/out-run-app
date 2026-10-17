@@ -55,6 +55,7 @@ GROUP_8089=(
   functions/src/__tests__/reminderSweepScheduler.emulator.test.ts
   functions/src/__tests__/leagueScopeStats.emulator.test.ts
   functions/src/__tests__/referralBonus.emulator.test.ts
+  functions/src/__tests__/leagueSteps.emulator.test.ts
 )
 
 RESULTS=$(mktemp)
