@@ -13,7 +13,7 @@ export default function BottomNavigation() {
   const { status } = useSessionStore();
   const profile = useUserStore((s) => s.profile);
   const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
-  const { flags } = useFeatureFlags(isSuperAdmin);
+  const { flags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
 
   // Map sub-states (PlannedPreview / Navigate / Builder layers) request the
   // navbar slide out via `useSuppressBottomNav()`. We read the counter as
@@ -37,6 +37,13 @@ export default function BottomNavigation() {
   }
 
   if (status === 'active' || status === 'paused') {
+    return null;
+  }
+
+  // Unknown flags (a device that has never seen them — first launch / cleared
+  // storage): no bar for that moment rather than the classic bar that then
+  // swaps to the v2 one. With the flags cached this is false on first paint.
+  if (flagsLoading) {
     return null;
   }
 

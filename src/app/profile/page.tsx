@@ -91,7 +91,7 @@ export default function ProfilePage() {
   const managedGroups = myGroups.filter((g) => g.createdBy === profile?.id);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Home v2 (enable_home_v2): the profile wears the same look as home.
-  const { flags: profileFlags } = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const { flags: profileFlags, loading: flagsLoading } = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const v2 = profileFlags.enableHomeV2;
   const [historySheetOpen, setHistorySheetOpen] = useState(false);
 
@@ -309,7 +309,10 @@ export default function ProfilePage() {
     }
   }, [_hasHydrated, profile, router]);
 
-  if (!_hasHydrated) {
+  // flagsLoading too (same as /home): only true on a device that has never
+  // seen the flags (first launch / cleared storage) — without it the profile
+  // painted in the old look and then switched to v2 once the flags arrived.
+  if (!_hasHydrated || flagsLoading) {
     return (
       <div className="h-screen flex items-center justify-center bg-white">
         <p className="text-sm text-gray-500 animate-pulse">טוען...</p>

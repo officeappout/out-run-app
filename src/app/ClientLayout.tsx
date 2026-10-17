@@ -17,6 +17,7 @@ import GlobalErrorOverlay from "@/components/system/GlobalErrorOverlay";
 import OnboardingSyncErrorToast from "@/components/system/OnboardingSyncErrorToast";
 import { useMidnightRefresh } from "@/features/activity";
 import HealthDeclarationSelfHeal from "@/features/user/onboarding/components/HealthDeclarationSelfHeal";
+import EdgeSwipeBack from "@/components/system/EdgeSwipeBack";
 
 /**
  * Mounts the global midnight clock once. Bumps the dateKey atom at 00:00
@@ -178,6 +179,8 @@ export default function ClientLayout({
           <OfflineBanner />
           <GlobalErrorOverlay />
           <MidnightClock />
+          {/* iOS app only, behind enable_home_v2: right-edge swipe = back (renders nothing). */}
+          <EdgeSwipeBack />
           {/* Regenerates a signed health-declaration PDF that never reached Storage — once per
               session, in the background (renders nothing). */}
           <HealthDeclarationSelfHeal />
