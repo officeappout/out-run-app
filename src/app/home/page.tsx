@@ -260,14 +260,12 @@ function HomeGreeting({ name }: { name: string }) {
   const h = now.getHours();
   const hello = h >= 5 && h < 12 ? 'בוקר טוב' : h >= 12 && h < 17 ? 'צהריים טובים' : h >= 17 && h < 21 ? 'ערב טוב' : 'לילה טוב';
   const first = name.trim().split(/\s+/)[0] ?? '';
-  const date = now.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' });
   return (
     <div className="pb-2 pt-2" dir="rtl">
       <h1 className="text-[22px] font-black leading-tight tracking-v2-tight text-v2-ink">
         {hello}
         {first ? `, ${first}` : ''}
       </h1>
-      <p className="text-[13.5px] font-bold text-v2-muted">{date}</p>
     </div>
   );
 }
@@ -2763,7 +2761,8 @@ export default function HomePage() {
       <AppHeader v2={featureFlags.enableHomeV2} />
 
       {/* ── Profile Progress Bar ── */}
-      <ProfileProgressBar profile={profile} />
+      {/* v2: hidden for now (owner's review — takes space at the top). */}
+      {!featureFlags.enableHomeV2 && <ProfileProgressBar profile={profile} />}
 
       {/* ── Global Motivation Banner (post-workout) ── */}
       <AnimatePresence>
@@ -3493,7 +3492,8 @@ export default function HomePage() {
               : 'fixed z-[55] w-14 h-14 rounded-full shadow-xl flex items-center justify-center bg-[#00E5FF] text-on-brand active:scale-95 transition-all'
           }
           style={{
-            bottom: 'calc(84px + env(safe-area-inset-bottom, 0px))',
+            // v2: a bit higher, clear of the floating bar's raised map circle.
+            bottom: featureFlags.enableHomeV2 ? 'calc(104px + env(safe-area-inset-bottom, 0px))' : 'calc(84px + env(safe-area-inset-bottom, 0px))',
             right: '16px',
             // v2: one filled gradient per screen — the "+" floats white (design-language §9.11)
             ...(featureFlags.enableHomeV2
