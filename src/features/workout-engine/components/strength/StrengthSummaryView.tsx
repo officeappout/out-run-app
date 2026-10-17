@@ -171,7 +171,9 @@ export default function StrengthSummaryView({
           />
         )}
 
-        {!isReadOnly && (
+        {/* G8.2: the gain card follows the ring — hidden when progression was skipped for a user
+            with no questionnaire (it would show "+0.0%"). Flag OFF never skips → unchanged. */}
+        {shouldShowLevelRing({ isReadOnly, progressionResult: progression.progressionResult }) && (
           <GainBreakdownCard
             progressionResult={progression.progressionResult}
             weeklyStrengthSessions={analytics.weeklyStrengthSessions}

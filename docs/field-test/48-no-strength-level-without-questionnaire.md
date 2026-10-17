@@ -53,6 +53,7 @@ has `skipped === 'no_questionnaire'`. The history view hides it as before.
   `strength-summary-level-ring-guard.test.ts`, which server-renders the real
   `StrengthSummaryView`: ring shown normally, hidden when skipped, hidden in history.
 
-**Open for the field test:** `GainBreakdownCard` hides only when `success` is false. A skipped
-result has `success: true`, so it still renders with "+0.0%" gains. It was left as-is; the
-scope was the level ring. Decide on device whether it should hide too.
+**Gain card (17.10.2026, David):** the "התקדמות" gain card (`GainBreakdownCard`, which showed
+"+0.0%") is now hidden by the same rule (`shouldShowLevelRing`) whenever the ring is hidden.
+`strength-summary-level-ring-guard.test.ts` covers it: shown with real progression, hidden when
+skipped, hidden in history.

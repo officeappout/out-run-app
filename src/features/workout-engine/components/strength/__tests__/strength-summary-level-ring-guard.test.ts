@@ -15,15 +15,16 @@ const PROGRAM = 'תוכנית-בדיקה-G82';
 const noop = () => {};
 const noopAsync = async () => {};
 
-function render(opts: { isReadOnly?: boolean; skipped?: 'no_questionnaire' }) {
-  // The exact shape processWorkoutCompletion returns when it skips (skippedNoQuestionnaireResult).
-  const progressionResult = opts.skipped
+function render(opts: { isReadOnly?: boolean; skipped?: 'no_questionnaire'; gained?: boolean }) {
+  // skipped: the exact shape processWorkoutCompletion returns when it skips
+  // (skippedNoQuestionnaireResult). gained: the same shape with a real gain (flag OFF / assessed).
+  const progressionResult = opts.skipped || opts.gained
     ? ({
         success: true,
-        skipped: opts.skipped,
+        ...(opts.skipped ? { skipped: opts.skipped } : {}),
         activeProgramGain: {
-          programId: 'full_body', baseGain: 0, bonusGain: 0, goalBonusGain: 0,
-          masteryBonusGain: 0, totalGain: 0, newPercent: 0, leveledUp: false,
+          programId: 'full_body', baseGain: opts.gained ? 4.2 : 0, bonusGain: 0, goalBonusGain: 0,
+          masteryBonusGain: 0, totalGain: opts.gained ? 4.2 : 0, newPercent: opts.gained ? 68 : 0, leveledUp: false,
         },
         linkedProgramGains: [],
         volumeBreakdown: { setsPerformed: 0, requiredSets: 0, volumeRatio: 0, isFullVolume: false },
@@ -77,5 +78,26 @@ describe('StrengthSummaryView — G8.2 level-ring guard', () => {
   });
   it('history view: ring hidden as before', () => {
     expect(count(render({ isReadOnly: true }))).toBe(1);
+  });
+});
+
+// G8.2 follow-up (17.10.2026): the gain card ("פירוט התקדמות", +X%) follows the ring.
+const GAIN_CARD = 'פירוט התקדמות';
+
+describe('StrengthSummaryView — G8.2 gain-card guard', () => {
+  it('real progression (flag OFF / assessed user): gain card shown, as before', () => {
+    const html = render({ gained: true });
+    expect(html).toContain(GAIN_CARD);
+    expect(html).toContain('+4.2%');
+    expect(count(html)).toBe(2); // ring too
+  });
+  it('progression skipped — no questionnaire (flag ON): no "+0.0%" gain card, no ring', () => {
+    const html = render({ skipped: 'no_questionnaire' });
+    expect(html).not.toContain(GAIN_CARD);
+    expect(html).not.toContain('+0.0%');
+    expect(count(html)).toBe(1);
+  });
+  it('history view: gain card hidden as before', () => {
+    expect(render({ isReadOnly: true, gained: true })).not.toContain(GAIN_CARD);
   });
 });
