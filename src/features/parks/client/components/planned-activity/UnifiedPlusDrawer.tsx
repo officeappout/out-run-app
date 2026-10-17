@@ -15,6 +15,8 @@
 import React from 'react';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
+import { APP_CONFIG_LINKS } from '@/lib/config/app-urls';
+import { CalendarPlus, UserPlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Footprints, Users, MapPin, Zap, ChevronLeft } from 'lucide-react';
 
@@ -25,6 +27,8 @@ interface UnifiedPlusDrawerProps {
   onCreateGroup: () => void;
   onAddLocation: () => void;
   onReport: () => void;
+  /** v2: "add a workout to the schedule" (home passes it; the map doesn't). */
+  onAddWorkout?: () => void;
 }
 
 interface Row {
@@ -41,11 +45,19 @@ export default function UnifiedPlusDrawer({
   onCreateGroup,
   onAddLocation,
   onReport,
+  onAddWorkout,
 }: UnifiedPlusDrawerProps) {
   const select = (fn: () => void) => () => { onClose(); fn(); };
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   // v2 look (enable_home_v2) — the drawer opens from home and the map.
   const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
+  const uid = useUserStore((st) => st.profile?.id ?? null);
+  const invite = () => {
+    if (!uid) return;
+    const text = `בוא/י להתאמן איתי ב-OUT 💪 ${APP_CONFIG_LINKS.GENERAL_INVITE_ONELINK}?ref=${uid}`;
+    if (navigator.share) navigator.share({ text }).catch(() => {});
+    else if (navigator.clipboard) void navigator.clipboard.writeText(text);
+  };
 
   // Clean icon treatment (chrome polish): no colored circle behind a white
   // glyph, AND — per the unify-all-icon-colors round — no more per-icon
@@ -152,6 +164,48 @@ export default function UnifiedPlusDrawer({
               </button>
             </div>
 
+            {v2 ? (
+              <div className="space-y-4 px-5 pb-4">
+                {[
+                  {
+                    title: 'פעילות',
+                    rows: [
+                      ...(onAddWorkout
+                        ? [{ icon: <CalendarPlus size={18} />, label: 'הוספת אימון ללו״ז', sublabel: 'מתי, כמה זמן ואיזה סוג', onSelect: select(onAddWorkout) }]
+                        : []),
+                      activityRows[0],
+                    ],
+                  },
+                  {
+                    title: 'חברתי',
+                    rows: [
+                      { icon: <UserPlus size={18} />, label: 'הזמנת חבר', sublabel: '+50 נק׳ לשכונה ולעיר שלך כשהוא מצטרף', onSelect: select(invite) },
+                      activityRows[1],
+                    ],
+                  },
+                ].map((g) => (
+                  <div key={g.title} className="space-y-2">
+                    <div className="px-1 text-[13px] font-extrabold text-v2-deep">{g.title}</div>
+                    <div className="space-y-2">{g.rows.map((row) => renderRow(row))}</div>
+                  </div>
+                ))}
+                <div className="space-y-2">
+                  <div className="px-1 text-[13px] font-extrabold text-v2-deep">תרומה למפה</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {contributeRows.map((row) => (
+                      <button
+                        key={row.label}
+                        onClick={row.onSelect}
+                        className="flex h-12 items-center justify-center gap-2 rounded-full bg-white text-[14px] font-extrabold text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] [&_svg]:!text-v2-deep"
+                      >
+                        {row.icon}
+                        {row.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
             <div className="px-5 pb-4 space-y-4">
               <div className="space-y-2">
                 <div className={v2 ? 'px-1 text-[13px] font-extrabold text-v2-deep' : 'text-[11px] font-bold text-gray-400 px-1'}>פעילות</div>
@@ -167,6 +221,7 @@ export default function UnifiedPlusDrawer({
                 </div>
               </div>
             </div>
+            )}
           </motion.div>
         </motion.div>
       )}
