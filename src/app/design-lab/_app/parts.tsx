@@ -3,7 +3,7 @@
 import { useId, type ReactNode } from 'react';
 import Link from 'next/link';
 import { motion, useReducedMotion } from 'framer-motion';
-import { ArrowRight, Home, Map as MapIcon, TrendingUp, Users, X, Zap } from 'lucide-react';
+import { ArrowRight, Home, Map as MapIcon, TrendingUp, User, Users, X, Zap } from 'lucide-react';
 import { EASE_V2 } from '@/components/ui/v2';
 
 /**
@@ -314,22 +314,89 @@ export function LineChart({
 }
 
 export type NavTab = 'home' | 'map' | 'progress' | 'friends';
+/**
+ * equal  — four equal tabs (today).
+ * pill   — the current tab grows into a brand pill with its label; the rest
+ *          are icons only, so "where am I" reads first.
+ * map    — the map is the hero: a raised gradient button in the centre.
+ */
+export type NavVariant = 'equal' | 'pill' | 'map';
+
+const NAV_ITEMS: { id: NavTab; label: string; icon: typeof Home; href: string }[] = [
+  { id: 'home', label: 'בית', icon: Home, href: '/design-lab/home' },
+  { id: 'progress', label: 'התקדמות', icon: TrendingUp, href: '/design-lab/steps' },
+  { id: 'map', label: 'מפה', icon: MapIcon, href: '/design-lab/park' },
+  { id: 'friends', label: 'חברתי', icon: Users, href: '/design-lab/leagues' },
+];
 
 /** The app's four tabs (בית · מפה · התקדמות · חברתי), on the site's glass bar. */
-export function BottomNav({ active = 'home' }: { active?: NavTab }) {
-  const items: { id: NavTab; label: string; icon: typeof Home; href: string }[] = [
-    { id: 'home', label: 'בית', icon: Home, href: '/design-lab/home' },
-    { id: 'map', label: 'מפה', icon: MapIcon, href: '/design-lab/park' },
-    { id: 'progress', label: 'התקדמות', icon: TrendingUp, href: '/design-lab/steps' },
-    { id: 'friends', label: 'חברתי', icon: Users, href: '/design-lab/leagues' },
-  ];
+export function BottomNav({ active = 'home', variant = 'equal' }: { active?: NavTab; variant?: NavVariant }) {
+  const reduce = useReducedMotion();
+  const bar =
+    'v2-glass-bar fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+14px)] z-[5] flex h-16 items-center rounded-full shadow-v2-float';
+
+  if (variant === 'map') {
+    const side = NAV_ITEMS.filter((i) => i.id !== 'map');
+    const map = NAV_ITEMS.find((i) => i.id === 'map')!;
+    const left = [side[0], side[1]];
+    // 2 + map + 2: profile joins the bar in this variant to keep it symmetric.
+    const right = [side[2], { id: 'profile' as NavTab, label: 'פרופיל', icon: User, href: '/design-lab/home' }];
+    const tab = ({ id, label, icon: Icon, href }: (typeof NAV_ITEMS)[number]) => {
+      const on = id === active;
+      return (
+        <Link
+          key={id}
+          href={href}
+          aria-current={on ? 'page' : undefined}
+          className={`flex h-12 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-extrabold ${on ? 'text-v2-deep' : 'text-v2-muted'}`}
+        >
+          <Icon size={21} strokeWidth={on ? 2.6 : 2.2} aria-hidden />
+          {label}
+        </Link>
+      );
+    };
+    return (
+      <nav aria-label="ניווט ראשי" className={`${bar} justify-around px-2`}>
+        {left.map(tab)}
+        <Link
+          href={map.href}
+          aria-label={map.label}
+          aria-current={active === 'map' ? 'page' : undefined}
+          className="-mt-9 grid h-[68px] w-[68px] shrink-0 place-items-center rounded-full bg-v2-cta text-v2-on-cta shadow-v2-cta ring-[5px] ring-white transition-transform duration-150 ease-v2 active:scale-[0.96]"
+        >
+          <MapIcon size={28} strokeWidth={2.4} aria-hidden />
+        </Link>
+        {right.map(tab)}
+      </nav>
+    );
+  }
+
   return (
-    <nav
-      aria-label="ניווט ראשי"
-      className="v2-glass-bar fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+14px)] z-[5] flex h-16 items-center justify-around rounded-full shadow-v2-float"
-    >
-      {items.map(({ id, label, icon: Icon, href }) => {
+    <nav aria-label="ניווט ראשי" className={`${bar} justify-around px-2`}>
+      {NAV_ITEMS.map(({ id, label, icon: Icon, href }) => {
         const on = id === active;
+        if (variant === 'pill')
+          return (
+            <Link
+              key={id}
+              href={href}
+              aria-current={on ? 'page' : undefined}
+              aria-label={label}
+              className={`relative flex h-11 items-center justify-center gap-1.5 rounded-full text-[13.5px] font-extrabold transition-colors duration-200 ${
+                on ? 'px-4 text-v2-on-cta' : 'w-12 text-v2-muted'
+              }`}
+            >
+              {on && (
+                <motion.span
+                  layoutId="nav-pill"
+                  className="absolute inset-0 rounded-full bg-v2-cta shadow-v2-cta"
+                  transition={{ duration: reduce ? 0 : 0.32, ease: EASE_V2 }}
+                />
+              )}
+              <Icon size={21} strokeWidth={on ? 2.6 : 2.2} className="relative" aria-hidden />
+              {on && <span className="relative">{label}</span>}
+            </Link>
+          );
         return (
           <Link
             key={id}

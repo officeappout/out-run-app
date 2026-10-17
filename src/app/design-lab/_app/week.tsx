@@ -16,12 +16,6 @@ export interface StreakDay {
   muted?: boolean;
 }
 
-const FLAME: Record<DayKind, string> = {
-  strength: ICON.flameStrength,
-  walk: ICON.flameSteps,
-  steps: ICON.flameSteps,
-  run: ICON.flameStrength,
-};
 const PROGRAM: Record<DayKind, string> = {
   strength: ICON.strength,
   walk: ICON.walk,
@@ -59,16 +53,21 @@ export function StreakRow({
   showDates = false,
   cell = 44,
   animateToday = true,
+  selectedIndex,
+  onSelect,
 }: {
   days: StreakDay[];
   todayIndex?: number;
   showDates?: boolean;
   cell?: number;
   animateToday?: boolean;
+  /** Planner: the day the agenda is showing. */
+  selectedIndex?: number;
+  onSelect?: (i: number) => void;
 }) {
   const reduce = useReducedMotion();
   const n = days.length;
-  const centerY = (showDates ? 22 : 0) + cell / 2;
+  const centerY = (showDates ? 24 : 0) + cell / 2;
   return (
     <div className="relative">
       {runs(days).map((l) => (
@@ -93,18 +92,30 @@ export function StreakRow({
       <ol className="relative grid" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}>
         {days.map((d, i) => {
           const isToday = i === todayIndex;
-          return (
-            <li key={i} className={`flex flex-col items-center ${d.muted ? 'opacity-35' : ''}`}>
+          const isSel = i === selectedIndex;
+          const body = (
+            <>
               {showDates && (
                 <span
-                  className={`mb-1 grid h-[18px] min-w-[18px] place-items-center rounded-full px-1 text-[12px] font-extrabold tabular-nums ${
-                    isToday ? 'bg-v2-cta text-v2-on-cta' : 'text-v2-ink-2'
+                  className={`mb-1 grid h-[20px] min-w-[20px] place-items-center rounded-full px-1 text-[12px] font-extrabold tabular-nums transition-colors duration-200 ${
+                    isToday ? 'bg-v2-cta text-v2-on-cta' : isSel ? 'bg-v2-ink text-white' : 'text-v2-ink-2'
                   }`}
                 >
                   {d.date}
                 </span>
               )}
               <DayCell day={d} isToday={isToday} size={cell} animate={animateToday && isToday} />
+            </>
+          );
+          return (
+            <li key={i} className={`flex flex-col items-center ${d.muted ? 'opacity-35' : ''}`}>
+              {onSelect ? (
+                <button type="button" onClick={() => onSelect(i)} aria-pressed={isSel} className="flex flex-col items-center">
+                  {body}
+                </button>
+              ) : (
+                body
+              )}
             </li>
           );
         })}
@@ -117,10 +128,11 @@ function DayCell({ day, isToday, size, animate }: { day: StreakDay; isToday: boo
   const icon = Math.round(size * 0.56);
   const box = 'relative grid place-items-center rounded-[14px]';
   const style = { width: size, height: size };
+  // A done day is just the streak flame — no frame around it.
   if (day.status === 'done')
     return (
-      <span className={`${box} bg-white shadow-v2-ring ${isToday ? 'ring-2 ring-v2-accent' : ''}`} style={style}>
-        {isToday && animate ? <BrandFlame size={icon + 16} /> : <AppIcon src={FLAME[day.kind ?? 'strength']} size={icon} />}
+      <span className="relative grid place-items-center" style={style}>
+        <BrandFlame size={Math.round(size * 1.05)} still={!(isToday && animate)} />
       </span>
     );
   if (day.status === 'today')

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion, type PanInfo } from 'framer-motion';
 import { CalendarSync, Check, ChevronLeft, ChevronRight, GripVertical, Plus } from 'lucide-react';
 import { Button, EASE_V2 } from '@/components/ui/v2';
@@ -12,9 +12,10 @@ import { PLAN, USER, WEEK } from '../home/fixtures';
 
 const LETTERS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
-/** October 2026, Sunday-first rows. Demo history: a streak up to today (16th). */
+/** October 2026, Sunday-first rows. 11–24 follow the home fixtures (WEEK, PLAN). */
 function octoberRows(): StreakDay[][] {
   const first = 4; // 1 Oct 2026 is a Thursday
+  const week2 = PLAN[1].days;
   const cells: StreakDay[] = [];
   for (let i = 0; i < 35; i++) {
     const n = i - first + 1;
@@ -22,32 +23,36 @@ function octoberRows(): StreakDay[][] {
     const date = inMonth ? n : n < 1 ? 30 + n : n - 31;
     let status: StreakDay['status'] = 'rest';
     let kind: StreakDay['kind'] = 'strength';
-    if (inMonth && n < 16) {
-      const pattern = [n % 7 === 3 ? 'rest' : 'done', 'done', 'done'];
-      status = (n === 2 || n === 6 || n === 9 || n === 15 ? 'rest' : n === 7 ? 'missed' : pattern[n % 3]) as StreakDay['status'];
-      kind = n % 4 === 1 ? 'steps' : n % 5 === 0 ? 'run' : 'strength';
+    if (inMonth && n <= 10) status = [2, 6, 9].includes(n) ? 'rest' : n === 7 ? 'missed' : 'done';
+    const w = WEEK.find((d) => d.date === n);
+    if (w) {
+      status = w.status;
+      kind = w.kind ?? 'strength';
     }
-    if (n === 16) status = 'today';
-    if (inMonth && n > 16) {
-      status = [18, 20, 22, 24, 25, 27, 29, 31].includes(n) ? 'planned' : 'rest';
-      kind = n % 3 === 0 ? 'walk' : 'strength';
+    const p = week2.find((d) => d.n === n);
+    if (p && p.items.length) {
+      status = 'planned';
+      kind = p.items[0].includes('הליכה') ? 'walk' : p.items[0].includes('ריצה') ? 'run' : 'strength';
     }
+    if (inMonth && n > 24) status = [25, 27, 29, 31].includes(n) ? 'planned' : 'rest';
     cells.push({ short: '', date, status, kind, muted: !inMonth });
   }
   return Array.from({ length: 5 }, (_, r) => cells.slice(r * 7, r * 7 + 7));
 }
 
-function CalendarPanel() {
+function CalendarPanel({ selected, onSelect }: { selected: number; onSelect: (date: number) => void }) {
   const reduce = useReducedMotion();
   const [expanded, setExpanded] = useState(false);
   const rows = octoberRows();
   const todayRow = rows.findIndex((r) => r.some((d) => d.status === 'today'));
+  const selRow = Math.max(0, rows.findIndex((r) => r.some((d) => !d.muted && d.date === selected)));
+  const pick = (row: StreakDay[]) => (i: number) => !row[i].muted && onSelect(row[i].date!);
   const onDragEnd = (_: unknown, info: PanInfo) => {
     if (info.offset.y > 15) setExpanded(true);
     if (info.offset.y < -15) setExpanded(false);
   };
   return (
-    <div className="relative z-[2] -mt-1 mb-5">
+    <div className="relative">
       <motion.div
         layout
         transition={{ duration: reduce ? 0 : 0.35, ease: EASE_V2 }}
@@ -65,7 +70,9 @@ function CalendarPanel() {
               </button>
             </span>
           ) : (
-            <span className="text-[15px] font-black">11–17 אוקטובר</span>
+            <span className="text-[15px] font-black">
+              {rows[selRow].find((d) => !d.muted)?.date}–{[...rows[selRow]].reverse().find((d) => !d.muted)?.date} אוקטובר
+            </span>
           )}
           <span className="flex items-center gap-1 rounded-full bg-v2-tint pe-3 ps-1.5 py-0.5 text-[12.5px] font-extrabold text-v2-deep">
             <BrandFlame size={26} still />
@@ -76,15 +83,26 @@ function CalendarPanel() {
         {expanded ? (
           <div className="space-y-2">
             {rows.map((r, i) => (
-              <StreakRow key={i} days={r} todayIndex={i === todayRow ? 5 : undefined} showDates cell={38} animateToday={i === todayRow} />
+              <StreakRow
+                key={i}
+                days={r}
+                todayIndex={i === todayRow ? 5 : undefined}
+                showDates
+                cell={38}
+                animateToday={i === todayRow}
+                selectedIndex={i === selRow ? r.findIndex((d) => !d.muted && d.date === selected) : undefined}
+                onSelect={pick(r)}
+              />
             ))}
           </div>
         ) : (
           <StreakRow
-            days={WEEK.map((d) => ({ ...d }))}
-            todayIndex={5}
+            days={rows[selRow]}
+            todayIndex={selRow === todayRow ? 5 : undefined}
             showDates
             cell={42}
+            selectedIndex={rows[selRow].findIndex((d) => !d.muted && d.date === selected)}
+            onSelect={pick(rows[selRow])}
           />
         )}
       </motion.div>
@@ -105,29 +123,69 @@ function CalendarPanel() {
   );
 }
 
-/** The big planner (תכנון אימונים): two weeks, drag to move, + to add. */
+/**
+ * The big planner (תכנון אימונים): the calendar stays pinned while the day
+ * list scrolls under it, and the two are linked both ways — tap a day to
+ * jump the list there; scroll the list and the selected day follows.
+ */
 export default function ScheduleLab() {
+  const [selected, setSelected] = useState(16);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const stickyRef = useRef<HTMLDivElement>(null);
+  const jumping = useRef(0);
+
+  const jumpTo = (date: number, smooth = true) => {
+    setSelected(date);
+    const el = scrollRef.current?.querySelector<HTMLElement>(`[data-day="${date}"]`);
+    const box = scrollRef.current;
+    if (!el || !box) return;
+    jumping.current = Date.now();
+    const offset = (stickyRef.current?.offsetHeight ?? 0) + 12;
+    box.scrollTo({ top: el.offsetTop - offset, behavior: smooth ? 'smooth' : 'auto' });
+  };
+
+  const onScroll = () => {
+    if (Date.now() - jumping.current < 700) return;
+    const box = scrollRef.current;
+    if (!box) return;
+    const line = box.scrollTop + (stickyRef.current?.offsetHeight ?? 0) + 24;
+    let current = selected;
+    box.querySelectorAll<HTMLElement>('[data-day]').forEach((el) => {
+      if (el.offsetTop <= line) current = Number(el.dataset.day);
+    });
+    if (current !== selected) setSelected(current);
+  };
+
+  useEffect(() => {
+    // open on today
+    const t = setTimeout(() => jumpTo(16, false), 50);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <LabFrame
       panel={
         <div>
           <div className="mb-1 text-[22px] font-black tracking-v2-tight">Design lab · תכנון אימונים</div>
           <p className="text-[14px] leading-relaxed text-v2-ink-2">
-            כמו היום: לוח שנפתח משבוע לחודש (לחיצה או גרירה על הידית), עם הרצף המחובר. מתחת — רשימת הימים. נתוני דמו בלבד.
+            הלוח נשאר נעוץ למעלה בגלילה ומחובר לרשימה: לחיצה על יום קופצת אליו, וגלילה ברשימה מזיזה את היום המסומן. הידית פותחת שבוע ↔ חודש. נתוני דמו בלבד.
           </p>
         </div>
       }
     >
-      <div className="h-full overflow-y-auto overscroll-contain pb-32">
-        <BackBar
-          title="תכנון אימונים"
-          end={
-            <button type="button" aria-label="סנכרון ליומן" className="grid h-11 w-11 place-items-center rounded-full bg-white text-v2-deep shadow-v2-ring">
-              <CalendarSync size={18} strokeWidth={2.4} />
-            </button>
-          }
-        />
-        <CalendarPanel />
+      <div ref={scrollRef} onScroll={onScroll} className="relative h-full overflow-y-auto overscroll-contain pb-32">
+        <div ref={stickyRef} className="sticky top-0 z-[3] bg-v2-surface/95 pb-1 backdrop-blur">
+          <BackBar
+            title="תכנון אימונים"
+            end={
+              <button type="button" aria-label="סנכרון ליומן" className="grid h-11 w-11 place-items-center rounded-full bg-white text-v2-deep shadow-v2-ring">
+                <CalendarSync size={18} strokeWidth={2.4} />
+              </button>
+            }
+          />
+          <CalendarPanel selected={selected} onSelect={jumpTo} />
+        </div>
         <div className="space-y-5 px-4">
           {PLAN.map((week, wi) => (
             <section key={week.range} aria-label={week.range}>
@@ -140,16 +198,18 @@ export default function ScheduleLab() {
               <ol className="overflow-hidden rounded-v2-card bg-white shadow-v2-card">
                 {week.days.map((d, i) => {
                   const today = 'today' in d && d.today;
+                  const isSel = d.n === selected;
                   return (
                     <li
                       key={d.n}
-                      className={`flex min-h-[64px] items-center gap-3 px-3 py-2 ${i ? 'border-t border-v2-hairline' : ''} ${today ? 'bg-v2-tint/60' : ''}`}
+                      data-day={d.n}
+                      className={`flex min-h-[64px] items-center gap-3 px-3 py-2 transition-colors duration-200 ${i ? 'border-t border-v2-hairline' : ''} ${isSel ? 'bg-v2-tint/70' : ''}`}
                     >
                       <span className="w-10 shrink-0 text-center">
                         <span className={`block text-[12px] font-extrabold ${today ? 'text-v2-deep' : 'text-v2-muted'}`}>{d.d}</span>
                         <span
                           className={`mx-auto mt-0.5 grid h-8 w-8 place-items-center rounded-full text-[16px] font-black tabular-nums ${
-                            today ? 'bg-v2-cta text-v2-on-cta' : ''
+                            today ? 'bg-v2-cta text-v2-on-cta' : isSel ? 'bg-v2-ink text-white' : ''
                           }`}
                         >
                           {d.n}

@@ -6,7 +6,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Check, ChevronLeft, Pencil, Play, Sparkles } from 'lucide-react';
 import { Button, Card, EASE_V2 } from '@/components/ui/v2';
 import LabFrame, { LabStates } from '../_shared/LabFrame';
-import { AppIcon, Bolts, BottomNav, ICON, Ring, photo } from '../_app/parts';
+import { AppIcon, Bolts, BottomNav, ICON, Ring, photo, type NavVariant } from '../_app/parts';
 import { AppHeader, BrandFlame, type LogoMode } from '../_app/brand';
 import { DayLetters, StreakRow, type StreakDay } from '../_app/week';
 import WorkoutDrawer from './WorkoutDrawer';
@@ -35,6 +35,12 @@ const LOGOS: { id: LogoMode; label: string }[] = [
   { id: 'city', label: 'עירייה בלבד' },
 ];
 
+const NAVS: { id: NavVariant; label: string }[] = [
+  { id: 'equal', label: 'שווה (היום)' },
+  { id: 'pill', label: 'הלשונית הפעילה בולטת' },
+  { id: 'map', label: 'מפה במרכז' },
+];
+
 const LAB_LINKS = [
   { href: '/design-lab/schedule', label: 'תכנון אימונים' },
   { href: '/design-lab/steps', label: 'צעדים' },
@@ -45,6 +51,7 @@ const LAB_LINKS = [
 export default function HomeLab() {
   const [state, setState] = useState<TodayState>('planned');
   const [logo, setLogo] = useState<LogoMode>('out');
+  const [nav, setNav] = useState<NavVariant>('equal');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [builderOpen, setBuilderOpen] = useState(false);
 
@@ -54,6 +61,8 @@ export default function HomeLab() {
     if (s === 'planned' || s === 'done' || s === 'rest') setState(s);
     const l = q.get('logo');
     if (l === 'out' || l === 'cobrand' || l === 'city') setLogo(l);
+    const n = q.get('nav');
+    if (n === 'equal' || n === 'pill' || n === 'map') setNav(n);
     if (q.get('drawer') === '1') setDrawerOpen(true);
     if (q.get('builder') === '1') setBuilderOpen(true);
   }, []);
@@ -68,6 +77,7 @@ export default function HomeLab() {
           </p>
           <LabStates title="מצב היום" value={state} options={STATES} onChange={setState} />
           <LabStates title="לוגו בראש המסך" value={logo} options={LOGOS} onChange={setLogo} />
+          <LabStates title="הבר התחתון" value={nav} options={NAVS} onChange={setNav} />
           <div className="flex flex-wrap gap-2">
             <Button variant="dark" size="sm" onClick={() => setDrawerOpen(true)}>
               דף האימון
@@ -101,7 +111,7 @@ export default function HomeLab() {
           <NearbyParks />
         </div>
       </div>
-      <BottomNav active="home" />
+      <BottomNav active="home" variant={nav} />
       <WorkoutDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
       <BuilderSheet open={builderOpen} onClose={() => setBuilderOpen(false)} />
     </LabFrame>

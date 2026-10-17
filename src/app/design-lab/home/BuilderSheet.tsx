@@ -25,8 +25,46 @@ const PROGRAMS = [
   { id: 'flag', label: 'דגל אנושי', sub: 'רמה 6', icon: ICON.strength },
   { id: 'legs', label: 'רגליים', sub: 'רמה 3', icon: ICON.strength },
 ];
-const PRIMARY = ['חזה', 'גב', 'כתפיים', 'רגליים', 'בטן'];
-const SECONDARY = ['יד קדמית', 'יד אחורית', 'ישבן', 'שוקיים'];
+// Same chips as the app (src/lib/muscle-chips.const.ts) and the exercise search.
+const M = '/icons/muscles/male/';
+const PRIMARY = [
+  { id: 'chest', label: 'חזה' },
+  { id: 'back', label: 'גב' },
+  { id: 'shoulders', label: 'כתפיים' },
+  { id: 'quads', label: 'ארבע ראשי' },
+  { id: 'glutes', label: 'ישבן' },
+  { id: 'abs', label: 'בטן' },
+];
+const SECONDARY = [
+  { id: 'biceps', label: 'דו ראשי' },
+  { id: 'triceps', label: 'תלת ראשי' },
+  { id: 'hamstrings', label: 'המסטרינג' },
+  { id: 'calves', label: 'שוקיים' },
+  { id: 'forearms', label: 'אמות' },
+  { id: 'traps', label: 'טרפז' },
+  { id: 'adductors', label: 'מקרבי ירך' },
+  { id: 'obliques', label: 'אלכסונים' },
+  { id: 'hip_flexors', label: 'כופפי ירך' },
+];
+
+/** The app's MuscleFilterChip (icon box + label) in the v2 language. */
+function MuscleChip({ id, label, selected, onClick, size }: { id: string; label: string; selected: boolean; onClick: () => void; size: 'md' | 'sm' }) {
+  const box = size === 'md' ? 76 : 60;
+  const icon = size === 'md' ? 56 : 44;
+  return (
+    <button type="button" onClick={onClick} aria-pressed={selected} className="flex shrink-0 flex-col items-center gap-1.5" style={{ width: box + 8 }}>
+      <span
+        className={`grid place-items-center rounded-[20px] transition-[background-color,box-shadow,transform] duration-150 ease-v2 active:scale-[0.96] ${
+          selected ? 'bg-v2-tint shadow-v2-card ring-2 ring-v2-accent' : 'bg-white/80 shadow-v2-ring'
+        }`}
+        style={{ width: box, height: box }}
+      >
+        <img src={`${M}${id}.svg`} alt="" style={{ width: icon, height: icon }} className="object-contain" />
+      </span>
+      <span className={`whitespace-nowrap text-[12px] font-extrabold ${selected ? 'text-v2-deep' : 'text-v2-ink-2'}`}>{label}</span>
+    </button>
+  );
+}
 const INTENSITY: { id: 1 | 2 | 3; label: string }[] = [
   { id: 1, label: 'קליל' },
   { id: 2, label: 'מאוזן' },
@@ -38,7 +76,7 @@ export default function BuilderSheet({ open, onClose }: { open: boolean; onClose
   const [place, setPlace] = useState<'out' | 'home'>('out');
   const [minutes, setMinutes] = useState(30);
   const [program, setProgram] = useState('auto');
-  const [areasOpen, setAreasOpen] = useState(false);
+  const [areasOpen, setAreasOpen] = useState(true);
   const [areas, setAreas] = useState<string[]>([]);
   const [intensity, setIntensity] = useState<1 | 2 | 3>(2);
   const toggleArea = (a: string) => setAreas((x) => (x.includes(a) ? x.filter((y) => y !== a) : [...x, a]));
@@ -185,17 +223,17 @@ export default function BuilderSheet({ open, onClose }: { open: boolean; onClose
                     transition={{ duration: 0.3, ease: EASE_V2 }}
                     className="overflow-hidden"
                   >
-                    {[
-                      ['שרירים ראשיים', PRIMARY],
-                      ['שרירים משניים', SECONDARY],
-                    ].map(([t, list]) => (
-                      <div key={t as string} className="mt-3">
-                        <div className="mb-1.5 text-[12.5px] font-extrabold text-v2-muted">{t as string}</div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {(list as string[]).map((a) => (
-                            <button key={a} type="button" onClick={() => toggleArea(a)} aria-pressed={areas.includes(a)} className={`h-9 rounded-full px-4 text-[13px] font-extrabold ${pill(areas.includes(a))}`}>
-                              {a}
-                            </button>
+                    {(
+                      [
+                        ['שרירים ראשיים', PRIMARY, 'md'],
+                        ['שרירים משניים', SECONDARY, 'sm'],
+                      ] as const
+                    ).map(([t, list, size]) => (
+                      <div key={t} className="mt-3">
+                        <div className="mb-2 text-[12.5px] font-extrabold text-v2-muted">{t}</div>
+                        <div className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
+                          {list.map((m) => (
+                            <MuscleChip key={m.id} id={m.id} label={m.label} size={size} selected={areas.includes(m.id)} onClick={() => toggleArea(m.id)} />
                           ))}
                         </div>
                       </div>
