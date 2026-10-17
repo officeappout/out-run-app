@@ -20,7 +20,10 @@
  */
 
 import { motion } from 'framer-motion';
-import { Dumbbell, MapPin, X } from 'lucide-react';
+import { ChevronLeft, Dumbbell, Footprints, MapPin, Route, Trees, X, type LucideIcon } from 'lucide-react';
+import { useHomeV2 } from '@/features/home/context/HomeV2Context';
+import { useUserStore } from '../../identity/store/useUserStore';
+import { g, type AppGender } from '@/lib/utils/gendered-text';
 import type { EntryRouterGeoBranch } from '../hooks/useEntryRouter';
 
 interface WelcomeDrawerProps {
@@ -28,7 +31,17 @@ interface WelcomeDrawerProps {
   onStrengthProgram: () => void;
   onSecondaryOption: () => void;
   onSkipToMap: () => void;
+  /** v2 only (slice 2, 17.10.2026): the quiet third option "סתם בא לי להסתכל באפליקציה" —
+   *  stays on home and starts the home coach-mark tour. Omitted → the link isn't rendered. */
+  onJustLook?: () => void;
 }
+
+/** v2 icon + activity colour for the geo-aware second card (design language v2 activity colours). */
+const SECONDARY_ICON_V2: Record<EntryRouterGeoBranch, { icon: LucideIcon; tile: string }> = {
+  gardens: { icon: Trees, tile: 'bg-[#84cc16]/10 text-[#65a30d]' },
+  routes: { icon: Route, tile: 'bg-[#84cc16]/10 text-[#65a30d]' },
+  none: { icon: Footprints, tile: 'bg-[#f59e0b]/10 text-[#b45309]' },
+};
 
 const SECONDARY_COPY: Record<EntryRouterGeoBranch, { title: string; subtitle: string }> = {
   gardens: {
@@ -50,8 +63,93 @@ export default function WelcomeDrawer({
   onStrengthProgram,
   onSecondaryOption,
   onSkipToMap,
+  onJustLook,
 }: WelcomeDrawerProps) {
+  const v2 = useHomeV2();
+  const gender = useUserStore((s) => s.profile?.core?.gender) as AppGender | undefined;
   const secondary = SECONDARY_COPY[geoBranch];
+
+  if (v2) {
+    const sec = SECONDARY_ICON_V2[geoBranch];
+    const SecIcon = sec.icon;
+    const card =
+      'flex w-full items-center gap-3.5 rounded-[20px] bg-white p-4 text-right shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]';
+    return (
+      <div className="fixed inset-0 z-[101] flex items-end justify-center" dir="rtl">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+          onClick={onSkipToMap}
+        />
+
+        <motion.div
+          initial={{ y: '100%' }}
+          animate={{ y: 0 }}
+          exit={{ y: '100%' }}
+          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          className="relative z-10 mx-auto w-full max-w-lg rounded-t-[28px] bg-white px-5 pt-3 shadow-v2-sheet"
+          style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 24px))' }}
+        >
+          <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-v2-pill-border" />
+
+          <div className="mb-5 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="whitespace-nowrap text-[13px] font-extrabold text-v2-deep">
+                {g(gender, 'ברוך הבא ל-OUT', 'ברוכה הבאה ל-OUT', 'ברוכים הבאים ל-OUT')}
+              </p>
+              <h2 className="mt-1 text-[22px] font-black leading-tight !tracking-[-0.02em] text-v2-ink">
+                מה הדבר הראשון שבא לך לעשות?
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={onSkipToMap}
+              aria-label="דלג למפה"
+              className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-full bg-v2-surface text-v2-ink ring-1 ring-inset ring-v2-hairline"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <button type="button" onClick={onStrengthProgram} className={card}>
+              <span className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-[14px] bg-[#00baf7]/10 text-[#0284c7]">
+                <Dumbbell size={24} strokeWidth={2.4} aria-hidden />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[16px] font-black text-v2-ink">אימון כוח מותאם</span>
+                <span className="mt-0.5 block text-[13px] font-bold leading-snug text-v2-muted">תוכנית בנויה בשבילך, לפי הרמה שלך</span>
+              </span>
+              <ChevronLeft size={18} className="flex-shrink-0 text-v2-muted" aria-hidden />
+            </button>
+
+            <button type="button" onClick={onSecondaryOption} className={card}>
+              <span className={`grid h-12 w-12 flex-shrink-0 place-items-center rounded-[14px] ${sec.tile}`}>
+                <SecIcon size={24} strokeWidth={2.4} aria-hidden />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[16px] font-black text-v2-ink">{secondary.title}</span>
+                <span className="mt-0.5 block text-[13px] font-bold leading-snug text-v2-muted">{secondary.subtitle}</span>
+              </span>
+              <ChevronLeft size={18} className="flex-shrink-0 text-v2-muted" aria-hidden />
+            </button>
+          </div>
+
+          {onJustLook && (
+            <button
+              type="button"
+              onClick={onJustLook}
+              className="mx-auto mt-4 block whitespace-nowrap px-3 py-2 text-center text-[14px] font-bold text-v2-muted transition-transform duration-150 ease-v2 active:scale-[0.97]"
+            >
+              סתם בא לי להסתכל באפליקציה
+            </button>
+          )}
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-[101] flex items-end justify-center" dir="rtl">

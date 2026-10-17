@@ -66,6 +66,7 @@ import UserProfileSheet, { type ProfileUser } from '@/features/parks/client/comp
 import AppHeader from '@/components/ui/AppHeader';
 import { MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { hasMapDeepLink } from '@/features/user/onboarding/services/first-run-tour';
 
 const UnifiedLocationStep = lazy(
   () => import('@/features/user/onboarding/components/steps/UnifiedLocationStep'),
@@ -115,9 +116,12 @@ interface MapShellInnerProps {
   /** Tutorial entry-mechanism fast-follow deep-links — see MapShell's own searchParams reads. */
   initialOpenHybridSlots?: boolean;
   initialOpenDiscover?: boolean;
+  /** First-run map tour (slice 2): a plain /map arrival (no deep link / context / workout
+   *  id, captured at mount) with the location gate down. DiscoverLayer adds its own guards. */
+  firstRunTourEligible?: boolean;
 }
 
-function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = false, initialOpenHybridSlots = false, initialOpenDiscover = false }: MapShellInnerProps) {
+function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = false, initialOpenHybridSlots = false, initialOpenDiscover = false, firstRunTourEligible = false }: MapShellInnerProps) {
   const { mode, setMode, activityType: contextActivity } = useMapMode();
 
   // devSim + profile hoisted above useMapLogic (David, 22.09.2026, field-test
@@ -741,7 +745,7 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
       </AnimatePresence>
 
       {/* ══════ LAYER ROUTER ══════ */}
-      {mode === 'discover' && <DiscoverLayer logic={logic} devSim={devSim} initialOpenRun={initialOpenRun} targetSteps={targetSteps} initialOpenHybridSlots={initialOpenHybridSlots} initialOpenDiscover={initialOpenDiscover} onRecenter={handleRecenter} />}
+      {mode === 'discover' && <DiscoverLayer logic={logic} devSim={devSim} initialOpenRun={initialOpenRun} targetSteps={targetSteps} initialOpenHybridSlots={initialOpenHybridSlots} initialOpenDiscover={initialOpenDiscover} onRecenter={handleRecenter} firstRunTourEligible={firstRunTourEligible} />}
       {mode === 'builder' && <BuilderLayer logic={logic} />}
       {mode === 'navigate' && <NavigateLayer logic={logic} />}
       {mode === 'free_run' && <FreeRunLayer logic={logic} effectivePos={effectivePos} />}
@@ -877,6 +881,11 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
   const openRouteId = searchParams.get('openRoute');
 
   const fromExplorer = searchParams.get('fromExplorer') === 'true';
+  // First-run map tour (slice 2): decided once, at arrival — a deep link that opened a
+  // drawer/flow means "not this visit" (the tour waits for a later plain visit).
+  const [plainMapArrival] = useState(
+    () => !initialWorkoutId && !initialContext && !spotFocus && !hasMapDeepLink(searchParams),
+  );
 
   // Social-activities push deep-link (Phase 3) — see openParkId/openRouteId
   // above. Fire-and-forget fetch; a not-found id just never opens anything.
@@ -1052,7 +1061,7 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
     <>
       {/* Map tree always mounts — Mapbox warms up behind the gate */}
       <MapModeProvider initialWorkoutId={initialWorkoutId ?? null} initialContext={initialContext}>
-        <MapShellInner spotFocus={spotFocus ?? null} initialOpenRun={initialOpenRun} targetSteps={targetSteps} isDemoMode={isDemoMode} initialOpenHybridSlots={initialOpenHybridSlots} initialOpenDiscover={initialOpenDiscover} />
+        <MapShellInner spotFocus={spotFocus ?? null} initialOpenRun={initialOpenRun} targetSteps={targetSteps} isDemoMode={isDemoMode} initialOpenHybridSlots={initialOpenHybridSlots} initialOpenDiscover={initialOpenDiscover} firstRunTourEligible={plainMapArrival && !needsLocationGate} />
       </MapModeProvider>
 
       {/* Location gate — high z-index overlay, not a tree gate.
