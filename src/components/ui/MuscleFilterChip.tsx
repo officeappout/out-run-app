@@ -31,6 +31,8 @@ export interface MuscleFilterChipProps {
   /** 'md' matches the exercise-library chip exactly (76px box / 56px icon).
    * 'sm' is a smaller variant for the builder's secondary-muscle row. */
   size?: 'md' | 'sm';
+  /** Home v2 look (enable_home_v2): white glass box, brand ring when selected. */
+  v2?: boolean;
 }
 
 const SIZE_PX: Record<'md' | 'sm', { box: number; icon: number }> = {
@@ -46,6 +48,7 @@ export default function MuscleFilterChip({
   locked = false,
   recommended = false,
   size = 'md',
+  v2 = false,
 }: MuscleFilterChipProps) {
   const { box, icon: iconPx } = SIZE_PX[size];
   // Precedence (bug fix, UX pass v2.1): `locked` must suppress the active/
@@ -71,11 +74,17 @@ export default function MuscleFilterChip({
         <span className="absolute -top-1 -left-1 text-[11px] leading-none z-10" aria-hidden>✨</span>
       )}
       <div
-        className={`rounded-2xl border flex items-center justify-center transition-all ${
-          active
-            ? `bg-cyan-50 border-primary shadow-sm ${recommended ? 'ring-2 ring-primary/30' : ''}`
-            : 'bg-gray-50 border-gray-200'
-        }`}
+        className={
+          v2
+            ? `flex items-center justify-center rounded-[20px] transition-[background-color,box-shadow,transform] duration-150 ease-v2 active:scale-[0.96] ${
+                active ? 'bg-v2-tint shadow-v2-card ring-2 ring-v2-accent' : 'bg-white/80 shadow-v2-ring'
+              }`
+            : `rounded-2xl border flex items-center justify-center transition-all ${
+                active
+                  ? `bg-cyan-50 border-primary shadow-sm ${recommended ? 'ring-2 ring-primary/30' : ''}`
+                  : 'bg-gray-50 border-gray-200'
+              }`
+        }
         style={{ width: box, height: box }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -95,7 +104,9 @@ export default function MuscleFilterChip({
       </div>
       <span
         className={`text-[11px] font-semibold whitespace-nowrap ${
-          active ? 'text-primary' : locked ? 'text-gray-400' : 'text-gray-600'
+          v2
+            ? `!text-[12px] !font-extrabold ${active ? 'text-v2-deep' : locked ? 'text-v2-muted' : 'text-v2-ink-2'}`
+            : active ? 'text-primary' : locked ? 'text-gray-400' : 'text-gray-600'
         }`}
       >
         {label}
