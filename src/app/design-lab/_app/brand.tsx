@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { DotLottieReact, setWasmUrl } from '@lottiefiles/dotlottie-react';
 import { MessageCircle, Search } from 'lucide-react';
+import { useCompact } from './density';
 
 // Same self-hosted engine as components/ui/AnimatedFlame.tsx.
 setWasmUrl('/assets/animations/dotlottie-player.wasm');
@@ -41,11 +42,12 @@ export function HeaderLogo({ mode }: { mode: LogoMode }) {
  * chat + search (left). Glass bar over the page.
  */
 export function AppHeader({ name, streak, logo }: { name: string; streak: number; logo: LogoMode }) {
+  const c = useCompact();
   return (
     <header className="v2-glass-bar sticky top-0 z-[4] grid grid-cols-[1fr_auto_1fr] items-center px-4 pb-2.5 pt-[calc(env(safe-area-inset-top)+12px)]">
       <span className="flex items-center justify-self-start">
         <span className="relative">
-          <span className="grid h-11 w-11 place-items-center rounded-full bg-v2-cta text-[17px] font-black text-v2-on-cta ring-2 ring-white shadow-v2-ring">
+          <span className={`grid ${c ? 'h-10 w-10' : 'h-11 w-11'} place-items-center rounded-full bg-v2-cta text-[17px] font-black text-v2-on-cta ring-2 ring-white shadow-v2-ring`}>
             {name[0]}
           </span>
           <span className="absolute -bottom-1.5 -start-2 flex items-center rounded-full bg-white pe-1.5 shadow-v2-ring" aria-label={`${streak} ימים ברצף`}>

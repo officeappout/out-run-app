@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { EASE_V2 } from "@/components/ui/v2";
 import { AppIcon, Bolts, ICON, thumb } from "../_app/parts";
+import { useCompact } from "../_app/density";
 import {
   EXERCISES,
   PARKS,
@@ -74,6 +75,7 @@ export default function WorkoutDrawer({
 // Hooks live here so useScroll's container ref is mounted when it's read.
 function DrawerBody({ onClose }: { onClose: () => void }) {
   const reduce = useReducedMotion();
+  const c = useCompact();
   const drag = useDragControls();
   const scrollRef = useRef<HTMLDivElement>(null);
   const { scrollY } = useScroll({ container: scrollRef });
@@ -186,7 +188,7 @@ function DrawerBody({ onClose }: { onClose: () => void }) {
 
           <div className="relative -mt-14 px-4">
             {/* title */}
-            <h1 className="flex items-center gap-2 text-[22px] font-black leading-tight !tracking-[-0.02em]">
+            <h1 className={`flex items-center gap-2 ${c ? "text-[20px]" : "text-[22px]"} font-black leading-tight !tracking-[-0.02em]`}>
               <AppIcon
                 src="/icons/programs/full_body.svg"
                 size={22}
@@ -210,7 +212,7 @@ function DrawerBody({ onClose }: { onClose: () => void }) {
                     role="radio"
                     aria-checked={on}
                     onClick={() => setTrio(o.id)}
-                    className="relative flex h-[52px] flex-col items-center justify-center gap-0.5 rounded-full"
+                    className={`relative flex ${c ? "h-[46px]" : "h-[52px]"} flex-col items-center justify-center gap-0.5 rounded-full`}
                   >
                     {on && (
                       <motion.span
@@ -524,7 +526,7 @@ function DrawerBody({ onClose }: { onClose: () => void }) {
           </button>
           <div className="flex items-center gap-2">
             <button
-              className="flex h-[52px] flex-1 items-center justify-center gap-2 rounded-full bg-v2-cta text-[17px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]"
+              className={`flex ${c ? "h-12" : "h-[52px]"} flex-1 items-center justify-center gap-2 rounded-full bg-v2-cta text-[17px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]`}
               type="button"
             >
               <Play
@@ -539,7 +541,7 @@ function DrawerBody({ onClose }: { onClose: () => void }) {
               type="button"
               onClick={() => setMuted((v) => !v)}
               aria-label={muted ? "הפעל שמע" : "השתק סרטונים"}
-              className={`grid h-[52px] w-[52px] shrink-0 place-items-center rounded-full ring-1 ring-inset ${muted ? "bg-white text-v2-muted ring-v2-pill-border" : "bg-v2-tint text-v2-deep ring-v2-accent/40"}`}
+              className={`grid ${c ? "h-12 w-12" : "h-[52px] w-[52px]"} shrink-0 place-items-center rounded-full ring-1 ring-inset ${muted ? "bg-white text-v2-muted ring-v2-pill-border" : "bg-v2-tint text-v2-deep ring-v2-accent/40"}`}
             >
               {muted ? (
                 <VolumeX size={20} strokeWidth={2.3} />

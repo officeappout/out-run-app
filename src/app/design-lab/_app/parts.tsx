@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowRight, Home, Map as MapIcon, TrendingUp, User, Users, X, Zap } from 'lucide-react';
 import { EASE_V2 } from '@/components/ui/v2';
+import { useCompact } from './density';
 
 /**
  * Shared pieces for the design-lab app screens: the white fade-out photo
@@ -332,8 +333,10 @@ const NAV_ITEMS: { id: NavTab; label: string; icon: typeof Home; href: string }[
 /** The app's four tabs (בית · מפה · התקדמות · חברתי), on the site's glass bar. */
 export function BottomNav({ active = 'home', variant = 'equal' }: { active?: NavTab; variant?: NavVariant }) {
   const reduce = useReducedMotion();
-  const bar =
-    'v2-glass-bar fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+14px)] z-[5] flex h-16 items-center rounded-full shadow-v2-float';
+  const c = useCompact();
+  const bar = `v2-glass-bar fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+14px)] z-[5] flex ${
+    c ? 'h-[58px]' : 'h-16'
+  } items-center rounded-full shadow-v2-float`;
 
   if (variant === 'map') {
     const side = NAV_ITEMS.filter((i) => i.id !== 'map');

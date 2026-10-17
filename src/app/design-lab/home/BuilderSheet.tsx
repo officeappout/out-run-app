@@ -5,6 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowRight, ChevronDown, Home, Settings2, Sparkles, Trees } from 'lucide-react';
 import { Button, EASE_V2 } from '@/components/ui/v2';
 import { AppIcon, Bolts, ICON } from '../_app/parts';
+import { useCompact } from '../_app/density';
 
 /**
  * The workout builder ("בנה אימון משלך" — today's WorkoutBuilderSheet) in the
@@ -73,6 +74,7 @@ const INTENSITY: { id: 1 | 2 | 3; label: string }[] = [
 
 export default function BuilderSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const reduce = useReducedMotion();
+  const c = useCompact();
   const [place, setPlace] = useState<'out' | 'home'>('out');
   const [minutes, setMinutes] = useState(30);
   const [program, setProgram] = useState('auto');
@@ -267,7 +269,7 @@ export default function BuilderSheet({ open, onClose }: { open: boolean; onClose
           </div>
 
           <div className="v2-glass-bar absolute inset-x-0 bottom-0 z-[2] px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-3">
-            <Button variant="primary" size="lg" block onClick={onClose}>
+            <Button variant="primary" size="lg" block onClick={onClose} className={c ? '!h-12 !text-[16px]' : ''}>
               <Sparkles size={18} strokeWidth={2.6} aria-hidden />
               צור אימון · {minutes} דק׳
             </Button>

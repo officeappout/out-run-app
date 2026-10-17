@@ -9,6 +9,7 @@ import LabFrame, { LabStates } from '../_shared/LabFrame';
 import { AppIcon, Bolts, BottomNav, ICON, Ring, photo, type NavVariant } from '../_app/parts';
 import { AppHeader, BrandFlame, type LogoMode } from '../_app/brand';
 import { DayLetters, StreakRow, type StreakDay } from '../_app/week';
+import { setDensity, useDensity, type Density } from '../_app/density';
 import WorkoutDrawer from './WorkoutDrawer';
 import BuilderSheet from './BuilderSheet';
 import {
@@ -41,6 +42,11 @@ const NAVS: { id: NavVariant; label: string }[] = [
   { id: 'map', label: 'מפה במרכז' },
 ];
 
+const DENSITIES: { id: Density; label: string }[] = [
+  { id: 'regular', label: 'רגיל' },
+  { id: 'compact', label: 'קומפקטי (-10%)' },
+];
+
 const LAB_LINKS = [
   { href: '/design-lab/schedule', label: 'תכנון אימונים' },
   { href: '/design-lab/steps', label: 'צעדים' },
@@ -52,6 +58,8 @@ export default function HomeLab() {
   const [state, setState] = useState<TodayState>('planned');
   const [logo, setLogo] = useState<LogoMode>('out');
   const [nav, setNav] = useState<NavVariant>('equal');
+  const density = useDensity();
+  const c = density === 'compact';
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [builderOpen, setBuilderOpen] = useState(false);
 
@@ -75,6 +83,7 @@ export default function HomeLab() {
           <p className="mb-6 text-[14px] leading-relaxed text-v2-ink-2">
             סבב 3: לוגו (גם של עירייה), להבת הרצף על הפרופיל, לו״ז עם רצף מחובר, מחולל אימונים מתחת לכרטיס. נתוני דמו בלבד.
           </p>
+          <LabStates title="גודל" value={density} options={DENSITIES} onChange={setDensity} />
           <LabStates title="מצב היום" value={state} options={STATES} onChange={setState} />
           <LabStates title="לוגו בראש המסך" value={logo} options={LOGOS} onChange={setLogo} />
           <LabStates title="הבר התחתון" value={nav} options={NAVS} onChange={setNav} />
@@ -100,7 +109,7 @@ export default function HomeLab() {
       <div className="h-full overflow-y-auto overscroll-contain pb-32">
         <AppHeader name={USER.firstName} streak={USER.streakDays + (state === 'done' ? 1 : 0)} logo={logo} />
         <div className="px-4 pb-4 pt-4">
-          <div className="text-[24px] font-black leading-tight tracking-v2-tight">בוקר טוב, {USER.firstName}</div>
+          <div className={`${c ? 'text-[22px]' : 'text-[24px]'} font-black leading-tight tracking-v2-tight`}>בוקר טוב, {USER.firstName}</div>
           <div className="text-[13.5px] font-bold text-v2-muted">{TODAY_LABEL}</div>
         </div>
         <div className="space-y-7">
@@ -119,9 +128,10 @@ export default function HomeLab() {
 }
 
 function SectionTitle({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
+  const c = useDensity() === 'compact';
   return (
     <div className="mb-3 flex items-baseline justify-between px-4">
-      <h2 className="text-[19px] font-black !tracking-[-0.02em]">{children}</h2>
+      <h2 className={`${c ? 'text-[17px]' : 'text-[19px]'} font-black !tracking-[-0.02em]`}>{children}</h2>
       {action}
     </div>
   );
@@ -159,6 +169,7 @@ function WeekSchedule({ state }: { state: TodayState }) {
     d.status === 'today' ? { ...d, status: state === 'done' ? 'done' : state === 'rest' ? 'rest' : 'today' } : d,
   );
   const streak = USER.streakDays + (state === 'done' ? 1 : 0);
+  const c = useDensity() === 'compact';
   return (
     <section aria-label="לו״ז אימונים">
       <SectionTitle
@@ -173,7 +184,7 @@ function WeekSchedule({ state }: { state: TodayState }) {
       </SectionTitle>
       <Link href="/design-lab/schedule" className="mx-4 block rounded-v2-card bg-white px-2 pb-3 pt-3 shadow-v2-card">
         <DayLetters days={WEEK} todayIndex={todayIndex} />
-        <StreakRow days={days} todayIndex={todayIndex} />
+        <StreakRow days={days} todayIndex={todayIndex} cell={c ? 40 : 44} />
         <div className="mt-3 flex items-center justify-center gap-1.5 text-[12.5px] font-bold text-v2-muted">
           <BrandFlame size={24} still />
           <span>
@@ -198,6 +209,7 @@ const PHRASES = [
 
 function GeneratorButton({ onClick }: { onClick: () => void }) {
   const reduce = useReducedMotion();
+  const c = useDensity() === 'compact';
   const [i, setI] = useState(0);
   useEffect(() => {
     if (reduce) return;
@@ -208,7 +220,7 @@ function GeneratorButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="relative mx-4 flex h-[54px] w-[calc(100%-2rem)] items-center justify-center gap-2 overflow-hidden rounded-full p-[2px] transition-transform duration-150 ease-v2 active:scale-[0.98]"
+      className={`relative mx-4 flex ${c ? 'h-12' : 'h-[54px]'} w-[calc(100%-2rem)] items-center justify-center gap-2 overflow-hidden rounded-full p-[2px] transition-transform duration-150 ease-v2 active:scale-[0.98]`}
       style={{ background: 'linear-gradient(90deg,#00baf7,#0cf2e3,#00baf7)', backgroundSize: '200% 100%', animation: reduce ? undefined : 'labShimmer 5.5s linear infinite' }}
     >
       <span className="flex h-full w-full items-center justify-center gap-2 rounded-full bg-white/95 px-4">
@@ -233,6 +245,8 @@ function GeneratorButton({ onClick }: { onClick: () => void }) {
 
 function TodayCarousel({ state, onOpen, onBuild }: { state: TodayState; onOpen: () => void; onBuild: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
+  const c = useDensity() === 'compact';
+  const W = c ? 284 : 300;
   const [index, setIndex] = useState(0);
   const cards = state === 'rest' ? [...TODAY_CARDS].reverse() : TODAY_CARDS;
 
@@ -249,14 +263,15 @@ function TodayCarousel({ state, onOpen, onBuild }: { state: TodayState; onOpen: 
       <div
         ref={ref}
         onScroll={onScroll}
-        className="flex snap-x snap-mandatory gap-3 overflow-x-auto px-[calc((100%-300px)/2)] pb-5 pt-1 [scrollbar-width:none]"
+        className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-5 pt-1 [scrollbar-width:none]"
+        style={{ paddingInline: `calc((100% - ${W}px) / 2)` }}
       >
-        {cards.map((c) => (
-          <article key={c.id} className="relative w-[300px] shrink-0 snap-center overflow-hidden rounded-v2-card-lg bg-white shadow-v2-card">
-            <button type="button" onClick={onOpen} className="block w-full text-start" aria-label={`פרטי ${c.title}`}>
-              <div className="relative h-[230px]">
+        {cards.map((card) => (
+          <article key={card.id} className={`relative shrink-0 snap-center overflow-hidden ${c ? 'rounded-v2-card' : 'rounded-v2-card-lg'} bg-white shadow-v2-card`} style={{ width: W }}>
+            <button type="button" onClick={onOpen} className="block w-full text-start" aria-label={`פרטי ${card.title}`}>
+              <div className="relative" style={{ height: c ? 200 : 230 }}>
                 <img
-                  src={photo(c.photo)}
+                  src={photo(card.photo)}
                   alt=""
                   className="absolute inset-0 h-full w-full object-cover object-[60%_30%]"
                   style={{
@@ -264,23 +279,23 @@ function TodayCarousel({ state, onOpen, onBuild }: { state: TodayState; onOpen: 
                     maskImage: 'linear-gradient(180deg,#000 50%,transparent 100%)',
                   }}
                 />
-                <span className="v2-glass-chip absolute start-3 top-3 rounded-full px-3 py-1 text-[12px] font-extrabold text-white">{c.label}</span>
+                <span className="v2-glass-chip absolute start-3 top-3 rounded-full px-3 py-1 text-[12px] font-extrabold text-white">{card.label}</span>
                 <span className="absolute bottom-7 end-3 grid h-11 w-11 place-items-center rounded-[14px] bg-white/90 shadow-v2-ring">
-                  <AppIcon src={GEAR_ICON[c.gear]} size={26} />
+                  <AppIcon src={GEAR_ICON[card.gear]} size={26} />
                 </span>
               </div>
               <div className="px-4 pb-4">
                 <div className="flex items-center gap-2 text-[13px] font-bold text-v2-muted">
-                  <span>{c.level === 1 ? 'קל' : c.level === 2 ? 'בינוני' : 'מאתגר'}</span>
-                  <Bolts level={c.level} size={13} />
+                  <span>{card.level === 1 ? 'קל' : card.level === 2 ? 'בינוני' : 'מאתגר'}</span>
+                  <Bolts level={card.level} size={13} />
                   <span className="h-3 w-px bg-v2-hairline" />
-                  <span className="tabular-nums">{c.minutes} דקות</span>
+                  <span className="tabular-nums">{card.minutes} דקות</span>
                 </div>
-                <h3 className="mt-1 text-[20px] font-black leading-tight !tracking-[-0.02em]">{c.title}</h3>
+                <h3 className={`mt-1 ${c ? 'text-[18px]' : 'text-[20px]'} font-black leading-tight !tracking-[-0.02em]`}>{card.title}</h3>
               </div>
             </button>
             <div className="px-4 pb-4">
-              <Button variant="primary" block onClick={onOpen}>
+              <Button variant="primary" size={c ? 'sm' : 'md'} block onClick={onOpen} className={c ? '!h-10' : ''}>
                 <Play size={16} strokeWidth={2.6} className="fill-current" aria-hidden />
                 סקרן לדעת מה באימון?
               </Button>
@@ -289,9 +304,9 @@ function TodayCarousel({ state, onOpen, onBuild }: { state: TodayState; onOpen: 
         ))}
       </div>
       <div className="mb-4 flex justify-center gap-1.5" aria-hidden>
-        {cards.map((c, i) => (
+        {cards.map((card, i) => (
           <span
-            key={c.id}
+            key={card.id}
             className={`h-1.5 rounded-full transition-[width,background-color] duration-300 ease-v2 ${i === index ? 'w-6 bg-v2-cta' : 'w-1.5 bg-v2-pill-border'}`}
           />
         ))}
@@ -308,6 +323,7 @@ function ProgressTabs({ state }: { state: TodayState }) {
   const reduce = useReducedMotion();
   const minutes = ACTIVE_MINUTES.done + (state === 'done' ? WORKOUT.minutes : 0);
   const stepsPct = Math.round((STEPS_DETAIL.today / STEPS_DETAIL.goal) * 100);
+  const c = useDensity() === 'compact';
   return (
     <section aria-label="ההתקדמות שלי">
       <div className="mx-4 mb-3 grid grid-cols-2 border-b border-v2-hairline" role="tablist">
@@ -388,7 +404,7 @@ function ProgressTabs({ state }: { state: TodayState }) {
             <>
               <Link href="/design-lab/steps" className="block">
                 <Card padding="md" className="grid place-items-center">
-                  <Ring pct={Math.min(100, stepsPct)} size={128} stroke={16} from="#00c07a" to="#39d98a" track="#e7f8f0">
+                  <Ring pct={Math.min(100, stepsPct)} size={c ? 116 : 128} stroke={c ? 14 : 16} from="#00c07a" to="#39d98a" track="#e7f8f0">
                     <span className="block text-[22px] font-black leading-none tabular-nums tracking-v2-tighter">
                       {STEPS_DETAIL.today.toLocaleString('he-IL')}
                     </span>
