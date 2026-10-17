@@ -5,7 +5,11 @@ import {
   getProgressionMapProgramName,
   PROGRESSION_MAP_LEAF_PROGRAMS,
   PROGRESSION_MAP_HUB_PROGRAMS,
+  resolveProgressionMapDestination,
 } from '../progression-map-config';
+import { isHiddenProgram, HIDDEN_PROGRAM_SLUGS } from '../hidden-programs';
+import { buildIdToSlugMapFromPrograms } from '@/features/workout-engine/services/program-hierarchy.utils';
+import type { Program } from '@/features/content/programs/core/program.types';
 
 const FRONT_LEVER = 'mFcuYlNgKXLqWVUFo0zt';
 const PLANCHE = 'pCI5NHXpowu2ySucqDn8';
@@ -121,5 +125,48 @@ describe('resolveTreeProgramId', () => {
   it('Phase 4c-1: a skill exercise ALSO carrying its derived-prerequisite domain tag still opens the skill tree first (skill tag precedes the domain tag in the exercise\'s own array, matching real authored data)', () => {
     const exercise = { targetPrograms: [{ programId: FRONT_LEVER, level: 1 }, { programId: PULL, level: 10 }] };
     expect(resolveTreeProgramId(exercise)).toBe(FRONT_LEVER);
+  });
+});
+
+describe('resolveProgressionMapDestination', () => {
+  // Warm the id↔slug map the way the app does after getCachedPrograms().
+  buildIdToSlugMapFromPrograms([
+    { id: FRONT_LEVER, slug: 'front_lever', name: 'Front Lever' },
+    { id: PULL, slug: 'pull', name: 'Pull' },
+    { id: MUSCLE_UP, slug: 'muscle_up', name: 'Muscle Up' },
+    { id: HANDSTAND, slug: 'handstand', name: 'Handstand' },
+    { id: 'RAW_full_body', slug: 'full_body', name: 'Full Body' },
+  ] as unknown as Program[]);
+
+  it('a leaf program opens its own map — by raw id or by slug', () => {
+    expect(resolveProgressionMapDestination(FRONT_LEVER)).toBe(`/progression-map/${FRONT_LEVER}`);
+    expect(resolveProgressionMapDestination('front_lever')).toBe(`/progression-map/${FRONT_LEVER}`);
+    expect(resolveProgressionMapDestination('pull')).toBe(`/progression-map/${PULL}`);
+  });
+
+  it('a parent program has no map: null (callers open ParentProgramSheet), never "/profile"', () => {
+    expect(resolveProgressionMapDestination('full_body')).toBeNull();
+    expect(resolveProgressionMapDestination('RAW_full_body')).toBeNull();
+    expect(resolveProgressionMapDestination('upper_body')).toBeNull();
+    expect(resolveProgressionMapDestination('calisthenics_upper')).toBeNull();
+  });
+});
+
+describe('HIDDEN_PROGRAM_SLUGS / isHiddenProgram (src/lib/hidden-programs.ts, shared with #401)', () => {
+  it('hides muscle_up, handstand and human_flag', () => {
+    expect(Array.from(HIDDEN_PROGRAM_SLUGS).sort()).toEqual(['handstand', 'human_flag', 'muscle_up']);
+  });
+
+  it('matches a slug or a raw id that resolves to one', () => {
+    expect(isHiddenProgram('muscle_up')).toBe(true);
+    expect(isHiddenProgram(MUSCLE_UP)).toBe(true);
+    expect(isHiddenProgram(HANDSTAND)).toBe(true);
+    expect(isHiddenProgram('front_lever')).toBe(false);
+    expect(isHiddenProgram(FRONT_LEVER)).toBe(false);
+  });
+
+  it('muscle_up / handstand stay on the leaf list (route guard, gating and "מפה מלאה" depend on it)', () => {
+    expect(isProgressionMapLeafProgram(MUSCLE_UP)).toBe(true);
+    expect(isProgressionMapLeafProgram(HANDSTAND)).toBe(true);
   });
 });

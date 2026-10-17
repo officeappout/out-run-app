@@ -3,51 +3,35 @@
 /**
  * ProgressionScreen — the "התקדמות" bottom-nav tab.
  *
- * A stack of independent <section>s under one shared AppHeader (the same
- * header Home/Profile use). Section order (Progression v2 Phase 4a-fix):
- * hero (identity/XP/streak) -> "פעילות" (active only) -> "המפות שלי"
- * (tracked only) -> "גלה עוד" (everything else: available/needs_assessment/
- * locked_prereq, collapsed by default, LAST).
+ * A stack of <section>s under one shared AppHeader (the same header
+ * Home/Profile use):
+ *   hero (identity/XP/streak, IS_XP_ENABLED)
+ *   "התוכניות שלי"     — main active program ("ראשי"), its assessed child
+ *                        programs, other active programs, tracked programs
+ *                        by level
+ *   "עוד לא בדקת רמה"  — programs the workouts leave out until their level
+ *                        is checked, each with a "בדקו רמה" CTA
+ *   "גלה עוד"          — everything else, collapsed, last
  *
- * Phase 4b round 4: the blue "המשך מכאן" hero CTA (ContinueHereCta) was
- * removed — it resumed activePrograms[0], the exact same destination the
- * white active-program card in "פעילות" already opens, making it a
- * redundant second entry point to the same program. "פעילות" is now the
- * single entry into the active program; ContinueHereCta.tsx itself was
- * deleted (no other importer).
+ * One hook (useProgressHubBuckets) computes all three lists from the same
+ * data via the pure, unit-tested bucketForProgressHub, so a program can
+ * never show in two sections. Nothing renders until the profile and the
+ * id→slug map are ready (no flash of a wrong section).
  *
- * The three state-driven sections are mutually exclusive by construction —
- * each derives its membership from the SAME real per-user state (Phase
- * 1's getProgramState), never a hardcoded list. This replaced Phase 4a's
- * original bug: a legacy, unconditional hardcoded-catalog section used to
- * sit here under the SAME "המפות שלי" name, rendering regardless of user
- * state — duplicating whatever DiscoverMoreSection also (correctly) showed
- * for the same programs. That legacy section is gone; "המפות שלי" now
- * means exactly one thing (TrackedProgramsSection).
- *
- * No achievements section this phase (explicitly deferred — a future
- * phase's "הכל →" will open the existing AchievementSheet). No PRO
- * anywhere this phase.
- *
- * Every card here is ProgramProgressCard (via SkillMapCard) — no new card
- * UI. Navigation is each card's own existing destination (unchanged) —
- * tapping ANY card, including a locked/unassessed one, opens its tree in
- * view mode (SkillTreeScreen itself has no assessment/prerequisite gate on
- * viewing — see that file's own Phase 4a-fix banner instead).
- *
- * No custom background here — the TREE's own scenic background
- * (SkillTreeBackground) stays untouched; this screen uses the same plain
- * light background every other list-style screen (Profile, Home sections)
- * already uses.
+ * Tapping a card opens that program's map in view mode; a parent program
+ * (no map of its own) opens ParentProgramSheet instead. There is no v2 look
+ * for this screen yet; cards stay ProgramProgressCard (via SkillMapCard).
  */
 import AppHeader from '@/components/ui/AppHeader';
 import { IdentityHeroCard } from '@/features/user/progression/components/IdentityHeroCard';
 import { IS_XP_ENABLED } from '@/config/feature-flags';
-import { ActiveProgramsSection } from './ActiveProgramsSection';
-import { TrackedProgramsSection } from './TrackedProgramsSection';
+import { useProgressHubBuckets } from '@/features/progression-map/hooks/useProgressHubBuckets';
+import { MyProgramsSection } from './MyProgramsSection';
+import { NeedsAssessmentSection } from './NeedsAssessmentSection';
 import { DiscoverMoreSection } from './DiscoverMoreSection';
 
 export function ProgressionScreen() {
+  const { ready, buckets } = useProgressHubBuckets();
   return (
     <div className="min-h-screen bg-[#F8FAFC]" dir="rtl">
       <AppHeader />
@@ -59,11 +43,18 @@ export function ProgressionScreen() {
             else, so hide it outright rather than leave an empty shell. */}
         {IS_XP_ENABLED && <IdentityHeroCard />}
 
-        <ActiveProgramsSection />
+        {ready && (
+          <>
+            <MyProgramsSection
+              items={buckets.mine}
+              hasPendingAssessment={buckets.needsAssessment.length > 0}
+            />
 
-        <TrackedProgramsSection />
+            <NeedsAssessmentSection items={buckets.needsAssessment} />
 
-        <DiscoverMoreSection />
+            <DiscoverMoreSection items={buckets.discover} />
+          </>
+        )}
       </div>
     </div>
   );

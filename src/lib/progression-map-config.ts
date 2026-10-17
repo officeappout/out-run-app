@@ -120,20 +120,24 @@ export function isProgressionMapLeafProgram(programId: string): boolean {
  * same destination in both places.
  *
  * Accepts either identifier form real program data actually mixes for the
- * same logical program (see program-bucketing.service.ts's own header
- * comment: "activePrograms/tracks data mixes raw Firestore ids and slugs"):
+ * same logical program (activePrograms/tracks data mixes raw Firestore ids
+ * and slugs):
  * a raw Firestore programId (what this list is keyed by), or a
  * human-readable slug (e.g. 'front_lever'). Tries the id form first, then
  * resolves slug→id and tries again — so a genuine leaf skill is never
  * missed just because one particular caller happened to hold the slug
- * form. A composite/master program (no tree of its own) falls back to
- * /profile, where its detail already lives.
+ * form.
+ *
+ * Returns null for a parent program (full_body, upper_body,
+ * calisthenics_upper, ...): a parent has no map of its own. Callers open
+ * ParentProgramSheet for it instead. (It used to return '/profile', which
+ * bounced the hub to the profile and did nothing from the profile itself.)
  */
-export function resolveProgressionMapDestination(idOrSlug: string): string {
+export function resolveProgressionMapDestination(idOrSlug: string): string | null {
   if (isProgressionMapLeafProgram(idOrSlug)) return `/progression-map/${idOrSlug}`;
   const resolvedId = resolveSlugToId(idOrSlug);
   if (resolvedId && isProgressionMapLeafProgram(resolvedId)) return `/progression-map/${resolvedId}`;
-  return '/profile';
+  return null;
 }
 
 export function getProgressionMapProgramName(programId: string): string | null {

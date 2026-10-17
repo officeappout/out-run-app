@@ -156,7 +156,7 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
   // header — no such guard exists, by design), but an unassessed or
   // prerequisite-locked program shows an informational banner instead of
   // just silently rendering the tree as if nothing were unusual.
-  const { state: cardState, lockedHint } = useProgramCardState(programId);
+  const { state: cardState, lockedHint, assessDomainSlug } = useProgramCardState(programId);
   const isUnassessed = cardState === 'locked_prereq' && lockedHint === NEEDS_ASSESSMENT_HINT;
   const isPrereqLocked = cardState === 'locked_prereq' && lockedHint != null && !isUnassessed;
   const [programMeta, setProgramMeta] = useState<Program | null>(null);
@@ -339,9 +339,12 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
                 <span>{UNASSESSED_BANNER_TEXT}</span>
                 <button
                   type="button"
-                  onClick={() =>
-                    startMiniDomainAssessment(router, slug, `/progression-map/${programId}`, domainTypeForSlug(slug))
-                  }
+                  onClick={() => {
+                    // A missing prerequisite (e.g. pull for front lever) is
+                    // assessed first; otherwise the program's own questionnaire.
+                    const target = assessDomainSlug ?? slug;
+                    startMiniDomainAssessment(router, target, `/progression-map/${programId}`, domainTypeForSlug(target));
+                  }}
                   className="text-xs font-black text-white rounded-full px-4 py-1.5 active:opacity-80"
                   style={{ background: 'linear-gradient(90deg, #2CE0C0 0%, #20C6D6 50%, #2AA3E8 100%)' }}
                 >
