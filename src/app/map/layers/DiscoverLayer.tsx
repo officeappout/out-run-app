@@ -205,7 +205,6 @@ function hybridWarmKey(
 
 interface DiscoverLayerProps {
   logic: MapLogic;
-  flyoverComplete: boolean;
   devSim?: DevSimulationState;
   initialOpenRun?: string | null;
   /** Step-goal push deep-link target (see IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED). */
@@ -218,7 +217,7 @@ interface DiscoverLayerProps {
   onRecenter?: () => void;
 }
 
-export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialOpenRun, targetSteps, initialOpenHybridSlots, initialOpenDiscover, onRecenter }: DiscoverLayerProps) {
+export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSteps, initialOpenHybridSlots, initialOpenDiscover, onRecenter }: DiscoverLayerProps) {
   const router = useRouter();
   const { setMode } = useMapMode();
   // Phase 3 (social-activities plan): opportunistically refresh the
