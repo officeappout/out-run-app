@@ -7,7 +7,7 @@ import { Check, ChevronDown, ChevronLeft, Flag, Home as HomeIcon, MapPinPlus, Pe
 import { Button, Card, EASE_V2 } from '@/components/ui/v2';
 import LabFrame, { LabStates } from '../_shared/LabFrame';
 import { AppIcon, Bolts, BottomNav, ICON, Ring, photo, type NavVariant } from '../_app/parts';
-import { AppHeader, BrandFlame, type LogoMode } from '../_app/brand';
+import { AppHeader, BrandFlame, FLAME_TONE, type LogoMode } from '../_app/brand';
 import { DayLetters, StreakRow, type StreakDay } from '../_app/week';
 import { pick, setDensity, setStreakStyle, useDensity, useStreakStyle, type Density, type StreakStyle } from '../_app/density';
 import WorkoutDrawer from './WorkoutDrawer';
@@ -51,10 +51,10 @@ const DENSITIES: { id: Density; label: string }[] = [
 ];
 
 const STREAKS: { id: StreakStyle; label: string }[] = [
+  { id: 'capsule', label: 'קפסולה' },
   { id: 'thread', label: 'חוט אש' },
   { id: 'heat', label: 'זוהר מתחמם' },
   { id: 'flow', label: 'זרימה' },
-  { id: 'capsule', label: 'קפסולה' },
 ];
 
 const LAB_LINKS = [
@@ -198,7 +198,15 @@ function WeekSchedule({ state }: { state: TodayState }) {
       <Link href="/design-lab/schedule" className="mx-4 block rounded-v2-card bg-white px-2 pb-3 pt-3 shadow-v2-card">
         <DayLetters days={WEEK} todayIndex={todayIndex} />
         <StreakRow days={days} todayIndex={todayIndex} cell={pick(d, 44, 40, 36)} />
-        <div className="mt-3 flex items-center justify-center gap-1.5 text-[12.5px] font-bold text-v2-muted">
+        <div className="mt-2.5 flex items-center justify-center gap-3 text-[11.5px] font-bold text-v2-muted">
+          {(['strength', 'cardio', 'steps'] as const).map((t) => (
+            <span key={t} className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full" style={{ background: FLAME_TONE[t].hex }} />
+              {FLAME_TONE[t].label}
+            </span>
+          ))}
+        </div>
+        <div className="mt-2 flex items-center justify-center gap-1.5 text-[12.5px] font-bold text-v2-muted">
           <BrandFlame size={24} still />
           <span>
             <b className="font-black text-v2-deep">{streak} ימים ברצף</b> · השיא שלך {USER.bestStreak}

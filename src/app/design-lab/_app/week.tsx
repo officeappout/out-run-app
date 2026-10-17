@@ -2,7 +2,7 @@
 
 import { motion, useReducedMotion } from 'framer-motion';
 import { EASE_V2 } from '@/components/ui/v2';
-import { BrandFlame } from './brand';
+import { BrandFlame, FLAME_TONE, type FlameTone } from './brand';
 import { AppIcon, ICON } from './parts';
 import { useStreakStyle, type StreakStyle } from './density';
 
@@ -15,6 +15,11 @@ export interface StreakDay {
   kind?: DayKind;
   /** Outside the shown month (month grid only). */
   muted?: boolean;
+}
+
+/** Which flame a day earns: strength, cardio (run / walk workout) or steps. */
+export function toneOf(kind?: DayKind): FlameTone {
+  return kind === 'run' || kind === 'walk' ? 'cardio' : kind === 'steps' ? 'steps' : 'strength';
 }
 
 const PROGRAM: Record<DayKind, string> = {
@@ -78,7 +83,17 @@ export function StreakRow({
   return (
     <div className="relative">
       {runs(days).map((l) => (
-        <RunConnector key={`${l.from}-${l.to}-${style}`} from={l.from} to={l.to} n={n} centerY={centerY} cell={cell} style={style} reduce={!!reduce} />
+        <RunConnector
+          key={`${l.from}-${l.to}-${style}`}
+          from={l.from}
+          to={l.to}
+          n={n}
+          centerY={centerY}
+          cell={cell}
+          style={style}
+          reduce={!!reduce}
+          tones={days.slice(l.from, l.to + 1).map((d, k, arr) => toneOf((d.status === 'rest' ? arr[k - 1] ?? arr[k + 1] : d).kind))}
+        />
       ))}
       {style === 'flow' && (
         <style>{'@keyframes labFlow{from{background-position:0 0}to{background-position:-24px 0}}'}</style>
@@ -126,7 +141,7 @@ function DayCell({ day, isToday, size, animate, scale = 1 }: { day: StreakDay; i
   if (day.status === 'done')
     return (
       <span className="relative grid place-items-center" style={style}>
-        <BrandFlame size={Math.round(size * 1.05 * scale)} still={!(isToday && animate)} />
+        <BrandFlame size={Math.round(size * 1.05 * scale)} still={!(isToday && animate)} tone={toneOf(day.kind)} />
       </span>
     );
   if (day.status === 'today')
@@ -172,6 +187,7 @@ function RunConnector({
   cell,
   style,
   reduce,
+  tones,
 }: {
   from: number;
   to: number;
@@ -180,6 +196,8 @@ function RunConnector({
   cell: number;
   style: StreakStyle;
   reduce: boolean;
+  /** Each day's flame tone, older → newer (rest days take a neighbour's). */
+  tones: FlameTone[];
 }) {
   // centre of the first flame → centre of the last (inline-start = the older day)
   const line = {
@@ -241,7 +259,13 @@ function RunConnector({
         {...grow}
       />
     );
-  // capsule
+  // capsule: a soft wash that blends from one day's flame colour to the
+  // next, a touch stronger toward today, with a hairline in the same blend
+  const k = tones.length;
+  const stop = (alpha: (i: number) => number) =>
+    tones.map((t, i) => `rgba(${FLAME_TONE[t].rgb},${alpha(i).toFixed(2)}) ${k === 1 ? 0 : Math.round((i / (k - 1)) * 100)}%`).join(', ');
+  const fill = `linear-gradient(270deg, ${stop((i) => 0.11 + (0.12 * i) / Math.max(1, k - 1))})`;
+  const edge = `linear-gradient(270deg, ${stop((i) => 0.28 + (0.3 * i) / Math.max(1, k - 1))})`;
   return (
     <motion.span
       aria-hidden
@@ -252,7 +276,8 @@ function RunConnector({
         top: centerY - cell / 2 - 4,
         height: cell + 8,
         transformOrigin: 'right',
-        background: 'linear-gradient(270deg, rgba(0,186,247,.07), rgba(12,242,227,.10))',
+        border: '1.5px solid transparent',
+        background: `${fill} padding-box, linear-gradient(#fff,#fff) padding-box, ${edge} border-box`,
       }}
       {...grow}
     />

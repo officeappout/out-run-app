@@ -8,14 +8,29 @@ import { useCompact } from './density';
 // Same self-hosted engine as components/ui/AnimatedFlame.tsx.
 setWasmUrl('/assets/animations/dotlottie-player.wasm');
 
+export type FlameTone = 'strength' | 'cardio' | 'steps';
+
+/** Per-activity flame colours: rgb for soft washes, hex for solid strokes. */
+export const FLAME_TONE: Record<FlameTone, { rgb: string; hex: string; label: string }> = {
+  strength: { rgb: '0,186,247', hex: '#00baf7', label: 'כוח' },
+  cardio: { rgb: '132,204,22', hex: '#84cc16', label: 'אירובי' },
+  steps: { rgb: '249,140,22', hex: '#f59e0b', label: 'צעדים' },
+};
+
+const FLAME_SRC: Record<FlameTone, string> = {
+  strength: '/design-lab/flame-brand.lottie',
+  cardio: '/design-lab/flame-cardio.lottie',
+  steps: '/design-lab/flame-steps.lottie',
+};
+
 /**
  * The app's streak flame (flame-orange.lottie from LottieFiles), recoloured
- * to the brand gradient: white core, #d4faff → #0cf2e3 → #00baf7 body.
+ * per activity: strength = brand cyan→turquoise, cardio = lime, steps = amber.
  */
-export function BrandFlame({ size = 28, still = false }: { size?: number; still?: boolean }) {
+export function BrandFlame({ size = 28, still = false, tone = 'strength' }: { size?: number; still?: boolean; tone?: FlameTone }) {
   return (
     <span className="inline-block shrink-0" style={{ width: size, height: size }} aria-hidden>
-      <DotLottieReact src="/design-lab/flame-brand.lottie" loop={!still} autoplay={!still} style={{ width: size, height: size }} />
+      <DotLottieReact src={FLAME_SRC[tone]} loop={!still} autoplay={!still} style={{ width: size, height: size }} />
     </span>
   );
 }

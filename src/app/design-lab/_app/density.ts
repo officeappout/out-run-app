@@ -62,7 +62,7 @@ export function pick<T>(d: Density, regular: T, compact: T, dense: T): T {
  */
 export type StreakStyle = 'capsule' | 'thread' | 'heat' | 'flow';
 const SKEY = 'design-lab-streak';
-let smem: StreakStyle = 'thread';
+let smem: StreakStyle = 'capsule';
 const slisteners = new Set<() => void>();
 
 function sread(): StreakStyle {
@@ -91,6 +91,6 @@ export function useStreakStyle(): StreakStyle {
       return () => slisteners.delete(l);
     },
     sread,
-    () => 'thread',
+    () => 'capsule',
   );
 }
