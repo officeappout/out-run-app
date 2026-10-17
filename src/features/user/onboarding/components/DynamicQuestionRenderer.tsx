@@ -2,13 +2,14 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { DynamicQuestionNode } from '../engine/DynamicOnboardingEngine';
-import { Coins } from 'lucide-react';
+import { Check, Coins } from 'lucide-react';
 import { MultilingualText } from '@/types/onboarding-questionnaire';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 import PremiumExerciseCard from './PremiumExerciseCard';
 import { getExercise } from '@/features/content/exercises/core/exercise.service';
 import type { Exercise } from '@/features/content/exercises/core/exercise.types';
 import { getLocalizedText } from '@/features/content/shared/localized-text.types';
+import { useOnboardingV2 } from '../hooks/useOnboardingV2';
 
 interface DynamicQuestionRendererProps {
   question: DynamicQuestionNode;
@@ -78,6 +79,7 @@ export default function DynamicQuestionRenderer({
   selectedAnswerId,
   onAnswer,
 }: DynamicQuestionRendererProps) {
+  const v2 = useOnboardingV2();
   // Pre-fetch exercises for answers that have exerciseId
   const [exerciseMap, setExerciseMap] = useState<Record<string, Exercise>>({});
 
@@ -134,6 +136,8 @@ export default function DynamicQuestionRenderer({
         description={description}
         language={language}
         onSubmit={(totalSeconds) => onAnswer(String(totalSeconds))}
+        v2={v2}
+        isFemale={gender === 'female'}
       />
     );
   }
@@ -143,6 +147,118 @@ export default function DynamicQuestionRenderer({
     question.type === 'choice' ||
     (question as any).type === 'multiple_choice' ||
     (Array.isArray((question as any).answers) && (question as any).answers.length > 0);
+
+  // ── v2 (enable_home_v2) — same answers, same onAnswer; v2 cards ──
+  // (white + ring, selected = accent ring, never black; no borders).
+  if (isChoiceLike && v2) {
+    const isRtl = language === 'he';
+    return (
+      <div className="w-full font-simpler text-v2-ink" dir={isRtl ? 'rtl' : 'ltr'}>
+        <div className={`mb-5 px-1 ${isRtl ? 'text-right' : 'text-left'}`}>
+          <h2 className="text-[22px] font-black leading-[1.2] !tracking-[-0.02em] text-v2-ink">{title}</h2>
+          {description && (
+            <p className="mt-1 text-[14px] font-medium leading-snug text-v2-ink-2">{description}</p>
+          )}
+        </div>
+
+        <div role="radiogroup" aria-label={title} className={`flex flex-col ${layoutType === 'horizontal-list' ? 'gap-2.5' : 'gap-3'}`}>
+          {question.answers.map((answer) => {
+            const isSelected = selectedAnswerId === answer.id;
+            const answerText = getTextValue(answer.text as any, language, gender);
+            const coinReward = (answer as any).coinReward ?? 10;
+            const hasImage = !!answer.imageUrl;
+            const linkedExercise = layoutType === 'large-card' && (answer as any).exerciseId
+              ? exerciseMap[(answer as any).exerciseId]
+              : null;
+            const exerciseVideoUrl = linkedExercise ? getExerciseVideoUrl(linkedExercise) : null;
+            const exercisePoster = linkedExercise ? getExercisePoster(linkedExercise) : null;
+            const hasVideo = !!exerciseVideoUrl;
+            const hasVisual = layoutType === 'large-card' && (hasImage || hasVideo);
+            const isRow = layoutType === 'horizontal-list';
+
+            return (
+              <label
+                key={answer.id}
+                className={`group relative block w-full cursor-pointer overflow-hidden rounded-[22px] bg-white transition-[transform,box-shadow] duration-150 ease-v2 active:scale-[0.97] ${
+                  isSelected ? 'shadow-v2-card ring-2 ring-v2-accent' : 'shadow-v2-ring'
+                } ${hasVisual ? 'h-40' : ''}`}
+              >
+                <input
+                  type="radio"
+                  name={`question-${question.id}`}
+                  value={answer.id}
+                  checked={isSelected}
+                  onChange={() => onAnswer(answer.id)}
+                  className="sr-only peer"
+                />
+
+                {IS_COIN_SYSTEM_ENABLED && coinReward > 0 && (
+                  <div className="absolute left-3 top-3 z-20 flex items-center gap-1 rounded-full bg-white px-2 py-1 shadow-v2-ring">
+                    <Coins size={12} className="text-v2-amber" strokeWidth={2.5} />
+                    <span className="text-[11px] font-extrabold text-v2-ink">+{coinReward}</span>
+                  </div>
+                )}
+
+                {hasVisual ? (
+                  <>
+                    {hasVideo ? (
+                      <PremiumExerciseCard
+                        videoUrl={exerciseVideoUrl!}
+                        posterUrl={exercisePoster}
+                        className="absolute inset-0 h-full w-full"
+                      />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        alt={answerText}
+                        src={answer.imageUrl}
+                        className="absolute inset-0 h-full w-full object-cover object-center"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    )}
+                    {!hasVideo && (
+                      <div className="absolute inset-0 bg-gradient-to-t from-white via-white/85 to-white/0" />
+                    )}
+                    <div className={`absolute inset-0 flex flex-col justify-end p-4 ${isRtl ? 'text-right' : 'text-left'}`}>
+                      <h3 className="line-clamp-2 text-[17px] font-black !tracking-[-0.01em] text-v2-ink">{answerText}</h3>
+                    </div>
+                  </>
+                ) : (
+                  <div className={`flex items-center gap-3 px-4 ${isRow ? 'min-h-[64px] py-2.5' : 'min-h-[68px] py-3.5'}`}>
+                    {isRow && hasImage && (
+                      <span className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl bg-v2-tint">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          alt=""
+                          src={answer.imageUrl}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            const t = e.target as HTMLImageElement;
+                            if (t.parentElement) t.parentElement.style.display = 'none';
+                          }}
+                        />
+                      </span>
+                    )}
+                    <span className={`min-w-0 flex-1 text-[16px] font-extrabold leading-snug text-v2-ink line-clamp-2 ${isRtl ? 'text-right' : 'text-left'}`}>
+                      {answerText}
+                    </span>
+                    <span
+                      aria-hidden
+                      className={`grid h-[26px] w-[26px] shrink-0 place-items-center rounded-full transition-colors duration-150 ${
+                        isSelected ? 'bg-v2-cta' : 'bg-v2-surface ring-[1.5px] ring-inset ring-v2-pill-border'
+                      }`}
+                    >
+                      {isSelected && <Check size={14} strokeWidth={3.2} className="text-v2-on-cta" />}
+                    </span>
+                  </div>
+                )}
+              </label>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   if (isChoiceLike) {
     return (
@@ -481,11 +597,16 @@ function PaceTimeInput({
   description,
   language,
   onSubmit,
+  v2 = false,
+  isFemale = false,
 }: {
   title: string;
   description?: string;
   language: 'he' | 'en' | 'ru';
   onSubmit: (totalSeconds: number) => void;
+  /** enable_home_v2 — v2 look (same wheels, same submit). */
+  v2?: boolean;
+  isFemale?: boolean;
 }) {
   const distance = useRef(getInitialDist()).current;
   const meta = DIST_OPTIONS.find((d) => d.key === distance)!;
@@ -505,6 +626,76 @@ function PaceTimeInput({
     const s = Math.round(pacePerKm % 60);
     return `${m}:${String(s).padStart(2, '0')}`;
   };
+
+  if (v2) {
+    const canSubmit = isValid && !isElite;
+    return (
+      <div className="w-full font-simpler text-v2-ink" dir="rtl">
+        <style>{`.wheel-hide-sb::-webkit-scrollbar{display:none}`}</style>
+
+        <div className="mb-4 px-1">
+          <h2 className="text-[22px] font-black leading-[1.2] !tracking-[-0.02em]">
+            מעולה! ומה התוצאה הכי טובה שלך כרגע ל-{meta.label}?
+          </h2>
+          <p className="mt-1 text-[14px] font-medium leading-snug text-v2-ink-2">
+            {isFemale
+              ? 'הכוונה לתוצאה שאת יכולה לבצע היום, לא לשיא היסטורי!'
+              : 'הכוונה לתוצאה שאתה יכול לבצע היום, לא לשיא היסטורי!'}
+          </p>
+        </div>
+
+        <div className="rounded-v2-card bg-white px-3 pb-4 pt-3.5 shadow-v2-card">
+          <p className="mb-2 text-center text-[13px] font-extrabold text-v2-deep">
+            השיא שלי ב-{meta.label} הוא:
+          </p>
+          <div className="relative overflow-hidden rounded-2xl" style={{ height: WHEEL_H }}>
+            <div
+              className="pointer-events-none absolute inset-x-2 z-0 rounded-[14px] bg-v2-tint ring-1 ring-inset ring-v2-accent/40"
+              style={{ top: WHEEL_PAD, height: WHEEL_ITEM_H }}
+            />
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-8 bg-gradient-to-b from-white to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-8 bg-gradient-to-t from-white to-transparent" />
+            <div className="relative z-10 mx-auto flex h-full max-w-xs items-center justify-center" dir="ltr">
+              <WheelColumn values={HOUR_VALS} value={hours}   onChange={setHours}   suffix="h" />
+              <span className="shrink-0 pb-0.5 text-2xl font-bold text-v2-pill-border">:</span>
+              <WheelColumn values={MIN_VALS}  value={minutes} onChange={setMinutes} suffix="m" />
+              <span className="shrink-0 pb-0.5 text-2xl font-bold text-v2-pill-border">:</span>
+              <WheelColumn values={SEC_VALS}  value={seconds} onChange={setSeconds} suffix="s" />
+            </div>
+          </div>
+          <div className="mt-3 flex justify-center">
+            <span className="inline-flex items-center whitespace-nowrap rounded-full bg-v2-tint px-3.5 py-1.5 text-[13px] font-extrabold tabular-nums text-v2-deep">
+              קצב: {fmtPace()} דק׳/ק״מ
+            </span>
+          </div>
+        </div>
+
+        {isElite && (
+          <div className="mt-3 rounded-[14px] bg-[#e5484d]/[0.08] px-3.5 py-3 ring-1 ring-inset ring-[#e5484d]/30" role="status">
+            <p className="text-center text-[13px] font-bold leading-snug text-[#b4232a]">
+              המערכת אינה מותאמת כרגע לאתלטים ברמה הזו... אנו עובדים על עדכון בקרוב.
+            </p>
+          </div>
+        )}
+
+        <div className="mt-5">
+          <button
+            type="button"
+            onClick={() => { if (canSubmit) onSubmit(totalSeconds); }}
+            disabled={!canSubmit}
+            aria-disabled={!canSubmit}
+            className={`flex h-[52px] w-full items-center justify-center whitespace-nowrap rounded-full text-[16.5px] font-extrabold transition-transform duration-150 ease-v2 ${
+              canSubmit
+                ? 'bg-v2-cta text-v2-on-cta shadow-v2-cta active:scale-[0.97]'
+                : 'cursor-not-allowed bg-v2-hairline text-v2-muted'
+            }`}
+          >
+            המשך
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full font-simpler" dir="rtl">

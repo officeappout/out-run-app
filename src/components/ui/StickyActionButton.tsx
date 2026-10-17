@@ -15,8 +15,11 @@ interface StickyActionButtonProps {
    * 'default' — legacy flat cyan gradient, white text, rounded-2xl (unchanged).
    * 'premium'  — home-button-matched style: #00BAF7→#0CF2E3 gradient, black text,
    *              rounded-full, font-semibold, shadow-md shadow-cyan-400/25.
+   * 'v2'       — enable_home_v2 look: bg-v2-cta pill, v2 surface fade. Adds only
+   *              12px below the button — callers render it inside <main>, which
+   *              already reserves the bottom safe-area inset.
    */
-  variant?: 'default' | 'premium';
+  variant?: 'default' | 'premium' | 'v2';
 }
 
 export default function StickyActionButton({
@@ -40,6 +43,33 @@ export default function StickyActionButton({
   }, [state, disabled, onPress]);
 
   const isDisabled = disabled || state !== 'idle';
+
+  if (variant === 'v2') {
+    return (
+      <div
+        className="sticky bottom-0 left-0 right-0 z-30 px-4 pt-3 pb-3"
+        style={{ background: 'linear-gradient(to top, #f6fbfd 70%, rgba(246,251,253,0))' }}
+      >
+        <button
+          type="button"
+          onClick={handleClick}
+          disabled={isDisabled}
+          aria-disabled={isDisabled}
+          className={`flex h-[52px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-full text-[16.5px] font-extrabold transition-transform duration-150 ease-v2 ${
+            state === 'success'
+              ? 'bg-v2-up text-white'
+              : disabled
+                ? 'cursor-not-allowed bg-v2-hairline text-v2-muted'
+                : 'bg-v2-cta text-v2-on-cta shadow-v2-cta active:scale-[0.97]'
+          }`}
+        >
+          {state === 'loading' && <Loader2 size={20} className="animate-spin" />}
+          {state === 'success' && <Check size={20} strokeWidth={3} />}
+          {state !== 'loading' && <span className="truncate">{state === 'success' ? (successLabel || label) : label}</span>}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div

@@ -32,6 +32,7 @@ import { completeRunningScheduleFirstChoice } from '@/features/workout-engine/co
 import { MIN_RUNNING_FREQUENCY, MAX_RUNNING_FREQUENCY, clampRunningFrequency } from '@/lib/running-frequency-bounds';
 import { getSmartDefaultDays } from '@/lib/running-schedule-smart-defaults';
 import { resolveSignupDefaultWrite } from '@/lib/running-schedule-signup-default';
+import { useOnboardingV2 } from '../../hooks/useOnboardingV2';
 
 // ============================================================================
 // CONSTANTS
@@ -64,6 +65,7 @@ const MAX_FREQUENCY = MAX_RUNNING_FREQUENCY;
 // ============================================================================
 
 export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: RunningScheduleStepProps) {
+  const v2 = useOnboardingV2();
   const { updateData, data } = useOnboardingStore();
   const profile = useUserStore((s) => s.profile);
   const refreshProfile = useUserStore((s) => s.refreshProfile);
@@ -331,6 +333,15 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
   // auto-skip precedent (:141-147), so there's no blank-white flash on a
   // slower device between mount and the navigation this effect triggers.
   if (!isJIT) {
+    // v2: fill the layout's scroll area — <main> already pads both insets,
+    // a 100dvh child would overflow it.
+    if (v2) {
+      return (
+        <div className="flex flex-1 items-center justify-center bg-v2-surface">
+          <p className="text-[13px] font-bold text-v2-muted">טוען...</p>
+        </div>
+      );
+    }
     return (
       <div className="min-h-[100dvh] flex items-center justify-center">
         <p className="text-slate-400 text-sm">טוען...</p>

@@ -94,6 +94,7 @@ export default function OnboardingLayout({
   // them a second time (the legacy branch keeps its doubled inset as-is).
   const v2 = useOnboardingV2();
   const mainPadsTop = !!pathname && !pathname.startsWith('/map') && !isTopPaddingExemptRoute(pathname);
+  const mainPadsBottom = !!pathname && !pathname.startsWith('/map');
   const coins = useOnboardingStore((state) => state.coins);
   const [coinBounce, setCoinBounce] = React.useState(false);
 
@@ -519,9 +520,11 @@ export default function OnboardingLayout({
       >
         {renderUnifiedHeader(false)}
 
+        {/* v2: <main> already reserves the bottom inset on every non-map
+            route, so the scroll area doesn't add it a second time. */}
         <div
           className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain flex flex-col"
-          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+          style={v2 && mainPadsBottom ? undefined : { paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
         >
           {children}
         </div>
