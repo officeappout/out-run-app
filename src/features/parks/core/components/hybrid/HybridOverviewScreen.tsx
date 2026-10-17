@@ -28,6 +28,9 @@ import { formatMinutes } from './hybrid-format'; // shared duration formatter (p
 import type { ComposedHybridSession } from '@/features/workout-engine/hybrid/start-hybrid-session';
 import { ROUTE_STOPS_ROUND_TRIP_KEY, readRoundTripPref, displayTotalMin, buildWalkLegsGeoJSON } from '@/features/workout-engine/hybrid/round-trip';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
+import { HomeV2Context } from '@/features/home/context/HomeV2Context';
 
 const ACCENT = '#00ADEF';
 const STR_TINT = '#ECFEFF', STR_TEXT = '#0E7490'; // cyan tint/text from color-system.md (no new hex)
@@ -60,7 +63,14 @@ function buildAnchors(m: SheetMeasurements): SheetAnchor[] {
   }));
 }
 
-function Chip({ icon, children, tint }: { icon: React.ReactNode; children: React.ReactNode; tint?: string }) {
+function Chip({ icon, children, tint, v2 = false }: { icon: React.ReactNode; children: React.ReactNode; tint?: string; v2?: boolean }) {
+  if (v2) {
+    return (
+      <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3 py-1.5 text-[13px] font-bold text-v2-ink-2 shadow-v2-ring">
+        <span style={{ color: tint ?? ACCENT }}>{icon}</span>{children}
+      </span>
+    );
+  }
   return (
     <span className="inline-flex items-center gap-1.5 bg-white rounded-lg text-[12.5px] font-bold"
       style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: '6px 11px', color: '#374151' }}>
@@ -96,6 +106,11 @@ interface Props {
 
 export default function HybridOverviewScreen({ composed, cityName, onStart, onBack, onExerciseTap, onSwapExercise, onAssessmentLink }: Props) {
   const { fallbackHint, aerobicKind } = composed;
+  // Home v2 (enable_home_v2): the design-lab drawer — v2 surface sheet, white cards,
+  // tinted segmented difficulty, round white icon button, the single gradient CTA.
+  // Flag off = today's drawer, byte-for-byte.
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
   // Difficulty carousel (full-park only): 3 pre-composed bolt plans, swap by index —
   // NO re-compose. `plan` = the active bolt; budget-split cards have no `bolts` and
   // keep their single `composed.plan` unchanged.
@@ -180,7 +195,7 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   const walkChip = (key: string, min: number) => (
     // Transport (getting to/from the route): dashed + faded, vs the solid route-walk / station chips.
     <span key={key} className="inline-flex items-center gap-1.5 text-[13px] font-bold whitespace-nowrap rounded-full"
-      style={{ color: '#9CA3AF', border: '1px dashed #BAE6FD', padding: '2px 9px', opacity: 0.8 }}>
+      style={{ color: v2 ? '#64748b' : '#9CA3AF', border: '1px dashed #BAE6FD', padding: '2px 9px', opacity: 0.8 }}>
       <span className="inline-flex" style={{ color: WALK_LEG_COLOR }}><ActivityGlyph kind="aerobic" subtype="walking" className="w-[19px] h-[19px]" /></span>
       {formatMinutes(min * 60)}
     </span>
@@ -189,12 +204,12 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   if (showWalkLegs && roundTripLegs!.walkThereMin > 0) journeyStrip.push(walkChip('walk-there', roundTripLegs!.walkThereMin));
   plan.segments.forEach((seg, i) => {
     if (journeyStrip.length > 0) {
-      journeyStrip.push(<ChevronLeft key={`sep${i}`} size={16} style={{ color: '#CBD5E1', flexShrink: 0 }} />);
+      journeyStrip.push(<ChevronLeft key={`sep${i}`} size={16} style={{ color: v2 ? '#dfe7ed' : '#CBD5E1', flexShrink: 0 }} />);
     }
     if (seg.kind === 'aerobic') {
       const kind = seg.aerobicType ?? aerobicKind; // 'walking' → WalkingIcon · 'running' → RunIcon
       journeyStrip.push(
-        <span key={`leg${i}`} className="inline-flex items-center gap-1.5 text-[14px] font-bold whitespace-nowrap" style={{ color: '#374151' }}>
+        <span key={`leg${i}`} className="inline-flex items-center gap-1.5 text-[14px] font-bold whitespace-nowrap" style={{ color: v2 ? '#0e1419' : '#374151' }}>
           <span className="inline-flex" style={{ color: AER }}><ActivityGlyph kind="aerobic" subtype={kind} className="w-[23px] h-[23px]" /></span>
           {formatMinutes(seg.durationSec)}
         </span>,
@@ -211,7 +226,7 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
     }
   });
   if (showWalkLegs && roundTripLegs!.walkBackMin > 0) {
-    if (journeyStrip.length > 0) journeyStrip.push(<ChevronLeft key="sep-walk-back" size={16} style={{ color: '#CBD5E1', flexShrink: 0 }} />);
+    if (journeyStrip.length > 0) journeyStrip.push(<ChevronLeft key="sep-walk-back" size={16} style={{ color: v2 ? '#dfe7ed' : '#CBD5E1', flexShrink: 0 }} />);
     journeyStrip.push(walkChip('walk-back', roundTripLegs!.walkBackMin));
   }
 
@@ -417,7 +432,9 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
       >
         <motion.div
           ref={cardRef}
-          className="absolute top-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl pointer-events-auto flex flex-col overflow-hidden"
+          className={v2
+            ? 'absolute top-0 left-0 right-0 bg-v2-surface rounded-t-[28px] shadow-v2-sheet pointer-events-auto flex flex-col overflow-hidden'
+            : 'absolute top-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl pointer-events-auto flex flex-col overflow-hidden'}
           style={{
             height: cardHeight,
             paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)',
@@ -427,11 +444,15 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
           {/* grabber = the drag handle (+ back button) */}
           <div className="relative pt-3 px-4 flex-shrink-0" onPointerDown={(e) => dragControls.start(e)}
             style={{ touchAction: 'none', cursor: 'grab' }}>
-            <div className="mx-auto rounded-full" style={{ width: 36, height: 5, background: '#E2E8F0' }} />
+            {v2
+              ? <div className="mx-auto h-1.5 w-10 rounded-full bg-v2-pill-border" />
+              : <div className="mx-auto rounded-full" style={{ width: 36, height: 5, background: '#E2E8F0' }} />}
             <button type="button" onClick={onBack} aria-label="חזור"
               onPointerDown={(e) => e.stopPropagation()}
-              className="absolute top-3 left-4 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center active:scale-90 transition-transform">
-              <ArrowRight size={16} className="text-gray-600" />
+              className={v2
+                ? 'absolute top-3 left-4 grid h-10 w-10 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]'
+                : 'absolute top-3 left-4 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center active:scale-90 transition-transform'}>
+              <ArrowRight size={v2 ? 18 : 16} className={v2 ? 'text-v2-ink' : 'text-gray-600'} />
             </button>
           </div>
 
@@ -440,7 +461,7 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
               (onPointerDown → dragControls.start + touch-action:none). Moovit pins
               the ROUTE summary (duration · finish), not a station name. ── */}
           <div
-            className="px-4 pt-0.5 pb-2 flex-shrink-0"
+            className={v2 ? 'px-4 pt-1 pb-2.5 pl-16 flex-shrink-0' : 'px-4 pt-0.5 pb-2 flex-shrink-0'}
             onPointerDown={(e) => dragControls.start(e)}
             style={{ touchAction: 'none', cursor: 'grab' }}
           >
@@ -448,8 +469,8 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
                 duration · finish. Was full-park-only; budget-split ("הליכה+כוח") used to
                 render a two-line layout here. Title TEXT is unchanged either way — only
                 the layout unifies. */}
-            <div className="flex items-center gap-1.5 flex-wrap text-[13px]">
-              <span className="text-[18px] font-black" style={{ color: '#111827' }}>
+            <div className={v2 ? 'flex items-center gap-x-1.5 gap-y-0.5 flex-wrap text-[13px]' : 'flex items-center gap-1.5 flex-wrap text-[13px]'}>
+              <span className={v2 ? 'basis-full text-[22px] font-black leading-tight !tracking-[-0.02em] text-v2-ink' : 'text-[18px] font-black'} style={v2 ? undefined : { color: '#111827' }}>
                 {/* route_stops ALSO carries `bolts` (a trio, like full_park) — `bolts`
                     truthiness alone can't tell the two apart. `fullParkRun===false` is
                     the definitive route_stops signal (composeRouteStopsWorkout sets it
@@ -468,10 +489,10 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
                   ? (MAP_OVERVIEW_CHROME_V1 ? `אימון מלא בפארק · ${aerobicKind === 'running' ? 'ריצה' : 'הליכה'} + תחנת כוח` : 'אימון משולב')
                   : 'אימון משולב'}
               </span>
-              <span style={{ color: '#D1D5DB' }}>·</span>
-              <span className="font-black" style={{ color: '#374151' }}>{totalMin} דק׳</span>
-              <span style={{ color: '#D1D5DB' }}>·</span>
-              <span className="font-bold" style={{ color: '#6B7280' }}>מסיים ~{finishClock}</span>
+              {!v2 && <span style={{ color: '#D1D5DB' }}>·</span>}
+              <span className={v2 ? 'whitespace-nowrap font-extrabold text-v2-ink-2' : 'font-black'} style={v2 ? undefined : { color: '#374151' }}>{totalMin} דק׳</span>
+              <span className={v2 ? 'text-v2-pill-border' : undefined} style={v2 ? undefined : { color: '#D1D5DB' }}>·</span>
+              <span className={v2 ? 'whitespace-nowrap font-bold text-v2-muted' : 'font-bold'} style={v2 ? undefined : { color: '#6B7280' }}>מסיים ~{finishClock}</span>
             </div>
             {roundTripLegs && (
               <button
@@ -479,15 +500,21 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
                 dir="rtl"
                 onClick={toggleRoundTrip}
                 aria-pressed={roundTripOn}
-                className="mt-1.5 inline-flex items-center gap-1.5 rounded-full text-[11.5px] font-bold active:scale-[0.97] transition-transform"
-                style={{
+                className={v2
+                  ? `mt-2 inline-flex max-w-full items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[12.5px] font-extrabold transition-transform duration-150 ease-v2 active:scale-[0.97] ${
+                      roundTripOn ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'bg-white text-v2-ink-2 shadow-v2-ring'
+                    }`
+                  : 'mt-1.5 inline-flex items-center gap-1.5 rounded-full text-[11.5px] font-bold active:scale-[0.97] transition-transform'}
+                style={v2 ? undefined : {
                   padding: '4px 10px',
                   background: roundTripOn ? `${ACCENT}14` : '#F3F4F6',
                   border: `1px solid ${roundTripOn ? ACCENT : 'transparent'}`,
                   color: roundTripOn ? '#0E7490' : '#6B7280',
                 }}
               >
-                <span aria-hidden>🚶</span>
+                {v2
+                  ? <span aria-hidden className="inline-flex shrink-0" style={{ color: WALK_LEG_COLOR }}><ActivityGlyph kind="aerobic" subtype="walking" className="w-[15px] h-[15px]" /></span>
+                  : <span aria-hidden>🚶</span>}
                 {roundTripOn
                   ? `הלוך וחזור · כולל ${roundTripLegs.walkThereMin + roundTripLegs.walkBackMin} דק׳ הליכה אל המסלול וממנו`
                   : 'הוסף הליכה הלוך וחזור'}
@@ -502,8 +529,8 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
               vertical gestures are handled by the grabber/summary drag zone above. */}
           <div className="px-4 pb-2.5 flex-shrink-0">
             <div className="overflow-x-auto" style={{ touchAction: 'pan-x', scrollbarWidth: 'none' }}>
-              <div className="inline-flex items-center gap-2.5 bg-white rounded-xl"
-                style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 3px 14px rgba(0,0,0,.07)', padding: '11px 15px' }}>
+              <div className={v2 ? 'inline-flex items-center gap-2.5 bg-white rounded-[20px] shadow-v2-card' : 'inline-flex items-center gap-2.5 bg-white rounded-xl'}
+                style={v2 ? { padding: '11px 15px' } : { border: '0.5px solid #E0E9FF', boxShadow: '0 3px 14px rgba(0,0,0,.07)', padding: '11px 15px' }}>
                 {journeyStrip}
               </div>
             </div>
@@ -560,17 +587,17 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
                 all already computed generically above (not full-park-specific). */}
             <div className="mt-3">
               <button type="button" onClick={() => setDetailOpen((o) => !o)} aria-expanded={detailOpen}
-                className="flex items-center gap-1 text-[12px] font-black active:scale-[0.98] transition-transform" style={{ color: '#6B7280', letterSpacing: '.03em' }}>
+                className={v2 ? 'flex items-center gap-1 whitespace-nowrap text-[13px] font-extrabold text-v2-deep transition-transform duration-150 ease-v2 active:scale-[0.97]' : 'flex items-center gap-1 text-[12px] font-black active:scale-[0.98] transition-transform'} style={v2 ? undefined : { color: '#6B7280', letterSpacing: '.03em' }}>
                 <ChevronDown size={15} style={{ transform: detailOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} /> פירוט
               </button>
               {detailOpen && (
                 <div className="mt-2">
                   {/* Route description in prose (point 11) — replaces the old location row */}
-                  <div className="flex items-start gap-1.5 text-[12.5px] leading-relaxed mb-2.5" style={{ color: '#4B5563' }}>
-                    <MapPin size={14} style={{ color: '#9CA3AF', flexShrink: 0, marginTop: 2 }} /> {routeDesc}
+                  <div className={v2 ? 'flex items-start gap-1.5 text-[14px] leading-relaxed mb-2.5 text-v2-ink-2' : 'flex items-start gap-1.5 text-[12.5px] leading-relaxed mb-2.5'} style={v2 ? undefined : { color: '#4B5563' }}>
+                    <MapPin size={14} style={{ color: v2 ? '#64748b' : '#9CA3AF', flexShrink: 0, marginTop: v2 ? 4 : 2 }} /> {routeDesc}
                   </div>
                   <div className="flex gap-2 flex-wrap">
-                    <Chip icon={<Ruler size={15} />} tint={AER}>{t.distanceKm?.toFixed(1)} ק״מ</Chip>
+                    <Chip icon={<Ruler size={15} />} tint={AER} v2={v2}>{t.distanceKm?.toFixed(1)} ק״מ</Chip>
                     <CaloriesChip calories={t.estCalories ?? 0} weightDependent onEditWeight={() => setShowWeightNudge(true)} />
                   </div>
                   {showWeightNudge && <WeightInlineRow onSaved={() => setShowWeightNudge(false)} />}
@@ -582,19 +609,21 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
                 minutes) or, for budget-split cards, the original static bolts pill */}
             <div className="flex items-center gap-2 mt-2.5 flex-wrap">
               {composed.bolts ? (
-                <div className="flex w-full items-stretch bg-white rounded-full" role="group" aria-label="בחירת עצימות"
-                  style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: 3, gap: 3 }}>
+                <div className={v2 ? 'flex w-full items-stretch bg-white rounded-full shadow-v2-ring' : 'flex w-full items-stretch bg-white rounded-full'} role="group" aria-label="בחירת עצימות"
+                  style={v2 ? { padding: 4, gap: 4 } : { border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: 3, gap: 3 }}>
                   {composed.bolts.labels.map((label, i) => {
                     const bt = composed.bolts!.plans[i].totals;
                     const bmin = Math.round((bt.aerobicMin ?? 0) + (bt.strengthMin ?? 0));
                     const active = i === boltIndex;
                     return (
                       <button key={label} type="button" onClick={() => selectBolt(i)} aria-pressed={active}
-                        className="flex-1 flex flex-col items-center justify-center gap-0.5 rounded-full active:scale-[0.98] transition-all duration-200"
-                        style={{ padding: '7px 6px', background: active ? STR_TINT : 'transparent' }}>
+                        className={v2
+                          ? `flex-1 flex flex-col items-center justify-center gap-0.5 rounded-full transition-all duration-150 ease-v2 active:scale-[0.97] ${active ? 'bg-v2-tint ring-1 ring-inset ring-v2-accent/40' : 'bg-transparent'}`
+                          : 'flex-1 flex flex-col items-center justify-center gap-0.5 rounded-full active:scale-[0.98] transition-all duration-200'}
+                        style={v2 ? { padding: '7px 6px' } : { padding: '7px 6px', background: active ? STR_TINT : 'transparent' }}>
                         {/* graduated bolts via the shared DifficultyBolts (reuse, not modified): קליל 1 / מאוזן 2 / עוצמתי 3 */}
                         <DifficultyBolts difficulty={(i + 1) as 1 | 2 | 3} size="sm" />
-                        <span className="text-[11px] font-bold whitespace-nowrap" style={{ color: active ? STR_TEXT : '#6B7280' }}>
+                        <span className={v2 ? `text-[12.5px] font-extrabold whitespace-nowrap ${active ? 'text-v2-deep' : 'text-v2-ink-2'}` : 'text-[11px] font-bold whitespace-nowrap'} style={v2 ? undefined : { color: active ? STR_TEXT : '#6B7280' }}>
                           {label} · {bmin}׳
                         </span>
                       </button>
@@ -602,17 +631,21 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
                   })}
                 </div>
               ) : (
-                <span className="inline-flex items-center bg-white rounded-lg" style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: '4px 10px' }}>
+                <span className={v2 ? 'inline-flex items-center bg-white rounded-full shadow-v2-ring' : 'inline-flex items-center bg-white rounded-lg'} style={v2 ? { padding: '5px 12px' } : { border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: '4px 10px' }}>
                   <DifficultyBolts difficulty={2} size="sm" />
                 </span>
               )}
             </div>
 
             {/* axis */}
-            <div className="flex items-center gap-1.5 text-[12px] font-black mt-4 mb-2" style={{ color: '#6B7280', letterSpacing: '.03em' }}>
+            <div className={v2 ? 'flex items-center gap-1.5 whitespace-nowrap text-[17px] font-black !tracking-[-0.02em] text-v2-ink mt-5 mb-2.5' : 'flex items-center gap-1.5 text-[12px] font-black mt-4 mb-2'} style={v2 ? undefined : { color: '#6B7280', letterSpacing: '.03em' }}>
               מהלך האימון
             </div>
+            {/* v2: provide HomeV2Context so the shared ExerciseCard rows render their v2 look
+                (white row + thumbnail, ring instead of border). Value false = today. */}
+            <HomeV2Context.Provider value={v2}>
             <HybridJourneyAxis
+              v2={v2}
               segments={plan.segments}
               // design-unification (05.08.2026): HybridJourneyAxis is ALREADY purely
               // data-driven on stationName (its own docstring: "Omitted for budget-split
@@ -633,15 +666,18 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
               onSwapExercise={onSwapExercise}
               onSegmentAssessmentLink={onAssessmentLink}
             />
+            </HomeV2Context.Provider>
             <div style={{ height: 8 }} />
           </div>
 
           {/* sticky CTA — pinned to the visible card bottom at every detent */}
           <div className="px-4 pt-2 flex-shrink-0">
             <button type="button" onClick={onStart} aria-label="התחל אימון משולב"
-              className="w-full flex items-center justify-center gap-2 text-white text-[15px] font-black rounded-2xl active:scale-[0.97] transition-transform"
-              style={{ height: 54, background: 'linear-gradient(to left, #0CF2E3, #00BAF7)' }}>
-              <Play size={18} /> התחל אימון
+              className={v2
+                ? 'w-full h-12 flex items-center justify-center gap-2 whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]'
+                : 'w-full flex items-center justify-center gap-2 text-white text-[15px] font-black rounded-2xl active:scale-[0.97] transition-transform'}
+              style={v2 ? undefined : { height: 54, background: 'linear-gradient(to left, #0CF2E3, #00BAF7)' }}>
+              <Play size={18} className={v2 ? 'fill-current' : undefined} /> התחל אימון
             </button>
           </div>
         </motion.div>
