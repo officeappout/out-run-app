@@ -105,6 +105,12 @@ export const FLAG_DEFS = [
   // (LevelRingCard hidden when skipped, StrengthSummaryView.tsx, after #305). David turns it on
   // himself after field-testing.
   { key: 'enableNoAutoStrengthLevel', firestoreKey: 'enable_no_auto_strength_level', defaultValue: false, superAdminValue: false },
+  // Sderot pilot G7.1 (17.10.2026) — "finish & continue": the live hybrid / walk / run summary
+  // footer gets a large "סיים אימון" plus 2–3 continuation suggestions (keep walking, strength
+  // at a nearby park, a short run home), each landing on an EXISTING entry point after the
+  // normal finish teardown. Fail-closed launch gate; superAdminValue false — the panel toggle is
+  // the one switch. Off = today's summary footer exactly.
+  { key: 'enableFinishAndContinue', firestoreKey: 'enable_finish_and_continue', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

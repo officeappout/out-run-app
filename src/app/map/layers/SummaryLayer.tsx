@@ -12,6 +12,12 @@ import HybridSummary from '@/features/workout-engine/summary/pages/HybridSummary
 import { HYBRID_SUMMARY_ENABLED } from '@/config/feature-flags';
 import { useRouter } from 'next/navigation';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import {
+  useFinishContinuation,
+  goToContinuation,
+} from '@/features/workout-engine/summary/hooks/useFinishContinuation';
+import type { ContinuationKind } from '@/features/workout-engine/summary/blocks/finish-continue.util';
 
 type MapLogic = ReturnType<typeof useMapLogic>;
 
@@ -27,6 +33,9 @@ export default function SummaryLayer({ logic }: SummaryLayerProps) {
   const lastCalories = useHybridRun((s) => s.lastCalories);
   const currentStreak = useProgressionStore((s) => s.currentStreak);
   const router = useRouter();
+  // G7.1 finish & continue — null while the flag is OFF (no fetch, no prop passed).
+  const { flags } = useFeatureFlags();
+  const continuationData = useFinishContinuation(flags.enableFinishAndContinue && logic.showSummary);
 
   const handleFinish = () => {
     logic.setShowSummary(false);
@@ -45,6 +54,15 @@ export default function SummaryLayer({ logic }: SummaryLayerProps) {
     useSessionStore.getState().clearSession();
     handleFinish();
     router.push('/home');
+  };
+
+  // G7.1: the SAME hybrid teardown as handleHybridFinish, then the chosen
+  // continuation's existing entry point instead of /home.
+  const handleHybridContinue = (kind: ContinuationKind) => {
+    useHybridRun.getState().reset();
+    useSessionStore.getState().clearSession();
+    handleFinish();
+    goToContinuation(kind, continuationData?.nearest ?? null, (href) => router.push(href));
   };
 
   // Dopamine screen (transition to summary)
@@ -75,6 +93,9 @@ export default function SummaryLayer({ logic }: SummaryLayerProps) {
         calories={lastCalories}
         streakDays={currentStreak}
         onFinish={handleHybridFinish}
+        {...(continuationData
+          ? { continuation: { options: continuationData.options, onSelect: handleHybridContinue } }
+          : {})}
       />
     );
   }
@@ -97,6 +118,7 @@ export default function SummaryLayer({ logic }: SummaryLayerProps) {
       <WorkoutSummaryPage
         onFinish={handleFinish}
         workoutType={runMode === 'plan' ? 'PLAN_RUN' : 'FREE_RUN'}
+        {...(continuationData ? { continuationData } : {})}
       />
     );
   }

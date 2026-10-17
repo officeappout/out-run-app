@@ -2,6 +2,7 @@
 
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import AerobicSummaryShell from '../components/aerobic/AerobicSummaryShell';
+import type { FinishContinuation } from '../blocks/FinishAndContinueFooter';
 
 export interface AerobicSummaryProps {
   variant: 'group' | 'solo' | 'pair';
@@ -19,6 +20,8 @@ export interface AerobicSummaryProps {
   onDelete?: () => void;
   /** Gap above the open drawer — forwarded to AerobicSummaryShell. */
   peekHeight?: number;
+  /** G7.1 finish & continue footer — forwarded to AerobicSummaryShell. */
+  continuation?: FinishContinuation;
 }
 
 /**

@@ -38,6 +38,7 @@ interface FlagState {
   enable_carousel_swipe_hint: boolean;
   enable_route_direction_adapt: boolean;
   enable_no_auto_strength_level: boolean;
+  enable_finish_and_continue: boolean;
 }
 
 // ============================================================================
@@ -167,6 +168,14 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-rose-500',
     title: 'אין רמת כוח בלי שאלון',
     description: 'משתמש שלא מילא את שאלון הכוח לא מקבל רמה או תוכנית: לא באונבורדינג (גם לא מתשובת "רמת כושר" או בחירת שרירים), ולא אחרי אימון כוח (היסטוריה ו-XP נשמרים כרגיל). משתמשים קיימים לא משתנים. במסך הסיכום כרטיס הרמה מוסתר למשתמשים האלה. ⚠️ להפעיל רק אחרי בדיקת שטח. כבוי = כמו היום.',
+  },
+  {
+    key: 'enable_finish_and_continue',
+    icon: Footprints,
+    iconBg: 'bg-emerald-50',
+    iconColor: 'text-emerald-500',
+    title: 'סיים אימון + המשך',
+    description: 'בסיכום של אימון משולב / הליכה / ריצה: כפתור "סיים אימון" גדול ומתחתיו 2–3 הצעות להמשך — ממשיכים ללכת, אימון כוח בגינה קרובה (אם יש עד 2 ק״מ), ריצה קצרה הביתה (פותח ריצה ובוחרים יעד: כתובת). האימון נשמר כרגיל לפני המעבר. כבוי = כמו היום.',
   },
 ];
 

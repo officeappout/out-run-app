@@ -15,15 +15,25 @@ import SummaryOrchestrator, {
 import AerobicSummaryShell from './components/aerobic/AerobicSummaryShell';
 import AerobicSummary from './pages/AerobicSummary';
 import { IS_COIN_SYSTEM_ENABLED, AEROBIC_SOLO_ENABLED, AEROBIC_SUMMARY_V2_ENABLED } from '@/config/feature-flags';
+import { goToContinuation, type FinishContinuationData } from './hooks/useFinishContinuation';
+import type { ContinuationKind } from './blocks/finish-continue.util';
+import type { FinishContinuation } from './blocks/FinishAndContinueFooter';
 
 interface WorkoutSummaryPageProps {
   onFinish: () => void;
   workoutType?: WorkoutType;
+  /**
+   * G7.1 (flag enable_finish_and_continue) — present only when the flag is ON.
+   * Wired into the SOLO aerobic summary only (a group session has its own
+   * presence/session context; a follow-on free walk must not inherit it).
+   */
+  continuationData?: FinishContinuationData;
 }
 
 export default function WorkoutSummaryPage({
   onFinish,
   workoutType = 'FREE_RUN',
+  continuationData,
 }: WorkoutSummaryPageProps) {
   const router = useRouter();
   const { totalDistance, totalDuration } = useSessionStore();
@@ -54,13 +64,15 @@ export default function WorkoutSummaryPage({
     setMounted(true);
   }, []);
 
-  const handleFinish = async () => {
+  // `go` = where to land after the teardown. handleFinish passes the original
+  // router.push('/home'); G7.1's continuation passes its own entry point.
+  const finishThen = async (go: () => void) => {
     if (isGuest) {
       // Basic Guest Finish
       clearRunningData();
       useSessionStore.getState().clearSession();
       onFinish();
-      router.push('/home');
+      go();
       return;
     }
 
@@ -71,7 +83,7 @@ export default function WorkoutSummaryPage({
       clearRunningData();
       useSessionStore.getState().clearSession();
       onFinish();
-      router.push('/home');
+      go();
       return;
     }
 
@@ -142,8 +154,21 @@ export default function WorkoutSummaryPage({
 
     // 4. Smart Navigation -> Home
     onFinish();
-    router.push('/home');
+    go();
   };
+
+  const handleFinish = () => finishThen(() => router.push('/home'));
+
+  const soloContinuation: FinishContinuation | undefined = continuationData
+    ? {
+        options: continuationData.options,
+        onSelect: (kind: ContinuationKind) => {
+          void finishThen(() =>
+            goToContinuation(kind, continuationData.nearest, (href) => router.push(href)),
+          );
+        },
+      }
+    : undefined;
 
   const handleClaim = () => {
     // Redirect to Onboarding with fixed bonus for Guest signup
@@ -221,6 +246,7 @@ export default function WorkoutSummaryPage({
           xpEarned={0}
           onSave={handleFinish}
           onClose={handleFinish}
+          {...(soloContinuation ? { continuation: soloContinuation } : {})}
         />
       );
     }
@@ -234,6 +260,7 @@ export default function WorkoutSummaryPage({
         xpEarned={0}
         onSave={handleFinish}
         onClose={handleFinish}
+        {...(soloContinuation ? { continuation: soloContinuation } : {})}
       />
     );
   }

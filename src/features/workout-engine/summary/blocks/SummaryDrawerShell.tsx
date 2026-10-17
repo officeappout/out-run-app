@@ -23,6 +23,11 @@ interface SummaryDrawerShellProps {
   /** Snap the drawer opens at (previews / screenshots use 'peek'). Default 'full'. */
   initialSnap?: SummarySnap;
   /**
+   * Collapsed (peek) height override — only for a footer taller than the
+   * default (G7.1's continuation row). Omitted = SUMMARY_COLLAPSED_PX, as before.
+   */
+  collapsedPx?: number;
+  /**
    * Pinned footer — the ONLY place an exit/save action lives. Dragging the
    * drawer never dismisses, finishes or saves.
    */
@@ -47,6 +52,7 @@ export default function SummaryDrawerShell({
   header,
   peekHeight = 150,
   initialSnap = 'full',
+  collapsedPx,
   footer,
   children,
 }: SummaryDrawerShellProps) {
@@ -58,7 +64,7 @@ export default function SummaryDrawerShell({
     return () => window.removeEventListener('resize', update);
   }, []);
 
-  const { snapPoints, initialIndex } = summarySheetSnaps(vh, peekHeight, initialSnap);
+  const { snapPoints, initialIndex } = summarySheetSnaps(vh, peekHeight, initialSnap, collapsedPx);
 
   const tabRow = (
     <div
