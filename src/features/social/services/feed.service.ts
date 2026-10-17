@@ -22,6 +22,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { applyFeedPrefs, feedPrefsFrom, savePendingShare } from './feed-prefs';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Types
@@ -100,7 +101,14 @@ export async function createWorkoutPost(params: {
   programId?: string;
   /** Snapshot of the author's joined group IDs at post time. */
   groupIds?: string[];
-}): Promise<string | null> {
+}, opts: {
+  /**
+   * The user tapped "share" (the feed's share prompt). Without it a post is
+   * published only when the author turned auto-publish on for this activity
+   * (users/{uid}.social.feedPrefs); otherwise it's kept as a pending share.
+   */
+  manual?: boolean;
+} = {}): Promise<string | null> {
   try {
     // Feature flag guard — skip post creation when community feed is disabled
     try {
@@ -117,6 +125,23 @@ export async function createWorkoutPost(params: {
       console.warn('[FeedService] Could not read feature flags — skipping post:', flagErr);
       return null;
     }
+    // Opt-in publishing (feed-prefs.ts). Can't read the prefs → treat as
+    // "not opted in": hold it as a share prompt rather than publish.
+    let prefsRaw: unknown = undefined;
+    try {
+      const me = await getDoc(doc(db, 'users', params.authorUid));
+      prefsRaw = (me.data()?.social as { feedPrefs?: unknown } | undefined)?.feedPrefs;
+    } catch (prefsErr) {
+      console.warn('[FeedService] Could not read feed prefs — holding as a share prompt:', prefsErr);
+    }
+    const decision = applyFeedPrefs(params, feedPrefsFrom(prefsRaw), !!opts.manual);
+    if (!decision.publish) {
+      savePendingShare(params);
+      console.log('[FeedService] Auto-publish off for', params.activityCategory, '— kept as a share prompt');
+      return null;
+    }
+    params = decision.params;
+
     const multiplier = CREDIT_MULTIPLIER[params.activityCategory] ?? 1;
     const activityCredit = params.durationMinutes * multiplier;
 
