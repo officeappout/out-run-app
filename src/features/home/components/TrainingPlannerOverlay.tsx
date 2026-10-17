@@ -127,6 +127,19 @@ export default function TrainingPlannerOverlay({
   const [refreshKey, setRefreshKey]               = useState(0);
   const [isCalendarCollapsed, setIsCalendarCollapsed] = useState(true);
   const v2 = useHomeV2();
+  // The month grid is 5 or 6 rows (+ month and weekday headers), and v2's
+  // flame cells sit taller — a fixed 310px cut the last row. Measure it.
+  const calInnerRef = useRef<HTMLDivElement>(null);
+  const [calExpandedH, setCalExpandedH] = useState(CAL_HEIGHT_EXPANDED);
+  useEffect(() => {
+    const el = calInnerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => {
+      if (!isCalendarCollapsed) setCalExpandedH(Math.max(CAL_HEIGHT_EXPANDED, Math.ceil(el.scrollHeight) + 8));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isCalendarCollapsed, isOpen]);
 
   // ── Week navigation state (collapsed / week-strip mode only) ─────────────
   const { profile } = useUserStore();
@@ -397,7 +410,7 @@ export default function TrainingPlannerOverlay({
               <div
                 className={`flex-shrink-0 bg-white overflow-hidden relative z-[1] ${v2 ? 'rounded-b-[28px] shadow-v2-card' : 'rounded-b-3xl shadow-[0_10px_30px_rgba(0,0,0,0.08)]'}`}
                 style={{
-                  height: isCalendarCollapsed ? CAL_HEIGHT_COLLAPSED : CAL_HEIGHT_EXPANDED,
+                  height: isCalendarCollapsed ? CAL_HEIGHT_COLLAPSED : calExpandedH,
                   transition: 'height 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
                 }}
               >
@@ -408,6 +421,7 @@ export default function TrainingPlannerOverlay({
                   while JS captures horizontal gestures.
                 */}
                 <motion.div
+                  ref={calInnerRef}
                   drag={isCalendarCollapsed ? 'x' : false}
                   dragConstraints={{ left: 0, right: 0 }}
                   dragElastic={0.18}
