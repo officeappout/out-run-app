@@ -6,7 +6,6 @@
  */
 
 import { readFeatureFlagOnce } from '@/lib/feature-flag-once';
-import { periodKeysFor, pickScopeNumbers, type ScopeStatsDoc } from './league-scope-keys';
 import {
   collection,
   query,
@@ -18,7 +17,7 @@ import {
   doc,
   Timestamp,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { RESERVE_SCOPE_FIELD } from '@/lib/military-reserve-league';
 
 // ── Types ──────────────────────────────────────────────────────────────
@@ -1077,6 +1076,11 @@ export interface ScopeCompetitionResult {
   generatedAt: Date;
 }
 
+/**
+ * The board from the server-side aggregates, via /api/leagues/scope-stats
+ * (Admin SDK read — no client rules needed). null when the filter can't be
+ * answered from the sums (category AND gender) → legacy path.
+ */
 async function getScopeCompetitionFromStats(p: {
   granularity: 'city' | 'neighborhood';
   timeWindow: 'weekly' | 'monthly';
@@ -1086,46 +1090,20 @@ async function getScopeCompetitionFromStats(p: {
   maxEntries: number;
 }): Promise<ScopeCompetitionResult | null> {
   if (p.category !== 'overall' && p.genderFilter !== 'all') return null;
-  const periodKey = periodKeysFor(new Date())[p.timeWindow];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const constraints: any[] = [
-    where('window', '==', p.timeWindow),
-    where('periodKey', '==', periodKey),
-    where('granularity', '==', p.granularity),
-  ];
-  if (p.granularity === 'neighborhood') constraints.push(where('parentId', '==', p.cityAuthorityId));
-  const snap = await getDocs(query(collection(db, 'league_scope_stats'), ...constraints));
-  const rows = snap.docs
-    .map((d) => {
-      const data = d.data() as ScopeStatsDoc;
-      const n = pickScopeNumbers(data, p.category, p.genderFilter);
-      return n && n.activeMemberCount > 0 ? { scopeId: data.scopeId, ...n } : null;
-    })
-    .filter((r): r is { scopeId: string; totalScore: number; activeMemberCount: number } => !!r)
-    .sort((a, b) => b.totalScore - a.totalScore)
-    .slice(0, p.maxEntries);
-  if (!rows.length) return { entries: [], generatedAt: new Date() };
-  const names = new Map<string, string>();
-  await Promise.all(
-    rows.map(async (r) => {
-      try {
-        const a = await getDoc(doc(db, 'authorities', r.scopeId));
-        names.set(r.scopeId, a.exists() ? ((a.data()?.name as string) ?? r.scopeId) : r.scopeId);
-      } catch {
-        names.set(r.scopeId, r.scopeId);
-      }
-    }),
-  );
-  return {
-    entries: rows.map((r, i) => ({
-      rank: i + 1,
-      scopeId: r.scopeId,
-      scopeName: names.get(r.scopeId) ?? r.scopeId,
-      totalScore: r.totalScore,
-      activeMemberCount: r.activeMemberCount,
-    })),
-    generatedAt: new Date(),
-  };
+  const idToken = await auth.currentUser?.getIdToken().catch(() => null);
+  if (!idToken) return null;
+  const qs = new URLSearchParams({
+    granularity: p.granularity,
+    window: p.timeWindow,
+    category: p.category,
+    gender: p.genderFilter,
+    max: String(p.maxEntries),
+  });
+  if (p.cityAuthorityId) qs.set('parentId', p.cityAuthorityId);
+  const res = await fetch(`/api/leagues/scope-stats?${qs}`, { headers: { Authorization: `Bearer ${idToken}` } });
+  if (!res.ok) throw new Error(`scope-stats ${res.status}`);
+  const body = (await res.json()) as { entries: ScopeCompetitionEntry[] };
+  return { entries: body.entries ?? [], generatedAt: new Date() };
 }
 
 export async function getScopeCompetitionLeaderboard(params: {

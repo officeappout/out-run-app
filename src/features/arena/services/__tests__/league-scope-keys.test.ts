@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { periodKeysFor, pickScopeNumbers } from '../league-scope-keys';
+import { buildScopeEntries, periodKeysFor, pickScopeNumbers } from '../league-scope-keys';
 
 // Same dates as functions/src/__tests__/league-scope-stats.test.ts — the two
 // periodKeysFor implementations must agree.
@@ -28,4 +28,30 @@ describe('pickScopeNumbers', () => {
   it('one gender', () => expect(pickScopeNumbers(d, 'overall', 'female')).toEqual({ totalScore: 220, activeMemberCount: 4 }));
   it('a missing bucket is zero', () => expect(pickScopeNumbers(d, 'maintenance', 'all')).toEqual({ totalScore: 0, activeMemberCount: 0 }));
   it('category AND gender → null (falls back)', () => expect(pickScopeNumbers(d, 'cardio', 'male')).toBeNull());
+});
+
+describe('buildScopeEntries', () => {
+  const docs = [
+    { scopeId: 'a', totalCredit: 40, activeMemberCount: 2, byActivity: { cardio: { credit: 10, members: 1 } } },
+    { scopeId: 'b', totalCredit: 90, activeMemberCount: 3 },
+    { scopeId: 'c', totalCredit: 0, activeMemberCount: 0 },
+  ];
+  const names = new Map([['a', 'שכונה א'], ['b', 'שכונה ב']]);
+
+  it('ranks by total, drops empty scopes, names fall back to the id', () => {
+    expect(buildScopeEntries(docs, names, 'overall', 'all', 10)).toEqual([
+      { rank: 1, scopeId: 'b', scopeName: 'שכונה ב', totalScore: 90, activeMemberCount: 3 },
+      { rank: 2, scopeId: 'a', scopeName: 'שכונה א', totalScore: 40, activeMemberCount: 2 },
+    ]);
+  });
+
+  it('filters by activity and caps the list', () => {
+    expect(buildScopeEntries(docs, new Map(), 'cardio', 'all', 1)).toEqual([
+      { rank: 1, scopeId: 'a', scopeName: 'a', totalScore: 10, activeMemberCount: 1 },
+    ]);
+  });
+
+  it('category AND gender is unanswerable → null', () => {
+    expect(buildScopeEntries(docs, names, 'strength', 'female', 10)).toBeNull();
+  });
 });

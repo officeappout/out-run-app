@@ -57,3 +57,36 @@ export function pickScopeNumbers(
   }
   return { totalScore: d.totalCredit ?? 0, activeMemberCount: d.activeMemberCount ?? 0 };
 }
+
+/** A board row built from a stats doc. */
+export interface ScopeStatsEntry {
+  rank: number;
+  scopeId: string;
+  scopeName: string;
+  totalScore: number;
+  activeMemberCount: number;
+}
+
+/**
+ * Stats docs → ranked board rows (by total; the board re-ranks by average
+ * itself). Docs with no active member for the filter are dropped. null when
+ * the filter can't be answered from the sums (category AND gender).
+ */
+export function buildScopeEntries(
+  docs: ScopeStatsDoc[],
+  names: Map<string, string>,
+  category: 'overall' | 'strength' | 'cardio' | 'maintenance',
+  gender: 'all' | 'male' | 'female',
+  maxEntries: number,
+): ScopeStatsEntry[] | null {
+  if (category !== 'overall' && gender !== 'all') return null;
+  return docs
+    .map((d) => {
+      const n = pickScopeNumbers(d, category, gender);
+      return n && n.activeMemberCount > 0 ? { scopeId: d.scopeId, ...n } : null;
+    })
+    .filter((r): r is { scopeId: string; totalScore: number; activeMemberCount: number } => !!r)
+    .sort((a, b) => b.totalScore - a.totalScore)
+    .slice(0, maxEntries)
+    .map((r, i) => ({ rank: i + 1, ...r, scopeName: names.get(r.scopeId) ?? r.scopeId }));
+}
