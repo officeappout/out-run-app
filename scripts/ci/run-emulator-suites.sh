@@ -54,6 +54,7 @@ GROUP_8089=(
   src/app/api/admin/agents/__tests__/agents-routes.emulator.test.ts
   functions/src/__tests__/reminderSweepScheduler.emulator.test.ts
   functions/src/__tests__/leagueScopeStats.emulator.test.ts
+  functions/src/__tests__/referralBonus.emulator.test.ts
 )
 
 RESULTS=$(mktemp)
