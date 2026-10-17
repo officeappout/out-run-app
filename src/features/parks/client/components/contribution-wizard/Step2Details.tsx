@@ -1,7 +1,9 @@
 'use client';
 
 import React from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Dumbbell, Volleyball, Flower2, Zap, Trees, type LucideIcon } from 'lucide-react';
+import { useWizardV2, V2_LABEL, V2_INPUT, v2Card, v2Chip, V2BackButton, V2PrimaryButton } from './wizard-v2';
+import { AMENITY_ICON_MAP } from '../park-detail/amenity-icons';
 import type { WizardData } from './index';
 import type { ParkFacilityCategory, ParkFeatureTag } from '@/features/parks/core/types/park.types';
 
@@ -34,7 +36,17 @@ const FEATURE_TAGS: { id: ParkFeatureTag; label: string; icon: string }[] = [
   { id: 'dog_friendly', label: 'ידידותי לכלבים', icon: '🐕' },
 ];
 
+/** v2 icons for the facility-type cards (replace the emoji). */
+const FACILITY_V2_ICONS: Partial<Record<ParkFacilityCategory, LucideIcon>> = {
+  gym_park: Dumbbell,
+  court: Volleyball,
+  zen_spot: Flower2,
+  urban_spot: Zap,
+  nature_community: Trees,
+};
+
 export default function Step2Details({ data, updateData, onNext, onBack }: Props) {
+  const v2 = useWizardV2();
   const toggleTag = (tag: ParkFeatureTag) => {
     const current = data.featureTags;
     const next = current.includes(tag)
@@ -44,6 +56,86 @@ export default function Step2Details({ data, updateData, onNext, onBack }: Props
   };
 
   const canProceed = data.parkName.trim().length > 0;
+
+  if (v2) {
+    return (
+      <div className="flex h-full flex-col overflow-y-auto px-4 pb-6">
+        {/* Name */}
+        <div className="mb-5">
+          <label htmlFor="contribution-park-name" className={V2_LABEL}>שם המיקום</label>
+          <input
+            id="contribution-park-name"
+            type="text"
+            value={data.parkName}
+            onChange={(e) => updateData({ parkName: e.target.value })}
+            placeholder="למשל: גינת כושר שנקין"
+            className={V2_INPUT}
+          />
+        </div>
+
+        {/* Facility Type — only for non-POI */}
+        {!data.isPointOfInterest && (
+          <div className="mb-5">
+            <p className={V2_LABEL}>סוג מתקן</p>
+            <div className="grid grid-cols-3 gap-2.5">
+              {FACILITY_TYPES.map((ft) => {
+                const on = data.facilityType === ft.id;
+                const Icon = FACILITY_V2_ICONS[ft.id] ?? Dumbbell;
+                return (
+                  <button
+                    key={ft.id}
+                    type="button"
+                    onClick={() => updateData({ facilityType: ft.id })}
+                    className={`flex min-w-0 flex-col items-center gap-1.5 px-1.5 py-3 text-[13px] font-extrabold ${v2Card(on)}`}
+                  >
+                    <span className={`grid h-9 w-9 place-items-center rounded-full ${on ? 'bg-v2-tint text-v2-deep' : 'bg-v2-surface text-v2-muted'}`}>
+                      <Icon size={18} strokeWidth={2.4} />
+                    </span>
+                    <span className="max-w-full truncate whitespace-nowrap">{ft.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Feature Tags */}
+        <div className="mb-5">
+          <p className={V2_LABEL}>מה יש במיקום?</p>
+          <div className="flex flex-wrap gap-2">
+            {FEATURE_TAGS.map((tag) => {
+              const isActive = data.featureTags.includes(tag.id);
+              const cfg = AMENITY_ICON_MAP[tag.id];
+              const Icon = cfg?.IconComponent;
+              return (
+                <button
+                  key={tag.id}
+                  type="button"
+                  onClick={() => toggleTag(tag.id)}
+                  aria-pressed={isActive}
+                  className={`flex h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[13.5px] font-extrabold ${v2Chip(isActive)}`}
+                >
+                  {cfg?.iconSrc ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={cfg.iconSrc} alt="" width={18} height={18} className="flex-shrink-0 object-contain" />
+                  ) : Icon ? (
+                    <Icon size={16} strokeWidth={2.4} className={isActive ? 'flex-shrink-0 text-v2-deep' : 'flex-shrink-0 text-v2-muted'} />
+                  ) : null}
+                  {tag.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <div className="mt-auto flex items-center gap-3">
+          <V2BackButton onClick={onBack} />
+          <V2PrimaryButton onClick={onNext} disabled={!canProceed}>המשך</V2PrimaryButton>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full px-4 pb-6 overflow-y-auto">

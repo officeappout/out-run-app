@@ -2,7 +2,8 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import Map, { Marker, MapRef } from 'react-map-gl';
-import { MapPin, AlertTriangle, ChevronLeft } from 'lucide-react';
+import { MapPin, AlertTriangle, Dumbbell, Armchair, Dog, Droplet, type LucideIcon } from 'lucide-react';
+import { useWizardV2, V2_LABEL, v2Card, v2Chip, V2PrimaryButton } from './wizard-v2';
 import { checkDuplicateNearby } from '@/features/parks/core/services/contribution.service';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import type { WizardData } from './index';
@@ -24,7 +25,15 @@ const POI_OPTIONS = [
   { id: 'water_fountain', label: 'ברזיית מים', icon: '🚰' },
 ] as const;
 
+/** v2 icons for the POI chips (replace the emoji). */
+const POI_V2_ICONS: Record<(typeof POI_OPTIONS)[number]['id'], LucideIcon> = {
+  bench: Armchair,
+  dog_park: Dog,
+  water_fountain: Droplet,
+};
+
 export default function Step1LocationPicker({ data, updateData, onNext }: Props) {
+  const v2 = useWizardV2();
   const mapRef = useRef<MapRef>(null);
   const [duplicate, setDuplicate] = useState<Park | null>(null);
   const [checking, setChecking] = useState(false);
@@ -103,7 +112,9 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
             index.tsx) leaves after the fixed-size sections below it, instead
             of sitting at a fixed 240px with dead space underneath (David,
             24.09.2026: "the map is what's actually used at this step"). */}
-        <div className="relative rounded-2xl overflow-hidden flex-1 min-h-[200px] mb-4 border border-slate-200">
+        <div className={v2
+          ? 'relative mb-4 min-h-[200px] flex-1 overflow-hidden rounded-[20px] shadow-v2-ring'
+          : 'relative rounded-2xl overflow-hidden flex-1 min-h-[200px] mb-4 border border-slate-200'}>
           <Map
             ref={mapRef}
             initialViewState={{ latitude: center.lat, longitude: center.lng, zoom: 15 }}
@@ -116,25 +127,27 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
             {data.location && (
               <Marker latitude={data.location.lat} longitude={data.location.lng} anchor="bottom">
                 <div className="animate-bounce">
-                  <MapPin size={32} className="text-[#00E5FF] drop-shadow-lg" fill="#00E5FF" />
+                  <MapPin size={32} className={v2 ? 'text-v2-accent drop-shadow-lg' : 'text-[#00E5FF] drop-shadow-lg'} fill={v2 ? '#00baf7' : '#00E5FF'} />
                 </div>
               </Marker>
             )}
           </Map>
           {!data.location && (
             <div className="absolute inset-0 flex items-center justify-center bg-white/60 pointer-events-none">
-              <p className="text-slate-500 text-sm font-medium">לחצו על המפה לבחירת מיקום</p>
+              <p className={v2 ? 'whitespace-nowrap rounded-full bg-white px-4 py-2 text-[14px] font-extrabold text-v2-ink shadow-v2-ring' : 'text-slate-500 text-sm font-medium'}>לחצו על המפה לבחירת מיקום</p>
             </div>
           )}
         </div>
 
         {/* Duplicate warning */}
         {duplicate && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-3 flex items-start gap-3">
+          <div className={v2
+            ? 'mb-3 flex items-start gap-3 rounded-[16px] bg-amber-50 px-4 py-3 ring-1 ring-inset ring-amber-200'
+            : 'bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-3 flex items-start gap-3'}>
             <AlertTriangle size={18} className="text-amber-500 mt-0.5 shrink-0" />
             <div>
-              <p className="text-amber-700 text-xs font-bold">מיקום קרוב כבר קיים</p>
-              <p className="text-amber-600 text-[11px] mt-0.5">
+              <p className={v2 ? 'text-[13px] font-extrabold text-amber-700' : 'text-amber-700 text-xs font-bold'}>מיקום קרוב כבר קיים</p>
+              <p className={v2 ? 'mt-0.5 text-[12.5px] font-bold text-amber-700/80' : 'text-amber-600 text-[11px] mt-0.5'}>
                 &quot;{duplicate.name}&quot; נמצא פחות מ-50 מטר. נסו מיקום אחר.
               </p>
             </div>
@@ -142,6 +155,27 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
         )}
 
         {/* Category Selection */}
+        {v2 ? (
+          <div className="mb-4">
+            <p className={V2_LABEL}>סוג המיקום</p>
+            <div className="flex gap-2.5">
+              {([
+                { id: 'full_park', label: 'פארק / גינת כושר', Icon: Dumbbell },
+                { id: 'poi', label: 'נקודת עניין', Icon: MapPin },
+              ] as const).map(({ id, label, Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => handleCategoryChange(id)}
+                  className={`flex h-14 min-w-0 flex-1 items-center justify-center gap-2 px-3 text-[14.5px] font-extrabold ${v2Card(category === id)}`}
+                >
+                  <Icon size={18} strokeWidth={2.4} className={category === id ? 'flex-shrink-0 text-v2-deep' : 'flex-shrink-0 text-v2-muted'} />
+                  <span className="truncate whitespace-nowrap">{label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
         <div className="mb-4">
           <p className="text-slate-500 text-xs font-bold mb-2">סוג המיקום</p>
           <div className="flex gap-2">
@@ -167,9 +201,29 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
             </button>
           </div>
         </div>
+        )}
 
         {/* POI Sub-options */}
-        {category === 'poi' && (
+        {v2 && category === 'poi' && (
+          <div className="mb-4 flex gap-2">
+            {POI_OPTIONS.map((poi) => {
+              const Icon = POI_V2_ICONS[poi.id];
+              const on = selectedPoi === poi.id;
+              return (
+                <button
+                  key={poi.id}
+                  type="button"
+                  onClick={() => handlePoiSelect(poi.id)}
+                  className={`flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full px-2 text-[13.5px] font-extrabold ${v2Chip(on)}`}
+                >
+                  <Icon size={16} strokeWidth={2.4} className={on ? 'flex-shrink-0 text-v2-deep' : 'flex-shrink-0 text-v2-muted'} />
+                  <span className="truncate whitespace-nowrap">{poi.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {!v2 && category === 'poi' && (
           <div className="flex gap-2 mb-4">
             {POI_OPTIONS.map((poi) => (
               <button
@@ -191,6 +245,13 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
 
       {/* CTA — fixed footer, pinned by flex-shrink-0 on this non-scrolling
           sibling rather than mt-auto inside the scrolling column above. */}
+      {v2 ? (
+        <div className="mt-4 flex flex-shrink-0">
+          <V2PrimaryButton onClick={onNext} disabled={!canProceed} arrow={!checking}>
+            {checking ? 'בודק...' : 'המשך'}
+          </V2PrimaryButton>
+        </div>
+      ) : (
       <button
         onClick={onNext}
         disabled={!canProceed}
@@ -202,6 +263,7 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
       >
         {checking ? 'בודק...' : 'המשך'}
       </button>
+      )}
     </div>
   );
 }
