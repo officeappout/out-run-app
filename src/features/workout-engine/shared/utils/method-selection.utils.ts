@@ -17,6 +17,10 @@
  *   PARK: park-tagged (gear-gated) → bodyweight/surface → exclude. NEVER home.
  *   HOME/other: exact-location → home-fallback (non-home only) → available-gear
  *               → [opt: park rescue for home content-gap] → bodyweight → exclude.
+ *   INDOOR (home/office/school): exact-location and home-fallback candidates
+ *               are gear-gated too (same rule as park) — a method needing a
+ *               door bar / rings / TRX / band the user doesn't own is skipped,
+ *               and the ladder falls through to bodyweight or exclusion.
  *
  * PURE / ISOMORPHIC: no React, no Firebase, no I/O. Only dependency is
  * gear-mapping.utils (the single source for gear family/unidirectional rules).
@@ -31,7 +35,16 @@ import {
   normalizeGearId,
   isGearOptional,
   satisfiesGearRequirement,
+  ASSUMED_HOME_GEAR,
 } from './gear-mapping.utils';
+
+/**
+ * Indoor locations whose methods are gated by the user's own gear (the same
+ * locations InputSanitizerMiddleware.normalizeEquipmentArray injects
+ * ASSUMED_HOME_GEAR for). Park has its own stricter ladder; gym/street/other
+ * locations keep their existing (ungated) Priority-1 behaviour.
+ */
+const GEAR_GATED_INDOOR_LOCATIONS: ReadonlySet<string> = new Set(['home', 'office', 'school']);
 
 export interface SelectMethodOptions {
   /**
@@ -138,14 +151,16 @@ export function selectMethodForContext(
   };
 
   // A method qualifies if all its required gear is in the resolved available set.
-  const requiresOnlyAvailableGear = (m: ExecutionMethod): boolean => {
+  // (`against` defaults to the session gear; indoor callers pass the
+  // ASSUMED_HOME_GEAR-augmented list defined below.)
+  const requiresOnlyAvailableGear = (m: ExecutionMethod, against: string[] = normalizedAvailable): boolean => {
     const allIds = collectMethodGear(m);
     if (allIds.length === 0) return false;
     const requiredIds = allIds.filter(
       id => id !== 'bodyweight' && id !== 'none' && !SURFACE_GEAR_AT_PARK.has(id) && !isGearOptional(id),
     );
     if (requiredIds.length === 0) return false;
-    return requiredIds.every(reqId => satisfiesGearRequirement(reqId, normalizedAvailable));
+    return requiredIds.every(reqId => satisfiesGearRequirement(reqId, against));
   };
 
   // ── PARK: Strict location enforcement ────────────────────────────────
@@ -208,23 +223,57 @@ export function selectMethodForContext(
     return bwCandidates.length > 0 ? logMismatch('park-bodyweight-only', preferMedia(bwCandidates)) : null;
   }
 
+  // ── Indoor equipment gating (home / office / school) ─────────────────
+  // 2026-10-17 fix (generator audit P0 #1): Priority 1/2 below used to return
+  // ANY method tagged for the location without looking at availableGear, so a
+  // no-gear home user got "door pull-up bar" / rings / TRX / band methods
+  // (128 leaks in one audit matrix) and office fell back to ungated home
+  // methods. Same rule as park gating: every required id (minus bodyweight,
+  // surfaces and isOptional improvised items) must be satisfied by the
+  // session gear. The placed-existing ASSUMED_HOME_GEAR fixtures (door,
+  // chair, wall, floor, towel) always pass indoors, even when a caller hands
+  // in a raw gear list that never went through normalizeEquipmentArray.
+  // When nothing passes, the ladder continues to the available-gear /
+  // bodyweight tiers and finally returns null (exclude) — never an ungated
+  // method.
+  const isGearGatedIndoor = GEAR_GATED_INDOOR_LOCATIONS.has(location);
+  const indoorAvailable = isGearGatedIndoor
+    ? [...normalizedAvailable, ...Array.from(ASSUMED_HOME_GEAR).map(normalizeGearId)]
+    : normalizedAvailable;
+  const applyIndoorGating = (list: ExecutionMethod[]): ExecutionMethod[] => {
+    if (!isGearGatedIndoor) return list;
+    return list.filter(m => {
+      const requiredIds = collectMethodGear(m).filter(
+        id => id !== 'bodyweight' && id !== 'none' && !SURFACE_GEAR_AT_PARK.has(id) && !isGearOptional(id),
+      );
+      return requiredIds.every(reqId => satisfiesGearRequirement(reqId, indoorAvailable));
+    });
+  };
+
   // ── Priority 1: Exact primary location match (non-park locations) ─────
-  const candidates = methods.filter(m =>
+  const locationCandidates = methods.filter(m =>
     m.location === location ||
     m.locationMapping?.includes(location),
   );
+  const candidates = applyIndoorGating(locationCandidates);
   if (candidates.length > 0) return preferMedia(candidates, location);
+  // This exercise HAS a method for this location, and every one of them needs
+  // gear the user lacks → at this location the exercise needs that gear. A
+  // gear-less method authored for ANOTHER location (typically a park method
+  // missing its bar tag, e.g. "סקין דה קאט ... בפארק על מוט") must not
+  // rescue it via the bodyweight tier below — mirrors park's strict rejection.
+  const indoorGatedOut = isGearGatedIndoor && locationCandidates.length > 0;
 
   // ── Priority 2: Home fallback (non-park, non-home locations) ──────────
   if (location !== 'home') {
-    const homeCandidates = methods.filter(
+    const homeCandidates = applyIndoorGating(methods.filter(
       m => m.location === 'home' || m.locationMapping?.includes('home'),
-    );
+    ));
     if (homeCandidates.length > 0) return logMismatch('home-fallback', preferMedia(homeCandidates, 'home'));
   }
 
   // ── Priority 2.5: Methods requiring only available gear (non-park) ────
-  const availableGearCandidates = methods.filter(requiresOnlyAvailableGear);
+  const availableGearCandidates = methods.filter(m => requiresOnlyAvailableGear(m, indoorAvailable));
   if (availableGearCandidates.length > 0) return logMismatch('available-gear', preferMedia(availableGearCandidates));
 
   // ── Priority 2.75 (opt-in, additive): Home content-gap → park rescue ──
@@ -248,7 +297,7 @@ export function selectMethodForContext(
     const ids = collectMethodGear(m);
     return ids.length === 0 || ids.every(id => PASSTHROUGH_GEAR.has(id));
   });
-  if (bodyweightCandidates.length > 0) return logMismatch('bodyweight-only', preferMedia(bodyweightCandidates));
+  if (bodyweightCandidates.length > 0 && !indoorGatedOut) return logMismatch('bodyweight-only', preferMedia(bodyweightCandidates));
 
   // ── No viable method found ─────────────────────────────────────────────
   return null;

@@ -48,6 +48,7 @@ import {
   getBolt1WindowAnchor,
 } from '../../shared/constants/domain-mapping.constants';
 import type { WorkoutBlueprint } from './pipeline.types';
+import { clearOrphanedPairings } from '../../logic/workout-sorting.utils';
 
 // ============================================================================
 // SHARED CONFIG
@@ -1252,5 +1253,7 @@ export function runAllGuarantees(
   }
 
   next = runFullBodyDomainGuarantee(next, context, blueprint, difficulty, pipelineLog);
-  return next;
+  // A swapped-out exercise's antagonist partner may still point at its id
+  // (substituteExercise clears the victim's own pairing, not the partner's).
+  return clearOrphanedPairings(next);
 }

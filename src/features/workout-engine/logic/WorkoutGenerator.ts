@@ -418,7 +418,8 @@ export function substituteExercise(
   difficulty: DifficultyLevel,
   levelProgressPercent?: number,
   intentMode?: WorkoutGenerationContext['intentMode'],
-): Pick<WorkoutExercise, 'exercise' | 'method' | 'mechanicalType' | 'isTimeBased' | 'reps' | 'repsRange' | 'restSeconds' | 'tier'> {
+): Pick<WorkoutExercise, 'exercise' | 'method' | 'mechanicalType' | 'isTimeBased' | 'reps' | 'repsRange' | 'restSeconds' | 'tier'
+  | 'pyramidSequence' | 'repsSequence' | 'pairedWith' | 'supersetType'> {
   // Re-derive isTimeBased/mechanicalType/tier/reps/repsRange/restSeconds for
   // newEx exactly as assignVolume would (docs/workout-engine/03-CHANGES.md,
   // Addendum 3) — replaces the old logic that only reset reps when
@@ -453,6 +454,16 @@ export function substituteExercise(
     repsRange,
     restSeconds,
     tier,
+    // Swap hygiene (generator audit P0 #2, 2026-10-17): every caller spreads
+    // this over the victim (`{...victim, ...substituteExercise(...)}`), and
+    // the guarantee passes run AFTER the protocol processor — so a victim's
+    // pyramid steps / rep sequence / pairing used to survive onto a different
+    // movement (e.g. "מתח" shipping a pike-push pyramid). They describe the
+    // OLD exercise only; clear them explicitly so the spread overwrites them.
+    pyramidSequence: undefined,
+    repsSequence: undefined,
+    pairedWith: undefined,
+    supersetType: undefined,
   };
 }
 

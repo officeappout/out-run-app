@@ -387,6 +387,37 @@ const DYNAMIC_MOVEMENT_GROUPS = new Set([
 const PUSH_PULL_MG = new Set(['vertical_push', 'horizontal_push', 'vertical_pull', 'horizontal_pull']);
 const LEGS_MG      = new Set(['squat', 'hinge', 'lunge']);
 
+// ── CORE REP FLOOR (generator audit P0 #4, 2026-10-17) ────────────────────
+// The staircase / above-level tiers are calibrated for strength movements
+// (1-3 reps of an above-level push/pull is a real set). Applied to a rep-based
+// core movement they shipped "אופניים 2×1", "קראנץ 2×2". For core-domain,
+// rep-based, NON-skill exercises (skills like dragon flag keep their low-rep
+// ceiling) the range is floored at CORE_REP_FLOOR..12.
+const CORE_MOVEMENT_GROUPS = new Set(['core', 'anti_extension', 'anti_rotation']);
+export const CORE_REP_FLOOR = 8;
+const CORE_FLOOR_RANGE_MAX = 12;
+
+/**
+ * Returns the floored {reps, repsRange} for a core exercise, or null when the
+ * floor does not apply (not core, time-based, skill priority, or already ≥ floor).
+ */
+export function applyCoreRepFloor(
+  exercise: Exercise,
+  priority: ExercisePriority,
+  isTimeBased: boolean,
+  reps: number,
+  repsRange: { min: number; max: number },
+): { reps: number; repsRange: { min: number; max: number } } | null {
+  if (isTimeBased || priority === 'skill') return null;
+  if (!CORE_MOVEMENT_GROUPS.has(exercise.movementGroup ?? '')) return null;
+  if (repsRange.min >= CORE_REP_FLOOR && reps >= CORE_REP_FLOOR) return null;
+  const range = {
+    min: Math.max(repsRange.min, CORE_REP_FLOOR),
+    max: Math.max(repsRange.max, CORE_FLOOR_RANGE_MAX),
+  };
+  return { reps: Math.min(range.max, Math.max(reps, range.min)), repsRange: range };
+}
+
 export function isTimeBasedExercise(exercise: Exercise): boolean {
   // ── PRIMARY: CMS type field is the single source of truth ─────────────────
   // The Admin Panel "סוג התרגיל" toggle writes to exercise.type ('reps' | 'time').
@@ -872,6 +903,12 @@ export function assignVolume(
           };
         }
       }
+
+      const coreFloor = applyCoreRepFloor(exercise, priority, false, reps, repsRange);
+      if (coreFloor) {
+        reps = coreFloor.reps;
+        repsRange = coreFloor.repsRange;
+      }
     }
 
     const resolvedProgramLevel = (() => {
@@ -1015,6 +1052,11 @@ export function rederiveVolumeForSwappedExercise(
       if (repsRange.max > SKILL_REP_CEILING) {
         repsRange = { min: Math.min(repsRange.min, SKILL_REP_CEILING), max: SKILL_REP_CEILING };
       }
+    }
+    const coreFloor = applyCoreRepFloor(newExercise, classifyPriority(newExercise), false, reps, repsRange);
+    if (coreFloor) {
+      reps = coreFloor.reps;
+      repsRange = coreFloor.repsRange;
     }
   }
 
