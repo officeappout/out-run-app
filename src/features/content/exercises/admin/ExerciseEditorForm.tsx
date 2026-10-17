@@ -15,6 +15,7 @@ import { GearDefinition } from '../../equipment/gear/core/gear-definition.types'
 import { BasicsSection, MethodsSection, ContentSection, GeneralMetricsSection, TechnicalClassificationSection, MuscleSelectionSection, ExecutionDetailsSection, MobilePreview, CollapsibleSection, VideoUploadSection } from './components/exercise-editor';
 import { useAutoSaveDraft } from './hooks/useAutoSaveDraft';
 import { discardExerciseDraft } from '../core/exercise.service';
+import { cleanCueItemsForSave } from '../services/exercise-mapping.utils';
 import { safeRenderText } from '@/utils/render-helpers';
 import { Check, Dumbbell, Settings2, Send, Cloud, Video } from 'lucide-react';
 import { 
@@ -486,17 +487,12 @@ export default function ExerciseEditorForm({
       // Deep clone to preserve all nested objects
       const clonedMethod = deepClone(method);
       
-      // Only filter empty cues and highlights (handle both string and GenderedText)
-      clonedMethod.specificCues = (clonedMethod.specificCues || []).filter((c) => {
-        if (typeof c === 'string') return c.trim();
-        // GenderedText: check if either male or female has content
-        return c?.male?.trim() || c?.female?.trim();
-      });
-      clonedMethod.highlights = (clonedMethod.highlights || []).filter((h) => {
-        if (typeof h === 'string') return h.trim();
-        // GenderedText: check if either male or female has content
-        return h?.male?.trim() || h?.female?.trim();
-      });
+      // Only drop EMPTY cues/highlights. Items are kept in their own shape —
+      // { he, en } (what ExecutionMethodCard edits), legacy string, or
+      // { male, female }. The old filter only knew string / GenderedText and
+      // deleted every { he, en } item on save.
+      clonedMethod.specificCues = cleanCueItemsForSave(clonedMethod.specificCues) as typeof clonedMethod.specificCues;
+      clonedMethod.highlights = cleanCueItemsForSave(clonedMethod.highlights) as typeof clonedMethod.highlights;
       
       // Ensure workflow is preserved (never deleted)
       if (!clonedMethod.workflow) {

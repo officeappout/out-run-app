@@ -18,6 +18,7 @@ import { useExerciseLog } from './useExerciseLog';
 // NextExerciseInfo now lives in useExerciseDerivedValues — imported for local use and re-exported
 import type { NextExerciseInfo } from './useExerciseDerivedValues';
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
+import { useUserStore } from '@/features/user';
 export type { NextExerciseInfo } from './useExerciseDerivedValues';
 
 // ============================================================================
@@ -607,6 +608,9 @@ export function useWorkoutStateMachine(
     computeEffectiveRestTime,
   } = useSupersetPredicates({ activeExercise, currentSegment, currentExerciseIndex, getExercises });
 
+  // Gender for `{ male, female }` prep notes / cues (same selector StrengthRunner uses).
+  const userGender = useUserStore((s) => s.profile?.core?.gender ?? null);
+
   // ── SM-3: All 20+ display-value memos (see useExerciseDerivedValues.ts) ──
   const {
     isFollowAlongMode,
@@ -647,6 +651,7 @@ export function useWorkoutStateMachine(
     getExercises,
     getSetsForExercise,
     blockProtocol,
+    userGender,
   });
 
   // ── Unilateral side-tracking effect (side-effect; stays in orchestrator) ─

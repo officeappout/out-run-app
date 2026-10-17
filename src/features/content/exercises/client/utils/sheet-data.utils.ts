@@ -17,6 +17,7 @@ import {
   getLocalizedText,
   resolveTutorialForLang,
 } from '../../core/exercise.types';
+import { toCueList } from '../../utils/cue-text.utils';
 
 /**
  * Typed return shape of buildSheetData — referenced directly by
@@ -83,15 +84,6 @@ function collectEquipmentIds(ex: Exercise, method?: ExecutionMethod | null): str
     Array.from(ids),
   );
   return Array.from(ids);
-}
-
-function extractString(value: unknown): string {
-  if (typeof value === 'string') return value.trim();
-  if (value && typeof value === 'object') {
-    const v = value as Record<string, unknown>;
-    return String(v.he ?? v.en ?? v.male ?? v.female ?? '').trim();
-  }
-  return '';
 }
 
 /**
@@ -169,36 +161,31 @@ export function buildSheetData(
   const allMethods = exercise.execution_methods ?? exercise.executionMethods ?? [];
   const contextMethods = method ? [method] : allMethods.slice(0, 1);
 
+  // toCueList splits a cue stored as ONE string with inline "- " bullets,
+  // newlines or "1." numbering into separate list items (cue-text.utils).
   const cueSet = new Set<string>();
-  (exercise.content?.specificCues ?? []).forEach((c) => {
-    const s = extractString(c); if (s) cueSet.add(s);
-  });
+  toCueList(exercise.content?.specificCues).forEach((s) => cueSet.add(s));
   contextMethods.forEach((m) => {
-    ((m as any).specificCues ?? []).forEach((c: unknown) => {
-      const s = extractString(c); if (s) cueSet.add(s);
-    });
+    toCueList((m as any).specificCues).forEach((s) => cueSet.add(s));
   });
   if (cueSet.size === 0) {
     contextMethods.forEach((m) => {
-      (m.highlights ?? []).forEach((h) => {
-        const s = extractString(h); if (s) cueSet.add(s);
-      });
+      toCueList(m.highlights).forEach((s) => cueSet.add(s));
     });
   }
   const cues = Array.from(cueSet);
 
   const tipSet = new Set<string>();
-  (exercise.content?.highlights ?? []).forEach((h) => {
-    const s = extractString(h); if (s && !cueSet.has(s)) tipSet.add(s);
+  toCueList(exercise.content?.highlights).forEach((s) => {
+    if (!cueSet.has(s)) tipSet.add(s);
   });
-  (exercise.content?.notes ?? []).forEach((n) => {
-    const s = extractString(n); if (s && !cueSet.has(s)) tipSet.add(s);
+  toCueList(exercise.content?.notes).forEach((s) => {
+    if (!cueSet.has(s)) tipSet.add(s);
   });
   if (cueSet.size > 0) {
     contextMethods.forEach((m) => {
-      (m.highlights ?? []).forEach((h) => {
-        const s = extractString(h);
-        if (s && !cueSet.has(s) && !tipSet.has(s)) tipSet.add(s);
+      toCueList(m.highlights).forEach((s) => {
+        if (!cueSet.has(s)) tipSet.add(s);
       });
     });
   }

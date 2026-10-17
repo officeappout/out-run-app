@@ -204,6 +204,38 @@ function normalizeToLocalizedText(item: unknown): { he: string; en: string } {
 }
 
 /**
+ * Admin-editor SAVE path: drop empty cue/highlight items, keep the rest in their
+ * own shape. ExecutionMethodCard edits items as LocalizedText `{ he, en }`; the
+ * old inline filter only kept strings / `{ male, female }`, so every `{ he, en }`
+ * item was silently deleted on save. Every kept shape is then normalized to
+ * LocalizedText by the write sanitizer (sanitizeExecutionMethodForSave) and
+ * reads back the same way. Strings are trimmed.
+ */
+export function cleanCueItemsForSave(arr: unknown): Array<string | { he: string; en: string } | { male: string; female: string }> {
+  if (!Array.isArray(arr)) return [];
+  const out: Array<string | { he: string; en: string } | { male: string; female: string }> = [];
+  for (const item of arr) {
+    if (typeof item === 'string') {
+      if (item.trim()) out.push(item.trim());
+      continue;
+    }
+    if (!item || typeof item !== 'object') continue;
+    const o = item as Record<string, unknown>;
+    const str = (v: unknown) => (typeof v === 'string' ? v : '');
+    if ('he' in o || 'en' in o) {
+      const he = str(o.he).trim();
+      const en = str(o.en).trim();
+      if (he || en) out.push({ he, en });
+    } else if ('male' in o || 'female' in o) {
+      const male = str(o.male);
+      const female = str(o.female);
+      if (male.trim() || female.trim()) out.push({ male, female });
+    }
+  }
+  return out;
+}
+
+/**
  * Normalize a cue/highlight array to LocalizedText[].
  * Called from sanitizeExecutionMethod (read path) and normalizeExercise.
  */
@@ -531,6 +563,11 @@ function sanitizeExecutionMethodForSave(method: any): any {
 // UNDEFINED TO NULL CONVERSION
 // ============================================================================
 
+function isPlainObject(value: object): boolean {
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
 /**
  * Convert any remaining undefined values to null - Firebase doesn't accept undefined
  * null values are valid Firestore values and help us track missing data
@@ -548,6 +585,12 @@ export function convertUndefinedToNull(obj: any): any {
     return obj.map(convertUndefinedToNull); // Returns [] for empty arrays
   }
   
+  // Only PLAIN objects are walked. FieldValue sentinels (serverTimestamp(),
+  // deleteField(), arrayUnion…), Timestamp, Date, DocumentReference etc. pass
+  // through untouched — copying their own keys used to store
+  // `{ _methodName: 'serverTimestamp' }` instead of the server time.
+  if (typeof obj === 'object' && !isPlainObject(obj)) return obj;
+
   if (typeof obj === 'object') {
     const cleaned: any = {};
     Object.keys(obj).forEach((key) => {

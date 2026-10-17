@@ -73,6 +73,12 @@ export interface Exercise {
   hasAudio?: boolean;
   /** Execution highlights (tips) */
   highlights?: string[];
+  /** Engine-selected method's own highlights, when `highlights` came from its
+   *  specificCues (see resolveExerciseCues). Carried for UI; not rendered yet. */
+  tips?: string[];
+  /** Engine-selected method's `notificationText` (raw stored shape — string,
+   *  `{ he, en }` or `{ male, female }`), resolved by gender on the rest screen. */
+  prepNote?: string | { he?: string; en?: string } | { male?: string; female?: string } | null;
   /** Primary and secondary muscle groups */
   muscleGroups?: string[];
   /** Exercise goal/description */
