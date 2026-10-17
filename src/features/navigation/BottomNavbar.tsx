@@ -190,7 +190,7 @@ function BottomNavV2({
       transition={{ type: 'tween', duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
       style={{ pointerEvents: isSuppressed ? 'none' : 'auto', willChange: 'transform' }}
       aria-hidden={isSuppressed}
-      className="v2-glass-bar fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom,0px)+14px)] z-50 flex h-[58px] items-center rounded-full px-2 shadow-v2-float"
+      className="v2-glass-bar fixed inset-x-4 bottom-[max(8px,calc(env(safe-area-inset-bottom,0px)-10px))] z-50 flex h-[58px] items-center rounded-full px-2 shadow-v2-float"
     >
       <div className="relative flex flex-1 justify-around">{left.map(tab)}</div>
       <Link
