@@ -24,6 +24,7 @@ import LabFrame, { LabStates } from '../_shared/LabFrame';
 import { AppIcon, BottomNav, Faces } from '../_app/parts';
 import { BrandFlame } from '../_app/brand';
 import {
+  type ProfileTile,
   ACTIVITY,
   AUDIENCE,
   CHEERERS,
@@ -72,7 +73,10 @@ export default function FeedLab() {
     if (SCREENS.some((x) => x.id === s)) setScreen(s as Screen);
   }, []);
 
-  const base = screen === 'profile' ? 'profile' : 'feed';
+  const [base, setBase] = useState<'feed' | 'profile'>('feed');
+  useEffect(() => {
+    if (screen === 'feed' || screen === 'profile') setBase(screen);
+  }, [screen]);
   const sheet = screen === 'post' || screen === 'share' || screen === 'privacy' ? screen : null;
   const close = () => setScreen(base);
 
@@ -92,12 +96,12 @@ export default function FeedLab() {
         {base === 'feed' ? (
           <FeedScreen filter={filter} onFilter={setFilter} onOpen={() => setScreen('post')} onShare={() => setScreen('share')} onProfile={() => setScreen('profile')} />
         ) : (
-          <ProfileScreen onPrivacy={() => setScreen('privacy')} onBack={() => setScreen('feed')} />
+          <ProfileScreen onPrivacy={() => setScreen('privacy')} onBack={() => setScreen('feed')} onOpen={() => setScreen('post')} />
         )}
       </div>
       <BottomNav active="friends" />
-      <Sheet open={!!sheet} title={sheet === 'post' ? 'הפוסט של נועה' : sheet === 'share' ? 'לשתף את האימון?' : 'מי רואה מה'} onClose={close}>
-        {sheet === 'post' && <PostDetail />}
+      <Sheet open={!!sheet} title={sheet === 'post' ? (base === 'profile' ? 'הפוסט שלך' : 'הפוסט של נועה') : sheet === 'share' ? 'לשתף את האימון?' : 'מי רואה מה'} onClose={close}>
+        {sheet === 'post' && <PostDetail mine={base === 'profile'} />}
         {sheet === 'share' && <ShareSheet onDone={close} onPrivacy={() => setScreen('privacy')} />}
         {sheet === 'privacy' && <PrivacySheet />}
       </Sheet>
@@ -403,13 +407,13 @@ function SessionCard({ post }: { post: Extract<Post, { kind: 'session' }> }) {
 
 /* ───────────────────────────── post detail ───────────────────────────── */
 
-function PostDetail() {
+function PostDetail({ mine = false }: { mine?: boolean }) {
   const run = POSTS.find((p) => p.kind === 'run') as Extract<Post, { kind: 'run' }>;
   const [text, setText] = useState('');
   return (
     <div>
       <div className="-mx-4 overflow-hidden">
-        <PostHead who={run.who} ago={run.ago} audience={run.audience} />
+        <PostHead who={mine ? ME : run.who} ago={run.ago} audience={run.audience} />
         <RouteMap route={run.route} tall />
         <div className="grid grid-cols-3 gap-2 px-4 py-3">
           <Stat value={run.km.toFixed(1)} unit="ק״מ" />
@@ -584,7 +588,7 @@ function PrivacySheet() {
 
 /* ───────────────────────────── profile ───────────────────────────── */
 
-function ProfileScreen({ onPrivacy, onBack }: { onPrivacy: () => void; onBack: () => void }) {
+function ProfileScreen({ onPrivacy, onBack, onOpen }: { onPrivacy: () => void; onBack: () => void; onOpen: () => void }) {
   const [tab, setTab] = useState<'posts' | 'records'>('posts');
   const me = PROFILE.me;
   return (
@@ -654,29 +658,10 @@ function ProfileScreen({ onPrivacy, onBack }: { onPrivacy: () => void; onBack: (
       </div>
 
       {tab === 'posts' ? (
-        <div className="mx-4 mt-3 grid grid-cols-3 gap-2">
-          {PROFILE.tiles.map((t, i) => {
-            const a = ACTIVITY[t.activity];
-            return (
-              <div
-                key={i}
-                className="relative flex aspect-square flex-col justify-between rounded-[18px] p-2.5"
-                style={{ background: `linear-gradient(160deg, rgba(${a.rgb},0.16), rgba(${a.rgb},0.05))` }}
-              >
-                <div className="flex items-center justify-between">
-                  <AppIcon src={a.icon} size={20} />
-                  {i === 3 && <Lock size={12} strokeWidth={2.8} className="text-v2-muted" aria-label="רק אני" />}
-                </div>
-                <div>
-                  <div className="whitespace-nowrap text-[20px] font-black leading-none !tracking-[-0.02em]">
-                    {t.value}
-                    <span className="ms-0.5 text-[11px] font-extrabold text-v2-ink-2">{t.unit}</span>
-                  </div>
-                  <div className="mt-1 text-[11px] font-bold text-v2-muted">{t.day}</div>
-                </div>
-              </div>
-            );
-          })}
+        <div className="mx-4 mt-3 grid grid-cols-3 gap-1.5">
+          {PROFILE.tiles.map((t, i) => (
+            <MiniPost key={i} t={t} onOpen={onOpen} />
+          ))}
         </div>
       ) : (
         <ul className="mx-4 mt-3 space-y-2">
@@ -690,6 +675,80 @@ function ProfileScreen({ onPrivacy, onBack }: { onPrivacy: () => void; onBack: (
         </ul>
       )}
     </>
+  );
+}
+
+/**
+ * A post in the profile grid — the feed card shrunk to a square: the run's
+ * route (or the activity's colour) is the picture, the headline number sits
+ * on it, cheers in the corner. Tap → the full post.
+ */
+function MiniPost({ t, onOpen }: { t: ProfileTile; onOpen: () => void }) {
+  const a = ACTIVITY[t.activity];
+  const route = POSTS.find((p) => p.kind === 'run') as Extract<Post, { kind: 'run' }>;
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`${t.title}, ${t.value} ${t.unit}, ${t.day}`}
+      className="relative aspect-square overflow-hidden rounded-[14px] text-start transition-transform duration-150 ease-v2 active:scale-[0.97]"
+      style={{ background: t.route ? '#eef5f0' : `linear-gradient(160deg, rgba(${a.rgb},0.22), rgba(${a.rgb},0.06))` }}
+    >
+      {t.route ? (
+        <MiniRoute route={route.route} hex={a.hex} />
+      ) : t.streak ? (
+        <span className="absolute inset-x-0 top-2 flex justify-center">
+          <BrandFlame size={40} still />
+        </span>
+      ) : (
+        <span className="absolute inset-x-0 top-3 flex justify-center opacity-90">
+          <AppIcon src={a.icon} size={34} />
+        </span>
+      )}
+
+      <span className="absolute end-1.5 top-1.5 flex items-center gap-1">
+        {t.private && (
+          <span className="grid h-5 w-5 place-items-center rounded-full bg-white/90 text-v2-muted shadow-v2-ring">
+            <Lock size={10} strokeWidth={3} aria-label="רק אני" />
+          </span>
+        )}
+        {t.pr && (
+          <span className="grid h-5 w-5 place-items-center rounded-full bg-[#fef3c7] text-[#92400e]">
+            <Trophy size={10} strokeWidth={3} aria-label="שיא אישי" />
+          </span>
+        )}
+      </span>
+
+      <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-white via-white/85 to-transparent px-2 pb-1.5 pt-4">
+        <span className="flex items-baseline justify-between gap-1">
+          <span className="whitespace-nowrap text-[16px] font-black leading-none !tracking-[-0.02em]">
+            {t.streak ? `${t.streak}` : t.value}
+            <span className="ms-0.5 text-[10px] font-extrabold text-v2-ink-2">{t.streak ? 'ימים' : t.unit}</span>
+          </span>
+          {t.cheers > 0 && (
+            <span className="flex items-center gap-0.5 whitespace-nowrap text-[10.5px] font-extrabold text-[#ea580c]">
+              <Flame size={10} strokeWidth={2.8} fill="currentColor" aria-hidden />
+              {t.cheers}
+            </span>
+          )}
+        </span>
+        <span className="mt-0.5 block truncate text-[10.5px] font-bold text-v2-muted">
+          {t.title} · {t.day}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+function MiniRoute({ route, hex }: { route: [number, number][]; hex: string }) {
+  const d = route.map(([x, y], i) => `${i ? 'L' : 'M'}${x} ${y}`).join(' ');
+  return (
+    <svg viewBox="0 0 206 106" preserveAspectRatio="xMidYMin slice" className="absolute inset-x-0 top-0 h-[70%] w-full" aria-hidden>
+      <path d="M-10 20 C40 30 80 6 130 14 S200 8 220 18" fill="none" stroke="#fff" strokeWidth="6" />
+      <path d="M60 -10 C64 40 54 70 66 120" fill="none" stroke="#fff" strokeWidth="5" />
+      <ellipse cx="100" cy="58" rx="46" ry="22" fill="#d7ead9" />
+      <path d={d} fill="none" stroke={hex} strokeWidth="6" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
   );
 }
 

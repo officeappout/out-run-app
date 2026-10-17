@@ -132,6 +132,19 @@ export const CHEERERS = [P.yoni, P.maya, P.avi, { name: 'שירה', initial: 'ש
 
 export const QUICK_REPLIES = ['כל הכבוד!', 'אלופה 💪', 'מחר איתך?', 'איזה קצב'];
 
+export interface ProfileTile {
+  activity: Activity;
+  title: string;
+  value: string;
+  unit: string;
+  day: string;
+  cheers: number;
+  route?: boolean;
+  pr?: boolean;
+  private?: boolean;
+  streak?: number;
+}
+
 /** Profile — your own posts as tiles, newest first. */
 export const PROFILE = {
   me: { ...ME, bio: 'מתאמן בפארק כל בוקר', partners: 18, following: 24 },
@@ -146,14 +159,14 @@ export const PROFILE = {
     { label: 'רצף שיא', value: '21 ימים', activity: 'strength' as Activity },
   ],
   tiles: [
-    { activity: 'strength', value: '35', unit: 'דק׳', day: 'היום' },
-    { activity: 'cardio', value: '5.2', unit: 'ק״מ', day: 'אתמול' },
-    { activity: 'strength', value: '40', unit: 'דק׳', day: 'ד׳' },
-    { activity: 'maintenance', value: '20', unit: 'דק׳', day: 'ג׳' },
-    { activity: 'cardio', value: '3.1', unit: 'ק״מ', day: 'ב׳' },
-    { activity: 'strength', value: '30', unit: 'דק׳', day: 'א׳' },
-    { activity: 'strength', value: '45', unit: 'דק׳', day: 'ש׳' },
-    { activity: 'cardio', value: '8.0', unit: 'ק״מ', day: 'ו׳' },
-    { activity: 'maintenance', value: '15', unit: 'דק׳', day: 'ה׳' },
-  ] as { activity: Activity; value: string; unit: string; day: string }[],
+    { activity: 'strength', title: 'כוח עליון', value: '35', unit: 'דק׳', day: 'היום', cheers: 8 },
+    { activity: 'cardio', title: 'ריצת בוקר', value: '5.2', unit: 'ק״מ', day: 'אתמול', cheers: 12, route: true, pr: true },
+    { activity: 'strength', title: 'רגליים וליבה', value: '40', unit: 'דק׳', day: 'ד׳', cheers: 5 },
+    { activity: 'maintenance', title: 'מתיחות', value: '20', unit: 'דק׳', day: 'ג׳', cheers: 0, private: true },
+    { activity: 'cardio', title: 'הליכה מהירה', value: '3.1', unit: 'ק״מ', day: 'ב׳', cheers: 3, route: true },
+    { activity: 'strength', title: 'פול באדי', value: '30', unit: 'דק׳', day: 'א׳', cheers: 6 },
+    { activity: 'strength', title: 'מתח ומקבילים', value: '45', unit: 'דק׳', day: 'ש׳', cheers: 9, streak: 14 },
+    { activity: 'cardio', title: 'ריצה ארוכה', value: '8.0', unit: 'ק״מ', day: 'ו׳', cheers: 15, route: true },
+    { activity: 'maintenance', title: 'מוביליטי', value: '15', unit: 'דק׳', day: 'ה׳', cheers: 2 },
+  ] as ProfileTile[],
 };
