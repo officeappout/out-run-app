@@ -467,6 +467,7 @@ export default function ExerciseVideoPlayer({
         !(FOLLOW_ALONG_TUTORIAL_CTA_DEDUP_ENABLED && isGuidedFollowAlong && hasValidDirectVideoUrl) && (
         <button
           onClick={() => setShowTutorial(true)}
+          data-coach="player-how-to"
           className="absolute bottom-[236px] right-4 z-[46] inline-flex items-center gap-1.5 px-3.5 py-2 bg-black/60 hover:bg-black/80 backdrop-blur-md text-white rounded-full shadow-lg transition-all border border-white/20"
           style={{ fontFamily: 'var(--font-simpler)' }}
           dir="rtl"

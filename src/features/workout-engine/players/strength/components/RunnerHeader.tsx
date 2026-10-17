@@ -134,7 +134,7 @@ export default function RunnerHeader({
     >
       <div className="px-4" style={{ paddingTop: 'calc(env(safe-area-inset-top, 44px) + 0.75rem)' }}>
         {/* Row 1: Story Bars */}
-        <div className="mb-3">
+        <div className="mb-3" data-coach="player-progress">
           <WorkoutStoryBars
             progressBars={progressBars}
             activeBarDuration={autoCompleteTime}
