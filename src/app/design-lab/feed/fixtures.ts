@@ -170,3 +170,53 @@ export const PROFILE = {
     { activity: 'maintenance', title: 'מוביליטי', value: '15', unit: 'דק׳', day: 'ה׳', cheers: 2 },
   ] as ProfileTile[],
 };
+
+/** Everything else the real profile has (DashboardTab + SettingsModal). */
+export const PROFILE_MORE = {
+  tags: ['אוהב פארק', 'בוקר', 'רמת ביניים', 'פרונט לבר'],
+  counts: { workouts: 86, partners: 18, streak: 9 },
+  partners: [
+    { name: 'נועה', initial: 'נ', tint: '#c7f9e9', place: '' },
+    { name: 'יוני', initial: 'י', tint: '#fde68a', place: '' },
+    { name: 'מאיה', initial: 'מ', tint: '#e9d5ff', place: '' },
+    { name: 'אבי', initial: 'א', tint: '#fecdd3', place: '' },
+    { name: 'שירה', initial: 'ש', tint: '#bae6fd', place: '' },
+  ] as Person[],
+  program: { name: 'כוח בסיסי', level: 'שלב 3 מתוך 6', pct: 0.48 },
+  skills: [
+    { name: 'פרונט לבר', step: 9, of: 15, icon: '/icons/muscles/back.svg' },
+    { name: 'מאסל אפ', step: 4, of: 10, icon: '/icons/muscles/shoulders.svg' },
+    { name: 'עמידת ידיים', step: 6, of: 12, icon: '/icons/muscles/shoulders.svg' },
+    { name: 'פיסטול סקוואט', step: 2, of: 8, icon: '/icons/muscles/chest.svg' },
+  ],
+  badges: [
+    { name: 'אימון ראשון', got: true, tone: '#00baf7' },
+    { name: 'רצף 7', got: true, tone: '#f97316' },
+    { name: '10 ק״מ', got: true, tone: '#84cc16' },
+    { name: 'מתח 10', got: true, tone: '#00baf7' },
+    { name: 'רצף 30', got: false, tone: '#f97316' },
+    { name: '50 אימונים', got: false, tone: '#8b5cf6' },
+  ],
+  goals: [
+    { name: 'מתח', now: 14, target: 20, unit: 'חזרות' },
+    { name: 'מקבילים', now: 18, target: 25, unit: 'חזרות' },
+    { name: 'פלאנק', now: 75, target: 120, unit: 'שנ׳' },
+  ],
+  wishlist: ['מאסל אפ', 'L-sit', 'פלאנץ׳'],
+  week: [30, 0, 45, 35, 0, 40, 20],
+  saved: {
+    workouts: [
+      { title: 'כוח עליון · 30 דק׳', meta: 'מתח, מקבילים, שכיבות', activity: 'strength' as Activity },
+      { title: 'אינטרוולים בפארק', meta: '25 דק׳ · אירובי', activity: 'cardio' as Activity },
+      { title: 'מתיחות ערב', meta: '15 דק׳ · תחזוקה', activity: 'maintenance' as Activity },
+    ],
+    exercises: ['מתח אוסטרלי', 'שכיבות יהלום', 'דיפס על ספסל', 'L-sit על מקבילים'],
+  },
+  settings: [
+    { title: 'חשבון', rows: [['פרטים אישיים', 'עיר, משקל, תאריך לידה'], ['הפרסונות שלי', 'פרטים פרטיים, לא מופיעים בפרופיל'], ['סיסמה', 'שליחת קישור לאיפוס']] },
+    { title: 'מנוי', rows: [['העיר שלי', 'פעיל · באר שבע']] },
+    { title: 'התראות ופרטיות', rows: [['התראות', 'תזכורות, חברתי, התקדמות'], ['פרטיות ונראות', 'מי רואה את הפוסטים, חיפוש, פרסום אוטומטי']] },
+    { title: 'כלים', rows: [['הציוד שלי', 'מתח בבית, גומיות'], ['בריאות וצעדים', 'סנכרון צעדים ודקות פעילות'], ['מיקום ומצלמה', 'הרשאות מכשיר']] },
+    { title: 'עזרה', rows: [['ליווי צעד-אחר-צעד', 'הדרכה במסכים'], ['נגישות', 'סרגל נגישות והצהרה'], ['תנאי שימוש ופרטיות', ''], ['יצירת קשר', '']] },
+  ] as { title: string; rows: [string, string][] }[],
+};

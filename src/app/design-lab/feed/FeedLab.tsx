@@ -4,7 +4,16 @@ import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
+  ArrowRight,
   ArrowUp,
+  BarChart3,
+  Bookmark,
+  ChevronLeft,
+  Dumbbell,
+  Medal,
+  Plus,
+  Settings,
+  Target,
   Bell,
   Flame,
   Globe,
@@ -32,6 +41,7 @@ import {
   ME,
   POSTS,
   PROFILE,
+  PROFILE_MORE,
   QUICK_REPLIES,
   type Activity,
   type Audience,
@@ -40,15 +50,25 @@ import {
   type Post,
 } from './fixtures';
 
-type Screen = 'feed' | 'post' | 'profile' | 'share' | 'privacy';
+type Screen = 'feed' | 'post' | 'profile' | 'saved' | 'settings' | 'share' | 'privacy';
 
 const SCREENS: { id: Screen; label: string }[] = [
   { id: 'feed', label: 'פיד' },
   { id: 'post', label: 'פוסט' },
   { id: 'profile', label: 'פרופיל' },
+  { id: 'saved', label: 'שמורים' },
+  { id: 'settings', label: 'הגדרות' },
   { id: 'share', label: 'שיתוף אימון' },
   { id: 'privacy', label: 'פרטיות' },
 ];
+
+const SHEET_TITLE: Record<Exclude<Screen, 'feed' | 'profile'>, string> = {
+  post: 'פוסט',
+  share: 'לשתף את האימון?',
+  privacy: 'פרטיות ונראות',
+  saved: 'שמורים',
+  settings: 'הגדרות',
+};
 
 const FILTERS: { id: FeedFilter; label: string }[] = [
   { id: 'all', label: 'הכל' },
@@ -77,7 +97,7 @@ export default function FeedLab() {
   useEffect(() => {
     if (screen === 'feed' || screen === 'profile') setBase(screen);
   }, [screen]);
-  const sheet = screen === 'post' || screen === 'share' || screen === 'privacy' ? screen : null;
+  const sheet = screen === 'feed' || screen === 'profile' ? null : screen;
   const close = () => setScreen(base);
 
   return (
@@ -96,14 +116,16 @@ export default function FeedLab() {
         {base === 'feed' ? (
           <FeedScreen filter={filter} onFilter={setFilter} onOpen={() => setScreen('post')} onShare={() => setScreen('share')} onProfile={() => setScreen('profile')} />
         ) : (
-          <ProfileScreen onPrivacy={() => setScreen('privacy')} onBack={() => setScreen('feed')} onOpen={() => setScreen('post')} />
+          <ProfileScreen onSettings={() => setScreen('settings')} onSaved={() => setScreen('saved')} onBack={() => setScreen('feed')} onOpen={() => setScreen('post')} />
         )}
       </div>
       <BottomNav active="friends" />
-      <Sheet open={!!sheet} title={sheet === 'post' ? (base === 'profile' ? 'הפוסט שלך' : 'הפוסט של נועה') : sheet === 'share' ? 'לשתף את האימון?' : 'מי רואה מה'} onClose={close}>
+      <Sheet open={!!sheet} title={sheet === 'post' ? (base === 'profile' ? 'הפוסט שלך' : 'הפוסט של נועה') : sheet ? SHEET_TITLE[sheet] : ''} onClose={close}>
         {sheet === 'post' && <PostDetail mine={base === 'profile'} />}
         {sheet === 'share' && <ShareSheet onDone={close} onPrivacy={() => setScreen('privacy')} />}
         {sheet === 'privacy' && <PrivacySheet />}
+        {sheet === 'saved' && <SavedSheet />}
+        {sheet === 'settings' && <SettingsSheet onPrivacy={() => setScreen('privacy')} />}
       </Sheet>
     </LabFrame>
   );
@@ -588,9 +610,29 @@ function PrivacySheet() {
 
 /* ───────────────────────────── profile ───────────────────────────── */
 
-function ProfileScreen({ onPrivacy, onBack, onOpen }: { onPrivacy: () => void; onBack: () => void; onOpen: () => void }) {
-  const [tab, setTab] = useState<'posts' | 'records'>('posts');
+type ProfileTab = 'workouts' | 'skills' | 'badges' | 'programs';
+const PROFILE_TABS: { id: ProfileTab; label: string; icon: typeof Dumbbell }[] = [
+  { id: 'workouts', label: 'אימונים', icon: Dumbbell },
+  { id: 'skills', label: 'סקילים', icon: Target },
+  { id: 'badges', label: 'הישגים', icon: Trophy },
+  { id: 'programs', label: 'תוכניות', icon: BarChart3 },
+];
+
+function ProfileScreen({
+  onSettings,
+  onSaved,
+  onBack,
+  onOpen,
+}: {
+  onSettings: () => void;
+  onSaved: () => void;
+  onBack: () => void;
+  onOpen: () => void;
+}) {
+  const [tab, setTab] = useState<ProfileTab>('workouts');
+  const reduce = useReducedMotion();
   const me = PROFILE.me;
+  const m = PROFILE_MORE;
   return (
     <>
       <header className="flex items-center justify-between px-4 pb-2 pt-[calc(env(safe-area-inset-top)+14px)]">
@@ -600,49 +642,279 @@ function ProfileScreen({ onPrivacy, onBack, onOpen }: { onPrivacy: () => void; o
           aria-label="חזרה"
           className="grid h-10 w-10 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
         >
-          <X size={18} strokeWidth={2.4} />
+          <ArrowRight size={18} strokeWidth={2.4} />
         </button>
-        <button
-          type="button"
-          onClick={onPrivacy}
-          className="flex h-10 items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-4 text-[13.5px] font-extrabold shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
-        >
-          <Lock size={15} strokeWidth={2.6} aria-hidden />
-          פרטיות
-        </button>
+        <div className="flex gap-2">
+          <IconButton label="שמורים" onClick={onSaved}>
+            <Bookmark size={18} strokeWidth={2.4} />
+          </IconButton>
+          <IconButton label="הגדרות" onClick={onSettings}>
+            <Settings size={18} strokeWidth={2.4} />
+          </IconButton>
+        </div>
       </header>
 
-      <section className="flex flex-col items-center px-4 pt-2 text-center">
-        <Avatar p={me} size={88} />
+      <section className="flex flex-col items-center px-4 pt-1 text-center">
+        <span className="relative">
+          <Avatar p={me} size={88} />
+          <span className="absolute -bottom-1 -start-1 flex h-7 items-center gap-0.5 rounded-full bg-white pe-2 ps-1 shadow-v2-ring">
+            <BrandFlame size={20} still />
+            <span className="text-[12px] font-black">{m.counts.streak}</span>
+          </span>
+        </span>
         <h1 className="mt-3 text-[26px] font-black leading-none !tracking-[-0.03em]">{me.name}</h1>
         <div className="mt-1.5 flex items-center gap-1 whitespace-nowrap text-[13.5px] font-bold text-v2-muted">
           <MapPin size={13} strokeWidth={2.6} aria-hidden />
           {me.place} · {me.bio}
         </div>
-        <div className="mt-3 flex gap-5 whitespace-nowrap text-[13.5px] font-bold text-v2-ink-2">
-          <span>
-            <b className="font-black text-v2-ink">{me.partners}</b> שותפים
-          </span>
-          <span>
-            <b className="font-black text-v2-ink">{me.following}</b> עוקב/ת
-          </span>
+        <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+          {m.tags.map((t) => (
+            <span key={t} className="whitespace-nowrap rounded-full bg-white px-2.5 py-1 text-[12px] font-extrabold text-v2-ink-2 shadow-v2-ring">
+              {t}
+            </span>
+          ))}
         </div>
       </section>
 
-      <div className="mx-4 mt-5 grid grid-cols-3 divide-x divide-x-reverse divide-v2-hairline rounded-v2-card bg-white py-3 shadow-v2-ring">
-        {PROFILE.stats.map((s) => (
-          <div key={s.label} className="text-center">
-            <div className="whitespace-nowrap text-[20px] font-black leading-none !tracking-[-0.02em]">{s.value}</div>
-            <div className="mt-1 whitespace-nowrap text-[12px] font-bold text-v2-muted">{s.label}</div>
-          </div>
+      <div className="mx-4 mt-4 grid grid-cols-3 divide-x divide-x-reverse divide-v2-hairline rounded-v2-card bg-white py-3 shadow-v2-ring">
+        {(
+          [
+            [m.counts.workouts, 'אימונים'],
+            [m.counts.partners, 'שותפים'],
+            [m.counts.streak, 'ימי רצף'],
+          ] as const
+        ).map(([v, l]) => (
+          <button key={l} type="button" className="text-center transition-transform duration-150 ease-v2 active:scale-[0.97]">
+            <div className="text-[20px] font-black leading-none !tracking-[-0.02em]">{v}</div>
+            <div className="mt-1 whitespace-nowrap text-[12px] font-bold text-v2-muted">{l}</div>
+          </button>
         ))}
       </div>
 
-      <div className="mx-4 mt-5 grid grid-cols-2 rounded-full bg-white p-1 shadow-v2-ring">
+      <div className="mx-4 mt-3 grid grid-cols-2 gap-2">
+        <Button size="sm" variant="ghost">
+          עריכת פרופיל
+        </Button>
+        <Button size="sm" variant="ghost">
+          שיתוף פרופיל
+        </Button>
+      </div>
+
+      <div className="mx-4 mt-4 flex items-center justify-between rounded-[20px] bg-white px-3 py-2.5 shadow-v2-ring">
+        <span className="whitespace-nowrap text-[13.5px] font-extrabold">השותפים שלי</span>
+        <span className="flex items-center gap-2">
+          <MiniFaces people={m.partners} />
+          <span className="grid h-7 w-7 place-items-center rounded-full bg-v2-surface text-v2-deep ring-1 ring-inset ring-v2-hairline">
+            <Plus size={15} strokeWidth={2.8} aria-label="הוספת שותף" />
+          </span>
+        </span>
+      </div>
+
+      <div className="sticky top-0 z-[2] mt-4 bg-v2-surface/95 px-4 pb-2 pt-1 backdrop-blur-sm">
+        <div className="grid grid-cols-4 rounded-full bg-white p-1 shadow-v2-ring" role="tablist" aria-label="תצוגת פרופיל">
+          {PROFILE_TABS.map(({ id, label, icon: Icon }) => {
+            const on = id === tab;
+            return (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                onClick={() => setTab(id)}
+                className={`relative flex h-10 items-center justify-center gap-1 whitespace-nowrap rounded-full text-[13px] font-extrabold transition-colors duration-200 ${
+                  on ? 'text-white' : 'text-v2-ink-2'
+                }`}
+              >
+                {on && (
+                  <motion.span
+                    layoutId="lab-profile-tab"
+                    className="absolute inset-0 rounded-full bg-v2-ink"
+                    transition={{ duration: reduce ? 0 : 0.28, ease: EASE_V2 }}
+                  />
+                )}
+                <Icon size={14} strokeWidth={2.6} className="relative" aria-hidden />
+                <span className="relative">{label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="px-4 pt-2">
+        {tab === 'workouts' && (
+          <>
+            <SectionHead title="האימונים שלי" action="הכל" />
+            <div className="grid grid-cols-3 gap-1.5">
+              {PROFILE.tiles.map((t, i) => (
+                <MiniPost key={i} t={t} onOpen={onOpen} />
+              ))}
+            </div>
+          </>
+        )}
+
+        {tab === 'skills' && (
+          <>
+            <div className="flex items-center gap-3 rounded-v2-card bg-white p-4 shadow-v2-ring">
+              <ProgressRing pct={m.program.pct} size={56} hex={ACTIVITY.strength.hex} label={`${Math.round(m.program.pct * 100)}%`} />
+              <div className="min-w-0 flex-1">
+                <div className="text-[12px] font-extrabold text-v2-muted">התוכנית שלי</div>
+                <div className="truncate text-[17px] font-black">{m.program.name}</div>
+                <div className="whitespace-nowrap text-[13px] font-bold text-v2-ink-2">{m.program.level}</div>
+              </div>
+              <span className="whitespace-nowrap text-[13px] font-extrabold text-v2-deep">ניהול</span>
+            </div>
+            <SectionHead title="סקילים בדרך" />
+            <ul className="space-y-2">
+              {m.skills.map((s) => (
+                <li key={s.name} className="flex items-center gap-3 rounded-[20px] bg-white p-3 shadow-v2-ring">
+                  <ProgressRing pct={s.step / s.of} size={44} hex={ACTIVITY.strength.hex}>
+                    <AppIcon src={s.icon} size={20} />
+                  </ProgressRing>
+                  <span className="flex-1 whitespace-nowrap text-[15px] font-extrabold">{s.name}</span>
+                  <span className="whitespace-nowrap text-[13px] font-bold text-v2-muted">
+                    שלב <b className="font-black text-v2-ink">{s.step}</b>/{s.of}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        {tab === 'badges' && (
+          <>
+            <SectionHead title="הישגים" action="כל ההישגים" />
+            <div className="grid grid-cols-3 gap-2">
+              {m.badges.map((b) => (
+                <div key={b.name} className={`flex flex-col items-center gap-2 rounded-[20px] bg-white px-2 py-3 shadow-v2-ring ${b.got ? '' : 'opacity-45'}`}>
+                  <span
+                    className="grid h-14 w-14 place-items-center rounded-full"
+                    style={{ background: b.got ? `${b.tone}22` : '#eef2f5', color: b.got ? b.tone : '#94a3b8' }}
+                  >
+                    {b.got ? <Medal size={26} strokeWidth={2.2} aria-hidden /> : <Lock size={20} strokeWidth={2.4} aria-hidden />}
+                  </span>
+                  <span className="whitespace-nowrap text-[12.5px] font-extrabold">{b.name}</span>
+                </div>
+              ))}
+            </div>
+            <SectionHead title="שיאים אישיים" />
+            <ul className="space-y-2">
+              {PROFILE.highlights.map((h) => (
+                <li key={h.label} className="flex items-center gap-3 rounded-[20px] bg-white p-3 shadow-v2-ring">
+                  <ActivityBadge activity={h.activity} size={40} />
+                  <span className="flex-1 whitespace-nowrap text-[14.5px] font-extrabold">{h.label}</span>
+                  <span className="whitespace-nowrap text-[18px] font-black !tracking-[-0.02em]">{h.value}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        {tab === 'programs' && (
+          <>
+            <SectionHead title="יעדי תרגילים" />
+            <div className="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 [scrollbar-width:none]">
+              {m.goals.map((g) => (
+                <div key={g.name} className="w-[46%] shrink-0 snap-start rounded-[20px] bg-white p-3 shadow-v2-ring">
+                  <div className="whitespace-nowrap text-[14px] font-extrabold">{g.name}</div>
+                  <div className="mt-2 whitespace-nowrap text-[22px] font-black leading-none !tracking-[-0.02em]">
+                    {g.now}
+                    <span className="text-[13px] font-extrabold text-v2-muted"> / {g.target} {g.unit}</span>
+                  </div>
+                  <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-v2-surface">
+                    <div className="h-full rounded-full" style={{ width: `${(g.now / g.target) * 100}%`, background: ACTIVITY.strength.hex }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <SectionHead title="תרגילים שאני רוצה ללמוד" />
+            <div className="flex flex-wrap gap-1.5">
+              {m.wishlist.map((w) => (
+                <span key={w} className="whitespace-nowrap rounded-full bg-white px-3 py-1.5 text-[13px] font-extrabold shadow-v2-ring">
+                  {w}
+                </span>
+              ))}
+              <span className="flex items-center gap-1 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-extrabold text-v2-deep ring-1 ring-inset ring-v2-hairline">
+                <Plus size={13} strokeWidth={2.8} aria-hidden />
+                הוספה
+              </span>
+            </div>
+            <SectionHead title="השבוע שלי" />
+            <div className="rounded-v2-card bg-white p-4 shadow-v2-ring">
+              <div className="flex h-24 items-end justify-between gap-2">
+                {m.week.map((v, i) => (
+                  <div key={i} className="flex flex-1 flex-col items-center gap-1.5">
+                    <div
+                      className="w-full rounded-full"
+                      style={{ height: v ? `${(v / 45) * 72}px` : '6px', background: v ? ACTIVITY.strength.hex : '#e6edf2' }}
+                    />
+                    <span className="text-[11px] font-bold text-v2-muted">{'אבגדהוש'[i]}׳</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 whitespace-nowrap text-[13px] font-bold text-v2-ink-2">
+                <b className="font-black text-v2-ink">170</b> דקות · 5 אימונים השבוע
+              </div>
+            </div>
+          </>
+        )}
+
+        <button type="button" className="mt-6 flex w-full items-center justify-between border-t border-v2-hairline py-4 text-[14px] font-extrabold text-v2-ink-2">
+          יש לך הערה על האפליקציה? ספרו לנו
+          <ChevronLeft size={16} strokeWidth={2.6} aria-hidden />
+        </button>
+      </div>
+    </>
+  );
+}
+
+function SectionHead({ title, action }: { title: string; action?: string }) {
+  return (
+    <div className="mb-2.5 mt-5 flex items-center justify-between first:mt-2">
+      <h3 className="text-[15px] font-black">{title}</h3>
+      {action && <span className="whitespace-nowrap text-[13px] font-extrabold text-v2-deep">{action}</span>}
+    </div>
+  );
+}
+
+function IconButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+      className="grid h-10 w-10 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
+    >
+      {children}
+    </button>
+  );
+}
+
+function ProgressRing({ pct, size, hex, label, children }: { pct: number; size: number; hex: string; label?: string; children?: ReactNode }) {
+  const r = size / 2 - 4;
+  const c = 2 * Math.PI * r;
+  return (
+    <span className="relative grid shrink-0 place-items-center" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="absolute inset-0 -rotate-90" aria-hidden>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e6edf2" strokeWidth="5" />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={hex} strokeWidth="5" strokeLinecap="round" strokeDasharray={`${c * pct} ${c}`} />
+      </svg>
+      {children ?? <span className="relative text-[12px] font-black">{label}</span>}
+    </span>
+  );
+}
+
+/* ───────────────────────────── saved & settings ───────────────────────────── */
+
+function SavedSheet() {
+  const [tab, setTab] = useState<'workouts' | 'exercises'>('workouts');
+  const s = PROFILE_MORE.saved;
+  return (
+    <div>
+      <div className="grid grid-cols-2 rounded-full bg-v2-surface p-1 ring-1 ring-inset ring-v2-hairline">
         {(
           [
-            ['posts', 'פוסטים'],
-            ['records', 'שיאים'],
+            ['workouts', `אימונים · ${s.workouts.length}`],
+            ['exercises', `תרגילים · ${s.exercises.length}`],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -650,31 +922,79 @@ function ProfileScreen({ onPrivacy, onBack, onOpen }: { onPrivacy: () => void; o
             type="button"
             aria-pressed={tab === id}
             onClick={() => setTab(id)}
-            className={`h-10 rounded-full text-[14px] font-extrabold transition-colors duration-200 ${tab === id ? 'bg-v2-ink text-white' : 'text-v2-ink-2'}`}
+            className={`h-9 whitespace-nowrap rounded-full text-[13.5px] font-extrabold transition-colors duration-200 ${tab === id ? 'bg-white shadow-v2-ring' : 'text-v2-ink-2'}`}
           >
             {label}
           </button>
         ))}
       </div>
+      <ul className="mt-3 space-y-2">
+        {tab === 'workouts'
+          ? s.workouts.map((w) => (
+              <li key={w.title} className="flex items-center gap-3 rounded-[20px] bg-white p-3 shadow-v2-ring">
+                <ActivityBadge activity={w.activity} size={44} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-black">{w.title}</span>
+                  <span className="block truncate text-[12.5px] font-bold text-v2-muted">{w.meta}</span>
+                </span>
+                <span className="whitespace-nowrap rounded-full bg-v2-ink px-3 py-1.5 text-[12.5px] font-extrabold text-white">להתחיל</span>
+              </li>
+            ))
+          : s.exercises.map((e) => (
+              <li key={e} className="flex items-center gap-3 rounded-[20px] bg-white p-3 shadow-v2-ring">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] bg-v2-surface">
+                  <AppIcon src="/icons/muscles/back.svg" size={22} />
+                </span>
+                <span className="flex-1 truncate text-[15px] font-extrabold">{e}</span>
+                <Bookmark size={17} strokeWidth={2.4} fill="currentColor" className="text-v2-deep" aria-label="שמור" />
+              </li>
+            ))}
+      </ul>
+    </div>
+  );
+}
 
-      {tab === 'posts' ? (
-        <div className="mx-4 mt-3 grid grid-cols-3 gap-1.5">
-          {PROFILE.tiles.map((t, i) => (
-            <MiniPost key={i} t={t} onOpen={onOpen} />
-          ))}
-        </div>
-      ) : (
-        <ul className="mx-4 mt-3 space-y-2">
-          {PROFILE.highlights.map((h) => (
-            <li key={h.label} className="flex items-center gap-3 rounded-[20px] bg-white p-3 shadow-v2-ring">
-              <ActivityBadge activity={h.activity} size={40} />
-              <span className="flex-1 whitespace-nowrap text-[14.5px] font-extrabold">{h.label}</span>
-              <span className="whitespace-nowrap text-[18px] font-black !tracking-[-0.02em]">{h.value}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </>
+function SettingsSheet({ onPrivacy }: { onPrivacy: () => void }) {
+  return (
+    <div>
+      <div className="flex items-center gap-3 rounded-[20px] bg-v2-surface p-3">
+        <Avatar p={ME} size={48} />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[16px] font-black">{ME.name}</span>
+          <span className="block truncate text-[12.5px] font-bold text-v2-muted">מחובר עם גוגל</span>
+        </span>
+      </div>
+      {PROFILE_MORE.settings.map((g) => (
+        <section key={g.title} className="mt-4">
+          <h3 className="mb-1.5 text-[13px] font-extrabold text-v2-deep">{g.title}</h3>
+          <ul className="overflow-hidden rounded-[20px] bg-white shadow-v2-ring">
+            {g.rows.map(([label, sub]) => (
+              <li key={label} className="border-b border-v2-hairline last:border-0">
+                <button
+                  type="button"
+                  onClick={label === 'פרטיות ונראות' ? onPrivacy : undefined}
+                  className="flex w-full items-center gap-3 px-3.5 py-3 text-start active:bg-v2-surface"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[14.5px] font-extrabold">{label}</span>
+                    {sub && <span className="block truncate text-[12px] font-bold text-v2-muted">{sub}</span>}
+                  </span>
+                  <ChevronLeft size={16} strokeWidth={2.6} className="shrink-0 text-v2-muted" aria-hidden />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+      <div className="mt-5 grid gap-2">
+        <Button variant="ghost" size="md">
+          התנתקות
+        </Button>
+        <button type="button" className="h-10 text-[13.5px] font-extrabold text-[#dc2626]">
+          מחיקת חשבון
+        </button>
+      </div>
+    </div>
   );
 }
 
