@@ -24,6 +24,8 @@ interface AerobicStrengthSliderProps {
   /** Resolved station count (MVP sandwich = 1). */
   stations?: number;
   accent?: string;
+  /** Home v2 (enable_home_v2) styling. Default false = today's UI. */
+  v2?: boolean;
 }
 
 export default function AerobicStrengthSlider({
@@ -33,10 +35,41 @@ export default function AerobicStrengthSlider({
   timeBudgetMin,
   stations = 1,
   accent = '#00ADEF',
+  v2 = false,
 }: AerobicStrengthSliderProps) {
   const pctAerobic = Math.round(aerobicShare * 100);
   const pctStrength = 100 - pctAerobic;
   const isRecommended = Math.abs(aerobicShare - RECOMMENDED_AEROBIC_SHARE) < 0.03;
+
+  if (v2) {
+    return (
+      <div className="px-5 mb-4" dir="rtl">
+        <div className="mb-1.5 flex items-center justify-between">
+          <span className="whitespace-nowrap text-[13px] font-extrabold tabular-nums text-v2-ink">אירובי {pctAerobic}%</span>
+          {isRecommended && (
+            <span className="whitespace-nowrap rounded-full bg-v2-tint px-2.5 py-0.5 text-[12px] font-extrabold text-v2-deep">
+              מומלץ
+            </span>
+          )}
+          <span className="whitespace-nowrap text-[13px] font-extrabold tabular-nums text-v2-ink">כוח {pctStrength}%</span>
+        </div>
+        <input
+          type="range"
+          min={Math.round(AEROBIC_SHARE_MIN * 100)}
+          max={Math.round(AEROBIC_SHARE_MAX * 100)}
+          step={1}
+          value={pctAerobic}
+          onChange={(e) => onChange(Number(e.target.value) / 100)}
+          className="w-full"
+          style={{ accentColor: '#00baf7' }}
+          aria-label="יחס אירובי לעומת כוח"
+        />
+        <p className="mt-1.5 text-[12.5px] font-bold leading-snug text-v2-muted">
+          {splitHelperText(goalType, timeBudgetMin, aerobicShare, stations)}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="px-5 mb-3" dir="rtl">
