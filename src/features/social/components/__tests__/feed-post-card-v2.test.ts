@@ -37,7 +37,7 @@ describe('FeedPostCard v2', () => {
 
   it('strength: minutes, points, intensity', () => {
     const html = renderToStaticMarkup(
-      createElement(FeedPostCard, { post: post({ activityCategory: 'strength', durationMinutes: 35, activityCredit: 70, intensityLevel: 2 }), currentUid: 'u1', v2: true }),
+      createElement(FeedPostCard, { post: post({ activityCategory: 'strength', durationMinutes: 35, activityCredit: 70, intensityLevel: 'בינונית' }), currentUid: 'u1', v2: true }),
     );
     expect(html).toContain('נקודות');
     expect(html).toContain('70');
