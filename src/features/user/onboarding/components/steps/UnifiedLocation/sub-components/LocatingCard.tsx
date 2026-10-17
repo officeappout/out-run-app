@@ -1,10 +1,23 @@
 'use client';
 
-import React from 'react';
-import { motion } from 'framer-motion';
-import { Loader2 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Loader2, Search } from 'lucide-react';
+import { LOCATING_MANUAL_SEARCH_HINT_MS } from '../fast-locate';
 
-export function LocatingCard({ v2 = false }: { v2?: boolean } = {}) {
+export function LocatingCard({
+  v2 = false,
+  onSearchManually,
+}: { v2?: boolean; onSearchManually?: () => void } = {}) {
+  // v2: if the fix is slow (cold GPS, weak signal), offer the manual search
+  // after a few seconds instead of leaving the user on a spinner.
+  const [showManualHint, setShowManualHint] = useState(false);
+  useEffect(() => {
+    if (!v2 || !onSearchManually) return;
+    const t = setTimeout(() => setShowManualHint(true), LOCATING_MANUAL_SEARCH_HINT_MS);
+    return () => clearTimeout(t);
+  }, [v2, onSearchManually]);
+
   if (v2) {
     // v2 — bottom sheet over the full-bleed map; owns the bottom inset once.
     return (
@@ -28,6 +41,24 @@ export function LocatingCard({ v2 = false }: { v2?: boolean } = {}) {
             <p className="text-[16px] font-extrabold text-v2-ink whitespace-nowrap">
               מאתרים את המיקום שלך...
             </p>
+            {/* Fixed-height slot so the sheet doesn't jump when the link appears */}
+            <div className="mt-4 h-11">
+              <AnimatePresence>
+                {showManualHint && onSearchManually && (
+                  <motion.button
+                    type="button"
+                    onClick={onSearchManually}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+                    className="inline-flex h-11 items-center gap-2 rounded-full bg-white px-5 text-[14px] font-extrabold text-v2-deep shadow-v2-ring whitespace-nowrap active:scale-[0.97] transition-transform duration-150 ease-v2"
+                  >
+                    <Search size={16} />
+                    לוקח זמן? חיפוש ידני
+                  </motion.button>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
       </motion.div>

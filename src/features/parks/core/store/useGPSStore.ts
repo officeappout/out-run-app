@@ -43,6 +43,23 @@ export interface GPSCoords {
   altitude?: number | null;
 }
 
+/** Options for a single one-shot fix (mirrors PositionOptions). */
+export interface GPSFixOptions {
+  enableHighAccuracy: boolean;
+  timeout: number;
+  maximumAge: number;
+}
+
+/**
+ * Outcome of `requestFix`. `denied` = the user/OS refused permission;
+ * `unavailable` = permission is fine but no fix arrived (timeout, no signal,
+ * unsupported) — callers may retry with different options.
+ */
+export interface GPSFixResult {
+  coords: GPSCoords | null;
+  reason: 'ok' | 'denied' | 'unavailable';
+}
+
 interface GPSStore {
   /** Latest accepted GPS fix, or null until the first fix arrives. */
   coords: GPSCoords | null;
@@ -72,6 +89,16 @@ interface GPSStore {
    * WITHOUT re-prompting — so denied users are never nagged.
    */
   requestPermissionIfAllowed: () => Promise<GPSCoords | null>;
+
+  /**
+   * Same on-demand prompt as `requestPermissionNow`, but with caller-chosen
+   * accuracy / timeout / cache options and a result that tells a denial apart
+   * from a mere timeout. Used by the onboarding location step (v2) to get a
+   * fast coarse fix first and refine it afterwards. Unlike
+   * `requestPermissionNow`, a timeout never flips `permissionState` to
+   * `denied` — only a real refusal does.
+   */
+  requestFix: (options: GPSFixOptions) => Promise<GPSFixResult>;
 }
 
 export const useGPSStore = create<GPSStore>((set, get) => ({
@@ -91,6 +118,72 @@ export const useGPSStore = create<GPSStore>((set, get) => ({
     if (permissionState === 'denied') return null;
     // 'unknown' / 'prompt' → courtesy prompt.
     return requestPermissionNow();
+  },
+
+  requestFix: async ({ enableHighAccuracy, timeout, maximumAge }) => {
+    // ── Native path (iOS / Android) — Capacitor Geolocation ──────────────
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const perm = await Geolocation.requestPermissions({ permissions: ['location'] });
+        if (perm.location !== 'granted') {
+          set({ permissionState: 'denied', locationError: 'Location permission denied' });
+          return { coords: null, reason: 'denied' };
+        }
+      } catch (err) {
+        set({
+          permissionState: 'denied',
+          locationError: err instanceof Error ? err.message : 'GPS error',
+        });
+        return { coords: null, reason: 'denied' };
+      }
+      try {
+        const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy, timeout, maximumAge });
+        const coords: GPSCoords = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: typeof pos.coords.accuracy === 'number' ? pos.coords.accuracy : undefined,
+        };
+        set({ coords, permissionState: 'granted', locationError: null });
+        return { coords, reason: 'ok' };
+      } catch (err) {
+        // Permission was granted above — this is a timeout / no-signal error.
+        set({
+          permissionState: 'granted',
+          locationError: err instanceof Error ? err.message : 'GPS error',
+        });
+        return { coords: null, reason: 'unavailable' };
+      }
+    }
+
+    // ── Web path — browser geolocation prompt ────────────────────────────
+    if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
+      set({ locationError: 'Geolocation unsupported' });
+      return { coords: null, reason: 'unavailable' };
+    }
+
+    return new Promise<GPSFixResult>((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const coords: GPSCoords = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracy: typeof pos.coords.accuracy === 'number' ? pos.coords.accuracy : undefined,
+          };
+          set({ coords, permissionState: 'granted', locationError: null });
+          resolve({ coords, reason: 'ok' });
+        },
+        (error) => {
+          if (error.code === 1) {
+            set({ permissionState: 'denied', locationError: error.message });
+            resolve({ coords: null, reason: 'denied' });
+          } else {
+            set({ locationError: error.message });
+            resolve({ coords: null, reason: 'unavailable' });
+          }
+        },
+        { enableHighAccuracy, timeout, maximumAge },
+      );
+    });
   },
 
   requestPermissionNow: async () => {
