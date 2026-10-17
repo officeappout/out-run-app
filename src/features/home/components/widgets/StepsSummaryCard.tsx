@@ -18,6 +18,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import StepsSummaryCardView from './StepsSummaryCardView';
+import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import { useLiveDailyActivity } from '@/features/activity/hooks/useLiveDailyActivity';
 import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
 import { useHealthConnected } from '@/hooks/useHealthConnected';
@@ -48,6 +49,7 @@ interface StepsSummaryCardProps {
 
 export default function StepsSummaryCard({ className = '', variant = 'default' }: StepsSummaryCardProps) {
   const router = useRouter();
+  const homeV2 = useHomeV2();
   const { stepsToday, todayActivity, isLoading } = useLiveDailyActivity();
 
   // Guard against flashing a stale number before real data lands.
@@ -107,6 +109,7 @@ export default function StepsSummaryCard({ className = '', variant = 'default' }
   return (
     <>
       <StepsSummaryCardView
+        thickRing={homeV2}
         variant={variant}
         className={className}
         displaySteps={displaySteps}
