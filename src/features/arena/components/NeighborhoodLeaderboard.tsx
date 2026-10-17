@@ -136,7 +136,7 @@ function FilterDropdown({
         onClick={onToggle}
         aria-expanded={isOpen}
         className={`h-8 px-3 rounded-full flex items-center gap-1.5 whitespace-nowrap text-[12.5px] font-bold transition-colors ease-v2 ${
-          isActive ? 'bg-v2-ink text-white' : 'bg-white text-v2-ink-2 shadow-v2-ring'
+          isActive ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'bg-white text-v2-ink-2 shadow-v2-ring'
         }`}
       >
         {label}
@@ -682,7 +682,7 @@ export function NeighborhoodLeaderboardView({
             onClick={() => setFilterSheetOpen(true)}
             aria-label="פילטרים"
             className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ease-v2 ${
-              genderActive ? 'bg-v2-ink text-white' : 'bg-white text-v2-ink-2 shadow-v2-ring'
+              genderActive ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'bg-white text-v2-ink-2 shadow-v2-ring'
             }`}
           >
             <SlidersHorizontal size={14} strokeWidth={2.4} />
