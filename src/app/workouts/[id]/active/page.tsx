@@ -1859,6 +1859,8 @@ export default function ActiveWorkoutPage() {
           precomputedProgression={progressionResult}
           domainSets={workoutStats.domainSets}
           isRecovery={stableWorkoutPlan.isRecovery}
+          workoutSegments={stableWorkoutPlan.segments}
+          previousSets={exerciseHistoryMap}
         />
       );
     }
@@ -1885,6 +1887,9 @@ export default function ActiveWorkoutPage() {
         // (partial-completion.generator.ts's "finish your remaining sets"
         // eligibility check).
         totalPlannedSets={stableWorkoutPlan.totalPlannedSets}
+        // enable_home_v2 display-only inputs (phase breakdown + "vs last time").
+        workoutSegments={stableWorkoutPlan.segments}
+        previousSets={exerciseHistoryMap}
       />
     );
   }
