@@ -54,6 +54,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Dumbbell, MapPin, Route as RouteIcon, Clock, Eye, AlertTriangle } from 'lucide-react';
@@ -361,6 +362,12 @@ export default function PlannedActivityComposeSheet({
     }
   }, [canSubmit, whereType, selectedPark, selectedRoute, when, day, time, type, programName, selectedTrack, visibility, onClose, onCreated]);
 
+  // v2 look (enable_home_v2) — read here because the sheet opens from home and the map.
+  const isSuperAdminV2 = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdminV2).flags.enableHomeV2;
+  const ON = v2 ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'bg-[#00C9F2]/10 text-[#00C9F2] ring-2 ring-[#00C9F2]/30';
+  const OFF = v2 ? 'bg-white text-v2-ink-2 shadow-v2-ring' : 'bg-gray-50 text-gray-500 border border-gray-100';
+  const LBL = v2 ? 'flex items-center gap-1.5 text-[13px] font-extrabold text-v2-deep' : 'flex items-center gap-1.5 text-xs font-bold text-gray-500';
   return (
     <AnimatePresence>
       {isOpen && (
@@ -380,19 +387,20 @@ export default function PlannedActivityComposeSheet({
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 340, damping: 34 }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md bg-white rounded-t-3xl shadow-2xl overflow-hidden max-h-[85vh] overflow-y-auto"
+            className={v2 ? 'w-full max-w-md max-h-[85vh] overflow-y-auto rounded-t-[28px] bg-white shadow-v2-sheet' : 'w-full max-w-md bg-white rounded-t-3xl shadow-2xl overflow-hidden max-h-[85vh] overflow-y-auto'}
             style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
             dir="rtl"
           >
             <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 rounded-full bg-gray-200" />
+              <div className={v2 ? 'h-1.5 w-10 rounded-full bg-v2-pill-border' : 'w-10 h-1 rounded-full bg-gray-200'} />
             </div>
 
             <div className="flex items-center justify-between px-5 pb-2">
-              <h3 className="text-base font-black text-gray-900">יוצא להתאמן</h3>
+              <h3 className={v2 ? 'text-[22px] font-black !tracking-[-0.02em] text-v2-ink' : 'text-base font-black text-gray-900'}>יוצא להתאמן</h3>
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-lg bg-gray-100 text-gray-400 hover:bg-gray-200 active:scale-90 transition-all"
+                aria-label="סגירה"
+                className={v2 ? 'grid h-9 w-9 place-items-center rounded-full bg-v2-surface text-v2-ink ring-1 ring-inset ring-v2-hairline' : 'p-1.5 rounded-lg bg-gray-100 text-gray-400 hover:bg-gray-200 active:scale-90 transition-all'}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -401,7 +409,7 @@ export default function PlannedActivityComposeSheet({
             <div className="px-5 space-y-4 pb-4">
               {/* Q1 — Type */}
               <div>
-                <label className="flex items-center gap-1.5 text-xs font-bold text-gray-500 mb-1.5">
+                <label className={`${LBL} mb-2`}>
                   <Dumbbell className="w-3.5 h-3.5" /> סוג
                 </label>
                 <div className="flex gap-2">
@@ -409,14 +417,14 @@ export default function PlannedActivityComposeSheet({
                     <button
                       key={opt.value}
                       onClick={() => setType(opt.value)}
-                      className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all active:scale-95 flex flex-col items-center gap-0.5 ${
+                      className={`flex-1 ${v2 ? 'h-[66px] justify-center rounded-[18px]' : 'py-2 rounded-xl'} text-sm font-bold transition-all active:scale-95 flex flex-col items-center gap-0.5 ${
                         type === opt.value
-                          ? 'bg-[#00C9F2]/10 text-[#00C9F2] ring-2 ring-[#00C9F2]/30'
-                          : 'bg-gray-50 text-gray-500 border border-gray-100'
+                          ? ON
+                          : OFF
                       }`}
                     >
                       {opt.icon}
-                      <span className="text-[10px]">{opt.label}</span>
+                      <span className={v2 ? 'text-[13.5px] font-extrabold' : 'text-[10px]'}>{opt.label}</span>
                     </button>
                   ))}
                 </div>
@@ -455,7 +463,7 @@ export default function PlannedActivityComposeSheet({
               {/* Q2 — Where (activity-aware: route/park, per WHERE_OPTIONS_FOR) */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="flex items-center gap-1.5 text-xs font-bold text-gray-500">
+                  <label className={LBL}>
                     {whereType === 'route' ? <RouteIcon className="w-3.5 h-3.5" /> : <MapPin className="w-3.5 h-3.5" />}
                     איפה <span className="text-red-400">*</span>
                   </label>
@@ -485,10 +493,10 @@ export default function PlannedActivityComposeSheet({
                         <button
                           key={park.id}
                           onClick={() => setSelectedParkId(park.id)}
-                          className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                          className={`flex-shrink-0 ${v2 ? 'h-10 rounded-full px-3.5 text-[13.5px] font-extrabold' : 'px-3 py-1.5 rounded-xl text-xs font-bold'} transition-all active:scale-95 ${
                             selectedParkId === park.id
-                              ? 'bg-[#00C9F2]/10 text-[#00C9F2] ring-2 ring-[#00C9F2]/30'
-                              : 'bg-gray-50 text-gray-600 border border-gray-100'
+                              ? ON
+                              : OFF
                           }`}
                         >
                           {park.name}
@@ -508,10 +516,10 @@ export default function PlannedActivityComposeSheet({
                       <button
                         key={route.id}
                         onClick={() => setSelectedRouteId(route.id)}
-                        className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                        className={`flex-shrink-0 ${v2 ? 'h-10 rounded-full px-3.5 text-[13.5px] font-extrabold' : 'px-3 py-1.5 rounded-xl text-xs font-bold'} transition-all active:scale-95 ${
                           selectedRouteId === route.id
-                            ? 'bg-[#00C9F2]/10 text-[#00C9F2] ring-2 ring-[#00C9F2]/30'
-                            : 'bg-gray-50 text-gray-600 border border-gray-100'
+                            ? ON
+                            : OFF
                         }`}
                       >
                         {route.name}
@@ -529,7 +537,7 @@ export default function PlannedActivityComposeSheet({
 
               {/* Q3 — When */}
               <div>
-                <label className="flex items-center gap-1.5 text-xs font-bold text-gray-500 mb-1.5">
+                <label className={`${LBL} mb-2`}>
                   <Clock className="w-3.5 h-3.5" /> מתי
                 </label>
                 <div className="flex gap-2 mb-2">
@@ -537,10 +545,10 @@ export default function PlannedActivityComposeSheet({
                     <button
                       key={w}
                       onClick={() => setWhen(w)}
-                      className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all active:scale-95 ${
+                      className={`flex-1 ${v2 ? 'h-12 rounded-full text-[14.5px] font-extrabold' : 'py-2 rounded-xl text-sm font-bold'} transition-all active:scale-95 ${
                         when === w
-                          ? 'bg-[#00C9F2]/10 text-[#00C9F2] ring-2 ring-[#00C9F2]/30'
-                          : 'bg-gray-50 text-gray-500 border border-gray-100'
+                          ? ON
+                          : OFF
                       }`}
                     >
                       {w === 'now' ? 'עכשיו' : 'מתוזמן'}
@@ -556,8 +564,8 @@ export default function PlannedActivityComposeSheet({
                           onClick={() => setDay(d)}
                           className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
                             day === d
-                              ? 'bg-[#00C9F2]/10 text-[#00C9F2] ring-2 ring-[#00C9F2]/30'
-                              : 'bg-gray-50 text-gray-500 border border-gray-100'
+                              ? ON
+                              : OFF
                           }`}
                         >
                           {d === 'today' ? 'היום' : 'מחר'}
@@ -571,26 +579,26 @@ export default function PlannedActivityComposeSheet({
 
               {/* Q4 — Visibility (Decision 3: public/partners only, ghost stays unexposed) */}
               <div>
-                <label className="flex items-center gap-1.5 text-xs font-bold text-gray-500 mb-1.5">
+                <label className={`${LBL} mb-2`}>
                   <Eye className="w-3.5 h-3.5" /> למי גלוי
                 </label>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setVisibility('verified_global')}
-                    className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all active:scale-95 ${
+                    className={`flex-1 ${v2 ? 'h-12 rounded-full text-[14.5px] font-extrabold' : 'py-2 rounded-xl text-sm font-bold'} transition-all active:scale-95 ${
                       visibility === 'verified_global'
-                        ? 'bg-[#00C9F2]/10 text-[#00C9F2] ring-2 ring-[#00C9F2]/30'
-                        : 'bg-gray-50 text-gray-500 border border-gray-100'
+                        ? ON
+                        : OFF
                     }`}
                   >
                     כולם
                   </button>
                   <button
                     onClick={() => setVisibility('squad')}
-                    className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all active:scale-95 ${
+                    className={`flex-1 ${v2 ? 'h-12 rounded-full text-[14.5px] font-extrabold' : 'py-2 rounded-xl text-sm font-bold'} transition-all active:scale-95 ${
                       visibility === 'squad'
-                        ? 'bg-[#00C9F2]/10 text-[#00C9F2] ring-2 ring-[#00C9F2]/30'
-                        : 'bg-gray-50 text-gray-500 border border-gray-100'
+                        ? ON
+                        : OFF
                     }`}
                   >
                     שותפי אימון בלבד
@@ -602,7 +610,11 @@ export default function PlannedActivityComposeSheet({
               <button
                 onClick={handleSubmit}
                 disabled={!canSubmit}
-                className="w-full py-3 bg-[#00C9F2] hover:bg-[#00B4D8] text-white font-bold rounded-xl shadow-lg shadow-cyan-500/25 transition-all active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none"
+                className={
+                  v2
+                    ? 'h-12 w-full rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40'
+                    : 'w-full py-3 bg-[#00C9F2] hover:bg-[#00B4D8] text-white font-bold rounded-xl shadow-lg shadow-cyan-500/25 transition-all active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none'
+                }
               >
                 {saving ? 'שומר...' : 'פרסם'}
               </button>
