@@ -60,6 +60,8 @@ import UnitLeagueTable from '@/features/arena/components/UnitLeagueTable';
 import GroupLeaderboard from '@/features/arena/components/GroupLeaderboard';
 import ScopeCompetitionLeaderboard from '@/features/arena/components/ScopeCompetitionLeaderboard';
 import ScopeBattleCard from '@/features/arena/components/ScopeBattleCard';
+import NationalLeagueBoard from '@/features/arena/components/NationalLeagueBoard';
+import { BoardToggle } from '@/features/arena/components/LeagueBoard';
 import LeagueFilterSheet from '@/features/arena/components/LeagueFilterSheet';
 import { LeagueSelectorButton } from '@/features/arena/components/LeaguesTabChrome';
 import MunicipalPressureCard from '@/features/arena/components/MunicipalPressureCard';
@@ -139,6 +141,10 @@ export default function CommunityPage() {
   useEffect(() => {
     setPendingShare(readPendingShare<PendingParams>()?.params ?? null);
   }, []);
+  // Above the component's return: the render helpers below are function
+  // declarations called from that return, so a const declared after it is
+  // still in its TDZ when they run (the 17.10.2026 /community crash).
+  const feedPrefs: FeedPrefs = feedPrefsFrom((profile?.social as { feedPrefs?: unknown } | undefined)?.feedPrefs);
   const myDeclaration = useMyMilitaryDeclaration();
   usePendingUnitSelfHeal();
   const access = useArenaAccess(myDeclaration.isReserve, !!myDeclaration.orgId);
@@ -275,6 +281,12 @@ export default function CommunityPage() {
 
   // ── Individual vs group competition toggle ────────────────────────────────
   const [competitionMode, setCompetitionMode] = useState<'individual' | 'group'>('individual');
+  // Home v2 leagues (design lab, stage 2): four tabs on top — אישי / שכונות /
+  // יישובים / חטיבות. The tab decides individual vs groups, so the old
+  // יחידים/קבוצות toggle is hidden in v2.
+  type LeagueTabV2 = 'people' | 'neighborhoods' | 'settlements' | 'units';
+  const [leagueTabV2, setLeagueTabV2] = useState<LeagueTabV2>('people');
+  const [hoodScopeV2, setHoodScopeV2] = useState<'city' | 'national'>('city');
 
   // ── Groups-tab axis chooser. 'פלוגות' stays out (Stage G — needs the
   // leaderboard_shards data source, not feed_posts).
@@ -680,7 +692,7 @@ export default function CommunityPage() {
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.2 }}
             >
-              {renderLeaguesTab()}
+              {featureFlags.enableHomeV2 ? renderLeaguesTabV2() : renderLeaguesTab()}
             </m.div>
           )}
         </AnimatePresence>
@@ -690,7 +702,6 @@ export default function CommunityPage() {
 
   // ─── Feed tab ───────────────────────────────────────────────────────────
 
-  const feedPrefs: FeedPrefs = feedPrefsFrom((profile?.social as { feedPrefs?: unknown } | undefined)?.feedPrefs);
 
   async function handlePublishPending(choice: { audience: FeedPrefs['audience']; showPark: boolean; title?: string }) {
     if (!pendingShare || publishBusy) return;
@@ -882,6 +893,141 @@ export default function CommunityPage() {
   }
 
   // ─── Leagues tab (was /arena) ───────────────────────────────────────────
+
+  function renderLeaguesTabV2() {
+    const tabs: { id: LeagueTabV2; label: string }[] = [
+      { id: 'people', label: 'אישי' },
+      { id: 'neighborhoods', label: 'שכונות' },
+      { id: 'settlements', label: 'יישובים' },
+      ...(access.hasUnitLeagueAccess ? [{ id: 'units' as const, label: 'חטיבות' }] : []),
+    ];
+    const now = new Date();
+    const daysLeft = 6 - now.getDay(); // the Israeli week ends on Saturday
+    const month = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'][now.getMonth()];
+    const pick = (t: LeagueTabV2) => {
+      setLeagueTabV2(t);
+      if (t === 'people') setCompetitionMode('individual');
+      if (t === 'units') setCompetitionMode('group');
+    };
+    return (
+      <div className="space-y-4" dir="rtl">
+        <div className="flex flex-wrap gap-1.5">
+          <span className="inline-flex h-8 items-center rounded-full bg-v2-tint px-3 text-[12.5px] font-extrabold text-v2-deep">
+            ליגת {month}
+          </span>
+          <span className="inline-flex h-8 items-center rounded-full bg-white px-3 text-[12.5px] font-extrabold text-v2-ink-2 shadow-v2-ring">
+            {daysLeft === 0 ? 'השבוע נסגר הלילה' : `השבוע נסגר בעוד ${daysLeft === 1 ? 'יום' : `${daysLeft} ימים`}`}
+          </span>
+        </div>
+
+        <div
+          className="sticky top-0 z-[3] -mx-4 bg-v2-surface/95 px-4 pb-1 pt-1 backdrop-blur-sm"
+          role="tablist"
+          aria-label="ליגות"
+        >
+          <div className="grid rounded-full bg-white p-1 shadow-v2-ring" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
+            {tabs.map((t) => {
+              const on = t.id === leagueTabV2;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={on}
+                  onClick={() => pick(t.id)}
+                  className={`h-10 whitespace-nowrap rounded-full text-[14px] font-extrabold transition-colors duration-200 ease-v2 ${
+                    on ? 'bg-v2-cta text-v2-on-cta shadow-v2-cta' : 'text-v2-ink-2'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {leagueTabV2 === 'people' && renderLeaguesTab()}
+
+        {leagueTabV2 === 'neighborhoods' && (
+          <div className="space-y-4">
+            <BoardToggle
+              label="איפה"
+              value={hoodScopeV2}
+              onChange={setHoodScopeV2}
+              options={[
+                { id: 'city', label: access.cityName ? `ב${access.cityName}` : 'בעיר שלי' },
+                { id: 'national', label: 'בכל הארץ' },
+              ]}
+            />
+            {hoodScopeV2 === 'city' ? (
+              authority ? (
+                <>
+                  {access.hasNeighborhoodAccess ? (
+                    <ScopeBattleCard
+                      granularity="neighborhood"
+                      timeWindow={leaderboardTimeWindow}
+                      myScopeId={access.neighborhoodAuthorityId}
+                      cityAuthorityId={authority.id}
+                      category={leaderboardCategory}
+                      genderFilter={leaderboardGender}
+                      onMyScopeEntryChange={setActiveScopeEntry}
+                    />
+                  ) : (
+                    renderNeighborhoodSetupCTA()
+                  )}
+                  <ScopeCompetitionLeaderboard
+                    granularity="neighborhood"
+                    timeWindow={leaderboardTimeWindow}
+                    cityAuthorityId={authority.id}
+                    category={leaderboardCategory}
+                    onCategoryChange={setLeaderboardCategory}
+                    genderFilter={leaderboardGender}
+                  />
+                  {access.hasNeighborhoodAccess && renderNeighborhoodInviteCTA()}
+                </>
+              ) : (
+                renderNeighborhoodSetupCTA()
+              )
+            ) : (
+              <NationalLeagueBoard
+                mode="neighborhoods"
+                timeWindow={leaderboardTimeWindow}
+                category={leaderboardCategory}
+                onCategoryChange={setLeaderboardCategory}
+                genderFilter={leaderboardGender}
+                myScopeIds={[access.neighborhoodAuthorityId]}
+              />
+            )}
+          </div>
+        )}
+
+        {leagueTabV2 === 'settlements' && (
+          <div className="space-y-4">
+            {authority && (
+              <ScopeBattleCard
+                granularity="city"
+                timeWindow={leaderboardTimeWindow}
+                myScopeId={authority.id}
+                category={leaderboardCategory}
+                genderFilter={leaderboardGender}
+                onMyScopeEntryChange={setActiveScopeEntry}
+              />
+            )}
+            <NationalLeagueBoard
+              mode="settlements"
+              timeWindow={leaderboardTimeWindow}
+              category={leaderboardCategory}
+              onCategoryChange={setLeaderboardCategory}
+              genderFilter={leaderboardGender}
+              myScopeIds={[authority?.id, access.neighborhoodAuthorityId]}
+            />
+          </div>
+        )}
+
+        {leagueTabV2 === 'units' && renderReserveSegment()}
+      </div>
+    );
+  }
 
   function renderLeaguesTab() {
     const cards = buildLeagueCards();
@@ -1116,6 +1262,7 @@ export default function CommunityPage() {
   }
 
   function renderCompetitionToggle() {
+    if (featureFlags.enableHomeV2) return null;
     return (
       <div
         className="flex p-1 rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline"

@@ -90,3 +90,61 @@ export function buildScopeEntries(
     .slice(0, maxEntries)
     .map((r, i) => ({ rank: i + 1, ...r, scopeName: names.get(r.scopeId) ?? r.scopeId }));
 }
+
+/** The period before `key` — 'W2026-10-11' → 'W2026-10-04', 'M2026-01' → 'M2025-12'. */
+export function previousPeriodKey(window: LeagueWindow, key: string): string {
+  if (window === 'weekly') {
+    const [y, m, d] = key.slice(1).split('-').map(Number);
+    const prev = new Date(Date.UTC(y, m - 1, d - 7));
+    return `W${prev.getUTCFullYear()}-${pad(prev.getUTCMonth() + 1)}-${pad(prev.getUTCDate())}`;
+  }
+  const [y, m] = key.slice(1).split('-').map(Number);
+  return m === 1 ? `M${y - 1}-12` : `M${y}-${pad(m - 1)}`;
+}
+
+/** A row on the "most improved" board: this period's numbers + the gain. */
+export interface ImprovedEntry extends ScopeStatsEntry {
+  previousScore: number;
+  delta: number;
+}
+
+/**
+ * Most improved: this period's score minus the previous period's, per scope,
+ * gains only, biggest first. null for an unanswerable filter (category AND
+ * gender), like buildScopeEntries.
+ */
+export function buildImprovedEntries(
+  current: ScopeStatsDoc[],
+  previous: ScopeStatsDoc[],
+  names: Map<string, string>,
+  category: 'overall' | 'strength' | 'cardio' | 'maintenance',
+  gender: 'all' | 'male' | 'female',
+  maxEntries: number,
+): ImprovedEntry[] | null {
+  if (category !== 'overall' && gender !== 'all') return null;
+  const prevScore = new Map<string, number>();
+  for (const d of previous) prevScore.set(d.scopeId, pickScopeNumbers(d, category, gender)?.totalScore ?? 0);
+  return current
+    .map((d) => {
+      const n = pickScopeNumbers(d, category, gender);
+      if (!n || n.activeMemberCount <= 0) return null;
+      const before = prevScore.get(d.scopeId) ?? 0;
+      return { scopeId: d.scopeId, ...n, previousScore: before, delta: n.totalScore - before };
+    })
+    .filter((r): r is Omit<ImprovedEntry, 'rank' | 'scopeName'> => !!r && r.delta > 0)
+    .sort((a, b) => b.delta - a.delta)
+    .slice(0, maxEntries)
+    .map((r, i) => ({ rank: i + 1, ...r, scopeName: names.get(r.scopeId) ?? r.scopeId }));
+}
+
+/** What a scope is, for the national boards (from its authorities doc). */
+export type ScopeKind = 'city' | 'regional_council' | 'local_council' | 'neighborhood' | 'settlement' | 'other';
+
+export function scopeKindOf(type: unknown, parentAuthorityId: unknown): ScopeKind {
+  const t = String(type ?? '');
+  if (t === 'settlement') return 'settlement';
+  // Older seeds wrote kibbutzim/moshavim as local_council under a regional council.
+  if (t === 'local_council' && typeof parentAuthorityId === 'string' && parentAuthorityId) return 'settlement';
+  if (t === 'city' || t === 'regional_council' || t === 'local_council' || t === 'neighborhood') return t;
+  return 'other';
+}

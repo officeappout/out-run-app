@@ -78,6 +78,9 @@ export async function applyWorkoutToLeagueStats(
         activeMemberCount: (typeof s.activeMemberCount === 'number' ? s.activeMemberCount : 0) + (newMember ? 1 : 0),
         byActivity,
         byGender,
+        // Invite bonuses (apply-referral-bonus.ts) live inside totalCredit;
+        // keep their separate tally across this full-doc write.
+        ...(typeof s.bonusCredit === 'number' ? { bonusCredit: s.bonusCredit } : {}),
         updatedAt: serverTimestamp(),
       });
       tx.set(member, {

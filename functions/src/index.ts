@@ -38,6 +38,7 @@ export { onOsmAmenityWrite } from './onOsmAmenityWrite';
 export { onMilitaryDeclarationWritten } from './militaryReserveLeague';
 export { unitLeagueRollup } from './unitLeagueRollup';
 export { onWorkoutCreateLeagueStats } from './leagueScopeStats';
+export { onReferralCreateLeagueBonus } from './referralBonus';
 export { dailyActivityPublicSync } from './dailyActivityPublicSync';
 export { userPublicSync } from './userPublicSync';
 export { verifyUploadContentType } from './verifyUploadContentType';
