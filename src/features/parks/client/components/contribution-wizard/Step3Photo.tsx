@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Camera as CameraIcon, Upload, Loader2, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { Camera as CameraIcon, Upload, Loader2, Image as ImageIcon, Trash2, MapPin, Tag, Dumbbell, CircleCheck, type LucideIcon } from 'lucide-react';
+import { useWizardV2, V2_LABEL, V2BackButton, V2PrimaryButton } from './wizard-v2';
+import type { ParkFacilityCategory } from '@/features/parks/core/types/park.types';
 import { ref, uploadBytes, uploadString, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
@@ -16,6 +18,16 @@ interface Props {
   onSubmit: () => void;
   submitting: boolean;
 }
+
+/** v2 summary shows the facility's Hebrew name instead of its raw id. */
+const FACILITY_V2_LABELS: Record<ParkFacilityCategory, string> = {
+  gym_park: 'גינת כושר',
+  court: 'מגרש ספורט',
+  route: 'מסלול',
+  zen_spot: 'פינת גוף-נפש',
+  urban_spot: 'אורבן / אקסטרים',
+  nature_community: 'טבע וקהילה',
+};
 
 const MAX_UPLOAD_DIMENSION = 1600;
 const UPLOAD_JPEG_QUALITY = 0.85;
@@ -98,6 +110,7 @@ async function deleteStorageObject(path: string): Promise<void> {
 }
 
 export default function Step3Photo({ data, updateData, onBack, onSubmit, submitting }: Props) {
+  const v2 = useWizardV2();
   const { profile } = useUserStore();
   const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -240,6 +253,84 @@ export default function Step3Photo({ data, updateData, onBack, onSubmit, submitt
     updateData({ photoUrl: null, photoStoragePath: null });
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, [data.photoStoragePath, updateData]);
+
+  if (v2) {
+    const summary: { Icon: LucideIcon; text: string }[] = [
+      { Icon: MapPin, text: data.parkName || 'ללא שם' },
+      ...(data.facilityType ? [{ Icon: Tag, text: FACILITY_V2_LABELS[data.facilityType] ?? data.facilityType }] : []),
+      ...(equipmentNames.length > 0 ? [{ Icon: Dumbbell, text: `מתקנים: ${equipmentNames.join(', ')}` }] : []),
+      ...(data.featureTags.length > 0 ? [{ Icon: CircleCheck, text: `${data.featureTags.length} תכונות` }] : []),
+      ...(data.photoUrl ? [{ Icon: CameraIcon, text: 'תמונה צורפה' }] : []),
+    ];
+    return (
+      <div className="flex h-full flex-col px-4 pb-6">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileSelect}
+          className="hidden"
+        />
+
+        <p className={V2_LABEL}>תמונה (לא חובה)</p>
+
+        {/* Preview or upload area */}
+        {preview ? (
+          <div className="relative mb-4 overflow-hidden rounded-[20px] shadow-v2-ring">
+            <img src={preview} alt="תצוגה מקדימה" className="h-52 w-full object-cover" />
+            {uploading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/70">
+                <Loader2 size={28} className="animate-spin text-v2-accent" />
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={handleRemove}
+              aria-label="הסרת תמונה"
+              className="absolute left-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-white text-v2-down shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
+            >
+              <Trash2 size={17} strokeWidth={2.4} />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={handlePick}
+            className="mb-4 flex h-52 flex-col items-center justify-center gap-3 rounded-[20px] bg-v2-surface ring-1 ring-inset ring-v2-hairline transition-transform duration-150 ease-v2 active:scale-[0.98]"
+          >
+            <div className="grid h-14 w-14 place-items-center rounded-full bg-white text-v2-deep shadow-v2-ring">
+              <CameraIcon size={24} strokeWidth={2.4} />
+            </div>
+            <div className="text-center">
+              <p className="whitespace-nowrap text-[15px] font-extrabold text-v2-ink">צלמו או בחרו תמונה</p>
+              <p className="mt-1 text-[12px] font-bold text-v2-muted">JPG, PNG עד 10MB</p>
+            </div>
+          </button>
+        )}
+
+        {/* Submit summary */}
+        <div className="mb-4 rounded-[20px] bg-white p-4 shadow-v2-ring">
+          <p className="mb-2.5 text-[13px] font-extrabold text-v2-deep">סיכום</p>
+          <div className="space-y-2">
+            {summary.map(({ Icon, text }, i) => (
+              <p key={i} className="flex items-start gap-2 text-[14px] font-bold text-v2-ink-2">
+                <Icon size={16} strokeWidth={2.4} className="mt-0.5 flex-shrink-0 text-v2-muted" />
+                <span className="min-w-0">{text}</span>
+              </p>
+            ))}
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="mt-auto flex items-center gap-3">
+          <V2BackButton onClick={onBack} />
+          <V2PrimaryButton onClick={onSubmit} disabled={submitting || uploading} loading={submitting} arrow={false}>
+            {submitting ? 'שולח...' : 'שלח לאישור'}
+          </V2PrimaryButton>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full px-4 pb-6">

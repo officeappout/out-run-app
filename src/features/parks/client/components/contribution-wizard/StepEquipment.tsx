@@ -28,7 +28,8 @@
  * confirmation before adding more machinery for it.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronRight, Loader2, Search } from 'lucide-react';
+import { Check, ChevronRight, Dumbbell, Loader2, Search } from 'lucide-react';
+import { useWizardV2, V2_LABEL, V2_INPUT, v2Chip, V2BackButton, V2PrimaryButton } from './wizard-v2';
 import type { WizardData } from './index';
 import EquipmentCard from '../equipment-detail/EquipmentCard';
 import { getAllGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
@@ -42,6 +43,7 @@ interface Props {
 }
 
 export default function StepEquipment({ data, updateData, onNext, onBack }: Props) {
+  const v2 = useWizardV2();
   const [catalog, setCatalog] = useState<GymEquipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -95,6 +97,89 @@ export default function StepEquipment({ data, updateData, onNext, onBack }: Prop
 
   const term = search.trim().toLowerCase();
   const visible = term ? catalog.filter((e) => e.name.toLowerCase().includes(term)) : catalog;
+
+  if (v2) {
+    // Same three regions as below (fixed header · scrolling grid · pinned
+    // footer); the grid is white pills with the app's equipment icons.
+    return (
+      <div className="flex h-full flex-col px-4 pb-6">
+        <div className="mb-3 flex-shrink-0">
+          <p className={V2_LABEL}>אילו מתקנים יש במיקום?</p>
+
+          {selectedNames.length > 0 && (
+            <p className="mb-2 text-[12.5px] font-bold leading-relaxed text-v2-muted">
+              <span className="font-extrabold text-v2-ink-2">נבחרו: </span>
+              {selectedNames.join(', ')}
+            </p>
+          )}
+
+          <div className="relative">
+            <Search size={16} strokeWidth={2.4} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-v2-muted" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="חיפוש מתקן..."
+              className={`${V2_INPUT} !pr-10`}
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-0.5 pb-1 pt-0.5">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-v2-accent" />
+            </div>
+          ) : visible.length === 0 ? (
+            <p className="py-12 text-center text-[14px] font-bold text-v2-muted">
+              {catalog.length === 0 ? 'אין מתקני-פארק בקטלוג' : 'לא נמצאו מתקנים'}
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {visible.map((eq) => {
+                const on = selectedIds.has(eq.id);
+                return (
+                  <button
+                    key={eq.id}
+                    type="button"
+                    onClick={() => toggle(eq.id)}
+                    aria-pressed={on}
+                    aria-label={eq.name}
+                    title={eq.name}
+                    className={`flex h-12 min-w-0 items-center gap-2 rounded-full ps-1.5 pe-3 text-start text-[13.5px] font-extrabold ${v2Chip(on)}`}
+                  >
+                    <span className={`grid h-9 w-9 flex-shrink-0 place-items-center rounded-full ${on ? 'bg-white' : 'bg-v2-surface'}`}>
+                      {eq.iconKey ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={`/assets/icons/equipment/${eq.iconKey}.svg`}
+                          alt=""
+                          className="h-6 w-6 object-contain"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      ) : (
+                        <Dumbbell size={16} strokeWidth={2.4} className={on ? 'text-v2-deep' : 'text-v2-muted'} />
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate whitespace-nowrap">{eq.name}</span>
+                    {on && <Check size={15} strokeWidth={3} className="flex-shrink-0 text-v2-deep" />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Equipment is optional, so forward is always enabled. */}
+        <div className="mt-4 flex flex-shrink-0 items-center gap-3">
+          <V2BackButton onClick={onBack} />
+          <V2PrimaryButton onClick={onNext}>{selectedIds.size > 0 ? 'המשך' : 'דלג'}</V2PrimaryButton>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full px-4 pb-6">
