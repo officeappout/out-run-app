@@ -10,6 +10,14 @@ import { fetchRealParks } from '../services/parks.service';
 import { useMapStore, LayerType, PartnerActivityFilter } from '../store/useMapStore';
 import { useFacilities } from '../hooks/useFacilities';
 import { useCameraController } from '../hooks/useCameraController';
+import {
+  decideEntryCamera,
+  readGlobeIntroSeen,
+  readPrefersReducedMotion,
+  ENTRY_TARGET_ZOOM,
+  GLOBE_INTRO_START_ZOOM,
+  GLOBE_INTRO_FALLBACK_CENTER,
+} from '../hooks/entry-camera';
 import { useWalkToRoute } from '../hooks/useWalkToRoute';
 import { useMapPerfMonitor } from '../hooks/useMapPerfMonitor';
 import { useAdaptiveShed } from '../hooks/useAdaptiveShed';
@@ -314,6 +322,13 @@ interface AppMapProps {
    * 18.08.2026).
    */
   isSeedFresh?: boolean;
+  /**
+   * enable_home_v2, resolved (false while flags are still loading). Read ONCE
+   * at mount to pick the entry camera: first-ever entry → globe flight down to
+   * the user; later entries → straight to the location, no effect. Off → the
+   * legacy single dive.
+   */
+  homeV2Entry?: boolean;
   /** Current map mode — forwarded to the camera controller so it can run a
    * one-shot fit-all on first entry into discover mode. */
   mapMode?: string;
@@ -412,12 +427,24 @@ export default function AppMap({
   initialCenter,
   hasAccurateLocationSeed = false,
   isSeedFresh = false,
+  homeV2Entry = false,
   mapMode,
   navigationTurns,
   activityType,
 }: AppMapProps) {
   const mapRef = useRef<MapRef>(null);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
+  // Entry camera plan — latched for the life of this mount (see entry-camera.ts).
+  const [entryPlan] = useState(() => decideEntryCamera({
+    homeV2: homeV2Entry,
+    introSeen: homeV2Entry ? readGlobeIntroSeen() : true,
+    prefersReducedMotion: homeV2Entry ? readPrefersReducedMotion() : false,
+    hasOtherCameraIntent: skipInitialZoom || !!destinationMarker,
+  }));
+  const entrySeed = useMemo(() => ({
+    accurate: hasAccurateLocationSeed && initialCenter ? initialCenter : null,
+    coarse: initialCenter ?? null,
+  }), [hasAccurateLocationSeed, initialCenter]);
 
   // Map Performance Monitor (map-watchdog-plan.md §5B) — pure observability,
   // writes useMapStore.pressureLevel from FPS/memoryWarning/webglcontextlost.
@@ -758,6 +785,9 @@ export default function AppMap({
     navigationTurns: navigationTurns ?? null,
     headingMode,
     onFollowRestored,
+    entryPlan,
+    entrySeed,
+    isMapRevealed: isVisuallyReady,
   });
 
   // Recenter tap (from the layers) → ease straight to the best-available fix. In
@@ -1734,7 +1764,9 @@ export default function AppMap({
     setIsMapLoaded(true);
     if (onMapRef && mapRef.current) onMapRef(mapRef.current);
     // Seed the store so viewport-search has a baseline even before the user pans.
-    const initB = mapRef.current?.getBounds();
+    // Not on the globe intro: the whole-Earth frame would become the baseline
+    // (→ a stray "search this area" after landing); its moveend seeds it instead.
+    const initB = entryPlan === 'globe_intro' ? null : mapRef.current?.getBounds();
     if (initB) {
       useMapStore.getState().setViewportBounds({
         neLng: initB.getNorthEast().lng, neLat: initB.getNorthEast().lat,
@@ -1771,10 +1803,20 @@ export default function AppMap({
         }}
         onMoveEnd={syncViewportToStore}
         initialViewState={
-          initialCenter
-            ? { longitude: initialCenter.lng, latitude: initialCenter.lat, zoom: 14 }
-            : { longitude: 34.7818, latitude: 32.0853, zoom: 13 }
+          entryPlan === 'globe_intro'
+            ? {
+                longitude: (initialCenter ?? GLOBE_INTRO_FALLBACK_CENTER).lng,
+                latitude: (initialCenter ?? GLOBE_INTRO_FALLBACK_CENTER).lat,
+                zoom: GLOBE_INTRO_START_ZOOM,
+              }
+            : initialCenter
+              // 'settle' opens at the landing zoom so "straight to location" needs no move.
+              ? { longitude: initialCenter.lng, latitude: initialCenter.lat, zoom: entryPlan === 'settle' ? ENTRY_TARGET_ZOOM : 14 }
+              : { longitude: 34.7818, latitude: 32.0853, zoom: 13 }
         }
+        // Globe only for the first-entry flight (fixed per mount; the controller
+        // switches back to mercator imperatively once it lands).
+        projection={entryPlan === 'globe_intro' ? { name: 'globe' } : undefined}
         style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}
         mapStyle="mapbox://styles/mapbox/streets-v12"
         mapboxAccessToken={MAPBOX_TOKEN}
