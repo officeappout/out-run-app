@@ -38,12 +38,20 @@
  * with `rateCapHours: 0` / `skipQuietHours: true` to preserve today's behavior
  * (admin broadcasts have neither today, by design — one-off sends, any hour).
  * When the flag is false (default), the legacy inline path runs unchanged.
+ *
+ * Shabbat / yom tov (owner decision 17.10.2026, see services/shabbat.service.ts):
+ * a broadcast created inside the window is NOT sent, on either path (`system`
+ * channel exempt). The queue is onCreate-triggered with no re-dispatch
+ * mechanism, so it can't simply be held for after havdalah — the doc is
+ * marked `status: 'failed'` with `error` starting `blocked_shabbat_yom_tov`
+ * (so it shows up in the admin push history) and the admin resends later.
  */
 
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush, type PushChannel } from './services/push.service';
+import { isShabbatOrYomTov } from './services/shabbat.service';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -130,6 +138,16 @@ export const sendPushFromQueue = onDocumentCreated(
     }
     if (!authorityId) {
       await markFailed(snap.ref, 'missing authorityId — refusing to broadcast');
+      return;
+    }
+
+    // ── Step 2b: Shabbat / yom tov — no broadcasts (system exempt) ───
+    if (channel !== 'system' && isShabbatOrYomTov()) {
+      logger.info(`[sendPushFromQueue] ${messageId} — Shabbat/yom tov, broadcast not sent`);
+      await markFailed(
+        snap.ref,
+        'blocked_shabbat_yom_tov — not sent on Shabbat/yom tov; resend after havdalah',
+      );
       return;
     }
 

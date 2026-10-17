@@ -30,6 +30,13 @@
  *       removed from the owning user doc exactly as `sendPushFromQueue` does.
  *    c. Log delivery stats.
  *
+ * Shabbat / yom tov (owner decision 17.10.2026, see services/shabbat.service.ts):
+ * on BOTH paths, only a 1:1 message between two people goes out during the
+ * window — `chats/{chatId}.type === 'dm'` (or, for a legacy doc with no
+ * `type`, exactly two participants and not a `group_` id) AND the sender is
+ * not a bot (`system_*` uid, e.g. the Kelly welcome bot). Group-chat messages
+ * and bot DMs are dropped (not delayed) during the window.
+ *
  * Deep-link payload: `/chat/{chatId}` — the native push handler in
  * `src/lib/native/push.ts` navigates the web view to this path on tap.
  */
@@ -38,6 +45,7 @@ import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush } from './services/push.service';
+import { isShabbatOrYomTov } from './services/shabbat.service';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -59,6 +67,23 @@ interface MessageDoc {
 
 interface ChatDoc {
   participants?: unknown;
+  type?: unknown;
+}
+
+/**
+ * A person writing to a person — the only chat push allowed on Shabbat/yom
+ * tov. Exported for tests.
+ */
+export function isDirectPersonMessage(
+  chatId: string,
+  chat: ChatDoc,
+  senderUid: string,
+): boolean {
+  if (senderUid.startsWith('system_')) return false; // bots (e.g. system_kelly_coach)
+  if (chat.type === 'dm') return true;
+  if (chat.type !== undefined) return false; // 'group' or anything else
+  const participants = Array.isArray(chat.participants) ? chat.participants : [];
+  return participants.length === 2 && !chatId.startsWith('group_');
 }
 
 export const chatMessageNotification = onDocumentCreated(
@@ -121,6 +146,16 @@ export const chatMessageNotification = onDocumentCreated(
       return;
     }
 
+    // ── Shabbat / yom tov guard — both paths (see header) ──────────────────
+    const isDirectMessage = isDirectPersonMessage(chatId, chatData, senderUid);
+    if (!isDirectMessage && isShabbatOrYomTov()) {
+      logger.info(
+        `[chatMessageNotification] ${chatId} — Shabbat/yom tov, non-1:1 chat push dropped ` +
+          `(${recipientUids.length} recipient(s))`,
+      );
+      return;
+    }
+
     const bodyText =
       text.length > TEXT_SNIPPET_MAX ? `${text.slice(0, TEXT_SNIPPET_MAX)}...` : text;
 
@@ -139,6 +174,7 @@ export const chatMessageNotification = onDocumentCreated(
         // defaults (24h cap, quiet-hours enforced).
         rateCapHours: 0,
         skipQuietHours: true,
+        isDirectMessage,
       });
       logger.info(
         `[chatMessageNotification] (routed) ${chatId} done: ` +

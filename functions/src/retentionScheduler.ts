@@ -16,21 +16,39 @@
  * A user is a retention candidate when ALL are true:
  *   1. onboardingStatus === 'COMPLETED'
  *   2. lastActive <= (now − INACTIVITY_THRESHOLD_DAYS)
- *      OR lastActive is absent (user never logged a workout)
+ *      Users with NO lastActive are skipped (before 17.10.2026 they were
+ *      treated as inactive forever and nudged every 48h regardless).
  *   3. settings.pushEnabled !== false
  *   4. settings.notificationPrefs.retention !== false (or absent — opt-out model)
  *   5. push_rate/{uid}.retention_lastSentAt older than COOLDOWN_HOURS
  *      (enforced by push.service.ts rate cap, not duplicated here)
  *
+ * QUERY
+ * ─────
+ * where(onboardingStatus == COMPLETED) + where(lastActive <= cutoff),
+ * orderBy(lastActive desc) — most recently churned first — cursor-paginated
+ * in pages of RETENTION_BATCH_LIMIT, at most RETENTION_MAX_PAGES pages per run.
+ * Composite index: onboardingStatus ASC + lastActive DESC. (Before 17.10.2026
+ * this read 200 arbitrary COMPLETED users and filtered inactivity in memory,
+ * so most inactive users were never reached.)
+ *
+ * MESSAGE
+ * ───────
+ * One sendPush() per user, with that user's own name and days-since in the
+ * copy (before 17.10.2026 one title built from the first user's name was
+ * multicast to the whole variant group).
+ *
  * SCHEDULE
  * ────────
- * Runs daily at 10:00 Asia/Jerusalem. push.service.ts quiet-hours check is
- * bypassed (skipQuietHours=true) because 10:00 is always an active window.
+ * Runs daily at 10:00 Asia/Jerusalem. Quiet hours are NOT bypassed (10:00 is
+ * an active window anyway — one uniform policy). On Shabbat/yom tov the run
+ * exits early (sendPush() would drop every send anyway).
  *
  * ENVIRONMENT VARIABLES (optional overrides for testing)
  * ───────────────────────────────────────────────────────
  *   RETENTION_INACTIVITY_DAYS  — days of inactivity before user is eligible (default 7)
- *   RETENTION_BATCH_LIMIT      — max users per run (default 200)
+ *   RETENTION_BATCH_LIMIT      — page size of the candidate query (default 200)
+ *   RETENTION_MAX_PAGES        — max pages per run (default 10 → 2000 users)
  *   RETENTION_TEST_MODE        — if 'true', logs intent but skips FCM + Firestore writes
  *
  * COPY TEMPLATE
@@ -43,6 +61,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush } from './services/push.service';
+import { isShabbatOrYomTov } from './services/shabbat.service';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -61,6 +80,14 @@ const BATCH_LIMIT = (() => {
   const raw = Number(process.env.RETENTION_BATCH_LIMIT);
   return Number.isFinite(raw) && raw > 0 && raw <= 500 ? raw : 200;
 })();
+
+const MAX_PAGES = (() => {
+  const raw = Number(process.env.RETENTION_MAX_PAGES);
+  return Number.isFinite(raw) && raw > 0 && raw <= 50 ? raw : 10;
+})();
+
+/** Parallel per-user sendPush() calls (each is a handful of reads + one FCM call). */
+const SEND_CONCURRENCY = 10;
 
 const TEST_MODE = process.env.RETENTION_TEST_MODE === 'true';
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -99,6 +126,58 @@ function interpolate(template: string, vars: Record<string, string>): string {
   return template.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? '');
 }
 
+export interface RetentionCandidate {
+  uid: string;
+  name: string;
+  daysSince: number;
+}
+
+/**
+ * The push for ONE user — their own name (fallback 'חבר', as before) and
+ * their own days-since. Exported for tests.
+ */
+export function buildRetentionMessage(c: RetentionCandidate): {
+  variant: number;
+  title: string;
+  body: string;
+} {
+  const variant = variantIndex(c.uid);
+  const vars = { name: c.name.trim() || 'חבר', days_since: String(c.daysSince) };
+  return {
+    variant,
+    title: interpolate(VARIANTS[variant].title, vars),
+    body: interpolate(VARIANTS[variant].body, vars),
+  };
+}
+
+/**
+ * Inactivity candidate from a users/{uid} doc, or null when the user should
+ * be skipped (push/retention opted out, no usable lastActive, or active more
+ * recently than INACTIVITY_DAYS). Exported for tests.
+ */
+export function toRetentionCandidate(
+  uid: string,
+  data: Record<string, unknown>,
+  nowMs: number = Date.now(),
+): RetentionCandidate | null {
+  const settings = data?.settings as Record<string, unknown> | undefined;
+  if (settings?.pushEnabled === false) return null;
+  const prefs = settings?.notificationPrefs as Record<string, unknown> | undefined;
+  if (prefs?.retention === false) return null;
+
+  // No lastActive → skip (never treated as "inactive forever").
+  const lastMs = toMillis(data?.lastActive);
+  if (lastMs === null) return null;
+  const daysSince = Math.floor((nowMs - lastMs) / MS_PER_DAY);
+  if (daysSince < INACTIVITY_DAYS) return null;
+
+  return {
+    uid,
+    name: String((data?.core as Record<string, unknown> | undefined)?.name ?? ''),
+    daysSince,
+  };
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export const retentionScheduler = onSchedule(
@@ -115,72 +194,48 @@ export const retentionScheduler = onSchedule(
         `batchLimit=${BATCH_LIMIT} testMode=${TEST_MODE}`,
     );
 
-    const cutoff = admin.firestore.Timestamp.fromMillis(
-      Date.now() - INACTIVITY_DAYS * MS_PER_DAY,
-    );
-
-    // Query completed-onboarding users who haven't been active recently.
-    // NOTE: Users with no `lastActive` field are also candidates (never logged
-    // a workout). We handle them by fetching all COMPLETED users and filtering
-    // client-side, because Firestore doesn't support "field absent OR field < X"
-    // in a single query.
-    let docs: admin.firestore.QueryDocumentSnapshot[];
-    try {
-      const snap = await db
-        .collection('users')
-        .where('onboardingStatus', '==', 'COMPLETED')
-        .limit(BATCH_LIMIT)
-        .get();
-      docs = snap.docs;
-    } catch (err: unknown) {
-      logger.error('[retention] Firestore query failed', err);
+    if (isShabbatOrYomTov()) {
+      logger.info('[retention] Shabbat/yom tov — skipping run.');
       return;
     }
 
-    logger.info(`[retention] ${docs.length} COMPLETED user(s) fetched`);
+    const nowMs = Date.now();
+    const cutoff = admin.firestore.Timestamp.fromMillis(nowMs - INACTIVITY_DAYS * MS_PER_DAY);
 
-    // Filter to inactivity candidates client-side.
-    interface Candidate { uid: string; name: string; daysSince: number }
-    const candidates: Candidate[] = [];
-
-    for (const doc of docs) {
-      const data = doc.data() as Record<string, unknown>;
-
-      // Skip if push globally disabled
-      const pushEnabled = (data?.settings as Record<string, unknown> | undefined)?.pushEnabled;
-      if (pushEnabled === false) continue;
-
-      // Skip if retention channel disabled
-      const retentionPref = (
-        (data?.settings as Record<string, unknown> | undefined)
-          ?.notificationPrefs as Record<string, unknown> | undefined
-      )?.retention;
-      if (retentionPref === false) continue;
-
-      // Check inactivity
-      const lastActive = data?.lastActive;
-      let daysSince: number;
-      if (!lastActive) {
-        daysSince = INACTIVITY_DAYS; // treat missing as inactive
-      } else {
-        const lastMs = toMillis(lastActive);
-        if (lastMs === null) {
-          daysSince = INACTIVITY_DAYS;
-        } else {
-          daysSince = Math.floor((Date.now() - lastMs) / MS_PER_DAY);
+    // Candidates = COMPLETED users whose lastActive <= cutoff, most recently
+    // churned first, cursor-paginated. Users with no lastActive never match.
+    // Composite index: onboardingStatus ASC + lastActive DESC.
+    const candidates: RetentionCandidate[] = [];
+    let fetched = 0;
+    let cursor: admin.firestore.QueryDocumentSnapshot | null = null;
+    try {
+      for (let page = 0; page < MAX_PAGES; page++) {
+        let q = db
+          .collection('users')
+          .where('onboardingStatus', '==', 'COMPLETED')
+          .where('lastActive', '<=', cutoff)
+          .orderBy('lastActive', 'desc')
+          .limit(BATCH_LIMIT);
+        if (cursor) q = q.startAfter(cursor);
+        const snap = await q.get();
+        fetched += snap.docs.length;
+        for (const doc of snap.docs) {
+          const c = toRetentionCandidate(doc.id, doc.data() as Record<string, unknown>, nowMs);
+          if (c) candidates.push(c);
         }
+        if (snap.docs.length < BATCH_LIMIT) break;
+        cursor = snap.docs[snap.docs.length - 1];
       }
-
-      if (daysSince < INACTIVITY_DAYS) continue;
-
-      candidates.push({
-        uid: doc.id,
-        name: String((data?.core as Record<string, unknown> | undefined)?.name ?? ''),
-        daysSince,
-      });
+    } catch (err: unknown) {
+      logger.error('[retention] Firestore query failed', err);
+      if (candidates.length === 0) return;
+      // Partial pages already read are still valid — send to those.
     }
 
-    logger.info(`[retention] ${candidates.length} inactivity candidate(s) after filter`);
+    logger.info(
+      `[retention] ${fetched} inactive COMPLETED user(s) fetched, ` +
+        `${candidates.length} candidate(s) after pref filter`,
+    );
 
     if (candidates.length === 0) return;
 
@@ -193,55 +248,34 @@ export const retentionScheduler = onSchedule(
       return;
     }
 
-    // Group candidates by variant so we can batch-send per message text.
-    // push.service.ts rate cap (24h) prevents double-sending across runs.
-    const byVariant = new Map<number, Candidate[]>();
-    candidates.forEach((c) => {
-      const idx = variantIndex(c.uid);
-      if (!byVariant.has(idx)) byVariant.set(idx, []);
-      byVariant.get(idx)!.push(c);
-    });
-
+    // One send per user — each gets their own name + days-since.
+    // push.service.ts rate cap (48h) prevents double-sending across runs.
     let totalDelivered = 0;
     let totalSkipped = 0;
 
-    for (const [idx, group] of Array.from(byVariant.entries()) as [number, Candidate[]][]) {
-      const variant = VARIANTS[idx];
-
-      // Use the first candidate's daysSince for the batch title/body
-      // (all share the same template structure; individual days differ slightly,
-      // but for broadcast efficiency we pick the group median).
-      const medianDays = group[Math.floor(group.length / 2)].daysSince;
-      const sampleName = group[0].name || 'חבר';
-
-      const title = interpolate(variant.title, {
-        name: sampleName,
-        days_since: String(medianDays),
-      });
-      const body = interpolate(variant.body, {
-        name: sampleName,
-        days_since: String(medianDays),
-      });
-
-      const uids = group.map((c) => c.uid);
-
+    const sendOne = async (c: RetentionCandidate): Promise<void> => {
+      const { variant, title, body } = buildRetentionMessage(c);
       try {
         const result = await sendPush({
-          toUids: uids,
+          toUids: [c.uid],
           channel: 'retention',
           title,
           body,
           deepLink: '/',
-          data: { triggerType: 'Inactivity', daysSince: String(medianDays) },
+          data: { triggerType: 'Inactivity', daysSince: String(c.daysSince) },
           rateCapHours: 48,
-          skipQuietHours: true,
         });
         totalDelivered += result.delivered;
-        totalSkipped += result.skippedRateCap + result.skippedPrefs;
-        logger.info(`[retention] variant=${idx} uids=${uids.length} result=${JSON.stringify(result)}`);
+        totalSkipped +=
+          result.skippedRateCap + result.skippedPrefs + result.skippedDailyCap +
+          result.skippedQuietHours + result.skippedShabbat + result.skippedGlobalKill;
       } catch (err: unknown) {
-        logger.error(`[retention] sendPush failed for variant=${idx}`, err);
+        logger.error(`[retention] sendPush failed for uid=${c.uid} variant=${variant}`, err);
       }
+    };
+
+    for (let i = 0; i < candidates.length; i += SEND_CONCURRENCY) {
+      await Promise.all(candidates.slice(i, i + SEND_CONCURRENCY).map(sendOne));
     }
 
     logger.info(

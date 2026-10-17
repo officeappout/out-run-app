@@ -59,8 +59,17 @@
  * ═══════════════════════════════════════════════════════════════════════
  * SCHEDULE
  * ═══════════════════════════════════════════════════════════════════════
- * 18:00 Asia/Jerusalem daily — sits inside active hours, `skipQuietHours:
- * true` matches every other scheduled job's own reasoning.
+ * 18:00 Asia/Jerusalem daily — sits inside active hours. Quiet hours are
+ * NOT bypassed (since 17.10.2026 — one uniform policy; the check is free at
+ * 18:00). Shabbat/yom tov is enforced by sendPush() itself.
+ *
+ * MORNING-ONLY BUCKET
+ * ───────────────────
+ * The 'start' bucket (<25% of goal) is seeded with MORNING copy only ("יום
+ * חדש", "בוא/י נתחיל את היום נכון", "לפני שיושבים מול המסך כל היום") — so
+ * from noon on, 'start'-bucket users are skipped rather than sent a
+ * good-morning message at 18:00 (see isMorningOnlyBucketAtThisHour). They
+ * come back once evening copy for that bucket exists.
  */
 
 import { onSchedule } from 'firebase-functions/v2/scheduler';
@@ -137,6 +146,16 @@ function timeOfDayIsrael(): string {
 
 const FEATURE_FLAGS_DOC = 'app_config/feature_flags';
 
+/** Local Israel hour (0–23). */
+function hourIsrael(): number {
+  return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jerusalem' })).getHours();
+}
+
+/** 'start' copy is morning-only (see header) — don't use it from noon on. */
+export function isMorningOnlyBucketAtThisHour(bucket: string, hour: number): boolean {
+  return bucket === 'start' && hour >= 12;
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /** Current date in Asia/Jerusalem as YYYY-MM-DD — matches the format
@@ -207,9 +226,12 @@ async function fetchTodaySteps(uids: string[], dateStr: string): Promise<Map<str
 
 async function dispatchToUser(
   user: CandidateUser,
-): Promise<{ sent: boolean; reason?: string; bucket: string }> {
+): Promise<{ sent: boolean; reason?: string; bucket: string; morningOnly?: boolean }> {
   const persona = resolveCanonicalPersona(user.personaProfile);
   const bucket = computeDailyGoalBucket(user.todaySteps, user.dailyStepGoal);
+  if (isMorningOnlyBucketAtThisHour(bucket, hourIsrael())) {
+    return { sent: false, bucket, reason: 'morning-only bucket at an afternoon/evening run', morningOnly: true };
+  }
   const selected = await selectNotificationContent({
     triggerType: TRIGGER_TYPE,
     activityType: ACTIVITY_TYPE,
@@ -248,7 +270,6 @@ async function dispatchToUser(
     deepLink,
     data: { triggerType: 'DailyGoal', bundleId: selected.bundleId },
     rateCapHours: 24,
-    skipQuietHours: true,
     measurement: {
       variantId: selected.bundleId,
       category: TRIGGER_TYPE,
@@ -358,6 +379,7 @@ export const stepGoalNudgeScheduler = onSchedule(
     // counter would bury a real gap under the normal daily hit/over cohort.
     let skippedBelowGoalNoContent = 0;
     let skippedAtOrOverGoalNoContent = 0;
+    let skippedMorningOnlyBucket = 0;
     let errors = 0;
 
     for (const user of candidates) {
@@ -365,6 +387,8 @@ export const stepGoalNudgeScheduler = onSchedule(
         const outcome = await dispatchToUser(user);
         if (outcome.sent) {
           sent += 1;
+        } else if (outcome.morningOnly) {
+          skippedMorningOnlyBucket += 1;
         } else if (outcome.reason) {
           if (outcome.bucket === 'hit' || outcome.bucket === 'over') {
             skippedAtOrOverGoalNoContent += 1;
@@ -382,6 +406,7 @@ export const stepGoalNudgeScheduler = onSchedule(
       `[stepGoalNudge] run complete — candidates=${candidates.length} sent=${sent} ` +
         `skippedBelowGoalNoContent=${skippedBelowGoalNoContent} ` +
         `skippedAtOrOverGoalNoContent=${skippedAtOrOverGoalNoContent} (expected — no hit/over copy seeded yet) ` +
+        `skippedMorningOnlyBucket=${skippedMorningOnlyBucket} ` +
         `errors=${errors}`,
     );
   },
