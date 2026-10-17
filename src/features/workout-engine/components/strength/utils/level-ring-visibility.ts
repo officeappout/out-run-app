@@ -17,7 +17,10 @@ export function isProgressionSkippedNoQuestionnaire(
   return result?.skipped === 'no_questionnaire';
 }
 
-/** The level ring shows on a live (not history) summary unless progression was skipped. */
+/**
+ * The level ring — and the gain card ("התקדמות") under it — show on a live (not history)
+ * summary unless progression was skipped. One rule for both cards so they can't drift apart.
+ */
 export function shouldShowLevelRing({
   isReadOnly,
   progressionResult,
