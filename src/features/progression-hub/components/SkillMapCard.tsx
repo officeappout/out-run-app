@@ -30,6 +30,7 @@ import { resolveToSlug } from '@/features/workout-engine/services/program-hierar
 import { useUserProgramLevel } from '@/features/progression-map/hooks/useUserProgramLevel';
 import { useSkillTree } from '@/features/progression-map/hooks/useSkillTree';
 import { resolveProgressionMapDestination } from '@/lib/progression-map-config';
+import ParentProgramSheet from '@/features/profile/components/widgets/ParentProgramSheet';
 
 /**
  * Phase 4b round 5 fix: the displayed name used to fall back to the raw
@@ -90,19 +91,17 @@ export function SkillMapCard({ programId, nameHe, state, lockedHint, badge, onAs
   const fallbackName = nameHe !== programId ? nameHe : resolveProgramLabel(slug);
   const displayName = programMeta?.name ?? fallbackName;
 
-  // Progression v2 Phase 4a: "the existing program view" only exists for
-  // Skill-Tree leaf programs (/progression-map/[programId]) — a composite/
-  // master program has no tree of its own (the same known gap Feature #5's
-  // program switcher already hit). For a master, fall back to /profile,
-  // where ProgramsSection already shows master detail — a second EXISTING
-  // destination, not a new one, chosen per program type. Shared with
-  // ProgramsSection's own tap target via resolveProgressionMapDestination —
-  // see that function's own comment for why it resolves both the raw-id and
-  // slug forms of programId (main independently found and inline-patched
-  // this exact gap while #86 was still open — see that commit's own note
-  // citing this branch; converged back onto the shared helper here instead
-  // of keeping two copies of the identical fix).
+  // A leaf opens its own map. A parent program has no map of its own, so it
+  // opens ParentProgramSheet (its children + their average) — it used to
+  // fall back to '/profile', bouncing the user away from this tab. Shared
+  // with ProgramsSection via resolveProgressionMapDestination (handles both
+  // the raw-id and slug forms of programId).
   const destination = resolveProgressionMapDestination(programId);
+  const [parentSheetOpen, setParentSheetOpen] = useState(false);
+  const onTap = () => {
+    if (destination) router.push(destination);
+    else setParentSheetOpen(true);
+  };
 
   // div role="button" (not a real <button>) so ProgramProgressCard can host
   // its own REAL nested <button> for the "בצע מבדק" secondary CTA
@@ -113,8 +112,8 @@ export function SkillMapCard({ programId, nameHe, state, lockedHint, badge, onAs
     <div
       role="button"
       tabIndex={0}
-      onClick={() => router.push(destination)}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') router.push(destination); }}
+      onClick={onTap}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onTap(); }}
       className="w-full text-right active:opacity-80 transition-opacity cursor-pointer"
     >
       <ProgramProgressCard
@@ -129,6 +128,13 @@ export function SkillMapCard({ programId, nameHe, state, lockedHint, badge, onAs
         badge={badge}
         className="pointer-events-none"
       />
+      {!destination && (
+        // stopPropagation: taps inside the portalled sheet still bubble
+        // through the React tree to this card's onClick.
+        <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+          <ParentProgramSheet parentId={parentSheetOpen ? programId : null} onClose={() => setParentSheetOpen(false)} />
+        </div>
+      )}
     </div>
   );
 }

@@ -76,7 +76,7 @@ export function countConfiguredDomainChildren(
 /**
  * Collapse a raw tracks map (mixed id/slug keys, per-key {currentLevel})
  * into one slug-normalized {slug: level} map, keeping only real (>0)
- * levels. Shared by useProgramCardState.ts and useGatedProgramBuckets.ts —
+ * levels. Shared by useProgramCardState.ts and progress-hub-bucketing.service.ts —
  * extracted (Phase 4b round 5) so a third caller doesn't fork a copy.
  */
 export function buildFlatTracksBySlug(
@@ -107,6 +107,17 @@ export type ProgramCardVisualState = 'active' | 'tracked' | 'available' | 'locke
 export interface ProgramCardStateResult {
   state: ProgramCardVisualState;
   lockedHint?: string;
+  /**
+   * Which domain the "בצע מבדק" CTA should assess (slug space). Set only
+   * when lockedHint === NEEDS_ASSESSMENT_HINT. For a never-assessed leaf
+   * with no missing prerequisite it is the program's own slug (its own
+   * questionnaire). For needs_assessment it is the MISSING PREREQUISITE
+   * domain (e.g. 'pull' for front lever): the skill can't be placed until
+   * that domain has a level, so that is the questionnaire to run. Before
+   * this field existed the CTA always started the skill's own
+   * questionnaire, which never cleared the missing prerequisite.
+   */
+  assessDomainSlug?: string;
 }
 
 /**
@@ -120,7 +131,7 @@ export interface ProgramCardStateResult {
 export const NEEDS_ASSESSMENT_HINT = 'בצע מבדק';
 
 /** Hebrew labels for the 4 broad-domain slugs a derived prerequisite can name. */
-const DOMAIN_HEBREW_LABELS: Record<string, string> = {
+export const DOMAIN_HEBREW_LABELS: Record<string, string> = {
   pull: 'משיכה',
   push: 'דחיפה',
   core: 'ליבה',
@@ -186,11 +197,16 @@ export function resolveProgramCardState(params: {
     // instead (never a fabricated own level, never an assessment CTA
     // that doesn't exist for it).
     return params.isLeafSkillProgram
-      ? { state: 'locked_prereq', lockedHint: NEEDS_ASSESSMENT_HINT }
+      ? { state: 'locked_prereq', lockedHint: NEEDS_ASSESSMENT_HINT, assessDomainSlug: params.programSlug }
       : { state: 'not_started_master' };
   }
   if (rawState === 'needs_assessment') {
-    return { state: 'locked_prereq', lockedHint: NEEDS_ASSESSMENT_HINT };
+    const missing = gate.status === 'needs_assessment' ? gate.requirements[0]?.domainProgramId : undefined;
+    return {
+      state: 'locked_prereq',
+      lockedHint: NEEDS_ASSESSMENT_HINT,
+      assessDomainSlug: missing ?? params.programSlug,
+    };
   }
   // locked_prereq, and the (this-phase-unreachable) locked_pro folded the same way.
   // Phase 4c-2: render EVERY unmet requirement, not just the first — a
@@ -199,15 +215,20 @@ export function resolveProgramCardState(params: {
   // already correctly requires all of them; the hint text must name all of
   // them too, or a user missing two domains only ever sees one.
   if (gate.status === 'locked_prereq' && gate.requirements.length > 0) {
-    const parts = gate.requirements.map((req) => {
-      const label = DOMAIN_HEBREW_LABELS[req.domainProgramId] ?? req.domainProgramId;
-      return `${label} ${req.need}`;
-    });
-    const joined =
-      parts.length === 1
-        ? parts[0]
-        : `${parts.slice(0, -1).join(', ')} ו${parts[parts.length - 1]}`;
-    return { state: 'locked_prereq', lockedHint: `דרוש ${joined}` };
+    return { state: 'locked_prereq', lockedHint: formatRequirementsHint(gate.requirements) };
   }
   return { state: 'locked_prereq' };
+}
+
+/** "דרוש משיכה 8" / "דרוש דחיפה 10 ומשיכה 10" — every unmet requirement (an AND). */
+export function formatRequirementsHint(requirements: readonly { domainProgramId: string; need: number }[]): string {
+  const parts = requirements.map((req) => {
+    const label = DOMAIN_HEBREW_LABELS[req.domainProgramId] ?? req.domainProgramId;
+    return `${label} ${req.need}`;
+  });
+  const joined =
+    parts.length === 1
+      ? parts[0]
+      : `${parts.slice(0, -1).join(', ')} ו${parts[parts.length - 1]}`;
+  return `דרוש ${joined}`;
 }

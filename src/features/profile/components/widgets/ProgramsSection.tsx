@@ -6,9 +6,14 @@
  * Shows up to three groups:
  *   1. "תוכנית פעילה"    — the master program card for activePrograms[0]
  *                          (same ProgramProgressCard as Home)
- *   2. "תוכניות בנות"    — one card per child slug from MASTER_PROGRAM_CHILDREN,
- *                          derived from activePrograms[0] — unchanged from before
- *                          multi-program support was added.
+ *   2. "תוכניות בנות"    — the ASSESSED child programs of activePrograms[0]
+ *                          when it is a parent. Children come from
+ *                          resolveParentChildSlugs (Program.subPrograms /
+ *                          the engine's lists — full_body now includes core;
+ *                          the old hardcoded MASTER_PROGRAM_CHILDREN had
+ *                          push/pull/legs only and no other parent).
+ *   2b. "עוד לא בדקת רמה" — the UNASSESSED children, each with a level-check
+ *                          CTA (the workouts leave them out until then).
  *   3. "תוכניות נוספות"  — one card per OTHER entry in activePrograms
  *                          (index 1+): genuinely independent programs the
  *                          user is active in that are NOT a parent/child of
@@ -20,8 +25,9 @@
  * Tapping an assessed card navigates to that program's Skill-Tree detail
  * page (/progression-map/[programId]) — the same destination the
  * /progression hub's SkillMapCard already uses for the identical program,
- * via the identical isProgressionMapLeafProgram check (a composite/master
- * program with no tree of its own falls back to /profile, same as there).
+ * via the identical resolveProgressionMapDestination. A parent program (no
+ * map of its own) opens ParentProgramSheet; it used to route to '/profile',
+ * i.e. do nothing here.
  */
 
 import React, { useEffect, useState } from 'react';
@@ -30,7 +36,6 @@ import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { getProgramByTemplateId } from '@/features/content/programs/core/program.service';
 import {
   useProgramProgress,
-  MASTER_PROGRAM_CHILDREN,
   MASTER_LEVEL_CAP,
 } from '@/features/home/hooks/useProgramProgress';
 import { ProgramProgressCard } from '@/features/home/components/widgets/ProgramProgressCard';
@@ -40,6 +45,11 @@ import { startMiniDomainAssessment, type MiniAssessmentDomainType } from '@/feat
 import { isDomainAssessed, resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { resolveProgressionMapDestination } from '@/lib/progression-map-config';
 import { resolveAdditionalProgramSlugs, domainTypeForSlug } from './program-groups.utils';
+import {
+  NEEDS_ASSESSMENT_EXPLAINER,
+  resolveParentChildSlugs,
+} from '@/features/progression-map/services/progress-hub-bucketing.service';
+import ParentProgramSheet from './ParentProgramSheet';
 import { resolveOnboardingEntryHref } from '@/features/user/onboarding/utils/onboarding-entry';
 
 import BrandCtaButton from '@/components/ui/BrandCtaButton';
@@ -117,18 +127,37 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
   const [childMeta, setChildMeta] = useState<Record<string, Program>>({});
   // Resolved metadata for additional (index 1+) independent active programs
   const [additionalMeta, setAdditionalMeta] = useState<Record<string, Program>>({});
+  // The master's own Program doc — only its subPrograms are read here.
+  const [masterMeta, setMasterMeta] = useState<Program | null>(null);
+  // Parent program whose ParentProgramSheet is open (null = closed).
+  const [sheetParentId, setSheetParentId] = useState<string | null>(null);
 
   // Resolve the master program templateId
   const masterTemplateId =
     profile?.progression?.activePrograms?.[0]?.templateId ?? null;
   // masterTemplateId is the raw Firestore doc ID — needed as-is for
-  // fetchProgramMeta below (a real Firestore lookup). MASTER_PROGRAM_CHILDREN
-  // and tracks are keyed by slug — resolve separately for those lookups.
+  // fetchProgramMeta below (a real Firestore lookup). Children and tracks
+  // are keyed by slug — resolve separately for those lookups.
   const masterSlug = masterTemplateId ? resolveToSlug(masterTemplateId) : null;
+  // A leaf master (e.g. activePrograms = [planche]) has its own map and no children.
+  const masterIsParent = !!masterTemplateId && resolveProgressionMapDestination(masterTemplateId) === null;
 
-  // Derived children for this master
-  const childSlugs: readonly string[] = masterSlug
-    ? (MASTER_PROGRAM_CHILDREN[masterSlug] ?? [])
+  useEffect(() => {
+    setMasterMeta(null);
+    if (!masterTemplateId || !masterIsParent) return;
+    let cancelled = false;
+    fetchProgramMeta(masterTemplateId).then((meta) => { if (!cancelled) setMasterMeta(meta); });
+    return () => { cancelled = true; };
+  }, [masterTemplateId, masterIsParent]);
+
+  // Derived children for this master (same rule the server's averaging reads).
+  const skillFocusKey = (profile?.progression?.skillFocusIds ?? []).join(',');
+  const childSlugs: readonly string[] = masterSlug && masterIsParent
+    ? resolveParentChildSlugs(
+        masterSlug,
+        masterMeta?.subPrograms?.map(resolveToSlug),
+        skillFocusKey ? skillFocusKey.split(',').map(resolveToSlug) : [],
+      )
     : [];
 
   // ── Additional independent active programs (index 1+) ────────────────
@@ -193,14 +222,18 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
   // ── Navigate to a program's detail page — shared with SkillMapCard's
   // identical tap target (resolveProgressionMapDestination handles both the
   // raw-id and slug forms, since real program data mixes both). ──
-  const goToMasterProgram = () => {
-    if (!masterTemplateId) return;
-    router.push(resolveProgressionMapDestination(masterTemplateId));
+  const openProgram = (idOrSlug: string) => {
+    const destination = resolveProgressionMapDestination(idOrSlug);
+    if (destination) router.push(destination);
+    else setSheetParentId(idOrSlug);
   };
 
-  const goToProgram = (slug: string) => {
-    router.push(resolveProgressionMapDestination(slug));
+  const goToMasterProgram = () => {
+    if (!masterTemplateId) return;
+    openProgram(masterTemplateId);
   };
+
+  const goToProgram = (slug: string) => openProgram(slug);
 
   // ── Build card data for a given slug (shared by children + additional programs) ──
   const buildCardData = (slug: string, meta: Program | undefined): ChildCardData => {
@@ -223,6 +256,8 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
   };
 
   const childCards: ChildCardData[] = childSlugs.map((slug) => buildCardData(slug, childMeta[slug]));
+  const assessedChildCards = childCards.filter((c) => c.isAssessed);
+  const unassessedChildCards = childCards.filter((c) => !c.isAssessed);
 
   // Additional independent active programs (index 1+) — same card shape as
   // children, just sourced from activePrograms directly instead of
@@ -275,7 +310,7 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
           <h3 className="text-[15px] font-bold text-gray-500 dark:text-gray-400 line-clamp-2 break-words leading-snug">
             {card.name}
           </h3>
-          <p className="text-xs font-bold text-[#00C9F2] mt-2">טרם הוערך — לחצו לבדיקה</p>
+          <p className="text-xs font-bold text-[#00C9F2] mt-2">עוד לא נבדקה רמה · בדקו רמה</p>
         </div>
       </button>
     );
@@ -316,13 +351,17 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-extrabold text-v2-ink-2">{card.name}</p>
-          <p className="mt-0.5 truncate text-[12.5px] font-bold text-v2-deep">טרם הוערך — לחצו לבדיקה</p>
+          <p className="mt-0.5 truncate text-[12.5px] font-bold text-v2-deep">עוד לא נבדקה רמה · בדקו רמה</p>
         </div>
         <ChevronLeft className="h-4 w-4 shrink-0 text-v2-muted" aria-hidden />
       </button>
     );
 
   const hasAnyProgram = !(!masterTemplateId && childSlugs.length === 0 && additionalCards.length === 0);
+
+  const parentSheet = (
+    <ParentProgramSheet parentId={sheetParentId} onClose={() => setSheetParentId(null)} v2={v2} />
+  );
 
   if (v2 && !hasAnyProgram) {
     return (
@@ -384,11 +423,23 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
           </div>
         )}
 
-        {childCards.length > 0 && (
+        {assessedChildCards.length > 0 && (
           <div className="space-y-2">
             <p className="text-[13px] font-extrabold text-v2-deep">תוכניות בנות</p>
             <div className="flex flex-col gap-2">
-              {childCards.map((card) => renderRowV2(card, 'category'))}
+              {assessedChildCards.map((card) => renderRowV2(card, domainTypeForSlug(card.slug)))}
+            </div>
+          </div>
+        )}
+
+        {unassessedChildCards.length > 0 && (
+          <div className="space-y-2">
+            <div>
+              <p className="text-[13px] font-extrabold text-v2-deep">עוד לא בדקת רמה</p>
+              <p className="mt-0.5 text-[12.5px] font-bold text-v2-muted">{NEEDS_ASSESSMENT_EXPLAINER}</p>
+            </div>
+            <div className="flex flex-col gap-2">
+              {unassessedChildCards.map((card) => renderRowV2(card, domainTypeForSlug(card.slug)))}
             </div>
           </div>
         )}
@@ -401,6 +452,8 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
             </div>
           </div>
         )}
+
+        {parentSheet}
       </div>
     );
   }
@@ -467,12 +520,25 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
         </div>
       )}
 
-      {/* Group 2 — Child programs (unchanged: derived from activePrograms[0] only) */}
-      {childCards.length > 0 && (
+      {/* Group 2 — Assessed child programs of activePrograms[0] */}
+      {assessedChildCards.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs font-bold text-gray-400 tracking-wide">תוכניות בנות</p>
           <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-            {childCards.map((card) => renderCardTile(card, childCards.length, 'category'))}
+            {assessedChildCards.map((card) => renderCardTile(card, assessedChildCards.length, domainTypeForSlug(card.slug)))}
+          </div>
+        </div>
+      )}
+
+      {/* Group 2b — Child programs whose level was never checked */}
+      {unassessedChildCards.length > 0 && (
+        <div className="space-y-2">
+          <div>
+            <p className="text-xs font-bold text-gray-400 tracking-wide">עוד לא בדקת רמה</p>
+            <p className="mt-0.5 text-xs font-medium text-gray-500">{NEEDS_ASSESSMENT_EXPLAINER}</p>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+            {unassessedChildCards.map((card) => renderCardTile(card, unassessedChildCards.length, domainTypeForSlug(card.slug)))}
           </div>
         </div>
       )}
@@ -486,6 +552,8 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
           </div>
         </div>
       )}
+
+      {parentSheet}
     </div>
   );
 }

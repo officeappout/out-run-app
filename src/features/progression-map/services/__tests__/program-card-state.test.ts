@@ -74,7 +74,7 @@ describe('resolveProgramCardState', () => {
       activeProgramSlugs: new Set(['pull']),
       resolveDomainSlug: identitySlug,
     });
-    expect(result).toEqual({ state: 'locked_prereq', lockedHint: 'בצע מבדק' });
+    expect(result).toEqual({ state: 'locked_prereq', lockedHint: 'בצע מבדק', assessDomainSlug: 'front_lever' });
   });
 
   it('locked_prereq: below the required level -> the derived "דרוש X Y" hint', () => {
@@ -132,7 +132,7 @@ describe('resolveProgramCardState', () => {
         activeProgramSlugs: new Set(),
         resolveDomainSlug: pushPullSlug,
       });
-      expect(result).toEqual({ state: 'locked_prereq', lockedHint: 'בצע מבדק' });
+      expect(result).toEqual({ state: 'locked_prereq', lockedHint: 'בצע מבדק', assessDomainSlug: 'muscle_up' });
     });
   });
 
@@ -146,7 +146,9 @@ describe('resolveProgramCardState', () => {
       activeProgramSlugs: new Set(),
       resolveDomainSlug: identitySlug,
     });
-    expect(result).toEqual({ state: 'locked_prereq', lockedHint: 'בצע מבדק' });
+    // The CTA must assess the MISSING PREREQUISITE (pull), not front lever's
+    // own questionnaire — that one can't clear the missing domain.
+    expect(result).toEqual({ state: 'locked_prereq', lockedHint: 'בצע מבדק', assessDomainSlug: 'pull' });
   });
 
   it('a non-leaf (master) program never gets prerequisite-derived, and folds "available" to not_started_master — never a fabricated own level, never "בצע מבדק" (no own questionnaire)', () => {
@@ -185,7 +187,7 @@ describe('resolveProgramCardState', () => {
       activeProgramSlugs: new Set(),
       resolveDomainSlug: identitySlug,
     });
-    expect(result).toEqual({ state: 'locked_prereq', lockedHint: 'בצע מבדק' });
+    expect(result).toEqual({ state: 'locked_prereq', lockedHint: 'בצע מבדק', assessDomainSlug: 'front_lever' });
   });
 
   describe('configuredMasterChildCount — Phase 4b round 3 (the "too many masters at L14" / "calisthenics_upper opens with only [pull]" fix)', () => {
