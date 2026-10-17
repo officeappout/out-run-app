@@ -1,10 +1,109 @@
 'use client';
 
-import { CalendarSync, Check, GripVertical, Plus } from 'lucide-react';
-import { Button } from '@/components/ui/v2';
+import { useState } from 'react';
+import { motion, useReducedMotion, type PanInfo } from 'framer-motion';
+import { CalendarSync, Check, ChevronLeft, ChevronRight, GripVertical, Plus } from 'lucide-react';
+import { Button, EASE_V2 } from '@/components/ui/v2';
 import LabFrame from '../_shared/LabFrame';
 import { AppIcon, BackBar, BottomNav, ICON } from '../_app/parts';
-import { PLAN } from '../home/fixtures';
+import { BrandFlame } from '../_app/brand';
+import { DayLetters, StreakRow, type StreakDay } from '../_app/week';
+import { PLAN, USER, WEEK } from '../home/fixtures';
+
+const LETTERS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+
+/** October 2026, Sunday-first rows. Demo history: a streak up to today (16th). */
+function octoberRows(): StreakDay[][] {
+  const first = 4; // 1 Oct 2026 is a Thursday
+  const cells: StreakDay[] = [];
+  for (let i = 0; i < 35; i++) {
+    const n = i - first + 1;
+    const inMonth = n >= 1 && n <= 31;
+    const date = inMonth ? n : n < 1 ? 30 + n : n - 31;
+    let status: StreakDay['status'] = 'rest';
+    let kind: StreakDay['kind'] = 'strength';
+    if (inMonth && n < 16) {
+      const pattern = [n % 7 === 3 ? 'rest' : 'done', 'done', 'done'];
+      status = (n === 2 || n === 6 || n === 9 || n === 15 ? 'rest' : n === 7 ? 'missed' : pattern[n % 3]) as StreakDay['status'];
+      kind = n % 4 === 1 ? 'steps' : n % 5 === 0 ? 'run' : 'strength';
+    }
+    if (n === 16) status = 'today';
+    if (inMonth && n > 16) {
+      status = [18, 20, 22, 24, 25, 27, 29, 31].includes(n) ? 'planned' : 'rest';
+      kind = n % 3 === 0 ? 'walk' : 'strength';
+    }
+    cells.push({ short: '', date, status, kind, muted: !inMonth });
+  }
+  return Array.from({ length: 5 }, (_, r) => cells.slice(r * 7, r * 7 + 7));
+}
+
+function CalendarPanel() {
+  const reduce = useReducedMotion();
+  const [expanded, setExpanded] = useState(false);
+  const rows = octoberRows();
+  const todayRow = rows.findIndex((r) => r.some((d) => d.status === 'today'));
+  const onDragEnd = (_: unknown, info: PanInfo) => {
+    if (info.offset.y > 15) setExpanded(true);
+    if (info.offset.y < -15) setExpanded(false);
+  };
+  return (
+    <div className="relative z-[2] -mt-1 mb-5">
+      <motion.div
+        layout
+        transition={{ duration: reduce ? 0 : 0.35, ease: EASE_V2 }}
+        className="overflow-hidden rounded-b-[28px] bg-white px-3 pb-3 pt-2 shadow-v2-card"
+      >
+        <div className="mb-2 flex items-center justify-between px-1">
+          {expanded ? (
+            <span className="flex items-center gap-1">
+              <button type="button" aria-label="החודש הקודם" className="grid h-8 w-8 place-items-center rounded-full text-v2-muted">
+                <ChevronRight size={18} strokeWidth={2.6} />
+              </button>
+              <span className="text-[16px] font-black">אוקטובר 2026</span>
+              <button type="button" aria-label="החודש הבא" className="grid h-8 w-8 place-items-center rounded-full text-v2-muted">
+                <ChevronLeft size={18} strokeWidth={2.6} />
+              </button>
+            </span>
+          ) : (
+            <span className="text-[15px] font-black">11–17 אוקטובר</span>
+          )}
+          <span className="flex items-center gap-1 rounded-full bg-v2-tint pe-3 ps-1.5 py-0.5 text-[12.5px] font-extrabold text-v2-deep">
+            <BrandFlame size={26} still />
+            {USER.streakDays} ימים ברצף
+          </span>
+        </div>
+        <DayLetters days={LETTERS.map((short) => ({ short }))} todayIndex={5} />
+        {expanded ? (
+          <div className="space-y-2">
+            {rows.map((r, i) => (
+              <StreakRow key={i} days={r} todayIndex={i === todayRow ? 5 : undefined} showDates cell={38} animateToday={i === todayRow} />
+            ))}
+          </div>
+        ) : (
+          <StreakRow
+            days={WEEK.map((d) => ({ ...d }))}
+            todayIndex={5}
+            showDates
+            cell={42}
+          />
+        )}
+      </motion.div>
+      <motion.button
+        type="button"
+        drag="y"
+        dragConstraints={{ top: 0, bottom: 0 }}
+        dragElastic={0.2}
+        onDragEnd={onDragEnd}
+        onClick={() => setExpanded((v) => !v)}
+        aria-label={expanded ? 'כווץ לוח שנה' : 'הרחב לוח שנה'}
+        aria-expanded={expanded}
+        className="mx-auto mt-2 flex h-6 w-24 cursor-grab touch-none items-center justify-center"
+      >
+        <span className="h-1.5 w-12 rounded-full bg-v2-pill-border" />
+      </motion.button>
+    </div>
+  );
+}
 
 /** The big planner (תכנון אימונים): two weeks, drag to move, + to add. */
 export default function ScheduleLab() {
@@ -14,7 +113,7 @@ export default function ScheduleLab() {
         <div>
           <div className="mb-1 text-[22px] font-black tracking-v2-tight">Design lab · תכנון אימונים</div>
           <p className="text-[14px] leading-relaxed text-v2-ink-2">
-            אותו מבנה כמו היום: רצועת שבוע ורשימת ימים. אימון שבוצע מסומן ב־✓ ולא בקו חוצה, ימי מנוחה שקטים. נתוני דמו בלבד.
+            כמו היום: לוח שנפתח משבוע לחודש (לחיצה או גרירה על הידית), עם הרצף המחובר. מתחת — רשימת הימים. נתוני דמו בלבד.
           </p>
         </div>
       }
@@ -28,6 +127,7 @@ export default function ScheduleLab() {
             </button>
           }
         />
+        <CalendarPanel />
         <div className="space-y-5 px-4">
           {PLAN.map((week, wi) => (
             <section key={week.range} aria-label={week.range}>
@@ -66,7 +166,7 @@ export default function ScheduleLab() {
                               }`}
                             >
                               {!d.done && <GripVertical size={15} strokeWidth={2.4} className="text-v2-muted/60" aria-hidden />}
-                              <AppIcon src={it.includes('הליכה') ? ICON.walk : it.includes('ריצה') ? ICON.run : ICON.strength} size={20} />
+                              <AppIcon src={it.includes('הליכה') || it.includes('צעדים') ? ICON.walk : it.includes('ריצה') ? ICON.run : ICON.strength} size={20} />
                               {it}
                               {d.done && (
                                 <span className="grid h-5 w-5 place-items-center rounded-full bg-v2-cta text-v2-on-cta">

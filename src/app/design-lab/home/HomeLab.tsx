@@ -3,14 +3,16 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Check, ChevronDown, ChevronLeft, MessageCircle, Pencil, Play, Search, Users } from 'lucide-react';
+import { Check, ChevronLeft, Pencil, Play, Sparkles } from 'lucide-react';
 import { Button, Card, EASE_V2 } from '@/components/ui/v2';
 import LabFrame, { LabStates } from '../_shared/LabFrame';
-import { AppIcon, Bolts, BottomNav, Faces, ICON, Ring, photo } from '../_app/parts';
+import { AppIcon, Bolts, BottomNav, ICON, Ring, photo } from '../_app/parts';
+import { AppHeader, BrandFlame, type LogoMode } from '../_app/brand';
+import { DayLetters, StreakRow, type StreakDay } from '../_app/week';
 import WorkoutDrawer from './WorkoutDrawer';
+import BuilderSheet from './BuilderSheet';
 import {
   ACTIVE_MINUTES,
-  AGENDA,
   NEARBY_PARKS,
   STEPS_DETAIL,
   TODAY_CARDS,
@@ -27,6 +29,12 @@ const STATES: { id: TodayState; label: string }[] = [
   { id: 'rest', label: 'יום מנוחה' },
 ];
 
+const LOGOS: { id: LogoMode; label: string }[] = [
+  { id: 'out', label: 'OUT' },
+  { id: 'cobrand', label: 'OUT + עירייה' },
+  { id: 'city', label: 'עירייה בלבד' },
+];
+
 const LAB_LINKS = [
   { href: '/design-lab/schedule', label: 'תכנון אימונים' },
   { href: '/design-lab/steps', label: 'צעדים' },
@@ -36,13 +44,18 @@ const LAB_LINKS = [
 
 export default function HomeLab() {
   const [state, setState] = useState<TodayState>('planned');
+  const [logo, setLogo] = useState<LogoMode>('out');
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [builderOpen, setBuilderOpen] = useState(false);
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     const s = q.get('state');
     if (s === 'planned' || s === 'done' || s === 'rest') setState(s);
+    const l = q.get('logo');
+    if (l === 'out' || l === 'cobrand' || l === 'city') setLogo(l);
     if (q.get('drawer') === '1') setDrawerOpen(true);
+    if (q.get('builder') === '1') setBuilderOpen(true);
   }, []);
 
   return (
@@ -51,13 +64,19 @@ export default function HomeLab() {
         <div>
           <div className="mb-1 text-[22px] font-black tracking-v2-tight">Design lab · בית</div>
           <p className="mb-6 text-[14px] leading-relaxed text-v2-ink-2">
-            סבב 2: הלו״ז מעל האימון, כרטיס עם פייד־אאוט לבן, טאבים להתקדמות ולמדדי בריאות. נתוני דמו בלבד.
+            סבב 3: לוגו (גם של עירייה), להבת הרצף על הפרופיל, לו״ז עם רצף מחובר, מחולל אימונים מתחת לכרטיס. נתוני דמו בלבד.
           </p>
           <LabStates title="מצב היום" value={state} options={STATES} onChange={setState} />
-          <Button variant="dark" size="sm" onClick={() => setDrawerOpen(true)}>
-            פתח את דף האימון
-          </Button>
-          <div className="mt-5 mb-2 text-[13px] font-extrabold text-v2-deep">מסכים נוספים</div>
+          <LabStates title="לוגו בראש המסך" value={logo} options={LOGOS} onChange={setLogo} />
+          <div className="flex flex-wrap gap-2">
+            <Button variant="dark" size="sm" onClick={() => setDrawerOpen(true)}>
+              דף האימון
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setBuilderOpen(true)}>
+              מחולל האימונים
+            </Button>
+          </div>
+          <div className="mb-2 mt-5 text-[13px] font-extrabold text-v2-deep">מסכים נוספים</div>
           <div className="flex flex-wrap gap-2">
             {LAB_LINKS.map((l) => (
               <Link key={l.href} href={l.href} className="h-9 rounded-full bg-white px-4 text-[13px] font-extrabold leading-9 shadow-v2-ring">
@@ -69,51 +88,23 @@ export default function HomeLab() {
       }
     >
       <div className="h-full overflow-y-auto overscroll-contain pb-32">
-        <HomeHeader />
+        <AppHeader name={USER.firstName} streak={USER.streakDays + (state === 'done' ? 1 : 0)} logo={logo} />
+        <div className="px-4 pb-4 pt-4">
+          <div className="text-[24px] font-black leading-tight tracking-v2-tight">בוקר טוב, {USER.firstName}</div>
+          <div className="text-[13.5px] font-bold text-v2-muted">{TODAY_LABEL}</div>
+        </div>
         <div className="space-y-7">
           {state === 'done' && <DoneToday />}
           <WeekSchedule state={state} />
-          <TodayCarousel state={state} onOpen={() => setDrawerOpen(true)} />
+          <TodayCarousel state={state} onOpen={() => setDrawerOpen(true)} onBuild={() => setBuilderOpen(true)} />
           <ProgressTabs state={state} />
           <NearbyParks />
         </div>
       </div>
       <BottomNav active="home" />
       <WorkoutDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      <BuilderSheet open={builderOpen} onClose={() => setBuilderOpen(false)} />
     </LabFrame>
-  );
-}
-
-/* ── header ─────────────────────────────────────────────────────────────── */
-
-function HomeHeader() {
-  return (
-    <header className="flex items-center gap-3 px-4 pb-5 pt-[calc(env(safe-area-inset-top)+18px)]">
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-v2-cta text-[17px] font-black text-v2-on-cta shadow-v2-cta">
-        {USER.firstName[0]}
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="text-[22px] font-black leading-tight tracking-v2-tight">בוקר טוב, {USER.firstName}</div>
-        <div className="truncate text-[13px] font-bold text-v2-muted">{TODAY_LABEL}</div>
-      </div>
-      <span className="flex h-10 items-center gap-1 rounded-full bg-white pe-3 ps-2 shadow-v2-ring" aria-label={`${USER.streakDays} ימים ברצף`}>
-        <AppIcon src={ICON.flameStrength} size={22} />
-        <span className="text-[14px] font-black tabular-nums">{USER.streakDays}</span>
-      </span>
-      {[
-        { icon: Search, label: 'חיפוש' },
-        { icon: MessageCircle, label: 'הודעות' },
-      ].map(({ icon: Icon, label }) => (
-        <button
-          key={label}
-          type="button"
-          aria-label={label}
-          className="grid h-10 w-10 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
-        >
-          <Icon size={18} strokeWidth={2.4} />
-        </button>
-      ))}
-    </header>
   );
 }
 
@@ -139,7 +130,7 @@ function DoneToday() {
           </span>
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-[16px] font-black">אימון כוח בוצע</div>
+          <div className="text-[16px] font-black">אימון בפארק בוצע</div>
           <div className="text-[13px] font-bold text-v2-muted">{WORKOUT.minutes} דק׳ · 24 סטים · +12% נפח</div>
         </div>
         <Button variant="ghost" size="sm">
@@ -150,41 +141,16 @@ function DoneToday() {
   );
 }
 
-/* ── weekly schedule (לו״ז), expandable ─────────────────────────────────── */
-
-function DayMark({ status, kind, state }: { status: string; kind?: string; state: TodayState }) {
-  const today = status === 'today';
-  const isRest = status === 'rest' || (today && state === 'rest');
-  const done = status === 'done' || (today && state === 'done');
-  const icon = kind === 'walk' ? ICON.flameSteps : ICON.flameStrength;
-  return (
-    <span
-      className={`relative grid h-11 w-11 place-items-center rounded-[14px] ${
-        today ? 'bg-v2-tint ring-2 ring-v2-accent' : done ? 'bg-v2-surface' : ''
-      }`}
-    >
-      {isRest ? (
-        <span className="text-[14px] font-black italic text-v2-muted/70">
-          z<sup className="text-[9px]">z</sup>
-        </span>
-      ) : (
-        <AppIcon src={icon} size={24} className={status === 'missed' ? 'opacity-30 grayscale' : status === 'planned' ? 'opacity-50' : ''} />
-      )}
-      {done && (
-        <span className="absolute -bottom-1 -end-1 grid h-[18px] w-[18px] place-items-center rounded-full bg-v2-cta text-v2-on-cta ring-2 ring-white">
-          <Check size={11} strokeWidth={3.4} aria-hidden />
-        </span>
-      )}
-    </span>
-  );
-}
+/* ── weekly schedule (לו״ז) with a connected streak ─────────────────────── */
 
 function WeekSchedule({ state }: { state: TodayState }) {
-  const [open, setOpen] = useState(false);
-  const reduce = useReducedMotion();
-  const agenda = state === 'rest' ? AGENDA.filter((a) => a.kind !== 'strength') : AGENDA;
+  const todayIndex = WEEK.findIndex((d) => d.status === 'today');
+  const days: StreakDay[] = WEEK.map((d) =>
+    d.status === 'today' ? { ...d, status: state === 'done' ? 'done' : state === 'rest' ? 'rest' : 'today' } : d,
+  );
+  const streak = USER.streakDays + (state === 'done' ? 1 : 0);
   return (
-    <section aria-label="הלו״ז שלי">
+    <section aria-label="לו״ז אימונים">
       <SectionTitle
         action={
           <Link href="/design-lab/schedule" className="flex items-center gap-1 text-[14px] font-extrabold text-v2-deep">
@@ -193,95 +159,69 @@ function WeekSchedule({ state }: { state: TodayState }) {
           </Link>
         }
       >
-        הלו״ז שלי
+        לו״ז אימונים
       </SectionTitle>
-      <div className="mx-4 overflow-hidden rounded-v2-card bg-white shadow-v2-card">
-        <ol className="grid grid-cols-7 px-1.5 pt-3">
-          {WEEK.map((d) => {
-            const today = d.status === 'today';
-            return (
-              <li key={d.date} className="flex flex-col items-center gap-1">
-                <span className={`text-[12px] font-extrabold ${today ? 'text-v2-deep' : 'text-v2-muted'}`}>{d.short}</span>
-                <DayMark status={d.status} kind={d.kind} state={state} />
-                <span className={`text-[11px] font-bold tabular-nums ${today ? 'text-v2-deep' : 'text-v2-muted/80'}`}>{d.date}</span>
-              </li>
-            );
-          })}
-        </ol>
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          className="mt-2 flex w-full items-center justify-between border-t border-v2-hairline px-4 py-3 text-start"
-        >
+      <Link href="/design-lab/schedule" className="mx-4 block rounded-v2-card bg-white px-2 pb-3 pt-3 shadow-v2-card">
+        <DayLetters days={WEEK} todayIndex={todayIndex} />
+        <StreakRow days={days} todayIndex={todayIndex} />
+        <div className="mt-3 flex items-center justify-center gap-1.5 text-[12.5px] font-bold text-v2-muted">
+          <BrandFlame size={24} still />
           <span>
-            <span className="block text-[15px] font-extrabold">מה אפשר לעשות היום</span>
-            <span className="block text-[12.5px] font-bold text-v2-muted">{agenda.length} אפשרויות · שישי, 16 באוקטובר</span>
+            <b className="font-black text-v2-deep">{streak} ימים ברצף</b> · השיא שלך {USER.bestStreak}
           </span>
-          <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.25, ease: EASE_V2 }} className="grid h-8 w-8 place-items-center rounded-full bg-v2-surface">
-            <ChevronDown size={17} strokeWidth={2.6} aria-hidden />
-          </motion.span>
-        </button>
-        <AnimatePresence initial={false}>
-          {open && (
-            <motion.div
-              initial={reduce ? { opacity: 0 } : { height: 0, opacity: 0 }}
-              animate={reduce ? { opacity: 1 } : { height: 'auto', opacity: 1 }}
-              exit={reduce ? { opacity: 0 } : { height: 0, opacity: 0 }}
-              transition={{ duration: 0.32, ease: EASE_V2 }}
-              className="overflow-hidden"
-            >
-              <ol className="space-y-1.5 px-3 pb-3">
-                {agenda.map((a) => {
-                  const done = a.kind === 'strength' && state === 'done';
-                  const now = a.now && state === 'planned';
-                  const icon = a.kind === 'strength' ? ICON.strength : a.kind === 'steps' ? ICON.walk : null;
-                  const row = (
-                    <span className={`flex items-center gap-3 rounded-[16px] px-2.5 py-2.5 ${now ? 'bg-v2-tint' : 'bg-v2-surface/60'}`}>
-                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] bg-white shadow-v2-ring">
-                        {icon ? <AppIcon src={icon} size={20} /> : <Users size={18} strokeWidth={2.4} className="text-v2-deep" aria-hidden />}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className={`block truncate text-[14.5px] font-extrabold ${done ? 'text-v2-muted line-through' : ''}`}>{a.title}</span>
-                        <span className="block truncate text-[12px] font-bold text-v2-muted">
-                          <span className="tabular-nums text-v2-ink-2">{a.time}</span> · {a.meta}
-                        </span>
-                      </span>
-                      {a.kind === 'group' ? (
-                        <Faces letters={['מ', 'ר', 'א']} />
-                      ) : now ? (
-                        <span className="rounded-full bg-v2-cta px-2.5 py-1 text-[11.5px] font-extrabold text-v2-on-cta">עכשיו</span>
-                      ) : done ? (
-                        <Check size={18} strokeWidth={3} className="text-v2-deep" aria-label="בוצע" />
-                      ) : null}
-                    </span>
-                  );
-                  return (
-                    <li key={a.time}>
-                      {a.kind === 'group' ? (
-                        <Link href="/design-lab/group" className="block">
-                          {row}
-                        </Link>
-                      ) : (
-                        row
-                      )}
-                    </li>
-                  );
-                })}
-              </ol>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+        </div>
+      </Link>
     </section>
   );
 }
 
-/* ── today's workouts: carousel of fade-out cards ───────────────────────── */
+/* ── today's workouts: carousel of fade-out cards + the generator ───────── */
 
 const GEAR_ICON = { pullBar: ICON.pullBar, bars: ICON.bars, bench: ICON.bench } as const;
 
-function TodayCarousel({ state, onOpen }: { state: TodayState; onOpen: () => void }) {
+const PHRASES = [
+  'תבנה אימון שמתאים למה שיש לך היום',
+  'אז מה ה־OUT שלך היום?',
+  'כמה זמן יש לך? אני אבנה לך אימון מושלם',
+  'רוצה לבנות אימון בעצמך?',
+];
+
+function GeneratorButton({ onClick }: { onClick: () => void }) {
+  const reduce = useReducedMotion();
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    if (reduce) return;
+    const t = setInterval(() => setI((v) => (v + 1) % PHRASES.length), 3200);
+    return () => clearInterval(t);
+  }, [reduce]);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="relative mx-4 flex h-[54px] w-[calc(100%-2rem)] items-center justify-center gap-2 overflow-hidden rounded-full p-[2px] transition-transform duration-150 ease-v2 active:scale-[0.98]"
+      style={{ background: 'linear-gradient(90deg,#00baf7,#0cf2e3,#00baf7)', backgroundSize: '200% 100%', animation: reduce ? undefined : 'labShimmer 5.5s linear infinite' }}
+    >
+      <span className="flex h-full w-full items-center justify-center gap-2 rounded-full bg-white/95 px-4">
+        <Sparkles size={17} strokeWidth={2.4} className="shrink-0 text-v2-deep" aria-hidden />
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.span
+            key={i}
+            initial={reduce ? false : { opacity: 0, y: 8, filter: 'blur(2px)' }}
+            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            exit={reduce ? undefined : { opacity: 0, y: -8, filter: 'blur(2px)' }}
+            transition={{ duration: 0.28, ease: EASE_V2 }}
+            className="truncate text-[15px] font-extrabold text-v2-deep"
+          >
+            {PHRASES[i]}
+          </motion.span>
+        </AnimatePresence>
+      </span>
+      <style>{'@keyframes labShimmer{from{background-position:0% 0}to{background-position:200% 0}}'}</style>
+    </button>
+  );
+}
+
+function TodayCarousel({ state, onOpen, onBuild }: { state: TodayState; onOpen: () => void; onBuild: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
   const cards = state === 'rest' ? [...TODAY_CARDS].reverse() : TODAY_CARDS;
@@ -301,11 +241,8 @@ function TodayCarousel({ state, onOpen }: { state: TodayState; onOpen: () => voi
         onScroll={onScroll}
         className="flex snap-x snap-mandatory gap-3 overflow-x-auto px-[calc((100%-300px)/2)] pb-5 pt-1 [scrollbar-width:none]"
       >
-        {cards.map((c, i) => (
-          <article
-            key={c.id}
-            className="relative w-[300px] shrink-0 snap-center overflow-hidden rounded-v2-card-lg bg-white shadow-v2-card"
-          >
+        {cards.map((c) => (
+          <article key={c.id} className="relative w-[300px] shrink-0 snap-center overflow-hidden rounded-v2-card-lg bg-white shadow-v2-card">
             <button type="button" onClick={onOpen} className="block w-full text-start" aria-label={`פרטי ${c.title}`}>
               <div className="relative h-[230px]">
                 <img
@@ -317,14 +254,10 @@ function TodayCarousel({ state, onOpen }: { state: TodayState; onOpen: () => voi
                     maskImage: 'linear-gradient(180deg,#000 50%,transparent 100%)',
                   }}
                 />
+                <span className="v2-glass-chip absolute start-3 top-3 rounded-full px-3 py-1 text-[12px] font-extrabold text-white">{c.label}</span>
                 <span className="absolute bottom-7 end-3 grid h-11 w-11 place-items-center rounded-[14px] bg-white/90 shadow-v2-ring">
                   <AppIcon src={GEAR_ICON[c.gear]} size={26} />
                 </span>
-                {i === 0 && state === 'planned' && (
-                  <span className="absolute start-3 top-3 rounded-full bg-white/90 px-3 py-1 text-[12px] font-extrabold text-v2-deep shadow-v2-ring">
-                    לפי התוכנית שלך
-                  </span>
-                )}
               </div>
               <div className="px-4 pb-4">
                 <div className="flex items-center gap-2 text-[13px] font-bold text-v2-muted">
@@ -345,7 +278,7 @@ function TodayCarousel({ state, onOpen }: { state: TodayState; onOpen: () => voi
           </article>
         ))}
       </div>
-      <div className="flex justify-center gap-1.5" aria-hidden>
+      <div className="mb-4 flex justify-center gap-1.5" aria-hidden>
         {cards.map((c, i) => (
           <span
             key={c.id}
@@ -353,6 +286,7 @@ function TodayCarousel({ state, onOpen }: { state: TodayState; onOpen: () => voi
           />
         ))}
       </div>
+      <GeneratorButton onClick={onBuild} />
     </section>
   );
 }
@@ -432,7 +366,7 @@ function ProgressTabs({ state }: { state: TodayState }) {
               <Card padding="md">
                 <div className="flex items-center justify-between">
                   <span className="text-[13px] font-extrabold text-v2-muted">רצף</span>
-                  <AppIcon src={ICON.flameStrength} size={22} />
+                  <BrandFlame size={26} still />
                 </div>
                 <div className="mt-2 text-[26px] font-black leading-none tabular-nums tracking-v2-tighter">
                   {USER.streakDays} <span className="text-[13px] font-bold text-v2-muted">ימים</span>

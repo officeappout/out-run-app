@@ -3,7 +3,7 @@
 export type TodayState = 'planned' | 'done' | 'rest';
 export type WorkoutLocation = 'park' | 'home' | 'gym';
 
-export const USER = { firstName: 'דני', streakDays: 5 };
+export const USER = { firstName: 'דני', streakDays: 5, bestStreak: 12 };
 
 export const TODAY_LABEL = 'שישי, 16 באוקטובר';
 
@@ -94,11 +94,11 @@ export const PARKS = [
 export type DayStatus = 'done' | 'today' | 'planned' | 'rest' | 'missed';
 
 /** Sunday → Saturday; the RTL row draws Sunday on the right. */
-export const WEEK: { short: string; date: number; status: DayStatus; kind?: 'strength' | 'walk' | 'run' }[] = [
+export const WEEK: { short: string; date: number; status: DayStatus; kind?: 'strength' | 'walk' | 'run' | 'steps' }[] = [
   { short: 'א׳', date: 11, status: 'done', kind: 'strength' },
-  { short: 'ב׳', date: 12, status: 'rest' },
+  { short: 'ב׳', date: 12, status: 'done', kind: 'steps' },
   { short: 'ג׳', date: 13, status: 'done', kind: 'run' },
-  { short: 'ד׳', date: 14, status: 'missed', kind: 'strength' },
+  { short: 'ד׳', date: 14, status: 'done', kind: 'strength' },
   { short: 'ה׳', date: 15, status: 'rest' },
   { short: 'ו׳', date: 16, status: 'today', kind: 'strength' },
   { short: 'ש׳', date: 17, status: 'planned', kind: 'walk' },
@@ -137,9 +137,9 @@ export const SUGGESTIONS = [
 
 /** Today's carousel — the first card is the planned workout. */
 export const TODAY_CARDS = [
-  { id: 'strength', title: 'כוח · פלג גוף עליון', minutes: 35, level: 2 as 1 | 2 | 3, photo: '/images/gateway/card-strength.png', gear: 'pullBar' as const },
-  { id: 'park', title: 'אימון כתפיים בגינה', minutes: 30, level: 2 as 1 | 2 | 3, photo: 'thumb:a5367716-ecd2-4764-ab32-409506623fe7', gear: 'bars' as const },
-  { id: 'recovery', title: 'סשן התאוששות #7', minutes: 14, level: 1 as 1 | 2 | 3, photo: 'thumb:1bded9a1-b3ca-4263-99c8-e75800a76d99', gear: 'bench' as const },
+  { id: 'balanced', label: 'מאוזן', title: 'אימון בפארק', minutes: 30, level: 2 as 1 | 2 | 3, photo: '/images/gateway/card-strength.png', gear: 'pullBar' as const },
+  { id: 'intense', label: 'עצים ומהיר', title: 'אימון כוח עצים בפארק', minutes: 20, level: 3 as 1 | 2 | 3, photo: 'thumb:a5367716-ecd2-4764-ab32-409506623fe7', gear: 'bars' as const },
+  { id: 'light', label: 'אימון פארק קליל', title: 'אימון התאוששות בפארק', minutes: 15, level: 1 as 1 | 2 | 3, photo: 'thumb:1bded9a1-b3ca-4263-99c8-e75800a76d99', gear: 'bench' as const },
 ];
 
 export const NEARBY_PARKS = [
@@ -178,12 +178,12 @@ export const PLAN = [
   {
     range: '11–17 אוקטובר',
     days: [
-      { d: 'א׳', n: 11, items: [] as string[], done: false },
-      { d: 'ב׳', n: 12, items: [], done: false },
-      { d: 'ג׳', n: 13, items: [], done: false },
+      { d: 'א׳', n: 11, items: ['אימון בפארק'] as string[], done: true },
+      { d: 'ב׳', n: 12, items: ['8,000 צעדים'], done: true },
+      { d: 'ג׳', n: 13, items: ['ריצה קלה'], done: true },
       { d: 'ד׳', n: 14, items: ['אימון משולב'], done: true },
       { d: 'ה׳', n: 15, items: [], done: false },
-      { d: 'ו׳', n: 16, items: ['אימון כוח'], done: true, today: true },
+      { d: 'ו׳', n: 16, items: ['אימון בפארק'], done: false, today: true },
       { d: 'ש׳', n: 17, items: ['הליכה קבוצתית'], done: false },
     ],
   },
