@@ -96,6 +96,7 @@ import { CONTEXT_AWARE_SELECTION_ENABLED, SKILL_REPRESENTATION_GUARANTEE_ENABLED
 import { MG_TO_DOMAIN } from '../shared/constants/domain-mapping.constants';
 import {
   normalizeEquipmentArray,
+  clampLevelsToContentCeiling,
   buildActiveProgramFilters,
   resolveExercisePool,
 } from '../core/middleware/InputSanitizerMiddleware';
@@ -1239,7 +1240,10 @@ export async function generateHomeWorkoutTrio(
 
       // Post-processing (Option 2 & 3 modifiers) — delegated to trio-modifiers.service.ts
       if (cfg.postProcess === 'intense') {
-        applyIntenseOption(workout, sessionBlacklist, pipeline.userProgramLevels, pipeline.allExercises, pipeline.effectiveFilterLocation);
+        applyIntenseOption(workout, sessionBlacklist, pipeline.userProgramLevels, pipeline.allExercises, pipeline.effectiveFilterLocation, {
+          candidatePool: pipeline.baseGeneratorContext.globalExercisePool,
+          availableEquipment: pipeline.baseGeneratorContext.availableEquipment,
+        });
       } else if (cfg.postProcess === 'flow_regression') {
         applyFlowRegression(
           workout,
@@ -1250,6 +1254,7 @@ export async function generateHomeWorkoutTrio(
           pipeline.baseGeneratorContext.activeProgramId,
           pipeline.baseGeneratorContext.levelProgressPercent,
           pipeline.baseGeneratorContext.intentMode,
+          pipeline.baseGeneratorContext.availableEquipment,
         );
       } else if (cfg.postProcess === 'mobility_tag') {
         applyTagPreference(workout, 'mobility', sessionBlacklist);
@@ -2116,6 +2121,42 @@ async function _buildSharedPipeline(
   // comment. `relaxedConstraints`/`diagnostics` are threaded onto
   // baseGeneratorContext below so a relaxed session is visible on the
   // generated workout's own pipelineLog, not just in a console log.
+  //
+  // Tier 1 middleware: equipment normalization is the canonical place where
+  // gym catalog injection, real park inventory, and the ESSENTIAL_PARK_GEAR
+  // catastrophic fallback are composed and deduplicated.  After this, the
+  // engine receives a non-empty array of canonical (raw) gear IDs.
+  // (Resolved here, before the pool, so the content-ceiling clamp below can
+  // judge which content is actually performable in this context.)
+  const availableEquipment: string[] = normalizeEquipmentArray(
+    userProfile,
+    location,
+    parkEquipmentIds,
+    gymEquipmentList,
+    equipmentOverride,
+  );
+
+  // ── 1c-pre. Content-ceiling clamp (generator audit P0 #3) ────────────
+  // A user above the last authored level of a domain (+ the ±3 window) had
+  // zero candidates for it — all domains empty → "יום מנוחה" on a training
+  // day. Clamp this request's selection level to the highest performable
+  // authored level instead (derived from the pool, not hardcoded). The
+  // user's stored progression is untouched; the clamp is logged onto the
+  // workout's pipelineLog via earlyPipelineNotes.
+  const levelCeilingClamps = clampLevelsToContentCeiling(
+    userProgramLevels,
+    allExercises,
+    location,
+    availableEquipment,
+    (programId) => idToSlug.get(programId) ?? resolveToSlug(programId),
+  );
+  const levelCeilingNotes = levelCeilingClamps.map(
+    c => `level_ceiling_clamp: ${c.domain} L${c.from}→L${c.to} (no performable content within ±3 of L${c.from})`,
+  );
+  if (levelCeilingNotes.length > 0) {
+    console.warn(`[HomeWorkout] ${levelCeilingNotes.join(' | ')}`);
+  }
+
   const poolResult = resolveExercisePool(
     allExercises,
     userProgramLevels,
@@ -2134,17 +2175,8 @@ async function _buildSharedPipeline(
   const persona = mapPersonaIdToLifestylePersona(userProfile, personaOverride);
   const lifestyles = collectLifestyles(userProfile, persona);
 
-  // Tier 1 middleware: equipment normalization is the canonical place where
-  // gym catalog injection, real park inventory, and the ESSENTIAL_PARK_GEAR
-  // catastrophic fallback are composed and deduplicated.  After this, the
-  // engine receives a non-empty array of canonical (raw) gear IDs.
-  const availableEquipment: string[] = normalizeEquipmentArray(
-    userProfile,
-    location,
-    parkEquipmentIds,
-    gymEquipmentList,
-    equipmentOverride,
-  );
+  // (availableEquipment — Tier 1 equipment normalization — is resolved above,
+  // before the exercise pool; see "1c-pre".)
   const timeOfDay = timeOfDayOverride ?? detectTimeOfDay();
 
   // ── 2b. Lead Program Budget ──────────────────────────────────────────
@@ -2940,7 +2972,9 @@ async function _buildSharedPipeline(
     availableTime,
     userLevel: baseUserLevel,
     relaxedConstraints: exercisePoolRelaxedConstraints,
-    earlyPipelineNotes: exercisePoolDiagnostics,
+    earlyPipelineNotes: levelCeilingNotes.length > 0
+      ? [...levelCeilingNotes, ...(exercisePoolDiagnostics ?? [])]
+      : exercisePoolDiagnostics,
     daysInactive,
     intentMode,
     persona,

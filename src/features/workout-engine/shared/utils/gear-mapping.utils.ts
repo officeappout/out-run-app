@@ -751,7 +751,12 @@ export const ASSUMED_HOME_GEAR: ReadonlySet<string> = new Set([
 // ============================================================================
 
 const EQUIPMENT_FAMILIES: Record<string, ReadonlySet<string>> = {
-  overhead_bar:     new Set(['pullup_bar', 'high_bar', 'monkey_bars']),
+  // pullup_bar_door (gear_definitions "מתח לדלת", iconKey pullup_bar_door) is
+  // an overhead bar too — added 2026-10-17 when home/office methods became
+  // gear-gated (generator audit P0 #1): without it a user who owns a door bar
+  // was refused bar methods tagged with the generic/park bar id, and a
+  // profile carrying the canonical 'pullup_bar' was refused door-bar methods.
+  overhead_bar:     new Set(['pullup_bar', 'high_bar', 'monkey_bars', 'pullup_bar_door']),
   // parallettes is intentionally NOT included here — the dip_station ↔ parallettes
   // substitution is strictly unidirectional (parallettes → dip_station ONLY).
   // The directional rule lives in ContextualEngine's GEAR_SATISFACTION_RULES.

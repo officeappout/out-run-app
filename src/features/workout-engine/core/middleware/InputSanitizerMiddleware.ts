@@ -53,6 +53,17 @@ import {
 import type { SessionPolicy } from '../../services/periodization.service';
 import type { DifficultyLevel } from '../../logic/workout-generator.types';
 import { DOMAIN_RESOLUTION_SKILL_PARENT_MAP } from '../../logic/workout-selection.utils';
+import { selectMethodForContext } from '../../shared/utils/method-selection.utils';
+import { MG_TO_DOMAIN } from '../../shared/constants/domain-mapping.constants';
+
+/**
+ * Domains the content-ceiling clamp may touch: the movement domains exercises
+ * are actually authored against (push/pull/legs/core + skill tracks). Master
+ * / wrapper programs (full_body, upper_body, calisthenics_upper …) are never
+ * clamped — they carry only a handful of legacy direct tags, so their
+ * "ceiling" is meaningless (would drag a L12 full_body to L2).
+ */
+const CLAMPABLE_DOMAINS: ReadonlySet<string> = new Set(Object.values(MG_TO_DOMAIN));
 
 // ============================================================================
 // FUNCTION A — Equipment Normalization
@@ -584,6 +595,92 @@ export function isExerciseSkillEligible(
     if (userProgramLevels.has(slug) || userProgramLevels.has(raw)) return true; // directly assessed
   }
   return false; // every tag was a skill, none directly reached
+}
+
+// ============================================================================
+// FUNCTION — Content-ceiling level clamp (generator audit P0 #3, 2026-10-17)
+// ============================================================================
+
+export interface LevelCeilingClamp {
+  domain: string;
+  /** The user's real level for the domain. */
+  from: number;
+  /** The level used for selection this session (highest performable content). */
+  to: number;
+}
+
+/**
+ * Top-of-program users must still get a real workout.
+ *
+ * Authored content ends below every program's maxLevel (at audit time push
+ * topped out ~L20 of 25, pull L22, core L14 of 20, legs L13 of 15). With the
+ * engine's ±`tolerance` level window, a user above `ceiling + tolerance` had
+ * ZERO candidates for that domain — and when every requested domain was in
+ * that state the PipelineOrchestrator empty-pool guard served "יום מנוחה" on
+ * a training day.
+ *
+ * For each movement domain in `userProgramLevels` (push/pull/legs/core and
+ * skill tracks — never master/wrapper programs): if NO exercise tagged for that
+ * domain that is performable in this context (location + gear, via the
+ * single-source method selector) falls inside [level - tolerance,
+ * level + tolerance], the domain's selection level is clamped DOWN to the
+ * highest level that has performable content. The ceiling is derived from the
+ * pool at runtime (never hardcoded), so newly authored top-level content is
+ * picked up automatically and the clamp simply stops firing.
+ *
+ * MUTATES `userProgramLevels` in place (it is the request-scoped selection
+ * map — the user's stored progression is never touched) and returns what it
+ * changed so the caller can surface it on the workout's pipelineLog.
+ */
+export function clampLevelsToContentCeiling(
+  userProgramLevels: Map<string, number>,
+  exercises: Exercise[],
+  location: ExecutionLocation,
+  availableEquipment: string[],
+  resolveSlug: (programId: string) => string | undefined,
+  tolerance = 3,
+): LevelCeilingClamp[] {
+  const clamps: LevelCeilingClamp[] = [];
+  if (userProgramLevels.size === 0) return clamps;
+
+  const performable = new Map<string, boolean>();
+  const isPerformable = (ex: Exercise): boolean => {
+    let ok = performable.get(ex.id);
+    if (ok === undefined) {
+      ok = selectMethodForContext(ex, location, availableEquipment) !== null;
+      performable.set(ex.id, ok);
+    }
+    return ok;
+  };
+
+  for (const [domain, level] of Array.from(userProgramLevels.entries())) {
+    if (!CLAMPABLE_DOMAINS.has(domain)) continue;
+    // (exercise, its level for THIS domain), main-role content only.
+    const tagged: Array<{ ex: Exercise; lvl: number }> = [];
+    for (const ex of exercises) {
+      if (ex.exerciseRole === 'warmup' || ex.exerciseRole === 'cooldown') continue;
+      const tp = ex.targetPrograms?.find(
+        t => t.programId === domain || resolveSlug(t.programId) === domain,
+      );
+      if (tp && typeof tp.level === 'number') tagged.push({ ex, lvl: tp.level });
+    }
+    if (tagged.length === 0) continue; // no authored content at all — nothing to clamp to
+
+    const inWindow = tagged.some(
+      t => Math.abs(t.lvl - level) <= tolerance && isPerformable(t.ex),
+    );
+    if (inWindow) continue;
+
+    // Highest performable level BELOW the window (top-down, so only a few
+    // method resolutions are needed).
+    const below = tagged.filter(t => t.lvl < level - tolerance).sort((a, b) => b.lvl - a.lvl);
+    const top = below.find(t => isPerformable(t.ex));
+    if (!top) continue;
+
+    userProgramLevels.set(domain, top.lvl);
+    clamps.push({ domain, from: level, to: top.lvl });
+  }
+  return clamps;
 }
 
 export function resolveExercisePool(

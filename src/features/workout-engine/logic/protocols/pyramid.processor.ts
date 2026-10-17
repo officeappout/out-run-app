@@ -225,6 +225,18 @@ const PYRAMID_SHAPES: Record<DifficultyLevel, PyramidShapeBundle> = {
 const MIN_DISTINCT_VARIANTS_FOR_MECHANICAL = 3;
 
 /**
+ * Per-step floors (generator audit P0 #4, 2026-10-17). The D3 peak slot is
+ * authored as 1 rep, which shipped as "8/3/1" pyramids and — on time-based
+ * steps — a 3-second hold (1 × 2.5 s TUT, rounded). A 1-rep / 3-second set is
+ * not a trainable prescription in a follow-along app, so every step is floored
+ * at 3 reps, and every hold step at 8 seconds. The above-level variant choice
+ * (the actual "peak overload") is unchanged.
+ */
+export const MIN_PYRAMID_STEP_REPS = 3;
+export const MIN_PYRAMID_STEP_HOLD_SECONDS = 8;
+const stepReps = (slot: PyramidSlot): number => Math.max(slot.reps, MIN_PYRAMID_STEP_REPS);
+
+/**
  * Calisthenics rule of thumb: 1 working rep ≈ 2.5 s of Time Under
  * Tension.  When a pyramid is stamped on a time-based parent (e.g. a
  * Handstand or Planche), the shape's rep counts must be physiologically
@@ -580,8 +592,8 @@ function buildStep(
 ): PyramidStep {
   const { imageUrl, videoUrl } = resolveExerciseMedia(variant as any, null);
   const target = isTimeBased
-    ? { targetHold: Math.round(reps * TUT_REPS_TO_SECONDS) }
-    : { targetReps: reps };
+    ? { targetHold: Math.max(MIN_PYRAMID_STEP_HOLD_SECONDS, Math.round(reps * TUT_REPS_TO_SECONDS)) }
+    : { targetReps: Math.max(MIN_PYRAMID_STEP_REPS, reps) };
 
   return {
     setIndex,
@@ -680,7 +692,7 @@ export const PyramidProcessor: ProtocolProcessor = {
             (variant.exercise as any).metric === 'hold' ||
             isTimeBasedExercise(variant.exercise);
           sequence.push(
-            buildStep(i, variant.exercise, slot.reps, stepIsTimeBased, variant.level),
+            buildStep(i, variant.exercise, stepReps(slot), stepIsTimeBased, variant.level),
           );
           seenIds.add(variant.exercise.id);
         }
@@ -698,12 +710,12 @@ export const PyramidProcessor: ProtocolProcessor = {
         // Keep `repsSequence` in sync so the active-workout state machine
         // can read per-set targets even if it falls back to the rep-only
         // path on legacy code paths.
-        we.repsSequence = shape.slots.map((s) => s.reps);
+        we.repsSequence = shape.slots.map(stepReps);
         we.reasoning = [
           ...we.reasoning,
           `pyramid:mechanical(D${difficulty},${shape.variant},variants=${pyramidSequence
             .map((s) => `L${s.level ?? '?'}-${s.exerciseId.slice(0, 4)}`)
-            .join('→')},reps=[${shape.slots.map((s) => s.reps).join(',')}])`,
+            .join('→')},reps=[${shape.slots.map(stepReps).join(',')}])`,
         ];
         mechanicalCount++;
       } else {

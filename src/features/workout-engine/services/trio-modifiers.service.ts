@@ -13,7 +13,7 @@
  * ISOMORPHIC: Pure TypeScript, no React hooks, no browser APIs.
  */
 
-import type { Exercise, ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
+import type { Exercise, ExecutionLocation, ExecutionMethod } from '@/features/content/exercises/core/exercise.types';
 import type { GeneratedWorkout, WorkoutExercise } from '../logic/WorkoutGenerator';
 import type { WorkoutTrioOption } from './home-workout.types';
 import { resolveToSlug } from './program-hierarchy.utils';
@@ -31,6 +31,9 @@ import {
   collectMethodGear,
 } from '../shared/constants/domain-mapping.constants';
 import { computeDomainCounts, isSafeDomainVictim, isDomainRegistered } from '../core/pipeline/GuaranteePassRunner';
+import { selectMethodForContext } from '../shared/utils/method-selection.utils';
+import { clearOrphanedPairings } from '../logic/workout-sorting.utils';
+import { PyramidProcessor } from '../logic/protocols/pyramid.processor';
 
 /**
  * Check if userProgramLevels contains a key that matches `programId`
@@ -214,6 +217,44 @@ function hasHomeFurniture(ex: Exercise): boolean {
 }
 
 // ============================================================================
+// SWAP HYGIENE (generator audit P0 #2, 2026-10-17)
+// ============================================================================
+
+/**
+ * Protocol fields that are stamped for ONE specific exercise identity: the
+ * pyramid's per-set variant list + rep sequence (pyramid.processor), and the
+ * antagonist/superset pairing (workout-sorting.utils). When a post-processing
+ * pass swaps `exercise` to a different movement, these must not ride along —
+ * the audit found the D3 "David Rule" swap shipping e.g. "שכיבות סמיכה ב-45°"
+ * with the replaced exercise's dip-hold pyramid steps (17/45 D3 pyramids).
+ * Clears them in place; callers re-stamp (pyramid) or let sortAndPair re-pair.
+ */
+export function clearSwappedProtocolFields(we: WorkoutExercise): void {
+  we.pyramidSequence = undefined;
+  we.repsSequence = undefined;
+  we.pairedWith = undefined;
+  we.supersetType = undefined;
+}
+
+/**
+ * Method for a swapped-in exercise in the session's real context.
+ *   - `location` known  → the single-source selector (location + gear gated);
+ *                         null means "not performable here" → caller must skip
+ *                         the candidate.
+ *   - `location` absent, or the exercise carries no methods at all (no
+ *     method data to judge) → undefined: caller keeps its previous fallback.
+ */
+function resolveSwapMethod(
+  ex: Exercise,
+  location: ExecutionLocation | undefined,
+  availableEquipment: string[] | undefined,
+): ExecutionMethod | null | undefined {
+  if (!location) return undefined;
+  if (!(ex.execution_methods ?? ex.executionMethods ?? []).length) return undefined;
+  return selectMethodForContext(ex, location, availableEquipment ?? []);
+}
+
+// ============================================================================
 // OPTION 2 — INTENSE (+1 to +3 levels, increased rest, volume fallback)
 // ============================================================================
 
@@ -221,12 +262,26 @@ const INTENSE_REST_FLOOR = 90;
 const MAX_MAIN = 5;   // raised from 3 — Option 3 must have substance
 const MAX_CORE = 1;
 
+export interface IntenseOptionContext {
+  /**
+   * The ContextualEngine-filtered pool for this session (location, gear,
+   * injury and level gates already applied — `globalExercisePool`). When
+   * given, David-Rule injection candidates come from HERE instead of the raw
+   * catalog, so an injected exercise can never be one the session filter
+   * rejected.
+   */
+  candidatePool?: Exercise[];
+  /** Resolved session gear (normalizeEquipmentArray output). */
+  availableEquipment?: string[];
+}
+
 export function applyIntenseOption(
   workout: GeneratedWorkout,
   _blacklistedIds: Set<string>,
   userProgramLevels: Map<string, number>,
   allExercises: Exercise[],
   location?: ExecutionLocation,
+  intenseCtx: IntenseOptionContext = {},
 ): void {
   const warmups = workout.exercises.filter(ex => ex.exerciseRole === 'warmup');
   const cooldowns = workout.exercises.filter(ex => ex.exerciseRole === 'cooldown');
@@ -346,19 +401,31 @@ export function applyIntenseOption(
     });
   });
 
-  if (!hasHigherLevel && keptMain.length > 0) {
+  // Victim = the lowest-ranked slot that is not a Tabata-block member (a
+  // tabata block references its members by id — swapping one would orphan it).
+  let lowestIdx = -1;
+  for (let k = keptMain.length - 1; k >= 0; k--) {
+    if (keptMain[k].protocolBlock !== 'tabata') { lowestIdx = k; break; }
+  }
+  const injectionPool = intenseCtx.candidatePool?.length ? intenseCtx.candidatePool : allExercises;
+
+  if (!hasHigherLevel && lowestIdx >= 0) {
     for (let delta = 1; delta <= 3; delta++) {
       const targetLevel = maxUserLevel + delta;
-      const candidate = allExercises.find(ex =>
-        !usedIds.has(ex.id)
-        && ex.targetPrograms?.some(tp =>
+      let candidateMethod: ExecutionMethod | null | undefined;
+      const candidate = injectionPool.find(ex => {
+        if (usedIds.has(ex.id)) return false;
+        if (ex.exerciseRole === 'cooldown' || ex.exerciseRole === 'warmup') return false;
+        if (!ex.targetPrograms?.some(tp =>
           levelsHasProgram(userProgramLevels, tp.programId) && tp.level === targetLevel,
-        )
-        && ex.exerciseRole !== 'cooldown'
-        && ex.exerciseRole !== 'warmup',
-      );
+        )) return false;
+        // Location + gear gate (P0 #2): the old `executionMethods[0]` pick had
+        // no location/gear check at all — a candidate that cannot be done
+        // here is skipped, not injected with a foreign method.
+        candidateMethod = resolveSwapMethod(ex, location, intenseCtx.availableEquipment);
+        return candidateMethod !== null;
+      });
       if (candidate) {
-        const lowestIdx = keptMain.length - 1;
         const replaced = keptMain[lowestIdx];
         const newIsTimeBased = isTimeBasedExercise(candidate);
         const typeChanged = newIsTimeBased !== replaced.isTimeBased;
@@ -389,10 +456,10 @@ export function applyIntenseOption(
           ? Math.min(getIsometricTimeCap(candidate), 20)
           : 0;
 
-        keptMain[lowestIdx] = {
+        const injected: WorkoutExercise = {
           ...replaced,
           exercise: candidate,
-          method: (candidate.executionMethods?.[0] ?? replaced.method) as any,
+          method: (candidateMethod ?? candidate.executionMethods?.[0] ?? replaced.method) as any,
           mechanicalType: (candidate.mechanicalType || 'none') as any,
           isTimeBased: newIsTimeBased,
           // When the candidate is time-based, ALWAYS use the safe-capped hold —
@@ -405,8 +472,24 @@ export function applyIntenseOption(
           repsRange: newIsTimeBased
             ? { min: Math.max(5, injectedHold - 5), max: injectedHold }
             : (typeChanged ? { min: 6, max: 12 } : replaced.repsRange),
+          programLevel: targetLevel,
+          isOverLevel: true,
           reasoning: [...replaced.reasoning, `david_rule:level_${targetLevel}_inject`],
         };
+        // The replaced slot's pyramid steps / rep sequence / pairing describe
+        // the OLD exercise — drop them, then (if that slot carried the forced
+        // D3 pyramid) re-stamp it for the NEW exercise via the same processor.
+        clearSwappedProtocolFields(injected);
+        if (replaced.pyramidSequence?.length) {
+          PyramidProcessor.process([injected], {
+            difficulty: 3,
+            globalExercisePool: injectionPool,
+            userProgramLevels,
+          } as unknown as WorkoutGenerationContext);
+          if (!injected.pyramidSequence) injected.sets = replaced.sets;
+        }
+        keptMain[lowestIdx] = injected;
+        clearOrphanedPairings(keptMain);
         injectedLevel = targetLevel;
         console.log(
           `[WorkoutTrio] David Rule: injected "${candidate.id}" (L${targetLevel}) ` +
@@ -481,6 +564,7 @@ export function applyFlowRegression(
   activeProgramId?: string,
   levelProgressPercent?: number,
   intentMode?: WorkoutGenerationContext['intentMode'],
+  availableEquipment?: string[],
 ): void {
   workout.difficulty = 1 as any;
   const FLOW_DIFFICULTY: DifficultyLevel = 1;
@@ -544,6 +628,9 @@ export function applyFlowRegression(
         const hasNakedMethod = methods.length === 0
           || methods.some(m => isGearFree(collectMethodGear(m as any), true));
         if (!hasNakedMethod) return false;
+        // Location + gear gate (P0 #1/#2): an "essential" bar/dip method is
+        // only fine when this session actually has one.
+        if (resolveSwapMethod(raw, location, availableEquipment) === null) return false;
         return true;
       });
 
@@ -551,9 +638,11 @@ export function applyFlowRegression(
         usedIds.delete(ex.exercise.id);
         usedIds.add(replacement.id);
         ex.exercise = replacement;
+        clearSwappedProtocolFields(ex);
         const nakedMethod = (replacement.execution_methods ?? replacement.executionMethods ?? [])
           .find(m => isGearFree(collectMethodGear(m as any), true));
-        ex.method = (nakedMethod ?? replacement.executionMethods?.[0] ?? ex.method) as any;
+        const contextMethod = resolveSwapMethod(replacement, location, availableEquipment);
+        ex.method = (contextMethod ?? nakedMethod ?? replacement.executionMethods?.[0] ?? ex.method) as any;
         // isTimeBased / mechanicalType / reps / repsRange / restSeconds
         // consistency (docs/workout-engine/03-CHANGES.md, Addendum 3):
         // swapping `ex.exercise` to a different exercise without re-deriving
@@ -602,6 +691,8 @@ export function applyFlowRegression(
       ex.reasoning.push(`flow_no_swap:exLevel=${exLevel}(floor=L${levelFloor})`);
     }
   }
+
+  if (swapped > 0) clearOrphanedPairings(workout.exercises);
 
   console.log(
     `[WorkoutTrio] Flow: swapped ${swapped}/${main.length} exercises ` +
@@ -846,6 +937,9 @@ export function applyEssentialGearFilter(
           isOverLevel: replacementLevelInfo.levelDelta > 0,
           reasoning: [...violator.reasoning, 'naked_violation_replaced'],
         });
+        // Same swap hygiene as the David-Rule inject (P0 #2): the
+        // `...violator` spread above carried its pyramid/pairing over.
+        clearSwappedProtocolFields(clean[clean.length - 1]);
         usedIds.add(replacement.id);
         console.warn(
           `[NakedViolation] Replaced "${violator.exercise.id}" with "${replacement.id}" (gear slipped through)`,
@@ -857,6 +951,7 @@ export function applyEssentialGearFilter(
       }
     }
     nakedMain = clean;
+    clearOrphanedPairings(nakedMain);
   }
 
   workout.exercises = [...warmups, ...nakedMain, ...cooldowns];
