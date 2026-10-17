@@ -42,7 +42,7 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, CalendarDays } from 'lucide-react';
 import type { LivePartner, ScheduledPartner } from '@/features/parks/core/hooks/usePartnerData';
 import UserProfileSheet, { type ProfileUser } from '@/features/parks/client/components/UserProfileSheet';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
@@ -54,6 +54,7 @@ import { PartnerFilterSheet } from './PartnerFilterSheet';
 import { PartnerEmptyState } from './PartnerEmptyState';
 import { useUserStore } from '@/features/user';
 import { useSuppressBottomNav } from '@/features/parks/core/hooks/useSuppressBottomNav';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
 interface PartnerOverlayProps {
   initialTab: 'live' | 'scheduled';
@@ -362,6 +363,10 @@ export function PartnerOverlay({
   const levelRange = usePartnerFilters((s) => s.levelRange);
   const paceRange = usePartnerFilters((s) => s.paceRange);
   const selectedProgram = usePartnerFilters((s) => s.selectedProgram);
+
+  // Home v2 (enable_home_v2) — restyle only; filtering is untouched.
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
 
   // Suppress the global BottomNavbar for the full Partner Hub session.
   // The nav slides off-screen via its `isSuppressed` animation and its
@@ -683,7 +688,8 @@ export function PartnerOverlay({
         // card scrolls, filter pills, avatar taps, etc. are all safe.
         className="fixed inset-0 z-[90] flex flex-col"
         style={{
-          backgroundColor: 'rgba(255,255,255,0.60)',
+          // v2: the v2 surface (#f6fbfd), still translucent over the map.
+          backgroundColor: v2 ? 'rgba(246,251,253,0.86)' : 'rgba(255,255,255,0.60)',
           backdropFilter: 'blur(14px)',
           WebkitBackdropFilter: 'blur(14px)',
         }}
@@ -707,11 +713,15 @@ export function PartnerOverlay({
           <button
             type="button"
             onClick={onClose}
-            className="absolute w-9 h-9 rounded-full bg-gray-200/80 flex items-center justify-center active:scale-90 transition-transform pointer-events-auto z-10"
+            className={
+              v2
+                ? 'absolute grid h-10 w-10 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] pointer-events-auto z-10'
+                : 'absolute w-9 h-9 rounded-full bg-gray-200/80 flex items-center justify-center active:scale-90 transition-transform pointer-events-auto z-10'
+            }
             style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)', left: 16 }}
             aria-label="חזור"
           >
-            <ChevronLeft size={18} className="text-gray-700" />
+            <ChevronLeft size={v2 ? 20 : 18} className={v2 ? 'text-v2-ink' : 'text-gray-700'} />
           </button>
 
           {/* ── Top chrome block: centered tab pills, then centered title +
@@ -726,56 +736,108 @@ export function PartnerOverlay({
             {/* Tab pills — centered as a unit. py tightened from py-3 to
                 py-1.5 to close the vertical gap between the back button and
                 the title/cards below. */}
-            <div className="flex items-center justify-center gap-2 px-4 py-1.5">
-              <button
-                type="button"
-                onClick={() => setActiveTab('live')}
-                className="flex items-center gap-1.5 rounded-full"
-                style={{
-                  padding: '6px 16px',
-                  fontSize: 14,
-                  fontWeight: 500,
-                  backgroundColor: activeTab === 'live' ? '#F0F9FF' : 'rgba(0,0,0,0.05)',
-                  color: activeTab === 'live' ? '#1a1a1a' : '#6B7280',
-                  borderBottom: activeTab === 'live' ? `2px solid ${ACCENT}` : 'none',
-                }}
-              >
-                <span>מי בחוץ</span>
-                <span aria-hidden className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span className="text-xs opacity-70">{liveCount}</span>
-              </button>
+            {v2 ? (
+              <div className="flex justify-center px-4 py-1.5">
+                <div className="flex gap-0.5 rounded-full bg-white p-1 shadow-v2-ring" role="tablist">
+                  {([
+                    { key: 'live' as const, label: 'מי בחוץ', count: liveCount },
+                    { key: 'scheduled' as const, label: 'מי מתכנן', count: scheduledCount },
+                  ]).map((t) => {
+                    const active = activeTab === t.key;
+                    return (
+                      <button
+                        key={t.key}
+                        type="button"
+                        role="tab"
+                        aria-selected={active}
+                        onClick={() => setActiveTab(t.key)}
+                        className={`flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full px-4 text-[14px] font-extrabold transition-colors duration-150 ease-v2 ${
+                          active
+                            ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40'
+                            : 'text-v2-ink-2'
+                        }`}
+                      >
+                        {t.key === 'live' ? (
+                          <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-v2-up" />
+                        ) : (
+                          <CalendarDays size={14} aria-hidden />
+                        )}
+                        <span>{t.label}</span>
+                        <span
+                          className={`grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11.5px] font-black ${
+                            active ? 'bg-white text-v2-deep' : 'bg-v2-surface text-v2-muted'
+                          }`}
+                        >
+                          {t.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center gap-2 px-4 py-1.5">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('live')}
+                  className="flex items-center gap-1.5 rounded-full"
+                  style={{
+                    padding: '6px 16px',
+                    fontSize: 14,
+                    fontWeight: 500,
+                    backgroundColor: activeTab === 'live' ? '#F0F9FF' : 'rgba(0,0,0,0.05)',
+                    color: activeTab === 'live' ? '#1a1a1a' : '#6B7280',
+                    borderBottom: activeTab === 'live' ? `2px solid ${ACCENT}` : 'none',
+                  }}
+                >
+                  <span>מי בחוץ</span>
+                  <span aria-hidden className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span className="text-xs opacity-70">{liveCount}</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setActiveTab('scheduled')}
-                className="flex items-center gap-1.5 rounded-full"
-                style={{
-                  padding: '6px 16px',
-                  fontSize: 14,
-                  fontWeight: 500,
-                  backgroundColor: activeTab === 'scheduled' ? '#F0F9FF' : 'rgba(0,0,0,0.05)',
-                  color: activeTab === 'scheduled' ? '#1a1a1a' : '#6B7280',
-                  borderBottom: activeTab === 'scheduled' ? `2px solid ${ACCENT}` : 'none',
-                }}
-              >
-                <span>מי מתכנן</span>
-                <span aria-hidden>📅</span>
-                <span className="text-xs opacity-70">{scheduledCount}</span>
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('scheduled')}
+                  className="flex items-center gap-1.5 rounded-full"
+                  style={{
+                    padding: '6px 16px',
+                    fontSize: 14,
+                    fontWeight: 500,
+                    backgroundColor: activeTab === 'scheduled' ? '#F0F9FF' : 'rgba(0,0,0,0.05)',
+                    color: activeTab === 'scheduled' ? '#1a1a1a' : '#6B7280',
+                    borderBottom: activeTab === 'scheduled' ? `2px solid ${ACCENT}` : 'none',
+                  }}
+                >
+                  <span>מי מתכנן</span>
+                  <span aria-hidden>📅</span>
+                  <span className="text-xs opacity-70">{scheduledCount}</span>
+                </button>
+              </div>
+            )}
 
             {/* Title + subtitle — center-aligned. Title bumped to 26px/800
                 weight per redesign; subtitle keeps the previous 13px gray. */}
-            <div className="px-4 pt-1 mb-2 text-center">
-              <h1
-                style={{ fontSize: 26, fontWeight: 800, color: '#1a1a1a', lineHeight: 1.2 }}
-              >
-                {headerCopy.title}
-              </h1>
-              <p className="mt-1" style={{ fontSize: 13, color: '#6B7280' }}>
-                {headerCopy.subtitle}
-              </p>
-            </div>
+            {v2 ? (
+              <div className="mb-2 px-4 pt-2 text-center">
+                <h1 className="text-[26px] font-black leading-[1.15] !tracking-[-0.02em] text-v2-ink">
+                  {headerCopy.title}
+                </h1>
+                <p className="mt-1 text-[13.5px] font-bold text-v2-muted">
+                  {headerCopy.subtitle}
+                </p>
+              </div>
+            ) : (
+              <div className="px-4 pt-1 mb-2 text-center">
+                <h1
+                  style={{ fontSize: 26, fontWeight: 800, color: '#1a1a1a', lineHeight: 1.2 }}
+                >
+                  {headerCopy.title}
+                </h1>
+                <p className="mt-1" style={{ fontSize: 13, color: '#6B7280' }}>
+                  {headerCopy.subtitle}
+                </p>
+              </div>
+            )}
 
             {/* Option C — transient hint shown after auto-switch. Renders
                 between the title block and the filter bar so it doesn't
@@ -791,8 +853,8 @@ export function PartnerOverlay({
                   className="px-4 pb-1"
                 >
                   <div
-                    className="inline-block rounded-full px-3 py-1"
-                    style={{
+                    className={v2 ? 'inline-block whitespace-nowrap rounded-full bg-v2-tint px-3 py-1 text-[12.5px] font-extrabold text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'inline-block rounded-full px-3 py-1'}
+                    style={v2 ? undefined : {
                       backgroundColor: 'rgba(0,173,239,0.12)',
                       color: ACCENT,
                       fontSize: 12,
@@ -821,6 +883,7 @@ export function PartnerOverlay({
               tab={activeTab}
               onOpenSheet={() => setFilterSheetOpen(true)}
               onSwitchToScheduled={handleSwitchToScheduled}
+              v2={v2}
             />
           </div>
 
@@ -838,22 +901,28 @@ export function PartnerOverlay({
               <div className="w-full flex flex-col items-center justify-center py-12 text-center">
                 <div
                   className="w-8 h-8 border-2 rounded-full animate-spin mb-3"
-                  style={{ borderColor: ACCENT, borderTopColor: 'transparent' }}
+                  style={{ borderColor: v2 ? '#00baf7' : ACCENT, borderTopColor: 'transparent' }}
                 />
-                <p className="text-xs font-bold" style={{ color: '#1a1a1a' }}>
+                <p className={v2 ? 'text-[13px] font-bold text-v2-muted' : 'text-xs font-bold'} style={v2 ? undefined : { color: '#1a1a1a' }}>
                   מחפש שותפים...
                 </p>
               </div>
             ) : activeTab === 'live' ? (
               filteredLive.length === 0 ? (
-                <div className="bg-white/95 backdrop-blur-md mx-4 rounded-2xl">
-                  <PartnerEmptyState tab="live" />
-                </div>
+                <div className={v2 ? 'mx-4 rounded-v2-card bg-white shadow-v2-card' : 'bg-white/95 backdrop-blur-md mx-4 rounded-2xl'}>
+                <PartnerEmptyState
+                  tab="live"
+                  v2={v2}
+                  onAction={v2 ? () => setFilterSheetOpen(true) : undefined}
+                  actionLabel="שינוי סינון"
+                />
+              </div>
               ) : (
                 <PartnerCarousel>
                   {filteredLive.map((p) => (
                     <PartnerCard
                       key={`live_card_${p.uid}`}
+                      v2={v2}
                       type="live"
                       uid={p.uid}
                       name={p.name}
@@ -880,8 +949,13 @@ export function PartnerOverlay({
                 </PartnerCarousel>
               )
             ) : filteredScheduled.length === 0 ? (
-              <div className="bg-white/95 backdrop-blur-md mx-4 rounded-2xl">
-                <PartnerEmptyState tab="scheduled" />
+              <div className={v2 ? 'mx-4 rounded-v2-card bg-white shadow-v2-card' : 'bg-white/95 backdrop-blur-md mx-4 rounded-2xl'}>
+                <PartnerEmptyState
+                  tab="scheduled"
+                  v2={v2}
+                  onAction={v2 ? () => setFilterSheetOpen(true) : undefined}
+                  actionLabel="שינוי סינון"
+                />
               </div>
             ) : (
               <PartnerCarousel>
@@ -910,6 +984,7 @@ export function PartnerOverlay({
                   return (
                     <PartnerCard
                       key={`sched_card_${p.id}`}
+                      v2={v2}
                       type={isGroupCard ? 'group' : 'scheduled'}
                       uid={p.userId}
                       name={p.displayName}
@@ -947,6 +1022,7 @@ export function PartnerOverlay({
       <PartnerFilterSheet
         isOpen={filterSheetOpen}
         onClose={() => setFilterSheetOpen(false)}
+        tab={v2 ? activeTab : undefined}
       />
 
       <UserProfileSheet

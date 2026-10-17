@@ -45,6 +45,7 @@
  */
 
 import React, { useState } from 'react';
+import { Dumbbell, Footprints, Bike, Activity, Star, MapPin, Flame, MessageCircle, UserPlus } from 'lucide-react';
 import { resolvePersonaImage } from '@/features/parks/core/hooks/useGroupPresence';
 import { getStageTitle } from '@/features/user/progression/config/stage-titles';
 import { useUserStore } from '@/features/user';
@@ -96,7 +97,18 @@ export interface PartnerCardProps {
   onConnect?: () => void;
   onJoin?: () => void;
   onAvatarTap?: () => void;
+  /** Home v2 (enable_home_v2): white v2 card chrome. Same data + handlers. */
+  v2?: boolean;
 }
+
+// Home v2 — lucide icon + activity colour per activity (replaces the emoji).
+const V2_ACTIVITY_ICON: Record<PartnerCardActivity | 'other', { Icon: typeof Dumbbell; color: string }> = {
+  strength: { Icon: Dumbbell, color: '#00baf7' },
+  running: { Icon: Activity, color: '#65a30d' },
+  walking: { Icon: Footprints, color: '#f59e0b' },
+  cycling: { Icon: Bike, color: '#65a30d' },
+  other: { Icon: Star, color: '#8b5cf6' },
+};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -180,6 +192,7 @@ export function PartnerCard({
   onConnect,
   onJoin,
   onAvatarTap,
+  v2 = false,
 }: PartnerCardProps) {
   const avatarSrc = photoURL || resolvePersonaImage(personaId);
   const activity = resolveActivityLine(activityStatus, mockPace, lemurStage);
@@ -287,6 +300,102 @@ export function PartnerCard({
     }
     return null;
   })();
+
+  if (v2) {
+    const { Icon: ActivityIcon, color: activityColor } = V2_ACTIVITY_ICON[activityStatus ?? 'other'];
+    return (
+      <div
+        dir="rtl"
+        className="relative mx-auto flex w-full flex-col overflow-hidden rounded-v2-card bg-white shadow-v2-card"
+        style={{ height: 330 }}
+      >
+        {/* Photo — top band, profile tap target */}
+        <div className="relative h-[172px] w-full flex-shrink-0 overflow-hidden bg-v2-tint">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={avatarSrc}
+            alt={name}
+            className="absolute inset-0 h-full w-full object-cover"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = resolvePersonaImage(null);
+            }}
+          />
+          {onAvatarTap && (
+            <button
+              type="button"
+              onClick={onAvatarTap}
+              aria-label={`פתח פרופיל של ${name}`}
+              className="absolute inset-0 z-[6] cursor-pointer"
+            />
+          )}
+          {(isSelf || topStartChip) && (
+            <div className="absolute top-2.5 start-2.5 z-20 flex max-w-[70%] flex-col items-start gap-1">
+              {isSelf && (
+                <div className="whitespace-nowrap rounded-full bg-v2-up px-2.5 py-1 text-[11px] font-black text-white">
+                  הגעה שלי
+                </div>
+              )}
+              {topStartChip && (
+                <div className="max-w-full truncate whitespace-nowrap rounded-full bg-white/95 px-2.5 py-1 text-[11.5px] font-extrabold text-v2-ink shadow-v2-ring">
+                  {topStartChip}
+                </div>
+              )}
+            </div>
+          )}
+          {topEndPill && <div className="absolute top-2.5 end-2.5 z-20">{topEndPill}</div>}
+        </div>
+
+        {/* Content */}
+        <div className="flex min-h-0 flex-1 flex-col px-4 pb-4 pt-3">
+          <div className="flex items-center justify-between gap-2 text-[12.5px] font-bold text-v2-muted">
+            <span className="whitespace-nowrap">{formatDistance(distanceKm)}</span>
+            {currentStreak != null && currentStreak > 0 && (
+              <span className="flex items-center gap-1 whitespace-nowrap text-v2-amber">
+                <Flame size={13} aria-hidden />
+                {currentStreak} ימים רצף
+              </span>
+            )}
+          </div>
+          <h4 className="mt-0.5 truncate text-[17px] font-black leading-snug !tracking-[-0.01em] text-v2-ink">
+            {titleText}
+          </h4>
+          <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[13px] font-bold text-v2-ink-2">
+            <ActivityIcon size={14} style={{ color: activityColor }} className="flex-shrink-0" aria-hidden />
+            <span className="truncate">{activityLabel}</span>
+          </div>
+          {type === 'scheduled' && locationLabel && locationLabel.trim().length > 0 && (
+            <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[12.5px] font-bold text-v2-muted">
+              <MapPin size={13} className="flex-shrink-0" aria-hidden />
+              <span className="truncate">{locationLabel}</span>
+            </div>
+          )}
+
+          <div className="mt-auto pt-2">
+            {isGroup ? (
+              <button
+                type="button"
+                onClick={handleJoin}
+                className="flex h-10 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-v2-tint text-[14px] font-extrabold text-v2-deep ring-1 ring-inset ring-v2-accent/40 transition-transform duration-150 ease-v2 active:scale-[0.97]"
+              >
+                <UserPlus size={15} aria-hidden />
+                הצטרף
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleConnect}
+                disabled={isConnecting}
+                className="flex h-10 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-v2-tint text-[14px] font-extrabold text-v2-deep ring-1 ring-inset ring-v2-accent/40 transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:opacity-60"
+              >
+                <MessageCircle size={15} aria-hidden />
+                {isConnecting ? 'מתחבר...' : "פתח צ'אט"}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

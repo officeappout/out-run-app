@@ -12,7 +12,7 @@
  */
 
 import React from 'react';
-import { Users } from 'lucide-react';
+import { Users, SlidersHorizontal } from 'lucide-react';
 import LemurAvatar from '@/features/user/progression/components/LemurAvatar';
 import { useUserStore } from '@/features/user';
 import { g } from '@/lib/utils/gendered-text';
@@ -20,9 +20,14 @@ import { IS_XP_ENABLED } from '@/config/feature-flags';
 
 interface PartnerEmptyStateProps {
   tab: 'live' | 'scheduled';
+  /** Home v2: calm white-card variant (the host renders the card chrome). */
+  v2?: boolean;
+  /** Home v2: the one secondary action (PartnerOverlay → opens the filter sheet). */
+  onAction?: () => void;
+  actionLabel?: string;
 }
 
-export function PartnerEmptyState({ tab }: PartnerEmptyStateProps) {
+export function PartnerEmptyState({ tab, v2 = false, onAction, actionLabel }: PartnerEmptyStateProps) {
   const gender = useUserStore((s) => s.profile?.core?.gender) ?? 'male';
 
   const title =
@@ -38,6 +43,38 @@ export function PartnerEmptyState({ tab }: PartnerEmptyStateProps) {
           'סמני את עצמך פנויה',
         )} לפני האימון`
       : `${g(gender, 'הוסף אימון ללוז', 'הוסיפי אימון ללוז')} ושתף אותו עם הקהילה`;
+
+  if (v2) {
+    return (
+      <div dir="rtl" className="flex w-full flex-col items-center justify-center px-6 py-8 text-center">
+        {IS_XP_ENABLED ? (
+          <div className="mb-4 opacity-60">
+            <LemurAvatar level={1} size="large" />
+          </div>
+        ) : (
+          <div className="mb-4 grid h-14 w-14 place-items-center rounded-full bg-v2-tint">
+            <Users className="h-7 w-7 text-v2-deep" aria-hidden />
+          </div>
+        )}
+        <p className="max-w-[280px] text-[16px] font-black leading-snug !tracking-[-0.01em] text-v2-ink">
+          {title}
+        </p>
+        <p className="mt-1.5 max-w-[280px] text-[13px] font-bold leading-snug text-v2-muted">
+          {sub}
+        </p>
+        {onAction && (
+          <button
+            type="button"
+            onClick={onAction}
+            className="mt-5 flex h-10 items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-4 text-[14px] font-extrabold text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
+          >
+            <SlidersHorizontal size={15} className="text-v2-deep" aria-hidden />
+            {actionLabel ?? 'שינוי סינון'}
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div

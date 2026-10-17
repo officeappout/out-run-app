@@ -68,6 +68,14 @@ interface PartnerFilterBarProps {
    * activeTab to 'scheduled' and (optionally) display a transient hint.
    */
   onSwitchToScheduled?: () => void;
+  /**
+   * Home v2 (enable_home_v2): render ONLY the activity row + a single
+   * "סינון" pill (with the count of extra active filters). Every other
+   * row moves into PartnerFilterSheet (see `PartnerFilterRowsV2`). The
+   * level-range effects below keep running here either way, so the
+   * filter semantics are identical — only where the controls live moves.
+   */
+  v2?: boolean;
 }
 
 // ── Pill catalogues ──────────────────────────────────────────────────────────
@@ -140,27 +148,16 @@ function Pill({ active, onClick, children }: PillProps) {
   );
 }
 
-// ── Main component ───────────────────────────────────────────────────────────
-
-export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled }: PartnerFilterBarProps) {
-  // Filter store
-  const liveActivity = usePartnerFilters((s) => s.liveActivity);
-  const setLiveActivity = usePartnerFilters((s) => s.setLiveActivity);
-  const soloGroupFilter = usePartnerFilters((s) => s.soloGroupFilter);
-  const setSoloGroupFilter = usePartnerFilters((s) => s.setSoloGroupFilter);
-  const selectedProgram = usePartnerFilters((s) => s.selectedProgram);
-  const setSelectedProgram = usePartnerFilters((s) => s.setSelectedProgram);
-  const runDistance = usePartnerFilters((s) => s.runDistance);
-  const setRunDistance = usePartnerFilters((s) => s.setRunDistance);
-  const levelRange = usePartnerFilters((s) => s.levelRange);
-  const setLevelRange = usePartnerFilters((s) => s.setLevelRange);
-  const paceRange = usePartnerFilters((s) => s.paceRange);
-  const setPaceRange = usePartnerFilters((s) => s.setPaceRange);
-  const plannedTime = usePartnerFilters((s) => s.plannedTime);
-  const setPlannedTime = usePartnerFilters((s) => s.setPlannedTime);
-  const scheduledTimeRange = usePartnerFilters((s) => s.scheduledTimeRange);
-  const setScheduledTimeRange = usePartnerFilters((s) => s.setScheduledTimeRange);
-
+// ── Shared model (program pills + level bound) ──────────────────────────────
+// Extracted verbatim from PartnerFilterBar so the v2 filter sheet can
+// render the same program pills / level slider bounds. Pure derivation +
+// the cached CMS fetch — the level-range RESET/CLAMP effects stay in
+// PartnerFilterBar (mounted for the whole overlay session) so they run
+// exactly once, as before.
+export function usePartnerFilterModel(
+  liveActivity: LiveActivityFilter,
+  selectedProgram: string | null,
+) {
   // User profile (for program names + level bounds)
   const profile = useUserStore((s) => s.profile);
   const activePrograms = profile?.progression?.activePrograms ?? [];
@@ -286,6 +283,290 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled }: Part
     return DEFAULT_PROGRAM_MAX;
   }, [liveActivity, selectedProgram, programsById, activePrograms]);
 
+  return { activePrograms, programPills, levelMaxBound };
+}
+
+// ── Home v2 pieces ───────────────────────────────────────────────────────────
+
+function PillV2({ active, onClick, children }: PillProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`h-9 flex-shrink-0 whitespace-nowrap rounded-full px-3.5 text-[13.5px] font-extrabold transition-transform duration-150 ease-v2 active:scale-[0.97] ${
+        active
+          ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40'
+          : 'bg-white text-v2-ink-2 shadow-v2-ring'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Full pace window of the pace slider (sec/km) — "no narrowing". */
+const PACE_FULL: [number, number] = [180, 540];
+/** Full age window of the age slider — "no narrowing". */
+const AGE_FULL: [number, number] = [18, 99];
+
+/**
+ * How many of the controls that live inside the v2 filter sheet are set
+ * to something other than their neutral "הכל"/full-range value. Counts
+ * only the controls the sheet actually shows for the current tab /
+ * activity (same visibility matrix as the legacy rows). Display-only —
+ * it never changes a filter.
+ */
+export function useExtraPartnerFilterCount(
+  tab: 'live' | 'scheduled',
+  levelMaxBound: number,
+): number {
+  const liveActivity = usePartnerFilters((s) => s.liveActivity);
+  const soloGroupFilter = usePartnerFilters((s) => s.soloGroupFilter);
+  const selectedProgram = usePartnerFilters((s) => s.selectedProgram);
+  const levelRange = usePartnerFilters((s) => s.levelRange);
+  const paceRange = usePartnerFilters((s) => s.paceRange);
+  const plannedTime = usePartnerFilters((s) => s.plannedTime);
+  const genderFilter = usePartnerFilters((s) => s.genderFilter);
+  const ageRange = usePartnerFilters((s) => s.ageRange);
+
+  let n = 0;
+  if (soloGroupFilter !== 'all') n += 1;
+  if (liveActivity === 'strength') {
+    if (selectedProgram !== null) n += 1;
+    if (levelRange[0] > 1 || levelRange[1] < levelMaxBound) n += 1;
+  }
+  if (liveActivity === 'running') {
+    if (paceRange[0] > PACE_FULL[0] || paceRange[1] < PACE_FULL[1]) n += 1;
+  }
+  if (tab === 'scheduled' && plannedTime !== 'all') n += 1;
+  if (genderFilter !== 'all') n += 1;
+  if (ageRange[0] > AGE_FULL[0] || ageRange[1] < AGE_FULL[1]) n += 1;
+  return n;
+}
+
+function SectionTitleV2({ children, value }: { children: React.ReactNode; value?: React.ReactNode }) {
+  return (
+    <div className="mb-2.5 flex items-center justify-between gap-2">
+      <span className="whitespace-nowrap text-[15px] font-black text-v2-ink">{children}</span>
+      {value != null && (
+        <span className="whitespace-nowrap text-[13px] font-extrabold text-v2-deep">{value}</span>
+      )}
+    </div>
+  );
+}
+
+function EdgeLabelsV2({ start, end }: { start: string; end: string }) {
+  return (
+    <div className="mt-0.5 flex justify-between text-[11px] font-bold text-v2-muted">
+      <span>{start}</span>
+      <span>{end}</span>
+    </div>
+  );
+}
+
+const V2_ACCENT = '#00baf7';
+
+/**
+ * The rows that used to sit on the overlay (type / program / level /
+ * running distance + pace / scheduled day + time), restyled for v2 and
+ * rendered INSIDE PartnerFilterSheet. Same store fields, same setters,
+ * same visibility matrix as PartnerFilterBar rows 2–5 — the level
+ * reset/clamp effects remain owned by the (still mounted) PartnerFilterBar.
+ */
+export function PartnerFilterRowsV2({ tab }: { tab: 'live' | 'scheduled' }) {
+  const liveActivity = usePartnerFilters((s) => s.liveActivity);
+  const soloGroupFilter = usePartnerFilters((s) => s.soloGroupFilter);
+  const setSoloGroupFilter = usePartnerFilters((s) => s.setSoloGroupFilter);
+  const selectedProgram = usePartnerFilters((s) => s.selectedProgram);
+  const setSelectedProgram = usePartnerFilters((s) => s.setSelectedProgram);
+  const runDistance = usePartnerFilters((s) => s.runDistance);
+  const setRunDistance = usePartnerFilters((s) => s.setRunDistance);
+  const levelRange = usePartnerFilters((s) => s.levelRange);
+  const setLevelRange = usePartnerFilters((s) => s.setLevelRange);
+  const paceRange = usePartnerFilters((s) => s.paceRange);
+  const setPaceRange = usePartnerFilters((s) => s.setPaceRange);
+  const plannedTime = usePartnerFilters((s) => s.plannedTime);
+  const setPlannedTime = usePartnerFilters((s) => s.setPlannedTime);
+  const scheduledTimeRange = usePartnerFilters((s) => s.scheduledTimeRange);
+  const setScheduledTimeRange = usePartnerFilters((s) => s.setScheduledTimeRange);
+
+  const { programPills, levelMaxBound } = usePartnerFilterModel(liveActivity, selectedProgram);
+
+  const showStrength = liveActivity === 'strength';
+  const showRunning = liveActivity === 'running';
+  const showDay = tab === 'scheduled';
+  const showTimeSlider = showDay && (plannedTime === 'today' || plannedTime === 'tomorrow');
+
+  return (
+    <>
+      <section>
+        <SectionTitleV2>סוג</SectionTitleV2>
+        <div className="flex flex-wrap gap-2">
+          {SOLO_GROUP_PILLS.map((p) => (
+            <PillV2
+              key={`sg_${p.value}`}
+              active={soloGroupFilter === p.value}
+              onClick={() => setSoloGroupFilter(p.value)}
+            >
+              {p.label}
+            </PillV2>
+          ))}
+        </div>
+      </section>
+
+      {showDay && (
+        <section>
+          <SectionTitleV2>מתי</SectionTitleV2>
+          <div className="flex flex-wrap gap-2">
+            {PLANNED_TIME_PILLS.map((p) => (
+              <PillV2
+                key={`pti_${p.value}`}
+                active={plannedTime === p.value}
+                onClick={() => setPlannedTime(p.value)}
+              >
+                {p.label}
+              </PillV2>
+            ))}
+          </div>
+          {showTimeSlider && (
+            <div className="mt-3">
+              <SectionTitleV2
+                value={
+                  <span dir="ltr">
+                    {formatTimeOfDay(scheduledTimeRange[0])} – {formatTimeOfDay(scheduledTimeRange[1])}
+                  </span>
+                }
+              >
+                <span className="text-[13px] font-extrabold text-v2-ink-2">טווח שעות</span>
+              </SectionTitleV2>
+              <DualRangeSlider
+                min={6 * 60}
+                max={22 * 60}
+                step={15}
+                values={scheduledTimeRange}
+                onChange={setScheduledTimeRange}
+                ariaLabelMin="שעת התחלה"
+                ariaLabelMax="שעת סיום"
+              />
+            </div>
+          )}
+        </section>
+      )}
+
+      {showStrength && programPills.length > 0 && (
+        <section>
+          <SectionTitleV2>תוכנית</SectionTitleV2>
+          <div className="flex flex-wrap gap-2">
+            <PillV2 active={selectedProgram === null} onClick={() => setSelectedProgram(null)}>
+              הכל
+            </PillV2>
+            {programPills.map((p) => (
+              <PillV2
+                key={`prog_${p.value}`}
+                active={selectedProgram === p.value}
+                onClick={() => setSelectedProgram(p.value)}
+              >
+                <span className="inline-flex max-w-[180px] items-center gap-1.5">
+                  <span aria-hidden className="inline-flex flex-shrink-0" style={{ width: 14, height: 14 }}>
+                    {getProgramIcon(p.iconKey, 'w-3.5 h-3.5')}
+                  </span>
+                  <span className="truncate">{p.label}</span>
+                </span>
+              </PillV2>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {showStrength && (
+        <section>
+          <SectionTitleV2 value={`${levelRange[0]}–${levelRange[1]}`}>רמה</SectionTitleV2>
+          <DualRangeSlider
+            min={1}
+            max={levelMaxBound}
+            step={1}
+            values={levelRange}
+            onChange={setLevelRange}
+            ariaLabelMin="רמה מינימום"
+            ariaLabelMax="רמה מקסימום"
+          />
+          <EdgeLabelsV2 start="מתחיל" end="מתקדם" />
+        </section>
+      )}
+
+      {showRunning && (
+        <section>
+          <SectionTitleV2 value={`${runDistance} ק״מ`}>מרחק יעד</SectionTitleV2>
+          <div className="relative w-full" style={{ height: 16 }}>
+            <div className="absolute top-1/2 left-0 right-0 h-1.5 -translate-y-1/2 rounded-full bg-v2-hairline" />
+            <div
+              className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full"
+              style={{
+                right: 0,
+                left: `${100 - (runDistance / 21) * 100}%`,
+                backgroundColor: V2_ACCENT,
+              }}
+            />
+            <input
+              type="range"
+              min={0}
+              max={21}
+              step={0.5}
+              value={runDistance}
+              dir="rtl"
+              onChange={(e) => setRunDistance(Number(e.target.value))}
+              className="absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer"
+              style={{ accentColor: V2_ACCENT }}
+              aria-label="מרחק יעד בקילומטרים"
+            />
+          </div>
+        </section>
+      )}
+
+      {showRunning && (
+        <section>
+          <SectionTitleV2>קצב (דקות לק״מ)</SectionTitleV2>
+          <DualRangeSlider
+            min={180}
+            max={540}
+            step={5}
+            values={paceRange}
+            onChange={setPaceRange}
+            formatLabel={formatPace}
+            ariaLabelMin="קצב מינימום"
+            ariaLabelMax="קצב מקסימום"
+          />
+          <EdgeLabelsV2 start="איטי" end="מהיר" />
+        </section>
+      )}
+    </>
+  );
+}
+
+// ── Main component ───────────────────────────────────────────────────────────
+
+export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled, v2 = false }: PartnerFilterBarProps) {
+  // Filter store
+  const liveActivity = usePartnerFilters((s) => s.liveActivity);
+  const setLiveActivity = usePartnerFilters((s) => s.setLiveActivity);
+  const soloGroupFilter = usePartnerFilters((s) => s.soloGroupFilter);
+  const setSoloGroupFilter = usePartnerFilters((s) => s.setSoloGroupFilter);
+  const selectedProgram = usePartnerFilters((s) => s.selectedProgram);
+  const setSelectedProgram = usePartnerFilters((s) => s.setSelectedProgram);
+  const runDistance = usePartnerFilters((s) => s.runDistance);
+  const setRunDistance = usePartnerFilters((s) => s.setRunDistance);
+  const levelRange = usePartnerFilters((s) => s.levelRange);
+  const setLevelRange = usePartnerFilters((s) => s.setLevelRange);
+  const paceRange = usePartnerFilters((s) => s.paceRange);
+  const setPaceRange = usePartnerFilters((s) => s.setPaceRange);
+  const plannedTime = usePartnerFilters((s) => s.plannedTime);
+  const setPlannedTime = usePartnerFilters((s) => s.setPlannedTime);
+  const scheduledTimeRange = usePartnerFilters((s) => s.scheduledTimeRange);
+  const setScheduledTimeRange = usePartnerFilters((s) => s.setScheduledTimeRange);
+
+  const { programPills, levelMaxBound } = usePartnerFilterModel(liveActivity, selectedProgram);
+
   // ── Reset levelRange to [1, max] on a USER-DRIVEN program change ──────────
   // When the user taps a different program pill, the previous range is
   // almost certainly stale (a "level 1-12" window for a 12-level program
@@ -346,6 +627,47 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled }: Part
   const showRow4Running = liveActivity === 'running';
   const showRow5 = tab === 'scheduled';
   const showTimeSlider = showRow5 && (plannedTime === 'today' || plannedTime === 'tomorrow');
+
+  // Home v2 — one chip row (activity) + a single "סינון" pill. Hook is
+  // called unconditionally (before the branch) to keep hook order stable.
+  const extraCount = useExtraPartnerFilterCount(tab, levelMaxBound);
+  if (v2) {
+    return (
+      <div
+        dir="rtl"
+        className="flex items-center gap-2 overflow-x-auto px-4 py-1 scrollbar-none min-w-0 w-full"
+        style={{ scrollbarWidth: 'none' }}
+      >
+        {ACTIVITY_PILLS.map((p) => (
+          <PillV2
+            key={`act_${p.value}`}
+            active={liveActivity === p.value}
+            onClick={() => setLiveActivity(p.value)}
+          >
+            {p.label}
+          </PillV2>
+        ))}
+        <button
+          type="button"
+          onClick={onOpenSheet}
+          className={`ms-auto flex h-9 flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[13.5px] font-extrabold transition-transform duration-150 ease-v2 active:scale-[0.97] ${
+            extraCount > 0
+              ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40'
+              : 'bg-white text-v2-ink-2 shadow-v2-ring'
+          }`}
+          aria-label={extraCount > 0 ? `סינון — ${extraCount} פעילים` : 'סינון'}
+        >
+          <SlidersHorizontal size={15} aria-hidden />
+          סינון
+          {extraCount > 0 && (
+            <span className="grid h-5 min-w-5 place-items-center rounded-full bg-v2-deep px-1.5 text-[11px] font-black text-white">
+              {extraCount}
+            </span>
+          )}
+        </button>
+      </div>
+    );
+  }
 
   return (
     // `w-full min-w-0` on the root so the column itself never expands past
