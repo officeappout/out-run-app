@@ -17,6 +17,7 @@
  */
 
 import React from 'react';
+import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/features/user';
 import { useWeeklyProgress, getStrengthAdherence } from '@/features/activity';
@@ -45,6 +46,27 @@ interface MiniBarsProps {
  */
 function MiniBars({ caption, done, target, fillColor = '#00C9F2', icon }: MiniBarsProps) {
   const safeTarget = Math.max(1, target);
+  const v2 = useHomeV2();
+  if (v2) {
+    return (
+      <div>
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-1 text-[13px] font-extrabold text-v2-muted">
+            {icon}
+            {caption}
+          </span>
+          <span className="text-[18px] font-black leading-none tabular-nums text-v2-ink" dir="ltr">
+            {done}/{safeTarget}
+          </span>
+        </div>
+        <div className="mt-2.5 flex gap-1">
+          {Array.from({ length: safeTarget }).map((_, i) => (
+            <span key={i} className="h-1.5 flex-1 rounded-full" style={{ background: i < done ? fillColor : '#e6f4fa' }} />
+          ))}
+        </div>
+      </div>
+    );
+  }
   return (
     <div>
       <div className="flex items-center justify-between mb-1.5">
@@ -157,10 +179,11 @@ export function ConsistencyWidget() {
     />
   );
 
+  const v2 = useHomeV2();
   return (
     <div
-      className="bg-white dark:bg-slate-800 w-full h-full flex flex-col justify-center gap-3 overflow-hidden"
-      style={{ ...WIDGET_CARD_STYLE, padding: 10 }}
+      className={v2 ? 'flex h-full w-full flex-col justify-center gap-4 overflow-hidden rounded-v2-card bg-white p-3.5 shadow-v2-card' : 'bg-white dark:bg-slate-800 w-full h-full flex flex-col justify-center gap-3 overflow-hidden'}
+      style={v2 ? undefined : { ...WIDGET_CARD_STYLE, padding: 10 }}
       dir="rtl"
     >
       {strengthDone ? (

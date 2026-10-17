@@ -10,7 +10,7 @@
  * Same BoardCard / podium / rows as the other boards.
  */
 import { useEffect, useState } from 'react';
-import { RefreshCw, Trophy, TrendingUp } from 'lucide-react';
+import { ChevronDown, RefreshCw, SlidersHorizontal, Trophy, TrendingUp } from 'lucide-react';
 import Button from '@/components/ui/v2/Button';
 import { BoardCard, BoardIconButton, BoardMessage, BoardRow, BoardRowSkeleton, BoardPodium, BoardToggle, type PodiumEntry } from './LeagueBoard';
 import { perMember, rankByMeasure } from './league-board-logic';
@@ -34,12 +34,6 @@ const TYPE_CHIPS: { id: SettlementType; label: string }[] = [
   { id: 'settlement', label: 'קיבוצים ומושבים' },
 ];
 
-const CATEGORY_CHIPS: { id: LeaderboardCategory; label: string }[] = [
-  { id: 'overall', label: 'כל הפעילות' },
-  { id: 'strength', label: 'כוח' },
-  { id: 'cardio', label: 'אירובי' },
-];
-
 function Chips<T extends string>({ value, options, onChange, label }: { value: T; options: { id: T; label: string }[]; onChange: (v: T) => void; label: string }) {
   return (
     <div className="-mx-1 mb-2.5 flex gap-1.5 overflow-x-auto px-1 no-scrollbar" role="radiogroup" aria-label={label}>
@@ -51,7 +45,7 @@ function Chips<T extends string>({ value, options, onChange, label }: { value: T
           aria-checked={value === c.id}
           onClick={() => onChange(c.id)}
           className={`h-8 shrink-0 whitespace-nowrap rounded-full px-3.5 text-[12.5px] font-extrabold transition-colors ease-v2 ${
-            value === c.id ? 'bg-v2-ink text-white' : 'bg-white text-v2-ink-2 shadow-v2-ring'
+            value === c.id ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'bg-white text-v2-ink-2 shadow-v2-ring'
           }`}
         >
           {c.label}
@@ -65,7 +59,6 @@ export default function NationalLeagueBoard({
   mode,
   timeWindow,
   category,
-  onCategoryChange,
   genderFilter = 'all',
   myScopeIds = [],
 }: {
@@ -73,6 +66,7 @@ export default function NationalLeagueBoard({
   mode: 'settlements' | 'neighborhoods';
   timeWindow: LeaderboardTimeWindow;
   category: LeaderboardCategory;
+  /** Kept for the call sites; activity chips were dropped from these boards (too many buttons). */
   onCategoryChange?: (c: LeaderboardCategory) => void;
   genderFilter?: LeaderboardGenderFilter;
   /** The viewer's own city / neighborhood ids — their rows get "שלך". */
@@ -86,6 +80,8 @@ export default function NationalLeagueBoard({
   const [unavailable, setUnavailable] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Filters fold into one "סינון" button (owner: too many rows of buttons).
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const board: LeagueBoardKind = mode === 'neighborhoods' ? 'neighborhood-national' : type === 'settlement' ? 'settlement' : 'city';
 
@@ -147,16 +143,36 @@ export default function NationalLeagueBoard({
       subtitle={windowLabel}
       actions={<BoardIconButton icon={RefreshCw} label="רענן" onClick={() => void load()} spinning={loading} />}
     >
-      {mode === 'settlements' && <Chips value={type} options={TYPE_CHIPS} onChange={setType} label="סוג יישוב" />}
-      {board === 'settlement' && regions.length > 1 && (
-        <Chips
-          value={region ?? 'all'}
-          options={[{ id: 'all', label: 'כל האזורים' }, ...regions.map((r) => ({ id: r.id, label: r.name }))]}
-          onChange={(v) => setRegion(v === 'all' ? null : v)}
-          label="אזור"
-        />
+      {mode === 'settlements' && (
+        <div className="mb-2.5">
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((v) => !v)}
+            aria-expanded={filtersOpen}
+            className={`flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[13px] font-extrabold transition-colors ${
+              type !== 'all' || region ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'bg-white text-v2-ink-2 shadow-v2-ring'
+            }`}
+          >
+            <SlidersHorizontal size={14} strokeWidth={2.6} aria-hidden />
+            {type === 'all' ? 'סינון' : TYPE_CHIPS.find((c) => c.id === type)?.label}
+            {region ? ` · ${regions.find((r) => r.id === region)?.name ?? ''}` : ''}
+            <ChevronDown size={14} strokeWidth={2.6} className={`transition-transform ${filtersOpen ? 'rotate-180' : ''}`} aria-hidden />
+          </button>
+          {filtersOpen && (
+            <div className="mt-2 rounded-[18px] bg-v2-surface p-2.5 ring-1 ring-inset ring-v2-hairline">
+              <Chips value={type} options={TYPE_CHIPS} onChange={setType} label="סוג יישוב" />
+              {board === 'settlement' && regions.length > 1 && (
+                <Chips
+                  value={region ?? 'all'}
+                  options={[{ id: 'all', label: 'כל האזורים' }, ...regions.map((r) => ({ id: r.id, label: r.name }))]}
+                  onChange={(v) => setRegion(v === 'all' ? null : v)}
+                  label="אזור"
+                />
+              )}
+            </div>
+          )}
+        </div>
       )}
-      {onCategoryChange && <Chips value={category} options={CATEGORY_CHIPS} onChange={onCategoryChange} label="סוג פעילות" />}
       <div className="mb-2">
         <BoardToggle
           label="שיטת דירוג"

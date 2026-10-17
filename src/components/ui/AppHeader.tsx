@@ -37,6 +37,7 @@ import { isUserVerified } from '@/features/user/identity/services/access-control
 import type { ActivityType } from '@/features/activity/types/activity.types';
 import { hapticSuccess } from '@/lib/haptics';
 import StreakFlame from '@/components/ui/v2/StreakFlame';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
 interface AppHeaderProps {
   /**
@@ -63,9 +64,13 @@ interface AppHeaderProps {
   v2?: boolean;
 }
 
-export default function AppHeader({ children, zIndex = 40, asOverlay = false, v2 = false }: AppHeaderProps) {
+export default function AppHeader({ children, zIndex = 40, asOverlay = false, v2: v2Prop }: AppHeaderProps) {
   const router = useRouter();
   const profile = useUserStore((s) => s.profile);
+  // Pages that don't pass `v2` (community, search, progression, map) follow
+  // enable_home_v2 themselves — the header used to stay classic there.
+  const flagV2 = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin).flags.enableHomeV2;
+  const v2 = v2Prop ?? flagV2;
   const userId = profile?.id ?? null;
   const photoURL = profile?.core?.photoURL;
   const userName = profile?.core?.name ?? 'משתמש';

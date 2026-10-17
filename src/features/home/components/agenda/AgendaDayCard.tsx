@@ -683,7 +683,9 @@ function StrengthCard({
       style={{
         position: 'relative',
         minWidth: 0,
-        ...(isShared ? { flex: 1 } : { width: '50%' }),
+        // v2: the pill takes the row's free width (it used to stop at 50%
+        // and cut the workout name).
+        ...(isShared || v2 ? { flex: 1 } : { width: '50%' }),
       }}
       whileDrag={{
         scale: 1.02,
@@ -694,7 +696,9 @@ function StrengthCard({
       }}
     >
       {/* Swipe-and-reveal container — clips the sliding card and exposes the action panel */}
-      <div ref={swipeContainerRef} style={{ position: 'relative', overflow: 'hidden', borderRadius: 8 }}>
+      {/* Same radius as the card on top — otherwise the edit/delete panel
+          underneath shows at the corners (the v2 pill is rounder). */}
+      <div ref={swipeContainerRef} style={{ position: 'relative', overflow: 'hidden', borderRadius: v2 ? 14 : 8 }}>
 
         {/* Action panel — revealed on swipe-left: edit (blue) + delete (red) */}
         {canSwipe && (
@@ -836,7 +840,7 @@ function StrengthCard({
               }
               <p className={
                 v2
-                  ? `text-[14px] font-extrabold leading-tight truncate ${isCompleted ? 'text-v2-ink-2' : 'text-v2-ink'}`
+                  ? `text-[13.5px] font-extrabold leading-tight truncate ${isCompleted ? 'text-v2-ink-2' : 'text-v2-ink'}`
                   : `text-[13px] font-medium leading-tight truncate ${isCompleted ? 'text-white line-through' : 'text-gray-900 dark:text-white'}`
               }>
                 {title}

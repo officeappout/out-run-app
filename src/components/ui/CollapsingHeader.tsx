@@ -67,6 +67,38 @@ export default function CollapsingHeader({
     anchorRef: headerRef,
   });
 
+  // When <main> already pads the safe area (applySafeAreaTop={false} — the
+  // AppHeader case): a fixed cover over the status bar keeps scrolled content
+  // (and the sliding header) from showing under the clock, and hiding moves
+  // the header past that cover too — -100% alone left a strip of it showing.
+  if (!applySafeAreaTop) {
+    return (
+      <>
+        <div
+          aria-hidden
+          className={`pointer-events-none fixed inset-x-0 top-0 ${className}`}
+          style={{ height: 'env(safe-area-inset-top, 0px)', zIndex: zIndex + 1 }}
+        />
+        <header
+          ref={headerRef}
+          className={`sticky ${className} ${scrolled ? scrolledClassName : ''}`}
+          style={{
+            // top: 0 — the scroll container already pads the safe area, and a
+            // sticky offset is measured inside that padding; top: safe-area
+            // counted it twice (a grey gap above the header, 17.10.2026).
+            top: 0,
+            zIndex,
+            transform: hidden ? 'translateY(calc(-100% - env(safe-area-inset-top, 0px)))' : 'translateY(0)',
+            transition: 'transform 220ms cubic-bezier(0.4, 0, 0.2, 1)',
+            willChange: 'transform',
+          }}
+        >
+          {children}
+        </header>
+      </>
+    );
+  }
+
   return (
     <motion.header
       ref={headerRef}

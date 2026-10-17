@@ -26,7 +26,7 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { m, AnimatePresence, motion } from 'framer-motion';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Users, RefreshCw, ChevronDown, SlidersHorizontal, MapPin, Trees, Lock } from 'lucide-react';
+import { Users, RefreshCw, ChevronDown, SlidersHorizontal, MapPin, Trees, Lock, UserPlus } from 'lucide-react';
 import IconTile from '@/components/ui/v2/IconTile';
 import Button from '@/components/ui/v2/Button';
 import { useUserStore } from '@/features/user';
@@ -61,6 +61,7 @@ import GroupLeaderboard from '@/features/arena/components/GroupLeaderboard';
 import ScopeCompetitionLeaderboard from '@/features/arena/components/ScopeCompetitionLeaderboard';
 import ScopeBattleCard from '@/features/arena/components/ScopeBattleCard';
 import NationalLeagueBoard from '@/features/arena/components/NationalLeagueBoard';
+import InviteBonusCard from '@/features/arena/components/InviteBonusCard';
 import { BoardToggle } from '@/features/arena/components/LeagueBoard';
 import LeagueFilterSheet from '@/features/arena/components/LeagueFilterSheet';
 import { LeagueSelectorButton } from '@/features/arena/components/LeaguesTabChrome';
@@ -817,6 +818,16 @@ export default function CommunityPage() {
             <p className="text-xs text-gray-600 mt-1 max-w-[240px]">
               סיים אימון כדי לפרסם את הפוסט הראשון שלך, או חפש שותפים ועקוב אחריהם
             </p>
+            {featureFlags.enableHomeV2 && (
+              <button
+                type="button"
+                onClick={() => router.push('/search?tab=people')}
+                className="mt-4 flex h-11 items-center gap-1.5 rounded-full bg-v2-cta px-5 text-[14.5px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]"
+              >
+                <UserPlus size={17} strokeWidth={2.6} aria-hidden />
+                מצא שותפים
+              </button>
+            )}
           </div>
         </div>
       );
@@ -850,6 +861,14 @@ export default function CommunityPage() {
               >
                 <Lock size={15} strokeWidth={2.6} aria-hidden />
               </button>
+              <button
+                type="button"
+                onClick={() => router.push('/search?tab=people')}
+                className="flex h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-v2-tint px-3.5 text-[13.5px] font-extrabold text-v2-deep transition-transform duration-150 ease-v2 active:scale-[0.97]"
+              >
+                <UserPlus size={15} strokeWidth={2.6} aria-hidden />
+                שותפים
+              </button>
               {FEED_FILTERS.map((f) => {
                 const on = f.id === feedFilter;
                 return (
@@ -860,7 +879,7 @@ export default function CommunityPage() {
                     aria-selected={on}
                     onClick={() => setFeedFilter(f.id)}
                     className={`h-9 shrink-0 whitespace-nowrap rounded-full px-4 text-[13.5px] font-extrabold transition-transform duration-150 ease-v2 active:scale-[0.97] ${
-                      on ? 'bg-v2-ink text-white' : 'bg-white text-v2-ink-2 shadow-v2-ring'
+                      on ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'bg-white text-v2-ink-2 shadow-v2-ring'
                     }`}
                   >
                     {f.label}
@@ -962,6 +981,7 @@ export default function CommunityPage() {
             {hoodScopeV2 === 'city' ? (
               authority ? (
                 <>
+                  {access.hasNeighborhoodAccess && renderScopeContribution('השכונה שלך')}
                   {access.hasNeighborhoodAccess ? (
                     <ScopeBattleCard
                       granularity="neighborhood"
@@ -983,7 +1003,7 @@ export default function CommunityPage() {
                     onCategoryChange={setLeaderboardCategory}
                     genderFilter={leaderboardGender}
                   />
-                  {access.hasNeighborhoodAccess && renderNeighborhoodInviteCTA()}
+                  <InviteBonusCard scopeName={activeScopeEntry?.scopeName ?? null} />
                 </>
               ) : (
                 renderNeighborhoodSetupCTA()
@@ -1003,6 +1023,7 @@ export default function CommunityPage() {
 
         {leagueTabV2 === 'settlements' && (
           <div className="space-y-4">
+            {authority && renderScopeContribution('העיר שלך')}
             {authority && (
               <ScopeBattleCard
                 granularity="city"

@@ -320,12 +320,12 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
                   role="tab"
                   aria-selected={on}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`relative flex h-10 items-center justify-center gap-1 whitespace-nowrap rounded-full text-[13px] font-extrabold transition-colors duration-200 ${on ? 'text-white' : 'text-v2-ink-2'}`}
+                  className={`relative flex h-10 items-center justify-center gap-1 whitespace-nowrap rounded-full text-[13px] font-extrabold transition-colors duration-200 ${on ? 'text-v2-deep' : 'text-v2-ink-2'}`}
                 >
                   {on && (
                     <motion.span
                       layoutId="profile-tab-v2"
-                      className="absolute inset-0 rounded-full bg-v2-ink"
+                      className="absolute inset-0 rounded-full bg-v2-tint ring-1 ring-inset ring-v2-accent/40"
                       transition={{ duration: 0.28, ease: EASE_V2 }}
                     />
                   )}

@@ -626,7 +626,8 @@ export default function GroupDetailsDrawer({
             />
             <motion.div
               initial={{ y: '100%' }}
-              animate={{ y: PEEK_Y_PX }}
+              // v2: open at full height (the owner's review — it used to stop at the peek).
+              animate={{ y: v2 ? 0 : PEEK_Y_PX }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', stiffness: 320, damping: 34, mass: 0.8 }}
               drag="y"
@@ -849,7 +850,7 @@ export default function GroupDetailsDrawer({
 
                 {/* ── Expandable Full Schedule ────────────────────── */}
                 {scheduleOpen && allSlots.length > 1 && (
-                  <div className="bg-gray-50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-700/40 overflow-hidden">
+                  <div className={v2 ? 'overflow-hidden rounded-[20px] bg-white shadow-v2-ring' : 'bg-gray-50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-700/40 overflow-hidden'}>
                     <div className="px-4 py-2.5 border-b border-gray-100 dark:border-gray-700/40">
                       <p className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
                         <Calendar className="w-3.5 h-3.5" />
@@ -935,24 +936,32 @@ export default function GroupDetailsDrawer({
                         <Users className={v2 ? 'h-[18px] w-[18px] text-v2-deep' : 'w-3.5 h-3.5'} />
                         מי מגיע
                       </h4>
-                      <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
+                      <div className={v2 ? 'flex gap-0.5 rounded-full bg-v2-surface p-1 ring-1 ring-inset ring-v2-hairline' : 'flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1'}>
                         <button
                           onClick={() => setWhoTab('next')}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                            whoTab === 'next'
-                              ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                              : 'text-gray-500 dark:text-gray-400'
-                          }`}
+                          className={
+                            v2
+                              ? `h-8 whitespace-nowrap rounded-full px-3 text-[13px] font-extrabold transition-colors ${whoTab === 'next' ? 'bg-white text-v2-ink shadow-v2-ring' : 'text-v2-muted'}`
+                              : `px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                  whoTab === 'next'
+                                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                                    : 'text-gray-500 dark:text-gray-400'
+                                }`
+                          }
                         >
                           המפגש הבא
                         </button>
                         <button
                           onClick={() => { setWhoTab('week'); loadWeekSessions(); }}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                            whoTab === 'week'
-                              ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                              : 'text-gray-500 dark:text-gray-400'
-                          }`}
+                          className={
+                            v2
+                              ? `h-8 whitespace-nowrap rounded-full px-3 text-[13px] font-extrabold transition-colors ${whoTab === 'week' ? 'bg-white text-v2-ink shadow-v2-ring' : 'text-v2-muted'}`
+                              : `px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                  whoTab === 'week'
+                                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                                    : 'text-gray-500 dark:text-gray-400'
+                                }`
+                          }
                         >
                           השבוע
                         </button>
@@ -962,7 +971,31 @@ export default function GroupDetailsDrawer({
                     {/* Tab: המפגש הבא */}
                     {whoTab === 'next' && (
                       <div>
-                        {nextSessionData ? (
+                        {nextSessionData && v2 ? (
+                          <div className="flex items-center justify-between gap-3 rounded-[20px] bg-v2-surface px-4 py-3 ring-1 ring-inset ring-v2-hairline">
+                            <div className="flex -space-x-2 rtl:space-x-reverse">
+                              {Object.entries(attendance?.attendeeProfiles ?? {}).slice(0, 5).map(([uid, p]) =>
+                                p.photoURL ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img key={uid} src={p.photoURL} alt={p.name} className="h-8 w-8 rounded-full object-cover ring-2 ring-white" loading="lazy" decoding="async" />
+                                ) : (
+                                  <span key={uid} className="grid h-8 w-8 place-items-center rounded-full bg-v2-tint text-[12px] font-black text-v2-deep ring-2 ring-white">
+                                    {p.name?.charAt(0)}
+                                  </span>
+                                ),
+                              )}
+                            </div>
+                            <div className="text-end">
+                              <p className="text-[16px] font-black text-v2-ink" aria-live="polite">
+                                {(attendance?.currentCount ?? 0) > 0 ? `${attendance!.currentCount} מגיעים` : 'עוד אין רשומים'}
+                              </p>
+                              <p className="text-[12.5px] font-bold text-v2-muted">
+                                {formatSessionDate(nextSessionData.date, nextSessionData.time)}
+                                {(attendance?.waitlist?.length ?? 0) > 0 ? ` · ${attendance!.waitlist!.length} בהמתנה` : ''}
+                              </p>
+                            </div>
+                          </div>
+                        ) : nextSessionData ? (
                           <div className="space-y-2">
                             <p className="text-xs text-gray-500 font-semibold">
                               {formatSessionDate(nextSessionData.date, nextSessionData.time)}
@@ -1020,10 +1053,10 @@ export default function GroupDetailsDrawer({
                             {weekSessions.map((ws) => (
                               <div
                                 key={`${ws.date}_${ws.time}`}
-                                className="flex items-center gap-3 px-3 py-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl"
+                                className={v2 ? 'flex items-center gap-3 rounded-[18px] bg-white px-4 py-3 shadow-v2-ring' : 'flex items-center gap-3 px-3 py-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl'}
                               >
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-bold text-gray-800 dark:text-gray-200">
+                                  <p className={v2 ? 'text-[14px] font-black text-v2-ink' : 'text-xs font-bold text-gray-800 dark:text-gray-200'}>
                                     {formatSessionDate(ws.date, ws.time)}
                                   </p>
                                   {ws.attendance && ws.attendance.currentCount > 0 ? (
@@ -1059,7 +1092,7 @@ export default function GroupDetailsDrawer({
 
                 {/* Description — fully visible, no clamp */}
                 {group.description && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                  <p className={v2 ? 'text-[14px] font-semibold leading-relaxed text-v2-ink-2' : 'text-sm text-gray-600 dark:text-gray-400 leading-relaxed'}>
                     {group.description}
                   </p>
                 )}
@@ -1067,7 +1100,7 @@ export default function GroupDetailsDrawer({
                 {/* ── Member List ──────────────────────────────────── */}
                 {(isJoined || isCreator) && (
                   <div>
-                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5 mb-2.5">
+                    <h4 className={v2 ? 'flex items-center gap-1.5 text-[17px] font-black text-v2-ink mb-2.5' : 'text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5 mb-2.5'}>
                       <Users className="w-3.5 h-3.5" />
                       חברי הקהילה
                       {!membersLoading && groupMembers.length > 0 && (
@@ -1216,13 +1249,13 @@ export default function GroupDetailsDrawer({
                 {/* Target Muscles (slot override → group default) */}
                 {hasMuscles && (
                   <div>
-                    <h4 className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5">
+                    <h4 className={v2 ? 'flex items-center gap-1.5 text-[17px] font-black text-v2-ink mb-2' : 'text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5'}>
                       <Target className="w-3.5 h-3.5 text-cyan-500" />
                       קבוצות שרירים
                     </h4>
                     <div className="flex flex-wrap gap-1.5">
                       {effectiveMuscles.map((m) => (
-                        <span key={m} className="px-2.5 py-1 rounded-full bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-400 text-xs font-bold">
+                        <span key={m} className={v2 ? 'whitespace-nowrap rounded-full bg-white px-2.5 py-1 text-[12.5px] font-extrabold text-v2-ink-2 shadow-v2-ring' : 'px-2.5 py-1 rounded-full bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-400 text-xs font-bold'}>
                           {m}
                         </span>
                       ))}
@@ -1233,13 +1266,13 @@ export default function GroupDetailsDrawer({
                 {/* Equipment (slot override → group default) */}
                 {hasEquipment && (
                   <div>
-                    <h4 className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5">
+                    <h4 className={v2 ? 'flex items-center gap-1.5 text-[17px] font-black text-v2-ink mb-2' : 'text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5'}>
                       <Dumbbell className="w-3.5 h-3.5 text-emerald-500" />
                       ציוד נדרש
                     </h4>
                     <div className="flex flex-wrap gap-1.5">
                       {effectiveEquipment.map((item) => (
-                        <span key={item} className="px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold">
+                        <span key={item} className={v2 ? 'whitespace-nowrap rounded-full bg-white px-2.5 py-1 text-[12.5px] font-extrabold text-v2-ink-2 shadow-v2-ring' : 'px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold'}>
                           {item}
                         </span>
                       ))}
@@ -1257,8 +1290,8 @@ export default function GroupDetailsDrawer({
 
                 {/* Community Rules — dynamic from Firestore */}
                 {group.rules ? (
-                  <div className="bg-amber-50 dark:bg-amber-900/20 rounded-2xl px-4 py-3 border border-amber-100 dark:border-amber-800/40">
-                    <p className="text-xs font-bold text-amber-700 dark:text-amber-400 mb-1.5">כללי הקהילה</p>
+                  <div className={v2 ? 'rounded-[20px] bg-v2-surface px-4 py-3 ring-1 ring-inset ring-v2-hairline' : 'bg-amber-50 dark:bg-amber-900/20 rounded-2xl px-4 py-3 border border-amber-100 dark:border-amber-800/40'}>
+                    <p className={v2 ? 'mb-1.5 text-[13px] font-extrabold text-v2-deep' : 'text-xs font-bold text-amber-700 dark:text-amber-400 mb-1.5'}>כללי הקהילה</p>
                     <p className="text-xs text-amber-700 dark:text-amber-500 leading-relaxed whitespace-pre-line">
                       {group.rules}
                     </p>

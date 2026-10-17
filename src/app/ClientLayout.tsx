@@ -56,7 +56,9 @@ const HIDDEN_NAV_ROUTES = ['/explorer', '/library', '/onboarding-new', '/gateway
 //   /workouts/[id]/overview — full-bleed hero photo, not a header bar; the
 //     other 3 routes nested under /workouts/[id]/ (bare, /history, /active)
 //     are NOT edge-to-edge and must stay off this list.
-const TOP_PADDING_EXEMPT_EXACT_ROUTES = ['/arena/create', '/onboarding-new/profile', '/progress', '/debug/health-sync'];
+// /activity/steps: StepsAnalyticsView's sticky header pads the safe area itself
+// (the doubled inset made it visibly thick).
+const TOP_PADDING_EXEMPT_EXACT_ROUTES = ['/arena/create', '/onboarding-new/profile', '/progress', '/debug/health-sync', '/activity/steps'];
 function isTopPaddingExemptRoute(pathname: string): boolean {
   if (TOP_PADDING_EXEMPT_EXACT_ROUTES.includes(pathname)) return true;
   if (pathname.startsWith('/community/')) return true;
