@@ -106,12 +106,22 @@ const EVENT_VERB: Record<string, string> = {
 // getStreakLeaderboard/getStepsLeaderboard park-scope handling) is untouched.
 const SHOW_PARK_LEAGUE = false;
 
+type FeedFilter = 'all' | 'partners' | 'neighborhood' | 'groups';
+const FEED_FILTERS: { id: FeedFilter; label: string }[] = [
+  { id: 'all', label: 'הכל' },
+  { id: 'partners', label: 'שותפים' },
+  { id: 'neighborhood', label: 'השכונה' },
+  { id: 'groups', label: 'קבוצות' },
+];
+
 export default function CommunityPage() {
   // ── Shared hooks (called ONCE for both sub-views) ────────────────────────
   const { profile, _hasHydrated, refreshProfile } = useUserStore();
   const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
   const { flags: featureFlags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
   const { following, isLoaded: socialLoaded, loadConnections, isPartner } = useSocialStore();
+  // Home v2 feed filter (all / partners / my neighborhood / my groups).
+  const [feedFilter, setFeedFilter] = useState<FeedFilter>('all');
   const myDeclaration = useMyMilitaryDeclaration();
   usePendingUnitSelfHeal();
   const access = useArenaAccess(myDeclaration.isReserve, !!myDeclaration.orgId);
@@ -664,6 +674,18 @@ export default function CommunityPage() {
   // ─── Feed tab ───────────────────────────────────────────────────────────
 
   function renderFeedTab() {
+    const v2 = featureFlags.enableHomeV2;
+    const myHood = profile?.core?.neighborhoodId ?? null;
+    const myGroups = new Set(profile?.social?.groupIds ?? []);
+    const shown = !v2 || feedFilter === 'all'
+      ? posts
+      : posts.filter((p) =>
+          feedFilter === 'partners'
+            ? isPartner(p.authorUid)
+            : feedFilter === 'neighborhood'
+              ? !!myHood && p.neighborhoodId === myHood
+              : (p.groupIds ?? []).some((g) => myGroups.has(g)),
+        );
     const circles = (
       <CommunityCircles
         onGroupClick={(group) => setSelectedGroup(group)}
@@ -716,7 +738,29 @@ export default function CommunityPage() {
             </button>
           </div>
 
-          {posts.map((post) => (
+          {v2 && (
+            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]" role="tablist" aria-label="סינון הפיד" dir="rtl">
+              {FEED_FILTERS.map((f) => {
+                const on = f.id === feedFilter;
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={on}
+                    onClick={() => setFeedFilter(f.id)}
+                    className={`h-9 shrink-0 whitespace-nowrap rounded-full px-4 text-[13.5px] font-extrabold transition-transform duration-150 ease-v2 active:scale-[0.97] ${
+                      on ? 'bg-v2-ink text-white' : 'bg-white text-v2-ink-2 shadow-v2-ring'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {shown.map((post) => (
             <m.div
               key={post.id}
               initial={{ opacity: 0, y: 8 }}
@@ -726,9 +770,13 @@ export default function CommunityPage() {
                 post={post}
                 currentUid={userId}
                 onDeleted={(id) => setPosts((prev) => prev.filter((p) => p.id !== id))}
+                v2={v2}
               />
             </m.div>
           ))}
+          {v2 && shown.length === 0 && (
+            <p className="py-10 text-center text-[14px] font-bold text-v2-muted" dir="rtl">אין כאן עדיין פוסטים</p>
+          )}
         </div>
       </div>
     );
