@@ -32,7 +32,7 @@ import {
 import { db } from '@/lib/firebase';
 import type { LifestylePersona } from '../logic/ContextualEngine';
 import type { ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
-import { resolveContentTags, TagResolverContext } from '@/features/content/branding/core/branding.utils';
+import { resolveContentTags, hasUnresolvedTagArtifacts, TagResolverContext } from '@/features/content/branding/core/branding.utils';
 import { genPerfRead, isGenVerboseEnabled } from '@/lib/gen-perf';
 
 // ============================================================================
@@ -416,6 +416,59 @@ const PERSONA_ID_PREFIXES = [
  */
 const SOFT_PERSONA_MISMATCH_PENALTY = -3;
 
+// ============================================================================
+// SPORT / AIRPORT CONTENT CLASSIFICATION
+// ============================================================================
+
+/**
+ * Which kind of session a content row was written for.
+ *
+ * Only ~10 of the live title rows (and none of the description/logic-cue rows)
+ * carry an explicit `sportType`, so the bundleId is the only reliable signal
+ * for the rest. HEURISTIC (documented, admin-authored naming convention, as
+ * of the 2026-10 content dump):
+ *   - `run_*`   — running sessions (e.g. run_rec_senior: "הריצה צריכה להיות עדינה")
+ *   - `prog_*`  — running-program goals (prog_5k_first, prog_pace_boost, …)
+ *   - `week_*`  — running-plan week milestones (week_01_start, week_gen_*; they
+ *                 use @weekNumber / @basePace / @targetDistanceLabel)
+ *   - any bundleId with a standalone `run` token (young_mom_morning_run)
+ * Every other bundle prefix (gen_, persona prefixes, sadir_, …) is neutral.
+ * An explicit `sportType` always wins over the heuristic.
+ */
+export type ContentSportKind = 'running' | 'strength' | 'neutral';
+
+const RUNNING_BUNDLE_PREFIXES = ['run_', 'prog_', 'week_'];
+
+export function classifyContentSport(row: { sportType?: string; bundleId?: string; id?: string }): ContentSportKind {
+  const sport = (row.sportType || '').toLowerCase();
+  if (sport && sport !== 'any' && sport !== 'all') {
+    return sport === 'running' ? 'running' : 'strength';
+  }
+  const bid = (row.bundleId || row.id || '').toLowerCase();
+  if (!bid) return 'neutral';
+  if (RUNNING_BUNDLE_PREFIXES.some(prefix => bid.startsWith(prefix))) return 'running';
+  if (/(^|_)run(_|$)/.test(bid)) return 'running';
+  return 'neutral';
+}
+
+/**
+ * True for content written specifically for an airport / flight setting
+ * (gen_airport_*, run_airport_*, or copy that mentions the terminal / a
+ * flight) — "מתיחות בטרמינל" must never show on a home or park workout.
+ */
+const AIRPORT_ONLY_KEYWORDS = ['טרמינל', 'שדה תעופה', 'טיסה'];
+
+export function isAirportSpecificContent(row: any): boolean {
+  const bid = (row.bundleId || row.id || '').toLowerCase();
+  if (/(^|_)airport(_|$)/.test(bid)) return true;
+  if (row.location === 'airport') return true;
+  const text = (
+    (row.text || '') + ' ' + (row.phrase || '') + ' ' +
+    (row.description || '') + ' ' + (row.cue || '')
+  );
+  return AIRPORT_ONLY_KEYWORDS.some(kw => text.includes(kw));
+}
+
 /**
  * Whole-word keyword match. JS's `\b` is defined via ASCII `\w`
  * ([A-Za-z0-9_]), which does NOT include Hebrew letters — so a plain `\b`
@@ -491,18 +544,33 @@ function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
   }
 
   // ── SPORT-TYPE SAFETY GUARD ──
-  // Hard-exclude any bundle tagged as 'running' when the session is a
-  // Strength workout.  A Strength session has no runningCategory set.
-  // Without this guard, running-specific LogicCues (e.g. "@targetDistanceLabel")
-  // can bleed into Strength workout descriptions.
+  // Hard-exclude running content from a Strength workout, and strength
+  // content from a Running workout. A Strength session has no
+  // runningCategory / runningBasePace set. Most rows carry no `sportType`
+  // field, so classifyContentSport falls back to the bundleId convention
+  // (run_* / prog_* / week_*) — without it, running cues like
+  // "הריצה צריכה להיות עדינה" (run_rec_senior, location 'home') bled into
+  // Strength previews, and sportType:'calisthenics' titles (gen_park_pro_*,
+  // persona 'any', +50) won for Running sessions.
   const isStrengthSession = !ctx.runningCategory && !ctx.runningBasePace;
-  if (isStrengthSession && row.sportType === 'running') {
+  const rowSport = classifyContentSport(row);
+  if (
+    (isStrengthSession && rowSport === 'running') ||
+    (!isStrengthSession && rowSport === 'strength')
+  ) {
     if (DEBUG_METADATA_RESOLUTION) {
       console.log(
-        `[Metadata] ❌ sport-type mismatch: row.sportType="running" excluded ` +
-        `from Strength session (bundleId=${row.bundleId ?? row.id ?? '?'})`,
+        `[Metadata] ❌ sport-type mismatch: ${rowSport} row excluded from ` +
+        `${isStrengthSession ? 'Strength' : 'Running'} session (bundleId=${row.bundleId ?? row.id ?? '?'})`,
       );
     }
+    return -1;
+  }
+
+  // ── AIRPORT CONTEXT GUARD ──
+  // Airport / in-flight content ("מתיחות 'שקטות' שאפשר לעשות בטרמינל") only
+  // makes sense when the session's location is actually the airport.
+  if (ctx.location !== 'airport' && isAirportSpecificContent(row)) {
     return -1;
   }
 
@@ -1240,6 +1308,7 @@ export interface WorkoutMetadataCandidate {
  * @param ctx            The user's metadata context
  * @param activeBundleId If set, rows sharing this bundleId get +BUNDLE_SYNC_BOOST
  * @param includeCandidates Simulator-only: also return every scored candidate (not just the winner)
+ * @param isUsable       Optional: rows whose text fails this check are skipped
  */
 async function scoredFetch(
   parentDoc: string,
@@ -1248,6 +1317,7 @@ async function scoredFetch(
   ctx: WorkoutMetadataContext,
   activeBundleId?: string,
   includeCandidates = false,
+  isUsable?: (text: string) => boolean,
 ): Promise<ScoredFetchResult> {
   try {
     const ref = collection(db, METADATA_BASE, parentDoc, subCol);
@@ -1270,6 +1340,9 @@ async function scoredFetch(
     for (const row of allRows) {
       let score = scoreContentRow(row, ctx);
       if (score < 0) continue;
+      // Rows whose text would still render broken after tag resolution are
+      // skipped so the next-best row wins (see resolveWorkoutMetadataCore).
+      if (isUsable && !isUsable(row[textField] || '')) continue;
 
       if (activeBundleId && row.bundleId && row.bundleId === activeBundleId) {
         score += BUNDLE_SYNC_BOOST;
@@ -1335,16 +1408,16 @@ async function scoredFetch(
 // FETCH WRAPPERS (delegate to Scoring Engine)
 // ============================================================================
 
-async function fetchWorkoutTitle(ctx: WorkoutMetadataContext, includeCandidates = false): Promise<ScoredFetchResult> {
-  return scoredFetch('workoutTitles', TITLES_SUBCOLLECTION, 'text', ctx, undefined, includeCandidates);
+async function fetchWorkoutTitle(ctx: WorkoutMetadataContext, includeCandidates = false, isUsable?: (text: string) => boolean): Promise<ScoredFetchResult> {
+  return scoredFetch('workoutTitles', TITLES_SUBCOLLECTION, 'text', ctx, undefined, includeCandidates, isUsable);
 }
 
-async function fetchSmartDescription(ctx: WorkoutMetadataContext, activeBundleId?: string, includeCandidates = false): Promise<ScoredFetchResult> {
-  return scoredFetch('smartDescriptions', DESCRIPTIONS_SUBCOLLECTION, 'description', ctx, activeBundleId, includeCandidates);
+async function fetchSmartDescription(ctx: WorkoutMetadataContext, activeBundleId?: string, includeCandidates = false, isUsable?: (text: string) => boolean): Promise<ScoredFetchResult> {
+  return scoredFetch('smartDescriptions', DESCRIPTIONS_SUBCOLLECTION, 'description', ctx, activeBundleId, includeCandidates, isUsable);
 }
 
-async function fetchMotivationalPhrase(ctx: WorkoutMetadataContext, activeBundleId?: string): Promise<ScoredFetchResult> {
-  return scoredFetch('motivationalPhrases', PHRASES_SUBCOLLECTION, 'phrase', ctx, activeBundleId);
+async function fetchMotivationalPhrase(ctx: WorkoutMetadataContext, activeBundleId?: string, isUsable?: (text: string) => boolean): Promise<ScoredFetchResult> {
+  return scoredFetch('motivationalPhrases', PHRASES_SUBCOLLECTION, 'phrase', ctx, activeBundleId, false, isUsable);
 }
 
 /**
@@ -1356,6 +1429,7 @@ async function fetchLogicCue(
   ctx: WorkoutMetadataContext,
   variant: TrioVariant,
   activeBundleId?: string,
+  isUsable?: (text: string) => boolean,
 ): Promise<string | null> {
   try {
     const ref = collection(db, METADATA_BASE, LOGIC_CUES_PARENT, LOGIC_CUES_SUBCOLLECTION);
@@ -1370,8 +1444,13 @@ async function fetchLogicCue(
       for (const row of [...snap.docs.map(d => d.data()), ...overlayRows]) {
         const rowVariant = row.variant;
         if (rowVariant && rowVariant !== variant && rowVariant !== 'all') continue;
-        let score = scoreContentRow(row, ctx) + (rowVariant === variant ? 2 : 0);
-        if (score < 0) continue;
+        // scoreContentRow applies the sport-type and airport guards (a
+        // variant match alone is not enough — running/airport cues used to
+        // reach Strength previews through this path).
+        const baseScore = scoreContentRow(row, ctx);
+        if (baseScore < 0) continue;
+        if (isUsable && !isUsable(row.text || row.cue || '')) continue;
+        let score = baseScore + (rowVariant === variant ? 2 : 0);
         if (activeBundleId && row.bundleId && row.bundleId === activeBundleId) {
           score += BUNDLE_SYNC_BOOST;
         }
@@ -1431,26 +1510,6 @@ async function resolveWorkoutMetadataCore(
   includeCandidates: boolean,
 ): Promise<ResolvedWorkoutMetadata & { titleCandidates?: WorkoutMetadataCandidate[]; descriptionCandidates?: WorkoutMetadataCandidate[] }> {
   try {
-    // ── Pass 1: Title (anchor for bundle sync) ──
-    const titleResult = await fetchWorkoutTitle(ctx, includeCandidates);
-    const activeBundleId = titleResult.bundleId;
-
-    if (DEBUG_METADATA_RESOLUTION && activeBundleId) {
-      console.log(`[WorkoutMetadata] Bundle anchor: "${activeBundleId}" — syncing Description, Phrase, LogicCue`);
-    }
-
-    // ── Pass 2: Remaining content with bundle boost ──
-    const [descriptionResult, phraseResult, logicCue] = await Promise.all([
-      fetchSmartDescription(ctx, activeBundleId, includeCandidates),
-      fetchMotivationalPhrase(ctx, activeBundleId),
-      variant ? fetchLogicCue(ctx, variant, activeBundleId) : Promise.resolve(null),
-    ]);
-
-    const title = titleResult.text;
-    const description = descriptionResult.text;
-    const aiCue = phraseResult.text;
-    const hasAnyFirestoreData = title || description || aiCue || logicCue;
-
     const tagCtx: TagResolverContext = {
       persona: ctx.persona || undefined,
       location: ctx.location,
@@ -1488,29 +1547,55 @@ async function resolveWorkoutMetadataCore(
       ...logicTagOverrides,
     };
 
+    // A row is only usable if its text resolves cleanly — no @tag left
+    // unresolved (e.g. @סקייל_נוכחי with no progression step, @שם_הפארק with
+    // no park) and no dangling "_word" fragment. Broken rows are skipped so
+    // the next-best row wins; if none is left the field stays null and the
+    // caller uses the WorkoutGenerator's own fallback copy.
+    const isUsable = (raw: string): boolean =>
+      !!raw && !hasUnresolvedTagArtifacts(resolveContentTags(raw, tagCtx));
+
+    // ── Pass 1: Title (anchor for bundle sync) ──
+    const titleResult = await fetchWorkoutTitle(ctx, includeCandidates, isUsable);
+    const activeBundleId = titleResult.bundleId;
+
+    if (DEBUG_METADATA_RESOLUTION && activeBundleId) {
+      console.log(`[WorkoutMetadata] Bundle anchor: "${activeBundleId}" — syncing Description, Phrase, LogicCue`);
+    }
+
+    // ── Pass 2: Remaining content with bundle boost ──
+    const [descriptionResult, phraseResult, logicCue] = await Promise.all([
+      fetchSmartDescription(ctx, activeBundleId, includeCandidates, isUsable),
+      fetchMotivationalPhrase(ctx, activeBundleId, isUsable),
+      variant ? fetchLogicCue(ctx, variant, activeBundleId, isUsable) : Promise.resolve(null),
+    ]);
+
+    const title = titleResult.text;
+    const description = descriptionResult.text;
+    const aiCue = phraseResult.text;
+    const hasAnyFirestoreData = title || description || aiCue || logicCue;
+
     // Resolve all content tags (variable substitution)
     const resolvedTitle       = title       ? resolveContentTags(title,       tagCtx) : null;
     const resolvedDescription = description ? resolveContentTags(description, tagCtx) : null;
     const resolvedAiCue       = aiCue       ? resolveContentTags(aiCue,       tagCtx) : null;
     const resolvedLogicCue    = logicCue    ? resolveContentTags(logicCue,    tagCtx) : null;
 
-    // ── Running-Variable Strip for Strength Workouts ──
-    // If this is a strength session (no running context), strip any @variable
-    // placeholders that were not resolved (e.g., @targetDistanceLabel,
-    // @runningCategory, @קצב_בסיס) so they don't leak into the UI as raw tokens.
-    const isStrengthSession = !ctx.runningCategory && !ctx.runningBasePace && !ctx.targetDistanceLabel;
-    const stripUnresolved = (text: string | null): string | null => {
-      if (!text) return text;
-      // Match @word patterns and any surrounding punctuation that would look odd
-      const cleaned = text.replace(/@[\w_]+/g, '').replace(/\s{2,}/g, ' ').trim();
-      return cleaned || text;
-    };
+    // ── Last-resort safety net ──
+    // Rows are already filtered by isUsable above, so this only fires if a
+    // resolved string somehow still carries an unresolved @tag (Hebrew or
+    // English) or a dangling "_word" fragment. Never show broken copy: drop
+    // the field (null) so the caller falls back to the generator's text.
+    // (The previous version stripped `/@[\w_]+/g` — ASCII-only without the
+    // `u` flag, so it never matched a single Hebrew tag.)
+    const dropIfBroken = (text: string | null): string | null =>
+      text && hasUnresolvedTagArtifacts(text) ? null : text;
 
     return {
-      title:       isStrengthSession ? stripUnresolved(resolvedTitle)       : resolvedTitle,
-      description: isStrengthSession ? stripUnresolved(resolvedDescription) : resolvedDescription,
-      aiCue:       isStrengthSession ? stripUnresolved(resolvedAiCue)       : resolvedAiCue,
-      logicCue:    isStrengthSession ? stripUnresolved(resolvedLogicCue)    : resolvedLogicCue,
+      title:       dropIfBroken(resolvedTitle),
+      description: dropIfBroken(resolvedDescription),
+      aiCue:       dropIfBroken(resolvedAiCue),
+      logicCue:    dropIfBroken(resolvedLogicCue),
       source: hasAnyFirestoreData ? 'firestore' : 'fallback',
       bundleId: activeBundleId,
       titleCandidates: titleResult.candidates,

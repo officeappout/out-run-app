@@ -154,6 +154,57 @@ export interface TagResolverContext {
   partnerArrivalTime?: string;
 }
 
+// ============================================================================
+// TAG MATCHING
+// ============================================================================
+
+/**
+ * Characters that can continue a tag name. Hebrew letters are NOT in JS's
+ * ASCII `\w`, so this must be a Unicode class (`u` flag).
+ */
+const TAG_CONTINUATION = '[\\p{L}\\p{N}_]';
+
+const tagPatternCache = new Map<string, RegExp>();
+
+/**
+ * Whole-tag matcher for a single @tag.
+ *
+ * The resolvers below replace tags one after another in source order. A plain
+ * `/@רמה/g` also matches the first 4 characters of `@רמה_הבאה`, so the short
+ * tag "ate" the prefix of the longer one and left a dangling fragment
+ * ("אתגר כל הרמות_הבאה", "0%_רמה", "גוף מלא_פיזיולוגי"). The negative
+ * lookahead makes every tag match only when it is NOT followed by another
+ * tag-name character, so the order of replacements no longer matters.
+ */
+function tagPattern(tag: string): RegExp {
+  let re = tagPatternCache.get(tag);
+  if (!re) {
+    const escaped = tag.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+    re = new RegExp(`${escaped}(?!${TAG_CONTINUATION})`, 'gu');
+    tagPatternCache.set(tag, re);
+  }
+  return re;
+}
+
+/** Any @tag left in the text after resolution (Hebrew or English).
+ *  (RegExp constructor: tsconfig targets ES5, which rejects a `/…/u` literal.) */
+const UNRESOLVED_TAG_RE = new RegExp('@[\\p{L}\\p{N}_]+', 'u');
+/**
+ * A tag-name fragment glued to resolved text, e.g. "הרמות_הבאה" or "0%_רמה"
+ * — the signature of a partially-resolved tag. Hebrew/user-facing copy never
+ * legitimately contains a letter/digit/% immediately followed by "_word".
+ */
+const DANGLING_TAG_FRAGMENT_RE = new RegExp('[\\p{L}\\p{N}%]_[\\p{L}\\p{N}]', 'u');
+
+/**
+ * True if `text` still contains an unresolved @tag or a dangling "_word"
+ * fragment after tag resolution — i.e. it would render as broken copy.
+ */
+export function hasUnresolvedTagArtifacts(text: string | null | undefined): boolean {
+  if (!text) return false;
+  return UNRESOLVED_TAG_RE.test(text) || DANGLING_TAG_FRAGMENT_RE.test(text);
+}
+
 /**
  * Resolve @tags in notification or description text
  * Supports dynamic replacement based on context
@@ -170,11 +221,11 @@ export function resolveNotificationText(
   const minutes = now.getMinutes();
   
   // Time-based tags
-  resolved = resolved.replace(/@שעה/g, () => {
+  resolved = resolved.replace(tagPattern('@שעה'), () => {
     return `${hour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
   });
   
-  resolved = resolved.replace(/@זמן_יום/g, () => {
+  resolved = resolved.replace(tagPattern('@זמן_יום'), () => {
     if (hour >= 5 && hour < 12) return 'בוקר';
     if (hour >= 12 && hour < 17) return 'צהריים';
     if (hour >= 17 && hour < 22) return 'ערב';
@@ -183,13 +234,13 @@ export function resolveNotificationText(
   
   // Location-based tags (only for Location_Based triggers)
   if (context.triggerType === 'Location_Based') {
-    resolved = resolved.replace(/@שם_הפארק/g, () => {
+    resolved = resolved.replace(tagPattern('@שם_הפארק'), () => {
       if (context.locationName) return context.locationName;
       if (context.location === 'park') return 'הפארק הקרוב';
       return 'המיקום';
     });
     
-    resolved = resolved.replace(/@שם_המתקן/g, () => {
+    resolved = resolved.replace(tagPattern('@שם_המתקן'), () => {
       if (context.locationName) return context.locationName;
       if (context.location === 'gym') return 'מכון הכושר';
       if (context.location === 'park') return 'המתקן בפארק';
@@ -199,7 +250,7 @@ export function resolveNotificationText(
   
   // Inactivity tags
   if (context.triggerType === 'Inactivity' && context.daysInactive !== undefined) {
-    resolved = resolved.replace(/@ימי_אי_פעילות/g, () => {
+    resolved = resolved.replace(tagPattern('@ימי_אי_פעילות'), () => {
       return context.daysInactive!.toString();
     });
   }
@@ -209,13 +260,13 @@ export function resolveNotificationText(
   // non-league notification never gets accidentally substituted with
   // an unrelated rank value from a stale context.
   if (context.triggerType === 'League_Overtake') {
-    resolved = resolved.replace(/@שם_עוקף/g, () => context.overtakingUserName || 'שחקן');
-    resolved = resolved.replace(/@מיקום_חדש/g, () => (
+    resolved = resolved.replace(tagPattern('@שם_עוקף'), () => context.overtakingUserName || 'שחקן');
+    resolved = resolved.replace(tagPattern('@מיקום_חדש'), () => (
       typeof context.newLeaderboardRank === 'number'
         ? String(context.newLeaderboardRank)
         : '—'
     ));
-    resolved = resolved.replace(/@פער_צעדים/g, () => (
+    resolved = resolved.replace(tagPattern('@פער_צעדים'), () => (
       typeof context.stepDelta === 'number' && Number.isFinite(context.stepDelta)
         ? context.stepDelta.toLocaleString('he-IL')
         : 'כמה'
@@ -224,11 +275,11 @@ export function resolveNotificationText(
 
   // ── Social Engagement Engine: Community_Group_New tags ────────────
   if (context.triggerType === 'Community_Group_New') {
-    resolved = resolved.replace(/@שם_קבוצה/g, () => context.groupName || 'קבוצה חדשה');
-    resolved = resolved.replace(/@סוג_קבוצה/g, () => context.groupTypeLabel || 'קבוצת כושר');
-    resolved = resolved.replace(/@מיקום_מפגש/g, () => context.meetingLocationName || 'המיקום');
-    resolved = resolved.replace(/@שעת_מפגש/g, () => context.meetingTimeFormatted || 'שעה קרובה');
-    resolved = resolved.replace(/@יום_מפגש/g, () => context.meetingDayFormatted || 'בקרוב');
+    resolved = resolved.replace(tagPattern('@שם_קבוצה'), () => context.groupName || 'קבוצה חדשה');
+    resolved = resolved.replace(tagPattern('@סוג_קבוצה'), () => context.groupTypeLabel || 'קבוצת כושר');
+    resolved = resolved.replace(tagPattern('@מיקום_מפגש'), () => context.meetingLocationName || 'המיקום');
+    resolved = resolved.replace(tagPattern('@שעת_מפגש'), () => context.meetingTimeFormatted || 'שעה קרובה');
+    resolved = resolved.replace(tagPattern('@יום_מפגש'), () => context.meetingDayFormatted || 'בקרוב');
   }
 
   // ── Social Engagement Engine: Matchmaking tags (both matchmaking
@@ -237,9 +288,9 @@ export function resolveNotificationText(
     context.triggerType === 'Social_Matchmaking' ||
     context.triggerType === 'Future_Partner_Plan'
   ) {
-    resolved = resolved.replace(/@שם_שותף/g, () => context.partnerName || 'שותף');
-    resolved = resolved.replace(/@רמת_שותף/g, () => context.partnerLevel || 'רמה זהה');
-    resolved = resolved.replace(/@שעת_הגעה_שותף/g, () => context.partnerArrivalTime || 'בקרוב');
+    resolved = resolved.replace(tagPattern('@שם_שותף'), () => context.partnerName || 'שותף');
+    resolved = resolved.replace(tagPattern('@רמת_שותף'), () => context.partnerLevel || 'רמה זהה');
+    resolved = resolved.replace(tagPattern('@שעת_הגעה_שותף'), () => context.partnerArrivalTime || 'בקרוב');
   }
 
   // Persona tags. Canonical PersonaId vocabulary since the 01.09.2026
@@ -259,7 +310,7 @@ export function resolveNotificationText(
     pro_athlete: 'ספורטאי',
   };
   
-  resolved = resolved.replace(/@פרסונה/g, () => {
+  resolved = resolved.replace(tagPattern('@פרסונה'), () => {
     if (context.persona && personaLabels[context.persona]) {
       return personaLabels[context.persona];
     }
@@ -278,7 +329,7 @@ export function resolveNotificationText(
     library: 'ספרייה',
   };
   
-  resolved = resolved.replace(/@מיקום/g, () => {
+  resolved = resolved.replace(tagPattern('@מיקום'), () => {
     if (context.location && locationLabels[context.location]) {
       return locationLabels[context.location];
     }
@@ -286,15 +337,15 @@ export function resolveNotificationText(
   });
   
   // Exercise/Workout tags
-  resolved = resolved.replace(/@שם_תרגיל/g, () => {
+  resolved = resolved.replace(tagPattern('@שם_תרגיל'), () => {
     return context.exerciseName || 'התרגיל';
   });
   
-  resolved = resolved.replace(/@קטגוריה/g, () => {
+  resolved = resolved.replace(tagPattern('@קטגוריה'), () => {
     return context.category || 'כוח';
   });
   
-  resolved = resolved.replace(/@שרירים/g, () => {
+  resolved = resolved.replace(tagPattern('@שרירים'), () => {
     if (context.muscles && context.muscles.length > 0) {
       const muscleLabels: Record<string, string> = {
         chest: 'חזה',
@@ -315,7 +366,7 @@ export function resolveNotificationText(
   });
   
   // Goal tags
-  resolved = resolved.replace(/@מטרה/g, () => {
+  resolved = resolved.replace(tagPattern('@מטרה'), () => {
     return context.goal || 'אימון';
   });
   
@@ -325,40 +376,40 @@ export function resolveNotificationText(
   const isMale = userGender === 'male';
   
   // @את/ה -> 'את' for female, 'אתה' for male
-  resolved = resolved.replace(/@את\/ה/g, () => {
+  resolved = resolved.replace(tagPattern('@את/ה'), () => {
     if (isFemale) return 'את';
     if (isMale) return 'אתה';
     return 'את/ה'; // Neutral fallback
   });
   
   // @מוכן/ה -> 'מוכנה' for female, 'מוכן' for male
-  resolved = resolved.replace(/@מוכן\/ה/g, () => {
+  resolved = resolved.replace(tagPattern('@מוכן/ה'), () => {
     if (isFemale) return 'מוכנה';
     if (isMale) return 'מוכן';
     return 'מוכן/ה'; // Neutral fallback
   });
   
   // @בוא/י -> 'בואי' for female, 'בוא' for male
-  resolved = resolved.replace(/@בוא\/י/g, () => {
+  resolved = resolved.replace(tagPattern('@בוא/י'), () => {
     if (isFemale) return 'בואי';
     if (isMale) return 'בוא';
     return 'בוא/י'; // Neutral fallback
   });
   
   // @עשית/ה -> 'עשית' for female, 'עשית' for male (same in past tense)
-  resolved = resolved.replace(/@עשית\/ה/g, () => {
+  resolved = resolved.replace(tagPattern('@עשית/ה'), () => {
     return 'עשית'; // Same for both genders
   });
   
   // @תוכל/י -> 'תוכלי' for female, 'תוכל' for male
-  resolved = resolved.replace(/@תוכל\/י/g, () => {
+  resolved = resolved.replace(tagPattern('@תוכל/י'), () => {
     if (isFemale) return 'תוכלי';
     if (isMale) return 'תוכל';
     return 'תוכל/י'; // Neutral fallback
   });
   
   // @תרצה/י -> 'תרצי' for female, 'תרצה' for male
-  resolved = resolved.replace(/@תרצה\/י/g, () => {
+  resolved = resolved.replace(tagPattern('@תרצה/י'), () => {
     if (isFemale) return 'תרצי';
     if (isMale) return 'תרצה';
     return 'תרצה/י'; // Neutral fallback
@@ -577,7 +628,7 @@ export function resolveDescription(
   let resolved = template;
   
   // User name tag (@שם) - supports profile.core.name format
-  resolved = resolved.replace(/@שם/g, () => {
+  resolved = resolved.replace(tagPattern('@שם'), () => {
     // Priority: userProfile.core.name > userName > fallback
     if (context.userProfile?.core?.name) {
       const firstName = getUserFirstName(context.userProfile);
@@ -592,7 +643,7 @@ export function resolveDescription(
   });
   
   // Goal tag (@מטרה) - ensure Hebrew goal names
-  resolved = resolved.replace(/@מטרה/g, () => {
+  resolved = resolved.replace(tagPattern('@מטרה'), () => {
     // Priority: userProfile.core.mainGoal > userGoal > goal > fallback
     if (context.userProfile?.core?.mainGoal) {
       return getUserGoalHebrew(context.userProfile);
@@ -620,38 +671,38 @@ export function resolveDescription(
   const isFemale = userGender === 'female';
   const isMale = userGender === 'male';
   
-  resolved = resolved.replace(/@את\/ה/g, () => {
+  resolved = resolved.replace(tagPattern('@את/ה'), () => {
     if (isFemale) return 'את';
     if (isMale) return 'אתה';
     return 'את/ה';
   });
   
-  resolved = resolved.replace(/@מוכן\/ה/g, () => {
+  resolved = resolved.replace(tagPattern('@מוכן/ה'), () => {
     if (isFemale) return 'מוכנה';
     if (isMale) return 'מוכן';
     return 'מוכן/ה';
   });
   
-  resolved = resolved.replace(/@בוא\/י/g, () => {
+  resolved = resolved.replace(tagPattern('@בוא/י'), () => {
     if (isFemale) return 'בואי';
     if (isMale) return 'בוא';
     return 'בוא/י';
   });
   
-  resolved = resolved.replace(/@תוכל\/י/g, () => {
+  resolved = resolved.replace(tagPattern('@תוכל/י'), () => {
     if (isFemale) return 'תוכלי';
     if (isMale) return 'תוכל';
     return 'תוכל/י';
   });
   
-  resolved = resolved.replace(/@תרצה\/י/g, () => {
+  resolved = resolved.replace(tagPattern('@תרצה/י'), () => {
     if (isFemale) return 'תרצי';
     if (isMale) return 'תרצה';
     return 'תרצה/י';
   });
   
   // Muscle tag (@שריר)
-  resolved = resolved.replace(/@שריר/g, () => {
+  resolved = resolved.replace(tagPattern('@שריר'), () => {
     if (context.muscles && context.muscles.length > 0) {
       const muscleLabels: Record<string, string> = {
         chest: 'חזה',
@@ -690,7 +741,7 @@ export function resolveDescription(
     library: 'ספרייה',
   };
   
-  resolved = resolved.replace(/@מיקום/g, () => {
+  resolved = resolved.replace(tagPattern('@מיקום'), () => {
     if (context.location && locationLabels[context.location]) {
       return locationLabels[context.location];
     }
@@ -701,7 +752,7 @@ export function resolveDescription(
   });
   
   // Equipment tag (@ציוד)
-  resolved = resolved.replace(/@ציוד/g, () => {
+  resolved = resolved.replace(tagPattern('@ציוד'), () => {
     if (context.equipment && context.equipment.length > 0) {
       return context.equipment.slice(0, 2).join(' ו-');
     }
@@ -738,7 +789,7 @@ export function resolveDescription(
     general: 'אימון',
   };
 
-  resolved = resolved.replace(/@ספורט/g, () => {
+  resolved = resolved.replace(tagPattern('@ספורט'), () => {
     if (context.sportType && sportLabels[context.sportType]) {
       return sportLabels[context.sportType];
     }
@@ -773,7 +824,7 @@ export function resolveDescription(
     pro: { male: 'מקצוען', female: 'מקצוענית' },
   };
 
-  resolved = resolved.replace(/@רמה/g, () => {
+  resolved = resolved.replace(tagPattern('@רמה'), () => {
     const entry = context.experienceLevel ? levelLabels[context.experienceLevel] : undefined;
     if (entry) {
       return isFemale ? entry.female : entry.male;
@@ -782,7 +833,7 @@ export function resolveDescription(
   });
 
   // @מגדר — dynamic grammar helper (זכר/נקבה text)
-  resolved = resolved.replace(/@מגדר/g, () => {
+  resolved = resolved.replace(tagPattern('@מגדר'), () => {
     if (isFemale) return 'נקבה';
     if (isMale) return 'זכר';
     return 'כללי';
@@ -803,7 +854,7 @@ export function resolveDescription(
     skills: 'סקילס',
   };
 
-  resolved = resolved.replace(/@שם_תוכנית/g, () => {
+  resolved = resolved.replace(tagPattern('@שם_תוכנית'), () => {
     if (context.currentProgram && programLabels[context.currentProgram]) {
       return programLabels[context.currentProgram];
     }
@@ -811,7 +862,7 @@ export function resolveDescription(
   });
 
   // @אחוז_התקדמות — progress percentage
-  resolved = resolved.replace(/@אחוז_התקדמות/g, () => {
+  resolved = resolved.replace(tagPattern('@אחוז_התקדמות'), () => {
     if (context.programProgress !== undefined && context.programProgress !== null) {
       return `${Math.round(context.programProgress)}%`;
     }
@@ -819,7 +870,7 @@ export function resolveDescription(
   });
 
   // @רמה_הבאה — target level
-  resolved = resolved.replace(/@רמה_הבאה/g, () => {
+  resolved = resolved.replace(tagPattern('@רמה_הבאה'), () => {
     if (context.targetLevel !== undefined && context.targetLevel !== null) {
       return `רמה ${context.targetLevel}`;
     }
@@ -829,7 +880,7 @@ export function resolveDescription(
   // === Proximity tags ===
 
   // @מרחק — distance to park/facility
-  resolved = resolved.replace(/@מרחק/g, () => {
+  resolved = resolved.replace(tagPattern('@מרחק'), () => {
     if (context.distanceMeters !== undefined && context.distanceMeters !== null) {
       if (context.distanceMeters < 1000) {
         return `${context.distanceMeters} מטר`;
@@ -840,7 +891,7 @@ export function resolveDescription(
   });
 
   // @זמן_הגעה — estimated arrival time
-  resolved = resolved.replace(/@זמן_הגעה/g, () => {
+  resolved = resolved.replace(tagPattern('@זמן_הגעה'), () => {
     if (context.estimatedArrivalMinutes !== undefined && context.estimatedArrivalMinutes !== null) {
       if (context.estimatedArrivalMinutes < 1) {
         return 'פחות מדקה';
@@ -853,7 +904,7 @@ export function resolveDescription(
   // === Workout Analysis Tags ===
 
   // @זמן_אימון — workout duration in minutes
-  resolved = resolved.replace(/@זמן_אימון/g, () => {
+  resolved = resolved.replace(tagPattern('@זמן_אימון'), () => {
     if (context.durationMinutes !== undefined && context.durationMinutes !== null) {
       return `${Math.round(context.durationMinutes)}`;
     }
@@ -870,7 +921,7 @@ export function resolveDescription(
     hard: 'שורף',
   };
 
-  resolved = resolved.replace(/@עצימות/g, () => {
+  resolved = resolved.replace(tagPattern('@עצימות'), () => {
     if (context.difficulty !== undefined && context.difficulty !== null && difficultyLabels[context.difficulty]) {
       return difficultyLabels[context.difficulty];
     }
@@ -897,7 +948,7 @@ export function resolveDescription(
     full_body: 'גוף מלא',
   };
 
-  resolved = resolved.replace(/@מיקוד/g, () => {
+  resolved = resolved.replace(tagPattern('@מיקוד'), () => {
     if (context.dominantMuscle && muscleLabelsHe[context.dominantMuscle]) {
       return muscleLabelsHe[context.dominantMuscle];
     }
@@ -909,7 +960,7 @@ export function resolveDescription(
   });
 
   // @קטגוריה — workout category display name
-  resolved = resolved.replace(/@קטגוריה/g, () => {
+  resolved = resolved.replace(tagPattern('@קטגוריה'), () => {
     if (context.categoryLabel) {
       return context.categoryLabel;
     }
@@ -932,19 +983,19 @@ export function resolveDescription(
   // ── Level Goal Tags ────────────────────────────────────────────────
 
   // @תרגיל_יעד — target exercise name for current level
-  resolved = resolved.replace(/@תרגיל_יעד/g, () => {
+  resolved = resolved.replace(tagPattern('@תרגיל_יעד'), () => {
     return context.targetExerciseName || 'תרגיל יעד';
   });
 
   // @ערך_יעד — target value with unit (e.g., "10 חזרות")
-  resolved = resolved.replace(/@ערך_יעד/g, () => {
+  resolved = resolved.replace(tagPattern('@ערך_יעד'), () => {
     return context.targetValue || '0';
   });
 
   // @אחוז_התקדמות_רמה — progress toward next level (0-100%)
   // Note: @אחוז_התקדמות already exists for program progress.
   // This is specifically for level XP progress.
-  resolved = resolved.replace(/@אחוז_התקדמות_רמה/g, () => {
+  resolved = resolved.replace(tagPattern('@אחוז_התקדמות_רמה'), () => {
     if (context.goalProgressPercent !== undefined && context.goalProgressPercent !== null) {
       return `${Math.round(context.goalProgressPercent)}%`;
     }
@@ -960,7 +1011,7 @@ export function resolveDescription(
     taper: 'הורדת עומסים',
   };
 
-  resolved = resolved.replace(/@קצב_בסיס/g, () => {
+  resolved = resolved.replace(tagPattern('@קצב_בסיס'), () => {
     if (context.runningBasePace && context.runningBasePace > 0) {
       const mins = Math.floor(context.runningBasePace / 60);
       const secs = Math.round(context.runningBasePace % 60);
@@ -969,25 +1020,25 @@ export function resolveDescription(
     return '';
   });
 
-  resolved = resolved.replace(/@מרחק_יעד/g, () => {
+  resolved = resolved.replace(tagPattern('@מרחק_יעד'), () => {
     return context.targetDistanceLabel || '';
   });
 
-  resolved = resolved.replace(/@שלב_תוכנית/g, () => {
+  resolved = resolved.replace(tagPattern('@שלב_תוכנית'), () => {
     if (context.programPhase && PHASE_LABELS_HE[context.programPhase]) {
       return PHASE_LABELS_HE[context.programPhase];
     }
     return context.programPhase || '';
   });
 
-  resolved = resolved.replace(/@סוג_ריצה/g, () => {
+  resolved = resolved.replace(tagPattern('@סוג_ריצה'), () => {
     if (context.runningCategory) {
       return RUN_CATEGORY_LABELS_HE[context.runningCategory as keyof typeof RUN_CATEGORY_LABELS_HE] || context.runningCategory;
     }
     return '';
   });
 
-  resolved = resolved.replace(/@שבוע_מתוך/g, () => {
+  resolved = resolved.replace(tagPattern('@שבוע_מתוך'), () => {
     if (context.weekNumber !== undefined && context.totalWeeks) {
       return `שבוע ${context.weekNumber} מתוך ${context.totalWeeks}`;
     }
@@ -997,12 +1048,12 @@ export function resolveDescription(
     return '';
   });
 
-  resolved = resolved.replace(/@שבוע/g, () => {
+  resolved = resolved.replace(tagPattern('@שבוע'), () => {
     return context.weekNumber !== undefined ? String(context.weekNumber) : '';
   });
 
   // ── English CamelCase Aliases (for JSON content bundles) ─────────
-  resolved = resolved.replace(/@basePace/g, () => {
+  resolved = resolved.replace(tagPattern('@basePace'), () => {
     if (context.runningBasePace && context.runningBasePace > 0) {
       const mins = Math.floor(context.runningBasePace / 60);
       const secs = Math.round(context.runningBasePace % 60);
@@ -1011,32 +1062,32 @@ export function resolveDescription(
     return '';
   });
 
-  resolved = resolved.replace(/@targetDistanceLabel/g, () => {
+  resolved = resolved.replace(tagPattern('@targetDistanceLabel'), () => {
     return context.targetDistanceLabel || '';
   });
 
-  resolved = resolved.replace(/@programPhase/g, () => {
+  resolved = resolved.replace(tagPattern('@programPhase'), () => {
     if (context.programPhase && PHASE_LABELS_HE[context.programPhase]) {
       return PHASE_LABELS_HE[context.programPhase];
     }
     return context.programPhase || '';
   });
 
-  resolved = resolved.replace(/@runningCategory/g, () => {
+  resolved = resolved.replace(tagPattern('@runningCategory'), () => {
     if (context.runningCategory) {
       return RUN_CATEGORY_LABELS_HE[context.runningCategory as keyof typeof RUN_CATEGORY_LABELS_HE] || context.runningCategory;
     }
     return '';
   });
 
-  resolved = resolved.replace(/@weekNumber/g, () => {
+  resolved = resolved.replace(tagPattern('@weekNumber'), () => {
     return context.weekNumber !== undefined ? String(context.weekNumber) : '';
   });
 
   // ── Strategic Coaching Tags (הערות מאמן) ─────────────────────────
 
   // @פער_שבועי — domain with lowest weekly quota completion
-  resolved = resolved.replace(/@פער_שבועי/g, () => {
+  resolved = resolved.replace(tagPattern('@פער_שבועי'), () => {
     if (context.weeklyGapDomain) {
       const pct = context.weeklyGapPercent !== undefined ? ` (${Math.round(context.weeklyGapPercent)}%)` : '';
       return `${context.weeklyGapDomain}${pct}`;
@@ -1045,7 +1096,7 @@ export function resolveDescription(
   });
 
   // @סיבת_רצף — streak/inactivity-based coaching cue
-  resolved = resolved.replace(/@סיבת_רצף/g, () => {
+  resolved = resolved.replace(tagPattern('@סיבת_רצף'), () => {
     const inactive = context.daysInactive ?? 0;
     const streak = context.streakDays ?? 0;
 
@@ -1057,7 +1108,7 @@ export function resolveDescription(
   });
 
   // @רצף — raw streak day count (Daily_Goal / Habit_Maintenance)
-  resolved = resolved.replace(/@רצף/g, () => {
+  resolved = resolved.replace(tagPattern('@רצף'), () => {
     return context.streakDays !== undefined && context.streakDays !== null
       ? String(context.streakDays)
       : '0';
@@ -1065,7 +1116,7 @@ export function resolveDescription(
 
   // @צעדים_שנותרו — remaining count to today's daily goal (Daily_Goal trigger,
   // activityType-agnostic: steps today, could carry a different unit later)
-  resolved = resolved.replace(/@צעדים_שנותרו/g, () => {
+  resolved = resolved.replace(tagPattern('@צעדים_שנותרו'), () => {
     return context.stepsLeft !== undefined && context.stepsLeft !== null
       ? context.stepsLeft.toLocaleString('he-IL')
       : '0';
@@ -1075,19 +1126,24 @@ export function resolveDescription(
   // walking). Pre-computed and passed in via context.walkMinutes (same
   // pattern as distanceMeters for @מרחק) rather than derived here, so the
   // caller controls the exact steps-per-minute assumption in one place.
-  resolved = resolved.replace(/@דקות/g, () => {
+  resolved = resolved.replace(tagPattern('@דקות'), () => {
     return context.walkMinutes !== undefined && context.walkMinutes !== null
       ? String(context.walkMinutes)
       : '0';
   });
 
   // @סקייל_נוכחי — today's progression step name
-  resolved = resolved.replace(/@סקייל_נוכחי/g, () => {
-    return context.currentProgressionStep || 'השלב הנוכחי';
+  // No step known → leave the tag in place (unresolved) on purpose. Every
+  // generic fallback word collides with the copy around it ("שלב @סקייל_נוכחי"
+  // → "שלב השלב הנוכחי", "ה-@סקייל_נוכחי" → "ה-השלב הנוכחי"), so the row is
+  // instead rejected by hasUnresolvedTagArtifacts and the next-best row (or the
+  // generator fallback) is used — see workout-metadata.service.ts.
+  resolved = resolved.replace(tagPattern('@סקייל_נוכחי'), (tag) => {
+    return context.currentProgressionStep || tag;
   });
 
   // @מיקוד_פיזיולוגי — map rep range to training goal
-  resolved = resolved.replace(/@מיקוד_פיזיולוגי/g, () => {
+  resolved = resolved.replace(tagPattern('@מיקוד_פיזיולוגי'), () => {
     const reps = context.avgRepCount;
     if (reps === undefined || reps === null || reps <= 0) return 'אימון כללי';
     if (reps <= 5) return 'כוח מקסימלי';
@@ -1098,10 +1154,13 @@ export function resolveDescription(
   });
 
   // @סטטוס_נפח — weekly volume status vs quota
-  resolved = resolved.replace(/@סטטוס_נפח/g, () => {
+  resolved = resolved.replace(tagPattern('@סטטוס_נפח'), (tag) => {
     const completed = context.weeklyCompletedSets;
     const quota = context.weeklySetQuota;
-    if (completed === undefined || quota === undefined || quota <= 0) return '';
+    // Unknown volume → leave the tag unresolved (same reasoning as
+    // @סקייל_נוכחי above): an empty string leaves sentences like
+    // "@סטטוס_נפח השבועי שלך מעולה" without a subject.
+    if (completed === undefined || quota === undefined || quota <= 0) return tag;
     const pct = Math.round((completed / quota) * 100);
     if (pct >= 100) return `הושלם (${completed}/${quota} סטים)`;
     if (pct >= 80) return `כמעט שם — ${completed}/${quota} סטים (${pct}%)`;
@@ -1111,15 +1170,15 @@ export function resolveDescription(
 
   // ── Logic Cue Tags (Coach's Note) ─────────────────────────────────
 
-  resolved = resolved.replace(/@סיבת_עצימות/g, () => {
+  resolved = resolved.replace(tagPattern('@סיבת_עצימות'), () => {
     return context.intensityReason || '';
   });
 
-  resolved = resolved.replace(/@סוג_אתגר/g, () => {
+  resolved = resolved.replace(tagPattern('@סוג_אתגר'), () => {
     return context.challengeType || '';
   });
 
-  resolved = resolved.replace(/@התאמת_ציוד/g, () => {
+  resolved = resolved.replace(tagPattern('@התאמת_ציוד'), () => {
     return context.equipmentAdaptation || '';
   });
 
