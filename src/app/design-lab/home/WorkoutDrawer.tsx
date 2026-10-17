@@ -246,7 +246,7 @@ function DrawerBody({ onClose }: { onClose: () => void }) {
                 type="button"
                 onClick={() => setPlaceOpen((v) => !v)}
                 aria-expanded={placeOpen}
-                className="flex h-10 items-center gap-2 rounded-full bg-white pe-3 ps-3.5 text-[14px] font-extrabold shadow-v2-ring"
+                className="flex h-10 items-center gap-2 rounded-full bg-white pe-3 ps-3.5 text-[14px] font-extrabold shadow-v2-ring whitespace-nowrap"
               >
                 <AppIcon
                   src={place === "park" ? ICON.pullBar : ICON.bench}
@@ -294,12 +294,12 @@ function DrawerBody({ onClose }: { onClose: () => void }) {
             </div>
 
             {/* meta row */}
-            <div className="mt-4 flex items-center gap-2">
-              <span className="flex h-10 items-center gap-1.5 rounded-[14px] bg-white px-3 text-[13px] font-extrabold shadow-v2-ring">
+            <div className="mt-4 flex min-w-0 items-center gap-1.5">
+              <span className="flex h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-[12px] bg-white px-2.5 text-[12.5px] font-extrabold shadow-v2-ring">
                 <Bolts level={t.level} size={13} />{" "}
                 {t.level === 1 ? "קל" : t.level === 2 ? "בינוני" : "מאתגר"}
               </span>
-              <span className="flex h-10 items-center gap-1.5 rounded-[14px] bg-white px-3 text-[13px] font-extrabold tabular-nums shadow-v2-ring">
+              <span className="flex h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-[12px] bg-white px-2.5 text-[12.5px] font-extrabold tabular-nums shadow-v2-ring">
                 <Clock
                   size={14}
                   strokeWidth={2.4}
@@ -348,7 +348,7 @@ function DrawerBody({ onClose }: { onClose: () => void }) {
               ).map((g) => (
                 <span
                   key={g.l}
-                  className="flex h-11 shrink-0 items-center gap-2 rounded-[14px] bg-white pe-3.5 ps-2.5 text-[13.5px] font-extrabold shadow-v2-ring"
+                  className="flex h-11 shrink-0 items-center gap-2 rounded-[14px] bg-white pe-3.5 ps-2.5 text-[13.5px] font-extrabold shadow-v2-ring whitespace-nowrap"
                 >
                   <AppIcon src={g.i} size={24} /> {g.l}
                 </span>
@@ -359,7 +359,7 @@ function DrawerBody({ onClose }: { onClose: () => void }) {
               {MUSCLES.map((m) => (
                 <span
                   key={m.label}
-                  className="flex h-10 items-center gap-1.5 rounded-full bg-v2-surface pe-3 ps-1.5 text-[13px] font-extrabold ring-1 ring-inset ring-v2-hairline"
+                  className="flex h-10 items-center gap-1.5 rounded-full bg-v2-surface pe-3 ps-1.5 text-[13px] font-extrabold ring-1 ring-inset ring-v2-hairline whitespace-nowrap"
                 >
                   <AppIcon src={m.icon} size={28} /> {m.label}
                 </span>
@@ -573,7 +573,7 @@ function IconBtn({
       aria-label={label}
       aria-pressed={pressed}
       onClick={onClick}
-      className="grid h-10 w-10 place-items-center rounded-full bg-white text-v2-ink-2 shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
+      className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-v2-ink-2 shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
     >
       {icon}
     </button>

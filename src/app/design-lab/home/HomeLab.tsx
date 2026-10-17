@@ -274,7 +274,7 @@ function LocationChip({ value, onChange }: { value: Place; onChange: (p: Place) 
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-label={`מיקום האימון: ${cur.label}`}
-        className="flex h-9 items-center gap-1.5 rounded-full bg-white pe-2.5 ps-3 text-[13.5px] font-extrabold shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
+        className="flex h-9 items-center gap-1.5 rounded-full bg-white pe-2.5 ps-3 text-[13.5px] font-extrabold shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] whitespace-nowrap"
       >
         <Icon size={15} strokeWidth={2.5} className="text-v2-deep" aria-hidden />
         {cur.label}
@@ -677,7 +677,7 @@ function NearbyGroups() {
                   {g.letters.map((l, i) => (
                     <span
                       key={i}
-                      className="grid h-7 w-7 place-items-center rounded-full text-[11px] font-black ring-2 ring-white"
+                      className="grid h-7 w-7 place-items-center rounded-full text-[11px] font-black ring-2 ring-white whitespace-nowrap"
                       style={{ background: ['#bae6fd', '#c7f9e9', '#fde68a'][i % 3] }}
                     >
                       {l}

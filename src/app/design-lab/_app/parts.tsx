@@ -434,7 +434,7 @@ export function Faces({ letters = ['מ', 'ש', 'נ'], more }: { letters?: string
         {letters.map((l, i) => (
           <span
             key={i}
-            className="grid h-8 w-8 place-items-center rounded-full text-[12px] font-black text-v2-ink ring-2 ring-white"
+            className="grid h-8 w-8 place-items-center rounded-full text-[12px] font-black text-v2-ink ring-2 ring-white whitespace-nowrap"
             style={{ background: tints[i % tints.length] }}
           >
             {l}

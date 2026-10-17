@@ -37,7 +37,7 @@ export default function GroupLab() {
           <div className="absolute end-4 top-[calc(env(safe-area-inset-top)+16px)]">
             <GlassClose href="/design-lab/home" />
           </div>
-          <span className="v2-glass-chip absolute bottom-14 start-4 flex h-9 items-center gap-1.5 rounded-full px-3.5 text-[13.5px] font-extrabold text-white">
+          <span className="v2-glass-chip absolute bottom-14 start-4 flex h-9 items-center gap-1.5 rounded-full px-3.5 text-[13.5px] font-extrabold text-white whitespace-nowrap">
             <AppIcon src={ICON.walk} size={18} className="brightness-0 invert" />
             {g.kind}
           </span>

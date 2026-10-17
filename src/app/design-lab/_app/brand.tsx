@@ -108,7 +108,7 @@ export function AppHeader({ name, streak, logo }: { name: string; streak: number
           >
             <Icon size={19} strokeWidth={2.3} />
             {badge && (
-              <span className="absolute -end-0.5 -top-0.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-v2-ink px-1 text-[10.5px] font-black text-white">
+              <span className="absolute -end-0.5 -top-0.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-v2-ink px-1 text-[10.5px] font-black text-white whitespace-nowrap">
                 {badge}
               </span>
             )}

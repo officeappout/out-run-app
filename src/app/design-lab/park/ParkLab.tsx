@@ -80,7 +80,7 @@ export default function ParkLab() {
             {PARK.amenities.map((a, i) => {
               const Icon = AMENITY_ICON[i];
               return (
-                <span key={a} className="flex h-10 items-center gap-1.5 rounded-full bg-white px-3.5 text-[13.5px] font-extrabold shadow-v2-ring">
+                <span key={a} className="flex h-10 items-center gap-1.5 rounded-full bg-white px-3.5 text-[13.5px] font-extrabold shadow-v2-ring whitespace-nowrap">
                   <Icon size={16} strokeWidth={2.4} className="text-v2-deep" aria-hidden />
                   {a}
                 </span>
