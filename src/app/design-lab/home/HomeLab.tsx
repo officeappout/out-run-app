@@ -590,7 +590,7 @@ function NearbyGroups() {
             onClick={() => setCat(f.id)}
             aria-pressed={cat === f.id}
             className={`h-8 shrink-0 rounded-full px-3.5 text-[12.5px] font-extrabold transition-[transform,background-color] duration-150 ease-v2 active:scale-[0.97] ${
-              cat === f.id ? 'bg-v2-cta text-v2-on-cta' : 'bg-white text-v2-ink-2 shadow-v2-ring'
+              cat === f.id ? 'bg-v2-ink text-white' : 'bg-white text-v2-ink-2 shadow-v2-ring'
             }`}
           >
             {f.label}
@@ -672,7 +672,7 @@ function PlusFab() {
         onClick={() => setOpen(true)}
         aria-label="הוסף"
         whileTap={reduce ? undefined : { scale: 0.94 }}
-        className="fixed bottom-[calc(env(safe-area-inset-bottom)+88px)] start-4 z-[6] grid h-14 w-14 place-items-center rounded-full bg-v2-cta text-v2-on-cta shadow-v2-cta ring-4 ring-white/70"
+        className="fixed bottom-[calc(env(safe-area-inset-bottom)+88px)] start-4 z-[6] grid h-14 w-14 place-items-center rounded-full bg-white text-v2-deep shadow-v2-float ring-1 ring-v2-hairline"
       >
         <Plus size={26} strokeWidth={2.6} />
       </motion.button>

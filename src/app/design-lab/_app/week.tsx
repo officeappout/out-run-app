@@ -80,8 +80,7 @@ export function StreakRow({
             width: `calc(${((l.to - l.from + 1) / n) * 100}% - 4px)`,
             top: centerY - cell / 2 - 4,
             height: cell + 8,
-            background: 'linear-gradient(270deg, rgba(0,186,247,.16), rgba(12,242,227,.22))',
-            boxShadow: 'inset 0 0 0 1.5px rgba(0,186,247,.28)',
+            background: 'linear-gradient(270deg, rgba(0,186,247,.07), rgba(12,242,227,.10))',
             transformOrigin: 'right',
           }}
           initial={reduce ? false : { scaleX: 0.2, opacity: 0 }}
@@ -137,8 +136,8 @@ function DayCell({ day, isToday, size, animate }: { day: StreakDay; isToday: boo
     );
   if (day.status === 'today')
     return (
-      <span className={`${box} bg-v2-cta shadow-v2-cta`} style={style}>
-        <AppIcon src={PROGRAM[day.kind ?? 'strength']} size={icon} className="brightness-0 invert" />
+      <span className={`${box} bg-white ring-2 ring-v2-accent`} style={style}>
+        <AppIcon src={PROGRAM[day.kind ?? 'strength']} size={icon} />
       </span>
     );
   if (day.status === 'planned')

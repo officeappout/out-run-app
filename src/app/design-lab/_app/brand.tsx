@@ -47,7 +47,7 @@ export function AppHeader({ name, streak, logo }: { name: string; streak: number
     <header className="v2-glass-bar sticky top-0 z-[4] grid grid-cols-[1fr_auto_1fr] items-center px-4 pb-2.5 pt-[calc(env(safe-area-inset-top)+12px)]">
       <span className="flex items-center justify-self-start">
         <span className="relative">
-          <span className={`grid ${c ? 'h-10 w-10' : 'h-11 w-11'} place-items-center rounded-full bg-v2-cta text-[17px] font-black text-v2-on-cta ring-2 ring-white shadow-v2-ring`}>
+          <span className={`grid ${c ? 'h-10 w-10' : 'h-11 w-11'} place-items-center rounded-full bg-v2-tint text-[17px] font-black text-v2-deep ring-2 ring-white shadow-v2-ring`}>
             {name[0]}
           </span>
           <span className="absolute -bottom-1.5 -start-2 flex items-center rounded-full bg-white pe-1.5 shadow-v2-ring" aria-label={`${streak} ימים ברצף`}>
@@ -72,7 +72,7 @@ export function AppHeader({ name, streak, logo }: { name: string; streak: number
           >
             <Icon size={19} strokeWidth={2.3} />
             {badge && (
-              <span className="absolute -end-0.5 -top-0.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-v2-cta px-1 text-[10.5px] font-black text-v2-on-cta">
+              <span className="absolute -end-0.5 -top-0.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-v2-ink px-1 text-[10.5px] font-black text-white">
                 {badge}
               </span>
             )}

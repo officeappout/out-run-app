@@ -371,7 +371,7 @@ export function BottomNav({ active = 'home', variant = 'equal' }: { active?: Nav
           href={map.href}
           aria-label={map.label}
           aria-current={active === 'map' ? 'page' : undefined}
-          className="-mt-9 grid h-[68px] w-[68px] shrink-0 place-items-center rounded-full bg-v2-cta text-v2-on-cta shadow-v2-cta ring-[5px] ring-white transition-transform duration-150 ease-v2 active:scale-[0.96]"
+          className="-mt-9 grid h-[64px] w-[64px] shrink-0 place-items-center rounded-full bg-white text-v2-deep shadow-v2-float ring-1 ring-v2-hairline transition-transform duration-150 ease-v2 active:scale-[0.96]"
         >
           <MapIcon size={28} strokeWidth={2.4} aria-hidden />
         </Link>
