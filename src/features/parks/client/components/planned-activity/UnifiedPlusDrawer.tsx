@@ -13,6 +13,8 @@
  */
 
 import React from 'react';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Footprints, Users, MapPin, Zap, ChevronLeft } from 'lucide-react';
 
@@ -41,6 +43,9 @@ export default function UnifiedPlusDrawer({
   onReport,
 }: UnifiedPlusDrawerProps) {
   const select = (fn: () => void) => () => { onClose(); fn(); };
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  // v2 look (enable_home_v2) — the drawer opens from home and the map.
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
 
   // Clean icon treatment (chrome polish): no colored circle behind a white
   // glyph, AND — per the unify-all-icon-colors round — no more per-icon
@@ -76,7 +81,22 @@ export default function UnifiedPlusDrawer({
     },
   ];
 
-  const renderRow = (row: Row) => (
+  const renderRow = (row: Row) => v2 ? (
+    <button
+      key={row.label}
+      onClick={row.onSelect}
+      className="flex w-full items-center gap-3 rounded-[20px] bg-white p-3 text-right shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.98]"
+    >
+      <span className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-[14px] bg-v2-tint text-v2-deep [&_svg]:!text-v2-deep">
+        {row.icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[15.5px] font-black text-v2-ink">{row.label}</span>
+        <span className="block truncate text-[12.5px] font-bold text-v2-muted">{row.sublabel}</span>
+      </span>
+      <ChevronLeft size={17} strokeWidth={2.6} className="flex-shrink-0 text-v2-muted" />
+    </button>
+  ) : (
     <button
       key={row.label}
       onClick={row.onSelect}
@@ -113,19 +133,20 @@ export default function UnifiedPlusDrawer({
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 340, damping: 34 }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md bg-white rounded-t-3xl shadow-2xl overflow-hidden"
+            className={v2 ? 'w-full max-w-md overflow-hidden rounded-t-[28px] bg-white shadow-v2-sheet' : 'w-full max-w-md bg-white rounded-t-3xl shadow-2xl overflow-hidden'}
             style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
             dir="rtl"
           >
             <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 rounded-full bg-gray-200" />
+              <div className={v2 ? 'h-1.5 w-10 rounded-full bg-v2-pill-border' : 'w-10 h-1 rounded-full bg-gray-200'} />
             </div>
 
             <div className="flex items-center justify-between px-5 pb-2">
-              <h3 className="text-base font-black text-gray-900">מה תרצה לעשות?</h3>
+              <h3 className={v2 ? 'text-[22px] font-black !tracking-[-0.02em] text-v2-ink' : 'text-base font-black text-gray-900'}>מה תרצה לעשות?</h3>
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-lg bg-gray-100 text-gray-400 hover:bg-gray-200 active:scale-90 transition-all"
+                aria-label="סגירה"
+                className={v2 ? 'grid h-9 w-9 place-items-center rounded-full bg-v2-surface text-v2-ink ring-1 ring-inset ring-v2-hairline' : 'p-1.5 rounded-lg bg-gray-100 text-gray-400 hover:bg-gray-200 active:scale-90 transition-all'}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -133,14 +154,14 @@ export default function UnifiedPlusDrawer({
 
             <div className="px-5 pb-4 space-y-4">
               <div className="space-y-2">
-                <div className="text-[11px] font-bold text-gray-400 px-1">פעילות</div>
-                <div className="space-y-1.5">
+                <div className={v2 ? 'px-1 text-[13px] font-extrabold text-v2-deep' : 'text-[11px] font-bold text-gray-400 px-1'}>פעילות</div>
+                <div className={v2 ? 'space-y-2' : 'space-y-1.5'}>
                   {activityRows.map((row) => renderRow(row))}
                 </div>
               </div>
               <div className="space-y-2">
-                <div className="text-[11px] font-bold text-gray-400 px-1">תרומה למפה</div>
-                <div className="space-y-1.5">
+                <div className={v2 ? 'px-1 text-[13px] font-extrabold text-v2-deep' : 'text-[11px] font-bold text-gray-400 px-1'}>תרומה למפה</div>
+                <div className={v2 ? 'space-y-2' : 'space-y-1.5'}>
                   {renderRow(contributeRows[0])}
                   {renderRow(contributeRows[1])}
                 </div>
