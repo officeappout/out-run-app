@@ -12,7 +12,7 @@
  * whole plan; peek only reveals the map.)
  */
 
-import { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useMemo, type MouseEvent as ReactMouseEvent } from 'react';
 import { Ruler, MapPin, Play, ArrowRight, Info, ChevronLeft, ChevronDown } from 'lucide-react';
 import { motion, useDragControls, useMotionValue, useTransform, animate } from 'framer-motion';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
@@ -28,6 +28,7 @@ import { formatMinutes } from './hybrid-format'; // shared duration formatter (p
 import type { ComposedHybridSession } from '@/features/workout-engine/hybrid/start-hybrid-session';
 import { ROUTE_STOPS_ROUND_TRIP_KEY, readRoundTripPref, displayTotalMin, buildWalkLegsGeoJSON } from '@/features/workout-engine/hybrid/round-trip';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
+import { nextDetentOnHandleTap, isHandleExpanded, isHandleTap } from './sheet-handle-tap';
 
 const ACCENT = '#00ADEF';
 const STR_TINT = '#ECFEFF', STR_TEXT = '#0E7490'; // cyan tint/text from color-system.md (no new hex)
@@ -264,6 +265,22 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
     if (targetId !== currentAnchor) setAnchor(targetId); // keep useSheetDrag anchor in sync
     springTo(targetId);                                  // move the visible sheet (always locks)
   };
+  // ── G2.5 (Sderot pilot): tap the handle / top edge → toggle docked (peek) ↔ open (half) ──────
+  // Additive: dragging is untouched (the button sits INSIDE the grabber, so its pointerdown still
+  // bubbles to dragControls.start). A click that follows a real drag is ignored (handleDraggedRef is
+  // set by the wrapper's onDragStart; pointer travel is also checked), so a drag never toggles.
+  const handleDownRef = useRef<{ x: number; y: number } | null>(null);
+  const handleDraggedRef = useRef(false);
+  const onHandleClick = (e: ReactMouseEvent) => {
+    const down = e.detail === 0 ? null : handleDownRef.current; // detail 0 → keyboard activation
+    const dragged = handleDraggedRef.current;
+    handleDownRef.current = null;
+    handleDraggedRef.current = false;
+    if (!isHandleTap(dragged, down, { x: e.clientX, y: e.clientY })) return;
+    const target = nextDetentOnHandleTap(currentAnchor);
+    if (target !== currentAnchor) setAnchor(target);
+    springTo(target);
+  };
   // Re-align sheetY to the current detent on viewport change (resize/rotate). Not
   // keyed on currentAnchor — those transitions are animated by springTo/drag.
   const currentAnchorRef = useRef(currentAnchor);
@@ -399,7 +416,7 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
         dragConstraints={dragConstraints}
         dragElastic={0}
         dragMomentum={false}
-        onDragStart={() => springRef.current?.stop()}
+        onDragStart={() => { handleDraggedRef.current = true; springRef.current?.stop(); }}
         onDragEnd={onDragEndSnap}
         animate={controls}
         className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none"
@@ -427,7 +444,21 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
           {/* grabber = the drag handle (+ back button) */}
           <div className="relative pt-3 px-4 flex-shrink-0" onPointerDown={(e) => dragControls.start(e)}
             style={{ touchAction: 'none', cursor: 'grab' }}>
-            <div className="mx-auto rounded-full" style={{ width: 36, height: 5, background: '#E2E8F0' }} />
+            {/* G2.5: the handle is a real button — tap (or Enter/Space) toggles docked ↔ open. Same 17px
+                footprint as the bare bar (-mt-3 pulls it over the grabber's pt-3); pb-1.5/-mb-1.5 widen the
+                hit area onto the summary's top edge without moving the layout. `relative` (no z-index)
+                keeps it above that overlap. */}
+            <button
+              type="button"
+              onPointerDown={(e) => { handleDownRef.current = { x: e.clientX, y: e.clientY }; handleDraggedRef.current = false; }}
+              onClick={onHandleClick}
+              aria-expanded={isHandleExpanded(currentAnchor)}
+              aria-label={isHandleExpanded(currentAnchor) ? 'כווץ את פרטי המסלול' : 'הרחב את פרטי המסלול'}
+              className="relative block w-full -mt-3 pt-3 pb-1.5 -mb-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 rounded-t-3xl"
+              style={{ cursor: 'grab' }}
+            >
+              <span className="block mx-auto rounded-full" style={{ width: 36, height: 5, background: '#E2E8F0' }} />
+            </button>
             <button type="button" onClick={onBack} aria-label="חזור"
               onPointerDown={(e) => e.stopPropagation()}
               className="absolute top-3 left-4 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center active:scale-90 transition-transform">
