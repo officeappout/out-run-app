@@ -26,7 +26,7 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { m, AnimatePresence, motion } from 'framer-motion';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Users, RefreshCw, ChevronDown, SlidersHorizontal, MapPin, Trees, Lock } from 'lucide-react';
+import { Users, RefreshCw, ChevronDown, SlidersHorizontal, MapPin, Trees, Lock, UserPlus } from 'lucide-react';
 import IconTile from '@/components/ui/v2/IconTile';
 import Button from '@/components/ui/v2/Button';
 import { useUserStore } from '@/features/user';
@@ -817,6 +817,16 @@ export default function CommunityPage() {
             <p className="text-xs text-gray-600 mt-1 max-w-[240px]">
               סיים אימון כדי לפרסם את הפוסט הראשון שלך, או חפש שותפים ועקוב אחריהם
             </p>
+            {featureFlags.enableHomeV2 && (
+              <button
+                type="button"
+                onClick={() => router.push('/search?tab=people')}
+                className="mt-4 flex h-11 items-center gap-1.5 rounded-full bg-v2-cta px-5 text-[14.5px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]"
+              >
+                <UserPlus size={17} strokeWidth={2.6} aria-hidden />
+                מצא שותפים
+              </button>
+            )}
           </div>
         </div>
       );
@@ -849,6 +859,14 @@ export default function CommunityPage() {
                 className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
               >
                 <Lock size={15} strokeWidth={2.6} aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push('/search?tab=people')}
+                className="flex h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-v2-tint px-3.5 text-[13.5px] font-extrabold text-v2-deep transition-transform duration-150 ease-v2 active:scale-[0.97]"
+              >
+                <UserPlus size={15} strokeWidth={2.6} aria-hidden />
+                שותפים
               </button>
               {FEED_FILTERS.map((f) => {
                 const on = f.id === feedFilter;
