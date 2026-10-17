@@ -19,7 +19,15 @@ import { useDailyActivity, useWeeklyProgress, useDayStatus, useDateKey, usePastW
 import { CompactRingsProgress } from './rings/ConcentricRingsProgress';
 import { resolveIconKey, SmartDayIcon, getProgramIcon, CyanDot, PROGRAM_ALIAS_TO_ICON } from '@/features/content/programs/core/program-icon.util';
 import { SKILL_DISPLAY } from '@/features/schedule/types/smartSchedule.types';
-import { resolveDayDisplayProps, DayIconCell, type DaySessionInput } from '@/features/home/utils/day-display.utils';
+import {
+  resolveDayDisplayProps,
+  DayIconCell,
+  DayCellV2Context,
+  earnedTones,
+  type DayDisplayProps,
+  type DaySessionInput,
+} from '@/features/home/utils/day-display.utils';
+import { capsuleBackground, streakRuns, FLAME_TONES, type FlameTone, type StreakCell } from '@/components/ui/v2/streak';
 import { buildActivityRingData } from '@/features/home/utils/activity-ring.utils';
 import MonthlyCalendarGrid from './calendar/MonthlyCalendarGrid';
 import type { RecurringTemplate, UserScheduleEntry, ScheduleActivityCategory } from '@/features/user/scheduling/types/schedule.types';
@@ -88,6 +96,8 @@ interface SmartWeeklyScheduleProps {
   };
   /** Phase 6 — hide the month/week toggle button, lock to week strip */
   hideMonthToggle?: boolean;
+  /** Home v2 (enable_home_v2): streak flames, the connected capsule, the day bubble. */
+  v2?: boolean;
   /** Phase 5 — swipe-down on the week strip triggers this callback (e.g. open planner) */
   onSwipeDown?: () => void;
   /** Tapping "שינוי לוז" triggers this callback (e.g. open the full planner overlay).
@@ -788,6 +798,7 @@ export default function SmartWeeklySchedule({
   monthGridMaxHeight,
   expandedGridConfig,
   hideMonthToggle = false,
+  v2 = false,
   onSwipeDown,
   onOpenPlanner,
   hasCompletedAssessment = false,
@@ -1256,48 +1267,16 @@ export default function SmartWeeklySchedule({
     ? DUMMY_ACTIVITY_MAP
     : weekActivityData;
 
-  // Get day icon based on track, view mode, and status.
-  // In "icons" view, delegates to the unified SmartDayIcon wrapper.
-  // In "rings" view, keeps the CompactRingsProgress rendering.
-  const getDayIcon = (day: DaySchedule, dayData: DayActivityData, isCellSelected: boolean, dayIndex: number) => {
-    const { day: dayLetter } = day;
-    const planned = isTrainingDay(dayLetter);
-
-    // Per-day skill icon bridge: resolve the primary programId stored in the
-    // day's schedule entry so all render paths can share it.
-    const perDayPrimaryId = dayData.primaryEntry?.programIds?.[0] ?? null;
-
-    // ── ACTIVITY schedule (Stage 2): the RING axis (S10). Takes precedence over
-    //    every flame/icon path — this is a separate schedule toggled by the host
-    //    (health tab). One aggregate summary ring per day; flame logic untouched.
-    if (activityView) {
-      const state: 'past' | 'today' | 'future' = dayData.isToday
-        ? 'today'
-        : dayData.isFuture
-          ? 'future'
-          : 'past';
-      const ring = buildActivityRingData({
-        totalMinutes: dayData.totalMinutes,
-        categories: dayData.categories,
-        dominantCategory: dayData.dominantCategory,
-      });
-      // props are required by DayIconCell but ignored when activityRing is set;
-      // pass minimal valid state so the cell can echo today/selection if needed.
-      // isRecoveryCompletion intentionally NOT threaded here: isRest and
-      // isCompleted are both hardcoded false in this branch (the ring view
-      // never renders the flame/Beast-Mode UI), so resolveDayDisplayProps'
-      // `isRest && isCompleted` Beast Mode gate is structurally unreachable
-      // regardless of recovery status — confirmed by reading both branches.
-      const displayProps = resolveDayDisplayProps({
-        state,
-        isSelected: isCellSelected,
-        isRest: false,
-        isMissed: false,
-        isCompleted: false,
-      });
-      return <DayIconCell props={displayProps} activityRing={ring} ringSizePx={40} />;
-    }
-
+  // Icon-view display props for a day (running or not) — shared by the
+  // strip's cells and, under enable_home_v2, by the streak capsule, so both
+  // read the exact same state decision. null outside the icon view.
+  const resolveIconViewProps = (
+    day: DaySchedule,
+    dayData: DayActivityData,
+    isCellSelected: boolean,
+    dayIndex: number,
+  ): DayDisplayProps | null => {
+    if (activityView) return null;
     // ── Running mode + icon view: route through the centralized engine
     //    so we get the branded flame + colored pager dot for the actual
     //    running category (tempo → red intensity flame + red dot, etc.).
@@ -1354,33 +1333,7 @@ export default function SmartWeeklySchedule({
         sessionsCompleted: dayData.sessionsCompleted,
       });
 
-      return <DayIconCell props={displayProps} />;
-    }
-
-    // ── Running mode (rings view): keep the legacy RunningDayIcon path ──
-    if (isRunningMode) {
-      const runEntry = runningEntriesByDayIndex.get(dayIndex);
-      if (runEntry) {
-        return <RunningDayIcon entry={runEntry} isToday={dayData.isToday} />;
-      }
-      if (dayData.isRest || !planned) {
-        return <Bed className="text-gray-400 dark:text-gray-500 text-lg" />;
-      }
-      // Planned training day without a running entry: pending running icon
-      const pendingColor = dayData.isToday ? '#00BAF7' : '#00BAF780';
-      return (
-        <div
-          className="flex items-center justify-center"
-          style={{
-            width: 44,
-            height: 44,
-            color: pendingColor,
-            filter: dayData.isToday ? 'drop-shadow(0 0 6px #00BAF760)' : undefined,
-          }}
-        >
-          <Footprints className="w-5 h-5" />
-        </div>
-      );
+      return displayProps;
     }
 
     // ── Icon-view: delegate everything (including missed days) to the
@@ -1431,7 +1384,83 @@ export default function SmartWeeklySchedule({
         isRecoveryCompletion: dayData.isRecoveryCompletion,
       });
 
-      return <DayIconCell props={displayProps} />;
+      return displayProps;
+    }
+
+    return null;
+  };
+
+  // Get day icon based on track, view mode, and status.
+  // In "icons" view, delegates to the unified SmartDayIcon wrapper.
+  // In "rings" view, keeps the CompactRingsProgress rendering.
+  const getDayIcon = (day: DaySchedule, dayData: DayActivityData, isCellSelected: boolean, dayIndex: number) => {
+    const { day: dayLetter } = day;
+    const planned = isTrainingDay(dayLetter);
+
+    // Per-day skill icon bridge: resolve the primary programId stored in the
+    // day's schedule entry so all render paths can share it.
+    const perDayPrimaryId = dayData.primaryEntry?.programIds?.[0] ?? null;
+
+    // ── ACTIVITY schedule (Stage 2): the RING axis (S10). Takes precedence over
+    //    every flame/icon path — this is a separate schedule toggled by the host
+    //    (health tab). One aggregate summary ring per day; flame logic untouched.
+    if (activityView) {
+      const state: 'past' | 'today' | 'future' = dayData.isToday
+        ? 'today'
+        : dayData.isFuture
+          ? 'future'
+          : 'past';
+      const ring = buildActivityRingData({
+        totalMinutes: dayData.totalMinutes,
+        categories: dayData.categories,
+        dominantCategory: dayData.dominantCategory,
+      });
+      // props are required by DayIconCell but ignored when activityRing is set;
+      // pass minimal valid state so the cell can echo today/selection if needed.
+      // isRecoveryCompletion intentionally NOT threaded here: isRest and
+      // isCompleted are both hardcoded false in this branch (the ring view
+      // never renders the flame/Beast-Mode UI), so resolveDayDisplayProps'
+      // `isRest && isCompleted` Beast Mode gate is structurally unreachable
+      // regardless of recovery status — confirmed by reading both branches.
+      const displayProps = resolveDayDisplayProps({
+        state,
+        isSelected: isCellSelected,
+        isRest: false,
+        isMissed: false,
+        isCompleted: false,
+      });
+      return <DayIconCell props={displayProps} activityRing={ring} ringSizePx={40} />;
+    }
+
+    {
+      const p = resolveIconViewProps(day, dayData, isCellSelected, dayIndex);
+      if (p) return <DayIconCell props={p} />;
+    }
+
+    // ── Running mode (rings view): keep the legacy RunningDayIcon path ──
+    if (isRunningMode) {
+      const runEntry = runningEntriesByDayIndex.get(dayIndex);
+      if (runEntry) {
+        return <RunningDayIcon entry={runEntry} isToday={dayData.isToday} />;
+      }
+      if (dayData.isRest || !planned) {
+        return <Bed className="text-gray-400 dark:text-gray-500 text-lg" />;
+      }
+      // Planned training day without a running entry: pending running icon
+      const pendingColor = dayData.isToday ? '#00BAF7' : '#00BAF780';
+      return (
+        <div
+          className="flex items-center justify-center"
+          style={{
+            width: 44,
+            height: 44,
+            color: pendingColor,
+            filter: dayData.isToday ? 'drop-shadow(0 0 6px #00BAF760)' : undefined,
+          }}
+        >
+          <Footprints className="w-5 h-5" />
+        </div>
+      );
     }
 
     // ── Rings-view: keep existing CompactRingsProgress paths ─────
@@ -1526,6 +1555,18 @@ export default function SmartWeeklySchedule({
   };
   
   // Handle day click — propagate selected date to parent, no tooltip
+  // ── Home v2: which days carry a flame (and which tones) → the capsule ──
+  const [peek, setPeek] = useState<number | null>(null);
+  const v2Cells: { cell: StreakCell; tones: FlameTone[] }[] = v2
+    ? schedule.map((day, index) => {
+        const dayData = effectiveActivityData.get(index);
+        const props = dayData ? resolveIconViewProps(day, dayData, false, index) : null;
+        const tones = props ? earnedTones(props) : [];
+        const cell: StreakCell = tones.length ? 'done' : dayData?.isRest && !dayData?.isFuture ? 'rest' : 'other';
+        return { cell, tones };
+      })
+    : [];
+
   const handleDayClick = (day: DaySchedule, index: number) => {
     const today = new Date();
     const dayDate = new Date(today);
@@ -1637,12 +1678,21 @@ export default function SmartWeeklySchedule({
       {/* ── Main Card — bordered container with depth ──────────── */}
       <motion.div
         className="bg-gradient-to-b from-white to-slate-50/80 dark:from-[#1E1E1E] dark:to-[#1A1A2E] relative overflow-hidden"
-        style={{
-          borderRadius: 12,
-          padding: '10px 12px',
-          border: '0.5px solid #E0E9FF',
-          boxShadow: '0 1px 4px 0 rgba(0,0,0,0.04), inset 0 1px 3px 0 rgba(0,0,0,0.02)',
-        }}
+        style={
+          v2
+            ? {
+                borderRadius: 24,
+                padding: '12px 12px 14px',
+                background: '#ffffff',
+                boxShadow: '0 24px 50px -36px rgba(9,30,50,0.45), 0 0 0 1px rgba(14,27,42,0.06)',
+              }
+            : {
+                borderRadius: 12,
+                padding: '10px 12px',
+                border: '0.5px solid #E0E9FF',
+                boxShadow: '0 1px 4px 0 rgba(0,0,0,0.04), inset 0 1px 3px 0 rgba(0,0,0,0.02)',
+              }
+        }
         onPanEnd={onSwipeDown ? handlePanEnd : undefined}
       >
         {/* Journey overlay: ultra-light full-card glass — calendar stays sharp below */}
@@ -1662,6 +1712,7 @@ export default function SmartWeeklySchedule({
         <div
           className={showOverlay ? 'pointer-events-none select-none' : ''}
         >
+        <DayCellV2Context.Provider value={v2}>
         <AnimatePresence mode="wait">
           {calendarMode === 'week' ? (
             <motion.div
@@ -1686,6 +1737,17 @@ export default function SmartWeeklySchedule({
                 )}
                 
                 <div className="flex justify-between items-start relative z-10 w-full max-w-[326px] mx-auto">
+                  {v2 && containerWidth > 0 && <StreakCapsules cells={v2Cells} rowWidth={Math.min(containerWidth, 326)} />}
+                  {v2 && peek !== null && effectiveActivityData.get(peek) && (
+                    <DayPeekBubble
+                      dayName={FULL_HEBREW_DAY_NAMES[peek]}
+                      data={effectiveActivityData.get(peek)!}
+                      tones={v2Cells[peek]?.tones ?? []}
+                      index={peek}
+                      rowWidth={Math.min(containerWidth || 326, 326)}
+                      onClose={() => setPeek(null)}
+                    />
+                  )}
                   {schedule.map((day, index) => {
                     const todayIndex = new Date().getDay();
                     const isToday = index === todayIndex;
@@ -1735,7 +1797,10 @@ export default function SmartWeeklySchedule({
                             flagged). The legacy dot is preserved for rings view
                             only. */}
                         <motion.button
-                          onClick={() => handleDayClick(day, index)}
+                          onClick={() => {
+                            handleDayClick(day, index);
+                            if (v2) setPeek((p) => (p === index || !v2Cells[index]?.tones.length ? null : index));
+                          }}
                           aria-label={`${FULL_HEBREW_DAY_NAMES[index]}${isToday ? ', היום' : ''}${planned ? ', אימון מתוכנן' : ', יום מנוחה'}`}
                           whileTap={{ scale: 0.92 }}
                           transition={{ type: 'spring', stiffness: 400, damping: 20 }}
@@ -1743,8 +1808,9 @@ export default function SmartWeeklySchedule({
                           style={{
                             // Activity view (ring) uses a larger 40 px slot since
                             // it's a toggle — one schedule on screen at a time.
-                            width: activityView ? 40 : 32,
-                            height: activityView ? 40 : 32,
+                            // v2 flames get the same 40 px slot.
+                            width: activityView || v2 ? 40 : 32,
+                            height: activityView || v2 ? 40 : 32,
                             overflow: 'visible',
                           }}
                         >
@@ -1823,6 +1889,7 @@ export default function SmartWeeklySchedule({
             </motion.div>
           )}
         </AnimatePresence>
+        </DayCellV2Context.Provider>
         </div>
       </motion.div>
 
@@ -1837,5 +1904,101 @@ export default function SmartWeeklySchedule({
         />
       )}
     </div>
+  );
+}
+// ============================================================================
+// Home v2 — the streak capsule + the day bubble (enable_home_v2)
+// ============================================================================
+
+/** Strip geometry: seven 44 px columns, justify-between, in RTL (Sunday at the right). */
+const V2_CELL = 44;
+const V2_LABEL_H = 18; // day letter (14 px) + 4 px margin
+const V2_ICON = 40;
+
+function StreakCapsules({ cells, rowWidth }: { cells: { cell: StreakCell; tones: FlameTone[] }[]; rowWidth: number }) {
+  const step = (rowWidth - V2_CELL) / 6;
+  const runs = streakRuns(cells.map((c) => c.cell));
+  return (
+    <>
+      {runs.map((r) => {
+        const tones = cells
+          .slice(r.from, r.to + 1)
+          .map((c, k, arr) => (c.tones[0] ?? arr[k - 1]?.tones[0] ?? arr[k + 1]?.tones[0] ?? 'strength') as FlameTone);
+        return (
+          <motion.span
+            key={`${r.from}-${r.to}`}
+            aria-hidden
+            className="absolute rounded-[18px] pointer-events-none"
+            style={{
+              insetInlineStart: r.from * step + 2,
+              width: (r.to - r.from) * step + V2_CELL - 4,
+              top: V2_LABEL_H - 4,
+              height: V2_ICON + 8,
+              zIndex: -1,
+              transformOrigin: 'right',
+              border: '1.5px solid transparent',
+              background: capsuleBackground(tones),
+            }}
+            initial={{ scaleX: 0.2, opacity: 0 }}
+            animate={{ scaleX: 1, opacity: 1 }}
+            transition={{ duration: 0.55, ease: [0.23, 1, 0.32, 1] }}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+/** Tap a day that earned a flame: a small glass bubble with what was done. */
+function DayPeekBubble({
+  dayName,
+  data,
+  tones,
+  index,
+  rowWidth,
+  onClose,
+}: {
+  dayName: string;
+  data: DayActivityData;
+  tones: FlameTone[];
+  index: number;
+  rowWidth: number;
+  onClose: () => void;
+}) {
+  const step = (rowWidth - V2_CELL) / 6;
+  const center = index * step + V2_CELL / 2;
+  const W = 210;
+  const start = Math.max(0, Math.min(rowWidth - W, center - W / 2));
+  const lines: { tone: FlameTone; text: string }[] = [];
+  if (data.categories.strength > 0) lines.push({ tone: 'strength', text: `כוח · ${Math.round(data.categories.strength)} דק׳` });
+  if (data.categories.cardio > 0) lines.push({ tone: 'cardio', text: `אירובי · ${Math.round(data.categories.cardio)} דק׳` });
+  if (data.categories.maintenance > 0) lines.push({ tone: 'maintenance', text: `גמישות · ${Math.round(data.categories.maintenance)} דק׳` });
+  if (data.steps > 0) lines.push({ tone: 'steps', text: `${data.steps.toLocaleString('he-IL')} צעדים` });
+  if (!lines.length) tones.forEach((t) => lines.push({ tone: t, text: FLAME_TONES[t].label }));
+  return (
+    <motion.div
+      role="dialog"
+      aria-label={`מה עשית ב${dayName}`}
+      className="v2-glass-card absolute rounded-[18px] p-2.5"
+      style={{ insetInlineStart: start, top: V2_LABEL_H + V2_ICON + 12, width: W, zIndex: 30 }}
+      initial={{ opacity: 0, y: -6, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+      onClick={onClose}
+    >
+      <div className="mb-1.5 text-[12px] font-extrabold" style={{ color: '#64748b' }}>
+        {dayName}
+      </div>
+      <ul className="space-y-1.5">
+        {lines.map((l) => (
+          <li key={l.tone} className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: FLAME_TONES[l.tone].hex }} />
+            <span className="text-[13px] font-extrabold leading-tight" style={{ color: '#0e1419' }}>
+              {l.text}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </motion.div>
   );
 }

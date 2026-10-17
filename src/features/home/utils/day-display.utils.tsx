@@ -10,11 +10,13 @@
  * states all live here so the two calendars stay visually consistent.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getProgramIcon, BRAND_CYAN } from '@/features/content/programs/core/program-icon.util';
 import type { ActivityCategory } from '@/features/activity/types/activity.types';
 import { type ActivityRingData, ACTIVITY_RING_EMPTY_COLOR } from './activity-ring.utils';
+import StreakFlame from '@/components/ui/v2/StreakFlame';
+import { FLAME_TONES, sortTones, toneFromFlameKey, type FlameTone } from '@/components/ui/v2/streak';
 
 // ============================================================================
 // ASSET REGISTRY
@@ -1050,7 +1052,128 @@ export function ActivityDayRing({
   );
 }
 
+// ============================================================================
+// HOME V2 — streak flames (enable_home_v2)
+// ============================================================================
+
+/**
+ * When true (provided by the weekly strip / month grid under enable_home_v2),
+ * DayIconCell renders the v2 day: a done day is the activity-coloured Lottie
+ * streak flame with no frame; today's pending workout is a white tile with an
+ * accent ring; rest is "Zz". Same resolveDayDisplayProps() input — only the
+ * rendering changes, so every state decision above stays the source of truth.
+ */
+export const DayCellV2Context = createContext(false);
+
+/** A flame asset path → its tone ('/assets/icons/ui/flame-endurance.svg' → cardio). */
+export function toneFromFlameSrc(src: string | undefined): FlameTone | null {
+  const m = src?.match(/flame-([a-z]+)\.svg$/);
+  return m ? toneFromFlameKey(m[1]) : null;
+}
+
+/** Tones a resolved day earned (one per completed session), or [] when nothing is done. */
+export function earnedTones(props: DayDisplayProps): FlameTone[] {
+  const fromSessions = (props.sessions ?? []).map((x) => (x.icon.type === 'img' ? toneFromFlameSrc(x.icon.src) : null));
+  if (fromSessions.length >= 2 && fromSessions.every(Boolean)) return sortTones(fromSessions as FlameTone[]);
+  const one = props.icon.type === 'img' ? toneFromFlameSrc(props.icon.src) : null;
+  return one ? [one] : [];
+}
+
+function DayIconCellV2({ props, sizePx }: { props: DayDisplayProps; sizePx: number }) {
+  const isToday = props.state === 'today';
+  const tones = earnedTones(props);
+  const [i, setI] = useState(0);
+  // Only today's multi-activity flame moves; past days show their main colour.
+  const cycling = isToday && tones.length > 1;
+  useEffect(() => {
+    setI(0);
+    if (!cycling) return;
+    const t = setInterval(() => setI((v) => (v + 1) % tones.length), SESSION_ROTATION_MS);
+    return () => clearInterval(t);
+  }, [cycling, tones.length]);
+
+  if (tones.length) {
+    const current = cycling ? tones[i % tones.length] : tones[0];
+    return (
+      <div className="relative flex items-center justify-center" dir="rtl" style={{ width: sizePx, height: sizePx }}>
+        {cycling ? (
+          <AnimatePresence initial={false}>
+            <motion.span
+              key={current}
+              className="absolute inset-0 flex items-center justify-center"
+              initial={{ opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.08 }}
+              transition={{ duration: 0.45, ease: [0.23, 1, 0.32, 1] }}
+            >
+              <StreakFlame tones={[current]} size={Math.round(sizePx * 1.05)} live />
+            </motion.span>
+          </AnimatePresence>
+        ) : (
+          <StreakFlame tones={[current]} size={Math.round(sizePx * 1.05)} live={isToday} />
+        )}
+        {tones.length > 1 && (
+          <span className="absolute -bottom-1.5 flex items-center gap-[3px]" aria-label={tones.map((t) => FLAME_TONES[t].label).join(' + ')}>
+            {tones.map((t) => (
+              <span
+                key={t}
+                className="rounded-full transition-[width,height] duration-300"
+                style={{
+                  background: FLAME_TONES[t].hex,
+                  boxShadow: '0 0 0 1px #fff',
+                  width: cycling && t === current ? 7 : 5,
+                  height: cycling && t === current ? 7 : 5,
+                }}
+              />
+            ))}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  const icon = props.sessions?.[0]?.icon ?? props.icon;
+  if (icon.type === 'program') {
+    return (
+      <div
+        className="flex items-center justify-center"
+        dir="rtl"
+        style={{
+          width: sizePx,
+          height: sizePx,
+          borderRadius: 14,
+          background: isToday ? '#ffffff' : '#eef8fc',
+          boxShadow: isToday ? '0 0 0 2px #00baf7' : undefined,
+          color: isToday ? '#0284c7' : 'rgba(2,132,199,0.6)',
+        }}
+      >
+        {getProgramIcon(icon.iconKey, 'w-5 h-5')}
+      </div>
+    );
+  }
+  if (icon.type === 'none') return <div style={{ width: sizePx, height: sizePx }} />;
+  // rest / missed / lemur → a quiet "Zz"
+  return (
+    <div
+      className="flex items-center justify-center"
+      dir="rtl"
+      aria-label="מנוחה"
+      style={{ width: sizePx, height: sizePx, borderRadius: 14, boxShadow: isToday ? '0 0 0 2px #e6edf2' : undefined }}
+    >
+      <span className="font-black italic leading-none select-none" style={{ fontSize: 14, color: '#c3ccd4' }}>
+        Z<sup style={{ fontSize: 9, verticalAlign: 'super' }}>z</sup>
+      </span>
+    </div>
+  );
+}
+
 export function DayIconCell({ props, hideDots = false, sizeOverride, activityRing, ringSizePx }: DayIconCellProps) {
+  const v2 = useContext(DayCellV2Context);
+  if (v2 && !activityRing) return <DayIconCellV2 props={props} sizePx={sizeOverride?.sizePx ?? 38} />;
+  return <DayIconCellV1 props={props} hideDots={hideDots} sizeOverride={sizeOverride} activityRing={activityRing} ringSizePx={ringSizePx} />;
+}
+
+function DayIconCellV1({ props, hideDots = false, sizeOverride, activityRing, ringSizePx }: DayIconCellProps) {
   const { container, icon, state, sessions, dots } = props;
   const isToday = state === 'today';
   const containerSize = sizeOverride?.sizePx ?? CONTAINER_SIZE_PX;
