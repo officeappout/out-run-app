@@ -79,3 +79,32 @@ export function timerLeadInSeconds(
 export function gateClipMuted(sessionMuted: boolean): boolean {
   return sessionMuted;
 }
+
+/**
+ * Is the ACTIVE view currently the demo gate's view? StrengthRunner holds the PLAYER paused
+ * while the gate is up but keeps the demo clip playing behind it — it passes
+ * `videoPaused={gateActive ? false : sm.isPaused}` to ActiveExerciseView (PR-B2). So the clip
+ * running while the player is paused happens exactly while the gate is shown (the find screen
+ * keeps both paused; a normal pause pauses both). Pinned by a test against StrengthRunner's
+ * source, so a change there fails loudly instead of silently.
+ */
+export function isDemoGateView(isPaused: boolean, videoPaused: boolean | undefined): boolean {
+  return isPaused === true && videoPaused === false;
+}
+
+/**
+ * G5.5 (guided only — the gate exists only in guided mode, behind `enable_guided_station`):
+ * the demo gate's first-time view plays the exercise's FULL narrated tutorial (media.fullTutorial,
+ * already resolved per execution method by useExerciseDerivedValues) WITH SOUND when one exists.
+ * Only Bunny tutorials qualify — that is the HLS path that can autoplay inline; anything else
+ * (no tutorial, YouTube, legacy) → null = the short preview loop, as today. Outside the gate
+ * (sets, rest, the rest screen's next preview, repeats) → always null.
+ */
+export function gateFullTutorial<T extends { videoId?: string | null; provider?: string | null }>(
+  gateView: boolean,
+  fullTutorial: T | null | undefined,
+): T | null {
+  if (!gateView || !fullTutorial) return null;
+  if (!fullTutorial.videoId || fullTutorial.provider !== 'bunny') return null;
+  return fullTutorial;
+}
