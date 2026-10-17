@@ -25,6 +25,8 @@ import DifficultyBolts, { type DifficultyValue } from '@/features/workout-engine
 import { ROUTE_CARD_WIDTH } from '../constants/routeCardSize';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { ActivityGlyph } from './hybrid/activity-icons';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
 
 // Aerobic-card accent — the single stat-icon colour shared by all three cards.
 const BRAND = '#00ADEF';
@@ -114,6 +116,10 @@ export default function RouteCardUnified({
   variant = 'default',
   durationActivity,
 }: RouteCardUnifiedProps) {
+  // Home v2 (enable_home_v2): the design-lab card — white v2 card, 17px black title,
+  // 13px muted meta, tinted badge and the single v2 gradient CTA. Flag off = today's card.
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
   const slim = variant === 'slim';
   const hasStats = !!distanceText && !!durationText;
   // G1.4 (Sderot pilot): the curated discover card (slim + stats — BottomJourneyContainer is the only
@@ -139,8 +145,12 @@ export default function RouteCardUnified({
     <div
       dir="rtl"
       onClick={handleClick}
-      className={`${ROUTE_CARD_WIDTH} shrink-0 bg-white rounded-3xl ${compact ? 'px-4 pt-2.5 pb-2.5' : slim ? 'px-4 py-3' : 'p-5'} transition-all duration-300 ${
-        isActive
+      className={`${ROUTE_CARD_WIDTH} shrink-0 bg-white ${v2 ? 'rounded-v2-card' : 'rounded-3xl'} ${compact ? 'px-4 pt-2.5 pb-2.5' : slim ? 'px-4 py-3' : 'p-5'} transition-all duration-300 ${v2 ? 'ease-v2 ' : ''}${
+        v2
+          ? isActive
+            ? 'shadow-v2-float ring-2 ring-v2-accent scale-[1.02]'
+            : 'shadow-v2-card opacity-90 scale-[0.97]'
+          : isActive
           ? 'shadow-[0_0_0_2.5px_rgba(0,229,255,0.85),0_14px_32px_rgba(0,0,0,0.18)] scale-[1.02]'
           : 'shadow-[0_10px_28px_rgba(0,0,0,0.14)] opacity-90 scale-[0.97]'
       } ${className}`}
@@ -148,13 +158,13 @@ export default function RouteCardUnified({
       {/* Name + "מומלץ" badge (same 11px/font-black/rounded-full/BRAND@18% language the
           legacy flag-off card used) */}
       <div className="flex items-center gap-2">
-        <h3 className="text-[15px] font-black text-gray-900 truncate leading-tight">
+        <h3 className={v2 ? 'min-w-0 truncate text-[17px] font-black leading-tight !tracking-[-0.02em] text-v2-ink' : 'text-[15px] font-black text-gray-900 truncate leading-tight'}>
           {name}
         </h3>
         {recommended && (
           <span
-            className="text-[11px] font-black rounded-full shrink-0"
-            style={{ color: BRAND, background: `${BRAND}18`, padding: '2px 8px' }}
+            className={v2 ? 'shrink-0 whitespace-nowrap rounded-full bg-v2-tint px-2 py-0.5 text-[11px] font-extrabold text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'text-[11px] font-black rounded-full shrink-0'}
+            style={v2 ? undefined : { color: BRAND, background: `${BRAND}18`, padding: '2px 8px' }}
           >
             מומלץ
           </span>
@@ -163,31 +173,31 @@ export default function RouteCardUnified({
 
       {/* Meta — distance + time on ONE inline row (· separated), or subtitle (slots) */}
       {hasStats ? (
-        <div className={`flex items-center gap-1.5 ${compact ? 'mt-1 mb-1.5' : slim ? 'mt-1.5 mb-2' : 'mt-1.5 mb-3'} text-[13px] font-black text-gray-800`} dir="ltr">
-          <MapPin size={13} style={{ color: BRAND }} className="shrink-0" />
+        <div className={`flex items-center gap-1.5 ${compact ? 'mt-1 mb-1.5' : slim ? 'mt-1.5 mb-2' : 'mt-1.5 mb-3'} text-[13px] ${v2 ? 'font-bold text-v2-muted whitespace-nowrap' : 'font-black text-gray-800'}`} dir="ltr">
+          <MapPin size={13} style={{ color: v2 ? undefined : BRAND }} className={v2 ? 'shrink-0 text-v2-deep' : 'shrink-0'} />
           <span>{distanceText}</span>
-          <span className="mx-1 text-gray-300 font-normal">·</span>
+          <span className={v2 ? 'mx-1 font-normal text-v2-pill-border' : 'mx-1 text-gray-300 font-normal'}>·</span>
           {durationActivity ? (
-            <span className="inline-flex shrink-0" style={{ color: BRAND }}>
+            <span className={v2 ? 'inline-flex shrink-0 text-v2-deep' : 'inline-flex shrink-0'} style={v2 ? undefined : { color: BRAND }}>
               <ActivityGlyph kind="aerobic" subtype={durationActivity} className="w-[15px] h-[15px]" />
             </span>
           ) : (
-            <Timer size={13} style={{ color: BRAND }} className="shrink-0" />
+            <Timer size={13} style={{ color: v2 ? undefined : BRAND }} className={v2 ? 'shrink-0 text-v2-deep' : 'shrink-0'} />
           )}
           <span>{durationText}</span>
           {/* SLIM + stats (curated cards): the bolts sit beside distance·time, so the quality tags
               (up to 3 pills) get their own row below instead of crowding a shared one. */}
           {slim && (
             <span
-              className="ml-auto inline-flex items-center rounded-full shrink-0"
-              style={{ border: '0.5px solid #E0E9FF', padding: '3px 9px' }}
+              className={v2 ? 'ml-auto inline-flex shrink-0 items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline' : 'ml-auto inline-flex items-center rounded-full shrink-0'}
+              style={v2 ? { padding: '3px 9px' } : { border: '0.5px solid #E0E9FF', padding: '3px 9px' }}
             >
               <DifficultyBolts difficulty={difficulty} size="sm" />
             </span>
           )}
         </div>
       ) : subtitle ? (
-        <p className={`text-[13px] font-semibold text-gray-500 ${slim ? 'mt-0.5 mb-2' : 'mt-1.5 mb-3'} leading-snug truncate`}>
+        <p className={`text-[13px] ${v2 ? 'font-bold text-v2-muted' : 'font-semibold text-gray-500'} ${slim ? 'mt-0.5 mb-2' : 'mt-1.5 mb-3'} leading-snug truncate`}>
           {subtitle}
         </p>
       ) : null}
@@ -202,8 +212,8 @@ export default function RouteCardUnified({
         <div className="flex items-center justify-between gap-2 mb-2.5">
           <div className="min-w-0">{extraContent}</div>
           <div
-            className="inline-flex items-center rounded-full shrink-0"
-            style={{ border: '0.5px solid #E0E9FF', padding: '3px 9px' }}
+            className={v2 ? 'inline-flex shrink-0 items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline' : 'inline-flex items-center rounded-full shrink-0'}
+            style={v2 ? { padding: '3px 9px' } : { border: '0.5px solid #E0E9FF', padding: '3px 9px' }}
           >
             <DifficultyBolts difficulty={difficulty} size="sm" />
           </div>
@@ -216,8 +226,8 @@ export default function RouteCardUnified({
           wrapper-style change: DifficultyBolts.tsx itself (and what difficulty it displays) is
           untouched. */}
       <div
-        className="inline-flex items-center rounded-full mb-4"
-        style={{ border: '0.5px solid #E0E9FF', padding: '4px 10px' }}
+        className={v2 ? 'mb-4 inline-flex items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline' : 'inline-flex items-center rounded-full mb-4'}
+        style={v2 ? { padding: '4px 10px' } : { border: '0.5px solid #E0E9FF', padding: '4px 10px' }}
       >
         {/* colorScheme="severity" (Stage 5 QW3) deliberately held back for
             the dormant merge (18.08.2026) — DifficultyBolts' new prop is
@@ -231,8 +241,8 @@ export default function RouteCardUnified({
 
       {/* CTA — home strength-card style (rounded-full + cyan→turquoise gradient) */}
       {ctaLoading ? (
-        <div className="w-full py-3 rounded-full bg-gray-100 flex items-center justify-center">
-          <span className="text-xs text-gray-400 font-bold animate-pulse">טוען...</span>
+        <div className={v2 ? `flex w-full items-center justify-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline ${slim ? 'h-10' : 'h-12'}` : 'w-full py-3 rounded-full bg-gray-100 flex items-center justify-center'}>
+          <span className={v2 ? 'animate-pulse text-[13px] font-bold text-v2-muted' : 'text-xs text-gray-400 font-bold animate-pulse'}>טוען...</span>
         </div>
       ) : (
         <button
@@ -240,10 +250,14 @@ export default function RouteCardUnified({
           onPointerDown={onCtaPointerDown}
           onClick={handleCta}
           aria-disabled={!!ctaBlockedReason}
-          className={`w-full ${slim ? 'py-2.5' : 'py-3'} rounded-full font-semibold text-sm flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform ${
+          className={v2
+            ? `flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-full font-extrabold transition-transform duration-150 ease-v2 active:scale-[0.97] ${slim ? 'h-10 text-[14.5px]' : 'h-12 text-[16px]'} ${
+                ctaBlockedReason ? 'bg-v2-surface text-v2-muted ring-1 ring-inset ring-v2-hairline' : 'bg-v2-cta text-v2-on-cta shadow-v2-cta'
+              }`
+            : `w-full ${slim ? 'py-2.5' : 'py-3'} rounded-full font-semibold text-sm flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform ${
             ctaBlockedReason ? 'text-gray-500' : 'text-black shadow-md shadow-cyan-400/25'
           }`}
-          style={ctaBlockedReason ? { background: '#E5E7EB' } : { background: HOME_CTA_GRADIENT }}
+          style={v2 ? undefined : ctaBlockedReason ? { background: '#E5E7EB' } : { background: HOME_CTA_GRADIENT }}
         >
           {ctaContent}
         </button>

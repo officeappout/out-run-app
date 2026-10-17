@@ -8,7 +8,7 @@
  * — renders a composed HybridPlan; no engine calls.
  */
 
-import { useState, type CSSProperties } from 'react';
+import { createContext, useContext, useState, type CSSProperties } from 'react';
 import { Clock, Ruler, Repeat, ChevronDown, Lock, Info, ChevronLeft, LocateFixed } from 'lucide-react';
 import type { HybridPlannedSegment } from '@/features/workout-engine/hybrid/compose-hybrid-session.service';
 import type { WorkoutExercise as EngineWorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
@@ -56,6 +56,14 @@ const ZONE_LABEL: Record<string, string> = {
   jogging: 'ריצה קלה', easy: 'קל', recovery: 'שחרור', walk: 'הליכה',
   tempo: 'טמפו', long_run: 'ריצה ממושכת', fartlek_medium: 'פרטלק', fartlek_fast: 'פרטלק מהיר',
 };
+// Home v2 (enable_home_v2) for the axis' small sub-components — provided by the axis
+// from its `v2` prop (HybridOverviewScreen reads the flag). false = today's look.
+const AxisV2 = createContext(false);
+// v2 leg/station card — white card on the v2 surface (no hairline border).
+const V2_CARD = 'relative flex-1 min-w-0 bg-white rounded-[20px] shadow-v2-card overflow-hidden mb-3';
+const LEGACY_CARD = 'relative flex-1 min-w-0 bg-white rounded-2xl overflow-hidden mb-3';
+const LEGACY_CARD_STYLE: CSSProperties = { border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)' };
+
 const fmtPace = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
 
 /** Resolve the exercise's park image (offline-safe: empty string when none). */
@@ -122,6 +130,7 @@ function YourLocationRow({ variant, railBelowDotted, railAboveDotted, firstColor
   railAboveDotted?: boolean;
   firstColorBelow?: string;
 }) {
+  const v2 = useContext(AxisV2);
   return (
     <div className="flex items-center gap-3" style={{ minHeight: 40 }}>
       <div className="relative flex-shrink-0 flex items-center justify-center" style={{ width: 44, alignSelf: 'stretch' }}>
@@ -137,22 +146,24 @@ function YourLocationRow({ variant, railBelowDotted, railAboveDotted, firstColor
           <LocateFixed size={14} />
         </div>
       </div>
-      <span className="text-[12.5px] font-black" style={{ color: '#0369A1' }}>המיקום שלך</span>
+      <span className={v2 ? 'whitespace-nowrap text-[13px] font-extrabold text-v2-deep' : 'text-[12.5px] font-black'} style={v2 ? undefined : { color: '#0369A1' }}>המיקום שלך</span>
     </div>
   );
 }
 
 /** "תחילת המסלול" / "סיום המסלול" — thin labelled divider, rail continues through it. */
 function RouteDivider({ label, from, to }: { label: string; from: string; to: string }) {
+  const v2 = useContext(AxisV2);
+  const line = v2 ? '#e6edf2' : '#E5E7EB';
   return (
     <div className="flex items-center gap-3" style={{ minHeight: 30 }}>
       <div className="relative flex-shrink-0" style={{ width: 44, alignSelf: 'stretch' }}>
         <Rail from={from} to={to} top={0} bottom={0} />
       </div>
       <div className="flex-1 flex items-center gap-2">
-        <span aria-hidden style={{ flex: 1, height: 1, background: '#E5E7EB' }} />
-        <span className="text-[10.5px] font-extrabold whitespace-nowrap" style={{ color: '#6B7280' }}>{label}</span>
-        <span aria-hidden style={{ flex: 1, height: 1, background: '#E5E7EB' }} />
+        <span aria-hidden style={{ flex: 1, height: 1, background: line }} />
+        <span className={v2 ? 'text-[12px] font-extrabold whitespace-nowrap text-v2-muted' : 'text-[10.5px] font-extrabold whitespace-nowrap'} style={v2 ? undefined : { color: '#6B7280' }}>{label}</span>
+        <span aria-hidden style={{ flex: 1, height: 1, background: line }} />
       </div>
     </div>
   );
@@ -160,6 +171,7 @@ function RouteDivider({ label, from, to }: { label: string; from: string; to: st
 
 /** Transport leg: dotted connector + small walk icon (no node), faded. */
 function TransportRow({ label, minutes }: { label: string; minutes: number }) {
+  const v2 = useContext(AxisV2);
   return (
     <div className="flex items-center gap-3" style={{ minHeight: 46 }}>
       <div className="relative flex-shrink-0 flex items-center justify-center" style={{ width: 44, alignSelf: 'stretch' }}>
@@ -169,13 +181,19 @@ function TransportRow({ label, minutes }: { label: string; minutes: number }) {
         </span>
       </div>
       <div className="flex items-center gap-2 flex-wrap" style={{ opacity: 0.75 }}>
-        <span className="text-[12.5px] font-bold" style={{ color: '#6B7280' }}>{label}</span>
-        <span className="text-[11px] font-bold" style={{ color: '#9CA3AF' }}>{formatMinutes(minutes * 60)}</span>
+        <span className={v2 ? 'whitespace-nowrap text-[13px] font-bold text-v2-ink-2' : 'text-[12.5px] font-bold'} style={v2 ? undefined : { color: '#6B7280' }}>{label}</span>
+        <span className={v2 ? 'whitespace-nowrap text-[12px] font-bold text-v2-muted' : 'text-[11px] font-bold'} style={v2 ? undefined : { color: '#9CA3AF' }}>{formatMinutes(minutes * 60)}</span>
       </div>
     </div>
   );
 }
-function Meta({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+function Meta({ icon, children, tint }: { icon: React.ReactNode; children: React.ReactNode; tint?: string }) {
+  const v2 = useContext(AxisV2);
+  if (v2) {
+    // v2: 13px muted meta, the icon in its ACTIVITY colour (walk/run green · strength cyan).
+    return <span className="inline-flex items-center gap-1 text-[13px] font-bold text-v2-muted">
+      <span style={{ color: tint ?? '#64748b' }}>{icon}</span>{children}</span>;
+  }
   return <span className="inline-flex items-center gap-1 text-[12px] font-bold" style={{ color: '#374151' }}>
     <span style={{ color: '#9CA3AF' }}>{icon}</span>{children}</span>;
 }
@@ -187,7 +205,11 @@ function Meta({ icon, children }: { icon: React.ReactNode; children: React.React
  * vertical line (no competing cyan bar). Non-superset lists render bare.
  */
 function CardGroup({ superset, children }: { superset: boolean; children: React.ReactNode }) {
+  const v2 = useContext(AxisV2);
   if (!superset) return <div className="flex flex-col gap-2">{children}</div>;
+  if (v2) {
+    return <div className="flex flex-col gap-2 mt-2 rounded-[18px] bg-v2-surface p-2 ring-1 ring-inset ring-v2-hairline">{children}</div>;
+  }
   return (
     <div className="flex flex-col gap-2 mt-2" style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 14, padding: 8 }}>
       {children}
@@ -229,6 +251,8 @@ interface AxisProps {
    * after the last plan segment; never part of `segments` (see the round-trip rows above). Omit/0 → no row.
    */
   walkLegs?: { thereMin: number; backMin: number } | null;
+  /** Home v2 (enable_home_v2) look, read by HybridOverviewScreen. Omitted/false = today's axis. */
+  v2?: boolean;
 }
 
 export default function HybridJourneyAxis({
@@ -242,6 +266,7 @@ export default function HybridJourneyAxis({
   onSwapExercise,
   onSegmentAssessmentLink,
   walkLegs,
+  v2 = false,
 }: AxisProps) {
   const aerCount = segments.filter((s) => s.kind === 'aerobic').length;
   let aerIdx = 0, strIdx = 0;
@@ -264,7 +289,13 @@ export default function HybridJourneyAxis({
   const [collapsedStations, setCollapsedStations] = useState<Record<number, boolean>>({});
   const toggleStation = (idx: number) =>
     setCollapsedStations((m) => ({ ...m, [idx]: !m[idx] }));
+  const cardCls = v2 ? V2_CARD : LEGACY_CARD;
+  const cardStyle = v2 ? undefined : LEGACY_CARD_STYLE;
+  const titleCls = v2 ? 'text-[15px] font-black text-v2-ink' : 'text-[14px] font-black';
+  const titleStyle = v2 ? undefined : { color: '#111827' };
+  const pacePillStyle = { direction: 'ltr' as const, background: v2 ? '#f6fbfd' : '#F3F4F6', color: AER_TEXT, padding: '2px 8px' };
   return (
+    <AxisV2.Provider value={v2}>
     <div dir="rtl">
       {questionnaireLine && (
         <button
@@ -301,32 +332,31 @@ export default function HybridJourneyAxis({
           return (
             <div key={i} className="flex gap-3 items-stretch">
               <Node kind="aerobic" nextColor={nextColor} subtype={seg.aerobicType} />
-              <div className="relative flex-1 min-w-0 bg-white rounded-2xl overflow-hidden mb-3"
-                style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>
+              <div className={cardCls} style={cardStyle}>
                 <div style={{ padding: '11px 15px 12px 12px' }}>
                   {stationName ? (
                     <>
-                      <span className="text-[14px] font-black block" style={{ color: '#111827' }}>{legTitle}</span>
+                      <span className={`${titleCls} block${v2 ? ' truncate' : ''}`} style={titleStyle}>{legTitle}</span>
                       {/* פעולה · מרחק · זמן (הפועל = הפעילות) */}
                       <div className="flex items-center gap-2 flex-wrap mt-2">
-                        <Meta icon={<ActivityGlyph kind="aerobic" subtype={seg.aerobicType} className="w-4 h-4" />}>
+                        <Meta tint={AER} icon={<ActivityGlyph kind="aerobic" subtype={seg.aerobicType} className="w-4 h-4" />}>
                           {action} · {seg.distanceKm != null ? seg.distanceKm.toFixed(2) : '—'} ק״מ · {formatMinutes(seg.durationSec)}
                         </Meta>
-                        {pace > 0 && <span className="text-[11px] font-extrabold rounded-full" style={{ direction: 'ltr', background: '#F3F4F6', color: AER_TEXT, padding: '2px 8px' }}>{fmtPace(pace)} /ק״מ</span>}
+                        {pace > 0 && <span className="text-[11px] font-extrabold rounded-full" style={pacePillStyle}>{fmtPace(pace)} /ק״מ</span>}
                       </div>
                     </>
                   ) : (
                     <>
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[14px] font-black" style={{ color: '#111827' }}>{action} · מקטע {aerIdx}</span>
-                        <span className="text-[10.5px] font-extrabold rounded-full whitespace-nowrap" style={{ padding: '3px 9px', background: AER_TINT, color: AER_TEXT }}>
+                        <span className={titleCls} style={titleStyle}>{action} · מקטע {aerIdx}</span>
+                        <span className={`${v2 ? 'text-[11px]' : 'text-[10.5px]'} font-extrabold rounded-full whitespace-nowrap`} style={{ padding: '3px 9px', background: AER_TINT, color: AER_TEXT }}>
                           {ZONE_LABEL[String(seg.zone)] ?? 'אירובי'}
                         </span>
                       </div>
                       <div className="flex items-center gap-2 flex-wrap mt-2">
-                        {seg.distanceKm != null && <Meta icon={<Ruler size={14} />}>{seg.distanceKm.toFixed(2)} ק״מ</Meta>}
-                        {seg.durationSec != null && <Meta icon={<Clock size={14} />}>{formatMinutes(seg.durationSec)}</Meta>}
-                        {pace > 0 && <span className="text-[11px] font-extrabold rounded-full" style={{ direction: 'ltr', background: '#F3F4F6', color: AER_TEXT, padding: '2px 8px' }}>{fmtPace(pace)} /ק״מ</span>}
+                        {seg.distanceKm != null && <Meta tint={AER} icon={<Ruler size={14} />}>{seg.distanceKm.toFixed(2)} ק״מ</Meta>}
+                        {seg.durationSec != null && <Meta tint={AER} icon={<Clock size={14} />}>{formatMinutes(seg.durationSec)}</Meta>}
+                        {pace > 0 && <span className="text-[11px] font-extrabold rounded-full" style={pacePillStyle}>{fmtPace(pace)} /ק״מ</span>}
                       </div>
                       {last && (
                         <div className="flex items-center gap-1.5 mt-2 text-[11px] font-extrabold" style={{ color: AER_TEXT }}>
@@ -352,16 +382,15 @@ export default function HybridJourneyAxis({
           return (
             <div key={i} className="flex gap-3 items-stretch">
               <Node kind="strength" nextColor={nextColor} subtype={seg.domainFocus} />
-              <div className="relative flex-1 min-w-0 bg-white rounded-2xl overflow-hidden mb-3"
-                style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>
+              <div className={cardCls} style={cardStyle}>
                 <div style={{ padding: '11px 15px 12px 12px' }}>
                   <div className="flex items-center gap-1.5">
                     <Lock size={14} style={{ color: '#9CA3AF' }} />
-                    <span className="text-[14px] font-black" style={{ color: '#111827' }}>
+                    <span className={titleCls} style={titleStyle}>
                       {stationName ? `${stationName} — כוח` : `תחנה ${strIdx} — כוח`}
                     </span>
                   </div>
-                  <span className="block mt-1.5 text-[12px] font-bold" style={{ color: '#6B7280' }}>
+                  <span className={v2 ? 'block mt-1.5 text-[13px] font-bold text-v2-muted' : 'block mt-1.5 text-[12px] font-bold'} style={v2 ? undefined : { color: '#6B7280' }}>
                     תחנה נעולה
                   </span>
                 </div>
@@ -385,35 +414,34 @@ export default function HybridJourneyAxis({
         return (
           <div key={i} className="flex gap-3 items-stretch">
             <Node kind="strength" nextColor={nextColor} subtype={seg.domainFocus} />
-            <div className="relative flex-1 min-w-0 bg-white rounded-2xl overflow-hidden mb-3"
-              style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>
+            <div className={cardCls} style={cardStyle}>
               <div style={{ padding: '11px 15px 12px 12px' }}>
                 <div className="flex items-center justify-between gap-2">
                   {stationName ? (
                     /* point 20: the header toggles the station super-collapse */
                     <button type="button" onClick={() => toggleStation(i)} aria-expanded={!collapsedStations[i]}
-                      className="flex items-center gap-1.5 active:scale-[0.98] transition-transform">
+                      className={v2 ? 'flex min-w-0 items-center gap-1.5 text-start transition-transform duration-150 ease-v2 active:scale-[0.97]' : 'flex items-center gap-1.5 active:scale-[0.98] transition-transform'}>
                       <ChevronDown size={16} style={{ color: '#9CA3AF', transform: collapsedStations[i] ? 'rotate(-90deg)' : 'none', transition: 'transform .2s' }} />
                       {/* A3: full-park title = the park name (stationName already
                           includes "גינת כושר …" — do NOT re-prepend a station prefix). */}
-                      <span className="text-[14px] font-black" style={{ color: '#111827' }}>{stationName} — כוח</span>
+                      <span className={titleCls} style={titleStyle}>{stationName} — כוח</span>
                     </button>
                   ) : (
-                    <span className="text-[14px] font-black" style={{ color: '#111827' }}>תחנה {strIdx} — כוח</span>
+                    <span className={titleCls} style={titleStyle}>תחנה {strIdx} — כוח</span>
                   )}
-                  <span className="text-[10.5px] font-extrabold rounded-full whitespace-nowrap" style={{ padding: '3px 9px', background: STR_TINT, color: STR_TEXT }}>עצור ואמן</span>
+                  <span className={`${v2 ? 'text-[11px]' : 'text-[10.5px]'} font-extrabold rounded-full whitespace-nowrap`} style={{ padding: '3px 9px', background: STR_TINT, color: STR_TEXT }}>עצור ואמן</span>
                 </div>
                 {stationName ? (
                   collapsedStations[i] ? (
                     /* point 20: collapsed — summary card (not an empty header) */
-                    <div className="mt-2 flex items-center gap-1.5 flex-wrap text-[12.5px]" style={{ color: '#4B5563' }}>
+                    <div className={v2 ? 'mt-2 flex items-center gap-1.5 flex-wrap text-[13px] text-v2-muted' : 'mt-2 flex items-center gap-1.5 flex-wrap text-[12.5px]'} style={v2 ? undefined : { color: '#4B5563' }}>
                       <span className="font-bold">{mainExCount} תרגילים</span>
                       <span style={{ color: '#D1D5DB' }}>·</span>
                       <span>~{formatMinutes(seg.content?.estimatedDurationSec)}</span>
                       <span style={{ color: '#D1D5DB' }}>·</span>
                       <span className="font-semibold" style={{ color: STR_TEXT }}>{stationNounLabel(seg)}</span>
                       {sections.some((s) => s.id === 'warmup') && (isWarmupActive ?? true) && (
-                        <span className="text-[10.5px] font-bold rounded-full" style={{ padding: '2px 8px', background: STR_TINT, color: STR_TEXT }}>כולל חימום</span>
+                        <span className={v2 ? 'text-[11px] font-bold rounded-full whitespace-nowrap' : 'text-[10.5px] font-bold rounded-full'} style={{ padding: '2px 8px', background: STR_TINT, color: STR_TEXT }}>כולל חימום</span>
                       )}
                     </div>
                   ) : (
@@ -423,7 +451,7 @@ export default function HybridJourneyAxis({
                         … · time). Per-block counts stay on the SectionHeaders (#3);
                         the program name is Phase-2 inner-info (needs engine wiring). */}
                     <div className="flex items-center gap-2 flex-wrap mt-2">
-                      <Meta icon={<ActivityGlyph kind="strength" className="w-4 h-4" />}>
+                      <Meta tint={STR} icon={<ActivityGlyph kind="strength" className="w-4 h-4" />}>
                         {stationActionLabel(seg)} · ~{formatMinutes(seg.content?.estimatedDurationSec)}
                       </Meta>
                     </div>
@@ -503,7 +531,7 @@ export default function HybridJourneyAxis({
                           no subtype → the muscle glyph. OUT is calisthenics: no dumbbell anywhere. */}
                       <span className="flex items-center gap-1.5 text-[13px] font-extrabold" style={{ color: STR_TEXT }}><ActivityGlyph kind="strength" className="w-[15px] h-[15px]" /> {mainExCount} תרגילים</span>
                       {/* Station time (meaningful), not a sets-sum. Per-exercise sets live on each card. */}
-                      <span className="flex items-center gap-1 text-[12px] font-semibold" style={{ color: '#9CA3AF' }}>
+                      <span className={v2 ? 'flex items-center gap-1 whitespace-nowrap text-[13px] font-bold text-v2-muted' : 'flex items-center gap-1 text-[12px] font-semibold'} style={v2 ? undefined : { color: '#9CA3AF' }}>
                         <Clock size={13} /> ~{formatMinutes(seg.content?.estimatedDurationSec)}
                       </span>
                     </div>
@@ -534,5 +562,6 @@ export default function HybridJourneyAxis({
       {walkBack > 0 && <TransportRow label="הליכה חזרה" minutes={walkBack} />}
       <YourLocationRow variant="return" railAboveDotted={walkBack > 0} />
     </div>
+    </AxisV2.Provider>
   );
 }
