@@ -16,6 +16,8 @@ import { HSPU_GENERATOR_EXCLUDED } from '@/config/feature-flags';
 import { getLocalizedText } from '@/features/content/shared/localized-text.types';
 import type { ExerciseWishlistEntry } from '@/features/user/core/types/user.types';
 import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLayout';
+import ProgramPathV2View from '@/features/user/onboarding/components/program-path/ProgramPathV2View';
+import { useOnboardingV2 } from '@/features/user/onboarding/hooks/useOnboardingV2';
 import { STRENGTH_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
 import { getOnboardingPref } from '@/lib/onboardingPrefs';
 import {
@@ -29,98 +31,19 @@ import {
   recommendedMusclesForCase,
   MUSCLE_BALANCE_MESSAGES_HE,
 } from '@/features/user/onboarding/utils/muscle-balance';
+import {
+  MUSCLE_ICON_PATHS,
+  MUSCLE_CHIP_LABELS,
+  SKILL_MASTER_ID,
+  SKILL_PROGRAMS,
+  PUSH_SKILLS,
+  PULL_SKILLS,
+  SKILL_ICON_PATHS,
+  MUSCLE_FOCUS_IDS,
+  MUSCLE_PACKAGES,
+  type MusclePackageKey,
+} from '@/features/user/onboarding/constants/program-path.constants';
 
-/** Muscle icon paths — used inside chips */
-const MUSCLE_ICON_PATHS: Record<string, string> = {
-  chest: '/assets/icons/muscles/chest.svg',
-  back: '/assets/icons/muscles/back.svg',
-  shoulders: '/assets/icons/muscles/shoulders.svg',
-  biceps: '/assets/icons/muscles/biceps.svg',
-  triceps: '/assets/icons/muscles/triceps.svg',
-  legs: '/assets/icons/muscles/quads.svg',
-  core: '/assets/icons/muscles/abs.svg',
-  glutes: '/icons/muscles/glutes.svg',
-};
-
-/** Hebrew chip labels for each muscle group ID */
-const MUSCLE_CHIP_LABELS: Record<string, string> = {
-  chest: 'חזה',
-  back: 'גב',
-  shoulders: 'כתפיים',
-  biceps: 'יד קדמית',
-  triceps: 'יד אחורית',
-  legs: 'רגליים',
-  core: 'בטן וליבה',
-  glutes: 'ישבן',
-};
-
-/** Calisthenics skill programs — slug matches Firestore program IDs.
- *  'calisthenics_upper' is the master chip and rendered separately as full-width. */
-const SKILL_MASTER_ID = 'calisthenics_upper';
-
-const SKILL_PROGRAMS: { id: string; nameHe: string }[] = [
-  { id: 'calisthenics_upper', nameHe: 'קליסטניקס עליון (כל האלמנטים)' },
-  { id: 'front_lever',        nameHe: 'פרונט לבר' },
-  { id: 'muscle_up',          nameHe: 'עליית כוח' },
-  { id: 'planche',            nameHe: 'פלאנץ׳' },
-  { id: 'handstand',          nameHe: 'עמידת ידיים' },
-  { id: 'hspu',               nameHe: 'שכיבות סמיכה בעמידת ידיים' },
-  { id: 'one_arm_pullup',     nameHe: 'מתח יד אחת' },
-];
-
-/** Movement-pattern classification for the Orange Flow balance heuristic.
- *  SKILL_MASTER_ID ('calisthenics_upper') already covers both axes and is
- *  intentionally exempt from the recommendation engine. */
-const PUSH_SKILLS: ReadonlySet<string> = new Set(['planche', 'hspu', 'handstand']);
-const PULL_SKILLS: ReadonlySet<string> = new Set(['front_lever', 'one_arm_pullup', 'muscle_up']);
-
-/** Icon paths per skill — hidden via onError when file is absent.
- *  'calisthenics_upper' (the "all elements" master chip) has no dedicated
- *  designed asset — reuses '/icons/programs/muscle.svg', the same generic
- *  icon already used for 'upper_body'/'calisthenics' elsewhere (see
- *  HeroWorkoutCard.tsx, WorkoutSelectionCarousel.tsx, and
- *  MUSCLE_FALLBACK_ICON in lib/muscle-icons.const.ts) rather than a
- *  genuinely broken path that 404s on every load (housekeeping audit). */
-const SKILL_ICON_PATHS: Record<string, string> = {
-  calisthenics_upper: '/icons/programs/muscle.svg',
-  front_lever:        '/icons/programs/front_lever.svg',
-  muscle_up:          '/icons/programs/muscle_up_bar.svg',
-  planche:            '/icons/programs/planche.svg',
-  handstand:          '/icons/programs/handstand.svg',
-  hspu:               '/icons/programs/hspu.svg',
-  one_arm_pullup:     '/icons/programs/one_arm_pullup.svg',
-};
-
-const MUSCLE_FOCUS_IDS: MuscleGroup[] = [
-  'chest',
-  'back',
-  'shoulders',
-  'biceps',
-  'triceps',
-  'legs',
-  'core',
-  'glutes',
-];
-
-type MusclePackageKey = 'pull' | 'push' | 'legs' | 'core';
-
-/**
- * The 4 package groupings, each always rendered open with its muscle chips.
- * Source of truth is MUSCLE_TO_CATEGORY in assessment-path-config.service.ts — NOT
- * muscle-balance.ts's PUSH_MUSCLES/PULL_MUSCLES/LOWER_MUSCLES, which merges
- * legs+core+glutes into one "lower" bucket and would wrongly collapse the
- * legs/core packages into one. Muscle order within each package is fixed and
- * deterministic (never Set/Object.keys iteration) — package "select all"
- * adds muscles in this exact order, since insertion order in selectedMuscles
- * drives both slider display order (musclesToCategories) and intro copy
- * (targetArea = index 0 in assessment-visual/page.tsx).
- */
-const MUSCLE_PACKAGES: { key: MusclePackageKey; nameHe: string; muscles: MuscleGroup[] }[] = [
-  { key: 'pull', nameHe: 'משיכה', muscles: ['back', 'biceps'] },
-  { key: 'push', nameHe: 'דחיפה', muscles: ['shoulders', 'chest', 'triceps'] },
-  { key: 'legs', nameHe: 'רגליים', muscles: ['glutes', 'legs'] },
-  { key: 'core', nameHe: 'ליבה', muscles: ['core'] },
-];
 
 /**
  * Persists the ordered card selection + each card's sub-selection.
@@ -146,6 +69,8 @@ function persistToStorage(
 
 export default function ProgramPathPage() {
   const router = useRouter();
+  // enable_home_v2 — v2 view below reuses every state/handler of this page.
+  const v2 = useOnboardingV2();
 
   // Loading guard — don't render strength content until we've confirmed the
   // user is NOT on the running track. Without this, the strength selector
@@ -528,6 +453,37 @@ export default function ProgramPathPage() {
           : (isFemale ? 'המשכי' : 'המשך')
       }
     >
+      {v2 ? (
+        <ProgramPathV2View
+          isFemale={isFemale}
+          selectedCards={selectedCards}
+          getCardOrder={getCardOrder}
+          toggleProgramCard={toggleProgramCard}
+          healthCardRef={healthCardRef}
+          muscleCardRef={muscleCardRef}
+          skillsCardRef={skillsCardRef}
+          selectedMuscles={selectedMuscles}
+          isFullBodySelected={isFullBodySelected}
+          toggleMuscle={toggleMuscle}
+          selectPackage={selectPackage}
+          showMuscleRecommendation={showMuscleRecommendation}
+          muscleBalanceCase={muscleBalanceCase}
+          recommendedMuscles={recommendedMuscles}
+          foundationExercises={foundationExercises}
+          exerciseNames={exerciseNames}
+          exerciseThumbnails={exerciseThumbnails}
+          expandedWishlist={expandedWishlist}
+          toggleWishlistDrawer={toggleWishlistDrawer}
+          wishlist={wishlist}
+          toggleWishlistExercise={toggleWishlistExercise}
+          selectedSkills={selectedSkills}
+          toggleSkill={toggleSkill}
+          getSkillOrder={getSkillOrder}
+          readySkillIds={readySkillIds}
+          showRecommendation={showRecommendation}
+          missingCategory={missingCategory}
+        />
+      ) : (
       <div className="w-full max-w-md mx-auto px-4 py-6 flex flex-col">
         {/* Header */}
         <motion.div
@@ -1096,6 +1052,7 @@ export default function ProgramPathPage() {
         </motion.div>
 
       </div>
+      )}
     </OnboardingLayout>
   );
 }

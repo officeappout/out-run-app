@@ -63,6 +63,7 @@ import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
 import { writeSingleDomainAssessment } from '@/features/user/onboarding/services/single-domain-assessment.service';
 import { baselineSkillMasterSubLevels } from '@/features/user/onboarding/utils/skill-result-levels';
 import { SKILL_TO_FOUNDATION_DOMAIN } from '@/features/user/onboarding/constants/skill-foundation-domain.constants';
+import { useOnboardingV2 } from '@/features/user/onboarding/hooks/useOnboardingV2';
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -158,6 +159,8 @@ function runSkillEscapeCleanup(escapedId: string): 'push' | 'pull' | null {
 
 export default function VisualAssessmentPage() {
   const router = useRouter();
+  // enable_home_v2 — see the root container below (one-viewport fit).
+  const v2 = useOnboardingV2();
 
   // ── Auth state ───────────────────────────────────────────────
 
@@ -1048,7 +1051,9 @@ export default function VisualAssessmentPage() {
   ) {
     return (
       <div
-        className="min-h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50 flex items-center justify-center"
+        className={v2
+          ? 'h-full bg-v2-surface flex items-center justify-center'
+          : 'min-h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50 flex items-center justify-center'}
         dir="rtl"
       >
         <div className="text-center">
@@ -1079,7 +1084,12 @@ export default function VisualAssessmentPage() {
 
   return (
     <div
-      className="h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col overflow-hidden"
+      // v2: h-full, not h-[100dvh]. <main> (ClientLayout) already pads the
+      // top + bottom safe-area insets, so a 100dvh child overflowed it by
+      // exactly those insets and the whole questionnaire scrolled.
+      className={v2
+        ? 'h-full bg-white flex flex-col overflow-hidden'
+        : 'h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col overflow-hidden'}
       dir="rtl"
     >
       {/* Flow content — fills all available space */}
@@ -1094,7 +1104,7 @@ export default function VisualAssessmentPage() {
               animate="center"
               exit="exit"
               transition={{ duration: 0.3 }}
-              className="flex-1 flex flex-col"
+              className={v2 ? 'flex-1 min-h-0 flex flex-col' : 'flex-1 flex flex-col'}
             >
               <BlurredWhyStep
                 gender={introGender}
@@ -1117,7 +1127,7 @@ export default function VisualAssessmentPage() {
               animate="center"
               exit="exit"
               transition={{ duration: 0.3 }}
-              className="flex-1 flex flex-col"
+              className={v2 ? 'flex-1 min-h-0 flex flex-col' : 'flex-1 flex flex-col'}
             >
               <TierSelectionCard
                 onSelect={handleTierSelect}
@@ -1135,7 +1145,7 @@ export default function VisualAssessmentPage() {
               animate="center"
               exit="exit"
               transition={{ duration: 0.3 }}
-              className="flex-1 flex flex-col"
+              className={v2 ? 'flex-1 min-h-0 flex flex-col' : 'flex-1 flex flex-col'}
             >
               <VisualSlider
                 category={categories[categoryIndex]}
@@ -1155,6 +1165,7 @@ export default function VisualAssessmentPage() {
                   categories[categoryIndex],
                 )}
                 mode="simple"
+                v2={v2}
               />
             </motion.div>
           )}
@@ -1166,7 +1177,7 @@ export default function VisualAssessmentPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex-1 flex flex-col"
+              className={v2 ? 'flex-1 min-h-0 flex flex-col' : 'flex-1 flex flex-col'}
             >
               <OnboardingStoryBar
                 totalPhases={TOTAL_PHASES}
@@ -1200,11 +1211,13 @@ export default function VisualAssessmentPage() {
               animate="center"
               exit="exit"
               transition={{ duration: 0.3 }}
-              className="flex-1 flex flex-col"
+              className={v2 ? 'flex-1 min-h-0 flex flex-col' : 'flex-1 flex flex-col'}
             >
               {/* Follow-up badge */}
               <div className="text-center px-6 pt-2">
-                <span className="inline-block px-3 py-1 rounded-full bg-violet-100 text-violet-700 text-xs font-bold">
+                <span className={v2
+                  ? 'inline-block whitespace-nowrap px-3 py-1 rounded-full bg-v2-tint text-v2-deep text-[12px] font-extrabold'
+                  : 'inline-block px-3 py-1 rounded-full bg-violet-100 text-violet-700 text-xs font-bold'}>
                   הערכה מתקדמת
                 </span>
                 {followUpTitle && (
@@ -1224,6 +1237,7 @@ export default function VisualAssessmentPage() {
                 stepIndex={followUpIndex}
                 totalSteps={followUpCategories.length}
                 mode="simple"
+                v2={v2}
               />
             </motion.div>
           )}
@@ -1278,6 +1292,7 @@ export default function VisualAssessmentPage() {
                 assessedCategories={categories}
                 saveError={saveError}
                 onSkip={saveAttempts > 0 ? handleSkipSave : undefined}
+                v2={v2}
               />
             </motion.div>
           )}
@@ -1288,7 +1303,7 @@ export default function VisualAssessmentPage() {
               key="saving"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="flex-1 flex flex-col"
+              className={v2 ? 'flex-1 min-h-0 flex flex-col' : 'flex-1 flex flex-col'}
             >
               <OnboardingStoryBar
                 totalPhases={TOTAL_PHASES}
