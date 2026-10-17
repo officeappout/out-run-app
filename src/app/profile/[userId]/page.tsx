@@ -9,6 +9,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { motion } from 'framer-motion';
 import { useUserStore } from '@/features/user';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useSocialStore } from '@/features/social/store/useSocialStore';
 import { useChatStore } from '@/features/social/store/useChatStore';
 import { getUserPosts, type FeedPost } from '@/features/social/services/feed.service';
@@ -60,6 +61,8 @@ export default function PublicProfilePage() {
   const targetUid = params.userId as string;
 
   const myProfile = useUserStore((s) => s.profile);
+  // Home v2 (enable_home_v2): the same look as the own profile.
+  const v2 = useFeatureFlags(!!(myProfile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin).flags.enableHomeV2;
   const myUid = myProfile?.id;
   const { isFollowing, followUser, unfollowUser, isLoaded, loadConnections } = useSocialStore();
 
@@ -269,7 +272,7 @@ export default function PublicProfilePage() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-[#F8FAFC]">
+    <div className={`min-h-[100dvh] ${v2 ? 'bg-v2-surface' : 'bg-[#F8FAFC]'}`}>
       {/* Header — pad below status bar so the back button isn't covered. */}
       <header
         className="sticky top-0 z-10 bg-white/90 backdrop-blur-md border-b border-gray-100"
@@ -338,6 +341,7 @@ export default function PublicProfilePage() {
       <div className="max-w-md mx-auto px-4 py-5">
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
           <ProfileHeader
+            v2={v2}
             photoURL={publicProfile.photoURL ?? null}
             name={publicProfile.name}
             stats={[
@@ -373,10 +377,10 @@ export default function PublicProfilePage() {
                   <button
                     type="button"
                     onClick={handleToggleFollow}
-                    className={`flex-1 py-2.5 rounded-full text-sm font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${
-                      followed
-                        ? 'bg-gray-100 text-gray-600 border border-gray-200'
-                        : 'bg-[#00ADEF] text-on-brand'
+                    className={`flex-1 rounded-full font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${
+                      v2
+                        ? `h-11 text-[14.5px] font-extrabold ${followed ? 'bg-white text-v2-ink-2 shadow-v2-ring' : 'bg-v2-cta text-v2-on-cta shadow-v2-cta'}`
+                        : `py-2.5 text-sm ${followed ? 'bg-gray-100 text-gray-600 border border-gray-200' : 'bg-[#00ADEF] text-on-brand'}`
                     }`}
                   >
                     {followed ? (
@@ -396,7 +400,11 @@ export default function PublicProfilePage() {
                     <button
                       type="button"
                       onClick={handleSendMessage}
-                      className="flex-1 py-2.5 rounded-full text-sm font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2 bg-gray-50 text-gray-600 border border-gray-200"
+                      className={
+                        v2
+                          ? 'flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-white text-[14.5px] font-extrabold text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.98]'
+                          : 'flex-1 py-2.5 rounded-full text-sm font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2 bg-gray-50 text-gray-600 border border-gray-200'
+                      }
                     >
                       <MessageCircle className="w-4 h-4" />
                       שלח הודעה
@@ -429,8 +437,8 @@ export default function PublicProfilePage() {
         </div>
 
         <div className="mt-5" dir="rtl">
-          <h3 className="text-sm font-black text-gray-800 mb-3">פעילות אחרונה</h3>
-          <PublicActivityGrid posts={posts} isLoading={loading} />
+          <h3 className={v2 ? 'mb-2.5 text-[15px] font-black text-v2-ink' : 'text-sm font-black text-gray-800 mb-3'}>פעילות אחרונה</h3>
+          <PublicActivityGrid posts={posts} isLoading={loading} v2={v2} />
         </div>
       </div>
     </div>
