@@ -18,6 +18,8 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useExerciseLibraryStore } from '../store/useExerciseLibraryStore';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
 import MasterExerciseView from './MasterExerciseView';
 import type { Exercise } from '../../core/exercise.types';
 
@@ -74,6 +76,9 @@ export interface ExerciseDetailSheetProps {
 
 export default function ExerciseDetailSheet({ locationOverride, defaultProgramId, controlled }: ExerciseDetailSheetProps = {}) {
   const router = useRouter();
+  // Home v2 (enable_home_v2): sheet chrome styling only.
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
 
   // ── Store reads (unconditional — hooks can't be conditional; the
   // controlled/global choice below is a plain value computation, not a
@@ -175,23 +180,27 @@ export default function ExerciseDetailSheet({ locationOverride, defaultProgramId
             dragConstraints={{ top: 0, bottom: 0 }}
             dragElastic={0.2}
             onDragEnd={(_, info) => { if (info.offset.y > 140) close(); }}
-            className="fixed bottom-0 left-0 right-0 z-[61] bg-white rounded-t-3xl shadow-drawer flex flex-col overflow-hidden"
+            className={v2
+              ? 'fixed bottom-0 left-0 right-0 z-[61] flex flex-col overflow-hidden rounded-t-[28px] bg-v2-surface shadow-v2-sheet'
+              : 'fixed bottom-0 left-0 right-0 z-[61] bg-white rounded-t-3xl shadow-drawer flex flex-col overflow-hidden'}
             style={{ height: '95vh' }}
             dir="rtl"
           >
             {/* Drag handle */}
             <div className="flex justify-center pt-2 pb-1 flex-shrink-0">
-              <div className="w-10 h-1 rounded-full bg-gray-200" />
+              <div className={v2 ? 'h-1.5 w-10 rounded-full bg-v2-pill-border' : 'w-10 h-1 rounded-full bg-gray-200'} />
             </div>
 
             {/* Close */}
             <button
               type="button"
               onClick={close}
-              className="absolute top-3 left-3 p-2 text-gray-500 hover:text-gray-700 rounded-full bg-white/80 backdrop-blur-sm z-30 shadow-sm"
+              className={v2
+                ? 'absolute left-3 top-3 z-30 grid h-9 w-9 place-items-center rounded-full bg-v2-surface text-v2-ink-2 ring-1 ring-inset ring-v2-hairline transition-transform duration-150 ease-v2 active:scale-[0.97]'
+                : 'absolute top-3 left-3 p-2 text-gray-500 hover:text-gray-700 rounded-full bg-white/80 backdrop-blur-sm z-30 shadow-sm'}
               aria-label="סגור"
             >
-              <X size={18} />
+              <X size={v2 ? 17 : 18} strokeWidth={v2 ? 2.5 : 2} />
             </button>
 
             {/* ── SINGLE conduit scroll ── */}

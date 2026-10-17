@@ -55,6 +55,11 @@ import type { SkillTreeData, SkillTreeRung } from '../core/types';
 const PATH_COLOR = '#20C6D6';
 const PATH_STROKE_WIDTH = 2;
 const PATH_DASH = '6 6';
+// Home v2: a thicker, game-like dashed trail over a soft white underlay.
+const V2_PATH_COLOR = '#00baf7';
+const V2_PATH_STROKE_WIDTH = 5;
+const V2_PATH_DASH = '10 10';
+const V2_PATH_UNDERLAY_WIDTH = 13;
 
 /**
  * Whether the user hasn't actually reached this rung's level yet —
@@ -72,8 +77,15 @@ function isAboveCurrentLevel(rung: SkillTreeRung, tree: SkillTreeData, currentLe
   return rung.level > effectiveCurrent;
 }
 
-function GapPill({ fromLevel, toLevel }: { fromLevel: number; toLevel: number }) {
+function GapPill({ fromLevel, toLevel, v2 = false }: { fromLevel: number; toLevel: number; v2?: boolean }) {
   const label = fromLevel === toLevel ? `רמה ${fromLevel}` : `רמות ${fromLevel}–${toLevel}`;
+  if (v2) {
+    return (
+      <div className="whitespace-nowrap rounded-full bg-white px-3 py-1 text-[11px] font-bold text-v2-muted shadow-v2-ring" dir="rtl">
+        {label} · אין תרגיל ייעודי
+      </div>
+    );
+  }
   return (
     <div
       className="bg-slate-100 text-slate-400 text-[11px] font-semibold rounded-full px-3 py-1 whitespace-nowrap"
@@ -89,9 +101,11 @@ export interface TreePathProps {
   currentLevel: number | null;
   onNodeTap: (rung: SkillTreeRung, state: TreeNodeState, isAboveCurrentLevel: boolean) => void;
   onSwapTap: (rung: SkillTreeRung) => void;
+  /** Home v2 (enable_home_v2) styling — thicker trail, bigger nodes, names always shown. */
+  v2?: boolean;
 }
 
-export function TreePath({ tree, currentLevel, onNodeTap, onSwapTap }: TreePathProps) {
+export function TreePath({ tree, currentLevel, onNodeTap, onSwapTap, v2 = false }: TreePathProps) {
   const segments = groupRungsForDisplay(tree.rungs);
   const layout = buildTreePathLayout(segments);
   const config = DEFAULT_TREE_PATH_LAYOUT_CONFIG;
@@ -112,12 +126,23 @@ export function TreePath({ tree, currentLevel, onNodeTap, onSwapTap }: TreePathP
         className="absolute inset-0 pointer-events-none"
         aria-hidden="true"
       >
+        {v2 && (
+          <path
+            d={layout.pathD}
+            fill="none"
+            stroke="#ffffff"
+            strokeOpacity={0.7}
+            strokeWidth={V2_PATH_UNDERLAY_WIDTH}
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        )}
         <path
           d={layout.pathD}
           fill="none"
-          stroke={PATH_COLOR}
-          strokeWidth={PATH_STROKE_WIDTH}
-          strokeDasharray={PATH_DASH}
+          stroke={v2 ? V2_PATH_COLOR : PATH_COLOR}
+          strokeWidth={v2 ? V2_PATH_STROKE_WIDTH : PATH_STROKE_WIDTH}
+          strokeDasharray={v2 ? V2_PATH_DASH : PATH_DASH}
           strokeLinecap="round"
           vectorEffect="non-scaling-stroke"
         />
@@ -132,7 +157,7 @@ export function TreePath({ tree, currentLevel, onNodeTap, onSwapTap }: TreePathP
               className="absolute"
               style={{ left: `${entry.x}%`, top: entry.y, transform: 'translate(-50%, -50%)' }}
             >
-              <GapPill fromLevel={fromLevel} toLevel={toLevel} />
+              <GapPill fromLevel={fromLevel} toLevel={toLevel} v2={v2} />
             </div>
           );
         }
@@ -153,6 +178,7 @@ export function TreePath({ tree, currentLevel, onNodeTap, onSwapTap }: TreePathP
               state={state}
               siblingCount={rung.siblingCount}
               align={align}
+              v2={v2}
               onTap={() => onNodeTap(rung, state, isAboveCurrentLevel(rung, tree, currentLevel))}
               onSwapTap={rung.siblingCount > 0 ? () => onSwapTap(rung) : undefined}
             />
