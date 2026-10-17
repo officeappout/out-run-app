@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronRight } from 'lucide-react';
+import { X, ChevronRight, Bell, Check, Share, Smartphone } from 'lucide-react';
 import { doc, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
@@ -21,6 +21,7 @@ import PersonaStep from './steps/PersonaStep';
 import ScheduleStep from './steps/ScheduleStep';
 import RunningScheduleStep from './steps/RunningScheduleStep';
 import { hasRunningTrack } from '@/lib/track-ownership';
+import { useOnboardingV2 } from '../hooks/useOnboardingV2';
 
 interface LifestyleWizardProps {
   onComplete: () => void;
@@ -39,6 +40,7 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
   // Slide the global BottomNavbar off-screen for the duration of this wizard
   // so the fixed tab bar never obscures the CTA buttons.
   useSuppressBottomNav();
+  const v2 = useOnboardingV2();
 
   const { profile } = useUserStore();
   const { data: onboardingData } = useOnboardingStore();
@@ -279,6 +281,251 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
 
     await handleFinalSubmit();
   };
+
+  // ── v2 (enable_home_v2) ────────────────────────────────────────
+  // Same steps, handlers and writes. This wizard is a fixed overlay on /home
+  // (outside OnboardingLayout's <main>), so it pads the top and bottom
+  // safe-area insets itself — once, on the root. The step CTAs inside
+  // (StickyActionButton variant="v2") add only their own 12px.
+  if (v2) {
+    const v2StepBadge = (n: number) => (
+      <span className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-full bg-v2-tint text-[13px] font-black text-v2-deep">
+        {n}
+      </span>
+    );
+    return (
+      <div
+        className="fixed inset-0 z-50 flex flex-col bg-v2-surface text-v2-ink"
+        dir="rtl"
+        style={{
+          paddingTop: 'env(safe-area-inset-top, 0px)',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        }}
+      >
+        {/* Header */}
+        <div className="flex flex-shrink-0 items-center gap-3 px-3 pb-2 pt-2">
+          {stepIndex > 0 ? (
+            <button
+              type="button"
+              onClick={goToPreviousStep}
+              className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] touch-manipulation"
+              aria-label="Back"
+            >
+              <ChevronRight size={20} className="text-v2-ink" />
+            </button>
+          ) : (
+            <div className="w-10 flex-shrink-0" aria-hidden />
+          )}
+
+          <div className="min-w-0 flex-1">
+            <div className="h-1.5 overflow-hidden rounded-full bg-v2-hairline">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${((stepIndex + 1) / totalSteps) * 100}%` }}
+                transition={{ duration: 0.3 }}
+                className="h-full rounded-full bg-v2-accent"
+              />
+            </div>
+            <p className="mt-1.5 whitespace-nowrap text-center text-[12px] font-bold text-v2-muted">
+              {stepIndex + 1} מתוך {totalSteps}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onSkip}
+            className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] touch-manipulation"
+            aria-label="Close"
+          >
+            <X size={20} className="text-v2-ink" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <AnimatePresence mode="wait">
+            {currentStep === 'persona' && (
+              <motion.div
+                key="persona"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="px-4 pb-4 pt-3"
+              >
+                <PersonaStep onNext={handlePersonaNext} />
+              </motion.div>
+            )}
+
+            {currentStep === 'schedule' && (
+              <motion.div
+                key="schedule"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="h-full"
+              >
+                {isRunningTrack
+                  ? <RunningScheduleStep onNext={handleScheduleNext} isJIT />
+                  : <ScheduleStep onNext={handleScheduleNext} />}
+              </motion.div>
+            )}
+
+            {currentStep === 'notifications' && (
+              <motion.div
+                key="notifications"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="flex min-h-full flex-col"
+              >
+                <div className="flex-1 px-4 pb-6 pt-3">
+                  <h2 className="mb-5 text-[26px] font-black leading-[1.15] !tracking-[-0.02em]">
+                    {STEP_TITLES.notifications}
+                  </h2>
+
+                  <div className="rounded-v2-card bg-white p-5 shadow-v2-card">
+                    <div className="mb-4 flex items-center gap-3">
+                      <div className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-full bg-v2-tint text-v2-deep" aria-hidden>
+                        <Bell size={22} strokeWidth={2.25} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-[16px] font-black text-v2-ink">תזכורות חכמות</h3>
+                        <p className="text-[14px] font-medium text-v2-ink-2">נשלח לך בדיוק בזמן הנכון</p>
+                      </div>
+                    </div>
+                    <ul className="space-y-2.5 text-[14.5px] font-semibold text-v2-ink">
+                      <li className="flex items-start gap-2.5">
+                        <Check size={18} strokeWidth={2.75} className="mt-0.5 flex-shrink-0 text-v2-up" aria-hidden />
+                        <span>תזכורות לפי הימים שבחרת</span>
+                      </li>
+                      <li className="flex items-start gap-2.5">
+                        <Check size={18} strokeWidth={2.75} className="mt-0.5 flex-shrink-0 text-v2-up" aria-hidden />
+                        <span>עדכוני התקדמות ויעדים</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+
+                <StickyActionButton
+                  variant="v2"
+                  label="אשמח לקבל תזכורות"
+                  successLabel="מעולה!"
+                  disabled={isSubmitting}
+                  onPress={() => handleNotificationsNext(true)}
+                />
+
+                <div className="flex justify-center px-4 pb-3">
+                  <button
+                    type="button"
+                    onClick={() => handleNotificationsNext(false)}
+                    disabled={isSubmitting}
+                    className="flex h-10 items-center whitespace-nowrap px-4 text-[14.5px] font-extrabold text-v2-deep transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:opacity-50"
+                  >
+                    {t('דלג בשלב זה', 'דלגי בשלב זה')}
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* iOS "Add to Home Screen" instructions — v2 bottom sheet. A fixed
+            overlay over the whole viewport, so it pads the bottom inset itself. */}
+        <AnimatePresence>
+          {showIOSModal && (
+            <motion.div
+              key="ios-modal-overlay"
+              className="fixed inset-0 z-[120] flex items-end justify-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <div
+                className="absolute inset-0 backdrop-blur-[2px]"
+                style={{ backgroundColor: 'rgba(9,30,50,0.42)' }}
+                onClick={() => setShowIOSModal(false)}
+              />
+
+              <motion.div
+                key="ios-modal-sheet"
+                className="relative w-full max-w-md rounded-t-[28px] bg-white px-5 pt-2.5 shadow-v2-sheet"
+                style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                transition={{ type: 'spring', damping: 30, stiffness: 320 }}
+              >
+                <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-v2-pill-border" aria-hidden />
+
+                <div className="mb-5 flex items-start gap-3">
+                  <div className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-full bg-v2-tint text-v2-deep" aria-hidden>
+                    <Smartphone size={22} strokeWidth={2.25} />
+                  </div>
+                  <div className="min-w-0 flex-1 pt-0.5">
+                    <h3 className="text-[22px] font-black leading-tight !tracking-[-0.02em] text-v2-ink">
+                      לקבלת התראות באייפון
+                    </h3>
+                    <p className="mt-1 text-[14px] font-medium leading-relaxed text-v2-ink-2">
+                      Apple מאפשרת התראות רק לאפליקציות שמותקנות על מסך הבית.
+                      זה לוקח פחות מדקה
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mb-5 space-y-2.5">
+                  <div className="flex items-start gap-3 rounded-[18px] bg-white px-4 py-3 shadow-v2-ring">
+                    {v2StepBadge(1)}
+                    <span className="pt-0.5 text-[14.5px] font-medium leading-snug text-v2-ink">
+                      {t('פתח', 'פתחי')} את ספארי {t('ולחץ', 'ולחצי')} על סמל השיתוף{' '}
+                      <Share size={16} strokeWidth={2.25} className="inline-block align-[-3px] text-v2-deep" aria-label="שיתוף" />{' '}
+                      בסרגל התחתון
+                    </span>
+                  </div>
+
+                  <div className="flex items-start gap-3 rounded-[18px] bg-white px-4 py-3 shadow-v2-ring">
+                    {v2StepBadge(2)}
+                    <span className="pt-0.5 text-[14.5px] font-medium leading-snug text-v2-ink">
+                      {t('גלול מטה ובחר', 'גללי מטה ובחרי')}{' '}
+                      <span className="font-extrabold">&quot;הוסף למסך הבית&quot;</span>
+                    </span>
+                  </div>
+
+                  <div className="flex items-start gap-3 rounded-[18px] bg-white px-4 py-3 shadow-v2-ring">
+                    {v2StepBadge(3)}
+                    <span className="pt-0.5 text-[14.5px] font-medium leading-snug text-v2-ink">
+                      {t('פתח', 'פתחי')} את{' '}
+                      <span className="font-extrabold">Out</span>{' '}
+                      מהסמל החדש על מסך הבית {t('ואשר', 'ואשרי')} את ההתראות
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowIOSModal(false)}
+                  className="flex h-[52px] w-full items-center justify-center whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]"
+                >
+                  <span className="truncate">הבנתי, אוסיף למסך הבית</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setShowIOSModal(false);
+                    // Skip push, continue onboarding
+                    await handleNotificationsNext(false);
+                  }}
+                  className="mx-auto mt-1 flex h-11 items-center justify-center whitespace-nowrap px-4 text-[14.5px] font-extrabold text-v2-deep transition-transform duration-150 ease-v2 active:scale-[0.97]"
+                >
+                  {t('דלג בשלב זה', 'דלגי בשלב זה')}
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-white flex flex-col" dir="rtl">

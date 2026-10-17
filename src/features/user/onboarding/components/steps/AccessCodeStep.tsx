@@ -6,12 +6,15 @@ import { validateAccessCode, type AccessCodeResult } from '../../services/access
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import UnitJoinSuccessBanner from '@/components/ui/UnitJoinSuccessBanner';
+import { CheckCircle2, KeyRound } from 'lucide-react';
+import { useOnboardingV2 } from '../../hooks/useOnboardingV2';
 
 interface AccessCodeStepProps {
   onNext: () => void;
 }
 
 export default function AccessCodeStep({ onNext }: AccessCodeStepProps) {
+  const v2 = useOnboardingV2();
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -64,6 +67,100 @@ export default function AccessCodeStep({ onNext }: AccessCodeStepProps) {
       setLoading(false);
     }
   };
+
+  // ── v2 (enable_home_v2) — same state/handlers, v2 styling only ──
+  if (v2) {
+    const ctaCls =
+      'h-[52px] w-full whitespace-nowrap rounded-full text-[16px] font-extrabold transition-transform duration-150 ease-v2';
+    const ctaOn = 'bg-v2-cta text-v2-on-cta shadow-v2-cta active:scale-[0.97]';
+    const ctaOff = 'bg-v2-hairline text-v2-muted cursor-not-allowed';
+
+    if (successResult) {
+      return (
+        <motion.div
+          dir="rtl"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-6 bg-v2-surface px-5 py-10 font-simpler text-v2-ink"
+        >
+          <div className="flex w-full max-w-xs flex-col items-center gap-4 rounded-v2-card bg-white px-5 py-6 text-center shadow-v2-card">
+            <span className="grid h-12 w-12 place-items-center rounded-full bg-v2-tint" aria-hidden>
+              <CheckCircle2 size={24} className="text-v2-up" />
+            </span>
+            <h2 className="text-[22px] font-black !tracking-[-0.02em] text-v2-ink">הקוד אומת!</h2>
+            <UnitJoinSuccessBanner result={successResult} />
+          </div>
+          <div className="w-full max-w-xs">
+            <button onClick={onNext} className={`${ctaCls} ${ctaOn}`}>
+              המשך
+            </button>
+          </div>
+        </motion.div>
+      );
+    }
+
+    const disabled = loading || !code.trim();
+    return (
+      <motion.div
+        dir="rtl"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-6 bg-v2-surface px-5 py-10 font-simpler text-v2-ink"
+      >
+        <div className="flex flex-col items-center text-center">
+          <span className="mb-3 grid h-12 w-12 place-items-center rounded-full bg-v2-tint" aria-hidden>
+            <KeyRound size={22} className="text-v2-deep" />
+          </span>
+          <h2 className="text-[26px] font-black !tracking-[-0.02em] text-v2-ink">קוד גישה</h2>
+          <p className="mt-1 text-[14px] font-medium text-v2-ink-2">הזינו את הקוד שקיבלתם מהארגון שלכם</p>
+        </div>
+
+        <div className="w-full max-w-xs">
+          <input
+            dir="ltr"
+            type="text"
+            value={code}
+            onChange={(e) => {
+              setCode(e.target.value.toUpperCase());
+              setError(null);
+            }}
+            onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+            placeholder="UNIT-X79"
+            className="h-[60px] w-full rounded-2xl border-0 bg-white px-4 text-center font-mono text-[22px] font-bold tracking-widest text-v2-ink shadow-v2-ring outline-none transition-shadow placeholder:text-v2-pill-border focus:ring-2 focus:ring-inset focus:ring-v2-accent/60"
+            autoFocus
+            disabled={loading}
+          />
+
+          {error && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="mt-3 text-center text-[12.5px] font-bold text-[#b4232a]"
+            >
+              {error}
+            </motion.p>
+          )}
+        </div>
+
+        <div className="w-full max-w-xs">
+          <button
+            onClick={handleSubmit}
+            disabled={disabled}
+            className={`${ctaCls} ${disabled ? ctaOff : ctaOn}`}
+          >
+            {loading ? 'בודק...' : 'אישור'}
+          </button>
+        </div>
+
+        <p className="max-w-xs text-center text-[12px] font-bold text-v2-muted">
+          הקוד מאפשר גישה לתוכנית הכושר של הארגון שלכם.
+          אין לכם קוד? פנו למפקד/מורה שלכם.
+        </p>
+      </motion.div>
+    );
+  }
 
   if (successResult) {
     return (

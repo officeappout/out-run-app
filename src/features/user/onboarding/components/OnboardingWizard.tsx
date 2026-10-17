@@ -25,6 +25,7 @@ import { getUserFromFirestore } from '@/lib/firestore.service';
 import { LEGAL_VERSION } from '@/features/legal/legal-content';
 import { getOnboardingPref } from '@/lib/onboardingPrefs';
 import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
+import { useOnboardingV2 } from '../hooks/useOnboardingV2';
 
 /**
  * Phase 2 Onboarding Wizard - Lifestyle Adaptation
@@ -387,7 +388,7 @@ export default function OnboardingWizard() {
         if (checkingHealthDeclaration) {
           return (
             <div className="flex items-center justify-center py-24">
-              <div className="text-slate-500">טוען...</div>
+              <HealthDeclarationLoadingLabel />
             </div>
           );
         }
@@ -538,5 +539,15 @@ export default function OnboardingWizard() {
     >
       {renderStepContent()}
     </OnboardingLayout>
+  );
+}
+
+/** HEALTH_DECLARATION "טוען..." placeholder — v2 (enable_home_v2) muted label. */
+function HealthDeclarationLoadingLabel() {
+  const v2 = useOnboardingV2();
+  return v2 ? (
+    <div className="text-[13px] font-bold text-v2-muted">טוען...</div>
+  ) : (
+    <div className="text-slate-500">טוען...</div>
   );
 }

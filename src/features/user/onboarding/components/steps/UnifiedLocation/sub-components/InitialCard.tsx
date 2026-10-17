@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { MapPin } from 'lucide-react';
 import type { InitialCardProps } from '../location-types';
 
-export function InitialCard({ gender, t, locationError, onFindLocation, onSearchManually, mode = 'onboarding', detectedNeighborhood, detectedCity, purpose }: InitialCardProps) {
+export function InitialCard({ gender, t, locationError, onFindLocation, onSearchManually, mode = 'onboarding', detectedNeighborhood, detectedCity, purpose, v2 = false }: InitialCardProps) {
   const isExplorer = mode === 'explorer';
   const isRunning = purpose === 'running';
   const userName = typeof window !== 'undefined' 
@@ -26,6 +26,63 @@ export function InitialCard({ gender, t, locationError, onFindLocation, onSearch
   const subtitle = isRunning
     ? <>נמצא לך מסלול ריצה וגם גינות כושר בדרך</>
     : <>כדי שנוכל להציג את מסלולי ההליכה, גינות הכושר והמקומות הכי בטוחים וקרובים אליכם, יש לאשר גישה למיקום.</>;
+
+  if (v2) {
+    // v2 — a bottom sheet over the full-bleed map. The step is `fixed inset-0`
+    // (it covers <main>), so this sheet owns the bottom safe-area inset, once.
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 50 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 50 }}
+        transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+        className="absolute bottom-0 left-0 right-0 z-20"
+        dir="rtl"
+      >
+        <div
+          className="rounded-t-[28px] bg-white shadow-v2-sheet px-5 pt-3"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
+        >
+          <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-v2-pill-border" />
+          <h2 className="text-[22px] font-black !tracking-[-0.02em] leading-tight text-v2-ink text-right mb-2">
+            {headline}
+          </h2>
+          <p className="text-[14.5px] leading-relaxed text-v2-ink-2 text-right mb-4">
+            {subtitle}
+          </p>
+
+          {locationError && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="rounded-2xl bg-[#b4232a]/[0.06] px-3.5 py-2.5 mb-4"
+            >
+              <p className="text-[12.5px] font-bold text-[#b4232a] text-right">
+                {locationError}
+              </p>
+            </motion.div>
+          )}
+
+          <button
+            type="button"
+            onClick={onFindLocation}
+            className="w-full h-[52px] rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta active:scale-[0.97] transition-transform duration-150 ease-v2 flex items-center justify-center gap-2 px-5 whitespace-nowrap"
+          >
+            <MapPin size={19} className="flex-shrink-0" />
+            <span className="truncate">מציאת מיקום אוטומטית (GPS)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onSearchManually}
+            className="w-full mt-2 h-11 text-[14px] font-extrabold text-v2-deep whitespace-nowrap truncate active:scale-[0.97] transition-transform duration-150 ease-v2"
+          >
+            בחירת עיר ושכונה באופן ידני
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div

@@ -19,6 +19,7 @@ import type { CategoryBrandingConfig } from '@/features/admin/services/category-
 import { getFacilityIcon, resolveCategoryKey } from '@/utils/facility-icon';
 import { resolveParkImage } from '@/lib/park-image';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
+import { useOnboardingV2 } from '../../hooks/useOnboardingV2';
 
 // ── Refactored Module Imports ────────────────────────────
 import {
@@ -75,6 +76,8 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
   const { updateData, setMajorRoadmapStep } = useOnboardingStore();
   const isExplorer = mode === 'explorer' || mode === 'bridge';
   const mapRef = useRef<MapRef>(null);
+  // enable_home_v2 — v2 sheets/search over the map (styling only).
+  const v2 = useOnboardingV2();
   
   // Get gender from sessionStorage
   const gender = typeof window !== 'undefined'
@@ -729,7 +732,17 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
   // ══════════════════════════════════════════════════════════════════
 
   return (
-    <div dir="rtl" className="fixed inset-0 w-full h-screen overflow-hidden bg-white z-[90]">
+    <div
+      dir="rtl"
+      className={
+        v2
+          // v2: no h-screen — 100vh is taller than the visible viewport on iOS
+          // Safari and would push the bottom sheet under the toolbar; inset-0 alone
+          // pins the step to the visible viewport. Sheets add the bottom inset once.
+          ? 'fixed inset-0 w-full overflow-hidden bg-v2-surface z-[90]'
+          : 'fixed inset-0 w-full h-screen overflow-hidden bg-white z-[90]'
+      }
+    >
       {/* Map Container */}
       <div 
         className="absolute inset-0 overflow-hidden transition-all duration-300"
@@ -742,11 +755,11 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
       >
         {/* Loading Skeleton */}
         {isMapLoading && (
-          <div className="absolute inset-0 bg-slate-200 flex items-center justify-center z-10">
+          <div className={v2 ? 'absolute inset-0 bg-v2-tint flex items-center justify-center z-10' : 'absolute inset-0 bg-slate-200 flex items-center justify-center z-10'}>
             <motion.p
               animate={{ opacity: [0.5, 1, 0.5] }}
               transition={{ duration: 1.5, repeat: Infinity }}
-              className="text-slate-600 font-simpler"
+              className={v2 ? 'text-[14px] font-bold text-v2-muted whitespace-nowrap' : 'text-slate-600 font-simpler'}
             >
               טוען מפה...
             </motion.p>
@@ -773,7 +786,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
           >
             {/* Radar Pulse */}
             {showRadar && userLocation && (
-              <RadarPulse center={userLocation} />
+              <RadarPulse center={userLocation} v2={v2} />
             )}
             
             {/* "Power of One" — Only the #1 best match park marker with Pulse/Glow */}
@@ -1062,11 +1075,12 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
             detectedNeighborhood={detectedNeighborhood}
             detectedCity={detectedCity}
             purpose={purpose}
+            v2={v2}
           />
         )}
 
         {stage === LocationStage.LOCATING && (
-          <LocatingCard key="locating" />
+          <LocatingCard key="locating" v2={v2} />
         )}
 
         {stage === LocationStage.CONFIRMING && (
@@ -1091,6 +1105,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
             bestMatchIndex={bestMatchIndex}
             trainingContext={trainingContext}
             mode={mode}
+            v2={v2}
           />
         )}
 
@@ -1102,6 +1117,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
             filteredCities={filteredCities}
             onCitySelect={handleCitySelect}
             onBack={handleBackFromSearch}
+            v2={v2}
           />
         )}
       </AnimatePresence>

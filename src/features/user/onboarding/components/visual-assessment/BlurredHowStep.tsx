@@ -1,7 +1,8 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, SlidersHorizontal, Ruler, ArrowLeft, HelpCircle } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import OnboardingStoryBar from '../OnboardingStoryBar';
 import { STRENGTH_PHASES } from '../../constants/onboarding-phases';
 
@@ -60,6 +61,9 @@ const HOW_BULLETS: BulletDef[] = [
   },
 ];
 
+/** v2: lucide icons in place of the bullet emoji (same order as HOW_BULLETS). */
+const HOW_BULLET_ICONS_V2: LucideIcon[] = [SlidersHorizontal, Ruler, ArrowLeft, HelpCircle];
+
 // ── Props ──────────────────────────────────────────────────────────
 
 interface BlurredHowStepProps {
@@ -67,6 +71,8 @@ interface BlurredHowStepProps {
   exerciseCount: number;
   onNext: () => void;
   onBack: () => void;
+  /** enable_home_v2 — v2 look; CTA adds no second bottom inset. */
+  v2?: boolean;
 }
 
 // ── Animation easing ──────────────────────────────────────────────
@@ -79,8 +85,137 @@ export default function BlurredHowStep({
   exerciseCount,
   onNext,
   onBack,
+  v2 = false,
 }: BlurredHowStepProps) {
   const g = gender === 'female' ? 'female' : 'male';
+
+  // ── v2 (enable_home_v2) ────────────────────────────────────────
+  // Same copy, same handlers (mirrors BlurredWhyStep's v2 branch). <main>
+  // already pads the safe-area insets, so the CTA only adds its own 12px.
+  if (v2) {
+    return (
+      <div className="relative flex h-full min-h-0 flex-col bg-v2-surface text-v2-ink" dir="rtl">
+        <header className="flex flex-shrink-0 items-center gap-2 px-3 pb-1 pt-1">
+          <button
+            type="button"
+            onClick={onBack}
+            className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] touch-manipulation"
+            aria-label="חזרה"
+          >
+            <ChevronRight size={20} className="text-v2-ink" />
+          </button>
+          <div className="flex min-h-[40px] flex-1 flex-col justify-center">
+            <OnboardingStoryBar
+              totalPhases={STRENGTH_PHASES.TOTAL}
+              currentPhase={STRENGTH_PHASES.ASSESSMENT}
+              phaseFillPercent={0}
+              phaseLabel={STRENGTH_PHASES.labels[STRENGTH_PHASES.ASSESSMENT]}
+              noPadding
+            />
+          </div>
+          <div className="w-10 flex-shrink-0" aria-hidden />
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <div className="flex flex-col px-4 pb-4 pt-3">
+            <motion.h2
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1, duration: 0.45, ease: EASE_OUT }}
+              className="text-[26px] font-black leading-[1.15] !tracking-[-0.02em]"
+            >
+              איך הבדיקה עובדת?
+            </motion.h2>
+
+            {exerciseCount > 0 && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.15, duration: 0.4, ease: EASE_OUT }}
+                className="mt-1 text-[13px] font-extrabold text-v2-deep"
+              >
+                {exerciseCount} תרגילים · פחות מ-2 דקות
+              </motion.p>
+            )}
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.5, ease: EASE_OUT }}
+              className="mt-2 flex w-full justify-start select-none"
+              aria-hidden
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/assets/lemur/lemur_curious_peek.png"
+                alt=""
+                className="h-auto w-20 object-contain"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+              />
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.28, duration: 0.45, ease: EASE_OUT }}
+              className="relative mt-2 w-full"
+            >
+              <div
+                className="pointer-events-none absolute -top-[9px] right-7 z-10 h-[18px] w-[18px] rotate-45 rounded-[4px] bg-white"
+                aria-hidden
+              />
+              <div className="w-full rounded-v2-card bg-white px-5 py-2 shadow-v2-card">
+                {HOW_BULLETS.map((bullet, i) => {
+                  const Icon = HOW_BULLET_ICONS_V2[i] ?? HelpCircle;
+                  return (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.4 + i * 0.08, duration: 0.45, ease: EASE_OUT }}
+                      className={`flex items-start gap-3 py-4 ${i > 0 ? 'border-t border-v2-hairline' : ''}`}
+                    >
+                      <span
+                        className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-full bg-v2-tint text-v2-deep"
+                        aria-hidden
+                      >
+                        <Icon size={18} strokeWidth={2.25} />
+                      </span>
+                      <div className="min-w-0 space-y-1 text-right">
+                        <p className="text-[15px] font-black leading-snug text-v2-ink">
+                          {bullet.label[g]}
+                        </p>
+                        <p className="text-[14px] font-medium leading-relaxed text-v2-ink-2">
+                          {bullet.detail[g]}
+                        </p>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </div>
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7, duration: 0.45, ease: EASE_OUT }}
+          className="flex-shrink-0 px-4 pb-3 pt-2"
+        >
+          <button
+            type="button"
+            onClick={onNext}
+            className="flex h-[52px] w-full items-center justify-center whitespace-nowrap rounded-full bg-v2-cta text-[16.5px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]"
+          >
+            <span className="truncate">
+              {g === 'female' ? 'הבנתי, בואי נתחיל בבדיקה!' : 'הבנתי, בוא נתחיל בבדיקה!'}
+            </span>
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex flex-col h-full bg-slate-50" dir="rtl">

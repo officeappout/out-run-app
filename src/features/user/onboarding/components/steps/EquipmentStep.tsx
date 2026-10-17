@@ -6,6 +6,7 @@ import { Coins } from 'lucide-react';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 import EquipmentFilterSheet from '@/features/content/exercises/client/components/EquipmentFilterSheet';
+import { useOnboardingV2 } from '../../hooks/useOnboardingV2';
 
 interface EquipmentStepProps {
   onNext: () => void;
@@ -25,6 +26,7 @@ interface EquipmentStepProps {
  */
 export default function EquipmentStep({ onNext }: EquipmentStepProps) {
   const { updateData, data, addCoins } = useOnboardingStore();
+  const v2 = useOnboardingV2();
   const [showCoinAnimation, setShowCoinAnimation] = useState(false);
   const [hasEarnedReward, setHasEarnedReward] = useState(false);
 
@@ -70,10 +72,17 @@ export default function EquipmentStep({ onNext }: EquipmentStepProps) {
               transition={{ duration: 0.6, ease: 'easeOut' }}
               className="fixed top-20 left-1/2 -translate-x-1/2 pointer-events-none z-[100]"
             >
+              {v2 ? (
+                <div className="flex items-center gap-1 whitespace-nowrap rounded-full bg-white px-3 py-2 shadow-v2-float">
+                  <Coins size={18} className="text-v2-amber" strokeWidth={2.5} />
+                  <span className="text-[14px] font-extrabold text-v2-ink font-simpler">+10</span>
+                </div>
+              ) : (
               <div className="flex items-center gap-1 bg-amber-200 text-amber-800 rounded-full px-3 py-2 shadow-lg border border-amber-300">
                 <Coins size={18} className="text-amber-800" strokeWidth={2.5} />
                 <span className="text-sm font-bold font-simpler">+10</span>
               </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -92,6 +101,7 @@ export default function EquipmentStep({ onNext }: EquipmentStepProps) {
         initialIds={selectedEquipmentIds}
         onChange={handleEquipmentChange}
         onApply={handleApply}
+        onboardingV2={v2}
       />
     </>
   );

@@ -7,7 +7,7 @@ import type { RadarPulseProps } from '../location-types';
 
 const MapboxMarker = dynamic(() => import('react-map-gl').then((mod) => mod.Marker), { ssr: false });
 
-export function RadarPulse({ center }: RadarPulseProps) {
+export function RadarPulse({ center, v2 = false }: RadarPulseProps) {
   return (
     <MapboxMarker longitude={center.lng} latitude={center.lat} anchor="center">
       <div className="relative w-0 h-0">
@@ -25,13 +25,13 @@ export function RadarPulse({ center }: RadarPulseProps) {
               repeat: Infinity,
               ease: "easeOut",
             }}
-            className="absolute inset-0 rounded-full border-2 border-[#5BC2F2]"
+            className={v2 ? 'absolute inset-0 rounded-full border-2 border-v2-accent' : 'absolute inset-0 rounded-full border-2 border-[#5BC2F2]'}
             style={{
               width: '200px',
               height: '200px',
               marginLeft: '-100px',
               marginTop: '-100px',
-              backgroundColor: 'rgba(91, 194, 242, 0.08)',
+              backgroundColor: v2 ? 'rgba(0, 186, 247, 0.08)' : 'rgba(91, 194, 242, 0.08)',
             }}
           />
         ))}
