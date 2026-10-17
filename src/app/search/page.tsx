@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import AppHeader from '@/components/ui/AppHeader';
 import { useUserStore } from '@/features/user';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useSocialStore } from '@/features/social/store/useSocialStore';
 import { useArenaAccess } from '@/features/arena/hooks/useArenaAccess';
 import { useArenaData } from '@/features/arena/hooks/useArenaData';
@@ -129,6 +130,9 @@ const ACCENT = '#00ADEF';
 // ────────────────────────────────────────────────────────────────────────────
 
 export default function SearchPage() {
+  // Home v2 (enable_home_v2): the search page in the site's language.
+  const searchSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(searchSuperAdmin).flags.enableHomeV2;
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -545,7 +549,7 @@ export default function SearchPage() {
 
   return (
     <div
-      className="min-h-[100dvh] bg-[#F8FAFC]"
+      className={`min-h-[100dvh] ${v2 ? 'bg-v2-surface' : 'bg-[#F8FAFC]'}`}
       style={{ paddingBottom: '5rem' }}
     >
       {/* ── Shared App Header — search input + 3 main tabs collapse together
@@ -556,14 +560,14 @@ export default function SearchPage() {
               (round 1-6); moved inline with the muscle-chip row instead
               (round 7, #4), since it's exercises-tab-only chrome and reads
               oddly sitting in the shared header above the tab bar. */}
-          <div className="flex items-center gap-2 bg-gray-100 rounded-xl px-3 py-2.5">
-            <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
+          <div className={v2 ? 'flex h-12 items-center gap-2 rounded-full bg-white px-4 shadow-v2-ring' : 'flex items-center gap-2 bg-gray-100 rounded-xl px-3 py-2.5'}>
+            <Search className={v2 ? 'h-[18px] w-[18px] flex-shrink-0 text-v2-muted' : 'w-4 h-4 text-gray-400 flex-shrink-0'} />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder={getPlaceholder(topTab, discoverMode)}
-              className="flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none"
+              className={v2 ? 'flex-1 bg-transparent text-[15px] font-semibold text-v2-ink placeholder:text-v2-muted outline-none' : 'flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none'}
               aria-label="חיפוש"
             />
             {searchTerm && (
@@ -582,7 +586,7 @@ export default function SearchPage() {
         {/* Four-tab bar with counts */}
         <div className="max-w-md mx-auto px-5" dir="rtl">
           <div
-            className="flex border-b border-slate-100 dark:border-slate-800"
+            className={v2 ? 'flex border-b border-v2-hairline' : 'flex border-b border-slate-100 dark:border-slate-800'}
             role="tablist"
             aria-label="חיפוש"
           >
@@ -600,26 +604,35 @@ export default function SearchPage() {
                   role="tab"
                   aria-selected={active}
                   onClick={() => setTopTab(t.value)}
-                  className={`flex-1 py-3 text-center text-xs font-bold border-b-2 transition-colors min-h-[44px] ${
-                    active
-                      ? 'text-[#00ADEF] border-[#00ADEF]'
-                      : 'text-slate-600 dark:text-slate-500 border-transparent'
-                  }`}
+                  className={
+                    v2
+                      ? `relative min-h-[44px] flex-1 py-3 text-center text-[14px] font-extrabold transition-colors ${active ? 'text-v2-deep' : 'text-v2-muted'}`
+                      : `flex-1 py-3 text-center text-xs font-bold border-b-2 transition-colors min-h-[44px] ${
+                          active
+                            ? 'text-[#00ADEF] border-[#00ADEF]'
+                            : 'text-slate-600 dark:text-slate-500 border-transparent'
+                        }`
+                  }
                 >
                   <span className="inline-flex items-center gap-1 justify-center">
                     {t.label}
                     {count > 0 && (
                       <span
-                        className={`inline-flex items-center justify-center min-w-[17px] h-[17px] px-1 rounded-full text-[10px] font-bold leading-none ${
-                          active
-                            ? 'bg-[#00ADEF] text-on-brand'
-                            : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
-                        }`}
+                        className={
+                          v2
+                            ? `inline-flex h-[19px] min-w-[19px] items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold leading-none ${active ? 'bg-v2-tint text-v2-deep' : 'bg-v2-surface text-v2-muted ring-1 ring-inset ring-v2-hairline'}`
+                            : `inline-flex items-center justify-center min-w-[17px] h-[17px] px-1 rounded-full text-[10px] font-bold leading-none ${
+                                active
+                                  ? 'bg-[#00ADEF] text-on-brand'
+                                  : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
+                              }`
+                        }
                       >
                         {count}
                       </span>
                     )}
                   </span>
+                  {v2 && active && <span className="absolute inset-x-2 -bottom-px h-[3px] rounded-full bg-v2-cta" />}
                 </button>
               );
             })}
