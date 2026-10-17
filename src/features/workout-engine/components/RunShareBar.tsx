@@ -41,6 +41,8 @@ interface RunShareBarProps {
    * if the user clicks both "שתף" and "שמור".
    */
   onShareScheduled?: () => Promise<void>;
+  /** Home v2 (enable_home_v2) styling. Default false = today's UI. */
+  v2?: boolean;
 }
 
 const ACCENT = '#0EA5E9';
@@ -64,10 +66,31 @@ function todayIso(): string {
 function NowLaterToggle({
   value,
   onChange,
+  v2 = false,
 }: {
   value: 'now' | 'later';
   onChange: (v: 'now' | 'later') => void;
+  v2?: boolean;
 }) {
+  if (v2) {
+    return (
+      <div className="flex gap-2" role="group" aria-label="מתי">
+        {(['now', 'later'] as const).map((opt) => (
+          <button
+            key={opt}
+            type="button"
+            onClick={() => onChange(opt)}
+            aria-pressed={value === opt}
+            className={`flex h-10 flex-1 items-center justify-center whitespace-nowrap rounded-full text-[14px] font-extrabold transition-[transform,background-color] duration-150 ease-v2 active:scale-[0.97] ${
+              value === opt ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'bg-white text-v2-ink-2 shadow-v2-ring'
+            }`}
+          >
+            {opt === 'now' ? 'עכשיו' : 'אחר כך'}
+          </button>
+        ))}
+      </div>
+    );
+  }
   return (
     <div
       className="flex rounded-full overflow-hidden border"
@@ -98,12 +121,38 @@ function DateTimePicker({
   time,
   onDateChange,
   onTimeChange,
+  v2 = false,
 }: {
   date: string;
   time: string;
   onDateChange: (v: string) => void;
   onTimeChange: (v: string) => void;
+  v2?: boolean;
 }) {
+  if (v2) {
+    const field =
+      'h-11 rounded-[14px] bg-white px-3 text-[14px] font-bold text-v2-ink shadow-v2-ring focus:outline-none focus:ring-2 focus:ring-v2-accent';
+    return (
+      <div className="flex gap-2" dir="ltr">
+        <input
+          type="date"
+          value={date}
+          min={todayIso()}
+          onChange={(e) => onDateChange(e.target.value)}
+          className={`${field} flex-1`}
+          aria-label="תאריך"
+        />
+        <input
+          type="time"
+          step={300}
+          value={time}
+          onChange={(e) => onTimeChange(e.target.value)}
+          className={`${field} w-[104px]`}
+          aria-label="שעה"
+        />
+      </div>
+    );
+  }
   return (
     <div className="flex gap-2" dir="ltr">
       <input
@@ -150,6 +199,7 @@ export default function RunShareBar({
   onDateChange,
   onTimeChange,
   onShareScheduled,
+  v2 = false,
 }: RunShareBarProps) {
   const [busy,           setBusy]          = useState(false);
   const [internalTiming, setInternalTiming] = useState<'now' | 'later'>('now');
@@ -236,7 +286,7 @@ export default function RunShareBar({
   return (
     <div className={`flex flex-col gap-3 ${className}`} dir="rtl">
       {/* Row 0 — Now / Later toggle */}
-      <NowLaterToggle value={timing} onChange={handleTimingChange} />
+      <NowLaterToggle value={timing} onChange={handleTimingChange} v2={v2} />
 
       {/* Row 0b — Date+time picker (Later only) */}
       {timing === 'later' && (
@@ -245,6 +295,7 @@ export default function RunShareBar({
           time={schedTime}
           onDateChange={handleDateChange}
           onTimeChange={handleTimeChange}
+          v2={v2}
         />
       )}
 
@@ -253,8 +304,12 @@ export default function RunShareBar({
         type="button"
         onClick={handleInvite}
         disabled={busy}
-        className="w-full flex items-center justify-center gap-2 rounded-2xl active:scale-[0.98] transition-transform disabled:opacity-60"
-        style={{
+        className={
+          v2
+            ? 'w-full h-11 flex items-center justify-center gap-2 whitespace-nowrap rounded-full bg-white text-v2-deep shadow-v2-ring active:scale-[0.97] transition-transform duration-150 ease-v2 disabled:opacity-60'
+            : 'w-full flex items-center justify-center gap-2 rounded-2xl active:scale-[0.98] transition-transform disabled:opacity-60'
+        }
+        style={v2 ? undefined : {
           height:          44,
           backgroundColor: '#F0F9FF',
           border:          '1px solid #BAE6FD',
@@ -265,7 +320,7 @@ export default function RunShareBar({
           ? <Loader2 size={16} className="animate-spin" />
           : <UserPlus size={16} strokeWidth={2.5} />
         }
-        <span className="text-[13px] font-black">
+        <span className={v2 ? 'text-[14px] font-extrabold' : 'text-[13px] font-black'}>
           {busy
             ? 'שותף...'
             : timing === 'later'

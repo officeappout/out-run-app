@@ -1,9 +1,14 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useContext } from 'react';
 
 import { motion, AnimatePresence, useDragControls, Reorder } from 'framer-motion';
-import { X, Play, Loader2, Trash2, GripVertical } from 'lucide-react';
+import {
+  X, Play, Loader2, Trash2, GripVertical, Bike, Target, MapPin, Route as RouteIcon,
+  SlidersHorizontal, Milestone, Plus, Flag, Dumbbell, Check, Scale,
+} from 'lucide-react';
+import { RunIcon, WalkingIcon } from '@/features/content/programs/core/program-icon.util';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { ActivityType } from '../types/route.types';
 import StrengthStationsToggle from './hybrid/StrengthStationsToggle';
 import AerobicStrengthSlider from './hybrid/AerobicStrengthSlider';
@@ -33,6 +38,42 @@ import {
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const ACCENT = '#00ADEF';
+
+// ── Home v2 (enable_home_v2) ──────────────────────────────────────────────────
+// Read once in the main component and provided to every sheet/sub-component in
+// this file. While false every branch below renders exactly today's UI.
+const FreeRunV2 = React.createContext(false);
+const V2_ACCENT = '#00baf7';
+
+const V2_SHEET = 'bg-white rounded-t-[28px] shadow-v2-sheet';
+const V2_HANDLE = 'h-1.5 w-10 rounded-full bg-v2-pill-border';
+const V2_TITLE = 'text-[22px] font-black !tracking-[-0.02em] text-v2-ink whitespace-nowrap';
+const V2_CLOSE =
+  'grid h-9 w-9 shrink-0 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline active:scale-[0.97] transition-transform duration-150 ease-v2';
+const V2_CTA =
+  'w-full h-12 flex items-center justify-center gap-2 whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta active:scale-[0.97] transition-transform duration-150 ease-v2 disabled:opacity-60';
+const V2_SECONDARY =
+  'flex items-center justify-center gap-2 whitespace-nowrap rounded-full bg-white shadow-v2-ring text-[14px] font-extrabold text-v2-ink active:scale-[0.97] transition-transform duration-150 ease-v2 disabled:opacity-50';
+/** Option row inside a sheet (address / stops / route settings). */
+const V2_OPTION =
+  'w-full flex items-center gap-3 rounded-[20px] bg-white px-4 py-3 shadow-v2-ring text-start active:scale-[0.97] transition-transform duration-150 ease-v2';
+const V2_ICON_TILE = 'grid h-9 w-9 shrink-0 place-items-center rounded-[12px] bg-v2-tint text-v2-deep';
+
+/** Extras the route request actually reads (route-request.utils): gymParks →
+ *  includeStrength, trail → surface. circular/benches/stairs are documented
+ *  dead toggles there, so the v2 sheet doesn't offer them. */
+const V2_LIVE_EXTRAS: ReadonlyArray<keyof ExtrasState> = ['gymParks', 'trail'];
+
+function V2SheetHeader({ title, onClose }: { title: string; onClose: () => void }) {
+  return (
+    <div className="flex items-center justify-between px-5 pb-4">
+      <h2 className={V2_TITLE}>{title}</h2>
+      <button type="button" onClick={onClose} className={V2_CLOSE} aria-label="סגור">
+        <X size={16} strokeWidth={2.4} className="text-v2-ink-2" />
+      </button>
+    </div>
+  );
+}
 
 // ── Scheduled run helpers ─────────────────────────────────────────────────────
 
@@ -161,6 +202,21 @@ function Pill({
   onClick: () => void;
   children: React.ReactNode;
 }) {
+  const v2 = useContext(FreeRunV2);
+  if (v2) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-pressed={active}
+        className={`flex h-10 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[14px] font-extrabold transition-[transform,background-color] duration-150 ease-v2 active:scale-[0.97] ${
+          active ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'bg-white text-v2-ink-2 shadow-v2-ring'
+        }`}
+      >
+        {children}
+      </button>
+    );
+  }
   return (
     <button
       type="button"
@@ -190,7 +246,29 @@ function GoalSlider({
   onChange: (v: number) => void;
   formatLabel: (v: number) => string;
 }) {
+  const v2 = useContext(FreeRunV2);
   const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
+  if (v2) {
+    // v2: no floating value bubble — the same value is already printed in the
+    // row header right above the slider (it was shown twice).
+    return (
+      <div className="relative w-full" style={{ height: 24 }}>
+        <div className="absolute top-1/2 left-0 right-0 h-1.5 -translate-y-1/2 rounded-full bg-v2-hairline" />
+        <div
+          className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-v2-accent"
+          style={{ right: 0, left: `${100 - pct}%` }}
+        />
+        <input
+          type="range"
+          min={min} max={max} step={step} value={value} dir="rtl"
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer"
+          style={{ accentColor: V2_ACCENT }}
+          aria-valuetext={formatLabel(value)}
+        />
+      </div>
+    );
+  }
   return (
     <div className="relative w-full" style={{ height: 36 }}>
       <div
@@ -228,6 +306,27 @@ function ToggleRow({
   value: boolean;
   onToggle: () => void;
 }) {
+  const v2 = useContext(FreeRunV2);
+  if (v2) {
+    return (
+      <div className="flex items-center justify-between gap-3 py-3.5 border-b border-v2-hairline last:border-0">
+        <span className="truncate whitespace-nowrap text-[15px] font-bold text-v2-ink">{label}</span>
+        <button
+          type="button"
+          onClick={onToggle}
+          className={`relative w-12 h-7 rounded-full transition-colors duration-150 ease-v2 flex-shrink-0 ${value ? 'bg-v2-accent' : 'bg-v2-pill-border'}`}
+          aria-pressed={value}
+          aria-label={label}
+        >
+          <motion.div
+            animate={{ x: value ? 20 : 0 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+            className="absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow-sm"
+          />
+        </button>
+      </div>
+    );
+  }
   return (
     <div className="flex items-center justify-between py-3.5 border-b border-gray-100 last:border-0">
       <div className="flex items-center gap-2.5">
@@ -261,6 +360,33 @@ function ActivityChips({
   selected: CarouselActivity;
   onSelect: (a: CarouselActivity) => void;
 }) {
+  const v2 = useContext(FreeRunV2);
+  if (v2) {
+    const icon = (id: CarouselActivity) =>
+      id === 'running' ? <RunIcon className="h-6 w-6" /> :
+      id === 'walking' ? <WalkingIcon className="h-6 w-6" /> :
+      <Bike size={24} strokeWidth={2.2} />;
+    return (
+      <div className="px-5 mb-4">
+        <div className="flex gap-2.5">
+          {ACTIVITY_CHIPS.map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => onSelect(id)}
+              aria-pressed={selected === id}
+              className={`flex h-[72px] flex-1 flex-col items-center justify-center gap-1 rounded-[18px] transition-[transform,box-shadow] duration-150 ease-v2 active:scale-[0.97] ${
+                selected === id ? 'bg-white text-v2-deep shadow-v2-card ring-2 ring-v2-accent' : 'bg-white text-v2-ink-2 shadow-v2-ring'
+              }`}
+            >
+              {icon(id)}
+              <span className="whitespace-nowrap text-[14px] font-extrabold">{label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="px-5 mb-5">
       <div className="flex gap-2">
@@ -302,6 +428,30 @@ function GoalSummaryRow({
     goalType === 'time'     ? `${timeValue} דק׳` :
     goalType === 'distance' ? `${distanceValue.toFixed(1)} ק״מ` :
                               `${caloriesValue} קק״ל`;
+  const v2 = useContext(FreeRunV2);
+
+  if (v2) {
+    // v2 copy: "מטרת האימון" instead of "מותאם עבורך" — the values come from
+    // the static ACTIVITY_DEFAULTS table (or the user's own edit), nothing is
+    // personalised yet, so the old label claimed something untrue.
+    return (
+      <button
+        type="button"
+        onClick={onEdit}
+        className="mx-5 mb-4 flex w-[calc(100%-2.5rem)] items-center gap-3 rounded-[20px] bg-white px-4 py-3 text-start shadow-v2-ring active:scale-[0.97] transition-transform duration-150 ease-v2"
+        aria-label="ערוך מטרת אימון"
+      >
+        <span className={V2_ICON_TILE}><Target size={18} strokeWidth={2.4} /></span>
+        <span className="min-w-0 flex-1">
+          <span className="block whitespace-nowrap text-[13px] font-extrabold text-v2-deep">מטרת האימון</span>
+          <span className="block truncate whitespace-nowrap text-[17px] font-black text-v2-ink">{summary}</span>
+        </span>
+        <span className="h-8 shrink-0 whitespace-nowrap rounded-full bg-v2-surface px-3.5 text-[13px] font-extrabold leading-8 text-v2-deep ring-1 ring-inset ring-v2-hairline">
+          ערוך
+        </span>
+      </button>
+    );
+  }
 
   return (
     <div
@@ -340,6 +490,39 @@ function EntryButtons({
   canStartWithRoute: boolean;
   cityName?: string;
 }) {
+  const v2 = useContext(FreeRunV2);
+  if (v2) {
+    return (
+      <div className="px-5">
+        <div className="flex gap-2.5">
+          <button
+            type="button"
+            onClick={onStartFree}
+            className={`${V2_CTA} flex-1`}
+            aria-label="התחל אימון חופשי"
+          >
+            <Play size={16} fill="currentColor" />
+            התחל חופשי
+          </button>
+          <button
+            type="button"
+            onClick={onStartWithRoute}
+            disabled={!canStartWithRoute}
+            className={`${V2_SECONDARY} h-12 flex-1 text-v2-deep`}
+            aria-label="התחל אימון עם מסלול מותאם"
+          >
+            <RouteIcon size={17} strokeWidth={2.4} />
+            עם מסלול
+          </button>
+        </div>
+        {canStartWithRoute && cityName && (
+          <p className="mt-2 truncate whitespace-nowrap text-center text-[12px] font-bold text-v2-muted">
+            מסלולים יוצרו ב{cityName}
+          </p>
+        )}
+      </div>
+    );
+  }
   return (
     <div className="px-5">
       <div className="flex gap-2.5">
@@ -394,6 +577,7 @@ function WeightInlineRow({
   genderDefault: number;
   onSave: (w: number) => Promise<void>;
 }) {
+  const v2 = useContext(FreeRunV2);
   const [value, setValue] = useState(genderDefault);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
@@ -413,6 +597,48 @@ function WeightInlineRow({
   };
 
   if (saved) return null;
+
+  if (v2) {
+    const stepBtn =
+      'grid h-9 w-9 place-items-center rounded-full bg-white shadow-v2-ring text-[18px] font-bold text-v2-ink active:scale-[0.97] transition-transform duration-150 ease-v2';
+    return (
+      <div className="mt-3 rounded-[20px] bg-v2-tint px-4 py-3.5">
+        <p className="mb-0.5 flex items-center gap-1.5 whitespace-nowrap text-[13px] font-extrabold text-v2-deep">
+          <Scale size={14} strokeWidth={2.4} /> משקלך לחישוב מדויק
+        </p>
+        <p className="mb-2.5 text-[12.5px] font-bold leading-snug text-v2-muted">
+          עדיין לא הזנת משקל — הערך הנוכחי הוא ברירת מחדל. כדי שחישוב הקלוריות יהיה מדויק, שווה לעדכן.
+        </p>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => adjust(-1)} className={stepBtn} aria-label="הפחת ק״ג">−</button>
+          <div className="flex-1 text-center">
+            <input
+              type="number"
+              inputMode="numeric"
+              value={value}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10);
+                if (!isNaN(v) && v >= 30 && v <= 200) setValue(v);
+              }}
+              className="w-full border-none bg-transparent text-center text-[18px] font-black text-v2-ink outline-none"
+              aria-label="משקל בקילוגרם"
+            />
+            <span className="text-[12px] font-bold leading-none text-v2-muted">ק״ג</span>
+          </div>
+          <button type="button" onClick={() => adjust(1)} className={stepBtn} aria-label="הוסף ק״ג">+</button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className={`${V2_SECONDARY} h-9 min-w-[56px] px-3.5 text-[13px] text-v2-deep`}
+          >
+            {saving ? '...' : 'שמור'}
+          </button>
+        </div>
+        <p className="mt-1.5 text-[12px] font-bold text-v2-muted">אפשר לדלג — יישמר לפרופיל אם תבחר</p>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -526,6 +752,7 @@ function GoalSheet({
   legPlanCount?: number;
 }) {
   const dragControls = useDragControls();
+  const v2 = useContext(FreeRunV2);
 
   return (
     <AnimatePresence>
@@ -552,7 +779,7 @@ function GoalSheet({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 z-[103] bg-white rounded-t-3xl shadow-2xl pointer-events-auto"
+            className={`fixed bottom-0 left-0 right-0 z-[103] pointer-events-auto ${v2 ? V2_SHEET : 'bg-white rounded-t-3xl shadow-2xl'}`}
             dir="rtl"
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
           >
@@ -562,10 +789,11 @@ function GoalSheet({
               onPointerDown={(e) => dragControls.start(e)}
               style={{ touchAction: 'none' }}
             >
-              <div className="rounded-full bg-gray-300" style={{ width: 36, height: 4 }} />
+              {v2 ? <div className={V2_HANDLE} /> : <div className="rounded-full bg-gray-300" style={{ width: 36, height: 4 }} />}
             </div>
 
             {/* Header */}
+            {v2 ? <V2SheetHeader title="מטרת אימון" onClose={onClose} /> : (
             <div className="flex items-center justify-between px-5 pb-4">
               <h2 className="text-base font-black text-gray-900">מטרת אימון</h2>
               <button
@@ -577,13 +805,14 @@ function GoalSheet({
                 <X size={14} className="text-gray-600" />
               </button>
             </div>
+            )}
 
             {/* Goal type pills */}
             <div className="px-5 mb-5">
               <div className="flex gap-2">
-                <Pill active={goalType === 'time'}     onClick={() => setGoalType('time')}>⏱ זמן</Pill>
-                <Pill active={goalType === 'distance'} onClick={() => setGoalType('distance')}>📏 מרחק</Pill>
-                <Pill active={goalType === 'calories'} onClick={() => setGoalType('calories')}>🔥 קלוריות</Pill>
+                <Pill active={goalType === 'time'}     onClick={() => setGoalType('time')}>{v2 ? 'זמן' : '⏱ זמן'}</Pill>
+                <Pill active={goalType === 'distance'} onClick={() => setGoalType('distance')}>{v2 ? 'מרחק' : '📏 מרחק'}</Pill>
+                <Pill active={goalType === 'calories'} onClick={() => setGoalType('calories')}>{v2 ? 'קלוריות' : '🔥 קלוריות'}</Pill>
               </div>
             </div>
 
@@ -592,8 +821,8 @@ function GoalSheet({
               {goalType === 'time' && (
                 <>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-[13px] font-black text-gray-800">משך האימון</span>
-                    <span className="text-[13px] font-black" style={{ color: ACCENT }}>{timeValue} דק׳</span>
+                    <span className={v2 ? 'whitespace-nowrap text-[15px] font-black text-v2-ink' : 'text-[13px] font-black text-gray-800'}>משך האימון</span>
+                    <span className={v2 ? 'whitespace-nowrap text-[17px] font-black tabular-nums text-v2-deep' : 'text-[13px] font-black'} style={v2 ? undefined : { color: ACCENT }}>{timeValue} דק׳</span>
                   </div>
                   <GoalSlider min={5} max={120} step={5} value={timeValue} onChange={setTimeValue} formatLabel={(v) => `${v} דק׳`} />
                 </>
@@ -602,8 +831,8 @@ function GoalSheet({
               {goalType === 'distance' && (
                 <>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-[13px] font-black text-gray-800">מרחק</span>
-                    <span className="text-[13px] font-black" style={{ color: ACCENT }}>{distanceValue.toFixed(1)} ק״מ</span>
+                    <span className={v2 ? 'whitespace-nowrap text-[15px] font-black text-v2-ink' : 'text-[13px] font-black text-gray-800'}>מרחק</span>
+                    <span className={v2 ? 'whitespace-nowrap text-[17px] font-black tabular-nums text-v2-deep' : 'text-[13px] font-black'} style={v2 ? undefined : { color: ACCENT }}>{distanceValue.toFixed(1)} ק״מ</span>
                   </div>
                   {/* No product-chosen distance ceiling (David, 08.08) — Mapbox Directions
                       itself imposes no max route distance for walking/cycling (verified,
@@ -617,8 +846,8 @@ function GoalSheet({
               {goalType === 'calories' && (
                 <>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-[13px] font-black text-gray-800">קלוריות</span>
-                    <span className="text-[13px] font-black" style={{ color: ACCENT }}>{caloriesValue} קק״ל</span>
+                    <span className={v2 ? 'whitespace-nowrap text-[15px] font-black text-v2-ink' : 'text-[13px] font-black text-gray-800'}>קלוריות</span>
+                    <span className={v2 ? 'whitespace-nowrap text-[17px] font-black tabular-nums text-v2-deep' : 'text-[13px] font-black'} style={v2 ? undefined : { color: ACCENT }}>{caloriesValue} קק״ל</span>
                   </div>
                   <GoalSlider min={50} max={800} step={50} value={caloriesValue} onChange={setCaloriesValue} formatLabel={(v) => `${v} קק״ל`} />
                   {(!userWeight || userWeight === 70) && (
@@ -638,7 +867,43 @@ function GoalSheet({
                 jump straight into RouteCarousel) — it returns here as an
                 editable, unconfirmed pick; only the explicit "🏁 התחל לכתובת
                 הזו" button below actually calls startCommute. */}
-            {onRequestAddressDestination && (
+            {v2 && (onRequestAddressDestination || onOpenLegPlan) && (
+              <p className="px-5 mb-2 whitespace-nowrap text-[13px] font-extrabold text-v2-deep">אפשרויות מסלול</p>
+            )}
+            {onRequestAddressDestination && v2 && (
+              <div className="px-5 mb-2.5">
+                <button type="button" onClick={onRequestAddressDestination} className={V2_OPTION}>
+                  <span className={V2_ICON_TILE}><MapPin size={18} strokeWidth={2.4} /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate whitespace-nowrap text-[15px] font-extrabold text-v2-ink">
+                      {pendingAddress ? (pendingAddress.label || 'היעד שנבחר') : 'יעד: כתובת'}
+                    </span>
+                    <span className="block whitespace-nowrap text-[12.5px] font-bold text-v2-muted">
+                      {pendingAddress ? 'הקש לשינוי היעד' : 'מסלול מכאן לכתובת שתבחר'}
+                    </span>
+                  </span>
+                </button>
+                {pendingAddress && (
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onConfirmAddressDestination?.(pendingAddress)}
+                      className={`${V2_CTA} flex-1`}
+                    >
+                      <Flag size={16} strokeWidth={2.4} /> התחל לכתובת הזו
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => usePendingAddressStore.getState().clear()}
+                      className={`${V2_SECONDARY} h-12 px-5 text-v2-ink-2`}
+                    >
+                      ביטול
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+            {onRequestAddressDestination && !v2 && (
               <div className="px-5 mb-4">
                 <button
                   type="button"
@@ -684,7 +949,22 @@ function GoalSheet({
                 Minimal differentiation, not a redesign — old button stays
                 gray, this one gets the accent so the eye catches the
                 difference before the text does. */}
-            {onOpenLegPlan && (
+            {onOpenLegPlan && v2 && (
+              <div className="px-5 mb-2.5">
+                <button type="button" onClick={onOpenLegPlan} className={V2_OPTION}>
+                  <span className={V2_ICON_TILE}><Milestone size={18} strokeWidth={2.4} /></span>
+                  <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[15px] font-extrabold text-v2-ink">
+                    הוסף עצירות בדרך
+                  </span>
+                  {legPlanCount ? (
+                    <span className="shrink-0 rounded-full bg-v2-tint px-2.5 py-0.5 text-[13px] font-extrabold tabular-nums text-v2-deep">
+                      {legPlanCount}
+                    </span>
+                  ) : null}
+                </button>
+              </div>
+            )}
+            {onOpenLegPlan && !v2 && (
               <div className="px-5 mb-4">
                 <button
                   type="button"
@@ -698,6 +978,17 @@ function GoalSheet({
             )}
 
             {/* Route extras shortcut */}
+            {v2 ? (
+              <div className="px-5 mb-4">
+                <button type="button" onClick={onOpenExtras} className={V2_OPTION}>
+                  <span className={V2_ICON_TILE}><SlidersHorizontal size={18} strokeWidth={2.4} /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate whitespace-nowrap text-[15px] font-extrabold text-v2-ink">הגדרות מסלול נוספות</span>
+                    <span className="block truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">חלות על &quot;עם מסלול&quot;</span>
+                  </span>
+                </button>
+              </div>
+            ) : (
             <div className="px-5 mb-4">
               <button
                 type="button"
@@ -708,9 +999,20 @@ function GoalSheet({
                 ⚙️ הגדרות מסלול נוספות
               </button>
             </div>
+            )}
 
-            {/* Confirm */}
+            {/* Confirm — v2: the gradient moves to "התחל לכתובת הזו" while a
+                picked address is pending, so the sheet keeps exactly one. */}
             <div className="px-5">
+              {v2 ? (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className={pendingAddress && onRequestAddressDestination ? `${V2_SECONDARY} h-12 w-full` : V2_CTA}
+                >
+                  אישור
+                </button>
+              ) : (
               <button
                 type="button"
                 onClick={onClose}
@@ -719,6 +1021,7 @@ function GoalSheet({
               >
                 אישור
               </button>
+              )}
             </div>
           </motion.div>
         </>
@@ -755,6 +1058,7 @@ function LegPlanSheet({
   onStartLegPlanRun?: (compiled: CompiledLegPlanRoute) => void;
 }) {
   const dragControls = useDragControls();
+  const v2 = useContext(FreeRunV2);
   const legs = useLegPlanStore((s) => s.legs);
   const atMaxLegs = legs.length >= MAX_LEGS_PER_PLAN;
   const [isCompiling, setIsCompiling] = useState(false);
@@ -820,7 +1124,7 @@ function LegPlanSheet({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 z-[105] bg-white rounded-t-3xl shadow-2xl pointer-events-auto"
+            className={`fixed bottom-0 left-0 right-0 z-[105] pointer-events-auto ${v2 ? V2_SHEET : 'bg-white rounded-t-3xl shadow-2xl'}`}
             dir="rtl"
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}
           >
@@ -830,10 +1134,11 @@ function LegPlanSheet({
               onPointerDown={(e) => dragControls.start(e)}
               style={{ touchAction: 'none' }}
             >
-              <div className="rounded-full bg-gray-300" style={{ width: 36, height: 4 }} />
+              {v2 ? <div className={V2_HANDLE} /> : <div className="rounded-full bg-gray-300" style={{ width: 36, height: 4 }} />}
             </div>
 
             {/* Header */}
+            {v2 ? <div className="shrink-0"><V2SheetHeader title="עצירות בדרך" onClose={onClose} /></div> : (
             <div className="flex items-center justify-between px-5 pb-4 shrink-0">
               <h2 className="text-base font-black text-gray-900">עצירות בדרך</h2>
               <button
@@ -845,11 +1150,12 @@ function LegPlanSheet({
                 <X size={14} className="text-gray-600" />
               </button>
             </div>
+            )}
 
             {/* Ordered leg list — drag to reorder */}
             <div className="px-5 overflow-y-auto flex-1">
               {legs.length === 0 ? (
-                <p className="text-[13px] text-gray-500 text-center py-6">
+                <p className={v2 ? 'py-6 text-center text-[14px] font-bold text-v2-muted' : 'text-[13px] text-gray-500 text-center py-6'}>
                   עדיין לא הוספת עצירות. הוסף עצירה כדי להתחיל להרכיב את המסלול.
                 </p>
               ) : (
@@ -859,12 +1165,17 @@ function LegPlanSheet({
                       key={leg.id}
                       value={leg}
                       as="div"
-                      className="flex items-center gap-2 rounded-2xl px-3 py-3"
-                      style={{ backgroundColor: '#F3F4F6' }}
+                      className={v2 ? 'flex items-center gap-2 rounded-[18px] bg-white px-3 py-3 shadow-v2-ring' : 'flex items-center gap-2 rounded-2xl px-3 py-3'}
+                      style={v2 ? undefined : { backgroundColor: '#F3F4F6' }}
                       whileDrag={{ scale: 1.02, boxShadow: '0 8px 30px rgba(0,0,0,0.12)', zIndex: 50, backgroundColor: '#FFFFFF' }}
                     >
-                      <GripVertical size={16} className="text-gray-400 shrink-0" />
-                      <span className="flex-1 text-[13px] font-bold text-gray-800 truncate">
+                      <GripVertical size={16} className={v2 ? 'shrink-0 text-v2-muted' : 'text-gray-400 shrink-0'} />
+                      {v2 && (
+                        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-v2-tint text-[12px] font-extrabold tabular-nums text-v2-deep">
+                          {idx + 1}
+                        </span>
+                      )}
+                      <span className={v2 ? 'flex-1 truncate whitespace-nowrap text-[14.5px] font-extrabold text-v2-ink' : 'flex-1 text-[13px] font-bold text-gray-800 truncate'}>
                         {leg.label || `עצירה ${idx + 1}`}
                       </span>
                       <button
@@ -873,7 +1184,7 @@ function LegPlanSheet({
                         className="w-7 h-7 rounded-full flex items-center justify-center active:scale-90 transition-transform shrink-0"
                         aria-label="הסר עצירה"
                       >
-                        <Trash2 size={14} className="text-gray-400" />
+                        <Trash2 size={14} className={v2 ? 'text-v2-muted' : 'text-gray-400'} />
                       </button>
                     </Reorder.Item>
                   ))}
@@ -881,6 +1192,46 @@ function LegPlanSheet({
               )}
             </div>
 
+            {v2 ? (
+              <div className="px-5 pt-4 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleAddStop}
+                  disabled={atMaxLegs || !userPosition}
+                  className={`${V2_SECONDARY} h-12 w-full text-v2-deep`}
+                >
+                  {atMaxLegs ? (
+                    <span className="truncate text-v2-muted">מקסימום {MAX_LEGS_PER_PLAN} עצירות</span>
+                  ) : (
+                    <><Plus size={17} strokeWidth={2.6} /> הוסף עצירה</>
+                  )}
+                </button>
+                {legs.length > 0 && onStartLegPlanRun && (
+                  <button
+                    type="button"
+                    onClick={handleStartRun}
+                    disabled={isCompiling || !userPosition}
+                    className={`${V2_CTA} mt-2.5`}
+                  >
+                    {isCompiling
+                      ? <><Loader2 size={16} className="animate-spin" /> מרכיב מסלול...</>
+                      : <><Flag size={16} strokeWidth={2.4} /> {activity === 'walking' ? 'התחל הליכה' : activity === 'cycling' ? 'התחל רכיבה' : 'התחל ריצה'}</>}
+                  </button>
+                )}
+                {compileError && (
+                  <p className="mt-2 text-center text-[12.5px] font-bold leading-tight text-v2-down">{compileError}</p>
+                )}
+                {legs.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearAll}
+                    className="mt-1.5 w-full py-2 text-[13px] font-extrabold text-v2-muted active:scale-[0.97] transition-transform duration-150 ease-v2"
+                  >
+                    נקה הכל
+                  </button>
+                )}
+              </div>
+            ) : (
             <div className="px-5 pt-4 shrink-0">
               {/* Add stop */}
               <button
@@ -926,6 +1277,7 @@ function LegPlanSheet({
                 </button>
               )}
             </div>
+            )}
           </motion.div>
         </>
       )}
@@ -944,6 +1296,7 @@ function ExtrasSheet({
   onToggle: (key: keyof ExtrasState) => void;
 }) {
   const dragControls = useDragControls();
+  const v2 = useContext(FreeRunV2);
 
   return (
     <AnimatePresence>
@@ -970,7 +1323,7 @@ function ExtrasSheet({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 z-[105] bg-white rounded-t-3xl shadow-2xl pointer-events-auto"
+            className={`fixed bottom-0 left-0 right-0 z-[105] pointer-events-auto ${v2 ? V2_SHEET : 'bg-white rounded-t-3xl shadow-2xl'}`}
             dir="rtl"
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
           >
@@ -979,13 +1332,25 @@ function ExtrasSheet({
               onPointerDown={(e) => dragControls.start(e)}
               style={{ touchAction: 'none' }}
             >
-              <div className="rounded-full bg-gray-300" style={{ width: 36, height: 4 }} />
+              {v2 ? <div className={V2_HANDLE} /> : <div className="rounded-full bg-gray-300" style={{ width: 36, height: 4 }} />}
             </div>
 
+            {v2 ? <V2SheetHeader title="הגדרות נוספות" onClose={onClose} /> : (
             <div className="px-5 pb-4">
               <h2 className="text-base font-black text-gray-900">הגדרות נוספות</h2>
             </div>
+            )}
 
+            {v2 ? (
+              <div className="mx-5 rounded-[20px] bg-white px-4 shadow-v2-ring">
+                {V2_LIVE_EXTRAS.includes('gymParks') && (
+                  <ToggleRow emoji="" label="עבור דרך גינות כושר" value={extras.gymParks} onToggle={() => onToggle('gymParks')} />
+                )}
+                {V2_LIVE_EXTRAS.includes('trail') && (
+                  <ToggleRow emoji="" label="שבילי עפר" value={extras.trail} onToggle={() => onToggle('trail')} />
+                )}
+              </div>
+            ) : (
             <div className="px-5">
               <ToggleRow emoji="🔄" label="מעגלי"              value={extras.circular} onToggle={() => onToggle('circular')} />
               <ToggleRow emoji="🏋️" label="עבור דרך גינות כושר" value={extras.gymParks} onToggle={() => onToggle('gymParks')} />
@@ -993,8 +1358,12 @@ function ExtrasSheet({
               <ToggleRow emoji="📍" label="עבור דרך מדרגות"      value={extras.stairs}   onToggle={() => onToggle('stairs')}   />
               <ToggleRow emoji="🌿" label="שבילי עפר (Trail)"    value={extras.trail}    onToggle={() => onToggle('trail')}    />
             </div>
+            )}
 
             <div className="px-5 pt-5">
+              {v2 ? (
+                <button type="button" onClick={onClose} className={V2_CTA}>סיום</button>
+              ) : (
               <button
                 type="button"
                 onClick={onClose}
@@ -1003,6 +1372,7 @@ function ExtrasSheet({
               >
                 סגור
               </button>
+              )}
             </div>
           </motion.div>
         </>
@@ -1029,6 +1399,9 @@ export default function FreeRunDrawer({
   onStartLegPlanRun,
 }: FreeRunDrawerProps) {
   const dragControls = useDragControls();
+  // Home v2 (enable_home_v2) — this drawer is a map layer, outside HomeV2Context.
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
 
   // Normalise to a valid chip activity; 'workout' falls back to 'running'.
   const initialActivity: CarouselActivity =
@@ -1238,7 +1611,7 @@ export default function FreeRunDrawer({
   };
 
   return (
-    <>
+    <FreeRunV2.Provider value={v2}>
       <div className="fixed inset-0 z-[100] pointer-events-none">
         {/* Scrim */}
         <div className="absolute inset-0 pointer-events-auto" onClick={onClose} />
@@ -1259,7 +1632,7 @@ export default function FreeRunDrawer({
           className="absolute bottom-0 left-0 right-0 pointer-events-auto"
         >
           <div
-            className="bg-white rounded-t-3xl shadow-2xl"
+            className={v2 ? V2_SHEET : 'bg-white rounded-t-3xl shadow-2xl'}
             dir="rtl"
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
           >
@@ -1269,10 +1642,11 @@ export default function FreeRunDrawer({
               onPointerDown={(e) => dragControls.start(e)}
               style={{ touchAction: 'none' }}
             >
-              <div className="rounded-full bg-gray-300" style={{ width: 36, height: 4 }} />
+              {v2 ? <div className={V2_HANDLE} /> : <div className="rounded-full bg-gray-300" style={{ width: 36, height: 4 }} />}
             </div>
 
             {/* Header */}
+            {v2 ? <V2SheetHeader title="אירובי חופשי" onClose={onClose} /> : (
             <div className="flex items-center justify-between px-5 pb-4">
               <h2 className="text-base font-black text-gray-900">אירובי חופשי</h2>
               <button
@@ -1284,6 +1658,7 @@ export default function FreeRunDrawer({
                 <X size={14} className="text-gray-600" />
               </button>
             </div>
+            )}
 
             {/* ── Block 1: Activity chips ──────────────────────────────────── */}
             <ActivityChips selected={selectedActivity} onSelect={handleActivitySelect} />
@@ -1303,7 +1678,7 @@ export default function FreeRunDrawer({
                 byte-identical to pre-hybrid and no compose path is reachable. */}
             {enableHybridSlots && (
               <>
-                <StrengthStationsToggle enabled={hybridEnabled} onToggle={setHybridEnabled} accent={ACCENT} />
+                <StrengthStationsToggle enabled={hybridEnabled} onToggle={setHybridEnabled} accent={ACCENT} v2={v2} />
                 {hybridEnabled && (
                   <AerobicStrengthSlider
                     aerobicShare={aerobicShare}
@@ -1312,6 +1687,7 @@ export default function FreeRunDrawer({
                     timeBudgetMin={goalType === 'time' ? timeValue : 40}
                     stations={1}
                     accent={ACCENT}
+                    v2={v2}
                   />
                 )}
               </>
@@ -1329,10 +1705,25 @@ export default function FreeRunDrawer({
               onDateChange={setSchedDate}
               onTimeChange={setSchedTime}
               onShareScheduled={handleShareScheduled}
+              v2={v2}
             />
 
             {/* ── Block 3: Entry buttons / Save ───────────────────────────── */}
-            {timing === 'later' ? (
+            {v2 && timing === 'later' ? (
+              <div className="px-5 pb-2">
+                <button type="button" onClick={handleSaveOnly} disabled={isSaving} className={V2_CTA}>
+                  {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Check size={17} strokeWidth={2.6} />}
+                  <span>{isSaving ? 'שומר...' : 'שמור לאימונים'}</span>
+                </button>
+              </div>
+            ) : v2 && hybridEnabled ? (
+              <div className="px-5 pb-2">
+                <button type="button" onClick={handleStartHybrid} aria-label="התחל אימון משולב" className={V2_CTA}>
+                  <Dumbbell size={17} strokeWidth={2.4} />
+                  <span>התחל משולב</span>
+                </button>
+              </div>
+            ) : timing === 'later' ? (
               <div className="px-5 pb-2">
                 <button
                   type="button"
@@ -1416,6 +1807,6 @@ export default function FreeRunDrawer({
         onRequestAddLeg={onRequestAddLeg}
         onStartLegPlanRun={onStartLegPlanRun}
       />
-    </>
+    </FreeRunV2.Provider>
   );
 }
