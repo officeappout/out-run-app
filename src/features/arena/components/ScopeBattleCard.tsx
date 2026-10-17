@@ -12,7 +12,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { RefreshCw, UserPlus, Swords, Zap } from 'lucide-react';
+import { RefreshCw, UserPlus, Swords, Zap, Footprints } from 'lucide-react';
 import Button from '@/components/ui/v2/Button';
 import { battleSplit, formatTimeLeft, getPeriodEnd, perMember } from './league-board-logic';
 import {
@@ -53,9 +53,12 @@ interface ScopeBattleCardProps {
    *  without a second, duplicate fetch — same lift-up pattern as
    *  NeighborhoodLeaderboard's onMyEntryChange. */
   onMyScopeEntryChange?: (entry: ScopeCompetitionEntry | null) => void;
+  /** Home v2: shows a "group walk" pill that calls this (the parent opens the
+   *  planned-activity compose sheet). Omitted → no pill (unchanged card). */
+  onGroupWalk?: () => void;
 }
 
-export default function ScopeBattleCard({ granularity, timeWindow, myScopeId, cityAuthorityId, category = 'overall', genderFilter = 'all', onMyScopeEntryChange }: ScopeBattleCardProps) {
+export default function ScopeBattleCard({ granularity, timeWindow, myScopeId, cityAuthorityId, category = 'overall', genderFilter = 'all', onMyScopeEntryChange, onGroupWalk }: ScopeBattleCardProps) {
   const [result, setResult] = useState<ScopeCompetitionResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [opponentScopeId, setOpponentScopeId] = useState<string | null>(null);
@@ -100,6 +103,7 @@ export default function ScopeBattleCard({ granularity, timeWindow, myScopeId, ci
       onSelectOpponent={setOpponentScopeId}
       category={category}
       timeWindow={timeWindow}
+      onGroupWalk={onGroupWalk}
     />
   );
 }
@@ -116,6 +120,22 @@ export interface ScopeBattleCardViewProps {
   /** Drives the "time left" line — the scope totals reset on
    *  getWindowStart(timeWindow). Omitted → no countdown. */
   timeWindow?: LeaderboardTimeWindow;
+  /** See ScopeBattleCardProps.onGroupWalk. */
+  onGroupWalk?: () => void;
+}
+
+/** Secondary white pill — "go walk together" for your scope (home v2). */
+function GroupWalkButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="mt-3 flex h-11 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-white px-4 text-[14px] font-extrabold text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
+    >
+      <Footprints size={16} strokeWidth={2.6} className="shrink-0 text-[#f59e0b]" aria-hidden />
+      <span className="truncate">יוצאים להליכה קבוצתית</span>
+    </button>
+  );
 }
 
 /** Site battle-card surface (Social.module.css .battle). */
@@ -145,6 +165,7 @@ export function ScopeBattleCardView({
   onSelectOpponent,
   category,
   timeWindow,
+  onGroupWalk,
 }: ScopeBattleCardViewProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const now = new Date();
@@ -167,6 +188,7 @@ export function ScopeBattleCardView({
           <UserPlus size={14} strokeWidth={2.4} aria-hidden />
           הזמן חברים
         </Button>
+        {onGroupWalk && <GroupWalkButton onClick={onGroupWalk} />}
       </div>
     );
   }
@@ -245,6 +267,8 @@ export function ScopeBattleCardView({
           ? `מובילים ב־${gap.toLocaleString('he-IL')} למשתתף על ${opponent.scopeName}`
           : `רק ${gap.toLocaleString('he-IL')} למשתתף מ${leader.scopeName}!`}
       </p>
+
+      {onGroupWalk && <GroupWalkButton onClick={onGroupWalk} />}
 
       <OpponentPickerSheet
         isOpen={pickerOpen}

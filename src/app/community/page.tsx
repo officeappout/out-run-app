@@ -26,7 +26,7 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { m, AnimatePresence, motion } from 'framer-motion';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Users, RefreshCw, ChevronDown, SlidersHorizontal, MapPin, Trees, Lock, UserPlus } from 'lucide-react';
+import { Users, RefreshCw, ChevronDown, SlidersHorizontal, MapPin, Trees, Lock, UserPlus, Info } from 'lucide-react';
 import IconTile from '@/components/ui/v2/IconTile';
 import Button from '@/components/ui/v2/Button';
 import { useUserStore } from '@/features/user';
@@ -62,6 +62,9 @@ import ScopeCompetitionLeaderboard from '@/features/arena/components/ScopeCompet
 import ScopeBattleCard from '@/features/arena/components/ScopeBattleCard';
 import NationalLeagueBoard from '@/features/arena/components/NationalLeagueBoard';
 import InviteBonusCard from '@/features/arena/components/InviteBonusCard';
+import CityChallengeCard from '@/features/arena/components/CityChallengeCard';
+import { BoardSheet, ScopePointsContent } from '@/features/arena/components/LeagueBoardSheets';
+import PlannedActivityComposeSheet from '@/features/parks/client/components/planned-activity/PlannedActivityComposeSheet';
 import { BoardToggle } from '@/features/arena/components/LeagueBoard';
 import LeagueFilterSheet from '@/features/arena/components/LeagueFilterSheet';
 import { LeagueSelectorButton } from '@/features/arena/components/LeaguesTabChrome';
@@ -166,25 +169,35 @@ export default function CommunityPage() {
   // home in that case before this matters for render).
   const tabParam = searchParams.get('tab');
   const isFeedTabAvailable = IS_COMMUNITY_FEED_ENABLED && featureFlags.enableCommunityFeed;
+  // Home v2 (17.10.2026): leagues is the first / default tab (no ?tab=), the
+  // feed moves to ?tab=feed. Without v2 the feed stays the default.
+  const leaguesFirst = featureFlags.enableHomeV2 && featureFlags.enableLeagues;
+  const defaultTopTab: CommunityTopTab = leaguesFirst ? 'leagues' : 'feed';
   const topTab: CommunityTopTab =
     tabParam === 'leagues' && featureFlags.enableLeagues ? 'leagues'
     : tabParam === 'feed' && isFeedTabAvailable ? 'feed'
+    : leaguesFirst ? 'leagues'
     : isFeedTabAvailable ? 'feed'
     : featureFlags.enableLeagues ? 'leagues'
     : 'feed';
 
+  /** Writes `next` into the ?tab= param (the default tab is left out of the URL). */
+  const applyTabParam = useCallback(
+    (params: URLSearchParams, next: CommunityTopTab) => {
+      if (next === defaultTopTab) params.delete('tab');
+      else params.set('tab', next);
+    },
+    [defaultTopTab],
+  );
+
   const setTopTab = useCallback(
     (next: CommunityTopTab) => {
       const params = new URLSearchParams(searchParams.toString());
-      if (next === 'feed') {
-        params.delete('tab');
-      } else {
-        params.set('tab', next);
-      }
+      applyTabParam(params, next);
       const qs = params.toString();
       router.replace(`/community${qs ? `?${qs}` : ''}`, { scroll: false });
     },
-    [router, searchParams],
+    [router, searchParams, applyTabParam],
   );
 
   // ── Route guard: redirect only when BOTH surfaces are disabled ───────────
@@ -287,6 +300,10 @@ export default function CommunityPage() {
   // יחידים/קבוצות toggle is hidden in v2.
   type LeagueTabV2 = 'people' | 'neighborhoods' | 'settlements' | 'units';
   const [leagueTabV2, setLeagueTabV2] = useState<LeagueTabV2>('people');
+  // Home v2 leagues: the scope "how points work" sheet and the battle card's
+  // "group walk" → the existing planned-activity compose sheet (walking).
+  const [scopePointsOpen, setScopePointsOpen] = useState(false);
+  const [groupWalkOpen, setGroupWalkOpen] = useState(false);
   const [hoodScopeV2, setHoodScopeV2] = useState<'city' | 'national'>('city');
 
   // ── Groups-tab axis chooser. 'פלוגות' stays out (Stage G — needs the
@@ -376,19 +393,22 @@ export default function CommunityPage() {
           category: target.category,
           address: target.meetingLocation?.address,
         });
-      } else {
-        // Force feed view so the drawer feels in-context.
-        if (topTab !== 'feed') setTopTab('feed');
-        setSelectedGroup(target);
       }
       // Strip query params without nuking ?tab= if it was set.
       const params = new URLSearchParams(searchParams.toString());
       params.delete('groupId');
       params.delete('joined');
+      if (!justJoined) {
+        // Force feed view so the drawer feels in-context. Written into the
+        // same replace as the strip — a separate setTopTab('feed') replace was
+        // overwritten by this one (stale searchParams), leaving the old tab.
+        applyTabParam(params, 'feed');
+        setSelectedGroup(target);
+      }
       const qs = params.toString();
       router.replace(`/community${qs ? `?${qs}` : ''}`, { scroll: false });
     }
-  }, [searchParams, groups, arenaLoading, router, topTab, setTopTab]);
+  }, [searchParams, groups, arenaLoading, router, applyTabParam]);
 
   // ── Deep-link: ?editGroup=xxx → open CreateGroupWizard in edit mode ──────
   useEffect(() => {
@@ -575,6 +595,22 @@ export default function CommunityPage() {
 
   if (!featureFlags.enableCommunityFeed && !featureFlags.enableLeagues) return null;
 
+  const leaguesTabButton = (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={topTab === 'leagues'}
+      onClick={() => setTopTab('leagues')}
+      className={`flex-1 py-3 text-center font-bold border-b-2 transition-colors ${
+        topTab === 'leagues'
+          ? 'text-[#00ADEF] border-[#00ADEF]'
+          : 'text-slate-600 dark:text-slate-500 border-transparent'
+      }`}
+    >
+      ליגות
+    </button>
+  );
+
   return (
     <div className="min-h-[100dvh] bg-[#F8FAFC]">
       {/* ── Shared App Header ───────────────────────────────────────────────
@@ -592,6 +628,8 @@ export default function CommunityPage() {
             role="tablist"
             aria-label="קהילה"
           >
+            {/* v2: ליגות first (the default tab), then פיד. */}
+            {leaguesFirst && leaguesTabButton}
             {isFeedTabAvailable && (
               <button
                 type="button"
@@ -607,21 +645,7 @@ export default function CommunityPage() {
                 פיד
               </button>
             )}
-            {featureFlags.enableLeagues && (
-              <button
-                type="button"
-                role="tab"
-                aria-selected={topTab === 'leagues'}
-                onClick={() => setTopTab('leagues')}
-                className={`flex-1 py-3 text-center font-bold border-b-2 transition-colors ${
-                  topTab === 'leagues'
-                    ? 'text-[#00ADEF] border-[#00ADEF]'
-                    : 'text-slate-600 dark:text-slate-500 border-transparent'
-                }`}
-              >
-                ליגות
-              </button>
-            )}
+            {!leaguesFirst && featureFlags.enableLeagues && leaguesTabButton}
           </div>
         </div>
 
@@ -671,6 +695,19 @@ export default function CommunityPage() {
         onSuccess={handleGroupCreated}
         editGroupId={editGroupId ?? undefined}
       />
+
+      {featureFlags.enableHomeV2 && (
+        <>
+          <BoardSheet isOpen={scopePointsOpen} onClose={() => setScopePointsOpen(false)} title="איך צוברים נקודות לליגה">
+            <ScopePointsContent />
+          </BoardSheet>
+          <PlannedActivityComposeSheet
+            isOpen={groupWalkOpen}
+            onClose={() => setGroupWalkOpen(false)}
+            initialType="walking"
+          />
+        </>
+      )}
 
       {/* ── Content ─────────────────────────────────────────────────────── */}
       <div className="max-w-md mx-auto px-4 pt-4 space-y-4">
@@ -790,7 +827,10 @@ export default function CommunityPage() {
     const circles = (
       <CommunityCircles
         onGroupClick={(group) => setSelectedGroup(group)}
-        onCreatePress={handleCreatePress}
+        // v2: no big "צור / הצטרף" circle — "create group" lives in the "+"
+        // drawer — and no empty strip when you're in no group yet.
+        onCreatePress={v2 ? undefined : handleCreatePress}
+        hideWhenEmpty={v2}
       />
     );
 
@@ -937,6 +977,16 @@ export default function CommunityPage() {
           <span className="inline-flex h-8 items-center rounded-full bg-white px-3 text-[12.5px] font-extrabold text-v2-ink-2 shadow-v2-ring">
             {daysLeft === 0 ? 'השבוע נסגר הלילה' : `השבוע נסגר בעוד ${daysLeft === 1 ? 'יום' : `${daysLeft} ימים`}`}
           </span>
+          {leagueTabV2 !== 'people' && (
+            <button
+              type="button"
+              onClick={() => setScopePointsOpen(true)}
+              className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-full bg-white px-3 text-[12.5px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
+            >
+              <Info size={14} strokeWidth={2.6} aria-hidden />
+              איך צוברים נקודות?
+            </button>
+          )}
         </div>
 
         <div
@@ -991,6 +1041,7 @@ export default function CommunityPage() {
                       category={leaderboardCategory}
                       genderFilter={leaderboardGender}
                       onMyScopeEntryChange={setActiveScopeEntry}
+                      onGroupWalk={() => setGroupWalkOpen(true)}
                     />
                   ) : (
                     renderNeighborhoodSetupCTA()
@@ -1023,6 +1074,7 @@ export default function CommunityPage() {
 
         {leagueTabV2 === 'settlements' && (
           <div className="space-y-4">
+            {authority && <CityChallengeCard cityId={authority.id} cityName={access.cityName} />}
             {authority && renderScopeContribution('העיר שלך')}
             {authority && (
               <ScopeBattleCard
@@ -1032,6 +1084,7 @@ export default function CommunityPage() {
                 category={leaderboardCategory}
                 genderFilter={leaderboardGender}
                 onMyScopeEntryChange={setActiveScopeEntry}
+                onGroupWalk={() => setGroupWalkOpen(true)}
               />
             )}
             <NationalLeagueBoard

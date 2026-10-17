@@ -82,11 +82,15 @@ interface CommunityCirclesProps {
   /** Called when the user taps the trailing "+" circle (create/join a new
    *  community). When omitted, the trailing circle is hidden. */
   onCreatePress?: () => void;
+  /** Render nothing (no strip, no separator) once loaded with no groups and
+   *  no "+" circle. Home v2 only; omitted → unchanged. */
+  hideWhenEmpty?: boolean;
 }
 
 export default function CommunityCircles({
   onGroupClick,
   onCreatePress,
+  hideWhenEmpty = false,
 }: CommunityCirclesProps) {
   const { groups, isLoading } = useMyGroups();
   const myUid = useUserStore((s) => s.profile?.id ?? null);
@@ -106,6 +110,8 @@ export default function CommunityCircles({
     }
     return set;
   }, [threads, myUid]);
+
+  if (hideWhenEmpty && !isLoading && groups.length === 0 && !onCreatePress) return null;
 
   return (
     <div className="w-full" dir="rtl">

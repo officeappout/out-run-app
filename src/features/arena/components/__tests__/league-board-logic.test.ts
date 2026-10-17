@@ -13,6 +13,7 @@ import {
   BOARD_VISIBLE_ROWS,
   perMember,
   rankByMeasure,
+  challengeProgress,
 } from '../league-board-logic';
 
 function row(rank: number, totalCredit: number, isCurrentUser = false, name = `p${rank}`) {
@@ -155,5 +156,19 @@ describe('rankByMeasure (average vs total)', () => {
   it('perMember is 0 with no active members', () => {
     expect(perMember({ totalScore: 50, activeMemberCount: 0 })).toBe(0);
     expect(perMember({ totalScore: 100, activeMemberCount: 3 })).toBe(33);
+  });
+});
+
+describe('challengeProgress', () => {
+  it('rounds the percent to one decimal and reports what is left', () => {
+    expect(challengeProgress(123_456, 1_000_000)).toEqual({ pct: 12.3, left: 876_544, done: false });
+  });
+  it('clamps at 100% once the goal is reached', () => {
+    expect(challengeProgress(1_200_000, 1_000_000)).toEqual({ pct: 100, left: 0, done: true });
+  });
+  it('treats bad totals and goals as zero progress', () => {
+    expect(challengeProgress(Number.NaN, 1000)).toEqual({ pct: 0, left: 1000, done: false });
+    expect(challengeProgress(-5, 1000)).toEqual({ pct: 0, left: 1000, done: false });
+    expect(challengeProgress(10, 0)).toEqual({ pct: 0, left: 0, done: false });
   });
 });

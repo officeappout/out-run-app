@@ -185,3 +185,20 @@ export function rankByMeasure<T extends ScoredScope>(entries: T[], measure: Grou
     .sort((a, b) => key(b.e) - key(a.e) || a.i - b.i)
     .map(({ e }, i) => ({ ...e, rank: i + 1 }));
 }
+
+// ── City challenge (home v2 leagues, 17.10.2026) ────────────────────────────
+
+/**
+ * The city's collective monthly goal, in league points (the same totalCredit
+ * the city board sums: workout minutes × multiplier + steps + invite bonuses).
+ * A fixed product constant — tune here.
+ */
+export const CITY_MONTHLY_GOAL = 1_000_000;
+
+/** Progress toward `goal`: percent clamped to 0..100 (one decimal) and what's left. */
+export function challengeProgress(total: number, goal: number): { pct: number; left: number; done: boolean } {
+  const t = Number.isFinite(total) ? Math.max(0, total) : 0;
+  if (!(goal > 0)) return { pct: 0, left: 0, done: false };
+  const pct = Math.min(100, Math.round((t / goal) * 1000) / 10);
+  return { pct, left: Math.max(0, goal - t), done: t >= goal };
+}
