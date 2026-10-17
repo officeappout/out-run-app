@@ -40,6 +40,7 @@ import { haversineMeters } from '@/features/parks/core/services/geoUtils';
 import { formatApproxDistance } from './hybrid-intro-format';
 import { resolveWalkUiState, nextArmed, walkingLine } from './hybrid-walk-state';
 import StationCompleteScreen from './StationCompleteScreen';
+import HybridStationCta from './HybridStationCta';
 import ExerciseReplacementModal from '@/features/workout-engine/players/strength/components/ExerciseReplacementModal';
 import { useUserStore } from '@/features/user';
 import type { Park } from '@/features/parks/core/types/park.types';
@@ -53,7 +54,6 @@ import {
   recordGuidedStationCompleted, markFastPromptAsked, setGuidedStationChoice,
 } from './guided-station.service';
 
-const ACCENT = '#00ADEF';
 // G3.1 fix: how long the start-of-walk intro stays up before auto-dismissing
 // on its own (it also hides immediately once the approach CTA takes over).
 const INTRO_AUTO_HIDE_MS = 6000;
@@ -315,21 +315,12 @@ export default function HybridStationLayer() {
         className="fixed left-0 right-0 z-[110] flex justify-center pointer-events-none"
         style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 150px)' }}
       >
-        <button
-          type="button"
+        {/* Visual only: the CTA itself (lucide icon in a v2 IconTile, no emoji) lives in
+            HybridStationCta; the gating + action stay here. */}
+        <HybridStationCta
+          isFinalLeg={isFinalLeg}
           onClick={() => (isFinalLeg ? finishHybrid() : arrive())}
-          // Approach window → large, thumb-height target (David: "כפתור גדול
-          // בגובה אגודל"). Final-leg finish CTA keeps its previous size —
-          // out of scope for this change, not a station-approach moment.
-          className={
-            isFinalLeg
-              ? 'pointer-events-auto rounded-full px-6 py-3 text-white text-[14px] font-black shadow-xl active:scale-95 transition-transform'
-              : 'pointer-events-auto rounded-full px-8 py-5 min-h-[64px] text-white text-[17px] font-black shadow-xl active:scale-95 transition-transform'
-          }
-          style={{ backgroundColor: isFinalLeg ? '#16A34A' : ACCENT }}
-        >
-          {isFinalLeg ? '🏁 סיים אימון משולב' : '📍 הגעתי לתחנה'}
-        </button>
+        />
         {!isFinalLeg && (
           // Corner "X" — skip visible DURING approach too, not only once at
           // the station (David, 25.09.2026). Same de-emphasized styling as
