@@ -26,14 +26,22 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { m, AnimatePresence, motion } from 'framer-motion';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Users, RefreshCw, ChevronDown, SlidersHorizontal, MapPin, Trees } from 'lucide-react';
+import { Users, RefreshCw, ChevronDown, SlidersHorizontal, MapPin, Trees, Lock } from 'lucide-react';
 import IconTile from '@/components/ui/v2/IconTile';
 import Button from '@/components/ui/v2/Button';
 import { useUserStore } from '@/features/user';
 import { useSocialStore } from '@/features/social/store/useSocialStore';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { IS_COMMUNITY_FEED_ENABLED } from '@/config/feature-flags';
-import { getFeedPosts, type FeedPost } from '@/features/social/services/feed.service';
+import { createWorkoutPost, getFeedPosts, type FeedPost } from '@/features/social/services/feed.service';
+import {
+  clearPendingShare,
+  feedPrefsFrom,
+  readPendingShare,
+  saveFeedPrefs,
+  type FeedPrefs,
+} from '@/features/social/services/feed-prefs';
+import { FeedPrivacySheet, FeedShareSheet, SharePromptCard, type ShareableWorkout } from '@/features/social/components/FeedPublishSheets';
 import { useArenaAccess } from '@/features/arena/hooks/useArenaAccess';
 import { useMyMilitaryDeclaration } from '@/features/arena/hooks/useHasDeclaredReserveStatus';
 import { usePendingUnitSelfHeal } from '@/features/arena/hooks/usePendingUnitSelfHeal';
@@ -122,6 +130,15 @@ export default function CommunityPage() {
   const { following, isLoaded: socialLoaded, loadConnections, isPartner } = useSocialStore();
   // Home v2 feed filter (all / partners / my neighborhood / my groups).
   const [feedFilter, setFeedFilter] = useState<FeedFilter>('all');
+  // Opt-in publishing (feed-prefs.ts): the last unshared workout + the sheets.
+  type PendingParams = Parameters<typeof createWorkoutPost>[0];
+  const [pendingShare, setPendingShare] = useState<PendingParams | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [publishBusy, setPublishBusy] = useState(false);
+  useEffect(() => {
+    setPendingShare(readPendingShare<PendingParams>()?.params ?? null);
+  }, []);
   const myDeclaration = useMyMilitaryDeclaration();
   usePendingUnitSelfHeal();
   const access = useArenaAccess(myDeclaration.isReserve, !!myDeclaration.orgId);
@@ -673,8 +690,80 @@ export default function CommunityPage() {
 
   // ─── Feed tab ───────────────────────────────────────────────────────────
 
+  const feedPrefs: FeedPrefs = feedPrefsFrom((profile?.social as { feedPrefs?: unknown } | undefined)?.feedPrefs);
+
+  async function handlePublishPending(choice: { audience: FeedPrefs['audience']; showPark: boolean; title?: string }) {
+    if (!pendingShare || publishBusy) return;
+    setPublishBusy(true);
+    const params = { ...pendingShare, audience: choice.audience, title: choice.title ?? pendingShare.title };
+    if (!choice.showPark) {
+      delete params.parkId;
+      delete params.parkName;
+    }
+    const id = await createWorkoutPost(params, { manual: true });
+    setPublishBusy(false);
+    if (id) {
+      clearPendingShare();
+      setPendingShare(null);
+      setShareOpen(false);
+      void fetchPosts();
+    }
+  }
+
+  async function handleSavePrefs(next: FeedPrefs) {
+    if (!userId) return;
+    setPublishBusy(true);
+    try {
+      await saveFeedPrefs(userId, next);
+      await refreshProfile?.();
+      setPrivacyOpen(false);
+    } catch (err) {
+      console.error('[CommunityPage] saveFeedPrefs failed:', err);
+    } finally {
+      setPublishBusy(false);
+    }
+  }
+
   function renderFeedTab() {
     const v2 = featureFlags.enableHomeV2;
+    const shareable: ShareableWorkout | null = pendingShare
+      ? {
+          activityCategory: pendingShare.activityCategory,
+          durationMinutes: pendingShare.durationMinutes,
+          distanceKm: pendingShare.distanceKm,
+          title: pendingShare.title,
+          parkName: pendingShare.parkName,
+        }
+      : null;
+    const shareBlock = v2 ? (
+      <div className="space-y-3 px-4" dir="rtl">
+        {shareable && <SharePromptCard workout={shareable} onShare={() => setShareOpen(true)} />}
+        <FeedShareSheet
+          open={shareOpen}
+          workout={shareable}
+          defaults={feedPrefs}
+          busy={publishBusy}
+          onPublish={(c) => void handlePublishPending(c)}
+          onSkip={() => {
+            clearPendingShare();
+            setPendingShare(null);
+            setShareOpen(false);
+          }}
+          onClose={() => setShareOpen(false)}
+          onOpenPrivacy={() => {
+            setShareOpen(false);
+            setPrivacyOpen(true);
+          }}
+        />
+        <FeedPrivacySheet
+          open={privacyOpen}
+          prefs={feedPrefs}
+          busy={publishBusy}
+          onSave={(n) => void handleSavePrefs(n)}
+          onClose={() => setPrivacyOpen(false)}
+        />
+      </div>
+    ) : null;
     const myHood = profile?.core?.neighborhoodId ?? null;
     const myGroups = new Set(profile?.social?.groupIds ?? []);
     const shown = !v2 || feedFilter === 'all'
@@ -708,6 +797,7 @@ export default function CommunityPage() {
       return (
         <div className="space-y-4 -mx-4">
           {circles}
+          {shareBlock}
           <div className="flex flex-col items-center justify-center py-16 text-center px-4" dir="rtl">
             <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
               <Users className="w-7 h-7 text-gray-400" />
@@ -724,6 +814,7 @@ export default function CommunityPage() {
     return (
       <div className="space-y-3 -mx-4">
         {circles}
+        {shareBlock}
         <div className="px-4 space-y-3">
           <div className="flex items-center justify-between px-1 pt-2" dir="rtl">
             <span className="text-[11px] text-gray-500">
@@ -740,6 +831,14 @@ export default function CommunityPage() {
 
           {v2 && (
             <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]" role="tablist" aria-label="סינון הפיד" dir="rtl">
+              <button
+                type="button"
+                onClick={() => setPrivacyOpen(true)}
+                aria-label="מי רואה את הפוסטים שלי"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
+              >
+                <Lock size={15} strokeWidth={2.6} aria-hidden />
+              </button>
               {FEED_FILTERS.map((f) => {
                 const on = f.id === feedFilter;
                 return (

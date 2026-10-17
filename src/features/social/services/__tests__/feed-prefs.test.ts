@@ -1,0 +1,42 @@
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/lib/firebase', () => ({ db: {} }));
+vi.mock('firebase/firestore', () => ({ doc: vi.fn(), updateDoc: vi.fn() }));
+
+import { applyFeedPrefs, DEFAULT_FEED_PREFS, feedPrefsFrom } from '../feed-prefs';
+
+const run = { activityCategory: 'cardio' as const, parkId: 'p1', parkName: 'פארק', audience: undefined as string | undefined };
+
+describe('feedPrefsFrom', () => {
+  it('nothing stored → nothing auto-publishes, partners, park shown', () => {
+    expect(feedPrefsFrom(undefined)).toEqual(DEFAULT_FEED_PREFS);
+  });
+  it('keeps valid values, drops junk', () => {
+    const p = feedPrefsFrom({ autoPublish: { cardio: true, strength: 'yes' }, audience: 'everyone', showPark: false });
+    expect(p.autoPublish).toEqual({ strength: false, cardio: true, maintenance: false });
+    expect(p.audience).toBe('partners');
+    expect(p.showPark).toBe(false);
+  });
+});
+
+describe('applyFeedPrefs', () => {
+  it('auto-publish off → hold as a share prompt', () => {
+    expect(applyFeedPrefs(run, DEFAULT_FEED_PREFS, false).publish).toBe(false);
+  });
+  it('auto-publish on for the activity → publish with the default audience', () => {
+    const prefs = feedPrefsFrom({ autoPublish: { cardio: true }, audience: 'public' });
+    const d = applyFeedPrefs(run, prefs, false);
+    expect(d.publish).toBe(true);
+    expect(d.params.audience).toBe('public');
+  });
+  it('a manual share always publishes, with the audience just picked', () => {
+    const d = applyFeedPrefs({ ...run, audience: 'private' }, DEFAULT_FEED_PREFS, true);
+    expect(d.publish).toBe(true);
+    expect(d.params.audience).toBe('private');
+  });
+  it('park hidden → no park on the post', () => {
+    const d = applyFeedPrefs(run, feedPrefsFrom({ showPark: false }), true);
+    expect(d.params.parkId).toBeUndefined();
+    expect(d.params.parkName).toBeUndefined();
+  });
+});
