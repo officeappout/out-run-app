@@ -42,6 +42,7 @@ import CommunitySessionBanner from '@/features/arena/components/CommunitySession
 import { useGroupLiveSession } from '@/features/arena/hooks/useGroupLiveSession';
 import { setMyAttendeeStatus } from '@/features/arena/services/session-phase.service';
 import { useUserStore } from '@/features/user';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import NavigationSheet from './NavigationSheet';
 import ReportContentSheet from './ReportContentSheet';
@@ -244,6 +245,8 @@ export default function GroupDetailsDrawer({
   const { scrollRef } = useSheetScrollChain({ isOpen, y, onClose, snapBackY: PEEK_Y_PX });
   const { showToast } = useToast();
   const profile = useUserStore((s) => s.profile);
+  // Home v2 (enable_home_v2): the design-lab group page.
+  const v2 = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin).flags.enableHomeV2;
   const userId = profile?.id ?? '';
   const userName = profile?.core?.name || 'משתמש';
   const userPhoto = profile?.core?.photoURL ?? null;
@@ -648,7 +651,7 @@ export default function GroupDetailsDrawer({
             >
               {/* ── Hero image — drag target + bounding box ───────── */}
               <div
-                className="relative flex-shrink-0 h-56 rounded-t-3xl overflow-hidden cursor-grab active:cursor-grabbing"
+                className={`relative flex-shrink-0 ${v2 ? 'h-64' : 'h-56'} rounded-t-3xl overflow-hidden cursor-grab active:cursor-grabbing`}
                 onPointerDown={(e) => dragControls.start(e)}
                 style={{ touchAction: 'none' }}
               >
@@ -662,7 +665,14 @@ export default function GroupDetailsDrawer({
                 )}
 
                 {/* Gradient: image fades into content below */}
-                <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-slate-900 via-black/10 to-transparent" />
+                {v2 ? (
+                  <div
+                    className="pointer-events-none absolute inset-0"
+                    style={{ background: 'linear-gradient(to top, #fff 6%, rgba(255,255,255,0.55) 38%, transparent 70%)' }}
+                  />
+                ) : (
+                  <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-slate-900 via-black/10 to-transparent" />
+                )}
 
                 {/* Drag handle — overlaid on image */}
                 <div className="absolute top-3 left-1/2 -translate-x-1/2 w-10 h-1 bg-white/60 rounded-full" />
@@ -678,7 +688,14 @@ export default function GroupDetailsDrawer({
                 </button>
 
                 {/* Category badge — overlaid bottom-right */}
-                <div className="absolute bottom-4 right-4 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-xs font-bold px-3 py-1.5 rounded-full" dir="rtl">
+                <div
+                  className={
+                    v2
+                      ? 'v2-glass-chip absolute bottom-14 right-4 flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[13.5px] font-extrabold text-white'
+                      : 'absolute bottom-4 right-4 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-xs font-bold px-3 py-1.5 rounded-full'
+                  }
+                  dir="rtl"
+                >
                   <span>{catConfig.icon}</span>
                   <span>{catConfig.label}</span>
                 </div>
@@ -723,7 +740,7 @@ export default function GroupDetailsDrawer({
                 ))}
 
                 {/* Title */}
-                <h2 className="text-xl font-black text-gray-900 dark:text-white leading-tight">
+                <h2 className={v2 ? 'text-[26px] font-black leading-[1.08] !tracking-[-0.02em] text-v2-ink' : 'text-xl font-black text-gray-900 dark:text-white leading-tight'}>
                   {group.name}
                 </h2>
 
@@ -731,7 +748,14 @@ export default function GroupDetailsDrawer({
                 {effectiveTags.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 -mt-2">
                     {effectiveTags.map((tag) => (
-                      <span key={tag} className="px-2.5 py-1 rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 text-xs font-bold">
+                      <span
+                        key={tag}
+                        className={
+                          v2
+                            ? 'whitespace-nowrap rounded-full bg-white px-2.5 py-1 text-[12.5px] font-extrabold text-v2-ink-2 shadow-v2-ring'
+                            : 'px-2.5 py-1 rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 text-xs font-bold'
+                        }
+                      >
                         {tag}
                       </span>
                     ))}
@@ -740,11 +764,17 @@ export default function GroupDetailsDrawer({
 
                 {/* ── Next Session Banner (cyan) with spots integrated ── */}
                 {nextSessionData && !(liveSession && (liveSession.phase === 'approaching' || liveSession.phase === 'lobby' || liveSession.phase === 'active')) && (
-                  <div className="bg-gradient-to-br from-cyan-50 to-teal-50 dark:from-cyan-900/20 dark:to-teal-900/20 rounded-2xl p-4 border border-cyan-100 dark:border-cyan-800/40 space-y-3">
+                  <div
+                    className={
+                      v2
+                        ? 'space-y-3 rounded-[20px] bg-v2-tint p-4'
+                        : 'bg-gradient-to-br from-cyan-50 to-teal-50 dark:from-cyan-900/20 dark:to-teal-900/20 rounded-2xl p-4 border border-cyan-100 dark:border-cyan-800/40 space-y-3'
+                    }
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-cyan-600 uppercase tracking-widest">המפגש הבא</p>
-                        <p className="text-sm font-black text-gray-900 dark:text-white leading-snug">
+                        <p className={v2 ? 'text-[13px] font-extrabold text-v2-deep' : 'text-xs font-bold text-cyan-600 uppercase tracking-widest'}>המפגש הבא</p>
+                        <p className={v2 ? 'text-[17px] font-black leading-snug text-v2-ink' : 'text-sm font-black text-gray-900 dark:text-white leading-snug'}>
                           {nextSlot?.label || catConfig.label} · {formatSessionDate(nextSessionData.date, nextSessionData.time)}
                           {spotsLeft != null && (
                             <span className={`mr-1.5 text-xs font-black ${isFull ? 'text-red-500' : 'text-cyan-600'}`}>
@@ -780,7 +810,9 @@ export default function GroupDetailsDrawer({
                               ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/25'
                               : isFull
                                 ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/25'
-                                : 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25'
+                                : v2
+                                  ? 'bg-v2-cta text-v2-on-cta shadow-v2-cta !rounded-full !py-3.5 text-[15px]'
+                                  : 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25'
                         }`}
                       >
                         {bookingLoading ? (
@@ -899,8 +931,8 @@ export default function GroupDetailsDrawer({
                   <div>
                     {/* Header + tab pills */}
                     <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5" />
+                      <h4 className={v2 ? 'flex items-center gap-1.5 text-[17px] font-black text-v2-ink' : 'text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5'}>
+                        <Users className={v2 ? 'h-[18px] w-[18px] text-v2-deep' : 'w-3.5 h-3.5'} />
                         מי מגיע
                       </h4>
                       <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
@@ -1537,7 +1569,9 @@ export default function GroupDetailsDrawer({
                       className={`w-full flex items-center justify-center gap-2 rounded-2xl transition-all active:scale-[0.97] disabled:opacity-50 ${
                         group.registrationLink
                           ? 'py-2.5 text-xs font-bold border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'
-                          : 'py-3.5 text-sm font-black bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-lg'
+                          : v2
+                            ? '!rounded-full py-3.5 text-[15.5px] font-extrabold bg-v2-cta text-v2-on-cta shadow-v2-cta'
+                            : 'py-3.5 text-sm font-black bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-lg'
                       }`}
                     >
                       {joining ? (
