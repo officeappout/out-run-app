@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import {
   BarChart,
+  LineChart,
   Button,
   Card,
   DeltaBadge,
@@ -247,6 +248,8 @@ export interface StepsAnalyticsViewProps {
   onBack: () => void;
   /** Rendered at the end of the body (the disclosure modal). */
   footer?: React.ReactNode;
+  /** Home v2 (enable_home_v2): a smooth line instead of the bars (design lab). */
+  lineChart?: boolean;
 }
 
 export default function StepsAnalyticsView({
@@ -261,6 +264,7 @@ export default function StepsAnalyticsView({
   onConnect: openDisclosure,
   onBack,
   footer,
+  lineChart = false,
 }: StepsAnalyticsViewProps) {
   // Day-tab: how many days back from today (0 = today, 6 = 6 days ago)
   const [selectedDayOffset, setSelectedDayOffset] = useState(0);
@@ -731,6 +735,18 @@ export default function StepsAnalyticsView({
                     </span>
                   </div>
                 )}
+                {lineChart ? (
+                  <LineChart
+                    key="day"
+                    data={dayBarData}
+                    goal={stats.dailyGoal > 0 ? stats.dailyGoal : null}
+                    highlightKey={selectedDaySnap?.date ?? null}
+                    color={STEPS_COLOR}
+                    dir="ltr"
+                    height={170}
+                    ariaLabel="צעדים בשבעת הימים האחרונים"
+                  />
+                ) : (
                 <BarChart
                   data={dayBarData}
                   goal={stats.dailyGoal > 0 ? stats.dailyGoal : null}
@@ -742,6 +758,7 @@ export default function StepsAnalyticsView({
                   renderTooltip={renderTooltip}
                   ariaLabel="צעדים בשבעת הימים האחרונים"
                 />
+                )}
               </>
             ) : (isEmpty || !hasPermissions) ? (
               <div className="relative">
@@ -779,6 +796,19 @@ export default function StepsAnalyticsView({
                     </span>
                   )}
                 </div>
+                {lineChart ? (
+                  <LineChart
+                    key={timeRange}
+                    data={barData}
+                    goal={showGoalLine ? stats.dailyGoal : null}
+                    highlightKey={todayKey}
+                    color={STEPS_COLOR}
+                    dir="ltr"
+                    height={220}
+                    labelEvery={isYear ? 2 : isMonth ? 5 : undefined}
+                    ariaLabel={isYear ? 'צעדים לפי חודש' : 'צעדים לפי יום'}
+                  />
+                ) : (
                 <BarChart
                   data={barData}
                   goal={showGoalLine ? stats.dailyGoal : null}
@@ -792,7 +822,8 @@ export default function StepsAnalyticsView({
                   renderTooltip={renderTooltip}
                   ariaLabel={isYear ? 'צעדים לפי חודש' : 'צעדים לפי יום'}
                 />
-                {isMonth && monthTicks.length > 0 && (
+                )}
+                {!lineChart && isMonth && monthTicks.length > 0 && (
                   <div className="relative h-4 -mt-[18px]" aria-hidden>
                     {monthTicks.map((t) => (
                       <span

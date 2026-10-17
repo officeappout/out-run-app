@@ -22,6 +22,8 @@ import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
 import HealthConnectDisclosureModal from '@/components/ui/HealthConnectDisclosureModal';
 import { healthBridgeSyncNow } from '@/lib/healthBridge/init';
 import StepsAnalyticsView from './StepsAnalyticsView';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
 
 const PREF_KEY_PERMISSIONS = 'outrun.healthBridge.permissionsGranted';
 
@@ -34,6 +36,9 @@ function isNativeApp(): boolean {
 export default function StepsAnalyticsPage() {
   const router = useRouter();
   const [timeRange, setTimeRange] = useState<StepsTimeRange>('week');
+  // Home v2 (enable_home_v2): the line chart from the design lab.
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
 
   // Optimistic default (true) — loading skeleton covers the async gap on native.
   const [hasPermissions, setHasPermissions] = useState(true);
@@ -64,6 +69,7 @@ export default function StepsAnalyticsPage() {
 
   return (
     <StepsAnalyticsView
+      lineChart={v2}
       timeRange={timeRange}
       onTimeRangeChange={setTimeRange}
       snapshots={snapshots}
