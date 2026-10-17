@@ -39,6 +39,8 @@ interface IconChipProps {
   onClick?: () => void;
   /** Extra classes appended to the root pill — useful for layout overrides. */
   className?: string;
+  /** Home v2 look: a 40px white pill on the ring shadow, brand-deep icon. */
+  v2?: boolean;
 }
 
 const PILL_BORDER = '0.5px solid #E0E9FF';
@@ -50,7 +52,27 @@ export default function IconChip({
   emoji,
   onClick,
   className = '',
+  v2 = false,
 }: IconChipProps) {
+  if (v2) {
+    const V2Wrap: React.ElementType = onClick ? 'button' : 'div';
+    return (
+      <V2Wrap
+        {...(onClick ? { type: 'button' as const, onClick } : {})}
+        className={`flex h-10 flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3.5 text-[13.5px] font-extrabold text-v2-ink shadow-v2-ring ${onClick ? 'transition-transform duration-150 ease-v2 active:scale-[0.97]' : ''} ${className}`}
+      >
+        {iconSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={iconSrc} alt="" width={18} height={18} className="object-contain" />
+        ) : IconComponent ? (
+          <IconComponent size={16} strokeWidth={2.4} className="flex-shrink-0 text-v2-deep" />
+        ) : emoji ? (
+          <span className="text-base leading-none flex-shrink-0">{emoji}</span>
+        ) : null}
+        {label}
+      </V2Wrap>
+    );
+  }
   const Wrapper: React.ElementType = onClick ? 'button' : 'div';
   const wrapperProps = onClick
     ? {
