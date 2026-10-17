@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useRef, useCallback, createContext, useContext } from 'react';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { FeedPrivacySheet } from '@/features/social/components/FeedPublishSheets';
+import { feedPrefsFrom, saveFeedPrefs, type FeedPrefs } from '@/features/social/services/feed-prefs';
 
 /** Home v2 (enable_home_v2) for the row primitives below — set once by the modal. */
 const SettingsV2 = createContext(false);
@@ -385,7 +387,26 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   const router = useRouter();
   const { profile, resetProfile } = useUserStore();
-  const v2 = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin).flags.enableHomeV2;
+  const v2Flags = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin).flags;
+  const v2 = v2Flags.enableHomeV2;
+  // "מי רואה את הפוסטים שלי" — the feed's opt-in publishing prefs, here too.
+  const [feedPrivacyOpen, setFeedPrivacyOpen] = useState(false);
+  const [feedPrivacyBusy, setFeedPrivacyBusy] = useState(false);
+  const feedPrefs = feedPrefsFrom((profile?.social as { feedPrefs?: unknown } | undefined)?.feedPrefs);
+  const handleSaveFeedPrefs = async (next: FeedPrefs) => {
+    if (!profile?.id) return;
+    setFeedPrivacyBusy(true);
+    try {
+      await saveFeedPrefs(profile.id, next);
+      useUserStore.getState().updateProfile({ social: { ...(profile.social ?? {}), feedPrefs: next } } as never);
+      setFeedPrivacyOpen(false);
+    } catch (err) {
+      console.error('[Settings] saveFeedPrefs failed:', err);
+      showToast('error', 'שגיאה בשמירת ההגדרה');
+    } finally {
+      setFeedPrivacyBusy(false);
+    }
+  };
   const { reset: resetOnboarding } = useOnboardingStore();
   const { showToast } = useToast();
   const store = useSettingsStore();
@@ -1922,6 +1943,16 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   </div>
 
                   <div className="mt-5 divide-y divide-gray-100">
+                    {/* Feed posts — who sees them, auto-publish per activity
+                        (only once the community feed is on). */}
+                    {v2Flags.enableCommunityFeed && (
+                      <SettingsRow
+                        icon={<Users size={20} className="text-gray-700" />}
+                        label="מי רואה את הפוסטים שלי"
+                        sublabel="פרסום אוטומטי, קהל ברירת מחדל, שם הפארק"
+                        onClick={() => setFeedPrivacyOpen(true)}
+                      />
+                    )}
                     {/* Profile discoverability */}
                     <SettingsRow
                       icon={discoverable ? <Eye size={20} className="text-gray-700" /> : <EyeOff size={20} className="text-gray-700" />}
@@ -2359,6 +2390,13 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   </button>
                 </div>
               )}
+              <FeedPrivacySheet
+                open={feedPrivacyOpen}
+                prefs={feedPrefs}
+                busy={feedPrivacyBusy}
+                onSave={(n) => void handleSaveFeedPrefs(n)}
+                onClose={() => setFeedPrivacyOpen(false)}
+              />
             </SettingsV2.Provider>
           </motion.div>
         )}

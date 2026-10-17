@@ -69,7 +69,7 @@ function Sheet({ open, title, onClose, children }: { open: boolean; title: strin
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-[90]" role="dialog" aria-modal="true" aria-label={title} dir="rtl">
+        <div className="fixed inset-0 z-[120]" role="dialog" aria-modal="true" aria-label={title} dir="rtl">
           <motion.button
             type="button"
             aria-label="סגירה"
