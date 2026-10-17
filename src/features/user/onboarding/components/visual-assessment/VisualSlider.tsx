@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Minus, Plus, Pointer } from 'lucide-react';
 import clsx from 'clsx';
 import VideoPlayer, { type VideoTier } from './VideoPlayer';
 import CoverflowStrip from './CoverflowStrip';
@@ -89,6 +89,8 @@ interface VisualSliderProps {
   minLevel?: number;
   maxLevel?: number;
   mode?: 'simple' | 'deep';
+  /** enable_home_v2 — one-viewport layout (see the v2 branch in render). */
+  v2?: boolean;
 }
 
 // ── Component ──────────────────────────────────────────────────────
@@ -106,6 +108,7 @@ export default function VisualSlider({
   minLevel = 1,
   maxLevel = 25,
   mode = 'deep',
+  v2 = false,
 }: VisualSliderProps) {
   const [dynamicSteps, setDynamicSteps] = useState<number[] | null>(null);
   const [stepsLoading, setStepsLoading] = useState(mode === 'simple');
@@ -377,6 +380,11 @@ export default function VisualSlider({
   const repsLabel = targetReps ? `מקסימום: ${targetReps} ${unitWord}` : null;
 
 
+  // Swipe-hint finger: v2 uses an icon instead of the emoji.
+  const fingerNode = v2
+    ? <Pointer className="h-9 w-9 text-v2-deep drop-shadow-lg" strokeWidth={2} aria-hidden />
+    : <span className="text-4xl drop-shadow-lg">👆</span>;
+
   // JIT tutorial bubble — rendered inside a `relative` wrapper around the
   // actual interactive control (CoverflowStrip or the degraded-mode range
   // input) so it always floats directly ABOVE that control, pointing down
@@ -411,7 +419,7 @@ export default function VisualSlider({
                 animate={{ x: [0, -18, 0, 18, 0], opacity: [0, 1, 1, 1, 1] }}
                 transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 0.4, ease: 'easeInOut' }}
               >
-                <span className="text-4xl drop-shadow-lg">👆</span>
+                {fingerNode}
               </motion.div>
             )}
             <div className="space-y-6">
@@ -461,6 +469,248 @@ export default function VisualSlider({
     return (
       <div className="flex flex-col h-full items-center justify-center">
         <div className="w-8 h-8 border-2 border-slate-300 border-t-cyan-400 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // ── Render: v2 (enable_home_v2) ─────────────────────────────
+  // Whole screen fits one viewport (667px iPhone SE … 932px Pro Max) with no
+  // vertical scroll: every block except the video has a fixed, compact
+  // height; the video takes what's left (flex-1, min-h-0) between a clamp()
+  // floor and a dvh ceiling. Bottom inset is already reserved by <main>
+  // (ClientLayout), so the CTA only adds its own 12px. Same state, same
+  // handlers, same CoverflowStrip as the legacy layout below.
+  if (v2) {
+    const escapeLabel = isFemale ? 'עוד לא מצליחה?' : 'עוד לא מצליח?';
+    return (
+      <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-white" dir="rtl">
+        <header className="flex flex-shrink-0 items-center gap-2 px-3 pb-1 pt-1">
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full bg-white shadow-v2-ring touch-manipulation"
+              aria-label="חזרה"
+            >
+              <ChevronRight size={20} className="text-v2-ink" />
+            </button>
+          ) : (
+            <div className="w-10 flex-shrink-0" aria-hidden />
+          )}
+          <div className="flex min-h-[40px] flex-1 flex-col justify-center">
+            <OnboardingStoryBar
+              totalPhases={STRENGTH_PHASES.TOTAL}
+              currentPhase={STRENGTH_PHASES.ASSESSMENT}
+              phaseFillPercent={assessmentFillPercent}
+              phaseLabel={STRENGTH_PHASES.labels[STRENGTH_PHASES.ASSESSMENT]}
+              noPadding
+            />
+          </div>
+          <div className="w-10 flex-shrink-0" aria-hidden />
+        </header>
+
+        {/* Video — absorbs the leftover height. */}
+        <div
+          className="relative w-full flex-1"
+          style={{ minHeight: 'clamp(140px, 22dvh, 220px)', maxHeight: 'min(58dvh, 560px)' }}
+        >
+          <div className="absolute inset-0 overflow-hidden">
+            <VideoPlayer tiers={mountedTiers} activeTierId={activeTierId} className="h-full w-full" whiteGradient />
+          </div>
+          <div
+            className="pointer-events-none absolute left-0 right-0 top-[-6px] z-10"
+            style={{
+              height: 'clamp(40px, 16%, 90px)',
+              background: 'linear-gradient(to bottom, rgba(255,255,255,1), rgba(255,255,255,0.6), rgba(255,255,255,0))',
+            }}
+          />
+        </div>
+
+        <div
+          className={clsx('mt-auto flex-shrink-0', showTutorial && 'relative z-40')}
+          onPointerDownCapture={showTutorial ? () => setShowTutorial(false) : undefined}
+        >
+          {/* Exercise + max reps + tier — fixed height so the layout never jumps. */}
+          <div className="px-5 pt-1">
+            <motion.div
+              animate={{ opacity: contentFading ? 0.4 : 1 }}
+              transition={{ duration: 0.2 }}
+              className="flex h-[58px] items-center gap-3 rounded-[20px] bg-white px-4 shadow-v2-ring"
+            >
+              <div className="min-w-0 flex-1 text-right">
+                <p className="truncate whitespace-nowrap text-[17px] font-black !tracking-[-0.02em] text-v2-ink">
+                  {exerciseLabel ?? meta.he}
+                </p>
+                {repsLabel && (
+                  <p className="truncate whitespace-nowrap text-[13px] font-bold text-v2-muted">{repsLabel}</p>
+                )}
+              </div>
+              <span className="shrink-0 whitespace-nowrap rounded-full bg-v2-tint px-2.5 py-1 text-[12px] font-extrabold text-v2-deep">
+                {tierLabel}
+              </span>
+            </motion.div>
+          </div>
+
+          <div className="px-5 pb-1 pt-2.5 text-center">
+            <p className="text-[15px] font-black leading-tight text-v2-ink">
+              {isFemale ? 'עצרי על התרגיל הכי קשה שאת בטוחה שתבצעי' : 'עצור על התרגיל הכי קשה שאתה בטוח שתבצע'}
+            </p>
+            <p className="mt-0.5 truncate whitespace-nowrap text-[12px] font-bold text-v2-muted">
+              {isFemale ? 'לא בטוחה? בחרי בערך — נדייק תוך כמה אימונים' : 'לא בטוח? בחר בערך — נדייק תוך כמה אימונים'}
+            </p>
+          </div>
+
+          {isSimple && steps ? (
+            <>
+              <div className="relative">
+                <CoverflowStrip steps={steps} selectedIndex={sliderVal} thumbnails={thumbnails} onSelect={handleSliderChange} />
+                <AnimatePresence>
+                  {showTutorial && (
+                    <motion.div
+                      key="tile-finger-hint"
+                      className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <motion.span
+                        animate={{ x: [0, -50, 0, 50, 0] }}
+                        transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 0.4, ease: 'easeInOut' }}
+                      >
+                        {fingerNode}
+                      </motion.span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                {renderTutorialBubble(true)}
+              </div>
+
+              {/* −/+ stepper — same DOM order as legacy: "−" (easier) right, "+" (harder) left. */}
+              <div className="flex items-center gap-2 px-5 pt-1" dir="rtl">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isEscapeable) { onEscape!(); return; }
+                    if (!isAtFloor) handleSliderChange(sliderVal - 1);
+                  }}
+                  disabled={isAtFloor && !isEscapeable}
+                  aria-label={isEscapeable ? 'עדיין לא מצליח את התרגיל?' : 'תרגיל קל יותר'}
+                  className="flex h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-full bg-white px-2 text-[13px] font-extrabold text-v2-ink-2 shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-35"
+                >
+                  <Minus size={16} strokeWidth={3} className="shrink-0 text-v2-deep" aria-hidden />
+                  <span className="truncate whitespace-nowrap">{isEscapeable ? escapeLabel : 'קל יותר'}</span>
+                </button>
+                <div className="flex w-[64px] flex-shrink-0 flex-col items-center leading-none">
+                  <span className="whitespace-nowrap text-[11px] font-extrabold text-v2-muted">הרמה שלי</span>
+                  {SHOW_STEPPER_LEVEL_NUMBER && (
+                    <span className="mt-1 text-[18px] font-black tabular-nums text-v2-ink">{level}</span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleSliderChange(sliderVal + 1)}
+                  disabled={sliderVal >= sliderMax}
+                  aria-label="תרגיל קשה יותר"
+                  className="flex h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-full bg-white px-2 text-[13px] font-extrabold text-v2-ink-2 shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-35"
+                >
+                  <Plus size={16} strokeWidth={3} className="shrink-0 text-v2-deep" aria-hidden />
+                  <span className="truncate whitespace-nowrap">קשה יותר</span>
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="relative px-6 py-4">
+              <input
+                ref={sliderRef}
+                type="range"
+                min={sliderMin}
+                max={sliderMax}
+                step={1}
+                value={sliderVal}
+                onChange={e => handleSliderChange(Number(e.target.value))}
+                className="slider-thumb relative z-10 h-2 w-full cursor-pointer appearance-none rounded-full"
+                style={{
+                  background: `linear-gradient(to left, #00BAF7 0%, #00BAF7 ${fillPct}%, #e6edf2 ${fillPct}%, #e6edf2 100%)`,
+                }}
+              />
+              <AnimatePresence>
+                {showHint && !userInteracted && (
+                  <motion.div
+                    className="pointer-events-none absolute top-1/2 z-20 -translate-y-1/2"
+                    initial={{ right: '15%', opacity: 0 }}
+                    animate={{ right: ['15%', '75%', '15%', '75%', '40%'], opacity: [0, 0.9, 0.3, 0.9, 0] }}
+                    transition={{ duration: 5, ease: 'easeInOut' }}
+                    onAnimationComplete={() => setShowHint(false)}
+                  >
+                    {fingerNode}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              {renderTutorialBubble()}
+            </div>
+          )}
+        </div>
+
+        {/* CTA — calm tint until the first interaction, then the one gradient. */}
+        <div className="flex-shrink-0 px-5 pb-3 pt-2.5">
+          <button
+            type="button"
+            onClick={handleConfirm}
+            className={clsx(
+              'flex h-12 w-full items-center justify-center gap-1 rounded-full px-4 text-[16px] font-extrabold transition-transform duration-150 ease-v2 active:scale-[0.97]',
+              userInteracted ? 'bg-v2-cta text-v2-on-cta shadow-v2-cta' : 'bg-v2-tint text-v2-deep',
+            )}
+          >
+            {exerciseLabel ? (
+              <span className="flex w-full items-center justify-center gap-1 overflow-hidden">
+                <span className="min-w-0 truncate">{exerciseLabel}</span>
+                <span className="flex-shrink-0 whitespace-nowrap">זו הרמה שלי</span>
+              </span>
+            ) : stepIndex < totalSteps - 1 ? (
+              <span className="whitespace-nowrap">הבא</span>
+            ) : (
+              <span className="whitespace-nowrap">סיום הערכה</span>
+            )}
+          </button>
+        </div>
+
+        <AnimatePresence>
+          {showTutorial && (
+            <motion.div
+              key="tutorial-mask"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4, ease: 'easeOut' }}
+              className="absolute inset-0 z-30 bg-white/50 backdrop-blur-3xl"
+              onPointerDown={() => setShowTutorial(false)}
+              aria-hidden
+            />
+          )}
+        </AnimatePresence>
+
+        <style jsx>{`
+          .slider-thumb::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: white;
+            border: 3px solid #00baf7;
+            box-shadow: 0 2px 8px rgba(0, 186, 247, 0.25);
+            cursor: pointer;
+          }
+          .slider-thumb::-moz-range-thumb {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: white;
+            border: 3px solid #00baf7;
+            cursor: pointer;
+          }
+        `}</style>
       </div>
     );
   }
