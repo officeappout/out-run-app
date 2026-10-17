@@ -36,6 +36,7 @@ import {
   type StrengthBlockResult,
 } from '../core/pipeline/strength-block.service';
 import { MIN_STATION_EXERCISES } from './station-source';
+import { outdoorVideoSafePool } from './station-outdoor-media';
 import { appendCooldownExercises } from '../services/cooldown.service';
 import { hasExplicitCoreLevel, DOMAIN_RESOLUTION_SKILL_PARENT_MAP } from '../logic/workout-selection.utils';
 import { resolveToSlug, getIdToSlugMapSync } from '../services/program-hierarchy.utils';
@@ -58,7 +59,9 @@ import {
 } from './station-equipment-tabata';
 import {
   resolveMachineAllocation,
+  machineShareForLevel,
   isBlockAEligible,
+  MIN_BLOCK_A_MACHINES,
   TABATA_DIFFICULTY_LADDER,
   type ParkWorkoutDifficulty,
 } from '../services/compose-park-strength-workout.service';
@@ -618,7 +621,15 @@ export interface StationPlanContext {
   machineShareLevel?: number;
   /** The station comes before a real warm-up walk → prepend a short warm-up. */
   needsWarmup?: boolean;
+  /**
+   * Route planner station kind (17.10.2026): 'machines' = the park's machines only (one
+   * machine tabata), 'bodyweight' = no machines. Absent → the legacy in-station ladder split.
+   */
+  mode?: StationMode;
 }
+
+/** A route-stops strength station is EITHER machines OR bodyweight — never both mixed. */
+export type StationMode = 'machines' | 'bodyweight';
 
 /** Items that are never station sets: follow-along/reinforcement/recovery videos and test docs. */
 const NON_STATION_ROLES = new Set(['reinforcement', 'recovery']);
@@ -639,12 +650,18 @@ export function isStationEligibleExercise(ex: Exercise): boolean {
   return !isTestItem(ex);
 }
 
-/** Drop non-station items from the master pool AND the guarantee pass's global pool. */
+/**
+ * Drop non-station items from the master pool AND the guarantee pass's global pool, and strip
+ * outdoor methods that would play a home/office video (station-outdoor-media.ts) — an exercise
+ * left with no outdoor method is excluded at stops.
+ */
 function withStationEligibleContent(input: HybridComposeInput): HybridComposeInput {
-  const master = input.masterExercises.filter(isStationEligibleExercise);
+  const clean = (pool: Exercise[]) => outdoorVideoSafePool(pool.filter(isStationEligibleExercise));
+  const same = (a: Exercise[], b: Exercise[]) => a.length === b.length && a.every((x, i) => x === b[i]);
+  const master = clean(input.masterExercises);
   const globalPool = input.generationContext.globalExercisePool;
-  const cleanGlobal = globalPool?.filter(isStationEligibleExercise);
-  if (master.length === input.masterExercises.length && (!globalPool || cleanGlobal!.length === globalPool.length)) {
+  const cleanGlobal = globalPool ? clean(globalPool) : undefined;
+  if (same(master, input.masterExercises) && (!globalPool || same(cleanGlobal!, globalPool))) {
     return input;
   }
   return {
@@ -719,7 +736,7 @@ function assignGroups(groups: string[][], stations: HybridStopCandidate[]): stri
 }
 
 export interface RouteStationPlan {
-  chosen: Array<{ candidate: HybridStopCandidate; km: number; needsWarmup: boolean; domains?: string[] }>;
+  chosen: Array<{ candidate: HybridStopCandidate; km: number; needsWarmup: boolean; domains?: string[]; mode?: StationMode }>;
   passThroughStopIds: string[];
   strengthBudgetMin: number;
   perStationMin: number;
@@ -741,6 +758,14 @@ export function planRouteStations(params: {
   walkSecPerKm: number;
   timeBudgetMin: number;
   targetDomains: string[];
+  /**
+   * Park machine-share ladder share for this user (machineShareForLevel). When set, strength
+   * stations are dedicated: round(share × stations) of them (at most stations − 1 when there
+   * are two or more, so bodyweight always has a station) become machine-only stations at the
+   * parks with the most eligible machines; the rest are bodyweight-only and carry the
+   * full-body split. Absent → no machine stations.
+   */
+  machineShare?: number;
   log: string[];
 }): RouteStationPlan {
   const { candidatesByKm, routeKm, walkSecPerKm, timeBudgetMin, log } = params;
@@ -785,7 +810,9 @@ export function planRouteStations(params: {
     };
     recurse(0);
   }
-  let chosen = chosenIdx.map((i) => ({ ...eligible[i], needsWarmup: warmupFallback, domains: undefined as string[] | undefined }));
+  let chosen = chosenIdx.map((i) => ({
+    ...eligible[i], needsWarmup: warmupFallback, domains: undefined as string[] | undefined, mode: undefined as StationMode | undefined,
+  }));
 
   // One full-body split over the strength stations. A core-activity stop (bench / weekly budget
   // spent) already trains core, so core leaves the strength groups when one is chosen.
@@ -795,12 +822,34 @@ export function planRouteStations(params: {
     domains = domains.filter((d) => d !== 'core');
   }
   const strengthChosen = chosen.filter((c) => (c.candidate.activityType ?? 'strength') === 'strength');
-  if (strengthChosen.length > 0) {
-    const groups = buildDomainGroups(strengthChosen.length, domains);
+  // Machines OR bodyweight per station, never mixed (owner, 17.10.2026). The session's machine
+  // share follows the ladder by station count: k = round(share × n) machine stations.
+  let bodyweightChosen = strengthChosen;
+  if (params.machineShare != null && strengthChosen.length > 0) {
+    const n = strengthChosen.length;
+    const eligibleMachines = (c: HybridStopCandidate) =>
+      (c.parkEquipment ?? []).filter((m) => isBlockAEligible(m, domains)).length;
+    let k = Math.round(params.machineShare * n);
+    if (n >= 2) k = Math.min(k, n - 1);
+    const capable = strengthChosen
+      .filter((c) => eligibleMachines(c.candidate) >= MIN_BLOCK_A_MACHINES)
+      .sort((a, b) => eligibleMachines(b.candidate) - eligibleMachines(a.candidate));
+    const machineStations = new Set(capable.slice(0, k));
+    machineStations.forEach((c) => { c.mode = 'machines'; c.domains = domains.slice(); });
+    bodyweightChosen = strengthChosen.filter((c) => !machineStations.has(c));
+    bodyweightChosen.forEach((c) => { c.mode = 'bodyweight'; });
+    log.push(
+      `route planner: machine share ${params.machineShare.toFixed(2)} × ${n} strength station(s) → ` +
+      `${machineStations.size} machine station(s), ${bodyweightChosen.length} bodyweight` +
+      (machineStations.size < k ? ` (only ${capable.length} park(s) with ≥${MIN_BLOCK_A_MACHINES} eligible machines)` : ''),
+    );
+  }
+  if (bodyweightChosen.length > 0) {
+    const groups = buildDomainGroups(bodyweightChosen.length, domains);
     // More strength stations than groups (a narrow target, e.g. upper-body only) → the extras
     // are walked past rather than repeating a domain.
-    const kept = strengthChosen.slice(0, groups.length);
-    const dropped = new Set(strengthChosen.slice(groups.length).map((c) => c.candidate.stopId));
+    const kept = bodyweightChosen.slice(0, groups.length);
+    const dropped = new Set(bodyweightChosen.slice(groups.length).map((c) => c.candidate.stopId));
     const assigned = assignGroups(groups, kept.map((c) => c.candidate));
     kept.forEach((c, i) => { c.domains = assigned[i]; });
     chosen = chosen.filter((c) => !dropped.has(c.candidate.stopId));
@@ -817,7 +866,7 @@ export function planRouteStations(params: {
     `→ ${chosen.length} station(s) × ${perStationMin.toFixed(1)}min` +
     (skippedEarly > 0 ? `, ${skippedEarly} stop(s) before the ${WARMUP_WALK_MIN}-min warm-up walk` : '') +
     (warmupFallback ? ' (no stop past the warm-up walk → station warm-up)' : '') +
-    `; stations [${chosen.map((c) => `${c.candidate.stopId}@${c.km.toFixed(2)}km${c.domains ? `:${c.domains.join('+')}` : `:${c.candidate.activityType ?? 'strength'}`}`).join(', ')}]` +
+    `; stations [${chosen.map((c) => `${c.candidate.stopId}@${c.km.toFixed(2)}km${c.mode === 'machines' ? ':machines' : c.domains ? `:${c.domains.join('+')}` : `:${c.candidate.activityType ?? 'strength'}`}`).join(', ')}]` +
     (passThroughStopIds.length ? `; pass-through ${passThroughStopIds.length}` : ''),
   );
   return { chosen, passThroughStopIds, strengthBudgetMin, perStationMin, walkMinEstimate };
@@ -1003,7 +1052,20 @@ export function dispatchStopContent(
       let machinePart: StrengthBlockResult | null = null;
       let bodyweightMinutes = blockMinutes;
       const machines = candidate.parkEquipment ?? [];
-      if (station?.machineShareLevel != null && machines.length > 0) {
+      if (station?.mode === 'machines' && machines.length > 0) {
+        // Dedicated machine station: the whole station is ONE machine tabata, no bodyweight.
+        const difficulty = DIFFICULTY_NUM_TO_LABEL[(input.generationContext.difficulty ?? 2) as 1 | 2 | 3];
+        const result = buildStationEquipmentTabataBlock({ machines, difficulty, scheduledDomains: stationDomains ?? [] }, blockMinutes);
+        if (result.block) {
+          const machineSec = result.block.config.rounds * (result.block.config.workSec + result.block.config.restSec);
+          log.push(`[${candidate.stopId}] machine station: ${result.exercises.length} machine(s), ${Math.round(machineSec / 60)}min tabata`);
+          return withStationWarmup({
+            exercises: result.exercises, estimatedDurationSec: machineSec, totalPlannedSets: result.block.config.rounds,
+            domainFocus: undefined, isEmpty: false, log: [], tabataBlocks: [result.block],
+          }, candidate, input, station, log);
+        }
+        log.push(`[${candidate.stopId}] machine station: tabata doesn't fit (${blockMinutes.toFixed(1)}min) → bodyweight`);
+      } else if (station?.mode == null && station?.machineShareLevel != null && machines.length > 0) {
         const difficulty = DIFFICULTY_NUM_TO_LABEL[(input.generationContext.difficulty ?? 2) as 1 | 2 | 3];
         const rung = TABATA_DIFFICULTY_LADDER[difficulty];
         const scheduled = stationDomains ?? [];
@@ -1347,6 +1409,7 @@ export function composeHybridSession(rawInput: HybridComposeInput): HybridPlan {
       walkSecPerKm: (walkPace.min + walkPace.max) / 2,
       timeBudgetMin: input.timeBudgetMin,
       targetDomains: input.generationContext.requiredDomains ?? ['push', 'pull', 'legs', 'core'],
+      machineShare: machineShareForLevel(input.machineShareLevel ?? deriveMachineShareLevel(input.generationContext)),
       log,
     });
     if (routePlan.chosen.length) {
@@ -1482,6 +1545,7 @@ export function composeHybridSession(rawInput: HybridComposeInput): HybridPlan {
         },
         machineShareLevel,
         needsWarmup: c.needsWarmup,
+        ...(c.mode ? { mode: c.mode } : {}),
       });
       let content = dispatchStopContent(c.candidate, focusOrder[0], minutes, input, log, ctxFor(skillFamily));
       let fams = content ? familiesIn(content) : [];

@@ -77,6 +77,7 @@ import {
 } from '../compose-hybrid-session.service';
 import { isWeeklyStrengthBudgetSpent } from '../weekly-budget-gate';
 import { strengthBlockToWorkoutPlan } from '../strength-block-to-plan';
+import { withOutdoorVideoMethods, resolvesToIndoorVideo } from '../station-outdoor-media';
 
 // ── Fixtures ────────────────────────────────────────────────────────────────────────────────
 let n = 0;
@@ -314,27 +315,39 @@ describe('station content gate', () => {
 });
 
 // ════════════════════════════════════════════════════════════════════════════════════════════
-describe('park machines at stations follow the machine-share ladder', () => {
+describe('park machines: a station is machines OR bodyweight, never both (machine-share ladder)', () => {
   const machine = (id: string, movementPattern: string): GymEquipment => ({
     id, name: id, type: 'reps', recommendedLevel: 3, isFunctional: false, isCardio: false,
     muscleGroups: [], brands: [], movementPattern,
   } as unknown as GymEquipment);
-  const machines = [
+  const machines = () => [
     machine('m-push', 'horizontal_push'), machine('m-pull', 'vertical_pull'),
     machine('m-legs', 'squat'), machine('m-core', 'core'),
   ];
-  const parkStop = stop('park', 12, ['pullup_bar'], { parkEquipment: machines });
+  const parkStop = stop('park', 12, ['pullup_bar'], { parkEquipment: machines() });
+  const isMachineEx = (e: { exercise: { id: string } }, seg: ReturnType<typeof strengthSegs>[number]) =>
+    (seg.content?.tabataBlocks ?? []).some((b) => b.exerciseIds.includes(e.exercise.id));
+  const kinds = (seg: ReturnType<typeof strengthSegs>[number]) => {
+    const exs = (seg.content?.exercises ?? []).filter((e) => e.exerciseRole !== 'warmup');
+    return { machine: exs.filter((e) => isMachineEx(e, seg)).length, bodyweight: exs.filter((e) => !isMachineEx(e, seg)).length };
+  };
 
-  it('low level → machine tabata + bodyweight at the station', () => {
+  it('one station, low level (share ≥ 0.5) → machines only', () => {
     const plan = composeHybridSession(input({ stopCandidates: [parkStop], timeBudgetMin: 40, machineShareLevel: 2 }));
     const seg = strengthSegs(plan)[0];
     expect(seg.content?.tabataBlocks?.length).toBe(1);
-    const machineIds = new Set(seg.content!.tabataBlocks![0].exerciseIds);
-    expect(machineIds.size).toBeGreaterThanOrEqual(2);
-    // bodyweight remainder is there too, and the plan mapper plays it after the machines
+    const k = kinds(seg);
+    expect(k.machine).toBeGreaterThanOrEqual(2);
+    expect(k.bodyweight).toBe(0);
     const wp = strengthBlockToWorkoutPlan(seg.content!);
-    expect(wp.segments[0].protocol).toBe('tabata');
-    expect(wp.segments[wp.segments.length - 1].id).toBe('hybrid-station');
+    expect(wp.segments.every((s) => s.protocol === 'tabata')).toBe(true);
+  });
+
+  it('one station, share < 0.5 (L6) → bodyweight only', () => {
+    const plan = composeHybridSession(input({ stopCandidates: [parkStop], timeBudgetMin: 40, machineShareLevel: 6 }));
+    const seg = strengthSegs(plan)[0];
+    expect(seg.content?.tabataBlocks).toBeUndefined();
+    expect(kinds(seg).bodyweight).toBeGreaterThan(0);
   });
 
   it('L8+ → no machines (all bodyweight)', () => {
@@ -342,6 +355,118 @@ describe('park machines at stations follow the machine-share ladder', () => {
     const seg = strengthSegs(plan)[0];
     expect(seg.content?.tabataBlocks).toBeUndefined();
     expect((seg.content?.exercises ?? []).length).toBeGreaterThan(0);
+  });
+
+  it('two stations, machines at one park → that park is the machine station, the other is full-body bodyweight', () => {
+    const stops = [stop('plain', 8, ['pullup_bar']), stop('gym', 16, ['pullup_bar'], { parkEquipment: machines() })];
+    const plan = composeHybridSession(input({ stopCandidates: stops, timeBudgetMin: 60, machineShareLevel: 2 }));
+    const segs = strengthSegs(plan);
+    expect(segs).toHaveLength(2);
+    const byStop = Object.fromEntries(segs.map((s) => [s.stopId, kinds(s)]));
+    expect(byStop.gym.machine).toBeGreaterThanOrEqual(2);
+    expect(byStop.gym.bodyweight).toBe(0);
+    expect(byStop.plain.machine).toBe(0);
+    expect(byStop.plain.bodyweight).toBeGreaterThan(0);
+    expect(segs.find((s) => s.stopId === 'plain')?.stationDomains?.sort()).toEqual(['core', 'legs', 'pull', 'push']);
+  });
+
+  it('every park has machines → still at least one bodyweight station, none mixed', () => {
+    const stops = [8, 14, 20].map((w, i) => stop(`g${i}`, w, ['pullup_bar'], { parkEquipment: machines() }));
+    const plan = composeHybridSession(input({ stopCandidates: stops, timeBudgetMin: 60, machineShareLevel: 2 }));
+    const segs = strengthSegs(plan);
+    expect(segs.length).toBeGreaterThanOrEqual(2);
+    const ks = segs.map(kinds);
+    expect(ks.every((k) => k.machine === 0 || k.bodyweight === 0)).toBe(true);
+    expect(ks.some((k) => k.machine === 0)).toBe(true);
+    // share 0.7 → round(0.7 × n) machine stations, capped at n − 1
+    expect(ks.filter((k) => k.machine > 0).length).toBe(Math.min(Math.round(0.7 * segs.length), segs.length - 1));
+  });
+
+  it('planRouteStations: machine stations go to the parks with eligible machines', () => {
+    const candidatesByKm = [
+      { candidate: stop('a', 0, ['pullup_bar']), km: 0.6 },
+      { candidate: stop('b', 1, ['dip_station'], { parkEquipment: machines() }), km: 1.0 },
+      { candidate: stop('c', 2, ['bench']), km: 1.5 },
+    ];
+    const plan = planRouteStations({
+      candidatesByKm, routeKm: 2, walkSecPerKm: 360, timeBudgetMin: 45,
+      targetDomains: ['push', 'pull', 'legs', 'core'], machineShare: 0.55, log: [],
+    });
+    const modes = Object.fromEntries(plan.chosen.map((c) => [c.candidate.stopId, c.mode]));
+    expect(modes).toEqual({ a: 'bodyweight', b: 'machines', c: 'bodyweight' });
+    // the bodyweight stations still carry the whole full-body split between them
+    const bwDomains = plan.chosen.filter((c) => c.mode === 'bodyweight').flatMap((c) => c.domains ?? []);
+    expect(new Set(bwDomains)).toEqual(new Set(['push', 'pull', 'legs', 'core']));
+  });
+
+  it('planRouteStations: share 0 → all bodyweight', () => {
+    const candidatesByKm = [
+      { candidate: stop('a', 0, ['pullup_bar'], { parkEquipment: machines() }), km: 0.6 },
+      { candidate: stop('b', 1, ['dip_station'], { parkEquipment: machines() }), km: 1.3 },
+    ];
+    const plan = planRouteStations({
+      candidatesByKm, routeKm: 2, walkSecPerKm: 360, timeBudgetMin: 30,
+      targetDomains: ['push', 'pull', 'legs', 'core'], machineShare: 0, log: [],
+    });
+    expect(plan.chosen.every((c) => c.mode === 'bodyweight')).toBe(true);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════════════════════
+describe('stops never show a home/office video', () => {
+  const vid = (id: string) => ({ previewVideo: { he: { videoId: id } } });
+  const withMethods = (methods: unknown[]) => ({ ...ex('core'), execution_methods: methods } as unknown as Exercise);
+
+  it('park method without a video + home method with one → the exercise is excluded at stops', () => {
+    const e = withMethods([
+      { methodName: 'בבית', location: 'home', media: vid('home-vid') },
+      { methodName: 'בפארק', location: 'park', media: {} },
+    ]);
+    expect(resolvesToIndoorVideo(e, (e as any).execution_methods[1])).toBe(true);
+    expect(withOutdoorVideoMethods(e)).toBeNull();
+  });
+
+  it('a videoless park method is dropped when another park method has a video', () => {
+    const e = withMethods([
+      { methodName: 'בבית', location: 'home', media: vid('home-vid') },
+      { methodName: 'מוט', location: 'park', gearIds: ['pullup_bar'], media: {} },
+      { methodName: 'מקבילים', location: 'park', gearIds: ['dip_station'], media: vid('park-vid') },
+    ]);
+    // the resolver falls back park-first, so the videoless park method plays the PARK video → kept
+    expect(withOutdoorVideoMethods(e)).toBe(e);
+  });
+
+  it('park method with its own video, or no video anywhere → unchanged', () => {
+    const own = withMethods([
+      { methodName: 'בבית', location: 'home', media: vid('home-vid') },
+      { methodName: 'בפארק', location: 'park', media: vid('park-vid') },
+    ]);
+    expect(withOutdoorVideoMethods(own)).toBe(own);
+    const none = withMethods([{ methodName: 'בבית', location: 'home', media: {} }, { methodName: 'בפארק', location: 'park', media: {} }]);
+    expect(withOutdoorVideoMethods(none)).toBe(none);
+  });
+
+  it('only the leaking park method is removed; a park-mapped method with its own video stays', () => {
+    const e = withMethods([
+      { methodName: 'בבית', location: 'home', media: vid('home-vid') },
+      { methodName: 'בפארק', location: 'park', media: {} },
+      { methodName: 'רחוב', location: 'office', locationMapping: ['street'], media: vid('street-vid') },
+    ]);
+    const safe = withOutdoorVideoMethods(e)!;
+    expect(safe).not.toBeNull();
+    const names = ((safe as any).execution_methods as Array<{ methodName: string }>).map((m) => m.methodName);
+    expect(names).toEqual(['בבית', 'רחוב']);
+  });
+
+  it('composeHybridSession never prescribes an exercise whose stop video would be the home one', () => {
+    const leaky = { ...ex('core', { score: 500, name: 'עליות רגליים בשכיבה' }), id: 'leaky-core', execution_methods: [
+      { methodName: 'בבית', location: 'home', media: vid('home-vid') },
+      { methodName: 'בפארק', location: 'park', media: {} },
+    ] } as unknown as Exercise;
+    const plan = composeHybridSession(input({ stopCandidates: [stop('p', 12, ['pullup_bar'])], timeBudgetMin: 40, masterExercises: [...catalog(), leaky] }));
+    const ids = strengthSegs(plan).flatMap((s) => (s.content?.exercises ?? []).map((e) => e.exercise.id));
+    expect(ids.length).toBeGreaterThan(0);
+    expect(ids).not.toContain(leaky.id);
   });
 });
 
