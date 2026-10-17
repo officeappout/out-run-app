@@ -20,6 +20,8 @@ export { default as DraggableSheet } from './DraggableSheet';
 export type { DraggableSheetProps } from './DraggableSheet';
 export { default as BarChart } from './BarChart';
 export type { BarChartProps, BarDatum } from './BarChart';
+export { default as LineChart } from './LineChart';
+export type { LineChartProps } from './LineChart';
 export * from './tokens';
 export { default as StreakFlame } from './StreakFlame';
 export type { StreakFlameProps } from './StreakFlame';
