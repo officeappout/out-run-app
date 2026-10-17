@@ -981,6 +981,7 @@ export default function CommunityPage() {
             {hoodScopeV2 === 'city' ? (
               authority ? (
                 <>
+                  {access.hasNeighborhoodAccess && renderScopeContribution('השכונה שלך')}
                   {access.hasNeighborhoodAccess ? (
                     <ScopeBattleCard
                       granularity="neighborhood"
@@ -1022,6 +1023,7 @@ export default function CommunityPage() {
 
         {leagueTabV2 === 'settlements' && (
           <div className="space-y-4">
+            {authority && renderScopeContribution('העיר שלך')}
             {authority && (
               <ScopeBattleCard
                 granularity="city"
