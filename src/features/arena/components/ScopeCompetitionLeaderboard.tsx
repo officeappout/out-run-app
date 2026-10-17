@@ -44,6 +44,8 @@ interface ScopeCompetitionLeaderboardProps {
   /** Filters the competing scopes' totals by gender. Omitted or 'all' →
    * every gender summed (unchanged default). */
   genderFilter?: LeaderboardGenderFilter;
+  /** Activity chips on the board (17.10.2026). Omit to hide them. */
+  onCategoryChange?: (c: LeaderboardCategory) => void;
 }
 
 const GRANULARITY_LABEL: Record<ScopeCompetitionGranularity, string> = {
@@ -70,6 +72,7 @@ export default function ScopeCompetitionLeaderboard({
   cityAuthorityId = null,
   category = 'overall',
   genderFilter = 'all',
+  onCategoryChange,
 }: ScopeCompetitionLeaderboardProps) {
   const [result, setResult] = useState<ScopeCompetitionResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -100,6 +103,7 @@ export default function ScopeCompetitionLeaderboard({
       error={error}
       entries={result?.entries ?? []}
       onRefresh={fetch}
+      onCategoryChange={onCategoryChange}
     />
   );
 }
@@ -114,7 +118,14 @@ export interface ScopeCompetitionLeaderboardViewProps {
   error: string | null;
   entries: ScopeCompetitionEntry[];
   onRefresh: () => void;
+  onCategoryChange?: (c: LeaderboardCategory) => void;
 }
+
+const CATEGORY_CHIPS: { id: LeaderboardCategory; label: string }[] = [
+  { id: 'overall', label: 'כל הפעילות' },
+  { id: 'strength', label: 'כוח' },
+  { id: 'cardio', label: 'אירובי' },
+];
 
 export function ScopeCompetitionLeaderboardView({
   granularity,
@@ -124,6 +135,7 @@ export function ScopeCompetitionLeaderboardView({
   error,
   entries,
   onRefresh: fetch,
+  onCategoryChange,
 }: ScopeCompetitionLeaderboardViewProps) {
   const windowLabel = timeWindow === 'daily' ? 'יומי' : timeWindow === 'weekly' ? 'שבועי' : 'חודשי';
 
@@ -153,6 +165,24 @@ export function ScopeCompetitionLeaderboardView({
       subtitle={`${GRANULARITY_LABEL[granularity]} • ${windowLabel}`}
       actions={<BoardIconButton icon={RefreshCw} label="רענן" onClick={fetch} spinning={isLoading} />}
     >
+      {onCategoryChange && (
+        <div className="-mx-1 mb-2.5 flex gap-1.5 overflow-x-auto px-1 no-scrollbar" role="radiogroup" aria-label="סוג פעילות">
+          {CATEGORY_CHIPS.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              role="radio"
+              aria-checked={category === c.id}
+              onClick={() => onCategoryChange(c.id)}
+              className={`h-8 shrink-0 whitespace-nowrap rounded-full px-3.5 text-[12.5px] font-extrabold transition-colors ease-v2 ${
+                category === c.id ? 'bg-v2-ink text-white' : 'bg-white text-v2-ink-2 shadow-v2-ring'
+              }`}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+      )}
       {isLoading ? (
         <div className="grid grid-cols-1 gap-2">
           {Array.from({ length: 4 }).map((_, i) => (
